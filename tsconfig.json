@@ -13,10 +13,6 @@
 			"@mariozechner/pi-coding-agent/hooks": ["./packages/coding-agent/src/core/hooks/index.ts"],
 			"@mariozechner/pi-coding-agent/*": ["./packages/coding-agent/src/*"],
 			"@sinclair/typebox": ["./node_modules/@sinclair/typebox"],
-			"@mariozechner/pi-mom": ["./packages/mom/src/index.ts"],
-			"@mariozechner/pi-mom/*": ["./packages/mom/src/*"],
-			"@mariozechner/pi": ["./packages/pods/src/index.ts"],
-			"@mariozechner/pi/*": ["./packages/pods/src/*"],
 			"@mariozechner/pi-tui": ["./packages/tui/src/index.ts"],
 			"@mariozechner/pi-tui/*": ["./packages/tui/src/*"],
 			"@mariozechner/pi-web-ui": ["./packages/web-ui/src/index.ts"],
@@ -25,6 +21,17 @@
 			"@mariozechner/pi-agent-old/*": ["./packages/agent-old/src/*"]
 		}
 	},
-	"include": ["packages/*/src/**/*", "packages/*/test/**/*", "packages/coding-agent/examples/**/*"],
+	"include": [
+		"packages/ai/src/**/*",
+		"packages/ai/test/**/*",
+		"packages/agent/src/**/*",
+		"packages/agent/test/**/*",
+		"packages/coding-agent/src/**/*",
+		"packages/coding-agent/test/**/*",
+		"packages/tui/src/**/*",
+		"packages/tui/test/**/*",
+		"packages/web-ui/src/**/*",
+		"packages/coding-agent/examples/**/*"
+	],
 	"exclude": ["packages/web-ui/**/*", "**/dist/**"]
 }
