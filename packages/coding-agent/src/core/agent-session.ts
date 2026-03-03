@@ -69,6 +69,7 @@ import {
 	wrapRegisteredTools,
 	wrapToolsWithExtensions,
 } from "./extensions/index.js";
+import { createMcpManager, type McpManager } from "./mcp/index.js";
 import type { BashExecutionMessage, CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.js";
@@ -148,6 +149,10 @@ export interface AgentSessionConfig {
 	baseToolsOverride?: Record<string, AgentTool>;
 	/** Mutable ref used by Agent to access the current ExtensionRunner */
 	extensionRunnerRef?: { current?: ExtensionRunner };
+	/** Enable MCP (Model Context Protocol) support (default: true) */
+	enableMcp?: boolean;
+	/** Enable MCP debug logging (default: false) */
+	mcpDebug?: boolean;
 }
 
 export interface ExtensionBindings {
@@ -271,6 +276,11 @@ export class AgentSession {
 	// Base system prompt (without extension appends) - used to apply fresh appends each turn
 	private _baseSystemPrompt = "";
 
+	// MCP (Model Context Protocol) manager
+	private _mcpManager: McpManager | undefined = undefined;
+	private _enableMcp: boolean;
+	private _mcpDebug: boolean;
+
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
 		this.sessionManager = config.sessionManager;
@@ -283,11 +293,37 @@ export class AgentSession {
 		this._extensionRunnerRef = config.extensionRunnerRef;
 		this._initialActiveToolNames = config.initialActiveToolNames;
 		this._baseToolsOverride = config.baseToolsOverride;
+		this._enableMcp = config.enableMcp !== undefined ? config.enableMcp : true;
+		this._mcpDebug = config.mcpDebug || false;
+
+		// Initialize MCP manager if enabled
+		if (this._enableMcp) {
+			this._mcpManager = createMcpManager({
+				projectRoot: this._cwd,
+				debug: this._mcpDebug,
+				enabled: true,
+			});
+
+			// Initialize MCP servers asynchronously, then rebuild runtime to include MCP tools
+			this._mcpManager
+				.initialize()
+				.then(() => {
+					// Rebuild runtime after MCP initialization to include MCP tools
+					this._buildRuntime({
+						activeToolNames: this._initialActiveToolNames ?? this.getActiveToolNames(),
+						includeAllExtensionTools: true,
+					});
+				})
+				.catch((error) => {
+					console.error("[MCP] Failed to initialize:", error.message);
+				});
+		}
 
 		// Always subscribe to agent events for internal handling
 		// (session persistence, extensions, auto-compaction, retry logic)
 		this._unsubscribeAgent = this.agent.subscribe(this._handleAgentEvent);
 
+		// Build runtime initially (will be rebuilt after MCP initialization if MCP is enabled)
 		this._buildRuntime({
 			activeToolNames: this._initialActiveToolNames,
 			includeAllExtensionTools: true,
@@ -297,6 +333,11 @@ export class AgentSession {
 	/** Model registry for API key resolution and model discovery */
 	get modelRegistry(): ModelRegistry {
 		return this._modelRegistry;
+	}
+
+	/** MCP manager for managing MCP servers and tools */
+	get mcpManager(): McpManager | undefined {
+		return this._mcpManager;
 	}
 
 	// =========================================================================
@@ -543,6 +584,13 @@ export class AgentSession {
 	dispose(): void {
 		this._disconnectFromAgent();
 		this._eventListeners = [];
+
+		// Shutdown MCP servers
+		if (this._mcpManager) {
+			this._mcpManager.shutdown().catch((error) => {
+				console.error("[MCP] Failed to shutdown:", error.message);
+			});
+		}
 	}
 
 	// =========================================================================
@@ -680,6 +728,13 @@ export class AgentSession {
 		const loadedSkills = this._resourceLoader.getSkills().skills;
 		const loadedContextFiles = this._resourceLoader.getAgentsFiles().agentsFiles;
 
+		// Collect MCP tool information for system prompt
+		const mcpTools =
+			this._mcpManager?.getTools().map((tool) => ({
+				name: tool.name,
+				description: tool.description || `Tool from MCP server`,
+			})) ?? [];
+
 		return buildSystemPrompt({
 			cwd: this._cwd,
 			skills: loadedSkills,
@@ -687,6 +742,7 @@ export class AgentSession {
 			customPrompt: loaderSystemPrompt,
 			appendSystemPrompt,
 			selectedTools: validToolNames,
+			mcpTools,
 		});
 	}
 
@@ -2031,7 +2087,15 @@ export class AgentSession {
 			.filter((name) => this._baseToolRegistry.has(name) && !extensionToolNames.has(name))
 			.map((name) => this._baseToolRegistry.get(name) as AgentTool);
 		const activeExtensionTools = wrappedExtensionTools.filter((tool) => activeToolNameSet.has(tool.name));
-		const activeToolsArray: AgentTool[] = [...activeBaseTools, ...activeExtensionTools];
+
+		// Get MCP tools if MCP is enabled
+		const mcpTools = this._mcpManager?.getTools() ?? [];
+		for (const mcpTool of mcpTools) {
+			toolRegistry.set(mcpTool.name, mcpTool);
+			activeToolNameSet.add(mcpTool.name);
+		}
+
+		const activeToolsArray: AgentTool[] = [...activeBaseTools, ...activeExtensionTools, ...mcpTools];
 
 		if (this._extensionRunner) {
 			const wrappedActiveTools = wrapToolsWithExtensions(activeToolsArray, this._extensionRunner);

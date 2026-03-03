@@ -37,6 +37,31 @@ Tools for building AI agents and managing LLM deployments.
 | **[@mariozechner/pi-tui](packages/tui)** | Terminal UI library with differential rendering |
 | **[@mariozechner/pi-web-ui](packages/web-ui)** | Web components for AI chat interfaces |
 
+## Features
+
+### MCP (Model Context Protocol) Support
+
+Vetta includes built-in support for the Model Context Protocol, allowing the agent to connect to external tools and data sources through MCP servers.
+
+**Quick start:**
+
+1. Create `~/.vetta/agent/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/directory"]
+    }
+  }
+}
+```
+
+2. Use `/mcp` command to view server status
+3. MCP tools are automatically available to the agent
+
+See [packages/coding-agent/docs/MCP.md](packages/coding-agent/docs/MCP.md) for full documentation.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agents).

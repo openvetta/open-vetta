@@ -133,8 +133,13 @@ export class ToolExecutionComponent extends Container {
 	 * Check if we should use built-in rendering for this tool.
 	 * Returns true if the tool name is a built-in AND either there's no toolDefinition
 	 * or the toolDefinition doesn't provide custom renderers.
+	 * Also returns true for MCP tools to give them nice rendering.
 	 */
 	private shouldUseBuiltInRenderer(): boolean {
+		// MCP tools get built-in-style rendering
+		if (this.toolName.startsWith("mcp_")) {
+			return true;
+		}
 		const isBuiltInName = this.toolName in allTools;
 		const hasCustomRenderers = this.toolDefinition?.renderCall || this.toolDefinition?.renderResult;
 		return isBuiltInName && !hasCustomRenderers;
@@ -862,14 +867,74 @@ export class ToolExecutionComponent extends Container {
 				}
 			}
 		} else {
-			// Generic tool (shouldn't reach here for custom tools)
-			text = theme.fg("toolTitle", theme.bold(this.toolName));
+			// Check if this is an MCP tool
+			const mcpMatch = this.toolName.match(/^mcp_([^_]+)_(.+)$/);
+			if (mcpMatch) {
+				// MCP tool: display with server badge and tool name
+				const serverName = mcpMatch[1];
+				const toolName = mcpMatch[2];
 
-			const content = JSON.stringify(this.args, null, 2);
-			text += `\n\n${content}`;
-			const output = this.getTextOutput();
-			if (output) {
-				text += `\n${output}`;
+				// Header with MCP badge: [MCP:server] tool_name
+				const badge = theme.bg("toolPendingBg", theme.fg("accent", ` MCP:${serverName} `));
+				text = `${badge} ${theme.fg("toolTitle", theme.bold(toolName))}`;
+
+				// Show primary args on the same line (path-like args)
+				const primaryArg = this.args?.path || this.args?.uri || this.args?.url || this.args?.file_path;
+				if (primaryArg) {
+					const displayPath = shortenPath(primaryArg);
+					text += ` ${theme.fg("accent", displayPath)}`;
+				}
+
+				// Show other args on next line if they exist
+				const otherArgs = Object.entries(this.args || {})
+					.filter(([key]) => !["path", "uri", "url", "file_path"].includes(key))
+					.filter(([_, val]) => val !== undefined && val !== null);
+
+				if (otherArgs.length > 0) {
+					const argDisplay = otherArgs
+						.map(([key, val]) => {
+							const valStr =
+								typeof val === "string" && val.length > 60 ? `${val.substring(0, 57)}...` : String(val);
+							return `${theme.fg("muted", `${key}:`)} ${theme.fg("toolOutput", valStr)}`;
+						})
+						.join(theme.fg("muted", " • "));
+					text += `\n${argDisplay}`;
+				}
+
+				// Show output/result
+				if (this.result) {
+					const output = this.getTextOutput().trim();
+					if (output) {
+						const lines = output.split("\n");
+						const maxLines = this.expanded ? lines.length : 20;
+						const displayLines = lines.slice(0, maxLines);
+						const remaining = lines.length - maxLines;
+
+						text += `\n\n${displayLines.map((line: string) => theme.fg("toolOutput", line)).join("\n")}`;
+
+						if (remaining > 0) {
+							text += `${theme.fg("muted", `\n... (${remaining} more lines,`)} ${keyHint("expandTools", "to expand")})`;
+						}
+					}
+
+					// Show error if present
+					if (this.result.isError) {
+						const errorText = this.getTextOutput();
+						if (errorText && !output) {
+							text += `\n\n${theme.fg("error", errorText)}`;
+						}
+					}
+				}
+			} else {
+				// Generic tool (shouldn't reach here for custom tools)
+				text = theme.fg("toolTitle", theme.bold(this.toolName));
+
+				const content = JSON.stringify(this.args, null, 2);
+				text += `\n\n${content}`;
+				const output = this.getTextOutput();
+				if (output) {
+					text += `\n${output}`;
+				}
 			}
 		}
 

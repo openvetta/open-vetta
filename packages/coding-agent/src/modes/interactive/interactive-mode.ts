@@ -47,6 +47,7 @@ import {
 	APP_NAME,
 	getAuthPath,
 	getDebugLogPath,
+	getPackageDir,
 	getShareViewerUrl,
 	getUpdateInstruction,
 	VERSION,
@@ -86,7 +87,7 @@ import { ExtensionEditorComponent } from "./components/extension-editor.js";
 import { ExtensionInputComponent } from "./components/extension-input.js";
 import { ExtensionSelectorComponent } from "./components/extension-selector.js";
 import { FooterComponent } from "./components/footer.js";
-import { appKey, appKeyHint, editorKey, keyHint, rawKeyHint } from "./components/keybinding-hints.js";
+import { appKey, editorKey } from "./components/keybinding-hints.js";
 import { LoginDialogComponent } from "./components/login-dialog.js";
 import { ModelSelectorComponent } from "./components/model-selector.js";
 import { OAuthSelectorComponent } from "./components/oauth-selector.js";
@@ -381,34 +382,9 @@ export class InteractiveMode {
 
 		// Add header with keybindings from config (unless silenced)
 		if (this.options.verbose || !this.settingsManager.getQuietStartup()) {
-			const logo = theme.bold(theme.fg("accent", APP_NAME)) + theme.fg("dim", ` v${this.version}`);
-
-			// Build startup instructions using keybinding hint helpers
-			const kb = this.keybindings;
-			const hint = (action: AppAction, desc: string) => appKeyHint(kb, action, desc);
-
-			const instructions = [
-				hint("interrupt", "to interrupt"),
-				hint("clear", "to clear"),
-				rawKeyHint(`${appKey(kb, "clear")} twice`, "to exit"),
-				hint("exit", "to exit (empty)"),
-				hint("suspend", "to suspend"),
-				keyHint("deleteToLineEnd", "to delete to end"),
-				hint("cycleThinkingLevel", "to cycle thinking level"),
-				rawKeyHint(`${appKey(kb, "cycleModelForward")}/${appKey(kb, "cycleModelBackward")}`, "to cycle models"),
-				hint("selectModel", "to select model"),
-				hint("expandTools", "to expand tools"),
-				hint("toggleThinking", "to expand thinking"),
-				hint("externalEditor", "for external editor"),
-				rawKeyHint("/", "for commands"),
-				rawKeyHint("!", "to run bash"),
-				rawKeyHint("!!", "to run bash (no context)"),
-				hint("followUp", "to queue follow-up"),
-				hint("dequeue", "to edit all queued messages"),
-				hint("pasteImage", "to paste image"),
-				rawKeyHint("drop files", "to attach"),
-			].join("\n");
-			this.builtInHeader = new Text(`${logo}\n${instructions}`, 1, 0);
+			const bannerFront = theme.bold(theme.fg("accent", this.getStartupBanner()));
+			const version = theme.fg("dim", `${APP_NAME} v${this.version}`);
+			this.builtInHeader = new Text(`${bannerFront}\n${version}`, 1, 0);
 
 			// Setup UI layout
 			this.headerContainer.addChild(new Spacer(1));
@@ -572,25 +548,8 @@ export class InteractiveMode {
 	 * Check npm registry for a newer version.
 	 */
 	private async checkForNewVersion(): Promise<string | undefined> {
-		if (process.env.PI_SKIP_VERSION_CHECK || process.env.PI_OFFLINE) return undefined;
-
-		try {
-			const response = await fetch("https://registry.npmjs.org/@mariozechner/pi-coding-agent/latest", {
-				signal: AbortSignal.timeout(10000),
-			});
-			if (!response.ok) return undefined;
-
-			const data = (await response.json()) as { version?: string };
-			const latestVersion = data.version;
-
-			if (latestVersion && latestVersion !== this.version) {
-				return latestVersion;
-			}
-
-			return undefined;
-		} catch {
-			return undefined;
-		}
+		// Fork/distribution mode: completely disable upstream update checks.
+		return undefined;
 	}
 
 	/**
@@ -620,6 +579,27 @@ export class InteractiveMode {
 		}
 
 		return undefined;
+	}
+
+	private getStartupBanner(): string {
+		const envBannerPath = process.env.VETTA_BANNER_PATH || process.env.PI_BANNER_PATH;
+		const bannerPaths = [
+			envBannerPath ? path.resolve(envBannerPath) : undefined,
+			path.resolve(getPackageDir(), "banner.txt"),
+			path.resolve(process.cwd(), "banner.txt"),
+			path.resolve(getPackageDir(), "..", "..", "banner.txt"),
+		].filter((p): p is string => !!p);
+		for (const bannerPath of bannerPaths) {
+			try {
+				const content = fs.readFileSync(bannerPath, "utf-8").replaceAll("\r\n", "\n").trimEnd();
+				if (content.trim().length > 0) {
+					return content;
+				}
+			} catch {
+				// Try the next candidate path.
+			}
+		}
+		return APP_NAME;
 	}
 
 	private getMarkdownThemeWithSettings(): MarkdownTheme {
@@ -1912,6 +1892,16 @@ export class InteractiveMode {
 			}
 			if (text === "/session") {
 				this.handleSessionCommand();
+				this.editor.setText("");
+				return;
+			}
+			if (text === "/mcp" || text.startsWith("/mcp:")) {
+				await this.handleMcpCommand(text);
+				this.editor.setText("");
+				return;
+			}
+			if (text === "/debug:prompt") {
+				this.handleDebugPromptCommand();
 				this.editor.setText("");
 				return;
 			}
@@ -3978,6 +3968,188 @@ export class InteractiveMode {
 			info += `\n${theme.bold("Cost")}\n`;
 			info += `${theme.fg("dim", "Total:")} ${stats.cost.toFixed(4)}`;
 		}
+
+		this.chatContainer.addChild(new Spacer(1));
+		this.chatContainer.addChild(new Text(info, 1, 0));
+		this.ui.requestRender();
+	}
+
+	private async handleMcpCommand(text: string): Promise<void> {
+		const mcpManager = this.session.mcpManager;
+
+		if (!mcpManager) {
+			const errorMsg = `${theme.bold("MCP Status")}\n\n${theme.fg("error", "MCP is not enabled")}`;
+			this.chatContainer.addChild(new Spacer(1));
+			this.chatContainer.addChild(new Text(errorMsg, 1, 0));
+			this.ui.requestRender();
+			return;
+		}
+
+		const command = text.trim();
+
+		// Handle subcommands
+		if (command === "/mcp:reload") {
+			this.chatContainer.addChild(new Spacer(1));
+			this.chatContainer.addChild(new Text(`${theme.fg("dim", "Reloading MCP configuration...")}`, 1, 0));
+			this.ui.requestRender();
+
+			try {
+				await mcpManager.reload();
+				// Rebuild runtime to update tools and system prompt with new MCP servers
+				await this.session.reload();
+				const successMsg = `${theme.fg("success", "✓")} MCP configuration reloaded successfully`;
+				this.chatContainer.addChild(new Text(successMsg, 1, 0));
+			} catch (error) {
+				const errorMsg = `${theme.fg("error", "✗")} Failed to reload: ${(error as Error).message}`;
+				this.chatContainer.addChild(new Text(errorMsg, 1, 0));
+			}
+			this.ui.requestRender();
+			return;
+		}
+
+		if (command.startsWith("/mcp:enable ")) {
+			const serverName = command.slice("/mcp:enable ".length).trim();
+			try {
+				await mcpManager.enableServer(serverName);
+				// Rebuild runtime to update tools and system prompt
+				await this.session.reload();
+				const successMsg = `${theme.fg("success", "✓")} Server '${serverName}' enabled`;
+				this.chatContainer.addChild(new Spacer(1));
+				this.chatContainer.addChild(new Text(successMsg, 1, 0));
+			} catch (error) {
+				const errorMsg = `${theme.fg("error", "✗")} ${(error as Error).message}`;
+				this.chatContainer.addChild(new Spacer(1));
+				this.chatContainer.addChild(new Text(errorMsg, 1, 0));
+			}
+			this.ui.requestRender();
+			return;
+		}
+
+		if (command.startsWith("/mcp:disable ")) {
+			const serverName = command.slice("/mcp:disable ".length).trim();
+			try {
+				await mcpManager.disableServer(serverName);
+				// Rebuild runtime to update tools and system prompt
+				await this.session.reload();
+				const successMsg = `${theme.fg("success", "✓")} Server '${serverName}' disabled`;
+				this.chatContainer.addChild(new Spacer(1));
+				this.chatContainer.addChild(new Text(successMsg, 1, 0));
+			} catch (error) {
+				const errorMsg = `${theme.fg("error", "✗")} ${(error as Error).message}`;
+				this.chatContainer.addChild(new Spacer(1));
+				this.chatContainer.addChild(new Text(errorMsg, 1, 0));
+			}
+			this.ui.requestRender();
+			return;
+		}
+
+		// Default: Show MCP status
+		const stats = mcpManager.getStats();
+		const servers = mcpManager.getServers();
+		const paths = mcpManager.getConfigPaths();
+
+		let info = `${theme.bold("MCP Status")}\n\n`;
+
+		info += `${theme.bold("Configuration")}\n`;
+		info += `${theme.fg("dim", "Global:")} ${paths.global}\n`;
+		info += `${theme.fg("dim", "Project:")} ${paths.project}\n\n`;
+
+		info += `${theme.bold("Statistics")}\n`;
+		info += `${theme.fg("dim", "Total Servers:")} ${stats.totalServers}\n`;
+		info += `${theme.fg("dim", "Ready:")} ${theme.fg("success", stats.readyServers.toString())}\n`;
+		if (stats.errorServers > 0) {
+			info += `${theme.fg("dim", "Errors:")} ${theme.fg("error", stats.errorServers.toString())}\n`;
+		}
+		info += `${theme.fg("dim", "Total Tools:")} ${stats.totalTools}\n`;
+		info += `${theme.fg("dim", "Total Resources:")} ${stats.totalResources}\n\n`;
+
+		if (servers.length > 0) {
+			info += `${theme.bold("Servers")}\n`;
+			for (const server of servers) {
+				const statusColor: ThemeColor =
+					server.status === "ready"
+						? "success"
+						: server.status === "error"
+							? "error"
+							: server.status === "starting"
+								? "warning"
+								: "dim";
+
+				const statusIcon =
+					server.status === "ready"
+						? "●"
+						: server.status === "error"
+							? "✗"
+							: server.status === "starting"
+								? "◐"
+								: "○";
+
+				info += `  ${theme.fg(statusColor, statusIcon)} ${theme.bold(server.name)}`;
+				info += ` ${theme.fg("dim", `(${server.status})`)}`;
+
+				if (server.status === "ready" && server.serverInfo) {
+					info += ` - ${server.serverInfo.version}`;
+				}
+
+				if (server.status === "error" && server.error) {
+					info += `\n    ${theme.fg("error", server.error)}`;
+				}
+
+				if (server.tools.length > 0) {
+					info += `\n    ${theme.fg("dim", `${server.tools.length} tools`)}`;
+				}
+
+				if (server.resources.length > 0) {
+					info += ` ${theme.fg("dim", `${server.resources.length} resources`)}`;
+				}
+
+				info += `\n`;
+			}
+
+			info += `\n${theme.fg("dim", "Commands:")}\n`;
+			info += `${theme.fg("dim", "  /mcp:reload - Reload MCP configuration")}\n`;
+			info += `${theme.fg("dim", "  /mcp:enable <server> - Enable a server")}\n`;
+			info += `${theme.fg("dim", "  /mcp:disable <server> - Disable a server")}\n`;
+		}
+
+		this.chatContainer.addChild(new Spacer(1));
+		this.chatContainer.addChild(new Text(info, 1, 0));
+		this.ui.requestRender();
+	}
+
+	private handleDebugPromptCommand(): void {
+		const systemPrompt = this.session.agent.state.systemPrompt;
+		const mcpManager = this.session.mcpManager;
+
+		let info = `${theme.bold("System Prompt Debug")}\n\n`;
+
+		// Show MCP tools count
+		if (mcpManager) {
+			const mcpTools = mcpManager.getTools();
+			info += `${theme.fg("accent", `MCP Tools Count: ${mcpTools.length}`)}\n`;
+			if (mcpTools.length > 0) {
+				info += `${theme.fg("dim", "MCP Tools:")}\n`;
+				for (const tool of mcpTools) {
+					info += `${theme.fg("dim", `  - ${tool.name}: ${tool.description}`)}\n`;
+				}
+				info += `\n`;
+			}
+		} else {
+			info += `${theme.fg("error", "MCP Manager: Not initialized")}\n\n`;
+		}
+
+		// Check if MCP tools are mentioned in system prompt
+		const hasMcpSection = systemPrompt.includes("MCP (Model Context Protocol)");
+		const hasMcpTools = systemPrompt.includes("mcp_");
+
+		info += `${theme.fg(hasMcpSection ? "success" : "error", `System Prompt contains MCP section: ${hasMcpSection}`)}\n`;
+		info += `${theme.fg(hasMcpTools ? "success" : "error", `System Prompt contains MCP tools: ${hasMcpTools}`)}\n\n`;
+
+		// Show snippet of system prompt
+		info += `${theme.fg("dim", "System Prompt Preview (first 1000 chars):")}\n`;
+		info += `${theme.fg("dim", "━".repeat(60))}\n`;
+		info += `${systemPrompt.substring(0, 1000)}${systemPrompt.length > 1000 ? "..." : ""}\n`;
+		info += `${theme.fg("dim", "━".repeat(60))}\n`;
 
 		this.chatContainer.addChild(new Spacer(1));
 		this.chatContainer.addChild(new Text(info, 1, 0));
