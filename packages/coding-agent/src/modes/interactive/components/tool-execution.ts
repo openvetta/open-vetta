@@ -874,8 +874,8 @@ export class ToolExecutionComponent extends Container {
 				const serverName = mcpMatch[1];
 				const toolName = mcpMatch[2];
 
-				// Header with MCP badge: [MCP:server] tool_name
-				const badge = theme.bg("toolPendingBg", theme.fg("accent", ` MCP:${serverName} `));
+				// Header with MCP badge: MCP:server tool_name (no badge background)
+				const badge = theme.fg("accent", `MCP:${serverName}`);
 				text = `${badge} ${theme.fg("toolTitle", theme.bold(toolName))}`;
 
 				// Show primary args on the same line (path-like args)
