@@ -16,6 +16,11 @@ const toolDescriptions: Record<string, string> = {
 	ls: "List directory contents",
 };
 
+export interface McpToolInfo {
+	name: string;
+	description: string;
+}
+
 export interface BuildSystemPromptOptions {
 	/** Custom system prompt (replaces default). */
 	customPrompt?: string;
@@ -29,6 +34,8 @@ export interface BuildSystemPromptOptions {
 	contextFiles?: Array<{ path: string; content: string }>;
 	/** Pre-loaded skills. */
 	skills?: Skill[];
+	/** MCP tools available (from Model Context Protocol servers). */
+	mcpTools?: McpToolInfo[];
 }
 
 /** Build the system prompt with tools, guidelines, and context */
@@ -40,6 +47,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		cwd,
 		contextFiles: providedContextFiles,
 		skills: providedSkills,
+		mcpTools: providedMcpTools,
 	} = options;
 	const resolvedCwd = cwd ?? process.cwd();
 
@@ -59,12 +67,29 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 
 	const contextFiles = providedContextFiles ?? [];
 	const skills = providedSkills ?? [];
+	const mcpTools = providedMcpTools ?? [];
 
 	if (customPrompt) {
 		let prompt = customPrompt;
 
 		if (appendSection) {
 			prompt += appendSection;
+		}
+
+		// Append MCP tools section
+		if (mcpTools.length > 0) {
+			prompt += "\n\n# MCP (Model Context Protocol) Tools\n\n";
+			prompt += "The following MCP tools are available from external servers:\n\n";
+			for (const tool of mcpTools) {
+				prompt += `- **${tool.name}**: ${tool.description}\n`;
+			}
+			prompt += "\n**IMPORTANT - MCP Tool Usage:**\n";
+			prompt +=
+				'- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool\n';
+			prompt += '- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)\n';
+			prompt += "- MCP tools may provide specialized functionality not available in built-in tools\n";
+			prompt +=
+				'- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls\n';
 		}
 
 		// Append project context files
@@ -144,12 +169,24 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 
 	const guidelines = guidelinesList.map((g) => `- ${g}`).join("\n");
 
+	// Build MCP tools list if any are available
+	let mcpToolsSection = "";
+	if (mcpTools.length > 0) {
+		const mcpToolsList = mcpTools.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n");
+		mcpToolsSection = `\n\nMCP (Model Context Protocol) tools:
+${mcpToolsList}
+
+**IMPORTANT - MCP Tool Usage:**
+- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool
+- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)
+- MCP tools may provide specialized functionality not available in built-in tools
+- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
+	}
+
 	let prompt = `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
 
 Available tools:
-${toolsList}
-
-In addition to the tools above, you may have access to other custom tools depending on the project.
+${toolsList}${mcpToolsSection}
 
 Guidelines:
 ${guidelines}

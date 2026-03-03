@@ -1,0 +1,21 @@
+/**
+ * MCP (Model Context Protocol) Module
+ *
+ * Provides integration with MCP servers for extending agent capabilities
+ * with external tools and data sources.
+ */
+
+// Client
+export * from "./mcp-client.js";
+
+// Configuration
+export * from "./mcp-config.js";
+// Manager
+export * from "./mcp-manager.js";
+// Process management
+export * from "./mcp-process.js";
+
+// Tool adapter
+export * from "./mcp-tool-adapter.js";
+// Types
+export * from "./types.js";

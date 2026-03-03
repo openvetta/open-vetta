@@ -91,6 +91,8 @@ export interface Settings {
 	autocompleteMaxVisible?: number; // Max visible items in autocomplete dropdown (default: 5)
 	showHardwareCursor?: boolean; // Show terminal cursor while still positioning it for IME
 	markdown?: MarkdownSettings;
+	enableMcp?: boolean; // default: true - enable MCP (Model Context Protocol) support
+	mcpDebug?: boolean; // default: false - enable MCP debug logging
 }
 
 /** Deep merge settings: project/overrides take precedence, nested objects merge recursively */
@@ -892,5 +894,25 @@ export class SettingsManager {
 
 	getCodeBlockIndent(): string {
 		return this.settings.markdown?.codeBlockIndent ?? "  ";
+	}
+
+	getEnableMcp(): boolean {
+		return this.settings.enableMcp ?? true;
+	}
+
+	setEnableMcp(enabled: boolean): void {
+		this.globalSettings.enableMcp = enabled;
+		this.markModified("enableMcp");
+		this.save();
+	}
+
+	getMcpDebug(): boolean {
+		return this.settings.mcpDebug ?? false;
+	}
+
+	setMcpDebug(debug: boolean): void {
+		this.globalSettings.mcpDebug = debug;
+		this.markModified("mcpDebug");
+		this.save();
 	}
 }
