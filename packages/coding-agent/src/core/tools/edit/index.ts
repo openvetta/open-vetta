@@ -2,6 +2,7 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
+import { loadToolDescription } from "../description.js";
 import {
 	detectLineEnding,
 	fuzzyFindText,
@@ -10,8 +11,8 @@ import {
 	normalizeToLF,
 	restoreLineEndings,
 	stripBom,
-} from "./edit-diff.js";
-import { resolveToCwd } from "./path-utils.js";
+} from "../edit-diff.js";
+import { resolveToCwd } from "../path-utils.js";
 
 const editSchema = Type.Object({
 	path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
@@ -54,12 +55,14 @@ export interface EditToolOptions {
 
 export function createEditTool(cwd: string, options?: EditToolOptions): AgentTool<typeof editSchema> {
 	const ops = options?.operations ?? defaultEditOperations;
+	const fallbackDescription =
+		"Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.";
+	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
 		name: "edit",
 		label: "edit",
-		description:
-			"Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.",
+		description,
 		parameters: editSchema,
 		execute: async (
 			_toolCallId: string,

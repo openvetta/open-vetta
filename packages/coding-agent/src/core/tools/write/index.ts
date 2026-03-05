@@ -2,7 +2,8 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { mkdir as fsMkdir, writeFile as fsWriteFile } from "fs/promises";
 import { dirname } from "path";
-import { resolveToCwd } from "./path-utils.js";
+import { loadToolDescription } from "../description.js";
+import { resolveToCwd } from "../path-utils.js";
 
 const writeSchema = Type.Object({
 	path: Type.String({ description: "Path to the file to write (relative or absolute)" }),
@@ -34,12 +35,14 @@ export interface WriteToolOptions {
 
 export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentTool<typeof writeSchema> {
 	const ops = options?.operations ?? defaultWriteOperations;
+	const fallbackDescription =
+		"Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.";
+	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
 		name: "write",
 		label: "write",
-		description:
-			"Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
+		description,
 		parameters: writeSchema,
 		execute: async (
 			_toolCallId: string,

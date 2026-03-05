@@ -7,7 +7,7 @@ export {
 	type BashToolOptions,
 	bashTool,
 	createBashTool,
-} from "./bash.js";
+} from "./bash/index.js";
 export {
 	createEditTool,
 	type EditOperations,
@@ -15,7 +15,7 @@ export {
 	type EditToolInput,
 	type EditToolOptions,
 	editTool,
-} from "./edit.js";
+} from "./edit/index.js";
 export {
 	createFindTool,
 	type FindOperations,
@@ -23,7 +23,7 @@ export {
 	type FindToolInput,
 	type FindToolOptions,
 	findTool,
-} from "./find.js";
+} from "./find/index.js";
 export {
 	createGrepTool,
 	type GrepOperations,
@@ -31,7 +31,7 @@ export {
 	type GrepToolInput,
 	type GrepToolOptions,
 	grepTool,
-} from "./grep.js";
+} from "./grep/index.js";
 export {
 	createLsTool,
 	type LsOperations,
@@ -39,7 +39,7 @@ export {
 	type LsToolInput,
 	type LsToolOptions,
 	lsTool,
-} from "./ls.js";
+} from "./ls/index.js";
 export {
 	createReadTool,
 	type ReadOperations,
@@ -47,7 +47,7 @@ export {
 	type ReadToolInput,
 	type ReadToolOptions,
 	readTool,
-} from "./read.js";
+} from "./read/index.js";
 export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
@@ -64,16 +64,16 @@ export {
 	type WriteToolInput,
 	type WriteToolOptions,
 	writeTool,
-} from "./write.js";
+} from "./write/index.js";
 
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-import { type BashToolOptions, bashTool, createBashTool } from "./bash.js";
-import { createEditTool, editTool } from "./edit.js";
-import { createFindTool, findTool } from "./find.js";
-import { createGrepTool, grepTool } from "./grep.js";
-import { createLsTool, lsTool } from "./ls.js";
-import { createReadTool, type ReadToolOptions, readTool } from "./read.js";
-import { createWriteTool, writeTool } from "./write.js";
+import { type BashToolOptions, bashTool, createBashTool } from "./bash/index.js";
+import { createEditTool, editTool } from "./edit/index.js";
+import { createFindTool, findTool } from "./find/index.js";
+import { createGrepTool, grepTool } from "./grep/index.js";
+import { createLsTool, lsTool } from "./ls/index.js";
+import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
+import { createWriteTool, writeTool } from "./write/index.js";
 
 /** Tool type (AgentTool from pi-ai) */
 export type Tool = AgentTool<any>;

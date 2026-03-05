@@ -3,10 +3,12 @@ import type { ImageContent, TextContent } from "@mariozechner/pi-ai";
 import { type Static, Type } from "@sinclair/typebox";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
-import { formatDimensionNote, resizeImage } from "../../utils/image-resize.js";
-import { detectSupportedImageMimeTypeFromFile } from "../../utils/mime.js";
-import { resolveReadPath } from "./path-utils.js";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateHead } from "./truncate.js";
+import nodePath from "path";
+import { formatDimensionNote, resizeImage } from "../../../utils/image-resize.js";
+import { detectSupportedImageMimeTypeFromFile } from "../../../utils/mime.js";
+import { loadToolDescription } from "../description.js";
+import { resolveReadPath } from "../path-utils.js";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const readSchema = Type.Object({
 	path: Type.String({ description: "Path to the file to read (relative or absolute)" }),
@@ -39,6 +41,70 @@ const defaultReadOperations: ReadOperations = {
 	detectImageMimeType: detectSupportedImageMimeTypeFromFile,
 };
 
+const KNOWN_BINARY_EXTENSIONS = new Set([
+	".7z",
+	".a",
+	".bin",
+	".class",
+	".dat",
+	".dll",
+	".doc",
+	".docx",
+	".exe",
+	".gz",
+	".jar",
+	".lib",
+	".o",
+	".obj",
+	".odf",
+	".odp",
+	".ods",
+	".odt",
+	".pdf",
+	".ppt",
+	".pptx",
+	".pyc",
+	".pyo",
+	".so",
+	".tar",
+	".war",
+	".wasm",
+	".xls",
+	".xlsx",
+	".zip",
+]);
+
+function isLikelyBinaryContent(buffer: Buffer): boolean {
+	if (buffer.length === 0) return false;
+
+	let nonPrintable = 0;
+	for (let i = 0; i < buffer.length; i++) {
+		const byte = buffer[i];
+		if (byte === 0) return true;
+		if (byte < 9 || (byte > 13 && byte < 32) || byte === 127) {
+			nonPrintable++;
+		}
+	}
+
+	return nonPrintable / buffer.length > 0.3;
+}
+
+function getBinaryExtractionHint(extension: string): string {
+	if (extension === ".pdf") {
+		return "Use a PDF extraction tool/skill, or convert it with bash before reading.";
+	}
+	if (extension === ".doc" || extension === ".docx" || extension === ".odt") {
+		return "Use a DOCX/Word extraction tool/skill, or convert it with bash before reading.";
+	}
+	if (extension === ".xls" || extension === ".xlsx" || extension === ".ods") {
+		return "Use a spreadsheet extraction tool/skill, or convert it with bash before reading.";
+	}
+	if (extension === ".ppt" || extension === ".pptx" || extension === ".odp") {
+		return "Use a presentation extraction tool/skill, or convert it with bash before reading.";
+	}
+	return "Use an appropriate extraction tool/skill, or convert it with bash before reading.";
+}
+
 export interface ReadToolOptions {
 	/** Whether to auto-resize images to 2000x2000 max. Default: true */
 	autoResizeImages?: boolean;
@@ -49,11 +115,13 @@ export interface ReadToolOptions {
 export function createReadTool(cwd: string, options?: ReadToolOptions): AgentTool<typeof readSchema> {
 	const autoResizeImages = options?.autoResizeImages ?? true;
 	const ops = options?.operations ?? defaultReadOperations;
+	const fallbackDescription = `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`;
+	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
 		name: "read",
 		label: "read",
-		description: `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`,
+		description,
 		parameters: readSchema,
 		execute: async (
 			_toolCallId: string,
@@ -128,6 +196,21 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 							} else {
 								// Read as text
 								const buffer = await ops.readFile(absolutePath);
+								const extension = nodePath.extname(absolutePath).toLowerCase();
+								const isKnownBinaryExtension = KNOWN_BINARY_EXTENSIONS.has(extension);
+								if (isKnownBinaryExtension || isLikelyBinaryContent(buffer)) {
+									const extensionLabel = extension || "(no extension)";
+									const hint = getBinaryExtractionHint(extension);
+									content = [
+										{
+											type: "text",
+											text: `Binary file detected (${extensionLabel}, ${formatSize(buffer.length)}). Raw bytes are not shown to avoid context pollution.\n${hint}`,
+										},
+									];
+									resolve({ content, details: undefined });
+									return;
+								}
+
 								const textContent = buffer.toString("utf-8");
 								const allLines = textContent.split("\n");
 								const totalFileLines = allLines.length;

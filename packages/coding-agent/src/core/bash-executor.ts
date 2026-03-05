@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { type ChildProcess, spawn } from "child_process";
 import stripAnsi from "strip-ansi";
 import { getShellConfig, getShellEnv, killProcessTree, sanitizeBinaryOutput } from "../utils/shell.js";
-import type { BashOperations } from "./tools/bash.js";
+import type { BashOperations } from "./tools/bash/index.js";
 import { DEFAULT_MAX_BYTES, truncateTail } from "./tools/truncate.js";
 
 // ============================================================================

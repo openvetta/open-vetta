@@ -2,8 +2,9 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { existsSync, readdirSync, statSync } from "fs";
 import nodePath from "path";
-import { resolveToCwd } from "./path-utils.js";
-import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "./truncate.js";
+import { loadToolDescription } from "../description.js";
+import { resolveToCwd } from "../path-utils.js";
+import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const lsSchema = Type.Object({
 	path: Type.Optional(Type.String({ description: "Directory to list (default: current directory)" })),
@@ -45,11 +46,13 @@ export interface LsToolOptions {
 
 export function createLsTool(cwd: string, options?: LsToolOptions): AgentTool<typeof lsSchema> {
 	const ops = options?.operations ?? defaultLsOperations;
+	const fallbackDescription = `List directory contents. Returns entries sorted alphabetically, with '/' suffix for directories. Includes dotfiles. Output is truncated to ${DEFAULT_LIMIT} entries or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
+	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
 		name: "ls",
 		label: "ls",
-		description: `List directory contents. Returns entries sorted alphabetically, with '/' suffix for directories. Includes dotfiles. Output is truncated to ${DEFAULT_LIMIT} entries or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`,
+		description,
 		parameters: lsSchema,
 		execute: async (
 			_toolCallId: string,
