@@ -20,9 +20,11 @@ type ModelApi<
 export function getModel<TProvider extends KnownProvider, TModelId extends keyof (typeof MODELS)[TProvider]>(
 	provider: TProvider,
 	modelId: TModelId,
-): Model<ModelApi<TProvider, TModelId>> {
+): Model<ModelApi<TProvider, TModelId>>;
+export function getModel(provider: KnownProvider, modelId: string): Model<Api>;
+export function getModel(provider: KnownProvider, modelId: string): Model<Api> {
 	const providerModels = modelRegistry.get(provider);
-	return providerModels?.get(modelId as string) as Model<ModelApi<TProvider, TModelId>>;
+	return providerModels?.get(modelId) as Model<Api>;
 }
 
 export function getProviders(): KnownProvider[] {

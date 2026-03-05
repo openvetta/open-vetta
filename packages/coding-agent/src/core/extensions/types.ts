@@ -55,8 +55,8 @@ import type {
 	SessionManager,
 } from "../session-manager.js";
 import type { SlashCommandInfo } from "../slash-commands.js";
-import type { BashOperations } from "../tools/bash.js";
-import type { EditToolDetails } from "../tools/edit.js";
+import type { BashOperations } from "../tools/bash/index.js";
+import type { EditToolDetails } from "../tools/edit/index.js";
 import type {
 	BashToolDetails,
 	BashToolInput,

@@ -5,8 +5,9 @@ import { join } from "node:path";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { spawn } from "child_process";
-import { getShellConfig, getShellEnv, killProcessTree } from "../../utils/shell.js";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "./truncate.js";
+import { getShellConfig, getShellEnv, killProcessTree } from "../../../utils/shell.js";
+import { loadToolDescription } from "../description.js";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "../truncate.js";
 
 /**
  * Generate a unique temp file path for bash output
@@ -167,11 +168,13 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 	const ops = options?.operations ?? defaultBashOperations;
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;
+	const fallbackDescription = `Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`;
+	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
 		name: "bash",
 		label: "bash",
-		description: `Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`,
+		description,
 		parameters: bashSchema,
 		execute: async (
 			_toolCallId: string,

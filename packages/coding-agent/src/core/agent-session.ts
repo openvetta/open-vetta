@@ -79,7 +79,7 @@ import { getLatestCompactionEntry } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
 import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocation } from "./slash-commands.js";
 import { buildSystemPrompt } from "./system-prompt.js";
-import type { BashOperations } from "./tools/bash.js";
+import type { BashOperations } from "./tools/bash/index.js";
 import { createAllTools } from "./tools/index.js";
 
 // ============================================================================

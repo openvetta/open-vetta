@@ -4,8 +4,9 @@ import { type Static, Type } from "@sinclair/typebox";
 import { spawn } from "child_process";
 import { readFileSync, statSync } from "fs";
 import path from "path";
-import { ensureTool } from "../../utils/tools-manager.js";
-import { resolveToCwd } from "./path-utils.js";
+import { ensureTool } from "../../../utils/tools-manager.js";
+import { loadToolDescription } from "../description.js";
+import { resolveToCwd } from "../path-utils.js";
 import {
 	DEFAULT_MAX_BYTES,
 	formatSize,
@@ -13,7 +14,7 @@ import {
 	type TruncationResult,
 	truncateHead,
 	truncateLine,
-} from "./truncate.js";
+} from "../truncate.js";
 
 const grepSchema = Type.Object({
 	pattern: Type.String({ description: "Search pattern (regex or literal string)" }),
@@ -62,11 +63,13 @@ export interface GrepToolOptions {
 
 export function createGrepTool(cwd: string, options?: GrepToolOptions): AgentTool<typeof grepSchema> {
 	const customOps = options?.operations;
+	const fallbackDescription = `Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} matches or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Long lines are truncated to ${GREP_MAX_LINE_LENGTH} chars.`;
+	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
 		name: "grep",
 		label: "grep",
-		description: `Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} matches or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Long lines are truncated to ${GREP_MAX_LINE_LENGTH} chars.`,
+		description,
 		parameters: grepSchema,
 		execute: async (
 			_toolCallId: string,

@@ -2,13 +2,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bashTool, createBashTool } from "../src/core/tools/bash.js";
-import { editTool } from "../src/core/tools/edit.js";
-import { findTool } from "../src/core/tools/find.js";
-import { grepTool } from "../src/core/tools/grep.js";
-import { lsTool } from "../src/core/tools/ls.js";
-import { readTool } from "../src/core/tools/read.js";
-import { writeTool } from "../src/core/tools/write.js";
+import { bashTool, createBashTool } from "../src/core/tools/bash/index.js";
+import { editTool } from "../src/core/tools/edit/index.js";
+import { findTool } from "../src/core/tools/find/index.js";
+import { grepTool } from "../src/core/tools/grep/index.js";
+import { lsTool } from "../src/core/tools/ls/index.js";
+import { readTool } from "../src/core/tools/read/index.js";
+import { writeTool } from "../src/core/tools/write/index.js";
 import * as shellModule from "../src/utils/shell.js";
 
 // Helper to extract text from content blocks
@@ -186,6 +186,20 @@ describe("Coding Agent Tools", () => {
 
 			expect(output).toContain("definitely not a png");
 			expect(result.content.some((c: any) => c.type === "image")).toBe(false);
+		});
+
+		it("should not return raw bytes for binary document files", async () => {
+			const docxLikeFile = join(testDir, "spec.docx");
+			// ZIP header bytes (DOCX container format)
+			writeFileSync(docxLikeFile, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00, 0x00, 0x00]));
+
+			const result = await readTool.execute("test-call-binary-docx", { path: docxLikeFile });
+			const output = getTextOutput(result);
+
+			expect(output).toContain("Binary file detected");
+			expect(output).toContain(".docx");
+			expect(output).toContain("not shown to avoid context pollution");
+			expect(output).toContain("DOCX/Word extraction tool/skill");
 		});
 	});
 

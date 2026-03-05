@@ -1,0 +1,1 @@
+Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to 100 matches or 30KB (whichever is hit first). Long lines are truncated to 2000 chars.
