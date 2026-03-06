@@ -4,12 +4,7 @@
  * File-based templates that inject content when invoked with /templatename.
  */
 
-import {
-	createAgentSession,
-	DefaultResourceLoader,
-	type PromptTemplate,
-	SessionManager,
-} from "@mariozechner/pi-coding-agent";
+import { createAgentSession, DefaultResourceLoader, type PromptTemplate, SessionManager } from "@vetta/coding-agent";
 
 // Define custom templates
 const deployTemplate: PromptTemplate = {

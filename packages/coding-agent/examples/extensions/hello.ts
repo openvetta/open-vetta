@@ -3,7 +3,7 @@
  */
 
 import { Type } from "@mariozechner/pi-ai";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@vetta/coding-agent";
 
 export default function (pi: ExtensionAPI) {
 	pi.registerTool({

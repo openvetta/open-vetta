@@ -46,10 +46,12 @@ import { spawn, spawnSync } from "child_process";
 import {
 	APP_NAME,
 	getAuthPath,
+	getChangelogPath,
 	getDebugLogPath,
 	getPackageDir,
 	getShareViewerUrl,
 	getUpdateInstruction,
+	PACKAGE_NAME,
 	VERSION,
 } from "../../config.js";
 import { type AgentSession, type AgentSessionEvent, parseSkillBlock } from "../../core/agent-session.js";
@@ -69,7 +71,7 @@ import type { ResourceDiagnostic } from "../../core/resource-loader.js";
 import { type SessionContext, SessionManager } from "../../core/session-manager.js";
 import { BUILTIN_SLASH_COMMANDS } from "../../core/slash-commands.js";
 import type { TruncationResult } from "../../core/tools/truncate.js";
-import { getChangelogPath, getNewEntries, parseChangelog } from "../../utils/changelog.js";
+import { compareVersions, getNewEntries, parseChangelog } from "../../utils/changelog.js";
 import { copyToClipboard } from "../../utils/clipboard.js";
 import { extensionForImageMimeType, readClipboardImage } from "../../utils/clipboard-image.js";
 import { ensureTool } from "../../utils/tools-manager.js";
@@ -475,9 +477,9 @@ export class InteractiveMode {
 		const cwdBasename = path.basename(process.cwd());
 		const sessionName = this.sessionManager.getSessionName();
 		if (sessionName) {
-			this.ui.terminal.setTitle(`π - ${sessionName} - ${cwdBasename}`);
+			this.ui.terminal.setTitle(`Vetta - ${sessionName} - ${cwdBasename}`);
 		} else {
-			this.ui.terminal.setTitle(`π - ${cwdBasename}`);
+			this.ui.terminal.setTitle(`Vetta - ${cwdBasename}`);
 		}
 	}
 
@@ -545,11 +547,37 @@ export class InteractiveMode {
 	}
 
 	/**
-	 * Check npm registry for a newer version.
+	 * Check local CHANGELOG.md for a version newer than the current package version.
 	 */
 	private async checkForNewVersion(): Promise<string | undefined> {
-		// Fork/distribution mode: completely disable upstream update checks.
-		return undefined;
+		const entries = parseChangelog(getChangelogPath());
+		if (entries.length === 0) {
+			return undefined;
+		}
+
+		let latest = entries[0];
+		for (const entry of entries.slice(1)) {
+			if (compareVersions(entry, latest) > 0) {
+				latest = entry;
+			}
+		}
+
+		const currentMatch = VERSION.match(/^(\d+)\.(\d+)\.(\d+)/);
+		if (!currentMatch) {
+			return undefined;
+		}
+		const current = {
+			major: Number.parseInt(currentMatch[1], 10),
+			minor: Number.parseInt(currentMatch[2], 10),
+			patch: Number.parseInt(currentMatch[3], 10),
+			content: "",
+		};
+
+		if (compareVersions(latest, current) <= 0) {
+			return undefined;
+		}
+
+		return `${latest.major}.${latest.minor}.${latest.patch}`;
 	}
 
 	/**
@@ -2795,13 +2823,10 @@ export class InteractiveMode {
 	}
 
 	showNewVersionNotification(newVersion: string): void {
-		const action = theme.fg("accent", getUpdateInstruction("@mariozechner/pi-coding-agent"));
+		const action = theme.fg("accent", getUpdateInstruction(PACKAGE_NAME));
 		const updateInstruction = theme.fg("muted", `New version ${newVersion} is available. `) + action;
-		const changelogUrl = theme.fg(
-			"accent",
-			"https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/CHANGELOG.md",
-		);
-		const changelogLine = theme.fg("muted", "Changelog: ") + changelogUrl;
+		const changelogPath = theme.fg("accent", getChangelogPath());
+		const changelogLine = theme.fg("muted", "Local CHANGELOG: ") + changelogPath;
 
 		this.chatContainer.addChild(new Spacer(1));
 		this.chatContainer.addChild(new DynamicBorder((text) => theme.fg("warning", text)));
