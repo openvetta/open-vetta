@@ -1,6 +1,6 @@
 {
 	"name": "@vetta/coding-agent",
-	"version": "0.55.3",
+	"version": "0.0.1",
 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
 	"type": "module",
 	"piConfig": {
@@ -26,6 +26,7 @@
 		"dist",
 		"docs",
 		"examples",
+		"banner.txt",
 		"CHANGELOG.md"
 	],
 	"scripts": {
