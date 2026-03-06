@@ -47,7 +47,7 @@
 	"engines": {
 		"node": ">=20.0.0"
 	},
-	"version": "0.0.3",
+	"version": "0.55.2",
 	"dependencies": {
 		"@mariozechner/jiti": "^2.6.5",
 		"@vetta/coding-agent": "workspace:*",
