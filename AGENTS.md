@@ -124,6 +124,7 @@ For non-standard auth, create utility (e.g., `bedrock-utils.ts`) with credential
 ## Releasing
 
 **Lockstep versioning**: All packages always share the same version number. Every release updates all packages together.
+**Version source of truth**: release version follows `@vetta/coding-agent`.
 
 **Version semantics** (no major releases):
 - `patch`: Bug fixes and new features
@@ -145,6 +146,7 @@ Private release defaults:
 - Optional: set `RELEASE_BRANCH=<branch>` to override the push target branch (default: current branch).
 
 The script handles: version bump, CHANGELOG finalization, commit, tag, optional private publish, and adding new `[Unreleased]` sections.
+After release, artifacts and install guide are generated under `releases/v<version>/` for uploading to Gitee Releases.
 
 ## **CRITICAL** Tool Usage Rules **CRITICAL**
 - NEVER use sed/cat to read a file or a range of a file. Always use the read tool (use offset + limit for ranged reads).

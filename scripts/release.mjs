@@ -13,10 +13,11 @@
  * 6. Add new [Unreleased] section to changelogs
  * 7. Commit
  * 8. Push current branch and tag
+ * 9. Generate release artifacts and install guide
  */
 
 import { execSync } from "child_process";
-import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync } from "fs";
 import { join } from "path";
 
 const BUMP_TYPE = process.argv[2];
@@ -46,7 +47,7 @@ function getCurrentBranch() {
 }
 
 function getVersion() {
-	const pkg = JSON.parse(readFileSync("packages/ai/package.json", "utf-8"));
+	const pkg = JSON.parse(readFileSync("packages/coding-agent/package.json", "utf-8"));
 	return pkg.version;
 }
 
@@ -149,6 +150,82 @@ function addUnreleasedSection() {
 	}
 }
 
+function createReleaseArtifacts(version) {
+	const releaseDir = join("releases", `v${version}`);
+	mkdirSync(releaseDir, { recursive: true });
+
+	console.log("Building coding-agent package...");
+	run("cd packages/coding-agent && bun run build");
+
+	console.log("Packing coding-agent npm artifact...");
+	const packOutput = run("cd packages/coding-agent && npm pack --silent", { silent: true });
+	const packageArtifact = packOutput.trim().split("\n").filter(Boolean).pop();
+	if (!packageArtifact) {
+		throw new Error("Failed to determine npm pack artifact name");
+	}
+
+	const packageArtifactSource = join("packages", "coding-agent", packageArtifact);
+	const packageArtifactTarget = join(releaseDir, packageArtifact);
+	copyFileSync(packageArtifactSource, packageArtifactTarget);
+	run(`rm -f ${packageArtifactSource}`);
+
+	const binariesDir = join("packages", "coding-agent", "binaries");
+	const binaryArtifacts = existsSync(binariesDir)
+		? readdirSync(binariesDir).filter((file) => file.endsWith(".tar.gz") || file.endsWith(".zip"))
+		: [];
+
+	for (const artifact of binaryArtifacts) {
+		copyFileSync(join(binariesDir, artifact), join(releaseDir, artifact));
+	}
+
+	const installLines = [
+		"# Installation Guide",
+		"",
+		`Version: ${version}`,
+		"",
+		"## Artifacts",
+		`- ${packageArtifact}`,
+		...binaryArtifacts.map((artifact) => `- ${artifact}`),
+		"",
+		"## Install from package artifact",
+		"```bash",
+		`npm install -g ./${packageArtifact}`,
+		"vetta --version",
+		"```",
+		"",
+		"## Install from registry",
+		"```bash",
+		`npm install -g @vetta/coding-agent@${version}`,
+		"vetta --version",
+		"```",
+		"",
+		"## Binary artifact usage (optional)",
+		"```bash",
+		"tar -xzf pi-linux-x64.tar.gz",
+		"cd pi-linux-x64",
+		"./pi --version",
+		"```",
+		"",
+		"Upload these artifacts to your release page in Gitee Releases.",
+	];
+
+	const releaseNotesLines = [
+		`# Release v${version}`,
+		"",
+		"## Included Artifacts",
+		`- ${packageArtifact}`,
+		...binaryArtifacts.map((artifact) => `- ${artifact}`),
+		"",
+		"## Installation",
+		"See ./INSTALL.md in this folder for installation instructions.",
+	];
+
+	writeFileSync(join(releaseDir, "INSTALL.md"), `${installLines.join("\n")}\n`);
+	writeFileSync(join(releaseDir, "RELEASE_NOTES.md"), `${releaseNotesLines.join("\n")}\n`);
+
+	console.log(`Release artifacts created at ${releaseDir}`);
+}
+
 // Main flow
 console.log("\n=== Release Script ===\n");
 
@@ -205,6 +282,11 @@ console.log("Pushing to remote...");
 const branch = RELEASE_BRANCH || getCurrentBranch();
 run(`git push origin ${branch}`);
 run(`git push origin v${version}`);
+console.log();
+
+// 9. Release artifacts
+console.log("Generating release artifacts...");
+createReleaseArtifacts(version);
 console.log();
 
 console.log(`=== Released v${version} ===`);
