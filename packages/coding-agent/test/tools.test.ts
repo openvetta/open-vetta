@@ -8,6 +8,7 @@ import { findTool } from "../src/core/tools/find/index.js";
 import { grepTool } from "../src/core/tools/grep/index.js";
 import { lsTool } from "../src/core/tools/ls/index.js";
 import { readTool } from "../src/core/tools/read/index.js";
+import { treeTool } from "../src/core/tools/tree/index.js";
 import { writeTool } from "../src/core/tools/write/index.js";
 import * as shellModule from "../src/utils/shell.js";
 
@@ -338,6 +339,12 @@ describe("Coding Agent Tools", () => {
 			const result = await bashWithoutPrefix.execute("test-prefix-3", { command: "echo no-prefix" });
 			expect(getTextOutput(result).trim()).toBe("no-prefix");
 		});
+
+		it("should reject shell file-discovery commands in favor of built-in tools", async () => {
+			await expect(bashTool.execute("test-bash-guard-1", { command: "tree ." })).rejects.toThrow(
+				/use built-in tools \(`dir_tree`, `find`, `ls`\)/i,
+			);
+		});
 	});
 
 	describe("grep tool", () => {
@@ -423,6 +430,46 @@ describe("Coding Agent Tools", () => {
 
 			expect(output).toContain(".hidden-file");
 			expect(output).toContain(".hidden-dir/");
+		});
+	});
+
+	describe("dir_tree tool", () => {
+		it("should expose dir_tree as tool name", () => {
+			expect(treeTool.name).toBe("dir_tree");
+		});
+
+		it("should render [D]/[F] nodes with directory counts", async () => {
+			mkdirSync(join(testDir, "src", "core"), { recursive: true });
+			writeFileSync(join(testDir, "src", "core", "index.ts"), "export {};\n");
+			writeFileSync(join(testDir, "README.md"), "# Test\n");
+
+			const result = await treeTool.execute("test-call-tree-1", {
+				path: testDir,
+				maxDepth: 5,
+			});
+			const output = getTextOutput(result);
+
+			expect(output).toContain("[D]");
+			expect(output).toContain("[F]");
+			expect(output).toContain("(d:");
+			expect(output).toContain("src");
+			expect(output).toContain("README.md");
+		});
+
+		it("should support directory-only mode", async () => {
+			mkdirSync(join(testDir, "packages", "a"), { recursive: true });
+			writeFileSync(join(testDir, "packages", "a", "file.ts"), "const x = 1;\n");
+
+			const result = await treeTool.execute("test-call-tree-2", {
+				path: testDir,
+				includeFiles: false,
+				maxDepth: 5,
+			});
+			const output = getTextOutput(result);
+
+			expect(output).toContain("[D]");
+			expect(output).not.toContain("[F]");
+			expect(output).toContain("packages");
 		});
 	});
 });

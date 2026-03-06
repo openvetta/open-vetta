@@ -74,7 +74,7 @@ pi
 /login  # Then select provider
 ```
 
-Then just talk to pi. By default, pi gives the model four tools: `read`, `write`, `edit`, and `bash`. The model uses these to fulfill your requests. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [pi packages](#pi-packages).
+Then just talk to pi. By default, pi gives the model five tools: `read`, `write`, `edit`, `bash`, and `dir_tree`. The model uses these to fulfill your requests. Add capabilities via [skills](#skills), [prompt templates](#prompt-templates), [extensions](#extensions), or [pi packages](#pi-packages).
 
 **Platform notes:** [Windows](docs/windows.md) | [Termux (Android)](docs/termux.md) | [Terminal setup](docs/terminal-setup.md) | [Shell aliases](docs/shell-aliases.md)
 
@@ -477,10 +477,10 @@ pi config                   # Enable/disable package resources
 
 | Option | Description |
 |--------|-------------|
-| `--tools <list>` | Enable specific built-in tools (default: `read,bash,edit,write`) |
+| `--tools <list>` | Enable specific built-in tools (default: `read,bash,edit,write,dir_tree`) |
 | `--no-tools` | Disable all built-in tools (extension tools still work) |
 
-Available built-in tools: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`
+Available built-in tools: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`, `dir_tree`
 
 ### Resource Options
 
@@ -539,7 +539,7 @@ pi --model sonnet:high "Solve this complex problem"
 pi --models "claude-*,gpt-4o"
 
 # Read-only mode
-pi --tools read,grep,find,ls -p "Review the code"
+pi --tools read,grep,find,ls,dir_tree -p "Review the code"
 
 # High thinking level
 pi --thinking high "Solve this complex problem"

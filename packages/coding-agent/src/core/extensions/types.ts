@@ -69,6 +69,8 @@ import type {
 	LsToolInput,
 	ReadToolDetails,
 	ReadToolInput,
+	TreeToolDetails,
+	TreeToolInput,
 	WriteToolInput,
 } from "../tools/index.js";
 
@@ -661,6 +663,11 @@ export interface LsToolCallEvent extends ToolCallEventBase {
 	input: LsToolInput;
 }
 
+export interface DirTreeToolCallEvent extends ToolCallEventBase {
+	toolName: "dir_tree";
+	input: TreeToolInput;
+}
+
 export interface CustomToolCallEvent extends ToolCallEventBase {
 	toolName: string;
 	input: Record<string, unknown>;
@@ -675,6 +682,7 @@ export type ToolCallEvent =
 	| GrepToolCallEvent
 	| FindToolCallEvent
 	| LsToolCallEvent
+	| DirTreeToolCallEvent
 	| CustomToolCallEvent;
 
 interface ToolResultEventBase {
@@ -720,6 +728,11 @@ export interface LsToolResultEvent extends ToolResultEventBase {
 	details: LsToolDetails | undefined;
 }
 
+export interface DirTreeToolResultEvent extends ToolResultEventBase {
+	toolName: "dir_tree";
+	details: TreeToolDetails | undefined;
+}
+
 export interface CustomToolResultEvent extends ToolResultEventBase {
 	toolName: string;
 	details: unknown;
@@ -734,6 +747,7 @@ export type ToolResultEvent =
 	| GrepToolResultEvent
 	| FindToolResultEvent
 	| LsToolResultEvent
+	| DirTreeToolResultEvent
 	| CustomToolResultEvent;
 
 // Type guards for ToolResultEvent
@@ -757,6 +771,9 @@ export function isFindToolResult(e: ToolResultEvent): e is FindToolResultEvent {
 }
 export function isLsToolResult(e: ToolResultEvent): e is LsToolResultEvent {
 	return e.toolName === "ls";
+}
+export function isDirTreeToolResult(e: ToolResultEvent): e is DirTreeToolResultEvent {
+	return e.toolName === "dir_tree";
 }
 
 /**
@@ -786,6 +803,7 @@ export function isToolCallEventType(toolName: "write", event: ToolCallEvent): ev
 export function isToolCallEventType(toolName: "grep", event: ToolCallEvent): event is GrepToolCallEvent;
 export function isToolCallEventType(toolName: "find", event: ToolCallEvent): event is FindToolCallEvent;
 export function isToolCallEventType(toolName: "ls", event: ToolCallEvent): event is LsToolCallEvent;
+export function isToolCallEventType(toolName: "dir_tree", event: ToolCallEvent): event is DirTreeToolCallEvent;
 export function isToolCallEventType<TName extends string, TInput extends Record<string, unknown>>(
 	toolName: TName,
 	event: ToolCallEvent,

@@ -14,6 +14,7 @@ const toolDescriptions: Record<string, string> = {
 	grep: "Search file contents for patterns (respects .gitignore)",
 	find: "Find files by glob pattern (respects .gitignore)",
 	ls: "List directory contents",
+	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
 };
 
 export interface McpToolInfo {
@@ -24,7 +25,7 @@ export interface McpToolInfo {
 export interface BuildSystemPromptOptions {
 	/** Custom system prompt (replaces default). */
 	customPrompt?: string;
-	/** Tools to include in prompt. Default: [read, bash, edit, write] */
+	/** Tools to include in prompt. Default: [read, bash, edit, write, dir_tree] */
 	selectedTools?: string[];
 	/** Text to append to system prompt. */
 	appendSystemPrompt?: string;
@@ -120,7 +121,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const examplesPath = getExamplesPath();
 
 	// Build tools list based on selected tools (only built-in tools with known descriptions)
-	const tools = (selectedTools || ["read", "bash", "edit", "write"]).filter((t) => t in toolDescriptions);
+	const tools = (selectedTools || ["read", "bash", "edit", "write", "dir_tree"]).filter((t) => t in toolDescriptions);
 	const toolsList = tools.length > 0 ? tools.map((t) => `- ${t}: ${toolDescriptions[t]}`).join("\n") : "(none)";
 
 	// Build guidelines based on which tools are actually available
@@ -132,13 +133,22 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const hasGrep = tools.includes("grep");
 	const hasFind = tools.includes("find");
 	const hasLs = tools.includes("ls");
+	const hasDirTree = tools.includes("dir_tree");
 	const hasRead = tools.includes("read");
 
 	// File exploration guidelines
-	if (hasBash && !hasGrep && !hasFind && !hasLs) {
+	if (hasBash && !hasGrep && !hasFind && !hasLs && !hasDirTree) {
 		guidelinesList.push("Use bash for file operations like ls, rg, find");
-	} else if (hasBash && (hasGrep || hasFind || hasLs)) {
-		guidelinesList.push("Prefer grep/find/ls tools over bash for file exploration (faster, respects .gitignore)");
+	} else if (hasBash && (hasGrep || hasFind || hasLs || hasDirTree)) {
+		guidelinesList.push(
+			"Prefer grep/find/ls/dir_tree tools over bash for file exploration (faster, respects .gitignore)",
+		);
+	}
+
+	if (hasDirTree) {
+		guidelinesList.push(
+			'When user asks to list project files or structure, call dir_tree first (do not use bash commands like "tree", "ls", "find", "fd", or "rg --files" for that task)',
+		);
 	}
 
 	// Read before edit guideline

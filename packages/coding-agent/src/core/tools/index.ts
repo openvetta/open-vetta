@@ -49,6 +49,14 @@ export {
 	readTool,
 } from "./read/index.js";
 export {
+	createTreeTool,
+	type TreeOperations,
+	type TreeToolDetails,
+	type TreeToolInput,
+	type TreeToolOptions,
+	treeTool,
+} from "./tree/index.js";
+export {
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	formatSize,
@@ -73,16 +81,17 @@ import { createFindTool, findTool } from "./find/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
+import { createTreeTool, treeTool } from "./tree/index.js";
 import { createWriteTool, writeTool } from "./write/index.js";
 
 /** Tool type (AgentTool from pi-ai) */
 export type Tool = AgentTool<any>;
 
 // Default tools for full access mode (using process.cwd())
-export const codingTools: Tool[] = [readTool, bashTool, editTool, writeTool];
+export const codingTools: Tool[] = [readTool, bashTool, editTool, writeTool, treeTool];
 
 // Read-only tools for exploration without modification (using process.cwd())
-export const readOnlyTools: Tool[] = [readTool, grepTool, findTool, lsTool];
+export const readOnlyTools: Tool[] = [readTool, grepTool, findTool, lsTool, treeTool];
 
 // All available tools (using process.cwd())
 export const allTools = {
@@ -93,6 +102,7 @@ export const allTools = {
 	grep: grepTool,
 	find: findTool,
 	ls: lsTool,
+	dir_tree: treeTool,
 };
 
 export type ToolName = keyof typeof allTools;
@@ -113,6 +123,7 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 		createBashTool(cwd, options?.bash),
 		createEditTool(cwd),
 		createWriteTool(cwd),
+		createTreeTool(cwd),
 	];
 }
 
@@ -120,7 +131,13 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
  * Create read-only tools configured for a specific working directory.
  */
 export function createReadOnlyTools(cwd: string, options?: ToolsOptions): Tool[] {
-	return [createReadTool(cwd, options?.read), createGrepTool(cwd), createFindTool(cwd), createLsTool(cwd)];
+	return [
+		createReadTool(cwd, options?.read),
+		createGrepTool(cwd),
+		createFindTool(cwd),
+		createLsTool(cwd),
+		createTreeTool(cwd),
+	];
 }
 
 /**
@@ -135,5 +152,6 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		grep: createGrepTool(cwd),
 		find: createFindTool(cwd),
 		ls: createLsTool(cwd),
+		dir_tree: createTreeTool(cwd),
 	};
 }

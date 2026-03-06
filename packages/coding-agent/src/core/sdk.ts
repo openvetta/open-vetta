@@ -26,6 +26,7 @@ import {
 	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
+	createTreeTool,
 	createWriteTool,
 	editTool,
 	findTool,
@@ -35,6 +36,7 @@ import {
 	readTool,
 	type Tool,
 	type ToolName,
+	treeTool,
 	writeTool,
 } from "./tools/index.js";
 
@@ -56,7 +58,7 @@ export interface CreateAgentSessionOptions {
 	/** Models available for cycling (Ctrl+P in interactive mode) */
 	scopedModels?: Array<{ model: Model<any>; thinkingLevel: ThinkingLevel }>;
 
-	/** Built-in tools to use. Default: codingTools [read, bash, edit, write] */
+	/** Built-in tools to use. Default: codingTools [read, bash, edit, write, dir_tree] */
 	tools?: Tool[];
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
@@ -106,6 +108,7 @@ export {
 	grepTool,
 	findTool,
 	lsTool,
+	treeTool,
 	codingTools,
 	readOnlyTools,
 	allTools as allBuiltInTools,
@@ -119,6 +122,7 @@ export {
 	createGrepTool,
 	createFindTool,
 	createLsTool,
+	createTreeTool,
 };
 
 // Helper Functions
@@ -238,7 +242,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		thinkingLevel = "off";
 	}
 
-	const defaultActiveToolNames: ToolName[] = ["read", "bash", "edit", "write"];
+	const defaultActiveToolNames: ToolName[] = ["read", "bash", "edit", "write", "dir_tree"];
 	const initialActiveToolNames: ToolName[] = options.tools
 		? options.tools.map((t) => t.name).filter((n): n is ToolName => n in allTools)
 		: defaultActiveToolNames;

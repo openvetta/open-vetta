@@ -140,6 +140,9 @@ export class ToolExecutionComponent extends Container {
 		if (this.toolName.startsWith("mcp_")) {
 			return true;
 		}
+		if (this.toolName === "tree") {
+			return true;
+		}
 		const isBuiltInName = this.toolName in allTools;
 		const hasCustomRenderers = this.toolDefinition?.renderCall || this.toolDefinition?.renderResult;
 		return isBuiltInName && !hasCustomRenderers;
@@ -864,6 +867,34 @@ export class ToolExecutionComponent extends Container {
 						warnings.push("some lines truncated");
 					}
 					text += `\n${theme.fg("warning", `[Truncated: ${warnings.join(", ")}]`)}`;
+				}
+			}
+		} else if (this.toolName === "dir_tree" || this.toolName === "tree") {
+			const rawPath = str(this.args?.path);
+			const path = rawPath !== null ? shortenPath(rawPath || ".") : null;
+			const maxDepth = this.args?.maxDepth;
+			const limit = this.args?.limit;
+
+			text = `${theme.fg("toolTitle", theme.bold("dir_tree"))} ${path === null ? invalidArg : theme.fg("accent", path)}`;
+			if (maxDepth !== undefined) {
+				text += theme.fg("toolOutput", ` (maxDepth ${maxDepth})`);
+			}
+			if (limit !== undefined) {
+				text += theme.fg("toolOutput", ` (limit ${limit})`);
+			}
+
+			if (this.result) {
+				const output = this.getTextOutput().trim();
+				if (output) {
+					const lines = output.split("\n");
+					const maxLines = this.expanded ? lines.length : 20;
+					const displayLines = lines.slice(0, maxLines);
+					const remaining = lines.length - maxLines;
+
+					text += `\n\n${displayLines.map((line: string) => theme.fg("toolOutput", line)).join("\n")}`;
+					if (remaining > 0) {
+						text += `${theme.fg("muted", `\n... (${remaining} more lines,`)} ${keyHint("expandTools", "to expand")})`;
+					}
 				}
 			}
 		} else {
