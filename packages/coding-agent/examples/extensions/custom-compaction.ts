@@ -14,8 +14,8 @@
  */
 
 import { complete } from "@mariozechner/pi-ai";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@vetta/coding-agent";
+import { convertToLlm, serializeConversation } from "@vetta/coding-agent";
 
 export default function (pi: ExtensionAPI) {
 	pi.on("session_before_compact", async (event, ctx) => {

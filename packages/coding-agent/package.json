@@ -1,5 +1,5 @@
 {
-	"name": "@mariozechner/pi-coding-agent",
+	"name": "@vetta/coding-agent",
 	"version": "0.0.1",
 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
 	"type": "module",
@@ -86,11 +86,6 @@
 	],
 	"author": "Mario Zechner",
 	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/badlogic/pi-mono.git",
-		"directory": "packages/coding-agent"
-	},
 	"engines": {
 		"node": ">=20.0.0"
 	}

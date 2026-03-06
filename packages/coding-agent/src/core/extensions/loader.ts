@@ -20,8 +20,8 @@ import * as _bundledPiTui from "@mariozechner/pi-tui";
 import * as _bundledTypebox from "@sinclair/typebox";
 import { CONFIG_DIR_NAME, getAgentDir, isBunBinary } from "../../config.js";
 // NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
-// avoiding a circular dependency. Extensions can import from @mariozechner/pi-coding-agent.
-import * as _bundledPiCodingAgent from "../../index.js";
+// avoiding a circular dependency. Extensions can import from @vetta/coding-agent.
+import * as _bundledVettaCodingAgent from "../../index.js";
 import { createEventBus, type EventBus } from "../event-bus.js";
 import type { ExecOptions } from "../exec.js";
 import { execCommand } from "../exec.js";
@@ -43,7 +43,7 @@ const VIRTUAL_MODULES: Record<string, unknown> = {
 	"@mariozechner/pi-agent-core": _bundledPiAgentCore,
 	"@mariozechner/pi-tui": _bundledPiTui,
 	"@mariozechner/pi-ai": _bundledPiAi,
-	"@mariozechner/pi-coding-agent": _bundledPiCodingAgent,
+	"@vetta/coding-agent": _bundledVettaCodingAgent,
 };
 
 const require = createRequire(import.meta.url);
@@ -63,7 +63,7 @@ function getAliases(): Record<string, string> {
 	const typeboxRoot = typeboxEntry.replace(/[\\/]build[\\/]cjs[\\/]index\.js$/, "");
 
 	_aliases = {
-		"@mariozechner/pi-coding-agent": packageIndex,
+		"@vetta/coding-agent": packageIndex,
 		"@mariozechner/pi-agent-core": require.resolve("@mariozechner/pi-agent-core"),
 		"@mariozechner/pi-tui": require.resolve("@mariozechner/pi-tui"),
 		"@mariozechner/pi-ai": require.resolve("@mariozechner/pi-ai"),

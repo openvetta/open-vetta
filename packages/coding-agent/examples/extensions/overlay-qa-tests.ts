@@ -16,9 +16,9 @@
  *   /overlay-toggle     - Toggle visibility demo (demonstrates OverlayHandle.setHidden)
  */
 
-import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@mariozechner/pi-coding-agent";
 import type { OverlayAnchor, OverlayHandle, OverlayOptions, TUI } from "@mariozechner/pi-tui";
 import { matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@vetta/coding-agent";
 import { spawn } from "child_process";
 
 // Global handle for toggle demo (in real code, use a more elegant pattern)

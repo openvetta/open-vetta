@@ -450,7 +450,7 @@ Content`,
 			writeFileSync(
 				join(ext1Dir, "index.ts"),
 				`
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@vetta/coding-agent";
 import { Type } from "@sinclair/typebox";
 export default function(pi: ExtensionAPI) {
   pi.registerTool({
@@ -465,7 +465,7 @@ export default function(pi: ExtensionAPI) {
 			writeFileSync(
 				join(ext2Dir, "index.ts"),
 				`
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@vetta/coding-agent";
 import { Type } from "@sinclair/typebox";
 export default function(pi: ExtensionAPI) {
   pi.registerTool({

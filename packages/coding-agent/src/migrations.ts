@@ -5,11 +5,10 @@
 import chalk from "chalk";
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import { CONFIG_DIR_NAME, getAgentDir, getBinDir } from "./config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getBinDir, getChangelogPath, getDocsPath } from "./config.js";
 
-const MIGRATION_GUIDE_URL =
-	"https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/CHANGELOG.md#extensions-migration";
-const EXTENSIONS_DOC_URL = "https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/extensions.md";
+const MIGRATION_GUIDE_REFERENCE = `${getChangelogPath()}#extensions-migration`;
+const EXTENSIONS_DOC_REFERENCE = join(getDocsPath(), "extensions.md");
 
 /**
  * Migrate legacy oauth.json and settings.json apiKeys to auth.json.
@@ -77,7 +76,7 @@ export function migrateAuthToAuthJson(): string[] {
  * ~/.pi/agent/sessions/<encoded-cwd>/. This migration moves them
  * to the correct location based on the cwd in their session header.
  *
- * See: https://github.com/badlogic/pi-mono/issues/320
+ * Handles legacy sessions that were written to the agent root by older builds.
  */
 export function migrateSessionsFromAgentRoot(): void {
 	const agentDir = getAgentDir();
@@ -262,8 +261,8 @@ export async function showDeprecationWarnings(warnings: string[]): Promise<void>
 		console.log(chalk.yellow(`Warning: ${warning}`));
 	}
 	console.log(chalk.yellow(`\nMove your extensions to the extensions/ directory.`));
-	console.log(chalk.yellow(`Migration guide: ${MIGRATION_GUIDE_URL}`));
-	console.log(chalk.yellow(`Documentation: ${EXTENSIONS_DOC_URL}`));
+	console.log(chalk.yellow(`Migration guide: ${MIGRATION_GUIDE_REFERENCE}`));
+	console.log(chalk.yellow(`Documentation: ${EXTENSIONS_DOC_REFERENCE}`));
 	console.log(chalk.dim(`\nPress any key to continue...`));
 
 	await new Promise<void>((resolve) => {

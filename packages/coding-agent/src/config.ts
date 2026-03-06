@@ -53,7 +53,7 @@ export function getUpdateInstruction(packageName: string): string {
 	const method = detectInstallMethod();
 	switch (method) {
 		case "bun-binary":
-			return `Download from: https://github.com/badlogic/pi-mono/releases/latest`;
+			return "Update via your internal release channel";
 		case "pnpm":
 			return `Run: pnpm install -g ${packageName}`;
 		case "yarn":
@@ -164,6 +164,7 @@ export function getChangelogPath(): string {
 
 const pkg = JSON.parse(readFileSync(getPackageJsonPath(), "utf-8"));
 
+export const PACKAGE_NAME: string = pkg.name || "@vetta/coding-agent";
 export const APP_NAME: string = pkg.piConfig?.name || "vetta";
 export const CONFIG_DIR_NAME: string = pkg.piConfig?.configDir || ".vetta";
 export const VERSION: string = pkg.version;
