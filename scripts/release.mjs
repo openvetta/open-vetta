@@ -9,9 +9,10 @@
  * 2. Bump version via npm run version:xxx
  * 3. Update CHANGELOG.md files: [Unreleased] -> [version] - date
  * 4. Commit and tag
- * 5. Publish to npm
+ * 5. Optionally publish to private registry
  * 6. Add new [Unreleased] section to changelogs
  * 7. Commit
+ * 8. Push current branch and tag
  */
 
 import { execSync } from "child_process";
@@ -19,6 +20,8 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 
 const BUMP_TYPE = process.argv[2];
+const SHOULD_PUBLISH = process.env.RELEASE_PUBLISH === "true";
+const RELEASE_BRANCH = process.env.RELEASE_BRANCH;
 
 if (!["major", "minor", "patch"].includes(BUMP_TYPE)) {
 	console.error("Usage: node scripts/release.mjs <major|minor|patch>");
@@ -36,6 +39,10 @@ function run(cmd, options = {}) {
 		}
 		return null;
 	}
+}
+
+function getCurrentBranch() {
+	return run("git branch --show-current", { silent: true }).trim();
 }
 
 function getVersion() {
@@ -121,9 +128,13 @@ run(`git tag v${version}`);
 console.log();
 
 // 5. Publish
-console.log("Publishing to npm...");
-run("npm run publish");
-console.log();
+if (SHOULD_PUBLISH) {
+	console.log("Publishing to private registry...");
+	run("bun run publish:private");
+	console.log();
+} else {
+	console.log("Skipping publish (set RELEASE_PUBLISH=true to enable private publish)\n");
+}
 
 // 6. Add new [Unreleased] sections
 console.log("Adding [Unreleased] sections for next cycle...");
@@ -138,7 +149,8 @@ console.log();
 
 // 8. Push
 console.log("Pushing to remote...");
-run("git push origin main");
+const branch = RELEASE_BRANCH || getCurrentBranch();
+run(`git push origin ${branch}`);
 run(`git push origin v${version}`);
 console.log();
 
