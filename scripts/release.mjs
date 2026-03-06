@@ -6,7 +6,7 @@
  *
  * Steps:
  * 1. Check for uncommitted changes
- * 2. Bump version via npm run version:xxx
+ * 2. Bump lockstep package versions
  * 3. Update CHANGELOG.md files: [Unreleased] -> [version] - date
  * 4. Commit and tag
  * 5. Optionally publish to private registry
@@ -48,6 +48,59 @@ function getCurrentBranch() {
 function getVersion() {
 	const pkg = JSON.parse(readFileSync("packages/ai/package.json", "utf-8"));
 	return pkg.version;
+}
+
+function parseSemver(version) {
+	const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+	if (!match) {
+		throw new Error(`Invalid semver: ${version}`);
+	}
+	return {
+		major: Number(match[1]),
+		minor: Number(match[2]),
+		patch: Number(match[3]),
+	};
+}
+
+function bumpSemver(version, bumpType) {
+	const parsed = parseSemver(version);
+	if (bumpType === "major") {
+		return `${parsed.major + 1}.0.0`;
+	}
+	if (bumpType === "minor") {
+		return `${parsed.major}.${parsed.minor + 1}.0`;
+	}
+	return `${parsed.major}.${parsed.minor}.${parsed.patch + 1}`;
+}
+
+function getLockstepPackageJsonPaths() {
+	const packagesDir = "packages";
+	const packageDirs = readdirSync(packagesDir, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name);
+
+	return [
+		"package.json",
+		...packageDirs.map((dir) => join(packagesDir, dir, "package.json")).filter((path) => existsSync(path)),
+	];
+}
+
+function bumpLockstepVersions(bumpType) {
+	const currentVersion = getVersion();
+	const nextVersion = bumpSemver(currentVersion, bumpType);
+	const packageJsonPaths = getLockstepPackageJsonPaths();
+
+	for (const packageJsonPath of packageJsonPaths) {
+		const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+		if (!pkg.version) {
+			continue;
+		}
+		pkg.version = nextVersion;
+		writeFileSync(packageJsonPath, JSON.stringify(pkg, null, "\t") + "\n");
+		console.log(`  Updated ${packageJsonPath} version -> ${nextVersion}`);
+	}
+
+	return nextVersion;
 }
 
 function getChangelogs() {
@@ -111,8 +164,8 @@ console.log("  Working directory clean\n");
 
 // 2. Bump version
 console.log(`Bumping version (${BUMP_TYPE})...`);
-run(`npm run version:${BUMP_TYPE}`);
-const version = getVersion();
+const version = bumpLockstepVersions(BUMP_TYPE);
+run("node scripts/sync-versions.js");
 console.log(`  New version: ${version}\n`);
 
 // 3. Update changelogs
