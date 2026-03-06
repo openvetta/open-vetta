@@ -41,6 +41,8 @@ export type {
 	ContextUsage,
 	CustomToolCallEvent,
 	CustomToolResultEvent,
+	DirTreeToolCallEvent,
+	DirTreeToolResultEvent,
 	EditToolCallEvent,
 	EditToolResultEvent,
 	ExecOptions,
@@ -150,6 +152,7 @@ export type {
 // Type guards
 export {
 	isBashToolResult,
+	isDirTreeToolResult,
 	isEditToolResult,
 	isFindToolResult,
 	isGrepToolResult,

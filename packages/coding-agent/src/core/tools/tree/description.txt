@@ -1,0 +1,13 @@
+Render a compact directory tree for a path, with explicit node types and counts:
+- [D] for directories (with immediate child counts: d:<dirs>, f:<files>)
+- [F] for files
+
+Important: this tool is named dir_tree to avoid confusion with the shell command tree.
+
+Use this tool first when you need a high-level map of a codebase with minimal token usage, then drill down with read/find/grep.
+
+Performance and safety:
+- Uses fd for fast cross-platform scanning (macOS/Linux/Windows)
+- Respects .gitignore by default
+- Supports maxDepth and node limits to avoid context explosion
+- Truncates output when size limits are hit
