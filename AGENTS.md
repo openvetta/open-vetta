@@ -20,39 +20,14 @@ read README.md, then ask which module(s) to work on. Based on the answer, read t
 - Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
 
 ## Commands
-- After code changes (not documentation changes): `npm run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
-- Note: `npm run check` does not run tests.
-- NEVER run: `npm run dev`, `npm run build`, `npm test`
-- Only run specific tests if user instructs: `npx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
+- Use Bun for package management and scripts (`bun`/`bunx`) unless the user explicitly asks for npm.
+- After code changes (not documentation changes): `bun run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
+- Note: `bun run check` does not run tests.
+- NEVER run: `bun run dev`, `bun run build`, `bun test`
+- Only run specific tests if user instructs: `bunx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`
 - Run tests from the package root, not the repo root.
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
 - NEVER commit unless user asks
-
-## GitHub Issues
-When reading issues:
-- Always read all comments on the issue
-- Use this command to get everything in one call:
-  ```bash
-  gh issue view <number> --json title,body,comments,labels,state
-  ```
-
-When creating issues:
-- Add `pkg:*` labels to indicate which package(s) the issue affects
-  - Available labels: `pkg:agent`, `pkg:ai`, `pkg:coding-agent`, `pkg:mom`, `pkg:pods`, `pkg:tui`, `pkg:web-ui`
-- If an issue spans multiple packages, add all relevant labels
-
-When closing issues via commit:
-- Include `fixes #<number>` or `closes #<number>` in the commit message
-- This automatically closes the issue when the commit is merged
-
-## PR Workflow
-- Analyze PRs without pulling locally first
-- If the user approves: create a feature branch, pull PR, rebase on main, apply adjustments, commit, merge into main, push, close PR, and leave a comment in the user's tone
-- You never open PRs yourself. We work in feature branches until everything is according to the user's requirements, then merge into main, and push.
-
-## Tools
-- GitHub CLI for issues/PRs
-- Add package labels to issues/PRs: pkg:agent, pkg:ai, pkg:coding-agent, pkg:mom, pkg:pods, pkg:tui, pkg:web-ui
 
 ## Testing pi Interactive Mode with tmux
 
@@ -61,9 +36,6 @@ To test pi's TUI in a controlled terminal environment:
 ```bash
 # Create tmux session with specific dimensions
 tmux new-session -d -s pi-test -x 80 -y 24
-
-# Start pi from source
-tmux send-keys -t pi-test "cd /Users/badlogic/workspaces/pi-mono && ./pi-test.sh" Enter
 
 # Wait for startup, then capture output
 sleep 3 && tmux capture-pane -t pi-test -p
@@ -104,8 +76,8 @@ Use these sections under `## [Unreleased]`:
 - Each version section is immutable once released
 
 ### Attribution
-- **Internal changes (from issues)**: `Fixed foo bar ([#123](https://github.com/badlogic/pi-mono/issues/123))`
-- **External contributions**: `Added feature X ([#456](https://github.com/badlogic/pi-mono/pull/456) by [@username](https://github.com/username))`
+- **Internal changes (from issues)**: `Fixed foo bar (#123)`
+- **External contributions**: `Added feature X (#456 by @username)`
 
 ## Adding a New LLM Provider (packages/ai)
 
@@ -163,11 +135,16 @@ For non-standard auth, create utility (e.g., `bedrock-utils.ts`) with credential
 
 2. **Run release script**:
    ```bash
-   npm run release:patch    # Fixes and additions
-   npm run release:minor    # API breaking changes
+   bun run release:patch    # Fixes and additions
+   bun run release:minor    # API breaking changes
    ```
 
-The script handles: version bump, CHANGELOG finalization, commit, tag, publish, and adding new `[Unreleased]` sections.
+Private release defaults:
+- Default behavior does NOT publish packages.
+- Set `RELEASE_PUBLISH=true` to publish to the configured private registry.
+- Optional: set `RELEASE_BRANCH=<branch>` to override the push target branch (default: current branch).
+
+The script handles: version bump, CHANGELOG finalization, commit, tag, optional private publish, and adding new `[Unreleased]` sections.
 
 ## **CRITICAL** Tool Usage Rules **CRITICAL**
 - NEVER use sed/cat to read a file or a range of a file. Always use the read tool (use offset + limit for ranged reads).
@@ -179,7 +156,7 @@ Multiple agents may work on different files in the same worktree simultaneously.
 
 ### Committing
 - **ONLY commit files YOU changed in THIS session**
-- ALWAYS include `fixes #<number>` or `closes #<number>` in the commit message when there is a related issue or PR
+- ALWAYS include `fixes #<number>` or `closes #<number>` in the commit message when there is a related ticket
 - NEVER use `git add -A` or `git add .` - these sweep up changes from other agents
 - ALWAYS use `git add <specific-file-paths>` listing only files you modified
 - Before committing, run `git status` and verify you are only staging YOUR files
