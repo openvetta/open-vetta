@@ -12,14 +12,17 @@
 		"dev": "bun run build:preload && concurrently -k \"vite --config vite.config.ts\" \"wait-on tcp:5173 && NODE_OPTIONS='--import tsx' VETTA_DESKTOP_DEV_URL=http://127.0.0.1:5173 electron src/main/main.ts\""
 	},
 	"dependencies": {
-		"@vetta/runtime-core": "workspace:*",
 		"@tanstack/react-router": "^1.130.15",
+		"@vetta/runtime-core": "workspace:*",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"jotai": "^2.15.1",
 		"motion": "^12.23.12",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",
+		"react-markdown": "^10.1.0",
+		"rehype-highlight": "^7.0.2",
+		"remark-gfm": "^4.0.1",
 		"tailwind-merge": "^3.3.1"
 	},
 	"devDependencies": {
