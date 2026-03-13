@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
-import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "@vetta/runtime-core";
-import { RuntimeHost } from "@vetta/runtime-core";
-import { ipcMain, type WebContents } from "electron";
+import { dialog, ipcMain, type WebContents } from "electron";
+import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../runtime-core/src/index.js";
+import { RuntimeHost } from "../../../runtime-core/src/index.js";
 
 const CHANNELS = {
 	CREATE: "vetta:session:create",
+	LIST_PROJECTS: "vetta:session:list-projects",
+	LIST_SESSIONS: "vetta:session:list-sessions",
 	PROMPT: "vetta:session:prompt",
 	CONTINUE: "vetta:session:continue",
 	ABORT: "vetta:session:abort",
@@ -12,6 +14,7 @@ const CHANNELS = {
 	UNSUBSCRIBE: "vetta:session:unsubscribe",
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	GET_STATE: "vetta:session:get-state",
+	GET_MESSAGES: "vetta:session:get-messages",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -42,8 +45,23 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 	const runtime = new RuntimeHost();
 	const subscriptionMap = new Map<string, () => void>();
 
+	ipcMain.handle("vetta:dialog:select-folder", async () => {
+		const result = await dialog.showOpenDialog({ properties: ["openDirectory"], title: "Select Project Folder" });
+		if (result.canceled || result.filePaths.length === 0) return null;
+		return result.filePaths[0];
+	});
+
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
 		return runtime.createSession(config);
+	});
+
+	ipcMain.handle(CHANNELS.LIST_PROJECTS, async () => {
+		return runtime.listProjects();
+	});
+
+	ipcMain.handle(CHANNELS.LIST_SESSIONS, async (_event, cwd: unknown) => {
+		assertNonEmptyString(cwd, "cwd");
+		return runtime.listSessions(cwd);
 	});
 
 	ipcMain.handle(CHANNELS.PROMPT, async (_event, sessionId: unknown, request: unknown) => {
@@ -72,6 +90,11 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 		return runtime.getState(sessionId);
 	});
 
+	ipcMain.handle(CHANNELS.GET_MESSAGES, async (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		return runtime.getMessages(sessionId);
+	});
+
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
@@ -96,5 +119,6 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 			unsubscribe();
 		}
 		subscriptionMap.clear();
+		ipcMain.removeHandler("vetta:dialog:select-folder");
 	};
 }

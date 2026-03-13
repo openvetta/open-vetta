@@ -5,13 +5,17 @@ import {
 	type AgentSessionEvent,
 	type CreateAgentSessionOptions,
 	createAgentSession,
+	type SessionInfo,
+	SessionManager,
 } from "@vetta/coding-agent";
 import type {
+	ProjectInfo,
 	PromptRequest,
 	SessionConfig,
 	SessionEvent,
 	SessionEventBase,
 	SessionFacade,
+	SessionHistoryInfo,
 	SessionStateSnapshot,
 	SettingsPatch,
 } from "./contracts.js";
@@ -25,9 +29,17 @@ export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
 
 	async createSession(config: SessionConfig = {}): Promise<{ sessionId: string }> {
+		const sessionManager =
+			config.sessionPath && config.sessionPath.trim().length > 0
+				? SessionManager.open(config.sessionPath)
+				: config.cwd
+					? SessionManager.create(config.cwd)
+					: undefined;
+
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
+			sessionManager,
 			model: config.model,
 			thinkingLevel: config.thinkingLevel,
 		};
@@ -89,6 +101,37 @@ export class RuntimeHost implements SessionFacade {
 			isStreaming: handle.session.isStreaming,
 			messageCount: handle.session.messages.length,
 		};
+	}
+
+	getMessages(sessionId: string): Message[] {
+		const handle = this.requireSession(sessionId);
+		return handle.session.messages.filter((message): message is Message => {
+			return message.role === "user" || message.role === "assistant" || message.role === "toolResult";
+		});
+	}
+
+	async listProjects(): Promise<ProjectInfo[]> {
+		const sessions = await SessionManager.listAll();
+		const byCwd = new Map<string, number>();
+		for (const session of sessions) {
+			const key = session.cwd || process.cwd();
+			byCwd.set(key, (byCwd.get(key) ?? 0) + 1);
+		}
+		return Array.from(byCwd.entries())
+			.map(([cwd, sessionCount]) => ({ cwd, sessionCount }))
+			.sort((a, b) => a.cwd.localeCompare(b.cwd));
+	}
+
+	async listSessions(cwd: string): Promise<SessionHistoryInfo[]> {
+		const sessions = await SessionManager.list(cwd);
+		return sessions.map((session: SessionInfo) => ({
+			id: session.id,
+			path: session.path,
+			cwd: session.cwd,
+			name: session.name,
+			firstMessage: session.firstMessage,
+			modifiedAt: session.modified.getTime(),
+		}));
 	}
 
 	async disposeSession(sessionId: string): Promise<void> {
