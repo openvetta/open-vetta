@@ -15,6 +15,7 @@
 
 	--content-bg: #1c1c28;
 	--header-bg: rgba(20, 20, 30, 0.85);
+	--header-glass: rgba(28, 28, 40, 0.7);
 
 	/* Primary: white in dark mode */
 	--accent: #ffffff;
@@ -85,6 +86,7 @@
 
 	--content-bg: #f5f5f7;
 	--header-bg: rgba(245, 245, 247, 0.9);
+	--header-glass: rgba(245, 245, 247, 0.7);
 
 	/* Primary: black in light mode */
 	--accent: #1d1d1f;
