@@ -19,29 +19,29 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 
 	return (
 		<div className="relative flex h-full flex-1 flex-col bg-[var(--content-bg)]">
-			{/* Top bar — frosted glass, floats over content */}
+			{/* Top bar — gradient fade from solid to transparent */}
 			<div
-				className="drag-region absolute inset-x-0 top-0 z-10 flex items-center justify-between border-b border-[var(--border)] px-4"
+				className="drag-region pointer-events-none absolute inset-x-0 top-0 z-10"
 				style={{
+					background: "linear-gradient(to bottom, var(--content-bg) 40%, transparent 100%)",
 					paddingTop: 30,
-					paddingBottom: 8,
-					backdropFilter: "blur(20px) saturate(180%)",
-					WebkitBackdropFilter: "blur(20px) saturate(180%)",
-					background: "var(--header-glass)",
+					paddingBottom: 20,
+					paddingLeft: 16,
+					paddingRight: 16,
 				}}
 			>
-				<div className="no-drag flex min-w-0 items-center gap-2">
-					<div className="truncate text-[12px] font-medium text-[var(--text-2)]">
+				<div className="pointer-events-auto no-drag flex items-center justify-between">
+					<div className="truncate text-[14px] font-semibold text-[var(--text-1)]">
 						{activeSession ? projectName(activeSession.cwd) : "Session"}
 					</div>
-				</div>
 
-				{isStreaming && (
-					<div className="no-drag flex items-center gap-1.5 text-[11px] text-[var(--text-3)]">
-						<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-[var(--text-3)]" />
-						Thinking...
-					</div>
-				)}
+					{isStreaming && (
+						<div className="flex items-center gap-1.5 text-[11px] text-[var(--text-3)]">
+							<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-[var(--text-3)]" />
+							Thinking...
+						</div>
+					)}
+				</div>
 			</div>
 
 			{/* Messages — top padding accounts for the floating header */}
