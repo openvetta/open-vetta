@@ -1,14 +1,18 @@
-import { copyFile, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { copyFile, mkdir, readdir, readFile, rename, rm, stat } from "node:fs/promises";
+import { basename, extname, join, resolve } from "node:path";
 import { ipcMain } from "electron";
 import type { FsEntry } from "../preload/fs-types.js";
 
 const CHANNELS = {
 	READ_DIR: "vetta:fs:read-dir",
+	READ_FILE: "vetta:fs:read-file",
 	RENAME: "vetta:fs:rename",
 	DELETE: "vetta:fs:delete",
 	MOVE: "vetta:fs:move",
 } as const;
+
+const BINARY_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "pdf", "docx"]);
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const HIDDEN_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
 
@@ -70,6 +74,29 @@ export function registerFsIpc(): () => void {
 		return results;
 	});
 
+	ipcMain.handle(
+		CHANNELS.READ_FILE,
+		async (_event, filePath: unknown): Promise<{ content: string; encoding: "utf8" | "base64" }> => {
+			assertNonEmptyString(filePath, "filePath");
+			assertPathWithinProject(filePath);
+
+			const resolved = resolve(filePath);
+			const stats = await stat(resolved);
+			if (stats.size > MAX_FILE_SIZE) {
+				throw new Error("File too large to preview (>10 MB)");
+			}
+
+			const ext = extname(resolved).slice(1).toLowerCase();
+			if (BINARY_EXTENSIONS.has(ext)) {
+				const buffer = await readFile(resolved);
+				return { content: buffer.toString("base64"), encoding: "base64" };
+			}
+
+			const content = await readFile(resolved, "utf8");
+			return { content, encoding: "utf8" };
+		},
+	);
+
 	ipcMain.handle(CHANNELS.RENAME, async (_event, oldPath: unknown, newPath: unknown) => {
 		assertNonEmptyString(oldPath, "oldPath");
 		assertNonEmptyString(newPath, "newPath");
@@ -120,6 +147,7 @@ export function registerFsIpc(): () => void {
 
 	return () => {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
+		ipcMain.removeHandler(CHANNELS.READ_FILE);
 		ipcMain.removeHandler(CHANNELS.RENAME);
 		ipcMain.removeHandler(CHANNELS.DELETE);
 		ipcMain.removeHandler(CHANNELS.MOVE);

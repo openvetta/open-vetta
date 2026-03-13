@@ -88,9 +88,15 @@ export interface FsEntry {
 export const fileTreeCacheAtom = atom<Map<string, FsEntry[]>>(new Map());
 export const expandedDirsAtom = atom<Set<string>>(new Set());
 export const selectedFilePathAtom = atom<string | null>(null);
+export const activityPanelOpenAtom = atom<boolean>(false);
 export const loadingDirsAtom = atom<Set<string>>(new Set());
 export const fileContextMenuAtom = atom<{ x: number; y: number; entry: FsEntry } | null>(null);
 export const renamingPathAtom = atom<string | null>(null);
+
+// ─── Panel widths ───
+
+export const sidebarWidthAtom = atom<number>(220);
+export const activityPanelWidthAtom = atom<number>(360);
 
 // ─── Theme ───
 

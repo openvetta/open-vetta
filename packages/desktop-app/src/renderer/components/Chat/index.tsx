@@ -1,5 +1,5 @@
-import { useAtomValue } from "jotai";
-import { activeSessionAtom, chatMessagesAtom, isStreamingAtom } from "../../store/atoms";
+import { useAtomValue, useAtom } from "jotai";
+import { activeSessionAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom } from "../../store/atoms";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
 
@@ -16,9 +16,10 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const activeSession = useAtomValue(activeSessionAtom);
 	const messages = useAtomValue(chatMessagesAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
+	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
 
 	return (
-		<div className="relative flex h-full flex-1 flex-col bg-[var(--content-bg)]">
+		<div className="relative flex h-full min-w-0 flex-1 flex-col bg-[var(--content-bg)]">
 			{/* Top bar — gradient fade from solid to transparent */}
 			<div
 				className="drag-region pointer-events-none absolute inset-x-0 top-0 z-10"
@@ -35,12 +36,26 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						{activeSession ? projectName(activeSession.cwd) : "Session"}
 					</div>
 
-					{isStreaming && (
-						<div className="flex items-center gap-1.5 text-[11px] text-[var(--text-3)]">
-							<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-[var(--text-3)]" />
-							Thinking...
-						</div>
-					)}
+					<div className="flex items-center gap-2">
+						{isStreaming && (
+							<div className="flex items-center gap-1.5 text-[11px] text-[var(--text-3)]">
+								<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-[var(--text-3)]" />
+								Thinking...
+							</div>
+						)}
+						<button
+							type="button"
+							title={panelOpen ? "关闭活动面板" : "打开活动面板"}
+							onClick={() => setPanelOpen((o) => !o)}
+							className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
+								panelOpen
+									? "bg-[var(--hover-strong)] text-[var(--text-1)]"
+									: "text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-2)]"
+							}`}
+						>
+							<span className="icon-[mdi--dock-right] text-[14px]" />
+						</button>
+					</div>
 				</div>
 			</div>
 

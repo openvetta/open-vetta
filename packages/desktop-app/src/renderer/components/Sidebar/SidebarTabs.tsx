@@ -16,16 +16,16 @@ export function SidebarTabs(): JSX.Element {
 				<button
 					key={t.value}
 					type="button"
+					title={t.label}
 					onClick={() => setTab(t.value)}
 					className={cn(
-						"no-drag flex flex-1 items-center justify-center gap-1.5 py-1.5 text-[11px] font-medium transition-colors",
+						"no-drag flex flex-1 items-center justify-center py-1.5 transition-colors",
 						tab === t.value
 							? "border-b-2 border-[var(--accent)] text-[var(--text-1)]"
 							: "border-b-2 border-transparent text-[var(--text-3)] hover:text-[var(--text-2)]",
 					)}
 				>
-					<span className={cn(t.icon, "h-3.5 w-3.5")} />
-					{t.label}
+					<span className={cn(t.icon, "h-4 w-4")} />
 				</button>
 			))}
 		</div>

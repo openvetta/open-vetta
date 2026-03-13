@@ -3,6 +3,7 @@ import { useSetAtom, useAtom } from "jotai";
 import { Sidebar } from "./components/Sidebar";
 import { ChatView } from "./components/Chat";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { ActivityPanel } from "./components/ActivityPanel";
 import { useProjects } from "./hooks/useProjects";
 import { useTheme } from "./hooks/useTheme";
 import {
@@ -10,6 +11,7 @@ import {
 	chatMessagesAtom,
 	isStreamingAtom,
 	inputValueAtom,
+	selectedFilePathAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -400,6 +402,7 @@ export function App(): JSX.Element {
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setIsStreaming = useSetAtom(isStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
+	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	useTheme();
 
@@ -417,6 +420,7 @@ export function App(): JSX.Element {
 			currentUnsubscribe?.();
 			currentUnsubscribe = null;
 			resetStreamState();
+			setSelectedFilePath(null);
 
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
 
@@ -487,7 +491,7 @@ export function App(): JSX.Element {
 
 			await loadSessions(cwd);
 		},
-		[setChatMessages, setActiveSession, setIsStreaming, loadSessions],
+		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, loadSessions],
 	);
 
 	const sendMessage = useCallback(async () => {
@@ -510,7 +514,7 @@ export function App(): JSX.Element {
 		<div className="flex h-screen w-screen overflow-hidden p-1.5 pl-0">
 			<Sidebar onOpenSession={openSession} />
 			<main
-				className="flex min-w-0 flex-1 overflow-hidden rounded-lg bg-[var(--content-bg)]"
+				className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg bg-[var(--content-bg)]"
 				style={{
 					border: "var(--panel-border)",
 					boxShadow: "var(--panel-shadow)",
@@ -522,6 +526,7 @@ export function App(): JSX.Element {
 					<WelcomeScreen />
 				)}
 			</main>
+			<ActivityPanel />
 		</div>
 	);
 }

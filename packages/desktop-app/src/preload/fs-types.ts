@@ -8,6 +8,7 @@ export interface FsEntry {
 
 export interface DesktopFsApi {
 	readDir(dirPath: string): Promise<FsEntry[]>;
+	readFile(filePath: string): Promise<{ content: string; encoding: "utf8" | "base64" }>;
 	rename(oldPath: string, newPath: string): Promise<void>;
 	delete(targetPath: string): Promise<void>;
 	move(sourcePath: string, destDir: string): Promise<void>;
