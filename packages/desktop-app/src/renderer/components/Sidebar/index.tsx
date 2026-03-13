@@ -1,7 +1,9 @@
 import { useAtomValue } from "jotai";
-import { activeSessionAtom } from "../../store/atoms";
+import { sidebarTabAtom } from "../../store/atoms";
 import { useProjects } from "../../hooks/useProjects";
-import { ProjectGroup } from "./ProjectGroup";
+import { SidebarTabs } from "./SidebarTabs";
+import { ProjectsPanel } from "./ProjectsPanel";
+import { FilesPanel } from "./FileExplorer/FilesPanel";
 import { SettingsMenu } from "./SettingsMenu";
 
 interface SidebarProps {
@@ -9,8 +11,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
-	const { projects, sessionsMap, expandedProjects, addProject, toggleProject } = useProjects();
-	const activeSession = useAtomValue(activeSessionAtom);
+	const tab = useAtomValue(sidebarTabAtom);
+	const { addProject } = useProjects();
 
 	return (
 		<aside className="sidebar-vibrancy flex h-full w-[220px] shrink-0 flex-col">
@@ -34,42 +36,15 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				</button>
 			</div>
 
-			{/* Section label */}
-			<div className="px-4 pb-1.5 pt-1">
-				<span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
-					Projects
-				</span>
-			</div>
+			{/* Tab switcher */}
+			<SidebarTabs />
 
-			{/* Project list */}
+			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
-				{projects.length === 0 ? (
-					<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
-						<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-[var(--text-3)]" />
-						<p className="text-[11px] text-[var(--text-3)]">
-							No projects yet.
-						</p>
-						<button
-							type="button"
-							onClick={() => void addProject()}
-							className="text-[11px] font-medium text-[var(--text-2)] underline decoration-[var(--border-strong)] underline-offset-2 hover:text-[var(--text-1)]"
-						>
-							Add a project
-						</button>
-					</div>
+				{tab === "projects" ? (
+					<ProjectsPanel onOpenSession={onOpenSession} />
 				) : (
-					projects.map((project) => (
-						<ProjectGroup
-							key={project.cwd}
-							project={project}
-							sessions={sessionsMap.get(project.cwd) ?? []}
-							isExpanded={expandedProjects.has(project.cwd)}
-							activeSessionPath={activeSession?.sessionPath ?? ""}
-							onToggle={toggleProject}
-							onNewSession={(cwd) => void onOpenSession(cwd)}
-							onSelectSession={(cwd, path) => void onOpenSession(cwd, path)}
-						/>
-					))
+					<FilesPanel />
 				)}
 			</div>
 

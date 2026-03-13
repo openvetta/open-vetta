@@ -33,6 +33,12 @@ const api: DesktopApi = {
 			};
 		},
 	},
+	fs: {
+		readDir: async (dirPath) => ipcRenderer.invoke("vetta:fs:read-dir", dirPath),
+		rename: async (oldPath, newPath) => ipcRenderer.invoke("vetta:fs:rename", oldPath, newPath),
+		delete: async (targetPath) => ipcRenderer.invoke("vetta:fs:delete", targetPath),
+		move: async (sourcePath, destDir) => ipcRenderer.invoke("vetta:fs:move", sourcePath, destDir),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),

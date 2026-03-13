@@ -70,6 +70,30 @@ export const chatMessagesAtom = atom<ChatMessage[]>([]);
 export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 
+// ─── Sidebar tab ───
+
+export type SidebarTab = "projects" | "files";
+export const sidebarTabAtom = atom<SidebarTab>("projects");
+
+// ─── File tree state ───
+
+export interface FsEntry {
+	name: string;
+	path: string;
+	isDirectory: boolean;
+	size: number;
+	modifiedAt: number;
+}
+
+export const fileTreeCacheAtom = atom<Map<string, FsEntry[]>>(new Map());
+export const expandedDirsAtom = atom<Set<string>>(new Set());
+export const selectedFilePathAtom = atom<string | null>(null);
+export const loadingDirsAtom = atom<Set<string>>(new Set());
+export const fileContextMenuAtom = atom<{ x: number; y: number; entry: FsEntry } | null>(null);
+export const renamingPathAtom = atom<string | null>(null);
+
+// ─── Theme ───
+
 export type ThemeMode = "light" | "dark" | "auto";
 export const themeModeAtom = atom<ThemeMode>((localStorage.getItem("vetta-theme") as ThemeMode) || "dark");
 export const resolvedThemeAtom = atom<"light" | "dark">("dark");
