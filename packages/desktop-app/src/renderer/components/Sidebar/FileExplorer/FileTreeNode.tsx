@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { useAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { cn } from "../../../lib/utils";
 import {
 	type FsEntry,
 	fileContextMenuAtom,
 	renamingPathAtom,
 	selectedFilePathAtom,
+	activityPanelOpenAtom,
 } from "../../../store/atoms";
 import { getFileIcon } from "./fileIcons";
 
@@ -29,6 +30,7 @@ export function FileTreeNode({
 	onRename,
 }: FileTreeNodeProps): JSX.Element {
 	const [selectedPath, setSelectedPath] = useAtom(selectedFilePathAtom);
+	const setPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const [, setContextMenu] = useAtom(fileContextMenuAtom);
 	const [renamingPath, setRenamingPath] = useAtom(renamingPathAtom);
 	const [dragOver, setDragOver] = useState(false);
@@ -56,6 +58,7 @@ export function FileTreeNode({
 			onToggleDir(entry.path);
 		} else {
 			setSelectedPath(entry.path);
+			setPanelOpen(true);
 		}
 	}
 

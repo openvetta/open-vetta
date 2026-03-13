@@ -89,7 +89,7 @@ export function SettingsMenu(): JSX.Element {
 						{/* Separator */}
 						<div className="mx-1 my-1 border-t border-[var(--popup-separator)]" />
 
-						{/* Settings */}
+						{/* 设置 */}
 						<button
 							type="button"
 							onClick={() => {
@@ -99,7 +99,7 @@ export function SettingsMenu(): JSX.Element {
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
 						>
 							<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
-							Settings
+							设置
 						</button>
 					</motion.div>
 				)}
@@ -117,7 +117,7 @@ export function SettingsMenu(): JSX.Element {
 				)}
 			>
 				<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
-				Settings
+				设置
 			</button>
 		</div>
 	);

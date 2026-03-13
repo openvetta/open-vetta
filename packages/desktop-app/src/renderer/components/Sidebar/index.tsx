@@ -1,10 +1,15 @@
-import { useAtomValue } from "jotai";
-import { sidebarTabAtom } from "../../store/atoms";
+import { useCallback } from "react";
+import { useAtom, useAtomValue } from "jotai";
+import { sidebarTabAtom, sidebarWidthAtom } from "../../store/atoms";
 import { useProjects } from "../../hooks/useProjects";
 import { SidebarTabs } from "./SidebarTabs";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "./FileExplorer/FilesPanel";
 import { SettingsMenu } from "./SettingsMenu";
+import { ResizeHandle } from "../ResizeHandle";
+
+const MIN_WIDTH = 160;
+const MAX_WIDTH = 400;
 
 interface SidebarProps {
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
@@ -13,9 +18,17 @@ interface SidebarProps {
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	const tab = useAtomValue(sidebarTabAtom);
 	const { addProject } = useProjects();
+	const [width, setWidth] = useAtom(sidebarWidthAtom);
+
+	const onResize = useCallback(
+		(delta: number) => {
+			setWidth((w) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w + delta)));
+		},
+		[setWidth],
+	);
 
 	return (
-		<aside className="sidebar-vibrancy flex h-full w-[220px] shrink-0 flex-col">
+		<aside className="sidebar-vibrancy relative flex h-full shrink-0 flex-col" style={{ width }}>
 			{/* macOS traffic light spacer + header */}
 			<div className="drag-region flex items-center justify-between px-3.5 pb-3 pt-[52px]">
 				<div className="no-drag flex items-center gap-2">
@@ -52,6 +65,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 			<div className="border-t border-[var(--border)] px-1.5 py-1.5">
 				<SettingsMenu />
 			</div>
+			<ResizeHandle side="right" onResize={onResize} />
 		</aside>
 	);
 }
