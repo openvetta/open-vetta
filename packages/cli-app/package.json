@@ -1,0 +1,22 @@
+{
+	"name": "@vetta/cli-app",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"bin": {
+		"vetta-cli-app": "dist/cli.js"
+	},
+	"files": ["dist"],
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json"
+	},
+	"dependencies": {
+		"@vetta/runtime-core": "workspace:*"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.2",
+		"@types/node": "^22.10.5"
+	}
+}

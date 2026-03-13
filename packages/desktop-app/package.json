@@ -1,0 +1,27 @@
+{
+	"name": "@vetta/desktop-app",
+	"version": "0.0.1",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "tsgo -p ../../tsconfig.json --noEmit",
+		"start": "NODE_OPTIONS='--import tsx' electron src/main/main.ts"
+	},
+	"dependencies": {
+		"@vetta/runtime-core": "workspace:*",
+		"jotai": "^2.15.1",
+		"@tanstack/react-router": "^1.130.15",
+		"react": "^19.1.1",
+		"react-dom": "^19.1.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.5",
+		"@types/react": "^19.1.1",
+		"@types/react-dom": "^19.1.1",
+		"electron": "^34.2.0",
+		"tsx": "^4.20.3",
+		"typescript": "^5.9.2",
+		"vite": "^7.1.7"
+	}
+}
