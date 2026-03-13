@@ -14,10 +14,46 @@ export interface SessionInfo {
 	modifiedAt: number;
 }
 
+// ─── Rich content blocks ───
+
+export interface TextBlock {
+	type: "text";
+	text: string;
+}
+
+export interface ThinkingBlock {
+	type: "thinking";
+	text: string;
+}
+
+export interface ToolCallBlock {
+	type: "tool_call";
+	toolCallId: string;
+	toolName: string;
+	args: Record<string, unknown>;
+	/** "pending" = waiting for result, "success" = completed, "error" = failed */
+	status: "pending" | "success" | "error";
+	result?: string;
+	isError?: boolean;
+}
+
+export interface ToolResultBlock {
+	type: "tool_result";
+	toolCallId: string;
+	toolName: string;
+	content: string;
+	isError: boolean;
+}
+
+export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | ToolResultBlock;
+
 export interface ChatMessage {
 	id: string;
 	role: "user" | "assistant";
+	/** Plain text for user messages; for assistant messages this is the concatenated text blocks */
 	text: string;
+	/** Rich content blocks for assistant messages */
+	blocks?: ContentBlock[];
 }
 
 export interface ActiveSession {

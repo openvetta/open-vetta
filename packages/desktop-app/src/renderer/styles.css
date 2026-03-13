@@ -59,6 +59,18 @@
 	--popup-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
 	--popup-hover: rgba(255, 255, 255, 0.06);
 	--popup-separator: rgba(255, 255, 255, 0.06);
+
+	/* Tool execution */
+	--tool-pending: #a78bfa;
+	--tool-pending-bg: rgba(167, 139, 250, 0.06);
+	--tool-success: #4ade80;
+	--tool-success-bg: rgba(74, 222, 128, 0.06);
+	--tool-error: #f87171;
+	--tool-error-bg: rgba(248, 113, 113, 0.06);
+
+	/* Thinking */
+	--thinking-accent: #a78bfa;
+	--thinking-text: #9494b0;
 }
 
 /* ─── Light theme ─── */
@@ -111,6 +123,18 @@
 	--popup-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
 	--popup-hover: rgba(0, 0, 0, 0.04);
 	--popup-separator: rgba(0, 0, 0, 0.06);
+
+	/* Tool execution */
+	--tool-pending: #7c3aed;
+	--tool-pending-bg: rgba(124, 58, 237, 0.05);
+	--tool-success: #16a34a;
+	--tool-success-bg: rgba(22, 163, 74, 0.05);
+	--tool-error: #dc2626;
+	--tool-error-bg: rgba(220, 38, 38, 0.05);
+
+	/* Thinking */
+	--thinking-accent: #7c3aed;
+	--thinking-text: #6e6e73;
 }
 
 * {

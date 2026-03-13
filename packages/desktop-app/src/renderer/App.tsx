@@ -11,16 +11,90 @@ import {
 	isStreamingAtom,
 	inputValueAtom,
 	type ChatMessage,
+	type ContentBlock,
+	type ToolCallBlock,
 } from "./store/atoms";
 
-// Extracts plain text from a Message (string content or content-part array)
+// ─── Helpers to convert pi-ai Messages to ChatMessage ───
+
 function extractText(message: { content: unknown }): string {
 	if (typeof message.content === "string") return message.content;
 	if (!Array.isArray(message.content)) return "";
-	return (message.content as Array<{ type: string; text?: string }>)
-		.filter((item): item is { type: "text"; text: string } => item.type === "text" && typeof item.text === "string")
-		.map((item) => item.text)
+	return (message.content as Array<{ type: string; text?: string; thinking?: string }>)
+		.filter((item) => item.type === "text" && typeof item.text === "string")
+		.map((item) => item.text!)
 		.join("");
+}
+
+function messageToBlocks(message: { role: string; content: unknown }): ContentBlock[] {
+	if (typeof message.content === "string") {
+		return [{ type: "text", text: message.content }];
+	}
+	if (!Array.isArray(message.content)) return [];
+	const blocks: ContentBlock[] = [];
+	for (const part of message.content as Array<Record<string, unknown>>) {
+		if (part.type === "text" && typeof part.text === "string") {
+			blocks.push({ type: "text", text: part.text });
+		} else if (part.type === "thinking" && typeof part.thinking === "string") {
+			blocks.push({ type: "thinking", text: part.thinking });
+		} else if (part.type === "toolCall" && typeof part.name === "string") {
+			blocks.push({
+				type: "tool_call",
+				toolCallId: String(part.id ?? ""),
+				toolName: String(part.name),
+				args: (part.arguments as Record<string, unknown>) ?? {},
+				status: "success", // history messages are already complete
+			});
+		}
+	}
+	return blocks;
+}
+
+/**
+ * Convert history messages (user, assistant, toolResult) into ChatMessages.
+ * Tool results are merged into their corresponding tool_call blocks.
+ */
+function historyToChat(history: Array<{ role: string; content: unknown; toolCallId?: string; toolName?: string; isError?: boolean }>): ChatMessage[] {
+	const messages: ChatMessage[] = [];
+	// Index tool_call blocks by toolCallId for merging tool results
+	const toolCallIndex = new Map<string, ToolCallBlock>();
+
+	for (const m of history) {
+		if (m.role === "user") {
+			messages.push({
+				id: `hist-user-${messages.length}`,
+				role: "user",
+				text: extractText(m),
+			});
+		} else if (m.role === "assistant") {
+			const blocks = messageToBlocks(m);
+			// Register tool_call blocks for result merging
+			for (const b of blocks) {
+				if (b.type === "tool_call") {
+					toolCallIndex.set(b.toolCallId, b);
+				}
+			}
+			messages.push({
+				id: `hist-asst-${messages.length}`,
+				role: "assistant",
+				text: extractText(m),
+				blocks,
+			});
+		} else if (m.role === "toolResult") {
+			// Merge into corresponding tool_call block
+			const callId = m.toolCallId;
+			if (callId) {
+				const toolBlock = toolCallIndex.get(String(callId));
+				if (toolBlock) {
+					const resultText = extractText(m);
+					toolBlock.result = resultText;
+					toolBlock.isError = m.isError === true;
+					toolBlock.status = m.isError ? "error" : "success";
+				}
+			}
+		}
+	}
+	return messages;
 }
 
 // Module-level ref to survive React StrictMode double-invoke
@@ -32,9 +106,7 @@ export function App(): JSX.Element {
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setIsStreaming = useSetAtom(isStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
-	// Ref mirrors activeSession for use in stable callbacks without stale-closure issues
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
-	// Initialize theme system
 	useTheme();
 
 	useEffect(() => {
@@ -43,26 +115,20 @@ export function App(): JSX.Element {
 			currentUnsubscribe?.();
 			currentUnsubscribe = null;
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	const openSession = useCallback(
 		async (cwd: string, sessionPath?: string) => {
-			// Tear down previous subscription
 			currentUnsubscribe?.();
 			currentUnsubscribe = null;
 
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
 
-			// Load history
+			// Load history and convert to rich chat messages
 			const history = await window.vetta.session.getMessages(sessionId);
-			const mapped: ChatMessage[] = (history as Array<{ role: string; content: unknown }>)
-				.filter((m) => m.role === "user" || m.role === "assistant")
-				.map((m, i) => ({
-					id: `${m.role}-${i}-${sessionId}`,
-					role: m.role as "user" | "assistant",
-					text: extractText(m),
-				}));
+			const mapped = historyToChat(
+				history as Array<{ role: string; content: unknown; toolCallId?: string; toolName?: string; isError?: boolean }>,
+			);
 			setChatMessages(mapped);
 
 			const sessionInfo = { cwd, sessionPath: sessionPath ?? "", runtimeId: sessionId };
@@ -75,34 +141,113 @@ export function App(): JSX.Element {
 					if (event.phase === "agent_start") setIsStreaming(true);
 					if (event.phase === "agent_end" || event.phase === "aborted") setIsStreaming(false);
 				}
+
+				// Streaming text delta — append to current assistant draft
 				if (event.type === "message.delta") {
 					setChatMessages((prev) => {
 						const copy = [...prev];
 						const last = copy.at(-1);
 						if (!last || last.role !== "assistant" || !last.id.startsWith("draft-")) {
-							copy.push({ id: `draft-${Date.now()}`, role: "assistant", text: event.delta });
+							// Start a new draft assistant message
+							copy.push({
+								id: `draft-${Date.now()}`,
+								role: "assistant",
+								text: event.delta,
+								blocks: [{ type: "text", text: event.delta }],
+							});
 						} else {
-							copy[copy.length - 1] = { ...last, text: last.text + event.delta };
+							// Append to existing draft
+							const newText = last.text + event.delta;
+							const blocks = [...(last.blocks ?? [])];
+							const lastBlock = blocks.at(-1);
+							if (lastBlock?.type === "text") {
+								blocks[blocks.length - 1] = { ...lastBlock, text: lastBlock.text + event.delta };
+							} else {
+								blocks.push({ type: "text", text: event.delta });
+							}
+							copy[copy.length - 1] = { ...last, text: newText, blocks };
 						}
 						return copy;
 					});
 				}
+
+				// Final assistant message — replace draft with full content blocks
 				if (event.type === "message.final" && event.message.role === "assistant") {
-					const text = extractText(event.message as { content: unknown });
+					const msg = event.message as { role: string; content: unknown };
+					const blocks = messageToBlocks(msg);
+					const text = extractText(msg);
+
 					setChatMessages((prev) => {
 						const copy = [...prev];
 						const last = copy.at(-1);
 						if (last?.role === "assistant") {
-							copy[copy.length - 1] = { ...last, id: `final-${Date.now()}`, text };
+							copy[copy.length - 1] = { ...last, id: `final-${Date.now()}`, text, blocks };
 						} else {
-							copy.push({ id: `final-${Date.now()}`, role: "assistant", text });
+							copy.push({ id: `final-${Date.now()}`, role: "assistant", text, blocks });
+						}
+						return copy;
+					});
+				}
+
+				// Tool start — add a pending tool_call block to the current assistant message
+				if (event.type === "tool.start") {
+					setChatMessages((prev) => {
+						const copy = [...prev];
+						const last = copy.at(-1);
+						if (last?.role === "assistant") {
+							const blocks: ContentBlock[] = [...(last.blocks ?? [])];
+							blocks.push({
+								type: "tool_call",
+								toolCallId: event.toolCallId,
+								toolName: event.toolName,
+								args: (event.args as Record<string, unknown>) ?? {},
+								status: "pending",
+							});
+							copy[copy.length - 1] = { ...last, blocks };
+						}
+						return copy;
+					});
+				}
+
+				// Tool end — update the matching tool_call block with result
+				if (event.type === "tool.end") {
+					setChatMessages((prev) => {
+						const copy = [...prev];
+						const last = copy.at(-1);
+						if (last?.role === "assistant" && last.blocks) {
+							const blocks = last.blocks.map((b) => {
+								if (b.type === "tool_call" && b.toolCallId === event.toolCallId) {
+									const result = event.result;
+									let resultText = "";
+									let isError = false;
+
+									if (result && typeof result === "object" && "content" in result) {
+										const r = result as { content?: Array<{ type: string; text?: string }>; isError?: boolean };
+										resultText = (r.content ?? [])
+											.filter((c) => c.type === "text" && c.text)
+											.map((c) => c.text)
+											.join("\n");
+										isError = r.isError === true;
+									} else if (typeof result === "string") {
+										resultText = result;
+									}
+
+									return {
+										...b,
+										status: (isError ? "error" : "success") as "error" | "success",
+										result: resultText,
+										isError,
+									};
+								}
+								return b;
+							});
+							copy[copy.length - 1] = { ...last, blocks };
 						}
 						return copy;
 					});
 				}
 			});
 
-			// Refresh sessions so the sidebar stays up to date
 			await loadSessions(cwd);
 		},
 		[setChatMessages, setActiveSession, setIsStreaming, loadSessions],
