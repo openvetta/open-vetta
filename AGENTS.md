@@ -157,6 +157,7 @@ After release, artifacts and install guide are generated under `releases/v<versi
 Multiple agents may work on different files in the same worktree simultaneously. You MUST follow these rules:
 
 ### Committing
+- 使用中文写 Commit Message
 - **ONLY commit files YOU changed in THIS session**
 - ALWAYS include `fixes #<number>` or `closes #<number>` in the commit message when there is a related ticket
 - NEVER use `git add -A` or `git add .` - these sweep up changes from other agents
