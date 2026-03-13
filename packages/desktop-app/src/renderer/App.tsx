@@ -253,13 +253,10 @@ function finalizeMessage(prev: ChatMessage[], content: unknown): ChatMessage[] {
 		}
 	}
 	if (targetIdx === -1) {
-		// No draft found — look for the last assistant message
-		for (let i = copy.length - 1; i >= 0; i--) {
-			if (copy[i].role === "assistant") {
-				targetIdx = i;
-				break;
-			}
-		}
+		// No draft found — create a new message (don't overwrite history)
+		const newMsg: ChatMessage = { id: finalId, role: "assistant", text: "", blocks: [] };
+		copy.push(newMsg);
+		targetIdx = copy.length - 1;
 	}
 
 	// Collect existing tool_call blocks from the target message
@@ -311,21 +308,21 @@ function handleToolStart(
 	toolName: string,
 	args: Record<string, unknown>,
 ): ChatMessage[] {
-	// Search backwards for last assistant message
-	for (let i = prev.length - 1; i >= 0; i--) {
-		const msg = prev[i];
-		if (msg.role !== "assistant") continue;
+	// First: search for a finalized message from the current turn (not a draft)
+	// or the current draft. We only want to attach to the LAST assistant message
+	// that belongs to the current turn, not older history messages.
+	const lastMsg = prev.length > 0 ? prev[prev.length - 1] : null;
 
-		const blocks = [...(msg.blocks ?? [])];
+	// If the last message is an assistant message, attach to it
+	if (lastMsg?.role === "assistant") {
+		const blocks = [...(lastMsg.blocks ?? [])];
 
 		// Check if this tool_call block already exists (from message.final)
 		const existing = blocks.findIndex((b) => b.type === "tool_call" && b.toolCallId === toolCallId);
 		if (existing !== -1) {
-			// Already exists — no-op (it's already "pending" from message.final)
-			return prev;
+			return prev; // Already exists — no-op
 		}
 
-		// Not found — create as fallback (shouldn't happen normally)
 		blocks.push({
 			type: "tool_call",
 			toolCallId,
@@ -335,11 +332,27 @@ function handleToolStart(
 		});
 
 		const copy = [...prev];
-		copy[i] = { ...msg, blocks };
+		copy[copy.length - 1] = { ...lastMsg, blocks };
 		return copy;
 	}
 
-	return prev;
+	// No recent assistant message — create one
+	const copy = [...prev];
+	copy.push({
+		id: nextId("tool-fallback"),
+		role: "assistant",
+		text: "",
+		blocks: [
+			{
+				type: "tool_call",
+				toolCallId,
+				toolName,
+				args,
+				status: "pending",
+			},
+		],
+	});
+	return copy;
 }
 
 /**
