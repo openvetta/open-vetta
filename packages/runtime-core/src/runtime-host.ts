@@ -202,6 +202,15 @@ export class RuntimeHost implements SessionFacade {
 			return events;
 		}
 
+		if (event.type === "message_update" && event.assistantMessageEvent.type === "thinking_delta") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "thinking.delta",
+				delta: event.assistantMessageEvent.delta,
+			});
+			return events;
+		}
+
 		if (event.type === "message_end" && event.message.role === "assistant") {
 			events.push({
 				...this.baseEvent(sessionId, "agent"),
