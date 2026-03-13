@@ -3,6 +3,8 @@ import type { DesktopApi } from "./api.js";
 
 const CHANNELS = {
 	CREATE: "vetta:session:create",
+	LIST_PROJECTS: "vetta:session:list-projects",
+	LIST_SESSIONS: "vetta:session:list-sessions",
 	PROMPT: "vetta:session:prompt",
 	CONTINUE: "vetta:session:continue",
 	ABORT: "vetta:session:abort",
@@ -10,12 +12,31 @@ const CHANNELS = {
 	UNSUBSCRIBE: "vetta:session:unsubscribe",
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	GET_STATE: "vetta:session:get-state",
+	GET_MESSAGES: "vetta:session:get-messages",
 	EVENT: "vetta:session:event",
 } as const;
 
 const api: DesktopApi = {
+	dialog: {
+		selectFolder: async () => ipcRenderer.invoke("vetta:dialog:select-folder"),
+	},
+	theme: {
+		set: async (mode) => ipcRenderer.invoke("vetta:theme:set", mode),
+		getNative: async () => ipcRenderer.invoke("vetta:theme:get-native"),
+		onNativeChanged: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, info: { shouldUseDarkColors: boolean }) => {
+				handler(info);
+			};
+			ipcRenderer.on("vetta:theme:native-changed", listener);
+			return () => {
+				ipcRenderer.removeListener("vetta:theme:native-changed", listener);
+			};
+		},
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
+		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),
+		listSessions: async (cwd) => ipcRenderer.invoke(CHANNELS.LIST_SESSIONS, cwd),
 		prompt: async (sessionId, request) => ipcRenderer.invoke(CHANNELS.PROMPT, sessionId, request),
 		continue: async (sessionId) => ipcRenderer.invoke(CHANNELS.CONTINUE, sessionId),
 		abort: async (sessionId) => ipcRenderer.invoke(CHANNELS.ABORT, sessionId),
@@ -35,6 +56,7 @@ const api: DesktopApi = {
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
 		getState: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_STATE, sessionId),
+		getMessages: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_MESSAGES, sessionId),
 	},
 };
 

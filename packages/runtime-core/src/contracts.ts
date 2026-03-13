@@ -95,9 +95,24 @@ export interface SessionStateSnapshot {
 	messageCount: number;
 }
 
+export interface ProjectInfo {
+	cwd: string;
+	sessionCount: number;
+}
+
+export interface SessionHistoryInfo {
+	id: string;
+	path: string;
+	cwd: string;
+	name?: string;
+	firstMessage: string;
+	modifiedAt: number;
+}
+
 export interface SessionConfig {
 	cwd?: string;
 	agentDir?: string;
+	sessionPath?: string;
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
 }
@@ -122,5 +137,8 @@ export interface SessionFacade {
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	getState(sessionId: string): SessionStateSnapshot;
+	getMessages(sessionId: string): Message[];
+	listProjects(): Promise<ProjectInfo[]>;
+	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
 	disposeSession(sessionId: string): Promise<void>;
 }
