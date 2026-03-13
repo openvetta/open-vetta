@@ -8,6 +8,7 @@ import type {
 	SessionStateSnapshot,
 	SettingsPatch,
 } from "../../../runtime-core/src/index.js";
+import type { DesktopFsApi } from "./fs-types.js";
 
 export interface DesktopSessionApi {
 	create(config?: SessionConfig): Promise<{ sessionId: string }>;
@@ -36,6 +37,7 @@ export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
 	theme: DesktopThemeApi;
+	fs: DesktopFsApi;
 }
 
 declare global {

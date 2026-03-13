@@ -2,9 +2,11 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeTheme } from "electron";
 import { registerRuntimeIpc } from "./ipc.js";
+import { registerFsIpc } from "./ipc-fs.js";
 
 let mainWindow: BrowserWindow | null = null;
 let teardownIpc: (() => void) | undefined;
+let teardownFsIpc: (() => void) | undefined;
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
 
@@ -25,6 +27,7 @@ function createWindow(): void {
 	});
 
 	teardownIpc = registerRuntimeIpc(mainWindow.webContents);
+	teardownFsIpc = registerFsIpc();
 	if (devServerUrl) {
 		void mainWindow.loadURL(devServerUrl);
 	} else {
@@ -36,6 +39,10 @@ function createWindow(): void {
 		if (teardownIpc) {
 			teardownIpc();
 			teardownIpc = undefined;
+		}
+		if (teardownFsIpc) {
+			teardownFsIpc();
+			teardownFsIpc = undefined;
 		}
 	});
 }

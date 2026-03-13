@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { dialog, ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
+import { allowProjectRoot } from "./ipc-fs.js";
 
 const CHANNELS = {
 	CREATE: "vetta:session:create",
@@ -48,7 +49,9 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 	ipcMain.handle("vetta:dialog:select-folder", async () => {
 		const result = await dialog.showOpenDialog({ properties: ["openDirectory"], title: "Select Project Folder" });
 		if (result.canceled || result.filePaths.length === 0) return null;
-		return result.filePaths[0];
+		const selectedPath = result.filePaths[0];
+		allowProjectRoot(selectedPath);
+		return selectedPath;
 	});
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
@@ -56,11 +59,14 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.LIST_PROJECTS, async () => {
-		return runtime.listProjects();
+		const projects = await runtime.listProjects();
+		for (const p of projects) allowProjectRoot(p.cwd);
+		return projects;
 	});
 
 	ipcMain.handle(CHANNELS.LIST_SESSIONS, async (_event, cwd: unknown) => {
 		assertNonEmptyString(cwd, "cwd");
+		allowProjectRoot(cwd);
 		return runtime.listSessions(cwd);
 	});
 
