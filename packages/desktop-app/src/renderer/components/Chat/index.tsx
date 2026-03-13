@@ -24,7 +24,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				className="drag-region pointer-events-none absolute inset-x-0 top-0 z-10"
 				style={{
 					background: "linear-gradient(to bottom, var(--content-bg) 40%, transparent 100%)",
-					paddingTop: 30,
+					paddingTop: 20,
 					paddingBottom: 20,
 					paddingLeft: 16,
 					paddingRight: 16,
