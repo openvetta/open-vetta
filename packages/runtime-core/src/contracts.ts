@@ -21,6 +21,11 @@ export interface MessageDeltaEvent extends SessionEventBase {
 	delta: string;
 }
 
+export interface ThinkingDeltaEvent extends SessionEventBase {
+	type: "thinking.delta";
+	delta: string;
+}
+
 export interface MessageFinalEvent extends SessionEventBase {
 	type: "message.final";
 	message: Message;
@@ -79,6 +84,7 @@ export interface ErrorEvent extends SessionEventBase {
 export type SessionEvent =
 	| SessionLifecycleEvent
 	| MessageDeltaEvent
+	| ThinkingDeltaEvent
 	| MessageFinalEvent
 	| ToolStartEvent
 	| ToolUpdateEvent
