@@ -71,6 +71,12 @@
 	/* Thinking */
 	--thinking-accent: #a78bfa;
 	--thinking-text: #9494b0;
+
+	/* Code / Markdown */
+	--code-bg: rgba(255, 255, 255, 0.04);
+	--code-text: #e0def4;
+	--code-inline-bg: rgba(255, 255, 255, 0.08);
+	--md-link: #7dd3fc;
 }
 
 /* ─── Light theme ─── */
@@ -135,6 +141,12 @@
 	/* Thinking */
 	--thinking-accent: #7c3aed;
 	--thinking-text: #6e6e73;
+
+	/* Code / Markdown */
+	--code-bg: rgba(0, 0, 0, 0.03);
+	--code-text: #1d1d1f;
+	--code-inline-bg: rgba(0, 0, 0, 0.06);
+	--md-link: #2563eb;
 }
 
 * {
@@ -191,6 +203,14 @@ body {
 :focus-visible {
 	outline: 2px solid var(--accent-glow);
 	outline-offset: -2px;
+}
+
+/* Markdown body: remove margin on first/last children */
+.markdown-body > :first-child {
+	margin-top: 0 !important;
+}
+.markdown-body > :last-child {
+	margin-bottom: 0 !important;
 }
 
 /* Smooth transitions globally */
