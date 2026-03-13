@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, ipcMain, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme } from "electron";
 import { registerRuntimeIpc } from "./ipc.js";
 import { registerFsIpc } from "./ipc-fs.js";
 
@@ -9,11 +9,19 @@ let teardownIpc: (() => void) | undefined;
 let teardownFsIpc: (() => void) | undefined;
 const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
+const buildDir = join(process.cwd(), "build");
+
+const iconPath: Record<string, string> = {
+	darwin: join(buildDir, "icon.icns"),
+	win32: join(buildDir, "icon.ico"),
+	linux: join(buildDir, "icon.png"),
+};
 
 function createWindow(): void {
 	mainWindow = new BrowserWindow({
 		width: 1280,
 		height: 800,
+		icon: iconPath[process.platform],
 		titleBarStyle: "hiddenInset",
 		trafficLightPosition: { x: 16, y: 20 },
 		transparent: true,
@@ -72,6 +80,10 @@ app.whenReady().then(() => {
 			});
 		}
 	});
+
+	if (process.platform === "darwin") {
+		app.dock.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
+	}
 
 	createWindow();
 

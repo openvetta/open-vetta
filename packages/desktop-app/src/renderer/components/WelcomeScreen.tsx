@@ -2,12 +2,12 @@ export function WelcomeScreen(): JSX.Element {
 	return (
 		<div className="flex h-full flex-1 flex-col items-center justify-center gap-4 bg-[var(--content-bg)]">
 			{/* Logo mark */}
-			<div
-				className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent)]"
+			<img
+				src="./icon.png"
+				alt="Vetta"
+				className="h-14 w-14 rounded-2xl"
 				style={{ boxShadow: "0 4px 24px var(--accent-glow), 0 0 0 1px var(--accent-dim)" }}
-			>
-				<span className="icon-[mdi--shimmer] h-7 w-7 text-[var(--accent-fg)]" />
-			</div>
+			/>
 
 			{/* Text */}
 			<div className="text-center">

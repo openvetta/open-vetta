@@ -32,9 +32,11 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 			{/* macOS traffic light spacer + header */}
 			<div className="drag-region flex items-center justify-between px-3.5 pb-3 pt-[52px]">
 				<div className="no-drag flex items-center gap-2">
-					<div className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[var(--accent)] shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
-						<span className="icon-[mdi--shimmer] h-3 w-3 text-[var(--accent-fg)]" />
-					</div>
+					<img
+						src="./icon.png"
+						alt="Vetta"
+						className="h-[22px] w-[22px] rounded-[6px] shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+					/>
 					<span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
 						Vetta
 					</span>
