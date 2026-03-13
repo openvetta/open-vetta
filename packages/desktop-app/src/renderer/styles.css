@@ -13,22 +13,22 @@
 [data-theme="dark"] {
 	color-scheme: dark;
 
-	--content-bg: #1c1c28;
-	--header-bg: rgba(20, 20, 30, 0.85);
-	--header-glass: rgba(28, 28, 40, 0.7);
+	--content-bg: #161616;
+	--header-bg: rgba(22, 22, 22, 0.85);
+	--header-glass: rgba(22, 22, 22, 0.7);
 
 	/* Primary: white in dark mode */
 	--accent: #ffffff;
 	--accent-hover: #e0e0e0;
 	--accent-dim: rgba(255, 255, 255, 0.1);
-	--accent-glow: rgba(255, 255, 255, 0.15);
-	--accent-fg: #111113; /* text on accent bg */
+	--accent-glow: rgba(255, 255, 255, 0.12);
+	--accent-fg: #111111;
 
-	--border: rgba(255, 255, 255, 0.06);
-	--border-strong: rgba(255, 255, 255, 0.1);
-	--text-1: #f0eff5;
-	--text-2: #9494b0;
-	--text-3: #55556e;
+	--border: rgba(255, 255, 255, 0.07);
+	--border-strong: rgba(255, 255, 255, 0.12);
+	--text-1: #e8e8e8;
+	--text-2: #888888;
+	--text-3: #555555;
 	--hover: rgba(255, 255, 255, 0.04);
 	--hover-strong: rgba(255, 255, 255, 0.08);
 	--surface: rgba(255, 255, 255, 0.04);
@@ -38,44 +38,44 @@
 	/* Panel border glow */
 	--panel-border: 0.5px solid rgba(255, 255, 255, 0.08);
 	--panel-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.04),
-		0 0 12px rgba(255, 255, 255, 0.02),
+		0 0 12px rgba(255, 255, 255, 0.01),
 		inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
 
 	/* Message bubbles */
 	--bubble-user: rgba(255, 255, 255, 0.08);
-	--bubble-assistant: rgba(255, 255, 255, 0.04);
+	--bubble-assistant: rgba(255, 255, 255, 0.03);
 
 	/* Input */
-	--input-bg: rgba(255, 255, 255, 0.03);
-	--input-border: rgba(255, 255, 255, 0.06);
-	--input-border-focus: rgba(255, 255, 255, 0.14);
+	--input-bg: rgba(255, 255, 255, 0.04);
+	--input-border: rgba(255, 255, 255, 0.07);
+	--input-border-focus: rgba(255, 255, 255, 0.16);
 
 	/* Scrollbar */
 	--scrollbar-thumb: rgba(255, 255, 255, 0.1);
 	--scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
 
 	/* Popup */
-	--popup-bg: #2a2a3a;
+	--popup-bg: #222222;
 	--popup-border: rgba(255, 255, 255, 0.1);
 	--popup-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
 	--popup-hover: rgba(255, 255, 255, 0.06);
 	--popup-separator: rgba(255, 255, 255, 0.06);
 
 	/* Tool execution */
-	--tool-pending: #a78bfa;
-	--tool-pending-bg: rgba(167, 139, 250, 0.06);
+	--tool-pending: #888888;
+	--tool-pending-bg: rgba(255, 255, 255, 0.03);
 	--tool-success: #4ade80;
-	--tool-success-bg: rgba(74, 222, 128, 0.06);
+	--tool-success-bg: rgba(74, 222, 128, 0.05);
 	--tool-error: #f87171;
-	--tool-error-bg: rgba(248, 113, 113, 0.06);
+	--tool-error-bg: rgba(248, 113, 113, 0.05);
 
 	/* Thinking */
-	--thinking-accent: #a78bfa;
-	--thinking-text: #9494b0;
+	--thinking-accent: #888888;
+	--thinking-text: #777777;
 
 	/* Code / Markdown */
 	--code-bg: rgba(255, 255, 255, 0.04);
-	--code-text: #e0def4;
+	--code-text: #d4d4d4;
 	--code-inline-bg: rgba(255, 255, 255, 0.08);
 	--md-link: #7dd3fc;
 }
