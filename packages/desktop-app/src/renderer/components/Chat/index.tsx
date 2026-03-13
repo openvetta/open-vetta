@@ -18,20 +18,29 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const isStreaming = useAtomValue(isStreamingAtom);
 
 	return (
-		<div className="flex h-full flex-1 flex-col bg-[var(--content-bg)]">
-			{/* Top bar */}
-			<div className="drag-region flex items-center justify-between border-b border-[var(--border)] px-5 pb-3 pt-[52px]">
+		<div className="relative flex h-full flex-1 flex-col bg-[var(--content-bg)]">
+			{/* Top bar — frosted glass, floats over content */}
+			<div
+				className="drag-region absolute inset-x-0 top-0 z-10 flex items-center justify-between border-b border-[var(--border)] px-5"
+				style={{
+					paddingTop: 38,
+					paddingBottom: 10,
+					backdropFilter: "blur(20px) saturate(180%)",
+					WebkitBackdropFilter: "blur(20px) saturate(180%)",
+					background: "var(--header-glass)",
+				}}
+			>
 				<div className="no-drag flex min-w-0 items-center gap-2.5">
-					<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-raised)]">
-						<span className="icon-[mdi--chat-outline] h-3.5 w-3.5 text-[var(--text-2)]" />
+					<div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--surface-raised)]">
+						<span className="icon-[mdi--chat-outline] h-3 w-3 text-[var(--text-2)]" />
 					</div>
 					<div className="min-w-0">
-						<div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+						<div className="truncate text-[12px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
 							{activeSession ? projectName(activeSession.cwd) : "Session"}
 						</div>
 						{activeSession?.sessionPath && (
 							<div
-								className="truncate text-[11px] text-[var(--text-3)]"
+								className="truncate text-[10px] text-[var(--text-3)]"
 								title={activeSession.sessionPath}
 							>
 								{activeSession.sessionPath.split("/").pop()}
@@ -48,7 +57,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				)}
 			</div>
 
-			{/* Messages */}
+			{/* Messages — top padding accounts for the floating header */}
 			{messages.length === 0 ? (
 				<div className="flex flex-1 flex-col items-center justify-center gap-3">
 					<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--surface)]">
