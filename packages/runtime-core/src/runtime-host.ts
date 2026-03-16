@@ -211,6 +211,21 @@ export class RuntimeHost implements SessionFacade {
 			return events;
 		}
 
+		if (event.type === "message_update" && event.assistantMessageEvent.type === "toolcall_start") {
+			const partial = event.assistantMessageEvent.partial;
+			const contentIndex = event.assistantMessageEvent.contentIndex;
+			const toolContent = partial?.content?.[contentIndex];
+			if (toolContent && toolContent.type === "toolCall") {
+				events.push({
+					...this.baseEvent(sessionId, "agent"),
+					type: "toolcall.start",
+					toolCallId: String(toolContent.id ?? ""),
+					toolName: String(toolContent.name ?? ""),
+				});
+			}
+			return events;
+		}
+
 		if (event.type === "message_end" && event.message.role === "assistant") {
 			events.push({
 				...this.baseEvent(sessionId, "agent"),

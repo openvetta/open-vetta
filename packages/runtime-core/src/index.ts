@@ -15,6 +15,7 @@ export type {
 	SessionStateSnapshot,
 	SettingsPatch,
 	ThinkingDeltaEvent,
+	ToolCallGeneratingEvent,
 	ToolEndEvent,
 	ToolStartEvent,
 	ToolUpdateEvent,
