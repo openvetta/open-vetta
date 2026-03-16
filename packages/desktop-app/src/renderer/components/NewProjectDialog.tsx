@@ -82,7 +82,7 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 					<button
 						type="button"
 						onClick={handleSubmit}
-						className="rounded-lg bg-[var(--text-1)] px-3 py-1.5 text-[12px] font-medium text-[var(--bg-1)] transition-colors hover:opacity-90"
+						className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[12px] font-medium text-[var(--accent-fg)] transition-colors hover:opacity-90"
 					>
 						创建
 					</button>

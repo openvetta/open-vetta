@@ -56,8 +56,8 @@ export function FilesPanel(): JSX.Element {
 	if (!rootDir) {
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
-				<span className="icon-[mdi--folder-search-outline] h-7 w-7 text-[var(--text-3)]" />
-				<p className="text-[11px] text-[var(--text-3)]">
+				<span className="icon-[mdi--folder-search-outline] h-7 w-7 text-[var(--text-2)]" />
+				<p className="text-[11px] text-[var(--text-1)]">
 					选择一个项目以浏览文件
 				</p>
 			</div>
@@ -70,14 +70,14 @@ export function FilesPanel(): JSX.Element {
 		<>
 			{/* Header with project name + refresh */}
 			<div className="flex items-center justify-between px-3 py-1.5">
-				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-3)]">
+				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-2)]">
 					{projectName}
 				</span>
 				<button
 					type="button"
 					title="刷新"
 					onClick={() => void refreshDir(rootDir)}
-					className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-2)]"
+					className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
 				>
 					<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
 				</button>
@@ -86,7 +86,7 @@ export function FilesPanel(): JSX.Element {
 			{/* Loading indicator for root */}
 			{loadingDirs.has(rootDir) && !cache.has(rootDir) ? (
 				<div className="flex items-center justify-center py-8">
-					<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-[var(--text-3)]" />
+					<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-[var(--text-2)]" />
 				</div>
 			) : (
 				<FileTree

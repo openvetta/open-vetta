@@ -64,7 +64,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 						type="button"
 						title="新建项目"
 						onClick={() => setShowAddMenu((v) => !v)}
-						className="no-drag flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-2)]"
+						className="no-drag flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
 					>
 						<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 					</button>
@@ -113,7 +113,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 						className={`no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 							pageView === key
 								? "bg-[var(--hover-strong)] font-medium text-[var(--text-1)]"
-								: "text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+								: "text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
 						}`}
 					>
 						<span className={`${icon} h-4 w-4 shrink-0`} />

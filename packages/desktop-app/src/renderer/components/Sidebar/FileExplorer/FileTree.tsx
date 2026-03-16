@@ -49,7 +49,7 @@ export function FileTree({
 
 	if (flatList.length === 0 && !loadingDirs.has(rootDir)) {
 		return (
-			<div className="px-4 py-6 text-center text-[11px] text-[var(--text-3)]">
+			<div className="px-4 py-6 text-center text-[11px] text-[var(--text-2)]">
 				此文件夹为空
 			</div>
 		);

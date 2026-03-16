@@ -61,7 +61,7 @@ export function SettingsMenu(): JSX.Element {
 					>
 						{/* Theme section */}
 						<div className="px-2 pb-1 pt-1.5">
-							<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-3)]">
+							<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-2)]">
 								Theme
 							</span>
 						</div>
@@ -114,7 +114,7 @@ export function SettingsMenu(): JSX.Element {
 					"no-drag flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-[12px] font-medium transition-colors",
 					open
 						? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-						: "text-[var(--text-2)] hover:bg-[var(--hover)] hover:text-[var(--text-1)]",
+						: "text-[var(--text-1)] hover:bg-[var(--hover)]",
 				)}
 			>
 				<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
