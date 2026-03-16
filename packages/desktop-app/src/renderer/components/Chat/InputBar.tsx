@@ -3,6 +3,7 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { inputValueAtom, isStreamingAtom, activeSessionAtom } from "../../store/atoms";
 import { ModelSelector } from "./ModelSelector";
+import { ContextRing } from "./ContextRing";
 
 interface InputBarProps {
 	onSend: () => Promise<void>;
@@ -114,6 +115,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 						{/* Right: model selector + send / stop */}
 						<div className="flex items-center gap-1.5">
 							<ModelSelector />
+							<ContextRing />
 							{/* Character hint */}
 							<span className="mr-1 text-[11px] text-[var(--text-3)] select-none">
 								{isStreaming ? "" : isEmpty ? "⏎ Send" : `⇧⏎ Newline`}

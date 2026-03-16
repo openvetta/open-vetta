@@ -72,6 +72,10 @@ export interface UsageUpdateEvent extends SessionEventBase {
 	cacheRead: number;
 	cacheWrite: number;
 	costTotal: number;
+	/** Context window usage percentage (0-100), or null if unknown (e.g. after compaction) */
+	contextPercent: number | null;
+	/** Total context window size in tokens */
+	contextWindow: number;
 }
 
 export interface SessionError {
@@ -106,6 +110,10 @@ export interface SessionStateSnapshot {
 	thinkingLevel: ThinkingLevel;
 	isStreaming: boolean;
 	messageCount: number;
+	/** Context window usage percentage (0-100), or null if unknown */
+	contextPercent: number | null;
+	/** Total context window size in tokens */
+	contextWindow: number;
 }
 
 export interface ProjectInfo {
