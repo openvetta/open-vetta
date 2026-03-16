@@ -6,6 +6,7 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ActivityPanel } from "./components/ActivityPanel";
 import { AutomationPage } from "./components/AutomationPage";
 import { SkillsPage } from "./components/SkillsPage";
+import { SettingsPage } from "./components/SettingsPage";
 import { useProjects } from "./hooks/useProjects";
 import { useTheme } from "./hooks/useTheme";
 import {
@@ -548,7 +549,9 @@ export function App(): JSX.Element {
 					boxShadow: "var(--panel-shadow)",
 				}}
 			>
-				{pageView === "automation" ? (
+				{pageView === "settings" ? (
+					<SettingsPage />
+				) : pageView === "automation" ? (
 					<AutomationPage />
 				) : pageView === "skills" ? (
 					<SkillsPage />

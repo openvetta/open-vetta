@@ -72,8 +72,13 @@ export const inputValueAtom = atom<string>("");
 
 // ─── Page navigation ───
 
-export type PageView = "chat" | "automation" | "skills";
+export type PageView = "chat" | "automation" | "skills" | "settings";
 export const pageViewAtom = atom<PageView>("chat");
+
+// ─── Settings page ───
+
+export type SettingsTab = "general" | "models" | "mcp";
+export const settingsTabAtom = atom<SettingsTab>("general");
 
 // ─── Sidebar tab ───
 

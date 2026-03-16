@@ -45,8 +45,10 @@ export function SkillsPage(): JSX.Element {
 
 	return (
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden">
+			{/* Drag region */}
+			<div className="drag-region h-12 shrink-0" />
 			{/* Header */}
-			<div className="flex shrink-0 items-center justify-between px-8 pb-0 pt-5">
+			<div className="flex shrink-0 items-center justify-between px-8 pb-0">
 				<h1 className="text-[20px] font-bold tracking-[-0.02em] text-[var(--text-1)]">
 					技能广场
 				</h1>
