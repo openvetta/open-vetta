@@ -141,7 +141,7 @@ export function FileTreeNode({
 				"flex items-center gap-1.5 rounded-md px-1.5 py-[3px] text-[12px] cursor-default select-none transition-colors",
 				isSelected && !isRenaming
 					? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-					: "text-[var(--text-2)] hover:bg-[var(--hover)]",
+					: "text-[var(--text-1)] hover:bg-[var(--hover)]",
 				dragOver && "ring-1 ring-[var(--accent)] bg-[var(--hover)]",
 			)}
 			style={{ paddingLeft: `${depth * 16 + 6}px` }}
@@ -152,7 +152,7 @@ export function FileTreeNode({
 					className={cn(
 						"h-3 w-3 shrink-0 transition-transform",
 						isLoading
-							? "icon-[mdi--loading] animate-spin text-[var(--text-3)]"
+							? "icon-[mdi--loading] animate-spin text-[var(--text-2)]"
 							: isExpanded
 								? "icon-[mdi--chevron-down]"
 								: "icon-[mdi--chevron-right]",
@@ -163,7 +163,7 @@ export function FileTreeNode({
 			)}
 
 			{/* File type icon */}
-			<span className={cn(icon, "h-3.5 w-3.5 shrink-0", entry.isDirectory ? "text-[var(--accent)]" : "text-[var(--text-3)]")} />
+			<span className={cn(icon, "h-3.5 w-3.5 shrink-0", entry.isDirectory ? "text-[var(--accent)]" : "text-[var(--text-2)]")} />
 
 			{/* Name or rename input */}
 			{isRenaming ? (

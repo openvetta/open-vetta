@@ -22,7 +22,7 @@ export function SidebarTabs(): JSX.Element {
 						"no-drag flex flex-1 items-center justify-center py-1.5 transition-colors",
 						tab === t.value
 							? "border-b-2 border-[var(--accent)] text-[var(--text-1)]"
-							: "border-b-2 border-transparent text-[var(--text-3)] hover:text-[var(--text-2)]",
+							: "border-b-2 border-transparent text-[var(--text-1)] opacity-60 hover:opacity-100",
 					)}
 				>
 					<span className={cn(t.icon, "h-4 w-4")} />

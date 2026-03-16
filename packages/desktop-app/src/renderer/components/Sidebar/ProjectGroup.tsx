@@ -101,7 +101,7 @@ export function ProjectGroup({
 				className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left hover:bg-[var(--hover)]"
 				title={project.cwd}
 			>
-				<span className="icon-[mdi--folder-outline] h-4 w-4 shrink-0 text-[var(--text-3)]" />
+				<span className="icon-[mdi--folder-outline] h-4 w-4 shrink-0 text-[var(--text-1)]" />
 				<span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--text-1)]">
 					{projectName(project.cwd)}
 				</span>
@@ -112,7 +112,7 @@ export function ProjectGroup({
 						e.stopPropagation();
 						onNewSession(project.cwd);
 					}}
-					className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[var(--text-3)] opacity-0 hover:bg-[var(--hover-strong)] hover:text-[var(--text-2)] group-hover:opacity-100"
+					className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[var(--text-1)] opacity-0 hover:bg-[var(--hover-strong)] group-hover:opacity-100"
 				>
 					<span className="icon-[mdi--plus] h-3 w-3" />
 				</button>
@@ -122,7 +122,7 @@ export function ProjectGroup({
 			{isExpanded && (
 				<div className="mt-px space-y-px">
 					{sortedSessions.length === 0 ? (
-						<p className="px-2.5 py-1.5 pl-[36px] text-[12px] text-[var(--text-3)]">
+						<p className="px-2.5 py-1.5 pl-[36px] text-[12px] text-[var(--text-2)]">
 							No sessions yet
 						</p>
 					) : (
@@ -168,7 +168,7 @@ export function ProjectGroup({
 											{label}
 										</span>
 									)}
-									<span className="shrink-0 text-[11px] text-[var(--text-3)]">
+									<span className="shrink-0 text-[11px] text-[var(--text-2)]">
 										{relativeTime(session.modifiedAt)}
 									</span>
 								</button>
