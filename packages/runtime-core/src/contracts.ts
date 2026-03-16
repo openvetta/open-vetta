@@ -31,6 +31,12 @@ export interface MessageFinalEvent extends SessionEventBase {
 	message: Message;
 }
 
+export interface ToolCallGeneratingEvent extends SessionEventBase {
+	type: "toolcall.start";
+	toolCallId: string;
+	toolName: string;
+}
+
 export interface ToolStartEvent extends SessionEventBase {
 	type: "tool.start";
 	toolCallId: string;
@@ -86,6 +92,7 @@ export type SessionEvent =
 	| MessageDeltaEvent
 	| ThinkingDeltaEvent
 	| MessageFinalEvent
+	| ToolCallGeneratingEvent
 	| ToolStartEvent
 	| ToolUpdateEvent
 	| ToolEndEvent

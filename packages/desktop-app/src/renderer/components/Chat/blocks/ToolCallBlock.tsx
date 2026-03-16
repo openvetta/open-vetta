@@ -132,9 +132,26 @@ function ToolArgs({ args, toolName }: { args: Record<string, unknown>; toolName:
 	);
 }
 
+/** Extract a short content preview for write/edit tools */
+function getContentPreview(block: ToolCallBlock): string | null {
+	if (block.status === "pending") return null;
+	const maxLines = 4;
+	let content: string | undefined;
+	if (block.toolName === "write") {
+		content = block.args.content as string | undefined;
+	} else if (block.toolName === "edit") {
+		content = block.args.new_string as string | undefined;
+	}
+	if (!content || typeof content !== "string") return null;
+	const lines = content.split("\n");
+	if (lines.length <= maxLines) return content;
+	return `${lines.slice(0, maxLines).join("\n")}\n... (+${lines.length - maxLines} lines)`;
+}
+
 export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
 	const hasResult = block.result !== undefined;
+	const contentPreview = getContentPreview(block);
 	const resultLines = block.result?.split("\n") ?? [];
 	const maxCollapsedLines = 8;
 	const needsTruncation = resultLines.length > maxCollapsedLines;
@@ -182,6 +199,15 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 			{block.args && Object.keys(block.args).length > 0 && (
 				<div className="px-3 pb-1">
 					<ToolArgs args={block.args} toolName={block.toolName} />
+				</div>
+			)}
+
+			{/* Content preview for write/edit */}
+			{contentPreview && (
+				<div className="border-t border-[var(--border)] px-3 py-2">
+					<pre className="whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-[var(--text-2)] opacity-80">
+						{contentPreview}
+					</pre>
 				</div>
 			)}
 

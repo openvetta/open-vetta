@@ -273,9 +273,15 @@ function finalizeMessage(prev: ChatMessage[], content: unknown): ChatMessage[] {
 		}
 	}
 
-	// Add any tool calls from the final message that we don't already have
+	// Merge or add tool calls from the final message
 	for (const tc of finalToolCalls) {
-		if (!existingToolIds.has(tc.id)) {
+		if (existingToolIds.has(tc.id)) {
+			// Update args on existing block (may have been created by toolcall.start with empty args)
+			const existing = existingToolBlocks.find((b) => b.toolCallId === tc.id);
+			if (existing) {
+				existing.args = tc.args;
+			}
+		} else {
 			existingToolBlocks.push({
 				type: "tool_call",
 				toolCallId: tc.id,
@@ -319,10 +325,18 @@ function handleToolStart(
 	if (lastMsg?.role === "assistant") {
 		const blocks = [...(lastMsg.blocks ?? [])];
 
-		// Check if this tool_call block already exists (from message.final)
+		// Check if this tool_call block already exists (from toolcall.start or message.final)
 		const existing = blocks.findIndex((b) => b.type === "tool_call" && b.toolCallId === toolCallId);
 		if (existing !== -1) {
-			return prev; // Already exists — no-op
+			// Update args if the existing block has empty args (created by toolcall.start)
+			const block = blocks[existing] as ToolCallBlock;
+			if (Object.keys(block.args).length === 0 && Object.keys(args).length > 0) {
+				blocks[existing] = { ...block, args };
+				const copy = [...prev];
+				copy[copy.length - 1] = { ...lastMsg, blocks };
+				return copy;
+			}
+			return prev;
 		}
 
 		blocks.push({
@@ -420,6 +434,7 @@ export function App(): JSX.Element {
 			currentUnsubscribe?.();
 			currentUnsubscribe = null;
 			resetStreamState();
+			setIsStreaming(false);
 			setSelectedFilePath(null);
 
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
@@ -465,6 +480,14 @@ export function App(): JSX.Element {
 				// ── Text delta (streaming assistant text) ──
 				if (event.type === "message.delta") {
 					setChatMessages((prev) => appendTextDelta(prev, event.delta));
+					return;
+				}
+
+				// ── Tool call generating (model started generating a tool call) ──
+				if (event.type === "toolcall.start") {
+					setChatMessages((prev) =>
+						handleToolStart(prev, event.toolCallId, event.toolName, {}),
+					);
 					return;
 				}
 
