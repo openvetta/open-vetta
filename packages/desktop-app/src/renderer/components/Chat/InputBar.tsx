@@ -2,6 +2,7 @@ import { useAtom, useAtomValue } from "jotai";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { inputValueAtom, isStreamingAtom, activeSessionAtom } from "../../store/atoms";
+import { ModelSelector } from "./ModelSelector";
 
 interface InputBarProps {
 	onSend: () => Promise<void>;
@@ -53,11 +54,11 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	}
 
 	return (
-		<div className="px-4 pb-4 pt-1">
-			<div className="mx-auto max-w-2xl">
+		<div className="relative px-4 pb-4 pt-1">
+			<div className="relative mx-auto max-w-2xl">
 				{/* ── Card container ── */}
 				<div
-					className="input-card overflow-hidden rounded-2xl transition-all duration-200"
+					className="input-card rounded-2xl transition-all duration-200"
 					style={{
 						background: "var(--input-card-bg)",
 						boxShadow: isFocused
@@ -110,8 +111,9 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 							/>
 						</div>
 
-						{/* Right: send / stop */}
+						{/* Right: model selector + send / stop */}
 						<div className="flex items-center gap-1.5">
+							<ModelSelector />
 							{/* Character hint */}
 							<span className="mr-1 text-[11px] text-[var(--text-3)] select-none">
 								{isStreaming ? "" : isEmpty ? "⏎ Send" : `⇧⏎ Newline`}

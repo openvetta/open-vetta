@@ -17,6 +17,7 @@ import {
 	selectedFilePathAtom,
 	pageViewAtom,
 	workspacePathAtom,
+	selectedModelAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -424,6 +425,7 @@ export function App(): JSX.Element {
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
+	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	useTheme();
 
@@ -433,6 +435,14 @@ export function App(): JSX.Element {
 			if (config.workspacePath) {
 				setWorkspacePath(config.workspacePath);
 				localStorage.setItem("vetta-workspace-path", config.workspacePath);
+			}
+		});
+		// Load default model if no model selected
+		void window.vetta.models.get().then((modelsConfig) => {
+			const saved = localStorage.getItem("vetta-selected-model");
+			if (!saved && modelsConfig.defaultModel) {
+				setSelectedModel(modelsConfig.defaultModel);
+				localStorage.setItem("vetta-selected-model", modelsConfig.defaultModel);
 			}
 		});
 		void refreshProjects().catch(console.error);

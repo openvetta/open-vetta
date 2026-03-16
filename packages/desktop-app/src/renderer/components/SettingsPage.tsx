@@ -222,6 +222,7 @@ function ModelsSettings(): JSX.Element {
 	const handleAddProvider = useCallback(async () => {
 		if (!config || !providerForm.name.trim()) return;
 		const newConfig: ModelsConfigData = {
+			...config,
 			providers: {
 				...config.providers,
 				[providerForm.name.trim()]: {
@@ -257,7 +258,7 @@ function ModelsSettings(): JSX.Element {
 				api: providerForm.api || undefined,
 			};
 
-			await saveConfig({ providers: newProviders });
+			await saveConfig({ ...config, providers: newProviders });
 			setEditingProvider(null);
 			setProviderForm({ ...emptyProvider });
 			if (oldName !== providerForm.name.trim()) {
@@ -272,7 +273,9 @@ function ModelsSettings(): JSX.Element {
 			if (!config) return;
 			const newProviders = { ...config.providers };
 			delete newProviders[name];
-			await saveConfig({ providers: newProviders });
+			// Clear default model if it belongs to the deleted provider
+			const defaultModel = config.defaultModel?.startsWith(`${name}/`) ? undefined : config.defaultModel;
+			await saveConfig({ ...config, defaultModel, providers: newProviders });
 			if (expandedProvider === name) setExpandedProvider(null);
 		},
 		[config, expandedProvider, saveConfig],
@@ -309,6 +312,7 @@ function ModelsSettings(): JSX.Element {
 				api: modelForm.api || undefined,
 			});
 			const newConfig: ModelsConfigData = {
+				...config,
 				providers: {
 					...config.providers,
 					[providerName]: { ...provider, models },
@@ -327,13 +331,35 @@ function ModelsSettings(): JSX.Element {
 			const provider = config.providers[providerName];
 			if (!provider) return;
 			const models = (provider.models || []).filter((m) => m.id !== modelId);
+			const modelKey = `${providerName}/${modelId}`;
 			const newConfig: ModelsConfigData = {
+				...config,
+				// Clear default if the deleted model was the default
+				defaultModel: config.defaultModel === modelKey ? undefined : config.defaultModel,
 				providers: {
 					...config.providers,
 					[providerName]: { ...provider, models },
 				},
 			};
 			await saveConfig(newConfig);
+		},
+		[config, saveConfig],
+	);
+
+	const handleSetDefaultModel = useCallback(
+		async (providerName: string, modelId: string) => {
+			if (!config) return;
+			const modelKey = `${providerName}/${modelId}`;
+			const newDefault = config.defaultModel === modelKey ? undefined : modelKey;
+			const newConfig: ModelsConfigData = {
+				...config,
+				defaultModel: newDefault,
+			};
+			await saveConfig(newConfig);
+			// Also update localStorage selection if setting a new default
+			if (newDefault) {
+				localStorage.setItem("vetta-selected-model", newDefault);
+			}
 		},
 		[config, saveConfig],
 	);
@@ -491,30 +517,54 @@ function ModelsSettings(): JSX.Element {
 										</div>
 									)}
 
-									{models.map((model) => (
+									{models.map((model) => {
+									const modelKey = `${name}/${model.id}`;
+									const isDefault = config.defaultModel === modelKey;
+									return (
 										<div
 											key={model.id}
 											className="flex items-center justify-between border-b border-[var(--border)]/50 px-5 py-2.5 last:border-b-0"
 										>
 											<div className="min-w-0 flex-1">
-												<div className="text-[12px] font-medium text-[var(--text-1)]">
+												<div className="flex items-center gap-2 text-[12px] font-medium text-[var(--text-1)]">
 													{model.name || model.id}
+													{isDefault && (
+														<span className="rounded-full bg-[var(--accent)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[var(--accent)]">
+															默认
+														</span>
+													)}
 												</div>
 												<div className="mt-0.5 text-[11px] text-[var(--text-2)]">
 													{model.id}
 													{model.api && ` · ${model.api}`}
 												</div>
 											</div>
-											<button
-												type="button"
-												onClick={() => void handleDeleteModel(name, model.id)}
-												className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
-												title="删除模型"
-											>
-												<span className="icon-[mdi--close] h-3 w-3" />
-											</button>
+											<div className="flex items-center gap-0.5">
+												<button
+													type="button"
+													onClick={() => void handleSetDefaultModel(name, model.id)}
+													className={cn(
+														"flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+														isDefault
+															? "text-[var(--accent)]"
+															: "text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--accent)]",
+													)}
+													title={isDefault ? "取消默认" : "设为默认模型"}
+												>
+													<span className={`${isDefault ? "icon-[mdi--star]" : "icon-[mdi--star-outline]"} h-3.5 w-3.5`} />
+												</button>
+												<button
+													type="button"
+													onClick={() => void handleDeleteModel(name, model.id)}
+													className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+													title="删除模型"
+												>
+													<span className="icon-[mdi--close] h-3 w-3" />
+												</button>
+											</div>
 										</div>
-									))}
+									);
+								})}
 
 									{/* Add model form */}
 									{addingModelFor === name ? (

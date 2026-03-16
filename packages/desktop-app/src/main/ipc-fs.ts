@@ -43,6 +43,7 @@ function expandTilde(p: string): string {
 // ─── Models config (providers & models) ───
 
 export interface ModelsConfig {
+	defaultModel?: string;
 	providers: Record<string, ProviderConfig>;
 }
 

@@ -56,6 +56,8 @@ export interface DesktopConfigApi {
 }
 
 export interface ModelsConfigData {
+	/** Default model identifier: "provider/modelId" */
+	defaultModel?: string;
 	providers: Record<
 		string,
 		{
