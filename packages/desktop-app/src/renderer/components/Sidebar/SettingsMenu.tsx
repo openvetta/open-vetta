@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "../../hooks/useTheme";
-import { themeModeAtom, type ThemeMode } from "../../store/atoms";
+import { themeModeAtom, pageViewAtom, type ThemeMode } from "../../store/atoms";
 import { cn } from "../../lib/utils";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
@@ -17,6 +17,7 @@ export function SettingsMenu(): JSX.Element {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const mode = useAtomValue(themeModeAtom);
 	const { setMode } = useTheme();
+	const setPageView = useSetAtom(pageViewAtom);
 
 	// Close on outside click
 	useEffect(() => {
@@ -94,7 +95,7 @@ export function SettingsMenu(): JSX.Element {
 							type="button"
 							onClick={() => {
 								setOpen(false);
-								// TODO: navigate to settings page
+								setPageView("settings");
 							}}
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
 						>

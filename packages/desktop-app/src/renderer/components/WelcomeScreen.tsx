@@ -1,6 +1,8 @@
 export function WelcomeScreen(): JSX.Element {
 	return (
-		<div className="flex h-full flex-1 flex-col items-center justify-center gap-4 bg-[var(--content-bg)]">
+		<div className="relative flex h-full flex-1 flex-col items-center justify-center gap-4 bg-[var(--content-bg)]">
+			{/* Drag region */}
+			<div className="drag-region absolute inset-x-0 top-0 h-12" />
 			{/* Logo mark */}
 			<img
 				src="./icon.png"
