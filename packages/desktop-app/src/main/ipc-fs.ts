@@ -12,6 +12,7 @@ export interface DesktopConfig {
 }
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
+const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
 const DEFAULT_CONFIG: DesktopConfig = {
 	projects: [],
 	workspacePath: join(homedir(), ".vetta", "workspace"),
@@ -39,6 +40,49 @@ function expandTilde(p: string): string {
 	return p;
 }
 
+// ─── Models config (providers & models) ───
+
+export interface ModelsConfig {
+	providers: Record<string, ProviderConfig>;
+}
+
+export interface ProviderConfig {
+	baseUrl?: string;
+	apiKey?: string;
+	api?: string;
+	headers?: Record<string, string>;
+	authHeader?: boolean;
+	models?: ModelDefinition[];
+	modelOverrides?: Record<string, Record<string, unknown>>;
+}
+
+export interface ModelDefinition {
+	id: string;
+	name?: string;
+	api?: string;
+	reasoning?: boolean;
+	input?: string[];
+	contextWindow?: number;
+	maxTokens?: number;
+}
+
+const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
+
+async function readModelsConfig(): Promise<ModelsConfig> {
+	try {
+		const raw = await readFile(MODELS_CONFIG_PATH, "utf8");
+		const parsed = JSON.parse(raw) as Partial<ModelsConfig>;
+		return { ...DEFAULT_MODELS_CONFIG, ...parsed };
+	} catch {
+		return { ...DEFAULT_MODELS_CONFIG };
+	}
+}
+
+async function writeModelsConfig(config: ModelsConfig): Promise<void> {
+	await mkdir(dirname(MODELS_CONFIG_PATH), { recursive: true });
+	await writeFile(MODELS_CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
+}
+
 const CHANNELS = {
 	READ_DIR: "vetta:fs:read-dir",
 	READ_FILE: "vetta:fs:read-file",
@@ -49,6 +93,8 @@ const CHANNELS = {
 	LIST_SUB_DIRS: "vetta:fs:list-sub-dirs",
 	CONFIG_GET: "vetta:config:get",
 	CONFIG_SET: "vetta:config:set",
+	MODELS_GET: "vetta:models:get",
+	MODELS_SET: "vetta:models:set",
 } as const;
 
 const BINARY_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "pdf", "docx"]);
@@ -238,6 +284,15 @@ export function registerFsIpc(): () => void {
 		await writeConfig(next);
 	});
 
+	ipcMain.handle(CHANNELS.MODELS_GET, async (): Promise<ModelsConfig> => {
+		return readModelsConfig();
+	});
+
+	ipcMain.handle(CHANNELS.MODELS_SET, async (_event, config: unknown) => {
+		if (typeof config !== "object" || config === null) throw new Error("Invalid models config");
+		await writeModelsConfig(config as ModelsConfig);
+	});
+
 	return () => {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.READ_FILE);
@@ -248,5 +303,7 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.LIST_SUB_DIRS);
 		ipcMain.removeHandler(CHANNELS.CONFIG_GET);
 		ipcMain.removeHandler(CHANNELS.CONFIG_SET);
+		ipcMain.removeHandler(CHANNELS.MODELS_GET);
+		ipcMain.removeHandler(CHANNELS.MODELS_SET);
 	};
 }

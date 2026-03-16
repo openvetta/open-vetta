@@ -55,6 +55,34 @@ export interface DesktopConfigApi {
 	set(config: Partial<DesktopConfigData>): Promise<void>;
 }
 
+export interface ModelsConfigData {
+	providers: Record<
+		string,
+		{
+			baseUrl?: string;
+			apiKey?: string;
+			api?: string;
+			headers?: Record<string, string>;
+			authHeader?: boolean;
+			models?: Array<{
+				id: string;
+				name?: string;
+				api?: string;
+				reasoning?: boolean;
+				input?: string[];
+				contextWindow?: number;
+				maxTokens?: number;
+			}>;
+			modelOverrides?: Record<string, Record<string, unknown>>;
+		}
+	>;
+}
+
+export interface DesktopModelsApi {
+	get(): Promise<ModelsConfigData>;
+	set(config: ModelsConfigData): Promise<void>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -62,6 +90,7 @@ export interface DesktopApi {
 	fs: DesktopFsApi;
 	skills: DesktopSkillsApi;
 	config: DesktopConfigApi;
+	models: DesktopModelsApi;
 }
 
 declare global {
