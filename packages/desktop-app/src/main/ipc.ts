@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { loadSkills, type Skill } from "@vetta/coding-agent";
+import { DefaultResourceLoader } from "@vetta/coding-agent";
 import { dialog, ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
@@ -50,8 +50,10 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 	const subscriptionMap = new Map<string, () => void>();
 
 	ipcMain.handle("vetta:skills:list", async () => {
-		const { skills } = loadSkills();
-		return skills.map((s: Skill) => ({ name: s.name, description: s.description, source: s.source }));
+		const loader = new DefaultResourceLoader({});
+		await loader.reload();
+		const { skills } = loader.getSkills();
+		return skills.map((s) => ({ name: s.name, description: s.description, source: s.source }));
 	});
 
 	ipcMain.handle("vetta:dialog:select-folder", async () => {
