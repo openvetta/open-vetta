@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
 import type { Message, TextContent } from "@mariozechner/pi-ai";
 import {
 	type AgentSession,
@@ -132,6 +133,15 @@ export class RuntimeHost implements SessionFacade {
 			firstMessage: session.firstMessage,
 			modifiedAt: session.modified.getTime(),
 		}));
+	}
+
+	async deleteSession(sessionPath: string): Promise<void> {
+		await rm(sessionPath, { force: true });
+	}
+
+	async renameSession(sessionPath: string, name: string): Promise<void> {
+		const manager = SessionManager.open(sessionPath);
+		manager.appendSessionInfo(name);
 	}
 
 	async disposeSession(sessionId: string): Promise<void> {

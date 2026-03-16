@@ -16,6 +16,8 @@ const CHANNELS = {
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
+	DELETE: "vetta:session:delete",
+	RENAME: "vetta:session:rename",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -99,6 +101,17 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.GET_MESSAGES, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.getMessages(sessionId);
+	});
+
+	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown) => {
+		assertNonEmptyString(sessionPath, "sessionPath");
+		await runtime.deleteSession(sessionPath);
+	});
+
+	ipcMain.handle(CHANNELS.RENAME, async (_event, sessionPath: unknown, name: unknown) => {
+		assertNonEmptyString(sessionPath, "sessionPath");
+		assertNonEmptyString(name, "name");
+		await runtime.renameSession(sessionPath, name);
 	});
 
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {

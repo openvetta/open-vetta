@@ -61,5 +61,51 @@ export function useProjects() {
 		[setExpandedProjects, loadSessions],
 	);
 
-	return { projects, sessionsMap, expandedProjects, refreshProjects, loadSessions, addProject, toggleProject };
+	const deleteSession = useCallback(
+		async (cwd: string, sessionPath: string) => {
+			await window.vetta.session.delete(sessionPath);
+			setSessionsMap((prev) => {
+				const next = new Map(prev);
+				const sessions = next.get(cwd);
+				if (sessions) {
+					next.set(
+						cwd,
+						sessions.filter((s) => s.path !== sessionPath),
+					);
+				}
+				return next;
+			});
+		},
+		[setSessionsMap],
+	);
+
+	const renameSession = useCallback(
+		async (cwd: string, sessionPath: string, name: string) => {
+			await window.vetta.session.rename(sessionPath, name);
+			setSessionsMap((prev) => {
+				const next = new Map(prev);
+				const sessions = next.get(cwd);
+				if (sessions) {
+					next.set(
+						cwd,
+						sessions.map((s) => (s.path === sessionPath ? { ...s, name } : s)),
+					);
+				}
+				return next;
+			});
+		},
+		[setSessionsMap],
+	);
+
+	return {
+		projects,
+		sessionsMap,
+		expandedProjects,
+		refreshProjects,
+		loadSessions,
+		addProject,
+		toggleProject,
+		deleteSession,
+		renameSession,
+	};
 }

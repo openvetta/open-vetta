@@ -13,6 +13,8 @@ const CHANNELS = {
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
+	DELETE: "vetta:session:delete",
+	RENAME: "vetta:session:rename",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -64,6 +66,8 @@ const api: DesktopApi = {
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
 		getState: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_STATE, sessionId),
 		getMessages: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_MESSAGES, sessionId),
+		delete: async (sessionPath) => ipcRenderer.invoke(CHANNELS.DELETE, sessionPath),
+		rename: async (sessionPath, name) => ipcRenderer.invoke(CHANNELS.RENAME, sessionPath, name),
 	},
 };
 

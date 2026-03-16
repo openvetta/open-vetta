@@ -21,6 +21,8 @@ export interface DesktopSessionApi {
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	getState(sessionId: string): Promise<SessionStateSnapshot>;
 	getMessages(sessionId: string): Promise<Message[]>;
+	delete(sessionPath: string): Promise<void>;
+	rename(sessionPath: string, name: string): Promise<void>;
 }
 
 export interface DesktopDialogApi {
