@@ -118,6 +118,11 @@ export const activityPanelWidthAtom = atom<number>(360);
 const DEFAULT_WORKSPACE = "~/.vetta/workspace";
 export const workspacePathAtom = atom<string>(localStorage.getItem("vetta-workspace-path") || DEFAULT_WORKSPACE);
 
+// ─── Model selection ───
+
+/** Selected model identifier: "provider/modelId" */
+export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));
+
 // ─── Theme ───
 
 export type ThemeMode = "light" | "dark" | "auto";
