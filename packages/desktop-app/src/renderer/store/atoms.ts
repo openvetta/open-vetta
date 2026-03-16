@@ -70,6 +70,28 @@ export const chatMessagesAtom = atom<ChatMessage[]>([]);
 export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 
+// ─── Usage tracking ───
+
+export interface TurnUsageData {
+	/** Output speed: tokens per second */
+	outputSpeed: number;
+	/** Duration of this turn in seconds */
+	durationSeconds: number;
+}
+
+/** Per-turn stats (speed, duration) for the last completed turn */
+export const lastTurnUsageAtom = atom<TurnUsageData | null>(null);
+
+export interface ContextUsageData {
+	/** Context usage percentage (0-100), or null if unknown */
+	percent: number | null;
+	/** Context window size in tokens */
+	contextWindow: number;
+}
+
+/** Current context window usage */
+export const contextUsageAtom = atom<ContextUsageData | null>(null);
+
 // ─── Page navigation ───
 
 export type PageView = "chat" | "automation" | "skills" | "settings";

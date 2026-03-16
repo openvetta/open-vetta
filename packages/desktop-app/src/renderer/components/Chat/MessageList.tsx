@@ -5,6 +5,7 @@ import { cn } from "../../lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
+import { UsageBar } from "./UsageBar";
 
 interface MessageListProps {
 	messages: ChatMessage[];
@@ -135,6 +136,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 						))}
 						{showTyping && <TypingIndicator key="typing" />}
 					</AnimatePresence>
+					{!isStreaming && messages.length > 0 && <UsageBar />}
 					<div ref={bottomRef} />
 				</div>
 			</div>

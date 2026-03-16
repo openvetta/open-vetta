@@ -18,6 +18,8 @@ import {
 	pageViewAtom,
 	workspacePathAtom,
 	selectedModelAtom,
+	lastTurnUsageAtom,
+	contextUsageAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -143,6 +145,12 @@ let idCounter = 0;
 function nextId(prefix: string): string {
 	return `${prefix}-${++idCounter}-${Date.now()}`;
 }
+
+/** Timestamp (ms) when the current agent turn started. */
+let turnStartTime = 0;
+
+/** Per-session cache for turn stats (survives session switching). Key = sessionPath. */
+const turnStatsCache = new Map<string, { outputSpeed: number; durationSeconds: number }>();
 
 /** Reset streaming state (when switching sessions). */
 function resetStreamState(): void {
@@ -426,6 +434,8 @@ export function App(): JSX.Element {
 	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
+	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
+	const setContextUsage = useSetAtom(contextUsageAtom);
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	useTheme();
 
@@ -477,7 +487,16 @@ export function App(): JSX.Element {
 			);
 			setChatMessages(mapped);
 
-			const sessionInfo = { cwd, sessionPath: sessionPath ?? "", runtimeId: sessionId };
+			// Restore per-session state: context usage from backend, turn stats from cache
+			const state = await window.vetta.session.getState(sessionId);
+			setContextUsage({
+				percent: state.contextPercent,
+				contextWindow: state.contextWindow,
+			});
+			const cachedKey = sessionPath ?? "";
+			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
+
+			const sessionInfo = { cwd, sessionPath: cachedKey, runtimeId: sessionId };
 			setActiveSession(sessionInfo);
 			activeSessionRef.current = sessionInfo;
 
@@ -487,6 +506,7 @@ export function App(): JSX.Element {
 				if (event.type === "session.lifecycle") {
 					if (event.phase === "agent_start") {
 						resetStreamState();
+						turnStartTime = Date.now();
 						setIsStreaming(true);
 					}
 					if (event.phase === "agent_end" || event.phase === "aborted") {
@@ -535,11 +555,27 @@ export function App(): JSX.Element {
 					setChatMessages((prev) => handleToolEnd(prev, event.toolCallId, event.result, event.isError));
 					return;
 				}
+
+				// ── Usage update (emitted per assistant message) ──
+				if (event.type === "usage.update") {
+					const elapsed = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
+					const outputSpeed = elapsed > 0 ? event.output / elapsed : 0;
+					const turnStats = { outputSpeed, durationSeconds: elapsed };
+					setLastTurnUsage(turnStats);
+					// Cache turn stats for session restore
+					const sp = activeSessionRef.current?.sessionPath;
+					if (sp != null) turnStatsCache.set(sp, turnStats);
+					setContextUsage({
+						percent: event.contextPercent ?? null,
+						contextWindow: event.contextWindow ?? 0,
+					});
+					return;
+				}
 			});
 
 			await loadSessions(cwd);
 		},
-		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, setPageView, loadSessions],
+		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, setPageView, loadSessions, setLastTurnUsage, setContextUsage],
 	);
 
 	const sendMessage = useCallback(async () => {

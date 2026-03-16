@@ -74,7 +74,7 @@ export class RuntimeHost implements SessionFacade {
 		const handle = this.requireSession(sessionId);
 		handler(this.lifecycleEvent(sessionId, "created"));
 		return handle.session.subscribe((event) => {
-			for (const mapped of this.mapEvent(sessionId, event)) {
+			for (const mapped of this.mapEvent(sessionId, event, handle.session)) {
 				handler(mapped);
 			}
 		});
@@ -95,12 +95,15 @@ export class RuntimeHost implements SessionFacade {
 
 	getState(sessionId: string): SessionStateSnapshot {
 		const handle = this.requireSession(sessionId);
+		const contextUsage = handle.session.getContextUsage();
 		return {
 			sessionId,
 			model: handle.session.model,
 			thinkingLevel: handle.session.thinkingLevel,
 			isStreaming: handle.session.isStreaming,
 			messageCount: handle.session.messages.length,
+			contextPercent: contextUsage?.percent ?? null,
+			contextWindow: contextUsage?.contextWindow ?? 0,
 		};
 	}
 
@@ -180,7 +183,7 @@ export class RuntimeHost implements SessionFacade {
 		};
 	}
 
-	private mapEvent(sessionId: string, event: AgentSessionEvent): SessionEvent[] {
+	private mapEvent(sessionId: string, event: AgentSessionEvent, session: AgentSession): SessionEvent[] {
 		const events: SessionEvent[] = [];
 
 		if (event.type === "agent_start") {
@@ -243,6 +246,7 @@ export class RuntimeHost implements SessionFacade {
 				message: event.message as Message,
 			});
 
+			const contextUsage = session.getContextUsage();
 			events.push({
 				...this.baseEvent(sessionId, "agent"),
 				type: "usage.update",
@@ -251,6 +255,8 @@ export class RuntimeHost implements SessionFacade {
 				cacheRead: event.message.usage.cacheRead,
 				cacheWrite: event.message.usage.cacheWrite,
 				costTotal: event.message.usage.cost.total,
+				contextPercent: contextUsage?.percent ?? null,
+				contextWindow: contextUsage?.contextWindow ?? 0,
 			});
 
 			if (event.message.stopReason === "error") {
