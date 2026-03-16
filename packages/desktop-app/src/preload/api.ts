@@ -45,12 +45,23 @@ export interface DesktopSkillsApi {
 	list(): Promise<SkillInfo[]>;
 }
 
+export interface DesktopConfigData {
+	projects: string[];
+	workspacePath: string;
+}
+
+export interface DesktopConfigApi {
+	get(): Promise<DesktopConfigData>;
+	set(config: Partial<DesktopConfigData>): Promise<void>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
 	theme: DesktopThemeApi;
 	fs: DesktopFsApi;
 	skills: DesktopSkillsApi;
+	config: DesktopConfigApi;
 }
 
 declare global {

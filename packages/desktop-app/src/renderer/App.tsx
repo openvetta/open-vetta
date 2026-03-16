@@ -16,6 +16,7 @@ import {
 	inputValueAtom,
 	selectedFilePathAtom,
 	pageViewAtom,
+	workspacePathAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -422,10 +423,18 @@ export function App(): JSX.Element {
 	const setIsStreaming = useSetAtom(isStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
+	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	useTheme();
 
 	useEffect(() => {
+		// Sync workspace path from config file
+		void window.vetta.config.get().then((config) => {
+			if (config.workspacePath) {
+				setWorkspacePath(config.workspacePath);
+				localStorage.setItem("vetta-workspace-path", config.workspacePath);
+			}
+		});
 		void refreshProjects().catch(console.error);
 		return () => {
 			currentUnsubscribe?.();

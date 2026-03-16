@@ -12,4 +12,6 @@ export interface DesktopFsApi {
 	rename(oldPath: string, newPath: string): Promise<void>;
 	delete(targetPath: string): Promise<void>;
 	move(sourcePath: string, destDir: string): Promise<void>;
+	createDirectory(dirPath: string): Promise<void>;
+	listSubDirs(dirPath: string): Promise<FsEntry[]>;
 }

@@ -1,5 +1,6 @@
 import { useAtom } from "jotai";
-import { settingsTabAtom, type SettingsTab } from "../store/atoms";
+import { useCallback } from "react";
+import { settingsTabAtom, workspacePathAtom, type SettingsTab } from "../store/atoms";
 import { cn } from "../lib/utils";
 
 const SETTINGS_GROUPS: { key: SettingsTab; label: string; icon: string }[] = [
@@ -9,10 +10,57 @@ const SETTINGS_GROUPS: { key: SettingsTab; label: string; icon: string }[] = [
 ];
 
 function GeneralSettings(): JSX.Element {
+	const [workspacePath, setWorkspacePath] = useAtom(workspacePathAtom);
+
+	const handleSelectWorkspace = useCallback(async () => {
+		const selected = await window.vetta.dialog.selectFolder();
+		if (selected) {
+			setWorkspacePath(selected);
+			localStorage.setItem("vetta-workspace-path", selected);
+			await window.vetta.config.set({ workspacePath: selected });
+		}
+	}, [setWorkspacePath]);
+
+	const handleResetWorkspace = useCallback(async () => {
+		const defaultPath = "~/.vetta/workspace";
+		setWorkspacePath(defaultPath);
+		localStorage.setItem("vetta-workspace-path", defaultPath);
+		await window.vetta.config.set({ workspacePath: defaultPath });
+	}, [setWorkspacePath]);
+
 	return (
-		<div className="flex h-full flex-col items-center justify-center gap-3 opacity-50">
-			<span className="icon-[mdi--cog-outline] h-10 w-10 text-[var(--text-3)]" />
-			<p className="text-[13px] text-[var(--text-3)]">通用设置</p>
+		<div className="mx-auto w-full max-w-[520px] px-6 py-2">
+			{/* 工作目录设置 */}
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--bg-2)] p-4">
+				<div className="mb-1 flex items-center gap-2">
+					<span className="icon-[mdi--folder-cog-outline] h-4 w-4 text-[var(--text-2)]" />
+					<span className="text-[13px] font-medium text-[var(--text-1)]">工作目录</span>
+				</div>
+				<p className="mb-3 text-[12px] text-[var(--text-3)]">
+					新建项目时将在此目录下创建对应的项目文件夹。
+				</p>
+				<div className="flex items-center gap-2">
+					<div className="flex min-w-0 flex-1 items-center rounded-lg border border-[var(--border)] bg-[var(--bg-1)] px-3 py-1.5">
+						<span className="icon-[mdi--folder-outline] mr-2 h-3.5 w-3.5 shrink-0 text-[var(--text-3)]" />
+						<span className="truncate text-[12px] text-[var(--text-2)]">{workspacePath}</span>
+					</div>
+					<button
+						type="button"
+						onClick={() => void handleSelectWorkspace()}
+						className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-1.5 text-[12px] font-medium text-[var(--text-2)] transition-colors hover:bg-[var(--hover)]"
+					>
+						更改
+					</button>
+					<button
+						type="button"
+						onClick={() => void handleResetWorkspace()}
+						className="shrink-0 rounded-lg px-2 py-1.5 text-[12px] text-[var(--text-3)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-2)]"
+						title="恢复默认"
+					>
+						<span className="icon-[mdi--restore] h-3.5 w-3.5" />
+					</button>
+				</div>
+			</div>
 		</div>
 	);
 }

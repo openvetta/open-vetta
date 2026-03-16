@@ -1,7 +1,43 @@
-import { copyFile, mkdir, readdir, readFile, rename, rm, stat } from "node:fs/promises";
-import { basename, extname, join, resolve } from "node:path";
+import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { ipcMain } from "electron";
 import type { FsEntry } from "../preload/fs-types.js";
+
+// ─── Desktop app config ───
+
+export interface DesktopConfig {
+	projects: string[];
+	workspacePath: string;
+}
+
+const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
+const DEFAULT_CONFIG: DesktopConfig = {
+	projects: [],
+	workspacePath: join(homedir(), ".vetta", "workspace"),
+};
+
+async function readConfig(): Promise<DesktopConfig> {
+	try {
+		const raw = await readFile(CONFIG_PATH, "utf8");
+		const parsed = JSON.parse(raw) as Partial<DesktopConfig>;
+		return { ...DEFAULT_CONFIG, ...parsed };
+	} catch {
+		return { ...DEFAULT_CONFIG };
+	}
+}
+
+async function writeConfig(config: DesktopConfig): Promise<void> {
+	await mkdir(dirname(CONFIG_PATH), { recursive: true });
+	await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
+}
+
+function expandTilde(p: string): string {
+	if (p.startsWith("~/") || p === "~") {
+		return join(homedir(), p.slice(1));
+	}
+	return p;
+}
 
 const CHANNELS = {
 	READ_DIR: "vetta:fs:read-dir",
@@ -9,6 +45,10 @@ const CHANNELS = {
 	RENAME: "vetta:fs:rename",
 	DELETE: "vetta:fs:delete",
 	MOVE: "vetta:fs:move",
+	CREATE_DIRECTORY: "vetta:fs:create-directory",
+	LIST_SUB_DIRS: "vetta:fs:list-sub-dirs",
+	CONFIG_GET: "vetta:config:get",
+	CONFIG_SET: "vetta:config:set",
 } as const;
 
 const BINARY_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "pdf", "docx"]);
@@ -145,11 +185,68 @@ export function registerFsIpc(): () => void {
 		}
 	});
 
+	ipcMain.handle(CHANNELS.CREATE_DIRECTORY, async (_event, dirPath: unknown) => {
+		assertNonEmptyString(dirPath, "dirPath");
+		await mkdir(resolve(expandTilde(dirPath)), { recursive: true });
+	});
+
+	ipcMain.handle(CHANNELS.LIST_SUB_DIRS, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
+		assertNonEmptyString(dirPath, "dirPath");
+		const resolved = resolve(expandTilde(dirPath));
+		allowProjectRoot(resolved);
+		try {
+			const entries = await readdir(resolved, { withFileTypes: true });
+			const results: FsEntry[] = [];
+			for (const entry of entries) {
+				if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+				const fullPath = join(resolved, entry.name);
+				allowProjectRoot(fullPath);
+				try {
+					const stats = await stat(fullPath);
+					results.push({
+						name: entry.name,
+						path: fullPath,
+						isDirectory: true,
+						size: stats.size,
+						modifiedAt: stats.mtimeMs,
+					});
+				} catch {
+					// Skip entries we can't stat
+				}
+			}
+			results.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+			return results;
+		} catch {
+			return [];
+		}
+	});
+
+	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
+		return readConfig();
+	});
+
+	ipcMain.handle(CHANNELS.CONFIG_SET, async (_event, config: unknown) => {
+		if (typeof config !== "object" || config === null) throw new Error("Invalid config");
+		const current = await readConfig();
+		const patch = config as Partial<DesktopConfig>;
+		const next: DesktopConfig = {
+			projects: patch.projects ?? current.projects,
+			workspacePath: patch.workspacePath ?? current.workspacePath,
+		};
+		// Allow all project roots for file operations
+		for (const p of next.projects) allowProjectRoot(p);
+		await writeConfig(next);
+	});
+
 	return () => {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.READ_FILE);
 		ipcMain.removeHandler(CHANNELS.RENAME);
 		ipcMain.removeHandler(CHANNELS.DELETE);
 		ipcMain.removeHandler(CHANNELS.MOVE);
+		ipcMain.removeHandler(CHANNELS.CREATE_DIRECTORY);
+		ipcMain.removeHandler(CHANNELS.LIST_SUB_DIRS);
+		ipcMain.removeHandler(CHANNELS.CONFIG_GET);
+		ipcMain.removeHandler(CHANNELS.CONFIG_SET);
 	};
 }
