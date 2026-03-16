@@ -41,9 +41,15 @@ const api: DesktopApi = {
 		rename: async (oldPath, newPath) => ipcRenderer.invoke("vetta:fs:rename", oldPath, newPath),
 		delete: async (targetPath) => ipcRenderer.invoke("vetta:fs:delete", targetPath),
 		move: async (sourcePath, destDir) => ipcRenderer.invoke("vetta:fs:move", sourcePath, destDir),
+		createDirectory: async (dirPath) => ipcRenderer.invoke("vetta:fs:create-directory", dirPath),
+		listSubDirs: async (dirPath) => ipcRenderer.invoke("vetta:fs:list-sub-dirs", dirPath),
 	},
 	skills: {
 		list: async () => ipcRenderer.invoke("vetta:skills:list"),
+	},
+	config: {
+		get: async () => ipcRenderer.invoke("vetta:config:get"),
+		set: async (config) => ipcRenderer.invoke("vetta:config:set", config),
 	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),

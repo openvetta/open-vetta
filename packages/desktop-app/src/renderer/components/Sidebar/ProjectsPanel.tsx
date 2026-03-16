@@ -10,7 +10,7 @@ interface ProjectsPanelProps {
 }
 
 export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Element {
-	const { projects, sessionsMap, expandedProjects, addProject, toggleProject, deleteSession, renameSession } =
+	const { projects, sessionsMap, expandedProjects, toggleProject, deleteSession, renameSession } =
 		useProjects();
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
@@ -34,14 +34,8 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
 				<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-[var(--text-3)]" />
-				<p className="text-[11px] text-[var(--text-3)]">No projects yet.</p>
-				<button
-					type="button"
-					onClick={() => void addProject()}
-					className="text-[11px] font-medium text-[var(--text-2)] underline decoration-[var(--border-strong)] underline-offset-2 hover:text-[var(--text-1)]"
-				>
-					Add a project
-				</button>
+				<p className="text-[11px] text-[var(--text-3)]">还没有项目</p>
+				<p className="text-[11px] text-[var(--text-3)]">点击上方 + 新建项目</p>
 			</div>
 		);
 	}

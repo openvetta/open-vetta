@@ -113,6 +113,11 @@ export const renamingSessionPathAtom = atom<string | null>(null);
 export const sidebarWidthAtom = atom<number>(220);
 export const activityPanelWidthAtom = atom<number>(360);
 
+// ─── Workspace ───
+
+const DEFAULT_WORKSPACE = "~/.vetta/workspace";
+export const workspacePathAtom = atom<string>(localStorage.getItem("vetta-workspace-path") || DEFAULT_WORKSPACE);
+
 // ─── Theme ───
 
 export type ThemeMode = "light" | "dark" | "auto";

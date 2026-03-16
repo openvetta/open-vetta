@@ -1,6 +1,12 @@
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useCallback } from "react";
-import { expandedProjectsAtom, projectsAtom, type SessionInfo, sessionsMapAtom } from "../store/atoms";
+import {
+	expandedProjectsAtom,
+	projectsAtom,
+	type SessionInfo,
+	sessionsMapAtom,
+	workspacePathAtom,
+} from "../store/atoms";
 
 // Module-level flag so auto-expand only happens once per app session
 let didAutoExpand = false;
@@ -9,6 +15,7 @@ export function useProjects() {
 	const [projects, setProjects] = useAtom(projectsAtom);
 	const [sessionsMap, setSessionsMap] = useAtom(sessionsMapAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedProjectsAtom);
+	const workspacePath = useAtomValue(workspacePathAtom);
 
 	const loadSessions = useCallback(
 		async (cwd: string) => {
@@ -19,13 +26,15 @@ export function useProjects() {
 	);
 
 	const refreshProjects = useCallback(async () => {
-		const discovered = await window.vetta.session.listProjects();
-		const saved = JSON.parse(localStorage.getItem("desktop-projects") ?? "[]") as string[];
-		const merged = new Map<string, number>();
-		for (const p of discovered) merged.set(p.cwd, p.sessionCount);
-		for (const cwd of saved) if (!merged.has(cwd)) merged.set(cwd, 0);
-		const next = Array.from(merged.entries()).map(([cwd, sessionCount]) => ({ cwd, sessionCount }));
+		// Read project list from app-specific config file (not shared with CLI)
+		const config = await window.vetta.config.get();
+		const next = config.projects.map((cwd) => ({ cwd, sessionCount: 0 }));
 		setProjects(next);
+
+		// Load sessions for each project
+		for (const project of next) {
+			void loadSessions(project.cwd);
+		}
 
 		if (!didAutoExpand && next.length > 0) {
 			didAutoExpand = true;
@@ -34,11 +43,40 @@ export function useProjects() {
 		}
 	}, [setProjects, setExpandedProjects, loadSessions]);
 
-	const addProject = useCallback(async () => {
+	/** Create a new project directory in workspace and add to config */
+	const createProject = useCallback(
+		async (name: string) => {
+			const projectPath = `${workspacePath}/${name}`;
+			await window.vetta.fs.createDirectory(projectPath);
+			// Read the resolved path back via listSubDirs to get the absolute path
+			const subDirs = await window.vetta.fs.listSubDirs(workspacePath);
+			const created = subDirs.find((d) => d.name === name);
+			const resolvedPath = created?.path ?? projectPath;
+
+			// Add to config
+			const config = await window.vetta.config.get();
+			if (!config.projects.includes(resolvedPath)) {
+				config.projects.push(resolvedPath);
+				await window.vetta.config.set({ projects: config.projects });
+			}
+
+			await refreshProjects();
+			setExpandedProjects((prev) => new Set([...prev, resolvedPath]));
+		},
+		[workspacePath, refreshProjects, setExpandedProjects],
+	);
+
+	/** Open an existing directory and add to config */
+	const openProject = useCallback(async () => {
 		const cwd = await window.vetta.dialog.selectFolder();
 		if (!cwd) return null;
-		const saved = JSON.parse(localStorage.getItem("desktop-projects") ?? "[]") as string[];
-		localStorage.setItem("desktop-projects", JSON.stringify([...new Set([...saved, cwd])]));
+
+		const config = await window.vetta.config.get();
+		if (!config.projects.includes(cwd)) {
+			config.projects.push(cwd);
+			await window.vetta.config.set({ projects: config.projects });
+		}
+
 		await refreshProjects();
 		setExpandedProjects((prev) => new Set([...prev, cwd]));
 		await loadSessions(cwd);
@@ -59,6 +97,16 @@ export function useProjects() {
 			});
 		},
 		[setExpandedProjects, loadSessions],
+	);
+
+	const removeProject = useCallback(
+		async (cwd: string) => {
+			const config = await window.vetta.config.get();
+			config.projects = config.projects.filter((p) => p !== cwd);
+			await window.vetta.config.set({ projects: config.projects });
+			await refreshProjects();
+		},
+		[refreshProjects],
 	);
 
 	const deleteSession = useCallback(
@@ -103,7 +151,9 @@ export function useProjects() {
 		expandedProjects,
 		refreshProjects,
 		loadSessions,
-		addProject,
+		createProject,
+		openProject,
+		removeProject,
 		toggleProject,
 		deleteSession,
 		renameSession,
