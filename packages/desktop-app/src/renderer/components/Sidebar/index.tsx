@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { useAtom, useAtomValue } from "jotai";
-import { sidebarTabAtom, sidebarWidthAtom } from "../../store/atoms";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { sidebarTabAtom, sidebarWidthAtom, pageViewAtom, type PageView } from "../../store/atoms";
 import { useProjects } from "../../hooks/useProjects";
 import { SidebarTabs } from "./SidebarTabs";
 import { ProjectsPanel } from "./ProjectsPanel";
@@ -17,6 +17,7 @@ interface SidebarProps {
 
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	const tab = useAtomValue(sidebarTabAtom);
+	const [pageView, setPageView] = useAtom(pageViewAtom);
 	const { addProject } = useProjects();
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 
@@ -50,6 +51,28 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 					<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 				</button>
 			</div>
+
+			{/* Page nav entries */}
+			<nav className="flex flex-col gap-0.5 px-1.5 pb-2">
+				{([
+					{ key: "automation" as PageView, label: "自动化", icon: "icon-[mdi--robot-outline]" },
+					{ key: "skills" as PageView, label: "技能广场", icon: "icon-[mdi--puzzle-outline]" },
+				]).map(({ key, label, icon }) => (
+					<button
+						key={key}
+						type="button"
+						onClick={() => setPageView(key)}
+						className={`no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+							pageView === key
+								? "bg-[var(--hover-strong)] font-medium text-[var(--text-1)]"
+								: "text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+						}`}
+					>
+						<span className={`${icon} h-4 w-4 shrink-0`} />
+						{label}
+					</button>
+				))}
+			</nav>
 
 			{/* Tab switcher */}
 			<SidebarTabs />

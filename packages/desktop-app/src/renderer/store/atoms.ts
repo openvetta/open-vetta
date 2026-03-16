@@ -70,6 +70,11 @@ export const chatMessagesAtom = atom<ChatMessage[]>([]);
 export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 
+// ─── Page navigation ───
+
+export type PageView = "chat" | "automation" | "skills";
+export const pageViewAtom = atom<PageView>("chat");
+
 // ─── Sidebar tab ───
 
 export type SidebarTab = "projects" | "files";

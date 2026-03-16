@@ -1,0 +1,7 @@
+export function SkillsPage(): JSX.Element {
+	return (
+		<div className="flex h-full w-full flex-1 items-center justify-center">
+			<h1 className="text-2xl font-semibold text-[var(--text-1)]">技能广场</h1>
+		</div>
+	);
+}
