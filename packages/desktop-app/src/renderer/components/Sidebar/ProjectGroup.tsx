@@ -1,5 +1,8 @@
+import { useAtom } from "jotai";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import type { Project, SessionInfo } from "../../store/atoms";
+import { renamingSessionPathAtom, sessionContextMenuAtom } from "../../store/atoms";
 
 interface ProjectGroupProps {
 	project: Project;
@@ -9,6 +12,7 @@ interface ProjectGroupProps {
 	onToggle: (cwd: string) => void;
 	onNewSession: (cwd: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
+	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 }
 
 function projectName(cwd: string): string {
@@ -32,6 +36,48 @@ function relativeTime(timestamp: number): string {
 	return `${Math.floor(months / 12)} 年`;
 }
 
+function InlineRenameInput({
+	session,
+	cwd,
+	onRename,
+	onDone,
+}: {
+	session: SessionInfo;
+	cwd: string;
+	onRename: (cwd: string, sessionPath: string, name: string) => void;
+	onDone: () => void;
+}): JSX.Element {
+	const [value, setValue] = useState(session.name || session.firstMessage || session.id);
+	const inputRef = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		inputRef.current?.focus();
+		inputRef.current?.select();
+	}, []);
+
+	function commit() {
+		const trimmed = value.trim();
+		if (trimmed && trimmed !== (session.name || session.firstMessage || session.id)) {
+			onRename(cwd, session.path, trimmed);
+		}
+		onDone();
+	}
+
+	return (
+		<input
+			ref={inputRef}
+			value={value}
+			onChange={(e) => setValue(e.target.value)}
+			onBlur={commit}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") commit();
+				if (e.key === "Escape") onDone();
+			}}
+			className="min-w-0 flex-1 truncate rounded-[3px] border border-[var(--border-strong)] bg-[var(--bg-input,var(--hover))] pl-[20px] text-[13px] text-[var(--text-1)] outline-none"
+		/>
+	);
+}
+
 export function ProjectGroup({
 	project,
 	sessions,
@@ -40,8 +86,11 @@ export function ProjectGroup({
 	onToggle,
 	onNewSession,
 	onSelectSession,
+	onRenameSession,
 }: ProjectGroupProps): JSX.Element {
 	const sortedSessions = [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt);
+	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
+	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 
 	return (
 		<div className="mb-1">
@@ -79,30 +128,46 @@ export function ProjectGroup({
 					) : (
 						sortedSessions.map((session) => {
 							const isActive = activeSessionPath === session.path;
+							const isRenaming = renamingSessionPath === session.path;
 							const label = session.name || session.firstMessage || session.id;
 							return (
 								<button
 									key={session.path}
 									type="button"
-									onClick={() => onSelectSession(project.cwd, session.path)}
+									onClick={() => {
+										if (!isRenaming) onSelectSession(project.cwd, session.path);
+									}}
+									onContextMenu={(e) => {
+										e.preventDefault();
+										setContextMenu({ x: e.clientX, y: e.clientY, session });
+									}}
 									className={cn(
 										"flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
 										isActive
 											? "bg-[var(--hover-strong)]"
 											: "hover:bg-[var(--hover)]",
 									)}
-									title={label}
+									title={isRenaming ? undefined : label}
 								>
-									<span
-										className={cn(
-											"min-w-0 flex-1 truncate pl-[20px] text-[13px]",
-											isActive
-												? "font-medium text-[var(--text-1)]"
-												: "text-[var(--text-2)]",
-										)}
-									>
-										{label}
-									</span>
+									{isRenaming ? (
+										<InlineRenameInput
+											session={session}
+											cwd={project.cwd}
+											onRename={onRenameSession}
+											onDone={() => setRenamingSessionPath(null)}
+										/>
+									) : (
+										<span
+											className={cn(
+												"min-w-0 flex-1 truncate pl-[20px] text-[13px]",
+												isActive
+													? "font-medium text-[var(--text-1)]"
+													: "text-[var(--text-1)]",
+											)}
+										>
+											{label}
+										</span>
+									)}
 									<span className="shrink-0 text-[11px] text-[var(--text-3)]">
 										{relativeTime(session.modifiedAt)}
 									</span>

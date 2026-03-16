@@ -93,6 +93,11 @@ export const loadingDirsAtom = atom<Set<string>>(new Set());
 export const fileContextMenuAtom = atom<{ x: number; y: number; entry: FsEntry } | null>(null);
 export const renamingPathAtom = atom<string | null>(null);
 
+// ─── Session context menu ───
+
+export const sessionContextMenuAtom = atom<{ x: number; y: number; session: SessionInfo } | null>(null);
+export const renamingSessionPathAtom = atom<string | null>(null);
+
 // ─── Panel widths ───
 
 export const sidebarWidthAtom = atom<number>(220);

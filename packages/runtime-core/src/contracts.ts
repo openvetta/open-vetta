@@ -153,5 +153,7 @@ export interface SessionFacade {
 	getMessages(sessionId: string): Message[];
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
+	deleteSession(sessionPath: string): Promise<void>;
+	renameSession(sessionPath: string, name: string): Promise<void>;
 	disposeSession(sessionId: string): Promise<void>;
 }
