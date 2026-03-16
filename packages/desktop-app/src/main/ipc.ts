@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { loadSkills, type Skill } from "@vetta/coding-agent";
 import { dialog, ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
@@ -47,6 +48,11 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 export function registerRuntimeIpc(webContents: WebContents): () => void {
 	const runtime = new RuntimeHost();
 	const subscriptionMap = new Map<string, () => void>();
+
+	ipcMain.handle("vetta:skills:list", async () => {
+		const { skills } = loadSkills();
+		return skills.map((s: Skill) => ({ name: s.name, description: s.description, source: s.source }));
+	});
 
 	ipcMain.handle("vetta:dialog:select-folder", async () => {
 		const result = await dialog.showOpenDialog({ properties: ["openDirectory"], title: "Select Project Folder" });
@@ -138,6 +144,7 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 			unsubscribe();
 		}
 		subscriptionMap.clear();
+		ipcMain.removeHandler("vetta:skills:list");
 		ipcMain.removeHandler("vetta:dialog:select-folder");
 	};
 }

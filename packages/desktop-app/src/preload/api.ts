@@ -35,11 +35,22 @@ export interface DesktopThemeApi {
 	onNativeChanged(handler: (info: { shouldUseDarkColors: boolean }) => void): () => void;
 }
 
+export interface SkillInfo {
+	name: string;
+	description: string;
+	source: string;
+}
+
+export interface DesktopSkillsApi {
+	list(): Promise<SkillInfo[]>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
 	theme: DesktopThemeApi;
 	fs: DesktopFsApi;
+	skills: DesktopSkillsApi;
 }
 
 declare global {

@@ -42,6 +42,9 @@ const api: DesktopApi = {
 		delete: async (targetPath) => ipcRenderer.invoke("vetta:fs:delete", targetPath),
 		move: async (sourcePath, destDir) => ipcRenderer.invoke("vetta:fs:move", sourcePath, destDir),
 	},
+	skills: {
+		list: async () => ipcRenderer.invoke("vetta:skills:list"),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),
