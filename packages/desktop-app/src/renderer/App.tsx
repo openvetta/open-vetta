@@ -4,6 +4,8 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatView } from "./components/Chat";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ActivityPanel } from "./components/ActivityPanel";
+import { AutomationPage } from "./components/AutomationPage";
+import { SkillsPage } from "./components/SkillsPage";
 import { useProjects } from "./hooks/useProjects";
 import { useTheme } from "./hooks/useTheme";
 import {
@@ -12,6 +14,7 @@ import {
 	isStreamingAtom,
 	inputValueAtom,
 	selectedFilePathAtom,
+	pageViewAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -413,6 +416,7 @@ function handleToolEnd(
 export function App(): JSX.Element {
 	const { refreshProjects, loadSessions } = useProjects();
 	const [activeSession, setActiveSession] = useAtom(activeSessionAtom);
+	const [pageView, setPageView] = useAtom(pageViewAtom);
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setIsStreaming = useSetAtom(isStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
@@ -437,6 +441,7 @@ export function App(): JSX.Element {
 			setIsStreaming(false);
 			setSelectedFilePath(null);
 
+			setPageView("chat");
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
 
 			// Load history
@@ -514,7 +519,7 @@ export function App(): JSX.Element {
 
 			await loadSessions(cwd);
 		},
-		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, loadSessions],
+		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, setPageView, loadSessions],
 	);
 
 	const sendMessage = useCallback(async () => {
@@ -543,7 +548,11 @@ export function App(): JSX.Element {
 					boxShadow: "var(--panel-shadow)",
 				}}
 			>
-				{activeSession ? (
+				{pageView === "automation" ? (
+					<AutomationPage />
+				) : pageView === "skills" ? (
+					<SkillsPage />
+				) : activeSession ? (
 					<ChatView onSend={sendMessage} onAbort={abortMessage} />
 				) : (
 					<WelcomeScreen />
