@@ -65,6 +65,7 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
+		if (config?.cwd) allowProjectRoot(config.cwd);
 		return runtime.createSession(config);
 	});
 

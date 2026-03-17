@@ -308,7 +308,12 @@ export function registerFsIpc(): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
-		return readConfig();
+		const config = await readConfig();
+		// Ensure all known paths are authorized for file operations
+		for (const p of config.projects) allowProjectRoot(p);
+		for (const p of config.archivedProjects) allowProjectRoot(p);
+		if (config.workspacePath) allowProjectRoot(config.workspacePath);
+		return config;
 	});
 
 	ipcMain.handle(CHANNELS.CONFIG_SET, async (_event, config: unknown) => {
@@ -320,9 +325,10 @@ export function registerFsIpc(): () => void {
 			archivedProjects: patch.archivedProjects ?? current.archivedProjects,
 			workspacePath: patch.workspacePath ?? current.workspacePath,
 		};
-		// Allow all project roots for file operations
+		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p);
 		for (const p of next.archivedProjects) allowProjectRoot(p);
+		if (next.workspacePath) allowProjectRoot(next.workspacePath);
 		await writeConfig(next);
 	});
 
