@@ -75,7 +75,7 @@ export function useFileTree() {
 				}
 				// Also remove cached children if it was a directory
 				for (const key of next.keys()) {
-					if (key === entryPath || key.startsWith(entryPath + "/")) {
+					if (key === entryPath || key.startsWith(`${entryPath}/`)) {
 						next.delete(key);
 					}
 				}
@@ -85,7 +85,7 @@ export function useFileTree() {
 			setExpandedDirs((prev) => {
 				const next = new Set(prev);
 				for (const key of next) {
-					if (key === entryPath || key.startsWith(entryPath + "/")) {
+					if (key === entryPath || key.startsWith(`${entryPath}/`)) {
 						next.delete(key);
 					}
 				}

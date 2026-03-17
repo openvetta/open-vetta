@@ -81,6 +81,7 @@ This is a test skill.
 			filePath: "/fake/path/SKILL.md",
 			baseDir: "/fake/path",
 			source: "custom" as const,
+			type: "skill" as const,
 			disableModelInvocation: false,
 		};
 

@@ -158,7 +158,7 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 function assertPathWithinProject(targetPath: string): void {
 	const resolved = resolve(targetPath);
 	for (const root of allowedRoots) {
-		if (resolved === root || resolved.startsWith(root + "/")) {
+		if (resolved === root || resolved.startsWith(`${root}/`)) {
 			return;
 		}
 	}
