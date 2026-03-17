@@ -18,14 +18,9 @@ if ! command -v "$BUN_BIN" >/dev/null 2>&1; then
 fi
 
 echo "Unlinking $PACKAGE_NAME globally with bun..."
-if ! "$BUN_BIN" unlink -g "$PACKAGE_NAME"; then
-	echo "Notice: global link for $PACKAGE_NAME was not present."
-fi
-
-echo "Removing local link registration..."
 cd "$PACKAGE_DIR"
 if ! "$BUN_BIN" unlink; then
-	echo "Notice: local link registration was not present."
+	echo "Notice: global link for $PACKAGE_NAME was not present."
 fi
 
 echo ""
