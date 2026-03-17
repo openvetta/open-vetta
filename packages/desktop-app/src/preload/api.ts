@@ -47,6 +47,7 @@ export interface DesktopSkillsApi {
 
 export interface DesktopConfigData {
 	projects: string[];
+	archivedProjects: string[];
 	workspacePath: string;
 }
 
@@ -105,6 +106,10 @@ export interface DesktopMcpApi {
 	set(config: McpConfigData): Promise<void>;
 }
 
+export interface DesktopShellApi {
+	showInFolder(fullPath: string): Promise<void>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -114,6 +119,7 @@ export interface DesktopApi {
 	config: DesktopConfigApi;
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
+	shell: DesktopShellApi;
 }
 
 declare global {

@@ -1,8 +1,9 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback } from "react";
-import { activeSessionAtom, sessionContextMenuAtom } from "../../store/atoms";
+import { activeSessionAtom, projectContextMenuAtom, sessionContextMenuAtom } from "../../store/atoms";
 import { useProjects } from "../../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
+import { ProjectContextMenu } from "./ProjectContextMenu";
 import { SessionContextMenu } from "./SessionContextMenu";
 
 interface ProjectsPanelProps {
@@ -10,10 +11,11 @@ interface ProjectsPanelProps {
 }
 
 export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Element {
-	const { projects, sessionsMap, expandedProjects, toggleProject, deleteSession, renameSession } =
+	const { projects, sessionsMap, expandedProjects, toggleProject, deleteSession, renameSession, archiveProject } =
 		useProjects();
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
+	const [projectMenu, setProjectMenu] = useAtom(projectContextMenuAtom);
 
 	const handleDeleteSession = useCallback(
 		(session: { cwd: string; path: string }) => {
@@ -62,6 +64,18 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 					session={contextMenu.session}
 					onClose={() => setContextMenu(null)}
 					onDelete={handleDeleteSession}
+				/>
+			)}
+			{projectMenu && (
+				<ProjectContextMenu
+					x={projectMenu.x}
+					y={projectMenu.y}
+					project={projectMenu.project}
+					onClose={() => setProjectMenu(null)}
+					onArchive={(cwd) => {
+						void archiveProject(cwd);
+						setProjectMenu(null);
+					}}
 				/>
 			)}
 		</>

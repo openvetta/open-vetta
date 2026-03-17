@@ -109,6 +109,35 @@ export function useProjects() {
 		[refreshProjects],
 	);
 
+	const archiveProject = useCallback(
+		async (cwd: string) => {
+			const config = await window.vetta.config.get();
+			config.projects = config.projects.filter((p) => p !== cwd);
+			const archived = config.archivedProjects ?? [];
+			if (!archived.includes(cwd)) archived.push(cwd);
+			await window.vetta.config.set({ projects: config.projects, archivedProjects: archived });
+			await refreshProjects();
+		},
+		[refreshProjects],
+	);
+
+	const unarchiveProject = useCallback(
+		async (cwd: string) => {
+			const config = await window.vetta.config.get();
+			const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
+			const projects = config.projects.includes(cwd) ? config.projects : [...config.projects, cwd];
+			await window.vetta.config.set({ projects, archivedProjects: archived });
+			await refreshProjects();
+		},
+		[refreshProjects],
+	);
+
+	const deleteArchivedProject = useCallback(async (cwd: string) => {
+		const config = await window.vetta.config.get();
+		const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
+		await window.vetta.config.set({ archivedProjects: archived });
+	}, []);
+
 	const deleteSession = useCallback(
 		async (cwd: string, sessionPath: string) => {
 			await window.vetta.session.delete(sessionPath);
@@ -154,6 +183,9 @@ export function useProjects() {
 		createProject,
 		openProject,
 		removeProject,
+		archiveProject,
+		unarchiveProject,
+		deleteArchivedProject,
 		toggleProject,
 		deleteSession,
 		renameSession,

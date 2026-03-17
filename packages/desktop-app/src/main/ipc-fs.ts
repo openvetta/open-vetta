@@ -8,6 +8,7 @@ import type { FsEntry } from "../preload/fs-types.js";
 
 export interface DesktopConfig {
 	projects: string[];
+	archivedProjects: string[];
 	workspacePath: string;
 }
 
@@ -16,6 +17,7 @@ const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
 const MCP_CONFIG_PATH = join(homedir(), ".vetta", "agent", "mcp.json");
 const DEFAULT_CONFIG: DesktopConfig = {
 	projects: [],
+	archivedProjects: [],
 	workspacePath: join(homedir(), ".vetta", "workspace"),
 };
 
@@ -315,10 +317,12 @@ export function registerFsIpc(): () => void {
 		const patch = config as Partial<DesktopConfig>;
 		const next: DesktopConfig = {
 			projects: patch.projects ?? current.projects,
+			archivedProjects: patch.archivedProjects ?? current.archivedProjects,
 			workspacePath: patch.workspacePath ?? current.workspacePath,
 		};
 		// Allow all project roots for file operations
 		for (const p of next.projects) allowProjectRoot(p);
+		for (const p of next.archivedProjects) allowProjectRoot(p);
 		await writeConfig(next);
 	});
 
