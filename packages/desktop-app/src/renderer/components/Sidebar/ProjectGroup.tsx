@@ -2,7 +2,7 @@ import { useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import type { Project, SessionInfo } from "../../store/atoms";
-import { renamingSessionPathAtom, sessionContextMenuAtom } from "../../store/atoms";
+import { projectContextMenuAtom, renamingSessionPathAtom, sessionContextMenuAtom } from "../../store/atoms";
 
 interface ProjectGroupProps {
 	project: Project;
@@ -90,6 +90,7 @@ export function ProjectGroup({
 }: ProjectGroupProps): JSX.Element {
 	const sortedSessions = [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
+	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 
 	return (
@@ -98,6 +99,10 @@ export function ProjectGroup({
 			<button
 				type="button"
 				onClick={() => onToggle(project.cwd)}
+				onContextMenu={(e) => {
+					e.preventDefault();
+					setProjectContextMenu({ x: e.clientX, y: e.clientY, project });
+				}}
 				className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left hover:bg-[var(--hover)]"
 				title={project.cwd}
 			>

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
 import { registerRuntimeIpc } from "./ipc.js";
 import { registerFsIpc } from "./ipc-fs.js";
 
@@ -79,6 +79,10 @@ app.whenReady().then(() => {
 				shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
 			});
 		}
+	});
+
+	ipcMain.handle("vetta:shell:show-in-folder", async (_event, fullPath: string) => {
+		await shell.openPath(fullPath);
 	});
 
 	if (process.platform === "darwin") {

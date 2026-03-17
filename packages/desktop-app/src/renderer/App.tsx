@@ -7,6 +7,7 @@ import { ActivityPanel } from "./components/ActivityPanel";
 import { AutomationPage } from "./components/AutomationPage";
 import { SkillsPage } from "./components/SkillsPage";
 import { SettingsPage } from "./components/SettingsPage";
+import { ConfirmDialog } from "./components/ui/confirm-dialog";
 import { useProjects } from "./hooks/useProjects";
 import { useTheme } from "./hooks/useTheme";
 import {
@@ -617,6 +618,7 @@ export function App(): JSX.Element {
 				)}
 			</main>
 			<ActivityPanel />
+			<ConfirmDialog />
 		</div>
 	);
 }

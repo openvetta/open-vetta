@@ -99,7 +99,7 @@ export const pageViewAtom = atom<PageView>("chat");
 
 // ─── Settings page ───
 
-export type SettingsTab = "general" | "models" | "mcp";
+export type SettingsTab = "general" | "models" | "mcp" | "archive";
 export const settingsTabAtom = atom<SettingsTab>("general");
 
 // ─── Sidebar tab ───
@@ -129,6 +129,23 @@ export const renamingPathAtom = atom<string | null>(null);
 
 export const sessionContextMenuAtom = atom<{ x: number; y: number; session: SessionInfo } | null>(null);
 export const renamingSessionPathAtom = atom<string | null>(null);
+
+// ─── Project context menu ───
+
+export const projectContextMenuAtom = atom<{ x: number; y: number; project: Project } | null>(null);
+
+// ─── Confirm dialog ───
+
+export interface ConfirmDialogState {
+	title: string;
+	message: string;
+	confirmLabel?: string;
+	cancelLabel?: string;
+	variant?: "danger" | "default";
+	onConfirm: () => void;
+}
+
+export const confirmDialogAtom = atom<ConfirmDialogState | null>(null);
 
 // ─── Panel widths ───
 

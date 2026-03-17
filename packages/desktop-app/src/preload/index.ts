@@ -59,6 +59,9 @@ const api: DesktopApi = {
 		get: async () => ipcRenderer.invoke("vetta:mcp:get"),
 		set: async (config) => ipcRenderer.invoke("vetta:mcp:set", config),
 	},
+	shell: {
+		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),
