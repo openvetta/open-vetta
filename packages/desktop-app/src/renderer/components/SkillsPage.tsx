@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { SkillInfo } from "../../preload/api";
+import { SegmentedControl } from "./ui/segmented-control";
 
 type SkillsTab = "mine" | "discover";
 
@@ -53,34 +54,14 @@ export function SkillsPage(): JSX.Element {
 					技能广场
 				</h1>
 
-				{/* Segmented control */}
-				<div className="relative flex rounded-lg bg-[var(--surface-raised)] p-[3px]">
-					{/* Animated active indicator */}
-					<div
-						className="absolute top-[3px] bottom-[3px] rounded-md bg-[var(--content-bg)] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] transition-all duration-250 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-						style={{
-							width: "calc(50% - 3px)",
-							left: tab === "mine" ? "3px" : "calc(50%)",
-						}}
-					/>
-					{([
+				<SegmentedControl
+					items={[
 						{ key: "mine" as SkillsTab, label: "我的" },
 						{ key: "discover" as SkillsTab, label: "发现" },
-					]).map(({ key, label }) => (
-						<button
-							key={key}
-							type="button"
-							onClick={() => setTab(key)}
-							className={`relative z-10 rounded-md px-4 py-[5px] text-[13px] font-medium transition-colors duration-200 ${
-								tab === key
-									? "text-[var(--text-1)]"
-									: "text-[var(--text-3)] hover:text-[var(--text-2)]"
-							}`}
-						>
-							{label}
-						</button>
-					))}
-				</div>
+					]}
+					value={tab}
+					onChange={setTab}
+				/>
 			</div>
 
 			{/* Subtitle */}

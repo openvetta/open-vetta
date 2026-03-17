@@ -85,6 +85,26 @@ export interface DesktopModelsApi {
 	set(config: ModelsConfigData): Promise<void>;
 }
 
+export interface McpServerConfigData {
+	command: string;
+	args?: string[];
+	env?: Record<string, string>;
+	cwd?: string;
+	disabled?: boolean;
+	autoApprove?: string[];
+	startupTimeout?: number;
+	debug?: boolean;
+}
+
+export interface McpConfigData {
+	mcpServers: Record<string, McpServerConfigData>;
+}
+
+export interface DesktopMcpApi {
+	get(): Promise<McpConfigData>;
+	set(config: McpConfigData): Promise<void>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -93,6 +113,7 @@ export interface DesktopApi {
 	skills: DesktopSkillsApi;
 	config: DesktopConfigApi;
 	models: DesktopModelsApi;
+	mcp: DesktopMcpApi;
 }
 
 declare global {
