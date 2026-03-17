@@ -25,13 +25,13 @@ export function ContextRing(): JSX.Element | null {
 	const clamped = Math.min(100, Math.max(0, percent));
 	const offset = CIRCUMFERENCE - (clamped / 100) * CIRCUMFERENCE;
 
-	// Bright colors for the progress arc
+	// Progress arc color: themed neutral, warm/red when high usage
 	const color =
 		percent > 90
 			? "#ef4444"
 			: percent > 70
 				? "#f59e0b"
-				: "#22d3ee";
+				: "var(--text-1)";
 
 	const tooltip =
 		ctx.percent !== null
