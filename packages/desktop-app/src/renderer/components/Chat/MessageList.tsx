@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ChatMessage, ContentBlock } from "../../store/atoms";
 import { cn } from "../../lib/utils";
@@ -106,13 +106,49 @@ function TypingIndicator(): JSX.Element {
 	);
 }
 
+const NEAR_BOTTOM_THRESHOLD = 80;
+
+function isNearBottom(el: HTMLElement): boolean {
+	return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_THRESHOLD;
+}
+
 export function MessageList({ messages, isStreaming }: MessageListProps): JSX.Element {
 	const bottomRef = useRef<HTMLDivElement>(null);
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const stickToBottomRef = useRef(true);
+	const [showScrollBtn, setShowScrollBtn] = useState(false);
 	const lastMessage = messages.at(-1);
 	const showTyping = isStreaming && (!lastMessage || lastMessage.role !== "assistant" || !lastMessage.text);
 
-	useEffect(() => {
+	const handleScroll = useCallback(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		const near = isNearBottom(el);
+		stickToBottomRef.current = near;
+		setShowScrollBtn(!near);
+	}, []);
+
+	const scrollToBottom = useCallback(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+		stickToBottomRef.current = true;
+		setShowScrollBtn(false);
+	}, []);
+
+	// When user sends a new message, always scroll to bottom
+	const prevMsgCountRef = useRef(messages.length);
+	useEffect(() => {
+		const prevCount = prevMsgCountRef.current;
+		prevMsgCountRef.current = messages.length;
+		const newMsg = messages.at(-1);
+		if (messages.length > prevCount && newMsg?.role === "user") {
+			stickToBottomRef.current = true;
+			setShowScrollBtn(false);
+			bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+			return;
+		}
+		if (stickToBottomRef.current) {
+			bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+		}
 	}, [messages, isStreaming]);
 
 	return (
@@ -128,7 +164,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 				}
 				textarea::placeholder { color: var(--text-3); }
 			`}</style>
-			<div className="flex-1 overflow-y-auto px-5 pb-5 pt-[56px]">
+			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-[56px]">
 				<div className="mx-auto flex max-w-2xl flex-col gap-3.5">
 					<AnimatePresence initial={false}>
 						{messages.map((m) => (
@@ -140,6 +176,21 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 					<div ref={bottomRef} />
 				</div>
 			</div>
+			<AnimatePresence>
+				{showScrollBtn && (
+					<motion.button
+						initial={{ opacity: 0, scale: 0.8 }}
+						animate={{ opacity: 1, scale: 1 }}
+						exit={{ opacity: 0, scale: 0.8 }}
+						transition={{ duration: 0.15 }}
+						type="button"
+						onClick={scrollToBottom}
+						className="absolute bottom-[72px] left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--text-2)] shadow-md transition-colors hover:bg-[var(--surface-3)]"
+					>
+						<span className="icon-[mdi--chevron-down] h-5 w-5" />
+					</motion.button>
+				)}
+			</AnimatePresence>
 		</>
 	);
 }
