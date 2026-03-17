@@ -122,6 +122,14 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				))}
 			</nav>
 
+			{/* Section header: title + tab toggle */}
+			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
+				<span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-1)]">
+					{tab === "projects" ? "项目" : "文件"}
+				</span>
+				<SidebarTabs />
+			</div>
+
 			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
 				{tab === "projects" ? (
@@ -131,12 +139,9 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				)}
 			</div>
 
-			{/* Tab switcher + settings */}
-			<div className="border-t border-[var(--border)] px-0 py-1.5">
-				<SidebarTabs />
-				<div className="px-1.5 pt-1">
-					<SettingsMenu />
-				</div>
+			{/* Settings */}
+			<div className="border-t border-[var(--border)] px-1.5 py-1.5">
+				<SettingsMenu />
 			</div>
 			<ResizeHandle side="right" onResize={onResize} />
 			{showNewProject && (

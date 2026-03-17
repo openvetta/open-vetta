@@ -138,6 +138,19 @@ export function useProjects() {
 		await window.vetta.config.set({ archivedProjects: archived });
 	}, []);
 
+	/** Remove project from config AND delete from disk */
+	const deleteProjectFromDisk = useCallback(
+		async (cwd: string) => {
+			const config = await window.vetta.config.get();
+			config.projects = config.projects.filter((p) => p !== cwd);
+			const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
+			await window.vetta.config.set({ projects: config.projects, archivedProjects: archived });
+			await window.vetta.fs.delete(cwd);
+			await refreshProjects();
+		},
+		[refreshProjects],
+	);
+
 	const deleteSession = useCallback(
 		async (cwd: string, sessionPath: string) => {
 			await window.vetta.session.delete(sessionPath);
@@ -186,6 +199,7 @@ export function useProjects() {
 		archiveProject,
 		unarchiveProject,
 		deleteArchivedProject,
+		deleteProjectFromDisk,
 		toggleProject,
 		deleteSession,
 		renameSession,
