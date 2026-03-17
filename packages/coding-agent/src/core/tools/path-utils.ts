@@ -1,6 +1,6 @@
-import { accessSync, constants } from "node:fs";
+import { accessSync, constants, readdirSync } from "node:fs";
 import * as os from "node:os";
-import { isAbsolute, resolve as resolvePath } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve as resolvePath } from "node:path";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const NARROW_NO_BREAK_SPACE = "\u202F";
@@ -21,6 +21,37 @@ function tryCurlyQuoteVariant(filePath: string): string {
 	// macOS uses U+2019 (right single quotation mark) in screenshot names like "Capture d'écran"
 	// Users typically type U+0027 (straight apostrophe)
 	return filePath.replace(/'/g, "\u2019");
+}
+
+/** Strip all ASCII spaces from a string for fuzzy comparison */
+function stripSpaces(s: string): string {
+	return s.replace(/ /g, "");
+}
+
+/**
+ * When exact filename lookup fails, scan the parent directory for a single
+ * entry whose name matches after stripping spaces.  This handles the common
+ * case where an LLM inserts or removes spaces in CJK / mixed-script filenames
+ * (e.g. "2026-2028 年度..." vs "2026-2028年度...").
+ *
+ * Returns the corrected absolute path, or undefined if no unique match is found.
+ */
+function tryFuzzyFilenameMatch(absolutePath: string): string | undefined {
+	const dir = dirname(absolutePath);
+	const target = stripSpaces(basename(absolutePath)).normalize("NFC");
+
+	let entries: string[];
+	try {
+		entries = readdirSync(dir);
+	} catch {
+		return undefined;
+	}
+
+	const matches = entries.filter((e) => stripSpaces(e).normalize("NFC") === target);
+	if (matches.length === 1) {
+		return join(dir, matches[0]);
+	}
+	return undefined;
 }
 
 function fileExists(filePath: string): boolean {
@@ -88,6 +119,13 @@ export function resolveReadPath(filePath: string, cwd: string): string {
 	const nfdCurlyVariant = tryCurlyQuoteVariant(nfdVariant);
 	if (nfdCurlyVariant !== resolved && fileExists(nfdCurlyVariant)) {
 		return nfdCurlyVariant;
+	}
+
+	// Fuzzy match: LLMs often insert/remove spaces in CJK filenames.
+	// Search the parent directory for a file whose name matches after stripping all spaces.
+	const fuzzyMatch = tryFuzzyFilenameMatch(resolved);
+	if (fuzzyMatch) {
+		return fuzzyMatch;
 	}
 
 	return resolved;
