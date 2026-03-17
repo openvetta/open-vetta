@@ -10,6 +10,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { ConfirmDialog } from "./components/ui/confirm-dialog";
 import { useProjects } from "./hooks/useProjects";
 import { useTheme } from "./hooks/useTheme";
+import { useGlobalShortcuts } from "./hooks/useShortcuts";
 import {
 	activeSessionAtom,
 	chatMessagesAtom,
@@ -17,6 +18,7 @@ import {
 	inputValueAtom,
 	selectedFilePathAtom,
 	pageViewAtom,
+	settingsTabAtom,
 	workspacePathAtom,
 	selectedModelAtom,
 	lastTurnUsageAtom,
@@ -426,7 +428,7 @@ function handleToolEnd(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function App(): JSX.Element {
-	const { refreshProjects, loadSessions } = useProjects();
+	const { refreshProjects, loadSessions, openProject, projects } = useProjects();
 	const [activeSession, setActiveSession] = useAtom(activeSessionAtom);
 	const [pageView, setPageView] = useAtom(pageViewAtom);
 	const setChatMessages = useSetAtom(chatMessagesAtom);
@@ -437,8 +439,41 @@ export function App(): JSX.Element {
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
+	const setSettingsTab = useSetAtom(settingsTabAtom);
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
+	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
 	useTheme();
+
+	// ─── Global keyboard shortcuts ───
+	const projectsRef = useRef(projects);
+	projectsRef.current = projects;
+
+	useGlobalShortcuts(
+		useCallback(
+			(actionId: string) => {
+				switch (actionId) {
+					case "new-session": {
+						// Create a new session in the first project (if any)
+						const firstProject = projectsRef.current[0];
+						if (firstProject) {
+							void openSessionRef.current?.(firstProject.cwd);
+						}
+						break;
+					}
+					case "open-project": {
+						void openProject();
+						break;
+					}
+					case "open-settings": {
+						setPageView("settings");
+						setSettingsTab("general");
+						break;
+					}
+				}
+			},
+			[openProject, setPageView, setSettingsTab],
+		),
+	);
 
 	useEffect(() => {
 		// Sync workspace path from config file
@@ -578,6 +613,9 @@ export function App(): JSX.Element {
 		},
 		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, setPageView, loadSessions, setLastTurnUsage, setContextUsage],
 	);
+
+	// Keep ref in sync so shortcut handler can call openSession
+	openSessionRef.current = openSession;
 
 	const sendMessage = useCallback(async () => {
 		const session = activeSessionRef.current;
