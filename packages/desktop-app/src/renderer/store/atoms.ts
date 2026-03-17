@@ -99,7 +99,7 @@ export const pageViewAtom = atom<PageView>("chat");
 
 // ─── Settings page ───
 
-export type SettingsTab = "general" | "models" | "mcp" | "archive";
+export type SettingsTab = "general" | "models" | "mcp" | "shortcuts" | "archive";
 export const settingsTabAtom = atom<SettingsTab>("general");
 
 // ─── Sidebar tab ───
