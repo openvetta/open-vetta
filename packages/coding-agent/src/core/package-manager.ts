@@ -5,7 +5,7 @@ import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import ignore from "ignore";
 import { minimatch } from "minimatch";
-import { CONFIG_DIR_NAME } from "../config.js";
+import { CONFIG_DIR_NAME, getUserSkillsDir } from "../config.js";
 import { type GitSource, parseGitUrl } from "../utils/git.js";
 import type { PackageSource, SettingsManager } from "./settings-manager.js";
 
@@ -292,41 +292,6 @@ function collectSkillEntries(
 
 function collectAutoSkillEntries(dir: string, includeRootFiles = true): string[] {
 	return collectSkillEntries(dir, includeRootFiles);
-}
-
-function findGitRepoRoot(startDir: string): string | null {
-	let dir = resolve(startDir);
-	while (true) {
-		if (existsSync(join(dir, ".git"))) {
-			return dir;
-		}
-		const parent = dirname(dir);
-		if (parent === dir) {
-			return null;
-		}
-		dir = parent;
-	}
-}
-
-function collectAncestorAgentsSkillDirs(startDir: string): string[] {
-	const skillDirs: string[] = [];
-	const resolvedStartDir = resolve(startDir);
-	const gitRepoRoot = findGitRepoRoot(resolvedStartDir);
-
-	let dir = resolvedStartDir;
-	while (true) {
-		skillDirs.push(join(dir, ".agents", "skills"));
-		if (gitRepoRoot && dir === gitRepoRoot) {
-			break;
-		}
-		const parent = dirname(dir);
-		if (parent === dir) {
-			break;
-		}
-		dir = parent;
-	}
-
-	return skillDirs;
 }
 
 function collectAutoPromptEntries(dir: string): string[] {
@@ -1606,8 +1571,7 @@ export class DefaultPackageManager implements PackageManager {
 			prompts: join(projectBaseDir, "prompts"),
 			themes: join(projectBaseDir, "themes"),
 		};
-		const userAgentsSkillsDir = join(homedir(), ".agents", "skills");
-		const projectAgentsSkillDirs = collectAncestorAgentsSkillDirs(this.cwd);
+		const vettaSkillsDir = getUserSkillsDir();
 
 		const addResources = (
 			resourceType: ResourceType,
@@ -1632,10 +1596,7 @@ export class DefaultPackageManager implements PackageManager {
 		);
 		addResources(
 			"skills",
-			[
-				...collectAutoSkillEntries(projectDirs.skills),
-				...projectAgentsSkillDirs.flatMap((dir) => collectAutoSkillEntries(dir)),
-			],
+			collectAutoSkillEntries(projectDirs.skills),
 			projectMetadata,
 			projectOverrides.skills,
 			projectBaseDir,
@@ -1664,7 +1625,7 @@ export class DefaultPackageManager implements PackageManager {
 		);
 		addResources(
 			"skills",
-			[...collectAutoSkillEntries(userDirs.skills), ...collectAutoSkillEntries(userAgentsSkillsDir)],
+			[...collectAutoSkillEntries(userDirs.skills), ...collectAutoSkillEntries(vettaSkillsDir)],
 			userMetadata,
 			userOverrides.skills,
 			globalBaseDir,

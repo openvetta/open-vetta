@@ -204,6 +204,7 @@ describe("skills", () => {
 					filePath: "/path/to/skill/SKILL.md",
 					baseDir: "/path/to/skill",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: false,
 				},
 			];
@@ -226,6 +227,7 @@ describe("skills", () => {
 					filePath: "/path/to/skill/SKILL.md",
 					baseDir: "/path/to/skill",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: false,
 				},
 			];
@@ -246,6 +248,7 @@ describe("skills", () => {
 					filePath: "/path/to/skill/SKILL.md",
 					baseDir: "/path/to/skill",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: false,
 				},
 			];
@@ -265,6 +268,7 @@ describe("skills", () => {
 					filePath: "/path/one/SKILL.md",
 					baseDir: "/path/one",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: false,
 				},
 				{
@@ -273,6 +277,7 @@ describe("skills", () => {
 					filePath: "/path/two/SKILL.md",
 					baseDir: "/path/two",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: false,
 				},
 			];
@@ -292,6 +297,7 @@ describe("skills", () => {
 					filePath: "/path/visible/SKILL.md",
 					baseDir: "/path/visible",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: false,
 				},
 				{
@@ -300,6 +306,7 @@ describe("skills", () => {
 					filePath: "/path/hidden/SKILL.md",
 					baseDir: "/path/hidden",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: true,
 				},
 			];
@@ -319,6 +326,7 @@ describe("skills", () => {
 					filePath: "/path/hidden/SKILL.md",
 					baseDir: "/path/hidden",
 					source: "test",
+					type: "skill",
 					disableModelInvocation: true,
 				},
 			];
@@ -331,11 +339,13 @@ describe("skills", () => {
 	describe("loadSkills with options", () => {
 		const emptyAgentDir = resolve(__dirname, "fixtures/empty-agent");
 		const emptyCwd = resolve(__dirname, "fixtures/empty-cwd");
+		const emptySceneDir = resolve(__dirname, "fixtures/empty-scene");
 
 		it("should load from explicit skillPaths", () => {
 			const { skills, diagnostics } = loadSkills({
 				agentDir: emptyAgentDir,
 				cwd: emptyCwd,
+				sceneDir: emptySceneDir,
 				skillPaths: [join(fixturesDir, "valid-skill")],
 			});
 			expect(skills).toHaveLength(1);
@@ -347,6 +357,7 @@ describe("skills", () => {
 			const { skills, diagnostics } = loadSkills({
 				agentDir: emptyAgentDir,
 				cwd: emptyCwd,
+				sceneDir: emptySceneDir,
 				skillPaths: ["/non/existent/path"],
 			});
 			expect(skills).toHaveLength(0);

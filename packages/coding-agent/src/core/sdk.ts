@@ -96,7 +96,7 @@ export type {
 	ToolDefinition,
 } from "./extensions/index.js";
 export type { PromptTemplate } from "./prompt-templates.js";
-export type { Skill } from "./skills.js";
+export type { Skill, SkillType } from "./skills.js";
 export type { Tool } from "./tools/index.js";
 
 export {

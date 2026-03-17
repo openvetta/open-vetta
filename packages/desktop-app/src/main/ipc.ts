@@ -53,7 +53,7 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 		const loader = new DefaultResourceLoader({});
 		await loader.reload();
 		const { skills } = loader.getSkills();
-		return skills.map((s) => ({ name: s.name, description: s.description, source: s.source }));
+		return skills.map((s) => ({ name: s.name, description: s.description, source: s.source, type: s.type }));
 	});
 
 	ipcMain.handle("vetta:dialog:select-folder", async () => {

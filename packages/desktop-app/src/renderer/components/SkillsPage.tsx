@@ -8,14 +8,16 @@ const SOURCE_LABELS: Record<string, string> = {
 	user: "用户",
 	project: "项目",
 	path: "自定义",
+	scene: "场景",
 };
 
 function SkillCard({ skill }: { skill: SkillInfo }): JSX.Element {
+	const isScene = skill.type === "scene";
 	return (
 		<div className="group relative flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-all duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
 			{/* Icon */}
-			<div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--accent-dim)]">
-				<span className="icon-[mdi--puzzle-outline] h-5 w-5 text-[var(--text-2)]" />
+			<div className={`flex h-10 w-10 items-center justify-center rounded-[10px] ${isScene ? "bg-[var(--accent-emphasis-dim,var(--accent-dim))]" : "bg-[var(--accent-dim)]"}`}>
+				<span className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-5 w-5 text-[var(--text-2)]`} />
 			</div>
 
 			{/* Name + source badge */}
@@ -36,6 +38,19 @@ function SkillCard({ skill }: { skill: SkillInfo }): JSX.Element {
 	);
 }
 
+function SectionHeader({ title, count }: { title: string; count: number }): JSX.Element {
+	return (
+		<div className="flex items-center gap-2 pb-3">
+			<h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+				{title}
+			</h2>
+			<span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-2)]">
+				{count}
+			</span>
+		</div>
+	);
+}
+
 export function SkillsPage(): JSX.Element {
 	const [tab, setTab] = useState<SkillsTab>("mine");
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
@@ -43,6 +58,9 @@ export function SkillsPage(): JSX.Element {
 	useEffect(() => {
 		void window.vetta.skills.list().then(setSkills);
 	}, []);
+
+	const scenes = skills.filter((s) => s.type === "scene");
+	const standardSkills = skills.filter((s) => s.type !== "scene");
 
 	return (
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden">
@@ -68,7 +86,7 @@ export function SkillsPage(): JSX.Element {
 			<div className="px-8 pt-1.5 pb-5">
 				<p className="text-[13px] text-[var(--text-3)]">
 					{tab === "mine"
-						? `已安装 ${skills.length} 个技能`
+						? `已安装 ${scenes.length} 个场景，${standardSkills.length} 个技能`
 						: "探索社区分享的技能"}
 				</p>
 			</div>
@@ -76,11 +94,31 @@ export function SkillsPage(): JSX.Element {
 			{/* Content */}
 			<div className="flex-1 overflow-y-auto px-8 pb-8">
 				{tab === "mine" ? (
-					skills.length > 0 ? (
-						<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-							{skills.map((skill) => (
-								<SkillCard key={skill.name} skill={skill} />
-							))}
+					scenes.length > 0 || standardSkills.length > 0 ? (
+						<div className="flex flex-col gap-6">
+							{/* Scenes section */}
+							{scenes.length > 0 && (
+								<div>
+									<SectionHeader title="场景" count={scenes.length} />
+									<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+										{scenes.map((skill) => (
+											<SkillCard key={skill.name} skill={skill} />
+										))}
+									</div>
+								</div>
+							)}
+
+							{/* Skills section */}
+							{standardSkills.length > 0 && (
+								<div>
+									<SectionHeader title="技能" count={standardSkills.length} />
+									<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+										{standardSkills.map((skill) => (
+											<SkillCard key={skill.name} skill={skill} />
+										))}
+									</div>
+								</div>
+							)}
 						</div>
 					) : (
 						<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">

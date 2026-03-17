@@ -242,3 +242,13 @@ export function getSessionsDir(): string {
 export function getDebugLogPath(): string {
 	return join(getAgentDir(), `${APP_NAME}-debug.log`);
 }
+
+/** Get the scene directory (e.g., ~/.vetta/scene/) */
+export function getSceneDir(): string {
+	return join(homedir(), CONFIG_DIR_NAME, "scene");
+}
+
+/** Get the user-level skills directory (e.g., ~/.vetta/skills/) */
+export function getUserSkillsDir(): string {
+	return join(homedir(), CONFIG_DIR_NAME, "skills");
+}

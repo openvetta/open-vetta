@@ -39,6 +39,7 @@ export interface SkillInfo {
 	name: string;
 	description: string;
 	source: string;
+	type: "skill" | "scene";
 }
 
 export interface DesktopSkillsApi {
