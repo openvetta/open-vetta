@@ -42,16 +42,20 @@ echo "Building coding-agent with bun..."
 cd "$PACKAGE_DIR"
 "$BUN_BIN" run build
 
-echo "Linking $PACKAGE_NAME globally with bun..."
+echo "Linking $PACKAGE_NAME globally..."
 
-# Register current package as linkable and link it globally.
-"$BUN_BIN" link
-"$BUN_BIN" link -g "$PACKAGE_NAME"
-
+# Create a symlink in bun's global bin directory directly.
+# `bun link -g` fails with FileNotFound for workspace packages, so we bypass it.
 BUN_GLOBAL_BIN="$("$BUN_BIN" pm bin -g 2>/dev/null || true)"
-if [[ -n "$BUN_GLOBAL_BIN" ]]; then
-	echo "Bun global bin: $BUN_GLOBAL_BIN"
+if [[ -z "$BUN_GLOBAL_BIN" ]]; then
+	echo "Error: could not determine bun global bin directory."
+	exit 1
 fi
+
+mkdir -p "$BUN_GLOBAL_BIN"
+ln -sf "$PACKAGE_DIR/dist/cli.js" "$BUN_GLOBAL_BIN/vetta"
+
+echo "Bun global bin: $BUN_GLOBAL_BIN"
 
 echo ""
 echo "Done. You can now run 'vetta' from any directory."
