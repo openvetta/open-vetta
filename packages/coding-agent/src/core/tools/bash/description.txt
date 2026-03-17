@@ -1,1 +1,3 @@
 Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last 2000 lines or 30KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.
+
+Prefer built-in tools over bash for common operations: use `dir_tree` for directory structure, `find` for file search, `ls` for listing, `grep` for content search, `read` for reading files, `write`/`edit` for modifying files. Use bash only when built-in tools cannot accomplish the task (e.g., running scripts, package managers, git, compilers, or commands with complex piping).

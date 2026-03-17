@@ -89,20 +89,24 @@ function isLikelyBinaryContent(buffer: Buffer): boolean {
 	return nonPrintable / buffer.length > 0.3;
 }
 
+/** Map file extensions to skill names (only exceptions where extension !== skill name) */
+const EXTENSION_TO_SKILL: Record<string, string> = {
+	".doc": "docx",
+	".odt": "docx",
+	".xls": "xlsx",
+	".ods": "xlsx",
+	".csv": "xlsx",
+	".tsv": "xlsx",
+	".ppt": "pptx",
+	".odp": "pptx",
+};
+
 function getBinaryExtractionHint(extension: string): string {
-	if (extension === ".pdf") {
-		return "Use a PDF extraction tool/skill, or convert it with bash before reading.";
+	const skillName = EXTENSION_TO_SKILL[extension] ?? extension.slice(1);
+	if (skillName) {
+		return `Load the "${skillName}" skill for instructions on how to handle this file.`;
 	}
-	if (extension === ".doc" || extension === ".docx" || extension === ".odt") {
-		return "Use a DOCX/Word extraction tool/skill, or convert it with bash before reading.";
-	}
-	if (extension === ".xls" || extension === ".xlsx" || extension === ".ods") {
-		return "Use a spreadsheet extraction tool/skill, or convert it with bash before reading.";
-	}
-	if (extension === ".ppt" || extension === ".pptx" || extension === ".odp") {
-		return "Use a presentation extraction tool/skill, or convert it with bash before reading.";
-	}
-	return "Use an appropriate extraction tool/skill, or convert it with bash before reading.";
+	return "No matching skill found. Try converting this file with bash before reading.";
 }
 
 export interface ReadToolOptions {
