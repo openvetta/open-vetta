@@ -11,7 +11,7 @@ export function SidebarTabs(): JSX.Element {
 	const [tab, setTab] = useAtom(sidebarTabAtom);
 
 	return (
-		<div className="flex border-b border-[var(--border)] px-2">
+		<div className="flex items-center gap-0.5 px-1.5">
 			{TABS.map((t) => (
 				<button
 					key={t.value}
@@ -19,10 +19,10 @@ export function SidebarTabs(): JSX.Element {
 					title={t.label}
 					onClick={() => setTab(t.value)}
 					className={cn(
-						"no-drag flex flex-1 items-center justify-center py-1.5 transition-colors",
+						"no-drag flex items-center justify-center rounded-md p-1.5 transition-colors",
 						tab === t.value
-							? "border-b-2 border-[var(--accent)] text-[var(--text-1)]"
-							: "border-b-2 border-transparent text-[var(--text-1)] opacity-60 hover:opacity-100",
+							? "bg-[var(--hover-strong)] text-[var(--text-1)]"
+							: "text-[var(--text-1)] opacity-60 hover:bg-[var(--hover-strong)] hover:opacity-100",
 					)}
 				>
 					<span className={cn(t.icon, "h-4 w-4")} />

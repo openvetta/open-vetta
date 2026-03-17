@@ -122,9 +122,6 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				))}
 			</nav>
 
-			{/* Tab switcher */}
-			<SidebarTabs />
-
 			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
 				{tab === "projects" ? (
@@ -134,9 +131,12 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				)}
 			</div>
 
-			{/* Bottom settings */}
-			<div className="border-t border-[var(--border)] px-1.5 py-1.5">
-				<SettingsMenu />
+			{/* Tab switcher + settings */}
+			<div className="border-t border-[var(--border)] px-0 py-1.5">
+				<SidebarTabs />
+				<div className="px-1.5 pt-1">
+					<SettingsMenu />
+				</div>
 			</div>
 			<ResizeHandle side="right" onResize={onResize} />
 			{showNewProject && (
