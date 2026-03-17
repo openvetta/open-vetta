@@ -13,6 +13,7 @@ export interface DesktopConfig {
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
 const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
+const MCP_CONFIG_PATH = join(homedir(), ".vetta", "agent", "mcp.json");
 const DEFAULT_CONFIG: DesktopConfig = {
 	projects: [],
 	workspacePath: join(homedir(), ".vetta", "workspace"),
@@ -69,6 +70,40 @@ export interface ModelDefinition {
 
 const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
 
+// ─── MCP config ───
+
+export interface McpServerConfig {
+	command: string;
+	args?: string[];
+	env?: Record<string, string>;
+	cwd?: string;
+	disabled?: boolean;
+	autoApprove?: string[];
+	startupTimeout?: number;
+	debug?: boolean;
+}
+
+export interface McpConfig {
+	mcpServers: Record<string, McpServerConfig>;
+}
+
+const DEFAULT_MCP_CONFIG: McpConfig = { mcpServers: {} };
+
+async function readMcpConfig(): Promise<McpConfig> {
+	try {
+		const raw = await readFile(MCP_CONFIG_PATH, "utf8");
+		const parsed = JSON.parse(raw) as Partial<McpConfig>;
+		return { ...DEFAULT_MCP_CONFIG, ...parsed };
+	} catch {
+		return { ...DEFAULT_MCP_CONFIG };
+	}
+}
+
+async function writeMcpConfig(config: McpConfig): Promise<void> {
+	await mkdir(dirname(MCP_CONFIG_PATH), { recursive: true });
+	await writeFile(MCP_CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
+}
+
 async function readModelsConfig(): Promise<ModelsConfig> {
 	try {
 		const raw = await readFile(MODELS_CONFIG_PATH, "utf8");
@@ -96,6 +131,8 @@ const CHANNELS = {
 	CONFIG_SET: "vetta:config:set",
 	MODELS_GET: "vetta:models:get",
 	MODELS_SET: "vetta:models:set",
+	MCP_GET: "vetta:mcp:get",
+	MCP_SET: "vetta:mcp:set",
 } as const;
 
 const BINARY_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "pdf", "docx"]);
@@ -294,6 +331,15 @@ export function registerFsIpc(): () => void {
 		await writeModelsConfig(config as ModelsConfig);
 	});
 
+	ipcMain.handle(CHANNELS.MCP_GET, async (): Promise<McpConfig> => {
+		return readMcpConfig();
+	});
+
+	ipcMain.handle(CHANNELS.MCP_SET, async (_event, config: unknown) => {
+		if (typeof config !== "object" || config === null) throw new Error("Invalid MCP config");
+		await writeMcpConfig(config as McpConfig);
+	});
+
 	return () => {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.READ_FILE);
@@ -306,5 +352,7 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.CONFIG_SET);
 		ipcMain.removeHandler(CHANNELS.MODELS_GET);
 		ipcMain.removeHandler(CHANNELS.MODELS_SET);
+		ipcMain.removeHandler(CHANNELS.MCP_GET);
+		ipcMain.removeHandler(CHANNELS.MCP_SET);
 	};
 }
