@@ -10,9 +10,11 @@ interface ProjectContextMenuProps {
 	project: Project;
 	onClose: () => void;
 	onArchive: (cwd: string) => void;
+	onRemove: (cwd: string) => void;
+	onDelete: (cwd: string) => void;
 }
 
-export function ProjectContextMenu({ x, y, project, onClose, onArchive }: ProjectContextMenuProps): JSX.Element {
+export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove, onDelete }: ProjectContextMenuProps): JSX.Element {
 	const menuRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -69,6 +71,29 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive }: Projec
 				>
 					<span className="icon-[mdi--archive-outline] h-3.5 w-3.5" />
 					归档项目
+				</button>
+				<button
+					type="button"
+					onClick={() => {
+						onRemove(project.cwd);
+						onClose();
+					}}
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+				>
+					<span className="icon-[mdi--playlist-remove] h-3.5 w-3.5" />
+					从列表中移除
+				</button>
+				<div className="mx-1.5 my-1 h-px bg-[var(--popup-separator)]" />
+				<button
+					type="button"
+					onClick={() => {
+						onDelete(project.cwd);
+						onClose();
+					}}
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--tool-error)] transition-colors hover:bg-[var(--popup-hover)]"
+				>
+					<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+					删除项目
 				</button>
 			</motion.div>
 		</AnimatePresence>
