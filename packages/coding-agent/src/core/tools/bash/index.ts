@@ -155,16 +155,6 @@ function resolveSpawnContext(command: string, cwd: string, spawnHook?: BashSpawn
 	return spawnHook ? spawnHook(baseContext) : baseContext;
 }
 
-function isFileDiscoveryCommand(command: string): boolean {
-	const trimmed = command.trim();
-	if (!trimmed) return false;
-	return (
-		/^(tree|ls|find|fd)\b/.test(trimmed) ||
-		(/^rg\b/.test(trimmed) && /\s--files(?:\s|$)/.test(` ${trimmed} `)) ||
-		/^rg\s+--files(?:\s|$)/.test(trimmed)
-	);
-}
-
 export interface BashToolOptions {
 	/** Custom operations for command execution. Default: local shell */
 	operations?: BashOperations;
@@ -192,12 +182,6 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 			signal?: AbortSignal,
 			onUpdate?,
 		) => {
-			if (isFileDiscoveryCommand(command)) {
-				throw new Error(
-					'For file and directory structure discovery, use built-in tools (`dir_tree`, `find`, `ls`) instead of running shell commands like "tree" or "ls" via `bash`.',
-				);
-			}
-
 			// Apply command prefix if configured (e.g., "shopt -s expand_aliases" for alias support)
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
 			const spawnContext = resolveSpawnContext(resolvedCommand, cwd, spawnHook);

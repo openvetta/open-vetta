@@ -1,1 +1,3 @@
 Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 30KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.
+
+Do NOT use this tool for binary document files (.docx, .doc, .xlsx, .xls, .pdf, .pptx, .ppt, .odt, .ods, .odp). These files cannot be read as text. Instead, load the matching skill (e.g., .docx/.doc → "docx" skill, .pdf → "pdf" skill, .xlsx/.xls → "xlsx" skill) and follow its instructions.
