@@ -90,7 +90,18 @@ export function resolveToCwd(filePath: string, cwd: string): string {
 	return resolvePath(cwd, expanded);
 }
 
-export function resolveReadPath(filePath: string, cwd: string): string {
+/**
+ * Resolve a path that must refer to an existing file/directory.
+ * Tries multiple fuzzy-matching strategies when exact lookup fails:
+ *   1. macOS AM/PM narrow-space variant
+ *   2. NFD (decomposed) variant
+ *   3. Curly-quote variant
+ *   4. NFD + curly-quote combined
+ *   5. Strip-spaces fuzzy match (handles LLM-inserted spaces in CJK filenames)
+ *
+ * Falls back to the unmodified resolved path if nothing matches.
+ */
+export function resolveExistingPath(filePath: string, cwd: string): string {
 	const resolved = resolveToCwd(filePath, cwd);
 
 	if (fileExists(resolved)) {
@@ -129,4 +140,9 @@ export function resolveReadPath(filePath: string, cwd: string): string {
 	}
 
 	return resolved;
+}
+
+/** @deprecated Use resolveExistingPath instead */
+export function resolveReadPath(filePath: string, cwd: string): string {
+	return resolveExistingPath(filePath, cwd);
 }

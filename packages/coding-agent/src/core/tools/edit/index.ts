@@ -12,7 +12,7 @@ import {
 	restoreLineEndings,
 	stripBom,
 } from "../edit-diff.js";
-import { resolveToCwd } from "../path-utils.js";
+import { resolveExistingPath } from "../path-utils.js";
 
 const editSchema = Type.Object({
 	path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
@@ -69,7 +69,7 @@ export function createEditTool(cwd: string, options?: EditToolOptions): AgentToo
 			{ path, oldText, newText }: { path: string; oldText: string; newText: string },
 			signal?: AbortSignal,
 		) => {
-			const absolutePath = resolveToCwd(path, cwd);
+			const absolutePath = resolveExistingPath(path, cwd);
 
 			return new Promise<{
 				content: Array<{ type: "text"; text: string }>;
