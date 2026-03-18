@@ -7,6 +7,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import { spawn } from "child_process";
 import { getShellConfig, getShellEnv, killProcessTree } from "../../../utils/shell.js";
 import { loadToolDescription } from "../description.js";
+import { type PathLiteralCorrection, rewriteQuotedPathLiterals } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "../truncate.js";
 
 /**
@@ -18,7 +19,10 @@ function getTempFilePath(): string {
 }
 
 const bashSchema = Type.Object({
-	command: Type.String({ description: "Bash command to execute" }),
+	command: Type.String({
+		description:
+			"Bash command to execute. You can reference dir_tree path IDs like @PATH_0001 inside quoted strings.",
+	}),
 	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
 });
 
@@ -27,6 +31,7 @@ export type BashToolInput = Static<typeof bashSchema>;
 export interface BashToolDetails {
 	truncation?: TruncationResult;
 	fullOutputPath?: string;
+	pathCorrections?: PathLiteralCorrection[];
 }
 
 /**
@@ -143,6 +148,12 @@ export interface BashSpawnContext {
 	env: NodeJS.ProcessEnv;
 }
 
+function prependPathCorrectionNotes(text: string, corrections: PathLiteralCorrection[]): string {
+	if (corrections.length === 0) return text;
+	const notes = corrections.map((c) => `[Auto-corrected path: "${c.original}" -> "${c.corrected}"]`).join("\n");
+	return text ? `${notes}\n${text}` : notes;
+}
+
 export type BashSpawnHook = (context: BashSpawnContext) => BashSpawnContext;
 
 function resolveSpawnContext(command: string, cwd: string, spawnHook?: BashSpawnHook): BashSpawnContext {
@@ -184,7 +195,8 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 		) => {
 			// Apply command prefix if configured (e.g., "shopt -s expand_aliases" for alias support)
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
-			const spawnContext = resolveSpawnContext(resolvedCommand, cwd, spawnHook);
+			const { output: correctedCommand, pathCorrections } = rewriteQuotedPathLiterals(resolvedCommand, cwd);
+			const spawnContext = resolveSpawnContext(correctedCommand, cwd, spawnHook);
 
 			return new Promise((resolve, reject) => {
 				// We'll stream to a temp file if output gets large
@@ -263,11 +275,13 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 
 						// Build details with truncation info
 						let details: BashToolDetails | undefined;
+						const hasPathCorrections = pathCorrections.length > 0;
 
 						if (truncation.truncated) {
 							details = {
 								truncation,
 								fullOutputPath: tempFilePath,
+								...(hasPathCorrections ? { pathCorrections } : {}),
 							};
 
 							// Build actionable notice
@@ -284,6 +298,10 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 								outputText += `\n\n[Showing lines ${startLine}-${endLine} of ${truncation.totalLines} (${formatSize(DEFAULT_MAX_BYTES)} limit). Full output: ${tempFilePath}]`;
 							}
 						}
+						if (!details && hasPathCorrections) {
+							details = { pathCorrections };
+						}
+						outputText = prependPathCorrectionNotes(outputText, pathCorrections);
 
 						if (exitCode !== 0 && exitCode !== null) {
 							outputText += `\n\nCommand exited with code ${exitCode}`;
@@ -301,6 +319,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 						// Combine all buffered chunks for error output
 						const fullBuffer = Buffer.concat(chunks);
 						let output = fullBuffer.toString("utf-8");
+						output = prependPathCorrectionNotes(output, pathCorrections);
 
 						if (err.message === "aborted") {
 							if (output) output += "\n\n";

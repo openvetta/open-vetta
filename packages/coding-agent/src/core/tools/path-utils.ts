@@ -1,9 +1,68 @@
 import { accessSync, constants, readdirSync } from "node:fs";
 import * as os from "node:os";
-import { basename, dirname, isAbsolute, join, resolve as resolvePath } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath } from "node:path";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const NARROW_NO_BREAK_SPACE = "\u202F";
+const CJK_CHARS = /[\u3400-\u9fff\uf900-\ufaff]/;
+const PATH_ID_REGEX = /^@PATH_\d{4}$/i;
+
+const pathIdRegistry = new Map<string, string>();
+
+function getPathIdScope(cwd: string): string {
+	return resolvePath(cwd);
+}
+
+function getPathIdKey(scope: string, pathId: string): string {
+	return `${scope}::${pathId}`;
+}
+
+function normalizePathId(value: string): string | undefined {
+	const trimmed = value.trim();
+	if (!PATH_ID_REGEX.test(trimmed)) return undefined;
+	return trimmed.toUpperCase();
+}
+
+export interface PathIdEntry {
+	pathId: string;
+	absolutePath: string;
+}
+
+export function clearPathIds(cwd?: string): void {
+	if (!cwd) {
+		pathIdRegistry.clear();
+		return;
+	}
+
+	const scope = getPathIdScope(cwd);
+	const prefix = `${scope}::`;
+	for (const key of Array.from(pathIdRegistry.keys())) {
+		if (key.startsWith(prefix)) {
+			pathIdRegistry.delete(key);
+		}
+	}
+}
+
+export function replacePathIds(cwd: string, entries: PathIdEntry[]): void {
+	clearPathIds(cwd);
+	const scope = getPathIdScope(cwd);
+
+	for (const entry of entries) {
+		const normalizedPathId = normalizePathId(entry.pathId);
+		if (!normalizedPathId) continue;
+
+		const absolutePath = isAbsolute(entry.absolutePath) ? entry.absolutePath : resolvePath(cwd, entry.absolutePath);
+		pathIdRegistry.set(getPathIdKey(scope, normalizedPathId), absolutePath);
+	}
+}
+
+export function resolvePathId(pathId: string, cwd: string): string | undefined {
+	const normalizedPathId = normalizePathId(pathId);
+	if (!normalizedPathId) return undefined;
+	const scope = getPathIdScope(cwd);
+	return pathIdRegistry.get(getPathIdKey(scope, normalizedPathId));
+}
+
 function normalizeUnicodeSpaces(str: string): string {
 	return str.replace(UNICODE_SPACES, " ");
 }
@@ -63,6 +122,127 @@ function fileExists(filePath: string): boolean {
 	}
 }
 
+function isLikelyLiteralPath(value: string): boolean {
+	if (!value) return false;
+	if (value.includes("$(") || value.includes("${") || value.includes("`")) return false;
+	if (/[|;&<>*?[\]{}]/.test(value)) return false;
+
+	if (
+		value.includes("/") ||
+		value.includes("\\") ||
+		value.startsWith(".") ||
+		value.startsWith("~") ||
+		value.startsWith("@")
+	) {
+		return true;
+	}
+
+	if (/\.[A-Za-z0-9]{1,10}$/.test(value)) {
+		// Bare filenames are only treated as path literals when they're likely to be
+		// filename variants (CJK names or spacing around punctuation).
+		return CJK_CHARS.test(value) || /\s[-_]\s/.test(value);
+	}
+
+	return false;
+}
+
+interface QuotedSegment {
+	contentStart: number;
+	contentEnd: number;
+	value: string;
+}
+
+function findQuotedSegments(text: string): QuotedSegment[] {
+	const segments: QuotedSegment[] = [];
+	for (let i = 0; i < text.length; i++) {
+		const quote = text[i];
+		if (quote !== '"' && quote !== "'") continue;
+		const start = i;
+		let j = i + 1;
+		for (; j < text.length; j++) {
+			if (text[j] !== quote) continue;
+			if (quote === '"' && text[j - 1] === "\\") continue;
+			break;
+		}
+		if (j >= text.length) continue;
+		segments.push({
+			contentStart: start + 1,
+			contentEnd: j,
+			value: text.slice(start + 1, j),
+		});
+		i = j;
+	}
+	return segments;
+}
+
+function formatCorrectedPathLiteral(original: string, correctedAbsolutePath: string, cwd: string): string {
+	const home = os.homedir();
+	if (original === "~") return "~";
+	if (original.startsWith("~/")) {
+		if (correctedAbsolutePath === home) return "~";
+		if (correctedAbsolutePath.startsWith(`${home}/`)) {
+			return `~/${correctedAbsolutePath.slice(home.length + 1)}`;
+		}
+	}
+	if (isAbsolute(original)) return correctedAbsolutePath;
+	const rel = relative(cwd, correctedAbsolutePath);
+	return rel.length > 0 ? rel : ".";
+}
+
+export interface PathLiteralCorrection {
+	original: string;
+	corrected: string;
+}
+
+export interface RewriteQuotedPathLiteralsResult {
+	output: string;
+	pathCorrections: PathLiteralCorrection[];
+}
+
+/**
+ * Rewrite quoted path-like string literals to exact on-disk filenames.
+ *
+ * Only rewrites when:
+ * 1) the literal resolves to a missing path, and
+ * 2) resolveExistingPath finds a unique existing match.
+ */
+export function rewriteQuotedPathLiterals(input: string, cwd: string): RewriteQuotedPathLiteralsResult {
+	let output = input;
+	const pathCorrections: PathLiteralCorrection[] = [];
+	const segments = findQuotedSegments(input);
+
+	// Replace from end to start so segment offsets remain valid.
+	for (let i = segments.length - 1; i >= 0; i--) {
+		const segment = segments[i];
+		const resolvedPathId = resolvePathId(segment.value, cwd);
+		if (resolvedPathId && fileExists(resolvedPathId)) {
+			const correctedLiteral = formatCorrectedPathLiteral(segment.value, resolvedPathId, cwd);
+			if (correctedLiteral !== segment.value) {
+				output = output.slice(0, segment.contentStart) + correctedLiteral + output.slice(segment.contentEnd);
+				pathCorrections.unshift({ original: segment.value, corrected: correctedLiteral });
+			}
+			continue;
+		}
+
+		if (!isLikelyLiteralPath(segment.value)) continue;
+
+		const resolvedOriginalPath = resolveToCwd(segment.value, cwd);
+		if (fileExists(resolvedOriginalPath)) continue;
+
+		const resolvedCorrectedPath = resolveExistingPath(segment.value, cwd);
+		if (resolvedCorrectedPath === resolvedOriginalPath) continue;
+		if (!fileExists(resolvedCorrectedPath)) continue;
+
+		const correctedLiteral = formatCorrectedPathLiteral(segment.value, resolvedCorrectedPath, cwd);
+		if (correctedLiteral === segment.value) continue;
+
+		output = output.slice(0, segment.contentStart) + correctedLiteral + output.slice(segment.contentEnd);
+		pathCorrections.unshift({ original: segment.value, corrected: correctedLiteral });
+	}
+
+	return { output, pathCorrections };
+}
+
 function normalizeAtPrefix(filePath: string): string {
 	return filePath.startsWith("@") ? filePath.slice(1) : filePath;
 }
@@ -83,11 +263,30 @@ export function expandPath(filePath: string): string {
  * Handles ~ expansion and absolute paths.
  */
 export function resolveToCwd(filePath: string, cwd: string): string {
+	const resolvedPathId = resolvePathId(filePath, cwd);
+	if (resolvedPathId) {
+		return resolvedPathId;
+	}
+
 	const expanded = expandPath(filePath);
 	if (isAbsolute(expanded)) {
 		return expanded;
 	}
 	return resolvePath(cwd, expanded);
+}
+
+/**
+ * Resolve a path for writing:
+ * - if requested path already exists, keep it;
+ * - if not, but a unique fuzzy existing path matches, return that existing path;
+ * - otherwise return the original resolved path (new file target).
+ */
+export function resolveWritablePath(filePath: string, cwd: string): string {
+	const resolved = resolveToCwd(filePath, cwd);
+	if (fileExists(resolved)) return resolved;
+	const corrected = resolveExistingPath(filePath, cwd);
+	if (corrected !== resolved && fileExists(corrected)) return corrected;
+	return resolved;
 }
 
 /**
