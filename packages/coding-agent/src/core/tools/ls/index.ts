@@ -3,7 +3,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import { existsSync, readdirSync, statSync } from "fs";
 import nodePath from "path";
 import { loadToolDescription } from "../description.js";
-import { resolveToCwd } from "../path-utils.js";
+import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const lsSchema = Type.Object({
@@ -70,7 +70,7 @@ export function createLsTool(cwd: string, options?: LsToolOptions): AgentTool<ty
 
 				(async () => {
 					try {
-						const dirPath = resolveToCwd(path || ".", cwd);
+						const dirPath = resolveExistingPath(path || ".", cwd);
 						const effectiveLimit = limit ?? DEFAULT_LIMIT;
 
 						// Check if path exists

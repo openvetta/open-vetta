@@ -5,7 +5,7 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { ensureTool } from "../../../utils/tools-manager.js";
 import { loadToolDescription } from "../description.js";
-import { resolveToCwd } from "../path-utils.js";
+import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const treeSchema = Type.Object({
@@ -257,7 +257,7 @@ export function createTreeTool(cwd: string, options?: TreeToolOptions): AgentToo
 				throw new Error("Operation aborted");
 			}
 
-			const searchPath = resolveToCwd(input.path || ".", cwd);
+			const searchPath = resolveExistingPath(input.path || ".", cwd);
 			const effectiveMaxDepth = Math.max(0, Math.floor(input.maxDepth ?? DEFAULT_MAX_DEPTH));
 			const effectiveLimit = Math.max(1, Math.floor(input.limit ?? DEFAULT_LIMIT));
 			const includeFiles = input.includeFiles ?? true;

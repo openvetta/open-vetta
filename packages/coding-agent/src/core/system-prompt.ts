@@ -108,6 +108,13 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 			prompt += formatSkillsForPrompt(skills);
 		}
 
+		// Filename fidelity rule (applies to all prompts)
+		prompt += "\n\n**CRITICAL — File name fidelity**: ";
+		prompt +=
+			"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. ";
+		prompt += "NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. ";
+		prompt += "When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
+
 		// Add date/time and working directory last
 		prompt += `\nCurrent date and time: ${dateTime}`;
 		prompt += `\nCurrent working directory: ${resolvedCwd}`;
@@ -173,9 +180,19 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		);
 	}
 
+	// Filename fidelity — LLMs tend to "prettify" filenames by inserting/removing spaces around punctuation
+	guidelinesList.push(
+		"CRITICAL: File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools (ls, find, dir_tree) or provided by the user. " +
+			"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
+			"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
+	);
+
 	// Always include these
 	guidelinesList.push("Be concise in your responses");
 	guidelinesList.push("Show file paths clearly when working with files");
+	guidelinesList.push(
+		"When the user sends images inline in their message, analyze them directly using your vision capabilities. Do NOT try to locate or read them from disk - the image data is already embedded in the message",
+	);
 
 	const guidelines = guidelinesList.map((g) => `- ${g}`).join("\n");
 

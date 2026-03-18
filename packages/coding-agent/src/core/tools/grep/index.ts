@@ -6,7 +6,7 @@ import { readFileSync, statSync } from "fs";
 import path from "path";
 import { ensureTool } from "../../../utils/tools-manager.js";
 import { loadToolDescription } from "../description.js";
-import { resolveToCwd } from "../path-utils.js";
+import { resolveExistingPath } from "../path-utils.js";
 import {
 	DEFAULT_MAX_BYTES,
 	formatSize,
@@ -114,7 +114,7 @@ export function createGrepTool(cwd: string, options?: GrepToolOptions): AgentToo
 							return;
 						}
 
-						const searchPath = resolveToCwd(searchDir || ".", cwd);
+						const searchPath = resolveExistingPath(searchDir || ".", cwd);
 						const ops = customOps ?? defaultGrepOperations;
 
 						let isDirectory: boolean;
