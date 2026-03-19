@@ -48,31 +48,39 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 		};
 	}, [isPanning]);
 
-	// ─── Cmd + wheel → zoom (centered on cursor) ───
+	// ─── Wheel handling: Cmd/Ctrl + wheel → zoom, plain wheel → pan ───
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
 
 		const onWheel = (e: WheelEvent) => {
-			if (!e.metaKey && !e.ctrlKey) return;
 			e.preventDefault();
 
-			const rect = container.getBoundingClientRect();
-			const cursorX = e.clientX - rect.left;
-			const cursorY = e.clientY - rect.top;
+			if (e.metaKey || e.ctrlKey) {
+				// Zoom centered on cursor
+				const rect = container.getBoundingClientRect();
+				const cursorX = e.clientX - rect.left;
+				const cursorY = e.clientY - rect.top;
 
-			setScale((prev) => {
-				const delta = -e.deltaY * ZOOM_WHEEL_FACTOR;
-				const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev + delta * prev));
-				const ratio = next / prev;
+				setScale((prev) => {
+					const delta = -e.deltaY * ZOOM_WHEEL_FACTOR;
+					const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev + delta * prev));
+					const ratio = next / prev;
 
+					setOffset((o) => ({
+						x: cursorX - ratio * (cursorX - o.x),
+						y: cursorY - ratio * (cursorY - o.y),
+					}));
+
+					return next;
+				});
+			} else {
+				// Pan (scroll) content
 				setOffset((o) => ({
-					x: cursorX - ratio * (cursorX - o.x),
-					y: cursorY - ratio * (cursorY - o.y),
+					x: o.x - e.deltaX,
+					y: o.y - e.deltaY,
 				}));
-
-				return next;
-			});
+			}
 		};
 
 		container.addEventListener("wheel", onWheel, { passive: false });
@@ -122,30 +130,35 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 	}, []);
 
 	const toggleFullscreen = useCallback(() => {
-		const container = containerRef.current;
-		if (!container) return;
-
-		if (!document.fullscreenElement) {
-			void container.requestFullscreen().then(() => setIsFullscreen(true));
-		} else {
-			void document.exitFullscreen().then(() => setIsFullscreen(false));
-		}
+		setIsFullscreen((prev) => !prev);
 	}, []);
 
-	// Listen for external fullscreen exit (Escape key)
+	// Exit CSS fullscreen on Escape key
 	useEffect(() => {
-		const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-		document.addEventListener("fullscreenchange", onChange);
-		return () => document.removeEventListener("fullscreenchange", onChange);
-	}, []);
+		if (!isFullscreen) return;
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				e.preventDefault();
+				e.stopPropagation();
+				setIsFullscreen(false);
+			}
+		};
+		document.addEventListener("keydown", onKeyDown, true);
+		return () => document.removeEventListener("keydown", onKeyDown, true);
+	}, [isFullscreen]);
 
 	const pct = Math.round(scale * 100);
+	const isViewModified = scale !== 1 || offset.x !== 0 || offset.y !== 0;
 
 	return (
 		<div
 			ref={containerRef}
 			tabIndex={0}
-			className="relative flex flex-1 flex-col overflow-hidden bg-[var(--content-bg)] outline-none"
+			className={
+				isFullscreen
+					? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--content-bg)] outline-none"
+					: "relative flex flex-1 flex-col overflow-hidden bg-[var(--content-bg)] outline-none"
+			}
 			onPointerDown={onPointerDown}
 		>
 			{/* Zoomable / pannable content */}
@@ -202,6 +215,21 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 						className={`${isFullscreen ? "icon-[mdi--fullscreen-exit]" : "icon-[mdi--fullscreen]"} text-[14px]`}
 					/>
 				</button>
+
+				{isViewModified && (
+					<>
+						<div className="mx-1 h-3.5 w-px bg-[var(--border)]" />
+						<button
+							type="button"
+							onClick={resetView}
+							title="重置视图"
+							className="flex h-6 items-center gap-1 rounded px-1.5 text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+						>
+							<span className="icon-[mdi--fit-to-screen-outline] text-[14px]" />
+							<span className="text-[11px]">重置</span>
+						</button>
+					</>
+				)}
 			</div>
 		</div>
 	);
