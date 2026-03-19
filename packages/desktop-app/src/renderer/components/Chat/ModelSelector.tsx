@@ -1,8 +1,8 @@
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ModelsConfigData } from "../../../../preload/api.js";
-import { selectedModelAtom } from "../../store/atoms";
+import { selectedModelAtom, activeSessionAtom } from "../../store/atoms";
 
 interface ModelOption {
 	provider: string;
@@ -29,6 +29,7 @@ function flattenModels(config: ModelsConfigData): ModelOption[] {
 
 export function ModelSelector(): JSX.Element {
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
+	const activeSession = useAtomValue(activeSessionAtom);
 	const [open, setOpen] = useState(false);
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
 	const ref = useRef<HTMLDivElement>(null);
@@ -65,8 +66,12 @@ export function ModelSelector(): JSX.Element {
 			setSelectedModel(key);
 			localStorage.setItem("vetta-selected-model", key);
 			setOpen(false);
+			// Notify backend to switch model on the active session
+			if (activeSession?.runtimeId) {
+				void window.vetta.session.updateSettings(activeSession.runtimeId, { modelKey: key });
+			}
 		},
-		[setSelectedModel],
+		[setSelectedModel, activeSession],
 	);
 
 	// Group models by provider
