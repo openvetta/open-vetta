@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { inputValueAtom, isStreamingAtom, activeSessionAtom } from "../../store/atoms";
+import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, type AttachedImage } from "../../store/atoms";
 import { ModelSelector } from "./ModelSelector";
 import { ContextRing } from "./ContextRing";
 
@@ -13,16 +13,43 @@ interface InputBarProps {
 const MIN_HEIGHT = 24;
 const MAX_HEIGHT = 200;
 
+let imageIdCounter = 0;
+function nextImageId(): string {
+	return `img-${++imageIdCounter}-${Date.now()}`;
+}
+
+/** Read a File (from paste/drop) as base64 + mimeType. */
+function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; name: string }> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const result = reader.result as string;
+			// result is "data:<mime>;base64,<data>"
+			const commaIdx = result.indexOf(",");
+			resolve({
+				data: result.slice(commaIdx + 1),
+				mimeType: file.type || "image/png",
+				name: file.name || "Pasted image",
+			});
+		};
+		reader.onerror = () => reject(reader.error);
+		reader.readAsDataURL(file);
+	});
+}
+
 export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
+	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
+	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
+	const [isDragOver, setIsDragOver] = useState(false);
 
 	const hasSession = Boolean(activeSession);
-	const canSend = hasSession && !isStreaming && inputValue.trim().length > 0;
-	const isEmpty = inputValue.trim().length === 0;
+	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
+	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
 
 	// Auto-resize textarea to fit content
 	const resize = useCallback(() => {
@@ -54,24 +81,132 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		setInputValue(e.target.value);
 	}
 
+	// ── Image helpers ──
+
+	const addImages = useCallback(
+		(newImages: Array<{ data: string; mimeType: string; name: string }>) => {
+			const items: AttachedImage[] = newImages.map((img) => ({
+				id: nextImageId(),
+				...img,
+			}));
+			setAttachedImages((prev) => [...prev, ...items]);
+		},
+		[setAttachedImages],
+	);
+
+	const removeImage = useCallback(
+		(id: string) => {
+			setAttachedImages((prev) => prev.filter((img) => img.id !== id));
+		},
+		[setAttachedImages],
+	);
+
+	// ── Select images via dialog ──
+	const handleSelectImages = useCallback(async () => {
+		if (!hasSession) return;
+		const selected = await window.vetta.dialog.selectImages();
+		if (selected.length > 0) {
+			addImages(selected);
+		}
+		textareaRef.current?.focus();
+	}, [hasSession, addImages]);
+
+	// ── Paste images ──
+	const handlePaste = useCallback(
+		async (e: React.ClipboardEvent) => {
+			if (!modelSupportsImages) return;
+			const items = Array.from(e.clipboardData.items);
+			const imageFiles = items
+				.filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+				.map((item) => item.getAsFile())
+				.filter((f): f is File => f !== null);
+
+			if (imageFiles.length === 0) return;
+			e.preventDefault();
+			const images = await Promise.all(imageFiles.map(readFileAsImage));
+			addImages(images);
+		},
+		[addImages, modelSupportsImages],
+	);
+
+	// ── Drag and drop ──
+	const handleDragOver = useCallback(
+		(e: React.DragEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			if (hasSession && !isDragOver) setIsDragOver(true);
+		},
+		[hasSession, isDragOver],
+	);
+
+	const handleDragLeave = useCallback((e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDragOver(false);
+	}, []);
+
+	const handleDrop = useCallback(
+		async (e: React.DragEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			setIsDragOver(false);
+			if (!hasSession || !modelSupportsImages) return;
+
+			const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+			if (files.length === 0) return;
+			const images = await Promise.all(files.map(readFileAsImage));
+			addImages(images);
+			textareaRef.current?.focus();
+		},
+		[hasSession, addImages, modelSupportsImages],
+	);
+
 	return (
 		<div className="relative px-4 pb-4 pt-1">
 			<div className="relative mx-auto max-w-2xl">
 				{/* ── Card container ── */}
 				<div
 					className="input-card rounded-2xl transition-all duration-200"
+					onDragOver={handleDragOver}
+					onDragLeave={handleDragLeave}
+					onDrop={(e) => void handleDrop(e)}
 					style={{
 						background: "var(--input-card-bg)",
 						boxShadow: isFocused
 							? "var(--input-card-shadow-focus)"
 							: "var(--input-card-shadow)",
 						border: "1px solid",
-						borderColor: isFocused
-							? "var(--input-card-border-focus)"
-							: "var(--input-card-border)",
+						borderColor: isDragOver
+							? "var(--accent)"
+							: isFocused
+								? "var(--input-card-border-focus)"
+								: "var(--input-card-border)",
 						opacity: hasSession ? 1 : 0.5,
 					}}
 				>
+					{/* ── Attached images preview ── */}
+					<AnimatePresence>
+						{attachedImages.length > 0 && (
+							<motion.div
+								initial={{ height: 0, opacity: 0 }}
+								animate={{ height: "auto", opacity: 1 }}
+								exit={{ height: 0, opacity: 0 }}
+								transition={{ duration: 0.2 }}
+								className="overflow-hidden"
+							>
+								<div className="flex flex-wrap gap-2 px-4 pt-3">
+									{attachedImages.map((img) => (
+										<ImageThumbnail
+											key={img.id}
+											image={img}
+											onRemove={() => removeImage(img.id)}
+										/>
+									))}
+								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+
 					{/* ── Textarea area ── */}
 					<div className="px-4 pt-3 pb-2">
 						<textarea
@@ -80,6 +215,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 							value={inputValue}
 							onChange={handleChange}
 							onKeyDown={handleKeyDown}
+							onPaste={(e) => void handlePaste(e)}
 							onFocus={() => setIsFocused(true)}
 							onBlur={() => setIsFocused(false)}
 							disabled={!hasSession}
@@ -106,9 +242,10 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 								disabled={!hasSession}
 							/>
 							<ToolbarButton
-								icon="icon-[mdi--image-outline]"
-								title="Attach image"
-								disabled={!hasSession}
+								icon={modelSupportsImages ? "icon-[mdi--image-outline]" : "icon-[mdi--image-off-outline]"}
+								title={modelSupportsImages ? "Attach image" : "Current model does not support image input"}
+								disabled={!hasSession || !modelSupportsImages}
+								onClick={() => void handleSelectImages()}
 							/>
 						</div>
 
@@ -170,6 +307,41 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/** Thumbnail preview for an attached image with remove button */
+function ImageThumbnail({
+	image,
+	onRemove,
+}: {
+	image: AttachedImage;
+	onRemove: () => void;
+}): JSX.Element {
+	return (
+		<motion.div
+			initial={{ scale: 0.8, opacity: 0 }}
+			animate={{ scale: 1, opacity: 1 }}
+			exit={{ scale: 0.8, opacity: 0 }}
+			transition={{ duration: 0.15 }}
+			className="group relative"
+		>
+			<div className="h-16 w-16 overflow-hidden rounded-lg border border-[var(--border-1)]">
+				<img
+					src={`data:${image.mimeType};base64,${image.data}`}
+					alt={image.name}
+					className="h-full w-full object-cover"
+				/>
+			</div>
+			<button
+				type="button"
+				onClick={onRemove}
+				className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--text-2)] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-[var(--surface-3)]"
+				title="Remove image"
+			>
+				<span className="icon-[mdi--close] h-3 w-3" />
+			</button>
+		</motion.div>
 	);
 }
 

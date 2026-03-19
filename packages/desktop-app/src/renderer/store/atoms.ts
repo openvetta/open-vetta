@@ -54,6 +54,8 @@ export interface ChatMessage {
 	text: string;
 	/** Rich content blocks for assistant messages */
 	blocks?: ContentBlock[];
+	/** Attached images for user messages */
+	images?: Array<{ data: string; mimeType: string; name: string }>;
 }
 
 export interface ActiveSession {
@@ -69,6 +71,21 @@ export const activeSessionAtom = atom<ActiveSession | null>(null);
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
 export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
+
+// ─── Attached images ───
+
+export interface AttachedImage {
+	/** Unique ID for React key */
+	id: string;
+	/** Base64-encoded image data (no data URI prefix) */
+	data: string;
+	/** MIME type, e.g. "image/png" */
+	mimeType: string;
+	/** Display name (file name or "Pasted image") */
+	name: string;
+}
+
+export const attachedImagesAtom = atom<AttachedImage[]>([]);
 
 // ─── Usage tracking ───
 
@@ -161,6 +178,9 @@ export const workspacePathAtom = atom<string>(localStorage.getItem("vetta-worksp
 
 /** Selected model identifier: "provider/modelId" */
 export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));
+
+/** Whether the current session model supports image input */
+export const modelSupportsImagesAtom = atom<boolean>(true);
 
 // ─── Theme ───
 

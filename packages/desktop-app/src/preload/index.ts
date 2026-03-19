@@ -21,6 +21,7 @@ const CHANNELS = {
 const api: DesktopApi = {
 	dialog: {
 		selectFolder: async () => ipcRenderer.invoke("vetta:dialog:select-folder"),
+		selectImages: async () => ipcRenderer.invoke("vetta:dialog:select-images"),
 	},
 	theme: {
 		set: async (mode) => ipcRenderer.invoke("vetta:theme:set", mode),

@@ -16,6 +16,7 @@ import {
 	chatMessagesAtom,
 	isStreamingAtom,
 	inputValueAtom,
+	attachedImagesAtom,
 	selectedFilePathAtom,
 	pageViewAtom,
 	settingsTabAtom,
@@ -23,6 +24,7 @@ import {
 	selectedModelAtom,
 	lastTurnUsageAtom,
 	contextUsageAtom,
+	modelSupportsImagesAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -434,11 +436,13 @@ export function App(): JSX.Element {
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setIsStreaming = useSetAtom(isStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
+	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
+	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSettingsTab = useSetAtom(settingsTabAtom);
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
@@ -529,6 +533,7 @@ export function App(): JSX.Element {
 				percent: state.contextPercent,
 				contextWindow: state.contextWindow,
 			});
+			setModelSupportsImages(state.model?.input?.includes("image") ?? false);
 			const cachedKey = sessionPath ?? "";
 			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
 
@@ -611,7 +616,7 @@ export function App(): JSX.Element {
 
 			await loadSessions(cwd);
 		},
-		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, setPageView, loadSessions, setLastTurnUsage, setContextUsage],
+		[setChatMessages, setActiveSession, setIsStreaming, setSelectedFilePath, setPageView, loadSessions, setLastTurnUsage, setContextUsage, setModelSupportsImages],
 	);
 
 	// Keep ref in sync so shortcut handler can call openSession
@@ -619,13 +624,25 @@ export function App(): JSX.Element {
 
 	const sendMessage = useCallback(async () => {
 		const session = activeSessionRef.current;
-		if (!session?.runtimeId || !inputValue.trim()) return;
+		if (!session?.runtimeId || (!inputValue.trim() && attachedImages.length === 0)) return;
 		const text = inputValue.trim();
+		const images = attachedImages.length > 0 ? attachedImages : undefined;
 		setInputValue("");
-		setChatMessages((prev) => [...prev, { id: nextId("user"), role: "user", text }]);
-		await window.vetta.session.prompt(session.runtimeId, { text });
+		setAttachedImages([]);
+		const userMsg: ChatMessage = { id: nextId("user"), role: "user", text };
+		if (images) {
+			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
+		}
+		setChatMessages((prev) => [...prev, userMsg]);
+		const promptReq: { text: string; images?: Array<{ type: "image"; data: string; mimeType: string }> } = {
+			text: text || "(see attached images)",
+		};
+		if (images) {
+			promptReq.images = images.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+		}
+		await window.vetta.session.prompt(session.runtimeId, promptReq);
 		await loadSessions(session.cwd);
-	}, [inputValue, setInputValue, setChatMessages, loadSessions]);
+	}, [inputValue, attachedImages, setInputValue, setAttachedImages, setChatMessages, loadSessions]);
 
 	const abortMessage = useCallback(async () => {
 		const session = activeSessionRef.current;
