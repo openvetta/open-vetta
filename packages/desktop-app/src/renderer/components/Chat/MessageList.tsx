@@ -28,20 +28,51 @@ function BlockRenderer({ block }: { block: ContentBlock }): JSX.Element | null {
 	}
 }
 
-/** Parse a `/skills:<name>` prefix from user message text. */
-function parseSkillPrefix(text: string): { skillName: string | null; body: string } {
-	const match = text.match(/^\/skills:([^\n]+)\n?([\s\S]*)$/);
-	if (!match) return { skillName: null, body: text };
-	return { skillName: match[1].trim(), body: match[2] };
+/** Parse prefixes from user message text: /skills:<name> and @<path> lines. */
+function parseUserPrefixes(text: string): { skillName: string | null; files: string[]; body: string } {
+	let remaining = text;
+	let skillName: string | null = null;
+	const files: string[] = [];
+
+	// Extract /skills: prefix
+	const skillMatch = remaining.match(/^\/skills:([^\n]+)\n?([\s\S]*)$/);
+	if (skillMatch) {
+		skillName = skillMatch[1].trim();
+		remaining = skillMatch[2];
+	}
+
+	// Extract @<path> lines from the beginning
+	while (true) {
+		const fileMatch = remaining.match(/^@([^\n]+)\n?([\s\S]*)$/);
+		if (!fileMatch) break;
+		files.push(fileMatch[1].trim());
+		remaining = fileMatch[2];
+	}
+
+	return { skillName, files, body: remaining };
 }
 
 function SkillBadge({ name }: { name: string }): JSX.Element {
 	return (
 		<span
-			className="mb-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
 			style={{ background: "var(--accent-dim)", color: "var(--text-2)" }}
 		>
 			<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
+			{name}
+		</span>
+	);
+}
+
+function FileBadge({ path }: { path: string }): JSX.Element {
+	const name = path.split("/").pop() ?? path;
+	return (
+		<span
+			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+			style={{ background: "var(--surface)", color: "var(--text-2)" }}
+			title={path}
+		>
+			<span className="icon-[mdi--file-outline] h-3 w-3" />
 			{name}
 		</span>
 	);
@@ -53,8 +84,9 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 
 	if (isUser) {
 		const hasImages = message.images && message.images.length > 0;
-		const { skillName, body } = parseSkillPrefix(message.text);
+		const { skillName, files, body } = parseUserPrefixes(message.text);
 		const displayText = body;
+		const hasBadges = skillName || files.length > 0;
 
 		return (
 			<motion.div
@@ -80,14 +112,17 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 							))}
 						</div>
 					)}
-					{(displayText || skillName) && (
+					{(displayText || hasBadges) && (
 						<div
 							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
 							style={{ wordBreak: "break-word" }}
 						>
-							{skillName && (
-								<div className="mb-0.5 flex justify-end">
-									<SkillBadge name={skillName} />
+							{hasBadges && (
+								<div className="mb-1 flex flex-wrap justify-end gap-1">
+									{skillName && <SkillBadge name={skillName} />}
+									{files.map((f) => (
+										<FileBadge key={f} path={f} />
+									))}
 								</div>
 							)}
 							{displayText && (
@@ -95,7 +130,7 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 							)}
 						</div>
 					)}
-					{!displayText && !skillName && !hasImages && (
+					{!displayText && !hasBadges && !hasImages && (
 						<div
 							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
 							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}

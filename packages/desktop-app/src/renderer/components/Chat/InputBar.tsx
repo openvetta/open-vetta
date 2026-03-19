@@ -1,10 +1,11 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, selectedSkillAtom, type AttachedImage } from "../../store/atoms";
+import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, selectedSkillAtom, mentionedFilesAtom, type AttachedImage, type MentionedFile } from "../../store/atoms";
 import { ModelSelector } from "./ModelSelector";
 import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
+import { AtPanel, type SelectedFile } from "./AtPanel";
 import type { SkillInfo } from "../../../preload/api";
 
 interface InputBarProps {
@@ -46,10 +47,12 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
+	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
 	const [isDragOver, setIsDragOver] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
+	const [atOpen, setAtOpen] = useState(false);
 
 	const hasSession = Boolean(activeSession);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
@@ -75,8 +78,10 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	}, [hasSession, isStreaming]);
 
 	function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
-		// When slash panel is open, let it handle arrow/enter/escape
-		if (slashOpen && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "Escape")) {
+		// AtPanel/SlashPanel use stopPropagation in capture phase, so when they're
+		// open the event never reaches here. This guard is a safety fallback.
+		if ((slashOpen || atOpen) && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "Escape" || e.key === "Tab")) {
+			e.preventDefault();
 			return;
 		}
 		if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -92,9 +97,30 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		// Open slash panel when "/" is typed at position 0
 		if (val === "/" || (val.startsWith("/") && !val.includes(" "))) {
 			if (!slashOpen) setSlashOpen(true);
+			if (atOpen) setAtOpen(false);
 		} else if (slashOpen && !val.startsWith("/")) {
 			setSlashOpen(false);
 		}
+
+		// Detect "@" trigger: last word starts with "@"
+		const cursorPos = e.target.selectionStart ?? val.length;
+		const textBeforeCursor = val.slice(0, cursorPos);
+		const atMatch = textBeforeCursor.match(/@([^\s]*)$/);
+		if (atMatch && !slashOpen) {
+			if (!atOpen) setAtOpen(true);
+		} else if (atOpen) {
+			setAtOpen(false);
+		}
+	}
+
+	/** Extract the @filter text from current cursor position. */
+	function getAtFilter(): string {
+		const val = inputValue;
+		const el = textareaRef.current;
+		const cursorPos = el?.selectionStart ?? val.length;
+		const textBeforeCursor = val.slice(0, cursorPos);
+		const atMatch = textBeforeCursor.match(/@([^\s]*)$/);
+		return atMatch ? atMatch[0] : "";
 	}
 
 	const handleSlashSelect = useCallback(
@@ -114,6 +140,44 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		setSelectedSkill(null);
 		textareaRef.current?.focus();
 	}, [setSelectedSkill]);
+
+	const handleAtSelect = useCallback(
+		(file: SelectedFile) => {
+			// Avoid duplicates
+			if (mentionedFiles.some((f) => f.path === file.path)) {
+				setAtOpen(false);
+				// Still remove the @filter text
+				const atFilter = getAtFilter();
+				if (atFilter) {
+					const el = textareaRef.current;
+					const cursorPos = el?.selectionStart ?? inputValue.length;
+					setInputValue(inputValue.slice(0, cursorPos - atFilter.length) + inputValue.slice(cursorPos));
+				}
+				textareaRef.current?.focus();
+				return;
+			}
+			const newFile: MentionedFile = { path: file.path, name: file.name, isDirectory: file.isDirectory };
+			setMentionedFiles((prev) => [...prev, newFile]);
+			setAtOpen(false);
+			// Remove the @filter text from input
+			const atFilter = getAtFilter();
+			if (atFilter) {
+				const el = textareaRef.current;
+				const cursorPos = el?.selectionStart ?? inputValue.length;
+				setInputValue(inputValue.slice(0, cursorPos - atFilter.length) + inputValue.slice(cursorPos));
+			}
+			textareaRef.current?.focus();
+		},
+		[mentionedFiles, setMentionedFiles, inputValue, setInputValue],
+	);
+
+	const handleRemoveFile = useCallback(
+		(path: string) => {
+			setMentionedFiles((prev) => prev.filter((f) => f.path !== path));
+			textareaRef.current?.focus();
+		},
+		[setMentionedFiles],
+	);
 
 	const handlePlusClick = useCallback(() => {
 		if (!hasSession) return;
@@ -211,6 +275,15 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 					filter={inputValue.startsWith("/") ? inputValue : ""}
 				/>
 
+				{/* ── @ file panel (above input card) ── */}
+				<AtPanel
+					open={atOpen}
+					onClose={() => setAtOpen(false)}
+					onSelect={handleAtSelect}
+					filter={getAtFilter()}
+					cwd={activeSession?.cwd ?? ""}
+				/>
+
 				{/* ── Card container ── */}
 				<div
 					className="input-card rounded-2xl transition-all duration-200"
@@ -299,6 +372,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 							<AnimatePresence>
 								{selectedSkill && (
 									<motion.div
+										key="skill-capsule"
 										initial={{ scale: 0.8, opacity: 0, width: 0 }}
 										animate={{ scale: 1, opacity: 1, width: "auto" }}
 										exit={{ scale: 0.8, opacity: 0, width: 0 }}
@@ -323,6 +397,34 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 										</button>
 									</motion.div>
 								)}
+							</AnimatePresence>
+							{/* File capsules */}
+							<AnimatePresence>
+								{mentionedFiles.map((file) => (
+									<motion.div
+										key={`file-${file.path}`}
+										initial={{ scale: 0.8, opacity: 0, width: 0 }}
+										animate={{ scale: 1, opacity: 1, width: "auto" }}
+										exit={{ scale: 0.8, opacity: 0, width: 0 }}
+										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+										className="overflow-hidden"
+									>
+										<button
+											type="button"
+											onClick={() => handleRemoveFile(file.path)}
+											title={file.path}
+											className="ml-1 flex items-center gap-1 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80"
+											style={{
+												background: "var(--surface)",
+												color: "var(--text-2)",
+											}}
+										>
+											<span className={`${file.isDirectory ? "icon-[mdi--folder-outline]" : "icon-[mdi--file-outline]"} h-3 w-3`} />
+											<span className="max-w-[100px] truncate">{file.name}</span>
+											<span className="icon-[mdi--close] h-3 w-3 opacity-60" />
+										</button>
+									</motion.div>
+								))}
 							</AnimatePresence>
 						</div>
 

@@ -11,29 +11,45 @@ const SOURCE_LABELS: Record<string, string> = {
 	scene: "场景",
 };
 
-function SkillCard({ skill }: { skill: SkillInfo }): JSX.Element {
-	const isScene = skill.type === "scene";
+function SceneCard({ skill }: { skill: SkillInfo }): JSX.Element {
 	return (
 		<div className="group relative flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-all duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-			{/* Icon */}
-			<div className={`flex h-10 w-10 items-center justify-center rounded-[10px] ${isScene ? "bg-[var(--accent-emphasis-dim,var(--accent-dim))]" : "bg-[var(--accent-dim)]"}`}>
-				<span className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-5 w-5 text-[var(--text-2)]`} />
-			</div>
-
-			{/* Name + source badge */}
-			<div className="flex items-center gap-2">
-				<span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
-					{skill.name}
-				</span>
-				<span className="shrink-0 rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-2)]">
+			<div className="flex items-start justify-between">
+				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-dim)]">
+					<span className="icon-[mdi--movie-open-outline] h-5 w-5 text-[var(--text-2)]" />
+				</div>
+				<span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-3)]">
 					{SOURCE_LABELS[skill.source] ?? skill.source}
 				</span>
 			</div>
+			<div className="flex flex-col gap-1">
+				<span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+					{skill.name}
+				</span>
+				<p className="line-clamp-2 text-[12px] leading-[1.5] text-[var(--text-3)]">
+					{skill.description || "暂无描述"}
+				</p>
+			</div>
+		</div>
+	);
+}
 
-			{/* Description */}
-			<p className="line-clamp-2 text-[12px] leading-[1.6] text-[var(--text-3)]">
-				{skill.description || "暂无描述"}
-			</p>
+function SkillRow({ skill }: { skill: SkillInfo }): JSX.Element {
+	return (
+		<div className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-[var(--hover-strong)]">
+			<div className="min-w-0 flex-1">
+				<div className="flex items-center gap-2">
+					<span className="truncate text-[13px] font-medium text-[var(--text-1)]">
+						/{skill.name}
+					</span>
+					<span className="shrink-0 rounded-full bg-[var(--accent-dim)] px-1.5 py-px text-[10px] font-medium text-[var(--text-3)]">
+						{SOURCE_LABELS[skill.source] ?? skill.source}
+					</span>
+				</div>
+				<p className="mt-0.5 line-clamp-1 text-[12px] leading-[1.5] text-[var(--text-3)]">
+					{skill.description || "暂无描述"}
+				</p>
+			</div>
 		</div>
 	);
 }
@@ -41,10 +57,10 @@ function SkillCard({ skill }: { skill: SkillInfo }): JSX.Element {
 function SectionHeader({ title, count }: { title: string; count: number }): JSX.Element {
 	return (
 		<div className="flex items-center gap-2 pb-3">
-			<h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+			<h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3)]">
 				{title}
 			</h2>
-			<span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-2)]">
+			<span className="text-[12px] tabular-nums text-[var(--text-3)]">
 				{count}
 			</span>
 		</div>
@@ -95,14 +111,14 @@ export function SkillsPage(): JSX.Element {
 			<div className="flex-1 overflow-y-auto px-8 pb-8">
 				{tab === "mine" ? (
 					scenes.length > 0 || standardSkills.length > 0 ? (
-						<div className="flex flex-col gap-6">
+						<div className="flex flex-col gap-8">
 							{/* Scenes section */}
 							{scenes.length > 0 && (
 								<div>
 									<SectionHeader title="场景" count={scenes.length} />
-									<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+									<div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
 										{scenes.map((skill) => (
-											<SkillCard key={skill.name} skill={skill} />
+											<SceneCard key={skill.name} skill={skill} />
 										))}
 									</div>
 								</div>
@@ -112,9 +128,9 @@ export function SkillsPage(): JSX.Element {
 							{standardSkills.length > 0 && (
 								<div>
 									<SectionHeader title="技能" count={standardSkills.length} />
-									<div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+									<div className="flex flex-col gap-px rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1">
 										{standardSkills.map((skill) => (
-											<SkillCard key={skill.name} skill={skill} />
+											<SkillRow key={skill.name} skill={skill} />
 										))}
 									</div>
 								</div>
