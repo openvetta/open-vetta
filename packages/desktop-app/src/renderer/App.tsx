@@ -25,6 +25,7 @@ import {
 	lastTurnUsageAtom,
 	contextUsageAtom,
 	modelSupportsImagesAtom,
+	selectedSkillAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -437,6 +438,7 @@ export function App(): JSX.Element {
 	const setIsStreaming = useSetAtom(isStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
+	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
@@ -625,10 +627,15 @@ export function App(): JSX.Element {
 	const sendMessage = useCallback(async () => {
 		const session = activeSessionRef.current;
 		if (!session?.runtimeId || (!inputValue.trim() && attachedImages.length === 0)) return;
-		const text = inputValue.trim();
+		const rawText = inputValue.trim();
 		const images = attachedImages.length > 0 ? attachedImages : undefined;
+		// Prepend /skills:<name> if a skill/scene is selected
+		const skillPrefix = selectedSkill ? `/skills:${selectedSkill.name}\n` : "";
+		const text = skillPrefix + rawText;
 		setInputValue("");
 		setAttachedImages([]);
+		setSelectedSkill(null);
+		// Display text shows the skill prefix for transparency
 		const userMsg: ChatMessage = { id: nextId("user"), role: "user", text };
 		if (images) {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
@@ -642,7 +649,7 @@ export function App(): JSX.Element {
 		}
 		await window.vetta.session.prompt(session.runtimeId, promptReq);
 		await loadSessions(session.cwd);
-	}, [inputValue, attachedImages, setInputValue, setAttachedImages, setChatMessages, loadSessions]);
+	}, [inputValue, attachedImages, selectedSkill, setInputValue, setAttachedImages, setSelectedSkill, setChatMessages, loadSessions]);
 
 	const abortMessage = useCallback(async () => {
 		const session = activeSessionRef.current;
