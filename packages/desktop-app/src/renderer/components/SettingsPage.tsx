@@ -136,21 +136,34 @@ const API_OPTIONS = [
 	{ value: "openai-responses", label: "OpenAI Responses" },
 ];
 
+const INPUT_OPTIONS = [
+	{ value: "text", label: "Text" },
+	{ value: "image", label: "Image" },
+];
+
 interface ProviderFormState {
 	name: string;
 	baseUrl: string;
 	apiKey: string;
 	api: string;
+	headers: string;
+	authHeader: boolean;
 }
 
 interface ModelFormState {
 	id: string;
 	name: string;
 	api: string;
+	reasoning: boolean;
+	input: string[];
+	contextWindow: string;
+	maxTokens: string;
 }
 
-const emptyProvider: ProviderFormState = { name: "", baseUrl: "", apiKey: "", api: "openai-completions" };
-const emptyModel: ModelFormState = { id: "", name: "", api: "" };
+const emptyProvider: ProviderFormState = { name: "", baseUrl: "", apiKey: "", api: "openai-completions", headers: "", authHeader: false };
+const emptyModel: ModelFormState = { id: "", name: "", api: "", reasoning: false, input: ["text"], contextWindow: "", maxTokens: "" };
+
+type ModelsEditMode = "visual" | "json";
 
 function SelectField({
 	value,
@@ -201,19 +214,269 @@ function InputField({
 	);
 }
 
+function parseHeadersString(s: string): Record<string, string> | undefined {
+	const lines = s.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+	if (lines.length === 0) return undefined;
+	return Object.fromEntries(lines.map((l) => {
+		const idx = l.indexOf(":");
+		return idx > 0 ? [l.slice(0, idx).trim(), l.slice(idx + 1).trim()] : [l, ""];
+	}));
+}
+
+function headersToString(headers?: Record<string, string>): string {
+	if (!headers) return "";
+	return Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join("\n");
+}
+
+function modelToForm(m: NonNullable<ModelsConfigData["providers"][string]["models"]>[number]): ModelFormState {
+	return {
+		id: m.id,
+		name: m.name || "",
+		api: m.api || "",
+		reasoning: m.reasoning ?? false,
+		input: m.input ?? ["text"],
+		contextWindow: m.contextWindow != null ? String(m.contextWindow) : "",
+		maxTokens: m.maxTokens != null ? String(m.maxTokens) : "",
+	};
+}
+
+function formToModelDef(form: ModelFormState): NonNullable<ModelsConfigData["providers"][string]["models"]>[number] {
+	const m: NonNullable<ModelsConfigData["providers"][string]["models"]>[number] = {
+		id: form.id.trim(),
+	};
+	if (form.name.trim()) m.name = form.name.trim();
+	if (form.api) m.api = form.api;
+	if (form.reasoning) m.reasoning = true;
+	if (form.input.length > 0) m.input = form.input;
+	const cw = Number(form.contextWindow.trim());
+	if (cw > 0) m.contextWindow = cw;
+	const mt = Number(form.maxTokens.trim());
+	if (mt > 0) m.maxTokens = mt;
+	return m;
+}
+
+function ProviderForm({
+	form,
+	setForm,
+	onSave,
+	onCancel,
+	saving,
+	saveLabel,
+}: {
+	form: ProviderFormState;
+	setForm: React.Dispatch<React.SetStateAction<ProviderFormState>>;
+	onSave: () => void;
+	onCancel: () => void;
+	saving: boolean;
+	saveLabel: string;
+}): JSX.Element {
+	return (
+		<>
+			<div className="grid grid-cols-2 gap-3">
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">服务商名称 *</label>
+					<InputField
+						value={form.name}
+						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+						placeholder="e.g. ollama, lm-studio"
+					/>
+				</div>
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">API 类型</label>
+					<SelectField
+						value={form.api}
+						onChange={(v) => setForm((f) => ({ ...f, api: v }))}
+						options={API_OPTIONS}
+					/>
+				</div>
+				<div className="col-span-2">
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">Base URL</label>
+					<InputField
+						value={form.baseUrl}
+						onChange={(v) => setForm((f) => ({ ...f, baseUrl: v }))}
+						placeholder="e.g. http://localhost:11434/v1"
+					/>
+				</div>
+				<div className="col-span-2">
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">API Key</label>
+					<InputField
+						value={form.apiKey}
+						onChange={(v) => setForm((f) => ({ ...f, apiKey: v }))}
+						placeholder="sk-... 或 env:MY_API_KEY 或 cmd:xxx"
+						type="password"
+					/>
+				</div>
+				<div className="col-span-2">
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">自定义 Headers (每行一个 Key: Value)</label>
+					<textarea
+						value={form.headers}
+						onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))}
+						placeholder={"X-Custom-Header: value\nAuthorization: Bearer xxx"}
+						rows={2}
+						className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 py-2 font-mono text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-2)]/40 outline-none transition-colors hover:bg-[var(--surface-overlay)] focus:border-[var(--accent)] resize-none"
+					/>
+				</div>
+				<div className="col-span-2">
+					<CheckboxField
+						checked={form.authHeader}
+						onChange={(v) => setForm((f) => ({ ...f, authHeader: v }))}
+						label="使用 Authorization Header 发送 API Key"
+					/>
+				</div>
+			</div>
+			<div className="mt-3 flex justify-end gap-2">
+				<Button variant="ghost" size="sm" onClick={onCancel}>
+					取消
+				</Button>
+				<Button
+					variant="primary"
+					size="sm"
+					onClick={onSave}
+					disabled={!form.name.trim() || saving}
+				>
+					{saveLabel}
+				</Button>
+			</div>
+		</>
+	);
+}
+
+function ModelForm({
+	form,
+	setForm,
+	onSave,
+	onCancel,
+	saving,
+	saveLabel,
+}: {
+	form: ModelFormState;
+	setForm: React.Dispatch<React.SetStateAction<ModelFormState>>;
+	onSave: () => void;
+	onCancel: () => void;
+	saving: boolean;
+	saveLabel: string;
+}): JSX.Element {
+	const toggleInput = (val: string) => {
+		setForm((f) => {
+			const has = f.input.includes(val);
+			return { ...f, input: has ? f.input.filter((v) => v !== val) : [...f.input, val] };
+		});
+	};
+
+	return (
+		<>
+			<div className="grid grid-cols-2 gap-3">
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">模型 ID *</label>
+					<InputField
+						value={form.id}
+						onChange={(v) => setForm((f) => ({ ...f, id: v }))}
+						placeholder="e.g. llama3, qwen-vl"
+					/>
+				</div>
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">显示名称</label>
+					<InputField
+						value={form.name}
+						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
+						placeholder="可选"
+					/>
+				</div>
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">API 类型</label>
+					<InputField
+						value={form.api}
+						onChange={(v) => setForm((f) => ({ ...f, api: v }))}
+						placeholder="继承服务商"
+					/>
+				</div>
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">输入能力</label>
+					<div className="flex items-center gap-3 h-8">
+						{INPUT_OPTIONS.map((opt) => (
+							<label key={opt.value} className="flex items-center gap-1.5 cursor-pointer select-none">
+								<button
+									type="button"
+									onClick={() => toggleInput(opt.value)}
+									className={cn(
+										"flex h-4 w-4 items-center justify-center rounded border transition-colors",
+										form.input.includes(opt.value)
+											? "border-[var(--accent)] bg-[var(--accent)]"
+											: "border-[var(--border-strong)] bg-[var(--surface-raised)] hover:bg-[var(--surface-overlay)]",
+									)}
+								>
+									{form.input.includes(opt.value) && (
+										<span className="icon-[mdi--check] h-3 w-3 text-[var(--accent-fg)]" />
+									)}
+								</button>
+								<span className="text-[12px] text-[var(--text-1)]">{opt.label}</span>
+							</label>
+						))}
+					</div>
+				</div>
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">上下文窗口</label>
+					<InputField
+						value={form.contextWindow}
+						onChange={(v) => setForm((f) => ({ ...f, contextWindow: v }))}
+						placeholder="e.g. 131072"
+					/>
+				</div>
+				<div>
+					<label className="mb-1 block text-[11px] text-[var(--text-2)]">最大输出 Tokens</label>
+					<InputField
+						value={form.maxTokens}
+						onChange={(v) => setForm((f) => ({ ...f, maxTokens: v }))}
+						placeholder="e.g. 8192"
+					/>
+				</div>
+				<div className="col-span-2">
+					<CheckboxField
+						checked={form.reasoning}
+						onChange={(v) => setForm((f) => ({ ...f, reasoning: v }))}
+						label="支持推理/思考 (Reasoning)"
+					/>
+				</div>
+			</div>
+			<div className="mt-3 flex justify-end gap-2">
+				<Button variant="ghost" size="sm" onClick={onCancel}>
+					取消
+				</Button>
+				<Button
+					variant="primary"
+					size="sm"
+					onClick={onSave}
+					disabled={!form.id.trim() || saving}
+				>
+					{saveLabel}
+				</Button>
+			</div>
+		</>
+	);
+}
+
 function ModelsSettings(): JSX.Element {
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
+	const [mode, setMode] = useState<ModelsEditMode>("visual");
 	const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 	const [addingProvider, setAddingProvider] = useState(false);
 	const [providerForm, setProviderForm] = useState<ProviderFormState>({ ...emptyProvider });
 	const [editingProvider, setEditingProvider] = useState<string | null>(null);
 	const [addingModelFor, setAddingModelFor] = useState<string | null>(null);
+	const [editingModel, setEditingModel] = useState<{ provider: string; modelId: string } | null>(null);
 	const [modelForm, setModelForm] = useState<ModelFormState>({ ...emptyModel });
 	const [saving, setSaving] = useState(false);
 
+	// JSON mode state
+	const [jsonText, setJsonText] = useState("");
+	const [jsonError, setJsonError] = useState<string | null>(null);
+
 	// Load config on mount
 	useEffect(() => {
-		void window.vetta.models.get().then(setConfig);
+		void window.vetta.models.get().then((c) => {
+			setConfig(c);
+			setJsonText(JSON.stringify(c, null, 2));
+		});
 	}, []);
 
 	const saveConfig = useCallback(
@@ -222,6 +485,7 @@ function ModelsSettings(): JSX.Element {
 			try {
 				await window.vetta.models.set(newConfig);
 				setConfig(newConfig);
+				setJsonText(JSON.stringify(newConfig, null, 2));
 			} finally {
 				setSaving(false);
 			}
@@ -231,6 +495,17 @@ function ModelsSettings(): JSX.Element {
 
 	// ─── Provider CRUD ───
 
+	const providerFormToData = useCallback(() => {
+		const headers = parseHeadersString(providerForm.headers);
+		return {
+			baseUrl: providerForm.baseUrl.trim() || undefined,
+			apiKey: providerForm.apiKey.trim() || undefined,
+			api: providerForm.api || undefined,
+			headers,
+			authHeader: providerForm.authHeader || undefined,
+		};
+	}, [providerForm]);
+
 	const handleAddProvider = useCallback(async () => {
 		if (!config || !providerForm.name.trim()) return;
 		const newConfig: ModelsConfigData = {
@@ -238,9 +513,7 @@ function ModelsSettings(): JSX.Element {
 			providers: {
 				...config.providers,
 				[providerForm.name.trim()]: {
-					baseUrl: providerForm.baseUrl.trim() || undefined,
-					apiKey: providerForm.apiKey.trim() || undefined,
-					api: providerForm.api || undefined,
+					...providerFormToData(),
 					models: [],
 				},
 			},
@@ -249,7 +522,7 @@ function ModelsSettings(): JSX.Element {
 		setAddingProvider(false);
 		setProviderForm({ ...emptyProvider });
 		setExpandedProvider(providerForm.name.trim());
-	}, [config, providerForm, saveConfig]);
+	}, [config, providerForm, providerFormToData, saveConfig]);
 
 	const handleUpdateProvider = useCallback(
 		async (oldName: string) => {
@@ -258,16 +531,13 @@ function ModelsSettings(): JSX.Element {
 			const existing = newProviders[oldName];
 			if (!existing) return;
 
-			// If name changed, delete old key
 			if (oldName !== providerForm.name.trim()) {
 				delete newProviders[oldName];
 			}
 
 			newProviders[providerForm.name.trim()] = {
 				...existing,
-				baseUrl: providerForm.baseUrl.trim() || undefined,
-				apiKey: providerForm.apiKey.trim() || undefined,
-				api: providerForm.api || undefined,
+				...providerFormToData(),
 			};
 
 			await saveConfig({ ...config, providers: newProviders });
@@ -277,7 +547,7 @@ function ModelsSettings(): JSX.Element {
 				setExpandedProvider(providerForm.name.trim());
 			}
 		},
-		[config, providerForm, saveConfig],
+		[config, providerForm, providerFormToData, saveConfig],
 	);
 
 	const handleDeleteProvider = useCallback(
@@ -285,7 +555,6 @@ function ModelsSettings(): JSX.Element {
 			if (!config) return;
 			const newProviders = { ...config.providers };
 			delete newProviders[name];
-			// Clear default model if it belongs to the deleted provider
 			const defaultModel = config.defaultModel?.startsWith(`${name}/`) ? undefined : config.defaultModel;
 			await saveConfig({ ...config, defaultModel, providers: newProviders });
 			if (expandedProvider === name) setExpandedProvider(null);
@@ -303,6 +572,8 @@ function ModelsSettings(): JSX.Element {
 				baseUrl: p.baseUrl || "",
 				apiKey: p.apiKey || "",
 				api: p.api || "openai-completions",
+				headers: headersToString(p.headers),
+				authHeader: p.authHeader ?? false,
 			});
 			setEditingProvider(name);
 			setAddingProvider(false);
@@ -317,12 +588,7 @@ function ModelsSettings(): JSX.Element {
 			if (!config || !modelForm.id.trim()) return;
 			const provider = config.providers[providerName];
 			if (!provider) return;
-			const models = [...(provider.models || [])];
-			models.push({
-				id: modelForm.id.trim(),
-				name: modelForm.name.trim() || undefined,
-				api: modelForm.api || undefined,
-			});
+			const models = [...(provider.models || []), formToModelDef(modelForm)];
 			const newConfig: ModelsConfigData = {
 				...config,
 				providers: {
@@ -337,6 +603,31 @@ function ModelsSettings(): JSX.Element {
 		[config, modelForm, saveConfig],
 	);
 
+	const handleUpdateModel = useCallback(
+		async (providerName: string, oldModelId: string) => {
+			if (!config || !modelForm.id.trim()) return;
+			const provider = config.providers[providerName];
+			if (!provider) return;
+			const models = (provider.models || []).map((m) =>
+				m.id === oldModelId ? formToModelDef(modelForm) : m,
+			);
+			const oldKey = `${providerName}/${oldModelId}`;
+			const newKey = `${providerName}/${modelForm.id.trim()}`;
+			const newConfig: ModelsConfigData = {
+				...config,
+				defaultModel: config.defaultModel === oldKey ? newKey : config.defaultModel,
+				providers: {
+					...config.providers,
+					[providerName]: { ...provider, models },
+				},
+			};
+			await saveConfig(newConfig);
+			setEditingModel(null);
+			setModelForm({ ...emptyModel });
+		},
+		[config, modelForm, saveConfig],
+	);
+
 	const handleDeleteModel = useCallback(
 		async (providerName: string, modelId: string) => {
 			if (!config) return;
@@ -346,7 +637,6 @@ function ModelsSettings(): JSX.Element {
 			const modelKey = `${providerName}/${modelId}`;
 			const newConfig: ModelsConfigData = {
 				...config,
-				// Clear default if the deleted model was the default
 				defaultModel: config.defaultModel === modelKey ? undefined : config.defaultModel,
 				providers: {
 					...config.providers,
@@ -368,13 +658,56 @@ function ModelsSettings(): JSX.Element {
 				defaultModel: newDefault,
 			};
 			await saveConfig(newConfig);
-			// Also update localStorage selection if setting a new default
 			if (newDefault) {
 				localStorage.setItem("vetta-selected-model", newDefault);
 			}
 		},
 		[config, saveConfig],
 	);
+
+	const startEditModel = useCallback(
+		(providerName: string, modelId: string) => {
+			if (!config) return;
+			const provider = config.providers[providerName];
+			if (!provider) return;
+			const model = (provider.models || []).find((m) => m.id === modelId);
+			if (!model) return;
+			setModelForm(modelToForm(model));
+			setEditingModel({ provider: providerName, modelId });
+			setAddingModelFor(null);
+		},
+		[config],
+	);
+
+	// ─── JSON mode ───
+
+	const handleJsonSave = useCallback(async () => {
+		try {
+			const parsed = JSON.parse(jsonText) as ModelsConfigData;
+			if (!parsed.providers || typeof parsed.providers !== "object") {
+				setJsonError("JSON 必须包含 providers 对象");
+				return;
+			}
+			setJsonError(null);
+			await saveConfig(parsed);
+		} catch (e) {
+			setJsonError(`JSON 解析错误: ${(e as Error).message}`);
+		}
+	}, [jsonText, saveConfig]);
+
+	const handleModeSwitch = useCallback((newMode: ModelsEditMode) => {
+		if (newMode === "json" && config) {
+			setJsonText(JSON.stringify(config, null, 2));
+			setJsonError(null);
+		}
+		setMode(newMode);
+		setAddingProvider(false);
+		setEditingProvider(null);
+		setAddingModelFor(null);
+		setEditingModel(null);
+		setProviderForm({ ...emptyProvider });
+		setModelForm({ ...emptyModel });
+	}, [config]);
 
 	if (!config) {
 		return (
@@ -391,340 +724,311 @@ function ModelsSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-[var(--text-1)]">模型配置</h1>
+			<div className="mb-6 flex items-center justify-between">
+				<h1 className="text-[20px] font-bold text-[var(--text-1)]">模型配置</h1>
+				<SegmentedControl
+					items={[
+						{ key: "visual" as ModelsEditMode, label: "视图", icon: "icon-[mdi--view-list-outline]" },
+						{ key: "json" as ModelsEditMode, label: "JSON", icon: "icon-[mdi--code-json]" },
+					]}
+					value={mode}
+					onChange={handleModeSwitch}
+				/>
+			</div>
 
-			{/* Provider list */}
-			<SettingSection title="服务商">
-				{providerNames.length === 0 && !addingProvider && (
-					<div className="px-5 py-8 text-center text-[12px] text-[var(--text-2)]">
-						尚未配置任何服务商，点击下方按钮添加
-					</div>
-				)}
-
-				{providerNames.map((name) => {
-					const provider = config.providers[name]!;
-					const isExpanded = expandedProvider === name;
-					const isEditing = editingProvider === name;
-					const models = provider.models || [];
-
-					return (
-						<div
-							key={name}
-							className="border-b border-[var(--border)] last:border-b-0"
-						>
-							{/* Provider header */}
-							<div className="flex items-center gap-3 px-5 py-3.5">
-								<button
-									type="button"
-									onClick={() => setExpandedProvider(isExpanded ? null : name)}
-									className="flex flex-1 items-center gap-3 text-left"
-								>
-									<span
-										className={cn(
-											"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-[var(--text-2)] transition-transform",
-											isExpanded && "rotate-90",
-										)}
-									/>
-									<div className="min-w-0 flex-1">
-										<div className="text-[13px] font-medium text-[var(--text-1)]">{name}</div>
-										<div className="mt-0.5 text-[11px] text-[var(--text-2)]">
-											{provider.api || "openai-completions"} · {models.length} 个模型
-											{provider.baseUrl && ` · ${provider.baseUrl}`}
-										</div>
-									</div>
-								</button>
-								<div className="flex items-center gap-1">
-									<button
-										type="button"
-										onClick={(e) => {
-											e.stopPropagation();
-											startEditProvider(name);
-										}}
-										className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
-										title="编辑"
-									>
-										<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
-									</button>
-									<button
-										type="button"
-										onClick={(e) => {
-											e.stopPropagation();
-											void handleDeleteProvider(name);
-										}}
-										className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
-										title="删除"
-									>
-										<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-									</button>
-								</div>
+			{mode === "visual" ? (
+				<>
+					{/* Provider list */}
+					<SettingSection title="服务商">
+						{providerNames.length === 0 && !addingProvider && (
+							<div className="px-5 py-8 text-center text-[12px] text-[var(--text-2)]">
+								尚未配置任何服务商，点击下方按钮添加
 							</div>
+						)}
 
-							{/* Edit provider form (inline) */}
-							{isEditing && (
-								<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/50 px-5 py-4">
-									<div className="grid grid-cols-2 gap-3">
-										<div>
-											<label className="mb-1 block text-[11px] text-[var(--text-2)]">服务商名称</label>
-											<InputField
-												value={providerForm.name}
-												onChange={(v) => setProviderForm((f) => ({ ...f, name: v }))}
-												placeholder="e.g. ollama"
-											/>
-										</div>
-										<div>
-											<label className="mb-1 block text-[11px] text-[var(--text-2)]">API 类型</label>
-											<SelectField
-												value={providerForm.api}
-												onChange={(v) => setProviderForm((f) => ({ ...f, api: v }))}
-												options={API_OPTIONS}
-											/>
-										</div>
-										<div className="col-span-2">
-											<label className="mb-1 block text-[11px] text-[var(--text-2)]">Base URL</label>
-											<InputField
-												value={providerForm.baseUrl}
-												onChange={(v) => setProviderForm((f) => ({ ...f, baseUrl: v }))}
-												placeholder="e.g. http://localhost:11434/v1"
-											/>
-										</div>
-										<div className="col-span-2">
-											<label className="mb-1 block text-[11px] text-[var(--text-2)]">API Key</label>
-											<InputField
-												value={providerForm.apiKey}
-												onChange={(v) => setProviderForm((f) => ({ ...f, apiKey: v }))}
-												placeholder="sk-... 或 env:MY_API_KEY 或 cmd:xxx"
-												type="password"
-											/>
-										</div>
-									</div>
-									<div className="mt-3 flex justify-end gap-2">
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => {
-												setEditingProvider(null);
-												setProviderForm({ ...emptyProvider });
-											}}
-										>
-											取消
-										</Button>
-										<Button
-											variant="primary"
-											size="sm"
-											onClick={() => void handleUpdateProvider(name)}
-											disabled={!providerForm.name.trim() || saving}
-										>
-											保存
-										</Button>
-									</div>
-								</div>
-							)}
+						{providerNames.map((name) => {
+							const provider = config.providers[name]!;
+							const isExpanded = expandedProvider === name;
+							const isEditing = editingProvider === name;
+							const models = provider.models || [];
 
-							{/* Expanded: models list */}
-							{isExpanded && !isEditing && (
-								<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/30">
-									{models.length === 0 && addingModelFor !== name && (
-										<div className="px-5 py-6 text-center text-[12px] text-[var(--text-2)]">
-											暂无自定义模型
-										</div>
-									)}
-
-									{models.map((model) => {
-									const modelKey = `${name}/${model.id}`;
-									const isDefault = config.defaultModel === modelKey;
-									return (
-										<div
-											key={model.id}
-											className="flex items-center justify-between border-b border-[var(--border)]/50 px-5 py-2.5 last:border-b-0"
+							return (
+								<div
+									key={name}
+									className="border-b border-[var(--border)] last:border-b-0"
+								>
+									{/* Provider header */}
+									<div className="flex items-center gap-3 px-5 py-3.5">
+										<button
+											type="button"
+											onClick={() => setExpandedProvider(isExpanded ? null : name)}
+											className="flex flex-1 items-center gap-3 text-left"
 										>
+											<span
+												className={cn(
+													"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-[var(--text-2)] transition-transform",
+													isExpanded && "rotate-90",
+												)}
+											/>
 											<div className="min-w-0 flex-1">
-												<div className="flex items-center gap-2 text-[12px] font-medium text-[var(--text-1)]">
-													{model.name || model.id}
-													{isDefault && (
-														<span className="rounded-full bg-[var(--accent)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[var(--accent)]">
-															默认
-														</span>
-													)}
-												</div>
+												<div className="text-[13px] font-medium text-[var(--text-1)]">{name}</div>
 												<div className="mt-0.5 text-[11px] text-[var(--text-2)]">
-													{model.id}
-													{model.api && ` · ${model.api}`}
+													{provider.api || "openai-completions"} · {models.length} 个模型
+													{provider.baseUrl && ` · ${provider.baseUrl}`}
 												</div>
 											</div>
-											<div className="flex items-center gap-0.5">
-												<button
-													type="button"
-													onClick={() => void handleSetDefaultModel(name, model.id)}
-													className={cn(
-														"flex h-6 w-6 items-center justify-center rounded-md transition-colors",
-														isDefault
-															? "text-[var(--accent)]"
-															: "text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--accent)]",
-													)}
-													title={isDefault ? "取消默认" : "设为默认模型"}
-												>
-													<span className={`${isDefault ? "icon-[mdi--star]" : "icon-[mdi--star-outline]"} h-3.5 w-3.5`} />
-												</button>
-												<button
-													type="button"
-													onClick={() => void handleDeleteModel(name, model.id)}
-													className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
-													title="删除模型"
-												>
-													<span className="icon-[mdi--close] h-3 w-3" />
-												</button>
-											</div>
-										</div>
-									);
-								})}
-
-									{/* Add model form */}
-									{addingModelFor === name ? (
-										<div className="border-t border-[var(--border)]/50 px-5 py-3">
-											<div className="grid grid-cols-3 gap-2">
-												<div>
-													<label className="mb-1 block text-[11px] text-[var(--text-2)]">模型 ID</label>
-													<InputField
-														value={modelForm.id}
-														onChange={(v) => setModelForm((f) => ({ ...f, id: v }))}
-														placeholder="e.g. llama3"
-													/>
-												</div>
-												<div>
-													<label className="mb-1 block text-[11px] text-[var(--text-2)]">显示名称</label>
-													<InputField
-														value={modelForm.name}
-														onChange={(v) => setModelForm((f) => ({ ...f, name: v }))}
-														placeholder="可选"
-													/>
-												</div>
-												<div>
-													<label className="mb-1 block text-[11px] text-[var(--text-2)]">API 类型</label>
-													<InputField
-														value={modelForm.api}
-														onChange={(v) => setModelForm((f) => ({ ...f, api: v }))}
-														placeholder="继承服务商"
-													/>
-												</div>
-											</div>
-											<div className="mt-2 flex justify-end gap-2">
-												<Button
-													variant="ghost"
-													size="sm"
-													onClick={() => {
-														setAddingModelFor(null);
-														setModelForm({ ...emptyModel });
-													}}
-												>
-													取消
-												</Button>
-												<Button
-													variant="primary"
-													size="sm"
-													onClick={() => void handleAddModel(name)}
-													disabled={!modelForm.id.trim() || saving}
-												>
-													添加
-												</Button>
-											</div>
-										</div>
-									) : (
-										<div className="border-t border-[var(--border)]/50 px-5 py-2">
+										</button>
+										<div className="flex items-center gap-1">
 											<button
 												type="button"
-												onClick={() => {
-													setAddingModelFor(name);
-													setModelForm({ ...emptyModel });
+												onClick={(e) => {
+													e.stopPropagation();
+													startEditProvider(name);
+													setExpandedProvider(name);
 												}}
-												className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10"
+												className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+												title="编辑"
 											>
-												<span className="icon-[mdi--plus] h-3.5 w-3.5" />
-												添加模型
+												<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
 											</button>
+											<button
+												type="button"
+												onClick={(e) => {
+													e.stopPropagation();
+													void handleDeleteProvider(name);
+												}}
+												className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+												title="删除"
+											>
+												<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+											</button>
+										</div>
+									</div>
+
+									{/* Edit provider form (inline) */}
+									{isExpanded && isEditing && (
+										<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/50 px-5 py-4">
+											<ProviderForm
+												form={providerForm}
+												setForm={setProviderForm}
+												onSave={() => void handleUpdateProvider(name)}
+												onCancel={() => {
+													setEditingProvider(null);
+													setProviderForm({ ...emptyProvider });
+												}}
+												saving={saving}
+												saveLabel="保存"
+											/>
+										</div>
+									)}
+
+									{/* Expanded: models list */}
+									{isExpanded && !isEditing && (
+										<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/30">
+											{models.length === 0 && addingModelFor !== name && (
+												<div className="px-5 py-6 text-center text-[12px] text-[var(--text-2)]">
+													暂无自定义模型
+												</div>
+											)}
+
+											{models.map((model) => {
+												const modelKey = `${name}/${model.id}`;
+												const isDefault = config.defaultModel === modelKey;
+												const isModelEditing = editingModel?.provider === name && editingModel?.modelId === model.id;
+
+												if (isModelEditing) {
+													return (
+														<div key={model.id} className="border-b border-[var(--border)]/50 px-5 py-3 last:border-b-0">
+															<ModelForm
+																form={modelForm}
+																setForm={setModelForm}
+																onSave={() => void handleUpdateModel(name, model.id)}
+																onCancel={() => {
+																	setEditingModel(null);
+																	setModelForm({ ...emptyModel });
+																}}
+																saving={saving}
+																saveLabel="保存"
+															/>
+														</div>
+													);
+												}
+
+												return (
+													<div
+														key={model.id}
+														className="flex items-center justify-between border-b border-[var(--border)]/50 px-5 py-2.5 last:border-b-0"
+													>
+														<div className="min-w-0 flex-1">
+															<div className="flex items-center gap-2 text-[12px] font-medium text-[var(--text-1)]">
+																{model.name || model.id}
+																{isDefault && (
+																	<span className="rounded-full bg-[var(--accent)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[var(--accent)]">
+																		默认
+																	</span>
+																)}
+															</div>
+															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-[var(--text-2)]">
+																<span>{model.id}</span>
+																{model.api && <span>· {model.api}</span>}
+																{model.input && model.input.includes("image") && (
+																	<span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] text-blue-400">
+																		vision
+																	</span>
+																)}
+																{model.reasoning && (
+																	<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">
+																		reasoning
+																	</span>
+																)}
+																{model.contextWindow != null && (
+																	<span>· {(model.contextWindow / 1024).toFixed(0)}K ctx</span>
+																)}
+																{model.maxTokens != null && (
+																	<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
+																)}
+															</div>
+														</div>
+														<div className="flex items-center gap-0.5">
+															<button
+																type="button"
+																onClick={() => void handleSetDefaultModel(name, model.id)}
+																className={cn(
+																	"flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+																	isDefault
+																		? "text-[var(--accent)]"
+																		: "text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--accent)]",
+																)}
+																title={isDefault ? "取消默认" : "设为默认模型"}
+															>
+																<span className={`${isDefault ? "icon-[mdi--star]" : "icon-[mdi--star-outline]"} h-3.5 w-3.5`} />
+															</button>
+															<button
+																type="button"
+																onClick={() => startEditModel(name, model.id)}
+																className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-2)] transition-colors hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+																title="编辑模型"
+															>
+																<span className="icon-[mdi--pencil-outline] h-3 w-3" />
+															</button>
+															<button
+																type="button"
+																onClick={() => void handleDeleteModel(name, model.id)}
+																className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+																title="删除模型"
+															>
+																<span className="icon-[mdi--close] h-3 w-3" />
+															</button>
+														</div>
+													</div>
+												);
+											})}
+
+											{/* Add model form */}
+											{addingModelFor === name ? (
+												<div className="border-t border-[var(--border)]/50 px-5 py-3">
+													<ModelForm
+														form={modelForm}
+														setForm={setModelForm}
+														onSave={() => void handleAddModel(name)}
+														onCancel={() => {
+															setAddingModelFor(null);
+															setModelForm({ ...emptyModel });
+														}}
+														saving={saving}
+														saveLabel="添加"
+													/>
+												</div>
+											) : (
+												<div className="border-t border-[var(--border)]/50 px-5 py-2">
+													<button
+														type="button"
+														onClick={() => {
+															setAddingModelFor(name);
+															setEditingModel(null);
+															setModelForm({ ...emptyModel });
+														}}
+														className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10"
+													>
+														<span className="icon-[mdi--plus] h-3.5 w-3.5" />
+														添加模型
+													</button>
+												</div>
+											)}
 										</div>
 									)}
 								</div>
-							)}
-						</div>
-					);
-				})}
+							);
+						})}
 
-				{/* Add provider form */}
-				{addingProvider && (
-					<div className="border-t border-[var(--border)] px-5 py-4">
-						<div className="grid grid-cols-2 gap-3">
-							<div>
-								<label className="mb-1 block text-[11px] text-[var(--text-2)]">服务商名称</label>
-								<InputField
-									value={providerForm.name}
-									onChange={(v) => setProviderForm((f) => ({ ...f, name: v }))}
-									placeholder="e.g. ollama, lm-studio"
+						{/* Add provider form */}
+						{addingProvider && (
+							<div className="border-t border-[var(--border)] px-5 py-4">
+								<ProviderForm
+									form={providerForm}
+									setForm={setProviderForm}
+									onSave={() => void handleAddProvider()}
+									onCancel={() => {
+										setAddingProvider(false);
+										setProviderForm({ ...emptyProvider });
+									}}
+									saving={saving}
+									saveLabel="添加"
 								/>
 							</div>
-							<div>
-								<label className="mb-1 block text-[11px] text-[var(--text-2)]">API 类型</label>
-								<SelectField
-									value={providerForm.api}
-									onChange={(v) => setProviderForm((f) => ({ ...f, api: v }))}
-									options={API_OPTIONS}
-								/>
-							</div>
-							<div className="col-span-2">
-								<label className="mb-1 block text-[11px] text-[var(--text-2)]">Base URL</label>
-								<InputField
-									value={providerForm.baseUrl}
-									onChange={(v) => setProviderForm((f) => ({ ...f, baseUrl: v }))}
-									placeholder="e.g. http://localhost:11434/v1"
-								/>
-							</div>
-							<div className="col-span-2">
-								<label className="mb-1 block text-[11px] text-[var(--text-2)]">API Key</label>
-								<InputField
-									value={providerForm.apiKey}
-									onChange={(v) => setProviderForm((f) => ({ ...f, apiKey: v }))}
-									placeholder="sk-... 或 env:MY_API_KEY 或 cmd:xxx"
-									type="password"
-								/>
-							</div>
-						</div>
-						<div className="mt-3 flex justify-end gap-2">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => {
-									setAddingProvider(false);
-									setProviderForm({ ...emptyProvider });
-								}}
-							>
-								取消
-							</Button>
-							<Button
-								variant="primary"
-								size="sm"
-								onClick={() => void handleAddProvider()}
-								disabled={!providerForm.name.trim() || saving}
-							>
-								添加
-							</Button>
-						</div>
+						)}
+					</SettingSection>
+
+					{/* Add provider button */}
+					{!addingProvider && (
+						<button
+							type="button"
+							onClick={() => {
+								setAddingProvider(true);
+								setEditingProvider(null);
+								setProviderForm({ ...emptyProvider });
+							}}
+							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] py-3 text-[13px] text-[var(--text-2)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+						>
+							<span className="icon-[mdi--plus] h-4 w-4" />
+							添加服务商
+						</button>
+					)}
+				</>
+			) : (
+				/* JSON mode */
+				<div className="mb-6">
+					<div className="mb-3 flex items-center justify-between">
+						<h2 className="text-[15px] font-semibold text-[var(--text-1)]">编辑 JSON</h2>
+						<Button
+							variant="primary"
+							size="sm"
+							onClick={() => void handleJsonSave()}
+							disabled={saving}
+						>
+							{saving ? "保存中…" : "保存"}
+						</Button>
 					</div>
-				)}
-			</SettingSection>
-
-			{/* Add provider button */}
-			{!addingProvider && (
-				<button
-					type="button"
-					onClick={() => {
-						setAddingProvider(true);
-						setEditingProvider(null);
-						setProviderForm({ ...emptyProvider });
-					}}
-					className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] py-3 text-[13px] text-[var(--text-2)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
-				>
-					<span className="icon-[mdi--plus] h-4 w-4" />
-					添加服务商
-				</button>
+					<div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+						<textarea
+							value={jsonText}
+							onChange={(e) => {
+								setJsonText(e.target.value);
+								setJsonError(null);
+							}}
+							spellCheck={false}
+							className="w-full resize-none bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-[var(--text-1)] outline-none placeholder:text-[var(--text-2)]/40"
+							style={{ minHeight: "400px" }}
+							placeholder='{ "providers": {} }'
+						/>
+					</div>
+					{jsonError && (
+						<div className="mt-2 flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-[12px] text-red-400">
+							<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
+							{jsonError}
+						</div>
+					)}
+				</div>
 			)}
 
 			{/* Config file path hint */}

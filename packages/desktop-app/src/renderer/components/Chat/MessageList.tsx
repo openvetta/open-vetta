@@ -33,6 +33,7 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 	const hasBlocks = message.blocks && message.blocks.length > 0;
 
 	if (isUser) {
+		const hasImages = message.images && message.images.length > 0;
 		return (
 			<motion.div
 				initial={{ opacity: 0, y: 4 }}
@@ -40,11 +41,39 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 				transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
 				className="flex justify-end"
 			>
-				<div
-					className="max-w-[72%] rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
-					style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-				>
-					{message.text || "\u2026"}
+				<div className="max-w-[72%]">
+					{hasImages && (
+						<div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
+							{message.images!.map((img, i) => (
+								<div
+									key={i}
+									className="h-20 w-20 overflow-hidden rounded-xl border border-[var(--border-1)]"
+								>
+									<img
+										src={`data:${img.mimeType};base64,${img.data}`}
+										alt={img.name}
+										className="h-full w-full object-cover"
+									/>
+								</div>
+							))}
+						</div>
+					)}
+					{message.text && (
+						<div
+							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
+							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+						>
+							{message.text}
+						</div>
+					)}
+					{!message.text && !hasImages && (
+						<div
+							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
+							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+						>
+							{"\u2026"}
+						</div>
+					)}
 				</div>
 			</motion.div>
 		);

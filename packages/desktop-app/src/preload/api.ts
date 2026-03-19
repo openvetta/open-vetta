@@ -25,8 +25,15 @@ export interface DesktopSessionApi {
 	rename(sessionPath: string, name: string): Promise<void>;
 }
 
+export interface SelectedImageFile {
+	data: string;
+	mimeType: string;
+	name: string;
+}
+
 export interface DesktopDialogApi {
 	selectFolder(): Promise<string | null>;
+	selectImages(): Promise<SelectedImageFile[]>;
 }
 
 export interface DesktopThemeApi {

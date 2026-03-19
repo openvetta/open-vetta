@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 import { DefaultResourceLoader } from "@vetta/coding-agent";
 import { dialog, ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../runtime-core/src/index.js";
@@ -43,6 +45,16 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 	) {
 		throw new Error("Invalid prompt request streamingBehavior");
 	}
+	if (request.images !== undefined) {
+		if (!Array.isArray(request.images)) {
+			throw new Error("Invalid prompt request images");
+		}
+		for (const img of request.images as Array<Record<string, unknown>>) {
+			if (img.type !== "image" || typeof img.data !== "string" || typeof img.mimeType !== "string") {
+				throw new Error("Invalid prompt request image entry");
+			}
+		}
+	}
 }
 
 export function registerRuntimeIpc(webContents: WebContents): () => void {
@@ -54,6 +66,37 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 		await loader.reload();
 		const { skills } = loader.getSkills();
 		return skills.map((s) => ({ name: s.name, description: s.description, source: s.source, type: s.type }));
+	});
+
+	const IMAGE_MIME: Record<string, string> = {
+		".png": "image/png",
+		".jpg": "image/jpeg",
+		".jpeg": "image/jpeg",
+		".gif": "image/gif",
+		".webp": "image/webp",
+		".svg": "image/svg+xml",
+		".bmp": "image/bmp",
+	};
+
+	ipcMain.handle("vetta:dialog:select-images", async () => {
+		const result = await dialog.showOpenDialog({
+			properties: ["openFile", "multiSelections"],
+			title: "Select Images",
+			filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"] }],
+		});
+		if (result.canceled || result.filePaths.length === 0) return [];
+		const images = await Promise.all(
+			result.filePaths.map(async (filePath) => {
+				const buffer = await readFile(filePath);
+				const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+				return {
+					data: buffer.toString("base64"),
+					mimeType: IMAGE_MIME[ext] || "image/png",
+					name: basename(filePath),
+				};
+			}),
+		);
+		return images;
 	});
 
 	ipcMain.handle("vetta:dialog:select-folder", async () => {
@@ -84,6 +127,14 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.PROMPT, async (_event, sessionId: unknown, request: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertPromptRequest(request);
+		const req = request as PromptRequest;
+		if (req.images && req.images.length > 0) {
+			console.log(
+				`[IPC PROMPT] images: ${req.images.length}, first type=${req.images[0].type}, mimeType=${req.images[0].mimeType}, data.length=${req.images[0].data.length}`,
+			);
+		} else {
+			console.log(`[IPC PROMPT] no images in request`);
+		}
 		await runtime.prompt(sessionId, request);
 	});
 
@@ -148,6 +199,7 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 		}
 		subscriptionMap.clear();
 		ipcMain.removeHandler("vetta:skills:list");
+		ipcMain.removeHandler("vetta:dialog:select-images");
 		ipcMain.removeHandler("vetta:dialog:select-folder");
 	};
 }
