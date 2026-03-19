@@ -187,3 +187,12 @@ export const modelSupportsImagesAtom = atom<boolean>(true);
 export type ThemeMode = "light" | "dark" | "auto";
 export const themeModeAtom = atom<ThemeMode>((localStorage.getItem("vetta-theme") as ThemeMode) || "dark");
 export const resolvedThemeAtom = atom<"light" | "dark">("dark");
+
+// ─── Slash panel (skill/scene selection) ───
+
+export interface SelectedSkill {
+	name: string;
+	type: "skill" | "scene";
+}
+
+export const selectedSkillAtom = atom<SelectedSkill | null>(null);

@@ -1,9 +1,11 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useRef, useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, type AttachedImage } from "../../store/atoms";
+import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, selectedSkillAtom, type AttachedImage } from "../../store/atoms";
 import { ModelSelector } from "./ModelSelector";
 import { ContextRing } from "./ContextRing";
+import { SlashPanel } from "./SlashPanel";
+import type { SkillInfo } from "../../../preload/api";
 
 interface InputBarProps {
 	onSend: () => Promise<void>;
@@ -43,9 +45,11 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
+	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
 	const [isDragOver, setIsDragOver] = useState(false);
+	const [slashOpen, setSlashOpen] = useState(false);
 
 	const hasSession = Boolean(activeSession);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
@@ -71,6 +75,10 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	}, [hasSession, isStreaming]);
 
 	function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
+		// When slash panel is open, let it handle arrow/enter/escape
+		if (slashOpen && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "Escape")) {
+			return;
+		}
 		if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
 			e.preventDefault();
 			if (canSend) void onSend();
@@ -78,8 +86,39 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	}
 
 	function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>): void {
-		setInputValue(e.target.value);
+		const val = e.target.value;
+		setInputValue(val);
+
+		// Open slash panel when "/" is typed at position 0
+		if (val === "/" || (val.startsWith("/") && !val.includes(" "))) {
+			if (!slashOpen) setSlashOpen(true);
+		} else if (slashOpen && !val.startsWith("/")) {
+			setSlashOpen(false);
+		}
 	}
+
+	const handleSlashSelect = useCallback(
+		(skill: SkillInfo) => {
+			setSelectedSkill({ name: skill.name, type: skill.type });
+			setSlashOpen(false);
+			// Clear the "/" filter text
+			if (inputValue.startsWith("/")) {
+				setInputValue("");
+			}
+			textareaRef.current?.focus();
+		},
+		[setSelectedSkill, inputValue, setInputValue],
+	);
+
+	const handleRemoveSkill = useCallback(() => {
+		setSelectedSkill(null);
+		textareaRef.current?.focus();
+	}, [setSelectedSkill]);
+
+	const handlePlusClick = useCallback(() => {
+		if (!hasSession) return;
+		setSlashOpen((prev) => !prev);
+	}, [hasSession]);
 
 	// ── Image helpers ──
 
@@ -164,6 +203,14 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	return (
 		<div className="relative px-4 pb-4 pt-1">
 			<div className="relative mx-auto max-w-2xl">
+				{/* ── Slash panel (above input card) ── */}
+				<SlashPanel
+					open={slashOpen}
+					onClose={() => setSlashOpen(false)}
+					onSelect={handleSlashSelect}
+					filter={inputValue.startsWith("/") ? inputValue : ""}
+				/>
+
 				{/* ── Card container ── */}
 				<div
 					className="input-card rounded-2xl transition-all duration-200"
@@ -234,12 +281,13 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 
 					{/* ── Toolbar ── */}
 					<div className="flex items-center justify-between px-3 pb-2.5">
-						{/* Left: action buttons */}
+						{/* Left: action buttons + skill capsule */}
 						<div className="flex items-center gap-0.5">
 							<ToolbarButton
 								icon="icon-[mdi--plus]"
-								title="Attach file"
+								title="技能/场景"
 								disabled={!hasSession}
+								onClick={handlePlusClick}
 							/>
 							<ToolbarButton
 								icon={modelSupportsImages ? "icon-[mdi--image-outline]" : "icon-[mdi--image-off-outline]"}
@@ -247,6 +295,35 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 								disabled={!hasSession || !modelSupportsImages}
 								onClick={() => void handleSelectImages()}
 							/>
+							{/* Skill capsule */}
+							<AnimatePresence>
+								{selectedSkill && (
+									<motion.div
+										initial={{ scale: 0.8, opacity: 0, width: 0 }}
+										animate={{ scale: 1, opacity: 1, width: "auto" }}
+										exit={{ scale: 0.8, opacity: 0, width: 0 }}
+										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+										className="overflow-hidden"
+									>
+										<button
+											type="button"
+											onClick={handleRemoveSkill}
+											title="点击移除"
+											className="ml-1 flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80"
+											style={{
+												background: "var(--accent-dim)",
+												color: "var(--text-2)",
+											}}
+										>
+											<span
+												className={`${selectedSkill.type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3 w-3`}
+											/>
+											<span className="max-w-[120px] truncate">{selectedSkill.name}</span>
+											<span className="icon-[mdi--close] h-3 w-3 opacity-60" />
+										</button>
+									</motion.div>
+								)}
+							</AnimatePresence>
 						</div>
 
 						{/* Right: model selector + send / stop */}

@@ -28,12 +28,34 @@ function BlockRenderer({ block }: { block: ContentBlock }): JSX.Element | null {
 	}
 }
 
+/** Parse a `/skills:<name>` prefix from user message text. */
+function parseSkillPrefix(text: string): { skillName: string | null; body: string } {
+	const match = text.match(/^\/skills:([^\n]+)\n?([\s\S]*)$/);
+	if (!match) return { skillName: null, body: text };
+	return { skillName: match[1].trim(), body: match[2] };
+}
+
+function SkillBadge({ name }: { name: string }): JSX.Element {
+	return (
+		<span
+			className="mb-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+			style={{ background: "var(--accent-dim)", color: "var(--text-2)" }}
+		>
+			<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
+			{name}
+		</span>
+	);
+}
+
 function Message({ message }: { message: ChatMessage }): JSX.Element {
 	const isUser = message.role === "user";
 	const hasBlocks = message.blocks && message.blocks.length > 0;
 
 	if (isUser) {
 		const hasImages = message.images && message.images.length > 0;
+		const { skillName, body } = parseSkillPrefix(message.text);
+		const displayText = body;
+
 		return (
 			<motion.div
 				initial={{ opacity: 0, y: 4 }}
@@ -58,15 +80,22 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 							))}
 						</div>
 					)}
-					{message.text && (
+					{(displayText || skillName) && (
 						<div
 							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
-							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+							style={{ wordBreak: "break-word" }}
 						>
-							{message.text}
+							{skillName && (
+								<div className="mb-0.5 flex justify-end">
+									<SkillBadge name={skillName} />
+								</div>
+							)}
+							{displayText && (
+								<div style={{ whiteSpace: "pre-wrap" }}>{displayText}</div>
+							)}
 						</div>
 					)}
-					{!message.text && !hasImages && (
+					{!displayText && !skillName && !hasImages && (
 						<div
 							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
 							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
