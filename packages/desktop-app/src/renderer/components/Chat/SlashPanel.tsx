@@ -48,15 +48,19 @@ export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps)
 			if (!open || allItems.length === 0) return;
 			if (e.key === "ArrowDown") {
 				e.preventDefault();
+				e.stopPropagation();
 				setActiveIndex((i) => (i + 1) % allItems.length);
 			} else if (e.key === "ArrowUp") {
 				e.preventDefault();
+				e.stopPropagation();
 				setActiveIndex((i) => (i - 1 + allItems.length) % allItems.length);
 			} else if (e.key === "Enter" && allItems.length > 0) {
 				e.preventDefault();
+				e.stopPropagation();
 				onSelect(allItems[activeIndex]);
 			} else if (e.key === "Escape") {
 				e.preventDefault();
+				e.stopPropagation();
 				onClose();
 			}
 		},

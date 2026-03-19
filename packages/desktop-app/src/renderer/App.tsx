@@ -26,6 +26,7 @@ import {
 	contextUsageAtom,
 	modelSupportsImagesAtom,
 	selectedSkillAtom,
+	mentionedFilesAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -439,6 +440,7 @@ export function App(): JSX.Element {
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
+	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
@@ -629,13 +631,16 @@ export function App(): JSX.Element {
 		if (!session?.runtimeId || (!inputValue.trim() && attachedImages.length === 0)) return;
 		const rawText = inputValue.trim();
 		const images = attachedImages.length > 0 ? attachedImages : undefined;
-		// Prepend /skills:<name> if a skill/scene is selected
+		// Build prefix lines
 		const skillPrefix = selectedSkill ? `/skills:${selectedSkill.name}\n` : "";
-		const text = skillPrefix + rawText;
+		const filesPrefix = mentionedFiles.length > 0
+			? mentionedFiles.map((f) => `@${f.path}`).join("\n") + "\n"
+			: "";
+		const text = skillPrefix + filesPrefix + rawText;
 		setInputValue("");
 		setAttachedImages([]);
 		setSelectedSkill(null);
-		// Display text shows the skill prefix for transparency
+		setMentionedFiles([]);
 		const userMsg: ChatMessage = { id: nextId("user"), role: "user", text };
 		if (images) {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
@@ -649,7 +654,7 @@ export function App(): JSX.Element {
 		}
 		await window.vetta.session.prompt(session.runtimeId, promptReq);
 		await loadSessions(session.cwd);
-	}, [inputValue, attachedImages, selectedSkill, setInputValue, setAttachedImages, setSelectedSkill, setChatMessages, loadSessions]);
+	}, [inputValue, attachedImages, selectedSkill, mentionedFiles, setInputValue, setAttachedImages, setSelectedSkill, setMentionedFiles, setChatMessages, loadSessions]);
 
 	const abortMessage = useCallback(async () => {
 		const session = activeSessionRef.current;

@@ -196,3 +196,15 @@ export interface SelectedSkill {
 }
 
 export const selectedSkillAtom = atom<SelectedSkill | null>(null);
+
+// ─── Mentioned files (@file selection) ───
+
+export interface MentionedFile {
+	/** Absolute path */
+	path: string;
+	/** Display name (file or dir name) */
+	name: string;
+	isDirectory: boolean;
+}
+
+export const mentionedFilesAtom = atom<MentionedFile[]>([]);
