@@ -148,6 +148,8 @@ export interface SettingsPatch {
 	thinkingLevel?: ThinkingLevel;
 	steeringMode?: "all" | "one-at-a-time";
 	followUpMode?: "all" | "one-at-a-time";
+	/** Model key in "provider/modelId" format */
+	modelKey?: string;
 }
 
 export interface SessionFacade {
