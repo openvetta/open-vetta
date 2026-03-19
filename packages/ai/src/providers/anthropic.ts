@@ -699,6 +699,12 @@ function convertMessages(
 						};
 					}
 				});
+				const hasImageBlocks = blocks.some((b) => b.type === "image");
+				if (hasImageBlocks) {
+					console.log(
+						`[anthropic convertMessages] user msg has ${blocks.filter((b) => b.type === "image").length} image blocks, model.input=${JSON.stringify(model?.input)}, will filter=${!model?.input.includes("image")}`,
+					);
+				}
 				let filteredBlocks = !model?.input.includes("image") ? blocks.filter((b) => b.type !== "image") : blocks;
 				filteredBlocks = filteredBlocks.filter((b) => {
 					if (b.type === "text") {
