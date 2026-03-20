@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
 import { registerRuntimeIpc } from "./ipc.js";
 import { registerFsIpc } from "./ipc-fs.js";
@@ -7,9 +6,10 @@ import { registerFsIpc } from "./ipc-fs.js";
 let mainWindow: BrowserWindow | null = null;
 let teardownIpc: (() => void) | undefined;
 let teardownFsIpc: (() => void) | undefined;
-const currentDir = fileURLToPath(new URL(".", import.meta.url));
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
-const buildDir = join(process.cwd(), "build");
+const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
+const resDir = app.isPackaged ? appRoot : join(appRoot, "dist");
+const buildDir = join(appRoot, "build");
 
 const iconPath: Record<string, string> = {
 	darwin: join(buildDir, "icon.icns"),
@@ -30,7 +30,7 @@ function createWindow(): void {
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
-			preload: join(currentDir, "../../dist/preload/index.js"),
+			preload: join(resDir, "preload/index.js"),
 		},
 	});
 
@@ -39,9 +39,11 @@ function createWindow(): void {
 	if (devServerUrl) {
 		void mainWindow.loadURL(devServerUrl);
 	} else {
-		void mainWindow.loadFile(join(process.cwd(), "dist/renderer/index.html"));
+		void mainWindow.loadFile(join(resDir, "renderer/index.html"));
 	}
-	mainWindow.webContents.openDevTools({ mode: "detach" });
+	if (!app.isPackaged) {
+		mainWindow.webContents.openDevTools({ mode: "detach" });
+	}
 	mainWindow.on("closed", () => {
 		mainWindow = null;
 		if (teardownIpc) {
