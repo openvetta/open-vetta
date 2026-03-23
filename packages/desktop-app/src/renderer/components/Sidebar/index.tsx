@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
-import { AnimatePresence, motion } from "motion/react";
 import { sidebarTabAtom, sidebarWidthAtom, pageViewAtom, type PageView } from "../../store/atoms";
 import { useProjects } from "../../hooks/useProjects";
-import { isMac } from "../../lib/platform";
+import { isMac, isWindows } from "../../lib/platform";
 import { SidebarTabs } from "./SidebarTabs";
+import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "./FileExplorer/FilesPanel";
 import { SettingsMenu } from "./SettingsMenu";
 import { ResizeHandle } from "../ResizeHandle";
-import { NewProjectDialog } from "../NewProjectDialog";
 
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 400;
@@ -21,11 +20,8 @@ interface SidebarProps {
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	const tab = useAtomValue(sidebarTabAtom);
 	const [pageView, setPageView] = useAtom(pageViewAtom);
-	const { createProject, openProject } = useProjects();
+	const { createProject } = useProjects();
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
-	const [showNewProject, setShowNewProject] = useState(false);
-	const [showAddMenu, setShowAddMenu] = useState(false);
-	const addMenuRef = useRef<HTMLDivElement>(null);
 
 	const onResize = useCallback(
 		(delta: number) => {
@@ -33,18 +29,6 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 		},
 		[setWidth],
 	);
-
-	// Close add menu on outside click
-	useEffect(() => {
-		if (!showAddMenu) return;
-		function handleClick(e: MouseEvent) {
-			if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
-				setShowAddMenu(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, [showAddMenu]);
 
 	return (
 		<aside className="sidebar-vibrancy relative flex h-full shrink-0 flex-col" style={{ width }}>
@@ -55,51 +39,13 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 						<img
 							src="./icon.png"
 							alt="Vetta"
-							className="h-[22px] w-[22px] rounded-[6px] shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+							className="h-[22px] w-[22px] rounded-[6px] shadow-[0-1px-3px_rgba(0,0,0,0.2)]"
 						/>
 						<span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
 							Vetta
 						</span>
 					</div>
-					<div className="relative" ref={addMenuRef}>
-						<button
-							type="button"
-							title="新建项目"
-							onClick={() => setShowAddMenu((v) => !v)}
-							className="no-drag flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
-						>
-							<span className="icon-[mdi--plus] h-3.5 w-3.5" />
-						</button>
-						<AnimatePresence>
-							{showAddMenu && (
-								<motion.div
-									initial={{ opacity: 0, scale: 0.95, y: -4 }}
-									animate={{ opacity: 1, scale: 1, y: 0 }}
-									exit={{ opacity: 0, scale: 0.95, y: -4 }}
-									transition={{ duration: 0.12 }}
-									className="absolute right-0 top-full z-50 mt-1 w-[120px] overflow-hidden rounded-lg border border-[var(--popup-border)] bg-[var(--popup-bg)] py-1"
-									style={{ boxShadow: "var(--popup-shadow)" }}
-								>
-									<button
-										type="button"
-										onClick={() => { setShowAddMenu(false); setShowNewProject(true); }}
-										className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-2)] hover:bg-[var(--hover)]"
-									>
-										<span className="icon-[mdi--folder-plus-outline] h-3.5 w-3.5 shrink-0" />
-										新建项目
-									</button>
-									<button
-										type="button"
-										onClick={() => { setShowAddMenu(false); void openProject(); }}
-										className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-2)] hover:bg-[var(--hover)]"
-									>
-										<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5 shrink-0" />
-										打开项目
-									</button>
-								</motion.div>
-							)}
-						</AnimatePresence>
-					</div>
+					<AddProjectMenu className="no-drag" />
 				</div>
 			)}
 
@@ -130,7 +76,10 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				<span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-1)]">
 					{tab === "projects" ? "项目" : "文件"}
 				</span>
-				<SidebarTabs />
+				<div className="flex items-center gap-1">
+					{isWindows && tab === "projects" && <AddProjectMenu />}
+					<SidebarTabs />
+				</div>
 			</div>
 
 			{/* Panel content */}
@@ -147,15 +96,6 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				<SettingsMenu />
 			</div>
 			<ResizeHandle side="right" onResize={onResize} />
-			{showNewProject && (
-				<NewProjectDialog
-					onConfirm={(name) => {
-						setShowNewProject(false);
-						void createProject(name);
-					}}
-					onCancel={() => setShowNewProject(false)}
-				/>
-			)}
 		</aside>
 	);
 }

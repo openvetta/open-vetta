@@ -14,7 +14,7 @@ export function TitleBar({ className, children }: TitleBarProps): JSX.Element | 
 	}
 
 	return (
-		<header className={cn("title-bar flex h-9 shrink-0 items-center bg-[var(--header-bg)]", className)}>
+		<header className={cn("title-bar flex h-9 shrink-0 items-center bg-[var(--header-bg)] select-none", className)}>
 			<div className="drag-region flex flex-1 items-center gap-2 px-3">
 				<img
 					src="./icon.png"

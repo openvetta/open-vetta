@@ -11,7 +11,7 @@ export function SidebarTabs(): JSX.Element {
 	const [tab, setTab] = useAtom(sidebarTabAtom);
 
 	return (
-		<div className="flex items-center gap-0.5 px-1.5">
+		<div className="flex items-center gap-1">
 			{TABS.map((t) => (
 				<button
 					key={t.value}
