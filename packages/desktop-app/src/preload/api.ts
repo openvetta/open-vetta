@@ -49,8 +49,27 @@ export interface SkillInfo {
 	type: "skill" | "scene";
 }
 
+export interface MarketSkillMeta {
+	name: string;
+	description: string;
+	type: "skill" | "scene";
+	version: string;
+	author: string;
+	tags: string[];
+}
+
+export interface InstalledMarketSkill {
+	name: string;
+	version: string;
+	installedAt: string;
+	source: "market";
+}
+
 export interface DesktopSkillsApi {
 	list(): Promise<SkillInfo[]>;
+	installFromMarket(name: string, archiveBuffer: ArrayBuffer): Promise<void>;
+	uninstall(name: string): Promise<void>;
+	getMarketManifest(): Promise<Record<string, InstalledMarketSkill>>;
 }
 
 export interface DesktopConfigData {
