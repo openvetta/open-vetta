@@ -1,4 +1,25 @@
-const API_BASE = "http://localhost:8080/api/v1";
+let cachedBaseUrl: string | undefined;
+
+async function getApiBase(): Promise<string> {
+	if (cachedBaseUrl) return cachedBaseUrl;
+	cachedBaseUrl = await window.vetta.settings.getServerUrl();
+	return cachedBaseUrl;
+}
+
+/** Listeners notified when server responds with 401 */
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+	unauthorizedListeners.add(listener);
+	return () => unauthorizedListeners.delete(listener);
+}
+
+function notifyUnauthorized(): void {
+	for (const listener of unauthorizedListeners) {
+		listener();
+	}
+}
 
 interface ApiResponse<T> {
 	code: number;
@@ -7,7 +28,12 @@ interface ApiResponse<T> {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-	const res = await fetch(API_BASE + path, options);
+	const base = await getApiBase();
+	const res = await fetch(base + path, options);
+	if (res.status === 401) {
+		notifyUnauthorized();
+		throw new Error("登录已过期，请重新登录");
+	}
 	const json = (await res.json()) as ApiResponse<T>;
 	if (json.code !== 0) {
 		throw new Error(json.message);

@@ -30,6 +30,7 @@ import {
 	modelSupportsImagesAtom,
 	selectedSkillAtom,
 	mentionedFilesAtom,
+	remoteProvidersAtom,
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
@@ -451,6 +452,7 @@ export function App(): JSX.Element {
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSettingsTab = useSetAtom(settingsTabAtom);
+	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
 	useTheme();
@@ -504,6 +506,12 @@ export function App(): JSX.Element {
 			}
 		});
 		void refreshProjects().catch(console.error);
+		// Fetch remote models on startup
+		void window.vetta.models.fetchRemote().then((result) => {
+			if (result.providers && Object.keys(result.providers).length > 0) {
+				setRemoteProviders(result.providers);
+			}
+		});
 		return () => {
 			currentUnsubscribe?.();
 			currentUnsubscribe = null;

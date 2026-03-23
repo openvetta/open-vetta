@@ -13,7 +13,7 @@ import { selectConfig } from "./cli/config-selector.js";
 import { processFileArguments } from "./cli/file-processor.js";
 import { listModels } from "./cli/list-models.js";
 import { selectSession } from "./cli/session-picker.js";
-import { APP_NAME, CONFIG_DIR_NAME, getAgentDir, getModelsPath, VERSION } from "./config.js";
+import { APP_NAME, CONFIG_DIR_NAME, DEFAULT_SERVER_URL, getAgentDir, getModelsPath, VERSION } from "./config.js";
 import { AuthStorage } from "./core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./core/defaults.js";
 import { exportFromFile } from "./core/export-html/index.js";
@@ -567,6 +567,16 @@ export async function main(args: string[]) {
 	reportSettingsErrors(settingsManager, "startup");
 	const authStorage = AuthStorage.create();
 	const modelRegistry = new ModelRegistry(authStorage, getModelsPath());
+
+	// Ensure serverUrl has a default value
+	let serverUrl = settingsManager.getServerUrl();
+	if (!serverUrl) {
+		settingsManager.setServerUrl(DEFAULT_SERVER_URL);
+		serverUrl = DEFAULT_SERVER_URL;
+	}
+	modelRegistry.setServerUrl(serverUrl);
+	modelRegistry.setServerToken(settingsManager.getServerToken());
+	await modelRegistry.loadRemoteModels();
 
 	const resourceLoader = new DefaultResourceLoader({
 		cwd,

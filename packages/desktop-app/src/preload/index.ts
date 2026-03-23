@@ -55,10 +55,16 @@ const api: DesktopApi = {
 	models: {
 		get: async () => ipcRenderer.invoke("vetta:models:get"),
 		set: async (config) => ipcRenderer.invoke("vetta:models:set", config),
+		fetchRemote: async () => ipcRenderer.invoke("vetta:models:fetch-remote"),
 	},
 	mcp: {
 		get: async () => ipcRenderer.invoke("vetta:mcp:get"),
 		set: async (config) => ipcRenderer.invoke("vetta:mcp:set", config),
+	},
+	settings: {
+		getServerUrl: async () => ipcRenderer.invoke("vetta:settings:get-server-url"),
+		getServerToken: async () => ipcRenderer.invoke("vetta:settings:get-server-token"),
+		setServerToken: async (token) => ipcRenderer.invoke("vetta:settings:set-server-token", token),
 	},
 	shell: {
 		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),

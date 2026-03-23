@@ -19,6 +19,7 @@ interface ModelItem {
 	provider: string;
 	id: string;
 	model: Model<any>;
+	remote: boolean;
 }
 
 interface ScopedModelItem {
@@ -93,7 +94,10 @@ export class ModelSelectorComponent extends Container implements Focusable {
 			this.scopeHintText = new Text(this.getScopeHintText(), 0, 0);
 			this.addChild(this.scopeHintText);
 		} else {
-			const hintText = "Only showing models with configured API keys (see README for details)";
+			const hasRemote = this.modelRegistry.getRemoteProviders().size > 0;
+			const hintText = hasRemote
+				? "Showing models with configured API keys and remote models"
+				: "Only showing models with configured API keys (see README for details)";
 			this.addChild(new Text(theme.fg("warning", hintText), 0, 0));
 		}
 		this.addChild(new Spacer(1));
@@ -153,6 +157,7 @@ export class ModelSelectorComponent extends Container implements Focusable {
 				provider: model.provider,
 				id: model.id,
 				model,
+				remote: this.modelRegistry.isRemote(model),
 			}));
 		} catch (error) {
 			this.allModels = [];
@@ -169,6 +174,7 @@ export class ModelSelectorComponent extends Container implements Focusable {
 				provider: scoped.model.provider,
 				id: scoped.model.id,
 				model: scoped.model,
+				remote: this.modelRegistry.isRemote(scoped.model),
 			})),
 		);
 		this.activeModels = this.scope === "scoped" ? this.scopedModelItems : this.allModels;
@@ -237,17 +243,18 @@ export class ModelSelectorComponent extends Container implements Focusable {
 			const isCurrent = modelsAreEqual(this.currentModel, item.model);
 
 			let line = "";
+			const remoteBadge = item.remote ? theme.fg("warning", " [remote]") : "";
 			if (isSelected) {
 				const prefix = theme.fg("accent", "→ ");
 				const modelText = `${item.id}`;
 				const providerBadge = theme.fg("muted", `[${item.provider}]`);
 				const checkmark = isCurrent ? theme.fg("success", " ✓") : "";
-				line = `${prefix + theme.fg("accent", modelText)} ${providerBadge}${checkmark}`;
+				line = `${prefix + theme.fg("accent", modelText)} ${providerBadge}${remoteBadge}${checkmark}`;
 			} else {
 				const modelText = `  ${item.id}`;
 				const providerBadge = theme.fg("muted", `[${item.provider}]`);
 				const checkmark = isCurrent ? theme.fg("success", " ✓") : "";
-				line = `${modelText} ${providerBadge}${checkmark}`;
+				line = `${modelText} ${providerBadge}${remoteBadge}${checkmark}`;
 			}
 
 			this.listContainer.addChild(new Text(line, 0, 0));
