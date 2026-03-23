@@ -69,6 +69,18 @@ const api: DesktopApi = {
 		close: async () => ipcRenderer.invoke("vetta:window:close"),
 		isMaximized: async () => ipcRenderer.invoke("vetta:window:is-maximized"),
 	},
+	auth: {
+		openExternal: async (url) => ipcRenderer.invoke("vetta:auth:open-external", url),
+		onOAuthCallback: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: { token: string }) => {
+				handler(data);
+			};
+			ipcRenderer.on("vetta:auth:oauth-callback", listener);
+			return () => {
+				ipcRenderer.removeListener("vetta:auth:oauth-callback", listener);
+			};
+		},
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),

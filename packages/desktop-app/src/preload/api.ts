@@ -125,6 +125,11 @@ export interface DesktopWindowApi {
 	isMaximized(): Promise<boolean>;
 }
 
+export interface DesktopAuthApi {
+	openExternal(url: string): Promise<void>;
+	onOAuthCallback(handler: (data: { token: string }) => void): () => void;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -136,6 +141,7 @@ export interface DesktopApi {
 	mcp: DesktopMcpApi;
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
+	auth: DesktopAuthApi;
 }
 
 declare global {

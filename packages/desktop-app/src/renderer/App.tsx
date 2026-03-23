@@ -9,8 +9,10 @@ import { SkillsPage } from "./components/SkillsPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ConfirmDialog } from "./components/ui/confirm-dialog";
 import { TitleBar } from "./components/TitleBar";
+import { LoginDialog } from "./components/LoginDialog";
 import { useProjects } from "./hooks/useProjects";
 import { useTheme } from "./hooks/useTheme";
+import { useAuth } from "./hooks/useAuth";
 import { useGlobalShortcuts } from "./hooks/useShortcuts";
 import {
 	activeSessionAtom,
@@ -452,6 +454,7 @@ export function App(): JSX.Element {
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
 	useTheme();
+	useAuth();
 
 	// ─── Global keyboard shortcuts ───
 	const projectsRef = useRef(projects);
@@ -689,6 +692,7 @@ export function App(): JSX.Element {
 				</main>
 				<ActivityPanel />
 				<ConfirmDialog />
+				<LoginDialog />
 			</div>
 		</div>
 	);

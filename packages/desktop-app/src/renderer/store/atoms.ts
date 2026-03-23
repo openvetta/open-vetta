@@ -208,3 +208,17 @@ export interface MentionedFile {
 }
 
 export const mentionedFilesAtom = atom<MentionedFile[]>([]);
+
+// ─── Auth ───
+
+export interface AuthUser {
+	id: number;
+	username: string;
+	phone?: string;
+	email?: string;
+	avatar: string;
+}
+
+export const authTokenAtom = atom<string | null>(localStorage.getItem("vetta-auth-token"));
+export const authUserAtom = atom<AuthUser | null>(null);
+export const loginDialogOpenAtom = atom<boolean>(false);

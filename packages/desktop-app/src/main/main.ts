@@ -1,8 +1,10 @@
 import { join } from "node:path";
+import { URL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
 import { registerRuntimeIpc } from "./ipc.js";
 import { registerFsIpc } from "./ipc-fs.js";
 
+const PROTOCOL = "vetta";
 let mainWindow: BrowserWindow | null = null;
 let teardownIpc: (() => void) | undefined;
 let teardownFsIpc: (() => void) | undefined;
@@ -61,6 +63,53 @@ function createWindow(): void {
 	});
 }
 
+// Register custom protocol for OAuth callback
+app.setAsDefaultProtocolClient(PROTOCOL);
+
+function handleProtocolUrl(rawUrl: string): void {
+	// Expected: vetta://oauth/callback?token=xxx
+	try {
+		const parsed = new URL(rawUrl);
+		if (parsed.hostname === "oauth" && parsed.pathname.startsWith("/callback")) {
+			const token = parsed.searchParams.get("token");
+			if (token && mainWindow) {
+				mainWindow.webContents.send("vetta:auth:oauth-callback", { token });
+			}
+		}
+	} catch {
+		// Ignore malformed URLs
+	}
+}
+
+// macOS: app may already be running when protocol URL is opened
+app.on("open-url", (event, url) => {
+	event.preventDefault();
+	handleProtocolUrl(url);
+	// Bring window to front
+	if (mainWindow) {
+		if (mainWindow.isMinimized()) mainWindow.restore();
+		mainWindow.focus();
+	}
+});
+
+// Windows/Linux: second instance passes URL via argv
+const gotSingleLock = app.requestSingleInstanceLock();
+if (!gotSingleLock) {
+	app.quit();
+} else {
+	app.on("second-instance", (_event, argv) => {
+		// Protocol URL is the last argv entry on Windows
+		const protocolUrl = argv.find((arg) => arg.startsWith(`${PROTOCOL}://`));
+		if (protocolUrl) {
+			handleProtocolUrl(protocolUrl);
+		}
+		if (mainWindow) {
+			if (mainWindow.isMinimized()) mainWindow.restore();
+			mainWindow.focus();
+		}
+	});
+}
+
 app.whenReady().then(() => {
 	// Theme IPC: set native theme source and update vibrancy accordingly
 	ipcMain.handle("vetta:theme:set", (_event, mode: string) => {
@@ -112,6 +161,10 @@ app.whenReady().then(() => {
 
 	ipcMain.handle("vetta:window:is-maximized", () => {
 		return mainWindow?.isMaximized() ?? false;
+	});
+
+	ipcMain.handle("vetta:auth:open-external", async (_event, url: string) => {
+		await shell.openExternal(url);
 	});
 
 	if (process.platform === "darwin") {
