@@ -2,7 +2,7 @@ import { useAtom, useAtomValue } from "jotai";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ModelsConfigData } from "../../../../preload/api.js";
-import { selectedModelAtom, activeSessionAtom } from "../../store/atoms";
+import { selectedModelAtom, activeSessionAtom, remoteProvidersAtom } from "../../store/atoms";
 
 interface ModelOption {
 	provider: string;
@@ -10,9 +10,11 @@ interface ModelOption {
 	displayName: string;
 	/** "provider/modelId" */
 	key: string;
+	/** Whether this model comes from the remote server */
+	remote?: boolean;
 }
 
-function flattenModels(config: ModelsConfigData): ModelOption[] {
+function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
 	const result: ModelOption[] = [];
 	for (const [provider, providerConfig] of Object.entries(config.providers)) {
 		for (const model of providerConfig.models ?? []) {
@@ -21,6 +23,7 @@ function flattenModels(config: ModelsConfigData): ModelOption[] {
 				modelId: model.id,
 				displayName: model.name || model.id,
 				key: `${provider}/${model.id}`,
+				remote,
 			});
 		}
 	}
@@ -30,6 +33,7 @@ function flattenModels(config: ModelsConfigData): ModelOption[] {
 export function ModelSelector(): JSX.Element {
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
+	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const [open, setOpen] = useState(false);
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
 	const ref = useRef<HTMLDivElement>(null);
@@ -58,7 +62,13 @@ export function ModelSelector(): JSX.Element {
 		return () => document.removeEventListener("mousedown", handleClick);
 	}, [open]);
 
-	const models = config ? flattenModels(config) : [];
+	// Merge local + remote models (remote models appended, local takes precedence for same key)
+	const localModels = config ? flattenModels(config) : [];
+	const remoteModels = Object.keys(remoteProviders).length > 0
+		? flattenModels({ providers: remoteProviders as ModelsConfigData["providers"] }, true)
+		: [];
+	const localKeys = new Set(localModels.map((m) => m.key));
+	const models = [...localModels, ...remoteModels.filter((m) => !localKeys.has(m.key))];
 	const selectedOption = models.find((m) => m.key === selectedModel);
 
 	const handleSelect = useCallback(
@@ -134,6 +144,11 @@ export function ModelSelector(): JSX.Element {
 												<span className="min-w-0 flex-1 truncate">
 													{m.displayName}
 												</span>
+												{m.remote && (
+													<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
+														remote
+													</span>
+												)}
 												{isDefault && (
 													<span className="shrink-0 rounded-full bg-[var(--accent)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[var(--accent)]">
 														默认

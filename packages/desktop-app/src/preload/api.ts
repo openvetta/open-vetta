@@ -89,9 +89,15 @@ export interface ModelsConfigData {
 	>;
 }
 
+export interface RemoteProvidersResult {
+	providers: Record<string, unknown>;
+	error?: string;
+}
+
 export interface DesktopModelsApi {
 	get(): Promise<ModelsConfigData>;
 	set(config: ModelsConfigData): Promise<void>;
+	fetchRemote(): Promise<RemoteProvidersResult>;
 }
 
 export interface McpServerConfigData {
@@ -125,6 +131,12 @@ export interface DesktopWindowApi {
 	isMaximized(): Promise<boolean>;
 }
 
+export interface DesktopSettingsApi {
+	getServerUrl(): Promise<string>;
+	getServerToken(): Promise<string | undefined>;
+	setServerToken(token: string | undefined): Promise<void>;
+}
+
 export interface DesktopAuthApi {
 	openExternal(url: string): Promise<void>;
 	onOAuthCallback(handler: (data: { token: string }) => void): () => void;
@@ -139,6 +151,7 @@ export interface DesktopApi {
 	config: DesktopConfigApi;
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
+	settings: DesktopSettingsApi;
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
 	auth: DesktopAuthApi;

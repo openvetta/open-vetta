@@ -1,7 +1,7 @@
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { McpConfigData, McpServerConfigData, ModelsConfigData } from "../../../preload/api.js";
-import { confirmDialogAtom, settingsTabAtom, workspacePathAtom, type SettingsTab } from "../store/atoms";
+import { confirmDialogAtom, remoteProvidersAtom, settingsTabAtom, workspacePathAtom, type SettingsTab } from "../store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
@@ -58,12 +58,16 @@ function SettingSection({
 	title,
 	children,
 }: {
-	title: string;
+	title: React.ReactNode;
 	children: React.ReactNode;
 }): JSX.Element {
 	return (
 		<div className="mb-6">
-			<h2 className="mb-3 text-[15px] font-semibold text-[var(--text-1)]">{title}</h2>
+			{typeof title === "string" ? (
+				<h2 className="mb-3 text-[15px] font-semibold text-[var(--text-1)]">{title}</h2>
+			) : (
+				<div className="mb-3 text-[15px] font-semibold text-[var(--text-1)]">{title}</div>
+			)}
 			<div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
 				{children}
 			</div>
@@ -470,6 +474,28 @@ function ModelsSettings(): JSX.Element {
 	// JSON mode state
 	const [jsonText, setJsonText] = useState("");
 	const [jsonError, setJsonError] = useState<string | null>(null);
+
+	// Remote providers
+	const [remoteProviders, setRemoteProviders] = useAtom(remoteProvidersAtom);
+	const [refreshing, setRefreshing] = useState(false);
+	const [remoteError, setRemoteError] = useState<string | null>(null);
+	const [expandedRemoteProvider, setExpandedRemoteProvider] = useState<string | null>(null);
+
+	const handleRefreshRemote = useCallback(async () => {
+		setRefreshing(true);
+		setRemoteError(null);
+		try {
+			const result = await window.vetta.models.fetchRemote();
+			if (result.error) {
+				setRemoteError(result.error);
+			}
+			setRemoteProviders(result.providers);
+		} catch {
+			setRemoteError("请求失败");
+		} finally {
+			setRefreshing(false);
+		}
+	}, [setRemoteProviders]);
 
 	// Load config on mount
 	useEffect(() => {
@@ -994,6 +1020,112 @@ function ModelsSettings(): JSX.Element {
 							添加服务商
 						</button>
 					)}
+
+					{/* Remote providers (read-only, from server) */}
+					<div className="mt-6">
+						<SettingSection
+							title={
+								<div className="flex items-center justify-between">
+									<span>远程服务商</span>
+									<button
+										type="button"
+										onClick={() => void handleRefreshRemote()}
+										disabled={refreshing}
+										className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10 disabled:opacity-50"
+									>
+										<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
+										{refreshing ? "刷新中…" : "刷新"}
+									</button>
+								</div>
+							}
+						>
+							{remoteError && (
+								<div className="flex items-center gap-2 px-5 py-3 text-[12px] text-amber-400">
+									<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
+									{remoteError === "unauthorized" ? "未授权，请先登录" : remoteError}
+								</div>
+							)}
+							{Object.keys(remoteProviders).length === 0 && !remoteError && (
+								<div className="px-5 py-6 text-center text-[12px] text-[var(--text-2)]">
+									暂无远程服务商，点击刷新获取
+								</div>
+							)}
+							{Object.entries(remoteProviders as Record<string, { api?: string; baseUrl?: string; models?: Array<{ id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number }> }>).map(([name, provider]) => {
+								const models = provider.models ?? [];
+								const isExpanded = expandedRemoteProvider === name;
+								return (
+									<div key={name} className="border-b border-[var(--border)] last:border-b-0">
+										{/* Provider header — same layout as local providers */}
+										<div className="flex items-center gap-3 px-5 py-3.5">
+											<button
+												type="button"
+												onClick={() => setExpandedRemoteProvider(isExpanded ? null : name)}
+												className="flex flex-1 items-center gap-3 text-left"
+											>
+												<span
+													className={cn(
+														"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-[var(--text-2)] transition-transform",
+														isExpanded && "rotate-90",
+													)}
+												/>
+												<div className="min-w-0 flex-1">
+													<div className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-1)]">
+														{name}
+														<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
+															remote
+														</span>
+													</div>
+													<div className="mt-0.5 text-[11px] text-[var(--text-2)]">
+														{provider.api || "openai-completions"} · {models.length} 个模型
+														{provider.baseUrl && ` · ${provider.baseUrl}`}
+													</div>
+												</div>
+											</button>
+										</div>
+
+										{/* Expanded: models list */}
+										{isExpanded && (
+											<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/30">
+												{models.length === 0 && (
+													<div className="px-5 py-6 text-center text-[12px] text-[var(--text-2)]">
+														暂无模型
+													</div>
+												)}
+												{models.map((model) => (
+													<div
+														key={model.id}
+														className="flex items-center justify-between border-b border-[var(--border)]/50 px-5 py-2.5 last:border-b-0"
+													>
+														<div className="min-w-0 flex-1">
+															<div className="text-[12px] font-medium text-[var(--text-1)]">
+																{model.name || model.id}
+															</div>
+															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-[var(--text-2)]">
+																<span>{model.id}</span>
+																{model.api && <span>· {model.api}</span>}
+																{model.input?.includes("image") && (
+																	<span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] text-blue-400">vision</span>
+																)}
+																{model.reasoning && (
+																	<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">reasoning</span>
+																)}
+																{model.contextWindow != null && (
+																	<span>· {(model.contextWindow / 1024).toFixed(0)}K ctx</span>
+																)}
+																{model.maxTokens != null && (
+																	<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
+																)}
+															</div>
+														</div>
+													</div>
+												))}
+											</div>
+										)}
+									</div>
+								);
+							})}
+						</SettingSection>
+					</div>
 				</>
 			) : (
 				/* JSON mode */

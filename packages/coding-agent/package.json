@@ -20,6 +20,18 @@
 		"./hooks": {
 			"types": "./dist/core/hooks/index.d.ts",
 			"import": "./dist/core/hooks/index.js"
+		},
+		"./core/settings-manager.js": {
+			"types": "./dist/core/settings-manager.d.ts",
+			"import": "./dist/core/settings-manager.js"
+		},
+		"./core/mcp/index.js": {
+			"types": "./dist/core/mcp/index.d.ts",
+			"import": "./dist/core/mcp/index.js"
+		},
+		"./core/mcp/types.js": {
+			"types": "./dist/core/mcp/types.d.ts",
+			"import": "./dist/core/mcp/types.js"
 		}
 	},
 	"files": [

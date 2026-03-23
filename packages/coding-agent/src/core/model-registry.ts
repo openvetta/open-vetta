@@ -212,6 +212,30 @@ function applyModelOverride(model: Model<Api>, override: ModelOverride): Model<A
 export const clearApiKeyCache = clearConfigValueCache;
 
 /**
+ * Remote models.json config (fetched from server).
+ * Format matches the local models.json providers section but without apiKey/headers.
+ */
+interface RemoteModelsConfig {
+	providers: Record<
+		string,
+		{
+			api: string;
+			baseUrl?: string;
+			models: Array<{
+				id: string;
+				name: string;
+				api?: string;
+				reasoning: boolean;
+				input: string[];
+				cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
+				contextWindow: number;
+				maxTokens: number;
+			}>;
+		}
+	>;
+}
+
+/**
  * Model registry - loads and manages models, resolves API keys via AuthStorage.
  */
 export class ModelRegistry {
@@ -219,6 +243,11 @@ export class ModelRegistry {
 	private customProviderApiKeys: Map<string, string> = new Map();
 	private registeredProviders: Map<string, ProviderConfigInput> = new Map();
 	private loadError: string | undefined = undefined;
+	private remoteModels: Model<Api>[] = [];
+	/** Set of "provider/modelId" keys for models loaded from server */
+	private remoteModelKeys: Set<string> = new Set();
+	private serverUrl: string | undefined;
+	private serverToken: string | undefined;
 
 	constructor(
 		readonly authStorage: AuthStorage,
@@ -238,16 +267,138 @@ export class ModelRegistry {
 	}
 
 	/**
-	 * Reload models from disk (built-in + custom from models.json).
+	 * Set the server URL for remote model config.
 	 */
-	refresh(): void {
+	setServerUrl(url: string | undefined): void {
+		this.serverUrl = url;
+	}
+
+	/**
+	 * Set the server token for authenticating remote model requests.
+	 */
+	setServerToken(token: string | undefined): void {
+		this.serverToken = token;
+	}
+
+	/**
+	 * Fetch remote model config from server and merge.
+	 * Should be called after construction when serverUrl is available.
+	 * Returns "unauthorized" if server responds with 401, undefined otherwise.
+	 * Silently fails if server is unreachable.
+	 */
+	async loadRemoteModels(): Promise<"unauthorized" | undefined> {
+		if (!this.serverUrl) {
+			return undefined;
+		}
+
+		try {
+			const url = `${this.serverUrl.replace(/\/$/, "")}/providers/models.json`;
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 5000);
+
+			const response = await fetch(url, {
+				signal: controller.signal,
+				headers: {
+					Accept: "application/json",
+					...(this.serverToken ? { Authorization: `Bearer ${this.serverToken}` } : {}),
+				},
+			});
+			clearTimeout(timeout);
+
+			if (response.status === 401) {
+				return "unauthorized";
+			}
+
+			if (!response.ok) {
+				return undefined;
+			}
+
+			const body = (await response.json()) as { code: number; data: RemoteModelsConfig };
+			if (body.code !== 0 || !body.data?.providers) {
+				return undefined;
+			}
+
+			this.remoteModels = this.parseRemoteModels(body.data);
+			this.rebuildModels();
+		} catch {
+			// Silently fail - remote config is optional
+		}
+		return undefined;
+	}
+
+	private parseRemoteModels(config: RemoteModelsConfig): Model<Api>[] {
+		const models: Model<Api>[] = [];
+		const defaultCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+		this.remoteModelKeys.clear();
+
+		for (const [providerName, providerConfig] of Object.entries(config.providers)) {
+			for (const modelDef of providerConfig.models ?? []) {
+				const api = modelDef.api || providerConfig.api;
+				if (!api) continue;
+
+				this.remoteModelKeys.add(`${providerName}/${modelDef.id}`);
+
+				models.push({
+					id: modelDef.id,
+					name: modelDef.name || modelDef.id,
+					api: api as Api,
+					provider: providerName,
+					baseUrl: providerConfig.baseUrl || "",
+					reasoning: modelDef.reasoning ?? false,
+					input: (modelDef.input ?? ["text"]) as ("text" | "image")[],
+					cost: modelDef.cost ?? defaultCost,
+					contextWindow: modelDef.contextWindow ?? 128000,
+					maxTokens: modelDef.maxTokens ?? 16384,
+				} as Model<Api>);
+			}
+		}
+
+		return models;
+	}
+
+	/** Rebuild the full model list: built-in + remote + local custom */
+	private rebuildModels(): void {
 		this.customProviderApiKeys.clear();
 		this.loadError = undefined;
-		this.loadModels();
+
+		const {
+			models: customModels,
+			overrides,
+			modelOverrides,
+			error,
+		} = this.modelsJsonPath ? this.loadCustomModels(this.modelsJsonPath) : emptyCustomModelsResult();
+
+		if (error) {
+			this.loadError = error;
+		}
+
+		const builtInModels = this.loadBuiltInModels(overrides, modelOverrides);
+
+		// Merge order: built-in -> remote -> local custom
+		// Remote models fill in between built-in and local
+		let combined = this.mergeCustomModels(builtInModels, this.remoteModels);
+		combined = this.mergeCustomModels(combined, customModels);
+
+		// Let OAuth providers modify their models
+		for (const oauthProvider of this.authStorage.getOAuthProviders()) {
+			const cred = this.authStorage.get(oauthProvider.id);
+			if (cred?.type === "oauth" && oauthProvider.modifyModels) {
+				combined = oauthProvider.modifyModels(combined, cred);
+			}
+		}
+
+		this.models = combined;
 
 		for (const [providerName, config] of this.registeredProviders.entries()) {
 			this.applyProviderConfig(providerName, config);
 		}
+	}
+
+	/**
+	 * Reload models from disk (built-in + custom from models.json).
+	 */
+	refresh(): void {
+		this.rebuildModels();
 	}
 
 	/**
@@ -258,31 +409,7 @@ export class ModelRegistry {
 	}
 
 	private loadModels(): void {
-		// Load custom models and overrides from models.json
-		const {
-			models: customModels,
-			overrides,
-			modelOverrides,
-			error,
-		} = this.modelsJsonPath ? this.loadCustomModels(this.modelsJsonPath) : emptyCustomModelsResult();
-
-		if (error) {
-			this.loadError = error;
-			// Keep built-in models even if custom models failed to load
-		}
-
-		const builtInModels = this.loadBuiltInModels(overrides, modelOverrides);
-		let combined = this.mergeCustomModels(builtInModels, customModels);
-
-		// Let OAuth providers modify their models (e.g., update baseUrl)
-		for (const oauthProvider of this.authStorage.getOAuthProviders()) {
-			const cred = this.authStorage.get(oauthProvider.id);
-			if (cred?.type === "oauth" && oauthProvider.modifyModels) {
-				combined = oauthProvider.modifyModels(combined, cred);
-			}
-		}
-
-		this.models = combined;
+		this.rebuildModels();
 	}
 
 	/** Load built-in models and apply provider/model overrides */
@@ -493,10 +620,10 @@ export class ModelRegistry {
 
 	/**
 	 * Get only models that have auth configured.
-	 * This is a fast check that doesn't refresh OAuth tokens.
+	 * Remote models are always included (auth is handled server-side or via local apiKey).
 	 */
 	getAvailable(): Model<Api>[] {
-		return this.models.filter((m) => this.authStorage.hasAuth(m.provider));
+		return this.models.filter((m) => this.isRemote(m) || this.authStorage.hasAuth(m.provider));
 	}
 
 	/**
@@ -504,6 +631,25 @@ export class ModelRegistry {
 	 */
 	find(provider: string, modelId: string): Model<Api> | undefined {
 		return this.models.find((m) => m.provider === provider && m.id === modelId);
+	}
+
+	/**
+	 * Check if a model was loaded from the remote server.
+	 * Remote models are read-only and cannot be modified locally.
+	 */
+	isRemote(model: Model<Api>): boolean {
+		return this.remoteModelKeys.has(`${model.provider}/${model.id}`);
+	}
+
+	/**
+	 * Get set of remote provider names.
+	 */
+	getRemoteProviders(): Set<string> {
+		const providers = new Set<string>();
+		for (const key of this.remoteModelKeys) {
+			providers.add(key.split("/")[0]!);
+		}
+		return providers;
 	}
 
 	/**
