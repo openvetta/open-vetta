@@ -69,3 +69,36 @@ export async function fetchCurrentUser(token: string): Promise<UserInfo> {
 		headers: authHeaders(token),
 	});
 }
+
+// ─── Market Skills ───
+
+export interface MarketSkillInfo {
+	name: string;
+	description: string;
+	license: string;
+	type: "skill" | "scene";
+	version: string;
+	author: string;
+	tags: string[];
+}
+
+export async function fetchMarketSkills(token: string): Promise<MarketSkillInfo[]> {
+	return request<MarketSkillInfo[]>("/skills/market", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function downloadSkill(token: string, name: string): Promise<ArrayBuffer> {
+	const serverUrl = await window.vetta.settings.getServerUrl();
+	const resp = await fetch(`${serverUrl}/skills/${name}/download`, {
+		headers: authHeaders(token),
+	});
+	if (!resp.ok) throw new Error(`下载失败: ${resp.status}`);
+	return resp.arrayBuffer();
+}
+
+export async function fetchSkillInfo(token: string, name: string): Promise<MarketSkillInfo> {
+	return request<MarketSkillInfo>(`/skills/${name}/info`, {
+		headers: authHeaders(token),
+	});
+}
