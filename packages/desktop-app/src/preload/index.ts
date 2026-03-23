@@ -63,6 +63,12 @@ const api: DesktopApi = {
 	shell: {
 		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),
 	},
+	window: {
+		minimize: async () => ipcRenderer.invoke("vetta:window:minimize"),
+		maximize: async () => ipcRenderer.invoke("vetta:window:maximize"),
+		close: async () => ipcRenderer.invoke("vetta:window:close"),
+		isMaximized: async () => ipcRenderer.invoke("vetta:window:is-maximized"),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),

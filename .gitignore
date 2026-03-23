@@ -35,3 +35,5 @@ packages/coding-agent/binaries/
 packages/desktop-app/release/
 releases/
 todo.md
+
+prompt/
