@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "../../hooks/useTheme";
-import { themeModeAtom, pageViewAtom, type ThemeMode } from "../../store/atoms";
+import { useAuth } from "../../hooks/useAuth";
+import { themeModeAtom, pageViewAtom, loginDialogOpenAtom, type ThemeMode } from "../../store/atoms";
 import { cn } from "../../lib/utils";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
@@ -18,6 +19,8 @@ export function SettingsMenu(): JSX.Element {
 	const mode = useAtomValue(themeModeAtom);
 	const { setMode } = useTheme();
 	const setPageView = useSetAtom(pageViewAtom);
+	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
+	const { user, logout } = useAuth();
 
 	// Close on outside click
 	useEffect(() => {
@@ -90,7 +93,37 @@ export function SettingsMenu(): JSX.Element {
 						{/* Separator */}
 						<div className="mx-1 my-1 border-t border-[var(--popup-separator)]" />
 
-						{/* 设置 */}
+						{/* Login / User */}
+						{user ? (
+							<button
+								type="button"
+								onClick={() => {
+									setOpen(false);
+									logout();
+								}}
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+							>
+								<span className="icon-[mdi--logout] h-3.5 w-3.5" />
+								Logout
+							</button>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setOpen(false);
+									setLoginOpen(true);
+								}}
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+							>
+								<span className="icon-[mdi--login] h-3.5 w-3.5" />
+								Login
+							</button>
+						)}
+
+						{/* Separator */}
+						<div className="mx-1 my-1 border-t border-[var(--popup-separator)]" />
+
+						{/* Settings */}
 						<button
 							type="button"
 							onClick={() => {
@@ -100,7 +133,7 @@ export function SettingsMenu(): JSX.Element {
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
 						>
 							<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
-							设置
+							Settings
 						</button>
 					</motion.div>
 				)}
@@ -117,8 +150,21 @@ export function SettingsMenu(): JSX.Element {
 						: "text-[var(--text-1)] hover:bg-[var(--hover)]",
 				)}
 			>
-				<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
-				设置
+				{user ? (
+					<>
+						{user.avatar ? (
+							<img src={user.avatar} className="h-4 w-4 rounded-full" />
+						) : (
+							<span className="icon-[mdi--account-circle] h-4 w-4" />
+						)}
+						<span className="truncate">{user.username}</span>
+					</>
+				) : (
+					<>
+						<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
+						Settings
+					</>
+				)}
 			</button>
 		</div>
 	);
