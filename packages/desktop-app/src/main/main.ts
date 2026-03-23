@@ -17,16 +17,20 @@ const iconPath: Record<string, string> = {
 	linux: join(buildDir, "icon.png"),
 };
 
+const isMac = process.platform === "darwin";
+
 function createWindow(): void {
 	mainWindow = new BrowserWindow({
 		width: 1280,
 		height: 800,
 		icon: iconPath[process.platform],
-		titleBarStyle: "hiddenInset",
-		trafficLightPosition: { x: 16, y: 20 },
-		transparent: true,
-		vibrancy: "sidebar",
-		visualEffectState: "active",
+		transparent: isMac,
+		frame: isMac,
+		titleBarStyle: isMac ? "hiddenInset" : undefined,
+		trafficLightPosition: isMac ? { x: 16, y: 20 } : undefined,
+		vibrancy: isMac ? "sidebar" : undefined,
+		visualEffectState: isMac ? "active" : undefined,
+		backgroundColor: isMac ? undefined : nativeTheme.shouldUseDarkColors ? "#161616" : "#f5f5f7",
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
@@ -77,6 +81,9 @@ app.whenReady().then(() => {
 	// Notify renderer when system theme changes
 	nativeTheme.on("updated", () => {
 		if (mainWindow) {
+			if (!isMac) {
+				mainWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#161616" : "#f5f5f7");
+			}
 			mainWindow.webContents.send("vetta:theme:native-changed", {
 				shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
 			});
@@ -85,6 +92,26 @@ app.whenReady().then(() => {
 
 	ipcMain.handle("vetta:shell:show-in-folder", async (_event, fullPath: string) => {
 		await shell.openPath(fullPath);
+	});
+
+	ipcMain.handle("vetta:window:minimize", () => {
+		mainWindow?.minimize();
+	});
+
+	ipcMain.handle("vetta:window:maximize", () => {
+		if (mainWindow?.isMaximized()) {
+			mainWindow.unmaximize();
+		} else {
+			mainWindow?.maximize();
+		}
+	});
+
+	ipcMain.handle("vetta:window:close", () => {
+		mainWindow?.close();
+	});
+
+	ipcMain.handle("vetta:window:is-maximized", () => {
+		return mainWindow?.isMaximized() ?? false;
 	});
 
 	if (process.platform === "darwin") {

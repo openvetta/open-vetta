@@ -118,6 +118,13 @@ export interface DesktopShellApi {
 	showInFolder(fullPath: string): Promise<void>;
 }
 
+export interface DesktopWindowApi {
+	minimize(): Promise<void>;
+	maximize(): Promise<void>;
+	close(): Promise<void>;
+	isMaximized(): Promise<boolean>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -128,6 +135,7 @@ export interface DesktopApi {
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
 	shell: DesktopShellApi;
+	window: DesktopWindowApi;
 }
 
 declare global {

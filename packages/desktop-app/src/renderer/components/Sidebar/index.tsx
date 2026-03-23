@@ -3,6 +3,7 @@ import { useAtom, useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { sidebarTabAtom, sidebarWidthAtom, pageViewAtom, type PageView } from "../../store/atoms";
 import { useProjects } from "../../hooks/useProjects";
+import { isMac } from "../../lib/platform";
 import { SidebarTabs } from "./SidebarTabs";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "./FileExplorer/FilesPanel";
@@ -47,58 +48,60 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 
 	return (
 		<aside className="sidebar-vibrancy relative flex h-full shrink-0 flex-col" style={{ width }}>
-			{/* macOS traffic light spacer + header */}
-			<div className="drag-region flex items-center justify-between px-3.5 pb-3 pt-[52px]">
-				<div className="no-drag flex items-center gap-2">
-					<img
-						src="./icon.png"
-						alt="Vetta"
-						className="h-[22px] w-[22px] rounded-[6px] shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
-					/>
-					<span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
-						Vetta
-					</span>
-				</div>
-				<div className="relative" ref={addMenuRef}>
-					<button
-						type="button"
-						title="新建项目"
-						onClick={() => setShowAddMenu((v) => !v)}
-						className="no-drag flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
-					>
-						<span className="icon-[mdi--plus] h-3.5 w-3.5" />
-					</button>
-					<AnimatePresence>
-						{showAddMenu && (
-							<motion.div
-								initial={{ opacity: 0, scale: 0.95, y: -4 }}
-								animate={{ opacity: 1, scale: 1, y: 0 }}
-								exit={{ opacity: 0, scale: 0.95, y: -4 }}
-								transition={{ duration: 0.12 }}
-								className="absolute right-0 top-full z-50 mt-1 w-[120px] overflow-hidden rounded-lg border border-[var(--popup-border)] bg-[var(--popup-bg)] py-1"
-								style={{ boxShadow: "var(--popup-shadow)" }}
-							>
-								<button
-									type="button"
-									onClick={() => { setShowAddMenu(false); setShowNewProject(true); }}
-									className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-2)] hover:bg-[var(--hover)]"
+			{/* macOS traffic light spacer + header; Windows uses TitleBar */}
+			{isMac && (
+				<div className="drag-region flex items-center justify-between px-3.5 pb-3 pt-[52px]">
+					<div className="no-drag flex items-center gap-2">
+						<img
+							src="./icon.png"
+							alt="Vetta"
+							className="h-[22px] w-[22px] rounded-[6px] shadow-[0_1px_3px_rgba(0,0,0,0.2)]"
+						/>
+						<span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+							Vetta
+						</span>
+					</div>
+					<div className="relative" ref={addMenuRef}>
+						<button
+							type="button"
+							title="新建项目"
+							onClick={() => setShowAddMenu((v) => !v)}
+							className="no-drag flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
+						>
+							<span className="icon-[mdi--plus] h-3.5 w-3.5" />
+						</button>
+						<AnimatePresence>
+							{showAddMenu && (
+								<motion.div
+									initial={{ opacity: 0, scale: 0.95, y: -4 }}
+									animate={{ opacity: 1, scale: 1, y: 0 }}
+									exit={{ opacity: 0, scale: 0.95, y: -4 }}
+									transition={{ duration: 0.12 }}
+									className="absolute right-0 top-full z-50 mt-1 w-[120px] overflow-hidden rounded-lg border border-[var(--popup-border)] bg-[var(--popup-bg)] py-1"
+									style={{ boxShadow: "var(--popup-shadow)" }}
 								>
-									<span className="icon-[mdi--folder-plus-outline] h-3.5 w-3.5 shrink-0" />
-									新建项目
-								</button>
-								<button
-									type="button"
-									onClick={() => { setShowAddMenu(false); void openProject(); }}
-									className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-2)] hover:bg-[var(--hover)]"
-								>
-									<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5 shrink-0" />
-									打开项目
-								</button>
-							</motion.div>
-						)}
-					</AnimatePresence>
+									<button
+										type="button"
+										onClick={() => { setShowAddMenu(false); setShowNewProject(true); }}
+										className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-2)] hover:bg-[var(--hover)]"
+									>
+										<span className="icon-[mdi--folder-plus-outline] h-3.5 w-3.5 shrink-0" />
+										新建项目
+									</button>
+									<button
+										type="button"
+										onClick={() => { setShowAddMenu(false); void openProject(); }}
+										className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-[var(--text-2)] hover:bg-[var(--hover)]"
+									>
+										<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5 shrink-0" />
+										打开项目
+									</button>
+								</motion.div>
+							)}
+						</AnimatePresence>
+					</div>
 				</div>
-			</div>
+			)}
 
 			{/* Page nav entries */}
 			<nav className="flex flex-col gap-0.5 px-1.5 pb-2">

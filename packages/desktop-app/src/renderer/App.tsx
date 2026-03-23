@@ -8,6 +8,7 @@ import { AutomationPage } from "./components/AutomationPage";
 import { SkillsPage } from "./components/SkillsPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ConfirmDialog } from "./components/ui/confirm-dialog";
+import { TitleBar } from "./components/TitleBar";
 import { useProjects } from "./hooks/useProjects";
 import { useTheme } from "./hooks/useTheme";
 import { useGlobalShortcuts } from "./hooks/useShortcuts";
@@ -663,29 +664,32 @@ export function App(): JSX.Element {
 	}, []);
 
 	return (
-		<div className="flex h-screen w-screen overflow-hidden p-1.5 pl-0">
-			<Sidebar onOpenSession={openSession} />
-			<main
-				className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg bg-[var(--content-bg)]"
-				style={{
-					border: "var(--panel-border)",
-					boxShadow: "var(--panel-shadow)",
-				}}
-			>
-				{pageView === "settings" ? (
-					<SettingsPage />
-				) : pageView === "automation" ? (
-					<AutomationPage />
-				) : pageView === "skills" ? (
-					<SkillsPage />
-				) : activeSession ? (
-					<ChatView onSend={sendMessage} onAbort={abortMessage} />
-				) : (
-					<WelcomeScreen />
-				)}
-			</main>
-			<ActivityPanel />
-			<ConfirmDialog />
+		<div className="flex h-screen w-screen flex-col overflow-hidden">
+			<TitleBar />
+			<div className="flex flex-1 overflow-hidden p-1.5 pl-0">
+				<Sidebar onOpenSession={openSession} />
+				<main
+					className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg bg-[var(--content-bg)]"
+					style={{
+						border: "var(--panel-border)",
+						boxShadow: "var(--panel-shadow)",
+					}}
+				>
+					{pageView === "settings" ? (
+						<SettingsPage />
+					) : pageView === "automation" ? (
+						<AutomationPage />
+					) : pageView === "skills" ? (
+						<SkillsPage />
+					) : activeSession ? (
+						<ChatView onSend={sendMessage} onAbort={abortMessage} />
+					) : (
+						<WelcomeScreen />
+					)}
+				</main>
+				<ActivityPanel />
+				<ConfirmDialog />
+			</div>
 		</div>
 	);
 }
