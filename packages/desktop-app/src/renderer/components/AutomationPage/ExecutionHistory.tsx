@@ -15,11 +15,20 @@ export function ExecutionHistory({ taskId, onBack, onSelectRecord }: ExecutionHi
     loadRecords();
   }, [taskId]);
 
+  useEffect(() => {
+    const unsubscribe = window.vetta.scheduler.onTaskEvent((event) => {
+      if (event.taskId === taskId && (event.type === "task.started" || event.type === "record.updated")) {
+        loadRecords();
+      }
+    });
+    return unsubscribe;
+  }, [taskId]);
+
   const loadRecords = async () => {
     setLoading(true);
     try {
       const loaded = await window.vetta.scheduler.getRecords(taskId);
-      setRecords([...loaded].reverse());
+      setRecords(loaded);
     } finally {
       setLoading(false);
     }
