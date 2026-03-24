@@ -33,6 +33,12 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		record.sessionId = sessionId;
 		await createRecord(record);
 
+		emitTaskEvent({
+			type: "task.started",
+			taskId: task.id,
+			recordId,
+		});
+
 		let responseText = "";
 
 		const unsubscribe = runtime.subscribe(sessionId, async (event: SessionEvent) => {
