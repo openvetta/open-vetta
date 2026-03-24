@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { SkillInfo } from "../../preload/api";
+import type { SkillInfo } from "@preload/api";
 import { SegmentedControl } from "./ui/segmented-control";
 
 type SkillsTab = "mine" | "discover";

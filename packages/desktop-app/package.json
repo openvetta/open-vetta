@@ -19,6 +19,7 @@
 		"dist:mac": "bun run prebuild:pack && bunx electron-builder --mac --project \"$TMPDIR/vetta-desktop-build\" --config \"$TMPDIR/vetta-desktop-build/electron-builder.json\""
 	},
 	"dependencies": {
+		"@mariozechner/pi-ai": "workspace:*",
 		"@tanstack/react-router": "^1.130.15",
 		"@vetta/runtime-core": "workspace:*",
 		"class-variance-authority": "^0.7.1",
