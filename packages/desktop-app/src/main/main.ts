@@ -10,6 +10,7 @@ const PROTOCOL = "vetta";
 let mainWindow: BrowserWindow | null = null;
 let teardownIpc: (() => void) | undefined;
 let teardownFsIpc: (() => void) | undefined;
+let teardownSchedulerIpc: (() => void) | undefined;
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const resDir = app.isPackaged ? appRoot : join(appRoot, "dist");
@@ -61,6 +62,10 @@ function createWindow(): void {
 		if (teardownFsIpc) {
 			teardownFsIpc();
 			teardownFsIpc = undefined;
+		}
+		if (teardownSchedulerIpc) {
+			teardownSchedulerIpc();
+			teardownSchedulerIpc = undefined;
 		}
 	});
 }
@@ -174,9 +179,16 @@ app.whenReady().then(() => {
 	}
 
 	createWindow();
+
+	// 先清理可能存在的旧的 scheduler IPC
+	if (teardownSchedulerIpc) {
+		teardownSchedulerIpc();
+		teardownSchedulerIpc = undefined;
+	}
+
 	void initScheduler().then(() => {
 		if (mainWindow) {
-			registerSchedulerIpc(mainWindow.webContents);
+			teardownSchedulerIpc = registerSchedulerIpc(mainWindow.webContents);
 		}
 	});
 

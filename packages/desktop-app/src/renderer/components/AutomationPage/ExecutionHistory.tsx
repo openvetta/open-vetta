@@ -4,9 +4,10 @@ import type { TaskExecutionRecord } from "../../store/atoms";
 interface ExecutionHistoryProps {
   taskId: string;
   onBack: () => void;
+  onSelectRecord: (record: TaskExecutionRecord) => void;
 }
 
-export function ExecutionHistory({ taskId, onBack }: ExecutionHistoryProps): JSX.Element {
+export function ExecutionHistory({ taskId, onBack, onSelectRecord }: ExecutionHistoryProps): JSX.Element {
   const [records, setRecords] = useState<TaskExecutionRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -98,7 +99,8 @@ export function ExecutionHistory({ taskId, onBack }: ExecutionHistoryProps): JSX
             {records.map((record) => (
               <div
                 key={record.id}
-                className="flex items-start gap-3 px-4 py-3 hover:bg-[var(--hover)]"
+                className="flex items-start gap-3 px-4 py-3 hover:bg-[var(--hover)] cursor-pointer"
+                onClick={() => onSelectRecord(record)}
               >
                 <div className="mt-0.5">{getStatusIcon(record.status)}</div>
                 <div className="min-w-0 flex-1">
