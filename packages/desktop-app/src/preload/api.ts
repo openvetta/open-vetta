@@ -130,6 +130,51 @@ export interface DesktopAuthApi {
 	onOAuthCallback(handler: (data: { token: string }) => void): () => void;
 }
 
+export interface ScheduledTask {
+	id: string;
+	name: string;
+	prompt: string;
+	cron: string;
+	enabled: boolean;
+	modelId?: string;
+	createdAt: number;
+	updatedAt: number;
+	lastRunAt: number | null;
+	lastRunStatus: "success" | "failed" | null;
+}
+
+export interface TaskExecutionRecord {
+	id: string;
+	taskId: string;
+	sessionId: string;
+	startedAt: number;
+	completedAt: number | null;
+	status: "running" | "success" | "failed" | "aborted";
+	prompt: string;
+	responsePreview: string;
+	error?: string;
+	durationMs?: number;
+}
+
+export type TaskEvent =
+	| { type: "task.started"; taskId: string; recordId: string }
+	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
+	| { type: "task.failed"; taskId: string; error: string };
+
+export interface DesktopSchedulerApi {
+	getTasks(): Promise<ScheduledTask[]>;
+	createTask(
+		task: Omit<ScheduledTask, "id" | "createdAt" | "updatedAt" | "lastRunAt" | "lastRunStatus">,
+	): Promise<ScheduledTask>;
+	updateTask(id: string, patch: Partial<ScheduledTask>): Promise<void>;
+	deleteTask(id: string): Promise<void>;
+	toggleTask(id: string): Promise<void>;
+	getRecords(taskId: string): Promise<TaskExecutionRecord[]>;
+	runTaskNow(id: string): Promise<void>;
+	abortTask(id: string): Promise<void>;
+	onTaskEvent(handler: (event: TaskEvent) => void): () => void;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -142,6 +187,7 @@ export interface DesktopApi {
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
 	auth: DesktopAuthApi;
+	scheduler: DesktopSchedulerApi;
 }
 
 declare global {

@@ -18,6 +18,18 @@ const CHANNELS = {
 	EVENT: "vetta:session:event",
 } as const;
 
+const SCHEDULER_CHANNELS = {
+	GET_TASKS: "vetta:scheduler:get-tasks",
+	CREATE_TASK: "vetta:scheduler:create-task",
+	UPDATE_TASK: "vetta:scheduler:update-task",
+	DELETE_TASK: "vetta:scheduler:delete-task",
+	TOGGLE_TASK: "vetta:scheduler:toggle-task",
+	GET_RECORDS: "vetta:scheduler:get-records",
+	RUN_NOW: "vetta:scheduler:run-now",
+	ABORT: "vetta:scheduler:abort",
+	EVENT: "vetta:scheduler:event",
+} as const;
+
 const api: DesktopApi = {
 	dialog: {
 		selectFolder: async () => ipcRenderer.invoke("vetta:dialog:select-folder"),
@@ -78,6 +90,25 @@ const api: DesktopApi = {
 			ipcRenderer.on("vetta:auth:oauth-callback", listener);
 			return () => {
 				ipcRenderer.removeListener("vetta:auth:oauth-callback", listener);
+			};
+		},
+	},
+	scheduler: {
+		getTasks: () => ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_TASKS),
+		createTask: (task) => ipcRenderer.invoke(SCHEDULER_CHANNELS.CREATE_TASK, task),
+		updateTask: (id, patch) => ipcRenderer.invoke(SCHEDULER_CHANNELS.UPDATE_TASK, id, patch),
+		deleteTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.DELETE_TASK, id),
+		toggleTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.TOGGLE_TASK, id),
+		getRecords: (taskId) => ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_RECORDS, taskId),
+		runTaskNow: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.RUN_NOW, id),
+		abortTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.ABORT, id),
+		onTaskEvent: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
+				handler(data as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(SCHEDULER_CHANNELS.EVENT, listener);
+			return () => {
+				ipcRenderer.removeListener(SCHEDULER_CHANNELS.EVENT, listener);
 			};
 		},
 	},

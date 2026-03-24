@@ -3,6 +3,8 @@ import { URL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
 import { registerRuntimeIpc } from "./ipc.js";
 import { registerFsIpc } from "./ipc-fs.js";
+import { registerSchedulerIpc } from "./ipc-scheduler.js";
+import { initScheduler } from "./scheduler.js";
 
 const PROTOCOL = "vetta";
 let mainWindow: BrowserWindow | null = null;
@@ -172,6 +174,11 @@ app.whenReady().then(() => {
 	}
 
 	createWindow();
+	void initScheduler().then(() => {
+		if (mainWindow) {
+			registerSchedulerIpc(mainWindow.webContents);
+		}
+	});
 
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) {
