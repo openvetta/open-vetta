@@ -222,3 +222,35 @@ export interface AuthUser {
 export const authTokenAtom = atom<string | null>(localStorage.getItem("vetta-auth-token"));
 export const authUserAtom = atom<AuthUser | null>(null);
 export const loginDialogOpenAtom = atom<boolean>(false);
+
+// ─── Scheduled Tasks ───
+
+export interface ScheduledTask {
+	id: string;
+	name: string;
+	prompt: string;
+	cron: string;
+	enabled: boolean;
+	modelId?: string;
+	createdAt: number;
+	updatedAt: number;
+	lastRunAt: number | null;
+	lastRunStatus: "success" | "failed" | null;
+}
+
+export interface TaskExecutionRecord {
+	id: string;
+	taskId: string;
+	sessionId: string;
+	startedAt: number;
+	completedAt: number | null;
+	status: "running" | "success" | "failed" | "aborted";
+	prompt: string;
+	responsePreview: string;
+	error?: string;
+	durationMs?: number;
+}
+
+export const scheduledTasksAtom = atom<ScheduledTask[]>([]);
+export const selectedTaskIdAtom = atom<string | null>(null);
+export const selectedRecordIdAtom = atom<string | null>(null);
