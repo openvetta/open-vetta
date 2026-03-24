@@ -1,13 +1,11 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { appendFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 const CONFIG_DIR = join(homedir(), ".vetta");
 const TASKS_FILE = join(CONFIG_DIR, "scheduled-tasks.json");
 const RECORDS_DIR = join(CONFIG_DIR, "task-records");
-
-const MAX_RECORDS_PER_TASK = 100;
 
 export interface ScheduledTask {
 	id: string;
@@ -35,6 +33,14 @@ export interface TaskExecutionRecord {
 	durationMs?: number;
 }
 
+export interface TaskMessage {
+	role: string;
+	content: unknown;
+	toolCallId?: string;
+	toolName?: string;
+	isError?: boolean;
+}
+
 async function ensureDirectories(): Promise<void> {
 	await mkdir(CONFIG_DIR, { recursive: true });
 	await mkdir(RECORDS_DIR, { recursive: true });
@@ -55,70 +61,141 @@ export async function saveTasks(tasks: ScheduledTask[]): Promise<void> {
 	await writeFile(TASKS_FILE, JSON.stringify(tasks, null, 2), "utf-8");
 }
 
+function getTaskRecordsDir(taskId: string): string {
+	return join(RECORDS_DIR, taskId);
+}
+
+function getRecordFilePath(taskId: string, sessionId: string): string {
+	return join(RECORDS_DIR, taskId, `${sessionId}.jsonl`);
+}
+
 export async function loadRecords(taskId: string): Promise<TaskExecutionRecord[]> {
-	const file = join(RECORDS_DIR, `${taskId}.json`);
+	const taskDir = getTaskRecordsDir(taskId);
+	if (!existsSync(taskDir)) {
+		return [];
+	}
+
+	const records: TaskExecutionRecord[] = [];
+
 	try {
-		const data = await readFile(file, "utf-8");
-		return JSON.parse(data);
+		const files = await readdir(taskDir);
+		for (const file of files) {
+			if (!file.endsWith(".jsonl")) continue;
+			const filePath = join(taskDir, file);
+			try {
+				const content = await readFile(filePath, "utf-8");
+				const lines = content.trim().split("\n").filter(Boolean);
+				if (lines.length > 0) {
+					const record = JSON.parse(lines[0]) as TaskExecutionRecord;
+					records.push(record);
+				}
+			} catch {
+				// skip malformed files
+			}
+		}
+	} catch {
+		return [];
+	}
+
+	records.sort((a, b) => b.startedAt - a.startedAt);
+	return records;
+}
+
+export async function loadRecordMessages(taskId: string, sessionId: string): Promise<TaskMessage[]> {
+	const filePath = getRecordFilePath(taskId, sessionId);
+	if (!existsSync(filePath)) {
+		return [];
+	}
+
+	try {
+		const content = await readFile(filePath, "utf-8");
+		const lines = content.trim().split("\n").filter(Boolean);
+		if (lines.length <= 1) {
+			return [];
+		}
+		const messages: TaskMessage[] = [];
+		for (let i = 1; i < lines.length; i++) {
+			try {
+				messages.push(JSON.parse(lines[i]) as TaskMessage);
+			} catch {
+				// skip malformed lines
+			}
+		}
+		return messages;
 	} catch {
 		return [];
 	}
 }
 
-export async function saveRecords(taskId: string, records: TaskExecutionRecord[]): Promise<void> {
-	const file = join(RECORDS_DIR, `${taskId}.json`);
-	await ensureDirectories();
-	await writeFile(file, JSON.stringify(records, null, 2), "utf-8");
+export async function createRecord(record: TaskExecutionRecord): Promise<void> {
+	const taskDir = getTaskRecordsDir(record.taskId);
+	await mkdir(taskDir, { recursive: true });
+	const filePath = getRecordFilePath(record.taskId, record.sessionId);
+	const metadataLine = JSON.stringify(record);
+	await writeFile(filePath, `${metadataLine}\n`, "utf-8");
 }
 
-export function loadRecordsSync(taskId: string): TaskExecutionRecord[] {
-	const file = join(RECORDS_DIR, `${taskId}.json`);
-	if (!existsSync(file)) {
-		return [];
+export async function appendMessage(taskId: string, sessionId: string, message: TaskMessage): Promise<void> {
+	const filePath = getRecordFilePath(taskId, sessionId);
+	await appendFile(filePath, `${JSON.stringify(message)}\n`, "utf-8");
+}
+
+export async function updateRecordMetadata(record: TaskExecutionRecord): Promise<void> {
+	const filePath = getRecordFilePath(record.taskId, record.sessionId);
+	if (!existsSync(filePath)) {
+		return;
 	}
+
 	try {
-		const data = readFileSync(file, "utf-8");
-		return JSON.parse(data);
-	} catch {
-		return [];
-	}
-}
+		const content = await readFile(filePath, "utf-8");
+		const lines = content.trim().split("\n").filter(Boolean);
+		if (lines.length === 0) return;
 
-export function saveRecordsSync(taskId: string, records: TaskExecutionRecord[]): void {
-	const file = join(RECORDS_DIR, `${taskId}.json`);
-	const dir = RECORDS_DIR;
-	if (!existsSync(dir)) {
-		mkdirSyncRecursive(dir);
-	}
-	writeFileSync(file, JSON.stringify(records, null, 2), "utf-8");
-}
-
-function mkdirSyncRecursive(dir: string): void {
-	const parent = join(dir, "..");
-	if (!existsSync(parent)) {
-		mkdirSyncRecursive(parent);
-	}
-	try {
-		mkdir(dir, { recursive: true });
+		lines[0] = JSON.stringify(record);
+		await writeFile(filePath, `${lines.join("\n")}\n`, "utf-8");
 	} catch {
 		// ignore
 	}
 }
 
-export function addRecord(record: TaskExecutionRecord): void {
-	const records = loadRecordsSync(record.taskId);
-	records.push(record);
-	const trimmed = records.slice(-MAX_RECORDS_PER_TASK);
-	saveRecordsSync(record.taskId, trimmed);
+export async function deleteTaskRecords(taskId: string): Promise<void> {
+	const taskDir = getTaskRecordsDir(taskId);
+	if (!existsSync(taskDir)) {
+		return;
+	}
+	await rm(taskDir, { recursive: true, force: true });
 }
 
-export function updateRecord(record: TaskExecutionRecord): void {
-	const records = loadRecordsSync(record.taskId);
-	const index = records.findIndex((r) => r.id === record.id);
-	if (index !== -1) {
-		records[index] = record;
-		saveRecordsSync(record.taskId, records);
+export function loadRecordsSync(taskId: string): TaskExecutionRecord[] {
+	const taskDir = getTaskRecordsDir(taskId);
+	if (!existsSync(taskDir)) {
+		return [];
 	}
+
+	const records: TaskExecutionRecord[] = [];
+
+	try {
+		const files = readdirSync(taskDir);
+		for (const file of files) {
+			if (!file.endsWith(".jsonl")) continue;
+			const filePath = join(taskDir, file);
+			try {
+				const content = readFileSync(filePath, "utf-8");
+				const lines = content.trim().split("\n").filter(Boolean);
+				if (lines.length > 0) {
+					const record = JSON.parse(lines[0]) as TaskExecutionRecord;
+					records.push(record);
+				}
+			} catch {
+				// skip malformed files
+			}
+		}
+	} catch {
+		return [];
+	}
+
+	records.sort((a, b) => b.startedAt - a.startedAt);
+	return records;
 }
 
 export function generateId(): string {

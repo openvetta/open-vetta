@@ -156,10 +156,32 @@ export interface TaskExecutionRecord {
 	durationMs?: number;
 }
 
+export interface TaskMessage {
+	role: string;
+	content: unknown;
+	toolCallId?: string;
+	toolName?: string;
+	isError?: boolean;
+}
+
 export type TaskEvent =
 	| { type: "task.started"; taskId: string; recordId: string }
 	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
-	| { type: "task.failed"; taskId: string; error: string };
+	| { type: "task.failed"; taskId: string; error: string }
+	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };
+
+export interface TaskStreamEvent {
+	taskId: string;
+	sessionId: string;
+	type: "message.delta" | "thinking.delta" | "tool.start" | "tool.end" | "toolcall.start" | "session.lifecycle";
+	delta?: string;
+	toolCallId?: string;
+	toolName?: string;
+	args?: Record<string, unknown>;
+	result?: unknown;
+	isError?: boolean;
+	phase?: string;
+}
 
 export interface DesktopSchedulerApi {
 	getTasks(): Promise<ScheduledTask[]>;
@@ -170,9 +192,11 @@ export interface DesktopSchedulerApi {
 	deleteTask(id: string): Promise<void>;
 	toggleTask(id: string): Promise<void>;
 	getRecords(taskId: string): Promise<TaskExecutionRecord[]>;
+	getRecordMessages(taskId: string, sessionId: string): Promise<TaskMessage[]>;
 	runTaskNow(id: string): Promise<void>;
 	abortTask(id: string): Promise<void>;
 	onTaskEvent(handler: (event: TaskEvent) => void): () => void;
+	onTaskStreamEvent(handler: (event: TaskStreamEvent) => void): () => void;
 }
 
 export interface DesktopApi {

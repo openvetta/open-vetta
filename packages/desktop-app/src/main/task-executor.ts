@@ -1,6 +1,8 @@
+import { homedir } from "node:os";
 import type { RuntimeHost, SessionEvent } from "../../../runtime-core/src/index.js";
-import type { ScheduledTask, TaskExecutionRecord } from "./task-storage";
-import { addRecord, generateId, updateRecord, updateTaskLastRun } from "./task-storage";
+import { emitTaskEvent, emitTaskStreamEvent } from "./ipc-scheduler";
+import type { ScheduledTask, TaskExecutionRecord, TaskMessage } from "./task-storage";
+import { appendMessage, createRecord, generateId, updateRecordMetadata, updateTaskLastRun } from "./task-storage";
 
 interface ExecutingTask {
 	sessionId: string;
@@ -8,7 +10,7 @@ interface ExecutingTask {
 }
 
 const executingTasks = new Map<string, ExecutingTask>();
-const DEFAULT_WORKSPACE = "~/.vetta/workspace";
+const DEFAULT_WORKSPACE = `${homedir()}/.vetta/workspace`;
 
 export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Promise<void> {
 	const recordId = generateId();
@@ -29,24 +31,104 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		const result = await runtime.createSession({ cwd: DEFAULT_WORKSPACE });
 		sessionId = result.sessionId;
 		record.sessionId = sessionId;
-		addRecord(record);
+		await createRecord(record);
 
 		let responseText = "";
 
-		const unsubscribe = runtime.subscribe(sessionId, (event: SessionEvent) => {
+		const unsubscribe = runtime.subscribe(sessionId, async (event: SessionEvent) => {
 			if (event.type === "message.delta") {
 				responseText += event.delta;
+				emitTaskStreamEvent({
+					taskId: task.id,
+					sessionId,
+					type: "message.delta",
+					delta: event.delta,
+				});
+			}
+
+			if (event.type === "thinking.delta") {
+				emitTaskStreamEvent({
+					taskId: task.id,
+					sessionId,
+					type: "thinking.delta",
+					delta: event.delta,
+				});
+			}
+
+			if (event.type === "toolcall.start") {
+				emitTaskStreamEvent({
+					taskId: task.id,
+					sessionId,
+					type: "toolcall.start",
+					toolCallId: event.toolCallId,
+					toolName: event.toolName,
+				});
+			}
+
+			if (event.type === "tool.start") {
+				emitTaskStreamEvent({
+					taskId: task.id,
+					sessionId,
+					type: "tool.start",
+					toolCallId: event.toolCallId,
+					toolName: event.toolName,
+					args: event.args as Record<string, unknown>,
+				});
+			}
+
+			if (event.type === "tool.end") {
+				emitTaskStreamEvent({
+					taskId: task.id,
+					sessionId,
+					type: "tool.end",
+					toolCallId: event.toolCallId,
+					result: event.result,
+					isError: event.isError,
+				});
 			}
 
 			if (event.type === "session.lifecycle") {
+				emitTaskStreamEvent({
+					taskId: task.id,
+					sessionId,
+					type: "session.lifecycle",
+					phase: event.phase,
+				});
+
 				if (event.phase === "agent_end" || event.phase === "aborted") {
 					record.status = event.phase === "aborted" ? "aborted" : "success";
 					record.completedAt = Date.now();
 					record.responsePreview = responseText.slice(0, 500);
 					record.durationMs = record.completedAt - record.startedAt;
-					updateRecord(record);
-					updateTaskLastRun(task.id, event.phase === "aborted" ? "failed" : "success");
+
+					try {
+						const messages = runtime.getMessages(sessionId);
+						for (const m of messages) {
+							const msg: TaskMessage = {
+								role: m.role,
+								content: (m as { content?: unknown }).content,
+								...(m.role === "toolResult" && {
+									toolCallId: (m as { toolCallId?: string }).toolCallId,
+									toolName: (m as { toolName?: string }).toolName,
+									isError: (m as { isError?: boolean }).isError,
+								}),
+							};
+							await appendMessage(task.id, sessionId, msg);
+						}
+					} catch {
+						// ignore
+					}
+
+					await updateRecordMetadata(record);
+					await updateTaskLastRun(task.id, event.phase === "aborted" ? "failed" : "success");
 					executingTasks.delete(task.id);
+
+					emitTaskEvent({
+						type: "record.updated",
+						taskId: task.id,
+						sessionId,
+						status: event.phase === "aborted" ? "aborted" : "success",
+					});
 				}
 			}
 		});
@@ -59,8 +141,8 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		record.completedAt = Date.now();
 		record.error = String(error);
 		record.durationMs = record.completedAt - record.startedAt;
-		addRecord(record);
-		updateTaskLastRun(task.id, "failed");
+		await createRecord(record);
+		await updateTaskLastRun(task.id, "failed");
 		executingTasks.delete(task.id);
 	}
 }
