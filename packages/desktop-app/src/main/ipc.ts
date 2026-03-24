@@ -5,10 +5,11 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { DefaultResourceLoader, getAgentDir } from "@vetta/coding-agent";
-import { dialog, ipcMain, type WebContents } from "electron";
+import { app, dialog, ipcMain, shell, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
 import { allowProjectRoot } from "./ipc-fs.js";
+import { checkForUpdate } from "./updater.js";
 
 const DEFAULT_SERVER_URL = "http://REDACTED-HOST:8080/api/v1";
 
@@ -165,6 +166,19 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle("vetta:models:fetch-remote", async () => {
 		return fetchRemoteProviders();
+	});
+
+	ipcMain.handle("vetta:updater:check", async () => {
+		return checkForUpdate();
+	});
+
+	ipcMain.handle("vetta:updater:get-current-version", () => {
+		return app.getVersion();
+	});
+
+	ipcMain.handle("vetta:updater:download", async (_event, url: unknown) => {
+		if (typeof url !== "string") throw new Error("Invalid URL");
+		await shell.openExternal(url);
 	});
 
 	ipcMain.handle("vetta:skills:list", async () => {
@@ -411,6 +425,9 @@ export function registerRuntimeIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler("vetta:settings:get-server-token");
 		ipcMain.removeHandler("vetta:settings:set-server-token");
 		ipcMain.removeHandler("vetta:models:fetch-remote");
+		ipcMain.removeHandler("vetta:updater:check");
+		ipcMain.removeHandler("vetta:updater:get-current-version");
+		ipcMain.removeHandler("vetta:updater:download");
 		ipcMain.removeHandler("vetta:skills:list");
 		ipcMain.removeHandler("vetta:skills:install-from-market");
 		ipcMain.removeHandler("vetta:skills:uninstall");

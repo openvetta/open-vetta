@@ -91,6 +91,11 @@ const api: DesktopApi = {
 			};
 		},
 	},
+	updater: {
+		check: async () => ipcRenderer.invoke("vetta:updater:check"),
+		getCurrentVersion: async () => ipcRenderer.invoke("vetta:updater:get-current-version"),
+		download: async (url) => ipcRenderer.invoke("vetta:updater:download", url),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),

@@ -6,6 +6,7 @@ import { useProjects } from "../hooks/useProjects";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { SegmentedControl } from "./ui/segmented-control";
+import { UpdateChecker } from "./UpdateChecker";
 import { eventToShortcut, formatShortcut } from "../lib/platform";
 import {
 	SHORTCUT_ACTIONS,
@@ -126,6 +127,12 @@ function GeneralSettings(): JSX.Element {
 						</button>
 					</div>
 				</SettingRow>
+			</SettingSection>
+
+			<SettingSection title="版本更新">
+				<div className="px-5 py-4">
+					<UpdateChecker />
+				</div>
 			</SettingSection>
 		</div>
 	);

@@ -156,6 +156,21 @@ export interface DesktopSettingsApi {
 	setServerToken(token: string | undefined): Promise<void>;
 }
 
+export interface UpdateCheckResult {
+	hasUpdate: boolean;
+	currentVersion: string;
+	latestVersion?: string;
+	releaseNote?: string;
+	downloadUrl?: string;
+	error?: string;
+}
+
+export interface DesktopUpdaterApi {
+	check(): Promise<UpdateCheckResult>;
+	getCurrentVersion(): Promise<string>;
+	download(url: string): Promise<void>;
+}
+
 export interface DesktopAuthApi {
 	openExternal(url: string): Promise<void>;
 	onOAuthCallback(handler: (data: { token: string }) => void): () => void;
@@ -174,6 +189,7 @@ export interface DesktopApi {
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
 	auth: DesktopAuthApi;
+	updater: DesktopUpdaterApi;
 }
 
 declare global {
