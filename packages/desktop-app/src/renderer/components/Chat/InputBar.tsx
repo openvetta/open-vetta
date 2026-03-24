@@ -6,7 +6,7 @@ import { ModelSelector } from "./ModelSelector";
 import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
-import type { SkillInfo } from "../../../preload/api";
+import type { SkillInfo } from "@preload/api";
 
 interface InputBarProps {
 	onSend: () => Promise<void>;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { FsEntry } from "../../../preload/fs-types";
+import type { FsEntry } from "@preload/fs-types";
 
 export interface SelectedFile {
 	path: string;

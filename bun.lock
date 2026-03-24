@@ -147,6 +147,7 @@
       "name": "@vetta/desktop-app",
       "version": "0.0.1",
       "dependencies": {
+        "@mariozechner/pi-ai": "workspace:*",
         "@tanstack/react-router": "^1.130.15",
         "@vetta/runtime-core": "workspace:*",
         "class-variance-authority": "^0.7.1",
