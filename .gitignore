@@ -33,7 +33,7 @@ pi-*.html
 out.html
 packages/coding-agent/binaries/
 packages/desktop-app/release/
-releases/
+/releases/
 todo.md
 
 prompt/
