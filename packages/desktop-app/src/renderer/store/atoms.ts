@@ -254,3 +254,4 @@ export interface TaskExecutionRecord {
 export const scheduledTasksAtom = atom<ScheduledTask[]>([]);
 export const selectedTaskIdAtom = atom<string | null>(null);
 export const selectedRecordIdAtom = atom<string | null>(null);
+export const formOpenAtom = atom<ScheduledTask | null | undefined>(undefined);

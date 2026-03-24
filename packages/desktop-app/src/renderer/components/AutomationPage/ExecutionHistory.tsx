@@ -3,11 +3,10 @@ import type { TaskExecutionRecord } from "../../store/atoms";
 
 interface ExecutionHistoryProps {
   taskId: string;
-  onBack: () => void;
   onSelectRecord: (record: TaskExecutionRecord) => void;
 }
 
-export function ExecutionHistory({ taskId, onBack, onSelectRecord }: ExecutionHistoryProps): JSX.Element {
+export function ExecutionHistory({ taskId, onSelectRecord }: ExecutionHistoryProps): JSX.Element {
   const [records, setRecords] = useState<TaskExecutionRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -80,9 +79,6 @@ export function ExecutionHistory({ taskId, onBack, onSelectRecord }: ExecutionHi
   return (
     <div className="flex flex-col rounded-lg border border-[var(--border)]">
       <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
-        <button onClick={onBack} className="rounded p-1 hover:bg-[var(--hover)]">
-          <span className="icon-[mdi--arrow-left] text-lg" />
-        </button>
         <h3 className="font-medium text-[var(--text-1)]">执行历史</h3>
         <button
           onClick={loadRecords}
@@ -108,7 +104,7 @@ export function ExecutionHistory({ taskId, onBack, onSelectRecord }: ExecutionHi
             {records.map((record) => (
               <div
                 key={record.id}
-                className="flex items-start gap-3 px-4 py-3 hover:bg-[var(--hover)] cursor-pointer"
+                className="flex cursor-pointer items-start gap-3 px-4 py-3 hover:bg-[var(--hover)]"
                 onClick={() => onSelectRecord(record)}
               >
                 <div className="mt-0.5">{getStatusIcon(record.status)}</div>
