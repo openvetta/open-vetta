@@ -3,6 +3,7 @@ import { confirmDialogAtom, scheduledTasksAtom } from "@shared/store/atoms";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import type { ScheduledTask } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
+import { Button } from "@shared/components/ui/button";
 
 interface TaskListProps {
   selectedTaskId: string | null;
@@ -55,40 +56,18 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
               <span className="font-medium text-[var(--text-1)]">{task.name}</span>
             </div>
             <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  runNow(task.id);
-                }}
-                className="rounded p-1.5 hover:bg-[var(--hover)]"
-                title="立即执行"
-              >
+              <Button variant="ghost" size="icon-xs" onClick={(e) => { e.stopPropagation(); runNow(task.id); }} title="立即执行">
                 <span className="icon-[mdi--play] text-sm text-[var(--text-2)]" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleTask(task.id);
-                }}
-                className="rounded p-1.5 hover:bg-[var(--hover)]"
-                title={task.enabled ? "暂停" : "启动"}
-              >
+              </Button>
+              <Button variant="ghost" size="icon-xs" onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} title={task.enabled ? "暂停" : "启动"}>
                 <span
                   className={cn(task.enabled ? "icon-[mdi--pause]" : "icon-[mdi--play]", "text-sm", task.enabled ? "text-yellow-500!" : "text-green-500!")}
                 />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEditTask(task);
-                }}
-                className="rounded p-1.5 hover:bg-[var(--hover)]"
-                title="编辑"
-              >
+              </Button>
+              <Button variant="ghost" size="icon-xs" onClick={(e) => { e.stopPropagation(); onEditTask(task); }} title="编辑">
                 <span className="icon-[mdi--pencil] text-sm text-[var(--text-2)]" />
-              </button>
-              <button
-                onClick={(e) => {
+              </Button>
+              <Button variant="ghost" size="icon-xs" onClick={(e) => {
                   e.stopPropagation();
                   setConfirmDialog({
                     title: `确认删除任务「${task.name}」`,
@@ -98,12 +77,9 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
                     variant: "danger",
                     onConfirm: () => deleteTask(task.id),
                   });
-                }}
-                className="rounded p-1.5 hover:bg-[var(--hover)]"
-                title="删除"
-              >
+                }} title="删除">
                 <span className="icon-[mdi--delete] text-sm text-red-500" />
-              </button>
+              </Button>
             </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-3)]">

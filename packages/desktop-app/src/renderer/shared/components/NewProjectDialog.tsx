@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
+import { Button } from "./ui/button";
 
 interface NewProjectDialogProps {
 	onConfirm: (name: string) => void;
@@ -72,20 +73,12 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 					<p className="mb-1 text-[11px] text-[var(--tool-error)]">{error}</p>
 				)}
 				<div className="mt-3 flex justify-end gap-2">
-					<button
-						type="button"
-						onClick={onCancel}
-						className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-[var(--text-2)] transition-colors hover:bg-[var(--hover)]"
-					>
+					<Button variant="ghost" size="sm" onClick={onCancel}>
 						取消
-					</button>
-					<button
-						type="button"
-						onClick={handleSubmit}
-						className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[12px] font-medium text-[var(--accent-fg)] transition-colors hover:opacity-90"
-					>
+					</Button>
+					<Button size="sm" onClick={handleSubmit}>
 						创建
-					</button>
+					</Button>
 				</div>
 			</motion.div>
 		</div>

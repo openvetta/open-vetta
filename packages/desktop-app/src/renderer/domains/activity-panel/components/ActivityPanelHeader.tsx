@@ -1,6 +1,7 @@
 import { useSetAtom } from "jotai";
 import { selectedFilePathAtom } from "@shared/store/atoms";
 import { getFileIcon } from "@domains/file-explorer/components/fileIcons";
+import { Button } from "@shared/components/ui/button";
 
 interface ActivityPanelHeaderProps {
 	filePath: string;
@@ -22,14 +23,9 @@ export function ActivityPanelHeader({ filePath }: ActivityPanelHeaderProps): JSX
 			<span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[var(--text-2)]">
 				{fileName}
 			</span>
-			<button
-				type="button"
-				title="关闭文件预览"
-				onClick={() => setSelectedFile(null)}
-				className="shrink-0 rounded p-0.5 text-[var(--text-3)] hover:bg-[var(--surface)] hover:text-[var(--text-1)]"
-			>
+			<Button variant="ghost" size="icon-xs" title="关闭文件预览" onClick={() => setSelectedFile(null)} className="shrink-0">
 				<span className="icon-[mdi--close] text-[16px]" />
-			</button>
+			</Button>
 		</div>
 	);
 }

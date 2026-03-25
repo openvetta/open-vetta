@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { loginDialogOpenAtom } from "@shared/store/atoms";
 import { fetchOAuthProviders, fetchOAuthURL } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
+import { Button } from "@shared/components/ui/button";
 
 const PROVIDER_META: Record<string, { label: string; icon: string; color: string }> = {
 	github: {
@@ -105,12 +106,9 @@ export function LoginDialog(): JSX.Element {
 								onChange={(e) => setPassword(e.target.value)}
 								className="h-9 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-[13px] text-[var(--text-1)] placeholder-[var(--text-3)] outline-none transition focus:border-[var(--accent-glow)]"
 							/>
-							<button
-								type="submit"
-								className="h-9 w-full rounded-lg bg-[var(--accent)] text-[13px] font-medium text-[var(--accent-fg)] transition hover:bg-[var(--accent-hover)]"
-							>
+							<Button type="submit" className="w-full">
 								Login
-							</button>
+							</Button>
 						</form>
 
 						{/* Divider */}
@@ -132,33 +130,25 @@ export function LoginDialog(): JSX.Element {
 										color: "hover:bg-[var(--hover-strong)]",
 									};
 									return (
-										<button
+										<Button
 											key={p}
-											type="button"
+											variant="outline"
 											disabled={loading === p}
 											onClick={() => void handleOAuth(p)}
-											className={cn(
-												"flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-strong)] bg-transparent text-[13px] font-medium text-[var(--text-1)] transition",
-												meta.color,
-												loading === p && "opacity-50",
-											)}
+											className={cn("w-full", meta.color, loading === p && "opacity-50")}
 										>
 											<span className={cn(meta.icon, "h-4 w-4")} />
 											{loading === p ? "Redirecting..." : meta.label}
-										</button>
+										</Button>
 									);
 								})}
 							</div>
 						)}
 
 						{/* Close button */}
-						<button
-							type="button"
-							onClick={() => setOpen(false)}
-							className="absolute right-3 top-3 rounded-md p-1 text-[var(--text-3)] transition hover:bg-[var(--hover)] hover:text-[var(--text-1)]"
-						>
+						<Button variant="ghost" size="icon-xs" onClick={() => setOpen(false)} className="absolute right-3 top-3">
 							<span className="icon-[mdi--close] h-4 w-4" />
-						</button>
+						</Button>
 					</motion.div>
 				</motion.div>
 			)}

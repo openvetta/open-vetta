@@ -2,6 +2,7 @@ import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { confirmDialogAtom } from "@shared/store/atoms";
 import { useProjects } from "@domains/project/hooks/useProjects";
+import { Button } from "@shared/components/ui/button";
 import { SettingSection } from "./shared";
 
 function projectName(cwd: string): string {
@@ -68,23 +69,13 @@ export function ArchivedProjectsSettings(): JSX.Element {
 								<div className="mt-0.5 truncate text-[11px] text-[var(--text-2)]">{cwd}</div>
 							</div>
 							<div className="flex items-center gap-1">
-								<button
-									type="button"
-									onClick={() => void handleUnarchive(cwd)}
-									className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10"
-									title="取消归档"
-								>
+								<Button variant="ghost" size="xs" onClick={() => void handleUnarchive(cwd)} title="取消归档">
 									<span className="icon-[mdi--archive-arrow-up-outline] h-3.5 w-3.5" />
 									取消归档
-								</button>
-								<button
-									type="button"
-									onClick={() => handleDelete(cwd)}
-									className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
-									title="删除"
-								>
+								</Button>
+								<Button variant="ghost" size="icon-xs" onClick={() => handleDelete(cwd)} title="删除" className="text-[var(--text-2)] hover:text-red-400">
 									<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-								</button>
+								</Button>
 							</div>
 						</div>
 					))}

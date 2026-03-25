@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { TaskExecutionRecord } from "@shared/store/atoms";
+import { Button } from "@shared/components/ui/button";
 
 interface ExecutionHistoryProps {
   taskId: string;
@@ -80,13 +81,9 @@ export function ExecutionHistory({ taskId, onSelectRecord }: ExecutionHistoryPro
     <div className="flex flex-col rounded-lg border border-[var(--border)]">
       <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
         <h3 className="font-medium text-[var(--text-1)]">执行历史</h3>
-        <button
-          onClick={loadRecords}
-          className="ml-auto rounded p-1 hover:bg-[var(--hover)]"
-          title="刷新"
-        >
+        <Button variant="ghost" size="icon-xs" onClick={loadRecords} className="ml-auto" title="刷新">
           <span className="icon-[mdi--refresh] text-sm" />
-        </button>
+        </Button>
       </div>
 
       <div className="max-h-64 overflow-y-auto">

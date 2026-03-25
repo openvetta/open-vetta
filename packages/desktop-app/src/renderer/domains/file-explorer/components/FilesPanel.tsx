@@ -6,6 +6,7 @@ import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { useAtom } from "jotai";
 import { fileContextMenuAtom, type FsEntry } from "@shared/store/atoms";
 import { useState } from "react";
+import { Button } from "@shared/components/ui/button";
 
 export function FilesPanel(): JSX.Element {
 	const {
@@ -73,14 +74,9 @@ export function FilesPanel(): JSX.Element {
 				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-2)]">
 					{projectName}
 				</span>
-				<button
-					type="button"
-					title="刷新"
-					onClick={() => void refreshDir(rootDir)}
-					className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
-				>
+				<Button variant="ghost" size="icon-xs" title="刷新" onClick={() => void refreshDir(rootDir)}>
 					<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
-				</button>
+				</Button>
 			</div>
 
 			{/* Loading indicator for root */}

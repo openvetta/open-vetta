@@ -4,6 +4,7 @@ import type { InstalledMarketSkill, SkillInfo } from "@preload/api";
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { authTokenAtom } from "@shared/store/atoms";
+import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 
 type SkillsTab = "mine" | "discover";
@@ -54,13 +55,9 @@ function SceneCard({
 				</p>
 			</div>
 			{installed && (
-				<button
-					type="button"
-					onClick={() => onUninstall(skill.name)}
-					className="mt-1 self-start rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)] transition-colors hover:border-red-400 hover:text-red-500"
-				>
+				<Button size="xs" onClick={() => onUninstall(skill.name)} className="mt-1 self-start">
 					卸载
-				</button>
+				</Button>
 			)}
 		</div>
 	);
@@ -97,13 +94,9 @@ function SkillRow({
 				</p>
 			</div>
 			{installed && (
-				<button
-					type="button"
-					onClick={() => onUninstall(skill.name)}
-					className="shrink-0 rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)] transition-colors hover:border-red-400 hover:text-red-500"
-				>
+				<Button size="xs" onClick={() => onUninstall(skill.name)} className="shrink-0">
 					卸载
-				</button>
+				</Button>
 			)}
 		</div>
 	);
@@ -170,43 +163,15 @@ function MarketSceneCard({
 						<span className="rounded-lg bg-[var(--accent-dim)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)]">
 							已安装
 						</span>
-						<button
-							type="button"
-							onClick={() => onUninstall(skill.name)}
-							disabled={isLoading}
-							className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)] transition-colors hover:border-red-400 hover:text-red-500 disabled:opacity-50"
-						>
-							卸载
-						</button>
+						<Button size="xs" onClick={() => onUninstall(skill.name)} disabled={isLoading}>卸载</Button>
 					</>
 				) : needsUpdate ? (
 					<>
-						<button
-							type="button"
-							onClick={() => onUpdate(skill.name)}
-							disabled={isLoading}
-							className="rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-fg)] transition-opacity hover:bg-[var(--accent-hover)] disabled:opacity-50"
-						>
-							{isLoading ? "更新中..." : "更新"}
-						</button>
-						<button
-							type="button"
-							onClick={() => onUninstall(skill.name)}
-							disabled={isLoading}
-							className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)] transition-colors hover:border-red-400 hover:text-red-500 disabled:opacity-50"
-						>
-							卸载
-						</button>
+						<Button size="xs" onClick={() => onUpdate(skill.name)} disabled={isLoading}>{isLoading ? "更新中..." : "更新"}</Button>
+						<Button size="xs" onClick={() => onUninstall(skill.name)} disabled={isLoading}>卸载</Button>
 					</>
 				) : (
-					<button
-						type="button"
-						onClick={() => onInstall(skill.name)}
-						disabled={isLoading}
-						className="rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-fg)] transition-opacity hover:bg-[var(--accent-hover)] disabled:opacity-50"
-					>
-						{isLoading ? "安装中..." : "安装"}
-					</button>
+					<Button size="xs" onClick={() => onInstall(skill.name)} disabled={isLoading}>{isLoading ? "安装中..." : "安装"}</Button>
 				)}
 			</div>
 		</div>
@@ -265,43 +230,15 @@ function MarketSkillRow({
 						<span className="rounded-lg bg-[var(--accent-dim)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)]">
 							已安装
 						</span>
-						<button
-							type="button"
-							onClick={() => onUninstall(skill.name)}
-							disabled={isLoading}
-							className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)] transition-colors hover:border-red-400 hover:text-red-500 disabled:opacity-50"
-						>
-							卸载
-						</button>
+						<Button size="xs" onClick={() => onUninstall(skill.name)} disabled={isLoading}>卸载</Button>
 					</>
 				) : needsUpdate ? (
 					<>
-						<button
-							type="button"
-							onClick={() => onUpdate(skill.name)}
-							disabled={isLoading}
-							className="rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-fg)] transition-opacity hover:bg-[var(--accent-hover)] disabled:opacity-50"
-						>
-							{isLoading ? "更新中..." : "更新"}
-						</button>
-						<button
-							type="button"
-							onClick={() => onUninstall(skill.name)}
-							disabled={isLoading}
-							className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)] transition-colors hover:border-red-400 hover:text-red-500 disabled:opacity-50"
-						>
-							卸载
-						</button>
+						<Button size="xs" onClick={() => onUpdate(skill.name)} disabled={isLoading}>{isLoading ? "更新中..." : "更新"}</Button>
+						<Button size="xs" onClick={() => onUninstall(skill.name)} disabled={isLoading}>卸载</Button>
 					</>
 				) : (
-					<button
-						type="button"
-						onClick={() => onInstall(skill.name)}
-						disabled={isLoading}
-						className="rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent-fg)] transition-opacity hover:bg-[var(--accent-hover)] disabled:opacity-50"
-					>
-						{isLoading ? "安装中..." : "安装"}
-					</button>
+					<Button size="xs" onClick={() => onInstall(skill.name)} disabled={isLoading}>{isLoading ? "安装中..." : "安装"}</Button>
 				)}
 			</div>
 		</div>
