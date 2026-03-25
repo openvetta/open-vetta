@@ -1,8 +1,7 @@
-import { homedir } from "node:os";
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
 import { emitTaskEvent, emitTaskStreamEvent } from "../ipc/scheduler.js";
-import type { ScheduledTask, TaskExecutionRecord, TaskMessage } from "./task-storage";
-import { appendMessage, createRecord, generateId, updateRecordMetadata, updateTaskLastRun } from "./task-storage";
+import type { ScheduledTask, TaskExecutionRecord } from "./task-storage";
+import { createRecord, generateId, updateRecordMetadata, updateTaskLastRun } from "./task-storage";
 
 interface ExecutingTask {
 	sessionId: string;
@@ -10,7 +9,6 @@ interface ExecutingTask {
 }
 
 const executingTasks = new Map<string, ExecutingTask>();
-const DEFAULT_WORKSPACE = `${homedir()}/.vetta/workspace`;
 
 export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Promise<void> {
 	const recordId = generateId();
@@ -20,6 +18,7 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		id: recordId,
 		taskId: task.id,
 		sessionId: "",
+		cwd: task.cwd,
 		startedAt: Date.now(),
 		completedAt: null,
 		status: "running",
@@ -28,9 +27,16 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 	};
 
 	try {
-		const result = await runtime.createSession({ cwd: DEFAULT_WORKSPACE });
+		const result = await runtime.createSession({ cwd: task.cwd });
 		sessionId = result.sessionId;
 		record.sessionId = sessionId;
+
+		// Name the session so it's identifiable in the sidebar
+		runtime.renameSessionById(sessionId, `[定时] ${task.name}`);
+
+		// Get session path for navigation
+		record.sessionPath = runtime.getSessionPath(sessionId);
+
 		await createRecord(record);
 
 		emitTaskEvent({
@@ -106,24 +112,6 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 					record.completedAt = Date.now();
 					record.responsePreview = responseText.slice(0, 500);
 					record.durationMs = record.completedAt - record.startedAt;
-
-					try {
-						const messages = runtime.getMessages(sessionId);
-						for (const m of messages) {
-							const msg: TaskMessage = {
-								role: m.role,
-								content: (m as { content?: unknown }).content,
-								...(m.role === "toolResult" && {
-									toolCallId: (m as { toolCallId?: string }).toolCallId,
-									toolName: (m as { toolName?: string }).toolName,
-									isError: (m as { isError?: boolean }).isError,
-								}),
-							};
-							await appendMessage(task.id, sessionId, msg);
-						}
-					} catch {
-						// ignore
-					}
 
 					await updateRecordMetadata(record);
 					await updateTaskLastRun(task.id, event.phase === "aborted" ? "failed" : "success");

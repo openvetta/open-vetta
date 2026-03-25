@@ -10,6 +10,7 @@ import {
 	lastTurnUsageAtom,
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
+	openSessionFnRef,
 	selectedFilePathAtom,
 	selectedSkillAtom,
 } from "@shared/store/atoms";
@@ -190,6 +191,9 @@ export function useSessionManager(): SessionManagerResult {
 
 	// Keep ref in sync so shortcut handler can call openSession
 	openSessionRef.current = openSession;
+
+	// Expose openSession globally via ref for other pages (e.g. AutomationPage)
+	openSessionFnRef.current = openSession;
 
 	const sendMessage = useCallback(async () => {
 		const session = activeSessionRef.current;

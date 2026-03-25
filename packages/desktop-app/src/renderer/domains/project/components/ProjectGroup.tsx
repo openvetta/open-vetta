@@ -162,16 +162,22 @@ export function ProjectGroup({
 											onDone={() => setRenamingSessionPath(null)}
 										/>
 									) : (
-										<span
-											className={cn(
-												"min-w-0 flex-1 truncate pl-[20px] text-[13px]",
-												isActive
-													? "font-medium text-[var(--text-1)]"
-													: "text-[var(--text-1)]",
+										<>
+											{label.startsWith("[定时]") && (
+												<span className="icon-[mdi--clock-outline] ml-[20px] shrink-0 text-[11px] text-[var(--text-2)]" />
 											)}
-										>
-											{label}
-										</span>
+											<span
+												className={cn(
+													"min-w-0 flex-1 truncate text-[13px]",
+													!label.startsWith("[定时]") && "pl-[20px]",
+													isActive
+														? "font-medium text-[var(--text-1)]"
+														: "text-[var(--text-1)]",
+												)}
+											>
+												{label.startsWith("[定时]") ? label.slice(5) : label}
+											</span>
+										</>
 									)}
 									<span className="shrink-0 text-[11px] text-[var(--text-2)]">
 										{relativeTime(session.modifiedAt)}

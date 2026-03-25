@@ -183,6 +183,8 @@ export interface ScheduledTask {
 	cron: string;
 	isOnce: boolean;
 	enabled: boolean;
+	/** Project working directory this task is associated with */
+	cwd: string;
 	modelId?: string;
 	createdAt: number;
 	updatedAt: number;
@@ -194,6 +196,10 @@ export interface TaskExecutionRecord {
 	id: string;
 	taskId: string;
 	sessionId: string;
+	/** Session file path for navigating to the conversation */
+	sessionPath?: string;
+	/** Project working directory */
+	cwd?: string;
 	startedAt: number;
 	completedAt: number | null;
 	status: "running" | "success" | "failed" | "aborted";
@@ -203,32 +209,11 @@ export interface TaskExecutionRecord {
 	durationMs?: number;
 }
 
-export interface TaskMessage {
-	role: string;
-	content: unknown;
-	toolCallId?: string;
-	toolName?: string;
-	isError?: boolean;
-}
-
 export type TaskEvent =
 	| { type: "task.started"; taskId: string; recordId: string }
 	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
 	| { type: "task.failed"; taskId: string; error: string }
 	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };
-
-export interface TaskStreamEvent {
-	taskId: string;
-	sessionId: string;
-	type: "message.delta" | "thinking.delta" | "tool.start" | "tool.end" | "toolcall.start" | "session.lifecycle";
-	delta?: string;
-	toolCallId?: string;
-	toolName?: string;
-	args?: Record<string, unknown>;
-	result?: unknown;
-	isError?: boolean;
-	phase?: string;
-}
 
 export interface DesktopTrayApi {
 	setQuitBehavior(hideToTray: boolean): Promise<void>;
@@ -247,11 +232,9 @@ export interface DesktopSchedulerApi {
 	/** Disable a task (set enabled=false and stop its scheduled job) */
 	disableTask(id: string): Promise<void>;
 	getRecords(taskId: string): Promise<TaskExecutionRecord[]>;
-	getRecordMessages(taskId: string, sessionId: string): Promise<TaskMessage[]>;
 	runTaskNow(id: string): Promise<void>;
 	abortTask(id: string): Promise<void>;
 	onTaskEvent(handler: (event: TaskEvent) => void): () => void;
-	onTaskStreamEvent(handler: (event: TaskStreamEvent) => void): () => void;
 }
 
 export interface DesktopApi {

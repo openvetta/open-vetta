@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { appendFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,8 @@ export interface ScheduledTask {
 	cron: string;
 	isOnce: boolean;
 	enabled: boolean;
+	/** Project working directory this task is associated with */
+	cwd: string;
 	modelId?: string;
 	createdAt: number;
 	updatedAt: number;
@@ -25,6 +27,10 @@ export interface TaskExecutionRecord {
 	id: string;
 	taskId: string;
 	sessionId: string;
+	/** Session file path for navigating to the conversation */
+	sessionPath?: string;
+	/** Project working directory */
+	cwd?: string;
 	startedAt: number;
 	completedAt: number | null;
 	status: "running" | "success" | "failed" | "aborted";
@@ -32,14 +38,6 @@ export interface TaskExecutionRecord {
 	responsePreview: string;
 	error?: string;
 	durationMs?: number;
-}
-
-export interface TaskMessage {
-	role: string;
-	content: unknown;
-	toolCallId?: string;
-	toolName?: string;
-	isError?: boolean;
 }
 
 async function ensureDirectories(): Promise<void> {
@@ -52,10 +50,13 @@ export async function loadTasks(): Promise<ScheduledTask[]> {
 		await ensureDirectories();
 		const data = await readFile(TASKS_FILE, "utf-8");
 		const tasks: ScheduledTask[] = JSON.parse(data);
-		// Backfill isOnce for old tasks that don't have the field
+		// Backfill fields for old tasks
 		for (const task of tasks) {
 			if (!("isOnce" in task)) {
 				(task as ScheduledTask).isOnce = false;
+			}
+			if (!("cwd" in task)) {
+				(task as ScheduledTask).cwd = `${homedir()}/.vetta/workspace`;
 			}
 		}
 		return tasks;
@@ -109,43 +110,12 @@ export async function loadRecords(taskId: string): Promise<TaskExecutionRecord[]
 	return records;
 }
 
-export async function loadRecordMessages(taskId: string, sessionId: string): Promise<TaskMessage[]> {
-	const filePath = getRecordFilePath(taskId, sessionId);
-	if (!existsSync(filePath)) {
-		return [];
-	}
-
-	try {
-		const content = await readFile(filePath, "utf-8");
-		const lines = content.trim().split("\n").filter(Boolean);
-		if (lines.length <= 1) {
-			return [];
-		}
-		const messages: TaskMessage[] = [];
-		for (let i = 1; i < lines.length; i++) {
-			try {
-				messages.push(JSON.parse(lines[i]) as TaskMessage);
-			} catch {
-				// skip malformed lines
-			}
-		}
-		return messages;
-	} catch {
-		return [];
-	}
-}
-
 export async function createRecord(record: TaskExecutionRecord): Promise<void> {
 	const taskDir = getTaskRecordsDir(record.taskId);
 	await mkdir(taskDir, { recursive: true });
 	const filePath = getRecordFilePath(record.taskId, record.sessionId);
 	const metadataLine = JSON.stringify(record);
 	await writeFile(filePath, `${metadataLine}\n`, "utf-8");
-}
-
-export async function appendMessage(taskId: string, sessionId: string, message: TaskMessage): Promise<void> {
-	const filePath = getRecordFilePath(taskId, sessionId);
-	await appendFile(filePath, `${JSON.stringify(message)}\n`, "utf-8");
 }
 
 export async function updateRecordMetadata(record: TaskExecutionRecord): Promise<void> {

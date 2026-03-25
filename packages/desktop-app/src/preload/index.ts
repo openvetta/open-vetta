@@ -26,11 +26,9 @@ const SCHEDULER_CHANNELS = {
 	TOGGLE_TASK: "vetta:scheduler:toggle-task",
 	DISABLE_TASK: "vetta:scheduler:disable-task",
 	GET_RECORDS: "vetta:scheduler:get-records",
-	GET_RECORD_MESSAGES: "vetta:scheduler:get-record-messages",
 	RUN_NOW: "vetta:scheduler:run-now",
 	ABORT: "vetta:scheduler:abort",
 	EVENT: "vetta:scheduler:event",
-	STREAM_EVENT: "vetta:scheduler:stream-event",
 } as const;
 
 const api: DesktopApi = {
@@ -124,8 +122,6 @@ const api: DesktopApi = {
 		toggleTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.TOGGLE_TASK, id),
 		disableTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.DISABLE_TASK, id),
 		getRecords: (taskId) => ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_RECORDS, taskId),
-		getRecordMessages: (taskId, sessionId) =>
-			ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_RECORD_MESSAGES, taskId, sessionId),
 		runTaskNow: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.RUN_NOW, id),
 		abortTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.ABORT, id),
 		onTaskEvent: (handler) => {
@@ -135,17 +131,6 @@ const api: DesktopApi = {
 			ipcRenderer.on(SCHEDULER_CHANNELS.EVENT, listener);
 			return () => {
 				ipcRenderer.removeListener(SCHEDULER_CHANNELS.EVENT, listener);
-			};
-		},
-		onTaskStreamEvent: (handler) => {
-			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
-				handler(data as Parameters<typeof handler>[0]);
-			};
-			ipcRenderer.on(SCHEDULER_CHANNELS.STREAM_EVENT, listener);
-			return () => {
-				console.log("卸载");
-
-				ipcRenderer.removeListener(SCHEDULER_CHANNELS.STREAM_EVENT, listener);
 			};
 		},
 	},
