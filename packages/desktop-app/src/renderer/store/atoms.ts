@@ -230,6 +230,8 @@ export interface ScheduledTask {
 	name: string;
 	prompt: string;
 	cron: string;
+	/** Whether this task runs only once and disables itself after execution */
+	isOnce: boolean;
 	enabled: boolean;
 	modelId?: string;
 	createdAt: number;

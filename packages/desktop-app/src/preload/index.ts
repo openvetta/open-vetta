@@ -24,6 +24,7 @@ const SCHEDULER_CHANNELS = {
 	UPDATE_TASK: "vetta:scheduler:update-task",
 	DELETE_TASK: "vetta:scheduler:delete-task",
 	TOGGLE_TASK: "vetta:scheduler:toggle-task",
+	DISABLE_TASK: "vetta:scheduler:disable-task",
 	GET_RECORDS: "vetta:scheduler:get-records",
 	GET_RECORD_MESSAGES: "vetta:scheduler:get-record-messages",
 	RUN_NOW: "vetta:scheduler:run-now",
@@ -101,6 +102,7 @@ const api: DesktopApi = {
 		updateTask: (id, patch) => ipcRenderer.invoke(SCHEDULER_CHANNELS.UPDATE_TASK, id, patch),
 		deleteTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.DELETE_TASK, id),
 		toggleTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.TOGGLE_TASK, id),
+		disableTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.DISABLE_TASK, id),
 		getRecords: (taskId) => ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_RECORDS, taskId),
 		getRecordMessages: (taskId, sessionId) =>
 			ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_RECORD_MESSAGES, taskId, sessionId),

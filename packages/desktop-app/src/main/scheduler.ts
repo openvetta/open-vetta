@@ -62,6 +62,11 @@ export function unscheduleTaskInCron(taskId: string): void {
 	}
 }
 
+/** Stop and remove a scheduled job without changing task enabled state */
+export function disableTaskInCron(taskId: string): void {
+	unscheduleTaskInCron(taskId);
+}
+
 export async function rescheduleAll(): Promise<void> {
 	for (const job of scheduledJobs.values()) {
 		job.stop();

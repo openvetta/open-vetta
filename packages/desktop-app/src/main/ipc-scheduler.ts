@@ -10,6 +10,7 @@ const CHANNELS = {
 	UPDATE_TASK: "vetta:scheduler:update-task",
 	DELETE_TASK: "vetta:scheduler:delete-task",
 	TOGGLE_TASK: "vetta:scheduler:toggle-task",
+	DISABLE_TASK: "vetta:scheduler:disable-task",
 	GET_RECORDS: "vetta:scheduler:get-records",
 	GET_RECORD_MESSAGES: "vetta:scheduler:get-record-messages",
 	RUN_NOW: "vetta:scheduler:run-now",
@@ -127,6 +128,17 @@ export function registerSchedulerIpc(webContents: WebContents): () => void {
 		}
 	});
 
+	ipcMain.handle(CHANNELS.DISABLE_TASK, async (_, id: string) => {
+		const tasks = await loadTasks();
+		const task = tasks.find((t) => t.id === id);
+		if (!task || !task.enabled) return;
+
+		task.enabled = false;
+		task.updatedAt = Date.now();
+		await saveTasks(tasks);
+		unscheduleTaskInCron(id);
+	});
+
 	ipcMain.handle(CHANNELS.GET_RECORDS, async (_, taskId: string) => {
 		return loadRecords(taskId);
 	});
@@ -154,6 +166,7 @@ export function registerSchedulerIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.UPDATE_TASK);
 		ipcMain.removeHandler(CHANNELS.DELETE_TASK);
 		ipcMain.removeHandler(CHANNELS.TOGGLE_TASK);
+		ipcMain.removeHandler(CHANNELS.DISABLE_TASK);
 		ipcMain.removeHandler(CHANNELS.GET_RECORDS);
 		ipcMain.removeHandler(CHANNELS.GET_RECORD_MESSAGES);
 		ipcMain.removeHandler(CHANNELS.ABORT);

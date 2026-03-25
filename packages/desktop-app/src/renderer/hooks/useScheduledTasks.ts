@@ -1,17 +1,9 @@
 import { useAtom } from "jotai";
 import { useCallback } from "react";
 import { type ScheduledTask, scheduledTasksAtom } from "../store/atoms";
+import { CRON_PRESETS } from "./CRON_PRESETS";
 
-export const CRON_PRESETS = [
-	{ label: "每5分钟", value: "*/5 * * * *" },
-	{ label: "每15分钟", value: "*/15 * * * *" },
-	{ label: "每30分钟", value: "*/30 * * * *" },
-	{ label: "每小时", value: "0 * * * *" },
-	{ label: "每天上午9点", value: "0 9 * * *" },
-	{ label: "每天下午6点", value: "0 18 * * *" },
-	{ label: "每周一上午9点", value: "0 9 * * 1" },
-	{ label: "每月1日上午9点", value: "0 9 1 * *" },
-];
+export { CRON_PRESETS };
 
 export function useScheduledTasks() {
 	const [tasks, setTasks] = useAtom(scheduledTasksAtom);
