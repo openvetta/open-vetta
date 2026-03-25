@@ -135,6 +135,15 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 						sessionId,
 						status: event.phase === "aborted" ? "aborted" : "success",
 					});
+
+					// Auto-disable one-time tasks after execution completes
+					if (task.isOnce && event.phase === "agent_end") {
+						// Dynamically import to avoid circular dependency
+						const { disableTaskInCron } = await import("./scheduler.js");
+						disableTaskInCron(task.id);
+						const { updateTaskEnabled } = await import("./task-storage");
+						await updateTaskEnabled(task.id, false);
+					}
 				}
 			}
 		});

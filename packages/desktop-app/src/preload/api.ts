@@ -135,6 +135,7 @@ export interface ScheduledTask {
 	name: string;
 	prompt: string;
 	cron: string;
+	isOnce: boolean;
 	enabled: boolean;
 	modelId?: string;
 	createdAt: number;
@@ -191,6 +192,8 @@ export interface DesktopSchedulerApi {
 	updateTask(id: string, patch: Partial<ScheduledTask>): Promise<void>;
 	deleteTask(id: string): Promise<void>;
 	toggleTask(id: string): Promise<void>;
+	/** Disable a task (set enabled=false and stop its scheduled job) */
+	disableTask(id: string): Promise<void>;
 	getRecords(taskId: string): Promise<TaskExecutionRecord[]>;
 	getRecordMessages(taskId: string, sessionId: string): Promise<TaskMessage[]>;
 	runTaskNow(id: string): Promise<void>;

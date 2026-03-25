@@ -12,6 +12,7 @@ export interface ScheduledTask {
 	name: string;
 	prompt: string;
 	cron: string;
+	isOnce: boolean;
 	enabled: boolean;
 	modelId?: string;
 	createdAt: number;
@@ -50,7 +51,14 @@ export async function loadTasks(): Promise<ScheduledTask[]> {
 	try {
 		await ensureDirectories();
 		const data = await readFile(TASKS_FILE, "utf-8");
-		return JSON.parse(data);
+		const tasks: ScheduledTask[] = JSON.parse(data);
+		// Backfill isOnce for old tasks that don't have the field
+		for (const task of tasks) {
+			if (!("isOnce" in task)) {
+				(task as ScheduledTask).isOnce = false;
+			}
+		}
+		return tasks;
 	} catch {
 		return [];
 	}
@@ -208,6 +216,16 @@ export async function updateTaskLastRun(taskId: string, status: "success" | "fai
 	if (task) {
 		task.lastRunAt = Date.now();
 		task.lastRunStatus = status;
+		task.updatedAt = Date.now();
+		await saveTasks(tasks);
+	}
+}
+
+export async function updateTaskEnabled(taskId: string, enabled: boolean): Promise<void> {
+	const tasks = await loadTasks();
+	const task = tasks.find((t) => t.id === taskId);
+	if (task) {
+		task.enabled = enabled;
 		task.updatedAt = Date.now();
 		await saveTasks(tasks);
 	}
