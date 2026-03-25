@@ -160,6 +160,7 @@ Multiple agents may work on different files in the same worktree simultaneously.
 
 ### Committing
 - 使用中文写 Commit Message
+- **不要**在 commit message 中添加作者信息（如 `Co-Authored-By`、`Signed-off-by` 等）
 - **ONLY commit files YOU changed in THIS session**
 - ALWAYS include `fixes #<number>` or `closes #<number>` in the commit message when there is a related ticket
 - NEVER use `git add -A` or `git add .` - these sweep up changes from other agents
