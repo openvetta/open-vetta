@@ -9,6 +9,8 @@ export default defineConfig({
 	base: "./",
 	resolve: {
 		alias: {
+			"@shared": path.resolve(__dirname, "./src/renderer/shared"),
+			"@domains": path.resolve(__dirname, "./src/renderer/domains"),
 			"@": path.resolve(__dirname, "./src"),
 		}
 	},
