@@ -76,7 +76,7 @@ export function CodePreview({ content, extension, theme }: CodePreviewProps): JS
 	if (html === null) {
 		return (
 			<div className="flex items-center justify-center p-8">
-				<span className="icon-[mdi--loading] animate-spin text-[24px] text-[var(--text-3)]" />
+				<span className="icon-[mdi--loading] animate-spin text-[24px] text-muted-foreground/50" />
 			</div>
 		);
 	}
@@ -84,7 +84,7 @@ export function CodePreview({ content, extension, theme }: CodePreviewProps): JS
 	if (html === "") {
 		// Fallback: plain text
 		return (
-			<pre className="whitespace-pre-wrap break-words p-4 font-mono text-[12px] leading-[1.6] text-[var(--text-1)]">
+			<pre className="whitespace-pre-wrap break-words p-4 font-mono text-[12px] leading-[1.6] text-foreground">
 				{content}
 			</pre>
 		);

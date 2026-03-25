@@ -49,7 +49,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 							alt="Vetta"
 							className="h-[22px] w-[22px] rounded-[6px] shadow-[0-1px-3px_rgba(0,0,0,0.2)]"
 						/>
-						<span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+						<span className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">
 							Vetta
 						</span>
 					</div>
@@ -66,8 +66,8 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 						onClick={() => void navigate({ to: path })}
 						className={`no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 							currentPath === path
-								? "bg-[var(--hover-strong)] font-medium text-[var(--text-1)]"
-								: "text-[var(--text-1)] hover:bg-[var(--hover-strong)]"
+								? "bg-accent font-medium text-foreground"
+								: "text-foreground hover:bg-accent"
 						}`}
 					>
 						<span className={`${icon} h-4 w-4 shrink-0`} />
@@ -78,7 +78,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 
 			{/* Section header: title + tab toggle */}
 			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
-				<span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-1)]">
+				<span className="text-[11px] font-bold uppercase tracking-wide text-foreground">
 					{tab === "projects" ? "项目" : "文件"}
 				</span>
 				<div className="flex items-center gap-1">
@@ -97,7 +97,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 			</div>
 
 			{/* Settings */}
-			<div className="border-t border-[var(--border)] px-1.5 py-1.5">
+			<div className="border-t border-border px-1.5 py-1.5">
 				<SettingsMenu />
 			</div>
 			<ResizeHandle side="right" onResize={onResize} />

@@ -58,7 +58,7 @@ export function SelectField({
 			<select
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
-				className="h-8 w-full appearance-none rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] pl-3 pr-8 text-[12px] text-[var(--text-1)] outline-none transition-colors hover:bg-[var(--surface-overlay)] focus:border-[var(--accent)]"
+				className="h-8 w-full appearance-none rounded-lg border border-input bg-secondary pl-3 pr-8 text-[12px] text-foreground outline-none transition-colors hover:bg-accent focus:border-ring"
 			>
 				{options.map((o) => (
 					<option key={o.value} value={o.value}>
@@ -66,7 +66,7 @@ export function SelectField({
 					</option>
 				))}
 			</select>
-			<span className="icon-[mdi--chevron-down] pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-2)]" />
+			<span className="icon-[mdi--chevron-down] pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
 		</div>
 	);
 }
@@ -88,7 +88,7 @@ export function InputField({
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
 			placeholder={placeholder}
-			className="h-8 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-2)]/40 outline-none transition-colors hover:bg-[var(--surface-overlay)] focus:border-[var(--accent)]"
+			className="h-8 w-full rounded-lg border border-input bg-secondary px-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus:border-ring"
 		/>
 	);
 }
@@ -153,7 +153,7 @@ function ProviderForm({
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">服务商名称 *</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">服务商名称 *</label>
 					<InputField
 						value={form.name}
 						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -161,7 +161,7 @@ function ProviderForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">API 类型</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">API 类型</label>
 					<SelectField
 						value={form.api}
 						onChange={(v) => setForm((f) => ({ ...f, api: v }))}
@@ -169,7 +169,7 @@ function ProviderForm({
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">Base URL</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">Base URL</label>
 					<InputField
 						value={form.baseUrl}
 						onChange={(v) => setForm((f) => ({ ...f, baseUrl: v }))}
@@ -177,7 +177,7 @@ function ProviderForm({
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">API Key</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">API Key</label>
 					<InputField
 						value={form.apiKey}
 						onChange={(v) => setForm((f) => ({ ...f, apiKey: v }))}
@@ -186,13 +186,13 @@ function ProviderForm({
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">自定义 Headers (每行一个 Key: Value)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">自定义 Headers (每行一个 Key: Value)</label>
 					<textarea
 						value={form.headers}
 						onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))}
 						placeholder={"X-Custom-Header: value\nAuthorization: Bearer xxx"}
 						rows={2}
-						className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 py-2 font-mono text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-2)]/40 outline-none transition-colors hover:bg-[var(--surface-overlay)] focus:border-[var(--accent)] resize-none"
+						className="w-full rounded-lg border border-input bg-secondary px-3 py-2 font-mono text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus:border-ring resize-none"
 					/>
 				</div>
 				<div className="col-span-2">
@@ -246,7 +246,7 @@ function ModelForm({
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">模型 ID *</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">模型 ID *</label>
 					<InputField
 						value={form.id}
 						onChange={(v) => setForm((f) => ({ ...f, id: v }))}
@@ -254,7 +254,7 @@ function ModelForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">显示名称</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">显示名称</label>
 					<InputField
 						value={form.name}
 						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -262,7 +262,7 @@ function ModelForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">API 类型</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">API 类型</label>
 					<InputField
 						value={form.api}
 						onChange={(v) => setForm((f) => ({ ...f, api: v }))}
@@ -270,7 +270,7 @@ function ModelForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">输入能力</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">输入能力</label>
 					<div className="flex items-center gap-3 h-8">
 						{INPUT_OPTIONS.map((opt) => (
 							<label key={opt.value} className="flex items-center gap-1.5 cursor-pointer select-none">
@@ -280,21 +280,21 @@ function ModelForm({
 									className={cn(
 										"flex h-4 w-4 items-center justify-center rounded border transition-colors",
 										form.input.includes(opt.value)
-											? "border-[var(--accent)] bg-[var(--accent)]"
-											: "border-[var(--border-strong)] bg-[var(--surface-raised)] hover:bg-[var(--surface-overlay)]",
+											? "border-primary bg-primary"
+											: "border-input bg-secondary hover:bg-accent",
 									)}
 								>
 									{form.input.includes(opt.value) && (
-										<span className="icon-[mdi--check] h-3 w-3 text-[var(--accent-fg)]" />
+										<span className="icon-[mdi--check] h-3 w-3 text-primary-foreground" />
 									)}
 								</button>
-								<span className="text-[12px] text-[var(--text-1)]">{opt.label}</span>
+								<span className="text-[12px] text-foreground">{opt.label}</span>
 							</label>
 						))}
 					</div>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">上下文窗口</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">上下文窗口</label>
 					<InputField
 						value={form.contextWindow}
 						onChange={(v) => setForm((f) => ({ ...f, contextWindow: v }))}
@@ -302,7 +302,7 @@ function ModelForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">最大输出 Tokens</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">最大输出 Tokens</label>
 					<InputField
 						value={form.maxTokens}
 						onChange={(v) => setForm((f) => ({ ...f, maxTokens: v }))}
@@ -613,9 +613,9 @@ export function ModelsSettings(): JSX.Element {
 	if (!config) {
 		return (
 			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-				<h1 className="mb-6 text-[20px] font-bold text-[var(--text-1)]">模型配置</h1>
+				<h1 className="mb-6 text-[20px] font-bold text-foreground">模型配置</h1>
 				<div className="flex items-center justify-center py-16">
-					<span className="text-[13px] text-[var(--text-2)]">加载中…</span>
+					<span className="text-[13px] text-muted-foreground">加载中…</span>
 				</div>
 			</div>
 		);
@@ -626,7 +626,7 @@ export function ModelsSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-[20px] font-bold text-[var(--text-1)]">模型配置</h1>
+				<h1 className="text-[20px] font-bold text-foreground">模型配置</h1>
 				<SegmentedControl
 					items={[
 						{ key: "visual" as ModelsEditMode, label: "视图", icon: "icon-[mdi--view-list-outline]" },
@@ -642,7 +642,7 @@ export function ModelsSettings(): JSX.Element {
 					{/* Provider list */}
 					<SettingSection title="服务商">
 						{providerNames.length === 0 && !addingProvider && (
-							<div className="px-5 py-8 text-center text-[12px] text-[var(--text-2)]">
+							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 								尚未配置任何服务商，点击下方按钮添加
 							</div>
 						)}
@@ -656,7 +656,7 @@ export function ModelsSettings(): JSX.Element {
 							return (
 								<div
 									key={name}
-									className="border-b border-[var(--border)] last:border-b-0"
+									className="border-b border-border last:border-b-0"
 								>
 									{/* Provider header */}
 									<div className="flex items-center gap-3 px-5 py-3.5">
@@ -667,13 +667,13 @@ export function ModelsSettings(): JSX.Element {
 										>
 											<span
 												className={cn(
-													"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-[var(--text-2)] transition-transform",
+													"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
 													isExpanded && "rotate-90",
 												)}
 											/>
 											<div className="min-w-0 flex-1">
-												<div className="text-[13px] font-medium text-[var(--text-1)]">{name}</div>
-												<div className="mt-0.5 text-[11px] text-[var(--text-2)]">
+												<div className="text-[13px] font-medium text-foreground">{name}</div>
+												<div className="mt-0.5 text-[11px] text-muted-foreground">
 													{provider.api || "openai-completions"} · {models.length} 个模型
 													{provider.baseUrl && ` · ${provider.baseUrl}`}
 												</div>
@@ -687,7 +687,7 @@ export function ModelsSettings(): JSX.Element {
 													startEditProvider(name);
 													setExpandedProvider(name);
 												}}
-												className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 												title="编辑"
 											>
 												<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
@@ -698,7 +698,7 @@ export function ModelsSettings(): JSX.Element {
 													e.stopPropagation();
 													void handleDeleteProvider(name);
 												}}
-												className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
 												title="删除"
 											>
 												<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
@@ -708,7 +708,7 @@ export function ModelsSettings(): JSX.Element {
 
 									{/* Edit provider form (inline) */}
 									{isExpanded && isEditing && (
-										<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/50 px-5 py-4">
+										<div className="border-t border-border bg-secondary/50 px-5 py-4">
 											<ProviderForm
 												form={providerForm}
 												setForm={setProviderForm}
@@ -725,9 +725,9 @@ export function ModelsSettings(): JSX.Element {
 
 									{/* Expanded: models list */}
 									{isExpanded && !isEditing && (
-										<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/30">
+										<div className="border-t border-border bg-secondary/30">
 											{models.length === 0 && addingModelFor !== name && (
-												<div className="px-5 py-6 text-center text-[12px] text-[var(--text-2)]">
+												<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
 													暂无自定义模型
 												</div>
 											)}
@@ -739,7 +739,7 @@ export function ModelsSettings(): JSX.Element {
 
 												if (isModelEditing) {
 													return (
-														<div key={model.id} className="border-b border-[var(--border)]/50 px-5 py-3 last:border-b-0">
+														<div key={model.id} className="border-b border-border/50 px-5 py-3 last:border-b-0">
 															<ModelForm
 																form={modelForm}
 																setForm={setModelForm}
@@ -758,18 +758,18 @@ export function ModelsSettings(): JSX.Element {
 												return (
 													<div
 														key={model.id}
-														className="flex items-center justify-between border-b border-[var(--border)]/50 px-5 py-2.5 last:border-b-0"
+														className="flex items-center justify-between border-b border-border/50 px-5 py-2.5 last:border-b-0"
 													>
 														<div className="min-w-0 flex-1">
-															<div className="flex items-center gap-2 text-[12px] font-medium text-[var(--text-1)]">
+															<div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
 																{model.name || model.id}
 																{isDefault && (
-																	<span className="rounded-full bg-[var(--accent)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[var(--accent)]">
+																	<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 																		默认
 																	</span>
 																)}
 															</div>
-															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-[var(--text-2)]">
+															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
 																<span>{model.id}</span>
 																{model.api && <span>· {model.api}</span>}
 																{model.input && model.input.includes("image") && (
@@ -797,8 +797,8 @@ export function ModelsSettings(): JSX.Element {
 																className={cn(
 																	"flex h-6 w-6 items-center justify-center rounded-md transition-colors",
 																	isDefault
-																		? "text-[var(--accent)]"
-																		: "text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--accent)]",
+																		? "text-primary"
+																		: "text-muted-foreground hover:bg-accent hover:text-primary",
 																)}
 																title={isDefault ? "取消默认" : "设为默认模型"}
 															>
@@ -807,7 +807,7 @@ export function ModelsSettings(): JSX.Element {
 															<button
 																type="button"
 																onClick={() => startEditModel(name, model.id)}
-																className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-2)] transition-colors hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+																className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 																title="编辑模型"
 															>
 																<span className="icon-[mdi--pencil-outline] h-3 w-3" />
@@ -815,7 +815,7 @@ export function ModelsSettings(): JSX.Element {
 															<button
 																type="button"
 																onClick={() => void handleDeleteModel(name, model.id)}
-																className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+																className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
 																title="删除模型"
 															>
 																<span className="icon-[mdi--close] h-3 w-3" />
@@ -827,7 +827,7 @@ export function ModelsSettings(): JSX.Element {
 
 											{/* Add model form */}
 											{addingModelFor === name ? (
-												<div className="border-t border-[var(--border)]/50 px-5 py-3">
+												<div className="border-t border-border/50 px-5 py-3">
 													<ModelForm
 														form={modelForm}
 														setForm={setModelForm}
@@ -841,7 +841,7 @@ export function ModelsSettings(): JSX.Element {
 													/>
 												</div>
 											) : (
-												<div className="border-t border-[var(--border)]/50 px-5 py-2">
+												<div className="border-t border-border/50 px-5 py-2">
 													<button
 														type="button"
 														onClick={() => {
@@ -849,7 +849,7 @@ export function ModelsSettings(): JSX.Element {
 															setEditingModel(null);
 															setModelForm({ ...emptyModel });
 														}}
-														className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10"
+														className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-primary transition-colors hover:bg-primary/10"
 													>
 														<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 														添加模型
@@ -864,7 +864,7 @@ export function ModelsSettings(): JSX.Element {
 
 						{/* Add provider form */}
 						{addingProvider && (
-							<div className="border-t border-[var(--border)] px-5 py-4">
+							<div className="border-t border-border px-5 py-4">
 								<ProviderForm
 									form={providerForm}
 									setForm={setProviderForm}
@@ -889,7 +889,7 @@ export function ModelsSettings(): JSX.Element {
 								setEditingProvider(null);
 								setProviderForm({ ...emptyProvider });
 							}}
-							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] py-3 text-[13px] text-[var(--text-2)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
 						>
 							<span className="icon-[mdi--plus] h-4 w-4" />
 							添加服务商
@@ -906,7 +906,7 @@ export function ModelsSettings(): JSX.Element {
 										type="button"
 										onClick={() => void handleRefreshRemote()}
 										disabled={refreshing}
-										className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-[var(--accent)] transition-colors hover:bg-[var(--accent)]/10 disabled:opacity-50"
+										className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
 									>
 										<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
 										{refreshing ? "刷新中…" : "刷新"}
@@ -921,7 +921,7 @@ export function ModelsSettings(): JSX.Element {
 								</div>
 							)}
 							{Object.keys(remoteProviders).length === 0 && !remoteError && (
-								<div className="px-5 py-6 text-center text-[12px] text-[var(--text-2)]">
+								<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
 									暂无远程服务商，点击刷新获取
 								</div>
 							)}
@@ -929,7 +929,7 @@ export function ModelsSettings(): JSX.Element {
 								const models = provider.models ?? [];
 								const isExpanded = expandedRemoteProvider === name;
 								return (
-									<div key={name} className="border-b border-[var(--border)] last:border-b-0">
+									<div key={name} className="border-b border-border last:border-b-0">
 										{/* Provider header -- same layout as local providers */}
 										<div className="flex items-center gap-3 px-5 py-3.5">
 											<button
@@ -939,18 +939,18 @@ export function ModelsSettings(): JSX.Element {
 											>
 												<span
 													className={cn(
-														"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-[var(--text-2)] transition-transform",
+														"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
 														isExpanded && "rotate-90",
 													)}
 												/>
 												<div className="min-w-0 flex-1">
-													<div className="flex items-center gap-2 text-[13px] font-medium text-[var(--text-1)]">
+													<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
 														{name}
 														<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
 															remote
 														</span>
 													</div>
-													<div className="mt-0.5 text-[11px] text-[var(--text-2)]">
+													<div className="mt-0.5 text-[11px] text-muted-foreground">
 														{provider.api || "openai-completions"} · {models.length} 个模型
 														{provider.baseUrl && ` · ${provider.baseUrl}`}
 													</div>
@@ -960,22 +960,22 @@ export function ModelsSettings(): JSX.Element {
 
 										{/* Expanded: models list */}
 										{isExpanded && (
-											<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/30">
+											<div className="border-t border-border bg-secondary/30">
 												{models.length === 0 && (
-													<div className="px-5 py-6 text-center text-[12px] text-[var(--text-2)]">
+													<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
 														暂无模型
 													</div>
 												)}
 												{models.map((model) => (
 													<div
 														key={model.id}
-														className="flex items-center justify-between border-b border-[var(--border)]/50 px-5 py-2.5 last:border-b-0"
+														className="flex items-center justify-between border-b border-border/50 px-5 py-2.5 last:border-b-0"
 													>
 														<div className="min-w-0 flex-1">
-															<div className="text-[12px] font-medium text-[var(--text-1)]">
+															<div className="text-[12px] font-medium text-foreground">
 																{model.name || model.id}
 															</div>
-															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-[var(--text-2)]">
+															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
 																<span>{model.id}</span>
 																{model.api && <span>· {model.api}</span>}
 																{model.input?.includes("image") && (
@@ -1006,7 +1006,7 @@ export function ModelsSettings(): JSX.Element {
 				/* JSON mode */
 				<div className="mb-6">
 					<div className="mb-3 flex items-center justify-between">
-						<h2 className="text-[15px] font-semibold text-[var(--text-1)]">编辑 JSON</h2>
+						<h2 className="text-[15px] font-semibold text-foreground">编辑 JSON</h2>
 						<Button
 							variant="primary"
 							size="sm"
@@ -1016,7 +1016,7 @@ export function ModelsSettings(): JSX.Element {
 							{saving ? "保存中…" : "保存"}
 						</Button>
 					</div>
-					<div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+					<div className="overflow-hidden rounded-xl border border-border bg-muted">
 						<textarea
 							value={jsonText}
 							onChange={(e) => {
@@ -1024,7 +1024,7 @@ export function ModelsSettings(): JSX.Element {
 								setJsonError(null);
 							}}
 							spellCheck={false}
-							className="w-full resize-none bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-[var(--text-1)] outline-none placeholder:text-[var(--text-2)]/40"
+							className="w-full resize-none bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/40"
 							style={{ minHeight: "400px" }}
 							placeholder='{ "providers": {} }'
 						/>
@@ -1039,7 +1039,7 @@ export function ModelsSettings(): JSX.Element {
 			)}
 
 			{/* Config file path hint */}
-			<div className="mt-6 text-center text-[11px] text-[var(--text-2)]/60">
+			<div className="mt-6 text-center text-[11px] text-muted-foreground/60">
 				配置文件路径: ~/.vetta/agent/models.json
 			</div>
 		</div>

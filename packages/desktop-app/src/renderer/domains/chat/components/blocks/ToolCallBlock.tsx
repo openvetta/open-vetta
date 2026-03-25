@@ -37,17 +37,17 @@ function toolIcon(name: string): string {
 /** Status colors */
 function statusColor(status: ToolCallBlock["status"]): string {
 	switch (status) {
-		case "pending": return "var(--tool-pending)";
-		case "success": return "var(--tool-success)";
-		case "error": return "var(--tool-error)";
+		case "pending": return "var(--muted-foreground)";
+		case "success": return "var(--chart-4, #22c55e)";
+		case "error": return "var(--destructive)";
 	}
 }
 
 function statusBg(status: ToolCallBlock["status"]): string {
 	switch (status) {
-		case "pending": return "var(--tool-pending-bg)";
-		case "success": return "var(--tool-success-bg)";
-		case "error": return "var(--tool-error-bg)";
+		case "pending": return "var(--muted)";
+		case "success": return "oklch(from var(--chart-4, #22c55e) l c h / 0.1)";
+		case "error": return "oklch(from var(--destructive) l c h / 0.1)";
 	}
 }
 
@@ -59,12 +59,12 @@ function ToolHeader({ block }: { block: ToolCallBlock }): JSX.Element {
 	if (mcp) {
 		return (
 			<div className="flex items-center gap-1.5 text-[12px]">
-				<span className="rounded bg-[var(--accent-dim)] px-1 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+				<span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] font-semibold text-primary">
 					MCP:{mcp.server}
 				</span>
-				<span className="font-semibold text-[var(--text-1)]">{mcp.tool}</span>
+				<span className="font-semibold text-foreground">{mcp.tool}</span>
 				{(args.path || args.uri || args.url || args.file_path) && (
-					<span className="text-[var(--accent)] opacity-70">
+					<span className="text-primary opacity-70">
 						{shortenPath(String(args.path || args.uri || args.url || args.file_path))}
 					</span>
 				)}
@@ -92,9 +92,9 @@ function ToolHeader({ block }: { block: ToolCallBlock }): JSX.Element {
 
 	return (
 		<div className="flex items-center gap-1.5 text-[12px]">
-			<span className="font-semibold text-[var(--text-1)]">{name}</span>
+			<span className="font-semibold text-foreground">{name}</span>
 			{detail && (
-				<span className="min-w-0 truncate text-[var(--text-2)]">{detail}</span>
+				<span className="min-w-0 truncate text-muted-foreground">{detail}</span>
 			)}
 		</div>
 	);
@@ -122,8 +122,8 @@ function ToolArgs({ args, toolName }: { args: Record<string, unknown>; toolName:
 		<div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
 			{entries.map(([key, val]) => (
 				<span key={key}>
-					<span className="text-[var(--text-3)]">{key}:</span>{" "}
-					<span className="text-[var(--text-2)]">
+					<span className="text-muted-foreground/50">{key}:</span>{" "}
+					<span className="text-muted-foreground">
 						{typeof val === "string" && val.length > 60 ? `${val.slice(0, 57)}...` : String(val)}
 					</span>
 				</span>
@@ -190,7 +190,7 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 				{/* Expand/collapse chevron */}
 				{hasResult && (
 					<span
-						className={`icon-[mdi--chevron-down] h-3.5 w-3.5 shrink-0 text-[var(--text-3)] transition-transform ${expanded ? "rotate-180" : ""}`}
+						className={`icon-[mdi--chevron-down] h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform ${expanded ? "rotate-180" : ""}`}
 					/>
 				)}
 			</button>
@@ -204,8 +204,8 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 
 			{/* Content preview for write/edit */}
 			{contentPreview && (
-				<div className="border-t border-[var(--border)] px-3 py-2">
-					<pre className="whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-[var(--text-2)] opacity-80">
+				<div className="border-t border-border px-3 py-2">
+					<pre className="whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground opacity-80">
 						{contentPreview}
 					</pre>
 				</div>
@@ -213,16 +213,16 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 
 			{/* Result */}
 			{hasResult && (
-				<div className="border-t border-[var(--border)] px-3 py-2">
+				<div className="border-t border-border px-3 py-2">
 					<pre
-						className="whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-[var(--text-2)]"
+						className="whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground"
 					>
 						{expanded || !needsTruncation
 							? block.result
 							: `${resultLines.slice(0, maxCollapsedLines).join("\n")}\n... (${resultLines.length - maxCollapsedLines} more lines)`}
 					</pre>
 					{block.isError && (
-						<div className="mt-1 text-[11px] font-medium text-[var(--tool-error)]">Error</div>
+						<div className="mt-1 text-[11px] font-medium text-destructive">Error</div>
 					)}
 				</div>
 			)}

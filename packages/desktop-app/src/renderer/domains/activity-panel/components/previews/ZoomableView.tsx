@@ -156,8 +156,8 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 			tabIndex={0}
 			className={
 				isFullscreen
-					? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--content-bg)] outline-none"
-					: "relative flex flex-1 flex-col overflow-hidden bg-[var(--content-bg)] outline-none"
+					? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-background outline-none"
+					: "relative flex flex-1 flex-col overflow-hidden bg-background outline-none"
 			}
 			onPointerDown={onPointerDown}
 		>
@@ -175,12 +175,12 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 			</div>
 
 			{/* ─── Bottom zoom toolbar ─── */}
-			<div className="sticky bottom-0 z-10 flex items-center justify-center gap-1 border-t border-[var(--border)] bg-[var(--content-bg)] px-2 py-1.5">
+			<div className="sticky bottom-0 z-10 flex items-center justify-center gap-1 border-t border-border bg-background px-2 py-1.5">
 				<button
 					type="button"
 					onClick={zoomOut}
 					title="缩小"
-					className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+					className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground"
 				>
 					<span className="icon-[mdi--minus] text-[14px]" />
 				</button>
@@ -189,7 +189,7 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 					type="button"
 					onClick={resetView}
 					title="重置缩放"
-					className="min-w-[44px] rounded px-1.5 py-0.5 text-center text-[11px] tabular-nums text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+					className="min-w-[44px] rounded px-1.5 py-0.5 text-center text-[11px] tabular-nums text-muted-foreground hover:bg-accent hover:text-foreground"
 				>
 					{pct}%
 				</button>
@@ -198,18 +198,18 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 					type="button"
 					onClick={zoomIn}
 					title="放大"
-					className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+					className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground"
 				>
 					<span className="icon-[mdi--plus] text-[14px]" />
 				</button>
 
-				<div className="mx-1 h-3.5 w-px bg-[var(--border)]" />
+				<div className="mx-1 h-3.5 w-px bg-border" />
 
 				<button
 					type="button"
 					onClick={toggleFullscreen}
 					title={isFullscreen ? "退出全屏" : "全屏"}
-					className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+					className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground"
 				>
 					<span
 						className={`${isFullscreen ? "icon-[mdi--fullscreen-exit]" : "icon-[mdi--fullscreen]"} text-[14px]`}
@@ -218,12 +218,12 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 
 				{isViewModified && (
 					<>
-						<div className="mx-1 h-3.5 w-px bg-[var(--border)]" />
+						<div className="mx-1 h-3.5 w-px bg-border" />
 						<button
 							type="button"
 							onClick={resetView}
 							title="重置视图"
-							className="flex h-6 items-center gap-1 rounded px-1.5 text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+							className="flex h-6 items-center gap-1 rounded px-1.5 text-muted-foreground/50 hover:bg-accent hover:text-foreground"
 						>
 							<span className="icon-[mdi--fit-to-screen-outline] text-[14px]" />
 							<span className="text-[11px]">重置</span>

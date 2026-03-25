@@ -94,7 +94,7 @@ export function TextareaField({
 			onChange={(e) => onChange(e.target.value)}
 			placeholder={placeholder}
 			rows={rows}
-			className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 py-2 text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-2)]/40 outline-none transition-colors hover:bg-[var(--surface-overlay)] focus:border-[var(--accent)] font-mono resize-none"
+			className="w-full rounded-lg border border-input bg-secondary px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors hover:bg-accent focus:border-ring font-mono resize-none"
 		/>
 	);
 }
@@ -116,15 +116,15 @@ export function CheckboxField({
 				className={cn(
 					"flex h-4 w-4 items-center justify-center rounded border transition-colors",
 					checked
-						? "border-[var(--accent)] bg-[var(--accent)]"
-						: "border-[var(--border-strong)] bg-[var(--surface-raised)] hover:bg-[var(--surface-overlay)]",
+						? "border-primary bg-primary"
+						: "border-input bg-secondary hover:bg-accent",
 				)}
 			>
 				{checked && (
-					<span className="icon-[mdi--check] h-3 w-3 text-[var(--accent-fg)]" />
+					<span className="icon-[mdi--check] h-3 w-3 text-primary-foreground" />
 				)}
 			</button>
-			<span className="text-[12px] text-[var(--text-1)]">{label}</span>
+			<span className="text-[12px] text-foreground">{label}</span>
 		</label>
 	);
 }
@@ -132,8 +132,8 @@ export function CheckboxField({
 function DetailItem({ label, value }: { label: string; value: string }): JSX.Element {
 	return (
 		<div>
-			<span className="text-[var(--text-2)]">{label}: </span>
-			<span className="text-[var(--text-1)]">{value}</span>
+			<span className="text-muted-foreground">{label}: </span>
+			<span className="text-foreground">{value}</span>
 		</div>
 	);
 }
@@ -157,7 +157,7 @@ function McpServerForm({
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">服务器名称 *</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">服务器名称 *</label>
 					<InputField
 						value={form.name}
 						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -165,7 +165,7 @@ function McpServerForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">命令 *</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">命令 *</label>
 					<InputField
 						value={form.command}
 						onChange={(v) => setForm((f) => ({ ...f, command: v }))}
@@ -173,7 +173,7 @@ function McpServerForm({
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">参数 (逗号分隔)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">参数 (逗号分隔)</label>
 					<InputField
 						value={form.args}
 						onChange={(v) => setForm((f) => ({ ...f, args: v }))}
@@ -181,7 +181,7 @@ function McpServerForm({
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">环境变量 (每行一个 KEY=VALUE，支持 ${"{"}VAR{"}"} 引用)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">环境变量 (每行一个 KEY=VALUE，支持 ${"{"}VAR{"}"} 引用)</label>
 					<TextareaField
 						value={form.env}
 						onChange={(v) => setForm((f) => ({ ...f, env: v }))}
@@ -190,7 +190,7 @@ function McpServerForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">工作目录</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">工作目录</label>
 					<InputField
 						value={form.cwd}
 						onChange={(v) => setForm((f) => ({ ...f, cwd: v }))}
@@ -198,7 +198,7 @@ function McpServerForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">启动超时 (ms)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">启动超时 (ms)</label>
 					<InputField
 						value={form.startupTimeout}
 						onChange={(v) => setForm((f) => ({ ...f, startupTimeout: v }))}
@@ -206,7 +206,7 @@ function McpServerForm({
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-[var(--text-2)]">自动批准工具 (逗号分隔)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">自动批准工具 (逗号分隔)</label>
 					<InputField
 						value={form.autoApprove}
 						onChange={(v) => setForm((f) => ({ ...f, autoApprove: v }))}
@@ -376,9 +376,9 @@ export function McpSettings(): JSX.Element {
 	if (!config) {
 		return (
 			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-				<h1 className="mb-6 text-[20px] font-bold text-[var(--text-1)]">MCP 服务器</h1>
+				<h1 className="mb-6 text-[20px] font-bold text-foreground">MCP 服务器</h1>
 				<div className="flex items-center justify-center py-16">
-					<span className="text-[13px] text-[var(--text-2)]">加载中…</span>
+					<span className="text-[13px] text-muted-foreground">加载中…</span>
 				</div>
 			</div>
 		);
@@ -389,7 +389,7 @@ export function McpSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-[20px] font-bold text-[var(--text-1)]">MCP 服务器</h1>
+				<h1 className="text-[20px] font-bold text-foreground">MCP 服务器</h1>
 				<SegmentedControl
 					items={[
 						{ key: "visual" as McpEditMode, label: "视图", icon: "icon-[mdi--view-list-outline]" },
@@ -405,7 +405,7 @@ export function McpSettings(): JSX.Element {
 					{/* Server list */}
 					<SettingSection title="服务器列表">
 						{serverNames.length === 0 && !addingServer && (
-							<div className="px-5 py-8 text-center text-[12px] text-[var(--text-2)]">
+							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 								尚未配置任何 MCP 服务器，点击下方按钮添加
 							</div>
 						)}
@@ -417,7 +417,7 @@ export function McpSettings(): JSX.Element {
 							const isDisabled = server.disabled ?? false;
 
 							return (
-								<div key={name} className="border-b border-[var(--border)] last:border-b-0">
+								<div key={name} className="border-b border-border last:border-b-0">
 									{/* Server header */}
 									<div className="flex items-center gap-3 px-5 py-3.5">
 										<button
@@ -427,23 +427,23 @@ export function McpSettings(): JSX.Element {
 										>
 											<span
 												className={cn(
-													"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-[var(--text-2)] transition-transform",
+													"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
 													isExpanded && "rotate-90",
 												)}
 											/>
 											<div className="min-w-0 flex-1">
 												<div className={cn(
 													"text-[13px] font-medium",
-													isDisabled ? "text-[var(--text-2)]" : "text-[var(--text-1)]",
+													isDisabled ? "text-muted-foreground" : "text-foreground",
 												)}>
 													{name}
 													{isDisabled && (
-														<span className="ml-2 rounded-full bg-[var(--surface-overlay)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--text-2)]">
+														<span className="ml-2 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
 															已禁用
 														</span>
 													)}
 												</div>
-												<div className="mt-0.5 text-[11px] text-[var(--text-2)]">
+												<div className="mt-0.5 text-[11px] text-muted-foreground">
 													{server.command}
 													{server.args && server.args.length > 0 && ` ${server.args.join(" ")}`}
 												</div>
@@ -460,7 +460,7 @@ export function McpSettings(): JSX.Element {
 												className={cn(
 													"flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
 													isDisabled
-														? "text-[var(--text-2)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+														? "text-muted-foreground hover:bg-accent hover:text-foreground"
 														: "text-green-400 hover:bg-green-500/10",
 												)}
 												title={isDisabled ? "启用" : "禁用"}
@@ -474,7 +474,7 @@ export function McpSettings(): JSX.Element {
 													startEditServer(name);
 													setExpandedServer(name);
 												}}
-												className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 												title="编辑"
 											>
 												<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
@@ -485,7 +485,7 @@ export function McpSettings(): JSX.Element {
 													e.stopPropagation();
 													void handleDeleteServer(name);
 												}}
-												className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-2)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
 												title="删除"
 											>
 												<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
@@ -495,7 +495,7 @@ export function McpSettings(): JSX.Element {
 
 									{/* Edit form */}
 									{isExpanded && isEditing && (
-										<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/50 px-5 py-4">
+										<div className="border-t border-border bg-secondary/50 px-5 py-4">
 											<McpServerForm
 												form={serverForm}
 												setForm={setServerForm}
@@ -512,7 +512,7 @@ export function McpSettings(): JSX.Element {
 
 									{/* Expanded detail view */}
 									{isExpanded && !isEditing && (
-										<div className="border-t border-[var(--border)] bg-[var(--surface-raised)]/30 px-5 py-3">
+										<div className="border-t border-border bg-secondary/30 px-5 py-3">
 											<div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
 												<DetailItem label="命令" value={server.command} />
 												<DetailItem label="参数" value={server.args?.join(", ") || "—"} />
@@ -523,8 +523,8 @@ export function McpSettings(): JSX.Element {
 											</div>
 											{server.env && Object.keys(server.env).length > 0 && (
 												<div className="mt-3">
-													<div className="mb-1 text-[11px] text-[var(--text-2)]">环境变量</div>
-													<div className="rounded-lg bg-[var(--surface)] px-3 py-2 font-mono text-[11px] text-[var(--text-1)]">
+													<div className="mb-1 text-[11px] text-muted-foreground">环境变量</div>
+													<div className="rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
 														{Object.entries(server.env).map(([k, v]) => (
 															<div key={k}>{k}={v}</div>
 														))}
@@ -539,7 +539,7 @@ export function McpSettings(): JSX.Element {
 
 						{/* Add server form */}
 						{addingServer && (
-							<div className="border-t border-[var(--border)] px-5 py-4">
+							<div className="border-t border-border px-5 py-4">
 								<McpServerForm
 									form={serverForm}
 									setForm={setServerForm}
@@ -564,7 +564,7 @@ export function McpSettings(): JSX.Element {
 								setEditingServer(null);
 								setServerForm({ ...emptyMcpServer });
 							}}
-							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] py-3 text-[13px] text-[var(--text-2)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
+							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
 						>
 							<span className="icon-[mdi--plus] h-4 w-4" />
 							添加 MCP 服务器
@@ -575,7 +575,7 @@ export function McpSettings(): JSX.Element {
 				/* JSON mode */
 				<div className="mb-6">
 					<div className="mb-3 flex items-center justify-between">
-						<h2 className="text-[15px] font-semibold text-[var(--text-1)]">编辑 JSON</h2>
+						<h2 className="text-[15px] font-semibold text-foreground">编辑 JSON</h2>
 						<Button
 							variant="primary"
 							size="sm"
@@ -585,7 +585,7 @@ export function McpSettings(): JSX.Element {
 							{saving ? "保存中…" : "保存"}
 						</Button>
 					</div>
-					<div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+					<div className="overflow-hidden rounded-xl border border-border bg-muted">
 						<textarea
 							ref={jsonTextareaRef}
 							value={jsonText}
@@ -594,7 +594,7 @@ export function McpSettings(): JSX.Element {
 								setJsonError(null);
 							}}
 							spellCheck={false}
-							className="w-full resize-none bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-[var(--text-1)] outline-none placeholder:text-[var(--text-2)]/40"
+							className="w-full resize-none bg-transparent px-4 py-3 font-mono text-[12px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/40"
 							style={{ minHeight: "320px" }}
 							placeholder='{ "mcpServers": {} }'
 						/>
@@ -609,7 +609,7 @@ export function McpSettings(): JSX.Element {
 			)}
 
 			{/* Config file path hint */}
-			<div className="mt-6 text-center text-[11px] text-[var(--text-2)]/60">
+			<div className="mt-6 text-center text-[11px] text-muted-foreground/60">
 				配置文件路径: ~/.vetta/agent/mcp.json
 			</div>
 		</div>

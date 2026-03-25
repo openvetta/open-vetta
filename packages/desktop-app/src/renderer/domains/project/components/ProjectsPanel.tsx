@@ -89,9 +89,9 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 	if (projects.length === 0) {
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
-				<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-[var(--text-2)]" />
-				<p className="text-[11px] text-[var(--text-1)]">还没有项目</p>
-				<p className="text-[11px] text-[var(--text-2)]">点击上方 + 新建项目</p>
+				<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-muted-foreground" />
+				<p className="text-[11px] text-foreground">还没有项目</p>
+				<p className="text-[11px] text-muted-foreground">点击上方 + 新建项目</p>
 			</div>
 		);
 	}

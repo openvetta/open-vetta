@@ -73,7 +73,7 @@ function InlineRenameInput({
 				if (e.key === "Enter") commit();
 				if (e.key === "Escape") onDone();
 			}}
-			className="min-w-0 flex-1 truncate rounded-[3px] border border-[var(--border-strong)] bg-[var(--bg-input,var(--hover))] pl-[20px] text-[13px] text-[var(--text-1)] outline-none"
+			className="min-w-0 flex-1 truncate rounded-[3px] border border-input bg-accent/50 pl-[20px] text-[13px] text-foreground outline-none"
 		/>
 	);
 }
@@ -103,11 +103,11 @@ export function ProjectGroup({
 					e.preventDefault();
 					setProjectContextMenu({ x: e.clientX, y: e.clientY, project });
 				}}
-				className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left hover:bg-[var(--hover)]"
+				className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left hover:bg-accent/50"
 				title={project.cwd}
 			>
-				<span className="icon-[mdi--folder-outline] h-4 w-4 shrink-0 text-[var(--text-1)]" />
-				<span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--text-1)]">
+				<span className="icon-[mdi--folder-outline] h-4 w-4 shrink-0 text-foreground" />
+				<span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
 					{projectName(project.cwd)}
 				</span>
 				<button
@@ -117,7 +117,7 @@ export function ProjectGroup({
 						e.stopPropagation();
 						onNewSession(project.cwd);
 					}}
-					className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-[var(--text-1)] opacity-0 hover:bg-[var(--hover-strong)] group-hover:opacity-100"
+					className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
 				>
 					<span className="icon-[mdi--plus] h-3 w-3" />
 				</button>
@@ -127,7 +127,7 @@ export function ProjectGroup({
 			{isExpanded && (
 				<div className="mt-px space-y-px">
 					{sortedSessions.length === 0 ? (
-						<p className="px-2.5 py-1.5 pl-[36px] text-[12px] text-[var(--text-2)]">
+						<p className="px-2.5 py-1.5 pl-[36px] text-[12px] text-muted-foreground">
 							No sessions yet
 						</p>
 					) : (
@@ -149,8 +149,8 @@ export function ProjectGroup({
 									className={cn(
 										"flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
 										isActive
-											? "bg-[var(--hover-strong)]"
-											: "hover:bg-[var(--hover)]",
+											? "bg-accent"
+											: "hover:bg-accent/50",
 									)}
 									title={isRenaming ? undefined : label}
 								>
@@ -164,22 +164,22 @@ export function ProjectGroup({
 									) : (
 										<>
 											{label.startsWith("[定时]") && (
-												<span className="icon-[mdi--clock-outline] ml-[20px] shrink-0 text-[11px] text-[var(--text-2)]" />
+												<span className="icon-[mdi--clock-outline] ml-[20px] shrink-0 text-[11px] text-muted-foreground" />
 											)}
 											<span
 												className={cn(
 													"min-w-0 flex-1 truncate text-[13px]",
 													!label.startsWith("[定时]") && "pl-[20px]",
 													isActive
-														? "font-medium text-[var(--text-1)]"
-														: "text-[var(--text-1)]",
+														? "font-medium text-foreground"
+														: "text-foreground",
 												)}
 											>
 												{label.startsWith("[定时]") ? label.slice(5) : label}
 											</span>
 										</>
 									)}
-									<span className="shrink-0 text-[11px] text-[var(--text-2)]">
+									<span className="shrink-0 text-[11px] text-muted-foreground">
 										{relativeTime(session.modifiedAt)}
 									</span>
 								</button>

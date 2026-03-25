@@ -76,16 +76,15 @@ export function LoginDialog(): JSX.Element {
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						exit={{ opacity: 0, scale: 0.95, y: 8 }}
 						transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-						className="relative w-[360px] overflow-hidden rounded-xl border border-[var(--popup-border)] bg-[var(--popup-bg)] p-6"
-						style={{ boxShadow: "var(--popup-shadow)" }}
+						className="relative w-[360px] overflow-hidden rounded-xl border border-border bg-popover p-6 shadow-xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						{/* Header */}
 						<div className="mb-5 text-center">
-							<h2 className="text-[15px] font-semibold text-[var(--text-1)]">
+							<h2 className="text-[15px] font-semibold text-foreground">
 								Login
 							</h2>
-							<p className="mt-1 text-[12px] text-[var(--text-2)]">
+							<p className="mt-1 text-[12px] text-muted-foreground">
 								Sign in to your account
 							</p>
 						</div>
@@ -97,14 +96,14 @@ export function LoginDialog(): JSX.Element {
 								placeholder="Account"
 								value={account}
 								onChange={(e) => setAccount(e.target.value)}
-								className="h-9 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-[13px] text-[var(--text-1)] placeholder-[var(--text-3)] outline-none transition focus:border-[var(--accent-glow)]"
+								className="h-9 w-full rounded-lg border border-input bg-muted px-3 text-[13px] text-foreground placeholder-muted-foreground/50 outline-none transition focus:border-ring/50"
 							/>
 							<input
 								type="password"
 								placeholder="Password"
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								className="h-9 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 text-[13px] text-[var(--text-1)] placeholder-[var(--text-3)] outline-none transition focus:border-[var(--accent-glow)]"
+								className="h-9 w-full rounded-lg border border-input bg-muted px-3 text-[13px] text-foreground placeholder-muted-foreground/50 outline-none transition focus:border-ring/50"
 							/>
 							<Button type="submit" className="w-full">
 								Login
@@ -114,9 +113,9 @@ export function LoginDialog(): JSX.Element {
 						{/* Divider */}
 						{providers.length > 0 && (
 							<div className="my-5 flex items-center gap-3">
-								<div className="h-px flex-1 bg-[var(--popup-separator)]" />
-								<span className="text-[11px] text-[var(--text-3)]">OR</span>
-								<div className="h-px flex-1 bg-[var(--popup-separator)]" />
+								<div className="h-px flex-1 bg-border" />
+								<span className="text-[11px] text-muted-foreground/50">OR</span>
+								<div className="h-px flex-1 bg-border" />
 							</div>
 						)}
 
@@ -127,7 +126,7 @@ export function LoginDialog(): JSX.Element {
 									const meta = PROVIDER_META[p] ?? {
 										label: p,
 										icon: "icon-[mdi--login]",
-										color: "hover:bg-[var(--hover-strong)]",
+										color: "hover:bg-accent",
 									};
 									return (
 										<Button

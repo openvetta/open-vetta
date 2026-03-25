@@ -50,14 +50,13 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 				initial={{ opacity: 0, scale: 0.95 }}
 				animate={{ opacity: 1, scale: 1 }}
 				transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-				className="w-[320px] rounded-xl border border-[var(--popup-border)] bg-[var(--popup-bg)] p-4"
-				style={{ boxShadow: "var(--popup-shadow)" }}
+				className="w-[320px] rounded-xl border border-border bg-popover p-4 shadow-xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<p className="mb-1 text-[13px] font-semibold text-[var(--text-1)]">
+				<p className="mb-1 text-[13px] font-semibold text-foreground">
 					新建项目
 				</p>
-				<p className="mb-3 text-[12px] text-[var(--text-3)]">
+				<p className="mb-3 text-[12px] text-muted-foreground/50">
 					将在工作目录下创建一个新的项目文件夹。
 				</p>
 				<input
@@ -67,10 +66,10 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 					onChange={(e) => { setName(e.target.value); setError(""); }}
 					onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
 					placeholder="输入项目名称"
-					className="mb-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-1)] px-3 py-2 text-[13px] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] focus:border-[var(--border-strong)]"
+					className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none placeholder:text-muted-foreground/50 focus:border-input"
 				/>
 				{error && (
-					<p className="mb-1 text-[11px] text-[var(--tool-error)]">{error}</p>
+					<p className="mb-1 text-[11px] text-destructive">{error}</p>
 				)}
 				<div className="mt-3 flex justify-end gap-2">
 					<Button variant="ghost" size="sm" onClick={onCancel}>

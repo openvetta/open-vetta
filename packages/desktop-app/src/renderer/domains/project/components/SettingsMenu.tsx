@@ -60,12 +60,11 @@ export function SettingsMenu(): JSX.Element {
 						animate={{ opacity: 1, y: 0, scale: 1 }}
 						exit={{ opacity: 0, y: 4, scale: 0.98 }}
 						transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-						className="absolute bottom-full left-1 mb-1.5 w-[180px] overflow-hidden rounded-lg border border-[var(--popup-border)] bg-[var(--popup-bg)] p-1"
-						style={{ boxShadow: "var(--popup-shadow)" }}
+						className="absolute bottom-full left-1 mb-1.5 w-[180px] overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-xl"
 					>
 						{/* Theme section */}
 						<div className="px-2 pb-1 pt-1.5">
-							<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-2)]">
+							<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
 								Theme
 							</span>
 						</div>
@@ -79,8 +78,8 @@ export function SettingsMenu(): JSX.Element {
 								className={cn(
 									"flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium transition-colors",
 									mode === opt.value
-										? "bg-[var(--accent)] text-[var(--accent-fg)]"
-										: "text-[var(--text-1)] hover:bg-[var(--popup-hover)]",
+										? "bg-primary text-primary-foreground"
+										: "text-foreground hover:bg-accent",
 								)}
 							>
 								<span className={cn(opt.icon, "h-3.5 w-3.5")} />
@@ -92,7 +91,7 @@ export function SettingsMenu(): JSX.Element {
 						))}
 
 						{/* Separator */}
-						<div className="mx-1 my-1 border-t border-[var(--popup-separator)]" />
+						<div className="mx-1 my-1 border-t border-border" />
 
 						{/* Login / User */}
 						{user ? (
@@ -102,7 +101,7 @@ export function SettingsMenu(): JSX.Element {
 									setOpen(false);
 									logout();
 								}}
-								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
 								<span className="icon-[mdi--logout] h-3.5 w-3.5" />
 								Logout
@@ -114,7 +113,7 @@ export function SettingsMenu(): JSX.Element {
 									setOpen(false);
 									setLoginOpen(true);
 								}}
-								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
 								<span className="icon-[mdi--login] h-3.5 w-3.5" />
 								Login
@@ -122,7 +121,7 @@ export function SettingsMenu(): JSX.Element {
 						)}
 
 						{/* Separator */}
-						<div className="mx-1 my-1 border-t border-[var(--popup-separator)]" />
+						<div className="mx-1 my-1 border-t border-border" />
 
 						{/* Settings */}
 						<button
@@ -131,7 +130,7 @@ export function SettingsMenu(): JSX.Element {
 								setOpen(false);
 								void navigate({ to: "/settings/$tab", params: { tab: "general" } });
 							}}
-							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 						>
 							<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
 							Settings
@@ -147,8 +146,8 @@ export function SettingsMenu(): JSX.Element {
 				className={cn(
 					"no-drag flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-[12px] font-medium transition-colors",
 					open
-						? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-						: "text-[var(--text-1)] hover:bg-[var(--hover)]",
+						? "bg-accent text-foreground"
+						: "text-foreground hover:bg-accent/50",
 				)}
 			>
 				{user ? (

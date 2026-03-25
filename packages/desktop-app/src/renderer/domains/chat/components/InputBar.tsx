@@ -286,23 +286,19 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 
 				{/* ── Card container ── */}
 				<div
-					className="input-card rounded-2xl transition-all duration-200"
 					onDragOver={handleDragOver}
 					onDragLeave={handleDragLeave}
 					onDrop={(e) => void handleDrop(e)}
 					style={{
-						background: "var(--input-card-bg)",
-						boxShadow: isFocused
-							? "var(--input-card-shadow-focus)"
-							: "var(--input-card-shadow)",
-						border: "1px solid",
-						borderColor: isDragOver
-							? "var(--accent)"
-							: isFocused
-								? "var(--input-card-border-focus)"
-								: "var(--input-card-border)",
 						opacity: hasSession ? 1 : 0.5,
 					}}
+					className={`input-card rounded-2xl transition-all duration-200 bg-card border ${
+						isDragOver
+							? "border-primary"
+							: isFocused
+								? "border-ring shadow-md"
+								: "border-border shadow-sm"
+					}`}
 				>
 					{/* ── Attached images preview ── */}
 					<AnimatePresence>
@@ -344,7 +340,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 									? "Message Vetta..."
 									: "Select or create a session to start"
 							}
-							className="w-full resize-none bg-transparent text-[13.5px] leading-[1.6] text-[var(--text-1)] outline-none placeholder:text-[var(--text-3)] disabled:cursor-not-allowed"
+							className="w-full resize-none bg-transparent text-[13.5px] leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/50 disabled:cursor-not-allowed"
 							style={{
 								minHeight: `${MIN_HEIGHT}px`,
 								maxHeight: `${MAX_HEIGHT}px`,
@@ -383,11 +379,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 											type="button"
 											onClick={handleRemoveSkill}
 											title="点击移除"
-											className="ml-1 flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80"
-											style={{
-												background: "var(--accent-dim)",
-												color: "var(--text-2)",
-											}}
+											className="ml-1 flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80 bg-primary/10 text-muted-foreground"
 										>
 											<span
 												className={`${selectedSkill.type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3 w-3`}
@@ -413,11 +405,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 											type="button"
 											onClick={() => handleRemoveFile(file.path)}
 											title={file.path}
-											className="ml-1 flex items-center gap-1 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80"
-											style={{
-												background: "var(--surface)",
-												color: "var(--text-2)",
-											}}
+											className="ml-1 flex items-center gap-1 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80 bg-muted text-muted-foreground"
 										>
 											<span className={`${file.isDirectory ? "icon-[mdi--folder-outline]" : "icon-[mdi--file-outline]"} h-3 w-3`} />
 											<span className="max-w-[100px] truncate">{file.name}</span>
@@ -433,7 +421,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 							<ModelSelector />
 							<ContextRing />
 							{/* Character hint */}
-							<span className="mr-1 text-[11px] text-[var(--text-3)] select-none">
+							<span className="mr-1 text-[11px] text-muted-foreground/50 select-none">
 								{isStreaming ? "" : isEmpty ? "⏎ Send" : `⇧⏎ Newline`}
 							</span>
 
@@ -447,7 +435,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 										animate={{ scale: 1, opacity: 1 }}
 										exit={{ scale: 0.8, opacity: 0 }}
 										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-										className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--text-1)] text-[var(--content-bg)] transition-colors hover:opacity-80"
+										className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:opacity-80"
 										title="Stop generating"
 									>
 										<motion.span
@@ -468,8 +456,8 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
 										className="send-button flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 disabled:opacity-30"
 										style={{
-											background: canSend ? "var(--text-1)" : "var(--surface-raised)",
-											color: canSend ? "var(--content-bg)" : "var(--text-3)",
+											background: canSend ? "var(--foreground)" : "var(--secondary)",
+											color: canSend ? "var(--background)" : "var(--muted-foreground)",
 										}}
 										title="Send message"
 									>
@@ -505,7 +493,7 @@ function ImageThumbnail({
 			transition={{ duration: 0.15 }}
 			className="group relative"
 		>
-			<div className="h-16 w-16 overflow-hidden rounded-lg border border-[var(--border-1)]">
+			<div className="h-16 w-16 overflow-hidden rounded-lg border border-border">
 				<img
 					src={`data:${image.mimeType};base64,${image.data}`}
 					alt={image.name}
@@ -515,7 +503,7 @@ function ImageThumbnail({
 			<button
 				type="button"
 				onClick={onRemove}
-				className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--text-2)] opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-[var(--surface-3)]"
+				className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-accent"
 				title="Remove image"
 			>
 				<span className="icon-[mdi--close] h-3 w-3" />
@@ -542,7 +530,7 @@ function ToolbarButton({
 			title={title}
 			disabled={disabled}
 			onClick={onClick}
-			className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-3)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-2)] disabled:pointer-events-none disabled:opacity-30"
+			className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-accent/50 hover:text-muted-foreground disabled:pointer-events-none disabled:opacity-30"
 		>
 			<span className={`${icon} h-[18px] w-[18px]`} />
 		</button>

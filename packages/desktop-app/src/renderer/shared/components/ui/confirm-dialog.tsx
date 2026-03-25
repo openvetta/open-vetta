@@ -36,11 +36,10 @@ export function ConfirmDialog(): JSX.Element | null {
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 0.95 }}
 						transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-						className="w-[360px] rounded-xl border border-[var(--popup-border)] bg-[var(--popup-bg)] p-5"
-						style={{ boxShadow: "var(--popup-shadow)" }}
+						className="w-[360px] rounded-xl border border-border bg-popover p-5 shadow-xl"
 					>
-						<h3 className="text-[15px] font-semibold text-[var(--text-1)]">{state.title}</h3>
-						<p className="mt-2 text-[13px] text-[var(--text-2)]">{state.message}</p>
+						<h3 className="text-[15px] font-semibold text-foreground">{state.title}</h3>
+						<p className="mt-2 text-[13px] text-muted-foreground">{state.message}</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<Button variant="ghost" size="sm" onClick={() => setState(null)}>
 								{state.cancelLabel ?? "取消"}

@@ -30,27 +30,27 @@ function SceneCard({
 }): JSX.Element {
 	const installed = marketManifest[skill.name];
 	return (
-		<div className="group relative flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-all duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+		<div className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-muted p-5 transition-all duration-200 hover:border-input hover:bg-secondary hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
 			<div className="flex items-start justify-between">
-				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-dim)]">
-					<span className="icon-[mdi--movie-open-outline] h-5 w-5 text-[var(--text-2)]" />
+				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+					<span className="icon-[mdi--movie-open-outline] h-5 w-5 text-muted-foreground" />
 				</div>
 				<div className="flex items-center gap-1.5">
 					{installed && (
-						<span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-3)]">
+						<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/50">
 							v{installed.version}
 						</span>
 					)}
-					<span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-3)]">
+					<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/50">
 						{SOURCE_LABELS[skill.source] ?? skill.source}
 					</span>
 				</div>
 			</div>
 			<div className="flex flex-col gap-1">
-				<span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+				<span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground">
 					{skill.name}
 				</span>
-				<p className="line-clamp-2 text-[12px] leading-[1.5] text-[var(--text-3)]">
+				<p className="line-clamp-2 text-[12px] leading-[1.5] text-muted-foreground/50">
 					{skill.description || "暂无描述"}
 				</p>
 			</div>
@@ -74,22 +74,22 @@ function SkillRow({
 }): JSX.Element {
 	const installed = marketManifest[skill.name];
 	return (
-		<div className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-[var(--hover-strong)]">
+		<div className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-accent">
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
-					<span className="truncate text-[13px] font-medium text-[var(--text-1)]">
+					<span className="truncate text-[13px] font-medium text-foreground">
 						/{skill.name}
 					</span>
 					{installed && (
-						<span className="shrink-0 rounded-full bg-[var(--accent-dim)] px-1.5 py-px text-[10px] font-medium text-[var(--text-3)]">
+						<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-medium text-muted-foreground/50">
 							v{installed.version}
 						</span>
 					)}
-					<span className="shrink-0 rounded-full bg-[var(--accent-dim)] px-1.5 py-px text-[10px] font-medium text-[var(--text-3)]">
+					<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-medium text-muted-foreground/50">
 						{SOURCE_LABELS[skill.source] ?? skill.source}
 					</span>
 				</div>
-				<p className="mt-0.5 line-clamp-1 text-[12px] leading-[1.5] text-[var(--text-3)]">
+				<p className="mt-0.5 line-clamp-1 text-[12px] leading-[1.5] text-muted-foreground/50">
 					{skill.description || "暂无描述"}
 				</p>
 			</div>
@@ -126,29 +126,29 @@ function MarketSceneCard({
 	const isLoading = actionState === "loading";
 
 	return (
-		<div className="group relative flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition-all duration-200 hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+		<div className="group relative flex flex-col gap-3 rounded-2xl border border-border bg-muted p-5 transition-all duration-200 hover:border-input hover:bg-secondary hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
 			<div className="flex items-start justify-between">
-				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-dim)]">
-					<span className="icon-[mdi--movie-open-outline] h-5 w-5 text-[var(--text-2)]" />
+				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+					<span className="icon-[mdi--movie-open-outline] h-5 w-5 text-muted-foreground" />
 				</div>
 				<div className="flex items-center gap-1.5">
-					<span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-3)]">
+					<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/50">
 						{skill.type === "scene" ? "场景" : "技能"}
 					</span>
-					<span className="rounded-full bg-[var(--accent-dim)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-3)]">
+					<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-muted-foreground/50">
 						v{skill.version}
 					</span>
 				</div>
 			</div>
 			<div className="flex flex-col gap-1">
-				<span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-1)]">
+				<span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground">
 					{skill.name}
 				</span>
-				<p className="line-clamp-2 text-[12px] leading-[1.5] text-[var(--text-3)]">
+				<p className="line-clamp-2 text-[12px] leading-[1.5] text-muted-foreground/50">
 					{skill.description || "暂无描述"}
 				</p>
 			</div>
-			<div className="flex items-center gap-1.5 text-[11px] text-[var(--text-3)]">
+			<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
 				<span>{skill.author}</span>
 				{skill.tags.length > 0 && (
 					<>
@@ -160,7 +160,7 @@ function MarketSceneCard({
 			<div className="mt-1 flex items-center gap-2">
 				{isInstalled ? (
 					<>
-						<span className="rounded-lg bg-[var(--accent-dim)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)]">
+						<span className="rounded-lg bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/50">
 							已安装
 						</span>
 						<Button size="xs" onClick={() => onUninstall(skill.name)} disabled={isLoading}>卸载</Button>
@@ -198,23 +198,23 @@ function MarketSkillRow({
 	const isLoading = actionState === "loading";
 
 	return (
-		<div className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-[var(--hover-strong)]">
+		<div className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-accent">
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
-					<span className="truncate text-[13px] font-medium text-[var(--text-1)]">
+					<span className="truncate text-[13px] font-medium text-foreground">
 						/{skill.name}
 					</span>
-					<span className="shrink-0 rounded-full bg-[var(--accent-dim)] px-1.5 py-px text-[10px] font-medium text-[var(--text-3)]">
+					<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-medium text-muted-foreground/50">
 						{skill.type === "scene" ? "场景" : "技能"}
 					</span>
-					<span className="shrink-0 rounded-full bg-[var(--accent-dim)] px-1.5 py-px text-[10px] font-medium text-[var(--text-3)]">
+					<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-medium text-muted-foreground/50">
 						v{skill.version}
 					</span>
 				</div>
-				<p className="mt-0.5 line-clamp-1 text-[12px] leading-[1.5] text-[var(--text-3)]">
+				<p className="mt-0.5 line-clamp-1 text-[12px] leading-[1.5] text-muted-foreground/50">
 					{skill.description || "暂无描述"}
 				</p>
-				<div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--text-3)]">
+				<div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
 					<span>{skill.author}</span>
 					{skill.tags.length > 0 && (
 						<>
@@ -227,7 +227,7 @@ function MarketSkillRow({
 			<div className="flex shrink-0 items-center gap-2">
 				{isInstalled ? (
 					<>
-						<span className="rounded-lg bg-[var(--accent-dim)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-3)]">
+						<span className="rounded-lg bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-muted-foreground/50">
 							已安装
 						</span>
 						<Button size="xs" onClick={() => onUninstall(skill.name)} disabled={isLoading}>卸载</Button>
@@ -250,10 +250,10 @@ function MarketSkillRow({
 function SectionHeader({ title, count }: { title: string; count: number }): JSX.Element {
 	return (
 		<div className="flex items-center gap-2 pb-3">
-			<h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[var(--text-3)]">
+			<h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-muted-foreground/50">
 				{title}
 			</h2>
-			<span className="text-[12px] tabular-nums text-[var(--text-3)]">
+			<span className="text-[12px] tabular-nums text-muted-foreground/50">
 				{count}
 			</span>
 		</div>
@@ -284,8 +284,8 @@ function DiscoverContent({
 	if (loading) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
-				<span className="icon-[mdi--loading] h-8 w-8 animate-spin text-[var(--text-3)]" />
-				<p className="text-[13px] text-[var(--text-3)]">加载中...</p>
+				<span className="icon-[mdi--loading] h-8 w-8 animate-spin text-muted-foreground/50" />
+				<p className="text-[13px] text-muted-foreground/50">加载中...</p>
 			</div>
 		);
 	}
@@ -293,8 +293,8 @@ function DiscoverContent({
 	if (error) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
-				<span className="icon-[mdi--alert-circle-outline] h-10 w-10 text-[var(--text-3)]" />
-				<p className="text-[13px] text-[var(--text-3)]">{error}</p>
+				<span className="icon-[mdi--alert-circle-outline] h-10 w-10 text-muted-foreground/50" />
+				<p className="text-[13px] text-muted-foreground/50">{error}</p>
 			</div>
 		);
 	}
@@ -302,8 +302,8 @@ function DiscoverContent({
 	if (marketSkills.length === 0) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
-				<span className="icon-[mdi--compass-outline] h-10 w-10 text-[var(--text-3)]" />
-				<p className="text-[13px] text-[var(--text-3)]">暂无可用技能</p>
+				<span className="icon-[mdi--compass-outline] h-10 w-10 text-muted-foreground/50" />
+				<p className="text-[13px] text-muted-foreground/50">暂无可用技能</p>
 			</div>
 		);
 	}
@@ -334,7 +334,7 @@ function DiscoverContent({
 			{marketStandard.length > 0 && (
 				<div>
 					<SectionHeader title="技能" count={marketStandard.length} />
-					<div className="flex flex-col gap-px rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1">
+					<div className="flex flex-col gap-px rounded-2xl border border-border bg-muted p-1">
 						{marketStandard.map((skill) => (
 							<MarketSkillRow
 								key={skill.name}
@@ -456,7 +456,7 @@ export function SkillsPage(): JSX.Element {
 			<div className="drag-region h-12 shrink-0" />
 			{/* Header */}
 			<div className="flex shrink-0 items-center justify-between px-8 pb-0">
-				<h1 className="text-[20px] font-bold tracking-[-0.02em] text-[var(--text-1)]">
+				<h1 className="text-[20px] font-bold tracking-[-0.02em] text-foreground">
 					技能广场
 				</h1>
 
@@ -472,7 +472,7 @@ export function SkillsPage(): JSX.Element {
 
 			{/* Subtitle */}
 			<div className="px-8 pt-1.5 pb-5">
-				<p className="text-[13px] text-[var(--text-3)]">
+				<p className="text-[13px] text-muted-foreground/50">
 					{tab === "mine"
 						? `已安装 ${scenes.length} 个场景，${standardSkills.length} 个技能`
 						: "探索社区分享的技能"}
@@ -505,7 +505,7 @@ export function SkillsPage(): JSX.Element {
 							{standardSkills.length > 0 && (
 								<div>
 									<SectionHeader title="技能" count={standardSkills.length} />
-									<div className="flex flex-col gap-px rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1">
+									<div className="flex flex-col gap-px rounded-2xl border border-border bg-muted p-1">
 										{standardSkills.map((skill) => (
 											<SkillRow
 												key={skill.name}
@@ -520,8 +520,8 @@ export function SkillsPage(): JSX.Element {
 						</div>
 					) : (
 						<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
-							<span className="icon-[mdi--puzzle-outline] h-10 w-10 text-[var(--text-3)]" />
-							<p className="text-[13px] text-[var(--text-3)]">暂无已安装的技能</p>
+							<span className="icon-[mdi--puzzle-outline] h-10 w-10 text-muted-foreground/50" />
+							<p className="text-[13px] text-muted-foreground/50">暂无已安装的技能</p>
 						</div>
 					)
 				) : (

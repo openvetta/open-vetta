@@ -18,9 +18,9 @@ export function ActivityPanelHeader({ filePath }: ActivityPanelHeaderProps): JSX
 	const icon = getFileIcon(fileName, false, false);
 
 	return (
-		<div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-			<span className={`${icon} shrink-0 text-[14px] text-[var(--text-3)]`} />
-			<span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[var(--text-2)]">
+		<div className="flex items-center gap-2 border-b border-border px-3 py-2">
+			<span className={`${icon} shrink-0 text-[14px] text-muted-foreground/50`} />
+			<span className="min-w-0 flex-1 truncate text-[12px] font-medium text-muted-foreground">
 				{fileName}
 			</span>
 			<Button variant="ghost" size="icon-xs" title="关闭文件预览" onClick={() => setSelectedFile(null)} className="shrink-0">

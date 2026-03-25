@@ -31,11 +31,7 @@ export function ActivityPanel(): JSX.Element {
 					animate={{ width, opacity: 1 }}
 					exit={{ width: 0, opacity: 0 }}
 					transition={{ duration: 0.2, ease: "easeInOut" }}
-					className="relative shrink-0 overflow-hidden rounded-lg bg-[var(--content-bg)] ml-1.5"
-					style={{
-						border: "var(--panel-border)",
-						boxShadow: "var(--panel-shadow)",
-					}}
+					className="relative shrink-0 overflow-hidden rounded-lg bg-background ml-1.5 border border-border shadow-lg"
 				>
 					<div className="flex h-full flex-col" style={{ width }}>
 						{selectedPath ? (
@@ -48,7 +44,7 @@ export function ActivityPanel(): JSX.Element {
 								</div>
 							</>
 						) : (
-							<div className="flex flex-1 flex-col items-center justify-center gap-3 text-[var(--text-3)]">
+							<div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground/50">
 								<span className="icon-[mdi--dock-right] text-[32px]" />
 								<span className="text-[12px]">从侧边栏选择文件以预览</span>
 							</div>

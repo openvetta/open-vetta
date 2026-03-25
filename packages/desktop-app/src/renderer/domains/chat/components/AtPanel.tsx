@@ -205,21 +205,18 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 					animate={{ opacity: 1, y: 0, scaleY: 1 }}
 					exit={{ opacity: 0, y: 8, scaleY: 0.96 }}
 					transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl"
+					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl bg-card border border-border shadow-md"
 					style={{
-						background: "var(--input-card-bg)",
-						border: "1px solid var(--input-card-border)",
-						boxShadow: "var(--input-card-shadow-focus)",
 						maxHeight: 320,
 					}}
 				>
 					{/* Header */}
-					<div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-2.5">
-						<span className="icon-[mdi--at] h-4 w-4 text-[var(--text-3)]" />
-						<span className="text-[12px] font-medium text-[var(--text-3)]">
+					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+						<span className="icon-[mdi--at] h-4 w-4 text-muted-foreground/50" />
+						<span className="text-[12px] font-medium text-muted-foreground/50">
 							引用文件
 						</span>
-						<span className="ml-auto font-mono text-[11px] text-[var(--text-3)]">
+						<span className="ml-auto font-mono text-[11px] text-muted-foreground/50">
 							{relDir}
 						</span>
 					</div>
@@ -227,11 +224,11 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 					{/* Content */}
 					<div className="overflow-y-auto" style={{ maxHeight: 280 }}>
 						{loading ? (
-							<div className="flex items-center justify-center py-8 text-[12px] text-[var(--text-3)]">
+							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
 								加载中...
 							</div>
 						) : allItems.length === 0 && !canGoUp ? (
-							<div className="flex items-center justify-center py-8 text-[12px] text-[var(--text-3)]">
+							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
 								{normalizedFilter ? "未找到匹配项" : "空目录"}
 							</div>
 						) : (
@@ -247,10 +244,10 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 											setCurrentDir(parent);
 										}}
 										className="flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
-										style={{ background: activeIndex === 0 ? "var(--hover)" : "transparent" }}
+										style={{ background: activeIndex === 0 ? "var(--accent)" : "transparent" }}
 									>
-										<span className="icon-[mdi--arrow-up-left] h-4 w-4 text-[var(--text-3)]" />
-										<span className="text-[12px] text-[var(--text-3)]">..</span>
+										<span className="icon-[mdi--arrow-up-left] h-4 w-4 text-muted-foreground/50" />
+										<span className="text-[12px] text-muted-foreground/50">..</span>
 									</button>
 								)}
 
@@ -270,14 +267,14 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 												}
 											}}
 											className="flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
-											style={{ background: idx === activeIndex ? "var(--hover)" : "transparent" }}
+											style={{ background: idx === activeIndex ? "var(--accent)" : "transparent" }}
 										>
-											<span className={`${fileIcon(entry.name, entry.isDirectory)} h-4 w-4 shrink-0 ${entry.isDirectory ? "text-[var(--text-2)]" : "text-[var(--text-3)]"}`} />
-											<span className={`truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-[var(--text-1)]" : "text-[var(--text-1)]"}`}>
+											<span className={`${fileIcon(entry.name, entry.isDirectory)} h-4 w-4 shrink-0 ${entry.isDirectory ? "text-muted-foreground" : "text-muted-foreground/50"}`} />
+											<span className={`truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-foreground" : "text-foreground"}`}>
 												{entry.name}
 											</span>
 											{entry.isDirectory && (
-												<span className="ml-auto text-[10px] text-[var(--text-3)]">
+												<span className="ml-auto text-[10px] text-muted-foreground/50">
 													Tab 进入
 												</span>
 											)}

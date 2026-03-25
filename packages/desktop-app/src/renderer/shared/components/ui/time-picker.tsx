@@ -67,13 +67,13 @@ export function TimePicker({ hour, minute, onHourChange, onMinuteChange, classNa
 				onChange={(e) => handleHourChange(e.target.value)}
 				onBlur={handleHourBlur}
 				className={cn(
-					"h-8 w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-center text-sm text-[var(--text-1)]",
-					"focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]",
+					"h-8 w-12 rounded-md border border-border bg-muted px-2 py-1 text-center text-sm text-foreground",
+					"focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
 					"[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
 				)}
 				aria-label="小时"
 			/>
-			<span className="text-[var(--text-2)] text-sm font-medium">:</span>
+			<span className="text-muted-foreground text-sm font-medium">:</span>
 			{/* Minute */}
 			<input
 				type="number"
@@ -83,8 +83,8 @@ export function TimePicker({ hour, minute, onHourChange, onMinuteChange, classNa
 				onChange={(e) => handleMinuteChange(e.target.value)}
 				onBlur={handleMinuteBlur}
 				className={cn(
-					"h-8 w-12 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-center text-sm text-[var(--text-1)]",
-					"focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]",
+					"h-8 w-12 rounded-md border border-border bg-muted px-2 py-1 text-center text-sm text-foreground",
+					"focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary",
 					"[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
 				)}
 				aria-label="分钟"

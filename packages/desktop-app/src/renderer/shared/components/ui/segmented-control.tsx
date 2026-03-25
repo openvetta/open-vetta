@@ -44,13 +44,13 @@ export function SegmentedControl<T extends string>({
 		<div
 			ref={containerRef}
 			className={cn(
-				"relative flex rounded-lg bg-[var(--surface-raised)] p-[3px]",
+				"relative flex rounded-lg bg-secondary p-[3px]",
 				className,
 			)}
 		>
 			{/* Animated active indicator */}
 			<div
-				className="absolute top-[3px] bottom-[3px] rounded-md bg-[var(--content-bg)] shadow-[0_1px_3px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+				className="absolute top-[3px] bottom-[3px] rounded-md bg-background shadow-[0_1px_3px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
 				style={indicatorStyle}
 			/>
 			{items.map(({ key, label, icon }) => (
@@ -62,8 +62,8 @@ export function SegmentedControl<T extends string>({
 					className={cn(
 						"relative z-10 flex items-center justify-center gap-1.5 rounded-md px-3 py-[5px] text-[12px] font-medium transition-colors duration-200",
 						value === key
-							? "text-[var(--text-1)]"
-							: "text-[var(--text-3)] hover:text-[var(--text-2)]",
+							? "text-foreground"
+							: "text-muted-foreground/50 hover:text-muted-foreground",
 					)}
 				>
 					{icon && <span className={cn(icon, "h-3.5 w-3.5")} />}

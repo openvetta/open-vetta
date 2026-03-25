@@ -43,11 +43,10 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 				animate={{ opacity: 1, scale: 1 }}
 				exit={{ opacity: 0, scale: 0.95 }}
 				transition={{ duration: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
-				className="fixed z-50 w-[160px] overflow-hidden rounded-lg border border-[var(--popup-border)] bg-[var(--popup-bg)] p-1"
+				className="fixed z-50 w-[160px] overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-xl"
 				style={{
 					left: `${x}px`,
 					top: `${y}px`,
-					boxShadow: "var(--popup-shadow)",
 				}}
 			>
 				<button
@@ -56,7 +55,7 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 						void window.vetta.shell.showInFolder(project.cwd);
 						onClose();
 					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 					{isMac ? "在访达中打开" : "从此电脑打开"}
@@ -67,7 +66,7 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 						onArchive(project.cwd);
 						onClose();
 					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--archive-outline] h-3.5 w-3.5" />
 					归档项目
@@ -78,19 +77,19 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 						onRemove(project.cwd);
 						onClose();
 					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--text-1)] transition-colors hover:bg-[var(--popup-hover)]"
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--playlist-remove] h-3.5 w-3.5" />
 					从列表中移除
 				</button>
-				<div className="mx-1.5 my-1 h-px bg-[var(--popup-separator)]" />
+				<div className="mx-1.5 my-1 h-px bg-border" />
 				<button
 					type="button"
 					onClick={() => {
 						onDelete(project.cwd);
 						onClose();
 					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-[var(--tool-error)] transition-colors hover:bg-[var(--popup-hover)]"
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 					删除项目

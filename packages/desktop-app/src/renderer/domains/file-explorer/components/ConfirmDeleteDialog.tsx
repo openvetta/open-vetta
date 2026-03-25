@@ -31,16 +31,15 @@ export function ConfirmDeleteDialog({ entry, onConfirm, onCancel }: ConfirmDelet
 				initial={{ opacity: 0, scale: 0.95 }}
 				animate={{ opacity: 1, scale: 1 }}
 				transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-				className="w-[280px] rounded-xl border border-[var(--popup-border)] bg-[var(--popup-bg)] p-4"
-				style={{ boxShadow: "var(--popup-shadow)" }}
+				className="w-[280px] rounded-xl border border-border bg-popover p-4 shadow-xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<p className="mb-1 text-[13px] font-semibold text-[var(--text-1)]">
+				<p className="mb-1 text-[13px] font-semibold text-foreground">
 					确认删除
 				</p>
-				<p className="mb-4 text-[12px] text-[var(--text-2)]">
+				<p className="mb-4 text-[12px] text-muted-foreground">
 					确定要删除{entry.isDirectory ? "文件夹" : "文件"}{" "}
-					<span className="font-medium text-[var(--text-1)]">{entry.name}</span> 吗？
+					<span className="font-medium text-foreground">{entry.name}</span> 吗？
 					{entry.isDirectory && " 此操作将删除文件夹内的所有内容。"}
 					此操作无法撤销。
 				</p>

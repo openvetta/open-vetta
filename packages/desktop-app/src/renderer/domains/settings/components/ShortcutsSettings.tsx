@@ -71,8 +71,8 @@ function ShortcutRecorder({
 				className={cn(
 					"flex h-[30px] min-w-[120px] items-center justify-center rounded-lg border px-3 text-[12px] font-mono transition-all",
 					recording
-						? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--text-1)] animate-pulse"
-						: "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-1)] hover:bg-[var(--surface-raised)]",
+						? "border-primary bg-primary/10 text-foreground animate-pulse"
+						: "border-input bg-muted text-foreground hover:bg-secondary",
 				)}
 			>
 				{recording ? "请按下快捷键…" : displayValue}
@@ -81,7 +81,7 @@ function ShortcutRecorder({
 				<button
 					type="button"
 					onClick={onReset}
-					className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-[var(--text-3)] transition-colors hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+					className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
 					title="恢复默认"
 				>
 					<span className="icon-[mdi--restore] h-3.5 w-3.5" />
@@ -119,11 +119,11 @@ export function ShortcutsSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-[20px] font-bold text-[var(--text-1)]">快捷键</h1>
+				<h1 className="text-[20px] font-bold text-foreground">快捷键</h1>
 				<button
 					type="button"
 					onClick={handleResetAll}
-					className="flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 py-1.5 text-[12px] text-[var(--text-2)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-1)]"
+					className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
 					<span className="icon-[mdi--restore] h-3.5 w-3.5" />
 					全部恢复默认
@@ -153,7 +153,7 @@ export function ShortcutsSettings(): JSX.Element {
 				})}
 			</SettingSection>
 
-			<p className="mt-4 text-[12px] leading-relaxed text-[var(--text-3)]">
+			<p className="mt-4 text-[12px] leading-relaxed text-muted-foreground/50">
 				点击快捷键区域后按下新的组合键即可录制。修改后立即生效，无需重启。
 			</p>
 		</div>

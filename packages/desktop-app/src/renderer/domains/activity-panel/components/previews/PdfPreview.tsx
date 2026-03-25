@@ -101,17 +101,17 @@ export function PdfPreview({ content }: PdfPreviewProps): JSX.Element {
 
 			{status === "loading" && (
 				<div className="flex items-center justify-center p-8">
-					<span className="icon-[mdi--loading] animate-spin text-[24px] text-[var(--text-3)]" />
+					<span className="icon-[mdi--loading] animate-spin text-[24px] text-muted-foreground/50" />
 				</div>
 			)}
 			{status === "error" && (
-				<div className="flex flex-col items-center justify-center gap-3 p-8 text-[var(--text-3)]">
+				<div className="flex flex-col items-center justify-center gap-3 p-8 text-muted-foreground/50">
 					<span className="icon-[mdi--alert-circle-outline] text-[40px]" />
 					<span className="text-[13px]">无法渲染 PDF</span>
 				</div>
 			)}
 			{status === "done" && pageCount > 0 && (
-				<div className="pb-3 text-center text-[11px] text-[var(--text-3)]">
+				<div className="pb-3 text-center text-[11px] text-muted-foreground/50">
 					共 {pageCount} 页
 				</div>
 			)}

@@ -140,9 +140,9 @@ export function FileTreeNode({
 			className={cn(
 				"flex items-center gap-1.5 rounded-md px-1.5 py-[3px] text-[12px] cursor-default select-none transition-colors",
 				isSelected && !isRenaming
-					? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-					: "text-[var(--text-1)] hover:bg-[var(--hover)]",
-				dragOver && "ring-1 ring-[var(--accent)] bg-[var(--hover)]",
+					? "bg-accent text-foreground"
+					: "text-foreground hover:bg-accent/50",
+				dragOver && "ring-1 ring-primary bg-accent/50",
 			)}
 			style={{ paddingLeft: `${depth * 16 + 6}px` }}
 		>
@@ -152,7 +152,7 @@ export function FileTreeNode({
 					className={cn(
 						"h-3 w-3 shrink-0 transition-transform",
 						isLoading
-							? "icon-[mdi--loading] animate-spin text-[var(--text-2)]"
+							? "icon-[mdi--loading] animate-spin text-muted-foreground"
 							: isExpanded
 								? "icon-[mdi--chevron-down]"
 								: "icon-[mdi--chevron-right]",
@@ -163,7 +163,7 @@ export function FileTreeNode({
 			)}
 
 			{/* File type icon */}
-			<span className={cn(icon, "h-3.5 w-3.5 shrink-0", entry.isDirectory ? "text-[var(--accent)]" : "text-[var(--text-2)]")} />
+			<span className={cn(icon, "h-3.5 w-3.5 shrink-0", entry.isDirectory ? "text-primary" : "text-muted-foreground")} />
 
 			{/* Name or rename input */}
 			{isRenaming ? (
@@ -174,7 +174,7 @@ export function FileTreeNode({
 					onChange={(e) => setRenameValue(e.target.value)}
 					onBlur={handleRenameSubmit}
 					onKeyDown={handleRenameKeyDown}
-					className="min-w-0 flex-1 rounded border border-[var(--accent)] bg-[var(--panel-bg)] px-1 py-0 text-[12px] text-[var(--text-1)] outline-none"
+					className="min-w-0 flex-1 rounded border border-primary bg-background px-1 py-0 text-[12px] text-foreground outline-none"
 					onClick={(e) => e.stopPropagation()}
 				/>
 			) : (
