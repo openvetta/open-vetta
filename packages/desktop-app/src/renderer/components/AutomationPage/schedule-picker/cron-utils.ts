@@ -104,6 +104,75 @@ export function toCronExpression(schedule: Schedule): string {
 	}
 }
 
+/**
+ * Parse a cron expression string into a Schedule.
+ * Returns null if the expression cannot be parsed.
+ */
+export function parseCronExpression(cron: string, isOnce: boolean): Schedule | null {
+	if (!cron || typeof cron !== "string") return null;
+
+	const parts = cron.trim().split(/\s+/);
+	if (parts.length < 5) return null;
+
+	const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+
+	// Determine mode
+	if (isOnce || (dayOfMonth !== "*" && month !== "*")) {
+		// one-time: specific day and month
+		const m = parseInt(month, 10);
+		const d = parseInt(dayOfMonth, 10);
+		if (Number.isNaN(m) || Number.isNaN(d)) return null;
+		return {
+			mode: "once",
+			year: new Date().getFullYear(),
+			month: m,
+			day: d,
+			hour: parseInt(hour, 10) || 0,
+			minute: parseInt(minute, 10) || 0,
+		};
+	}
+
+	if (hour.startsWith("*/")) {
+		// interval: */N hour
+		const intervalHours = parseInt(hour.slice(2), 10);
+		if (Number.isNaN(intervalHours) || intervalHours < 1) return null;
+		return { mode: "interval", intervalHours };
+	}
+
+	if (minute === "*/") {
+		// interval: */N minute
+		const intervalMinutes = parseInt(minute.slice(2), 10);
+		if (Number.isNaN(intervalMinutes) || intervalMinutes < 1) return null;
+		// Convert to hours (rounded up)
+		const intervalHours = Math.ceil(60 / intervalMinutes);
+		return { mode: "interval", intervalHours };
+	}
+
+	if (dayOfWeek !== "*" && dayOfWeek !== "?") {
+		// weekly: specific weekday(s)
+		const weekdays = new Set<number>();
+		for (const part of dayOfWeek.split(",")) {
+			const n = parseInt(part.trim(), 10);
+			if (Number.isNaN(n) || n < 0 || n > 6) return null;
+			weekdays.add(n);
+		}
+		if (weekdays.size === 0) return null;
+		return {
+			mode: "weekly",
+			weekdays,
+			hour: parseInt(hour, 10) || 0,
+			minute: parseInt(minute, 10) || 0,
+		};
+	}
+
+	// daily: every day at specific time
+	return {
+		mode: "daily",
+		hour: parseInt(hour, 10) || 0,
+		minute: parseInt(minute, 10) || 0,
+	};
+}
+
 /** Get default schedule values for each mode */
 export function getDefaultOnceSchedule(): OnceSchedule {
 	const now = new Date();
