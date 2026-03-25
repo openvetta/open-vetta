@@ -392,13 +392,13 @@ export function TaskExecutionView({ record, onBack }: TaskExecutionViewProps): R
 
 	const getStatusBadge = (status: TaskExecutionRecord["status"]): React.JSX.Element => {
 		const config: Record<TaskExecutionRecord["status"], { class: string; icon: string }> = {
-			success: { class: "text-green-500", icon: "mdi--check-circle" },
-			failed: { class: "text-red-500", icon: "mdi--close-circle" },
-			running: { class: "text-blue-500 animate-spin", icon: "mdi--loading" },
-			aborted: { class: "text-yellow-500", icon: "mdi--cancel" },
+			success: { class: "text-green-500", icon: "icon-[mdi--check-circle]" },
+			failed: { class: "text-red-500", icon: "icon-[mdi--close-circle]" },
+			running: { class: "text-blue-500 animate-spin", icon: "icon-[mdi--loading]" },
+			aborted: { class: "text-yellow-500", icon: "icon-[mdi--cancel]" },
 		};
 		const { class: cls, icon } = config[status];
-		return <span className={`icon-[${icon}] ${cls} text-sm`} />;
+		return <span className={`${icon} ${cls} text-sm`} />;
 	};
 
 	return (

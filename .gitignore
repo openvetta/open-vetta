@@ -38,3 +38,6 @@ todo.md
 
 prompt/
 spec/
+review/
+
+settings.local.json
