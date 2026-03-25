@@ -96,6 +96,11 @@ const api: DesktopApi = {
 			};
 		},
 	},
+	tray: {
+		setQuitBehavior: async (hideToTray) => ipcRenderer.invoke("vetta:tray:set-quit-behavior", hideToTray),
+		getQuitBehavior: async () => ipcRenderer.invoke("vetta:tray:get-quit-behavior"),
+		setTooltip: async (text) => ipcRenderer.invoke("vetta:tray:set-tooltip", text),
+	},
 	scheduler: {
 		getTasks: () => ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_TASKS),
 		createTask: (task) => ipcRenderer.invoke(SCHEDULER_CHANNELS.CREATE_TASK, task),
