@@ -18,6 +18,21 @@ const CHANNELS = {
 	EVENT: "vetta:session:event",
 } as const;
 
+const SCHEDULER_CHANNELS = {
+	GET_TASKS: "vetta:scheduler:get-tasks",
+	CREATE_TASK: "vetta:scheduler:create-task",
+	UPDATE_TASK: "vetta:scheduler:update-task",
+	DELETE_TASK: "vetta:scheduler:delete-task",
+	TOGGLE_TASK: "vetta:scheduler:toggle-task",
+	DISABLE_TASK: "vetta:scheduler:disable-task",
+	GET_RECORDS: "vetta:scheduler:get-records",
+	GET_RECORD_MESSAGES: "vetta:scheduler:get-record-messages",
+	RUN_NOW: "vetta:scheduler:run-now",
+	ABORT: "vetta:scheduler:abort",
+	EVENT: "vetta:scheduler:event",
+	STREAM_EVENT: "vetta:scheduler:stream-event",
+} as const;
+
 const api: DesktopApi = {
 	dialog: {
 		selectFolder: async () => ipcRenderer.invoke("vetta:dialog:select-folder"),
@@ -95,6 +110,44 @@ const api: DesktopApi = {
 		check: async () => ipcRenderer.invoke("vetta:updater:check"),
 		getCurrentVersion: async () => ipcRenderer.invoke("vetta:updater:get-current-version"),
 		download: async (url) => ipcRenderer.invoke("vetta:updater:download", url),
+	},
+	tray: {
+		setQuitBehavior: async (hideToTray) => ipcRenderer.invoke("vetta:tray:set-quit-behavior", hideToTray),
+		getQuitBehavior: async () => ipcRenderer.invoke("vetta:tray:get-quit-behavior"),
+		setTooltip: async (text) => ipcRenderer.invoke("vetta:tray:set-tooltip", text),
+	},
+	scheduler: {
+		getTasks: () => ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_TASKS),
+		createTask: (task) => ipcRenderer.invoke(SCHEDULER_CHANNELS.CREATE_TASK, task),
+		updateTask: (id, patch) => ipcRenderer.invoke(SCHEDULER_CHANNELS.UPDATE_TASK, id, patch),
+		deleteTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.DELETE_TASK, id),
+		toggleTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.TOGGLE_TASK, id),
+		disableTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.DISABLE_TASK, id),
+		getRecords: (taskId) => ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_RECORDS, taskId),
+		getRecordMessages: (taskId, sessionId) =>
+			ipcRenderer.invoke(SCHEDULER_CHANNELS.GET_RECORD_MESSAGES, taskId, sessionId),
+		runTaskNow: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.RUN_NOW, id),
+		abortTask: (id) => ipcRenderer.invoke(SCHEDULER_CHANNELS.ABORT, id),
+		onTaskEvent: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
+				handler(data as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(SCHEDULER_CHANNELS.EVENT, listener);
+			return () => {
+				ipcRenderer.removeListener(SCHEDULER_CHANNELS.EVENT, listener);
+			};
+		},
+		onTaskStreamEvent: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
+				handler(data as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(SCHEDULER_CHANNELS.STREAM_EVENT, listener);
+			return () => {
+				console.log("卸载");
+
+				ipcRenderer.removeListener(SCHEDULER_CHANNELS.STREAM_EVENT, listener);
+			};
+		},
 	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),

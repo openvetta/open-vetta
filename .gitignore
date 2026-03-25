@@ -37,3 +37,7 @@ packages/desktop-app/release/
 todo.md
 
 prompt/
+spec/
+review/
+
+settings.local.json

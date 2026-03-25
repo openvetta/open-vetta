@@ -226,3 +226,38 @@ export const loginDialogOpenAtom = atom<boolean>(false);
 // ─── Remote providers (from server) ───
 
 export const remoteProvidersAtom = atom<Record<string, unknown>>({});
+
+// ─── Scheduled Tasks ───
+
+export interface ScheduledTask {
+	id: string;
+	name: string;
+	prompt: string;
+	cron: string;
+	/** Whether this task runs only once and disables itself after execution */
+	isOnce: boolean;
+	enabled: boolean;
+	modelId?: string;
+	createdAt: number;
+	updatedAt: number;
+	lastRunAt: number | null;
+	lastRunStatus: "success" | "failed" | null;
+}
+
+export interface TaskExecutionRecord {
+	id: string;
+	taskId: string;
+	sessionId: string;
+	startedAt: number;
+	completedAt: number | null;
+	status: "running" | "success" | "failed" | "aborted";
+	prompt: string;
+	responsePreview: string;
+	error?: string;
+	durationMs?: number;
+}
+
+export const scheduledTasksAtom = atom<ScheduledTask[]>([]);
+export const selectedTaskIdAtom = atom<string | null>(null);
+export const selectedRecordIdAtom = atom<string | null>(null);
+export const formOpenAtom = atom<ScheduledTask | null | undefined>(undefined);
