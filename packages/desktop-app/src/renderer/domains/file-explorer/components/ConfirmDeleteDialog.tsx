@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "motion/react";
 import type { FsEntry } from "@shared/store/atoms";
+import { Button } from "@shared/components/ui/button";
 
 interface ConfirmDeleteDialogProps {
 	entry: FsEntry;
@@ -44,20 +45,12 @@ export function ConfirmDeleteDialog({ entry, onConfirm, onCancel }: ConfirmDelet
 					此操作无法撤销。
 				</p>
 				<div className="flex justify-end gap-2">
-					<button
-						type="button"
-						onClick={onCancel}
-						className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-[var(--text-2)] transition-colors hover:bg-[var(--hover)]"
-					>
+					<Button variant="ghost" size="sm" onClick={onCancel}>
 						取消
-					</button>
-					<button
-						type="button"
-						onClick={onConfirm}
-						className="rounded-lg bg-[var(--tool-error)] px-3 py-1.5 text-[12px] font-medium text-white transition-colors hover:opacity-90"
-					>
+					</Button>
+					<Button variant="destructive" size="sm" onClick={onConfirm}>
 						删除
-					</button>
+					</Button>
 				</div>
 			</motion.div>
 		</div>

@@ -6,6 +6,7 @@ import { TaskList } from "./TaskList";
 import { ExecutionHistory } from "./ExecutionHistory";
 import { TaskExecutionView } from "./TaskExecutionView";
 import { TaskForm } from "./TaskForm";
+import { Button } from "@shared/components/ui/button";
 
 export function AutomationPage(): JSX.Element {
   const tasks = useAtomValue(scheduledTasksAtom);
@@ -24,12 +25,9 @@ export function AutomationPage(): JSX.Element {
       <div className="flex items-center justify-between px-4 pt-3">
         <h1 className="text-xl font-semibold text-[var(--text-1)]">自动化</h1>
         {formEditingTask === undefined && (
-          <button
-            onClick={() => setFormEditingTask(null)}
-            className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
-          >
+          <Button variant={'default'} onClick={() => setFormEditingTask(null)}>
             + 新建任务
-          </button>
+          </Button>
         )}
       </div>
 

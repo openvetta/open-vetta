@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import { SchedulePicker } from "./CronPicker";
+import { Button } from "@shared/components/ui/button";
 import type { ScheduledTask } from "@shared/store/atoms";
 
 interface TaskFormProps {
@@ -93,19 +94,8 @@ export function TaskForm({ task, embedded = false, onClose }: TaskFormProps): JS
 				</label>
 			</div>
 			<div className="flex justify-end gap-2 pt-2">
-				<button
-					type="button"
-					onClick={handleCancel}
-					className="rounded-md border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--hover)]"
-				>
-					取消
-				</button>
-				<button
-					type="submit"
-					className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-				>
-					保存
-				</button>
+				<Button type="button" variant="outline" onClick={handleCancel}>取消</Button>
+				<Button type="submit">保存</Button>
 			</div>
 		</form>
 	);
@@ -116,12 +106,7 @@ export function TaskForm({ task, embedded = false, onClose }: TaskFormProps): JS
 		<div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4">
 			<div className="mb-4 flex items-center justify-between">
 				<h3 className="font-semibold text-[var(--text-1)]">{title}</h3>
-				<button
-					onClick={handleCancel}
-					className="rounded p-1 hover:bg-[var(--hover)]"
-				>
-					<span className="icon-[mdi--close] text-lg" />
-				</button>
+				<Button type="button" variant="ghost" size="icon-sm" onClick={handleCancel}><span className="icon-[mdi--close] text-lg" /></Button>
 			</div>
 			{formContent}
 		</div>

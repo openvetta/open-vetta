@@ -3,6 +3,7 @@ import type { ChatMessage, ToolCallBlock } from "@shared/store/atoms";
 import { MessageList } from "@domains/chat/components/MessageList";
 import type { TaskExecutionRecord } from "@shared/store/atoms";
 import type { TaskMessage, TaskStreamEvent } from "@preload/api";
+import { Button } from "@shared/components/ui/button";
 import {
 	appendTextDeltaWithRef as appendTextDelta,
 	appendThinkingDeltaWithRef as appendThinkingDelta,
@@ -415,12 +416,9 @@ export function TaskExecutionView({ record, onBack }: TaskExecutionViewProps): R
 			>
 				<div className="pointer-events-auto no-drag flex items-center justify-between">
 					<div className="flex items-center gap-2">
-						<button
-							onClick={onBack}
-							className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-[var(--hover-strong)]"
-						>
+						<Button variant="ghost" size="icon-xs" onClick={onBack}>
 							<span className="icon-[mdi--arrow-left] text-[14px]" />
-						</button>
+						</Button>
 						<div className="flex items-center gap-2">
 							<span className="text-[14px] font-semibold text-[var(--text-1)]">执行详情</span>
 						{getStatusBadge(localRecord.status)}
