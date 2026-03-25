@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ModelsConfigData } from "../../../../preload/api.js";
+import type { ModelsConfigData } from "@preload/api";
 import { selectedModelAtom, activeSessionAtom, remoteProvidersAtom } from "../../store/atoms";
 
 interface ModelOption {

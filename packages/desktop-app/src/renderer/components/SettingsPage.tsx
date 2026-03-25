@@ -1,6 +1,6 @@
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { McpConfigData, McpServerConfigData, ModelsConfigData } from "../../../preload/api.js";
+import type { McpConfigData, McpServerConfigData, ModelsConfigData } from "@preload/api.js";
 import { confirmDialogAtom, remoteProvidersAtom, settingsTabAtom, workspacePathAtom, type SettingsTab } from "../store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { cn } from "../lib/utils";

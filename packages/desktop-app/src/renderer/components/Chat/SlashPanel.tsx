@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { SkillInfo } from "../../../preload/api";
+import type { SkillInfo } from "@preload/api";
 
 interface SlashPanelProps {
 	open: boolean;

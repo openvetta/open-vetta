@@ -1,13 +1,19 @@
 import { join } from "node:path";
 import { URL } from "node:url";
-import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, shell, Tray } from "electron";
 import { registerRuntimeIpc } from "./ipc.js";
 import { registerFsIpc } from "./ipc-fs.js";
+import { registerSchedulerIpc } from "./ipc-scheduler.js";
+import { initScheduler } from "./scheduler.js";
 
 const PROTOCOL = "vetta";
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 let teardownIpc: (() => void) | undefined;
 let teardownFsIpc: (() => void) | undefined;
+let teardownSchedulerIpc: (() => void) | undefined;
+// If true, close button hides to tray instead of quitting
+let hideToTrayOnClose = true;
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const resDir = app.isPackaged ? appRoot : join(appRoot, "dist");
@@ -20,6 +26,77 @@ const iconPath: Record<string, string> = {
 };
 
 const isMac = process.platform === "darwin";
+const isWindows = process.platform === "win32";
+
+function buildTrayMenu(): Electron.Menu {
+	const isVisible = mainWindow?.isVisible() ?? false;
+	return Menu.buildFromTemplate([
+		{
+			label: isVisible ? "隐藏窗口" : "显示窗口",
+			click: () => {
+				if (!mainWindow) return;
+				if (mainWindow.isVisible()) {
+					mainWindow.hide();
+				} else {
+					mainWindow.show();
+					mainWindow.focus();
+				}
+				// Rebuild menu to update label
+				rebuildTrayContextMenu();
+			},
+		},
+		{
+			label: hideToTrayOnClose ? "退出" : "隐藏到托盘",
+			click: () => {
+				// Set isQuitting BEFORE app.quit() so the window close handler lets it pass through
+				(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
+				if (tray) {
+					tray.destroy();
+					tray = null;
+				}
+				app.quit();
+			},
+		},
+	]);
+}
+
+function createTray(): void {
+	if (tray) return; // Already created
+
+	const iconFilePath = iconPath[process.platform];
+	console.log(`[tray] Loading icon from: ${iconFilePath}`);
+	const icon = nativeImage.createFromPath(iconFilePath);
+	console.log(`[tray] Icon loaded: isEmpty=${icon.isEmpty()}`);
+	if (icon.isEmpty()) {
+		console.warn("[tray] Icon not found, skipping tray creation");
+		return;
+	}
+
+	// Windows: resize to 16x16 for proper display in system tray
+	const trayIcon = isWindows ? icon.resize({ width: 16, height: 16 }) : icon.resize({ width: 22, height: 22 });
+
+	tray = new Tray(trayIcon);
+	console.log("[tray] Created successfully");
+	tray.setToolTip("Vetta");
+	tray.setContextMenu(buildTrayMenu());
+
+	// Single click: toggle window visibility
+	tray.on("click", () => {
+		if (!mainWindow) return;
+		if (mainWindow.isVisible()) {
+			mainWindow.hide();
+		} else {
+			mainWindow.show();
+			mainWindow.focus();
+		}
+		rebuildTrayContextMenu();
+	});
+}
+
+function rebuildTrayContextMenu(): void {
+	if (!tray) return;
+	tray.setContextMenu(buildTrayMenu());
+}
 
 function createWindow(): void {
 	mainWindow = new BrowserWindow({
@@ -59,6 +136,26 @@ function createWindow(): void {
 		if (teardownFsIpc) {
 			teardownFsIpc();
 			teardownFsIpc = undefined;
+		}
+		if (teardownSchedulerIpc) {
+			teardownSchedulerIpc();
+			teardownSchedulerIpc = undefined;
+		}
+	});
+
+	// On Windows/Linux: close button hides to tray (if enabled), not quit
+	mainWindow.on("close", (event) => {
+		console.log(`[close] isMac=${isMac}, hideToTrayOnClose=${hideToTrayOnClose}, tray=${!!tray}`);
+		if (!isMac && hideToTrayOnClose && tray) {
+			const appAny = app as typeof app & { isQuitting?: boolean };
+			if (!appAny.isQuitting) {
+				console.log("[close] Hiding to tray instead of closing");
+				event.preventDefault();
+				mainWindow?.hide();
+				rebuildTrayContextMenu();
+				return;
+			}
+			console.log("[close] isQuitting=true, allowing close");
 		}
 	});
 }
@@ -163,6 +260,19 @@ app.whenReady().then(() => {
 		return mainWindow?.isMaximized() ?? false;
 	});
 
+	ipcMain.handle("vetta:tray:set-quit-behavior", (_event, hideToTray: boolean) => {
+		hideToTrayOnClose = hideToTray;
+		rebuildTrayContextMenu();
+	});
+
+	ipcMain.handle("vetta:tray:get-quit-behavior", () => {
+		return hideToTrayOnClose;
+	});
+
+	ipcMain.handle("vetta:tray:set-tooltip", (_event, tooltip: string) => {
+		tray?.setToolTip(tooltip);
+	});
+
 	ipcMain.handle("vetta:auth:open-external", async (_event, url: string) => {
 		await shell.openExternal(url);
 	});
@@ -172,6 +282,23 @@ app.whenReady().then(() => {
 	}
 
 	createWindow();
+
+	// Create tray icon on Windows and Linux
+	if (!isMac) {
+		createTray();
+	}
+
+	// 先清理可能存在的旧的 scheduler IPC
+	if (teardownSchedulerIpc) {
+		teardownSchedulerIpc();
+		teardownSchedulerIpc = undefined;
+	}
+
+	void initScheduler().then(() => {
+		if (mainWindow) {
+			teardownSchedulerIpc = registerSchedulerIpc(mainWindow.webContents);
+		}
+	});
 
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) {
