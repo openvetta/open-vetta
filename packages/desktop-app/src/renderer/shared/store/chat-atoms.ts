@@ -116,3 +116,9 @@ export const modelSupportsImagesAtom = atom<boolean>(true);
 
 export const selectedSkillAtom = atom<SelectedSkill | null>(null);
 export const mentionedFilesAtom = atom<MentionedFile[]>([]);
+
+/** Global callback to open a session (set by useSessionManager, consumed by other pages) */
+// Use a module-level ref instead of atom to avoid structured clone issues with functions
+export const openSessionFnRef: { current: ((cwd: string, sessionPath?: string) => Promise<void>) | null } = {
+	current: null,
+};

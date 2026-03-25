@@ -175,6 +175,21 @@ export class RuntimeHost implements SessionFacade {
 		manager.appendSessionInfo(name);
 	}
 
+	getSessionPath(sessionId: string): string | undefined {
+		const handle = this.sessions.get(sessionId);
+		if (!handle) return undefined;
+		return handle.session.sessionFile;
+	}
+
+	renameSessionById(sessionId: string, name: string): void {
+		const handle = this.requireSession(sessionId);
+		const filePath = handle.session.sessionFile;
+		if (filePath) {
+			const manager = SessionManager.open(filePath);
+			manager.appendSessionInfo(name);
+		}
+	}
+
 	async disposeSession(sessionId: string): Promise<void> {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return;

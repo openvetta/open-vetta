@@ -8,6 +8,8 @@ export interface ScheduledTask {
 	/** Whether this task runs only once and disables itself after execution */
 	isOnce: boolean;
 	enabled: boolean;
+	/** Project working directory this task is associated with */
+	cwd: string;
 	modelId?: string;
 	createdAt: number;
 	updatedAt: number;
@@ -19,6 +21,10 @@ export interface TaskExecutionRecord {
 	id: string;
 	taskId: string;
 	sessionId: string;
+	/** Session file path for navigating to the conversation */
+	sessionPath?: string;
+	/** Project working directory */
+	cwd?: string;
 	startedAt: number;
 	completedAt: number | null;
 	status: "running" | "success" | "failed" | "aborted";

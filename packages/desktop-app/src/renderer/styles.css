@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @plugin "@iconify/tailwind4";
 
+@theme inline {
+	--color-popover: var(--popup-bg);
+	--color-popover-foreground: var(--text-1);
+	--color-muted: var(--surface);
+	--color-muted-foreground: var(--text-2);
+	--color-foreground: var(--text-1);
+}
+
 :root {
 	font-family: -apple-system, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
 		sans-serif;

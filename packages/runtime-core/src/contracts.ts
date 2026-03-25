@@ -165,5 +165,7 @@ export interface SessionFacade {
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
 	deleteSession(sessionPath: string): Promise<void>;
 	renameSession(sessionPath: string, name: string): Promise<void>;
+	getSessionPath(sessionId: string): string | undefined;
+	renameSessionById(sessionId: string, name: string): void;
 	disposeSession(sessionId: string): Promise<void>;
 }
