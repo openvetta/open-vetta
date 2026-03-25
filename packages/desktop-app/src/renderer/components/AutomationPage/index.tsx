@@ -51,7 +51,6 @@ export function AutomationPage(): JSX.Element {
           {selectedTask && !selectedRecord && (
             <ExecutionHistory
               taskId={selectedTask.id}
-              onClose={() => setSelectedTaskId(null)}
               onSelectRecord={setSelectedRecord}
             />
           )}

@@ -13,8 +13,9 @@
 		"jsx": "react-jsx",
 		"noEmit": true,
 		"paths": {
-			"@preload/*": ["../preload/*"],
-			"@mariozechner/pi-ai": ["../../ai/src/index.ts"]
+			"@/*": ["./src/*"],
+			"@preload/*": ["./preload/*"],
+			"@mariozechner/pi-ai": ["../ai/src/index.ts"]
 		},
 		"allowImportingTsExtensions": true
 	},
