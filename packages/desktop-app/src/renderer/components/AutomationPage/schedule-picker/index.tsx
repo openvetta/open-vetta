@@ -13,6 +13,7 @@ import {
 	getDefaultIntervalSchedule,
 	toCronExpression,
 	describeSchedule,
+	parseCronExpression,
 } from "./cron-utils";
 import { OnceMode } from "./once-mode";
 import { DailyMode } from "./daily-mode";
@@ -37,16 +38,19 @@ const MODE_ITEMS = [
 	{ key: "interval" as const, label: "间隔" },
 ];
 
-function getModeFromCron(cron: string): ScheduleMode {
-	const parts = cron.trim().split(/\s+/);
-	// Minimal heuristics: if day-of-month is specific (not *), treat as once-ish
-	// But we'll use explicit isOnce flag for accuracy.
-	// For now, derive from cron structure:
-	if (parts.length === 5) {
-		const [, hour, day, month] = parts;
-		if (day !== "*" && month !== "*") return "once";
+/** Get the mode from a parsed schedule */
+function getMode(schedule: Schedule): ScheduleMode {
+	return schedule.mode;
+}
+
+/** Get default schedule for a given mode */
+function getDefaultSchedule(m: ScheduleMode): Schedule {
+	switch (m) {
+		case "once": return getDefaultOnceSchedule();
+		case "daily": return getDefaultDailySchedule();
+		case "weekly": return getDefaultWeeklySchedule();
+		case "interval": return getDefaultIntervalSchedule();
 	}
-	return "daily";
 }
 
 export function SchedulePicker({
@@ -55,23 +59,15 @@ export function SchedulePicker({
 	onChange,
 	onIsOnceChange,
 }: SchedulePickerProps) {
-	// Determine initial mode from props
-	const initialMode = isOnce
-		? "once"
-		: (value ? getModeFromCron(value) : "daily");
+	// Parse the incoming cron expression to reconstruct UI state
+	const initialSchedule = value
+		? parseCronExpression(value, isOnce) ?? getDefaultSchedule(isOnce ? "once" : "daily")
+		: getDefaultSchedule(isOnce ? "once" : "daily");
+
+	const initialMode = getMode(initialSchedule);
 
 	const [mode, setMode] = useState<ScheduleMode>(initialMode);
-
-	const getDefaultSchedule = useCallback((m: ScheduleMode): Schedule => {
-		switch (m) {
-			case "once": return getDefaultOnceSchedule();
-			case "daily": return getDefaultDailySchedule();
-			case "weekly": return getDefaultWeeklySchedule();
-			case "interval": return getDefaultIntervalSchedule();
-		}
-	}, []);
-
-	const [schedule, setSchedule] = useState<Schedule>(() => getDefaultSchedule(mode));
+	const [schedule, setSchedule] = useState<Schedule>(initialSchedule);
 
 	const handleModeChange = useCallback(
 		(newMode: ScheduleMode) => {
