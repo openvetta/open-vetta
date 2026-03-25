@@ -57,8 +57,8 @@ export function FilesPanel(): JSX.Element {
 	if (!rootDir) {
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
-				<span className="icon-[mdi--folder-search-outline] h-7 w-7 text-[var(--text-2)]" />
-				<p className="text-[11px] text-[var(--text-1)]">
+				<span className="icon-[mdi--folder-search-outline] h-7 w-7 text-muted-foreground" />
+				<p className="text-[11px] text-foreground">
 					选择一个项目以浏览文件
 				</p>
 			</div>
@@ -71,7 +71,7 @@ export function FilesPanel(): JSX.Element {
 		<>
 			{/* Header with project name + refresh */}
 			<div className="flex items-center justify-between px-3 py-1.5">
-				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-2)]">
+				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
 					{projectName}
 				</span>
 				<Button variant="ghost" size="icon-xs" title="刷新" onClick={() => void refreshDir(rootDir)}>
@@ -82,7 +82,7 @@ export function FilesPanel(): JSX.Element {
 			{/* Loading indicator for root */}
 			{loadingDirs.has(rootDir) && !cache.has(rootDir) ? (
 				<div className="flex items-center justify-center py-8">
-					<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-[var(--text-2)]" />
+					<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-muted-foreground" />
 				</div>
 			) : (
 				<FileTree
@@ -120,7 +120,7 @@ export function FilesPanel(): JSX.Element {
 
 			{/* Error toast */}
 			{errorToast && (
-				<div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-[var(--tool-error)] px-3 py-1.5 text-[12px] text-white shadow-lg">
+				<div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-destructive px-3 py-1.5 text-[12px] text-white shadow-lg">
 					{errorToast}
 				</div>
 			)}

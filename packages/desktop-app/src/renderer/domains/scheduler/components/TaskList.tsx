@@ -44,8 +44,8 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 						onClick={() => onSelectTask(task.id)}
 						className={`group cursor-pointer rounded-xl border p-4 transition-all duration-200 ${
 							isSelected
-								? "border-[var(--border-strong)] bg-[var(--hover-strong)] shadow-[0_0_0_1px_var(--border-strong)]"
-								: "border-[var(--border)] bg-transparent hover:border-[var(--border-strong)] hover:bg-[var(--hover)]"
+								? "border-input bg-accent ring-1 ring-input"
+								: "border-border bg-transparent hover:border-input hover:bg-accent/50"
 						}`}
 					>
 						{/* ─── Top row: name + status + actions ─── */}
@@ -59,13 +59,13 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 								/>
 								<span
 									className={`relative inline-flex h-2 w-2 rounded-full ${
-										task.enabled ? "bg-green-500" : "bg-[var(--text-3)]"
+										task.enabled ? "bg-green-500" : "bg-muted-foreground/50"
 									}`}
 								/>
 							</div>
 
 							{/* Task name */}
-							<span className="flex-1 truncate text-sm font-medium text-[var(--text-1)]">
+							<span className="flex-1 truncate text-sm font-medium text-foreground">
 								{task.name}
 							</span>
 
@@ -110,7 +110,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 						</div>
 
 						{/* ─── Meta row ─── */}
-						<div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--text-3)]">
+						<div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/50">
 							{task.cwd && (
 								<span className="flex items-center gap-1">
 									<span className="icon-[mdi--folder-outline] text-[13px]" />
@@ -144,7 +144,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 						</div>
 
 						{/* ─── Prompt preview ─── */}
-						<p className="mt-2 truncate text-xs leading-relaxed text-[var(--text-3)]">
+						<p className="mt-2 truncate text-xs leading-relaxed text-muted-foreground/50">
 							{task.prompt}
 						</p>
 					</div>
@@ -172,8 +172,8 @@ function ActionButton({
 			onClick={onClick}
 			className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-150 active:scale-90 ${
 				variant === "danger"
-					? "text-[var(--text-3)] hover:bg-red-500/10 hover:text-red-400"
-					: "text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)]"
+					? "text-muted-foreground/50 hover:bg-red-500/10 hover:text-red-400"
+					: "text-muted-foreground/50 hover:bg-accent hover:text-foreground"
 			}`}
 		>
 			<span className={`${icon} text-[14px]`} />

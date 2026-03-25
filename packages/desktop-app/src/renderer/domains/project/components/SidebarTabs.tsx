@@ -21,8 +21,8 @@ export function SidebarTabs(): JSX.Element {
 					className={cn(
 						"no-drag flex items-center justify-center rounded-md p-1.5 transition-colors",
 						tab === t.value
-							? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-							: "text-[var(--text-1)] opacity-60 hover:bg-[var(--hover-strong)] hover:opacity-100",
+							? "bg-accent text-foreground"
+							: "text-foreground opacity-60 hover:bg-accent hover:opacity-100",
 					)}
 				>
 					<span className={cn(t.icon, "h-4 w-4")} />

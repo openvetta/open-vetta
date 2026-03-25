@@ -34,9 +34,9 @@ export function SettingsPage(): JSX.Element {
 	return (
 		<div className="flex h-full w-full flex-1 overflow-hidden">
 			{/* Settings sidebar */}
-			<div className="flex w-[200px] shrink-0 flex-col border-r border-[var(--border)]">
+			<div className="flex w-[200px] shrink-0 flex-col border-r border-border">
 				<div className="drag-region px-5 pb-4 pt-5">
-					<h1 className="text-[20px] font-bold tracking-[-0.02em] text-[var(--text-1)]">
+					<h1 className="text-[20px] font-bold tracking-[-0.02em] text-foreground">
 						设置
 					</h1>
 				</div>
@@ -49,8 +49,8 @@ export function SettingsPage(): JSX.Element {
 							className={cn(
 								"flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-colors",
 								tab === key
-									? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-									: "text-[var(--text-1)] hover:bg-[var(--hover)]",
+									? "bg-accent text-foreground"
+									: "text-foreground hover:bg-accent/50",
 							)}
 						>
 							<span className={cn(icon, "h-4 w-4 shrink-0")} />
@@ -61,7 +61,7 @@ export function SettingsPage(): JSX.Element {
 			</div>
 
 			{/* Settings content */}
-			<div className="flex flex-1 flex-col overflow-y-auto bg-[var(--content-bg)]">
+			<div className="flex flex-1 flex-col overflow-y-auto bg-background">
 				{/* Drag region */}
 				<div className="drag-region h-12 shrink-0" />
 				<Content />

@@ -100,7 +100,7 @@ export function ModelSelector(): JSX.Element {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-[var(--text-2)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-1)]"
+				className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
 			>
 				<span className="icon-[mdi--brain] h-3.5 w-3.5 shrink-0" />
 				<span className="max-w-[120px] truncate">
@@ -117,14 +117,14 @@ export function ModelSelector(): JSX.Element {
 						animate={{ opacity: 1, y: 0, scale: 1 }}
 						exit={{ opacity: 0, y: 4, scale: 0.98 }}
 						transition={{ duration: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
-						className="absolute bottom-full right-0 z-50 mb-1.5 min-w-[200px] max-w-[280px] overflow-hidden rounded-xl border border-[var(--border)] shadow-lg"
-						style={{ background: "var(--content-bg)" }}
+						className="absolute bottom-full right-0 z-50 mb-1.5 min-w-[200px] max-w-[280px] overflow-hidden rounded-xl border border-border shadow-lg"
+						style={{ background: "var(--background)" }}
 					>
 						<div className="max-h-[280px] overflow-y-auto py-1">
 							{[...grouped.entries()].map(([provider, providerModels]) => (
 								<div key={provider}>
 									{/* Provider header */}
-									<div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-3)]">
+									<div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
 										{provider}
 									</div>
 									{providerModels.map((m) => {
@@ -137,8 +137,8 @@ export function ModelSelector(): JSX.Element {
 												onClick={() => handleSelect(m.key)}
 												className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${
 													isSelected
-														? "bg-[var(--accent)]/10 text-[var(--accent)]"
-														: "text-[var(--text-1)] hover:bg-[var(--hover)]"
+														? "bg-primary/10 text-primary"
+														: "text-foreground hover:bg-accent/50"
 												}`}
 											>
 												<span className="min-w-0 flex-1 truncate">
@@ -150,7 +150,7 @@ export function ModelSelector(): JSX.Element {
 													</span>
 												)}
 												{isDefault && (
-													<span className="shrink-0 rounded-full bg-[var(--accent)]/15 px-1.5 py-0.5 text-[9px] font-medium text-[var(--accent)]">
+													<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 														默认
 													</span>
 												)}

@@ -31,7 +31,7 @@ export function ContextRing(): JSX.Element | null {
 			? "#ef4444"
 			: percent > 70
 				? "#f59e0b"
-				: "var(--text-1)";
+				: "var(--foreground)";
 
 	const tooltip =
 		ctx.percent !== null
@@ -50,7 +50,7 @@ export function ContextRing(): JSX.Element | null {
 					cy={SIZE / 2}
 					r={RADIUS}
 					fill="none"
-					stroke="var(--surface-raised, #333)"
+					stroke="var(--secondary, #333)"
 					strokeWidth={STROKE}
 					opacity={0.5}
 				/>
@@ -74,9 +74,9 @@ export function ContextRing(): JSX.Element | null {
 						animate={{ opacity: 1, y: 0 }}
 						exit={{ opacity: 0, y: 4 }}
 						transition={{ duration: 0.15 }}
-						className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md px-2 py-1 text-[11px] text-[var(--text-1)] pointer-events-none"
+						className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md px-2 py-1 text-[11px] text-foreground pointer-events-none"
 						style={{
-							background: "var(--surface-raised, #2a2a2a)",
+							background: "var(--secondary, #2a2a2a)",
 							boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
 						}}
 					>

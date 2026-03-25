@@ -108,22 +108,19 @@ export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps)
 					animate={{ opacity: 1, y: 0, scaleY: 1 }}
 					exit={{ opacity: 0, y: 8, scaleY: 0.96 }}
 					transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl"
+					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl bg-card border border-border shadow-md"
 					style={{
-						background: "var(--input-card-bg)",
-						border: "1px solid var(--input-card-border)",
-						boxShadow: "var(--input-card-shadow-focus)",
 						maxHeight: 320,
 					}}
 				>
 					{/* Header */}
-					<div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-2.5">
-						<span className="icon-[mdi--slash-forward] h-4 w-4 text-[var(--text-3)]" />
-						<span className="text-[12px] font-medium text-[var(--text-3)]">
+					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+						<span className="icon-[mdi--slash-forward] h-4 w-4 text-muted-foreground/50" />
+						<span className="text-[12px] font-medium text-muted-foreground/50">
 							选择场景或技能
 						</span>
 						{normalizedFilter && (
-							<span className="ml-auto text-[11px] text-[var(--text-3)]">
+							<span className="ml-auto text-[11px] text-muted-foreground/50">
 								{allItems.length} 个结果
 							</span>
 						)}
@@ -132,7 +129,7 @@ export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps)
 					{/* Content */}
 					<div className="overflow-y-auto" style={{ maxHeight: 280 }}>
 						{allItems.length === 0 ? (
-							<div className="flex items-center justify-center py-8 text-[12px] text-[var(--text-3)]">
+							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
 								{normalizedFilter ? "未找到匹配项" : "暂无可用的技能或场景"}
 							</div>
 						) : (
@@ -140,7 +137,7 @@ export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps)
 								{/* Scenes */}
 								{scenes.length > 0 && (
 									<>
-										<div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-3)]">
+										<div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
 											场景
 										</div>
 										{scenes.map((skill) => {
@@ -162,7 +159,7 @@ export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps)
 								{/* Skills */}
 								{standardSkills.length > 0 && (
 									<>
-										<div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-3)]">
+										<div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
 											技能
 										</div>
 										{standardSkills.map((skill) => {
@@ -211,27 +208,27 @@ function SlashItem({
 			onClick={onClick}
 			className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors"
 			style={{
-				background: active ? "var(--hover)" : "transparent",
+				background: active ? "var(--accent)" : "transparent",
 			}}
 		>
 			<div
-				className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isScene ? "bg-[var(--accent-dim)]" : "bg-[var(--surface)]"}`}
+				className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isScene ? "bg-primary/10" : "bg-muted"}`}
 			>
 				<span
-					className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3.5 w-3.5 text-[var(--text-2)]`}
+					className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3.5 w-3.5 text-muted-foreground`}
 				/>
 			</div>
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
-					<span className="truncate text-[12.5px] font-medium text-[var(--text-1)]">
+					<span className="truncate text-[12.5px] font-medium text-foreground">
 						{skill.name}
 					</span>
-					<span className="shrink-0 rounded-full bg-[var(--accent-dim)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--text-3)]">
+					<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/50">
 						{SOURCE_LABELS[skill.source] ?? skill.source}
 					</span>
 				</div>
 				{skill.description && (
-					<p className="truncate text-[11px] text-[var(--text-3)]">
+					<p className="truncate text-[11px] text-muted-foreground/50">
 						{skill.description}
 					</p>
 				)}

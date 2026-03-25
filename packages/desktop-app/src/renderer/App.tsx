@@ -55,11 +55,7 @@ export function RootLayout(): JSX.Element {
 			<div className="flex flex-1 overflow-hidden p-1.5 pl-0">
 				<Sidebar onOpenSession={openSession} />
 				<main
-					className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg bg-[var(--content-bg)]"
-					style={{
-						border: "var(--panel-border)",
-						boxShadow: "var(--panel-shadow)",
-					}}
+					className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
 				>
 					<Outlet />
 				</main>

@@ -29,7 +29,7 @@ export function UsageBar(): JSX.Element | null {
 			transition={{ duration: 0.3 }}
 			className="flex justify-start pl-7"
 		>
-			<div className="text-[11px] font-mono text-[var(--text-3)]">
+			<div className="text-[11px] font-mono text-muted-foreground/50">
 				{parts.join("  ·  ")}
 			</div>
 		</motion.div>

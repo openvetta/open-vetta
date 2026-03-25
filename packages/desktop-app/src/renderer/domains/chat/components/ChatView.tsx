@@ -19,12 +19,12 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
 
 	return (
-		<div className="relative flex h-full min-w-0 flex-1 flex-col bg-[var(--content-bg)]">
+		<div className="relative flex h-full min-w-0 flex-1 flex-col bg-background">
 			{/* Top bar — gradient fade from solid to transparent */}
 			<div
 				className="drag-region pointer-events-none absolute inset-x-0 top-0 z-10"
 				style={{
-					background: "linear-gradient(to bottom, var(--content-bg) 40%, transparent 100%)",
+					background: "linear-gradient(to bottom, var(--background) 40%, transparent 100%)",
 					paddingTop: 20,
 					paddingBottom: 20,
 					paddingLeft: 16,
@@ -32,14 +32,14 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				}}
 			>
 				<div className="pointer-events-auto no-drag flex items-center justify-between">
-					<div className="truncate text-[14px] font-semibold text-[var(--text-1)]">
+					<div className="truncate text-[14px] font-semibold text-foreground">
 						{activeSession ? projectName(activeSession.cwd) : "Session"}
 					</div>
 
 					<div className="flex items-center gap-2">
 						{isStreaming && (
-							<div className="flex items-center gap-1.5 text-[11px] text-[var(--text-3)]">
-								<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-[var(--text-3)]" />
+							<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+								<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-muted-foreground/50" />
 								Thinking...
 							</div>
 						)}
@@ -49,8 +49,8 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 							onClick={() => setPanelOpen((o) => !o)}
 							className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
 								panelOpen
-									? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-									: "text-[var(--text-3)] hover:bg-[var(--hover-strong)] hover:text-[var(--text-2)]"
+									? "bg-accent text-foreground"
+									: "text-muted-foreground/50 hover:bg-accent hover:text-muted-foreground"
 							}`}
 						>
 							<span className="icon-[mdi--dock-right] text-[14px]" />
@@ -62,10 +62,10 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 			{/* Messages — top padding accounts for the floating header */}
 			{messages.length === 0 ? (
 				<div className="flex flex-1 flex-col items-center justify-center gap-3">
-					<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--surface)]">
-						<span className="icon-[mdi--chat-outline] h-5 w-5 text-[var(--text-3)]" />
+					<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted">
+						<span className="icon-[mdi--chat-outline] h-5 w-5 text-muted-foreground/50" />
 					</div>
-					<p className="text-[13px] text-[var(--text-3)]">
+					<p className="text-[13px] text-muted-foreground/50">
 						No messages yet. Say something!
 					</p>
 				</div>

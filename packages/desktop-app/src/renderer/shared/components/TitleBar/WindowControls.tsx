@@ -39,7 +39,7 @@ export function WindowControls({ className }: WindowControlsProps): JSX.Element 
 				type="button"
 				onClick={handleMinimize}
 				title="最小化"
-				className="flex h-8 w-11 items-center justify-center rounded-md text-[var(--text-1)] hover:bg-[var(--hover)] active:opacity-70"
+				className="flex h-8 w-11 items-center justify-center rounded-md text-foreground hover:bg-accent/50 active:opacity-70"
 				aria-label="最小化"
 			>
 				<span className="icon-[mdi--window-minimize] h-4 w-4" />
@@ -48,7 +48,7 @@ export function WindowControls({ className }: WindowControlsProps): JSX.Element 
 				type="button"
 				onClick={handleMaximize}
 				title={isMaximized ? "还原" : "最大化"}
-				className="flex h-8 w-11 items-center justify-center rounded-md text-[var(--text-1)] hover:bg-[var(--hover)] active:opacity-70"
+				className="flex h-8 w-11 items-center justify-center rounded-md text-foreground hover:bg-accent/50 active:opacity-70"
 				aria-label={isMaximized ? "还原" : "最大化"}
 			>
 				{isMaximized ? (
@@ -61,7 +61,7 @@ export function WindowControls({ className }: WindowControlsProps): JSX.Element 
 				type="button"
 				onClick={handleClose}
 				title="关闭"
-				className="flex h-8 w-11 items-center justify-center rounded-md text-[var(--text-1)] hover:bg-[var(--tool-error)] active:opacity-70"
+				className="flex h-8 w-11 items-center justify-center rounded-md text-foreground hover:bg-destructive active:opacity-70"
 				aria-label="关闭"
 			>
 				<span className="icon-[mdi--close] h-4 w-4" />

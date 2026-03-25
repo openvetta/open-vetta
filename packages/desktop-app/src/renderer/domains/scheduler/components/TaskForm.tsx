@@ -72,7 +72,7 @@ function OnceEditor({ schedule, onChange }: { schedule: OnceSchedule; onChange: 
 					minute: d.getMinutes(),
 				});
 			}}
-			className="h-9 rounded-lg border-none bg-[var(--surface)] px-3 text-sm text-[var(--text-1)] focus:outline-none [color-scheme:dark]"
+			className="h-9 rounded-lg border-none bg-muted px-3 text-sm text-foreground focus:outline-none [color-scheme:dark]"
 		/>
 	);
 }
@@ -88,7 +88,7 @@ function DailyEditor({ schedule, onChange }: { schedule: DailySchedule; onChange
 				const [h, m] = e.target.value.split(":").map(Number);
 				if (h != null && m != null) onChange({ ...schedule, hour: h, minute: m });
 			}}
-			className="h-9 rounded-lg border-none bg-[var(--surface)] px-3 text-sm text-[var(--text-1)] focus:outline-none [color-scheme:dark]"
+			className="h-9 rounded-lg border-none bg-muted px-3 text-sm text-foreground focus:outline-none [color-scheme:dark]"
 		/>
 	);
 }
@@ -101,7 +101,7 @@ function IntervalEditor({ schedule, onChange }: { schedule: IntervalSchedule; on
 
 	return (
 		<div className="flex items-center gap-2">
-			<span className="text-sm text-[var(--text-2)]">每隔</span>
+			<span className="text-sm text-muted-foreground">每隔</span>
 			<input
 				type="number"
 				value={displayValue}
@@ -112,7 +112,7 @@ function IntervalEditor({ schedule, onChange }: { schedule: IntervalSchedule; on
 						onChange({ ...schedule, intervalHours: unit === "days" ? n * 24 : n });
 					}
 				}}
-				className="h-9 w-16 rounded-lg border-none bg-[var(--surface)] px-2 text-center text-sm text-[var(--text-1)] focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+				className="h-9 w-16 rounded-lg border-none bg-muted px-2 text-center text-sm text-foreground focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 			/>
 			<select
 				value={unit}
@@ -126,7 +126,7 @@ function IntervalEditor({ schedule, onChange }: { schedule: IntervalSchedule; on
 						onChange({ ...schedule, intervalHours: Math.max(1, schedule.intervalHours) });
 					}
 				}}
-				className="h-9 rounded-lg border-none bg-[var(--surface)] px-2 pr-6 text-sm text-[var(--text-1)] focus:outline-none"
+				className="h-9 rounded-lg border-none bg-muted px-2 pr-6 text-sm text-foreground focus:outline-none"
 			>
 				<option value="hours">小时</option>
 				<option value="days">天</option>
@@ -210,7 +210,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 						type="text"
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="w-full border-none bg-transparent text-lg font-semibold text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none! focus-visible:outline-none! focus:shadow-none! focus-visible:shadow-none!"
+						className="w-full border-none bg-transparent text-lg font-semibold text-foreground placeholder:text-muted-foreground/50 focus:outline-none! focus-visible:outline-none! focus:shadow-none! focus-visible:shadow-none!"
 						placeholder={task ? "任务名称" : "新建任务"}
 						autoFocus
 					/>
@@ -221,7 +221,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 					<textarea
 						value={prompt}
 						onChange={(e) => setPrompt(e.target.value)}
-						className="min-h-[120px] w-full resize-y border-none bg-transparent text-sm text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none"
+						className="min-h-[120px] w-full resize-y border-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
 						placeholder="输入提示词..."
 						rows={5}
 					/>
@@ -229,9 +229,9 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 
 				{/* ─── Schedule section ─── */}
 				{schedulePopoverOpen && (
-					<div className="border-t border-[var(--border)] px-6 py-4">
+					<div className="border-t border-border px-6 py-4">
 						<div className="mb-3 flex items-center justify-between">
-							<span className="text-sm font-medium text-[var(--text-1)]">调度</span>
+							<span className="text-sm font-medium text-foreground">调度</span>
 							<div className="flex gap-1">
 								{SCHEDULE_MODES.map((m) => (
 									<button
@@ -240,8 +240,8 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 										onClick={() => handleModeChange(m.key)}
 										className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
 											mode === m.key
-												? "text-[var(--text-1)]"
-												: "text-[var(--text-3)] hover:text-[var(--text-2)]"
+												? "text-foreground"
+												: "text-muted-foreground/50 hover:text-muted-foreground"
 										}`}
 									>
 										{m.label}
@@ -272,13 +272,13 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 				)}
 
 				{/* ─── Footer bar ─── */}
-				<div className="flex items-center gap-2 border-t border-[var(--border)] px-5 py-3">
+				<div className="flex items-center gap-2 border-t border-border px-5 py-3">
 					{/* Project selector */}
 					<Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
 						<PopoverTrigger asChild>
 							<button
 								type="button"
-								className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-[var(--text-2)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-1)]"
+								className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
 							>
 								<span className="icon-[mdi--folder-outline] text-[14px]" />
 								<span>{cwd ? projectName(cwd) : "选择项目"}</span>
@@ -293,8 +293,8 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 									onClick={() => { setCwd(p.cwd); setProjectPopoverOpen(false); }}
 									className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
 										cwd === p.cwd
-											? "bg-[var(--hover-strong)] text-[var(--text-1)]"
-											: "text-[var(--text-2)] hover:bg-[var(--hover)] hover:text-[var(--text-1)]"
+											? "bg-accent text-foreground"
+											: "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
 									}`}
 								>
 									<span className="icon-[mdi--folder-outline] text-[14px]" />
@@ -308,7 +308,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 					<button
 						type="button"
 						onClick={() => setSchedulePopoverOpen(!schedulePopoverOpen)}
-						className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-[var(--text-2)] transition-colors hover:bg-[var(--hover)] hover:text-[var(--text-1)]"
+						className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
 					>
 						<span className="icon-[mdi--clock-outline] text-[14px]" />
 						<span>{scheduleLabel}</span>
@@ -322,7 +322,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 					<button
 						type="button"
 						onClick={onClose}
-						className="px-3 py-1.5 text-sm text-[var(--text-3)] transition-colors hover:text-[var(--text-2)]"
+						className="px-3 py-1.5 text-sm text-muted-foreground/50 transition-colors hover:text-muted-foreground"
 					>
 						取消
 					</button>

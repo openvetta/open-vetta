@@ -82,7 +82,7 @@ export function FilePreview({ filePath }: FilePreviewProps): JSX.Element {
 
 	if (!supported) {
 		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-[var(--text-3)]">
+			<div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground/50">
 				<span className="icon-[mdi--file-question-outline] text-[40px]" />
 				<span className="text-[13px]">暂不支持预览此文件格式</span>
 			</div>
@@ -92,14 +92,14 @@ export function FilePreview({ filePath }: FilePreviewProps): JSX.Element {
 	if (state.status === "loading") {
 		return (
 			<div className="flex flex-1 items-center justify-center p-8">
-				<span className="icon-[mdi--loading] animate-spin text-[24px] text-[var(--text-3)]" />
+				<span className="icon-[mdi--loading] animate-spin text-[24px] text-muted-foreground/50" />
 			</div>
 		);
 	}
 
 	if (state.status === "error") {
 		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-[var(--text-3)]">
+			<div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground/50">
 				<span className="icon-[mdi--alert-circle-outline] text-[40px]" />
 				<span className="text-[13px]">{state.message}</span>
 			</div>

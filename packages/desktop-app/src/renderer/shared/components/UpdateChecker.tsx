@@ -44,7 +44,7 @@ export function UpdateChecker(): JSX.Element {
 					{checking ? "检查中..." : "检查更新"}
 				</Button>
 				{result && !result.hasUpdate && !result.error && (
-					<span className="text-[12px] text-[var(--text-2)]">
+					<span className="text-[12px] text-muted-foreground">
 						当前已是最新版本 ({result.currentVersion})
 					</span>
 				)}
@@ -56,13 +56,13 @@ export function UpdateChecker(): JSX.Element {
 			</div>
 
 			{result?.hasUpdate && (
-				<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-3 space-y-2">
+				<div className="rounded-lg border border-border bg-secondary p-3 space-y-2">
 					<div className="flex items-center justify-between">
 						<div>
-							<span className="text-[13px] font-medium text-[var(--text-1)]">
+							<span className="text-[13px] font-medium text-foreground">
 								新版本 {result.latestVersion}
 							</span>
-							<span className="ml-2 text-[12px] text-[var(--text-2)]">
+							<span className="ml-2 text-[12px] text-muted-foreground">
 								(当前 {result.currentVersion})
 							</span>
 						</div>
@@ -74,7 +74,7 @@ export function UpdateChecker(): JSX.Element {
 						</Button>
 					</div>
 					{result.releaseNote && (
-						<p className="text-[12px] text-[var(--text-2)] whitespace-pre-wrap">
+						<p className="text-[12px] text-muted-foreground whitespace-pre-wrap">
 							{result.releaseNote}
 						</p>
 					)}

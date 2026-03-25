@@ -55,8 +55,7 @@ function parseUserPrefixes(text: string): { skillName: string | null; files: str
 function SkillBadge({ name }: { name: string }): JSX.Element {
 	return (
 		<span
-			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-			style={{ background: "var(--accent-dim)", color: "var(--text-2)" }}
+			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-primary/10 text-muted-foreground"
 		>
 			<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
 			{name}
@@ -68,8 +67,7 @@ function FileBadge({ path }: { path: string }): JSX.Element {
 	const name = path.split("/").pop() ?? path;
 	return (
 		<span
-			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-			style={{ background: "var(--surface)", color: "var(--text-2)" }}
+			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground"
 			title={path}
 		>
 			<span className="icon-[mdi--file-outline] h-3 w-3" />
@@ -101,7 +99,7 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 							{message.images!.map((img, i) => (
 								<div
 									key={i}
-									className="h-20 w-20 overflow-hidden rounded-xl border border-[var(--border-1)]"
+									className="h-20 w-20 overflow-hidden rounded-xl border border-border"
 								>
 									<img
 										src={`data:${img.mimeType};base64,${img.data}`}
@@ -114,7 +112,7 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 					)}
 					{(displayText || hasBadges) && (
 						<div
-							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
+							className="rounded-2xl rounded-br-md bg-secondary px-3.5 py-2 text-[13px] leading-[1.5] text-foreground"
 							style={{ wordBreak: "break-word" }}
 						>
 							{hasBadges && (
@@ -132,7 +130,7 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 					)}
 					{!displayText && !hasBadges && !hasImages && (
 						<div
-							className="rounded-2xl rounded-br-md bg-[var(--bubble-user)] px-3.5 py-2 text-[13px] leading-[1.5] text-[var(--text-1)]"
+							className="rounded-2xl rounded-br-md bg-secondary px-3.5 py-2 text-[13px] leading-[1.5] text-foreground"
 							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
 						>
 							{"\u2026"}
@@ -151,10 +149,10 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 			transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
 			className="flex justify-start"
 		>
-			<div className="mr-2 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]" style={{ boxShadow: "0 1px 4px var(--accent-glow)" }}>
-				<span className="icon-[mdi--shimmer] h-2.5 w-2.5 text-[var(--accent-fg)]" />
+			<div className="mr-2 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary" style={{ boxShadow: "0 1px 4px var(--ring)" }}>
+				<span className="icon-[mdi--shimmer] h-2.5 w-2.5 text-primary-foreground" />
 			</div>
-			<div className={cn("max-w-[85%] min-w-0", !hasBlocks && "rounded-2xl rounded-bl-md bg-[var(--bubble-assistant)] px-3.5 py-2")}>
+			<div className={cn("max-w-[85%] min-w-0", !hasBlocks && "rounded-2xl rounded-bl-md bg-muted px-3.5 py-2")}>
 				{hasBlocks ? (
 					<div className="flex flex-col gap-0.5">
 						{message.blocks!.map((block, i) => (
@@ -163,7 +161,7 @@ function Message({ message }: { message: ChatMessage }): JSX.Element {
 					</div>
 				) : (
 					<div
-						className="text-[13px] leading-[1.5] text-[var(--text-1)]"
+						className="text-[13px] leading-[1.5] text-foreground"
 						style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
 					>
 						{message.text || "\u2026"}
@@ -183,14 +181,14 @@ function TypingIndicator(): JSX.Element {
 			transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
 			className="flex items-center gap-2"
 		>
-			<div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]" style={{ boxShadow: "0 1px 4px var(--accent-glow)" }}>
-				<span className="icon-[mdi--shimmer] h-2.5 w-2.5 text-[var(--accent-fg)]" />
+			<div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary" style={{ boxShadow: "0 1px 4px var(--ring)" }}>
+				<span className="icon-[mdi--shimmer] h-2.5 w-2.5 text-primary-foreground" />
 			</div>
-			<div className="flex gap-[3px] rounded-2xl rounded-bl-md bg-[var(--bubble-assistant)] px-3.5 py-2.5">
+			<div className="flex gap-[3px] rounded-2xl rounded-bl-md bg-muted px-3.5 py-2.5">
 				{[0, 1, 2].map((i) => (
 					<span
 						key={i}
-						className="h-[5px] w-[5px] rounded-full bg-[var(--text-3)]"
+						className="h-[5px] w-[5px] rounded-full bg-muted-foreground/50"
 						style={{ animation: `bounce 1.2s ${i * 0.15}s infinite` }}
 					/>
 				))}
@@ -255,7 +253,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 					0%, 100% { opacity: 1; }
 					50% { opacity: 0.4; }
 				}
-				textarea::placeholder { color: var(--text-3); }
+				textarea::placeholder { color: var(--muted-foreground); opacity: 0.5; }
 			`}</style>
 			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-[56px]">
 				<div className="mx-auto flex max-w-2xl flex-col gap-3.5">
@@ -278,7 +276,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 						transition={{ duration: 0.15 }}
 						type="button"
 						onClick={scrollToBottom}
-						className="absolute bottom-[72px] left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-[var(--surface-2)] text-[var(--text-2)] shadow-md transition-colors hover:bg-[var(--surface-3)]"
+						className="absolute bottom-[72px] left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-secondary text-muted-foreground shadow-md transition-colors hover:bg-accent"
 					>
 						<span className="icon-[mdi--chevron-down] h-5 w-5" />
 					</motion.button>

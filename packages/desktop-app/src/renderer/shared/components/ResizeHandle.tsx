@@ -45,7 +45,7 @@ export function ResizeHandle({ side, onResize, onResizeEnd }: ResizeHandleProps)
 				side === "right" ? "right-0 translate-x-1/2" : "left-0 -translate-x-1/2"
 			}`}
 		>
-			<div className="h-full w-px mx-auto bg-transparent hover:bg-[var(--accent-dim)] transition-colors" />
+			<div className="h-full w-px mx-auto bg-transparent hover:bg-primary/10 transition-colors" />
 		</div>
 	);
 }

@@ -40,17 +40,17 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 	};
 
 	return (
-		<div className="overflow-hidden rounded-xl border border-[var(--border)]">
+		<div className="overflow-hidden rounded-xl border border-border">
 			{/* ─── Header ─── */}
-			<div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
-				<span className="icon-[mdi--history] text-sm text-[var(--text-3)]" />
-				<span className="text-sm font-medium text-[var(--text-1)]">执行历史</span>
+			<div className="flex items-center gap-2 border-b border-border px-4 py-3">
+				<span className="icon-[mdi--history] text-sm text-muted-foreground/50" />
+				<span className="text-sm font-medium text-foreground">执行历史</span>
 				<div className="flex-1" />
 				<button
 					type="button"
 					onClick={loadRecords}
 					title="刷新"
-					className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-3)] transition-all duration-150 hover:bg-[var(--hover-strong)] hover:text-[var(--text-2)] active:scale-90"
+					className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-all duration-150 hover:bg-accent hover:text-muted-foreground active:scale-90"
 				>
 					<span className="icon-[mdi--refresh] text-sm" />
 				</button>
@@ -60,10 +60,10 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 			<div className="max-h-72 overflow-y-auto">
 				{loading ? (
 					<div className="flex items-center justify-center py-10">
-						<span className="icon-[mdi--loading] animate-spin text-lg text-[var(--text-3)]" />
+						<span className="icon-[mdi--loading] animate-spin text-lg text-muted-foreground/50" />
 					</div>
 				) : records.length === 0 ? (
-					<div className="flex flex-col items-center justify-center gap-1 py-10 text-[var(--text-3)]">
+					<div className="flex flex-col items-center justify-center gap-1 py-10 text-muted-foreground/50">
 						<span className="icon-[mdi--inbox-outline] text-2xl" />
 						<p className="text-xs">暂无执行记录</p>
 					</div>
@@ -73,8 +73,8 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 							<div
 								key={record.id}
 								onClick={() => handleOpenSession(record)}
-								className={`group flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-[var(--hover)] ${
-									i > 0 ? "border-t border-[var(--border)]" : ""
+								className={`group flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-accent/50 ${
+									i > 0 ? "border-t border-border" : ""
 								}`}
 							>
 								{/* Status dot */}
@@ -83,18 +83,18 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 								{/* Content */}
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-2">
-										<span className="text-sm text-[var(--text-1)]">
+										<span className="text-sm text-foreground">
 											{formatTime(record.startedAt)}
 										</span>
 										<StatusBadge status={record.status} />
 										{record.durationMs != null && record.durationMs > 0 && (
-											<span className="text-xs text-[var(--text-3)]">
+											<span className="text-xs text-muted-foreground/50">
 												{formatDuration(record.durationMs)}
 											</span>
 										)}
 									</div>
 									{(record.responsePreview || record.error) && (
-										<p className={`mt-0.5 truncate text-xs ${record.error ? "text-red-400" : "text-[var(--text-3)]"}`}>
+										<p className={`mt-0.5 truncate text-xs ${record.error ? "text-red-400" : "text-muted-foreground/50"}`}>
 											{record.error || record.responsePreview}
 										</p>
 									)}
@@ -102,7 +102,7 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 
 								{/* Navigate arrow */}
 								{record.sessionPath && (
-									<span className="icon-[mdi--chevron-right] text-[16px] text-[var(--text-3)] opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+									<span className="icon-[mdi--chevron-right] text-[16px] text-muted-foreground/50 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
 								)}
 							</div>
 						))}

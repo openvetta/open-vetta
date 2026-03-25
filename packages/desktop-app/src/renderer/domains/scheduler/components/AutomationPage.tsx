@@ -48,7 +48,7 @@ export function AutomationPage(): JSX.Element {
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			{/* ─── Header ─── */}
 			<div className="flex items-center justify-between px-6 pt-5 pb-1">
-				<h1 className="text-lg font-semibold tracking-tight text-[var(--text-1)]">
+				<h1 className="text-lg font-semibold tracking-tight text-foreground">
 					自动化
 				</h1>
 				<button
@@ -56,7 +56,7 @@ export function AutomationPage(): JSX.Element {
 					onClick={handleNewTask}
 					disabled={noProjects}
 					title={noProjects ? "请先在侧边栏添加项目" : "新建定时任务"}
-					className="flex items-center gap-1.5 rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-fg)] transition-all duration-200 hover:bg-[var(--accent-hover)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-30"
+					className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-all duration-200 hover:bg-primary/80 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-30"
 				>
 					<span className="icon-[mdi--plus] text-[15px]" />
 					新建任务
@@ -95,14 +95,14 @@ export function AutomationPage(): JSX.Element {
 function EmptyState({ onNew, noProjects }: { onNew?: () => void; noProjects: boolean }): JSX.Element {
 	return (
 		<div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-			<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface)]">
-				<span className="icon-[mdi--clock-check-outline] text-3xl text-[var(--text-3)]" />
+			<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+				<span className="icon-[mdi--clock-check-outline] text-3xl text-muted-foreground/50" />
 			</div>
 			<div className="space-y-1">
-				<p className="text-sm font-medium text-[var(--text-2)]">
+				<p className="text-sm font-medium text-muted-foreground">
 					{noProjects ? "请先添加项目" : "暂无定时任务"}
 				</p>
-				<p className="text-xs text-[var(--text-3)]">
+				<p className="text-xs text-muted-foreground/50">
 					{noProjects
 						? "在侧边栏中添加项目后即可创建自动化任务"
 						: "创建定时任务，让 AI 按计划自动执行"}
@@ -112,7 +112,7 @@ function EmptyState({ onNew, noProjects }: { onNew?: () => void; noProjects: boo
 				<button
 					type="button"
 					onClick={onNew}
-					className="mt-1 flex items-center gap-1.5 rounded-full bg-[var(--surface-raised)] px-4 py-2 text-sm text-[var(--text-2)] transition-all duration-200 hover:bg-[var(--hover-strong)] hover:text-[var(--text-1)] active:scale-[0.97]"
+					className="mt-1 flex items-center gap-1.5 rounded-full bg-secondary px-4 py-2 text-sm text-muted-foreground transition-all duration-200 hover:bg-accent hover:text-foreground active:scale-[0.97]"
 				>
 					<span className="icon-[mdi--plus] text-[15px]" />
 					创建第一个任务
