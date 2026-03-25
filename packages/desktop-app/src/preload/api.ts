@@ -184,6 +184,12 @@ export interface TaskStreamEvent {
 	phase?: string;
 }
 
+export interface DesktopTrayApi {
+	setQuitBehavior(hideToTray: boolean): Promise<void>;
+	getQuitBehavior(): Promise<boolean>;
+	setTooltip(text: string): Promise<void>;
+}
+
 export interface DesktopSchedulerApi {
 	getTasks(): Promise<ScheduledTask[]>;
 	createTask(
@@ -214,6 +220,7 @@ export interface DesktopApi {
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
 	auth: DesktopAuthApi;
+	tray: DesktopTrayApi;
 	scheduler: DesktopSchedulerApi;
 }
 
