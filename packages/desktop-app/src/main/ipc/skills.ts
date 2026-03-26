@@ -20,12 +20,20 @@ interface InstalledMarketSkill {
 	version: string;
 	installedAt: string;
 	source: "market";
+	enabled: boolean;
 }
 
 function readManifest(): Record<string, InstalledMarketSkill> {
 	if (!existsSync(manifestPath)) return {};
 	try {
-		return JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, InstalledMarketSkill>;
+		const raw = JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, InstalledMarketSkill>;
+		// Backward compat: entries without `enabled` default to true
+		for (const entry of Object.values(raw)) {
+			if (entry.enabled === undefined) {
+				entry.enabled = true;
+			}
+		}
+		return raw;
 	} catch {
 		return {};
 	}
@@ -94,6 +102,7 @@ export function registerSkillsIpc(): () => void {
 			version,
 			installedAt: new Date().toISOString(),
 			source: "market",
+			enabled: true,
 		};
 		writeManifest(manifest);
 	});
@@ -111,6 +120,18 @@ export function registerSkillsIpc(): () => void {
 		writeManifest(manifest);
 	});
 
+	ipcMain.handle("vetta:skills:toggle", async (_event, name: unknown) => {
+		assertNonEmptyString(name, "name");
+
+		const manifest = readManifest();
+		const entry = manifest[name];
+		if (!entry) {
+			throw new Error(`Skill "${name}" is not installed`);
+		}
+		entry.enabled = !entry.enabled;
+		writeManifest(manifest);
+	});
+
 	ipcMain.handle("vetta:skills:get-market-manifest", async () => {
 		return readManifest();
 	});
@@ -119,6 +140,7 @@ export function registerSkillsIpc(): () => void {
 		ipcMain.removeHandler("vetta:skills:list");
 		ipcMain.removeHandler("vetta:skills:install-from-market");
 		ipcMain.removeHandler("vetta:skills:uninstall");
+		ipcMain.removeHandler("vetta:skills:toggle");
 		ipcMain.removeHandler("vetta:skills:get-market-manifest");
 	};
 }
