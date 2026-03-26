@@ -73,10 +73,6 @@ export function BatchTaskDetail({ task }: BatchTaskDetailProps): JSX.Element {
 					<p className="text-xs font-medium text-muted-foreground/50">文件夹</p>
 					<p className="truncate text-sm text-foreground">{task.cwd}</p>
 				</div>
-				<div>
-					<p className="text-xs font-medium text-muted-foreground/50">提示词</p>
-					<p className="text-sm text-foreground">{task.prompt}</p>
-				</div>
 			</div>
 
 			{hasSession ? (
