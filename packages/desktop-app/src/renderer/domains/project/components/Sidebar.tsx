@@ -16,6 +16,7 @@ const MAX_WIDTH = 400;
 
 const NAV_ITEMS = [
 	{ path: "/automation" as const, label: "自动化", icon: "icon-[mdi--robot-outline]" },
+	{ path: "/batch-tasks" as const, label: "批量任务", icon: "icon-[mdi--format-list-bulleted]" },
 	{ path: "/skills" as const, label: "技能广场", icon: "icon-[mdi--puzzle-outline]" },
 ];
 

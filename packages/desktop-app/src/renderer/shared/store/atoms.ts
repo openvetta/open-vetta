@@ -2,6 +2,7 @@
 
 export * from "./activity-atoms";
 export * from "./auth-atoms";
+export * from "./batch-tasks-atoms";
 export * from "./chat-atoms";
 export * from "./file-atoms";
 export * from "./project-atoms";
