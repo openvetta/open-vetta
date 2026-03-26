@@ -1,5 +1,5 @@
-import { app, ipcMain, shell } from "electron";
-import { checkForUpdate } from "../updater.js";
+import { ipcMain, shell } from "electron";
+import { checkForUpdate, getAppVersion } from "../updater.js";
 
 export function registerUpdaterIpc(): () => void {
 	ipcMain.handle("vetta:updater:check", async () => {
@@ -7,7 +7,7 @@ export function registerUpdaterIpc(): () => void {
 	});
 
 	ipcMain.handle("vetta:updater:get-current-version", () => {
-		return app.getVersion();
+		return getAppVersion();
 	});
 
 	ipcMain.handle("vetta:updater:download", async (_event, url: unknown) => {
