@@ -1,85 +1,141 @@
-import {
-	type BatchProject,
-	type BatchTask,
-	batchProjectsAtom,
-	batchSessionsMapAtom,
-	expandedBatchProjectsAtom,
-} from "@shared/store/atoms";
+import { batchProjectsAtom, batchSessionsMapAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useAtom, useAtomValue } from "jotai";
+import { useCallback, useEffect } from "react";
 
 export function useBatchTasks() {
 	const [projects, setProjects] = useAtom(batchProjectsAtom);
 	const sessionsMap = useAtomValue(batchSessionsMapAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedBatchProjectsAtom);
 
-	const refreshProjects = () => {
-		// TODO: implement refresh from storage/IPC
-	};
+	const refreshProjects = useCallback(async () => {
+		const loadedProjects = await window.vetta.batchTasks.getProjects();
+		setProjects(loadedProjects);
+	}, [setProjects]);
 
-	const createProject = (data: { name: string; prompt: string; folders: string[] }) => {
-		const now = Date.now();
-		const tasks: BatchTask[] = data.folders.map((cwd, index) => ({
-			id: `batch-task-${now}-${index}`,
-			name: cwd.split("/").pop() ?? cwd,
-			prompt: data.prompt,
-			cwd,
-			status: "pending" as const,
-			createdAt: now,
-			updatedAt: now,
-		}));
+	const createProject = useCallback(
+		async (data: { name: string; prompt: string; folders: string[]; concurrency: number }) => {
+			const project = await window.vetta.batchTasks.createProject(data);
+			setProjects((prev) => [...prev, project]);
+			return project;
+		},
+		[setProjects],
+	);
 
-		const newProject: BatchProject = {
-			id: `batch-project-${now}`,
-			name: data.name,
-			prompt: data.prompt,
-			tasks,
-			createdAt: now,
-			updatedAt: now,
-		};
+	const updateProject = useCallback(
+		async (projectId: string, data: { name?: string; prompt?: string; concurrency?: number }) => {
+			await window.vetta.batchTasks.updateProject(projectId, data);
+			setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...data, updatedAt: Date.now() } : p)));
+		},
+		[setProjects],
+	);
 
-		setProjects((prev) => [...prev, newProject]);
-		return newProject;
-	};
-
-	const updateProject = (projectId: string, data: { name?: string; prompt?: string }) => {
-		setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...data, updatedAt: Date.now() } : p)));
-	};
-
-	const deleteProject = (projectId: string) => {
-		setProjects((prev) => prev.filter((p) => p.id !== projectId));
-	};
-
-	const toggleProject = (projectId: string) => {
-		setExpandedProjects((prev) => {
-			const next = new Set(prev);
-			if (next.has(projectId)) {
-				next.delete(projectId);
-			} else {
-				next.add(projectId);
+	const deleteProject = useCallback(
+		async (projectId: string) => {
+			const project = projects.find((p) => p.id === projectId);
+			if (project?.tasks.some((t) => t.status === "running")) {
+				throw new Error("请先暂停所有任务");
 			}
-			return next;
+			await window.vetta.batchTasks.deleteProject(projectId);
+			setProjects((prev) => prev.filter((p) => p.id !== projectId));
+		},
+		[projects, setProjects],
+	);
+
+	const toggleProject = useCallback(
+		(projectId: string) => {
+			setExpandedProjects((prev) => {
+				const next = new Set(prev);
+				if (next.has(projectId)) {
+					next.delete(projectId);
+				} else {
+					next.add(projectId);
+				}
+				return next;
+			});
+		},
+		[setExpandedProjects],
+	);
+
+	const runTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.runTask(projectId, taskId);
+	}, []);
+
+	const pauseTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.pauseTask(projectId, taskId);
+	}, []);
+
+	const resumeTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.resumeTask(projectId, taskId);
+	}, []);
+
+	const deleteTask = useCallback(
+		async (projectId: string, taskId: string) => {
+			await window.vetta.batchTasks.deleteTask(projectId, taskId);
+			setProjects((prev) =>
+				prev.map((p) =>
+					p.id === projectId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId), updatedAt: Date.now() } : p,
+				),
+			);
+		},
+		[setProjects],
+	);
+
+	const batchRetryFailed = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchRetryFailed(projectId);
+	}, []);
+
+	const batchPause = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchPause(projectId);
+	}, []);
+
+	const batchResume = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchResume(projectId);
+	}, []);
+
+	const batchDelete = useCallback(
+		async (projectId: string) => {
+			await window.vetta.batchTasks.batchDelete(projectId);
+			await refreshProjects();
+		},
+		[refreshProjects],
+	);
+
+	const deleteSession = useCallback(async (sessionPath: string) => {
+		await window.vetta.batchTasks.deleteSession(sessionPath);
+	}, []);
+
+	useEffect(() => {
+		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
+			setProjects((prev) =>
+				prev.map((p) => {
+					if (p.id !== event.projectId) return p;
+					return {
+						...p,
+						tasks: p.tasks.map((t) => {
+							if (t.id !== event.taskId) return t;
+							if (event.type === "task.started") {
+								return { ...t, status: "running" as const };
+							}
+							if (event.type === "task.completed") {
+								return { ...t, status: "completed" as const };
+							}
+							if (event.type === "task.failed") {
+								return { ...t, status: "failed" as const, error: event.error };
+							}
+							if (event.type === "task.paused") {
+								return { ...t, status: "paused" as const };
+							}
+							if (event.type === "task.resumed") {
+								return { ...t, status: "running" as const };
+							}
+							return t;
+						}),
+					};
+				}),
+			);
 		});
-	};
-
-	const runTask = (_projectId: string, _taskId: string) => {
-		// TODO: implement task execution
-	};
-
-	const pauseTask = (_projectId: string, _taskId: string) => {
-		// TODO: implement task pause
-	};
-
-	const resumeTask = (_projectId: string, _taskId: string) => {
-		// TODO: implement task resume
-	};
-
-	const deleteTask = (projectId: string, taskId: string) => {
-		setProjects((prev) =>
-			prev.map((p) =>
-				p.id === projectId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId), updatedAt: Date.now() } : p,
-			),
-		);
-	};
+		return unsubscribe;
+	}, [setProjects]);
 
 	return {
 		projects,
@@ -94,5 +150,10 @@ export function useBatchTasks() {
 		pauseTask,
 		resumeTask,
 		deleteTask,
+		batchRetryFailed,
+		batchPause,
+		batchResume,
+		batchDelete,
+		deleteSession,
 	};
 }

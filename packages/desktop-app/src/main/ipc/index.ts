@@ -13,6 +13,7 @@ interface IpcTeardown {
 	teardownSkills: () => void;
 	teardownDialog: () => void;
 	teardownFs: () => void;
+	teardownBatchTasks: () => void;
 }
 
 export function registerAllIpc(webContents: WebContents): IpcTeardown {
@@ -23,6 +24,7 @@ export function registerAllIpc(webContents: WebContents): IpcTeardown {
 		teardownSkills: registerSkillsIpc(),
 		teardownDialog: registerDialogIpc(),
 		teardownFs: registerFsIpc(),
+		teardownBatchTasks: () => {},
 	};
 }
 
@@ -33,8 +35,10 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownSkills();
 	teardown.teardownDialog();
 	teardown.teardownFs();
+	teardown.teardownBatchTasks();
 }
 
+export { registerBatchTasksIpc } from "./batch-tasks.js";
 export { registerSchedulerIpc } from "./scheduler.js";
 
 export type { IpcTeardown };
