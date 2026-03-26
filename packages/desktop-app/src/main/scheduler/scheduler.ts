@@ -1,11 +1,12 @@
-import cron, { type ScheduledTask } from "node-cron";
+import { AsyncTask, CronJob, ToadScheduler } from "toad-scheduler";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import { abortTask, executeTask } from "./task-executor";
 import type { ScheduledTask as TaskData } from "./task-storage";
 import { loadTasks } from "./task-storage";
 
 let runtimeInstance: RuntimeHost | null = null;
-const scheduledJobs = new Map<string, ScheduledTask>();
+const _scheduler = new ToadScheduler();
+const scheduledJobs = new Map<string, CronJob>();
 
 function getRuntime(): RuntimeHost {
 	if (!runtimeInstance) {
@@ -29,15 +30,10 @@ export async function initScheduler(): Promise<void> {
 }
 
 export function scheduleTaskInCron(task: TaskData): void {
-	if (!cron.validate(task.cron)) {
-		console.error(`[Scheduler] Invalid cron expression: ${task.cron}`);
-		return;
-	}
-
 	unscheduleTaskInCron(task.id);
 
-	const job = cron.schedule(
-		task.cron,
+	const asyncTask = new AsyncTask(
+		`scheduled-task-${task.id}`,
 		async () => {
 			console.log(`[Scheduler] Executing task: ${task.name} (${task.id})`);
 			try {
@@ -46,12 +42,21 @@ export function scheduleTaskInCron(task: TaskData): void {
 				console.error(`[Scheduler] Task execution failed:`, error);
 			}
 		},
-		{
-			timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+		(error: Error) => {
+			console.error(`[Scheduler] Task error: ${task.name} (${task.id})`, error);
 		},
 	);
 
+	const job = new CronJob(
+		{
+			cronExpression: task.cron,
+			timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+		},
+		asyncTask,
+	);
+
 	scheduledJobs.set(task.id, job);
+	job.start();
 }
 
 export function unscheduleTaskInCron(taskId: string): void {
