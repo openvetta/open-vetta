@@ -5,11 +5,16 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { ensureTool } from "../../../utils/tools-manager.js";
 import { loadToolDescription } from "../description.js";
-import { resolveToCwd } from "../path-utils.js";
+import { type PathIdEntry, replacePathIds, resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const treeSchema = Type.Object({
-	path: Type.Optional(Type.String({ description: "Root directory to inspect (default: current directory)" })),
+	path: Type.Optional(
+		Type.String({
+			description:
+				"Root directory to inspect (default: current directory). Accepts normal paths or a prior dir_tree path ID like @PATH_0001",
+		}),
+	),
 	maxDepth: Type.Optional(Type.Number({ description: "Maximum depth to render (default: 4)" })),
 	limit: Type.Optional(Type.Number({ description: "Maximum number of nodes to render (default: 1000)" })),
 	includeFiles: Type.Optional(Type.Boolean({ description: "Include files in tree output (default: true)" })),
@@ -40,6 +45,7 @@ export interface TreeToolDetails {
 	scanLimitReached?: number;
 	totalNodesDiscovered: number;
 	nodesRendered: number;
+	pathIdsGenerated: number;
 }
 
 export interface TreeOperations {
@@ -145,11 +151,25 @@ function sortChildren(children: Iterable<TreeNode>): TreeNode[] {
 	});
 }
 
-function renderTree(root: TreeNode, maxDepth: number, limit: number): { lines: string[]; nodeLimitReached: boolean } {
-	const lines: string[] = [];
+interface RenderedTreeLine {
+	line: string;
+	relativePath: string;
+	type: NodeType;
+}
+
+function createPathId(index: number): string {
+	return `@PATH_${String(index).padStart(4, "0")}`;
+}
+
+function renderTree(
+	root: TreeNode,
+	maxDepth: number,
+	limit: number,
+): { lines: RenderedTreeLine[]; nodeLimitReached: boolean } {
+	const lines: RenderedTreeLine[] = [];
 	let nodeLimitReached = false;
 
-	const tryPush = (line: string): boolean => {
+	const tryPush = (line: RenderedTreeLine): boolean => {
 		if (lines.length >= limit) {
 			nodeLimitReached = true;
 			return false;
@@ -158,30 +178,43 @@ function renderTree(root: TreeNode, maxDepth: number, limit: number): { lines: s
 		return true;
 	};
 
-	if (!tryPush(formatNodeLine(root))) {
+	if (
+		!tryPush({
+			line: formatNodeLine(root),
+			relativePath: ".",
+			type: "dir",
+		})
+	) {
 		return { lines, nodeLimitReached };
 	}
 
-	const walk = (node: TreeNode, prefix: string, depth: number): boolean => {
+	const walk = (node: TreeNode, relativePath: string, prefix: string, depth: number): boolean => {
 		if (depth >= maxDepth) return false;
 		const children = sortChildren(node.children.values());
 		for (let i = 0; i < children.length; i++) {
 			const child = children[i];
 			const isLast = i === children.length - 1;
 			const branch = `${prefix}${isLast ? "└── " : "├── "}`;
-			if (!tryPush(`${branch}${formatNodeLine(child)}`)) {
+			const childRelativePath = relativePath === "." ? child.name : `${relativePath}/${child.name}`;
+			if (
+				!tryPush({
+					line: `${branch}${formatNodeLine(child)}`,
+					relativePath: childRelativePath,
+					type: child.type,
+				})
+			) {
 				return true;
 			}
 			if (child.type === "dir") {
 				const childPrefix = `${prefix}${isLast ? "    " : "│   "}`;
-				const shouldStop = walk(child, childPrefix, depth + 1);
+				const shouldStop = walk(child, childRelativePath, childPrefix, depth + 1);
 				if (shouldStop) return true;
 			}
 		}
 		return false;
 	};
 
-	walk(root, "", 0);
+	walk(root, ".", "", 0);
 	return { lines, nodeLimitReached };
 }
 
@@ -244,7 +277,7 @@ function parseFdOutput(stdout: string, searchPath: string): string[] {
 
 export function createTreeTool(cwd: string, options?: TreeToolOptions): AgentTool<typeof treeSchema> {
 	const ops = options?.operations ?? defaultTreeOperations;
-	const fallbackDescription = `Render a compact directory tree with explicit node types ([D]/[F]) and per-directory child counts. Use this first to understand project structure with minimal tokens. Tool name is dir_tree (not shell tree). Respects .gitignore, supports depth limiting, and truncates output to ${DEFAULT_LIMIT} nodes or ${DEFAULT_MAX_BYTES / 1024}KB.`;
+	const fallbackDescription = `Render a compact directory tree with explicit node types ([D]/[F]) and per-directory child counts. Each node includes a stable path ID (id=@PATH_XXXX) you can reuse in later tools. Use this first to understand project structure with minimal tokens. Tool name is dir_tree (not shell tree). Respects .gitignore, supports depth limiting, and truncates output to ${DEFAULT_LIMIT} nodes or ${DEFAULT_MAX_BYTES / 1024}KB.`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
@@ -257,7 +290,7 @@ export function createTreeTool(cwd: string, options?: TreeToolOptions): AgentToo
 				throw new Error("Operation aborted");
 			}
 
-			const searchPath = resolveToCwd(input.path || ".", cwd);
+			const searchPath = resolveExistingPath(input.path || ".", cwd);
 			const effectiveMaxDepth = Math.max(0, Math.floor(input.maxDepth ?? DEFAULT_MAX_DEPTH));
 			const effectiveLimit = Math.max(1, Math.floor(input.limit ?? DEFAULT_LIMIT));
 			const includeFiles = input.includeFiles ?? true;
@@ -313,12 +346,34 @@ export function createTreeTool(cwd: string, options?: TreeToolOptions): AgentToo
 
 			const totalNodesDiscovered = 1 + dirPaths.length + filePaths.length;
 			const { lines, nodeLimitReached } = renderTree(root, effectiveMaxDepth, effectiveLimit);
-			const rawOutput = lines.length > 0 ? lines.join("\n") : `[D] ${rootLabel} (d:0, f:0)`;
+			const pathIds: PathIdEntry[] = [];
+			let pathIdCounter = 1;
+			const renderedLines = lines.map((entry) => {
+				if (entry.relativePath === ".") {
+					return entry.line;
+				}
+				const pathId = createPathId(pathIdCounter);
+				pathIdCounter += 1;
+				pathIds.push({
+					pathId,
+					absolutePath: path.resolve(searchPath, entry.relativePath),
+				});
+				const nodeTag = entry.type === "dir" ? "dir" : "file";
+				return `${entry.line} (id=${pathId}, type=${nodeTag})`;
+			});
+
+			replacePathIds(cwd, pathIds);
+
+			const rawOutput =
+				renderedLines.length > 0
+					? `${renderedLines.join("\n")}\n\n[Path IDs: use id=@PATH_XXXX values directly in tool path arguments. In bash, wrap path IDs in quotes.]`
+					: `[D] ${rootLabel} (d:0, f:0)`;
 
 			const truncation = truncateHead(rawOutput, { maxLines: Number.MAX_SAFE_INTEGER });
 			const details: TreeToolDetails = {
 				totalNodesDiscovered,
 				nodesRendered: lines.length,
+				pathIdsGenerated: pathIds.length,
 			};
 			const notices: string[] = [];
 

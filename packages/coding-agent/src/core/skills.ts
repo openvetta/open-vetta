@@ -305,8 +305,11 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
 	}
 
 	const lines = [
-		"\n\nThe following skills provide specialized instructions for specific tasks.",
-		"Use the read tool to load a skill's file when the task matches its description.",
+		"\n\n# Skills (NOT tools — do NOT call these as tool functions)",
+		"",
+		"Skills are instruction files, NOT callable tools. They do NOT appear in your tool list.",
+		"NEVER attempt to call a skill as a tool (e.g., do NOT call xlsx(), pdf(), or any skill name as a function).",
+		"To use a skill: call the read tool on the skill's <location> path, then follow the instructions inside.",
 		"When a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.",
 		"",
 		"<available_skills>",

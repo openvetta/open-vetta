@@ -53,8 +53,27 @@ export class RuntimeHost implements SessionFacade {
 
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
 		const handle = this.requireSession(sessionId);
-		await handle.session.prompt(request.text, {
-			images: request.images,
+		let images = request.images;
+		let text = request.text;
+		if (images && images.length > 0) {
+			const model = handle.session.model;
+			if (!model?.input?.includes("image")) {
+				console.warn(
+					`[RuntimeHost.prompt] Model ${model?.id} does not support image input (input=${JSON.stringify(model?.input)}), stripping ${images.length} images`,
+				);
+				images = undefined;
+				if (text === "(see attached images)") {
+					text =
+						"(User attempted to send images, but the current model does not support image input. Please inform the user that this model cannot process images.)";
+				}
+			} else {
+				console.log(
+					`[RuntimeHost.prompt] passing ${images.length} images to session.prompt, model=${model?.id}, model.input=${JSON.stringify(model?.input)}`,
+				);
+			}
+		}
+		await handle.session.prompt(text, {
+			images,
 			streamingBehavior: request.streamingBehavior,
 			source: "extension",
 		});
@@ -82,6 +101,15 @@ export class RuntimeHost implements SessionFacade {
 
 	async updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void> {
 		const handle = this.requireSession(sessionId);
+		if (partialSettings.modelKey) {
+			const [provider, ...rest] = partialSettings.modelKey.split("/");
+			const modelId = rest.join("/");
+			const available = handle.session.modelRegistry.getAvailable();
+			const model = available.find((m) => m.provider === provider && m.id === modelId);
+			if (model) {
+				await handle.session.setModel(model);
+			}
+		}
 		if (partialSettings.thinkingLevel) {
 			handle.session.setThinkingLevel(partialSettings.thinkingLevel);
 		}
@@ -145,6 +173,21 @@ export class RuntimeHost implements SessionFacade {
 	async renameSession(sessionPath: string, name: string): Promise<void> {
 		const manager = SessionManager.open(sessionPath);
 		manager.appendSessionInfo(name);
+	}
+
+	getSessionPath(sessionId: string): string | undefined {
+		const handle = this.sessions.get(sessionId);
+		if (!handle) return undefined;
+		return handle.session.sessionFile;
+	}
+
+	renameSessionById(sessionId: string, name: string): void {
+		const handle = this.requireSession(sessionId);
+		const filePath = handle.session.sessionFile;
+		if (filePath) {
+			const manager = SessionManager.open(filePath);
+			manager.appendSessionInfo(name);
+		}
 	}
 
 	async disposeSession(sessionId: string): Promise<void> {

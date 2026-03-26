@@ -407,7 +407,11 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 
 			case "get_available_models": {
 				const models = await session.modelRegistry.getAvailable();
-				return success(id, "get_available_models", { models });
+				const modelsWithSource = models.map((m) => ({
+					...m,
+					remote: session.modelRegistry.isRemote(m),
+				}));
+				return success(id, "get_available_models", { models: modelsWithSource });
 			}
 
 			// =================================================================

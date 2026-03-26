@@ -6,7 +6,7 @@ import { globSync } from "glob";
 import path from "path";
 import { ensureTool } from "../../../utils/tools-manager.js";
 import { loadToolDescription } from "../description.js";
-import { resolveToCwd } from "../path-utils.js";
+import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const findSchema = Type.Object({
@@ -76,7 +76,7 @@ export function createFindTool(cwd: string, options?: FindToolOptions): AgentToo
 
 				(async () => {
 					try {
-						const searchPath = resolveToCwd(searchDir || ".", cwd);
+						const searchPath = resolveExistingPath(searchDir || ".", cwd);
 						const effectiveLimit = limit ?? DEFAULT_LIMIT;
 						const ops = customOps ?? defaultFindOperations;
 

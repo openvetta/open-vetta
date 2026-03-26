@@ -93,6 +93,8 @@ export interface Settings {
 	markdown?: MarkdownSettings;
 	enableMcp?: boolean; // default: true - enable MCP (Model Context Protocol) support
 	mcpDebug?: boolean; // default: false - enable MCP debug logging
+	serverUrl?: string; // Remote server URL for fetching provider/model configs (e.g., "https://api.example.com/api/v1")
+	serverToken?: string; // JWT token for authenticating with remote server
 }
 
 /** Deep merge settings: project/overrides take precedence, nested objects merge recursively */
@@ -913,6 +915,26 @@ export class SettingsManager {
 	setMcpDebug(debug: boolean): void {
 		this.globalSettings.mcpDebug = debug;
 		this.markModified("mcpDebug");
+		this.save();
+	}
+
+	getServerUrl(): string | undefined {
+		return this.settings.serverUrl;
+	}
+
+	setServerUrl(url: string | undefined): void {
+		this.globalSettings.serverUrl = url;
+		this.markModified("serverUrl");
+		this.save();
+	}
+
+	getServerToken(): string | undefined {
+		return this.settings.serverToken;
+	}
+
+	setServerToken(token: string | undefined): void {
+		this.globalSettings.serverToken = token;
+		this.markModified("serverToken");
 		this.save();
 	}
 }

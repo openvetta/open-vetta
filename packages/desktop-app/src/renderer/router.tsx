@@ -1,19 +1,50 @@
-import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
-import { App } from "./App";
+import { createRootRoute, createRoute, createRouter, createHashHistory } from "@tanstack/react-router";
+import { RootLayout } from "./App";
+import { ChatPage } from "./domains/chat/components/ChatPage";
+import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
+import { SkillsPage } from "./domains/skills/components/SkillsPage";
+import { SettingsPage } from "./domains/settings/components/SettingsPage";
 
 const rootRoute = createRootRoute({
-	component: () => <App />,
+	component: RootLayout,
 });
 
 const indexRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/",
-	component: () => null,
+	component: ChatPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute]);
+const automationRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/automation",
+	component: AutomationPage,
+});
 
-export const router = createRouter({ routeTree });
+const skillsRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/skills",
+	component: SkillsPage,
+});
+
+const settingsTabRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/settings/$tab",
+	component: SettingsPage,
+});
+
+const routeTree = rootRoute.addChildren([
+	indexRoute,
+	automationRoute,
+	skillsRoute,
+	settingsTabRoute,
+]);
+
+export const router = createRouter({
+	routeTree,
+	history: createHashHistory(),
+	defaultNotFoundComponent: ChatPage,
+});
 
 declare module "@tanstack/react-router" {
 	interface Register {
