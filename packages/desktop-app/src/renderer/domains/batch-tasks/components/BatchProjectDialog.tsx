@@ -13,6 +13,7 @@ import {
 } from "@shared/components/ui/dialog";
 import { Textarea } from "@shared/components/ui/textarea";
 import { Input } from "@shared/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 
 interface BatchProjectDialogProps {
 	open: boolean;
@@ -21,15 +22,22 @@ interface BatchProjectDialogProps {
 }
 
 export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialogProps): JSX.Element {
-	const [projects, setProjects] = useAtom(batchProjectsAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
 
 	const [name, setName] = useState(project?.name ?? "");
 	const [prompt, setPrompt] = useState(project?.prompt ?? "");
-	const [folders, setFolders] = useState<string[]>([]);
+	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
+	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.cwd) ?? []);
 	const [folderInput, setFolderInput] = useState("");
 
 	const canSubmit = name.trim() && prompt.trim() && folders.length > 0;
+
+	const handleSelectFolders = useCallback(async () => {
+		const selected = await window.vetta.dialog.selectFolders();
+		if (selected.length > 0) {
+			setFolders((prev) => [...new Set([...prev, ...selected])]);
+		}
+	}, []);
 
 	const handleAddFolder = useCallback(() => {
 		const trimmed = folderInput.trim();
@@ -43,38 +51,13 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setFolders((prev) => prev.filter((f) => f !== folder));
 	}, []);
 
-	const handleSubmit = () => {
+	const handleSubmit = async () => {
 		if (!canSubmit) return;
 
-		const now = Date.now();
-		const tasks = folders.map((cwd, index) => ({
-			id: `${project?.id ?? now}-task-${index}`,
-			name: cwd.split("/").pop() ?? cwd,
-			prompt: prompt,
-			cwd,
-			status: "pending" as const,
-			createdAt: now,
-			updatedAt: now,
-		}));
-
 		if (project) {
-			setProjects((prev) =>
-				prev.map((p) =>
-					p.id === project.id
-						? { ...p, name, prompt, tasks, updatedAt: now }
-						: p,
-				),
-			);
+			await window.vetta.batchTasks.updateProject(project.id, { name, prompt, concurrency });
 		} else {
-			const newProject: BatchProject = {
-				id: `batch-project-${now}`,
-				name,
-				prompt,
-				tasks,
-				createdAt: now,
-				updatedAt: now,
-			};
-			setProjects((prev) => [...prev, newProject]);
+			await window.vetta.batchTasks.createProject({ name, prompt, folders, concurrency });
 		}
 		onClose();
 	};
@@ -87,8 +70,11 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 			confirmLabel: "删除",
 			cancelLabel: "取消",
 			variant: "danger",
-			onConfirm: () => {
-				setProjects((prev) => prev.filter((p) => p.id !== project.id));
+			onConfirm: async () => {
+				if (project.tasks.some((t) => t.status === "running")) {
+					return;
+				}
+				await window.vetta.batchTasks.deleteProject(project.id);
 				onClose();
 			},
 		});
@@ -117,7 +103,33 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 					/>
 
 					<div className="mt-4">
-						<p className="mb-2 text-sm font-medium text-foreground">文件夹列表</p>
+						<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
+							<span>并发数</span>
+						</label>
+						<Select
+							value={String(concurrency)}
+							onValueChange={(v) => setConcurrency(Number(v))}
+						>
+							<SelectTrigger className="w-24">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="1">1</SelectItem>
+								<SelectItem value="2">2</SelectItem>
+								<SelectItem value="3">3</SelectItem>
+								<SelectItem value="4">4</SelectItem>
+								<SelectItem value="5">5</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					<div className="mt-4">
+						<div className="mb-2 flex items-center justify-between">
+							<p className="text-sm font-medium text-foreground">文件夹列表</p>
+							<Button variant="outline" size="sm" onClick={handleSelectFolders}>
+								选择文件夹
+							</Button>
+						</div>
 						<div className="mb-2 flex gap-2">
 							<Input
 								value={folderInput}

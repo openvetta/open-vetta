@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback } from "react";
-import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, batchSessionsMapAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 
 function projectName(cwd: string): string {
 	return cwd.split("/").pop() ?? cwd;
@@ -9,6 +9,8 @@ import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
 import { SessionContextMenu } from "./SessionContextMenu";
+import { BatchProjectGroup } from "../../batch-tasks/components/BatchProjectGroup";
+import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 
 interface ProjectsPanelProps {
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
@@ -30,6 +32,11 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [projectMenu, setProjectMenu] = useAtom(projectContextMenuAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
+
+	const batchProjects = useAtomValue(batchProjectsAtom);
+	const batchSessionsMap = useAtomValue(batchSessionsMapAtom);
+	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
+	const { toggleProject: toggleBatchProject } = useBatchTasks();
 
 	const handleDeleteSession = useCallback(
 		(session: { cwd: string; path: string }) => {
@@ -86,7 +93,18 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 		[deleteProjectFromDisk, setProjectMenu, setConfirm],
 	);
 
-	if (projects.length === 0) {
+	const handleOpenBatchSession = useCallback(
+		(sessionPath: string) => {
+			void onOpenSession(sessionPath, sessionPath);
+		},
+		[onOpenSession],
+	);
+
+	const visibleBatchProjects = batchProjects.filter((project) =>
+		project.tasks.some((task) => task.status === "running" || task.status === "completed"),
+	);
+
+	if (projects.length === 0 && visibleBatchProjects.length === 0) {
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
 				<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-muted-foreground" />
@@ -109,6 +127,17 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 					onNewSession={(cwd) => void onOpenSession(cwd)}
 					onSelectSession={(cwd, path) => void onOpenSession(cwd, path)}
 					onRenameSession={handleRenameSession}
+				/>
+			))}
+			{visibleBatchProjects.map((project) => (
+				<BatchProjectGroup
+					key={project.id}
+					project={project}
+					sessions={batchSessionsMap.get(project.id) ?? []}
+					isExpanded={expandedBatchProjects.has(project.id)}
+					activeSessionPath={activeSession?.sessionPath ?? ""}
+					onToggle={toggleBatchProject}
+					onSelectSession={handleOpenBatchSession}
 				/>
 			))}
 			{contextMenu && (

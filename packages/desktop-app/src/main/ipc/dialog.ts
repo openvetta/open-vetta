@@ -43,8 +43,21 @@ export function registerDialogIpc(): () => void {
 		return selectedPath;
 	});
 
+	ipcMain.handle("vetta:dialog:select-folders", async () => {
+		const result = await dialog.showOpenDialog({
+			properties: ["openDirectory", "multiSelections"],
+			title: "Select Folders",
+		});
+		if (result.canceled || result.filePaths.length === 0) return [];
+		for (const p of result.filePaths) {
+			allowProjectRoot(p);
+		}
+		return result.filePaths;
+	});
+
 	return () => {
 		ipcMain.removeHandler("vetta:dialog:select-images");
 		ipcMain.removeHandler("vetta:dialog:select-folder");
+		ipcMain.removeHandler("vetta:dialog:select-folders");
 	};
 }

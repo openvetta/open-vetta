@@ -31,9 +31,27 @@ const SCHEDULER_CHANNELS = {
 	EVENT: "vetta:scheduler:event",
 } as const;
 
+const BATCH_TASKS_CHANNELS = {
+	GET_PROJECTS: "vetta:batch-tasks:get-projects",
+	CREATE_PROJECT: "vetta:batch-tasks:create-project",
+	UPDATE_PROJECT: "vetta:batch-tasks:update-project",
+	DELETE_PROJECT: "vetta:batch-tasks:delete-project",
+	RUN_TASK: "vetta:batch-tasks:run-task",
+	PAUSE_TASK: "vetta:batch-tasks:pause-task",
+	RESUME_TASK: "vetta:batch-tasks:resume-task",
+	DELETE_TASK: "vetta:batch-tasks:delete-task",
+	BATCH_RETRY_FAILED: "vetta:batch-tasks:batch-retry-failed",
+	BATCH_PAUSE: "vetta:batch-tasks:batch-pause",
+	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
+	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
+	DELETE_SESSION: "vetta:batch-tasks:delete-session",
+	EVENT: "vetta:batch-tasks:event",
+} as const;
+
 const api: DesktopApi = {
 	dialog: {
 		selectFolder: async () => ipcRenderer.invoke("vetta:dialog:select-folder"),
+		selectFolders: async () => ipcRenderer.invoke("vetta:dialog:select-folders"),
 		selectImages: async () => ipcRenderer.invoke("vetta:dialog:select-images"),
 	},
 	theme: {
@@ -131,6 +149,30 @@ const api: DesktopApi = {
 			ipcRenderer.on(SCHEDULER_CHANNELS.EVENT, listener);
 			return () => {
 				ipcRenderer.removeListener(SCHEDULER_CHANNELS.EVENT, listener);
+			};
+		},
+	},
+	batchTasks: {
+		getProjects: () => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.GET_PROJECTS),
+		createProject: (data) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.CREATE_PROJECT, data),
+		updateProject: (projectId, data) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.UPDATE_PROJECT, projectId, data),
+		deleteProject: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.DELETE_PROJECT, projectId),
+		runTask: (projectId, taskId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.RUN_TASK, projectId, taskId),
+		pauseTask: (projectId, taskId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.PAUSE_TASK, projectId, taskId),
+		resumeTask: (projectId, taskId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.RESUME_TASK, projectId, taskId),
+		deleteTask: (projectId, taskId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.DELETE_TASK, projectId, taskId),
+		batchRetryFailed: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RETRY_FAILED, projectId),
+		batchPause: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_PAUSE, projectId),
+		batchResume: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RESUME, projectId),
+		batchDelete: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_DELETE, projectId),
+		deleteSession: (sessionPath) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.DELETE_SESSION, sessionPath),
+		onTaskEvent: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
+				handler(data as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(BATCH_TASKS_CHANNELS.EVENT, listener);
+			return () => {
+				ipcRenderer.removeListener(BATCH_TASKS_CHANNELS.EVENT, listener);
 			};
 		},
 	},
