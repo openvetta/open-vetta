@@ -14,6 +14,7 @@ export default defineConfig({
 		rollupOptions: {
 			external: [
 				"electron",
+				"node-cron",
 				...builtinModules,
 				...builtinModules.map((m) => `node:${m}`),
 			],
