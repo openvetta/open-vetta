@@ -34,6 +34,13 @@ cpSync(join(projectRoot, "dist/renderer"), join(buildStageDir, "renderer"), { re
 // Copy icons
 cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: true });
 
+// Copy externalized dependencies (not bundled by Vite due to ESM compatibility issues)
+const externalDeps = ["node-cron"];
+for (const dep of externalDeps) {
+	const depDir = join(require.resolve(`${dep}/package.json`), "..");
+	cpSync(depDir, join(buildStageDir, "node_modules", dep), { recursive: true });
+}
+
 // Write electron-builder config
 const builderConfig = {
 	appId: "com.vetta.desktop",
