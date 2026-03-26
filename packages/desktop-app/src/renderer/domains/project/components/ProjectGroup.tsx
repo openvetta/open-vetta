@@ -149,7 +149,7 @@ export function ProjectGroup({
 									className={cn(
 										"flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
 										isActive
-											? "bg-accent"
+											? "bg-accent dark:bg-accent/70"
 											: "hover:bg-accent/50",
 									)}
 									title={isRenaming ? undefined : label}
