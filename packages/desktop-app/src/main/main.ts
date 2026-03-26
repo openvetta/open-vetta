@@ -10,12 +10,18 @@ import {
 	rebuildTrayContextMenu,
 	setHideToTrayOnClose,
 } from "./tray-manager.js";
+import { getAppVersion } from "./updater.js";
 import { createWindow, getMainWindow, setMainWindow } from "./window-manager.js";
 
 const PROTOCOL = "vetta";
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
+
+// 开发模式下 app.name/version 默认来自 Electron 框架，需要手动覆盖
+if (!app.isPackaged) {
+	app.name = "Vetta";
+}
 
 let ipcTeardown: IpcTeardown | undefined;
 let teardownSchedulerIpc: (() => void) | undefined;
@@ -74,6 +80,16 @@ if (!gotSingleLock) {
 }
 
 app.whenReady().then(() => {
+	// 开发模式下覆盖 About 面板信息，避免显示 Electron 框架版本
+	if (!app.isPackaged) {
+		const appVersion = getAppVersion();
+		app.setAboutPanelOptions({
+			applicationName: "Vetta",
+			applicationVersion: appVersion,
+			version: "",
+		});
+	}
+
 	// Theme IPC
 	ipcMain.handle("vetta:theme:set", (_event, mode: string) => {
 		nativeTheme.themeSource = mode as "system" | "light" | "dark";

@@ -52,11 +52,14 @@ function compareVersions(current: string, latest: string): boolean {
 	return false;
 }
 
-export async function checkForUpdate(): Promise<UpdateCheckResult> {
-	// app.getVersion() 在开发模式下返回 Electron 框架版本，需要读取 package.json
-	const currentVersion = app.isPackaged
+export function getAppVersion(): string {
+	return app.isPackaged
 		? app.getVersion()
 		: (JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf-8")).version as string);
+}
+
+export async function checkForUpdate(): Promise<UpdateCheckResult> {
+	const currentVersion = getAppVersion();
 	const platform = process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "win32" : "linux";
 	const arch = process.arch === "arm64" ? "arm64" : "x64";
 
