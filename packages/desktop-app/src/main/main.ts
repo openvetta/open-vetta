@@ -21,7 +21,13 @@ let ipcTeardown: IpcTeardown | undefined;
 let teardownSchedulerIpc: (() => void) | undefined;
 
 // Register custom protocol for OAuth callback
-app.setAsDefaultProtocolClient(PROTOCOL);
+// Windows dev mode: must pass electron.exe path and app entry as args,
+// otherwise the URL gets interpreted as a module path.
+if (!app.isPackaged && process.platform === "win32") {
+	app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [join(appRoot, "dist/main/index.js")]);
+} else {
+	app.setAsDefaultProtocolClient(PROTOCOL);
+}
 
 function handleProtocolUrl(rawUrl: string): void {
 	try {
