@@ -1,0 +1,33 @@
+import { useAtom } from "jotai";
+import { sidebarTabAtom, type SidebarTab } from "@shared/store/atoms";
+import { cn } from "@shared/lib/utils";
+
+const TABS: { value: SidebarTab; label: string; icon: string }[] = [
+	{ value: "projects", label: "项目", icon: "icon-[mdi--folder-multiple-outline]" },
+	{ value: "files", label: "文件", icon: "icon-[mdi--file-tree-outline]" },
+];
+
+export function SidebarTabs(): JSX.Element {
+	const [tab, setTab] = useAtom(sidebarTabAtom);
+
+	return (
+		<div className="flex items-center gap-1">
+			{TABS.map((t) => (
+				<button
+					key={t.value}
+					type="button"
+					title={t.label}
+					onClick={() => setTab(t.value)}
+					className={cn(
+						"no-drag flex items-center justify-center rounded-md p-1.5 transition-colors",
+						tab === t.value
+							? "bg-accent text-foreground"
+							: "text-foreground opacity-60 hover:bg-accent hover:opacity-100",
+					)}
+				>
+					<span className={cn(t.icon, "h-4 w-4")} />
+				</button>
+			))}
+		</div>
+	);
+}

@@ -25,8 +25,15 @@ export interface DesktopSessionApi {
 	rename(sessionPath: string, name: string): Promise<void>;
 }
 
+export interface SelectedImageFile {
+	data: string;
+	mimeType: string;
+	name: string;
+}
+
 export interface DesktopDialogApi {
 	selectFolder(): Promise<string | null>;
+	selectImages(): Promise<SelectedImageFile[]>;
 }
 
 export interface DesktopThemeApi {
@@ -42,8 +49,29 @@ export interface SkillInfo {
 	type: "skill" | "scene";
 }
 
+export interface MarketSkillMeta {
+	name: string;
+	description: string;
+	type: "skill" | "scene";
+	version: string;
+	author: string;
+	tags: string[];
+}
+
+export interface InstalledMarketSkill {
+	name: string;
+	version: string;
+	installedAt: string;
+	source: "market";
+	enabled: boolean;
+}
+
 export interface DesktopSkillsApi {
 	list(): Promise<SkillInfo[]>;
+	installFromMarket(name: string, archiveBuffer: ArrayBuffer): Promise<void>;
+	uninstall(name: string): Promise<void>;
+	toggle(name: string): Promise<void>;
+	getMarketManifest(): Promise<Record<string, InstalledMarketSkill>>;
 }
 
 export interface DesktopConfigData {
@@ -82,9 +110,15 @@ export interface ModelsConfigData {
 	>;
 }
 
+export interface RemoteProvidersResult {
+	providers: Record<string, unknown>;
+	error?: string;
+}
+
 export interface DesktopModelsApi {
 	get(): Promise<ModelsConfigData>;
 	set(config: ModelsConfigData): Promise<void>;
+	fetchRemote(): Promise<RemoteProvidersResult>;
 }
 
 export interface McpServerConfigData {
@@ -111,6 +145,100 @@ export interface DesktopShellApi {
 	showInFolder(fullPath: string): Promise<void>;
 }
 
+export interface DesktopWindowApi {
+	minimize(): Promise<void>;
+	maximize(): Promise<void>;
+	close(): Promise<void>;
+	isMaximized(): Promise<boolean>;
+}
+
+export interface DesktopSettingsApi {
+	getServerUrl(): Promise<string>;
+	getServerToken(): Promise<string | undefined>;
+	setServerToken(token: string | undefined): Promise<void>;
+}
+
+export interface UpdateCheckResult {
+	hasUpdate: boolean;
+	currentVersion: string;
+	latestVersion?: string;
+	releaseNote?: string;
+	downloadUrl?: string;
+	error?: string;
+}
+
+export interface DesktopUpdaterApi {
+	check(): Promise<UpdateCheckResult>;
+	getCurrentVersion(): Promise<string>;
+	download(url: string): Promise<void>;
+}
+
+export interface DesktopAuthApi {
+	openExternal(url: string): Promise<void>;
+	onOAuthCallback(handler: (data: { token: string }) => void): () => void;
+}
+
+export interface ScheduledTask {
+	id: string;
+	name: string;
+	prompt: string;
+	cron: string;
+	isOnce: boolean;
+	enabled: boolean;
+	/** Project working directory this task is associated with */
+	cwd: string;
+	modelId?: string;
+	createdAt: number;
+	updatedAt: number;
+	lastRunAt: number | null;
+	lastRunStatus: "success" | "failed" | null;
+}
+
+export interface TaskExecutionRecord {
+	id: string;
+	taskId: string;
+	sessionId: string;
+	/** Session file path for navigating to the conversation */
+	sessionPath?: string;
+	/** Project working directory */
+	cwd?: string;
+	startedAt: number;
+	completedAt: number | null;
+	status: "running" | "success" | "failed" | "aborted";
+	prompt: string;
+	responsePreview: string;
+	error?: string;
+	durationMs?: number;
+}
+
+export type TaskEvent =
+	| { type: "task.started"; taskId: string; recordId: string }
+	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
+	| { type: "task.failed"; taskId: string; error: string }
+	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };
+
+export interface DesktopTrayApi {
+	setQuitBehavior(hideToTray: boolean): Promise<void>;
+	getQuitBehavior(): Promise<boolean>;
+	setTooltip(text: string): Promise<void>;
+}
+
+export interface DesktopSchedulerApi {
+	getTasks(): Promise<ScheduledTask[]>;
+	createTask(
+		task: Omit<ScheduledTask, "id" | "createdAt" | "updatedAt" | "lastRunAt" | "lastRunStatus">,
+	): Promise<ScheduledTask>;
+	updateTask(id: string, patch: Partial<ScheduledTask>): Promise<void>;
+	deleteTask(id: string): Promise<void>;
+	toggleTask(id: string): Promise<void>;
+	/** Disable a task (set enabled=false and stop its scheduled job) */
+	disableTask(id: string): Promise<void>;
+	getRecords(taskId: string): Promise<TaskExecutionRecord[]>;
+	runTaskNow(id: string): Promise<void>;
+	abortTask(id: string): Promise<void>;
+	onTaskEvent(handler: (event: TaskEvent) => void): () => void;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -120,7 +248,13 @@ export interface DesktopApi {
 	config: DesktopConfigApi;
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
+	settings: DesktopSettingsApi;
 	shell: DesktopShellApi;
+	window: DesktopWindowApi;
+	auth: DesktopAuthApi;
+	updater: DesktopUpdaterApi;
+	tray: DesktopTrayApi;
+	scheduler: DesktopSchedulerApi;
 }
 
 declare global {

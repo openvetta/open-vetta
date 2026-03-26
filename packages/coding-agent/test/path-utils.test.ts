@@ -2,7 +2,16 @@ import { mkdtempSync, readdirSync, rmdirSync, unlinkSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { expandPath, resolveReadPath, resolveToCwd } from "../src/core/tools/path-utils.js";
+import {
+	clearPathIds,
+	expandPath,
+	replacePathIds,
+	resolvePathId,
+	resolveReadPath,
+	resolveToCwd,
+	resolveWritablePath,
+	rewriteQuotedPathLiterals,
+} from "../src/core/tools/path-utils.js";
 
 describe("path-utils", () => {
 	describe("expandPath", () => {
@@ -46,6 +55,7 @@ describe("path-utils", () => {
 		afterEach(() => {
 			// Clean up temp files and directory
 			try {
+				clearPathIds(tempDir);
 				const files = readdirSync(tempDir);
 				for (const file of files) {
 					unlinkSync(join(tempDir, file));
@@ -142,6 +152,51 @@ describe("path-utils", () => {
 
 			// This works because tryMacOSScreenshotPath() handles this case
 			expect(result).toBe(join(tempDir, macosName));
+		});
+
+		it("should resolve writable path to fuzzy-matched existing file", () => {
+			const existingName = "招标文件-发布稿.docx";
+			const mutatedName = "招标文件 - 发布稿.docx";
+			writeFileSync(join(tempDir, existingName), "content");
+
+			const result = resolveWritablePath(mutatedName, tempDir);
+			expect(result).toBe(join(tempDir, existingName));
+		});
+
+		it("should rewrite quoted path literals to exact filenames", () => {
+			const existingName = "招标文件-发布稿.docx";
+			writeFileSync(join(tempDir, existingName), "content");
+
+			const input = 'const file = "招标文件 - 发布稿.docx";';
+			const result = rewriteQuotedPathLiterals(input, tempDir);
+
+			expect(result.output).toBe('const file = "招标文件-发布稿.docx";');
+			expect(result.pathCorrections).toEqual([
+				{ original: "招标文件 - 发布稿.docx", corrected: "招标文件-发布稿.docx" },
+			]);
+		});
+
+		it("should resolve path IDs to exact registered paths", () => {
+			const existingName = "招标文件-发布稿.docx";
+			const absolutePath = join(tempDir, existingName);
+			writeFileSync(absolutePath, "content");
+			replacePathIds(tempDir, [{ pathId: "@PATH_0001", absolutePath }]);
+
+			expect(resolvePathId("@PATH_0001", tempDir)).toBe(absolutePath);
+			expect(resolveToCwd("@PATH_0001", tempDir)).toBe(absolutePath);
+		});
+
+		it("should rewrite quoted path IDs to exact registered filenames", () => {
+			const existingName = "招标文件-发布稿.docx";
+			const absolutePath = join(tempDir, existingName);
+			writeFileSync(absolutePath, "content");
+			replacePathIds(tempDir, [{ pathId: "@PATH_0001", absolutePath }]);
+
+			const input = 'const file = "@PATH_0001";';
+			const result = rewriteQuotedPathLiterals(input, tempDir);
+
+			expect(result.output).toBe('const file = "招标文件-发布稿.docx";');
+			expect(result.pathCorrections).toEqual([{ original: "@PATH_0001", corrected: "招标文件-发布稿.docx" }]);
 		});
 	});
 });

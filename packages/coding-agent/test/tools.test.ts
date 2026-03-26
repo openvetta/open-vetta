@@ -3,13 +3,13 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bashTool, createBashTool } from "../src/core/tools/bash/index.js";
-import { editTool } from "../src/core/tools/edit/index.js";
+import { createEditTool, editTool } from "../src/core/tools/edit/index.js";
 import { findTool } from "../src/core/tools/find/index.js";
 import { grepTool } from "../src/core/tools/grep/index.js";
 import { lsTool } from "../src/core/tools/ls/index.js";
-import { readTool } from "../src/core/tools/read/index.js";
-import { treeTool } from "../src/core/tools/tree/index.js";
-import { writeTool } from "../src/core/tools/write/index.js";
+import { createReadTool, readTool } from "../src/core/tools/read/index.js";
+import { createTreeTool, treeTool } from "../src/core/tools/tree/index.js";
+import { createWriteTool, writeTool } from "../src/core/tools/write/index.js";
 import * as shellModule from "../src/utils/shell.js";
 
 // Helper to extract text from content blocks
@@ -20,6 +20,12 @@ function getTextOutput(result: any): string {
 			.map((c: any) => c.text)
 			.join("\n") || ""
 	);
+}
+
+function extractPathIdByName(output: string, name: string): string | undefined {
+	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const match = output.match(new RegExp(`${escaped} \\(id=(@PATH_\\d{4}), type=(?:file|dir)\\)`));
+	return match?.[1];
 }
 
 describe("Coding Agent Tools", () => {
@@ -224,6 +230,20 @@ describe("Coding Agent Tools", () => {
 
 			expect(getTextOutput(result)).toContain("Successfully wrote");
 		});
+
+		it("should autocorrect quoted path literals inside written code content", async () => {
+			writeFileSync(join(testDir, "招标文件-发布稿.docx"), "docx");
+			const write = createWriteTool(testDir);
+			const target = join(testDir, "script.js");
+
+			await write.execute("test-call-write-path-fix", {
+				path: target,
+				content: 'const filePath = "招标文件 - 发布稿.docx";\n',
+			});
+
+			const written = readFileSync(target, "utf-8");
+			expect(written).toContain('const filePath = "招标文件-发布稿.docx";');
+		});
 	});
 
 	describe("edit tool", () => {
@@ -271,6 +291,25 @@ describe("Coding Agent Tools", () => {
 					newText: "bar",
 				}),
 			).rejects.toThrow(/Found 3 occurrences/);
+		});
+
+		it("should autocorrect quoted path literals in replacement text", async () => {
+			writeFileSync(join(testDir, "招标文件-发布稿.docx"), "docx");
+			const edit = createEditTool(testDir);
+			const testFile = join(testDir, "edit-path-literal.js");
+			writeFileSync(testFile, 'const filePath = "placeholder.docx";\n');
+
+			const result = await edit.execute("test-call-edit-path-fix", {
+				path: testFile,
+				oldText: '"placeholder.docx"',
+				newText: '"招标文件 - 发布稿.docx"',
+			});
+
+			const updated = readFileSync(testFile, "utf-8");
+			expect(updated).toContain('const filePath = "招标文件-发布稿.docx";');
+			expect(result.details?.pathCorrections).toEqual([
+				{ original: "招标文件 - 发布稿.docx", corrected: "招标文件-发布稿.docx" },
+			]);
 		});
 	});
 
@@ -338,6 +377,41 @@ describe("Coding Agent Tools", () => {
 
 			const result = await bashWithoutPrefix.execute("test-prefix-3", { command: "echo no-prefix" });
 			expect(getTextOutput(result).trim()).toBe("no-prefix");
+		});
+
+		it("should autocorrect quoted file paths with injected spaces around hyphens", async () => {
+			const filename = "招标文件-发布稿.txt";
+			writeFileSync(join(testDir, filename), "ok-path");
+			const bash = createBashTool(testDir);
+
+			const result = await bash.execute("test-bash-path-fix-1", {
+				command: 'cat "招标文件 - 发布稿.txt"',
+			});
+
+			expect(getTextOutput(result)).toContain("ok-path");
+			expect(result.details?.pathCorrections).toEqual([
+				{
+					original: "招标文件 - 发布稿.txt",
+					corrected: "招标文件-发布稿.txt",
+				},
+			]);
+		});
+
+		it("should resolve quoted path IDs produced by dir_tree", async () => {
+			const filename = "招标 文件-发布稿.txt";
+			writeFileSync(join(testDir, filename), "id-path");
+			const tree = createTreeTool(testDir);
+			const bash = createBashTool(testDir);
+
+			const treeResult = await tree.execute("test-bash-path-id-tree", { path: testDir, maxDepth: 3 });
+			const treeOutput = getTextOutput(treeResult);
+			const pathId = extractPathIdByName(treeOutput, filename);
+			expect(pathId).toBeDefined();
+
+			const result = await bash.execute("test-bash-path-id-cat", {
+				command: `cat "${pathId}"`,
+			});
+			expect(getTextOutput(result)).toContain("id-path");
 		});
 
 		it("should reject shell file-discovery commands in favor of built-in tools", async () => {
@@ -454,6 +528,25 @@ describe("Coding Agent Tools", () => {
 			expect(output).toContain("(d:");
 			expect(output).toContain("src");
 			expect(output).toContain("README.md");
+		});
+
+		it("should emit reusable path IDs for rendered nodes", async () => {
+			const filename = "招标文件-发布稿.txt";
+			writeFileSync(join(testDir, filename), "path-id-content");
+			const tree = createTreeTool(testDir);
+			const read = createReadTool(testDir);
+
+			const treeResult = await tree.execute("test-call-tree-path-id-1", {
+				path: testDir,
+				maxDepth: 3,
+			});
+			const treeOutput = getTextOutput(treeResult);
+			expect(treeOutput).toContain("id=@PATH_");
+			const pathId = extractPathIdByName(treeOutput, filename);
+			expect(pathId).toBeDefined();
+
+			const readResult = await read.execute("test-call-tree-path-id-2", { path: pathId! });
+			expect(getTextOutput(readResult)).toContain("path-id-content");
 		});
 
 		it("should support directory-only mode", async () => {

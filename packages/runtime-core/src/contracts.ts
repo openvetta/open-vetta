@@ -148,6 +148,8 @@ export interface SettingsPatch {
 	thinkingLevel?: ThinkingLevel;
 	steeringMode?: "all" | "one-at-a-time";
 	followUpMode?: "all" | "one-at-a-time";
+	/** Model key in "provider/modelId" format */
+	modelKey?: string;
 }
 
 export interface SessionFacade {
@@ -163,5 +165,7 @@ export interface SessionFacade {
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
 	deleteSession(sessionPath: string): Promise<void>;
 	renameSession(sessionPath: string, name: string): Promise<void>;
+	getSessionPath(sessionId: string): string | undefined;
+	renameSessionById(sessionId: string, name: string): void;
 	disposeSession(sessionId: string): Promise<void>;
 }

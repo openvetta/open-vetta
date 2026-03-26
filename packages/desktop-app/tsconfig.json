@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"jsx": "react-jsx",
+		"noEmit": true,
+		"paths": {
+			"@/*": ["./src/*"],
+			"@shared/*": ["./src/renderer/shared/*"],
+			"@domains/*": ["./src/renderer/domains/*"],
+			"@preload/*": ["./preload/*"],
+			"@mariozechner/pi-ai": ["../ai/src/index.ts"]
+		},
+		"allowImportingTsExtensions": true
+	},
+	"include": ["./**/*.ts", "./**/*.tsx", "./**/*.d.ts"],
+	"exclude": ["node_modules", "../preload", "../../runtime-core"]
+}

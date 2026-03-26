@@ -24,7 +24,11 @@
 	],
 	"scripts": {
 		"clean": "bun run --workspaces clean",
-		"build": "cd packages/tui && bun run build && cd ../ai && bun run build && cd ../agent && bun run build && cd ../coding-agent && bun run build && cd ../web-ui && bun run build",
+		"build": "./scripts/build.sh libs",
+		"build:all": "./scripts/build.sh all",
+		"build:desktop": "./scripts/build.sh desktop",
+		"build:cli": "./scripts/build.sh cli",
+		"build:admin": "./scripts/build.sh admin",
 		"dev": "concurrently --names \"ai,agent,coding-agent,web-ui,tui\" --prefix-colors \"cyan,yellow,red,green,magenta\" \"cd packages/ai && bun run dev\" \"cd packages/agent && bun run dev\" \"cd packages/coding-agent && bun run dev\" \"cd packages/web-ui && bun run dev\" \"cd packages/tui && bun run dev\"",
 		"dev:tsc": "concurrently --names \"ai,web-ui\" --prefix-colors \"cyan,green\" \"cd packages/ai && bun run dev:tsc\" \"cd packages/web-ui && bun run dev:tsc\"",
 		"check": "biome check --write --error-on-warnings . && tsgo --noEmit && cd packages/web-ui && bun run check",
@@ -57,7 +61,11 @@
 	"version": "0.55.3",
 	"dependencies": {
 		"@mariozechner/jiti": "^2.6.5",
+		"@radix-ui/react-popover": "^1.1.15",
+		"@radix-ui/react-select": "^2.2.6",
+		"@radix-ui/react-slot": "^1.2.4",
 		"@vetta/coding-agent": "workspace:*",
+		"date-fns": "^4.1.0",
 		"get-east-asian-width": "^1.4.0",
 		"koffi": "^2.15.1"
 	},

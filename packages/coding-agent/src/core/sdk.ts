@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { Agent, type AgentMessage, type ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Message, Model } from "@mariozechner/pi-ai";
-import { getAgentDir, getDocsPath } from "../config.js";
+import { DEFAULT_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
@@ -178,6 +178,18 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
 
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
+
+	// Ensure serverUrl has a default value, then load remote models
+	if (!options.modelRegistry) {
+		let serverUrl = settingsManager.getServerUrl();
+		if (!serverUrl) {
+			settingsManager.setServerUrl(DEFAULT_SERVER_URL);
+			serverUrl = DEFAULT_SERVER_URL;
+		}
+		modelRegistry.setServerUrl(serverUrl);
+		modelRegistry.setServerToken(settingsManager.getServerToken());
+		await modelRegistry.loadRemoteModels();
+	}
 	const sessionManager = options.sessionManager ?? SessionManager.create(cwd);
 
 	if (!resourceLoader) {

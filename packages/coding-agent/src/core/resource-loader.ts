@@ -469,6 +469,33 @@ export class DefaultResourceLoader implements ResourceLoader {
 				skill.source = "scene";
 			}
 		}
+		// Filter out disabled market skills based on manifest
+		const marketSkillsDir = resolve(join(homedir(), ".vetta", "skills"));
+		const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
+		let disabledNames: Set<string> | undefined;
+		if (existsSync(manifestPath)) {
+			try {
+				const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, { enabled?: boolean }>;
+				disabledNames = new Set<string>();
+				for (const [name, entry] of Object.entries(manifest)) {
+					if (entry.enabled === false) {
+						disabledNames.add(name);
+					}
+				}
+			} catch {
+				// ignore manifest read errors
+			}
+		}
+		if (disabledNames && disabledNames.size > 0) {
+			skillsResult.skills = skillsResult.skills.filter((skill) => {
+				const resolvedPath = resolve(skill.filePath);
+				if (!resolvedPath.startsWith(`${marketSkillsDir}${sep}`) && resolvedPath !== marketSkillsDir) {
+					return true;
+				}
+				return !disabledNames.has(skill.name);
+			});
+		}
+
 		const resolvedSkills = this.skillsOverride ? this.skillsOverride(skillsResult) : skillsResult;
 		this.skills = resolvedSkills.skills;
 		this.skillDiagnostics = resolvedSkills.diagnostics;

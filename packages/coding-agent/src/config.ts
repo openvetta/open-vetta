@@ -176,6 +176,9 @@ export const ENV_SHARE_VIEWER_URL = `${APP_NAME.toUpperCase()}_SHARE_VIEWER_URL`
 
 const DEFAULT_SHARE_VIEWER_URL = "https://pi.dev/session/";
 
+/** Default server URL for remote provider/model configs */
+export const DEFAULT_SERVER_URL = "http://REDACTED-HOST:8080/api/v1";
+
 /** Get the share viewer URL for a gist ID */
 export function getShareViewerUrl(gistId: string): string {
 	const baseUrl = process.env[ENV_SHARE_VIEWER_URL] || process.env.PI_SHARE_VIEWER_URL || DEFAULT_SHARE_VIEWER_URL;

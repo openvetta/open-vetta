@@ -20,6 +20,18 @@
 		"./hooks": {
 			"types": "./dist/core/hooks/index.d.ts",
 			"import": "./dist/core/hooks/index.js"
+		},
+		"./core/settings-manager.js": {
+			"types": "./dist/core/settings-manager.d.ts",
+			"import": "./dist/core/settings-manager.js"
+		},
+		"./core/mcp/index.js": {
+			"types": "./dist/core/mcp/index.d.ts",
+			"import": "./dist/core/mcp/index.js"
+		},
+		"./core/mcp/types.js": {
+			"types": "./dist/core/mcp/types.d.ts",
+			"import": "./dist/core/mcp/types.js"
 		}
 	},
 	"files": [
@@ -44,6 +56,10 @@
 		"@mariozechner/pi-agent-core": "^0.55.3",
 		"@mariozechner/pi-ai": "^0.55.3",
 		"@mariozechner/pi-tui": "^0.55.3",
+		"@sinclair/typebox": "^0.34.41",
+		"ajv": "^8.17.1",
+		"ajv-formats": "^3.0.1",
+		"strip-ansi": "^7.1.0",
 		"@silvia-odwyer/photon-node": "^0.3.4",
 		"chalk": "^5.5.0",
 		"cli-highlight": "^2.1.11",
