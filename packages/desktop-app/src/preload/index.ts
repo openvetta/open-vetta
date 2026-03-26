@@ -63,6 +63,7 @@ const api: DesktopApi = {
 		installFromMarket: async (name: string, archiveBuffer: ArrayBuffer) =>
 			ipcRenderer.invoke("vetta:skills:install-from-market", name, archiveBuffer),
 		uninstall: async (name: string) => ipcRenderer.invoke("vetta:skills:uninstall", name),
+		toggle: async (name: string) => ipcRenderer.invoke("vetta:skills:toggle", name),
 		getMarketManifest: async () => ipcRenderer.invoke("vetta:skills:get-market-manifest"),
 	},
 	config: {
