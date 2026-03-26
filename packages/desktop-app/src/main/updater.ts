@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getAgentDir } from "@vetta/coding-agent";
 import { app } from "electron";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8080/api/v1";
 
@@ -50,7 +53,10 @@ function compareVersions(current: string, latest: string): boolean {
 }
 
 export async function checkForUpdate(): Promise<UpdateCheckResult> {
-	const currentVersion = app.getVersion();
+	// app.getVersion() 在开发模式下返回 Electron 框架版本，需要读取 package.json
+	const currentVersion = app.isPackaged
+		? app.getVersion()
+		: (JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf-8")).version as string);
 	const platform = process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "win32" : "linux";
 	const arch = process.arch === "arm64" ? "arm64" : "x64";
 
