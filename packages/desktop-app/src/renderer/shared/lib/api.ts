@@ -80,6 +80,7 @@ export interface MarketSkillInfo {
 	version: string;
 	author: string;
 	tags: string[];
+	category: string;
 }
 
 export async function fetchMarketSkills(token: string): Promise<MarketSkillInfo[]> {
