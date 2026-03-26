@@ -40,11 +40,24 @@ const builderConfig = {
 	productName: "Vetta",
 	electronVersion,
 	npmRebuild: false,
+	protocols: {
+		name: "Vetta",
+		schemes: ["vetta"],
+	},
 	mac: {
 		target: ["dmg", "zip"],
 		category: "public.app-category.productivity",
 		icon: "build/icon.icns",
 		identity: null,
+	},
+	win: {
+		target: ["nsis"],
+		icon: "build/icon.ico",
+	},
+	nsis: {
+		oneClick: false,
+		perMachine: false,
+		allowToChangeInstallationDirectory: true,
 	},
 	directories: {
 		output: join(projectRoot, "release"),
