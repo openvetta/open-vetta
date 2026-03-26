@@ -8,9 +8,9 @@
 [data-theme="dark"] {
 	color-scheme: dark;
 
-	--background: rgb(0, 0, 0);
+	--background: rgb(29, 21, 32);
 	--foreground: rgb(255, 255, 255);
-	--card: rgb(9, 9, 9);
+	--card: rgb(16, 14, 17);
 	--card-foreground: rgb(255, 255, 255);
 	--popover: rgb(18, 18, 18);
 	--popover-foreground: rgb(255, 255, 255);
@@ -18,9 +18,9 @@
 	--primary-foreground: rgb(0, 0, 0);
 	--secondary: rgb(34, 34, 34);
 	--secondary-foreground: rgb(255, 255, 255);
-	--muted: rgb(29, 29, 29);
+	--muted: rgb(29, 21, 32);
 	--muted-foreground: rgb(164, 164, 164);
-	--accent: rgb(51, 51, 51);
+	--accent:rgb(16, 14, 17);
 	--accent-foreground: rgb(255, 255, 255);
 	--destructive: rgb(255, 91, 91);
 	--destructive-foreground: rgb(0, 0, 0);

@@ -66,7 +66,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 						onClick={() => void navigate({ to: path })}
 						className={`no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 							currentPath === path
-								? "bg-accent font-medium text-foreground"
+								? "bg-black dark:bg-white font-medium text-white dark:text-black"
 								: "text-foreground hover:bg-accent"
 						}`}
 					>
@@ -97,7 +97,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 			</div>
 
 			{/* Settings */}
-			<div className="border-t border-border px-1.5 py-1.5">
+			<div className="px-1.5 py-1.5">
 				<SettingsMenu />
 			</div>
 			<ResizeHandle side="right" onResize={onResize} />
