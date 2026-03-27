@@ -121,6 +121,35 @@ export const modelSupportsImagesAtom = atom<boolean>(true);
 export const selectedSkillAtom = atom<SelectedSkill | null>(null);
 export const mentionedFilesAtom = atom<MentionedFile[]>([]);
 
+// ─── Action button bar ───
+
+export interface ActionButtonDef {
+	/** Unique identifier */
+	id: string;
+	/** Display label */
+	label: string;
+	/** MDI icon class name, e.g. "icon-[mdi--swap-horizontal]" */
+	icon?: string;
+	/** Sort weight — lower values appear first (default 0) */
+	order?: number;
+}
+
+/** Registered button definitions */
+export const actionButtonDefsAtom = atom<ActionButtonDef[]>([]);
+
+/** Set of hidden button ids for visibility control */
+export const hiddenActionButtonsAtom = atom<Set<string>>(new Set());
+
+/** Derived: visible buttons sorted by order */
+export const visibleActionButtonsAtom = atom((get) => {
+	const defs = get(actionButtonDefsAtom);
+	const hidden = get(hiddenActionButtonsAtom);
+	return defs.filter((d) => !hidden.has(d.id)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+});
+
+/** Registry mapping button id → click handler */
+export const actionButtonHandlersAtom = atom<Map<string, () => void>>(new Map());
+
 /** Global callback to open a session (set by useSessionManager, consumed by other pages) */
 // Use a module-level ref instead of atom to avoid structured clone issues with functions
 export const openSessionFnRef: { current: ((cwd: string, sessionPath?: string) => Promise<void>) | null } = {
