@@ -276,7 +276,7 @@ export interface DesktopBatchTasksApi {
 	createProject(data: { name: string; prompt: string; folders: string[]; concurrency: number }): Promise<BatchProject>;
 	updateProject(
 		projectId: string,
-		data: Partial<{ name: string; prompt: string; concurrency: number }>,
+		data: Partial<{ name: string; prompt: string; concurrency: number; newFolders: string[] }>,
 	): Promise<void>;
 	deleteProject(projectId: string): Promise<void>;
 	runTask(projectId: string, taskId: string): Promise<void>;
@@ -287,6 +287,7 @@ export interface DesktopBatchTasksApi {
 	batchPause(projectId: string): Promise<void>;
 	batchResume(projectId: string): Promise<void>;
 	batchDelete(projectId: string): Promise<void>;
+	batchRunNeverExecuted(projectId: string): Promise<void>;
 	deleteSession(sessionPath: string): Promise<void>;
 	onTaskEvent(handler: (event: BatchTaskEvent) => void): () => void;
 }

@@ -30,7 +30,6 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [prompt, setPrompt] = useState(project?.prompt ?? "");
 	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
 	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.cwd) ?? []);
-	const [folderInput, setFolderInput] = useState("");
 
 	useEffect(() => {
 		setName(project?.name ?? "");
@@ -41,20 +40,16 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 
 	const canSubmit = name.trim() && prompt.trim() && folders.length > 0;
 
-	const handleSelectFolders = useCallback(async () => {
-		const selected = await window.vetta.dialog.selectFolders();
-		if (selected.length > 0) {
-			setFolders((prev) => [...new Set([...prev, ...selected])]);
-		}
+	const handleSelectFolders = useCallback(() => {
+		void (async () => {
+			const selected = await window.vetta.dialog.selectFolders();
+			console.log(selected);
+			
+			if (selected.length > 0) {
+				setFolders((prev) => [...new Set([...prev, ...selected])]);
+			}
+		})();
 	}, []);
-
-	const handleAddFolder = useCallback(() => {
-		const trimmed = folderInput.trim();
-		if (trimmed && !folders.includes(trimmed)) {
-			setFolders((prev) => [...prev, trimmed]);
-			setFolderInput("");
-		}
-	}, [folderInput, folders]);
 
 	const handleRemoveFolder = useCallback((folder: string) => {
 		setFolders((prev) => prev.filter((f) => f !== folder));
@@ -64,7 +59,9 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		if (!canSubmit) return;
 
 		if (project) {
-			await updateProject(project.id, { name, prompt, concurrency });
+			const originalCwds = new Set(project.tasks.map((t) => t.cwd));
+			const newFolders = folders.filter((f) => !originalCwds.has(f));
+			await updateProject(project.id, { name, prompt, concurrency, newFolders });
 		} else {
 			await createProject({ name, prompt, folders, concurrency });
 		}
@@ -120,23 +117,6 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 							<p className="text-sm font-medium text-foreground">文件夹列表</p>
 							<Button variant="outline" size="sm" onClick={handleSelectFolders}>
 								选择文件夹
-							</Button>
-						</div>
-						<div className="mb-2 flex gap-2">
-							<Input
-								value={folderInput}
-								onChange={(e) => setFolderInput(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") {
-										e.preventDefault();
-										handleAddFolder();
-									}
-								}}
-								placeholder="输入文件夹路径，按回车添加"
-								className="flex-1"
-							/>
-							<Button variant="outline" size="sm" onClick={handleAddFolder}>
-								添加
 							</Button>
 						</div>
 						{folders.length > 0 ? (

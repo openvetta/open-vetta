@@ -11,6 +11,7 @@ import { useAuth } from "./domains/auth/hooks/useAuth";
 import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
+import { TooltipProvider } from "./shared/components/ui/tooltip";
 
 export function RootLayout(): JSX.Element {
 	const { openProject, projects } = useProjects();
@@ -50,19 +51,21 @@ export function RootLayout(): JSX.Element {
 	);
 
 	return (
-		<div className="flex h-screen w-screen flex-col overflow-hidden">
-			<TitleBar />
-			<div className="flex flex-1 overflow-hidden p-1.5 pl-0">
-				<Sidebar onOpenSession={openSession} />
-				<main
-					className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
-				>
-					<Outlet />
-				</main>
-				<ActivityPanel />
-				<ConfirmDialog />
-				<LoginDialog />
+		<TooltipProvider>
+			<div className="flex h-screen w-screen flex-col overflow-hidden">
+				<TitleBar />
+				<div className="flex flex-1 overflow-hidden p-1.5 pl-0">
+					<Sidebar onOpenSession={openSession} />
+					<main
+						className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+					>
+						<Outlet />
+					</main>
+					<ActivityPanel />
+					<ConfirmDialog />
+					<LoginDialog />
+				</div>
 			</div>
-		</div>
+		</TooltipProvider>
 	);
 }
