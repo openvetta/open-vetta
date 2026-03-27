@@ -64,7 +64,7 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
 	const arch = process.arch === "arm64" ? "arm64" : "x64";
 
 	const settings = getSettings();
-	const serverUrl = (settings.serverUrl as string) || DEFAULT_SERVER_URL;
+	const serverUrl = DEFAULT_SERVER_URL;
 	const serverToken = settings.serverToken as string | undefined;
 
 	if (!serverToken) {
