@@ -32,12 +32,9 @@ out.jsonl
 pi-*.html
 out.html
 packages/coding-agent/binaries/
+routeTree.gen.ts
 packages/desktop-app/release/
 /releases/
 todo.md
-
-prompt/
-spec/
-review/
 
 settings.local.json

@@ -64,12 +64,14 @@ export interface InstalledMarketSkill {
 	version: string;
 	installedAt: string;
 	source: "market";
+	enabled: boolean;
 }
 
 export interface DesktopSkillsApi {
 	list(): Promise<SkillInfo[]>;
 	installFromMarket(name: string, archiveBuffer: ArrayBuffer): Promise<void>;
 	uninstall(name: string): Promise<void>;
+	toggle(name: string): Promise<void>;
 	getMarketManifest(): Promise<Record<string, InstalledMarketSkill>>;
 }
 

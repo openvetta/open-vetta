@@ -72,6 +72,20 @@ export function historyToChat(
 	const messages: ChatMessage[] = [];
 	const toolCallIndex = new Map<string, ToolCallBlock>();
 
+	/** Get or create the current assistant message to accumulate blocks into. */
+	function currentAssistant(): ChatMessage {
+		const last = messages.at(-1);
+		if (last?.role === "assistant") return last;
+		const msg: ChatMessage = {
+			id: `hist-asst-${messages.length}`,
+			role: "assistant",
+			text: "",
+			blocks: [],
+		};
+		messages.push(msg);
+		return msg;
+	}
+
 	for (const m of history) {
 		if (m.role === "user") {
 			messages.push({
@@ -80,16 +94,16 @@ export function historyToChat(
 				text: extractText(m.content),
 			});
 		} else if (m.role === "assistant") {
+			// Merge consecutive assistant messages into one (same agent turn)
+			const target = currentAssistant();
 			const blocks = messageToBlocks(m.content);
 			for (const b of blocks) {
 				if (b.type === "tool_call") toolCallIndex.set(b.toolCallId, b);
 			}
-			messages.push({
-				id: `hist-asst-${messages.length}`,
-				role: "assistant",
-				text: extractText(m.content),
-				blocks,
-			});
+			target.blocks!.push(...blocks);
+			// Accumulate text
+			const text = extractText(m.content);
+			if (text) target.text = target.text ? `${target.text}\n${text}` : text;
 		} else if (m.role === "toolResult" && m.toolCallId) {
 			const block = toolCallIndex.get(String(m.toolCallId));
 			if (block) {
@@ -160,7 +174,7 @@ export function ensureDraft(prev: ChatMessage[]): [ChatMessage[], number] {
 	// Create new draft
 	const id = nextId("draft");
 	draftId = id;
-	const draft: ChatMessage = { id, role: "assistant", text: "", blocks: [] };
+	const draft: ChatMessage = { id, role: "assistant", text: "", blocks: [], timestamp: Date.now() };
 	const copy = [...prev, draft];
 	return [copy, copy.length - 1];
 }
@@ -206,30 +220,24 @@ export function appendThinkingDelta(prev: ChatMessage[], delta: string): ChatMes
 /**
  * Finalize the current draft with the complete message content.
  *
+ * An agent turn can produce multiple message.final events (one per LLM call
+ * in the agent loop). All content accumulates into a single assistant message.
+ *
  * Strategy:
- * - Text and thinking blocks come from the final message (authoritative).
- * - Tool call blocks that already exist on the draft (created by earlier
- *   tool.start events during THIS turn) are preserved.
- * - Any tool calls in the final message that DON'T have a matching block
- *   yet get created with status "pending" (execution hasn't happened).
+ * - Keep ALL existing blocks on the message (from previous LLM calls in this turn).
+ * - The current LLM call's content was already streamed via deltas, so the
+ *   blocks are already present. We use the final message to ensure tool_call
+ *   blocks exist with correct args.
+ * - draftId is NOT cleared here — it persists until resetStreamState() at agent_end.
  */
 export function finalizeMessage(prev: ChatMessage[], content: unknown): ChatMessage[] {
 	const copy = [...prev];
-	const finalId = nextId("final");
 
-	// Build text/thinking blocks from the final message
-	const contentBlocks: ContentBlock[] = [];
+	// Parse tool calls from the final message
 	const finalToolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }> = [];
-
-	if (typeof content === "string") {
-		if (content) contentBlocks.push({ type: "text", text: content });
-	} else if (Array.isArray(content)) {
+	if (Array.isArray(content)) {
 		for (const part of content as Array<Record<string, unknown>>) {
-			if (part.type === "text" && typeof part.text === "string") {
-				contentBlocks.push({ type: "text", text: part.text });
-			} else if (part.type === "thinking" && typeof part.thinking === "string") {
-				contentBlocks.push({ type: "thinking", text: part.thinking });
-			} else if (part.type === "toolCall" && typeof part.name === "string") {
+			if (part.type === "toolCall" && typeof part.name === "string") {
 				finalToolCalls.push({
 					id: String(part.id ?? ""),
 					name: String(part.name),
@@ -239,7 +247,7 @@ export function finalizeMessage(prev: ChatMessage[], content: unknown): ChatMess
 		}
 	}
 
-	// Find the draft (or last assistant message)
+	// Find the target message (draft or last assistant)
 	let targetIdx = -1;
 	if (draftId) {
 		for (let i = copy.length - 1; i >= 0; i--) {
@@ -250,34 +258,42 @@ export function finalizeMessage(prev: ChatMessage[], content: unknown): ChatMess
 		}
 	}
 	if (targetIdx === -1) {
-		// No draft found — create a new message (don't overwrite history)
-		const newMsg: ChatMessage = { id: finalId, role: "assistant", text: "", blocks: [] };
-		copy.push(newMsg);
-		targetIdx = copy.length - 1;
-	}
-
-	// Collect existing tool_call blocks from the target message
-	const existingToolBlocks: ToolCallBlock[] = [];
-	const existingToolIds = new Set<string>();
-	if (targetIdx !== -1) {
-		for (const b of copy[targetIdx].blocks ?? []) {
-			if (b.type === "tool_call") {
-				existingToolBlocks.push(b);
-				existingToolIds.add(b.toolCallId);
+		// No draft — find last assistant message or create one
+		for (let i = copy.length - 1; i >= 0; i--) {
+			if (copy[i].role === "assistant") {
+				targetIdx = i;
+				break;
 			}
+		}
+		if (targetIdx === -1) {
+			const id = nextId("final");
+			draftId = id;
+			copy.push({ id, role: "assistant", text: "", blocks: [], timestamp: Date.now() });
+			targetIdx = copy.length - 1;
 		}
 	}
 
-	// Merge or add tool calls from the final message
+	const msg = copy[targetIdx];
+	const blocks = [...(msg.blocks ?? [])];
+
+	// Collect existing tool_call IDs
+	const existingToolIds = new Set<string>();
+	for (const b of blocks) {
+		if (b.type === "tool_call") existingToolIds.add(b.toolCallId);
+	}
+
+	// Merge tool calls: update existing or add new
 	for (const tc of finalToolCalls) {
 		if (existingToolIds.has(tc.id)) {
-			// Update args on existing block (may have been created by toolcall.start with empty args)
-			const existing = existingToolBlocks.find((b) => b.toolCallId === tc.id);
-			if (existing) {
-				existing.args = tc.args;
+			const idx = blocks.findIndex((b) => b.type === "tool_call" && b.toolCallId === tc.id);
+			if (idx !== -1) {
+				const existing = blocks[idx] as ToolCallBlock;
+				if (Object.keys(existing.args).length === 0 && Object.keys(tc.args).length > 0) {
+					blocks[idx] = { ...existing, args: tc.args };
+				}
 			}
 		} else {
-			existingToolBlocks.push({
+			blocks.push({
 				type: "tool_call",
 				toolCallId: tc.id,
 				toolName: tc.name,
@@ -287,18 +303,16 @@ export function finalizeMessage(prev: ChatMessage[], content: unknown): ChatMess
 		}
 	}
 
-	// Assemble final blocks: text/thinking first, then tool calls
-	const finalBlocks: ContentBlock[] = [...contentBlocks, ...existingToolBlocks];
-	const text = extractText(content);
+	// Update text from all text blocks
+	const text = blocks
+		.filter((b) => b.type === "text")
+		.map((b) => (b as { text: string }).text)
+		.join("");
 
-	if (targetIdx !== -1) {
-		copy[targetIdx] = { ...copy[targetIdx], id: finalId, text, blocks: finalBlocks };
-	} else {
-		copy.push({ id: finalId, role: "assistant", text, blocks: finalBlocks });
-	}
+	copy[targetIdx] = { ...msg, text, blocks };
 
-	// Clear draft — this turn's message is now finalized
-	draftId = null;
+	// Do NOT clear draftId — the agent turn may continue with more LLM calls.
+	// draftId is cleared by resetStreamState() at agent_start/agent_end.
 	return copy;
 }
 
@@ -347,23 +361,19 @@ export function handleToolStart(
 		return copy;
 	}
 
-	// No recent assistant message — create one
-	const copy = [...prev];
-	copy.push({
-		id: nextId("tool-fallback"),
-		role: "assistant",
-		text: "",
-		blocks: [
-			{
-				type: "tool_call",
-				toolCallId,
-				toolName,
-				args,
-				status: "pending",
-			},
-		],
+	// No recent assistant message — use ensureDraft to keep one turn = one message
+	const [msgs, idx] = ensureDraft(prev);
+	const msg = msgs[idx];
+	const blocks = [...(msg.blocks ?? [])];
+	blocks.push({
+		type: "tool_call",
+		toolCallId,
+		toolName,
+		args,
+		status: "pending",
 	});
-	return copy;
+	msgs[idx] = { ...msg, blocks };
+	return msgs;
 }
 
 /**
@@ -415,7 +425,7 @@ function ensureDraftWithRef(prev: ChatMessage[], draftIdRef: { current: string |
 	}
 	const id = nextId("draft");
 	draftIdRef.current = id;
-	const draft: ChatMessage = { id, role: "assistant", text: "", blocks: [] };
+	const draft: ChatMessage = { id, role: "assistant", text: "", blocks: [], timestamp: Date.now() };
 	const copy = [...prev, draft];
 	return [copy, copy.length - 1];
 }
