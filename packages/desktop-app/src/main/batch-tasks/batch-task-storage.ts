@@ -159,7 +159,7 @@ export async function createProject(
 
 export async function updateProject(
 	projectId: string,
-	data: Partial<{ name: string; prompt: string; concurrency: number }>,
+	data: Partial<{ name: string; prompt: string; concurrency: number; newFolders: string[] }>,
 ): Promise<void> {
 	const projects = await loadProjects();
 	const project = projects.find((p) => p.id === projectId);
@@ -167,6 +167,22 @@ export async function updateProject(
 		if (data.name !== undefined) project.name = data.name;
 		if (data.prompt !== undefined) project.prompt = data.prompt;
 		if (data.concurrency !== undefined) project.concurrency = data.concurrency;
+		if (data.newFolders) {
+			const now = Date.now();
+			const existingCwds = new Set(project.tasks.map((t) => t.cwd));
+			for (const cwd of data.newFolders) {
+				if (!existingCwds.has(cwd)) {
+					project.tasks.push({
+						id: generateTaskId(),
+						name: cwd.split("/").pop() ?? cwd,
+						cwd,
+						status: "pending",
+						createdAt: now,
+						updatedAt: now,
+					});
+				}
+			}
+		}
 		project.updatedAt = Date.now();
 		await saveProjects(projects);
 	}

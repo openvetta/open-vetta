@@ -30,6 +30,7 @@ const CHANNELS = {
 	BATCH_PAUSE: "vetta:batch-tasks:batch-pause",
 	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
+	BATCH_RUN_NEVER_EXECUTED: "vetta:batch-tasks:batch-run-never-executed",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	EVENT: "vetta:batch-tasks:event",
 } as const;
@@ -63,7 +64,11 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(
 		CHANNELS.UPDATE_PROJECT,
-		async (_, projectId: string, data: Partial<{ name: string; prompt: string; concurrency: number }>) => {
+		async (
+			_,
+			projectId: string,
+			data: Partial<{ name: string; prompt: string; concurrency: number; newFolders: string[] }>,
+		) => {
 			await updateProjectStorage(projectId, data);
 		},
 	);
@@ -142,6 +147,16 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 	});
 
+	ipcMain.handle(CHANNELS.BATCH_RUN_NEVER_EXECUTED, async (_, projectId: string) => {
+		const project = await getProject(projectId);
+		if (!project) return;
+		for (const task of project.tasks) {
+			if (task.status === "pending" && !task.sessionId) {
+				await runTask(project, task, getRuntime());
+			}
+		}
+	});
+
 	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_, sessionPath: string) => {
 		await getRuntime().deleteSession(sessionPath);
 	});
@@ -159,6 +174,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.BATCH_PAUSE);
 		ipcMain.removeHandler(CHANNELS.BATCH_RESUME);
 		ipcMain.removeHandler(CHANNELS.BATCH_DELETE);
+		ipcMain.removeHandler(CHANNELS.BATCH_RUN_NEVER_EXECUTED);
 		ipcMain.removeHandler(CHANNELS.DELETE_SESSION);
 	};
 }

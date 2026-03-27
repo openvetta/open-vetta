@@ -21,9 +21,36 @@ export function useBatchTasks() {
 	);
 
 	const updateProject = useCallback(
-		async (projectId: string, data: { name?: string; prompt?: string; concurrency?: number }) => {
+		async (
+			projectId: string,
+			data: { name?: string; prompt?: string; concurrency?: number; newFolders?: string[] },
+		) => {
 			await window.vetta.batchTasks.updateProject(projectId, data);
-			setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...data, updatedAt: Date.now() } : p)));
+			setProjects((prev) =>
+				prev.map((p) => {
+					if (p.id !== projectId) return p;
+					const newTasks = data.newFolders
+						? data.newFolders
+								.filter((cwd) => !p.tasks.some((t) => t.cwd === cwd))
+								.map((cwd) => ({
+									id: `batch-task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+									name: cwd.split("/").pop() ?? cwd,
+									cwd,
+									status: "pending" as const,
+									createdAt: Date.now(),
+									updatedAt: Date.now(),
+								}))
+						: [];
+					return {
+						...p,
+						...(data.name !== undefined ? { name: data.name } : {}),
+						...(data.prompt !== undefined ? { prompt: data.prompt } : {}),
+						...(data.concurrency !== undefined ? { concurrency: data.concurrency } : {}),
+						tasks: [...p.tasks, ...newTasks],
+						updatedAt: Date.now(),
+					};
+				}),
+			);
 		},
 		[setProjects],
 	);
@@ -103,6 +130,10 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.deleteSession(sessionPath);
 	}, []);
 
+	const batchRunNeverExecuted = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchRunNeverExecuted(projectId);
+	}, []);
+
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
 			setProjects((prev) =>
@@ -158,5 +189,6 @@ export function useBatchTasks() {
 		batchResume,
 		batchDelete,
 		deleteSession,
+		batchRunNeverExecuted,
 	};
 }

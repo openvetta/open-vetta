@@ -22,9 +22,11 @@ function relativeTime(timestamp: number): string {
 	return `${Math.floor(days / 7)} 周`;
 }
 
-function statusLabel(status: BatchTask["status"]): string {
-	const labels: Record<BatchTask["status"], string> = {
-		pending: "等待中",
+function statusLabel(status: BatchTask["status"], hasSession: boolean): string {
+	if (status === "pending") {
+		return hasSession ? "等待中" : "未执行";
+	}
+	const labels: Record<Exclude<BatchTask["status"], "pending">, string> = {
 		running: "运行中",
 		paused: "已暂停",
 		completed: "已完成",
@@ -43,7 +45,7 @@ export function BatchTaskList({
 	onEditProject,
 }: BatchTaskListProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const { runTask, pauseTask, resumeTask, deleteTask, batchRetryFailed, batchPause, batchResume, batchDelete } =
+	const { runTask, pauseTask, resumeTask, deleteTask, batchRetryFailed, batchPause, batchResume, batchDelete, batchRunNeverExecuted, deleteProject } =
 		useBatchTasks();
 
 	const handleGoToSession = (task: BatchTask) => {
@@ -70,7 +72,7 @@ export function BatchTaskList({
 			cancelLabel: "取消",
 			variant: "danger",
 			onConfirm: async () => {
-				await window.vetta.batchTasks.deleteProject(project.id);
+				await deleteProject(project.id);
 			},
 		});
 	};
@@ -140,6 +142,19 @@ export function BatchTaskList({
 		await batchResume(project.id);
 	};
 
+	const handleBatchRunNeverExecuted = (project: BatchProject) => {
+		const neverExecutedCount = project.tasks.filter((t) => t.status === "pending" && !t.sessionId).length;
+		if (neverExecutedCount === 0) return;
+		setConfirm({
+			title: "确认执行所有未执行的任务",
+			message: `将执行 ${neverExecutedCount} 个未执行的任务，是否继续？`,
+			confirmLabel: "执行",
+			onConfirm: async () => {
+				await batchRunNeverExecuted(project.id);
+			},
+		});
+	};
+
 	const handleBatchDelete = (project: BatchProject) => {
 		const runningCount = project.tasks.filter((t) => t.status === "running").length;
 		if (runningCount > 0) {
@@ -169,6 +184,7 @@ export function BatchTaskList({
 				const failedCount = project.tasks.filter((t) => t.status === "failed").length;
 				const runningCount = project.tasks.filter((t) => t.status === "running").length;
 				const pausedCount = project.tasks.filter((t) => t.status === "paused").length;
+				const neverExecutedCount = project.tasks.filter((t) => t.status === "pending" && !t.sessionId).length;
 				return (
 					<div key={project.id} className="rounded-xl border border-border p-4">
 						<div className="mb-3 flex items-center justify-between">
@@ -181,6 +197,18 @@ export function BatchTaskList({
 							</div>
 							<div className="flex items-center gap-1">
 								<ActionButton
+									icon="icon-[mdi--rocket-launch-outline]"
+									title="批量执行"
+									onClick={() => handleBatchRunNeverExecuted(project)}
+									disabled={neverExecutedCount === 0}
+								/>
+								<ActionButton
+									icon="icon-[mdi--play]"
+									title="批量继续"
+									onClick={() => void handleBatchResume(project)}
+									disabled={pausedCount === 0}
+								/>
+								<ActionButton
 									icon="icon-[mdi--restart]"
 									title="批量重试失败"
 									onClick={() => handleBatchRetry(project)}
@@ -191,12 +219,6 @@ export function BatchTaskList({
 									title="批量暂停"
 									onClick={() => handleBatchPause(project)}
 									disabled={runningCount === 0}
-								/>
-								<ActionButton
-									icon="icon-[mdi--play]"
-									title="批量继续"
-									onClick={() => void handleBatchResume(project)}
-									disabled={pausedCount === 0}
 								/>
 								<div className="mx-1 h-4 w-px bg-border" />
 								<ActionButton
@@ -269,7 +291,7 @@ export function BatchTaskList({
 											)}
 
 											<span className="text-xs text-muted-foreground/50">
-												{statusLabel(task.status)}
+												{statusLabel(task.status, !!task.sessionId)}
 											</span>
 
 											<div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -320,10 +342,12 @@ export function BatchTaskList({
 												<span className="icon-[mdi--folder-outline] text-[13px]" />
 												<span className="max-w-[150px] truncate">{task.cwd}</span>
 											</span>
-											<span className="flex items-center gap-1">
-												<span className="icon-[mdi--clock-outline] text-[13px]" />
-												{relativeTime(task.updatedAt)}
-											</span>
+											{task.sessionId ? (
+												<span className="flex items-center gap-1">
+													<span className="icon-[mdi--clock-outline] text-[13px]" />
+													<span>上次执行 {relativeTime(task.updatedAt)}</span>
+												</span>
+											) : null}
 										</div>
 									</div>
 								);

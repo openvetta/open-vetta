@@ -113,9 +113,6 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 		);
 	}
 
-	console.log(visibleBatchProjects);
-	
-
 	return (
 		<>
 			{projects.map((project) => (
