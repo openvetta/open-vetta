@@ -1,7 +1,6 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
 import { type BatchTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
-import { updateTaskStatus } from "./batch-task-storage";
 
 export type BatchTaskEvent =
 	| { type: "task.started"; projectId: string; taskId: string; sessionId: string; sessionPath: string | undefined }
@@ -13,6 +12,8 @@ export type BatchTaskEvent =
 interface ExecutingTask {
 	projectId: string;
 	taskId: string;
+	sessionId: string;
+	sessionPath: string | undefined;
 	abortController: AbortController;
 }
 
@@ -53,9 +54,13 @@ function createTaskEventHandler(
 ): (event: SessionEvent) => void {
 	return async (event: SessionEvent) => {
 		if (event.type === "session.lifecycle" && event.phase === "agent_end") {
+			if (!executingTasks.has(taskId)) return;
+			const executing = executingTasks.get(taskId)!;
 			const state: BatchTaskState = {
 				taskId,
 				status: "completed",
+				sessionId: executing.sessionId,
+				sessionPath: executing.sessionPath,
 				completedAt: Date.now(),
 				lastModified: Date.now(),
 			};
@@ -65,9 +70,13 @@ function createTaskEventHandler(
 		}
 
 		if (event.type === "session.lifecycle" && event.phase === "aborted") {
+			if (!executingTasks.has(taskId)) return;
+			const executing = executingTasks.get(taskId)!;
 			const state: BatchTaskState = {
 				taskId,
 				status: "paused",
+				sessionId: executing.sessionId,
+				sessionPath: executing.sessionPath,
 				lastModified: Date.now(),
 			};
 			await saveTaskState(projectId, taskId, state);
@@ -76,10 +85,14 @@ function createTaskEventHandler(
 		}
 
 		if (event.type === "error") {
+			if (!executingTasks.has(taskId)) return;
+			const executing = executingTasks.get(taskId)!;
 			const state: BatchTaskState = {
 				taskId,
 				status: "failed",
 				error: event.error?.message ?? "Unknown error",
+				sessionId: executing.sessionId,
+				sessionPath: executing.sessionPath,
 				completedAt: Date.now(),
 				lastModified: Date.now(),
 			};
@@ -96,12 +109,12 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 	}
 
 	const abortController = new AbortController();
-	executingTasks.set(task.id, { projectId: project.id, taskId: task.id, abortController });
 
 	try {
 		const result = await runtime.createSession({ cwd: task.cwd });
 		const sessionId = result.sessionId;
 		const sessionPath = runtime.getSessionPath(sessionId);
+		executingTasks.set(task.id, { projectId: project.id, taskId: task.id, sessionId, sessionPath, abortController });
 
 		runtime.renameSessionById(sessionId, `${project.name}: ${task.name}`);
 
@@ -115,8 +128,6 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 		};
 		await saveTaskState(project.id, task.id, state);
 
-		await updateTaskStatus(project.id, task.id, "running", undefined, sessionId, sessionPath, true);
-
 		emitBatchTaskEvent({ type: "task.started", projectId: project.id, taskId: task.id, sessionId, sessionPath });
 
 		runtime.subscribe(sessionId, createTaskEventHandler(project.id, task.id, abortController));
@@ -124,32 +135,52 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 		await runtime.prompt(sessionId, { text: project.prompt });
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
+		const executing = executingTasks.get(task.id);
 		const state: BatchTaskState = {
 			taskId: task.id,
 			status: "failed",
 			error: errorMessage,
+			sessionId: executing?.sessionId,
+			sessionPath: executing?.sessionPath,
 			completedAt: Date.now(),
 			lastModified: Date.now(),
 		};
 		await saveTaskState(project.id, task.id, state);
-		await updateTaskStatus(project.id, task.id, "failed", errorMessage);
 		executingTasks.delete(task.id);
 		emitBatchTaskEvent({ type: "task.failed", projectId: project.id, taskId: task.id, error: errorMessage });
 	}
 }
 
-export function pauseTask(_projectId: string, taskId: string): void {
+export async function pauseTask(projectId: string, taskId: string, runtime: RuntimeHost): Promise<void> {
 	const executing = executingTasks.get(taskId);
 	if (!executing) return;
 
+	await runtime.abort(executing.sessionId);
 	executing.abortController.abort();
+
+	const state: BatchTaskState = {
+		taskId,
+		status: "paused",
+		sessionId: executing.sessionId,
+		sessionPath: executing.sessionPath,
+		lastModified: Date.now(),
+	};
+	await saveTaskState(projectId, taskId, state);
+	executingTasks.delete(taskId);
+	emitBatchTaskEvent({ type: "task.paused", projectId, taskId });
 }
 
 export async function resumeTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
 	if (!task.sessionId) return;
 
 	const abortController = new AbortController();
-	executingTasks.set(task.id, { projectId: project.id, taskId: task.id, abortController });
+	executingTasks.set(task.id, {
+		projectId: project.id,
+		taskId: task.id,
+		sessionId: task.sessionId,
+		sessionPath: task.sessionPath,
+		abortController,
+	});
 
 	const state: BatchTaskState = {
 		taskId: task.id,
@@ -159,7 +190,6 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 		lastModified: Date.now(),
 	};
 	await saveTaskState(project.id, task.id, state);
-	await updateTaskStatus(project.id, task.id, "running");
 
 	emitBatchTaskEvent({ type: "task.resumed", projectId: project.id, taskId: task.id });
 

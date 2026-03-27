@@ -93,8 +93,8 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 	);
 
 	const handleOpenBatchSession = useCallback(
-		(sessionPath: string) => {
-			void onOpenSession(sessionPath, sessionPath);
+		(cwd: string, sessionPath: string) => {
+			void onOpenSession(cwd, sessionPath);
 		},
 		[onOpenSession],
 	);
@@ -112,6 +112,9 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 			</div>
 		);
 	}
+
+	console.log(visibleBatchProjects);
+	
 
 	return (
 		<>
