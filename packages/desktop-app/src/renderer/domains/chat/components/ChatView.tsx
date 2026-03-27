@@ -1,5 +1,6 @@
 import { useAtomValue, useAtom } from "jotai";
 import { activeSessionAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom } from "@shared/store/atoms";
+import { Button } from "@shared/components/ui/button";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
 
@@ -36,25 +37,32 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						{activeSession ? projectName(activeSession.cwd) : "Session"}
 					</div>
 
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-1">
 						{isStreaming && (
 							<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
 								<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-muted-foreground/50" />
 								Thinking...
 							</div>
 						)}
-						<button
-							type="button"
+						<Button
+              size="sm"
+              className="rounded-full"
+							onClick={() => {
+								// TODO: open content flow panel
+							}}
+						>
+              <span className="icon-[mdi--swap-horizontal] text-[14px]" />
+              <span>内容流转</span>
+						</Button>
+						<Button
+							size="icon-xs"
+							variant="ghost"
 							title={panelOpen ? "关闭活动面板" : "打开活动面板"}
 							onClick={() => setPanelOpen((o) => !o)}
-							className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors ${
-								panelOpen
-									? "bg-accent text-foreground"
-									: "text-muted-foreground/50 hover:bg-accent hover:text-muted-foreground"
-							}`}
+							className={panelOpen ? "bg-accent text-foreground" : ""}
 						>
 							<span className="icon-[mdi--dock-right] text-[14px]" />
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>
