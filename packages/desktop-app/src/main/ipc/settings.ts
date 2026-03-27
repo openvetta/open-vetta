@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
 import { ipcMain } from "electron";
 
-const DEFAULT_SERVER_URL = "http://REDACTED-HOST:8080/api/v1";
+import { DEFAULT_SERVER_URL } from "../constants.js";
 
 function getSettingsPath(): string {
 	return join(getAgentDir(), "settings.json");
