@@ -1,13 +1,11 @@
-import { useAtom, useSetAtom } from "jotai";
+import { useSetAtom } from "jotai";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
-import { confirmDialogAtom } from "@shared/store/atoms";
+import { confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@shared/components/ui/tooltip";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 
 interface BatchTaskListProps {
 	projects: BatchProject[];
-	selectedTaskId: string | null;
-	onSelectTask: (id: string | null) => void;
 	onEditProject: (project: BatchProject) => void;
 }
 
@@ -42,13 +40,17 @@ function truncateError(error: string, maxLength: number = 50): string {
 
 export function BatchTaskList({
 	projects,
-	selectedTaskId,
-	onSelectTask,
 	onEditProject,
 }: BatchTaskListProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
 	const { runTask, pauseTask, resumeTask, deleteTask, batchRetryFailed, batchPause, batchResume, batchDelete } =
 		useBatchTasks();
+
+	const handleGoToSession = (task: BatchTask) => {
+		if (task.sessionPath && openSessionFnRef.current) {
+			void openSessionFnRef.current(task.cwd, task.sessionPath);
+		}
+	};
 
 	const handleDeleteProject = (project: BatchProject) => {
 		const runningCount = project.tasks.filter((t) => t.status === "running").length;
@@ -214,16 +216,10 @@ export function BatchTaskList({
 
 						<div className="space-y-2">
 							{project.tasks.map((task) => {
-								const isSelected = selectedTaskId === task.id;
 								return (
 									<div
 										key={task.id}
-										onClick={() => onSelectTask(task.id)}
-										className={`group cursor-pointer rounded-lg border p-3 transition-all duration-200 ${
-											isSelected
-												? "border-input bg-accent ring-1 ring-input"
-												: "border-border bg-transparent hover:border-input hover:bg-accent/50"
-										}`}
+										className="group cursor-pointer rounded-lg border border-border bg-transparent p-3 transition-all duration-200 hover:border-input hover:bg-accent/50"
 									>
 										<div className="flex items-center gap-3">
 											<div className="relative flex h-2 w-2 shrink-0">
@@ -249,6 +245,17 @@ export function BatchTaskList({
 
 											<span className="flex-1 truncate text-sm text-foreground">{task.name}</span>
 
+											{task.sessionPath && (
+												<button
+													type="button"
+													onClick={() => handleGoToSession(task)}
+													className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+												>
+													<span className="icon-[mdi--open-in-new] text-[12px]" />
+													跳转到会话
+												</button>
+											)}
+
 											{task.status === "failed" && task.error && (
 												<Tooltip>
 													<TooltipTrigger asChild>
@@ -266,7 +273,7 @@ export function BatchTaskList({
 											</span>
 
 											<div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-												{task.status === "pending" || task.status === "failed" || task.status === "completed" ? (
+												{task.status === "pending" ? (
 													<TaskActionButton
 														icon="icon-[mdi--play]"
 														title="执行"
@@ -284,13 +291,13 @@ export function BatchTaskList({
 															handlePauseTask(project, task);
 														}}
 													/>
-												) : task.status === "paused" ? (
+												) : task.status === "paused" || task.status === "completed" || task.status === "failed" ? (
 													<TaskActionButton
-														icon="icon-[mdi--play-outline]"
-														title="继续"
+														icon="icon-[mdi--restart]"
+														title="重试"
 														onClick={(e) => {
 															e.stopPropagation();
-															void handleResumeTask(project.id, task.id);
+															void handleRunTask(project.id, task.id);
 														}}
 													/>
 												) : null}

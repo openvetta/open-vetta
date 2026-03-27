@@ -6,7 +6,7 @@ interface BatchProjectGroupProps {
 	isExpanded: boolean;
 	activeSessionPath?: string;
 	onToggle: (projectId: string) => void;
-	onSelectSession: (sessionPath: string) => void;
+	onSelectSession: (cwd: string, sessionPath: string) => void;
 }
 
 function relativeTime(timestamp: number): string {
@@ -94,7 +94,7 @@ export function BatchProjectGroup({
 							key={task.id}
 							task={task}
 							isActive={activeSessionPath === task.sessionPath}
-							onSelect={() => task.sessionPath && onSelectSession(task.sessionPath)}
+							onSelect={() => task.sessionPath && onSelectSession(task.cwd, task.sessionPath)}
 						/>
 					))}
 				</div>

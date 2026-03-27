@@ -1,11 +1,19 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { type BatchTaskState, loadTaskStates } from "./batch-task-state";
 
 const CONFIG_DIR = join(homedir(), ".vetta");
 const PROJECTS_FILE = join(CONFIG_DIR, "batch-projects.json");
 
 export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
+
+export interface BatchTaskMeta {
+	id: string;
+	name: string;
+	cwd: string;
+	createdAt: number;
+}
 
 export interface BatchTask {
 	id: string;
@@ -29,6 +37,16 @@ export interface BatchProject {
 	updatedAt: number;
 }
 
+interface StoredProject {
+	id: string;
+	name: string;
+	prompt: string;
+	concurrency: number;
+	tasks: BatchTaskMeta[];
+	createdAt: number;
+	updatedAt: number;
+}
+
 async function ensureDirectory(): Promise<void> {
 	await mkdir(CONFIG_DIR, { recursive: true });
 }
@@ -36,28 +54,66 @@ async function ensureDirectory(): Promise<void> {
 export async function loadProjects(): Promise<BatchProject[]> {
 	try {
 		await ensureDirectory();
-		const data = await readFile(PROJECTS_FILE, "utf-8");
-		const projects: BatchProject[] = JSON.parse(data);
-		for (const project of projects) {
-			if (!("concurrency" in project)) {
-				(project as BatchProject).concurrency = 1;
+		const [data, allStates] = await Promise.all([readFile(PROJECTS_FILE, "utf-8"), loadTaskStates()]);
+		const storedProjects = JSON.parse(data) as StoredProject[];
+		const projects: BatchProject[] = [];
+
+		for (const stored of storedProjects) {
+			if (!stored.concurrency) {
+				stored.concurrency = 1;
 			}
-			for (const task of project.tasks) {
-				const t = task as BatchTask;
-				if (!t.name) {
-					t.name = t.cwd.split("/").pop() ?? t.cwd;
-				}
+			const projectStates = allStates[stored.id] || {};
+			const tasks: BatchTask[] = [];
+
+			for (const meta of stored.tasks) {
+				const state: BatchTaskState | undefined = projectStates[meta.id];
+				tasks.push({
+					id: meta.id,
+					name: (meta.name || meta.cwd.split("/").pop()) ?? meta.cwd,
+					cwd: meta.cwd,
+					status: state?.status ?? "pending",
+					sessionId: state?.sessionId,
+					sessionPath: state?.sessionPath,
+					error: state?.error,
+					createdAt: meta.createdAt,
+					updatedAt: state?.lastModified ?? meta.createdAt,
+				});
 			}
+
+			projects.push({
+				id: stored.id,
+				name: stored.name,
+				prompt: stored.prompt,
+				concurrency: stored.concurrency,
+				tasks,
+				createdAt: stored.createdAt,
+				updatedAt: stored.updatedAt,
+			});
 		}
+
 		return projects;
 	} catch {
 		return [];
 	}
 }
 
-export async function saveProjects(projects: BatchProject[]): Promise<void> {
+export async function saveProjects(_projects: BatchProject[]): Promise<void> {
 	await ensureDirectory();
-	await writeFile(PROJECTS_FILE, JSON.stringify(projects, null, 2), "utf-8");
+	const storedProjects: StoredProject[] = _projects.map((p) => ({
+		id: p.id,
+		name: p.name,
+		prompt: p.prompt,
+		concurrency: p.concurrency,
+		tasks: p.tasks.map((t) => ({
+			id: t.id,
+			name: t.name,
+			cwd: t.cwd,
+			createdAt: t.createdAt,
+		})),
+		createdAt: p.createdAt,
+		updatedAt: p.updatedAt,
+	}));
+	await writeFile(PROJECTS_FILE, JSON.stringify(storedProjects, null, 2), "utf-8");
 }
 
 export function generateProjectId(): string {
@@ -154,34 +210,6 @@ export async function removeTaskFromProject(projectId: string, taskId: string): 
 	const project = projects.find((p) => p.id === projectId);
 	if (project) {
 		project.tasks = project.tasks.filter((t) => t.id !== taskId);
-		project.updatedAt = Date.now();
-		await saveProjects(projects);
-	}
-}
-
-export async function updateTaskStatus(
-	projectId: string,
-	taskId: string,
-	status: BatchTaskStatus,
-	error?: string,
-	sessionId?: string,
-	sessionPath?: string,
-	clearError?: boolean,
-): Promise<void> {
-	const projects = await loadProjects();
-	const project = projects.find((p) => p.id === projectId);
-	if (project) {
-		const task = project.tasks.find((t) => t.id === taskId);
-		if (task) {
-			task.status = status;
-			if (clearError) {
-				task.error = undefined;
-			}
-			if (error !== undefined) task.error = error;
-			if (sessionId !== undefined) task.sessionId = sessionId;
-			if (sessionPath !== undefined) task.sessionPath = sessionPath;
-			task.updatedAt = Date.now();
-		}
 		project.updatedAt = Date.now();
 		await saveProjects(projects);
 	}

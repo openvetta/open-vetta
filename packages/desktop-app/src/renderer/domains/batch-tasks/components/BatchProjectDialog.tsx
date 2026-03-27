@@ -1,7 +1,6 @@
-import { useState, useCallback } from "react";
-import { useAtom, useSetAtom } from "jotai";
+import { useState, useCallback, useEffect } from "react";
+import { useSetAtom } from "jotai";
 import {
-	batchProjectsAtom,
 	batchProjectDialogOpenAtom,
 	confirmDialogAtom,
 	type BatchProject,
@@ -10,10 +9,13 @@ import { Button } from "@shared/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
+	DialogHeader,
+	DialogTitle,
 } from "@shared/components/ui/dialog";
 import { Textarea } from "@shared/components/ui/textarea";
 import { Input } from "@shared/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
+import { useBatchTasks } from "../hooks/useBatchTasks";
 
 interface BatchProjectDialogProps {
 	open: boolean;
@@ -22,13 +24,20 @@ interface BatchProjectDialogProps {
 }
 
 export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialogProps): JSX.Element {
-	const setConfirm = useSetAtom(confirmDialogAtom);
+	const { createProject, updateProject } = useBatchTasks();
 
 	const [name, setName] = useState(project?.name ?? "");
 	const [prompt, setPrompt] = useState(project?.prompt ?? "");
 	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
 	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.cwd) ?? []);
 	const [folderInput, setFolderInput] = useState("");
+
+	useEffect(() => {
+		setName(project?.name ?? "");
+		setPrompt(project?.prompt ?? "");
+		setConcurrency(project?.concurrency ?? 1);
+		setFolders(project?.tasks.map((t) => t.cwd) ?? []);
+	}, [project]);
 
 	const canSubmit = name.trim() && prompt.trim() && folders.length > 0;
 
@@ -55,43 +64,26 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		if (!canSubmit) return;
 
 		if (project) {
-			await window.vetta.batchTasks.updateProject(project.id, { name, prompt, concurrency });
+			await updateProject(project.id, { name, prompt, concurrency });
 		} else {
-			await window.vetta.batchTasks.createProject({ name, prompt, folders, concurrency });
+			await createProject({ name, prompt, folders, concurrency });
 		}
 		onClose();
-	};
-
-	const handleDeleteProject = () => {
-		if (!project) return;
-		setConfirm({
-			title: `确认删除项目「${project.name}」`,
-			message: "删除后无法撤回，请确认是否继续。",
-			confirmLabel: "删除",
-			cancelLabel: "取消",
-			variant: "danger",
-			onConfirm: async () => {
-				if (project.tasks.some((t) => t.status === "running")) {
-					return;
-				}
-				await window.vetta.batchTasks.deleteProject(project.id);
-				onClose();
-			},
-		});
 	};
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
 			<DialogContent className="flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-				<div className="px-6 pt-5 pb-2">
+				<DialogHeader className="px-6 pt-5 pb-2">
+					<DialogTitle className="pb-2">{project ? "编辑项目" : "新建批量项目"}</DialogTitle>
 					<Input
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="w-full border-none bg-transparent text-lg font-semibold text-foreground placeholder:text-muted-foreground/50 focus:outline-none! focus-visible:outline-none!"
-						placeholder={project ? "项目名称" : "新建批量项目"}
+						className="h-8 w-full border-none bg-transparent text-lg font-semibold text-foreground placeholder:text-muted-foreground/50 focus:outline-none! focus-visible:outline-none!"
+						placeholder="项目名称"
 						autoFocus
 					/>
-				</div>
+				</DialogHeader>
 
 				<div className="flex-1 overflow-y-auto px-6 pb-4">
 					<Textarea
@@ -173,15 +165,6 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 
 				<div className="flex items-center gap-2 border-t border-border px-5 py-3">
 					<div className="flex-1" />
-					{project && (
-						<Button
-							variant="destructive"
-							onClick={handleDeleteProject}
-							className="mr-auto"
-						>
-							删除
-						</Button>
-					)}
 					<Button variant="ghost" onClick={onClose}>
 						取消
 					</Button>

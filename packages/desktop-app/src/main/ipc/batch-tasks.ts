@@ -15,7 +15,6 @@ import {
 	loadProjects,
 	removeTaskFromProject,
 	updateProject as updateProjectStorage,
-	updateTaskStatus,
 } from "../batch-tasks/batch-task-storage";
 
 const CHANNELS = {
@@ -83,7 +82,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.PAUSE_TASK, async (_, projectId: string, taskId: string) => {
-		pauseTaskExecutor(projectId, taskId);
+		await pauseTaskExecutor(projectId, taskId, getRuntime());
 	});
 
 	ipcMain.handle(CHANNELS.RESUME_TASK, async (_, projectId: string, taskId: string) => {
@@ -106,7 +105,6 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		for (const task of project.tasks) {
 			if (task.status === "failed") {
 				task.status = "pending";
-				await updateTaskStatus(projectId, task.id, "pending");
 				await runTask(project, task, getRuntime());
 			}
 		}
@@ -115,9 +113,10 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.BATCH_PAUSE, async (_, projectId: string) => {
 		const project = await getProject(projectId);
 		if (!project) return;
+		const runtime = getRuntime();
 		for (const task of project.tasks) {
 			if (task.status === "running") {
-				pauseTaskExecutor(projectId, task.id);
+				await pauseTaskExecutor(projectId, task.id, runtime);
 			}
 		}
 	});
