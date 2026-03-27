@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback } from "react";
-import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, batchSessionsMapAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 
 function projectName(cwd: string): string {
 	return cwd.split("/").pop() ?? cwd;
@@ -34,7 +34,6 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 	const setConfirm = useSetAtom(confirmDialogAtom);
 
 	const batchProjects = useAtomValue(batchProjectsAtom);
-	const batchSessionsMap = useAtomValue(batchSessionsMapAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
 	const { toggleProject: toggleBatchProject } = useBatchTasks();
 
@@ -133,7 +132,7 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 				<BatchProjectGroup
 					key={project.id}
 					project={project}
-					sessions={batchSessionsMap.get(project.id) ?? []}
+					tasks={project.tasks}
 					isExpanded={expandedBatchProjects.has(project.id)}
 					activeSessionPath={activeSession?.sessionPath ?? ""}
 					onToggle={toggleBatchProject}

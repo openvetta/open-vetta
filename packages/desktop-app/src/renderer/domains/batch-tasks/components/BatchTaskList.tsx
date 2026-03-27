@@ -266,7 +266,7 @@ export function BatchTaskList({
 											</span>
 
 											<div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-												{task.status === "pending" || task.status === "failed" ? (
+												{task.status === "pending" || task.status === "failed" || task.status === "completed" ? (
 													<TaskActionButton
 														icon="icon-[mdi--play]"
 														title="执行"

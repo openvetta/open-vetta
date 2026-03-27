@@ -162,4 +162,4 @@ cd packages/desktop-app && bun dev
 - 与 `admin` 包完全独立，可安全并行开发
 - 消费 `@vetta/runtime-core` 的事件契约，契约变更需同步适配
 - 主进程和渲染进程通过 IPC 通信，注意安全边界
-- 无独立测试，UI 变更通过根目录 `bun run check` 验证类型
+- desktop-app 的类型测试需要执行 lint 和 tsc 检查，根目录的检查不包含该项目的检查。

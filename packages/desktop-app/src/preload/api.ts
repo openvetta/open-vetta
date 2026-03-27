@@ -265,7 +265,7 @@ export interface BatchProject {
 }
 
 export type BatchTaskEvent =
-	| { type: "task.started"; projectId: string; taskId: string }
+	| { type: "task.started"; projectId: string; taskId: string; sessionId: string; sessionPath: string | undefined }
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }

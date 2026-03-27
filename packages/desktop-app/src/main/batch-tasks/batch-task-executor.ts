@@ -4,7 +4,7 @@ import type { BatchProject, BatchTask } from "./batch-task-storage";
 import { updateTaskStatus } from "./batch-task-storage";
 
 export type BatchTaskEvent =
-	| { type: "task.started"; projectId: string; taskId: string }
+	| { type: "task.started"; projectId: string; taskId: string; sessionId: string; sessionPath: string | undefined }
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }
@@ -115,9 +115,9 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 		};
 		await saveTaskState(project.id, task.id, state);
 
-		await updateTaskStatus(project.id, task.id, "running", undefined, sessionId, sessionPath);
+		await updateTaskStatus(project.id, task.id, "running", undefined, sessionId, sessionPath, true);
 
-		emitBatchTaskEvent({ type: "task.started", projectId: project.id, taskId: task.id });
+		emitBatchTaskEvent({ type: "task.started", projectId: project.id, taskId: task.id, sessionId, sessionPath });
 
 		runtime.subscribe(sessionId, createTaskEventHandler(project.id, task.id, abortController));
 
