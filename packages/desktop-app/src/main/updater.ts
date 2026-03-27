@@ -4,9 +4,9 @@ import { fileURLToPath } from "node:url";
 import { getAgentDir } from "@vetta/coding-agent";
 import { app } from "electron";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { DEFAULT_SERVER_URL } from "./constants.js";
 
-const DEFAULT_SERVER_URL = "http://127.0.0.1:8080/api/v1";
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface ReleaseAsset {
 	platform: string;

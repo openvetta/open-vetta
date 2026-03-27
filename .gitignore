@@ -10,6 +10,14 @@ packages/*/dist-firefox/
 
 # Environment
 .env
+.env.*
+!.env.example
+!.env.*.example
+
+# desktop-app 的环境配置可以提交（局域网共享开发环境）
+!packages/desktop-app/.env
+!packages/desktop-app/.env.development
+!packages/desktop-app/.env.production
 
 # Editor files
 .vscode/
