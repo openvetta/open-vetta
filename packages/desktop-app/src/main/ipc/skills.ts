@@ -62,7 +62,18 @@ export function registerSkillsIpc(): () => void {
 		const loader = new DefaultResourceLoader({});
 		await loader.reload();
 		const { skills } = loader.getSkills();
-		return skills.map((s) => ({ name: s.name, description: s.description, source: s.source, type: s.type }));
+		const manifest = readManifest();
+		return skills
+			.filter((s) => {
+				const entry = manifest[s.name];
+				// market 来源的 skill/scene 必须在 manifest 中且已启用
+				if (s.source === "market" || s.source === "scene") {
+					return entry?.enabled ?? false;
+				}
+				// 其余来源（user/project/path）默认显示
+				return !entry || entry.enabled;
+			})
+			.map((s) => ({ name: s.name, description: s.description, source: s.source, type: s.type }));
 	});
 
 	ipcMain.handle("vetta:skills:install-from-market", async (_event, name: unknown, archiveBuffer: unknown) => {
