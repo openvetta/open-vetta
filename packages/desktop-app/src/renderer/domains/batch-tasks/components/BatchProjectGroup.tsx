@@ -1,8 +1,8 @@
-import type { BatchProject, BatchSession } from "@shared/store/atoms";
+import type { BatchProject, BatchTask } from "@shared/store/atoms";
 
 interface BatchProjectGroupProps {
 	project: BatchProject;
-	sessions: BatchSession[];
+	tasks: BatchTask[];
 	isExpanded: boolean;
 	activeSessionPath?: string;
 	onToggle: (projectId: string) => void;
@@ -30,12 +30,12 @@ function BatchProjectBadge(): JSX.Element {
 	);
 }
 
-function BatchSessionRow({
-	session,
+function BatchTaskRow({
+	task,
 	isActive,
 	onSelect,
 }: {
-	session: BatchSession;
+	task: BatchTask;
 	isActive: boolean;
 	onSelect: () => void;
 }): JSX.Element {
@@ -49,10 +49,10 @@ function BatchSessionRow({
 		>
 			<span className="icon-[mdi--chat-outline] h-3 w-3 shrink-0 text-muted-foreground" />
 			<span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
-				{session.name || session.firstMessage || session.taskId}
+				{task.name || task.id}
 			</span>
 			<span className="shrink-0 text-[11px] text-muted-foreground">
-				{relativeTime(session.modifiedAt)}
+				{relativeTime(task.updatedAt)}
 			</span>
 		</button>
 	);
@@ -60,12 +60,14 @@ function BatchSessionRow({
 
 export function BatchProjectGroup({
 	project,
-	sessions,
+	tasks,
 	isExpanded,
 	activeSessionPath,
 	onToggle,
 	onSelectSession,
 }: BatchProjectGroupProps): JSX.Element {
+	const tasksWithSession = tasks.filter((t) => t.sessionPath);
+
 	return (
 		<div className="mb-1">
 			<button
@@ -81,18 +83,18 @@ export function BatchProjectGroup({
 				</span>
 
 				<span className="shrink-0 text-[11px] text-muted-foreground">
-					{sessions.length}
+					{tasksWithSession.length}
 				</span>
 			</button>
 
 			{isExpanded && (
 				<div className="mt-px space-y-px">
-					{sessions.map((session) => (
-						<BatchSessionRow
-							key={session.taskId}
-							session={session}
-							isActive={activeSessionPath === session.path}
-							onSelect={() => onSelectSession(session.path)}
+					{tasksWithSession.map((task) => (
+						<BatchTaskRow
+							key={task.id}
+							task={task}
+							isActive={activeSessionPath === task.sessionPath}
+							onSelect={() => task.sessionPath && onSelectSession(task.sessionPath)}
 						/>
 					))}
 				</div>

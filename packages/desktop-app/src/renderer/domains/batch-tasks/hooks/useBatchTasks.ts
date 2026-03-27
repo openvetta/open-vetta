@@ -1,10 +1,9 @@
-import { batchProjectsAtom, batchSessionsMapAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
-import { useAtom, useAtomValue } from "jotai";
+import { batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
 export function useBatchTasks() {
 	const [projects, setProjects] = useAtom(batchProjectsAtom);
-	const sessionsMap = useAtomValue(batchSessionsMapAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedBatchProjectsAtom);
 
 	const refreshProjects = useCallback(async () => {
@@ -114,7 +113,12 @@ export function useBatchTasks() {
 						tasks: p.tasks.map((t) => {
 							if (t.id !== event.taskId) return t;
 							if (event.type === "task.started") {
-								return { ...t, status: "running" as const };
+								return {
+									...t,
+									status: "running" as const,
+									sessionId: event.sessionId,
+									sessionPath: event.sessionPath,
+								};
 							}
 							if (event.type === "task.completed") {
 								return { ...t, status: "completed" as const };
@@ -139,7 +143,6 @@ export function useBatchTasks() {
 
 	return {
 		projects,
-		sessionsMap,
 		expandedProjects,
 		refreshProjects,
 		createProject,

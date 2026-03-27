@@ -43,8 +43,9 @@ export async function loadProjects(): Promise<BatchProject[]> {
 				(project as BatchProject).concurrency = 1;
 			}
 			for (const task of project.tasks) {
-				if (!("name" in task)) {
-					(task as BatchTask).name = task.cwd.split("/").pop() ?? task.cwd;
+				const t = task as BatchTask;
+				if (!t.name) {
+					t.name = t.cwd.split("/").pop() ?? t.cwd;
 				}
 			}
 		}
@@ -165,6 +166,7 @@ export async function updateTaskStatus(
 	error?: string,
 	sessionId?: string,
 	sessionPath?: string,
+	clearError?: boolean,
 ): Promise<void> {
 	const projects = await loadProjects();
 	const project = projects.find((p) => p.id === projectId);
@@ -172,6 +174,9 @@ export async function updateTaskStatus(
 		const task = project.tasks.find((t) => t.id === taskId);
 		if (task) {
 			task.status = status;
+			if (clearError) {
+				task.error = undefined;
+			}
 			if (error !== undefined) task.error = error;
 			if (sessionId !== undefined) task.sessionId = sessionId;
 			if (sessionPath !== undefined) task.sessionPath = sessionPath;
