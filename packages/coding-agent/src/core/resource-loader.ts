@@ -469,7 +469,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 				skill.source = "scene";
 			}
 		}
-		// Filter out disabled market skills based on manifest
+		// Filter out disabled market skills/scenes based on manifest
 		const marketSkillsDir = resolve(join(homedir(), ".vetta", "skills"));
 		const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
 		let disabledNames: Set<string> | undefined;
@@ -489,7 +489,12 @@ export class DefaultResourceLoader implements ResourceLoader {
 		if (disabledNames && disabledNames.size > 0) {
 			skillsResult.skills = skillsResult.skills.filter((skill) => {
 				const resolvedPath = resolve(skill.filePath);
-				if (!resolvedPath.startsWith(`${marketSkillsDir}${sep}`) && resolvedPath !== marketSkillsDir) {
+				const isMarketSkill =
+					resolvedPath === marketSkillsDir ||
+					resolvedPath.startsWith(`${marketSkillsDir}${sep}`) ||
+					resolvedPath === resolvedSceneDir ||
+					resolvedPath.startsWith(`${resolvedSceneDir}${sep}`);
+				if (!isMarketSkill) {
 					return true;
 				}
 				return !disabledNames.has(skill.name);
