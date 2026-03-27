@@ -42,6 +42,10 @@ export interface ChatMessage {
 	blocks?: ContentBlock[];
 	/** Attached images for user messages */
 	images?: Array<{ data: string; mimeType: string; name: string }>;
+	/** Timestamp when the message was created (Date.now()) */
+	timestamp?: number;
+	/** Total duration of this assistant turn in seconds (agent_start → agent_end) */
+	durationSeconds?: number;
 }
 
 export interface ActiveSession {

@@ -138,6 +138,25 @@ src/
 - 在 `main/ipc/index.ts` 中注册
 - preload 层定义类型契约
 
+## 开发注意事项
+
+### bun dev 前置依赖构建
+
+`desktop-app` 的主进程（`src/main/`）依赖 workspace 中的其他包（`@mariozechner/pi-ai`、`@mariozechner/pi-agent-core`、`@vetta/coding-agent` 等）。这些包的 `dist/` 目录必须先构建，否则 `build:main` 会报 "Failed to resolve entry for package" 错误。
+
+**首次运行或依赖变更后**，必须先执行以下构建命令：
+
+```bash
+# 按依赖顺序构建 workspace 包
+cd packages/ai && bun run build              # @mariozechner/pi-ai
+cd packages/agent && bun run build            # @mariozechner/pi-agent-core
+cd packages/tui && bun run build             # @mariozechner/pi-tui
+cd packages/coding-agent && bun run build    # @vetta/coding-agent
+
+# 然后即可启动 desktop-app 开发服务器
+cd packages/desktop-app && bun dev
+```
+
 ## 注意事项
 
 - 与 `admin` 包完全独立，可安全并行开发

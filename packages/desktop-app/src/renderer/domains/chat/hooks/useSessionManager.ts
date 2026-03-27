@@ -41,7 +41,7 @@ interface SessionManagerResult {
 }
 
 export function useSessionManager(): SessionManagerResult {
-	const [_activeSession, setActiveSession] = useAtom(activeSessionAtom);
+	const [activeSession, setActiveSession] = useAtom(activeSessionAtom);
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 	const setIsStreaming = useSetAtom(isStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
@@ -107,8 +107,23 @@ export function useSessionManager(): SessionManagerResult {
 							setIsStreaming(true);
 						}
 						if (event.phase === "agent_end" || event.phase === "aborted") {
+							// Always reset streaming state first to unblock the UI
+							const elapsed = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
 							resetStreamState();
 							setIsStreaming(false);
+							// Write total duration onto the last assistant message
+							if (elapsed > 0) {
+								setChatMessages((prev) => {
+									for (let i = prev.length - 1; i >= 0; i--) {
+										if (prev[i].role === "assistant") {
+											const copy = [...prev];
+											copy[i] = { ...copy[i], durationSeconds: elapsed };
+											return copy;
+										}
+									}
+									return prev;
+								});
+							}
 						}
 						return;
 					}
@@ -196,7 +211,7 @@ export function useSessionManager(): SessionManagerResult {
 	openSessionFnRef.current = openSession;
 
 	const sendMessage = useCallback(async () => {
-		const session = activeSessionRef.current;
+		const session = activeSession;
 		if (!session?.runtimeId || (!inputValue.trim() && attachedImages.length === 0)) return;
 		const rawText = inputValue.trim();
 		const images = attachedImages.length > 0 ? attachedImages : undefined;
@@ -208,7 +223,7 @@ export function useSessionManager(): SessionManagerResult {
 		setAttachedImages([]);
 		setSelectedSkill(null);
 		setMentionedFiles([]);
-		const userMsg: ChatMessage = { id: nextId("user"), role: "user", text };
+		const userMsg: ChatMessage = { id: nextId("user"), role: "user", text, timestamp: Date.now() };
 		if (images) {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 		}
@@ -222,6 +237,7 @@ export function useSessionManager(): SessionManagerResult {
 		await window.vetta.session.prompt(session.runtimeId, promptReq);
 		await loadSessions(session.cwd);
 	}, [
+		activeSession,
 		inputValue,
 		attachedImages,
 		selectedSkill,
@@ -235,10 +251,9 @@ export function useSessionManager(): SessionManagerResult {
 	]);
 
 	const abortMessage = useCallback(async () => {
-		const session = activeSessionRef.current;
-		if (!session?.runtimeId) return;
-		await window.vetta.session.abort(session.runtimeId);
-	}, []);
+		if (!activeSession?.runtimeId) return;
+		await window.vetta.session.abort(activeSession.runtimeId);
+	}, [activeSession]);
 
 	return { openSession, sendMessage, abortMessage, openSessionRef };
 }

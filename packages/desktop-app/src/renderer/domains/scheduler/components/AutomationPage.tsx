@@ -46,8 +46,11 @@ export function AutomationPage(): JSX.Element {
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
+			{/* Drag region */}
+			<div className="drag-region h-12 shrink-0" />
+
 			{/* ─── Header ─── */}
-			<div className="flex items-center justify-between px-6 pt-5 pb-1">
+			<div className="flex items-center justify-between px-6 pb-1">
 				<h1 className="text-lg font-semibold tracking-tight text-foreground">
 					自动化
 				</h1>
