@@ -1,3 +1,4 @@
+import { useProjects } from "@domains/project/hooks/useProjects";
 import { downloadFlowingFile, type FlowingTransferVO, respondFlowing } from "@shared/lib/api";
 import { authTokenAtom, flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -11,6 +12,7 @@ export function useFlowingReceive(): {
 	const token = useAtomValue(authTokenAtom);
 	const setPendingList = useSetAtom(flowingPendingListAtom);
 	const setPendingCount = useSetAtom(flowingPendingCountAtom);
+	const { refreshProjects } = useProjects();
 	const [processing, setProcessing] = useState(false);
 
 	const accept = useCallback(
@@ -70,6 +72,9 @@ export function useFlowingReceive(): {
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
 				setPendingCount((prev) => Math.max(0, prev - 1));
 
+				// 7. 刷新项目列表
+				await refreshProjects();
+
 				return true;
 			} catch (err) {
 				console.error("接受流转失败:", err);
@@ -78,7 +83,7 @@ export function useFlowingReceive(): {
 				setProcessing(false);
 			}
 		},
-		[token, setPendingList, setPendingCount],
+		[token, setPendingList, setPendingCount, refreshProjects],
 	);
 
 	const reject = useCallback(
