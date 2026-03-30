@@ -34,6 +34,7 @@ export interface SelectedImageFile {
 export interface DesktopDialogApi {
 	selectFolder(): Promise<string | null>;
 	selectImages(): Promise<SelectedImageFile[]>;
+	selectFiles(defaultPath?: string): Promise<string[]>;
 }
 
 export interface DesktopThemeApi {
@@ -239,6 +240,14 @@ export interface DesktopSchedulerApi {
 	onTaskEvent(handler: (event: TaskEvent) => void): () => void;
 }
 
+export interface DesktopFlowingApi {
+	packFiles(projectDir: string, filePaths: string[], message?: string, senderName?: string): Promise<ArrayBuffer>;
+	unpackFiles(zipBuffer: ArrayBuffer, destDir: string): Promise<string[]>;
+	readMeta(projectDir: string): Promise<Record<string, unknown> | null>;
+	writeMeta(projectDir: string, meta: Record<string, unknown>): Promise<void>;
+	findProjectByFlowingId(flowingId: number, projects: string[]): Promise<string | null>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -255,6 +264,7 @@ export interface DesktopApi {
 	updater: DesktopUpdaterApi;
 	tray: DesktopTrayApi;
 	scheduler: DesktopSchedulerApi;
+	flowing: DesktopFlowingApi;
 }
 
 declare global {
