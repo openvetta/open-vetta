@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
 
@@ -42,7 +42,7 @@ export function registerFlowingIpc(): () => void {
 
 			// 添加文件/目录到 zip
 			for (const filePath of filePaths) {
-				const fullPath = join(projectDir, filePath);
+				const fullPath = isAbsolute(filePath) ? filePath : join(projectDir, filePath);
 				const stat = statSync(fullPath);
 				if (stat.isDirectory()) {
 					// 递归添加目录中的所有文件
