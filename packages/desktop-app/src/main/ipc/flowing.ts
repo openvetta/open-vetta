@@ -1,12 +1,7 @@
-import { exec } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { promisify } from "node:util";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
-
-const execAsync = promisify(exec);
 
 const FLOWING_CHANNELS = {
 	PACK_FILES: "vetta:flowing:pack-files",
@@ -17,6 +12,20 @@ const FLOWING_CHANNELS = {
 } as const;
 
 export { FLOWING_CHANNELS };
+
+/** Recursively collect all files under a directory */
+function collectFiles(dir: string): string[] {
+	const results: string[] = [];
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const fullPath = join(dir, entry.name);
+		if (entry.isDirectory()) {
+			results.push(...collectFiles(fullPath));
+		} else {
+			results.push(fullPath);
+		}
+	}
+	return results;
+}
 
 export function registerFlowingIpc(): () => void {
 	// 打包文件为 zip（ArrayBuffer）
@@ -29,13 +38,29 @@ export function registerFlowingIpc(): () => void {
 			message?: string,
 			senderName?: string,
 		): Promise<ArrayBuffer> => {
-			const tmpDir = join(tmpdir(), `vetta-flowing-${randomUUID()}`);
-			mkdirSync(tmpDir, { recursive: true });
+			const zip = new AdmZip();
+
+			// 添加文件/目录到 zip
+			for (const filePath of filePaths) {
+				const fullPath = join(projectDir, filePath);
+				const stat = statSync(fullPath);
+				if (stat.isDirectory()) {
+					// 递归添加目录中的所有文件
+					const files = collectFiles(fullPath);
+					for (const file of files) {
+						const entryName = relative(projectDir, file);
+						zip.addLocalFile(file, relative(projectDir, join(file, "..")), undefined);
+						void entryName; // keep linter happy
+					}
+				} else {
+					const dir = relative(projectDir, join(fullPath, ".."));
+					zip.addLocalFile(fullPath, dir === "." ? "" : dir);
+				}
+			}
 
 			// 如果有 message，生成 notice.md
 			if (message) {
 				let noticeName = "notice.md";
-				// 检查冲突
 				if (filePaths.includes(noticeName)) {
 					let i = 1;
 					while (filePaths.includes(`notice_${i}.md`)) i++;
@@ -43,29 +68,11 @@ export function registerFlowingIpc(): () => void {
 				}
 				const now = new Date().toLocaleString("zh-CN");
 				const content = `# 流转附言\n\n**发送方**: ${senderName ?? "未知"}\n**时间**: ${now}\n\n---\n\n${message}\n`;
-				writeFileSync(join(tmpDir, noticeName), content, "utf-8");
+				zip.addFile(noticeName, Buffer.from(content, "utf-8"));
 			}
 
-			const zipPath = join(tmpDir, "flowing.zip");
-			// 使用 zip 命令行打包
-			const quotedFiles = filePaths.map((f) => `"${f}"`).join(" ");
-			await execAsync(`cd "${projectDir}" && zip -r "${zipPath}" ${quotedFiles}`, {
-				maxBuffer: 512 * 1024 * 1024,
-			});
-
-			// 如果有 notice.md，追加到 zip
-			if (message) {
-				const noticeFiles = readdirSync(tmpDir).filter((f) => f.startsWith("notice"));
-				if (noticeFiles.length > 0) {
-					const noticeArgs = noticeFiles.map((f) => `"${f}"`).join(" ");
-					await execAsync(`cd "${tmpDir}" && zip -g "${zipPath}" ${noticeArgs}`);
-				}
-			}
-
-			const buffer = readFileSync(zipPath);
-			// 清理
-			await execAsync(`rm -rf "${tmpDir}"`);
-			return buffer.buffer as ArrayBuffer;
+			const buffer = zip.toBuffer();
+			return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 		},
 	);
 
@@ -75,18 +82,11 @@ export function registerFlowingIpc(): () => void {
 		async (_event, zipBuffer: ArrayBuffer, destDir: string): Promise<string[]> => {
 			mkdirSync(destDir, { recursive: true });
 
-			const tmpZip = join(tmpdir(), `vetta-flowing-unpack-${randomUUID()}.zip`);
-			writeFileSync(tmpZip, Buffer.from(zipBuffer));
-
-			await execAsync(`unzip -o "${tmpZip}" -d "${destDir}"`, {
-				maxBuffer: 512 * 1024 * 1024,
-			});
-
-			await execAsync(`rm "${tmpZip}"`);
+			const zip = new AdmZip(Buffer.from(zipBuffer));
+			zip.extractAllTo(destDir, true);
 
 			// 返回解压后的文件列表
-			const { stdout } = await execAsync(`find "${destDir}" -type f`);
-			return stdout.trim().split("\n").filter(Boolean);
+			return collectFiles(destDir).map((f) => relative(destDir, f));
 		},
 	);
 
