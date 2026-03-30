@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { sidebarTabAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import { sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { isMac, isWindows } from "@shared/lib/platform";
-import { SidebarTabs } from "./SidebarTabs";
+import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
@@ -26,7 +26,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
-	const tab = useAtomValue(sidebarTabAtom);
+	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
@@ -80,23 +80,20 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				))}
 			</nav>
 
-			{/* Section header: title + tab toggle */}
+			{/* Section header: filter dropdown */}
 			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
-				<span className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-					{tab === "projects" ? "项目" : "文件"}
-				</span>
+				<SidebarFilterSelect />
 				<div className="flex items-center gap-1">
-					{isWindows && tab === "projects" && <AddProjectMenu />}
-					<SidebarTabs />
+					{isWindows && filter !== "files" && <AddProjectMenu />}
 				</div>
 			</div>
 
 			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
-				{tab === "projects" ? (
-					<ProjectsPanel onOpenSession={onOpenSession} />
-				) : (
+				{filter === "files" ? (
 					<FilesPanel />
+				) : (
+					<ProjectsPanel filter={filter} onOpenSession={onOpenSession} />
 				)}
 			</div>
 

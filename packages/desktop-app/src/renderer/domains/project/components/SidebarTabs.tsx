@@ -1,33 +1,29 @@
 import { useAtom } from "jotai";
-import { sidebarTabAtom, type SidebarTab } from "@shared/store/atoms";
-import { cn } from "@shared/lib/utils";
+import { sidebarFilterAtom, type SidebarFilter } from "@shared/store/atoms";
 
-const TABS: { value: SidebarTab; label: string; icon: string }[] = [
-	{ value: "projects", label: "项目", icon: "icon-[mdi--folder-multiple-outline]" },
-	{ value: "files", label: "文件", icon: "icon-[mdi--file-tree-outline]" },
+const FILTER_OPTIONS: { value: SidebarFilter; label: string }[] = [
+	{ value: "all", label: "全部" },
+	{ value: "normal", label: "普通" },
+	{ value: "schedule", label: "自动化" },
+	{ value: "batch", label: "批量任务" },
+	{ value: "flowing", label: "流转" },
+	{ value: "files", label: "文件" },
 ];
 
-export function SidebarTabs(): JSX.Element {
-	const [tab, setTab] = useAtom(sidebarTabAtom);
+export function SidebarFilterSelect(): JSX.Element {
+	const [filter, setFilter] = useAtom(sidebarFilterAtom);
 
 	return (
-		<div className="flex items-center gap-1">
-			{TABS.map((t) => (
-				<button
-					key={t.value}
-					type="button"
-					title={t.label}
-					onClick={() => setTab(t.value)}
-					className={cn(
-						"no-drag flex items-center justify-center rounded-md p-1.5 transition-colors",
-						tab === t.value
-							? "bg-accent text-foreground"
-							: "text-foreground opacity-60 hover:bg-accent hover:opacity-100",
-					)}
-				>
-					<span className={cn(t.icon, "h-4 w-4")} />
-				</button>
+		<select
+			value={filter}
+			onChange={(e) => setFilter(e.target.value as SidebarFilter)}
+			className="no-drag cursor-pointer appearance-none rounded-md border-none bg-transparent px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground outline-none hover:bg-accent"
+		>
+			{FILTER_OPTIONS.map((opt) => (
+				<option key={opt.value} value={opt.value}>
+					{opt.label}
+				</option>
 			))}
-		</div>
+		</select>
 	);
 }

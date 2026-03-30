@@ -1,6 +1,8 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { pathBasename } from "@shared/lib/utils";
+import type { SidebarFilter } from "@shared/store/atoms";
 import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
@@ -10,14 +12,17 @@ import { BatchProjectGroup } from "../../batch-tasks/components/BatchProjectGrou
 import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 
 interface ProjectsPanelProps {
+	filter: Exclude<SidebarFilter, "files">;
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
 }
 
-export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Element {
+export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JSX.Element {
 	const {
 		projects,
 		sessionsMap,
 		expandedProjects,
+		expandProject,
+		collapseProject,
 		toggleProject,
 		deleteSession,
 		renameSession,
@@ -29,10 +34,25 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [projectMenu, setProjectMenu] = useAtom(projectContextMenuAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
+	const navigate = useNavigate();
 
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
 	const { toggleProject: toggleBatchProject } = useBatchTasks();
+
+	const filteredProjects = useMemo(() => {
+		if (filter === "all") return projects;
+		return projects.filter((p) => p.type === filter);
+	}, [projects, filter]);
+
+	const showBatchGroup = filter === "all" || filter === "batch";
+
+	const handleNavigateProject = useCallback(
+		(cwd: string) => {
+			void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(cwd) } });
+		},
+		[navigate],
+	);
 
 	const handleDeleteSession = useCallback(
 		(session: { cwd: string; path: string }) => {
@@ -104,7 +124,7 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 		project.tasks.some((task) => task.status === "running" || task.status === "completed"),
 	);
 
-	if (projects.length === 0 && visibleBatchProjects.length === 0) {
+	if (filteredProjects.length === 0 && (!showBatchGroup || visibleBatchProjects.length === 0)) {
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
 				<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-muted-foreground" />
@@ -116,30 +136,33 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 
 	return (
 		<>
-			{projects.map((project) => (
+			{filteredProjects.map((project) => (
 				<ProjectGroup
 					key={project.cwd}
 					project={project}
 					sessions={sessionsMap.get(project.cwd) ?? []}
 					isExpanded={expandedProjects.has(project.cwd)}
 					activeSessionPath={activeSession?.sessionPath ?? ""}
-					onToggle={toggleProject}
+					onExpand={expandProject}
+					onCollapse={collapseProject}
+					onNavigateProject={handleNavigateProject}
 					onNewSession={(cwd) => void onOpenSession(cwd)}
 					onSelectSession={(cwd, path) => void onOpenSession(cwd, path)}
 					onRenameSession={handleRenameSession}
 				/>
 			))}
-			{visibleBatchProjects.map((project) => (
-				<BatchProjectGroup
-					key={project.id}
-					project={project}
-					tasks={project.tasks}
-					isExpanded={expandedBatchProjects.has(project.id)}
-					activeSessionPath={activeSession?.sessionPath ?? ""}
-					onToggle={toggleBatchProject}
-					onSelectSession={handleOpenBatchSession}
-				/>
-			))}
+			{showBatchGroup &&
+				visibleBatchProjects.map((project) => (
+					<BatchProjectGroup
+						key={project.id}
+						project={project}
+						tasks={project.tasks}
+						isExpanded={expandedBatchProjects.has(project.id)}
+						activeSessionPath={activeSession?.sessionPath ?? ""}
+						onToggle={toggleBatchProject}
+						onSelectSession={handleOpenBatchSession}
+					/>
+				))}
 			{contextMenu && (
 				<SessionContextMenu
 					x={contextMenu.x}
