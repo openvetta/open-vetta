@@ -4,6 +4,14 @@ import { flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/a
 import { useSetAtom } from "jotai";
 import { useCallback } from "react";
 
+function normalizeTransfer(data: unknown): FlowingTransferVO {
+	const transfer = data as FlowingTransferVO;
+	return {
+		...transfer,
+		file_list: transfer.file_list ?? [],
+	};
+}
+
 export function useFlowingSSE(): void {
 	const setPendingList = useSetAtom(flowingPendingListAtom);
 	const setPendingCount = useSetAtom(flowingPendingCountAtom);
@@ -13,7 +21,7 @@ export function useFlowingSSE(): void {
 		"flowing:incoming",
 		useCallback(
 			(data: unknown) => {
-				const transfer = data as FlowingTransferVO;
+				const transfer = normalizeTransfer(data);
 				setPendingList((prev) => [transfer, ...prev]);
 				setPendingCount((prev) => prev + 1);
 			},
