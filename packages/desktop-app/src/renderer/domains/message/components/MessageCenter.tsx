@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useAtomValue } from "jotai";
-import { AnimatePresence, motion } from "motion/react";
 import { flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
+import { Dialog, DialogContent } from "@shared/components/ui/dialog";
 import { useFlowingReceive } from "@domains/flowing/hooks/useFlowingReceive";
 import { cn } from "@shared/lib/utils";
 
@@ -96,101 +96,20 @@ function formatRelativeTime(dateStr: string): string {
 export function MessageCenter(): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [activeTab, setActiveTab] = useState<Tab>("all");
-	const panelRef = useRef<HTMLDivElement>(null);
-	const buttonRef = useRef<HTMLButtonElement>(null);
 	const pendingCount = useAtomValue(flowingPendingCountAtom);
 
 	const totalUnread = pendingCount;
 
-	// Close on outside click
-	useEffect(() => {
-		if (!open) return;
-		function handleClick(e: MouseEvent) {
-			if (
-				panelRef.current &&
-				!panelRef.current.contains(e.target as Node) &&
-				buttonRef.current &&
-				!buttonRef.current.contains(e.target as Node)
-			) {
-				setOpen(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, [open]);
-
-	// Close on Escape
-	useEffect(() => {
-		if (!open) return;
-		function handleKey(e: KeyboardEvent) {
-			if (e.key === "Escape") setOpen(false);
-		}
-		document.addEventListener("keydown", handleKey);
-		return () => document.removeEventListener("keydown", handleKey);
-	}, [open]);
-
 	return (
-		<div className="relative">
-			<AnimatePresence>
-				{open && (
-					<motion.div
-						ref={panelRef}
-						initial={{ opacity: 0, y: 4, scale: 0.98 }}
-						animate={{ opacity: 1, y: 0, scale: 1 }}
-						exit={{ opacity: 0, y: 4, scale: 0.98 }}
-						transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-						className="absolute bottom-full right-0 mb-1.5 w-[320px] overflow-hidden rounded-lg border border-border bg-popover shadow-xl"
-					>
-						{/* Header */}
-						<div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-							<span className="text-[12px] font-semibold text-foreground">消息中心</span>
-						</div>
-
-						{/* Tabs */}
-						<div className="flex gap-0.5 border-b border-border px-3 py-1.5">
-							{TABS.map(({ value, label }) => (
-								<button
-									key={value}
-									type="button"
-									onClick={() => setActiveTab(value)}
-									className={cn(
-										"relative rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-										activeTab === value
-											? "bg-accent text-foreground"
-											: "text-muted-foreground hover:text-foreground",
-									)}
-								>
-									{label}
-									{value === "flowing" && pendingCount > 0 && (
-										<span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-											{pendingCount}
-										</span>
-									)}
-								</button>
-							))}
-						</div>
-
-						{/* Content */}
-						<div className="max-h-[360px] overflow-y-auto">
-							{activeTab === "all" && (
-								<>
-									{pendingCount > 0 ? <FlowingList /> : <EmptyState text="暂无消息" />}
-								</>
-							)}
-							{activeTab === "notifications" && <NotificationList />}
-							{activeTab === "flowing" && <FlowingList />}
-						</div>
-					</motion.div>
-				)}
-			</AnimatePresence>
-
+		<>
 			<button
-				ref={buttonRef}
 				type="button"
-				onClick={() => setOpen((v) => !v)}
+				onClick={() => setOpen(true)}
 				className={cn(
 					"no-drag relative flex items-center justify-center rounded-lg p-[6px] transition-colors",
-					open ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+					open
+						? "bg-accent text-foreground"
+						: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
 				)}
 				title="消息中心"
 			>
@@ -201,6 +120,58 @@ export function MessageCenter(): JSX.Element {
 					</span>
 				)}
 			</button>
-		</div>
+
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent
+					className="flex max-h-[500px] w-[400px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[400px]"
+					showCloseButton={false}
+				>
+					{/* Header */}
+					<div className="flex items-center justify-between border-b border-border px-4 py-3">
+						<span className="text-[13px] font-semibold text-foreground">消息中心</span>
+						<button
+							type="button"
+							onClick={() => setOpen(false)}
+							className="rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+						>
+							<span className="icon-[mdi--close] h-4 w-4" />
+						</button>
+					</div>
+
+					{/* Tabs */}
+					<div className="flex gap-0.5 border-b border-border px-4 py-2">
+						{TABS.map(({ value, label }) => (
+							<button
+								key={value}
+								type="button"
+								onClick={() => setActiveTab(value)}
+								className={cn(
+									"relative rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors",
+									activeTab === value
+										? "bg-accent text-foreground"
+										: "text-muted-foreground hover:text-foreground",
+								)}
+							>
+								{label}
+								{value === "flowing" && pendingCount > 0 && (
+									<span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+										{pendingCount}
+									</span>
+								)}
+							</button>
+						))}
+					</div>
+
+					{/* Content */}
+					<div className="flex-1 overflow-y-auto">
+						{activeTab === "all" && (
+							<>{pendingCount > 0 ? <FlowingList /> : <EmptyState text="暂无消息" />}</>
+						)}
+						{activeTab === "notifications" && <NotificationList />}
+						{activeTab === "flowing" && <FlowingList />}
+					</div>
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }
