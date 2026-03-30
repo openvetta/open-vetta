@@ -100,6 +100,21 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 					{tab === "projects" ? "项目" : "文件"}
 				</span>
 				<div className="flex items-center gap-1">
+					{isWindows && (
+						<button
+							type="button"
+							onClick={() => setShowFlowing((v) => !v)}
+							className="relative rounded-md p-1 text-foreground hover:bg-accent"
+							title="流转通知"
+						>
+							<span className="icon-[mdi--swap-horizontal] h-3.5 w-3.5" />
+							{pendingCount > 0 && (
+								<span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
+									{pendingCount}
+								</span>
+							)}
+						</button>
+					)}
 					{isWindows && tab === "projects" && <AddProjectMenu />}
 					<SidebarTabs />
 				</div>
