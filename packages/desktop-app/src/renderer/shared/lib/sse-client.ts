@@ -47,6 +47,17 @@ export function createSSEClient(): SSEClient {
 		}
 	}
 
+	function addCustomEventListener(es: EventSource, eventType: string): void {
+		es.addEventListener(eventType, ((e: MessageEvent) => {
+			try {
+				const data = JSON.parse(e.data);
+				emit(eventType, data);
+			} catch {
+				// ignore
+			}
+		}) as EventListener);
+	}
+
 	function doConnect(): void {
 		if (eventSource) {
 			eventSource.close();
@@ -77,6 +88,13 @@ export function createSSEClient(): SSEClient {
 				// ignore
 			}
 		});
+
+		// 重新绑定所有已注册的自定义事件类型
+		for (const eventType of listeners.keys()) {
+			if (eventType !== "connected" && eventType !== "message") {
+				addCustomEventListener(es, eventType);
+			}
+		}
 
 		es.onerror = () => {
 			es.close();
@@ -133,14 +151,7 @@ export function createSSEClient(): SSEClient {
 
 			// Register on EventSource if connected
 			if (eventSource && eventType !== "connected" && eventType !== "message") {
-				eventSource.addEventListener(eventType, ((e: MessageEvent) => {
-					try {
-						const data = JSON.parse(e.data);
-						emit(eventType, data);
-					} catch {
-						// ignore
-					}
-				}) as EventListener);
+				addCustomEventListener(eventSource, eventType);
 			}
 		}
 		handlers.add(handler);
