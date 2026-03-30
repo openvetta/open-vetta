@@ -313,9 +313,10 @@ export class RuntimeHost implements SessionFacade {
 						"provider",
 					),
 				});
-			}
-			if (event.message.stopReason === "aborted") {
+			} else if (event.message.stopReason === "aborted") {
 				events.push(this.lifecycleEvent(sessionId, "aborted"));
+			} else {
+				events.push(this.lifecycleEvent(sessionId, "agent_end"));
 			}
 			return events;
 		}

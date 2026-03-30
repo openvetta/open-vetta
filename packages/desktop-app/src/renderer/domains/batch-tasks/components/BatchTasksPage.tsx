@@ -2,25 +2,18 @@ import { useEffect, useState } from "react";
 import { useAtomValue, useAtom } from "jotai";
 import {
 	batchProjectsAtom,
-	selectedBatchTaskIdAtom,
 	batchProjectDialogOpenAtom,
 	type BatchProject,
 } from "@shared/store/atoms";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 import { BatchTaskList } from "./BatchTaskList";
-import { BatchTaskDetail } from "./BatchTaskDetail";
 import { BatchProjectDialog } from "./BatchProjectDialog";
 import { Button } from "@shared/components/ui/button";
 
 export function BatchTasksPage(): JSX.Element {
 	const projects = useAtomValue(batchProjectsAtom);
-	const [selectedTaskId, setSelectedTaskId] = useAtom(selectedBatchTaskIdAtom);
 	const [dialogProject, setDialogProject] = useAtom(batchProjectDialogOpenAtom);
 	const { refreshProjects } = useBatchTasks();
-
-	const selectedTask = projects
-		.flatMap((p) => p.tasks)
-		.find((t) => t.id === selectedTaskId);
 
 	const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -60,22 +53,13 @@ export function BatchTasksPage(): JSX.Element {
 				{projects.length === 0 ? (
 					<EmptyState onNew={handleNewProject} />
 				) : (
-					<>
-						<BatchTaskList
-							projects={projects}
-							selectedTaskId={selectedTaskId}
-							onSelectTask={(id: string | null) => setSelectedTaskId(selectedTaskId === id ? null : id)}
-							onEditProject={(project: BatchProject) => {
-								setDialogProject(project);
-								setDialogOpen(true);
-							}}
-						/>
-						{selectedTask && (
-							<div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-								<BatchTaskDetail task={selectedTask} />
-							</div>
-						)}
-					</>
+					<BatchTaskList
+						projects={projects}
+						onEditProject={(project: BatchProject) => {
+							setDialogProject(project);
+							setDialogOpen(true);
+						}}
+					/>
 				)}
 			</div>
 
