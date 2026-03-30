@@ -73,15 +73,29 @@ export function FlowingSendDialog(): JSX.Element {
 		const projectDir = activeSession.cwd;
 		const projectName = projectDir.split("/").filter(Boolean).pop() ?? projectDir;
 
+		// 读取当前项目的 meta，获取已有的 flowingId（链式流转时复用）
+		const meta = await window.vetta.flowing.readMeta(projectDir);
+		const existingFlowingId =
+			meta?.type === "flowing" && typeof meta.flowingId === "number" ? meta.flowingId : undefined;
+
 		const result = await send({
 			projectDir,
 			projectName,
+			flowingId: existingFlowingId,
 			receiverIds: [...selectedReceivers],
 			message,
 			filePaths: selectedFiles,
 		});
 
-		if (result) {
+		if (result && result.length > 0) {
+			// 将服务端返回的 flowingId 写回发送方项目的 meta.json
+			const flowingId = result[0].flowing_id;
+			await window.vetta.flowing.writeMeta(projectDir, {
+				...meta,
+				type: "flowing",
+				flowingId,
+			});
+
 			setOpen(false);
 			setSelectedReceivers(new Set());
 			setMessage("");
