@@ -29,8 +29,9 @@ export function useFlowingSSE(): void {
 				const transfer = data as FlowingTransferVO;
 				// 从 pending list 中移除（如果在的话）
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
+				setPendingCount((prev) => Math.max(0, prev - 1));
 			},
-			[setPendingList],
+			[setPendingList, setPendingCount],
 		),
 	);
 
@@ -41,8 +42,9 @@ export function useFlowingSSE(): void {
 			(data: unknown) => {
 				const transfer = data as FlowingTransferVO;
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
+				setPendingCount((prev) => Math.max(0, prev - 1));
 			},
-			[setPendingList],
+			[setPendingList, setPendingCount],
 		),
 	);
 }
