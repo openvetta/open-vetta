@@ -1,5 +1,5 @@
-import { useAtomValue, useAtom } from "jotai";
-import { activeSessionAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom } from "@shared/store/atoms";
+import { useAtomValue, useAtom, useSetAtom } from "jotai";
+import { activeSessionAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom, flowingSendDialogOpenAtom } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
@@ -18,6 +18,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const messages = useAtomValue(chatMessagesAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
+	const setFlowingSendOpen = useSetAtom(flowingSendDialogOpenAtom);
 
 	return (
 		<div className="relative flex h-full min-w-0 flex-1 flex-col bg-background">
@@ -47,9 +48,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						<Button
               size="sm"
               className="rounded-full"
-							onClick={() => {
-								// TODO: open content flow panel
-							}}
+							onClick={() => setFlowingSendOpen(true)}
 						>
               <span className="icon-[mdi--swap-horizontal] text-[14px]" />
               <span>内容流转</span>

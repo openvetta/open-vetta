@@ -5,12 +5,14 @@ import { ActivityPanel } from "./domains/activity-panel/components/ActivityPanel
 import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
 import { TitleBar } from "./shared/components/TitleBar";
 import { LoginDialog } from "./domains/auth/components/LoginDialog";
+import { FlowingSendDialog } from "./domains/flowing/components/FlowingSendDialog";
 import { useProjects } from "./domains/project/hooks/useProjects";
 import { useTheme } from "./shared/hooks/useTheme";
 import { useAuth } from "./domains/auth/hooks/useAuth";
 import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
+import { useFlowingInit } from "./domains/flowing/hooks/useFlowingInit";
 
 export function RootLayout(): JSX.Element {
 	const { openProject, projects } = useProjects();
@@ -18,6 +20,7 @@ export function RootLayout(): JSX.Element {
 	useTheme();
 	useAuth();
 	useAppInit();
+	useFlowingInit();
 	const { openSession, openSessionRef } = useSessionManager();
 
 	// ─── Global keyboard shortcuts ───
@@ -62,6 +65,7 @@ export function RootLayout(): JSX.Element {
 				<ActivityPanel />
 				<ConfirmDialog />
 				<LoginDialog />
+				<FlowingSendDialog />
 			</div>
 		</div>
 	);
