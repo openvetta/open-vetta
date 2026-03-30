@@ -34,7 +34,7 @@ export function useFlowingSSE(): void {
 		"flowing:accepted",
 		useCallback(
 			(data: unknown) => {
-				const transfer = data as FlowingTransferVO;
+				const transfer = normalizeTransfer(data);
 				// 从 pending list 中移除（如果在的话）
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
 				setPendingCount((prev) => Math.max(0, prev - 1));
@@ -48,7 +48,7 @@ export function useFlowingSSE(): void {
 		"flowing:rejected",
 		useCallback(
 			(data: unknown) => {
-				const transfer = data as FlowingTransferVO;
+				const transfer = normalizeTransfer(data);
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
 				setPendingCount((prev) => Math.max(0, prev - 1));
 			},
