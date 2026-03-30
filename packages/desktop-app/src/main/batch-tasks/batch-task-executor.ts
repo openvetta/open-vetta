@@ -72,6 +72,9 @@ function createTaskEventHandler(
 
 		if (event.type === "error") {
 			if (!executingTasks.has(taskId)) return;
+			// Skip retryable errors — AgentSession will auto-retry and eventually
+			// emit agent_end (success) or a non-retryable error.
+			if (event.error?.retryable) return;
 			const executing = executingTasks.get(taskId)!;
 			const state: BatchTaskState = {
 				taskId,
