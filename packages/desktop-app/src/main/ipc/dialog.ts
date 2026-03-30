@@ -43,8 +43,19 @@ export function registerDialogIpc(): () => void {
 		return selectedPath;
 	});
 
+	ipcMain.handle("vetta:dialog:select-files", async (_event, defaultPath?: string) => {
+		const result = await dialog.showOpenDialog({
+			properties: ["openFile", "multiSelections"],
+			title: "选择文件",
+			defaultPath: defaultPath || undefined,
+		});
+		if (result.canceled || result.filePaths.length === 0) return [];
+		return result.filePaths;
+	});
+
 	return () => {
 		ipcMain.removeHandler("vetta:dialog:select-images");
 		ipcMain.removeHandler("vetta:dialog:select-folder");
+		ipcMain.removeHandler("vetta:dialog:select-files");
 	};
 }
