@@ -149,10 +149,11 @@ export function useBatchTasks() {
 									status: "running" as const,
 									sessionId: event.sessionId,
 									sessionPath: event.sessionPath,
+									updatedAt: Date.now(),
 								};
 							}
 							if (event.type === "task.completed") {
-								return { ...t, status: "completed" as const };
+								return { ...t, status: "completed" as const, updatedAt: Date.now() };
 							}
 							if (event.type === "task.failed") {
 								return { ...t, status: "failed" as const, error: event.error };
