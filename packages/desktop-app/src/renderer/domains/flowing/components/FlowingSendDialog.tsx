@@ -1,5 +1,5 @@
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useAtom, useAtomValue } from "jotai";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -9,6 +9,7 @@ import {
 	DialogTitle,
 } from "@shared/components/ui/dialog";
 import { Button } from "@shared/components/ui/button";
+import { Textarea } from "@shared/components/ui/textarea";
 import { fetchColleagues, type ColleagueInfo } from "@shared/lib/api";
 import {
 	activeSessionAtom,
@@ -17,6 +18,11 @@ import {
 	selectedFilesAtom,
 } from "@shared/store/atoms";
 import { useFlowingSend } from "../hooks/useFlowingSend";
+
+/** 从完整路径中提取文件名 */
+function fileName(path: string): string {
+	return path.split(/[/\\]/).filter(Boolean).pop() ?? path;
+}
 
 export function FlowingSendDialog(): JSX.Element {
 	const [open, setOpen] = useAtom(flowingSendDialogOpenAtom);
@@ -103,92 +109,184 @@ export function FlowingSendDialog(): JSX.Element {
 		}
 	}, [activeSession, selectedReceivers, selectedFiles, message, send, setOpen, setSelectedFiles]);
 
+	const canSend = selectedReceivers.size > 0 && selectedFiles.length > 0;
+
+	const selectedReceiverNames = useMemo(() => {
+		if (selectedReceivers.size === 0) return "";
+		return colleagues
+			.filter((c) => selectedReceivers.has(c.id))
+			.map((c) => c.username)
+			.join(", ");
+	}, [colleagues, selectedReceivers]);
+
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogContent className="overflow-hidden sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>内容流转</DialogTitle>
+					<DialogTitle className="flex items-center gap-2">
+						<span className="icon-[mdi--send-variant-outline] text-lg text-primary" />
+						内容流转
+					</DialogTitle>
 					<DialogDescription>将选中的文件发送给同事</DialogDescription>
 				</DialogHeader>
 
 				{/* 选中的文件 */}
-				<div className="space-y-2">
+				<div className="space-y-1.5">
 					<div className="flex items-center justify-between">
-						<div className="text-xs font-medium text-muted-foreground">
-							选中文件 ({selectedFiles.length})
+						<div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+							<span className="icon-[mdi--file-document-outline] text-sm" />
+							文件
+							{selectedFiles.length > 0 && (
+								<span className="rounded-full bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold text-primary">
+									{selectedFiles.length}
+								</span>
+							)}
 						</div>
-						<Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={handleAddFiles}>
-							添加文件
+						<Button variant="ghost" size="xs" onClick={handleAddFiles}>
+							<span className="icon-[mdi--plus]" data-icon="inline-start" />
+							添加
 						</Button>
 					</div>
-					<div className="max-h-32 overflow-auto rounded border p-2 text-xs">
+					<div className="max-h-32 overflow-auto rounded-lg border border-border/50 bg-muted/30 text-xs">
 						{selectedFiles.length === 0 ? (
-							<p className="text-muted-foreground">点击「添加文件」选择要流转的文件</p>
+							<button
+								type="button"
+								onClick={handleAddFiles}
+								className="flex w-full items-center justify-center gap-2 p-4 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+							>
+								<span className="icon-[mdi--cloud-upload-outline] text-lg" />
+								点击选择要流转的文件
+							</button>
 						) : (
-							selectedFiles.map((f) => (
-								<div key={f} className="group flex min-w-0 items-center gap-1 py-0.5">
-									<span className="min-w-0 flex-1 truncate">{f}</span>
-									<button
-										type="button"
-										className="shrink-0 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
-										onClick={() => handleRemoveFile(f)}
-									>
-										<span className="icon-[mdi--close] text-sm" />
-									</button>
-								</div>
-							))
+							<div className="divide-y divide-border/30">
+								{selectedFiles.map((f) => (
+									<div key={f} className="group flex min-w-0 items-center gap-2 px-2.5 py-1.5">
+										<span className="icon-[mdi--file-outline] shrink-0 text-sm text-muted-foreground/50" />
+										<div className="min-w-0 flex-1">
+											<div className="truncate font-medium">{fileName(f)}</div>
+										</div>
+										<button
+											type="button"
+											className="shrink-0 rounded-md p-0.5 text-muted-foreground/40 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+											onClick={() => handleRemoveFile(f)}
+										>
+											<span className="icon-[mdi--close] text-sm" />
+										</button>
+									</div>
+								))}
+							</div>
 						)}
 					</div>
 				</div>
 
 				{/* 选择接收方 */}
-				<div className="space-y-2">
-					<div className="text-xs font-medium text-muted-foreground">选择接收方</div>
-					<div className="max-h-40 overflow-y-auto rounded border p-2">
+				<div className="space-y-1.5">
+					<div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+						<span className="icon-[mdi--account-group-outline] text-sm" />
+						接收方
+						{selectedReceivers.size > 0 && (
+							<span className="rounded-full bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold text-primary">
+								{selectedReceivers.size}
+							</span>
+						)}
+					</div>
+					<div className="max-h-40 overflow-y-auto rounded-lg border border-border/50 bg-muted/30">
 						{colleagues.length === 0 ? (
-							<p className="text-xs text-muted-foreground">暂无同组织成员</p>
+							<div className="flex items-center justify-center gap-2 p-4 text-xs text-muted-foreground/50">
+								<span className="icon-[mdi--account-off-outline] text-base" />
+								暂无同组织成员
+							</div>
 						) : (
-							colleagues.map((c) => (
-								<label
-									key={c.id}
-									className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
-								>
-									<input
-										type="checkbox"
-										checked={selectedReceivers.has(c.id)}
-										onChange={() => toggleReceiver(c.id)}
-										className="rounded"
-									/>
-									<span className="text-xs">{c.username}</span>
-								</label>
-							))
+							<div className="p-1">
+								{colleagues.map((c) => {
+									const isSelected = selectedReceivers.has(c.id);
+									return (
+										<label
+											key={c.id}
+											className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors ${
+												isSelected
+													? "bg-primary/8 text-foreground"
+													: "text-muted-foreground hover:bg-muted"
+											}`}
+										>
+											<input
+												type="checkbox"
+												checked={isSelected}
+												onChange={() => toggleReceiver(c.id)}
+												className="sr-only"
+											/>
+											<span
+												className={`flex size-4 shrink-0 items-center justify-center rounded border text-[0.6rem] transition-all ${
+													isSelected
+														? "border-primary bg-primary text-primary-foreground"
+														: "border-border bg-background"
+												}`}
+											>
+												{isSelected && <span className="icon-[mdi--check] text-xs" />}
+											</span>
+											<span className="flex items-center gap-1.5 text-xs">
+												<span
+													className={`flex size-5 items-center justify-center rounded-full text-[0.6rem] font-medium ${
+														isSelected
+															? "bg-primary/15 text-primary"
+															: "bg-muted text-muted-foreground"
+													}`}
+												>
+													{c.username.charAt(0).toUpperCase()}
+												</span>
+												{c.username}
+											</span>
+										</label>
+									);
+								})}
+							</div>
 						)}
 					</div>
 				</div>
 
 				{/* 附加消息 */}
-				<div className="space-y-2">
-					<div className="text-xs font-medium text-muted-foreground">附加消息（可选）</div>
-					<textarea
+				<div className="space-y-1.5">
+					<div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+						<span className="icon-[mdi--message-text-outline] text-sm" />
+						附加消息
+						<span className="font-normal text-muted-foreground/50">可选</span>
+					</div>
+					<Textarea
 						value={message}
 						onChange={(e) => setMessage(e.target.value)}
 						placeholder="输入附加消息..."
-						className="w-full rounded border bg-background p-2 text-xs outline-none focus:ring-1 focus:ring-ring"
-						rows={3}
+						className="min-h-[4.5rem] resize-none text-xs"
 					/>
 				</div>
 
-				{error && <div className="text-xs text-red-500">{error}</div>}
+				{error && (
+					<div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+						<span className="icon-[mdi--alert-circle-outline] shrink-0 text-sm" />
+						{error}
+					</div>
+				)}
 
 				<DialogFooter>
+					{canSend && (
+						<div className="mr-auto hidden items-center text-xs text-muted-foreground sm:flex">
+							{selectedFiles.length} 个文件 → {selectedReceiverNames}
+						</div>
+					)}
 					<Button variant="outline" onClick={() => setOpen(false)} disabled={sending}>
 						取消
 					</Button>
-					<Button
-						onClick={handleSend}
-						disabled={sending || selectedReceivers.size === 0 || selectedFiles.length === 0}
-					>
-						{sending ? "发送中..." : "发送"}
+					<Button onClick={handleSend} disabled={sending || !canSend}>
+						{sending ? (
+							<>
+								<span className="icon-[mdi--loading] animate-spin" data-icon="inline-start" />
+								发送中
+							</>
+						) : (
+							<>
+								<span className="icon-[mdi--send] text-xs" data-icon="inline-start" />
+								发送
+							</>
+						)}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
