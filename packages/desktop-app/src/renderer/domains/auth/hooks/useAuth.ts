@@ -1,6 +1,13 @@
 import { fetchCurrentUser, onUnauthorized } from "@shared/lib/api";
-import { authTokenAtom, authUserAtom, loginDialogOpenAtom, remoteProvidersAtom } from "@shared/store/atoms";
-import { useAtom, useSetAtom } from "jotai";
+import {
+	authTokenAtom,
+	authUserAtom,
+	loginDialogOpenAtom,
+	remoteProvidersAtom,
+	sseClientAtom,
+	sseConnectionStateAtom,
+} from "@shared/store/atoms";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
 export function useAuth() {
@@ -8,6 +15,8 @@ export function useAuth() {
 	const [user, setUser] = useAtom(authUserAtom);
 	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
+	const sseClient = useAtomValue(sseClientAtom);
+	const setSseState = useSetAtom(sseConnectionStateAtom);
 
 	const logout = useCallback(() => {
 		setToken(null);
@@ -17,7 +26,9 @@ export function useAuth() {
 		void window.vetta.settings.setServerToken(undefined);
 		// Clear remote providers
 		setRemoteProviders({});
-	}, [setToken, setUser, setRemoteProviders]);
+		// Disconnect SSE
+		sseClient.disconnect();
+	}, [setToken, setUser, setRemoteProviders, sseClient]);
 
 	// On mount: if we have a token, fetch user info
 	useEffect(() => {
@@ -59,6 +70,18 @@ export function useAuth() {
 		});
 		return cleanup;
 	}, [setToken, setUser, setLoginOpen, setRemoteProviders]);
+
+	// SSE: connect when token is available, disconnect on logout
+	useEffect(() => {
+		if (!token) return;
+		void window.vetta.settings.getServerUrl().then((baseUrl) => {
+			sseClient.connect(baseUrl, token);
+		});
+		const unsubState = sseClient.onStateChange(setSseState);
+		return () => {
+			unsubState();
+		};
+	}, [token, sseClient, setSseState]);
 
 	return { token, user, logout };
 }

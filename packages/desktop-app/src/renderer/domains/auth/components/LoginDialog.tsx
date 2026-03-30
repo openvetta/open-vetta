@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
-import { loginDialogOpenAtom } from "@shared/store/atoms";
-import { fetchOAuthProviders, fetchOAuthURL } from "@shared/lib/api";
+import { authTokenAtom, authUserAtom, loginDialogOpenAtom, remoteProvidersAtom } from "@shared/store/atoms";
+import { fetchOAuthProviders, fetchOAuthURL, loginByAccount } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 
@@ -26,10 +26,15 @@ const PROVIDER_META: Record<string, { label: string; icon: string; color: string
 
 export function LoginDialog(): JSX.Element {
 	const [open, setOpen] = useAtom(loginDialogOpenAtom);
+	const setToken = useSetAtom(authTokenAtom);
+	const setUser = useSetAtom(authUserAtom);
+	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const [providers, setProviders] = useState<string[]>([]);
 	const [loading, setLoading] = useState<string | null>(null);
 	const [account, setAccount] = useState("");
 	const [password, setPassword] = useState("");
+	const [loginLoading, setLoginLoading] = useState(false);
+	const [loginError, setLoginError] = useState("");
 
 	useEffect(() => {
 		if (open) {
@@ -51,9 +56,28 @@ export function LoginDialog(): JSX.Element {
 		}
 	}
 
-	function handleAccountLogin(e: React.FormEvent) {
+	async function handleAccountLogin(e: React.FormEvent) {
 		e.preventDefault();
-		// TODO: account/password login not implemented yet
+		if (!account || !password) return;
+		setLoginLoading(true);
+		setLoginError("");
+		try {
+			const data = await loginByAccount(account, password);
+			setToken(data.token);
+			localStorage.setItem("vetta-auth-token", data.token);
+			setUser(data.user);
+			void window.vetta.settings.setServerToken(data.token);
+			void window.vetta.models.fetchRemote().then((result) => {
+				if (result.providers && Object.keys(result.providers).length > 0) {
+					setRemoteProviders(result.providers);
+				}
+			});
+			setOpen(false);
+		} catch (err) {
+			setLoginError(err instanceof Error ? err.message : "登录失败");
+		} finally {
+			setLoginLoading(false);
+		}
 	}
 
 	return (
@@ -105,8 +129,11 @@ export function LoginDialog(): JSX.Element {
 								onChange={(e) => setPassword(e.target.value)}
 								className="h-9 w-full rounded-lg border border-input bg-muted px-3 text-[13px] text-foreground placeholder-muted-foreground/50 outline-none transition focus:border-ring/50"
 							/>
-							<Button type="submit" className="w-full">
-								Login
+							{loginError && (
+								<p className="text-[12px] text-destructive">{loginError}</p>
+							)}
+							<Button type="submit" className="w-full" disabled={loginLoading}>
+								{loginLoading ? "Logging in..." : "Login"}
 							</Button>
 						</form>
 

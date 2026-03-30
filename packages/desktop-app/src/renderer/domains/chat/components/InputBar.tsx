@@ -6,6 +6,7 @@ import { ModelSelector } from "./ModelSelector";
 import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
+import { ActionButtonBar } from "./ActionButtonBar";
 import type { SkillInfo } from "@preload/api";
 
 interface InputBarProps {
@@ -284,6 +285,9 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 					cwd={activeSession?.cwd ?? ""}
 				/>
 
+				{/* ── Action button bar (above input card) ── */}
+				<ActionButtonBar />
+
 				{/* ── Card container ── */}
 				<div
 					onDragOver={handleDragOver}
@@ -296,7 +300,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 						isDragOver
 							? "border-primary"
 							: isFocused
-								? "border-ring shadow-md"
+								? "border-border shadow-md"
 								: "border-border shadow-sm"
 					}`}
 				>
