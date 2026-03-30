@@ -21,11 +21,20 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	workspacePath: join(homedir(), ".vetta", "workspace"),
 };
 
+function filterStrings(arr: unknown): string[] {
+	if (!Array.isArray(arr)) return [];
+	return arr.filter((v): v is string => typeof v === "string");
+}
+
 async function readConfig(): Promise<DesktopConfig> {
 	try {
 		const raw = await readFile(CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Partial<DesktopConfig>;
-		return { ...DEFAULT_CONFIG, ...parsed };
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
+		return {
+			projects: filterStrings(parsed.projects),
+			archivedProjects: filterStrings(parsed.archivedProjects),
+			workspacePath: typeof parsed.workspacePath === "string" ? parsed.workspacePath : DEFAULT_CONFIG.workspacePath,
+		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
 	}
