@@ -22,23 +22,40 @@ export type ProjectTaskStates = Record<string, BatchTaskState>;
 
 type AllTaskStates = Record<string, ProjectTaskStates>;
 
+let cachedStates: AllTaskStates | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
 async function ensureDirectory(): Promise<void> {
 	await mkdir(CONFIG_DIR, { recursive: true });
 }
 
 export async function loadTaskStates(): Promise<AllTaskStates> {
+	if (cachedStates !== null) {
+		return cachedStates;
+	}
 	try {
 		await ensureDirectory();
 		const data = await readFile(STATES_FILE, "utf-8");
-		return JSON.parse(data);
+		cachedStates = JSON.parse(data);
 	} catch {
-		return {};
+		cachedStates = {};
 	}
+	return cachedStates!;
 }
 
 export async function saveTaskStates(states: AllTaskStates): Promise<void> {
 	await ensureDirectory();
 	await writeFile(STATES_FILE, JSON.stringify(states, null, 2), "utf-8");
+}
+
+function scheduleFlush(): void {
+	if (saveTimer !== null) return;
+	saveTimer = setTimeout(async () => {
+		saveTimer = null;
+		if (cachedStates !== null) {
+			await saveTaskStates(cachedStates);
+		}
+	}, 50);
 }
 
 export async function getTaskState(projectId: string, taskId: string): Promise<BatchTaskState | undefined> {
@@ -52,7 +69,7 @@ export async function saveTaskState(projectId: string, taskId: string, state: Ba
 		states[projectId] = {};
 	}
 	states[projectId][taskId] = state;
-	await saveTaskStates(states);
+	scheduleFlush();
 }
 
 export async function deleteTaskState(projectId: string, taskId: string): Promise<void> {
@@ -62,14 +79,14 @@ export async function deleteTaskState(projectId: string, taskId: string): Promis
 		if (Object.keys(states[projectId]).length === 0) {
 			delete states[projectId];
 		}
-		await saveTaskStates(states);
+		scheduleFlush();
 	}
 }
 
 export async function deleteProjectTaskStates(projectId: string): Promise<void> {
 	const states = await loadTaskStates();
 	delete states[projectId];
-	await saveTaskStates(states);
+	scheduleFlush();
 }
 
 export async function updateTaskState(
@@ -84,7 +101,7 @@ export async function updateTaskState(
 			...patch,
 			lastModified: Date.now(),
 		};
-		await saveTaskStates(states);
+		scheduleFlush();
 	}
 }
 
