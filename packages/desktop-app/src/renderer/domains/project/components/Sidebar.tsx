@@ -9,6 +9,7 @@ import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
 import { SettingsMenu } from "./SettingsMenu";
+import { MessageCenter } from "@domains/message/components/MessageCenter";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 
 const MIN_WIDTH = 160;
@@ -53,7 +54,9 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 							Vetta
 						</span>
 					</div>
-					<AddProjectMenu className="no-drag" />
+					<div className="no-drag flex items-center gap-1">
+						<AddProjectMenu />
+					</div>
 				</div>
 			)}
 
@@ -96,9 +99,12 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				)}
 			</div>
 
-			{/* Settings */}
-			<div className="px-1.5 py-1.5">
-				<SettingsMenu />
+			{/* Bottom bar: Settings + Message Center */}
+			<div className="flex items-center gap-1 px-1.5 py-1.5">
+				<div className="flex-1">
+					<SettingsMenu />
+				</div>
+				<MessageCenter />
 			</div>
 			<ResizeHandle side="right" onResize={onResize} />
 		</aside>

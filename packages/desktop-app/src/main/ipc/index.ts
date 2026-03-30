@@ -1,5 +1,6 @@
 import type { WebContents } from "electron";
 import { registerDialogIpc } from "./dialog.js";
+import { registerFlowingIpc } from "./flowing.js";
 import { registerFsIpc } from "./fs.js";
 import { registerSessionIpc } from "./session.js";
 import { registerSettingsIpc } from "./settings.js";
@@ -13,6 +14,7 @@ interface IpcTeardown {
 	teardownSkills: () => void;
 	teardownDialog: () => void;
 	teardownFs: () => void;
+	teardownFlowing: () => void;
 }
 
 export function registerAllIpc(webContents: WebContents): IpcTeardown {
@@ -23,6 +25,7 @@ export function registerAllIpc(webContents: WebContents): IpcTeardown {
 		teardownSkills: registerSkillsIpc(),
 		teardownDialog: registerDialogIpc(),
 		teardownFs: registerFsIpc(),
+		teardownFlowing: registerFlowingIpc(),
 	};
 }
 
@@ -33,6 +36,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownSkills();
 	teardown.teardownDialog();
 	teardown.teardownFs();
+	teardown.teardownFlowing();
 }
 
 export { registerSchedulerIpc } from "./scheduler.js";

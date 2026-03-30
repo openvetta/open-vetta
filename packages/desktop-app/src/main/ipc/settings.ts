@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
 import { ipcMain } from "electron";
 
-const DEFAULT_SERVER_URL = "http://REDACTED-HOST:8080/api/v1";
+import { DEFAULT_SERVER_URL } from "../constants.js";
 
 function getSettingsPath(): string {
 	return join(getAgentDir(), "settings.json");
@@ -33,12 +33,7 @@ interface RemoteProvidersResult {
 
 async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
 	const settings = readSettings();
-	let serverUrl = settings.serverUrl as string | undefined;
-	if (!serverUrl) {
-		serverUrl = DEFAULT_SERVER_URL;
-		settings.serverUrl = serverUrl;
-		writeSettings(settings);
-	}
+	const serverUrl = DEFAULT_SERVER_URL;
 	const serverToken = settings.serverToken as string | undefined;
 	if (!serverToken) {
 		return { providers: {}, error: "未登录" };
@@ -75,15 +70,15 @@ async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
 }
 
 export function registerSettingsIpc(): () => void {
+	// 清理 settings.json 中残留的 serverUrl，现在统一由环境变量管理
+	const settings = readSettings();
+	if ("serverUrl" in settings) {
+		delete settings.serverUrl;
+		writeSettings(settings);
+	}
+
 	ipcMain.handle("vetta:settings:get-server-url", () => {
-		const settings = readSettings();
-		let url = settings.serverUrl as string | undefined;
-		if (!url) {
-			url = DEFAULT_SERVER_URL;
-			settings.serverUrl = url;
-			writeSettings(settings);
-		}
-		return url;
+		return DEFAULT_SERVER_URL;
 	});
 
 	ipcMain.handle("vetta:settings:get-server-token", () => {
