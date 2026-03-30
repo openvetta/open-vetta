@@ -75,9 +75,14 @@ export interface DesktopSkillsApi {
 	getMarketManifest(): Promise<Record<string, InstalledMarketSkill>>;
 }
 
+export interface ProjectEntry {
+	path: string;
+	name?: string;
+}
+
 export interface DesktopConfigData {
-	projects: string[];
-	archivedProjects: string[];
+	projects: ProjectEntry[];
+	archivedProjects: ProjectEntry[];
 	workspacePath: string;
 }
 
@@ -245,7 +250,7 @@ export interface DesktopFlowingApi {
 	unpackFiles(zipBuffer: ArrayBuffer, destDir: string): Promise<string[]>;
 	readMeta(projectDir: string): Promise<Record<string, unknown> | null>;
 	writeMeta(projectDir: string, meta: Record<string, unknown>): Promise<void>;
-	findProjectByFlowingId(flowingId: number, projects: string[]): Promise<string | null>;
+	findProjectByFlowingId(flowingId: number, projects: ProjectEntry[]): Promise<string | null>;
 }
 
 export interface DesktopApi {

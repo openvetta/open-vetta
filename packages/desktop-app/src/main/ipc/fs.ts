@@ -6,9 +6,14 @@ import type { FsEntry } from "../../preload/fs-types.js";
 
 // ─── Desktop app config ───
 
+export interface ProjectEntry {
+	path: string;
+	name?: string;
+}
+
 export interface DesktopConfig {
-	projects: string[];
-	archivedProjects: string[];
+	projects: ProjectEntry[];
+	archivedProjects: ProjectEntry[];
 	workspacePath: string;
 }
 
@@ -21,9 +26,14 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	workspacePath: join(homedir(), ".vetta", "workspace"),
 };
 
-function filterStrings(arr: unknown): string[] {
-	if (!Array.isArray(arr)) return [];
-	return arr.filter((v): v is string => typeof v === "string");
+/** Migrate legacy string[] format to ProjectEntry[] */
+function migrateProjectEntries(entries: unknown): ProjectEntry[] {
+	if (!Array.isArray(entries)) return [];
+	if (entries.length === 0) return [];
+	if (typeof entries[0] === "string") {
+		return (entries as string[]).map((p) => ({ path: p }));
+	}
+	return entries as ProjectEntry[];
 }
 
 async function readConfig(): Promise<DesktopConfig> {
@@ -31,8 +41,8 @@ async function readConfig(): Promise<DesktopConfig> {
 		const raw = await readFile(CONFIG_PATH, "utf8");
 		const parsed = JSON.parse(raw) as Record<string, unknown>;
 		return {
-			projects: filterStrings(parsed.projects),
-			archivedProjects: filterStrings(parsed.archivedProjects),
+			projects: migrateProjectEntries(parsed.projects),
+			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
 			workspacePath: typeof parsed.workspacePath === "string" ? parsed.workspacePath : DEFAULT_CONFIG.workspacePath,
 		};
 	} catch {
@@ -319,8 +329,8 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
 		const config = await readConfig();
 		// Ensure all known paths are authorized for file operations
-		for (const p of config.projects) allowProjectRoot(p);
-		for (const p of config.archivedProjects) allowProjectRoot(p);
+		for (const p of config.projects) allowProjectRoot(p.path);
+		for (const p of config.archivedProjects) allowProjectRoot(p.path);
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
 		return config;
 	});
@@ -335,8 +345,8 @@ export function registerFsIpc(): () => void {
 			workspacePath: patch.workspacePath ?? current.workspacePath,
 		};
 		// Allow all known roots for file operations
-		for (const p of next.projects) allowProjectRoot(p);
-		for (const p of next.archivedProjects) allowProjectRoot(p);
+		for (const p of next.projects) allowProjectRoot(p.path);
+		for (const p of next.archivedProjects) allowProjectRoot(p.path);
 		if (next.workspacePath) allowProjectRoot(next.workspacePath);
 		await writeConfig(next);
 	});

@@ -2,6 +2,7 @@ import { atom } from "jotai";
 
 export interface Project {
 	cwd: string;
+	name?: string;
 	sessionCount: number;
 }
 

@@ -42,10 +42,12 @@ export function useFlowingReceive(): {
 					let projectName = transfer.project_name;
 					const workspacePath = config.workspacePath;
 
-					// 检查同名冲突
+					// 检查同名冲突（按路径末段比较，兼容不同操作系统路径分隔符）
 					let suffix = 0;
 					let candidateName = projectName;
-					while (config.projects.some((p) => p.endsWith(`/${candidateName}`))) {
+					while (
+						config.projects.some((p) => p.path.split(/[/\\]/).pop() === candidateName || p.name === candidateName)
+					) {
 						suffix++;
 						candidateName = `${projectName}_${suffix}`;
 					}
@@ -53,9 +55,9 @@ export function useFlowingReceive(): {
 
 					destDir = `${workspacePath}/${projectName}`;
 
-					// 添加到项目列表
+					// 添加到项目列表，保存用户可见的项目名称
 					await window.vetta.config.set({
-						projects: [...config.projects, destDir],
+						projects: [...config.projects, { path: destDir, name: projectName }],
 					});
 				}
 

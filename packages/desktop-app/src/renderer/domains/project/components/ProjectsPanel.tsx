@@ -1,10 +1,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback } from "react";
+import { pathBasename } from "@shared/lib/utils";
 import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom } from "@shared/store/atoms";
-
-function projectName(cwd: string): string {
-	return cwd.split("/").pop() ?? cwd;
-}
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -57,9 +54,11 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 	const handleRemove = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
+			const project = projects.find((p) => p.cwd === cwd);
+			const displayName = project?.name ?? pathBasename(cwd);
 			setConfirm({
 				title: "从列表中移除",
-				message: `确定要将「${projectName(cwd)}」从项目列表中移除吗？此操作不会删除磁盘上的文件。`,
+				message: `确定要将「${displayName}」从项目列表中移除吗？此操作不会删除磁盘上的文件。`,
 				confirmLabel: "移除",
 				variant: "default",
 				onConfirm: () => {
@@ -67,15 +66,17 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 				},
 			});
 		},
-		[removeProject, setProjectMenu, setConfirm],
+		[removeProject, setProjectMenu, setConfirm, projects],
 	);
 
 	const handleDelete = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
+			const project = projects.find((p) => p.cwd === cwd);
+			const displayName = project?.name ?? pathBasename(cwd);
 			setConfirm({
 				title: "删除项目",
-				message: `确定要永久删除「${projectName(cwd)}」吗？此操作将从磁盘上彻底删除该项目文件夹，不可恢复。`,
+				message: `确定要永久删除「${displayName}」吗？此操作将从磁盘上彻底删除该项目文件夹，不可恢复。`,
 				confirmLabel: "删除",
 				variant: "danger",
 				onConfirm: () => {
@@ -83,7 +84,7 @@ export function ProjectsPanel({ onOpenSession }: ProjectsPanelProps): JSX.Elemen
 				},
 			});
 		},
-		[deleteProjectFromDisk, setProjectMenu, setConfirm],
+		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects],
 	);
 
 	if (projects.length === 0) {
