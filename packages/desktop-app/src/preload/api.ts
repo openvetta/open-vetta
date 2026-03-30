@@ -33,6 +33,7 @@ export interface SelectedImageFile {
 
 export interface DesktopDialogApi {
 	selectFolder(): Promise<string | null>;
+	selectFolders(): Promise<string[]>;
 	selectImages(): Promise<SelectedImageFile[]>;
 	selectFiles(defaultPath?: string): Promise<string[]>;
 }
@@ -253,6 +254,58 @@ export interface DesktopFlowingApi {
 	findProjectByFlowingId(flowingId: number, projects: ProjectEntry[]): Promise<string | null>;
 }
 
+export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
+
+export interface BatchTask {
+	id: string;
+	name: string;
+	cwd: string;
+	status: BatchTaskStatus;
+	sessionId?: string;
+	sessionPath?: string;
+	error?: string;
+	createdAt: number;
+	updatedAt: number;
+}
+
+export interface BatchProject {
+	id: string;
+	name: string;
+	prompt: string;
+	concurrency: number;
+	tasks: BatchTask[];
+	createdAt: number;
+	updatedAt: number;
+}
+
+export type BatchTaskEvent =
+	| { type: "task.started"; projectId: string; taskId: string; sessionId: string; sessionPath: string | undefined }
+	| { type: "task.completed"; projectId: string; taskId: string }
+	| { type: "task.failed"; projectId: string; taskId: string; error: string }
+	| { type: "task.paused"; projectId: string; taskId: string }
+	| { type: "task.resumed"; projectId: string; taskId: string };
+
+export interface DesktopBatchTasksApi {
+	getProjects(): Promise<BatchProject[]>;
+	createProject(data: { name: string; prompt: string; folders: string[]; concurrency: number }): Promise<BatchProject>;
+	updateProject(
+		projectId: string,
+		data: Partial<{ name: string; prompt: string; concurrency: number; newFolders: string[] }>,
+	): Promise<void>;
+	deleteProject(projectId: string): Promise<void>;
+	runTask(projectId: string, taskId: string): Promise<void>;
+	pauseTask(projectId: string, taskId: string): Promise<void>;
+	resumeTask(projectId: string, taskId: string): Promise<void>;
+	deleteTask(projectId: string, taskId: string): Promise<void>;
+	batchRetryFailed(projectId: string): Promise<void>;
+	batchPause(projectId: string): Promise<void>;
+	batchResume(projectId: string): Promise<void>;
+	batchDelete(projectId: string): Promise<void>;
+	batchRunNeverExecuted(projectId: string): Promise<void>;
+	deleteSession(sessionPath: string): Promise<void>;
+	onTaskEvent(handler: (event: BatchTaskEvent) => void): () => void;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -270,6 +323,7 @@ export interface DesktopApi {
 	tray: DesktopTrayApi;
 	scheduler: DesktopSchedulerApi;
 	flowing: DesktopFlowingApi;
+	batchTasks: DesktopBatchTasksApi;
 }
 
 declare global {
