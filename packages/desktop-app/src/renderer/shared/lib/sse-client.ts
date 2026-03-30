@@ -50,7 +50,9 @@ export function createSSEClient(): SSEClient {
 	function addCustomEventListener(es: EventSource, eventType: string): void {
 		es.addEventListener(eventType, ((e: MessageEvent) => {
 			try {
-				const data = JSON.parse(e.data);
+				const raw = JSON.parse(e.data);
+				// 统一解包：如果服务端返回 {type, payload, timestamp} 结构，只传递 payload
+				const data = raw != null && typeof raw === "object" && "payload" in raw ? raw.payload : raw;
 				emit(eventType, data);
 			} catch {
 				// ignore
