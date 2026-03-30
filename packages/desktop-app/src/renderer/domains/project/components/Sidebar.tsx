@@ -1,13 +1,14 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { sidebarTabAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import { sidebarTabAtom, sidebarWidthAtom, flowingPendingCountAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { isMac, isWindows } from "@shared/lib/platform";
 import { SidebarTabs } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
+import { FlowingPanel } from "@domains/flowing/components/FlowingPanel";
 import { SettingsMenu } from "./SettingsMenu";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 
@@ -30,6 +31,8 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
 	const { createProject } = useProjects();
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
+	const pendingCount = useAtomValue(flowingPendingCountAtom);
+	const [showFlowing, setShowFlowing] = useState(false);
 
 	const onResize = useCallback(
 		(delta: number) => {
@@ -53,7 +56,22 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 							Vetta
 						</span>
 					</div>
-					<AddProjectMenu className="no-drag" />
+					<div className="no-drag flex items-center gap-1">
+						<button
+							type="button"
+							onClick={() => setShowFlowing((v) => !v)}
+							className="relative rounded-md p-1 text-foreground hover:bg-accent"
+							title="流转通知"
+						>
+							<span className="icon-[mdi--swap-horizontal] h-4 w-4" />
+							{pendingCount > 0 && (
+								<span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
+									{pendingCount}
+								</span>
+							)}
+						</button>
+						<AddProjectMenu />
+					</div>
 				</div>
 			)}
 
@@ -89,7 +107,9 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 
 			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
-				{tab === "projects" ? (
+				{showFlowing ? (
+					<FlowingPanel />
+				) : tab === "projects" ? (
 					<ProjectsPanel onOpenSession={onOpenSession} />
 				) : (
 					<FilesPanel />
