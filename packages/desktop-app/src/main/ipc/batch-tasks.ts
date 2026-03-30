@@ -16,6 +16,7 @@ import {
 	removeTaskFromProject,
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
+import { pLimit } from "../batch-tasks/queue";
 
 const CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
@@ -107,12 +108,13 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.BATCH_RETRY_FAILED, async (_, projectId: string) => {
 		const project = await getProject(projectId);
 		if (!project) return;
-		for (const task of project.tasks) {
-			if (task.status === "failed") {
-				task.status = "pending";
-				await runTask(project, task, getRuntime());
-			}
-		}
+
+		const failedTasks = project.tasks.filter((t) => t.status === "failed");
+		if (failedTasks.length === 0) return;
+
+		const runtime = getRuntime();
+		const taskRunners = failedTasks.map((task) => () => runTask(project, task, runtime));
+		await pLimit(project.concurrency, taskRunners);
 	});
 
 	ipcMain.handle(CHANNELS.BATCH_PAUSE, async (_, projectId: string) => {
@@ -150,11 +152,13 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.BATCH_RUN_NEVER_EXECUTED, async (_, projectId: string) => {
 		const project = await getProject(projectId);
 		if (!project) return;
-		for (const task of project.tasks) {
-			if (task.status === "pending" && !task.sessionId) {
-				await runTask(project, task, getRuntime());
-			}
-		}
+
+		const pendingTasks = project.tasks.filter((t) => t.status === "pending" && !t.sessionId);
+		if (pendingTasks.length === 0) return;
+
+		const runtime = getRuntime();
+		const taskRunners = pendingTasks.map((task) => () => runTask(project, task, runtime));
+		await pLimit(project.concurrency, taskRunners);
 	});
 
 	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_, sessionPath: string) => {

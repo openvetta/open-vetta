@@ -33,20 +33,6 @@ export function subscribeBatchTaskEvents(handler: (event: BatchTaskEvent) => voi
 	};
 }
 
-export function getExecutingCount(projectId: string): number {
-	let count = 0;
-	for (const executing of executingTasks.values()) {
-		if (executing.projectId === projectId) {
-			count++;
-		}
-	}
-	return count;
-}
-
-export function canStartTask(project: BatchProject): boolean {
-	return getExecutingCount(project.id) < project.concurrency;
-}
-
 function createTaskEventHandler(
 	projectId: string,
 	taskId: string,
@@ -104,10 +90,6 @@ function createTaskEventHandler(
 }
 
 export async function runTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
-	if (!canStartTask(project)) {
-		return;
-	}
-
 	const abortController = new AbortController();
 
 	try {
