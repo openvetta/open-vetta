@@ -105,7 +105,7 @@ export function FlowingSendDialog(): JSX.Element {
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent className="overflow-hidden sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle>内容流转</DialogTitle>
 					<DialogDescription>将选中的文件发送给同事</DialogDescription>
@@ -121,13 +121,13 @@ export function FlowingSendDialog(): JSX.Element {
 							添加文件
 						</Button>
 					</div>
-					<div className="max-h-32 overflow-y-auto rounded border p-2 text-xs">
+					<div className="max-h-32 overflow-auto rounded border p-2 text-xs">
 						{selectedFiles.length === 0 ? (
 							<p className="text-muted-foreground">点击「添加文件」选择要流转的文件</p>
 						) : (
 							selectedFiles.map((f) => (
-								<div key={f} className="group flex items-center gap-1 py-0.5">
-									<span className="flex-1 truncate">{f}</span>
+								<div key={f} className="group flex min-w-0 items-center gap-1 py-0.5">
+									<span className="min-w-0 flex-1 truncate">{f}</span>
 									<button
 										type="button"
 										className="shrink-0 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
