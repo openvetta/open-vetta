@@ -374,21 +374,25 @@ function ActionButton({
 	disabled?: boolean;
 }): JSX.Element {
 	return (
-		<button
-			type="button"
-			title={title}
-			disabled={disabled}
-			onClick={onClick}
-			className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-150 active:scale-90 ${
-				disabled
-					? "cursor-not-allowed text-muted-foreground/20"
-					: variant === "danger"
-						? "text-muted-foreground/50 hover:bg-red-500/10 hover:text-red-400"
-						: "text-muted-foreground/50 hover:bg-accent hover:text-foreground"
-			}`}
-		>
-			<span className={`${icon} text-[14px]`} />
-		</button>
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<button
+					type="button"
+					disabled={disabled}
+					onClick={onClick}
+					className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-150 active:scale-90 ${
+						disabled
+							? "cursor-not-allowed text-muted-foreground/20"
+							: variant === "danger"
+								? "text-muted-foreground/50 hover:bg-red-500/10 hover:text-red-400"
+								: "text-muted-foreground/50 hover:bg-accent hover:text-foreground"
+					}`}
+				>
+					<span className={`${icon} text-[14px]`} />
+				</button>
+			</TooltipTrigger>
+			<TooltipContent>{title}</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -404,17 +408,21 @@ function TaskActionButton({
 	onClick: (e: React.MouseEvent) => void;
 }): JSX.Element {
 	return (
-		<button
-			type="button"
-			title={title}
-			onClick={onClick}
-			className={`flex h-6 w-6 items-center justify-center rounded-md transition-all duration-150 active:scale-90 ${
-				variant === "danger"
-					? "text-muted-foreground/50 hover:bg-red-500/10 hover:text-red-400"
-					: "text-muted-foreground/50 hover:bg-accent hover:text-foreground"
-			}`}
-		>
-			<span className={`${icon} text-[12px]`} />
-		</button>
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<button
+					type="button"
+					onClick={onClick}
+					className={`flex h-6 w-6 items-center justify-center rounded-md transition-all duration-150 active:scale-90 ${
+						variant === "danger"
+							? "text-muted-foreground/50 hover:bg-red-500/10 hover:text-red-400"
+							: "text-muted-foreground/50 hover:bg-accent hover:text-foreground"
+					}`}
+				>
+					<span className={`${icon} text-[12px]`} />
+				</button>
+			</TooltipTrigger>
+			<TooltipContent>{title}</TooltipContent>
+		</Tooltip>
 	);
 }
