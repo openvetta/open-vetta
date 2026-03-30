@@ -1,6 +1,6 @@
 import { downloadFlowingFile, type FlowingTransferVO, respondFlowing } from "@shared/lib/api";
-import { authTokenAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
+import { authTokenAtom, flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useState } from "react";
 
 export function useFlowingReceive(): {
@@ -9,6 +9,8 @@ export function useFlowingReceive(): {
 	reject: (transfer: FlowingTransferVO) => Promise<boolean>;
 } {
 	const token = useAtomValue(authTokenAtom);
+	const setPendingList = useSetAtom(flowingPendingListAtom);
+	const setPendingCount = useSetAtom(flowingPendingCountAtom);
 	const [processing, setProcessing] = useState(false);
 
 	const accept = useCallback(
@@ -64,6 +66,10 @@ export function useFlowingReceive(): {
 					flowingId: transfer.flowing_id,
 				});
 
+				// 6. 从本地待处理列表中移除
+				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
+				setPendingCount((prev) => Math.max(0, prev - 1));
+
 				return true;
 			} catch (err) {
 				console.error("接受流转失败:", err);
@@ -72,7 +78,7 @@ export function useFlowingReceive(): {
 				setProcessing(false);
 			}
 		},
-		[token],
+		[token, setPendingList, setPendingCount],
 	);
 
 	const reject = useCallback(
@@ -81,6 +87,9 @@ export function useFlowingReceive(): {
 			setProcessing(true);
 			try {
 				await respondFlowing(token, transfer.id, "reject");
+				// 从本地待处理列表中移除
+				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
+				setPendingCount((prev) => Math.max(0, prev - 1));
 				return true;
 			} catch (err) {
 				console.error("拒绝流转失败:", err);
@@ -89,7 +98,7 @@ export function useFlowingReceive(): {
 				setProcessing(false);
 			}
 		},
-		[token],
+		[token, setPendingList, setPendingCount],
 	);
 
 	return { processing, accept, reject };
