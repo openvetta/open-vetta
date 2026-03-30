@@ -35,6 +35,7 @@ const api: DesktopApi = {
 	dialog: {
 		selectFolder: async () => ipcRenderer.invoke("vetta:dialog:select-folder"),
 		selectImages: async () => ipcRenderer.invoke("vetta:dialog:select-images"),
+		selectFiles: async (defaultPath) => ipcRenderer.invoke("vetta:dialog:select-files", defaultPath),
 	},
 	theme: {
 		set: async (mode) => ipcRenderer.invoke("vetta:theme:set", mode),
@@ -134,6 +135,15 @@ const api: DesktopApi = {
 				ipcRenderer.removeListener(SCHEDULER_CHANNELS.EVENT, listener);
 			};
 		},
+	},
+	flowing: {
+		packFiles: async (projectDir, filePaths, message, senderName) =>
+			ipcRenderer.invoke("vetta:flowing:pack-files", projectDir, filePaths, message, senderName),
+		unpackFiles: async (zipBuffer, destDir) => ipcRenderer.invoke("vetta:flowing:unpack-files", zipBuffer, destDir),
+		readMeta: async (projectDir) => ipcRenderer.invoke("vetta:flowing:read-meta", projectDir),
+		writeMeta: async (projectDir, meta) => ipcRenderer.invoke("vetta:flowing:write-meta", projectDir, meta),
+		findProjectByFlowingId: async (flowingId, projects) =>
+			ipcRenderer.invoke("vetta:flowing:find-project", flowingId, projects),
 	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
