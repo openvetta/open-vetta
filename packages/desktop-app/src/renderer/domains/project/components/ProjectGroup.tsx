@@ -1,6 +1,6 @@
 import { useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@shared/lib/utils";
+import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, SessionInfo } from "@shared/store/atoms";
 import { projectContextMenuAtom, renamingSessionPathAtom, sessionContextMenuAtom } from "@shared/store/atoms";
 
@@ -13,10 +13,6 @@ interface ProjectGroupProps {
 	onNewSession: (cwd: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
-}
-
-function projectName(cwd: string): string {
-	return cwd.split("/").filter(Boolean).pop() ?? cwd;
 }
 
 function relativeTime(timestamp: number): string {
@@ -93,6 +89,8 @@ export function ProjectGroup({
 	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 
+	const displayName = project.name ?? pathBasename(project.cwd);
+
 	return (
 		<div className="mb-1">
 			{/* Project row */}
@@ -108,7 +106,7 @@ export function ProjectGroup({
 			>
 				<span className="icon-[mdi--folder-outline] h-4 w-4 shrink-0 text-foreground" />
 				<span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-					{projectName(project.cwd)}
+					{displayName}
 				</span>
 				<button
 					type="button"

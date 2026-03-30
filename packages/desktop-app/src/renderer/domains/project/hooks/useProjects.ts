@@ -28,7 +28,7 @@ export function useProjects() {
 	const refreshProjects = useCallback(async () => {
 		// Read project list from app-specific config file (not shared with CLI)
 		const config = await window.vetta.config.get();
-		const next = config.projects.map((cwd) => ({ cwd, sessionCount: 0 }));
+		const next = config.projects.map((entry) => ({ cwd: entry.path, name: entry.name, sessionCount: 0 }));
 		setProjects(next);
 
 		// Load sessions for each project
@@ -53,10 +53,10 @@ export function useProjects() {
 			const created = subDirs.find((d) => d.name === name);
 			const resolvedPath = created?.path ?? projectPath;
 
-			// Add to config
+			// Add to config with the user-provided name
 			const config = await window.vetta.config.get();
-			if (!config.projects.includes(resolvedPath)) {
-				config.projects.push(resolvedPath);
+			if (!config.projects.some((p) => p.path === resolvedPath)) {
+				config.projects.push({ path: resolvedPath, name });
 				await window.vetta.config.set({ projects: config.projects });
 			}
 
@@ -72,8 +72,8 @@ export function useProjects() {
 		if (!cwd) return null;
 
 		const config = await window.vetta.config.get();
-		if (!config.projects.includes(cwd)) {
-			config.projects.push(cwd);
+		if (!config.projects.some((p) => p.path === cwd)) {
+			config.projects.push({ path: cwd });
 			await window.vetta.config.set({ projects: config.projects });
 		}
 
@@ -102,7 +102,7 @@ export function useProjects() {
 	const removeProject = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			config.projects = config.projects.filter((p) => p !== cwd);
+			config.projects = config.projects.filter((p) => p.path !== cwd);
 			await window.vetta.config.set({ projects: config.projects });
 			await refreshProjects();
 		},
@@ -112,9 +112,12 @@ export function useProjects() {
 	const archiveProject = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			config.projects = config.projects.filter((p) => p !== cwd);
+			const entry = config.projects.find((p) => p.path === cwd);
+			config.projects = config.projects.filter((p) => p.path !== cwd);
 			const archived = config.archivedProjects ?? [];
-			if (!archived.includes(cwd)) archived.push(cwd);
+			if (!archived.some((p) => p.path === cwd)) {
+				archived.push(entry ?? { path: cwd });
+			}
 			await window.vetta.config.set({ projects: config.projects, archivedProjects: archived });
 			await refreshProjects();
 		},
@@ -124,8 +127,10 @@ export function useProjects() {
 	const unarchiveProject = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
-			const projects = config.projects.includes(cwd) ? config.projects : [...config.projects, cwd];
+			const archived = (config.archivedProjects ?? []).filter((p) => p.path !== cwd);
+			const projects = config.projects.some((p) => p.path === cwd)
+				? config.projects
+				: [...config.projects, { path: cwd }];
 			await window.vetta.config.set({ projects, archivedProjects: archived });
 			await refreshProjects();
 		},
@@ -134,7 +139,7 @@ export function useProjects() {
 
 	const deleteArchivedProject = useCallback(async (cwd: string) => {
 		const config = await window.vetta.config.get();
-		const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
+		const archived = (config.archivedProjects ?? []).filter((p) => p.path !== cwd);
 		await window.vetta.config.set({ archivedProjects: archived });
 	}, []);
 
@@ -142,8 +147,8 @@ export function useProjects() {
 	const deleteProjectFromDisk = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			config.projects = config.projects.filter((p) => p !== cwd);
-			const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
+			config.projects = config.projects.filter((p) => p.path !== cwd);
+			const archived = (config.archivedProjects ?? []).filter((p) => p.path !== cwd);
 			await window.vetta.config.set({ projects: config.projects, archivedProjects: archived });
 			await window.vetta.fs.delete(cwd);
 			await refreshProjects();
