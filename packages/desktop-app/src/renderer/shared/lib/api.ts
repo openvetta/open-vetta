@@ -55,6 +55,14 @@ export interface UserInfo {
 	created_at: string;
 }
 
+export async function loginByAccount(account: string, password: string): Promise<{ token: string; user: UserInfo }> {
+	return request<{ token: string; user: UserInfo }>("/auth/login", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ account, password }),
+	});
+}
+
 export async function fetchOAuthProviders(): Promise<string[]> {
 	return request<string[]>("/oauth/providers");
 }
