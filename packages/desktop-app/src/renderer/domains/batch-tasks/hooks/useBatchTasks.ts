@@ -12,7 +12,7 @@ export function useBatchTasks() {
 	}, [setProjects]);
 
 	const createProject = useCallback(
-		async (data: { name: string; prompt: string; folders: string[]; concurrency: number }) => {
+		async (data: { name: string; prompt: string; modelKey?: string; folders: string[]; concurrency: number }) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
 			return project;
@@ -23,7 +23,7 @@ export function useBatchTasks() {
 	const updateProject = useCallback(
 		async (
 			projectId: string,
-			data: { name?: string; prompt?: string; concurrency?: number; newFolders?: string[] },
+			data: { name?: string; prompt?: string; modelKey?: string; concurrency?: number; newFolders?: string[] },
 		) => {
 			await window.vetta.batchTasks.updateProject(projectId, data);
 			setProjects((prev) =>
@@ -45,6 +45,7 @@ export function useBatchTasks() {
 						...p,
 						...(data.name !== undefined ? { name: data.name } : {}),
 						...(data.prompt !== undefined ? { prompt: data.prompt } : {}),
+						...(data.modelKey !== undefined ? { modelKey: data.modelKey } : {}),
 						...(data.concurrency !== undefined ? { concurrency: data.concurrency } : {}),
 						tasks: [...p.tasks, ...newTasks],
 						updatedAt: Date.now(),
@@ -136,6 +137,10 @@ export function useBatchTasks() {
 
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
+			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, {
+				projectId: event.projectId,
+				taskId: event.taskId,
+			});
 			setProjects((prev) =>
 				prev.map((p) => {
 					if (p.id !== event.projectId) return p;

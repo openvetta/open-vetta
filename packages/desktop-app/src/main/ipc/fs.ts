@@ -375,6 +375,7 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.RENAME);
 		ipcMain.removeHandler(CHANNELS.DELETE);
 		ipcMain.removeHandler(CHANNELS.MOVE);
+		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.CREATE_DIRECTORY);
 		ipcMain.removeHandler(CHANNELS.LIST_SUB_DIRS);
 		ipcMain.removeHandler(CHANNELS.CONFIG_GET);
