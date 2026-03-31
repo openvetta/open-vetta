@@ -340,7 +340,7 @@ export function BatchTaskList({
 										<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/50">
 											<span className="flex items-center gap-1">
 												<span className="icon-[mdi--folder-outline] text-[13px]" />
-												<span className="max-w-[150px] truncate">{task.cwd}</span>
+												<span className="max-w-[150px] truncate">{task.sourcePath}</span>
 											</span>
 											{task.sessionId ? (
 												<span className="flex items-center gap-1">

@@ -27,7 +27,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [modelKey, setModelKey] = useState<string | undefined>(project?.modelKey);
 	const [modelOptions, setModelOptions] = useState<Array<{ key: string; label: string }>>([]);
 	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
-	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.cwd) ?? []);
+	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.sourcePath) ?? []);
 
 	const flattenModels = (config: ModelsConfigData): Array<{ key: string; label: string }> => {
 		const options: Array<{ key: string; label: string }> = [];
@@ -47,7 +47,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setPrompt(project?.prompt ?? "");
 		setModelKey(project?.modelKey);
 		setConcurrency(project?.concurrency ?? 1);
-		setFolders(project?.tasks.map((t) => t.cwd) ?? []);
+		setFolders(project?.tasks.map((t) => t.sourcePath) ?? []);
 	}, [project]);
 
 	useEffect(() => {
@@ -88,8 +88,8 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		if (!canSubmit) return;
 
 		if (project) {
-			const originalCwds = new Set(project.tasks.map((t) => t.cwd));
-			const newFolders = folders.filter((f) => !originalCwds.has(f));
+			const originalSources = new Set(project.tasks.map((t) => t.sourcePath));
+			const newFolders = folders.filter((f) => !originalSources.has(f));
 			await updateProject(project.id, { name, prompt, modelKey, concurrency, newFolders });
 		} else {
 			await createProject({ name, prompt, modelKey, folders, concurrency });

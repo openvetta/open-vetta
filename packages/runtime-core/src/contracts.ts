@@ -134,6 +134,7 @@ export interface SessionConfig {
 	cwd?: string;
 	agentDir?: string;
 	sessionPath?: string;
+	sessionDir?: string;
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
 }

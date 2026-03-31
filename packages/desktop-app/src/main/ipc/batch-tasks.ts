@@ -7,7 +7,7 @@ import {
 	runTask,
 	subscribeBatchTaskEvents,
 } from "../batch-tasks/batch-task-executor";
-import { deleteProjectTaskStates, deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
+import { deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
 import {
 	createProject,
 	deleteProject,
@@ -82,7 +82,6 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.DELETE_PROJECT, async (_, projectId: string) => {
 		console.log(`[BatchTaskIPC] DELETE_PROJECT: ${projectId}`);
 		await deleteProject(projectId);
-		await deleteProjectTaskStates(projectId);
 	});
 
 	ipcMain.handle(CHANNELS.RUN_TASK, async (_, projectId: string, taskId: string) => {
