@@ -18,6 +18,8 @@ export interface BatchProject {
 	id: string;
 	name: string;
 	prompt: string;
+	/** Project-level model key in "provider/modelId" format */
+	modelKey?: string;
 	concurrency: number;
 	tasks: BatchTask[];
 	createdAt: number;

@@ -272,6 +272,7 @@ export interface BatchProject {
 	id: string;
 	name: string;
 	prompt: string;
+	modelKey?: string;
 	concurrency: number;
 	tasks: BatchTask[];
 	createdAt: number;
@@ -287,10 +288,16 @@ export type BatchTaskEvent =
 
 export interface DesktopBatchTasksApi {
 	getProjects(): Promise<BatchProject[]>;
-	createProject(data: { name: string; prompt: string; folders: string[]; concurrency: number }): Promise<BatchProject>;
+	createProject(data: {
+		name: string;
+		prompt: string;
+		modelKey?: string;
+		folders: string[];
+		concurrency: number;
+	}): Promise<BatchProject>;
 	updateProject(
 		projectId: string,
-		data: Partial<{ name: string; prompt: string; concurrency: number; newFolders: string[] }>,
+		data: Partial<{ name: string; prompt: string; modelKey: string; concurrency: number; newFolders: string[] }>,
 	): Promise<void>;
 	deleteProject(projectId: string): Promise<void>;
 	runTask(projectId: string, taskId: string): Promise<void>;

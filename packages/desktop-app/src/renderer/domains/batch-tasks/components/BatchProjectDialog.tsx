@@ -1,10 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import { useSetAtom } from "jotai";
-import {
-	batchProjectDialogOpenAtom,
-	confirmDialogAtom,
-	type BatchProject,
-} from "@shared/store/atoms";
+import type { ModelsConfigData } from "@preload/api";
+import { type BatchProject } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import {
 	Dialog,
@@ -28,15 +24,48 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 
 	const [name, setName] = useState(project?.name ?? "");
 	const [prompt, setPrompt] = useState(project?.prompt ?? "");
+	const [modelKey, setModelKey] = useState<string | undefined>(project?.modelKey);
+	const [modelOptions, setModelOptions] = useState<Array<{ key: string; label: string }>>([]);
 	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
 	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.cwd) ?? []);
+
+	const flattenModels = (config: ModelsConfigData): Array<{ key: string; label: string }> => {
+		const options: Array<{ key: string; label: string }> = [];
+		for (const [provider, providerConfig] of Object.entries(config.providers)) {
+			for (const model of providerConfig.models ?? []) {
+				options.push({
+					key: `${provider}/${model.id}`,
+					label: `${provider} / ${model.name || model.id}`,
+				});
+			}
+		}
+		return options;
+	};
 
 	useEffect(() => {
 		setName(project?.name ?? "");
 		setPrompt(project?.prompt ?? "");
+		setModelKey(project?.modelKey);
 		setConcurrency(project?.concurrency ?? 1);
 		setFolders(project?.tasks.map((t) => t.cwd) ?? []);
 	}, [project]);
+
+	useEffect(() => {
+		if (!open) return;
+		void window.vetta.models.get().then((config) => {
+			const options = flattenModels(config);
+			setModelOptions(options);
+			const currentSelected = localStorage.getItem("vetta-selected-model") ?? undefined;
+			const fallback = project?.modelKey ?? currentSelected ?? config.defaultModel;
+			if (fallback && options.some((option) => option.key === fallback)) {
+				setModelKey(fallback);
+			} else if (options.length > 0) {
+				setModelKey(options[0].key);
+			} else {
+				setModelKey(undefined);
+			}
+		});
+	}, [open, project?.modelKey]);
 
 	const canSubmit = name.trim() && prompt.trim() && folders.length > 0;
 
@@ -61,9 +90,9 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		if (project) {
 			const originalCwds = new Set(project.tasks.map((t) => t.cwd));
 			const newFolders = folders.filter((f) => !originalCwds.has(f));
-			await updateProject(project.id, { name, prompt, concurrency, newFolders });
+			await updateProject(project.id, { name, prompt, modelKey, concurrency, newFolders });
 		} else {
-			await createProject({ name, prompt, folders, concurrency });
+			await createProject({ name, prompt, modelKey, folders, concurrency });
 		}
 		onClose();
 	};
@@ -90,6 +119,28 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 						placeholder="输入提示词..."
 						rows={5}
 					/>
+
+					<div className="mt-4">
+						<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
+							<span>模型</span>
+						</label>
+						<Select
+							value={modelKey}
+							onValueChange={(v) => setModelKey(v)}
+							disabled={modelOptions.length === 0}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder={modelOptions.length === 0 ? "暂无可用模型" : "选择模型"} />
+							</SelectTrigger>
+							<SelectContent>
+								{modelOptions.map((option) => (
+									<SelectItem key={option.key} value={option.key}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
 
 					<div className="mt-4">
 						<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
