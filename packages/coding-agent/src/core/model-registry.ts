@@ -27,6 +27,20 @@ import { clearConfigValueCache, resolveConfigValue, resolveHeaders } from "./res
 
 const Ajv = (AjvModule as any).default || AjvModule;
 
+/**
+ * Normalize common API type aliases to their registered names.
+ * Users may write "anthropic" or "openai" in configs, but the registry
+ * uses "anthropic-messages" and "openai-completions" respectively.
+ */
+const API_TYPE_ALIASES: Record<string, string> = {
+	anthropic: "anthropic-messages",
+	openai: "openai-completions",
+};
+
+function normalizeApiType(api: string): string {
+	return API_TYPE_ALIASES[api] ?? api;
+}
+
 // Schema for OpenRouter routing preferences
 const OpenRouterRoutingSchema = Type.Object({
 	only: Type.Optional(Type.Array(Type.String())),
@@ -570,8 +584,9 @@ export class ModelRegistry {
 			}
 
 			for (const modelDef of modelDefs) {
-				const api = modelDef.api || providerConfig.api;
-				if (!api) continue;
+				const rawApi = modelDef.api || providerConfig.api;
+				if (!rawApi) continue;
+				const api = normalizeApiType(rawApi);
 
 				// Merge headers: provider headers are base, model headers override
 				// Resolve env vars and shell commands in header values
