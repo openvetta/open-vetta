@@ -1,9 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
-
-const CONFIG_DIR = join(homedir(), ".vetta");
-const STATES_FILE = join(CONFIG_DIR, "batch-task-states.json");
+import { discoverBatchProjects } from "./batch-task-storage";
 
 export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
 
@@ -20,115 +17,112 @@ export interface BatchTaskState {
 
 export type ProjectTaskStates = Record<string, BatchTaskState>;
 
-type AllTaskStates = Record<string, ProjectTaskStates>;
+// ─── Per-project cache ───
 
-let cachedStates: AllTaskStates | null = null;
-let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const cachedStates = new Map<string, ProjectTaskStates>();
+const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-async function ensureDirectory(): Promise<void> {
-	await mkdir(CONFIG_DIR, { recursive: true });
+function statesPath(projectDir: string): string {
+	return join(projectDir, ".vetta", "task-states.json");
 }
 
-export async function loadTaskStates(): Promise<AllTaskStates> {
-	if (cachedStates !== null) {
-		return cachedStates;
-	}
+export async function loadProjectTaskStates(projectDir: string): Promise<ProjectTaskStates> {
+	const cached = cachedStates.get(projectDir);
+	if (cached) return cached;
+
+	let states: ProjectTaskStates = {};
 	try {
-		await ensureDirectory();
-		const data = await readFile(STATES_FILE, "utf-8");
-		cachedStates = JSON.parse(data);
+		const data = await readFile(statesPath(projectDir), "utf-8");
+		states = JSON.parse(data) as ProjectTaskStates;
 	} catch {
-		cachedStates = {};
+		// file doesn't exist yet
 	}
-	return cachedStates!;
+	cachedStates.set(projectDir, states);
+	return states;
 }
 
-export async function saveTaskStates(states: AllTaskStates): Promise<void> {
-	await ensureDirectory();
-	await writeFile(STATES_FILE, JSON.stringify(states, null, 2), "utf-8");
+async function saveProjectTaskStates(projectDir: string, states: ProjectTaskStates): Promise<void> {
+	const dir = join(projectDir, ".vetta");
+	await mkdir(dir, { recursive: true });
+	await writeFile(statesPath(projectDir), JSON.stringify(states, null, 2), "utf-8");
 }
 
-function scheduleFlush(): void {
-	if (saveTimer !== null) return;
-	saveTimer = setTimeout(async () => {
-		saveTimer = null;
-		if (cachedStates !== null) {
-			await saveTaskStates(cachedStates);
+function scheduleFlush(projectDir: string): void {
+	if (saveTimers.has(projectDir)) return;
+	const timer = setTimeout(async () => {
+		saveTimers.delete(projectDir);
+		const states = cachedStates.get(projectDir);
+		if (states) {
+			await saveProjectTaskStates(projectDir, states);
 		}
 	}, 50);
+	saveTimers.set(projectDir, timer);
 }
 
-export async function getTaskState(projectId: string, taskId: string): Promise<BatchTaskState | undefined> {
-	const states = await loadTaskStates();
-	return states[projectId]?.[taskId];
+export async function getTaskState(projectDir: string, taskId: string): Promise<BatchTaskState | undefined> {
+	const states = await loadProjectTaskStates(projectDir);
+	return states[taskId];
 }
 
-export async function saveTaskState(projectId: string, taskId: string, state: BatchTaskState): Promise<void> {
-	const states = await loadTaskStates();
-	if (!states[projectId]) {
-		states[projectId] = {};
-	}
-	states[projectId][taskId] = state;
+export async function saveTaskState(projectDir: string, taskId: string, state: BatchTaskState): Promise<void> {
+	const states = await loadProjectTaskStates(projectDir);
+	states[taskId] = state;
 	console.log(
-		`[BatchTaskState] State scheduled to save: project=${projectId}, task=${taskId}, status=${state.status}`,
+		`[BatchTaskState] State scheduled to save: project=${projectDir}, task=${taskId}, status=${state.status}`,
 	);
-	scheduleFlush();
+	scheduleFlush(projectDir);
 }
 
-export async function deleteTaskState(projectId: string, taskId: string): Promise<void> {
-	const states = await loadTaskStates();
-	if (states[projectId]) {
-		delete states[projectId][taskId];
-		if (Object.keys(states[projectId]).length === 0) {
-			delete states[projectId];
-		}
-		scheduleFlush();
-	}
-}
-
-export async function deleteProjectTaskStates(projectId: string): Promise<void> {
-	const states = await loadTaskStates();
-	delete states[projectId];
-	scheduleFlush();
+export async function deleteTaskState(projectDir: string, taskId: string): Promise<void> {
+	const states = await loadProjectTaskStates(projectDir);
+	delete states[taskId];
+	scheduleFlush(projectDir);
 }
 
 export async function updateTaskState(
-	projectId: string,
+	projectDir: string,
 	taskId: string,
 	patch: Partial<BatchTaskState>,
 ): Promise<void> {
-	const states = await loadTaskStates();
-	if (states[projectId]?.[taskId]) {
-		states[projectId][taskId] = {
-			...states[projectId][taskId],
+	const states = await loadProjectTaskStates(projectDir);
+	if (states[taskId]) {
+		states[taskId] = {
+			...states[taskId],
 			...patch,
 			lastModified: Date.now(),
 		};
-		scheduleFlush();
+		scheduleFlush(projectDir);
 	}
 }
 
 export async function recoverRunningTasks(): Promise<void> {
 	console.log(`[BatchTaskState] recoverRunningTasks: checking for stale running tasks`);
-	const states = await loadTaskStates();
+	const projectDirs = await discoverBatchProjects();
 	let modified = false;
 
-	for (const projectId of Object.keys(states)) {
-		for (const taskId of Object.keys(states[projectId])) {
-			const state = states[projectId][taskId];
+	for (const projectDir of projectDirs) {
+		const states = await loadProjectTaskStates(projectDir);
+		let projectModified = false;
+
+		for (const taskId of Object.keys(states)) {
+			const state = states[taskId];
 			if (state.status === "running") {
-				console.log(`[BatchTaskState] Recovering stale task ${taskId} (project ${projectId})`);
+				console.log(`[BatchTaskState] Recovering stale task ${taskId} (project ${projectDir})`);
 				state.status = "failed";
 				state.error = "应用异常退出";
 				state.completedAt = Date.now();
 				state.lastModified = Date.now();
+				projectModified = true;
 				modified = true;
 			}
+		}
+
+		if (projectModified) {
+			await saveProjectTaskStates(projectDir, states);
 		}
 	}
 
 	if (modified) {
-		await saveTaskStates(states);
 		console.log(`[BatchTaskState] Stale tasks recovered and saved`);
 	} else {
 		console.log(`[BatchTaskState] No stale running tasks found`);

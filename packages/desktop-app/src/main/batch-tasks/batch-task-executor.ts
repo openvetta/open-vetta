@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
 import { type BatchTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
@@ -104,7 +105,8 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 	);
 
 	try {
-		const result = await runtime.createSession({ cwd: task.cwd });
+		const sessionDir = join(project.id, ".vetta", "sessions");
+		const result = await runtime.createSession({ cwd: task.cwd, sessionDir });
 		const sessionId = result.sessionId;
 		const sessionPath = runtime.getSessionPath(sessionId);
 		executingTasks.set(task.id, { projectId: project.id, taskId: task.id, sessionId, sessionPath, abortController });
@@ -137,8 +139,9 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			}
 		}
 
+		const fullPrompt = `源代码路径（只读）: ${task.sourcePath}\n\n${project.prompt}`;
 		console.log(`[BatchTask] Sending prompt for session ${sessionId}`);
-		await runtime.prompt(sessionId, { text: project.prompt });
+		await runtime.prompt(sessionId, { text: fullPrompt });
 		console.log(`[BatchTask] Prompt sent, task ${task.id} is now running`);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);

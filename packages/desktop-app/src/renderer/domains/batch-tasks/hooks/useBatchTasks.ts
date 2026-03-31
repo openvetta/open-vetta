@@ -31,11 +31,12 @@ export function useBatchTasks() {
 					if (p.id !== projectId) return p;
 					const newTasks = data.newFolders
 						? data.newFolders
-								.filter((cwd) => !p.tasks.some((t) => t.cwd === cwd))
-								.map((cwd) => ({
+								.filter((sourcePath) => !p.tasks.some((t) => t.sourcePath === sourcePath))
+								.map((sourcePath) => ({
 									id: `batch-task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-									name: cwd.split("/").pop() ?? cwd,
-									cwd,
+									name: sourcePath.split("/").pop() ?? sourcePath,
+									cwd: sourcePath,
+									sourcePath,
 									status: "pending" as const,
 									createdAt: Date.now(),
 									updatedAt: Date.now(),

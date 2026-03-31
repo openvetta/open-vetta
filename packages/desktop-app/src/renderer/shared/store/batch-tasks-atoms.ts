@@ -6,6 +6,7 @@ export interface BatchTask {
 	id: string;
 	name: string;
 	cwd: string;
+	sourcePath: string;
 	status: BatchTaskStatus;
 	sessionId?: string;
 	sessionPath?: string;

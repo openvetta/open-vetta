@@ -48,7 +48,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		const tasksWithSession = bp.tasks.filter((t) => t.sessionPath);
 		return {
 			project: {
-				cwd: `batch:${bp.id}`,
+				cwd: bp.id,
 				name: bp.name,
 				sessionCount: tasksWithSession.length,
 				type: "batch",
@@ -139,11 +139,10 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const expandBatchProject = useCallback(
 		(key: string) => {
-			const id = key.replace("batch:", "");
 			setExpandedBatchProjects((prev) => {
-				if (prev.has(id)) return prev;
+				if (prev.has(key)) return prev;
 				const next = new Set(prev);
-				next.add(id);
+				next.add(key);
 				return next;
 			});
 		},
@@ -152,11 +151,10 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const collapseBatchProject = useCallback(
 		(key: string) => {
-			const id = key.replace("batch:", "");
 			setExpandedBatchProjects((prev) => {
-				if (!prev.has(id)) return prev;
+				if (!prev.has(key)) return prev;
 				const next = new Set(prev);
-				next.delete(id);
+				next.delete(key);
 				return next;
 			});
 		},
@@ -196,7 +194,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						key={project.cwd}
 						project={project}
 						sessions={sessions}
-						isExpanded={expandedBatchProjects.has(project.cwd.replace("batch:", ""))}
+						isExpanded={expandedBatchProjects.has(project.cwd)}
 						activeSessionPath={activeSession?.sessionPath ?? ""}
 						onExpand={expandBatchProject}
 						onCollapse={collapseBatchProject}

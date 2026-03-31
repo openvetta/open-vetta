@@ -34,7 +34,7 @@ export class RuntimeHost implements SessionFacade {
 			config.sessionPath && config.sessionPath.trim().length > 0
 				? SessionManager.open(config.sessionPath)
 				: config.cwd
-					? SessionManager.create(config.cwd)
+					? SessionManager.create(config.cwd, config.sessionDir)
 					: undefined;
 
 		const options: CreateAgentSessionOptions = {
