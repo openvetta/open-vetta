@@ -101,7 +101,7 @@ export function ProjectDetailPage(): JSX.Element {
 	}, [isDirty, save]);
 
 	return (
-		<div className="flex h-full flex-col">
+		<div className="flex h-full w-full flex-col">
 			{/* Header */}
 			<div className="shrink-0 border-b border-border/50 px-8 py-6">
 				<div className="flex items-start justify-between">
