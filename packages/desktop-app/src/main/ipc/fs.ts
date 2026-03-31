@@ -1,3 +1,4 @@
+import type { Stats } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
@@ -229,7 +230,15 @@ export function registerFsIpc(): () => void {
 			assertPathWithinProject(filePath);
 
 			const resolved = resolve(filePath);
-			const stats = await stat(resolved);
+			let stats: Stats;
+			try {
+				stats = await stat(resolved);
+			} catch (err: unknown) {
+				if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+					return { content: "", encoding: "utf8" };
+				}
+				throw err;
+			}
 			if (stats.size > MAX_FILE_SIZE) {
 				throw new Error("File too large to preview (>10 MB)");
 			}

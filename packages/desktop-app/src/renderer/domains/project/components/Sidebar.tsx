@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import { sidebarFilterAtom, sidebarModeAtom, sidebarWidthAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { isMac, isWindows } from "@shared/lib/platform";
-import { SidebarFilterSelect } from "./SidebarTabs";
+import { SidebarFilterSelect, SidebarModeToggle } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
@@ -27,6 +27,7 @@ interface SidebarProps {
 
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	const filter = useAtomValue(sidebarFilterAtom);
+	const mode = useAtomValue(sidebarModeAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
@@ -80,17 +81,26 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				))}
 			</nav>
 
-			{/* Section header: filter dropdown */}
+			{/* Section header: filter dropdown / project name + mode toggle */}
 			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
-				<SidebarFilterSelect />
+				<div className="flex min-w-0 items-center gap-1">
+					{mode === "projects" ? (
+						<SidebarFilterSelect />
+					) : (
+						<span className="truncate px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground">
+							文件
+						</span>
+					)}
+				</div>
 				<div className="flex items-center gap-1">
-					{isWindows && filter !== "files" && <AddProjectMenu />}
+					<SidebarModeToggle />
+					{isWindows && mode === "projects" && <AddProjectMenu />}
 				</div>
 			</div>
 
 			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
-				{filter === "files" ? (
+				{mode === "files" ? (
 					<FilesPanel />
 				) : (
 					<ProjectsPanel filter={filter} onOpenSession={onOpenSession} />

@@ -11,7 +11,7 @@ import { SessionContextMenu } from "./SessionContextMenu";
 import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 
 interface ProjectsPanelProps {
-	filter: Exclude<SidebarFilter, "files">;
+	filter: SidebarFilter;
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
 }
 
