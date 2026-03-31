@@ -2,13 +2,12 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { pathBasename } from "@shared/lib/utils";
-import type { SidebarFilter } from "@shared/store/atoms";
+import type { Project, SessionInfo, SidebarFilter } from "@shared/store/atoms";
 import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
 import { SessionContextMenu } from "./SessionContextMenu";
-import { BatchProjectGroup } from "../../batch-tasks/components/BatchProjectGroup";
 import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 
 interface ProjectsPanelProps {
@@ -40,12 +39,37 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
 	const { toggleProject: toggleBatchProject } = useBatchTasks();
 
+	// Convert visible batch projects to Project + SessionInfo format
+	const visibleBatchProjects = useMemo(() => batchProjects.filter((bp) =>
+		bp.tasks.some((t) => t.status === "running" || t.status === "completed"),
+	), [batchProjects]);
+
+	const batchAsProjects = useMemo(() => visibleBatchProjects.map((bp): { project: Project; sessions: SessionInfo[] } => {
+		const tasksWithSession = bp.tasks.filter((t) => t.sessionPath);
+		return {
+			project: {
+				cwd: `batch:${bp.id}`,
+				name: bp.name,
+				sessionCount: tasksWithSession.length,
+				type: "batch",
+			},
+			sessions: tasksWithSession.map((t) => ({
+				id: t.id,
+				path: t.sessionPath!,
+				cwd: t.cwd,
+				name: t.name || undefined,
+				firstMessage: t.name || t.id,
+				modifiedAt: t.updatedAt,
+			})),
+		};
+	}), [visibleBatchProjects]);
+
+	const showBatchGroup = filter === "all" || filter === "batch";
+
 	const filteredProjects = useMemo(() => {
 		if (filter === "all") return projects;
 		return projects.filter((p) => p.type === filter);
 	}, [projects, filter]);
-
-	const showBatchGroup = filter === "all" || filter === "batch";
 
 	const handleNavigateProject = useCallback(
 		(cwd: string) => {
@@ -113,18 +137,33 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects],
 	);
 
-	const handleOpenBatchSession = useCallback(
-		(cwd: string, sessionPath: string) => {
-			void onOpenSession(cwd, sessionPath);
+	const expandBatchProject = useCallback(
+		(key: string) => {
+			const id = key.replace("batch:", "");
+			setExpandedBatchProjects((prev) => {
+				if (prev.has(id)) return prev;
+				const next = new Set(prev);
+				next.add(id);
+				return next;
+			});
 		},
-		[onOpenSession],
+		[setExpandedBatchProjects],
 	);
 
-	const visibleBatchProjects = batchProjects.filter((project) =>
-		project.tasks.some((task) => task.status === "running" || task.status === "completed"),
+	const collapseBatchProject = useCallback(
+		(key: string) => {
+			const id = key.replace("batch:", "");
+			setExpandedBatchProjects((prev) => {
+				if (!prev.has(id)) return prev;
+				const next = new Set(prev);
+				next.delete(id);
+				return next;
+			});
+		},
+		[setExpandedBatchProjects],
 	);
 
-	if (filteredProjects.length === 0 && (!showBatchGroup || visibleBatchProjects.length === 0)) {
+	if (filteredProjects.length === 0 && (!showBatchGroup || batchAsProjects.length === 0)) {
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
 				<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-muted-foreground" />
@@ -152,15 +191,24 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 				/>
 			))}
 			{showBatchGroup &&
-				visibleBatchProjects.map((project) => (
-					<BatchProjectGroup
-						key={project.id}
+				batchAsProjects.map(({ project, sessions }) => (
+					<ProjectGroup
+						key={project.cwd}
 						project={project}
-						tasks={project.tasks}
-						isExpanded={expandedBatchProjects.has(project.id)}
+						sessions={sessions}
+						isExpanded={expandedBatchProjects.has(project.cwd.replace("batch:", ""))}
 						activeSessionPath={activeSession?.sessionPath ?? ""}
-						onToggle={toggleBatchProject}
-						onSelectSession={handleOpenBatchSession}
+						onExpand={expandBatchProject}
+						onCollapse={collapseBatchProject}
+						onNavigateProject={handleNavigateProject}
+						onNewSession={(cwd) => void onOpenSession(cwd)}
+						onSelectSession={(_, path) => {
+							const task = visibleBatchProjects
+								.flatMap((bp) => bp.tasks)
+								.find((t) => t.sessionPath === path);
+							if (task) void onOpenSession(task.cwd, path);
+						}}
+						onRenameSession={handleRenameSession}
 					/>
 				))}
 			{contextMenu && (
