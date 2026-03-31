@@ -43,7 +43,8 @@ async function readConfig(): Promise<DesktopConfig> {
 		return {
 			projects: migrateProjectEntries(parsed.projects),
 			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
-			workspacePath: typeof parsed.workspacePath === "string" ? parsed.workspacePath : DEFAULT_CONFIG.workspacePath,
+			workspacePath:
+				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
