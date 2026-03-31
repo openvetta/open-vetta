@@ -17,15 +17,21 @@ function useProjectDetail(cwd: string) {
 	const projects = useAtomValue(projectsAtom);
 	const sessionsMap = useAtomValue(sessionsMapAtom);
 	const batchProjects = useAtomValue(batchProjectsAtom);
-	const project = projects.find((p) => p.cwd === cwd);
 
-	// For batch projects, session count comes from tasks with sessionPath
-	if (project?.type === "batch") {
-		const bp = batchProjects.find((b) => b.id === cwd);
-		const count = bp?.tasks.filter((t) => t.sessionPath).length ?? 0;
+	// Check if this is a batch project (may not be in projectsAtom)
+	const bp = batchProjects.find((b) => b.id === cwd);
+	if (bp) {
+		const project = projects.find((p) => p.cwd === cwd) ?? {
+			cwd,
+			name: bp.name,
+			sessionCount: 0,
+			type: "batch" as const,
+		};
+		const count = bp.tasks.filter((t) => t.sessionPath).length;
 		return { project, sessionCount: count };
 	}
 
+	const project = projects.find((p) => p.cwd === cwd);
 	const sessions = sessionsMap.get(cwd) ?? [];
 	return { project, sessionCount: sessions.length };
 }
