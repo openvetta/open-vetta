@@ -143,6 +143,8 @@ async function writeModelsConfig(config: ModelsConfig): Promise<void> {
 const CHANNELS = {
 	READ_DIR: "vetta:fs:read-dir",
 	READ_FILE: "vetta:fs:read-file",
+	WRITE_FILE: "vetta:fs:write-file",
+	STAT: "vetta:fs:stat",
 	RENAME: "vetta:fs:rename",
 	DELETE: "vetta:fs:delete",
 	MOVE: "vetta:fs:move",
@@ -239,6 +241,29 @@ export function registerFsIpc(): () => void {
 
 			const content = await readFile(resolved, "utf8");
 			return { content, encoding: "utf8" };
+		},
+	);
+
+	ipcMain.handle(CHANNELS.WRITE_FILE, async (_event, filePath: unknown, content: unknown) => {
+		assertNonEmptyString(filePath, "filePath");
+		if (typeof content !== "string") throw new Error("Invalid content");
+		assertPathWithinProject(filePath);
+		const resolved = resolve(filePath);
+		await mkdir(dirname(resolved), { recursive: true });
+		await writeFile(resolved, content, "utf8");
+	});
+
+	ipcMain.handle(
+		CHANNELS.STAT,
+		async (_event, filePath: unknown): Promise<{ size: number; modifiedAt: number; createdAt: number } | null> => {
+			assertNonEmptyString(filePath, "filePath");
+			assertPathWithinProject(filePath);
+			try {
+				const stats = await stat(resolve(filePath));
+				return { size: stats.size, modifiedAt: stats.mtimeMs, createdAt: stats.birthtimeMs };
+			} catch {
+				return null;
+			}
 		},
 	);
 
@@ -372,6 +397,8 @@ export function registerFsIpc(): () => void {
 	return () => {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.READ_FILE);
+		ipcMain.removeHandler(CHANNELS.WRITE_FILE);
+		ipcMain.removeHandler(CHANNELS.STAT);
 		ipcMain.removeHandler(CHANNELS.RENAME);
 		ipcMain.removeHandler(CHANNELS.DELETE);
 		ipcMain.removeHandler(CHANNELS.MOVE);

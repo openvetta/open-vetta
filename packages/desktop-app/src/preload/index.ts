@@ -72,6 +72,8 @@ const api: DesktopApi = {
 	fs: {
 		readDir: async (dirPath) => ipcRenderer.invoke("vetta:fs:read-dir", dirPath),
 		readFile: async (filePath) => ipcRenderer.invoke("vetta:fs:read-file", filePath),
+		writeFile: async (filePath, content) => ipcRenderer.invoke("vetta:fs:write-file", filePath, content),
+		stat: async (filePath) => ipcRenderer.invoke("vetta:fs:stat", filePath),
 		rename: async (oldPath, newPath) => ipcRenderer.invoke("vetta:fs:rename", oldPath, newPath),
 		delete: async (targetPath) => ipcRenderer.invoke("vetta:fs:delete", targetPath),
 		move: async (sourcePath, destDir) => ipcRenderer.invoke("vetta:fs:move", sourcePath, destDir),
