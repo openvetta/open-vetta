@@ -1,3 +1,4 @@
+import { pathBasename } from "@shared/lib/utils";
 import { batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
@@ -34,7 +35,7 @@ export function useBatchTasks() {
 								.filter((sourcePath) => !p.tasks.some((t) => t.sourcePath === sourcePath))
 								.map((sourcePath) => ({
 									id: `batch-task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-									name: sourcePath.split("/").pop() ?? sourcePath,
+									name: pathBasename(sourcePath),
 									cwd: sourcePath,
 									sourcePath,
 									status: "pending" as const,

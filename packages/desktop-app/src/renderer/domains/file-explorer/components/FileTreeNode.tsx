@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAtom, useSetAtom } from "jotai";
-import { cn } from "@shared/lib/utils";
+import { cn, isSubPath, pathDirname } from "@shared/lib/utils";
 import {
 	type FsEntry,
 	fileContextMenuAtom,
@@ -112,9 +112,9 @@ export function FileTreeNode({
 		e.preventDefault();
 
 		// Guard: can't drop into self or child
-		if (srcPath === entry.path || entry.path.startsWith(srcPath + "/")) return;
+		if (isSubPath(entry.path, srcPath)) return;
 		// Guard: can't drop into same parent
-		const srcParent = srcPath.substring(0, srcPath.lastIndexOf("/"));
+		const srcParent = pathDirname(srcPath);
 		if (srcParent === entry.path) return;
 
 		// Dispatch custom event so FilesPanel can handle the move

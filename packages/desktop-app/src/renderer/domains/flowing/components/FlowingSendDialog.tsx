@@ -11,6 +11,7 @@ import {
 import { Button } from "@shared/components/ui/button";
 import { Textarea } from "@shared/components/ui/textarea";
 import { fetchColleagues, type ColleagueInfo } from "@shared/lib/api";
+import { pathBasename } from "@shared/lib/utils";
 import {
 	activeSessionAtom,
 	authTokenAtom,
@@ -18,11 +19,6 @@ import {
 	selectedFilesAtom,
 } from "@shared/store/atoms";
 import { useFlowingSend } from "../hooks/useFlowingSend";
-
-/** 从完整路径中提取文件名 */
-function fileName(path: string): string {
-	return path.split(/[/\\]/).filter(Boolean).pop() ?? path;
-}
 
 export function FlowingSendDialog(): JSX.Element {
 	const [open, setOpen] = useAtom(flowingSendDialogOpenAtom);
@@ -77,7 +73,7 @@ export function FlowingSendDialog(): JSX.Element {
 		if (!activeSession || selectedReceivers.size === 0 || selectedFiles.length === 0) return;
 
 		const projectDir = activeSession.cwd;
-		const projectName = projectDir.split("/").filter(Boolean).pop() ?? projectDir;
+		const projectName = pathBasename(projectDir);
 
 		// 读取当前项目的 meta，获取已有的 flowingId（链式流转时复用）
 		const meta = await window.vetta.flowing.readMeta(projectDir);
@@ -163,7 +159,7 @@ export function FlowingSendDialog(): JSX.Element {
 									<div key={f} className="group flex min-w-0 items-center gap-2 px-2.5 py-1.5">
 										<span className="icon-[mdi--file-outline] shrink-0 text-sm text-muted-foreground/50" />
 										<div className="min-w-0 flex-1">
-											<div className="truncate font-medium">{fileName(f)}</div>
+											<div className="truncate font-medium">{pathBasename(f)}</div>
 										</div>
 										<button
 											type="button"

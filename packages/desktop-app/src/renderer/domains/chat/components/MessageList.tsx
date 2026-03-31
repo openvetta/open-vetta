@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ChatMessage, ContentBlock, ToolCallBlock } from "@shared/store/atoms";
+import { pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
@@ -154,7 +155,7 @@ function SkillBadge({ name }: { name: string }): JSX.Element {
 }
 
 function FileBadge({ path }: { path: string }): JSX.Element {
-	const name = path.split("/").pop() ?? path;
+	const name = pathBasename(path);
 	return (
 		<span
 			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground"

@@ -1,11 +1,12 @@
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import { activeSessionAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom, flowingSendDialogOpenAtom } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
+import { pathBasename } from "@shared/lib/utils";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
 
 function projectName(cwd: string): string {
-	return cwd.split("/").filter(Boolean).pop() ?? cwd;
+	return pathBasename(cwd);
 }
 
 interface ChatViewProps {
