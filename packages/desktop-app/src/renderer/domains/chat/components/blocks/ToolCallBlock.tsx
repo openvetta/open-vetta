@@ -14,7 +14,7 @@ function parseMcpTool(name: string): { server: string; tool: string } | null {
 
 /** Shorten path for display */
 function shortenPath(path: string): string {
-	const parts = path.split("/");
+	const parts = path.replace(/\\/g, "/").split("/");
 	return parts.length > 3 ? `.../${parts.slice(-3).join("/")}` : path;
 }
 

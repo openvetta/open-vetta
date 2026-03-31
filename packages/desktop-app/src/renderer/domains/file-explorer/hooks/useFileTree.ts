@@ -1,3 +1,4 @@
+import { isSubPath, pathBasename, pathDirname, pathJoin } from "@shared/lib/utils";
 import {
 	activeSessionAtom,
 	expandedDirsAtom,
@@ -54,12 +55,10 @@ export function useFileTree() {
 
 	const renameEntry = useCallback(
 		async (oldPath: string, newName: string) => {
-			const parts = oldPath.split("/");
-			parts[parts.length - 1] = newName;
-			const newPath = parts.join("/");
+			const newPath = pathJoin(pathDirname(oldPath), newName);
 			await window.vetta.fs.rename(oldPath, newPath);
 			// Refresh parent directory
-			const parentDir = oldPath.substring(0, oldPath.lastIndexOf("/"));
+			const parentDir = pathDirname(oldPath);
 			await loadDir(parentDir);
 		},
 		[loadDir],
@@ -68,7 +67,7 @@ export function useFileTree() {
 	const deleteEntry = useCallback(
 		async (entryPath: string) => {
 			await window.vetta.fs.delete(entryPath);
-			const parentDir = entryPath.substring(0, entryPath.lastIndexOf("/"));
+			const parentDir = pathDirname(entryPath);
 			// Remove from cache
 			setCache((prev) => {
 				const next = new Map(prev);
@@ -81,7 +80,7 @@ export function useFileTree() {
 				}
 				// Also remove cached children if it was a directory
 				for (const key of next.keys()) {
-					if (key === entryPath || key.startsWith(`${entryPath}/`)) {
+					if (isSubPath(key, entryPath)) {
 						next.delete(key);
 					}
 				}
@@ -91,7 +90,7 @@ export function useFileTree() {
 			setExpandedDirs((prev) => {
 				const next = new Set(prev);
 				for (const key of next) {
-					if (key === entryPath || key.startsWith(`${entryPath}/`)) {
+					if (isSubPath(key, entryPath)) {
 						next.delete(key);
 					}
 				}
@@ -103,8 +102,8 @@ export function useFileTree() {
 
 	const moveEntry = useCallback(
 		async (srcPath: string, destDir: string) => {
-			const name = srcPath.substring(srcPath.lastIndexOf("/") + 1);
-			const srcParent = srcPath.substring(0, srcPath.lastIndexOf("/"));
+			const name = pathBasename(srcPath);
+			const srcParent = pathDirname(srcPath);
 
 			// Optimistic update
 			setCache((prev) => {
@@ -119,7 +118,7 @@ export function useFileTree() {
 				}
 				if (movedEntry) {
 					const destEntries = next.get(destDir) ?? [];
-					const updated: FsEntry = { ...movedEntry, path: `${destDir}/${name}` };
+					const updated: FsEntry = { ...movedEntry, path: pathJoin(destDir, name) };
 					next.set(
 						destDir,
 						[...destEntries, updated].sort((a, b) => {

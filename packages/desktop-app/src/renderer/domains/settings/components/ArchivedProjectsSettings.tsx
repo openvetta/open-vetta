@@ -4,9 +4,10 @@ import { confirmDialogAtom } from "@shared/store/atoms";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { Button } from "@shared/components/ui/button";
 import { SettingSection } from "./shared";
+import { pathBasename } from "@shared/lib/utils";
 
 function projectName(cwd: string): string {
-	return cwd.split("/").filter(Boolean).pop() ?? cwd;
+	return pathBasename(cwd);
 }
 
 export function ArchivedProjectsSettings(): JSX.Element {
