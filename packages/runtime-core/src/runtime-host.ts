@@ -315,9 +315,10 @@ export class RuntimeHost implements SessionFacade {
 				});
 			} else if (event.message.stopReason === "aborted") {
 				events.push(this.lifecycleEvent(sessionId, "aborted"));
-			} else {
-				events.push(this.lifecycleEvent(sessionId, "agent_end"));
 			}
+			// NOTE: Do NOT emit agent_end here. In a multi-turn agent loop,
+			// message_end fires after each LLM call, not just the final one.
+			// The real agent_end comes from the "agent_end" session event.
 			return events;
 		}
 
