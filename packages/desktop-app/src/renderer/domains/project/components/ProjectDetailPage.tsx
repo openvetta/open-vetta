@@ -101,42 +101,45 @@ export function ProjectDetailPage(): JSX.Element {
 	}, [isDirty, save]);
 
 	return (
-		<div className="flex h-full w-full flex-col">
+		<div className="flex h-full w-full flex-col overflow-hidden">
 			{/* Header */}
-			<div className="shrink-0 border-b border-border/50 px-8 py-6">
+			<div className="shrink-0 px-8 pb-5 pt-7">
 				<div className="flex items-start justify-between">
-					<div className="min-w-0 space-y-1">
-						<h1 className="text-xl font-semibold tracking-tight text-foreground">
+					<div className="min-w-0 space-y-2">
+						<h1 className="text-2xl font-bold tracking-tight text-foreground">
 							{displayName}
 						</h1>
-						<p className="truncate text-[13px] text-muted-foreground">{decodedCwd}</p>
+						<p className="truncate text-[12px] text-muted-foreground/70 font-mono">
+							{decodedCwd}
+						</p>
 					</div>
 					<Button
-						variant="ghost"
+						variant="outline"
 						size="sm"
+						className="shrink-0 gap-1.5 rounded-lg border-border/60 text-muted-foreground transition-all duration-200 hover:border-foreground/20 hover:text-foreground"
 						onClick={() => void window.vetta.shell.showInFolder(decodedCwd)}
 						title={isMac ? "在 Finder 中显示" : "在资源管理器中显示"}
 					>
-						<span className="icon-[mdi--folder-open-outline] mr-1.5 h-4 w-4" />
+						<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 						{isMac ? "Finder" : "资源管理器"}
 					</Button>
 				</div>
 
-				{/* Stats */}
-				<div className="mt-4 flex items-center gap-6">
-					<div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-						<span className="icon-[mdi--chat-outline] h-3.5 w-3.5" />
+				{/* Stats pills */}
+				<div className="mt-4 flex items-center gap-2">
+					<div className="flex items-center gap-1.5 rounded-md bg-accent/50 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors duration-200 hover:bg-accent">
+						<span className="icon-[mdi--chat-outline] h-3 w-3 opacity-60" />
 						<span>{sessionCount} 个会话</span>
 					</div>
 					{createdAt && (
-						<div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-							<span className="icon-[mdi--calendar-outline] h-3.5 w-3.5" />
+						<div className="flex items-center gap-1.5 rounded-md bg-accent/50 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors duration-200 hover:bg-accent">
+							<span className="icon-[mdi--calendar-outline] h-3 w-3 opacity-60" />
 							<span>{formatDate(createdAt)}</span>
 						</div>
 					)}
 					{project && project.type !== "normal" && (
-						<div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-							<span className="icon-[mdi--tag-outline] h-3.5 w-3.5" />
+						<div className="flex items-center gap-1.5 rounded-md bg-accent/50 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors duration-200 hover:bg-accent">
+							<span className="icon-[mdi--tag-outline] h-3 w-3 opacity-60" />
 							<span>
 								{project.type === "schedule"
 									? "自动化"
@@ -149,33 +152,39 @@ export function ProjectDetailPage(): JSX.Element {
 				</div>
 			</div>
 
+			{/* Divider */}
+			<div className="mx-8 h-px bg-gradient-to-r from-transparent via-border/60 to-transparent" />
+
 			{/* Editor section */}
 			<div className="flex min-h-0 flex-1 flex-col px-8 py-5">
 				<div className="mb-3 flex items-center justify-between">
-					<div className="flex items-center gap-2">
-						<span className="icon-[mdi--file-document-edit-outline] h-4 w-4 text-muted-foreground" />
+					<div className="flex items-center gap-2.5">
+						<div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/60">
+							<span className="icon-[mdi--file-document-edit-outline] h-3.5 w-3.5 text-muted-foreground" />
+						</div>
 						<h2 className="text-[13px] font-semibold text-foreground">AGENTS.md</h2>
 						{isDirty && (
-							<span className="h-1.5 w-1.5 rounded-full bg-primary" title="未保存的更改" />
+							<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ring" title="未保存的更改" />
 						)}
 					</div>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2.5">
 						{saveStatus === "saved" && (
-							<span className="text-[12px] text-emerald-500 transition-opacity">已保存</span>
+							<span className="animate-in fade-in text-[12px] font-medium text-emerald-400/90">已保存</span>
 						)}
 						{saveStatus === "error" && (
-							<span className="text-[12px] text-destructive transition-opacity">保存失败</span>
+							<span className="animate-in fade-in text-[12px] font-medium text-destructive">保存失败</span>
 						)}
 						<Button
 							variant="outline"
 							size="sm"
+							className="gap-1.5 rounded-lg border-border/60 transition-all duration-200 hover:border-foreground/20"
 							onClick={() => void save()}
 							disabled={!isDirty || saveStatus === "saving"}
 						>
 							{saveStatus === "saving" ? (
-								<span className="icon-[mdi--loading] mr-1.5 h-3.5 w-3.5 animate-spin" />
+								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
 							) : (
-								<span className="icon-[mdi--content-save-outline] mr-1.5 h-3.5 w-3.5" />
+								<span className="icon-[mdi--content-save-outline] h-3.5 w-3.5" />
 							)}
 							保存
 						</Button>
@@ -184,21 +193,27 @@ export function ProjectDetailPage(): JSX.Element {
 
 				{loading ? (
 					<div className="flex flex-1 items-center justify-center">
-						<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-muted-foreground" />
+						<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-muted-foreground/50" />
 					</div>
 				) : (
-					<textarea
-						ref={textareaRef}
-						value={content}
-						onChange={(e) => setContent(e.target.value)}
-						placeholder="在此编写 AGENTS.md 项目指令..."
-						spellCheck={false}
-						className="min-h-0 flex-1 resize-none rounded-lg border border-border/50 bg-muted/30 px-4 py-3 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-ring/50 focus:outline-none"
-					/>
+					<div className="group relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/40 bg-muted/20 transition-colors duration-300 focus-within:border-ring/40 focus-within:bg-muted/30">
+						<textarea
+							ref={textareaRef}
+							value={content}
+							onChange={(e) => setContent(e.target.value)}
+							placeholder="在此编写 AGENTS.md 项目指令..."
+							spellCheck={false}
+							className="min-h-0 flex-1 resize-none bg-transparent px-5 py-4 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
+						/>
+					</div>
 				)}
 
-				<p className="mt-2 text-[11px] text-muted-foreground/60">
-					AGENTS.md 用于定义项目级别的 AI 指令，所有会话都会自动加载此文件。{isMac ? "Cmd" : "Ctrl"}+S 快速保存。
+				<p className="mt-3 text-[11px] text-muted-foreground/50">
+					AGENTS.md 用于定义项目级别的 AI 指令，所有会话都会自动加载此文件。
+					<kbd className="ml-1 rounded border border-border/40 bg-accent/40 px-1 py-0.5 font-mono text-[10px] text-muted-foreground/70">
+						{isMac ? "⌘" : "Ctrl"}+S
+					</kbd>
+					{" "}快速保存
 				</p>
 			</div>
 		</div>
