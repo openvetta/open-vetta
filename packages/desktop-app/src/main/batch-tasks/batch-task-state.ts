@@ -69,6 +69,9 @@ export async function saveTaskState(projectId: string, taskId: string, state: Ba
 		states[projectId] = {};
 	}
 	states[projectId][taskId] = state;
+	console.log(
+		`[BatchTaskState] State scheduled to save: project=${projectId}, task=${taskId}, status=${state.status}`,
+	);
 	scheduleFlush();
 }
 
@@ -106,6 +109,7 @@ export async function updateTaskState(
 }
 
 export async function recoverRunningTasks(): Promise<void> {
+	console.log(`[BatchTaskState] recoverRunningTasks: checking for stale running tasks`);
 	const states = await loadTaskStates();
 	let modified = false;
 
@@ -113,6 +117,7 @@ export async function recoverRunningTasks(): Promise<void> {
 		for (const taskId of Object.keys(states[projectId])) {
 			const state = states[projectId][taskId];
 			if (state.status === "running") {
+				console.log(`[BatchTaskState] Recovering stale task ${taskId} (project ${projectId})`);
 				state.status = "failed";
 				state.error = "应用异常退出";
 				state.completedAt = Date.now();
@@ -124,5 +129,8 @@ export async function recoverRunningTasks(): Promise<void> {
 
 	if (modified) {
 		await saveTaskStates(states);
+		console.log(`[BatchTaskState] Stale tasks recovered and saved`);
+	} else {
+		console.log(`[BatchTaskState] No stale running tasks found`);
 	}
 }

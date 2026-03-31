@@ -31,6 +31,7 @@ export interface BatchProject {
 	id: string;
 	name: string;
 	prompt: string;
+	modelKey?: string;
 	concurrency: number;
 	tasks: BatchTask[];
 	createdAt: number;
@@ -41,6 +42,7 @@ interface StoredProject {
 	id: string;
 	name: string;
 	prompt: string;
+	modelKey?: string;
 	concurrency: number;
 	tasks: BatchTaskMeta[];
 	createdAt: number;
@@ -84,6 +86,7 @@ export async function loadProjects(): Promise<BatchProject[]> {
 				id: stored.id,
 				name: stored.name,
 				prompt: stored.prompt,
+				modelKey: stored.modelKey,
 				concurrency: stored.concurrency,
 				tasks,
 				createdAt: stored.createdAt,
@@ -91,8 +94,12 @@ export async function loadProjects(): Promise<BatchProject[]> {
 			});
 		}
 
+		console.log(`[BatchTaskStorage] loadProjects: loaded ${projects.length} projects`);
 		return projects;
-	} catch {
+	} catch (error) {
+		console.error(
+			`[BatchTaskStorage] loadProjects failed: ${error instanceof Error ? error.message : String(error)}`,
+		);
 		return [];
 	}
 }
@@ -103,6 +110,7 @@ export async function saveProjects(_projects: BatchProject[]): Promise<void> {
 		id: p.id,
 		name: p.name,
 		prompt: p.prompt,
+		modelKey: p.modelKey,
 		concurrency: p.concurrency,
 		tasks: p.tasks.map((t) => ({
 			id: t.id,
@@ -127,6 +135,7 @@ export function generateTaskId(): string {
 export async function createProject(
 	name: string,
 	prompt: string,
+	modelKey: string | undefined,
 	folders: string[],
 	concurrency: number,
 ): Promise<BatchProject> {
@@ -144,11 +153,15 @@ export async function createProject(
 		id: generateProjectId(),
 		name,
 		prompt,
+		modelKey,
 		concurrency,
 		tasks,
 		createdAt: now,
 		updatedAt: now,
 	};
+	console.log(
+		`[BatchTaskStorage] createProject: ${project.id}(${name}), tasks=${tasks.length}, concurrency=${concurrency}`,
+	);
 
 	const projects = await loadProjects();
 	projects.push(project);
@@ -159,13 +172,14 @@ export async function createProject(
 
 export async function updateProject(
 	projectId: string,
-	data: Partial<{ name: string; prompt: string; concurrency: number; newFolders: string[] }>,
+	data: Partial<{ name: string; prompt: string; modelKey: string; concurrency: number; newFolders: string[] }>,
 ): Promise<void> {
 	const projects = await loadProjects();
 	const project = projects.find((p) => p.id === projectId);
 	if (project) {
 		if (data.name !== undefined) project.name = data.name;
 		if (data.prompt !== undefined) project.prompt = data.prompt;
+		if (data.modelKey !== undefined) project.modelKey = data.modelKey;
 		if (data.concurrency !== undefined) project.concurrency = data.concurrency;
 		if (data.newFolders) {
 			const now = Date.now();
@@ -189,6 +203,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
+	console.log(`[BatchTaskStorage] deleteProject: ${projectId}`);
 	const projects = await loadProjects();
 	const filtered = projects.filter((p) => p.id !== projectId);
 	await saveProjects(filtered);
