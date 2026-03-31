@@ -1,7 +1,7 @@
 import { useParams } from "@tanstack/react-router";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { projectsAtom, sessionsMapAtom } from "@shared/store/atoms";
+import { batchProjectsAtom, projectsAtom, sessionsMapAtom } from "@shared/store/atoms";
 import { pathBasename } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { isMac } from "@shared/lib/platform";
@@ -16,7 +16,16 @@ function formatDate(ts: number): string {
 function useProjectDetail(cwd: string) {
 	const projects = useAtomValue(projectsAtom);
 	const sessionsMap = useAtomValue(sessionsMapAtom);
+	const batchProjects = useAtomValue(batchProjectsAtom);
 	const project = projects.find((p) => p.cwd === cwd);
+
+	// For batch projects, session count comes from tasks with sessionPath
+	if (project?.type === "batch") {
+		const bp = batchProjects.find((b) => b.id === cwd);
+		const count = bp?.tasks.filter((t) => t.sessionPath).length ?? 0;
+		return { project, sessionCount: count };
+	}
+
 	const sessions = sessionsMap.get(cwd) ?? [];
 	return { project, sessionCount: sessions.length };
 }
