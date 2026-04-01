@@ -1,5 +1,5 @@
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
-import { activeSessionAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom, flowingSendDialogOpenAtom } from "@shared/store/atoms";
+import { activeSessionAtom, authUserAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom, flowingSendDialogOpenAtom, workflowInstanceAtom, workflowCompleteDialogOpenAtom } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { pathBasename } from "@shared/lib/utils";
 import { MessageList } from "./MessageList";
@@ -20,6 +20,17 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
 	const setFlowingSendOpen = useSetAtom(flowingSendDialogOpenAtom);
+	const setWorkflowCompleteOpen = useSetAtom(workflowCompleteDialogOpenAtom);
+	const workflowInstance = useAtomValue(workflowInstanceAtom);
+	const authUser = useAtomValue(authUserAtom);
+
+	// 判断是否在最后环节且当前用户是该环节成员
+	const isLastStage =
+		workflowInstance != null &&
+		workflowInstance.status === "active" &&
+		authUser != null &&
+		workflowInstance.current_stage === workflowInstance.stages.length - 1 &&
+		workflowInstance.stages[workflowInstance.current_stage]?.member_ids.includes(authUser.id);
 
 	return (
 		<div className="relative flex h-full min-w-0 flex-1 flex-col bg-background">
@@ -46,14 +57,25 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 								Thinking...
 							</div>
 						)}
-						<Button
-              size="sm"
-              className="rounded-full"
-							onClick={() => setFlowingSendOpen(true)}
-						>
-              <span className="icon-[mdi--swap-horizontal] text-[14px]" />
-              <span>内容流转</span>
-						</Button>
+						{isLastStage ? (
+							<Button
+								size="sm"
+								className="rounded-full bg-emerald-600 hover:bg-emerald-700"
+								onClick={() => setWorkflowCompleteOpen(true)}
+							>
+								<span className="icon-[mdi--check-circle-outline] text-[14px]" />
+								<span>完成</span>
+							</Button>
+						) : (
+							<Button
+								size="sm"
+								className="rounded-full"
+								onClick={() => setFlowingSendOpen(true)}
+							>
+								<span className="icon-[mdi--swap-horizontal] text-[14px]" />
+								<span>内容流转</span>
+							</Button>
+						)}
 						<Button
 							size="icon-xs"
 							variant="ghost"
