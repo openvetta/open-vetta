@@ -1,16 +1,28 @@
 import { useParams } from "@tanstack/react-router";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { batchProjectsAtom, openSessionFnRef, projectsAtom, sessionsMapAtom } from "@shared/store/atoms";
+import {
+	authTokenAtom,
+	batchProjectsAtom,
+	openSessionFnRef,
+	projectsAtom,
+	sessionsMapAtom,
+	workflowInstanceAtom,
+} from "@shared/store/atoms";
 import { pathBasename } from "@shared/lib/utils";
+import { fetchWorkflowInstanceByFlowing } from "@shared/lib/api";
 import { Button } from "@shared/components/ui/button";
 import { isMac } from "@shared/lib/platform";
 import { BatchQueueStatus } from "./BatchQueueStatus";
 import { ScheduleStatus } from "./ScheduleStatus";
 import { FlowingWorkflow } from "@domains/flowing/components/FlowingWorkflow";
+import { WorkflowBindDialog } from "@domains/flowing/components/WorkflowBindDialog";
+import { WorkflowProgress } from "@domains/flowing/components/WorkflowProgress";
+import { useWorkflowSSE } from "@domains/flowing/hooks/useWorkflowSSE";
 
-function useFlowingId(cwd: string) {
+function useFlowingMeta(cwd: string) {
 	const [flowingId, setFlowingId] = useState<number | null>(null);
+	const [workflowInstanceId, setWorkflowInstanceId] = useState<number | null>(null);
 
 	useEffect(() => {
 		void window.vetta.flowing.readMeta(cwd).then((meta) => {
@@ -19,10 +31,15 @@ function useFlowingId(cwd: string) {
 			} else {
 				setFlowingId(null);
 			}
+			if (meta && typeof meta.workflowInstanceId === "number") {
+				setWorkflowInstanceId(meta.workflowInstanceId);
+			} else {
+				setWorkflowInstanceId(null);
+			}
 		});
 	}, [cwd]);
 
-	return flowingId;
+	return { flowingId, workflowInstanceId };
 }
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -115,11 +132,29 @@ export function ProjectDetailPage(): JSX.Element {
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
 
+	const token = useAtomValue(authTokenAtom);
 	const { project, sessionCount, batchProject } = useProjectDetail(decodedCwd);
 	const createdAt = useCreatedAt(decodedCwd);
-	const flowingId = useFlowingId(decodedCwd);
+	const { flowingId, workflowInstanceId } = useFlowingMeta(decodedCwd);
 	const { content, setContent, loading, save, saveStatus, isDirty } = useAgentsMd(decodedCwd);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const [bindDialogOpen, setBindDialogOpen] = useState(false);
+	const workflowInstance = useAtomValue(workflowInstanceAtom);
+	const setWorkflowInstance = useSetAtom(workflowInstanceAtom);
+
+	// 监听工作流 SSE 事件
+	useWorkflowSSE();
+
+	// 加载工作流实例
+	useEffect(() => {
+		if (!token || !flowingId || !workflowInstanceId) {
+			setWorkflowInstance(null);
+			return;
+		}
+		void fetchWorkflowInstanceByFlowing(token, flowingId)
+			.then((inst) => setWorkflowInstance(inst))
+			.catch(() => setWorkflowInstance(null));
+	}, [token, flowingId, workflowInstanceId, setWorkflowInstance]);
 
 	const displayName = project?.name ?? pathBasename(decodedCwd);
 	const isBatch = !!batchProject;
@@ -159,6 +194,17 @@ export function ProjectDetailPage(): JSX.Element {
 							<span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
 								{projectTypeLabel}
 							</span>
+						)}
+						{project?.type === "normal" && !workflowInstance && (
+							<Button
+								variant="ghost"
+								size="xs"
+								className="gap-1 text-muted-foreground/60 hover:text-foreground"
+								onClick={() => setBindDialogOpen(true)}
+							>
+								<span className="icon-[mdi--sitemap-outline] text-xs" />
+								<span className="text-[10px]">绑定工作流</span>
+							</Button>
 						)}
 					</div>
 					<div className="flex items-center gap-2">
@@ -221,6 +267,13 @@ export function ProjectDetailPage(): JSX.Element {
 				{project?.type === "flowing" && flowingId && (
 					<div className="px-8 py-5">
 						<FlowingWorkflow flowingId={flowingId} />
+					</div>
+				)}
+
+				{/* Workflow progress */}
+				{workflowInstance && (
+					<div className="px-8 py-5">
+						<WorkflowProgress instance={workflowInstance} />
 					</div>
 				)}
 
@@ -290,6 +343,15 @@ export function ProjectDetailPage(): JSX.Element {
 					</p>
 				</div>
 			</div>
+
+			{/* Workflow bind dialog */}
+			<WorkflowBindDialog
+				open={bindDialogOpen}
+				onOpenChange={setBindDialogOpen}
+				projectDir={decodedCwd}
+				projectName={displayName}
+				flowingId={flowingId ?? undefined}
+			/>
 		</div>
 	);
 }
