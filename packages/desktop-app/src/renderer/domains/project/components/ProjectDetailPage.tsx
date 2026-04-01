@@ -147,8 +147,10 @@ export function ProjectDetailPage(): JSX.Element {
 
 	return (
 		<div className="flex h-full w-full flex-col overflow-hidden">
+			{/* Drag region */}
+			<div className="drag-region h-12 shrink-0" />
 			{/* Hero header */}
-			<div className="shrink-0 px-8 pb-6 pt-8">
+			<div className="shrink-0 px-8 pb-6">
 				{/* Top row: badge + actions */}
 				<div className="mb-4 flex items-center justify-between">
 					<div className="flex items-center gap-2">
