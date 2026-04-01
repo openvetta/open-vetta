@@ -19,11 +19,13 @@
 		"dist:mac": "bun run prebuild:pack && bunx electron-builder --mac --project \"$TMPDIR/vetta-desktop-build\" --config \"$TMPDIR/vetta-desktop-build/electron-builder.json\""
 	},
 	"dependencies": {
+		"@dagrejs/dagre": "^3.0.0",
 		"@fontsource-variable/geist": "^5.2.8",
 		"@mariozechner/pi-ai": "workspace:*",
 		"@tanstack/react-router": "^1.130.15",
 		"@types/adm-zip": "^0.5.8",
 		"@vetta/runtime-core": "workspace:*",
+		"@xyflow/react": "^12.10.2",
 		"adm-zip": "^0.5.16",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",

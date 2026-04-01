@@ -6,6 +6,23 @@ import { pathBasename } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { isMac } from "@shared/lib/platform";
 import { BatchQueueStatus } from "./BatchQueueStatus";
+import { FlowingWorkflow } from "@domains/flowing/components/FlowingWorkflow";
+
+function useFlowingId(cwd: string) {
+	const [flowingId, setFlowingId] = useState<number | null>(null);
+
+	useEffect(() => {
+		void window.vetta.flowing.readMeta(cwd).then((meta) => {
+			if (meta && meta.type === "flowing" && typeof meta.flowingId === "number") {
+				setFlowingId(meta.flowingId);
+			} else {
+				setFlowingId(null);
+			}
+		});
+	}, [cwd]);
+
+	return flowingId;
+}
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -99,6 +116,7 @@ export function ProjectDetailPage(): JSX.Element {
 
 	const { project, sessionCount, batchProject } = useProjectDetail(decodedCwd);
 	const createdAt = useCreatedAt(decodedCwd);
+	const flowingId = useFlowingId(decodedCwd);
 	const { content, setContent, loading, save, saveStatus, isDirty } = useAgentsMd(decodedCwd);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -190,6 +208,13 @@ export function ProjectDetailPage(): JSX.Element {
 				{isBatch && (
 					<div className="px-8 py-5">
 						<BatchQueueStatus project={batchProject} />
+					</div>
+				)}
+
+				{/* Flowing workflow (for flowing projects only) */}
+				{project?.type === "flowing" && flowingId && (
+					<div className="px-8 py-5">
+						<FlowingWorkflow flowingId={flowingId} />
 					</div>
 				)}
 
