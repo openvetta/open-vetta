@@ -10,13 +10,20 @@ import {
 } from "@shared/components/ui/dialog";
 import { Button } from "@shared/components/ui/button";
 import { Textarea } from "@shared/components/ui/textarea";
-import { fetchColleagues, type ColleagueInfo } from "@shared/lib/api";
+import {
+	completeWorkflowStage,
+	fetchColleagues,
+	fetchNextStageMembers,
+	type ColleagueInfo,
+	type NextStageMembers,
+} from "@shared/lib/api";
 import { pathBasename } from "@shared/lib/utils";
 import {
 	activeSessionAtom,
 	authTokenAtom,
 	flowingSendDialogOpenAtom,
 	selectedFilesAtom,
+	workflowInstanceAtom,
 } from "@shared/store/atoms";
 import { useFlowingSend } from "../hooks/useFlowingSend";
 
@@ -25,18 +32,38 @@ export function FlowingSendDialog(): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [selectedFiles, setSelectedFiles] = useAtom(selectedFilesAtom);
+	const workflowInstance = useAtomValue(workflowInstanceAtom);
 
 	const [colleagues, setColleagues] = useState<ColleagueInfo[]>([]);
 	const [selectedReceivers, setSelectedReceivers] = useState<Set<number>>(new Set());
 	const [message, setMessage] = useState("");
 	const { sending, error, send } = useFlowingSend();
+	const [workflowError, setWorkflowError] = useState<string | null>(null);
+	const [nextStageInfo, setNextStageInfo] = useState<NextStageMembers | null>(null);
 
-	// 加载同事列表
+	const isWorkflowBound = workflowInstance != null && workflowInstance.status === "active";
+
+	// 加载同事列表或下一阶段成员
 	useEffect(() => {
-		if (open && token) {
+		if (!open || !token) return;
+		setWorkflowError(null);
+		setNextStageInfo(null);
+
+		if (isWorkflowBound) {
+			// 工作流绑定时，获取下一阶段成员
+			void fetchNextStageMembers(token, workflowInstance.id)
+				.then((info) => {
+					setNextStageInfo(info);
+					setColleagues(info.members);
+				})
+				.catch((err) => {
+					setWorkflowError(err instanceof Error ? err.message : "获取下一阶段成员失败");
+					setColleagues([]);
+				});
+		} else {
 			void fetchColleagues(token).then(setColleagues).catch(console.error);
 		}
-	}, [open, token]);
+	}, [open, token, isWorkflowBound, workflowInstance?.id]);
 
 	const toggleReceiver = useCallback((id: number) => {
 		setSelectedReceivers((prev) => {
@@ -80,6 +107,16 @@ export function FlowingSendDialog(): JSX.Element {
 		const existingFlowingId =
 			meta?.type === "flowing" && typeof meta.flowingId === "number" ? meta.flowingId : undefined;
 
+		// 工作流绑定时，先完成当前阶段
+		if (isWorkflowBound && token) {
+			try {
+				await completeWorkflowStage(token, workflowInstance.id);
+			} catch (err) {
+				setWorkflowError(err instanceof Error ? err.message : "完成当前阶段失败");
+				return;
+			}
+		}
+
 		const result = await send({
 			projectDir,
 			projectName,
@@ -102,8 +139,10 @@ export function FlowingSendDialog(): JSX.Element {
 			setSelectedReceivers(new Set());
 			setMessage("");
 			setSelectedFiles([]);
+			setWorkflowError(null);
+			setNextStageInfo(null);
 		}
-	}, [activeSession, selectedReceivers, selectedFiles, message, send, setOpen, setSelectedFiles]);
+	}, [activeSession, selectedReceivers, selectedFiles, message, send, setOpen, setSelectedFiles, isWorkflowBound, token, workflowInstance?.id]);
 
 	const canSend = selectedReceivers.size > 0 && selectedFiles.length > 0;
 
@@ -115,6 +154,8 @@ export function FlowingSendDialog(): JSX.Element {
 			.join(", ");
 	}, [colleagues, selectedReceivers]);
 
+	const displayError = workflowError ?? error;
+
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
 			<DialogContent className="overflow-hidden sm:max-w-md">
@@ -123,7 +164,11 @@ export function FlowingSendDialog(): JSX.Element {
 						<span className="icon-[mdi--send-variant-outline] text-lg text-primary" />
 						内容流转
 					</DialogTitle>
-					<DialogDescription>将选中的文件发送给同事</DialogDescription>
+					<DialogDescription>
+						{isWorkflowBound && nextStageInfo
+							? `流转至下一阶段: ${nextStageInfo.stage_name}`
+							: "将选中的文件发送给同事"}
+					</DialogDescription>
 				</DialogHeader>
 
 				{/* 选中的文件 */}
@@ -179,7 +224,7 @@ export function FlowingSendDialog(): JSX.Element {
 				<div className="space-y-1.5">
 					<div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
 						<span className="icon-[mdi--account-group-outline] text-sm" />
-						接收方
+						{isWorkflowBound ? "下一阶段成员" : "接收方"}
 						{selectedReceivers.size > 0 && (
 							<span className="rounded-full bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold text-primary">
 								{selectedReceivers.size}
@@ -190,7 +235,7 @@ export function FlowingSendDialog(): JSX.Element {
 						{colleagues.length === 0 ? (
 							<div className="flex items-center justify-center gap-2 p-4 text-xs text-muted-foreground/50">
 								<span className="icon-[mdi--account-off-outline] text-base" />
-								暂无同组织成员
+								{isWorkflowBound ? "下一阶段暂无成员" : "暂无同组织成员"}
 							</div>
 						) : (
 							<div className="p-1">
@@ -255,10 +300,10 @@ export function FlowingSendDialog(): JSX.Element {
 					/>
 				</div>
 
-				{error && (
+				{displayError && (
 					<div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
 						<span className="icon-[mdi--alert-circle-outline] shrink-0 text-sm" />
-						{error}
+						{displayError}
 					</div>
 				)}
 

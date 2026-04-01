@@ -1,5 +1,10 @@
 import { useProjects } from "@domains/project/hooks/useProjects";
-import { downloadFlowingFile, type FlowingTransferVO, respondFlowing } from "@shared/lib/api";
+import {
+	downloadFlowingFile,
+	type FlowingTransferVO,
+	fetchWorkflowInstanceByFlowing,
+	respondFlowing,
+} from "@shared/lib/api";
 import { authTokenAtom, flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useState } from "react";
@@ -64,11 +69,23 @@ export function useFlowingReceive(): {
 				// 4. 解压文件
 				await window.vetta.flowing.unpackFiles(zipBuffer, destDir);
 
-				// 5. 写 meta.json
-				await window.vetta.flowing.writeMeta(destDir, {
+				// 5. 写 meta.json（如果流转关联了工作流，则包含 workflowInstanceId）
+				const metaData: Record<string, unknown> = {
 					type: "flowing",
 					flowingId: transfer.flowing_id,
-				});
+				};
+
+				// 检查该 flowing 是否绑定了工作流实例
+				try {
+					const instance = await fetchWorkflowInstanceByFlowing(token, transfer.flowing_id);
+					if (instance?.id) {
+						metaData.workflowInstanceId = instance.id;
+					}
+				} catch {
+					// 未绑定工作流，忽略
+				}
+
+				await window.vetta.flowing.writeMeta(destDir, metaData);
 
 				// 6. 从本地待处理列表中移除
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
