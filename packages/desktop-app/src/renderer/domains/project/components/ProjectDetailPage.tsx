@@ -6,6 +6,7 @@ import { pathBasename } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { isMac } from "@shared/lib/platform";
 import { BatchQueueStatus } from "./BatchQueueStatus";
+import { ScheduleStatus } from "./ScheduleStatus";
 import { FlowingWorkflow } from "@domains/flowing/components/FlowingWorkflow";
 
 function useFlowingId(cwd: string) {
@@ -213,6 +214,9 @@ export function ProjectDetailPage(): JSX.Element {
 					</div>
 				)}
 
+				{/* Schedule status (for schedule projects only) */}
+				{project?.type === "schedule" && <ScheduleStatus cwd={decodedCwd} />}
+
 				{/* Flowing workflow (for flowing projects only) */}
 				{project?.type === "flowing" && flowingId && (
 					<div className="px-8 py-5">
@@ -221,7 +225,7 @@ export function ProjectDetailPage(): JSX.Element {
 				)}
 
 				{/* AGENTS.md editor section */}
-				<div className="flex min-h-0 flex-1 flex-col px-8 py-5">
+				<div className="flex min-h-[300px] flex-1 flex-col px-8 py-5">
 					<div className="mb-3 flex items-center justify-between">
 						<div className="flex items-center gap-2.5">
 							<div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/60">
