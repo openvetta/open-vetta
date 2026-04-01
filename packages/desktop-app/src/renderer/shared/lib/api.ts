@@ -128,6 +128,7 @@ export interface FlowingTransferVO {
 	message: string;
 	status: string;
 	file_list: string[];
+	stage_index: number | null;
 	created_at: string;
 	responded_at: string | null;
 }

@@ -6,6 +6,7 @@ import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
 import { TitleBar } from "./shared/components/TitleBar";
 import { LoginDialog } from "./domains/auth/components/LoginDialog";
 import { FlowingSendDialog } from "./domains/flowing/components/FlowingSendDialog";
+import { WorkflowCompleteDialog } from "./domains/flowing/components/WorkflowCompleteDialog";
 import { useProjects } from "./domains/project/hooks/useProjects";
 import { useTheme } from "./shared/hooks/useTheme";
 import { useAuth } from "./domains/auth/hooks/useAuth";
@@ -68,6 +69,7 @@ export function RootLayout(): JSX.Element {
 					<ConfirmDialog />
 					<LoginDialog />
 					<FlowingSendDialog />
+					<WorkflowCompleteDialog />
 				</div>
 			</div>
 		</TooltipProvider>

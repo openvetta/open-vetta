@@ -29,10 +29,8 @@ const RETURN_OFFSET = 80;
 
 type TransferEdgeData = {
 	status: string;
-	message: string;
 	isReturn: boolean;
 	count: number;
-	label?: string;
 };
 
 function TransferEdgeComponent(props: EdgeProps) {
@@ -82,11 +80,6 @@ function TransferEdgeComponent(props: EdgeProps) {
 							{isReturn ? "折返 - " : ""}
 							{statusLabel(d.status)}
 							{(d.count ?? 1) > 1 ? ` x${d.count}` : ""}
-						</span>
-					)}
-					{d?.message && (
-						<span className="max-w-32 truncate rounded bg-background px-1 text-[9px] text-muted-foreground">
-							{d.message}
 						</span>
 					)}
 				</div>

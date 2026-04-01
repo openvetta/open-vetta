@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { type FlowingHistoryNode, type FlowTransferEdge, type FlowUserNode, parseHistoryToGraph } from "./types";
 
 const NODE_WIDTH = 200;
-const NODE_HEIGHT = 56;
+const NODE_HEIGHT = 76;
 
 function buildDagreLayout(
 	users: Map<string, FlowUserNode>,
@@ -48,7 +48,11 @@ function buildDagreLayout(
 		type: "transferEdge",
 		animated: t.status === "pending",
 		markerEnd: { type: "arrowclosed" as const },
-		data: { status: t.status, message: t.message, isReturn: t.isReturn, count: t.count },
+		data: {
+			status: t.status,
+			isReturn: t.isReturn,
+			count: t.count,
+		},
 	}));
 
 	return { nodes, edges };

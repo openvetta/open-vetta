@@ -5,6 +5,19 @@ export interface FlowingHistoryNode extends FlowingTransferVO {
 	children: FlowingHistoryNode[];
 }
 
+export type TransferDetail = {
+	transferId: number;
+	direction: "in" | "out";
+	counterpartId: number;
+	counterpartName: string;
+	counterpartAvatar: string;
+	message: string;
+	fileList: string[];
+	status: string;
+	createdAt: string;
+	respondedAt: string | null;
+};
+
 export type FlowUserNode = {
 	userId: number;
 	userName: string;
@@ -12,6 +25,8 @@ export type FlowUserNode = {
 	isStart: boolean;
 	status: string;
 	time: string;
+	transfers: TransferDetail[];
+	totalFiles: number;
 };
 
 export type FlowTransferEdge = {
@@ -21,6 +36,8 @@ export type FlowTransferEdge = {
 	status: string;
 	message: string;
 	time: string;
+	respondedAt: string | null;
+	fileList: string[];
 	isReturn: boolean;
 	count: number;
 };
@@ -34,18 +51,31 @@ export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowDa
 	const users = new Map<string, FlowUserNode>();
 	const edgeMap = new Map<string, FlowTransferEdge>();
 	const seenDirections = new Set<string>();
+	const userTransfers = new Map<string, TransferDetail[]>();
 
 	function ensureUser(id: number, name: string, avatar: string, status: string, time: string, isStart: boolean) {
 		const key = String(id);
 		const existing = users.get(key);
 		if (!existing) {
-			users.set(key, { userId: id, userName: name, userAvatar: avatar, isStart, status, time });
+			users.set(key, {
+				userId: id,
+				userName: name,
+				userAvatar: avatar,
+				isStart,
+				status,
+				time,
+				transfers: [],
+				totalFiles: 0,
+			});
 		} else {
 			if (new Date(time) > new Date(existing.time)) {
 				existing.status = status;
 				existing.time = time;
 			}
 			if (isStart) existing.isStart = true;
+		}
+		if (!userTransfers.has(key)) {
+			userTransfers.set(key, []);
 		}
 	}
 
@@ -60,6 +90,36 @@ export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowDa
 			false,
 		);
 
+		// Collect transfer details per user
+		const senderKey = String(node.sender_id);
+		const receiverKey = String(node.receiver_id);
+
+		userTransfers.get(senderKey)!.push({
+			transferId: node.id,
+			direction: "out",
+			counterpartId: node.receiver_id,
+			counterpartName: node.receiver_name,
+			counterpartAvatar: node.receiver_avatar,
+			message: node.message,
+			fileList: node.file_list ?? [],
+			status: node.status,
+			createdAt: node.created_at,
+			respondedAt: node.responded_at,
+		});
+
+		userTransfers.get(receiverKey)!.push({
+			transferId: node.id,
+			direction: "in",
+			counterpartId: node.sender_id,
+			counterpartName: node.sender_name,
+			counterpartAvatar: node.sender_avatar,
+			message: node.message,
+			fileList: node.file_list ?? [],
+			status: node.status,
+			createdAt: node.created_at,
+			respondedAt: node.responded_at,
+		});
+
 		const forwardKey = `${node.sender_id}->${node.receiver_id}`;
 		const reverseKey = `${node.receiver_id}->${node.sender_id}`;
 		const isReturn = seenDirections.has(reverseKey);
@@ -71,6 +131,9 @@ export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowDa
 			if (new Date(node.created_at) > new Date(existing.time)) {
 				existing.status = node.status;
 				existing.time = node.created_at;
+				existing.respondedAt = node.responded_at;
+				existing.fileList = node.file_list;
+				existing.transferId = node.id;
 				if (node.message) existing.message = node.message;
 			}
 		} else {
@@ -81,6 +144,8 @@ export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowDa
 				status: node.status,
 				message: node.message,
 				time: node.created_at,
+				respondedAt: node.responded_at,
+				fileList: node.file_list ?? [],
 				isReturn,
 				count: 1,
 			});
@@ -101,6 +166,13 @@ export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowDa
 
 	for (const root of history) {
 		walk(root);
+	}
+
+	// Merge transfer details and total file counts into user nodes
+	for (const [key, user] of users) {
+		const details = userTransfers.get(key) ?? [];
+		user.transfers = details;
+		user.totalFiles = details.filter((d) => d.direction === "in").reduce((sum, d) => sum + d.fileList.length, 0);
 	}
 
 	return { users, transfers: Array.from(edgeMap.values()) };

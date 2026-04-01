@@ -42,7 +42,7 @@ function UserNodeComponent({ data }: NodeProps<UserNodeType>) {
 
 	return (
 		<div
-			className={`flex items-center gap-2 rounded-lg border px-3 py-2 shadow-sm ${
+			className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 shadow-sm ${
 				isStart ? "border-primary/50 ring-2 ring-primary/20 bg-primary/5" : "border-border/50 bg-card"
 			}`}
 		>
@@ -77,6 +77,12 @@ function UserNodeComponent({ data }: NodeProps<UserNodeType>) {
 					</span>
 					<span className="text-[9px] text-muted-foreground">{formatTime(data.time)}</span>
 				</div>
+				{data.totalFiles > 0 && (
+					<div className="flex items-center gap-1 text-[9px] text-muted-foreground/70">
+						<span className="icon-[mdi--file-outline] text-[10px]" />
+						{data.totalFiles} 个文件
+					</div>
+				)}
 			</div>
 		</div>
 	);
