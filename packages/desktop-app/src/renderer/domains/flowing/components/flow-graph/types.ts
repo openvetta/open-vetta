@@ -1,4 +1,4 @@
-import type { FlowingTransferVO } from "@shared/lib/api";
+import type { FlowingTransferVO, WorkflowInstance } from "@shared/lib/api";
 
 /** API 实际返回的树形结构（FlowingTransferVO + children） */
 export interface FlowingHistoryNode extends FlowingTransferVO {
@@ -18,6 +18,9 @@ export type TransferDetail = {
 	respondedAt: string | null;
 };
 
+/** 节点在工作流中的阶段状态 */
+export type NodeStageStatus = "completed" | "in_progress" | "pending" | "returned" | null;
+
 export type FlowUserNode = {
 	userId: number;
 	userName: string;
@@ -27,6 +30,8 @@ export type FlowUserNode = {
 	time: string;
 	transfers: TransferDetail[];
 	totalFiles: number;
+	/** 工作流阶段状态（仅工作流类型流转有值） */
+	stageStatus: NodeStageStatus;
 };
 
 export type FlowTransferEdge = {
@@ -47,11 +52,24 @@ export type ParsedFlowData = {
 	transfers: FlowTransferEdge[];
 };
 
-export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowData {
+export function parseHistoryToGraph(
+	history: FlowingHistoryNode[],
+	workflowInstance?: WorkflowInstance | null,
+): ParsedFlowData {
 	const users = new Map<string, FlowUserNode>();
 	const edgeMap = new Map<string, FlowTransferEdge>();
 	const seenDirections = new Set<string>();
 	const userTransfers = new Map<string, TransferDetail[]>();
+
+	// 构建 userId → stageStatus 映射
+	const userStageMap = new Map<number, NodeStageStatus>();
+	if (workflowInstance) {
+		for (const stage of workflowInstance.stages) {
+			for (const memberId of stage.member_ids) {
+				userStageMap.set(memberId, stage.status as NodeStageStatus);
+			}
+		}
+	}
 
 	function ensureUser(id: number, name: string, avatar: string, status: string, time: string, isStart: boolean) {
 		const key = String(id);
@@ -66,6 +84,7 @@ export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowDa
 				time,
 				transfers: [],
 				totalFiles: 0,
+				stageStatus: userStageMap.get(id) ?? null,
 			});
 		} else {
 			if (new Date(time) > new Date(existing.time)) {

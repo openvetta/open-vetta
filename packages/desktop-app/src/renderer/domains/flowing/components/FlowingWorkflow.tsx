@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAtomValue } from "jotai";
-import { authTokenAtom } from "@shared/store/atoms";
+import { authTokenAtom, workflowInstanceAtom } from "@shared/store/atoms";
 import { fetchFlowingHistory } from "@shared/lib/api";
 import { FlowGraph, type FlowingHistoryNode } from "./flow-graph";
 
@@ -10,6 +10,7 @@ type FlowingWorkflowProps = {
 
 export function FlowingWorkflow({ flowingId }: FlowingWorkflowProps) {
 	const token = useAtomValue(authTokenAtom);
+	const workflowInstance = useAtomValue(workflowInstanceAtom);
 	const [history, setHistory] = useState<FlowingHistoryNode[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export function FlowingWorkflow({ flowingId }: FlowingWorkflowProps) {
 				</div>
 			) : (
 				<div className="h-[280px]">
-					<FlowGraph history={history} />
+					<FlowGraph history={history} workflowInstance={workflowInstance} />
 				</div>
 			)}
 		</div>

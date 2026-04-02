@@ -9,6 +9,7 @@ import {
 	type NodeTypes,
 	type EdgeTypes,
 } from "@xyflow/react";
+import type { WorkflowInstance } from "@shared/lib/api";
 import { useFlowLayout } from "./use-layout";
 import { UserNode } from "./user-node";
 import { TransferEdge } from "./transfer-edge";
@@ -22,10 +23,11 @@ const edgeTypes: EdgeTypes = { transferEdge: TransferEdge };
 
 type FlowGraphProps = {
 	history: FlowingHistoryNode[];
+	workflowInstance?: WorkflowInstance | null;
 };
 
-export function FlowGraph({ history }: FlowGraphProps) {
-	const { nodes: layoutNodes, edges: layoutEdges } = useFlowLayout(history);
+export function FlowGraph({ history, workflowInstance }: FlowGraphProps) {
+	const { nodes: layoutNodes, edges: layoutEdges } = useFlowLayout(history, workflowInstance);
 	const [nodes, , onNodesChange] = useNodesState(layoutNodes);
 	const [edges, , onEdgesChange] = useEdgesState(layoutEdges);
 	const [selectedNode, setSelectedNode] = useState<FlowUserNode | null>(null);

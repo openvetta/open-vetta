@@ -1,4 +1,5 @@
 import dagre from "@dagrejs/dagre";
+import type { WorkflowInstance } from "@shared/lib/api";
 import { type Edge, type Node, Position } from "@xyflow/react";
 import { useMemo } from "react";
 import { type FlowingHistoryNode, type FlowTransferEdge, type FlowUserNode, parseHistoryToGraph } from "./types";
@@ -58,10 +59,10 @@ function buildDagreLayout(
 	return { nodes, edges };
 }
 
-export function useFlowLayout(history: FlowingHistoryNode[]) {
+export function useFlowLayout(history: FlowingHistoryNode[], workflowInstance?: WorkflowInstance | null) {
 	return useMemo(() => {
 		if (history.length === 0) return { nodes: [], edges: [] };
-		const { users, transfers } = parseHistoryToGraph(history);
+		const { users, transfers } = parseHistoryToGraph(history, workflowInstance);
 		return buildDagreLayout(users, transfers);
-	}, [history]);
+	}, [history, workflowInstance]);
 }
