@@ -139,6 +139,9 @@ export function parseHistoryToGraph(
 			respondedAt: node.responded_at,
 		});
 
+		// 自发自收（最终环节完成文件）不创建边
+		if (node.sender_id === node.receiver_id) return;
+
 		const forwardKey = `${node.sender_id}->${node.receiver_id}`;
 		const reverseKey = `${node.receiver_id}->${node.sender_id}`;
 		const isReturn = seenDirections.has(reverseKey);

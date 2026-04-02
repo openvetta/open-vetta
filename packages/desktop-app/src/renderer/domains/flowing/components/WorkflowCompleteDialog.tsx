@@ -18,7 +18,9 @@ import {
 	selectedFilesAtom,
 	workflowInstanceAtom,
 } from "@shared/store/atoms";
+import { authUserAtom } from "@shared/store/auth-atoms";
 import { workflowCompleteDialogOpenAtom } from "@shared/store/flowing-atoms";
+import { useFlowingSend } from "../hooks/useFlowingSend";
 
 export function WorkflowCompleteDialog(): JSX.Element {
 	const [open, setOpen] = useAtom(workflowCompleteDialogOpenAtom);
@@ -27,6 +29,9 @@ export function WorkflowCompleteDialog(): JSX.Element {
 	const [selectedFiles, setSelectedFiles] = useAtom(selectedFilesAtom);
 	const workflowInstance = useAtomValue(workflowInstanceAtom);
 	const setWorkflowInstance = useSetAtom(workflowInstanceAtom);
+
+	const user = useAtomValue(authUserAtom);
+	const { send } = useFlowingSend();
 
 	const [message, setMessage] = useState("");
 	const [completing, setCompleting] = useState(false);
@@ -55,11 +60,31 @@ export function WorkflowCompleteDialog(): JSX.Element {
 	);
 
 	const handleComplete = useCallback(async () => {
-		if (!workflowInstance || !token) return;
+		if (!workflowInstance || !token || !user || !activeSession) return;
 
 		setCompleting(true);
 		setError(null);
 		try {
+			const projectDir = activeSession.cwd;
+			const projectName = pathBasename(projectDir);
+
+			// 如果有选择文件，先发送 transfer 记录保存最终成果
+			// 必须在 completeWorkflowStage 之前，因为完成后工作流状态变为 completed，send 会失败
+			if (selectedFiles.length > 0) {
+				const result = await send({
+					projectDir,
+					projectName,
+					flowingId: workflowInstance.flowing_id,
+					receiverIds: [user.id],
+					message: message || "最终环节完成",
+					filePaths: selectedFiles,
+				});
+				if (!result) {
+					setError("上传最终成果文件失败");
+					return;
+				}
+			}
+
 			await completeWorkflowStage(token, workflowInstance.id);
 
 			// 更新本地工作流实例状态为 completed
@@ -76,7 +101,7 @@ export function WorkflowCompleteDialog(): JSX.Element {
 		} finally {
 			setCompleting(false);
 		}
-	}, [workflowInstance, token, setOpen, setSelectedFiles, setWorkflowInstance]);
+	}, [workflowInstance, token, user, activeSession, selectedFiles, message, setOpen, setSelectedFiles, setWorkflowInstance, send]);
 
 	const currentStageName = workflowInstance
 		? workflowInstance.stages[workflowInstance.current_stage]?.name ?? ""
