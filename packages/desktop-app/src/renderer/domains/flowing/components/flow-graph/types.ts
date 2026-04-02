@@ -32,6 +32,10 @@ export type FlowUserNode = {
 	totalFiles: number;
 	/** 工作流阶段状态（仅工作流类型流转有值） */
 	stageStatus: NodeStageStatus;
+	/** 环节完成时上传的成果文件 */
+	completionFiles: string[];
+	/** 环节完成备注 */
+	completionMessage: string;
 };
 
 export type FlowTransferEdge = {
@@ -61,12 +65,16 @@ export function parseHistoryToGraph(
 	const seenDirections = new Set<string>();
 	const userTransfers = new Map<string, TransferDetail[]>();
 
-	// 构建 userId → stageStatus 映射
-	const userStageMap = new Map<number, NodeStageStatus>();
+	// 构建 userId → stage 信息映射
+	const userStageMap = new Map<number, { status: NodeStageStatus; fileList: string[]; message: string }>();
 	if (workflowInstance) {
 		for (const stage of workflowInstance.stages) {
 			for (const memberId of stage.member_ids) {
-				userStageMap.set(memberId, stage.status as NodeStageStatus);
+				userStageMap.set(memberId, {
+					status: stage.status as NodeStageStatus,
+					fileList: stage.file_list ?? [],
+					message: stage.message ?? "",
+				});
 			}
 		}
 	}
@@ -75,6 +83,7 @@ export function parseHistoryToGraph(
 		const key = String(id);
 		const existing = users.get(key);
 		if (!existing) {
+			const stageInfo = userStageMap.get(id);
 			users.set(key, {
 				userId: id,
 				userName: name,
@@ -84,7 +93,9 @@ export function parseHistoryToGraph(
 				time,
 				transfers: [],
 				totalFiles: 0,
-				stageStatus: userStageMap.get(id) ?? null,
+				stageStatus: stageInfo?.status ?? null,
+				completionFiles: stageInfo?.fileList ?? [],
+				completionMessage: stageInfo?.message ?? "",
 			});
 		} else {
 			if (new Date(time) > new Date(existing.time)) {

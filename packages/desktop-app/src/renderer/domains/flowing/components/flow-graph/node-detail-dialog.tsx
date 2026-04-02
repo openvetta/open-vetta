@@ -68,7 +68,33 @@ export function NodeDetailDialog({ open, onOpenChange, node }: NodeDetailDialogP
 				</DialogHeader>
 
 				<div className="max-h-[50vh] space-y-2 overflow-auto">
-					{sorted.length === 0 ? (
+					{/* 环节完成成果文件 */}
+					{node.completionFiles.length > 0 && (
+						<div className="space-y-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-2.5">
+							<div className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+								<span className="icon-[mdi--check-circle-outline] text-sm" />
+								环节完成成果
+							</div>
+							{node.completionMessage && (
+								<div className="rounded bg-muted/30 px-2 py-1 text-xs text-foreground/80">
+									{node.completionMessage}
+								</div>
+							)}
+							<div className="space-y-px pl-3">
+								{node.completionFiles.map((f) => (
+									<div
+										key={f}
+										className="flex items-center gap-1 text-[10px] text-muted-foreground/70"
+									>
+										<span className="icon-[mdi--file-document-outline] shrink-0 text-xs" />
+										<span className="truncate">{fileName(f)}</span>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
+					{sorted.length === 0 && node.completionFiles.length === 0 ? (
 						<p className="py-4 text-center text-xs text-muted-foreground/50">暂无流转记录</p>
 					) : (
 						sorted.map((t) => <TransferCard key={t.transferId} detail={t} />)

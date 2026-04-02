@@ -247,6 +247,9 @@ export interface StageInstance {
 	entered_at: string | null;
 	completed_at: string | null;
 	completed_by: number | null;
+	file_list?: string[];
+	file_storage_key?: string;
+	message?: string;
 }
 
 export interface WorkflowInstance {
@@ -296,10 +299,37 @@ export async function fetchWorkflowInstanceByFlowing(token: string, flowingId: n
 	});
 }
 
-export async function completeWorkflowStage(token: string, instanceId: number): Promise<void> {
-	await request<void>(`/workflows/instance/${instanceId}/complete-stage`, {
+export async function uploadFlowingFile(token: string, flowingId: number, file: Blob): Promise<string> {
+	const formData = new FormData();
+	formData.append("file", file, "flowing.zip");
+
+	const base = await getApiBase();
+	const res = await fetch(`${base}/flowing/${flowingId}/upload`, {
 		method: "POST",
 		headers: authHeaders(token),
+		body: formData,
+	});
+	if (res.status === 401) {
+		notifyUnauthorized();
+		throw new Error("登录已过期，请重新登录");
+	}
+	if (!res.ok) {
+		const body = await res.json().catch(() => null);
+		throw new Error(body?.message ?? `上传失败 (${res.status})`);
+	}
+	const body = await res.json();
+	return body.data.storage_key as string;
+}
+
+export async function completeWorkflowStage(
+	token: string,
+	instanceId: number,
+	data?: { storage_key?: string; file_list?: string[]; message?: string },
+): Promise<void> {
+	await request<void>(`/workflows/instance/${instanceId}/complete-stage`, {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify(data ?? {}),
 	});
 }
 

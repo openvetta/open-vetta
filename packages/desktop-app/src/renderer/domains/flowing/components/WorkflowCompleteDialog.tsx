@@ -10,7 +10,7 @@ import {
 } from "@shared/components/ui/dialog";
 import { Button } from "@shared/components/ui/button";
 import { Textarea } from "@shared/components/ui/textarea";
-import { completeWorkflowStage } from "@shared/lib/api";
+import { completeWorkflowStage, uploadFlowingFile } from "@shared/lib/api";
 import { pathBasename } from "@shared/lib/utils";
 import {
 	activeSessionAtom,
@@ -18,9 +18,7 @@ import {
 	selectedFilesAtom,
 	workflowInstanceAtom,
 } from "@shared/store/atoms";
-import { authUserAtom } from "@shared/store/auth-atoms";
 import { workflowCompleteDialogOpenAtom } from "@shared/store/flowing-atoms";
-import { useFlowingSend } from "../hooks/useFlowingSend";
 
 export function WorkflowCompleteDialog(): JSX.Element {
 	const [open, setOpen] = useAtom(workflowCompleteDialogOpenAtom);
@@ -29,9 +27,6 @@ export function WorkflowCompleteDialog(): JSX.Element {
 	const [selectedFiles, setSelectedFiles] = useAtom(selectedFilesAtom);
 	const workflowInstance = useAtomValue(workflowInstanceAtom);
 	const setWorkflowInstance = useSetAtom(workflowInstanceAtom);
-
-	const user = useAtomValue(authUserAtom);
-	const { send } = useFlowingSend();
 
 	const [message, setMessage] = useState("");
 	const [completing, setCompleting] = useState(false);
@@ -60,34 +55,30 @@ export function WorkflowCompleteDialog(): JSX.Element {
 	);
 
 	const handleComplete = useCallback(async () => {
-		if (!workflowInstance || !token || !user || !activeSession) return;
+		if (!workflowInstance || !token || !activeSession) return;
 
 		setCompleting(true);
 		setError(null);
 		try {
 			const projectDir = activeSession.cwd;
-			const projectName = pathBasename(projectDir);
+			let storageKey: string | undefined;
+			let fileLabels: string[] | undefined;
 
-			// 如果有选择文件，先发送 transfer 记录保存最终成果
-			// 必须在 completeWorkflowStage 之前，因为完成后工作流状态变为 completed，send 会失败
+			// 有文件时先打包上传到 S3
 			if (selectedFiles.length > 0) {
-				const result = await send({
-					projectDir,
-					projectName,
-					flowingId: workflowInstance.flowing_id,
-					receiverIds: [user.id],
-					message: message || "最终环节完成",
-					filePaths: selectedFiles,
-				});
-				if (!result) {
-					setError("上传最终成果文件失败");
-					return;
-				}
+				const zipBuffer = await window.vetta.flowing.packFiles(projectDir, selectedFiles, message);
+				const blob = new Blob([zipBuffer], { type: "application/zip" });
+				storageKey = await uploadFlowingFile(token, workflowInstance.flowing_id, blob);
+				fileLabels = selectedFiles.map((p) => pathBasename(p));
 			}
 
-			await completeWorkflowStage(token, workflowInstance.id);
+			// 完成环节，同时传入文件引用
+			await completeWorkflowStage(token, workflowInstance.id, {
+				storage_key: storageKey,
+				file_list: fileLabels,
+				message: message || undefined,
+			});
 
-			// 更新本地工作流实例状态为 completed
 			setWorkflowInstance({
 				...workflowInstance,
 				status: "completed",
@@ -101,7 +92,7 @@ export function WorkflowCompleteDialog(): JSX.Element {
 		} finally {
 			setCompleting(false);
 		}
-	}, [workflowInstance, token, user, activeSession, selectedFiles, message, setOpen, setSelectedFiles, setWorkflowInstance, send]);
+	}, [workflowInstance, token, activeSession, selectedFiles, message, setOpen, setSelectedFiles, setWorkflowInstance]);
 
 	const currentStageName = workflowInstance
 		? workflowInstance.stages[workflowInstance.current_stage]?.name ?? ""
