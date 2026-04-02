@@ -41,49 +41,51 @@ function UserNodeComponent({ data }: NodeProps<UserNodeType>) {
 	const isStart = data.isStart;
 
 	return (
-		<div
-			className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 shadow-sm ${
-				isStart ? "border-primary/50 ring-2 ring-primary/20 bg-primary/5" : "border-border/50 bg-card"
-			}`}
-		>
-			<Handle id="left" type="target" position={Position.Left} className="!h-2 !w-2 !bg-muted-foreground" />
-			<Handle id="right" type="source" position={Position.Right} className="!h-2 !w-2 !bg-muted-foreground" />
-			<Handle id="bottom-out" type="source" position={Position.Bottom} className="!h-2 !w-2 !bg-muted-foreground" />
-			<Handle id="bottom-in" type="target" position={Position.Bottom} className="!h-2 !w-2 !bg-muted-foreground" />
+		<div className="relative">
+			<div
+				className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 shadow-sm ${
+					isStart ? "border-primary/50 ring-2 ring-primary/20 bg-primary/5" : "border-border/50 bg-card"
+				}`}
+			>
+				<Handle id="left" type="target" position={Position.Left} className="!h-2 !w-2 !bg-muted-foreground" />
+				<Handle id="right" type="source" position={Position.Right} className="!h-2 !w-2 !bg-muted-foreground" />
+				<Handle id="bottom-out" type="source" position={Position.Bottom} className="!h-2 !w-2 !bg-muted-foreground" />
+				<Handle id="bottom-in" type="target" position={Position.Bottom} className="!h-2 !w-2 !bg-muted-foreground" />
 
-			{/* Avatar */}
-			<div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-muted">
-				{data.userAvatar ? (
-					<img src={data.userAvatar} alt={data.userName} className="h-full w-full object-cover" />
-				) : (
-					<div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-						{data.userName.slice(0, 2)}
-					</div>
-				)}
-			</div>
-
-			<div className="flex flex-col gap-0.5">
-				<div className="flex items-center gap-1.5">
-					<span className="text-[12px] font-medium leading-none text-foreground">{data.userName}</span>
-					{isStart && (
-						<span className="rounded border border-primary/40 bg-primary/10 px-1 text-[9px] text-primary">
-							起点
-						</span>
+				{/* Avatar */}
+				<div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-muted">
+					{data.userAvatar ? (
+						<img src={data.userAvatar} alt={data.userName} className="h-full w-full object-cover" />
+					) : (
+						<div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+							{data.userName.slice(0, 2)}
+						</div>
 					)}
 				</div>
-				<div className="flex items-center gap-1.5">
-					<span className={`rounded border px-1 text-[9px] ${statusBadgeClass(data.status)}`}>
-						{statusLabel(data.status)}
-					</span>
-					<span className="text-[9px] text-muted-foreground">{formatTime(data.time)}</span>
-				</div>
-				{data.totalFiles > 0 && (
-					<div className="flex items-center gap-1 text-[9px] text-muted-foreground/70">
-						<span className="icon-[mdi--file-outline] text-[10px]" />
-						{data.totalFiles} 个文件
+
+				<div className="flex flex-col gap-0.5">
+					<div className="flex items-center gap-1.5">
+						<span className="text-[12px] font-medium leading-none text-foreground">{data.userName}</span>
+						{isStart && (
+							<span className="rounded border border-primary/40 bg-primary/10 px-1 text-[9px] text-primary">
+								起点
+							</span>
+						)}
 					</div>
-				)}
+					<div className="flex items-center gap-1.5">
+						<span className={`rounded border px-1 text-[9px] ${statusBadgeClass(data.status)}`}>
+							{statusLabel(data.status)}
+						</span>
+						<span className="text-[9px] text-muted-foreground">{formatTime(data.time)}</span>
+					</div>
+				</div>
 			</div>
+			{data.totalFiles > 0 && (
+				<div className="absolute left-1/2 top-full mt-1 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap text-[9px] text-muted-foreground/70">
+					<span className="icon-[mdi--file-outline] text-[10px]" />
+					{data.totalFiles} 个文件
+				</div>
+			)}
 		</div>
 	);
 }

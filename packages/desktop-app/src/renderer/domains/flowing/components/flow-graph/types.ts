@@ -172,7 +172,7 @@ export function parseHistoryToGraph(history: FlowingHistoryNode[]): ParsedFlowDa
 	for (const [key, user] of users) {
 		const details = userTransfers.get(key) ?? [];
 		user.transfers = details;
-		user.totalFiles = details.filter((d) => d.direction === "in").reduce((sum, d) => sum + d.fileList.length, 0);
+		user.totalFiles = details.filter((d) => d.direction === "out").reduce((sum, d) => sum + d.fileList.length, 0);
 	}
 
 	return { users, transfers: Array.from(edgeMap.values()) };
