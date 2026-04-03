@@ -124,6 +124,7 @@ const ProviderConfigSchema = Type.Object({
 	api: Type.Optional(Type.String({ minLength: 1 })),
 	headers: Type.Optional(Type.Record(Type.String(), Type.String())),
 	authHeader: Type.Optional(Type.Boolean()),
+	compat: Type.Optional(OpenAICompatSchema),
 	models: Type.Optional(Type.Array(ModelDefinitionSchema)),
 	modelOverrides: Type.Optional(Type.Record(Type.String(), ModelOverrideSchema)),
 });
@@ -617,7 +618,7 @@ export class ModelRegistry {
 					contextWindow: modelDef.contextWindow ?? 128000,
 					maxTokens: modelDef.maxTokens ?? 16384,
 					headers,
-					compat: modelDef.compat,
+					compat: mergeCompat(providerConfig.compat, modelDef.compat) ?? undefined,
 				} as Model<Api>);
 			}
 		}
@@ -773,7 +774,7 @@ export class ModelRegistry {
 					contextWindow: modelDef.contextWindow,
 					maxTokens: modelDef.maxTokens,
 					headers,
-					compat: modelDef.compat,
+					compat: mergeCompat(config.compat, modelDef.compat) ?? undefined,
 				} as Model<Api>);
 			}
 
@@ -809,6 +810,8 @@ export interface ProviderConfigInput {
 	streamSimple?: (model: Model<Api>, context: Context, options?: SimpleStreamOptions) => AssistantMessageEventStream;
 	headers?: Record<string, string>;
 	authHeader?: boolean;
+	/** Provider-level compat settings, inherited by all models under this provider. Model-level compat overrides. */
+	compat?: Model<Api>["compat"];
 	/** OAuth provider for /login support */
 	oauth?: Omit<OAuthProviderInterface, "id">;
 	models?: Array<{
