@@ -399,7 +399,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 				}
 				textarea::placeholder { color: var(--muted-foreground); opacity: 0.5; }
 			`}</style>
-			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-[56px]">
+			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-2">
 				<div className="mx-auto flex max-w-3xl flex-col gap-5">
 					<AnimatePresence initial={false}>
 						{messages.map((m) => (

@@ -1,7 +1,6 @@
 import { useRef, useCallback } from "react";
 import { Outlet, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./domains/project/components/Sidebar";
-import { ActivityPanel } from "./domains/activity-panel/components/ActivityPanel";
 import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
 import { TitleBar } from "./shared/components/TitleBar";
 import { LoginDialog } from "./domains/auth/components/LoginDialog";
@@ -65,7 +64,6 @@ export function RootLayout(): JSX.Element {
 					>
 						<Outlet />
 					</main>
-					<ActivityPanel />
 					<ConfirmDialog />
 					<LoginDialog />
 					<FlowingSendDialog />
