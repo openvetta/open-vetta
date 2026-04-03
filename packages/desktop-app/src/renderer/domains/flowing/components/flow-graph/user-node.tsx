@@ -86,8 +86,6 @@ function UserNodeComponent({ data }: NodeProps<UserNodeType>) {
 			<div className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 shadow-sm ${cardClass}`}>
 				<Handle id="left" type="target" position={Position.Left} className={handleClass} />
 				<Handle id="right" type="source" position={Position.Right} className={handleClass} />
-				<Handle id="bottom-out" type="source" position={Position.Bottom} className={handleClass} />
-				<Handle id="bottom-in" type="target" position={Position.Bottom} className={handleClass} />
 
 				{/* Avatar — 完成状态加绿色勾 */}
 				<div className="relative h-7 w-7 shrink-0">

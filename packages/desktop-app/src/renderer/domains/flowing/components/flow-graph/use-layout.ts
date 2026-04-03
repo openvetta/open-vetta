@@ -20,9 +20,7 @@ function buildDagreLayout(
 	}
 
 	for (const t of transfers) {
-		if (!t.isReturn) {
-			g.setEdge(String(t.senderId), String(t.receiverId));
-		}
+		g.setEdge(t.sourceNodeId, t.targetNodeId);
 	}
 
 	dagre.layout(g);
@@ -42,17 +40,15 @@ function buildDagreLayout(
 
 	const edges: Edge[] = transfers.map((t) => ({
 		id: `e-${t.transferId}`,
-		source: String(t.senderId),
-		target: String(t.receiverId),
-		sourceHandle: t.isReturn ? "bottom-out" : "right",
-		targetHandle: t.isReturn ? "bottom-in" : "left",
+		source: t.sourceNodeId,
+		target: t.targetNodeId,
+		sourceHandle: "right",
+		targetHandle: "left",
 		type: "transferEdge",
 		animated: t.status === "pending",
 		markerEnd: { type: "arrowclosed" as const },
 		data: {
 			status: t.status,
-			isReturn: t.isReturn,
-			count: t.count,
 		},
 	}));
 

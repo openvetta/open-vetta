@@ -22,6 +22,7 @@ export type TransferDetail = {
 export type NodeStageStatus = "completed" | "in_progress" | "pending" | "returned" | null;
 
 export type FlowUserNode = {
+	nodeId: string;
 	userId: number;
 	userName: string;
 	userAvatar: string;
@@ -40,15 +41,13 @@ export type FlowUserNode = {
 
 export type FlowTransferEdge = {
 	transferId: number;
-	senderId: number;
-	receiverId: number;
+	sourceNodeId: string;
+	targetNodeId: string;
 	status: string;
 	message: string;
 	time: string;
 	respondedAt: string | null;
 	fileList: string[];
-	isReturn: boolean;
-	count: number;
 };
 
 export type ParsedFlowData = {
@@ -61,9 +60,8 @@ export function parseHistoryToGraph(
 	workflowInstance?: WorkflowInstance | null,
 ): ParsedFlowData {
 	const users = new Map<string, FlowUserNode>();
-	const edgeMap = new Map<string, FlowTransferEdge>();
-	const seenDirections = new Set<string>();
-	const userTransfers = new Map<string, TransferDetail[]>();
+	const transfers: FlowTransferEdge[] = [];
+	let stepIndex = 0;
 
 	// 构建 userId → stage 信息映射
 	const userStageMap = new Map<number, { status: NodeStageStatus; fileList: string[]; message: string }>();
@@ -79,39 +77,60 @@ export function parseHistoryToGraph(
 		}
 	}
 
-	function ensureUser(id: number, name: string, avatar: string, status: string, time: string, isStart: boolean) {
-		const key = String(id);
-		const existing = users.get(key);
-		if (!existing) {
-			const stageInfo = userStageMap.get(id);
-			users.set(key, {
-				userId: id,
-				userName: name,
-				userAvatar: avatar,
-				isStart,
-				status,
-				time,
-				transfers: [],
-				totalFiles: 0,
-				stageStatus: stageInfo?.status ?? null,
-				completionFiles: stageInfo?.fileList ?? [],
-				completionMessage: stageInfo?.message ?? "",
-			});
-		} else {
-			if (new Date(time) > new Date(existing.time)) {
-				existing.status = status;
-				existing.time = time;
-			}
-			if (isStart) existing.isStart = true;
-		}
-		if (!userTransfers.has(key)) {
-			userTransfers.set(key, []);
-		}
+	function createStepNode(
+		userId: number,
+		userName: string,
+		userAvatar: string,
+		status: string,
+		time: string,
+		isStart: boolean,
+	): string {
+		const nodeId = `step-${stepIndex++}`;
+		const stageInfo = userStageMap.get(userId);
+		users.set(nodeId, {
+			nodeId,
+			userId,
+			userName,
+			userAvatar,
+			isStart,
+			status,
+			time,
+			transfers: [],
+			totalFiles: 0,
+			stageStatus: stageInfo?.status ?? null,
+			completionFiles: stageInfo?.fileList ?? [],
+			completionMessage: stageInfo?.message ?? "",
+		});
+		return nodeId;
 	}
 
-	function processTransfer(node: FlowingHistoryNode) {
-		ensureUser(node.sender_id, node.sender_name, node.sender_avatar, node.status, node.created_at, false);
-		ensureUser(
+	// 跟踪每个用户最新的步骤节点，用于平铺根节点列表的链式连接
+	const lastStepByUser = new Map<number, string>();
+
+	function walkNode(node: FlowingHistoryNode, senderStepId: string) {
+		// 自发自收（最终环节完成文件）不创建边和新节点，但记录流转详情
+		if (node.sender_id === node.receiver_id) {
+			const senderNode = users.get(senderStepId)!;
+			senderNode.transfers.push({
+				transferId: node.id,
+				direction: "out",
+				counterpartId: node.receiver_id,
+				counterpartName: node.receiver_name,
+				counterpartAvatar: node.receiver_avatar,
+				message: node.message,
+				fileList: node.file_list ?? [],
+				status: node.status,
+				createdAt: node.created_at,
+				respondedAt: node.responded_at,
+			});
+			for (const child of node.children) {
+				walkNode(child, senderStepId);
+			}
+			return;
+		}
+
+		// 创建接收方步骤节点
+		const receiverStepId = createStepNode(
 			node.receiver_id,
 			node.receiver_name,
 			node.receiver_avatar,
@@ -119,12 +138,23 @@ export function parseHistoryToGraph(
 			node.responded_at ?? node.created_at,
 			false,
 		);
+		lastStepByUser.set(node.receiver_id, receiverStepId);
 
-		// Collect transfer details per user
-		const senderKey = String(node.sender_id);
-		const receiverKey = String(node.receiver_id);
+		// 创建边
+		transfers.push({
+			transferId: node.id,
+			sourceNodeId: senderStepId,
+			targetNodeId: receiverStepId,
+			status: node.status,
+			message: node.message,
+			time: node.created_at,
+			respondedAt: node.responded_at,
+			fileList: node.file_list ?? [],
+		});
 
-		userTransfers.get(senderKey)!.push({
+		// 添加流转详情到发送方节点
+		const senderNode = users.get(senderStepId)!;
+		senderNode.transfers.push({
 			transferId: node.id,
 			direction: "out",
 			counterpartId: node.receiver_id,
@@ -137,7 +167,9 @@ export function parseHistoryToGraph(
 			respondedAt: node.responded_at,
 		});
 
-		userTransfers.get(receiverKey)!.push({
+		// 添加流转详情到接收方节点
+		const receiverNode = users.get(receiverStepId)!;
+		receiverNode.transfers.push({
 			transferId: node.id,
 			direction: "in",
 			counterpartId: node.sender_id,
@@ -150,63 +182,36 @@ export function parseHistoryToGraph(
 			respondedAt: node.responded_at,
 		});
 
-		// 自发自收（最终环节完成文件）不创建边
-		if (node.sender_id === node.receiver_id) return;
-
-		const forwardKey = `${node.sender_id}->${node.receiver_id}`;
-		const reverseKey = `${node.receiver_id}->${node.sender_id}`;
-		const isReturn = seenDirections.has(reverseKey);
-		seenDirections.add(forwardKey);
-
-		const existing = edgeMap.get(forwardKey);
-		if (existing) {
-			existing.count += 1;
-			if (new Date(node.created_at) > new Date(existing.time)) {
-				existing.status = node.status;
-				existing.time = node.created_at;
-				existing.respondedAt = node.responded_at;
-				existing.fileList = node.file_list;
-				existing.transferId = node.id;
-				if (node.message) existing.message = node.message;
-			}
-		} else {
-			edgeMap.set(forwardKey, {
-				transferId: node.id,
-				senderId: node.sender_id,
-				receiverId: node.receiver_id,
-				status: node.status,
-				message: node.message,
-				time: node.created_at,
-				respondedAt: node.responded_at,
-				fileList: node.file_list ?? [],
-				isReturn,
-				count: 1,
-			});
-		}
-	}
-
-	function walk(node: FlowingHistoryNode) {
-		processTransfer(node);
+		// 递归处理子节点：接收方变为下一次流转的发送方
 		for (const child of node.children) {
-			walk(child);
+			walkNode(child, receiverStepId);
 		}
-	}
-
-	if (history.length > 0) {
-		const first = history[0];
-		ensureUser(first.sender_id, first.sender_name, first.sender_avatar, "accepted", first.created_at, true);
 	}
 
 	for (const root of history) {
-		walk(root);
+		// 查找发送方最新的步骤节点，实现平铺根节点的链式连接
+		let senderStepId = lastStepByUser.get(root.sender_id);
+		if (!senderStepId) {
+			const isFirst = lastStepByUser.size === 0;
+			senderStepId = createStepNode(
+				root.sender_id,
+				root.sender_name,
+				root.sender_avatar,
+				isFirst ? "accepted" : root.status,
+				root.created_at,
+				isFirst,
+			);
+			lastStepByUser.set(root.sender_id, senderStepId);
+		}
+		walkNode(root, senderStepId);
 	}
 
-	// Merge transfer details and total file counts into user nodes
-	for (const [key, user] of users) {
-		const details = userTransfers.get(key) ?? [];
-		user.transfers = details;
-		user.totalFiles = details.filter((d) => d.direction === "out").reduce((sum, d) => sum + d.fileList.length, 0);
+	// 计算每个节点的文件总数
+	for (const [, user] of users) {
+		user.totalFiles = user.transfers
+			.filter((d) => d.direction === "out")
+			.reduce((sum, d) => sum + d.fileList.length, 0);
 	}
 
-	return { users, transfers: Array.from(edgeMap.values()) };
+	return { users, transfers };
 }
