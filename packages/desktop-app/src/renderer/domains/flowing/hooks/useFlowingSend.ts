@@ -1,4 +1,5 @@
 import { type FlowingTransferVO, sendFlowing } from "@shared/lib/api";
+import { pathBasename } from "@shared/lib/utils";
 import { authTokenAtom, authUserAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useCallback, useState } from "react";
@@ -11,6 +12,15 @@ interface SendFlowingParams {
 	parentTransferID?: number;
 	message: string;
 	filePaths: string[];
+}
+
+function toFlowingFileLabel(filePath: string, projectDir: string): string {
+	const normalizedFile = filePath.replace(/\\/g, "/");
+	const normalizedProject = projectDir.replace(/\\/g, "/").replace(/\/+$/, "");
+	if (normalizedProject && normalizedFile.startsWith(`${normalizedProject}/`)) {
+		return normalizedFile.slice(normalizedProject.length + 1);
+	}
+	return pathBasename(filePath);
 }
 
 export function useFlowingSend(): {
@@ -51,7 +61,7 @@ export function useFlowingSend(): {
 						receiver_ids: params.receiverIds,
 						parent_transfer_id: params.parentTransferID,
 						message: params.message,
-						file_list: params.filePaths,
+						file_list: params.filePaths.map((p) => toFlowingFileLabel(p, params.projectDir)),
 					},
 					blob,
 				);

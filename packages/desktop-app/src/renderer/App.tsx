@@ -1,11 +1,11 @@
 import { useRef, useCallback } from "react";
 import { Outlet, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./domains/project/components/Sidebar";
-import { ActivityPanel } from "./domains/activity-panel/components/ActivityPanel";
 import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
 import { TitleBar } from "./shared/components/TitleBar";
 import { LoginDialog } from "./domains/auth/components/LoginDialog";
 import { FlowingSendDialog } from "./domains/flowing/components/FlowingSendDialog";
+import { WorkflowCompleteDialog } from "./domains/flowing/components/WorkflowCompleteDialog";
 import { useProjects } from "./domains/project/hooks/useProjects";
 import { useTheme } from "./shared/hooks/useTheme";
 import { useAuth } from "./domains/auth/hooks/useAuth";
@@ -13,6 +13,7 @@ import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
 import { useFlowingInit } from "./domains/flowing/hooks/useFlowingInit";
+import { TooltipProvider } from "./shared/components/ui/tooltip";
 
 export function RootLayout(): JSX.Element {
 	const { openProject, projects } = useProjects();
@@ -53,20 +54,22 @@ export function RootLayout(): JSX.Element {
 	);
 
 	return (
-		<div className="flex h-screen w-screen flex-col overflow-hidden">
-			<TitleBar />
-			<div className="flex flex-1 overflow-hidden p-1.5 pl-0">
-				<Sidebar onOpenSession={openSession} />
-				<main
-					className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
-				>
-					<Outlet />
-				</main>
-				<ActivityPanel />
-				<ConfirmDialog />
-				<LoginDialog />
-				<FlowingSendDialog />
+		<TooltipProvider>
+			<div className="flex h-screen w-screen flex-col overflow-hidden">
+				<TitleBar />
+				<div className="flex flex-1 overflow-hidden p-1.5 pl-0">
+					<Sidebar onOpenSession={openSession} />
+					<main
+						className="flex min-w-[320px] flex-1 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+					>
+						<Outlet />
+					</main>
+					<ConfirmDialog />
+					<LoginDialog />
+					<FlowingSendDialog />
+					<WorkflowCompleteDialog />
+				</div>
 			</div>
-		</div>
+		</TooltipProvider>
 	);
 }

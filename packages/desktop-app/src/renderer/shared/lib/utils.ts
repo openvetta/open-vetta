@@ -4,3 +4,40 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]): string {
 	return twMerge(clsx(inputs));
 }
+
+/** Extract display name from a project path, handling both / and \ separators */
+export function pathBasename(path: string): string {
+	return path.split(/[/\\]/).filter(Boolean).pop() ?? path;
+}
+
+/** Extract parent directory from a path, handling both / and \ separators. */
+export function pathDirname(path: string): string {
+	const slash = path.lastIndexOf("/");
+	const backslash = path.lastIndexOf("\\");
+	const idx = Math.max(slash, backslash);
+	if (idx < 0) return "";
+	if (idx === 0) return path[0];
+	// Preserve Windows drive root (e.g. C:\)
+	if (idx === 2 && /^[A-Za-z]:[\\/]/.test(path)) return path.slice(0, 3);
+	return path.slice(0, idx);
+}
+
+/** Join directory and file/folder name, preserving the directory's separator style when possible. */
+export function pathJoin(dir: string, name: string): string {
+	if (!dir) return name;
+	const sep = dir.includes("\\") ? "\\" : "/";
+	const trimmed = dir.replace(/[\\/]+$/, "");
+	if (!trimmed) {
+		return `${sep}${name}`;
+	}
+	return `${trimmed}${sep}${name}`;
+}
+
+/** Return true when path is equal to parent or is located under parent. */
+export function isSubPath(path: string, parent: string): boolean {
+	const normalize = (v: string): string => v.replace(/\\/g, "/").replace(/\/+$/, "");
+	const p = normalize(path);
+	const base = normalize(parent);
+	if (!base) return false;
+	return p === base || p.startsWith(`${base}/`);
+}

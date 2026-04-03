@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ChatMessage, ContentBlock, ToolCallBlock } from "@shared/store/atoms";
+import { pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
@@ -103,6 +104,15 @@ function SegmentRenderer({ segment }: { segment: BlockSegment }): JSX.Element | 
 			return <ThinkingBlockView text={block.text} />;
 		case "tool_call":
 			return <ToolCallBlockView block={block} />;
+		case "error":
+			return (
+				<div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+					<span className="icon-[mdi--alert-circle-outline] mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
+					<span className="text-[13px] leading-[1.6] text-destructive/90" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+						{block.text}
+					</span>
+				</div>
+			);
 		default:
 			return null;
 	}
@@ -154,7 +164,7 @@ function SkillBadge({ name }: { name: string }): JSX.Element {
 }
 
 function FileBadge({ path }: { path: string }): JSX.Element {
-	const name = path.split("/").pop() ?? path;
+	const name = pathBasename(path);
 	return (
 		<span
 			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground"
@@ -398,7 +408,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 				}
 				textarea::placeholder { color: var(--muted-foreground); opacity: 0.5; }
 			`}</style>
-			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-[56px]">
+			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-2">
 				<div className="mx-auto flex max-w-3xl flex-col gap-5">
 					<AnimatePresence initial={false}>
 						{messages.map((m) => (

@@ -4,6 +4,14 @@ import { flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/a
 import { useSetAtom } from "jotai";
 import { useCallback } from "react";
 
+function normalizeTransfer(data: unknown): FlowingTransferVO {
+	const transfer = data as FlowingTransferVO;
+	return {
+		...transfer,
+		file_list: transfer.file_list ?? [],
+	};
+}
+
 export function useFlowingSSE(): void {
 	const setPendingList = useSetAtom(flowingPendingListAtom);
 	const setPendingCount = useSetAtom(flowingPendingCountAtom);
@@ -13,7 +21,7 @@ export function useFlowingSSE(): void {
 		"flowing:incoming",
 		useCallback(
 			(data: unknown) => {
-				const transfer = data as FlowingTransferVO;
+				const transfer = normalizeTransfer(data);
 				setPendingList((prev) => [transfer, ...prev]);
 				setPendingCount((prev) => prev + 1);
 			},
@@ -26,11 +34,12 @@ export function useFlowingSSE(): void {
 		"flowing:accepted",
 		useCallback(
 			(data: unknown) => {
-				const transfer = data as FlowingTransferVO;
+				const transfer = normalizeTransfer(data);
 				// 从 pending list 中移除（如果在的话）
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
+				setPendingCount((prev) => Math.max(0, prev - 1));
 			},
-			[setPendingList],
+			[setPendingList, setPendingCount],
 		),
 	);
 
@@ -39,10 +48,11 @@ export function useFlowingSSE(): void {
 		"flowing:rejected",
 		useCallback(
 			(data: unknown) => {
-				const transfer = data as FlowingTransferVO;
+				const transfer = normalizeTransfer(data);
 				setPendingList((prev) => prev.filter((t) => t.id !== transfer.id));
+				setPendingCount((prev) => Math.max(0, prev - 1));
 			},
-			[setPendingList],
+			[setPendingList, setPendingCount],
 		),
 	);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Project } from "@shared/store/atoms";
 
@@ -16,6 +16,19 @@ interface ProjectContextMenuProps {
 
 export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove, onDelete }: ProjectContextMenuProps): JSX.Element {
 	const menuRef = useRef<HTMLDivElement>(null);
+	const [adjustedPos, setAdjustedPos] = useState({ x, y });
+
+	useLayoutEffect(() => {
+		const el = menuRef.current;
+		if (!el) return;
+		const rect = el.getBoundingClientRect();
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		setAdjustedPos({
+			x: x + rect.width > vw ? vw - rect.width - 4 : x,
+			y: y + rect.height > vh ? vh - rect.height - 4 : y,
+		});
+	}, [x, y]);
 
 	useEffect(() => {
 		function handleClick(e: MouseEvent) {
@@ -45,8 +58,8 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 				transition={{ duration: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
 				className="fixed z-50 w-[160px] overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-xl"
 				style={{
-					left: `${x}px`,
-					top: `${y}px`,
+					left: `${adjustedPos.x}px`,
+					top: `${adjustedPos.y}px`,
 				}}
 			>
 				<button

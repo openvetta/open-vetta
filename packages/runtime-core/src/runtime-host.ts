@@ -34,7 +34,7 @@ export class RuntimeHost implements SessionFacade {
 			config.sessionPath && config.sessionPath.trim().length > 0
 				? SessionManager.open(config.sessionPath)
 				: config.cwd
-					? SessionManager.create(config.cwd)
+					? SessionManager.create(config.cwd, config.sessionDir)
 					: undefined;
 
 		const options: CreateAgentSessionOptions = {
@@ -303,20 +303,21 @@ export class RuntimeHost implements SessionFacade {
 			});
 
 			if (event.message.stopReason === "error") {
+				const errorText =
+					this.extractAssistantText(event.message.content) ||
+					(event.message as Message & { errorMessage?: string }).errorMessage ||
+					"Assistant response ended with error";
 				events.push({
 					...this.baseEvent(sessionId, "agent"),
 					type: "error",
-					error: runtimeError(
-						"INTERNAL_ERROR",
-						this.extractAssistantText(event.message.content) || "Assistant response ended with error",
-						true,
-						"provider",
-					),
+					error: runtimeError("INTERNAL_ERROR", errorText, true, "provider"),
 				});
-			}
-			if (event.message.stopReason === "aborted") {
+			} else if (event.message.stopReason === "aborted") {
 				events.push(this.lifecycleEvent(sessionId, "aborted"));
 			}
+			// NOTE: Do NOT emit agent_end here. In a multi-turn agent loop,
+			// message_end fires after each LLM call, not just the final one.
+			// The real agent_end comes from the "agent_end" session event.
 			return events;
 		}
 

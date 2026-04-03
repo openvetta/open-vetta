@@ -49,21 +49,21 @@ export function FilePreview({ filePath }: FilePreviewProps): JSX.Element {
 	const supported = SUPPORTED_EXTENSIONS.has(ext);
 
 	const [state, setState] = useState<
-		| { status: "loading" }
-		| { status: "error"; message: string }
-		| { status: "loaded"; content: string; encoding: "utf8" | "base64" }
-	>({ status: "loading" });
+		| { status: "loading"; filePath: string }
+		| { status: "error"; filePath: string; message: string }
+		| { status: "loaded"; filePath: string; content: string; encoding: "utf8" | "base64" }
+	>({ status: "loading", filePath });
 
 	useEffect(() => {
 		if (!supported) return;
 		let cancelled = false;
-		setState({ status: "loading" });
+		setState({ status: "loading", filePath });
 
 		window.vetta.fs
 			.readFile(filePath)
 			.then((result) => {
 				if (!cancelled) {
-					setState({ status: "loaded", ...result });
+					setState({ status: "loaded", filePath, ...result });
 				}
 			})
 			.catch((err: Error) => {
@@ -71,7 +71,7 @@ export function FilePreview({ filePath }: FilePreviewProps): JSX.Element {
 					const message = err.message?.includes("too large")
 						? "文件过大，无法预览"
 						: "无法读取此文件";
-					setState({ status: "error", message });
+					setState({ status: "error", filePath, message });
 				}
 			});
 
@@ -79,6 +79,9 @@ export function FilePreview({ filePath }: FilePreviewProps): JSX.Element {
 			cancelled = true;
 		};
 	}, [filePath, supported]);
+
+	// filePath changed but useEffect hasn't run yet — treat as loading
+	const stale = state.filePath !== filePath;
 
 	if (!supported) {
 		return (
@@ -89,7 +92,7 @@ export function FilePreview({ filePath }: FilePreviewProps): JSX.Element {
 		);
 	}
 
-	if (state.status === "loading") {
+	if (stale || state.status === "loading") {
 		return (
 			<div className="flex flex-1 items-center justify-center p-8">
 				<span className="icon-[mdi--loading] animate-spin text-[24px] text-muted-foreground/50" />

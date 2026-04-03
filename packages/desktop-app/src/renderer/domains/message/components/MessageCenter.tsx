@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAtomValue } from "jotai";
+import { AnimatePresence, motion } from "motion/react";
 import { flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { Dialog, DialogContent } from "@shared/components/ui/dialog";
@@ -8,10 +9,10 @@ import { cn } from "@shared/lib/utils";
 
 type Tab = "all" | "notifications" | "flowing";
 
-const TABS: { value: Tab; label: string }[] = [
-	{ value: "all", label: "全部" },
-	{ value: "notifications", label: "通知" },
-	{ value: "flowing", label: "流转" },
+const TABS: { value: Tab; label: string; icon: string }[] = [
+	{ value: "all", label: "全部", icon: "icon-[mdi--inbox-outline]" },
+	{ value: "notifications", label: "通知", icon: "icon-[mdi--bell-outline]" },
+	{ value: "flowing", label: "流转", icon: "icon-[mdi--swap-horizontal]" },
 ];
 
 function FlowingList(): JSX.Element {
@@ -19,65 +20,91 @@ function FlowingList(): JSX.Element {
 	const { processing, accept, reject } = useFlowingReceive();
 
 	if (pendingList.length === 0) {
-		return <EmptyState text="暂无待处理流转" />;
+		return <EmptyState text="暂无待处理流转" icon="icon-[mdi--swap-horizontal]" />;
 	}
 
 	return (
-		<div className="flex flex-col">
-			{pendingList.map((t) => (
-				<div key={t.id} className="border-b border-border px-3 py-3 last:border-b-0">
-					<div className="flex items-start gap-2.5">
-						<span className="icon-[mdi--account-circle] mt-0.5 h-7 w-7 shrink-0 text-muted-foreground/60" />
-						<div className="min-w-0 flex-1">
-							<p className="text-[12px] leading-relaxed">
-								<span className="font-semibold text-foreground">{t.sender_name}</span>
-								<span className="text-muted-foreground"> 发来了 </span>
-								<span className="font-semibold text-foreground">{t.project_name}</span>
-							</p>
-							{t.message && (
-								<p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{t.message}</p>
-							)}
-							<p className="mt-1 text-[11px] text-muted-foreground/60">
-								{t.file_list.length} 个文件
-								<span className="mx-1">·</span>
-								{formatRelativeTime(t.created_at)}
-							</p>
-							<div className="mt-2 flex gap-2">
-								<Button
-									size="sm"
-									variant="outline"
-									className="h-6 px-2.5 text-[11px]"
-									onClick={() => reject(t)}
-									disabled={processing}
-								>
-									拒绝
-								</Button>
-								<Button
-									size="sm"
-									className="h-6 px-2.5 text-[11px]"
-									onClick={() => accept(t)}
-									disabled={processing}
-								>
-									{processing ? "处理中..." : "接受"}
-								</Button>
+		<div className="flex flex-col gap-1.5 p-3">
+			<AnimatePresence initial={false}>
+				{pendingList.map((t, i) => (
+					<motion.div
+						key={t.id}
+						initial={{ opacity: 0, y: 8 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0, padding: 0 }}
+						transition={{ duration: 0.2, delay: i * 0.03 }}
+						className="group rounded-xl border border-border/60 bg-background p-3.5 transition-colors hover:border-border hover:bg-accent/30"
+					>
+						<div className="flex items-start gap-3">
+							{/* Avatar */}
+							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+								<span className="icon-[mdi--account] h-4.5 w-4.5 text-primary" />
+							</div>
+
+							<div className="min-w-0 flex-1">
+								{/* Title */}
+								<p className="text-[12.5px] leading-snug">
+									<span className="font-semibold text-foreground">{t.sender_name}</span>
+									<span className="text-muted-foreground"> 分享了 </span>
+									<span className="font-semibold text-foreground">{t.project_name}</span>
+								</p>
+
+								{/* Message */}
+								{t.message && (
+									<p className="mt-1.5 line-clamp-2 rounded-lg bg-muted/40 px-2.5 py-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
+										{t.message}
+									</p>
+								)}
+
+								{/* Meta */}
+								<div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground/50">
+									<span className="flex items-center gap-1">
+										<span className="icon-[mdi--file-multiple-outline] h-3 w-3" />
+										{t.file_list.length} 个文件
+									</span>
+									<span>{formatRelativeTime(t.created_at)}</span>
+								</div>
+
+								{/* Actions */}
+								<div className="mt-2.5 flex gap-2">
+									<Button
+										size="sm"
+										variant="outline"
+										className="h-7 rounded-lg px-3.5 text-[11px] font-medium"
+										onClick={() => reject(t)}
+										disabled={processing}
+									>
+										拒绝
+									</Button>
+									<Button
+										size="sm"
+										className="h-7 rounded-lg px-3.5 text-[11px] font-medium"
+										onClick={() => accept(t)}
+										disabled={processing}
+									>
+										{processing ? "处理中..." : "接受"}
+									</Button>
+								</div>
 							</div>
 						</div>
-					</div>
-				</div>
-			))}
+					</motion.div>
+				))}
+			</AnimatePresence>
 		</div>
 	);
 }
 
 function NotificationList(): JSX.Element {
-	return <EmptyState text="暂无通知" />;
+	return <EmptyState text="暂无通知" icon="icon-[mdi--bell-outline]" />;
 }
 
-function EmptyState({ text }: { text: string }): JSX.Element {
+function EmptyState({ text, icon }: { text: string; icon: string }): JSX.Element {
 	return (
-		<div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-			<span className="icon-[mdi--inbox-outline] text-2xl text-muted-foreground/25" />
-			<p className="text-[11px] text-muted-foreground/40">{text}</p>
+		<div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
+			<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50">
+				<span className={cn(icon, "h-6 w-6 text-muted-foreground/30")} />
+			</div>
+			<p className="text-[12px] text-muted-foreground/40">{text}</p>
 		</div>
 	);
 }
@@ -102,11 +129,12 @@ export function MessageCenter(): JSX.Element {
 
 	return (
 		<>
+			{/* Trigger button */}
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
 				className={cn(
-					"no-drag relative flex items-center justify-center rounded-lg p-[6px] transition-colors",
+					"no-drag relative flex items-center justify-center rounded-lg p-[6px] transition-all duration-200",
 					open
 						? "bg-accent text-foreground"
 						: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -115,57 +143,81 @@ export function MessageCenter(): JSX.Element {
 			>
 				<span className="icon-[mdi--bell-outline] h-4 w-4" />
 				{totalUnread > 0 && (
-					<span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
+					<span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm shadow-red-500/30">
 						{totalUnread}
 					</span>
 				)}
 			</button>
 
+			{/* Dialog */}
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent
-					className="flex max-h-[500px] w-[400px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[400px]"
+					className="flex max-h-[520px] w-[420px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[420px]"
 					showCloseButton={false}
 				>
 					{/* Header */}
-					<div className="flex items-center justify-between border-b border-border px-4 py-3">
-						<span className="text-[13px] font-semibold text-foreground">消息中心</span>
+					<div className="flex items-center justify-between px-5 pb-0 pt-5">
+						<h2 className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+							消息中心
+						</h2>
 						<button
 							type="button"
 							onClick={() => setOpen(false)}
-							className="rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+							className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
 						>
 							<span className="icon-[mdi--close] h-4 w-4" />
 						</button>
 					</div>
 
 					{/* Tabs */}
-					<div className="flex gap-0.5 border-b border-border px-4 py-2">
-						{TABS.map(({ value, label }) => (
-							<button
-								key={value}
-								type="button"
-								onClick={() => setActiveTab(value)}
-								className={cn(
-									"relative rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors",
-									activeTab === value
-										? "bg-accent text-foreground"
-										: "text-muted-foreground hover:text-foreground",
-								)}
-							>
-								{label}
-								{value === "flowing" && pendingCount > 0 && (
-									<span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-										{pendingCount}
-									</span>
-								)}
-							</button>
-						))}
+					<div className="flex gap-1 px-5 pb-1 pt-4">
+						{TABS.map(({ value, label, icon }) => {
+							const isActive = activeTab === value;
+							const count = value === "flowing" ? pendingCount : 0;
+							return (
+								<button
+									key={value}
+									type="button"
+									onClick={() => setActiveTab(value)}
+									className={cn(
+										"relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all duration-150",
+										isActive
+											? "bg-foreground text-background shadow-sm"
+											: "text-muted-foreground hover:bg-accent hover:text-foreground",
+									)}
+								>
+									<span className={cn(icon, "h-3.5 w-3.5")} />
+									{label}
+									{count > 0 && (
+										<span
+											className={cn(
+												"ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold",
+												isActive
+													? "bg-background/20 text-background"
+													: "bg-red-500 text-white",
+											)}
+										>
+											{count}
+										</span>
+									)}
+								</button>
+							);
+						})}
 					</div>
+
+					{/* Divider */}
+					<div className="mx-5 mt-2 border-t border-border/60" />
 
 					{/* Content */}
 					<div className="flex-1 overflow-y-auto">
 						{activeTab === "all" && (
-							<>{pendingCount > 0 ? <FlowingList /> : <EmptyState text="暂无消息" />}</>
+							<>
+								{pendingCount > 0 ? (
+									<FlowingList />
+								) : (
+									<EmptyState text="暂无消息" icon="icon-[mdi--inbox-outline]" />
+								)}
+							</>
 						)}
 						{activeTab === "notifications" && <NotificationList />}
 						{activeTab === "flowing" && <FlowingList />}

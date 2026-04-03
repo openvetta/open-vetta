@@ -2,14 +2,14 @@ import { useSetAtom } from "jotai";
 import { selectedFilePathAtom } from "@shared/store/atoms";
 import { getFileIcon } from "@domains/file-explorer/components/fileIcons";
 import { Button } from "@shared/components/ui/button";
+import { pathBasename } from "@shared/lib/utils";
 
 interface ActivityPanelHeaderProps {
 	filePath: string;
 }
 
 function getFileName(filePath: string): string {
-	const parts = filePath.split("/");
-	return parts[parts.length - 1] || filePath;
+	return pathBasename(filePath);
 }
 
 export function ActivityPanelHeader({ filePath }: ActivityPanelHeaderProps): JSX.Element {

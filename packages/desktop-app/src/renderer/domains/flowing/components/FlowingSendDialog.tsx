@@ -1,5 +1,5 @@
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useAtom, useAtomValue } from "jotai";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	Dialog,
 	DialogContent,
@@ -9,12 +9,21 @@ import {
 	DialogTitle,
 } from "@shared/components/ui/dialog";
 import { Button } from "@shared/components/ui/button";
-import { fetchColleagues, type ColleagueInfo } from "@shared/lib/api";
+import { Textarea } from "@shared/components/ui/textarea";
+import {
+	completeWorkflowStage,
+	fetchColleagues,
+	fetchNextStageMembers,
+	type ColleagueInfo,
+	type NextStageMembers,
+} from "@shared/lib/api";
+import { pathBasename } from "@shared/lib/utils";
 import {
 	activeSessionAtom,
 	authTokenAtom,
 	flowingSendDialogOpenAtom,
 	selectedFilesAtom,
+	workflowInstanceAtom,
 } from "@shared/store/atoms";
 import { useFlowingSend } from "../hooks/useFlowingSend";
 
@@ -23,18 +32,38 @@ export function FlowingSendDialog(): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [selectedFiles, setSelectedFiles] = useAtom(selectedFilesAtom);
+	const workflowInstance = useAtomValue(workflowInstanceAtom);
 
 	const [colleagues, setColleagues] = useState<ColleagueInfo[]>([]);
 	const [selectedReceivers, setSelectedReceivers] = useState<Set<number>>(new Set());
 	const [message, setMessage] = useState("");
 	const { sending, error, send } = useFlowingSend();
+	const [workflowError, setWorkflowError] = useState<string | null>(null);
+	const [nextStageInfo, setNextStageInfo] = useState<NextStageMembers | null>(null);
 
-	// 加载同事列表
+	const isWorkflowBound = workflowInstance != null && workflowInstance.status === "active";
+
+	// 加载同事列表或下一阶段成员
 	useEffect(() => {
-		if (open && token) {
+		if (!open || !token) return;
+		setWorkflowError(null);
+		setNextStageInfo(null);
+
+		if (isWorkflowBound) {
+			// 工作流绑定时，获取下一阶段成员
+			void fetchNextStageMembers(token, workflowInstance.id)
+				.then((info) => {
+					setNextStageInfo(info);
+					setColleagues(info.members);
+				})
+				.catch((err) => {
+					setWorkflowError(err instanceof Error ? err.message : "获取下一阶段成员失败");
+					setColleagues([]);
+				});
+		} else {
 			void fetchColleagues(token).then(setColleagues).catch(console.error);
 		}
-	}, [open, token]);
+	}, [open, token, isWorkflowBound, workflowInstance?.id]);
 
 	const toggleReceiver = useCallback((id: number) => {
 		setSelectedReceivers((prev) => {
@@ -71,110 +100,234 @@ export function FlowingSendDialog(): JSX.Element {
 		if (!activeSession || selectedReceivers.size === 0 || selectedFiles.length === 0) return;
 
 		const projectDir = activeSession.cwd;
-		const projectName = projectDir.split("/").filter(Boolean).pop() ?? projectDir;
+		const projectName = pathBasename(projectDir);
+
+		// 读取当前项目的 meta，获取已有的 flowingId（链式流转时复用）
+		const meta = await window.vetta.flowing.readMeta(projectDir);
+		const existingFlowingId =
+			meta?.type === "flowing" && typeof meta.flowingId === "number" ? meta.flowingId : undefined;
+
+		// 工作流绑定时，先完成当前阶段
+		if (isWorkflowBound && token) {
+			try {
+				await completeWorkflowStage(token, workflowInstance.id);
+			} catch (err) {
+				setWorkflowError(err instanceof Error ? err.message : "完成当前阶段失败");
+				return;
+			}
+		}
 
 		const result = await send({
 			projectDir,
 			projectName,
+			flowingId: existingFlowingId,
 			receiverIds: [...selectedReceivers],
 			message,
 			filePaths: selectedFiles,
 		});
 
-		if (result) {
+		if (result && result.length > 0) {
+			// 将服务端返回的 flowingId 写回发送方项目的 meta.json
+			const flowingId = result[0].flowing_id;
+			await window.vetta.flowing.writeMeta(projectDir, {
+				...meta,
+				type: "flowing",
+				flowingId,
+			});
+
 			setOpen(false);
 			setSelectedReceivers(new Set());
 			setMessage("");
 			setSelectedFiles([]);
+			setWorkflowError(null);
+			setNextStageInfo(null);
 		}
-	}, [activeSession, selectedReceivers, selectedFiles, message, send, setOpen, setSelectedFiles]);
+	}, [activeSession, selectedReceivers, selectedFiles, message, send, setOpen, setSelectedFiles, isWorkflowBound, token, workflowInstance?.id]);
+
+	const canSend = selectedReceivers.size > 0 && selectedFiles.length > 0;
+
+	const selectedReceiverNames = useMemo(() => {
+		if (selectedReceivers.size === 0) return "";
+		return colleagues
+			.filter((c) => selectedReceivers.has(c.id))
+			.map((c) => c.username)
+			.join(", ");
+	}, [colleagues, selectedReceivers]);
+
+	const displayError = workflowError ?? error;
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent className="overflow-hidden sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>内容流转</DialogTitle>
-					<DialogDescription>将选中的文件发送给同事</DialogDescription>
+					<DialogTitle className="flex items-center gap-2">
+						<span className="icon-[mdi--send-variant-outline] text-lg text-primary" />
+						内容流转
+					</DialogTitle>
+					<DialogDescription>
+						{isWorkflowBound && nextStageInfo
+							? `流转至下一阶段: ${nextStageInfo.stage_name}`
+							: "将选中的文件发送给同事"}
+					</DialogDescription>
 				</DialogHeader>
 
 				{/* 选中的文件 */}
-				<div className="space-y-2">
+				<div className="space-y-1.5">
 					<div className="flex items-center justify-between">
-						<div className="text-xs font-medium text-muted-foreground">
-							选中文件 ({selectedFiles.length})
+						<div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+							<span className="icon-[mdi--file-document-outline] text-sm" />
+							文件
+							{selectedFiles.length > 0 && (
+								<span className="rounded-full bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold text-primary">
+									{selectedFiles.length}
+								</span>
+							)}
 						</div>
-						<Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={handleAddFiles}>
-							添加文件
+						<Button variant="ghost" size="xs" onClick={handleAddFiles}>
+							<span className="icon-[mdi--plus]" data-icon="inline-start" />
+							添加
 						</Button>
 					</div>
-					<div className="max-h-32 overflow-y-auto rounded border p-2 text-xs">
+					<div className="max-h-32 overflow-auto rounded-lg border border-border/50 bg-muted/30 text-xs">
 						{selectedFiles.length === 0 ? (
-							<p className="text-muted-foreground">点击「添加文件」选择要流转的文件</p>
+							<button
+								type="button"
+								onClick={handleAddFiles}
+								className="flex w-full items-center justify-center gap-2 p-4 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+							>
+								<span className="icon-[mdi--cloud-upload-outline] text-lg" />
+								点击选择要流转的文件
+							</button>
 						) : (
-							selectedFiles.map((f) => (
-								<div key={f} className="group flex items-center gap-1 py-0.5">
-									<span className="flex-1 truncate">{f}</span>
-									<button
-										type="button"
-										className="shrink-0 text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
-										onClick={() => handleRemoveFile(f)}
-									>
-										<span className="icon-[mdi--close] text-sm" />
-									</button>
-								</div>
-							))
+							<div className="divide-y divide-border/30">
+								{selectedFiles.map((f) => (
+									<div key={f} className="group flex min-w-0 items-center gap-2 px-2.5 py-1.5">
+										<span className="icon-[mdi--file-outline] shrink-0 text-sm text-muted-foreground/50" />
+										<div className="min-w-0 flex-1">
+											<div className="truncate font-medium">{pathBasename(f)}</div>
+										</div>
+										<button
+											type="button"
+											className="shrink-0 rounded-md p-0.5 text-muted-foreground/40 opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+											onClick={() => handleRemoveFile(f)}
+										>
+											<span className="icon-[mdi--close] text-sm" />
+										</button>
+									</div>
+								))}
+							</div>
 						)}
 					</div>
 				</div>
 
 				{/* 选择接收方 */}
-				<div className="space-y-2">
-					<div className="text-xs font-medium text-muted-foreground">选择接收方</div>
-					<div className="max-h-40 overflow-y-auto rounded border p-2">
+				<div className="space-y-1.5">
+					<div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+						<span className="icon-[mdi--account-group-outline] text-sm" />
+						{isWorkflowBound ? "下一阶段成员" : "接收方"}
+						{selectedReceivers.size > 0 && (
+							<span className="rounded-full bg-primary/10 px-1.5 py-px text-[0.65rem] font-semibold text-primary">
+								{selectedReceivers.size}
+							</span>
+						)}
+					</div>
+					<div className="max-h-40 overflow-y-auto rounded-lg border border-border/50 bg-muted/30">
 						{colleagues.length === 0 ? (
-							<p className="text-xs text-muted-foreground">暂无同组织成员</p>
+							<div className="flex items-center justify-center gap-2 p-4 text-xs text-muted-foreground/50">
+								<span className="icon-[mdi--account-off-outline] text-base" />
+								{isWorkflowBound ? "下一阶段暂无成员" : "暂无同组织成员"}
+							</div>
 						) : (
-							colleagues.map((c) => (
-								<label
-									key={c.id}
-									className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
-								>
-									<input
-										type="checkbox"
-										checked={selectedReceivers.has(c.id)}
-										onChange={() => toggleReceiver(c.id)}
-										className="rounded"
-									/>
-									<span className="text-xs">{c.username}</span>
-								</label>
-							))
+							<div className="p-1">
+								{colleagues.map((c) => {
+									const isSelected = selectedReceivers.has(c.id);
+									return (
+										<label
+											key={c.id}
+											className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors ${
+												isSelected
+													? "bg-primary/8 text-foreground"
+													: "text-muted-foreground hover:bg-muted"
+											}`}
+										>
+											<input
+												type="checkbox"
+												checked={isSelected}
+												onChange={() => toggleReceiver(c.id)}
+												className="sr-only"
+											/>
+											<span
+												className={`flex size-4 shrink-0 items-center justify-center rounded border text-[0.6rem] transition-all ${
+													isSelected
+														? "border-primary bg-primary text-primary-foreground"
+														: "border-border bg-background"
+												}`}
+											>
+												{isSelected && <span className="icon-[mdi--check] text-xs" />}
+											</span>
+											<span className="flex items-center gap-1.5 text-xs">
+												<span
+													className={`flex size-5 items-center justify-center rounded-full text-[0.6rem] font-medium ${
+														isSelected
+															? "bg-primary/15 text-primary"
+															: "bg-muted text-muted-foreground"
+													}`}
+												>
+													{c.username.charAt(0).toUpperCase()}
+												</span>
+												{c.username}
+											</span>
+										</label>
+									);
+								})}
+							</div>
 						)}
 					</div>
 				</div>
 
 				{/* 附加消息 */}
-				<div className="space-y-2">
-					<div className="text-xs font-medium text-muted-foreground">附加消息（可选）</div>
-					<textarea
+				<div className="space-y-1.5">
+					<div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+						<span className="icon-[mdi--message-text-outline] text-sm" />
+						附加消息
+						<span className="font-normal text-muted-foreground/50">可选</span>
+					</div>
+					<Textarea
 						value={message}
 						onChange={(e) => setMessage(e.target.value)}
 						placeholder="输入附加消息..."
-						className="w-full rounded border bg-background p-2 text-xs outline-none focus:ring-1 focus:ring-ring"
-						rows={3}
+						className="min-h-[4.5rem] resize-none text-xs"
 					/>
 				</div>
 
-				{error && <div className="text-xs text-red-500">{error}</div>}
+				{displayError && (
+					<div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+						<span className="icon-[mdi--alert-circle-outline] shrink-0 text-sm" />
+						{displayError}
+					</div>
+				)}
 
 				<DialogFooter>
+					{canSend && (
+						<div className="mr-auto hidden items-center text-xs text-muted-foreground sm:flex">
+							{selectedFiles.length} 个文件 → {selectedReceiverNames}
+						</div>
+					)}
 					<Button variant="outline" onClick={() => setOpen(false)} disabled={sending}>
 						取消
 					</Button>
-					<Button
-						onClick={handleSend}
-						disabled={sending || selectedReceivers.size === 0 || selectedFiles.length === 0}
-					>
-						{sending ? "发送中..." : "发送"}
+					<Button onClick={handleSend} disabled={sending || !canSend}>
+						{sending ? (
+							<>
+								<span className="icon-[mdi--loading] animate-spin" data-icon="inline-start" />
+								发送中
+							</>
+						) : (
+							<>
+								<span className="icon-[mdi--send] text-xs" data-icon="inline-start" />
+								发送
+							</>
+						)}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -27,6 +27,20 @@ import { clearConfigValueCache, resolveConfigValue, resolveHeaders } from "./res
 
 const Ajv = (AjvModule as any).default || AjvModule;
 
+/**
+ * Normalize common API type aliases to their registered names.
+ * Users may write "anthropic" or "openai" in configs, but the registry
+ * uses "anthropic-messages" and "openai-completions" respectively.
+ */
+const API_TYPE_ALIASES: Record<string, string> = {
+	anthropic: "anthropic-messages",
+	openai: "openai-completions",
+};
+
+function normalizeApiType(api: string): string {
+	return API_TYPE_ALIASES[api] ?? api;
+}
+
 // Schema for OpenRouter routing preferences
 const OpenRouterRoutingSchema = Type.Object({
 	only: Type.Optional(Type.Array(Type.String())),
@@ -50,7 +64,9 @@ const OpenAICompletionsCompatSchema = Type.Object({
 	requiresAssistantAfterToolResult: Type.Optional(Type.Boolean()),
 	requiresThinkingAsText: Type.Optional(Type.Boolean()),
 	requiresMistralToolIds: Type.Optional(Type.Boolean()),
-	thinkingFormat: Type.Optional(Type.Union([Type.Literal("openai"), Type.Literal("zai"), Type.Literal("qwen")])),
+	thinkingFormat: Type.Optional(
+		Type.Union([Type.Literal("openai"), Type.Literal("zai"), Type.Literal("qwen"), Type.Literal("nvidia")]),
+	),
 	openRouterRouting: Type.Optional(OpenRouterRoutingSchema),
 	vercelGatewayRouting: Type.Optional(VercelGatewayRoutingSchema),
 });
@@ -110,6 +126,7 @@ const ProviderConfigSchema = Type.Object({
 	api: Type.Optional(Type.String({ minLength: 1 })),
 	headers: Type.Optional(Type.Record(Type.String(), Type.String())),
 	authHeader: Type.Optional(Type.Boolean()),
+	compat: Type.Optional(OpenAICompatSchema),
 	models: Type.Optional(Type.Array(ModelDefinitionSchema)),
 	modelOverrides: Type.Optional(Type.Record(Type.String(), ModelOverrideSchema)),
 });
@@ -570,8 +587,9 @@ export class ModelRegistry {
 			}
 
 			for (const modelDef of modelDefs) {
-				const api = modelDef.api || providerConfig.api;
-				if (!api) continue;
+				const rawApi = modelDef.api || providerConfig.api;
+				if (!rawApi) continue;
+				const api = normalizeApiType(rawApi);
 
 				// Merge headers: provider headers are base, model headers override
 				// Resolve env vars and shell commands in header values
@@ -602,7 +620,7 @@ export class ModelRegistry {
 					contextWindow: modelDef.contextWindow ?? 128000,
 					maxTokens: modelDef.maxTokens ?? 16384,
 					headers,
-					compat: modelDef.compat,
+					compat: mergeCompat(providerConfig.compat, modelDef.compat) ?? undefined,
 				} as Model<Api>);
 			}
 		}
@@ -758,7 +776,7 @@ export class ModelRegistry {
 					contextWindow: modelDef.contextWindow,
 					maxTokens: modelDef.maxTokens,
 					headers,
-					compat: modelDef.compat,
+					compat: mergeCompat(config.compat, modelDef.compat) ?? undefined,
 				} as Model<Api>);
 			}
 
@@ -794,6 +812,8 @@ export interface ProviderConfigInput {
 	streamSimple?: (model: Model<Api>, context: Context, options?: SimpleStreamOptions) => AssistantMessageEventStream;
 	headers?: Record<string, string>;
 	authHeader?: boolean;
+	/** Provider-level compat settings, inherited by all models under this provider. Model-level compat overrides. */
+	compat?: Model<Api>["compat"];
 	/** OAuth provider for /login support */
 	oauth?: Omit<OAuthProviderInterface, "id">;
 	models?: Array<{

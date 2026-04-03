@@ -1,7 +1,7 @@
 import { useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@shared/lib/utils";
-import type { Project, SessionInfo } from "@shared/store/atoms";
+import { cn, pathBasename } from "@shared/lib/utils";
+import type { Project, ProjectType, SessionInfo } from "@shared/store/atoms";
 import { projectContextMenuAtom, renamingSessionPathAtom, sessionContextMenuAtom } from "@shared/store/atoms";
 
 interface ProjectGroupProps {
@@ -9,15 +9,26 @@ interface ProjectGroupProps {
 	sessions: SessionInfo[];
 	isExpanded: boolean;
 	activeSessionPath: string;
-	onToggle: (cwd: string) => void;
+	onExpand: (cwd: string) => void;
+	onCollapse: (cwd: string) => void;
+	onNavigateProject: (cwd: string) => void;
 	onNewSession: (cwd: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 }
 
-function projectName(cwd: string): string {
-	return cwd.split("/").filter(Boolean).pop() ?? cwd;
-}
+const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
+	normal: "icon-[mdi--folder-outline]",
+	schedule: "icon-[mdi--robot-outline]",
+	flowing: "icon-[mdi--swap-horizontal]",
+	batch: "icon-[mdi--layers-outline]",
+};
+
+const PROJECT_TYPE_BADGES: Record<Exclude<ProjectType, "normal">, string> = {
+	schedule: "自动化",
+	flowing: "流转",
+	batch: "批量",
+};
 
 function relativeTime(timestamp: number): string {
 	const now = Date.now();
@@ -83,7 +94,9 @@ export function ProjectGroup({
 	sessions,
 	isExpanded,
 	activeSessionPath,
-	onToggle,
+	onExpand,
+	onCollapse,
+	onNavigateProject,
 	onNewSession,
 	onSelectSession,
 	onRenameSession,
@@ -93,35 +106,82 @@ export function ProjectGroup({
 	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 
+	const displayName = project.name ?? pathBasename(project.cwd);
+	const projectType = project.type;
+	const hasBadge = projectType !== "normal";
+
 	return (
 		<div className="mb-1">
 			{/* Project row */}
-			<button
-				type="button"
-				onClick={() => onToggle(project.cwd)}
+			<div
+				className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left hover:bg-accent/50"
+				title={project.cwd}
 				onContextMenu={(e) => {
 					e.preventDefault();
 					setProjectContextMenu({ x: e.clientX, y: e.clientY, project });
 				}}
-				className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left hover:bg-accent/50"
-				title={project.cwd}
 			>
-				<span className="icon-[mdi--folder-outline] h-4 w-4 shrink-0 text-foreground" />
-				<span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-					{projectName(project.cwd)}
-				</span>
+				{/* Icon: collapsed = type icon (clickable to expand), expanded = chevron (clickable to collapse) */}
+				{isExpanded ? (
+					<button
+						type="button"
+						onClick={() => onCollapse(project.cwd)}
+						className="flex shrink-0 items-center justify-center"
+					>
+						<span className="icon-[mdi--chevron-down] h-4 w-4 text-foreground" />
+					</button>
+				) : (
+					<button
+						type="button"
+						onClick={() => {
+							onExpand(project.cwd);
+							onNavigateProject(project.cwd);
+						}}
+						className="flex shrink-0 items-center justify-center"
+					>
+						<span className={cn(PROJECT_TYPE_ICONS[projectType], "h-4 w-4 text-foreground")} />
+					</button>
+				)}
+
+				{/* Project name: click navigates to detail */}
 				<button
 					type="button"
-					title="New session"
-					onClick={(e) => {
-						e.stopPropagation();
-						onNewSession(project.cwd);
+					onClick={() => {
+						if (!isExpanded) {
+							onExpand(project.cwd);
+						}
+						onNavigateProject(project.cwd);
 					}}
-					className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-foreground opacity-0 hover:bg-accent group-hover:opacity-100"
+					className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-foreground"
 				>
-					<span className="icon-[mdi--plus] h-3 w-3" />
+					{displayName}
 				</button>
-			</button>
+
+				{/* Badge / + button area */}
+				<div className="relative flex shrink-0 items-center">
+					{/* Badge: visible by default, hidden on group hover */}
+					{hasBadge && (
+						<span className="rounded-sm bg-accent px-1 py-px text-[10px] text-muted-foreground group-hover:hidden">
+							{PROJECT_TYPE_BADGES[projectType as Exclude<ProjectType, "normal">]}
+						</span>
+					)}
+					{/* + button: hidden by default, visible on group hover */}
+					<button
+						type="button"
+						title="New session"
+						onClick={(e) => {
+							e.stopPropagation();
+							onNewSession(project.cwd);
+						}}
+						className={cn(
+							"flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-foreground hover:bg-accent",
+							hasBadge ? "hidden group-hover:flex" : "opacity-0 group-hover:opacity-100",
+						)}
+					>
+						<span className="icon-[mdi--plus] h-3 w-3" />
+					</button>
+				</div>
+			</div>
 
 			{/* Sessions */}
 			{isExpanded && (

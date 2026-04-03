@@ -1,7 +1,13 @@
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
-import { type IpcTeardown, registerAllIpc, registerSchedulerIpc, teardownAllIpc } from "./ipc/index.js";
+import {
+	type IpcTeardown,
+	registerAllIpc,
+	registerBatchTasksIpc,
+	registerSchedulerIpc,
+	teardownAllIpc,
+} from "./ipc/index.js";
 import { initScheduler } from "./scheduler/scheduler.js";
 import {
 	createTray,
@@ -25,6 +31,7 @@ if (!app.isPackaged) {
 
 let ipcTeardown: IpcTeardown | undefined;
 let teardownSchedulerIpc: (() => void) | undefined;
+let teardownBatchTasksIpc: (() => void) | undefined;
 
 // Register custom protocol for OAuth callback
 // Windows dev mode: must pass electron.exe path and app entry as args,
@@ -192,6 +199,10 @@ app.whenReady().then(() => {
 			teardownSchedulerIpc();
 			teardownSchedulerIpc = undefined;
 		}
+		if (teardownBatchTasksIpc) {
+			teardownBatchTasksIpc();
+			teardownBatchTasksIpc = undefined;
+		}
 	});
 
 	// Create tray icon on Windows and Linux
@@ -211,6 +222,8 @@ app.whenReady().then(() => {
 			teardownSchedulerIpc = registerSchedulerIpc(win.webContents);
 		}
 	});
+
+	teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents);
 
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) {

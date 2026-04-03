@@ -1,3 +1,4 @@
+import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { remoteProvidersAtom, selectedModelAtom, workspacePathAtom } from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
@@ -9,6 +10,7 @@ export function useAppInit(): void {
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const { refreshProjects } = useProjects();
+	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
 	useEffect(() => {
 		// Sync workspace path from config file
@@ -27,6 +29,7 @@ export function useAppInit(): void {
 			}
 		});
 		void refreshProjects().catch(console.error);
+		void refreshBatchProjects().catch(console.error);
 		// Fetch remote models on startup
 		void window.vetta.models.fetchRemote().then((result) => {
 			if (result.providers && Object.keys(result.providers).length > 0) {
@@ -37,5 +40,5 @@ export function useAppInit(): void {
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
 		};
-	}, [setWorkspacePath, setSelectedModel, setRemoteProviders, refreshProjects]);
+	}, [setWorkspacePath, setSelectedModel, setRemoteProviders, refreshProjects, refreshBatchProjects]);
 }

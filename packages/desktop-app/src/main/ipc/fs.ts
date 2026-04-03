@@ -1,3 +1,4 @@
+import type { Stats } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
@@ -6,9 +7,14 @@ import type { FsEntry } from "../../preload/fs-types.js";
 
 // ─── Desktop app config ───
 
+export interface ProjectEntry {
+	path: string;
+	name?: string;
+}
+
 export interface DesktopConfig {
-	projects: string[];
-	archivedProjects: string[];
+	projects: ProjectEntry[];
+	archivedProjects: ProjectEntry[];
 	workspacePath: string;
 }
 
@@ -21,11 +27,26 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	workspacePath: join(homedir(), ".vetta", "workspace"),
 };
 
+/** Migrate legacy string[] format to ProjectEntry[] */
+function migrateProjectEntries(entries: unknown): ProjectEntry[] {
+	if (!Array.isArray(entries)) return [];
+	if (entries.length === 0) return [];
+	if (typeof entries[0] === "string") {
+		return (entries as string[]).map((p) => ({ path: p }));
+	}
+	return entries as ProjectEntry[];
+}
+
 async function readConfig(): Promise<DesktopConfig> {
 	try {
 		const raw = await readFile(CONFIG_PATH, "utf8");
-		const parsed = JSON.parse(raw) as Partial<DesktopConfig>;
-		return { ...DEFAULT_CONFIG, ...parsed };
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
+		return {
+			projects: migrateProjectEntries(parsed.projects),
+			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
+			workspacePath:
+				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
+		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
 	}
@@ -124,6 +145,8 @@ async function writeModelsConfig(config: ModelsConfig): Promise<void> {
 const CHANNELS = {
 	READ_DIR: "vetta:fs:read-dir",
 	READ_FILE: "vetta:fs:read-file",
+	WRITE_FILE: "vetta:fs:write-file",
+	STAT: "vetta:fs:stat",
 	RENAME: "vetta:fs:rename",
 	DELETE: "vetta:fs:delete",
 	MOVE: "vetta:fs:move",
@@ -207,7 +230,15 @@ export function registerFsIpc(): () => void {
 			assertPathWithinProject(filePath);
 
 			const resolved = resolve(filePath);
-			const stats = await stat(resolved);
+			let stats: Stats;
+			try {
+				stats = await stat(resolved);
+			} catch (err: unknown) {
+				if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+					return { content: "", encoding: "utf8" };
+				}
+				throw err;
+			}
 			if (stats.size > MAX_FILE_SIZE) {
 				throw new Error("File too large to preview (>10 MB)");
 			}
@@ -220,6 +251,29 @@ export function registerFsIpc(): () => void {
 
 			const content = await readFile(resolved, "utf8");
 			return { content, encoding: "utf8" };
+		},
+	);
+
+	ipcMain.handle(CHANNELS.WRITE_FILE, async (_event, filePath: unknown, content: unknown) => {
+		assertNonEmptyString(filePath, "filePath");
+		if (typeof content !== "string") throw new Error("Invalid content");
+		assertPathWithinProject(filePath);
+		const resolved = resolve(filePath);
+		await mkdir(dirname(resolved), { recursive: true });
+		await writeFile(resolved, content, "utf8");
+	});
+
+	ipcMain.handle(
+		CHANNELS.STAT,
+		async (_event, filePath: unknown): Promise<{ size: number; modifiedAt: number; createdAt: number } | null> => {
+			assertNonEmptyString(filePath, "filePath");
+			assertPathWithinProject(filePath);
+			try {
+				const stats = await stat(resolve(filePath));
+				return { size: stats.size, modifiedAt: stats.mtimeMs, createdAt: stats.birthtimeMs };
+			} catch {
+				return null;
+			}
 		},
 	);
 
@@ -310,8 +364,8 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
 		const config = await readConfig();
 		// Ensure all known paths are authorized for file operations
-		for (const p of config.projects) allowProjectRoot(p);
-		for (const p of config.archivedProjects) allowProjectRoot(p);
+		for (const p of config.projects) allowProjectRoot(p.path);
+		for (const p of config.archivedProjects) allowProjectRoot(p.path);
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
 		return config;
 	});
@@ -326,8 +380,8 @@ export function registerFsIpc(): () => void {
 			workspacePath: patch.workspacePath ?? current.workspacePath,
 		};
 		// Allow all known roots for file operations
-		for (const p of next.projects) allowProjectRoot(p);
-		for (const p of next.archivedProjects) allowProjectRoot(p);
+		for (const p of next.projects) allowProjectRoot(p.path);
+		for (const p of next.archivedProjects) allowProjectRoot(p.path);
 		if (next.workspacePath) allowProjectRoot(next.workspacePath);
 		await writeConfig(next);
 	});
@@ -353,9 +407,12 @@ export function registerFsIpc(): () => void {
 	return () => {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.READ_FILE);
+		ipcMain.removeHandler(CHANNELS.WRITE_FILE);
+		ipcMain.removeHandler(CHANNELS.STAT);
 		ipcMain.removeHandler(CHANNELS.RENAME);
 		ipcMain.removeHandler(CHANNELS.DELETE);
 		ipcMain.removeHandler(CHANNELS.MOVE);
+		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.CREATE_DIRECTORY);
 		ipcMain.removeHandler(CHANNELS.LIST_SUB_DIRS);
 		ipcMain.removeHandler(CHANNELS.CONFIG_GET);

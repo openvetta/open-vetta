@@ -430,6 +430,9 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 	} else if (compat.thinkingFormat === "qwen" && model.reasoning) {
 		// Qwen uses enable_thinking: boolean
 		(params as any).enable_thinking = !!options?.reasoningEffort;
+	} else if (compat.thinkingFormat === "nvidia" && model.reasoning) {
+		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
+		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };
 	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
 		// OpenAI-style reasoning_effort
 		params.reasoning_effort = options.reasoningEffort;

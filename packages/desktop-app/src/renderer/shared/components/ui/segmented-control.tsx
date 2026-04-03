@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useLayoutEffect } from "react";
 import { cn } from "../../lib/utils";
 
 export interface SegmentedControlItem<T extends string> {
@@ -22,6 +22,7 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>): JSX.Element {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+	const [ready, setReady] = useState(false);
 
 	const updateIndicator = useCallback(() => {
 		const container = containerRef.current;
@@ -32,25 +33,39 @@ export function SegmentedControl<T extends string>({
 		if (!activeBtn) return;
 		setIndicatorStyle({
 			width: activeBtn.offsetWidth,
-			left: activeBtn.offsetLeft,
+			transform: `translateX(${activeBtn.offsetLeft}px)`,
 		});
+		setReady(true);
 	}, [items, value]);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		updateIndicator();
+	}, [updateIndicator]);
+
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+		const observer = new ResizeObserver(() => updateIndicator());
+		observer.observe(container);
+		return () => observer.disconnect();
 	}, [updateIndicator]);
 
 	return (
 		<div
 			ref={containerRef}
 			className={cn(
-				"relative flex rounded-lg bg-secondary p-[3px]",
+				"relative inline-flex rounded-[8px] bg-black/[0.06] p-[2px] dark:bg-white/[0.08]",
 				className,
 			)}
 		>
-			{/* Animated active indicator */}
+			{/* Sliding indicator */}
 			<div
-				className="absolute top-[3px] bottom-[3px] rounded-md bg-background shadow-[0_1px_3px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+				className={cn(
+					"absolute top-[2px] bottom-[2px] left-0 rounded-[6px] bg-background shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)] dark:bg-white/[0.12] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),0_0_0_0.5px_rgba(255,255,255,0.06)]",
+					ready
+						? "transition-transform duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+						: "transition-none",
+				)}
 				style={indicatorStyle}
 			/>
 			{items.map(({ key, label, icon }) => (
@@ -60,13 +75,13 @@ export function SegmentedControl<T extends string>({
 					data-segment-btn=""
 					onClick={() => onChange(key)}
 					className={cn(
-						"relative z-10 flex items-center justify-center gap-1.5 rounded-md px-3 py-[5px] text-[12px] font-medium transition-colors duration-200",
+						"relative z-10 flex items-center justify-center gap-1 rounded-[6px] px-2.5 py-[3px] text-[11px] font-medium leading-[16px] transition-colors duration-150 select-none",
 						value === key
 							? "text-foreground"
-							: "text-muted-foreground/50 hover:text-muted-foreground",
+							: "text-muted-foreground hover:text-foreground/70",
 					)}
 				>
-					{icon && <span className={cn(icon, "h-3.5 w-3.5")} />}
+					{icon && <span className={cn(icon, "h-3 w-3")} />}
 					{label}
 				</button>
 			))}

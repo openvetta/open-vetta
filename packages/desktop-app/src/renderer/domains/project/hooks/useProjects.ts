@@ -1,5 +1,6 @@
 import {
 	expandedProjectsAtom,
+	type ProjectType,
 	projectsAtom,
 	type SessionInfo,
 	sessionsMapAtom,
@@ -28,18 +29,29 @@ export function useProjects() {
 	const refreshProjects = useCallback(async () => {
 		// Read project list from app-specific config file (not shared with CLI)
 		const config = await window.vetta.config.get();
-		const next = config.projects.map((cwd) => ({ cwd, sessionCount: 0 }));
-		setProjects(next);
+		const entries = config.projects.map((entry) => ({ cwd: entry.path, name: entry.name, sessionCount: 0 }));
+
+		// Read meta.json for each project in parallel to determine type
+		const metaResults = await Promise.all(
+			entries.map(async (entry) => {
+				const meta = await window.vetta.flowing.readMeta(entry.cwd);
+				const rawType = meta?.type as string | undefined;
+				const type: ProjectType =
+					rawType === "flowing" || rawType === "schedule" || rawType === "batch" ? rawType : "normal";
+				return { ...entry, type };
+			}),
+		);
+		setProjects(metaResults);
 
 		// Load sessions for each project
-		for (const project of next) {
+		for (const project of metaResults) {
 			void loadSessions(project.cwd);
 		}
 
-		if (!didAutoExpand && next.length > 0) {
+		if (!didAutoExpand && metaResults.length > 0) {
 			didAutoExpand = true;
-			setExpandedProjects(new Set<string>([next[0].cwd]));
-			await loadSessions(next[0].cwd);
+			setExpandedProjects(new Set<string>([metaResults[0].cwd]));
+			await loadSessions(metaResults[0].cwd);
 		}
 	}, [setProjects, setExpandedProjects, loadSessions]);
 
@@ -53,10 +65,10 @@ export function useProjects() {
 			const created = subDirs.find((d) => d.name === name);
 			const resolvedPath = created?.path ?? projectPath;
 
-			// Add to config
+			// Add to config with the user-provided name
 			const config = await window.vetta.config.get();
-			if (!config.projects.includes(resolvedPath)) {
-				config.projects.push(resolvedPath);
+			if (!config.projects.some((p) => p.path === resolvedPath)) {
+				config.projects.push({ path: resolvedPath, name });
 				await window.vetta.config.set({ projects: config.projects });
 			}
 
@@ -72,8 +84,8 @@ export function useProjects() {
 		if (!cwd) return null;
 
 		const config = await window.vetta.config.get();
-		if (!config.projects.includes(cwd)) {
-			config.projects.push(cwd);
+		if (!config.projects.some((p) => p.path === cwd)) {
+			config.projects.push({ path: cwd });
 			await window.vetta.config.set({ projects: config.projects });
 		}
 
@@ -82,6 +94,31 @@ export function useProjects() {
 		await loadSessions(cwd);
 		return cwd;
 	}, [refreshProjects, setExpandedProjects, loadSessions]);
+
+	const expandProject = useCallback(
+		(cwd: string) => {
+			setExpandedProjects((prev) => {
+				if (prev.has(cwd)) return prev;
+				const next = new Set(prev);
+				next.add(cwd);
+				void loadSessions(cwd);
+				return next;
+			});
+		},
+		[setExpandedProjects, loadSessions],
+	);
+
+	const collapseProject = useCallback(
+		(cwd: string) => {
+			setExpandedProjects((prev) => {
+				if (!prev.has(cwd)) return prev;
+				const next = new Set(prev);
+				next.delete(cwd);
+				return next;
+			});
+		},
+		[setExpandedProjects],
+	);
 
 	const toggleProject = useCallback(
 		(cwd: string) => {
@@ -102,7 +139,7 @@ export function useProjects() {
 	const removeProject = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			config.projects = config.projects.filter((p) => p !== cwd);
+			config.projects = config.projects.filter((p) => p.path !== cwd);
 			await window.vetta.config.set({ projects: config.projects });
 			await refreshProjects();
 		},
@@ -112,9 +149,12 @@ export function useProjects() {
 	const archiveProject = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			config.projects = config.projects.filter((p) => p !== cwd);
+			const entry = config.projects.find((p) => p.path === cwd);
+			config.projects = config.projects.filter((p) => p.path !== cwd);
 			const archived = config.archivedProjects ?? [];
-			if (!archived.includes(cwd)) archived.push(cwd);
+			if (!archived.some((p) => p.path === cwd)) {
+				archived.push(entry ?? { path: cwd });
+			}
 			await window.vetta.config.set({ projects: config.projects, archivedProjects: archived });
 			await refreshProjects();
 		},
@@ -124,8 +164,10 @@ export function useProjects() {
 	const unarchiveProject = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
-			const projects = config.projects.includes(cwd) ? config.projects : [...config.projects, cwd];
+			const archived = (config.archivedProjects ?? []).filter((p) => p.path !== cwd);
+			const projects = config.projects.some((p) => p.path === cwd)
+				? config.projects
+				: [...config.projects, { path: cwd }];
 			await window.vetta.config.set({ projects, archivedProjects: archived });
 			await refreshProjects();
 		},
@@ -134,7 +176,7 @@ export function useProjects() {
 
 	const deleteArchivedProject = useCallback(async (cwd: string) => {
 		const config = await window.vetta.config.get();
-		const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
+		const archived = (config.archivedProjects ?? []).filter((p) => p.path !== cwd);
 		await window.vetta.config.set({ archivedProjects: archived });
 	}, []);
 
@@ -142,8 +184,8 @@ export function useProjects() {
 	const deleteProjectFromDisk = useCallback(
 		async (cwd: string) => {
 			const config = await window.vetta.config.get();
-			config.projects = config.projects.filter((p) => p !== cwd);
-			const archived = (config.archivedProjects ?? []).filter((p) => p !== cwd);
+			config.projects = config.projects.filter((p) => p.path !== cwd);
+			const archived = (config.archivedProjects ?? []).filter((p) => p.path !== cwd);
 			await window.vetta.config.set({ projects: config.projects, archivedProjects: archived });
 			await window.vetta.fs.delete(cwd);
 			await refreshProjects();
@@ -200,6 +242,8 @@ export function useProjects() {
 		unarchiveProject,
 		deleteArchivedProject,
 		deleteProjectFromDisk,
+		expandProject,
+		collapseProject,
 		toggleProject,
 		deleteSession,
 		renameSession,

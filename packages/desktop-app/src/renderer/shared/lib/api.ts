@@ -128,6 +128,7 @@ export interface FlowingTransferVO {
 	message: string;
 	status: string;
 	file_list: string[];
+	stage_index: number | null;
 	created_at: string;
 	responded_at: string | null;
 }
@@ -212,6 +213,142 @@ export async function fetchFlowingHistory(
 	flowingId: number,
 ): Promise<{ flowing: { id: number; project_name: string }; history: FlowingTransferVO[] }> {
 	return request(`/flowing/${flowingId}/history`, {
+		headers: authHeaders(token),
+	});
+}
+
+// ─── Workflow ───
+
+export interface WorkflowStage {
+	name: string;
+	description: string;
+	member_ids: number[];
+}
+
+export interface WorkflowTemplate {
+	id: number;
+	name: string;
+	description: string;
+	org_id: number;
+	created_by: number;
+	creator_name: string;
+	is_active: boolean;
+	mode: string;
+	stages: WorkflowStage[];
+	created_at: string;
+	updated_at: string;
+}
+
+export interface StageInstance {
+	name: string;
+	description: string;
+	member_ids: number[];
+	status: string; // pending / in_progress / completed / returned
+	entered_at: string | null;
+	completed_at: string | null;
+	completed_by: number | null;
+	file_list?: string[];
+	file_storage_key?: string;
+	message?: string;
+}
+
+export interface WorkflowInstance {
+	id: number;
+	workflow_id: number;
+	workflow_name: string;
+	flowing_id: number;
+	current_stage: number;
+	status: string; // active / completed / terminated
+	started_by: number;
+	starter_name: string;
+	stages: StageInstance[];
+	created_at: string;
+	completed_at: string | null;
+}
+
+export interface NextStageMembers {
+	stage_index: number;
+	stage_name: string;
+	members: { id: number; username: string; avatar: string }[];
+}
+
+export async function fetchAvailableWorkflows(token: string): Promise<WorkflowTemplate[]> {
+	return request<WorkflowTemplate[]>("/workflows/available", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function bindWorkflow(
+	token: string,
+	data: {
+		workflow_id: number;
+		project_name: string;
+		flowing_id?: number;
+	},
+): Promise<WorkflowInstance> {
+	return request<WorkflowInstance>("/workflows/bind", {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify(data),
+	});
+}
+
+export async function fetchWorkflowInstanceByFlowing(token: string, flowingId: number): Promise<WorkflowInstance> {
+	return request<WorkflowInstance>(`/workflows/instance/by-flowing/${flowingId}`, {
+		headers: authHeaders(token),
+	});
+}
+
+export async function uploadFlowingFile(token: string, flowingId: number, file: Blob): Promise<string> {
+	const formData = new FormData();
+	formData.append("file", file, "flowing.zip");
+
+	const base = await getApiBase();
+	const res = await fetch(`${base}/flowing/${flowingId}/upload`, {
+		method: "POST",
+		headers: authHeaders(token),
+		body: formData,
+	});
+	if (res.status === 401) {
+		notifyUnauthorized();
+		throw new Error("登录已过期，请重新登录");
+	}
+	if (!res.ok) {
+		const body = await res.json().catch(() => null);
+		throw new Error(body?.message ?? `上传失败 (${res.status})`);
+	}
+	const body = await res.json();
+	return body.data.storage_key as string;
+}
+
+export async function completeWorkflowStage(
+	token: string,
+	instanceId: number,
+	data?: { storage_key?: string; file_list?: string[]; message?: string },
+): Promise<void> {
+	await request<void>(`/workflows/instance/${instanceId}/complete-stage`, {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify(data ?? {}),
+	});
+}
+
+export async function revokeWorkflowComplete(token: string, instanceId: number): Promise<void> {
+	await request<void>(`/workflows/instance/${instanceId}/revoke-complete`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
+export async function terminateWorkflow(token: string, instanceId: number): Promise<void> {
+	await request<void>(`/workflows/instance/${instanceId}/terminate`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
+export async function fetchNextStageMembers(token: string, instanceId: number): Promise<NextStageMembers> {
+	return request<NextStageMembers>(`/workflows/instance/${instanceId}/next-stage-members`, {
 		headers: authHeaders(token),
 	});
 }

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { isAbsolute, join, relative } from "node:path";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
+import type { ProjectEntry } from "./fs.js";
 
 const FLOWING_CHANNELS = {
 	PACK_FILES: "vetta:flowing:pack-files",
@@ -114,15 +115,15 @@ export function registerFlowingIpc(): () => void {
 	// 从 desktop-config 中查找匹配 flowingId 的项目
 	ipcMain.handle(
 		FLOWING_CHANNELS.FIND_PROJECT_BY_FLOWING_ID,
-		async (_event, flowingId: number, projects: string[]): Promise<string | null> => {
-			for (const projectDir of projects) {
-				const metaPath = join(projectDir, ".vetta", "meta.json");
+		async (_event, flowingId: number, projects: ProjectEntry[]): Promise<string | null> => {
+			for (const project of projects) {
+				const metaPath = join(project.path, ".vetta", "meta.json");
 				if (!existsSync(metaPath)) continue;
 				try {
 					const content = readFileSync(metaPath, "utf-8");
 					const meta = JSON.parse(content) as Record<string, unknown>;
 					if (meta.type === "flowing" && meta.flowingId === flowingId) {
-						return projectDir;
+						return project.path;
 					}
 				} catch {
 					// ignore
