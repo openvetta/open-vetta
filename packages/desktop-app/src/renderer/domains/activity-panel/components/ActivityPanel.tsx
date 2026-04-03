@@ -35,7 +35,7 @@ export function ActivityPanel(): JSX.Element {
 			className="relative shrink-0 overflow-hidden"
 		>
 			<div className="flex h-full flex-col pb-2 pr-2" style={{ width }}>
-				<div className="flex flex-1 flex-col overflow-hidden rounded-xl bg-muted/50 ring-1 ring-border/60 shadow-sm">
+				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/50">
 					{selectedPath ? (
 						<>
 							<ActivityPanelHeader filePath={selectedPath} />
