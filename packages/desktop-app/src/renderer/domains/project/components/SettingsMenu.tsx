@@ -8,9 +8,9 @@ import { themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/stor
 import { cn } from "@shared/lib/utils";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
-	{ value: "light", label: "Light", icon: "icon-[mdi--white-balance-sunny]" },
-	{ value: "dark", label: "Dark", icon: "icon-[mdi--moon-waning-crescent]" },
-	{ value: "auto", label: "Auto", icon: "icon-[mdi--laptop]" },
+	{ value: "light", label: "浅色", icon: "icon-[mdi--white-balance-sunny]" },
+	{ value: "dark", label: "深色", icon: "icon-[mdi--moon-waning-crescent]" },
+	{ value: "auto", label: "跟随系统", icon: "icon-[mdi--laptop]" },
 ];
 
 export function SettingsMenu(): JSX.Element {
@@ -65,7 +65,7 @@ export function SettingsMenu(): JSX.Element {
 						{/* Theme section */}
 						<div className="px-2 pb-1 pt-1.5">
 							<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-								Theme
+								主题
 							</span>
 						</div>
 						{THEME_OPTIONS.map((opt) => (
@@ -104,7 +104,7 @@ export function SettingsMenu(): JSX.Element {
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
 								<span className="icon-[mdi--logout] h-3.5 w-3.5" />
-								Logout
+								退出登录
 							</button>
 						) : (
 							<button
@@ -116,7 +116,7 @@ export function SettingsMenu(): JSX.Element {
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
 								<span className="icon-[mdi--login] h-3.5 w-3.5" />
-								Login
+								登录
 							</button>
 						)}
 
@@ -133,7 +133,7 @@ export function SettingsMenu(): JSX.Element {
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 						>
 							<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
-							Settings
+							设置
 						</button>
 					</motion.div>
 				)}
