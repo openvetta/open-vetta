@@ -67,6 +67,8 @@ export function historyToChat(
 		toolCallId?: string;
 		toolName?: string;
 		isError?: boolean;
+		errorMessage?: string;
+		stopReason?: string;
 	}>,
 ): ChatMessage[] {
 	const messages: ChatMessage[] = [];
@@ -104,6 +106,11 @@ export function historyToChat(
 			// Accumulate text
 			const text = extractText(m.content);
 			if (text) target.text = target.text ? `${target.text}\n${text}` : text;
+			// Handle error messages (e.g. provider 404)
+			if (m.stopReason === "error" && m.errorMessage) {
+				target.blocks!.push({ type: "error", text: m.errorMessage });
+				if (!target.text) target.text = m.errorMessage;
+			}
 		} else if (m.role === "toolResult" && m.toolCallId) {
 			const block = toolCallIndex.get(String(m.toolCallId));
 			if (block) {
@@ -409,6 +416,18 @@ export function handleToolEnd(
 	}
 
 	return prev;
+}
+
+/**
+ * Append an error block to the current draft assistant message.
+ */
+export function appendError(prev: ChatMessage[], errorMessage: string): ChatMessage[] {
+	const [msgs, idx] = ensureDraft(prev);
+	const msg = msgs[idx];
+	const blocks = [...(msg.blocks ?? [])];
+	blocks.push({ type: "error", text: errorMessage });
+	msgs[idx] = { ...msg, text: msg.text || errorMessage, blocks };
+	return msgs;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
