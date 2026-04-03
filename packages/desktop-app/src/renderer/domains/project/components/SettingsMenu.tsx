@@ -162,7 +162,7 @@ export function SettingsMenu(): JSX.Element {
 				) : (
 					<>
 						<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
-						Settings
+						设置
 					</>
 				)}
 			</button>
