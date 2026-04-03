@@ -303,15 +303,14 @@ export class RuntimeHost implements SessionFacade {
 			});
 
 			if (event.message.stopReason === "error") {
+				const errorText =
+					this.extractAssistantText(event.message.content) ||
+					(event.message as Message & { errorMessage?: string }).errorMessage ||
+					"Assistant response ended with error";
 				events.push({
 					...this.baseEvent(sessionId, "agent"),
 					type: "error",
-					error: runtimeError(
-						"INTERNAL_ERROR",
-						this.extractAssistantText(event.message.content) || "Assistant response ended with error",
-						true,
-						"provider",
-					),
+					error: runtimeError("INTERNAL_ERROR", errorText, true, "provider"),
 				});
 			} else if (event.message.stopReason === "aborted") {
 				events.push(this.lifecycleEvent(sessionId, "aborted"));

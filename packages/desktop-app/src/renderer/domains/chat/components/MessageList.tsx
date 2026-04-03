@@ -104,6 +104,15 @@ function SegmentRenderer({ segment }: { segment: BlockSegment }): JSX.Element | 
 			return <ThinkingBlockView text={block.text} />;
 		case "tool_call":
 			return <ToolCallBlockView block={block} />;
+		case "error":
+			return (
+				<div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+					<span className="icon-[mdi--alert-circle-outline] mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
+					<span className="text-[13px] leading-[1.6] text-destructive/90" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+						{block.text}
+					</span>
+				</div>
+			);
 		default:
 			return null;
 	}

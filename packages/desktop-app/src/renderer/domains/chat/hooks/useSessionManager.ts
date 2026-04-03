@@ -18,6 +18,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useRef } from "react";
 import {
+	appendError,
 	appendTextDelta,
 	appendThinkingDelta,
 	currentUnsubscribe,
@@ -168,6 +169,12 @@ export function useSessionManager(): SessionManagerResult {
 					// ── Tool end ──
 					if (event.type === "tool.end") {
 						setChatMessages((prev) => handleToolEnd(prev, event.toolCallId, event.result, event.isError));
+						return;
+					}
+
+					// ── Error (provider / runtime error) ──
+					if (event.type === "error") {
+						setChatMessages((prev) => appendError(prev, event.error.message));
 						return;
 					}
 
