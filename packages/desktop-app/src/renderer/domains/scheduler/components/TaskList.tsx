@@ -2,6 +2,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { confirmDialogAtom, scheduledTasksAtom } from "@shared/store/atoms";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import type { ScheduledTask } from "@shared/store/atoms";
+import { pathBasename } from "@shared/lib/utils";
 import { describeSchedule, parseCronExpression } from "./schedule-picker/cron-utils";
 
 interface TaskListProps {
@@ -11,7 +12,7 @@ interface TaskListProps {
 }
 
 function projectName(cwd: string): string {
-	return cwd.split("/").filter(Boolean).pop() ?? cwd;
+	return pathBasename(cwd);
 }
 
 function formatLastRun(timestamp: number | null): string {

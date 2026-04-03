@@ -31,7 +31,12 @@ export interface ToolResultBlock {
 	isError: boolean;
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | ToolResultBlock;
+export interface ErrorBlock {
+	type: "error";
+	text: string;
+}
+
+export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | ToolResultBlock | ErrorBlock;
 
 export interface ChatMessage {
 	id: string;

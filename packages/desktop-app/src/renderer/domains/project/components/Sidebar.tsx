@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { sidebarTabAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import { sidebarFilterAtom, sidebarModeAtom, sidebarWidthAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { isMac, isWindows } from "@shared/lib/platform";
-import { SidebarTabs } from "./SidebarTabs";
+import { SidebarFilterSelect, SidebarModeToggle } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
@@ -17,6 +17,7 @@ const MAX_WIDTH = 400;
 
 const NAV_ITEMS = [
 	{ path: "/automation" as const, label: "自动化", icon: "icon-[mdi--robot-outline]" },
+	{ path: "/batch-tasks" as const, label: "批量任务", icon: "icon-[mdi--format-list-bulleted]" },
 	{ path: "/skills" as const, label: "技能广场", icon: "icon-[mdi--puzzle-outline]" },
 ];
 
@@ -25,7 +26,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
-	const tab = useAtomValue(sidebarTabAtom);
+	const filter = useAtomValue(sidebarFilterAtom);
+	const mode = useAtomValue(sidebarModeAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
@@ -79,23 +81,29 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				))}
 			</nav>
 
-			{/* Section header: title + tab toggle */}
+			{/* Section header: filter dropdown / project name + mode toggle */}
 			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
-				<span className="text-[11px] font-bold uppercase tracking-wide text-foreground">
-					{tab === "projects" ? "项目" : "文件"}
-				</span>
+				<div className="flex min-w-0 items-center gap-1">
+					{mode === "projects" ? (
+						<SidebarFilterSelect />
+					) : (
+						<span className="truncate px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground">
+							文件
+						</span>
+					)}
+				</div>
 				<div className="flex items-center gap-1">
-					{isWindows && tab === "projects" && <AddProjectMenu />}
-					<SidebarTabs />
+					<SidebarModeToggle />
+					{isWindows && mode === "projects" && <AddProjectMenu />}
 				</div>
 			</div>
 
 			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
-				{tab === "projects" ? (
-					<ProjectsPanel onOpenSession={onOpenSession} />
-				) : (
+				{mode === "files" ? (
 					<FilesPanel />
+				) : (
+					<ProjectsPanel filter={filter} onOpenSession={onOpenSession} />
 				)}
 			</div>
 

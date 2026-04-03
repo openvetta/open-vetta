@@ -2,8 +2,10 @@ import { createRootRoute, createRoute, createRouter, createHashHistory } from "@
 import { RootLayout } from "./App";
 import { ChatPage } from "./domains/chat/components/ChatPage";
 import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
+import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage";
 import { SkillsPage } from "./domains/skills/components/SkillsPage";
 import { SettingsPage } from "./domains/settings/components/SettingsPage";
+import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
 
 const rootRoute = createRootRoute({
 	component: RootLayout,
@@ -21,6 +23,12 @@ const automationRoute = createRoute({
 	component: AutomationPage,
 });
 
+const batchTasksRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/batch-tasks",
+	component: BatchTasksPage,
+});
+
 const skillsRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/skills",
@@ -33,11 +41,19 @@ const settingsTabRoute = createRoute({
 	component: SettingsPage,
 });
 
+const projectDetailRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/project/$cwd",
+	component: ProjectDetailPage,
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	automationRoute,
+	batchTasksRoute,
 	skillsRoute,
 	settingsTabRoute,
+	projectDetailRoute,
 ]);
 
 export const router = createRouter({

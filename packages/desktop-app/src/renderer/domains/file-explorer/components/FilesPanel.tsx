@@ -7,6 +7,7 @@ import { useAtom } from "jotai";
 import { fileContextMenuAtom, type FsEntry } from "@shared/store/atoms";
 import { useState } from "react";
 import { Button } from "@shared/components/ui/button";
+import { pathBasename } from "@shared/lib/utils";
 
 export function FilesPanel(): JSX.Element {
 	const {
@@ -65,7 +66,7 @@ export function FilesPanel(): JSX.Element {
 		);
 	}
 
-	const projectName = rootDir.substring(rootDir.lastIndexOf("/") + 1);
+	const projectName = pathBasename(rootDir);
 
 	return (
 		<>

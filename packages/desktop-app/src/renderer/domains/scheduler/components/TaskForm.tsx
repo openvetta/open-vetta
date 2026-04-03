@@ -9,6 +9,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { projectsAtom } from "@shared/store/atoms";
 import type { ScheduledTask } from "@shared/store/atoms";
+import { pathBasename } from "@shared/lib/utils";
 import {
 	type Schedule,
 	type ScheduleMode,
@@ -30,7 +31,7 @@ interface TaskFormDialogProps {
 }
 
 function projectName(cwd: string): string {
-	return cwd.split("/").filter(Boolean).pop() ?? cwd;
+	return pathBasename(cwd);
 }
 
 // ─── Schedule modes (no weekly) ───
