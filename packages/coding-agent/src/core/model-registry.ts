@@ -64,7 +64,9 @@ const OpenAICompletionsCompatSchema = Type.Object({
 	requiresAssistantAfterToolResult: Type.Optional(Type.Boolean()),
 	requiresThinkingAsText: Type.Optional(Type.Boolean()),
 	requiresMistralToolIds: Type.Optional(Type.Boolean()),
-	thinkingFormat: Type.Optional(Type.Union([Type.Literal("openai"), Type.Literal("zai"), Type.Literal("qwen")])),
+	thinkingFormat: Type.Optional(
+		Type.Union([Type.Literal("openai"), Type.Literal("zai"), Type.Literal("qwen"), Type.Literal("nvidia")]),
+	),
 	openRouterRouting: Type.Optional(OpenRouterRoutingSchema),
 	vercelGatewayRouting: Type.Optional(VercelGatewayRoutingSchema),
 });

@@ -9,12 +9,17 @@ import { SettingSection } from "./shared";
 import { CheckboxField } from "./McpSettings";
 
 const API_OPTIONS = [
-	{ value: "anthropic-messages", label: "Anthropic" },
-	{ value: "openai-completions", label: "OpenAI Completions" },
-	{ value: "openai-responses", label: "OpenAI Responses" },
-	{ value: "google-generative-ai", label: "Google Generative AI" },
-	{ value: "bedrock-converse-stream", label: "AWS Bedrock" },
-];
+	"openai-completions",
+	"openai-responses",
+	"azure-openai-responses",
+	"openai-codex-responses",
+	"anthropic-messages",
+	"bedrock-converse-stream",
+	"google-generative-ai",
+	"google-gemini-cli",
+	"google-vertex",
+	"nvidia-openai-responses",
+].map((api) => ({ value: api, label: api }));
 
 const INPUT_OPTIONS = [
 	{ value: "text", label: "Text" },
