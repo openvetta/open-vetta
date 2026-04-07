@@ -1,4 +1,3 @@
-import { Dialog, DialogContent } from "@shared/components/ui/dialog";
 import { cn } from "@shared/lib/utils";
 import {
 	type FilePreviewItem,
@@ -6,6 +5,7 @@ import {
 	resolvedThemeAtom,
 } from "@shared/store/atoms";
 import { useAtom, useAtomValue } from "jotai";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
 import { DocxPreview } from "../../activity-panel/components/previews/DocxPreview";
@@ -77,7 +77,7 @@ export function FilePreviewDialog(): JSX.Element {
 		});
 	}, [setCtx]);
 
-	// 键盘 ←/→ 切换
+	// 键盘 ←/→ 切换 + Esc 关闭
 	useEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -90,22 +90,40 @@ export function FilePreviewDialog(): JSX.Element {
 			} else if (e.key === "ArrowRight") {
 				e.preventDefault();
 				goNext();
+			} else if (e.key === "Escape") {
+				e.preventDefault();
+				close();
 			}
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [open, goPrev, goNext]);
+	}, [open, goPrev, goNext, close]);
 
 	const canNavigate = total > 1;
 
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && close()}>
-			<DialogContent
-				showCloseButton={false}
-				className="flex h-[85vh] w-[min(90vw,900px)] flex-col gap-0 overflow-hidden rounded-2xl border-0 bg-background/95 p-0 backdrop-blur-xl sm:max-w-[900px]"
-			>
-				{item && (
-					<>
+		<AnimatePresence>
+			{open && item && (
+				<div className="fixed inset-0 z-50 flex items-end justify-center">
+					{/* Overlay */}
+					<motion.div
+						className="absolute inset-0 bg-black/20 supports-backdrop-filter:backdrop-blur-[2px]"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.18, ease: "easeOut" }}
+						onClick={close}
+					/>
+					{/* Panel */}
+					<motion.div
+						role="dialog"
+						aria-modal="true"
+						className="relative flex h-[90vh] w-[60vw] flex-col overflow-hidden rounded-t-[20px] border-[6px] border-b-0 border-border/30 bg-background/95 shadow-[0_-12px_48px_-12px_rgba(15,23,42,0.25)] backdrop-blur-xl"
+						initial={{ y: "100%", opacity: 0 }}
+						animate={{ y: 0, opacity: 1 }}
+						exit={{ y: "100%", opacity: 0 }}
+						transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.9 }}
+					>
 						<Header
 							item={item}
 							onClose={close}
@@ -116,10 +134,10 @@ export function FilePreviewDialog(): JSX.Element {
 							canNext={canNavigate && index < total - 1}
 						/>
 						<PreviewBody item={item} />
-					</>
-				)}
-			</DialogContent>
-		</Dialog>
+					</motion.div>
+				</div>
+			)}
+		</AnimatePresence>
 	);
 }
 
