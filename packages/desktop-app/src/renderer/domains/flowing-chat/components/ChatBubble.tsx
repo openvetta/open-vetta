@@ -83,21 +83,34 @@ export function ChatBubble({
 					</div>
 				)}
 
-				<div
-					className={cn(
-						"relative rounded-2xl px-3.5 py-2 text-[12.5px] leading-[18px] whitespace-pre-wrap break-words",
-						"shadow-[0_1px_2px_rgba(15,23,42,0.04),0_2px_8px_-2px_rgba(15,23,42,0.05)]",
-						"transition-shadow duration-200 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_4px_12px_-2px_rgba(15,23,42,0.08)]",
-						isMine
-							? "rounded-br-md bg-blue-50 text-foreground dark:bg-indigo-500/15"
-							: "rounded-bl-md border border-border/40 bg-card text-foreground",
-					)}
-				>
-					{msg.type === "text" && renderTextWithMentions(msg.content, isMine)}
-					{msg.type === "image" && msg.attachments[0] && <ImagePreview att={msg.attachments[0]} />}
-					{msg.type === "file" &&
-						msg.attachments.map((a) => <FileAttachment key={a.storage_key} att={a} />)}
-				</div>
+				{msg.type === "text" && (
+					<div
+						className={cn(
+							"relative rounded-2xl px-3.5 py-2 text-[12.5px] leading-[18px] whitespace-pre-wrap break-words",
+							"shadow-[0_1px_2px_rgba(15,23,42,0.04),0_2px_8px_-2px_rgba(15,23,42,0.05)]",
+							"transition-shadow duration-200 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_4px_12px_-2px_rgba(15,23,42,0.08)]",
+							isMine
+								? "rounded-br-md bg-blue-50 text-foreground dark:bg-indigo-500/15"
+								: "rounded-bl-md border border-border/40 bg-card text-foreground",
+						)}
+					>
+						{renderTextWithMentions(msg.content, isMine)}
+					</div>
+				)}
+
+				{msg.type === "image" && msg.attachments[0] && (
+					<div className="overflow-hidden rounded-2xl">
+						<ImagePreview att={msg.attachments[0]} />
+					</div>
+				)}
+
+				{msg.type === "file" && (
+					<div className="flex flex-col gap-1.5">
+						{msg.attachments.map((a) => (
+							<FileAttachment key={a.storage_key} att={a} isMine={isMine} />
+						))}
+					</div>
+				)}
 
 				{msg.reply_to_snapshot && (
 					<div
@@ -214,7 +227,7 @@ function ImagePreview({ att }: { att: ChatAttachment }): JSX.Element {
 	);
 }
 
-function FileAttachment({ att }: { att: ChatAttachment }): JSX.Element {
+function FileAttachment({ att, isMine }: { att: ChatAttachment; isMine: boolean }): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const [url, setUrl] = useState<string>("");
 	useEffect(() => {
@@ -226,10 +239,17 @@ function FileAttachment({ att }: { att: ChatAttachment }): JSX.Element {
 			href={url}
 			target="_blank"
 			rel="noreferrer"
-			className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-background/60 px-2.5 py-2 transition-colors hover:bg-background/90"
+			className={cn(
+				"flex items-center gap-2.5 rounded-2xl px-3 py-2.5 transition-shadow duration-200",
+				"shadow-[0_1px_2px_rgba(15,23,42,0.04),0_2px_8px_-2px_rgba(15,23,42,0.05)]",
+				"hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_4px_12px_-2px_rgba(15,23,42,0.08)]",
+				isMine
+					? "rounded-br-md bg-blue-50 dark:bg-indigo-500/15"
+					: "rounded-bl-md border border-border/40 bg-card",
+			)}
 		>
-			<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-				<span className="icon-[mdi--file-document-outline] h-4 w-4 text-primary" />
+			<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+				<span className="icon-[mdi--file-document-outline] h-4.5 w-4.5 text-primary" />
 			</div>
 			<span className="flex min-w-0 flex-col">
 				<span className="truncate text-[12px] font-medium text-foreground">{att.name}</span>
