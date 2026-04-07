@@ -22,8 +22,6 @@ export interface SessionInfo {
 }
 
 export type SidebarFilter = "all" | "normal" | "schedule" | "batch" | "flowing";
-export type SidebarMode = "projects" | "files";
-export const sidebarModeAtom = atom<SidebarMode>("projects");
 
 export const projectsAtom = atom<Project[]>([]);
 export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());

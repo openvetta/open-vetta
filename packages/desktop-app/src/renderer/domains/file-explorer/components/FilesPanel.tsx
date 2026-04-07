@@ -3,11 +3,17 @@ import { useFileTree } from "../hooks/useFileTree";
 import { FileTree } from "./FileTree";
 import { FileContextMenu } from "./FileContextMenu";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
-import { useAtom } from "jotai";
-import { fileContextMenuAtom, type FsEntry } from "@shared/store/atoms";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import {
+	fileContextMenuAtom,
+	filePreviewAtom,
+	filePreviewContextReadonlyAtom,
+	type FilePreviewItem,
+	type FsEntry,
+} from "@shared/store/atoms";
 import { useState } from "react";
 import { Button } from "@shared/components/ui/button";
-import { pathBasename } from "@shared/lib/utils";
+import { pathBasename, pathDirname } from "@shared/lib/utils";
 
 export function FilesPanel(): JSX.Element {
 	const {
@@ -23,8 +29,28 @@ export function FilesPanel(): JSX.Element {
 	} = useFileTree();
 
 	const [contextMenu, setContextMenu] = useAtom(fileContextMenuAtom);
+	const setPreview = useSetAtom(filePreviewAtom);
+	const previewCtx = useAtomValue(filePreviewContextReadonlyAtom);
 	const [deleteTarget, setDeleteTarget] = useState<FsEntry | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
+
+	const handleSelectFile = useCallback(
+		(entry: FsEntry) => {
+			const dir = pathDirname(entry.path);
+			const siblings = (cache.get(dir) ?? []).filter((e) => !e.isDirectory);
+			const items: FilePreviewItem[] = siblings.map((e) => ({
+				name: e.name,
+				path: e.path,
+				size: e.size,
+			}));
+			const idx = items.findIndex((it) => it.path === entry.path);
+			setPreview({ items, index: idx >= 0 ? idx : 0 });
+		},
+		[cache, setPreview],
+	);
+
+	// 当前选中的文件路径（来自全局预览上下文，仅当预览来源为本地路径时高亮）
+	const selectedPath = previewCtx?.items[previewCtx.index]?.path ?? null;
 
 	// Listen for drag-drop move events
 	useEffect(() => {
@@ -91,7 +117,9 @@ export function FilesPanel(): JSX.Element {
 					cache={cache}
 					expandedDirs={expandedDirs}
 					loadingDirs={loadingDirs}
+					selectedPath={selectedPath}
 					onToggleDir={toggleDir}
+					onSelectFile={handleSelectFile}
 					onRename={renameEntry}
 				/>
 			)}
