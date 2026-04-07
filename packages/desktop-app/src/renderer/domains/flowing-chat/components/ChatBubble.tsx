@@ -1,8 +1,8 @@
 import type { ChatAttachment, ChatMessageVO } from "@shared/lib/api";
 import { chatAttachmentUrl } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
-import { authTokenAtom } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
+import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
+import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
@@ -209,37 +209,45 @@ function Avatar({ name, url }: { name: string; url: string }): JSX.Element {
 
 function ImagePreview({ att }: { att: ChatAttachment }): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
+	const setPreview = useSetAtom(filePreviewAtom);
 	const [url, setUrl] = useState<string>("");
 	useEffect(() => {
 		if (!token) return;
 		void chatAttachmentUrl(token, att.storage_key).then(setUrl);
 	}, [token, att.storage_key]);
-	if (!url)
-		return <div className="h-32 w-32 animate-pulse rounded-xl bg-muted/40" />;
+	if (!url) return <div className="h-32 w-32 animate-pulse rounded-xl bg-muted/40" />;
 	return (
-		<a href={url} target="_blank" rel="noreferrer" className="block">
+		<button
+			type="button"
+			onClick={() => setPreview({ name: att.name, url, kind: "image", mime: att.mime, size: att.size })}
+			className="block"
+		>
 			<img
 				src={url}
 				alt={att.name}
 				className="max-h-64 max-w-full rounded-xl object-cover transition-opacity duration-200 hover:opacity-95"
 			/>
-		</a>
+		</button>
 	);
 }
 
 function FileAttachment({ att, isMine }: { att: ChatAttachment; isMine: boolean }): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
+	const setPreview = useSetAtom(filePreviewAtom);
 	const [url, setUrl] = useState<string>("");
 	useEffect(() => {
 		if (!token) return;
 		void chatAttachmentUrl(token, att.storage_key).then(setUrl);
 	}, [token, att.storage_key]);
 	return (
-		<a
-			href={url}
-			target="_blank"
-			rel="noreferrer"
+		<button
+			type="button"
+			onClick={() => {
+				if (!url) return;
+				setPreview({ name: att.name, url, kind: "file", mime: att.mime, size: att.size });
+			}}
 			className={cn(
+				"text-left",
 				"flex items-center gap-2.5 rounded-2xl px-3 py-2.5 transition-shadow duration-200",
 				"shadow-[0_1px_2px_rgba(15,23,42,0.04),0_2px_8px_-2px_rgba(15,23,42,0.05)]",
 				"hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_4px_12px_-2px_rgba(15,23,42,0.08)]",
@@ -255,7 +263,7 @@ function FileAttachment({ att, isMine }: { att: ChatAttachment; isMine: boolean 
 				<span className="truncate text-[12px] font-medium text-foreground">{att.name}</span>
 				<span className="text-[10px] text-muted-foreground/70">{formatSize(att.size)}</span>
 			</span>
-		</a>
+		</button>
 	);
 }
 
