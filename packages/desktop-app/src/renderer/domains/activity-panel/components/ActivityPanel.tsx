@@ -99,7 +99,7 @@ export function ActivityPanel(): JSX.Element {
 				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/50">
 					{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab） */}
 					{segmentedItems.length > 0 && (
-						<div className="flex shrink-0 items-center justify-center border-b border-border px-3 py-2">
+						<div className="flex shrink-0 items-center justify-start border-b border-border px-3 py-2">
 							<SegmentedControl items={segmentedItems} value={activeTab} onChange={onTabChange} />
 						</div>
 					)}
