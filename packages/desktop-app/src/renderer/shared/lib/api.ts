@@ -128,6 +128,7 @@ export interface FlowingTransferVO {
 	message: string;
 	status: string;
 	file_list: string[];
+	file_storage_key: string;
 	stage_index: number | null;
 	created_at: string;
 	responded_at: string | null;
@@ -206,6 +207,12 @@ export async function downloadFlowingFile(token: string, transferId: number): Pr
 	});
 	if (!res.ok) throw new Error(`下载失败: ${res.status}`);
 	return res.arrayBuffer();
+}
+
+/** 构造一个带 token query 的流转文件下载 URL，用于直接喂给 <a>/<img>/全局预览 Dialog */
+export async function flowingDownloadUrl(token: string, storageKey: string): Promise<string> {
+	const base = await getApiBase();
+	return `${base}/flowing/download?key=${encodeURIComponent(storageKey)}&token=${encodeURIComponent(token)}`;
 }
 
 export async function fetchFlowingHistory(
