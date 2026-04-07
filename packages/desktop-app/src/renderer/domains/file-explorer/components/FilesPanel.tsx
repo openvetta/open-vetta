@@ -36,8 +36,26 @@ export function FilesPanel(): JSX.Element {
 
 	const handleSelectFile = useCallback(
 		(entry: FsEntry) => {
+			// 优先按 pathDirname 取同目录列表
 			const dir = pathDirname(entry.path);
-			const siblings = (cache.get(dir) ?? []).filter((e) => !e.isDirectory);
+			let siblings: FsEntry[] = (cache.get(dir) ?? []).filter((e) => !e.isDirectory);
+
+			// 兜底 1：在 Windows 上 cache key 与 pathDirname 可能因分隔符差异而未命中，
+			// 直接遍历 cache 找到包含当前文件的目录列表
+			if (siblings.length === 0) {
+				for (const entries of cache.values()) {
+					if (entries.some((e) => e.path === entry.path)) {
+						siblings = entries.filter((e) => !e.isDirectory);
+						break;
+					}
+				}
+			}
+
+			// 兜底 2：仍未找到则只预览当前文件
+			if (siblings.length === 0) {
+				siblings = [entry];
+			}
+
 			const items: FilePreviewItem[] = siblings.map((e) => ({
 				name: e.name,
 				path: e.path,
