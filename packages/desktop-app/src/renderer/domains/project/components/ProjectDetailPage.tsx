@@ -2,6 +2,7 @@ import { useParams } from "@tanstack/react-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+	activityPanelOpenAtom,
 	authTokenAtom,
 	batchProjectsAtom,
 	openSessionFnRef,
@@ -9,6 +10,8 @@ import {
 	sessionsMapAtom,
 	workflowInstanceAtom,
 } from "@shared/store/atoms";
+import { useAtom } from "jotai";
+import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
 import { pathBasename } from "@shared/lib/utils";
 import { fetchWorkflowInstanceByFlowing } from "@shared/lib/api";
 import { Button } from "@shared/components/ui/button";
@@ -151,6 +154,7 @@ export function ProjectDetailPage(): JSX.Element {
 	const [bindDialogOpen, setBindDialogOpen] = useState(false);
 	const workflowInstance = useAtomValue(workflowInstanceAtom);
 	const setWorkflowInstance = useSetAtom(workflowInstanceAtom);
+	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
 
 	// 监听工作流 SSE 事件
 	useWorkflowSSE();
@@ -194,6 +198,8 @@ export function ProjectDetailPage(): JSX.Element {
 		<div className="flex h-full w-full flex-col overflow-hidden">
 			{/* Drag region */}
 			<div className="drag-region h-12 shrink-0" />
+			<div className="flex min-h-0 flex-1">
+				<div className="flex min-w-0 flex-1 flex-col">
 			{/* Hero header */}
 			<div className="shrink-0 px-8 pb-6">
 				{/* Top row: badge + actions */}
@@ -234,6 +240,15 @@ export function ProjectDetailPage(): JSX.Element {
 						>
 							<span className="icon-[mdi--plus] h-4 w-4" />
 							<span className="text-[12px] font-medium">新会话</span>
+						</Button>
+						<Button
+							size="icon-xs"
+							variant="ghost"
+							title={activityOpen ? "关闭活动面板" : "打开活动面板"}
+							onClick={() => setActivityOpen((o) => !o)}
+							className={activityOpen ? "bg-accent text-foreground" : ""}
+						>
+							<span className="icon-[mdi--dock-right] text-[14px]" />
 						</Button>
 					</div>
 				</div>
@@ -351,6 +366,10 @@ export function ProjectDetailPage(): JSX.Element {
 						{" "}快速保存
 					</p>
 				</div>
+			</div>
+
+				</div>
+				<ActivityPanel cwd={decodedCwd} />
 			</div>
 
 			{/* Workflow bind dialog */}

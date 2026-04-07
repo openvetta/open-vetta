@@ -19,7 +19,12 @@ import { ResizeHandle } from "@shared/components/ResizeHandle";
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 600;
 
-export function ActivityPanel(): JSX.Element {
+interface ActivityPanelProps {
+	/** 显式指定 cwd（项目详情页用），不传则回退到当前活动 session */
+	cwd?: string | null;
+}
+
+export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.Element {
 	const isOpen = useAtomValue(activityPanelOpenAtom);
 	const selectedPath = useAtomValue(selectedFilePathAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
@@ -27,7 +32,7 @@ export function ActivityPanel(): JSX.Element {
 	const [isResizing, setIsResizing] = useState(false);
 	const [tabByProject, setTabByProject] = useAtom(activityPanelTabByProjectAtom);
 
-	const cwd = activeSession?.cwd ?? null;
+	const cwd = cwdProp ?? activeSession?.cwd ?? null;
 	const { profile } = useProjectProfile(cwd);
 	const unreadMap = useAtomValue(flowingChatUnreadAtom);
 	const chatUnread = profile?.flowingId != null ? (unreadMap.get(profile.flowingId) ?? 0) : 0;
