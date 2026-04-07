@@ -6,6 +6,7 @@ import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage"
 import { SkillsPage } from "./domains/skills/components/SkillsPage";
 import { SettingsPage } from "./domains/settings/components/SettingsPage";
 import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
+import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
 
 const rootRoute = createRootRoute({
 	component: RootLayout,
@@ -47,6 +48,12 @@ const projectDetailRoute = createRoute({
 	component: ProjectDetailPage,
 });
 
+const downloadsRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/downloads",
+	component: DownloadsPage,
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	automationRoute,
@@ -54,6 +61,7 @@ const routeTree = rootRoute.addChildren([
 	skillsRoute,
 	settingsTabRoute,
 	projectDetailRoute,
+	downloadsRoute,
 ]);
 
 export const router = createRouter({
