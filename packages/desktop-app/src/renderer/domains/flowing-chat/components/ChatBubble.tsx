@@ -43,11 +43,17 @@ export function ChatBubble({
 
 	if (msg.deleted_at) {
 		return (
-			<div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
-				<div className="rounded-full bg-muted/40 px-3 py-1 text-[10.5px] italic text-muted-foreground/60">
+			<motion.div
+				initial={{ opacity: 0, y: 4 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.18 }}
+				className={cn("flex gap-2.5", isMine ? "flex-row-reverse" : "flex-row")}
+			>
+				<div className="w-8 flex-shrink-0" />
+				<div className="rounded-full bg-muted/60 px-3 py-1 text-[10.5px] italic text-muted-foreground/70">
 					{isMine ? "你撤回了一条消息" : `${msg.sender_name} 撤回了一条消息`}
 				</div>
-			</div>
+			</motion.div>
 		);
 	}
 
