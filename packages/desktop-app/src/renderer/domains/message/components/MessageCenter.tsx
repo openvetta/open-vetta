@@ -1,18 +1,28 @@
-import { useState } from "react";
-import { useAtomValue } from "jotai";
+import { useMemo, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
-import { flowingChatTotalUnreadAtom, flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
+import {
+	activityPanelOpenAtom,
+	activityPanelTabByProjectAtom,
+	flowingChatSummaryAtom,
+	flowingChatTotalUnreadAtom,
+	flowingPendingCountAtom,
+	flowingPendingListAtom,
+	projectsAtom,
+} from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { Dialog, DialogContent } from "@shared/components/ui/dialog";
 import { useFlowingReceive } from "@domains/flowing/hooks/useFlowingReceive";
 import { cn } from "@shared/lib/utils";
 
-type Tab = "all" | "notifications" | "flowing";
+type Tab = "all" | "notifications" | "flowing" | "chat";
 
 const TABS: { value: Tab; label: string; icon: string }[] = [
 	{ value: "all", label: "全部", icon: "icon-[mdi--inbox-outline]" },
-	{ value: "notifications", label: "通知", icon: "icon-[mdi--bell-outline]" },
+	{ value: "chat", label: "聊天", icon: "icon-[mdi--message-text-outline]" },
 	{ value: "flowing", label: "流转", icon: "icon-[mdi--swap-horizontal]" },
+	{ value: "notifications", label: "通知", icon: "icon-[mdi--bell-outline]" },
 ];
 
 function FlowingList(): JSX.Element {
@@ -98,6 +108,89 @@ function NotificationList(): JSX.Element {
 	return <EmptyState text="暂无通知" icon="icon-[mdi--bell-outline]" />;
 }
 
+function ChatList({ onClose }: { onClose: () => void }): JSX.Element {
+	const summaryMap = useAtomValue(flowingChatSummaryAtom);
+	const projects = useAtomValue(projectsAtom);
+	const navigate = useNavigate();
+	const setActivityOpen = useSetAtom(activityPanelOpenAtom);
+	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
+
+	// 取所有有未读的会话，按最近时间倒序
+	const items = useMemo(() => {
+		return Array.from(summaryMap.values())
+			.filter((s) => s.unread_count > 0)
+			.sort((a, b) => {
+				const ta = a.last_created_at ? new Date(a.last_created_at).getTime() : 0;
+				const tb = b.last_created_at ? new Date(b.last_created_at).getTime() : 0;
+				return tb - ta;
+			});
+	}, [summaryMap]);
+
+	if (items.length === 0) {
+		return <EmptyState text="暂无未读聊天" icon="icon-[mdi--message-text-outline]" />;
+	}
+
+	const cwdByFlowing = new Map<number, string>();
+	for (const p of projects) {
+		if (p.flowingId != null) cwdByFlowing.set(p.flowingId, p.cwd);
+	}
+
+	const handleClick = (flowingId: number) => {
+		const cwd = cwdByFlowing.get(flowingId);
+		if (!cwd) {
+			alert("项目不在当前工作区，无法打开");
+			return;
+		}
+		// 切到聊天 tab + 打开活动面板 + 跳转到项目页
+		setTabByProject((prev) => {
+			const m = new Map(prev);
+			m.set(cwd, "chat");
+			return m;
+		});
+		setActivityOpen(true);
+		void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(cwd) } });
+		onClose();
+	};
+
+	return (
+		<div className="flex flex-col gap-1.5 p-3">
+			{items.map((s) => (
+				<button
+					key={s.flowing_id}
+					type="button"
+					onClick={() => handleClick(s.flowing_id)}
+					className="group rounded-xl border border-border/60 bg-background p-3 text-left transition-colors hover:border-border hover:bg-accent/30"
+				>
+					<div className="flex items-start gap-3">
+						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+							<span className="icon-[mdi--message-text-outline] h-4 w-4 text-primary" />
+						</div>
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center justify-between gap-2">
+								<p className="truncate text-[12.5px] font-semibold text-foreground">
+									{s.project_name || `流转 #${s.flowing_id}`}
+								</p>
+								<span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+									{s.unread_count}
+								</span>
+							</div>
+							<p className="mt-1 truncate text-[11.5px] text-muted-foreground">
+								{s.last_sender ? `${s.last_sender}：` : ""}
+								{s.last_content || "新消息"}
+							</p>
+							{s.last_created_at && (
+								<p className="mt-1 text-[10px] text-muted-foreground/50">
+									{formatRelativeTime(s.last_created_at)}
+								</p>
+							)}
+						</div>
+					</div>
+				</button>
+			))}
+		</div>
+	);
+}
+
 function EmptyState({ text, icon }: { text: string; icon: string }): JSX.Element {
 	return (
 		<div className="flex flex-col items-center justify-center gap-3 py-14 text-center">
@@ -174,7 +267,8 @@ export function MessageCenter(): JSX.Element {
 					<div className="flex gap-1 px-5 pb-1 pt-4">
 						{TABS.map(({ value, label, icon }) => {
 							const isActive = activeTab === value;
-							const count = value === "flowing" ? pendingCount : 0;
+							const count =
+								value === "flowing" ? pendingCount : value === "chat" ? chatUnread : 0;
 							return (
 								<button
 									key={value}
@@ -213,13 +307,14 @@ export function MessageCenter(): JSX.Element {
 					<div className="flex-1 overflow-y-auto">
 						{activeTab === "all" && (
 							<>
-								{pendingCount > 0 ? (
-									<FlowingList />
-								) : (
+								{chatUnread > 0 && <ChatList onClose={() => setOpen(false)} />}
+								{pendingCount > 0 && <FlowingList />}
+								{chatUnread === 0 && pendingCount === 0 && (
 									<EmptyState text="暂无消息" icon="icon-[mdi--inbox-outline]" />
 								)}
 							</>
 						)}
+						{activeTab === "chat" && <ChatList onClose={() => setOpen(false)} />}
 						{activeTab === "notifications" && <NotificationList />}
 						{activeTab === "flowing" && <FlowingList />}
 					</div>

@@ -1,13 +1,20 @@
 import { useSSEEvent } from "@shared/hooks/useSSEEvent";
 import {
+	type ChatMember,
 	type ChatMessageVO,
 	deleteChatMessage,
+	fetchChatMembers,
 	fetchChatMessages,
 	markChatRead,
 	sendChatMessage,
 	uploadChatAttachment,
 } from "@shared/lib/api";
-import { authTokenAtom, authUserAtom, flowingChatUnreadAtom } from "@shared/store/atoms";
+import {
+	authTokenAtom,
+	authUserAtom,
+	flowingChatSummaryAtom,
+	flowingChatUnreadAtom,
+} from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import { useAtomValue, useSetAtom } from "jotai";
 import {
@@ -19,7 +26,8 @@ import {
 	useState,
 } from "react";
 import { ChatMessageList } from "./ChatMessageList";
-import { ChatComposer } from "./ChatComposer";
+import { ChatComposer, type ChatComposerHandle } from "./ChatComposer";
+import { ChatMembersBar } from "./ChatMembersBar";
 
 const PAGE_SIZE = 50;
 
@@ -35,27 +43,34 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const user = useAtomValue(authUserAtom);
 	const setUnread = useSetAtom(flowingChatUnreadAtom);
+	const setSummary = useSetAtom(flowingChatSummaryAtom);
 
 	const [messages, setMessages] = useState<ChatMessageVO[]>([]);
+	const [members, setMembers] = useState<ChatMember[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [hasMore, setHasMore] = useState(true);
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [replyTo, setReplyTo] = useState<ChatMessageVO | null>(null);
 
 	const scrollerRef = useRef<HTMLDivElement>(null);
+	const composerRef = useRef<ChatComposerHandle>(null);
 	const stickToBottomRef = useRef(true);
 	const lastSeenIdRef = useRef(0);
 
-	// 初次加载
+	// 初次加载消息 + 成员
 	useEffect(() => {
 		if (!token) return;
 		setLoading(true);
 		setMessages([]);
 		setHasMore(true);
 		setReplyTo(null);
-		fetchChatMessages(token, flowingId, { limit: PAGE_SIZE })
-			.then((list) => {
+		Promise.all([
+			fetchChatMessages(token, flowingId, { limit: PAGE_SIZE }),
+			fetchChatMembers(token, flowingId).catch(() => [] as ChatMember[]),
+		])
+			.then(([list, mems]) => {
 				setMessages(list);
+				setMembers(mems);
 				setHasMore(list.length === PAGE_SIZE);
 				stickToBottomRef.current = true;
 			})
@@ -63,7 +78,7 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 			.finally(() => setLoading(false));
 	}, [token, flowingId]);
 
-	// 滚到底（首屏加载完成 / 自己发送）
+	// 滚到底（首屏 / 自己发送）
 	useLayoutEffect(() => {
 		if (loading) return;
 		if (!stickToBottomRef.current) return;
@@ -85,7 +100,14 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 			next.delete(flowingId);
 			return next;
 		});
-	}, [token, flowingId, messages, setUnread]);
+		setSummary((prev) => {
+			const cur = prev.get(flowingId);
+			if (!cur || cur.unread_count === 0) return prev;
+			const next = new Map(prev);
+			next.set(flowingId, { ...cur, unread_count: 0 });
+			return next;
+		});
+	}, [token, flowingId, messages, setUnread, setSummary]);
 
 	useEffect(() => {
 		if (loading) return;
@@ -104,8 +126,12 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 					if (prev.some((m) => m.id === msg.id)) return prev;
 					return [...prev, msg];
 				});
+				// 系统消息（加入新成员场景）刷新成员列表
+				if (msg.type === "system" && token) {
+					void fetchChatMembers(token, flowingId).then(setMembers).catch(() => {});
+				}
 			},
-			[flowingId],
+			[flowingId, token],
 		),
 	);
 
@@ -142,7 +168,6 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 			} else {
 				setMessages((prev) => [...older, ...prev]);
 				if (older.length < PAGE_SIZE) setHasMore(false);
-				// 保持视觉位置
 				requestAnimationFrame(() => {
 					const cur = scrollerRef.current;
 					if (!cur) return;
@@ -159,12 +184,13 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 	// ─── 发送 ───
 
 	const handleSendText = useCallback(
-		async (text: string) => {
+		async (text: string, mentionedUserIds: number[]) => {
 			if (!token || !text.trim()) return;
 			try {
 				await sendChatMessage(token, flowingId, {
 					type: "text",
 					content: text,
+					mentioned_user_ids: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
 					reply_to_id: replyTo?.id,
 				});
 				stickToBottomRef.current = true;
@@ -212,10 +238,33 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 		[token, flowingId],
 	);
 
+	// ─── @ 提及 ───
+
+	const handleMention = useCallback(
+		(member: ChatMember) => {
+			composerRef.current?.insertMention(member);
+			composerRef.current?.focus();
+		},
+		[],
+	);
+
+	// 把 sender_id 当作 ChatMember 用于右键提及
+	const mentionFromSender = useCallback(
+		(senderId: number, senderName: string, senderAvatar: string) => {
+			handleMention({ id: senderId, username: senderName, avatar: senderAvatar });
+		},
+		[handleMention],
+	);
+
 	const currentUserId = useMemo(() => user?.id ?? 0, [user]);
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
+			<ChatMembersBar
+				members={members}
+				currentUserId={currentUserId}
+				onMention={handleMention}
+			/>
 			<div
 				ref={scrollerRef}
 				onScroll={onScroll}
@@ -242,13 +291,17 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 					currentUserId={currentUserId}
 					onReply={setReplyTo}
 					onRecall={handleRecall}
+					onMentionSender={mentionFromSender}
 				/>
 			</div>
 			<ChatComposer
+				ref={composerRef}
 				replyTo={replyTo}
 				onClearReply={() => setReplyTo(null)}
 				onSendText={handleSendText}
 				onSendFiles={handleSendFiles}
+				members={members}
+				currentUserId={currentUserId}
 			/>
 		</div>
 	);

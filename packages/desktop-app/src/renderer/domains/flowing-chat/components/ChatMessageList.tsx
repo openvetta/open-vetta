@@ -6,6 +6,7 @@ interface ChatMessageListProps {
 	currentUserId: number;
 	onReply: (msg: ChatMessageVO) => void;
 	onRecall: (msg: ChatMessageVO) => void;
+	onMentionSender: (senderId: number, senderName: string, senderAvatar: string) => void;
 }
 
 export function ChatMessageList({
@@ -13,6 +14,7 @@ export function ChatMessageList({
 	currentUserId,
 	onReply,
 	onRecall,
+	onMentionSender,
 }: ChatMessageListProps): JSX.Element {
 	return (
 		<div className="flex flex-col gap-2">
@@ -28,6 +30,7 @@ export function ChatMessageList({
 						compact={compact}
 						onReply={onReply}
 						onRecall={onRecall}
+						onMentionSender={onMentionSender}
 					/>
 				);
 			})}

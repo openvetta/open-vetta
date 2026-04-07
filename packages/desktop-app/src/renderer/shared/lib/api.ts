@@ -401,7 +401,25 @@ export interface ChatMessageVO {
 
 export interface ChatUnreadVO {
 	flowing_id: number;
+	project_name: string;
 	unread_count: number;
+	last_sender_id?: number;
+	last_sender?: string;
+	last_type?: string;
+	last_content?: string;
+	last_created_at?: string;
+}
+
+export interface ChatMember {
+	id: number;
+	username: string;
+	avatar: string;
+}
+
+export async function fetchChatMembers(token: string, flowingId: number): Promise<ChatMember[]> {
+	return request<ChatMember[]>(`/flowing/${flowingId}/chat/members`, {
+		headers: authHeaders(token),
+	});
 }
 
 export async function fetchChatMessages(

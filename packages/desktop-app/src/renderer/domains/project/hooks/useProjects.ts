@@ -38,7 +38,8 @@ export function useProjects() {
 				const rawType = meta?.type as string | undefined;
 				const type: ProjectType =
 					rawType === "flowing" || rawType === "schedule" || rawType === "batch" ? rawType : "normal";
-				return { ...entry, type };
+				const flowingId = typeof meta?.flowingId === "number" ? (meta.flowingId as number) : undefined;
+				return { ...entry, type, flowingId };
 			}),
 		);
 		setProjects(metaResults);

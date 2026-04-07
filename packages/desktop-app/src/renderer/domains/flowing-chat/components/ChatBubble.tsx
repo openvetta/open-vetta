@@ -11,11 +11,19 @@ interface ChatBubbleProps {
 	compact: boolean;
 	onReply: (msg: ChatMessageVO) => void;
 	onRecall: (msg: ChatMessageVO) => void;
+	onMentionSender: (senderId: number, senderName: string, senderAvatar: string) => void;
 }
 
 const RECALL_WINDOW_MS = 2 * 60 * 1000;
 
-export function ChatBubble({ msg, isMine, compact, onReply, onRecall }: ChatBubbleProps): JSX.Element {
+export function ChatBubble({
+	msg,
+	isMine,
+	compact,
+	onReply,
+	onRecall,
+	onMentionSender,
+}: ChatBubbleProps): JSX.Element {
 	// 系统消息：居中胶囊
 	if (msg.type === "system") {
 		return (
@@ -42,7 +50,20 @@ export function ChatBubble({ msg, isMine, compact, onReply, onRecall }: ChatBubb
 	return (
 		<div className={cn("group flex gap-2", isMine ? "flex-row-reverse" : "flex-row")}>
 			<div className="w-7 flex-shrink-0">
-				{!compact && <Avatar name={msg.sender_name} url={msg.sender_avatar} />}
+				{!compact && (
+					<button
+						type="button"
+						onContextMenu={(e) => {
+							e.preventDefault();
+							if (isMine) return;
+							onMentionSender(msg.sender_id, msg.sender_name, msg.sender_avatar);
+						}}
+						title={isMine ? msg.sender_name : `${msg.sender_name}（右键 @ 提及）`}
+						className="rounded-full"
+					>
+						<Avatar name={msg.sender_name} url={msg.sender_avatar} />
+					</button>
+				)}
 			</div>
 			<div className={cn("flex max-w-[75%] flex-col", isMine ? "items-end" : "items-start")}>
 				{!compact && (
