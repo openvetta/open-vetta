@@ -2,7 +2,7 @@ import { Dialog, DialogContent } from "@shared/components/ui/dialog";
 import { cn } from "@shared/lib/utils";
 import { filePreviewAtom, type FilePreviewItem } from "@shared/store/atoms";
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function FilePreviewDialog(): JSX.Element {
 	const [item, setItem] = useAtom(filePreviewAtom);
@@ -28,23 +28,31 @@ export function FilePreviewDialog(): JSX.Element {
 function ImageViewer({ item, onClose }: { item: FilePreviewItem; onClose: () => void }): JSX.Element {
 	const [scale, setScale] = useState(1);
 	const [rotation, setRotation] = useState(0);
+	const stageRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		setScale(1);
 		setRotation(0);
 	}, [item.url]);
 
-	const onWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-		e.preventDefault();
-		setScale((s) => Math.min(5, Math.max(0.2, s + (e.deltaY < 0 ? 0.1 : -0.1))));
+	// 非 passive 监听以允许 preventDefault
+	useEffect(() => {
+		const el = stageRef.current;
+		if (!el) return;
+		const onWheel = (e: WheelEvent) => {
+			e.preventDefault();
+			setScale((s) => Math.min(5, Math.max(0.2, s + (e.deltaY < 0 ? 0.1 : -0.1))));
+		};
+		el.addEventListener("wheel", onWheel, { passive: false });
+		return () => el.removeEventListener("wheel", onWheel);
 	}, []);
 
 	return (
 		<div className="flex flex-col">
 			<Header name={item.name} onClose={onClose} />
 			<div
+				ref={stageRef}
 				className="relative flex h-[60vh] items-center justify-center overflow-hidden bg-gradient-to-b from-muted/20 to-muted/40"
-				onWheel={onWheel}
 			>
 				<img
 					src={item.url}
@@ -133,7 +141,7 @@ function FileDetail({ item, onClose }: { item: FilePreviewItem; onClose: () => v
 				<button
 					type="button"
 					onClick={() => downloadItem(item)}
-					className="flex items-center gap-2 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 px-5 py-2 text-[12.5px] font-medium text-white shadow-[0_6px_16px_-4px_rgba(79,70,229,0.5)] transition-transform duration-200 hover:scale-105"
+					className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-[12.5px] font-medium text-primary-foreground shadow-md transition-all duration-200 hover:scale-105 hover:bg-primary/90"
 				>
 					<span className="icon-[mdi--download] h-4 w-4" />
 					下载文件
@@ -179,9 +187,9 @@ function ToolButton({
 			onClick={onClick}
 			title={title}
 			className={cn(
-				"flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+				"flex h-8 w-8 items-center justify-center rounded-lg transition-all",
 				primary
-					? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-[0_4px_12px_-2px_rgba(79,70,229,0.4)] hover:scale-105"
+					? "bg-primary text-primary-foreground shadow-md hover:scale-105 hover:bg-primary/90"
 					: "text-muted-foreground hover:bg-muted hover:text-foreground",
 			)}
 		>
