@@ -14,15 +14,18 @@ interface ChatMembersBarProps {
 export function ChatMembersBar({ members, currentUserId, onMention }: ChatMembersBarProps): JSX.Element {
 	if (members.length === 0) {
 		return (
-			<div className="flex h-10 items-center justify-center border-b border-border/60 px-3 text-[10px] text-muted-foreground/40">
+			<div className="flex h-12 items-center justify-center px-4 text-[11px] text-muted-foreground/50">
 				暂无成员
 			</div>
 		);
 	}
 	return (
-		<div className="flex h-10 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border/60 px-2">
-			<span className="shrink-0 text-[10px] text-muted-foreground/50">成员 {members.length}</span>
-			<div className="flex items-center gap-1.5">
+		<div className="flex h-12 shrink-0 items-center gap-3 overflow-hidden border-b border-border/40 bg-background/60 px-4 backdrop-blur-sm">
+			<div className="flex shrink-0 items-center gap-1.5 text-[10.5px] uppercase tracking-wider text-muted-foreground/60">
+				<span className="icon-[mdi--account-group-outline] h-3 w-3" />
+				<span>{members.length}</span>
+			</div>
+			<div className="flex min-w-0 flex-1 items-center -space-x-1.5 overflow-x-auto overflow-y-hidden py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 				{members.map((m) => (
 					<button
 						key={m.id}
@@ -33,12 +36,9 @@ export function ChatMembersBar({ members, currentUserId, onMention }: ChatMember
 							onMention(m);
 						}}
 						title={`${m.username}${m.id === currentUserId ? "（你）" : "（右键 @ 提及）"}`}
-						className={cn(
-							"relative shrink-0 rounded-full transition-transform hover:scale-110",
-							m.id === currentUserId && "ring-1 ring-primary/40",
-						)}
+						className="relative shrink-0 rounded-full transition-[filter] duration-200 hover:brightness-110"
 					>
-						<MemberAvatar name={m.username} url={m.avatar} />
+						<MemberAvatar name={m.username} url={m.avatar} isMe={m.id === currentUserId} />
 					</button>
 				))}
 			</div>
@@ -46,13 +46,21 @@ export function ChatMembersBar({ members, currentUserId, onMention }: ChatMember
 	);
 }
 
-function MemberAvatar({ name, url }: { name: string; url: string }): JSX.Element {
+function MemberAvatar({ name, url, isMe }: { name: string; url: string; isMe: boolean }): JSX.Element {
+	const ringClass = isMe
+		? "ring-2 ring-indigo-400/70"
+		: "ring-2 ring-background";
 	if (url) {
-		return <img src={url} alt={name} className="h-6 w-6 rounded-full object-cover" />;
+		return <img src={url} alt={name} className={cn("h-7 w-7 rounded-full object-cover", ringClass)} />;
 	}
-	const ch = name?.[0] ?? "?";
+	const ch = name?.[0]?.toUpperCase() ?? "?";
 	return (
-		<div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground">
+		<div
+			className={cn(
+				"flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 text-[11px] font-medium text-muted-foreground",
+				ringClass,
+			)}
+		>
 			{ch}
 		</div>
 	);

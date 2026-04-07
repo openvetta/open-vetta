@@ -259,7 +259,7 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 	const currentUserId = useMemo(() => user?.id ?? 0, [user]);
 
 	return (
-		<div className="flex h-full min-h-0 flex-col">
+		<div className="flex h-full min-h-0 flex-col bg-gradient-to-b from-background via-background to-muted/20">
 			<ChatMembersBar
 				members={members}
 				currentUserId={currentUserId}
@@ -268,22 +268,28 @@ export function ChatPanel({ flowingId }: ChatPanelProps): JSX.Element {
 			<div
 				ref={scrollerRef}
 				onScroll={onScroll}
-				className={cn("flex-1 overflow-y-auto px-3 py-2", loading && "opacity-50")}
+				className={cn(
+					"flex-1 overflow-y-auto px-4 py-3 transition-opacity duration-200",
+					loading && "opacity-0",
+				)}
 			>
 				{loadingMore && (
-					<div className="py-2 text-center text-[11px] text-muted-foreground/60">
-						加载更早消息…
+					<div className="flex items-center justify-center gap-1.5 py-2 text-[10.5px] text-muted-foreground/60">
+						<span className="icon-[mdi--loading] h-3 w-3 animate-spin" />
+						加载更早消息
 					</div>
 				)}
 				{!hasMore && !loading && messages.length > 0 && (
-					<div className="py-2 text-center text-[11px] text-muted-foreground/40">
+					<div className="py-2 text-center text-[10px] uppercase tracking-wider text-muted-foreground/40">
 						没有更早的消息
 					</div>
 				)}
 				{!loading && messages.length === 0 && (
-					<div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/50">
-						<span className="icon-[mdi--message-text-outline] text-[28px]" />
-						<span className="text-[12px]">还没有消息，发送第一条消息吧</span>
+					<div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/40">
+						<div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/40">
+							<span className="icon-[mdi--message-text-outline] text-[24px]" />
+						</div>
+						<span className="text-[12px]">还没有消息，发送第一条吧</span>
 					</div>
 				)}
 				<ChatMessageList

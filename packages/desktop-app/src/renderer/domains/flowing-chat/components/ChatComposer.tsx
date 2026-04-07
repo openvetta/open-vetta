@@ -206,90 +206,111 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
 		[busy, onSendFiles],
 	);
 
+	const hasText = value.trim().length > 0;
+
 	return (
-		<div className="relative border-t border-border bg-background/40 px-2 pb-2 pt-1.5">
+		<div className="relative px-3 pt-2 pb-3">
 			{mentionState.open && filteredMembers.length > 0 && (
-				<div className="absolute bottom-full left-2 mb-1 max-h-48 w-56 overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
-					<div className="border-b border-border/40 px-2 py-1 text-[10px] text-muted-foreground/60">
+				<div className="absolute bottom-full left-3 right-3 mb-2 max-h-52 overflow-hidden rounded-2xl border border-border/60 bg-popover/95 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+					<div className="border-b border-border/40 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60">
 						提及成员
 					</div>
-					{filteredMembers.map((m, i) => (
-						<button
-							key={m.id}
-							type="button"
-							onClick={() => insertMentionAt(m, mentionState.startIndex)}
-							onMouseEnter={() => setActiveMentionIdx(i)}
-							className={cn(
-								"flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px]",
-								i === activeMentionIdx && "bg-accent",
-							)}
-						>
-							{m.avatar ? (
-								<img src={m.avatar} alt={m.username} className="h-5 w-5 rounded-full object-cover" />
-							) : (
-								<div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground">
-									{m.username[0]}
-								</div>
-							)}
-							<span>{m.username}</span>
-						</button>
-					))}
+					<div className="max-h-44 overflow-y-auto py-1">
+						{filteredMembers.map((m, i) => (
+							<button
+								key={m.id}
+								type="button"
+								onClick={() => insertMentionAt(m, mentionState.startIndex)}
+								onMouseEnter={() => setActiveMentionIdx(i)}
+								className={cn(
+									"flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12px] transition-colors",
+									i === activeMentionIdx && "bg-accent",
+								)}
+							>
+								{m.avatar ? (
+									<img
+										src={m.avatar}
+										alt={m.username}
+										className="h-6 w-6 rounded-full object-cover ring-1 ring-border/40"
+									/>
+								) : (
+									<div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground">
+										{m.username[0]}
+									</div>
+								)}
+								<span className="font-medium">{m.username}</span>
+							</button>
+						))}
+					</div>
 				</div>
 			)}
+
 			{replyTo && (
-				<div className="mb-1 flex items-center gap-2 rounded-md border-l-2 border-primary/40 bg-muted/40 px-2 py-1 text-[10px]">
-					<span className="icon-[mdi--reply] h-3 w-3 text-muted-foreground/70" />
+				<div className="mb-2 flex items-center gap-2 rounded-xl border-l-[3px] border-primary/60 bg-muted/40 px-3 py-1.5 text-[11px]">
+					<span className="icon-[mdi--reply] h-3.5 w-3.5 text-primary/70" />
 					<div className="min-w-0 flex-1 truncate">
-						<span className="font-medium">{replyTo.sender_name}：</span>
-						<span className="text-muted-foreground">{getReplyPreview(replyTo)}</span>
+						<span className="font-medium text-foreground/80">{replyTo.sender_name}</span>
+						<span className="ml-1 text-muted-foreground">{getReplyPreview(replyTo)}</span>
 					</div>
 					<button
 						type="button"
 						onClick={onClearReply}
-						className="text-muted-foreground/60 hover:text-foreground"
+						className="rounded-full p-0.5 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
 					>
 						<span className="icon-[mdi--close] h-3 w-3" />
 					</button>
 				</div>
 			)}
-			<div className="flex items-end gap-1">
-				<button
-					type="button"
-					onClick={() => imageInputRef.current?.click()}
-					disabled={busy}
-					title="发送图片"
-					className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground disabled:opacity-40"
+
+			<div className="flex items-end gap-2">
+				{/* Composer pill */}
+				<div
+					className={cn(
+						"flex flex-1 items-end gap-1 rounded-3xl border border-border/50 bg-card px-3 py-1.5",
+						"shadow-[0_1px_2px_rgba(15,23,42,0.04),0_2px_8px_-2px_rgba(15,23,42,0.06)]",
+						"transition-shadow duration-200 focus-within:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_4px_16px_-2px_rgba(15,23,42,0.10)]",
+					)}
 				>
-					<span className="icon-[mdi--image-outline] h-4 w-4" />
-				</button>
-				<button
-					type="button"
-					onClick={() => fileInputRef.current?.click()}
-					disabled={busy}
-					title="发送文件"
-					className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground disabled:opacity-40"
-				>
-					<span className="icon-[mdi--paperclip] h-4 w-4" />
-				</button>
-				<textarea
-					ref={textareaRef}
-					value={value}
-					onChange={handleChange}
-					onKeyDown={onKeyDown}
-					disabled={busy}
-					placeholder="输入消息，@ 提及成员，Enter 发送"
-					rows={1}
-					className="min-h-[28px] flex-1 resize-none rounded border border-border bg-background px-2 py-1 text-[12px] outline-none focus:border-primary/40"
-				/>
+					<textarea
+						ref={textareaRef}
+						value={value}
+						onChange={handleChange}
+						onKeyDown={onKeyDown}
+						disabled={busy}
+						placeholder="输入消息，@ 提及成员"
+						rows={1}
+						className="min-h-[24px] max-h-32 flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[12.5px] leading-[20px] text-foreground outline-none placeholder:text-muted-foreground/50"
+					/>
+					<button
+						type="button"
+						onClick={() => imageInputRef.current?.click()}
+						disabled={busy}
+						title="发送图片"
+						className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+					>
+						<span className="icon-[mdi--image-outline] h-4 w-4" />
+					</button>
+					<button
+						type="button"
+						onClick={() => fileInputRef.current?.click()}
+						disabled={busy}
+						title="发送文件"
+						className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+					>
+						<span className="icon-[mdi--paperclip] h-4 w-4" />
+					</button>
+				</div>
+
+				{/* Send button (separate circular) */}
 				<button
 					type="button"
 					onClick={() => void submit()}
-					disabled={busy || value.trim() === ""}
+					disabled={busy || !hasText}
 					className={cn(
-						"flex h-7 w-7 items-center justify-center rounded transition-colors",
-						value.trim() && !busy
-							? "bg-primary text-primary-foreground hover:bg-primary/90"
-							: "bg-muted text-muted-foreground/50",
+						"flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-200",
+						hasText && !busy
+							? "scale-100 bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-[0_4px_12px_-2px_rgba(79,70,229,0.4)] hover:scale-105 hover:shadow-[0_6px_16px_-2px_rgba(79,70,229,0.5)]"
+							: "scale-95 bg-muted text-muted-foreground/40",
 					)}
 				>
 					<span className="icon-[mdi--send] h-4 w-4" />

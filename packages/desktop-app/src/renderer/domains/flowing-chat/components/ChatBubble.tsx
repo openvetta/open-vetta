@@ -3,6 +3,7 @@ import { chatAttachmentUrl } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { authTokenAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
+import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
 interface ChatBubbleProps {
@@ -27,18 +28,23 @@ export function ChatBubble({
 	// 系统消息：居中胶囊
 	if (msg.type === "system") {
 		return (
-			<div className="my-1 flex justify-center">
-				<div className="rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] text-muted-foreground/70">
+			<motion.div
+				initial={{ opacity: 0, y: 4 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.18 }}
+				className="my-2 flex justify-center"
+			>
+				<div className="rounded-full bg-muted/60 px-3 py-1 text-[10.5px] tracking-wide text-muted-foreground/70 backdrop-blur-sm">
 					{msg.content}
 				</div>
-			</div>
+			</motion.div>
 		);
 	}
 
 	if (msg.deleted_at) {
 		return (
 			<div className={cn("flex", isMine ? "justify-end" : "justify-start")}>
-				<div className="rounded-full bg-muted/40 px-2.5 py-0.5 text-[10px] italic text-muted-foreground/60">
+				<div className="rounded-full bg-muted/40 px-3 py-1 text-[10.5px] italic text-muted-foreground/60">
 					{isMine ? "你撤回了一条消息" : `${msg.sender_name} 撤回了一条消息`}
 				</div>
 			</div>
@@ -48,8 +54,13 @@ export function ChatBubble({
 	const canRecall = isMine && Date.now() - new Date(msg.created_at).getTime() < RECALL_WINDOW_MS;
 
 	return (
-		<div className={cn("group flex gap-2", isMine ? "flex-row-reverse" : "flex-row")}>
-			<div className="w-7 flex-shrink-0">
+		<motion.div
+			initial={{ opacity: 0, y: 6 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+			className={cn("group flex gap-2.5", isMine ? "flex-row-reverse" : "flex-row")}
+		>
+			<div className="w-8 flex-shrink-0">
 				{!compact && (
 					<button
 						type="button"
@@ -59,76 +70,125 @@ export function ChatBubble({
 							onMentionSender(msg.sender_id, msg.sender_name, msg.sender_avatar);
 						}}
 						title={isMine ? msg.sender_name : `${msg.sender_name}（右键 @ 提及）`}
-						className="rounded-full"
+						className="block rounded-full transition-transform hover:scale-105"
 					>
 						<Avatar name={msg.sender_name} url={msg.sender_avatar} />
 					</button>
 				)}
 			</div>
-			<div className={cn("flex max-w-[75%] flex-col", isMine ? "items-end" : "items-start")}>
+			<div className={cn("flex max-w-[78%] flex-col", isMine ? "items-end" : "items-start")}>
 				{!compact && (
-					<div className="mb-0.5 px-1 text-[10px] text-muted-foreground/60">{msg.sender_name}</div>
-				)}
-				{msg.reply_to_snapshot && (
-					<div
-						className={cn(
-							"mb-0.5 max-w-full truncate rounded-md border-l-2 px-2 py-1 text-[10px]",
-							isMine
-								? "border-primary/40 bg-primary/5 text-muted-foreground"
-								: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
-						)}
-					>
-						<div className="font-medium">
-							{msg.reply_to_snapshot.sender_name}
-							{msg.reply_to_snapshot.deleted && " · 已撤回"}
-						</div>
-						<div className="truncate">{msg.reply_to_snapshot.preview}</div>
+					<div className="mb-1 px-1 text-[10.5px] font-medium text-muted-foreground/70">
+						{msg.sender_name}
 					</div>
 				)}
+
 				<div
 					className={cn(
-						"relative rounded-2xl px-3 py-1.5 text-[12px] leading-[18px] whitespace-pre-wrap break-words",
+						"relative rounded-2xl px-3.5 py-2 text-[12.5px] leading-[18px] whitespace-pre-wrap break-words",
+						"shadow-[0_1px_2px_rgba(15,23,42,0.04),0_2px_8px_-2px_rgba(15,23,42,0.05)]",
+						"transition-shadow duration-200 hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_4px_12px_-2px_rgba(15,23,42,0.08)]",
 						isMine
-							? "rounded-br-sm bg-primary text-primary-foreground"
-							: "rounded-bl-sm bg-muted text-foreground",
+							? "rounded-br-md bg-blue-50 text-foreground dark:bg-indigo-500/15"
+							: "rounded-bl-md border border-border/40 bg-card text-foreground",
 					)}
 				>
-					{msg.type === "text" && msg.content}
+					{msg.type === "text" && renderTextWithMentions(msg.content, isMine)}
 					{msg.type === "image" && msg.attachments[0] && <ImagePreview att={msg.attachments[0]} />}
 					{msg.type === "file" &&
 						msg.attachments.map((a) => <FileAttachment key={a.storage_key} att={a} />)}
 				</div>
-				<div className={cn("mt-0.5 flex items-center gap-2 px-1 text-[9px] text-muted-foreground/50")}>
-					<span>{formatTime(msg.created_at)}</span>
-					<button
-						type="button"
-						onClick={() => onReply(msg)}
-						className="hidden hover:underline group-hover:inline"
+
+				{msg.reply_to_snapshot && (
+					<div
+						className={cn(
+							"mt-1 max-w-full truncate rounded-xl bg-muted/70 px-3 py-1.5 text-[11px] text-muted-foreground",
+							"shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+						)}
 					>
-						引用
-					</button>
-					{canRecall && (
+						<span className="font-medium text-foreground/70">
+							{msg.reply_to_snapshot.sender_name}
+							{msg.reply_to_snapshot.deleted && " · 已撤回"}：
+						</span>
+						<span>{msg.reply_to_snapshot.preview}</span>
+					</div>
+				)}
+
+				<div
+					className={cn(
+						"mt-1 flex items-center gap-2 px-1 text-[9.5px] text-muted-foreground/50",
+						isMine ? "flex-row-reverse" : "flex-row",
+					)}
+				>
+					<span>{formatTime(msg.created_at)}</span>
+					<div
+						className={cn(
+							"flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100",
+						)}
+					>
 						<button
 							type="button"
-							onClick={() => onRecall(msg)}
-							className="hidden hover:underline group-hover:inline"
+							onClick={() => onReply(msg)}
+							className="hover:text-foreground"
 						>
-							撤回
+							引用
 						</button>
-					)}
+						{canRecall && (
+							<button
+								type="button"
+								onClick={() => onRecall(msg)}
+								className="hover:text-destructive"
+							>
+								撤回
+							</button>
+						)}
+					</div>
 				</div>
 			</div>
-		</div>
+		</motion.div>
+	);
+}
+
+function renderTextWithMentions(content: string, isMine: boolean): JSX.Element {
+	// 高亮 @xxx
+	const parts = content.split(/(@\S+)/g);
+	return (
+		<span>
+			{parts.map((p, i) => {
+				if (p.startsWith("@") && p.length > 1) {
+					return (
+						<span
+							key={i}
+							className={cn(
+								"font-medium",
+								isMine ? "text-indigo-600 dark:text-indigo-300" : "text-primary",
+							)}
+						>
+							{p}
+						</span>
+					);
+				}
+				return <span key={i}>{p}</span>;
+			})}
+		</span>
 	);
 }
 
 function Avatar({ name, url }: { name: string; url: string }): JSX.Element {
 	if (url) {
-		return <img src={url} alt={name} className="h-7 w-7 rounded-full object-cover" />;
+		return (
+			<div className="relative">
+				<img
+					src={url}
+					alt={name}
+					className="h-8 w-8 rounded-full object-cover ring-2 ring-background"
+				/>
+			</div>
+		);
 	}
-	const ch = name?.[0] ?? "?";
+	const ch = name?.[0]?.toUpperCase() ?? "?";
 	return (
-		<div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[11px] text-muted-foreground">
+		<div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 text-[12px] font-medium text-muted-foreground ring-2 ring-background">
 			{ch}
 		</div>
 	);
@@ -141,10 +201,15 @@ function ImagePreview({ att }: { att: ChatAttachment }): JSX.Element {
 		if (!token) return;
 		void chatAttachmentUrl(token, att.storage_key).then(setUrl);
 	}, [token, att.storage_key]);
-	if (!url) return <div className="h-32 w-32 rounded bg-muted/40" />;
+	if (!url)
+		return <div className="h-32 w-32 animate-pulse rounded-xl bg-muted/40" />;
 	return (
-		<a href={url} target="_blank" rel="noreferrer">
-			<img src={url} alt={att.name} className="max-h-60 max-w-full rounded" />
+		<a href={url} target="_blank" rel="noreferrer" className="block">
+			<img
+				src={url}
+				alt={att.name}
+				className="max-h-64 max-w-full rounded-xl object-cover transition-opacity duration-200 hover:opacity-95"
+			/>
 		</a>
 	);
 }
@@ -161,12 +226,14 @@ function FileAttachment({ att }: { att: ChatAttachment }): JSX.Element {
 			href={url}
 			target="_blank"
 			rel="noreferrer"
-			className="flex items-center gap-2 rounded border border-current/10 bg-background/40 px-2 py-1.5 text-current"
+			className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-background/60 px-2.5 py-2 transition-colors hover:bg-background/90"
 		>
-			<span className="icon-[mdi--file-outline] h-4 w-4 flex-shrink-0" />
-			<span className="flex flex-col">
-				<span className="text-[12px]">{att.name}</span>
-				<span className="text-[10px] opacity-60">{formatSize(att.size)}</span>
+			<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+				<span className="icon-[mdi--file-document-outline] h-4 w-4 text-primary" />
+			</div>
+			<span className="flex min-w-0 flex-col">
+				<span className="truncate text-[12px] font-medium text-foreground">{att.name}</span>
+				<span className="text-[10px] text-muted-foreground/70">{formatSize(att.size)}</span>
 			</span>
 		</a>
 	);
