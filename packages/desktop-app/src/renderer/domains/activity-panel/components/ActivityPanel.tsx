@@ -96,7 +96,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 					)}
 
 					<div className="flex min-h-0 flex-1 flex-col">
-						{activeTab === "file" && <FileTabContent />}
+						{activeTab === "file" && <FileTabContent cwd={cwd} />}
 						{activeTab === "journey" && cwd && <JourneyPanel cwd={cwd} />}
 						{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}
 					</div>
@@ -107,10 +107,10 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	);
 }
 
-function FileTabContent(): JSX.Element {
+function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-			<FilesPanel />
+			<FilesPanel cwd={cwd} />
 		</div>
 	);
 }
