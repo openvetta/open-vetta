@@ -253,8 +253,7 @@ function FileAttachment({ att, isMine }: { att: ChatAttachment; isMine: boolean 
 				setPreview({ name: att.name, url, kind: "file", mime: att.mime, size: att.size });
 			}}
 			className={cn(
-				"text-left",
-				"flex items-center gap-2.5 rounded-2xl px-3 py-2.5 transition-shadow duration-200",
+				"flex w-full max-w-full items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left transition-shadow duration-200",
 				"shadow-[0_1px_2px_rgba(15,23,42,0.04),0_2px_8px_-2px_rgba(15,23,42,0.05)]",
 				"hover:shadow-[0_2px_4px_rgba(15,23,42,0.06),0_4px_12px_-2px_rgba(15,23,42,0.08)]",
 				isMine
@@ -265,8 +264,10 @@ function FileAttachment({ att, isMine }: { att: ChatAttachment; isMine: boolean 
 			<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
 				<span className="icon-[mdi--file-document-outline] h-4.5 w-4.5 text-primary" />
 			</div>
-			<span className="flex min-w-0 flex-col">
-				<span className="truncate text-[12px] font-medium text-foreground">{att.name}</span>
+			<span className="flex min-w-0 flex-1 flex-col">
+				<span className="line-clamp-2 break-all text-[12px] font-medium text-foreground">
+					{att.name}
+				</span>
 				<span className="text-[10px] text-muted-foreground/70">{formatSize(att.size)}</span>
 			</span>
 		</button>
