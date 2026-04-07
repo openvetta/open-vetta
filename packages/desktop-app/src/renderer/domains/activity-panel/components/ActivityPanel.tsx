@@ -6,6 +6,7 @@ import {
 	activityPanelTabByProjectAtom,
 	selectedFilePathAtom,
 	activeSessionAtom,
+	flowingChatUnreadAtom,
 } from "@shared/store/atoms";
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
 import { ActivityPanelHeader } from "./ActivityPanelHeader";
@@ -28,6 +29,8 @@ export function ActivityPanel(): JSX.Element {
 
 	const cwd = activeSession?.cwd ?? null;
 	const { profile } = useProjectProfile(cwd);
+	const unreadMap = useAtomValue(flowingChatUnreadAtom);
+	const chatUnread = profile?.flowingId != null ? (unreadMap.get(profile.flowingId) ?? 0) : 0;
 
 	const onResize = useCallback(
 		(delta: number) => {
@@ -79,8 +82,9 @@ export function ActivityPanel(): JSX.Element {
 				key: t.key,
 				label: t.label,
 				icon: t.icon,
+				badge: t.key === "chat" ? chatUnread : undefined,
 			})),
-		[profile],
+		[profile, chatUnread],
 	);
 
 	return (
@@ -95,7 +99,7 @@ export function ActivityPanel(): JSX.Element {
 				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/50">
 					{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab） */}
 					{segmentedItems.length > 0 && (
-						<div className="flex shrink-0 items-center justify-center border-b border-border px-3 py-2">
+						<div className="flex shrink-0 items-center justify-start border-b border-border px-3 py-2">
 							<SegmentedControl items={segmentedItems} value={activeTab} onChange={onTabChange} />
 						</div>
 					)}
