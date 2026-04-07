@@ -1,6 +1,5 @@
 import { useAtom } from "jotai";
-import { sidebarFilterAtom, sidebarModeAtom, type SidebarFilter, type SidebarMode } from "@shared/store/atoms";
-import { SegmentedControl, type SegmentedControlItem } from "@shared/components/ui/segmented-control";
+import { sidebarFilterAtom, type SidebarFilter } from "@shared/store/atoms";
 
 const FILTER_OPTIONS: { value: SidebarFilter; label: string }[] = [
 	{ value: "all", label: "全部" },
@@ -25,23 +24,5 @@ export function SidebarFilterSelect(): JSX.Element {
 				</option>
 			))}
 		</select>
-	);
-}
-
-const MODE_ITEMS: SegmentedControlItem<SidebarMode>[] = [
-	{ key: "projects", label: "项目" },
-	{ key: "files", label: "文件" },
-];
-
-export function SidebarModeToggle(): JSX.Element {
-	const [mode, setMode] = useAtom(sidebarModeAtom);
-
-	return (
-		<SegmentedControl
-			items={MODE_ITEMS}
-			value={mode}
-			onChange={setMode}
-			className="no-drag"
-		/>
 	);
 }

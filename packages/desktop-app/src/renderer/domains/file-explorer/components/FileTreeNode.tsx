@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom } from "jotai";
 import { cn, isSubPath, pathDirname } from "@shared/lib/utils";
 import {
 	type FsEntry,
 	fileContextMenuAtom,
 	renamingPathAtom,
-	selectedFilePathAtom,
-	activityPanelOpenAtom,
 } from "@shared/store/atoms";
 import { getFileIcon } from "./fileIcons";
 
@@ -15,7 +13,9 @@ interface FileTreeNodeProps {
 	depth: number;
 	isExpanded: boolean;
 	isLoading: boolean;
+	isSelected: boolean;
 	onToggleDir: (path: string) => void;
+	onSelectFile: (entry: FsEntry) => void;
 	onRename: (oldPath: string, newName: string) => Promise<void>;
 }
 
@@ -26,11 +26,11 @@ export function FileTreeNode({
 	depth,
 	isExpanded,
 	isLoading,
+	isSelected,
 	onToggleDir,
+	onSelectFile,
 	onRename,
 }: FileTreeNodeProps): JSX.Element {
-	const [selectedPath, setSelectedPath] = useAtom(selectedFilePathAtom);
-	const setPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const [, setContextMenu] = useAtom(fileContextMenuAtom);
 	const [renamingPath, setRenamingPath] = useAtom(renamingPathAtom);
 	const [dragOver, setDragOver] = useState(false);
@@ -38,7 +38,6 @@ export function FileTreeNode({
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const isRenaming = renamingPath === entry.path;
-	const isSelected = selectedPath === entry.path;
 	const icon = getFileIcon(entry.name, entry.isDirectory, isExpanded);
 
 	// Focus rename input
@@ -57,8 +56,7 @@ export function FileTreeNode({
 		if (entry.isDirectory) {
 			onToggleDir(entry.path);
 		} else {
-			setSelectedPath(entry.path);
-			setPanelOpen(true);
+			onSelectFile(entry);
 		}
 	}
 
