@@ -1,3 +1,4 @@
+import type { ProjectEntry } from "@preload/api";
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { confirmDialogAtom } from "@shared/store/atoms";
@@ -6,12 +7,12 @@ import { Button } from "@shared/components/ui/button";
 import { SettingSection } from "./shared";
 import { pathBasename } from "@shared/lib/utils";
 
-function projectName(cwd: string): string {
-	return pathBasename(cwd);
+function projectName(entry: ProjectEntry): string {
+	return entry.name ?? pathBasename(entry.path);
 }
 
 export function ArchivedProjectsSettings(): JSX.Element {
-	const [archivedList, setArchivedList] = useState<string[]>([]);
+	const [archivedList, setArchivedList] = useState<ProjectEntry[]>([]);
 	const { unarchiveProject, deleteArchivedProject } = useProjects();
 	const setConfirm = useSetAtom(confirmDialogAtom);
 
@@ -22,23 +23,23 @@ export function ArchivedProjectsSettings(): JSX.Element {
 	}, []);
 
 	const handleUnarchive = useCallback(
-		async (cwd: string) => {
-			await unarchiveProject(cwd);
-			setArchivedList((prev) => prev.filter((p) => p !== cwd));
+		async (entry: ProjectEntry) => {
+			await unarchiveProject(entry.path);
+			setArchivedList((prev) => prev.filter((p) => p.path !== entry.path));
 		},
 		[unarchiveProject],
 	);
 
 	const handleDelete = useCallback(
-		(cwd: string) => {
+		(entry: ProjectEntry) => {
 			setConfirm({
 				title: "删除归档项目",
-				message: `确定要永久移除「${projectName(cwd)}」吗？此操作不会删除磁盘上的文件，仅从归档列表中移除。`,
+				message: `确定要永久移除「${projectName(entry)}」吗？此操作不会删除磁盘上的文件，仅从归档列表中移除。`,
 				confirmLabel: "删除",
 				variant: "danger",
 				onConfirm: () => {
-					void deleteArchivedProject(cwd).then(() => {
-						setArchivedList((prev) => prev.filter((p) => p !== cwd));
+					void deleteArchivedProject(entry.path).then(() => {
+						setArchivedList((prev) => prev.filter((p) => p.path !== entry.path));
 					});
 				},
 			});
@@ -57,24 +58,33 @@ export function ArchivedProjectsSettings(): JSX.Element {
 				</div>
 			) : (
 				<SettingSection title="归档列表">
-					{archivedList.map((cwd) => (
+					{archivedList.map((entry) => (
 						<div
-							key={cwd}
+							key={entry.path}
 							className="flex items-center gap-3 border-b border-border px-5 py-3.5 last:border-b-0"
 						>
 							<span className="icon-[mdi--folder-outline] h-4 w-4 shrink-0 text-muted-foreground" />
 							<div className="min-w-0 flex-1">
-								<div className="text-[13px] font-medium text-foreground">
-									{projectName(cwd)}
-								</div>
-								<div className="mt-0.5 truncate text-[11px] text-muted-foreground">{cwd}</div>
+								<div className="text-[13px] font-medium text-foreground">{projectName(entry)}</div>
+								<div className="mt-0.5 truncate text-[11px] text-muted-foreground">{entry.path}</div>
 							</div>
 							<div className="flex items-center gap-1">
-								<Button variant="ghost" size="xs" onClick={() => void handleUnarchive(cwd)} title="取消归档">
+								<Button
+									variant="ghost"
+									size="xs"
+									onClick={() => void handleUnarchive(entry)}
+									title="取消归档"
+								>
 									<span className="icon-[mdi--archive-arrow-up-outline] h-3.5 w-3.5" />
 									取消归档
 								</Button>
-								<Button variant="ghost" size="icon-xs" onClick={() => handleDelete(cwd)} title="删除" className="text-muted-foreground hover:text-red-400">
+								<Button
+									variant="ghost"
+									size="icon-xs"
+									onClick={() => handleDelete(entry)}
+									title="删除"
+									className="text-muted-foreground hover:text-red-400"
+								>
 									<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 								</Button>
 							</div>
