@@ -11,7 +11,6 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
-	selectedFilePathAtom,
 	selectedSkillAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
@@ -49,7 +48,6 @@ export function useSessionManager(): SessionManagerResult {
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
-	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const navigate = useNavigate();
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
@@ -65,7 +63,6 @@ export function useSessionManager(): SessionManagerResult {
 			setCurrentUnsubscribe(null);
 			resetStreamState();
 			setIsStreaming(false);
-			setSelectedFilePath(null);
 
 			void navigate({ to: "/" });
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
@@ -202,7 +199,6 @@ export function useSessionManager(): SessionManagerResult {
 			setChatMessages,
 			setActiveSession,
 			setIsStreaming,
-			setSelectedFilePath,
 			navigate,
 			loadSessions,
 			setLastTurnUsage,

@@ -1,16 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import {
 	activityPanelWidthAtom,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
-	selectedFilePathAtom,
 	activeSessionAtom,
 	flowingChatUnreadAtom,
 } from "@shared/store/atoms";
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
-import { ActivityPanelHeader } from "./ActivityPanelHeader";
-import { FilePreview, isZoomableExtension } from "./FilePreview";
+import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
 import { JourneyPanel } from "./JourneyPanel";
 import { ChatTabPanel } from "./ChatTabPanel";
 import { SegmentedControl, type SegmentedControlItem } from "@shared/components/ui/segmented-control";
@@ -26,7 +24,6 @@ interface ActivityPanelProps {
 
 export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.Element {
 	const isOpen = useAtomValue(activityPanelOpenAtom);
-	const selectedPath = useAtomValue(selectedFilePathAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [width, setWidth] = useAtom(activityPanelWidthAtom);
 	const [isResizing, setIsResizing] = useState(false);
@@ -57,17 +54,6 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 		}
 		return profile?.defaultActivityTab ?? "file";
 	}, [cwd, tabByProject, profile]);
-
-	// 选中文件后自动切到文件 tab（任何项目类型都生效）
-	useEffect(() => {
-		if (!cwd || !selectedPath) return;
-		setTabByProject((prev) => {
-			if (prev.get(cwd) === "file") return prev;
-			const map = new Map(prev);
-			map.set(cwd, "file");
-			return map;
-		});
-	}, [cwd, selectedPath, setTabByProject]);
 
 	const onTabChange = useCallback(
 		(next: ActivityTabKey) => {
@@ -110,7 +96,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 					)}
 
 					<div className="flex min-h-0 flex-1 flex-col">
-						{activeTab === "file" && <FileTabContent selectedPath={selectedPath} />}
+						{activeTab === "file" && <FileTabContent />}
 						{activeTab === "journey" && cwd && <JourneyPanel cwd={cwd} />}
 						{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}
 					</div>
@@ -121,22 +107,10 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	);
 }
 
-function FileTabContent({ selectedPath }: { selectedPath: string | null }): JSX.Element {
-	const zoomable = selectedPath ? isZoomableExtension(selectedPath) : false;
-	if (!selectedPath) {
-		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground/50">
-				<span className="icon-[mdi--dock-right] text-[32px]" />
-				<span className="text-[12px]">从侧边栏选择文件以预览</span>
-			</div>
-		);
-	}
+function FileTabContent(): JSX.Element {
 	return (
-		<>
-			<ActivityPanelHeader filePath={selectedPath} />
-			<div className={zoomable ? "flex flex-1 flex-col overflow-hidden" : "flex-1 overflow-y-auto"}>
-				<FilePreview filePath={selectedPath} />
-			</div>
-		</>
+		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+			<FilesPanel />
+		</div>
 	);
 }
