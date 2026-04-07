@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { useAtomValue } from "jotai";
-import { authTokenAtom } from "@shared/store/atoms";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
 import {
 	fetchFlowingHistory,
 	fetchWorkflowInstanceByFlowing,
+	flowingDownloadUrl,
 	type FlowingTransferVO,
 	type WorkflowInstance,
 } from "@shared/lib/api";
@@ -95,9 +96,26 @@ function resolveTransferStageIndex(
 	return null;
 }
 
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "bmp", "webp", "svg", "ico", "tiff", "heic"]);
+
+function inferKind(name: string): "image" | "file" {
+	const ext = (name.split(".").pop() ?? "").toLowerCase();
+	return IMAGE_EXTS.has(ext) ? "image" : "file";
+}
+
 export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
+	const setPreview = useSetAtom(filePreviewAtom);
 	const { profile, loading: profileLoading } = useProjectProfile(cwd);
+
+	const openFilePreview = useCallback(
+		async (storageKey: string, displayName: string) => {
+			if (!token || !storageKey) return;
+			const url = await flowingDownloadUrl(token, storageKey);
+			setPreview({ name: displayName, url, kind: inferKind(displayName) });
+		},
+		[token, setPreview],
+	);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [instance, setInstance] = useState<WorkflowInstance | null>(null);
@@ -231,12 +249,15 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 						const statusMeta = getStatusMeta(stage.status);
 						const isLast = index === instance.stages.length - 1;
 						const completionFiles = stage.file_list ?? [];
+						const completionStorageKey = stage.file_storage_key ?? "";
 						const transfers = stageTransfersMap.get(index) ?? [];
-						const transferFiles = Array.from(
-							new Set(
-								transfers.flatMap((transfer) => transfer.file_list),
-							),
-						);
+						// 用第一个 transfer 的 storage key 作为流转附件的下载来源（同一 stage 通常共用一份附件 zip）
+						const aggregatedTransferFiles = Array.from(
+							new Set(transfers.flatMap((t) => t.file_list)),
+						).map((name) => {
+							const owner = transfers.find((t) => t.file_list.includes(name));
+							return { name, storageKey: owner?.file_storage_key ?? "" };
+						});
 						return (
 							<div key={`${stage.name}-${index}`} className="relative pl-8">
 								{!isLast && <div className="absolute left-[11px] top-6 h-[calc(100%-6px)] w-px bg-border/60" />}
@@ -288,7 +309,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 										</div>
 									</div>
 
-									{(completionFiles.length > 0 || transferFiles.length > 0) && (
+									{(completionFiles.length > 0 || aggregatedTransferFiles.length > 0) && (
 										<div className="mt-2 grid grid-cols-1 gap-1.5 text-[11px]">
 											{completionFiles.length > 0 && (
 												<div className="rounded-md border border-emerald-500/25 bg-emerald-500/5 px-2 py-1.5">
@@ -298,32 +319,38 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 													</div>
 													<div className="flex flex-wrap gap-1">
 														{completionFiles.map((file) => (
-															<span
+															<button
+																type="button"
 																key={`completion-${index}-${file}`}
-																className="max-w-full truncate rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-foreground/75"
+																onClick={() => void openFilePreview(completionStorageKey, fileName(file))}
+																disabled={!completionStorageKey}
+																className="max-w-full truncate rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-foreground/75 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
 																title={file}
 															>
 																{fileName(file)}
-															</span>
+															</button>
 														))}
 													</div>
 												</div>
 											)}
-											{transferFiles.length > 0 && (
+											{aggregatedTransferFiles.length > 0 && (
 												<div className="rounded-md border border-border/50 bg-muted/20 px-2 py-1.5">
 													<div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-muted-foreground/85">
 														<span className="icon-[mdi--paperclip] text-[11px]" />
 														流转附件
 													</div>
 													<div className="flex flex-wrap gap-1">
-														{transferFiles.map((file) => (
-															<span
-																key={`transfer-${index}-${file}`}
-																className="max-w-full truncate rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-foreground/75"
-																title={file}
+														{aggregatedTransferFiles.map(({ name, storageKey }) => (
+															<button
+																type="button"
+																key={`transfer-${index}-${name}`}
+																onClick={() => void openFilePreview(storageKey, fileName(name))}
+																disabled={!storageKey}
+																className="max-w-full truncate rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-foreground/75 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+																title={name}
 															>
-																{fileName(file)}
-															</span>
+																{fileName(name)}
+															</button>
 														))}
 													</div>
 												</div>
@@ -364,13 +391,16 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 															{transfer.file_list.length > 0 ? (
 																<div className="flex flex-wrap gap-1">
 																	{transfer.file_list.map((file) => (
-																		<span
+																		<button
+																			type="button"
 																			key={`${transfer.id}-${file}`}
-																			className="max-w-full truncate rounded bg-background/70 px-1.5 py-0.5 text-[10px] text-foreground/75"
+																			onClick={() => void openFilePreview(transfer.file_storage_key, fileName(file))}
+																			disabled={!transfer.file_storage_key}
+																			className="max-w-full truncate rounded bg-background/70 px-1.5 py-0.5 text-[10px] text-foreground/75 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
 																			title={file}
 																		>
 																			{fileName(file)}
-																		</span>
+																		</button>
 																	))}
 																</div>
 															) : (

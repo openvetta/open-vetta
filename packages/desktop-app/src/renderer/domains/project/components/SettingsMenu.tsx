@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useAuth } from "@domains/auth/hooks/useAuth";
-import { themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/store/atoms";
+import { downloadsActiveCountAtom, themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
@@ -18,6 +18,7 @@ export function SettingsMenu(): JSX.Element {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const mode = useAtomValue(themeModeAtom);
+	const activeDownloads = useAtomValue(downloadsActiveCountAtom);
 	const { setMode } = useTheme();
 	const navigate = useNavigate();
 	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
@@ -122,6 +123,24 @@ export function SettingsMenu(): JSX.Element {
 
 						{/* Separator */}
 						<div className="mx-1 my-1 border-t border-border" />
+
+						{/* Downloads */}
+						<button
+							type="button"
+							onClick={() => {
+								setOpen(false);
+								void navigate({ to: "/downloads" });
+							}}
+							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+						>
+							<span className="icon-[mdi--download-outline] h-3.5 w-3.5" />
+							下载管理
+							{activeDownloads > 0 && (
+								<span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+									{activeDownloads}
+								</span>
+							)}
+						</button>
 
 						{/* Settings */}
 						<button

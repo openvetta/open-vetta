@@ -31,6 +31,19 @@ const SCHEDULER_CHANNELS = {
 	EVENT: "vetta:scheduler:event",
 } as const;
 
+const DOWNLOAD_CHANNELS = {
+	START: "vetta:downloads:start",
+	PAUSE: "vetta:downloads:pause",
+	RESUME: "vetta:downloads:resume",
+	CANCEL: "vetta:downloads:cancel",
+	REMOVE: "vetta:downloads:remove",
+	LIST: "vetta:downloads:list",
+	OPEN_FILE: "vetta:downloads:open-file",
+	SHOW_IN_FOLDER: "vetta:downloads:show-in-folder",
+	GET_DEFAULT_DIR: "vetta:downloads:get-default-dir",
+	EVENT: "vetta:downloads:event",
+} as const;
+
 const BATCH_TASKS_CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
 	CREATE_PROJECT: "vetta:batch-tasks:create-project",
@@ -189,6 +202,26 @@ const api: DesktopApi = {
 			ipcRenderer.on(BATCH_TASKS_CHANNELS.EVENT, listener);
 			return () => {
 				ipcRenderer.removeListener(BATCH_TASKS_CHANNELS.EVENT, listener);
+			};
+		},
+	},
+	downloads: {
+		start: async (params) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.START, params),
+		pause: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.PAUSE, id),
+		resume: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.RESUME, id),
+		cancel: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.CANCEL, id),
+		remove: async (id, deleteFile) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.REMOVE, id, deleteFile),
+		list: async () => ipcRenderer.invoke(DOWNLOAD_CHANNELS.LIST),
+		openFile: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.OPEN_FILE, id),
+		showInFolder: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.SHOW_IN_FOLDER, id),
+		getDefaultDir: async () => ipcRenderer.invoke(DOWNLOAD_CHANNELS.GET_DEFAULT_DIR),
+		onEvent: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
+				handler(data as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(DOWNLOAD_CHANNELS.EVENT, listener);
+			return () => {
+				ipcRenderer.removeListener(DOWNLOAD_CHANNELS.EVENT, listener);
 			};
 		},
 	},
