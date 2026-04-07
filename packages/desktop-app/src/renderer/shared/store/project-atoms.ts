@@ -7,6 +7,7 @@ export interface Project {
 	name?: string;
 	sessionCount: number;
 	type: ProjectType;
+	workflowInstanceId?: number;
 	/** 流转项目对应的 flowing id（来自 meta.json） */
 	flowingId?: number;
 }

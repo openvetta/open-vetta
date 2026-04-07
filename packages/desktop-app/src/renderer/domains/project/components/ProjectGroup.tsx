@@ -30,6 +30,13 @@ const PROJECT_TYPE_BADGES: Record<Exclude<ProjectType, "normal">, string> = {
 	batch: "批量",
 };
 
+function getProjectBadge(project: Project): string {
+	if (project.type === "flowing" && typeof project.workflowInstanceId === "number") {
+		return "工作流";
+	}
+	return PROJECT_TYPE_BADGES[project.type as Exclude<ProjectType, "normal">];
+}
+
 function relativeTime(timestamp: number): string {
 	const now = Date.now();
 	const diff = now - timestamp;
@@ -162,7 +169,7 @@ export function ProjectGroup({
 					{/* Badge: visible by default, hidden on group hover */}
 					{hasBadge && (
 						<span className="rounded-sm bg-accent px-1 py-px text-[10px] text-muted-foreground group-hover:hidden">
-							{PROJECT_TYPE_BADGES[projectType as Exclude<ProjectType, "normal">]}
+							{getProjectBadge(project)}
 						</span>
 					)}
 					{/* + button: hidden by default, visible on group hover */}
