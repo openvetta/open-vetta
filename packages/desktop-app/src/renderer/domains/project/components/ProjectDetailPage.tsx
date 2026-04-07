@@ -49,6 +49,16 @@ function formatDate(ts: number): string {
 	return d.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
 }
 
+function getProjectTypeLabel(project: { type: "normal" | "flowing" | "schedule" | "batch"; workflowInstanceId?: number } | undefined): string | null {
+	if (!project) return null;
+	if (project.type === "schedule") return "自动化";
+	if (project.type === "batch") return "批量任务";
+	if (project.type === "flowing") {
+		return typeof project.workflowInstanceId === "number" ? "工作流" : "流转";
+	}
+	return null;
+}
+
 function useProjectDetail(cwd: string) {
 	const projects = useAtomValue(projectsAtom);
 	const sessionsMap = useAtomValue(sessionsMapAtom);
@@ -159,8 +169,7 @@ export function ProjectDetailPage(): JSX.Element {
 	const displayName = project?.name ?? pathBasename(decodedCwd);
 	const isBatch = !!batchProject;
 
-	const projectTypeLabel =
-		project?.type === "schedule" ? "自动化" : project?.type === "flowing" ? "流转" : project?.type === "batch" ? "批量任务" : null;
+	const projectTypeLabel = getProjectTypeLabel(project);
 
 	// New session handler
 	const handleNewSession = () => {

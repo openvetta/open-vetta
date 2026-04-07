@@ -7,6 +7,7 @@ export interface Project {
 	name?: string;
 	sessionCount: number;
 	type: ProjectType;
+	workflowInstanceId?: number;
 }
 
 export interface SessionInfo {
