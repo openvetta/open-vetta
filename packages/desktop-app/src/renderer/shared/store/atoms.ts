@@ -6,6 +6,7 @@ export * from "./batch-tasks-atoms";
 export * from "./chat-atoms";
 export * from "./file-atoms";
 export * from "./flowing-atoms";
+export * from "./flowing-chat-atoms";
 export * from "./project-atoms";
 export * from "./scheduler-atoms";
 export * from "./sse-atoms";

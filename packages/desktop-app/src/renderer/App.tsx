@@ -13,6 +13,7 @@ import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
 import { useFlowingInit } from "./domains/flowing/hooks/useFlowingInit";
+import { useFlowingChatInit } from "./domains/flowing-chat/hooks/useFlowingChatInit";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 
 export function RootLayout(): JSX.Element {
@@ -22,6 +23,7 @@ export function RootLayout(): JSX.Element {
 	useAuth();
 	useAppInit();
 	useFlowingInit();
+	useFlowingChatInit();
 	const { openSession, openSessionRef } = useSessionManager();
 
 	// ─── Global keyboard shortcuts ───
