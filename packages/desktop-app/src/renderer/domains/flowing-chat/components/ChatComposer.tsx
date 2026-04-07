@@ -309,7 +309,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
 					className={cn(
 						"flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-200",
 						hasText && !busy
-							? "scale-100 bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-[0_4px_12px_-2px_rgba(79,70,229,0.4)] hover:scale-105 hover:shadow-[0_6px_16px_-2px_rgba(79,70,229,0.5)]"
+							? "scale-100 bg-primary text-primary-foreground shadow-md hover:scale-105 hover:bg-primary/90"
 							: "scale-95 bg-muted text-muted-foreground/40",
 					)}
 				>
