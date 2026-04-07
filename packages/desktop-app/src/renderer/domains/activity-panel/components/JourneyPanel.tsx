@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
 import {
+	fetchColleagues,
 	fetchFlowingHistory,
 	fetchWorkflowInstanceByFlowing,
 	flowingDownloadUrl,
+	type ColleagueInfo,
 	type FlowingTransferVO,
 	type WorkflowInstance,
 } from "@shared/lib/api";
@@ -26,6 +28,9 @@ const TRANSFER_STATUS_META: Record<string, { label: string; className: string }>
 	rejected: { label: "已拒绝", className: "bg-red-500/15 text-red-400" },
 };
 
+type HistoryNode = FlowingTransferVO & { children?: HistoryNode[] };
+type DisplayUser = { name: string; avatar: string };
+
 function formatDateTime(value: string | null): string {
 	if (!value) return "—";
 	return new Date(value).toLocaleString("zh-CN");
@@ -42,8 +47,6 @@ function getTransferStatusMeta(status: string): { label: string; className: stri
 function fileName(path: string): string {
 	return path.split("/").pop() ?? path;
 }
-
-type HistoryNode = FlowingTransferVO & { children?: HistoryNode[] };
 
 function flattenHistory(list: HistoryNode[]): FlowingTransferVO[] {
 	const result: FlowingTransferVO[] = [];
@@ -103,6 +106,49 @@ function inferKind(name: string): "image" | "file" {
 	return IMAGE_EXTS.has(ext) ? "image" : "file";
 }
 
+function resolveUser(
+	userId: number,
+	usersMap: Map<number, ColleagueInfo>,
+	transfers: FlowingTransferVO[],
+): DisplayUser {
+	const colleague = usersMap.get(userId);
+	if (colleague) {
+		return { name: colleague.username, avatar: colleague.avatar };
+	}
+	const sender = transfers.find((item) => item.sender_id === userId);
+	if (sender) {
+		return { name: sender.sender_name, avatar: sender.sender_avatar };
+	}
+	const receiver = transfers.find((item) => item.receiver_id === userId);
+	if (receiver) {
+		return { name: receiver.receiver_name, avatar: receiver.receiver_avatar };
+	}
+	return { name: `成员 ${userId}`, avatar: "" };
+}
+
+function UserIdentity({
+	name,
+	avatar,
+	className = "",
+}: {
+	name: string;
+	avatar: string;
+	className?: string;
+}): JSX.Element {
+	return (
+		<div className={`flex min-w-0 items-center gap-1.5 ${className}`}>
+			{avatar ? (
+				<img src={avatar} alt={name} className="h-5 w-5 shrink-0 rounded-full border border-border object-cover" />
+			) : (
+				<div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40">
+					<span className="icon-[mdi--account-outline] text-[11px] text-muted-foreground/70" />
+				</div>
+			)}
+			<span className="truncate text-[11px] text-foreground/90">{name}</span>
+		</div>
+	);
+}
+
 export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const setPreview = useSetAtom(filePreviewAtom);
@@ -121,6 +167,8 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 	const [instance, setInstance] = useState<WorkflowInstance | null>(null);
 	const [historyCount, setHistoryCount] = useState(0);
 	const [stageTransfersMap, setStageTransfersMap] = useState<Map<number, FlowingTransferVO[]>>(new Map());
+	const [usersMap, setUsersMap] = useState<Map<number, ColleagueInfo>>(new Map());
+	const [expandedTransferIds, setExpandedTransferIds] = useState<Set<number>>(new Set());
 
 	const canLoad = !!token && !!profile?.isWorkflow && profile.flowingId !== null && profile.workflowInstanceId !== null;
 
@@ -129,6 +177,8 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 			setInstance(null);
 			setHistoryCount(0);
 			setStageTransfersMap(new Map());
+			setUsersMap(new Map());
+			setExpandedTransferIds(new Set());
 			setLoading(false);
 			setError(null);
 			return;
@@ -141,8 +191,9 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 		void Promise.all([
 			fetchWorkflowInstanceByFlowing(token, profile.flowingId),
 			fetchFlowingHistory(token, profile.flowingId),
+			fetchColleagues(token).catch(() => [] as ColleagueInfo[]),
 		])
-			.then(([workflowInstance, historyData]) => {
+			.then(([workflowInstance, historyData, colleagues]) => {
 				if (cancelled) return;
 				const allTransfers = flattenHistory(historyData.history as HistoryNode[]);
 				const userStageIndexMap = buildUserStageIndexMap(workflowInstance);
@@ -166,15 +217,32 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 						),
 					);
 				}
+
+				const nextUsersMap = new Map<number, ColleagueInfo>();
+				for (const item of colleagues) {
+					nextUsersMap.set(item.id, item);
+				}
+
+				const defaultExpandedTransferIds = new Set<number>();
+				const currentStageTransfers = stageTransfers.get(workflowInstance.current_stage) ?? [];
+				if (currentStageTransfers.length > 0) {
+					const latest = currentStageTransfers[currentStageTransfers.length - 1];
+					defaultExpandedTransferIds.add(latest.id);
+				}
+
 				setInstance(workflowInstance);
 				setHistoryCount(allTransfers.length);
 				setStageTransfersMap(stageTransfers);
+				setUsersMap(nextUsersMap);
+				setExpandedTransferIds(defaultExpandedTransferIds);
 			})
 			.catch((err) => {
 				if (cancelled) return;
 				setInstance(null);
 				setHistoryCount(0);
 				setStageTransfersMap(new Map());
+				setUsersMap(new Map());
+				setExpandedTransferIds(new Set());
 				setError(err instanceof Error ? err.message : "加载历程失败");
 			})
 			.finally(() => {
@@ -190,6 +258,18 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 		if (!instance) return 0;
 		return instance.stages.filter((stage) => stage.status === "completed").length;
 	}, [instance]);
+
+	const toggleTransferDetails = useCallback((transferId: number) => {
+		setExpandedTransferIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(transferId)) {
+				next.delete(transferId);
+			} else {
+				next.add(transferId);
+			}
+			return next;
+		});
+	}, []);
 
 	if (profileLoading || loading) {
 		return (
@@ -227,8 +307,8 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			<div className="border-b border-border/70 px-4 py-3">
-				<div className="rounded-xl border border-border/50 bg-gradient-to-b from-background to-muted/30 p-3">
+			<div className="border-b border-border px-4 py-3">
+				<div className="rounded-xl border border-border bg-gradient-to-b from-background to-muted/30 p-3">
 					<div className="mb-1 flex items-center justify-between">
 						<h3 className="text-[13px] font-semibold text-foreground">{instance.workflow_name}</h3>
 						<span className="rounded-full bg-accent/70 px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -248,47 +328,45 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 					{instance.stages.map((stage, index) => {
 						const statusMeta = getStatusMeta(stage.status);
 						const isLast = index === instance.stages.length - 1;
-						const completionFiles = stage.file_list ?? [];
-						const completionStorageKey = stage.file_storage_key ?? "";
 						const transfers = stageTransfersMap.get(index) ?? [];
-						// 用第一个 transfer 的 storage key 作为流转附件的下载来源（同一 stage 通常共用一份附件 zip）
-						const aggregatedTransferFiles = Array.from(
-							new Set(transfers.flatMap((t) => t.file_list)),
-						).map((name) => {
-							const owner = transfers.find((t) => t.file_list.includes(name));
-							return { name, storageKey: owner?.file_storage_key ?? "" };
-						});
+						const stageSubtitle = stage.description?.trim() || "暂无子标题";
+						const stageResultFiles = stage.file_list ?? [];
+						const stageResultStorageKey = stage.file_storage_key ?? "";
+
 						return (
 							<div key={`${stage.name}-${index}`} className="relative pl-8">
-								{!isLast && <div className="absolute left-[11px] top-6 h-[calc(100%-6px)] w-px bg-border/60" />}
-								<div className="absolute left-0 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-border/70 bg-background text-[10px] font-semibold text-muted-foreground">
+								{!isLast && <div className="absolute left-[11px] top-6 h-[calc(100%-6px)] w-px bg-border" />}
+								<div className="absolute left-0 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-[10px] font-semibold text-muted-foreground">
 									{index + 1}
 								</div>
-								<div className="rounded-lg border border-border/50 bg-background/90 p-3">
-									<div className="mb-1.5 flex items-start justify-between gap-2">
+
+								<div className="rounded-lg border border-border bg-background/90 p-3">
+									<div className="mb-2 flex items-start justify-between gap-2">
 										<div className="min-w-0">
 											<div className="truncate text-[13px] font-semibold text-foreground">{stage.name}</div>
-											{stage.description && (
-												<p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground/75">
-													{stage.description}
-												</p>
-											)}
+											<div className="mt-0.5 text-[11px] text-muted-foreground/70">子标题：{stageSubtitle}</div>
 										</div>
 										<span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${statusMeta.className}`}>
 											{statusMeta.label}
 										</span>
 									</div>
 
-									<div className="mb-2 flex flex-wrap gap-1">
+									<div className="mb-2 flex flex-wrap gap-1.5">
 										{stage.member_ids.length > 0 ? (
-											stage.member_ids.map((memberId) => (
-												<span
-													key={memberId}
-													className="rounded-md bg-accent/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
-												>
-													成员 ID {memberId}
-												</span>
-											))
+											stage.member_ids.map((memberId) => {
+												const member = resolveUser(memberId, usersMap, transfers);
+												return (
+													<div className="flex items-center px-2">
+														<div className="text-[11px]">成员：</div>
+													<div
+														key={memberId}
+														className="max-w-full"
+													>
+														<UserIdentity name={member.name} avatar={member.avatar} />
+													</div>
+													</div>
+												);
+											})
 										) : (
 											<span className="text-[10px] text-muted-foreground/50">无指定成员</span>
 										)}
@@ -309,107 +387,122 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 										</div>
 									</div>
 
-									{(completionFiles.length > 0 || aggregatedTransferFiles.length > 0) && (
-										<div className="mt-2 grid grid-cols-1 gap-1.5 text-[11px]">
-											{completionFiles.length > 0 && (
-												<div className="rounded-md border border-emerald-500/25 bg-emerald-500/5 px-2 py-1.5">
-													<div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-														<span className="icon-[mdi--check-circle-outline] text-[11px]" />
-														环节成果附件
-													</div>
-													<div className="flex flex-wrap gap-1">
-														{completionFiles.map((file) => (
-															<button
-																type="button"
-																key={`completion-${index}-${file}`}
-																onClick={() => void openFilePreview(completionStorageKey, fileName(file))}
-																disabled={!completionStorageKey}
-																className="max-w-full truncate rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-foreground/75 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-																title={file}
-															>
-																{fileName(file)}
-															</button>
-														))}
-													</div>
-												</div>
-											)}
-											{aggregatedTransferFiles.length > 0 && (
-												<div className="rounded-md border border-border/50 bg-muted/20 px-2 py-1.5">
-													<div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-muted-foreground/85">
-														<span className="icon-[mdi--paperclip] text-[11px]" />
-														流转附件
-													</div>
-													<div className="flex flex-wrap gap-1">
-														{aggregatedTransferFiles.map(({ name, storageKey }) => (
-															<button
-																type="button"
-																key={`transfer-${index}-${name}`}
-																onClick={() => void openFilePreview(storageKey, fileName(name))}
-																disabled={!storageKey}
-																className="max-w-full truncate rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-foreground/75 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-																title={name}
-															>
-																{fileName(name)}
-															</button>
-														))}
-													</div>
-												</div>
-											)}
+									{stageResultFiles.length > 0 && (
+										<div className="mt-2 rounded-md border border-emerald-500 bg-emerald-500/5 px-2 py-1.5">
+											<div className="mb-1 text-[10px] font-medium text-emerald-400">环节产出文件</div>
+											<div className="flex flex-wrap gap-1">
+												{stageResultFiles.map((file) => (
+													<button
+														type="button"
+														key={`stage-file-${index}-${file}`}
+														onClick={() => void openFilePreview(stageResultStorageKey, fileName(file))}
+														disabled={!stageResultStorageKey}
+														className="max-w-full truncate rounded bg-background/60 px-1.5 py-0.5 text-[10px] text-foreground/80 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+														title={file}
+													>
+														{fileName(file)}
+													</button>
+												))}
+											</div>
 										</div>
 									)}
 
-									{transfers.length > 0 && (
-										<div className="mt-2 rounded-md border border-border/50 bg-muted/15 px-2 py-1.5">
-											<div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-muted-foreground/85">
-												<span className="icon-[mdi--transit-connection-variant] text-[11px]" />
-												流转环节记录
-											</div>
-											<div className="space-y-1">
+									{transfers.length > 0 ? (
+										<div className="relative mt-2 pl-4">
+											<div className="absolute bottom-2 left-[3px] top-2 w-px bg-border" />
+											<div className="space-y-2">
 												{transfers.map((transfer) => {
 													const transferStatusMeta = getTransferStatusMeta(transfer.status);
+													const transferMessage = transfer.message?.trim() || "无";
+													const isTransferExpanded = expandedTransferIds.has(transfer.id);
 													return (
-														<div
-															key={transfer.id}
-															className="rounded-md border border-border/40 bg-background/70 px-2 py-1.5"
-														>
-															<div className="mb-1 flex items-center justify-between gap-2">
-																<div className="min-w-0 truncate text-[10px] font-medium text-foreground/90">
-																	{transfer.sender_name} → {transfer.receiver_name}
-																</div>
-																<span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] ${transferStatusMeta.className}`}>
-																	{transferStatusMeta.label}
-																</span>
-															</div>
-															<div className="mb-1 text-[10px] text-muted-foreground/65">
-																发送时间 {formatDateTime(transfer.created_at)}
-															</div>
-															{transfer.message && (
-																<div className="mb-1 rounded bg-muted/35 px-1.5 py-1 text-[10px] text-foreground/80">
-																	{transfer.message}
-																</div>
-															)}
-															{transfer.file_list.length > 0 ? (
-																<div className="flex flex-wrap gap-1">
-																	{transfer.file_list.map((file) => (
+														<div key={transfer.id} className="relative">
+															<div className="absolute -left-4 top-[12px] h-2 w-2 rounded-full bg-muted-foreground/45" />
+															<div className="rounded-md border border-border bg-background/70 p-2">
+																<div className="flex items-center gap-1.5">
+																	<div className="flex shrink-0 items-center gap-1.5">
+																		<span className={`rounded-full px-1.5 py-0.5 text-[9px] ${transferStatusMeta.className}`}>
+																			{transferStatusMeta.label}
+																		</span>
 																		<button
 																			type="button"
-																			key={`${transfer.id}-${file}`}
-																			onClick={() => void openFilePreview(transfer.file_storage_key, fileName(file))}
-																			disabled={!transfer.file_storage_key}
-																			className="max-w-full truncate rounded bg-background/70 px-1.5 py-0.5 text-[10px] text-foreground/75 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-																			title={file}
+																			onClick={() => toggleTransferDetails(transfer.id)}
+																			className="rounded bg-muted/45 px-1.5 py-0.5 text-[9px] text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
 																		>
-																			{fileName(file)}
+																			{isTransferExpanded ? "收起详情" : "展开详情"}
 																		</button>
-																	))}
+																	</div>
 																</div>
-															) : (
-																<div className="text-[10px] text-muted-foreground/50">未附文件</div>
-															)}
+																<div className="mt-1 text-[10px] text-muted-foreground/55">发送者 → 接收者</div>
+																<div className="mt-1 flex min-w-0 items-center gap-2">
+																	<UserIdentity
+																		name={transfer.sender_name}
+																		avatar={transfer.sender_avatar}
+																		className="max-w-[40%]"
+																	/>
+																	<span className="icon-[mdi--arrow-right] shrink-0 text-[13px] text-muted-foreground/45" />
+																	<UserIdentity
+																		name={transfer.receiver_name}
+																		avatar={transfer.receiver_avatar}
+																		className="max-w-[40%]"
+																	/>
+																</div>
+																<div className="mt-1 text-[10px] text-muted-foreground/65">
+																	发送时间 {formatDateTime(transfer.created_at)}
+																</div>
+
+																{isTransferExpanded && (
+																	<div className="mt-2 space-y-1">
+																		<div className="rounded bg-muted/30 px-1.5 py-1">
+																			<div className="text-[10px] text-muted-foreground/55">子标题</div>
+																			<div className="mt-0.5 text-[10px] text-foreground/85">
+																				{stage.name} · {transferStatusMeta.label}
+																			</div>
+																		</div>
+																		<div className="rounded bg-muted/30 px-1.5 py-1">
+																			<div className="flex items-center gap-1 text-[10px] text-muted-foreground/55">
+																				<span className="icon-[mdi--message-text-outline] text-[11px]" />
+																				附加消息
+																			</div>
+																			<div className="mt-0.5 text-[10px] text-foreground/85">
+																				{transferMessage}
+																			</div>
+																		</div>
+																		<div className="rounded bg-muted/30 px-1.5 py-1">
+																			<div className="mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/55">
+																				<span className="icon-[mdi--paperclip] text-[11px]" />
+																				附加文件
+																			</div>
+																			{transfer.file_list.length > 0 ? (
+																				<div className="flex flex-wrap gap-1">
+																					{transfer.file_list.map((file) => (
+																						<button
+																							type="button"
+																							key={`${transfer.id}-${file}`}
+																							onClick={() => void openFilePreview(transfer.file_storage_key, fileName(file))}
+																							disabled={!transfer.file_storage_key}
+																							className="max-w-full truncate rounded bg-background/70 px-1.5 py-0.5 text-[10px] text-foreground/75 transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+																							title={file}
+																						>
+																							{fileName(file)}
+																						</button>
+																					))}
+																				</div>
+																			) : (
+																				<div className="text-[10px] text-muted-foreground/50">无</div>
+																			)}
+																		</div>
+																	</div>
+																)}
+															</div>
 														</div>
 													);
 												})}
 											</div>
+										</div>
+									) : (
+										<div className="mt-2 rounded bg-muted/20 px-2 py-1.5 text-[10px] text-muted-foreground/55">
+											暂无流转记录
 										</div>
 									)}
 								</div>
