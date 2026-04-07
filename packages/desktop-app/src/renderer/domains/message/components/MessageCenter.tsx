@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
-import { flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
+import { flowingChatTotalUnreadAtom, flowingPendingCountAtom, flowingPendingListAtom } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { Dialog, DialogContent } from "@shared/components/ui/dialog";
 import { useFlowingReceive } from "@domains/flowing/hooks/useFlowingReceive";
@@ -124,8 +124,9 @@ export function MessageCenter(): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [activeTab, setActiveTab] = useState<Tab>("all");
 	const pendingCount = useAtomValue(flowingPendingCountAtom);
+	const chatUnread = useAtomValue(flowingChatTotalUnreadAtom);
 
-	const totalUnread = pendingCount;
+	const totalUnread = pendingCount + chatUnread;
 
 	return (
 		<>

@@ -352,3 +352,132 @@ export async function fetchNextStageMembers(token: string, instanceId: number): 
 		headers: authHeaders(token),
 	});
 }
+
+// ─── Flowing Chat ───
+
+export interface ChatAttachment {
+	type: "image" | "file";
+	storage_key: string;
+	name: string;
+	size: number;
+	mime?: string;
+	width?: number;
+	height?: number;
+}
+
+export interface ChatReplySnapshot {
+	sender_id: number;
+	sender_name: string;
+	type: string;
+	preview: string;
+	deleted: boolean;
+}
+
+export interface ChatSystemEvent {
+	event: "flowing_created" | "flowing_closed" | "stage_entered" | "stage_returned";
+	stage_index?: number;
+	stage_name?: string;
+	actor_id?: number;
+	actor_name?: string;
+}
+
+export interface ChatMessageVO {
+	id: number;
+	flowing_id: number;
+	type: "text" | "image" | "file" | "system";
+	content: string;
+	sender_id: number;
+	sender_name: string;
+	sender_avatar: string;
+	attachments: ChatAttachment[];
+	mentioned_user_ids: number[];
+	reply_to_id: number | null;
+	reply_to_snapshot?: ChatReplySnapshot | null;
+	system_event?: ChatSystemEvent | null;
+	created_at: string;
+	deleted_at?: string | null;
+	deleted_by?: number | null;
+}
+
+export interface ChatUnreadVO {
+	flowing_id: number;
+	unread_count: number;
+}
+
+export async function fetchChatMessages(
+	token: string,
+	flowingId: number,
+	opts?: { before?: number; limit?: number },
+): Promise<ChatMessageVO[]> {
+	const params = new URLSearchParams();
+	if (opts?.before) params.set("before", String(opts.before));
+	if (opts?.limit) params.set("limit", String(opts.limit));
+	const qs = params.toString();
+	return request<ChatMessageVO[]>(`/flowing/${flowingId}/chat/messages${qs ? `?${qs}` : ""}`, {
+		headers: authHeaders(token),
+	});
+}
+
+export async function sendChatMessage(
+	token: string,
+	flowingId: number,
+	body: {
+		type: "text" | "image" | "file";
+		content?: string;
+		attachments?: ChatAttachment[];
+		mentioned_user_ids?: number[];
+		reply_to_id?: number;
+	},
+): Promise<ChatMessageVO> {
+	return request<ChatMessageVO>(`/flowing/${flowingId}/chat/messages`, {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+}
+
+export async function deleteChatMessage(token: string, flowingId: number, msgId: number): Promise<void> {
+	await request<unknown>(`/flowing/${flowingId}/chat/messages/${msgId}`, {
+		method: "DELETE",
+		headers: authHeaders(token),
+	});
+}
+
+export async function markChatRead(token: string, flowingId: number, lastReadMessageId: number): Promise<void> {
+	await request<unknown>(`/flowing/${flowingId}/chat/read`, {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify({ last_read_message_id: lastReadMessageId }),
+	});
+}
+
+export async function fetchChatUnreadSummary(token: string): Promise<ChatUnreadVO[]> {
+	return request<ChatUnreadVO[]>("/chat/unread/summary", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function uploadChatAttachment(token: string, flowingId: number, file: File): Promise<ChatAttachment> {
+	const formData = new FormData();
+	formData.append("file", file, file.name);
+	const base = await getApiBase();
+	const res = await fetch(`${base}/flowing/${flowingId}/chat/upload`, {
+		method: "POST",
+		headers: authHeaders(token),
+		body: formData,
+	});
+	if (res.status === 401) {
+		notifyUnauthorized();
+		throw new Error("登录已过期，请重新登录");
+	}
+	const json = (await res.json()) as ApiResponse<ChatAttachment>;
+	if (json.code !== 0) {
+		throw new Error(json.message);
+	}
+	return json.data as ChatAttachment;
+}
+
+export async function chatAttachmentUrl(token: string, storageKey: string): Promise<string> {
+	const base = await getApiBase();
+	return `${base}/chat/attachment?key=${encodeURIComponent(storageKey)}&token=${encodeURIComponent(token)}`;
+}
