@@ -9,11 +9,16 @@ import {
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
-export function useFileTree() {
+/**
+ * @param cwdOverride 显式指定的根目录。不传则回退到当前活动 session 的 cwd，
+ *                    用于"项目详情页"等没有 active session 的场景。
+ */
+export function useFileTree(cwdOverride?: string | null) {
 	const [cache, setCache] = useAtom(fileTreeCacheAtom);
 	const [expandedDirs, setExpandedDirs] = useAtom(expandedDirsAtom);
 	const [loadingDirs, setLoadingDirs] = useAtom(loadingDirsAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
+	const rootCwd = cwdOverride ?? activeSession?.cwd ?? null;
 	const prevCwdRef = useRef<string | null>(null);
 
 	const loadDir = useCallback(
@@ -148,26 +153,25 @@ export function useFileTree() {
 		[loadDir],
 	);
 
-	// When active session changes, clear cache and load new root
+	// When the resolved cwd changes, clear cache and load new root
 	useEffect(() => {
-		const cwd = activeSession?.cwd ?? null;
-		if (cwd === prevCwdRef.current) return;
-		prevCwdRef.current = cwd;
+		if (rootCwd === prevCwdRef.current) return;
+		prevCwdRef.current = rootCwd;
 
 		setCache(new Map());
 		setExpandedDirs(new Set());
 		setLoadingDirs(new Set());
 
-		if (cwd) {
-			void loadDir(cwd);
+		if (rootCwd) {
+			void loadDir(rootCwd);
 		}
-	}, [activeSession?.cwd, setCache, setExpandedDirs, setLoadingDirs, loadDir]);
+	}, [rootCwd, setCache, setExpandedDirs, setLoadingDirs, loadDir]);
 
 	return {
 		cache,
 		expandedDirs,
 		loadingDirs,
-		rootDir: activeSession?.cwd ?? null,
+		rootDir: rootCwd,
 		toggleDir,
 		renameEntry,
 		deleteEntry,
