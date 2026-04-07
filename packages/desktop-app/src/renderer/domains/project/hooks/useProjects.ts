@@ -39,8 +39,9 @@ export function useProjects() {
 				const type: ProjectType =
 					rawType === "flowing" || rawType === "schedule" || rawType === "batch" ? rawType : "normal";
 				const workflowInstanceId =
-					typeof meta?.workflowInstanceId === "number" ? meta.workflowInstanceId : undefined;
-				return { ...entry, type, workflowInstanceId };
+					typeof meta?.workflowInstanceId === "number" ? (meta.workflowInstanceId as number) : undefined;
+				const flowingId = typeof meta?.flowingId === "number" ? (meta.flowingId as number) : undefined;
+				return { ...entry, type, workflowInstanceId, flowingId };
 			}),
 		);
 		setProjects(metaResults);
