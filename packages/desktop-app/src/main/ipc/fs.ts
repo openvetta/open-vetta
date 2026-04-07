@@ -1,7 +1,7 @@
 import type { Stats } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { ipcMain } from "electron";
 import type { FsEntry } from "../../preload/fs-types.js";
 
@@ -179,9 +179,16 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 }
 
 function assertPathWithinProject(targetPath: string): void {
-	const resolved = resolve(targetPath);
+	const normalizeForComparison = (value: string): string => {
+		const normalized = resolve(value);
+		return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+	};
+	const resolved = normalizeForComparison(targetPath);
 	for (const root of allowedRoots) {
-		if (resolved === root || resolved.startsWith(`${root}/`)) {
+		const normalizedRoot = normalizeForComparison(root);
+		const rel = relative(normalizedRoot, resolved);
+		const isWithinRoot = rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+		if (isWithinRoot) {
 			return;
 		}
 	}
