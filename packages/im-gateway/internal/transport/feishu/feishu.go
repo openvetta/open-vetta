@@ -91,7 +91,13 @@ func (t *Transport) Name() string { return "feishu" }
 
 func (t *Transport) Capabilities() transport.Capabilities {
 	return transport.Capabilities{
-		SupportsMessageEdit: true,
+		// Feishu's PATCH /im/v1/messages/:message_id endpoint only supports
+		// updating interactive cards, NOT text messages — text messages are
+		// effectively immutable once sent. Declaring this honestly forces
+		// the bridge to use the chunk fallback path (one final SendMessage
+		// per assistant message) instead of trying to edit-in-place and
+		// silently losing all but the first delta.
+		SupportsMessageEdit: false,
 		SupportsCards:       true,
 		SupportsButtons:     true,
 		SupportsFileUpload:  true,
@@ -112,6 +118,15 @@ func (t *Transport) Start(ctx context.Context, handler transport.MessageHandler)
 	d := dispatcher.NewEventDispatcher("", "").
 		OnP2MessageReceiveV1(func(ctx context.Context, event *larkim.P2MessageReceiveV1) error {
 			return t.handleInbound(ctx, event, handler)
+		}).
+		// Noop handlers for events Feishu always delivers but we don't use.
+		// Without these, the SDK logs an [Error] line for every "user opened
+		// the chat" or "user read a message" event, drowning the real logs.
+		OnP2ChatAccessEventBotP2pChatEnteredV1(func(_ context.Context, _ *larkim.P2ChatAccessEventBotP2pChatEnteredV1) error {
+			return nil
+		}).
+		OnP2MessageReadV1(func(_ context.Context, _ *larkim.P2MessageReadV1) error {
+			return nil
 		})
 
 	wsOpts := []larkws.ClientOption{

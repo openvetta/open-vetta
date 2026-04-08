@@ -54,13 +54,19 @@ func New(tr transport.Transport, chatID string) *Bridge {
 	}
 }
 
-// Run consumes events from the channel until it closes (the agent
-// finished its turn) and emits IM messages along the way. Returns the
-// last error encountered, if any. Earlier errors are logged into the
-// transport via SendMessage but not aborted.
+// Run consumes events until the agent's turn ends and emits IM messages
+// along the way. A turn ends on the first of:
 //
-// Run is intended to be called from one goroutine. Caller is responsible
-// for goroutine lifetime.
+//   - an agent_end event (the agent finished one prompt's worth of work;
+//     the subprocess stays alive for the next prompt — this is the normal
+//     happy path and is what allows multi-turn conversations to work)
+//   - the events channel closing (subprocess died)
+//   - ctx cancellation
+//
+// Returns the first error encountered along the way (subsequent errors
+// are swallowed; the bridge tries to deliver as much as possible before
+// reporting). Run is intended to be called from one goroutine; the caller
+// owns goroutine lifetime.
 func (b *Bridge) Run(ctx context.Context, events <-chan hostclient.AgentEvent) error {
 	var firstErr error
 	for {
@@ -69,7 +75,9 @@ func (b *Bridge) Run(ctx context.Context, events <-chan hostclient.AgentEvent) e
 			return ctx.Err()
 		case ev, ok := <-events:
 			if !ok {
-				// Channel closed: agent ended its turn or session died.
+				// Channel closed: subprocess exited unexpectedly. Flush
+				// whatever we still have buffered so the user sees a final
+				// state instead of a silent dropoff.
 				if err := b.flush(ctx); err != nil && firstErr == nil {
 					firstErr = err
 				}
@@ -77,6 +85,13 @@ func (b *Bridge) Run(ctx context.Context, events <-chan hostclient.AgentEvent) e
 			}
 			if err := b.handle(ctx, ev); err != nil && firstErr == nil {
 				firstErr = err
+			}
+			// agent_end marks the end of one turn. The subprocess is still
+			// alive and we MUST return so the per-conversation goroutine can
+			// process the next inbound message; otherwise users can only
+			// ever exchange one message per session.
+			if ev.Type == hostclient.AgentEventTypeAgentEnd {
+				return firstErr
 			}
 		}
 	}
@@ -184,49 +199,42 @@ func (b *Bridge) commitEdit(ctx context.Context, text string) error {
 	return nil
 }
 
-// maybeChunk emits a new outbound message when the buffer crosses a
-// paragraph boundary or the platform's max length. Used in fallback mode
-// (no message editing).
+// maybeChunk emits messages ONLY when the buffer would exceed the
+// platform's hard length limit. Otherwise it accumulates silently and
+// waits for flush() to emit the buffered text as a single coherent
+// message at a natural boundary (tool execution, message_end, agent_end).
+//
+// We deliberately do NOT auto-split on paragraph boundaries: doing so
+// would chop a single coherent assistant answer into a flood of small
+// IM messages whenever the agent uses markdown. Sending one message per
+// assistant turn is much friendlier in IM contexts.
 func (b *Bridge) maybeChunk(ctx context.Context) error {
-	for {
+	limit := b.caps.MaxMessageLength
+	if limit <= 0 {
+		// No hard cap — just keep buffering until flush.
+		return nil
+	}
+	for b.buf.Len() >= limit {
 		text := b.buf.String()
-		limit := b.caps.MaxMessageLength
-		if limit <= 0 {
-			limit = 4000
+		// Try to split at the last newline within the limit so we don't
+		// chop mid-line; fall back to a hard cut if the limit is reached
+		// without any newline.
+		split := limit
+		candidate := text[:limit]
+		if nl := strings.LastIndex(candidate, "\n"); nl > 0 {
+			split = nl + 1
 		}
-
-		// Two flush triggers: paragraph boundary anywhere within limit,
-		// or len ≥ limit (force a hard split).
-		split := -1
-		if idx := strings.LastIndex(text, "\n\n"); idx > 0 && idx <= limit {
-			split = idx + 2 // include the blank line
-		} else if len(text) >= limit {
-			// Try to split at the last newline within limit, else hard cut.
-			candidate := text[:limit]
-			if nl := strings.LastIndex(candidate, "\n"); nl > 0 {
-				split = nl + 1
-			} else {
-				split = limit
-			}
-		}
-		if split < 0 {
-			return nil
-		}
-
 		head := strings.TrimRight(text[:split], "\n")
 		if head != "" {
 			if _, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: head}); err != nil {
 				return err
 			}
 		}
-		// Reset buffer to the unsent tail.
 		tail := text[split:]
 		b.buf.Reset()
 		b.buf.WriteString(tail)
-		if tail == "" {
-			return nil
-		}
 	}
+	return nil
 }
 
 // flush emits whatever is in the buffer immediately, regardless of
@@ -252,36 +260,35 @@ func (b *Bridge) flush(ctx context.Context) error {
 	return err
 }
 
-// extractTextDelta extracts the text content from a message_update event.
-// The upstream rpc protocol nests the text inside an `assistantMessageEvent`
-// object with `type:"text_delta"` and a `delta` string. We accept either
-// shape (some upstream versions vary) and fall back to a top-level "text"
-// or "data.text" field.
+// extractTextDelta extracts USER-FACING text from a message_update event.
+//
+// The upstream agent emits several flavors of message_update during a turn:
+//
+//   - text_delta:     incremental user-visible text (what we want)
+//   - thinking_delta: the agent's internal reasoning ("chain of thought")
+//   - toolcall_delta: incremental JSON args of an in-flight tool call
+//   - *_start / *_end: lifecycle bookends, no delta payload
+//
+// Only text_delta should reach the IM. Forwarding thinking_delta would
+// leak the agent's monologue to users; forwarding toolcall_delta would
+// dump JSON fragments into the chat.
+//
+// To stay forward-compatible we filter by the explicit subtype field,
+// returning the empty string for everything except text_delta.
 func extractTextDelta(raw json.RawMessage) string {
 	var v struct {
 		AssistantMessageEvent struct {
 			Type  string `json:"type"`
 			Delta string `json:"delta"`
-			Text  string `json:"text"`
 		} `json:"assistantMessageEvent"`
-		Data struct {
-			Text string `json:"text"`
-		} `json:"data"`
-		Text string `json:"text"`
 	}
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return ""
 	}
-	if v.AssistantMessageEvent.Delta != "" {
+	if v.AssistantMessageEvent.Type == "text_delta" {
 		return v.AssistantMessageEvent.Delta
 	}
-	if v.AssistantMessageEvent.Text != "" {
-		return v.AssistantMessageEvent.Text
-	}
-	if v.Data.Text != "" {
-		return v.Data.Text
-	}
-	return v.Text
+	return ""
 }
 
 // extractErrorText pulls a human-readable error string from an error event.

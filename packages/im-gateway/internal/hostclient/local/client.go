@@ -71,12 +71,25 @@ var _ hostclient.HostClient = (*Client)(nil)
 //     by main.ts and return ErrSessionLocked. Otherwise return a generic
 //     error wrapping the captured stderr.
 func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (hostclient.HostSession, error) {
-	args := []string{
-		"--mode", "rpc",
-		"--cwd", cwd,
-		"--session", sessionPath,
+	args := []string{"--mode", "rpc", "--cwd", cwd}
+	// Empty sessionPath means "create a new session in this cwd". coding-agent
+	// expects --session to be omitted entirely in that case (passing it as
+	// empty string causes argument parsing errors). We capture the actual
+	// session file path the agent ends up using during the handshake's
+	// get_state response, see session.handshake / session.resolvedSessionPath.
+	if sessionPath != "" {
+		args = append(args, "--session", sessionPath)
 	}
 	cmd := exec.CommandContext(ctx, c.opts.Bin, args...)
+	// CRITICAL: explicitly set the subprocess's working directory.
+	// Without this Go's exec.Cmd makes the child inherit the parent's
+	// cwd (= wherever `im-gateway start` was launched from). The agent's
+	// shell tools (dir_tree, bash, ls, ...) operate on the OS-level cwd
+	// of the subprocess, NOT on the --cwd flag we pass on the command
+	// line. coding-agent uses --cwd only for session-file path metadata,
+	// it does not call process.chdir(), so a wrong cmd.Dir means the
+	// agent answers questions about the wrong project.
+	cmd.Dir = cwd
 	cmd.Env = envWithoutDuplicates(c.opts.ExtraEnv)
 	// Run in its own process group so SIGINT to the gateway doesn't
 	// directly hit the subprocess (we use Close() to bring it down cleanly).
@@ -166,6 +179,16 @@ func (s *session) handshake(ctx context.Context, timeout time.Duration) error {
 	}
 	if !resp.Success {
 		return fmt.Errorf("hostclient/local: handshake response error: %s", resp.Error)
+	}
+	// Capture the session file path the agent ended up using. This is
+	// either the explicit --session we passed or, when we passed nothing,
+	// the fresh path the agent generated. The router needs this so it can
+	// persist a stable (user, project) → sessionPath mapping after the
+	// first message.
+	if resp.Data != nil {
+		if sf, ok := resp.Data["sessionFile"].(string); ok && sf != "" {
+			s.setResolvedSessionPath(sf)
+		}
 	}
 	return nil
 }

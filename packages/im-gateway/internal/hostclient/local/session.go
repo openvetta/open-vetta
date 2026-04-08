@@ -53,6 +53,14 @@ type session struct {
 	cwd         string
 	sessionPath string
 
+	// resolvedSessionPath is the .jsonl file the agent actually ended up
+	// using. Captured from the handshake get_state response. May differ from
+	// sessionPath when the caller passed empty (signaling "let agent create
+	// a fresh session"). SessionPath() returns this when set, falling back
+	// to the original input.
+	resolvedMu          sync.Mutex
+	resolvedSessionPath string
+
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	stderr *bytes.Buffer // captured for error reporting on early exit
@@ -79,8 +87,25 @@ type session struct {
 // Compile-time check that *session satisfies the public interface.
 var _ hostclient.HostSession = (*session)(nil)
 
-// SessionPath implements hostclient.HostSession.
-func (s *session) SessionPath() string { return s.sessionPath }
+// SessionPath implements hostclient.HostSession. Returns the agent's
+// real session file (captured from get_state during handshake) when known,
+// otherwise the input path passed to OpenSession.
+func (s *session) SessionPath() string {
+	s.resolvedMu.Lock()
+	defer s.resolvedMu.Unlock()
+	if s.resolvedSessionPath != "" {
+		return s.resolvedSessionPath
+	}
+	return s.sessionPath
+}
+
+// setResolvedSessionPath records the agent's actual session file path.
+// Called from the handshake after parsing the get_state response.
+func (s *session) setResolvedSessionPath(path string) {
+	s.resolvedMu.Lock()
+	defer s.resolvedMu.Unlock()
+	s.resolvedSessionPath = path
+}
 
 // Events implements hostclient.HostSession.
 func (s *session) Events() <-chan hostclient.AgentEvent { return s.events }
@@ -192,6 +217,23 @@ func (s *session) Close() error {
 func (s *session) readerLoop(stdout io.ReadCloser) {
 	defer close(s.events)
 
+	// Optional debug tee: if IM_GATEWAY_DEBUG_AGENT_STDOUT is set, mirror
+	// every line we read to that file BEFORE parsing. Used for diagnosing
+	// "agent only emitted N tokens then stopped" type bugs without having
+	// to instrument the bridge or guess at the JSON shapes.
+	var debugTee *os.File
+	if path := os.Getenv("IM_GATEWAY_DEBUG_AGENT_STDOUT"); path != "" {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err == nil {
+			debugTee = f
+			defer debugTee.Close()
+			fmt.Fprintf(debugTee, "\n=== session opened: cwd=%s sessionPath=%s pid=%d ===\n",
+				s.cwd, s.sessionPath, os.Getpid())
+		} else {
+			fmt.Fprintf(os.Stderr, "im-gateway debug tee open failed: %v\n", err)
+		}
+	}
+
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // allow large lines
 
@@ -199,6 +241,10 @@ func (s *session) readerLoop(stdout io.ReadCloser) {
 		line := scanner.Bytes()
 		if len(line) == 0 {
 			continue
+		}
+		if debugTee != nil {
+			_, _ = debugTee.Write(line)
+			_, _ = debugTee.Write([]byte{'\n'})
 		}
 
 		// Peek at type / id without fully decoding the payload twice.
