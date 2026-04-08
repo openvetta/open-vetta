@@ -29,8 +29,10 @@ func TestCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 	caps := tr.Capabilities()
-	if !caps.SupportsMessageEdit {
-		t.Error("Feishu should advertise SupportsMessageEdit=true")
+	// Feishu's PATCH endpoint only updates interactive cards, not text
+	// messages — see the design note in feishu.go Capabilities().
+	if caps.SupportsMessageEdit {
+		t.Error("Feishu should advertise SupportsMessageEdit=false (text messages are immutable)")
 	}
 	if caps.MaxMessageLength <= 0 {
 		t.Error("MaxMessageLength should be positive")

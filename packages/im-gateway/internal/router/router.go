@@ -3,7 +3,11 @@ package router
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"vetta-im-gateway/internal/bridge"
 	"vetta-im-gateway/internal/command"
@@ -162,11 +166,46 @@ func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessag
 
 	entry, _, _ := r.state.GetSession(ctx, msg.UserID, current.ID)
 
+	// Defensive: validate the persisted sessionPath actually belongs to
+	// this project's cwd. coding-agent stores each session under
+	// ~/.vetta/agent/sessions/<encoded-cwd>/ where encoded-cwd is derived
+	// deterministically from the cwd. If the persisted path's parent dir
+	// does not match the expected encoding, we are looking at a stale
+	// entry left over from a previous (buggy) run that bound this user
+	// to a session file rooted in a different project. Reusing it would
+	// make the agent operate on the wrong directory AND replay an
+	// unrelated conversation history, so we drop it and start fresh.
+	if entry.SessionPath != "" && !sessionPathMatchesCwd(entry.SessionPath, current.Path) {
+		slog.Warn("router: stale session entry; sessionPath does not belong to project cwd, starting fresh",
+			"userID", msg.UserID,
+			"projectID", current.ID,
+			"projectPath", current.Path,
+			"staleSessionPath", entry.SessionPath,
+		)
+		entry.SessionPath = ""
+	}
+
 	acq, err := r.pool.Acquire(ctx, current.Path, entry.SessionPath)
 	if err != nil {
 		return fmt.Errorf("acquire session: %w", err)
 	}
 	defer acq.Release()
+
+	// First-message-after-/use case: the state entry was created with an
+	// empty SessionPath (because /use just records the user's selection,
+	// it doesn't spawn an agent). The agent has now told us its real
+	// session file via the handshake's get_state response. Persist that
+	// path so subsequent messages reuse the same .jsonl, and so future
+	// /projects displays the conversation under the right project.
+	if entry.SessionPath == "" {
+		if real := acq.Session.SessionPath(); real != "" {
+			_ = r.state.SetSession(ctx, state.SessionEntry{
+				UserID:      msg.UserID,
+				ProjectID:   current.ID,
+				SessionPath: real,
+			})
+		}
+	}
 
 	if _, err := acq.Session.Send(ctx, hostclient.Command{
 		Type: hostclient.CommandTypePrompt,
@@ -180,24 +219,67 @@ func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessag
 }
 
 // findCurrentProject discovers which project (if any) the user has
-// /use'd. The state store has at most one entry per (user, project), so
-// the "current" project is whichever one has a non-empty SessionPath. We
-// scan the project list to find a match.
+// /use'd. The state store has at most one entry per (user, project),
+// and SetSession updates UpdatedAt every time, so the "current" project
+// is the entry with the most recent UpdatedAt for this user.
 //
-// In a future revision we will store an explicit "currentProject" field
-// per user instead of inferring; for now this avoids a state-schema bump.
+// We deliberately do NOT require SessionPath to be non-empty: a freshly
+// /use'd project starts with an empty path, and forwardToAgent populates
+// it lazily on the first prompt via the agent's get_state response.
+//
+// In a future revision we may add an explicit "currentProject" field per
+// user to avoid the linear scan over the project list.
 func (r *Router) findCurrentProject(ctx context.Context, userID string) (*projects.Project, bool, error) {
 	all, err := r.projects.List(ctx)
 	if err != nil {
 		return nil, false, err
 	}
+	var current *projects.Project
+	var bestTime time.Time
 	for i := range all {
-		p := all[i]
-		if entry, ok, _ := r.state.GetSession(ctx, userID, p.ID); ok && entry.SessionPath != "" {
-			return &p, true, nil
+		entry, ok, _ := r.state.GetSession(ctx, userID, all[i].ID)
+		if !ok {
+			continue
+		}
+		if current == nil || entry.UpdatedAt.After(bestTime) {
+			bestTime = entry.UpdatedAt
+			p := all[i]
+			current = &p
 		}
 	}
-	return nil, false, nil
+	return current, current != nil, nil
+}
+
+// encodeCwdFolder mirrors coding-agent's getDefaultSessionDir() encoding so
+// the gateway can recognize whether a persisted sessionPath was created for
+// a given cwd. The TS source (packages/coding-agent/src/core/session-manager.ts)
+// computes:
+//
+//	const safePath = `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+//
+// We replicate it byte-for-byte. If the encoding ever changes upstream this
+// validator will start over-rejecting and the test below will fail loudly.
+func encodeCwdFolder(cwd string) string {
+	s := strings.TrimLeft(cwd, "/\\")
+	s = strings.Map(func(r rune) rune {
+		switch r {
+		case '/', '\\', ':':
+			return '-'
+		}
+		return r
+	}, s)
+	return "--" + s + "--"
+}
+
+// sessionPathMatchesCwd reports whether sessionPath lives in the directory
+// coding-agent would have created for cwd. Empty sessionPath is treated as
+// "no opinion" → true (caller already handles the empty case).
+func sessionPathMatchesCwd(sessionPath, cwd string) bool {
+	if sessionPath == "" || cwd == "" {
+		return true
+	}
+	parent := filepath.Base(filepath.Dir(sessionPath))
+	return parent == encodeCwdFolder(cwd)
 }
 
 func (r *Router) replyError(ctx context.Context, chatID string, err error) {
