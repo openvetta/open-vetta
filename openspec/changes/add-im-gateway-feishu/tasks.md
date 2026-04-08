@@ -59,37 +59,37 @@
 
 ## 8. CommandRouter
 
-- [ ] 8.1 实现 `command.Router`：注册 `/projects` `/use` `/new` `/whoami` `/help` 五个 handler
-- [ ] 8.2 `/projects`：调用 ProjectDirectory.List，渲染 markdown，标记当前选中
-- [ ] 8.3 `/use <name>`：解析 → 检查存在性 → 通过 hostclient 探测目标 session 是否锁定 → 更新路由表 → 回复确认
-- [ ] 8.4 `/new [name]`：通过 hostclient.Send `new_session`，更新路由表 → 可选 `set_session_name`
-- [ ] 8.5 `/whoami`：返回当前用户 open_id、当前项目、当前 session 简要信息
-- [ ] 8.6 `/help`：渲染命令帮助
-- [ ] 8.7 写测试：每个命令独立 case + 错误路径（项目不存在 / session 锁定 / 未先选项目）
+- [x] 8.1 `command.Router`（router.go）：5 个 handler 注册（projects/use/new/whoami/help），自定义 splitArgs 支持双引号参数
+- [x] 8.2 `projectsCmd`：调用 ProjectDirectory.List，按 Name 排序，当前选中项目用 `* ` 前缀标记，空时回复引导
+- [x] 8.3 `useCmd`：Resolve project → 已有 sessionPath 时通过 HostPool.Acquire 探测锁定 → 识别 `*hostclient.ErrSessionLocked` 报告 holder pid/hostname → 更新 RouterState；命令层面的 lock 错误对人友好
+- [x] 8.4 `newCmd`：currentProjectID 校验 → HostPool.Acquire 空 sessionPath → 可选 set_session_name → get_state 拿到真实 sessionFile → 持久化到 RouterState
+- [x] 8.5 `whoamiCmd`：渲染 user / project / session / pool stats（pool size + max + in-flight）
+- [x] 8.6 `helpCmd`：动态遍历已注册 handler 列出 help 文本
+- [x] 8.7 单元测试（router_test.go）：14 个用例 — NotACommand / 未知命令 / help / projects empty / projects 标记当前 / use not found / use no arg / use success / use locked session / use 其它错误 / new 无项目 / new 持久化 sessionPath / whoami 无项目 / whoami 有项目 / splitArgs
 
 ## 9. SessionRouter
 
-- [ ] 9.1 实现 `router.Router`：把入站消息映射到 hostclient 子进程
-- [ ] 9.2 入站消息处理逻辑：先尝试 CommandRouter；未命中则查 RouterState 找当前 (user, project) → sessionPath → 池中拿 HostSession → 发送 prompt
-- [ ] 9.3 未选项目时回复"请先 /projects 选择项目"
-- [ ] 9.4 单 goroutine per (user, project) 串行处理消息，避免乱序
-- [ ] 9.5 写集成测试：mock transport 触发命令 / 普通消息 / 多用户隔离
+- [x] 9.1 `router.Router`（router.go）：transport.MessageHandler 实现；持有 commands / state / projects / pool 依赖
+- [x] 9.2 入站处理：先 commands.Dispatch；NotACommand 时查 findCurrentProject → pool.Acquire → Send prompt → bridge.Run 桥接事件流回 IM
+- [x] 9.3 currentProjectID 空时回复"No project selected. Use /projects then /use <name>."
+- [x] 9.4 per-(user, chat) 工作 goroutine：HandleInbound 用 convKey(userID, chatID) 维护 queue map，每个会话独立 32-buffer chan + worker goroutine，sync.WaitGroup 跟踪生命周期，Shutdown 关闭全部 queue 等待 drain
+- [x] 9.5 集成测试（router_test.go）：4 个用例 — plain prompt 转发到 agent + bridge 回复、未选项目提示、命令本地处理不进 agent、双用户并行处理收到各自回复
 
 ## 10. AgentBridge
 
-- [ ] 10.1 实现 `bridge.Bridge`：订阅 HostSession.Events()，把 agent 事件翻译为 OutboundMessage
-- [ ] 10.2 流式输出节流：`SupportsMessageEdit=true` 时增量编辑同一条消息，节流 ≥800ms
-- [ ] 10.3 切片 fallback：`SupportsMessageEdit=false` 时按段落 / 字符上限切片新发
-- [ ] 10.4 工具调用进度：`tool_execution_start` / `tool_execution_end` 事件触发 flush
-- [ ] 10.5 错误事件：agent error / context overflow 等翻译为人类可读消息发回
-- [ ] 10.6 写测试：mock transport 跑两种模式（支持编辑 / 不支持编辑），断言消息分片、节流、flush 正确
+- [x] 10.1 `bridge.Bridge`（bridge.go）：Run 消费 events chan，handle 按 AgentEvent.Type switch，未知事件忽略保持 forward-only
+- [x] 10.2 编辑模式：commitEdit 首条 Send 拿到 messageID，后续 EditMessage 同一 ID；EditThrottle = 800ms 节流；MaxMessageLength 触发 head 提交 + 新 message 续 tail
+- [x] 10.3 切片模式：maybeChunk 寻找段落边界（`\n\n`）→ 限长内最后换行 → 硬切；剩余 tail 滚入下一轮
+- [x] 10.4 tool_execution_start / end 都 flush 当前 buf；agent_end / message_end 也 flush，message_end 在编辑模式下重置 messageID 让下一条消息开新 bubble
+- [x] 10.5 error 事件：extractErrorText 兼容 `error` / `message` / `data.error` / `data.message` 几种 shape，找不到时输出 `(agent error)`
+- [x] 10.6 测试（bridge_test.go）：8 个用例 — chunk 模式 flush on agent_end、段落边界切分、硬限长切分、edit 模式累积发送、edit 模式 message_end 之间分两条 send、tool 执行 flush 切前后两条、error 事件转发、context 取消优雅退出
 
 ## 11. Mock Transport
 
-- [ ] 11.1 实现 `transport/mock`：从 stdin 读 JSON 行作为 InboundMessage，向 stdout 输出 OutboundMessage 的 JSON 表示
-- [ ] 11.2 故意声明保守的 Capabilities：`SupportsMessageEdit=false`、`MaxMessageLength=1000`、`SupportsCards=false`
-- [ ] 11.3 提供 `--transport mock` 启动模式用于本地调试
-- [ ] 11.4 写测试：mock transport + 全套上层 = 端到端走通
+- [x] 11.1 `transport/mock.Transport`（mock.go）：bufio.Scanner 从 In 读 JSON 行，校验必填字段 → InboundMessage 派发；Out 写 `{action,chatId,messageId,text}` JSON 行
+- [x] 11.2 Capabilities 故意保守：SupportsMessageEdit=false / MaxMessageLength=1000 / Supports* 全 false——倒逼 bridge 走切片 fallback 路径
+- [x] 11.3 通过 `Options{In, Out}` 注入 io.Reader/io.Writer；CLI 入口在 Milestone F 接 stdin/stdout（cmd/im-gateway main.go 已经接 init 子命令，start 子命令的 mock 启动延后到 Milestone F）
+- [x] 11.4 测试（mock_test.go）：7 个用例 — dispatch 入站消息 / 跳过 malformed / 必填校验 / SendMessage 自动 ID 唯一 / EditMessage 拒绝 / Capabilities 保守值 / Stop 解锁 Start
 
 ## 12. Feishu Transport
 
