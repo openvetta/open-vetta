@@ -356,6 +356,101 @@ export interface DesktopDownloadsApi {
 	onEvent(handler: (event: DownloadEvent) => void): () => void;
 }
 
+// =============================================================================
+// IM bridge (im-gateway sidecar)
+// =============================================================================
+
+export type ImTransportStatus = "offline" | "connecting" | "online" | "error";
+
+export interface ImBridgeConfig {
+	enabled: boolean;
+	feishu: {
+		appId: string;
+		appSecret: string;
+		verificationToken: string;
+		encryptKey: string;
+		baseUrl?: string;
+	};
+	transportMode: "long-connection";
+	encryptionAvailable: boolean;
+}
+
+export interface ImSetConfigPayload {
+	enabled: boolean;
+	feishu: {
+		appId: string;
+		appSecret?: string;
+		verificationToken?: string;
+		encryptKey?: string;
+		baseUrl?: string;
+	};
+}
+
+export interface ImSetConfigResult {
+	ok: boolean;
+	mode?: "plaintext";
+	error?: string;
+}
+
+export interface ImBridgeStatus {
+	transport: ImTransportStatus;
+	lastError?: string;
+	lastErrorAt?: string;
+	activeSessions: number;
+	sidecarPid?: number;
+	sidecarStartedAt?: string;
+	consecutiveStartFailures: number;
+	binaryPath?: string;
+}
+
+export interface ImLogEvent {
+	type: "log";
+	level: "debug" | "info" | "warn" | "error";
+	msg: string;
+	fields?: Record<string, unknown>;
+	time: string;
+}
+
+export interface ImTestConnectionResult {
+	ok: boolean;
+	error?: string;
+	message?: string;
+}
+
+export interface ImPathInfo {
+	config: string;
+	credentials: string;
+	state: string;
+}
+
+export interface ImLegacyDetection {
+	hasLegacyData: boolean;
+	configPath?: string;
+	credentialsPath?: string;
+	statePath?: string;
+	parsed?: {
+		feishu?: { appId?: string; appSecret?: string; baseUrl?: string };
+		stateEntries?: Array<{ userId: string; projectId: string; sessionPath: string; updatedAt?: string }>;
+	};
+	error?: string;
+}
+
+export interface DesktopImApi {
+	getConfig(): Promise<ImBridgeConfig>;
+	setConfig(payload: ImSetConfigPayload): Promise<ImSetConfigResult>;
+	getStatus(): Promise<ImBridgeStatus>;
+	subscribeStatus(
+		handler: (snapshot: ImBridgeStatus) => void,
+		onLog: (event: ImLogEvent) => void,
+	): Promise<() => void>;
+	testConnection(payload: ImSetConfigPayload["feishu"]): Promise<ImTestConnectionResult>;
+	restart(): Promise<{ ok: boolean }>;
+	getRecentLogs(): Promise<ImLogEvent[]>;
+	getPaths(): Promise<ImPathInfo>;
+	detectLegacy(): Promise<ImLegacyDetection>;
+	importLegacy(detection: ImLegacyDetection): Promise<{ ok: boolean; error?: string }>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -375,6 +470,7 @@ export interface DesktopApi {
 	flowing: DesktopFlowingApi;
 	batchTasks: DesktopBatchTasksApi;
 	downloads: DesktopDownloadsApi;
+	im: DesktopImApi;
 }
 
 declare global {

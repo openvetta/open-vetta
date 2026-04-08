@@ -580,10 +580,16 @@ export class AgentSession {
 	/**
 	 * Remove all listeners and disconnect from agent.
 	 * Call this when completely done with the session.
+	 *
+	 * Releases the session file lock so another process can take ownership.
+	 * After dispose(), the underlying SessionManager must not be reused.
 	 */
 	dispose(): void {
 		this._disconnectFromAgent();
 		this._eventListeners = [];
+
+		// Release the session file lock so another writer can take over.
+		this.sessionManager.close();
 
 		// Shutdown MCP servers
 		if (this._mcpManager) {

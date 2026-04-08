@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { getImHost } from "./im-host/index.js";
 import {
 	type IpcTeardown,
 	registerAllIpc,
@@ -225,6 +226,15 @@ app.whenReady().then(() => {
 
 	teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents);
 
+	// Bootstrap IM bridge subsystem (im-gateway sidecar). Errors during
+	// bootstrap are non-fatal — IM is an opt-in feature and the rest of
+	// the desktop-app must keep working.
+	void getImHost()
+		.bootstrap()
+		.catch((err: unknown) => {
+			console.error("[im-host] bootstrap failed", err);
+		});
+
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) {
 			createWindow();
@@ -236,4 +246,19 @@ app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") {
 		app.quit();
 	}
+});
+
+// Critical: ensure IM sidecar is killed before the main process exits.
+// `before-quit` runs before window destruction, giving us a synchronous
+// hook to wait on graceful child shutdown.
+app.on("before-quit", async (event) => {
+	const host = getImHost();
+	if (!host.getStatus().sidecarPid) return;
+	event.preventDefault();
+	try {
+		await host.shutdownForQuit();
+	} catch (err) {
+		console.error("[im-host] shutdown failed", err);
+	}
+	app.exit(0);
 });
