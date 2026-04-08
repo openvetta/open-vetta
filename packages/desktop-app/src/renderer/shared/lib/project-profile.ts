@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /**
  * 项目活动面板 tab 配置
  */
-export type ActivityTabKey = "file" | "journey" | "chat";
+export type ActivityTabKey = "file" | "journey" | "chat" | "batch-progress" | "schedule-records";
 
 export interface ActivityTabConfig {
 	key: ActivityTabKey;
@@ -40,6 +40,16 @@ export interface ProjectProfile {
 const TAB_FILE: ActivityTabConfig = { key: "file", label: "文件", icon: "icon-[mdi--file-document-outline]" };
 const TAB_JOURNEY: ActivityTabConfig = { key: "journey", label: "历程", icon: "icon-[mdi--timeline-outline]" };
 const TAB_CHAT: ActivityTabConfig = { key: "chat", label: "聊天", icon: "icon-[mdi--message-text-outline]" };
+const TAB_BATCH_PROGRESS: ActivityTabConfig = {
+	key: "batch-progress",
+	label: "执行进度",
+	icon: "icon-[mdi--progress-clock]",
+};
+const TAB_SCHEDULE_RECORDS: ActivityTabConfig = {
+	key: "schedule-records",
+	label: "执行记录",
+	icon: "icon-[mdi--history]",
+};
 
 /**
  * 根据 meta 推断项目类型与是否工作流。
@@ -82,7 +92,10 @@ function deriveType(meta: Record<string, unknown> | null): {
  * 根据项目类型 / 是否工作流 计算活动面板 tab 配置。
  * 这是项目类型差异化配置的"中央调度点"，未来要按项目类型加 tab 在这里加。
  */
-function buildActivityTabs(isWorkflow: boolean): {
+function buildActivityTabs(
+	type: ProjectType,
+	isWorkflow: boolean,
+): {
 	tabs: ActivityTabConfig[];
 	defaultTab: ActivityTabKey;
 } {
@@ -92,7 +105,22 @@ function buildActivityTabs(isWorkflow: boolean): {
 			defaultTab: "journey",
 		};
 	}
-	// 非工作流项目（普通 / 流转 / 自动化 / 批量）只展示文件 tab
+
+	if (type === "batch") {
+		return {
+			tabs: [TAB_FILE, TAB_BATCH_PROGRESS],
+			defaultTab: "file",
+		};
+	}
+
+	if (type === "schedule") {
+		return {
+			tabs: [TAB_FILE, TAB_SCHEDULE_RECORDS],
+			defaultTab: "file",
+		};
+	}
+
+	// 非工作流项目（普通 / 流转 / 自动化）只展示文件 tab
 	return {
 		tabs: [TAB_FILE],
 		defaultTab: "file",
@@ -101,7 +129,7 @@ function buildActivityTabs(isWorkflow: boolean): {
 
 function buildProfile(cwd: string, meta: Record<string, unknown> | null): ProjectProfile {
 	const { type, isWorkflow, workflowInstanceId, flowingId } = deriveType(meta);
-	const { tabs, defaultTab } = buildActivityTabs(isWorkflow);
+	const { tabs, defaultTab } = buildActivityTabs(type, isWorkflow);
 	return {
 		cwd,
 		type,
