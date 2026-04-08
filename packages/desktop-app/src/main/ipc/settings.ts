@@ -1,9 +1,10 @@
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, writeSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
 import { ipcMain } from "electron";
 
 import { DEFAULT_SERVER_URL } from "../constants.js";
+import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 function getSettingsPath(): string {
 	return join(getAgentDir(), "settings.json");
@@ -19,27 +20,8 @@ export function readSettings(): Record<string, unknown> {
 	}
 }
 
-/**
- * Atomically write settings to disk.
- *
- * Uses the standard write-temp-then-rename pattern so a crash or power loss
- * during write cannot leave a partial / corrupt settings.json. fsync ensures
- * the temp file's contents are durably on disk before the rename swaps it in.
- */
 export function writeSettings(settings: Record<string, unknown>): void {
-	const path = getSettingsPath();
-	const dir = dirname(path);
-	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-	const tmpPath = `${path}.${process.pid}.tmp`;
-	const data = JSON.stringify(settings, null, 2);
-	const fd = openSync(tmpPath, "w");
-	try {
-		writeSync(fd, data);
-		fsyncSync(fd);
-	} finally {
-		closeSync(fd);
-	}
-	renameSync(tmpPath, path);
+	atomicWriteJSON(getSettingsPath(), settings);
 }
 
 interface RemoteProvidersResult {
