@@ -63,6 +63,17 @@ These packages wrap `coding-agent` for use by host applications (desktop-app, et
 
 ## Features
 
+### IM Gateway (Feishu, more to come)
+
+Drive your local `coding-agent` from instant messaging clients without opening the desktop app. Personal mode runs `im-gateway` as a small Go sidecar that connects to Feishu via long-connection events (no public IP / webhook needed) and spawns `coding-agent --mode rpc` subprocesses for each active conversation. The same `~/.vetta/agent/sessions/` `.jsonl` files are shared with the desktop app, so you can pick up a chat in IM and continue it on your laptop. Single-writer enforcement via the `<file>.lock` protocol added in `SessionManager`.
+
+```bash
+im-gateway init    # generates ~/.vetta/im-gateway/config.yaml + credentials.yaml
+im-gateway start   # connect to feishu, start serving
+```
+
+See [packages/im-gateway/README.md](packages/im-gateway/README.md), [docs/feishu-setup.md](packages/im-gateway/docs/feishu-setup.md), and the change spec at [openspec/changes/add-im-gateway-feishu/](openspec/changes/add-im-gateway-feishu/).
+
 ### MCP (Model Context Protocol) Support
 
 Vetta includes built-in support for the Model Context Protocol, allowing the agent to connect to external tools and data sources through MCP servers.

@@ -106,25 +106,25 @@
 
 ## 13. CLI 入口与生命周期
 
-- [ ] 13.1 实现 `cmd/im-gateway/main.go`：解析子命令 `start` / `init` / `status` / `logs`
-- [ ] 13.2 `start` 子命令：加载配置 → 初始化 logger / state / projects / hostclient pool → 启动 transport → 注册信号 handler → 进入主循环
-- [ ] 13.3 启动横幅：版本号 / 配置路径 / transport 名称 / 凭据来源 / 连接状态
-- [ ] 13.4 SIGINT/SIGTERM 优雅关闭：5 秒内 ProcessPool.Shutdown，最后 transport.Stop
-- [ ] 13.5 `status` 子命令：通过本地 unix socket 或 pid file 读取另一进程的运行状态（首期可只用 pid file 简单实现）
-- [ ] 13.6 `logs` 子命令：tail `~/.vetta/im-gateway/logs/im-gateway.log`
-- [ ] 13.7 写集成测试：start 进程 → mock transport 注入消息 → 断言响应 → SIGINT 关闭 → 断言无残留 lockfile
+- [x] 13.1 `cmd/im-gateway/main.go`：subcommand 调度器支持 init/start/status/logs/version/help，未知命令打印 usage 退出 2
+- [x] 13.2 `runStart`：LoadConfig（含 --config / --transport flag override）→ LoadCredentials → logger.New → buildTransport（mock 或 feishu）→ NewFileStore / DesktopConfigDirectory / hclocal.New / NewProcessPool → router.New → 启动 transport（在 signalContext 下）；逐步 defer 释放
+- [x] 13.3 `printBanner`：版本号 / 配置路径 / transport 名称 / 凭据来源 / state 路径 / 日志级别+文件 / pool 上限
+- [x] 13.4 `signalContext`：SIGINT/SIGTERM 触发 ctx.Cancel，transport.Start 退出后 defer 链按 LIFO 关闭 router → pool → logger sync
+- [x] 13.5 `runStatus`：读 `~/.vetta/im-gateway/im-gateway.pid` → pidAlive 用 `os.FindProcess` + `Signal(0)` 探活，输出 running/stale/not running
+- [x] 13.6 `runLogs`：cat 完整日志文件，`-f` flag 走 stat-poll 模式（500ms 间隔，避免 fsnotify 依赖）
+- [x] 13.7 `cmd/im-gateway/integration_test.go`：用 pipeBuffer + mock transport 跑 /help 端到端，断言回复包含全部 5 个命令；pipeBuffer 实现 io.ReadCloser，Close 触发 EOF 让 mock transport 优雅退出
 
 ## 14. 文档
 
-- [ ] 14.1 `packages/im-gateway/README.md`：项目简介、quickstart（init + start）、架构图、与 desktop-app / coding-agent 的关系、第一期范围限制
-- [ ] 14.2 `packages/im-gateway/docs/feishu-setup.md`：飞书开放平台创建自建应用步骤、长连接事件订阅配置、获取 App ID/Secret
-- [ ] 14.3 `packages/im-gateway/docs/troubleshooting.md`：常见问题（lockfile 冲突、连接断开、凭据无效）
-- [ ] 14.4 在仓库根 README 的"Features"或类似位置加一段说明，链接到 packages/im-gateway
+- [x] 14.1 `packages/im-gateway/README.md`：在 Milestone A commit ce1cd03 中已完成（项目简介 / 架构图 / 与 desktop-app/coding-agent 的关系 / 第一期 Non-Goals / 文档链接）
+- [x] 14.2 `packages/im-gateway/docs/feishu-setup.md`：完整 9 步指南——创建应用、启用 bot、订阅 im.message.receive_v1（长连接模式）、权限 scopes、发布版本、添加到私聊、im-gateway init、配置凭据三种方式、systemd 服务示例
+- [x] 14.3 `packages/im-gateway/docs/troubleshooting.md`：8 个常见问题——lockfile 冲突、未选项目、飞书连接失败、coding-agent not found、池满、unicode 乱码、state 损坏、运行但无回复
+- [x] 14.4 仓库根 README.md Features 一节追加 IM Gateway 段落，含 quickstart 命令和文档链接
 
 ## 15. CI 与质量
 
-- [ ] 15.1 在仓库 CI workflow 加 `packages/im-gateway` 的 Go 构建步骤（`go build ./...` + `go test ./...`）
-- [ ] 15.2 加 `golangci-lint` 配置（`.golangci.yml`），与现有 packages/api 的风格对齐
-- [ ] 15.3 加"接口纪律"检查脚本：grep `internal/{router,bridge,command}` 不能匹配飞书 SDK 包名（spec Requirement 验证）
-- [ ] 15.4 跑 `go vet` 和 `go mod tidy`，确认无 warning
-- [ ] 15.5 跑 `bun run check`（仓库整体 lint）确认 README 改动通过
+- [x] 15.1 `.github/workflows/im-gateway.yml`：build-test / interface-discipline / golangci-lint 三个 job，path-filter 只在 packages/im-gateway/** 或 spec change 改动时触发；首个 GH Actions workflow，注释里说明未来 TS 工作流可作为 sibling 加入
+- [x] 15.2 `packages/im-gateway/.golangci.yml`：errcheck / govet / ineffassign / staticcheck / unused / misspell / gofmt / goimports；test 文件豁免 errcheck
+- [x] 15.3 `packages/im-gateway/scripts/check-interface-discipline.sh`：bash 脚本 grep 受限目录（router / bridge / command / state / projects / config / logger）不能 import 已知 IM SDK pattern；本地实测通过
+- [x] 15.4 `go vet ./...` + `go mod tidy` 全绿
+- [x] 15.5 `bun run check` 全绿（每个 commit 都过了 pre-commit hook）
