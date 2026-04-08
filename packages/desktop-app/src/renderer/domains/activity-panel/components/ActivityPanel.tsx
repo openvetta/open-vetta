@@ -11,6 +11,8 @@ import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-prof
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
 import { JourneyPanel } from "./JourneyPanel";
 import { ChatTabPanel } from "./ChatTabPanel";
+import { BatchProgressTabPanel } from "./BatchProgressTabPanel";
+import { ScheduleExecutionTabPanel } from "./ScheduleExecutionTabPanel";
 import { SegmentedControl, type SegmentedControlItem } from "@shared/components/ui/segmented-control";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 
@@ -99,6 +101,8 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 						{activeTab === "file" && <FileTabContent cwd={cwd} />}
 						{activeTab === "journey" && cwd && <JourneyPanel cwd={cwd} />}
 						{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}
+						{activeTab === "batch-progress" && cwd && <BatchProgressTabPanel cwd={cwd} />}
+						{activeTab === "schedule-records" && cwd && <ScheduleExecutionTabPanel cwd={cwd} />}
 					</div>
 				</div>
 			</div>
