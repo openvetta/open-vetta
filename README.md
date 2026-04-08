@@ -59,6 +59,7 @@ These packages wrap `coding-agent` for use by host applications (desktop-app, et
 | Package | Description |
 |---------|-------------|
 | **packages/api** | Go (gin) backend service: auth, workflows, skills marketplace, file uploads. Independent from the desktop-app / agent runtime. |
+| **[packages/im-gateway](packages/im-gateway)** | Go service that bridges IM platforms (Feishu first) to the local `coding-agent --mode rpc`. Lets you drive your local AI from Feishu / Telegram / etc. without opening the desktop app. |
 
 ## Features
 
