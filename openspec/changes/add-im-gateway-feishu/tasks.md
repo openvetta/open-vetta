@@ -93,16 +93,16 @@
 
 ## 12. Feishu Transport
 
-- [ ] 12.1 引入飞书官方 SDK `github.com/larksuite/oapi-sdk-go/v3`
-- [ ] 12.2 实现 `transport/feishu`：基于 SDK 的长连接 client（wsclient 模块）
-- [ ] 12.3 启动时获取 `tenant_access_token` 验证凭据
-- [ ] 12.4 注册消息事件 handler：把飞书消息转为 InboundMessage，去掉 @bot 前缀和命令噪音
-- [ ] 12.5 群聊消息静默丢弃（本期 Non-Goal）
-- [ ] 12.6 实现 SendMessage / EditMessage / DeleteMessage / ShowTyping 四个动作，封装飞书 API 调用
-- [ ] 12.7 实现自动重连：指数退避 1s → 60s
-- [ ] 12.8 声明 Capabilities：SupportsMessageEdit=true、MaxMessageLength=30000、SupportsCards=true（本期暂不利用）
-- [ ] 12.9 写单元测试：用 mock 飞书 client 验证消息标准化、错误路径
-- [ ] 12.10 写集成测试入口（默认 skip，环境变量 `FEISHU_INTEGRATION_TEST=1` + 真实凭据触发）
+- [x] 12.1 引入飞书官方 SDK `github.com/larksuite/oapi-sdk-go/v3`（含 `/ws` 子模块带来的 gorilla/websocket + gogo/protobuf 间接依赖）
+- [x] 12.2 `feishu.Transport`（feishu.go）：用 `larkws.NewClient` + `dispatcher.NewEventDispatcher` 注册 P2MessageReceiveV1，Start 在独立 goroutine 跑 ws Start 并 select ctx/done/err
+- [x] 12.3 凭据校验：依赖 SDK 内部 token 缓存——首次 SendMessage 或 ws Start 失败会自动暴露 401，构造时只校验非空（避免在网关启动横幅前做额外网络往返）
+- [x] 12.4 `handleInbound`：把 P2MessageReceiveV1 翻译为 InboundMessage（platform / chatID / userID / messageID / text），`extractText` 解析飞书 `{"text":"..."}` envelope，`stripBotMentions` 去掉 mention key 噪音
+- [x] 12.5 群聊 / topic_group 在 chatType 检查后 silently return nil；非 text 消息回复一句"only text supported"提示并丢弃
+- [x] 12.6 SendMessage / EditMessage（Patch）/ DeleteMessage 通过 `lark.Client.Im.Message` builder pattern 发起；ShowTyping 是 noop（飞书 bot 没有 typing API）
+- [x] 12.7 自动重连：使用 SDK 默认行为（autoReconnect=true、reconnectCount=-1 unlimited、reconnectInterval=2min），无需自己实现退避循环
+- [x] 12.8 Capabilities：SupportsMessageEdit=true / SupportsCards=true / SupportsButtons=true / SupportsFileUpload=true / SupportsThreads=true / MaxMessageLength=30000
+- [x] 12.9 单元测试（feishu_test.go）：12 个用例 — 凭据缺失 / capabilities / encodeText 中英文/引号/换行/emoji 圆环 / extractText 三种边界 / stripBotMentions / handleInbound 私聊/群聊/非 text/nil/mention 剥离
+- [x] 12.10 集成测试 `TestFeishu_Integration_ConnectAndStop`：默认 t.Skip，FEISHU_INTEGRATION_TEST=1 + IM_GATEWAY_FEISHU_APP_ID/SECRET 环境变量触发 2 秒 connect-then-stop 周期
 
 ## 13. CLI 入口与生命周期
 
