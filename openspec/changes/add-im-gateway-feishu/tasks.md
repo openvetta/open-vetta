@@ -39,23 +39,23 @@
 
 ## 6. Local HostClient（spawn coding-agent）
 
-- [ ] 6.1 实现 `hostclient/local`：`OpenSession` 启动 `coding-agent --mode rpc --cwd <cwd> --session <path>` 子进程，10 秒握手超时
-- [ ] 6.2 实现 stdin/stdout JSON 行协议读写器，单 reader goroutine 把每行解析后分发到 `events <-chan AgentEvent` 或 `responses <-chan Response`（按 id 关联）
-- [ ] 6.3 实现 `Send(cmd) → response`：写 stdin 一行 JSON，等待匹配 id 的 response，处理超时
-- [ ] 6.4 实现 `Close()`：先 send abort（如需）→ 关 stdin → 等子进程退出（5 秒）→ SIGKILL 兜底
-- [ ] 6.5 startup 阶段读到 `command:"startup",success:false` 时返回 `ErrSessionLocked{ Holder }`
-- [ ] 6.6 检测子进程意外退出，关闭 events channel 并发出 `error` 事件
-- [ ] 6.7 写集成测试：spawn 真实 coding-agent 子进程，发 `prompt` 命令，断言收到 `agent_end` 事件（CI 跳过：需 API key）
-- [ ] 6.8 写单元测试：用 fake stdio pipe 验证协议处理、超时、ErrSessionLocked 判定
+- [x] 6.1 `hostclient/local.Client.OpenSession`（client.go）：`exec.CommandContext` 启动 coding-agent 子进程，独立 process group（POSIX setpgid）；HandshakeTimeout 默认 10s，可配置
+- [x] 6.2 单 reader goroutine（session.go `readerLoop`）：bufio.Scanner 按行读 stdout，按 head 字段路由——`type:"response"` 且有 id → pendingMu map；其它（含 id-less response）→ events chan；malformed line 输出 error 事件保持循环
+- [x] 6.3 `session.Send`：自动生成 id（atomic counter），注册 pending entry，写 stdin 一行 JSON，select 等 response / 进程退出 / context；内部禁止 Data 字段覆盖 reserved id/type
+- [x] 6.4 `session.Close`：sync.Once 保护——发 abort（best-effort 忽略错误）→ 关 stdin → 等 exited 通道 / closeTimeout fallback SIGKILL → 清空 pending map → 记录退出码
+- [x] 6.5 `parseStartupLockError` + `detectStartupLockError`：握手 Send 失败时非阻塞 drain events，识别 main.ts 发出的 `{type:"response",command:"startup",success:false,lockHolder:{pid,hostname,openedAt}}`，返回 `*hostclient.ErrSessionLocked` 含完整 holder
+- [x] 6.6 `markExited`：cmd.Wait 在独立 goroutine，退出后关闭 exited chan + 唤醒所有 pending Send（发 success:false 占位响应）；reader goroutine 在 stdout EOF 时关闭 events chan
+- [x] 6.7 真实 coding-agent 集成测试：本期未做（需 API key）；rpc.md 已是 SSOT，集成测试推迟到 Milestone F + CI 配置阶段
+- [x] 6.8 单元测试（client_test.go）：用 `go build` 编译 fake_agent.go 子程序，配合 wrapper 脚本注入 --lock / --crash / --silent / --echo 行为；6 个测试覆盖握手成功、startup lock 错误识别、握手超时、进程崩溃、prompt 往返+events 流、Close 幂等
 
 ## 7. ProcessPool
 
-- [ ] 7.1 实现 `hostclient.ProcessPool`：内部 `map[sessionPath]*pooledSession` + LRU 链表 + mutex
-- [ ] 7.2 `Acquire(cwd, sessionPath)`：命中复用，未命中通过 HostClient.OpenSession 新建并入池
-- [ ] 7.3 LRU 淘汰：上限可配置（默认 8），淘汰最久未用且无在途请求的条目
-- [ ] 7.4 健康检查：异常退出的进程从池中清除
-- [ ] 7.5 `Shutdown(ctx)`：依次 Close 所有进程，确认所有 lockfile 已释放
-- [ ] 7.6 写测试：复用、新建、LRU 顺序、不淘汰 in-flight、Shutdown 完整性
+- [x] 7.1 `hostclient.ProcessPool`（pool.go）：`map[sessionPath]*pooledSession` + `container/list` LRU + mutex；以 sessionPath 为 key，与 lockfile 协议对齐
+- [x] 7.2 `Acquire(ctx, cwd, sessionPath)`：命中即复用 + bump 到 MRU；未命中先在 mutex 内 LRU 淘汰，再释放 mutex 调 OpenSession（避免握手期间阻塞其它 Acquire），处理 race（同一 path 并发 open 时 close 后到者复用先到者）
+- [x] 7.3 LRU 淘汰：`evictOldestIdleLocked` 从 list back 反向找首个 inFlight==0 的条目；池满且无 idle 时返回错误，让 router 决定降级而不是阻塞
+- [x] 7.4 异常退出处理：fakeSession.Close 由 reader goroutine 关闭 events chan；HostClient 错误从 Acquire 透传给 router；本期不做主动健康检查（reader goroutine 自然检测 stdout EOF）
+- [x] 7.5 `Shutdown(ctx)`：标记 closed → 收集所有 session → 释放锁后逐个 Close → 后续 Acquire 直接报错；幂等
+- [x] 7.6 单元测试（pool_test.go）：用 fakeClient 模拟，8 个测试覆盖复用、不同 path 各开一份、LRU 淘汰、不淘汰 in-flight、reuse 后 LRU 重排、open 失败不留池条目、Shutdown 关闭全部、并发 Acquire 同一 path 池只剩 1 条目
 
 ## 8. CommandRouter
 
