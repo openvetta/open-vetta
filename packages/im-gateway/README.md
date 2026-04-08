@@ -2,11 +2,28 @@
 
 > Drive your local vetta coding-agent from IM platforms (Feishu first).
 
-Standalone Go service that bridges instant messaging platforms (Feishu, with Telegram / DingTalk planned) to a locally running [`coding-agent`](../coding-agent) instance. Lets you talk to your local AI from your phone or desktop IM client without opening the desktop app, while keeping all code, tools, and credentials on your machine.
+Bridges instant messaging platforms (Feishu, with Telegram / DingTalk planned) to a locally running [`coding-agent`](../coding-agent) instance. Lets you talk to your local AI from your phone or desktop IM client without opening the desktop app, while keeping all code, tools, and credentials on your machine.
+
+## Deployment model
+
+`im-gateway` is **embedded** as a sidecar inside `Vetta.app`. End users do **not** install or configure this binary directly — they enable IM bridging from `Settings → IM 集成` in the desktop app, fill in their feishu credentials, and the desktop main process spawns this binary as a child process.
+
+The sidecar's lifecycle is strictly bound to the desktop app: completely quitting Vetta (including the tray icon) terminates the sidecar and stops receiving feishu events. There is no `launchd` / `systemd` daemon mode, by design.
+
+## Subcommands
+
+| Subcommand | Audience | Purpose |
+|---|---|---|
+| `host` | **End users** (driven by desktop-app) | Embedded mode. Reads NDJSON config from stdin, emits NDJSON events on stdout. Lifecycle bound to parent process. No filesystem state. |
+| `start` | Developers | Standalone mode. Reads `~/.vetta/im-gateway/config.yaml`. Useful for local debugging of router / bridge / transport without running the full desktop app. |
+| `init` | Developers | Generate yaml config templates for `start` mode. |
+| `status` / `logs` | Developers | Inspect a running `start`-mode process. |
+
+The `host` subcommand is the only one wired into the user deployment path. Everything else exists for hacking on im-gateway internals.
 
 ## Status
 
-**Pre-alpha.** First milestone (personal mode + Feishu) under active implementation. Tracked in OpenSpec change [`add-im-gateway-feishu`](../../openspec/changes/add-im-gateway-feishu/).
+**Pre-alpha.** First milestone (personal mode + Feishu) under active implementation. Tracked in OpenSpec changes [`add-im-gateway-feishu`](../../openspec/changes/archive/) and [`add-desktop-im-settings`](../../openspec/changes/add-desktop-im-settings/).
 
 ## How it works
 

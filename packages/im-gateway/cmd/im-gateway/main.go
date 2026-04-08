@@ -1,6 +1,13 @@
 // Command im-gateway is the entry point for the IM gateway sidecar process.
 //
-// Subcommands:
+// User-facing entry (driven by desktop-app):
+//
+//	im-gateway host      Embedded mode. Reads NDJSON config from stdin,
+//	                     emits NDJSON events on stdout. No filesystem
+//	                     state. Lifecycle bound to parent process via
+//	                     stdin EOF or shutdown frame.
+//
+// Developer / debug subcommands (NOT in the user deployment path):
 //
 //	im-gateway init      Generate ~/.vetta/im-gateway/config.yaml + credentials.yaml
 //	im-gateway start     Connect to the configured IM and start serving
@@ -51,6 +58,8 @@ func main() {
 	args := os.Args[2:]
 
 	switch cmd {
+	case "host":
+		os.Exit(runHost(args))
 	case "init":
 		os.Exit(runInit(args))
 	case "start":
@@ -374,7 +383,10 @@ func pidAlive(pid int) bool {
 func printUsage(w *os.File) {
 	fmt.Fprintln(w, "usage: im-gateway <command> [args]")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Commands:")
+	fmt.Fprintln(w, "User mode (driven by desktop-app):")
+	fmt.Fprintln(w, "  host      Embedded mode: read NDJSON config from stdin, emit events on stdout")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Developer / debug commands:")
 	fmt.Fprintln(w, "  init      Generate config + credentials templates at ~/.vetta/im-gateway/")
 	fmt.Fprintln(w, "  start     Run the gateway")
 	fmt.Fprintln(w, "  status    Show running gateway status")
