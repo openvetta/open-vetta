@@ -44,6 +44,22 @@ const DOWNLOAD_CHANNELS = {
 	EVENT: "vetta:downloads:event",
 } as const;
 
+const IM_CHANNELS = {
+	GET_CONFIG: "vetta:im:get-config",
+	SET_CONFIG: "vetta:im:set-config",
+	GET_STATUS: "vetta:im:get-status",
+	SUBSCRIBE_STATUS: "vetta:im:subscribe-status",
+	UNSUBSCRIBE_STATUS: "vetta:im:unsubscribe-status",
+	STATUS_EVENT: "vetta:im:status-event",
+	LOG_EVENT: "vetta:im:log-event",
+	TEST_CONNECTION: "vetta:im:test-connection",
+	RESTART: "vetta:im:restart",
+	GET_RECENT_LOGS: "vetta:im:get-recent-logs",
+	GET_PATHS: "vetta:im:get-paths",
+	DETECT_LEGACY: "vetta:im:detect-legacy",
+	IMPORT_LEGACY: "vetta:im:import-legacy",
+} as const;
+
 const BATCH_TASKS_CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
 	CREATE_PROJECT: "vetta:batch-tasks:create-project",
@@ -224,6 +240,39 @@ const api: DesktopApi = {
 				ipcRenderer.removeListener(DOWNLOAD_CHANNELS.EVENT, listener);
 			};
 		},
+	},
+	im: {
+		getConfig: async () => ipcRenderer.invoke(IM_CHANNELS.GET_CONFIG),
+		setConfig: async (payload) => ipcRenderer.invoke(IM_CHANNELS.SET_CONFIG, payload),
+		getStatus: async () => ipcRenderer.invoke(IM_CHANNELS.GET_STATUS),
+		subscribeStatus: async (statusHandler, logHandler) => {
+			const { subscriptionId } = (await ipcRenderer.invoke(IM_CHANNELS.SUBSCRIBE_STATUS)) as {
+				subscriptionId: string;
+			};
+			const statusListener = (_event: Electron.IpcRendererEvent, incomingId: string, snapshot: unknown) => {
+				if (incomingId === subscriptionId) {
+					statusHandler(snapshot as Parameters<typeof statusHandler>[0]);
+				}
+			};
+			const logListener = (_event: Electron.IpcRendererEvent, incomingId: string, log: unknown) => {
+				if (incomingId === subscriptionId) {
+					logHandler(log as Parameters<typeof logHandler>[0]);
+				}
+			};
+			ipcRenderer.on(IM_CHANNELS.STATUS_EVENT, statusListener);
+			ipcRenderer.on(IM_CHANNELS.LOG_EVENT, logListener);
+			return () => {
+				ipcRenderer.removeListener(IM_CHANNELS.STATUS_EVENT, statusListener);
+				ipcRenderer.removeListener(IM_CHANNELS.LOG_EVENT, logListener);
+				void ipcRenderer.invoke(IM_CHANNELS.UNSUBSCRIBE_STATUS, subscriptionId);
+			};
+		},
+		testConnection: async (payload) => ipcRenderer.invoke(IM_CHANNELS.TEST_CONNECTION, payload),
+		restart: async () => ipcRenderer.invoke(IM_CHANNELS.RESTART),
+		getRecentLogs: async () => ipcRenderer.invoke(IM_CHANNELS.GET_RECENT_LOGS),
+		getPaths: async () => ipcRenderer.invoke(IM_CHANNELS.GET_PATHS),
+		detectLegacy: async () => ipcRenderer.invoke(IM_CHANNELS.DETECT_LEGACY),
+		importLegacy: async (detection) => ipcRenderer.invoke(IM_CHANNELS.IMPORT_LEGACY, detection),
 	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),

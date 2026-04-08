@@ -1,0 +1,232 @@
+package hostclient
+
+import (
+	"container/list"
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+)
+
+// ProcessPool keeps a small bounded set of HostSessions alive so consecutive
+// messages on the same conversation reuse the same coding-agent subprocess
+// instead of paying spawn / handshake cost every turn. Sessions are keyed
+// by absolute session-file path; this is the same key the lockfile uses,
+// so the pool also serves as the in-process enforcement of "one writer per
+// session file".
+//
+// Eviction policy: bounded LRU. When Acquire would push the pool past
+// MaxSize, the least-recently-used session that has no in-flight requests
+// is closed and removed. If no idle session can be evicted, Acquire returns
+// an error rather than block — the caller (router) decides how to react.
+//
+// Concurrency: Acquire / Release / Shutdown are safe to call from many
+// goroutines. The pool serializes its own bookkeeping under one mutex;
+// per-session Send / Events traffic is independent.
+type ProcessPool struct {
+	client  HostClient
+	maxSize int
+
+	mu      sync.Mutex
+	entries map[string]*list.Element // sessionPath → list element
+	lru     *list.List               // front = MRU, back = LRU
+	closed  bool
+}
+
+type pooledSession struct {
+	cwd         string
+	sessionPath string
+	session     HostSession
+	inFlight    int
+}
+
+// NewProcessPool constructs a pool. maxSize must be ≥ 1; values lower than
+// 1 are clamped to 1.
+func NewProcessPool(client HostClient, maxSize int) *ProcessPool {
+	if maxSize < 1 {
+		maxSize = 1
+	}
+	return &ProcessPool{
+		client:  client,
+		maxSize: maxSize,
+		entries: make(map[string]*list.Element),
+		lru:     list.New(),
+	}
+}
+
+// Acquired wraps a HostSession with the bookkeeping the pool needs to know
+// when the caller is done. Always Release after use, even on error paths.
+type Acquired struct {
+	pool        *ProcessPool
+	sessionPath string
+	Session     HostSession
+}
+
+// Release marks the in-flight count down and bumps the entry's LRU position
+// to MRU.
+func (a *Acquired) Release() {
+	if a == nil || a.pool == nil {
+		return
+	}
+	a.pool.release(a.sessionPath)
+	a.pool = nil
+}
+
+// Acquire returns a HostSession for the given (cwd, sessionPath). If a
+// session is already in the pool for the same sessionPath, it is reused
+// and bumped to MRU. Otherwise a new HostSession is opened (which may
+// trigger LRU eviction first to make room).
+//
+// On a successful Acquire the caller MUST eventually call Acquired.Release.
+func (p *ProcessPool) Acquire(ctx context.Context, cwd, sessionPath string) (*Acquired, error) {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		return nil, errors.New("hostclient: pool is shut down")
+	}
+
+	// Hit: reuse and bump.
+	if elem, ok := p.entries[sessionPath]; ok {
+		ps := elem.Value.(*pooledSession)
+		ps.inFlight++
+		p.lru.MoveToFront(elem)
+		p.mu.Unlock()
+		return &Acquired{pool: p, sessionPath: sessionPath, Session: ps.session}, nil
+	}
+
+	// Miss: may need to evict before opening a new session. Note we do
+	// the eviction *before* the OpenSession call so the new session is
+	// counted under the cap from the start.
+	if len(p.entries) >= p.maxSize {
+		if err := p.evictOldestIdleLocked(); err != nil {
+			p.mu.Unlock()
+			return nil, fmt.Errorf("hostclient: pool full and no idle session to evict: %w", err)
+		}
+	}
+	p.mu.Unlock()
+
+	// Open without holding the mutex — OpenSession may take seconds
+	// (handshake) and we don't want other Acquire calls to block on it.
+	session, err := p.client.OpenSession(ctx, cwd, sessionPath)
+	if err != nil {
+		return nil, err
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Race: another goroutine may have opened the same sessionPath while
+	// we were waiting for handshake. If so, close ours and reuse theirs.
+	if elem, ok := p.entries[sessionPath]; ok {
+		_ = session.Close()
+		ps := elem.Value.(*pooledSession)
+		ps.inFlight++
+		p.lru.MoveToFront(elem)
+		return &Acquired{pool: p, sessionPath: sessionPath, Session: ps.session}, nil
+	}
+
+	// Race: pool may have been Shutdown while we were opening.
+	if p.closed {
+		_ = session.Close()
+		return nil, errors.New("hostclient: pool was shut down during open")
+	}
+
+	ps := &pooledSession{
+		cwd:         cwd,
+		sessionPath: sessionPath,
+		session:     session,
+		inFlight:    1,
+	}
+	elem := p.lru.PushFront(ps)
+	p.entries[sessionPath] = elem
+	return &Acquired{pool: p, sessionPath: sessionPath, Session: session}, nil
+}
+
+func (p *ProcessPool) release(sessionPath string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	elem, ok := p.entries[sessionPath]
+	if !ok {
+		return
+	}
+	ps := elem.Value.(*pooledSession)
+	if ps.inFlight > 0 {
+		ps.inFlight--
+	}
+	p.lru.MoveToFront(elem)
+}
+
+// evictOldestIdleLocked removes the least-recently-used session that has no
+// in-flight requests. Caller must hold p.mu.
+func (p *ProcessPool) evictOldestIdleLocked() error {
+	for elem := p.lru.Back(); elem != nil; elem = elem.Prev() {
+		ps := elem.Value.(*pooledSession)
+		if ps.inFlight == 0 {
+			delete(p.entries, ps.sessionPath)
+			p.lru.Remove(elem)
+			// Close outside the lock would be ideal but we're already in
+			// the locked critical section; the close is bounded by the
+			// session's CloseTimeout (default 5s). Acceptable for a
+			// background eviction; if it becomes a hot path we move to a
+			// background closer goroutine.
+			_ = ps.session.Close()
+			return nil
+		}
+	}
+	return errors.New("all sessions in flight")
+}
+
+// Stats reports the pool's current population. Useful for /whoami and
+// `im-gateway status`.
+type Stats struct {
+	Size       int
+	MaxSize    int
+	InFlight   int
+	SessionPaths []string
+}
+
+// Stats snapshots the pool. Cheap; takes the bookkeeping mutex briefly.
+func (p *ProcessPool) Stats() Stats {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	out := Stats{
+		Size:    len(p.entries),
+		MaxSize: p.maxSize,
+	}
+	out.SessionPaths = make([]string, 0, len(p.entries))
+	for path, elem := range p.entries {
+		out.SessionPaths = append(out.SessionPaths, path)
+		ps := elem.Value.(*pooledSession)
+		out.InFlight += ps.inFlight
+	}
+	return out
+}
+
+// Shutdown closes every session in the pool. After Shutdown, Acquire
+// returns an error. Safe to call multiple times.
+func (p *ProcessPool) Shutdown(_ context.Context) error {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		return nil
+	}
+	p.closed = true
+	sessions := make([]HostSession, 0, len(p.entries))
+	for _, elem := range p.entries {
+		ps := elem.Value.(*pooledSession)
+		sessions = append(sessions, ps.session)
+	}
+	p.entries = nil
+	p.lru = list.New()
+	p.mu.Unlock()
+
+	var firstErr error
+	for _, s := range sessions {
+		if err := s.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}

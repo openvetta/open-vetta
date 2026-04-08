@@ -2,17 +2,19 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { type SettingsTab } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import { GeneralSettings } from "./GeneralSettings";
+import { ImBridgeSettings } from "./ImBridgeSettings";
 import { ModelsSettings } from "./ModelsSettings";
 import { McpSettings } from "./McpSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 
-const VALID_TABS = new Set<SettingsTab>(["general", "models", "mcp", "shortcuts", "archive"]);
+const VALID_TABS = new Set<SettingsTab>(["general", "models", "mcp", "im", "shortcuts", "archive"]);
 
 const SETTINGS_GROUPS: { key: SettingsTab; label: string; icon: string }[] = [
 	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
 	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
 	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
+	{ key: "im", label: "IM 集成", icon: "icon-[mdi--message-text-outline]" },
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
 	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },
 ];
@@ -21,6 +23,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	general: GeneralSettings,
 	models: ModelsSettings,
 	mcp: McpSettings,
+	im: ImBridgeSettings,
 	shortcuts: ShortcutsSettings,
 	archive: ArchivedProjectsSettings,
 };

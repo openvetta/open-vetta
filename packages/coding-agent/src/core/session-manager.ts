@@ -23,6 +23,9 @@ import {
 	createCompactionSummaryMessage,
 	createCustomMessage,
 } from "./messages.js";
+import { acquireSessionLock, type SessionLockHandle } from "./session-lock.js";
+
+export { SessionLockError } from "./session-lock.js";
 
 export const CURRENT_SESSION_VERSION = 3;
 
@@ -671,6 +674,7 @@ export class SessionManager {
 	private byId: Map<string, SessionEntry> = new Map();
 	private labelsById: Map<string, string> = new Map();
 	private leafId: string | null = null;
+	private lockHandle?: SessionLockHandle;
 
 	private constructor(cwd: string, sessionDir: string, sessionFile: string | undefined, persist: boolean) {
 		this.cwd = cwd;
@@ -680,6 +684,9 @@ export class SessionManager {
 			mkdirSync(sessionDir, { recursive: true });
 		}
 
+		// setSessionFile / newSession will acquire the lock at the end of their
+		// flow if persist is true. Constructor failures (incl. SessionLockError)
+		// propagate to the caller; the partially-built instance has no lock yet.
 		if (sessionFile) {
 			this.setSessionFile(sessionFile);
 		} else {
@@ -697,10 +704,11 @@ export class SessionManager {
 			// to avoid appending messages without a session header (which breaks the session)
 			if (this.fileEntries.length === 0) {
 				const explicitPath = this.sessionFile;
-				this.newSession();
+				this._newSessionInternal();
 				this.sessionFile = explicitPath;
 				this._rewriteFile();
 				this.flushed = true;
+				this._acquireLockForCurrentFile();
 				return;
 			}
 
@@ -713,14 +721,30 @@ export class SessionManager {
 
 			this._buildIndex();
 			this.flushed = true;
+			this._acquireLockForCurrentFile();
 		} else {
 			const explicitPath = this.sessionFile;
-			this.newSession();
+			this._newSessionInternal();
 			this.sessionFile = explicitPath; // preserve explicit path from --session flag
+			this._acquireLockForCurrentFile();
 		}
 	}
 
 	newSession(options?: NewSessionOptions): string | undefined {
+		this._newSessionInternal(options);
+		this._acquireLockForCurrentFile();
+		return this.sessionFile;
+	}
+
+	/**
+	 * Reset internal state for a new session WITHOUT touching the file lock.
+	 *
+	 * Used by setSessionFile's empty/corrupt/missing-file fallback paths, which
+	 * temporarily rotate sessionFile to a fresh path then immediately reassign
+	 * it back to the explicit path. The caller must lock the *final* sessionFile
+	 * itself via _acquireLockForCurrentFile.
+	 */
+	private _newSessionInternal(options?: NewSessionOptions): void {
 		this.sessionId = randomUUID();
 		const timestamp = new Date().toISOString();
 		const header: SessionHeader = {
@@ -741,7 +765,33 @@ export class SessionManager {
 			const fileTimestamp = timestamp.replace(/[:.]/g, "-");
 			this.sessionFile = join(this.getSessionDir(), `${fileTimestamp}_${this.sessionId}.jsonl`);
 		}
-		return this.sessionFile;
+	}
+
+	/**
+	 * Release the previously held lock (if any) and acquire a fresh one for the
+	 * current sessionFile. No-op for in-memory sessions.
+	 *
+	 * Throws SessionLockError if another live process holds the file.
+	 */
+	private _acquireLockForCurrentFile(): void {
+		if (this.lockHandle) {
+			this.lockHandle.release();
+			this.lockHandle = undefined;
+		}
+		if (this.persist && this.sessionFile) {
+			this.lockHandle = acquireSessionLock(this.sessionFile);
+		}
+	}
+
+	/**
+	 * Release the session file lock. Call when this manager will no longer be
+	 * used. Idempotent. After close(), the manager must not be reused.
+	 */
+	close(): void {
+		if (this.lockHandle) {
+			this.lockHandle.release();
+			this.lockHandle = undefined;
+		}
 	}
 
 	private _buildIndex(): void {

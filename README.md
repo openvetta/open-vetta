@@ -24,15 +24,55 @@ Tools for building AI agents and managing LLM deployments.
 
 ## Packages
 
+### Core libraries
+
 | Package | Description |
 |---------|-------------|
 | **[packages/ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
 | **[packages/agent](packages/agent)** | Agent runtime with tool calling and state management |
-| **[packages/coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
+| **[packages/coding-agent](packages/coding-agent)** | Interactive coding agent CLI (also exposes a JSON-RPC mode for headless embedding — see [docs/rpc.md](packages/coding-agent/docs/rpc.md)) |
 | **[packages/tui](packages/tui)** | Terminal UI library with differential rendering |
 | **[packages/web-ui](packages/web-ui)** | Web components for AI chat interfaces |
 
+### Runtime facade
+
+These packages wrap `coding-agent` for use by host applications (desktop-app, etc.). They provide a stable surface so hosts don't depend on `coding-agent` internals.
+
+| Package | Description |
+|---------|-------------|
+| **packages/runtime-core** | `RuntimeHost` + `SessionFacade` — the canonical interface for driving agent sessions from a host process |
+| **packages/runtime-storage** | Re-exports `SessionManager`, `AuthStorage`, `SettingsManager` from coding-agent |
+| **packages/runtime-mcp** | Re-exports MCP manager / types |
+| **packages/runtime-tools** | Re-exports built-in tool definitions |
+| **packages/runtime-telemetry** | `RuntimeLogger` interface and console implementation |
+
+### Applications
+
+| Package | Description |
+|---------|-------------|
+| **packages/desktop-app** | Electron desktop client. Hosts `RuntimeHost` in the main process; renderer talks to it via Electron IPC. |
+| **packages/cli-app** | Standalone CLI application |
+| **packages/admin** | Admin web UI |
+
+### Backend services
+
+| Package | Description |
+|---------|-------------|
+| **packages/api** | Go (gin) backend service: auth, workflows, skills marketplace, file uploads. Independent from the desktop-app / agent runtime. |
+| **[packages/im-gateway](packages/im-gateway)** | Go service that bridges IM platforms (Feishu first) to the local `coding-agent --mode rpc`. Lets you drive your local AI from Feishu / Telegram / etc. without opening the desktop app. |
+
 ## Features
+
+### IM Gateway (Feishu, more to come)
+
+Drive your local `coding-agent` from instant messaging clients without opening the desktop app. Personal mode runs `im-gateway` as a small Go sidecar that connects to Feishu via long-connection events (no public IP / webhook needed) and spawns `coding-agent --mode rpc` subprocesses for each active conversation. The same `~/.vetta/agent/sessions/` `.jsonl` files are shared with the desktop app, so you can pick up a chat in IM and continue it on your laptop. Single-writer enforcement via the `<file>.lock` protocol added in `SessionManager`.
+
+```bash
+im-gateway init    # generates ~/.vetta/im-gateway/config.yaml + credentials.yaml
+im-gateway start   # connect to feishu, start serving
+```
+
+See [packages/im-gateway/README.md](packages/im-gateway/README.md), [docs/feishu-setup.md](packages/im-gateway/docs/feishu-setup.md), and the change spec at [openspec/changes/add-im-gateway-feishu/](openspec/changes/add-im-gateway-feishu/).
 
 ### MCP (Model Context Protocol) Support
 

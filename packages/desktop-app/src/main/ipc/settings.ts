@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
 import { ipcMain } from "electron";
 
 import { DEFAULT_SERVER_URL } from "../constants.js";
+import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 function getSettingsPath(): string {
 	return join(getAgentDir(), "settings.json");
@@ -20,10 +21,7 @@ export function readSettings(): Record<string, unknown> {
 }
 
 export function writeSettings(settings: Record<string, unknown>): void {
-	const path = getSettingsPath();
-	const dir = dirname(path);
-	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-	writeFileSync(path, JSON.stringify(settings, null, 2), "utf-8");
+	atomicWriteJSON(getSettingsPath(), settings);
 }
 
 interface RemoteProvidersResult {

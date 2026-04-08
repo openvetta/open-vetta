@@ -24,7 +24,7 @@ import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/mod
 import { DefaultPackageManager } from "./core/package-manager.js";
 import { DefaultResourceLoader } from "./core/resource-loader.js";
 import { type CreateAgentSessionOptions, createAgentSession } from "./core/sdk.js";
-import { SessionManager } from "./core/session-manager.js";
+import { SessionLockError, SessionManager } from "./core/session-manager.js";
 import { SettingsManager } from "./core/settings-manager.js";
 import { printTimings, time } from "./core/timings.js";
 import { allTools } from "./core/tools/index.js";
@@ -685,8 +685,35 @@ export async function main(args: string[]) {
 		scopedModels = await resolveModelScope(modelPatterns, modelRegistry);
 	}
 
+	/**
+	 * In RPC mode the parent process expects either a stream of JSON events or
+	 * a single JSON error response — never a stack trace on stderr. Convert any
+	 * startup-time SessionLockError into a structured response and exit cleanly
+	 * so the host (e.g. an IM gateway orchestrator) can react.
+	 */
+	const failRpcStartupOnLock = (err: unknown): never => {
+		if (mode === "rpc" && err instanceof SessionLockError) {
+			process.stdout.write(
+				`${JSON.stringify({
+					type: "response",
+					command: "startup",
+					success: false,
+					error: err.message,
+					lockHolder: err.holder,
+				})}\n`,
+			);
+			process.exit(2);
+		}
+		throw err;
+	};
+
 	// Create session manager based on CLI flags
-	let sessionManager = await createSessionManager(parsed, cwd);
+	let sessionManager: SessionManager | undefined;
+	try {
+		sessionManager = await createSessionManager(parsed, cwd);
+	} catch (err) {
+		failRpcStartupOnLock(err);
+	}
 
 	// Handle --resume: show session picker
 	if (parsed.resume) {
@@ -702,7 +729,11 @@ export async function main(args: string[]) {
 			stopThemeWatcher();
 			process.exit(0);
 		}
-		sessionManager = SessionManager.open(selectedPath);
+		try {
+			sessionManager = SessionManager.open(selectedPath);
+		} catch (err) {
+			failRpcStartupOnLock(err);
+		}
 	}
 
 	const { options: sessionOptions, cliThinkingFromModel } = buildSessionOptions(
@@ -727,7 +758,14 @@ export async function main(args: string[]) {
 		authStorage.setRuntimeApiKey(sessionOptions.model.provider, parsed.apiKey);
 	}
 
-	const { session, modelFallbackMessage } = await createAgentSession(sessionOptions);
+	let session: Awaited<ReturnType<typeof createAgentSession>>["session"];
+	let modelFallbackMessage: Awaited<ReturnType<typeof createAgentSession>>["modelFallbackMessage"];
+	try {
+		({ session, modelFallbackMessage } = await createAgentSession(sessionOptions));
+	} catch (err) {
+		failRpcStartupOnLock(err);
+		throw err; // unreachable: failRpcStartupOnLock either throws or exits
+	}
 
 	if (!isInteractive && !session.model) {
 		console.error(chalk.red("No models available."));
