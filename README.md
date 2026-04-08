@@ -24,13 +24,41 @@ Tools for building AI agents and managing LLM deployments.
 
 ## Packages
 
+### Core libraries
+
 | Package | Description |
 |---------|-------------|
 | **[packages/ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
 | **[packages/agent](packages/agent)** | Agent runtime with tool calling and state management |
-| **[packages/coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
+| **[packages/coding-agent](packages/coding-agent)** | Interactive coding agent CLI (also exposes a JSON-RPC mode for headless embedding — see [docs/rpc.md](packages/coding-agent/docs/rpc.md)) |
 | **[packages/tui](packages/tui)** | Terminal UI library with differential rendering |
 | **[packages/web-ui](packages/web-ui)** | Web components for AI chat interfaces |
+
+### Runtime facade
+
+These packages wrap `coding-agent` for use by host applications (desktop-app, etc.). They provide a stable surface so hosts don't depend on `coding-agent` internals.
+
+| Package | Description |
+|---------|-------------|
+| **packages/runtime-core** | `RuntimeHost` + `SessionFacade` — the canonical interface for driving agent sessions from a host process |
+| **packages/runtime-storage** | Re-exports `SessionManager`, `AuthStorage`, `SettingsManager` from coding-agent |
+| **packages/runtime-mcp** | Re-exports MCP manager / types |
+| **packages/runtime-tools** | Re-exports built-in tool definitions |
+| **packages/runtime-telemetry** | `RuntimeLogger` interface and console implementation |
+
+### Applications
+
+| Package | Description |
+|---------|-------------|
+| **packages/desktop-app** | Electron desktop client. Hosts `RuntimeHost` in the main process; renderer talks to it via Electron IPC. |
+| **packages/cli-app** | Standalone CLI application |
+| **packages/admin** | Admin web UI |
+
+### Backend services
+
+| Package | Description |
+|---------|-------------|
+| **packages/api** | Go (gin) backend service: auth, workflows, skills marketplace, file uploads. Independent from the desktop-app / agent runtime. |
 
 ## Features
 
