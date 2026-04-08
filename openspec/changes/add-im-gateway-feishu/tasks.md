@@ -20,22 +20,22 @@
 
 ## 3. 配置与凭据加载
 
-- [ ] 3.1 实现 `config.LoadConfig`：合并 yaml + env + 默认值，路径优先级如 design D9 所述
-- [ ] 3.2 实现 `config.LoadCredentials`：keychain → credentials.yaml → env，记录来源用于日志
-- [ ] 3.3 写测试覆盖：缺少凭据、env 覆盖文件、yaml 权限位检查
-- [ ] 3.4 写 `im-gateway init` 子命令：交互式生成 `~/.vetta/im-gateway/config.yaml` 模板（不写凭据，引导用户填）
+- [x] 3.1 实现 `config.LoadConfig`（load.go）：YAML 解析 → env overrides → defaults → validate；missing file 不报错；支持 `~/` 展开；env 覆盖白名单：`IM_GATEWAY_TRANSPORT` / `IM_GATEWAY_LOG_LEVEL` / `IM_GATEWAY_LOG_FILE` / `IM_GATEWAY_DESKTOP_CONFIG` / `IM_GATEWAY_STATE` / `IM_GATEWAY_LOGS_DIR` / `IM_GATEWAY_CODING_AGENT_BIN`
+- [x] 3.2 实现 `config.LoadCredentials`（credentials.go）：keychain → credentials.yaml → env，每个成功来源记录到 `Credentials.Source`；keychain 硬错误降级到 stderr 警告 + fallthrough（headless/CI 友好）；YAML 文件权限非 0600 时 stderr 警告但仍加载
+- [x] 3.3 测试覆盖（load_test.go + credentials_test.go）：14 个用例 — defaults / missing file / valid YAML / invalid transport / invalid log level / malformed YAML / env override YAML / tilde expansion / 凭据三源各自 / env 覆盖 file / 权限警告 / keychain 硬错误降级
+- [x] 3.4 实现 `config.GenerateTemplate` + `config.DefaultConfigPath`（init.go）；新增 `cmd/im-gateway/main.go` 子命令调度器，`init` 已可用，`start` / `status` / `logs` 暂返"未实现，Milestone F"占位
 
 ## 4. 状态持久化
 
-- [ ] 4.1 实现 `state.Store`：`Load()` / `Save()` 用 tmp+rename 原子写到 `~/.vetta/im-gateway/state.json`
-- [ ] 4.2 实现 `state.GetSession(userID, projectID)` / `SetSession(...)` 简单读写 API
-- [ ] 4.3 写测试覆盖：首次加载（不存在）、并发读保护、原子写崩溃恢复
+- [x] 4.1 实现 `state.FileStore`（store.go）：`Load` / `Save` 走 write-temp + fsync + rename 原子写；mutex 序列化并发 Save；missing file 返回空 RouterState
+- [x] 4.2 `GetSession(userID, projectID)` 含懒加载缓存；`SetSession(entry)` 在写入前重读磁盘以保留其它进程的并发更新；自动填 `UpdatedAt`；compile-time 满足 `Store` 接口
+- [x] 4.3 测试覆盖（store_test.go）：8 个用例 — missing file / save+reload / get missing / 没有 .tmp 残留 / well-formed JSON / 50 并发 save 不损坏 / 跨 store 实例不丢条目 / malformed file 报错
 
 ## 5. ProjectDirectory 实现
 
-- [ ] 5.1 实现 `projects.DesktopConfigDirectory`：每次 `List()` 调用都重读 `~/.vetta/desktop-config.json`
-- [ ] 5.2 实现 `Resolve(name)`：按 name 精确匹配，无冲突时也按 path basename 匹配
-- [ ] 5.3 写测试覆盖：空文件、文件不存在、并发原子写正在发生时读到一致状态、重命名后立即可见
+- [x] 5.1 实现 `DesktopConfigDirectory.List`（desktop_config.go）：每次调用都重读 `~/.vetta/desktop-config.json`；missing file 返回空切片不报错；空 path 条目跳过；自动给未命名项目用 basename 填充展示名
+- [x] 5.2 实现 `Resolve(name)`：两阶段匹配——Phase 1 explicit Name 精确匹配，Phase 2 basename 匹配（仅限无 explicit Name 的条目，避免 named-vs-basename 冲突）；冲突时返回 ambiguous 错误；project ID 用 sha256(absPath)[:8] 派生，重命名 Name 不影响 ID 稳定性
+- [x] 5.3 测试覆盖（desktop_config_test.go）：13 个用例 — missing file / empty / named+unnamed / ID 跨改名稳定 / 热刷新 / Resolve by name / by basename / not found / ambiguous basename / 显式名优先 basename / malformed JSON / 空 path 跳过
 
 ## 6. Local HostClient（spawn coding-agent）
 

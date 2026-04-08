@@ -1,14 +1,6 @@
 package config
 
-import (
-	"errors"
-	"time"
-)
-
-// ErrNotImplemented is returned by Loader functions until Milestone B fills
-// in real implementations. Tests in Milestone A should not depend on
-// LoadConfig succeeding.
-var ErrNotImplemented = errors.New("config: not implemented yet (planned for Milestone B)")
+import "time"
 
 // Config is the parsed gateway configuration. Loaded from YAML, then
 // overlaid with environment variables. Credentials are loaded separately
@@ -110,18 +102,21 @@ type FeishuCredentials struct {
 	AppSecret string
 }
 
-// LoadConfig reads and parses the gateway YAML config from the given path.
-// Real implementation arrives in Milestone B (load.go).
+// LoadConfig reads and parses the gateway YAML config from the given path,
+// applies environment overrides, and fills in defaults.
 //
 // Returns a non-nil *Config with defaults applied even when many optional
-// fields were left empty in the YAML. Returns an error only on hard
-// failures (file unreadable, malformed YAML, invalid enum values).
-func LoadConfig(_ string) (*Config, error) {
-	return nil, ErrNotImplemented
+// fields were left empty in the YAML. A missing file is not an error: an
+// empty path or a non-existent file yields a defaulted Config.
+//
+// Returns an error only on hard failures (file unreadable for reasons other
+// than ENOENT, malformed YAML, invalid enum values).
+func LoadConfig(path string) (*Config, error) {
+	return loadConfig(path)
 }
 
 // LoadCredentials gathers secrets from keychain → credentials.yaml → env.
-// Real implementation arrives in Milestone B (credentials.go).
+// Implementation in credentials.go.
 func LoadCredentials() (*Credentials, error) {
-	return nil, ErrNotImplemented
+	return loadCredentials()
 }
