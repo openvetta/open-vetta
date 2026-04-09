@@ -49,6 +49,15 @@ type Transport interface {
 	// this on transports that don't support it.
 	EditMessage(ctx context.Context, chatID, messageID string, msg OutboundMessage) error
 
+	// EndStream signals that a streaming response (started by a SendMessage
+	// with OutboundMessage.Streaming=true and continued via EditMessage) has
+	// finished. Transports with a dedicated streaming path use this to clean
+	// up server-side state — e.g. the Feishu transport flips the cardkit
+	// streaming_mode flag back to false so the typewriter cursor stops
+	// blinking. Calling EndStream on a messageID that was not part of a
+	// streaming response is a no-op (return nil).
+	EndStream(ctx context.Context, chatID, messageID string) error
+
 	// DeleteMessage removes a previously sent message. Optional; transports
 	// without delete support should return an error and the bridge will skip
 	// any cleanup paths that depend on it.
