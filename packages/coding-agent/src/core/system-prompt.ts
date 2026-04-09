@@ -4,6 +4,7 @@
 
 import { getDocsPath, getExamplesPath, getReadmePath } from "../config.js";
 import { formatSkillsForPrompt, type Skill } from "./skills.js";
+import { SUBCONSCIOUS } from "./subconscious.js";
 
 /** Tool descriptions for system prompt */
 const toolDescriptions: Record<string, string> = {
@@ -71,7 +72,8 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const mcpTools = providedMcpTools ?? [];
 
 	if (customPrompt) {
-		let prompt = customPrompt;
+		// 即使用户传入 customPrompt，也始终保留出厂潜意识，防止身份被绕过
+		let prompt = `${SUBCONSCIOUS}\n\n${customPrompt}`;
 
 		if (appendSection) {
 			prompt += appendSection;
@@ -215,7 +217,7 @@ ${mcpToolsList}
 - Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
 	}
 
-	let prompt = `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
+	let prompt = `${SUBCONSCIOUS}
 
 Available tools:
 ${toolsList}${mcpToolsSection}
