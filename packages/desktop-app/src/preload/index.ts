@@ -15,6 +15,7 @@ const CHANNELS = {
 	GET_MESSAGES: "vetta:session:get-messages",
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
+	DISPOSE: "vetta:session:dispose",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -300,6 +301,7 @@ const api: DesktopApi = {
 		getMessages: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_MESSAGES, sessionId),
 		delete: async (sessionPath) => ipcRenderer.invoke(CHANNELS.DELETE, sessionPath),
 		rename: async (sessionPath, name) => ipcRenderer.invoke(CHANNELS.RENAME, sessionPath, name),
+		dispose: async (sessionId) => ipcRenderer.invoke(CHANNELS.DISPOSE, sessionId),
 	},
 };
 

@@ -23,6 +23,7 @@ export interface DesktopSessionApi {
 	getMessages(sessionId: string): Promise<Message[]>;
 	delete(sessionPath: string): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
+	dispose(sessionId: string): Promise<void>;
 }
 
 export interface SelectedImageFile {
