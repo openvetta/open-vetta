@@ -40,17 +40,15 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
-func TestEncodeStreamingCardJSON_HasStreamingMode(t *testing.T) {
+func TestEncodeStreamingCardJSON_NoInlineStreamingMode(t *testing.T) {
 	got, err := encodeStreamingCardJSON("hello")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var v struct {
 		Schema string `json:"schema"`
-		Config struct {
-			StreamingMode bool `json:"streaming_mode"`
-		} `json:"config"`
-		Body struct {
+		Config map[string]any `json:"config"`
+		Body   struct {
 			Elements []struct {
 				Tag       string `json:"tag"`
 				ElementID string `json:"element_id"`
@@ -64,8 +62,12 @@ func TestEncodeStreamingCardJSON_HasStreamingMode(t *testing.T) {
 	if v.Schema != "2.0" {
 		t.Errorf("schema: %q", v.Schema)
 	}
-	if !v.Config.StreamingMode {
-		t.Errorf("streaming_mode should be true")
+	// streaming_mode is enabled via a separate Card.Settings call, NOT
+	// inline in Card.Create — see sendStreamingMessage. Putting it inline
+	// has no effect on the server side and was the cause of the
+	// "blank card" bug.
+	if _, present := v.Config["streaming_mode"]; present {
+		t.Errorf("streaming_mode should NOT be set inline at create time, got %+v", v.Config)
 	}
 	if len(v.Body.Elements) != 1 {
 		t.Fatalf("expected 1 element, got %d", len(v.Body.Elements))
@@ -78,6 +80,44 @@ func TestEncodeStreamingCardJSON_HasStreamingMode(t *testing.T) {
 	}
 	if v.Body.Elements[0].Content != "hello" {
 		t.Errorf("content: %q", v.Body.Elements[0].Content)
+	}
+}
+
+func TestEncodeStreamingCardJSON_EmptyInitialBecomesSpace(t *testing.T) {
+	got, err := encodeStreamingCardJSON("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Body struct {
+			Elements []struct {
+				Content string `json:"content"`
+			} `json:"elements"`
+		} `json:"body"`
+	}
+	if err := json.Unmarshal([]byte(got), &v); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if v.Body.Elements[0].Content != " " {
+		t.Errorf("empty initial should be substituted with a space, got %q", v.Body.Elements[0].Content)
+	}
+}
+
+func TestEncodeStreamingEnabledSettings(t *testing.T) {
+	got, err := encodeStreamingEnabledSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Config struct {
+			StreamingMode bool `json:"streaming_mode"`
+		} `json:"config"`
+	}
+	if err := json.Unmarshal([]byte(got), &v); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if !v.Config.StreamingMode {
+		t.Error("streaming_mode should be true in the enable-settings payload")
 	}
 }
 
