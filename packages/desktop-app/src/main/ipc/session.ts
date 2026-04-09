@@ -18,6 +18,7 @@ const CHANNELS = {
 	GET_MESSAGES: "vetta:session:get-messages",
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
+	DISPOSE: "vetta:session:dispose",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -125,6 +126,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		await runtime.renameSession(sessionPath, name);
 	});
 
+	ipcMain.handle(CHANNELS.DISPOSE, async (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		await runtime.disposeSession(sessionId);
+	});
+
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
@@ -149,5 +155,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			unsubscribe();
 		}
 		subscriptionMap.clear();
+		// Release every SessionManager file lock owned by this RuntimeHost.
+		// Without this, locks survive until the desktop-app process exits and
+		// cause SessionLockError on the next startup until stale-detection
+		// reclaims them.
+		void runtime.disposeAllSessions().catch((err) => {
+			console.error("[session ipc teardown] disposeAllSessions failed:", err);
+		});
 	};
 }

@@ -169,4 +169,5 @@ export interface SessionFacade {
 	getSessionPath(sessionId: string): string | undefined;
 	renameSessionById(sessionId: string, name: string): void;
 	disposeSession(sessionId: string): Promise<void>;
+	disposeAllSessions(): Promise<void>;
 }
