@@ -9,13 +9,18 @@
 // First-milestone scope:
 //   - private chats only (group / topic_group are silently dropped per
 //     the Non-Goals in the spec)
-//   - text messages only (rich blocks / cards / attachments deferred)
+//   - inbound: text messages only (rich blocks / attachments deferred)
+//   - outbound: rendered as Feishu interactive cards (card JSON 2.0,
+//     `rich_text` element) so LLM markdown output (headings, code blocks,
+//     lists, tables, bold/italic) renders properly. Plain `text` msg type
+//     is no longer used.
 //   - automatic reconnect via SDK default behavior (autoReconnect=true,
 //     unlimited retries, 2-minute interval)
 //
-// Outbound `text` content is wrapped as Feishu's text msg shape:
-// `{"text":"<the message body>"}`. JSON encoding handles escaping of any
-// characters in the input.
+// Outbound content is wrapped in card JSON 2.0:
+// `{"schema":"2.0","config":{"update_multi":true},"body":{"elements":
+// [{"tag":"rich_text","content":"<markdown body>"}]}}`. JSON encoding
+// handles escaping. Card JSON 2.0 requires Feishu client ≥ 7.20.
 package feishu
 
 import (
@@ -228,10 +233,11 @@ func (t *Transport) handleInbound(ctx context.Context, event *larkim.P2MessageRe
 	return handler.HandleInbound(ctx, inbound)
 }
 
-// SendMessage sends a text message to the chat and returns the Feishu
-// message ID for later editing.
+// SendMessage sends an interactive markdown card to the chat and returns
+// the Feishu message ID for later editing. The body of OutboundMessage.Text
+// is treated as markdown and rendered via card JSON 2.0's rich_text element.
 func (t *Transport) SendMessage(ctx context.Context, chatID string, msg transport.OutboundMessage) (string, error) {
-	body, err := encodeText(msg.Text)
+	body, err := encodeMarkdownCard(msg.Text)
 	if err != nil {
 		return "", err
 	}
@@ -240,7 +246,7 @@ func (t *Transport) SendMessage(ctx context.Context, chatID string, msg transpor
 		ReceiveIdType("chat_id").
 		Body(larkim.NewCreateMessageReqBodyBuilder().
 			ReceiveId(chatID).
-			MsgType("text").
+			MsgType("interactive").
 			Content(body).
 			Build()).
 		Build()
@@ -259,9 +265,11 @@ func (t *Transport) SendMessage(ctx context.Context, chatID string, msg transpor
 }
 
 // EditMessage replaces the content of a previously sent message via the
-// Feishu Patch API.
+// Feishu Patch API. Currently unused — Capabilities() advertises
+// SupportsMessageEdit=false so the bridge never calls this — but kept
+// correct so enabling streaming edits later is a one-line capability flip.
 func (t *Transport) EditMessage(ctx context.Context, _ string, messageID string, msg transport.OutboundMessage) error {
-	body, err := encodeText(msg.Text)
+	body, err := encodeMarkdownCard(msg.Text)
 	if err != nil {
 		return err
 	}
@@ -304,12 +312,34 @@ func (t *Transport) ShowTyping(_ context.Context, _ string) error {
 // helpers
 // =============================================================================
 
-// encodeText wraps a plain string into Feishu's text message JSON shape.
-// JSON encoding handles all escaping.
-func encodeText(text string) (string, error) {
-	body, err := json.Marshal(map[string]string{"text": text})
+// encodeMarkdownCard wraps a markdown string into a Feishu card JSON 2.0
+// payload that renders as a single rich_text element. The result is the
+// stringified JSON expected by `Im.Message.Create` when MsgType is
+// "interactive". JSON encoding handles all escaping.
+//
+// Schema reference: card JSON 2.0 with a single rich_text element. Requires
+// Feishu client ≥ 7.20. `update_multi: true` allows the same card to be
+// updated by multiple subsequent edits (forward-compatible with future
+// streaming edits even though Capabilities currently advertises
+// SupportsMessageEdit=false).
+func encodeMarkdownCard(markdown string) (string, error) {
+	card := map[string]any{
+		"schema": "2.0",
+		"config": map[string]any{
+			"update_multi": true,
+		},
+		"body": map[string]any{
+			"elements": []any{
+				map[string]any{
+					"tag":     "markdown",
+					"content": markdown,
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(card)
 	if err != nil {
-		return "", fmt.Errorf("encode text: %w", err)
+		return "", fmt.Errorf("encode markdown card: %w", err)
 	}
 	return string(body), nil
 }
