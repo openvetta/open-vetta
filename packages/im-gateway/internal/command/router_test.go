@@ -129,7 +129,7 @@ func TestDispatch_UnknownCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(res.Reply.Text, "unknown command") {
+	if !strings.Contains(res.Reply.Text, "未知命令") {
 		t.Errorf("expected unknown-command reply, got %q", res.Reply.Text)
 	}
 }
@@ -137,7 +137,7 @@ func TestDispatch_UnknownCommand(t *testing.T) {
 func TestDispatch_Help(t *testing.T) {
 	r := NewRouter()
 	res, _ := r.Dispatch(context.Background(), defaultEnv(), "/help")
-	for _, want := range []string{"/projects", "/use", "/new", "/whoami", "/help"} {
+	for _, want := range []string{"/projects", "/use", "/new", "/whoami", "/help", "可用命令"} {
 		if !strings.Contains(res.Reply.Text, want) {
 			t.Errorf("/help should mention %s, got:\n%s", want, res.Reply.Text)
 		}
@@ -149,7 +149,7 @@ func TestDispatch_Projects_Empty(t *testing.T) {
 	env := defaultEnv()
 	env.Projects = &fakeProjects{} // empty list
 	res, _ := r.Dispatch(context.Background(), env, "/projects")
-	if !strings.Contains(res.Reply.Text, "No projects") {
+	if !strings.Contains(res.Reply.Text, "没有可用项目") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 }
@@ -162,18 +162,18 @@ func TestDispatch_Projects_ListsAndMarksCurrent(t *testing.T) {
 		UserID: "u1", ProjectID: "id-foo", SessionPath: "/sessions/foo.jsonl",
 	})
 	res, _ := r.Dispatch(context.Background(), env, "/projects")
-	if !strings.Contains(res.Reply.Text, "* foo") {
-		t.Errorf("current project should be marked with *, got:\n%s", res.Reply.Text)
+	if !strings.Contains(res.Reply.Text, "**foo** *(当前)*") {
+		t.Errorf("current project should be marked, got:\n%s", res.Reply.Text)
 	}
-	if !strings.Contains(res.Reply.Text, "  bar") {
-		t.Errorf("non-current project should not be marked, got:\n%s", res.Reply.Text)
+	if !strings.Contains(res.Reply.Text, "- bar") {
+		t.Errorf("non-current project should be a plain bullet, got:\n%s", res.Reply.Text)
 	}
 }
 
 func TestDispatch_Use_NotFound(t *testing.T) {
 	r := NewRouter()
 	res, _ := r.Dispatch(context.Background(), defaultEnv(), "/use ghost")
-	if !strings.Contains(res.Reply.Text, "not found") {
+	if !strings.Contains(res.Reply.Text, "找不到项目") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 }
@@ -181,7 +181,7 @@ func TestDispatch_Use_NotFound(t *testing.T) {
 func TestDispatch_Use_NoArg(t *testing.T) {
 	r := NewRouter()
 	res, _ := r.Dispatch(context.Background(), defaultEnv(), "/use")
-	if !strings.Contains(res.Reply.Text, "Usage") {
+	if !strings.Contains(res.Reply.Text, "用法") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 }
@@ -190,7 +190,7 @@ func TestDispatch_Use_Success(t *testing.T) {
 	r := NewRouter()
 	env := defaultEnv()
 	res, _ := r.Dispatch(context.Background(), env, "/use foo")
-	if !strings.Contains(res.Reply.Text, "Switched to project") {
+	if !strings.Contains(res.Reply.Text, "已切换到项目") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 	if !res.Mutated {
@@ -214,7 +214,7 @@ func TestDispatch_Use_LockedSession(t *testing.T) {
 		},
 	}
 	res, _ := r.Dispatch(context.Background(), env, "/use foo")
-	if !strings.Contains(res.Reply.Text, "currently open elsewhere") {
+	if !strings.Contains(res.Reply.Text, "正在其他位置打开") {
 		t.Errorf("expected lock-conflict explanation, got %q", res.Reply.Text)
 	}
 	if !strings.Contains(res.Reply.Text, "12345") {
@@ -230,7 +230,7 @@ func TestDispatch_Use_OtherErrorPropagates(t *testing.T) {
 	})
 	env.HostPool = &fakePool{openErr: errors.New("boom")}
 	res, _ := r.Dispatch(context.Background(), env, "/use foo")
-	if !strings.Contains(res.Reply.Text, "Could not open") {
+	if !strings.Contains(res.Reply.Text, "无法打开") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 }
@@ -238,7 +238,7 @@ func TestDispatch_Use_OtherErrorPropagates(t *testing.T) {
 func TestDispatch_New_NoProjectSelected(t *testing.T) {
 	r := NewRouter()
 	res, _ := r.Dispatch(context.Background(), defaultEnv(), "/new")
-	if !strings.Contains(res.Reply.Text, "No project selected") {
+	if !strings.Contains(res.Reply.Text, "未选择项目") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 }
@@ -250,7 +250,7 @@ func TestDispatch_New_PersistsSessionPath(t *testing.T) {
 		UserID: "u1", ProjectID: "id-foo", SessionPath: "/old/path.jsonl",
 	})
 	res, _ := r.Dispatch(context.Background(), env, "/new")
-	if !strings.Contains(res.Reply.Text, "New session started") {
+	if !strings.Contains(res.Reply.Text, "已在 **foo** 中开启新会话") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 	entry, ok, _ := env.State.GetSession(context.Background(), "u1", "id-foo")
@@ -266,7 +266,7 @@ func TestDispatch_New_PersistsSessionPath(t *testing.T) {
 func TestDispatch_Whoami_NoProject(t *testing.T) {
 	r := NewRouter()
 	res, _ := r.Dispatch(context.Background(), defaultEnv(), "/whoami")
-	if !strings.Contains(res.Reply.Text, "(none") {
+	if !strings.Contains(res.Reply.Text, "未选择") {
 		t.Errorf("got %q", res.Reply.Text)
 	}
 }
@@ -278,7 +278,7 @@ func TestDispatch_Whoami_WithProject(t *testing.T) {
 		UserID: "u1", ProjectID: "id-foo", SessionPath: "/sessions/foo.jsonl",
 	})
 	res, _ := r.Dispatch(context.Background(), env, "/whoami")
-	for _, want := range []string{"User: u1", "Project: foo", "/sessions/foo.jsonl"} {
+	for _, want := range []string{"**用户**", "u1", "**项目**", "foo", "/sessions/foo.jsonl"} {
 		if !strings.Contains(res.Reply.Text, want) {
 			t.Errorf("/whoami should contain %q, got:\n%s", want, res.Reply.Text)
 		}
