@@ -185,13 +185,15 @@ func (b *Bridge) maybeEdit(ctx context.Context, force bool) error {
 
 func (b *Bridge) commitEdit(ctx context.Context, text string) error {
 	if b.editMessageID == "" {
-		id, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: text})
+		// First frame of a streaming response — hint the transport so it
+		// can pick its dedicated streaming path (e.g. cardkit on Feishu).
+		id, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: text, Streaming: true})
 		if err != nil {
 			return err
 		}
 		b.editMessageID = id
 	} else {
-		if err := b.tr.EditMessage(ctx, b.chatID, b.editMessageID, transport.OutboundMessage{Text: text}); err != nil {
+		if err := b.tr.EditMessage(ctx, b.chatID, b.editMessageID, transport.OutboundMessage{Text: text, Streaming: true}); err != nil {
 			return err
 		}
 	}
@@ -244,6 +246,15 @@ func (b *Bridge) flush(ctx context.Context) error {
 	if b.caps.SupportsMessageEdit {
 		if err := b.maybeEdit(ctx, true); err != nil {
 			return err
+		}
+		// Tell the transport this streaming response is done so it can
+		// clean up server-side state (e.g. flip cardkit's streaming_mode
+		// off so the typewriter cursor stops blinking). EndStream is a
+		// no-op when there's no streaming message in flight.
+		if b.editMessageID != "" {
+			if err := b.tr.EndStream(ctx, b.chatID, b.editMessageID); err != nil {
+				return err
+			}
 		}
 		// Reset edit state so the next message starts a new bubble.
 		b.editMessageID = ""

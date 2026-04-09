@@ -3,6 +3,7 @@ package feishu
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -29,13 +30,128 @@ func TestCapabilities(t *testing.T) {
 		t.Fatal(err)
 	}
 	caps := tr.Capabilities()
-	// Feishu's PATCH endpoint only updates interactive cards, not text
-	// messages — see the design note in feishu.go Capabilities().
-	if caps.SupportsMessageEdit {
-		t.Error("Feishu should advertise SupportsMessageEdit=false (text messages are immutable)")
+	// Streaming responses use the cardkit content-update API which is
+	// purpose-built for incremental edits. See the package doc.
+	if !caps.SupportsMessageEdit {
+		t.Error("Feishu should advertise SupportsMessageEdit=true (cardkit streaming path)")
 	}
 	if caps.MaxMessageLength <= 0 {
 		t.Error("MaxMessageLength should be positive")
+	}
+}
+
+func TestEncodeStreamingCardJSON_HasStreamingMode(t *testing.T) {
+	got, err := encodeStreamingCardJSON("hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Schema string `json:"schema"`
+		Config struct {
+			StreamingMode bool `json:"streaming_mode"`
+		} `json:"config"`
+		Body struct {
+			Elements []struct {
+				Tag       string `json:"tag"`
+				ElementID string `json:"element_id"`
+				Content   string `json:"content"`
+			} `json:"elements"`
+		} `json:"body"`
+	}
+	if err := json.Unmarshal([]byte(got), &v); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if v.Schema != "2.0" {
+		t.Errorf("schema: %q", v.Schema)
+	}
+	if !v.Config.StreamingMode {
+		t.Errorf("streaming_mode should be true")
+	}
+	if len(v.Body.Elements) != 1 {
+		t.Fatalf("expected 1 element, got %d", len(v.Body.Elements))
+	}
+	if v.Body.Elements[0].Tag != "markdown" {
+		t.Errorf("tag: %q", v.Body.Elements[0].Tag)
+	}
+	if v.Body.Elements[0].ElementID != streamElementID {
+		t.Errorf("element_id: %q want %q", v.Body.Elements[0].ElementID, streamElementID)
+	}
+	if v.Body.Elements[0].Content != "hello" {
+		t.Errorf("content: %q", v.Body.Elements[0].Content)
+	}
+}
+
+func TestEncodeCardReferenceContent(t *testing.T) {
+	got, err := encodeCardReferenceContent("card-123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Type string `json:"type"`
+		Data struct {
+			CardID string `json:"card_id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(got), &v); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+	if v.Type != "card" || v.Data.CardID != "card-123" {
+		t.Errorf("got %+v", v)
+	}
+}
+
+func TestStreamRegistry_RegisterLookupUnregister(t *testing.T) {
+	tr, _ := New(Options{AppID: "x", AppSecret: "y"})
+	tr.registerStream("m1", "card-A")
+	tr.registerStream("m2", "card-B")
+	if h := tr.lookupStream("m1"); h == nil || h.cardID != "card-A" {
+		t.Errorf("lookup m1: %+v", h)
+	}
+	if h := tr.lookupStream("m2"); h == nil || h.cardID != "card-B" {
+		t.Errorf("lookup m2: %+v", h)
+	}
+	if h := tr.unregisterStream("m1"); h == nil || h.cardID != "card-A" {
+		t.Errorf("unregister m1: %+v", h)
+	}
+	if h := tr.lookupStream("m1"); h != nil {
+		t.Errorf("m1 should be gone after unregister")
+	}
+	if h := tr.unregisterStream("missing"); h != nil {
+		t.Errorf("unregister missing should return nil, got %+v", h)
+	}
+}
+
+func TestStreamRegistry_FIFOEviction(t *testing.T) {
+	tr, _ := New(Options{AppID: "x", AppSecret: "y"})
+	for i := range streamRegistryCap + 5 {
+		tr.registerStream(fmt.Sprintf("m%d", i), fmt.Sprintf("card-%d", i))
+	}
+	if len(tr.streams) != streamRegistryCap {
+		t.Errorf("expected len=%d, got %d", streamRegistryCap, len(tr.streams))
+	}
+	// First 5 should have been evicted.
+	for i := range 5 {
+		if tr.lookupStream(fmt.Sprintf("m%d", i)) != nil {
+			t.Errorf("m%d should have been evicted", i)
+		}
+	}
+	// The newest should still be there.
+	if tr.lookupStream(fmt.Sprintf("m%d", streamRegistryCap+4)) == nil {
+		t.Error("newest entry should still be present")
+	}
+}
+
+func TestStreamRegistry_NextSequenceMonotonic(t *testing.T) {
+	tr, _ := New(Options{AppID: "x", AppSecret: "y"})
+	tr.registerStream("m1", "card-A")
+	h := tr.lookupStream("m1")
+	var prev int64
+	for i := range 1000 {
+		seq := tr.nextSequence(h)
+		if seq <= prev {
+			t.Fatalf("sequence not monotonic at i=%d: prev=%d cur=%d", i, prev, seq)
+		}
+		prev = seq
 	}
 }
 

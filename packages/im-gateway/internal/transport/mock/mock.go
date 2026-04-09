@@ -175,6 +175,10 @@ func (t *Transport) EditMessage(_ context.Context, _, _ string, _ transport.Outb
 	return errors.New("mock transport does not support message edit")
 }
 
+// EndStream is a no-op for the mock transport since it has no dedicated
+// streaming path.
+func (t *Transport) EndStream(_ context.Context, _, _ string) error { return nil }
+
 func (t *Transport) DeleteMessage(_ context.Context, chatID, messageID string) error {
 	return t.writeJSON(map[string]any{
 		"action":    "delete",

@@ -6,21 +6,30 @@
 // dispatcher delivers messages to a handler we register. Outgoing messages
 // go through the regular Im.Message API client.
 //
+// Outbound paths (selected per OutboundMessage.Streaming):
+//
+//   - One-shot replies (command output, errors, hints): a card JSON 2.0
+//     with a single inline `markdown` element is sent directly via
+//     `Im.Message.Create` with msg_type=interactive. One round trip.
+//
+//   - Streaming responses (LLM output via the bridge): the transport
+//     creates a cardkit "card entity" first (`Cardkit.V1.Card.Create`)
+//     with `streaming_mode: true`, then sends an `Im.Message.Create`
+//     whose content references the card_id. Subsequent EditMessage calls
+//     are routed to the cardkit content API
+//     (`Cardkit.V1.CardElement.Content`) so the Feishu client renders the
+//     incremental updates with a typewriter effect. EndStream flips
+//     `streaming_mode` back to false on the underlying card so the
+//     blinking cursor goes away.
+//
 // First-milestone scope:
 //   - private chats only (group / topic_group are silently dropped per
 //     the Non-Goals in the spec)
 //   - inbound: text messages only (rich blocks / attachments deferred)
-//   - outbound: rendered as Feishu interactive cards (card JSON 2.0,
-//     `rich_text` element) so LLM markdown output (headings, code blocks,
-//     lists, tables, bold/italic) renders properly. Plain `text` msg type
-//     is no longer used.
 //   - automatic reconnect via SDK default behavior (autoReconnect=true,
 //     unlimited retries, 2-minute interval)
 //
-// Outbound content is wrapped in card JSON 2.0:
-// `{"schema":"2.0","config":{"update_multi":true},"body":{"elements":
-// [{"tag":"rich_text","content":"<markdown body>"}]}}`. JSON encoding
-// handles escaping. Card JSON 2.0 requires Feishu client ≥ 7.20.
+// Card JSON 2.0 + cardkit streaming both require Feishu client ≥ 7.20.
 package feishu
 
 import (
@@ -31,8 +40,10 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
+	larkcardkit "github.com/larksuite/oapi-sdk-go/v3/service/cardkit/v1"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
@@ -40,6 +51,19 @@ import (
 
 	"vetta-im-gateway/internal/transport"
 )
+
+// streamElementID is the fixed element_id we assign to the single markdown
+// component inside every streaming card. The cardkit content-update API
+// addresses elements by id, so we need a stable name to patch into.
+const streamElementID = "streaming_text"
+
+// streamRegistryCap caps the number of in-flight streaming cards we
+// remember. A streaming card lives only for the duration of one assistant
+// turn (created on SendMessage(streaming=true), dropped on EndStream), so
+// 256 is far more than the steady-state need; it exists purely to bound
+// memory if a turn ever fails to call EndStream (e.g. context cancelled
+// mid-turn).
+const streamRegistryCap = 256
 
 // Options configures Transport. AppID + AppSecret are required.
 type Options struct {
@@ -55,6 +79,16 @@ type Options struct {
 	LogLevel larkcore.LogLevel
 }
 
+// streamHandle remembers what cardkit card backs an in-flight streaming
+// IM message, and the last sequence number we sent. Sequences must be
+// strictly monotonic within one card's streaming cycle (Feishu rejects
+// non-increasing values), so we keep the running counter here instead of
+// trusting time.Now() in case two updates arrive in the same millisecond.
+type streamHandle struct {
+	cardID  string
+	lastSeq int64
+}
+
 // Transport implements transport.Transport for Feishu.
 type Transport struct {
 	opts   Options
@@ -63,6 +97,15 @@ type Transport struct {
 	mu     sync.Mutex
 	closed atomic.Bool
 	done   chan struct{}
+
+	// Streaming state. The map is keyed by IM message ID (what the bridge
+	// holds onto) and stores the cardkit card_id we need for subsequent
+	// content updates and the EndStream call. order tracks insertion order
+	// for FIFO eviction. Both are guarded by streamMu (separate from mu so
+	// streaming traffic doesn't contend with start/stop).
+	streamMu sync.Mutex
+	streams  map[string]*streamHandle
+	order    []string
 }
 
 // New constructs a Feishu Transport. Validates required fields.
@@ -82,9 +125,10 @@ func New(opts Options) (*Transport, error) {
 	}
 
 	t := &Transport{
-		opts: opts,
-		api:  lark.NewClient(opts.AppID, opts.AppSecret, apiOpts...),
-		done: make(chan struct{}),
+		opts:    opts,
+		api:     lark.NewClient(opts.AppID, opts.AppSecret, apiOpts...),
+		done:    make(chan struct{}),
+		streams: make(map[string]*streamHandle),
 	}
 	return t, nil
 }
@@ -96,13 +140,12 @@ func (t *Transport) Name() string { return "feishu" }
 
 func (t *Transport) Capabilities() transport.Capabilities {
 	return transport.Capabilities{
-		// Feishu's PATCH /im/v1/messages/:message_id endpoint only supports
-		// updating interactive cards, NOT text messages — text messages are
-		// effectively immutable once sent. Declaring this honestly forces
-		// the bridge to use the chunk fallback path (one final SendMessage
-		// per assistant message) instead of trying to edit-in-place and
-		// silently losing all but the first delta.
-		SupportsMessageEdit: false,
+		// Streaming responses use the cardkit content-update API which
+		// is purpose-built for incremental edits and not subject to the
+		// im/messages PATCH "interactive only" limitation. The bridge
+		// uses commitEdit ⇒ SendMessage(streaming=true) ⇒ repeated
+		// EditMessage(streaming=true) ⇒ EndStream — see the package doc.
+		SupportsMessageEdit: true,
 		SupportsCards:       true,
 		SupportsButtons:     true,
 		SupportsFileUpload:  true,
@@ -233,15 +276,31 @@ func (t *Transport) handleInbound(ctx context.Context, event *larkim.P2MessageRe
 	return handler.HandleInbound(ctx, inbound)
 }
 
-// SendMessage sends an interactive markdown card to the chat and returns
-// the Feishu message ID for later editing. The body of OutboundMessage.Text
-// is treated as markdown and rendered via card JSON 2.0's rich_text element.
+// SendMessage delivers a message to the chat. Two paths:
+//
+//   - msg.Streaming=false: a one-shot card 2.0 markdown message sent
+//     directly via Im.Message.Create. One round trip; no cardkit state.
+//
+//   - msg.Streaming=true: provision a cardkit card entity in streaming
+//     mode, send an interactive message that references its card_id, and
+//     remember the binding so subsequent EditMessage calls can patch the
+//     card's content via the cardkit content API.
+//
+// Returns the platform message_id either way.
 func (t *Transport) SendMessage(ctx context.Context, chatID string, msg transport.OutboundMessage) (string, error) {
-	body, err := encodeMarkdownCard(msg.Text)
+	if msg.Streaming {
+		return t.sendStreamingMessage(ctx, chatID, msg.Text)
+	}
+	return t.sendStaticCard(ctx, chatID, msg.Text)
+}
+
+// sendStaticCard is the simple one-shot path used by command replies,
+// errors, and any other non-streaming output.
+func (t *Transport) sendStaticCard(ctx context.Context, chatID, text string) (string, error) {
+	body, err := encodeMarkdownCard(text)
 	if err != nil {
 		return "", err
 	}
-
 	req := larkim.NewCreateMessageReqBuilder().
 		ReceiveIdType("chat_id").
 		Body(larkim.NewCreateMessageReqBodyBuilder().
@@ -264,27 +323,123 @@ func (t *Transport) SendMessage(ctx context.Context, chatID string, msg transpor
 	return *resp.Data.MessageId, nil
 }
 
-// EditMessage replaces the content of a previously sent message via the
-// Feishu Patch API. Currently unused — Capabilities() advertises
-// SupportsMessageEdit=false so the bridge never calls this — but kept
-// correct so enabling streaming edits later is a one-line capability flip.
+// sendStreamingMessage provisions a cardkit card entity, sends it via the
+// IM API as a `card`-type interactive message, and registers the resulting
+// (message_id, card_id) binding so EditMessage / EndStream can find it.
+func (t *Transport) sendStreamingMessage(ctx context.Context, chatID, text string) (string, error) {
+	cardJSON, err := encodeStreamingCardJSON(text)
+	if err != nil {
+		return "", err
+	}
+
+	createReq := larkcardkit.NewCreateCardReqBuilder().
+		Body(larkcardkit.NewCreateCardReqBodyBuilder().
+			Type("card_json").
+			Data(cardJSON).
+			Build()).
+		Build()
+	createResp, err := t.api.Cardkit.V1.Card.Create(ctx, createReq)
+	if err != nil {
+		return "", fmt.Errorf("feishu cardkit create: %w", err)
+	}
+	if !createResp.Success() {
+		return "", fmt.Errorf("feishu cardkit create: %s (%d)", createResp.Msg, createResp.Code)
+	}
+	if createResp.Data == nil || createResp.Data.CardId == nil {
+		return "", errors.New("feishu cardkit create: missing card_id in response")
+	}
+	cardID := *createResp.Data.CardId
+
+	// Reference the card_id from an interactive message. The IM API expects
+	// content as a JSON string of {"type":"card","data":{"card_id":"..."}}.
+	refBody, err := encodeCardReferenceContent(cardID)
+	if err != nil {
+		return "", err
+	}
+	imReq := larkim.NewCreateMessageReqBuilder().
+		ReceiveIdType("chat_id").
+		Body(larkim.NewCreateMessageReqBodyBuilder().
+			ReceiveId(chatID).
+			MsgType("interactive").
+			Content(refBody).
+			Build()).
+		Build()
+	imResp, err := t.api.Im.Message.Create(ctx, imReq)
+	if err != nil {
+		return "", fmt.Errorf("feishu send (cardkit): %w", err)
+	}
+	if !imResp.Success() {
+		return "", fmt.Errorf("feishu send (cardkit): %s (%d)", imResp.Msg, imResp.Code)
+	}
+	if imResp.Data == nil || imResp.Data.MessageId == nil {
+		return "", errors.New("feishu send (cardkit): missing message id in response")
+	}
+	messageID := *imResp.Data.MessageId
+	t.registerStream(messageID, cardID)
+	return messageID, nil
+}
+
+// EditMessage updates a streaming message in place. The bridge only calls
+// this for messages it created via SendMessage(streaming=true), so the
+// (message_id → card_id) binding must already be registered. We push the
+// new full text to cardkit's content API which diffs against the previous
+// content and renders the change as a typewriter effect on the client.
 func (t *Transport) EditMessage(ctx context.Context, _ string, messageID string, msg transport.OutboundMessage) error {
-	body, err := encodeMarkdownCard(msg.Text)
+	h := t.lookupStream(messageID)
+	if h == nil {
+		return fmt.Errorf("feishu edit: no streaming card for message %s", messageID)
+	}
+
+	seq := t.nextSequence(h)
+	body, err := encodeStreamingContentBody(msg.Text)
 	if err != nil {
 		return err
 	}
-	req := larkim.NewPatchMessageReqBuilder().
-		MessageId(messageID).
-		Body(larkim.NewPatchMessageReqBodyBuilder().
+	req := larkcardkit.NewContentCardElementReqBuilder().
+		CardId(h.cardID).
+		ElementId(streamElementID).
+		Body(larkcardkit.NewContentCardElementReqBodyBuilder().
 			Content(body).
+			Sequence(int(seq)).
 			Build()).
 		Build()
-	resp, err := t.api.Im.Message.Patch(ctx, req)
+	resp, err := t.api.Cardkit.V1.CardElement.Content(ctx, req)
 	if err != nil {
-		return fmt.Errorf("feishu edit: %w", err)
+		return fmt.Errorf("feishu cardkit content: %w", err)
 	}
 	if !resp.Success() {
-		return fmt.Errorf("feishu edit: %s (%d)", resp.Msg, resp.Code)
+		return fmt.Errorf("feishu cardkit content: %s (%d)", resp.Msg, resp.Code)
+	}
+	return nil
+}
+
+// EndStream marks a streaming card as finished by flipping streaming_mode
+// off via the cardkit settings API, then drops the (message_id → card_id)
+// binding. EndStream on an unknown message_id is a no-op (returning nil)
+// so the bridge can call it unconditionally.
+func (t *Transport) EndStream(ctx context.Context, _ string, messageID string) error {
+	h := t.unregisterStream(messageID)
+	if h == nil {
+		return nil
+	}
+	seq := t.nextSequence(h)
+	settingsJSON, err := encodeStreamingFinishedSettings()
+	if err != nil {
+		return err
+	}
+	req := larkcardkit.NewSettingsCardReqBuilder().
+		CardId(h.cardID).
+		Body(larkcardkit.NewSettingsCardReqBodyBuilder().
+			Settings(settingsJSON).
+			Sequence(int(seq)).
+			Build()).
+		Build()
+	resp, err := t.api.Cardkit.V1.Card.Settings(ctx, req)
+	if err != nil {
+		return fmt.Errorf("feishu cardkit settings: %w", err)
+	}
+	if !resp.Success() {
+		return fmt.Errorf("feishu cardkit settings: %s (%d)", resp.Msg, resp.Code)
 	}
 	return nil
 }
@@ -313,15 +468,12 @@ func (t *Transport) ShowTyping(_ context.Context, _ string) error {
 // =============================================================================
 
 // encodeMarkdownCard wraps a markdown string into a Feishu card JSON 2.0
-// payload that renders as a single rich_text element. The result is the
+// payload that renders as a single markdown element. The result is the
 // stringified JSON expected by `Im.Message.Create` when MsgType is
 // "interactive". JSON encoding handles all escaping.
 //
-// Schema reference: card JSON 2.0 with a single rich_text element. Requires
-// Feishu client ≥ 7.20. `update_multi: true` allows the same card to be
-// updated by multiple subsequent edits (forward-compatible with future
-// streaming edits even though Capabilities currently advertises
-// SupportsMessageEdit=false).
+// Used by the non-streaming send path (one-shot replies). Card JSON 2.0
+// requires Feishu client ≥ 7.20.
 func encodeMarkdownCard(markdown string) (string, error) {
 	card := map[string]any{
 		"schema": "2.0",
@@ -342,6 +494,146 @@ func encodeMarkdownCard(markdown string) (string, error) {
 		return "", fmt.Errorf("encode markdown card: %w", err)
 	}
 	return string(body), nil
+}
+
+// encodeStreamingCardJSON builds the card JSON 2.0 body that gets handed to
+// cardkit's Card.Create. It declares streaming_mode=true so that subsequent
+// content updates animate with the typewriter effect, and pins a stable
+// element_id on the markdown element so the content-update API can address
+// it.
+func encodeStreamingCardJSON(initial string) (string, error) {
+	card := map[string]any{
+		"schema": "2.0",
+		"config": map[string]any{
+			"streaming_mode": true,
+			"update_multi":   true,
+			"summary": map[string]any{
+				"content": "",
+			},
+			"streaming_config": map[string]any{
+				"print_strategy": "fast",
+			},
+		},
+		"body": map[string]any{
+			"elements": []any{
+				map[string]any{
+					"tag":        "markdown",
+					"element_id": streamElementID,
+					"content":    initial,
+				},
+			},
+		},
+	}
+	body, err := json.Marshal(card)
+	if err != nil {
+		return "", fmt.Errorf("encode streaming card: %w", err)
+	}
+	return string(body), nil
+}
+
+// encodeCardReferenceContent builds the JSON the IM messages-create
+// endpoint expects when sending an interactive card by reference (rather
+// than inlining the card body): {"type":"card","data":{"card_id":"..."}}.
+func encodeCardReferenceContent(cardID string) (string, error) {
+	body, err := json.Marshal(map[string]any{
+		"type": "card",
+		"data": map[string]any{
+			"card_id": cardID,
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("encode card reference: %w", err)
+	}
+	return string(body), nil
+}
+
+// encodeStreamingContentBody wraps a markdown chunk in the {"content":"..."}
+// envelope that the cardkit element-content endpoint expects.
+func encodeStreamingContentBody(markdown string) (string, error) {
+	body, err := json.Marshal(map[string]string{"content": markdown})
+	if err != nil {
+		return "", fmt.Errorf("encode streaming content: %w", err)
+	}
+	return string(body), nil
+}
+
+// encodeStreamingFinishedSettings produces the partial card-settings JSON
+// the cardkit Settings endpoint expects to flip a card out of streaming
+// mode. We only touch streaming_mode; everything else stays as it was.
+func encodeStreamingFinishedSettings() (string, error) {
+	body, err := json.Marshal(map[string]any{
+		"config": map[string]any{
+			"streaming_mode": false,
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("encode streaming-finished settings: %w", err)
+	}
+	return string(body), nil
+}
+
+// =============================================================================
+// streaming registry
+// =============================================================================
+
+// registerStream stores a (message_id → card_id) binding, evicting the
+// oldest entry FIFO if we're at capacity. Initial sequence is the current
+// wall clock in milliseconds — that gives us a unique starting point per
+// stream and matches Feishu's "use a timestamp" recommendation, while
+// nextSequence() guarantees strict monotonicity from there.
+func (t *Transport) registerStream(messageID, cardID string) {
+	t.streamMu.Lock()
+	defer t.streamMu.Unlock()
+	if _, exists := t.streams[messageID]; exists {
+		// Re-binding the same id is unexpected but harmless; just refresh.
+		t.streams[messageID] = &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()}
+		return
+	}
+	if len(t.streams) >= streamRegistryCap {
+		oldest := t.order[0]
+		t.order = t.order[1:]
+		delete(t.streams, oldest)
+	}
+	t.streams[messageID] = &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()}
+	t.order = append(t.order, messageID)
+}
+
+func (t *Transport) lookupStream(messageID string) *streamHandle {
+	t.streamMu.Lock()
+	defer t.streamMu.Unlock()
+	return t.streams[messageID]
+}
+
+func (t *Transport) unregisterStream(messageID string) *streamHandle {
+	t.streamMu.Lock()
+	defer t.streamMu.Unlock()
+	h := t.streams[messageID]
+	if h == nil {
+		return nil
+	}
+	delete(t.streams, messageID)
+	for i, id := range t.order {
+		if id == messageID {
+			t.order = append(t.order[:i], t.order[i+1:]...)
+			break
+		}
+	}
+	return h
+}
+
+// nextSequence returns the next strictly-increasing sequence number for
+// the given stream. Always at least lastSeq+1 even if the wall clock
+// hasn't moved (or moved backwards), so back-to-back updates within the
+// same millisecond stay valid.
+func (t *Transport) nextSequence(h *streamHandle) int64 {
+	t.streamMu.Lock()
+	defer t.streamMu.Unlock()
+	now := time.Now().UnixMilli()
+	if now <= h.lastSeq {
+		now = h.lastSeq + 1
+	}
+	h.lastSeq = now
+	return now
 }
 
 // extractText pulls the user-visible text out of Feishu's text-message

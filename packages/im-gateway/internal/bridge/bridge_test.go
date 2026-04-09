@@ -70,6 +70,13 @@ func (f *fakeTransport) ShowTyping(_ context.Context, chatID string) error {
 	return nil
 }
 
+func (f *fakeTransport) EndStream(_ context.Context, chatID, messageID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, transportCall{Action: "endstream", ChatID: chatID, MessageID: messageID})
+	return nil
+}
+
 func (f *fakeTransport) snapshot() []transportCall {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -230,12 +237,23 @@ func TestBridge_EditMode_StreamsViaEdits(t *testing.T) {
 	if calls[0].Action != "send" {
 		t.Errorf("first action should be send, got %q", calls[0].Action)
 	}
-	last := calls[len(calls)-1]
-	if !strings.Contains(last.Text, "hello world agent") {
-		t.Errorf("final text should be the full accumulated text, got %q", last.Text)
+	// The last *content-bearing* call (send/edit) must contain the full
+	// accumulated text — this is what the flush-on-agent_end guarantees.
+	// The very last call may be an endstream which carries no text.
+	var lastContentful transportCall
+	for _, c := range calls {
+		if c.Action == "send" || c.Action == "edit" {
+			lastContentful = c
+		}
 	}
-	// Final emission must equal the entire stream — this is what the
-	// flush-on-agent_end guarantees.
+	if !strings.Contains(lastContentful.Text, "hello world agent") {
+		t.Errorf("final text should be the full accumulated text, got %q", lastContentful.Text)
+	}
+	// And the very last call should be EndStream so the cardkit-style
+	// transports get a chance to clean up server state.
+	if calls[len(calls)-1].Action != "endstream" {
+		t.Errorf("expected final action to be endstream, got %q", calls[len(calls)-1].Action)
+	}
 }
 
 func TestBridge_EditMode_FlushSplitsAcrossMessageEnd(t *testing.T) {
