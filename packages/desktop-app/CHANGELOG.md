@@ -10,6 +10,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **微信（iLink）渠道卡片 + 扫码绑定对话框**：`Settings → IM 集成` 新增「微信」渠道卡片，与飞书并列。点击「扫码绑定」打开对话框，对话框内通过 NDJSON 长轮询从 sidecar 实时接收 `wechat_qr` / `wechat_bind_status` / `wechat_bound` 事件，渲染 QR 图（`qrcode` 包，新增依赖），按状态机展示 idle → starting → waiting → scanned → confirmed → 自动关闭，过期自动刷新。
+  - 「活动」徽章：标识当前激活的 transport（飞书 / 微信，互斥）。点击非活动卡片的「激活」按钮可在不重新填写凭据的前提下切换到该 transport。
+  - 「管理 / 解绑」：已绑定后对话框显示 `ilink_bot_id` / `ilink_user_id` 与 24h/10 条配额提醒，并提供解绑按钮。解绑触发 `wechat_logout` 帧，sidecar 清空 `~/.vetta/desktop-app/im-wechat.json` 后回到 awaiting_bind 状态。
+  - 总开关在微信模式下无需任何长效凭据：选中微信、未绑定时点击「启用」会自动弹出绑定对话框；已绑定后启用即拉起 wechat transport 长轮询。
 - **IM 集成设置页**（`Settings → IM 集成`）：支持启用 / 停用 IM 桥接、填写飞书 App ID / App Secret / Verification Token / Encrypt Key、查看连接状态、测试连接、重启桥接、查看实时日志（最近 500 条），跨 macOS / Windows / Linux 三端可用。
 - **嵌入式 im-gateway 桥接子进程**：desktop-app 主进程通过 `child_process.spawn` 启动 `im-gateway host` 子进程，stdio NDJSON 协议双向通信。完整生命周期由父进程管理：app 完全退出 → 桥接进程在 5s 内被发送 shutdown 帧 → 退出。
   - 健康检查：spawn 后 10s 内未收到 `ready` 事件视为启动失败。
