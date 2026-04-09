@@ -74,6 +74,95 @@ func TestDecodeInbound_Shutdown(t *testing.T) {
 	}
 }
 
+func TestDecodeInbound_InitWechat(t *testing.T) {
+	line := []byte(`{"type":"init","wechat":{"enabled":true,"statePath":"/tmp/wx.json"},"projects":[],"state":[]}`)
+	v, err := DecodeInbound(line)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	init, ok := v.(*InitFrame)
+	if !ok {
+		t.Fatalf("type: %T", v)
+	}
+	if init.Wechat == nil || !init.Wechat.Enabled || init.Wechat.StatePath != "/tmp/wx.json" {
+		t.Errorf("wechat mismatch: %+v", init.Wechat)
+	}
+	if init.Feishu != nil {
+		t.Errorf("expected nil feishu when wechat is set")
+	}
+}
+
+func TestDecodeInbound_WechatBindStart(t *testing.T) {
+	v, err := DecodeInbound([]byte(`{"type":"wechat_bind_start"}`))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if _, ok := v.(*WechatBindStartFrame); !ok {
+		t.Fatalf("type: %T", v)
+	}
+}
+
+func TestDecodeInbound_WechatLogout(t *testing.T) {
+	v, err := DecodeInbound([]byte(`{"type":"wechat_logout"}`))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if _, ok := v.(*WechatLogoutFrame); !ok {
+		t.Fatalf("type: %T", v)
+	}
+}
+
+func TestEncodeFrame_WechatEvents(t *testing.T) {
+	cases := []struct {
+		name string
+		in   any
+		want string
+	}{
+		{
+			name: "qr",
+			in:   WechatQREvent{Type: TypeWechatQR, URL: "https://example/x", Attempt: 1},
+			want: `"type":"wechat_qr"`,
+		},
+		{
+			name: "bind_status",
+			in: WechatBindStatusEvent{
+				Type:   TypeWechatBindStatus,
+				Status: WechatBindStatusScanned,
+			},
+			want: `"type":"wechat_bind_status"`,
+		},
+		{
+			name: "bound",
+			in: WechatBoundEvent{
+				Type:        TypeWechatBound,
+				ILinkBotID:  "bot",
+				ILinkUserID: "user",
+				BaseURL:     "https://m.example",
+			},
+			want: `"type":"wechat_bound"`,
+		},
+		{
+			name: "unbound",
+			in:   WechatUnboundEvent{Type: TypeWechatUnbound, Reason: "user logout"},
+			want: `"type":"wechat_unbound"`,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			data, err := EncodeFrame(c.in)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			if !strings.Contains(string(data), c.want) {
+				t.Errorf("got %q, want substring %q", data, c.want)
+			}
+			if !bytes.HasSuffix(data, []byte("\n")) {
+				t.Errorf("frame must end with newline")
+			}
+		})
+	}
+}
+
 func TestDecodeInbound_UnknownType(t *testing.T) {
 	_, err := DecodeInbound([]byte(`{"type":"weird"}`))
 	if err == nil {

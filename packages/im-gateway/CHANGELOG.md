@@ -12,6 +12,9 @@ All notable changes to `@vetta/im-gateway` are documented in this file.
 
 ### Added
 
+- New WeChat (iLink) transport in `internal/transport/wechat`. Speaks the iLink bot protocol directly (no OpenClaw dependency), reverse-engineered from `@tencent-weixin/openclaw-weixin@2.1.7`. M1 scope: 1-on-1 text only, scan-to-bind, long-poll receive, send with per-peer 24h/10-message quota tracking. New `im-gateway wechat <login|status|logout>` subcommand drives the QR scan flow and persists credentials to `~/.vetta/im-gateway/wechat.json`. Protocol reference: `docs/ilink-protocol.md`.
+- Host mode support for WeChat: `InitFrame.wechat` slot selects the wechat transport, new inbound frames `wechat_bind_start` / `wechat_logout` drive the QR scan flow from the parent process, new outbound events `wechat_qr` / `wechat_bind_status` / `wechat_bound` / `wechat_unbound` stream live progress back. New transport status `awaiting_bind` signals "wechat selected but no credentials yet". The desktop-app's IM Settings page uses these to render the WeChat binding card.
+- `Router.SetTransport` for in-process transport swaps. Used by host mode to replace the placeholder transport with the real wechat transport after a successful bind, without restarting the sidecar.
 - New `host` subcommand: embedded sidecar entrypoint for `desktop-app`. Reads NDJSON control frames from stdin (`init` / `config_update` / `projects_update` / `shutdown`) and writes typed events to stdout (`ready` / `log` / `status` / `state_patch` / `metric`).
 - New `internal/hostproto` package defining the wire protocol shared between Go (`host` mode) and TypeScript (`desktop-app/im-host`).
 - New `state.MemoryStore` and `projects.InjectedDirectory` implementations for the `host`-mode runtime — neither touches the filesystem.

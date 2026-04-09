@@ -1,6 +1,6 @@
 import { ipcMain, type WebContents } from "electron";
 import type { LogEvent } from "../im-host/host-protocol.js";
-import { getImHost, type SetConfigPayload } from "../im-host/index.js";
+import { getImHost, type SetConfigPayload, type WechatBindEvent } from "../im-host/index.js";
 import type { LegacyDetection } from "../im-host/migration.js";
 
 const CHANNELS = {
@@ -17,6 +17,11 @@ const CHANNELS = {
 	GET_PATHS: "vetta:im:get-paths",
 	DETECT_LEGACY: "vetta:im:detect-legacy",
 	IMPORT_LEGACY: "vetta:im:import-legacy",
+	WECHAT_START_BIND: "vetta:im:wechat:start-bind",
+	WECHAT_LOGOUT: "vetta:im:wechat:logout",
+	WECHAT_SUBSCRIBE: "vetta:im:wechat:subscribe",
+	WECHAT_UNSUBSCRIBE: "vetta:im:wechat:unsubscribe",
+	WECHAT_BIND_EVENT: "vetta:im:wechat:bind-event",
 } as const;
 
 interface SubscriptionEntry {
@@ -25,7 +30,9 @@ interface SubscriptionEntry {
 }
 
 const subscriptions = new Map<string, SubscriptionEntry>();
+const wechatSubscriptions = new Map<string, () => void>();
 let counter = 0;
+let wechatCounter = 0;
 
 export function registerImIpc(webContents: WebContents): () => void {
 	const host = getImHost();
@@ -108,6 +115,48 @@ export function registerImIpc(webContents: WebContents): () => void {
 		return host.importLegacy(detection);
 	});
 
+	// =========================================================================
+	// Wechat bind flow
+	// =========================================================================
+	//
+	// Renderer drives the QR scan dialog through these channels:
+	//   1. wechat:start-bind  → ImHost ensures sidecar is up + wechat
+	//      transport selected, then sends a wechat_bind_start frame.
+	//   2. wechat:subscribe   → renderer subscribes to live progress
+	//      events (qr / status / bound / unbound) for its dialog UI.
+	//   3. wechat:logout      → clears credentials, returns to
+	//      awaiting_bind state.
+	//
+	// The subscription is independent of the status/log subscription so
+	// the bind dialog can stay live without forcing the whole settings
+	// page to subscribe to bind events too.
+	ipcMain.handle(CHANNELS.WECHAT_START_BIND, async () => {
+		return host.startWechatBind();
+	});
+
+	ipcMain.handle(CHANNELS.WECHAT_LOGOUT, async () => {
+		return host.wechatLogout();
+	});
+
+	ipcMain.handle(CHANNELS.WECHAT_SUBSCRIBE, () => {
+		wechatCounter += 1;
+		const id = `im-wechat-sub-${wechatCounter}`;
+		const unsub = host.subscribeWechatBind((event: WechatBindEvent) => {
+			if (webContents.isDestroyed()) return;
+			webContents.send(CHANNELS.WECHAT_BIND_EVENT, id, event);
+		});
+		wechatSubscriptions.set(id, unsub);
+		return { subscriptionId: id };
+	});
+
+	ipcMain.handle(CHANNELS.WECHAT_UNSUBSCRIBE, (_event, id: string) => {
+		const unsub = wechatSubscriptions.get(id);
+		if (unsub) {
+			unsub();
+			wechatSubscriptions.delete(id);
+		}
+	});
+
 	return () => {
 		ipcMain.removeHandler(CHANNELS.GET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.SET_CONFIG);
@@ -120,10 +169,18 @@ export function registerImIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.GET_PATHS);
 		ipcMain.removeHandler(CHANNELS.DETECT_LEGACY);
 		ipcMain.removeHandler(CHANNELS.IMPORT_LEGACY);
+		ipcMain.removeHandler(CHANNELS.WECHAT_START_BIND);
+		ipcMain.removeHandler(CHANNELS.WECHAT_LOGOUT);
+		ipcMain.removeHandler(CHANNELS.WECHAT_SUBSCRIBE);
+		ipcMain.removeHandler(CHANNELS.WECHAT_UNSUBSCRIBE);
 		for (const entry of subscriptions.values()) {
 			entry.statusUnsub();
 			entry.logUnsub();
 		}
 		subscriptions.clear();
+		for (const unsub of wechatSubscriptions.values()) {
+			unsub();
+		}
+		wechatSubscriptions.clear();
 	};
 }

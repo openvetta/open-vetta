@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import { cn } from "@shared/lib/utils";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@shared/components/ui/dialog";
 import type {
 	ImBridgeConfig,
 	ImBridgeStatus,
 	ImLegacyDetection,
 	ImLogEvent,
 	ImSetConfigPayload,
+	ImTransportSelector,
 	ImTransportStatus,
+	ImWechatBindEvent,
 } from "@preload/api";
 import { SettingRow, SettingSection } from "./shared";
 
@@ -14,46 +25,38 @@ import { SettingRow, SettingSection } from "./shared";
 // Form state
 // =============================================================================
 
-interface FormState {
-	enabled: boolean;
+// Feishu 表单仅保留 App ID / App Secret；其余字段（verificationToken / encryptKey /
+// baseUrl）由后端长连接模式不需要、或保持先前已存值不变。
+interface FeishuFormState {
 	appId: string;
 	appSecret: string;
-	verificationToken: string;
-	encryptKey: string;
-	baseUrl: string;
 }
 
-function emptyForm(): FormState {
-	return {
-		enabled: false,
-		appId: "",
-		appSecret: "",
-		verificationToken: "",
-		encryptKey: "",
-		baseUrl: "",
-	};
+function emptyFeishuForm(): FeishuFormState {
+	return { appId: "", appSecret: "" };
 }
 
-function formFromConfig(cfg: ImBridgeConfig): FormState {
+function feishuFormFromConfig(cfg: ImBridgeConfig): FeishuFormState {
 	return {
-		enabled: cfg.enabled,
 		appId: cfg.feishu.appId,
 		appSecret: cfg.feishu.appSecret,
-		verificationToken: cfg.feishu.verificationToken,
-		encryptKey: cfg.feishu.encryptKey,
-		baseUrl: cfg.feishu.baseUrl ?? "",
 	};
 }
 
-function formToPayload(form: FormState): ImSetConfigPayload {
+function feishuFormToPayload(
+	cfg: ImBridgeConfig,
+	form: FeishuFormState,
+	enabled: boolean,
+): ImSetConfigPayload {
+	// 透传已存在的可选字段，避免覆盖用户先前配置。
 	return {
-		enabled: form.enabled,
+		enabled,
 		feishu: {
 			appId: form.appId.trim(),
 			appSecret: form.appSecret,
-			verificationToken: form.verificationToken || undefined,
-			encryptKey: form.encryptKey || undefined,
-			baseUrl: form.baseUrl.trim() || undefined,
+			verificationToken: cfg.feishu.verificationToken || undefined,
+			encryptKey: cfg.feishu.encryptKey || undefined,
+			baseUrl: cfg.feishu.baseUrl || undefined,
 		},
 	};
 }
@@ -67,6 +70,7 @@ const STATUS_LABEL: Record<ImTransportStatus, string> = {
 	connecting: "连接中",
 	online: "在线",
 	error: "错误",
+	awaiting_bind: "等待扫码",
 };
 
 const STATUS_CLASS: Record<ImTransportStatus, string> = {
@@ -74,6 +78,7 @@ const STATUS_CLASS: Record<ImTransportStatus, string> = {
 	connecting: "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-300",
 	online: "bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-300",
 	error: "bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-300",
+	awaiting_bind: "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-300",
 };
 
 function StatusBadge({ status }: { status: ImTransportStatus }): JSX.Element {
@@ -96,7 +101,9 @@ function StatusBadge({ status }: { status: ImTransportStatus }): JSX.Element {
 
 export function ImBridgeSettings(): JSX.Element {
 	const [config, setConfig] = useState<ImBridgeConfig | null>(null);
-	const [form, setForm] = useState<FormState>(emptyForm);
+	const [feishuForm, setFeishuForm] = useState<FeishuFormState>(emptyFeishuForm);
+	const [feishuDialogOpen, setFeishuDialogOpen] = useState(false);
+	const [wechatDialogOpen, setWechatDialogOpen] = useState(false);
 	const [status, setStatus] = useState<ImBridgeStatus | null>(null);
 	const [showSecret, setShowSecret] = useState(false);
 	const [saving, setSaving] = useState(false);
@@ -117,7 +124,7 @@ export function ImBridgeSettings(): JSX.Element {
 			const cfg = await window.vetta.im.getConfig();
 			if (cancelled) return;
 			setConfig(cfg);
-			setForm(formFromConfig(cfg));
+			setFeishuForm(feishuFormFromConfig(cfg));
 
 			const unsub = await window.vetta.im.subscribeStatus(
 				(snap) => setStatus(snap),
@@ -154,7 +161,7 @@ export function ImBridgeSettings(): JSX.Element {
 			if (result.ok) {
 				const refreshed = await window.vetta.im.getConfig();
 				setConfig(refreshed);
-				setForm(formFromConfig(refreshed));
+				setFeishuForm(feishuFormFromConfig(refreshed));
 				setLegacy(null);
 				setSaveOk("已导入旧版凭据，原文件已重命名为 .bak");
 			} else {
@@ -169,53 +176,120 @@ export function ImBridgeSettings(): JSX.Element {
 		setLegacy(null);
 	}, []);
 
-	// Field-level validation. saveable means save button enabled.
-	const validation = useMemo(() => {
-		const errors: Partial<Record<keyof FormState, string>> = {};
-		if (!form.appId.trim()) errors.appId = "App ID 不能为空";
-		if (!form.appSecret) errors.appSecret = "App Secret 不能为空";
+	// 字段级校验。
+	const feishuValidation = useMemo(() => {
+		const errors: Partial<Record<keyof FeishuFormState, string>> = {};
+		if (!feishuForm.appId.trim()) errors.appId = "App ID 不能为空";
+		if (!feishuForm.appSecret) errors.appSecret = "App Secret 不能为空";
 		return { errors, valid: Object.keys(errors).length === 0 };
-	}, [form]);
+	}, [feishuForm]);
 
-	const updateField = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
-		setSaveError(null);
-		setSaveOk(null);
-		setForm((prev) => ({ ...prev, [key]: value }));
-	}, []);
+	const updateFeishuField = useCallback(
+		<K extends keyof FeishuFormState>(key: K, value: FeishuFormState[K]) => {
+			setSaveError(null);
+			setSaveOk(null);
+			setFeishuForm((prev) => ({ ...prev, [key]: value }));
+		},
+		[],
+	);
 
 	const handleToggleEnabled = useCallback(
 		async (enabled: boolean) => {
-			updateField("enabled", enabled);
 			if (!config) return;
-			// Toggling without unsaved field changes → propagate immediately.
-			if (validation.valid) {
-				setSaving(true);
-				try {
-					const payload = formToPayload({ ...form, enabled });
-					const result = await window.vetta.im.setConfig(payload);
-					if (!result.ok) {
-						setSaveError(result.error ?? "保存失败");
-					} else {
-						const refreshed = await window.vetta.im.getConfig();
-						setConfig(refreshed);
-						setForm(formFromConfig(refreshed));
-						setSaveOk(enabled ? "已启用" : "已停用");
-					}
-				} finally {
-					setSaving(false);
+			// Validate per-transport before allowing the switch on.
+			if (enabled) {
+				if (config.transport === "feishu" && !feishuValidation.valid) {
+					setSaveError("请先填写飞书 App ID 与 App Secret");
+					setFeishuDialogOpen(true);
+					return;
+				}
+				if (config.transport === "wechat" && !config.wechat.bound) {
+					setSaveError("请先扫码绑定微信账号");
+					setWechatDialogOpen(true);
+					return;
 				}
 			}
+			setSaving(true);
+			try {
+				// Send only the slot for the active transport so we don't
+				// accidentally clobber the other transport's stored creds.
+				const payload: ImSetConfigPayload = {
+					enabled,
+					transport: config.transport,
+					feishu:
+						config.transport === "feishu"
+							? feishuFormToPayload(config, feishuForm, enabled).feishu
+							: undefined,
+				};
+				const result = await window.vetta.im.setConfig(payload);
+				if (!result.ok) {
+					setSaveError(result.error ?? "保存失败");
+				} else {
+					const refreshed = await window.vetta.im.getConfig();
+					setConfig(refreshed);
+					setFeishuForm(feishuFormFromConfig(refreshed));
+					setSaveOk(enabled ? "已启用" : "已停用");
+				}
+			} finally {
+				setSaving(false);
+			}
 		},
-		[config, form, validation.valid, updateField],
+		[config, feishuForm, feishuValidation.valid],
 	);
 
-	const handleSave = useCallback(async () => {
-		if (!validation.valid || saving) return;
+	// Switch the active transport without changing enabled. Used by clicking
+	// "激活" on a configured channel card.
+	const handleSwitchTransport = useCallback(
+		async (next: ImTransportSelector) => {
+			if (!config || config.transport === next) return;
+			setSaving(true);
+			setSaveError(null);
+			setSaveOk(null);
+			try {
+				const result = await window.vetta.im.setConfig({
+					enabled: config.enabled,
+					transport: next,
+				});
+				if (!result.ok) {
+					setSaveError(result.error ?? "切换失败");
+					return;
+				}
+				const refreshed = await window.vetta.im.getConfig();
+				setConfig(refreshed);
+				setSaveOk(`已切换到 ${next === "feishu" ? "飞书" : "微信"}`);
+			} finally {
+				setSaving(false);
+			}
+		},
+		[config],
+	);
+
+	const handleWechatLogout = useCallback(async () => {
+		if (!config) return;
+		const ok = window.confirm("确认解绑当前 WeChat 账号吗？解绑后需要重新扫码。");
+		if (!ok) return;
+		setSaving(true);
+		try {
+			const result = await window.vetta.im.wechat.logout();
+			if (!result.ok) {
+				setSaveError(result.error ?? "解绑失败");
+				return;
+			}
+			const refreshed = await window.vetta.im.getConfig();
+			setConfig(refreshed);
+			setSaveOk("已解绑");
+		} finally {
+			setSaving(false);
+		}
+	}, [config]);
+
+	const handleSaveFeishu = useCallback(async () => {
+		if (!config || !feishuValidation.valid || saving) return;
 		setSaving(true);
 		setSaveError(null);
 		setSaveOk(null);
 		try {
-			const payload = formToPayload(form);
+			const payload = feishuFormToPayload(config, feishuForm, config.enabled);
 			const result = await window.vetta.im.setConfig(payload);
 			if (!result.ok) {
 				setSaveError(result.error ?? "保存失败");
@@ -223,32 +297,34 @@ export function ImBridgeSettings(): JSX.Element {
 			}
 			const refreshed = await window.vetta.im.getConfig();
 			setConfig(refreshed);
-			setForm(formFromConfig(refreshed));
-			setSaveOk(result.mode === "plaintext" ? "已保存（明文存储，建议安装系统密钥服务）" : "已加密保存");
+			setFeishuForm(feishuFormFromConfig(refreshed));
+			setSaveOk(
+				result.mode === "plaintext" ? "已保存（明文存储，建议安装系统密钥服务）" : "已加密保存",
+			);
 		} catch (err) {
 			setSaveError((err as Error).message);
 		} finally {
 			setSaving(false);
 		}
-	}, [form, saving, validation.valid]);
+	}, [config, feishuForm, feishuValidation.valid, saving]);
 
-	const handleTest = useCallback(async () => {
-		if (testing) return;
+	const handleTestFeishu = useCallback(async () => {
+		if (testing || !config) return;
 		setTesting(true);
 		setTestResult(null);
 		try {
 			const result = await window.vetta.im.testConnection({
-				appId: form.appId.trim(),
-				appSecret: form.appSecret,
-				verificationToken: form.verificationToken || undefined,
-				encryptKey: form.encryptKey || undefined,
-				baseUrl: form.baseUrl.trim() || undefined,
+				appId: feishuForm.appId.trim(),
+				appSecret: feishuForm.appSecret,
+				verificationToken: config.feishu.verificationToken || undefined,
+				encryptKey: config.feishu.encryptKey || undefined,
+				baseUrl: config.feishu.baseUrl || undefined,
 			});
 			setTestResult(result.ok ? (result.message ?? "测试通过") : (result.error ?? "测试失败"));
 		} finally {
 			setTesting(false);
 		}
-	}, [form, testing]);
+	}, [config, feishuForm, testing]);
 
 	const handleRestart = useCallback(async () => {
 		await window.vetta.im.restart();
@@ -317,18 +393,18 @@ export function ImBridgeSettings(): JSX.Element {
 					<button
 						type="button"
 						role="switch"
-						aria-checked={form.enabled}
-						onClick={() => void handleToggleEnabled(!form.enabled)}
+						aria-checked={config.enabled}
+						onClick={() => void handleToggleEnabled(!config.enabled)}
 						disabled={saving}
 						className={cn(
 							"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-							form.enabled ? "bg-primary" : "bg-muted-foreground/30",
+							config.enabled ? "bg-primary" : "bg-muted-foreground/30",
 						)}
 					>
 						<span
 							className={cn(
 								"inline-block h-3.5 w-3.5 transform rounded-full bg-background shadow transition-transform",
-								form.enabled ? "translate-x-[18px]" : "translate-x-[3px]",
+								config.enabled ? "translate-x-[18px]" : "translate-x-[3px]",
 							)}
 						/>
 					</button>
@@ -336,99 +412,156 @@ export function ImBridgeSettings(): JSX.Element {
 			</SettingSection>
 
 			{/* ─────────────────────────────────────────────────────────────── */}
-			<SettingSection title="飞书配置">
-				<SettingRow title="App ID" description="飞书自建应用的 App ID（cli_ 开头）">
-					<input
-						type="text"
-						value={form.appId}
-						onChange={(e) => updateField("appId", e.target.value)}
-						className={cn(
-							"w-[260px] rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
-							validation.errors.appId ? "border-red-400" : "border-input",
-						)}
-						placeholder="cli_xxxxxxxxxxxxxxxx"
+			{/* 消息渠道：卡片网格，未来新增的渠道直接追加新的 ChannelCard 即可。 */}
+			<div className="mb-6">
+				<div className="mb-3 flex items-baseline gap-2">
+					<h2 className="text-[15px] font-semibold text-foreground">消息渠道</h2>
+					<span className="text-[12px] text-muted-foreground">2 个渠道</span>
+				</div>
+				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+					<ChannelCard
+						name="飞书"
+						subtitle="飞书机器人"
+						iconClass="icon-[mdi--message-text] text-[#00D6B9]"
+						configured={Boolean(config.feishu.appId)}
+						isActive={config.transport === "feishu"}
+						transportStatus={transportStatus}
+						actionLabel="设置机器人"
+						onAction={() => {
+							setSaveError(null);
+							setSaveOk(null);
+							setTestResult(null);
+							setFeishuDialogOpen(true);
+						}}
+						onActivate={
+							config.transport === "feishu"
+								? undefined
+								: () => void handleSwitchTransport("feishu")
+						}
 					/>
-				</SettingRow>
-				<SettingRow title="App Secret" description="本地明文存储于 ~/.vetta/desktop-app/im-credentials.json (chmod 0600)">
-					<div className="flex w-[260px] items-center gap-1.5">
-						<input
-							type={showSecret ? "text" : "password"}
-							value={form.appSecret}
-							onChange={(e) => updateField("appSecret", e.target.value)}
-							className={cn(
-								"flex-1 rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
-								validation.errors.appSecret ? "border-red-400" : "border-input",
-							)}
-							placeholder="App Secret"
-						/>
-						<button
-							type="button"
-							onClick={() => setShowSecret((v) => !v)}
-							className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-							aria-label={showSecret ? "隐藏" : "显示"}
-						>
-							<span
+					<ChannelCard
+						name="微信"
+						subtitle={
+							config.wechat.bound
+								? `已绑定 (${config.wechat.ilinkBotId ?? "iLink"})`
+								: "微信个人号 (iLink)"
+						}
+						iconClass="icon-[mdi--wechat] text-[#07C160]"
+						configured={config.wechat.bound}
+						isActive={config.transport === "wechat"}
+						transportStatus={transportStatus}
+						actionLabel={config.wechat.bound ? "管理 / 解绑" : "扫码绑定"}
+						onAction={() => {
+							setSaveError(null);
+							setSaveOk(null);
+							setWechatDialogOpen(true);
+						}}
+						onActivate={
+							config.transport === "wechat"
+								? undefined
+								: () => void handleSwitchTransport("wechat")
+						}
+					/>
+				</div>
+			</div>
+
+			<Dialog open={feishuDialogOpen} onOpenChange={setFeishuDialogOpen}>
+				<DialogContent className="sm:max-w-[460px]">
+					<DialogHeader>
+						<DialogTitle>设置飞书机器人</DialogTitle>
+						<DialogDescription>
+							填写自建应用的 App ID 与 App Secret，凭据将本地存储于 ~/.vetta/desktop-app/im-credentials.json (chmod 0600)。
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-3 py-2">
+						<div>
+							<label className="mb-1 block text-[12px] font-medium text-foreground">App ID</label>
+							<input
+								type="text"
+								value={feishuForm.appId}
+								onChange={(e) => updateFeishuField("appId", e.target.value)}
 								className={cn(
-									showSecret ? "icon-[mdi--eye-off-outline]" : "icon-[mdi--eye-outline]",
-									"h-3.5 w-3.5",
+									"w-full rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
+									feishuValidation.errors.appId ? "border-red-400" : "border-input",
 								)}
+								placeholder="cli_xxxxxxxxxxxxxxxx"
 							/>
-						</button>
+						</div>
+						<div>
+							<label className="mb-1 block text-[12px] font-medium text-foreground">App Secret</label>
+							<div className="flex items-center gap-1.5">
+								<input
+									type={showSecret ? "text" : "password"}
+									value={feishuForm.appSecret}
+									onChange={(e) => updateFeishuField("appSecret", e.target.value)}
+									className={cn(
+										"flex-1 rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
+										feishuValidation.errors.appSecret ? "border-red-400" : "border-input",
+									)}
+									placeholder="App Secret"
+								/>
+								<button
+									type="button"
+									onClick={() => setShowSecret((v) => !v)}
+									className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+									aria-label={showSecret ? "隐藏" : "显示"}
+								>
+									<span
+										className={cn(
+											showSecret ? "icon-[mdi--eye-off-outline]" : "icon-[mdi--eye-outline]",
+											"h-3.5 w-3.5",
+										)}
+									/>
+								</button>
+							</div>
+						</div>
+
+						<div className="min-h-[18px] text-[12px]">
+							{saveError && <span className="text-red-500">{saveError}</span>}
+							{saveOk && !saveError && (
+								<span className="text-green-600 dark:text-green-400">{saveOk}</span>
+							)}
+							{testResult && !saveError && !saveOk && (
+								<span className="text-muted-foreground">{testResult}</span>
+							)}
+						</div>
 					</div>
-				</SettingRow>
-				<SettingRow title="Verification Token" description="可选；事件订阅校验 token">
-					<input
-						type="text"
-						value={form.verificationToken}
-						onChange={(e) => updateField("verificationToken", e.target.value)}
-						className="w-[260px] rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
-						placeholder="可选"
-					/>
-				</SettingRow>
-				<SettingRow title="Encrypt Key" description="可选；事件加密 key">
-					<input
-						type="text"
-						value={form.encryptKey}
-						onChange={(e) => updateField("encryptKey", e.target.value)}
-						className="w-[260px] rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
-						placeholder="可选"
-					/>
-				</SettingRow>
-				<SettingRow title="传输模式" description="首期固定为长连接（基于飞书 oapi-sdk-go）">
-					<select
-						value="long-connection"
-						disabled
-						className="w-[260px] rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
-					>
-						<option value="long-connection">长连接</option>
-					</select>
-				</SettingRow>
-				<div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border">
-					<div className="text-[12px] text-muted-foreground">
-						{saveError && <span className="text-red-500">{saveError}</span>}
-						{saveOk && !saveError && <span className="text-green-600 dark:text-green-400">{saveOk}</span>}
-						{testResult && !saveError && !saveOk && <span>{testResult}</span>}
-					</div>
-					<div className="flex gap-2">
+
+					<DialogFooter>
 						<button
 							type="button"
-							onClick={() => void handleTest()}
-							disabled={testing}
+							onClick={() => void handleTestFeishu()}
+							disabled={testing || !feishuValidation.valid}
 							className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 						>
 							{testing ? "测试中..." : "测试连接"}
 						</button>
 						<button
 							type="button"
-							onClick={() => void handleSave()}
-							disabled={!validation.valid || saving}
+							onClick={() => void handleSaveFeishu()}
+							disabled={!feishuValidation.valid || saving}
 							className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 						>
 							{saving ? "保存中..." : "保存"}
 						</button>
-					</div>
-				</div>
-			</SettingSection>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<WechatBindDialog
+				open={wechatDialogOpen}
+				onOpenChange={setWechatDialogOpen}
+				bound={config.wechat.bound}
+				ilinkBotId={config.wechat.ilinkBotId}
+				ilinkUserId={config.wechat.ilinkUserId}
+				onLogout={() => void handleWechatLogout()}
+				onConfirmedRefresh={() => {
+					void window.vetta.im.getConfig().then((refreshed) => {
+						setConfig(refreshed);
+					});
+				}}
+			/>
 
 			{/* ─────────────────────────────────────────────────────────────── */}
 			<SettingSection
@@ -461,7 +594,7 @@ export function ImBridgeSettings(): JSX.Element {
 					<button
 						type="button"
 						onClick={() => void handleRestart()}
-						disabled={!form.enabled}
+						disabled={!config.enabled}
 						className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 					>
 						重启桥接
@@ -470,6 +603,399 @@ export function ImBridgeSettings(): JSX.Element {
 			</SettingSection>
 
 			{logsOpen && <LogDrawer logs={logs} onClose={() => setLogsOpen(false)} />}
+		</div>
+	);
+}
+
+// =============================================================================
+// Channel card
+// =============================================================================
+
+function ChannelCard({
+	name,
+	subtitle,
+	iconClass,
+	configured,
+	isActive,
+	transportStatus,
+	actionLabel,
+	onAction,
+	onActivate,
+}: {
+	name: string;
+	subtitle: string;
+	iconClass: string;
+	configured: boolean;
+	isActive: boolean;
+	transportStatus: ImTransportStatus;
+	actionLabel: string;
+	onAction: () => void;
+	/** When undefined the channel is already active and the badge is shown. */
+	onActivate?: () => void;
+}): JSX.Element {
+	// The status badge only makes sense for the active channel — the
+	// inactive one is always implicitly offline regardless of transportStatus.
+	const effectiveStatus: ImTransportStatus = isActive ? transportStatus : "offline";
+
+	return (
+		<div
+			className={cn(
+				"flex flex-col gap-4 rounded-2xl border bg-muted p-5",
+				isActive ? "border-primary/60" : "border-border",
+			)}
+		>
+			{/* 标题行 */}
+			<div className="flex items-start gap-3">
+				<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background">
+					<span className={cn(iconClass, "h-6 w-6")} />
+				</span>
+				<div className="min-w-0 flex-1">
+					<div className="flex items-center gap-1.5">
+						<div className="text-[15px] font-semibold text-foreground">{name}</div>
+						{isActive && (
+							<span className="inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+								活动
+							</span>
+						)}
+					</div>
+					<div className="mt-0.5 truncate text-[12px] text-muted-foreground">{subtitle}</div>
+				</div>
+				{configured ? (
+					<StatusBadge status={effectiveStatus} />
+				) : (
+					<span className="inline-flex items-center rounded-full bg-muted-foreground/15 px-2 py-0.5 text-[11px] text-muted-foreground">
+						未关联
+					</span>
+				)}
+			</div>
+
+			{/* 操作按钮组 */}
+			<div className="flex gap-2">
+				{configured && onActivate && (
+					<button
+						type="button"
+						onClick={onActivate}
+						className="flex shrink-0 items-center gap-1 rounded-lg border border-input bg-secondary px-3 py-2.5 text-[12px] text-foreground transition-colors hover:bg-accent"
+						title="切换为活动渠道"
+					>
+						<span className="icon-[mdi--swap-horizontal] h-4 w-4" />
+						激活
+					</button>
+				)}
+				<button
+					type="button"
+					onClick={onAction}
+					className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+				>
+					<span className="icon-[mdi--cog-outline] h-4 w-4" />
+					{actionLabel}
+				</button>
+			</div>
+		</div>
+	);
+}
+
+// =============================================================================
+// Wechat bind dialog
+// =============================================================================
+
+type WechatDialogPhase =
+	| "idle"
+	| "starting"
+	| "waiting"
+	| "scanned"
+	| "expired_refreshing"
+	| "redirected"
+	| "confirmed"
+	| "failed";
+
+interface WechatDialogState {
+	phase: WechatDialogPhase;
+	qrUrl?: string;
+	qrDataUrl?: string;
+	qrAttempt: number;
+	error?: string;
+}
+
+const initialWechatDialogState: WechatDialogState = {
+	phase: "idle",
+	qrAttempt: 0,
+};
+
+function WechatBindDialog({
+	open,
+	onOpenChange,
+	bound,
+	ilinkBotId,
+	ilinkUserId,
+	onLogout,
+	onConfirmedRefresh,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	bound: boolean;
+	ilinkBotId?: string;
+	ilinkUserId?: string;
+	onLogout: () => void;
+	onConfirmedRefresh: () => void;
+}): JSX.Element {
+	const [state, setState] = useState<WechatDialogState>(initialWechatDialogState);
+	const subUnsubRef = useRef<(() => void) | null>(null);
+
+	// Clean up the subscription whenever the dialog closes.
+	useEffect(() => {
+		if (!open) {
+			subUnsubRef.current?.();
+			subUnsubRef.current = null;
+			setState(initialWechatDialogState);
+		}
+	}, [open]);
+
+	// Render the QR string into a data URL whenever it changes. We use a
+	// data URL (rather than canvas) so React can re-render with no
+	// imperative DOM ops, and so the same image works in tests / DPI
+	// changes without canvas reset gymnastics.
+	useEffect(() => {
+		const url = state.qrUrl;
+		if (!url) {
+			return;
+		}
+		let cancelled = false;
+		QRCode.toDataURL(url, {
+			errorCorrectionLevel: "M",
+			margin: 1,
+			width: 240,
+			color: { dark: "#000000", light: "#ffffff" },
+		})
+			.then((dataUrl) => {
+				if (!cancelled) {
+					setState((prev) => (prev.qrUrl === url ? { ...prev, qrDataUrl: dataUrl } : prev));
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setState((prev) => ({ ...prev, error: "二维码渲染失败" }));
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [state.qrUrl]);
+
+	const startBind = useCallback(async () => {
+		setState({ phase: "starting", qrAttempt: 0 });
+
+		// Subscribe before issuing startBind so we never miss the first qr event.
+		const unsub = await window.vetta.im.wechat.subscribeBind((event: ImWechatBindEvent) => {
+			switch (event.kind) {
+				case "qr":
+					setState((prev) => ({
+						...prev,
+						phase: prev.phase === "expired_refreshing" || prev.qrAttempt > 0 ? "waiting" : "waiting",
+						qrUrl: event.url,
+						qrDataUrl: undefined, // force re-render via the toDataURL effect
+						qrAttempt: event.attempt,
+						error: undefined,
+					}));
+					break;
+				case "status":
+					setState((prev) => {
+						switch (event.status) {
+							case "scanned":
+								return { ...prev, phase: "scanned" };
+							case "expired":
+								return { ...prev, phase: "expired_refreshing" };
+							case "redirected":
+								return { ...prev, phase: "redirected" };
+							case "confirmed":
+								return { ...prev, phase: "confirmed" };
+							case "failed":
+								return { ...prev, phase: "failed", error: event.error ?? "绑定失败" };
+							case "cancelled":
+								return { ...prev, phase: "failed", error: "绑定已取消" };
+							default:
+								return prev;
+						}
+					});
+					break;
+				case "bound":
+					// Trigger a config refresh in the parent so the channel
+					// card and master switch reflect the new bound state.
+					onConfirmedRefresh();
+					setState((prev) => ({ ...prev, phase: "confirmed" }));
+					// Auto-close after a brief celebration window.
+					setTimeout(() => onOpenChange(false), 1500);
+					break;
+				case "unbound":
+					setState(initialWechatDialogState);
+					onConfirmedRefresh();
+					break;
+			}
+		});
+		subUnsubRef.current = unsub;
+
+		const result = await window.vetta.im.wechat.startBind();
+		if (!result.ok) {
+			setState({
+				phase: "failed",
+				qrAttempt: 0,
+				error: result.error ?? "启动绑定失败",
+			});
+		}
+	}, [onConfirmedRefresh, onOpenChange]);
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-[460px]">
+				<DialogHeader>
+					<DialogTitle>{bound ? "微信账号" : "扫码绑定微信"}</DialogTitle>
+					<DialogDescription>
+						{bound
+							? "已绑定的 iLink 机器人。Vetta 与微信服务器之间通过长轮询交换消息。"
+							: "在 iPhone 上打开微信 (≥ 8.0.70)，扫描下方二维码即可绑定。"}
+					</DialogDescription>
+				</DialogHeader>
+
+				{bound ? (
+					<div className="space-y-3 py-2 text-[12px] text-foreground">
+						<div className="rounded-md border border-input bg-secondary px-3 py-2">
+							<div className="text-muted-foreground">ilink_bot_id</div>
+							<div className="font-mono text-[11px] break-all">{ilinkBotId ?? "—"}</div>
+						</div>
+						<div className="rounded-md border border-input bg-secondary px-3 py-2">
+							<div className="text-muted-foreground">ilink_user_id</div>
+							<div className="font-mono text-[11px] break-all">{ilinkUserId ?? "—"}</div>
+						</div>
+						<div className="rounded-md bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+							注意：iLink 协议限制单聊每 24 小时主动消息上限 10 条；用户回复后窗口重置。
+						</div>
+					</div>
+				) : (
+					<WechatBindBody state={state} onStart={() => void startBind()} />
+				)}
+
+				<DialogFooter className="gap-2">
+					{bound ? (
+						<>
+							<button
+								type="button"
+								onClick={onLogout}
+								className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-[12px] text-red-700 transition-colors hover:bg-red-100 dark:border-red-700/50 dark:bg-red-900/20 dark:text-red-300"
+							>
+								解绑账号
+							</button>
+							<button
+								type="button"
+								onClick={() => onOpenChange(false)}
+								className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+							>
+								完成
+							</button>
+						</>
+					) : (
+						<button
+							type="button"
+							onClick={() => onOpenChange(false)}
+							className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
+						>
+							取消
+						</button>
+					)}
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function WechatBindBody({
+	state,
+	onStart,
+}: {
+	state: WechatDialogState;
+	onStart: () => void;
+}): JSX.Element {
+	if (state.phase === "idle") {
+		return (
+			<div className="flex flex-col items-center gap-4 py-6 text-center">
+				<span className="icon-[mdi--qrcode-scan] h-12 w-12 text-muted-foreground" />
+				<div className="text-[12px] text-muted-foreground">
+					点击下方按钮生成二维码，然后用 iPhone 微信扫码绑定。
+				</div>
+				<button
+					type="button"
+					onClick={onStart}
+					className="rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+				>
+					开始绑定
+				</button>
+			</div>
+		);
+	}
+
+	if (state.phase === "starting") {
+		return (
+			<div className="flex flex-col items-center gap-3 py-10 text-center text-[12px] text-muted-foreground">
+				<span className="icon-[mdi--loading] h-6 w-6 animate-spin" />
+				<div>正在生成二维码…</div>
+			</div>
+		);
+	}
+
+	if (state.phase === "failed") {
+		return (
+			<div className="flex flex-col items-center gap-3 py-6 text-center">
+				<span className="icon-[mdi--close-circle] h-10 w-10 text-red-500" />
+				<div className="text-[12px] text-red-600 dark:text-red-400">{state.error ?? "绑定失败"}</div>
+				<button
+					type="button"
+					onClick={onStart}
+					className="rounded-lg bg-primary px-4 py-1.5 text-[12px] font-medium text-primary-foreground hover:bg-primary/90"
+				>
+					重试
+				</button>
+			</div>
+		);
+	}
+
+	if (state.phase === "confirmed") {
+		return (
+			<div className="flex flex-col items-center gap-3 py-8 text-center">
+				<span className="icon-[mdi--check-circle] h-12 w-12 text-green-500" />
+				<div className="text-[13px] font-medium text-foreground">绑定成功</div>
+				<div className="text-[11px] text-muted-foreground">即将自动关闭…</div>
+			</div>
+		);
+	}
+
+	const progressLabel = (() => {
+		switch (state.phase) {
+			case "scanned":
+				return "已扫码，请在微信中确认…";
+			case "expired_refreshing":
+				return "二维码已过期，正在刷新…";
+			case "redirected":
+				return "服务器路由切换中…";
+			default:
+				return state.qrAttempt > 1
+					? `请用 iPhone 微信扫描二维码 (第 ${state.qrAttempt} 次)`
+					: "请用 iPhone 微信扫描二维码";
+		}
+	})();
+
+	return (
+		<div className="flex flex-col items-center gap-3 py-3">
+			<div className="flex h-[252px] w-[252px] items-center justify-center rounded-md border border-border bg-white p-1.5">
+				{state.qrDataUrl ? (
+					// eslint-disable-next-line @next/next/no-img-element
+					<img src={state.qrDataUrl} alt="WeChat QR" className="h-full w-full" />
+				) : (
+					<span className="icon-[mdi--loading] h-8 w-8 animate-spin text-muted-foreground" />
+				)}
+			</div>
+			<div className="text-center text-[12px] text-muted-foreground">{progressLabel}</div>
+			<div className="text-center text-[11px] text-muted-foreground">
+				需 iPhone 微信 ≥ 8.0.70；Android 暂不支持
+			</div>
 		</div>
 	);
 }

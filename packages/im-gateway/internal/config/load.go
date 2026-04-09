@@ -107,9 +107,13 @@ func applyDefaults(cfg *Config) error {
 	if cfg.Paths.LogsDir == "" {
 		cfg.Paths.LogsDir = filepath.Join(gatewayDir, "logs")
 	}
+	if cfg.Paths.WechatState == "" {
+		cfg.Paths.WechatState = filepath.Join(gatewayDir, "wechat.json")
+	}
 	cfg.Paths.DesktopConfig = expandTilde(cfg.Paths.DesktopConfig, home)
 	cfg.Paths.State = expandTilde(cfg.Paths.State, home)
 	cfg.Paths.LogsDir = expandTilde(cfg.Paths.LogsDir, home)
+	cfg.Paths.WechatState = expandTilde(cfg.Paths.WechatState, home)
 	return nil
 }
 
@@ -128,10 +132,10 @@ func expandTilde(p, home string) string {
 // offending field.
 func validate(cfg *Config) error {
 	switch cfg.Transport.Name {
-	case TransportMock, TransportFeishu:
+	case TransportMock, TransportFeishu, TransportWechat:
 		// ok
 	default:
-		return fmt.Errorf("config: transport.name must be one of [mock, feishu], got %q", cfg.Transport.Name)
+		return fmt.Errorf("config: transport.name must be one of [mock, feishu, wechat], got %q", cfg.Transport.Name)
 	}
 	if cfg.HostClient.PoolMaxSize < 1 {
 		return fmt.Errorf("config: hostClient.poolMaxSize must be >= 1, got %d", cfg.HostClient.PoolMaxSize)
