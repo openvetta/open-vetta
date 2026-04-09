@@ -39,25 +39,44 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
-func TestEncodeText_RoundTrip(t *testing.T) {
+func TestEncodeMarkdownCard_RoundTrip(t *testing.T) {
 	cases := []string{
 		"hello",
 		`with "quotes" inside`,
 		"line1\nline2",
 		"中文测试",
 		"emoji 🚀 emoji",
+		"# Heading\n\n- item 1\n- item 2\n\n```go\nfmt.Println(\"hi\")\n```",
 	}
 	for _, in := range cases {
-		got, err := encodeText(in)
+		got, err := encodeMarkdownCard(in)
 		if err != nil {
 			t.Fatalf("encode %q: %v", in, err)
 		}
-		var v struct{ Text string }
+		var v struct {
+			Schema string `json:"schema"`
+			Body   struct {
+				Elements []struct {
+					Tag     string `json:"tag"`
+					Content string `json:"content"`
+				} `json:"elements"`
+			} `json:"body"`
+		}
 		if err := json.Unmarshal([]byte(got), &v); err != nil {
 			t.Errorf("encoded %q is not valid JSON: %v", in, err)
+			continue
 		}
-		if v.Text != in {
-			t.Errorf("round-trip mismatch: in=%q out=%q", in, v.Text)
+		if v.Schema != "2.0" {
+			t.Errorf("schema: got %q, want %q", v.Schema, "2.0")
+		}
+		if len(v.Body.Elements) != 1 {
+			t.Fatalf("expected 1 element, got %d", len(v.Body.Elements))
+		}
+		if v.Body.Elements[0].Tag != "markdown" {
+			t.Errorf("element tag: got %q, want %q", v.Body.Elements[0].Tag, "markdown")
+		}
+		if v.Body.Elements[0].Content != in {
+			t.Errorf("round-trip mismatch: in=%q out=%q", in, v.Body.Elements[0].Content)
 		}
 	}
 }
