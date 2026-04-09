@@ -361,10 +361,13 @@ export interface DesktopDownloadsApi {
 // IM bridge (im-gateway sidecar)
 // =============================================================================
 
-export type ImTransportStatus = "offline" | "connecting" | "online" | "error";
+export type ImTransportStatus = "offline" | "connecting" | "online" | "error" | "awaiting_bind";
+
+export type ImTransportSelector = "feishu" | "wechat";
 
 export interface ImBridgeConfig {
 	enabled: boolean;
+	transport: ImTransportSelector;
 	feishu: {
 		appId: string;
 		appSecret: string;
@@ -372,13 +375,19 @@ export interface ImBridgeConfig {
 		encryptKey: string;
 		baseUrl?: string;
 	};
+	wechat: {
+		bound: boolean;
+		ilinkBotId?: string;
+		ilinkUserId?: string;
+	};
 	transportMode: "long-connection";
 	encryptionAvailable: boolean;
 }
 
 export interface ImSetConfigPayload {
 	enabled: boolean;
-	feishu: {
+	transport?: ImTransportSelector;
+	feishu?: {
 		appId: string;
 		appSecret?: string;
 		verificationToken?: string;
@@ -422,6 +431,65 @@ export interface ImPathInfo {
 	config: string;
 	credentials: string;
 	state: string;
+	wechatState: string;
+}
+
+// =============================================================================
+// Wechat (iLink) bind flow
+// =============================================================================
+
+export type ImWechatBindStatus = "scanned" | "expired" | "redirected" | "confirmed" | "failed" | "cancelled";
+
+/**
+ * Tagged-union of bind-flow events the renderer's bind dialog reacts to.
+ *
+ *   qr       — a fresh QR url is ready; render and display
+ *   status   — bind state machine transition
+ *   bound    — credentials persisted, sidecar starting wechat transport
+ *   unbound  — credentials cleared (logout or expiry)
+ */
+export type ImWechatBindEvent =
+	| { kind: "qr"; type: "wechat_qr"; url: string; attempt: number }
+	| {
+			kind: "status";
+			type: "wechat_bind_status";
+			status: ImWechatBindStatus;
+			error?: string;
+	  }
+	| {
+			kind: "bound";
+			type: "wechat_bound";
+			ilink_bot_id: string;
+			ilink_user_id?: string;
+			base_url?: string;
+	  }
+	| { kind: "unbound"; type: "wechat_unbound"; reason?: string };
+
+export interface ImWechatStartBindResult {
+	ok: boolean;
+	error?: string;
+}
+
+export interface ImWechatLogoutResult {
+	ok: boolean;
+	error?: string;
+}
+
+export interface ImWechatApi {
+	/**
+	 * Start (or restart) a QR scan flow. Auto-flips the active transport
+	 * to wechat if needed. Returns immediately; live progress arrives via
+	 * subscribeBind().
+	 */
+	startBind(): Promise<ImWechatStartBindResult>;
+	/** Forget the bound account and re-enter awaiting_bind state. */
+	logout(): Promise<ImWechatLogoutResult>;
+	/**
+	 * Subscribe to live bind-flow events. The handler is called with every
+	 * qr / status / bound / unbound event in arrival order. Returns an
+	 * unsubscribe function.
+	 */
+	subscribeBind(handler: (event: ImWechatBindEvent) => void): Promise<() => void>;
 }
 
 export interface ImLegacyDetection {
@@ -450,6 +518,8 @@ export interface DesktopImApi {
 	getPaths(): Promise<ImPathInfo>;
 	detectLegacy(): Promise<ImLegacyDetection>;
 	importLegacy(detection: ImLegacyDetection): Promise<{ ok: boolean; error?: string }>;
+	/** Wechat (iLink) bind flow. See ImWechatApi. */
+	wechat: ImWechatApi;
 }
 
 export interface DesktopApi {

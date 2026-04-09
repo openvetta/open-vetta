@@ -17,12 +17,18 @@ export const FRAME_INIT = "init" as const;
 export const FRAME_CONFIG_UPDATE = "config_update" as const;
 export const FRAME_PROJECTS_UPDATE = "projects_update" as const;
 export const FRAME_SHUTDOWN = "shutdown" as const;
+export const FRAME_WECHAT_BIND_START = "wechat_bind_start" as const;
+export const FRAME_WECHAT_LOGOUT = "wechat_logout" as const;
 
 export const EVENT_READY = "ready" as const;
 export const EVENT_LOG = "log" as const;
 export const EVENT_STATUS = "status" as const;
 export const EVENT_STATE_PATCH = "state_patch" as const;
 export const EVENT_METRIC = "metric" as const;
+export const EVENT_WECHAT_QR = "wechat_qr" as const;
+export const EVENT_WECHAT_BIND_STATUS = "wechat_bind_status" as const;
+export const EVENT_WECHAT_BOUND = "wechat_bound" as const;
+export const EVENT_WECHAT_UNBOUND = "wechat_unbound" as const;
 
 // =============================================================================
 // Shared payload types
@@ -34,6 +40,24 @@ export interface FeishuConfig {
 	verificationToken?: string;
 	encryptKey?: string;
 	baseUrl?: string;
+}
+
+/**
+ * Wechat (iLink) slot in InitFrame / ConfigUpdateFrame.
+ *
+ * Unlike feishu, the protocol carries no long-lived credentials — the
+ * bot_token is obtained dynamically via the QR scan flow and persisted by
+ * the sidecar itself in `statePath`. This struct only carries:
+ *
+ *   - `enabled`: tells the sidecar to select wechat as the active transport
+ *   - `statePath`: absolute path to the persistent credentials JSON,
+ *     letting the parent override the wechat package's default
+ *     `~/.vetta/im-gateway/wechat.json` so the file lives next to other
+ *     desktop-app vetta data.
+ */
+export interface WechatConfig {
+	enabled: boolean;
+	statePath?: string;
 }
 
 export interface ProjectEntry {
@@ -53,9 +77,16 @@ export interface SessionStateEntry {
 // Inbound frames (parent → child)
 // =============================================================================
 
+/**
+ * The active transport is determined by which sub-config slot is non-nil:
+ * exactly one of `feishu` / `wechat` should be set per init / config_update
+ * frame. The sidecar's buildHostTransport prefers wechat when both are set
+ * but the parent should never rely on that.
+ */
 export interface InitFrame {
 	type: typeof FRAME_INIT;
 	feishu?: FeishuConfig;
+	wechat?: WechatConfig;
 	projects: ProjectEntry[];
 	state: SessionStateEntry[];
 	logLevel?: "debug" | "info" | "warn" | "error";
@@ -64,6 +95,7 @@ export interface InitFrame {
 export interface ConfigUpdateFrame {
 	type: typeof FRAME_CONFIG_UPDATE;
 	feishu?: FeishuConfig;
+	wechat?: WechatConfig;
 }
 
 export interface ProjectsUpdateFrame {
@@ -75,13 +107,39 @@ export interface ShutdownFrame {
 	type: typeof FRAME_SHUTDOWN;
 }
 
-export type InboundFrame = InitFrame | ConfigUpdateFrame | ProjectsUpdateFrame | ShutdownFrame;
+/**
+ * Request the sidecar begin (or restart) a wechat QR scan flow. No
+ * payload — the sidecar uses the StatePath from the most recent
+ * Init/ConfigUpdate frame. Issuing this while a bind is in progress is a
+ * no-op.
+ */
+export interface WechatBindStartFrame {
+	type: typeof FRAME_WECHAT_BIND_START;
+}
+
+/**
+ * Request the sidecar drop persisted wechat credentials, stop any running
+ * wechat transport, and re-enter awaiting_bind state.
+ */
+export interface WechatLogoutFrame {
+	type: typeof FRAME_WECHAT_LOGOUT;
+}
+
+export type InboundFrame =
+	| InitFrame
+	| ConfigUpdateFrame
+	| ProjectsUpdateFrame
+	| ShutdownFrame
+	| WechatBindStartFrame
+	| WechatLogoutFrame;
 
 // =============================================================================
 // Outbound events (child → parent)
 // =============================================================================
 
-export type TransportStatus = "offline" | "connecting" | "online" | "error";
+export type TransportStatus = "offline" | "connecting" | "online" | "error" | "awaiting_bind";
+
+export type WechatBindStatus = "scanned" | "expired" | "redirected" | "confirmed" | "failed" | "cancelled";
 
 export interface ReadyEvent {
 	type: typeof EVENT_READY;
@@ -118,7 +176,56 @@ export interface MetricEvent {
 	value: number;
 }
 
-export type OutboundEvent = ReadyEvent | LogEvent | StatusEvent | StatePatchEvent | MetricEvent;
+/**
+ * One QR code for the parent to render. `url` is the raw URL string the
+ * iLink server returned; the parent renders it as a scannable QR image.
+ * `attempt` is 1-indexed and increments on each refresh after a previous
+ * expiration.
+ */
+export interface WechatQREvent {
+	type: typeof EVENT_WECHAT_QR;
+	url: string;
+	attempt: number;
+}
+
+/** A transition in the bind state machine. */
+export interface WechatBindStatusEvent {
+	type: typeof EVENT_WECHAT_BIND_STATUS;
+	status: WechatBindStatus;
+	error?: string;
+}
+
+/**
+ * Successful bind. Emitted exactly once per bind, after the credentials
+ * have been persisted to disk and just before the sidecar (re)starts the
+ * real wechat transport.
+ */
+export interface WechatBoundEvent {
+	type: typeof EVENT_WECHAT_BOUND;
+	ilink_bot_id: string;
+	ilink_user_id?: string;
+	base_url?: string;
+}
+
+/**
+ * Credentials cleared (explicit logout or server-side -14 expiry). After
+ * this event the sidecar is in awaiting_bind state.
+ */
+export interface WechatUnboundEvent {
+	type: typeof EVENT_WECHAT_UNBOUND;
+	reason?: string;
+}
+
+export type OutboundEvent =
+	| ReadyEvent
+	| LogEvent
+	| StatusEvent
+	| StatePatchEvent
+	| MetricEvent
+	| WechatQREvent
+	| WechatBindStatusEvent
+	| WechatBoundEvent
+	| WechatUnboundEvent;
 
 // =============================================================================
 // Encode / decode helpers
@@ -149,6 +256,10 @@ export function decodeEvent(line: string): OutboundEvent | null {
 		case EVENT_STATUS:
 		case EVENT_STATE_PATCH:
 		case EVENT_METRIC:
+		case EVENT_WECHAT_QR:
+		case EVENT_WECHAT_BIND_STATUS:
+		case EVENT_WECHAT_BOUND:
+		case EVENT_WECHAT_UNBOUND:
 			return parsed as OutboundEvent;
 		default:
 			throw new Error(`hostproto: unknown event type "${parsed.type}"`);

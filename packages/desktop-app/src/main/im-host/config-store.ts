@@ -10,12 +10,29 @@ import { atomicWriteJSON } from "../utils/atomic-write.js";
  * Sensitive fields (App Secret, Verification Token, Encrypt Key) live in
  * credential-store.ts; this file only carries the toggles and identifiers
  * the user is willing to expose to the filesystem in plaintext.
+ *
+ * `transport` selects which IM platform the sidecar will run. Only one
+ * transport runs at a time. Switching it persists the new value but does
+ * not erase the other transport's credentials, so the user can flip
+ * between feishu and wechat without re-binding.
  */
+export type ImTransportSelector = "feishu" | "wechat";
+
 export interface ImConfig {
 	enabled: boolean;
+	transport: ImTransportSelector;
 	feishu: {
 		appId: string;
 		baseUrl?: string;
+	};
+	wechat: {
+		// `bound` mirrors the on-disk wechat.json existence — kept here so
+		// the renderer can show a quick status without a separate IPC call.
+		// Source of truth is still the sidecar's state file; this is just a
+		// convenience cache, refreshed on every successful bind / logout.
+		bound: boolean;
+		ilinkBotId?: string;
+		ilinkUserId?: string;
 	};
 	transportMode: "long-connection";
 }
@@ -29,7 +46,9 @@ export function defaultImConfigPath(): string {
 export function defaultImConfig(): ImConfig {
 	return {
 		enabled: false,
+		transport: "feishu",
 		feishu: { appId: "" },
+		wechat: { bound: false },
 		transportMode: "long-connection",
 	};
 }
@@ -39,11 +58,18 @@ export function loadImConfig(filePath = DEFAULT_PATH): ImConfig {
 	try {
 		const raw = readFileSync(filePath, "utf-8");
 		const parsed = JSON.parse(raw) as Partial<ImConfig>;
+		const transport: ImTransportSelector = parsed.transport === "wechat" ? "wechat" : "feishu";
 		return {
 			enabled: Boolean(parsed.enabled),
+			transport,
 			feishu: {
 				appId: parsed.feishu?.appId ?? "",
 				baseUrl: parsed.feishu?.baseUrl,
+			},
+			wechat: {
+				bound: Boolean(parsed.wechat?.bound),
+				ilinkBotId: parsed.wechat?.ilinkBotId,
+				ilinkUserId: parsed.wechat?.ilinkUserId,
 			},
 			transportMode: "long-connection",
 		};
@@ -54,4 +80,13 @@ export function loadImConfig(filePath = DEFAULT_PATH): ImConfig {
 
 export function saveImConfig(config: ImConfig, filePath = DEFAULT_PATH): void {
 	atomicWriteJSON(filePath, config);
+}
+
+/**
+ * Default absolute path the sidecar uses for the wechat credentials JSON.
+ * Lives next to im-config.json so all desktop-app vetta state is in one
+ * directory and survives reinstalls in the usual place.
+ */
+export function defaultWechatStatePath(): string {
+	return join(homedir(), ".vetta", "desktop-app", "im-wechat.json");
 }

@@ -1,7 +1,25 @@
 import { resolveImGatewayBinary } from "./binary-resolver.js";
-import { defaultImConfig, defaultImConfigPath, type ImConfig, loadImConfig, saveImConfig } from "./config-store.js";
+import {
+	defaultImConfig,
+	defaultImConfigPath,
+	defaultWechatStatePath,
+	type ImConfig,
+	type ImTransportSelector,
+	loadImConfig,
+	saveImConfig,
+} from "./config-store.js";
 import { defaultCredentialsPath, type ImCredentials, loadCredentials, saveCredentials } from "./credential-store.js";
-import type { FeishuConfig, LogEvent, ProjectEntry, SessionStateEntry } from "./host-protocol.js";
+import type {
+	FeishuConfig,
+	LogEvent,
+	ProjectEntry,
+	SessionStateEntry,
+	WechatBindStatusEvent,
+	WechatBoundEvent,
+	WechatConfig,
+	WechatQREvent,
+	WechatUnboundEvent,
+} from "./host-protocol.js";
 import { LogBuffer } from "./log-buffer.js";
 import { archiveLegacyFiles, detectLegacyImGateway, type LegacyDetection } from "./migration.js";
 import { loadDesktopProjects, watchDesktopProjects } from "./project-source.js";
@@ -25,12 +43,18 @@ import { type ImBridgeStatus, StatusStore } from "./status-store.js";
  */
 export interface ImHostPublicConfig {
 	enabled: boolean;
+	transport: ImTransportSelector;
 	feishu: {
 		appId: string;
 		appSecret: string;
 		verificationToken: string;
 		encryptKey: string;
 		baseUrl?: string;
+	};
+	wechat: {
+		bound: boolean;
+		ilinkBotId?: string;
+		ilinkUserId?: string;
 	};
 	transportMode: "long-connection";
 	// Retained for backwards compat with renderer; always false now that
@@ -40,7 +64,11 @@ export interface ImHostPublicConfig {
 
 export interface SetConfigPayload {
 	enabled: boolean;
-	feishu: {
+	// Optional: lets the renderer flip the active transport in the same
+	// call as a feishu credential update. Omitting it preserves the
+	// current selection.
+	transport?: ImTransportSelector;
+	feishu?: {
 		appId: string;
 		appSecret?: string;
 		verificationToken?: string;
@@ -55,6 +83,17 @@ export interface SetConfigResult {
 	error?: string;
 }
 
+/**
+ * Public union of bind-flow events the renderer can subscribe to. The
+ * IPC layer maps each onWechat* hook from SidecarManager into this
+ * tagged union and pushes it through one observable.
+ */
+export type WechatBindEvent =
+	| ({ kind: "qr" } & WechatQREvent)
+	| ({ kind: "status" } & WechatBindStatusEvent)
+	| ({ kind: "bound" } & WechatBoundEvent)
+	| ({ kind: "unbound" } & WechatUnboundEvent);
+
 export class ImHost {
 	readonly statusStore = new StatusStore();
 	readonly logBuffer = new LogBuffer(500);
@@ -68,11 +107,20 @@ export class ImHost {
 	private binaryPath?: string;
 	private projectWatchUnsub?: () => void;
 
+	// Wechat bind subscribers. Multiple renderer windows may subscribe;
+	// each gets every event in arrival order.
+	private wechatBindHandlers: Set<(event: WechatBindEvent) => void> = new Set();
+
 	constructor() {
 		this.manager = new SidecarManager({
 			hooks: {
 				onReady: (event) => {
-					this.statusStore.patch({ transport: "online", lastError: undefined });
+					// Don't override an awaiting_bind status that the
+					// sidecar emits immediately after ready: the wechat
+					// path uses ready+awaiting_bind as a normal state.
+					if (this.statusStore.get().transport !== "awaiting_bind") {
+						this.statusStore.patch({ transport: "online", lastError: undefined });
+					}
 					this.logBuffer.push({
 						type: "log",
 						level: "info",
@@ -126,6 +174,43 @@ export class ImHost {
 					});
 					this.appendLog("error", reason);
 				},
+				onWechatQR: (event) => {
+					this.dispatchWechatBindEvent({ kind: "qr", ...event });
+				},
+				onWechatBindStatus: (event) => {
+					this.dispatchWechatBindEvent({ kind: "status", ...event });
+				},
+				onWechatBound: (event) => {
+					// Persist the bound state into im-config so the
+					// renderer can show "已绑定" without an extra
+					// roundtrip on next launch.
+					this.config = {
+						...this.config,
+						wechat: {
+							bound: true,
+							ilinkBotId: event.ilink_bot_id,
+							ilinkUserId: event.ilink_user_id,
+						},
+					};
+					try {
+						saveImConfig(this.config);
+					} catch (err) {
+						this.appendLog("warn", `save wechat bound state failed: ${(err as Error).message}`);
+					}
+					this.dispatchWechatBindEvent({ kind: "bound", ...event });
+				},
+				onWechatUnbound: (event) => {
+					this.config = {
+						...this.config,
+						wechat: { bound: false },
+					};
+					try {
+						saveImConfig(this.config);
+					} catch (err) {
+						this.appendLog("warn", `save wechat unbound state failed: ${(err as Error).message}`);
+					}
+					this.dispatchWechatBindEvent({ kind: "unbound", ...event });
+				},
 			},
 		});
 	}
@@ -168,6 +253,84 @@ export class ImHost {
 		}
 	}
 
+	// =========================================================================
+	// wechat bind flow API
+	// =========================================================================
+
+	/**
+	 * Begin (or restart) a wechat QR scan flow. The sidecar must already
+	 * be running with wechat as the active transport (handled by the
+	 * UI clicking "扫码绑定" → setConfig({transport:"wechat",enabled:true}) →
+	 * sidecar boots into awaiting_bind → this method).
+	 */
+	async startWechatBind(): Promise<{ ok: boolean; error?: string }> {
+		// Make sure the sidecar is running and configured for wechat. If
+		// not, transparently flip the config so the bind dialog "just works"
+		// from any starting state.
+		if (this.config.transport !== "wechat" || !this.config.enabled) {
+			const flip = await this.setConfig({
+				enabled: true,
+				transport: "wechat",
+			});
+			if (!flip.ok) {
+				return { ok: false, error: flip.error ?? "切换到微信失败" };
+			}
+		}
+		// Wait briefly for the sidecar to actually be running. The
+		// SidecarManager spawn → ready handshake takes a few hundred ms.
+		const deadline = Date.now() + 5000;
+		while (Date.now() < deadline) {
+			if (this.statusStore.get().transport === "awaiting_bind" || this.config.wechat.bound) {
+				break;
+			}
+			await new Promise((r) => setTimeout(r, 100));
+		}
+		this.manager.startWechatBind();
+		return { ok: true };
+	}
+
+	/**
+	 * Clear the persisted wechat credentials and re-enter awaiting_bind
+	 * state. The sidecar (if running and on wechat transport) handles the
+	 * actual file removal and emits a wechat_unbound event.
+	 */
+	async wechatLogout(): Promise<{ ok: boolean; error?: string }> {
+		if (this.config.transport === "wechat" && this.manager.getCurrentChild()) {
+			this.manager.wechatLogout();
+		} else {
+			// Sidecar isn't running on wechat — wipe the cached bound state
+			// directly so the UI updates.
+			this.config = { ...this.config, wechat: { bound: false } };
+			try {
+				saveImConfig(this.config);
+			} catch (err) {
+				return { ok: false, error: (err as Error).message };
+			}
+		}
+		return { ok: true };
+	}
+
+	/**
+	 * Subscribe to bind-flow events. Returns an unsubscribe function.
+	 * Multiple subscribers are supported (one per renderer window).
+	 */
+	subscribeWechatBind(handler: (event: WechatBindEvent) => void): () => void {
+		this.wechatBindHandlers.add(handler);
+		return () => {
+			this.wechatBindHandlers.delete(handler);
+		};
+	}
+
+	private dispatchWechatBindEvent(event: WechatBindEvent): void {
+		for (const h of this.wechatBindHandlers) {
+			try {
+				h(event);
+			} catch (err) {
+				this.appendLog("warn", `wechat bind handler threw: ${(err as Error).message}`);
+			}
+		}
+	}
+
 	/** Plug in or replace the project list. Used by desktop-app's project
 	 * source whenever the user adds/removes a project. */
 	setProjects(projects: ProjectEntry[]): void {
@@ -178,6 +341,7 @@ export class ImHost {
 	getPublicConfig(): ImHostPublicConfig {
 		return {
 			enabled: this.config.enabled,
+			transport: this.config.transport,
 			feishu: {
 				appId: this.config.feishu.appId,
 				appSecret: this.credentials.feishu?.appSecret ?? "",
@@ -185,30 +349,45 @@ export class ImHost {
 				encryptKey: this.credentials.feishu?.encryptKey ?? "",
 				baseUrl: this.config.feishu.baseUrl,
 			},
+			wechat: {
+				bound: this.config.wechat.bound,
+				ilinkBotId: this.config.wechat.ilinkBotId,
+				ilinkUserId: this.config.wechat.ilinkUserId,
+			},
 			transportMode: this.config.transportMode,
 			encryptionAvailable: false,
 		};
 	}
 
 	async setConfig(payload: SetConfigPayload): Promise<SetConfigResult> {
-		// Update non-secret config.
+		// Build the next config, preserving fields the payload didn't
+		// touch. The transport selector defaults to whatever was in the
+		// previous config so callers can update enabled / feishu without
+		// resetting the user's choice.
+		const nextTransport: ImTransportSelector = payload.transport ?? this.config.transport;
+
 		const nextConfig: ImConfig = {
 			enabled: payload.enabled,
-			feishu: {
-				appId: payload.feishu.appId,
-				baseUrl: payload.feishu.baseUrl,
-			},
+			transport: nextTransport,
+			feishu: payload.feishu
+				? {
+						appId: payload.feishu.appId,
+						baseUrl: payload.feishu.baseUrl,
+					}
+				: this.config.feishu,
+			wechat: this.config.wechat,
 			transportMode: "long-connection",
 		};
 
-		// Update credentials. Form sends the actual value (no placeholder
-		// magic anymore); we always overwrite with what the renderer sent.
+		// Update credentials only when the payload sent a feishu block.
 		const nextCreds: ImCredentials = { ...this.credentials };
-		nextCreds.feishu = {
-			appSecret: payload.feishu.appSecret ?? "",
-			verificationToken: payload.feishu.verificationToken,
-			encryptKey: payload.feishu.encryptKey,
-		};
+		if (payload.feishu) {
+			nextCreds.feishu = {
+				appSecret: payload.feishu.appSecret ?? "",
+				verificationToken: payload.feishu.verificationToken,
+				encryptKey: payload.feishu.encryptKey,
+			};
+		}
 
 		this.config = nextConfig;
 		this.credentials = nextCreds;
@@ -268,11 +447,12 @@ export class ImHost {
 		return this.logBuffer.subscribe(handler);
 	}
 
-	getPaths(): { config: string; credentials: string; state: string } {
+	getPaths(): { config: string; credentials: string; state: string; wechatState: string } {
 		return {
 			config: defaultImConfigPath(),
 			credentials: defaultCredentialsPath(),
 			state: defaultImStatePath(),
+			wechatState: defaultWechatStatePath(),
 		};
 	}
 
@@ -315,7 +495,17 @@ export class ImHost {
 	// internals
 	// =========================================================================
 
+	/**
+	 * Whether the active transport has enough info to start the sidecar.
+	 *
+	 *   - feishu: needs both app id and secret in credentials
+	 *   - wechat: always true — the sidecar boots into awaiting_bind when
+	 *     no credentials are present and waits for the user to scan a QR
+	 */
 	private hasRequiredCredentials(): boolean {
+		if (this.config.transport === "wechat") {
+			return true;
+		}
 		return Boolean(this.config.feishu.appId && this.credentials.feishu?.appSecret);
 	}
 
@@ -329,10 +519,27 @@ export class ImHost {
 		};
 	}
 
+	private buildWechatConfig(): WechatConfig {
+		return {
+			enabled: true,
+			statePath: defaultWechatStatePath(),
+		};
+	}
+
 	private buildSidecarConfig() {
 		if (!this.binaryPath) {
 			this.binaryPath = resolveImGatewayBinary().path;
 			this.statusStore.patch({ binaryPath: this.binaryPath });
+		}
+		// Send only the slot for the currently selected transport. The
+		// sidecar uses nil-discriminator to pick which to start.
+		if (this.config.transport === "wechat") {
+			return {
+				binaryPath: this.binaryPath,
+				wechat: this.buildWechatConfig(),
+				projects: this.projects,
+				state: this.stateAsEntries(),
+			};
 		}
 		return {
 			binaryPath: this.binaryPath,

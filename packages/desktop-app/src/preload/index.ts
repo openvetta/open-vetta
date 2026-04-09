@@ -59,6 +59,11 @@ const IM_CHANNELS = {
 	GET_PATHS: "vetta:im:get-paths",
 	DETECT_LEGACY: "vetta:im:detect-legacy",
 	IMPORT_LEGACY: "vetta:im:import-legacy",
+	WECHAT_START_BIND: "vetta:im:wechat:start-bind",
+	WECHAT_LOGOUT: "vetta:im:wechat:logout",
+	WECHAT_SUBSCRIBE: "vetta:im:wechat:subscribe",
+	WECHAT_UNSUBSCRIBE: "vetta:im:wechat:unsubscribe",
+	WECHAT_BIND_EVENT: "vetta:im:wechat:bind-event",
 } as const;
 
 const BATCH_TASKS_CHANNELS = {
@@ -274,6 +279,25 @@ const api: DesktopApi = {
 		getPaths: async () => ipcRenderer.invoke(IM_CHANNELS.GET_PATHS),
 		detectLegacy: async () => ipcRenderer.invoke(IM_CHANNELS.DETECT_LEGACY),
 		importLegacy: async (detection) => ipcRenderer.invoke(IM_CHANNELS.IMPORT_LEGACY, detection),
+		wechat: {
+			startBind: async () => ipcRenderer.invoke(IM_CHANNELS.WECHAT_START_BIND),
+			logout: async () => ipcRenderer.invoke(IM_CHANNELS.WECHAT_LOGOUT),
+			subscribeBind: async (handler) => {
+				const { subscriptionId } = (await ipcRenderer.invoke(IM_CHANNELS.WECHAT_SUBSCRIBE)) as {
+					subscriptionId: string;
+				};
+				const listener = (_event: Electron.IpcRendererEvent, incomingId: string, bindEvent: unknown) => {
+					if (incomingId === subscriptionId) {
+						handler(bindEvent as Parameters<typeof handler>[0]);
+					}
+				};
+				ipcRenderer.on(IM_CHANNELS.WECHAT_BIND_EVENT, listener);
+				return () => {
+					ipcRenderer.removeListener(IM_CHANNELS.WECHAT_BIND_EVENT, listener);
+					void ipcRenderer.invoke(IM_CHANNELS.WECHAT_UNSUBSCRIBE, subscriptionId);
+				};
+			},
+		},
 	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
