@@ -28,10 +28,18 @@ type InboundMessage struct {
 // OutboundMessage is a normalized representation of a message the upper layers
 // want to deliver back to the user. The transport decides how to render it
 // based on its own Capabilities (e.g. whether to use rich blocks vs flat text).
+//
+// Streaming hints to the transport that this is the first frame of a
+// streaming response and the caller will follow up with EditMessage calls
+// (and eventually EndStream). Transports that have a dedicated streaming
+// path (e.g. Feishu cardkit) use it to provision the right kind of message;
+// transports without one ignore the field. The bridge sets it from
+// commitEdit; one-shot replies (command output, errors) leave it false.
 type OutboundMessage struct {
 	Text        string       // plain-text fallback; always populated even when Blocks is set
 	Blocks      []Block      // optional structured content
 	Attachments []Attachment // first milestone: empty
+	Streaming   bool         // see doc above
 }
 
 // Block is a piece of structured content the bridge can emit. Transports

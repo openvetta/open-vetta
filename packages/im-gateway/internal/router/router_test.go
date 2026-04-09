@@ -108,6 +108,7 @@ func (t *fakeTransport) EditMessage(_ context.Context, _, _ string, _ transport.
 }
 func (t *fakeTransport) DeleteMessage(_ context.Context, _, _ string) error { return nil }
 func (t *fakeTransport) ShowTyping(_ context.Context, _ string) error       { return nil }
+func (t *fakeTransport) EndStream(_ context.Context, _, _ string) error     { return nil }
 
 func (t *fakeTransport) snapshot() []sendRecord {
 	t.mu.Lock()
