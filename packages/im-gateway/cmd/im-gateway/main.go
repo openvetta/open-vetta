@@ -42,6 +42,7 @@ import (
 	"vetta-im-gateway/internal/transport"
 	"vetta-im-gateway/internal/transport/feishu"
 	"vetta-im-gateway/internal/transport/mock"
+	"vetta-im-gateway/internal/transport/wechat"
 )
 
 // version is set at build time via -ldflags. Defaults to a placeholder when
@@ -68,6 +69,8 @@ func main() {
 		os.Exit(runStatus(args))
 	case "logs":
 		os.Exit(runLogs(args))
+	case "wechat":
+		os.Exit(runWechat(args))
 	case "-h", "--help", "help":
 		printUsage(os.Stdout)
 		os.Exit(0)
@@ -208,7 +211,7 @@ func runStart(args []string) int {
 	return 0
 }
 
-func buildTransport(cfg *config.Config, creds *config.Credentials, _ *zap.Logger) (transport.Transport, error) {
+func buildTransport(cfg *config.Config, creds *config.Credentials, log *zap.Logger) (transport.Transport, error) {
 	switch cfg.Transport.Name {
 	case config.TransportMock:
 		return mock.New(mock.Options{}), nil
@@ -225,6 +228,16 @@ func buildTransport(cfg *config.Config, creds *config.Credentials, _ *zap.Logger
 			AppSecret: creds.Feishu.AppSecret,
 			Domain:    domain,
 		})
+	case config.TransportWechat:
+		opts := wechat.Options{
+			StatePath: cfg.Paths.WechatState,
+			Logger:    log,
+		}
+		if cfg.Transport.Wechat != nil {
+			opts.QuotaPerWindow = cfg.Transport.Wechat.QuotaPerWindow
+			opts.QuotaWindow = cfg.Transport.Wechat.QuotaWindow
+		}
+		return wechat.New(opts)
 	default:
 		return nil, fmt.Errorf("unknown transport: %s", cfg.Transport.Name)
 	}
@@ -391,6 +404,7 @@ func printUsage(w *os.File) {
 	fmt.Fprintln(w, "  start     Run the gateway")
 	fmt.Fprintln(w, "  status    Show running gateway status")
 	fmt.Fprintln(w, "  logs      Print or tail the gateway log file (-f to follow)")
+	fmt.Fprintln(w, "  wechat    Manage WeChat (iLink) account binding (login | status | logout)")
 	fmt.Fprintln(w, "  version   Print version and exit")
 	fmt.Fprintln(w, "  help      Print this message")
 }

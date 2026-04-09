@@ -20,6 +20,7 @@ type TransportConfig struct {
 	Name   TransportName `yaml:"name"`
 	Feishu *FeishuConfig `yaml:"feishu,omitempty"`
 	Mock   *MockConfig   `yaml:"mock,omitempty"`
+	Wechat *WechatConfig `yaml:"wechat,omitempty"`
 }
 
 type TransportName string
@@ -27,6 +28,7 @@ type TransportName string
 const (
 	TransportFeishu TransportName = "feishu"
 	TransportMock   TransportName = "mock"
+	TransportWechat TransportName = "wechat"
 )
 
 // FeishuConfig holds the non-secret part of feishu transport configuration.
@@ -39,6 +41,20 @@ type FeishuConfig struct {
 // writes to stdout regardless of config. Reserved for future flags like
 // "delay every reply by N ms".
 type MockConfig struct{}
+
+// WechatConfig holds the non-secret part of the wechat (iLink) transport
+// configuration. Credentials are NOT in this struct — they live in the
+// runtime state file (cfg.Paths.WechatState) populated by `im-gateway
+// wechat login`. There is no static API key for iLink.
+type WechatConfig struct {
+	// QuotaPerWindow caps successful sends per peer per QuotaWindow.
+	// Defaults to 10 (mirroring the upstream server-side ceiling).
+	QuotaPerWindow int `yaml:"quotaPerWindow,omitempty"`
+
+	// QuotaWindow is the rolling window length for QuotaPerWindow.
+	// Defaults to 24h.
+	QuotaWindow time.Duration `yaml:"quotaWindow,omitempty"`
+}
 
 // HostClientConfig governs how the gateway spawns and manages
 // `coding-agent --mode rpc` subprocesses.
@@ -80,6 +96,7 @@ type PathsConfig struct {
 	DesktopConfig string `yaml:"desktopConfig,omitempty"` // ~/.vetta/desktop-config.json
 	State         string `yaml:"state,omitempty"`         // ~/.vetta/im-gateway/state.json
 	LogsDir       string `yaml:"logsDir,omitempty"`       // ~/.vetta/im-gateway/logs/
+	WechatState   string `yaml:"wechatState,omitempty"`   // ~/.vetta/im-gateway/wechat.json
 }
 
 // Credentials carries secret values loaded separately from Config.
