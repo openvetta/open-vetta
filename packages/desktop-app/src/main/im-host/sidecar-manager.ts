@@ -7,12 +7,18 @@ import {
 	EVENT_READY,
 	EVENT_STATE_PATCH,
 	EVENT_STATUS,
+	EVENT_WECHAT_BIND_STATUS,
+	EVENT_WECHAT_BOUND,
+	EVENT_WECHAT_QR,
+	EVENT_WECHAT_UNBOUND,
 	encodeFrame,
 	type FeishuConfig,
 	FRAME_CONFIG_UPDATE,
 	FRAME_INIT,
 	FRAME_PROJECTS_UPDATE,
 	FRAME_SHUTDOWN,
+	FRAME_WECHAT_BIND_START,
+	FRAME_WECHAT_LOGOUT,
 	type LogEvent,
 	type MetricEvent,
 	type OutboundEvent,
@@ -21,6 +27,11 @@ import {
 	type SessionStateEntry,
 	type StatePatchEvent,
 	type StatusEvent,
+	type WechatBindStatusEvent,
+	type WechatBoundEvent,
+	type WechatConfig,
+	type WechatQREvent,
+	type WechatUnboundEvent,
 } from "./host-protocol.js";
 
 /**
@@ -55,11 +66,32 @@ export interface SidecarHooks {
 	onSpawned?: (pid: number) => void;
 	/** Sidecar process exited (any reason). */
 	onExit?: (code: number | null, signal: NodeJS.Signals | null) => void;
+
+	// Wechat-specific bind flow events. The sidecar emits these only when
+	// wechat is the active transport AND the parent has driven a bind via
+	// startWechatBind() (or the bind is auto-started after a logout).
+	/** A new QR code is ready for the user to scan. */
+	onWechatQR?: (event: WechatQREvent) => void;
+	/** A transition in the bind state machine. */
+	onWechatBindStatus?: (event: WechatBindStatusEvent) => void;
+	/** Bind succeeded — credentials persisted, transport about to start. */
+	onWechatBound?: (event: WechatBoundEvent) => void;
+	/** Credentials cleared (logout or expiry). Sidecar is now in awaiting_bind. */
+	onWechatUnbound?: (event: WechatUnboundEvent) => void;
 }
 
+/**
+ * SidecarConfig describes one (feishu, wechat) selection. Exactly one of
+ * `feishu` / `wechat` should be populated; the other should be undefined.
+ *
+ * The sidecar prefers wechat over feishu when both are present, but the
+ * parent should never rely on that — pick one based on the user's
+ * `transport` setting in im-config.json.
+ */
 export interface SidecarConfig {
 	binaryPath: string;
-	feishu: FeishuConfig;
+	feishu?: FeishuConfig;
+	wechat?: WechatConfig;
 	projects: ProjectEntry[];
 	state: SessionStateEntry[];
 }
@@ -116,8 +148,11 @@ export class SidecarManager {
 	}
 
 	/**
-	 * Reapply runtime configuration. If the feishu credentials changed the
-	 * sidecar is restarted; otherwise we just push a projects_update.
+	 * Reapply runtime configuration. If the active transport selection or
+	 * its credentials changed the sidecar is restarted; otherwise we just
+	 * push a projects_update.
+	 *
+	 * Switching the transport selector (feishu ↔ wechat) always restarts.
 	 */
 	async applyConfig(next: SidecarConfig): Promise<void> {
 		const prev = this.currentConfig;
@@ -125,9 +160,13 @@ export class SidecarManager {
 
 		const credsChanged =
 			!prev ||
-			prev.feishu.appId !== next.feishu.appId ||
-			prev.feishu.appSecret !== next.feishu.appSecret ||
-			(prev.feishu.baseUrl ?? "") !== (next.feishu.baseUrl ?? "");
+			Boolean(prev.feishu) !== Boolean(next.feishu) ||
+			Boolean(prev.wechat) !== Boolean(next.wechat) ||
+			(prev.feishu?.appId ?? "") !== (next.feishu?.appId ?? "") ||
+			(prev.feishu?.appSecret ?? "") !== (next.feishu?.appSecret ?? "") ||
+			(prev.feishu?.baseUrl ?? "") !== (next.feishu?.baseUrl ?? "") ||
+			(prev.wechat?.statePath ?? "") !== (next.wechat?.statePath ?? "") ||
+			(prev.wechat?.enabled ?? false) !== (next.wechat?.enabled ?? false);
 
 		if (credsChanged) {
 			await this.stopInternal();
@@ -239,9 +278,48 @@ export class SidecarManager {
 		this.writeFrame({
 			type: FRAME_INIT,
 			feishu: cfg.feishu,
+			wechat: cfg.wechat,
 			projects: cfg.projects,
 			state: cfg.state,
 		});
+	}
+
+	/**
+	 * Send a wechat_bind_start frame to a running sidecar. Caller is
+	 * responsible for ensuring the sidecar is in awaiting_bind / bound
+	 * state and that wechat is the active transport — the sidecar will
+	 * silently ignore the frame otherwise (logged at warn level).
+	 */
+	startWechatBind(): void {
+		if (this.state.kind !== "running") {
+			this.hooks.onLog?.({
+				type: EVENT_LOG,
+				level: "warn",
+				msg: `sidecar not running; cannot start wechat bind (state=${this.state.kind})`,
+				time: new Date().toISOString(),
+			});
+			return;
+		}
+		this.writeFrame({ type: FRAME_WECHAT_BIND_START });
+	}
+
+	/**
+	 * Send a wechat_logout frame to a running sidecar. Clears the on-disk
+	 * wechat credentials and parks the sidecar in awaiting_bind state. The
+	 * caller still needs to update its UI based on the resulting onWechatUnbound
+	 * + onStatus events.
+	 */
+	wechatLogout(): void {
+		if (this.state.kind !== "running") {
+			this.hooks.onLog?.({
+				type: EVENT_LOG,
+				level: "warn",
+				msg: `sidecar not running; cannot send wechat logout (state=${this.state.kind})`,
+				time: new Date().toISOString(),
+			});
+			return;
+		}
+		this.writeFrame({ type: FRAME_WECHAT_LOGOUT });
 	}
 
 	private attachReaders(child: ChildProcess): void {
@@ -297,6 +375,18 @@ export class SidecarManager {
 				break;
 			case EVENT_METRIC:
 				this.hooks.onMetric?.(event);
+				break;
+			case EVENT_WECHAT_QR:
+				this.hooks.onWechatQR?.(event);
+				break;
+			case EVENT_WECHAT_BIND_STATUS:
+				this.hooks.onWechatBindStatus?.(event);
+				break;
+			case EVENT_WECHAT_BOUND:
+				this.hooks.onWechatBound?.(event);
+				break;
+			case EVENT_WECHAT_UNBOUND:
+				this.hooks.onWechatUnbound?.(event);
 				break;
 		}
 	}
