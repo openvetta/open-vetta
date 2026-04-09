@@ -185,13 +185,17 @@ func TestStreamRegistry_NextSequenceMonotonic(t *testing.T) {
 	tr, _ := New(Options{AppID: "x", AppSecret: "y"})
 	tr.registerStream("m1", "card-A")
 	h := tr.lookupStream("m1")
-	var prev int64
+	var prev int32
 	for i := range 1000 {
 		seq := tr.nextSequence(h)
 		if seq <= prev {
 			t.Fatalf("sequence not monotonic at i=%d: prev=%d cur=%d", i, prev, seq)
 		}
 		prev = seq
+	}
+	// First call should yield 1, the 1000th call yields 1000.
+	if prev != 1000 {
+		t.Errorf("expected last seq=1000, got %d", prev)
 	}
 }
 
