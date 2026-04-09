@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@shared/lib/utils";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@shared/components/ui/dialog";
 import type {
 	ImBridgeConfig,
 	ImBridgeStatus,
@@ -14,46 +22,38 @@ import { SettingRow, SettingSection } from "./shared";
 // Form state
 // =============================================================================
 
-interface FormState {
-	enabled: boolean;
+// Feishu 表单仅保留 App ID / App Secret；其余字段（verificationToken / encryptKey /
+// baseUrl）由后端长连接模式不需要、或保持先前已存值不变。
+interface FeishuFormState {
 	appId: string;
 	appSecret: string;
-	verificationToken: string;
-	encryptKey: string;
-	baseUrl: string;
 }
 
-function emptyForm(): FormState {
-	return {
-		enabled: false,
-		appId: "",
-		appSecret: "",
-		verificationToken: "",
-		encryptKey: "",
-		baseUrl: "",
-	};
+function emptyFeishuForm(): FeishuFormState {
+	return { appId: "", appSecret: "" };
 }
 
-function formFromConfig(cfg: ImBridgeConfig): FormState {
+function feishuFormFromConfig(cfg: ImBridgeConfig): FeishuFormState {
 	return {
-		enabled: cfg.enabled,
 		appId: cfg.feishu.appId,
 		appSecret: cfg.feishu.appSecret,
-		verificationToken: cfg.feishu.verificationToken,
-		encryptKey: cfg.feishu.encryptKey,
-		baseUrl: cfg.feishu.baseUrl ?? "",
 	};
 }
 
-function formToPayload(form: FormState): ImSetConfigPayload {
+function feishuFormToPayload(
+	cfg: ImBridgeConfig,
+	form: FeishuFormState,
+	enabled: boolean,
+): ImSetConfigPayload {
+	// 透传已存在的可选字段，避免覆盖用户先前配置。
 	return {
-		enabled: form.enabled,
+		enabled,
 		feishu: {
 			appId: form.appId.trim(),
 			appSecret: form.appSecret,
-			verificationToken: form.verificationToken || undefined,
-			encryptKey: form.encryptKey || undefined,
-			baseUrl: form.baseUrl.trim() || undefined,
+			verificationToken: cfg.feishu.verificationToken || undefined,
+			encryptKey: cfg.feishu.encryptKey || undefined,
+			baseUrl: cfg.feishu.baseUrl || undefined,
 		},
 	};
 }
@@ -96,7 +96,8 @@ function StatusBadge({ status }: { status: ImTransportStatus }): JSX.Element {
 
 export function ImBridgeSettings(): JSX.Element {
 	const [config, setConfig] = useState<ImBridgeConfig | null>(null);
-	const [form, setForm] = useState<FormState>(emptyForm);
+	const [feishuForm, setFeishuForm] = useState<FeishuFormState>(emptyFeishuForm);
+	const [feishuDialogOpen, setFeishuDialogOpen] = useState(false);
 	const [status, setStatus] = useState<ImBridgeStatus | null>(null);
 	const [showSecret, setShowSecret] = useState(false);
 	const [saving, setSaving] = useState(false);
@@ -117,7 +118,7 @@ export function ImBridgeSettings(): JSX.Element {
 			const cfg = await window.vetta.im.getConfig();
 			if (cancelled) return;
 			setConfig(cfg);
-			setForm(formFromConfig(cfg));
+			setFeishuForm(feishuFormFromConfig(cfg));
 
 			const unsub = await window.vetta.im.subscribeStatus(
 				(snap) => setStatus(snap),
@@ -154,7 +155,7 @@ export function ImBridgeSettings(): JSX.Element {
 			if (result.ok) {
 				const refreshed = await window.vetta.im.getConfig();
 				setConfig(refreshed);
-				setForm(formFromConfig(refreshed));
+				setFeishuForm(feishuFormFromConfig(refreshed));
 				setLegacy(null);
 				setSaveOk("已导入旧版凭据，原文件已重命名为 .bak");
 			} else {
@@ -169,53 +170,58 @@ export function ImBridgeSettings(): JSX.Element {
 		setLegacy(null);
 	}, []);
 
-	// Field-level validation. saveable means save button enabled.
-	const validation = useMemo(() => {
-		const errors: Partial<Record<keyof FormState, string>> = {};
-		if (!form.appId.trim()) errors.appId = "App ID 不能为空";
-		if (!form.appSecret) errors.appSecret = "App Secret 不能为空";
+	// 字段级校验。
+	const feishuValidation = useMemo(() => {
+		const errors: Partial<Record<keyof FeishuFormState, string>> = {};
+		if (!feishuForm.appId.trim()) errors.appId = "App ID 不能为空";
+		if (!feishuForm.appSecret) errors.appSecret = "App Secret 不能为空";
 		return { errors, valid: Object.keys(errors).length === 0 };
-	}, [form]);
+	}, [feishuForm]);
 
-	const updateField = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
-		setSaveError(null);
-		setSaveOk(null);
-		setForm((prev) => ({ ...prev, [key]: value }));
-	}, []);
+	const updateFeishuField = useCallback(
+		<K extends keyof FeishuFormState>(key: K, value: FeishuFormState[K]) => {
+			setSaveError(null);
+			setSaveOk(null);
+			setFeishuForm((prev) => ({ ...prev, [key]: value }));
+		},
+		[],
+	);
 
 	const handleToggleEnabled = useCallback(
 		async (enabled: boolean) => {
-			updateField("enabled", enabled);
 			if (!config) return;
-			// Toggling without unsaved field changes → propagate immediately.
-			if (validation.valid) {
-				setSaving(true);
-				try {
-					const payload = formToPayload({ ...form, enabled });
-					const result = await window.vetta.im.setConfig(payload);
-					if (!result.ok) {
-						setSaveError(result.error ?? "保存失败");
-					} else {
-						const refreshed = await window.vetta.im.getConfig();
-						setConfig(refreshed);
-						setForm(formFromConfig(refreshed));
-						setSaveOk(enabled ? "已启用" : "已停用");
-					}
-				} finally {
-					setSaving(false);
+			// 切换总开关时如果当前 Feishu 表单有效则同时持久化。
+			if (!feishuValidation.valid && enabled) {
+				setSaveError("请先填写飞书 App ID 与 App Secret");
+				setFeishuDialogOpen(true);
+				return;
+			}
+			setSaving(true);
+			try {
+				const payload = feishuFormToPayload(config, feishuForm, enabled);
+				const result = await window.vetta.im.setConfig(payload);
+				if (!result.ok) {
+					setSaveError(result.error ?? "保存失败");
+				} else {
+					const refreshed = await window.vetta.im.getConfig();
+					setConfig(refreshed);
+					setFeishuForm(feishuFormFromConfig(refreshed));
+					setSaveOk(enabled ? "已启用" : "已停用");
 				}
+			} finally {
+				setSaving(false);
 			}
 		},
-		[config, form, validation.valid, updateField],
+		[config, feishuForm, feishuValidation.valid],
 	);
 
-	const handleSave = useCallback(async () => {
-		if (!validation.valid || saving) return;
+	const handleSaveFeishu = useCallback(async () => {
+		if (!config || !feishuValidation.valid || saving) return;
 		setSaving(true);
 		setSaveError(null);
 		setSaveOk(null);
 		try {
-			const payload = formToPayload(form);
+			const payload = feishuFormToPayload(config, feishuForm, config.enabled);
 			const result = await window.vetta.im.setConfig(payload);
 			if (!result.ok) {
 				setSaveError(result.error ?? "保存失败");
@@ -223,32 +229,34 @@ export function ImBridgeSettings(): JSX.Element {
 			}
 			const refreshed = await window.vetta.im.getConfig();
 			setConfig(refreshed);
-			setForm(formFromConfig(refreshed));
-			setSaveOk(result.mode === "plaintext" ? "已保存（明文存储，建议安装系统密钥服务）" : "已加密保存");
+			setFeishuForm(feishuFormFromConfig(refreshed));
+			setSaveOk(
+				result.mode === "plaintext" ? "已保存（明文存储，建议安装系统密钥服务）" : "已加密保存",
+			);
 		} catch (err) {
 			setSaveError((err as Error).message);
 		} finally {
 			setSaving(false);
 		}
-	}, [form, saving, validation.valid]);
+	}, [config, feishuForm, feishuValidation.valid, saving]);
 
-	const handleTest = useCallback(async () => {
-		if (testing) return;
+	const handleTestFeishu = useCallback(async () => {
+		if (testing || !config) return;
 		setTesting(true);
 		setTestResult(null);
 		try {
 			const result = await window.vetta.im.testConnection({
-				appId: form.appId.trim(),
-				appSecret: form.appSecret,
-				verificationToken: form.verificationToken || undefined,
-				encryptKey: form.encryptKey || undefined,
-				baseUrl: form.baseUrl.trim() || undefined,
+				appId: feishuForm.appId.trim(),
+				appSecret: feishuForm.appSecret,
+				verificationToken: config.feishu.verificationToken || undefined,
+				encryptKey: config.feishu.encryptKey || undefined,
+				baseUrl: config.feishu.baseUrl || undefined,
 			});
 			setTestResult(result.ok ? (result.message ?? "测试通过") : (result.error ?? "测试失败"));
 		} finally {
 			setTesting(false);
 		}
-	}, [form, testing]);
+	}, [config, feishuForm, testing]);
 
 	const handleRestart = useCallback(async () => {
 		await window.vetta.im.restart();
@@ -317,18 +325,18 @@ export function ImBridgeSettings(): JSX.Element {
 					<button
 						type="button"
 						role="switch"
-						aria-checked={form.enabled}
-						onClick={() => void handleToggleEnabled(!form.enabled)}
+						aria-checked={config.enabled}
+						onClick={() => void handleToggleEnabled(!config.enabled)}
 						disabled={saving}
 						className={cn(
 							"relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-							form.enabled ? "bg-primary" : "bg-muted-foreground/30",
+							config.enabled ? "bg-primary" : "bg-muted-foreground/30",
 						)}
 					>
 						<span
 							className={cn(
 								"inline-block h-3.5 w-3.5 transform rounded-full bg-background shadow transition-transform",
-								form.enabled ? "translate-x-[18px]" : "translate-x-[3px]",
+								config.enabled ? "translate-x-[18px]" : "translate-x-[3px]",
 							)}
 						/>
 					</button>
@@ -336,99 +344,113 @@ export function ImBridgeSettings(): JSX.Element {
 			</SettingSection>
 
 			{/* ─────────────────────────────────────────────────────────────── */}
-			<SettingSection title="飞书配置">
-				<SettingRow title="App ID" description="飞书自建应用的 App ID（cli_ 开头）">
-					<input
-						type="text"
-						value={form.appId}
-						onChange={(e) => updateField("appId", e.target.value)}
-						className={cn(
-							"w-[260px] rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
-							validation.errors.appId ? "border-red-400" : "border-input",
-						)}
-						placeholder="cli_xxxxxxxxxxxxxxxx"
+			{/* 消息渠道：卡片网格，未来新增的渠道直接追加新的 ChannelCard 即可。 */}
+			<div className="mb-6">
+				<div className="mb-3 flex items-baseline gap-2">
+					<h2 className="text-[15px] font-semibold text-foreground">消息渠道</h2>
+					<span className="text-[12px] text-muted-foreground">1 个渠道</span>
+				</div>
+				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+					<ChannelCard
+						name="飞书"
+						subtitle="飞书机器人"
+						iconClass="icon-[mdi--message-text] text-[#00D6B9]"
+						configured={Boolean(config.feishu.appId)}
+						transportStatus={transportStatus}
+						actionLabel="设置机器人"
+						onAction={() => {
+							setSaveError(null);
+							setSaveOk(null);
+							setTestResult(null);
+							setFeishuDialogOpen(true);
+						}}
 					/>
-				</SettingRow>
-				<SettingRow title="App Secret" description="本地明文存储于 ~/.vetta/desktop-app/im-credentials.json (chmod 0600)">
-					<div className="flex w-[260px] items-center gap-1.5">
-						<input
-							type={showSecret ? "text" : "password"}
-							value={form.appSecret}
-							onChange={(e) => updateField("appSecret", e.target.value)}
-							className={cn(
-								"flex-1 rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
-								validation.errors.appSecret ? "border-red-400" : "border-input",
-							)}
-							placeholder="App Secret"
-						/>
-						<button
-							type="button"
-							onClick={() => setShowSecret((v) => !v)}
-							className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-							aria-label={showSecret ? "隐藏" : "显示"}
-						>
-							<span
+				</div>
+			</div>
+
+			<Dialog open={feishuDialogOpen} onOpenChange={setFeishuDialogOpen}>
+				<DialogContent className="sm:max-w-[460px]">
+					<DialogHeader>
+						<DialogTitle>设置飞书机器人</DialogTitle>
+						<DialogDescription>
+							填写自建应用的 App ID 与 App Secret，凭据将本地存储于 ~/.vetta/desktop-app/im-credentials.json (chmod 0600)。
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-3 py-2">
+						<div>
+							<label className="mb-1 block text-[12px] font-medium text-foreground">App ID</label>
+							<input
+								type="text"
+								value={feishuForm.appId}
+								onChange={(e) => updateFeishuField("appId", e.target.value)}
 								className={cn(
-									showSecret ? "icon-[mdi--eye-off-outline]" : "icon-[mdi--eye-outline]",
-									"h-3.5 w-3.5",
+									"w-full rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
+									feishuValidation.errors.appId ? "border-red-400" : "border-input",
 								)}
+								placeholder="cli_xxxxxxxxxxxxxxxx"
 							/>
-						</button>
+						</div>
+						<div>
+							<label className="mb-1 block text-[12px] font-medium text-foreground">App Secret</label>
+							<div className="flex items-center gap-1.5">
+								<input
+									type={showSecret ? "text" : "password"}
+									value={feishuForm.appSecret}
+									onChange={(e) => updateFeishuField("appSecret", e.target.value)}
+									className={cn(
+										"flex-1 rounded-md border bg-secondary px-2.5 py-1.5 text-[12px] text-foreground",
+										feishuValidation.errors.appSecret ? "border-red-400" : "border-input",
+									)}
+									placeholder="App Secret"
+								/>
+								<button
+									type="button"
+									onClick={() => setShowSecret((v) => !v)}
+									className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+									aria-label={showSecret ? "隐藏" : "显示"}
+								>
+									<span
+										className={cn(
+											showSecret ? "icon-[mdi--eye-off-outline]" : "icon-[mdi--eye-outline]",
+											"h-3.5 w-3.5",
+										)}
+									/>
+								</button>
+							</div>
+						</div>
+
+						<div className="min-h-[18px] text-[12px]">
+							{saveError && <span className="text-red-500">{saveError}</span>}
+							{saveOk && !saveError && (
+								<span className="text-green-600 dark:text-green-400">{saveOk}</span>
+							)}
+							{testResult && !saveError && !saveOk && (
+								<span className="text-muted-foreground">{testResult}</span>
+							)}
+						</div>
 					</div>
-				</SettingRow>
-				<SettingRow title="Verification Token" description="可选；事件订阅校验 token">
-					<input
-						type="text"
-						value={form.verificationToken}
-						onChange={(e) => updateField("verificationToken", e.target.value)}
-						className="w-[260px] rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
-						placeholder="可选"
-					/>
-				</SettingRow>
-				<SettingRow title="Encrypt Key" description="可选；事件加密 key">
-					<input
-						type="text"
-						value={form.encryptKey}
-						onChange={(e) => updateField("encryptKey", e.target.value)}
-						className="w-[260px] rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
-						placeholder="可选"
-					/>
-				</SettingRow>
-				<SettingRow title="传输模式" description="首期固定为长连接（基于飞书 oapi-sdk-go）">
-					<select
-						value="long-connection"
-						disabled
-						className="w-[260px] rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
-					>
-						<option value="long-connection">长连接</option>
-					</select>
-				</SettingRow>
-				<div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-border">
-					<div className="text-[12px] text-muted-foreground">
-						{saveError && <span className="text-red-500">{saveError}</span>}
-						{saveOk && !saveError && <span className="text-green-600 dark:text-green-400">{saveOk}</span>}
-						{testResult && !saveError && !saveOk && <span>{testResult}</span>}
-					</div>
-					<div className="flex gap-2">
+
+					<DialogFooter>
 						<button
 							type="button"
-							onClick={() => void handleTest()}
-							disabled={testing}
+							onClick={() => void handleTestFeishu()}
+							disabled={testing || !feishuValidation.valid}
 							className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 						>
 							{testing ? "测试中..." : "测试连接"}
 						</button>
 						<button
 							type="button"
-							onClick={() => void handleSave()}
-							disabled={!validation.valid || saving}
+							onClick={() => void handleSaveFeishu()}
+							disabled={!feishuValidation.valid || saving}
 							className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 						>
 							{saving ? "保存中..." : "保存"}
 						</button>
-					</div>
-				</div>
-			</SettingSection>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			{/* ─────────────────────────────────────────────────────────────── */}
 			<SettingSection
@@ -461,7 +483,7 @@ export function ImBridgeSettings(): JSX.Element {
 					<button
 						type="button"
 						onClick={() => void handleRestart()}
-						disabled={!form.enabled}
+						disabled={!config.enabled}
 						className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 					>
 						重启桥接
@@ -470,6 +492,60 @@ export function ImBridgeSettings(): JSX.Element {
 			</SettingSection>
 
 			{logsOpen && <LogDrawer logs={logs} onClose={() => setLogsOpen(false)} />}
+		</div>
+	);
+}
+
+// =============================================================================
+// Channel card
+// =============================================================================
+
+function ChannelCard({
+	name,
+	subtitle,
+	iconClass,
+	configured,
+	transportStatus,
+	actionLabel,
+	onAction,
+}: {
+	name: string;
+	subtitle: string;
+	iconClass: string;
+	configured: boolean;
+	transportStatus: ImTransportStatus;
+	actionLabel: string;
+	onAction: () => void;
+}): JSX.Element {
+	return (
+		<div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted p-5">
+			{/* 标题行 */}
+			<div className="flex items-start gap-3">
+				<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background">
+					<span className={cn(iconClass, "h-6 w-6")} />
+				</span>
+				<div className="min-w-0 flex-1">
+					<div className="text-[15px] font-semibold text-foreground">{name}</div>
+					<div className="mt-0.5 truncate text-[12px] text-muted-foreground">{subtitle}</div>
+				</div>
+				{configured ? (
+					<StatusBadge status={transportStatus} />
+				) : (
+					<span className="inline-flex items-center rounded-full bg-muted-foreground/15 px-2 py-0.5 text-[11px] text-muted-foreground">
+						未关联
+					</span>
+				)}
+			</div>
+
+			{/* 操作按钮 */}
+			<button
+				type="button"
+				onClick={onAction}
+				className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+			>
+				<span className="icon-[mdi--cog-outline] h-4 w-4" />
+				{actionLabel}
+			</button>
 		</div>
 	);
 }
