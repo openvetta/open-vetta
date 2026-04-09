@@ -323,9 +323,17 @@ func (t *Transport) sendStaticCard(ctx context.Context, chatID, text string) (st
 	return *resp.Data.MessageId, nil
 }
 
-// sendStreamingMessage provisions a cardkit card entity, sends it via the
-// IM API as a `card`-type interactive message, and registers the resulting
-// (message_id, card_id) binding so EditMessage / EndStream can find it.
+// sendStreamingMessage provisions a cardkit card entity, switches it into
+// streaming mode, sends it via the IM API as a `card`-type interactive
+// message, and registers the resulting (message_id, card_id) binding so
+// EditMessage / EndStream can find it.
+//
+// Order matters: streaming_mode must be enabled via Card.Settings BEFORE
+// the IM message is sent. Setting `streaming_mode: true` inline in the
+// initial Card.Create config does not take effect — verified against the
+// reference impl in tarichuo/codex-feishu-bot. Without this step, all
+// subsequent CardElement.Content calls are silently dropped and the user
+// sees a card stuck at its initial content forever.
 func (t *Transport) sendStreamingMessage(ctx context.Context, chatID, text string) (string, error) {
 	cardJSON, err := encodeStreamingCardJSON(text)
 	if err != nil {
@@ -349,6 +357,31 @@ func (t *Transport) sendStreamingMessage(ctx context.Context, chatID, text strin
 		return "", errors.New("feishu cardkit create: missing card_id in response")
 	}
 	cardID := *createResp.Data.CardId
+
+	// Provisional handle so we can hand the registry a sequence counter and
+	// keep numbering monotonic across enable/edit/end calls.
+	h := &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()}
+
+	// Enable streaming mode on the card. This MUST happen before we send
+	// the IM message that references it.
+	settingsJSON, err := encodeStreamingEnabledSettings()
+	if err != nil {
+		return "", err
+	}
+	settingsReq := larkcardkit.NewSettingsCardReqBuilder().
+		CardId(cardID).
+		Body(larkcardkit.NewSettingsCardReqBodyBuilder().
+			Settings(settingsJSON).
+			Sequence(int(t.bumpSequence(h))).
+			Build()).
+		Build()
+	settingsResp, err := t.api.Cardkit.V1.Card.Settings(ctx, settingsReq)
+	if err != nil {
+		return "", fmt.Errorf("feishu cardkit settings(enable): %w", err)
+	}
+	if !settingsResp.Success() {
+		return "", fmt.Errorf("feishu cardkit settings(enable): %s (%d)", settingsResp.Msg, settingsResp.Code)
+	}
 
 	// Reference the card_id from an interactive message. The IM API expects
 	// content as a JSON string of {"type":"card","data":{"card_id":"..."}}.
@@ -375,15 +408,16 @@ func (t *Transport) sendStreamingMessage(ctx context.Context, chatID, text strin
 		return "", errors.New("feishu send (cardkit): missing message id in response")
 	}
 	messageID := *imResp.Data.MessageId
-	t.registerStream(messageID, cardID)
+	t.adoptStream(messageID, h)
 	return messageID, nil
 }
 
 // EditMessage updates a streaming message in place. The bridge only calls
 // this for messages it created via SendMessage(streaming=true), so the
 // (message_id → card_id) binding must already be registered. We push the
-// new full text to cardkit's content API which diffs against the previous
-// content and renders the change as a typewriter effect on the client.
+// new full text (raw markdown — NOT JSON-wrapped) to cardkit's content
+// API which diffs against the previous content and renders the change as
+// a typewriter effect on the client.
 func (t *Transport) EditMessage(ctx context.Context, _ string, messageID string, msg transport.OutboundMessage) error {
 	h := t.lookupStream(messageID)
 	if h == nil {
@@ -391,15 +425,11 @@ func (t *Transport) EditMessage(ctx context.Context, _ string, messageID string,
 	}
 
 	seq := t.nextSequence(h)
-	body, err := encodeStreamingContentBody(msg.Text)
-	if err != nil {
-		return err
-	}
 	req := larkcardkit.NewContentCardElementReqBuilder().
 		CardId(h.cardID).
 		ElementId(streamElementID).
 		Body(larkcardkit.NewContentCardElementReqBodyBuilder().
-			Content(body).
+			Content(msg.Text).
 			Sequence(int(seq)).
 			Build()).
 		Build()
@@ -496,23 +526,29 @@ func encodeMarkdownCard(markdown string) (string, error) {
 	return string(body), nil
 }
 
-// encodeStreamingCardJSON builds the card JSON 2.0 body that gets handed to
-// cardkit's Card.Create. It declares streaming_mode=true so that subsequent
-// content updates animate with the typewriter effect, and pins a stable
-// element_id on the markdown element so the content-update API can address
-// it.
+// encodeStreamingCardJSON builds the card JSON 2.0 body handed to cardkit's
+// Card.Create. It pins a stable element_id on the markdown element so
+// CardElement.Content can address it later.
+//
+// Notably it does NOT set `streaming_mode: true` here. Empirically that
+// flag has no effect when set inline at create time — it must be enabled
+// in a separate Card.Settings call BEFORE the IM message that references
+// the card_id is sent. See sendStreamingMessage.
+//
+// `initial` is the markdown body to seed the card with. Empty string is
+// allowed; the bridge guards against creating a card before the buffer
+// has any text, but we still substitute a single space if the caller
+// passes empty so the card has something to render against on the first
+// frame.
 func encodeStreamingCardJSON(initial string) (string, error) {
+	if initial == "" {
+		initial = " "
+	}
 	card := map[string]any{
 		"schema": "2.0",
 		"config": map[string]any{
-			"streaming_mode": true,
-			"update_multi":   true,
-			"summary": map[string]any{
-				"content": "",
-			},
-			"streaming_config": map[string]any{
-				"print_strategy": "fast",
-			},
+			"update_multi":     true,
+			"wide_screen_mode": true,
 		},
 		"body": map[string]any{
 			"elements": []any{
@@ -531,6 +567,21 @@ func encodeStreamingCardJSON(initial string) (string, error) {
 	return string(body), nil
 }
 
+// encodeStreamingEnabledSettings produces the partial card-settings JSON
+// the cardkit Settings endpoint expects to switch a card INTO streaming
+// mode. Used by sendStreamingMessage right after Card.Create.
+func encodeStreamingEnabledSettings() (string, error) {
+	body, err := json.Marshal(map[string]any{
+		"config": map[string]any{
+			"streaming_mode": true,
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("encode streaming-enabled settings: %w", err)
+	}
+	return string(body), nil
+}
+
 // encodeCardReferenceContent builds the JSON the IM messages-create
 // endpoint expects when sending an interactive card by reference (rather
 // than inlining the card body): {"type":"card","data":{"card_id":"..."}}.
@@ -543,16 +594,6 @@ func encodeCardReferenceContent(cardID string) (string, error) {
 	})
 	if err != nil {
 		return "", fmt.Errorf("encode card reference: %w", err)
-	}
-	return string(body), nil
-}
-
-// encodeStreamingContentBody wraps a markdown chunk in the {"content":"..."}
-// envelope that the cardkit element-content endpoint expects.
-func encodeStreamingContentBody(markdown string) (string, error) {
-	body, err := json.Marshal(map[string]string{"content": markdown})
-	if err != nil {
-		return "", fmt.Errorf("encode streaming content: %w", err)
 	}
 	return string(body), nil
 }
@@ -582,11 +623,18 @@ func encodeStreamingFinishedSettings() (string, error) {
 // stream and matches Feishu's "use a timestamp" recommendation, while
 // nextSequence() guarantees strict monotonicity from there.
 func (t *Transport) registerStream(messageID, cardID string) {
+	t.adoptStream(messageID, &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()})
+}
+
+// adoptStream stores an existing streamHandle (carrying its already-bumped
+// sequence counter) under messageID. Used by sendStreamingMessage which
+// has to issue a Settings call with a sequence BEFORE the message_id is
+// known.
+func (t *Transport) adoptStream(messageID string, h *streamHandle) {
 	t.streamMu.Lock()
 	defer t.streamMu.Unlock()
 	if _, exists := t.streams[messageID]; exists {
-		// Re-binding the same id is unexpected but harmless; just refresh.
-		t.streams[messageID] = &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()}
+		t.streams[messageID] = h
 		return
 	}
 	if len(t.streams) >= streamRegistryCap {
@@ -594,8 +642,22 @@ func (t *Transport) registerStream(messageID, cardID string) {
 		t.order = t.order[1:]
 		delete(t.streams, oldest)
 	}
-	t.streams[messageID] = &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()}
+	t.streams[messageID] = h
 	t.order = append(t.order, messageID)
+}
+
+// bumpSequence advances the sequence counter on a streamHandle that may
+// not yet be registered (used during the create/enable flow before we
+// know the message_id). Identical bookkeeping to nextSequence.
+func (t *Transport) bumpSequence(h *streamHandle) int64 {
+	t.streamMu.Lock()
+	defer t.streamMu.Unlock()
+	now := time.Now().UnixMilli()
+	if now <= h.lastSeq {
+		now = h.lastSeq + 1
+	}
+	h.lastSeq = now
+	return now
 }
 
 func (t *Transport) lookupStream(messageID string) *streamHandle {
