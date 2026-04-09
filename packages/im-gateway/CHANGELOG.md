@@ -22,3 +22,4 @@ All notable changes to `@vetta/im-gateway` are documented in this file.
 ### Changed
 
 - Feishu transport now sends outbound messages as interactive cards (card JSON 2.0 with a `markdown` element) instead of plain `text`. LLM markdown output (bold, italic, lists, code blocks, links, etc.) renders properly in the Feishu client. Requires Feishu client ≥ 7.20. `Capabilities.SupportsMessageEdit` is intentionally left at `false` for this change — streaming edit support will be a follow-up.
+- All slash command replies (`/help`, `/projects`, `/use`, `/new`, `/whoami`, plus error/usage messages and the unknown-command fallback) are now in Chinese and formatted as markdown (headings, bullet lists, inline code, bold) so they render nicely on top of the new card pipeline.

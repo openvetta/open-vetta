@@ -93,7 +93,7 @@ func (r *Router) Dispatch(ctx context.Context, env Env, text string) (Result, er
 	name, args := parts[0], parts[1:]
 	h, ok := r.handlers[name]
 	if !ok {
-		return reply(fmt.Sprintf("unknown command /%s — try /help", name)), nil
+		return reply(fmt.Sprintf("未知命令 `/%s`，使用 `/help` 查看可用命令。", name)), nil
 	}
 	return h.Run(ctx, env, args)
 }
@@ -137,7 +137,7 @@ func reply(text string) Result {
 type projectsCmd struct{}
 
 func (projectsCmd) Name() string { return "projects" }
-func (projectsCmd) Help() string { return "/projects — list available projects" }
+func (projectsCmd) Help() string { return "`/projects` — 查看项目列表" }
 
 func (projectsCmd) Run(ctx context.Context, env Env, _ []string) (Result, error) {
 	all, err := env.Projects.List(ctx)
@@ -145,7 +145,7 @@ func (projectsCmd) Run(ctx context.Context, env Env, _ []string) (Result, error)
 		return Result{}, fmt.Errorf("list projects: %w", err)
 	}
 	if len(all) == 0 {
-		return reply("No projects found. Add one in the desktop app or edit ~/.vetta/desktop-config.json."), nil
+		return reply("**没有可用项目**\n\n请在桌面端添加项目，或编辑 `~/.vetta/desktop-config.json`。"), nil
 	}
 
 	current := currentProjectID(ctx, env)
@@ -153,17 +153,15 @@ func (projectsCmd) Run(ctx context.Context, env Env, _ []string) (Result, error)
 	sort.Slice(all, func(i, j int) bool { return all[i].Name < all[j].Name })
 
 	var b strings.Builder
-	b.WriteString("Available projects:\n")
+	b.WriteString("**可用项目**\n\n")
 	for _, p := range all {
-		marker := "  "
 		if p.ID == current {
-			marker = "* "
+			fmt.Fprintf(&b, "- **%s** *(当前)*\n", p.Name)
+		} else {
+			fmt.Fprintf(&b, "- %s\n", p.Name)
 		}
-		b.WriteString(marker)
-		b.WriteString(p.Name)
-		b.WriteString("\n")
 	}
-	b.WriteString("\nUse /use <name> to switch.")
+	b.WriteString("\n使用 `/use <名称>` 切换项目。")
 	return reply(b.String()), nil
 }
 
@@ -197,20 +195,20 @@ func listAllOrEmpty(ctx context.Context, env Env) []projects.Project {
 type useCmd struct{}
 
 func (useCmd) Name() string { return "use" }
-func (useCmd) Help() string { return "/use <name> — switch to a project" }
+func (useCmd) Help() string { return "`/use <名称>` — 切换到指定项目" }
 
 func (useCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 	if len(args) == 0 {
-		return reply("Usage: /use <project-name>"), nil
+		return reply("**用法**：`/use <项目名>`"), nil
 	}
 	name := args[0]
 
 	p, err := env.Projects.Resolve(ctx, name)
 	if err != nil {
 		if errors.Is(err, projects.ErrProjectNotFound) {
-			return reply(fmt.Sprintf("Project %q not found. Try /projects.", name)), nil
+			return reply(fmt.Sprintf("找不到项目 **%q**，可以用 `/projects` 查看可用项目。", name)), nil
 		}
-		return reply(fmt.Sprintf("Could not resolve %q: %v", name, err)), nil
+		return reply(fmt.Sprintf("无法解析项目 **%q**：%v", name, err)), nil
 	}
 
 	// Check whether we already have a session for (user, project). If yes,
@@ -231,12 +229,12 @@ func (useCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 			var lockErr *hostclient.ErrSessionLocked
 			if errors.As(err, &lockErr) {
 				return reply(fmt.Sprintf(
-					"Project %q has a session that's currently open elsewhere (pid %d on %s). "+
-						"Close it in the desktop app, or use /new to start a fresh session.",
+					"项目 **%q** 的会话当前正在其他位置打开（pid `%d`，主机 `%s`）。\n\n"+
+						"请在桌面端关闭它，或使用 `/new` 开启新会话。",
 					p.Name, lockErr.Holder.PID, lockErr.Holder.Hostname,
 				)), nil
 			}
-			return reply(fmt.Sprintf("Could not open session for %q: %v", p.Name, err)), nil
+			return reply(fmt.Sprintf("无法打开项目 **%q** 的会话：%v", p.Name, err)), nil
 		}
 		acq.Release()
 	}
@@ -253,7 +251,7 @@ func (useCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 	}
 
 	return Result{
-		Reply:   transport.OutboundMessage{Text: fmt.Sprintf("Switched to project: %s", p.Name)},
+		Reply:   transport.OutboundMessage{Text: fmt.Sprintf("已切换到项目 **%s**", p.Name)},
 		Mutated: true,
 	}, nil
 }
@@ -265,12 +263,12 @@ func (useCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 type newCmd struct{}
 
 func (newCmd) Name() string { return "new" }
-func (newCmd) Help() string { return "/new [name] — start a fresh session in the current project" }
+func (newCmd) Help() string { return "`/new [名称]` — 在当前项目下开启新会话" }
 
 func (newCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 	currentID := currentProjectID(ctx, env)
 	if currentID == "" {
-		return reply("No project selected. Use /projects then /use <name>."), nil
+		return reply("**未选择项目**\n\n请先用 `/projects` 查看项目列表，再用 `/use <名称>` 选择。"), nil
 	}
 
 	// Find the project's cwd from the directory.
@@ -283,7 +281,7 @@ func (newCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 		}
 	}
 	if cwd == "" {
-		return reply("Current project no longer exists in the desktop config."), nil
+		return reply("当前项目已从桌面配置中移除。"), nil
 	}
 
 	// Acquire a session with empty sessionPath — the local hostclient
@@ -298,7 +296,7 @@ func (newCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 	// once we have integration testing in place.
 	acq, err := env.HostPool.Acquire(ctx, cwd, "")
 	if err != nil {
-		return reply(fmt.Sprintf("Could not start a new session: %v", err)), nil
+		return reply(fmt.Sprintf("无法启动新会话：%v", err)), nil
 	}
 	defer acq.Release()
 
@@ -324,10 +322,10 @@ func (newCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 
 	suffix := ""
 	if len(args) > 0 {
-		suffix = " (" + args[0] + ")"
+		suffix = " *(" + args[0] + ")*"
 	}
 	return Result{
-		Reply:   transport.OutboundMessage{Text: fmt.Sprintf("New session started in %s%s.", displayName, suffix)},
+		Reply:   transport.OutboundMessage{Text: fmt.Sprintf("已在 **%s** 中开启新会话%s", displayName, suffix)},
 		Mutated: true,
 	}, nil
 }
@@ -339,21 +337,22 @@ func (newCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 type whoamiCmd struct{}
 
 func (whoamiCmd) Name() string { return "whoami" }
-func (whoamiCmd) Help() string { return "/whoami — show current user, project, session, pool stats" }
+func (whoamiCmd) Help() string { return "`/whoami` — 查看当前用户、项目、会话与连接池状态" }
 
 func (whoamiCmd) Run(ctx context.Context, env Env, _ []string) (Result, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "User: %s\n", env.UserID)
+	b.WriteString("**当前状态**\n\n")
+	fmt.Fprintf(&b, "- **用户**：`%s`\n", env.UserID)
 
 	currentID := currentProjectID(ctx, env)
 	if currentID == "" {
-		b.WriteString("Project: (none — /use to select)\n")
+		b.WriteString("- **项目**：*(未选择，使用 `/use` 切换)*\n")
 	} else {
 		for _, p := range listAllOrEmpty(ctx, env) {
 			if p.ID == currentID {
-				fmt.Fprintf(&b, "Project: %s (%s)\n", p.Name, p.Path)
+				fmt.Fprintf(&b, "- **项目**：%s （`%s`）\n", p.Name, p.Path)
 				if entry, ok, _ := env.State.GetSession(ctx, env.UserID, p.ID); ok {
-					fmt.Fprintf(&b, "Session: %s\n", entry.SessionPath)
+					fmt.Fprintf(&b, "- **会话**：`%s`\n", entry.SessionPath)
 				}
 				break
 			}
@@ -362,7 +361,7 @@ func (whoamiCmd) Run(ctx context.Context, env Env, _ []string) (Result, error) {
 
 	if env.HostPool != nil {
 		st := env.HostPool.Stats()
-		fmt.Fprintf(&b, "Pool: %d/%d sessions, %d in flight\n", st.Size, st.MaxSize, st.InFlight)
+		fmt.Fprintf(&b, "- **连接池**：%d/%d 会话，%d 进行中\n", st.Size, st.MaxSize, st.InFlight)
 	}
 	return reply(strings.TrimRight(b.String(), "\n")), nil
 }
@@ -376,7 +375,7 @@ type helpCmd struct {
 }
 
 func (helpCmd) Name() string { return "help" }
-func (helpCmd) Help() string { return "/help — show this message" }
+func (helpCmd) Help() string { return "`/help` — 显示本帮助" }
 
 func (h helpCmd) Run(_ context.Context, _ Env, _ []string) (Result, error) {
 	names := make([]string, 0, len(h.router.handlers))
@@ -386,9 +385,9 @@ func (h helpCmd) Run(_ context.Context, _ Env, _ []string) (Result, error) {
 	sort.Strings(names)
 
 	var b strings.Builder
-	b.WriteString("Commands:\n")
+	b.WriteString("**可用命令**\n\n")
 	for _, n := range names {
-		fmt.Fprintf(&b, "  %s\n", h.router.handlers[n].Help())
+		fmt.Fprintf(&b, "- %s\n", h.router.handlers[n].Help())
 	}
 	return reply(strings.TrimRight(b.String(), "\n")), nil
 }
