@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -45,9 +46,9 @@ func (s *stubTransport) DeleteMessage(_ context.Context, _, _ string) error { re
 func (s *stubTransport) ShowTyping(_ context.Context, _ string) error       { return nil }
 func (s *stubTransport) EndStream(_ context.Context, _, _ string) error     { return nil }
 
-// stubBuilder returns a stubTransport ignoring the config (allows tests
+// stubBuilder returns a stubTransport ignoring the spec (allows tests
 // to bypass the feishu credential validation).
-func stubBuilder(_ *hostproto.FeishuConfig) (transport.Transport, error) {
+func stubBuilder(_ *buildSpec) (transport.Transport, error) {
 	return newStubTransport("stub"), nil
 }
 
@@ -357,5 +358,139 @@ func TestHost_BadInitFrameType(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("runHostWithIO did not return")
+	}
+}
+
+// TestHost_WechatInitAwaitingBind asserts the sidecar parks in the
+// awaiting_bind status when init selects wechat but no credentials are
+// persisted yet. This is the path the desktop-app's WeChat card relies on
+// when the user first opens the bind dialog: the sidecar must come up
+// healthy (so the bind frame can be delivered) without trying to start
+// any transport.
+//
+// Uses the real production buildHostTransport — exercises the
+// errAwaitingBind branch end-to-end.
+func TestHost_WechatInitAwaitingBind(t *testing.T) {
+	in := newPipeReader()
+	out := &captureWriter{}
+
+	// Empty temp dir → no wechat state file → wechat.New returns
+	// ErrNotBound → buildHostTransport returns errAwaitingBind.
+	statePath := filepath.Join(t.TempDir(), "wechat.json")
+
+	done := make(chan int, 1)
+	go func() {
+		done <- runHostWithIO(hostOptions{
+			stdin:         in,
+			stdout:        out,
+			initTimeout:   2 * time.Second,
+			shutdownGrace: 500 * time.Millisecond,
+		})
+	}()
+
+	initFrame := hostproto.InitFrame{
+		Type: hostproto.TypeInit,
+		Wechat: &hostproto.WechatConfig{
+			Enabled:   true,
+			StatePath: statePath,
+		},
+		Projects: []hostproto.ProjectEntry{},
+	}
+	data, err := hostproto.EncodeFrame(initFrame)
+	if err != nil {
+		t.Fatalf("encode init: %v", err)
+	}
+	in.Write(data)
+
+	// Ready event should fire with the placeholder transport name.
+	ready := waitForType(t, out, hostproto.TypeReady, 2*time.Second)
+	if ready["transport"] != "placeholder" {
+		t.Errorf("ready transport = %v, want placeholder", ready["transport"])
+	}
+
+	// We should see at least one status event with awaiting_bind.
+	deadline := time.Now().Add(2 * time.Second)
+	sawAwaiting := false
+	for time.Now().Before(deadline) {
+		for _, ev := range out.Lines() {
+			if ev["type"] == hostproto.TypeStatus && ev["transport"] == hostproto.TransportStatusAwaitingBind {
+				sawAwaiting = true
+				break
+			}
+		}
+		if sawAwaiting {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !sawAwaiting {
+		t.Fatalf("never saw awaiting_bind status. captured:\n%s", out.Bytes())
+	}
+
+	// Shutdown should still work cleanly even though no transport is running.
+	sd, _ := hostproto.EncodeFrame(hostproto.ShutdownFrame{Type: hostproto.TypeShutdown})
+	in.Write(sd)
+
+	select {
+	case code := <-done:
+		if code != 0 {
+			t.Errorf("exit code on shutdown = %d, want 0", code)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("runHostWithIO did not return after shutdown frame")
+	}
+}
+
+// TestHost_WechatBindStartIgnoredWhenInactive asserts that wechat_bind_start
+// frames sent to a sidecar in feishu mode are logged but cause no harm —
+// they should not panic, leak goroutines, or affect the running feishu
+// transport.
+func TestHost_WechatBindStartIgnoredWhenInactive(t *testing.T) {
+	in := newPipeReader()
+	out := &captureWriter{}
+
+	done := make(chan int, 1)
+	go func() {
+		done <- runHostWithIO(hostOptions{
+			stdin:          in,
+			stdout:         out,
+			buildTransport: stubBuilder, // feishu-stub path; no wechat coord
+			initTimeout:    2 * time.Second,
+			shutdownGrace:  500 * time.Millisecond,
+		})
+	}()
+
+	initFrame := hostproto.InitFrame{
+		Type: hostproto.TypeInit,
+		Feishu: &hostproto.FeishuConfig{
+			AppID:     "stub",
+			AppSecret: "stub",
+		},
+		Projects: []hostproto.ProjectEntry{},
+	}
+	data, _ := hostproto.EncodeFrame(initFrame)
+	in.Write(data)
+	waitForType(t, out, hostproto.TypeReady, 2*time.Second)
+
+	// Send wechat_bind_start: should be safely ignored.
+	bs, _ := hostproto.EncodeFrame(hostproto.WechatBindStartFrame{Type: hostproto.TypeWechatBindStart})
+	in.Write(bs)
+
+	// Give the loop a moment to process the frame.
+	time.Sleep(100 * time.Millisecond)
+
+	// No wechat_qr / wechat_bind_status should appear.
+	for _, ev := range out.Lines() {
+		if ev["type"] == hostproto.TypeWechatQR || ev["type"] == hostproto.TypeWechatBindStatus {
+			t.Errorf("unexpected wechat event in feishu-only mode: %v", ev)
+		}
+	}
+
+	sd, _ := hostproto.EncodeFrame(hostproto.ShutdownFrame{Type: hostproto.TypeShutdown})
+	in.Write(sd)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not exit")
 	}
 }

@@ -62,6 +62,32 @@ func New(
 // Compile-time interface conformance.
 var _ transport.MessageHandler = (*Router)(nil)
 
+// SetTransport replaces the transport used for outbound sends. Used by
+// the host runtime when the wechat bind flow completes (or any other
+// in-process transport swap) so the router's reply path targets the new
+// transport rather than the placeholder it was constructed with.
+//
+// Reads of r.tr go through getTransport so they share the same mutex
+// (concurrent writes would otherwise race the per-conversation
+// goroutines that call SendMessage).
+func (r *Router) SetTransport(tr transport.Transport) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return
+	}
+	r.tr = tr
+}
+
+// getTransport returns the current transport under lock. Per-conversation
+// goroutines use this for every outbound SendMessage call so a concurrent
+// SetTransport from the host runtime is race-free.
+func (r *Router) getTransport() transport.Transport {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.tr
+}
+
 // HandleInbound enqueues the message onto the per-conversation goroutine.
 // Returns immediately; processing is asynchronous.
 func (r *Router) HandleInbound(ctx context.Context, msg transport.InboundMessage) error {
@@ -136,7 +162,7 @@ func (r *Router) handleOne(ctx context.Context, msg transport.InboundMessage) er
 		return err
 	}
 	if res.Reply.Text != "" || len(res.Reply.Blocks) > 0 {
-		if _, err := r.tr.SendMessage(ctx, msg.ChatID, res.Reply); err != nil {
+		if _, err := r.getTransport().SendMessage(ctx, msg.ChatID, res.Reply); err != nil {
 			return err
 		}
 	}
@@ -158,7 +184,7 @@ func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessag
 		return err
 	}
 	if !ok {
-		_, _ = r.tr.SendMessage(ctx, msg.ChatID, transport.OutboundMessage{
+		_, _ = r.getTransport().SendMessage(ctx, msg.ChatID, transport.OutboundMessage{
 			Text: "No project selected. Use /projects then /use <name>.",
 		})
 		return nil
@@ -283,7 +309,7 @@ func sessionPathMatchesCwd(sessionPath, cwd string) bool {
 }
 
 func (r *Router) replyError(ctx context.Context, chatID string, err error) {
-	_, _ = r.tr.SendMessage(ctx, chatID, transport.OutboundMessage{
+	_, _ = r.getTransport().SendMessage(ctx, chatID, transport.OutboundMessage{
 		Text: fmt.Sprintf("error: %v", err),
 	})
 }

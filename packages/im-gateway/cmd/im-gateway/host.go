@@ -17,11 +17,16 @@ import (
 	"vetta-im-gateway/internal/state"
 	"vetta-im-gateway/internal/transport"
 	"vetta-im-gateway/internal/transport/feishu"
+	"vetta-im-gateway/internal/transport/wechat"
 )
 
-// transportBuilder constructs a transport.Transport from a feishu config.
-// Production uses buildHostTransport (real feishu); tests inject a mock.
-type transportBuilder func(*hostproto.FeishuConfig) (transport.Transport, error)
+// transportBuilder constructs a transport.Transport from the active
+// transport selection. Returns errAwaitingBind when the wechat slot is
+// selected but no credentials have been persisted yet — the caller treats
+// this as a non-fatal "park the runtime, wait for bind frames".
+//
+// Production uses buildHostTransport; tests inject a stub.
+type transportBuilder func(*buildSpec) (transport.Transport, error)
 
 // hostOptions configures runHostWithIO. Used so tests can inject mock IO
 // streams and a stub transport builder.
@@ -119,8 +124,17 @@ func runHostWithIO(opts hostOptions) int {
 	hostClient := hclocal.New(hclocal.Options{})
 	pool := hostclient.NewProcessPool(hostClient, 0)
 
-	// 3. Build transport from injected feishu config.
-	tr, err := opts.buildTransport(initFrame.Feishu)
+	// 3. Build transport from injected config. errAwaitingBind is a
+	//    legitimate startup state for the wechat slot — we park the
+	//    runtime instead of failing.
+	currentSpec := specFromInit(initFrame)
+	tr, err := opts.buildTransport(currentSpec)
+	awaitingBind := false
+	if errors.Is(err, errAwaitingBind) {
+		awaitingBind = true
+		tr = nil
+		err = nil
+	}
 	if err != nil {
 		emitLog("error", "build transport", map[string]any{"err": err.Error()})
 		fmt.Fprintf(os.Stderr, "im-gateway host: %v\n", err)
@@ -128,18 +142,31 @@ func runHostWithIO(opts hostOptions) int {
 		return 1
 	}
 
+	// Router needs a transport at construction time — even in
+	// awaiting_bind mode we hand it a no-op stand-in so the rest of the
+	// machinery (command parser, host client pool wiring) is alive and
+	// ready to be wired to the real transport once bind succeeds.
+	if tr == nil {
+		tr = newPlaceholderTransport()
+	}
 	r := router.New(tr, command.NewRouter(), stateStore, projectDir, pool)
 
-	// 4. Start transport in background.
+	// 4. Start transport (or skip if awaiting bind).
 	tCtx, tCancel := context.WithCancel(context.Background())
-	transportDone := make(chan error, 1)
-	go func() {
-		emitStatus(hostproto.TransportStatusConnecting, "")
-		err := tr.Start(tCtx, r)
-		transportDone <- err
-	}()
+	var transportDone chan error
+	startTransport := func(t transport.Transport) {
+		transportDone = make(chan error, 1)
+		go func(t transport.Transport, ctx context.Context, done chan error) {
+			emitStatus(hostproto.TransportStatusConnecting, "")
+			done <- t.Start(ctx, r)
+		}(t, tCtx, transportDone)
+	}
 
-	// 5. Emit ready.
+	if !awaitingBind {
+		startTransport(tr)
+	}
+
+	// 5. Emit ready + initial status.
 	if err := out.WriteFrame(hostproto.ReadyEvent{
 		Type:      hostproto.TypeReady,
 		Version:   version,
@@ -147,14 +174,33 @@ func runHostWithIO(opts hostOptions) int {
 	}); err != nil {
 		emitLog("error", "write ready", map[string]any{"err": err.Error()})
 	}
-	emitStatus(hostproto.TransportStatusOnline, "")
+	if awaitingBind {
+		emitStatus(hostproto.TransportStatusAwaitingBind, "")
+	} else {
+		emitStatus(hostproto.TransportStatusOnline, "")
+	}
 	emitLog("info", "im-gateway host ready",
 		map[string]any{
-			"transport": tr.Name(),
-			"version":   version,
-			"projects":  len(initFrame.Projects),
-			"state":     len(initFrame.State),
+			"transport":     tr.Name(),
+			"version":       version,
+			"projects":      len(initFrame.Projects),
+			"state":         len(initFrame.State),
+			"awaitingBind":  awaitingBind,
 		})
+
+	// 5b. Set up the wechat bind coordinator if wechat is the active
+	//     transport. The rebuild channel signals the main loop that a
+	//     bind has just succeeded and the transport should be (re)built.
+	wechatRebuildCh := make(chan struct{}, 1)
+	var wcoord *wechatBindCoordinator
+	if currentSpec.Wechat != nil && currentSpec.Wechat.Enabled {
+		wcoord = newWechatBindCoordinator(
+			currentSpec.WechatStatePath,
+			out,
+			emitLog,
+			wechatRebuildCh,
+		)
+	}
 
 	// 6. Main loop: handle inbound control frames until EOF / shutdown /
 	// transport failure.
@@ -166,6 +212,50 @@ func runHostWithIO(opts hostOptions) int {
 		projectDir: projectDir,
 		emitLog:    emitLog,
 		emitStatus: emitStatus,
+		wcoord:     wcoord,
+		spec:       currentSpec,
+	}
+
+	// rebuildTransport tears down the current transport (if any) and
+	// builds a fresh one from hostState.spec, then starts it.
+	rebuildTransport := func() {
+		// Cancel the old transport (or placeholder).
+		tCancel()
+		if transportDone != nil {
+			select {
+			case <-transportDone:
+			case <-time.After(2 * time.Second):
+				emitLog("warn", "previous transport did not stop in 2s", nil)
+			}
+			transportDone = nil
+		}
+		_ = tr.Stop()
+
+		// Fresh context for the new transport.
+		newCtx, newCancel := context.WithCancel(context.Background())
+		tCtx = newCtx
+		tCancel = newCancel
+
+		newTr, buildErr := opts.buildTransport(hostState.spec)
+		if errors.Is(buildErr, errAwaitingBind) {
+			tr = newPlaceholderTransport()
+			r.SetTransport(tr)
+			emitStatus(hostproto.TransportStatusAwaitingBind, "")
+			emitLog("info", "transport awaiting wechat bind", nil)
+			return
+		}
+		if buildErr != nil {
+			emitLog("error", "rebuild transport", map[string]any{"err": buildErr.Error()})
+			emitStatus(hostproto.TransportStatusError, buildErr.Error())
+			tr = newPlaceholderTransport()
+			r.SetTransport(tr)
+			return
+		}
+		tr = newTr
+		r.SetTransport(tr)
+		startTransport(tr)
+		emitStatus(hostproto.TransportStatusOnline, "")
+		emitLog("info", "transport (re)started", map[string]any{"transport": tr.Name()})
 	}
 
 loop:
@@ -176,35 +266,34 @@ loop:
 				// EOF == implicit shutdown.
 				break loop
 			}
-			restart, stop := hostState.handleFrame(frame, tr, r, pool)
-			if stop {
+			action := hostState.handleFrame(frame)
+			if action.stop {
 				shutdownReason = "shutdown frame"
 				break loop
 			}
-			if restart != nil {
-				// Restart transport with new credentials.
-				newTr, restartErr := restartTransport(tCancel, transportDone, restart, hostState, r, &tCtx, &tCancel, opts.buildTransport)
-				if restartErr != nil {
-					emitLog("error", "restart transport", map[string]any{"err": restartErr.Error()})
-					emitStatus(hostproto.TransportStatusError, restartErr.Error())
-					continue
-				}
-				tr = newTr
-				// Spawn the new transport's goroutine.
-				transportDone = make(chan error, 1)
-				go func(t transport.Transport, ctx context.Context, done chan error) {
-					emitStatus(hostproto.TransportStatusConnecting, "")
-					done <- t.Start(ctx, r)
-				}(tr, tCtx, transportDone)
-				emitStatus(hostproto.TransportStatusOnline, "")
-				emitLog("info", "transport reconnected", map[string]any{"transport": tr.Name()})
+			if action.startBind && hostState.wcoord != nil {
+				hostState.wcoord.Start(context.Background())
 			}
+			if action.logout && hostState.wcoord != nil {
+				if err := hostState.wcoord.LogoutAndClear("user logout"); err != nil {
+					emitLog("error", "wechat logout failed", map[string]any{"err": err.Error()})
+				} else {
+					rebuildTransport()
+				}
+			}
+			if action.rebuild {
+				rebuildTransport()
+			}
+		case <-wechatRebuildCh:
+			// Bind goroutine signalled success.
+			rebuildTransport()
 		case err := <-rdr.Err():
 			emitLog("error", "stdin reader error", map[string]any{"err": err.Error()})
 			shutdownReason = "stdin error"
 			break loop
 		case err := <-transportDone:
 			trErr = err
+			transportDone = nil
 			if err != nil && !errors.Is(err, context.Canceled) {
 				emitLog("error", "transport stopped with error", map[string]any{"err": err.Error()})
 				emitStatus(hostproto.TransportStatusError, err.Error())
@@ -250,37 +339,80 @@ type hostRuntime struct {
 	projectDir *projects.InjectedDirectory
 	emitLog    func(level, msg string, fields map[string]any)
 	emitStatus func(status, lastErr string)
+
+	// wcoord is the wechat bind coordinator. nil when wechat is not the
+	// active transport (or has not been selected via config_update yet).
+	wcoord *wechatBindCoordinator
+
+	// spec is the most-recent build spec. Updated by config_update so
+	// rebuild calls always use the latest selection.
+	spec *buildSpec
 }
 
-// handleFrame processes one control frame. Returns (newConfigForRestart,
-// stop) where:
-//   - newConfigForRestart non-nil → caller should rebuild the transport
-//   - stop true                  → caller should exit the loop
-func (h *hostRuntime) handleFrame(frame any, _ transport.Transport, _ *router.Router, _ *hostclient.ProcessPool) (*hostproto.FeishuConfig, bool) {
+// frameAction is what handleFrame returns to the main loop. Multiple
+// flags may be set; the main loop processes them in a fixed order.
+type frameAction struct {
+	stop      bool // shutdown frame received
+	rebuild   bool // config_update with a new transport selection
+	startBind bool // wechat_bind_start
+	logout    bool // wechat_logout
+}
+
+// handleFrame processes one control frame.
+func (h *hostRuntime) handleFrame(frame any) frameAction {
 	switch f := frame.(type) {
 	case *hostproto.InitFrame:
 		// Late init: ignore (already processed). Log a warning.
 		h.emitLog("warn", "ignoring duplicate init frame", nil)
-		return nil, false
+		return frameAction{}
 
 	case *hostproto.ConfigUpdateFrame:
-		if f.Feishu == nil {
-			h.emitLog("warn", "config_update with empty feishu, ignored", nil)
-			return nil, false
+		if f.Feishu == nil && f.Wechat == nil {
+			h.emitLog("warn", "config_update with empty body, ignored", nil)
+			return frameAction{}
 		}
-		return f.Feishu, false
+		h.spec = specFromConfigUpdate(f)
+		// If the active transport is now wechat, ensure the bind
+		// coordinator is constructed (or refreshed with the new path).
+		if h.spec.Wechat != nil && h.spec.Wechat.Enabled {
+			if h.wcoord == nil {
+				h.wcoord = newWechatBindCoordinator(h.spec.WechatStatePath, h.out, h.emitLog, nil)
+			}
+		} else {
+			// Switching away from wechat — drop the coordinator so
+			// future bind frames are ignored.
+			if h.wcoord != nil {
+				h.wcoord.Cancel()
+				h.wcoord = nil
+			}
+		}
+		return frameAction{rebuild: true}
 
 	case *hostproto.ProjectsUpdateFrame:
 		h.projectDir.Replace(projectsFromFrames(f.Projects))
 		h.emitLog("info", "projects updated", map[string]any{"count": len(f.Projects)})
-		return nil, false
+		return frameAction{}
+
+	case *hostproto.WechatBindStartFrame:
+		if h.wcoord == nil {
+			h.emitLog("warn", "wechat_bind_start ignored: wechat not active", nil)
+			return frameAction{}
+		}
+		return frameAction{startBind: true}
+
+	case *hostproto.WechatLogoutFrame:
+		if h.wcoord == nil {
+			h.emitLog("warn", "wechat_logout ignored: wechat not active", nil)
+			return frameAction{}
+		}
+		return frameAction{logout: true}
 
 	case *hostproto.ShutdownFrame:
-		return nil, true
+		return frameAction{stop: true}
 
 	default:
 		h.emitLog("warn", "unknown frame", map[string]any{"type": fmt.Sprintf("%T", frame)})
-		return nil, false
+		return frameAction{}
 	}
 }
 
@@ -304,53 +436,77 @@ func waitForInit(rdr *hostproto.Reader, timeout time.Duration) (*hostproto.InitF
 	}
 }
 
-// buildHostTransport constructs the IM transport from injected config.
-// Empty FeishuConfig falls back to the mock transport so the sidecar still
-// boots; this is useful for early development before real credentials are
-// available. The parent is expected to keep the sidecar in this state only
-// transiently.
-func buildHostTransport(cfg *hostproto.FeishuConfig) (transport.Transport, error) {
-	if cfg == nil || cfg.AppID == "" || cfg.AppSecret == "" {
-		return nil, errors.New("feishu config missing AppID/AppSecret")
+// buildHostTransport constructs the IM transport from the supplied
+// build spec.
+//
+// Selection rule: spec.Wechat takes precedence over spec.Feishu when
+// both are non-nil. The parent is expected to send only one slot at a
+// time, but defending against both lets us evolve the protocol without
+// risking a hard error.
+//
+// Returns errAwaitingBind when wechat is selected but no credentials
+// have been persisted yet — the host runtime catches this and parks the
+// sidecar in awaiting_bind mode instead of failing init.
+func buildHostTransport(spec *buildSpec) (transport.Transport, error) {
+	if spec == nil {
+		return nil, errors.New("build spec missing")
 	}
-	return feishu.New(feishu.Options{
-		AppID:     cfg.AppID,
-		AppSecret: cfg.AppSecret,
-		Domain:    cfg.BaseURL,
-	})
+	if spec.Wechat != nil && spec.Wechat.Enabled {
+		tr, err := wechat.New(wechat.Options{
+			StatePath: spec.WechatStatePath,
+		})
+		if err != nil {
+			if errors.Is(err, wechat.ErrNotBound) {
+				return nil, errAwaitingBind
+			}
+			return nil, fmt.Errorf("build wechat transport: %w", err)
+		}
+		return tr, nil
+	}
+	if spec.Feishu != nil {
+		if spec.Feishu.AppID == "" || spec.Feishu.AppSecret == "" {
+			return nil, errors.New("feishu config missing AppID/AppSecret")
+		}
+		return feishu.New(feishu.Options{
+			AppID:     spec.Feishu.AppID,
+			AppSecret: spec.Feishu.AppSecret,
+			Domain:    spec.Feishu.BaseURL,
+		})
+	}
+	return nil, errors.New("build spec selects no transport")
 }
 
-// restartTransport tears down the old transport and constructs a new one
-// with the supplied feishu config. Updates the shared context vars in
-// place via the supplied pointers.
-func restartTransport(
-	tCancel context.CancelFunc,
-	prevDone chan error,
-	cfg *hostproto.FeishuConfig,
-	h *hostRuntime,
-	_ *router.Router,
-	tCtx *context.Context,
-	tCancelOut *context.CancelFunc,
-	build transportBuilder,
-) (transport.Transport, error) {
-	// Cancel old transport and wait briefly.
-	tCancel()
-	if prevDone != nil {
-		select {
-		case <-prevDone:
-		case <-time.After(2 * time.Second):
-			h.emitLog("warn", "previous transport did not stop in 2s", nil)
-		}
-	}
-	// New context for the new transport.
-	newCtx, newCancel := context.WithCancel(context.Background())
-	*tCtx = newCtx
-	*tCancelOut = newCancel
-	if build == nil {
-		build = buildHostTransport
-	}
-	return build(cfg)
+// placeholderTransport is a no-op transport.Transport used while the
+// sidecar is in awaiting_bind state. It satisfies the interface so the
+// router can be constructed before any real transport exists, and is
+// swapped out via Router.SetTransport once a bind succeeds.
+type placeholderTransport struct{}
+
+func newPlaceholderTransport() *placeholderTransport { return &placeholderTransport{} }
+
+func (placeholderTransport) Name() string { return "placeholder" }
+func (placeholderTransport) Capabilities() transport.Capabilities {
+	return transport.Capabilities{}
 }
+func (placeholderTransport) Start(ctx context.Context, _ transport.MessageHandler) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+func (placeholderTransport) Stop() error { return nil }
+func (placeholderTransport) SendMessage(_ context.Context, _ string, _ transport.OutboundMessage) (string, error) {
+	return "", errors.New("placeholder transport: not bound")
+}
+func (placeholderTransport) EditMessage(_ context.Context, _, _ string, _ transport.OutboundMessage) error {
+	return errors.New("placeholder transport: not bound")
+}
+func (placeholderTransport) EndStream(_ context.Context, _, _ string) error { return nil }
+func (placeholderTransport) DeleteMessage(_ context.Context, _, _ string) error {
+	return errors.New("placeholder transport: not bound")
+}
+func (placeholderTransport) ShowTyping(_ context.Context, _ string) error { return nil }
+
+// Compile-time interface check.
+var _ transport.Transport = (*placeholderTransport)(nil)
 
 // projectsFromFrames converts hostproto wire entries into the internal
 // projects.Project shape. Path is the only required field; ID is derived
