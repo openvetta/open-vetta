@@ -40,7 +40,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcardkit "github.com/larksuite/oapi-sdk-go/v3/service/cardkit/v1"
@@ -82,11 +81,14 @@ type Options struct {
 // streamHandle remembers what cardkit card backs an in-flight streaming
 // IM message, and the last sequence number we sent. Sequences must be
 // strictly monotonic within one card's streaming cycle (Feishu rejects
-// non-increasing values), so we keep the running counter here instead of
-// trusting time.Now() in case two updates arrive in the same millisecond.
+// non-increasing values) and Feishu's server parses the field as int32,
+// so we use a per-card counter starting at 1 instead of a wall-clock
+// timestamp (millisecond timestamps overflow int32; even second
+// timestamps will overflow in 2038). The reference Python implementation
+// in tarichuo/codex-feishu-bot does the same.
 type streamHandle struct {
 	cardID  string
-	lastSeq int64
+	lastSeq int32
 }
 
 // Transport implements transport.Transport for Feishu.
@@ -359,8 +361,9 @@ func (t *Transport) sendStreamingMessage(ctx context.Context, chatID, text strin
 	cardID := *createResp.Data.CardId
 
 	// Provisional handle so we can hand the registry a sequence counter and
-	// keep numbering monotonic across enable/edit/end calls.
-	h := &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()}
+	// keep numbering monotonic across enable/edit/end calls. Sequence
+	// starts at 0; bumpSequence/nextSequence return 1, 2, 3, ...
+	h := &streamHandle{cardID: cardID}
 
 	// Enable streaming mode on the card. This MUST happen before we send
 	// the IM message that references it.
@@ -618,12 +621,10 @@ func encodeStreamingFinishedSettings() (string, error) {
 // =============================================================================
 
 // registerStream stores a (message_id → card_id) binding, evicting the
-// oldest entry FIFO if we're at capacity. Initial sequence is the current
-// wall clock in milliseconds — that gives us a unique starting point per
-// stream and matches Feishu's "use a timestamp" recommendation, while
-// nextSequence() guarantees strict monotonicity from there.
+// oldest entry FIFO if we're at capacity. Sequence starts at 0;
+// nextSequence/bumpSequence will hand out 1, 2, 3, ... in order.
 func (t *Transport) registerStream(messageID, cardID string) {
-	t.adoptStream(messageID, &streamHandle{cardID: cardID, lastSeq: time.Now().UnixMilli()})
+	t.adoptStream(messageID, &streamHandle{cardID: cardID})
 }
 
 // adoptStream stores an existing streamHandle (carrying its already-bumped
@@ -649,15 +650,11 @@ func (t *Transport) adoptStream(messageID string, h *streamHandle) {
 // bumpSequence advances the sequence counter on a streamHandle that may
 // not yet be registered (used during the create/enable flow before we
 // know the message_id). Identical bookkeeping to nextSequence.
-func (t *Transport) bumpSequence(h *streamHandle) int64 {
+func (t *Transport) bumpSequence(h *streamHandle) int32 {
 	t.streamMu.Lock()
 	defer t.streamMu.Unlock()
-	now := time.Now().UnixMilli()
-	if now <= h.lastSeq {
-		now = h.lastSeq + 1
-	}
-	h.lastSeq = now
-	return now
+	h.lastSeq++
+	return h.lastSeq
 }
 
 func (t *Transport) lookupStream(messageID string) *streamHandle {
@@ -684,18 +681,12 @@ func (t *Transport) unregisterStream(messageID string) *streamHandle {
 }
 
 // nextSequence returns the next strictly-increasing sequence number for
-// the given stream. Always at least lastSeq+1 even if the wall clock
-// hasn't moved (or moved backwards), so back-to-back updates within the
-// same millisecond stay valid.
-func (t *Transport) nextSequence(h *streamHandle) int64 {
+// the given stream — simply the per-card counter incremented by one.
+func (t *Transport) nextSequence(h *streamHandle) int32 {
 	t.streamMu.Lock()
 	defer t.streamMu.Unlock()
-	now := time.Now().UnixMilli()
-	if now <= h.lastSeq {
-		now = h.lastSeq + 1
-	}
-	h.lastSeq = now
-	return now
+	h.lastSeq++
+	return h.lastSeq
 }
 
 // extractText pulls the user-visible text out of Feishu's text-message
