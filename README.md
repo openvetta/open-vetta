@@ -72,7 +72,7 @@ im-gateway init    # generates ~/.vetta/im-gateway/config.yaml + credentials.yam
 im-gateway start   # connect to feishu, start serving
 ```
 
-See [packages/im-gateway/README.md](packages/im-gateway/README.md), [docs/feishu-setup.md](packages/im-gateway/docs/feishu-setup.md), and the change spec at [openspec/changes/add-im-gateway-feishu/](openspec/changes/add-im-gateway-feishu/).
+See [packages/im-gateway/README.md](packages/im-gateway/README.md), [docs/feishu-setup.md](packages/im-gateway/docs/feishu-setup.md), and [docs/troubleshooting.md](packages/im-gateway/docs/troubleshooting.md).
 
 ### MCP (Model Context Protocol) Support
 
@@ -104,14 +104,14 @@ See [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agent
 ## Development
 
 ```bash
-npm install          # Install all dependencies
-npm run build        # Build all packages
-npm run check        # Lint, format, and type check
+bun install          # Install all dependencies
+bun run build        # Build all packages
+bun run check        # Lint, format, and type check
 ./test.sh            # Run tests (skips LLM-dependent tests without API keys)
 ./pi-test.sh         # Run from sources (must be run from repo root)
 ```
 
-> **Note:** `npm run check` requires `npm run build` to be run first. The web-ui package uses `tsc` which needs compiled `.d.ts` files from dependencies.
+> **Note:** `bun run check` may require a prior build when a package depends on generated `.d.ts` files from another workspace.
 
 ## License
 

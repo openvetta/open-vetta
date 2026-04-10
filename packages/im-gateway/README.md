@@ -23,7 +23,7 @@ The `host` subcommand is the only one wired into the user deployment path. Every
 
 ## Status
 
-**Pre-alpha.** First milestone (personal mode + Feishu) under active implementation. Tracked in OpenSpec changes [`add-im-gateway-feishu`](../../openspec/changes/archive/) and [`add-desktop-im-settings`](../../openspec/changes/add-desktop-im-settings/).
+**Pre-alpha.** First milestone focuses on personal mode plus Feishu, with the desktop app embedding `im-gateway` as a sidecar.
 
 ## How it works
 
@@ -64,14 +64,13 @@ cmd/
 docs/           # feishu-setup, troubleshooting
 ```
 
-## Specs
+## Reference docs
 
 | Document | Purpose |
 |---|---|
-| [openspec/changes/add-im-gateway-feishu/proposal.md](../../openspec/changes/add-im-gateway-feishu/proposal.md) | Why this exists, what it changes |
-| [openspec/changes/add-im-gateway-feishu/design.md](../../openspec/changes/add-im-gateway-feishu/design.md) | 10 key technical decisions, risks, alternatives considered |
-| [openspec/changes/add-im-gateway-feishu/specs/im-gateway/spec.md](../../openspec/changes/add-im-gateway-feishu/specs/im-gateway/spec.md) | Capability requirements + acceptance scenarios |
-| [openspec/changes/add-im-gateway-feishu/tasks.md](../../openspec/changes/add-im-gateway-feishu/tasks.md) | Implementation checklist |
+| [docs/feishu-setup.md](docs/feishu-setup.md) | Feishu app setup checklist for local debugging |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common runtime failures and recovery steps |
+| [docs/ilink-protocol.md](docs/ilink-protocol.md) | Reverse-engineered iLink protocol notes for the WeChat transport |
 | [packages/coding-agent/docs/rpc.md](../coding-agent/docs/rpc.md) | The JSON protocol this gateway speaks to drive sessions |
 
 ## First-milestone scope (Non-Goals)
