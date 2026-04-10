@@ -24,6 +24,10 @@ All notable changes to `@vetta/im-gateway` are documented in this file.
 - New `Transport.EndStream(ctx, chatID, messageID)` interface method. Bridge calls it after the final flush of a streaming response so transports with a dedicated streaming path (Feishu cardkit) can clean up server-side state. Transports without one return nil.
 - New `OutboundMessage.Streaming` flag. Set by the bridge when starting a streaming response so transports can pick the right path; one-shot replies (commands, errors) leave it false and continue to use the simple inline-card send path.
 
+### Fixed
+
+- Process pool now indexes entries under the session file the agent actually writes to (surfaced via `HostSession.SessionPath()` after handshake) instead of the caller-requested path. The router makes its first forward-to-agent call with an empty `sessionPath` (the agent hasn't run yet, so nothing knows the real `.jsonl`); keying the pool under that empty string caused the second message in a multi-turn conversation to miss the cache, evict the still-live subprocess, and respawn a new one that raced the previous process for the session-file `.lock`. This is what made the WeChat (iLink) bridge reply to the first inbound message and then go silent on every subsequent message — the reopened subprocess either failed with `ErrSessionLocked` or its error reply was swallowed by the transport. The fix also removes an incidental bug where two concurrent callers passing an empty `sessionPath` would share a single pooled entry.
+
 ### Changed
 
 - Feishu transport now sends one-shot outbound messages (command replies, errors, hints) as interactive cards (card JSON 2.0 with a `markdown` element) instead of plain `text`. LLM markdown output (bold, italic, lists, code blocks, links, etc.) renders properly in the Feishu client. Requires Feishu client ≥ 7.20.

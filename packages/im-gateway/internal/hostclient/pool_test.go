@@ -15,6 +15,11 @@ type fakeClient struct {
 	opens     map[string]int
 	failOn    map[string]error // OpenSession returns this error for the given path
 	sessions  map[string]*fakeSession
+	// resolveEmpty, when non-empty, mirrors the real local hostclient's
+	// behavior: an empty requested sessionPath causes the agent to
+	// synthesize a fresh .jsonl and expose it via SessionPath(). Tests
+	// that exercise the "first prompt after /use" path set this.
+	resolveEmpty string
 }
 
 func newFakeClient() *fakeClient {
@@ -32,8 +37,12 @@ func (f *fakeClient) OpenSession(_ context.Context, _ string, sessionPath string
 	if err, ok := f.failOn[sessionPath]; ok {
 		return nil, err
 	}
-	s := &fakeSession{path: sessionPath, events: make(chan AgentEvent, 1)}
-	f.sessions[sessionPath] = s
+	resolved := sessionPath
+	if resolved == "" && f.resolveEmpty != "" {
+		resolved = f.resolveEmpty
+	}
+	s := &fakeSession{path: resolved, events: make(chan AgentEvent, 1)}
+	f.sessions[resolved] = s
 	return s, nil
 }
 
@@ -241,5 +250,61 @@ func TestProcessPool_ConcurrentAcquireSamePath(t *testing.T) {
 	// MORE than 1 open under contention but only 1 entry in the pool.
 	if pool.Stats().Size != 1 {
 		t.Errorf("expected exactly 1 pool entry for the same path, got %d", pool.Stats().Size)
+	}
+}
+
+func TestProcessPool_EmptySessionPathKeyedByResolvedPath(t *testing.T) {
+	// Regression: router.forwardToAgent makes the first acquire for a
+	// freshly /use'd project with an EMPTY sessionPath (the agent hasn't
+	// spawned yet, so nothing knows the real .jsonl path). The pool must
+	// index the resulting entry under the session file the agent actually
+	// ends up writing to — surfaced via HostSession.SessionPath() after
+	// handshake — rather than under the caller's empty string.
+	//
+	// If it doesn't, the router's SECOND acquire (which by now knows the
+	// resolved path thanks to the state writeback in forwardToAgent)
+	// misses the cache, evicts the still-live subprocess, and respawns a
+	// new one racing the previous process for the .lock. This was the
+	// root cause of the WeChat bridge dropping the second message in a
+	// multi-turn conversation: first reply arrived, second went silent.
+	const resolved = "/sessions/resolved.jsonl"
+	c := newFakeClient()
+	c.resolveEmpty = resolved
+	pool := NewProcessPool(c, 1) // match host mode's effective maxSize
+
+	first, err := pool.Acquire(context.Background(), "/cwd", "")
+	if err != nil {
+		t.Fatalf("first acquire (empty path): %v", err)
+	}
+	firstSession := first.Session
+	first.Release()
+
+	// Second acquire comes in with the resolved path the router captured
+	// from the previous turn's handshake. This MUST hit the cached entry.
+	second, err := pool.Acquire(context.Background(), "/cwd", resolved)
+	if err != nil {
+		t.Fatalf("second acquire (resolved path): %v", err)
+	}
+	defer second.Release()
+
+	if second.Session != firstSession {
+		t.Error("second acquire should reuse the same HostSession as the first")
+	}
+	if c.opensFor("") != 1 {
+		t.Errorf("expected exactly one OpenSession with empty path, got %d", c.opensFor(""))
+	}
+	if c.opensFor(resolved) != 0 {
+		t.Errorf("second acquire should not re-open the resolved path, got %d opens", c.opensFor(resolved))
+	}
+	if pool.Stats().Size != 1 {
+		t.Errorf("expected pool size 1, got %d", pool.Stats().Size)
+	}
+
+	// And the single entry must be indexed under the resolved path, not
+	// the empty string: Stats().SessionPaths is the pool's view of its
+	// own keys.
+	paths := pool.Stats().SessionPaths
+	if len(paths) != 1 || paths[0] != resolved {
+		t.Errorf("pool should index the entry under %q, got keys=%v", resolved, paths)
 	}
 }
