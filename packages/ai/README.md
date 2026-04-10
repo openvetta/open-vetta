@@ -4,6 +4,27 @@ Unified LLM API with automatic model discovery, provider configuration, token an
 
 **Note**: This library only includes models that support tool calling (function calling), as this is essential for agentic workflows.
 
+## Package Boundary
+
+### What It Owns
+
+- provider adapters and provider-specific request/response normalization
+- model metadata and model discovery
+- unified message, context, token, and cost types
+- OAuth helpers for supported providers
+
+### What It Does Not Own
+
+- agent loops and tool execution orchestration
+- terminal or browser UI
+- session persistence policies for applications
+
+### Who Depends On It
+
+- [packages/agent](../agent)
+- [packages/coding-agent](../coding-agent)
+- [packages/web-ui](../web-ui)
+
 ## Table of Contents
 
 - [Supported Providers](#supported-providers)

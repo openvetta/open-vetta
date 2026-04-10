@@ -28,6 +28,29 @@ Pi ships with powerful defaults but skips features like sub agents and plan mode
 
 Pi runs in four modes: interactive, print or JSON, RPC for process integration, and an SDK for embedding in your own apps. See [openclaw/openclaw](https://github.com/openclaw/openclaw) for a real-world SDK integration.
 
+## Package Boundary
+
+### What It Owns
+
+- product-level agent session abstraction
+- CLI and interactive mode behavior
+- SDK entrypoints and extension system
+- built-in tools, themes, prompts, and session management
+
+### What It Does Not Own
+
+- raw provider protocol implementations
+- host-specific desktop shell wiring
+- business backend workflows
+
+### Who Depends On It
+
+- [packages/cli-app](../cli-app)
+- [packages/runtime-core](../runtime-core)
+- [packages/runtime-tools](../runtime-tools)
+- [packages/runtime-storage](../runtime-storage)
+- [packages/runtime-mcp](../runtime-mcp)
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)

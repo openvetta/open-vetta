@@ -22,57 +22,48 @@ All PRs will be auto-closed until then. Approved contributors can submit PRs aft
 
 Tools for building AI agents and managing LLM deployments.
 
-## Packages
+## Package Map
 
-### Core libraries
+### Core Libraries
 
-| Package | Description |
-|---------|-------------|
-| **[packages/ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[packages/agent](packages/agent)** | Agent runtime with tool calling and state management |
-| **[packages/coding-agent](packages/coding-agent)** | Interactive coding agent CLI (also exposes a JSON-RPC mode for headless embedding — see [docs/rpc.md](packages/coding-agent/docs/rpc.md)) |
-| **[packages/tui](packages/tui)** | Terminal UI library with differential rendering |
-| **[packages/web-ui](packages/web-ui)** | Web components for AI chat interfaces |
+| Package | Owns | Does Not Own |
+|---------|------|--------------|
+| **[packages/ai](packages/ai)** | Multi-provider LLM API surface, model registry, provider adapters | Agent loops, app UI, session persistence |
+| **[packages/agent](packages/agent)** | Stateful agent loop, tool execution, event streaming | Terminal UI, desktop integration, business APIs |
+| **[packages/tui](packages/tui)** | Terminal rendering primitives and editor components | Agent policy, session storage, business workflows |
+| **[packages/web-ui](packages/web-ui)** | Reusable browser chat UI, artifacts, attachment previews | Desktop shell lifecycle, server-side business rules |
 
-### Runtime facade
+### Runtime And Host Packages
 
-These packages wrap `coding-agent` for use by host applications (desktop-app, etc.). They provide a stable surface so hosts don't depend on `coding-agent` internals.
-
-| Package | Description |
-|---------|-------------|
-| **packages/runtime-core** | `RuntimeHost` + `SessionFacade` — the canonical interface for driving agent sessions from a host process |
-| **packages/runtime-storage** | Re-exports `SessionManager`, `AuthStorage`, `SettingsManager` from coding-agent |
-| **packages/runtime-mcp** | Re-exports MCP manager / types |
-| **packages/runtime-tools** | Re-exports built-in tool definitions |
-| **packages/runtime-telemetry** | `RuntimeLogger` interface and console implementation |
+| Package | Owns | Depends On |
+|---------|------|------------|
+| **[packages/runtime-core](packages/runtime-core)** | Session facade and runtime event contract for host apps | `coding-agent` |
+| **[packages/runtime-tools](packages/runtime-tools)** | Re-exported built-in coding tools for host reuse | `coding-agent` |
+| **[packages/runtime-storage](packages/runtime-storage)** | Auth/session/settings storage primitives | `coding-agent` |
+| **[packages/runtime-mcp](packages/runtime-mcp)** | MCP manager and MCP runtime bindings | `coding-agent` |
+| **[packages/runtime-telemetry](packages/runtime-telemetry)** | Runtime logging abstractions | no runtime host state |
 
 ### Applications
 
-| Package | Description |
-|---------|-------------|
-| **packages/desktop-app** | Electron desktop client. Hosts `RuntimeHost` in the main process; renderer talks to it via Electron IPC. |
-| **packages/cli-app** | Standalone CLI application |
-| **packages/admin** | Admin web UI |
+| Package | Role |
+|---------|------|
+| **[packages/coding-agent](packages/coding-agent)** | End-user coding agent product, CLI, SDK, interactive mode |
+| **[packages/cli-app](packages/cli-app)** | Thin CLI wrapper around `coding-agent` |
+| **[packages/desktop-app](packages/desktop-app)** | Electron desktop host for chat, files, automations, and runtime integration |
 
-### Backend services
+### Business Services
 
-| Package | Description |
-|---------|-------------|
-| **packages/api** | Go (gin) backend service: auth, workflows, skills marketplace, file uploads. Independent from the desktop-app / agent runtime. |
-| **[packages/im-gateway](packages/im-gateway)** | Go service that bridges IM platforms (Feishu first) to the local `coding-agent --mode rpc`. Lets you drive your local AI from Feishu / Telegram / etc. without opening the desktop app. |
+| Package | Role |
+|---------|------|
+| **[packages/api](packages/api)** | Go backend for auth, providers, skills, releases, workflows, SSE |
+| **[packages/admin](packages/admin)** | React admin console for operating the business backend |
+
+### Architecture Guides
+
+- [docs/architecture-overview.md](docs/architecture-overview.md): dependency direction, request flow, app/runtime boundaries
+- [docs/package-conventions.md](docs/package-conventions.md): package, directory, and ownership conventions for future changes
 
 ## Features
-
-### IM Gateway (Feishu, more to come)
-
-Drive your local `coding-agent` from instant messaging clients without opening the desktop app. Personal mode runs `im-gateway` as a small Go sidecar that connects to Feishu via long-connection events (no public IP / webhook needed) and spawns `coding-agent --mode rpc` subprocesses for each active conversation. The same `~/.vetta/agent/sessions/` `.jsonl` files are shared with the desktop app, so you can pick up a chat in IM and continue it on your laptop. Single-writer enforcement via the `<file>.lock` protocol added in `SessionManager`.
-
-```bash
-im-gateway init    # generates ~/.vetta/im-gateway/config.yaml + credentials.yaml
-im-gateway start   # connect to feishu, start serving
-```
-
-See [packages/im-gateway/README.md](packages/im-gateway/README.md), [docs/feishu-setup.md](packages/im-gateway/docs/feishu-setup.md), and [docs/troubleshooting.md](packages/im-gateway/docs/troubleshooting.md).
 
 ### MCP (Model Context Protocol) Support
 
@@ -105,13 +96,13 @@ See [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agent
 
 ```bash
 bun install          # Install all dependencies
-bun run build        # Build all packages
+bun run build        # Build core libraries
 bun run check        # Lint, format, and type check
 ./test.sh            # Run tests (skips LLM-dependent tests without API keys)
 ./pi-test.sh         # Run from sources (must be run from repo root)
 ```
 
-> **Note:** `bun run check` may require a prior build when a package depends on generated `.d.ts` files from another workspace.
+> **Note:** `bun run check` requires built type outputs for some workspace packages. If `packages/web-ui` reports missing declarations, run `bun run build` first.
 
 ## License
 

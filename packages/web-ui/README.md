@@ -4,6 +4,26 @@ Reusable web UI components for building AI chat interfaces powered by [@mariozec
 
 Built with [mini-lit](https://github.com/badlogic/mini-lit) web components and Tailwind CSS v4.
 
+## Package Boundary
+
+### What It Owns
+
+- browser chat UI components
+- browser-side artifacts and attachment rendering
+- web storage adapters and dialogs
+- browser-safe integration helpers for `pi-ai` and `pi-agent-core`
+
+### What It Does Not Own
+
+- Electron shell lifecycle
+- generic agent session persistence policy outside the browser
+- business admin pages
+
+### Who Depends On It
+
+- browser integrations
+- host applications embedding the web component chat surface
+
 ## Features
 
 - **Chat UI**: Complete interface with message history, streaming, and tool execution

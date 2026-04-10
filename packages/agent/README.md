@@ -2,6 +2,26 @@
 
 Stateful agent with tool execution and event streaming. Built on `@mariozechner/pi-ai`.
 
+## Package Boundary
+
+### What It Owns
+
+- agent state transitions
+- tool execution orchestration
+- event emission for hosts and UIs
+- steering and follow-up queue semantics
+
+### What It Does Not Own
+
+- provider implementations
+- terminal rendering
+- business application workflows
+
+### Who Depends On It
+
+- [packages/coding-agent](../coding-agent)
+- [packages/web-ui](../web-ui)
+
 ## Installation
 
 ```bash
