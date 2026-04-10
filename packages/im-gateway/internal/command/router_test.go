@@ -6,6 +6,7 @@ import (
 	"maps"
 	"strings"
 	"testing"
+	"time"
 
 	"vetta-im-gateway/internal/hostclient"
 	"vetta-im-gateway/internal/projects"
@@ -58,6 +59,9 @@ func (s *fakeStore) GetSession(_ context.Context, userID, projectID string) (sta
 }
 
 func (s *fakeStore) SetSession(_ context.Context, e state.SessionEntry) error {
+	if e.UpdatedAt.IsZero() {
+		e.UpdatedAt = time.Now().UTC()
+	}
 	s.entries[state.SessionKey(e.UserID, e.ProjectID)] = e
 	return nil
 }
@@ -93,9 +97,13 @@ func (s *fakeSess) Send(_ context.Context, cmd hostclient.Command) (hostclient.R
 	}
 	return hostclient.Response{Success: true}, nil
 }
-func (s *fakeSess) Events() <-chan hostclient.AgentEvent { ch := make(chan hostclient.AgentEvent); close(ch); return ch }
-func (s *fakeSess) SessionPath() string                  { return s.path }
-func (s *fakeSess) Close() error                         { return nil }
+func (s *fakeSess) Events() <-chan hostclient.AgentEvent {
+	ch := make(chan hostclient.AgentEvent)
+	close(ch)
+	return ch
+}
+func (s *fakeSess) SessionPath() string { return s.path }
+func (s *fakeSess) Close() error        { return nil }
 
 func defaultEnv() Env {
 	return Env{
@@ -263,6 +271,56 @@ func TestDispatch_New_PersistsSessionPath(t *testing.T) {
 	}
 }
 
+func TestDispatch_UseThenNew_WorksBeforeFirstPrompt(t *testing.T) {
+	r := NewRouter()
+	env := defaultEnv()
+
+	res, err := r.Dispatch(context.Background(), env, "/use foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.Reply.Text, "已切换到项目") {
+		t.Fatalf("unexpected /use reply: %q", res.Reply.Text)
+	}
+
+	entry, ok, _ := env.State.GetSession(context.Background(), "u1", "id-foo")
+	if !ok {
+		t.Fatal("expected /use to persist selected project")
+	}
+	if entry.SessionPath != "" {
+		t.Fatalf("expected /use to keep empty session path before first prompt, got %q", entry.SessionPath)
+	}
+
+	res, err = r.Dispatch(context.Background(), env, "/new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.Reply.Text, "已在 **foo** 中开启新会话") {
+		t.Fatalf("expected /new to use project selected by /use, got %q", res.Reply.Text)
+	}
+}
+
+func TestDispatch_Projects_MarksCurrentAfterUseWithEmptySessionPath(t *testing.T) {
+	r := NewRouter()
+	env := defaultEnv()
+
+	if err := env.State.SetSession(context.Background(), state.SessionEntry{
+		UserID:      "u1",
+		ProjectID:   "id-foo",
+		SessionPath: "",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := r.Dispatch(context.Background(), env, "/projects")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.Reply.Text, "**foo** *(当前)*") {
+		t.Fatalf("expected /projects to mark empty-session-path selection as current, got:\n%s", res.Reply.Text)
+	}
+}
+
 func TestDispatch_Whoami_NoProject(t *testing.T) {
 	r := NewRouter()
 	res, _ := r.Dispatch(context.Background(), defaultEnv(), "/whoami")
@@ -287,11 +345,11 @@ func TestDispatch_Whoami_WithProject(t *testing.T) {
 
 func TestSplitArgs_BasicAndQuoted(t *testing.T) {
 	cases := map[string][]string{
-		"foo":               {"foo"},
-		"foo bar":           {"foo", "bar"},
-		`use "my project"`:  {"use", "my project"},
-		"  trim  ":          {"trim"},
-		"":                  nil,
+		"foo":              {"foo"},
+		"foo bar":          {"foo", "bar"},
+		`use "my project"`: {"use", "my project"},
+		"  trim  ":         {"trim"},
+		"":                 nil,
 	}
 	for in, want := range cases {
 		got := splitArgs(in)

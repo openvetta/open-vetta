@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"vetta-im-gateway/internal/hostclient"
 	"vetta-im-gateway/internal/projects"
@@ -36,12 +37,12 @@ type Handler interface {
 // gateway lifetime; passed by value into each Run call so handlers can
 // access without coupling to a global.
 type Env struct {
-	UserID       string // platform user id (e.g. feishu open_id)
-	ChatID       string
-	Projects     projects.ProjectDirectory
-	State        state.Store
-	HostPool     HostPool
-	HostBin      string // for /whoami diagnostic only
+	UserID   string // platform user id (e.g. feishu open_id)
+	ChatID   string
+	Projects projects.ProjectDirectory
+	State    state.Store
+	HostPool HostPool
+	HostBin  string // for /whoami diagnostic only
 }
 
 // HostPool is the subset of hostclient.ProcessPool the command layer needs.
@@ -169,12 +170,19 @@ func currentProjectID(ctx context.Context, env Env) string {
 	if env.State == nil {
 		return ""
 	}
+	var currentID string
+	var bestTime time.Time
 	for _, p := range listAllOrEmpty(ctx, env) {
-		if entry, ok, _ := env.State.GetSession(ctx, env.UserID, p.ID); ok && entry.SessionPath != "" {
-			return p.ID
+		entry, ok, _ := env.State.GetSession(ctx, env.UserID, p.ID)
+		if !ok {
+			continue
+		}
+		if currentID == "" || entry.UpdatedAt.After(bestTime) {
+			currentID = p.ID
+			bestTime = entry.UpdatedAt
 		}
 	}
-	return ""
+	return currentID
 }
 
 func listAllOrEmpty(ctx context.Context, env Env) []projects.Project {
@@ -337,7 +345,9 @@ func (newCmd) Run(ctx context.Context, env Env, args []string) (Result, error) {
 type whoamiCmd struct{}
 
 func (whoamiCmd) Name() string { return "whoami" }
-func (whoamiCmd) Help() string { return "`/whoami` — 查看当前用户、项目、会话与连接池状态" }
+func (whoamiCmd) Help() string {
+	return "`/whoami` — 查看当前用户、项目、会话与连接池状态"
+}
 
 func (whoamiCmd) Run(ctx context.Context, env Env, _ []string) (Result, error) {
 	var b strings.Builder

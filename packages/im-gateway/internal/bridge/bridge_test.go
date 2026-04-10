@@ -33,7 +33,7 @@ func newFakeTransport(caps transport.Capabilities) *fakeTransport {
 	return &fakeTransport{caps: caps}
 }
 
-func (f *fakeTransport) Name() string                      { return "fake" }
+func (f *fakeTransport) Name() string                         { return "fake" }
 func (f *fakeTransport) Capabilities() transport.Capabilities { return f.caps }
 func (f *fakeTransport) Start(_ context.Context, _ transport.MessageHandler) error {
 	return nil
@@ -137,6 +137,14 @@ func toolcallDelta(text string) hostclient.AgentEvent {
 func plainEvent(t string) hostclient.AgentEvent {
 	raw, _ := json.Marshal(map[string]any{"type": t})
 	return hostclient.AgentEvent{Type: t, Raw: raw}
+}
+
+func toolExecutionStart(toolName string) hostclient.AgentEvent {
+	raw, _ := json.Marshal(map[string]any{
+		"type":     hostclient.AgentEventTypeToolExecutionStart,
+		"toolName": toolName,
+	})
+	return hostclient.AgentEvent{Type: hostclient.AgentEventTypeToolExecutionStart, Raw: raw}
 }
 
 func errorEvent(message string) hostclient.AgentEvent {
@@ -289,7 +297,7 @@ func TestBridge_ToolExecutionFlushes(t *testing.T) {
 
 	events := make(chan hostclient.AgentEvent, 8)
 	events <- textDelta("running tool now")
-	events <- plainEvent(hostclient.AgentEventTypeToolExecutionStart)
+	events <- toolExecutionStart("dir_tree")
 	events <- textDelta("post-tool text")
 	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
 	close(events)
@@ -297,14 +305,17 @@ func TestBridge_ToolExecutionFlushes(t *testing.T) {
 	_ = b.Run(context.Background(), events)
 
 	calls := tr.snapshot()
-	if len(calls) != 2 {
-		t.Fatalf("expected pre-tool flush + post-tool send = 2 calls, got %d: %+v", len(calls), calls)
+	if len(calls) != 3 {
+		t.Fatalf("expected pre-tool flush + tool summary + post-tool send = 3 calls, got %d: %+v", len(calls), calls)
 	}
 	if calls[0].Text != "running tool now" {
 		t.Errorf("first call: %q", calls[0].Text)
 	}
-	if calls[1].Text != "post-tool text" {
+	if calls[1].Text != "调用工具：`dir_tree`" {
 		t.Errorf("second call: %q", calls[1].Text)
+	}
+	if calls[2].Text != "post-tool text" {
+		t.Errorf("third call: %q", calls[2].Text)
 	}
 }
 
@@ -324,24 +335,18 @@ func TestBridge_ErrorEventForwarded(t *testing.T) {
 	}
 }
 
-func TestBridge_FiltersThinkingAndToolcallDeltas(t *testing.T) {
-	// Regression for the "We" bug: with the agent emitting thinking_delta /
-	// toolcall_delta events before the final text_delta, the bridge used to
-	// forward the agent's internal monologue and JSON-args fragments to IM.
-	// Result: users saw a single word ("We") then nothing while the bot
-	// silently churned through reasoning. This test pins the contract that
-	// only text_delta reaches the transport.
+func TestBridge_ForwardsThinkingAndHidesToolcallDeltas(t *testing.T) {
 	tr := newFakeTransport(transport.Capabilities{SupportsMessageEdit: true, MaxMessageLength: 0})
 	b := New(tr, "c1")
 
 	events := make(chan hostclient.AgentEvent, 32)
-	// 1. Thinking phase — should NOT produce IM messages
+	// 1. Thinking phase — should become a user-visible message
 	events <- thinkingDelta("We need to ")
 	events <- thinkingDelta("call the dir_tree tool")
-	// 2. Tool call phase — also hidden
+	// 2. Tool call args stay hidden, but tool execution itself is summarized.
 	events <- toolcallDelta("{\"path\":")
 	events <- toolcallDelta("\"/foo\"}")
-	events <- plainEvent(hostclient.AgentEventTypeToolExecutionStart)
+	events <- toolExecutionStart("dir_tree")
 	events <- plainEvent(hostclient.AgentEventTypeToolExecutionEnd)
 	// 3. Real text response
 	events <- textDelta("项目根目录: ")
@@ -359,17 +364,47 @@ func TestBridge_FiltersThinkingAndToolcallDeltas(t *testing.T) {
 		combined += c.Text + "\n"
 	}
 
-	// Must NOT contain any thinking content
-	for _, banned := range []string{"We need", "dir_tree", "{\"path", "/foo"} {
+	for _, banned := range []string{"{\"path", "/foo"} {
 		if strings.Contains(combined, banned) {
 			t.Errorf("bridge leaked internal content %q to IM:\n%s", banned, combined)
 		}
 	}
-	// Must contain the actual text answer
-	for _, want := range []string{"项目根目录", "cmd, docs, internal"} {
+	for _, want := range []string{
+		"思考：",
+		"We need to call the dir_tree tool",
+		"调用工具：`dir_tree`",
+		"项目根目录",
+		"cmd, docs, internal",
+	} {
 		if !strings.Contains(combined, want) {
-			t.Errorf("bridge dropped real text %q\ngot:\n%s", want, combined)
+			t.Errorf("bridge dropped expected content %q\ngot:\n%s", want, combined)
 		}
+	}
+}
+
+func TestBridge_ThinkingFlushesBeforeText(t *testing.T) {
+	tr := newFakeTransport(transport.Capabilities{SupportsMessageEdit: false, MaxMessageLength: 1000})
+	b := New(tr, "c1")
+
+	events := make(chan hostclient.AgentEvent, 8)
+	events <- thinkingDelta("先检查目录")
+	events <- textDelta("最终答案")
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+
+	if err := b.Run(context.Background(), events); err != nil {
+		t.Fatal(err)
+	}
+
+	calls := tr.snapshot()
+	if len(calls) != 2 {
+		t.Fatalf("expected thinking + final text, got %d: %+v", len(calls), calls)
+	}
+	if calls[0].Text != "思考：\n先检查目录" {
+		t.Errorf("first call: %q", calls[0].Text)
+	}
+	if calls[1].Text != "最终答案" {
+		t.Errorf("second call: %q", calls[1].Text)
 	}
 }
 

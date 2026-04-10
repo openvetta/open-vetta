@@ -13,12 +13,13 @@
 //
 // # Streaming model
 //
-// For transports declaring SupportsMessageEdit=true the bridge sends one
-// initial empty message, then edits it (with throttling, default 800ms)
-// as text deltas arrive. For transports without edit support the bridge
-// buffers content until either a paragraph boundary or a max-length
-// threshold is reached, then sends a new message.
+// For transports declaring SupportsMessageEdit=true the bridge streams
+// assistant text by editing one live message (with throttling, default
+// 800ms). For transports without edit support the bridge buffers assistant
+// text until a flush boundary or max-length threshold, then sends a new
+// message.
 //
-// Tool execution events (tool_execution_start / tool_execution_end) force
-// a flush so the user can see progress between long-running tools.
+// thinking_delta is surfaced as a separate user-visible message. Tool
+// execution events flush pending text/thinking and emit a one-line tool
+// summary; tool results remain hidden.
 package bridge
