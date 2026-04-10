@@ -130,7 +130,7 @@ export function registerSchedulerIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.DISABLE_TASK, async (_, id: string) => {
 		const tasks = await loadTasks();
 		const task = tasks.find((t) => t.id === id);
-		if (!task || !task.enabled) return;
+		if (!task?.enabled) return;
 
 		task.enabled = false;
 		task.updatedAt = Date.now();

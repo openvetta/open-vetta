@@ -177,7 +177,7 @@ export async function readClipboardImage(options?: {
 	if (platform === "linux" && isWaylandSession(env)) {
 		image = readClipboardImageViaWlPaste() ?? readClipboardImageViaXclip();
 	} else {
-		if (!clipboard || !clipboard.hasImage()) {
+		if (!clipboard?.hasImage()) {
 			return null;
 		}
 

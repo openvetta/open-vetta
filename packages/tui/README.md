@@ -2,6 +2,25 @@
 
 Minimal terminal UI framework with differential rendering and synchronized output for flicker-free interactive CLI applications.
 
+## Package Boundary
+
+### What It Owns
+
+- terminal rendering, cursor control, and synchronized output
+- editor, markdown, list, loader, image, and layout primitives
+- low-level keyboard handling and autocomplete utilities
+
+### What It Does Not Own
+
+- agent policy or tool execution
+- session storage
+- business workflows or application routing
+
+### Who Depends On It
+
+- [packages/coding-agent](../coding-agent)
+- terminal-based applications embedding the TUI layer
+
 ## Features
 
 - **Differential Rendering**: Three-strategy rendering system that only updates what changed
@@ -743,13 +762,13 @@ npx tsx test/chat-simple.ts
 
 ```bash
 # Install dependencies (from monorepo root)
-npm install
+bun install
 
 # Run type checking
-npm run check
+bun run check
 
 # Run the demo
-npx tsx test/chat-simple.ts
+bunx tsx test/chat-simple.ts
 ```
 
 ### Debug logging
@@ -757,5 +776,5 @@ npx tsx test/chat-simple.ts
 Set `PI_TUI_WRITE_LOG` to capture the raw ANSI stream written to stdout.
 
 ```bash
-PI_TUI_WRITE_LOG=/tmp/tui-ansi.log npx tsx test/chat-simple.ts
+PI_TUI_WRITE_LOG=/tmp/tui-ansi.log bunx tsx test/chat-simple.ts
 ```
