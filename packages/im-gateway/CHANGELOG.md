@@ -27,6 +27,7 @@ All notable changes to `@vetta/im-gateway` are documented in this file.
 ### Fixed
 
 - Process pool now indexes entries under the session file the agent actually writes to (surfaced via `HostSession.SessionPath()` after handshake) instead of the caller-requested path. The router makes its first forward-to-agent call with an empty `sessionPath` (the agent hasn't run yet, so nothing knows the real `.jsonl`); keying the pool under that empty string caused the second message in a multi-turn conversation to miss the cache, evict the still-live subprocess, and respawn a new one that raced the previous process for the session-file `.lock`. This is what made the WeChat (iLink) bridge reply to the first inbound message and then go silent on every subsequent message — the reopened subprocess either failed with `ErrSessionLocked` or its error reply was swallowed by the transport. The fix also removes an incidental bug where two concurrent callers passing an empty `sessionPath` would share a single pooled entry.
+- The IM bridge now forwards `thinking_delta` to users and emits a separate tool-call summary on each `tool_execution_start` without exposing tool results. Feishu receives one interactive card per tool summary, while WeChat receives plain text messages.
 
 ### Changed
 
