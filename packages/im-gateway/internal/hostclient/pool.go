@@ -112,17 +112,38 @@ func (p *ProcessPool) Acquire(ctx context.Context, cwd, sessionPath string) (*Ac
 		return nil, err
 	}
 
+	// Index by the session file the agent ACTUALLY writes to, not by
+	// the caller's requested path. When the caller passes an empty
+	// string (first prompt after /use, before any agent has run in
+	// this project) the agent synthesizes a fresh .jsonl and reports
+	// it via the handshake's get_state response; HostSession.SessionPath()
+	// surfaces that resolved path.
+	//
+	// If we instead keyed under the caller's input, the next acquire —
+	// which the router makes with the now-known resolved path — would
+	// miss the cache, evict the still-live subprocess, and respawn a
+	// new one that races the previous process for the session-file
+	// lockfile. This is what broke multi-turn conversations on the
+	// WeChat bridge: first reply arrived, second reply went silent
+	// because the reopened subprocess either hit ErrSessionLocked or
+	// its outbound error reply was swallowed by the transport.
+	actualPath := session.SessionPath()
+	if actualPath == "" {
+		actualPath = sessionPath
+	}
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// Race: another goroutine may have opened the same sessionPath while
-	// we were waiting for handshake. If so, close ours and reuse theirs.
-	if elem, ok := p.entries[sessionPath]; ok {
+	// Race: another goroutine may have opened the same resolved path
+	// while we were waiting for handshake. If so, close ours and reuse
+	// theirs.
+	if elem, ok := p.entries[actualPath]; ok {
 		_ = session.Close()
 		ps := elem.Value.(*pooledSession)
 		ps.inFlight++
 		p.lru.MoveToFront(elem)
-		return &Acquired{pool: p, sessionPath: sessionPath, Session: ps.session}, nil
+		return &Acquired{pool: p, sessionPath: actualPath, Session: ps.session}, nil
 	}
 
 	// Race: pool may have been Shutdown while we were opening.
@@ -133,13 +154,13 @@ func (p *ProcessPool) Acquire(ctx context.Context, cwd, sessionPath string) (*Ac
 
 	ps := &pooledSession{
 		cwd:         cwd,
-		sessionPath: sessionPath,
+		sessionPath: actualPath,
 		session:     session,
 		inFlight:    1,
 	}
 	elem := p.lru.PushFront(ps)
-	p.entries[sessionPath] = elem
-	return &Acquired{pool: p, sessionPath: sessionPath, Session: session}, nil
+	p.entries[actualPath] = elem
+	return &Acquired{pool: p, sessionPath: actualPath, Session: session}, nil
 }
 
 func (p *ProcessPool) release(sessionPath string) {
