@@ -45,6 +45,94 @@ function authHeaders(token: string): HeadersInit {
 	return { Authorization: `Bearer ${token}` };
 }
 
+// ─── Server Info ───
+
+export type DeployMode = "enterprise" | "personal";
+
+export async function fetchServerInfo(): Promise<{ deploy_mode: DeployMode }> {
+	return request<{ deploy_mode: DeployMode }>("/info");
+}
+
+// ─── Team (personal mode) ───
+
+export interface TeamVO {
+	id: number;
+	name: string;
+	owner_id: number;
+	role?: string;
+	created_at: string;
+}
+
+export interface TeamDetailVO {
+	id: number;
+	name: string;
+	owner_id: number;
+	invite_code: string;
+	members: TeamMemberVO[];
+	created_at: string;
+}
+
+export interface TeamMemberVO {
+	id: number;
+	user_id: number;
+	username: string;
+	avatar: string;
+	role: string;
+	created_at: string;
+}
+
+export async function fetchMyTeams(token: string): Promise<TeamVO[]> {
+	return request<TeamVO[]>("/teams", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function createTeam(token: string, name: string): Promise<TeamVO> {
+	return request<TeamVO>("/teams", {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify({ name }),
+	});
+}
+
+export async function fetchTeamDetail(token: string, teamId: number): Promise<TeamDetailVO> {
+	return request<TeamDetailVO>(`/teams/${teamId}`, {
+		headers: authHeaders(token),
+	});
+}
+
+export async function joinTeam(token: string, inviteCode: string): Promise<TeamVO> {
+	return request<TeamVO>("/teams/join", {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify({ invite_code: inviteCode }),
+	});
+}
+
+export async function leaveTeam(token: string, teamId: number): Promise<void> {
+	await request<unknown>(`/teams/${teamId}/leave`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
+export async function resetTeamInviteCode(token: string, teamId: number): Promise<string> {
+	const data = await request<{ invite_code: string }>(`/teams/${teamId}/reset-invite`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+	return data.invite_code;
+}
+
+export async function removeTeamMember(token: string, teamId: number, userId: number): Promise<void> {
+	await request<unknown>(`/teams/${teamId}/members/${userId}`, {
+		method: "DELETE",
+		headers: authHeaders(token),
+	});
+}
+
+// ─── User ───
+
 export interface UserInfo {
 	id: number;
 	username: string;
