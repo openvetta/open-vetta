@@ -1,6 +1,7 @@
 import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjects } from "@domains/project/hooks/useProjects";
-import { remoteProvidersAtom, selectedModelAtom, workspacePathAtom } from "@shared/store/atoms";
+import { fetchServerInfo } from "@shared/lib/api";
+import { deployModeAtom, remoteProvidersAtom, selectedModelAtom, workspacePathAtom } from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { currentUnsubscribe, setCurrentUnsubscribe } from "../services/chat-service";
@@ -9,10 +10,15 @@ export function useAppInit(): void {
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
+	const setDeployMode = useSetAtom(deployModeAtom);
 	const { refreshProjects } = useProjects();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
 	useEffect(() => {
+		// Fetch deploy mode from server
+		void fetchServerInfo()
+			.then((info) => setDeployMode(info.deploy_mode))
+			.catch(console.error);
 		// Sync workspace path from config file
 		void window.vetta.config.get().then((config) => {
 			if (config.workspacePath) {
@@ -40,5 +46,5 @@ export function useAppInit(): void {
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
 		};
-	}, [setWorkspacePath, setSelectedModel, setRemoteProviders, refreshProjects, refreshBatchProjects]);
+	}, [setWorkspacePath, setSelectedModel, setRemoteProviders, setDeployMode, refreshProjects, refreshBatchProjects]);
 }

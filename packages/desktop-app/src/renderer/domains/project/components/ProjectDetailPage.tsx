@@ -5,6 +5,7 @@ import {
 	activityPanelOpenAtom,
 	authTokenAtom,
 	batchProjectsAtom,
+	isPersonalModeAtom,
 	openSessionFnRef,
 	projectsAtom,
 	sessionsMapAtom,
@@ -154,6 +155,7 @@ export function ProjectDetailPage(): JSX.Element {
 	const [bindDialogOpen, setBindDialogOpen] = useState(false);
 	const workflowInstance = useAtomValue(workflowInstanceAtom);
 	const setWorkflowInstance = useSetAtom(workflowInstanceAtom);
+	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
 
 	// 监听工作流 SSE 事件
@@ -210,7 +212,7 @@ export function ProjectDetailPage(): JSX.Element {
 								{projectTypeLabel}
 							</span>
 						)}
-						{project?.type === "normal" && !workflowInstance && (
+						{!isPersonal && project?.type === "normal" && !workflowInstance && (
 							<Button
 								variant="ghost"
 								size="xs"
@@ -295,7 +297,7 @@ export function ProjectDetailPage(): JSX.Element {
 				)}
 
 				{/* Workflow progress */}
-				{workflowInstance && (
+				{!isPersonal && workflowInstance && (
 					<div className="px-8 py-5">
 						<WorkflowProgress instance={workflowInstance} />
 					</div>
@@ -372,14 +374,16 @@ export function ProjectDetailPage(): JSX.Element {
 				<ActivityPanel cwd={decodedCwd} />
 			</div>
 
-			{/* Workflow bind dialog */}
-			<WorkflowBindDialog
-				open={bindDialogOpen}
-				onOpenChange={setBindDialogOpen}
-				projectDir={decodedCwd}
-				projectName={displayName}
-				flowingId={flowingId ?? undefined}
-			/>
+			{/* Workflow bind dialog (enterprise only) */}
+			{!isPersonal && (
+				<WorkflowBindDialog
+					open={bindDialogOpen}
+					onOpenChange={setBindDialogOpen}
+					projectDir={decodedCwd}
+					projectName={displayName}
+					flowingId={flowingId ?? undefined}
+				/>
+			)}
 		</div>
 	);
 }
