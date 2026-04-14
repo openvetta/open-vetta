@@ -305,12 +305,11 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
 	}
 
 	const lines = [
-		"\n\n# Skills (NOT tools — do NOT call these as tool functions)",
+		"\n\n# Skills",
 		"",
-		"Skills are instruction files, NOT callable tools. They do NOT appear in your tool list.",
-		"NEVER attempt to call a skill as a tool (e.g., do NOT call xlsx(), pdf(), or any skill name as a function).",
-		"To use a skill: call the read tool on the skill's <location> path, then follow the instructions inside.",
-		"When a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.",
+		"When the user's request matches a skill below, you MUST call the invoke_skill tool with the skill's name BEFORE attempting to handle the task yourself.",
+		"This is a BLOCKING REQUIREMENT. Do NOT try to accomplish the task manually when a matching skill exists.",
+		"NEVER use bash commands like find, locate, or mdfind to search for skill files. Always use the invoke_skill tool.",
 		"",
 		"<available_skills>",
 	];
@@ -319,7 +318,6 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
 		lines.push("  <skill>");
 		lines.push(`    <name>${escapeXml(skill.name)}</name>`);
 		lines.push(`    <description>${escapeXml(skill.description)}</description>`);
-		lines.push(`    <location>${escapeXml(skill.filePath)}</location>`);
 		lines.push("  </skill>");
 	}
 

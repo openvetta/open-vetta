@@ -1,1 +1,13 @@
-Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.
+Edit a file by replacing exact text. The oldText must match exactly (including whitespace and indentation). Use this for precise, surgical edits.
+
+CRITICAL: You MUST use the `read` tool to read a file BEFORE editing it. This tool will produce incorrect results if you attempt an edit without first reading the current file contents. NEVER guess file contents — always read first.
+
+When to use `edit` vs `write`:
+- Use `edit` for modifying specific parts of an existing file (preferred for most changes)
+- Use `write` ONLY for creating new files or complete rewrites where most content changes
+- NEVER use bash commands (sed, awk, perl -i) for file editing — always use this tool
+
+Tips for reliable edits:
+- The oldText must be unique in the file. If it matches multiple locations, the edit will fail. Include more surrounding context to make it unique.
+- Preserve exact indentation (tabs vs spaces) as shown in `read` output.
+- For renaming a variable/function across the file, use the replaceAll option instead of multiple edits.

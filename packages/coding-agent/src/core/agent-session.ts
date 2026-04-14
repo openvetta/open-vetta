@@ -81,6 +81,7 @@ import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocatio
 import { buildSystemPrompt } from "./system-prompt.js";
 import type { BashOperations } from "./tools/bash/index.js";
 import { createAllTools } from "./tools/index.js";
+import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
 
 // ============================================================================
 // Skill Block Parsing
@@ -2040,12 +2041,22 @@ export class AgentSession {
 	}): void {
 		const autoResizeImages = this.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.settingsManager.getShellCommandPrefix();
-		const baseTools = this._baseToolsOverride
-			? this._baseToolsOverride
+		const baseTools: Record<string, AgentTool<any>> = this._baseToolsOverride
+			? { ...this._baseToolsOverride }
 			: createAllTools(this._cwd, {
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix },
 				});
+
+		// Add invoke_skill tool if skills are available
+		const loadedSkills = this._resourceLoader.getSkills().skills;
+		const visibleSkills = loadedSkills.filter((s) => !s.disableModelInvocation && s.type !== "scene");
+		if (visibleSkills.length > 0) {
+			const invokeSkillTool = createInvokeSkillTool({
+				getSkills: () => this._resourceLoader.getSkills().skills,
+			});
+			baseTools.invoke_skill = invokeSkillTool;
+		}
 
 		this._baseToolRegistry = new Map(Object.entries(baseTools).map(([name, tool]) => [name, tool as AgentTool]));
 
@@ -2095,6 +2106,11 @@ export class AgentSession {
 			: ["read", "bash", "edit", "write"];
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		const activeToolNameSet = new Set<string>(baseActiveToolNames);
+
+		// Always activate invoke_skill when it's available in base tools
+		if (this._baseToolRegistry.has("invoke_skill")) {
+			activeToolNameSet.add("invoke_skill");
+		}
 		if (options.includeAllExtensionTools) {
 			for (const tool of wrappedExtensionTools as AgentTool[]) {
 				activeToolNameSet.add(tool.name);
