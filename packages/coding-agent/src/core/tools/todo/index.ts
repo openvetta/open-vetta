@@ -104,19 +104,19 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 						};
 					}
 
-					// Before starting a new item, check for skipped earlier items
-					if (status === "in_progress") {
+					// Before progressing any item, check for skipped earlier items
+					if (status === "in_progress" || status === "done") {
 						const allItems = store.getAll();
 						const skipped = allItems.filter((i) => i.id < id && i.status !== "done");
 						if (skipped.length > 0) {
 							const skippedList = skipped.map((i) => `  #${i.id} [${i.status}] ${i.content}`).join("\n");
-							// Auto-update the requested item anyway, but warn prominently
-							store.update(id, "in_progress");
+							// Still apply the update so progress isn't lost
+							store.update(id, status as "pending" | "in_progress" | "done");
 							return {
 								content: [
 									{
 										type: "text" as const,
-										text: `WARNING: You are starting #${id} but the following earlier items are NOT done:\n${skippedList}\n\nYou MUST complete these skipped items first. Finish them before continuing with #${id}.\n\n${formatItems(store)}`,
+										text: `WARNING: You are updating #${id} to "${status}" but the following earlier items are NOT done:\n${skippedList}\n\nIf you already completed the work for these items, mark them as done NOW (call todo update for each). Do NOT skip items — every item must be checked off.\n\n${formatItems(store)}`,
 									},
 								],
 								details: { action },
