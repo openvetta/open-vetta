@@ -1,0 +1,20 @@
+Manage a todo list to plan and track progress on multi-step tasks.
+
+When to create a todo plan:
+- Task requires 3 or more distinct steps
+- User asks to modify multiple files
+- Task involves sequential work (step A must finish before step B)
+- User explicitly asks for a plan ("plan", "todo", "step by step", "分步", "计划", "列个清单")
+
+When NOT to create:
+- Single file edit or simple question
+- Task completable in 1-2 trivial steps
+- Purely informational or conversational request
+
+CRITICAL workflow:
+1. Call todo(action="create") with all planned steps BEFORE starting any work
+2. Call todo(action="update", id=N, status="in_progress") when you START a step
+3. Call todo(action="update", id=N, status="done") when you FINISH a step
+4. ALWAYS update status in real time — do not batch updates
+
+NEVER create a plan and then ignore it. Every step must be tracked to completion or explicitly removed.

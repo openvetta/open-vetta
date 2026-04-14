@@ -54,6 +54,7 @@ export {
 	type ReadToolOptions,
 	readTool,
 } from "./read/index.js";
+export { createTodoTool, type TodoToolDetails, type TodoToolOptions } from "./todo/index.js";
 export {
 	createTreeTool,
 	type TreeOperations,
