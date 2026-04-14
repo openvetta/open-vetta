@@ -450,8 +450,30 @@ export class AgentSession {
 			}
 
 			await this._checkCompaction(msg);
+
+			// Auto-continue if todo items are not all completed
+			this._checkTodoContinuation();
 		}
 	};
+
+	/**
+	 * Check if there are uncompleted todo items and auto-continue the agent.
+	 * Prevents the agent from stopping mid-plan.
+	 */
+	private _checkTodoContinuation(): void {
+		const items = this._todoStore.getAll();
+		if (items.length === 0) return;
+
+		const pending = items.filter((i) => i.status !== "done");
+		if (pending.length === 0) return;
+
+		const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
+		const doneCount = items.length - pending.length;
+
+		this._queueFollowUp(
+			`You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
+		);
+	}
 
 	/** Resolve the pending retry promise */
 	private _resolveRetry(): void {
