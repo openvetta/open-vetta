@@ -117,6 +117,8 @@ export class Agent {
 	public streamFn: StreamFn;
 	private _sessionId?: string;
 	public getApiKey?: (provider: string) => Promise<string | undefined> | string | undefined;
+	/** Optional callback invoked before follow-up queue is consumed. Return messages to inject. */
+	public followUpProvider?: () => AgentMessage[];
 	private runningPrompt?: Promise<void>;
 	private resolveRunningPrompt?: () => void;
 	private _thinkingBudgets?: ThinkingBudgets;
@@ -294,6 +296,14 @@ export class Agent {
 	}
 
 	private dequeueFollowUpMessages(): AgentMessage[] {
+		// Allow external code to inject follow-up messages (e.g., todo continuation)
+		if (this.followUpProvider) {
+			const injected = this.followUpProvider();
+			if (injected.length > 0) {
+				this.followUpQueue.push(...injected);
+			}
+		}
+
 		if (this.followUpMode === "one-at-a-time") {
 			if (this.followUpQueue.length > 0) {
 				const first = this.followUpQueue[0];

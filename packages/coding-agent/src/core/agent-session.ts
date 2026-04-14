@@ -345,6 +345,11 @@ export class AgentSession {
 			activeToolNames: this._initialActiveToolNames,
 			includeAllExtensionTools: true,
 		});
+
+		// Register follow-up provider for todo continuation.
+		// This runs INSIDE the agent loop (before follow-up queue is consumed),
+		// ensuring the agent cannot exit the loop while todo items remain.
+		this.agent.followUpProvider = () => this._buildTodoContinuationMessages();
 	}
 
 	/** Model registry for API key resolution and model discovery */
@@ -450,29 +455,36 @@ export class AgentSession {
 			}
 
 			await this._checkCompaction(msg);
-
-			// Auto-continue if todo items are not all completed
-			this._checkTodoContinuation();
 		}
 	};
 
 	/**
-	 * Check if there are uncompleted todo items and auto-continue the agent.
-	 * Prevents the agent from stopping mid-plan.
+	 * Build follow-up messages for uncompleted todo items.
+	 * Called by agent core's followUpProvider INSIDE the loop,
+	 * before the agent decides whether to exit.
 	 */
-	private _checkTodoContinuation(): void {
+	private _buildTodoContinuationMessages(): AgentMessage[] {
 		const items = this._todoStore.getAll();
-		if (items.length === 0) return;
+		if (items.length === 0) return [];
 
 		const pending = items.filter((i) => i.status !== "done");
-		if (pending.length === 0) return;
+		if (pending.length === 0) return [];
 
 		const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
 		const doneCount = items.length - pending.length;
 
-		this._queueFollowUp(
-			`You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
-		);
+		return [
+			{
+				role: "user",
+				content: [
+					{
+						type: "text",
+						text: `You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
+					},
+				],
+				timestamp: Date.now(),
+			},
+		];
 	}
 
 	/** Resolve the pending retry promise */
