@@ -9,7 +9,7 @@ import {
 	getTodoItemsForCwd,
 	todoItemsByCwdAtom,
 } from "@shared/store/atoms";
-import type { TodoItem } from "@shared/store/todo-atoms";
+import { TodoCard } from "@shared/components/TodoCard";
 import { pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
@@ -471,76 +471,5 @@ function InlineTodoCard(): JSX.Element | null {
 		[todoMap, activeSession?.cwd],
 	);
 
-	if (items.length === 0) return null;
-
-	const doneCount = items.filter((i) => i.status === "done").length;
-	const total = items.length;
-	const allDone = doneCount === total;
-
-	return (
-		<motion.div
-			initial={{ opacity: 0, y: 8 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.2 }}
-			className="rounded-xl border border-border bg-muted/30 p-3"
-		>
-			<div className="mb-2 flex items-center justify-between">
-				<span className="text-xs font-medium text-muted-foreground">
-					{allDone ? "All done" : "Todo"}
-				</span>
-				<span className="text-xs text-muted-foreground">
-					{doneCount}/{total}
-				</span>
-			</div>
-			<div className="mb-2 h-1 overflow-hidden rounded-full bg-muted/50">
-				<motion.div
-					className="h-full rounded-full bg-primary"
-					initial={{ width: 0 }}
-					animate={{ width: `${(doneCount / total) * 100}%` }}
-					transition={{ duration: 0.4, ease: "easeOut" }}
-				/>
-			</div>
-			<ul className="flex flex-col gap-1">
-				{items.map((item) => (
-					<InlineTodoItem key={item.id} item={item} />
-				))}
-			</ul>
-		</motion.div>
-	);
-}
-
-function InlineTodoItem({ item }: { item: TodoItem }): JSX.Element {
-	const isDone = item.status === "done";
-	const isInProgress = item.status === "in_progress";
-
-	return (
-		<motion.li
-			layout
-			className="flex items-center gap-2 rounded-md px-2 py-1"
-		>
-			{isDone ? (
-				<motion.div
-					initial={{ scale: 0 }}
-					animate={{ scale: 1 }}
-					transition={{ type: "spring", stiffness: 500, damping: 25 }}
-					className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400"
-				>
-					<span className="icon-[mdi--check] text-[10px]" />
-				</motion.div>
-			) : isInProgress ? (
-				<div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-blue-400/50 text-blue-400">
-					<span className="icon-[mdi--loading] animate-spin text-[10px]" />
-				</div>
-			) : (
-				<div className="h-3.5 w-3.5 shrink-0 rounded-full border border-muted-foreground/30" />
-			)}
-			<span
-				className={`text-xs leading-normal transition-all duration-300 ${
-					isDone ? "text-muted-foreground line-through decoration-muted-foreground/50" : "text-foreground"
-				}`}
-			>
-				{item.content}
-			</span>
-		</motion.li>
-	);
+	return <TodoCard items={items} compact />;
 }
