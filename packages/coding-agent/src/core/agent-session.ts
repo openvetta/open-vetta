@@ -397,6 +397,15 @@ export class AgentSession {
 			}
 		}
 
+		// Skip auto-injected todo continuation messages entirely —
+		// they should not be persisted, emitted to UI, or sent to extensions.
+		if (
+			(event.type === "message_start" || event.type === "message_end") &&
+			this._isTodoContinuationMessage(event.message)
+		) {
+			return;
+		}
+
 		// Emit to extensions first
 		await this._emitExtensionEvent(event);
 
@@ -458,6 +467,23 @@ export class AgentSession {
 		}
 	};
 
+	/** Marker prefix for auto-injected todo continuation messages. Used to skip persistence. */
+	static readonly TODO_CONTINUATION_MARKER = "[todo:continue]";
+
+	/**
+	 * Check if a message is an auto-injected todo continuation message.
+	 * These should not be persisted to session JSONL or shown in the UI.
+	 */
+	private _isTodoContinuationMessage(message: AgentMessage): boolean {
+		if (message.role !== "user") return false;
+		const content = message.content;
+		if (typeof content === "string") return content.startsWith(AgentSession.TODO_CONTINUATION_MARKER);
+		if (Array.isArray(content) && content.length > 0 && content[0].type === "text") {
+			return content[0].text.startsWith(AgentSession.TODO_CONTINUATION_MARKER);
+		}
+		return false;
+	}
+
 	/**
 	 * Build follow-up messages for uncompleted todo items.
 	 * Called by agent core's followUpProvider INSIDE the loop,
@@ -479,7 +505,7 @@ export class AgentSession {
 				content: [
 					{
 						type: "text",
-						text: `You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
+						text: `${AgentSession.TODO_CONTINUATION_MARKER} You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
 					},
 				],
 				timestamp: Date.now(),
