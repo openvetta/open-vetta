@@ -1,0 +1,5 @@
+Invoke a scene by name. Scenes are context presets that set up a specific working context, persona, or workflow.
+
+Unlike skills, scenes are NEVER invoked on your own initiative. You MUST only call this tool when the user's message explicitly starts with a /scene: prefix. This is a strict rule — do not call invoke_scene based on your own judgment.
+
+When the user's message contains a /scene: prefix, you MUST call this tool IMMEDIATELY as your first action, before doing anything else. Follow the returned instructions to set up the context for the user's request.

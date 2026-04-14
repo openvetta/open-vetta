@@ -326,6 +326,40 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
 	return lines.join("\n");
 }
 
+/**
+ * Format scenes for inclusion in the system prompt.
+ * Scenes are listed so the model knows to call invoke_scene when
+ * the user's message starts with /scene: prefix.
+ * The model is explicitly instructed NOT to invoke scenes on its own.
+ */
+export function formatScenesForPrompt(skills: Skill[]): string {
+	const scenes = skills.filter((s) => s.type === "scene");
+
+	if (scenes.length === 0) {
+		return "";
+	}
+
+	const lines = [
+		"\n\n# Scenes",
+		"",
+		"When the user's message starts with /scene:<name>, you MUST call the invoke_scene tool with the scene's name IMMEDIATELY as your first action.",
+		"NEVER invoke a scene on your own initiative. Only invoke when the user explicitly references one via /scene: prefix.",
+		"",
+		"<available_scenes>",
+	];
+
+	for (const scene of scenes) {
+		lines.push("  <scene>");
+		lines.push(`    <name>${escapeXml(scene.name)}</name>`);
+		lines.push(`    <description>${escapeXml(scene.description)}</description>`);
+		lines.push("  </scene>");
+	}
+
+	lines.push("</available_scenes>");
+
+	return lines.join("\n");
+}
+
 function escapeXml(str: string): string {
 	return str
 		.replace(/&/g, "&amp;")

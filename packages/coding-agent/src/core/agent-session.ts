@@ -82,6 +82,7 @@ import { buildSystemPrompt } from "./system-prompt.js";
 import { TODO_SNAPSHOT_TYPE, type TodoItem, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
 import { createAllTools } from "./tools/index.js";
+import { createInvokeSceneTool } from "./tools/invoke-scene/index.js";
 import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
 import { createTodoTool } from "./tools/todo/index.js";
 
@@ -982,32 +983,30 @@ export class AgentSession {
 	 */
 	private _expandSkillCommand(text: string): string {
 		let prefix: string;
-		let targetType: "skill" | "scene" | undefined;
 
 		if (text.startsWith("/skill:")) {
 			prefix = "/skill:";
 		} else if (text.startsWith("/scene:")) {
-			prefix = "/scene:";
-			targetType = "scene";
+			// Scenes are not expanded inline — the LLM will call invoke_scene tool instead.
+			// Just pass through so the /scene: prefix is visible to the model.
+			return text;
 		} else {
 			return text;
 		}
 
 		const prefixLen = prefix.length;
-		const spaceIndex = text.indexOf(" ");
-		const skillName = spaceIndex === -1 ? text.slice(prefixLen) : text.slice(prefixLen, spaceIndex);
-		const args = spaceIndex === -1 ? "" : text.slice(spaceIndex + 1).trim();
+		const rest = text.slice(prefixLen);
+		const sepMatch = rest.match(/[\s]/);
+		const skillName = sepMatch ? rest.slice(0, sepMatch.index) : rest;
+		const args = sepMatch ? rest.slice(sepMatch.index!).trim() : "";
 
-		const skill = this.resourceLoader
-			.getSkills()
-			.skills.find((s) => s.name === skillName && (targetType === undefined || s.type === targetType));
-		if (!skill) return text; // Unknown skill/scene, pass through
+		const skill = this.resourceLoader.getSkills().skills.find((s) => s.name === skillName);
+		if (!skill) return text; // Unknown skill, pass through
 
 		try {
 			const content = readFileSync(skill.filePath, "utf-8");
 			const body = stripFrontmatter(content).trim();
-			const tag = skill.type === "scene" ? "scene" : "skill";
-			const skillBlock = `<${tag} name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</${tag}>`;
+			const skillBlock = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
 			return args ? `${skillBlock}\n\n${args}` : skillBlock;
 		} catch (err) {
 			this._extensionRunner?.emitError({
@@ -2095,6 +2094,15 @@ export class AgentSession {
 			baseTools.invoke_skill = invokeSkillTool;
 		}
 
+		// Add invoke_scene tool if scenes are available
+		const scenes = loadedSkills.filter((s) => s.type === "scene");
+		if (scenes.length > 0) {
+			const invokeSceneTool = createInvokeSceneTool({
+				getScenes: () => this._resourceLoader.getSkills().skills,
+			});
+			baseTools.invoke_scene = invokeSceneTool;
+		}
+
 		// Add todo tool (always available)
 		const todoTool = createTodoTool({ getTodoStore: () => this._todoStore });
 		baseTools.todo = todoTool;
@@ -2148,9 +2156,12 @@ export class AgentSession {
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		const activeToolNameSet = new Set<string>(baseActiveToolNames);
 
-		// Always activate invoke_skill and todo when available in base tools
+		// Always activate invoke_skill, invoke_scene, and todo when available in base tools
 		if (this._baseToolRegistry.has("invoke_skill")) {
 			activeToolNameSet.add("invoke_skill");
+		}
+		if (this._baseToolRegistry.has("invoke_scene")) {
+			activeToolNameSet.add("invoke_scene");
 		}
 		if (this._baseToolRegistry.has("todo")) {
 			activeToolNameSet.add("todo");
