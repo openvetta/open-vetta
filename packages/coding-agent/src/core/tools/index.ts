@@ -33,6 +33,12 @@ export {
 	grepTool,
 } from "./grep/index.js";
 export {
+	createInvokeSkillTool,
+	type InvokeSkillToolDetails,
+	type InvokeSkillToolInput,
+	type InvokeSkillToolOptions,
+} from "./invoke-skill/index.js";
+export {
 	createLsTool,
 	type LsOperations,
 	type LsToolDetails,

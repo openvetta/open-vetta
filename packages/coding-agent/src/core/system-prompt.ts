@@ -16,6 +16,7 @@ const toolDescriptions: Record<string, string> = {
 	find: "Find files by glob pattern (respects .gitignore)",
 	ls: "List directory contents",
 	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
+	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
 };
 
 export interface McpToolInfo {
@@ -104,9 +105,9 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 			}
 		}
 
-		// Append skills section (only if read tool is available)
-		const customPromptHasRead = !selectedTools || selectedTools.includes("read");
-		if (customPromptHasRead && skills.length > 0) {
+		// Append skills section (if invoke_skill or read tool is available)
+		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
+		if (canUseSkills && skills.length > 0) {
 			prompt += formatSkillsForPrompt(skills);
 		}
 
@@ -246,8 +247,9 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 		}
 	}
 
-	// Append skills section (only if read tool is available)
-	if (hasRead && skills.length > 0) {
+	// Append skills section (if invoke_skill or read tool is available)
+	const hasInvokeSkill = tools.includes("invoke_skill");
+	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
 		prompt += formatSkillsForPrompt(skills);
 	}
 
