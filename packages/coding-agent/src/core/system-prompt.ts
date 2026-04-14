@@ -17,6 +17,7 @@ const toolDescriptions: Record<string, string> = {
 	ls: "List directory contents",
 	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
+	todo: "Plan and track progress on multi-step tasks with a todo list",
 };
 
 export interface McpToolInfo {

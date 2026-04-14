@@ -6,6 +6,8 @@ import {
 	activityPanelTabByProjectAtom,
 	activeSessionAtom,
 	flowingChatUnreadAtom,
+	todoItemsByCwdAtom,
+	getTodoItemsForCwd,
 } from "@shared/store/atoms";
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
@@ -13,6 +15,7 @@ import { JourneyPanel } from "./JourneyPanel";
 import { ChatTabPanel } from "./ChatTabPanel";
 import { BatchProgressTabPanel } from "./BatchProgressTabPanel";
 import { ScheduleExecutionTabPanel } from "./ScheduleExecutionTabPanel";
+import { TodoTabPanel } from "./TodoTabPanel";
 import { SegmentedControl, type SegmentedControlItem } from "@shared/components/ui/segmented-control";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 
@@ -35,6 +38,9 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	const { profile } = useProjectProfile(cwd);
 	const unreadMap = useAtomValue(flowingChatUnreadAtom);
 	const chatUnread = profile?.flowingId != null ? (unreadMap.get(profile.flowingId) ?? 0) : 0;
+	const todoMap = useAtomValue(todoItemsByCwdAtom);
+	const todoItems = useMemo(() => getTodoItemsForCwd(todoMap, cwd), [todoMap, cwd]);
+	const hasTodo = todoItems.length > 0;
 
 	const onResize = useCallback(
 		(delta: number) => {
@@ -46,16 +52,36 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 
 	const onResizeEnd = useCallback(() => setIsResizing(false), []);
 
+	const segmentedItems: SegmentedControlItem<ActivityTabKey>[] = useMemo(() => {
+		const base: SegmentedControlItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
+			key: t.key,
+			label: t.label,
+			icon: t.icon,
+			badge: t.key === "chat" ? chatUnread : undefined,
+		}));
+		// Dynamically inject todo tab when items exist
+		if (hasTodo) {
+			const todoDone = todoItems.filter((i) => i.status === "done").length;
+			base.push({
+				key: "todo" as ActivityTabKey,
+				label: "待办",
+				icon: "icon-[mdi--checkbox-marked-circle-outline]",
+				badge: todoItems.length - todoDone > 0 ? todoItems.length - todoDone : undefined,
+			});
+		}
+		return base;
+	}, [profile, chatUnread, hasTodo, todoItems]);
+
 	// 当前 active tab：优先取项目记忆，否则用 profile 默认；profile 未就绪时退回 "file"
 	const activeTab: ActivityTabKey = useMemo(() => {
 		if (cwd) {
 			const remembered = tabByProject.get(cwd);
-			if (remembered && profile?.activityTabs.some((t) => t.key === remembered)) {
+			if (remembered && segmentedItems.some((t) => t.key === remembered)) {
 				return remembered;
 			}
 		}
 		return profile?.defaultActivityTab ?? "file";
-	}, [cwd, tabByProject, profile]);
+	}, [cwd, tabByProject, profile, segmentedItems]);
 
 	const onTabChange = useCallback(
 		(next: ActivityTabKey) => {
@@ -67,17 +93,6 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 			});
 		},
 		[cwd, setTabByProject],
-	);
-
-	const segmentedItems: SegmentedControlItem<ActivityTabKey>[] = useMemo(
-		() =>
-			(profile?.activityTabs ?? []).map((t) => ({
-				key: t.key,
-				label: t.label,
-				icon: t.icon,
-				badge: t.key === "chat" ? chatUnread : undefined,
-			})),
-		[profile, chatUnread],
 	);
 
 	return (
@@ -103,6 +118,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 						{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}
 						{activeTab === "batch-progress" && cwd && <BatchProgressTabPanel cwd={cwd} />}
 						{activeTab === "schedule-records" && cwd && <ScheduleExecutionTabPanel cwd={cwd} />}
+						{activeTab === "todo" && cwd && <TodoTabPanel cwd={cwd} />}
 					</div>
 				</div>
 			</div>

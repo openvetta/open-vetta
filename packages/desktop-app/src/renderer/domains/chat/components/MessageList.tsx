@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ChatMessage, ContentBlock, ToolCallBlock } from "@shared/store/atoms";
+import { useAtomValue } from "jotai";
+import {
+	type ChatMessage,
+	type ContentBlock,
+	type ToolCallBlock,
+	activeSessionAtom,
+	getTodoItemsForCwd,
+	todoItemsByCwdAtom,
+} from "@shared/store/atoms";
+import { TodoCard } from "@shared/components/TodoCard";
 import { pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
@@ -429,6 +438,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 						))}
 						{showTyping && <TypingIndicator key="typing" />}
 					</AnimatePresence>
+					<InlineTodoCard />
 					<div ref={bottomRef} />
 				</div>
 			</div>
@@ -449,4 +459,17 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 			</AnimatePresence>
 		</>
 	);
+}
+
+// ── Inline Todo Card (shown at bottom of message list) ──
+
+function InlineTodoCard(): JSX.Element | null {
+	const activeSession = useAtomValue(activeSessionAtom);
+	const todoMap = useAtomValue(todoItemsByCwdAtom);
+	const items = useMemo(
+		() => getTodoItemsForCwd(todoMap, activeSession?.cwd ?? null),
+		[todoMap, activeSession?.cwd],
+	);
+
+	return <TodoCard items={items} compact />;
 }

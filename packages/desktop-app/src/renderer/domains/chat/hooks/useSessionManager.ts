@@ -12,6 +12,8 @@ import {
 	modelSupportsImagesAtom,
 	openSessionFnRef,
 	selectedSkillAtom,
+	type TodoItem,
+	todoItemsByCwdAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
@@ -52,6 +54,7 @@ export function useSessionManager(): SessionManagerResult {
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
+	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
@@ -190,6 +193,24 @@ export function useSessionManager(): SessionManagerResult {
 						});
 						return;
 					}
+
+					// ── Todo update ──
+					if (event.type === "todo_update") {
+						const sessionCwd = activeSessionRef.current?.cwd;
+						if (sessionCwd) {
+							const items = (event as { items?: unknown[] }).items ?? [];
+							setTodoItems((prev) => {
+								const next = new Map(prev);
+								if (items.length > 0) {
+									next.set(sessionCwd, items as TodoItem[]);
+								} else {
+									next.delete(sessionCwd);
+								}
+								return next;
+							});
+						}
+						return;
+					}
 				}),
 			);
 
@@ -204,6 +225,7 @@ export function useSessionManager(): SessionManagerResult {
 			setLastTurnUsage,
 			setContextUsage,
 			setModelSupportsImages,
+			setTodoItems,
 		],
 	);
 
