@@ -3,7 +3,7 @@
  */
 
 import { getDocsPath, getExamplesPath, getReadmePath } from "../config.js";
-import { formatSkillsForPrompt, type Skill } from "./skills.js";
+import { formatScenesForPrompt, formatSkillsForPrompt, type Skill } from "./skills.js";
 import { SUBCONSCIOUS } from "./subconscious.js";
 
 /** Tool descriptions for system prompt */
@@ -110,6 +110,12 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
 		if (canUseSkills && skills.length > 0) {
 			prompt += formatSkillsForPrompt(skills);
+		}
+
+		// Append scenes section (if invoke_scene tool is available)
+		const canUseScenes = !selectedTools || selectedTools.includes("invoke_scene");
+		if (canUseScenes && skills.length > 0) {
+			prompt += formatScenesForPrompt(skills);
 		}
 
 		// Filename fidelity rule (applies to all prompts)
@@ -252,6 +258,12 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 	const hasInvokeSkill = tools.includes("invoke_skill");
 	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
 		prompt += formatSkillsForPrompt(skills);
+	}
+
+	// Append scenes section (if invoke_scene tool is available)
+	const hasInvokeScene = tools.includes("invoke_scene");
+	if (hasInvokeScene && skills.length > 0) {
+		prompt += formatScenesForPrompt(skills);
 	}
 
 	// Add date/time and working directory last
