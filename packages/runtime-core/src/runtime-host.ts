@@ -427,6 +427,15 @@ export class RuntimeHost implements SessionFacade {
 			return events;
 		}
 
+		if (event.type === "todo_update") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "todo_update",
+				items: event.items as any[],
+			});
+			return events;
+		}
+
 		return events;
 	}
 
