@@ -14,6 +14,7 @@ const UNCATEGORIZED = "未分类";
 
 interface MergedSkill {
 	name: string;
+	alias: string;
 	description: string;
 	type: "skill" | "scene";
 	version: string;
@@ -39,6 +40,7 @@ function mergeSkills(
 		const needsUpdate = installed && local.version !== ms.version;
 		merged.set(ms.name, {
 			name: ms.name,
+			alias: ms.alias,
 			description: ms.description,
 			type: ms.type,
 			version: ms.version,
@@ -57,6 +59,7 @@ function mergeSkills(
 		if (!merged.has(name)) {
 			merged.set(name, {
 				name,
+				alias: "",
 				description: "",
 				type: "skill",
 				version: local.version,
@@ -160,7 +163,7 @@ function SkillCard({
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
 					<span className="truncate text-[13px] font-semibold text-foreground">
-						{skill.name}
+						{skill.alias || skill.name}
 					</span>
 					{skill.installed && skill.localVersion && (
 						<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-medium text-muted-foreground/50">
@@ -377,6 +380,7 @@ export function SkillsPage(): JSX.Element {
 			list = list.filter(
 				(s) =>
 					s.name.toLowerCase().includes(q) ||
+					s.alias.toLowerCase().includes(q) ||
 					s.description.toLowerCase().includes(q) ||
 					s.tags.some((t) => t.toLowerCase().includes(q)),
 			);

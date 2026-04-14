@@ -132,16 +132,23 @@ function formatDuration(seconds: number): string {
 	return `${m}分${s}秒`;
 }
 
-/** Parse prefixes from user message text: /skills:<name> and @<path> lines. */
-function parseUserPrefixes(text: string): { skillName: string | null; files: string[]; body: string } {
+/** Parse prefixes from user message text: /skill:<name>, /scene:<name>, and @<path> lines. */
+function parseUserPrefixes(text: string): {
+	skillName: string | null;
+	skillType: "skill" | "scene" | null;
+	files: string[];
+	body: string;
+} {
 	let remaining = text;
 	let skillName: string | null = null;
+	let skillType: "skill" | "scene" | null = null;
 	const files: string[] = [];
 
-	const skillMatch = remaining.match(/^\/skills:([^\n]+)\n?([\s\S]*)$/);
+	const skillMatch = remaining.match(/^\/(skill|scene):([^\n]+)\n?([\s\S]*)$/);
 	if (skillMatch) {
-		skillName = skillMatch[1].trim();
-		remaining = skillMatch[2];
+		skillType = skillMatch[1] as "skill" | "scene";
+		skillName = skillMatch[2].trim();
+		remaining = skillMatch[3];
 	}
 
 	while (true) {
@@ -151,13 +158,14 @@ function parseUserPrefixes(text: string): { skillName: string | null; files: str
 		remaining = fileMatch[2];
 	}
 
-	return { skillName, files, body: remaining };
+	return { skillName, skillType, files, body: remaining };
 }
 
-function SkillBadge({ name }: { name: string }): JSX.Element {
+function SkillBadge({ name, type = "skill" }: { name: string; type?: "skill" | "scene" }): JSX.Element {
+	const icon = type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]";
 	return (
 		<span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-primary/10 text-muted-foreground">
-			<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
+			<span className={`${icon} h-3 w-3`} />
 			{name}
 		</span>
 	);
@@ -179,7 +187,7 @@ function FileBadge({ path }: { path: string }): JSX.Element {
 /** User message — right-aligned bubble */
 function UserMessage({ message }: { message: ChatMessage }): JSX.Element {
 	const hasImages = message.images && message.images.length > 0;
-	const { skillName, files, body } = parseUserPrefixes(message.text);
+	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const displayText = body;
 	const hasBadges = skillName || files.length > 0;
 
@@ -214,7 +222,7 @@ function UserMessage({ message }: { message: ChatMessage }): JSX.Element {
 					>
 						{hasBadges && (
 							<div className="mb-1 flex flex-wrap justify-end gap-1">
-								{skillName && <SkillBadge name={skillName} />}
+								{skillName && <SkillBadge name={skillName} type={skillType ?? "skill"} />}
 								{files.map((f) => (
 									<FileBadge key={f} path={f} />
 								))}

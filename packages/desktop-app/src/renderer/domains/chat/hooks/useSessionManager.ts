@@ -219,7 +219,11 @@ export function useSessionManager(): SessionManagerResult {
 		const rawText = inputValue.trim();
 		const images = attachedImages.length > 0 ? attachedImages : undefined;
 		// Build prefix lines
-		const skillPrefix = selectedSkill ? `/skills:${selectedSkill.name}\n` : "";
+		const skillPrefix = selectedSkill
+			? selectedSkill.type === "scene"
+				? `/scene:${selectedSkill.name}\n`
+				: `/skill:${selectedSkill.name}\n`
+			: "";
 		const filesPrefix = mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
 		const text = `${skillPrefix}${filesPrefix}${rawText}`;
 		setInputValue("");

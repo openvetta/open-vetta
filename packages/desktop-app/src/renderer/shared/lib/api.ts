@@ -170,6 +170,7 @@ export async function fetchCurrentUser(token: string): Promise<UserInfo> {
 
 export interface MarketSkillInfo {
 	name: string;
+	alias: string;
 	description: string;
 	license: string;
 	type: "skill" | "scene";

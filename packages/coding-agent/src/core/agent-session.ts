@@ -938,27 +938,40 @@ export class AgentSession {
 	}
 
 	/**
-	 * Expand skill commands (/skill:name args) to their full content.
-	 * Returns the expanded text, or the original text if not a skill command or skill not found.
+	 * Expand skill/scene commands (/skill:name or /scene:name args) to their full content.
+	 * Returns the expanded text, or the original text if not a skill/scene command or not found.
 	 * Emits errors via extension runner if file read fails.
 	 */
 	private _expandSkillCommand(text: string): string {
-		if (!text.startsWith("/skill:")) return text;
+		let prefix: string;
+		let targetType: "skill" | "scene" | undefined;
 
+		if (text.startsWith("/skill:")) {
+			prefix = "/skill:";
+		} else if (text.startsWith("/scene:")) {
+			prefix = "/scene:";
+			targetType = "scene";
+		} else {
+			return text;
+		}
+
+		const prefixLen = prefix.length;
 		const spaceIndex = text.indexOf(" ");
-		const skillName = spaceIndex === -1 ? text.slice(7) : text.slice(7, spaceIndex);
+		const skillName = spaceIndex === -1 ? text.slice(prefixLen) : text.slice(prefixLen, spaceIndex);
 		const args = spaceIndex === -1 ? "" : text.slice(spaceIndex + 1).trim();
 
-		const skill = this.resourceLoader.getSkills().skills.find((s) => s.name === skillName);
-		if (!skill) return text; // Unknown skill, pass through
+		const skill = this.resourceLoader
+			.getSkills()
+			.skills.find((s) => s.name === skillName && (targetType === undefined || s.type === targetType));
+		if (!skill) return text; // Unknown skill/scene, pass through
 
 		try {
 			const content = readFileSync(skill.filePath, "utf-8");
 			const body = stripFrontmatter(content).trim();
-			const skillBlock = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
+			const tag = skill.type === "scene" ? "scene" : "skill";
+			const skillBlock = `<${tag} name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</${tag}>`;
 			return args ? `${skillBlock}\n\n${args}` : skillBlock;
 		} catch (err) {
-			// Emit error like extension commands do
 			this._extensionRunner?.emitError({
 				extensionPath: skill.filePath,
 				event: "skill_expansion",

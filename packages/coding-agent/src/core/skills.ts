@@ -298,7 +298,7 @@ function loadSkillFromFile(
  * (they can only be invoked explicitly via /skill:name commands).
  */
 export function formatSkillsForPrompt(skills: Skill[]): string {
-	const visibleSkills = skills.filter((s) => !s.disableModelInvocation);
+	const visibleSkills = skills.filter((s) => !s.disableModelInvocation && s.type !== "scene");
 
 	if (visibleSkills.length === 0) {
 		return "";
