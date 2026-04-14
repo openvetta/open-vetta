@@ -205,6 +205,8 @@
       "name": "@vetta/runtime-core",
       "version": "0.0.1",
       "dependencies": {
+        "@mariozechner/pi-agent-core": "workspace:*",
+        "@mariozechner/pi-ai": "workspace:*",
         "@vetta/coding-agent": "workspace:*",
       },
       "devDependencies": {
@@ -274,6 +276,7 @@
       "version": "0.55.3",
       "dependencies": {
         "@lmstudio/sdk": "^1.5.0",
+        "@mariozechner/pi-agent-core": "workspace:*",
         "@mariozechner/pi-ai": "^0.55.3",
         "@mariozechner/pi-tui": "^0.55.3",
         "@sinclair/typebox": "^0.34.48",
@@ -289,6 +292,7 @@
         "@mariozechner/mini-lit": "^0.2.0",
         "@tailwindcss/cli": "^4.0.0-beta.14",
         "concurrently": "^9.2.1",
+        "tailwindcss": "^4.0.0",
         "typescript": "^5.7.3",
       },
       "peerDependencies": {
