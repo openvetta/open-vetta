@@ -397,12 +397,9 @@ export class AgentSession {
 			}
 		}
 
-		// Skip auto-injected todo continuation messages entirely —
-		// they should not be persisted, emitted to UI, or sent to extensions.
-		if (
-			(event.type === "message_start" || event.type === "message_end") &&
-			this._isTodoContinuationMessage(event.message)
-		) {
+		// Skip ephemeral messages (e.g., [ephemeral:todo]) —
+		// they are only visible to the LLM, not persisted or sent to UI/extensions.
+		if ((event.type === "message_start" || event.type === "message_end") && this._isEphemeralMessage(event.message)) {
 			return;
 		}
 
@@ -467,19 +464,24 @@ export class AgentSession {
 		}
 	};
 
-	/** Marker prefix for auto-injected todo continuation messages. Used to skip persistence. */
-	static readonly TODO_CONTINUATION_MARKER = "[todo:continue]";
-
 	/**
-	 * Check if a message is an auto-injected todo continuation message.
-	 * These should not be persisted to session JSONL or shown in the UI.
+	 * Ephemeral message prefix. Messages starting with `[ephemeral:<tag>]` are
+	 * auto-injected by the system (e.g., todo continuation). They are:
+	 * - Visible to the LLM (so it can act on them)
+	 * - NOT persisted to session JSONL
+	 * - NOT emitted to the frontend / extensions
+	 *
+	 * Usage:  `[ephemeral:todo] Your prompt here...`
 	 */
-	private _isTodoContinuationMessage(message: AgentMessage): boolean {
+	static readonly EPHEMERAL_PREFIX = "[ephemeral:";
+
+	/** Check if a message is ephemeral (should not be persisted or shown). */
+	private _isEphemeralMessage(message: AgentMessage): boolean {
 		if (message.role !== "user") return false;
 		const content = message.content;
-		if (typeof content === "string") return content.startsWith(AgentSession.TODO_CONTINUATION_MARKER);
+		if (typeof content === "string") return content.startsWith(AgentSession.EPHEMERAL_PREFIX);
 		if (Array.isArray(content) && content.length > 0 && content[0].type === "text") {
-			return content[0].text.startsWith(AgentSession.TODO_CONTINUATION_MARKER);
+			return content[0].text.startsWith(AgentSession.EPHEMERAL_PREFIX);
 		}
 		return false;
 	}
@@ -505,7 +507,7 @@ export class AgentSession {
 				content: [
 					{
 						type: "text",
-						text: `${AgentSession.TODO_CONTINUATION_MARKER} You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
+						text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
 					},
 				],
 				timestamp: Date.now(),
