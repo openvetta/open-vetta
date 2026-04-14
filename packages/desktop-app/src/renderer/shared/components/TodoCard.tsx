@@ -1,5 +1,8 @@
 import type { TodoItem } from "@shared/store/todo-atoms";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
+
+const COMPACT_VISIBLE_COUNT = 5;
 
 interface TodoCardProps {
 	items: readonly TodoItem[];
@@ -15,22 +18,7 @@ export function TodoCard({ items, compact = false }: TodoCardProps): JSX.Element
 	const allDone = doneCount === total;
 
 	if (compact) {
-		return (
-			<motion.div
-				initial={{ opacity: 0, y: 8 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.2 }}
-				className="rounded-xl border border-border bg-muted/30 p-3"
-			>
-				<ProgressHeader doneCount={doneCount} total={total} allDone={allDone} />
-				<ProgressBar doneCount={doneCount} total={total} height="h-1" animated />
-				<ul className="mt-2 flex flex-col gap-1">
-					{items.map((item) => (
-						<TodoItemRow key={item.id} item={item} size="sm" />
-					))}
-				</ul>
-			</motion.div>
-		);
+		return <CompactTodoCard items={items} doneCount={doneCount} total={total} allDone={allDone} />;
 	}
 
 	return (
@@ -45,6 +33,47 @@ export function TodoCard({ items, compact = false }: TodoCardProps): JSX.Element
 				))}
 			</ul>
 		</div>
+	);
+}
+
+function CompactTodoCard({
+	items,
+	doneCount,
+	total,
+	allDone,
+}: { items: readonly TodoItem[]; doneCount: number; total: number; allDone: boolean }): JSX.Element {
+	const [expanded, setExpanded] = useState(false);
+	const canCollapse = total > COMPACT_VISIBLE_COUNT;
+	const visibleItems = canCollapse && !expanded ? items.slice(-COMPACT_VISIBLE_COUNT) : items;
+	const hiddenCount = total - COMPACT_VISIBLE_COUNT;
+
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.2 }}
+			className="rounded-xl border border-border bg-muted/30 p-3"
+		>
+			<ProgressHeader doneCount={doneCount} total={total} allDone={allDone} />
+			<ProgressBar doneCount={doneCount} total={total} height="h-1" animated />
+			<ul className="mt-2 flex flex-col gap-1">
+				<AnimatePresence initial={false}>
+					{visibleItems.map((item) => (
+						<TodoItemRow key={item.id} item={item} size="sm" />
+					))}
+				</AnimatePresence>
+			</ul>
+			{canCollapse && (
+				<button
+					type="button"
+					onClick={() => setExpanded((prev) => !prev)}
+					className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+				>
+					<span className={`icon-[mdi--chevron-${expanded ? "up" : "down"}] text-sm`} />
+					{expanded ? "收起" : `展开全部 (${hiddenCount} more)`}
+				</button>
+			)}
+		</motion.div>
 	);
 }
 
@@ -97,7 +126,14 @@ function TodoItemRow({ item, size }: { item: TodoItem; size: "sm" | "md" }): JSX
 	const padding = size === "sm" ? "px-2 py-1" : "px-3 py-2";
 
 	return (
-		<motion.li layout className={`flex items-start gap-2 rounded-lg ${padding} transition-colors hover:bg-muted/30`}>
+		<motion.li
+			layout
+			initial={{ opacity: 0, height: 0 }}
+			animate={{ opacity: 1, height: "auto" }}
+			exit={{ opacity: 0, height: 0 }}
+			transition={{ duration: 0.2 }}
+			className={`flex items-start gap-2 rounded-lg ${padding} transition-colors hover:bg-muted/30`}
+		>
 			<div className="mt-0.5 shrink-0">
 				{isDone ? (
 					<motion.div
