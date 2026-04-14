@@ -52,6 +52,26 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 
 	const onResizeEnd = useCallback(() => setIsResizing(false), []);
 
+	const segmentedItems: SegmentedControlItem<ActivityTabKey>[] = useMemo(() => {
+		const base: SegmentedControlItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
+			key: t.key,
+			label: t.label,
+			icon: t.icon,
+			badge: t.key === "chat" ? chatUnread : undefined,
+		}));
+		// Dynamically inject todo tab when items exist
+		if (hasTodo) {
+			const todoDone = todoItems.filter((i) => i.status === "done").length;
+			base.push({
+				key: "todo" as ActivityTabKey,
+				label: "待办",
+				icon: "icon-[mdi--checkbox-marked-circle-outline]",
+				badge: todoItems.length - todoDone > 0 ? todoItems.length - todoDone : undefined,
+			});
+		}
+		return base;
+	}, [profile, chatUnread, hasTodo, todoItems]);
+
 	// 当前 active tab：优先取项目记忆，否则用 profile 默认；profile 未就绪时退回 "file"
 	const activeTab: ActivityTabKey = useMemo(() => {
 		if (cwd) {
@@ -74,26 +94,6 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 		},
 		[cwd, setTabByProject],
 	);
-
-	const segmentedItems: SegmentedControlItem<ActivityTabKey>[] = useMemo(() => {
-		const base: SegmentedControlItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
-			key: t.key,
-			label: t.label,
-			icon: t.icon,
-			badge: t.key === "chat" ? chatUnread : undefined,
-		}));
-		// Dynamically inject todo tab when items exist
-		if (hasTodo) {
-			const todoDone = todoItems.filter((i) => i.status === "done").length;
-			base.push({
-				key: "todo" as ActivityTabKey,
-				label: "待办",
-				icon: "icon-[mdi--checkbox-marked-circle-outline]",
-				badge: todoItems.length - todoDone > 0 ? todoItems.length - todoDone : undefined,
-			});
-		}
-		return base;
-	}, [profile, chatUnread, hasTodo, todoItems]);
 
 	return (
 		<aside
