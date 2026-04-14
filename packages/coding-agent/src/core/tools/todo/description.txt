@@ -17,4 +17,4 @@ CRITICAL workflow:
 3. Call todo(action="update", id=N, status="done") when you FINISH a step
 4. ALWAYS update status in real time — do not batch updates
 
-NEVER create a plan and then ignore it. Every step must be tracked to completion or explicitly removed.
+CRITICAL: You MUST complete ALL todo items before ending your response. NEVER stop with uncompleted items. If you created a todo list, you are committed to finishing every item. The system will force you to continue if you stop early.
