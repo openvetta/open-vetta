@@ -1,6 +1,8 @@
 import { useProjects } from "@domains/project/hooks/useProjects";
 import {
 	activeSessionAtom,
+	activityPanelOpenAtom,
+	activityPanelTabByProjectAtom,
 	attachedImagesAtom,
 	type ChatMessage,
 	chatMessagesAtom,
@@ -12,6 +14,8 @@ import {
 	modelSupportsImagesAtom,
 	openSessionFnRef,
 	selectedSkillAtom,
+	type TodoItem,
+	todoItemsByCwdAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
@@ -52,6 +56,9 @@ export function useSessionManager(): SessionManagerResult {
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
+	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
+	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
+	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
@@ -190,6 +197,33 @@ export function useSessionManager(): SessionManagerResult {
 						});
 						return;
 					}
+
+					// ── Todo update ──
+					if (event.type === "todo_update") {
+						const sessionCwd = activeSessionRef.current?.cwd;
+						if (sessionCwd) {
+							const items = (event as { items?: unknown[] }).items ?? [];
+							setTodoItems((prev) => {
+								const next = new Map(prev);
+								if (items.length > 0) {
+									next.set(sessionCwd, items as TodoItem[]);
+								} else {
+									next.delete(sessionCwd);
+								}
+								return next;
+							});
+							// Auto-open activity panel and switch to todo tab
+							if (items.length > 0) {
+								setActivityPanelOpen(true);
+								setTabByProject((prev) => {
+									const map = new Map(prev);
+									map.set(sessionCwd, "todo");
+									return map;
+								});
+							}
+						}
+						return;
+					}
 				}),
 			);
 
@@ -204,6 +238,9 @@ export function useSessionManager(): SessionManagerResult {
 			setLastTurnUsage,
 			setContextUsage,
 			setModelSupportsImages,
+			setTodoItems,
+			setActivityPanelOpen,
+			setTabByProject,
 		],
 	);
 
