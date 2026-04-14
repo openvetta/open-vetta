@@ -91,6 +91,17 @@ export interface ErrorEvent extends SessionEventBase {
 	error: SessionError;
 }
 
+export interface TodoItem {
+	id: number;
+	content: string;
+	status: "pending" | "in_progress" | "done";
+}
+
+export interface TodoUpdateEvent extends SessionEventBase {
+	type: "todo_update";
+	items: TodoItem[];
+}
+
 export type SessionEvent =
 	| SessionLifecycleEvent
 	| MessageDeltaEvent
@@ -102,7 +113,8 @@ export type SessionEvent =
 	| ToolEndEvent
 	| McpStatusEvent
 	| UsageUpdateEvent
-	| ErrorEvent;
+	| ErrorEvent
+	| TodoUpdateEvent;
 
 export interface SessionStateSnapshot {
 	sessionId: string;

@@ -74,14 +74,16 @@ import type { BashExecutionMessage, CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.js";
-import type { BranchSummaryEntry, CompactionEntry, SessionManager } from "./session-manager.js";
+import type { BranchSummaryEntry, CompactionEntry, CustomEntry, SessionManager } from "./session-manager.js";
 import { getLatestCompactionEntry } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
 import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocation } from "./slash-commands.js";
 import { buildSystemPrompt } from "./system-prompt.js";
+import { TODO_SNAPSHOT_TYPE, type TodoItem, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
 import { createAllTools } from "./tools/index.js";
 import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
+import { createTodoTool } from "./tools/todo/index.js";
 
 // ============================================================================
 // Skill Block Parsing
@@ -122,7 +124,8 @@ export type AgentSessionEvent =
 			errorMessage?: string;
 	  }
 	| { type: "auto_retry_start"; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
-	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string };
+	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
+	| { type: "todo_update"; items: ReadonlyArray<TodoItem> };
 
 /** Listener function for agent session events */
 export type AgentSessionEventListener = (event: AgentSessionEvent) => void;
@@ -282,6 +285,9 @@ export class AgentSession {
 	private _enableMcp: boolean;
 	private _mcpDebug: boolean;
 
+	// Todo list
+	private _todoStore: TodoStore;
+
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
 		this.sessionManager = config.sessionManager;
@@ -296,6 +302,15 @@ export class AgentSession {
 		this._baseToolsOverride = config.baseToolsOverride;
 		this._enableMcp = config.enableMcp !== undefined ? config.enableMcp : true;
 		this._mcpDebug = config.mcpDebug || false;
+
+		// Initialize TodoStore with session persistence
+		this._todoStore = new TodoStore((snapshot) => {
+			this.sessionManager.appendCustomEntry(TODO_SNAPSHOT_TYPE, snapshot);
+			this._emit({ type: "todo_update", items: snapshot });
+		});
+
+		// Restore todo state from session if resuming
+		this._restoreTodoFromSession();
 
 		// Initialize MCP manager if enabled
 		if (this._enableMcp) {
@@ -724,6 +739,28 @@ export class AgentSession {
 	/** File-based prompt templates */
 	get promptTemplates(): ReadonlyArray<PromptTemplate> {
 		return this._resourceLoader.getPrompts().prompts;
+	}
+
+	/** Todo store for task planning and tracking */
+	get todoStore(): TodoStore {
+		return this._todoStore;
+	}
+
+	/** Restore todo state from the latest todo_snapshot in session JSONL */
+	private _restoreTodoFromSession(): void {
+		const branch = this.sessionManager.getBranch();
+		let latestSnapshot: TodoItem[] | undefined;
+		for (const entry of branch) {
+			if (entry.type === "custom") {
+				const custom = entry as CustomEntry;
+				if (custom.customType === TODO_SNAPSHOT_TYPE) {
+					latestSnapshot = custom.data as TodoItem[];
+				}
+			}
+		}
+		if (latestSnapshot && latestSnapshot.length > 0) {
+			this._todoStore.restoreFromSnapshot(latestSnapshot);
+		}
 	}
 
 	private _rebuildSystemPrompt(toolNames: string[]): string {
@@ -2058,6 +2095,10 @@ export class AgentSession {
 			baseTools.invoke_skill = invokeSkillTool;
 		}
 
+		// Add todo tool (always available)
+		const todoTool = createTodoTool({ getTodoStore: () => this._todoStore });
+		baseTools.todo = todoTool;
+
 		this._baseToolRegistry = new Map(Object.entries(baseTools).map(([name, tool]) => [name, tool as AgentTool]));
 
 		const extensionsResult = this._resourceLoader.getExtensions();
@@ -2107,9 +2148,12 @@ export class AgentSession {
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		const activeToolNameSet = new Set<string>(baseActiveToolNames);
 
-		// Always activate invoke_skill when it's available in base tools
+		// Always activate invoke_skill and todo when available in base tools
 		if (this._baseToolRegistry.has("invoke_skill")) {
 			activeToolNameSet.add("invoke_skill");
+		}
+		if (this._baseToolRegistry.has("todo")) {
+			activeToolNameSet.add("todo");
 		}
 		if (options.includeAllExtensionTools) {
 			for (const tool of wrappedExtensionTools as AgentTool[]) {
