@@ -1,8 +1,6 @@
 import { useProjects } from "@domains/project/hooks/useProjects";
 import {
 	activeSessionAtom,
-	activityPanelOpenAtom,
-	activityPanelTabByProjectAtom,
 	attachedImagesAtom,
 	type ChatMessage,
 	chatMessagesAtom,
@@ -57,8 +55,6 @@ export function useSessionManager(): SessionManagerResult {
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
-	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
-	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
@@ -212,15 +208,6 @@ export function useSessionManager(): SessionManagerResult {
 								}
 								return next;
 							});
-							// Auto-open activity panel and switch to todo tab
-							if (items.length > 0) {
-								setActivityPanelOpen(true);
-								setTabByProject((prev) => {
-									const map = new Map(prev);
-									map.set(sessionCwd, "todo");
-									return map;
-								});
-							}
 						}
 						return;
 					}
@@ -239,8 +226,6 @@ export function useSessionManager(): SessionManagerResult {
 			setContextUsage,
 			setModelSupportsImages,
 			setTodoItems,
-			setActivityPanelOpen,
-			setTabByProject,
 		],
 	);
 
