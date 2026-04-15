@@ -106,6 +106,9 @@ export interface MentionedFile {
 }
 
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
+
+/** Files modified/created during the last agent turn (set on agent_end, cleared on agent_start) */
+export const turnModifiedFilesAtom = atom<string[]>([]);
 export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 export const attachedImagesAtom = atom<AttachedImage[]>([]);

@@ -14,6 +14,7 @@ import {
 	selectedSkillAtom,
 	type TodoItem,
 	todoItemsByCwdAtom,
+	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
@@ -23,6 +24,7 @@ import {
 	appendTextDelta,
 	appendThinkingDelta,
 	currentUnsubscribe,
+	extractModifiedFiles,
 	finalizeMessage,
 	handleToolEnd,
 	handleToolStart,
@@ -55,6 +57,7 @@ export function useSessionManager(): SessionManagerResult {
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
+	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
@@ -106,6 +109,7 @@ export function useSessionManager(): SessionManagerResult {
 							resetStreamState();
 							setTurnStartTime(Date.now());
 							setIsStreaming(true);
+							setTurnModifiedFiles([]);
 						}
 						if (event.phase === "agent_end" || event.phase === "aborted") {
 							// Always reset streaming state first to unblock the UI
@@ -113,8 +117,10 @@ export function useSessionManager(): SessionManagerResult {
 							resetStreamState();
 							setIsStreaming(false);
 							// Write total duration onto the last assistant message
-							if (elapsed > 0) {
-								setChatMessages((prev) => {
+							// and extract modified files from this turn
+							setChatMessages((prev) => {
+								setTurnModifiedFiles(extractModifiedFiles(prev));
+								if (elapsed > 0) {
 									for (let i = prev.length - 1; i >= 0; i--) {
 										if (prev[i].role === "assistant") {
 											const copy = [...prev];
@@ -122,9 +128,9 @@ export function useSessionManager(): SessionManagerResult {
 											return copy;
 										}
 									}
-									return prev;
-								});
-							}
+								}
+								return prev;
+							});
 						}
 						return;
 					}
@@ -226,6 +232,7 @@ export function useSessionManager(): SessionManagerResult {
 			setContextUsage,
 			setModelSupportsImages,
 			setTodoItems,
+			setTurnModifiedFiles,
 		],
 	);
 

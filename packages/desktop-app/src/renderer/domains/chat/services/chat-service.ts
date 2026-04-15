@@ -431,6 +431,28 @@ export function appendError(prev: ChatMessage[], errorMessage: string): ChatMess
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// File extraction helpers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Extract modified/created file paths from chat messages in the current turn.
+ * Scans tool_call blocks for "write" and "edit" tool invocations.
+ */
+export function extractModifiedFiles(messages: ChatMessage[]): string[] {
+	const modified = new Set<string>();
+	for (const msg of messages) {
+		if (msg.role !== "assistant" || !msg.blocks) continue;
+		for (const block of msg.blocks) {
+			if (block.type !== "tool_call") continue;
+			if (block.toolName !== "write" && block.toolName !== "edit") continue;
+			const path = block.args?.path;
+			if (typeof path === "string") modified.add(path);
+		}
+	}
+	return [...modified].sort();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Ref-based variants (for components that manage their own draft state)
 // ═══════════════════════════════════════════════════════════════════════════════
 
