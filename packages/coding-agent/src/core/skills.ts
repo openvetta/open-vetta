@@ -65,6 +65,7 @@ function addIgnoreRules(ig: IgnoreMatcher, dir: string, rootDir: string): void {
 
 export interface SkillFrontmatter {
 	name?: string;
+	alias?: string;
 	description?: string;
 	"disable-model-invocation"?: boolean;
 	metadata?: {
@@ -78,6 +79,7 @@ export type SkillType = "skill" | "scene";
 
 export interface Skill {
 	name: string;
+	alias?: string;
 	description: string;
 	filePath: string;
 	baseDir: string;
@@ -273,6 +275,7 @@ function loadSkillFromFile(
 		return {
 			skill: {
 				name,
+				alias: frontmatter.alias,
 				description: frontmatter.description,
 				filePath,
 				baseDir: skillDir,
