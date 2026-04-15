@@ -2,7 +2,7 @@ import { atom } from "jotai";
 
 // ─── Settings page ───
 
-export type SettingsTab = "general" | "models" | "mcp" | "im" | "shortcuts" | "archive" | "team";
+export type SettingsTab = "general" | "account" | "models" | "mcp" | "im" | "shortcuts" | "archive" | "team";
 
 // ─── Theme ───
 
