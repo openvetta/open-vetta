@@ -67,7 +67,7 @@ async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
 	}
 }
 
-async function fetchCreditsBalance(): Promise<{ balance: number | null }> {
+async function fetchCreditsBalance(): Promise<{ balance: number | null; unlimited?: boolean }> {
 	const settings = readSettings();
 	const serverUrl = DEFAULT_SERVER_URL;
 	const serverToken = settings.serverToken as string | undefined;
@@ -92,11 +92,11 @@ async function fetchCreditsBalance(): Promise<{ balance: number | null }> {
 			return { balance: null };
 		}
 
-		const body = (await response.json()) as { code: number; data?: { balance?: number } };
+		const body = (await response.json()) as { code: number; data?: { balance?: number; unlimited?: boolean } };
 		if (body.code !== 0) {
 			return { balance: null };
 		}
-		return { balance: body.data?.balance ?? null };
+		return { balance: body.data?.balance ?? null, unlimited: body.data?.unlimited };
 	} catch {
 		return { balance: null };
 	}

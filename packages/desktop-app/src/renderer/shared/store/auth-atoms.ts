@@ -20,3 +20,4 @@ export const remoteProvidersAtom = atom<Record<string, unknown>>({});
 // ─── Credits balance ───
 
 export const creditsBalanceAtom = atom<number | null>(null);
+export const creditsUnlimitedAtom = atom<boolean>(false);
