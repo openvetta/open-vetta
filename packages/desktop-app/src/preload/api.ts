@@ -176,7 +176,7 @@ export interface DesktopSettingsApi {
 }
 
 export interface DesktopCreditsApi {
-	getBalance(): Promise<{ balance: number | null }>;
+	getBalance(): Promise<{ balance: number | null; unlimited?: boolean }>;
 }
 
 export interface UpdateCheckResult {

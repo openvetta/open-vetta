@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useAuth } from "@domains/auth/hooks/useAuth";
-import { creditsBalanceAtom } from "@shared/store/auth-atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { downloadsActiveCountAtom, themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 
@@ -25,6 +25,7 @@ export function SettingsMenu(): JSX.Element {
 	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
 	const { user, logout } = useAuth();
 	const creditsBalance = useAtomValue(creditsBalanceAtom);
+	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
 
 	// Close on outside click
 	useEffect(() => {
@@ -94,7 +95,7 @@ export function SettingsMenu(): JSX.Element {
 						))}
 
 						{/* Credits balance */}
-						{user && creditsBalance !== null && (
+						{user && (creditsBalance !== null || creditsUnlimited) && (
 							<>
 								<div className="mx-1 my-1 border-t border-border" />
 								<div className="mx-2 my-1.5 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1.5">
@@ -102,12 +103,18 @@ export function SettingsMenu(): JSX.Element {
 										<span className="icon-[mdi--wallet-outline] h-3.5 w-3.5 text-muted-foreground" />
 										<span className="text-[11px] text-muted-foreground">剩余积分</span>
 									</div>
-									<span className={cn(
-										"text-[12px] font-semibold tabular-nums",
-										creditsBalance <= 0 ? "text-red-500" : "text-foreground",
-									)}>
-										{creditsBalance.toFixed(2)}
-									</span>
+									{creditsUnlimited ? (
+										<span className="text-[12px] font-semibold text-purple-500">
+											无限制
+										</span>
+									) : (
+										<span className={cn(
+											"text-[12px] font-semibold tabular-nums",
+											(creditsBalance ?? 0) <= 0 ? "text-red-500" : "text-foreground",
+										)}>
+											{(creditsBalance ?? 0).toFixed(2)}
+										</span>
+									)}
 								</div>
 							</>
 						)}

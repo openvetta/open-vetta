@@ -2,7 +2,7 @@ import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { fetchServerInfo } from "@shared/lib/api";
 import { deployModeAtom, remoteProvidersAtom, selectedModelAtom, workspacePathAtom } from "@shared/store/atoms";
-import { creditsBalanceAtom } from "@shared/store/auth-atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { currentUnsubscribe, setCurrentUnsubscribe } from "../services/chat-service";
@@ -13,6 +13,7 @@ export function useAppInit(): void {
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const setDeployMode = useSetAtom(deployModeAtom);
 	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
+	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
 	const { refreshProjects } = useProjects();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
@@ -47,6 +48,7 @@ export function useAppInit(): void {
 		// Fetch credits balance
 		void window.vetta.credits.getBalance().then((result) => {
 			setCreditsBalance(result.balance);
+			setCreditsUnlimited(result.unlimited ?? false);
 		});
 		return () => {
 			currentUnsubscribe?.();
@@ -58,6 +60,7 @@ export function useAppInit(): void {
 		setRemoteProviders,
 		setDeployMode,
 		setCreditsBalance,
+		setCreditsUnlimited,
 		refreshProjects,
 		refreshBatchProjects,
 	]);
