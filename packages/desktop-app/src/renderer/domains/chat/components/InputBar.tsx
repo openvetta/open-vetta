@@ -1,7 +1,9 @@
-import { useAtom, useAtomValue } from "jotai";
-import { useRef, useCallback, useEffect, useState } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, selectedSkillAtom, mentionedFilesAtom, type AttachedImage, type MentionedFile } from "@shared/store/atoms";
+import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, selectedSkillAtom, mentionedFilesAtom, type AttachedImage, type MentionedFile, todoItemsByCwdAtom, getTodoItemsForCwd, activityPanelOpenAtom, activityPanelTabByProjectAtom } from "@shared/store/atoms";
+import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
+import { TodoCard } from "@shared/components/TodoCard";
 import { ModelSelector } from "./ModelSelector";
 import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
@@ -54,6 +56,14 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const [isDragOver, setIsDragOver] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
 	const [atOpen, setAtOpen] = useState(false);
+	const todoMap = useAtomValue(todoItemsByCwdAtom);
+	const todoItems = useMemo(
+		() => getTodoItemsForCwd(todoMap, activeSession?.cwd ?? null),
+		[todoMap, activeSession?.cwd],
+	);
+	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
+	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
+	const [drawerActiveTab, setDrawerActiveTab] = useState<string | null>(null);
 
 	const hasSession = Boolean(activeSession);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
@@ -185,6 +195,37 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		setSlashOpen((prev) => !prev);
 	}, [hasSession]);
 
+	// ── Drawer tabs ──
+
+	const handleTodoViewMore = useCallback(() => {
+		const cwd = activeSession?.cwd;
+		if (!cwd) return;
+		setDrawerActiveTab(null);
+		setActivityPanelOpen(true);
+		setTabByProject((prev) => {
+			const map = new Map(prev);
+			map.set(cwd, "todo");
+			return map;
+		});
+	}, [activeSession?.cwd, setActivityPanelOpen, setTabByProject]);
+
+	const drawerTabs = useMemo((): DrawerTab[] => {
+		if (todoItems.length === 0) return [];
+		const inProgressItem = todoItems.find((i) => i.status === "in_progress");
+		const doneCount = todoItems.filter((i) => i.status === "done").length;
+		const todoDesc = inProgressItem
+			? `${doneCount}/${todoItems.length} ${inProgressItem.content}`
+			: `${doneCount}/${todoItems.length}`;
+		return [{
+			id: "todo",
+			label: "代办",
+			color: "bg-emerald-400",
+			desc: todoDesc,
+			pulsing: !!inProgressItem,
+			content: <TodoCard items={todoItems} compact onViewMore={handleTodoViewMore} />,
+		}];
+	}, [todoItems, handleTodoViewMore]);
+
 	// ── Image helpers ──
 
 	const addImages = useCallback(
@@ -287,6 +328,13 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 
 				{/* ── Action button bar (above input card) ── */}
 				<ActionButtonBar />
+
+				{/* ── Drawer card (floating above input card) ── */}
+				<DrawerCard
+					tabs={drawerTabs}
+					activeTabId={drawerActiveTab}
+					onActiveTabChange={setDrawerActiveTab}
+				/>
 
 				{/* ── Card container ── */}
 				<div

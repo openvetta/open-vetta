@@ -1,6 +1,6 @@
 import type { TodoItem } from "@shared/store/todo-atoms";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const COMPACT_VISIBLE_COUNT = 5;
 
@@ -8,9 +8,11 @@ interface TodoCardProps {
 	items: readonly TodoItem[];
 	/** Compact mode for inline display in message list */
 	compact?: boolean;
+	/** When provided in compact mode, replaces expand/collapse with "查看更多" that calls this */
+	onViewMore?: () => void;
 }
 
-export function TodoCard({ items, compact = false }: TodoCardProps): JSX.Element | null {
+export function TodoCard({ items, compact = false, onViewMore }: TodoCardProps): JSX.Element | null {
 	if (items.length === 0) return null;
 
 	const doneCount = items.filter((i) => i.status === "done").length;
@@ -18,7 +20,7 @@ export function TodoCard({ items, compact = false }: TodoCardProps): JSX.Element
 	const allDone = doneCount === total;
 
 	if (compact) {
-		return <CompactTodoCard items={items} doneCount={doneCount} total={total} allDone={allDone} />;
+		return <CompactTodoCard items={items} doneCount={doneCount} total={total} allDone={allDone} onViewMore={onViewMore} />;
 	}
 
 	return (
@@ -41,19 +43,29 @@ function CompactTodoCard({
 	doneCount,
 	total,
 	allDone,
-}: { items: readonly TodoItem[]; doneCount: number; total: number; allDone: boolean }): JSX.Element {
+	onViewMore,
+}: { items: readonly TodoItem[]; doneCount: number; total: number; allDone: boolean; onViewMore?: () => void }): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
 	const canCollapse = total > COMPACT_VISIBLE_COUNT;
-	const visibleItems = canCollapse && !expanded ? items.slice(-COMPACT_VISIBLE_COUNT) : items;
 	const hiddenCount = total - COMPACT_VISIBLE_COUNT;
 
+	// Stable slice window: only recompute when in_progress leaves the visible range
+	const sliceStartRef = useRef(-1);
+	const inProgressIdx = items.findIndex((i) => i.status === "in_progress");
+	const prev = sliceStartRef.current;
+	const needsRecalc =
+		prev === -1 ||
+		(inProgressIdx >= 0 && (inProgressIdx < prev || inProgressIdx >= prev + COMPACT_VISIBLE_COUNT)) ||
+		prev > total - COMPACT_VISIBLE_COUNT;
+	if (needsRecalc) {
+		const idealStart = inProgressIdx >= 0 ? inProgressIdx - 1 : total - COMPACT_VISIBLE_COUNT;
+		sliceStartRef.current = Math.max(0, Math.min(idealStart, total - COMPACT_VISIBLE_COUNT));
+	}
+	const sliceStart = sliceStartRef.current;
+	const visibleItems = canCollapse && !expanded ? items.slice(sliceStart, sliceStart + COMPACT_VISIBLE_COUNT) : items;
+
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: 8 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.2 }}
-			className="rounded-xl border border-border bg-muted/30 p-3"
-		>
+		<div>
 			<ProgressHeader doneCount={doneCount} total={total} allDone={allDone} />
 			<ProgressBar doneCount={doneCount} total={total} height="h-1" animated />
 			<ul className="mt-2 flex flex-col gap-1">
@@ -64,16 +76,27 @@ function CompactTodoCard({
 				</AnimatePresence>
 			</ul>
 			{canCollapse && (
-				<button
-					type="button"
-					onClick={() => setExpanded((prev) => !prev)}
-					className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-				>
-					<span className={`icon-[mdi--chevron-${expanded ? "up" : "down"}] text-sm`} />
-					{expanded ? "收起" : `展开全部 (${hiddenCount} more)`}
-				</button>
+				onViewMore ? (
+					<button
+						type="button"
+						onClick={onViewMore}
+						className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+					>
+						<span className="icon-[mdi--arrow-right] text-sm" />
+						查看更多
+					</button>
+				) : (
+					<button
+						type="button"
+						onClick={() => setExpanded((prev) => !prev)}
+						className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+					>
+						<span className={`icon-[mdi--chevron-${expanded ? "up" : "down"}] text-sm`} />
+						{expanded ? "收起" : `展开全部 (${hiddenCount} more)`}
+					</button>
+				)
 			)}
-		</motion.div>
+		</div>
 	);
 }
 
@@ -127,11 +150,10 @@ function TodoItemRow({ item, size }: { item: TodoItem; size: "sm" | "md" }): JSX
 
 	return (
 		<motion.li
-			layout
 			initial={{ opacity: 0, height: 0 }}
 			animate={{ opacity: 1, height: "auto" }}
 			exit={{ opacity: 0, height: 0 }}
-			transition={{ duration: 0.2 }}
+			transition={{ duration: 0.15 }}
 			className={`flex items-start gap-2 rounded-lg ${padding} transition-colors hover:bg-muted/30`}
 		>
 			<div className="mt-0.5 shrink-0">
