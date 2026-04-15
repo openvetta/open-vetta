@@ -175,6 +175,10 @@ export interface DesktopSettingsApi {
 	setServerToken(token: string | undefined): Promise<void>;
 }
 
+export interface DesktopCreditsApi {
+	getBalance(): Promise<{ balance: number | null }>;
+}
+
 export interface UpdateCheckResult {
 	hasUpdate: boolean;
 	currentVersion: string;
@@ -541,6 +545,7 @@ export interface DesktopApi {
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
 	settings: DesktopSettingsApi;
+	credits: DesktopCreditsApi;
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
 	auth: DesktopAuthApi;

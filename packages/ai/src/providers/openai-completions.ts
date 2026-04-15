@@ -375,7 +375,7 @@ function createClient(
 
 	return new OpenAI({
 		apiKey,
-		baseURL: model.baseUrl,
+		baseURL: model.gatewayUrl || model.baseUrl,
 		dangerouslyAllowBrowser: true,
 		defaultHeaders: headers,
 	});

@@ -146,6 +146,9 @@ const api: DesktopApi = {
 		getServerToken: async () => ipcRenderer.invoke("vetta:settings:get-server-token"),
 		setServerToken: async (token) => ipcRenderer.invoke("vetta:settings:set-server-token", token),
 	},
+	credits: {
+		getBalance: async () => ipcRenderer.invoke("vetta:credits:balance"),
+	},
 	shell: {
 		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),
 	},
