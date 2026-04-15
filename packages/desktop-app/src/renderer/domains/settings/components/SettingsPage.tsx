@@ -2,7 +2,9 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useAtomValue } from "jotai";
 import { useMemo } from "react";
 import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
+import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
+import { AccountSettings } from "./AccountSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ImBridgeSettings } from "./ImBridgeSettings";
 import { ModelsSettings } from "./ModelsSettings";
@@ -11,8 +13,9 @@ import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
 
-const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean }[] = [
+const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean }[] = [
 	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
+	{ key: "account", label: "账户", icon: "icon-[mdi--account-outline]", requireAuth: true },
 	{ key: "team", label: "团队管理", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
 	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
 	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
@@ -23,6 +26,7 @@ const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?:
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	general: GeneralSettings,
+	account: AccountSettings,
 	models: ModelsSettings,
 	mcp: McpSettings,
 	im: ImBridgeSettings,
@@ -35,10 +39,11 @@ export function SettingsPage(): JSX.Element {
 	const { tab: rawTab } = useParams({ strict: false }) as { tab?: string };
 	const navigate = useNavigate();
 	const isPersonal = useAtomValue(isPersonalModeAtom);
+	const authUser = useAtomValue(authUserAtom);
 
 	const visibleTabs = useMemo(
-		() => BASE_TABS.filter((t) => !t.personalOnly || isPersonal),
-		[isPersonal],
+		() => BASE_TABS.filter((t) => (!t.personalOnly || isPersonal) && (!t.requireAuth || authUser)),
+		[isPersonal, authUser],
 	);
 	const validTabKeys = useMemo(() => new Set(visibleTabs.map((t) => t.key)), [visibleTabs]);
 

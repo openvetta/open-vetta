@@ -136,6 +136,7 @@ export async function removeTeamMember(token: string, teamId: number, userId: nu
 export interface UserInfo {
 	id: number;
 	username: string;
+	nickname: string;
 	phone?: string;
 	email?: string;
 	avatar: string;
@@ -162,6 +163,52 @@ export async function fetchOAuthURL(provider: string): Promise<string> {
 
 export async function fetchCurrentUser(token: string): Promise<UserInfo> {
 	return request<UserInfo>("/users/me", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function updateProfile(
+	token: string,
+	data: { nickname?: string; email?: string; avatar?: string },
+): Promise<UserInfo> {
+	return request<UserInfo>("/users/me", {
+		method: "PUT",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify(data),
+	});
+}
+
+export async function fetchCreditsBalance(token: string): Promise<{ balance: number }> {
+	return request<{ balance: number }>("/credits/balance", {
+		headers: authHeaders(token),
+	});
+}
+
+export interface CreditTransactionVO {
+	id: number;
+	user_id: number;
+	username: string;
+	type: string;
+	amount: number;
+	balance: number;
+	model_id: string;
+	provider_name: string;
+	input_tokens: number;
+	output_tokens: number;
+	remark: string;
+	created_at: string;
+}
+
+export async function fetchCreditTransactions(
+	token: string,
+	page?: number,
+	pageSize?: number,
+): Promise<{ list: CreditTransactionVO[]; total: number; page: number; page_size: number }> {
+	const params = new URLSearchParams();
+	if (page) params.set("page", String(page));
+	if (pageSize) params.set("page_size", String(pageSize));
+	const qs = params.toString();
+	return request(`/credits/transactions${qs ? `?${qs}` : ""}`, {
 		headers: authHeaders(token),
 	});
 }

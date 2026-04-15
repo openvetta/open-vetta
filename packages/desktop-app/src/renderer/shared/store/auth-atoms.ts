@@ -3,6 +3,7 @@ import { atom } from "jotai";
 export interface AuthUser {
 	id: number;
 	username: string;
+	nickname: string;
 	phone?: string;
 	email?: string;
 	avatar: string;
@@ -15,3 +16,7 @@ export const loginDialogOpenAtom = atom<boolean>(false);
 // ─── Remote providers (from server) ───
 
 export const remoteProvidersAtom = atom<Record<string, unknown>>({});
+
+// ─── Credits balance ───
+
+export const creditsBalanceAtom = atom<number | null>(null);
