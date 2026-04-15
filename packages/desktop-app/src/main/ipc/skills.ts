@@ -13,7 +13,12 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 }
 
 const skillsBaseDir = join(homedir(), ".vetta", "skills");
+const sceneBaseDir = join(homedir(), ".vetta", "scene");
 const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
+
+function getBaseDir(type: "skill" | "scene"): string {
+	return type === "scene" ? sceneBaseDir : skillsBaseDir;
+}
 
 interface InstalledMarketSkill {
 	name: string;
@@ -21,6 +26,9 @@ interface InstalledMarketSkill {
 	installedAt: string;
 	source: "market";
 	enabled: boolean;
+	type?: "skill" | "scene";
+	alias?: string;
+	marketDescription?: string;
 }
 
 function readManifest(): Record<string, InstalledMarketSkill> {
@@ -73,60 +81,85 @@ export function registerSkillsIpc(): () => void {
 				// 其余来源（user/project/path）默认显示
 				return !entry || entry.enabled;
 			})
-			.map((s) => ({ name: s.name, description: s.description, source: s.source, type: s.type }));
+			.map((s) => {
+				const entry = manifest[s.name];
+				return {
+					name: s.name,
+					alias: s.alias || entry?.alias,
+					description: entry?.marketDescription || s.description,
+					source: s.source,
+					type: s.type,
+				};
+			});
 	});
 
-	ipcMain.handle("vetta:skills:install-from-market", async (_event, name: unknown, archiveBuffer: unknown) => {
-		assertNonEmptyString(name, "name");
-		if (!(archiveBuffer instanceof ArrayBuffer) && !Buffer.isBuffer(archiveBuffer)) {
-			throw new Error("Invalid archive buffer");
-		}
-
-		const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer as ArrayBuffer);
-
-		if (!existsSync(skillsBaseDir)) {
-			await mkdir(skillsBaseDir, { recursive: true });
-		}
-
-		const skillDir = join(skillsBaseDir, name);
-		if (!existsSync(skillDir)) {
-			await mkdir(skillDir, { recursive: true });
-		}
-
-		const tmpFile = join(skillsBaseDir, `_tmp_${name}_${Date.now()}.tar.gz`);
-		try {
-			await writeFile(tmpFile, buffer);
-			execSync(`tar -xzf "${tmpFile}" -C "${skillDir}"`, { timeout: 30000 });
-		} finally {
-			try {
-				await rm(tmpFile, { force: true });
-			} catch {
-				// ignore cleanup errors
+	ipcMain.handle(
+		"vetta:skills:install-from-market",
+		async (_event, name: unknown, archiveBuffer: unknown, type: unknown, meta: unknown) => {
+			assertNonEmptyString(name, "name");
+			if (!(archiveBuffer instanceof ArrayBuffer) && !Buffer.isBuffer(archiveBuffer)) {
+				throw new Error("Invalid archive buffer");
 			}
-		}
+			const itemType: "skill" | "scene" = type === "scene" ? "scene" : "skill";
+			const metaObj = (meta != null && typeof meta === "object" ? meta : {}) as {
+				alias?: string;
+				marketDescription?: string;
+			};
 
-		const version = parseVersionFromSkillDir(skillDir);
+			const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer as ArrayBuffer);
 
-		const manifest = readManifest();
-		manifest[name] = {
-			name,
-			version,
-			installedAt: new Date().toISOString(),
-			source: "market",
-			enabled: true,
-		};
-		writeManifest(manifest);
-	});
+			const baseDir = getBaseDir(itemType);
+			if (!existsSync(baseDir)) {
+				await mkdir(baseDir, { recursive: true });
+			}
 
-	ipcMain.handle("vetta:skills:uninstall", async (_event, name: unknown) => {
+			const skillDir = join(baseDir, name);
+			if (!existsSync(skillDir)) {
+				await mkdir(skillDir, { recursive: true });
+			}
+
+			const tmpFile = join(baseDir, `_tmp_${name}_${Date.now()}.tar.gz`);
+			try {
+				await writeFile(tmpFile, buffer);
+				execSync(`tar -xzf "${tmpFile}" -C "${skillDir}"`, { timeout: 30000 });
+			} finally {
+				try {
+					await rm(tmpFile, { force: true });
+				} catch {
+					// ignore cleanup errors
+				}
+			}
+
+			const version = parseVersionFromSkillDir(skillDir);
+
+			const manifest = readManifest();
+			manifest[name] = {
+				name,
+				version,
+				installedAt: new Date().toISOString(),
+				source: "market",
+				enabled: true,
+				type: itemType,
+				alias: metaObj.alias,
+				marketDescription: metaObj.marketDescription,
+			};
+			writeManifest(manifest);
+		},
+	);
+
+	ipcMain.handle("vetta:skills:uninstall", async (_event, name: unknown, type: unknown) => {
 		assertNonEmptyString(name, "name");
 
-		const skillDir = join(skillsBaseDir, name);
+		// Determine type from argument, falling back to manifest, then default to skill
+		const manifest = readManifest();
+		const itemType: "skill" | "scene" =
+			type === "scene" ? "scene" : manifest[name]?.type === "scene" ? "scene" : "skill";
+
+		const skillDir = join(getBaseDir(itemType), name);
 		if (existsSync(skillDir)) {
 			await rm(skillDir, { recursive: true, force: true });
 		}
 
-		const manifest = readManifest();
 		delete manifest[name];
 		writeManifest(manifest);
 	});

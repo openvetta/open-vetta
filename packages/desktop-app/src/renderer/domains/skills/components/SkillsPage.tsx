@@ -143,9 +143,9 @@ function SkillCard({
 	actionState,
 }: {
 	skill: MergedSkill;
-	onInstall: (name: string) => void;
+	onInstall: (skill: MergedSkill) => void;
 	onToggle: (name: string) => void;
-	onUninstall: (name: string) => void;
+	onUninstall: (name: string, type: "skill" | "scene") => void;
 	actionState: ActionState;
 }): JSX.Element {
 	const isLoading = actionState === "loading";
@@ -192,7 +192,7 @@ function SkillCard({
 								{skill.needsUpdate && (
 									<button
 										type="button"
-										onClick={() => onInstall(skill.name)}
+										onClick={() => onInstall(skill)}
 										disabled={isLoading}
 										className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 									>
@@ -202,7 +202,7 @@ function SkillCard({
 								)}
 								<button
 									type="button"
-									onClick={() => onUninstall(skill.name)}
+									onClick={() => onUninstall(skill.name, skill.type)}
 									disabled={isLoading}
 									className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
 								>
@@ -220,7 +220,7 @@ function SkillCard({
 				) : (
 					<button
 						type="button"
-						onClick={() => onInstall(skill.name)}
+						onClick={() => onInstall(skill)}
 						disabled={isLoading}
 						className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
 					>
@@ -248,9 +248,9 @@ function TagGroup({
 }: {
 	tag: string;
 	skills: MergedSkill[];
-	onInstall: (name: string) => void;
+	onInstall: (skill: MergedSkill) => void;
 	onToggle: (name: string) => void;
-	onUninstall: (name: string) => void;
+	onUninstall: (name: string, type: "skill" | "scene") => void;
 	actionStates: Record<string, ActionState>;
 }): JSX.Element {
 	return (
@@ -325,17 +325,22 @@ export function SkillsPage(): JSX.Element {
 	}, []);
 
 	const handleInstall = useCallback(
-		(name: string) => {
+		(skill: MergedSkill) => {
 			if (!token) return;
-			setActionState(name, "loading");
-			void downloadSkill(token, name)
-				.then((buffer) => window.vetta.skills.installFromMarket(name, buffer))
+			setActionState(skill.name, "loading");
+			void downloadSkill(token, skill.name)
+				.then((buffer) =>
+					window.vetta.skills.installFromMarket(skill.name, buffer, skill.type, {
+						alias: skill.alias,
+						marketDescription: skill.description,
+					}),
+				)
 				.then(() => {
-					setActionState(name, "done");
+					setActionState(skill.name, "done");
 					refresh();
 				})
 				.catch((err: Error) => {
-					setActionState(name, "idle");
+					setActionState(skill.name, "idle");
 					console.error("安装失败:", err.message);
 				});
 		},
@@ -355,10 +360,10 @@ export function SkillsPage(): JSX.Element {
 	);
 
 	const handleUninstall = useCallback(
-		(name: string) => {
+		(name: string, type: "skill" | "scene") => {
 			setActionState(name, "loading");
 			void window.vetta.skills
-				.uninstall(name)
+				.uninstall(name, type)
 				.then(() => {
 					setActionState(name, "idle");
 					refresh();

@@ -47,6 +47,7 @@ export interface DesktopThemeApi {
 
 export interface SkillInfo {
 	name: string;
+	alias?: string;
 	description: string;
 	source: string;
 	type: "skill" | "scene";
@@ -67,12 +68,20 @@ export interface InstalledMarketSkill {
 	installedAt: string;
 	source: "market";
 	enabled: boolean;
+	type?: "skill" | "scene";
+	alias?: string;
+	marketDescription?: string;
 }
 
 export interface DesktopSkillsApi {
 	list(): Promise<SkillInfo[]>;
-	installFromMarket(name: string, archiveBuffer: ArrayBuffer): Promise<void>;
-	uninstall(name: string): Promise<void>;
+	installFromMarket(
+		name: string,
+		archiveBuffer: ArrayBuffer,
+		type: "skill" | "scene",
+		meta?: { alias?: string; marketDescription?: string },
+	): Promise<void>;
+	uninstall(name: string, type: "skill" | "scene"): Promise<void>;
 	toggle(name: string): Promise<void>;
 	getMarketManifest(): Promise<Record<string, InstalledMarketSkill>>;
 }
