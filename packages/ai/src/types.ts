@@ -289,6 +289,8 @@ export interface Model<TApi extends Api> {
 	api: TApi;
 	provider: Provider;
 	baseUrl: string;
+	/** If set, requests are sent to this URL instead of baseUrl. baseUrl is still used for compat detection. */
+	gatewayUrl?: string;
 	reasoning: boolean;
 	input: ("text" | "image")[];
 	cost: {

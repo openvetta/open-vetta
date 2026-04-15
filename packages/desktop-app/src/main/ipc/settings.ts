@@ -67,6 +67,41 @@ async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
 	}
 }
 
+async function fetchCreditsBalance(): Promise<{ balance: number | null }> {
+	const settings = readSettings();
+	const serverUrl = DEFAULT_SERVER_URL;
+	const serverToken = settings.serverToken as string | undefined;
+	if (!serverToken) {
+		return { balance: null };
+	}
+
+	try {
+		const url = `${serverUrl.replace(/\/$/, "")}/credits/balance`;
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 5000);
+		const response = await fetch(url, {
+			signal: controller.signal,
+			headers: {
+				Accept: "application/json",
+				Authorization: `Bearer ${serverToken}`,
+			},
+		});
+		clearTimeout(timeout);
+
+		if (!response.ok) {
+			return { balance: null };
+		}
+
+		const body = (await response.json()) as { code: number; data?: { balance?: number } };
+		if (body.code !== 0) {
+			return { balance: null };
+		}
+		return { balance: body.data?.balance ?? null };
+	} catch {
+		return { balance: null };
+	}
+}
+
 export function registerSettingsIpc(): () => void {
 	// 清理 settings.json 中残留的 serverUrl，现在统一由环境变量管理
 	const settings = readSettings();
@@ -98,10 +133,15 @@ export function registerSettingsIpc(): () => void {
 		return fetchRemoteProviders();
 	});
 
+	ipcMain.handle("vetta:credits:balance", async () => {
+		return fetchCreditsBalance();
+	});
+
 	return () => {
 		ipcMain.removeHandler("vetta:settings:get-server-url");
 		ipcMain.removeHandler("vetta:settings:get-server-token");
 		ipcMain.removeHandler("vetta:settings:set-server-token");
 		ipcMain.removeHandler("vetta:models:fetch-remote");
+		ipcMain.removeHandler("vetta:credits:balance");
 	};
 }

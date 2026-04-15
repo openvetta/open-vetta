@@ -951,14 +951,13 @@ export function ModelsSettings(): JSX.Element {
 												/>
 												<div className="min-w-0 flex-1">
 													<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-														{name}
+														{name === "vetta-zen" ? "Vetta Zen" : name}
 														<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
 															remote
 														</span>
 													</div>
 													<div className="mt-0.5 text-[11px] text-muted-foreground">
-														{provider.api || "openai-completions"} · {models.length} 个模型
-														{provider.baseUrl && ` · ${provider.baseUrl}`}
+														{models.length} 个模型
 													</div>
 												</div>
 											</button>
@@ -983,13 +982,15 @@ export function ModelsSettings(): JSX.Element {
 															</div>
 															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
 																<span>{model.id}</span>
-																{model.api && <span>· {model.api}</span>}
 																{model.input?.includes("image") && (
 																	<span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] text-blue-400">vision</span>
 																)}
 																{model.reasoning && (
 																	<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">reasoning</span>
 																)}
+																{(model as Record<string, unknown>).tags && Array.isArray((model as Record<string, unknown>).tags) && ((model as Record<string, unknown>).tags as string[]).map((tag: string) => (
+																	<span key={tag} className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">{tag.trim()}</span>
+																))}
 																{model.contextWindow != null && (
 																	<span>· {(model.contextWindow / 1024).toFixed(0)}K ctx</span>
 																)}
