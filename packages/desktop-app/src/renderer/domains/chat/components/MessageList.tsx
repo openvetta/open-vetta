@@ -8,7 +8,9 @@ import {
 	activeSessionAtom,
 	getTodoItemsForCwd,
 	todoItemsByCwdAtom,
+	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
+import { ArtifactCard } from "@shared/components/ArtifactCard";
 import { TodoCard } from "@shared/components/TodoCard";
 import { pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
@@ -438,6 +440,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 						))}
 						{showTyping && <TypingIndicator key="typing" />}
 					</AnimatePresence>
+					<InlineArtifactCard />
 					<InlineTodoCard />
 					<div ref={bottomRef} />
 				</div>
@@ -459,6 +462,13 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 			</AnimatePresence>
 		</>
 	);
+}
+
+// ── Inline Artifact Card (shows modified files after agent turn) ──
+
+function InlineArtifactCard(): JSX.Element | null {
+	const files = useAtomValue(turnModifiedFilesAtom);
+	return <ArtifactCard files={files} />;
 }
 
 // ── Inline Todo Card (shown at bottom of message list) ──
