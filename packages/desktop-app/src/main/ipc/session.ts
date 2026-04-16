@@ -19,6 +19,7 @@ const CHANNELS = {
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
 	DISPOSE: "vetta:session:dispose",
+	GET_FULL_HISTORY: "vetta:session:get-full-history",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -113,6 +114,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.GET_MESSAGES, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.getMessages(sessionId);
+	});
+
+	ipcMain.handle(CHANNELS.GET_FULL_HISTORY, async (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		return runtime.getFullHistory(sessionId);
 	});
 
 	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown) => {

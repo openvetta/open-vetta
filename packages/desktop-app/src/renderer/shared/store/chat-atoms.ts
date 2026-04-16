@@ -40,7 +40,7 @@ export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | ToolResul
 
 export interface ChatMessage {
 	id: string;
-	role: "user" | "assistant";
+	role: "user" | "assistant" | "compaction";
 	/** Plain text for user messages; for assistant messages this is the concatenated text blocks */
 	text: string;
 	/** Rich content blocks for assistant messages */

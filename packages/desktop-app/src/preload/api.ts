@@ -1,5 +1,6 @@
 import type { Message } from "@mariozechner/pi-ai";
 import type {
+	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
 	SessionConfig,
@@ -21,6 +22,7 @@ export interface DesktopSessionApi {
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	getState(sessionId: string): Promise<SessionStateSnapshot>;
 	getMessages(sessionId: string): Promise<Message[]>;
+	getFullHistory(sessionId: string): Promise<HistoryEntry[]>;
 	delete(sessionPath: string): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
 	dispose(sessionId: string): Promise<void>;

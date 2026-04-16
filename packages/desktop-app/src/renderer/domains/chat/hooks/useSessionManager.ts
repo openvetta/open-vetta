@@ -27,9 +27,9 @@ import {
 	currentUnsubscribe,
 	extractModifiedFiles,
 	finalizeMessage,
+	fullHistoryToChat,
 	handleToolEnd,
 	handleToolStart,
-	historyToChat,
 	nextId,
 	resetStreamState,
 	setCurrentUnsubscribe,
@@ -76,17 +76,9 @@ export function useSessionManager(): SessionManagerResult {
 			void navigate({ to: "/" });
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
 
-			// Load history
-			const history = await window.vetta.session.getMessages(sessionId);
-			const mapped = historyToChat(
-				history as Array<{
-					role: string;
-					content: unknown;
-					toolCallId?: string;
-					toolName?: string;
-					isError?: boolean;
-				}>,
-			);
+			// Load full history (includes compaction boundaries for complete UI display)
+			const history = await window.vetta.session.getFullHistory(sessionId);
+			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
 
 			// Restore per-session state: context usage from backend, turn stats from cache

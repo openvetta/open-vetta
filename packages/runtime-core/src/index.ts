@@ -1,5 +1,6 @@
 export type {
 	ErrorEvent,
+	HistoryEntry,
 	McpStatusEvent,
 	MessageDeltaEvent,
 	MessageFinalEvent,
