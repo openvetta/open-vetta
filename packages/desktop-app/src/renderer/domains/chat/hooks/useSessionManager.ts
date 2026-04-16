@@ -21,6 +21,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useRef } from "react";
 import {
+	adoptDraftId,
 	appendError,
 	appendTextDelta,
 	appendThinkingDelta,
@@ -90,6 +91,19 @@ export function useSessionManager(): SessionManagerResult {
 			setModelSupportsImages(state.model?.input?.includes("image") ?? false);
 			const cachedKey = sessionPath ?? "";
 			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
+
+			// If session is still streaming, adopt the last history assistant message as draft
+			// so that incoming streaming events append to it instead of creating a duplicate.
+			if (state.isStreaming) {
+				for (let i = mapped.length - 1; i >= 0; i--) {
+					if (mapped[i].role === "assistant") {
+						adoptDraftId(mapped[i].id);
+						break;
+					}
+				}
+				setIsStreaming(true);
+				setTurnStartTime(Date.now());
+			}
 
 			const sessionInfo = { cwd, sessionPath: cachedKey, runtimeId: sessionId };
 			setActiveSession(sessionInfo);
