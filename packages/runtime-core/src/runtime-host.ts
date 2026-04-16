@@ -18,19 +18,33 @@ import type {
 	SessionConfig,
 	SessionEvent,
 	SessionEventBase,
+	SessionExecutionMode,
 	SessionFacade,
 	SessionHistoryInfo,
 	SessionStateSnapshot,
 	SettingsPatch,
 } from "./contracts.js";
 import { runtimeError } from "./errors.js";
+import { buildWindowsSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
 
 interface SessionHandle {
 	session: AgentSession;
 }
 
+export interface RuntimeHostOptions {
+	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
+	sandboxHostPath?: string;
+}
+
 export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
+	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
+	private readonly sandboxHostPath: string | undefined;
+
+	constructor(options: RuntimeHostOptions = {}) {
+		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
+		this.sandboxHostPath = options.sandboxHostPath;
+	}
 
 	/**
 	 * Look up an open SessionHandle by absolute session file path.
@@ -68,12 +82,24 @@ export class RuntimeHost implements SessionFacade {
 					? SessionManager.create(config.cwd, config.sessionDir)
 					: undefined;
 
+		const requestedMode = config.executionMode;
+		const defaultMode = await this.getDefaultExecutionMode();
+		const executionMode = requestedMode ?? defaultMode;
+		const enforceWindowsSandbox = process.platform === "win32" && executionMode === "sandbox";
+		const effectiveCwd = config.cwd ?? process.cwd();
+
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
 			sessionManager,
 			model: config.model,
 			thinkingLevel: config.thinkingLevel,
+			customTools: enforceWindowsSandbox
+				? buildWindowsSandboxToolDefinitions({
+						cwd: effectiveCwd,
+						sandboxHostPath: this.sandboxHostPath,
+					})
+				: undefined,
 		};
 
 		const { session } = await createAgentSession(options);

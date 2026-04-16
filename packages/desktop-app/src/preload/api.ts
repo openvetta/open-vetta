@@ -99,6 +99,7 @@ export interface DesktopConfigData {
 	projects: ProjectEntry[];
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
+	defaultExecutionMode?: "sandbox" | "full-access";
 }
 
 export interface DesktopConfigApi {

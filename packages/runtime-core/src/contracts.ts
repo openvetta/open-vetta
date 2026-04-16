@@ -155,6 +155,8 @@ export interface SessionHistoryInfo {
 	modifiedAt: number;
 }
 
+export type SessionExecutionMode = "sandbox" | "full-access";
+
 export interface SessionConfig {
 	cwd?: string;
 	agentDir?: string;
@@ -162,6 +164,7 @@ export interface SessionConfig {
 	sessionDir?: string;
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
+	executionMode?: SessionExecutionMode;
 }
 
 export interface PromptRequest {

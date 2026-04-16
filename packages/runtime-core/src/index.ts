@@ -10,6 +10,7 @@ export type {
 	SessionError,
 	SessionEvent,
 	SessionEventBase,
+	SessionExecutionMode,
 	SessionFacade,
 	SessionHistoryInfo,
 	SessionLifecycleEvent,

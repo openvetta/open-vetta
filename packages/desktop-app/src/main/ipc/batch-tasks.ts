@@ -17,6 +17,7 @@ import {
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
 import { pLimit } from "../batch-tasks/queue";
+import { readDesktopConfig } from "./fs.js";
 
 const CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
@@ -40,7 +41,12 @@ let runtimeInstance: RuntimeHost | null = null;
 
 function getRuntime(): RuntimeHost {
 	if (!runtimeInstance) {
-		runtimeInstance = new RuntimeHost();
+		runtimeInstance = new RuntimeHost({
+			getDefaultExecutionMode: async () => {
+				const config = await readDesktopConfig();
+				return config.defaultExecutionMode;
+			},
+		});
 	}
 	return runtimeInstance;
 }
