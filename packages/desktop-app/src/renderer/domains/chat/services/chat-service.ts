@@ -233,6 +233,11 @@ export function resetStreamState(): void {
 	draftId = null;
 }
 
+/** Adopt an existing history message as the current draft (for session restore while streaming). */
+export function adoptDraftId(id: string): void {
+	draftId = id;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Immutable state update helpers
 // ═══════════════════════════════════════════════════════════════════════════════
