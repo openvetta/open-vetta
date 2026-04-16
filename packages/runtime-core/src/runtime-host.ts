@@ -436,6 +436,25 @@ export class RuntimeHost implements SessionFacade {
 			return events;
 		}
 
+		if (event.type === "auto_compaction_start") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "compaction.start",
+				reason: event.reason,
+			});
+			return events;
+		}
+
+		if (event.type === "auto_compaction_end") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "compaction.end",
+				success: !!event.result && !event.aborted,
+				errorMessage: event.errorMessage,
+			});
+			return events;
+		}
+
 		return events;
 	}
 

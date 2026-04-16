@@ -102,6 +102,17 @@ export interface TodoUpdateEvent extends SessionEventBase {
 	items: TodoItem[];
 }
 
+export interface CompactionStartEvent extends SessionEventBase {
+	type: "compaction.start";
+	reason: "threshold" | "overflow";
+}
+
+export interface CompactionEndEvent extends SessionEventBase {
+	type: "compaction.end";
+	success: boolean;
+	errorMessage?: string;
+}
+
 export type SessionEvent =
 	| SessionLifecycleEvent
 	| MessageDeltaEvent
@@ -114,7 +125,9 @@ export type SessionEvent =
 	| McpStatusEvent
 	| UsageUpdateEvent
 	| ErrorEvent
-	| TodoUpdateEvent;
+	| TodoUpdateEvent
+	| CompactionStartEvent
+	| CompactionEndEvent;
 
 export interface SessionStateSnapshot {
 	sessionId: string;
