@@ -17,6 +17,7 @@ export interface DesktopConfig {
 	projects: ProjectEntry[];
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
+	defaultExecutionMode: "sandbox" | "full-access";
 }
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
@@ -26,6 +27,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	projects: [],
 	archivedProjects: [],
 	workspacePath: join(homedir(), ".vetta", "workspace"),
+	defaultExecutionMode: "sandbox",
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -38,7 +40,11 @@ function migrateProjectEntries(entries: unknown): ProjectEntry[] {
 	return entries as ProjectEntry[];
 }
 
-async function readConfig(): Promise<DesktopConfig> {
+function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
+	return value === "full-access" ? "full-access" : "sandbox";
+}
+
+export async function readDesktopConfig(): Promise<DesktopConfig> {
 	try {
 		const raw = await readFile(CONFIG_PATH, "utf8");
 		const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -47,6 +53,7 @@ async function readConfig(): Promise<DesktopConfig> {
 			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
 			workspacePath:
 				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
+			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -367,7 +374,7 @@ export function registerFsIpc(): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
-		const config = await readConfig();
+		const config = await readDesktopConfig();
 		// Ensure all known paths are authorized for file operations
 		for (const p of config.projects) allowProjectRoot(p.path);
 		for (const p of config.archivedProjects) allowProjectRoot(p.path);
@@ -377,12 +384,16 @@ export function registerFsIpc(): () => void {
 
 	ipcMain.handle(CHANNELS.CONFIG_SET, async (_event, config: unknown) => {
 		if (typeof config !== "object" || config === null) throw new Error("Invalid config");
-		const current = await readConfig();
+		const current = await readDesktopConfig();
 		const patch = config as Partial<DesktopConfig>;
 		const next: DesktopConfig = {
 			projects: patch.projects ?? current.projects,
 			archivedProjects: patch.archivedProjects ?? current.archivedProjects,
 			workspacePath: patch.workspacePath ?? current.workspacePath,
+			defaultExecutionMode:
+				patch.defaultExecutionMode !== undefined
+					? normalizeExecutionMode(patch.defaultExecutionMode)
+					: current.defaultExecutionMode,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

@@ -1,5 +1,6 @@
 import { AsyncTask, CronJob, ToadScheduler } from "toad-scheduler";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import { readDesktopConfig } from "../ipc/fs.js";
 import { abortTask, executeTask } from "./task-executor";
 import type { ScheduledTask as TaskData } from "./task-storage";
 import { loadTasks } from "./task-storage";
@@ -10,7 +11,12 @@ const scheduledJobs = new Map<string, CronJob>();
 
 function getRuntime(): RuntimeHost {
 	if (!runtimeInstance) {
-		runtimeInstance = new RuntimeHost();
+		runtimeInstance = new RuntimeHost({
+			getDefaultExecutionMode: async () => {
+				const config = await readDesktopConfig();
+				return config.defaultExecutionMode;
+			},
+		});
 	}
 	return runtimeInstance;
 }

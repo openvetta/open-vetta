@@ -75,7 +75,9 @@ export function useSessionManager(): SessionManagerResult {
 			setIsCompacting(false);
 
 			void navigate({ to: "/" });
-			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
+			const desktopConfig = await window.vetta.config.get();
+			const executionMode = desktopConfig.defaultExecutionMode ?? "sandbox";
+			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath, executionMode });
 
 			// Load full history (includes compaction boundaries for complete UI display)
 			const history = await window.vetta.session.getFullHistory(sessionId);

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
-import { allowProjectRoot } from "./fs.js";
+import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
 const CHANNELS = {
@@ -59,12 +59,25 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 	}
 }
 
+function assertExecutionMode(value: unknown): void {
+	if (value === undefined) return;
+	if (value !== "sandbox" && value !== "full-access") {
+		throw new Error("Invalid executionMode");
+	}
+}
+
 export function registerSessionIpc(webContents: WebContents): () => void {
-	const runtime = new RuntimeHost();
+	const runtime = new RuntimeHost({
+		getDefaultExecutionMode: async () => {
+			const config = await readDesktopConfig();
+			return config.defaultExecutionMode;
+		},
+	});
 	const subscriptionMap = new Map<string, () => void>();
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
 		if (config?.cwd) allowProjectRoot(config.cwd);
+		assertExecutionMode(config?.executionMode);
 		return runtime.createSession(config);
 	});
 
