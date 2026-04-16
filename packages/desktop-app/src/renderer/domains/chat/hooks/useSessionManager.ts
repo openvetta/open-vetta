@@ -12,6 +12,7 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
+	selectedModelAtom,
 	selectedSkillAtom,
 	type TodoItem,
 	todoItemsByCwdAtom,
@@ -57,6 +58,7 @@ export function useSessionManager(): SessionManagerResult {
 	const navigate = useNavigate();
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
+	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
@@ -89,6 +91,18 @@ export function useSessionManager(): SessionManagerResult {
 				contextWindow: state.contextWindow,
 			});
 			setModelSupportsImages(state.model?.input?.includes("image") ?? false);
+
+			// Sync model between frontend and backend:
+			// - If frontend has a selected model, push it to the backend session
+			// - Otherwise, pull the backend's resolved model to the frontend
+			const backendModelKey = state.model ? `${state.model.provider}/${state.model.id}` : null;
+			if (selectedModel && backendModelKey !== selectedModel) {
+				void window.vetta.session.updateSettings(sessionId, { modelKey: selectedModel });
+			} else if (!selectedModel && backendModelKey) {
+				setSelectedModel(backendModelKey);
+				localStorage.setItem("vetta-selected-model", backendModelKey);
+			}
+
 			const cachedKey = sessionPath ?? "";
 			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
 
@@ -253,6 +267,8 @@ export function useSessionManager(): SessionManagerResult {
 			setLastTurnUsage,
 			setContextUsage,
 			setModelSupportsImages,
+			selectedModel,
+			setSelectedModel,
 			setTodoItems,
 			setTurnModifiedFiles,
 		],
