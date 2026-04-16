@@ -4,6 +4,7 @@ import { useAtomValue } from "jotai";
 import {
 	type ChatMessage,
 	type ContentBlock,
+	type ThinkingBlock,
 	type ToolCallBlock,
 	isCompactingAtom,
 	turnModifiedFilesAtom,
@@ -22,43 +23,62 @@ interface MessageListProps {
 /** A grouped segment of content blocks for rendering. */
 type BlockSegment =
 	| { type: "single"; block: ContentBlock }
-	| { type: "tool_group"; blocks: ToolCallBlock[] };
+	| { type: "tool_group"; blocks: (ToolCallBlock | ThinkingBlock)[] };
 
-/** Group consecutive tool_call blocks into collapsible groups. */
+/** Group consecutive tool_call and thinking blocks into collapsible groups. */
 function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 	const segments: BlockSegment[] = [];
-	let toolBatch: ToolCallBlock[] = [];
+	let batch: (ToolCallBlock | ThinkingBlock)[] = [];
 
-	function flushTools(): void {
-		if (toolBatch.length === 0) return;
-		if (toolBatch.length === 1) {
-			segments.push({ type: "single", block: toolBatch[0] });
+	function flushBatch(): void {
+		if (batch.length === 0) return;
+		if (batch.length === 1) {
+			segments.push({ type: "single", block: batch[0] });
 		} else {
-			segments.push({ type: "tool_group", blocks: [...toolBatch] });
+			segments.push({ type: "tool_group", blocks: [...batch] });
 		}
-		toolBatch = [];
+		batch = [];
 	}
 
 	for (const block of blocks) {
-		if (block.type === "tool_call") {
-			toolBatch.push(block);
+		if (block.type === "tool_call" || block.type === "thinking") {
+			batch.push(block);
 		} else if (block.type === "tool_result") {
 			// skip — results are rendered inside tool_call blocks
+		} else if (block.type === "text" && !block.text.trim() && batch.length > 0) {
+			// skip empty text blocks between tool/thinking runs
 		} else {
-			flushTools();
+			flushBatch();
 			segments.push({ type: "single", block });
 		}
 	}
-	flushTools();
+	flushBatch();
 	return segments;
 }
 
-/** Collapsed group of multiple tool calls. */
-function ToolCallGroup({ blocks }: { blocks: ToolCallBlock[] }): JSX.Element {
+/** Collapsed group of multiple tool calls and/or thinking blocks. */
+function ToolCallGroup({ blocks }: { blocks: (ToolCallBlock | ThinkingBlock)[] }): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
-	const completedCount = blocks.filter((b) => b.status !== "pending").length;
-	const hasError = blocks.some((b) => b.status === "error");
-	const allDone = completedCount === blocks.length;
+	const toolBlocks = blocks.filter((b): b is ToolCallBlock => b.type === "tool_call");
+	const thinkingCount = blocks.filter((b) => b.type === "thinking").length;
+	const completedCount = toolBlocks.filter((b) => b.status !== "pending").length;
+	const hasError = toolBlocks.some((b) => b.status === "error");
+	const allDone = completedCount === toolBlocks.length;
+
+	function getSummary(): string {
+		const parts: string[] = [];
+		if (toolBlocks.length > 0) {
+			parts.push(
+				allDone
+					? `${completedCount} 个工具调用完成`
+					: `${completedCount}/${toolBlocks.length} 个工具调用`,
+			);
+		}
+		if (thinkingCount > 0) {
+			parts.push(`${thinkingCount} 个思考过程`);
+		}
+		return parts.join("，");
+	}
 
 	return (
 		<div>
@@ -74,9 +94,7 @@ function ToolCallGroup({ blocks }: { blocks: ToolCallBlock[] }): JSX.Element {
 					{blocks.length}
 				</span>
 				<span className="text-[12px] text-muted-foreground/50">
-					{allDone
-						? `${completedCount} 个工具调用完成`
-						: `${completedCount}/${blocks.length} 个工具调用`}
+					{getSummary()}
 				</span>
 			</button>
 			<AnimatePresence initial={false}>
@@ -89,9 +107,13 @@ function ToolCallGroup({ blocks }: { blocks: ToolCallBlock[] }): JSX.Element {
 						className="overflow-hidden"
 					>
 						<div className="flex flex-col gap-0.5 pl-2">
-							{blocks.map((block) => (
-								<ToolCallBlockView key={block.toolCallId} block={block} />
-							))}
+							{blocks.map((block, i) =>
+								block.type === "tool_call" ? (
+									<ToolCallBlockView key={block.toolCallId} block={block} />
+								) : (
+									<ThinkingBlockView key={`thinking-${i}`} text={block.text} />
+								),
+							)}
 						</div>
 					</motion.div>
 				)}
