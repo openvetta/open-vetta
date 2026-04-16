@@ -107,13 +107,17 @@ export interface CompactionResult<T = unknown> {
 
 export interface CompactionSettings {
 	enabled: boolean;
+	/** Fixed token buffer (deducted from context window for summary + safety margin). */
 	reserveTokens: number;
+	/** Minimum percentage of context window to keep free (0-100). Acts as a floor for small windows. */
+	minFreePercent: number;
 	keepRecentTokens: number;
 }
 
 export const DEFAULT_COMPACTION_SETTINGS: CompactionSettings = {
 	enabled: true,
-	reserveTokens: 16384,
+	reserveTokens: 36000, // 20k for summary output + 16k safety buffer
+	minFreePercent: 20, // At least 20% free → triggers at 80%
 	keepRecentTokens: 20000,
 };
 
@@ -207,11 +211,26 @@ export function estimateContextTokens(messages: AgentMessage[]): ContextUsageEst
 }
 
 /**
+ * Compute the compaction threshold for a given context window.
+ *
+ * Uses a hybrid strategy:
+ *   threshold = max(contextWindow - reserveTokens, contextWindow * (1 - minFreePercent/100))
+ *
+ * - Large windows (200k+): fixed buffer dominates → ~82-96% trigger
+ * - Small windows (≤128k): percentage floor dominates → 80% trigger
+ */
+export function getCompactThreshold(contextWindow: number, settings: CompactionSettings): number {
+	const fixedThreshold = contextWindow - settings.reserveTokens;
+	const percentThreshold = contextWindow * (1 - settings.minFreePercent / 100);
+	return Math.max(fixedThreshold, percentThreshold);
+}
+
+/**
  * Check if compaction should trigger based on context usage.
  */
 export function shouldCompact(contextTokens: number, contextWindow: number, settings: CompactionSettings): boolean {
 	if (!settings.enabled) return false;
-	return contextTokens > contextWindow - settings.reserveTokens;
+	return contextTokens > getCompactThreshold(contextWindow, settings);
 }
 
 // ============================================================================
@@ -441,20 +460,28 @@ export function findCutPoint(
 // Summarization
 // ============================================================================
 
-const SUMMARIZATION_PROMPT = `The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.
+const SUMMARIZATION_PROMPT = `The messages above are a conversation to summarize. Create a detailed summary that another LLM will use to continue the work without losing context.
 
-Use this EXACT format:
+First, write your analysis inside <analysis> tags — this is your private scratchpad:
+1. Chronologically review each message. For each section identify:
+   - The user's explicit requests and intents
+   - Key decisions, technical concepts and code patterns
+   - Specific file names, full code snippets, function signatures, file edits
+   - Errors encountered and how they were fixed
+   - Pay special attention to user feedback (especially corrections or changed requirements)
+2. Double-check for completeness — have you captured every file, every error, every user instruction?
 
-## Goal
-[What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]
+Then write the final summary inside <summary> tags using this EXACT format:
 
-## Constraints & Preferences
-- [Any constraints, preferences, or requirements mentioned by user]
-- [Or "(none)" if none were mentioned]
+## Primary Goal
+[What the user is trying to accomplish — ALL explicit requests]
 
-## Progress
-### Done
-- [x] [Completed tasks/changes]
+## Key Constraints & Preferences
+- [Constraints, preferences, requirements mentioned by user]
+
+## Current State of Work
+### Completed
+- [x] [Completed items with file paths and what was changed]
 
 ### In Progress
 - [ ] [Current work]
@@ -462,56 +489,101 @@ Use this EXACT format:
 ### Blocked
 - [Issues preventing progress, if any]
 
-## Key Decisions
-- **[Decision]**: [Brief rationale]
+## Key Technical Decisions
+- **[Decision]**: [Rationale]
+
+## Files and Code Context
+- [File path]: [Why it matters, what was changed, key code snippets]
+
+## Errors and Fixes
+- [Error description]: [How it was fixed, user feedback if any]
+
+## All User Messages
+- [List ALL non-tool-result user messages verbatim — these are critical for understanding intent changes]
+
+## Pending Tasks
+- [Tasks explicitly requested but not yet completed]
 
 ## Next Steps
 1. [Ordered list of what should happen next]
+   [Include direct quotes showing where the last task left off]
 
-## Critical Context
-- [Any data, examples, or references needed to continue]
-- [Or "(none)" if not applicable]
-
-Keep each section concise. Preserve exact file paths, function names, and error messages.`;
+Keep each section concise. Preserve exact file paths, function names, error messages, and code snippets.`;
 
 const UPDATE_SUMMARIZATION_PROMPT = `The messages above are NEW conversation messages to incorporate into the existing summary provided in <previous-summary> tags.
 
-Update the existing structured summary with new information. RULES:
+First, write your analysis inside <analysis> tags — review the new messages and identify what changed:
+1. What new work was done? What completed? What new errors or decisions?
+2. Were there any new user messages with feedback or changed requirements?
+3. What files were touched? What code was written or modified?
+
+Then write the updated summary inside <summary> tags. RULES:
 - PRESERVE all existing information from the previous summary
 - ADD new progress, decisions, and context from the new messages
-- UPDATE the Progress section: move items from "In Progress" to "Done" when completed
+- UPDATE the "Current State of Work" section: move items from "In Progress" to "Completed"
 - UPDATE "Next Steps" based on what was accomplished
-- PRESERVE exact file paths, function names, and error messages
+- ADD new user messages to "All User Messages"
+- PRESERVE exact file paths, function names, error messages, and code snippets
 - If something is no longer relevant, you may remove it
 
 Use this EXACT format:
 
-## Goal
+## Primary Goal
 [Preserve existing goals, add new ones if the task expanded]
 
-## Constraints & Preferences
+## Key Constraints & Preferences
 - [Preserve existing, add new ones discovered]
 
-## Progress
-### Done
+## Current State of Work
+### Completed
 - [x] [Include previously done items AND newly completed items]
 
 ### In Progress
-- [ ] [Current work - update based on progress]
+- [ ] [Current work — update based on progress]
 
 ### Blocked
-- [Current blockers - remove if resolved]
+- [Current blockers — remove if resolved]
 
-## Key Decisions
-- **[Decision]**: [Brief rationale] (preserve all previous, add new)
+## Key Technical Decisions
+- **[Decision]**: [Rationale] (preserve all previous, add new)
+
+## Files and Code Context
+- [Preserve existing, add newly touched files with details]
+
+## Errors and Fixes
+- [Preserve existing, add new errors and fixes]
+
+## All User Messages
+- [Preserve existing, append new user messages]
+
+## Pending Tasks
+- [Update based on what was completed]
 
 ## Next Steps
 1. [Update based on current state]
+   [Include direct quotes from the most recent conversation]
 
-## Critical Context
-- [Preserve important context, add new if needed]
+Keep each section concise. Preserve exact file paths, function names, error messages, and code snippets.`;
 
-Keep each section concise. Preserve exact file paths, function names, and error messages.`;
+/**
+ * Extract the <summary> content from an LLM response, discarding the <analysis> scratchpad.
+ * Falls back to the full text if no tags are found (backward compatibility).
+ */
+function extractSummaryFromResponse(text: string): string {
+	// Strip <analysis> block (drafting scratchpad — improves summary quality
+	// but has no value once the summary is written)
+	let result = text.replace(/<analysis>[\s\S]*?<\/analysis>/g, "");
+
+	// Extract <summary> content
+	const match = result.match(/<summary>([\s\S]*?)<\/summary>/);
+	if (match) {
+		result = match[1].trim();
+	}
+
+	// Clean up extra whitespace between sections
+	result = result.replace(/\n{3,}/g, "\n\n");
+	return result.trim() || text;
+}
 
 /**
  * Generate a summary of the conversation using the LLM.
@@ -569,7 +641,7 @@ export async function generateSummary(
 		.map((c) => c.text)
 		.join("\n");
 
-	return textContent;
+	return extractSummaryFromResponse(textContent);
 }
 
 // ============================================================================

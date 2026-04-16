@@ -31,12 +31,14 @@ import { stripFrontmatter } from "../utils/frontmatter.js";
 import { sleep } from "../utils/sleep.js";
 import { type BashResult, executeBash as executeBashCommand, executeBashWithOperations } from "./bash-executor.js";
 import {
+	CompactionCircuitBreaker,
 	type CompactionResult,
 	calculateContextTokens,
 	collectEntriesForBranchSummary,
 	compact,
 	estimateContextTokens,
 	generateBranchSummary,
+	microcompact,
 	prepareCompaction,
 	shouldCompact,
 } from "./compaction/index.js";
@@ -241,6 +243,7 @@ export class AgentSession {
 	// Compaction state
 	private _compactionAbortController: AbortController | undefined = undefined;
 	private _autoCompactionAbortController: AbortController | undefined = undefined;
+	private _compactionCircuitBreaker = new CompactionCircuitBreaker();
 
 	// Branch summarization state
 	private _branchSummaryAbortController: AbortController | undefined = undefined;
@@ -787,6 +790,11 @@ export class AgentSession {
 	/** Current session display name, if set */
 	get sessionName(): string | undefined {
 		return this.sessionManager.getSessionName();
+	}
+
+	/** Full branch entries from root to current leaf (for UI history display). */
+	getSessionBranch(): import("./session-manager.js").SessionEntry[] {
+		return this.sessionManager.getBranch();
 	}
 
 	/** Scoped models for cycling (from --models flag) */
@@ -1726,6 +1734,43 @@ export class AgentSession {
 	}
 
 	/**
+	 * Pre-LLM-call compaction. Called from transformContext before each LLM call.
+	 *
+	 * Layer 1: microcompact — clears old tool results (pure, zero cost).
+	 * Layer 2: LLM compact  — if above threshold & circuit breaker allows.
+	 */
+	async preCallCompaction(messages: AgentMessage[], _signal?: AbortSignal): Promise<AgentMessage[]> {
+		// Layer 1: microcompact (always runs)
+		messages = microcompact(messages);
+
+		// Layer 2: check if LLM compact is needed
+		const settings = this.settingsManager.getCompactionSettings();
+		if (!settings.enabled) return messages;
+
+		const contextWindow = this.model?.contextWindow ?? 0;
+		if (contextWindow <= 0) return messages;
+
+		const estimate = estimateContextTokens(messages);
+		if (!shouldCompact(estimate.tokens, contextWindow, settings)) return messages;
+
+		// Circuit breaker check
+		if (!this._compactionCircuitBreaker.canAttempt()) return messages;
+
+		// Concurrency guard: skip if compaction is already running
+		if (this._autoCompactionAbortController) return messages;
+
+		try {
+			await this._runAutoCompaction("threshold", false);
+			this._compactionCircuitBreaker.recordSuccess();
+			// Return fresh messages after compaction
+			return this.sessionManager.buildSessionContext().messages;
+		} catch {
+			this._compactionCircuitBreaker.recordFailure();
+			return messages;
+		}
+	}
+
+	/**
 	 * Check if compaction is needed and run it.
 	 * Called after agent_end and before prompt submission.
 	 *
@@ -1890,6 +1935,7 @@ export class AgentSession {
 				tokensBefore,
 				details,
 			};
+			this._compactionCircuitBreaker.recordSuccess();
 			this._emit({ type: "auto_compaction_end", result, aborted: false, willRetry });
 
 			if (willRetry) {
@@ -1910,6 +1956,7 @@ export class AgentSession {
 				}, 100);
 			}
 		} catch (error) {
+			this._compactionCircuitBreaker.recordFailure();
 			const errorMessage = error instanceof Error ? error.message : "compaction failed";
 			this._emit({
 				type: "auto_compaction_end",
@@ -2965,14 +3012,18 @@ export class AgentSession {
 		const contextWindow = model.contextWindow ?? 0;
 		if (contextWindow <= 0) return undefined;
 
+		// No messages yet → 0% usage (system prompt is not counted here)
+		if (this.messages.length === 0) {
+			return { tokens: 0, contextWindow, percent: 0 };
+		}
+
 		// After compaction, the last assistant usage reflects pre-compaction context size.
 		// We can only trust usage from an assistant that responded after the latest compaction.
-		// If no such assistant exists, context token count is unknown until the next LLM response.
+		// If no such assistant exists, fall back to estimation rather than returning unknown.
 		const branchEntries = this.sessionManager.getBranch();
 		const latestCompaction = getLatestCompactionEntry(branchEntries);
 
 		if (latestCompaction) {
-			// Check if there's a valid assistant usage after the compaction boundary
 			const compactionIndex = branchEntries.lastIndexOf(latestCompaction);
 			let hasPostCompactionUsage = false;
 			for (let i = branchEntries.length - 1; i > compactionIndex; i--) {
@@ -2990,7 +3041,11 @@ export class AgentSession {
 			}
 
 			if (!hasPostCompactionUsage) {
-				return { tokens: null, contextWindow, percent: null };
+				// No post-compaction usage yet — use estimation instead of returning null.
+				// This avoids "usage unknown" after compaction until the next LLM response.
+				const estimate = estimateContextTokens(this.messages);
+				const percent = (estimate.tokens / contextWindow) * 100;
+				return { tokens: estimate.tokens, contextWindow, percent };
 			}
 		}
 

@@ -1,4 +1,5 @@
 import type { ChatMessage, ContentBlock, ToolCallBlock } from "@shared/store/atoms";
+import type { HistoryEntry } from "../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Message conversion helpers
@@ -107,6 +108,79 @@ export function historyToChat(
 			const text = extractText(m.content);
 			if (text) target.text = target.text ? `${target.text}\n${text}` : text;
 			// Handle error messages (e.g. provider 404)
+			if (m.stopReason === "error" && m.errorMessage) {
+				target.blocks!.push({ type: "error", text: m.errorMessage });
+				if (!target.text) target.text = m.errorMessage;
+			}
+		} else if (m.role === "toolResult" && m.toolCallId) {
+			const block = toolCallIndex.get(String(m.toolCallId));
+			if (block) {
+				block.result = extractText(m.content);
+				block.isError = m.isError === true;
+				block.status = m.isError ? "error" : "success";
+			}
+		}
+	}
+	return messages;
+}
+
+/**
+ * Convert full history entries (including compaction boundaries) into ChatMessages.
+ * Unlike historyToChat, this preserves the complete conversation across compactions.
+ */
+export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
+	const messages: ChatMessage[] = [];
+	const toolCallIndex = new Map<string, ToolCallBlock>();
+
+	function currentAssistant(): ChatMessage {
+		const last = messages.at(-1);
+		if (last?.role === "assistant") return last;
+		const msg: ChatMessage = {
+			id: `hist-asst-${messages.length}`,
+			role: "assistant",
+			text: "",
+			blocks: [],
+		};
+		messages.push(msg);
+		return msg;
+	}
+
+	for (const entry of entries) {
+		if (entry.type === "compaction") {
+			messages.push({
+				id: `hist-compact-${messages.length}`,
+				role: "compaction",
+				text: entry.summary,
+				timestamp: new Date(entry.timestamp).getTime(),
+			});
+			continue;
+		}
+
+		const m = entry.message as {
+			role: string;
+			content: unknown;
+			toolCallId?: string;
+			toolName?: string;
+			isError?: boolean;
+			errorMessage?: string;
+			stopReason?: string;
+		};
+
+		if (m.role === "user") {
+			messages.push({
+				id: `hist-user-${messages.length}`,
+				role: "user",
+				text: extractText(m.content),
+			});
+		} else if (m.role === "assistant") {
+			const target = currentAssistant();
+			const blocks = messageToBlocks(m.content);
+			for (const b of blocks) {
+				if (b.type === "tool_call") toolCallIndex.set(b.toolCallId, b);
+			}
+			target.blocks!.push(...blocks);
+			const text = extractText(m.content);
+			if (text) target.text = target.text ? `${target.text}\n${text}` : text;
 			if (m.stopReason === "error" && m.errorMessage) {
 				target.blocks!.push({ type: "error", text: m.errorMessage });
 				if (!target.text) target.text = m.errorMessage;

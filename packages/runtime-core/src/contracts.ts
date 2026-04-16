@@ -178,6 +178,14 @@ export interface SettingsPatch {
 	modelKey?: string;
 }
 
+/**
+ * A history entry for UI display. Includes messages AND compaction boundaries.
+ * The UI uses this to render complete conversation history (even after compaction).
+ */
+export type HistoryEntry =
+	| { type: "message"; message: Message }
+	| { type: "compaction"; summary: string; tokensBefore: number; timestamp: string };
+
 export interface SessionFacade {
 	createSession(config?: SessionConfig): Promise<{ sessionId: string }>;
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;
@@ -187,6 +195,8 @@ export interface SessionFacade {
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	getState(sessionId: string): SessionStateSnapshot;
 	getMessages(sessionId: string): Message[];
+	/** Full conversation history including compaction boundaries (for UI display). */
+	getFullHistory(sessionId: string): HistoryEntry[];
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
 	deleteSession(sessionPath: string): Promise<void>;

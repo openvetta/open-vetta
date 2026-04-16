@@ -330,10 +330,27 @@ function Message({ message, isLastAssistant, isStreaming }: {
 	isLastAssistant: boolean;
 	isStreaming: boolean;
 }): JSX.Element {
+	if (message.role === "compaction") {
+		return <CompactionBoundary />;
+	}
 	if (message.role === "user") {
 		return <UserMessage message={message} />;
 	}
 	return <AssistantMessage message={message} isLastAssistant={isLastAssistant} isStreaming={isStreaming} />;
+}
+
+/** Compaction boundary marker — shows where context was compressed. */
+function CompactionBoundary(): JSX.Element {
+	return (
+		<div className="flex items-center gap-3 py-1">
+			<div className="h-px flex-1 bg-muted-foreground/15" />
+			<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/40">
+				<span className="icon-[mdi--compress] h-3 w-3" />
+				上下文已压缩
+			</span>
+			<div className="h-px flex-1 bg-muted-foreground/15" />
+		</div>
+	);
 }
 
 function CompactionIndicator(): JSX.Element {

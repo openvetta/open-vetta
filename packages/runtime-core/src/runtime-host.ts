@@ -11,6 +11,7 @@ import {
 	SessionManager,
 } from "@vetta/coding-agent";
 import type {
+	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
 	SessionConfig,
@@ -169,6 +170,28 @@ export class RuntimeHost implements SessionFacade {
 		return handle.session.messages.filter((message): message is Message => {
 			return message.role === "user" || message.role === "assistant" || message.role === "toolResult";
 		});
+	}
+
+	getFullHistory(sessionId: string): HistoryEntry[] {
+		const handle = this.requireSession(sessionId);
+		const branch = handle.session.getSessionBranch();
+		const entries: HistoryEntry[] = [];
+		for (const entry of branch) {
+			if (entry.type === "message") {
+				const msg = entry.message;
+				if (msg.role === "user" || msg.role === "assistant" || msg.role === "toolResult") {
+					entries.push({ type: "message", message: msg as Message });
+				}
+			} else if (entry.type === "compaction") {
+				entries.push({
+					type: "compaction",
+					summary: entry.summary,
+					tokensBefore: entry.tokensBefore,
+					timestamp: entry.timestamp,
+				});
+			}
+		}
+		return entries;
 	}
 
 	async listProjects(): Promise<ProjectInfo[]> {
