@@ -120,6 +120,9 @@ export const lastTurnUsageAtom = atom<TurnUsageData | null>(null);
 /** Current context window usage */
 export const contextUsageAtom = atom<ContextUsageData | null>(null);
 
+/** Whether context compaction is currently in progress */
+export const isCompactingAtom = atom<boolean>(false);
+
 /** Selected model identifier: "provider/modelId" */
 export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));
 

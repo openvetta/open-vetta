@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
-import { contextUsageAtom } from "@shared/store/atoms";
+import { contextUsageAtom, isCompactingAtom } from "@shared/store/atoms";
 
 const SIZE = 16;
 const STROKE = 3;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+/** Arc length for the spinning indicator (roughly 1/4 of the circle) */
+const SPIN_ARC = CIRCUMFERENCE * 0.25;
 
 function formatTokens(count: number): string {
 	if (count < 1000) return count.toString();
@@ -17,6 +20,7 @@ function formatTokens(count: number): string {
 
 export function ContextRing(): JSX.Element | null {
 	const ctx = useAtomValue(contextUsageAtom);
+	const isCompacting = useAtomValue(isCompactingAtom);
 	const [hovered, setHovered] = useState(false);
 
 	if (!ctx || !ctx.contextWindow) return null;
@@ -33,8 +37,9 @@ export function ContextRing(): JSX.Element | null {
 				? "#f59e0b"
 				: "var(--foreground)";
 
-	const tooltip =
-		ctx.percent !== null
+	const tooltip = isCompacting
+		? "正在压缩上下文..."
+		: ctx.percent !== null
 			? `上下文已使用 ${percent.toFixed(1)}%（${formatTokens(ctx.contextWindow)} 窗口）`
 			: `上下文窗口 ${formatTokens(ctx.contextWindow)}（使用量未知）`;
 
@@ -44,7 +49,12 @@ export function ContextRing(): JSX.Element | null {
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
 		>
-			<svg width={SIZE} height={SIZE} className="rotate-[-90deg]">
+			<svg
+				width={SIZE}
+				height={SIZE}
+				className={isCompacting ? "" : "rotate-[-90deg]"}
+				style={isCompacting ? { animation: "context-ring-spin 1s linear infinite" } : undefined}
+			>
 				<circle
 					cx={SIZE / 2}
 					cy={SIZE / 2}
@@ -54,18 +64,31 @@ export function ContextRing(): JSX.Element | null {
 					strokeWidth={STROKE}
 					opacity={0.5}
 				/>
-				<circle
-					cx={SIZE / 2}
-					cy={SIZE / 2}
-					r={RADIUS}
-					fill="none"
-					stroke={color}
-					strokeWidth={STROKE}
-					strokeDasharray={CIRCUMFERENCE}
-					strokeDashoffset={offset}
-					strokeLinecap="round"
-					style={{ transition: "stroke-dashoffset 0.4s ease, stroke 0.3s ease" }}
-				/>
+				{isCompacting ? (
+					<circle
+						cx={SIZE / 2}
+						cy={SIZE / 2}
+						r={RADIUS}
+						fill="none"
+						stroke="#f59e0b"
+						strokeWidth={STROKE}
+						strokeDasharray={`${SPIN_ARC} ${CIRCUMFERENCE - SPIN_ARC}`}
+						strokeLinecap="round"
+					/>
+				) : (
+					<circle
+						cx={SIZE / 2}
+						cy={SIZE / 2}
+						r={RADIUS}
+						fill="none"
+						stroke={color}
+						strokeWidth={STROKE}
+						strokeDasharray={CIRCUMFERENCE}
+						strokeDashoffset={offset}
+						strokeLinecap="round"
+						style={{ transition: "stroke-dashoffset 0.4s ease, stroke 0.3s ease" }}
+					/>
+				)}
 			</svg>
 			<AnimatePresence>
 				{hovered && (

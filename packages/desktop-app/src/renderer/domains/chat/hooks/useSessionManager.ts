@@ -6,6 +6,7 @@ import {
 	chatMessagesAtom,
 	contextUsageAtom,
 	inputValueAtom,
+	isCompactingAtom,
 	isStreamingAtom,
 	lastTurnUsageAtom,
 	mentionedFilesAtom,
@@ -58,6 +59,7 @@ export function useSessionManager(): SessionManagerResult {
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
+	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
@@ -69,6 +71,7 @@ export function useSessionManager(): SessionManagerResult {
 			setCurrentUnsubscribe(null);
 			resetStreamState();
 			setIsStreaming(false);
+			setIsCompacting(false);
 
 			void navigate({ to: "/" });
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
@@ -200,6 +203,18 @@ export function useSessionManager(): SessionManagerResult {
 						return;
 					}
 
+					// ── Compaction start ──
+					if (event.type === "compaction.start") {
+						setIsCompacting(true);
+						return;
+					}
+
+					// ── Compaction end ──
+					if (event.type === "compaction.end") {
+						setIsCompacting(false);
+						return;
+					}
+
 					// ── Todo update ──
 					if (event.type === "todo_update") {
 						const sessionCwd = activeSessionRef.current?.cwd;
@@ -226,6 +241,7 @@ export function useSessionManager(): SessionManagerResult {
 			setChatMessages,
 			setActiveSession,
 			setIsStreaming,
+			setIsCompacting,
 			navigate,
 			loadSessions,
 			setLastTurnUsage,

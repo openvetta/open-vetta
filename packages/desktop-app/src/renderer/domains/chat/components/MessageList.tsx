@@ -5,6 +5,7 @@ import {
 	type ChatMessage,
 	type ContentBlock,
 	type ToolCallBlock,
+	isCompactingAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { ArtifactCard } from "@shared/components/ArtifactCard";
@@ -335,6 +336,28 @@ function Message({ message, isLastAssistant, isStreaming }: {
 	return <AssistantMessage message={message} isLastAssistant={isLastAssistant} isStreaming={isStreaming} />;
 }
 
+function CompactionIndicator(): JSX.Element {
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 6 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={{ opacity: 0, y: 6 }}
+			transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+			className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2"
+		>
+			<svg width={14} height={14} style={{ animation: "context-ring-spin 1s linear infinite" }}>
+				<circle cx={7} cy={7} r={5} fill="none" stroke="var(--secondary, #333)" strokeWidth={2} opacity={0.3} />
+				<circle
+					cx={7} cy={7} r={5} fill="none" stroke="#f59e0b" strokeWidth={2}
+					strokeDasharray={`${Math.PI * 5 * 0.25} ${Math.PI * 5 * 0.75}`}
+					strokeLinecap="round"
+				/>
+			</svg>
+			<span className="text-[12px] text-amber-500/80">正在压缩上下文...</span>
+		</motion.div>
+	);
+}
+
 function TypingIndicator(): JSX.Element {
 	return (
 		<motion.div
@@ -368,6 +391,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const stickToBottomRef = useRef(true);
 	const [showScrollBtn, setShowScrollBtn] = useState(false);
+	const isCompacting = useAtomValue(isCompactingAtom);
 	const lastMessage = messages.at(-1);
 	const showTyping = isStreaming && (!lastMessage || lastMessage.role !== "assistant" || !lastMessage.text);
 
@@ -422,6 +446,10 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 					50% { opacity: 0.4; }
 				}
 				textarea::placeholder { color: var(--muted-foreground); opacity: 0.5; }
+				@keyframes context-ring-spin {
+					from { transform: rotate(0deg); }
+					to { transform: rotate(360deg); }
+				}
 			`}</style>
 			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-2">
 				<div className="mx-auto flex max-w-3xl flex-col gap-5">
@@ -435,6 +463,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 							/>
 						))}
 						{showTyping && <TypingIndicator key="typing" />}
+						{isCompacting && <CompactionIndicator key="compacting" />}
 					</AnimatePresence>
 					<InlineArtifactCard />
 					<div ref={bottomRef} />
