@@ -634,6 +634,10 @@ function buildParams(
 				budget_tokens: options.thinkingBudgetTokens || 1024,
 			};
 		}
+	} else if (model.reasoning && supportsAdaptiveThinking(model.id)) {
+		// Adaptive thinking models default to thinking when param is omitted,
+		// so we must explicitly disable it
+		params.thinking = { type: "disabled" };
 	}
 
 	if (options?.metadata) {

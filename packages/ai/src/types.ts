@@ -8,6 +8,7 @@ export type KnownApi =
 	| "azure-openai-responses"
 	| "openai-codex-responses"
 	| "nvidia-openai-responses"
+	| "qwen-openai-completions"
 	| "anthropic-messages"
 	| "bedrock-converse-stream"
 	| "google-generative-ai"
@@ -38,7 +39,8 @@ export type KnownProvider =
 	| "minimax-cn"
 	| "huggingface"
 	| "opencode"
-	| "kimi-coding";
+	| "kimi-coding"
+	| "qwen";
 export type Provider = KnownProvider | string;
 
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
