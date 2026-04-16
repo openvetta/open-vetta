@@ -2275,6 +2275,9 @@ export class AgentSession {
 		if (this._baseToolRegistry.has("todo")) {
 			activeToolNameSet.add("todo");
 		}
+		if (this._baseToolRegistry.has("doc_to_pdf")) {
+			activeToolNameSet.add("doc_to_pdf");
+		}
 		if (options.includeAllExtensionTools) {
 			for (const tool of wrappedExtensionTools as AgentTool[]) {
 				activeToolNameSet.add(tool.name);

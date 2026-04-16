@@ -19,6 +19,7 @@ const toolDescriptions: Record<string, string> = {
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
 	invoke_scene: "Invoke a scene by name when the user's message starts with /scene: prefix",
 	todo: "Plan and track progress on multi-step tasks with a todo list",
+	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 };
 
 export interface McpToolInfo {
