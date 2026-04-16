@@ -14,6 +14,8 @@ const CHANNELS = {
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
+	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
+	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
 	DISPOSE: "vetta:session:dispose",
@@ -330,6 +332,8 @@ const api: DesktopApi = {
 		},
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
+		setGlobalThinkingLevel: async (level) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_THINKING, level),
+		getGlobalThinkingLevel: async () => ipcRenderer.invoke(CHANNELS.GET_GLOBAL_THINKING),
 		getState: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_STATE, sessionId),
 		getMessages: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_MESSAGES, sessionId),
 		getFullHistory: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_FULL_HISTORY, sessionId),
