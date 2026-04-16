@@ -193,6 +193,8 @@ export interface SessionFacade {
 	abort(sessionId: string): Promise<void>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
+	/** Update thinking level for ALL open sessions at once. */
+	updateGlobalThinkingLevel(level: ThinkingLevel): void;
 	getState(sessionId: string): SessionStateSnapshot;
 	getMessages(sessionId: string): Message[];
 	/** Full conversation history including compaction boundaries (for UI display). */

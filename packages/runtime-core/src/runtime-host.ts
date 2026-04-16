@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
+import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Message, TextContent } from "@mariozechner/pi-ai";
 import {
 	type AgentSession,
@@ -148,6 +149,12 @@ export class RuntimeHost implements SessionFacade {
 		}
 		if (partialSettings.followUpMode) {
 			handle.session.setFollowUpMode(partialSettings.followUpMode);
+		}
+	}
+
+	updateGlobalThinkingLevel(level: ThinkingLevel): void {
+		for (const handle of this.sessions.values()) {
+			handle.session.setThinkingLevel(level);
 		}
 	}
 

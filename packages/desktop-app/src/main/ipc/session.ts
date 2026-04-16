@@ -3,6 +3,7 @@ import { ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import { allowProjectRoot } from "./fs.js";
+import { readSettings, writeSettings } from "./settings.js";
 
 const CHANNELS = {
 	CREATE: "vetta:session:create",
@@ -20,6 +21,8 @@ const CHANNELS = {
 	RENAME: "vetta:session:rename",
 	DISPOSE: "vetta:session:dispose",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
+	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
+	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -104,6 +107,21 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.UPDATE_SETTINGS, async (_event, sessionId: unknown, partialSettings: SettingsPatch) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		await runtime.updateSettings(sessionId, partialSettings);
+	});
+
+	ipcMain.handle(CHANNELS.SET_GLOBAL_THINKING, (_event, level: unknown) => {
+		assertNonEmptyString(level, "level");
+		// Broadcast to all open sessions
+		runtime.updateGlobalThinkingLevel(level as any);
+		// Persist to settings.json
+		const settings = readSettings();
+		settings.defaultThinkingLevel = level;
+		writeSettings(settings);
+	});
+
+	ipcMain.handle(CHANNELS.GET_GLOBAL_THINKING, () => {
+		const settings = readSettings();
+		return (settings.defaultThinkingLevel as string) ?? "off";
 	});
 
 	ipcMain.handle(CHANNELS.GET_STATE, async (_event, sessionId: unknown) => {

@@ -19,6 +19,7 @@ const API_OPTIONS = [
 	"google-gemini-cli",
 	"google-vertex",
 	"nvidia-openai-responses",
+	"qwen-openai-completions",
 ].map((api) => ({ value: api, label: api }));
 
 const INPUT_OPTIONS = [
@@ -362,6 +363,21 @@ export function ModelsSettings(): JSX.Element {
 	const [remoteError, setRemoteError] = useState<string | null>(null);
 	const [expandedRemoteProvider, setExpandedRemoteProvider] = useState<string | null>(null);
 
+	// Thinking level
+	type ThinkingLevelValue = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelValue>("off");
+
+	useEffect(() => {
+		window.vetta.session.getGlobalThinkingLevel().then((level) => {
+			setThinkingLevel(level as ThinkingLevelValue);
+		});
+	}, []);
+
+	const handleThinkingLevelChange = useCallback((level: ThinkingLevelValue) => {
+		setThinkingLevel(level);
+		void window.vetta.session.setGlobalThinkingLevel(level);
+	}, []);
+
 	const handleRefreshRemote = useCallback(async () => {
 		setRefreshing(true);
 		setRemoteError(null);
@@ -642,6 +658,26 @@ export function ModelsSettings(): JSX.Element {
 					onChange={handleModeSwitch}
 				/>
 			</div>
+
+			{/* Thinking level global control */}
+			<SettingSection title="思考模式">
+				<div className="px-5 py-3.5">
+					<SegmentedControl
+						items={[
+							{ key: "off" as ThinkingLevelValue, label: "关闭" },
+							{ key: "minimal" as ThinkingLevelValue, label: "极低" },
+							{ key: "low" as ThinkingLevelValue, label: "低" },
+							{ key: "medium" as ThinkingLevelValue, label: "中" },
+							{ key: "high" as ThinkingLevelValue, label: "高" },
+						]}
+						value={thinkingLevel === "xhigh" ? "high" : thinkingLevel}
+						onChange={handleThinkingLevelChange}
+					/>
+					<p className="mt-2 text-[11px] text-muted-foreground">
+						全局设置，所有会话立即生效。模型不支持时自动降级。
+					</p>
+				</div>
+			</SettingSection>
 
 			{mode === "visual" ? (
 				<>
