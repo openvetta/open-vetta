@@ -3,7 +3,8 @@
  */
 
 import { getDocsPath, getExamplesPath, getReadmePath } from "../config.js";
-import { formatSkillsForPrompt, type Skill } from "./skills.js";
+import { formatScenesForPrompt, formatSkillsForPrompt, type Skill } from "./skills.js";
+import { SUBCONSCIOUS } from "./subconscious.js";
 
 /** Tool descriptions for system prompt */
 const toolDescriptions: Record<string, string> = {
@@ -15,6 +16,10 @@ const toolDescriptions: Record<string, string> = {
 	find: "Find files by glob pattern (respects .gitignore)",
 	ls: "List directory contents",
 	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
+	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
+	invoke_scene: "Invoke a scene by name when the user's message starts with /scene: prefix",
+	todo: "Plan and track progress on multi-step tasks with a todo list",
+	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 };
 
 export interface McpToolInfo {
@@ -71,7 +76,8 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const mcpTools = providedMcpTools ?? [];
 
 	if (customPrompt) {
-		let prompt = customPrompt;
+		// 即使用户传入 customPrompt，也始终保留出厂潜意识，防止身份被绕过
+		let prompt = `${SUBCONSCIOUS}\n\n${customPrompt}`;
 
 		if (appendSection) {
 			prompt += appendSection;
@@ -102,10 +108,16 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 			}
 		}
 
-		// Append skills section (only if read tool is available)
-		const customPromptHasRead = !selectedTools || selectedTools.includes("read");
-		if (customPromptHasRead && skills.length > 0) {
+		// Append skills section (if invoke_skill or read tool is available)
+		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
+		if (canUseSkills && skills.length > 0) {
 			prompt += formatSkillsForPrompt(skills);
+		}
+
+		// Append scenes section (if invoke_scene tool is available)
+		const canUseScenes = !selectedTools || selectedTools.includes("invoke_scene");
+		if (canUseScenes && skills.length > 0) {
+			prompt += formatScenesForPrompt(skills);
 		}
 
 		// Filename fidelity rule (applies to all prompts)
@@ -215,7 +227,7 @@ ${mcpToolsList}
 - Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
 	}
 
-	let prompt = `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
+	let prompt = `${SUBCONSCIOUS}
 
 Available tools:
 ${toolsList}${mcpToolsSection}
@@ -244,9 +256,16 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 		}
 	}
 
-	// Append skills section (only if read tool is available)
-	if (hasRead && skills.length > 0) {
+	// Append skills section (if invoke_skill or read tool is available)
+	const hasInvokeSkill = tools.includes("invoke_skill");
+	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
 		prompt += formatSkillsForPrompt(skills);
+	}
+
+	// Append scenes section (if invoke_scene tool is available)
+	const hasInvokeScene = tools.includes("invoke_scene");
+	if (hasInvokeScene && skills.length > 0) {
+		prompt += formatScenesForPrompt(skills);
 	}
 
 	// Add date/time and working directory last

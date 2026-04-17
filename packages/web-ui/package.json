@@ -14,10 +14,11 @@
 		"build": "tsgo -p tsconfig.build.json && tailwindcss -i ./src/app.css -o ./dist/app.css --minify",
 		"dev": "concurrently --names \"build,example\" --prefix-colors \"cyan,green\" \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"tailwindcss -i ./src/app.css -o ./dist/app.css --watch\" \"bun run --cwd example dev\"",
 		"dev:tsc": "concurrently --names \"build\" --prefix-colors \"cyan\" \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"tailwindcss -i ./src/app.css -o ./dist/app.css --watch\"",
-		"check": "biome check --write --error-on-warnings . && tsc --noEmit && cd example && biome check --write --error-on-warnings . && tsc --noEmit"
+		"check": "bunx @biomejs/biome check --write --error-on-warnings . && tsc --noEmit && cd example && bunx @biomejs/biome check --write --error-on-warnings . && tsc --noEmit"
 	},
 	"dependencies": {
 		"@lmstudio/sdk": "^1.5.0",
+		"@mariozechner/pi-agent-core": "workspace:*",
 		"@mariozechner/pi-ai": "^0.55.3",
 		"@mariozechner/pi-tui": "^0.55.3",
 		"@sinclair/typebox": "^0.34.48",
@@ -36,6 +37,7 @@
 	"devDependencies": {
 		"@mariozechner/mini-lit": "^0.2.0",
 		"@tailwindcss/cli": "^4.0.0-beta.14",
+		"tailwindcss": "^4.0.0",
 		"concurrently": "^9.2.1",
 		"typescript": "^5.7.3"
 	},

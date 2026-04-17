@@ -1,34 +1,53 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { type SettingsTab } from "@shared/store/atoms";
+import { useAtomValue } from "jotai";
+import { useMemo } from "react";
+import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
+import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
+import { AccountSettings } from "./AccountSettings";
 import { GeneralSettings } from "./GeneralSettings";
+import { ImBridgeSettings } from "./ImBridgeSettings";
 import { ModelsSettings } from "./ModelsSettings";
 import { McpSettings } from "./McpSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
+import { TeamSettings } from "./TeamSettings";
 
-const VALID_TABS = new Set<SettingsTab>(["general", "models", "mcp", "shortcuts", "archive"]);
-
-const SETTINGS_GROUPS: { key: SettingsTab; label: string; icon: string }[] = [
+const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean }[] = [
 	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
+	{ key: "account", label: "账户", icon: "icon-[mdi--account-outline]", requireAuth: true },
+	{ key: "team", label: "团队管理", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
 	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
 	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
+	{ key: "im", label: "IM 集成", icon: "icon-[mdi--message-text-outline]" },
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
 	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },
 ];
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	general: GeneralSettings,
+	account: AccountSettings,
 	models: ModelsSettings,
 	mcp: McpSettings,
+	im: ImBridgeSettings,
 	shortcuts: ShortcutsSettings,
 	archive: ArchivedProjectsSettings,
+	team: TeamSettings,
 };
 
 export function SettingsPage(): JSX.Element {
 	const { tab: rawTab } = useParams({ strict: false }) as { tab?: string };
 	const navigate = useNavigate();
-	const tab: SettingsTab = rawTab && VALID_TABS.has(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "general";
+	const isPersonal = useAtomValue(isPersonalModeAtom);
+	const authUser = useAtomValue(authUserAtom);
+
+	const visibleTabs = useMemo(
+		() => BASE_TABS.filter((t) => (!t.personalOnly || isPersonal) && (!t.requireAuth || authUser)),
+		[isPersonal, authUser],
+	);
+	const validTabKeys = useMemo(() => new Set(visibleTabs.map((t) => t.key)), [visibleTabs]);
+
+	const tab: SettingsTab = rawTab && validTabKeys.has(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "general";
 	const Content = SETTINGS_CONTENT[tab];
 
 	return (
@@ -41,7 +60,7 @@ export function SettingsPage(): JSX.Element {
 					</h1>
 				</div>
 				<nav className="flex flex-col gap-0.5 px-2.5">
-					{SETTINGS_GROUPS.map(({ key, label, icon }) => (
+					{visibleTabs.map(({ key, label, icon }) => (
 						<button
 							key={key}
 							type="button"

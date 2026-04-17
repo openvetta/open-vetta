@@ -1,13 +1,12 @@
 import { useCallback } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { sidebarFilterAtom, sidebarModeAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import { sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { isMac, isWindows } from "@shared/lib/platform";
-import { SidebarFilterSelect, SidebarModeToggle } from "./SidebarTabs";
+import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
-import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
 import { SettingsMenu } from "./SettingsMenu";
 import { MessageCenter } from "@domains/message/components/MessageCenter";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
@@ -27,7 +26,6 @@ interface SidebarProps {
 
 export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	const filter = useAtomValue(sidebarFilterAtom);
-	const mode = useAtomValue(sidebarModeAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
@@ -81,30 +79,21 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				))}
 			</nav>
 
-			{/* Section header: filter dropdown / project name + mode toggle */}
+			{/* Section header: filter dropdown */}
 			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
 				<div className="flex min-w-0 items-center gap-1">
-					{mode === "projects" ? (
-						<SidebarFilterSelect />
-					) : (
-						<span className="truncate px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground">
-							文件
-						</span>
-					)}
+					<SidebarFilterSelect />
 				</div>
-				<div className="flex items-center gap-1">
-					<SidebarModeToggle />
-					{isWindows && mode === "projects" && <AddProjectMenu />}
-				</div>
+				{isWindows && (
+					<div className="flex items-center gap-1">
+						<AddProjectMenu />
+					</div>
+				)}
 			</div>
 
 			{/* Panel content */}
 			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
-				{mode === "files" ? (
-					<FilesPanel />
-				) : (
-					<ProjectsPanel filter={filter} onOpenSession={onOpenSession} />
-				)}
+				<ProjectsPanel filter={filter} onOpenSession={onOpenSession} />
 			</div>
 
 			{/* Bottom bar: Settings + Message Center */}

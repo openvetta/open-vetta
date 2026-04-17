@@ -19,6 +19,7 @@ const API_OPTIONS = [
 	"google-gemini-cli",
 	"google-vertex",
 	"nvidia-openai-responses",
+	"qwen-openai-completions",
 ].map((api) => ({ value: api, label: api }));
 
 const INPUT_OPTIONS = [
@@ -362,6 +363,21 @@ export function ModelsSettings(): JSX.Element {
 	const [remoteError, setRemoteError] = useState<string | null>(null);
 	const [expandedRemoteProvider, setExpandedRemoteProvider] = useState<string | null>(null);
 
+	// Thinking level
+	type ThinkingLevelValue = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelValue>("off");
+
+	useEffect(() => {
+		window.vetta.session.getGlobalThinkingLevel().then((level) => {
+			setThinkingLevel(level as ThinkingLevelValue);
+		});
+	}, []);
+
+	const handleThinkingLevelChange = useCallback((level: ThinkingLevelValue) => {
+		setThinkingLevel(level);
+		void window.vetta.session.setGlobalThinkingLevel(level);
+	}, []);
+
 	const handleRefreshRemote = useCallback(async () => {
 		setRefreshing(true);
 		setRemoteError(null);
@@ -642,6 +658,26 @@ export function ModelsSettings(): JSX.Element {
 					onChange={handleModeSwitch}
 				/>
 			</div>
+
+			{/* Thinking level global control */}
+			<SettingSection title="思考模式">
+				<div className="px-5 py-3.5">
+					<SegmentedControl
+						items={[
+							{ key: "off" as ThinkingLevelValue, label: "关闭" },
+							{ key: "minimal" as ThinkingLevelValue, label: "极低" },
+							{ key: "low" as ThinkingLevelValue, label: "低" },
+							{ key: "medium" as ThinkingLevelValue, label: "中" },
+							{ key: "high" as ThinkingLevelValue, label: "高" },
+						]}
+						value={thinkingLevel === "xhigh" ? "high" : thinkingLevel}
+						onChange={handleThinkingLevelChange}
+					/>
+					<p className="mt-2 text-[11px] text-muted-foreground">
+						全局设置，所有会话立即生效。模型不支持时自动降级。
+					</p>
+				</div>
+			</SettingSection>
 
 			{mode === "visual" ? (
 				<>
@@ -951,14 +987,13 @@ export function ModelsSettings(): JSX.Element {
 												/>
 												<div className="min-w-0 flex-1">
 													<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-														{name}
+														{name === "vetta-zen" ? "Vetta Zen" : name}
 														<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
 															remote
 														</span>
 													</div>
 													<div className="mt-0.5 text-[11px] text-muted-foreground">
-														{provider.api || "openai-completions"} · {models.length} 个模型
-														{provider.baseUrl && ` · ${provider.baseUrl}`}
+														{models.length} 个模型
 													</div>
 												</div>
 											</button>
@@ -983,13 +1018,15 @@ export function ModelsSettings(): JSX.Element {
 															</div>
 															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
 																<span>{model.id}</span>
-																{model.api && <span>· {model.api}</span>}
 																{model.input?.includes("image") && (
 																	<span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] text-blue-400">vision</span>
 																)}
 																{model.reasoning && (
 																	<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">reasoning</span>
 																)}
+																{(model as Record<string, unknown>).tags && Array.isArray((model as Record<string, unknown>).tags) && ((model as Record<string, unknown>).tags as string[]).map((tag: string) => (
+																	<span key={tag} className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">{tag.trim()}</span>
+																))}
 																{model.contextWindow != null && (
 																	<span>· {(model.contextWindow / 1024).toFixed(0)}K ctx</span>
 																)}

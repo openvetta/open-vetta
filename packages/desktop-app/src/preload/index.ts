@@ -13,8 +13,12 @@ const CHANNELS = {
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
+	GET_FULL_HISTORY: "vetta:session:get-full-history",
+	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
+	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
+	DISPOSE: "vetta:session:dispose",
 	EVENT: "vetta:session:event",
 } as const;
 
@@ -29,6 +33,40 @@ const SCHEDULER_CHANNELS = {
 	RUN_NOW: "vetta:scheduler:run-now",
 	ABORT: "vetta:scheduler:abort",
 	EVENT: "vetta:scheduler:event",
+} as const;
+
+const DOWNLOAD_CHANNELS = {
+	START: "vetta:downloads:start",
+	PAUSE: "vetta:downloads:pause",
+	RESUME: "vetta:downloads:resume",
+	CANCEL: "vetta:downloads:cancel",
+	REMOVE: "vetta:downloads:remove",
+	LIST: "vetta:downloads:list",
+	OPEN_FILE: "vetta:downloads:open-file",
+	SHOW_IN_FOLDER: "vetta:downloads:show-in-folder",
+	GET_DEFAULT_DIR: "vetta:downloads:get-default-dir",
+	EVENT: "vetta:downloads:event",
+} as const;
+
+const IM_CHANNELS = {
+	GET_CONFIG: "vetta:im:get-config",
+	SET_CONFIG: "vetta:im:set-config",
+	GET_STATUS: "vetta:im:get-status",
+	SUBSCRIBE_STATUS: "vetta:im:subscribe-status",
+	UNSUBSCRIBE_STATUS: "vetta:im:unsubscribe-status",
+	STATUS_EVENT: "vetta:im:status-event",
+	LOG_EVENT: "vetta:im:log-event",
+	TEST_CONNECTION: "vetta:im:test-connection",
+	RESTART: "vetta:im:restart",
+	GET_RECENT_LOGS: "vetta:im:get-recent-logs",
+	GET_PATHS: "vetta:im:get-paths",
+	DETECT_LEGACY: "vetta:im:detect-legacy",
+	IMPORT_LEGACY: "vetta:im:import-legacy",
+	WECHAT_START_BIND: "vetta:im:wechat:start-bind",
+	WECHAT_LOGOUT: "vetta:im:wechat:logout",
+	WECHAT_SUBSCRIBE: "vetta:im:wechat:subscribe",
+	WECHAT_UNSUBSCRIBE: "vetta:im:wechat:unsubscribe",
+	WECHAT_BIND_EVENT: "vetta:im:wechat:bind-event",
 } as const;
 
 const BATCH_TASKS_CHANNELS = {
@@ -82,9 +120,14 @@ const api: DesktopApi = {
 	},
 	skills: {
 		list: async () => ipcRenderer.invoke("vetta:skills:list"),
-		installFromMarket: async (name: string, archiveBuffer: ArrayBuffer) =>
-			ipcRenderer.invoke("vetta:skills:install-from-market", name, archiveBuffer),
-		uninstall: async (name: string) => ipcRenderer.invoke("vetta:skills:uninstall", name),
+		installFromMarket: async (
+			name: string,
+			archiveBuffer: ArrayBuffer,
+			type: "skill" | "scene",
+			meta?: { alias?: string; marketDescription?: string },
+		) => ipcRenderer.invoke("vetta:skills:install-from-market", name, archiveBuffer, type, meta),
+		uninstall: async (name: string, type: "skill" | "scene") =>
+			ipcRenderer.invoke("vetta:skills:uninstall", name, type),
 		toggle: async (name: string) => ipcRenderer.invoke("vetta:skills:toggle", name),
 		getMarketManifest: async () => ipcRenderer.invoke("vetta:skills:get-market-manifest"),
 	},
@@ -105,6 +148,9 @@ const api: DesktopApi = {
 		getServerUrl: async () => ipcRenderer.invoke("vetta:settings:get-server-url"),
 		getServerToken: async () => ipcRenderer.invoke("vetta:settings:get-server-token"),
 		setServerToken: async (token) => ipcRenderer.invoke("vetta:settings:set-server-token", token),
+	},
+	credits: {
+		getBalance: async () => ipcRenderer.invoke("vetta:credits:balance"),
 	},
 	shell: {
 		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),
@@ -192,6 +238,78 @@ const api: DesktopApi = {
 			};
 		},
 	},
+	downloads: {
+		start: async (params) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.START, params),
+		pause: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.PAUSE, id),
+		resume: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.RESUME, id),
+		cancel: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.CANCEL, id),
+		remove: async (id, deleteFile) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.REMOVE, id, deleteFile),
+		list: async () => ipcRenderer.invoke(DOWNLOAD_CHANNELS.LIST),
+		openFile: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.OPEN_FILE, id),
+		showInFolder: async (id) => ipcRenderer.invoke(DOWNLOAD_CHANNELS.SHOW_IN_FOLDER, id),
+		getDefaultDir: async () => ipcRenderer.invoke(DOWNLOAD_CHANNELS.GET_DEFAULT_DIR),
+		onEvent: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
+				handler(data as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(DOWNLOAD_CHANNELS.EVENT, listener);
+			return () => {
+				ipcRenderer.removeListener(DOWNLOAD_CHANNELS.EVENT, listener);
+			};
+		},
+	},
+	im: {
+		getConfig: async () => ipcRenderer.invoke(IM_CHANNELS.GET_CONFIG),
+		setConfig: async (payload) => ipcRenderer.invoke(IM_CHANNELS.SET_CONFIG, payload),
+		getStatus: async () => ipcRenderer.invoke(IM_CHANNELS.GET_STATUS),
+		subscribeStatus: async (statusHandler, logHandler) => {
+			const { subscriptionId } = (await ipcRenderer.invoke(IM_CHANNELS.SUBSCRIBE_STATUS)) as {
+				subscriptionId: string;
+			};
+			const statusListener = (_event: Electron.IpcRendererEvent, incomingId: string, snapshot: unknown) => {
+				if (incomingId === subscriptionId) {
+					statusHandler(snapshot as Parameters<typeof statusHandler>[0]);
+				}
+			};
+			const logListener = (_event: Electron.IpcRendererEvent, incomingId: string, log: unknown) => {
+				if (incomingId === subscriptionId) {
+					logHandler(log as Parameters<typeof logHandler>[0]);
+				}
+			};
+			ipcRenderer.on(IM_CHANNELS.STATUS_EVENT, statusListener);
+			ipcRenderer.on(IM_CHANNELS.LOG_EVENT, logListener);
+			return () => {
+				ipcRenderer.removeListener(IM_CHANNELS.STATUS_EVENT, statusListener);
+				ipcRenderer.removeListener(IM_CHANNELS.LOG_EVENT, logListener);
+				void ipcRenderer.invoke(IM_CHANNELS.UNSUBSCRIBE_STATUS, subscriptionId);
+			};
+		},
+		testConnection: async (payload) => ipcRenderer.invoke(IM_CHANNELS.TEST_CONNECTION, payload),
+		restart: async () => ipcRenderer.invoke(IM_CHANNELS.RESTART),
+		getRecentLogs: async () => ipcRenderer.invoke(IM_CHANNELS.GET_RECENT_LOGS),
+		getPaths: async () => ipcRenderer.invoke(IM_CHANNELS.GET_PATHS),
+		detectLegacy: async () => ipcRenderer.invoke(IM_CHANNELS.DETECT_LEGACY),
+		importLegacy: async (detection) => ipcRenderer.invoke(IM_CHANNELS.IMPORT_LEGACY, detection),
+		wechat: {
+			startBind: async () => ipcRenderer.invoke(IM_CHANNELS.WECHAT_START_BIND),
+			logout: async () => ipcRenderer.invoke(IM_CHANNELS.WECHAT_LOGOUT),
+			subscribeBind: async (handler) => {
+				const { subscriptionId } = (await ipcRenderer.invoke(IM_CHANNELS.WECHAT_SUBSCRIBE)) as {
+					subscriptionId: string;
+				};
+				const listener = (_event: Electron.IpcRendererEvent, incomingId: string, bindEvent: unknown) => {
+					if (incomingId === subscriptionId) {
+						handler(bindEvent as Parameters<typeof handler>[0]);
+					}
+				};
+				ipcRenderer.on(IM_CHANNELS.WECHAT_BIND_EVENT, listener);
+				return () => {
+					ipcRenderer.removeListener(IM_CHANNELS.WECHAT_BIND_EVENT, listener);
+					void ipcRenderer.invoke(IM_CHANNELS.WECHAT_UNSUBSCRIBE, subscriptionId);
+				};
+			},
+		},
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),
@@ -214,10 +332,14 @@ const api: DesktopApi = {
 		},
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
+		setGlobalThinkingLevel: async (level) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_THINKING, level),
+		getGlobalThinkingLevel: async () => ipcRenderer.invoke(CHANNELS.GET_GLOBAL_THINKING),
 		getState: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_STATE, sessionId),
 		getMessages: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_MESSAGES, sessionId),
+		getFullHistory: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_FULL_HISTORY, sessionId),
 		delete: async (sessionPath) => ipcRenderer.invoke(CHANNELS.DELETE, sessionPath),
 		rename: async (sessionPath, name) => ipcRenderer.invoke(CHANNELS.RENAME, sessionPath, name),
+		dispose: async (sessionId) => ipcRenderer.invoke(CHANNELS.DISPOSE, sessionId),
 	},
 };
 

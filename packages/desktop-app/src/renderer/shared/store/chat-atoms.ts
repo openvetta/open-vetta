@@ -40,7 +40,7 @@ export type ContentBlock = TextBlock | ThinkingBlock | ToolCallBlock | ToolResul
 
 export interface ChatMessage {
 	id: string;
-	role: "user" | "assistant";
+	role: "user" | "assistant" | "compaction";
 	/** Plain text for user messages; for assistant messages this is the concatenated text blocks */
 	text: string;
 	/** Rich content blocks for assistant messages */
@@ -106,6 +106,9 @@ export interface MentionedFile {
 }
 
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
+
+/** Files modified/created during the last agent turn (set on agent_end, cleared on agent_start) */
+export const turnModifiedFilesAtom = atom<string[]>([]);
 export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 export const attachedImagesAtom = atom<AttachedImage[]>([]);
@@ -116,6 +119,9 @@ export const lastTurnUsageAtom = atom<TurnUsageData | null>(null);
 
 /** Current context window usage */
 export const contextUsageAtom = atom<ContextUsageData | null>(null);
+
+/** Whether context compaction is currently in progress */
+export const isCompactingAtom = atom<boolean>(false);
 
 /** Selected model identifier: "provider/modelId" */
 export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));

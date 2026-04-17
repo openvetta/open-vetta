@@ -22,15 +22,46 @@ All PRs will be auto-closed until then. Approved contributors can submit PRs aft
 
 Tools for building AI agents and managing LLM deployments.
 
-## Packages
+## Package Map
 
-| Package | Description |
-|---------|-------------|
-| **[packages/ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[packages/agent](packages/agent)** | Agent runtime with tool calling and state management |
-| **[packages/coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
-| **[packages/tui](packages/tui)** | Terminal UI library with differential rendering |
-| **[packages/web-ui](packages/web-ui)** | Web components for AI chat interfaces |
+### Core Libraries
+
+| Package | Owns | Does Not Own |
+|---------|------|--------------|
+| **[packages/ai](packages/ai)** | Multi-provider LLM API surface, model registry, provider adapters | Agent loops, app UI, session persistence |
+| **[packages/agent](packages/agent)** | Stateful agent loop, tool execution, event streaming | Terminal UI, desktop integration, business APIs |
+| **[packages/tui](packages/tui)** | Terminal rendering primitives and editor components | Agent policy, session storage, business workflows |
+| **[packages/web-ui](packages/web-ui)** | Reusable browser chat UI, artifacts, attachment previews | Desktop shell lifecycle, server-side business rules |
+
+### Runtime And Host Packages
+
+| Package | Owns | Depends On |
+|---------|------|------------|
+| **[packages/runtime-core](packages/runtime-core)** | Session facade and runtime event contract for host apps | `coding-agent` |
+| **[packages/runtime-tools](packages/runtime-tools)** | Re-exported built-in coding tools for host reuse | `coding-agent` |
+| **[packages/runtime-storage](packages/runtime-storage)** | Auth/session/settings storage primitives | `coding-agent` |
+| **[packages/runtime-mcp](packages/runtime-mcp)** | MCP manager and MCP runtime bindings | `coding-agent` |
+| **[packages/runtime-telemetry](packages/runtime-telemetry)** | Runtime logging abstractions | no runtime host state |
+
+### Applications
+
+| Package | Role |
+|---------|------|
+| **[packages/coding-agent](packages/coding-agent)** | End-user coding agent product, CLI, SDK, interactive mode |
+| **[packages/cli-app](packages/cli-app)** | Thin CLI wrapper around `coding-agent` |
+| **[packages/desktop-app](packages/desktop-app)** | Electron desktop host for chat, files, automations, and runtime integration |
+
+### Business Services
+
+| Package | Role |
+|---------|------|
+| **[packages/api](packages/api)** | Go backend for auth, providers, skills, releases, workflows, SSE |
+| **[packages/admin](packages/admin)** | React admin console for operating the business backend |
+
+### Architecture Guides
+
+- [docs/architecture-overview.md](docs/architecture-overview.md): dependency direction, request flow, app/runtime boundaries
+- [docs/package-conventions.md](docs/package-conventions.md): package, directory, and ownership conventions for future changes
 
 ## Features
 
@@ -64,14 +95,14 @@ See [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agent
 ## Development
 
 ```bash
-npm install          # Install all dependencies
-npm run build        # Build all packages
-npm run check        # Lint, format, and type check
+bun install          # Install all dependencies
+bun run build        # Build core libraries
+bun run check        # Lint, format, and type check
 ./test.sh            # Run tests (skips LLM-dependent tests without API keys)
 ./pi-test.sh         # Run from sources (must be run from repo root)
 ```
 
-> **Note:** `npm run check` requires `npm run build` to be run first. The web-ui package uses `tsc` which needs compiled `.d.ts` files from dependencies.
+> **Note:** `bun run check` requires built type outputs for some workspace packages. If `packages/web-ui` reports missing declarations, run `bun run build` first.
 
 ## License
 

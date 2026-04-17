@@ -31,12 +31,14 @@ import { stripFrontmatter } from "../utils/frontmatter.js";
 import { sleep } from "../utils/sleep.js";
 import { type BashResult, executeBash as executeBashCommand, executeBashWithOperations } from "./bash-executor.js";
 import {
+	CompactionCircuitBreaker,
 	type CompactionResult,
 	calculateContextTokens,
 	collectEntriesForBranchSummary,
 	compact,
 	estimateContextTokens,
 	generateBranchSummary,
+	microcompact,
 	prepareCompaction,
 	shouldCompact,
 } from "./compaction/index.js";
@@ -74,13 +76,17 @@ import type { BashExecutionMessage, CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.js";
-import type { BranchSummaryEntry, CompactionEntry, SessionManager } from "./session-manager.js";
+import type { BranchSummaryEntry, CompactionEntry, CustomEntry, SessionManager } from "./session-manager.js";
 import { getLatestCompactionEntry } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
 import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocation } from "./slash-commands.js";
 import { buildSystemPrompt } from "./system-prompt.js";
+import { TODO_SNAPSHOT_TYPE, type TodoItem, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
 import { createAllTools } from "./tools/index.js";
+import { createInvokeSceneTool } from "./tools/invoke-scene/index.js";
+import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
+import { createTodoTool } from "./tools/todo/index.js";
 
 // ============================================================================
 // Skill Block Parsing
@@ -121,7 +127,8 @@ export type AgentSessionEvent =
 			errorMessage?: string;
 	  }
 	| { type: "auto_retry_start"; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
-	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string };
+	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
+	| { type: "todo_update"; items: ReadonlyArray<TodoItem> };
 
 /** Listener function for agent session events */
 export type AgentSessionEventListener = (event: AgentSessionEvent) => void;
@@ -236,6 +243,7 @@ export class AgentSession {
 	// Compaction state
 	private _compactionAbortController: AbortController | undefined = undefined;
 	private _autoCompactionAbortController: AbortController | undefined = undefined;
+	private _compactionCircuitBreaker = new CompactionCircuitBreaker();
 
 	// Branch summarization state
 	private _branchSummaryAbortController: AbortController | undefined = undefined;
@@ -281,6 +289,9 @@ export class AgentSession {
 	private _enableMcp: boolean;
 	private _mcpDebug: boolean;
 
+	// Todo list
+	private _todoStore: TodoStore;
+
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
 		this.sessionManager = config.sessionManager;
@@ -295,6 +306,15 @@ export class AgentSession {
 		this._baseToolsOverride = config.baseToolsOverride;
 		this._enableMcp = config.enableMcp !== undefined ? config.enableMcp : true;
 		this._mcpDebug = config.mcpDebug || false;
+
+		// Initialize TodoStore with session persistence
+		this._todoStore = new TodoStore((snapshot) => {
+			this.sessionManager.appendCustomEntry(TODO_SNAPSHOT_TYPE, snapshot);
+			this._emit({ type: "todo_update", items: snapshot });
+		});
+
+		// Restore todo state from session if resuming
+		this._restoreTodoFromSession();
 
 		// Initialize MCP manager if enabled
 		if (this._enableMcp) {
@@ -328,6 +348,11 @@ export class AgentSession {
 			activeToolNames: this._initialActiveToolNames,
 			includeAllExtensionTools: true,
 		});
+
+		// Register follow-up provider for todo continuation.
+		// This runs INSIDE the agent loop (before follow-up queue is consumed),
+		// ensuring the agent cannot exit the loop while todo items remain.
+		this.agent.followUpProvider = () => this._buildTodoContinuationMessages();
 	}
 
 	/** Model registry for API key resolution and model discovery */
@@ -373,6 +398,12 @@ export class AgentSession {
 					}
 				}
 			}
+		}
+
+		// Skip ephemeral messages (e.g., [ephemeral:todo]) —
+		// they are only visible to the LLM, not persisted or sent to UI/extensions.
+		if ((event.type === "message_start" || event.type === "message_end") && this._isEphemeralMessage(event.message)) {
+			return;
 		}
 
 		// Emit to extensions first
@@ -435,6 +466,57 @@ export class AgentSession {
 			await this._checkCompaction(msg);
 		}
 	};
+
+	/**
+	 * Ephemeral message prefix. Messages starting with `[ephemeral:<tag>]` are
+	 * auto-injected by the system (e.g., todo continuation). They are:
+	 * - Visible to the LLM (so it can act on them)
+	 * - NOT persisted to session JSONL
+	 * - NOT emitted to the frontend / extensions
+	 *
+	 * Usage:  `[ephemeral:todo] Your prompt here...`
+	 */
+	static readonly EPHEMERAL_PREFIX = "[ephemeral:";
+
+	/** Check if a message is ephemeral (should not be persisted or shown). */
+	private _isEphemeralMessage(message: AgentMessage): boolean {
+		if (message.role !== "user") return false;
+		const content = message.content;
+		if (typeof content === "string") return content.startsWith(AgentSession.EPHEMERAL_PREFIX);
+		if (Array.isArray(content) && content.length > 0 && content[0].type === "text") {
+			return content[0].text.startsWith(AgentSession.EPHEMERAL_PREFIX);
+		}
+		return false;
+	}
+
+	/**
+	 * Build follow-up messages for uncompleted todo items.
+	 * Called by agent core's followUpProvider INSIDE the loop,
+	 * before the agent decides whether to exit.
+	 */
+	private _buildTodoContinuationMessages(): AgentMessage[] {
+		const items = this._todoStore.getAll();
+		if (items.length === 0) return [];
+
+		const pending = items.filter((i) => i.status !== "done");
+		if (pending.length === 0) return [];
+
+		const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
+		const doneCount = items.length - pending.length;
+
+		return [
+			{
+				role: "user",
+				content: [
+					{
+						type: "text",
+						text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
+					},
+				],
+				timestamp: Date.now(),
+			},
+		];
+	}
 
 	/** Resolve the pending retry promise */
 	private _resolveRetry(): void {
@@ -580,10 +662,16 @@ export class AgentSession {
 	/**
 	 * Remove all listeners and disconnect from agent.
 	 * Call this when completely done with the session.
+	 *
+	 * Releases the session file lock so another process can take ownership.
+	 * After dispose(), the underlying SessionManager must not be reused.
 	 */
 	dispose(): void {
 		this._disconnectFromAgent();
 		this._eventListeners = [];
+
+		// Release the session file lock so another writer can take over.
+		this.sessionManager.close();
 
 		// Shutdown MCP servers
 		if (this._mcpManager) {
@@ -704,6 +792,11 @@ export class AgentSession {
 		return this.sessionManager.getSessionName();
 	}
 
+	/** Full branch entries from root to current leaf (for UI history display). */
+	getSessionBranch(): import("./session-manager.js").SessionEntry[] {
+		return this.sessionManager.getBranch();
+	}
+
 	/** Scoped models for cycling (from --models flag) */
 	get scopedModels(): ReadonlyArray<{ model: Model<any>; thinkingLevel: ThinkingLevel }> {
 		return this._scopedModels;
@@ -717,6 +810,28 @@ export class AgentSession {
 	/** File-based prompt templates */
 	get promptTemplates(): ReadonlyArray<PromptTemplate> {
 		return this._resourceLoader.getPrompts().prompts;
+	}
+
+	/** Todo store for task planning and tracking */
+	get todoStore(): TodoStore {
+		return this._todoStore;
+	}
+
+	/** Restore todo state from the latest todo_snapshot in session JSONL */
+	private _restoreTodoFromSession(): void {
+		const branch = this.sessionManager.getBranch();
+		let latestSnapshot: TodoItem[] | undefined;
+		for (const entry of branch) {
+			if (entry.type === "custom") {
+				const custom = entry as CustomEntry;
+				if (custom.customType === TODO_SNAPSHOT_TYPE) {
+					latestSnapshot = custom.data as TodoItem[];
+				}
+			}
+		}
+		if (latestSnapshot && latestSnapshot.length > 0) {
+			this._todoStore.restoreFromSnapshot(latestSnapshot);
+		}
 	}
 
 	private _rebuildSystemPrompt(toolNames: string[]): string {
@@ -932,16 +1047,28 @@ export class AgentSession {
 	}
 
 	/**
-	 * Expand skill commands (/skill:name args) to their full content.
-	 * Returns the expanded text, or the original text if not a skill command or skill not found.
+	 * Expand skill/scene commands (/skill:name or /scene:name args) to their full content.
+	 * Returns the expanded text, or the original text if not a skill/scene command or not found.
 	 * Emits errors via extension runner if file read fails.
 	 */
 	private _expandSkillCommand(text: string): string {
-		if (!text.startsWith("/skill:")) return text;
+		let prefix: string;
 
-		const spaceIndex = text.indexOf(" ");
-		const skillName = spaceIndex === -1 ? text.slice(7) : text.slice(7, spaceIndex);
-		const args = spaceIndex === -1 ? "" : text.slice(spaceIndex + 1).trim();
+		if (text.startsWith("/skill:")) {
+			prefix = "/skill:";
+		} else if (text.startsWith("/scene:")) {
+			// Scenes are not expanded inline — the LLM will call invoke_scene tool instead.
+			// Just pass through so the /scene: prefix is visible to the model.
+			return text;
+		} else {
+			return text;
+		}
+
+		const prefixLen = prefix.length;
+		const rest = text.slice(prefixLen);
+		const sepMatch = rest.match(/[\s]/);
+		const skillName = sepMatch ? rest.slice(0, sepMatch.index) : rest;
+		const args = sepMatch ? rest.slice(sepMatch.index!).trim() : "";
 
 		const skill = this.resourceLoader.getSkills().skills.find((s) => s.name === skillName);
 		if (!skill) return text; // Unknown skill, pass through
@@ -952,7 +1079,6 @@ export class AgentSession {
 			const skillBlock = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
 			return args ? `${skillBlock}\n\n${args}` : skillBlock;
 		} catch (err) {
-			// Emit error like extension commands do
 			this._extensionRunner?.emitError({
 				extensionPath: skill.filePath,
 				event: "skill_expansion",
@@ -1608,6 +1734,43 @@ export class AgentSession {
 	}
 
 	/**
+	 * Pre-LLM-call compaction. Called from transformContext before each LLM call.
+	 *
+	 * Layer 1: microcompact — clears old tool results (pure, zero cost).
+	 * Layer 2: LLM compact  — if above threshold & circuit breaker allows.
+	 */
+	async preCallCompaction(messages: AgentMessage[], _signal?: AbortSignal): Promise<AgentMessage[]> {
+		// Layer 1: microcompact (always runs)
+		messages = microcompact(messages);
+
+		// Layer 2: check if LLM compact is needed
+		const settings = this.settingsManager.getCompactionSettings();
+		if (!settings.enabled) return messages;
+
+		const contextWindow = this.model?.contextWindow ?? 0;
+		if (contextWindow <= 0) return messages;
+
+		const estimate = estimateContextTokens(messages);
+		if (!shouldCompact(estimate.tokens, contextWindow, settings)) return messages;
+
+		// Circuit breaker check
+		if (!this._compactionCircuitBreaker.canAttempt()) return messages;
+
+		// Concurrency guard: skip if compaction is already running
+		if (this._autoCompactionAbortController) return messages;
+
+		try {
+			await this._runAutoCompaction("threshold", false);
+			this._compactionCircuitBreaker.recordSuccess();
+			// Return fresh messages after compaction
+			return this.sessionManager.buildSessionContext().messages;
+		} catch {
+			this._compactionCircuitBreaker.recordFailure();
+			return messages;
+		}
+	}
+
+	/**
 	 * Check if compaction is needed and run it.
 	 * Called after agent_end and before prompt submission.
 	 *
@@ -1772,6 +1935,7 @@ export class AgentSession {
 				tokensBefore,
 				details,
 			};
+			this._compactionCircuitBreaker.recordSuccess();
 			this._emit({ type: "auto_compaction_end", result, aborted: false, willRetry });
 
 			if (willRetry) {
@@ -1792,6 +1956,7 @@ export class AgentSession {
 				}, 100);
 			}
 		} catch (error) {
+			this._compactionCircuitBreaker.recordFailure();
 			const errorMessage = error instanceof Error ? error.message : "compaction failed";
 			this._emit({
 				type: "auto_compaction_end",
@@ -2021,12 +2186,35 @@ export class AgentSession {
 	}): void {
 		const autoResizeImages = this.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.settingsManager.getShellCommandPrefix();
-		const baseTools = this._baseToolsOverride
-			? this._baseToolsOverride
+		const baseTools: Record<string, AgentTool<any>> = this._baseToolsOverride
+			? { ...this._baseToolsOverride }
 			: createAllTools(this._cwd, {
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix },
 				});
+
+		// Add invoke_skill tool if skills are available
+		const loadedSkills = this._resourceLoader.getSkills().skills;
+		const visibleSkills = loadedSkills.filter((s) => !s.disableModelInvocation && s.type !== "scene");
+		if (visibleSkills.length > 0) {
+			const invokeSkillTool = createInvokeSkillTool({
+				getSkills: () => this._resourceLoader.getSkills().skills,
+			});
+			baseTools.invoke_skill = invokeSkillTool;
+		}
+
+		// Add invoke_scene tool if scenes are available
+		const scenes = loadedSkills.filter((s) => s.type === "scene");
+		if (scenes.length > 0) {
+			const invokeSceneTool = createInvokeSceneTool({
+				getScenes: () => this._resourceLoader.getSkills().skills,
+			});
+			baseTools.invoke_scene = invokeSceneTool;
+		}
+
+		// Add todo tool (always available)
+		const todoTool = createTodoTool({ getTodoStore: () => this._todoStore });
+		baseTools.todo = todoTool;
 
 		this._baseToolRegistry = new Map(Object.entries(baseTools).map(([name, tool]) => [name, tool as AgentTool]));
 
@@ -2076,6 +2264,20 @@ export class AgentSession {
 			: ["read", "bash", "edit", "write"];
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		const activeToolNameSet = new Set<string>(baseActiveToolNames);
+
+		// Always activate invoke_skill, invoke_scene, and todo when available in base tools
+		if (this._baseToolRegistry.has("invoke_skill")) {
+			activeToolNameSet.add("invoke_skill");
+		}
+		if (this._baseToolRegistry.has("invoke_scene")) {
+			activeToolNameSet.add("invoke_scene");
+		}
+		if (this._baseToolRegistry.has("todo")) {
+			activeToolNameSet.add("todo");
+		}
+		if (this._baseToolRegistry.has("doc_to_pdf")) {
+			activeToolNameSet.add("doc_to_pdf");
+		}
 		if (options.includeAllExtensionTools) {
 			for (const tool of wrappedExtensionTools as AgentTool[]) {
 				activeToolNameSet.add(tool.name);
@@ -2813,14 +3015,18 @@ export class AgentSession {
 		const contextWindow = model.contextWindow ?? 0;
 		if (contextWindow <= 0) return undefined;
 
+		// No messages yet → 0% usage (system prompt is not counted here)
+		if (this.messages.length === 0) {
+			return { tokens: 0, contextWindow, percent: 0 };
+		}
+
 		// After compaction, the last assistant usage reflects pre-compaction context size.
 		// We can only trust usage from an assistant that responded after the latest compaction.
-		// If no such assistant exists, context token count is unknown until the next LLM response.
+		// If no such assistant exists, fall back to estimation rather than returning unknown.
 		const branchEntries = this.sessionManager.getBranch();
 		const latestCompaction = getLatestCompactionEntry(branchEntries);
 
 		if (latestCompaction) {
-			// Check if there's a valid assistant usage after the compaction boundary
 			const compactionIndex = branchEntries.lastIndexOf(latestCompaction);
 			let hasPostCompactionUsage = false;
 			for (let i = branchEntries.length - 1; i > compactionIndex; i--) {
@@ -2838,7 +3044,11 @@ export class AgentSession {
 			}
 
 			if (!hasPostCompactionUsage) {
-				return { tokens: null, contextWindow, percent: null };
+				// No post-compaction usage yet — use estimation instead of returning null.
+				// This avoids "usage unknown" after compaction until the next LLM response.
+				const estimate = estimateContextTokens(this.messages);
+				const percent = (estimate.tokens / contextWindow) * 100;
+				return { tokens: estimate.tokens, contextWindow, percent };
 			}
 		}
 

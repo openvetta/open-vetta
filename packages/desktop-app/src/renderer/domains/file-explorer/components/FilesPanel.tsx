@@ -3,13 +3,24 @@ import { useFileTree } from "../hooks/useFileTree";
 import { FileTree } from "./FileTree";
 import { FileContextMenu } from "./FileContextMenu";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
-import { useAtom } from "jotai";
-import { fileContextMenuAtom, type FsEntry } from "@shared/store/atoms";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import {
+	fileContextMenuAtom,
+	filePreviewAtom,
+	filePreviewContextReadonlyAtom,
+	type FilePreviewItem,
+	type FsEntry,
+} from "@shared/store/atoms";
 import { useState } from "react";
 import { Button } from "@shared/components/ui/button";
-import { pathBasename } from "@shared/lib/utils";
+import { pathBasename, pathDirname } from "@shared/lib/utils";
 
-export function FilesPanel(): JSX.Element {
+interface FilesPanelProps {
+	/** 显式根目录（项目详情页等无 active session 场景使用） */
+	cwd?: string | null;
+}
+
+export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 	const {
 		cache,
 		expandedDirs,
@@ -20,11 +31,49 @@ export function FilesPanel(): JSX.Element {
 		deleteEntry,
 		moveEntry,
 		refreshDir,
-	} = useFileTree();
+	} = useFileTree(cwd);
 
 	const [contextMenu, setContextMenu] = useAtom(fileContextMenuAtom);
+	const setPreview = useSetAtom(filePreviewAtom);
+	const previewCtx = useAtomValue(filePreviewContextReadonlyAtom);
 	const [deleteTarget, setDeleteTarget] = useState<FsEntry | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
+
+	const handleSelectFile = useCallback(
+		(entry: FsEntry) => {
+			// 优先按 pathDirname 取同目录列表
+			const dir = pathDirname(entry.path);
+			let siblings: FsEntry[] = (cache.get(dir) ?? []).filter((e) => !e.isDirectory);
+
+			// 兜底 1：在 Windows 上 cache key 与 pathDirname 可能因分隔符差异而未命中，
+			// 直接遍历 cache 找到包含当前文件的目录列表
+			if (siblings.length === 0) {
+				for (const entries of cache.values()) {
+					if (entries.some((e) => e.path === entry.path)) {
+						siblings = entries.filter((e) => !e.isDirectory);
+						break;
+					}
+				}
+			}
+
+			// 兜底 2：仍未找到则只预览当前文件
+			if (siblings.length === 0) {
+				siblings = [entry];
+			}
+
+			const items: FilePreviewItem[] = siblings.map((e) => ({
+				name: e.name,
+				path: e.path,
+				size: e.size,
+			}));
+			const idx = items.findIndex((it) => it.path === entry.path);
+			setPreview({ items, index: idx >= 0 ? idx : 0 });
+		},
+		[cache, setPreview],
+	);
+
+	// 当前选中的文件路径（来自全局预览上下文，仅当预览来源为本地路径时高亮）
+	const selectedPath = previewCtx?.items[previewCtx.index]?.path ?? null;
 
 	// Listen for drag-drop move events
 	useEffect(() => {
@@ -91,7 +140,9 @@ export function FilesPanel(): JSX.Element {
 					cache={cache}
 					expandedDirs={expandedDirs}
 					loadingDirs={loadingDirs}
+					selectedPath={selectedPath}
 					onToggleDir={toggleDir}
+					onSelectFile={handleSelectFile}
 					onRename={renameEntry}
 				/>
 			)}

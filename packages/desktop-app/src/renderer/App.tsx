@@ -13,6 +13,9 @@ import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
 import { useFlowingInit } from "./domains/flowing/hooks/useFlowingInit";
+import { useFlowingChatInit } from "./domains/flowing-chat/hooks/useFlowingChatInit";
+import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
+import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 
 export function RootLayout(): JSX.Element {
@@ -22,6 +25,8 @@ export function RootLayout(): JSX.Element {
 	useAuth();
 	useAppInit();
 	useFlowingInit();
+	useFlowingChatInit();
+	useDownloadsInit();
 	const { openSession, openSessionRef } = useSessionManager();
 
 	// ─── Global keyboard shortcuts ───
@@ -68,6 +73,7 @@ export function RootLayout(): JSX.Element {
 					<LoginDialog />
 					<FlowingSendDialog />
 					<WorkflowCompleteDialog />
+					<FilePreviewDialog />
 				</div>
 			</div>
 		</TooltipProvider>

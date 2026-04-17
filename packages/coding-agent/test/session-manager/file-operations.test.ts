@@ -199,10 +199,16 @@ describe("SessionManager.setSessionFile with corrupted files", () => {
 		// First open recovers the file
 		const sm1 = SessionManager.open(corruptedFile, tempDir);
 		const sessionId = sm1.getSessionId();
+		// Release the lock before reopening; SessionManager now enforces single-writer.
+		sm1.close();
 
 		// Second open should load the recovered file successfully
 		const sm2 = SessionManager.open(corruptedFile, tempDir);
-		expect(sm2.getSessionId()).toBe(sessionId);
-		expect(sm2.getHeader()?.type).toBe("session");
+		try {
+			expect(sm2.getSessionId()).toBe(sessionId);
+			expect(sm2.getHeader()?.type).toBe("session");
+		} finally {
+			sm2.close();
+		}
 	});
 });

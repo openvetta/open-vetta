@@ -375,7 +375,7 @@ function createClient(
 
 	return new OpenAI({
 		apiKey,
-		baseURL: model.baseUrl,
+		baseURL: model.gatewayUrl || model.baseUrl,
 		dangerouslyAllowBrowser: true,
 		defaultHeaders: headers,
 	});
@@ -428,8 +428,13 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		// Must explicitly disable since z.ai defaults to thinking enabled
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
 	} else if (compat.thinkingFormat === "qwen" && model.reasoning) {
-		// Qwen uses enable_thinking: boolean
+		// Qwen uses enable_thinking: boolean + reasoning_effort for effort control
 		(params as any).enable_thinking = !!options?.reasoningEffort;
+		if (options?.reasoningEffort) {
+			params.reasoning_effort = options.reasoningEffort;
+		} else {
+			params.reasoning_effort = "none" as any;
+		}
 	} else if (compat.thinkingFormat === "nvidia" && model.reasoning) {
 		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
 		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };

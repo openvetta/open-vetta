@@ -1,5 +1,6 @@
 import type { Message } from "@mariozechner/pi-ai";
 import type {
+	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
 	SessionConfig,
@@ -19,10 +20,14 @@ export interface DesktopSessionApi {
 	abort(sessionId: string): Promise<void>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
+	setGlobalThinkingLevel(level: string): Promise<void>;
+	getGlobalThinkingLevel(): Promise<string>;
 	getState(sessionId: string): Promise<SessionStateSnapshot>;
 	getMessages(sessionId: string): Promise<Message[]>;
+	getFullHistory(sessionId: string): Promise<HistoryEntry[]>;
 	delete(sessionPath: string): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
+	dispose(sessionId: string): Promise<void>;
 }
 
 export interface SelectedImageFile {
@@ -46,6 +51,7 @@ export interface DesktopThemeApi {
 
 export interface SkillInfo {
 	name: string;
+	alias?: string;
 	description: string;
 	source: string;
 	type: "skill" | "scene";
@@ -66,12 +72,20 @@ export interface InstalledMarketSkill {
 	installedAt: string;
 	source: "market";
 	enabled: boolean;
+	type?: "skill" | "scene";
+	alias?: string;
+	marketDescription?: string;
 }
 
 export interface DesktopSkillsApi {
 	list(): Promise<SkillInfo[]>;
-	installFromMarket(name: string, archiveBuffer: ArrayBuffer): Promise<void>;
-	uninstall(name: string): Promise<void>;
+	installFromMarket(
+		name: string,
+		archiveBuffer: ArrayBuffer,
+		type: "skill" | "scene",
+		meta?: { alias?: string; marketDescription?: string },
+	): Promise<void>;
+	uninstall(name: string, type: "skill" | "scene"): Promise<void>;
 	toggle(name: string): Promise<void>;
 	getMarketManifest(): Promise<Record<string, InstalledMarketSkill>>;
 }
@@ -163,6 +177,10 @@ export interface DesktopSettingsApi {
 	getServerUrl(): Promise<string>;
 	getServerToken(): Promise<string | undefined>;
 	setServerToken(token: string | undefined): Promise<void>;
+}
+
+export interface DesktopCreditsApi {
+	getBalance(): Promise<{ balance: number | null; unlimited?: boolean }>;
 }
 
 export interface UpdateCheckResult {
@@ -314,6 +332,213 @@ export interface DesktopBatchTasksApi {
 	onTaskEvent(handler: (event: BatchTaskEvent) => void): () => void;
 }
 
+export type DownloadStatus = "queued" | "downloading" | "paused" | "completed" | "failed" | "canceled";
+
+export interface DownloadItem {
+	id: string;
+	url: string;
+	filename: string;
+	path: string;
+	totalBytes: number;
+	receivedBytes: number;
+	status: DownloadStatus;
+	error?: string;
+	createdAt: number;
+	completedAt?: number;
+	speedBytesPerSec?: number;
+}
+
+export interface DownloadStartParams {
+	url: string;
+	filename?: string;
+	headers?: Record<string, string>;
+	saveDir?: string;
+}
+
+export interface DownloadEvent {
+	type: "added" | "updated" | "removed";
+	item?: DownloadItem;
+	id?: string;
+}
+
+export interface DesktopDownloadsApi {
+	start(params: DownloadStartParams): Promise<DownloadItem>;
+	pause(id: string): Promise<void>;
+	resume(id: string): Promise<void>;
+	cancel(id: string): Promise<void>;
+	remove(id: string, deleteFile: boolean): Promise<void>;
+	list(): Promise<DownloadItem[]>;
+	openFile(id: string): Promise<void>;
+	showInFolder(id: string): Promise<void>;
+	getDefaultDir(): Promise<string>;
+	onEvent(handler: (event: DownloadEvent) => void): () => void;
+}
+
+// =============================================================================
+// IM bridge (im-gateway sidecar)
+// =============================================================================
+
+export type ImTransportStatus = "offline" | "connecting" | "online" | "error" | "awaiting_bind";
+
+export type ImTransportSelector = "feishu" | "wechat";
+
+export interface ImBridgeConfig {
+	enabled: boolean;
+	transport: ImTransportSelector;
+	feishu: {
+		appId: string;
+		appSecret: string;
+		verificationToken: string;
+		encryptKey: string;
+		baseUrl?: string;
+	};
+	wechat: {
+		bound: boolean;
+		ilinkBotId?: string;
+		ilinkUserId?: string;
+	};
+	transportMode: "long-connection";
+	encryptionAvailable: boolean;
+}
+
+export interface ImSetConfigPayload {
+	enabled: boolean;
+	transport?: ImTransportSelector;
+	feishu?: {
+		appId: string;
+		appSecret?: string;
+		verificationToken?: string;
+		encryptKey?: string;
+		baseUrl?: string;
+	};
+}
+
+export interface ImSetConfigResult {
+	ok: boolean;
+	mode?: "plaintext";
+	error?: string;
+}
+
+export interface ImBridgeStatus {
+	transport: ImTransportStatus;
+	lastError?: string;
+	lastErrorAt?: string;
+	activeSessions: number;
+	sidecarPid?: number;
+	sidecarStartedAt?: string;
+	consecutiveStartFailures: number;
+	binaryPath?: string;
+}
+
+export interface ImLogEvent {
+	type: "log";
+	level: "debug" | "info" | "warn" | "error";
+	msg: string;
+	fields?: Record<string, unknown>;
+	time: string;
+}
+
+export interface ImTestConnectionResult {
+	ok: boolean;
+	error?: string;
+	message?: string;
+}
+
+export interface ImPathInfo {
+	config: string;
+	credentials: string;
+	state: string;
+	wechatState: string;
+}
+
+// =============================================================================
+// Wechat (iLink) bind flow
+// =============================================================================
+
+export type ImWechatBindStatus = "scanned" | "expired" | "redirected" | "confirmed" | "failed" | "cancelled";
+
+/**
+ * Tagged-union of bind-flow events the renderer's bind dialog reacts to.
+ *
+ *   qr       — a fresh QR url is ready; render and display
+ *   status   — bind state machine transition
+ *   bound    — credentials persisted, sidecar starting wechat transport
+ *   unbound  — credentials cleared (logout or expiry)
+ */
+export type ImWechatBindEvent =
+	| { kind: "qr"; type: "wechat_qr"; url: string; attempt: number }
+	| {
+			kind: "status";
+			type: "wechat_bind_status";
+			status: ImWechatBindStatus;
+			error?: string;
+	  }
+	| {
+			kind: "bound";
+			type: "wechat_bound";
+			ilink_bot_id: string;
+			ilink_user_id?: string;
+			base_url?: string;
+	  }
+	| { kind: "unbound"; type: "wechat_unbound"; reason?: string };
+
+export interface ImWechatStartBindResult {
+	ok: boolean;
+	error?: string;
+}
+
+export interface ImWechatLogoutResult {
+	ok: boolean;
+	error?: string;
+}
+
+export interface ImWechatApi {
+	/**
+	 * Start (or restart) a QR scan flow. Auto-flips the active transport
+	 * to wechat if needed. Returns immediately; live progress arrives via
+	 * subscribeBind().
+	 */
+	startBind(): Promise<ImWechatStartBindResult>;
+	/** Forget the bound account and re-enter awaiting_bind state. */
+	logout(): Promise<ImWechatLogoutResult>;
+	/**
+	 * Subscribe to live bind-flow events. The handler is called with every
+	 * qr / status / bound / unbound event in arrival order. Returns an
+	 * unsubscribe function.
+	 */
+	subscribeBind(handler: (event: ImWechatBindEvent) => void): Promise<() => void>;
+}
+
+export interface ImLegacyDetection {
+	hasLegacyData: boolean;
+	configPath?: string;
+	credentialsPath?: string;
+	statePath?: string;
+	parsed?: {
+		feishu?: { appId?: string; appSecret?: string; baseUrl?: string };
+		stateEntries?: Array<{ userId: string; projectId: string; sessionPath: string; updatedAt?: string }>;
+	};
+	error?: string;
+}
+
+export interface DesktopImApi {
+	getConfig(): Promise<ImBridgeConfig>;
+	setConfig(payload: ImSetConfigPayload): Promise<ImSetConfigResult>;
+	getStatus(): Promise<ImBridgeStatus>;
+	subscribeStatus(
+		handler: (snapshot: ImBridgeStatus) => void,
+		onLog: (event: ImLogEvent) => void,
+	): Promise<() => void>;
+	testConnection(payload: ImSetConfigPayload["feishu"]): Promise<ImTestConnectionResult>;
+	restart(): Promise<{ ok: boolean }>;
+	getRecentLogs(): Promise<ImLogEvent[]>;
+	getPaths(): Promise<ImPathInfo>;
+	detectLegacy(): Promise<ImLegacyDetection>;
+	importLegacy(detection: ImLegacyDetection): Promise<{ ok: boolean; error?: string }>;
+	/** Wechat (iLink) bind flow. See ImWechatApi. */
+	wechat: ImWechatApi;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -324,6 +549,7 @@ export interface DesktopApi {
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
 	settings: DesktopSettingsApi;
+	credits: DesktopCreditsApi;
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
 	auth: DesktopAuthApi;
@@ -332,6 +558,8 @@ export interface DesktopApi {
 	scheduler: DesktopSchedulerApi;
 	flowing: DesktopFlowingApi;
 	batchTasks: DesktopBatchTasksApi;
+	downloads: DesktopDownloadsApi;
+	im: DesktopImApi;
 }
 
 declare global {

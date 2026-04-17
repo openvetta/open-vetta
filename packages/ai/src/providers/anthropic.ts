@@ -506,7 +506,7 @@ function createClient(
 		const client = new Anthropic({
 			apiKey: null,
 			authToken: apiKey,
-			baseURL: model.baseUrl,
+			baseURL: model.gatewayUrl || model.baseUrl,
 			dangerouslyAllowBrowser: true,
 			defaultHeaders: mergeHeaders(
 				{
@@ -533,7 +533,7 @@ function createClient(
 		const client = new Anthropic({
 			apiKey: null,
 			authToken: apiKey,
-			baseURL: model.baseUrl,
+			baseURL: model.gatewayUrl || model.baseUrl,
 			dangerouslyAllowBrowser: true,
 			defaultHeaders: mergeHeaders(
 				{
@@ -554,7 +554,7 @@ function createClient(
 	// API key auth
 	const client = new Anthropic({
 		apiKey,
-		baseURL: model.baseUrl,
+		baseURL: model.gatewayUrl || model.baseUrl,
 		dangerouslyAllowBrowser: true,
 		defaultHeaders: mergeHeaders(
 			{
@@ -634,6 +634,10 @@ function buildParams(
 				budget_tokens: options.thinkingBudgetTokens || 1024,
 			};
 		}
+	} else if (model.reasoning && supportsAdaptiveThinking(model.id)) {
+		// Adaptive thinking models default to thinking when param is omitted,
+		// so we must explicitly disable it
+		params.thinking = { type: "disabled" };
 	}
 
 	if (options?.metadata) {

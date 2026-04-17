@@ -192,9 +192,11 @@ describe("shouldCompact", () => {
 		const settings: CompactionSettings = {
 			enabled: true,
 			reserveTokens: 10000,
+			minFreePercent: 20,
 			keepRecentTokens: 20000,
 		};
 
+		// threshold = max(100000-10000, 100000*0.8) = 90000
 		expect(shouldCompact(95000, 100000, settings)).toBe(true);
 		expect(shouldCompact(89000, 100000, settings)).toBe(false);
 	});
@@ -203,6 +205,7 @@ describe("shouldCompact", () => {
 		const settings: CompactionSettings = {
 			enabled: false,
 			reserveTokens: 10000,
+			minFreePercent: 20,
 			keepRecentTokens: 20000,
 		};
 

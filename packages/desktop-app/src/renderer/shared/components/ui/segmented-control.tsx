@@ -5,6 +5,8 @@ export interface SegmentedControlItem<T extends string> {
 	key: T;
 	label: string;
 	icon?: string;
+	/** 可选未读小红点（>0 显示） */
+	badge?: number;
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -68,7 +70,7 @@ export function SegmentedControl<T extends string>({
 				)}
 				style={indicatorStyle}
 			/>
-			{items.map(({ key, label, icon }) => (
+			{items.map(({ key, label, icon, badge }) => (
 				<button
 					key={key}
 					type="button"
@@ -83,6 +85,11 @@ export function SegmentedControl<T extends string>({
 				>
 					{icon && <span className={cn(icon, "h-3 w-3")} />}
 					{label}
+					{badge && badge > 0 ? (
+						<span className="ml-0.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold leading-none text-white">
+							{badge > 99 ? "99+" : badge}
+						</span>
+					) : null}
 				</button>
 			))}
 		</div>

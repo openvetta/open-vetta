@@ -91,6 +91,28 @@ export interface ErrorEvent extends SessionEventBase {
 	error: SessionError;
 }
 
+export interface TodoItem {
+	id: number;
+	content: string;
+	status: "pending" | "in_progress" | "done";
+}
+
+export interface TodoUpdateEvent extends SessionEventBase {
+	type: "todo_update";
+	items: TodoItem[];
+}
+
+export interface CompactionStartEvent extends SessionEventBase {
+	type: "compaction.start";
+	reason: "threshold" | "overflow";
+}
+
+export interface CompactionEndEvent extends SessionEventBase {
+	type: "compaction.end";
+	success: boolean;
+	errorMessage?: string;
+}
+
 export type SessionEvent =
 	| SessionLifecycleEvent
 	| MessageDeltaEvent
@@ -102,7 +124,10 @@ export type SessionEvent =
 	| ToolEndEvent
 	| McpStatusEvent
 	| UsageUpdateEvent
-	| ErrorEvent;
+	| ErrorEvent
+	| TodoUpdateEvent
+	| CompactionStartEvent
+	| CompactionEndEvent;
 
 export interface SessionStateSnapshot {
 	sessionId: string;
@@ -153,6 +178,14 @@ export interface SettingsPatch {
 	modelKey?: string;
 }
 
+/**
+ * A history entry for UI display. Includes messages AND compaction boundaries.
+ * The UI uses this to render complete conversation history (even after compaction).
+ */
+export type HistoryEntry =
+	| { type: "message"; message: Message }
+	| { type: "compaction"; summary: string; tokensBefore: number; timestamp: string };
+
 export interface SessionFacade {
 	createSession(config?: SessionConfig): Promise<{ sessionId: string }>;
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;
@@ -160,8 +193,12 @@ export interface SessionFacade {
 	abort(sessionId: string): Promise<void>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
+	/** Update thinking level for ALL open sessions at once. */
+	updateGlobalThinkingLevel(level: ThinkingLevel): void;
 	getState(sessionId: string): SessionStateSnapshot;
 	getMessages(sessionId: string): Message[];
+	/** Full conversation history including compaction boundaries (for UI display). */
+	getFullHistory(sessionId: string): HistoryEntry[];
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
 	deleteSession(sessionPath: string): Promise<void>;
@@ -169,4 +206,5 @@ export interface SessionFacade {
 	getSessionPath(sessionId: string): string | undefined;
 	renameSessionById(sessionId: string, name: string): void;
 	disposeSession(sessionId: string): Promise<void>;
+	disposeAllSessions(): Promise<void>;
 }

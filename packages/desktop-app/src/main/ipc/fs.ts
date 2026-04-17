@@ -1,9 +1,10 @@
 import type { Stats } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { ipcMain } from "electron";
 import type { FsEntry } from "../../preload/fs-types.js";
+import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 // ─── Desktop app config ───
 
@@ -53,8 +54,7 @@ async function readConfig(): Promise<DesktopConfig> {
 }
 
 async function writeConfig(config: DesktopConfig): Promise<void> {
-	await mkdir(dirname(CONFIG_PATH), { recursive: true });
-	await writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
+	atomicWriteJSON(CONFIG_PATH, config);
 }
 
 function expandTilde(p: string): string {
@@ -123,8 +123,7 @@ async function readMcpConfig(): Promise<McpConfig> {
 }
 
 async function writeMcpConfig(config: McpConfig): Promise<void> {
-	await mkdir(dirname(MCP_CONFIG_PATH), { recursive: true });
-	await writeFile(MCP_CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
+	atomicWriteJSON(MCP_CONFIG_PATH, config);
 }
 
 async function readModelsConfig(): Promise<ModelsConfig> {
@@ -138,8 +137,7 @@ async function readModelsConfig(): Promise<ModelsConfig> {
 }
 
 async function writeModelsConfig(config: ModelsConfig): Promise<void> {
-	await mkdir(dirname(MODELS_CONFIG_PATH), { recursive: true });
-	await writeFile(MODELS_CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
+	atomicWriteJSON(MODELS_CONFIG_PATH, config);
 }
 
 const CHANNELS = {
@@ -179,9 +177,16 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 }
 
 function assertPathWithinProject(targetPath: string): void {
-	const resolved = resolve(targetPath);
+	const normalizeForComparison = (value: string): string => {
+		const normalized = resolve(value);
+		return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+	};
+	const resolved = normalizeForComparison(targetPath);
 	for (const root of allowedRoots) {
-		if (resolved === root || resolved.startsWith(`${root}/`)) {
+		const normalizedRoot = normalizeForComparison(root);
+		const rel = relative(normalizedRoot, resolved);
+		const isWithinRoot = rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+		if (isWithinRoot) {
 			return;
 		}
 	}

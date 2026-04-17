@@ -6,7 +6,8 @@ import { CONFIG_DIR_NAME, getAgentDir } from "../config.js";
 
 export interface CompactionSettings {
 	enabled?: boolean; // default: true
-	reserveTokens?: number; // default: 16384
+	reserveTokens?: number; // default: 36000
+	minFreePercent?: number; // default: 20 (triggers at 80% for small windows)
 	keepRecentTokens?: number; // default: 20000
 }
 
@@ -596,17 +597,27 @@ export class SettingsManager {
 	}
 
 	getCompactionReserveTokens(): number {
-		return this.settings.compaction?.reserveTokens ?? 16384;
+		return this.settings.compaction?.reserveTokens ?? 36000;
+	}
+
+	getCompactionMinFreePercent(): number {
+		return this.settings.compaction?.minFreePercent ?? 20;
 	}
 
 	getCompactionKeepRecentTokens(): number {
 		return this.settings.compaction?.keepRecentTokens ?? 20000;
 	}
 
-	getCompactionSettings(): { enabled: boolean; reserveTokens: number; keepRecentTokens: number } {
+	getCompactionSettings(): {
+		enabled: boolean;
+		reserveTokens: number;
+		minFreePercent: number;
+		keepRecentTokens: number;
+	} {
 		return {
 			enabled: this.getCompactionEnabled(),
 			reserveTokens: this.getCompactionReserveTokens(),
+			minFreePercent: this.getCompactionMinFreePercent(),
 			keepRecentTokens: this.getCompactionKeepRecentTokens(),
 		};
 	}

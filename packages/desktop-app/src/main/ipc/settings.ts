@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
 import { ipcMain } from "electron";
 
 import { DEFAULT_SERVER_URL } from "../constants.js";
+import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 function getSettingsPath(): string {
 	return join(getAgentDir(), "settings.json");
@@ -20,10 +21,7 @@ export function readSettings(): Record<string, unknown> {
 }
 
 export function writeSettings(settings: Record<string, unknown>): void {
-	const path = getSettingsPath();
-	const dir = dirname(path);
-	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-	writeFileSync(path, JSON.stringify(settings, null, 2), "utf-8");
+	atomicWriteJSON(getSettingsPath(), settings);
 }
 
 interface RemoteProvidersResult {
@@ -69,6 +67,41 @@ async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
 	}
 }
 
+async function fetchCreditsBalance(): Promise<{ balance: number | null; unlimited?: boolean }> {
+	const settings = readSettings();
+	const serverUrl = DEFAULT_SERVER_URL;
+	const serverToken = settings.serverToken as string | undefined;
+	if (!serverToken) {
+		return { balance: null };
+	}
+
+	try {
+		const url = `${serverUrl.replace(/\/$/, "")}/credits/balance`;
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 5000);
+		const response = await fetch(url, {
+			signal: controller.signal,
+			headers: {
+				Accept: "application/json",
+				Authorization: `Bearer ${serverToken}`,
+			},
+		});
+		clearTimeout(timeout);
+
+		if (!response.ok) {
+			return { balance: null };
+		}
+
+		const body = (await response.json()) as { code: number; data?: { balance?: number; unlimited?: boolean } };
+		if (body.code !== 0) {
+			return { balance: null };
+		}
+		return { balance: body.data?.balance ?? null, unlimited: body.data?.unlimited };
+	} catch {
+		return { balance: null };
+	}
+}
+
 export function registerSettingsIpc(): () => void {
 	// 清理 settings.json 中残留的 serverUrl，现在统一由环境变量管理
 	const settings = readSettings();
@@ -100,10 +133,15 @@ export function registerSettingsIpc(): () => void {
 		return fetchRemoteProviders();
 	});
 
+	ipcMain.handle("vetta:credits:balance", async () => {
+		return fetchCreditsBalance();
+	});
+
 	return () => {
 		ipcMain.removeHandler("vetta:settings:get-server-url");
 		ipcMain.removeHandler("vetta:settings:get-server-token");
 		ipcMain.removeHandler("vetta:settings:set-server-token");
 		ipcMain.removeHandler("vetta:models:fetch-remote");
+		ipcMain.removeHandler("vetta:credits:balance");
 	};
 }

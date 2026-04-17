@@ -45,9 +45,98 @@ function authHeaders(token: string): HeadersInit {
 	return { Authorization: `Bearer ${token}` };
 }
 
+// ─── Server Info ───
+
+export type DeployMode = "enterprise" | "personal";
+
+export async function fetchServerInfo(): Promise<{ deploy_mode: DeployMode }> {
+	return request<{ deploy_mode: DeployMode }>("/info");
+}
+
+// ─── Team (personal mode) ───
+
+export interface TeamVO {
+	id: number;
+	name: string;
+	owner_id: number;
+	role?: string;
+	created_at: string;
+}
+
+export interface TeamDetailVO {
+	id: number;
+	name: string;
+	owner_id: number;
+	invite_code: string;
+	members: TeamMemberVO[];
+	created_at: string;
+}
+
+export interface TeamMemberVO {
+	id: number;
+	user_id: number;
+	username: string;
+	avatar: string;
+	role: string;
+	created_at: string;
+}
+
+export async function fetchMyTeams(token: string): Promise<TeamVO[]> {
+	return request<TeamVO[]>("/teams", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function createTeam(token: string, name: string): Promise<TeamVO> {
+	return request<TeamVO>("/teams", {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify({ name }),
+	});
+}
+
+export async function fetchTeamDetail(token: string, teamId: number): Promise<TeamDetailVO> {
+	return request<TeamDetailVO>(`/teams/${teamId}`, {
+		headers: authHeaders(token),
+	});
+}
+
+export async function joinTeam(token: string, inviteCode: string): Promise<TeamVO> {
+	return request<TeamVO>("/teams/join", {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify({ invite_code: inviteCode }),
+	});
+}
+
+export async function leaveTeam(token: string, teamId: number): Promise<void> {
+	await request<unknown>(`/teams/${teamId}/leave`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
+export async function resetTeamInviteCode(token: string, teamId: number): Promise<string> {
+	const data = await request<{ invite_code: string }>(`/teams/${teamId}/reset-invite`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+	return data.invite_code;
+}
+
+export async function removeTeamMember(token: string, teamId: number, userId: number): Promise<void> {
+	await request<unknown>(`/teams/${teamId}/members/${userId}`, {
+		method: "DELETE",
+		headers: authHeaders(token),
+	});
+}
+
+// ─── User ───
+
 export interface UserInfo {
 	id: number;
 	username: string;
+	nickname: string;
 	phone?: string;
 	email?: string;
 	avatar: string;
@@ -78,10 +167,57 @@ export async function fetchCurrentUser(token: string): Promise<UserInfo> {
 	});
 }
 
+export async function updateProfile(
+	token: string,
+	data: { nickname?: string; email?: string; avatar?: string },
+): Promise<UserInfo> {
+	return request<UserInfo>("/users/me", {
+		method: "PUT",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify(data),
+	});
+}
+
+export async function fetchCreditsBalance(token: string): Promise<{ balance: number }> {
+	return request<{ balance: number }>("/credits/balance", {
+		headers: authHeaders(token),
+	});
+}
+
+export interface CreditTransactionVO {
+	id: number;
+	user_id: number;
+	username: string;
+	type: string;
+	amount: number;
+	balance: number;
+	model_id: string;
+	provider_name: string;
+	input_tokens: number;
+	output_tokens: number;
+	remark: string;
+	created_at: string;
+}
+
+export async function fetchCreditTransactions(
+	token: string,
+	page?: number,
+	pageSize?: number,
+): Promise<{ list: CreditTransactionVO[]; total: number; page: number; page_size: number }> {
+	const params = new URLSearchParams();
+	if (page) params.set("page", String(page));
+	if (pageSize) params.set("page_size", String(pageSize));
+	const qs = params.toString();
+	return request(`/credits/transactions${qs ? `?${qs}` : ""}`, {
+		headers: authHeaders(token),
+	});
+}
+
 // ─── Market Skills ───
 
 export interface MarketSkillInfo {
 	name: string;
+	alias: string;
 	description: string;
 	license: string;
 	type: "skill" | "scene";
@@ -128,6 +264,7 @@ export interface FlowingTransferVO {
 	message: string;
 	status: string;
 	file_list: string[];
+	file_storage_key: string;
 	stage_index: number | null;
 	created_at: string;
 	responded_at: string | null;
@@ -206,6 +343,12 @@ export async function downloadFlowingFile(token: string, transferId: number): Pr
 	});
 	if (!res.ok) throw new Error(`下载失败: ${res.status}`);
 	return res.arrayBuffer();
+}
+
+/** 构造一个带 token query 的流转文件下载 URL，用于直接喂给 <a>/<img>/全局预览 Dialog */
+export async function flowingDownloadUrl(token: string, storageKey: string): Promise<string> {
+	const base = await getApiBase();
+	return `${base}/flowing/download?key=${encodeURIComponent(storageKey)}&token=${encodeURIComponent(token)}`;
 }
 
 export async function fetchFlowingHistory(
@@ -351,4 +494,151 @@ export async function fetchNextStageMembers(token: string, instanceId: number): 
 	return request<NextStageMembers>(`/workflows/instance/${instanceId}/next-stage-members`, {
 		headers: authHeaders(token),
 	});
+}
+
+// ─── Flowing Chat ───
+
+export interface ChatAttachment {
+	type: "image" | "file";
+	storage_key: string;
+	name: string;
+	size: number;
+	mime?: string;
+	width?: number;
+	height?: number;
+}
+
+export interface ChatReplySnapshot {
+	sender_id: number;
+	sender_name: string;
+	type: string;
+	preview: string;
+	deleted: boolean;
+}
+
+export interface ChatSystemEvent {
+	event: "flowing_created" | "flowing_closed" | "stage_entered" | "stage_returned";
+	stage_index?: number;
+	stage_name?: string;
+	actor_id?: number;
+	actor_name?: string;
+}
+
+export interface ChatMessageVO {
+	id: number;
+	flowing_id: number;
+	type: "text" | "image" | "file" | "system";
+	content: string;
+	sender_id: number;
+	sender_name: string;
+	sender_avatar: string;
+	attachments: ChatAttachment[];
+	mentioned_user_ids: number[];
+	reply_to_id: number | null;
+	reply_to_snapshot?: ChatReplySnapshot | null;
+	system_event?: ChatSystemEvent | null;
+	created_at: string;
+	deleted_at?: string | null;
+	deleted_by?: number | null;
+}
+
+export interface ChatUnreadVO {
+	flowing_id: number;
+	project_name: string;
+	unread_count: number;
+	last_sender_id?: number;
+	last_sender?: string;
+	last_type?: string;
+	last_content?: string;
+	last_created_at?: string;
+}
+
+export interface ChatMember {
+	id: number;
+	username: string;
+	avatar: string;
+}
+
+export async function fetchChatMembers(token: string, flowingId: number): Promise<ChatMember[]> {
+	return request<ChatMember[]>(`/flowing/${flowingId}/chat/members`, {
+		headers: authHeaders(token),
+	});
+}
+
+export async function fetchChatMessages(
+	token: string,
+	flowingId: number,
+	opts?: { before?: number; limit?: number },
+): Promise<ChatMessageVO[]> {
+	const params = new URLSearchParams();
+	if (opts?.before) params.set("before", String(opts.before));
+	if (opts?.limit) params.set("limit", String(opts.limit));
+	const qs = params.toString();
+	return request<ChatMessageVO[]>(`/flowing/${flowingId}/chat/messages${qs ? `?${qs}` : ""}`, {
+		headers: authHeaders(token),
+	});
+}
+
+export async function sendChatMessage(
+	token: string,
+	flowingId: number,
+	body: {
+		type: "text" | "image" | "file";
+		content?: string;
+		attachments?: ChatAttachment[];
+		mentioned_user_ids?: number[];
+		reply_to_id?: number;
+	},
+): Promise<ChatMessageVO> {
+	return request<ChatMessageVO>(`/flowing/${flowingId}/chat/messages`, {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+}
+
+export async function deleteChatMessage(token: string, flowingId: number, msgId: number): Promise<void> {
+	await request<unknown>(`/flowing/${flowingId}/chat/messages/${msgId}`, {
+		method: "DELETE",
+		headers: authHeaders(token),
+	});
+}
+
+export async function markChatRead(token: string, flowingId: number, lastReadMessageId: number): Promise<void> {
+	await request<unknown>(`/flowing/${flowingId}/chat/read`, {
+		method: "POST",
+		headers: { ...authHeaders(token), "Content-Type": "application/json" },
+		body: JSON.stringify({ last_read_message_id: lastReadMessageId }),
+	});
+}
+
+export async function fetchChatUnreadSummary(token: string): Promise<ChatUnreadVO[]> {
+	return request<ChatUnreadVO[]>("/chat/unread/summary", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function uploadChatAttachment(token: string, flowingId: number, file: File): Promise<ChatAttachment> {
+	const formData = new FormData();
+	formData.append("file", file, file.name);
+	const base = await getApiBase();
+	const res = await fetch(`${base}/flowing/${flowingId}/chat/upload`, {
+		method: "POST",
+		headers: authHeaders(token),
+		body: formData,
+	});
+	if (res.status === 401) {
+		notifyUnauthorized();
+		throw new Error("登录已过期，请重新登录");
+	}
+	const json = (await res.json()) as ApiResponse<ChatAttachment>;
+	if (json.code !== 0) {
+		throw new Error(json.message);
+	}
+	return json.data as ChatAttachment;
+}
+
+export async function chatAttachmentUrl(token: string, storageKey: string): Promise<string> {
+	const base = await getApiBase();
+	return `${base}/chat/attachment?key=${encodeURIComponent(storageKey)}&token=${encodeURIComponent(token)}`;
 }

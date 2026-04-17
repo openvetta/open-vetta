@@ -9,6 +9,7 @@ import { streamNvidia, streamSimpleNvidia } from "./nvidia.js";
 import { streamOpenAICodexResponses, streamSimpleOpenAICodexResponses } from "./openai-codex-responses.js";
 import { streamOpenAICompletions, streamSimpleOpenAICompletions } from "./openai-completions.js";
 import { streamOpenAIResponses, streamSimpleOpenAIResponses } from "./openai-responses.js";
+import { streamQwen, streamSimpleQwen } from "./qwen.js";
 
 export function registerBuiltInApiProviders(): void {
 	registerApiProvider({
@@ -63,6 +64,12 @@ export function registerBuiltInApiProviders(): void {
 		api: "nvidia-openai-responses",
 		stream: streamNvidia,
 		streamSimple: streamSimpleNvidia,
+	});
+
+	registerApiProvider({
+		api: "qwen-openai-completions",
+		stream: streamQwen,
+		streamSimple: streamSimpleQwen,
 	});
 
 	registerApiProvider({

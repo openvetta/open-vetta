@@ -9,6 +9,13 @@ export {
 	createBashTool,
 } from "./bash/index.js";
 export {
+	createDocToPdfTool,
+	type DocToPdfOperations,
+	type DocToPdfToolInput,
+	type DocToPdfToolOptions,
+	docToPdfTool,
+} from "./doc-to-pdf/index.js";
+export {
 	createEditTool,
 	type EditOperations,
 	type EditToolDetails,
@@ -33,6 +40,18 @@ export {
 	grepTool,
 } from "./grep/index.js";
 export {
+	createInvokeSceneTool,
+	type InvokeSceneToolDetails,
+	type InvokeSceneToolInput,
+	type InvokeSceneToolOptions,
+} from "./invoke-scene/index.js";
+export {
+	createInvokeSkillTool,
+	type InvokeSkillToolDetails,
+	type InvokeSkillToolInput,
+	type InvokeSkillToolOptions,
+} from "./invoke-skill/index.js";
+export {
 	createLsTool,
 	type LsOperations,
 	type LsToolDetails,
@@ -48,6 +67,7 @@ export {
 	type ReadToolOptions,
 	readTool,
 } from "./read/index.js";
+export { createTodoTool, type TodoToolDetails, type TodoToolOptions } from "./todo/index.js";
 export {
 	createTreeTool,
 	type TreeOperations,
@@ -76,6 +96,7 @@ export {
 
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type BashToolOptions, bashTool, createBashTool } from "./bash/index.js";
+import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./doc-to-pdf/index.js";
 import { createEditTool, editTool } from "./edit/index.js";
 import { createFindTool, findTool } from "./find/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
@@ -103,6 +124,7 @@ export const allTools = {
 	find: findTool,
 	ls: lsTool,
 	dir_tree: treeTool,
+	doc_to_pdf: docToPdfTool,
 };
 
 export type ToolName = keyof typeof allTools;
@@ -112,6 +134,8 @@ export interface ToolsOptions {
 	read?: ReadToolOptions;
 	/** Options for the bash tool */
 	bash?: BashToolOptions;
+	/** Options for the doc-to-pdf tool */
+	docToPdf?: DocToPdfToolOptions;
 }
 
 /**
@@ -124,6 +148,7 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 		createEditTool(cwd),
 		createWriteTool(cwd),
 		createTreeTool(cwd),
+		createDocToPdfTool(cwd, options?.docToPdf),
 	];
 }
 
@@ -153,5 +178,6 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		find: createFindTool(cwd),
 		ls: createLsTool(cwd),
 		dir_tree: createTreeTool(cwd),
+		doc_to_pdf: createDocToPdfTool(cwd, options?.docToPdf),
 	};
 }
