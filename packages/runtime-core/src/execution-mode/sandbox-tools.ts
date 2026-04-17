@@ -1,21 +1,23 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AgentTool, AgentToolUpdateCallback } from "@mariozechner/pi-agent-core";
 import {
-	type BashOperations,
-	createBashTool,
 	createEditTool,
 	createReadTool,
+	createShellTool,
 	createWriteTool,
+	type ShellOperations,
 	type ToolDefinition,
 } from "@vetta/coding-agent";
 import { assertWorkspacePathAllowed } from "./workspace-guard.js";
 
 const WINDOWS_SANDBOX_HOST_FILENAME = "codex-windows-sandbox-host.exe";
+const WINDOWS_SANDBOX_HOST_RELATIVE_DIRS = ["sandbox/windows-sandbox-cli", "sandbox"] as const;
 const PATH_ID_REGEX = /^@PATH_\d{4}$/i;
 const ENV_WHITELIST = ["PATH", "SystemRoot", "TEMP", "TMP", "COMSPEC"] as const;
+type WindowsSandboxBackend = "auto" | "elevated" | "unelevated";
 
 // AgentTool parameter types are intentionally tool-specific and not covariant.
 // We keep this adapter narrow and centralized to bridge built-in tools into
@@ -60,16 +62,22 @@ function wrapWorkspaceGuard(tool: AgentTool<any, any>, cwd: string): ToolDefinit
 
 function resolveWindowsSandboxHostPath(explicitPath?: string): string {
 	const moduleDir = dirname(fileURLToPath(import.meta.url));
-	const candidates = [
-		explicitPath,
-		process.env.VETTA_WINDOWS_SANDBOX_HOST_PATH,
-		resolvePath(moduleDir, "../../../sandbox", WINDOWS_SANDBOX_HOST_FILENAME),
-		resolvePath(moduleDir, "../../../../runtime-core/sandbox", WINDOWS_SANDBOX_HOST_FILENAME),
-		resolvePath(process.cwd(), "packages/runtime-core/sandbox", WINDOWS_SANDBOX_HOST_FILENAME),
-		resolvePath(process.cwd(), "../runtime-core/sandbox", WINDOWS_SANDBOX_HOST_FILENAME),
-		resolvePath(process.cwd(), "runtime-core/sandbox", WINDOWS_SANDBOX_HOST_FILENAME),
-		resolvePath(process.cwd(), "sandbox", WINDOWS_SANDBOX_HOST_FILENAME),
-	].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+	const runtimeCoreRootCandidates = [
+		resolvePath(moduleDir, "../.."),
+		resolvePath(moduleDir, "../../../packages/runtime-core"),
+		resolvePath(process.cwd(), "packages/runtime-core"),
+		resolvePath(process.cwd(), "../runtime-core"),
+		resolvePath(process.cwd(), "runtime-core"),
+	];
+	const autoDetectedCandidates = runtimeCoreRootCandidates.flatMap((rootDir) =>
+		WINDOWS_SANDBOX_HOST_RELATIVE_DIRS.map((relativeDir) =>
+			resolvePath(rootDir, relativeDir, WINDOWS_SANDBOX_HOST_FILENAME),
+		),
+	);
+
+	const candidates = [explicitPath, process.env.VETTA_WINDOWS_SANDBOX_HOST_PATH, ...autoDetectedCandidates].filter(
+		(value): value is string => typeof value === "string" && value.trim().length > 0,
+	);
 
 	for (const candidate of candidates) {
 		if (existsSync(candidate)) return candidate;
@@ -77,7 +85,7 @@ function resolveWindowsSandboxHostPath(explicitPath?: string): string {
 
 	const searched = candidates.map((item) => `  - ${item}`).join("\n");
 	throw new Error(
-		`Windows sandbox host not found. Set VETTA_WINDOWS_SANDBOX_HOST_PATH or place ${WINDOWS_SANDBOX_HOST_FILENAME} in packages/runtime-core/sandbox.` +
+		`Windows sandbox host not found. Set VETTA_WINDOWS_SANDBOX_HOST_PATH or place ${WINDOWS_SANDBOX_HOST_FILENAME} in packages/runtime-core/sandbox/windows-sandbox-cli.` +
 			`\nSearched:\n${searched}`,
 	);
 }
@@ -94,29 +102,70 @@ function buildSandboxEnv(sourceEnv: NodeJS.ProcessEnv | undefined): string[] {
 	return args;
 }
 
-function createWindowsSandboxBashOperations(sandboxHostPath: string): BashOperations {
+function resolveWindowsSandboxBackend(): WindowsSandboxBackend {
+	const raw = process.env.VETTA_WINDOWS_SANDBOX_BACKEND?.trim().toLowerCase();
+	if (raw === "auto" || raw === "elevated" || raw === "unelevated") {
+		return raw;
+	}
+
+	// Default to elevated for stricter sandbox isolation on configured hosts.
+	return "elevated";
+}
+
+function resolveWindowsShellCommand(): { command: string; args: string[] } {
+	const findOnPath = (binary: string): boolean => {
+		try {
+			const result = spawnSync("where", [binary], { encoding: "utf-8", timeout: 5000 });
+			if (result.status !== 0 || !result.stdout) return false;
+			const candidate = result.stdout.trim().split(/\r?\n/)[0];
+			return typeof candidate === "string" && candidate.length > 0 && existsSync(candidate);
+		} catch {
+			return false;
+		}
+	};
+
+	if (findOnPath("pwsh.exe")) {
+		return {
+			command: "pwsh.exe",
+			args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"],
+		};
+	}
+	if (findOnPath("powershell.exe")) {
+		return {
+			command: "powershell.exe",
+			args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"],
+		};
+	}
+	return { command: "cmd.exe", args: ["/d", "/s", "/c"] };
+}
+
+function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOperations {
 	return {
 		exec: (command, cwd, { onData, signal, timeout, env }) => {
 			return new Promise<{ exitCode: number | null }>((resolve, reject) => {
+				const shellCommand = resolveWindowsShellCommand();
+				const backend = resolveWindowsSandboxBackend();
 				const args = [
+					"--backend",
+					backend,
 					"--policy",
 					"workspace-write",
 					"--policy-cwd",
 					cwd,
 					"--cwd",
 					cwd,
-					"--read-root",
-					cwd,
-					"--write-root",
-					cwd,
 					...buildSandboxEnv(env),
 				];
+				if (backend !== "unelevated") {
+					// Enforce strict workspace boundary for shell commands.
+					args.push("--read-root", cwd, "--write-root", cwd);
+				}
 
 				if (typeof timeout === "number" && timeout > 0) {
 					args.push("--timeout-ms", String(Math.max(1, Math.floor(timeout * 1000))));
 				}
 
-				args.push("--", "cmd", "/d", "/s", "/c", command);
+				args.push("--", shellCommand.command, ...shellCommand.args, command);
 				const child = spawn(sandboxHostPath, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
 
 				if (child.stdout) child.stdout.on("data", onData);
@@ -167,14 +216,14 @@ export function buildWindowsSandboxToolDefinitions(options: WindowsSandboxToolOp
 	const readTool = createReadTool(cwd);
 	const writeTool = createWriteTool(cwd);
 	const editTool = createEditTool(cwd);
-	const bashTool = createBashTool(cwd, {
-		operations: createWindowsSandboxBashOperations(sandboxHostPath),
+	const shellTool = createShellTool(cwd, {
+		operations: createWindowsSandboxShellOperations(sandboxHostPath),
 	});
 
 	return [
 		wrapWorkspaceGuard(readTool, cwd),
 		wrapWorkspaceGuard(writeTool, cwd),
 		wrapWorkspaceGuard(editTool, cwd),
-		toToolDefinition(bashTool),
+		toToolDefinition(shellTool),
 	];
 }

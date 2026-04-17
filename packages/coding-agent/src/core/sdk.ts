@@ -26,14 +26,17 @@ import {
 	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
+	createShellTool,
 	createTreeTool,
 	createWriteTool,
 	editTool,
 	findTool,
+	getDefaultCodingToolNames,
 	grepTool,
 	lsTool,
 	readOnlyTools,
 	readTool,
+	shellTool,
 	type Tool,
 	type ToolName,
 	treeTool,
@@ -58,7 +61,7 @@ export interface CreateAgentSessionOptions {
 	/** Models available for cycling (Ctrl+P in interactive mode) */
 	scopedModels?: Array<{ model: Model<any>; thinkingLevel: ThinkingLevel }>;
 
-	/** Built-in tools to use. Default: codingTools [read, bash, edit, write, dir_tree] */
+	/** Built-in tools to use. Default: codingTools [read, command-tool, edit, write, dir_tree] */
 	tools?: Tool[];
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
@@ -102,8 +105,10 @@ export type { Tool } from "./tools/index.js";
 export {
 	allTools as allBuiltInTools,
 	bashTool,
+	shellTool,
 	codingTools,
 	createBashTool,
+	createShellTool,
 	// Tool factories (for custom cwd)
 	createCodingTools,
 	createEditTool,
@@ -254,10 +259,10 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		thinkingLevel = "off";
 	}
 
-	const defaultActiveToolNames: ToolName[] = ["read", "bash", "edit", "write", "dir_tree"];
+	const platformDefaultToolNames = getDefaultCodingToolNames();
 	const initialActiveToolNames: ToolName[] = options.tools
 		? options.tools.map((t) => t.name).filter((n): n is ToolName => n in allTools)
-		: defaultActiveToolNames;
+		: (platformDefaultToolNames as ToolName[]);
 
 	let agent: Agent;
 

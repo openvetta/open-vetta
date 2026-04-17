@@ -10,6 +10,7 @@ import { SUBCONSCIOUS } from "./subconscious.js";
 const toolDescriptions: Record<string, string> = {
 	read: "Read file contents",
 	bash: "Execute bash commands (ls, grep, find, etc.)",
+	shell: "Execute shell commands (PowerShell on Windows by default)",
 	edit: "Make surgical edits to files (find exact text and replace)",
 	write: "Create or overwrite files",
 	grep: "Search file contents for patterns (respects .gitignore)",
@@ -30,7 +31,7 @@ export interface McpToolInfo {
 export interface BuildSystemPromptOptions {
 	/** Custom system prompt (replaces default). */
 	customPrompt?: string;
-	/** Tools to include in prompt. Default: [read, bash, edit, write, dir_tree] */
+	/** Tools to include in prompt. Default: [read, command-tool, edit, write, dir_tree] */
 	selectedTools?: string[];
 	/** Text to append to system prompt. */
 	appendSystemPrompt?: string;
@@ -70,6 +71,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	});
 
 	const appendSection = appendSystemPrompt ? `\n\n${appendSystemPrompt}` : "";
+	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
 
 	const contextFiles = providedContextFiles ?? [];
 	const skills = providedSkills ?? [];
@@ -142,13 +144,15 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const examplesPath = getExamplesPath();
 
 	// Build tools list based on selected tools (only built-in tools with known descriptions)
-	const tools = (selectedTools || ["read", "bash", "edit", "write", "dir_tree"]).filter((t) => t in toolDescriptions);
+	const tools = (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
+		(t) => t in toolDescriptions,
+	);
 	const toolsList = tools.length > 0 ? tools.map((t) => `- ${t}: ${toolDescriptions[t]}`).join("\n") : "(none)";
 
 	// Build guidelines based on which tools are actually available
 	const guidelinesList: string[] = [];
 
-	const hasBash = tools.includes("bash");
+	const hasCommandTool = tools.includes("bash") || tools.includes("shell");
 	const hasEdit = tools.includes("edit");
 	const hasWrite = tools.includes("write");
 	const hasGrep = tools.includes("grep");
@@ -158,20 +162,20 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const hasRead = tools.includes("read");
 
 	// File exploration guidelines
-	if (hasBash && !hasGrep && !hasFind && !hasLs && !hasDirTree) {
-		guidelinesList.push("Use bash for file operations like ls, rg, find");
-	} else if (hasBash && (hasGrep || hasFind || hasLs || hasDirTree)) {
+	if (hasCommandTool && !hasGrep && !hasFind && !hasLs && !hasDirTree) {
+		guidelinesList.push("Use the shell tool for file operations like ls, rg, find");
+	} else if (hasCommandTool && (hasGrep || hasFind || hasLs || hasDirTree)) {
 		guidelinesList.push(
-			"Prefer grep/find/ls/dir_tree tools over bash for file exploration (faster, respects .gitignore)",
+			"Prefer grep/find/ls/dir_tree tools over the shell tool for file exploration (faster, respects .gitignore)",
 		);
 	}
 
 	if (hasDirTree) {
 		guidelinesList.push(
-			'When user asks to list project files or structure, call dir_tree first (do not use bash commands like "tree", "ls", "find", "fd", or "rg --files" for that task)',
+			'When user asks to list project files or structure, call dir_tree first (do not use shell commands like "tree", "ls", "find", "fd", or "rg --files" for that task)',
 		);
 		guidelinesList.push(
-			'When dir_tree output includes path IDs like @PATH_0001, prefer these IDs as tool paths. In bash commands, wrap IDs in quotes (example: cat "@PATH_0001").',
+			'When dir_tree output includes path IDs like @PATH_0001, prefer these IDs as tool paths. In shell commands, wrap IDs in quotes (example: cat "@PATH_0001").',
 		);
 	}
 
@@ -193,7 +197,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	// Output guideline (only when actually writing or executing)
 	if (hasEdit || hasWrite) {
 		guidelinesList.push(
-			"When summarizing your actions, output plain text directly - do NOT use cat or bash to display what you did",
+			"When summarizing your actions, output plain text directly - do NOT use cat or shell commands to display what you did",
 		);
 	}
 

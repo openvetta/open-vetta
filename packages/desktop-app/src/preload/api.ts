@@ -5,6 +5,7 @@ import type {
 	PromptRequest,
 	SessionConfig,
 	SessionEvent,
+	SessionExecutionMode,
 	SessionHistoryInfo,
 	SessionStateSnapshot,
 	SettingsPatch,
@@ -20,6 +21,7 @@ export interface DesktopSessionApi {
 	abort(sessionId: string): Promise<void>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
+	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
 	setGlobalThinkingLevel(level: string): Promise<void>;
 	getGlobalThinkingLevel(): Promise<string>;
 	getState(sessionId: string): Promise<SessionStateSnapshot>;
