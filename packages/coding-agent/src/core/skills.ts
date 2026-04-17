@@ -65,6 +65,7 @@ function addIgnoreRules(ig: IgnoreMatcher, dir: string, rootDir: string): void {
 
 export interface SkillFrontmatter {
 	name?: string;
+	alias?: string;
 	description?: string;
 	"disable-model-invocation"?: boolean;
 	metadata?: {
@@ -78,6 +79,7 @@ export type SkillType = "skill" | "scene";
 
 export interface Skill {
 	name: string;
+	alias?: string;
 	description: string;
 	filePath: string;
 	baseDir: string;
@@ -273,6 +275,7 @@ function loadSkillFromFile(
 		return {
 			skill: {
 				name,
+				alias: frontmatter.alias,
 				description: frontmatter.description,
 				filePath,
 				baseDir: skillDir,
@@ -298,19 +301,18 @@ function loadSkillFromFile(
  * (they can only be invoked explicitly via /skill:name commands).
  */
 export function formatSkillsForPrompt(skills: Skill[]): string {
-	const visibleSkills = skills.filter((s) => !s.disableModelInvocation);
+	const visibleSkills = skills.filter((s) => !s.disableModelInvocation && s.type !== "scene");
 
 	if (visibleSkills.length === 0) {
 		return "";
 	}
 
 	const lines = [
-		"\n\n# Skills (NOT tools — do NOT call these as tool functions)",
+		"\n\n# Skills",
 		"",
-		"Skills are instruction files, NOT callable tools. They do NOT appear in your tool list.",
-		"NEVER attempt to call a skill as a tool (e.g., do NOT call xlsx(), pdf(), or any skill name as a function).",
-		"To use a skill: call the read tool on the skill's <location> path, then follow the instructions inside.",
-		"When a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.",
+		"When the user's request matches a skill below, you MUST call the invoke_skill tool with the skill's name BEFORE attempting to handle the task yourself.",
+		"This is a BLOCKING REQUIREMENT. Do NOT try to accomplish the task manually when a matching skill exists.",
+		"NEVER use bash commands like find, locate, or mdfind to search for skill files. Always use the invoke_skill tool.",
 		"",
 		"<available_skills>",
 	];
@@ -319,11 +321,44 @@ export function formatSkillsForPrompt(skills: Skill[]): string {
 		lines.push("  <skill>");
 		lines.push(`    <name>${escapeXml(skill.name)}</name>`);
 		lines.push(`    <description>${escapeXml(skill.description)}</description>`);
-		lines.push(`    <location>${escapeXml(skill.filePath)}</location>`);
 		lines.push("  </skill>");
 	}
 
 	lines.push("</available_skills>");
+
+	return lines.join("\n");
+}
+
+/**
+ * Format scenes for inclusion in the system prompt.
+ * Scenes are listed so the model knows to call invoke_scene when
+ * the user's message starts with /scene: prefix.
+ * The model is explicitly instructed NOT to invoke scenes on its own.
+ */
+export function formatScenesForPrompt(skills: Skill[]): string {
+	const scenes = skills.filter((s) => s.type === "scene");
+
+	if (scenes.length === 0) {
+		return "";
+	}
+
+	const lines = [
+		"\n\n# Scenes",
+		"",
+		"When the user's message starts with /scene:<name>, you MUST call the invoke_scene tool with the scene's name IMMEDIATELY as your first action.",
+		"NEVER invoke a scene on your own initiative. Only invoke when the user explicitly references one via /scene: prefix.",
+		"",
+		"<available_scenes>",
+	];
+
+	for (const scene of scenes) {
+		lines.push("  <scene>");
+		lines.push(`    <name>${escapeXml(scene.name)}</name>`);
+		lines.push(`    <description>${escapeXml(scene.description)}</description>`);
+		lines.push("  </scene>");
+	}
+
+	lines.push("</available_scenes>");
 
 	return lines.join("\n");
 }

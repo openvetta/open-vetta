@@ -442,7 +442,7 @@ export const streamGoogleGeminiCli: StreamFunction<"google-gemini-cli", GoogleGe
 				}
 			}
 
-			if (!response || !response.ok) {
+			if (!response?.ok) {
 				throw lastError ?? new Error("Failed to get response after retries");
 			}
 

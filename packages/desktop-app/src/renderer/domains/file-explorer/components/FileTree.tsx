@@ -6,7 +6,9 @@ interface FileTreeProps {
 	cache: Map<string, FsEntry[]>;
 	expandedDirs: Set<string>;
 	loadingDirs: Set<string>;
+	selectedPath: string | null;
 	onToggleDir: (path: string) => void;
+	onSelectFile: (entry: FsEntry) => void;
 	onRename: (oldPath: string, newName: string) => Promise<void>;
 }
 
@@ -42,7 +44,9 @@ export function FileTree({
 	cache,
 	expandedDirs,
 	loadingDirs,
+	selectedPath,
 	onToggleDir,
+	onSelectFile,
 	onRename,
 }: FileTreeProps): JSX.Element {
 	const flatList = buildFlatList(rootDir, cache, expandedDirs);
@@ -64,7 +68,9 @@ export function FileTree({
 					depth={node.depth}
 					isExpanded={expandedDirs.has(node.entry.path)}
 					isLoading={loadingDirs.has(node.entry.path)}
+					isSelected={selectedPath === node.entry.path}
 					onToggleDir={onToggleDir}
+					onSelectFile={onSelectFile}
 					onRename={onRename}
 				/>
 			))}

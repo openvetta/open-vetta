@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
+import { resolve as resolvePath } from "node:path";
+import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Message, TextContent } from "@mariozechner/pi-ai";
 import {
 	type AgentSession,
@@ -10,6 +12,7 @@ import {
 	SessionManager,
 } from "@vetta/coding-agent";
 import type {
+	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
 	SessionConfig,
@@ -29,7 +32,35 @@ interface SessionHandle {
 export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
 
+	/**
+	 * Look up an open SessionHandle by absolute session file path.
+	 * Used to dedupe re-opens of the same file (avoids self-conflicts on the
+	 * file lock, since SessionManager rejects same-pid re-acquisition).
+	 */
+	private findHandleBySessionPath(sessionPath: string): { sessionId: string; handle: SessionHandle } | undefined {
+		const target = resolvePath(sessionPath);
+		for (const [sessionId, handle] of this.sessions) {
+			const openPath = handle.session.sessionFile;
+			if (openPath && resolvePath(openPath) === target) {
+				return { sessionId, handle };
+			}
+		}
+		return undefined;
+	}
+
 	async createSession(config: SessionConfig = {}): Promise<{ sessionId: string }> {
+		// Dedupe by sessionPath: a SessionManager.open() takes an exclusive file
+		// lock, and the lock module treats same-pid re-acquisition as a real
+		// conflict. So if the renderer reopens a session this RuntimeHost is
+		// already holding, we must return the existing handle instead of opening
+		// a second one.
+		if (config.sessionPath && config.sessionPath.trim().length > 0) {
+			const existing = this.findHandleBySessionPath(config.sessionPath);
+			if (existing) {
+				return { sessionId: existing.sessionId };
+			}
+		}
+
 		const sessionManager =
 			config.sessionPath && config.sessionPath.trim().length > 0
 				? SessionManager.open(config.sessionPath)
@@ -121,6 +152,12 @@ export class RuntimeHost implements SessionFacade {
 		}
 	}
 
+	updateGlobalThinkingLevel(level: ThinkingLevel): void {
+		for (const handle of this.sessions.values()) {
+			handle.session.setThinkingLevel(level);
+		}
+	}
+
 	getState(sessionId: string): SessionStateSnapshot {
 		const handle = this.requireSession(sessionId);
 		const contextUsage = handle.session.getContextUsage();
@@ -140,6 +177,28 @@ export class RuntimeHost implements SessionFacade {
 		return handle.session.messages.filter((message): message is Message => {
 			return message.role === "user" || message.role === "assistant" || message.role === "toolResult";
 		});
+	}
+
+	getFullHistory(sessionId: string): HistoryEntry[] {
+		const handle = this.requireSession(sessionId);
+		const branch = handle.session.getSessionBranch();
+		const entries: HistoryEntry[] = [];
+		for (const entry of branch) {
+			if (entry.type === "message") {
+				const msg = entry.message;
+				if (msg.role === "user" || msg.role === "assistant" || msg.role === "toolResult") {
+					entries.push({ type: "message", message: msg as Message });
+				}
+			} else if (entry.type === "compaction") {
+				entries.push({
+					type: "compaction",
+					summary: entry.summary,
+					tokensBefore: entry.tokensBefore,
+					timestamp: entry.timestamp,
+				});
+			}
+		}
+		return entries;
 	}
 
 	async listProjects(): Promise<ProjectInfo[]> {
@@ -167,12 +226,32 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	async deleteSession(sessionPath: string): Promise<void> {
+		// If we currently hold this session open, dispose it first so the file
+		// lock is released and the in-memory handle does not outlive the file.
+		const existing = this.findHandleBySessionPath(sessionPath);
+		if (existing) {
+			existing.handle.session.dispose();
+			this.sessions.delete(existing.sessionId);
+		}
 		await rm(sessionPath, { force: true });
+		// Clean up any orphaned sentinel lock file (sibling .lock).
+		await rm(`${sessionPath}.lock`, { force: true });
 	}
 
 	async renameSession(sessionPath: string, name: string): Promise<void> {
+		// Prefer the live handle if we already hold one — opening a second
+		// SessionManager on the same file would deadlock against our own lock.
+		const existing = this.findHandleBySessionPath(sessionPath);
+		if (existing) {
+			existing.handle.session.setSessionName(name);
+			return;
+		}
 		const manager = SessionManager.open(sessionPath);
-		manager.appendSessionInfo(name);
+		try {
+			manager.appendSessionInfo(name);
+		} finally {
+			manager.close();
+		}
 	}
 
 	getSessionPath(sessionId: string): string | undefined {
@@ -182,12 +261,10 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	renameSessionById(sessionId: string, name: string): void {
+		// We already hold the live AgentSession — rename through it directly so
+		// we never open a second SessionManager (and second lock) on the file.
 		const handle = this.requireSession(sessionId);
-		const filePath = handle.session.sessionFile;
-		if (filePath) {
-			const manager = SessionManager.open(filePath);
-			manager.appendSessionInfo(name);
-		}
+		handle.session.setSessionName(name);
 	}
 
 	async disposeSession(sessionId: string): Promise<void> {
@@ -195,6 +272,22 @@ export class RuntimeHost implements SessionFacade {
 		if (!handle) return;
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
+	}
+
+	/**
+	 * Dispose every open session this host owns and release all file locks.
+	 * Call from the IPC layer when its host (e.g. an Electron WebContents) is
+	 * being torn down — otherwise SessionManager locks survive until process exit.
+	 */
+	async disposeAllSessions(): Promise<void> {
+		for (const [sessionId, handle] of this.sessions) {
+			try {
+				handle.session.dispose();
+			} catch (err) {
+				console.error(`[RuntimeHost.disposeAllSessions] failed to dispose ${sessionId}:`, err);
+			}
+		}
+		this.sessions.clear();
 	}
 
 	private requireSession(sessionId: string): SessionHandle {
@@ -360,6 +453,34 @@ export class RuntimeHost implements SessionFacade {
 				...this.baseEvent(sessionId, "agent"),
 				type: "error",
 				error: runtimeError("INTERNAL_ERROR", event.errorMessage, true, "provider"),
+			});
+			return events;
+		}
+
+		if (event.type === "todo_update") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "todo_update",
+				items: event.items as any[],
+			});
+			return events;
+		}
+
+		if (event.type === "auto_compaction_start") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "compaction.start",
+				reason: event.reason,
+			});
+			return events;
+		}
+
+		if (event.type === "auto_compaction_end") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "compaction.end",
+				success: !!event.result && !event.aborted,
+				errorMessage: event.errorMessage,
 			});
 			return events;
 		}

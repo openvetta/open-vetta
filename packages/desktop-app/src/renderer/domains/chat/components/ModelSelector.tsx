@@ -1,8 +1,8 @@
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ModelsConfigData } from "@preload/api";
-import { selectedModelAtom, activeSessionAtom, remoteProvidersAtom } from "@shared/store/atoms";
+import { selectedModelAtom, activeSessionAtom, remoteProvidersAtom, modelSupportsImagesAtom } from "@shared/store/atoms";
 
 interface ModelOption {
 	provider: string;
@@ -12,18 +12,25 @@ interface ModelOption {
 	key: string;
 	/** Whether this model comes from the remote server */
 	remote?: boolean;
+	/** Tags from server config */
+	tags?: string[];
+	/** Whether this model supports image input */
+	supportsImage?: boolean;
 }
 
 function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
 	const result: ModelOption[] = [];
 	for (const [provider, providerConfig] of Object.entries(config.providers)) {
 		for (const model of providerConfig.models ?? []) {
+			const raw = model as Record<string, unknown>;
 			result.push({
 				provider,
 				modelId: model.id,
 				displayName: model.name || model.id,
 				key: `${provider}/${model.id}`,
 				remote,
+				tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
+				supportsImage: model.input?.includes("image") ?? false,
 			});
 		}
 	}
@@ -34,6 +41,7 @@ export function ModelSelector(): JSX.Element {
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
+	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const [open, setOpen] = useState(false);
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
 	const ref = useRef<HTMLDivElement>(null);
@@ -76,12 +84,17 @@ export function ModelSelector(): JSX.Element {
 			setSelectedModel(key);
 			localStorage.setItem("vetta-selected-model", key);
 			setOpen(false);
+
+			// 更新图片支持状态
+			const selected = models.find((m) => m.key === key);
+			setModelSupportsImages(selected?.supportsImage ?? false);
+
 			// Notify backend to switch model on the active session
 			if (activeSession?.runtimeId) {
 				void window.vetta.session.updateSettings(activeSession.runtimeId, { modelKey: key });
 			}
 		},
-		[setSelectedModel, activeSession],
+		[setSelectedModel, setModelSupportsImages, activeSession, models],
 	);
 
 	// Group models by provider
@@ -144,11 +157,16 @@ export function ModelSelector(): JSX.Element {
 												<span className="min-w-0 flex-1 truncate">
 													{m.displayName}
 												</span>
-												{m.remote && (
+												{m.supportsImage && (
 													<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-														remote
+														vision
 													</span>
 												)}
+												{m.tags?.map((tag) => (
+													<span key={tag} className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
+														{tag.trim()}
+													</span>
+												))}
 												{isDefault && (
 													<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 														默认

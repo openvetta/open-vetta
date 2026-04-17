@@ -355,12 +355,18 @@ export class ModelRegistry {
 
 				this.remoteModelKeys.add(`${providerName}/${modelDef.id}`);
 
+				// upstreamBaseUrl: 原始 provider 的 baseUrl，用于 compat 检测
+				// providerConfig.baseUrl: 网关地址，用于实际请求
+				const upstreamBaseUrl = (modelDef as Record<string, unknown>).upstreamBaseUrl as string | undefined;
+				const gatewayUrl = providerConfig.baseUrl || "";
+
 				models.push({
 					id: modelDef.id,
 					name: modelDef.name || modelDef.id,
 					api: api as Api,
 					provider: providerName,
-					baseUrl: providerConfig.baseUrl || "",
+					baseUrl: upstreamBaseUrl || gatewayUrl,
+					gatewayUrl: upstreamBaseUrl ? gatewayUrl : undefined,
 					reasoning: modelDef.reasoning ?? false,
 					input: (modelDef.input ?? ["text"]) as ("text" | "image")[],
 					cost: modelDef.cost ?? defaultCost,
@@ -672,15 +678,23 @@ export class ModelRegistry {
 
 	/**
 	 * Get API key for a model.
+	 * Remote models use server JWT token instead of provider API key.
 	 */
 	async getApiKey(model: Model<Api>): Promise<string | undefined> {
+		if (this.isRemote(model) && this.serverToken) {
+			return this.serverToken;
+		}
 		return this.authStorage.getApiKey(model.provider);
 	}
 
 	/**
 	 * Get API key for a provider.
+	 * Remote providers use server JWT token (gateway handles real API keys).
 	 */
 	async getApiKeyForProvider(provider: string): Promise<string | undefined> {
+		if (this.getRemoteProviders().has(provider) && this.serverToken) {
+			return this.serverToken;
+		}
 		return this.authStorage.getApiKey(provider);
 	}
 

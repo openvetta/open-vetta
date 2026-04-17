@@ -207,7 +207,7 @@ function resolveSaveConfig(params: ToolParams, cwd: string): SaveConfig {
 
 	if (mode === "custom") {
 		const dir = params.saveDir || process.env.PI_IMAGE_SAVE_DIR || config.saveDir;
-		if (!dir || !dir.trim()) {
+		if (!dir?.trim()) {
 			throw new Error("save=custom requires saveDir or PI_IMAGE_SAVE_DIR.");
 		}
 		return { mode, outputDir: dir };

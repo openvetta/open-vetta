@@ -1,6 +1,8 @@
 import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjects } from "@domains/project/hooks/useProjects";
-import { remoteProvidersAtom, selectedModelAtom, workspacePathAtom } from "@shared/store/atoms";
+import { fetchServerInfo } from "@shared/lib/api";
+import { deployModeAtom, remoteProvidersAtom, selectedModelAtom, workspacePathAtom } from "@shared/store/atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { currentUnsubscribe, setCurrentUnsubscribe } from "../services/chat-service";
@@ -9,10 +11,17 @@ export function useAppInit(): void {
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
+	const setDeployMode = useSetAtom(deployModeAtom);
+	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
+	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
 	const { refreshProjects } = useProjects();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
 	useEffect(() => {
+		// Fetch deploy mode from server
+		void fetchServerInfo()
+			.then((info) => setDeployMode(info.deploy_mode))
+			.catch(console.error);
 		// Sync workspace path from config file
 		void window.vetta.config.get().then((config) => {
 			if (config.workspacePath) {
@@ -36,9 +45,23 @@ export function useAppInit(): void {
 				setRemoteProviders(result.providers);
 			}
 		});
+		// Fetch credits balance
+		void window.vetta.credits.getBalance().then((result) => {
+			setCreditsBalance(result.balance);
+			setCreditsUnlimited(result.unlimited ?? false);
+		});
 		return () => {
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
 		};
-	}, [setWorkspacePath, setSelectedModel, setRemoteProviders, refreshProjects, refreshBatchProjects]);
+	}, [
+		setWorkspacePath,
+		setSelectedModel,
+		setRemoteProviders,
+		setDeployMode,
+		setCreditsBalance,
+		setCreditsUnlimited,
+		refreshProjects,
+		refreshBatchProjects,
+	]);
 }

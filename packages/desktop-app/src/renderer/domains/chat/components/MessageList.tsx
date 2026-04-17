@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ChatMessage, ContentBlock, ToolCallBlock } from "@shared/store/atoms";
+import { useAtomValue } from "jotai";
+import {
+	type ChatMessage,
+	type ContentBlock,
+	type ThinkingBlock,
+	type ToolCallBlock,
+	isCompactingAtom,
+	turnModifiedFilesAtom,
+} from "@shared/store/atoms";
+import { ArtifactCard } from "@shared/components/ArtifactCard";
 import { pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
@@ -14,43 +23,62 @@ interface MessageListProps {
 /** A grouped segment of content blocks for rendering. */
 type BlockSegment =
 	| { type: "single"; block: ContentBlock }
-	| { type: "tool_group"; blocks: ToolCallBlock[] };
+	| { type: "tool_group"; blocks: (ToolCallBlock | ThinkingBlock)[] };
 
-/** Group consecutive tool_call blocks into collapsible groups. */
+/** Group consecutive tool_call and thinking blocks into collapsible groups. */
 function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 	const segments: BlockSegment[] = [];
-	let toolBatch: ToolCallBlock[] = [];
+	let batch: (ToolCallBlock | ThinkingBlock)[] = [];
 
-	function flushTools(): void {
-		if (toolBatch.length === 0) return;
-		if (toolBatch.length === 1) {
-			segments.push({ type: "single", block: toolBatch[0] });
+	function flushBatch(): void {
+		if (batch.length === 0) return;
+		if (batch.length === 1) {
+			segments.push({ type: "single", block: batch[0] });
 		} else {
-			segments.push({ type: "tool_group", blocks: [...toolBatch] });
+			segments.push({ type: "tool_group", blocks: [...batch] });
 		}
-		toolBatch = [];
+		batch = [];
 	}
 
 	for (const block of blocks) {
-		if (block.type === "tool_call") {
-			toolBatch.push(block);
+		if (block.type === "tool_call" || block.type === "thinking") {
+			batch.push(block);
 		} else if (block.type === "tool_result") {
 			// skip — results are rendered inside tool_call blocks
+		} else if (block.type === "text" && !block.text.trim() && batch.length > 0) {
+			// skip empty text blocks between tool/thinking runs
 		} else {
-			flushTools();
+			flushBatch();
 			segments.push({ type: "single", block });
 		}
 	}
-	flushTools();
+	flushBatch();
 	return segments;
 }
 
-/** Collapsed group of multiple tool calls. */
-function ToolCallGroup({ blocks }: { blocks: ToolCallBlock[] }): JSX.Element {
+/** Collapsed group of multiple tool calls and/or thinking blocks. */
+function ToolCallGroup({ blocks }: { blocks: (ToolCallBlock | ThinkingBlock)[] }): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
-	const completedCount = blocks.filter((b) => b.status !== "pending").length;
-	const hasError = blocks.some((b) => b.status === "error");
-	const allDone = completedCount === blocks.length;
+	const toolBlocks = blocks.filter((b): b is ToolCallBlock => b.type === "tool_call");
+	const thinkingCount = blocks.filter((b) => b.type === "thinking").length;
+	const completedCount = toolBlocks.filter((b) => b.status !== "pending").length;
+	const hasError = toolBlocks.some((b) => b.status === "error");
+	const allDone = completedCount === toolBlocks.length;
+
+	function getSummary(): string {
+		const parts: string[] = [];
+		if (toolBlocks.length > 0) {
+			parts.push(
+				allDone
+					? `${completedCount} 个工具调用完成`
+					: `${completedCount}/${toolBlocks.length} 个工具调用`,
+			);
+		}
+		if (thinkingCount > 0) {
+			parts.push(`${thinkingCount} 个思考过程`);
+		}
+		return parts.join("，");
+	}
 
 	return (
 		<div>
@@ -66,9 +94,7 @@ function ToolCallGroup({ blocks }: { blocks: ToolCallBlock[] }): JSX.Element {
 					{blocks.length}
 				</span>
 				<span className="text-[12px] text-muted-foreground/50">
-					{allDone
-						? `${completedCount} 个工具调用完成`
-						: `${completedCount}/${blocks.length} 个工具调用`}
+					{getSummary()}
 				</span>
 			</button>
 			<AnimatePresence initial={false}>
@@ -81,9 +107,13 @@ function ToolCallGroup({ blocks }: { blocks: ToolCallBlock[] }): JSX.Element {
 						className="overflow-hidden"
 					>
 						<div className="flex flex-col gap-0.5 pl-2">
-							{blocks.map((block) => (
-								<ToolCallBlockView key={block.toolCallId} block={block} />
-							))}
+							{blocks.map((block, i) =>
+								block.type === "tool_call" ? (
+									<ToolCallBlockView key={block.toolCallId} block={block} />
+								) : (
+									<ThinkingBlockView key={`thinking-${i}`} text={block.text} />
+								),
+							)}
 						</div>
 					</motion.div>
 				)}
@@ -132,16 +162,23 @@ function formatDuration(seconds: number): string {
 	return `${m}分${s}秒`;
 }
 
-/** Parse prefixes from user message text: /skills:<name> and @<path> lines. */
-function parseUserPrefixes(text: string): { skillName: string | null; files: string[]; body: string } {
+/** Parse prefixes from user message text: /skill:<name>, /scene:<name>, and @<path> lines. */
+function parseUserPrefixes(text: string): {
+	skillName: string | null;
+	skillType: "skill" | "scene" | null;
+	files: string[];
+	body: string;
+} {
 	let remaining = text;
 	let skillName: string | null = null;
+	let skillType: "skill" | "scene" | null = null;
 	const files: string[] = [];
 
-	const skillMatch = remaining.match(/^\/skills:([^\n]+)\n?([\s\S]*)$/);
+	const skillMatch = remaining.match(/^\/(skill|scene):([^\n]+)\n?([\s\S]*)$/);
 	if (skillMatch) {
-		skillName = skillMatch[1].trim();
-		remaining = skillMatch[2];
+		skillType = skillMatch[1] as "skill" | "scene";
+		skillName = skillMatch[2].trim();
+		remaining = skillMatch[3];
 	}
 
 	while (true) {
@@ -151,13 +188,14 @@ function parseUserPrefixes(text: string): { skillName: string | null; files: str
 		remaining = fileMatch[2];
 	}
 
-	return { skillName, files, body: remaining };
+	return { skillName, skillType, files, body: remaining };
 }
 
-function SkillBadge({ name }: { name: string }): JSX.Element {
+function SkillBadge({ name, type = "skill" }: { name: string; type?: "skill" | "scene" }): JSX.Element {
+	const icon = type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]";
 	return (
 		<span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-primary/10 text-muted-foreground">
-			<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
+			<span className={`${icon} h-3 w-3`} />
 			{name}
 		</span>
 	);
@@ -179,7 +217,7 @@ function FileBadge({ path }: { path: string }): JSX.Element {
 /** User message — right-aligned bubble */
 function UserMessage({ message }: { message: ChatMessage }): JSX.Element {
 	const hasImages = message.images && message.images.length > 0;
-	const { skillName, files, body } = parseUserPrefixes(message.text);
+	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const displayText = body;
 	const hasBadges = skillName || files.length > 0;
 
@@ -214,7 +252,7 @@ function UserMessage({ message }: { message: ChatMessage }): JSX.Element {
 					>
 						{hasBadges && (
 							<div className="mb-1 flex flex-wrap justify-end gap-1">
-								{skillName && <SkillBadge name={skillName} />}
+								{skillName && <SkillBadge name={skillName} type={skillType ?? "skill"} />}
 								{files.map((f) => (
 									<FileBadge key={f} path={f} />
 								))}
@@ -314,10 +352,49 @@ function Message({ message, isLastAssistant, isStreaming }: {
 	isLastAssistant: boolean;
 	isStreaming: boolean;
 }): JSX.Element {
+	if (message.role === "compaction") {
+		return <CompactionBoundary />;
+	}
 	if (message.role === "user") {
 		return <UserMessage message={message} />;
 	}
 	return <AssistantMessage message={message} isLastAssistant={isLastAssistant} isStreaming={isStreaming} />;
+}
+
+/** Compaction boundary marker — shows where context was compressed. */
+function CompactionBoundary(): JSX.Element {
+	return (
+		<div className="flex items-center gap-3 py-1">
+			<div className="h-px flex-1 bg-muted-foreground/15" />
+			<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/40">
+				<span className="icon-[mdi--compress] h-3 w-3" />
+				上下文已压缩
+			</span>
+			<div className="h-px flex-1 bg-muted-foreground/15" />
+		</div>
+	);
+}
+
+function CompactionIndicator(): JSX.Element {
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 6 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={{ opacity: 0, y: 6 }}
+			transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+			className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2"
+		>
+			<svg width={14} height={14} style={{ animation: "context-ring-spin 1s linear infinite" }}>
+				<circle cx={7} cy={7} r={5} fill="none" stroke="var(--secondary, #333)" strokeWidth={2} opacity={0.3} />
+				<circle
+					cx={7} cy={7} r={5} fill="none" stroke="#f59e0b" strokeWidth={2}
+					strokeDasharray={`${Math.PI * 5 * 0.25} ${Math.PI * 5 * 0.75}`}
+					strokeLinecap="round"
+				/>
+			</svg>
+			<span className="text-[12px] text-amber-500/80">正在压缩上下文...</span>
+		</motion.div>
+	);
 }
 
 function TypingIndicator(): JSX.Element {
@@ -353,6 +430,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const stickToBottomRef = useRef(true);
 	const [showScrollBtn, setShowScrollBtn] = useState(false);
+	const isCompacting = useAtomValue(isCompactingAtom);
 	const lastMessage = messages.at(-1);
 	const showTyping = isStreaming && (!lastMessage || lastMessage.role !== "assistant" || !lastMessage.text);
 
@@ -407,6 +485,10 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 					50% { opacity: 0.4; }
 				}
 				textarea::placeholder { color: var(--muted-foreground); opacity: 0.5; }
+				@keyframes context-ring-spin {
+					from { transform: rotate(0deg); }
+					to { transform: rotate(360deg); }
+				}
 			`}</style>
 			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-2">
 				<div className="mx-auto flex max-w-3xl flex-col gap-5">
@@ -420,7 +502,9 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 							/>
 						))}
 						{showTyping && <TypingIndicator key="typing" />}
+						{isCompacting && <CompactionIndicator key="compacting" />}
 					</AnimatePresence>
+					<InlineArtifactCard />
 					<div ref={bottomRef} />
 				</div>
 			</div>
@@ -442,3 +526,11 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 		</>
 	);
 }
+
+// ── Inline Artifact Card (shows modified files after agent turn) ──
+
+function InlineArtifactCard(): JSX.Element | null {
+	const files = useAtomValue(turnModifiedFilesAtom);
+	return <ArtifactCard files={files} />;
+}
+

@@ -13,8 +13,11 @@ pi --mode rpc [options]
 Common options:
 - `--provider <name>`: Set the LLM provider (anthropic, openai, google, etc.)
 - `--model <pattern>`: Model pattern or ID (supports `provider/id` and optional `:<thinking>`)
-- `--no-session`: Disable session persistence
-- `--session-dir <path>`: Custom session storage directory
+- `--no-session`: Disable session persistence (ephemeral, in-memory only)
+- `--session-dir <path>`: Custom session storage directory (defaults to `~/.vetta/agent/sessions/<safe-cwd>/`)
+- `--session <path>`: Resume a specific session file (`.jsonl`). Loads the existing entries; subsequent prompts append to the same file.
+- `--continue`, `-c`: Continue the most recent session in the current cwd.
+- The agent's working directory is the process cwd at launch. Spawn the subprocess with `cwd: <projectPath>` to attach to a project. There is no runtime "set cwd" command.
 
 ## Protocol Overview
 
@@ -23,6 +26,43 @@ Common options:
 - **Events**: Agent events streamed to stdout as JSON lines
 
 All commands support an optional `id` field for request/response correlation. If provided, the corresponding response will include the same `id`.
+
+## Embedding & Lifecycle
+
+This section is for hosts that drive the agent as a subprocess (IDEs, IM bots, orchestrators).
+
+### One process, one active session
+
+Each `pi --mode rpc` process owns **exactly one** active session at a time. Use `--session <path>` (or `--continue`) at launch to attach to an existing session, or omit both to start a fresh one in the current cwd.
+
+To work on a different session within the same process, use [`switch_session`](#switch_session). This unloads the current session and loads the target file. There is no way to hold multiple sessions open in parallel inside one process.
+
+For multi-session workloads (e.g. one user chatting in two projects), spawn one process per (project, session). A simple host-side process pool keyed by `(cwd, sessionPath)` works well.
+
+### Single-writer rule (CRITICAL)
+
+The session log (`.jsonl`) has **no file locks and no multi-writer support**. The session manager keeps an in-memory copy of all entries and uses `appendFileSync` / `writeFileSync` to flush; if two processes open the same file, both will diverge from disk and one will overwrite the other on the next full rewrite (e.g. compaction).
+
+**Rules for hosts:**
+
+1. Never run two `pi --mode rpc` processes against the same `.jsonl` file at the same time.
+2. Never run a `pi --mode rpc` process against a file that another tool (TUI, desktop app) currently has open as a live session.
+3. Coordinate at the host level. A common pattern is a sentinel file or in-memory map keyed by absolute session path; reject second openers with a clear error.
+4. Switching session via [`switch_session`](#switch_session) inside a single process is safe — only cross-process concurrency is unsafe.
+
+Violating this rule will silently corrupt session history.
+
+### Project model (cwd-keyed, no list command)
+
+The agent has no first-class concept of a "project". A project is implicitly the working directory passed at spawn time. Sessions are stored under `~/.vetta/agent/sessions/<safe(cwd)>/`, so all sessions sharing a cwd belong to the same project.
+
+There is **no `list_projects` RPC command**, because the RPC mode is scoped to the session it was launched with. Hosts that need a project list have three options:
+
+1. **Spawn a one-shot helper**: import `SessionManager.listAll()` from `@vetta/coding-agent` in a tiny Node script and call it from your host. Returns all sessions across all cwds, which can be bucketed by cwd to derive projects. (See `runtime-host.ts`'s `listProjects()` for the exact pattern.)
+2. **Read the consumer's project registry directly**. For example, the desktop app stores its pinned project list at `~/.vetta/desktop-config.json` (`{ projects: [{ path, name? }] }`). Hosts that share users with the desktop app can read this file to get the curated project list.
+3. **Maintain your own registry** in the host process if you have your own notion of project (recommended for multi-tenant servers).
+
+The RPC subprocess itself only knows about its own cwd and its own session.
 
 ## Commands
 

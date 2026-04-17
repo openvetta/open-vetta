@@ -117,7 +117,7 @@ export class McpProcess extends EventEmitter {
 	 * Send a JSON-RPC message to the server
 	 */
 	send(message: any): void {
-		if (!this.process || !this.process.stdin) {
+		if (!this.process?.stdin) {
 			throw new Error(`Cannot send message: MCP server '${this.name}' is not running`);
 		}
 

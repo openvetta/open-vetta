@@ -6,26 +6,32 @@ import {
 	chatMessagesAtom,
 	contextUsageAtom,
 	inputValueAtom,
+	isCompactingAtom,
 	isStreamingAtom,
 	lastTurnUsageAtom,
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
-	selectedFilePathAtom,
+	selectedModelAtom,
 	selectedSkillAtom,
+	type TodoItem,
+	todoItemsByCwdAtom,
+	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useRef } from "react";
 import {
+	adoptDraftId,
 	appendError,
 	appendTextDelta,
 	appendThinkingDelta,
 	currentUnsubscribe,
+	extractModifiedFiles,
 	finalizeMessage,
+	fullHistoryToChat,
 	handleToolEnd,
 	handleToolStart,
-	historyToChat,
 	nextId,
 	resetStreamState,
 	setCurrentUnsubscribe,
@@ -49,11 +55,14 @@ export function useSessionManager(): SessionManagerResult {
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
-	const setSelectedFilePath = useSetAtom(selectedFilePathAtom);
 	const navigate = useNavigate();
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
+	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
+	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
+	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
+	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
@@ -65,22 +74,14 @@ export function useSessionManager(): SessionManagerResult {
 			setCurrentUnsubscribe(null);
 			resetStreamState();
 			setIsStreaming(false);
-			setSelectedFilePath(null);
+			setIsCompacting(false);
 
 			void navigate({ to: "/" });
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
 
-			// Load history
-			const history = await window.vetta.session.getMessages(sessionId);
-			const mapped = historyToChat(
-				history as Array<{
-					role: string;
-					content: unknown;
-					toolCallId?: string;
-					toolName?: string;
-					isError?: boolean;
-				}>,
-			);
+			// Load full history (includes compaction boundaries for complete UI display)
+			const history = await window.vetta.session.getFullHistory(sessionId);
+			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
 
 			// Restore per-session state: context usage from backend, turn stats from cache
@@ -90,8 +91,33 @@ export function useSessionManager(): SessionManagerResult {
 				contextWindow: state.contextWindow,
 			});
 			setModelSupportsImages(state.model?.input?.includes("image") ?? false);
+
+			// Sync model between frontend and backend:
+			// - If frontend has a selected model, push it to the backend session
+			// - Otherwise, pull the backend's resolved model to the frontend
+			const backendModelKey = state.model ? `${state.model.provider}/${state.model.id}` : null;
+			if (selectedModel && backendModelKey !== selectedModel) {
+				void window.vetta.session.updateSettings(sessionId, { modelKey: selectedModel });
+			} else if (!selectedModel && backendModelKey) {
+				setSelectedModel(backendModelKey);
+				localStorage.setItem("vetta-selected-model", backendModelKey);
+			}
+
 			const cachedKey = sessionPath ?? "";
 			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
+
+			// If session is still streaming, adopt the last history assistant message as draft
+			// so that incoming streaming events append to it instead of creating a duplicate.
+			if (state.isStreaming) {
+				for (let i = mapped.length - 1; i >= 0; i--) {
+					if (mapped[i].role === "assistant") {
+						adoptDraftId(mapped[i].id);
+						break;
+					}
+				}
+				setIsStreaming(true);
+				setTurnStartTime(Date.now());
+			}
 
 			const sessionInfo = { cwd, sessionPath: cachedKey, runtimeId: sessionId };
 			setActiveSession(sessionInfo);
@@ -106,6 +132,7 @@ export function useSessionManager(): SessionManagerResult {
 							resetStreamState();
 							setTurnStartTime(Date.now());
 							setIsStreaming(true);
+							setTurnModifiedFiles([]);
 						}
 						if (event.phase === "agent_end" || event.phase === "aborted") {
 							// Always reset streaming state first to unblock the UI
@@ -113,8 +140,10 @@ export function useSessionManager(): SessionManagerResult {
 							resetStreamState();
 							setIsStreaming(false);
 							// Write total duration onto the last assistant message
-							if (elapsed > 0) {
-								setChatMessages((prev) => {
+							// and extract modified files from this turn
+							setChatMessages((prev) => {
+								setTurnModifiedFiles(extractModifiedFiles(prev));
+								if (elapsed > 0) {
 									for (let i = prev.length - 1; i >= 0; i--) {
 										if (prev[i].role === "assistant") {
 											const copy = [...prev];
@@ -122,9 +151,9 @@ export function useSessionManager(): SessionManagerResult {
 											return copy;
 										}
 									}
-									return prev;
-								});
-							}
+								}
+								return prev;
+							});
 						}
 						return;
 					}
@@ -193,6 +222,36 @@ export function useSessionManager(): SessionManagerResult {
 						});
 						return;
 					}
+
+					// ── Compaction start ──
+					if (event.type === "compaction.start") {
+						setIsCompacting(true);
+						return;
+					}
+
+					// ── Compaction end ──
+					if (event.type === "compaction.end") {
+						setIsCompacting(false);
+						return;
+					}
+
+					// ── Todo update ──
+					if (event.type === "todo_update") {
+						const sessionCwd = activeSessionRef.current?.cwd;
+						if (sessionCwd) {
+							const items = (event as { items?: unknown[] }).items ?? [];
+							setTodoItems((prev) => {
+								const next = new Map(prev);
+								if (items.length > 0) {
+									next.set(sessionCwd, items as TodoItem[]);
+								} else {
+									next.delete(sessionCwd);
+								}
+								return next;
+							});
+						}
+						return;
+					}
 				}),
 			);
 
@@ -202,12 +261,16 @@ export function useSessionManager(): SessionManagerResult {
 			setChatMessages,
 			setActiveSession,
 			setIsStreaming,
-			setSelectedFilePath,
+			setIsCompacting,
 			navigate,
 			loadSessions,
 			setLastTurnUsage,
 			setContextUsage,
 			setModelSupportsImages,
+			selectedModel,
+			setSelectedModel,
+			setTodoItems,
+			setTurnModifiedFiles,
 		],
 	);
 
@@ -223,7 +286,11 @@ export function useSessionManager(): SessionManagerResult {
 		const rawText = inputValue.trim();
 		const images = attachedImages.length > 0 ? attachedImages : undefined;
 		// Build prefix lines
-		const skillPrefix = selectedSkill ? `/skills:${selectedSkill.name}\n` : "";
+		const skillPrefix = selectedSkill
+			? selectedSkill.type === "scene"
+				? `/scene:${selectedSkill.name}\n`
+				: `/skill:${selectedSkill.name}\n`
+			: "";
 		const filesPrefix = mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
 		const text = `${skillPrefix}${filesPrefix}${rawText}`;
 		setInputValue("");

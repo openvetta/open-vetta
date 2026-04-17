@@ -30,7 +30,10 @@ export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps)
 	// Filter skills by name
 	const normalizedFilter = filter.startsWith("/") ? filter.slice(1) : filter;
 	const filtered = normalizedFilter
-		? skills.filter((s) => s.name.toLowerCase().includes(normalizedFilter.toLowerCase()))
+		? skills.filter((s) => {
+				const q = normalizedFilter.toLowerCase();
+				return s.name.toLowerCase().includes(q) || (s.alias?.toLowerCase().includes(q) ?? false);
+			})
 		: skills;
 
 	const scenes = filtered.filter((s) => s.type === "scene");
@@ -221,7 +224,7 @@ function SlashItem({
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
 					<span className="truncate text-[12.5px] font-medium text-foreground">
-						{skill.name}
+						{skill.alias || skill.name}
 					</span>
 					<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/50">
 						{SOURCE_LABELS[skill.source] ?? skill.source}

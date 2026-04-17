@@ -1,0 +1,98 @@
+import type { AgentTool } from "@mariozechner/pi-agent-core";
+import { type Static, Type } from "@sinclair/typebox";
+import { readFileSync } from "fs";
+import { stripFrontmatter } from "../../../utils/frontmatter.js";
+import type { Skill } from "../../skills.js";
+import { loadToolDescription } from "../description.js";
+
+const invokeSkillSchema = Type.Object({
+	name: Type.String({
+		description: 'The exact skill name from <available_skills> (e.g., "pdf", "docx", "xlsx")',
+	}),
+	args: Type.Optional(
+		Type.String({
+			description: "Optional arguments to pass to the skill",
+		}),
+	),
+});
+
+export type InvokeSkillToolInput = Static<typeof invokeSkillSchema>;
+
+export interface InvokeSkillToolDetails {
+	skillName: string;
+	skillLocation: string;
+}
+
+export interface InvokeSkillToolOptions {
+	/** Function to resolve available skills at execution time */
+	getSkills: () => Skill[];
+}
+
+export function createInvokeSkillTool(options: InvokeSkillToolOptions): AgentTool<typeof invokeSkillSchema> {
+	const fallbackDescription =
+		"Invoke a skill by name. Use this tool when the user's request matches a skill in <available_skills>.";
+	const description = loadToolDescription(import.meta.url, fallbackDescription);
+
+	return {
+		name: "invoke_skill",
+		label: "invoke_skill",
+		description,
+		parameters: invokeSkillSchema,
+		execute: async (_toolCallId: string, { name, args }: { name: string; args?: string }) => {
+			const skills = options.getSkills();
+			const skill = skills.find((s) => s.name === name);
+
+			if (!skill) {
+				const availableNames = skills
+					.filter((s) => !s.disableModelInvocation && s.type !== "scene")
+					.map((s) => s.name);
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Error: Skill "${name}" not found. Available skills: ${availableNames.join(", ") || "(none)"}`,
+						},
+					],
+					details: { skillName: name, skillLocation: "" },
+				};
+			}
+
+			try {
+				const rawContent = readFileSync(skill.filePath, "utf-8");
+				const body = stripFrontmatter(rawContent).trim();
+
+				const lines: string[] = [
+					`<skill name="${skill.name}" location="${skill.filePath}">`,
+					"",
+					`SKILL_DIR="${skill.baseDir}"`,
+					"ALL relative paths (scripts/, references/, Samples/, assets/, etc.) in this skill MUST be resolved against SKILL_DIR above.",
+					'When running bash commands from this skill, ALWAYS prefix with: cd "$SKILL_DIR" &&',
+					"NEVER guess or fabricate paths. NEVER use find/locate/mdfind to search for skill files.",
+					"",
+					body,
+					`</skill>`,
+				];
+
+				if (args) {
+					lines.push("", `User arguments: ${args}`);
+				}
+
+				return {
+					content: [{ type: "text" as const, text: lines.join("\n") }],
+					details: { skillName: skill.name, skillLocation: skill.filePath },
+				};
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: `Error reading skill "${name}" from ${skill.filePath}: ${message}`,
+						},
+					],
+					details: { skillName: name, skillLocation: skill.filePath },
+				};
+			}
+		},
+	};
+}

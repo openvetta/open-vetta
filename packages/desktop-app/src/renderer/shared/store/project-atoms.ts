@@ -7,6 +7,9 @@ export interface Project {
 	name?: string;
 	sessionCount: number;
 	type: ProjectType;
+	workflowInstanceId?: number;
+	/** 流转项目对应的 flowing id（来自 meta.json） */
+	flowingId?: number;
 }
 
 export interface SessionInfo {
@@ -19,8 +22,6 @@ export interface SessionInfo {
 }
 
 export type SidebarFilter = "all" | "normal" | "schedule" | "batch" | "flowing";
-export type SidebarMode = "projects" | "files";
-export const sidebarModeAtom = atom<SidebarMode>("projects");
 
 export const projectsAtom = atom<Project[]>([]);
 export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());
