@@ -83,7 +83,7 @@ import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocatio
 import { buildSystemPrompt } from "./system-prompt.js";
 import { TODO_SNAPSHOT_TYPE, type TodoItem, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
-import { createAllTools } from "./tools/index.js";
+import { createAllTools, getDefaultCodingToolNames } from "./tools/index.js";
 import { createInvokeSceneTool } from "./tools/invoke-scene/index.js";
 import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
 import { createTodoTool } from "./tools/todo/index.js";
@@ -150,7 +150,7 @@ export interface AgentSessionConfig {
 	customTools?: ToolDefinition[];
 	/** Model registry for API key resolution and model discovery */
 	modelRegistry: ModelRegistry;
-	/** Initial active built-in tool names. Default: [read, bash, edit, write] */
+	/** Initial active built-in tool names. Default: [read, command-tool, edit, write] */
 	initialActiveToolNames?: string[];
 	/** Override base tools (useful for custom runtimes). */
 	baseToolsOverride?: Record<string, AgentTool>;
@@ -755,6 +755,18 @@ export class AgentSession {
 		// Rebuild base system prompt with new tool set
 		this._baseSystemPrompt = this._rebuildSystemPrompt(validToolNames);
 		this.agent.setSystemPrompt(this._baseSystemPrompt);
+	}
+
+	/**
+	 * Reconfigure SDK custom tools and rebuild runtime.
+	 * Used by host environments that need to switch execution mode at runtime.
+	 */
+	reconfigureCustomTools(customTools: ToolDefinition[] | undefined): void {
+		this._customTools = customTools ?? [];
+		this._buildRuntime({
+			activeToolNames: this.getActiveToolNames(),
+			includeAllExtensionTools: true,
+		});
 	}
 
 	/** Whether auto-compaction is currently running */
@@ -2191,6 +2203,7 @@ export class AgentSession {
 			: createAllTools(this._cwd, {
 					read: { autoResizeImages },
 					bash: { commandPrefix: shellCommandPrefix },
+					shell: { commandPrefix: shellCommandPrefix },
 				});
 
 		// Add invoke_skill tool if skills are available
@@ -2261,7 +2274,7 @@ export class AgentSession {
 
 		const defaultActiveToolNames = this._baseToolsOverride
 			? Object.keys(this._baseToolsOverride)
-			: ["read", "bash", "edit", "write"];
+			: getDefaultCodingToolNames();
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		const activeToolNameSet = new Set<string>(baseActiveToolNames);
 

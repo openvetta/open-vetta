@@ -67,6 +67,16 @@ export {
 	type ReadToolOptions,
 	readTool,
 } from "./read/index.js";
+export {
+	createShellTool,
+	type ShellOperations,
+	type ShellSpawnContext,
+	type ShellSpawnHook,
+	type ShellToolDetails,
+	type ShellToolInput,
+	type ShellToolOptions,
+	shellTool,
+} from "./shell/index.js";
 export { createTodoTool, type TodoToolDetails, type TodoToolOptions } from "./todo/index.js";
 export {
 	createTreeTool,
@@ -102,14 +112,27 @@ import { createFindTool, findTool } from "./find/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
+import { createShellTool, type ShellToolOptions, shellTool } from "./shell/index.js";
 import { createTreeTool, treeTool } from "./tree/index.js";
 import { createWriteTool, writeTool } from "./write/index.js";
 
 /** Tool type (AgentTool from pi-ai) */
 export type Tool = AgentTool<any>;
 
+export type CommandToolName = "bash" | "shell";
+
+export function getDefaultCommandToolName(): CommandToolName {
+	return process.platform === "win32" ? "shell" : "bash";
+}
+
+export function getDefaultCodingToolNames(): ["read", CommandToolName, "edit", "write", "dir_tree"] {
+	return ["read", getDefaultCommandToolName(), "edit", "write", "dir_tree"];
+}
+
 // Default tools for full access mode (using process.cwd())
-export const codingTools: Tool[] = [readTool, bashTool, editTool, writeTool, treeTool];
+const defaultCommandToolName = getDefaultCommandToolName();
+const defaultCommandTool = defaultCommandToolName === "shell" ? shellTool : bashTool;
+export const codingTools: Tool[] = [readTool, defaultCommandTool, editTool, writeTool, treeTool];
 
 // Read-only tools for exploration without modification (using process.cwd())
 export const readOnlyTools: Tool[] = [readTool, grepTool, findTool, lsTool, treeTool];
@@ -118,6 +141,7 @@ export const readOnlyTools: Tool[] = [readTool, grepTool, findTool, lsTool, tree
 export const allTools = {
 	read: readTool,
 	bash: bashTool,
+	shell: shellTool,
 	edit: editTool,
 	write: writeTool,
 	grep: grepTool,
@@ -134,6 +158,8 @@ export interface ToolsOptions {
 	read?: ReadToolOptions;
 	/** Options for the bash tool */
 	bash?: BashToolOptions;
+	/** Options for the shell tool */
+	shell?: ShellToolOptions;
 	/** Options for the doc-to-pdf tool */
 	docToPdf?: DocToPdfToolOptions;
 }
@@ -142,9 +168,14 @@ export interface ToolsOptions {
  * Create coding tools configured for a specific working directory.
  */
 export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
+	const commandTool =
+		getDefaultCommandToolName() === "shell"
+			? createShellTool(cwd, options?.shell ?? options?.bash)
+			: createBashTool(cwd, options?.bash ?? options?.shell);
+
 	return [
 		createReadTool(cwd, options?.read),
-		createBashTool(cwd, options?.bash),
+		commandTool,
 		createEditTool(cwd),
 		createWriteTool(cwd),
 		createTreeTool(cwd),
@@ -172,6 +203,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 	return {
 		read: createReadTool(cwd, options?.read),
 		bash: createBashTool(cwd, options?.bash),
+		shell: createShellTool(cwd, options?.shell ?? options?.bash),
 		edit: createEditTool(cwd),
 		write: createWriteTool(cwd),
 		grep: createGrepTool(cwd),

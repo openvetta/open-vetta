@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { ipcMain, type WebContents } from "electron";
-import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../../runtime-core/src/index.js";
+import type {
+	PromptRequest,
+	SessionConfig,
+	SessionEvent,
+	SessionExecutionMode,
+	SettingsPatch,
+} from "../../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
@@ -15,6 +21,7 @@ const CHANNELS = {
 	SUBSCRIBE: "vetta:session:subscribe",
 	UNSUBSCRIBE: "vetta:session:unsubscribe",
 	UPDATE_SETTINGS: "vetta:session:update-settings",
+	SET_EXECUTION_MODE: "vetta:session:set-execution-mode",
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
 	DELETE: "vetta:session:delete",
@@ -120,6 +127,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.UPDATE_SETTINGS, async (_event, sessionId: unknown, partialSettings: SettingsPatch) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		await runtime.updateSettings(sessionId, partialSettings);
+	});
+	ipcMain.handle(CHANNELS.SET_EXECUTION_MODE, async (_event, sessionId: unknown, mode: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertExecutionMode(mode);
+		await runtime.setExecutionMode(sessionId, mode as SessionExecutionMode);
 	});
 
 	ipcMain.handle(CHANNELS.SET_GLOBAL_THINKING, (_event, level: unknown) => {

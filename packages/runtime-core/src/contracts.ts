@@ -133,6 +133,7 @@ export interface SessionStateSnapshot {
 	sessionId: string;
 	model?: Model<any>;
 	thinkingLevel: ThinkingLevel;
+	executionMode: SessionExecutionMode;
 	isStreaming: boolean;
 	messageCount: number;
 	/** Context window usage percentage (0-100), or null if unknown */
@@ -191,6 +192,7 @@ export type HistoryEntry =
 
 export interface SessionFacade {
 	createSession(config?: SessionConfig): Promise<{ sessionId: string }>;
+	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;
 	continue(sessionId: string): Promise<void>;
 	abort(sessionId: string): Promise<void>;

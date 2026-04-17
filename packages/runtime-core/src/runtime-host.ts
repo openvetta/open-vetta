@@ -29,6 +29,7 @@ import { buildWindowsSandboxToolDefinitions } from "./execution-mode/sandbox-too
 
 interface SessionHandle {
 	session: AgentSession;
+	executionMode: SessionExecutionMode;
 }
 
 export interface RuntimeHostOptions {
@@ -71,6 +72,10 @@ export class RuntimeHost implements SessionFacade {
 		if (config.sessionPath && config.sessionPath.trim().length > 0) {
 			const existing = this.findHandleBySessionPath(config.sessionPath);
 			if (existing) {
+				const requestedMode = config.executionMode ?? (await this.getDefaultExecutionMode());
+				if (requestedMode !== existing.handle.executionMode) {
+					await this.setExecutionMode(existing.sessionId, requestedMode);
+				}
 				return { sessionId: existing.sessionId };
 			}
 		}
@@ -85,8 +90,8 @@ export class RuntimeHost implements SessionFacade {
 		const requestedMode = config.executionMode;
 		const defaultMode = await this.getDefaultExecutionMode();
 		const executionMode = requestedMode ?? defaultMode;
-		const enforceWindowsSandbox = process.platform === "win32" && executionMode === "sandbox";
 		const effectiveCwd = config.cwd ?? process.cwd();
+		const customTools = this.resolveExecutionModeTools(executionMode, effectiveCwd);
 
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
@@ -94,18 +99,37 @@ export class RuntimeHost implements SessionFacade {
 			sessionManager,
 			model: config.model,
 			thinkingLevel: config.thinkingLevel,
-			customTools: enforceWindowsSandbox
-				? buildWindowsSandboxToolDefinitions({
-						cwd: effectiveCwd,
-						sandboxHostPath: this.sandboxHostPath,
-					})
-				: undefined,
+			customTools,
 		};
 
 		const { session } = await createAgentSession(options);
 		const sessionId = session.sessionId;
-		this.sessions.set(sessionId, { session });
+		this.sessions.set(sessionId, { session, executionMode });
 		return { sessionId };
+	}
+
+	async setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void> {
+		const handle = this.requireSession(sessionId);
+		if (handle.executionMode === mode) return;
+		if (handle.session.isStreaming || handle.session.isBashRunning) {
+			throw runtimeError(
+				"EXECUTION_MODE_SWITCH_BLOCKED",
+				"Cannot switch execution mode while the agent is running.",
+				true,
+			);
+		}
+
+		const sessionAny = handle.session as AgentSession & {
+			reconfigureCustomTools?: (customTools: CreateAgentSessionOptions["customTools"]) => void;
+		};
+		if (typeof sessionAny.reconfigureCustomTools !== "function") {
+			throw runtimeError("INTERNAL_ERROR", "Session does not support execution mode reconfiguration.", false);
+		}
+
+		const cwd = handle.session.sessionManager.getCwd() ?? process.cwd();
+		const customTools = this.resolveExecutionModeTools(mode, cwd);
+		sessionAny.reconfigureCustomTools(customTools);
+		handle.executionMode = mode;
 	}
 
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
@@ -191,6 +215,7 @@ export class RuntimeHost implements SessionFacade {
 			sessionId,
 			model: handle.session.model,
 			thinkingLevel: handle.session.thinkingLevel,
+			executionMode: handle.executionMode,
 			isStreaming: handle.session.isStreaming,
 			messageCount: handle.session.messages.length,
 			contextPercent: contextUsage?.percent ?? null,
@@ -322,6 +347,18 @@ export class RuntimeHost implements SessionFacade {
 			throw runtimeError("SESSION_NOT_FOUND", `Session not found: ${sessionId}`, false);
 		}
 		return handle;
+	}
+
+	private resolveExecutionModeTools(
+		executionMode: SessionExecutionMode,
+		cwd: string,
+	): CreateAgentSessionOptions["customTools"] {
+		const enforceWindowsSandbox = process.platform === "win32" && executionMode === "sandbox";
+		if (!enforceWindowsSandbox) return undefined;
+		return buildWindowsSandboxToolDefinitions({
+			cwd,
+			sandboxHostPath: this.sandboxHostPath,
+		});
 	}
 
 	private baseEvent(sessionId: string, source: SessionEventBase["source"]): SessionEventBase {
