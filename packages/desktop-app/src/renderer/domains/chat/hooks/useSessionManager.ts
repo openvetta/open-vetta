@@ -13,6 +13,7 @@ import {
 	modelSupportsImagesAtom,
 	openSessionFnRef,
 	selectedSkillAtom,
+	sessionExecutionModeAtom,
 	type TodoItem,
 	todoItemsByCwdAtom,
 	turnModifiedFilesAtom,
@@ -58,6 +59,7 @@ export function useSessionManager(): SessionManagerResult {
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
+	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
@@ -91,6 +93,7 @@ export function useSessionManager(): SessionManagerResult {
 				contextWindow: state.contextWindow,
 			});
 			setModelSupportsImages(state.model?.input?.includes("image") ?? false);
+			setSessionExecutionMode(state.executionMode);
 			const cachedKey = sessionPath ?? "";
 			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
 
@@ -255,6 +258,7 @@ export function useSessionManager(): SessionManagerResult {
 			setLastTurnUsage,
 			setContextUsage,
 			setModelSupportsImages,
+			setSessionExecutionMode,
 			setTodoItems,
 			setTurnModifiedFiles,
 		],

@@ -73,7 +73,7 @@ const defaultBashOperations: BashOperations = {
 
 			const child = spawn(shell, [...args, command], {
 				cwd,
-				detached: true,
+				detached: process.platform !== "win32",
 				env: env ?? getShellEnv(),
 				stdio: ["ignore", "pipe", "pipe"],
 			});

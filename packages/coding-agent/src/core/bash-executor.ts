@@ -62,7 +62,7 @@ export function executeBash(command: string, options?: BashExecutorOptions): Pro
 	return new Promise((resolve, reject) => {
 		const { shell, args } = getShellConfig();
 		const child: ChildProcess = spawn(shell, [...args, command], {
-			detached: true,
+			detached: process.platform !== "win32",
 			env: getShellEnv(),
 			stdio: ["ignore", "pipe", "pipe"],
 		});

@@ -59,6 +59,8 @@ export interface ActiveSession {
 	runtimeId: string;
 }
 
+export type SessionExecutionMode = "sandbox" | "full-access";
+
 // ─── Attached images ───
 
 export interface AttachedImage {
@@ -113,6 +115,7 @@ export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 export const attachedImagesAtom = atom<AttachedImage[]>([]);
 export const activeSessionAtom = atom<ActiveSession | null>(null);
+export const sessionExecutionModeAtom = atom<SessionExecutionMode>("sandbox");
 
 /** Per-turn stats (speed, duration) for the last completed turn */
 export const lastTurnUsageAtom = atom<TurnUsageData | null>(null);

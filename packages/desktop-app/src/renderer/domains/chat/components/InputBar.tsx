@@ -5,6 +5,7 @@ import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom,
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { TodoCard } from "@shared/components/TodoCard";
 import { ModelSelector } from "./ModelSelector";
+import { ExecutionModeSelector } from "./ExecutionModeSelector";
 import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
@@ -466,6 +467,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 									</motion.div>
 								))}
 							</AnimatePresence>
+							<ExecutionModeSelector />
 						</div>
 
 						{/* Right: model selector + send / stop */}
