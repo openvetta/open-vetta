@@ -1,5 +1,5 @@
 import { ipcMain, type WebContents } from "electron";
-import { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import {
 	isTaskRunning,
 	pauseTask as pauseTaskExecutor,
@@ -17,6 +17,7 @@ import {
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
 import { pLimit } from "../batch-tasks/queue";
+import { getSharedRuntime } from "../runtime.js";
 
 const CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
@@ -36,13 +37,8 @@ const CHANNELS = {
 	EVENT: "vetta:batch-tasks:event",
 } as const;
 
-let runtimeInstance: RuntimeHost | null = null;
-
 function getRuntime(): RuntimeHost {
-	if (!runtimeInstance) {
-		runtimeInstance = new RuntimeHost();
-	}
-	return runtimeInstance;
+	return getSharedRuntime();
 }
 
 export function registerBatchTasksIpc(webContents: WebContents): () => void {

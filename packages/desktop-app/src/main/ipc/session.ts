@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../../runtime-core/src/index.js";
-import { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import { getSharedRuntime } from "../runtime.js";
 import { allowProjectRoot } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
@@ -60,7 +60,7 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 }
 
 export function registerSessionIpc(webContents: WebContents): () => void {
-	const runtime = new RuntimeHost();
+	const runtime = getSharedRuntime();
 	const subscriptionMap = new Map<string, () => void>();
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
@@ -179,12 +179,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			unsubscribe();
 		}
 		subscriptionMap.clear();
-		// Release every SessionManager file lock owned by this RuntimeHost.
-		// Without this, locks survive until the desktop-app process exits and
-		// cause SessionLockError on the next startup until stale-detection
-		// reclaims them.
-		void runtime.disposeAllSessions().catch((err) => {
-			console.error("[session ipc teardown] disposeAllSessions failed:", err);
-		});
+		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
+		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts
+		// 的 before-quit 负责（见 disposeSharedRuntime）。
 	};
 }
