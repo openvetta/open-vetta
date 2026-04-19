@@ -167,6 +167,11 @@ function getDefaultAgentDir(): string {
  * ```
  */
 export async function createAgentSession(options: CreateAgentSessionOptions = {}): Promise<CreateAgentSessionResult> {
+	const __perfStart = Date.now();
+	const __perfMark = (label: string) => {
+		console.log(`[perf][createAgentSession] ${label} +${Date.now() - __perfStart}ms`);
+	};
+	__perfMark("enter");
 	const cwd = options.cwd ?? process.cwd();
 	const agentDir = options.agentDir ?? getDefaultAgentDir();
 	let resourceLoader = options.resourceLoader;
@@ -178,6 +183,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
 
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
+	__perfMark("before loadRemoteModels");
 
 	// Ensure serverUrl has a default value, then load remote models
 	if (!options.modelRegistry) {
@@ -190,13 +196,16 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		modelRegistry.setServerToken(settingsManager.getServerToken());
 		await modelRegistry.loadRemoteModels();
 	}
+	__perfMark("after loadRemoteModels");
 	const sessionManager = options.sessionManager ?? SessionManager.create(cwd);
+	__perfMark("after SessionManager.create");
 
 	if (!resourceLoader) {
 		resourceLoader = new DefaultResourceLoader({ cwd, agentDir, settingsManager });
 		await resourceLoader.reload();
 		time("resourceLoader.reload");
 	}
+	__perfMark("after resourceLoader.reload");
 
 	// Check if session has existing data to restore
 	const existingSession = sessionManager.buildSessionContext();
@@ -381,6 +390,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();
+	__perfMark("exit");
 
 	return {
 		session,

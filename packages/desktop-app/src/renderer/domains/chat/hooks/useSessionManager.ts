@@ -69,6 +69,9 @@ export function useSessionManager(): SessionManagerResult {
 
 	const openSession = useCallback(
 		async (cwd: string, sessionPath?: string) => {
+			const __t0 = Date.now();
+			const __perf = (label: string) => console.log(`[perf][openSession] ${label} +${Date.now() - __t0}ms`);
+			__perf(`enter cwd=${cwd} sessionPath=${sessionPath ?? "-"}`);
 			// Teardown previous session
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
@@ -77,15 +80,19 @@ export function useSessionManager(): SessionManagerResult {
 			setIsCompacting(false);
 
 			void navigate({ to: "/" });
+			__perf("before session.create");
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
+			__perf("after session.create");
 
 			// Load full history (includes compaction boundaries for complete UI display)
 			const history = await window.vetta.session.getFullHistory(sessionId);
+			__perf("after getFullHistory");
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
 
 			// Restore per-session state: context usage from backend, turn stats from cache
 			const state = await window.vetta.session.getState(sessionId);
+			__perf("after getState");
 			setContextUsage({
 				percent: state.contextPercent,
 				contextWindow: state.contextWindow,
@@ -123,6 +130,7 @@ export function useSessionManager(): SessionManagerResult {
 			setActiveSession(sessionInfo);
 			activeSessionRef.current = sessionInfo;
 
+			__perf("before session.subscribe");
 			// ─── Subscribe to live session events ───
 			setCurrentUnsubscribe(
 				await window.vetta.session.subscribe(sessionId, (event) => {
@@ -255,7 +263,9 @@ export function useSessionManager(): SessionManagerResult {
 				}),
 			);
 
+			__perf("after subscribe, before loadSessions");
 			await loadSessions(cwd);
+			__perf("exit");
 		},
 		[
 			setChatMessages,
