@@ -943,6 +943,29 @@ export class SettingsManager {
 		return this.settings.serverToken;
 	}
 
+	/**
+	 * Re-read serverToken directly from global settings on disk.
+	 * Used by long-lived sessions to pick up token changes (e.g. re-login)
+	 * without reloading the entire settings object.
+	 */
+	getServerTokenFresh(): string | undefined {
+		let content: string | undefined;
+		try {
+			this.storage.withLock("global", (current) => {
+				content = current;
+				return undefined;
+			});
+		} catch {
+			return this.settings.serverToken;
+		}
+		if (!content) return undefined;
+		try {
+			return (JSON.parse(content) as Settings).serverToken;
+		} catch {
+			return this.settings.serverToken;
+		}
+	}
+
 	setServerToken(token: string | undefined): void {
 		this.globalSettings.serverToken = token;
 		this.markModified("serverToken");

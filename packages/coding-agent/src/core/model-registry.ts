@@ -264,7 +264,8 @@ export class ModelRegistry {
 	/** Set of "provider/modelId" keys for models loaded from server */
 	private remoteModelKeys: Set<string> = new Set();
 	private serverUrl: string | undefined;
-	private serverToken: string | undefined;
+	private _serverToken: string | undefined;
+	private _serverTokenGetter?: () => string | undefined;
 
 	constructor(
 		readonly authStorage: AuthStorage,
@@ -294,7 +295,20 @@ export class ModelRegistry {
 	 * Set the server token for authenticating remote model requests.
 	 */
 	setServerToken(token: string | undefined): void {
-		this.serverToken = token;
+		this._serverToken = token;
+	}
+
+	/**
+	 * Set a dynamic getter for the server token.
+	 * When set, this getter is called on every API key resolution so that
+	 * token changes (e.g. re-login) are picked up by long-lived sessions.
+	 */
+	setServerTokenGetter(getter: () => string | undefined): void {
+		this._serverTokenGetter = getter;
+	}
+
+	private resolveServerToken(): string | undefined {
+		return this._serverTokenGetter ? this._serverTokenGetter() : this._serverToken;
 	}
 
 	/**
@@ -317,7 +331,7 @@ export class ModelRegistry {
 				signal: controller.signal,
 				headers: {
 					Accept: "application/json",
-					...(this.serverToken ? { Authorization: `Bearer ${this.serverToken}` } : {}),
+					...(this._serverToken ? { Authorization: `Bearer ${this._serverToken}` } : {}),
 				},
 			});
 			clearTimeout(timeout);
@@ -681,8 +695,9 @@ export class ModelRegistry {
 	 * Remote models use server JWT token instead of provider API key.
 	 */
 	async getApiKey(model: Model<Api>): Promise<string | undefined> {
-		if (this.isRemote(model) && this.serverToken) {
-			return this.serverToken;
+		const token = this.resolveServerToken();
+		if (this.isRemote(model) && token) {
+			return token;
 		}
 		return this.authStorage.getApiKey(model.provider);
 	}
@@ -692,8 +707,9 @@ export class ModelRegistry {
 	 * Remote providers use server JWT token (gateway handles real API keys).
 	 */
 	async getApiKeyForProvider(provider: string): Promise<string | undefined> {
-		if (this.getRemoteProviders().has(provider) && this.serverToken) {
-			return this.serverToken;
+		const token = this.resolveServerToken();
+		if (this.getRemoteProviders().has(provider) && token) {
+			return token;
 		}
 		return this.authStorage.getApiKey(provider);
 	}
