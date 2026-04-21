@@ -168,7 +168,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 
 	if (hasDirTree) {
 		guidelinesList.push(
-			'When user asks to list project files or structure, call dir_tree first (do not use bash commands like "tree", "ls", "find", "fd", or "rg --files" for that task)',
+			'ALWAYS use dir_tree (not bash "tree", "ls -R", "find", "fd", or "rg --files") whenever you need to view directory structure or explore a codebase. Only fall back to bash if dir_tree cannot fulfill the specific requirement (e.g., custom output formatting)',
 		);
 		guidelinesList.push(
 			'When dir_tree output includes path IDs like @PATH_0001, prefer these IDs as tool paths. In bash commands, wrap IDs in quotes (example: cat "@PATH_0001").',
