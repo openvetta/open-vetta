@@ -71,6 +71,9 @@ export interface CreateAgentSessionOptions {
 
 	/** Settings manager. Default: SettingsManager.create(cwd, agentDir) */
 	settingsManager?: SettingsManager;
+
+	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
+	appendSystemPrompt?: string;
 }
 
 /** Result from createAgentSession */
@@ -202,7 +205,12 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	__perfMark("after SessionManager.create");
 
 	if (!resourceLoader) {
-		resourceLoader = new DefaultResourceLoader({ cwd, agentDir, settingsManager });
+		resourceLoader = new DefaultResourceLoader({
+			cwd,
+			agentDir,
+			settingsManager,
+			appendSystemPrompt: options.appendSystemPrompt,
+		});
 		await resourceLoader.reload();
 		time("resourceLoader.reload");
 	}
