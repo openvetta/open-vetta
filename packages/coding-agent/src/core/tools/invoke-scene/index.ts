@@ -62,9 +62,10 @@ export function createInvokeSceneTool(options: InvokeSceneToolOptions): AgentToo
 				const lines: string[] = [
 					`<scene name="${scene.name}" location="${scene.filePath}">`,
 					"",
-					`SCENE_DIR="${scene.baseDir}"`,
-					"ALL relative paths in this scene MUST be resolved against SCENE_DIR above.",
-					'When running bash commands from this scene, ALWAYS prefix with: cd "$SCENE_DIR" &&',
+					`This scene's base directory is: ${scene.baseDir}`,
+					`ALL relative paths in this scene MUST be resolved against the base directory above.`,
+					`When running bash commands from this scene, ALWAYS prefix with: cd "${scene.baseDir}" &&`,
+					`IMPORTANT: Use the literal path above. Do NOT use shell variables like $SCENE_DIR — no such variable exists in the shell environment.`,
 					"",
 					body,
 					`</scene>`,
