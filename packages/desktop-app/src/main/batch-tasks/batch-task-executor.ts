@@ -98,20 +98,17 @@ function createTaskEventHandler(
 	};
 }
 
-function buildTaskPrompt(project: BatchProject, task: BatchTask): string {
+function buildTaskSystemPrompt(task: BatchTask): string {
 	return [
-		`## 任务上下文`,
-		`- 源代码路径（只读参考）: ${task.sourcePath}`,
+		`## 批量任务上下文`,
+		`- 源目录路径（只读参考）: ${task.sourcePath}`,
 		`- 工作目录: ${task.cwd}`,
 		`- 任务名称: ${task.name}`,
 		``,
 		`## 规则`,
-		`- 只读取源代码路径中的文件作为参考，不要修改源目录中的任何内容`,
+		`- 只读取源目录路径中的文件作为参考，不要修改源目录中的任何内容`,
 		`- 所有输出/生成的文件应放在当前工作目录中`,
 		`- 完成所有工作后直接结束，不要等待用户确认`,
-		``,
-		`## 任务指令`,
-		project.prompt,
 	].join("\n");
 }
 
@@ -123,7 +120,8 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 
 	try {
 		const sessionDir = join(project.id, ".vetta", "sessions");
-		const result = await runtime.createSession({ cwd: task.cwd, sessionDir });
+		const taskSystemPrompt = buildTaskSystemPrompt(task);
+		const result = await runtime.createSession({ cwd: task.cwd, sessionDir, appendSystemPrompt: taskSystemPrompt });
 		const sessionId = result.sessionId;
 		const sessionPath = runtime.getSessionPath(sessionId);
 		executingTasks.set(task.id, { projectId: project.id, taskId: task.id, sessionId, sessionPath, abortController });
@@ -156,9 +154,8 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			}
 		}
 
-		const fullPrompt = buildTaskPrompt(project, task);
 		console.log(`[BatchTask] Sending prompt for session ${sessionId}`);
-		await runtime.prompt(sessionId, { text: fullPrompt });
+		await runtime.prompt(sessionId, { text: project.prompt });
 		console.log(`[BatchTask] Prompt sent, task ${task.id} is now running`);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);

@@ -162,6 +162,8 @@ export interface SessionConfig {
 	sessionDir?: string;
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
+	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
+	appendSystemPrompt?: string;
 }
 
 export interface PromptRequest {
