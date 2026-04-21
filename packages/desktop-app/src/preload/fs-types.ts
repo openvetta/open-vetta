@@ -22,4 +22,7 @@ export interface DesktopFsApi {
 	move(sourcePath: string, destDir: string): Promise<void>;
 	createDirectory(dirPath: string): Promise<void>;
 	listSubDirs(dirPath: string): Promise<FsEntry[]>;
+	watchDir(dirPath: string): Promise<void>;
+	unwatchDir(dirPath: string): Promise<void>;
+	onDirChanged(handler: (dirPath: string) => void): () => void;
 }
