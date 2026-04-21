@@ -1,9 +1,9 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { getWorkspacePath } from "../utils/workspace";
-import { type BatchTaskState, loadProjectTaskStates } from "./batch-task-state";
+import { type BatchTaskState, type BatchTaskStatus, loadProjectTaskStates } from "./batch-task-state";
 
-export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
+export type { BatchTaskStatus } from "./batch-task-state";
 
 // ─── meta.json structures ───
 
@@ -127,19 +127,22 @@ function assembleProject(
 
 export async function discoverBatchProjects(): Promise<string[]> {
 	const workspacePath = await getWorkspacePath();
-	const dirs: string[] = [];
 	try {
 		const entries = await readdir(workspacePath, { withFileTypes: true });
-		for (const entry of entries) {
-			if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-			const projectDir = join(workspacePath, entry.name);
-			const meta = await readProjectMeta(projectDir);
-			if (meta) dirs.push(projectDir);
-		}
+		const candidates = entries
+			.filter((e) => e.isDirectory() && !e.name.startsWith("."))
+			.map((e) => join(workspacePath, e.name));
+		const results = await Promise.all(
+			candidates.map(async (projectDir) => {
+				const meta = await readProjectMeta(projectDir);
+				return meta ? projectDir : null;
+			}),
+		);
+		return results.filter((d): d is string => d !== null);
 	} catch {
 		// workspace may not exist yet
+		return [];
 	}
-	return dirs;
 }
 
 export async function loadProjects(): Promise<BatchProject[]> {

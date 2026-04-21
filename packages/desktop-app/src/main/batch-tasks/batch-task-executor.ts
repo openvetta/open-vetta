@@ -98,6 +98,23 @@ function createTaskEventHandler(
 	};
 }
 
+function buildTaskPrompt(project: BatchProject, task: BatchTask): string {
+	return [
+		`## 任务上下文`,
+		`- 源代码路径（只读参考）: ${task.sourcePath}`,
+		`- 工作目录: ${task.cwd}`,
+		`- 任务名称: ${task.name}`,
+		``,
+		`## 规则`,
+		`- 只读取源代码路径中的文件作为参考，不要修改源目录中的任何内容`,
+		`- 所有输出/生成的文件应放在当前工作目录中`,
+		`- 完成所有工作后直接结束，不要等待用户确认`,
+		``,
+		`## 任务指令`,
+		project.prompt,
+	].join("\n");
+}
+
 export async function runTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
 	const abortController = new AbortController();
 	console.log(
@@ -139,7 +156,7 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			}
 		}
 
-		const fullPrompt = `源代码路径（只读）: ${task.sourcePath}\n\n${project.prompt}`;
+		const fullPrompt = buildTaskPrompt(project, task);
 		console.log(`[BatchTask] Sending prompt for session ${sessionId}`);
 		await runtime.prompt(sessionId, { text: fullPrompt });
 		console.log(`[BatchTask] Prompt sent, task ${task.id} is now running`);
@@ -170,6 +187,8 @@ export async function pauseTask(projectId: string, taskId: string, runtime: Runt
 		return;
 	}
 
+	// 先从 map 中删除，防止 abort 触发的事件回调重复处理状态
+	executingTasks.delete(taskId);
 	await runtime.abort(executing.sessionId);
 	executing.abortController.abort();
 	console.log(`[BatchTask] Abort called for session ${executing.sessionId}`);
@@ -182,7 +201,6 @@ export async function pauseTask(projectId: string, taskId: string, runtime: Runt
 		lastModified: Date.now(),
 	};
 	await saveTaskState(projectId, taskId, state);
-	executingTasks.delete(taskId);
 	emitBatchTaskEvent({ type: "task.paused", projectId, taskId });
 	console.log(`[BatchTask] task.paused emitted: ${taskId}`);
 }
