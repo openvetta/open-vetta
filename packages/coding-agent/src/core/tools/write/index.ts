@@ -3,7 +3,12 @@ import { type Static, Type } from "@sinclair/typebox";
 import { mkdir as fsMkdir, writeFile as fsWriteFile } from "fs/promises";
 import { dirname } from "path";
 import { loadToolDescription } from "../description.js";
-import { resolveToCwd, resolveWritablePath, rewriteQuotedPathLiterals } from "../path-utils.js";
+import {
+	isProtectedSkillOrScenePath,
+	resolveToCwd,
+	resolveWritablePath,
+	rewriteQuotedPathLiterals,
+} from "../path-utils.js";
 
 const writeSchema = Type.Object({
 	path: Type.String({
@@ -53,6 +58,22 @@ export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentT
 		) => {
 			const requestedPath = resolveToCwd(path, cwd);
 			const absolutePath = resolveWritablePath(path, cwd);
+
+			if (isProtectedSkillOrScenePath(absolutePath, cwd)) {
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text:
+								`Error: "${absolutePath}" is inside a skill/scene directory which is read-only. ` +
+								`Skills and scenes are global resources — never write artifacts into them. ` +
+								`Write output files to the user's working directory instead.`,
+						},
+					],
+					details: undefined,
+				};
+			}
+
 			const dir = dirname(absolutePath);
 			const { output: correctedContent, pathCorrections } = rewriteQuotedPathLiterals(content, dir);
 			const pathRetargeted = requestedPath !== absolutePath;

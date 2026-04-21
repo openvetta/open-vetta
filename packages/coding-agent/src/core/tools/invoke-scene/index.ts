@@ -67,6 +67,9 @@ export function createInvokeSceneTool(options: InvokeSceneToolOptions): AgentToo
 					`When running bash commands from this scene, ALWAYS prefix with: cd "${scene.baseDir}" &&`,
 					`IMPORTANT: Use the literal path above. Do NOT use shell variables like $SCENE_DIR — no such variable exists in the shell environment.`,
 					"",
+					`CRITICAL: The scene directory is READ-ONLY. NEVER write, create, or modify any files inside the scene directory.`,
+					`All output files and artifacts MUST be written to the user's working directory (cwd), NOT into the scene directory.`,
+					"",
 					body,
 					`</scene>`,
 				];
