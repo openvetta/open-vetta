@@ -194,6 +194,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		}
 		modelRegistry.setServerUrl(serverUrl);
 		modelRegistry.setServerToken(settingsManager.getServerToken());
+		modelRegistry.setServerTokenGetter(() => settingsManager.getServerTokenFresh());
 		await modelRegistry.loadRemoteModels();
 	}
 	__perfMark("after loadRemoteModels");
