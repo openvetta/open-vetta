@@ -157,11 +157,16 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		console.log(`[BatchTaskIPC] BATCH_RESUME: project=${projectId}`);
 		const project = await getProject(projectId);
 		if (!project) return;
-		for (const task of project.tasks) {
-			if (task.status === "paused") {
-				await resumeTask(project, task, getRuntime());
-			}
+
+		const pausedTasks = project.tasks.filter((t) => t.status === "paused");
+		if (pausedTasks.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_RESUME: no paused tasks in ${projectId}`);
+			return;
 		}
+		console.log(`[BatchTaskIPC] BATCH_RESUME: resuming ${pausedTasks.length} tasks`);
+		const runtime = getRuntime();
+		const taskRunners = pausedTasks.map((task) => () => resumeTask(project, task, runtime));
+		await pLimit(project.concurrency, taskRunners);
 	});
 
 	ipcMain.handle(CHANNELS.BATCH_DELETE, async (_, projectId: string) => {
