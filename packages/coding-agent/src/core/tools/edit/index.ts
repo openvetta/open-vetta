@@ -13,7 +13,12 @@ import {
 	restoreLineEndings,
 	stripBom,
 } from "../edit-diff.js";
-import { type PathLiteralCorrection, resolveExistingPath, rewriteQuotedPathLiterals } from "../path-utils.js";
+import {
+	isProtectedSkillOrScenePath,
+	type PathLiteralCorrection,
+	resolveExistingPath,
+	rewriteQuotedPathLiterals,
+} from "../path-utils.js";
 
 const editSchema = Type.Object({
 	path: Type.String({
@@ -75,6 +80,15 @@ export function createEditTool(cwd: string, options?: EditToolOptions): AgentToo
 			signal?: AbortSignal,
 		) => {
 			const absolutePath = resolveExistingPath(path, cwd);
+
+			if (isProtectedSkillOrScenePath(absolutePath, cwd)) {
+				throw new Error(
+					`"${absolutePath}" is inside a skill/scene directory which is read-only. ` +
+						`Skills and scenes are global resources — never modify them. ` +
+						`Write output files to the user's working directory instead.`,
+				);
+			}
+
 			const baseDir = dirname(absolutePath);
 			const { output: correctedNewText, pathCorrections } = rewriteQuotedPathLiterals(newText, baseDir);
 

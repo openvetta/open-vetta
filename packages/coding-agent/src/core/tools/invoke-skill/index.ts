@@ -69,6 +69,9 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): AgentToo
 					'When running bash commands from this skill, ALWAYS prefix with: cd "$SKILL_DIR" &&',
 					"NEVER guess or fabricate paths. NEVER use find/locate/mdfind to search for skill files.",
 					"",
+					"CRITICAL: The skill directory is READ-ONLY. NEVER write, create, or modify any files inside SKILL_DIR.",
+					"All output files and artifacts MUST be written to the user's working directory (cwd), NOT into the skill directory.",
+					"",
 					body,
 					`</skill>`,
 				];
