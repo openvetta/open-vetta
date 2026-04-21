@@ -1,0 +1,3 @@
+Get the current system time. Returns the time in YYYY-MM-DD HH:mm:ss format.
+
+Use this tool when you need to know the current date or time, for example to add timestamps to logs, check deadlines, or answer time-related questions.
