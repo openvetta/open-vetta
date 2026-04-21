@@ -1,8 +1,9 @@
-import type { Stats } from "node:fs";
+import type { FSWatcher, Stats } from "node:fs";
+import { watch } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
-import { ipcMain } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry } from "../../preload/fs-types.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
@@ -150,6 +151,9 @@ const CHANNELS = {
 	MOVE: "vetta:fs:move",
 	CREATE_DIRECTORY: "vetta:fs:create-directory",
 	LIST_SUB_DIRS: "vetta:fs:list-sub-dirs",
+	WATCH_DIR: "vetta:fs:watch-dir",
+	UNWATCH_DIR: "vetta:fs:unwatch-dir",
+	DIR_CHANGED: "vetta:fs:dir-changed",
 	CONFIG_GET: "vetta:config:get",
 	CONFIG_SET: "vetta:config:set",
 	MODELS_GET: "vetta:models:get",
@@ -366,6 +370,61 @@ export function registerFsIpc(): () => void {
 		}
 	});
 
+	// ─── Directory watchers ───
+
+	const DEBOUNCE_MS = 300;
+	const watchers = new Map<string, FSWatcher>();
+	const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+	function broadcastDirChanged(dirPath: string): void {
+		for (const win of BrowserWindow.getAllWindows()) {
+			win.webContents.send(CHANNELS.DIR_CHANGED, dirPath);
+		}
+	}
+
+	ipcMain.handle(CHANNELS.WATCH_DIR, async (_event, dirPath: unknown) => {
+		assertNonEmptyString(dirPath, "dirPath");
+		const resolved = resolve(dirPath);
+		if (watchers.has(resolved)) return;
+		try {
+			const watcher = watch(resolved, (_eventType) => {
+				// Debounce to avoid flooding on rapid changes
+				const existing = debounceTimers.get(resolved);
+				if (existing) clearTimeout(existing);
+				debounceTimers.set(
+					resolved,
+					setTimeout(() => {
+						debounceTimers.delete(resolved);
+						broadcastDirChanged(resolved);
+					}, DEBOUNCE_MS),
+				);
+			});
+			watcher.on("error", () => {
+				// Directory deleted or became inaccessible — clean up
+				watchers.delete(resolved);
+				watcher.close();
+			});
+			watchers.set(resolved, watcher);
+		} catch {
+			// Ignore errors (directory may not exist or no permission)
+		}
+	});
+
+	ipcMain.handle(CHANNELS.UNWATCH_DIR, async (_event, dirPath: unknown) => {
+		assertNonEmptyString(dirPath, "dirPath");
+		const resolved = resolve(dirPath);
+		const watcher = watchers.get(resolved);
+		if (watcher) {
+			watcher.close();
+			watchers.delete(resolved);
+		}
+		const timer = debounceTimers.get(resolved);
+		if (timer) {
+			clearTimeout(timer);
+			debounceTimers.delete(resolved);
+		}
+	});
+
 	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
 		const config = await readConfig();
 		// Ensure all known paths are authorized for file operations
@@ -410,6 +469,12 @@ export function registerFsIpc(): () => void {
 	});
 
 	return () => {
+		// Close all directory watchers
+		for (const watcher of watchers.values()) watcher.close();
+		watchers.clear();
+		for (const timer of debounceTimers.values()) clearTimeout(timer);
+		debounceTimers.clear();
+
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.READ_FILE);
 		ipcMain.removeHandler(CHANNELS.WRITE_FILE);
@@ -420,6 +485,8 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.CREATE_DIRECTORY);
 		ipcMain.removeHandler(CHANNELS.LIST_SUB_DIRS);
+		ipcMain.removeHandler(CHANNELS.WATCH_DIR);
+		ipcMain.removeHandler(CHANNELS.UNWATCH_DIR);
 		ipcMain.removeHandler(CHANNELS.CONFIG_GET);
 		ipcMain.removeHandler(CHANNELS.CONFIG_SET);
 		ipcMain.removeHandler(CHANNELS.MODELS_GET);
