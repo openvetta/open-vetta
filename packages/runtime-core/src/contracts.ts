@@ -168,6 +168,8 @@ export interface PromptRequest {
 	text: string;
 	images?: Array<{ type: "image"; data: string; mimeType: string }>;
 	streamingBehavior?: "steer" | "followUp";
+	/** Model key in "provider/modelId" format — ensures the prompt uses exactly this model */
+	modelKey?: string;
 }
 
 export interface SettingsPatch {

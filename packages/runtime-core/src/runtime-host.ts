@@ -89,6 +89,22 @@ export class RuntimeHost implements SessionFacade {
 
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
 		const handle = this.requireSession(sessionId);
+
+		// Ensure the session model matches the requested model BEFORE prompting,
+		// so the model actually used is always the one the UI displays.
+		if (request.modelKey) {
+			const [provider, ...rest] = request.modelKey.split("/");
+			const modelId = rest.join("/");
+			const available = handle.session.modelRegistry.getAvailable();
+			const model = available.find((m) => m.provider === provider && m.id === modelId);
+			if (model) {
+				const current = handle.session.model;
+				if (!current || current.provider !== provider || current.id !== modelId) {
+					await handle.session.setModel(model);
+				}
+			}
+		}
+
 		let images = request.images;
 		let text = request.text;
 		if (images && images.length > 0) {
