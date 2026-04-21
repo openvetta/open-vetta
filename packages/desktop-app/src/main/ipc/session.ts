@@ -47,6 +47,9 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 	) {
 		throw new Error("Invalid prompt request streamingBehavior");
 	}
+	if (request.modelKey !== undefined && (typeof request.modelKey !== "string" || request.modelKey.length === 0)) {
+		throw new Error("Invalid prompt request modelKey");
+	}
 	if (request.images !== undefined) {
 		if (!Array.isArray(request.images)) {
 			throw new Error("Invalid prompt request images");

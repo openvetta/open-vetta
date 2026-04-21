@@ -312,11 +312,18 @@ export function useSessionManager(): SessionManagerResult {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 		}
 		setChatMessages((prev) => [...prev, userMsg]);
-		const promptReq: { text: string; images?: Array<{ type: "image"; data: string; mimeType: string }> } = {
+		const promptReq: {
+			text: string;
+			images?: Array<{ type: "image"; data: string; mimeType: string }>;
+			modelKey?: string;
+		} = {
 			text: text || "(see attached images)",
 		};
 		if (images) {
 			promptReq.images = images.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+		}
+		if (selectedModel) {
+			promptReq.modelKey = selectedModel;
 		}
 		await window.vetta.session.prompt(session.runtimeId, promptReq);
 		await loadSessions(session.cwd);
@@ -326,6 +333,7 @@ export function useSessionManager(): SessionManagerResult {
 		attachedImages,
 		selectedSkill,
 		mentionedFiles,
+		selectedModel,
 		setInputValue,
 		setAttachedImages,
 		setSelectedSkill,
