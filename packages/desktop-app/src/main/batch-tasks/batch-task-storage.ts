@@ -307,6 +307,33 @@ export async function removeTaskFromProject(projectDir: string, taskId: string):
 	await writeProjectMeta(projectDir, meta);
 }
 
+export async function resetProjectFiles(projectDir: string): Promise<void> {
+	const meta = await readProjectMeta(projectDir);
+	if (!meta) return;
+
+	// Delete everything in projectDir except .vetta/meta.json
+	const entries = await readdir(projectDir, { withFileTypes: true });
+	for (const entry of entries) {
+		const fullPath = join(projectDir, entry.name);
+		if (entry.name === ".vetta") {
+			// Inside .vetta, delete everything except meta.json
+			const vettaEntries = await readdir(fullPath);
+			for (const ve of vettaEntries) {
+				if (ve === "meta.json") continue;
+				await rm(join(fullPath, ve), { recursive: true, force: true });
+			}
+		} else {
+			await rm(fullPath, { recursive: true, force: true });
+		}
+	}
+
+	// Rebuild empty item directories and sessions directory
+	for (const item of meta.items) {
+		await mkdir(join(projectDir, item.name), { recursive: true });
+	}
+	await mkdir(join(projectDir, ".vetta", "sessions"), { recursive: true });
+}
+
 export function generateTaskId(): string {
 	return `batch-task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
