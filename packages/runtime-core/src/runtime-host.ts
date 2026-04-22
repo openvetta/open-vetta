@@ -25,7 +25,7 @@ import type {
 	SettingsPatch,
 } from "./contracts.js";
 import { runtimeError } from "./errors.js";
-import { buildWindowsSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
+import { buildSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
 
 interface SessionHandle {
 	session: AgentSession;
@@ -35,16 +35,19 @@ interface SessionHandle {
 export interface RuntimeHostOptions {
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	sandboxHostPath?: string;
+	linuxBubblewrapPath?: string;
 }
 
 export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
+	private readonly linuxBubblewrapPath: string | undefined;
 
 	constructor(options: RuntimeHostOptions = {}) {
 		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
 		this.sandboxHostPath = options.sandboxHostPath;
+		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 	}
 
 	/**
@@ -353,11 +356,11 @@ export class RuntimeHost implements SessionFacade {
 		executionMode: SessionExecutionMode,
 		cwd: string,
 	): CreateAgentSessionOptions["customTools"] {
-		const enforceWindowsSandbox = process.platform === "win32" && executionMode === "sandbox";
-		if (!enforceWindowsSandbox) return undefined;
-		return buildWindowsSandboxToolDefinitions({
+		if (executionMode !== "sandbox") return undefined;
+		return buildSandboxToolDefinitions({
 			cwd,
-			sandboxHostPath: this.sandboxHostPath,
+			windowsSandboxHostPath: this.sandboxHostPath,
+			linuxBubblewrapPath: this.linuxBubblewrapPath,
 		});
 	}
 

@@ -1,7 +1,7 @@
 import { activeSessionAtom, isStreamingAtom, sessionExecutionModeAtom, type SessionExecutionMode } from "@shared/store/atoms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { useAtom, useAtomValue } from "jotai";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const MODE_OPTIONS: Array<{
 	mode: SessionExecutionMode;
@@ -28,11 +28,41 @@ export function ExecutionModeSelector(): JSX.Element {
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const [mode, setMode] = useAtom(sessionExecutionModeAtom);
 	const [isSwitching, setIsSwitching] = useState(false);
+	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 	const disabled = !activeSession || isStreaming || isSwitching;
+
+	useEffect(() => {
+		void window.vetta.config.get().then((config) => {
+			if (config.linuxSandbox?.status === "unavailable") {
+				const reason = config.linuxSandbox.reason ?? "unknown_error";
+				setSandboxUnavailableReason(`Linux 沙盒不可用：${reason}`);
+				return;
+			}
+			setSandboxUnavailableReason(null);
+		});
+	}, []);
+
+	const modeOptions = useMemo(
+		() =>
+			MODE_OPTIONS.map((option) =>
+				option.mode === "sandbox" && sandboxUnavailableReason
+					? {
+							...option,
+							title: sandboxUnavailableReason,
+							disabled: true,
+						}
+					: {
+							...option,
+							disabled: false,
+						},
+			),
+		[sandboxUnavailableReason],
+	);
 
 	const handleSelect = useCallback(
 		async (nextMode: SessionExecutionMode) => {
 			if (!activeSession || disabled || nextMode === mode) return;
+			if (nextMode === "sandbox" && sandboxUnavailableReason) return;
 			const previousMode = mode;
 			setMode(nextMode);
 			setIsSwitching(true);
@@ -45,7 +75,7 @@ export function ExecutionModeSelector(): JSX.Element {
 				setIsSwitching(false);
 			}
 		},
-		[activeSession, disabled, mode, setMode],
+		[activeSession, disabled, mode, sandboxUnavailableReason, setMode],
 	);
 
 	return (
@@ -58,8 +88,14 @@ export function ExecutionModeSelector(): JSX.Element {
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
-					{MODE_OPTIONS.map((option) => (
-						<SelectItem key={option.mode} value={option.mode} title={option.title} className="text-[12px]">
+					{modeOptions.map((option) => (
+						<SelectItem
+							key={option.mode}
+							value={option.mode}
+							title={option.title}
+							className="text-[12px]"
+							disabled={option.disabled}
+						>
 							<span className="inline-flex items-center gap-1.5">
 								<span className={`${option.icon} h-3.5 w-3.5`} />
 								<span>{option.label}</span>

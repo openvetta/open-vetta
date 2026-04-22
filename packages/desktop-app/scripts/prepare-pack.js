@@ -8,6 +8,7 @@ const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
 const imGatewayDir = join(projectRoot, "..", "im-gateway");
 const imGatewayDistDir = join(imGatewayDir, "dist");
+const runtimeCoreSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "linux");
 
 // Resolve electron version from the workspace
 const require = createRequire(import.meta.url);
@@ -95,6 +96,30 @@ if (existsSync(imGatewayDistDir)) {
 	throw new Error(`im-gateway dist dir not found after cross-build: ${imGatewayDistDir}`);
 }
 
+// =============================================================================
+// Linux sandbox binary (extraResources)
+// =============================================================================
+//
+// The Linux desktop build can bundle bubblewrap under Resources/sandbox/linux/.
+// We stage any checked-in binaries from packages/runtime-core/sandbox/linux.
+const stagedSandboxDir = join(buildStageDir, "sandbox");
+mkdirSync(stagedSandboxDir, { recursive: true });
+if (existsSync(runtimeCoreSandboxDir)) {
+	const stagedLinuxSandboxDir = join(stagedSandboxDir, "linux");
+	mkdirSync(stagedLinuxSandboxDir, { recursive: true });
+	cpSync(runtimeCoreSandboxDir, stagedLinuxSandboxDir, { recursive: true });
+
+	for (const arch of readdirSync(stagedLinuxSandboxDir)) {
+		const binaryPath = join(stagedLinuxSandboxDir, arch, "bwrap");
+		if (!existsSync(binaryPath)) continue;
+		try {
+			chmodSync(binaryPath, 0o755);
+		} catch {
+			// best effort on Windows / FAT
+		}
+	}
+}
+
 // Write electron-builder config
 const builderConfig = {
 	appId: "com.vetta.desktop",
@@ -131,6 +156,11 @@ const builderConfig = {
 			from: "im-gateway",
 			to: "im-gateway",
 			filter: ["im-gateway-*"],
+		},
+		{
+			from: "sandbox",
+			to: "sandbox",
+			filter: ["**/*"],
 		},
 	],
 	nsis: {

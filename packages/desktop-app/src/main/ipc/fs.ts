@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { ipcMain } from "electron";
 import type { FsEntry } from "../../preload/fs-types.js";
+import { getLinuxSandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 // ─── Desktop app config ───
@@ -18,6 +19,18 @@ export interface DesktopConfig {
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
 	defaultExecutionMode: "sandbox" | "full-access";
+}
+
+export interface LinuxSandboxConfigState {
+	status: "unknown" | "available" | "unavailable";
+	backend: "bundled-bwrap" | "system-bwrap" | null;
+	reason?: string;
+	details?: string;
+	checkedAt?: number;
+}
+
+export interface DesktopConfigSnapshot extends DesktopConfig {
+	linuxSandbox: LinuxSandboxConfigState;
 }
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
@@ -373,13 +386,16 @@ export function registerFsIpc(): () => void {
 		}
 	});
 
-	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfig> => {
+	ipcMain.handle(CHANNELS.CONFIG_GET, async (): Promise<DesktopConfigSnapshot> => {
 		const config = await readDesktopConfig();
 		// Ensure all known paths are authorized for file operations
 		for (const p of config.projects) allowProjectRoot(p.path);
 		for (const p of config.archivedProjects) allowProjectRoot(p.path);
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
-		return config;
+		return {
+			...config,
+			linuxSandbox: getLinuxSandboxCapability(),
+		};
 	});
 
 	ipcMain.handle(CHANNELS.CONFIG_SET, async (_event, config: unknown) => {

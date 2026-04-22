@@ -1,5 +1,7 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
+import { readDesktopConfig } from "../ipc/fs.js";
 import { emitTaskEvent, emitTaskStreamEvent } from "../ipc/scheduler.js";
+import { assertLinuxSandboxAvailableForMode } from "../sandbox/capability.js";
 import type { ScheduledTask, TaskExecutionRecord } from "./task-storage";
 import { createRecord, generateId, updateRecordMetadata, updateTaskLastRun } from "./task-storage";
 
@@ -27,6 +29,11 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 	};
 
 	try {
+		await assertLinuxSandboxAvailableForMode(undefined, async () => {
+			const config = await readDesktopConfig();
+			return config.defaultExecutionMode;
+		});
+
 		const result = await runtime.createSession({ cwd: task.cwd });
 		sessionId = result.sessionId;
 		record.sessionId = sessionId;
