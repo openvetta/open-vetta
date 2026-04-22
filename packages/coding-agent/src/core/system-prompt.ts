@@ -19,6 +19,7 @@ const toolDescriptions: Record<string, string> = {
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
 	invoke_scene: "Invoke a scene by name when the user's message starts with /scene: prefix",
 	todo: "Plan and track progress on multi-step tasks with a todo list",
+	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 };
 
@@ -172,6 +173,14 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		);
 		guidelinesList.push(
 			'When dir_tree output includes path IDs like @PATH_0001, prefer these IDs as tool paths. In bash commands, wrap IDs in quotes (example: cat "@PATH_0001").',
+		);
+	}
+
+	// current_time guideline
+	const hasCurrentTime = tools.includes("current_time");
+	if (hasCurrentTime) {
+		guidelinesList.push(
+			'ALWAYS use current_time tool (not bash "date", "timedatectl", or other shell commands) when you need to know the current date or time. Only fall back to bash if current_time cannot fulfill the specific requirement (e.g., timezone conversion, date arithmetic)',
 		);
 	}
 
