@@ -102,6 +102,13 @@ export interface DesktopConfigData {
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
 	defaultExecutionMode?: "sandbox" | "full-access";
+	linuxSandbox?: {
+		status: "unknown" | "available" | "unavailable";
+		backend: "bundled-bwrap" | "system-bwrap" | null;
+		reason?: string;
+		details?: string;
+		checkedAt?: number;
+	};
 }
 
 export interface DesktopConfigApi {

@@ -9,6 +9,7 @@ import {
 	registerSchedulerIpc,
 	teardownAllIpc,
 } from "./ipc/index.js";
+import { initializeLinuxSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler } from "./scheduler/scheduler.js";
 import {
 	createTray,
@@ -87,7 +88,12 @@ if (!gotSingleLock) {
 	});
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+	if (process.platform === "linux") {
+		const capability = await initializeLinuxSandboxCapability();
+		console.log("[linux-sandbox] startup probe", capability);
+	}
+
 	// 开发模式下覆盖 About 面板信息，避免显示 Electron 框架版本
 	if (!app.isPackaged) {
 		const appVersion = getAppVersion();

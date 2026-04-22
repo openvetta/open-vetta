@@ -8,6 +8,7 @@ import type {
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import { assertLinuxSandboxAvailableForMode, getAvailableLinuxBubblewrapPath } from "../sandbox/capability.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
@@ -74,17 +75,21 @@ function assertExecutionMode(value: unknown): void {
 }
 
 export function registerSessionIpc(webContents: WebContents): () => void {
+	const resolveDefaultExecutionMode = async (): Promise<SessionExecutionMode> => {
+		const config = await readDesktopConfig();
+		return config.defaultExecutionMode;
+	};
+
 	const runtime = new RuntimeHost({
-		getDefaultExecutionMode: async () => {
-			const config = await readDesktopConfig();
-			return config.defaultExecutionMode;
-		},
+		getDefaultExecutionMode: resolveDefaultExecutionMode,
+		linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
 	});
 	const subscriptionMap = new Map<string, () => void>();
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
 		if (config?.cwd) allowProjectRoot(config.cwd);
 		assertExecutionMode(config?.executionMode);
+		await assertLinuxSandboxAvailableForMode(config?.executionMode, resolveDefaultExecutionMode);
 		return runtime.createSession(config);
 	});
 
@@ -131,6 +136,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.SET_EXECUTION_MODE, async (_event, sessionId: unknown, mode: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertExecutionMode(mode);
+		await assertLinuxSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
 		await runtime.setExecutionMode(sessionId, mode as SessionExecutionMode);
 	});
 

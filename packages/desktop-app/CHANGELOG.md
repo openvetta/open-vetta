@@ -10,6 +10,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **Linux 沙盒内置 `bubblewrap` + 启动期能力探测**：desktop-app 主进程在应用启动阶段执行 Linux sandbox probe，区分 `binary_not_found` / `binary_not_executable` / `userns_unavailable` 等失败原因，并通过 `config.get()` 向 renderer 暴露 `linuxSandbox` 运行时状态；`session` IPC、scheduler 和 batch tasks 在请求 `sandbox` 模式前统一校验该状态，避免静默降级为 `full-access`。`prepare-pack.js` 同时预留了将 `packages/runtime-core/sandbox/linux/<arch>/bwrap` 打入安装包 `Resources/sandbox/linux/<arch>/bwrap` 的资源路径。
 - **微信（iLink）渠道卡片 + 扫码绑定对话框**：`Settings → IM 集成` 新增「微信」渠道卡片，与飞书并列。点击「扫码绑定」打开对话框，对话框内通过 NDJSON 长轮询从 sidecar 实时接收 `wechat_qr` / `wechat_bind_status` / `wechat_bound` 事件，渲染 QR 图（`qrcode` 包，新增依赖），按状态机展示 idle → starting → waiting → scanned → confirmed → 自动关闭，过期自动刷新。
   - 「活动」徽章：标识当前激活的 transport（飞书 / 微信，互斥）。点击非活动卡片的「激活」按钮可在不重新填写凭据的前提下切换到该 transport。
   - 「管理 / 解绑」：已绑定后对话框显示 `ilink_bot_id` / `ilink_user_id` 与 24h/10 条配额提醒，并提供解绑按钮。解绑触发 `wechat_logout` 帧，sidecar 清空 `~/.vetta/desktop-app/im-wechat.json` 后回到 awaiting_bind 状态。

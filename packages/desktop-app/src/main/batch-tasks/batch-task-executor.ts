@@ -1,5 +1,7 @@
 import { join } from "node:path";
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
+import { readDesktopConfig } from "../ipc/fs.js";
+import { assertLinuxSandboxAvailableForMode } from "../sandbox/capability.js";
 import { type BatchTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
 
@@ -105,6 +107,11 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 	);
 
 	try {
+		await assertLinuxSandboxAvailableForMode(undefined, async () => {
+			const config = await readDesktopConfig();
+			return config.defaultExecutionMode;
+		});
+
 		const sessionDir = join(project.id, ".vetta", "sessions");
 		const result = await runtime.createSession({ cwd: task.cwd, sessionDir });
 		const sessionId = result.sessionId;
