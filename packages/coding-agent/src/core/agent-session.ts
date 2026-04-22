@@ -501,6 +501,9 @@ export class AgentSession {
 		const pending = items.filter((i) => i.status !== "done");
 		if (pending.length === 0) return [];
 
+		// Sort by ID to ensure sequential order
+		pending.sort((a, b) => a.id - b.id);
+		const nextItem = pending[0];
 		const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
 		const doneCount = items.length - pending.length;
 
@@ -510,7 +513,7 @@ export class AgentSession {
 				content: [
 					{
 						type: "text",
-						text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
+						text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nYou MUST work on item #${nextItem.id} next: "${nextItem.content}"\nCall todo(action="update", id=${nextItem.id}, status="in_progress") first, then do the work, then mark it done. Do NOT skip to a later item.`,
 					},
 				],
 				timestamp: Date.now(),
