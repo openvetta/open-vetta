@@ -13,7 +13,12 @@ import {
 import { toToolDefinition, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
 
 const WINDOWS_SANDBOX_HOST_FILENAME = "codex-windows-sandbox-host.exe";
-const WINDOWS_SANDBOX_HOST_RELATIVE_DIRS = ["sandbox/windows-sandbox-cli", "sandbox"] as const;
+const WINDOWS_SANDBOX_HOST_RELATIVE_DIRS = [
+	"sandbox/windows",
+	"sandbox/bin",
+	"sandbox/windows-sandbox-cli",
+	"sandbox",
+] as const;
 const ENV_WHITELIST = ["PATH", "SystemRoot", "TEMP", "TMP", "COMSPEC"] as const;
 
 type WindowsSandboxBackend = "auto" | "elevated" | "unelevated";
@@ -43,7 +48,7 @@ function resolveWindowsSandboxHostPath(explicitPath?: string): string {
 
 	const searched = candidates.map((item) => `  - ${item}`).join("\n");
 	throw new Error(
-		`Windows sandbox host not found. Set VETTA_WINDOWS_SANDBOX_HOST_PATH or place ${WINDOWS_SANDBOX_HOST_FILENAME} in packages/runtime-core/sandbox/windows-sandbox-cli.` +
+		`Windows sandbox host not found. Set VETTA_WINDOWS_SANDBOX_HOST_PATH or place ${WINDOWS_SANDBOX_HOST_FILENAME} in packages/runtime-core/sandbox/bin.` +
 			`\nSearched:\n${searched}`,
 	);
 }

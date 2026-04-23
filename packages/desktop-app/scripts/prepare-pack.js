@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -8,7 +8,15 @@ const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
 const imGatewayDir = join(projectRoot, "..", "im-gateway");
 const imGatewayDistDir = join(imGatewayDir, "dist");
+const runtimeCoreWindowsSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "bin");
 const runtimeCoreSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "linux");
+const imGatewayCrossTargets = [
+	{ arch: "arm64", os: "darwin" },
+	{ arch: "amd64", os: "darwin" },
+	{ arch: "amd64", os: "linux" },
+	{ arch: "arm64", os: "linux" },
+	{ arch: "amd64", os: "windows" },
+];
 
 // Resolve electron version from the workspace
 const require = createRequire(import.meta.url);
@@ -61,19 +69,42 @@ for (const dep of externalDeps) {
 // im-gateway sidecar binaries (extraResources)
 // =============================================================================
 //
-// Build the Go binaries for every supported target via the im-gateway
-// Makefile, then copy them into the staged Resources/im-gateway/ directory
-// so electron-builder picks them up via extraResources.
+// Build the Go binaries for every supported target, then copy them into the
+// staged Resources/im-gateway/ directory so electron-builder picks them up via
+// extraResources. This intentionally avoids shell-specific Makefile logic so
+// Windows packaging works the same way as POSIX hosts.
 
 console.log("[prepare-pack] cross-building im-gateway sidecar...");
-try {
-	execSync("make cross-build", {
-		cwd: imGatewayDir,
-		stdio: "inherit",
-	});
-} catch (err) {
-	console.error("[prepare-pack] im-gateway cross-build failed");
-	throw err;
+rmSync(imGatewayDistDir, { recursive: true, force: true });
+mkdirSync(imGatewayDistDir, { recursive: true });
+
+for (const target of imGatewayCrossTargets) {
+	const extension = target.os === "windows" ? ".exe" : "";
+	const outputPath = join(imGatewayDistDir, `im-gateway-${target.os}-${target.arch}${extension}`);
+	console.log(`  -> ${outputPath}`);
+	try {
+		execFileSync(process.platform === "win32" ? "go.exe" : "go", [
+			"build",
+			"-trimpath",
+			"-ldflags",
+			"-s -w -X main.version=dev",
+			"-o",
+			outputPath,
+			"./cmd/im-gateway",
+		], {
+			cwd: imGatewayDir,
+			env: {
+				...process.env,
+				CGO_ENABLED: "0",
+				GOARCH: target.arch,
+				GOOS: target.os,
+			},
+			stdio: "inherit",
+		});
+	} catch (err) {
+		console.error("[prepare-pack] im-gateway cross-build failed");
+		throw err;
+	}
 }
 
 const stagedImGatewayDir = join(buildStageDir, "im-gateway");
@@ -97,13 +128,29 @@ if (existsSync(imGatewayDistDir)) {
 }
 
 // =============================================================================
-// Linux sandbox binary (extraResources)
+// Sandbox binaries (extraResources)
 // =============================================================================
 //
-// The Linux desktop build can bundle bubblewrap under Resources/sandbox/linux/.
-// We stage any checked-in binaries from packages/runtime-core/sandbox/linux.
+// Sandbox executables live under Resources/sandbox/<platform>/ so the Electron
+// main process can resolve them from process.resourcesPath after packaging.
 const stagedSandboxDir = join(buildStageDir, "sandbox");
 mkdirSync(stagedSandboxDir, { recursive: true });
+if (existsSync(runtimeCoreWindowsSandboxDir)) {
+	const stagedWindowsSandboxDir = join(stagedSandboxDir, "windows");
+	mkdirSync(stagedWindowsSandboxDir, { recursive: true });
+	cpSync(runtimeCoreWindowsSandboxDir, stagedWindowsSandboxDir, { recursive: true });
+
+	for (const file of readdirSync(stagedWindowsSandboxDir)) {
+		const binaryPath = join(stagedWindowsSandboxDir, file);
+		if (!existsSync(binaryPath)) continue;
+		try {
+			chmodSync(binaryPath, 0o755);
+		} catch {
+			// best effort on Windows / FAT
+		}
+	}
+}
+
 if (existsSync(runtimeCoreSandboxDir)) {
 	const stagedLinuxSandboxDir = join(stagedSandboxDir, "linux");
 	mkdirSync(stagedLinuxSandboxDir, { recursive: true });
@@ -148,6 +195,10 @@ const builderConfig = {
 	win: {
 		target: ["nsis"],
 		icon: "build/icon.ico",
+	},
+	linux: {
+		target: ["AppImage"],
+		category: "Utility",
 	},
 	// Sidecar binaries are picked up from the staged ./im-gateway dir
 	// (populated above by the cross-build step).

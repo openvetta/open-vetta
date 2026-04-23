@@ -9,6 +9,7 @@ import type {
 } from "../../../../runtime-core/src/index.js";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import { assertLinuxSandboxAvailableForMode, getAvailableLinuxBubblewrapPath } from "../sandbox/capability.js";
+import { resolveWindowsSandboxHostBinary } from "../sandbox/windows-binary-resolver.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
@@ -82,6 +83,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	const runtime = new RuntimeHost({
 		getDefaultExecutionMode: resolveDefaultExecutionMode,
+		sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
 		linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
 	});
 	const subscriptionMap = new Map<string, () => void>();

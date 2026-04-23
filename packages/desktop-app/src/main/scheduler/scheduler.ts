@@ -2,6 +2,7 @@ import { AsyncTask, CronJob, ToadScheduler } from "toad-scheduler";
 import { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { getAvailableLinuxBubblewrapPath } from "../sandbox/capability.js";
+import { resolveWindowsSandboxHostBinary } from "../sandbox/windows-binary-resolver.js";
 import { abortTask, executeTask } from "./task-executor";
 import type { ScheduledTask as TaskData } from "./task-storage";
 import { loadTasks } from "./task-storage";
@@ -17,6 +18,7 @@ function getRuntime(): RuntimeHost {
 				const config = await readDesktopConfig();
 				return config.defaultExecutionMode;
 			},
+			sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
 			linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
 		});
 	}
