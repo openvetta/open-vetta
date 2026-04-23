@@ -1,11 +1,14 @@
-import { useAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { useCallback } from "react";
-import { workspacePathAtom } from "@shared/store/atoms";
+import { workspacePathAtom, debugModeAtom, confirmDialogAtom } from "@shared/store/atoms";
 import { UpdateChecker } from "@shared/components/UpdateChecker";
+import { Switch } from "@shared/components/ui/switch";
 import { SettingRow, SettingSection } from "./shared";
 
 export function GeneralSettings(): JSX.Element {
 	const [workspacePath, setWorkspacePath] = useAtom(workspacePathAtom);
+	const [debugMode, setDebugMode] = useAtom(debugModeAtom);
+	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 
 	const handleSelectWorkspace = useCallback(async () => {
 		const selected = await window.vetta.dialog.selectFolder();
@@ -22,6 +25,30 @@ export function GeneralSettings(): JSX.Element {
 		localStorage.setItem("vetta-workspace-path", defaultPath);
 		await window.vetta.config.set({ workspacePath: defaultPath });
 	}, [setWorkspacePath]);
+
+	const handleToggleDebug = useCallback(
+		(checked: boolean) => {
+			if (!checked) {
+				setConfirmDialog({
+					title: "关闭调试模式",
+					message: "关闭后将清空所有调试数据（请求历史记录），确定继续？",
+					confirmLabel: "确定关闭",
+					variant: "danger",
+					onConfirm: () => {
+						void window.vetta.debug.clearDebugDir();
+						setDebugMode(false);
+						localStorage.setItem("vetta-debug-mode", "false");
+						void window.vetta.config.set({ debugMode: false });
+					},
+				});
+				return;
+			}
+			setDebugMode(true);
+			localStorage.setItem("vetta-debug-mode", "true");
+			void window.vetta.config.set({ debugMode: true });
+		},
+		[setDebugMode, setConfirmDialog],
+	);
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
@@ -59,6 +86,16 @@ export function GeneralSettings(): JSX.Element {
 				<div className="px-5 py-4">
 					<UpdateChecker />
 				</div>
+			</SettingSection>
+
+			<SettingSection title="开发者">
+				<SettingRow
+					title="调试模式"
+					description="打开调试模式，可以协助开发者定位问题"
+					border={false}
+				>
+					<Switch checked={debugMode} onCheckedChange={handleToggleDebug} />
+				</SettingRow>
 			</SettingSection>
 		</div>
 	);

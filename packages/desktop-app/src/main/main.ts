@@ -132,6 +132,10 @@ app.whenReady().then(() => {
 		await shell.openPath(fullPath);
 	});
 
+	ipcMain.handle("vetta:shell:show-item-in-folder", (_event, fullPath: string) => {
+		shell.showItemInFolder(fullPath);
+	});
+
 	ipcMain.handle("vetta:window:minimize", () => {
 		getMainWindow()?.minimize();
 	});

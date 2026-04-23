@@ -1,4 +1,5 @@
 import type { WebContents } from "electron";
+import { registerDebugIpc } from "./debug.js";
 import { registerDialogIpc } from "./dialog.js";
 import { registerDownloadsIpc } from "./downloads.js";
 import { registerFlowingIpc } from "./flowing.js";
@@ -20,6 +21,7 @@ interface IpcTeardown {
 	teardownBatchTasks: () => void;
 	teardownDownloads: () => void;
 	teardownIm: () => void;
+	teardownDebug: () => void;
 }
 
 export function registerAllIpc(webContents: WebContents): IpcTeardown {
@@ -34,6 +36,7 @@ export function registerAllIpc(webContents: WebContents): IpcTeardown {
 		teardownBatchTasks: () => {},
 		teardownDownloads: registerDownloadsIpc(webContents),
 		teardownIm: registerImIpc(webContents),
+		teardownDebug: registerDebugIpc(),
 	};
 }
 
@@ -48,6 +51,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownBatchTasks();
 	teardown.teardownDownloads();
 	teardown.teardownIm();
+	teardown.teardownDebug();
 }
 
 export { registerBatchTasksIpc } from "./batch-tasks.js";

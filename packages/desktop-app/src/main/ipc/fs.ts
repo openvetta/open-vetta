@@ -1,5 +1,5 @@
 import type { FSWatcher, Stats } from "node:fs";
-import { watch } from "node:fs";
+import { readFileSync, watch } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
@@ -18,6 +18,7 @@ export interface DesktopConfig {
 	projects: ProjectEntry[];
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
+	debugMode?: boolean;
 }
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
@@ -27,6 +28,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	projects: [],
 	archivedProjects: [],
 	workspacePath: join(homedir(), ".vetta", "workspace"),
+	debugMode: false,
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -48,6 +50,24 @@ async function readConfig(): Promise<DesktopConfig> {
 			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
 			workspacePath:
 				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
+			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
+		};
+	} catch {
+		return { ...DEFAULT_CONFIG };
+	}
+}
+
+/** Sync version for use in hot paths (e.g. event callbacks) */
+export function readConfigSync(): DesktopConfig {
+	try {
+		const raw = readFileSync(CONFIG_PATH, "utf8");
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
+		return {
+			projects: migrateProjectEntries(parsed.projects),
+			archivedProjects: migrateProjectEntries(parsed.archivedProjects),
+			workspacePath:
+				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
+			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -442,6 +462,7 @@ export function registerFsIpc(): () => void {
 			projects: patch.projects ?? current.projects,
 			archivedProjects: patch.archivedProjects ?? current.archivedProjects,
 			workspacePath: patch.workspacePath ?? current.workspacePath,
+			debugMode: patch.debugMode ?? current.debugMode,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);
