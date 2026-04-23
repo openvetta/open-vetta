@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
-import { useProjects } from "../hooks/useProjects";
 import { isMac, isWindows } from "@shared/lib/platform";
 import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
@@ -29,7 +28,6 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	const navigate = useNavigate();
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
-	const { createProject } = useProjects();
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 
 	const onResize = useCallback(
@@ -84,7 +82,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				<div className="flex min-w-0 items-center gap-1">
 					<SidebarFilterSelect />
 				</div>
-				{isWindows && (
+				{!isMac && (
 					<div className="flex items-center gap-1">
 						<AddProjectMenu />
 					</div>
