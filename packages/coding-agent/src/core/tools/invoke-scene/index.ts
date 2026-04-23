@@ -1,8 +1,10 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
 import { stripFrontmatter } from "../../../utils/frontmatter.js";
 import type { Skill } from "../../skills.js";
+import type { TodoStore } from "../../todo-store.js";
 import { loadToolDescription } from "../description.js";
 
 const invokeSceneSchema = Type.Object({
@@ -26,6 +28,8 @@ export interface InvokeSceneToolDetails {
 export interface InvokeSceneToolOptions {
 	/** Function to resolve available scenes at execution time */
 	getScenes: () => Skill[];
+	/** TodoStore instance for auto-creating predefined tasks */
+	getTodoStore?: () => TodoStore;
 }
 
 export function createInvokeSceneTool(options: InvokeSceneToolOptions): AgentTool<typeof invokeSceneSchema> {
@@ -59,20 +63,47 @@ export function createInvokeSceneTool(options: InvokeSceneToolOptions): AgentToo
 				const rawContent = readFileSync(scene.filePath, "utf-8");
 				const body = stripFrontmatter(rawContent).trim();
 
+				// Auto-create todo items from tasks.json if present
+				let tasksNote = "";
+				const tasksJsonPath = join(scene.baseDir, "tasks.json");
+				if (existsSync(tasksJsonPath)) {
+					try {
+						const tasksRaw = readFileSync(tasksJsonPath, "utf-8");
+						const tasks: unknown = JSON.parse(tasksRaw);
+						if (Array.isArray(tasks) && tasks.length > 0 && tasks.every((t) => typeof t === "string")) {
+							const todoStore = options.getTodoStore?.();
+							if (todoStore) {
+								todoStore.createMany(tasks as string[]);
+								tasksNote =
+									`\n[SYSTEM] ${tasks.length} todo items have been auto-created from this scene's tasks.json.\n` +
+									`Do NOT create your own todo list. Follow the existing todo items in strict sequential order.\n` +
+									`Use todo(action="list") to see them, then start with todo(action="update", id=1, status="in_progress").\n`;
+							}
+						}
+					} catch {
+						// Malformed tasks.json — silently skip, scene still works without it
+					}
+				}
+
 				const lines: string[] = [
 					`<scene name="${scene.name}" location="${scene.filePath}">`,
 					"",
-					`This scene's base directory is: ${scene.baseDir}`,
-					`ALL relative paths in this scene MUST be resolved against the base directory above.`,
-					`When running bash commands from this scene, ALWAYS prefix with: cd "${scene.baseDir}" &&`,
+					`SCENE_DIR="${scene.baseDir}"`,
+					`ALL relative paths in this scene MUST be resolved against SCENE_DIR using absolute paths.`,
+					`For example: bash "${scene.baseDir}/scripts/run.sh" — do NOT cd into the scene directory.`,
 					`IMPORTANT: Use the literal path above. Do NOT use shell variables like $SCENE_DIR — no such variable exists in the shell environment.`,
 					"",
 					`CRITICAL: The scene directory is READ-ONLY. NEVER write, create, or modify any files inside the scene directory.`,
-					`All output files and artifacts MUST be written to the user's working directory (cwd), NOT into the scene directory.`,
+					`NEVER cd into the scene directory. Stay in the user's working directory (cwd) at all times.`,
+					`All output files and artifacts MUST be written to cwd, NOT into the scene directory.`,
 					"",
 					body,
 					`</scene>`,
 				];
+
+				if (tasksNote) {
+					lines.push("", tasksNote);
+				}
 
 				if (args) {
 					lines.push("", `User arguments: ${args}`);
