@@ -111,6 +111,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertPromptRequest(request);
 		const req = request as PromptRequest;
+		console.log(
+			`[session ipc] prompt session=${sessionId} textLength=${req.text.length} images=${req.images?.length ?? 0} streamingBehavior=${req.streamingBehavior ?? "default"}`,
+		);
 		if (req.images && req.images.length > 0) {
 			console.log(
 				`[IPC PROMPT] images: ${req.images.length}, first type=${req.images[0].type}, mimeType=${req.images[0].mimeType}, data.length=${req.images[0].data.length}`,
@@ -119,6 +122,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			console.log(`[IPC PROMPT] no images in request`);
 		}
 		await runtime.prompt(sessionId, request);
+		console.log(`[session ipc] prompt dispatched session=${sessionId}`);
 	});
 
 	ipcMain.handle(CHANNELS.CONTINUE, async (_event, sessionId: unknown) => {
@@ -191,6 +195,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
+		console.log(`[session ipc] subscribe session=${sessionId} subscription=${subscriptionId}`);
 		const unsubscribe = runtime.subscribe(sessionId, (runtimeEvent: SessionEvent) => {
 			webContents.send(CHANNELS.EVENT, subscriptionId, runtimeEvent);
 		});
@@ -200,6 +205,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.UNSUBSCRIBE, async (_event, subscriptionId: unknown) => {
 		assertNonEmptyString(subscriptionId, "subscriptionId");
+		console.log(`[session ipc] unsubscribe subscription=${subscriptionId}`);
 		const unsubscribe = subscriptionMap.get(subscriptionId);
 		if (unsubscribe) {
 			unsubscribe();
