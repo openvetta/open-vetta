@@ -1,3 +1,4 @@
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
@@ -95,16 +96,23 @@ const components: Components = {
 	em: ({ children }) => <em className="italic">{children}</em>,
 };
 
+const remarkPlugins = [remarkGfm];
+
 interface TextBlockProps {
 	text: string;
 }
 
-export function TextBlockView({ text }: TextBlockProps): JSX.Element {
+/**
+ * Memo'd markdown renderer. Re-rendering is throttled upstream by rAF
+ * delta batching in useSessionManager (~16fps), so we render directly
+ * without internal debounce to avoid layout jumps during streaming.
+ */
+export const TextBlockView = memo(function TextBlockView({ text }: TextBlockProps) {
 	return (
 		<div className="markdown-body break-words">
-			<ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+			<ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
 				{text}
 			</ReactMarkdown>
 		</div>
 	);
-}
+});
