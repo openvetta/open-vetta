@@ -145,6 +145,18 @@ export class RuntimeHost implements SessionFacade {
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void {
 		const handle = this.requireSession(sessionId);
 		handler(this.lifecycleEvent(sessionId, "created"));
+
+		// Push current todo state so late subscribers (e.g., user navigating into
+		// an already-running session) see the todo panel immediately.
+		const todoItems = handle.session.todoStore.getAll();
+		if (todoItems.length > 0) {
+			handler({
+				...this.baseEvent(sessionId, "agent"),
+				type: "todo_update",
+				items: [...todoItems],
+			} as SessionEvent);
+		}
+
 		return handle.session.subscribe((event) => {
 			for (const mapped of this.mapEvent(sessionId, event, handle.session)) {
 				handler(mapped);
