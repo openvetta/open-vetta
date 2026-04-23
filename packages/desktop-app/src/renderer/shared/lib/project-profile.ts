@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /**
  * 项目活动面板 tab 配置
  */
-export type ActivityTabKey = "file" | "journey" | "chat" | "batch-progress" | "schedule-records" | "todo";
+export type ActivityTabKey = "file" | "journey" | "chat" | "batch-progress" | "schedule-records" | "todo" | "debug";
 
 export interface ActivityTabConfig {
 	key: ActivityTabKey;

@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { basename } from "node:path";
 import { ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../../runtime-core/src/index.js";
+import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getSharedRuntime } from "../runtime.js";
-import { allowProjectRoot } from "./fs.js";
+import { allowProjectRoot, readConfigSync } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
 const CHANNELS = {
@@ -21,6 +23,7 @@ const CHANNELS = {
 	RENAME: "vetta:session:rename",
 	DISPOSE: "vetta:session:dispose",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
+	GET_SESSION_PATH: "vetta:session:get-session-path",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	EVENT: "vetta:session:event",
@@ -65,10 +68,20 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 export function registerSessionIpc(webContents: WebContents): () => void {
 	const runtime = getSharedRuntime();
 	const subscriptionMap = new Map<string, () => void>();
+	/** Track session cwd for debug file writing */
+	const sessionCwdMap = new Map<string, string>();
+	/** Track debug request sequence per session */
+	const debugSeqMap = new Map<string, number>();
+	/** Track turn start time per session for duration calculation */
+	const turnStartMap = new Map<string, number>();
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
 		if (config?.cwd) allowProjectRoot(config.cwd);
-		return runtime.createSession(config);
+		const result = await runtime.createSession(config);
+		if (config?.cwd) {
+			sessionCwdMap.set(result.sessionId, config.cwd);
+		}
+		return result;
 	});
 
 	ipcMain.handle(CHANNELS.LIST_PROJECTS, async () => {
@@ -158,10 +171,47 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		await runtime.disposeSession(sessionId);
 	});
 
+	ipcMain.handle(CHANNELS.GET_SESSION_PATH, (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		return runtime.getSessionPath(sessionId);
+	});
+
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
 		const unsubscribe = runtime.subscribe(sessionId, (runtimeEvent: SessionEvent) => {
+			// Debug mode: intercept events for request history recording
+			try {
+				if (runtimeEvent.type === "session.lifecycle" && runtimeEvent.phase === "turn_start") {
+					turnStartMap.set(sessionId, Date.now());
+				}
+				if (runtimeEvent.type === "message.final" && readConfigSync().debugMode) {
+					const cwd = sessionCwdMap.get(sessionId);
+					if (cwd) {
+						const projectName = basename(cwd);
+						const seq = (debugSeqMap.get(sessionId) ?? 0) + 1;
+						debugSeqMap.set(sessionId, seq);
+						const msg = runtimeEvent.message as Record<string, unknown>;
+						const usage = (msg.usage ?? {}) as DebugRequestData["usage"];
+						const turnStart = turnStartMap.get(sessionId) ?? Date.now();
+						const now = Date.now();
+						const data: DebugRequestData = {
+							timestamp: now,
+							sessionId,
+							model: (msg.model as string) ?? "unknown",
+							provider: (msg.provider as string) ?? "unknown",
+							api: (msg.api as string) ?? "unknown",
+							usage,
+							stopReason: (msg.stopReason as string) ?? "unknown",
+							durationMs: now - turnStart,
+							message: msg,
+						};
+						void writeDebugRequest(projectName, sessionId, data, seq);
+					}
+				}
+			} catch {
+				// Debug recording should never break the event pipeline
+			}
 			webContents.send(CHANNELS.EVENT, subscriptionId, runtimeEvent);
 		});
 		subscriptionMap.set(subscriptionId, unsubscribe);

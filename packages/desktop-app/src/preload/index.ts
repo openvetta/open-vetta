@@ -166,6 +166,7 @@ const api: DesktopApi = {
 	},
 	shell: {
 		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),
+		showItemInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-item-in-folder", fullPath),
 	},
 	window: {
 		minimize: async () => ipcRenderer.invoke("vetta:window:minimize"),
@@ -323,6 +324,12 @@ const api: DesktopApi = {
 			},
 		},
 	},
+	debug: {
+		parseToolCalls: async (sessionPath) => ipcRenderer.invoke("vetta:debug:parse-tool-calls", sessionPath),
+		listRequestFiles: async (projectName, sessionId) =>
+			ipcRenderer.invoke("vetta:debug:list-request-files", projectName, sessionId),
+		clearDebugDir: async () => ipcRenderer.invoke("vetta:debug:clear-debug-dir"),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),
@@ -343,6 +350,7 @@ const api: DesktopApi = {
 				void ipcRenderer.invoke(CHANNELS.UNSUBSCRIBE, subscriptionId);
 			};
 		},
+		getSessionPath: async (sessionId) => ipcRenderer.invoke("vetta:session:get-session-path", sessionId),
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
 		setGlobalThinkingLevel: async (level) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_THINKING, level),
