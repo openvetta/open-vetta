@@ -18,6 +18,7 @@ import {
 } from "../batch-tasks/batch-task-storage";
 import { pLimit } from "../batch-tasks/queue";
 import { getAvailableLinuxBubblewrapPath } from "../sandbox/capability.js";
+import { resolveWindowsSandboxHostBinary } from "../sandbox/windows-binary-resolver.js";
 import { readDesktopConfig } from "./fs.js";
 
 const CHANNELS = {
@@ -47,6 +48,7 @@ function getRuntime(): RuntimeHost {
 				const config = await readDesktopConfig();
 				return config.defaultExecutionMode;
 			},
+			sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
 			linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
 		});
 	}
