@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue } from "jotai";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
 	type ChatMessage,
 	type ContentBlock,
@@ -57,7 +58,7 @@ function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 }
 
 /** Collapsed group of multiple tool calls and/or thinking blocks. */
-function ToolCallGroup({ blocks }: { blocks: (ToolCallBlock | ThinkingBlock)[] }): JSX.Element {
+const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCallBlock | ThinkingBlock)[] }) {
 	const [expanded, setExpanded] = useState(false);
 	const toolBlocks = blocks.filter((b): b is ToolCallBlock => b.type === "tool_call");
 	const thinkingCount = blocks.filter((b) => b.type === "thinking").length;
@@ -120,9 +121,9 @@ function ToolCallGroup({ blocks }: { blocks: (ToolCallBlock | ThinkingBlock)[] }
 			</AnimatePresence>
 		</div>
 	);
-}
+});
 
-function SegmentRenderer({ segment }: { segment: BlockSegment }): JSX.Element | null {
+const SegmentRenderer = memo(function SegmentRenderer({ segment }: { segment: BlockSegment }) {
 	if (segment.type === "tool_group") {
 		return <ToolCallGroup blocks={segment.blocks} />;
 	}
@@ -146,7 +147,7 @@ function SegmentRenderer({ segment }: { segment: BlockSegment }): JSX.Element | 
 		default:
 			return null;
 	}
-}
+});
 
 /** Format timestamp to HH:mm:ss */
 function formatTime(ts: number): string {
@@ -215,19 +216,14 @@ function FileBadge({ path }: { path: string }): JSX.Element {
 }
 
 /** User message — right-aligned bubble */
-function UserMessage({ message }: { message: ChatMessage }): JSX.Element {
+const UserMessage = memo(function UserMessage({ message }: { message: ChatMessage }) {
 	const hasImages = message.images && message.images.length > 0;
 	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const displayText = body;
 	const hasBadges = skillName || files.length > 0;
 
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: 6 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-			className="flex justify-end"
-		>
+		<div className="flex justify-end">
 			<div className="max-w-[72%]">
 				{hasImages && (
 					<div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
@@ -272,26 +268,23 @@ function UserMessage({ message }: { message: ChatMessage }): JSX.Element {
 					</div>
 				)}
 			</div>
-		</motion.div>
+		</div>
 	);
-}
+});
 
 /** Assistant message — full-width, no bubble, with header */
-function AssistantMessage({ message, isLastAssistant, isStreaming }: {
+const AssistantMessage = memo(function AssistantMessage({ message, isLastAssistant, isStreaming }: {
 	message: ChatMessage;
 	isLastAssistant: boolean;
 	isStreaming: boolean;
-}): JSX.Element {
+}) {
 	const hasBlocks = message.blocks && message.blocks.length > 0;
 	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !(isLastAssistant && isStreaming);
+	const segments = useMemo(() => groupBlocks(message.blocks ?? []), [message.blocks]);
+	const isCurrentlyStreaming = isLastAssistant && isStreaming;
 
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: 6 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-			className="flex flex-col"
-		>
+		<div className="flex flex-col">
 			{/* Header: avatar + name + timestamp + duration */}
 			<div className="mb-2 flex items-center gap-2">
 				<img
@@ -315,7 +308,7 @@ function AssistantMessage({ message, isLastAssistant, isStreaming }: {
 						</span>
 					</>
 				)}
-				{isLastAssistant && isStreaming && (
+				{isCurrentlyStreaming && (
 					<div className="flex items-center gap-1">
 						<span
 							className="h-1.5 w-1.5 rounded-full bg-primary/60"
@@ -330,7 +323,7 @@ function AssistantMessage({ message, isLastAssistant, isStreaming }: {
 			<div>
 				{hasBlocks ? (
 					<div className="flex flex-col gap-0.5">
-						{groupBlocks(message.blocks!).map((segment, i) => (
+						{segments.map((segment, i) => (
 							<SegmentRenderer key={`seg-${i}`} segment={segment} />
 						))}
 					</div>
@@ -343,15 +336,15 @@ function AssistantMessage({ message, isLastAssistant, isStreaming }: {
 					</div>
 				)}
 			</div>
-		</motion.div>
+		</div>
 	);
-}
+});
 
-function Message({ message, isLastAssistant, isStreaming }: {
+const Message = memo(function Message({ message, isLastAssistant, isStreaming }: {
 	message: ChatMessage;
 	isLastAssistant: boolean;
 	isStreaming: boolean;
-}): JSX.Element {
+}) {
 	if (message.role === "compaction") {
 		return <CompactionBoundary />;
 	}
@@ -359,10 +352,10 @@ function Message({ message, isLastAssistant, isStreaming }: {
 		return <UserMessage message={message} />;
 	}
 	return <AssistantMessage message={message} isLastAssistant={isLastAssistant} isStreaming={isStreaming} />;
-}
+});
 
 /** Compaction boundary marker — shows where context was compressed. */
-function CompactionBoundary(): JSX.Element {
+const CompactionBoundary = memo(function CompactionBoundary() {
 	return (
 		<div className="flex items-center gap-3 py-1">
 			<div className="h-px flex-1 bg-muted-foreground/15" />
@@ -373,7 +366,7 @@ function CompactionBoundary(): JSX.Element {
 			<div className="h-px flex-1 bg-muted-foreground/15" />
 		</div>
 	);
-}
+});
 
 function CompactionIndicator(): JSX.Element {
 	return (
@@ -419,59 +412,81 @@ function TypingIndicator(): JSX.Element {
 	);
 }
 
-const NEAR_BOTTOM_THRESHOLD = 80;
-
-function isNearBottom(el: HTMLElement): boolean {
-	return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_THRESHOLD;
-}
+/** Footer component rendered below the virtualized list — contains typing indicator, compaction, artifacts */
+const ListFooter = memo(function ListFooter({ showTyping, isCompacting }: { showTyping: boolean; isCompacting: boolean }) {
+	const files = useAtomValue(turnModifiedFilesAtom);
+	if (!showTyping && !isCompacting && files.length === 0) return null;
+	return (
+		<div className="flex flex-col gap-5 pt-5">
+			<AnimatePresence initial={false}>
+				{showTyping && <TypingIndicator key="typing" />}
+				{isCompacting && <CompactionIndicator key="compacting" />}
+			</AnimatePresence>
+			<ArtifactCard files={files} />
+		</div>
+	);
+});
 
 export function MessageList({ messages, isStreaming }: MessageListProps): JSX.Element {
-	const bottomRef = useRef<HTMLDivElement>(null);
-	const scrollRef = useRef<HTMLDivElement>(null);
-	const stickToBottomRef = useRef(true);
+	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const [showScrollBtn, setShowScrollBtn] = useState(false);
 	const isCompacting = useAtomValue(isCompactingAtom);
 	const lastMessage = messages.at(-1);
 	const showTyping = isStreaming && (!lastMessage || lastMessage.role !== "assistant" || !lastMessage.text);
 
-	// Find the last assistant message index
-	let lastAssistantId: string | null = null;
-	for (let i = messages.length - 1; i >= 0; i--) {
-		if (messages[i].role === "assistant") {
-			lastAssistantId = messages[i].id;
-			break;
+	// Find the last assistant message id
+	const lastAssistantId = useMemo(() => {
+		for (let i = messages.length - 1; i >= 0; i--) {
+			if (messages[i].role === "assistant") return messages[i].id;
 		}
-	}
+		return null;
+	}, [messages]);
 
-	const handleScroll = useCallback(() => {
-		const el = scrollRef.current;
-		if (!el) return;
-		const near = isNearBottom(el);
-		stickToBottomRef.current = near;
-		setShowScrollBtn(!near);
+	// Track whether we should follow output (stick to bottom)
+	const followOutputRef = useRef(true);
+
+	const handleAtBottom = useCallback((atBottom: boolean) => {
+		followOutputRef.current = atBottom;
+		setShowScrollBtn(!atBottom);
 	}, []);
 
 	const scrollToBottom = useCallback(() => {
-		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-		stickToBottomRef.current = true;
+		virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
+		followOutputRef.current = true;
 		setShowScrollBtn(false);
 	}, []);
 
+	// When user sends a new message, always scroll to bottom
 	const prevMsgCountRef = useRef(messages.length);
 	useEffect(() => {
 		const prevCount = prevMsgCountRef.current;
 		prevMsgCountRef.current = messages.length;
 		const newMsg = messages.at(-1);
 		if (messages.length > prevCount && newMsg?.role === "user") {
-			stickToBottomRef.current = true;
+			followOutputRef.current = true;
 			setShowScrollBtn(false);
-			bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-			return;
+			virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
 		}
-		if (stickToBottomRef.current) {
-			bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-		}
-	}, [messages, isStreaming]);
+	}, [messages]);
+
+	const itemContent = useCallback((index: number, message: ChatMessage) => (
+		<div className="pb-5">
+			<Message
+				message={message}
+				isLastAssistant={message.id === lastAssistantId}
+				isStreaming={isStreaming}
+			/>
+		</div>
+	), [lastAssistantId, isStreaming]);
+
+	const followOutput = useCallback((isAtBottom: boolean): boolean | "smooth" => {
+		if (followOutputRef.current) return "smooth";
+		return isAtBottom;
+	}, []);
+
+	const footer = useCallback(() => (
+		<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
+	), [showTyping, isCompacting]);
 
 	return (
 		<>
@@ -490,24 +505,24 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 					to { transform: rotate(360deg); }
 				}
 			`}</style>
-			<div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 pb-5 pt-2">
-				<div className="mx-auto flex max-w-3xl flex-col gap-5">
-					<AnimatePresence initial={false}>
-						{messages.map((m) => (
-							<Message
-								key={m.id}
-								message={m}
-								isLastAssistant={m.id === lastAssistantId}
-								isStreaming={isStreaming}
-							/>
-						))}
-						{showTyping && <TypingIndicator key="typing" />}
-						{isCompacting && <CompactionIndicator key="compacting" />}
-					</AnimatePresence>
-					<InlineArtifactCard />
-					<div ref={bottomRef} />
-				</div>
-			</div>
+			<Virtuoso
+				ref={virtuosoRef}
+				data={messages}
+				className="flex-1 pt-2"
+				style={{ overflowX: "hidden" }}
+				followOutput={followOutput}
+				atBottomStateChange={handleAtBottom}
+				atBottomThreshold={80}
+				overscan={400}
+				increaseViewportBy={{ top: 200, bottom: 200 }}
+				defaultItemHeight={80}
+				components={{
+					List: VirtuosoListContainer,
+					Footer: footer,
+				}}
+				itemContent={itemContent}
+				initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+			/>
 			<AnimatePresence>
 				{showScrollBtn && (
 					<motion.button
@@ -527,10 +542,18 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 	);
 }
 
-// ── Inline Artifact Card (shows modified files after agent turn) ──
+/** Container for Virtuoso list items — centered with max width */
+import { forwardRef } from "react";
 
-function InlineArtifactCard(): JSX.Element | null {
-	const files = useAtomValue(turnModifiedFilesAtom);
-	return <ArtifactCard files={files} />;
-}
-
+const VirtuosoListContainer = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+	function VirtuosoListContainer(props, ref) {
+		return (
+			<div
+				{...props}
+				ref={ref}
+				className="mx-auto flex max-w-3xl flex-col overflow-x-hidden px-5 pb-5"
+				style={{ ...props.style }}
+			/>
+		);
+	},
+);

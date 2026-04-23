@@ -20,7 +20,7 @@ import {
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
 	adoptDraftId,
 	appendError,
@@ -66,6 +66,43 @@ export function useSessionManager(): SessionManagerResult {
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
+
+	// ── Delta batching: accumulate text/thinking deltas per rAF frame ──
+	const pendingTextDeltaRef = useRef("");
+	const pendingThinkingDeltaRef = useRef("");
+	const deltaRafRef = useRef<number | null>(null);
+
+	const flushDeltas = useCallback(() => {
+		deltaRafRef.current = null;
+		const textDelta = pendingTextDeltaRef.current;
+		const thinkingDelta = pendingThinkingDeltaRef.current;
+		pendingTextDeltaRef.current = "";
+		pendingThinkingDeltaRef.current = "";
+
+		if (textDelta || thinkingDelta) {
+			setChatMessages((prev) => {
+				let next = prev;
+				if (thinkingDelta) next = appendThinkingDelta(next, thinkingDelta);
+				if (textDelta) next = appendTextDelta(next, textDelta);
+				return next;
+			});
+		}
+	}, [setChatMessages]);
+
+	const scheduleDeltaFlush = useCallback(() => {
+		if (deltaRafRef.current === null) {
+			deltaRafRef.current = requestAnimationFrame(flushDeltas);
+		}
+	}, [flushDeltas]);
+
+	// Cleanup rAF on unmount
+	useEffect(() => {
+		return () => {
+			if (deltaRafRef.current !== null) {
+				cancelAnimationFrame(deltaRafRef.current);
+			}
+		};
+	}, []);
 
 	const openSession = useCallback(
 		async (cwd: string, sessionPath?: string) => {
@@ -143,6 +180,12 @@ export function useSessionManager(): SessionManagerResult {
 							setTurnModifiedFiles([]);
 						}
 						if (event.phase === "agent_end" || event.phase === "aborted") {
+							// Flush any pending deltas before finalizing
+							if (deltaRafRef.current !== null) {
+								cancelAnimationFrame(deltaRafRef.current);
+								deltaRafRef.current = null;
+							}
+							flushDeltas();
 							// Always reset streaming state first to unblock the UI
 							const elapsed = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
 							resetStreamState();
@@ -168,13 +211,15 @@ export function useSessionManager(): SessionManagerResult {
 
 					// ── Thinking delta (streaming thinking text) ──
 					if (event.type === "thinking.delta") {
-						setChatMessages((prev) => appendThinkingDelta(prev, event.delta));
+						pendingThinkingDeltaRef.current += event.delta;
+						scheduleDeltaFlush();
 						return;
 					}
 
 					// ── Text delta (streaming assistant text) ──
 					if (event.type === "message.delta") {
-						setChatMessages((prev) => appendTextDelta(prev, event.delta));
+						pendingTextDeltaRef.current += event.delta;
+						scheduleDeltaFlush();
 						return;
 					}
 
@@ -281,6 +326,8 @@ export function useSessionManager(): SessionManagerResult {
 			setSelectedModel,
 			setTodoItems,
 			setTurnModifiedFiles,
+			flushDeltas,
+			scheduleDeltaFlush,
 		],
 	);
 
