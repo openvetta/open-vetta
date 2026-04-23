@@ -429,6 +429,7 @@ const ListFooter = memo(function ListFooter({ showTyping, isCompacting }: { show
 
 export function MessageList({ messages, isStreaming }: MessageListProps): JSX.Element {
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
+	const scrollerRef = useRef<HTMLElement | null>(null);
 	const [showScrollBtn, setShowScrollBtn] = useState(false);
 	const isCompacting = useAtomValue(isCompactingAtom);
 	const lastMessage = messages.at(-1);
@@ -450,8 +451,12 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 		setShowScrollBtn(!atBottom);
 	}, []);
 
+	/** Scroll the scroller element to its absolute bottom */
 	const scrollToBottom = useCallback(() => {
-		virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
+		const el = scrollerRef.current;
+		if (el) {
+			el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+		}
 		followOutputRef.current = true;
 		setShowScrollBtn(false);
 	}, []);
@@ -465,7 +470,10 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 		if (messages.length > prevCount && newMsg?.role === "user") {
 			followOutputRef.current = true;
 			setShowScrollBtn(false);
-			virtuosoRef.current?.scrollToIndex({ index: "LAST", behavior: "smooth" });
+			const el = scrollerRef.current;
+			if (el) {
+				el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+			}
 		}
 	}, [messages]);
 
@@ -479,9 +487,13 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 		</div>
 	), [lastAssistantId, isStreaming]);
 
-	const followOutput = useCallback((isAtBottom: boolean): boolean | "smooth" => {
+	const followOutput = useCallback((): boolean | "smooth" => {
 		if (followOutputRef.current) return "smooth";
-		return isAtBottom;
+		return false;
+	}, []);
+
+	const scrollerRefCallback = useCallback((el: HTMLElement | Window | null) => {
+		scrollerRef.current = el instanceof HTMLElement ? el : null;
 	}, []);
 
 	const footer = useCallback(() => (
@@ -507,6 +519,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 			`}</style>
 			<Virtuoso
 				ref={virtuosoRef}
+				scrollerRef={scrollerRefCallback}
 				data={messages}
 				className="flex-1 pt-2"
 				style={{ overflowX: "hidden" }}
