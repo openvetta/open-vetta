@@ -41,7 +41,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	// Convert visible batch projects to Project + SessionInfo format
 	const visibleBatchProjects = useMemo(() => batchProjects.filter((bp) =>
-		bp.tasks.some((t) => t.status === "running" || t.status === "completed"),
+		bp.tasks.some((t) => t.sessionPath),
 	), [batchProjects]);
 
 	const batchAsProjects = useMemo(() => visibleBatchProjects.map((bp): { project: Project; sessions: SessionInfo[] } => {
