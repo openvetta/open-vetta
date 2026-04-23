@@ -417,7 +417,7 @@ const ListFooter = memo(function ListFooter({ showTyping, isCompacting }: { show
 	const files = useAtomValue(turnModifiedFilesAtom);
 	if (!showTyping && !isCompacting && files.length === 0) return null;
 	return (
-		<div className="flex flex-col gap-5 pt-5">
+		<div className="mx-auto flex max-w-3xl flex-col gap-5 px-5 pt-5">
 			<AnimatePresence initial={false}>
 				{showTyping && <TypingIndicator key="typing" />}
 				{isCompacting && <CompactionIndicator key="compacting" />}
