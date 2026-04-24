@@ -9,6 +9,12 @@ export {
 	createBashTool,
 } from "./bash/index.js";
 export {
+	type CurrentTimeToolDetails,
+	type CurrentTimeToolInput,
+	createCurrentTimeTool,
+	currentTimeTool,
+} from "./current-time/index.js";
+export {
 	createDocToPdfTool,
 	type DocToPdfOperations,
 	type DocToPdfToolInput,
@@ -96,6 +102,7 @@ export {
 
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type BashToolOptions, bashTool, createBashTool } from "./bash/index.js";
+import { createCurrentTimeTool, currentTimeTool } from "./current-time/index.js";
 import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./doc-to-pdf/index.js";
 import { createEditTool, editTool } from "./edit/index.js";
 import { createFindTool, findTool } from "./find/index.js";
@@ -125,6 +132,7 @@ export const allTools = {
 	ls: lsTool,
 	dir_tree: treeTool,
 	doc_to_pdf: docToPdfTool,
+	current_time: currentTimeTool,
 };
 
 export type ToolName = keyof typeof allTools;
@@ -179,5 +187,6 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		ls: createLsTool(cwd),
 		dir_tree: createTreeTool(cwd),
 		doc_to_pdf: createDocToPdfTool(cwd, options?.docToPdf),
+		current_time: createCurrentTimeTool(),
 	};
 }

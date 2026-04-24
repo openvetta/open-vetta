@@ -83,6 +83,7 @@ const BATCH_TASKS_CHANNELS = {
 	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
 	BATCH_RUN_NEVER_EXECUTED: "vetta:batch-tasks:batch-run-never-executed",
+	BATCH_RESTART_ALL: "vetta:batch-tasks:batch-restart-all",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	EVENT: "vetta:batch-tasks:event",
 } as const;
@@ -117,6 +118,17 @@ const api: DesktopApi = {
 		move: async (sourcePath, destDir) => ipcRenderer.invoke("vetta:fs:move", sourcePath, destDir),
 		createDirectory: async (dirPath) => ipcRenderer.invoke("vetta:fs:create-directory", dirPath),
 		listSubDirs: async (dirPath) => ipcRenderer.invoke("vetta:fs:list-sub-dirs", dirPath),
+		watchDir: async (dirPath) => ipcRenderer.invoke("vetta:fs:watch-dir", dirPath),
+		unwatchDir: async (dirPath) => ipcRenderer.invoke("vetta:fs:unwatch-dir", dirPath),
+		onDirChanged: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, dirPath: string) => {
+				handler(dirPath);
+			};
+			ipcRenderer.on("vetta:fs:dir-changed", listener);
+			return () => {
+				ipcRenderer.removeListener("vetta:fs:dir-changed", listener);
+			};
+		},
 	},
 	skills: {
 		list: async () => ipcRenderer.invoke("vetta:skills:list"),
@@ -154,6 +166,7 @@ const api: DesktopApi = {
 	},
 	shell: {
 		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),
+		showItemInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-item-in-folder", fullPath),
 	},
 	window: {
 		minimize: async () => ipcRenderer.invoke("vetta:window:minimize"),
@@ -227,6 +240,7 @@ const api: DesktopApi = {
 		batchDelete: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_DELETE, projectId),
 		batchRunNeverExecuted: (projectId) =>
 			ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RUN_NEVER_EXECUTED, projectId),
+		batchRestartAll: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RESTART_ALL, projectId),
 		deleteSession: (sessionPath) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.DELETE_SESSION, sessionPath),
 		onTaskEvent: (handler) => {
 			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
@@ -310,6 +324,12 @@ const api: DesktopApi = {
 			},
 		},
 	},
+	debug: {
+		parseToolCalls: async (sessionPath) => ipcRenderer.invoke("vetta:debug:parse-tool-calls", sessionPath),
+		listRequestFiles: async (projectName, sessionId) =>
+			ipcRenderer.invoke("vetta:debug:list-request-files", projectName, sessionId),
+		clearDebugDir: async () => ipcRenderer.invoke("vetta:debug:clear-debug-dir"),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),
@@ -330,6 +350,7 @@ const api: DesktopApi = {
 				void ipcRenderer.invoke(CHANNELS.UNSUBSCRIBE, subscriptionId);
 			};
 		},
+		getSessionPath: async (sessionId) => ipcRenderer.invoke("vetta:session:get-session-path", sessionId),
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
 		setGlobalThinkingLevel: async (level) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_THINKING, level),

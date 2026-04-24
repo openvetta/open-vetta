@@ -41,7 +41,7 @@ interface BatchQueueStatusProps {
 
 export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const { runTask, pauseTask, resumeTask, batchRetryFailed, batchPause, batchResume, batchRunNeverExecuted } =
+	const { runTask, pauseTask, resumeTask, batchRetryFailed, batchPause, batchResume, batchRunNeverExecuted, batchRestartAll } =
 		useBatchTasks();
 
 	const tasks = project.tasks;
@@ -90,6 +90,19 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 			confirmLabel: "重试",
 			onConfirm: async () => {
 				await batchRetryFailed(project.id);
+			},
+		});
+	};
+
+	const handleBatchRestartAll = () => {
+		setConfirm({
+			title: "确认全部重新开始",
+			message: `将删除所有任务的会话和文件，然后重新执行全部 ${total} 个任务。此操作不可撤回，是否继续？`,
+			confirmLabel: "全部重新开始",
+			cancelLabel: "取消",
+			variant: "danger",
+			onConfirm: async () => {
+				await batchRestartAll(project.id);
 			},
 		});
 	};
@@ -176,6 +189,12 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 						label={`暂停全部 (${running})`}
 						onClick={handleBatchPause}
 						disabled={running === 0}
+					/>
+					<QueueActionButton
+						icon="icon-[mdi--refresh]"
+						label="全部重新开始"
+						onClick={handleBatchRestartAll}
+						disabled={total === 0}
 					/>
 				</div>
 			</div>

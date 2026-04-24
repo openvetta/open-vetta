@@ -13,7 +13,7 @@
  * Modes use this class and add their own I/O layer on top.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type {
 	Agent,
@@ -381,6 +381,17 @@ export class AgentSession {
 
 	/** Internal handler for agent events - shared by subscribe and reconnect */
 	private _handleAgentEvent = async (event: AgentEvent): Promise<void> => {
+		// Re-emit todo state on agent_start so the UI picks it up reliably.
+		// Todos created during scene expansion (_expandSkillCommand) fire before the agent's
+		// event stream is active; re-emitting here ensures the renderer receives them
+		// alongside the normal lifecycle events.
+		if (event.type === "agent_start") {
+			const todoItems = this._todoStore.getAll();
+			if (todoItems.length > 0) {
+				this._emit({ type: "todo_update", items: [...todoItems] });
+			}
+		}
+
 		// When a user message starts, check if it's from either queue and remove it BEFORE emitting
 		// This ensures the UI sees the updated queue state
 		if (event.type === "message_start" && event.message.role === "user") {
@@ -501,6 +512,9 @@ export class AgentSession {
 		const pending = items.filter((i) => i.status !== "done");
 		if (pending.length === 0) return [];
 
+		// Sort by ID to ensure sequential order
+		pending.sort((a, b) => a.id - b.id);
+		const nextItem = pending[0];
 		const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
 		const doneCount = items.length - pending.length;
 
@@ -510,7 +524,7 @@ export class AgentSession {
 				content: [
 					{
 						type: "text",
-						text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nContinue with the next pending item. Call todo(action="update", id=N, status="in_progress") first, then do the work, then mark it done.`,
+						text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nYou MUST work on item #${nextItem.id} next: "${nextItem.content}"\nCall todo(action="update", id=${nextItem.id}, status="in_progress") first, then do the work, then mark it done. Do NOT skip to a later item.`,
 					},
 				],
 				timestamp: Date.now(),
@@ -907,8 +921,11 @@ export class AgentSession {
 
 		// Expand skill commands (/skill:name args) and prompt templates (/template args)
 		let expandedText = currentText;
+		let sceneInjection: string | undefined;
 		if (expandPromptTemplates) {
-			expandedText = this._expandSkillCommand(expandedText);
+			const expanded = this._expandSkillCommand(expandedText);
+			expandedText = expanded.text;
+			sceneInjection = expanded.sceneInjection;
 			expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 		}
 
@@ -919,10 +936,12 @@ export class AgentSession {
 					"Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.",
 				);
 			}
+			// For streaming, combine scene injection with user text since we can't inject custom messages
+			const textForStream = sceneInjection ? `${sceneInjection}\n\n${expandedText}` : expandedText;
 			if (options.streamingBehavior === "followUp") {
-				await this._queueFollowUp(expandedText, currentImages);
+				await this._queueFollowUp(textForStream, currentImages);
 			} else {
-				await this._queueSteer(expandedText, currentImages);
+				await this._queueSteer(textForStream, currentImages);
 			}
 			return;
 		}
@@ -964,6 +983,17 @@ export class AgentSession {
 
 		// Build messages array (custom message if any, then user message)
 		const messages: AgentMessage[] = [];
+
+		// Inject scene content as a hidden custom message (before user message so model sees it first)
+		if (sceneInjection) {
+			messages.push({
+				role: "custom",
+				customType: "scene_expansion",
+				content: sceneInjection,
+				display: false,
+				timestamp: Date.now(),
+			});
+		}
 
 		// Add user message
 		const userContent: (TextContent | ImageContent)[] = [{ type: "text", text: expandedText }];
@@ -1051,17 +1081,17 @@ export class AgentSession {
 	 * Returns the expanded text, or the original text if not a skill/scene command or not found.
 	 * Emits errors via extension runner if file read fails.
 	 */
-	private _expandSkillCommand(text: string): string {
+	private _expandSkillCommand(text: string): { text: string; sceneInjection?: string } {
 		let prefix: string;
+		let isScene = false;
 
 		if (text.startsWith("/skill:")) {
 			prefix = "/skill:";
 		} else if (text.startsWith("/scene:")) {
-			// Scenes are not expanded inline — the LLM will call invoke_scene tool instead.
-			// Just pass through so the /scene: prefix is visible to the model.
-			return text;
+			prefix = "/scene:";
+			isScene = true;
 		} else {
-			return text;
+			return { text };
 		}
 
 		const prefixLen = prefix.length;
@@ -1070,21 +1100,68 @@ export class AgentSession {
 		const skillName = sepMatch ? rest.slice(0, sepMatch.index) : rest;
 		const args = sepMatch ? rest.slice(sepMatch.index!).trim() : "";
 
-		const skill = this.resourceLoader.getSkills().skills.find((s) => s.name === skillName);
-		if (!skill) return text; // Unknown skill, pass through
+		const allSkills = this.resourceLoader.getSkills().skills;
+		const skill = isScene
+			? allSkills.find((s) => s.name === skillName && s.type === "scene")
+			: allSkills.find((s) => s.name === skillName);
+		if (!skill) return { text }; // Unknown skill/scene, pass through
 
 		try {
 			const content = readFileSync(skill.filePath, "utf-8");
 			const body = stripFrontmatter(content).trim();
+
+			if (isScene) {
+				// Scene expansion: include read-only instructions + auto-create todos from tasks.json
+				const lines: string[] = [
+					`<scene name="${skill.name}" location="${skill.filePath}">`,
+					"",
+					`SCENE_DIR="${skill.baseDir}"`,
+					`ALL relative paths in this scene MUST be resolved against SCENE_DIR using absolute paths.`,
+					`For example: bash "${skill.baseDir}/scripts/run.sh" — do NOT cd into the scene directory.`,
+					`IMPORTANT: Use the literal path above. Do NOT use shell variables like $SCENE_DIR — no such variable exists in the shell environment.`,
+					"",
+					`CRITICAL: The scene directory is READ-ONLY. NEVER write, create, or modify any files inside the scene directory.`,
+					`NEVER cd into the scene directory. Stay in the user's working directory (cwd) at all times.`,
+					`All output files and artifacts MUST be written to cwd, NOT into the scene directory.`,
+					"",
+					body,
+					`</scene>`,
+				];
+
+				// Auto-create todo items from tasks.json
+				const tasksJsonPath = join(skill.baseDir, "tasks.json");
+				if (existsSync(tasksJsonPath)) {
+					try {
+						const tasksRaw = readFileSync(tasksJsonPath, "utf-8");
+						const tasks: unknown = JSON.parse(tasksRaw);
+						if (Array.isArray(tasks) && tasks.length > 0 && tasks.every((t) => typeof t === "string")) {
+							this._todoStore.createMany(tasks as string[]);
+							lines.push(
+								"",
+								`[SYSTEM] ${tasks.length} todo items have been auto-created from this scene's tasks.json.`,
+								`Do NOT create your own todo list. Follow the existing todo items in strict sequential order.`,
+								`Use todo(action="list") to see them, then start with todo(action="update", id=1, status="in_progress").`,
+							);
+						}
+					} catch {
+						// Malformed tasks.json — silently skip
+					}
+				}
+
+				// Scene content is injected as a hidden custom message, not shown in user's message bubble
+				const userText = args || text;
+				return { text: userText, sceneInjection: lines.join("\n") };
+			}
+
 			const skillBlock = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
-			return args ? `${skillBlock}\n\n${args}` : skillBlock;
+			return { text: args ? `${skillBlock}\n\n${args}` : skillBlock };
 		} catch (err) {
 			this._extensionRunner?.emitError({
 				extensionPath: skill.filePath,
 				event: "skill_expansion",
 				error: err instanceof Error ? err.message : String(err),
 			});
-			return text; // Return original on error
+			return { text }; // Return original on error
 		}
 	}
 
@@ -1102,7 +1179,8 @@ export class AgentSession {
 		}
 
 		// Expand skill commands and prompt templates
-		let expandedText = this._expandSkillCommand(text);
+		const expanded = this._expandSkillCommand(text);
+		let expandedText = expanded.sceneInjection ? `${expanded.sceneInjection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 
 		await this._queueSteer(expandedText, images);
@@ -1122,7 +1200,8 @@ export class AgentSession {
 		}
 
 		// Expand skill commands and prompt templates
-		let expandedText = this._expandSkillCommand(text);
+		const expanded = this._expandSkillCommand(text);
+		let expandedText = expanded.sceneInjection ? `${expanded.sceneInjection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 
 		await this._queueFollowUp(expandedText, images);
@@ -2208,6 +2287,7 @@ export class AgentSession {
 		if (scenes.length > 0) {
 			const invokeSceneTool = createInvokeSceneTool({
 				getScenes: () => this._resourceLoader.getSkills().skills,
+				getTodoStore: () => this._todoStore,
 			});
 			baseTools.invoke_scene = invokeSceneTool;
 		}
@@ -2277,6 +2357,9 @@ export class AgentSession {
 		}
 		if (this._baseToolRegistry.has("doc_to_pdf")) {
 			activeToolNameSet.add("doc_to_pdf");
+		}
+		if (this._baseToolRegistry.has("current_time")) {
+			activeToolNameSet.add("current_time");
 		}
 		if (options.includeAllExtensionTools) {
 			for (const tool of wrappedExtensionTools as AgentTool[]) {
