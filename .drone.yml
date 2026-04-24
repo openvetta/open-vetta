@@ -32,7 +32,7 @@ steps:
         drone_branch: ${DRONE_BRANCH}
         drone_commit: ${DRONE_COMMIT_SHA}
       script:
-        - cd /opt/vetta-mono
+        - cd /home/deploy/vetta-mono
         - echo ">>> pull latest [$drone_branch @ $drone_commit]"
         - git fetch --all --prune
         - git checkout $drone_branch
