@@ -1,17 +1,15 @@
 kind: pipeline
 type: docker
-name: deploy
+name: tag-deploy
 
-# 仅在 main / dev 分支 push 时触发
+# 仅在打 tag（v 开头，如 v1.0.0）时触发
 trigger:
-  branch:
-    - main
-    - dev
   event:
-    - push
+    - tag
+  ref:
+    - refs/tags/v*
 
 steps:
-  # SSH 到部署机执行 deploy.sh
   - name: ssh-deploy
     image: appleboy/drone-ssh:1.8.0
     settings:
@@ -23,27 +21,28 @@ steps:
         from_secret: deploy_port
       key:
         from_secret: deploy_ssh_key
-      command_timeout: 20m
+      command_timeout: 30m
       script_stop: true
       envs:
-        - drone_branch
+        - drone_tag
         - drone_commit
       environment:
-        drone_branch: ${DRONE_BRANCH}
+        drone_tag: ${DRONE_TAG}
         drone_commit: ${DRONE_COMMIT_SHA}
       script:
         - cd /home/deploy/vetta-mono
-        - echo ">>> pull latest [$drone_branch @ $drone_commit]"
-        - git fetch --all --prune
-        - git checkout $drone_branch
-        - git reset --hard origin/$drone_branch
+        - echo ">>> deploying tag $drone_tag ($drone_commit)"
+        - git fetch --all --tags --prune
+        - git checkout $drone_tag
         - bash deploy/scripts/deploy.sh
+        # build 完给镜像打上版本 tag 方便回滚
+        - docker tag vetta-api:local vetta-api:$drone_tag
+        - docker tag vetta-admin:local vetta-admin:$drone_tag
 
-  # 失败时的简单提示（可选，没配 webhook 就删掉）
   - name: notify-failure
     image: alpine
     commands:
-      - echo "pipeline failed on $${DRONE_BRANCH}@$${DRONE_COMMIT_SHA:0:8}"
+      - echo "deploy failed: tag=$${DRONE_TAG} commit=$${DRONE_COMMIT_SHA:0:8}"
     when:
       status:
         - failure
