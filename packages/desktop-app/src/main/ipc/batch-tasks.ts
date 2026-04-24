@@ -1,5 +1,5 @@
 import { ipcMain, type WebContents } from "electron";
-import { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import {
 	isTaskRunning,
 	pauseTask as pauseTaskExecutor,
@@ -7,16 +7,18 @@ import {
 	runTask,
 	subscribeBatchTaskEvents,
 } from "../batch-tasks/batch-task-executor";
-import { deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
+import { clearAllTaskStates, deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
 import {
 	createProject,
 	deleteProject,
 	getProject,
 	loadProjects,
 	removeTaskFromProject,
+	resetProjectFiles,
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
 import { pLimit } from "../batch-tasks/queue";
+import { getSharedRuntime } from "../runtime.js";
 
 const CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
@@ -32,17 +34,13 @@ const CHANNELS = {
 	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
 	BATCH_RUN_NEVER_EXECUTED: "vetta:batch-tasks:batch-run-never-executed",
+	BATCH_RESTART_ALL: "vetta:batch-tasks:batch-restart-all",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	EVENT: "vetta:batch-tasks:event",
 } as const;
 
-let runtimeInstance: RuntimeHost | null = null;
-
 function getRuntime(): RuntimeHost {
-	if (!runtimeInstance) {
-		runtimeInstance = new RuntimeHost();
-	}
-	return runtimeInstance;
+	return getSharedRuntime();
 }
 
 export function registerBatchTasksIpc(webContents: WebContents): () => void {
@@ -161,11 +159,16 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		console.log(`[BatchTaskIPC] BATCH_RESUME: project=${projectId}`);
 		const project = await getProject(projectId);
 		if (!project) return;
-		for (const task of project.tasks) {
-			if (task.status === "paused") {
-				await resumeTask(project, task, getRuntime());
-			}
+
+		const pausedTasks = project.tasks.filter((t) => t.status === "paused");
+		if (pausedTasks.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_RESUME: no paused tasks in ${projectId}`);
+			return;
 		}
+		console.log(`[BatchTaskIPC] BATCH_RESUME: resuming ${pausedTasks.length} tasks`);
+		const runtime = getRuntime();
+		const taskRunners = pausedTasks.map((task) => () => resumeTask(project, task, runtime));
+		await pLimit(project.concurrency, taskRunners);
 	});
 
 	ipcMain.handle(CHANNELS.BATCH_DELETE, async (_, projectId: string) => {
@@ -196,6 +199,45 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		await pLimit(project.concurrency, taskRunners);
 	});
 
+	ipcMain.handle(CHANNELS.BATCH_RESTART_ALL, async (_, projectId: string) => {
+		console.log(`[BatchTaskIPC] BATCH_RESTART_ALL: project=${projectId}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+
+		const runtime = getRuntime();
+
+		// 1. Pause all running tasks
+		for (const task of project.tasks) {
+			if (isTaskRunning(task.id)) {
+				await pauseTaskExecutor(projectId, task.id, runtime);
+			}
+		}
+
+		// 2. Delete all session files via runtime
+		for (const task of project.tasks) {
+			if (task.sessionPath) {
+				try {
+					await runtime.deleteSession(task.sessionPath);
+				} catch {
+					// session may already be gone
+				}
+			}
+		}
+
+		// 3. Clear task states cache
+		await clearAllTaskStates(projectId);
+
+		// 4. Delete all item directories, sessions, task-states.json; keep meta.json; rebuild empty item dirs
+		await resetProjectFiles(projectId);
+
+		// 5. Re-load project (now all tasks are pending) and run all
+		const refreshedProject = await getProject(projectId);
+		if (!refreshedProject) return;
+		console.log(`[BatchTaskIPC] BATCH_RESTART_ALL: restarting ${refreshedProject.tasks.length} tasks`);
+		const taskRunners = refreshedProject.tasks.map((task) => () => runTask(refreshedProject, task, runtime));
+		await pLimit(refreshedProject.concurrency, taskRunners);
+	});
+
 	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_, sessionPath: string) => {
 		console.log(`[BatchTaskIPC] DELETE_SESSION: ${sessionPath}`);
 		await getRuntime().deleteSession(sessionPath);
@@ -215,6 +257,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.BATCH_RESUME);
 		ipcMain.removeHandler(CHANNELS.BATCH_DELETE);
 		ipcMain.removeHandler(CHANNELS.BATCH_RUN_NEVER_EXECUTED);
+		ipcMain.removeHandler(CHANNELS.BATCH_RESTART_ALL);
 		ipcMain.removeHandler(CHANNELS.DELETE_SESSION);
 	};
 }

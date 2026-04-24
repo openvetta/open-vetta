@@ -19,6 +19,7 @@ export interface DesktopSessionApi {
 	continue(sessionId: string): Promise<void>;
 	abort(sessionId: string): Promise<void>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
+	getSessionPath(sessionId: string): Promise<string | undefined>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setGlobalThinkingLevel(level: string): Promise<void>;
 	getGlobalThinkingLevel(): Promise<string>;
@@ -99,6 +100,7 @@ export interface DesktopConfigData {
 	projects: ProjectEntry[];
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
+	debugMode?: boolean;
 }
 
 export interface DesktopConfigApi {
@@ -164,6 +166,34 @@ export interface DesktopMcpApi {
 
 export interface DesktopShellApi {
 	showInFolder(fullPath: string): Promise<void>;
+	showItemInFolder(fullPath: string): Promise<void>;
+}
+
+export interface ToolCallRecord {
+	id: string;
+	toolName: string;
+	toolCallId: string;
+	timestamp: string;
+	args: unknown;
+	result?: unknown;
+	isError: boolean;
+}
+
+export interface RequestFileInfo {
+	filename: string;
+	path: string;
+	model: string;
+	inputTokens: number;
+	outputTokens: number;
+	costTotal: number;
+	timestamp: number;
+	size: number;
+}
+
+export interface DesktopDebugApi {
+	parseToolCalls(sessionPath: string): Promise<ToolCallRecord[]>;
+	listRequestFiles(projectName: string, sessionId: string): Promise<RequestFileInfo[]>;
+	clearDebugDir(): Promise<void>;
 }
 
 export interface DesktopWindowApi {
@@ -328,6 +358,7 @@ export interface DesktopBatchTasksApi {
 	batchResume(projectId: string): Promise<void>;
 	batchDelete(projectId: string): Promise<void>;
 	batchRunNeverExecuted(projectId: string): Promise<void>;
+	batchRestartAll(projectId: string): Promise<void>;
 	deleteSession(sessionPath: string): Promise<void>;
 	onTaskEvent(handler: (event: BatchTaskEvent) => void): () => void;
 }
@@ -560,6 +591,7 @@ export interface DesktopApi {
 	batchTasks: DesktopBatchTasksApi;
 	downloads: DesktopDownloadsApi;
 	im: DesktopImApi;
+	debug: DesktopDebugApi;
 }
 
 declare global {

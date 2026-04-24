@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { basename } from "node:path";
 import { ipcMain, type WebContents } from "electron";
 import type { PromptRequest, SessionConfig, SessionEvent, SettingsPatch } from "../../../../runtime-core/src/index.js";
-import { RuntimeHost } from "../../../../runtime-core/src/index.js";
-import { allowProjectRoot } from "./fs.js";
+import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
+import { getSharedRuntime } from "../runtime.js";
+import { allowProjectRoot, readConfigSync } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
 const CHANNELS = {
@@ -21,6 +23,7 @@ const CHANNELS = {
 	RENAME: "vetta:session:rename",
 	DISPOSE: "vetta:session:dispose",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
+	GET_SESSION_PATH: "vetta:session:get-session-path",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	EVENT: "vetta:session:event",
@@ -47,6 +50,9 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 	) {
 		throw new Error("Invalid prompt request streamingBehavior");
 	}
+	if (request.modelKey !== undefined && (typeof request.modelKey !== "string" || request.modelKey.length === 0)) {
+		throw new Error("Invalid prompt request modelKey");
+	}
 	if (request.images !== undefined) {
 		if (!Array.isArray(request.images)) {
 			throw new Error("Invalid prompt request images");
@@ -60,12 +66,22 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 }
 
 export function registerSessionIpc(webContents: WebContents): () => void {
-	const runtime = new RuntimeHost();
+	const runtime = getSharedRuntime();
 	const subscriptionMap = new Map<string, () => void>();
+	/** Track session cwd for debug file writing */
+	const sessionCwdMap = new Map<string, string>();
+	/** Track debug request sequence per session */
+	const debugSeqMap = new Map<string, number>();
+	/** Track turn start time per session for duration calculation */
+	const turnStartMap = new Map<string, number>();
 
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
 		if (config?.cwd) allowProjectRoot(config.cwd);
-		return runtime.createSession(config);
+		const result = await runtime.createSession(config);
+		if (config?.cwd) {
+			sessionCwdMap.set(result.sessionId, config.cwd);
+		}
+		return result;
 	});
 
 	ipcMain.handle(CHANNELS.LIST_PROJECTS, async () => {
@@ -155,10 +171,47 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		await runtime.disposeSession(sessionId);
 	});
 
+	ipcMain.handle(CHANNELS.GET_SESSION_PATH, (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		return runtime.getSessionPath(sessionId);
+	});
+
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
 		const unsubscribe = runtime.subscribe(sessionId, (runtimeEvent: SessionEvent) => {
+			// Debug mode: intercept events for request history recording
+			try {
+				if (runtimeEvent.type === "session.lifecycle" && runtimeEvent.phase === "turn_start") {
+					turnStartMap.set(sessionId, Date.now());
+				}
+				if (runtimeEvent.type === "message.final" && readConfigSync().debugMode) {
+					const cwd = sessionCwdMap.get(sessionId);
+					if (cwd) {
+						const projectName = basename(cwd);
+						const seq = (debugSeqMap.get(sessionId) ?? 0) + 1;
+						debugSeqMap.set(sessionId, seq);
+						const msg = runtimeEvent.message as Record<string, unknown>;
+						const usage = (msg.usage ?? {}) as DebugRequestData["usage"];
+						const turnStart = turnStartMap.get(sessionId) ?? Date.now();
+						const now = Date.now();
+						const data: DebugRequestData = {
+							timestamp: now,
+							sessionId,
+							model: (msg.model as string) ?? "unknown",
+							provider: (msg.provider as string) ?? "unknown",
+							api: (msg.api as string) ?? "unknown",
+							usage,
+							stopReason: (msg.stopReason as string) ?? "unknown",
+							durationMs: now - turnStart,
+							message: msg,
+						};
+						void writeDebugRequest(projectName, sessionId, data, seq);
+					}
+				}
+			} catch {
+				// Debug recording should never break the event pipeline
+			}
 			webContents.send(CHANNELS.EVENT, subscriptionId, runtimeEvent);
 		});
 		subscriptionMap.set(subscriptionId, unsubscribe);
@@ -179,12 +232,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			unsubscribe();
 		}
 		subscriptionMap.clear();
-		// Release every SessionManager file lock owned by this RuntimeHost.
-		// Without this, locks survive until the desktop-app process exits and
-		// cause SessionLockError on the next startup until stale-detection
-		// reclaims them.
-		void runtime.disposeAllSessions().catch((err) => {
-			console.error("[session ipc teardown] disposeAllSessions failed:", err);
-		});
+		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
+		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts
+		// 的 before-quit 负责（见 disposeSharedRuntime）。
 	};
 }

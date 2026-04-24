@@ -1,0 +1,110 @@
+{
+  "id": "00-bootstrap-guidelines",
+  "name": "Bootstrap Guidelines",
+  "description": "Fill in project development guidelines for AI agents",
+  "status": "completed",
+  "dev_type": "docs",
+  "priority": "P1",
+  "creator": "bent",
+  "assignee": "bent",
+  "createdAt": "2026-04-17",
+  "completedAt": "2026-04-17",
+  "commit": null,
+  "subtasks": [
+    {
+      "name": "Fill guidelines for @mariozechner/pi-ai",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @mariozechner/pi-agent-core",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/coding-agent",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/runtime-core",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/runtime-tools",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/runtime-mcp",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/runtime-storage",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/runtime-telemetry",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/cli-app",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @vetta/desktop-app",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @mariozechner/pi-tui",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for @mariozechner/pi-web-ui",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for pi-web-ui-example",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for pi-extension-with-deps",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for pi-extension-custom-provider-anthropic",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for pi-extension-custom-provider-gitlab-duo",
+      "status": "pending"
+    },
+    {
+      "name": "Fill guidelines for pi-extension-custom-provider-qwen-cli",
+      "status": "pending"
+    },
+    {
+      "name": "Add code examples",
+      "status": "pending"
+    }
+  ],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    ".trellis/spec/pi-ai/",
+    ".trellis/spec/pi-agent-core/",
+    ".trellis/spec/coding-agent/",
+    ".trellis/spec/runtime-core/",
+    ".trellis/spec/runtime-tools/",
+    ".trellis/spec/runtime-mcp/",
+    ".trellis/spec/runtime-storage/",
+    ".trellis/spec/runtime-telemetry/",
+    ".trellis/spec/cli-app/",
+    ".trellis/spec/desktop-app/",
+    ".trellis/spec/pi-tui/",
+    ".trellis/spec/pi-web-ui/",
+    ".trellis/spec/pi-web-ui-example/",
+    ".trellis/spec/pi-extension-with-deps/",
+    ".trellis/spec/pi-extension-custom-provider-anthropic/",
+    ".trellis/spec/pi-extension-custom-provider-gitlab-duo/",
+    ".trellis/spec/pi-extension-custom-provider-qwen-cli/"
+  ],
+  "notes": "First-time setup task created by trellis init (frontend project)",
+  "meta": {}
+}

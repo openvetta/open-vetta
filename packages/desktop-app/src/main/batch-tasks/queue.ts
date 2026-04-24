@@ -5,6 +5,7 @@ export async function pLimit<T>(concurrency: number, tasks: Array<() => Promise<
 	console.log(`[BatchTaskQueue] pLimit started: concurrency=${concurrency}, tasks=${tasks.length}`);
 
 	const results: T[] = new Array(tasks.length);
+	// index++ 是同步操作，在单线程事件循环中安全；不要改为异步获取
 	let index = 0;
 
 	async function worker(): Promise<void> {

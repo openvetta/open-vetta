@@ -71,6 +71,9 @@ export interface CreateAgentSessionOptions {
 
 	/** Settings manager. Default: SettingsManager.create(cwd, agentDir) */
 	settingsManager?: SettingsManager;
+
+	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
+	appendSystemPrompt?: string;
 }
 
 /** Result from createAgentSession */
@@ -167,6 +170,11 @@ function getDefaultAgentDir(): string {
  * ```
  */
 export async function createAgentSession(options: CreateAgentSessionOptions = {}): Promise<CreateAgentSessionResult> {
+	const __perfStart = Date.now();
+	const __perfMark = (label: string) => {
+		console.log(`[perf][createAgentSession] ${label} +${Date.now() - __perfStart}ms`);
+	};
+	__perfMark("enter");
 	const cwd = options.cwd ?? process.cwd();
 	const agentDir = options.agentDir ?? getDefaultAgentDir();
 	let resourceLoader = options.resourceLoader;
@@ -178,6 +186,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
 
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
+	__perfMark("before loadRemoteModels");
 
 	// Ensure serverUrl has a default value, then load remote models
 	if (!options.modelRegistry) {
@@ -188,15 +197,24 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		}
 		modelRegistry.setServerUrl(serverUrl);
 		modelRegistry.setServerToken(settingsManager.getServerToken());
+		modelRegistry.setServerTokenGetter(() => settingsManager.getServerTokenFresh());
 		await modelRegistry.loadRemoteModels();
 	}
+	__perfMark("after loadRemoteModels");
 	const sessionManager = options.sessionManager ?? SessionManager.create(cwd);
+	__perfMark("after SessionManager.create");
 
 	if (!resourceLoader) {
-		resourceLoader = new DefaultResourceLoader({ cwd, agentDir, settingsManager });
+		resourceLoader = new DefaultResourceLoader({
+			cwd,
+			agentDir,
+			settingsManager,
+			appendSystemPrompt: options.appendSystemPrompt,
+		});
 		await resourceLoader.reload();
 		time("resourceLoader.reload");
 	}
+	__perfMark("after resourceLoader.reload");
 
 	// Check if session has existing data to restore
 	const existingSession = sessionManager.buildSessionContext();
@@ -381,6 +399,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();
+	__perfMark("exit");
 
 	return {
 		session,

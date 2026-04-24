@@ -16,5 +16,6 @@ CRITICAL workflow:
 2. Call todo(action="update", id=N, status="in_progress") when you START a step
 3. Call todo(action="update", id=N, status="done") when you FINISH a step
 4. ALWAYS update status in real time — do not batch updates
+5. ALWAYS complete items in strict sequential order by ID. Finish #1 before starting #2, finish #2 before starting #3, etc. The system will REJECT out-of-order updates.
 
-CRITICAL: You MUST complete ALL todo items before ending your response. NEVER stop with uncompleted items. If you created a todo list, you are committed to finishing every item. The system will force you to continue if you stop early.
+CRITICAL: You MUST complete ALL todo items before ending your response. NEVER stop with uncompleted items. If you created a todo list, you are committed to finishing every item in order. The system will force you to continue if you stop early.

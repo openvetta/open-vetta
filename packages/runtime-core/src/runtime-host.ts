@@ -49,6 +49,8 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	async createSession(config: SessionConfig = {}): Promise<{ sessionId: string }> {
+		const __t0 = Date.now();
+		console.log(`[perf][RuntimeHost.createSession] enter cwd=${config.cwd ?? "-"}`);
 		// Dedupe by sessionPath: a SessionManager.open() takes an exclusive file
 		// lock, and the lock module treats same-pid re-acquisition as a real
 		// conflict. So if the renderer reopens a session this RuntimeHost is
@@ -74,16 +76,36 @@ export class RuntimeHost implements SessionFacade {
 			sessionManager,
 			model: config.model,
 			thinkingLevel: config.thinkingLevel,
+			appendSystemPrompt: config.appendSystemPrompt,
 		};
 
+		console.log(`[perf][RuntimeHost.createSession] before createAgentSession +${Date.now() - __t0}ms`);
 		const { session } = await createAgentSession(options);
+		console.log(`[perf][RuntimeHost.createSession] after createAgentSession +${Date.now() - __t0}ms`);
 		const sessionId = session.sessionId;
 		this.sessions.set(sessionId, { session });
+		console.log(`[perf][RuntimeHost.createSession] exit total=${Date.now() - __t0}ms`);
 		return { sessionId };
 	}
 
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
 		const handle = this.requireSession(sessionId);
+
+		// Ensure the session model matches the requested model BEFORE prompting,
+		// so the model actually used is always the one the UI displays.
+		if (request.modelKey) {
+			const [provider, ...rest] = request.modelKey.split("/");
+			const modelId = rest.join("/");
+			const available = handle.session.modelRegistry.getAvailable();
+			const model = available.find((m) => m.provider === provider && m.id === modelId);
+			if (model) {
+				const current = handle.session.model;
+				if (!current || current.provider !== provider || current.id !== modelId) {
+					await handle.session.setModel(model);
+				}
+			}
+		}
+
 		let images = request.images;
 		let text = request.text;
 		if (images && images.length > 0) {
@@ -123,6 +145,18 @@ export class RuntimeHost implements SessionFacade {
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void {
 		const handle = this.requireSession(sessionId);
 		handler(this.lifecycleEvent(sessionId, "created"));
+
+		// Push current todo state so late subscribers (e.g., user navigating into
+		// an already-running session) see the todo panel immediately.
+		const todoItems = handle.session.todoStore.getAll();
+		if (todoItems.length > 0) {
+			handler({
+				...this.baseEvent(sessionId, "agent"),
+				type: "todo_update",
+				items: [...todoItems],
+			} as SessionEvent);
+		}
+
 		return handle.session.subscribe((event) => {
 			for (const mapped of this.mapEvent(sessionId, event, handle.session)) {
 				handler(mapped);
