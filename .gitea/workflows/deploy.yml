@@ -15,6 +15,7 @@ env:
   REGISTRY: ${{ vars.REGISTRY }}
   IMAGE_API: ${{ vars.REGISTRY }}/vetta/api
   IMAGE_ADMIN: ${{ vars.REGISTRY }}/vetta/admin
+  DOCKER_HOST: unix:///var/run/docker.sock
 
 jobs:
   meta:
