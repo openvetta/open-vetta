@@ -1,0 +1,49 @@
+kind: pipeline
+type: docker
+name: deploy
+
+# 仅在 main / dev 分支 push 时触发
+trigger:
+  branch:
+    - main
+    - dev
+  event:
+    - push
+
+steps:
+  # SSH 到部署机执行 deploy.sh
+  - name: ssh-deploy
+    image: appleboy/drone-ssh:1.8.0
+    settings:
+      host:
+        from_secret: deploy_host
+      username:
+        from_secret: deploy_user
+      port:
+        from_secret: deploy_port
+      key:
+        from_secret: deploy_ssh_key
+      command_timeout: 20m
+      script_stop: true
+      envs:
+        - drone_branch
+        - drone_commit
+      environment:
+        drone_branch: ${DRONE_BRANCH}
+        drone_commit: ${DRONE_COMMIT_SHA}
+      script:
+        - cd /opt/vetta-mono
+        - echo ">>> pull latest [$drone_branch @ $drone_commit]"
+        - git fetch --all --prune
+        - git checkout $drone_branch
+        - git reset --hard origin/$drone_branch
+        - bash deploy/scripts/deploy.sh
+
+  # 失败时的简单提示（可选，没配 webhook 就删掉）
+  - name: notify-failure
+    image: alpine
+    commands:
+      - echo "pipeline failed on $${DRONE_BRANCH}@$${DRONE_COMMIT_SHA:0:8}"
+    when:
+      status:
+        - failure
