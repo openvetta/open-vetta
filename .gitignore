@@ -13,6 +13,11 @@ packages/*/dist-firefox/
 .env.*
 !.env.example
 !.env.*.example
+
+# Deploy-time config (contains secrets, must not be committed)
+deploy/config.*.yaml
+!deploy/config.*.example.yaml
+
 # Editor files
 .vscode/
 .zed/
