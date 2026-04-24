@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    # branches: [main]   # 如需每次推 main 自动部署，取消此行注释
   workflow_dispatch:
     inputs:
       deploy:
@@ -29,89 +28,91 @@ jobs:
           if [ "${{ gitea.ref_type }}" = "tag" ]; then
             echo "tag=${{ gitea.ref_name }}" >> $GITHUB_OUTPUT
           else
-            echo "tag=manual-$(echo ${{ gitea.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+            SHORT=$(echo "${{ gitea.sha }}" | cut -c1-7)
+            echo "tag=manual-${SHORT}" >> $GITHUB_OUTPUT
           fi
 
   build-api:
     needs: meta
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: https://gitea.com/actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Gitea Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.REGISTRY }}
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_TOKEN }}
+      - name: Login to Registry
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ vars.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
 
       - name: Build & push api
-        uses: docker/build-push-action@v5
-        with:
-          context: packages/api
-          file: packages/api/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_API }}:latest
-            ${{ env.IMAGE_API }}:${{ needs.meta.outputs.tag }}
+        run: |
+          TAG=${{ needs.meta.outputs.tag }}
+          docker build \
+            -f packages/api/Dockerfile \
+            -t ${{ env.IMAGE_API }}:latest \
+            -t ${{ env.IMAGE_API }}:${TAG} \
+            packages/api
+          docker push ${{ env.IMAGE_API }}:latest
+          docker push ${{ env.IMAGE_API }}:${TAG}
 
   build-admin:
     needs: meta
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: https://gitea.com/actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Gitea Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.REGISTRY }}
-          username: ${{ secrets.REGISTRY_USER }}
-          password: ${{ secrets.REGISTRY_TOKEN }}
+      - name: Login to Registry
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ vars.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
 
       - name: Build & push admin
-        uses: docker/build-push-action@v5
-        with:
-          context: packages/admin
-          file: packages/admin/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_ADMIN }}:latest
-            ${{ env.IMAGE_ADMIN }}:${{ needs.meta.outputs.tag }}
+        run: |
+          TAG=${{ needs.meta.outputs.tag }}
+          docker build \
+            -f packages/admin/Dockerfile \
+            -t ${{ env.IMAGE_ADMIN }}:latest \
+            -t ${{ env.IMAGE_ADMIN }}:${TAG} \
+            packages/admin
+          docker push ${{ env.IMAGE_ADMIN }}:latest
+          docker push ${{ env.IMAGE_ADMIN }}:${TAG}
 
   deploy:
     needs: [meta, build-api, build-admin]
     if: ${{ gitea.event_name == 'push' || gitea.event.inputs.deploy == 'true' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Install sshpass
+        run: |
+          if ! command -v sshpass >/dev/null 2>&1; then
+            apt-get update && apt-get install -y sshpass
+          fi
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          script: |
-            set -e
-            cd ${{ vars.DEPLOY_PATH }}
-            echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ vars.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
-            TAG="${{ needs.meta.outputs.tag }}"
-            if grep -q '^API_TAG=' .env; then
-              sed -i "s|^API_TAG=.*|API_TAG=${TAG}|" .env
-            else
-              echo "API_TAG=${TAG}" >> .env
-            fi
-            if grep -q '^ADMIN_TAG=' .env; then
-              sed -i "s|^ADMIN_TAG=.*|ADMIN_TAG=${TAG}|" .env
-            else
-              echo "ADMIN_TAG=${TAG}" >> .env
-            fi
-            docker compose pull api admin
-            docker compose up -d api admin
-            docker image prune -f
-            docker compose ps
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          REGISTRY: ${{ vars.REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          sshpass -e ssh -o StrictHostKeyChecking=no -p "$PORT" "$USER@$HOST" bash -s <<EOF
+          set -e
+          cd $DEPLOY_PATH
+          echo "$REGISTRY_TOKEN" | docker login $REGISTRY -u $REGISTRY_USER --password-stdin
+          if grep -q '^API_TAG=' .env; then
+            sed -i "s|^API_TAG=.*|API_TAG=$TAG|" .env
+          else
+            echo "API_TAG=$TAG" >> .env
+          fi
+          if grep -q '^ADMIN_TAG=' .env; then
+            sed -i "s|^ADMIN_TAG=.*|ADMIN_TAG=$TAG|" .env
+          else
+            echo "ADMIN_TAG=$TAG" >> .env
+          fi
+          docker compose pull api admin
+          docker compose up -d api admin
+          docker image prune -f
+          docker compose ps
+          EOF
