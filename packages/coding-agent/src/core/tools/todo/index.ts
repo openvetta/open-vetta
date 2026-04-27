@@ -109,14 +109,14 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 						const allItems = store.getAll();
 						const skipped = allItems.filter((i) => i.id < id && i.status !== "done");
 						if (skipped.length > 0) {
+							const firstSkipped = skipped[0];
 							const skippedList = skipped.map((i) => `  #${i.id} [${i.status}] ${i.content}`).join("\n");
-							// Still apply the update so progress isn't lost
-							store.update(id, status as "pending" | "in_progress" | "done");
+							// REJECT the update — do NOT apply it. Force sequential order.
 							return {
 								content: [
 									{
 										type: "text" as const,
-										text: `WARNING: You are updating #${id} to "${status}" but the following earlier items are NOT done:\n${skippedList}\n\nIf you already completed the work for these items, mark them as done NOW (call todo update for each). Do NOT skip items — every item must be checked off.\n\n${formatItems(store)}`,
+										text: `REJECTED: Cannot update #${id} to "${status}" because earlier items are not done:\n${skippedList}\n\nYou MUST complete items in order. Work on #${firstSkipped.id} first: "${firstSkipped.content}"\nCall todo(action="update", id=${firstSkipped.id}, status="in_progress") to start it.\n\n${formatItems(store)}`,
 									},
 								],
 								details: { action },

@@ -20,6 +20,7 @@ const toolDescriptions: Record<string, string> = {
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
 	invoke_scene: "Invoke a scene by name when the user's message starts with /scene: prefix",
 	todo: "Plan and track progress on multi-step tasks with a todo list",
+	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 };
 
@@ -172,10 +173,18 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 
 	if (hasDirTree) {
 		guidelinesList.push(
-			'When user asks to list project files or structure, call dir_tree first (do not use shell commands like "tree", "ls", "find", "fd", or "rg --files" for that task)',
+			'ALWAYS use dir_tree (not bash "tree", "ls -R", "find", "fd", or "rg --files") whenever you need to view directory structure or explore a codebase. Only fall back to bash if dir_tree cannot fulfill the specific requirement (e.g., custom output formatting)',
 		);
 		guidelinesList.push(
 			'When dir_tree output includes path IDs like @PATH_0001, prefer these IDs as tool paths. In shell commands, wrap IDs in quotes (example: cat "@PATH_0001").',
+		);
+	}
+
+	// current_time guideline
+	const hasCurrentTime = tools.includes("current_time");
+	if (hasCurrentTime) {
+		guidelinesList.push(
+			'ALWAYS use current_time tool (not bash "date", "timedatectl", or other shell commands) when you need to know the current date or time. Only fall back to bash if current_time cannot fulfill the specific requirement (e.g., timezone conversion, date arithmetic)',
 		);
 	}
 

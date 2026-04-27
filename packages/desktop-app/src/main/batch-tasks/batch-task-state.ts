@@ -79,6 +79,11 @@ export async function deleteTaskState(projectDir: string, taskId: string): Promi
 	scheduleFlush(projectDir);
 }
 
+export async function clearAllTaskStates(projectDir: string): Promise<void> {
+	cachedStates.set(projectDir, {});
+	scheduleFlush(projectDir);
+}
+
 export async function updateTaskState(
 	projectDir: string,
 	taskId: string,

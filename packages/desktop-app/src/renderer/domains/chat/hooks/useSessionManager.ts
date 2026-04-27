@@ -12,6 +12,7 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
+	selectedModelAtom,
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
 	type TodoItem,
@@ -20,7 +21,7 @@ import {
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
 	adoptDraftId,
 	appendError,
@@ -58,6 +59,7 @@ export function useSessionManager(): SessionManagerResult {
 	const navigate = useNavigate();
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
+	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
@@ -67,8 +69,48 @@ export function useSessionManager(): SessionManagerResult {
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
 
+	// ── Delta batching: accumulate text/thinking deltas per rAF frame ──
+	const pendingTextDeltaRef = useRef("");
+	const pendingThinkingDeltaRef = useRef("");
+	const deltaRafRef = useRef<number | null>(null);
+
+	const flushDeltas = useCallback(() => {
+		deltaRafRef.current = null;
+		const textDelta = pendingTextDeltaRef.current;
+		const thinkingDelta = pendingThinkingDeltaRef.current;
+		pendingTextDeltaRef.current = "";
+		pendingThinkingDeltaRef.current = "";
+
+		if (textDelta || thinkingDelta) {
+			setChatMessages((prev) => {
+				let next = prev;
+				if (thinkingDelta) next = appendThinkingDelta(next, thinkingDelta);
+				if (textDelta) next = appendTextDelta(next, textDelta);
+				return next;
+			});
+		}
+	}, [setChatMessages]);
+
+	const scheduleDeltaFlush = useCallback(() => {
+		if (deltaRafRef.current === null) {
+			deltaRafRef.current = requestAnimationFrame(flushDeltas);
+		}
+	}, [flushDeltas]);
+
+	// Cleanup rAF on unmount
+	useEffect(() => {
+		return () => {
+			if (deltaRafRef.current !== null) {
+				cancelAnimationFrame(deltaRafRef.current);
+			}
+		};
+	}, []);
+
 	const openSession = useCallback(
 		async (cwd: string, sessionPath?: string) => {
+			const __t0 = Date.now();
+			const __perf = (label: string) => console.log(`[perf][openSession] ${label} +${Date.now() - __t0}ms`);
+			__perf(`enter cwd=${cwd} sessionPath=${sessionPath ?? "-"}`);
 			// Teardown previous session
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
@@ -77,23 +119,37 @@ export function useSessionManager(): SessionManagerResult {
 			setIsCompacting(false);
 
 			void navigate({ to: "/" });
-			const desktopConfig = await window.vetta.config.get();
-			const executionMode = desktopConfig.defaultExecutionMode ?? "sandbox";
-			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath, executionMode });
+			__perf("before session.create");
+			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
+			__perf("after session.create");
 
 			// Load full history (includes compaction boundaries for complete UI display)
 			const history = await window.vetta.session.getFullHistory(sessionId);
+			__perf("after getFullHistory");
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
 
 			// Restore per-session state: context usage from backend, turn stats from cache
 			const state = await window.vetta.session.getState(sessionId);
+			__perf("after getState");
 			setContextUsage({
 				percent: state.contextPercent,
 				contextWindow: state.contextWindow,
 			});
 			setModelSupportsImages(state.model?.input?.includes("image") ?? false);
 			setSessionExecutionMode(state.executionMode);
+
+			// Sync model between frontend and backend:
+			// - If frontend has a selected model, push it to the backend session
+			// - Otherwise, pull the backend's resolved model to the frontend
+			const backendModelKey = state.model ? `${state.model.provider}/${state.model.id}` : null;
+			if (selectedModel && backendModelKey !== selectedModel) {
+				void window.vetta.session.updateSettings(sessionId, { modelKey: selectedModel });
+			} else if (!selectedModel && backendModelKey) {
+				setSelectedModel(backendModelKey);
+				localStorage.setItem("vetta-selected-model", backendModelKey);
+			}
+
 			const cachedKey = sessionPath ?? "";
 			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
 
@@ -114,6 +170,7 @@ export function useSessionManager(): SessionManagerResult {
 			setActiveSession(sessionInfo);
 			activeSessionRef.current = sessionInfo;
 
+			__perf("before session.subscribe");
 			// ─── Subscribe to live session events ───
 			setCurrentUnsubscribe(
 				await window.vetta.session.subscribe(sessionId, (event) => {
@@ -126,6 +183,12 @@ export function useSessionManager(): SessionManagerResult {
 							setTurnModifiedFiles([]);
 						}
 						if (event.phase === "agent_end" || event.phase === "aborted") {
+							// Flush any pending deltas before finalizing
+							if (deltaRafRef.current !== null) {
+								cancelAnimationFrame(deltaRafRef.current);
+								deltaRafRef.current = null;
+							}
+							flushDeltas();
 							// Always reset streaming state first to unblock the UI
 							const elapsed = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
 							resetStreamState();
@@ -151,13 +214,15 @@ export function useSessionManager(): SessionManagerResult {
 
 					// ── Thinking delta (streaming thinking text) ──
 					if (event.type === "thinking.delta") {
-						setChatMessages((prev) => appendThinkingDelta(prev, event.delta));
+						pendingThinkingDeltaRef.current += event.delta;
+						scheduleDeltaFlush();
 						return;
 					}
 
 					// ── Text delta (streaming assistant text) ──
 					if (event.type === "message.delta") {
-						setChatMessages((prev) => appendTextDelta(prev, event.delta));
+						pendingTextDeltaRef.current += event.delta;
+						scheduleDeltaFlush();
 						return;
 					}
 
@@ -246,7 +311,9 @@ export function useSessionManager(): SessionManagerResult {
 				}),
 			);
 
+			__perf("after subscribe, before loadSessions");
 			await loadSessions(cwd);
+			__perf("exit");
 		},
 		[
 			setChatMessages,
@@ -259,8 +326,12 @@ export function useSessionManager(): SessionManagerResult {
 			setContextUsage,
 			setModelSupportsImages,
 			setSessionExecutionMode,
+			selectedModel,
+			setSelectedModel,
 			setTodoItems,
 			setTurnModifiedFiles,
+			flushDeltas,
+			scheduleDeltaFlush,
 		],
 	);
 
@@ -292,11 +363,18 @@ export function useSessionManager(): SessionManagerResult {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 		}
 		setChatMessages((prev) => [...prev, userMsg]);
-		const promptReq: { text: string; images?: Array<{ type: "image"; data: string; mimeType: string }> } = {
+		const promptReq: {
+			text: string;
+			images?: Array<{ type: "image"; data: string; mimeType: string }>;
+			modelKey?: string;
+		} = {
 			text: text || "(see attached images)",
 		};
 		if (images) {
 			promptReq.images = images.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+		}
+		if (selectedModel) {
+			promptReq.modelKey = selectedModel;
 		}
 		await window.vetta.session.prompt(session.runtimeId, promptReq);
 		await loadSessions(session.cwd);
@@ -306,6 +384,7 @@ export function useSessionManager(): SessionManagerResult {
 		attachedImages,
 		selectedSkill,
 		mentionedFiles,
+		selectedModel,
 		setInputValue,
 		setAttachedImages,
 		setSelectedSkill,

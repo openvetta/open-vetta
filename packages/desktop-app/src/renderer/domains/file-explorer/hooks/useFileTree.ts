@@ -167,6 +167,50 @@ export function useFileTree(cwdOverride?: string | null) {
 		}
 	}, [rootCwd, setCache, setExpandedDirs, setLoadingDirs, loadDir]);
 
+	// Watch expanded directories + root for filesystem changes
+	const watchedDirsRef = useRef<Set<string>>(new Set());
+	useEffect(() => {
+		const dirsToWatch = new Set<string>();
+		if (rootCwd) dirsToWatch.add(rootCwd);
+		for (const dir of expandedDirs) dirsToWatch.add(dir);
+
+		const prev = watchedDirsRef.current;
+
+		// Start watching new dirs
+		for (const dir of dirsToWatch) {
+			if (!prev.has(dir)) {
+				void window.vetta.fs.watchDir(dir);
+			}
+		}
+		// Stop watching removed dirs
+		for (const dir of prev) {
+			if (!dirsToWatch.has(dir)) {
+				void window.vetta.fs.unwatchDir(dir);
+			}
+		}
+
+		watchedDirsRef.current = dirsToWatch;
+
+		return () => {
+			// Cleanup on unmount: unwatch all
+			for (const dir of watchedDirsRef.current) {
+				void window.vetta.fs.unwatchDir(dir);
+			}
+			watchedDirsRef.current = new Set();
+		};
+	}, [rootCwd, expandedDirs]);
+
+	// Subscribe to dir-changed events from main process
+	useEffect(() => {
+		const unsub = window.vetta.fs.onDirChanged((dirPath: string) => {
+			// Only reload if this dir is currently visible (root or expanded)
+			if (watchedDirsRef.current.has(dirPath)) {
+				void loadDir(dirPath);
+			}
+		});
+		return unsub;
+	}, [loadDir]);
+
 	return {
 		cache,
 		expandedDirs,
