@@ -45,7 +45,7 @@ export function BatchTaskList({
 	onEditProject,
 }: BatchTaskListProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const { runTask, pauseTask, resumeTask, deleteTask, batchRetryFailed, batchPause, batchResume, batchDelete, batchRunNeverExecuted, deleteProject } =
+	const { runTask, pauseTask, resumeTask, deleteTask, batchRetryFailed, batchPause, batchResume, batchDelete, batchRunNeverExecuted, batchRestartAll, deleteProject } =
 		useBatchTasks();
 
 	const handleGoToSession = (task: BatchTask) => {
@@ -155,6 +155,19 @@ export function BatchTaskList({
 		});
 	};
 
+	const handleBatchRestartAll = (project: BatchProject) => {
+		setConfirm({
+			title: "确认全部重新开始",
+			message: `将删除所有任务的会话和文件，然后重新执行全部 ${project.tasks.length} 个任务。此操作不可撤回，是否继续？`,
+			confirmLabel: "全部重新开始",
+			cancelLabel: "取消",
+			variant: "danger",
+			onConfirm: async () => {
+				await batchRestartAll(project.id);
+			},
+		});
+	};
+
 	const handleBatchDelete = (project: BatchProject) => {
 		const runningCount = project.tasks.filter((t) => t.status === "running").length;
 		if (runningCount > 0) {
@@ -219,6 +232,13 @@ export function BatchTaskList({
 									title="批量暂停"
 									onClick={() => handleBatchPause(project)}
 									disabled={runningCount === 0}
+								/>
+								<ActionButton
+									icon="icon-[mdi--refresh]"
+									title="全部重新开始"
+									variant="danger"
+									onClick={() => handleBatchRestartAll(project)}
+									disabled={project.tasks.length === 0}
 								/>
 								<div className="mx-1 h-4 w-px bg-border" />
 								<ActionButton

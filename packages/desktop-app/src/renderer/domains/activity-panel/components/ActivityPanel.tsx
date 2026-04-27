@@ -8,6 +8,7 @@ import {
 	flowingChatUnreadAtom,
 	todoItemsByCwdAtom,
 	getTodoItemsForCwd,
+	debugModeAtom,
 } from "@shared/store/atoms";
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
@@ -16,6 +17,7 @@ import { ChatTabPanel } from "./ChatTabPanel";
 import { BatchProgressTabPanel } from "./BatchProgressTabPanel";
 import { ScheduleExecutionTabPanel } from "./ScheduleExecutionTabPanel";
 import { TodoTabPanel } from "./TodoTabPanel";
+import { DebugTabPanel } from "./DebugTabPanel";
 import { SegmentedControl, type SegmentedControlItem } from "@shared/components/ui/segmented-control";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 
@@ -41,6 +43,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	const todoMap = useAtomValue(todoItemsByCwdAtom);
 	const todoItems = useMemo(() => getTodoItemsForCwd(todoMap, cwd), [todoMap, cwd]);
 	const hasTodo = todoItems.length > 0;
+	const debugMode = useAtomValue(debugModeAtom);
 
 	const onResize = useCallback(
 		(delta: number) => {
@@ -69,8 +72,16 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 				badge: todoItems.length - todoDone > 0 ? todoItems.length - todoDone : undefined,
 			});
 		}
+		// Dynamically inject debug tab when debug mode is enabled
+		if (debugMode) {
+			base.push({
+				key: "debug" as ActivityTabKey,
+				label: "调试",
+				icon: "icon-[mdi--bug-outline]",
+			});
+		}
 		return base;
-	}, [profile, chatUnread, hasTodo, todoItems]);
+	}, [profile, chatUnread, hasTodo, todoItems, debugMode]);
 
 	// 当前 active tab：优先取项目记忆，否则用 profile 默认；profile 未就绪时退回 "file"
 	const activeTab: ActivityTabKey = useMemo(() => {
@@ -119,6 +130,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 						{activeTab === "batch-progress" && cwd && <BatchProgressTabPanel cwd={cwd} />}
 						{activeTab === "schedule-records" && cwd && <ScheduleExecutionTabPanel cwd={cwd} />}
 						{activeTab === "todo" && cwd && <TodoTabPanel cwd={cwd} />}
+						{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
 					</div>
 				</div>
 			</div>

@@ -137,6 +137,14 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.batchRunNeverExecuted(projectId);
 	}, []);
 
+	const batchRestartAll = useCallback(
+		async (projectId: string) => {
+			await window.vetta.batchTasks.batchRestartAll(projectId);
+			await refreshProjects();
+		},
+		[refreshProjects],
+	);
+
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
 			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, {
@@ -198,5 +206,6 @@ export function useBatchTasks() {
 		batchDelete,
 		deleteSession,
 		batchRunNeverExecuted,
+		batchRestartAll,
 	};
 }

@@ -9,6 +9,7 @@ import {
 	registerSchedulerIpc,
 	teardownAllIpc,
 } from "./ipc/index.js";
+import { disposeSharedRuntime } from "./runtime.js";
 import { initializeLinuxSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler } from "./scheduler/scheduler.js";
 import {
@@ -137,6 +138,10 @@ app.whenReady().then(async () => {
 		await shell.openPath(fullPath);
 	});
 
+	ipcMain.handle("vetta:shell:show-item-in-folder", (_event, fullPath: string) => {
+		shell.showItemInFolder(fullPath);
+	});
+
 	ipcMain.handle("vetta:window:minimize", () => {
 		getMainWindow()?.minimize();
 	});
@@ -257,14 +262,29 @@ app.on("window-all-closed", () => {
 // Critical: ensure IM sidecar is killed before the main process exits.
 // `before-quit` runs before window destruction, giving us a synchronous
 // hook to wait on graceful child shutdown.
+// 标记：避免 before-quit 在调用 app.exit() 后再次触发本 handler 时
+// 又陷进异步清理流程。
+let quitCleanupStarted = false;
+
 app.on("before-quit", async (event) => {
-	const host = getImHost();
-	if (!host.getStatus().sidecarPid) return;
+	if (quitCleanupStarted) return;
+	quitCleanupStarted = true;
 	event.preventDefault();
+
+	const host = getImHost();
+	if (host.getStatus().sidecarPid) {
+		try {
+			await host.shutdownForQuit();
+		} catch (err) {
+			console.error("[im-host] shutdown failed", err);
+		}
+	}
+	// 退出前统一释放共享 RuntimeHost 持有的所有 session 文件锁，
+	// 避免 .lock 残留，下次启动还要靠 stale-detection 才能回收。
 	try {
-		await host.shutdownForQuit();
+		await disposeSharedRuntime();
 	} catch (err) {
-		console.error("[im-host] shutdown failed", err);
+		console.error("[runtime] disposeSharedRuntime failed", err);
 	}
 	app.exit(0);
 });

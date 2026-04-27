@@ -27,3 +27,13 @@ When running git commands, follow these rules strictly:
 - Before any destructive operation, consider if there is a safer alternative
 
 注意文件名称中不应该有空格
+
+# Skill / Scene Directory Protection
+
+Skill and scene directories are READ-ONLY. NEVER write, create, modify, or delete any files inside:
+- ~/.vetta/agent/skills/
+- ~/.vetta/skills/
+- ~/.vetta/scene/
+- .vetta/skills/ (project-level)
+
+All output files and artifacts MUST be written to the user's working directory, NOT into skill or scene directories.

@@ -14,10 +14,9 @@ packages/*/dist-firefox/
 !.env.example
 !.env.*.example
 
-# desktop-app 的环境配置可以提交（局域网共享开发环境）
-!packages/desktop-app/.env
-!packages/desktop-app/.env.development
-!packages/desktop-app/.env.production
+# Deploy-time config (contains secrets, must not be committed)
+deploy/config.*.yaml
+!deploy/config.*.example.yaml
 
 # Editor files
 .vscode/
@@ -50,6 +49,6 @@ settings.local.json
 # 本机 AI 工具配置（每个开发者各自维护）
 .claude/
 .codex/
-
 prompt/
 spec/
+.agents/

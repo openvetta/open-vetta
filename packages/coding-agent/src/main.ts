@@ -576,6 +576,7 @@ export async function main(args: string[]) {
 	}
 	modelRegistry.setServerUrl(serverUrl);
 	modelRegistry.setServerToken(settingsManager.getServerToken());
+	modelRegistry.setServerTokenGetter(() => settingsManager.getServerTokenFresh());
 	await modelRegistry.loadRemoteModels();
 
 	const resourceLoader = new DefaultResourceLoader({

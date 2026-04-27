@@ -53,8 +53,15 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		});
 
 		let responseText = "";
+		let unsubscribed = false;
+		let unsubscribe: () => void = () => {};
+		const safeUnsubscribe = (): void => {
+			if (unsubscribed) return;
+			unsubscribed = true;
+			unsubscribe();
+		};
 
-		const unsubscribe = runtime.subscribe(sessionId, async (event: SessionEvent) => {
+		unsubscribe = runtime.subscribe(sessionId, async (event: SessionEvent) => {
 			if (event.type === "message.delta") {
 				responseText += event.delta;
 				emitTaskStreamEvent({
@@ -123,6 +130,10 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 					await updateRecordMetadata(record);
 					await updateTaskLastRun(task.id, event.phase === "aborted" ? "failed" : "success");
 					executingTasks.delete(task.id);
+					// 解除订阅，避免用户后续在同一 session 继续对话时误触发本
+					// 回调覆写历史记录。RuntimeHost 由 session IPC 与本模块
+					// 共享，session 仍然存活，下次打开复用即可。
+					safeUnsubscribe();
 
 					emitTaskEvent({
 						type: "record.updated",
@@ -143,7 +154,7 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 			}
 		});
 
-		executingTasks.set(task.id, { sessionId, abortFn: unsubscribe });
+		executingTasks.set(task.id, { sessionId, abortFn: safeUnsubscribe });
 
 		await runtime.prompt(sessionId, { text: task.prompt });
 	} catch (error) {

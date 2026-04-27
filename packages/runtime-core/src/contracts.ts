@@ -166,12 +166,16 @@ export interface SessionConfig {
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
 	executionMode?: SessionExecutionMode;
+	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
+	appendSystemPrompt?: string;
 }
 
 export interface PromptRequest {
 	text: string;
 	images?: Array<{ type: "image"; data: string; mimeType: string }>;
 	streamingBehavior?: "steer" | "followUp";
+	/** Model key in "provider/modelId" format — ensures the prompt uses exactly this model */
+	modelKey?: string;
 }
 
 export interface SettingsPatch {

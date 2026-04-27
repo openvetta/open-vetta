@@ -37,11 +37,11 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
-	const { toggleProject: toggleBatchProject } = useBatchTasks();
+	const { toggleProject: toggleBatchProject, deleteTask: deleteBatchTask, deleteProject: deleteBatchProject } = useBatchTasks();
 
 	// Convert visible batch projects to Project + SessionInfo format
 	const visibleBatchProjects = useMemo(() => batchProjects.filter((bp) =>
-		bp.tasks.some((t) => t.status === "running" || t.status === "completed"),
+		bp.tasks.some((t) => t.sessionPath),
 	), [batchProjects]);
 
 	const batchAsProjects = useMemo(() => visibleBatchProjects.map((bp): { project: Project; sessions: SessionInfo[] } => {
@@ -80,10 +80,22 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleDeleteSession = useCallback(
 		(session: { cwd: string; path: string }) => {
+			// Batch-task session: route to batch deleteTask so batchProjectsAtom updates.
+			const batchMatch = batchProjects.find((bp) =>
+				bp.tasks.some((t) => t.sessionPath === session.path),
+			);
+			if (batchMatch) {
+				const task = batchMatch.tasks.find((t) => t.sessionPath === session.path);
+				if (task) {
+					void deleteBatchTask(batchMatch.id, task.id);
+					setContextMenu(null);
+					return;
+				}
+			}
 			void deleteSession(session.cwd, session.path);
 			setContextMenu(null);
 		},
-		[deleteSession, setContextMenu],
+		[batchProjects, deleteBatchTask, deleteSession, setContextMenu],
 	);
 
 	const handleRenameSession = useCallback(
@@ -104,6 +116,20 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const handleRemove = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
+			// Batch project: "移除" 等同于删除批量项目（无独立列表概念）
+			const batch = batchProjects.find((bp) => bp.id === cwd);
+			if (batch) {
+				setConfirm({
+					title: "删除批量项目",
+					message: `确定要删除批量项目「${batch.name}」吗？此操作不可撤回。`,
+					confirmLabel: "删除",
+					variant: "danger",
+					onConfirm: async () => {
+						await deleteBatchProject(batch.id);
+					},
+				});
+				return;
+			}
 			const project = projects.find((p) => p.cwd === cwd);
 			const displayName = project?.name ?? pathBasename(cwd);
 			setConfirm({
@@ -116,12 +142,25 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 				},
 			});
 		},
-		[removeProject, setProjectMenu, setConfirm, projects],
+		[removeProject, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject],
 	);
 
 	const handleDelete = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
+			const batch = batchProjects.find((bp) => bp.id === cwd);
+			if (batch) {
+				setConfirm({
+					title: "删除批量项目",
+					message: `确定要删除批量项目「${batch.name}」吗？此操作不可撤回。`,
+					confirmLabel: "删除",
+					variant: "danger",
+					onConfirm: async () => {
+						await deleteBatchProject(batch.id);
+					},
+				});
+				return;
+			}
 			const project = projects.find((p) => p.cwd === cwd);
 			const displayName = project?.name ?? pathBasename(cwd);
 			setConfirm({
@@ -134,7 +173,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 				},
 			});
 		},
-		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects],
+		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject],
 	);
 
 	const expandBatchProject = useCallback(

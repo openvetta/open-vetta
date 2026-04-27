@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { createWriteStream, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { createWriteStream, existsSync, readdirSync, statSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { spawn } from "child_process";
+import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../../config.js";
 import { getShellConfig, getShellEnv, killProcessTree } from "../../../utils/shell.js";
 import { loadToolDescription } from "../description.js";
 import { type PathLiteralCorrection, rewriteQuotedPathLiterals } from "../path-utils.js";
@@ -16,6 +17,69 @@ import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult
 function getTempFilePath(): string {
 	const id = randomBytes(8).toString("hex");
 	return join(tmpdir(), `pi-bash-${id}.log`);
+}
+
+// =============================================================================
+// Protected directory change detection
+// =============================================================================
+
+/** Map of file path -> mtime in ms */
+type DirSnapshot = Map<string, number>;
+
+function getProtectedDirs(cwd: string): string[] {
+	return [
+		resolve(join(getAgentDir(), "skills")),
+		resolve(join(homedir(), CONFIG_DIR_NAME, "skills")),
+		resolve(getSceneDir()),
+		resolve(cwd, CONFIG_DIR_NAME, "skills"),
+	].filter((dir) => existsSync(dir));
+}
+
+/** Recursively snapshot all files under a directory with their mtimes. */
+function snapshotDir(dir: string): DirSnapshot {
+	const snapshot: DirSnapshot = new Map();
+	try {
+		const entries = readdirSync(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				for (const [k, v] of snapshotDir(fullPath)) {
+					snapshot.set(k, v);
+				}
+			} else {
+				try {
+					snapshot.set(fullPath, statSync(fullPath).mtimeMs);
+				} catch {
+					// file may have been removed between readdir and stat
+				}
+			}
+		}
+	} catch {
+		// directory not readable or doesn't exist
+	}
+	return snapshot;
+}
+
+function snapshotProtectedDirs(cwd: string): DirSnapshot {
+	const combined: DirSnapshot = new Map();
+	for (const dir of getProtectedDirs(cwd)) {
+		for (const [k, v] of snapshotDir(dir)) {
+			combined.set(k, v);
+		}
+	}
+	return combined;
+}
+
+/** Compare before/after snapshots and return list of created/modified files. */
+function detectProtectedChanges(before: DirSnapshot, after: DirSnapshot): string[] {
+	const changed: string[] = [];
+	for (const [filePath, mtime] of after) {
+		const prevMtime = before.get(filePath);
+		if (prevMtime === undefined || mtime > prevMtime) {
+			changed.push(filePath);
+		}
+	}
+	return changed;
 }
 
 const bashSchema = Type.Object({
@@ -198,6 +262,9 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 			const { output: correctedCommand, pathCorrections } = rewriteQuotedPathLiterals(resolvedCommand, cwd);
 			const spawnContext = resolveSpawnContext(correctedCommand, cwd, spawnHook);
 
+			// Snapshot protected directories before execution
+			const protectedSnapshot = snapshotProtectedDirs(cwd);
+
 			return new Promise((resolve, reject) => {
 				// We'll stream to a temp file if output gets large
 				let tempFilePath: string | undefined;
@@ -265,6 +332,10 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 							tempFileStream.end();
 						}
 
+						// Detect writes to protected skill/scene directories
+						const afterSnapshot = snapshotProtectedDirs(cwd);
+						const protectedChanges = detectProtectedChanges(protectedSnapshot, afterSnapshot);
+
 						// Combine all buffered chunks
 						const fullBuffer = Buffer.concat(chunks);
 						const fullOutput = fullBuffer.toString("utf-8");
@@ -272,6 +343,16 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 						// Apply tail truncation
 						const truncation = truncateTail(fullOutput);
 						let outputText = truncation.content || "(no output)";
+
+						// Append warning if protected files were modified
+						if (protectedChanges.length > 0) {
+							const fileList = protectedChanges.map((f) => `  - ${f}`).join("\n");
+							outputText +=
+								`\n\n⚠ WARNING: The following files inside skill/scene directories were created or modified by this command:\n` +
+								`${fileList}\n` +
+								`Skill/scene directories are READ-ONLY. Move these output files to the user's working directory (cwd) immediately ` +
+								`and delete the copies from the skill/scene directory.`;
+						}
 
 						// Build details with truncation info
 						let details: BashToolDetails | undefined;

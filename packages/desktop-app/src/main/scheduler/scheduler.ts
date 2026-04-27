@@ -1,28 +1,15 @@
 import { AsyncTask, CronJob, ToadScheduler } from "toad-scheduler";
-import { RuntimeHost } from "../../../../runtime-core/src/index.js";
-import { readDesktopConfig } from "../ipc/fs.js";
-import { getAvailableLinuxBubblewrapPath } from "../sandbox/capability.js";
-import { resolveWindowsSandboxHostBinary } from "../sandbox/windows-binary-resolver.js";
+import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import { getSharedRuntime } from "../runtime.js";
 import { abortTask, executeTask } from "./task-executor";
 import type { ScheduledTask as TaskData } from "./task-storage";
 import { loadTasks } from "./task-storage";
 
-let runtimeInstance: RuntimeHost | null = null;
 const _scheduler = new ToadScheduler();
 const scheduledJobs = new Map<string, CronJob>();
 
 function getRuntime(): RuntimeHost {
-	if (!runtimeInstance) {
-		runtimeInstance = new RuntimeHost({
-			getDefaultExecutionMode: async () => {
-				const config = await readDesktopConfig();
-				return config.defaultExecutionMode;
-			},
-			sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
-			linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
-		});
-	}
-	return runtimeInstance;
+	return getSharedRuntime();
 }
 
 export async function initScheduler(): Promise<void> {
