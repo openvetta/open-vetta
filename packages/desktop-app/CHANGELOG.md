@@ -10,6 +10,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **对话回答外层折叠**：桌面对话页现在会记录每轮 assistant 回答的起止时间，并在回答完成后自动折叠中间过程，只保留最后一次工具调用 / 思考后的结论文本；折叠提示支持“正在处理 Ns”的流式状态和“展开 / 收起 N 条内容”的完成态。
+
 - **可配置的 Electron 打包入口**：desktop-app 新增统一的 `dist:desktop` 打包脚本，并补充 `dist:linux` / `dist:win` / `pack:linux` / `pack:win` 入口；支持通过命令行参数 `--platform`、`--arch`、`--target` 动态指定目标平台、架构与安装包格式，并为 Linux 提供 `dist:linux:appimage` / `dist:linux:deb` / `dist:linux:rpm` / `dist:linux:tar.gz`，为 Windows 提供 `dist:win:nsis` / `dist:win:portable` / `dist:win:zip` 快捷命令。Linux 打包前会校验 `packages/runtime-core/sandbox/linux/<arch>/bwrap` 是否齐备，避免产出缺少对应沙盒二进制的安装包。
 - **Windows 前置依赖构建**：desktop-app 新增 `prepare:windows`，在 Windows 主机上会先执行仓库根目录的 [`scripts/build.ps1`](C:/yiyun/vetta-mono/scripts/build.ps1) `desktop` 目标，再启动 `dev` / `start` 或进入打包链；非 Windows 主机自动跳过，避免 Electron 开发和打包时缺少上游依赖产物。
 - **Windows 沙盒资源打包与显式路径解析**：desktop-app 打包阶段现在会将 `packages/runtime-core/sandbox/bin` 整体复制到安装包 `Resources/sandbox/windows/`，并由主进程新的 Windows sandbox resolver 从 `process.resourcesPath/sandbox/windows/codex-windows-sandbox-host.exe` 解析 host 路径后显式注入 `RuntimeHost`。这样安装包与开发环境统一走 Electron `extraResources` 模型，不再依赖源码目录猜测路径。

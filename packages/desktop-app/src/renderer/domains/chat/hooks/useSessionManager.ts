@@ -156,14 +156,26 @@ export function useSessionManager(): SessionManagerResult {
 			// If session is still streaming, adopt the last history assistant message as draft
 			// so that incoming streaming events append to it instead of creating a duplicate.
 			if (state.isStreaming) {
+				const startedAt = state.currentTurnStartedAt ?? Date.now();
+				let adoptedId: string | null = null;
 				for (let i = mapped.length - 1; i >= 0; i--) {
 					if (mapped[i].role === "assistant") {
 						adoptDraftId(mapped[i].id);
+						adoptedId = mapped[i].id;
 						break;
 					}
 				}
+				if (adoptedId) {
+					setChatMessages((prev) =>
+						prev.map((message) =>
+							message.id === adoptedId
+								? { ...message, startedAt, timestamp: message.timestamp ?? startedAt }
+								: message,
+						),
+					);
+				}
 				setIsStreaming(true);
-				setTurnStartTime(Date.now());
+				setTurnStartTime(startedAt);
 			}
 
 			const sessionInfo = { cwd, sessionPath: cachedKey, runtimeId: sessionId };
@@ -178,7 +190,7 @@ export function useSessionManager(): SessionManagerResult {
 					if (event.type === "session.lifecycle") {
 						if (event.phase === "agent_start") {
 							resetStreamState();
-							setTurnStartTime(Date.now());
+							setTurnStartTime(event.timestamp);
 							setIsStreaming(true);
 							setTurnModifiedFiles([]);
 						}
@@ -190,9 +202,12 @@ export function useSessionManager(): SessionManagerResult {
 							}
 							flushDeltas();
 							// Always reset streaming state first to unblock the UI
-							const elapsed = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
+							const endedAt = event.timestamp;
+							const startedAt = turnStartTime;
+							const elapsed = startedAt ? (endedAt - startedAt) / 1000 : 0;
 							resetStreamState();
 							setIsStreaming(false);
+							setTurnStartTime(0);
 							// Write total duration onto the last assistant message
 							// and extract modified files from this turn
 							setChatMessages((prev) => {
@@ -201,7 +216,12 @@ export function useSessionManager(): SessionManagerResult {
 									for (let i = prev.length - 1; i >= 0; i--) {
 										if (prev[i].role === "assistant") {
 											const copy = [...prev];
-											copy[i] = { ...copy[i], durationSeconds: elapsed };
+											copy[i] = {
+												...copy[i],
+												startedAt: copy[i].startedAt ?? startedAt,
+												endedAt,
+												durationSeconds: elapsed,
+											};
 											return copy;
 										}
 									}

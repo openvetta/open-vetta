@@ -156,6 +156,23 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			continue;
 		}
 
+		if (entry.type === "assistant_turn_timing") {
+			for (let i = messages.length - 1; i >= 0; i--) {
+				const message = messages[i];
+				if (message.role === "assistant") {
+					const { startedAt, endedAt, durationMs } = entry.timing;
+					messages[i] = {
+						...message,
+						startedAt,
+						endedAt,
+						durationSeconds: durationMs / 1000,
+					};
+					break;
+				}
+			}
+			continue;
+		}
+
 		const m = entry.message as {
 			role: string;
 			content: unknown;
@@ -260,7 +277,15 @@ export function ensureDraft(prev: ChatMessage[]): [ChatMessage[], number] {
 	// Create new draft
 	const id = nextId("draft");
 	draftId = id;
-	const draft: ChatMessage = { id, role: "assistant", text: "", blocks: [], timestamp: Date.now() };
+	const draftTimestamp = turnStartTime || Date.now();
+	const draft: ChatMessage = {
+		id,
+		role: "assistant",
+		text: "",
+		blocks: [],
+		timestamp: draftTimestamp,
+		startedAt: draftTimestamp,
+	};
 	const copy = [...prev, draft];
 	return [copy, copy.length - 1];
 }
@@ -354,7 +379,15 @@ export function finalizeMessage(prev: ChatMessage[], content: unknown): ChatMess
 		if (targetIdx === -1) {
 			const id = nextId("final");
 			draftId = id;
-			copy.push({ id, role: "assistant", text: "", blocks: [], timestamp: Date.now() });
+			const draftTimestamp = turnStartTime || Date.now();
+			copy.push({
+				id,
+				role: "assistant",
+				text: "",
+				blocks: [],
+				timestamp: draftTimestamp,
+				startedAt: draftTimestamp,
+			});
 			targetIdx = copy.length - 1;
 		}
 	}
@@ -545,7 +578,15 @@ function ensureDraftWithRef(prev: ChatMessage[], draftIdRef: { current: string |
 	}
 	const id = nextId("draft");
 	draftIdRef.current = id;
-	const draft: ChatMessage = { id, role: "assistant", text: "", blocks: [], timestamp: Date.now() };
+	const draftTimestamp = turnStartTime || Date.now();
+	const draft: ChatMessage = {
+		id,
+		role: "assistant",
+		text: "",
+		blocks: [],
+		timestamp: draftTimestamp,
+		startedAt: draftTimestamp,
+	};
 	const copy = [...prev, draft];
 	return [copy, copy.length - 1];
 }

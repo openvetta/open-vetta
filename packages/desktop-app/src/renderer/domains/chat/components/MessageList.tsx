@@ -5,13 +5,14 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
 	type ChatMessage,
 	type ContentBlock,
+	type TextBlock,
 	type ThinkingBlock,
 	type ToolCallBlock,
 	isCompactingAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { ArtifactCard } from "@shared/components/ArtifactCard";
-import { pathBasename } from "@shared/lib/utils";
+import { cn, pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
@@ -55,6 +56,24 @@ function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 	}
 	flushBatch();
 	return segments;
+}
+
+interface AssistantFoldData {
+	outputBlocks: TextBlock[];
+	hiddenCount: number;
+}
+
+function getAssistantFoldData(blocks: ContentBlock[]): AssistantFoldData | null {
+	const lastProcessIndex = blocks.findLastIndex((block) => block.type === "tool_call" || block.type === "thinking");
+	if (lastProcessIndex === -1) return null;
+	const outputBlocks = blocks
+		.slice(lastProcessIndex + 1)
+		.filter((block): block is TextBlock => block.type === "text" && block.text.trim().length > 0);
+	if (outputBlocks.length === 0) return null;
+	return {
+		outputBlocks,
+		hiddenCount: blocks.length - outputBlocks.length,
+	};
 }
 
 /** Collapsed group of multiple tool calls and/or thinking blocks. */
@@ -161,6 +180,63 @@ function formatDuration(seconds: number): string {
 	const m = Math.floor(seconds / 60);
 	const s = Math.round(seconds % 60);
 	return `${m}分${s}秒`;
+}
+
+function useElapsedSeconds(startedAt: number | undefined, active: boolean): number {
+	const [now, setNow] = useState(() => Date.now());
+
+	useEffect(() => {
+		if (!active) return;
+		const timer = window.setInterval(() => setNow(Date.now()), 1000);
+		return () => window.clearInterval(timer);
+	}, [active]);
+
+	if (!startedAt) return 0;
+	return Math.max(0, Math.floor((now - startedAt) / 1000));
+}
+
+interface AssistantFoldTipProps {
+	state: "streaming" | "complete";
+	count: number;
+	expanded: boolean;
+	startedAt?: number;
+	onToggle: () => void;
+}
+
+function AssistantFoldTip({ state, count, expanded, startedAt, onToggle }: AssistantFoldTipProps): JSX.Element {
+	const elapsedSeconds = useElapsedSeconds(startedAt, state === "streaming");
+
+	if (state === "streaming") {
+		return (
+			<div className="mb-3">
+				<div className="mb-2 flex items-center">
+					<span className="processing-shimmer text-[12px] font-medium">
+						正在处理{elapsedSeconds}s
+					</span>
+				</div>
+				<div className="h-0.5 w-full rounded-full bg-border/80" />
+			</div>
+		);
+	}
+
+	return (
+		<div className="mb-3">
+			<button
+				type="button"
+				onClick={onToggle}
+				className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-lg py-1 pr-1.5 text-[12px] font-medium text-muted-foreground/55 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
+			>
+				<span
+					className={cn(
+						"icon-[mdi--chevron-right] h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+						expanded && "rotate-90",
+					)}
+				/>
+				<span>{expanded ? "收起" : "展开"}{count}条内容</span>
+			</button>
+			<div className="h-0.5 w-full rounded-full bg-border/80" />
+		</div>
+	);
 }
 
 /** Parse prefixes from user message text: /skill:<name>, /scene:<name>, and @<path> lines. */
@@ -280,8 +356,14 @@ const AssistantMessage = memo(function AssistantMessage({ message, isLastAssista
 }) {
 	const hasBlocks = message.blocks && message.blocks.length > 0;
 	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !(isLastAssistant && isStreaming);
-	const segments = useMemo(() => groupBlocks(message.blocks ?? []), [message.blocks]);
 	const isCurrentlyStreaming = isLastAssistant && isStreaming;
+	const [expanded, setExpanded] = useState(false);
+	const foldData = useMemo(() => getAssistantFoldData(message.blocks ?? []), [message.blocks]);
+	const visibleBlocks = useMemo(() => {
+		if (!foldData || expanded || isCurrentlyStreaming) return message.blocks ?? [];
+		return foldData.outputBlocks;
+	}, [expanded, foldData, isCurrentlyStreaming, message.blocks]);
+	const segments = useMemo(() => groupBlocks(visibleBlocks), [visibleBlocks]);
 
 	return (
 		<div className="flex flex-col">
@@ -318,6 +400,24 @@ const AssistantMessage = memo(function AssistantMessage({ message, isLastAssista
 					</div>
 				)}
 			</div>
+
+			{isCurrentlyStreaming ? (
+				<AssistantFoldTip
+					state="streaming"
+					count={message.blocks?.length ?? 0}
+					expanded
+					startedAt={message.startedAt ?? message.timestamp}
+					onToggle={() => undefined}
+				/>
+			) : foldData ? (
+				<AssistantFoldTip
+					state="complete"
+					count={foldData.hiddenCount}
+					expanded={expanded}
+					startedAt={message.startedAt}
+					onToggle={() => setExpanded((value) => !value)}
+				/>
+			) : null}
 
 			{/* Content blocks */}
 			<div>
@@ -515,6 +615,18 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 				@keyframes context-ring-spin {
 					from { transform: rotate(0deg); }
 					to { transform: rotate(360deg); }
+				}
+				@keyframes processing-shimmer {
+					0% { background-position: 200% 0; }
+					100% { background-position: -200% 0; }
+				}
+				.processing-shimmer {
+					background: linear-gradient(90deg, var(--muted-foreground) 0%, var(--foreground) 50%, var(--muted-foreground) 100%);
+					background-size: 200% 100%;
+					-webkit-background-clip: text;
+					background-clip: text;
+					color: transparent;
+					animation: processing-shimmer 1.6s linear infinite;
 				}
 			`}</style>
 			<Virtuoso
