@@ -7,11 +7,13 @@ import {
 	type AgentSession,
 	type AgentSessionEvent,
 	type CreateAgentSessionOptions,
+	type CustomEntry,
 	createAgentSession,
 	type SessionInfo,
 	SessionManager,
 } from "@vetta/coding-agent";
 import type {
+	AssistantTurnTiming,
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
@@ -32,6 +34,8 @@ interface SessionHandle {
 	executionMode: SessionExecutionMode;
 }
 
+const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
+
 export interface RuntimeHostOptions {
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	sandboxHostPath?: string;
@@ -40,6 +44,7 @@ export interface RuntimeHostOptions {
 
 export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
+	private currentTurnStartedAt = new Map<string, number>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
@@ -262,6 +267,7 @@ export class RuntimeHost implements SessionFacade {
 			thinkingLevel: handle.session.thinkingLevel,
 			executionMode: handle.executionMode,
 			isStreaming: handle.session.isStreaming,
+			currentTurnStartedAt: this.currentTurnStartedAt.get(sessionId),
 			messageCount: handle.session.messages.length,
 			contextPercent: contextUsage?.percent ?? null,
 			contextWindow: contextUsage?.contextWindow ?? 0,
@@ -292,6 +298,15 @@ export class RuntimeHost implements SessionFacade {
 					tokensBefore: entry.tokensBefore,
 					timestamp: entry.timestamp,
 				});
+			} else if (entry.type === "custom" && entry.customType === ASSISTANT_TURN_TIMING_TYPE) {
+				const timing = this.parseAssistantTurnTiming(entry);
+				if (timing) {
+					entries.push({
+						type: "assistant_turn_timing",
+						timing,
+						timestamp: entry.timestamp,
+					});
+				}
 			}
 		}
 		return entries;
@@ -368,6 +383,7 @@ export class RuntimeHost implements SessionFacade {
 		if (!handle) return;
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
+		this.currentTurnStartedAt.delete(sessionId);
 	}
 
 	/**
@@ -384,6 +400,7 @@ export class RuntimeHost implements SessionFacade {
 			}
 		}
 		this.sessions.clear();
+		this.currentTurnStartedAt.clear();
 	}
 
 	private requireSession(sessionId: string): SessionHandle {
@@ -416,12 +433,12 @@ export class RuntimeHost implements SessionFacade {
 		});
 	}
 
-	private baseEvent(sessionId: string, source: SessionEventBase["source"]): SessionEventBase {
+	private baseEvent(sessionId: string, source: SessionEventBase["source"], timestamp = Date.now()): SessionEventBase {
 		return {
 			schemaVersion: 1,
 			sessionId,
 			eventId: randomUUID(),
-			timestamp: Date.now(),
+			timestamp,
 			source,
 		};
 	}
@@ -429,9 +446,10 @@ export class RuntimeHost implements SessionFacade {
 	private lifecycleEvent(
 		sessionId: string,
 		phase: "created" | "agent_start" | "turn_start" | "turn_end" | "agent_end" | "aborted",
+		timestamp?: number,
 	): SessionEvent {
 		return {
-			...this.baseEvent(sessionId, "runtime-core"),
+			...this.baseEvent(sessionId, "runtime-core", timestamp),
 			type: "session.lifecycle",
 			phase,
 		};
@@ -442,7 +460,9 @@ export class RuntimeHost implements SessionFacade {
 
 		if (event.type === "agent_start") {
 			console.log(`[RuntimeHost.event] session=${sessionId} type=agent_start`);
-			events.push(this.lifecycleEvent(sessionId, "agent_start"));
+			const startedAt = Date.now();
+			this.currentTurnStartedAt.set(sessionId, startedAt);
+			events.push(this.lifecycleEvent(sessionId, "agent_start", startedAt));
 			return events;
 		}
 
@@ -460,7 +480,9 @@ export class RuntimeHost implements SessionFacade {
 
 		if (event.type === "agent_end") {
 			console.log(`[RuntimeHost.event] session=${sessionId} type=agent_end`);
-			events.push(this.lifecycleEvent(sessionId, "agent_end"));
+			const endedAt = Date.now();
+			this.persistAssistantTurnTiming(sessionId, session, endedAt);
+			events.push(this.lifecycleEvent(sessionId, "agent_end", endedAt));
 			return events;
 		}
 
@@ -538,7 +560,8 @@ export class RuntimeHost implements SessionFacade {
 				});
 			} else if (event.message.stopReason === "aborted") {
 				console.warn(`[RuntimeHost.event] session=${sessionId} type=aborted`);
-				events.push(this.lifecycleEvent(sessionId, "aborted"));
+				const endedAt = Date.now();
+				events.push(this.lifecycleEvent(sessionId, "aborted", endedAt));
 			}
 			// NOTE: Do NOT emit agent_end here. In a multi-turn agent loop,
 			// message_end fires after each LLM call, not just the final one.
@@ -632,6 +655,35 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		return events;
+	}
+
+	private parseAssistantTurnTiming(entry: CustomEntry): AssistantTurnTiming | null {
+		const data = entry.data;
+		if (!data || typeof data !== "object") return null;
+		const candidate = data as Record<string, unknown>;
+		const { startedAt, endedAt, durationMs } = candidate;
+		if (
+			typeof startedAt !== "number" ||
+			typeof endedAt !== "number" ||
+			typeof durationMs !== "number" ||
+			!Number.isFinite(startedAt) ||
+			!Number.isFinite(endedAt) ||
+			!Number.isFinite(durationMs)
+		) {
+			return null;
+		}
+		return { startedAt, endedAt, durationMs };
+	}
+
+	private persistAssistantTurnTiming(sessionId: string, session: AgentSession, endedAt: number): void {
+		const startedAt = this.currentTurnStartedAt.get(sessionId);
+		if (!startedAt) return;
+		this.currentTurnStartedAt.delete(sessionId);
+		session.sessionManager.appendCustomEntry(ASSISTANT_TURN_TIMING_TYPE, {
+			startedAt,
+			endedAt,
+			durationMs: Math.max(0, endedAt - startedAt),
+		});
 	}
 
 	private extractAssistantText(content: Message["content"]): string {
