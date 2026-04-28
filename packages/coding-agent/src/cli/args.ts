@@ -178,7 +178,6 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 
 export function printHelp(): void {
 	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
-	const defaultToolsList = `read,${defaultCommandTool},edit,write,dir_tree`;
 	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with ${defaultToolsList} tools
 
 ${chalk.bold("Usage:")}
@@ -209,7 +208,7 @@ ${chalk.bold("Options:")}
                                  Supports globs (anthropic/*, *sonnet*) and fuzzy matching
   --no-tools                     Disable all built-in tools
   --tools <tools>                Comma-separated list of tools to enable (default: ${defaultToolsList})
-                                 Available: read, bash, shell, edit, write, grep, find, ls, dir_tree
+                                 Available: ${Object.keys(allTools).join(", ")}
   --thinking <level>             Set thinking level: off, minimal, low, medium, high, xhigh
   --extension, -e <path>         Load an extension file (can be used multiple times)
   --no-extensions, -ne           Disable extension discovery (explicit -e paths still work)
@@ -315,5 +314,7 @@ ${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   find   - Find files by glob pattern (read-only, off by default)
   ls     - List directory contents (read-only, off by default)
   dir_tree - Show directory tree with [D]/[F] node types (read-only)
+  doc_to_pdf - Convert .doc/.docx files to PDF
+  current_time - Get the current date and time
 `);
 }

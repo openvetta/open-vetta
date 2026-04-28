@@ -46,6 +46,7 @@ export {
 	grepTool,
 } from "./grep/index.js";
 export {
+export {
 	createInvokeSceneTool,
 	type InvokeSceneToolDetails,
 	type InvokeSceneToolInput,
@@ -117,6 +118,7 @@ import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./do
 import { createEditTool, editTool } from "./edit/index.js";
 import { createFindTool, findTool } from "./find/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
+import {
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
 import { createShellTool, type ShellToolOptions, shellTool } from "./shell/index.js";
@@ -139,7 +141,14 @@ export function getDefaultCodingToolNames(): ["read", CommandToolName, "edit", "
 // Default tools for full access mode (using process.cwd())
 const defaultCommandToolName = getDefaultCommandToolName();
 const defaultCommandTool = defaultCommandToolName === "shell" ? shellTool : bashTool;
-export const codingTools: Tool[] = [readTool, defaultCommandTool, editTool, writeTool, treeTool];
+export const codingTools: Tool[] = [
+	readTool,
+	defaultCommandTool,
+	editTool,
+	writeTool,
+	treeTool,
+	docToPdfTool,
+];
 
 // Read-only tools for exploration without modification (using process.cwd())
 export const readOnlyTools: Tool[] = [readTool, grepTool, findTool, lsTool, treeTool];
