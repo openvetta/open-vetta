@@ -135,6 +135,8 @@ export interface SessionStateSnapshot {
 	thinkingLevel: ThinkingLevel;
 	executionMode: SessionExecutionMode;
 	isStreaming: boolean;
+	/** Timestamp (ms) for the current agent_start, if this session is streaming. */
+	currentTurnStartedAt?: number;
 	messageCount: number;
 	/** Context window usage percentage (0-100), or null if unknown */
 	contextPercent: number | null;
@@ -186,13 +188,20 @@ export interface SettingsPatch {
 	modelKey?: string;
 }
 
+export interface AssistantTurnTiming {
+	startedAt: number;
+	endedAt: number;
+	durationMs: number;
+}
+
 /**
  * A history entry for UI display. Includes messages AND compaction boundaries.
  * The UI uses this to render complete conversation history (even after compaction).
  */
 export type HistoryEntry =
 	| { type: "message"; message: Message }
-	| { type: "compaction"; summary: string; tokensBefore: number; timestamp: string };
+	| { type: "compaction"; summary: string; tokensBefore: number; timestamp: string }
+	| { type: "assistant_turn_timing"; timing: AssistantTurnTiming; timestamp: string };
 
 export interface SessionFacade {
 	createSession(config?: SessionConfig): Promise<{ sessionId: string }>;

@@ -49,6 +49,10 @@ export interface ChatMessage {
 	images?: Array<{ data: string; mimeType: string; name: string }>;
 	/** Timestamp when the message was created (Date.now()) */
 	timestamp?: number;
+	/** Timestamp when this assistant turn started (agent_start) */
+	startedAt?: number;
+	/** Timestamp when this assistant turn ended (agent_end/aborted) */
+	endedAt?: number;
 	/** Total duration of this assistant turn in seconds (agent_start → agent_end) */
 	durationSeconds?: number;
 }
