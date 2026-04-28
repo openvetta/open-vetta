@@ -1,4 +1,5 @@
 export type {
+	AssistantTurnTiming,
 	ErrorEvent,
 	HistoryEntry,
 	McpStatusEvent,
