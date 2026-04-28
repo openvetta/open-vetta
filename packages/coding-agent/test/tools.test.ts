@@ -56,6 +56,15 @@ describe("Coding Agent Tools", () => {
 			expect(result.details).toBeUndefined();
 		});
 
+		it("should read GB18030 text when the file is not valid UTF-8", async () => {
+			const testFile = join(testDir, "gb18030.txt");
+			writeFileSync(testFile, Buffer.from([0xd6, 0xd0, 0xce, 0xc4, 0xb2, 0xe2, 0xca, 0xd4]));
+
+			const result = await readTool.execute("test-call-gb18030", { path: testFile });
+
+			expect(getTextOutput(result)).toBe("中文测试");
+		});
+
 		it("should handle non-existent files", async () => {
 			const testFile = join(testDir, "nonexistent.txt");
 
@@ -377,6 +386,12 @@ describe("Coding Agent Tools", () => {
 
 			const result = await bashWithoutPrefix.execute("test-prefix-3", { command: "echo no-prefix" });
 			expect(getTextOutput(result).trim()).toBe("no-prefix");
+		});
+
+		it("should compose shell command prefixes in execution order", () => {
+			const command = shellModule.prependCommandPrefixes("echo command", ["echo default", "echo user"]);
+
+			expect(command).toBe("echo default\necho user\necho command");
 		});
 
 		it("should autocorrect quoted file paths with injected spaces around hyphens", async () => {

@@ -23,6 +23,7 @@ export interface DesktopSessionApi {
 	getSessionPath(sessionId: string): Promise<string | undefined>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
+	setGlobalExecutionMode(mode: SessionExecutionMode): Promise<void>;
 	setGlobalThinkingLevel(level: string): Promise<void>;
 	getGlobalThinkingLevel(): Promise<string>;
 	getState(sessionId: string): Promise<SessionStateSnapshot>;

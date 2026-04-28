@@ -237,7 +237,7 @@ export function buildLinuxBubblewrapToolDefinitions(options: LinuxBubblewrapTool
 	});
 
 	return [
-		wrapWorkspaceGuard(readTool, cwd),
+		toToolDefinition(readTool),
 		wrapWorkspaceGuard(writeTool, cwd),
 		wrapWorkspaceGuard(editTool, cwd),
 		toToolDefinition(shellTool),

@@ -1,7 +1,13 @@
 import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { fetchServerInfo } from "@shared/lib/api";
-import { deployModeAtom, remoteProvidersAtom, selectedModelAtom, workspacePathAtom } from "@shared/store/atoms";
+import {
+	deployModeAtom,
+	remoteProvidersAtom,
+	selectedModelAtom,
+	sessionExecutionModeAtom,
+	workspacePathAtom,
+} from "@shared/store/atoms";
 import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
@@ -10,6 +16,7 @@ import { currentUnsubscribe, setCurrentUnsubscribe } from "../services/chat-serv
 export function useAppInit(): void {
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
+	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const setDeployMode = useSetAtom(deployModeAtom);
 	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
@@ -28,6 +35,9 @@ export function useAppInit(): void {
 				setWorkspacePath(config.workspacePath);
 				localStorage.setItem("vetta-workspace-path", config.workspacePath);
 			}
+			const executionMode = config.defaultExecutionMode ?? "full-access";
+			setSessionExecutionMode(executionMode);
+			localStorage.setItem("vetta-session-execution-mode", executionMode);
 		});
 		// Load default model if no model selected
 		void window.vetta.models.get().then((modelsConfig) => {
@@ -57,6 +67,7 @@ export function useAppInit(): void {
 	}, [
 		setWorkspacePath,
 		setSelectedModel,
+		setSessionExecutionMode,
 		setRemoteProviders,
 		setDeployMode,
 		setCreditsBalance,

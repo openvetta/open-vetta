@@ -197,6 +197,7 @@ export type HistoryEntry =
 export interface SessionFacade {
 	createSession(config?: SessionConfig): Promise<{ sessionId: string }>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
+	setGlobalExecutionMode(mode: SessionExecutionMode): Promise<void>;
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;
 	continue(sessionId: string): Promise<void>;
 	abort(sessionId: string): Promise<void>;

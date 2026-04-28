@@ -18,6 +18,12 @@ function shortenPath(path: string): string {
 	return parts.length > 3 ? `.../${parts.slice(-3).join("/")}` : path;
 }
 
+function getShellCommand(block: ToolCallBlock): string | null {
+	if (block.toolName !== "bash" && block.toolName !== "shell") return null;
+	const cmd = block.args.command;
+	return typeof cmd === "string" ? cmd : null;
+}
+
 /** Get icon for tool */
 function toolIcon(name: string): string {
 	if (name.startsWith("mcp_")) return "icon-[mdi--cloud-outline]";
@@ -25,7 +31,7 @@ function toolIcon(name: string): string {
 		case "read": return "icon-[mdi--file-document-outline]";
 		case "write": return "icon-[mdi--file-edit-outline]";
 		case "edit": return "icon-[mdi--file-replace-outline]";
-		case "bash": return "icon-[mdi--console]";
+		case "bash": case "shell": return "icon-[mdi--console]";
 		case "ls": case "find": case "dir_tree": case "tree": return "icon-[mdi--folder-search-outline]";
 		case "grep": return "icon-[mdi--text-search]";
 		default: return "icon-[mdi--wrench-outline]";
@@ -51,7 +57,7 @@ function toolLabel(block: ToolCallBlock): { name: string; detail: string } {
 	if (name === "read" || name === "write" || name === "edit") {
 		const path = args.file_path ?? args.path;
 		if (typeof path === "string") detail = shortenPath(path);
-	} else if (name === "bash") {
+	} else if (name === "bash" || name === "shell") {
 		const cmd = args.command;
 		if (typeof cmd === "string") detail = cmd.length > 80 ? `${cmd.slice(0, 77)}...` : cmd;
 	} else if (name === "grep") {
@@ -87,6 +93,7 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const { name, detail } = toolLabel(block);
 	const mcp = parseMcpTool(block.toolName);
 	const icon = toolIcon(block.toolName);
+	const shellCommand = getShellCommand(block);
 
 	return (
 		<div className="group">
@@ -136,6 +143,11 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 						className="overflow-hidden"
 					>
 						<div className="ml-2 border-l-2 border-muted-foreground/10 pl-4 pt-1 pb-2">
+							{shellCommand && (
+								<pre className="mb-2 max-h-[180px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/30 p-2 text-[11px] leading-[1.5] text-foreground/70">
+									{shellCommand}
+								</pre>
+							)}
 							<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
 								{block.result}
 							</pre>

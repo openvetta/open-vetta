@@ -115,7 +115,11 @@ export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 export const attachedImagesAtom = atom<AttachedImage[]>([]);
 export const activeSessionAtom = atom<ActiveSession | null>(null);
-export const sessionExecutionModeAtom = atom<SessionExecutionMode>("sandbox");
+function getStoredExecutionMode(): SessionExecutionMode {
+	return localStorage.getItem("vetta-session-execution-mode") === "sandbox" ? "sandbox" : "full-access";
+}
+
+export const sessionExecutionModeAtom = atom<SessionExecutionMode>(getStoredExecutionMode());
 
 /** Per-turn stats (speed, duration) for the last completed turn */
 export const lastTurnUsageAtom = atom<TurnUsageData | null>(null);

@@ -347,4 +347,11 @@ export {
 export { copyToClipboard } from "./utils/clipboard.js";
 export { parseFrontmatter, stripFrontmatter } from "./utils/frontmatter.js";
 // Shell utilities
-export { getShellConfig } from "./utils/shell.js";
+export {
+	decodeTextBuffer,
+	getDefaultShellCommandPrefix,
+	getShellConfig,
+	isWindowsPowerShellShell,
+	prependCommandPrefixes,
+	WINDOWS_POWERSHELL_UTF8_COMMAND_PREFIX,
+} from "./utils/shell.js";

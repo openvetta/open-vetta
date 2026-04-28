@@ -12,6 +12,7 @@ const CHANNELS = {
 	UNSUBSCRIBE: "vetta:session:unsubscribe",
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	SET_EXECUTION_MODE: "vetta:session:set-execution-mode",
+	SET_GLOBAL_EXECUTION_MODE: "vetta:session:set-global-execution-mode",
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
@@ -355,6 +356,7 @@ const api: DesktopApi = {
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
 		setExecutionMode: async (sessionId, mode) => ipcRenderer.invoke(CHANNELS.SET_EXECUTION_MODE, sessionId, mode),
+		setGlobalExecutionMode: async (mode) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_EXECUTION_MODE, mode),
 		setGlobalThinkingLevel: async (level) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_THINKING, level),
 		getGlobalThinkingLevel: async () => ipcRenderer.invoke(CHANNELS.GET_GLOBAL_THINKING),
 		getState: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_STATE, sessionId),

@@ -14,7 +14,7 @@
 		"build": "bun run build:preload && bun run build:renderer && bun run build:main",
 		"prepare:windows": "node scripts/prepare-windows-prereqs.js",
 		"start": "bun run prepare:windows && bun run build && NODE_OPTIONS='--import tsx' electron src/main/main.ts",
-		"dev": "bun run prepare:windows && bun run build:preload && bun run build:main && concurrently -k \"vite --config vite.config.ts\" \"wait-on tcp:5173 && cross-env VETTA_DESKTOP_DEV_URL=http://127.0.0.1:5173 electron dist/main/index.js\"",
+		"dev": "bun run prepare:windows && bun run build:preload && bun run build:main && concurrently -k \"vite --config vite.config.ts\" \"wait-on tcp:3000 && cross-env VETTA_DESKTOP_DEV_URL=http://127.0.0.1:3000 electron dist/main/index.js\"",
 		"prepare:bwrap": "node scripts/prepare-bwrap.js",
 		"prebuild:pack": "bun run prepare:windows && bun run prepare:bwrap && bun run build && node scripts/prepare-pack.js",
 		"dist:desktop": "bun run prebuild:pack && node scripts/run-electron-builder.js",

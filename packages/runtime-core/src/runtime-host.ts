@@ -120,13 +120,7 @@ export class RuntimeHost implements SessionFacade {
 	async setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void> {
 		const handle = this.requireSession(sessionId);
 		if (handle.executionMode === mode) return;
-		if (handle.session.isStreaming || handle.session.isBashRunning) {
-			throw runtimeError(
-				"EXECUTION_MODE_SWITCH_BLOCKED",
-				"Cannot switch execution mode while the agent is running.",
-				true,
-			);
-		}
+		this.assertCanSwitchExecutionMode(handle);
 
 		const sessionAny = handle.session as AgentSession & {
 			reconfigureCustomTools?: (customTools: CreateAgentSessionOptions["customTools"]) => void;
@@ -139,6 +133,16 @@ export class RuntimeHost implements SessionFacade {
 		const customTools = this.resolveExecutionModeTools(mode, cwd);
 		sessionAny.reconfigureCustomTools(customTools);
 		handle.executionMode = mode;
+	}
+
+	async setGlobalExecutionMode(mode: SessionExecutionMode): Promise<void> {
+		const pending = Array.from(this.sessions.entries()).filter(([, handle]) => handle.executionMode !== mode);
+		for (const [, handle] of pending) {
+			this.assertCanSwitchExecutionMode(handle);
+		}
+		for (const [sessionId] of pending) {
+			await this.setExecutionMode(sessionId, mode);
+		}
 	}
 
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
@@ -388,6 +392,16 @@ export class RuntimeHost implements SessionFacade {
 			throw runtimeError("SESSION_NOT_FOUND", `Session not found: ${sessionId}`, false);
 		}
 		return handle;
+	}
+
+	private assertCanSwitchExecutionMode(handle: SessionHandle): void {
+		if (handle.session.isStreaming || handle.session.isBashRunning) {
+			throw runtimeError(
+				"EXECUTION_MODE_SWITCH_BLOCKED",
+				"Cannot switch execution mode while the agent is running.",
+				true,
+			);
+		}
 	}
 
 	private resolveExecutionModeTools(
