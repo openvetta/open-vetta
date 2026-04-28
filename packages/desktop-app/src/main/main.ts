@@ -1,7 +1,11 @@
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
+import { ensureDevCliShim } from "./dev-cli-shim.js";
 import { getImHost } from "./im-host/index.js";
+import { persistVettaAppPath } from "./ipc/fs.js";
 import {
 	type IpcTeardown,
 	registerAllIpc,
@@ -26,6 +30,16 @@ const PROTOCOL = "vetta";
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
+const devMainEntryPath = join(appRoot, "dist/main/index.js");
+const pdfCliCommand = parsePdfCliCommand(process.argv);
+const isCliMode = pdfCliCommand !== null;
+
+if (isCliMode) {
+	app.setPath("userData", join(tmpdir(), "vetta-pdf-cli"));
+	app.commandLine.appendSwitch("disable-gpu");
+	app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
+	app.commandLine.appendSwitch("disk-cache-size", "0");
+}
 
 // 开发模式下 app.name/version 默认来自 Electron 框架，需要手动覆盖
 if (!app.isPackaged) {
@@ -39,10 +53,12 @@ let teardownBatchTasksIpc: (() => void) | undefined;
 // Register custom protocol for OAuth callback
 // Windows dev mode: must pass electron.exe path and app entry as args,
 // otherwise the URL gets interpreted as a module path.
-if (!app.isPackaged && process.platform === "win32") {
-	app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [join(appRoot, "dist/main/index.js")]);
-} else {
-	app.setAsDefaultProtocolClient(PROTOCOL);
+if (!isCliMode) {
+	if (!app.isPackaged && process.platform === "win32") {
+		app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [devMainEntryPath]);
+	} else {
+		app.setAsDefaultProtocolClient(PROTOCOL);
+	}
 }
 
 function handleProtocolUrl(rawUrl: string): void {
@@ -72,7 +88,7 @@ app.on("open-url", (event, url) => {
 });
 
 // Windows/Linux: second instance passes URL via argv
-const gotSingleLock = app.requestSingleInstanceLock();
+const gotSingleLock = isCliMode ? true : app.requestSingleInstanceLock();
 if (!gotSingleLock) {
 	app.quit();
 } else {
@@ -90,6 +106,13 @@ if (!gotSingleLock) {
 }
 
 app.whenReady().then(async () => {
+	if (pdfCliCommand) {
+		const exitCode = await runPdfCliCommand(pdfCliCommand);
+		process.exitCode = exitCode;
+		app.quit();
+		return;
+	}
+
 	if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
 		const capability = await initializeSandboxCapability();
 		console.log("[sandbox] startup probe", capability);
@@ -183,6 +206,21 @@ app.whenReady().then(async () => {
 		app.dock.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
 	}
 
+	try {
+		if (app.isPackaged) {
+			await persistVettaAppPath(process.execPath);
+		} else {
+			const devCliShimPath = await ensureDevCliShim({
+				appRoot,
+				electronPath: process.execPath,
+				mainEntryPath: devMainEntryPath,
+			});
+			await persistVettaAppPath(devCliShimPath);
+		}
+	} catch (err) {
+		console.error("[desktop-config] failed to persist vettaAppPath", err);
+	}
+
 	const mainWindow = createWindow();
 
 	// Register IPC handlers
@@ -254,6 +292,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
+	if (isCliMode) return;
 	if (process.platform !== "darwin") {
 		app.quit();
 	}
@@ -267,6 +306,7 @@ app.on("window-all-closed", () => {
 let quitCleanupStarted = false;
 
 app.on("before-quit", async (event) => {
+	if (isCliMode) return;
 	if (quitCleanupStarted) return;
 	quitCleanupStarted = true;
 	event.preventDefault();

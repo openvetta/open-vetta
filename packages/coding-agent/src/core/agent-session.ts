@@ -2371,6 +2371,9 @@ export class AgentSession {
 		if (this._baseToolRegistry.has("doc_to_pdf")) {
 			activeToolNameSet.add("doc_to_pdf");
 		}
+		if (this._baseToolRegistry.has("internal_control_report_pdf")) {
+			activeToolNameSet.add("internal_control_report_pdf");
+		}
 		if (this._baseToolRegistry.has("current_time")) {
 			activeToolNameSet.add("current_time");
 		}

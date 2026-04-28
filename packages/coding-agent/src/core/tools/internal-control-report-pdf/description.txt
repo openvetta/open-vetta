@@ -1,0 +1,6 @@
+Generate an internal control review PDF from a result.json file.
+
+This tool calls the Vetta Desktop executable in command-line PDF mode. It does not render HTML itself and does not depend on Electron. Vetta Desktop must be installed, or VETTA_DESKTOP_EXE must point to the desktop executable.
+
+Input: result.json path and required output PDF path
+Output: PDF report path
