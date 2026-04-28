@@ -15,11 +15,10 @@ const internalControlReportPdfSchema = Type.Object({
 	resultPath: Type.String({
 		description: "Path to result.json",
 	}),
-	output: Type.Optional(
-		Type.String({
-			description: "Output PDF path. Defaults to Vetta Desktop command default",
-		}),
-	),
+	output: Type.String({
+		description: "Required output PDF path",
+		minLength: 1,
+	}),
 	template: Type.Optional(
 		Type.String({
 			description: "Template id. Defaults to default",
@@ -142,10 +141,9 @@ export function createInternalControlReportPdfTool(cwd: string): AgentTool<typeo
 			}
 
 			const inputPath = resolveExistingPath(resultPath, cwd);
-			const outputPath = output ? resolveToCwd(output, cwd) : undefined;
+			const outputPath = resolveToCwd(output, cwd);
 			const vetta = await findVettaExecutable();
-			const args = ["--internal-control-report-pdf", inputPath];
-			if (outputPath) args.push("--output", outputPath);
+			const args = ["--internal-control-report-pdf", inputPath, "--output", outputPath];
 			if (template) args.push("--template", template);
 			if (titleYear !== undefined) args.push("--title-year", String(titleYear));
 
