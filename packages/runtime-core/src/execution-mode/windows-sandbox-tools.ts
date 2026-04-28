@@ -7,6 +7,8 @@ import {
 	createReadTool,
 	createShellTool,
 	createWriteTool,
+	getDefaultShellCommandPrefix,
+	prependCommandPrefixes,
 	type ShellOperations,
 	type ToolDefinition,
 } from "@vetta/coding-agent";
@@ -126,7 +128,10 @@ function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOper
 					args.push("--timeout-ms", String(Math.max(1, Math.floor(timeout * 1000))));
 				}
 
-				args.push("--", shellCommand.command, ...shellCommand.args, command);
+				const resolvedCommand = prependCommandPrefixes(command, [
+					getDefaultShellCommandPrefix(shellCommand.command),
+				]);
+				args.push("--", shellCommand.command, ...shellCommand.args, resolvedCommand);
 				const child = spawn(sandboxHostPath, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
 
 				if (child.stdout) child.stdout.on("data", onData);
@@ -182,7 +187,7 @@ export function buildWindowsSandboxToolDefinitions(options: WindowsSandboxToolOp
 	});
 
 	return [
-		wrapWorkspaceGuard(readTool, cwd),
+		toToolDefinition(readTool),
 		wrapWorkspaceGuard(writeTool, cwd),
 		wrapWorkspaceGuard(editTool, cwd),
 		toToolDefinition(shellTool),

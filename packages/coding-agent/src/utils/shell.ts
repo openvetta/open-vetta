@@ -1,10 +1,34 @@
 import { existsSync } from "node:fs";
-import { delimiter } from "node:path";
+import { basename, delimiter } from "node:path";
 import { spawn, spawnSync } from "child_process";
 import { getBinDir, getSettingsPath } from "../config.js";
 import { SettingsManager } from "../core/settings-manager.js";
 
 let cachedShellConfig: { shell: string; args: string[] } | null = null;
+
+export const WINDOWS_POWERSHELL_UTF8_COMMAND_PREFIX = [
+	"[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)",
+	"$OutputEncoding = [System.Text.UTF8Encoding]::new($false)",
+	'$PSDefaultParameterValues["Get-Content:Encoding"] = "UTF8"',
+].join("\n");
+
+export function isWindowsPowerShellShell(shellPath: string): boolean {
+	const shellName = basename(shellPath).toLowerCase();
+	return (
+		shellName === "powershell.exe" || shellName === "powershell" || shellName === "pwsh.exe" || shellName === "pwsh"
+	);
+}
+
+export function getDefaultShellCommandPrefix(shellPath: string): string | undefined {
+	if (process.platform !== "win32") return undefined;
+	if (!isWindowsPowerShellShell(shellPath)) return undefined;
+	return WINDOWS_POWERSHELL_UTF8_COMMAND_PREFIX;
+}
+
+export function prependCommandPrefixes(command: string, prefixes: Array<string | undefined>): string {
+	const effectivePrefixes = prefixes.filter((prefix): prefix is string => Boolean(prefix?.trim()));
+	return [...effectivePrefixes, command].join("\n");
+}
 
 /**
  * Find executable on PATH on Windows.
@@ -164,6 +188,15 @@ export function sanitizeBinaryOutput(str: string): string {
 			return true;
 		})
 		.join("");
+}
+
+export function decodeTextBuffer(buffer: Buffer): string {
+	try {
+		new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+		return buffer.toString("utf-8");
+	} catch {
+		return new TextDecoder("gb18030").decode(buffer);
+	}
 }
 
 /**

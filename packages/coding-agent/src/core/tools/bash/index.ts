@@ -6,7 +6,14 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { spawn } from "child_process";
 import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../../config.js";
-import { getShellConfig, getShellEnv, killProcessTree } from "../../../utils/shell.js";
+import {
+	decodeTextBuffer,
+	getDefaultShellCommandPrefix,
+	getShellConfig,
+	getShellEnv,
+	killProcessTree,
+	prependCommandPrefixes,
+} from "../../../utils/shell.js";
 import { loadToolDescription } from "../description.js";
 import { type PathLiteralCorrection, rewriteQuotedPathLiterals } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "../truncate.js";
@@ -135,7 +142,8 @@ const defaultBashOperations: BashOperations = {
 				return;
 			}
 
-			const child = spawn(shell, [...args, command], {
+			const resolvedCommand = prependCommandPrefixes(command, [getDefaultShellCommandPrefix(shell)]);
+			const child = spawn(shell, [...args, resolvedCommand], {
 				cwd,
 				detached: process.platform !== "win32",
 				env: env ?? getShellEnv(),
@@ -258,7 +266,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 			onUpdate?,
 		) => {
 			// Apply command prefix if configured (e.g., "shopt -s expand_aliases" for alias support)
-			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
+			const resolvedCommand = prependCommandPrefixes(command, [commandPrefix]);
 			const { output: correctedCommand, pathCorrections } = rewriteQuotedPathLiterals(resolvedCommand, cwd);
 			const spawnContext = resolveSpawnContext(correctedCommand, cwd, spawnHook);
 
@@ -308,7 +316,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 					// Stream partial output to callback (truncated rolling buffer)
 					if (onUpdate) {
 						const fullBuffer = Buffer.concat(chunks);
-						const fullText = fullBuffer.toString("utf-8");
+						const fullText = decodeTextBuffer(fullBuffer);
 						const truncation = truncateTail(fullText);
 						onUpdate({
 							content: [{ type: "text", text: truncation.content || "" }],
@@ -338,7 +346,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 
 						// Combine all buffered chunks
 						const fullBuffer = Buffer.concat(chunks);
-						const fullOutput = fullBuffer.toString("utf-8");
+						const fullOutput = decodeTextBuffer(fullBuffer);
 
 						// Apply tail truncation
 						const truncation = truncateTail(fullOutput);
@@ -399,7 +407,7 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 
 						// Combine all buffered chunks for error output
 						const fullBuffer = Buffer.concat(chunks);
-						let output = fullBuffer.toString("utf-8");
+						let output = decodeTextBuffer(fullBuffer);
 						output = prependPathCorrectionNotes(output, pathCorrections);
 
 						if (err.message === "aborted") {

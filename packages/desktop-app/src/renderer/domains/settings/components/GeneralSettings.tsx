@@ -1,14 +1,24 @@
 import { useAtom, useSetAtom } from "jotai";
-import { useCallback } from "react";
-import { workspacePathAtom, debugModeAtom, confirmDialogAtom } from "@shared/store/atoms";
+import { useCallback, useEffect } from "react";
+import { workspacePathAtom, debugModeAtom, confirmDialogAtom, sessionExecutionModeAtom, type SessionExecutionMode } from "@shared/store/atoms";
 import { UpdateChecker } from "@shared/components/UpdateChecker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
 import { SettingRow, SettingSection } from "./shared";
 
 export function GeneralSettings(): JSX.Element {
 	const [workspacePath, setWorkspacePath] = useAtom(workspacePathAtom);
 	const [debugMode, setDebugMode] = useAtom(debugModeAtom);
+	const [executionMode, setExecutionMode] = useAtom(sessionExecutionModeAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+
+	useEffect(() => {
+		void window.vetta.config.get().then((config) => {
+			const mode = config.defaultExecutionMode ?? "full-access";
+			setExecutionMode(mode);
+			localStorage.setItem("vetta-session-execution-mode", mode);
+		});
+	}, [setExecutionMode]);
 
 	const handleSelectWorkspace = useCallback(async () => {
 		const selected = await window.vetta.dialog.selectFolder();
@@ -48,6 +58,23 @@ export function GeneralSettings(): JSX.Element {
 			void window.vetta.config.set({ debugMode: true });
 		},
 		[setDebugMode, setConfirmDialog],
+	);
+
+	const handleExecutionModeChange = useCallback(
+		async (mode: SessionExecutionMode) => {
+			if (mode === executionMode) return;
+			const previousMode = executionMode;
+			setExecutionMode(mode);
+			localStorage.setItem("vetta-session-execution-mode", mode);
+			try {
+				await window.vetta.session.setGlobalExecutionMode(mode);
+			} catch (error) {
+				setExecutionMode(previousMode);
+				localStorage.setItem("vetta-session-execution-mode", previousMode);
+				console.error("[GeneralSettings] failed to switch execution mode:", error);
+			}
+		},
+		[executionMode, setExecutionMode],
 	);
 
 	return (
@@ -92,9 +119,30 @@ export function GeneralSettings(): JSX.Element {
 				<SettingRow
 					title="调试模式"
 					description="打开调试模式，可以协助开发者定位问题"
-					border={false}
 				>
 					<Switch checked={debugMode} onCheckedChange={handleToggleDebug} />
+				</SettingRow>
+				<SettingRow
+					title="沙盒访问范围"
+					description="全局控制所有会话的工具访问范围，切换后会应用到当前已打开的会话；刷新后保持所选模式"
+					border={false}
+				>
+					<Select value={executionMode} onValueChange={(value) => void handleExecutionModeChange(value as SessionExecutionMode)}>
+						<SelectTrigger
+							size="sm"
+							className="h-8 min-w-[120px] border-border/70 bg-background/50 text-[12px]"
+						>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="full-access" className="text-[12px]">
+								完全访问
+							</SelectItem>
+							<SelectItem value="sandbox" className="text-[12px]">
+								使用沙盒
+							</SelectItem>
+						</SelectContent>
+					</Select>
 				</SettingRow>
 			</SettingSection>
 		</div>

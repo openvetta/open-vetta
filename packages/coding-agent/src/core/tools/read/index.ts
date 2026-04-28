@@ -6,6 +6,7 @@ import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
 import nodePath from "path";
 import { formatDimensionNote, resizeImage } from "../../../utils/image-resize.js";
 import { detectSupportedImageMimeTypeFromFile } from "../../../utils/mime.js";
+import { decodeTextBuffer } from "../../../utils/shell.js";
 import { loadToolDescription } from "../description.js";
 import { resolveReadPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
@@ -217,7 +218,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 									return;
 								}
 
-								const textContent = buffer.toString("utf-8");
+								const textContent = decodeTextBuffer(buffer);
 								const allLines = textContent.split("\n");
 								const totalFileLines = allLines.length;
 

@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	projects: [],
 	archivedProjects: [],
 	workspacePath: join(homedir(), ".vetta", "workspace"),
-	defaultExecutionMode: "sandbox",
+	defaultExecutionMode: "full-access",
 	debugMode: false,
 };
 
@@ -57,7 +57,7 @@ function migrateProjectEntries(entries: unknown): ProjectEntry[] {
 }
 
 function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
-	return value === "full-access" ? "full-access" : "sandbox";
+	return value === "sandbox" ? "sandbox" : "full-access";
 }
 
 export async function readDesktopConfig(): Promise<DesktopConfig> {
@@ -95,7 +95,7 @@ export function readConfigSync(): DesktopConfig {
 	}
 }
 
-async function writeConfig(config: DesktopConfig): Promise<void> {
+export async function writeDesktopConfig(config: DesktopConfig): Promise<void> {
 	atomicWriteJSON(CONFIG_PATH, config);
 }
 
@@ -496,7 +496,7 @@ export function registerFsIpc(): () => void {
 		for (const p of next.projects) allowProjectRoot(p.path);
 		for (const p of next.archivedProjects) allowProjectRoot(p.path);
 		if (next.workspacePath) allowProjectRoot(next.workspacePath);
-		await writeConfig(next);
+		await writeDesktopConfig(next);
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_GET, async (): Promise<ModelsConfig> => {

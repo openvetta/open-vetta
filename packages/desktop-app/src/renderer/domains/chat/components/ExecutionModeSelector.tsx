@@ -65,11 +65,13 @@ export function ExecutionModeSelector(): JSX.Element {
 			if (nextMode === "sandbox" && sandboxUnavailableReason) return;
 			const previousMode = mode;
 			setMode(nextMode);
+			localStorage.setItem("vetta-session-execution-mode", nextMode);
 			setIsSwitching(true);
 			try {
-				await window.vetta.session.setExecutionMode(activeSession.runtimeId, nextMode);
+				await window.vetta.session.setGlobalExecutionMode(nextMode);
 			} catch (error) {
 				setMode(previousMode);
+				localStorage.setItem("vetta-session-execution-mode", previousMode);
 				console.error("[ExecutionModeSelector] failed to switch execution mode:", error);
 			} finally {
 				setIsSwitching(false);

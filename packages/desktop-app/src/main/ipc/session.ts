@@ -11,7 +11,7 @@ import type {
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertLinuxSandboxAvailableForMode } from "../sandbox/capability.js";
-import { allowProjectRoot, readConfigSync, readDesktopConfig } from "./fs.js";
+import { allowProjectRoot, readConfigSync, readDesktopConfig, writeDesktopConfig } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
 const CHANNELS = {
@@ -25,6 +25,7 @@ const CHANNELS = {
 	UNSUBSCRIBE: "vetta:session:unsubscribe",
 	UPDATE_SETTINGS: "vetta:session:update-settings",
 	SET_EXECUTION_MODE: "vetta:session:set-execution-mode",
+	SET_GLOBAL_EXECUTION_MODE: "vetta:session:set-global-execution-mode",
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
 	DELETE: "vetta:session:delete",
@@ -154,7 +155,19 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertExecutionMode(mode);
 		await assertLinuxSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
-		await runtime.setExecutionMode(sessionId, mode as SessionExecutionMode);
+		const settings = await readDesktopConfig();
+		await runtime.setGlobalExecutionMode(mode as SessionExecutionMode);
+		settings.defaultExecutionMode = mode as SessionExecutionMode;
+		await writeDesktopConfig(settings);
+	});
+
+	ipcMain.handle(CHANNELS.SET_GLOBAL_EXECUTION_MODE, async (_event, mode: unknown) => {
+		assertExecutionMode(mode);
+		await assertLinuxSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
+		const settings = await readDesktopConfig();
+		await runtime.setGlobalExecutionMode(mode as SessionExecutionMode);
+		settings.defaultExecutionMode = mode as SessionExecutionMode;
+		await writeDesktopConfig(settings);
 	});
 
 	ipcMain.handle(CHANNELS.SET_GLOBAL_THINKING, (_event, level: unknown) => {
