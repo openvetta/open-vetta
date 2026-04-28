@@ -21,6 +21,7 @@ export interface DesktopConfig {
 	workspacePath: string;
 	defaultExecutionMode: "sandbox" | "full-access";
 	debugMode?: boolean;
+	vettaAppPath?: string;
 }
 
 export interface LinuxSandboxConfigState {
@@ -72,6 +73,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
+			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -90,6 +92,7 @@ export function readConfigSync(): DesktopConfig {
 				typeof parsed.workspacePath === "string" ? expandTilde(parsed.workspacePath) : DEFAULT_CONFIG.workspacePath,
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
+			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -98,6 +101,12 @@ export function readConfigSync(): DesktopConfig {
 
 export async function writeDesktopConfig(config: DesktopConfig): Promise<void> {
 	atomicWriteJSON(CONFIG_PATH, config);
+}
+
+export async function persistVettaAppPath(vettaAppPath: string): Promise<void> {
+	const config = await readDesktopConfig();
+	if (config.vettaAppPath === vettaAppPath) return;
+	await writeDesktopConfig({ ...config, vettaAppPath });
 }
 
 function expandTilde(p: string): string {
@@ -493,6 +502,7 @@ export function registerFsIpc(): () => void {
 					? normalizeExecutionMode(patch.defaultExecutionMode)
 					: current.defaultExecutionMode,
 			debugMode: patch.debugMode ?? current.debugMode,
+			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

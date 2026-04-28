@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- 修复 desktop-app 开发模式不会写入可直接执行的 `vettaAppPath` 的问题；开发启动时会自动生成本地 CLI shim，并让 `vettaAppPath` 与生产模式一样指向单一可执行入口。
 - 修复同一 desktop-app 进程内重复打开同一 session 时抛 `SessionLockError` 的问题。`RuntimeHost.createSession` 现在按 sessionPath 去重，已开的 session 直接复用 handle，不再二次申请文件锁；`renameSession` / `renameSessionById` / `deleteSession` 不再泄漏 SessionManager 与孤儿 `.lock` 文件；`WebContents` 销毁时会通过新增的 `disposeAllSessions()` 释放本进程持有的全部 session 文件锁。新增 `vetta:session:dispose` IPC 通道与 `window.vetta.session.dispose(sessionId)`，供 renderer 在关闭/切换 session 时主动归还锁。
 
 ### Added
