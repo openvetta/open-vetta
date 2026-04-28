@@ -103,6 +103,7 @@ export interface DesktopConfigData {
 	projects: ProjectEntry[];
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
+	vettaAppPath?: string;
 	defaultExecutionMode?: "sandbox" | "full-access";
 	linuxSandbox?: {
 		status: "unknown" | "available" | "unavailable";

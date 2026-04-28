@@ -41,6 +41,7 @@ out.html
 packages/coding-agent/binaries/
 routeTree.gen.ts
 packages/desktop-app/release/
+packages/desktop-app/.desktop-dev/
 /releases/
 todo.md
 

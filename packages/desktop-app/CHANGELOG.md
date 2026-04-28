@@ -6,10 +6,12 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- 修复 desktop-app 开发模式不会写入可直接执行的 `vettaAppPath` 的问题；开发启动时会自动生成本地 CLI shim，并让 `vettaAppPath` 与生产模式一样指向单一可执行入口。
 - 修复同一 desktop-app 进程内重复打开同一 session 时抛 `SessionLockError` 的问题。`RuntimeHost.createSession` 现在按 sessionPath 去重，已开的 session 直接复用 handle，不再二次申请文件锁；`renameSession` / `renameSessionById` / `deleteSession` 不再泄漏 SessionManager 与孤儿 `.lock` 文件；`WebContents` 销毁时会通过新增的 `disposeAllSessions()` 释放本进程持有的全部 session 文件锁。新增 `vetta:session:dispose` IPC 通道与 `window.vetta.session.dispose(sessionId)`，供 renderer 在关闭/切换 session 时主动归还锁。
 
 ### Added
 
+- **内控审查报告 PDF 命令行入口**：desktop-app 新增 `--internal-control-report-pdf` / `pdf internal-control-report` CLI 模式，使用内置 Electron Chromium 将 `result.json` 渲染为 PDF，并支持 `-h` / `--help`、`--output`、`--template`、`--title-year` 与 JSON stdout 协议；packaged 启动时会向 `desktop-config.json` 写入 `vettaAppPath`，供独立进程发现桌面端可执行文件。
 - **对话回答外层折叠**：桌面对话页现在会记录每轮 assistant 回答的起止时间，并在回答完成后自动折叠中间过程，只保留最后一次工具调用 / 思考后的结论文本；折叠提示支持“正在处理 Ns”的流式状态和“展开 / 收起 N 条内容”的完成态。
 
 - **可配置的 Electron 打包入口**：desktop-app 新增统一的 `dist:desktop` 打包脚本，并补充 `dist:linux` / `dist:win` / `pack:linux` / `pack:win` 入口；支持通过命令行参数 `--platform`、`--arch`、`--target` 动态指定目标平台、架构与安装包格式，并为 Linux 提供 `dist:linux:appimage` / `dist:linux:deb` / `dist:linux:rpm` / `dist:linux:tar.gz`，为 Windows 提供 `dist:win:nsis` / `dist:win:portable` / `dist:win:zip` 快捷命令。Linux 打包前会校验 `packages/runtime-core/sandbox/linux/<arch>/bwrap` 是否齐备，避免产出缺少对应沙盒二进制的安装包。

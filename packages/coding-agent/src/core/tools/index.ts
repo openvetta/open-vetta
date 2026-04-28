@@ -46,6 +46,11 @@ export {
 	grepTool,
 } from "./grep/index.js";
 export {
+	createInternalControlReportPdfTool,
+	type InternalControlReportPdfToolInput,
+	internalControlReportPdfTool,
+} from "./internal-control-report-pdf/index.js";
+export {
 	createInvokeSceneTool,
 	type InvokeSceneToolDetails,
 	type InvokeSceneToolInput,
@@ -117,6 +122,10 @@ import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./do
 import { createEditTool, editTool } from "./edit/index.js";
 import { createFindTool, findTool } from "./find/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
+import {
+	createInternalControlReportPdfTool,
+	internalControlReportPdfTool,
+} from "./internal-control-report-pdf/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
 import { createShellTool, type ShellToolOptions, shellTool } from "./shell/index.js";
@@ -139,7 +148,15 @@ export function getDefaultCodingToolNames(): ["read", CommandToolName, "edit", "
 // Default tools for full access mode (using process.cwd())
 const defaultCommandToolName = getDefaultCommandToolName();
 const defaultCommandTool = defaultCommandToolName === "shell" ? shellTool : bashTool;
-export const codingTools: Tool[] = [readTool, defaultCommandTool, editTool, writeTool, treeTool];
+export const codingTools: Tool[] = [
+	readTool,
+	defaultCommandTool,
+	editTool,
+	writeTool,
+	treeTool,
+	docToPdfTool,
+	internalControlReportPdfTool,
+];
 
 // Read-only tools for exploration without modification (using process.cwd())
 export const readOnlyTools: Tool[] = [readTool, grepTool, findTool, lsTool, treeTool];
@@ -156,6 +173,7 @@ export const allTools = {
 	ls: lsTool,
 	dir_tree: treeTool,
 	doc_to_pdf: docToPdfTool,
+	internal_control_report_pdf: internalControlReportPdfTool,
 	current_time: currentTimeTool,
 };
 
@@ -188,6 +206,7 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 		createWriteTool(cwd),
 		createTreeTool(cwd),
 		createDocToPdfTool(cwd, options?.docToPdf),
+		createInternalControlReportPdfTool(cwd),
 	];
 }
 
@@ -219,6 +238,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		ls: createLsTool(cwd),
 		dir_tree: createTreeTool(cwd),
 		doc_to_pdf: createDocToPdfTool(cwd, options?.docToPdf),
+		internal_control_report_pdf: createInternalControlReportPdfTool(cwd),
 		current_time: createCurrentTimeTool(),
 	};
 }
