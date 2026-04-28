@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "@vetta/coding-agent";
 import { buildLinuxBubblewrapToolDefinitions, type LinuxBubblewrapToolOptions } from "./linux-bwrap-tools.js";
+import { buildMacosSeatbeltToolDefinitions, type MacosSeatbeltToolOptions } from "./macos-seatbelt-tools.js";
 import { buildWindowsSandboxToolDefinitions, type WindowsSandboxToolOptions } from "./windows-sandbox-tools.js";
 
 export interface SandboxToolOptions {
@@ -7,6 +8,7 @@ export interface SandboxToolOptions {
 	platform?: NodeJS.Platform;
 	windowsSandboxHostPath?: WindowsSandboxToolOptions["sandboxHostPath"];
 	linuxBubblewrapPath?: LinuxBubblewrapToolOptions["bubblewrapPath"];
+	macosSandboxExecPath?: MacosSeatbeltToolOptions["sandboxExecPath"];
 }
 
 export function buildSandboxToolDefinitions(options: SandboxToolOptions): ToolDefinition[] | undefined {
@@ -21,6 +23,12 @@ export function buildSandboxToolDefinitions(options: SandboxToolOptions): ToolDe
 		return buildLinuxBubblewrapToolDefinitions({
 			cwd: options.cwd,
 			bubblewrapPath: options.linuxBubblewrapPath,
+		});
+	}
+	if (platform === "darwin") {
+		return buildMacosSeatbeltToolDefinitions({
+			cwd: options.cwd,
+			sandboxExecPath: options.macosSandboxExecPath,
 		});
 	}
 	return undefined;

@@ -1,7 +1,22 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { inputValueAtom, isStreamingAtom, activeSessionAtom, attachedImagesAtom, modelSupportsImagesAtom, selectedSkillAtom, mentionedFilesAtom, type AttachedImage, type MentionedFile, todoItemsByCwdAtom, getTodoItemsForCwd, activityPanelOpenAtom, activityPanelTabByProjectAtom } from "@shared/store/atoms";
+import {
+	inputValueAtom,
+	isStreamingAtom,
+	activeSessionAtom,
+	attachedImagesAtom,
+	modelSupportsImagesAtom,
+	selectedSkillAtom,
+	mentionedFilesAtom,
+	type AttachedImage,
+	type MentionedFile,
+	todoItemsByCwdAtom,
+	getTodoItemsForCwd,
+	activityPanelOpenAtom,
+	activityPanelTabByProjectAtom,
+	sandboxPermissionDrawerAtom,
+} from "@shared/store/atoms";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { TodoCard } from "@shared/components/TodoCard";
 import { ModelSelector } from "./ModelSelector";
@@ -58,6 +73,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const [slashOpen, setSlashOpen] = useState(false);
 	const [atOpen, setAtOpen] = useState(false);
 	const todoMap = useAtomValue(todoItemsByCwdAtom);
+	const sandboxPermission = useAtomValue(sandboxPermissionDrawerAtom);
 	const todoItems = useMemo(
 		() => getTodoItemsForCwd(todoMap, activeSession?.cwd ?? null),
 		[todoMap, activeSession?.cwd],
@@ -69,6 +85,10 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const hasSession = Boolean(activeSession);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
+
+	useEffect(() => {
+		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
+	}, [sandboxPermission]);
 
 	// Auto-resize textarea to fit content
 	const resize = useCallback(() => {
@@ -211,21 +231,33 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	}, [activeSession?.cwd, setActivityPanelOpen, setTabByProject]);
 
 	const drawerTabs = useMemo((): DrawerTab[] => {
-		if (todoItems.length === 0) return [];
+		const tabs: DrawerTab[] = [];
+		if (sandboxPermission) {
+			tabs.push({
+				id: "sandbox-permission",
+				label: "权限请求",
+				color: "bg-amber-400",
+				desc: "等待确认",
+				pulsing: true,
+				content: <SandboxPermissionCard request={sandboxPermission} />,
+			});
+		}
+		if (todoItems.length === 0) return tabs;
 		const inProgressItem = todoItems.find((i) => i.status === "in_progress");
 		const doneCount = todoItems.filter((i) => i.status === "done").length;
 		const todoDesc = inProgressItem
 			? `${doneCount}/${todoItems.length} ${inProgressItem.content}`
 			: `${doneCount}/${todoItems.length}`;
-		return [{
+		tabs.push({
 			id: "todo",
 			label: "代办",
 			color: "bg-emerald-400",
 			desc: todoDesc,
 			pulsing: !!inProgressItem,
 			content: <TodoCard items={todoItems} compact onViewMore={handleTodoViewMore} />,
-		}];
-	}, [todoItems, handleTodoViewMore]);
+		});
+		return tabs;
+	}, [todoItems, handleTodoViewMore, sandboxPermission]);
 
 	// ── Image helpers ──
 
@@ -563,6 +595,49 @@ function ImageThumbnail({
 				<span className="icon-[mdi--close] h-3 w-3" />
 			</button>
 		</motion.div>
+	);
+}
+
+function SandboxPermissionCard({
+	request,
+}: {
+	request: {
+		title: string;
+		message: string;
+		onConfirm: () => void;
+		onCancel: () => void;
+	};
+}): JSX.Element {
+	return (
+		<div className="space-y-3">
+			<div className="flex items-start gap-2">
+				<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+					<span className="icon-[mdi--shield-lock-outline] h-4 w-4" />
+				</div>
+				<div className="min-w-0 flex-1">
+					<div className="text-[13px] font-medium text-foreground">{request.title}</div>
+					<div className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-2.5 font-mono text-[11px] leading-relaxed text-muted-foreground">
+						{request.message}
+					</div>
+				</div>
+			</div>
+			<div className="flex justify-end gap-2">
+				<button
+					type="button"
+					onClick={request.onCancel}
+					className="h-7 rounded-lg px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+				>
+					拒绝
+				</button>
+				<button
+					type="button"
+					onClick={request.onConfirm}
+					className="h-7 rounded-lg bg-amber-500 px-3 text-[12px] font-medium text-white transition-colors hover:bg-amber-600"
+				>
+					允许本次操作
+				</button>
+			</div>
+		</div>
 	);
 }
 

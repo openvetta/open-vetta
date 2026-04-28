@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry } from "../../preload/fs-types.js";
-import { getLinuxSandboxCapability } from "../sandbox/capability.js";
+import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 // ─── Desktop app config ───
@@ -32,6 +32,7 @@ export interface LinuxSandboxConfigState {
 }
 
 export interface DesktopConfigSnapshot extends DesktopConfig {
+	sandbox: SandboxCapability;
 	linuxSandbox: LinuxSandboxConfigState;
 }
 
@@ -474,6 +475,7 @@ export function registerFsIpc(): () => void {
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
 		return {
 			...config,
+			sandbox: getSandboxCapability(),
 			linuxSandbox: getLinuxSandboxCapability(),
 		};
 	});

@@ -1,6 +1,6 @@
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
 import { readDesktopConfig } from "./ipc/fs.js";
-import { getAvailableLinuxBubblewrapPath } from "./sandbox/capability.js";
+import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "./sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolver.js";
 
 // 进程级共享 RuntimeHost：session IPC、定时任务 (scheduler) 与批量任务
@@ -18,6 +18,7 @@ export function getSharedRuntime(): RuntimeHost {
 			},
 			sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
 			linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
+			macosSandboxExecPath: getAvailableMacosSandboxExecPath(),
 		});
 	}
 	return sharedRuntime;

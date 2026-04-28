@@ -19,6 +19,17 @@ export interface ConfirmDialogState {
 	cancelLabel?: string;
 	variant?: "danger" | "default";
 	onConfirm: () => void;
+	onCancel?: () => void;
 }
 
 export const confirmDialogAtom = atom<ConfirmDialogState | null>(null);
+
+export interface SandboxPermissionDrawerState {
+	requestId: string;
+	title: string;
+	message: string;
+	onConfirm: () => void;
+	onCancel: () => void;
+}
+
+export const sandboxPermissionDrawerAtom = atom<SandboxPermissionDrawerState | null>(null);

@@ -53,6 +53,28 @@ function toAbsolutePath(inputPath: string, cwd: string): string {
 	return isAbsolute(expanded) ? expanded : resolvePath(cwd, expanded);
 }
 
+export interface WorkspacePathAccess {
+	allowed: boolean;
+	workspaceRoot: string;
+	targetPath: string;
+	targetBoundary: string;
+}
+
+export async function resolveWorkspacePathAccess(
+	requestedPath: string,
+	workspaceCwd: string,
+): Promise<WorkspacePathAccess> {
+	const workspaceRoot = await resolveBoundaryPath(workspaceCwd);
+	const targetPath = toAbsolutePath(requestedPath, workspaceCwd);
+	const targetBoundary = await resolveBoundaryPath(targetPath);
+	return {
+		allowed: isWithinRoot(targetBoundary, workspaceRoot),
+		workspaceRoot,
+		targetPath,
+		targetBoundary,
+	};
+}
+
 /**
  * Enforce "path must stay inside workspace root", including symlink-aware checks.
  */
@@ -61,14 +83,12 @@ export async function assertWorkspacePathAllowed(
 	workspaceCwd: string,
 	toolName: string,
 ): Promise<void> {
-	const workspaceRoot = await resolveBoundaryPath(workspaceCwd);
-	const targetPath = toAbsolutePath(requestedPath, workspaceCwd);
-	const targetBoundary = await resolveBoundaryPath(targetPath);
-	if (isWithinRoot(targetBoundary, workspaceRoot)) return;
+	const access = await resolveWorkspacePathAccess(requestedPath, workspaceCwd);
+	if (access.allowed) return;
 
 	throw new Error(
 		`Access denied by sandbox: "${requestedPath}" is outside workspace root for tool "${toolName}".` +
-			`\nworkspace=${workspaceRoot}` +
-			`\nresolved=${targetBoundary}`,
+			`\nworkspace=${access.workspaceRoot}` +
+			`\nresolved=${access.targetBoundary}`,
 	);
 }

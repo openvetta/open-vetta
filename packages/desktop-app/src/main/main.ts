@@ -10,7 +10,7 @@ import {
 	teardownAllIpc,
 } from "./ipc/index.js";
 import { disposeSharedRuntime } from "./runtime.js";
-import { initializeLinuxSandboxCapability } from "./sandbox/capability.js";
+import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler } from "./scheduler/scheduler.js";
 import {
 	createTray,
@@ -90,9 +90,9 @@ if (!gotSingleLock) {
 }
 
 app.whenReady().then(async () => {
-	if (process.platform === "linux") {
-		const capability = await initializeLinuxSandboxCapability();
-		console.log("[linux-sandbox] startup probe", capability);
+	if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
+		const capability = await initializeSandboxCapability();
+		console.log("[sandbox] startup probe", capability);
 	}
 
 	// 开发模式下覆盖 About 面板信息，避免显示 Electron 框架版本

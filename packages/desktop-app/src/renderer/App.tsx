@@ -1,4 +1,5 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
+import { useSetAtom } from "jotai";
 import { Outlet, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./domains/project/components/Sidebar";
 import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
@@ -17,10 +18,12 @@ import { useFlowingChatInit } from "./domains/flowing-chat/hooks/useFlowingChatI
 import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
 import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
+import { sandboxPermissionDrawerAtom } from "./shared/store/atoms";
 
 export function RootLayout(): JSX.Element {
 	const { openProject, projects } = useProjects();
 	const navigate = useNavigate();
+	const setSandboxPermissionDrawer = useSetAtom(sandboxPermissionDrawerAtom);
 	useTheme();
 	useAuth();
 	useAppInit();
@@ -28,6 +31,46 @@ export function RootLayout(): JSX.Element {
 	useFlowingChatInit();
 	useDownloadsInit();
 	const { openSession, openSessionRef } = useSessionManager();
+	const confirmationQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]>(
+		[],
+	);
+	const confirmationActiveRef = useRef(false);
+
+	useEffect(() => {
+		const showRequest = (request: Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0]) => {
+			confirmationActiveRef.current = true;
+			const showNext = () => {
+				const nextRequest = confirmationQueueRef.current.shift();
+				if (nextRequest) {
+					showRequest(nextRequest);
+				} else {
+					confirmationActiveRef.current = false;
+				}
+			};
+			setSandboxPermissionDrawer({
+				requestId: request.requestId,
+				title: request.title,
+				message: request.message,
+				onConfirm: () => {
+					void window.vetta.session.respondToConfirmation(request.requestId, true);
+					setSandboxPermissionDrawer(null);
+					showNext();
+				},
+				onCancel: () => {
+					void window.vetta.session.respondToConfirmation(request.requestId, false);
+					setSandboxPermissionDrawer(null);
+					showNext();
+				},
+			});
+		};
+		return window.vetta.session.onConfirmationRequest((request) => {
+			if (confirmationActiveRef.current) {
+				confirmationQueueRef.current.push(request);
+				return;
+			}
+			showRequest(request);
+		});
+	}, [setSandboxPermissionDrawer]);
 
 	// ─── Global keyboard shortcuts ───
 	const projectsRef = useRef(projects);
