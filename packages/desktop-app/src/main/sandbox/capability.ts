@@ -1,29 +1,37 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { resolve as resolvePath } from "node:path";
+import { accessSync, constants, existsSync } from "node:fs";
+import { isAbsolute, resolve as resolvePath } from "node:path";
 import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { type LinuxSandboxBackend, resolveLinuxBubblewrapBinary } from "./binary-resolver.js";
 
-export type LinuxSandboxStatus = "unknown" | "available" | "unavailable";
+export type SandboxStatus = "unknown" | "available" | "unavailable";
+export type SandboxBackend = LinuxSandboxBackend | "macos-seatbelt" | "windows-host" | null;
 
-export interface LinuxSandboxCapability {
-	status: LinuxSandboxStatus;
-	backend: LinuxSandboxBackend | null;
+export interface SandboxCapability {
+	status: SandboxStatus;
+	backend: SandboxBackend;
+	platform: NodeJS.Platform;
 	binaryPath?: string;
 	reason?: string;
 	details?: string;
 	checkedAt?: number;
 }
 
+export type LinuxSandboxStatus = SandboxStatus;
+export interface LinuxSandboxCapability extends SandboxCapability {
+	backend: LinuxSandboxBackend | null;
+}
+
 const STANDARD_READ_ONLY_ROOTS = ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc"] as const;
 const PROBE_HOME = "/tmp/vetta-probe-home";
 
-let linuxSandboxCapability: LinuxSandboxCapability = {
+let sandboxCapability: SandboxCapability = {
 	status: "unknown",
 	backend: null,
+	platform: process.platform,
 };
 
-function buildProbeArgs(commandPath: string): string[] {
+function buildLinuxProbeArgs(commandPath: string): string[] {
 	const args: string[] = [
 		"--die-with-parent",
 		"--new-session",
@@ -45,14 +53,14 @@ function buildProbeArgs(commandPath: string): string[] {
 	return args;
 }
 
-function resolveProbeCommandPath(): string | undefined {
+function resolveLinuxProbeCommandPath(): string | undefined {
 	for (const candidate of ["/usr/bin/true", "/bin/true"]) {
 		if (existsSync(candidate)) return candidate;
 	}
 	return undefined;
 }
 
-function classifyProbeFailure(stderr: string, errorCode?: string): { reason: string; details: string } {
+function classifyLinuxProbeFailure(stderr: string, errorCode?: string): { reason: string; details: string } {
 	const lowered = stderr.toLowerCase();
 	if (errorCode === "EACCES") {
 		return {
@@ -77,100 +85,249 @@ function classifyProbeFailure(stderr: string, errorCode?: string): { reason: str
 	};
 }
 
-export async function initializeLinuxSandboxCapability(): Promise<LinuxSandboxCapability> {
-	if (process.platform !== "linux") {
-		linuxSandboxCapability = {
-			status: "unavailable",
-			backend: null,
-			reason: "unsupported_platform",
-			details: `Linux sandbox probe skipped on platform ${process.platform}.`,
-			checkedAt: Date.now(),
-		};
-		return linuxSandboxCapability;
+function findOnPathUnix(binary: string): string | undefined {
+	const pathValue = process.env.PATH;
+	if (!pathValue) return undefined;
+
+	for (const entry of pathValue.split(":")) {
+		if (!entry) continue;
+		const candidate = resolvePath(entry, binary);
+		if (!existsSync(candidate)) continue;
+		try {
+			accessSync(candidate, constants.X_OK);
+			return candidate;
+		} catch {
+			// Ignore non-executable matches.
+		}
 	}
 
-	try {
-		const resolved = resolveLinuxBubblewrapBinary();
-		if (!resolved) {
-			linuxSandboxCapability = {
-				status: "unavailable",
-				backend: null,
-				reason: "binary_not_found",
-				details: "No bundled or system bubblewrap binary was found.",
-				checkedAt: Date.now(),
-			};
-			return linuxSandboxCapability;
+	return undefined;
+}
+
+function resolveMacosSandboxExecPath(): string | undefined {
+	const explicitPath = process.env.VETTA_MACOS_SANDBOX_EXEC_PATH?.trim();
+	if (explicitPath) {
+		if (isAbsolute(explicitPath)) {
+			if (!existsSync(explicitPath)) {
+				throw new Error(`Configured macOS sandbox-exec binary does not exist: ${explicitPath}`);
+			}
+			accessSync(explicitPath, constants.X_OK);
+			return explicitPath;
 		}
+		const resolved = findOnPathUnix(explicitPath);
+		if (resolved) return resolved;
+		throw new Error(`Configured macOS sandbox-exec binary does not exist on PATH: ${explicitPath}`);
+	}
+	if (existsSync("/usr/bin/sandbox-exec")) return "/usr/bin/sandbox-exec";
+	return findOnPathUnix("sandbox-exec");
+}
 
-		const probeCommandPath = resolveProbeCommandPath();
-		if (!probeCommandPath) {
-			linuxSandboxCapability = {
-				status: "unavailable",
-				backend: resolved.backend,
-				binaryPath: resolved.path,
-				reason: "probe_command_failed",
-				details: "Could not locate /usr/bin/true or /bin/true for sandbox probing.",
-				checkedAt: Date.now(),
-			};
-			return linuxSandboxCapability;
-		}
+function buildMacosProbeProfile(): string {
+	return ["(version 1)", "(deny default)", "(allow process*)", "(allow file-read*)"].join("\n");
+}
 
-		const result = spawnSync(resolved.path, buildProbeArgs(probeCommandPath), {
-			encoding: "utf-8",
-			timeout: 5000,
-		});
-
-		if (result.error) {
-			const classified = classifyProbeFailure(result.stderr ?? "", (result.error as NodeJS.ErrnoException).code);
-			linuxSandboxCapability = {
-				status: "unavailable",
-				backend: resolved.backend,
-				binaryPath: resolved.path,
-				reason: classified.reason,
-				details: result.error.message || classified.details,
-				checkedAt: Date.now(),
-			};
-			return linuxSandboxCapability;
-		}
-
-		if (result.status !== 0) {
-			const classified = classifyProbeFailure(result.stderr ?? "");
-			linuxSandboxCapability = {
-				status: "unavailable",
-				backend: resolved.backend,
-				binaryPath: resolved.path,
-				reason: classified.reason,
-				details: classified.details,
-				checkedAt: Date.now(),
-			};
-			return linuxSandboxCapability;
-		}
-
-		linuxSandboxCapability = {
-			status: "available",
-			backend: resolved.backend,
-			binaryPath: resolved.path,
-			checkedAt: Date.now(),
-		};
-		return linuxSandboxCapability;
-	} catch (error) {
-		linuxSandboxCapability = {
+function probeLinuxSandbox(): SandboxCapability {
+	const resolved = resolveLinuxBubblewrapBinary();
+	if (!resolved) {
+		return {
 			status: "unavailable",
 			backend: null,
+			platform: process.platform,
+			reason: "binary_not_found",
+			details: "No bundled or system bubblewrap binary was found.",
+			checkedAt: Date.now(),
+		};
+	}
+
+	const probeCommandPath = resolveLinuxProbeCommandPath();
+	if (!probeCommandPath) {
+		return {
+			status: "unavailable",
+			backend: resolved.backend,
+			platform: process.platform,
+			binaryPath: resolved.path,
+			reason: "probe_command_failed",
+			details: "Could not locate /usr/bin/true or /bin/true for sandbox probing.",
+			checkedAt: Date.now(),
+		};
+	}
+
+	const result = spawnSync(resolved.path, buildLinuxProbeArgs(probeCommandPath), {
+		encoding: "utf-8",
+		timeout: 5000,
+	});
+
+	if (result.error) {
+		const classified = classifyLinuxProbeFailure(result.stderr ?? "", (result.error as NodeJS.ErrnoException).code);
+		return {
+			status: "unavailable",
+			backend: resolved.backend,
+			platform: process.platform,
+			binaryPath: resolved.path,
+			reason: classified.reason,
+			details: result.error.message || classified.details,
+			checkedAt: Date.now(),
+		};
+	}
+
+	if (result.status !== 0) {
+		const classified = classifyLinuxProbeFailure(result.stderr ?? "");
+		return {
+			status: "unavailable",
+			backend: resolved.backend,
+			platform: process.platform,
+			binaryPath: resolved.path,
+			reason: classified.reason,
+			details: classified.details,
+			checkedAt: Date.now(),
+		};
+	}
+
+	return {
+		status: "available",
+		backend: resolved.backend,
+		platform: process.platform,
+		binaryPath: resolved.path,
+		checkedAt: Date.now(),
+	};
+}
+
+function probeMacosSandbox(): SandboxCapability {
+	const sandboxExecPath = resolveMacosSandboxExecPath();
+	if (!sandboxExecPath) {
+		return {
+			status: "unavailable",
+			backend: "macos-seatbelt",
+			platform: process.platform,
+			reason: "binary_not_found",
+			details: "Could not locate /usr/bin/sandbox-exec or sandbox-exec on PATH.",
+			checkedAt: Date.now(),
+		};
+	}
+
+	const result = spawnSync(sandboxExecPath, ["-p", buildMacosProbeProfile(), "/usr/bin/true"], {
+		encoding: "utf-8",
+		timeout: 5000,
+	});
+
+	if (result.error) {
+		return {
+			status: "unavailable",
+			backend: "macos-seatbelt",
+			platform: process.platform,
+			binaryPath: sandboxExecPath,
+			reason:
+				(result.error as NodeJS.ErrnoException).code === "EACCES"
+					? "binary_not_executable"
+					: "probe_command_failed",
+			details: result.error.message,
+			checkedAt: Date.now(),
+		};
+	}
+
+	if (result.status !== 0) {
+		return {
+			status: "unavailable",
+			backend: "macos-seatbelt",
+			platform: process.platform,
+			binaryPath: sandboxExecPath,
+			reason: "probe_command_failed",
+			details: result.stderr || "The macOS sandbox probe command failed.",
+			checkedAt: Date.now(),
+		};
+	}
+
+	return {
+		status: "available",
+		backend: "macos-seatbelt",
+		platform: process.platform,
+		binaryPath: sandboxExecPath,
+		checkedAt: Date.now(),
+	};
+}
+
+export async function initializeSandboxCapability(): Promise<SandboxCapability> {
+	try {
+		if (process.platform === "linux") {
+			sandboxCapability = probeLinuxSandbox();
+			return sandboxCapability;
+		}
+		if (process.platform === "darwin") {
+			sandboxCapability = probeMacosSandbox();
+			return sandboxCapability;
+		}
+		if (process.platform === "win32") {
+			sandboxCapability = {
+				status: "available",
+				backend: "windows-host",
+				platform: process.platform,
+				checkedAt: Date.now(),
+			};
+			return sandboxCapability;
+		}
+
+		sandboxCapability = {
+			status: "unavailable",
+			backend: null,
+			platform: process.platform,
+			reason: "unsupported_platform",
+			details: `Sandbox probe skipped on platform ${process.platform}.`,
+			checkedAt: Date.now(),
+		};
+		return sandboxCapability;
+	} catch (error) {
+		sandboxCapability = {
+			status: "unavailable",
+			backend: null,
+			platform: process.platform,
 			reason: "unknown_error",
 			details: error instanceof Error ? error.message : String(error),
 			checkedAt: Date.now(),
 		};
-		return linuxSandboxCapability;
+		return sandboxCapability;
 	}
 }
 
+export async function initializeLinuxSandboxCapability(): Promise<LinuxSandboxCapability> {
+	const capability = await initializeSandboxCapability();
+	return {
+		...capability,
+		backend:
+			capability.backend === "bundled-bwrap" || capability.backend === "system-bwrap" ? capability.backend : null,
+	};
+}
+
+export function getSandboxCapability(): SandboxCapability {
+	return { ...sandboxCapability };
+}
+
 export function getLinuxSandboxCapability(): LinuxSandboxCapability {
-	return { ...linuxSandboxCapability };
+	return {
+		...sandboxCapability,
+		backend:
+			sandboxCapability.backend === "bundled-bwrap" || sandboxCapability.backend === "system-bwrap"
+				? sandboxCapability.backend
+				: null,
+	};
 }
 
 export function getAvailableLinuxBubblewrapPath(): string | undefined {
-	return linuxSandboxCapability.status === "available" ? linuxSandboxCapability.binaryPath : undefined;
+	return sandboxCapability.backend === "bundled-bwrap" || sandboxCapability.backend === "system-bwrap"
+		? sandboxCapability.binaryPath
+		: undefined;
+}
+
+export function getAvailableMacosSandboxExecPath(): string | undefined {
+	return sandboxCapability.status === "available" && sandboxCapability.backend === "macos-seatbelt"
+		? sandboxCapability.binaryPath
+		: undefined;
+}
+
+export function formatSandboxUnavailableMessage(capability: SandboxCapability): string {
+	const reason = capability.reason ?? "unknown_error";
+	const details = capability.details ? `\n${capability.details}` : "";
+	const binaryPath = capability.binaryPath ? `\npath=${resolvePath(capability.binaryPath)}` : "";
+	return `Sandbox is unavailable on ${capability.platform} (${reason}).${binaryPath}${details}`;
 }
 
 export function formatLinuxSandboxUnavailableMessage(capability: LinuxSandboxCapability): string {
@@ -180,13 +337,23 @@ export function formatLinuxSandboxUnavailableMessage(capability: LinuxSandboxCap
 	return `Linux sandbox is unavailable (${reason}).${binaryPath}${details}`;
 }
 
+export async function assertSandboxAvailableForMode(
+	requestedMode: SessionExecutionMode | undefined,
+	resolveDefaultMode: () => Promise<SessionExecutionMode>,
+): Promise<void> {
+	const effectiveMode = requestedMode ?? (await resolveDefaultMode());
+	if (effectiveMode !== "sandbox") return;
+	if (sandboxCapability.status === "unknown") {
+		await initializeSandboxCapability();
+	}
+	if (sandboxCapability.status === "available") return;
+	throw new Error(formatSandboxUnavailableMessage(sandboxCapability));
+}
+
 export async function assertLinuxSandboxAvailableForMode(
 	requestedMode: SessionExecutionMode | undefined,
 	resolveDefaultMode: () => Promise<SessionExecutionMode>,
 ): Promise<void> {
 	if (process.platform !== "linux") return;
-	const effectiveMode = requestedMode ?? (await resolveDefaultMode());
-	if (effectiveMode !== "sandbox") return;
-	if (linuxSandboxCapability.status === "available") return;
-	throw new Error(formatLinuxSandboxUnavailableMessage(linuxSandboxCapability));
+	await assertSandboxAvailableForMode(requestedMode, resolveDefaultMode);
 }

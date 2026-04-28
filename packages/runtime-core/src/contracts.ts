@@ -113,6 +113,13 @@ export interface CompactionEndEvent extends SessionEventBase {
 	errorMessage?: string;
 }
 
+export interface RuntimeUserConfirmationRequest {
+	requestId: string;
+	sessionId: string;
+	title: string;
+	message: string;
+}
+
 export type SessionEvent =
 	| SessionLifecycleEvent
 	| MessageDeltaEvent
@@ -204,6 +211,9 @@ export type HistoryEntry =
 	| { type: "assistant_turn_timing"; timing: AssistantTurnTiming; timestamp: string };
 
 export interface SessionFacade {
+	setUserConfirmationHandler(
+		handler: ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>) | undefined,
+	): void;
 	createSession(config?: SessionConfig): Promise<{ sessionId: string }>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
 	setGlobalExecutionMode(mode: SessionExecutionMode): Promise<void>;

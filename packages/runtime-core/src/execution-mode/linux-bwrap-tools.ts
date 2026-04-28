@@ -10,7 +10,8 @@ import {
 	type ShellOperations,
 	type ToolDefinition,
 } from "@vetta/coding-agent";
-import { toToolDefinition, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
+import { getSandboxShellGrant, type SandboxShellGrant } from "./sandbox-permissions.js";
+import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
 
 const LINUX_ENV_WHITELIST = ["PATH", "LANG", "LC_ALL", "TERM"] as const;
 const SANDBOX_HOME = "/tmp/vetta-home";
@@ -110,6 +111,7 @@ function buildLinuxSandboxArgs(
 	cwd: string,
 	shellCommand: { command: string; args: string[] },
 	env: NodeJS.ProcessEnv | undefined,
+	grant: SandboxShellGrant | undefined,
 ): string[] {
 	const args: string[] = [
 		"--die-with-parent",
@@ -130,6 +132,13 @@ function buildLinuxSandboxArgs(
 	}
 
 	args.push("--proc", "/proc", "--dev", "/dev", "--bind", cwd, cwd);
+	for (const root of grant?.allowWriteRoots ?? []) {
+		const normalizedRoot = resolvePath(root);
+		if (!existsSync(normalizedRoot) || mountedRoots.has(normalizedRoot)) continue;
+		appendParentDirs(args, normalizedRoot, createdDirs);
+		args.push("--bind", normalizedRoot, normalizedRoot);
+		mountedRoots.add(normalizedRoot);
+	}
 	args.push("--tmpfs", "/tmp", "--dir", SANDBOX_HOME);
 
 	const baseEnv = env ?? process.env;
@@ -161,7 +170,8 @@ function createLinuxBubblewrapShellOperations(bubblewrapPath: string): ShellOper
 					return;
 				}
 
-				const args = buildLinuxSandboxArgs(command, cwd, shellCommand, env);
+				const grant = getSandboxShellGrant(cwd);
+				const args = buildLinuxSandboxArgs(command, cwd, shellCommand, env, grant);
 				const child = spawn(bubblewrapPath, args, {
 					cwd,
 					detached: true,
@@ -237,9 +247,9 @@ export function buildLinuxBubblewrapToolDefinitions(options: LinuxBubblewrapTool
 	});
 
 	return [
-		toToolDefinition(readTool),
+		wrapWorkspaceGuard(readTool, cwd),
 		wrapWorkspaceGuard(writeTool, cwd),
 		wrapWorkspaceGuard(editTool, cwd),
-		toToolDefinition(shellTool),
+		wrapShellPermissionGuard(shellTool, cwd),
 	];
 }

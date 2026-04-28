@@ -8,10 +8,18 @@ export function ConfirmDialog(): JSX.Element | null {
 	const [state, setState] = useAtom(confirmDialogAtom);
 	const overlayRef = useRef<HTMLDivElement>(null);
 
+	const closeWithCancel = () => {
+		state?.onCancel?.();
+		setState(null);
+	};
+
 	useEffect(() => {
 		if (!state) return;
 		function handleKey(e: KeyboardEvent) {
-			if (e.key === "Escape") setState(null);
+			if (e.key === "Escape") {
+				state.onCancel?.();
+				setState(null);
+			}
 		}
 		document.addEventListener("keydown", handleKey);
 		return () => document.removeEventListener("keydown", handleKey);
@@ -28,7 +36,7 @@ export function ConfirmDialog(): JSX.Element | null {
 					transition={{ duration: 0.15 }}
 					className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
 					onClick={(e) => {
-						if (e.target === overlayRef.current) setState(null);
+						if (e.target === overlayRef.current) closeWithCancel();
 					}}
 				>
 					<motion.div
@@ -39,9 +47,11 @@ export function ConfirmDialog(): JSX.Element | null {
 						className="w-[360px] rounded-xl border border-border bg-popover p-5 shadow-xl"
 					>
 						<h3 className="text-[15px] font-semibold text-foreground">{state.title}</h3>
-						<p className="mt-2 text-[13px] text-muted-foreground">{state.message}</p>
+						<p className="mt-2 max-h-[45vh] overflow-auto whitespace-pre-wrap break-words text-[13px] text-muted-foreground">
+							{state.message}
+						</p>
 						<div className="mt-5 flex justify-end gap-2">
-							<Button variant="ghost" size="sm" onClick={() => setState(null)}>
+							<Button variant="ghost" size="sm" onClick={closeWithCancel}>
 								{state.cancelLabel ?? "取消"}
 							</Button>
 							<Button

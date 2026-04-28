@@ -3,6 +3,7 @@ import { basename } from "node:path";
 import { ipcMain, type WebContents } from "electron";
 import type {
 	PromptRequest,
+	RuntimeUserConfirmationRequest,
 	SessionConfig,
 	SessionEvent,
 	SessionExecutionMode,
@@ -10,7 +11,7 @@ import type {
 } from "../../../../runtime-core/src/index.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getSharedRuntime } from "../runtime.js";
-import { assertLinuxSandboxAvailableForMode } from "../sandbox/capability.js";
+import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import { allowProjectRoot, readConfigSync, readDesktopConfig, writeDesktopConfig } from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
 
@@ -36,6 +37,8 @@ const CHANNELS = {
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	EVENT: "vetta:session:event",
+	CONFIRM_REQUEST: "vetta:session:confirm-request",
+	CONFIRM_RESPONSE: "vetta:session:confirm-response",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -89,6 +92,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	const runtime = getSharedRuntime();
 	const subscriptionMap = new Map<string, () => void>();
+	const confirmationMap = new Map<string, (confirmed: boolean) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
 	/** Track debug request sequence per session */
@@ -96,10 +100,29 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	/** Track turn start time per session for duration calculation */
 	const turnStartMap = new Map<string, number>();
 
+	runtime.setUserConfirmationHandler((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => {
+		if (webContents.isDestroyed()) return Promise.resolve(false);
+		return new Promise<boolean>((resolve) => {
+			const finish = (confirmed: boolean): void => {
+				confirmationMap.delete(request.requestId);
+				if (signal) signal.removeEventListener("abort", onAbort);
+				resolve(confirmed);
+			};
+			const onAbort = (): void => finish(false);
+			if (signal?.aborted) {
+				resolve(false);
+				return;
+			}
+			if (signal) signal.addEventListener("abort", onAbort, { once: true });
+			confirmationMap.set(request.requestId, finish);
+			webContents.send(CHANNELS.CONFIRM_REQUEST, request);
+		});
+	});
+
 	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
 		if (config?.cwd) allowProjectRoot(config.cwd);
 		assertExecutionMode(config?.executionMode);
-		await assertLinuxSandboxAvailableForMode(config?.executionMode, resolveDefaultExecutionMode);
+		await assertSandboxAvailableForMode(config?.executionMode, resolveDefaultExecutionMode);
 		const result = await runtime.createSession(config);
 		if (config?.cwd) {
 			sessionCwdMap.set(result.sessionId, config.cwd);
@@ -154,7 +177,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.SET_EXECUTION_MODE, async (_event, sessionId: unknown, mode: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertExecutionMode(mode);
-		await assertLinuxSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
+		await assertSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
 		const settings = await readDesktopConfig();
 		await runtime.setGlobalExecutionMode(mode as SessionExecutionMode);
 		settings.defaultExecutionMode = mode as SessionExecutionMode;
@@ -163,7 +186,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.SET_GLOBAL_EXECUTION_MODE, async (_event, mode: unknown) => {
 		assertExecutionMode(mode);
-		await assertLinuxSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
+		await assertSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
 		const settings = await readDesktopConfig();
 		await runtime.setGlobalExecutionMode(mode as SessionExecutionMode);
 		settings.defaultExecutionMode = mode as SessionExecutionMode;
@@ -219,6 +242,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.GET_SESSION_PATH, (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.getSessionPath(sessionId);
+	});
+
+	ipcMain.handle(CHANNELS.CONFIRM_RESPONSE, (_event, requestId: unknown, confirmed: unknown) => {
+		assertNonEmptyString(requestId, "requestId");
+		const resolve = confirmationMap.get(requestId);
+		if (!resolve) return;
+		resolve(confirmed === true);
 	});
 
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
@@ -279,6 +309,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			unsubscribe();
 		}
 		subscriptionMap.clear();
+		for (const resolve of confirmationMap.values()) {
+			resolve(false);
+		}
+		confirmationMap.clear();
+		runtime.setUserConfirmationHandler(undefined);
 		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
 		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts
 		// 的 before-quit 负责（见 disposeSharedRuntime）。

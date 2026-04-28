@@ -12,7 +12,8 @@ import {
 	type ShellOperations,
 	type ToolDefinition,
 } from "@vetta/coding-agent";
-import { toToolDefinition, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
+import { getSandboxShellGrant } from "./sandbox-permissions.js";
+import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
 
 const WINDOWS_SANDBOX_HOST_FILENAME = "codex-windows-sandbox-host.exe";
 const WINDOWS_SANDBOX_HOST_RELATIVE_DIRS = [
@@ -122,6 +123,11 @@ function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOper
 				];
 				if (backend !== "unelevated") {
 					args.push("--read-root", cwd, "--write-root", cwd);
+					const grant = getSandboxShellGrant(cwd);
+					for (const root of grant?.allowWriteRoots ?? []) {
+						if (!existsSync(root)) continue;
+						args.push("--read-root", root, "--write-root", root);
+					}
 				}
 
 				if (typeof timeout === "number" && timeout > 0) {
@@ -187,9 +193,9 @@ export function buildWindowsSandboxToolDefinitions(options: WindowsSandboxToolOp
 	});
 
 	return [
-		toToolDefinition(readTool),
+		wrapWorkspaceGuard(readTool, cwd),
 		wrapWorkspaceGuard(writeTool, cwd),
 		wrapWorkspaceGuard(editTool, cwd),
-		toToolDefinition(shellTool),
+		wrapShellPermissionGuard(shellTool, cwd),
 	];
 }

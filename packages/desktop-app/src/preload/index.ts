@@ -16,6 +16,8 @@ const CHANNELS = {
 	GET_STATE: "vetta:session:get-state",
 	GET_MESSAGES: "vetta:session:get-messages",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
+	CONFIRM_REQUEST: "vetta:session:confirm-request",
+	CONFIRM_RESPONSE: "vetta:session:confirm-response",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	DELETE: "vetta:session:delete",
@@ -352,6 +354,17 @@ const api: DesktopApi = {
 				void ipcRenderer.invoke(CHANNELS.UNSUBSCRIBE, subscriptionId);
 			};
 		},
+		onConfirmationRequest: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, request: unknown) => {
+				handler(request as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(CHANNELS.CONFIRM_REQUEST, listener);
+			return () => {
+				ipcRenderer.removeListener(CHANNELS.CONFIRM_REQUEST, listener);
+			};
+		},
+		respondToConfirmation: async (requestId, confirmed) =>
+			ipcRenderer.invoke(CHANNELS.CONFIRM_RESPONSE, requestId, confirmed),
 		getSessionPath: async (sessionId) => ipcRenderer.invoke("vetta:session:get-session-path", sessionId),
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),

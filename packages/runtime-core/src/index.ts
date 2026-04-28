@@ -7,6 +7,7 @@ export type {
 	MessageFinalEvent,
 	ProjectInfo,
 	PromptRequest,
+	RuntimeUserConfirmationRequest,
 	SessionConfig,
 	SessionError,
 	SessionEvent,

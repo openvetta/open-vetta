@@ -33,9 +33,11 @@ export function ExecutionModeSelector(): JSX.Element {
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
-			if (config.linuxSandbox?.status === "unavailable") {
-				const reason = config.linuxSandbox.reason ?? "unknown_error";
-				setSandboxUnavailableReason(`Linux 沙盒不可用：${reason}`);
+			const capability = config.sandbox ?? config.linuxSandbox;
+			if (capability?.status === "unavailable") {
+				const reason = capability.reason ?? "unknown_error";
+				const platform = "platform" in capability ? capability.platform : "linux";
+				setSandboxUnavailableReason(`${platform} 沙盒不可用：${reason}`);
 				return;
 			}
 			setSandboxUnavailableReason(null);

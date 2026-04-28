@@ -3,6 +3,7 @@ import type {
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
+	RuntimeUserConfirmationRequest,
 	SessionConfig,
 	SessionEvent,
 	SessionExecutionMode,
@@ -20,6 +21,8 @@ export interface DesktopSessionApi {
 	continue(sessionId: string): Promise<void>;
 	abort(sessionId: string): Promise<void>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
+	onConfirmationRequest(handler: (request: RuntimeUserConfirmationRequest) => void): () => void;
+	respondToConfirmation(requestId: string, confirmed: boolean): Promise<void>;
 	getSessionPath(sessionId: string): Promise<string | undefined>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
@@ -104,6 +107,15 @@ export interface DesktopConfigData {
 	archivedProjects: ProjectEntry[];
 	workspacePath: string;
 	defaultExecutionMode?: "sandbox" | "full-access";
+	sandbox?: {
+		status: "unknown" | "available" | "unavailable";
+		backend: "bundled-bwrap" | "system-bwrap" | "macos-seatbelt" | "windows-host" | null;
+		platform: NodeJS.Platform;
+		binaryPath?: string;
+		reason?: string;
+		details?: string;
+		checkedAt?: number;
+	};
 	linuxSandbox?: {
 		status: "unknown" | "available" | "unavailable";
 		backend: "bundled-bwrap" | "system-bwrap" | null;

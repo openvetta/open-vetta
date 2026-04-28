@@ -1,5 +1,5 @@
 import { useAtom, useSetAtom } from "jotai";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { workspacePathAtom, debugModeAtom, confirmDialogAtom, sessionExecutionModeAtom, type SessionExecutionMode } from "@shared/store/atoms";
 import { UpdateChecker } from "@shared/components/UpdateChecker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
@@ -11,12 +11,21 @@ export function GeneralSettings(): JSX.Element {
 	const [debugMode, setDebugMode] = useAtom(debugModeAtom);
 	const [executionMode, setExecutionMode] = useAtom(sessionExecutionModeAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
 			const mode = config.defaultExecutionMode ?? "full-access";
 			setExecutionMode(mode);
 			localStorage.setItem("vetta-session-execution-mode", mode);
+			const capability = config.sandbox ?? config.linuxSandbox;
+			if (capability?.status === "unavailable") {
+				const reason = capability.reason ?? "unknown_error";
+				const platform = "platform" in capability ? capability.platform : "linux";
+				setSandboxUnavailableReason(`${platform} 沙盒不可用：${reason}`);
+				return;
+			}
+			setSandboxUnavailableReason(null);
 		});
 	}, [setExecutionMode]);
 
@@ -63,6 +72,7 @@ export function GeneralSettings(): JSX.Element {
 	const handleExecutionModeChange = useCallback(
 		async (mode: SessionExecutionMode) => {
 			if (mode === executionMode) return;
+			if (mode === "sandbox" && sandboxUnavailableReason) return;
 			const previousMode = executionMode;
 			setExecutionMode(mode);
 			localStorage.setItem("vetta-session-execution-mode", mode);
@@ -74,7 +84,7 @@ export function GeneralSettings(): JSX.Element {
 				console.error("[GeneralSettings] failed to switch execution mode:", error);
 			}
 		},
-		[executionMode, setExecutionMode],
+		[executionMode, sandboxUnavailableReason, setExecutionMode],
 	);
 
 	return (
@@ -138,7 +148,7 @@ export function GeneralSettings(): JSX.Element {
 							<SelectItem value="full-access" className="text-[12px]">
 								完全访问
 							</SelectItem>
-							<SelectItem value="sandbox" className="text-[12px]">
+							<SelectItem value="sandbox" className="text-[12px]" disabled={Boolean(sandboxUnavailableReason)} title={sandboxUnavailableReason ?? undefined}>
 								使用沙盒
 							</SelectItem>
 						</SelectContent>

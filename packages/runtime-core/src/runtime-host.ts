@@ -9,6 +9,7 @@ import {
 	type CreateAgentSessionOptions,
 	type CustomEntry,
 	createAgentSession,
+	type ExtensionUIContext,
 	type SessionInfo,
 	SessionManager,
 } from "@vetta/coding-agent";
@@ -17,6 +18,7 @@ import type {
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
+	RuntimeUserConfirmationRequest,
 	SessionConfig,
 	SessionEvent,
 	SessionEventBase,
@@ -40,6 +42,8 @@ export interface RuntimeHostOptions {
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	sandboxHostPath?: string;
 	linuxBubblewrapPath?: string;
+	macosSandboxExecPath?: string;
+	userConfirmationHandler?: (request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>;
 }
 
 export class RuntimeHost implements SessionFacade {
@@ -48,11 +52,23 @@ export class RuntimeHost implements SessionFacade {
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
+	private readonly macosSandboxExecPath: string | undefined;
+	private userConfirmationHandler:
+		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
+		| undefined;
 
 	constructor(options: RuntimeHostOptions = {}) {
 		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
 		this.sandboxHostPath = options.sandboxHostPath;
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
+		this.macosSandboxExecPath = options.macosSandboxExecPath;
+		this.userConfirmationHandler = options.userConfirmationHandler;
+	}
+
+	setUserConfirmationHandler(
+		handler: ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>) | undefined,
+	): void {
+		this.userConfirmationHandler = handler;
 	}
 
 	/**
@@ -86,6 +102,9 @@ export class RuntimeHost implements SessionFacade {
 				if (requestedMode !== existing.handle.executionMode) {
 					await this.setExecutionMode(existing.sessionId, requestedMode);
 				}
+				await existing.handle.session.bindExtensions({
+					uiContext: this.createExtensionUIContext({ current: existing.sessionId }),
+				});
 				return { sessionId: existing.sessionId };
 			}
 		}
@@ -102,6 +121,7 @@ export class RuntimeHost implements SessionFacade {
 		const executionMode = requestedMode ?? defaultMode;
 		const effectiveCwd = config.cwd ?? process.cwd();
 		const customTools = this.resolveExecutionModeTools(executionMode, effectiveCwd);
+		const sessionIdRef: { current?: string } = {};
 
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
@@ -117,6 +137,8 @@ export class RuntimeHost implements SessionFacade {
 		const { session } = await createAgentSession(options);
 		console.log(`[perf][RuntimeHost.createSession] after createAgentSession +${Date.now() - __t0}ms`);
 		const sessionId = session.sessionId;
+		sessionIdRef.current = sessionId;
+		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
 		this.sessions.set(sessionId, { session, executionMode });
 		console.log(`[perf][RuntimeHost.createSession] exit total=${Date.now() - __t0}ms`);
 		return { sessionId };
@@ -430,7 +452,48 @@ export class RuntimeHost implements SessionFacade {
 			cwd,
 			windowsSandboxHostPath: this.sandboxHostPath,
 			linuxBubblewrapPath: this.linuxBubblewrapPath,
+			macosSandboxExecPath: this.macosSandboxExecPath,
 		});
+	}
+
+	private createExtensionUIContext(sessionIdRef: { current?: string }): ExtensionUIContext {
+		return {
+			select: async () => undefined,
+			confirm: async (title, message, opts) => {
+				const handler = this.userConfirmationHandler;
+				if (!handler || opts?.signal?.aborted) return false;
+				return handler(
+					{
+						requestId: randomUUID(),
+						sessionId: sessionIdRef.current ?? "",
+						title,
+						message,
+					},
+					opts?.signal,
+				);
+			},
+			input: async () => undefined,
+			notify: () => {},
+			onTerminalInput: () => () => {},
+			setStatus: () => {},
+			setWorkingMessage: () => {},
+			setWidget: () => {},
+			setFooter: () => {},
+			setHeader: () => {},
+			setTitle: () => {},
+			custom: async () => undefined as never,
+			pasteToEditor: () => {},
+			setEditorText: () => {},
+			getEditorText: () => "",
+			editor: async () => undefined,
+			setEditorComponent: () => {},
+			theme: {} as ExtensionUIContext["theme"],
+			getAllThemes: () => [],
+			getTheme: () => undefined,
+			setTheme: () => ({ success: false, error: "Desktop runtime theme switching is unavailable." }),
+			getToolsExpanded: () => false,
+			setToolsExpanded: () => {},
+		};
 	}
 
 	private baseEvent(sessionId: string, source: SessionEventBase["source"], timestamp = Date.now()): SessionEventBase {
