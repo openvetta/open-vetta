@@ -1,6 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, resolve as resolvePath } from "node:path";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	createEditTool,
@@ -14,6 +16,7 @@ import {
 } from "@vetta/coding-agent";
 import { getSandboxShellGrant } from "./sandbox-permissions.js";
 import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
+import { buildWindowsSandboxPolicy } from "./windows-sandbox-policy.js";
 
 const WINDOWS_SANDBOX_HOST_FILENAME = "codex-windows-sandbox-host.exe";
 const WINDOWS_SANDBOX_HOST_RELATIVE_DIRS = [
@@ -22,7 +25,7 @@ const WINDOWS_SANDBOX_HOST_RELATIVE_DIRS = [
 	"sandbox/windows-sandbox-cli",
 	"sandbox",
 ] as const;
-const ENV_WHITELIST = ["PATH", "SystemRoot", "TEMP", "TMP", "COMSPEC"] as const;
+const ENV_WHITELIST = ["PATH", "SystemRoot", "COMSPEC"] as const;
 
 type WindowsSandboxBackend = "auto" | "elevated" | "unelevated";
 
@@ -56,7 +59,7 @@ function resolveWindowsSandboxHostPath(explicitPath?: string): string {
 	);
 }
 
-function buildSandboxEnv(sourceEnv: NodeJS.ProcessEnv | undefined): string[] {
+function buildSandboxEnv(sourceEnv: NodeJS.ProcessEnv | undefined, tempRoot: string): string[] {
 	const baseEnv = sourceEnv ?? process.env;
 	const args: string[] = ["--clear-env"];
 	for (const key of ENV_WHITELIST) {
@@ -65,6 +68,7 @@ function buildSandboxEnv(sourceEnv: NodeJS.ProcessEnv | undefined): string[] {
 			args.push("--env", `${key}=${value}`);
 		}
 	}
+	args.push("--env", `TEMP=${tempRoot}`, "--env", `TMP=${tempRoot}`);
 	return args;
 }
 
@@ -74,102 +78,131 @@ function resolveWindowsSandboxBackend(): WindowsSandboxBackend {
 		return raw;
 	}
 
-	return "elevated";
+	return "auto";
 }
 
 function resolveWindowsShellCommand(): { command: string; args: string[] } {
-	const findOnPath = (binary: string): boolean => {
+	const findOnPath = (binary: string): string | undefined => {
 		try {
 			const result = spawnSync("where", [binary], { encoding: "utf-8", timeout: 5000 });
-			if (result.status !== 0 || !result.stdout) return false;
+			if (result.status !== 0 || !result.stdout) return undefined;
 			const candidate = result.stdout.trim().split(/\r?\n/)[0];
-			return typeof candidate === "string" && candidate.length > 0 && existsSync(candidate);
+			return typeof candidate === "string" && candidate.length > 0 && existsSync(candidate) ? candidate : undefined;
 		} catch {
-			return false;
+			return undefined;
 		}
 	};
 
-	if (findOnPath("pwsh.exe")) {
+	const pwshPath = findOnPath("pwsh.exe");
+	if (pwshPath) {
 		return {
-			command: "pwsh.exe",
+			command: pwshPath,
 			args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"],
 		};
 	}
-	if (findOnPath("powershell.exe")) {
+	const powershellPath = findOnPath("powershell.exe");
+	if (powershellPath) {
 		return {
-			command: "powershell.exe",
+			command: powershellPath,
 			args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"],
 		};
 	}
-	return { command: "cmd.exe", args: ["/d", "/s", "/c"] };
+	const cmdPath = findOnPath("cmd.exe") ?? "cmd.exe";
+	return { command: cmdPath, args: ["/d", "/s", "/c"] };
 }
 
 function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOperations {
 	return {
 		exec: (command, cwd, { onData, signal, timeout, env }) => {
 			return new Promise<{ exitCode: number | null }>((resolve, reject) => {
-				const shellCommand = resolveWindowsShellCommand();
-				const backend = resolveWindowsSandboxBackend();
-				const args = [
-					"--backend",
-					backend,
-					"--policy",
-					"workspace-write",
-					"--policy-cwd",
-					cwd,
-					"--cwd",
-					cwd,
-					...buildSandboxEnv(env),
-				];
-				if (backend !== "unelevated") {
-					args.push("--read-root", cwd, "--write-root", cwd);
-					const grant = getSandboxShellGrant(cwd);
-					for (const root of grant?.allowWriteRoots ?? []) {
-						if (!existsSync(root)) continue;
-						args.push("--read-root", root, "--write-root", root);
+				void (async () => {
+					const tempRoot = await mkdtemp(join(tmpdir(), "vetta-windows-sandbox-"));
+					await mkdir(join(tempRoot, "home"), { recursive: true });
+					const shellCommand = resolveWindowsShellCommand();
+					const backend = resolveWindowsSandboxBackend();
+					const policy = buildWindowsSandboxPolicy({
+						cwd,
+						shellCommandPath: shellCommand.command,
+						tempRoot,
+						grant: getSandboxShellGrant(cwd),
+						env,
+					});
+					const args = [
+						"--backend",
+						backend,
+						"--policy",
+						"workspace-write",
+						"--policy-cwd",
+						cwd,
+						"--cwd",
+						cwd,
+						"--temp-root",
+						policy.tempRoot,
+						"--network",
+						policy.allowNetwork ? "default" : "none",
+						...buildSandboxEnv(env, policy.tempRoot),
+					];
+					for (const root of policy.allowReadRoots) {
+						args.push("--read-root", root);
 					}
-				}
-
-				if (typeof timeout === "number" && timeout > 0) {
-					args.push("--timeout-ms", String(Math.max(1, Math.floor(timeout * 1000))));
-				}
-
-				const resolvedCommand = prependCommandPrefixes(command, [
-					getDefaultShellCommandPrefix(shellCommand.command),
-				]);
-				args.push("--", shellCommand.command, ...shellCommand.args, resolvedCommand);
-				const child = spawn(sandboxHostPath, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-
-				if (child.stdout) child.stdout.on("data", onData);
-				if (child.stderr) child.stderr.on("data", onData);
-
-				const onAbort = () => {
-					child.kill();
-				};
-				if (signal) {
-					if (signal.aborted) {
-						onAbort();
-					} else {
-						signal.addEventListener("abort", onAbort, { once: true });
+					for (const root of policy.allowWriteRoots) {
+						args.push("--write-root", root);
 					}
-				}
-
-				child.on("error", (err) => {
-					if (signal) signal.removeEventListener("abort", onAbort);
-					reject(err);
-				});
-
-				child.on("close", (code) => {
-					if (signal) signal.removeEventListener("abort", onAbort);
-					if (signal?.aborted) {
-						reject(new Error("aborted"));
-						return;
+					for (const root of policy.denyReadRoots) {
+						args.push("--deny-read-path", root);
 					}
-					if (code === 192 && typeof timeout === "number" && timeout > 0) {
-						reject(new Error(`timeout:${timeout}`));
-						return;
+					for (const root of policy.denyWriteRoots) {
+						args.push("--deny-write-path", root);
 					}
-					resolve({ exitCode: code });
+
+					if (typeof timeout === "number" && timeout > 0) {
+						args.push("--timeout-ms", String(Math.max(1, Math.floor(timeout * 1000))));
+					}
+
+					const resolvedCommand = prependCommandPrefixes(command, [
+						getDefaultShellCommandPrefix(shellCommand.command),
+					]);
+					args.push("--", shellCommand.command, ...shellCommand.args, resolvedCommand);
+					const child = spawn(sandboxHostPath, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+
+					if (child.stdout) child.stdout.on("data", onData);
+					if (child.stderr) child.stderr.on("data", onData);
+
+					const cleanup = (): void => {
+						void rm(tempRoot, { recursive: true, force: true });
+					};
+					const onAbort = () => {
+						child.kill();
+					};
+					if (signal) {
+						if (signal.aborted) {
+							onAbort();
+						} else {
+							signal.addEventListener("abort", onAbort, { once: true });
+						}
+					}
+
+					child.on("error", (err) => {
+						if (signal) signal.removeEventListener("abort", onAbort);
+						cleanup();
+						reject(err);
+					});
+
+					child.on("close", (code) => {
+						if (signal) signal.removeEventListener("abort", onAbort);
+						cleanup();
+						if (signal?.aborted) {
+							reject(new Error("aborted"));
+							return;
+						}
+						if (code === 192 && typeof timeout === "number" && timeout > 0) {
+							reject(new Error(`timeout:${timeout}`));
+							return;
+						}
+						resolve({ exitCode: code });
+					});
+				})().catch((error: unknown) => {
+					reject(error);
 				});
 			});
 		},

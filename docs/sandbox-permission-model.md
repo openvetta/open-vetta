@@ -18,7 +18,7 @@
 沙箱隔离分两层：
 
 1. 应用层权限门：在工具执行前判断是否需要询问用户。
-2. OS 沙箱层：即使模型绕过应用层预检，系统沙箱仍负责兜底拦截。
+2. OS 沙箱层：shell 由平台沙箱后端兜底拦截。`read/write/edit` 当前仍是 Node 进程内文件工具，第一阶段只由应用层权限门和 deny roots 保护；后续 broker 化后再纳入 OS 沙箱兜底。
 
 ## 权限触发机制
 
@@ -32,9 +32,10 @@
 
 1. 如果路径是 `@PATH_0001` 这类路径 ID，跳过直接路径检查，由原工具解析。
 2. 如果路径在 workspace root 内，直接放行。
-3. 如果路径在 workspace root 外，调用 `ctx.ui.confirm(...)` 触发用户授权。
-4. 用户拒绝时，工具失败。
-5. 用户允许时，本次工具调用继续执行。
+3. 如果路径命中内置敏感 deny roots，直接拒绝，不进入用户确认。
+4. 如果路径在 workspace root 外，调用 `ctx.ui.confirm(...)` 触发用户授权。
+5. 用户拒绝时，工具失败。
+6. 用户允许时，本次工具调用继续执行。
 
 workspace 边界检查在 `workspace-guard.ts` 中完成，包含 symlink-aware 的边界解析。
 
@@ -55,9 +56,10 @@ workspace 边界检查在 `workspace-guard.ts` 中完成，包含 symlink-aware 
 
 1. 从 shell 命令中提取可能写入的目标路径。
 2. 如果目标在 workspace 或临时目录内，直接放行。
-3. 如果目标在 workspace 外，触发用户授权。
-4. 用户拒绝时，命令不执行。
-5. 用户允许时，生成一次性 grant，并把 grant 传给对应平台沙箱后端。
+3. 如果目标命中内置敏感 deny roots，直接拒绝，不进入用户确认。
+4. 如果目标在 workspace 外，触发用户授权。
+5. 用户拒绝时，命令不执行。
+6. 用户允许时，生成一次性 grant，并把 grant 传给对应平台沙箱后端。
 
 一次性 grant 在 `sandbox-permissions.ts` 中通过 `AsyncLocalStorage` 绑定当前工具调用，避免并发 shell 调用串权。
 
@@ -136,17 +138,23 @@ Linux 当前没有域名级网络策略。网络隔离是整体禁用网络 name
 
 默认参数：
 
+- `--backend auto`
 - `--policy workspace-write`
 - `--policy-cwd <cwd>`
+- `--cwd <cwd>`
+- `--temp-root <per-call temp root>`
+- `--network none`
 - `--read-root <cwd>`
 - `--write-root <cwd>`
+- `--deny-read-path <denyRoot>`
+- `--deny-write-path <denyRoot>`
 
 一次性 grant 会追加：
 
 - `--read-root <grantRoot>`
 - `--write-root <grantRoot>`
 
-Windows 的最终隔离能力取决于 `windows-host` 的底层实现。runtime-core 只负责统一策略入口和参数传递。
+Windows desktop-app 启动期会读取 `--capabilities --json`，并执行主动 probe 验证 workspace 写入、workspace 外拒写、temp-root 写入、deny-write/deny-read 等能力。probe 未通过时，`executionMode = "sandbox"` 不会静默降级为 `full-access`，而是拒绝创建或切换会话。
 
 ## 当前白名单
 
@@ -165,13 +173,23 @@ Windows 的最终隔离能力取决于 `windows-host` 的底层实现。runtime-
 
 - macOS: `PATH`, `LANG`, `LC_ALL`, `TERM`
 - Linux: `PATH`, `LANG`, `LC_ALL`, `TERM`
-- Windows: `PATH`, `SystemRoot`, `TEMP`, `TMP`, `COMSPEC`
+- Windows: `PATH`, `SystemRoot`, `COMSPEC`，并将 `TEMP` / `TMP` 重写为本次 shell 调用的隔离 `temp-root`
 
 ## 当前黑名单
 
-macOS 有显式敏感读取黑名单，位于 `macos-seatbelt-tools.ts` 的 `sensitiveReadDenyPaths`。
+应用层有统一敏感 deny roots，会在 `read/write/edit` 和 shell 写入预检中先行拒绝。当前包括：
 
-Linux 和 Windows 当前主要靠“默认不挂载/不授权即不可访问”实现隔离，没有同 macOS 一样的集中 read deny list。除非某个目录被默认白名单或一次性 grant 放开，否则不会进入沙箱可写范围。
+- `~/.ssh`
+- `~/.aws`
+- `~/.gnupg`
+- `~/.kube`
+- `~/.docker`
+- `~/.vetta/agent`
+- `~/.pi`
+- macOS 额外包括 `~/.config/gcloud`、`~/Library/Keychains`
+- Windows 额外包括 `%APPDATA%/gcloud`、`%APPDATA%/Vetta`
+
+macOS 另有 OS 层敏感读取黑名单，位于 `macos-seatbelt-tools.ts` 的 `sensitiveReadDenyPaths`。Windows shell 会把 deny roots 传给 `codex-windows-sandbox-host.exe` 的 `--deny-read-path` / `--deny-write-path`。Linux 当前主要靠未挂载和应用层 deny；后续可继续同步到 OS 层策略。
 
 ## 如何添加白名单
 
@@ -224,6 +242,7 @@ interface SandboxPolicyConfig {
   allowWriteRoots: string[];
   denyReadRoots: string[];
   denyWriteRoots: string[];
+  tempRoot: string;
   allowNetwork: boolean;
 }
 ```
@@ -255,4 +274,3 @@ interface SandboxPolicyConfig {
 - 用户拒绝时文件不会创建
 - 用户允许时只本次工具调用获得权限
 - 模型不能通过 shell 静默绕过权限系统
-

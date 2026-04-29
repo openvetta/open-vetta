@@ -1,6 +1,7 @@
 import type { AgentTool, AgentToolUpdateCallback } from "@mariozechner/pi-agent-core";
 import type { ToolDefinition } from "@vetta/coding-agent";
 import {
+	assertSandboxPathNotDenied,
 	collectShellWritePermissionRequests,
 	confirmSandboxPermission,
 	runWithSandboxShellGrant,
@@ -51,6 +52,8 @@ export function wrapWorkspaceGuard(tool: AgentTool<any, any>, cwd: string): Tool
 			const requestedPath = extractPathFromParams(params);
 			if (requestedPath && !PATH_ID_REGEX.test(requestedPath.trim())) {
 				const access = await resolveWorkspacePathAccess(requestedPath, cwd);
+				assertSandboxPathNotDenied(access.targetBoundary, definition.name);
+				assertSandboxPathNotDenied(access.targetPath, definition.name);
 				if (!access.allowed) {
 					const capability = definition.name === "read" ? "file.read" : "file.write";
 					const confirmed = await confirmSandboxPermission(ctx, {
@@ -93,8 +96,14 @@ export function wrapShellPermissionGuard(tool: AgentTool<any, any>, cwd: string)
 			}
 
 			if (allowWriteRoots.length === 0) return definition.execute(toolCallId, params, signal, onUpdate, ctx);
-			return runWithSandboxShellGrant(cwd, { allowWriteRoots: Array.from(new Set(allowWriteRoots)) }, () =>
-				definition.execute(toolCallId, params, signal, onUpdate, ctx),
+			const uniqueAllowWriteRoots = Array.from(new Set(allowWriteRoots));
+			return runWithSandboxShellGrant(
+				cwd,
+				{
+					allowReadRoots: uniqueAllowWriteRoots,
+					allowWriteRoots: uniqueAllowWriteRoots,
+				},
+				() => definition.execute(toolCallId, params, signal, onUpdate, ctx),
 			);
 		},
 	};
