@@ -1,4 +1,4 @@
-import type { BatchProject, BatchTask } from "@shared/store/atoms";
+import type { BatchProject, BatchTask, SessionExecutionMode } from "@shared/store/atoms";
 
 interface BatchProjectGroupProps {
 	project: BatchProject;
@@ -6,7 +6,7 @@ interface BatchProjectGroupProps {
 	isExpanded: boolean;
 	activeSessionPath?: string;
 	onToggle: (projectId: string) => void;
-	onSelectSession: (cwd: string, sessionPath: string) => void;
+	onSelectSession: (cwd: string, sessionPath: string, executionMode?: SessionExecutionMode) => void;
 }
 
 function relativeTime(timestamp: number): string {
@@ -94,7 +94,7 @@ export function BatchProjectGroup({
 							key={task.id}
 							task={task}
 							isActive={activeSessionPath === task.sessionPath}
-							onSelect={() => task.sessionPath && onSelectSession(task.cwd, task.sessionPath)}
+							onSelect={() => task.sessionPath && onSelectSession(task.cwd, task.sessionPath, task.executionMode)}
 						/>
 					))}
 				</div>

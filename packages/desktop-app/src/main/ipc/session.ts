@@ -178,17 +178,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertExecutionMode(mode);
 		await assertSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
-		const settings = await readDesktopConfig();
-		await runtime.setGlobalExecutionMode(mode as SessionExecutionMode);
-		settings.defaultExecutionMode = mode as SessionExecutionMode;
-		await writeDesktopConfig(settings);
+		await runtime.setExecutionMode(sessionId, mode as SessionExecutionMode);
 	});
 
 	ipcMain.handle(CHANNELS.SET_GLOBAL_EXECUTION_MODE, async (_event, mode: unknown) => {
 		assertExecutionMode(mode);
 		await assertSandboxAvailableForMode(mode as SessionExecutionMode, resolveDefaultExecutionMode);
 		const settings = await readDesktopConfig();
-		await runtime.setGlobalExecutionMode(mode as SessionExecutionMode);
 		settings.defaultExecutionMode = mode as SessionExecutionMode;
 		await writeDesktopConfig(settings);
 	});

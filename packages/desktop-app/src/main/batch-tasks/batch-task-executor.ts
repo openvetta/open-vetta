@@ -1,12 +1,20 @@
 import { join } from "node:path";
-import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
+import type { RuntimeHost, SessionEvent, SessionExecutionMode } from "../../../../runtime-core/src/index.js";
+import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import { type BatchTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
 
 export type BatchTaskEvent =
-	| { type: "task.started"; projectId: string; taskId: string; sessionId: string; sessionPath: string | undefined }
+	| {
+			type: "task.started";
+			projectId: string;
+			taskId: string;
+			sessionId: string;
+			sessionPath: string | undefined;
+			executionMode: SessionExecutionMode;
+	  }
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }
@@ -17,6 +25,7 @@ interface ExecutingTask {
 	taskId: string;
 	sessionId: string;
 	sessionPath: string | undefined;
+	executionMode: SessionExecutionMode;
 	abortController: AbortController;
 }
 
@@ -52,6 +61,7 @@ function createTaskEventHandler(
 				status: "completed",
 				sessionId: executing.sessionId,
 				sessionPath: executing.sessionPath,
+				executionMode: executing.executionMode,
 				completedAt: Date.now(),
 				lastModified: Date.now(),
 			};
@@ -69,6 +79,7 @@ function createTaskEventHandler(
 				status: "paused",
 				sessionId: executing.sessionId,
 				sessionPath: executing.sessionPath,
+				executionMode: executing.executionMode,
 				lastModified: Date.now(),
 			};
 			await saveTaskState(projectId, taskId, state);
@@ -90,6 +101,7 @@ function createTaskEventHandler(
 				error: event.error?.message ?? "Unknown error",
 				sessionId: executing.sessionId,
 				sessionPath: executing.sessionPath,
+				executionMode: executing.executionMode,
 				completedAt: Date.now(),
 				lastModified: Date.now(),
 			};
@@ -121,17 +133,28 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 	);
 
 	try {
-		await assertSandboxAvailableForMode(undefined, async () => {
-			const config = await readDesktopConfig();
-			return config.defaultExecutionMode;
-		});
+		const config = await readDesktopConfig();
+		const executionMode = resolveExecutionMode(project.executionMode, config.defaultExecutionMode);
+		await assertSandboxAvailableForMode(executionMode, async () => executionMode);
 
 		const sessionDir = join(project.id, ".vetta", "sessions");
 		const taskSystemPrompt = buildTaskSystemPrompt(task);
-		const result = await runtime.createSession({ cwd: task.cwd, sessionDir, appendSystemPrompt: taskSystemPrompt });
+		const result = await runtime.createSession({
+			cwd: task.cwd,
+			sessionDir,
+			appendSystemPrompt: taskSystemPrompt,
+			executionMode,
+		});
 		const sessionId = result.sessionId;
 		const sessionPath = runtime.getSessionPath(sessionId);
-		executingTasks.set(task.id, { projectId: project.id, taskId: task.id, sessionId, sessionPath, abortController });
+		executingTasks.set(task.id, {
+			projectId: project.id,
+			taskId: task.id,
+			sessionId,
+			sessionPath,
+			executionMode,
+			abortController,
+		});
 		console.log(`[BatchTask] Session created: ${sessionId}, path=${sessionPath}`);
 
 		runtime.renameSessionById(sessionId, `${project.name}: ${task.name}`);
@@ -141,12 +164,20 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			status: "running",
 			sessionId,
 			sessionPath,
+			executionMode,
 			startedAt: Date.now(),
 			lastModified: Date.now(),
 		};
 		await saveTaskState(project.id, task.id, state);
 
-		emitBatchTaskEvent({ type: "task.started", projectId: project.id, taskId: task.id, sessionId, sessionPath });
+		emitBatchTaskEvent({
+			type: "task.started",
+			projectId: project.id,
+			taskId: task.id,
+			sessionId,
+			sessionPath,
+			executionMode,
+		});
 		console.log(`[BatchTask] task.started emitted: ${task.id}`);
 
 		runtime.subscribe(sessionId, createTaskEventHandler(project.id, task.id, abortController));
@@ -174,6 +205,7 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			error: errorMessage,
 			sessionId: executing?.sessionId,
 			sessionPath: executing?.sessionPath,
+			executionMode: executing?.executionMode,
 			completedAt: Date.now(),
 			lastModified: Date.now(),
 		};
@@ -202,6 +234,7 @@ export async function pauseTask(projectId: string, taskId: string, runtime: Runt
 		status: "paused",
 		sessionId: executing.sessionId,
 		sessionPath: executing.sessionPath,
+		executionMode: executing.executionMode,
 		lastModified: Date.now(),
 	};
 	await saveTaskState(projectId, taskId, state);
@@ -217,11 +250,13 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 	}
 
 	const abortController = new AbortController();
+	const executionMode = task.executionMode ?? "full-access";
 	executingTasks.set(task.id, {
 		projectId: project.id,
 		taskId: task.id,
 		sessionId: task.sessionId,
 		sessionPath: task.sessionPath,
+		executionMode,
 		abortController,
 	});
 
@@ -230,6 +265,7 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 		status: "running",
 		sessionId: task.sessionId,
 		sessionPath: task.sessionPath,
+		executionMode,
 		lastModified: Date.now(),
 	};
 	await saveTaskState(project.id, task.id, state);

@@ -7,8 +7,9 @@ import {
 	DialogContent,
 } from "@shared/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { projectsAtom } from "@shared/store/atoms";
-import type { ScheduledTask } from "@shared/store/atoms";
+import type { ExecutionModeOverride, ScheduledTask, SessionExecutionMode } from "@shared/store/atoms";
 import { pathBasename } from "@shared/lib/utils";
 import {
 	type Schedule,
@@ -146,6 +147,9 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 	const [prompt, setPrompt] = useState("");
 	const [schedule, setSchedule] = useState<Schedule>(getDefaultDailySchedule());
 	const [isOnce, setIsOnce] = useState(false);
+	const [executionMode, setExecutionMode] = useState<ExecutionModeOverride>("full-access");
+	const [defaultExecutionMode, setDefaultExecutionMode] = useState<SessionExecutionMode>("full-access");
+	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 	const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
 	const [schedulePopoverOpen, setSchedulePopoverOpen] = useState(false);
 
@@ -155,6 +159,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 			setCwd(task?.cwd ?? projects[0]?.cwd ?? "");
 			setPrompt(task?.prompt ?? "");
 			setIsOnce(task?.isOnce ?? false);
+			setExecutionMode(task?.executionMode ?? "full-access");
 
 			if (task?.cron) {
 				const parsed = parseCronExpression(task.cron, task.isOnce);
@@ -166,6 +171,18 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 			} else {
 				setSchedule(getDefaultDailySchedule());
 			}
+
+			void window.vetta.config.get().then((config) => {
+				setDefaultExecutionMode(config.defaultExecutionMode ?? "full-access");
+				const capability = config.sandbox ?? config.linuxSandbox;
+				if (capability?.status === "unavailable") {
+					const reason = capability.reason ?? "unknown_error";
+					const platform = "platform" in capability ? capability.platform : "linux";
+					setSandboxUnavailableReason(`${platform} 沙盒不可用：${reason}`);
+					return;
+				}
+				setSandboxUnavailableReason(null);
+			});
 		}
 	}, [open, task, projects]);
 
@@ -187,7 +204,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
 		const cron = toCronExpression(schedule);
-		const taskData = { name, prompt, cron, isOnce, enabled: true, cwd };
+		const taskData = { name, prompt, cron, isOnce, enabled: true, cwd, executionMode };
 
 		if (task) {
 			await updateTask(task.id, taskData);
@@ -202,7 +219,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
 			<DialogContent
-				className="flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+				className="flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
 				showCloseButton={false}
 			>
 				{/* ─── Header: title input ─── */}
@@ -315,6 +332,28 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 						<span>{scheduleLabel}</span>
 						<span className={`icon-[mdi--chevron-${schedulePopoverOpen ? "up" : "down"}] text-[14px]`} />
 					</button>
+
+					<Select value={executionMode} onValueChange={(value) => setExecutionMode(value as ExecutionModeOverride)}>
+						<SelectTrigger className="h-8 w-44 border-border/70 bg-background/50 text-[12px] text-muted-foreground">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="inherit" className="text-[12px]">
+								跟随默认（{defaultExecutionMode === "sandbox" ? "沙盒" : "完全访问"}）
+							</SelectItem>
+							<SelectItem value="full-access" className="text-[12px]">
+								完全访问
+							</SelectItem>
+							<SelectItem
+								value="sandbox"
+								className="text-[12px]"
+								disabled={Boolean(sandboxUnavailableReason)}
+								title={sandboxUnavailableReason ?? undefined}
+							>
+								使用沙盒
+							</SelectItem>
+						</SelectContent>
+					</Select>
 
 					{/* Spacer */}
 					<div className="flex-1" />

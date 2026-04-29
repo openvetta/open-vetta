@@ -1,4 +1,5 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
+import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { emitTaskEvent, emitTaskStreamEvent } from "../ipc/scheduler.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
@@ -26,15 +27,16 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		status: "running",
 		prompt: task.prompt,
 		responsePreview: "",
+		executionMode: undefined,
 	};
 
 	try {
-		await assertSandboxAvailableForMode(undefined, async () => {
-			const config = await readDesktopConfig();
-			return config.defaultExecutionMode;
-		});
+		const config = await readDesktopConfig();
+		const executionMode = resolveExecutionMode(task.executionMode, config.defaultExecutionMode);
+		await assertSandboxAvailableForMode(executionMode, async () => executionMode);
+		record.executionMode = executionMode;
 
-		const result = await runtime.createSession({ cwd: task.cwd });
+		const result = await runtime.createSession({ cwd: task.cwd, executionMode });
 		sessionId = result.sessionId;
 		record.sessionId = sessionId;
 

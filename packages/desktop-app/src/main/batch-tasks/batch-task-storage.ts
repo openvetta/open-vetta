@@ -1,5 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
+import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
+import { type ExecutionModeOverride, normalizeExecutionModeOverride } from "../execution-mode.js";
 import { getWorkspacePath } from "../utils/workspace";
 import { type BatchTaskState, type BatchTaskStatus, loadProjectTaskStates } from "./batch-task-state";
 
@@ -19,6 +21,7 @@ interface BatchProjectMeta {
 	prompt: string;
 	modelKey?: string;
 	concurrency: number;
+	executionMode?: ExecutionModeOverride;
 	items: BatchItemMeta[];
 	createdAt: number;
 	updatedAt: number;
@@ -34,6 +37,7 @@ export interface BatchTask {
 	status: BatchTaskStatus;
 	sessionId?: string;
 	sessionPath?: string;
+	executionMode?: SessionExecutionMode;
 	error?: string;
 	createdAt: number;
 	updatedAt: number;
@@ -45,6 +49,7 @@ export interface BatchProject {
 	prompt: string;
 	modelKey?: string;
 	concurrency: number;
+	executionMode?: ExecutionModeOverride;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -105,6 +110,7 @@ function assembleProject(
 			status: state?.status ?? "pending",
 			sessionId: state?.sessionId,
 			sessionPath: state?.sessionPath,
+			executionMode: state?.executionMode,
 			error: state?.error,
 			createdAt: item.createdAt,
 			updatedAt: state?.lastModified ?? item.createdAt,
@@ -117,6 +123,7 @@ function assembleProject(
 		prompt: meta.prompt,
 		modelKey: meta.modelKey,
 		concurrency: meta.concurrency,
+		executionMode: normalizeExecutionModeOverride(meta.executionMode, "full-access"),
 		tasks,
 		createdAt: meta.createdAt,
 		updatedAt: meta.updatedAt,
@@ -172,6 +179,7 @@ export async function createProject(
 	modelKey: string | undefined,
 	folders: string[],
 	concurrency: number,
+	executionMode?: ExecutionModeOverride,
 ): Promise<BatchProject> {
 	const workspacePath = await getWorkspacePath();
 	const projectDir = join(workspacePath, name);
@@ -198,6 +206,7 @@ export async function createProject(
 		prompt,
 		modelKey,
 		concurrency,
+		executionMode: normalizeExecutionModeOverride(executionMode, "full-access"),
 		items,
 		createdAt: now,
 		updatedAt: now,
@@ -216,7 +225,14 @@ export async function createProject(
 
 export async function updateProject(
 	projectDir: string,
-	data: Partial<{ name: string; prompt: string; modelKey: string; concurrency: number; newFolders: string[] }>,
+	data: Partial<{
+		name: string;
+		prompt: string;
+		modelKey: string;
+		concurrency: number;
+		executionMode: ExecutionModeOverride;
+		newFolders: string[];
+	}>,
 ): Promise<void> {
 	const meta = await readProjectMeta(projectDir);
 	if (!meta) return;
@@ -224,6 +240,7 @@ export async function updateProject(
 	if (data.prompt !== undefined) meta.prompt = data.prompt;
 	if (data.modelKey !== undefined) meta.modelKey = data.modelKey;
 	if (data.concurrency !== undefined) meta.concurrency = data.concurrency;
+	if (data.executionMode !== undefined) meta.executionMode = normalizeExecutionModeOverride(data.executionMode);
 
 	if (data.newFolders) {
 		const now = Date.now();

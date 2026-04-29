@@ -13,6 +13,8 @@ import type {
 } from "../../../runtime-core/src/index.js";
 import type { DesktopFsApi } from "./fs-types.js";
 
+export type ExecutionModeOverride = "inherit" | SessionExecutionMode;
+
 export interface DesktopSessionApi {
 	create(config?: SessionConfig): Promise<{ sessionId: string }>;
 	listProjects(): Promise<ProjectInfo[]>;
@@ -278,6 +280,7 @@ export interface ScheduledTask {
 	/** Project working directory this task is associated with */
 	cwd: string;
 	modelId?: string;
+	executionMode?: ExecutionModeOverride;
 	createdAt: number;
 	updatedAt: number;
 	lastRunAt: number | null;
@@ -299,6 +302,7 @@ export interface TaskExecutionRecord {
 	responsePreview: string;
 	error?: string;
 	durationMs?: number;
+	executionMode?: SessionExecutionMode;
 }
 
 export type TaskEvent =
@@ -347,6 +351,7 @@ export interface BatchTask {
 	status: BatchTaskStatus;
 	sessionId?: string;
 	sessionPath?: string;
+	executionMode?: SessionExecutionMode;
 	error?: string;
 	createdAt: number;
 	updatedAt: number;
@@ -357,6 +362,7 @@ export interface BatchProject {
 	name: string;
 	prompt: string;
 	modelKey?: string;
+	executionMode?: ExecutionModeOverride;
 	concurrency: number;
 	tasks: BatchTask[];
 	createdAt: number;
@@ -364,7 +370,14 @@ export interface BatchProject {
 }
 
 export type BatchTaskEvent =
-	| { type: "task.started"; projectId: string; taskId: string; sessionId: string; sessionPath: string | undefined }
+	| {
+			type: "task.started";
+			projectId: string;
+			taskId: string;
+			sessionId: string;
+			sessionPath: string | undefined;
+			executionMode: SessionExecutionMode;
+	  }
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }
@@ -376,12 +389,20 @@ export interface DesktopBatchTasksApi {
 		name: string;
 		prompt: string;
 		modelKey?: string;
+		executionMode?: ExecutionModeOverride;
 		folders: string[];
 		concurrency: number;
 	}): Promise<BatchProject>;
 	updateProject(
 		projectId: string,
-		data: Partial<{ name: string; prompt: string; modelKey: string; concurrency: number; newFolders: string[] }>,
+		data: Partial<{
+			name: string;
+			prompt: string;
+			modelKey: string;
+			executionMode: ExecutionModeOverride;
+			concurrency: number;
+			newFolders: string[];
+		}>,
 	): Promise<void>;
 	deleteProject(projectId: string): Promise<void>;
 	runTask(projectId: string, taskId: string): Promise<void>;

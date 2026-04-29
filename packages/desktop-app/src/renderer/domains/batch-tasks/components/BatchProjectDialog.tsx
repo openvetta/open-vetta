@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useAtomValue } from "jotai";
 import type { ModelsConfigData } from "@preload/api";
-import { type BatchProject, remoteProvidersAtom } from "@shared/store/atoms";
+import { type BatchProject, type ExecutionModeOverride, remoteProvidersAtom, type SessionExecutionMode } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import {
 	Dialog,
@@ -56,6 +56,9 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [name, setName] = useState(project?.name ?? "");
 	const [prompt, setPrompt] = useState(project?.prompt ?? "");
 	const [modelKey, setModelKey] = useState<string | undefined>(project?.modelKey);
+	const [executionMode, setExecutionMode] = useState<ExecutionModeOverride>(project?.executionMode ?? "full-access");
+	const [defaultExecutionMode, setDefaultExecutionMode] = useState<SessionExecutionMode>("full-access");
+	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
 	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
 	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.sourcePath) ?? []);
@@ -87,12 +90,24 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setName(project?.name ?? "");
 		setPrompt(project?.prompt ?? "");
 		setModelKey(project?.modelKey);
+		setExecutionMode(project?.executionMode ?? "full-access");
 		setConcurrency(project?.concurrency ?? 1);
 		setFolders(project?.tasks.map((t) => t.sourcePath) ?? []);
 	}, [project]);
 
 	useEffect(() => {
 		if (!open) return;
+		void window.vetta.config.get().then((desktopConfig) => {
+			setDefaultExecutionMode(desktopConfig.defaultExecutionMode ?? "full-access");
+			const capability = desktopConfig.sandbox ?? desktopConfig.linuxSandbox;
+			if (capability?.status === "unavailable") {
+				const reason = capability.reason ?? "unknown_error";
+				const platform = "platform" in capability ? capability.platform : "linux";
+				setSandboxUnavailableReason(`${platform} 沙盒不可用：${reason}`);
+				return;
+			}
+			setSandboxUnavailableReason(null);
+		});
 		void window.vetta.models.get().then((c) => {
 			setConfig(c);
 			const allModels = (() => {
@@ -150,9 +165,9 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		if (project) {
 			const originalSources = new Set(project.tasks.map((t) => t.sourcePath));
 			const newFolders = folders.filter((f) => !originalSources.has(f));
-			await updateProject(project.id, { name, prompt, modelKey, concurrency, newFolders });
+			await updateProject(project.id, { name, prompt, modelKey, executionMode, concurrency, newFolders });
 		} else {
-			await createProject({ name, prompt, modelKey, folders, concurrency });
+			await createProject({ name, prompt, modelKey, executionMode, folders, concurrency });
 		}
 		onClose();
 	};
@@ -286,6 +301,26 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 								<SelectItem value="3">3</SelectItem>
 								<SelectItem value="4">4</SelectItem>
 								<SelectItem value="5">5</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					<div className="mt-4">
+						<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
+							<span>沙盒状态</span>
+						</label>
+						<Select value={executionMode} onValueChange={(value) => setExecutionMode(value as ExecutionModeOverride)}>
+							<SelectTrigger className="w-48">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="inherit">
+									跟随全局默认（{defaultExecutionMode === "sandbox" ? "使用沙盒" : "完全访问"}）
+								</SelectItem>
+								<SelectItem value="full-access">完全访问</SelectItem>
+								<SelectItem value="sandbox" disabled={Boolean(sandboxUnavailableReason)} title={sandboxUnavailableReason ?? undefined}>
+									使用沙盒
+								</SelectItem>
 							</SelectContent>
 						</Select>
 					</div>

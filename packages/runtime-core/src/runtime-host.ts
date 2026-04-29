@@ -98,9 +98,8 @@ export class RuntimeHost implements SessionFacade {
 		if (config.sessionPath && config.sessionPath.trim().length > 0) {
 			const existing = this.findHandleBySessionPath(config.sessionPath);
 			if (existing) {
-				const requestedMode = config.executionMode ?? (await this.getDefaultExecutionMode());
-				if (requestedMode !== existing.handle.executionMode) {
-					await this.setExecutionMode(existing.sessionId, requestedMode);
+				if (config.executionMode !== undefined && config.executionMode !== existing.handle.executionMode) {
+					await this.setExecutionMode(existing.sessionId, config.executionMode);
 				}
 				await existing.handle.session.bindExtensions({
 					uiContext: this.createExtensionUIContext({ current: existing.sessionId }),

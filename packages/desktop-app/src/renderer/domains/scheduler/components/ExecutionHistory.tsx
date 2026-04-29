@@ -35,7 +35,7 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 
 	const handleOpenSession = (record: TaskExecutionRecord) => {
 		if (record.sessionPath && record.cwd && openSessionFnRef.current) {
-			void openSessionFnRef.current(record.cwd, record.sessionPath);
+			void openSessionFnRef.current(record.cwd, record.sessionPath, record.executionMode);
 		}
 	};
 

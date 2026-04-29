@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import type { ExecutionModeOverride, SessionExecutionMode } from "./chat-atoms";
 
 export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
 
@@ -10,6 +11,7 @@ export interface BatchTask {
 	status: BatchTaskStatus;
 	sessionId?: string;
 	sessionPath?: string;
+	executionMode?: SessionExecutionMode;
 	error?: string;
 	createdAt: number;
 	updatedAt: number;
@@ -21,6 +23,7 @@ export interface BatchProject {
 	prompt: string;
 	/** Project-level model key in "provider/modelId" format */
 	modelKey?: string;
+	executionMode?: ExecutionModeOverride;
 	concurrency: number;
 	tasks: BatchTask[];
 	createdAt: number;
@@ -42,6 +45,7 @@ export interface BatchTaskState {
 	status: BatchTaskStatus;
 	sessionId?: string;
 	sessionPath?: string;
+	executionMode?: SessionExecutionMode;
 	error?: string;
 	startedAt?: number;
 	completedAt?: number;

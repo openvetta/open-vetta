@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { discoverBatchProjects } from "./batch-task-storage";
 
 export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
@@ -9,6 +10,7 @@ export interface BatchTaskState {
 	status: BatchTaskStatus;
 	sessionId?: string;
 	sessionPath?: string;
+	executionMode?: SessionExecutionMode;
 	error?: string;
 	startedAt?: number;
 	completedAt?: number;
