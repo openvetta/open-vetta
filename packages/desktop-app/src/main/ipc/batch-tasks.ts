@@ -18,6 +18,7 @@ import {
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
 import { pLimit } from "../batch-tasks/queue";
+import type { ExecutionModeOverride } from "../execution-mode.js";
 import { getSharedRuntime } from "../runtime.js";
 
 const CHANNELS = {
@@ -59,9 +60,26 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(
 		CHANNELS.CREATE_PROJECT,
-		async (_, data: { name: string; prompt: string; modelKey?: string; folders: string[]; concurrency: number }) => {
+		async (
+			_,
+			data: {
+				name: string;
+				prompt: string;
+				modelKey?: string;
+				folders: string[];
+				concurrency: number;
+				executionMode?: ExecutionModeOverride;
+			},
+		) => {
 			console.log(`[BatchTaskIPC] CREATE_PROJECT: ${data.name}`);
-			return createProject(data.name, data.prompt, data.modelKey, data.folders, data.concurrency);
+			return createProject(
+				data.name,
+				data.prompt,
+				data.modelKey,
+				data.folders,
+				data.concurrency,
+				data.executionMode,
+			);
 		},
 	);
 
@@ -70,7 +88,14 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		async (
 			_,
 			projectId: string,
-			data: Partial<{ name: string; prompt: string; modelKey: string; concurrency: number; newFolders: string[] }>,
+			data: Partial<{
+				name: string;
+				prompt: string;
+				modelKey: string;
+				concurrency: number;
+				executionMode: ExecutionModeOverride;
+				newFolders: string[];
+			}>,
 		) => {
 			console.log(`[BatchTaskIPC] UPDATE_PROJECT: ${projectId}`);
 			await updateProjectStorage(projectId, data);

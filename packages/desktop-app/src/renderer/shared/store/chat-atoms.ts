@@ -64,6 +64,7 @@ export interface ActiveSession {
 }
 
 export type SessionExecutionMode = "sandbox" | "full-access";
+export type ExecutionModeOverride = "inherit" | SessionExecutionMode;
 
 // ─── Attached images ───
 
@@ -174,6 +175,8 @@ export const actionButtonHandlersAtom = atom<Map<string, () => void>>(new Map())
 
 /** Global callback to open a session (set by useSessionManager, consumed by other pages) */
 // Use a module-level ref instead of atom to avoid structured clone issues with functions
-export const openSessionFnRef: { current: ((cwd: string, sessionPath?: string) => Promise<void>) | null } = {
+export const openSessionFnRef: {
+	current: ((cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>) | null;
+} = {
 	current: null,
 };

@@ -2,7 +2,7 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { pathBasename } from "@shared/lib/utils";
-import type { Project, SessionInfo, SidebarFilter } from "@shared/store/atoms";
+import type { Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
 import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
@@ -12,7 +12,7 @@ import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 
 interface ProjectsPanelProps {
 	filter: SidebarFilter;
-	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
+	onOpenSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
 }
 
 export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JSX.Element {
@@ -243,7 +243,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 							const task = visibleBatchProjects
 								.flatMap((bp) => bp.tasks)
 								.find((t) => t.sessionPath === path);
-							if (task) void onOpenSession(task.cwd, path);
+							if (task) void onOpenSession(task.cwd, path, task.executionMode);
 						}}
 						onRenameSession={handleRenameSession}
 					/>

@@ -30,6 +30,12 @@ function scheduleLabel(task: ScheduledTask): string {
 	return task.cron;
 }
 
+function executionModeLabel(task: ScheduledTask): string {
+	if (task.executionMode === "sandbox") return "使用沙盒";
+	if (task.executionMode === "full-access") return "完全访问";
+	return "跟随默认";
+}
+
 export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListProps): JSX.Element {
 	const tasks = useAtomValue(scheduledTasksAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
@@ -121,6 +127,10 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 							<span className="flex items-center gap-1">
 								<span className="icon-[mdi--clock-outline] text-[13px]" />
 								{scheduleLabel(task)}
+							</span>
+							<span className="flex items-center gap-1">
+								<span className="icon-[mdi--shield-outline] text-[13px]" />
+								{executionModeLabel(task)}
 							</span>
 							<span className="flex items-center gap-1">
 								<span className="icon-[mdi--history] text-[13px]" />

@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import type { ExecutionModeOverride, SessionExecutionMode } from "./chat-atoms";
 
 export interface ScheduledTask {
 	id: string;
@@ -11,6 +12,7 @@ export interface ScheduledTask {
 	/** Project working directory this task is associated with */
 	cwd: string;
 	modelId?: string;
+	executionMode?: ExecutionModeOverride;
 	createdAt: number;
 	updatedAt: number;
 	lastRunAt: number | null;
@@ -32,6 +34,7 @@ export interface TaskExecutionRecord {
 	responsePreview: string;
 	error?: string;
 	durationMs?: number;
+	executionMode?: SessionExecutionMode;
 }
 
 export const scheduledTasksAtom = atom<ScheduledTask[]>([]);

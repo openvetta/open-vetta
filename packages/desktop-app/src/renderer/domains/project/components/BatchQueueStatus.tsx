@@ -128,7 +128,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 
 	const handleGoToSession = (task: BatchTask) => {
 		if (task.sessionPath && openSessionFnRef.current) {
-			void openSessionFnRef.current(task.cwd, task.sessionPath);
+			void openSessionFnRef.current(task.cwd, task.sessionPath, task.executionMode);
 		}
 	};
 

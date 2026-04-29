@@ -115,7 +115,7 @@ export function ScheduleExecutionTabPanel({ cwd }: ScheduleExecutionTabPanelProp
 
 	const handleOpenSession = (record: TaskExecutionRecord) => {
 		if (!record.sessionPath || !record.cwd || !openSessionFnRef.current) return;
-		void openSessionFnRef.current(record.cwd, record.sessionPath);
+		void openSessionFnRef.current(record.cwd, record.sessionPath, record.executionMode);
 	};
 
 	if (projectTasks.length === 0) {

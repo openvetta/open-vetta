@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
+import { type ExecutionModeOverride, normalizeExecutionModeOverride } from "../execution-mode.js";
 
 const CONFIG_DIR = join(homedir(), ".vetta");
 const TASKS_FILE = join(CONFIG_DIR, "scheduled-tasks.json");
@@ -17,6 +19,7 @@ export interface ScheduledTask {
 	/** Project working directory this task is associated with */
 	cwd: string;
 	modelId?: string;
+	executionMode?: ExecutionModeOverride;
 	createdAt: number;
 	updatedAt: number;
 	lastRunAt: number | null;
@@ -38,6 +41,7 @@ export interface TaskExecutionRecord {
 	responsePreview: string;
 	error?: string;
 	durationMs?: number;
+	executionMode?: SessionExecutionMode;
 }
 
 async function ensureDirectories(): Promise<void> {
@@ -58,6 +62,7 @@ export async function loadTasks(): Promise<ScheduledTask[]> {
 			if (!("cwd" in task)) {
 				(task as ScheduledTask).cwd = `${homedir()}/.vetta/workspace`;
 			}
+			task.executionMode = normalizeExecutionModeOverride(task.executionMode, "full-access");
 		}
 		return tasks;
 	} catch {
@@ -67,7 +72,11 @@ export async function loadTasks(): Promise<ScheduledTask[]> {
 
 export async function saveTasks(tasks: ScheduledTask[]): Promise<void> {
 	await ensureDirectories();
-	await writeFile(TASKS_FILE, JSON.stringify(tasks, null, 2), "utf-8");
+	const normalized = tasks.map((task) => ({
+		...task,
+		executionMode: normalizeExecutionModeOverride(task.executionMode, "full-access"),
+	}));
+	await writeFile(TASKS_FILE, JSON.stringify(normalized, null, 2), "utf-8");
 }
 
 function getTaskRecordsDir(taskId: string): string {

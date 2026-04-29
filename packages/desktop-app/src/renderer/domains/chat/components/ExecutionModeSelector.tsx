@@ -70,7 +70,7 @@ export function ExecutionModeSelector(): JSX.Element {
 			localStorage.setItem("vetta-session-execution-mode", nextMode);
 			setIsSwitching(true);
 			try {
-				await window.vetta.session.setGlobalExecutionMode(nextMode);
+				await window.vetta.session.setExecutionMode(activeSession.runtimeId, nextMode);
 			} catch (error) {
 				setMode(previousMode);
 				localStorage.setItem("vetta-session-execution-mode", previousMode);

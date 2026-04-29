@@ -12,6 +12,7 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
+	type SessionExecutionMode,
 	selectedModelAtom,
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
@@ -42,10 +43,12 @@ import {
 } from "../services/chat-service";
 
 interface SessionManagerResult {
-	openSession: (cwd: string, sessionPath?: string) => Promise<void>;
+	openSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
 	sendMessage: () => Promise<void>;
 	abortMessage: () => Promise<void>;
-	openSessionRef: React.MutableRefObject<((cwd: string, sessionPath?: string) => Promise<void>) | undefined>;
+	openSessionRef: React.MutableRefObject<
+		((cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>) | undefined
+	>;
 }
 
 export function useSessionManager(): SessionManagerResult {
@@ -67,7 +70,8 @@ export function useSessionManager(): SessionManagerResult {
 	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const { loadSessions } = useProjects();
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
-	const openSessionRef = useRef<(cwd: string, sessionPath?: string) => Promise<void>>();
+	const openSessionRef =
+		useRef<(cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>>();
 
 	// ── Delta batching: accumulate text/thinking deltas per rAF frame ──
 	const pendingTextDeltaRef = useRef("");
@@ -107,7 +111,7 @@ export function useSessionManager(): SessionManagerResult {
 	}, []);
 
 	const openSession = useCallback(
-		async (cwd: string, sessionPath?: string) => {
+		async (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => {
 			const __t0 = Date.now();
 			const __perf = (label: string) => console.log(`[perf][openSession] ${label} +${Date.now() - __t0}ms`);
 			__perf(`enter cwd=${cwd} sessionPath=${sessionPath ?? "-"}`);
@@ -120,7 +124,7 @@ export function useSessionManager(): SessionManagerResult {
 
 			void navigate({ to: "/" });
 			__perf("before session.create");
-			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath });
+			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath, executionMode });
 			__perf("after session.create");
 
 			// Load full history (includes compaction boundaries for complete UI display)

@@ -1,5 +1,5 @@
 import { pathBasename } from "@shared/lib/utils";
-import { batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { batchProjectsAtom, type ExecutionModeOverride, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
@@ -13,7 +13,14 @@ export function useBatchTasks() {
 	}, [setProjects]);
 
 	const createProject = useCallback(
-		async (data: { name: string; prompt: string; modelKey?: string; folders: string[]; concurrency: number }) => {
+		async (data: {
+			name: string;
+			prompt: string;
+			modelKey?: string;
+			executionMode?: ExecutionModeOverride;
+			folders: string[];
+			concurrency: number;
+		}) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
 			return project;
@@ -24,7 +31,14 @@ export function useBatchTasks() {
 	const updateProject = useCallback(
 		async (
 			projectId: string,
-			data: { name?: string; prompt?: string; modelKey?: string; concurrency?: number; newFolders?: string[] },
+			data: {
+				name?: string;
+				prompt?: string;
+				modelKey?: string;
+				executionMode?: ExecutionModeOverride;
+				concurrency?: number;
+				newFolders?: string[];
+			},
 		) => {
 			await window.vetta.batchTasks.updateProject(projectId, data);
 			setProjects((prev) =>
@@ -48,6 +62,7 @@ export function useBatchTasks() {
 						...(data.name !== undefined ? { name: data.name } : {}),
 						...(data.prompt !== undefined ? { prompt: data.prompt } : {}),
 						...(data.modelKey !== undefined ? { modelKey: data.modelKey } : {}),
+						...(data.executionMode !== undefined ? { executionMode: data.executionMode } : {}),
 						...(data.concurrency !== undefined ? { concurrency: data.concurrency } : {}),
 						tasks: [...p.tasks, ...newTasks],
 						updatedAt: Date.now(),
@@ -164,6 +179,7 @@ export function useBatchTasks() {
 									status: "running" as const,
 									sessionId: event.sessionId,
 									sessionPath: event.sessionPath,
+									executionMode: event.executionMode,
 									updatedAt: Date.now(),
 								};
 							}

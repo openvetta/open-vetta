@@ -77,7 +77,7 @@ export function GeneralSettings(): JSX.Element {
 			setExecutionMode(mode);
 			localStorage.setItem("vetta-session-execution-mode", mode);
 			try {
-				await window.vetta.session.setGlobalExecutionMode(mode);
+				await window.vetta.config.set({ defaultExecutionMode: mode });
 			} catch (error) {
 				setExecutionMode(previousMode);
 				localStorage.setItem("vetta-session-execution-mode", previousMode);
@@ -133,8 +133,8 @@ export function GeneralSettings(): JSX.Element {
 					<Switch checked={debugMode} onCheckedChange={handleToggleDebug} />
 				</SettingRow>
 				<SettingRow
-					title="沙盒访问范围"
-					description="全局控制所有会话的工具访问范围，切换后会应用到当前已打开的会话；刷新后保持所选模式"
+					title="默认沙盒状态"
+					description="新建会话未单独设置时使用的工具访问范围；不会改变已打开会话"
 					border={false}
 				>
 					<Select value={executionMode} onValueChange={(value) => void handleExecutionModeChange(value as SessionExecutionMode)}>
