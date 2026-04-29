@@ -116,6 +116,17 @@ export interface DesktopConfigData {
 		reason?: string;
 		details?: string;
 		checkedAt?: number;
+		features?: {
+			readRoots: boolean;
+			writeRoots: boolean;
+			denyRead: boolean;
+			denyWrite: boolean;
+			tempRootIsolation: boolean;
+			networkIsolation: boolean;
+			processTreeKill: boolean;
+			passiveProbe: boolean;
+			activeProbe: boolean;
+		};
 	};
 	linuxSandbox?: {
 		status: "unknown" | "available" | "unavailable";

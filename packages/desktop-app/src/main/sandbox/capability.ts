@@ -1,11 +1,25 @@
-import { spawnSync } from "node:child_process";
-import { accessSync, constants, existsSync } from "node:fs";
-import { isAbsolute, resolve as resolvePath } from "node:path";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
+import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { isAbsolute, join, resolve as resolvePath } from "node:path";
 import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { type LinuxSandboxBackend, resolveLinuxBubblewrapBinary } from "./binary-resolver.js";
+import { resolveWindowsSandboxHostBinary } from "./windows-binary-resolver.js";
 
 export type SandboxStatus = "unknown" | "available" | "unavailable";
 export type SandboxBackend = LinuxSandboxBackend | "macos-seatbelt" | "windows-host" | null;
+
+export interface SandboxCapabilityFeatures {
+	readRoots: boolean;
+	writeRoots: boolean;
+	denyRead: boolean;
+	denyWrite: boolean;
+	tempRootIsolation: boolean;
+	networkIsolation: boolean;
+	processTreeKill: boolean;
+	passiveProbe: boolean;
+	activeProbe: boolean;
+}
 
 export interface SandboxCapability {
 	status: SandboxStatus;
@@ -15,6 +29,7 @@ export interface SandboxCapability {
 	reason?: string;
 	details?: string;
 	checkedAt?: number;
+	features?: SandboxCapabilityFeatures;
 }
 
 export type LinuxSandboxStatus = SandboxStatus;
@@ -24,6 +39,21 @@ export interface LinuxSandboxCapability extends SandboxCapability {
 
 const STANDARD_READ_ONLY_ROOTS = ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc"] as const;
 const PROBE_HOME = "/tmp/vetta-probe-home";
+const WINDOWS_PROBE_TIMEOUT_MS = 10000;
+
+interface WindowsHostCapabilitiesJson {
+	version: number;
+	backend: string;
+	fullSandbox: boolean;
+	explicitRoots: boolean;
+	denyRead: boolean;
+	denyWrite: boolean;
+	tempRoot: boolean;
+	networkIsolation: boolean;
+	jobObjectKillTree: boolean;
+	clearEnv: boolean;
+	limitedReasons: string[];
+}
 
 let sandboxCapability: SandboxCapability = {
 	status: "unknown",
@@ -124,6 +154,306 @@ function resolveMacosSandboxExecPath(): string | undefined {
 
 function buildMacosProbeProfile(): string {
 	return ["(version 1)", "(deny default)", "(allow process*)", "(allow file-read*)"].join("\n");
+}
+
+function isWindowsHostCapabilitiesJson(value: unknown): value is WindowsHostCapabilitiesJson {
+	if (!value || typeof value !== "object") return false;
+	const candidate = value as Record<string, unknown>;
+	return (
+		typeof candidate.version === "number" &&
+		typeof candidate.backend === "string" &&
+		typeof candidate.fullSandbox === "boolean" &&
+		typeof candidate.explicitRoots === "boolean" &&
+		typeof candidate.denyRead === "boolean" &&
+		typeof candidate.denyWrite === "boolean" &&
+		typeof candidate.tempRoot === "boolean" &&
+		typeof candidate.networkIsolation === "boolean" &&
+		typeof candidate.jobObjectKillTree === "boolean" &&
+		typeof candidate.clearEnv === "boolean" &&
+		Array.isArray(candidate.limitedReasons) &&
+		candidate.limitedReasons.every((item) => typeof item === "string")
+	);
+}
+
+function windowsFeaturesFromCapabilities(
+	capabilities: WindowsHostCapabilitiesJson,
+	activeProbe: boolean,
+): SandboxCapabilityFeatures {
+	return {
+		readRoots: capabilities.explicitRoots,
+		writeRoots: capabilities.explicitRoots,
+		denyRead: capabilities.denyRead,
+		denyWrite: capabilities.denyWrite,
+		tempRootIsolation: capabilities.tempRoot,
+		networkIsolation: capabilities.networkIsolation,
+		processTreeKill: capabilities.jobObjectKillTree,
+		passiveProbe: true,
+		activeProbe,
+	};
+}
+
+function readWindowsHostCapabilities(
+	hostPath: string,
+): WindowsHostCapabilitiesJson | { error: string; details: string } {
+	const result = spawnSync(hostPath, ["--capabilities", "--json"], {
+		encoding: "utf-8",
+		timeout: 5000,
+	});
+	if (result.error) {
+		return {
+			error:
+				(result.error as NodeJS.ErrnoException).code === "EACCES"
+					? "binary_not_executable"
+					: "probe_command_failed",
+			details: result.error.message,
+		};
+	}
+	if (result.status !== 0) {
+		const stderr = result.stderr ?? "";
+		return {
+			error: stderr.toLowerCase().includes("unknown argument") ? "unsupported_host_option" : "probe_command_failed",
+			details: stderr || "Windows sandbox host capability command failed.",
+		};
+	}
+	try {
+		const parsed = JSON.parse(result.stdout) as unknown;
+		if (isWindowsHostCapabilitiesJson(parsed)) return parsed;
+		return {
+			error: "probe_command_failed",
+			details: "Windows sandbox host returned invalid capability JSON.",
+		};
+	} catch (error) {
+		return {
+			error: "probe_command_failed",
+			details: error instanceof Error ? error.message : String(error),
+		};
+	}
+}
+
+function resolveWindowsProbeCommandPath(): string {
+	const comspec = process.env.COMSPEC;
+	if (comspec && existsSync(comspec)) return comspec;
+	const systemRoot = process.env.SystemRoot;
+	if (systemRoot) {
+		const candidate = join(systemRoot, "System32", "cmd.exe");
+		if (existsSync(candidate)) return candidate;
+	}
+	return "cmd.exe";
+}
+
+function buildWindowsProbeEnvArgs(tempRoot: string): string[] {
+	const args = ["--clear-env"];
+	const pathValue = process.env.PATH;
+	const systemRoot = process.env.SystemRoot;
+	const comspec = process.env.COMSPEC;
+	if (pathValue) args.push("--env", `PATH=${pathValue}`);
+	if (systemRoot) args.push("--env", `SystemRoot=${systemRoot}`);
+	if (comspec) args.push("--env", `COMSPEC=${comspec}`);
+	args.push("--env", `TEMP=${tempRoot}`, "--env", `TMP=${tempRoot}`);
+	return args;
+}
+
+function runWindowsProbeCommand(options: {
+	hostPath: string;
+	workspaceRoot: string;
+	tempRoot: string;
+	command: string;
+	commandCwd?: string;
+	denyReadPath?: string;
+	denyWritePath?: string;
+}): SpawnSyncReturns<string> {
+	const cmdPath = resolveWindowsProbeCommandPath();
+	const commandCwd = options.commandCwd ?? options.workspaceRoot;
+	const readRoots = [options.workspaceRoot, options.tempRoot];
+	const systemRoot = process.env.SystemRoot;
+	if (systemRoot) readRoots.push(join(systemRoot, "System32"));
+	const args = [
+		"--backend",
+		"auto",
+		"--policy",
+		"workspace-write",
+		"--policy-cwd",
+		options.workspaceRoot,
+		"--cwd",
+		commandCwd,
+		"--temp-root",
+		options.tempRoot,
+		"--network",
+		"none",
+		...buildWindowsProbeEnvArgs(options.tempRoot),
+	];
+	for (const root of readRoots) {
+		args.push("--read-root", root);
+	}
+	args.push("--write-root", options.workspaceRoot);
+	if (options.denyReadPath) args.push("--deny-read-path", options.denyReadPath);
+	if (options.denyWritePath) args.push("--deny-write-path", options.denyWritePath);
+	args.push("--", cmdPath, "/d", "/s", "/c", options.command);
+	return spawnSync(options.hostPath, args, {
+		cwd: commandCwd,
+		encoding: "utf-8",
+		timeout: WINDOWS_PROBE_TIMEOUT_MS,
+	});
+}
+
+function probeWindowsSandbox(): SandboxCapability {
+	const resolved = resolveWindowsSandboxHostBinary();
+	if (!resolved) {
+		return {
+			status: "unavailable",
+			backend: null,
+			platform: process.platform,
+			reason: "binary_not_found",
+			details: "No bundled or configured Windows sandbox host binary was found.",
+			checkedAt: Date.now(),
+		};
+	}
+
+	const capabilities = readWindowsHostCapabilities(resolved.path);
+	if ("error" in capabilities) {
+		return {
+			status: "unavailable",
+			backend: "windows-host",
+			platform: process.platform,
+			binaryPath: resolved.path,
+			reason: capabilities.error,
+			details: capabilities.details,
+			checkedAt: Date.now(),
+		};
+	}
+
+	if (!capabilities.fullSandbox || !capabilities.explicitRoots || !capabilities.denyWrite || !capabilities.tempRoot) {
+		return {
+			status: "unavailable",
+			backend: "windows-host",
+			platform: process.platform,
+			binaryPath: resolved.path,
+			reason: "limited_host_capabilities",
+			details: `Windows sandbox host reported limited capabilities: ${capabilities.limitedReasons.join(", ")}`,
+			checkedAt: Date.now(),
+			features: windowsFeaturesFromCapabilities(capabilities, false),
+		};
+	}
+
+	const probeRoot = mkdtempSync(join(tmpdir(), "vetta-windows-sandbox-probe-"));
+	const outsideRoot = mkdtempSync(join(homedir(), ".vetta-windows-sandbox-outside-"));
+	try {
+		const workspaceRoot = join(probeRoot, "workspace");
+		const tempRoot = join(probeRoot, "temp");
+		mkdirSync(workspaceRoot, { recursive: true });
+		mkdirSync(tempRoot, { recursive: true });
+
+		const workspaceFile = join(workspaceRoot, "ok.txt");
+		const workspaceWrite = runWindowsProbeCommand({
+			hostPath: resolved.path,
+			workspaceRoot,
+			tempRoot,
+			command: "echo ok > ok.txt",
+		});
+		if (workspaceWrite.status !== 0 || !existsSync(workspaceFile)) {
+			return {
+				status: "unavailable",
+				backend: "windows-host",
+				platform: process.platform,
+				binaryPath: resolved.path,
+				reason: "probe_command_failed",
+				details: workspaceWrite.stderr || "Windows sandbox workspace write probe failed.",
+				checkedAt: Date.now(),
+				features: windowsFeaturesFromCapabilities(capabilities, false),
+			};
+		}
+
+		const outsideFile = join(outsideRoot, "no.txt");
+		const outsideWrite = runWindowsProbeCommand({
+			hostPath: resolved.path,
+			workspaceRoot,
+			tempRoot,
+			command: `echo no > ${outsideFile}`,
+		});
+		if (outsideWrite.status === 0 || existsSync(outsideFile)) {
+			return {
+				status: "unavailable",
+				backend: "windows-host",
+				platform: process.platform,
+				binaryPath: resolved.path,
+				reason: "write_root_not_enforced",
+				details: "Windows sandbox allowed writing outside explicit write roots.",
+				checkedAt: Date.now(),
+				features: windowsFeaturesFromCapabilities(capabilities, false),
+			};
+		}
+
+		const tempFile = join(tempRoot, "temp.txt");
+		const tempWrite = runWindowsProbeCommand({
+			hostPath: resolved.path,
+			workspaceRoot,
+			tempRoot,
+			commandCwd: tempRoot,
+			command: "echo temp > temp.txt",
+		});
+		if (tempWrite.status !== 0 || !existsSync(tempFile)) {
+			return {
+				status: "unavailable",
+				backend: "windows-host",
+				platform: process.platform,
+				binaryPath: resolved.path,
+				reason: "temp_root_not_isolated",
+				details: tempWrite.stderr || "Windows sandbox temp-root write probe failed.",
+				checkedAt: Date.now(),
+				features: windowsFeaturesFromCapabilities(capabilities, false),
+			};
+		}
+
+		const denyWriteFile = join(workspaceRoot, "deny.txt");
+		const denyWrite = runWindowsProbeCommand({
+			hostPath: resolved.path,
+			workspaceRoot,
+			tempRoot,
+			denyWritePath: denyWriteFile,
+			command: "echo deny > deny.txt",
+		});
+		if (denyWrite.status === 0) {
+			return {
+				status: "unavailable",
+				backend: "windows-host",
+				platform: process.platform,
+				binaryPath: resolved.path,
+				reason: "deny_write_not_enforced",
+				details: "Windows sandbox allowed writing to an explicit deny-write path.",
+				checkedAt: Date.now(),
+				features: windowsFeaturesFromCapabilities(capabilities, false),
+			};
+		}
+
+		let denyRead = capabilities.denyRead;
+		const secretFile = join(workspaceRoot, "secret.txt");
+		writeFileSync(secretFile, "secret", "utf8");
+		if (capabilities.denyRead) {
+			const denyReadResult = runWindowsProbeCommand({
+				hostPath: resolved.path,
+				workspaceRoot,
+				tempRoot,
+				denyReadPath: secretFile,
+				command: "type secret.txt",
+			});
+			denyRead = denyReadResult.status !== 0;
+		}
+
+		return {
+			status: "available",
+			backend: "windows-host",
+			platform: process.platform,
+			binaryPath: resolved.path,
+			checkedAt: Date.now(),
+			features: {
+				...windowsFeaturesFromCapabilities(capabilities, true),
+				denyRead,
+			},
+		};
+	} finally {
+		rmSync(probeRoot, { recursive: true, force: true });
+		rmSync(outsideRoot, { recursive: true, force: true });
+	}
 }
 
 function probeLinuxSandbox(): SandboxCapability {
@@ -257,12 +587,7 @@ export async function initializeSandboxCapability(): Promise<SandboxCapability> 
 			return sandboxCapability;
 		}
 		if (process.platform === "win32") {
-			sandboxCapability = {
-				status: "available",
-				backend: "windows-host",
-				platform: process.platform,
-				checkedAt: Date.now(),
-			};
+			sandboxCapability = probeWindowsSandbox();
 			return sandboxCapability;
 		}
 

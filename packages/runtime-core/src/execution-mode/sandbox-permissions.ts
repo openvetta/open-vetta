@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { homedir, tmpdir } from "node:os";
-import { dirname, isAbsolute, relative, resolve as resolvePath } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve as resolvePath } from "node:path";
 import type { ExtensionContext } from "@vetta/coding-agent";
 
 export type SandboxPermissionCapability = "file.read" | "file.write" | "network";
@@ -16,6 +16,7 @@ export interface SandboxPermissionRequest {
 }
 
 export interface SandboxShellGrant {
+	allowReadRoots: string[];
 	allowWriteRoots: string[];
 }
 
@@ -48,6 +49,38 @@ export function isPathInsideRoot(targetPath: string, rootPath: string): boolean 
 function isAllowedSandboxPath(targetPath: string, cwd: string): boolean {
 	const allowedRoots = [cwd, tmpdir(), "/tmp", "/private/tmp"];
 	return allowedRoots.some((root) => isPathInsideRoot(targetPath, root));
+}
+
+export function getSandboxDenyRoots(): string[] {
+	const homeDir = homedir();
+	const roots = [
+		join(homeDir, ".ssh"),
+		join(homeDir, ".aws"),
+		join(homeDir, ".gnupg"),
+		join(homeDir, ".kube"),
+		join(homeDir, ".docker"),
+		join(homeDir, ".vetta", "agent"),
+		join(homeDir, ".pi"),
+	];
+	if (process.platform === "darwin") {
+		roots.push(join(homeDir, ".config", "gcloud"), join(homeDir, "Library", "Keychains"));
+	}
+	if (process.platform === "win32") {
+		const appData = process.env.APPDATA;
+		if (appData) roots.push(join(appData, "gcloud"), join(appData, "Vetta"));
+	}
+	return Array.from(new Set(roots.map((root) => resolvePath(root))));
+}
+
+export function isDeniedSandboxPath(targetPath: string): boolean {
+	return getSandboxDenyRoots().some((root) => isPathInsideRoot(targetPath, root));
+}
+
+export function assertSandboxPathNotDenied(targetPath: string, toolName: string): void {
+	if (!isDeniedSandboxPath(targetPath)) return;
+	throw new Error(
+		`Access denied by sandbox: "${targetPath}" is in a sensitive sandbox deny path for tool "${toolName}".`,
+	);
 }
 
 function shouldSkipShellPath(rawPath: string): boolean {
@@ -95,6 +128,7 @@ export function collectShellWritePermissionRequests(command: string, cwd: string
 		.filter((rawPath) => !shouldSkipShellPath(rawPath))
 		.map((rawPath) => {
 			const resolvedTarget = resolveSandboxPath(rawPath, cwd);
+			assertSandboxPathNotDenied(resolvedTarget, "shell");
 			const grantRoot = dirname(resolvedTarget);
 			return { rawPath, resolvedTarget, grantRoot };
 		})

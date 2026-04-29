@@ -52,4 +52,5 @@ settings.local.json
 .codex/
 prompt/
 spec/
+requirement/
 .agents/
