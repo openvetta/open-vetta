@@ -530,7 +530,6 @@ const ListFooter = memo(function ListFooter({ showTyping, isCompacting }: { show
 export function MessageList({ messages, isStreaming }: MessageListProps): JSX.Element {
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
-	const [showScrollBtn, setShowScrollBtn] = useState(false);
 	const isCompacting = useAtomValue(isCompactingAtom);
 	const lastMessage = messages.at(-1);
 	const showTyping = isStreaming && (!lastMessage || lastMessage.role !== "assistant" || !lastMessage.text);
@@ -548,17 +547,6 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 
 	const handleAtBottom = useCallback((atBottom: boolean) => {
 		followOutputRef.current = atBottom;
-		setShowScrollBtn(!atBottom);
-	}, []);
-
-	/** Scroll the scroller element to its absolute bottom */
-	const scrollToBottom = useCallback(() => {
-		const el = scrollerRef.current;
-		if (el) {
-			el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-		}
-		followOutputRef.current = true;
-		setShowScrollBtn(false);
 	}, []);
 
 	// When user sends a new message, always scroll to bottom
@@ -569,7 +557,6 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 		const newMsg = messages.at(-1);
 		if (messages.length > prevCount && newMsg?.role === "user") {
 			followOutputRef.current = true;
-			setShowScrollBtn(false);
 			const el = scrollerRef.current;
 			if (el) {
 				el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -648,21 +635,6 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 				itemContent={itemContent}
 				initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
 			/>
-			<AnimatePresence>
-				{showScrollBtn && (
-					<motion.button
-						initial={{ opacity: 0, scale: 0.8 }}
-						animate={{ opacity: 1, scale: 1 }}
-						exit={{ opacity: 0, scale: 0.8 }}
-						transition={{ duration: 0.15 }}
-						type="button"
-						onClick={scrollToBottom}
-						className="absolute bottom-[72px] left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-secondary text-muted-foreground shadow-md transition-colors hover:bg-accent"
-					>
-						<span className="icon-[mdi--chevron-down] h-5 w-5" />
-					</motion.button>
-				)}
-			</AnimatePresence>
 		</>
 	);
 }

@@ -83,11 +83,11 @@ export function ExecutionModeSelector(): JSX.Element {
 	);
 
 	return (
-		<div className="ml-1">
+		<div className="ml-1 min-w-0">
 			<Select value={mode} onValueChange={(value) => void handleSelect(value as SessionExecutionMode)} disabled={disabled}>
 				<SelectTrigger
 					size="sm"
-					className="h-7 border-border/70 bg-background/50 px-2 text-[12px] text-muted-foreground hover:text-foreground"
+					className="h-7 max-w-full min-w-0 border-border/70 bg-background/50 px-2 text-[12px] text-muted-foreground hover:text-foreground [&>span]:truncate"
 				>
 					<SelectValue />
 				</SelectTrigger>

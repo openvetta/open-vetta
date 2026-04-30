@@ -35,7 +35,7 @@ export function ContextRing(): JSX.Element | null {
 			? "#ef4444"
 			: percent > 70
 				? "#f59e0b"
-				: "var(--foreground)";
+				: "var(--primary)";
 
 	const tooltip = isCompacting
 		? "正在压缩上下文..."

@@ -214,9 +214,9 @@ export function ProjectGroup({
 										setContextMenu({ x: e.clientX, y: e.clientY, session });
 									}}
 									className={cn(
-										"flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
+										"relative flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
 										isActive
-											? "bg-accent dark:bg-accent/70"
+											? "bg-primary/15 text-primary"
 											: "hover:bg-accent/50",
 									)}
 									title={isRenaming ? undefined : label}
@@ -238,7 +238,7 @@ export function ProjectGroup({
 													"min-w-0 flex-1 truncate text-[13px]",
 													!label.startsWith("[定时]") && "pl-[20px]",
 													isActive
-														? "font-medium text-foreground"
+														? "font-semibold text-primary"
 														: "text-foreground",
 												)}
 											>

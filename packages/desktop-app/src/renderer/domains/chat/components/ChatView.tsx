@@ -1,5 +1,17 @@
+import { useEffect, useMemo } from "react";
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
-import { activeSessionAtom, authUserAtom, chatMessagesAtom, isStreamingAtom, activityPanelOpenAtom, flowingSendDialogOpenAtom, workflowInstanceAtom, workflowCompleteDialogOpenAtom } from "@shared/store/atoms";
+import {
+	activeSessionAtom,
+	authUserAtom,
+	chatMessagesAtom,
+	isStreamingAtom,
+	activityPanelOpenAtom,
+	flowingSendDialogOpenAtom,
+	workflowInstanceAtom,
+	workflowCompleteDialogOpenAtom,
+	pageHeaderTitleAtom,
+	pageHeaderRightSlotAtom,
+} from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { pathBasename } from "@shared/lib/utils";
 import { MessageList } from "./MessageList";
@@ -25,6 +37,8 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const setWorkflowCompleteOpen = useSetAtom(workflowCompleteDialogOpenAtom);
 	const workflowInstance = useAtomValue(workflowInstanceAtom);
 	const authUser = useAtomValue(authUserAtom);
+	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
+	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
 
 	// 判断是否在最后环节且当前用户是该环节成员
 	const isLastStage =
@@ -34,64 +48,63 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 		workflowInstance.current_stage === workflowInstance.stages.length - 1 &&
 		workflowInstance.stages[workflowInstance.current_stage]?.member_ids.includes(authUser.id);
 
+	// Push session name into the global page header
+	const sessionTitle = activeSession ? projectName(activeSession.cwd) : null;
+	useEffect(() => {
+		setHeaderTitle(sessionTitle);
+		return () => setHeaderTitle(null);
+	}, [sessionTitle, setHeaderTitle]);
+
+	// Push right-side actions into the global page header
+	const rightSlot = useMemo(
+		() => (
+			<>
+				{isStreaming && (
+					<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+						<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-muted-foreground/50" />
+						Thinking...
+					</div>
+				)}
+				<SandboxGrantsBadge />
+				{isLastStage ? (
+					<Button
+						size="sm"
+						className="rounded-full bg-emerald-600 hover:bg-emerald-700"
+						onClick={() => setWorkflowCompleteOpen(true)}
+					>
+						<span className="icon-[mdi--check-circle-outline] text-[14px]" />
+						<span>完成</span>
+					</Button>
+				) : (
+					<Button
+						size="sm"
+						className="rounded-full"
+						onClick={() => setFlowingSendOpen(true)}
+					>
+						<span className="icon-[mdi--swap-horizontal] text-[14px]" />
+						<span>内容流转</span>
+					</Button>
+				)}
+				<Button
+					size="icon-xs"
+					variant="ghost"
+					title={panelOpen ? "关闭活动面板" : "打开活动面板"}
+					onClick={() => setPanelOpen((o) => !o)}
+					className={panelOpen ? "bg-accent text-foreground" : ""}
+				>
+					<span className="icon-[mdi--dock-right] text-[14px]" />
+				</Button>
+			</>
+		),
+		[isStreaming, isLastStage, panelOpen, setFlowingSendOpen, setWorkflowCompleteOpen, setPanelOpen],
+	);
+	useEffect(() => {
+		setHeaderRightSlot(rightSlot);
+		return () => setHeaderRightSlot(null);
+	}, [rightSlot, setHeaderRightSlot]);
+
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
-			{/* Title bar — shared across chat and activity panel */}
-			<div
-				className="drag-region pointer-events-none shrink-0"
-				style={{
-					paddingTop: 20,
-					paddingBottom: 8,
-					paddingLeft: 16,
-					paddingRight: 16,
-				}}
-			>
-				<div className="pointer-events-auto no-drag flex items-center justify-between">
-					<div className="truncate text-[14px] font-semibold text-foreground">
-						{activeSession ? projectName(activeSession.cwd) : "Session"}
-					</div>
-
-					<div className="flex items-center gap-1">
-						{isStreaming && (
-							<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
-								<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-muted-foreground/50" />
-								Thinking...
-							</div>
-						)}
-						<SandboxGrantsBadge />
-						{isLastStage ? (
-							<Button
-								size="sm"
-								className="rounded-full bg-emerald-600 hover:bg-emerald-700"
-								onClick={() => setWorkflowCompleteOpen(true)}
-							>
-								<span className="icon-[mdi--check-circle-outline] text-[14px]" />
-								<span>完成</span>
-							</Button>
-						) : (
-							<Button
-								size="sm"
-								className="rounded-full"
-								onClick={() => setFlowingSendOpen(true)}
-							>
-								<span className="icon-[mdi--swap-horizontal] text-[14px]" />
-								<span>内容流转</span>
-							</Button>
-						)}
-						<Button
-							size="icon-xs"
-							variant="ghost"
-							title={panelOpen ? "关闭活动面板" : "打开活动面板"}
-							onClick={() => setPanelOpen((o) => !o)}
-							className={panelOpen ? "bg-accent text-foreground" : ""}
-						>
-							<span className="icon-[mdi--dock-right] text-[14px]" />
-						</Button>
-					</div>
-				</div>
-			</div>
-
-			{/* Content area below title bar */}
 			<div className="flex flex-1 gap-2 overflow-hidden">
 				{/* Chat messages + input */}
 				<div className="flex min-w-0 flex-1 flex-col">
