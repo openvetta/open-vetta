@@ -12,25 +12,28 @@ export function ActionButtonBar(): JSX.Element | null {
 	if (buttons.length === 0) return null;
 
 	return (
-		<div className="flex flex-wrap gap-1.5 px-4 pt-3 pb-1">
-			<AnimatePresence>
-				{buttons.map((btn) => (
+		<div className="mb-1.5 flex flex-wrap gap-1.5 px-1">
+			<AnimatePresence initial={false}>
+				{buttons.map((btn, idx) => (
 					<motion.button
 						key={btn.id}
 						type="button"
-						initial={{ scale: 0.85, opacity: 0 }}
-						animate={{ scale: 1, opacity: 1 }}
-						exit={{ scale: 0.85, opacity: 0 }}
+						initial={{ scale: 0.7, opacity: 0, y: 6 }}
+						animate={{ scale: 1, opacity: 1, y: 0 }}
+						exit={{ scale: 0.7, opacity: 0, y: -4 }}
 						transition={{
-							duration: 0.15,
-							ease: [0.25, 0.1, 0.25, 1],
+							type: "spring",
+							stiffness: 480,
+							damping: 30,
+							delay: idx * 0.03,
 						}}
+						whileHover={{ y: -1, scale: 1.02 }}
+						whileTap={{ scale: 0.96 }}
 						onClick={() => handlers.get(btn.id)?.()}
-						className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/15"
+						style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
 					>
-						{btn.icon && (
-							<span className={`${btn.icon} h-3.5 w-3.5`} />
-						)}
+						{btn.icon && <span className={`${btn.icon} h-3.5 w-3.5`} />}
 						<span>{btn.label}</span>
 					</motion.button>
 				))}

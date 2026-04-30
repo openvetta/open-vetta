@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { useAtom, useAtomValue } from "jotai";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
 	activityPanelWidthAtom,
 	activityPanelOpenAtom,
@@ -9,7 +9,11 @@ import {
 	todoItemsByCwdAtom,
 	getTodoItemsForCwd,
 	debugModeAtom,
+	inlineFilePreviewAtom,
+	inlineFilePreviewContextReadonlyAtom,
+	sidebarCollapsedAtom,
 } from "@shared/store/atoms";
+import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components/FilePreviewView";
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
 import { JourneyPanel } from "./JourneyPanel";
@@ -35,6 +39,30 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	const [width, setWidth] = useAtom(activityPanelWidthAtom);
 	const [isResizing, setIsResizing] = useState(false);
 	const [tabByProject, setTabByProject] = useAtom(activityPanelTabByProjectAtom);
+
+	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
+	const inlinePreviewActive = inlinePreviewCtx !== null;
+	const setSidebarCollapsed = useSetAtom(sidebarCollapsedAtom);
+	const previousSidebarStateRef = useRef<boolean | null>(null);
+
+	// When inline preview opens, auto-collapse sidebar and remember previous state.
+	// When it closes, restore the previous state.
+	useEffect(() => {
+		if (inlinePreviewActive) {
+			if (previousSidebarStateRef.current === null) {
+				let prev = false;
+				setSidebarCollapsed((current) => {
+					prev = current;
+					return true;
+				});
+				previousSidebarStateRef.current = prev;
+			}
+		} else if (previousSidebarStateRef.current !== null) {
+			const restore = previousSidebarStateRef.current;
+			previousSidebarStateRef.current = null;
+			setSidebarCollapsed(restore);
+		}
+	}, [inlinePreviewActive, setSidebarCollapsed]);
 
 	const cwd = cwdProp ?? activeSession?.cwd ?? null;
 	const { profile } = useProjectProfile(cwd);
@@ -108,13 +136,24 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 
 	return (
 		<aside
-			style={{
-				width: isOpen ? width : 0,
-				transition: isResizing ? "none" : "width 0.2s ease-in-out",
-			}}
-			className="relative shrink-0 overflow-hidden"
+			style={
+				inlinePreviewActive
+					? undefined
+					: {
+							width: isOpen ? width : 0,
+							transition: isResizing ? "none" : "width 0.2s ease-in-out",
+						}
+			}
+			className={
+				inlinePreviewActive
+					? "relative flex-1 min-w-0 overflow-hidden"
+					: "relative shrink-0 overflow-hidden"
+			}
 		>
-			<div className="flex h-full flex-col pb-2 pr-2" style={{ width }}>
+			<div
+				className="flex h-full flex-col pb-2 pr-2"
+				style={inlinePreviewActive ? undefined : { width }}
+			>
 				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/50">
 					{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab） */}
 					{segmentedItems.length > 0 && (
@@ -134,12 +173,49 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 					</div>
 				</div>
 			</div>
-			{isOpen && <ResizeHandle side="left" onResize={onResize} onResizeEnd={onResizeEnd} />}
+			{isOpen && !inlinePreviewActive && (
+				<ResizeHandle side="left" onResize={onResize} onResizeEnd={onResizeEnd} />
+			)}
 		</aside>
 	);
 }
 
 function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
+	const [previewCtx, setPreviewCtx] = useAtom(inlineFilePreviewContextReadonlyAtom);
+	const setPreview = useSetAtom(inlineFilePreviewAtom);
+	const { goPrev, goNext, close } = usePreviewNav((updater) => {
+		if (typeof updater === "function") {
+			setPreviewCtx(updater(previewCtx));
+		} else {
+			setPreview(updater);
+		}
+	});
+
+	if (previewCtx) {
+		return (
+			<div className="flex min-h-0 flex-1 overflow-hidden">
+				{/* Left: file tree (compressed) */}
+				<div className="flex w-[260px] shrink-0 flex-col overflow-hidden border-r border-border/50">
+					<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+						<FilesPanel cwd={cwd} />
+					</div>
+				</div>
+				{/* Right: preview */}
+				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+					<FilePreviewView
+						ctx={previewCtx}
+						onPrev={goPrev}
+						onNext={goNext}
+						onClose={close}
+						canPrev={previewCtx.index > 0}
+						canNext={previewCtx.index < previewCtx.items.length - 1}
+						enableKeyboard
+					/>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
 			<FilesPanel cwd={cwd} />

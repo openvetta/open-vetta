@@ -35,18 +35,19 @@ interface InputBarProps {
 const MIN_HEIGHT = 24;
 const MAX_HEIGHT = 200;
 
+const SPRING = { type: "spring" as const, stiffness: 460, damping: 32, mass: 0.9 };
+const SOFT = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
+
 let imageIdCounter = 0;
 function nextImageId(): string {
 	return `img-${++imageIdCounter}-${Date.now()}`;
 }
 
-/** Read a File (from paste/drop) as base64 + mimeType. */
 function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; name: string }> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => {
 			const result = reader.result as string;
-			// result is "data:<mime>;base64,<data>"
 			const commaIdx = result.indexOf(",");
 			resolve({
 				data: result.slice(commaIdx + 1),
@@ -85,12 +86,12 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const hasSession = Boolean(activeSession);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
+	const hasCapsules = Boolean(selectedSkill) || mentionedFiles.length > 0;
 
 	useEffect(() => {
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
 	}, [sandboxPermission]);
 
-	// Auto-resize textarea to fit content
 	const resize = useCallback(() => {
 		const el = textareaRef.current;
 		if (!el) return;
@@ -102,7 +103,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		resize();
 	}, [inputValue, resize]);
 
-	// Focus textarea on mount and when session changes
 	useEffect(() => {
 		if (hasSession && !isStreaming) {
 			textareaRef.current?.focus();
@@ -110,9 +110,14 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	}, [hasSession, isStreaming]);
 
 	function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
-		// AtPanel/SlashPanel use stopPropagation in capture phase, so when they're
-		// open the event never reaches here. This guard is a safety fallback.
-		if ((slashOpen || atOpen) && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "Escape" || e.key === "Tab")) {
+		if (
+			(slashOpen || atOpen) &&
+			(e.key === "ArrowDown" ||
+				e.key === "ArrowUp" ||
+				e.key === "Enter" ||
+				e.key === "Escape" ||
+				e.key === "Tab")
+		) {
 			e.preventDefault();
 			return;
 		}
@@ -120,21 +125,27 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 			e.preventDefault();
 			if (canSend) void onSend();
 		}
+		// Backspace at start removes the rightmost capsule for fluid editing
+		if (e.key === "Backspace" && inputValue === "" && hasCapsules) {
+			e.preventDefault();
+			if (mentionedFiles.length > 0) {
+				const last = mentionedFiles[mentionedFiles.length - 1];
+				setMentionedFiles((prev) => prev.filter((f) => f.path !== last.path));
+			} else if (selectedSkill) {
+				setSelectedSkill(null);
+			}
+		}
 	}
 
 	function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>): void {
 		const val = e.target.value;
 		setInputValue(val);
-
-		// Open slash panel when "/" is typed at position 0
 		if (val === "/" || (val.startsWith("/") && !val.includes(" "))) {
 			if (!slashOpen) setSlashOpen(true);
 			if (atOpen) setAtOpen(false);
 		} else if (slashOpen && !val.startsWith("/")) {
 			setSlashOpen(false);
 		}
-
-		// Detect "@" trigger: last word starts with "@"
 		const cursorPos = e.target.selectionStart ?? val.length;
 		const textBeforeCursor = val.slice(0, cursorPos);
 		const atMatch = textBeforeCursor.match(/@([^\s]*)$/);
@@ -145,7 +156,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		}
 	}
 
-	/** Extract the @filter text from current cursor position. */
 	function getAtFilter(): string {
 		const val = inputValue;
 		const el = textareaRef.current;
@@ -159,7 +169,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		(skill: SkillInfo) => {
 			setSelectedSkill({ name: skill.name, type: skill.type });
 			setSlashOpen(false);
-			// Clear the "/" filter text
 			if (inputValue.startsWith("/")) {
 				setInputValue("");
 			}
@@ -175,10 +184,8 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 
 	const handleAtSelect = useCallback(
 		(file: SelectedFile) => {
-			// Avoid duplicates
 			if (mentionedFiles.some((f) => f.path === file.path)) {
 				setAtOpen(false);
-				// Still remove the @filter text
 				const atFilter = getAtFilter();
 				if (atFilter) {
 					const el = textareaRef.current;
@@ -191,7 +198,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 			const newFile: MentionedFile = { path: file.path, name: file.name, isDirectory: file.isDirectory };
 			setMentionedFiles((prev) => [...prev, newFile]);
 			setAtOpen(false);
-			// Remove the @filter text from input
 			const atFilter = getAtFilter();
 			if (atFilter) {
 				const el = textareaRef.current;
@@ -215,8 +221,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		if (!hasSession) return;
 		setSlashOpen((prev) => !prev);
 	}, [hasSession]);
-
-	// ── Drawer tabs ──
 
 	const handleTodoViewMore = useCallback(() => {
 		const cwd = activeSession?.cwd;
@@ -259,8 +263,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		return tabs;
 	}, [todoItems, handleTodoViewMore, sandboxPermission]);
 
-	// ── Image helpers ──
-
 	const addImages = useCallback(
 		(newImages: Array<{ data: string; mimeType: string; name: string }>) => {
 			const items: AttachedImage[] = newImages.map((img) => ({
@@ -279,17 +281,13 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		[setAttachedImages],
 	);
 
-	// ── Select images via dialog ──
 	const handleSelectImages = useCallback(async () => {
 		if (!hasSession) return;
 		const selected = await window.vetta.dialog.selectImages();
-		if (selected.length > 0) {
-			addImages(selected);
-		}
+		if (selected.length > 0) addImages(selected);
 		textareaRef.current?.focus();
 	}, [hasSession, addImages]);
 
-	// ── Paste images ──
 	const handlePaste = useCallback(
 		async (e: React.ClipboardEvent) => {
 			if (!modelSupportsImages) return;
@@ -298,7 +296,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 				.filter((item) => item.kind === "file" && item.type.startsWith("image/"))
 				.map((item) => item.getAsFile())
 				.filter((f): f is File => f !== null);
-
 			if (imageFiles.length === 0) return;
 			e.preventDefault();
 			const images = await Promise.all(imageFiles.map(readFileAsImage));
@@ -307,7 +304,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		[addImages, modelSupportsImages],
 	);
 
-	// ── Drag and drop ──
 	const handleDragOver = useCallback(
 		(e: React.DragEvent) => {
 			e.preventDefault();
@@ -329,7 +325,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 			e.stopPropagation();
 			setIsDragOver(false);
 			if (!hasSession || !modelSupportsImages) return;
-
 			const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
 			if (files.length === 0) return;
 			const images = await Promise.all(files.map(readFileAsImage));
@@ -339,10 +334,27 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		[hasSession, addImages, modelSupportsImages],
 	);
 
+	const placeholder = !hasSession
+		? "选择或创建会话以开始"
+		: isStreaming
+			? "Vetta 正在思考…"
+			: "向 Vetta 提问，使用 / 唤出技能，@ 引用文件";
+
+	// Card visual class composition
+	const cardClass = [
+		"input-card relative rounded-[20px] bg-card border transition-[border-color,box-shadow,transform] duration-200",
+		isDragOver
+			? "border-primary/60 shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_18%,transparent)]"
+			: isFocused
+				? "border-primary/20 shadow-sm"
+				: "border-border shadow-sm",
+		isStreaming ? "input-aurora" : "",
+		isFocused && !isStreaming ? "input-halo" : "",
+	].join(" ");
+
 	return (
-		<div className="relative px-4 pb-4 pt-1">
-			<div className="relative mx-auto max-w-2xl">
-				{/* ── Slash panel (above input card) ── */}
+		<div className="relative px-2 pb-3 pt-1 sm:px-4 sm:pb-4">
+			<div className="relative mx-auto w-full max-w-2xl">
 				<SlashPanel
 					open={slashOpen}
 					onClose={() => setSlashOpen(false)}
@@ -350,7 +362,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 					filter={inputValue.startsWith("/") ? inputValue : ""}
 				/>
 
-				{/* ── @ file panel (above input card) ── */}
 				<AtPanel
 					open={atOpen}
 					onClose={() => setAtOpen(false)}
@@ -359,57 +370,124 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 					cwd={activeSession?.cwd ?? ""}
 				/>
 
-				{/* ── Action button bar (above input card) ── */}
 				<ActionButtonBar />
 
-				{/* ── Drawer card (floating above input card) ── */}
 				<DrawerCard
 					tabs={drawerTabs}
 					activeTabId={drawerActiveTab}
 					onActiveTabChange={setDrawerActiveTab}
 				/>
 
-				{/* ── Card container ── */}
 				<div
 					onDragOver={handleDragOver}
 					onDragLeave={handleDragLeave}
 					onDrop={(e) => void handleDrop(e)}
-					style={{
-						opacity: hasSession ? 1 : 0.5,
-					}}
-					className={`input-card rounded-2xl transition-all duration-200 bg-card border ${
-						isDragOver
-							? "border-primary"
-							: isFocused
-								? "border-border shadow-md"
-								: "border-border shadow-sm"
-					}`}
+					style={{ opacity: hasSession ? 1 : 0.55 }}
+					className={cardClass}
 				>
-					{/* ── Attached images preview ── */}
+					{/* Drag overlay — full card */}
 					<AnimatePresence>
-						{attachedImages.length > 0 && (
+						{isDragOver && hasSession && modelSupportsImages && (
 							<motion.div
-								initial={{ height: 0, opacity: 0 }}
-								animate={{ height: "auto", opacity: 1 }}
-								exit={{ height: 0, opacity: 0 }}
-								transition={{ duration: 0.2 }}
-								className="overflow-hidden"
+								key="drag-overlay"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								transition={SOFT}
+								className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 rounded-[20px]"
+								style={{
+									background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+									backdropFilter: "blur(2px)",
+									border: "1.5px dashed color-mix(in srgb, var(--primary) 60%, transparent)",
+								}}
 							>
-								<div className="flex flex-wrap gap-2 px-4 pt-3">
-									{attachedImages.map((img) => (
-										<ImageThumbnail
-											key={img.id}
-											image={img}
-											onRemove={() => removeImage(img.id)}
-										/>
-									))}
-								</div>
+								<motion.span
+									className="icon-[mdi--image-plus-outline] h-7 w-7 text-primary"
+									initial={{ y: 4, scale: 0.9 }}
+									animate={{ y: 0, scale: 1 }}
+									transition={SPRING}
+								/>
+								<div className="text-[13px] font-medium text-primary">松开放入图片</div>
+								<div className="text-[11px] text-primary/70">仅支持图片附件</div>
 							</motion.div>
 						)}
 					</AnimatePresence>
 
-					{/* ── Textarea area ── */}
-					<div className="px-4 pt-3 pb-2">
+					{/* Capsule strip — appears above textarea, like the reference top variant */}
+					<AnimatePresence initial={false}>
+						{(hasCapsules || attachedImages.length > 0) && (
+							<motion.div
+								key="capsules"
+								initial={{ height: 0, opacity: 0 }}
+								animate={{ height: "auto", opacity: 1 }}
+								exit={{ height: 0, opacity: 0 }}
+								transition={SOFT}
+								className="overflow-hidden"
+							>
+								<div className="flex flex-wrap items-center gap-1.5 px-3 pt-3">
+									<AnimatePresence initial={false}>
+										{selectedSkill && (
+											<Capsule
+												key="skill-capsule"
+												icon={
+													selectedSkill.type === "scene"
+														? "icon-[mdi--movie-open-outline]"
+														: "icon-[mdi--puzzle-outline]"
+												}
+												label={selectedSkill.name}
+												tone="primary"
+												onRemove={handleRemoveSkill}
+											/>
+										)}
+										{mentionedFiles.map((file) => (
+											<Capsule
+												key={`file-${file.path}`}
+												icon={
+													file.isDirectory
+														? "icon-[mdi--folder-outline]"
+														: "icon-[mdi--file-outline]"
+												}
+												label={file.name}
+												title={file.path}
+												tone="muted"
+												onRemove={() => handleRemoveFile(file.path)}
+											/>
+										))}
+										{attachedImages.map((img) => (
+											<motion.div
+												key={img.id}
+												initial={{ scale: 0.8, opacity: 0 }}
+												animate={{ scale: 1, opacity: 1 }}
+												exit={{ scale: 0.8, opacity: 0 }}
+												transition={SPRING}
+												className="group relative"
+											>
+													<div className="h-12 w-12 overflow-hidden rounded-lg border border-border ring-1 ring-black/5 dark:ring-white/5">
+														<img
+															src={`data:${img.mimeType};base64,${img.data}`}
+															alt={img.name}
+															className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+														/>
+													</div>
+													<button
+														type="button"
+														onClick={() => removeImage(img.id)}
+														className="absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all duration-150 group-hover:opacity-100 hover:scale-110 hover:text-destructive"
+														title="移除图片"
+														style={{ height: 18, width: 18 }}
+													>
+														<span className="icon-[mdi--close] h-3 w-3" />
+													</button>
+												</motion.div>
+											))}
+										</AnimatePresence>
+									</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+
+					{/* Textarea */}
+					<div className="relative px-4 pt-3 pb-1">
 						<textarea
 							ref={textareaRef}
 							rows={1}
@@ -420,12 +498,8 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 							onFocus={() => setIsFocused(true)}
 							onBlur={() => setIsFocused(false)}
 							disabled={!hasSession}
-							placeholder={
-								hasSession
-									? "Message Vetta..."
-									: "Select or create a session to start"
-							}
-							className="w-full resize-none bg-transparent text-[13.5px] leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/50 disabled:cursor-not-allowed"
+							placeholder={placeholder}
+							className="w-full resize-none bg-transparent text-[13.5px] leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/45 disabled:cursor-not-allowed"
 							style={{
 								minHeight: `${MIN_HEIGHT}px`,
 								maxHeight: `${MAX_HEIGHT}px`,
@@ -433,128 +507,54 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 						/>
 					</div>
 
-					{/* ── Toolbar ── */}
-					<div className="flex items-center justify-between px-3 pb-2.5">
-						{/* Left: action buttons + skill capsule */}
-						<div className="flex items-center gap-0.5">
+					{/* Toolbar — wraps onto two rows when crowded */}
+					<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pb-2 pt-1 sm:px-2.5">
+						<div className="flex min-w-0 flex-shrink items-center gap-0.5">
 							<ToolbarButton
 								icon="icon-[mdi--plus]"
 								title="技能/场景"
 								disabled={!hasSession}
 								onClick={handlePlusClick}
+								active={slashOpen}
 							/>
 							<ToolbarButton
-								icon={modelSupportsImages ? "icon-[mdi--image-outline]" : "icon-[mdi--image-off-outline]"}
-								title={modelSupportsImages ? "Attach image" : "Current model does not support image input"}
+								icon={
+									modelSupportsImages
+										? "icon-[mdi--image-outline]"
+										: "icon-[mdi--image-off-outline]"
+								}
+								title={
+									modelSupportsImages ? "添加图片" : "当前模型不支持图片输入"
+								}
 								disabled={!hasSession || !modelSupportsImages}
 								onClick={() => void handleSelectImages()}
 							/>
-							{/* Skill capsule */}
-							<AnimatePresence>
-								{selectedSkill && (
-									<motion.div
-										key="skill-capsule"
-										initial={{ scale: 0.8, opacity: 0, width: 0 }}
-										animate={{ scale: 1, opacity: 1, width: "auto" }}
-										exit={{ scale: 0.8, opacity: 0, width: 0 }}
-										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-										className="overflow-hidden"
-									>
-										<button
-											type="button"
-											onClick={handleRemoveSkill}
-											title="点击移除"
-											className="ml-1 flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80 bg-primary/10 text-muted-foreground"
-										>
-											<span
-												className={`${selectedSkill.type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3 w-3`}
-											/>
-											<span className="max-w-[120px] truncate">{selectedSkill.name}</span>
-											<span className="icon-[mdi--close] h-3 w-3 opacity-60" />
-										</button>
-									</motion.div>
-								)}
-							</AnimatePresence>
-							{/* File capsules */}
-							<AnimatePresence>
-								{mentionedFiles.map((file) => (
-									<motion.div
-										key={`file-${file.path}`}
-										initial={{ scale: 0.8, opacity: 0, width: 0 }}
-										animate={{ scale: 1, opacity: 1, width: "auto" }}
-										exit={{ scale: 0.8, opacity: 0, width: 0 }}
-										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-										className="overflow-hidden"
-									>
-										<button
-											type="button"
-											onClick={() => handleRemoveFile(file.path)}
-											title={file.path}
-											className="ml-1 flex items-center gap-1 rounded-full py-0.5 pr-2 pl-2 text-[11px] font-medium transition-colors hover:opacity-80 bg-muted text-muted-foreground"
-										>
-											<span className={`${file.isDirectory ? "icon-[mdi--folder-outline]" : "icon-[mdi--file-outline]"} h-3 w-3`} />
-											<span className="max-w-[100px] truncate">{file.name}</span>
-											<span className="icon-[mdi--close] h-3 w-3 opacity-60" />
-										</button>
-									</motion.div>
-								))}
-							</AnimatePresence>
-							<ExecutionModeSelector />
+							<div className="ml-1 h-4 w-px shrink-0 bg-border/70" />
+							<div className="min-w-0 flex-shrink">
+								<ExecutionModeSelector />
+							</div>
 						</div>
 
-						{/* Right: model selector + send / stop */}
-						<div className="flex items-center gap-1.5">
-							<ModelSelector />
+						<div className="ml-auto flex min-w-0 flex-shrink items-center gap-1">
+							<div className="min-w-0 flex-shrink">
+								<ModelSelector />
+							</div>
 							<ContextRing />
-							{/* Character hint */}
-							<span className="mr-1 text-[11px] text-muted-foreground/50 select-none">
-								{isStreaming ? "" : isEmpty ? "⏎ Send" : `⇧⏎ Newline`}
-							</span>
-
-							<AnimatePresence mode="wait">
-								{isStreaming ? (
-									<motion.button
-										key="stop"
-										type="button"
-										onClick={() => void onAbort()}
-										initial={{ scale: 0.8, opacity: 0 }}
-										animate={{ scale: 1, opacity: 1 }}
-										exit={{ scale: 0.8, opacity: 0 }}
-										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-										className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:opacity-80"
-										title="Stop generating"
-									>
-										<motion.span
-											className="icon-[mdi--stop] h-4 w-4"
-											animate={{ scale: [1, 0.9, 1] }}
-											transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-										/>
-									</motion.button>
-								) : (
-									<motion.button
-										key="send"
-										type="button"
-										onClick={() => void onSend()}
-										disabled={!canSend}
-										initial={{ scale: 0.8, opacity: 0 }}
-										animate={{ scale: 1, opacity: 1 }}
-										exit={{ scale: 0.8, opacity: 0 }}
-										transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-										className="send-button flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 disabled:opacity-30"
-										style={{
-											background: canSend ? "var(--foreground)" : "var(--secondary)",
-											color: canSend ? "var(--background)" : "var(--muted-foreground)",
-										}}
-										title="Send message"
-									>
-										<motion.span
-											className="icon-[mdi--arrow-up] h-4 w-4"
-											animate={canSend ? { y: [0, -1, 0] } : {}}
-											transition={{ duration: 0.6, delay: 0.1 }}
-										/>
-									</motion.button>
-								)}
-							</AnimatePresence>
+							<motion.span
+								key={isStreaming ? "s" : isEmpty ? "e" : "n"}
+								initial={{ opacity: 0, y: 2 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={SOFT}
+								className="mx-1 hidden text-[10.5px] text-muted-foreground/50 select-none md:inline"
+							>
+								{isStreaming ? "" : isEmpty ? "⏎ 发送" : "⇧⏎ 换行"}
+							</motion.span>
+							<SendButton
+								canSend={canSend}
+								isStreaming={isStreaming}
+								onSend={() => void onSend()}
+								onAbort={() => void onAbort()}
+							/>
 						</div>
 					</div>
 				</div>
@@ -563,38 +563,114 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	);
 }
 
-/** Thumbnail preview for an attached image with remove button */
-function ImageThumbnail({
-	image,
+function Capsule({
+	icon,
+	label,
+	title,
+	tone,
 	onRemove,
 }: {
-	image: AttachedImage;
+	icon: string;
+	label: string;
+	title?: string;
+	tone: "primary" | "muted";
 	onRemove: () => void;
 }): JSX.Element {
+	const toneClass =
+		tone === "primary"
+			? "bg-primary/10 text-primary border-primary/20"
+			: "bg-muted text-muted-foreground border-border/60";
 	return (
-		<motion.div
-			initial={{ scale: 0.8, opacity: 0 }}
-			animate={{ scale: 1, opacity: 1 }}
-			exit={{ scale: 0.8, opacity: 0 }}
-			transition={{ duration: 0.15 }}
-			className="group relative"
+		<motion.button
+			type="button"
+			layout
+			initial={{ scale: 0.85, opacity: 0, y: 4 }}
+			animate={{ scale: 1, opacity: 1, y: 0 }}
+			exit={{ scale: 0.85, opacity: 0, y: -2 }}
+			transition={SPRING}
+			whileHover={{ y: -1 }}
+			whileTap={{ scale: 0.96 }}
+			onClick={onRemove}
+			title={title ? `${title}\n点击移除` : "点击移除"}
+			className={`group flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${toneClass}`}
 		>
-			<div className="h-16 w-16 overflow-hidden rounded-lg border border-border">
-				<img
-					src={`data:${image.mimeType};base64,${image.data}`}
-					alt={image.name}
-					className="h-full w-full object-cover"
-				/>
-			</div>
-			<button
-				type="button"
-				onClick={onRemove}
-				className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-accent"
-				title="Remove image"
-			>
-				<span className="icon-[mdi--close] h-3 w-3" />
-			</button>
-		</motion.div>
+			<span className={`${icon} h-3 w-3 shrink-0`} />
+			<span className="max-w-[140px] truncate">{label}</span>
+			<span className="icon-[mdi--close] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
+		</motion.button>
+	);
+}
+
+function SendButton({
+	canSend,
+	isStreaming,
+	onSend,
+	onAbort,
+}: {
+	canSend: boolean;
+	isStreaming: boolean;
+	onSend: () => void;
+	onAbort: () => void;
+}): JSX.Element {
+	return (
+		<AnimatePresence mode="wait" initial={false}>
+			{isStreaming ? (
+				<motion.button
+					key="stop"
+					type="button"
+					onClick={onAbort}
+					initial={{ scale: 0.6, opacity: 0, rotate: -45 }}
+					animate={{ scale: 1, opacity: 1, rotate: 0 }}
+					exit={{ scale: 0.6, opacity: 0, rotate: 45 }}
+					transition={SPRING}
+					whileHover={{ scale: 1.05 }}
+					whileTap={{ scale: 0.92 }}
+					className="relative flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--primary)_60%,transparent)]"
+					title="停止生成"
+				>
+					<motion.span
+						aria-hidden
+						className="absolute inset-0 rounded-full"
+						style={{
+							background: "color-mix(in srgb, var(--primary) 50%, transparent)",
+						}}
+						animate={{ scale: [1, 1.35], opacity: [0.7, 0] }}
+						transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeOut" }}
+					/>
+					<span className="relative h-2.5 w-2.5 rounded-[3px] bg-primary-foreground" />
+				</motion.button>
+			) : (
+				<motion.button
+					key="send"
+					type="button"
+					onClick={onSend}
+					disabled={!canSend}
+					initial={{ scale: 0.6, opacity: 0, rotate: 45 }}
+					animate={{ scale: 1, opacity: 1, rotate: 0 }}
+					exit={{ scale: 0.6, opacity: 0, rotate: -45 }}
+					transition={SPRING}
+					whileHover={canSend ? { scale: 1.05, y: -1 } : undefined}
+					whileTap={canSend ? { scale: 0.92 } : undefined}
+					className="flex h-8 w-8 items-center justify-center rounded-full transition-shadow disabled:cursor-not-allowed"
+					style={{
+						background: canSend
+							? "var(--primary)"
+							: "color-mix(in srgb, var(--muted-foreground) 18%, transparent)",
+						color: canSend ? "var(--primary-foreground)" : "var(--muted-foreground)",
+						boxShadow: canSend
+							? "0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)"
+							: "none",
+					}}
+					title="发送消息"
+				>
+					<motion.span
+						className="icon-[mdi--arrow-up] h-4 w-4"
+						animate={canSend ? { y: [0, -1.5, 0] } : { y: 0 }}
+						transition={{ duration: 1.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+					/>
+				</motion.button>
+			)}
+		</AnimatePresence>
 	);
 }
 
@@ -652,27 +728,35 @@ function SandboxPermissionCard({
 	);
 }
 
-/** Small icon button for the toolbar row */
 function ToolbarButton({
 	icon,
 	title,
 	disabled,
 	onClick,
+	active,
 }: {
 	icon: string;
 	title: string;
 	disabled?: boolean;
 	onClick?: () => void;
+	active?: boolean;
 }): JSX.Element {
 	return (
-		<button
+		<motion.button
 			type="button"
 			title={title}
 			disabled={disabled}
 			onClick={onClick}
-			className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors hover:bg-accent/50 hover:text-muted-foreground disabled:pointer-events-none disabled:opacity-30"
+			whileHover={!disabled ? { scale: 1.06 } : undefined}
+			whileTap={!disabled ? { scale: 0.92 } : undefined}
+			transition={SPRING}
+			className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30 ${
+				active
+					? "bg-primary/10 text-primary"
+					: "text-muted-foreground/60 hover:bg-accent/60 hover:text-foreground"
+			}`}
 		>
-			<span className={`${icon} h-[18px] w-[18px]`} />
-		</button>
+			<span className={`${icon} h-[17px] w-[17px]`} />
+		</motion.button>
 	);
 }

@@ -6,8 +6,8 @@ import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
 	fileContextMenuAtom,
-	filePreviewAtom,
-	filePreviewContextReadonlyAtom,
+	inlineFilePreviewAtom,
+	inlineFilePreviewContextReadonlyAtom,
 	type FilePreviewItem,
 	type FsEntry,
 } from "@shared/store/atoms";
@@ -34,8 +34,8 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 	} = useFileTree(cwd);
 
 	const [contextMenu, setContextMenu] = useAtom(fileContextMenuAtom);
-	const setPreview = useSetAtom(filePreviewAtom);
-	const previewCtx = useAtomValue(filePreviewContextReadonlyAtom);
+	const setPreview = useSetAtom(inlineFilePreviewAtom);
+	const previewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const [deleteTarget, setDeleteTarget] = useState<FsEntry | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
 
