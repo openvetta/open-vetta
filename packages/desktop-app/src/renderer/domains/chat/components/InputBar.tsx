@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useRef, useCallback, useEffect, useMemo, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
 	inputValueAtom,
 	isStreamingAtom,
@@ -378,9 +378,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 					onActiveTabChange={setDrawerActiveTab}
 				/>
 
-				<motion.div
-					layout
-					transition={SPRING}
+				<div
 					onDragOver={handleDragOver}
 					onDragLeave={handleDragLeave}
 					onDrop={(e) => void handleDrop(e)}
@@ -426,46 +424,44 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 								transition={SOFT}
 								className="overflow-hidden"
 							>
-								<LayoutGroup>
-									<div className="flex flex-wrap items-center gap-1.5 px-3 pt-3">
-										<AnimatePresence initial={false}>
-											{selectedSkill && (
-												<Capsule
-													key="skill-capsule"
-													icon={
-														selectedSkill.type === "scene"
-															? "icon-[mdi--movie-open-outline]"
-															: "icon-[mdi--puzzle-outline]"
-													}
-													label={selectedSkill.name}
-													tone="primary"
-													onRemove={handleRemoveSkill}
-												/>
-											)}
-											{mentionedFiles.map((file) => (
-												<Capsule
-													key={`file-${file.path}`}
-													icon={
-														file.isDirectory
-															? "icon-[mdi--folder-outline]"
-															: "icon-[mdi--file-outline]"
-													}
-													label={file.name}
-													title={file.path}
-													tone="muted"
-													onRemove={() => handleRemoveFile(file.path)}
-												/>
-											))}
-											{attachedImages.map((img) => (
-												<motion.div
-													key={img.id}
-													layout
-													initial={{ scale: 0.8, opacity: 0 }}
-													animate={{ scale: 1, opacity: 1 }}
-													exit={{ scale: 0.8, opacity: 0 }}
-													transition={SPRING}
-													className="group relative"
-												>
+								<div className="flex flex-wrap items-center gap-1.5 px-3 pt-3">
+									<AnimatePresence initial={false}>
+										{selectedSkill && (
+											<Capsule
+												key="skill-capsule"
+												icon={
+													selectedSkill.type === "scene"
+														? "icon-[mdi--movie-open-outline]"
+														: "icon-[mdi--puzzle-outline]"
+												}
+												label={selectedSkill.name}
+												tone="primary"
+												onRemove={handleRemoveSkill}
+											/>
+										)}
+										{mentionedFiles.map((file) => (
+											<Capsule
+												key={`file-${file.path}`}
+												icon={
+													file.isDirectory
+														? "icon-[mdi--folder-outline]"
+														: "icon-[mdi--file-outline]"
+												}
+												label={file.name}
+												title={file.path}
+												tone="muted"
+												onRemove={() => handleRemoveFile(file.path)}
+											/>
+										))}
+										{attachedImages.map((img) => (
+											<motion.div
+												key={img.id}
+												initial={{ scale: 0.8, opacity: 0 }}
+												animate={{ scale: 1, opacity: 1 }}
+												exit={{ scale: 0.8, opacity: 0 }}
+												transition={SPRING}
+												className="group relative"
+											>
 													<div className="h-12 w-12 overflow-hidden rounded-lg border border-border ring-1 ring-black/5 dark:ring-white/5">
 														<img
 															src={`data:${img.mimeType};base64,${img.data}`}
@@ -486,7 +482,6 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 											))}
 										</AnimatePresence>
 									</div>
-								</LayoutGroup>
 							</motion.div>
 						)}
 					</AnimatePresence>
@@ -562,7 +557,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 							/>
 						</div>
 					</div>
-				</motion.div>
+				</div>
 			</div>
 		</div>
 	);

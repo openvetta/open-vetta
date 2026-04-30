@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import {
 	activeSessionAtom,
@@ -11,6 +11,8 @@ import {
 	workflowCompleteDialogOpenAtom,
 	pageHeaderTitleAtom,
 	pageHeaderRightSlotAtom,
+	inlineFilePreviewContextReadonlyAtom,
+	inlineFilePreviewAtom,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { pathBasename } from "@shared/lib/utils";
@@ -39,6 +41,20 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const authUser = useAtomValue(authUserAtom);
 	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
 	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
+	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
+	const inlinePreviewActive = inlinePreviewCtx !== null;
+	const setInlinePreview = useSetAtom(inlineFilePreviewAtom);
+
+	const handleTogglePanel = useCallback(() => {
+		// When in inline preview mode, the "hide panel" button should also close
+		// the inline preview, otherwise the panel would still render via flex-1.
+		if (inlinePreviewActive) {
+			setInlinePreview(null);
+			setPanelOpen(false);
+			return;
+		}
+		setPanelOpen((o) => !o);
+	}, [inlinePreviewActive, setInlinePreview, setPanelOpen]);
 
 	// 判断是否在最后环节且当前用户是该环节成员
 	const isLastStage =
@@ -89,14 +105,14 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 					size="icon-xs"
 					variant="ghost"
 					title={panelOpen ? "关闭活动面板" : "打开活动面板"}
-					onClick={() => setPanelOpen((o) => !o)}
+					onClick={handleTogglePanel}
 					className={panelOpen ? "bg-accent text-foreground" : ""}
 				>
 					<span className="icon-[mdi--dock-right] text-[14px]" />
 				</Button>
 			</>
 		),
-		[isStreaming, isLastStage, panelOpen, setFlowingSendOpen, setWorkflowCompleteOpen, setPanelOpen],
+		[isStreaming, isLastStage, panelOpen, setFlowingSendOpen, setWorkflowCompleteOpen, handleTogglePanel],
 	);
 	useEffect(() => {
 		setHeaderRightSlot(rightSlot);
@@ -106,8 +122,14 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
 			<div className="flex flex-1 gap-2 overflow-hidden">
-				{/* Chat messages + input */}
-				<div className="flex min-w-0 flex-1 flex-col">
+				{/* Chat messages + input — narrows to mobile width when inline preview is open */}
+				<div
+					className={
+						inlinePreviewActive
+							? "flex w-[360px] shrink-0 flex-col transition-[width] duration-200"
+							: "flex min-w-0 flex-1 flex-col"
+					}
+				>
 					{messages.length === 0 ? (
 						<div className="flex flex-1 flex-col items-center justify-center gap-3">
 							<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted">
