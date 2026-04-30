@@ -110,28 +110,39 @@ export function ModelSelector(): JSX.Element {
 	return (
 		<div ref={ref} className="relative">
 			{/* Trigger button */}
-			<button
+			<motion.button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+				whileHover={{ y: -1 }}
+				whileTap={{ scale: 0.96 }}
+				transition={{ type: "spring", stiffness: 480, damping: 28 }}
+				className={`flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-1 text-[11px] transition-colors ${
+					open
+						? "border-primary/30 bg-primary/10 text-primary"
+						: "border-transparent bg-transparent text-muted-foreground hover:border-border/60 hover:bg-accent/50 hover:text-foreground"
+				}`}
 			>
 				<span className="icon-[mdi--brain] h-3.5 w-3.5 shrink-0" />
-				<span className="max-w-[120px] truncate">
+				<span className="min-w-0 max-w-[80px] truncate sm:max-w-[120px] md:max-w-[160px]">
 					{selectedOption?.displayName ?? "选择模型"}
 				</span>
-				<span className="icon-[mdi--chevron-down] h-3 w-3 shrink-0" />
-			</button>
+				<motion.span
+					className="icon-[mdi--chevron-down] h-3 w-3 shrink-0"
+					animate={{ rotate: open ? 180 : 0 }}
+					transition={{ duration: 0.18 }}
+				/>
+			</motion.button>
 
 			{/* Dropdown */}
 			<AnimatePresence>
 				{open && (
 					<motion.div
-						initial={{ opacity: 0, y: 4, scale: 0.98 }}
+						initial={{ opacity: 0, y: 6, scale: 0.97 }}
 						animate={{ opacity: 1, y: 0, scale: 1 }}
-						exit={{ opacity: 0, y: 4, scale: 0.98 }}
-						transition={{ duration: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
-						className="absolute bottom-full right-0 z-50 mb-1.5 min-w-[200px] max-w-[280px] overflow-hidden rounded-xl border border-border shadow-lg"
-						style={{ background: "var(--background)" }}
+						exit={{ opacity: 0, y: 6, scale: 0.97 }}
+						transition={{ duration: 0.16, ease: [0.22, 0.61, 0.36, 1] }}
+						className="absolute bottom-full right-0 z-50 mb-2 min-w-[220px] max-w-[300px] origin-bottom-right overflow-hidden rounded-xl border border-border/80 shadow-xl backdrop-blur"
+						style={{ background: "color-mix(in srgb, var(--popover) 96%, transparent)" }}
 					>
 						<div className="max-h-[280px] overflow-y-auto py-1">
 							{[...grouped.entries()].map(([provider, providerModels]) => (
@@ -148,12 +159,19 @@ export function ModelSelector(): JSX.Element {
 												key={m.key}
 												type="button"
 												onClick={() => handleSelect(m.key)}
-												className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${
+												className={`relative flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${
 													isSelected
 														? "bg-primary/10 text-primary"
 														: "text-foreground hover:bg-accent/50"
 												}`}
 											>
+												{isSelected && (
+													<motion.span
+														layoutId="model-active-marker"
+														className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
+														transition={{ type: "spring", stiffness: 480, damping: 30 }}
+													/>
+												)}
 												<span className="min-w-0 flex-1 truncate">
 													{m.displayName}
 												</span>

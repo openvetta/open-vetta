@@ -28,6 +28,7 @@ export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());
 export const sessionsMapAtom = atom<Map<string, SessionInfo[]>>(new Map<string, SessionInfo[]>());
 export const sidebarWidthAtom = atom<number>(220);
 export const sidebarFilterAtom = atom<SidebarFilter>("all");
+export const sidebarCollapsedAtom = atom<boolean>(localStorage.getItem("vetta-sidebar-collapsed") === "1");
 
 const DEFAULT_WORKSPACE = "~/.vetta/workspace";
 export const workspacePathAtom = atom<string>(localStorage.getItem("vetta-workspace-path") || DEFAULT_WORKSPACE);

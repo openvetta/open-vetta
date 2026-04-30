@@ -47,38 +47,55 @@ export function DrawerCard({ tabs, activeTabId: controlledId, onActiveTabChange 
 	return (
 		<div className="absolute bottom-full left-1/2 -translate-x-1/2 w-[92%] z-10">
 			<motion.div
-				initial={{ opacity: 0, y: 8 }}
+				layout
+				initial={{ opacity: 0, y: 10 }}
 				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-				className="rounded-t-xl border-x border-t border-border bg-card overflow-hidden"
+				transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+				className="overflow-hidden rounded-t-2xl border-x border-t border-border bg-card/95 backdrop-blur"
 			>
 				{/* Tab bar */}
-				<div className="flex items-center gap-0 px-3 py-2">
-					{tabs.map((tab, i) => (
-						<div key={tab.id} className="flex items-center">
-							{i > 0 && <span className="mx-2 h-3 w-px bg-border" />}
-							<button
-								type="button"
-								onClick={() => handleTabClick(tab.id)}
-								className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs transition-colors hover:bg-muted/50 ${
-									activeId === tab.id ? "text-foreground" : "text-muted-foreground"
-								}`}
-							>
-								{/* Color dot */}
-								<span
-									className={`h-2 w-2 shrink-0 rounded-full ${tab.color} ${tab.pulsing ? "animate-pulse" : ""}`}
-								/>
-								{/* Label */}
-								<span className="font-medium">{tab.label}</span>
-								{/* Desc */}
-								{tab.desc && (
-									<span className="max-w-[160px] truncate text-muted-foreground/60">
-										{tab.desc}
+				<div className="flex items-center gap-0.5 px-2.5 py-1.5">
+					{tabs.map((tab, i) => {
+						const isActive = activeId === tab.id;
+						return (
+							<div key={tab.id} className="flex items-center">
+								{i > 0 && <span className="mx-1.5 h-3 w-px bg-border/70" />}
+								<motion.button
+									type="button"
+									onClick={() => handleTabClick(tab.id)}
+									whileHover={{ y: -1 }}
+									whileTap={{ scale: 0.97 }}
+									transition={{ type: "spring", stiffness: 480, damping: 28 }}
+									className={`relative flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors ${
+										isActive
+											? "text-foreground bg-muted/60"
+											: "text-muted-foreground hover:bg-muted/40"
+									}`}
+								>
+									<span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
+										{tab.pulsing && (
+											<motion.span
+												className={`absolute inset-0 rounded-full ${tab.color} opacity-50`}
+												animate={{ scale: [1, 1.9], opacity: [0.5, 0] }}
+												transition={{
+													duration: 1.4,
+													repeat: Number.POSITIVE_INFINITY,
+													ease: "easeOut",
+												}}
+											/>
+										)}
+										<span className={`relative h-2 w-2 rounded-full ${tab.color}`} />
 									</span>
-								)}
-							</button>
-						</div>
-					))}
+									<span className="font-medium">{tab.label}</span>
+									{tab.desc && (
+										<span className="max-w-[180px] truncate text-muted-foreground/60">
+											{tab.desc}
+										</span>
+									)}
+								</motion.button>
+							</div>
+						);
+					})}
 				</div>
 
 				{/* Expandable content area */}
@@ -89,8 +106,8 @@ export function DrawerCard({ tabs, activeTabId: controlledId, onActiveTabChange 
 							initial={{ height: 0, opacity: 0 }}
 							animate={{ height: "auto", opacity: 1 }}
 							exit={{ height: 0, opacity: 0 }}
-							transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-							className="overflow-hidden border-t border-border"
+							transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+							className="overflow-hidden border-t border-border/70"
 						>
 							<div className="p-3">
 								{activeTab.content}
