@@ -47,7 +47,6 @@ export function DrawerCard({ tabs, activeTabId: controlledId, onActiveTabChange 
 	return (
 		<div className="absolute bottom-full left-1/2 -translate-x-1/2 w-[92%] z-10">
 			<motion.div
-				layout
 				initial={{ opacity: 0, y: 10 }}
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}

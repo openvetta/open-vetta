@@ -2,7 +2,13 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useState } from "react";
 import { pathBasename, pathJoin } from "@shared/lib/utils";
-import { activeSessionAtom, filePreviewAtom, type FilePreviewItem } from "@shared/store/atoms";
+import {
+	activeSessionAtom,
+	activityPanelOpenAtom,
+	activityPanelTabByProjectAtom,
+	inlineFilePreviewAtom,
+	type FilePreviewItem,
+} from "@shared/store/atoms";
 
 function isAbsolutePath(p: string): boolean {
 	return p.startsWith("/") || p.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(p);
@@ -23,7 +29,9 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 	if (files.length === 0) return null;
 
 	const [expanded, setExpanded] = useState(false);
-	const setPreview = useSetAtom(filePreviewAtom);
+	const setPreview = useSetAtom(inlineFilePreviewAtom);
+	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
+	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const cwd = activeSession?.cwd;
 	const canCollapse = files.length > COLLAPSED_VISIBLE_COUNT;
@@ -37,9 +45,18 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 				path: resolveAgainstCwd(p, cwd),
 			}));
 			const index = files.indexOf(path);
+			// Make sure the activity panel is visible and switched to the file tab
+			setActivityPanelOpen(true);
+			if (cwd) {
+				setTabByProject((prev) => {
+					const map = new Map(prev);
+					map.set(cwd, "file");
+					return map;
+				});
+			}
 			setPreview({ items, index: index >= 0 ? index : 0 });
 		},
-		[files, cwd, setPreview],
+		[files, cwd, setPreview, setActivityPanelOpen, setTabByProject],
 	);
 
 	return (
