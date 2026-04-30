@@ -40,7 +40,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 
 	return (
 		<aside
-			className="relative flex h-full shrink-0 flex-col overflow-hidden rounded-[10px] border border-border bg-muted/60 shadow-md backdrop-blur-sm"
+			className="relative flex h-full shrink-0 flex-col overflow-hidden rounded-[10px] border border-border bg-muted"
 			style={{ width }}
 		>
 			{/* Top h-11 row — aligns with PageHeader; reserves macOS traffic-light area, collapse button at right */}
