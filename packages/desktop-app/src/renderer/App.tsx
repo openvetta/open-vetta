@@ -100,11 +100,7 @@ export function RootLayout(): JSX.Element {
 	const setSandboxPermissionDrawer = useSetAtom(sandboxPermissionDrawerAtom);
 	const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom);
 	const toggleSidebar = useCallback(() => {
-		setSidebarCollapsed((v) => {
-			const next = !v;
-			localStorage.setItem("vetta-sidebar-collapsed", next ? "1" : "0");
-			return next;
-		});
+		setSidebarCollapsed((v) => !v);
 	}, [setSidebarCollapsed]);
 	useTheme();
 	useAuth();

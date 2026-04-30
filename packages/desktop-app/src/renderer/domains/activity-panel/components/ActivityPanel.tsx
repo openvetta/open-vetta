@@ -56,13 +56,11 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 					return true;
 				});
 				previousSidebarStateRef.current = prev;
-				localStorage.setItem("vetta-sidebar-collapsed", "1");
 			}
 		} else if (previousSidebarStateRef.current !== null) {
 			const restore = previousSidebarStateRef.current;
 			previousSidebarStateRef.current = null;
 			setSidebarCollapsed(restore);
-			localStorage.setItem("vetta-sidebar-collapsed", restore ? "1" : "0");
 		}
 	}, [inlinePreviewActive, setSidebarCollapsed]);
 

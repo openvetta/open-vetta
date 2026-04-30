@@ -25,10 +25,10 @@ const components: Components = {
 
 	// Lists
 	ul: ({ children }) => (
-		<ul className="my-1.5 ml-4 list-disc space-y-0.5 text-[13px] leading-[1.6] text-foreground">{children}</ul>
+		<ul className="md-bullet-list my-1.5 ml-4 space-y-0.5 text-[13px] leading-[1.6] text-foreground">{children}</ul>
 	),
 	ol: ({ children }) => (
-		<ol className="my-1.5 ml-4 list-decimal space-y-0.5 text-[13px] leading-[1.6] text-foreground">{children}</ol>
+		<ol className="my-1.5 ml-4 list-decimal space-y-0.5 text-[13px] leading-[1.6] text-foreground marker:text-primary">{children}</ol>
 	),
 	li: ({ children }) => <li className="pl-0.5">{children}</li>,
 
@@ -72,10 +72,10 @@ const components: Components = {
 		</div>
 	),
 	thead: ({ children }) => (
-		<thead className="border-b border-border bg-muted">{children}</thead>
+		<thead className="border-b border-primary/30 bg-primary/15">{children}</thead>
 	),
 	th: ({ children }) => (
-		<th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">{children}</th>
+		<th className="px-3 py-1.5 text-left font-semibold text-primary">{children}</th>
 	),
 	td: ({ children }) => (
 		<td className="border-t border-border px-3 py-1.5 text-foreground">{children}</td>
