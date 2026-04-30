@@ -209,16 +209,23 @@ function SlashItem({
 			data-index={dataIndex}
 			onMouseEnter={onHover}
 			onClick={onClick}
-			className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors"
+			className="relative flex w-full items-center gap-3 px-4 py-2 text-left transition-colors"
 			style={{
-				background: active ? "var(--accent)" : "transparent",
+				background: active ? "color-mix(in srgb, var(--primary) 9%, transparent)" : "transparent",
 			}}
 		>
+			{active && (
+				<motion.span
+					layoutId="slash-active-marker"
+					className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
+					transition={{ type: "spring", stiffness: 500, damping: 32 }}
+				/>
+			)}
 			<div
-				className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isScene ? "bg-primary/10" : "bg-muted"}`}
+				className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isScene ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}
 			>
 				<span
-					className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3.5 w-3.5 text-muted-foreground`}
+					className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3.5 w-3.5`}
 				/>
 			</div>
 			<div className="min-w-0 flex-1">

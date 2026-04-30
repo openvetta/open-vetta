@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
-import { isMac, isWindows } from "@shared/lib/platform";
+import { isMac } from "@shared/lib/platform";
 import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
@@ -21,9 +21,10 @@ const NAV_ITEMS = [
 
 interface SidebarProps {
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
+	onCollapse?: () => void;
 }
 
-export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
+export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Element {
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
@@ -38,28 +39,30 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 	);
 
 	return (
-		<aside className="sidebar-vibrancy relative flex h-full shrink-0 flex-col" style={{ width }}>
-			{/* macOS traffic light spacer + header; Windows uses TitleBar */}
-			{isMac && (
-				<div className="drag-region flex items-center justify-between px-3.5 pb-3 pt-[52px]">
-					<div className="no-drag flex items-center gap-2">
-						<img
-							src="./icon.png"
-							alt="Vetta"
-							className="h-[22px] w-[22px] rounded-[6px] shadow-[0-1px-3px_rgba(0,0,0,0.2)]"
-						/>
-						<span className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">
-							Vetta
-						</span>
-					</div>
-					<div className="no-drag flex items-center gap-1">
-						<AddProjectMenu />
-					</div>
-				</div>
-			)}
+		<aside
+			className="relative flex h-full shrink-0 flex-col overflow-hidden rounded-[10px] border border-border bg-muted"
+			style={{ width }}
+		>
+			{/* Top h-11 row — aligns with PageHeader; reserves macOS traffic-light area, collapse button at right */}
+			<div
+				className="drag-region flex h-11 shrink-0 items-center justify-end"
+				style={{ paddingLeft: isMac ? 78 : 12, paddingRight: 6 }}
+			>
+				{onCollapse && (
+					<button
+						type="button"
+						onClick={onCollapse}
+						title="隐藏侧边栏"
+						className="no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					>
+						<span className="icon-[mdi--dock-left] h-4 w-4" />
+					</button>
+				)}
+			</div>
 
-			{/* Page nav entries */}
-			<nav className="flex flex-col gap-0.5 px-1.5 pb-2">
+			{/* Page nav entries (with 新建项目 on top) */}
+			<nav className="flex flex-col gap-0.5 px-1.5 pb-2 pt-2">
+				<AddProjectMenu variant="navItem" />
 				{NAV_ITEMS.map(({ path, label, icon }) => (
 					<button
 						key={path}
@@ -67,7 +70,7 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 						onClick={() => void navigate({ to: path })}
 						className={`no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 							currentPath === path
-								? "bg-black dark:bg-white font-medium text-white dark:text-black"
+								? "bg-primary font-medium text-primary-foreground shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)]"
 								: "text-foreground hover:bg-accent"
 						}`}
 					>
@@ -82,11 +85,6 @@ export function Sidebar({ onOpenSession }: SidebarProps): JSX.Element {
 				<div className="flex min-w-0 items-center gap-1">
 					<SidebarFilterSelect />
 				</div>
-				{!isMac && (
-					<div className="flex items-center gap-1">
-						<AddProjectMenu />
-					</div>
-				)}
 			</div>
 
 			{/* Panel content */}

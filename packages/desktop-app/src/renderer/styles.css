@@ -8,25 +8,25 @@
 [data-theme="dark"] {
 	color-scheme: dark;
 
-	--background: rgb(29, 21, 32);
-	--foreground: rgb(255, 255, 255);
-	--card: rgb(16, 14, 17);
-	--card-foreground: rgb(255, 255, 255);
-	--popover: rgb(18, 18, 18);
-	--popover-foreground: rgb(255, 255, 255);
-	--primary: rgb(255, 255, 255);
-	--primary-foreground: rgb(0, 0, 0);
-	--secondary: rgb(34, 34, 34);
-	--secondary-foreground: rgb(255, 255, 255);
-	--muted: rgb(29, 21, 32);
-	--muted-foreground: rgb(164, 164, 164);
-	--accent: rgb(31, 27, 33);
-	--accent-foreground: rgb(255, 255, 255);
+	--background: rgb(38, 40, 44);
+	--foreground: rgb(240, 241, 243);
+	--card: rgb(32, 34, 38);
+	--card-foreground: rgb(240, 241, 243);
+	--popover: rgb(42, 44, 48);
+	--popover-foreground: rgb(240, 241, 243);
+	--primary: rgb(99, 102, 241);
+	--primary-foreground: rgb(255, 255, 255);
+	--secondary: rgb(52, 54, 58);
+	--secondary-foreground: rgb(240, 241, 243);
+	--muted: rgb(46, 48, 52);
+	--muted-foreground: rgb(170, 173, 178);
+	--accent: rgb(50, 52, 56);
+	--accent-foreground: rgb(240, 241, 243);
 	--destructive: rgb(255, 91, 91);
 	--destructive-foreground: rgb(0, 0, 0);
-	--border: rgb(36, 36, 36);
-	--input: rgb(51, 51, 51);
-	--ring: rgb(164, 164, 164);
+	--border: rgb(58, 60, 64);
+	--input: rgb(64, 66, 70);
+	--ring: rgb(129, 132, 248);
 	--chart-1: rgb(255, 174, 4);
 	--chart-2: rgb(38, 113, 244);
 	--chart-3: rgb(116, 116, 116);
@@ -64,7 +64,7 @@
 	--card-foreground: rgb(0, 0, 0);
 	--popover: rgb(252, 252, 252);
 	--popover-foreground: rgb(0, 0, 0);
-	--primary: rgb(0, 0, 0);
+	--primary: rgb(79, 70, 229);
 	--primary-foreground: rgb(255, 255, 255);
 	--secondary: rgb(235, 235, 235);
 	--secondary-foreground: rgb(0, 0, 0);
@@ -76,7 +76,7 @@
 	--destructive-foreground: rgb(255, 255, 255);
 	--border: rgb(228, 228, 228);
 	--input: rgb(235, 235, 235);
-	--ring: rgb(0, 0, 0);
+	--ring: rgb(79, 70, 229);
 	--chart-1: rgb(255, 174, 4);
 	--chart-2: rgb(45, 98, 239);
 	--chart-3: rgb(164, 164, 164);
@@ -223,8 +223,123 @@ textarea:focus {
 	margin-bottom: 0 !important;
 }
 
+/* Markdown bullet list: indigo themed dot marker */
+.md-bullet-list {
+	list-style: none;
+	padding-left: 0;
+}
+.md-bullet-list > li {
+	position: relative;
+	padding-left: 1rem;
+}
+.md-bullet-list > li::before {
+	content: "";
+	position: absolute;
+	left: 0.15rem;
+	top: 0.65em;
+	width: 0.4rem;
+	height: 0.4rem;
+	border-radius: 9999px;
+	background: var(--primary);
+}
+/* Nested lists: keep the same indigo dot but slightly smaller */
+.md-bullet-list .md-bullet-list > li::before {
+	width: 0.3rem;
+	height: 0.3rem;
+	background: color-mix(in srgb, var(--primary) 70%, transparent);
+}
+
 /* Smooth transitions globally */
 button,
 a {
 	transition: all 0.15s ease;
+}
+
+/* ─── InputBar visual effects ─── */
+
+@keyframes input-shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+@keyframes input-focus-pulse {
+	0%,
+	100% {
+		opacity: 0.3;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+@keyframes context-ring-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Streaming state: calm indigo breathing glow.
+   A separate pseudo element fades opacity 0→1→0 — pure opacity interpolation
+   stays smooth across the whole cycle, no perceptible "step". */
+@keyframes input-streaming-breathe {
+	0%,
+	100% {
+		opacity: 0.25;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+.input-aurora {
+	position: relative;
+}
+.input-aurora::after {
+	content: "";
+	position: absolute;
+	inset: -1px;
+	border-radius: inherit;
+	pointer-events: none;
+	box-shadow:
+		0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent),
+		0 0 28px 0 color-mix(in srgb, var(--primary) 40%, transparent);
+	animation: input-streaming-breathe 3.2s ease-in-out infinite;
+	z-index: -1;
+	will-change: opacity;
+}
+
+/* Soft halo behind the card on focus. */
+.input-halo::after {
+	content: "";
+	position: absolute;
+	inset: -4px;
+	border-radius: inherit;
+	background: radial-gradient(
+		60% 80% at 50% 100%,
+		color-mix(in srgb, var(--primary) 14%, transparent),
+		transparent 70%
+	);
+	filter: blur(10px);
+	pointer-events: none;
+	z-index: -1;
+	animation: input-focus-pulse 4s ease-in-out infinite;
+}
+
+/* Shimmer text used as the streaming placeholder. */
+.input-shimmer-text {
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--muted-foreground) 50%, transparent) 0%,
+		var(--primary) 50%,
+		color-mix(in srgb, var(--muted-foreground) 50%, transparent) 100%
+	);
+	background-size: 200% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: input-shimmer 2s linear infinite;
 }

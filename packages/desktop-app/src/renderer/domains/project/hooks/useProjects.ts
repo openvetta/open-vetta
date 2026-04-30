@@ -58,9 +58,9 @@ export function useProjects() {
 		}
 	}, [setProjects, setExpandedProjects, loadSessions]);
 
-	/** Create a new project directory in workspace and add to config */
+	/** Create a new project directory in workspace and add to config; returns resolved cwd. */
 	const createProject = useCallback(
-		async (name: string) => {
+		async (name: string): Promise<string> => {
 			const projectPath = `${workspacePath}/${name}`;
 			await window.vetta.fs.createDirectory(projectPath);
 			// Read the resolved path back via listSubDirs to get the absolute path
@@ -77,6 +77,7 @@ export function useProjects() {
 
 			await refreshProjects();
 			setExpandedProjects((prev) => new Set([...prev, resolvedPath]));
+			return resolvedPath;
 		},
 		[workspacePath, refreshProjects, setExpandedProjects],
 	);

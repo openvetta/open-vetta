@@ -1,4 +1,11 @@
 import { atom } from "jotai";
+import type { ReactNode } from "react";
+
+// ─── Page header overrides ───
+// Pages can set these to override the default route-based title and inject
+// custom right-side action buttons into the global PageHeader.
+export const pageHeaderTitleAtom = atom<string | null>(null);
+export const pageHeaderRightSlotAtom = atom<ReactNode | null>(null);
 
 // ─── Settings page ───
 

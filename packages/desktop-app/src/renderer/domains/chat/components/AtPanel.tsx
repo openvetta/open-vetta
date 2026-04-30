@@ -243,9 +243,21 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 											const parent = currentDir.replace(/\/[^/]+\/?$/, "") || "/";
 											setCurrentDir(parent);
 										}}
-										className="flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
-										style={{ background: activeIndex === 0 ? "var(--accent)" : "transparent" }}
+										className="relative flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
+										style={{
+											background:
+												activeIndex === 0
+													? "color-mix(in srgb, var(--primary) 9%, transparent)"
+													: "transparent",
+										}}
 									>
+										{activeIndex === 0 && (
+											<motion.span
+												layoutId="at-active-marker"
+												className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
+												transition={{ type: "spring", stiffness: 500, damping: 32 }}
+											/>
+										)}
 										<span className="icon-[mdi--arrow-up-left] h-4 w-4 text-muted-foreground/50" />
 										<span className="text-[12px] text-muted-foreground/50">..</span>
 									</button>
@@ -266,9 +278,21 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 													onSelect({ path: entry.path, name: entry.name, isDirectory: false });
 												}
 											}}
-											className="flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
-											style={{ background: idx === activeIndex ? "var(--accent)" : "transparent" }}
+											className="relative flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
+											style={{
+												background:
+													idx === activeIndex
+														? "color-mix(in srgb, var(--primary) 9%, transparent)"
+														: "transparent",
+											}}
 										>
+											{idx === activeIndex && (
+												<motion.span
+													layoutId="at-active-marker"
+													className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
+													transition={{ type: "spring", stiffness: 500, damping: 32 }}
+												/>
+											)}
 											<span className={`${fileIcon(entry.name, entry.isDirectory)} h-4 w-4 shrink-0 ${entry.isDirectory ? "text-muted-foreground" : "text-muted-foreground/50"}`} />
 											<span className={`truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-foreground" : "text-foreground"}`}>
 												{entry.name}

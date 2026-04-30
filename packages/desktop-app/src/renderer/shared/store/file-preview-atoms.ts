@@ -57,3 +57,35 @@ export const filePreviewContextReadonlyAtom = atom(
 	(get) => get(filePreviewContextAtom),
 	(_get, set, ctx: FilePreviewContext | null) => set(filePreviewContextAtom, ctx),
 );
+
+/**
+ * 内嵌（活动面板内）文件预览上下文。
+ *
+ * 与全局 Dialog 形态的 {@link filePreviewAtom} 区分：当此 atom 非空时，
+ * 文件预览以"侧栏内分屏"的方式显示，而不是弹出 Dialog。
+ * 文件树（FilesPanel）走这条路径；聊天附件等其他入口仍走 Dialog。
+ */
+const inlineFilePreviewContextAtom = atom<FilePreviewContext | null>(null);
+
+export const inlineFilePreviewAtom = atom(
+	(get) => {
+		const ctx = get(inlineFilePreviewContextAtom);
+		return ctx ? (ctx.items[ctx.index] ?? null) : null;
+	},
+	(_get, set, value: FilePreviewItem | FilePreviewContext | null) => {
+		if (value === null) {
+			set(inlineFilePreviewContextAtom, null);
+			return;
+		}
+		if ("items" in value) {
+			set(inlineFilePreviewContextAtom, value);
+			return;
+		}
+		set(inlineFilePreviewContextAtom, { items: [value], index: 0 });
+	},
+);
+
+export const inlineFilePreviewContextReadonlyAtom = atom(
+	(get) => get(inlineFilePreviewContextAtom),
+	(_get, set, ctx: FilePreviewContext | null) => set(inlineFilePreviewContextAtom, ctx),
+);
