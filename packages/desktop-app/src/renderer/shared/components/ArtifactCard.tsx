@@ -1,6 +1,17 @@
+import { useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
-import { pathBasename } from "@shared/lib/utils";
+import { useCallback, useState } from "react";
+import { pathBasename, pathJoin } from "@shared/lib/utils";
+import { activeSessionAtom, filePreviewAtom, type FilePreviewItem } from "@shared/store/atoms";
+
+function isAbsolutePath(p: string): boolean {
+	return p.startsWith("/") || p.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(p);
+}
+
+function resolveAgainstCwd(p: string, cwd: string | undefined): string {
+	if (!cwd || isAbsolutePath(p)) return p;
+	return pathJoin(cwd, p);
+}
 
 const COLLAPSED_VISIBLE_COUNT = 5;
 
@@ -12,9 +23,24 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 	if (files.length === 0) return null;
 
 	const [expanded, setExpanded] = useState(false);
+	const setPreview = useSetAtom(filePreviewAtom);
+	const activeSession = useAtomValue(activeSessionAtom);
+	const cwd = activeSession?.cwd;
 	const canCollapse = files.length > COLLAPSED_VISIBLE_COUNT;
 	const visibleFiles = canCollapse && !expanded ? files.slice(0, COLLAPSED_VISIBLE_COUNT) : files;
 	const hiddenCount = files.length - COLLAPSED_VISIBLE_COUNT;
+
+	const openPreview = useCallback(
+		(path: string) => {
+			const items: FilePreviewItem[] = files.map((p) => ({
+				name: pathBasename(p),
+				path: resolveAgainstCwd(p, cwd),
+			}));
+			const index = files.indexOf(path);
+			setPreview({ items, index: index >= 0 ? index : 0 });
+		},
+		[files, cwd, setPreview],
+	);
 
 	return (
 		<motion.div
@@ -30,7 +56,7 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 			<ul className="flex flex-col gap-0.5">
 				<AnimatePresence initial={false}>
 					{visibleFiles.map((filePath) => (
-						<FileRow key={filePath} path={filePath} />
+						<FileRow key={filePath} path={filePath} onClick={openPreview} />
 					))}
 				</AnimatePresence>
 			</ul>
@@ -48,7 +74,7 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 	);
 }
 
-function FileRow({ path }: { path: string }): JSX.Element {
+function FileRow({ path, onClick }: { path: string; onClick: (path: string) => void }): JSX.Element {
 	const name = pathBasename(path);
 
 	return (
@@ -58,14 +84,20 @@ function FileRow({ path }: { path: string }): JSX.Element {
 			animate={{ opacity: 1, height: "auto" }}
 			exit={{ opacity: 0, height: 0 }}
 			transition={{ duration: 0.2 }}
-			className="flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-muted/30"
-			title={path}
+			className="block w-full"
 		>
-			<span className="icon-[mdi--file-outline] h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-			<span className="truncate text-xs text-foreground">{name}</span>
-			<span className="ml-auto truncate text-[10px] text-muted-foreground/40 max-w-[60%] text-right">
-				{path}
-			</span>
+			<button
+				type="button"
+				onClick={() => onClick(path)}
+				title={path}
+				className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted/50"
+			>
+				<span className="icon-[mdi--file-outline] h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+				<span className="min-w-0 truncate text-xs text-foreground">{name}</span>
+				<span className="ml-auto min-w-0 max-w-[60%] truncate text-right text-[10px] text-muted-foreground/40">
+					{path}
+				</span>
+			</button>
 		</motion.li>
 	);
 }
