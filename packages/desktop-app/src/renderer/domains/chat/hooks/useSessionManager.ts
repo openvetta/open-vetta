@@ -121,6 +121,7 @@ export function useSessionManager(): SessionManagerResult {
 			resetStreamState();
 			setIsStreaming(false);
 			setIsCompacting(false);
+			setTurnModifiedFiles([]);
 
 			void navigate({ to: "/" });
 			__perf("before session.create");
@@ -132,6 +133,7 @@ export function useSessionManager(): SessionManagerResult {
 			__perf("after getFullHistory");
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
+			setTurnModifiedFiles(extractModifiedFiles(mapped));
 
 			// Restore per-session state: context usage from backend, turn stats from cache
 			const state = await window.vetta.session.getState(sessionId);
