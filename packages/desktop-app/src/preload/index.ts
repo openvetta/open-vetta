@@ -18,6 +18,11 @@ const CHANNELS = {
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
+	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
+	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
+	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
+	SANDBOX_GRANTS_REVOKE: "vetta:session:sandbox-grants-revoke",
+	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	DELETE: "vetta:session:delete",
@@ -365,6 +370,21 @@ const api: DesktopApi = {
 		},
 		respondToConfirmation: async (requestId, confirmed) =>
 			ipcRenderer.invoke(CHANNELS.CONFIRM_RESPONSE, requestId, confirmed),
+		onSandboxGrantRequest: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, request: unknown) => {
+				handler(request as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(CHANNELS.SANDBOX_GRANT_REQUEST, listener);
+			return () => {
+				ipcRenderer.removeListener(CHANNELS.SANDBOX_GRANT_REQUEST, listener);
+			};
+		},
+		respondToSandboxGrant: async (requestId, decision) =>
+			ipcRenderer.invoke(CHANNELS.SANDBOX_GRANT_RESPONSE, requestId, decision),
+		listSandboxGrants: async (sessionId) => ipcRenderer.invoke(CHANNELS.SANDBOX_GRANTS_LIST, sessionId),
+		revokeSandboxGrant: async (sessionId, grantId) =>
+			ipcRenderer.invoke(CHANNELS.SANDBOX_GRANTS_REVOKE, sessionId, grantId),
+		revokeAllSandboxGrants: async (sessionId) => ipcRenderer.invoke(CHANNELS.SANDBOX_GRANTS_REVOKE_ALL, sessionId),
 		getSessionPath: async (sessionId) => ipcRenderer.invoke("vetta:session:get-session-path", sessionId),
 		updateSettings: async (sessionId, partialSettings) =>
 			ipcRenderer.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),

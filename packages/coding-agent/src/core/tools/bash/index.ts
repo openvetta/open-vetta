@@ -91,8 +91,7 @@ function detectProtectedChanges(before: DirSnapshot, after: DirSnapshot): string
 
 const bashSchema = Type.Object({
 	command: Type.String({
-		description:
-			"Bash command to execute. You can reference dir_tree path IDs like @PATH_0001 inside quoted strings.",
+		description: "Bash command to execute.",
 	}),
 	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
 });

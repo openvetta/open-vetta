@@ -3,6 +3,8 @@ import { basename } from "node:path";
 import { ipcMain, type WebContents } from "electron";
 import type {
 	PromptRequest,
+	RuntimeSandboxGrantDecision,
+	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
 	SessionConfig,
 	SessionEvent,
@@ -39,6 +41,11 @@ const CHANNELS = {
 	EVENT: "vetta:session:event",
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
+	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
+	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
+	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
+	SANDBOX_GRANTS_REVOKE: "vetta:session:sandbox-grants-revoke",
+	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -93,6 +100,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const runtime = getSharedRuntime();
 	const subscriptionMap = new Map<string, () => void>();
 	const confirmationMap = new Map<string, (confirmed: boolean) => void>();
+	const sandboxGrantMap = new Map<string, (decision: RuntimeSandboxGrantDecision) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
 	/** Track debug request sequence per session */
@@ -116,6 +124,25 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			confirmationMap.set(request.requestId, finish);
 			webContents.send(CHANNELS.CONFIRM_REQUEST, request);
+		});
+	});
+
+	runtime.setUserSandboxGrantHandler((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => {
+		if (webContents.isDestroyed()) return Promise.resolve<RuntimeSandboxGrantDecision>("deny");
+		return new Promise<RuntimeSandboxGrantDecision>((resolve) => {
+			const finish = (decision: RuntimeSandboxGrantDecision): void => {
+				sandboxGrantMap.delete(request.requestId);
+				if (signal) signal.removeEventListener("abort", onAbort);
+				resolve(decision);
+			};
+			const onAbort = (): void => finish("deny");
+			if (signal?.aborted) {
+				resolve("deny");
+				return;
+			}
+			if (signal) signal.addEventListener("abort", onAbort, { once: true });
+			sandboxGrantMap.set(request.requestId, finish);
+			webContents.send(CHANNELS.SANDBOX_GRANT_REQUEST, request);
 		});
 	});
 
@@ -247,6 +274,31 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		resolve(confirmed === true);
 	});
 
+	ipcMain.handle(CHANNELS.SANDBOX_GRANT_RESPONSE, (_event, requestId: unknown, decision: unknown) => {
+		assertNonEmptyString(requestId, "requestId");
+		const resolve = sandboxGrantMap.get(requestId);
+		if (!resolve) return;
+		const value: RuntimeSandboxGrantDecision =
+			decision === "allow_once" || decision === "allow_session" ? decision : "deny";
+		resolve(value);
+	});
+
+	ipcMain.handle(CHANNELS.SANDBOX_GRANTS_LIST, (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		return runtime.listSandboxGrants(sessionId);
+	});
+
+	ipcMain.handle(CHANNELS.SANDBOX_GRANTS_REVOKE, (_event, sessionId: unknown, grantId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		assertNonEmptyString(grantId, "grantId");
+		return runtime.revokeSandboxGrant(sessionId, grantId);
+	});
+
+	ipcMain.handle(CHANNELS.SANDBOX_GRANTS_REVOKE_ALL, (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		return runtime.revokeAllSandboxGrants(sessionId);
+	});
+
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
@@ -309,7 +361,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve(false);
 		}
 		confirmationMap.clear();
+		for (const resolve of sandboxGrantMap.values()) {
+			resolve("deny");
+		}
+		sandboxGrantMap.clear();
 		runtime.setUserConfirmationHandler(undefined);
+		runtime.setUserSandboxGrantHandler(undefined);
 		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
 		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts
 		// 的 before-quit 负责（见 disposeSharedRuntime）。

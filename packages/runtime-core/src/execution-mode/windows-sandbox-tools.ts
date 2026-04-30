@@ -212,11 +212,13 @@ function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOper
 export interface WindowsSandboxToolOptions {
 	cwd: string;
 	sandboxHostPath?: string;
+	getSessionId?: () => string | undefined;
 }
 
 export function buildWindowsSandboxToolDefinitions(options: WindowsSandboxToolOptions): ToolDefinition[] {
 	const { cwd } = options;
 	const sandboxHostPath = resolveWindowsSandboxHostPath(options.sandboxHostPath);
+	const guardCtx = { getSessionId: options.getSessionId };
 
 	const readTool = createReadTool(cwd);
 	const writeTool = createWriteTool(cwd);
@@ -226,9 +228,9 @@ export function buildWindowsSandboxToolDefinitions(options: WindowsSandboxToolOp
 	});
 
 	return [
-		wrapWorkspaceGuard(readTool, cwd),
-		wrapWorkspaceGuard(writeTool, cwd),
-		wrapWorkspaceGuard(editTool, cwd),
-		wrapShellPermissionGuard(shellTool, cwd),
+		wrapWorkspaceGuard(readTool, cwd, guardCtx),
+		wrapWorkspaceGuard(writeTool, cwd, guardCtx),
+		wrapWorkspaceGuard(editTool, cwd, guardCtx),
+		wrapShellPermissionGuard(shellTool, cwd, guardCtx),
 	];
 }

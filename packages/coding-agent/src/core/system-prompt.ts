@@ -129,9 +129,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		prompt +=
 			"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. ";
 		prompt += "NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. ";
-		prompt += "When in doubt, run ls or find first to get the exact name, then copy it verbatim. ";
-		prompt +=
-			"If dir_tree returns path IDs like @PATH_0001, prefer those IDs in tool path arguments instead of retyping filenames.";
+		prompt += "When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
 
 		// Add date/time and working directory last
 		prompt += `\nCurrent date and time: ${dateTime}`;
@@ -175,9 +173,6 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	if (hasDirTree) {
 		guidelinesList.push(
 			'ALWAYS use dir_tree (not bash "tree", "ls -R", "find", "fd", or "rg --files") whenever you need to view directory structure or explore a codebase. Only fall back to bash if dir_tree cannot fulfill the specific requirement (e.g., custom output formatting)',
-		);
-		guidelinesList.push(
-			'When dir_tree output includes path IDs like @PATH_0001, prefer these IDs as tool paths. In shell commands, wrap IDs in quotes (example: cat "@PATH_0001").',
 		);
 	}
 

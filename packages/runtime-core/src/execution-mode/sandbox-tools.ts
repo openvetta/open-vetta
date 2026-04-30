@@ -9,6 +9,8 @@ export interface SandboxToolOptions {
 	windowsSandboxHostPath?: WindowsSandboxToolOptions["sandboxHostPath"];
 	linuxBubblewrapPath?: LinuxBubblewrapToolOptions["bubblewrapPath"];
 	macosSandboxExecPath?: MacosSeatbeltToolOptions["sandboxExecPath"];
+	/** Resolves the current session id at execute-time. Required for the session-scoped grant cache. */
+	getSessionId?: () => string | undefined;
 }
 
 export function buildSandboxToolDefinitions(options: SandboxToolOptions): ToolDefinition[] | undefined {
@@ -17,18 +19,21 @@ export function buildSandboxToolDefinitions(options: SandboxToolOptions): ToolDe
 		return buildWindowsSandboxToolDefinitions({
 			cwd: options.cwd,
 			sandboxHostPath: options.windowsSandboxHostPath,
+			getSessionId: options.getSessionId,
 		});
 	}
 	if (platform === "linux") {
 		return buildLinuxBubblewrapToolDefinitions({
 			cwd: options.cwd,
 			bubblewrapPath: options.linuxBubblewrapPath,
+			getSessionId: options.getSessionId,
 		});
 	}
 	if (platform === "darwin") {
 		return buildMacosSeatbeltToolDefinitions({
 			cwd: options.cwd,
 			sandboxExecPath: options.macosSandboxExecPath,
+			getSessionId: options.getSessionId,
 		});
 	}
 	return undefined;

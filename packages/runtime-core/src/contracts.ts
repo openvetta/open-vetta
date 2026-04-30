@@ -120,6 +120,33 @@ export interface RuntimeUserConfirmationRequest {
 	message: string;
 }
 
+export type RuntimeSandboxGrantDecision = "deny" | "allow_once" | "allow_session";
+
+export interface RuntimeSandboxGrantRequest {
+	requestId: string;
+	sessionId: string;
+	title: string;
+	message: string;
+	toolName: string;
+	capability: "file.read" | "file.write" | "network";
+	target: string;
+	resolvedTarget: string;
+	grantRoot?: string;
+	command?: string;
+	/** True when the request involves a sensitive deny-root (e.g. ~/.ssh) — UI must hide the "allow for session" choice. */
+	sensitive: boolean;
+}
+
+export interface RuntimeSandboxGrantInfo {
+	id: string;
+	sessionId: string;
+	toolName: string;
+	capability: "file.read" | "file.write" | "network";
+	grantRoot: string;
+	firstTarget: string;
+	createdAt: number;
+}
+
 export type SessionEvent =
 	| SessionLifecycleEvent
 	| MessageDeltaEvent
@@ -214,6 +241,14 @@ export interface SessionFacade {
 	setUserConfirmationHandler(
 		handler: ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>) | undefined,
 	): void;
+	setUserSandboxGrantHandler(
+		handler:
+			| ((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => Promise<RuntimeSandboxGrantDecision>)
+			| undefined,
+	): void;
+	listSandboxGrants(sessionId: string): RuntimeSandboxGrantInfo[];
+	revokeSandboxGrant(sessionId: string, grantId: string): boolean;
+	revokeAllSandboxGrants(sessionId: string): number;
 	createSession(config?: SessionConfig): Promise<{ sessionId: string }>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
 	setGlobalExecutionMode(mode: SessionExecutionMode): Promise<void>;

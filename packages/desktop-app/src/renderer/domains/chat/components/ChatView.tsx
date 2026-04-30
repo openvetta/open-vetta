@@ -4,6 +4,7 @@ import { Button } from "@shared/components/ui/button";
 import { pathBasename } from "@shared/lib/utils";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
+import { SandboxGrantsBadge } from "./SandboxGrantsBadge";
 import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
 
 function projectName(cwd: string): string {
@@ -57,6 +58,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 								Thinking...
 							</div>
 						)}
+						<SandboxGrantsBadge />
 						{isLastStage ? (
 							<Button
 								size="sm"

@@ -28,8 +28,11 @@ export interface SandboxPermissionDrawerState {
 	requestId: string;
 	title: string;
 	message: string;
+	/** True when the request is for a sensitive deny-root path; UI must hide the "allow for session" button. */
+	sensitive?: boolean;
 	onConfirm: () => void;
 	onCancel: () => void;
+	onAllowSession?: () => void;
 }
 
 export const sandboxPermissionDrawerAtom = atom<SandboxPermissionDrawerState | null>(null);

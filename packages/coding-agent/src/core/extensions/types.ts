@@ -237,6 +237,27 @@ export interface ExtensionUIContext {
 
 	/** Set tool output expansion state. */
 	setToolsExpanded(expanded: boolean): void;
+
+	/**
+	 * Request a sandbox-permission decision from the user.
+	 * Optional: hosts that haven't implemented the tri-state UI fall back to confirm().
+	 * Implementations must honor `sensitive: true` by suppressing the "allow for session" choice.
+	 */
+	requestSandboxGrant?(request: SandboxGrantPromptRequest): Promise<SandboxGrantDecision>;
+}
+
+export type SandboxGrantDecision = "deny" | "allow_once" | "allow_session";
+
+export interface SandboxGrantPromptRequest {
+	title: string;
+	message: string;
+	toolName: string;
+	capability: "file.read" | "file.write" | "network";
+	target: string;
+	resolvedTarget: string;
+	grantRoot?: string;
+	command?: string;
+	sensitive: boolean;
 }
 
 // ============================================================================
