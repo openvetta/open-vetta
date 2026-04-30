@@ -6,63 +6,6 @@ import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../config.js";
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const NARROW_NO_BREAK_SPACE = "\u202F";
 const CJK_CHARS = /[\u3400-\u9fff\uf900-\ufaff]/;
-const PATH_ID_REGEX = /^@PATH_\d{4}$/i;
-
-const pathIdRegistry = new Map<string, string>();
-
-function getPathIdScope(cwd: string): string {
-	return resolvePath(cwd);
-}
-
-function getPathIdKey(scope: string, pathId: string): string {
-	return `${scope}::${pathId}`;
-}
-
-function normalizePathId(value: string): string | undefined {
-	const trimmed = value.trim();
-	if (!PATH_ID_REGEX.test(trimmed)) return undefined;
-	return trimmed.toUpperCase();
-}
-
-export interface PathIdEntry {
-	pathId: string;
-	absolutePath: string;
-}
-
-export function clearPathIds(cwd?: string): void {
-	if (!cwd) {
-		pathIdRegistry.clear();
-		return;
-	}
-
-	const scope = getPathIdScope(cwd);
-	const prefix = `${scope}::`;
-	for (const key of Array.from(pathIdRegistry.keys())) {
-		if (key.startsWith(prefix)) {
-			pathIdRegistry.delete(key);
-		}
-	}
-}
-
-export function replacePathIds(cwd: string, entries: PathIdEntry[]): void {
-	clearPathIds(cwd);
-	const scope = getPathIdScope(cwd);
-
-	for (const entry of entries) {
-		const normalizedPathId = normalizePathId(entry.pathId);
-		if (!normalizedPathId) continue;
-
-		const absolutePath = isAbsolute(entry.absolutePath) ? entry.absolutePath : resolvePath(cwd, entry.absolutePath);
-		pathIdRegistry.set(getPathIdKey(scope, normalizedPathId), absolutePath);
-	}
-}
-
-export function resolvePathId(pathId: string, cwd: string): string | undefined {
-	const normalizedPathId = normalizePathId(pathId);
-	if (!normalizedPathId) return undefined;
-	const scope = getPathIdScope(cwd);
-	return pathIdRegistry.get(getPathIdKey(scope, normalizedPathId));
-}
 
 function normalizeUnicodeSpaces(str: string): string {
 	return str.replace(UNICODE_SPACES, " ");
@@ -128,13 +71,7 @@ function isLikelyLiteralPath(value: string): boolean {
 	if (value.includes("$(") || value.includes("${") || value.includes("`")) return false;
 	if (/[|;&<>*?[\]{}]/.test(value)) return false;
 
-	if (
-		value.includes("/") ||
-		value.includes("\\") ||
-		value.startsWith(".") ||
-		value.startsWith("~") ||
-		value.startsWith("@")
-	) {
+	if (value.includes("/") || value.includes("\\") || value.startsWith(".") || value.startsWith("~")) {
 		return true;
 	}
 
@@ -215,16 +152,6 @@ export function rewriteQuotedPathLiterals(input: string, cwd: string): RewriteQu
 	// Replace from end to start so segment offsets remain valid.
 	for (let i = segments.length - 1; i >= 0; i--) {
 		const segment = segments[i];
-		const resolvedPathId = resolvePathId(segment.value, cwd);
-		if (resolvedPathId && fileExists(resolvedPathId)) {
-			const correctedLiteral = formatCorrectedPathLiteral(segment.value, resolvedPathId, cwd);
-			if (correctedLiteral !== segment.value) {
-				output = output.slice(0, segment.contentStart) + correctedLiteral + output.slice(segment.contentEnd);
-				pathCorrections.unshift({ original: segment.value, corrected: correctedLiteral });
-			}
-			continue;
-		}
-
 		if (!isLikelyLiteralPath(segment.value)) continue;
 
 		const resolvedOriginalPath = resolveToCwd(segment.value, cwd);
@@ -244,12 +171,8 @@ export function rewriteQuotedPathLiterals(input: string, cwd: string): RewriteQu
 	return { output, pathCorrections };
 }
 
-function normalizeAtPrefix(filePath: string): string {
-	return filePath.startsWith("@") ? filePath.slice(1) : filePath;
-}
-
 export function expandPath(filePath: string): string {
-	const normalized = normalizeUnicodeSpaces(normalizeAtPrefix(filePath));
+	const normalized = normalizeUnicodeSpaces(filePath);
 	if (normalized === "~") {
 		return os.homedir();
 	}
@@ -264,11 +187,6 @@ export function expandPath(filePath: string): string {
  * Handles ~ expansion and absolute paths.
  */
 export function resolveToCwd(filePath: string, cwd: string): string {
-	const resolvedPathId = resolvePathId(filePath, cwd);
-	if (resolvedPathId) {
-		return resolvedPathId;
-	}
-
 	const expanded = expandPath(filePath);
 	if (isAbsolute(expanded)) {
 		return expanded;

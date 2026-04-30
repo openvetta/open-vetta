@@ -3,6 +3,9 @@ import type {
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
+	RuntimeSandboxGrantDecision,
+	RuntimeSandboxGrantInfo,
+	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
 	SessionConfig,
 	SessionEvent,
@@ -25,6 +28,11 @@ export interface DesktopSessionApi {
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
 	onConfirmationRequest(handler: (request: RuntimeUserConfirmationRequest) => void): () => void;
 	respondToConfirmation(requestId: string, confirmed: boolean): Promise<void>;
+	onSandboxGrantRequest(handler: (request: RuntimeSandboxGrantRequest) => void): () => void;
+	respondToSandboxGrant(requestId: string, decision: RuntimeSandboxGrantDecision): Promise<void>;
+	listSandboxGrants(sessionId: string): Promise<RuntimeSandboxGrantInfo[]>;
+	revokeSandboxGrant(sessionId: string, grantId: string): Promise<boolean>;
+	revokeAllSandboxGrants(sessionId: string): Promise<number>;
 	getSessionPath(sessionId: string): Promise<string | undefined>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;

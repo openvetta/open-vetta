@@ -2,9 +2,9 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { isAbsolute, resolve as resolvePath } from "node:path";
 import {
+	createBashTool,
 	createEditTool,
 	createReadTool,
-	createShellTool,
 	createWriteTool,
 	getShellConfig,
 	type ShellOperations,
@@ -233,23 +233,28 @@ function createLinuxBubblewrapShellOperations(bubblewrapPath: string): ShellOper
 export interface LinuxBubblewrapToolOptions {
 	cwd: string;
 	bubblewrapPath?: string;
+	getSessionId?: () => string | undefined;
 }
 
 export function buildLinuxBubblewrapToolDefinitions(options: LinuxBubblewrapToolOptions): ToolDefinition[] {
 	const { cwd } = options;
 	const bubblewrapPath = resolveLinuxBubblewrapPath(options.bubblewrapPath);
+	const guardCtx = { getSessionId: options.getSessionId };
 
 	const readTool = createReadTool(cwd);
 	const writeTool = createWriteTool(cwd);
 	const editTool = createEditTool(cwd);
-	const shellTool = createShellTool(cwd, {
+	// Use createBashTool (name="bash") rather than createShellTool (name="shell")
+	// so that on Linux — where the default active command tool is "bash" — this
+	// custom tool actually overrides the unsandboxed default in the registry.
+	const bashTool = createBashTool(cwd, {
 		operations: createLinuxBubblewrapShellOperations(bubblewrapPath),
 	});
 
 	return [
-		wrapWorkspaceGuard(readTool, cwd),
-		wrapWorkspaceGuard(writeTool, cwd),
-		wrapWorkspaceGuard(editTool, cwd),
-		wrapShellPermissionGuard(shellTool, cwd),
+		wrapWorkspaceGuard(readTool, cwd, guardCtx),
+		wrapWorkspaceGuard(writeTool, cwd, guardCtx),
+		wrapWorkspaceGuard(editTool, cwd, guardCtx),
+		wrapShellPermissionGuard(bashTool, cwd, guardCtx),
 	];
 }

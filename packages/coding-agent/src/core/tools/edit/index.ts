@@ -2,7 +2,6 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
-import { dirname } from "path";
 import { loadToolDescription } from "../description.js";
 import {
 	detectLineEnding,
@@ -13,16 +12,11 @@ import {
 	restoreLineEndings,
 	stripBom,
 } from "../edit-diff.js";
-import {
-	isProtectedSkillOrScenePath,
-	type PathLiteralCorrection,
-	resolveExistingPath,
-	rewriteQuotedPathLiterals,
-} from "../path-utils.js";
+import { isProtectedSkillOrScenePath, resolveExistingPath } from "../path-utils.js";
 
 const editSchema = Type.Object({
 	path: Type.String({
-		description: "Path to the file to edit (relative/absolute), or a dir_tree path ID like @PATH_0001",
+		description: "Path to the file to edit (relative or absolute)",
 	}),
 	oldText: Type.String({ description: "Exact text to find and replace (must match exactly)" }),
 	newText: Type.String({ description: "New text to replace the old text with" }),
@@ -35,8 +29,6 @@ export interface EditToolDetails {
 	diff: string;
 	/** Line number of the first change in the new file (for editor navigation) */
 	firstChangedLine?: number;
-	/** Auto-corrected path literals inside replacement text */
-	pathCorrections?: PathLiteralCorrection[];
 }
 
 /**
@@ -88,9 +80,6 @@ export function createEditTool(cwd: string, options?: EditToolOptions): AgentToo
 						`Write output files to the user's working directory instead.`,
 				);
 			}
-
-			const baseDir = dirname(absolutePath);
-			const { output: correctedNewText, pathCorrections } = rewriteQuotedPathLiterals(newText, baseDir);
 
 			return new Promise<{
 				content: Array<{ type: "text"; text: string }>;
@@ -148,7 +137,7 @@ export function createEditTool(cwd: string, options?: EditToolOptions): AgentToo
 						const originalEnding = detectLineEnding(content);
 						const normalizedContent = normalizeToLF(content);
 						const normalizedOldText = normalizeToLF(oldText);
-						const normalizedNewText = normalizeToLF(correctedNewText);
+						const normalizedNewText = normalizeToLF(newText);
 
 						// Find the old text using fuzzy matching (tries exact match first, then fuzzy)
 						const matchResult = fuzzyFindText(normalizedContent, normalizedOldText);
@@ -226,20 +215,12 @@ export function createEditTool(cwd: string, options?: EditToolOptions): AgentToo
 							content: [
 								{
 									type: "text",
-									text:
-										`${pathCorrections
-											.map(
-												(correction) =>
-													`[Auto-corrected path literal: "${correction.original}" -> "${correction.corrected}"]`,
-											)
-											.join("\n")}${pathCorrections.length > 0 ? "\n" : ""}` +
-										`Successfully replaced text in ${path}.`,
+									text: `Successfully replaced text in ${path}.`,
 								},
 							],
 							details: {
 								diff: diffResult.diff,
 								firstChangedLine: diffResult.firstChangedLine,
-								...(pathCorrections.length > 0 ? { pathCorrections } : {}),
 							},
 						});
 					} catch (error: any) {

@@ -72,6 +72,55 @@ export function RootLayout(): JSX.Element {
 		});
 	}, [setSandboxPermissionDrawer]);
 
+	const grantQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onSandboxGrantRequest>[0]>[0][]>([]);
+	const grantActiveRef = useRef(false);
+
+	useEffect(() => {
+		const showGrant = (
+			request: Parameters<Parameters<typeof window.vetta.session.onSandboxGrantRequest>[0]>[0],
+		) => {
+			grantActiveRef.current = true;
+			const showNext = () => {
+				const nextRequest = grantQueueRef.current.shift();
+				if (nextRequest) {
+					showGrant(nextRequest);
+				} else {
+					grantActiveRef.current = false;
+				}
+			};
+			setSandboxPermissionDrawer({
+				requestId: request.requestId,
+				title: request.title,
+				message: request.message,
+				sensitive: request.sensitive,
+				onConfirm: () => {
+					void window.vetta.session.respondToSandboxGrant(request.requestId, "allow_once");
+					setSandboxPermissionDrawer(null);
+					showNext();
+				},
+				onCancel: () => {
+					void window.vetta.session.respondToSandboxGrant(request.requestId, "deny");
+					setSandboxPermissionDrawer(null);
+					showNext();
+				},
+				onAllowSession: request.sensitive
+					? undefined
+					: () => {
+							void window.vetta.session.respondToSandboxGrant(request.requestId, "allow_session");
+							setSandboxPermissionDrawer(null);
+							showNext();
+						},
+			});
+		};
+		return window.vetta.session.onSandboxGrantRequest((request) => {
+			if (grantActiveRef.current || confirmationActiveRef.current) {
+				grantQueueRef.current.push(request);
+				return;
+			}
+			showGrant(request);
+		});
+	}, [setSandboxPermissionDrawer]);
+
 	// ─── Global keyboard shortcuts ───
 	const projectsRef = useRef(projects);
 	projectsRef.current = projects;

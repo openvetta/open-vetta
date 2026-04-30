@@ -4,9 +4,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import {
+	createBashTool,
 	createEditTool,
 	createReadTool,
-	createShellTool,
 	createWriteTool,
 	getShellConfig,
 	type ShellOperations,
@@ -85,9 +85,13 @@ function buildPathFilters(kind: "subpath" | "literal", paths: string[]): string 
 function buildMacosSandboxProfile(cwd: string, tempRoot: string, grant: SandboxShellGrant | undefined): string {
 	const homeDir = normalizeExistingPath(homedir());
 	const realCwd = normalizeExistingPath(cwd);
-	const realTempRoot = normalizeExistingPath(tempRoot);
-	const tempDirs = Array.from(new Set([normalizeExistingPath(tmpdir()), "/tmp", "/private/tmp", realTempRoot]));
-	const sensitiveReadDenyPaths = [
+	const sandboxHome = normalizeExistingPath(join(tempRoot, "home"));
+	const sandboxTmp = normalizeExistingPath(join(tempRoot, "tmp"));
+	// Only the redirected HOME and TMPDIR subdirs inside tempRoot are writable.
+	// tempRoot itself (which holds profile.sb) must remain read-only to the
+	// sandboxed shell so it can't tamper with the policy file.
+	const tempDirs = Array.from(new Set([normalizeExistingPath(tmpdir()), "/tmp", "/private/tmp"]));
+	const sensitiveDenyPaths = [
 		join(homeDir, ".ssh"),
 		join(homeDir, ".aws"),
 		join(homeDir, ".gnupg"),
@@ -101,15 +105,18 @@ function buildMacosSandboxProfile(cwd: string, tempRoot: string, grant: SandboxS
 	const grantWriteRoots = (grant?.allowWriteRoots ?? [])
 		.filter((path) => existsSync(path))
 		.map((path) => normalizeExistingPath(path));
-	const writablePaths = Array.from(new Set([realCwd, ...tempDirs, ...grantWriteRoots]));
+	const writablePaths = Array.from(new Set([realCwd, sandboxHome, sandboxTmp, ...tempDirs, ...grantWriteRoots]));
+	const writableDeviceLiterals = ["/dev/null", "/dev/zero", "/dev/tty", "/dev/stdout", "/dev/stderr"];
+	const writableDeviceSubpaths = ["/dev/fd"];
 	return [
 		"(version 1)",
 		"(deny default)",
 		"(allow process*)",
 		"(allow sysctl-read)",
 		"(allow file-read*)",
-		`(deny file-read* ${buildPathFilters("subpath", sensitiveReadDenyPaths)})`,
-		`(allow file-write* ${buildPathFilters("subpath", writablePaths)})`,
+		`(deny file-read* ${buildPathFilters("subpath", sensitiveDenyPaths)})`,
+		`(allow file-write* ${buildPathFilters("subpath", writablePaths)} ${buildPathFilters("subpath", writableDeviceSubpaths)} ${buildPathFilters("literal", writableDeviceLiterals)})`,
+		`(deny file-write* ${buildPathFilters("subpath", sensitiveDenyPaths)})`,
 	].join("\n");
 }
 
@@ -123,7 +130,7 @@ function buildSandboxEnv(cwd: string, tempRoot: string, env: NodeJS.ProcessEnv |
 		}
 	}
 	nextEnv.HOME = join(tempRoot, "home");
-	nextEnv.TMPDIR = tempRoot;
+	nextEnv.TMPDIR = join(tempRoot, "tmp");
 	nextEnv.PWD = cwd;
 	return nextEnv;
 }
@@ -142,6 +149,7 @@ function createMacosSeatbeltShellOperations(sandboxExecPath: string): ShellOpera
 
 					const tempRoot = await mkdtemp(join(tmpdir(), "vetta-macos-sandbox-"));
 					await mkdir(join(tempRoot, "home"), { recursive: true });
+					await mkdir(join(tempRoot, "tmp"), { recursive: true });
 					const profilePath = join(tempRoot, "profile.sb");
 					const grant = getSandboxShellGrant(cwd);
 					await writeFile(profilePath, buildMacosSandboxProfile(cwd, tempRoot, grant), "utf8");
@@ -217,24 +225,29 @@ function createMacosSeatbeltShellOperations(sandboxExecPath: string): ShellOpera
 export interface MacosSeatbeltToolOptions {
 	cwd: string;
 	sandboxExecPath?: string;
+	getSessionId?: () => string | undefined;
 }
 
 export function buildMacosSeatbeltToolDefinitions(options: MacosSeatbeltToolOptions): ToolDefinition[] {
 	const { cwd } = options;
 	const sandboxExecPath = options.sandboxExecPath ?? resolveMacosSandboxExecPath();
+	const guardCtx = { getSessionId: options.getSessionId };
 
 	const readTool = createReadTool(cwd);
 	const writeTool = createWriteTool(cwd);
 	const editTool = createEditTool(cwd);
-	const shellTool = createShellTool(cwd, {
+	// Use createBashTool (name="bash") rather than createShellTool (name="shell")
+	// so that on macOS — where the default active command tool is "bash" — this
+	// custom tool actually overrides the unsandboxed default in the registry.
+	const bashTool = createBashTool(cwd, {
 		operations: createMacosSeatbeltShellOperations(sandboxExecPath),
 	});
 
 	return [
-		wrapWorkspaceGuard(readTool, cwd),
-		wrapWorkspaceGuard(writeTool, cwd),
-		wrapWorkspaceGuard(editTool, cwd),
-		wrapShellPermissionGuard(shellTool, cwd),
+		wrapWorkspaceGuard(readTool, cwd, guardCtx),
+		wrapWorkspaceGuard(writeTool, cwd, guardCtx),
+		wrapWorkspaceGuard(editTool, cwd, guardCtx),
+		wrapShellPermissionGuard(bashTool, cwd, guardCtx),
 	];
 }
 

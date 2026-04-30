@@ -1,9 +1,12 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve as resolvePath } from "node:path";
 import type { ExtensionContext } from "@vetta/coding-agent";
 
 export type SandboxPermissionCapability = "file.read" | "file.write" | "network";
+
+export type SandboxPermissionDecision = "deny" | "allow_once" | "allow_session";
 
 export interface SandboxPermissionRequest {
 	capability: SandboxPermissionCapability;
@@ -27,6 +30,101 @@ interface SandboxShellGrantContext {
 
 const shellGrantStorage = new AsyncLocalStorage<SandboxShellGrantContext>();
 
+// =============================================================================
+// Session-scoped sandbox grant cache ("don't ask again this session")
+// =============================================================================
+
+export interface SandboxSessionGrantEntry {
+	id: string;
+	sessionId: string;
+	toolName: string;
+	capability: SandboxPermissionCapability;
+	grantRoot: string;
+	firstTarget: string;
+	createdAt: number;
+}
+
+const sessionGrantStore = new Map<string, SandboxSessionGrantEntry[]>();
+
+function normalizeRoot(root: string): string {
+	return resolvePath(root);
+}
+
+function buildEntryKey(toolName: string, capability: SandboxPermissionCapability, grantRoot: string): string {
+	return `${toolName}::${capability}::${normalizeRoot(grantRoot)}`;
+}
+
+export function findSessionGrant(
+	sessionId: string,
+	request: SandboxPermissionRequest,
+): SandboxSessionGrantEntry | undefined {
+	if (!sessionId) return undefined;
+	const entries = sessionGrantStore.get(sessionId);
+	if (!entries || entries.length === 0) return undefined;
+	const targetRoot = request.grantRoot ? normalizeRoot(request.grantRoot) : normalizeRoot(request.resolvedTarget);
+	for (const entry of entries) {
+		if (entry.toolName !== request.toolName) continue;
+		if (entry.capability !== request.capability) continue;
+		// Cached grant covers the request when target falls inside the cached root.
+		if (isPathInsideRoot(targetRoot, entry.grantRoot)) return entry;
+		// Tool-side computed grantRoot may be a parent of cached root — e.g. when
+		// the original cache entry was a file's dirname and the new request is
+		// already that exact file. Honor exact-equality too.
+		if (entry.grantRoot === targetRoot) return entry;
+	}
+	return undefined;
+}
+
+export function addSessionGrant(sessionId: string, request: SandboxPermissionRequest): SandboxSessionGrantEntry {
+	const grantRoot = normalizeRoot(request.grantRoot ?? request.resolvedTarget);
+	const key = buildEntryKey(request.toolName, request.capability, grantRoot);
+	const entries = sessionGrantStore.get(sessionId) ?? [];
+	for (const existing of entries) {
+		if (buildEntryKey(existing.toolName, existing.capability, existing.grantRoot) === key) {
+			return existing;
+		}
+	}
+	const entry: SandboxSessionGrantEntry = {
+		id: randomUUID(),
+		sessionId,
+		toolName: request.toolName,
+		capability: request.capability,
+		grantRoot,
+		firstTarget: request.target,
+		createdAt: Date.now(),
+	};
+	entries.push(entry);
+	sessionGrantStore.set(sessionId, entries);
+	return entry;
+}
+
+export function listSessionGrants(sessionId: string): SandboxSessionGrantEntry[] {
+	const entries = sessionGrantStore.get(sessionId);
+	return entries ? entries.slice() : [];
+}
+
+export function revokeSessionGrant(sessionId: string, entryId: string): boolean {
+	const entries = sessionGrantStore.get(sessionId);
+	if (!entries) return false;
+	const idx = entries.findIndex((e) => e.id === entryId);
+	if (idx < 0) return false;
+	entries.splice(idx, 1);
+	if (entries.length === 0) sessionGrantStore.delete(sessionId);
+	return true;
+}
+
+export function revokeAllSessionGrants(sessionId: string): number {
+	const entries = sessionGrantStore.get(sessionId);
+	if (!entries) return 0;
+	const count = entries.length;
+	sessionGrantStore.delete(sessionId);
+	return count;
+}
+
+export function clearSessionGrants(sessionId: string): void {
+	sessionGrantStore.delete(sessionId);
+}
+
 function expandHome(inputPath: string): string {
 	if (inputPath === "~") return homedir();
 	if (inputPath.startsWith("~/") || inputPath.startsWith("~\\")) return resolvePath(homedir(), inputPath.slice(2));
@@ -46,7 +144,26 @@ export function isPathInsideRoot(targetPath: string, rootPath: string): boolean 
 	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
+// Device pseudo-files that are always safe to write to. They are not real files
+// and have no security impact; treating them like out-of-workspace writes would
+// flag every `2>/dev/null` redirection as a grant request.
+const SHELL_WRITE_DEVICE_NULLS = new Set([
+	"/dev/null",
+	"/dev/stdout",
+	"/dev/stderr",
+	"/dev/zero",
+	"/dev/tty",
+	"/dev/fd",
+]);
+
+function isShellWriteDeviceNull(targetPath: string): boolean {
+	if (SHELL_WRITE_DEVICE_NULLS.has(targetPath)) return true;
+	// /dev/fd/N, /dev/null/anything are still OS-managed and harmless.
+	return targetPath.startsWith("/dev/fd/");
+}
+
 function isAllowedSandboxPath(targetPath: string, cwd: string): boolean {
+	if (isShellWriteDeviceNull(targetPath)) return true;
 	const allowedRoots = [cwd, tmpdir(), "/tmp", "/private/tmp"];
 	return allowedRoots.some((root) => isPathInsideRoot(targetPath, root));
 }
@@ -114,6 +231,150 @@ function unique(values: string[]): string[] {
 	return Array.from(new Set(values));
 }
 
+// Write-ish commands whose positional (non-flag) arguments are write targets.
+// Conservative over-trigger is fine: a false positive just shows a confirm dialog.
+const SHELL_WRITE_COMMANDS = new Set([
+	"cp",
+	"mv",
+	"rm",
+	"mkdir",
+	"rmdir",
+	"touch",
+	"ln",
+	"install",
+	"dd",
+	"chmod",
+	"chown",
+	"chgrp",
+	"truncate",
+]);
+
+// In-place editing tools — only treat positional args as writes when -i flag present.
+const SHELL_INPLACE_COMMANDS = new Set(["sed", "perl", "gawk", "awk"]);
+
+function splitShellSegments(command: string): string[] {
+	const parts: string[] = [];
+	let current = "";
+	let quote: string | null = null;
+	for (let i = 0; i < command.length; i++) {
+		const ch = command[i];
+		if (quote) {
+			if (ch === "\\" && command[i + 1]) {
+				current += ch + command[i + 1];
+				i++;
+				continue;
+			}
+			if (ch === quote) quote = null;
+			current += ch;
+			continue;
+		}
+		if (ch === '"' || ch === "'") {
+			quote = ch;
+			current += ch;
+			continue;
+		}
+		if (ch === "\\" && command[i + 1]) {
+			current += ch + command[i + 1];
+			i++;
+			continue;
+		}
+		const two = command.slice(i, i + 2);
+		if (two === "&&" || two === "||") {
+			parts.push(current);
+			current = "";
+			i++;
+			continue;
+		}
+		if (ch === ";" || ch === "|" || ch === "&" || ch === "\n") {
+			parts.push(current);
+			current = "";
+			continue;
+		}
+		current += ch;
+	}
+	if (current) parts.push(current);
+	return parts.map((p) => p.trim()).filter((p) => p.length > 0);
+}
+
+function tokenizeShellSegment(segment: string): string[] {
+	const tokens: string[] = [];
+	let current = "";
+	let quote: string | null = null;
+	let hadAny = false;
+	for (let i = 0; i < segment.length; i++) {
+		const ch = segment[i];
+		if (quote) {
+			if (ch === "\\" && segment[i + 1]) {
+				current += segment[i + 1];
+				i++;
+				continue;
+			}
+			if (ch === quote) {
+				quote = null;
+				continue;
+			}
+			current += ch;
+			hadAny = true;
+			continue;
+		}
+		if (ch === '"' || ch === "'") {
+			quote = ch;
+			hadAny = true;
+			continue;
+		}
+		if (ch === "\\" && segment[i + 1]) {
+			current += segment[i + 1];
+			hadAny = true;
+			i++;
+			continue;
+		}
+		if (/\s/.test(ch)) {
+			if (hadAny) {
+				tokens.push(current);
+				current = "";
+				hadAny = false;
+			}
+			continue;
+		}
+		current += ch;
+		hadAny = true;
+	}
+	if (hadAny) tokens.push(current);
+	return tokens;
+}
+
+function stripEnvAssignments(tokens: string[]): string[] {
+	let i = 0;
+	while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
+	return tokens.slice(i);
+}
+
+function basenameOfBinary(binary: string): string {
+	const idx = Math.max(binary.lastIndexOf("/"), binary.lastIndexOf("\\"));
+	return idx >= 0 ? binary.slice(idx + 1) : binary;
+}
+
+function isFlagToken(token: string): boolean {
+	return token.startsWith("-");
+}
+
+function collectCommandWriteTargets(segment: string): string[] {
+	const tokens = stripEnvAssignments(tokenizeShellSegment(segment));
+	if (tokens.length === 0) return [];
+	const binary = basenameOfBinary(tokens[0]);
+	const args = tokens.slice(1);
+
+	if (SHELL_WRITE_COMMANDS.has(binary)) {
+		return args.filter((arg) => !isFlagToken(arg));
+	}
+	if (SHELL_INPLACE_COMMANDS.has(binary)) {
+		const hasInPlace = args.some((arg) => arg === "-i" || arg.startsWith("-i") || arg === "--in-place");
+		if (!hasInPlace) return [];
+		return args.filter((arg) => !isFlagToken(arg));
+	}
+	return [];
+}
+
 export function collectShellWritePermissionRequests(command: string, cwd: string): SandboxPermissionRequest[] {
 	const redirectPaths = collectRegexPathMatches(
 		command,
@@ -124,7 +385,14 @@ export function collectShellWritePermissionRequests(command: string, cwd: string
 		/(?:^|[\s;&|])tee(?:\s+-[a-zA-Z]+)*\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/g,
 	);
 
-	return unique([...redirectPaths, ...teePaths])
+	const commandPaths: string[] = [];
+	for (const segment of splitShellSegments(command)) {
+		for (const target of collectCommandWriteTargets(segment)) {
+			commandPaths.push(target);
+		}
+	}
+
+	return unique([...redirectPaths, ...teePaths, ...commandPaths])
 		.filter((rawPath) => !shouldSkipShellPath(rawPath))
 		.map((rawPath) => {
 			const resolvedTarget = resolveSandboxPath(rawPath, cwd);
@@ -144,11 +412,18 @@ export function collectShellWritePermissionRequests(command: string, cwd: string
 		}));
 }
 
+export function isSensitiveSandboxRequest(request: SandboxPermissionRequest): boolean {
+	if (isDeniedSandboxPath(request.resolvedTarget)) return true;
+	if (request.grantRoot && isDeniedSandboxPath(request.grantRoot)) return true;
+	return false;
+}
+
 export async function confirmSandboxPermission(
 	ctx: ExtensionContext,
 	request: SandboxPermissionRequest,
-): Promise<boolean> {
-	if (!ctx.hasUI) return false;
+): Promise<SandboxPermissionDecision> {
+	if (!ctx.hasUI) return "deny";
+	const sensitive = isSensitiveSandboxRequest(request);
 	const title = "沙箱权限请求";
 	const lines = [
 		`工具：${request.toolName}`,
@@ -158,9 +433,31 @@ export async function confirmSandboxPermission(
 		request.grantRoot ? `本次授权目录：${request.grantRoot}` : undefined,
 		request.command ? `命令：${request.command}` : undefined,
 		"",
-		"该授权仅对当前工具调用生效。拒绝后，本次操作不会执行。",
+		sensitive
+			? "该路径为敏感路径，仅支持本次允许（不可缓存到本会话）。"
+			: '"允许本次"仅对当前工具调用生效；"本会话不再询问"会缓存到本会话内同 grantRoot 的后续请求。',
 	].filter((line): line is string => typeof line === "string");
-	return ctx.ui.confirm(title, lines.join("\n"));
+
+	// Prefer the new tri-state API when available.
+	if (typeof ctx.ui.requestSandboxGrant === "function") {
+		const decision = await ctx.ui.requestSandboxGrant({
+			title,
+			message: lines.join("\n"),
+			toolName: request.toolName,
+			capability: request.capability,
+			target: request.target,
+			resolvedTarget: request.resolvedTarget,
+			grantRoot: request.grantRoot,
+			command: request.command,
+			sensitive,
+		});
+		if (decision === "allow_session" && sensitive) return "allow_once";
+		return decision ?? "deny";
+	}
+
+	// Fallback: confirm() returns boolean, so we can only express deny / allow_once.
+	const ok = await ctx.ui.confirm(title, lines.join("\n"));
+	return ok ? "allow_once" : "deny";
 }
 
 export function runWithSandboxShellGrant<T>(

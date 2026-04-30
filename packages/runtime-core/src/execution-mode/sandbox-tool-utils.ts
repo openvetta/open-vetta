@@ -1,14 +1,21 @@
 import type { AgentTool, AgentToolUpdateCallback } from "@mariozechner/pi-agent-core";
 import type { ToolDefinition } from "@vetta/coding-agent";
 import {
+	addSessionGrant,
 	assertSandboxPathNotDenied,
 	collectShellWritePermissionRequests,
 	confirmSandboxPermission,
+	findSessionGrant,
+	isSensitiveSandboxRequest,
 	runWithSandboxShellGrant,
+	type SandboxPermissionRequest,
 } from "./sandbox-permissions.js";
 import { assertWorkspacePathAllowed, resolveWorkspacePathAccess } from "./workspace-guard.js";
 
-const PATH_ID_REGEX = /^@PATH_\d{4}$/i;
+export interface SandboxGuardContext {
+	/** Resolves the current session id at execute-time. Required for session-scoped grant cache. */
+	getSessionId?(): string | undefined;
+}
 
 // AgentTool parameter types are intentionally tool-specific and not covariant.
 // Keep this bridge narrow so runtime-core can wrap built-in tools without
@@ -44,28 +51,40 @@ function extractCommandFromParams(params: unknown): string | undefined {
 	return typeof commandValue === "string" ? commandValue : undefined;
 }
 
-export function wrapWorkspaceGuard(tool: AgentTool<any, any>, cwd: string): ToolDefinition {
+export function wrapWorkspaceGuard(
+	tool: AgentTool<any, any>,
+	cwd: string,
+	guardCtx?: SandboxGuardContext,
+): ToolDefinition {
 	const definition = toToolDefinition(tool);
 	return {
 		...definition,
 		execute: async (toolCallId, params, signal, onUpdate, ctx) => {
 			const requestedPath = extractPathFromParams(params);
-			if (requestedPath && !PATH_ID_REGEX.test(requestedPath.trim())) {
+			if (requestedPath) {
 				const access = await resolveWorkspacePathAccess(requestedPath, cwd);
 				assertSandboxPathNotDenied(access.targetBoundary, definition.name);
 				assertSandboxPathNotDenied(access.targetPath, definition.name);
 				if (!access.allowed) {
-					const capability = definition.name === "read" ? "file.read" : "file.write";
-					const confirmed = await confirmSandboxPermission(ctx, {
+					const capability: SandboxPermissionRequest["capability"] =
+						definition.name === "read" ? "file.read" : "file.write";
+					const request: SandboxPermissionRequest = {
 						capability,
 						toolName: definition.name,
 						target: requestedPath,
 						resolvedTarget: access.targetBoundary,
 						grantRoot: access.targetBoundary,
 						reason: `${definition.name} target is outside the workspace sandbox`,
-					});
-					if (!confirmed) {
-						await assertWorkspacePathAllowed(requestedPath, cwd, definition.name);
+					};
+					const sessionId = guardCtx?.getSessionId?.();
+					const cached = sessionId ? findSessionGrant(sessionId, request) : undefined;
+					if (!cached) {
+						const decision = await confirmSandboxPermission(ctx, request);
+						if (decision === "deny") {
+							await assertWorkspacePathAllowed(requestedPath, cwd, definition.name);
+						} else if (decision === "allow_session" && sessionId && !isSensitiveSandboxRequest(request)) {
+							addSessionGrant(sessionId, request);
+						}
 					}
 				}
 			}
@@ -74,23 +93,36 @@ export function wrapWorkspaceGuard(tool: AgentTool<any, any>, cwd: string): Tool
 	};
 }
 
-export function wrapShellPermissionGuard(tool: AgentTool<any, any>, cwd: string): ToolDefinition {
+export function wrapShellPermissionGuard(
+	tool: AgentTool<any, any>,
+	cwd: string,
+	guardCtx?: SandboxGuardContext,
+): ToolDefinition {
 	const definition = toToolDefinition(tool);
 	return {
 		...definition,
 		execute: async (toolCallId, params, signal, onUpdate, ctx) => {
 			const command = extractCommandFromParams(params);
 			const requests = command ? collectShellWritePermissionRequests(command, cwd) : [];
+			const sessionId = guardCtx?.getSessionId?.();
 			const allowWriteRoots: string[] = [];
 			for (const request of requests) {
-				const confirmed = await confirmSandboxPermission(ctx, request);
-				if (!confirmed) {
+				const cached = sessionId ? findSessionGrant(sessionId, request) : undefined;
+				if (cached) {
+					if (request.grantRoot) allowWriteRoots.push(request.grantRoot);
+					continue;
+				}
+				const decision = await confirmSandboxPermission(ctx, request);
+				if (decision === "deny") {
 					throw new Error(
 						`Access denied by sandbox: shell command requires write permission outside workspace.` +
 							`\ntarget=${request.target}` +
 							`\nresolved=${request.resolvedTarget}` +
 							(request.grantRoot ? `\ngrantRoot=${request.grantRoot}` : ""),
 					);
+				}
+				if (decision === "allow_session" && sessionId && !isSensitiveSandboxRequest(request)) {
+					addSessionGrant(sessionId, request);
 				}
 				if (request.grantRoot) allowWriteRoots.push(request.grantRoot);
 			}

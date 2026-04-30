@@ -5,14 +5,13 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
 import { ensureTool } from "../../../utils/tools-manager.js";
 import { loadToolDescription } from "../description.js";
-import { type PathIdEntry, replacePathIds, resolveExistingPath } from "../path-utils.js";
+import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const treeSchema = Type.Object({
 	path: Type.Optional(
 		Type.String({
-			description:
-				"Root directory to inspect (default: current directory). Accepts normal paths or a prior dir_tree path ID like @PATH_0001",
+			description: "Root directory to inspect (default: current directory)",
 		}),
 	),
 	maxDepth: Type.Optional(Type.Number({ description: "Maximum depth to render (default: 4)" })),
@@ -45,7 +44,6 @@ export interface TreeToolDetails {
 	scanLimitReached?: number;
 	totalNodesDiscovered: number;
 	nodesRendered: number;
-	pathIdsGenerated: number;
 }
 
 export interface TreeOperations {
@@ -155,10 +153,6 @@ interface RenderedTreeLine {
 	line: string;
 	relativePath: string;
 	type: NodeType;
-}
-
-function createPathId(index: number): string {
-	return `@PATH_${String(index).padStart(4, "0")}`;
 }
 
 function renderTree(
@@ -277,7 +271,7 @@ function parseFdOutput(stdout: string, searchPath: string): string[] {
 
 export function createTreeTool(cwd: string, options?: TreeToolOptions): AgentTool<typeof treeSchema> {
 	const ops = options?.operations ?? defaultTreeOperations;
-	const fallbackDescription = `Render a compact directory tree with explicit node types ([D]/[F]) and per-directory child counts. Each node includes a stable path ID (id=@PATH_XXXX) you can reuse in later tools. Use this first to understand project structure with minimal tokens. Tool name is dir_tree (not shell tree). Respects .gitignore, supports depth limiting, and truncates output to ${DEFAULT_LIMIT} nodes or ${DEFAULT_MAX_BYTES / 1024}KB.`;
+	const fallbackDescription = `Render a compact directory tree with explicit node types ([D]/[F]) and per-directory child counts. Use this first to understand project structure with minimal tokens. Tool name is dir_tree (not shell tree). Respects .gitignore, supports depth limiting, and truncates output to ${DEFAULT_LIMIT} nodes or ${DEFAULT_MAX_BYTES / 1024}KB.`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
@@ -346,34 +340,20 @@ export function createTreeTool(cwd: string, options?: TreeToolOptions): AgentToo
 
 			const totalNodesDiscovered = 1 + dirPaths.length + filePaths.length;
 			const { lines, nodeLimitReached } = renderTree(root, effectiveMaxDepth, effectiveLimit);
-			const pathIds: PathIdEntry[] = [];
-			let pathIdCounter = 1;
 			const renderedLines = lines.map((entry) => {
 				if (entry.relativePath === ".") {
 					return entry.line;
 				}
-				const pathId = createPathId(pathIdCounter);
-				pathIdCounter += 1;
-				pathIds.push({
-					pathId,
-					absolutePath: path.resolve(searchPath, entry.relativePath),
-				});
 				const nodeTag = entry.type === "dir" ? "dir" : "file";
-				return `${entry.line} (id=${pathId}, type=${nodeTag})`;
+				return `${entry.line} (type=${nodeTag})`;
 			});
 
-			replacePathIds(cwd, pathIds);
-
-			const rawOutput =
-				renderedLines.length > 0
-					? `${renderedLines.join("\n")}\n\n[Path IDs: use id=@PATH_XXXX values directly in tool path arguments. In bash, wrap path IDs in quotes.]`
-					: `[D] ${rootLabel} (d:0, f:0)`;
+			const rawOutput = renderedLines.length > 0 ? renderedLines.join("\n") : `[D] ${rootLabel} (d:0, f:0)`;
 
 			const truncation = truncateHead(rawOutput, { maxLines: Number.MAX_SAFE_INTEGER });
 			const details: TreeToolDetails = {
 				totalNodesDiscovered,
 				nodesRendered: lines.length,
-				pathIdsGenerated: pathIds.length,
 			};
 			const notices: string[] = [];
 

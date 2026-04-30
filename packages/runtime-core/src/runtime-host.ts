@@ -18,6 +18,9 @@ import type {
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
+	RuntimeSandboxGrantDecision,
+	RuntimeSandboxGrantInfo,
+	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
 	SessionConfig,
 	SessionEvent,
@@ -29,6 +32,12 @@ import type {
 	SettingsPatch,
 } from "./contracts.js";
 import { runtimeError } from "./errors.js";
+import {
+	clearSessionGrants,
+	listSessionGrants,
+	revokeAllSessionGrants,
+	revokeSessionGrant,
+} from "./execution-mode/sandbox-permissions.js";
 import { buildSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
 
 interface SessionHandle {
@@ -44,6 +53,10 @@ export interface RuntimeHostOptions {
 	linuxBubblewrapPath?: string;
 	macosSandboxExecPath?: string;
 	userConfirmationHandler?: (request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>;
+	userSandboxGrantHandler?: (
+		request: RuntimeSandboxGrantRequest,
+		signal?: AbortSignal,
+	) => Promise<RuntimeSandboxGrantDecision>;
 }
 
 export class RuntimeHost implements SessionFacade {
@@ -56,6 +69,9 @@ export class RuntimeHost implements SessionFacade {
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
+	private userSandboxGrantHandler:
+		| ((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => Promise<RuntimeSandboxGrantDecision>)
+		| undefined;
 
 	constructor(options: RuntimeHostOptions = {}) {
 		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
@@ -63,12 +79,41 @@ export class RuntimeHost implements SessionFacade {
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.userConfirmationHandler = options.userConfirmationHandler;
+		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
 	}
 
 	setUserConfirmationHandler(
 		handler: ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>) | undefined,
 	): void {
 		this.userConfirmationHandler = handler;
+	}
+
+	setUserSandboxGrantHandler(
+		handler:
+			| ((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => Promise<RuntimeSandboxGrantDecision>)
+			| undefined,
+	): void {
+		this.userSandboxGrantHandler = handler;
+	}
+
+	listSandboxGrants(sessionId: string): RuntimeSandboxGrantInfo[] {
+		return listSessionGrants(sessionId).map((entry) => ({
+			id: entry.id,
+			sessionId: entry.sessionId,
+			toolName: entry.toolName,
+			capability: entry.capability,
+			grantRoot: entry.grantRoot,
+			firstTarget: entry.firstTarget,
+			createdAt: entry.createdAt,
+		}));
+	}
+
+	revokeSandboxGrant(sessionId: string, grantId: string): boolean {
+		return revokeSessionGrant(sessionId, grantId);
+	}
+
+	revokeAllSandboxGrants(sessionId: string): number {
+		return revokeAllSessionGrants(sessionId);
 	}
 
 	/**
@@ -119,8 +164,8 @@ export class RuntimeHost implements SessionFacade {
 		const defaultMode = await this.getDefaultExecutionMode();
 		const executionMode = requestedMode ?? defaultMode;
 		const effectiveCwd = config.cwd ?? process.cwd();
-		const customTools = this.resolveExecutionModeTools(executionMode, effectiveCwd);
 		const sessionIdRef: { current?: string } = {};
+		const customTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
 
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
@@ -156,7 +201,7 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		const cwd = handle.session.sessionManager.getCwd() ?? process.cwd();
-		const customTools = this.resolveExecutionModeTools(mode, cwd);
+		const customTools = this.resolveExecutionModeTools(mode, cwd, () => sessionId);
 		sessionAny.reconfigureCustomTools(customTools);
 		handle.executionMode = mode;
 	}
@@ -405,6 +450,7 @@ export class RuntimeHost implements SessionFacade {
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
 		this.currentTurnStartedAt.delete(sessionId);
+		clearSessionGrants(sessionId);
 	}
 
 	/**
@@ -419,6 +465,7 @@ export class RuntimeHost implements SessionFacade {
 			} catch (err) {
 				console.error(`[RuntimeHost.disposeAllSessions] failed to dispose ${sessionId}:`, err);
 			}
+			clearSessionGrants(sessionId);
 		}
 		this.sessions.clear();
 		this.currentTurnStartedAt.clear();
@@ -445,6 +492,7 @@ export class RuntimeHost implements SessionFacade {
 	private resolveExecutionModeTools(
 		executionMode: SessionExecutionMode,
 		cwd: string,
+		getSessionId: () => string | undefined,
 	): CreateAgentSessionOptions["customTools"] {
 		if (executionMode !== "sandbox") return undefined;
 		return buildSandboxToolDefinitions({
@@ -452,6 +500,7 @@ export class RuntimeHost implements SessionFacade {
 			windowsSandboxHostPath: this.sandboxHostPath,
 			linuxBubblewrapPath: this.linuxBubblewrapPath,
 			macosSandboxExecPath: this.macosSandboxExecPath,
+			getSessionId,
 		});
 	}
 
@@ -492,6 +541,23 @@ export class RuntimeHost implements SessionFacade {
 			setTheme: () => ({ success: false, error: "Desktop runtime theme switching is unavailable." }),
 			getToolsExpanded: () => false,
 			setToolsExpanded: () => {},
+			requestSandboxGrant: async (request) => {
+				const handler = this.userSandboxGrantHandler;
+				if (!handler) return "deny";
+				return handler({
+					requestId: randomUUID(),
+					sessionId: sessionIdRef.current ?? "",
+					title: request.title,
+					message: request.message,
+					toolName: request.toolName,
+					capability: request.capability,
+					target: request.target,
+					resolvedTarget: request.resolvedTarget,
+					grantRoot: request.grantRoot,
+					command: request.command,
+					sensitive: request.sensitive,
+				});
+			},
 		};
 	}
 

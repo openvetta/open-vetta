@@ -604,8 +604,10 @@ function SandboxPermissionCard({
 	request: {
 		title: string;
 		message: string;
+		sensitive?: boolean;
 		onConfirm: () => void;
 		onCancel: () => void;
+		onAllowSession?: () => void;
 	};
 }): JSX.Element {
 	return (
@@ -634,8 +636,17 @@ function SandboxPermissionCard({
 					onClick={request.onConfirm}
 					className="h-7 rounded-lg bg-amber-500 px-3 text-[12px] font-medium text-white transition-colors hover:bg-amber-600"
 				>
-					允许本次操作
+					允许本次
 				</button>
+				{!request.sensitive && request.onAllowSession ? (
+					<button
+						type="button"
+						onClick={request.onAllowSession}
+						className="h-7 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 text-[12px] font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
+					>
+						本会话不再询问
+					</button>
+				) : null}
 			</div>
 		</div>
 	);

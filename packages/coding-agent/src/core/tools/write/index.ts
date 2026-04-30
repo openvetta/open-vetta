@@ -3,16 +3,11 @@ import { type Static, Type } from "@sinclair/typebox";
 import { mkdir as fsMkdir, writeFile as fsWriteFile } from "fs/promises";
 import { dirname } from "path";
 import { loadToolDescription } from "../description.js";
-import {
-	isProtectedSkillOrScenePath,
-	resolveToCwd,
-	resolveWritablePath,
-	rewriteQuotedPathLiterals,
-} from "../path-utils.js";
+import { isProtectedSkillOrScenePath, resolveToCwd, resolveWritablePath } from "../path-utils.js";
 
 const writeSchema = Type.Object({
 	path: Type.String({
-		description: "Path to the file to write (relative/absolute), or a dir_tree path ID like @PATH_0001",
+		description: "Path to the file to write (relative or absolute)",
 	}),
 	content: Type.String({ description: "Content to write to the file" }),
 });
@@ -75,14 +70,10 @@ export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentT
 			}
 
 			const dir = dirname(absolutePath);
-			const { output: correctedContent, pathCorrections } = rewriteQuotedPathLiterals(content, dir);
 			const pathRetargeted = requestedPath !== absolutePath;
 			const notes: string[] = [];
 			if (pathRetargeted) {
 				notes.push(`[Auto-corrected output path: "${path}" -> "${absolutePath}"]`);
-			}
-			for (const correction of pathCorrections) {
-				notes.push(`[Auto-corrected path literal: "${correction.original}" -> "${correction.corrected}"]`);
 			}
 
 			return new Promise<{ content: Array<{ type: "text"; text: string }>; details: undefined }>(
@@ -117,7 +108,7 @@ export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentT
 							}
 
 							// Write the file
-							await ops.writeFile(absolutePath, correctedContent);
+							await ops.writeFile(absolutePath, content);
 
 							// Check if aborted after writing
 							if (aborted) {
@@ -135,7 +126,7 @@ export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentT
 										type: "text",
 										text:
 											`${notes.join("\n")}${notes.length > 0 ? "\n" : ""}` +
-											`Successfully wrote ${correctedContent.length} bytes to ${absolutePath}`,
+											`Successfully wrote ${content.length} bytes to ${absolutePath}`,
 									},
 								],
 								details: undefined,
