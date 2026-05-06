@@ -23,6 +23,7 @@ import {
 	createEditTool,
 	createFindTool,
 	createGrepTool,
+	createHtmlToPdfTool,
 	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
@@ -33,6 +34,7 @@ import {
 	findTool,
 	getDefaultCodingToolNames,
 	grepTool,
+	htmlToPdfTool,
 	lsTool,
 	readOnlyTools,
 	readTool,
@@ -61,6 +63,7 @@ export interface CreateAgentSessionOptions {
 	/** Models available for cycling (Ctrl+P in interactive mode) */
 	scopedModels?: Array<{ model: Model<any>; thinkingLevel: ThinkingLevel }>;
 
+	/** Built-in tools to use. Default: codingTools [read, command-tool, edit, write, dir_tree, doc_to_pdf, html_to_pdf] */
 	tools?: Tool[];
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
@@ -116,6 +119,7 @@ export {
 	createEditTool,
 	createFindTool,
 	createGrepTool,
+	createHtmlToPdfTool,
 	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
@@ -124,6 +128,7 @@ export {
 	editTool,
 	findTool,
 	grepTool,
+	htmlToPdfTool,
 	lsTool,
 	readOnlyTools,
 	// Pre-built tools (use process.cwd())

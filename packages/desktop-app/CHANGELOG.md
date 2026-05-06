@@ -11,6 +11,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **HTML 转 PDF 命令行入口**：desktop-app 新增 `--html-to-pdf` / `pdf html-to-pdf` CLI 模式，使用内置 Electron Chromium 将 HTML 文件渲染为 PDF，并支持 `-h` / `--help`、`--output`、`--page-size` 与页边距参数，以及 JSON stdout 协议；packaged 启动时会向 `desktop-config.json` 写入 `vettaAppPath`，供独立进程发现桌面端可执行文件。
 - **对话回答外层折叠**：桌面对话页现在会记录每轮 assistant 回答的起止时间，并在回答完成后自动折叠中间过程，只保留最后一次工具调用 / 思考后的结论文本；折叠提示支持“正在处理 Ns”的流式状态和“展开 / 收起 N 条内容”的完成态。
 
 - **可配置的 Electron 打包入口**：desktop-app 新增统一的 `dist:desktop` 打包脚本，并补充 `dist:linux` / `dist:win` / `pack:linux` / `pack:win` 入口；支持通过命令行参数 `--platform`、`--arch`、`--target` 动态指定目标平台、架构与安装包格式，并为 Linux 提供 `dist:linux:appimage` / `dist:linux:deb` / `dist:linux:rpm` / `dist:linux:tar.gz`，为 Windows 提供 `dist:win:nsis` / `dist:win:portable` / `dist:win:zip` 快捷命令。Linux 打包前会校验 `packages/runtime-core/sandbox/linux/<arch>/bwrap` 是否齐备，避免产出缺少对应沙盒二进制的安装包。

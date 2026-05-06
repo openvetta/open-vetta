@@ -2,9 +2,7 @@
 
 ### Added
 
-
-### Changed
-
+- Added `html_to_pdf` tool as a thin wrapper around Vetta Desktop's PDF command-line mode.
 
 ## Vetta CLI v0.0.1
 

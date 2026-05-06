@@ -46,6 +46,10 @@ export {
 	grepTool,
 } from "./grep/index.js";
 export {
+	createHtmlToPdfTool,
+	type HtmlToPdfToolInput,
+	htmlToPdfTool,
+} from "./html-to-pdf/index.js";
 export {
 	createInvokeSceneTool,
 	type InvokeSceneToolDetails,
@@ -118,7 +122,7 @@ import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./do
 import { createEditTool, editTool } from "./edit/index.js";
 import { createFindTool, findTool } from "./find/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
-import {
+import { createHtmlToPdfTool, htmlToPdfTool } from "./html-to-pdf/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
 import { createShellTool, type ShellToolOptions, shellTool } from "./shell/index.js";
@@ -148,6 +152,7 @@ export const codingTools: Tool[] = [
 	writeTool,
 	treeTool,
 	docToPdfTool,
+	htmlToPdfTool,
 ];
 
 // Read-only tools for exploration without modification (using process.cwd())
@@ -165,6 +170,7 @@ export const allTools = {
 	ls: lsTool,
 	dir_tree: treeTool,
 	doc_to_pdf: docToPdfTool,
+	html_to_pdf: htmlToPdfTool,
 	current_time: currentTimeTool,
 };
 
@@ -197,6 +203,7 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 		createWriteTool(cwd),
 		createTreeTool(cwd),
 		createDocToPdfTool(cwd, options?.docToPdf),
+		createHtmlToPdfTool(cwd),
 	];
 }
 
@@ -228,6 +235,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		ls: createLsTool(cwd),
 		dir_tree: createTreeTool(cwd),
 		doc_to_pdf: createDocToPdfTool(cwd, options?.docToPdf),
+		html_to_pdf: createHtmlToPdfTool(cwd),
 		current_time: createCurrentTimeTool(),
 	};
 }
