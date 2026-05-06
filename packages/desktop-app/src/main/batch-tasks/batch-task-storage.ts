@@ -324,6 +324,16 @@ export async function removeTaskFromProject(projectDir: string, taskId: string):
 	await writeProjectMeta(projectDir, meta);
 }
 
+export async function resetTaskFiles(projectDir: string, taskId: string): Promise<void> {
+	const meta = await readProjectMeta(projectDir);
+	if (!meta) return;
+	const item = meta.items.find((i) => i.id === taskId);
+	if (!item) return;
+	const itemDir = join(projectDir, item.name);
+	await rm(itemDir, { recursive: true, force: true });
+	await mkdir(itemDir, { recursive: true });
+}
+
 export async function resetProjectFiles(projectDir: string): Promise<void> {
 	const meta = await readProjectMeta(projectDir);
 	if (!meta) return;

@@ -8,6 +8,7 @@ import {
 	subscribeBatchTaskEvents,
 } from "../batch-tasks/batch-task-executor";
 import { clearAllTaskStates, deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
+import type { BatchTask } from "../batch-tasks/batch-task-storage";
 import {
 	createProject,
 	deleteProject,
@@ -15,6 +16,7 @@ import {
 	loadProjects,
 	removeTaskFromProject,
 	resetProjectFiles,
+	resetTaskFiles,
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
 import { pLimit } from "../batch-tasks/queue";
@@ -27,6 +29,7 @@ const CHANNELS = {
 	UPDATE_PROJECT: "vetta:batch-tasks:update-project",
 	DELETE_PROJECT: "vetta:batch-tasks:delete-project",
 	RUN_TASK: "vetta:batch-tasks:run-task",
+	RETRY_TASK: "vetta:batch-tasks:retry-task",
 	PAUSE_TASK: "vetta:batch-tasks:pause-task",
 	RESUME_TASK: "vetta:batch-tasks:resume-task",
 	DELETE_TASK: "vetta:batch-tasks:delete-task",
@@ -42,6 +45,21 @@ const CHANNELS = {
 
 function getRuntime(): RuntimeHost {
 	return getSharedRuntime();
+}
+
+async function cleanTaskFilesAndState(projectId: string, task: BatchTask, runtime: RuntimeHost): Promise<void> {
+	if (isTaskRunning(task.id)) {
+		await pauseTaskExecutor(projectId, task.id, runtime);
+	}
+	if (task.sessionPath) {
+		try {
+			await runtime.deleteSession(task.sessionPath);
+		} catch {
+			// session may already be gone
+		}
+	}
+	await deleteTaskState(projectId, task.id);
+	await resetTaskFiles(projectId, task.id);
 }
 
 export function registerBatchTasksIpc(webContents: WebContents): () => void {
@@ -122,6 +140,23 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		await runTask(project, task, getRuntime());
 	});
 
+	ipcMain.handle(CHANNELS.RETRY_TASK, async (_, projectId: string, taskId: string) => {
+		console.log(`[BatchTaskIPC] RETRY_TASK: project=${projectId}, task=${taskId}`);
+		const project = await getProject(projectId);
+		if (!project) {
+			console.warn(`[BatchTaskIPC] RETRY_TASK: project ${projectId} not found`);
+			return;
+		}
+		const task = project.tasks.find((t) => t.id === taskId);
+		if (!task) {
+			console.warn(`[BatchTaskIPC] RETRY_TASK: task ${taskId} not found`);
+			return;
+		}
+		const runtime = getRuntime();
+		await cleanTaskFilesAndState(projectId, task, runtime);
+		await runTask(project, task, runtime);
+	});
+
 	ipcMain.handle(CHANNELS.PAUSE_TASK, async (_, projectId: string, taskId: string) => {
 		console.log(`[BatchTaskIPC] PAUSE_TASK: project=${projectId}, task=${taskId}`);
 		await pauseTaskExecutor(projectId, taskId, getRuntime());
@@ -164,7 +199,10 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 		console.log(`[BatchTaskIPC] BATCH_RETRY_FAILED: retrying ${failedTasks.length} tasks`);
 		const runtime = getRuntime();
-		const taskRunners = failedTasks.map((task) => () => runTask(project, task, runtime));
+		const taskRunners = failedTasks.map((task) => async () => {
+			await cleanTaskFilesAndState(projectId, task, runtime);
+			await runTask(project, task, runtime);
+		});
 		await pLimit(project.concurrency, taskRunners);
 	});
 
@@ -274,6 +312,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.UPDATE_PROJECT);
 		ipcMain.removeHandler(CHANNELS.DELETE_PROJECT);
 		ipcMain.removeHandler(CHANNELS.RUN_TASK);
+		ipcMain.removeHandler(CHANNELS.RETRY_TASK);
 		ipcMain.removeHandler(CHANNELS.PAUSE_TASK);
 		ipcMain.removeHandler(CHANNELS.RESUME_TASK);
 		ipcMain.removeHandler(CHANNELS.DELETE_TASK);

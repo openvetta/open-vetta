@@ -104,6 +104,10 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.runTask(projectId, taskId);
 	}, []);
 
+	const retryTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.retryTask(projectId, taskId);
+	}, []);
+
 	const pauseTask = useCallback(async (projectId: string, taskId: string) => {
 		await window.vetta.batchTasks.pauseTask(projectId, taskId);
 	}, []);
@@ -213,6 +217,7 @@ export function useBatchTasks() {
 		deleteProject,
 		toggleProject,
 		runTask,
+		retryTask,
 		pauseTask,
 		resumeTask,
 		deleteTask,

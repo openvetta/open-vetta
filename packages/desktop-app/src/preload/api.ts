@@ -414,6 +414,7 @@ export interface DesktopBatchTasksApi {
 	): Promise<void>;
 	deleteProject(projectId: string): Promise<void>;
 	runTask(projectId: string, taskId: string): Promise<void>;
+	retryTask(projectId: string, taskId: string): Promise<void>;
 	pauseTask(projectId: string, taskId: string): Promise<void>;
 	resumeTask(projectId: string, taskId: string): Promise<void>;
 	deleteTask(projectId: string, taskId: string): Promise<void>;
