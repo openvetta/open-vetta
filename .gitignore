@@ -40,6 +40,7 @@ pi-*.html
 out.html
 packages/coding-agent/binaries/
 routeTree.gen.ts
+*.bun-build
 packages/desktop-app/release/
 packages/desktop-app/.desktop-dev/
 /releases/
