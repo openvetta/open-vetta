@@ -45,7 +45,7 @@ export function BatchTaskList({
 	onEditProject,
 }: BatchTaskListProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const { runTask, pauseTask, resumeTask, deleteTask, batchRetryFailed, batchPause, batchResume, batchDelete, batchRunNeverExecuted, batchRestartAll, deleteProject } =
+	const { runTask, retryTask, pauseTask, resumeTask, deleteTask, batchRetryFailed, batchPause, batchResume, batchDelete, batchRunNeverExecuted, batchRestartAll, deleteProject } =
 		useBatchTasks();
 
 	const handleGoToSession = (task: BatchTask) => {
@@ -79,6 +79,19 @@ export function BatchTaskList({
 
 	const handleRunTask = async (projectId: string, taskId: string) => {
 		await runTask(projectId, taskId);
+	};
+
+	const handleRetryTask = (project: BatchProject, task: BatchTask) => {
+		setConfirm({
+			title: `确认重试任务「${task.name}」`,
+			message: "将删除该任务的会话和文件，然后重新执行。此操作不可撤回，是否继续？",
+			confirmLabel: "重试",
+			cancelLabel: "取消",
+			variant: "danger",
+			onConfirm: async () => {
+				await retryTask(project.id, task.id);
+			},
+		});
 	};
 
 	const handlePauseTask = (project: BatchProject, task: BatchTask) => {
@@ -115,8 +128,10 @@ export function BatchTaskList({
 		if (failedCount === 0) return;
 		setConfirm({
 			title: "确认重试失败的任务",
-			message: `将重新执行 ${failedCount} 个失败的任务，是否继续？`,
+			message: `将删除 ${failedCount} 个失败任务的会话和文件，然后重新执行。此操作不可撤回，是否继续？`,
 			confirmLabel: "重试",
+			cancelLabel: "取消",
+			variant: "danger",
 			onConfirm: async () => {
 				await batchRetryFailed(project.id);
 			},
@@ -337,9 +352,10 @@ export function BatchTaskList({
 													<TaskActionButton
 														icon="icon-[mdi--restart]"
 														title="重试"
+														variant="danger"
 														onClick={(e) => {
 															e.stopPropagation();
-															void handleRunTask(project.id, task.id);
+															handleRetryTask(project, task);
 														}}
 													/>
 												) : null}
