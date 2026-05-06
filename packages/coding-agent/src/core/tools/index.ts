@@ -51,12 +51,6 @@ export {
 	htmlToPdfTool,
 } from "./html-to-pdf/index.js";
 export {
-	createInvokeSceneTool,
-	type InvokeSceneToolDetails,
-	type InvokeSceneToolInput,
-	type InvokeSceneToolOptions,
-} from "./invoke-scene/index.js";
-export {
 	createInvokeSkillTool,
 	type InvokeSkillToolDetails,
 	type InvokeSkillToolInput,

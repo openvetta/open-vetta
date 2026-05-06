@@ -81,10 +81,9 @@ import { getLatestCompactionEntry } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
 import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocation } from "./slash-commands.js";
 import { buildSystemPrompt } from "./system-prompt.js";
-import { TODO_SNAPSHOT_TYPE, type TodoItem, TodoStore } from "./todo-store.js";
+import { TODO_SNAPSHOT_TYPE, type TodoItem, type TodoSnapshot, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
 import { createAllTools, getDefaultCodingToolNames } from "./tools/index.js";
-import { createInvokeSceneTool } from "./tools/invoke-scene/index.js";
 import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
 import { createTodoTool } from "./tools/todo/index.js";
 
@@ -310,7 +309,7 @@ export class AgentSession {
 		// Initialize TodoStore with session persistence
 		this._todoStore = new TodoStore((snapshot) => {
 			this.sessionManager.appendCustomEntry(TODO_SNAPSHOT_TYPE, snapshot);
-			this._emit({ type: "todo_update", items: snapshot });
+			this._emit({ type: "todo_update", items: snapshot.items });
 		});
 
 		// Restore todo state from session if resuming
@@ -846,16 +845,18 @@ export class AgentSession {
 	/** Restore todo state from the latest todo_snapshot in session JSONL */
 	private _restoreTodoFromSession(): void {
 		const branch = this.sessionManager.getBranch();
-		let latestSnapshot: TodoItem[] | undefined;
+		let latestSnapshot: TodoSnapshot | undefined;
 		for (const entry of branch) {
 			if (entry.type === "custom") {
 				const custom = entry as CustomEntry;
 				if (custom.customType === TODO_SNAPSHOT_TYPE) {
-					latestSnapshot = custom.data as TodoItem[];
+					latestSnapshot = custom.data as TodoSnapshot;
 				}
 			}
 		}
-		if (latestSnapshot && latestSnapshot.length > 0) {
+		if (!latestSnapshot) return;
+		const itemCount = Array.isArray(latestSnapshot) ? latestSnapshot.length : latestSnapshot.items.length;
+		if (itemCount > 0) {
 			this._todoStore.restoreFromSnapshot(latestSnapshot);
 		}
 	}
@@ -1140,19 +1141,36 @@ export class AgentSession {
 					`</scene>`,
 				];
 
-				// Auto-create todo items from tasks.json
+				// Auto-create todo items from tasks.json.
+				// If the store is already locked by a previous scene invocation in this session,
+				// we leave the existing list untouched (per the "ignore re-invocation" rule)
+				// and instruct the LLM to keep working through the existing items.
 				const tasksJsonPath = join(skill.baseDir, "tasks.json");
-				if (existsSync(tasksJsonPath)) {
+				if (this._todoStore.isLocked()) {
+					const existing = this._todoStore.getAll().length;
+					lines.push(
+						"",
+						`[SYSTEM] The todo list is already locked from an earlier scene invocation in this session (${existing} items).`,
+						`Do NOT call todo(action="create") — it will be rejected.`,
+						`Continue working through the existing items in strict sequential order.`,
+						`Use todo(action="list") to view current progress.`,
+					);
+				} else if (existsSync(tasksJsonPath)) {
 					try {
 						const tasksRaw = readFileSync(tasksJsonPath, "utf-8");
 						const tasks: unknown = JSON.parse(tasksRaw);
 						if (Array.isArray(tasks) && tasks.length > 0 && tasks.every((t) => typeof t === "string")) {
+							// Reset any prior todos (e.g. ad-hoc items the LLM created in a non-scene turn)
+							// so the scene's tasks.json is the sole source of truth.
+							this._todoStore.clear();
 							this._todoStore.createMany(tasks as string[]);
+							this._todoStore.lock("scene");
 							lines.push(
 								"",
-								`[SYSTEM] ${tasks.length} todo items have been auto-created from this scene's tasks.json.`,
-								`Do NOT create your own todo list. Follow the existing todo items in strict sequential order.`,
-								`Use todo(action="list") to see them, then start with todo(action="update", id=1, status="in_progress").`,
+								`[SYSTEM] ${tasks.length} todo items have been auto-created from this scene's tasks.json and the list is now LOCKED.`,
+								`Do NOT call todo(action="create") — it will be rejected. The tasks.json list is the authoritative plan.`,
+								`Work strictly through these items in order. Start now with todo(action="update", id=1, status="in_progress").`,
+								`After finishing each item, IMMEDIATELY call todo(action="update", id=N, status="done") before moving on to the next.`,
 							);
 						}
 					} catch {
@@ -2295,15 +2313,9 @@ export class AgentSession {
 			baseTools.invoke_skill = invokeSkillTool;
 		}
 
-		// Add invoke_scene tool if scenes are available
-		const scenes = loadedSkills.filter((s) => s.type === "scene");
-		if (scenes.length > 0) {
-			const invokeSceneTool = createInvokeSceneTool({
-				getScenes: () => this._resourceLoader.getSkills().skills,
-				getTodoStore: () => this._todoStore,
-			});
-			baseTools.invoke_scene = invokeSceneTool;
-		}
+		// Scenes are activated server-side via _expandSkillCommand on /scene: prefix.
+		// They prefill the todo list from tasks.json and inject scene content as a hidden
+		// custom message — there is intentionally no LLM-facing invoke tool for scenes.
 
 		// Add todo tool (always available)
 		const todoTool = createTodoTool({ getTodoStore: () => this._todoStore });
@@ -2358,12 +2370,9 @@ export class AgentSession {
 		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
 		const activeToolNameSet = new Set<string>(baseActiveToolNames);
 
-		// Always activate invoke_skill, invoke_scene, and todo when available in base tools
+		// Always activate invoke_skill and todo when available in base tools
 		if (this._baseToolRegistry.has("invoke_skill")) {
 			activeToolNameSet.add("invoke_skill");
-		}
-		if (this._baseToolRegistry.has("invoke_scene")) {
-			activeToolNameSet.add("invoke_scene");
 		}
 		if (this._baseToolRegistry.has("todo")) {
 			activeToolNameSet.add("todo");

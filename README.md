@@ -70,7 +70,7 @@ cd packages/im-gateway && make build   # 构建 IM 旁路网关
 | 包 | 职责 |
 |----|------|
 | [packages/runtime-core](packages/runtime-core) | `RuntimeHost` 与 Session Facade，面向桌面宿主的运行时事件契约 |
-| [packages/runtime-tools](packages/runtime-tools) | 内置工具重导出，供宿主复用（bash/edit/write/todo/current-time/invoke-skill/invoke-scene 等） |
+| [packages/runtime-tools](packages/runtime-tools) | 内置工具重导出，供宿主复用（bash/edit/write/todo/current-time/invoke-skill 等） |
 | [packages/runtime-storage](packages/runtime-storage) | 鉴权、会话、设置的存储原语 |
 | [packages/runtime-mcp](packages/runtime-mcp) | MCP Manager 与 MCP Runtime 绑定 |
 | [packages/runtime-telemetry](packages/runtime-telemetry) | 运行时日志与遥测抽象 |
