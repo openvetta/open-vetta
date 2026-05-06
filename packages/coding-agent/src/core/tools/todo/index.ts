@@ -81,6 +81,22 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 							details: { action },
 						};
 					}
+					if (store.isLocked()) {
+						const source = store.getLockSource();
+						return {
+							content: [
+								{
+									type: "text" as const,
+									text:
+										`REJECTED: The todo list is locked by ${source ?? "the system"} and cannot accept new items.\n` +
+										`This list was prefilled from a scene's tasks.json and is the authoritative plan.\n` +
+										`Do NOT attempt to create additional todos. Work strictly through the existing items in order:\n` +
+										`call todo(action="list") to view them, then todo(action="update", id=N, status="in_progress"|"done").\n\n${formatItems(store)}`,
+								},
+							],
+							details: { action },
+						};
+					}
 					const created = store.createMany(items);
 					const itemList = created.map((i) => `  #${i.id} ${i.content}`).join("\n");
 					return {

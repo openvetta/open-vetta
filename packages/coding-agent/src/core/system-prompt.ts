@@ -3,7 +3,7 @@
  */
 
 import { getDocsPath, getExamplesPath, getReadmePath } from "../config.js";
-import { formatScenesForPrompt, formatSkillsForPrompt, type Skill } from "./skills.js";
+import { formatSkillsForPrompt, type Skill } from "./skills.js";
 import { SUBCONSCIOUS } from "./subconscious.js";
 
 /** Tool descriptions for system prompt */
@@ -18,7 +18,6 @@ const toolDescriptions: Record<string, string> = {
 	ls: "List directory contents",
 	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
-	invoke_scene: "Invoke a scene by name when the user's message starts with /scene: prefix",
 	todo: "Plan and track progress on multi-step tasks with a todo list",
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
@@ -116,12 +115,6 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
 		if (canUseSkills && skills.length > 0) {
 			prompt += formatSkillsForPrompt(skills);
-		}
-
-		// Append scenes section (if invoke_scene tool is available)
-		const canUseScenes = !selectedTools || selectedTools.includes("invoke_scene");
-		if (canUseScenes && skills.length > 0) {
-			prompt += formatScenesForPrompt(skills);
 		}
 
 		// Filename fidelity rule (applies to all prompts)
@@ -269,12 +262,6 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 	const hasInvokeSkill = tools.includes("invoke_skill");
 	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
 		prompt += formatSkillsForPrompt(skills);
-	}
-
-	// Append scenes section (if invoke_scene tool is available)
-	const hasInvokeScene = tools.includes("invoke_scene");
-	if (hasInvokeScene && skills.length > 0) {
-		prompt += formatScenesForPrompt(skills);
 	}
 
 	// Add date/time and working directory last
