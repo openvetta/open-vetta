@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./domains/project/components/Sidebar";
 import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
-import { TitleBar } from "./shared/components/TitleBar";
+import { WindowControls } from "./shared/components/TitleBar";
 import { LoginDialog } from "./domains/auth/components/LoginDialog";
 import { FlowingSendDialog } from "./domains/flowing/components/FlowingSendDialog";
 import { WorkflowCompleteDialog } from "./domains/flowing/components/WorkflowCompleteDialog";
@@ -87,9 +87,10 @@ function PageHeader({
 					{title}
 				</motion.h1>
 			</div>
-			{rightSlot && (
-				<div className="no-drag flex shrink-0 items-center gap-1">{rightSlot}</div>
-			)}
+			<div className="no-drag flex shrink-0 items-center gap-1">
+				{rightSlot}
+				{!isMac && <WindowControls />}
+			</div>
 		</div>
 	);
 }
@@ -231,7 +232,6 @@ export function RootLayout(): JSX.Element {
 	return (
 		<TooltipProvider>
 			<div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
-				<TitleBar />
 				<div className="flex flex-1 gap-2 overflow-hidden p-2">
 					<AnimatePresence initial={false}>
 						{!sidebarCollapsed && (
