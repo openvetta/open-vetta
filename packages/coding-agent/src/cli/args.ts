@@ -178,7 +178,7 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 
 export function printHelp(): void {
 	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
-	const defaultToolsList = `read,${defaultCommandTool},edit,write,dir_tree,doc_to_pdf,internal_control_report_pdf,current_time`;
+	const defaultToolsList = `read,${defaultCommandTool},edit,write,dir_tree,doc_to_pdf,html_to_pdf,current_time`;
 	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with ${defaultToolsList} tools
 
 ${chalk.bold("Usage:")}
@@ -316,7 +316,7 @@ ${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   ls     - List directory contents (read-only, off by default)
   dir_tree - Show directory tree with [D]/[F] node types (read-only)
   doc_to_pdf - Convert .doc/.docx files to PDF
-  internal_control_report_pdf - Generate an internal control review PDF from result.json
+  html_to_pdf - Convert HTML files to PDF
   current_time - Get the current date and time
 `);
 }

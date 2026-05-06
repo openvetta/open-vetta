@@ -1,22 +1,27 @@
-import { writeSync } from "node:fs";
-import { generateInternalControlReportPdf, InternalControlReportError } from "../pdf/internal-control-report.js";
+import { constants, writeSync } from "node:fs";
+import { access, mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { renderHtmlFileToPdf } from "../pdf/html-to-pdf.js";
 
 export type PdfCliCommand =
 	| { type: "help" }
 	| { type: "error"; code: string; exitCode: number; message: string }
 	| {
-			type: "internal-control-report";
-			resultPath: string;
-			output?: string;
-			template?: string;
-			titleYear?: number;
-			keepTemp?: boolean;
+			type: "html-to-pdf";
+			input: string;
+			output: string;
+			pageSize?: "A4";
+			margins?: {
+				top: number;
+				right: number;
+				bottom: number;
+				left: number;
+			};
 	  };
 
 export interface PdfCliResponse {
 	ok: boolean;
 	output?: string;
-	template?: string;
 	renderer?: "electron";
 	error?: {
 		code: string;
@@ -27,35 +32,36 @@ export interface PdfCliResponse {
 const HELP_TEXT = `Vetta PDF command line interface
 
 Usage:
-  Vetta.exe --internal-control-report-pdf <result.json> [options]
-  Vetta.exe pdf internal-control-report <result.json> [options]
+  Vetta.exe --html-to-pdf <input.html> --output <output.pdf> [options]
+  Vetta.exe pdf html-to-pdf <input.html> --output <output.pdf> [options]
   Vetta.exe -h
   Vetta.exe --help
 
 Description:
-  Generate an internal control review PDF from result.json using Vetta Desktop's
-  bundled Electron Chromium renderer. This does not require Google Chrome or
-  Microsoft Edge to be installed on the user machine.
+  Convert an HTML file to PDF using Vetta Desktop's bundled Electron Chromium
+  renderer. This does not require Google Chrome or Microsoft Edge to be
+  installed on the user machine.
 
 Options:
-  --output <path>       Output PDF path. Defaults to:
-                        <result.json directory>/<unit_name>_<unit_code>_审查报告.pdf
-  --template <id>       HTML template id. Defaults to "default".
-  --title-year <year>   Year shown in the report subtitle. Defaults to 2025.
-  --keep-temp           Keep the temporary HTML directory for debugging.
+  --output <path>       Required output PDF path.
+  --page-size <size>    PDF page size. Supported: A4. Defaults to A4.
+  --margin-top <n>      Top margin in inches.
+  --margin-right <n>    Right margin in inches.
+  --margin-bottom <n>   Bottom margin in inches.
+  --margin-left <n>     Left margin in inches.
   -h, --help            Show this help text.
 
 Output:
   On success, stdout contains JSON:
-    {"ok":true,"output":"C:\\\\path\\\\report.pdf","template":"default","renderer":"electron"}
+    {"ok":true,"output":"C:\\\\path\\\\report.pdf","renderer":"electron"}
 
   On failure, stdout contains JSON:
-    {"ok":false,"error":{"code":"VALIDATION_ERROR","message":"..."}}
+    {"ok":false,"error":{"code":"ARGUMENT_ERROR","message":"..."}}
 
 Exit codes:
   0  Success or help displayed.
   2  Invalid command line arguments.
-  3  result.json validation or read error.
+  3  HTML input or output path error.
   4  PDF rendering error.
 `;
 
@@ -71,17 +77,26 @@ class PdfCliError extends Error {
 }
 
 function findCommandStart(argv: string[]): number {
-	return argv.findIndex(
-		(arg) => arg === "--internal-control-report-pdf" || arg === "pdf" || arg === "-h" || arg === "--help",
-	);
+	return argv.findIndex((arg) => arg === "--html-to-pdf" || arg === "pdf" || arg === "-h" || arg === "--help");
 }
 
-function parseOptions(args: string[]): Omit<Extract<PdfCliCommand, { type: "internal-control-report" }>, "type"> {
-	let resultPath: string | undefined;
+function parseNumberOption(name: string, value: string | undefined): number {
+	if (!value) throw new PdfCliError("ARGUMENT_ERROR", 2, `${name} requires a number`);
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed) || parsed < 0) {
+		throw new PdfCliError("ARGUMENT_ERROR", 2, `${name} must be a non-negative number`);
+	}
+	return parsed;
+}
+
+function parseHtmlToPdfOptions(args: string[]): Omit<Extract<PdfCliCommand, { type: "html-to-pdf" }>, "type"> {
+	let input: string | undefined;
 	let output: string | undefined;
-	let template: string | undefined;
-	let titleYear: number | undefined;
-	let keepTemp = false;
+	let pageSize: "A4" | undefined;
+	let marginTop: number | undefined;
+	let marginRight: number | undefined;
+	let marginBottom: number | undefined;
+	let marginLeft: number | undefined;
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -94,39 +109,56 @@ function parseOptions(args: string[]): Omit<Extract<PdfCliCommand, { type: "inte
 			output = value;
 			continue;
 		}
-		if (arg === "--template") {
+		if (arg === "--page-size") {
 			const value = args[++i];
-			if (!value) throw new PdfCliError("ARGUMENT_ERROR", 2, "--template requires an id");
-			template = value;
+			if (value !== "A4") throw new PdfCliError("ARGUMENT_ERROR", 2, "--page-size only supports A4");
+			pageSize = value;
 			continue;
 		}
-		if (arg === "--title-year") {
-			const value = args[++i];
-			if (!value) throw new PdfCliError("ARGUMENT_ERROR", 2, "--title-year requires a year");
-			const parsed = Number(value);
-			if (!Number.isInteger(parsed) || parsed < 1900 || parsed > 9999) {
-				throw new PdfCliError("ARGUMENT_ERROR", 2, "--title-year must be a four digit year");
-			}
-			titleYear = parsed;
+		if (arg === "--margin-top") {
+			marginTop = parseNumberOption("--margin-top", args[++i]);
 			continue;
 		}
-		if (arg === "--keep-temp") {
-			keepTemp = true;
+		if (arg === "--margin-right") {
+			marginRight = parseNumberOption("--margin-right", args[++i]);
+			continue;
+		}
+		if (arg === "--margin-bottom") {
+			marginBottom = parseNumberOption("--margin-bottom", args[++i]);
+			continue;
+		}
+		if (arg === "--margin-left") {
+			marginLeft = parseNumberOption("--margin-left", args[++i]);
 			continue;
 		}
 		if (arg.startsWith("-")) {
 			throw new PdfCliError("ARGUMENT_ERROR", 2, `Unknown option: ${arg}`);
 		}
-		if (resultPath) {
+		if (input) {
 			throw new PdfCliError("ARGUMENT_ERROR", 2, `Unexpected argument: ${arg}`);
 		}
-		resultPath = arg;
+		input = arg;
 	}
 
-	if (!resultPath) {
-		throw new PdfCliError("ARGUMENT_ERROR", 2, "Missing <result.json> path");
+	if (!input) {
+		throw new PdfCliError("ARGUMENT_ERROR", 2, "Missing <input.html> path");
 	}
-	return { resultPath, output, template, titleYear, keepTemp };
+	if (!output) {
+		throw new PdfCliError("ARGUMENT_ERROR", 2, "Missing required --output <output.pdf>");
+	}
+
+	const hasAnyMargin =
+		marginTop !== undefined || marginRight !== undefined || marginBottom !== undefined || marginLeft !== undefined;
+	const margins = hasAnyMargin
+		? {
+				top: marginTop ?? 0,
+				right: marginRight ?? 0,
+				bottom: marginBottom ?? 0,
+				left: marginLeft ?? 0,
+			}
+		: undefined;
+
+	return { input, output, pageSize, margins };
 }
 
 export function parsePdfCliCommand(argv: string[]): PdfCliCommand | null {
@@ -139,18 +171,18 @@ export function parsePdfCliCommand(argv: string[]): PdfCliCommand | null {
 		if (command === "-h" || command === "--help") {
 			return { type: "help" };
 		}
-		if (command === "--internal-control-report-pdf") {
-			return { type: "internal-control-report", ...parseOptions(args.slice(1)) };
+		if (command === "--html-to-pdf") {
+			return { type: "html-to-pdf", ...parseHtmlToPdfOptions(args.slice(1)) };
 		}
 		if (command === "pdf") {
 			const subcommand = args[1];
 			if (subcommand === "-h" || subcommand === "--help") {
 				return { type: "help" };
 			}
-			if (subcommand !== "internal-control-report") {
+			if (subcommand !== "html-to-pdf") {
 				throw new PdfCliError("ARGUMENT_ERROR", 2, `Unknown pdf subcommand: ${subcommand ?? ""}`);
 			}
-			return { type: "internal-control-report", ...parseOptions(args.slice(2)) };
+			return { type: "html-to-pdf", ...parseHtmlToPdfOptions(args.slice(2)) };
 		}
 		return null;
 	} catch (error) {
@@ -169,6 +201,15 @@ function writeJson(response: PdfCliResponse): void {
 	writeSync(1, `${JSON.stringify(response)}\n`);
 }
 
+async function ensureReadableFile(filePath: string): Promise<void> {
+	try {
+		await access(filePath, constants.R_OK);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		throw new PdfCliError("INPUT_ERROR", 3, `Cannot read HTML input: ${message}`);
+	}
+}
+
 export async function runPdfCliCommand(command: PdfCliCommand): Promise<number> {
 	if (command.type === "help") {
 		writeSync(1, HELP_TEXT);
@@ -180,30 +221,25 @@ export async function runPdfCliCommand(command: PdfCliCommand): Promise<number> 
 	}
 
 	try {
-		const result = await generateInternalControlReportPdf(command.resultPath, {
-			output: command.output,
-			template: command.template,
-			titleYear: command.titleYear,
-			keepTemp: command.keepTemp,
+		const input = resolve(command.input);
+		const output = resolve(command.output);
+		await ensureReadableFile(input);
+		await mkdir(dirname(output), { recursive: true });
+		await renderHtmlFileToPdf({
+			htmlPath: input,
+			outputPath: output,
+			pageSize: command.pageSize,
+			margins: command.margins,
 		});
-		writeJson({ ok: true, ...result });
+		writeJson({ ok: true, output, renderer: "electron" });
 		return 0;
 	} catch (error) {
-		if (error instanceof InternalControlReportError) {
-			writeJson({ ok: false, error: { code: error.code, message: error.message } });
-			if (error.code === "RENDER_ERROR") return 4;
-			return 3;
-		}
 		if (error instanceof PdfCliError) {
-			if (error.exitCode === 0) {
-				writeSync(1, error.message);
-				return 0;
-			}
 			writeJson({ ok: false, error: { code: error.code, message: error.message } });
 			return error.exitCode;
 		}
 		const message = error instanceof Error ? error.message : String(error);
-		writeJson({ ok: false, error: { code: "UNKNOWN_ERROR", message } });
+		writeJson({ ok: false, error: { code: "RENDER_ERROR", message } });
 		return 4;
 	}
 }

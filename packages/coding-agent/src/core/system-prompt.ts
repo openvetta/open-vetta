@@ -22,8 +22,7 @@ const toolDescriptions: Record<string, string> = {
 	todo: "Plan and track progress on multi-step tasks with a todo list",
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
-	internal_control_report_pdf:
-		"Generate an internal control review PDF from result.json using Vetta Desktop's PDF command-line mode",
+	html_to_pdf: "Convert HTML files to PDF using Vetta Desktop's PDF command-line mode",
 };
 
 export interface McpToolInfo {

@@ -2,11 +2,7 @@
 
 ### Added
 
-- Added `internal_control_report_pdf` tool as a thin wrapper around Vetta Desktop's PDF command-line mode.
-
-### Changed
-
-- Changed `internal_control_report_pdf` to require an explicit output PDF path.
+- Added `html_to_pdf` tool as a thin wrapper around Vetta Desktop's PDF command-line mode.
 
 ## Vetta CLI v0.0.1
 

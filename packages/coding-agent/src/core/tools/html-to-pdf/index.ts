@@ -11,27 +11,26 @@ import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
 
 const execFileAsync = promisify(execFile);
 
-const internalControlReportPdfSchema = Type.Object({
-	resultPath: Type.String({
-		description: "Path to result.json",
+const htmlToPdfSchema = Type.Object({
+	input: Type.String({
+		description: "Path to the source HTML file",
 	}),
 	output: Type.String({
 		description: "Required output PDF path",
 		minLength: 1,
 	}),
-	template: Type.Optional(
-		Type.String({
-			description: "Template id. Defaults to default",
+	pageSize: Type.Optional(
+		Type.Union([Type.Literal("A4")], {
+			description: "PDF page size. Defaults to A4",
 		}),
 	),
-	titleYear: Type.Optional(
-		Type.Number({
-			description: "Report title year. Defaults to 2025",
-		}),
-	),
+	marginTop: Type.Optional(Type.Number({ description: "Top margin in inches" })),
+	marginRight: Type.Optional(Type.Number({ description: "Right margin in inches" })),
+	marginBottom: Type.Optional(Type.Number({ description: "Bottom margin in inches" })),
+	marginLeft: Type.Optional(Type.Number({ description: "Left margin in inches" })),
 });
 
-export type InternalControlReportPdfToolInput = Static<typeof internalControlReportPdfSchema>;
+export type HtmlToPdfToolInput = Static<typeof htmlToPdfSchema>;
 
 interface DesktopConfigWithAppPath {
 	vettaAppPath?: string;
@@ -40,12 +39,16 @@ interface DesktopConfigWithAppPath {
 interface DesktopPdfResponse {
 	ok: boolean;
 	output?: string;
-	template?: string;
 	renderer?: string;
 	error?: {
 		code: string;
 		message: string;
 	};
+}
+
+interface ExecFileError extends Error {
+	stdout?: string;
+	stderr?: string;
 }
 
 function configPath(): string {
@@ -121,31 +124,33 @@ function parseDesktopResponse(stdout: string): DesktopPdfResponse {
 	return parsed;
 }
 
-export function createInternalControlReportPdfTool(cwd: string): AgentTool<typeof internalControlReportPdfSchema> {
-	const fallbackDescription =
-		"Generate an internal control review PDF from result.json by calling Vetta Desktop command-line PDF mode.";
+export function createHtmlToPdfTool(cwd: string): AgentTool<typeof htmlToPdfSchema> {
+	const fallbackDescription = "Convert an HTML file to PDF by calling Vetta Desktop command-line PDF mode.";
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
-		name: "internal_control_report_pdf",
-		label: "internal_control_report_pdf",
+		name: "html_to_pdf",
+		label: "html_to_pdf",
 		description,
-		parameters: internalControlReportPdfSchema,
+		parameters: htmlToPdfSchema,
 		execute: async (
 			_toolCallId: string,
-			{ resultPath, output, template, titleYear }: InternalControlReportPdfToolInput,
+			{ input, output, pageSize, marginTop, marginRight, marginBottom, marginLeft }: HtmlToPdfToolInput,
 			signal?: AbortSignal,
 		) => {
 			if (signal?.aborted) {
 				throw new Error("Operation aborted");
 			}
 
-			const inputPath = resolveExistingPath(resultPath, cwd);
+			const inputPath = resolveExistingPath(input, cwd);
 			const outputPath = resolveToCwd(output, cwd);
 			const vetta = await findVettaExecutable();
-			const args = ["--internal-control-report-pdf", inputPath, "--output", outputPath];
-			if (template) args.push("--template", template);
-			if (titleYear !== undefined) args.push("--title-year", String(titleYear));
+			const args = ["--html-to-pdf", inputPath, "--output", outputPath];
+			if (pageSize) args.push("--page-size", pageSize);
+			if (marginTop !== undefined) args.push("--margin-top", String(marginTop));
+			if (marginRight !== undefined) args.push("--margin-right", String(marginRight));
+			if (marginBottom !== undefined) args.push("--margin-bottom", String(marginBottom));
+			if (marginLeft !== undefined) args.push("--margin-left", String(marginLeft));
 
 			const child = execFileAsync(vetta.path, args, {
 				encoding: "utf8",
@@ -158,7 +163,17 @@ export function createInternalControlReportPdfTool(cwd: string): AgentTool<typeo
 			};
 			signal?.addEventListener("abort", onAbort, { once: true });
 			try {
-				const { stdout, stderr } = await child;
+				let stdout: string;
+				let stderr: string;
+				try {
+					const result = await child;
+					stdout = result.stdout;
+					stderr = result.stderr;
+				} catch (error) {
+					const execError = error as ExecFileError;
+					stdout = execError.stdout ?? "";
+					stderr = execError.stderr ?? execError.message;
+				}
 				if (signal?.aborted) {
 					throw new Error("Operation aborted");
 				}
@@ -177,7 +192,7 @@ export function createInternalControlReportPdfTool(cwd: string): AgentTool<typeo
 					content: [
 						{
 							type: "text",
-							text: `Successfully generated internal control review PDF.\nOutput: ${response.output}\nTemplate: ${response.template ?? template ?? "default"}\nRenderer: ${response.renderer ?? "electron"}${staleNote}`,
+							text: `Successfully converted HTML to PDF.\nOutput: ${response.output}\nRenderer: ${response.renderer ?? "electron"}${staleNote}`,
 						},
 					],
 					details: undefined,
@@ -189,4 +204,4 @@ export function createInternalControlReportPdfTool(cwd: string): AgentTool<typeo
 	};
 }
 
-export const internalControlReportPdfTool = createInternalControlReportPdfTool(process.cwd());
+export const htmlToPdfTool = createHtmlToPdfTool(process.cwd());
