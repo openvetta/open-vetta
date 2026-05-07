@@ -53,7 +53,7 @@ cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: tr
 // main entry instead and trim the path back to the package root inside
 // node_modules. This works regardless of how the package author configured
 // `exports`.
-const externalDeps = ["node-cron"];
+const externalDeps = [];
 for (const dep of externalDeps) {
 	const entry = require.resolve(dep, { paths: [projectRoot] });
 	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
