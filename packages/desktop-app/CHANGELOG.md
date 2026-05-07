@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Fixed
+
+- **导入项目后打开会话报 EPERM**：批量项目的 `.vetta/task-states.json:sessionPath` 与 session JSONL 首行的 `cwd` / 历史 tool_call 内嵌的文件路径都是绝对路径；跨机器或跨 workspace 导入时这些路径仍指向原项目根，导致 `SessionManager.open` 在 mkdir 旧 sessions 目录时报 `EPERM: operation not permitted`。修复：导入解压完成后，对 `.vetta/task-states.json` 与 `.vetta/sessions/*.jsonl` 做 path-rewrite——递归扫描 JSON / JSONL 中的字符串值，把以 manifest.originalPath 开头的绝对路径前缀替换成新项目根，并按目标平台规则化分隔符（macOS `/` ↔ Windows `\`）。重写策略保守：只匹配"完整等于"或"以原根 + 分隔符开头"的字符串，不影响指向原机器其它资源的外部绝对路径。
+
 ### Added
 
 - **项目导入 / 导出**：项目详情页右上角新增「导出」按钮，点击二次确认后通过原生保存对话框输出 `<项目名>.vetta.zip`，包内含 `_vetta-export.json` manifest（format/version/type/name/originalPath/exportedAt）+ 项目目录全量内容（.vetta/sessions、batch 任务工作目录与 task-states.json 等），自动剔除 `*.lock` 文件锁与符号链接。侧边栏「新建项目」下拉菜单新增「导入项目」入口，原生打开对话框只接受 `.zip`，命中非本应用导出的 zip / 损坏的 zip / 缺失 manifest 时统一报「不支持的项目」。导入路径走 `desktop-config.json` 单一注册路径并解决重名（自动追加 `-2`/`-3`），导入完成后联动刷新普通与批量两个 atom 列表，提供「查看项目」直跳。仅支持 `normal` 与 `batch` 两种类型，flowing/schedule 类型在导出端自检拒绝、导入端 manifest 校验拒绝。Batch 项目导入后会扫描 `meta.json:items[].sourcePath`，对本机不存在的源路径以模态形式列出，便于用户后续重链或删除（不修改 meta，保留原路径以支持回链）。导入解压前对每条 zip 条目做 path-traversal 校验（zip slip 防护），失败时回滚已解压目录。

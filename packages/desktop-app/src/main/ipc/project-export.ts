@@ -174,6 +174,111 @@ function readManifest(zip: AdmZip): ExportManifest {
 	};
 }
 
+// ─── Cross-machine path rewriting ───
+//
+// When a project is imported on a different host (or even just a different
+// workspace path on the same host), every absolute path stored inside the
+// project that points back to the OLD project root needs to be rewritten to
+// point at the NEW one. Two known places store such paths:
+//   1. `.vetta/task-states.json` — `sessionPath` of each batch task
+//   2. `.vetta/sessions/*.jsonl` — `cwd` in the session header line, plus
+//      file paths inside tool_call args/results
+//
+// We deliberately limit rewriting to strings that *exactly* start with the
+// old project root (followed by a separator or end-of-string). External
+// paths (sourcePath of batch items, references to system / home files)
+// stay untouched: they would be stale on a new machine but rewriting them
+// would silently corrupt unrelated data.
+
+/** Rewrite a single string if it's an absolute path under `oldRoot`. */
+function rewriteSingleAbsolutePath(value: string, oldRoot: string, newRoot: string): string {
+	// Normalize separators so a path stored with `/` matches an oldRoot stored
+	// with `\` (cross-platform export → import).
+	const oldNorm = oldRoot.replace(/\\/g, "/").replace(/\/+$/, "");
+	const valueNorm = value.replace(/\\/g, "/");
+	if (valueNorm === oldNorm) return newRoot;
+	if (valueNorm.startsWith(`${oldNorm}/`)) {
+		const tail = valueNorm.slice(oldNorm.length + 1);
+		const parts = tail.split("/").filter(Boolean);
+		return join(newRoot, ...parts);
+	}
+	return value;
+}
+
+/** Recursively walk a parsed JSON value and rewrite any qualifying absolute path. */
+function rewritePathsInValue(value: unknown, oldRoot: string, newRoot: string): unknown {
+	if (typeof value === "string") {
+		return rewriteSingleAbsolutePath(value, oldRoot, newRoot);
+	}
+	if (Array.isArray(value)) {
+		return value.map((v) => rewritePathsInValue(v, oldRoot, newRoot));
+	}
+	if (value && typeof value === "object") {
+		const result: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+			result[k] = rewritePathsInValue(v, oldRoot, newRoot);
+		}
+		return result;
+	}
+	return value;
+}
+
+function rewriteJsonFile(path: string, oldRoot: string, newRoot: string): void {
+	if (!existsSync(path)) return;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(readFileSync(path, "utf-8"));
+	} catch (error) {
+		console.warn(`[ProjectExport] skipped JSON rewrite for ${path}: ${(error as Error).message}`);
+		return;
+	}
+	const rewritten = rewritePathsInValue(parsed, oldRoot, newRoot);
+	writeFileSync(path, `${JSON.stringify(rewritten, null, 2)}\n`, "utf-8");
+}
+
+function rewriteJsonlFile(path: string, oldRoot: string, newRoot: string): void {
+	let raw: string;
+	try {
+		raw = readFileSync(path, "utf-8");
+	} catch {
+		return;
+	}
+	const lines = raw.split("\n");
+	const out: string[] = [];
+	for (const line of lines) {
+		if (!line) {
+			out.push(line);
+			continue;
+		}
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(line);
+		} catch {
+			// Not a JSON line (e.g. truncated tail); leave verbatim.
+			out.push(line);
+			continue;
+		}
+		out.push(JSON.stringify(rewritePathsInValue(parsed, oldRoot, newRoot)));
+	}
+	writeFileSync(path, out.join("\n"), "utf-8");
+}
+
+/**
+ * Rewrite all known absolute-path-bearing files under `newRoot` so paths that
+ * pointed at `oldRoot` now point at `newRoot`. Called after extraction. Tolerant
+ * of missing files / parse errors — best-effort migration of historical state.
+ */
+function rewriteAbsolutePathsAfterImport(newRoot: string, oldRoot: string): void {
+	if (!oldRoot) return;
+	rewriteJsonFile(join(newRoot, ".vetta", "task-states.json"), oldRoot, newRoot);
+	const sessionsDir = join(newRoot, ".vetta", "sessions");
+	if (!existsSync(sessionsDir)) return;
+	for (const entry of readdirSync(sessionsDir, { withFileTypes: true })) {
+		if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
+		rewriteJsonlFile(join(sessionsDir, entry.name), oldRoot, newRoot);
+	}
+}
+
 /**
  * After a batch project lands on disk, walk its `meta.json:items[].sourcePath`
  * and report which absolute paths don't exist on this machine. The UI uses
@@ -302,6 +407,12 @@ async function handleImport(): Promise<ImportProjectResult | null> {
 		const message = error instanceof Error ? error.message : String(error);
 		throw new ProjectExportError("extract-failed", `解压失败：${message}`);
 	}
+
+	// Rewrite any absolute path inside extracted state files that still points
+	// at the source-machine project root. Without this, batch task-states.json
+	// keeps pointing at e.g. `/Users/you/.../<project>/.vetta/sessions/foo.jsonl`
+	// on a Windows host, which then crashes session open with EPERM.
+	rewriteAbsolutePathsAfterImport(projectDir, manifest.originalPath);
 
 	// Authorize the new root for fs IPC operations and register in config.
 	allowProjectRoot(projectDir);
