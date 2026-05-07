@@ -67,8 +67,12 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const showBatchGroup = filter === "all" || filter === "batch";
 
 	const filteredProjects = useMemo(() => {
-		if (filter === "all") return projects;
-		return projects.filter((p) => p.type === filter);
+		// Batch projects are rendered via the dedicated batch group below
+		// (with full task/session detail). Skip them here to avoid double-rendering
+		// since they are also registered in desktop-config.json now.
+		const visible = projects.filter((p) => p.type !== "batch");
+		if (filter === "all") return visible;
+		return visible.filter((p) => p.type === filter);
 	}, [projects, filter]);
 
 	const handleNavigateProject = useCallback(

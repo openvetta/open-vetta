@@ -1,3 +1,4 @@
+import { useProjects } from "@domains/project/hooks/useProjects";
 import { pathBasename } from "@shared/lib/utils";
 import { batchProjectsAtom, type ExecutionModeOverride, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useAtom } from "jotai";
@@ -6,6 +7,10 @@ import { useCallback, useEffect } from "react";
 export function useBatchTasks() {
 	const [projects, setProjects] = useAtom(batchProjectsAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedBatchProjectsAtom);
+	// Batch project create/delete also mutates desktop-config.json (single
+	// source of sidebar truth), so we must refresh the config-driven project
+	// list whenever a batch CRUD lands.
+	const { refreshProjects: refreshConfigProjects } = useProjects();
 
 	const refreshProjects = useCallback(async () => {
 		const loadedProjects = await window.vetta.batchTasks.getProjects();
@@ -23,9 +28,10 @@ export function useBatchTasks() {
 		}) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
+			await refreshConfigProjects();
 			return project;
 		},
-		[setProjects],
+		[setProjects, refreshConfigProjects],
 	);
 
 	const updateProject = useCallback(
@@ -81,8 +87,9 @@ export function useBatchTasks() {
 			}
 			await window.vetta.batchTasks.deleteProject(projectId);
 			setProjects((prev) => prev.filter((p) => p.id !== projectId));
+			await refreshConfigProjects();
 		},
-		[projects, setProjects],
+		[projects, setProjects, refreshConfigProjects],
 	);
 
 	const toggleProject = useCallback(
