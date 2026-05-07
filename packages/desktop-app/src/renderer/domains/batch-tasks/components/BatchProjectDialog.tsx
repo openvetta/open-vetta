@@ -62,6 +62,8 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
 	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
 	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.sourcePath) ?? []);
+	const [folderText, setFolderText] = useState((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
+	const [folderInputMode, setFolderInputMode] = useState<"picker" | "textarea">("picker");
 	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 	const modelDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -93,6 +95,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setExecutionMode(project?.executionMode ?? "full-access");
 		setConcurrency(project?.concurrency ?? 1);
 		setFolders(project?.tasks.map((t) => t.sourcePath) ?? []);
+		setFolderText((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
 	}, [project]);
 
 	useEffect(() => {
@@ -147,16 +150,29 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const handleSelectFolders = useCallback(() => {
 		void (async () => {
 			const selected = await window.vetta.dialog.selectFolders();
-			console.log(selected);
-
 			if (selected.length > 0) {
-				setFolders((prev) => [...new Set([...prev, ...selected])]);
+				setFolders((prev) => {
+					const next = [...new Set([...prev, ...selected])];
+					setFolderText(next.join("\n"));
+					return next;
+				});
 			}
 		})();
 	}, []);
 
+	const handleFolderTextChange = useCallback((value: string) => {
+		setFolderText(value);
+		setFolders(
+			[...new Set(value.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0))],
+		);
+	}, []);
+
 	const handleRemoveFolder = useCallback((folder: string) => {
-		setFolders((prev) => prev.filter((f) => f !== folder));
+		setFolders((prev) => {
+			const next = prev.filter((f) => f !== folder);
+			setFolderText(next.join("\n"));
+			return next;
+		});
 	}, []);
 
 	const handleSubmit = async () => {
@@ -326,14 +342,52 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 					</div>
 
 					<div className="mt-4">
-						<div className="mb-2 flex items-center justify-between">
+						<div className="mb-2 flex items-center justify-between gap-3">
 							<p className="text-sm font-medium text-foreground">文件夹列表</p>
+							<div className="inline-flex rounded-lg border border-border p-0.5">
+								<button
+									type="button"
+									onClick={() => setFolderInputMode("picker")}
+									className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+										folderInputMode === "picker"
+											? "bg-accent text-foreground"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									选择添加
+								</button>
+								<button
+									type="button"
+									onClick={() => setFolderInputMode("textarea")}
+									className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+										folderInputMode === "textarea"
+											? "bg-accent text-foreground"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									文本添加
+								</button>
+							</div>
+						</div>
+						{folderInputMode === "picker" ? (
 							<Button variant="outline" size="sm" onClick={handleSelectFolders}>
 								选择文件夹
 							</Button>
-						</div>
+						) : (
+							<>
+								<Textarea
+									value={folderText}
+									onChange={(e) => handleFolderTextChange(e.target.value)}
+									className="min-h-[96px] text-sm"
+									placeholder={"/path/to/project-a\n/path/to/project-b"}
+								/>
+								<p className="mt-2 text-xs text-muted-foreground/60">
+									Linux 目录多选不稳定时，可直接粘贴路径，每行一个文件夹。
+								</p>
+							</>
+						)}
 						{folders.length > 0 ? (
-							<div className="max-h-40 overflow-y-auto rounded-lg border border-border p-2">
+							<div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-border p-2">
 								{folders.map((folder) => (
 									<div
 										key={folder}
@@ -351,7 +405,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 								))}
 							</div>
 						) : (
-							<p className="text-xs text-muted-foreground/50">暂无文件夹</p>
+							<p className="mt-3 text-xs text-muted-foreground/50">暂无文件夹</p>
 						)}
 					</div>
 				</div>
