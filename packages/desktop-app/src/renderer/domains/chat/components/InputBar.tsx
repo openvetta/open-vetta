@@ -634,8 +634,13 @@ function SendButton({
 						style={{
 							background: "color-mix(in srgb, var(--primary) 50%, transparent)",
 						}}
-						animate={{ scale: [1, 1.35], opacity: [0.7, 0] }}
-						transition={{ duration: 1.4, repeat: Number.POSITIVE_INFINITY, ease: "easeOut" }}
+						animate={{ scale: [1, 1.35], opacity: [0, 0.7, 0] }}
+						transition={{
+							duration: 1.4,
+							times: [0, 0.15, 1],
+							repeat: Number.POSITIVE_INFINITY,
+							ease: "easeOut",
+						}}
 					/>
 					<span className="relative h-2.5 w-2.5 rounded-[3px] bg-primary-foreground" />
 				</motion.button>
