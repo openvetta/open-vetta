@@ -26,6 +26,7 @@ import {
 	pageHeaderRightSlotAtom,
 } from "./shared/store/atoms";
 import { isMac } from "./shared/lib/platform";
+import { cn } from "./shared/lib/utils";
 
 const ROUTE_TITLES: Array<{ match: RegExp; title: string }> = [
 	{ match: /^\/automation$/, title: "自动化" },
@@ -53,10 +54,13 @@ function PageHeader({
 
 	return (
 		<div
-			className="drag-region relative flex h-11 shrink-0 items-center justify-between gap-2"
+			className={cn("drag-region relative flex h-11 shrink-0 items-center justify-between gap-2",
+				!isMac && "h-8"
+			)}
 			style={{
 				paddingLeft: isMac && sidebarCollapsed ? 78 : 12,
-				paddingRight: 12,
+				paddingRight: isMac ? 12 : 0,
+				marginBottom: isMac ? 0 : 10
 			}}
 		>
 			<div className="no-drag flex min-w-0 items-center gap-2">

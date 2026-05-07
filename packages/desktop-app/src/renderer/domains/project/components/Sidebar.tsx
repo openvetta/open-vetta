@@ -45,9 +45,21 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 		>
 			{/* Top h-11 row — aligns with PageHeader; reserves macOS traffic-light area, collapse button at right */}
 			<div
-				className="drag-region flex h-11 shrink-0 items-center justify-end"
+				className="drag-region flex h-11 shrink-0 items-center justify-between"
 				style={{ paddingLeft: isMac ? 78 : 12, paddingRight: 6 }}
 			>
+				{isMac ? (
+					<div />
+				) : (
+					<div className="flex min-w-0 items-center gap-2">
+						<img
+							src="./icon.png"
+							alt="Vetta"
+							className="h-5 w-5 shrink-0 rounded-[5px]"
+						/>
+						<span className="truncate text-[13px] font-semibold text-foreground">Vetta</span>
+					</div>
+				)}
 				{onCollapse && (
 					<button
 						type="button"
