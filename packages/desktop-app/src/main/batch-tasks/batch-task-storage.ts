@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { type ExecutionModeOverride, normalizeExecutionModeOverride } from "../execution-mode.js";
-import { getWorkspacePath } from "../utils/workspace";
+import { type DesktopConfig, type ProjectEntry, readDesktopConfig, writeDesktopConfig } from "../ipc/fs.js";
 import { type BatchTaskState, type BatchTaskStatus, loadProjectTaskStates } from "./batch-task-state";
 
 export type { BatchTaskStatus } from "./batch-task-state";
@@ -130,26 +130,79 @@ function assembleProject(
 	};
 }
 
+// ─── Config registration ───
+//
+// Source of truth for sidebar visibility is `desktop-config.json:projects`.
+// Each batch project is also registered there as `{ path, name }`. Workspace
+// directory is no longer the registration boundary — it is only used as a
+// migration source: any unregistered batch project found under it is
+// auto-imported on next discovery (idempotent), so older installs and
+// hand-edited workspaces keep working.
+
+async function registerProjectInConfig(projectPath: string, name: string): Promise<void> {
+	const config = await readDesktopConfig();
+	if (config.projects.some((p) => p.path === projectPath)) return;
+	if (config.archivedProjects.some((p) => p.path === projectPath)) return;
+	await writeDesktopConfig({
+		...config,
+		projects: [...config.projects, { path: projectPath, name }],
+	});
+}
+
+async function unregisterProjectFromConfig(projectPath: string): Promise<void> {
+	const config = await readDesktopConfig();
+	const projects = config.projects.filter((p) => p.path !== projectPath);
+	const archivedProjects = config.archivedProjects.filter((p) => p.path !== projectPath);
+	if (projects.length === config.projects.length && archivedProjects.length === config.archivedProjects.length) {
+		return;
+	}
+	await writeDesktopConfig({ ...config, projects, archivedProjects });
+}
+
+/**
+ * Backfill desktop-config.json with any batch project whose `.vetta/meta.json`
+ * exists under `workspacePath` but isn't registered yet (active or archived).
+ * Idempotent: safe to call on every discover.
+ */
+async function autoRegisterLooseBatchProjects(config: DesktopConfig): Promise<DesktopConfig> {
+	const entries = await readdir(config.workspacePath, { withFileTypes: true }).catch(() => null);
+	if (!entries) return config; // workspace dir doesn't exist yet
+
+	const known = new Set<string>();
+	for (const p of config.projects) known.add(p.path);
+	for (const p of config.archivedProjects) known.add(p.path);
+
+	const additions: ProjectEntry[] = [];
+	for (const entry of entries) {
+		if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+		const projectDir = join(config.workspacePath, entry.name);
+		if (known.has(projectDir)) continue;
+		const meta = await readProjectMeta(projectDir);
+		if (meta?.type !== "batch") continue;
+		additions.push({ path: projectDir, name: entry.name });
+	}
+	if (additions.length === 0) return config;
+
+	console.log(`[BatchTaskStorage] auto-registering ${additions.length} loose batch project(s) into config`);
+	const next: DesktopConfig = {
+		...config,
+		projects: [...config.projects, ...additions],
+	};
+	await writeDesktopConfig(next);
+	return next;
+}
+
 // ─── Public API ───
 
 export async function discoverBatchProjects(): Promise<string[]> {
-	const workspacePath = await getWorkspacePath();
-	try {
-		const entries = await readdir(workspacePath, { withFileTypes: true });
-		const candidates = entries
-			.filter((e) => e.isDirectory() && !e.name.startsWith("."))
-			.map((e) => join(workspacePath, e.name));
-		const results = await Promise.all(
-			candidates.map(async (projectDir) => {
-				const meta = await readProjectMeta(projectDir);
-				return meta ? projectDir : null;
-			}),
-		);
-		return results.filter((d): d is string => d !== null);
-	} catch {
-		// workspace may not exist yet
-		return [];
+	let config = await readDesktopConfig();
+	config = await autoRegisterLooseBatchProjects(config);
+	const result: string[] = [];
+	for (const entry of config.projects) {
+		const meta = await readProjectMeta(entry.path);
+		if (meta?.type === "batch") result.push(entry.path);
 	}
+	return result;
 }
 
 export async function loadProjects(): Promise<BatchProject[]> {
@@ -181,8 +234,8 @@ export async function createProject(
 	concurrency: number,
 	executionMode?: ExecutionModeOverride,
 ): Promise<BatchProject> {
-	const workspacePath = await getWorkspacePath();
-	const projectDir = join(workspacePath, name);
+	const config = await readDesktopConfig();
+	const projectDir = join(config.workspacePath, name);
 	await mkdir(projectDir, { recursive: true });
 
 	const now = Date.now();
@@ -215,6 +268,17 @@ export async function createProject(
 	await writeProjectMeta(projectDir, meta);
 	// Ensure sessions directory exists
 	await mkdir(join(projectDir, ".vetta", "sessions"), { recursive: true });
+
+	// Register in desktop-config so the sidebar picks it up. Best-effort: if
+	// the config write fails, the next discoverBatchProjects call will
+	// auto-register it via autoRegisterLooseBatchProjects.
+	try {
+		await registerProjectInConfig(projectDir, name);
+	} catch (error) {
+		console.warn(
+			`[BatchTaskStorage] createProject: failed to register ${projectDir} in config (will auto-recover): ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
 
 	console.log(
 		`[BatchTaskStorage] createProject: ${projectDir}(${name}), tasks=${items.length}, concurrency=${concurrency}`,
@@ -266,6 +330,15 @@ export async function updateProject(
 
 export async function deleteProject(projectDir: string): Promise<void> {
 	console.log(`[BatchTaskStorage] deleteProject: ${projectDir}`);
+	// Unregister first so the sidebar drops it even if disk removal fails
+	// (e.g. external file lock). On a partial failure, the user can retry.
+	try {
+		await unregisterProjectFromConfig(projectDir);
+	} catch (error) {
+		console.warn(
+			`[BatchTaskStorage] deleteProject: failed to unregister ${projectDir} from config: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
 	await rm(projectDir, { recursive: true, force: true });
 }
 

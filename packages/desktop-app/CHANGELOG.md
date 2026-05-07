@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Changed
+
+- **批量项目改由 `desktop-config.json:projects` 单一注册**：批量项目以前完全靠扫描 `workspacePath` 子目录的 `.vetta/meta.json` 自动发现，导致用户切换 `workspacePath` 后已有批量项目从侧边栏消失。重构后批量项目与普通项目共用同一注册入口（绝对路径写入 `projects` 数组），workspace 仅作为迁移源——`discoverBatchProjects` 启动时仍会扫描 workspace，把未注册的 `type:"batch"` 目录幂等回填进 config，老安装无感升级。`createProject` 写盘后追加注册，`deleteProject` 删盘前先反注册（双向最终一致）。`useBatchTasks` 在 create/delete 后联动刷新 `useProjects` 的项目原子，避免新建/删除批量项目后侧边栏其它分组数据陈旧。`ProjectsPanel` 同步过滤掉 `type:"batch"` 的普通项目条目，保证批量分组与普通分组不重复渲染。
+
 ### Fixed
 
 - 修复 desktop-app 开发模式不会写入可直接执行的 `vettaAppPath` 的问题；开发启动时会自动生成本地 CLI shim，并让 `vettaAppPath` 与生产模式一样指向单一可执行入口。
