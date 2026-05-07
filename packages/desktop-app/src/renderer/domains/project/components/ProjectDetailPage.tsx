@@ -5,6 +5,7 @@ import {
 	activityPanelOpenAtom,
 	authTokenAtom,
 	batchProjectsAtom,
+	confirmDialogAtom,
 	isPersonalModeAtom,
 	openSessionFnRef,
 	projectsAtom,
@@ -157,6 +158,7 @@ export function ProjectDetailPage(): JSX.Element {
 	const setWorkflowInstance = useSetAtom(workflowInstanceAtom);
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
+	const setConfirm = useSetAtom(confirmDialogAtom);
 
 	// 监听工作流 SSE 事件
 	useWorkflowSSE();
@@ -183,6 +185,30 @@ export function ProjectDetailPage(): JSX.Element {
 			void openSessionFnRef.current(decodedCwd);
 		}
 	};
+
+	// Export handler — only normal/batch are exportable; flowing/schedule hide the button.
+	const exportable = project?.type === "normal" || project?.type === "batch" || isBatch;
+	const handleExportProject = useCallback(() => {
+		setConfirm({
+			title: "导出项目",
+			message: `确定要导出项目「${displayName}」吗？\n\n将打包当前项目目录下的所有文件，包括 .vetta/sessions 历史、batch 任务工作目录与状态。文件锁（*.lock）会被排除。`,
+			confirmLabel: "导出",
+			variant: "default",
+			onConfirm: async () => {
+				const result = await window.vetta.project.export(decodedCwd);
+				if (result && "error" in result) {
+					setConfirm({
+						title: "导出失败",
+						message: result.error.message,
+						confirmLabel: "好的",
+						variant: "danger",
+						onConfirm: () => {},
+					});
+				}
+				// Success path: native save dialog already gave feedback.
+			},
+		});
+	}, [decodedCwd, displayName, setConfirm]);
 
 	// Keyboard shortcut: Cmd/Ctrl+S to save
 	useEffect(() => {
@@ -235,6 +261,18 @@ export function ProjectDetailPage(): JSX.Element {
 							<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 							<span className="text-[12px]">{isMac ? "Finder" : "资源管理器"}</span>
 						</Button>
+						{exportable && (
+							<Button
+								variant="outline"
+								size="sm"
+								className="gap-1.5 rounded-lg border-border/50 text-muted-foreground/70 transition-all duration-200 hover:border-foreground/20 hover:text-foreground"
+								onClick={handleExportProject}
+								title="导出项目（含会话历史）"
+							>
+								<span className="icon-[mdi--export-variant] h-3.5 w-3.5" />
+								<span className="text-[12px]">导出</span>
+							</Button>
+						)}
 						<Button
 							size="sm"
 							className="gap-1.5 rounded-lg bg-foreground text-background transition-all duration-200 hover:bg-foreground/90"

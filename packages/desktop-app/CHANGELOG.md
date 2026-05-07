@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Added
+
+- **项目导入 / 导出**：项目详情页右上角新增「导出」按钮，点击二次确认后通过原生保存对话框输出 `<项目名>.vetta.zip`，包内含 `_vetta-export.json` manifest（format/version/type/name/originalPath/exportedAt）+ 项目目录全量内容（.vetta/sessions、batch 任务工作目录与 task-states.json 等），自动剔除 `*.lock` 文件锁与符号链接。侧边栏「新建项目」下拉菜单新增「导入项目」入口，原生打开对话框只接受 `.zip`，命中非本应用导出的 zip / 损坏的 zip / 缺失 manifest 时统一报「不支持的项目」。导入路径走 `desktop-config.json` 单一注册路径并解决重名（自动追加 `-2`/`-3`），导入完成后联动刷新普通与批量两个 atom 列表，提供「查看项目」直跳。仅支持 `normal` 与 `batch` 两种类型，flowing/schedule 类型在导出端自检拒绝、导入端 manifest 校验拒绝。Batch 项目导入后会扫描 `meta.json:items[].sourcePath`，对本机不存在的源路径以模态形式列出，便于用户后续重链或删除（不修改 meta，保留原路径以支持回链）。导入解压前对每条 zip 条目做 path-traversal 校验（zip slip 防护），失败时回滚已解压目录。
+
 ### Changed
 
 - **批量项目改由 `desktop-config.json:projects` 单一注册**：批量项目以前完全靠扫描 `workspacePath` 子目录的 `.vetta/meta.json` 自动发现，导致用户切换 `workspacePath` 后已有批量项目从侧边栏消失。重构后批量项目与普通项目共用同一注册入口（绝对路径写入 `projects` 数组），workspace 仅作为迁移源——`discoverBatchProjects` 启动时仍会扫描 workspace，把未注册的 `type:"batch"` 目录幂等回填进 config，老安装无感升级。`createProject` 写盘后追加注册，`deleteProject` 删盘前先反注册（双向最终一致）。`useBatchTasks` 在 create/delete 后联动刷新 `useProjects` 的项目原子，避免新建/删除批量项目后侧边栏其它分组数据陈旧。`ProjectsPanel` 同步过滤掉 `type:"batch"` 的普通项目条目，保证批量分组与普通分组不重复渲染。

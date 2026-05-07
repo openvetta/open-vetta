@@ -341,6 +341,10 @@ const api: DesktopApi = {
 			ipcRenderer.invoke("vetta:debug:list-request-files", projectName, sessionId),
 		clearDebugDir: async () => ipcRenderer.invoke("vetta:debug:clear-debug-dir"),
 	},
+	project: {
+		export: async (projectDir) => ipcRenderer.invoke("vetta:project:export", projectDir),
+		import: async () => ipcRenderer.invoke("vetta:project:import"),
+	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
 		listProjects: async () => ipcRenderer.invoke(CHANNELS.LIST_PROJECTS),
