@@ -74,10 +74,11 @@ export function DrawerCard({ tabs, activeTabId: controlledId, onActiveTabChange 
 									<span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
 										{tab.pulsing && (
 											<motion.span
-												className={`absolute inset-0 rounded-full ${tab.color} opacity-50`}
-												animate={{ scale: [1, 1.9], opacity: [0.5, 0] }}
+												className={`absolute inset-0 rounded-full ${tab.color}`}
+												animate={{ scale: [1, 1.9], opacity: [0, 0.5, 0] }}
 												transition={{
 													duration: 1.4,
+													times: [0, 0.15, 1],
 													repeat: Number.POSITIVE_INFINITY,
 													ease: "easeOut",
 												}}
