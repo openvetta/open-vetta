@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useNavigate } from "@tanstack/react-router";
+import { useSetAtom } from "jotai";
 import { NewProjectDialog } from "@shared/components/NewProjectDialog";
+import { confirmDialogAtom } from "@shared/store/atoms";
+import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjects } from "../hooks/useProjects";
 import { cn } from "@shared/lib/utils";
 
@@ -10,10 +14,62 @@ interface AddProjectMenuProps {
 }
 
 export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuProps): JSX.Element {
-	const { createProject, openProject } = useProjects();
+	const { createProject, openProject, refreshProjects } = useProjects();
+	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
+	const setConfirm = useSetAtom(confirmDialogAtom);
+	const navigate = useNavigate();
 	const [showAddMenu, setShowAddMenu] = useState(false);
 	const [showNewProject, setShowNewProject] = useState(false);
 	const addMenuRef = useRef<HTMLDivElement>(null);
+
+	const handleImport = async () => {
+		setShowAddMenu(false);
+		const result = await window.vetta.project.import();
+		if (!result) return; // user cancelled the open dialog
+		if ("error" in result) {
+			// Anything that isn't a recognized vetta export ends up here as
+			// `unsupported-zip` — surface the user-friendly message exactly as the
+			// product spec requires.
+			setConfirm({
+				title: "导入失败",
+				message: result.error.message,
+				confirmLabel: "好的",
+				variant: "danger",
+				onConfirm: () => {},
+			});
+			return;
+		}
+		// Refresh both project lists so the new entry shows up in the sidebar.
+		await Promise.all([refreshProjects(), refreshBatchProjects()]).catch(() => {});
+		const missing = result.missingSources;
+		const onJump = () => {
+			void navigate({
+				to: "/project/$cwd",
+				params: { cwd: encodeURIComponent(result.path) },
+			});
+		};
+		if (missing && missing.length > 0) {
+			// Batch with stale source paths — let the user see what's missing,
+			// then offer to jump to the project page so they can re-link.
+			setConfirm({
+				title: "导入完成（部分源路径缺失）",
+				message: `项目「${result.name}」已导入，但有 ${missing.length} 个 batch 源路径在本机不存在：\n\n${missing.slice(0, 8).join("\n")}${missing.length > 8 ? `\n…还有 ${missing.length - 8} 项` : ""}\n\n这些任务的元数据已保留，进入项目后可手动重链或删除。`,
+				confirmLabel: "查看项目",
+				cancelLabel: "知道了",
+				variant: "default",
+				onConfirm: onJump,
+			});
+		} else {
+			setConfirm({
+				title: "导入完成",
+				message: `项目「${result.name}」已导入到工作区。`,
+				confirmLabel: "查看项目",
+				cancelLabel: "知道了",
+				variant: "default",
+				onConfirm: onJump,
+			});
+		}
+	};
 
 	useEffect(() => {
 		if (!showAddMenu) return;
@@ -87,6 +143,16 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 							>
 								<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5 shrink-0" />
 								打开项目
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									void handleImport();
+								}}
+								className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent/50"
+							>
+								<span className="icon-[mdi--import] h-3.5 w-3.5 shrink-0" />
+								导入项目
 							</button>
 						</motion.div>
 					)}

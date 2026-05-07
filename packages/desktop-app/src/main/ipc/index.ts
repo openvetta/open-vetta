@@ -5,6 +5,7 @@ import { registerDownloadsIpc } from "./downloads.js";
 import { registerFlowingIpc } from "./flowing.js";
 import { registerFsIpc } from "./fs.js";
 import { registerImIpc } from "./im.js";
+import { registerProjectExportIpc } from "./project-export.js";
 import { registerSessionIpc } from "./session.js";
 import { registerSettingsIpc } from "./settings.js";
 import { registerSkillsIpc } from "./skills.js";
@@ -22,6 +23,7 @@ interface IpcTeardown {
 	teardownDownloads: () => void;
 	teardownIm: () => void;
 	teardownDebug: () => void;
+	teardownProjectExport: () => void;
 }
 
 export function registerAllIpc(webContents: WebContents): IpcTeardown {
@@ -37,6 +39,7 @@ export function registerAllIpc(webContents: WebContents): IpcTeardown {
 		teardownDownloads: registerDownloadsIpc(webContents),
 		teardownIm: registerImIpc(webContents),
 		teardownDebug: registerDebugIpc(),
+		teardownProjectExport: registerProjectExportIpc(),
 	};
 }
 
@@ -52,6 +55,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownDownloads();
 	teardown.teardownIm();
 	teardown.teardownDebug();
+	teardown.teardownProjectExport();
 }
 
 export { registerBatchTasksIpc } from "./batch-tasks.js";
