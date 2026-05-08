@@ -904,6 +904,13 @@ export class AgentSession {
 	async prompt(text: string, options?: PromptOptions): Promise<void> {
 		const expandPromptTemplates = options?.expandPromptTemplates ?? true;
 
+		// Detect newly added/modified skills on disk and rebuild the system prompt
+		// so this turn sees them. Cheap stat-only fingerprint check.
+		if (this._resourceLoader.refreshSkillsIfChanged()) {
+			this._baseSystemPrompt = this._rebuildSystemPrompt(this.getActiveToolNames());
+			this.agent.setSystemPrompt(this._baseSystemPrompt);
+		}
+
 		// Handle extension commands first (execute immediately, even during streaming)
 		// Extension commands manage their own LLM interaction via pi.sendMessage()
 		if (expandPromptTemplates && text.startsWith("/")) {

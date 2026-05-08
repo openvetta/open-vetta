@@ -186,6 +186,7 @@ export function createTestResourceLoader(): ResourceLoader {
 		getPathMetadata: () => new Map(),
 		extendResources: () => {},
 		reload: async () => {},
+		refreshSkillsIfChanged: () => false,
 	};
 }
 

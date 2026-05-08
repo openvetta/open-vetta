@@ -56,6 +56,7 @@ Available: read, bash. Be concise.`,
 	getPathMetadata: () => new Map(),
 	extendResources: () => {},
 	reload: async () => {},
+	refreshSkillsIfChanged: () => false,
 };
 
 const { session } = await createAgentSession({
