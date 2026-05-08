@@ -17,8 +17,9 @@ interface OcrPageResult {
 	confidence?: number;
 }
 
-interface OcrStartPayload {
+interface OcrPdfStartPayload {
 	sessionId: string;
+	kind: "pdf";
 	pdfBytes: ArrayBuffer;
 	pages: string;
 	dpi: number;
@@ -26,6 +27,16 @@ interface OcrStartPayload {
 	preferTextLayer: boolean;
 	textLayerMinChars: number;
 }
+
+interface OcrImageStartPayload {
+	sessionId: string;
+	kind: "image";
+	imageBytes: ArrayBuffer;
+	mime: string;
+	langs: string[];
+}
+
+type OcrStartPayload = OcrPdfStartPayload | OcrImageStartPayload;
 
 interface OcrFinalResult {
 	totalPages: number;
@@ -59,7 +70,7 @@ const dictionaryUrl = `${modelsBaseUrl}ppocrv5_dict.txt`;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
-const ENGINE_NAME = "ocr-web@0.2+ppocrv5";
+const ENGINE_NAME = "ocr-web@0.2.1+ppocrv5";
 
 const logEl = document.getElementById("log") as HTMLDivElement;
 function log(line: string): void {
@@ -159,19 +170,12 @@ let engineInstance: OcrEngine | null = null;
 async function getEngine(): Promise<OcrEngine> {
 	if (engineInstance) return engineInstance;
 	log("initializing ocr-web engine (PP-OCRv5)");
-	// `@ocr-web/core` v0.2 only auto-fetches dictionary URLs that start with
-	// http(s):// or relative paths (./, ../, /). file:// URLs fall through
-	// and the URL string is treated as the dictionary CONTENT, which silently
-	// wrecks recognition (det runs but rec emits zero output). Workaround:
-	// fetch the text ourselves and hand the parsed array to the engine.
-	const dictRes = await fetch(dictionaryUrl);
-	if (!dictRes.ok) throw new Error(`Failed to fetch dictionary: ${dictRes.status}`);
-	const dictText = await dictRes.text();
-	const dictArray = dictText.split("\n").filter((l) => l.length > 0);
-	log(`dictionary loaded: ${dictArray.length} chars`);
+	// `@ocr-web/core@>=0.2.1` accepts file:// dictionary URLs natively (the
+	// earlier prefix-allowlist bug was fixed upstream). Pass the URL straight
+	// through; the library handles the fetch.
 	engineInstance = await OcrEngine.create({
 		models: { detection: detectionUrl, recognition: recognitionUrl },
-		dictionary: dictArray,
+		dictionary: dictionaryUrl,
 		// Electron file:// — no SharedArrayBuffer, single thread only.
 		numThreads: 1,
 		wasmPaths: ortBaseUrl,
@@ -187,7 +191,82 @@ async function getEngine(): Promise<OcrEngine> {
 // Pipeline
 // ---------------------------------------------------------------------------
 
-async function runPipeline(payload: OcrStartPayload): Promise<void> {
+function meanCtcConfidenceToScore(meanLogit: number): number {
+	// Map [-2, +2] CTC mean logit to a 0..100 score for parity with the
+	// previous engine's confidence column. ocr-web docs note logit > 0 ≈
+	// "trustworthy"; clamp + linear approximates a comparable scale.
+	return Math.round(Math.max(0, Math.min(1, (meanLogit + 2) / 4)) * 100);
+}
+
+async function recognizeCanvas(
+	canvas: HTMLCanvasElement,
+): Promise<{ text: string; lines: number; ocrDurationMs: number; confidence: number }> {
+	const engine = await getEngine();
+	const t0 = performance.now();
+	const r = await engine.recognize(canvas);
+	const ocrDurationMs = Math.round(performance.now() - t0);
+	const meanConf = r.lines.length > 0 ? r.lines.reduce((acc, l) => acc + l.confidence, 0) / r.lines.length : 0;
+	return {
+		text: r.fullText.trim(),
+		lines: r.lines.length,
+		ocrDurationMs,
+		confidence: meanCtcConfidenceToScore(meanConf),
+	};
+}
+
+async function runImagePipeline(payload: OcrImageStartPayload): Promise<void> {
+	const { sessionId, imageBytes, mime } = payload;
+	const bridge = window.__vettaOcr;
+	try {
+		log(`loading image (${imageBytes.byteLength} bytes, ${mime})`);
+		const blob = new Blob([imageBytes], { type: mime });
+		const bitmap = await createImageBitmap(blob);
+		const canvas = document.createElement("canvas");
+		canvas.width = bitmap.width;
+		canvas.height = bitmap.height;
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
+		if (!ctx) throw new Error("Failed to obtain 2D context");
+		ctx.fillStyle = "#ffffff";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		ctx.drawImage(bitmap, 0, 0);
+		bitmap.close();
+
+		bridge.reportProgress(sessionId, { page: 1, total: 1, phase: "ocr" });
+		const { text, lines, ocrDurationMs, confidence } = await recognizeCanvas(canvas);
+		log(`image: lines=${lines} chars=${text.length} ms=${ocrDurationMs}`);
+
+		bridge.reportProgress(sessionId, { page: 1, total: 1, phase: "done" });
+		bridge.reportDone(sessionId, {
+			totalPages: 1,
+			engine: ENGINE_NAME,
+			pages: [
+				{
+					page: 1,
+					text,
+					width: canvas.width,
+					height: canvas.height,
+					source: "ocr",
+					ocrDurationMs,
+					confidence,
+				},
+			],
+		});
+		canvas.width = 0;
+		canvas.height = 0;
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		log(`error: ${message}`);
+		bridge.reportError(sessionId, "PIPELINE_ERROR", message);
+	} finally {
+		if (engineInstance) {
+			const e = engineInstance;
+			engineInstance = null;
+			await e.dispose().catch(() => {});
+		}
+	}
+}
+
+async function runPdfPipeline(payload: OcrPdfStartPayload): Promise<void> {
 	const { sessionId, pdfBytes, pages, dpi, preferTextLayer, textLayerMinChars } = payload;
 	const bridge = window.__vettaOcr;
 	try {
@@ -238,7 +317,6 @@ async function runPipeline(payload: OcrStartPayload): Promise<void> {
 		}
 
 		if (ocrTodo.length > 0) {
-			const engine = await getEngine();
 			// We bypass `@ocr-web/pdf`'s internal PDF loader and feed canvases
 			// straight to the engine. In the embedded Electron pipeline this is
 			// both more diagnosable (we can inspect/persist the rendered canvas
@@ -247,24 +325,9 @@ async function runPipeline(payload: OcrStartPayload): Promise<void> {
 			for (let i = 0; i < ocrTodo.length; i++) {
 				const { page, canvas, width, height } = ocrTodo[i];
 				bridge.reportProgress(sessionId, { page, total: ocrTodo.length, phase: "ocr" });
-				const t0 = performance.now();
-				const r = await engine.recognize(canvas);
-				const ocrDurationMs = Math.round(performance.now() - t0);
-				const meanConf =
-					r.lines.length > 0 ? r.lines.reduce((acc, l) => acc + l.confidence, 0) / r.lines.length : 0;
-				log(`page ${page}: lines=${r.lines.length} chars=${r.fullText.length} ms=${ocrDurationMs}`);
-				results.push({
-					page,
-					text: r.fullText.trim(),
-					width,
-					height,
-					source: "ocr",
-					ocrDurationMs,
-					// CTC mean logit -> 0..100. ocr-web docs note logit>0 is
-					// "trustworthy"; clamp+linear gives rough parity with the
-					// previous engine's confidence scale (which agents may rely on).
-					confidence: Math.round(Math.max(0, Math.min(1, (meanConf + 2) / 4)) * 100),
-				});
+				const { text, lines, ocrDurationMs, confidence } = await recognizeCanvas(canvas);
+				log(`page ${page}: lines=${lines} chars=${text.length} ms=${ocrDurationMs}`);
+				results.push({ page, text, width, height, source: "ocr", ocrDurationMs, confidence });
 				canvas.width = 0;
 				canvas.height = 0;
 			}
@@ -310,7 +373,11 @@ function main(): void {
 		return;
 	}
 	bridge.onStart((payload) => {
-		void runPipeline(payload);
+		if (payload.kind === "image") {
+			void runImagePipeline(payload);
+		} else {
+			void runPdfPipeline(payload);
+		}
 	});
 	bridge.notifyReady(sessionId);
 	log(`ready: ${sessionId}`);

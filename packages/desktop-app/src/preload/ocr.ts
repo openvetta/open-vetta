@@ -16,8 +16,9 @@ export interface OcrPageResult {
 	confidence?: number;
 }
 
-export interface OcrStartPayload {
+export interface OcrPdfStartPayload {
 	sessionId: string;
+	kind: "pdf";
 	pdfBytes: ArrayBuffer;
 	pages: string;
 	dpi: number;
@@ -25,6 +26,16 @@ export interface OcrStartPayload {
 	preferTextLayer: boolean;
 	textLayerMinChars: number;
 }
+
+export interface OcrImageStartPayload {
+	sessionId: string;
+	kind: "image";
+	imageBytes: ArrayBuffer;
+	mime: string;
+	langs: string[];
+}
+
+export type OcrStartPayload = OcrPdfStartPayload | OcrImageStartPayload;
 
 export interface OcrFinalResult {
 	totalPages: number;

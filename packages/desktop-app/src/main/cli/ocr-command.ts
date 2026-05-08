@@ -1,7 +1,7 @@
 import { constants, writeSync } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { runPdfOcr } from "../ocr/pdf-ocr.js";
+import { runImageOcr, runPdfOcr } from "../ocr/pdf-ocr.js";
 
 // ---------------------------------------------------------------------------
 // Headless OCR CLI (agent-friendly)
@@ -32,6 +32,15 @@ export type OcrCliCommand =
 			quiet: boolean;
 			preferTextLayer: boolean;
 			textLayerMinChars: number;
+	  }
+	| {
+			type: "ocr-img";
+			input: string;
+			output: string;
+			langs: string[];
+			progress: boolean;
+			verbose: boolean;
+			quiet: boolean;
 	  };
 
 export interface OcrPageResult {
@@ -62,8 +71,10 @@ export interface OcrCliResponse {
 const HELP_TEXT = `Vetta OCR command line interface
 
 Usage:
-  Vetta.exe --ocr-pdf <input.pdf> --output <output.json> [options]
-  Vetta.exe ocr pdf <input.pdf> --output <output.json> [options]
+  Vetta.exe --ocr-pdf <input.pdf>   --output <output.json> [pdf options]
+  Vetta.exe --ocr-img <input.image> --output <output.json> [img options]
+  Vetta.exe ocr pdf <input.pdf>     --output <output.json> [pdf options]
+  Vetta.exe ocr img <input.image>   --output <output.json> [img options]
 
 Description:
   Run local OCR on a multi-page PDF using Vetta Desktop's bundled Electron
@@ -136,7 +147,7 @@ class OcrCliError extends Error {
 }
 
 function findCommandStart(argv: string[]): number {
-	return argv.findIndex((arg) => arg === "--ocr-pdf" || arg === "ocr");
+	return argv.findIndex((arg) => arg === "--ocr-pdf" || arg === "--ocr-img" || arg === "ocr");
 }
 
 function parseDpiOption(value: string | undefined): number {
@@ -253,6 +264,63 @@ function parseOcrPdfOptions(args: string[]): Omit<Extract<OcrCliCommand, { type:
 	return { input, output, pages, dpi, langs, progress, verbose, quiet, preferTextLayer, textLayerMinChars };
 }
 
+function parseOcrImgOptions(args: string[]): Omit<Extract<OcrCliCommand, { type: "ocr-img" }>, "type"> {
+	let input: string | undefined;
+	let output: string | undefined;
+	let langs = ["chi_sim", "eng"];
+	let progress = false;
+	let verbose = false;
+	let quiet = false;
+
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "-h" || arg === "--help") {
+			throw new OcrCliError("HELP_REQUESTED", 0, HELP_TEXT);
+		}
+		if (arg === "--output") {
+			const value = args[++i];
+			if (!value) throw new OcrCliError("ARGUMENT_ERROR", 2, "--output requires a path");
+			output = value;
+			continue;
+		}
+		if (arg === "--langs") {
+			langs = parseLangsOption(args[++i]);
+			continue;
+		}
+		if (arg === "--progress") {
+			progress = true;
+			continue;
+		}
+		if (arg === "--verbose" || arg === "-v") {
+			verbose = true;
+			continue;
+		}
+		if (arg === "--quiet") {
+			quiet = true;
+			continue;
+		}
+		if (arg.startsWith("-")) {
+			throw new OcrCliError("ARGUMENT_ERROR", 2, `Unknown option: ${arg}`);
+		}
+		if (input) {
+			throw new OcrCliError("ARGUMENT_ERROR", 2, `Unexpected argument: ${arg}`);
+		}
+		input = arg;
+	}
+
+	if (!input) {
+		throw new OcrCliError("ARGUMENT_ERROR", 2, "Missing <input.image> path");
+	}
+	if (!output) {
+		throw new OcrCliError("ARGUMENT_ERROR", 2, "Missing required --output <output.json>");
+	}
+	if (quiet && verbose) {
+		throw new OcrCliError("ARGUMENT_ERROR", 2, "--quiet and --verbose are mutually exclusive");
+	}
+
+	return { input, output, langs, progress, verbose, quiet };
+}
+
 export function parseOcrCliCommand(argv: string[]): OcrCliCommand | null {
 	const start = findCommandStart(argv);
 	if (start < 0) return null;
@@ -263,15 +331,21 @@ export function parseOcrCliCommand(argv: string[]): OcrCliCommand | null {
 		if (command === "--ocr-pdf") {
 			return { type: "ocr-pdf", ...parseOcrPdfOptions(args.slice(1)) };
 		}
+		if (command === "--ocr-img") {
+			return { type: "ocr-img", ...parseOcrImgOptions(args.slice(1)) };
+		}
 		if (command === "ocr") {
 			const subcommand = args[1];
 			if (subcommand === "-h" || subcommand === "--help" || subcommand === undefined) {
 				return { type: "help" };
 			}
-			if (subcommand !== "pdf") {
-				throw new OcrCliError("ARGUMENT_ERROR", 2, `Unknown ocr subcommand: ${subcommand}`);
+			if (subcommand === "pdf") {
+				return { type: "ocr-pdf", ...parseOcrPdfOptions(args.slice(2)) };
 			}
-			return { type: "ocr-pdf", ...parseOcrPdfOptions(args.slice(2)) };
+			if (subcommand === "img") {
+				return { type: "ocr-img", ...parseOcrImgOptions(args.slice(2)) };
+			}
+			throw new OcrCliError("ARGUMENT_ERROR", 2, `Unknown ocr subcommand: ${subcommand}`);
 		}
 		return null;
 	} catch (error) {
@@ -324,25 +398,34 @@ export async function runOcrCliCommand(command: OcrCliCommand): Promise<number> 
 		await ensureReadableFile(input);
 		await mkdir(dirname(output), { recursive: true });
 
-		const result = await runPdfOcr({
-			pdfPath: input,
-			pages: command.pages,
-			dpi: command.dpi,
-			langs: command.langs,
-			preferTextLayer: command.preferTextLayer,
-			textLayerMinChars: command.textLayerMinChars,
-			debug: command.verbose, // pdf-ocr.ts still uses `debug` internally for the renderer console mirror toggle
-			onProgress: command.progress
-				? (event) =>
-						writeStderrEvent(command.quiet, {
-							type: "progress",
-							...(event as unknown as Record<string, unknown>),
-						})
-				: undefined,
-			onLog: command.verbose
-				? (level, message) => writeStderrEvent(command.quiet, { type: "log", level, message })
-				: undefined,
-		});
+		const onProgress = command.progress
+			? (event: Record<string, unknown>) => writeStderrEvent(command.quiet, { type: "progress", ...event })
+			: undefined;
+		const onLog = command.verbose
+			? (level: "info" | "warn" | "error", message: string) =>
+					writeStderrEvent(command.quiet, { type: "log", level, message })
+			: undefined;
+
+		const result =
+			command.type === "ocr-img"
+				? await runImageOcr({
+						imagePath: input,
+						langs: command.langs,
+						debug: command.verbose,
+						onProgress: onProgress as never,
+						onLog,
+					})
+				: await runPdfOcr({
+						pdfPath: input,
+						pages: command.pages,
+						dpi: command.dpi,
+						langs: command.langs,
+						preferTextLayer: command.preferTextLayer,
+						textLayerMinChars: command.textLayerMinChars,
+						debug: command.verbose,
+						onProgress: onProgress as never,
+						onLog,
+					});
 
 		const durationMs = Date.now() - startedAt;
 		const textLayerPages = result.pages.filter((p) => p.source === "text-layer").length;
