@@ -1,6 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useMatches } from "@tanstack/react-router";
 import { pathBasename } from "@shared/lib/utils";
 import type { Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
 import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
@@ -30,10 +30,13 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		deleteProjectFromDisk,
 	} = useProjects();
 	const activeSession = useAtomValue(activeSessionAtom);
+	const setActiveSession = useSetAtom(activeSessionAtom);
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [projectMenu, setProjectMenu] = useAtom(projectContextMenuAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
 	const navigate = useNavigate();
+	const matches = useMatches();
+	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
 
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
@@ -84,6 +87,14 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleDeleteSession = useCallback(
 		(session: { cwd: string; path: string }) => {
+			const wasActive = activeSession?.sessionPath === session.path;
+			const goToProjectDetail = (projectCwd: string) => {
+				if (!wasActive) return;
+				setActiveSession(null);
+				if (currentPath === "/") {
+					void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(projectCwd) } });
+				}
+			};
 			// Batch-task session: route to batch deleteTask so batchProjectsAtom updates.
 			const batchMatch = batchProjects.find((bp) =>
 				bp.tasks.some((t) => t.sessionPath === session.path),
@@ -93,13 +104,15 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 				if (task) {
 					void deleteBatchTask(batchMatch.id, task.id);
 					setContextMenu(null);
+					goToProjectDetail(batchMatch.id);
 					return;
 				}
 			}
 			void deleteSession(session.cwd, session.path);
 			setContextMenu(null);
+			goToProjectDetail(session.cwd);
 		},
-		[batchProjects, deleteBatchTask, deleteSession, setContextMenu],
+		[activeSession, batchProjects, deleteBatchTask, deleteSession, setContextMenu, setActiveSession, currentPath, navigate],
 	);
 
 	const handleRenameSession = useCallback(
@@ -117,12 +130,27 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		[archiveProject, setProjectMenu],
 	);
 
+	const cleanupAfterProjectGone = useCallback(
+		(projectCwd: string, sessionPathsInProject: string[]) => {
+			const activeBelongsToProject = activeSession
+				? activeSession.cwd === projectCwd || sessionPathsInProject.includes(activeSession.sessionPath)
+				: false;
+			if (activeBelongsToProject) setActiveSession(null);
+			const onDeletedProjectPage = currentPath === `/project/${encodeURIComponent(projectCwd)}`;
+			if (onDeletedProjectPage) {
+				void navigate({ to: "/" });
+			}
+		},
+		[activeSession, setActiveSession, currentPath, navigate],
+	);
+
 	const handleRemove = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
 			// Batch project: "移除" 等同于删除批量项目（无独立列表概念）
 			const batch = batchProjects.find((bp) => bp.id === cwd);
 			if (batch) {
+				const taskPaths = batch.tasks.map((t) => t.sessionPath).filter((p): p is string => !!p);
 				setConfirm({
 					title: "删除批量项目",
 					message: `确定要删除批量项目「${batch.name}」吗？此操作不可撤回。`,
@@ -130,23 +158,26 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					variant: "danger",
 					onConfirm: async () => {
 						await deleteBatchProject(batch.id);
+						cleanupAfterProjectGone(batch.id, taskPaths);
 					},
 				});
 				return;
 			}
 			const project = projects.find((p) => p.cwd === cwd);
 			const displayName = project?.name ?? pathBasename(cwd);
+			const sessionPaths = (sessionsMap.get(cwd) ?? []).map((s) => s.path);
 			setConfirm({
 				title: "从列表中移除",
 				message: `确定要将「${displayName}」从项目列表中移除吗？此操作不会删除磁盘上的文件。`,
 				confirmLabel: "移除",
 				variant: "default",
-				onConfirm: () => {
-					void removeProject(cwd);
+				onConfirm: async () => {
+					await removeProject(cwd);
+					cleanupAfterProjectGone(cwd, sessionPaths);
 				},
 			});
 		},
-		[removeProject, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject],
+		[removeProject, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject, sessionsMap, cleanupAfterProjectGone],
 	);
 
 	const handleDelete = useCallback(
@@ -154,6 +185,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 			setProjectMenu(null);
 			const batch = batchProjects.find((bp) => bp.id === cwd);
 			if (batch) {
+				const taskPaths = batch.tasks.map((t) => t.sessionPath).filter((p): p is string => !!p);
 				setConfirm({
 					title: "删除批量项目",
 					message: `确定要删除批量项目「${batch.name}」吗？此操作不可撤回。`,
@@ -161,23 +193,26 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					variant: "danger",
 					onConfirm: async () => {
 						await deleteBatchProject(batch.id);
+						cleanupAfterProjectGone(batch.id, taskPaths);
 					},
 				});
 				return;
 			}
 			const project = projects.find((p) => p.cwd === cwd);
 			const displayName = project?.name ?? pathBasename(cwd);
+			const sessionPaths = (sessionsMap.get(cwd) ?? []).map((s) => s.path);
 			setConfirm({
 				title: "删除项目",
 				message: `确定要永久删除「${displayName}」吗？此操作将从磁盘上彻底删除该项目文件夹，不可恢复。`,
 				confirmLabel: "删除",
 				variant: "danger",
-				onConfirm: () => {
-					void deleteProjectFromDisk(cwd);
+				onConfirm: async () => {
+					await deleteProjectFromDisk(cwd);
+					cleanupAfterProjectGone(cwd, sessionPaths);
 				},
 			});
 		},
-		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject],
+		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject, sessionsMap, cleanupAfterProjectGone],
 	);
 
 	const expandBatchProject = useCallback(
