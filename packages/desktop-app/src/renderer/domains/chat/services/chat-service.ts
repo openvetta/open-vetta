@@ -548,17 +548,118 @@ export function appendError(prev: ChatMessage[], errorMessage: string): ChatMess
 
 /**
  * Extract modified/created file paths from chat messages in the current turn.
- * Scans tool_call blocks for "write" and "edit" tool invocations.
+ *
+ * Static (from args):
+ *   - write / edit                            → args.path
+ *   - html_to_pdf                             → args.output
+ *   - doc_to_pdf                              → args.output  (default: replaceExt(args.path, ".pdf"))
+ *   - extract_text_from_pdf|img               → args.output  (default: <args.input>.ocr.json)
+ *
+ * Dynamic (heuristic):
+ *   - bash / shell                            → parse args.command for redirections (`>`, `>>`, `tee`)
+ *   - any tool's result text (incl. invoke_skill, bash, shell) is scanned for
+ *     output markers like "Output:", "Saved to:", "Wrote:", "Created:", "Written to:".
+ *
+ * After collection, paths whose extension is in HIDDEN_EXTENSIONS are filtered
+ * out — those file types are noise for non-developer users.
  */
+const HIDDEN_EXTENSIONS = new Set([".js", ".py", ".json"]);
+
+function getExt(p: string): string {
+	const slash = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+	const dot = p.lastIndexOf(".");
+	if (dot > slash) return p.slice(dot).toLowerCase();
+	return "";
+}
+
+function replaceExt(p: string, newExt: string): string {
+	const slash = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+	const dot = p.lastIndexOf(".");
+	if (dot > slash) return p.slice(0, dot) + newExt;
+	return p + newExt;
+}
+
+function asStr(v: unknown): string | undefined {
+	return typeof v === "string" && v ? v : undefined;
+}
+
+/** Extract output paths from a shell command via redirection / tee patterns. */
+function extractPathsFromShellCommand(cmd: string): string[] {
+	const paths = new Set<string>();
+	// `> path`, `>> path`, `| tee [-a|-i] path` — path may be quoted
+	const re = /(?:>>?|\|\s*tee(?:\s+-[aAi]+)?)\s+(?:"([^"]+)"|'([^']+)'|([^\s|;&<>()`]+))/g;
+	for (const m of cmd.matchAll(re)) {
+		const p = m[1] ?? m[2] ?? m[3];
+		if (p && p !== "/dev/null" && !p.startsWith("&")) paths.add(p);
+	}
+	return [...paths];
+}
+
+/** Scan free-form result text for explicit "wrote/output/saved to" path markers. */
+function extractPathsFromResultText(text: string): string[] {
+	const paths = new Set<string>();
+	const re =
+		/(?:Output|Saved\s+to|Wrote|Written\s+to|Created(?:\s+file)?|Generated)\s*:?\s+("([^"]+)"|'([^']+)'|(\S+))/gi;
+	for (const m of text.matchAll(re)) {
+		const raw = m[2] ?? m[3] ?? m[4];
+		if (!raw) continue;
+		const p = raw.replace(/[.,;)\]]+$/, "");
+		if (p && /[/.\\]/.test(p)) paths.add(p);
+	}
+	return [...paths];
+}
+
+function extractToolOutputs(block: ToolCallBlock): string[] {
+	const args = block.args ?? {};
+	const out: string[] = [];
+	switch (block.toolName) {
+		case "write":
+		case "edit": {
+			const p = asStr(args.path);
+			if (p) out.push(p);
+			break;
+		}
+		case "html_to_pdf": {
+			const p = asStr(args.output);
+			if (p) out.push(p);
+			break;
+		}
+		case "doc_to_pdf": {
+			const p = asStr(args.output) ?? (asStr(args.path) ? replaceExt(asStr(args.path)!, ".pdf") : undefined);
+			if (p) out.push(p);
+			break;
+		}
+		case "extract_text_from_pdf":
+		case "extract_text_from_img": {
+			const p = asStr(args.output) ?? (asStr(args.input) ? `${asStr(args.input)!}.ocr.json` : undefined);
+			if (p) out.push(p);
+			break;
+		}
+		case "bash":
+		case "shell": {
+			const cmd = asStr(args.command);
+			if (cmd) out.push(...extractPathsFromShellCommand(cmd));
+			break;
+		}
+	}
+	// Generic fallback: scan result text for explicit output markers (covers
+	// invoke_skill and any tool that prints "Output: …" / "Saved to: …" etc.)
+	if (block.result && !block.isError) {
+		out.push(...extractPathsFromResultText(block.result));
+	}
+	return out;
+}
+
 export function extractModifiedFiles(messages: ChatMessage[]): string[] {
 	const modified = new Set<string>();
 	for (const msg of messages) {
 		if (msg.role !== "assistant" || !msg.blocks) continue;
 		for (const block of msg.blocks) {
 			if (block.type !== "tool_call") continue;
-			if (block.toolName !== "write" && block.toolName !== "edit") continue;
-			const path = block.args?.path;
-			if (typeof path === "string") modified.add(path);
+			for (const p of extractToolOutputs(block)) {
+				if (HIDDEN_EXTENSIONS.has(getExt(p))) continue;
+				modified.add(p);
+			}
 		}
 	}
 	return [...modified].sort();
