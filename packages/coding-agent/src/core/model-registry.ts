@@ -266,6 +266,10 @@ export class ModelRegistry {
 	private serverUrl: string | undefined;
 	private _serverToken: string | undefined;
 	private _serverTokenGetter?: () => string | undefined;
+	/** Whether loadRemoteModels has been attempted with the current token. Reset by setServerToken. */
+	private remoteLoadAttempted = false;
+	/** Inflight loadRemoteModels promise for deduping concurrent calls. */
+	private remoteLoadInflight: Promise<"unauthorized" | undefined> | null = null;
 
 	constructor(
 		readonly authStorage: AuthStorage,
@@ -295,6 +299,9 @@ export class ModelRegistry {
 	 * Set the server token for authenticating remote model requests.
 	 */
 	setServerToken(token: string | undefined): void {
+		if (this._serverToken !== token) {
+			this.remoteLoadAttempted = false;
+		}
 		this._serverToken = token;
 	}
 
@@ -321,17 +328,27 @@ export class ModelRegistry {
 		if (!this.serverUrl) {
 			return undefined;
 		}
+		if (this.remoteLoadInflight) {
+			return this.remoteLoadInflight;
+		}
+		this.remoteLoadInflight = this.doLoadRemoteModels().finally(() => {
+			this.remoteLoadInflight = null;
+		});
+		return this.remoteLoadInflight;
+	}
 
+	private async doLoadRemoteModels(): Promise<"unauthorized" | undefined> {
 		try {
-			const url = `${this.serverUrl.replace(/\/$/, "")}/providers/models.json`;
+			const url = `${this.serverUrl!.replace(/\/$/, "")}/providers/models.json`;
 			const controller = new AbortController();
 			const timeout = setTimeout(() => controller.abort(), 5000);
 
+			const token = this.resolveServerToken();
 			const response = await fetch(url, {
 				signal: controller.signal,
 				headers: {
 					Accept: "application/json",
-					...(this._serverToken ? { Authorization: `Bearer ${this._serverToken}` } : {}),
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
 				},
 			});
 			clearTimeout(timeout);
@@ -353,6 +370,8 @@ export class ModelRegistry {
 			this.rebuildModels();
 		} catch {
 			// Silently fail - remote config is optional
+		} finally {
+			this.remoteLoadAttempted = true;
 		}
 		return undefined;
 	}
@@ -696,6 +715,7 @@ export class ModelRegistry {
 	 */
 	async getApiKey(model: Model<Api>): Promise<string | undefined> {
 		const token = this.resolveServerToken();
+		await this.ensureRemoteLoaded(token);
 		if (this.isRemote(model) && token) {
 			return token;
 		}
@@ -708,10 +728,23 @@ export class ModelRegistry {
 	 */
 	async getApiKeyForProvider(provider: string): Promise<string | undefined> {
 		const token = this.resolveServerToken();
+		await this.ensureRemoteLoaded(token);
 		if (this.getRemoteProviders().has(provider) && token) {
 			return token;
 		}
 		return this.authStorage.getApiKey(provider);
+	}
+
+	/**
+	 * If we have a server token but haven't yet successfully fetched remote
+	 * models with it (e.g. user logged in mid-session), trigger a load now so
+	 * isRemote() / getRemoteProviders() reflect server state.
+	 */
+	private async ensureRemoteLoaded(token: string | undefined): Promise<void> {
+		if (!token) return;
+		if (this.remoteModelKeys.size > 0) return;
+		if (this.remoteLoadAttempted) return;
+		await this.loadRemoteModels();
 	}
 
 	/**

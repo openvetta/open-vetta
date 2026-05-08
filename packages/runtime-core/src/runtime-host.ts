@@ -117,6 +117,25 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
+	 * Push a new server token to every active session's ModelRegistry and
+	 * refresh remote models. Call this after login / logout so long-lived
+	 * sessions pick up auth changes without an app restart.
+	 */
+	async reloadServerAuth(token: string | undefined): Promise<void> {
+		const handles = Array.from(this.sessions.values());
+		await Promise.all(
+			handles.map(async ({ session }) => {
+				try {
+					session.modelRegistry.setServerToken(token);
+					await session.modelRegistry.loadRemoteModels();
+				} catch (err) {
+					console.warn("[RuntimeHost] reloadServerAuth failed for session:", err);
+				}
+			}),
+		);
+	}
+
+	/**
 	 * Look up an open SessionHandle by absolute session file path.
 	 * Used to dedupe re-opens of the same file (avoids self-conflicts on the
 	 * file lock, since SessionManager rejects same-pid re-acquisition).

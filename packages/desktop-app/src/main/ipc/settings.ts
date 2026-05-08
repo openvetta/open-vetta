@@ -4,6 +4,7 @@ import { getAgentDir } from "@vetta/coding-agent";
 import { ipcMain } from "electron";
 
 import { DEFAULT_SERVER_URL } from "../constants.js";
+import { peekSharedRuntime } from "../runtime.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 function getSettingsPath(): string {
@@ -119,14 +120,25 @@ export function registerSettingsIpc(): () => void {
 		return (settings.serverToken as string | undefined) ?? undefined;
 	});
 
-	ipcMain.handle("vetta:settings:set-server-token", (_event, token: unknown) => {
+	ipcMain.handle("vetta:settings:set-server-token", async (_event, token: unknown) => {
 		const settings = readSettings();
-		if (typeof token === "string") {
-			settings.serverToken = token;
+		const nextToken = typeof token === "string" ? token : undefined;
+		if (nextToken !== undefined) {
+			settings.serverToken = nextToken;
 		} else {
 			delete settings.serverToken;
 		}
 		writeSettings(settings);
+		// Push fresh auth to any active sessions so they pick up the new token
+		// without requiring an app restart (fixes 401-after-login bug).
+		const runtime = peekSharedRuntime();
+		if (runtime) {
+			try {
+				await runtime.reloadServerAuth(nextToken);
+			} catch (err) {
+				console.warn("[settings ipc] reloadServerAuth failed:", err);
+			}
+		}
 	});
 
 	ipcMain.handle("vetta:models:fetch-remote", async () => {
