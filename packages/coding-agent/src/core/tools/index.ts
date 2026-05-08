@@ -30,6 +30,16 @@ export {
 	editTool,
 } from "./edit/index.js";
 export {
+	createExtractTextFromImgTool,
+	type ExtractTextFromImgToolInput,
+	extractTextFromImgTool,
+} from "./extract-text-from-img/index.js";
+export {
+	createExtractTextFromPdfTool,
+	type ExtractTextFromPdfToolInput,
+	extractTextFromPdfTool,
+} from "./extract-text-from-pdf/index.js";
+export {
 	createFindTool,
 	type FindOperations,
 	type FindToolDetails,
@@ -114,6 +124,8 @@ import { type BashToolOptions, bashTool, createBashTool } from "./bash/index.js"
 import { createCurrentTimeTool, currentTimeTool } from "./current-time/index.js";
 import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./doc-to-pdf/index.js";
 import { createEditTool, editTool } from "./edit/index.js";
+import { createExtractTextFromImgTool, extractTextFromImgTool } from "./extract-text-from-img/index.js";
+import { createExtractTextFromPdfTool, extractTextFromPdfTool } from "./extract-text-from-pdf/index.js";
 import { createFindTool, findTool } from "./find/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
 import { createHtmlToPdfTool, htmlToPdfTool } from "./html-to-pdf/index.js";
@@ -147,6 +159,8 @@ export const codingTools: Tool[] = [
 	treeTool,
 	docToPdfTool,
 	htmlToPdfTool,
+	extractTextFromPdfTool,
+	extractTextFromImgTool,
 ];
 
 // Read-only tools for exploration without modification (using process.cwd())
@@ -165,6 +179,8 @@ export const allTools = {
 	dir_tree: treeTool,
 	doc_to_pdf: docToPdfTool,
 	html_to_pdf: htmlToPdfTool,
+	extract_text_from_pdf: extractTextFromPdfTool,
+	extract_text_from_img: extractTextFromImgTool,
 	current_time: currentTimeTool,
 };
 
@@ -198,6 +214,8 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 		createTreeTool(cwd),
 		createDocToPdfTool(cwd, options?.docToPdf),
 		createHtmlToPdfTool(cwd),
+		createExtractTextFromPdfTool(cwd),
+		createExtractTextFromImgTool(cwd),
 	];
 }
 
@@ -230,6 +248,8 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		dir_tree: createTreeTool(cwd),
 		doc_to_pdf: createDocToPdfTool(cwd, options?.docToPdf),
 		html_to_pdf: createHtmlToPdfTool(cwd),
+		extract_text_from_pdf: createExtractTextFromPdfTool(cwd),
+		extract_text_from_img: createExtractTextFromImgTool(cwd),
 		current_time: createCurrentTimeTool(),
 	};
 }
