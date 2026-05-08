@@ -61,6 +61,7 @@ This is a test skill.
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
 			reload: async () => {},
+			refreshSkillsIfChanged: () => false,
 		};
 
 		const { session } = await createAgentSession({
@@ -96,6 +97,7 @@ This is a test skill.
 			getPathMetadata: () => new Map(),
 			extendResources: () => {},
 			reload: async () => {},
+			refreshSkillsIfChanged: () => false,
 		};
 
 		const { session } = await createAgentSession({

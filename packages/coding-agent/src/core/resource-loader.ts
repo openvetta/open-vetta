@@ -35,6 +35,13 @@ export interface ResourceLoader {
 	getPathMetadata(): Map<string, PathMetadata>;
 	extendResources(paths: ResourceExtensionPaths): void;
 	reload(): Promise<void>;
+	/**
+	 * Detect on-disk changes under the currently tracked skill paths and reload
+	 * skills if anything has changed since the last fingerprint snapshot.
+	 * Returns true if skills were reloaded (caller should rebuild system prompt).
+	 * Cheap enough to call before every prompt — only stat()s entries.
+	 */
+	refreshSkillsIfChanged(): boolean;
 }
 
 function resolvePromptInput(input: string | undefined, description: string): string | undefined {
@@ -197,6 +204,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 	private lastSkillPaths: string[];
 	private lastPromptPaths: string[];
 	private lastThemePaths: string[];
+	private skillsFingerprint: string = "";
 
 	constructor(options: DefaultResourceLoaderOptions) {
 		this.cwd = options.cwd ?? process.cwd();
@@ -285,6 +293,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 				skillPaths.map((entry) => entry.path),
 			);
 			this.updateSkillsFromPaths(this.lastSkillPaths, skillPaths);
+			this.skillsFingerprint = this.computeSkillsFingerprint();
 		}
 
 		if (promptPaths.length > 0) {
@@ -414,6 +423,8 @@ export class DefaultResourceLoader implements ResourceLoader {
 		this.lastThemePaths = themePaths;
 		this.updateThemesFromPaths(themePaths);
 
+		this.skillsFingerprint = this.computeSkillsFingerprint();
+
 		for (const extension of this.extensionsResult.extensions) {
 			this.addDefaultMetadataForPath(extension.path);
 		}
@@ -434,6 +445,72 @@ export class DefaultResourceLoader implements ResourceLoader {
 		this.appendSystemPrompt = this.appendSystemPromptOverride
 			? this.appendSystemPromptOverride(baseAppend)
 			: baseAppend;
+	}
+
+	refreshSkillsIfChanged(): boolean {
+		if (this.lastSkillPaths.length === 0) {
+			return false;
+		}
+		const fingerprint = this.computeSkillsFingerprint();
+		if (fingerprint === this.skillsFingerprint) {
+			return false;
+		}
+		this.skillsFingerprint = fingerprint;
+		this.updateSkillsFromPaths(this.lastSkillPaths);
+		return true;
+	}
+
+	private computeSkillsFingerprint(): string {
+		const parts: string[] = [];
+		const visited = new Set<string>();
+		const walk = (target: string): void => {
+			let resolved: string;
+			try {
+				resolved = resolve(target);
+			} catch {
+				parts.push(`X:${target}`);
+				return;
+			}
+			if (visited.has(resolved)) return;
+			visited.add(resolved);
+			let stats: ReturnType<typeof statSync>;
+			try {
+				stats = statSync(resolved);
+			} catch {
+				parts.push(`X:${resolved}`);
+				return;
+			}
+			if (stats.isDirectory()) {
+				parts.push(`D:${resolved}:${stats.mtimeMs}`);
+				let entries: string[];
+				try {
+					entries = readdirSync(resolved);
+				} catch {
+					return;
+				}
+				entries.sort();
+				for (const name of entries) {
+					if (name.startsWith(".")) continue;
+					if (name === "node_modules") continue;
+					walk(join(resolved, name));
+				}
+			} else if (stats.isFile()) {
+				parts.push(`F:${resolved}:${stats.mtimeMs}:${stats.size}`);
+			}
+		};
+		for (const p of this.lastSkillPaths) {
+			walk(p);
+		}
+		// Market-skills manifest toggles which skills are active even when files
+		// don't change, so include it in the fingerprint.
+		const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
+		try {
+			const stats = statSync(manifestPath);
+			parts.push(`M:${manifestPath}:${stats.mtimeMs}:${stats.size}`);
+		} catch {
+			parts.push(`M:none`);
+		}
+		return parts.join("\n");
 	}
 
 	private normalizeExtensionPaths(
