@@ -2390,6 +2390,12 @@ export class AgentSession {
 		if (this._baseToolRegistry.has("html_to_pdf")) {
 			activeToolNameSet.add("html_to_pdf");
 		}
+		if (this._baseToolRegistry.has("extract_text_from_pdf")) {
+			activeToolNameSet.add("extract_text_from_pdf");
+		}
+		if (this._baseToolRegistry.has("extract_text_from_img")) {
+			activeToolNameSet.add("extract_text_from_img");
+		}
 		if (this._baseToolRegistry.has("current_time")) {
 			activeToolNameSet.add("current_time");
 		}

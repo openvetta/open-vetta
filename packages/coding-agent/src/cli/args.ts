@@ -178,7 +178,7 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 
 export function printHelp(): void {
 	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
-	const defaultToolsList = `read,${defaultCommandTool},edit,write,dir_tree,doc_to_pdf,html_to_pdf,current_time`;
+	const defaultToolsList = `read,${defaultCommandTool},edit,write,dir_tree,doc_to_pdf,html_to_pdf,extract_text_from_pdf,extract_text_from_img,current_time`;
 	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with ${defaultToolsList} tools
 
 ${chalk.bold("Usage:")}
@@ -317,6 +317,8 @@ ${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   dir_tree - Show directory tree with [D]/[F] node types (read-only)
   doc_to_pdf - Convert .doc/.docx files to PDF
   html_to_pdf - Convert HTML files to PDF
+  extract_text_from_pdf - OCR a PDF (PP-OCRv5, scanned or born-digital) via Vetta Desktop
+  extract_text_from_img - OCR a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop
   current_time - Get the current date and time
 `);
 }

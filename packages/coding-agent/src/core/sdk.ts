@@ -21,6 +21,8 @@ import {
 	createBashTool,
 	createCodingTools,
 	createEditTool,
+	createExtractTextFromImgTool,
+	createExtractTextFromPdfTool,
 	createFindTool,
 	createGrepTool,
 	createHtmlToPdfTool,
@@ -31,6 +33,8 @@ import {
 	createTreeTool,
 	createWriteTool,
 	editTool,
+	extractTextFromImgTool,
+	extractTextFromPdfTool,
 	findTool,
 	getDefaultCodingToolNames,
 	grepTool,
@@ -63,7 +67,7 @@ export interface CreateAgentSessionOptions {
 	/** Models available for cycling (Ctrl+P in interactive mode) */
 	scopedModels?: Array<{ model: Model<any>; thinkingLevel: ThinkingLevel }>;
 
-	/** Built-in tools to use. Default: codingTools [read, command-tool, edit, write, dir_tree, doc_to_pdf, html_to_pdf] */
+	/** Built-in tools to use. Default: codingTools [read, command-tool, edit, write, dir_tree, doc_to_pdf, html_to_pdf, extract_text_from_pdf, extract_text_from_img] */
 	tools?: Tool[];
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
@@ -117,6 +121,8 @@ export {
 	// Tool factories (for custom cwd)
 	createCodingTools,
 	createEditTool,
+	createExtractTextFromImgTool,
+	createExtractTextFromPdfTool,
 	createFindTool,
 	createGrepTool,
 	createHtmlToPdfTool,
@@ -126,6 +132,8 @@ export {
 	createTreeTool,
 	createWriteTool,
 	editTool,
+	extractTextFromImgTool,
+	extractTextFromPdfTool,
 	findTool,
 	grepTool,
 	htmlToPdfTool,
