@@ -22,6 +22,10 @@ const toolDescriptions: Record<string, string> = {
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 	html_to_pdf: "Convert HTML files to PDF using Vetta Desktop's PDF command-line mode",
+	extract_text_from_pdf:
+		"Extract text from a PDF (scanned or born-digital) via Vetta Desktop's local PP-OCRv5 OCR; uses the embedded text layer when present, otherwise OCRs each page",
+	extract_text_from_img:
+		"Extract text from a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop's local PP-OCRv5 OCR",
 };
 
 export interface McpToolInfo {
