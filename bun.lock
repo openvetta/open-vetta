@@ -154,7 +154,7 @@
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
         "@mariozechner/pi-ai": "workspace:*",
-        "@ocr-web/core": "^0.2.0",
+        "@ocr-web/core": "^0.2.1",
         "@ocr-web/models-ppocrv5": "^0.1.1",
         "@tanstack/react-router": "^1.130.15",
         "@types/adm-zip": "^0.5.8",
@@ -715,7 +715,7 @@
 
     "@npmcli/fs": ["@npmcli/fs@4.0.0", "", { "dependencies": { "semver": "^7.3.5" } }, "sha512-/xGlezI6xfGO9NwuJlnwz/K14qD1kCSAGtacBHnGzeAIuJGazcp45KP5NuyARXoKb7cwulAGWVsbeSxdG/cb0Q=="],
 
-    "@ocr-web/core": ["@ocr-web/core@0.2.0", "", { "peerDependencies": { "onnxruntime-web": "^1.25.0" } }, "sha512-aHRomLMew8dFxQddXT+2uCJYgGidhHlXY8clEjsbq9MGUGsbnC+JsHTdQkONclAQlywf0x7sZgERODJgbvFtGQ=="],
+    "@ocr-web/core": ["@ocr-web/core@0.2.1", "", { "peerDependencies": { "onnxruntime-web": "^1.25.0" } }, "sha512-uBt2a9llWL9uVH4k5jBVdWRZFerdXD/SgwpO9CPOF5Gxv3ET/QA7/9IprQMeeMNcvk9YUT1k0+3YJzJqNmRmKQ=="],
 
     "@ocr-web/models-ppocrv5": ["@ocr-web/models-ppocrv5@0.1.1", "", {}, "sha512-wZ1nC1wB25uC9rMqpblmdviTyq6cjf/2T/cbnfjYWjzE2g88iI8MgOpRVdUtoY7g0qW8l93TiH0EK++aR1WMPQ=="],
 

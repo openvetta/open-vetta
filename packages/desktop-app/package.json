@@ -39,7 +39,7 @@
 		"@dagrejs/dagre": "^3.0.0",
 		"@fontsource-variable/geist": "^5.2.8",
 		"@mariozechner/pi-ai": "workspace:*",
-		"@ocr-web/core": "^0.2.0",
+		"@ocr-web/core": "^0.2.1",
 		"@ocr-web/models-ppocrv5": "^0.1.1",
 		"@tanstack/react-router": "^1.130.15",
 		"@types/adm-zip": "^0.5.8",
