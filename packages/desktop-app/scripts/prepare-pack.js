@@ -42,6 +42,11 @@ writeFileSync(join(buildStageDir, "package.json"), JSON.stringify(appPkg, null, 
 cpSync(join(projectRoot, "dist/main"), join(buildStageDir, "main"), { recursive: true });
 cpSync(join(projectRoot, "dist/preload"), join(buildStageDir, "preload"), { recursive: true });
 cpSync(join(projectRoot, "dist/renderer"), join(buildStageDir, "renderer"), { recursive: true });
+// OCR headless runner: dedicated hidden BrowserWindow entry + its preload.
+// The CLI flow `Vetta --ocr-pdf <pdf> --output <json>` loads this HTML and
+// drives the per-page render + OCR pipeline inside Electron's renderer.
+cpSync(join(projectRoot, "dist/ocr-preload"), join(buildStageDir, "ocr-preload"), { recursive: true });
+cpSync(join(projectRoot, "dist/ocr-runner"), join(buildStageDir, "ocr-runner"), { recursive: true });
 
 // Copy icons
 cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: true });
