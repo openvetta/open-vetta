@@ -43,6 +43,9 @@ routeTree.gen.ts
 *.bun-build
 packages/desktop-app/release/
 packages/desktop-app/.desktop-dev/
+# PP-OCRv5 ONNX models are fetched on demand into resources/ocr-models/
+# at build time (see scripts/fetch-ocr-models.js); not checked in.
+packages/desktop-app/resources/ocr-models/
 /releases/
 todo.md
 

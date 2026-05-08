@@ -2,6 +2,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 import { ensureDevCliShim } from "./dev-cli-shim.js";
 import { getImHost } from "./im-host/index.js";
@@ -31,14 +32,24 @@ const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
 const devMainEntryPath = join(appRoot, "dist/main/index.js");
-const pdfCliCommand = parsePdfCliCommand(process.argv);
-const isCliMode = pdfCliCommand !== null;
+// OCR is checked first so that `ocr --help` (and other ocr-scoped flags) is
+// not swallowed by the older pdf CLI parser, which eagerly matches `-h` /
+// `--help`. Either CLI uses keywords distinct enough that order is otherwise
+// inconsequential.
+const ocrCliCommand = parseOcrCliCommand(process.argv);
+const pdfCliCommand = ocrCliCommand === null ? parsePdfCliCommand(process.argv) : null;
+const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null;
 
 if (isCliMode) {
-	app.setPath("userData", join(tmpdir(), "vetta-pdf-cli"));
+	const cliUserDataDir = ocrCliCommand !== null ? "vetta-ocr-cli" : "vetta-pdf-cli";
+	app.setPath("userData", join(tmpdir(), cliUserDataDir));
 	app.commandLine.appendSwitch("disable-gpu");
 	app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 	app.commandLine.appendSwitch("disk-cache-size", "0");
+	// CLI mode is agent-driven: keep stderr clean of Electron's dev-time
+	// security advisories so callers can rely on stderr being structured
+	// NDJSON progress + errors only.
+	process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "true";
 }
 
 // 开发模式下 app.name/version 默认来自 Electron 框架，需要手动覆盖
@@ -108,8 +119,16 @@ if (!gotSingleLock) {
 app.whenReady().then(async () => {
 	if (pdfCliCommand) {
 		const exitCode = await runPdfCliCommand(pdfCliCommand);
-		process.exitCode = exitCode;
-		app.quit();
+		// `app.quit()` does not honour `process.exitCode` reliably on macOS —
+		// the graceful-quit flow can race with stdio flush and end up reporting
+		// 0. Use `app.exit()` for headless one-shot CLI invocations.
+		app.exit(exitCode);
+		return;
+	}
+
+	if (ocrCliCommand) {
+		const exitCode = await runOcrCliCommand(ocrCliCommand);
+		app.exit(exitCode);
 		return;
 	}
 
