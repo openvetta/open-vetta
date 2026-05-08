@@ -9,6 +9,11 @@ import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolv
 // 导致点击跳转走向 Welcome 页（见定时任务历史跳转 bug）。
 let sharedRuntime: RuntimeHost | null = null;
 
+/** Return the shared RuntimeHost if one has been created, otherwise null. */
+export function peekSharedRuntime(): RuntimeHost | null {
+	return sharedRuntime;
+}
+
 export function getSharedRuntime(): RuntimeHost {
 	if (!sharedRuntime) {
 		sharedRuntime = new RuntimeHost({
