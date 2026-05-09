@@ -215,9 +215,28 @@ export function useProjects() {
 		[setSessionsMap],
 	);
 
-	const renameSession = useCallback(
-		async (cwd: string, sessionPath: string, name: string) => {
-			await window.vetta.session.rename(sessionPath, name);
+	/**
+	 * Insert a session entry in the local map IF it is not already present.
+	 * Used by the chat layer to make a brand-new session visible in the sidebar
+	 * immediately when the user submits the first prompt — the JSONL file is
+	 * not flushed to disk until the assistant responds, so disk-based listing
+	 * cannot see it yet. Existing entries (loaded from disk) are left alone.
+	 */
+	const ensureLocalSession = useCallback(
+		(cwd: string, info: SessionInfo) => {
+			setSessionsMap((prev) => {
+				const sessions = prev.get(cwd) ?? [];
+				if (sessions.some((s) => s.path === info.path)) return prev;
+				const next = new Map(prev);
+				next.set(cwd, [...sessions, info]);
+				return next;
+			});
+		},
+		[setSessionsMap],
+	);
+
+	const applyLocalRename = useCallback(
+		(cwd: string, sessionPath: string, name: string) => {
 			setSessionsMap((prev) => {
 				const next = new Map(prev);
 				const sessions = next.get(cwd);
@@ -231,6 +250,14 @@ export function useProjects() {
 			});
 		},
 		[setSessionsMap],
+	);
+
+	const renameSession = useCallback(
+		async (cwd: string, sessionPath: string, name: string) => {
+			await window.vetta.session.rename(sessionPath, name);
+			applyLocalRename(cwd, sessionPath, name);
+		},
+		[applyLocalRename],
 	);
 
 	return {
@@ -251,5 +278,7 @@ export function useProjects() {
 		toggleProject,
 		deleteSession,
 		renameSession,
+		applyLocalRename,
+		ensureLocalSession,
 	};
 }

@@ -346,10 +346,9 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 		isDragOver
 			? "border-primary/60 shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_18%,transparent)]"
 			: isFocused
-				? "border-primary/20 shadow-sm"
-				: "border-border shadow-sm",
+				? "border-primary/20"
+				: "border-border",
 		isStreaming ? "input-aurora" : "",
-		isFocused && !isStreaming ? "input-halo" : "",
 	].join(" ");
 
 	return (

@@ -8,24 +8,24 @@
 [data-theme="dark"] {
 	color-scheme: dark;
 
-	--background: rgb(38, 40, 44);
-	--foreground: rgb(240, 241, 243);
-	--card: rgb(32, 34, 38);
-	--card-foreground: rgb(240, 241, 243);
-	--popover: rgb(42, 44, 48);
-	--popover-foreground: rgb(240, 241, 243);
+	--background: rgb(20, 22, 30);
+	--foreground: rgb(240, 242, 248);
+	--card: rgb(26, 28, 36);
+	--card-foreground: rgb(240, 242, 248);
+	--popover: rgb(32, 34, 44);
+	--popover-foreground: rgb(240, 242, 248);
 	--primary: rgb(99, 102, 241);
 	--primary-foreground: rgb(255, 255, 255);
-	--secondary: rgb(52, 54, 58);
-	--secondary-foreground: rgb(240, 241, 243);
-	--muted: rgb(46, 48, 52);
-	--muted-foreground: rgb(170, 173, 178);
-	--accent: rgb(50, 52, 56);
-	--accent-foreground: rgb(240, 241, 243);
+	--secondary: rgb(36, 38, 48);
+	--secondary-foreground: rgb(240, 242, 248);
+	--muted: rgb(28, 30, 38);
+	--muted-foreground: rgb(155, 161, 178);
+	--accent: rgb(38, 41, 52);
+	--accent-foreground: rgb(240, 242, 248);
 	--destructive: rgb(255, 91, 91);
 	--destructive-foreground: rgb(0, 0, 0);
-	--border: rgb(58, 60, 64);
-	--input: rgb(64, 66, 70);
+	--border: rgb(42, 45, 56);
+	--input: rgb(48, 51, 64);
 	--ring: rgb(129, 132, 248);
 	--chart-1: rgb(255, 174, 4);
 	--chart-2: rgb(38, 113, 244);
@@ -170,20 +170,45 @@ body {
 	min-height: 100vh;
 }
 
-/* macOS-style thin scrollbars */
+/* macOS-style overlay scrollbars: hidden by default, fade in on hover.
+   Width/height stays reserved so layout doesn't shift; only thumb opacity changes. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+	transition: scrollbar-color 0.2s ease;
+}
+*:hover,
+*:focus-within {
+	scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent)
+		transparent;
+}
+
 ::-webkit-scrollbar {
-	width: 6px;
-	height: 6px;
+	width: 8px;
+	height: 8px;
 }
 ::-webkit-scrollbar-track {
 	background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-	background: color-mix(in srgb, var(--muted-foreground) 30%, transparent);
-	border-radius: 3px;
+	background: transparent;
+	border-radius: 4px;
+	border: 2px solid transparent;
+	background-clip: padding-box;
+	transition: background-color 0.2s ease;
 }
-::-webkit-scrollbar-thumb:hover {
-	background: color-mix(in srgb, var(--muted-foreground) 50%, transparent);
+::-webkit-scrollbar-corner {
+	background: transparent;
+}
+/* Show thumb only when the scrollable container is hovered or focused. */
+*:hover::-webkit-scrollbar-thumb,
+*:focus-within::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+	background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+	background-clip: padding-box;
 }
 
 /* macOS window drag region */
@@ -197,6 +222,26 @@ body {
 /* Sidebar: transparent for native macOS vibrancy */
 .sidebar-vibrancy {
 	background: transparent;
+}
+
+/* Sidebar surface: subtle primary-tinted glow from top-left for added depth.
+   Pseudo-element overlay so it doesn't affect children stacking/interactions. */
+.sidebar-surface::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: radial-gradient(
+		360px 260px at 22% 14%,
+		color-mix(in srgb, var(--primary) 7%, transparent) 0%,
+		color-mix(in srgb, var(--primary) 3%, transparent) 45%,
+		transparent 75%
+	);
+	z-index: 0;
+}
+.sidebar-surface > * {
+	position: relative;
+	z-index: 1;
 }
 
 /* Selection highlight */
