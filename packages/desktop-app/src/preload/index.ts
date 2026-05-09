@@ -148,10 +148,14 @@ const api: DesktopApi = {
 			type: "skill" | "scene",
 			meta?: { alias?: string; marketDescription?: string },
 		) => ipcRenderer.invoke("vetta:skills:install-from-market", name, archiveBuffer, type, meta),
+		importCustom: async (archiveBuffer: ArrayBuffer) =>
+			ipcRenderer.invoke("vetta:skills:import-custom", archiveBuffer),
 		uninstall: async (name: string, type: "skill" | "scene") =>
 			ipcRenderer.invoke("vetta:skills:uninstall", name, type),
 		toggle: async (name: string) => ipcRenderer.invoke("vetta:skills:toggle", name),
 		getMarketManifest: async () => ipcRenderer.invoke("vetta:skills:get-market-manifest"),
+		getSkillMdPath: async (name: string, type: "skill" | "scene") =>
+			ipcRenderer.invoke("vetta:skills:get-skill-md-path", name, type),
 	},
 	config: {
 		get: async () => ipcRenderer.invoke("vetta:config:get"),

@@ -1,10 +1,10 @@
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import type { InstalledMarketSkill } from "@preload/api";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import type { InstalledSkill } from "@preload/api";
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
-import { authTokenAtom } from "@shared/store/atoms";
+import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 
@@ -27,18 +27,20 @@ interface MergedSkill {
 	enabled: boolean;
 	needsUpdate: boolean;
 	localVersion?: string;
+	isCustom?: boolean;
 }
 
 function mergeSkills(
 	marketSkills: MarketSkillInfo[],
-	manifest: Record<string, InstalledMarketSkill>,
+	manifest: Record<string, InstalledSkill>,
 ): MergedSkill[] {
 	const merged = new Map<string, MergedSkill>();
 
 	for (const ms of marketSkills) {
 		const local = manifest[ms.name];
-		const installed = local != null;
-		const needsUpdate = installed && local.version !== ms.version;
+		const isMarketLocal = local?.source === "market";
+		const installed = isMarketLocal;
+		const needsUpdate = isMarketLocal && local.version !== ms.version;
 		merged.set(ms.name, {
 			name: ms.name,
 			alias: ms.alias,
@@ -51,11 +53,12 @@ function mergeSkills(
 			installed,
 			enabled: installed ? local.enabled : false,
 			needsUpdate,
-			localVersion: local?.version,
+			localVersion: isMarketLocal ? local.version : undefined,
 		});
 	}
 
 	for (const [name, local] of Object.entries(manifest)) {
+		if (local.source === "custom") continue;
 		if (!merged.has(name)) {
 			merged.set(name, {
 				name,
@@ -75,6 +78,33 @@ function mergeSkills(
 	}
 
 	return Array.from(merged.values());
+}
+
+function buildCustomSkills(manifest: Record<string, InstalledSkill>): MergedSkill[] {
+	const list: MergedSkill[] = [];
+	for (const entry of Object.values(manifest)) {
+		if (entry.source !== "custom") continue;
+		list.push({
+			name: entry.name,
+			alias: entry.alias ?? "",
+			description: entry.description,
+			type: "skill",
+			version: entry.version,
+			author: "",
+			tags: [],
+			category: "",
+			installed: true,
+			enabled: entry.enabled,
+			needsUpdate: false,
+			localVersion: entry.version,
+			isCustom: true,
+		});
+	}
+	list.sort((a, b) => {
+		if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+		return a.name.localeCompare(b.name);
+	});
+	return list;
 }
 
 function groupByCategory(skills: MergedSkill[]): Map<string, MergedSkill[]> {
@@ -137,15 +167,18 @@ function SkillCard({
 	onInstall,
 	onToggle,
 	onUninstall,
+	onPreview,
 	actionState,
 }: {
 	skill: MergedSkill;
 	onInstall: (skill: MergedSkill) => void;
 	onToggle: (name: string) => void;
 	onUninstall: (name: string, type: "skill" | "scene") => void;
+	onPreview?: (skill: MergedSkill) => void;
 	actionState: ActionState;
 }): JSX.Element {
 	const isLoading = actionState === "loading";
+	const previewable = !!onPreview && skill.installed;
 
 	return (
 		<motion.div
@@ -154,7 +187,10 @@ function SkillCard({
 				show: { opacity: 1, y: 0 },
 			}}
 			transition={{ type: "spring", stiffness: 320, damping: 26 }}
-			className="group relative flex items-center gap-3 rounded-xl bg-muted px-3 py-2.5 transition-colors duration-200 hover:bg-accent"
+			onClick={previewable ? () => onPreview?.(skill) : undefined}
+			className={`group relative flex items-center gap-3 rounded-xl bg-muted px-3 py-2.5 transition-colors duration-200 hover:bg-accent ${
+				previewable ? "cursor-pointer" : ""
+			}`}
 		>
 			<div
 				className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
@@ -182,6 +218,11 @@ function SkillCard({
 							v{skill.localVersion}
 						</span>
 					)}
+					{skill.isCustom && (
+						<span className="inline-flex h-4 shrink-0 items-center rounded-full bg-violet-500/15 px-1.5 text-[10px] font-medium text-violet-400">
+							自定义
+						</span>
+					)}
 					{skill.needsUpdate && (
 						<span className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 text-[10px] font-medium text-amber-400">
 							<span className="icon-[mdi--arrow-up-bold] h-2.5 w-2.5" />
@@ -201,6 +242,7 @@ function SkillCard({
 							<PopoverTrigger asChild>
 								<button
 									type="button"
+									onClick={(e) => e.stopPropagation()}
 									className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-primary/10 hover:text-primary"
 								>
 									<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
@@ -210,7 +252,10 @@ function SkillCard({
 								{skill.needsUpdate && (
 									<button
 										type="button"
-										onClick={() => onInstall(skill)}
+										onClick={(e) => {
+											e.stopPropagation();
+											onInstall(skill);
+										}}
 										disabled={isLoading}
 										className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 									>
@@ -220,7 +265,10 @@ function SkillCard({
 								)}
 								<button
 									type="button"
-									onClick={() => onUninstall(skill.name, skill.type)}
+									onClick={(e) => {
+										e.stopPropagation();
+										onUninstall(skill.name, skill.type);
+									}}
 									disabled={isLoading}
 									className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
 								>
@@ -238,7 +286,10 @@ function SkillCard({
 				) : (
 					<motion.button
 						type="button"
-						onClick={() => onInstall(skill)}
+						onClick={(e) => {
+							e.stopPropagation();
+							onInstall(skill);
+						}}
 						disabled={isLoading}
 						whileHover={!isLoading ? { scale: 1.04 } : undefined}
 						whileTap={!isLoading ? { scale: 0.94 } : undefined}
@@ -264,15 +315,18 @@ function SceneCard({
 	onInstall,
 	onToggle,
 	onUninstall,
+	onPreview,
 	actionState,
 }: {
 	scene: MergedSkill;
 	onInstall: (s: MergedSkill) => void;
 	onToggle: (name: string) => void;
 	onUninstall: (name: string, type: "skill" | "scene") => void;
+	onPreview?: (scene: MergedSkill) => void;
 	actionState: ActionState;
 }): JSX.Element {
 	const isLoading = actionState === "loading";
+	const previewable = !!onPreview && scene.installed;
 
 	return (
 		<motion.div
@@ -282,7 +336,10 @@ function SceneCard({
 			}}
 			transition={{ type: "spring", stiffness: 280, damping: 26 }}
 			whileHover={{ y: -3 }}
-			className="group relative flex flex-col overflow-hidden rounded-2xl bg-muted ring-1 ring-inset ring-transparent transition-[box-shadow,background-color] duration-200 hover:ring-primary/40"
+			onClick={previewable ? () => onPreview?.(scene) : undefined}
+			className={`group relative flex flex-col overflow-hidden rounded-2xl bg-muted ring-1 ring-inset ring-transparent transition-[box-shadow,background-color] duration-200 hover:ring-primary/40 ${
+				previewable ? "cursor-pointer" : ""
+			}`}
 		>
 			{/* Decorative hero strip — solid primary in light, black + primary/40 overlay in dark */}
 			<div className="relative h-16 overflow-hidden bg-primary/60 dark:bg-black">
@@ -389,6 +446,7 @@ function SceneCard({
 									<PopoverTrigger asChild>
 										<button
 											type="button"
+											onClick={(e) => e.stopPropagation()}
 											className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-primary/10 hover:text-primary"
 										>
 											<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
@@ -398,7 +456,10 @@ function SceneCard({
 										{scene.needsUpdate && (
 											<button
 												type="button"
-												onClick={() => onInstall(scene)}
+												onClick={(e) => {
+													e.stopPropagation();
+													onInstall(scene);
+												}}
 												disabled={isLoading}
 												className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 											>
@@ -408,7 +469,10 @@ function SceneCard({
 										)}
 										<button
 											type="button"
-											onClick={() => onUninstall(scene.name, scene.type)}
+											onClick={(e) => {
+												e.stopPropagation();
+												onUninstall(scene.name, scene.type);
+											}}
 											disabled={isLoading}
 											className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
 										>
@@ -426,7 +490,10 @@ function SceneCard({
 						) : (
 							<motion.button
 								type="button"
-								onClick={() => onInstall(scene)}
+								onClick={(e) => {
+									e.stopPropagation();
+									onInstall(scene);
+								}}
 								disabled={isLoading}
 								whileHover={!isLoading ? { scale: 1.04 } : undefined}
 								whileTap={!isLoading ? { scale: 0.94 } : undefined}
@@ -455,6 +522,7 @@ function TagGroup({
 	onInstall,
 	onToggle,
 	onUninstall,
+	onPreview,
 	actionStates,
 }: {
 	tag: string;
@@ -462,6 +530,7 @@ function TagGroup({
 	onInstall: (skill: MergedSkill) => void;
 	onToggle: (name: string) => void;
 	onUninstall: (name: string, type: "skill" | "scene") => void;
+	onPreview?: (skill: MergedSkill) => void;
 	actionStates: Record<string, ActionState>;
 }): JSX.Element {
 	const enabledInGroup = skills.filter((s) => s.enabled).length;
@@ -510,6 +579,7 @@ function TagGroup({
 							onInstall={onInstall}
 							onToggle={onToggle}
 							onUninstall={onUninstall}
+							onPreview={onPreview}
 							actionState={actionStates[skill.name] ?? "idle"}
 						/>
 					) : (
@@ -519,6 +589,7 @@ function TagGroup({
 							onInstall={onInstall}
 							onToggle={onToggle}
 							onUninstall={onUninstall}
+							onPreview={onPreview}
 							actionState={actionStates[skill.name] ?? "idle"}
 						/>
 					),
@@ -575,15 +646,18 @@ export function SkillsPage(): JSX.Element {
 	const [typeTab, setTypeTab] = useState<TypeTab>("scene");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [marketSkills, setMarketSkills] = useState<MarketSkillInfo[]>([]);
-	const [marketManifest, setMarketManifest] = useState<Record<string, InstalledMarketSkill>>({});
+	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [actionStates, setActionStates] = useState<Record<string, ActionState>>({});
+	const [importing, setImporting] = useState(false);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const token = useAtomValue(authTokenAtom);
+	const setFilePreview = useSetAtom(filePreviewAtom);
 
 	const refresh = useCallback(() => {
-		void window.vetta.skills.getMarketManifest().then(setMarketManifest);
+		void window.vetta.skills.getMarketManifest().then(setManifest);
 	}, []);
 
 	const loadMarket = useCallback(() => {
@@ -666,32 +740,84 @@ export function SkillsPage(): JSX.Element {
 		[refresh, setActionState],
 	);
 
-	const merged = useMemo(() => mergeSkills(marketSkills, marketManifest), [marketSkills, marketManifest]);
+	const handlePreview = useCallback(
+		(skill: MergedSkill) => {
+			void window.vetta.skills
+				.getSkillMdPath(skill.name, skill.type)
+				.then((path) => {
+					setFilePreview({
+						name: `${skill.alias || skill.name} — SKILL.md`,
+						path,
+					});
+				})
+				.catch((err: Error) => {
+					console.error("打开预览失败:", err.message);
+				});
+		},
+		[setFilePreview],
+	);
 
-	const filtered = useMemo(() => {
-		let list = merged.filter((s) => s.type === typeTab);
-		if (searchQuery.trim()) {
+	const handleImportClick = useCallback(() => {
+		fileInputRef.current?.click();
+	}, []);
+
+	const handleFileChange = useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>) => {
+			const file = event.target.files?.[0];
+			event.target.value = "";
+			if (!file) return;
+			setImporting(true);
+			void file
+				.arrayBuffer()
+				.then((buffer) => window.vetta.skills.importCustom(buffer))
+				.then(() => {
+					refresh();
+				})
+				.catch((err: Error) => {
+					alert(`导入失败：${err.message || "未知错误"}`);
+				})
+				.finally(() => setImporting(false));
+		},
+		[refresh],
+	);
+
+	const merged = useMemo(() => mergeSkills(marketSkills, manifest), [marketSkills, manifest]);
+
+	const filterBySearch = useCallback(
+		(list: MergedSkill[]) => {
 			const q = searchQuery.trim().toLowerCase();
-			list = list.filter(
+			if (!q) return list;
+			return list.filter(
 				(s) =>
 					s.name.toLowerCase().includes(q) ||
 					s.alias.toLowerCase().includes(q) ||
 					s.description.toLowerCase().includes(q) ||
 					s.tags.some((t) => t.toLowerCase().includes(q)),
 			);
-		}
-		return list;
-	}, [merged, typeTab, searchQuery]);
+		},
+		[searchQuery],
+	);
+
+	const filtered = useMemo(
+		() => filterBySearch(merged.filter((s) => s.type === typeTab)),
+		[merged, typeTab, filterBySearch],
+	);
+
+	const customSkills = useMemo(
+		() => (typeTab === "skill" ? filterBySearch(buildCustomSkills(manifest)) : []),
+		[manifest, typeTab, filterBySearch],
+	);
 
 	const groups = useMemo(() => groupByCategory(filtered), [filtered]);
 
 	const stats = useMemo(() => {
-		const total = filtered.length;
-		const installed = filtered.filter((s) => s.installed).length;
-		const enabled = filtered.filter((s) => s.enabled).length;
-		const updates = filtered.filter((s) => s.needsUpdate).length;
+		const all = [...filtered, ...customSkills];
+		const total = all.length;
+		const installed = all.filter((s) => s.installed).length;
+		const enabled = all.filter((s) => s.enabled).length;
+		const updates = all.filter((s) => s.needsUpdate).length;
 		return { total, installed, enabled, updates };
-	}, [filtered]);
+	}, [filtered, customSkills]);
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
@@ -738,6 +864,33 @@ export function SkillsPage(): JSX.Element {
 								className="h-8 w-56 rounded-full border border-border/60 bg-card/40 pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors focus:border-primary/40 focus:outline-none"
 							/>
 						</div>
+						{typeTab === "skill" && (
+							<>
+								<input
+									ref={fileInputRef}
+									type="file"
+									accept=".zip,.tar.gz,.tgz,application/zip,application/gzip,application/x-gzip"
+									className="hidden"
+									onChange={handleFileChange}
+								/>
+								<motion.button
+									type="button"
+									onClick={handleImportClick}
+									disabled={importing}
+									whileHover={!importing ? { scale: 1.03 } : undefined}
+									whileTap={!importing ? { scale: 0.96 } : undefined}
+									transition={{ type: "spring", stiffness: 380, damping: 22 }}
+									className="flex h-8 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 text-[12px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
+								>
+									{importing ? (
+										<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+									) : (
+										<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
+									)}
+									<span>导入技能</span>
+								</motion.button>
+							</>
+						)}
 						<SegmentedControl
 							items={[
 								{ key: "scene" as TypeTab, label: "场景" },
@@ -806,7 +959,7 @@ export function SkillsPage(): JSX.Element {
 						<span className="icon-[mdi--alert-circle-outline] h-10 w-10 text-muted-foreground/50" />
 						<p className="text-[13px] text-muted-foreground/50">{error}</p>
 					</div>
-				) : groups.size === 0 ? (
+				) : groups.size === 0 && customSkills.length === 0 ? (
 					<motion.div
 						className="flex h-full flex-col items-center justify-center gap-5 text-center"
 						initial={{ opacity: 0, y: 12 }}
@@ -843,6 +996,17 @@ export function SkillsPage(): JSX.Element {
 						animate="show"
 						variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
 					>
+						{customSkills.length > 0 && (
+							<TagGroup
+								tag="自定义"
+								skills={customSkills}
+								onInstall={handleInstall}
+								onToggle={handleToggle}
+								onUninstall={handleUninstall}
+								onPreview={handlePreview}
+								actionStates={actionStates}
+							/>
+						)}
 						{Array.from(groups.entries()).map(([tag, skills]) => (
 							<TagGroup
 								key={tag}
@@ -851,6 +1015,7 @@ export function SkillsPage(): JSX.Element {
 								onInstall={handleInstall}
 								onToggle={handleToggle}
 								onUninstall={handleUninstall}
+								onPreview={handlePreview}
 								actionStates={actionStates}
 							/>
 						))}
