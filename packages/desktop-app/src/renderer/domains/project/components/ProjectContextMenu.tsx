@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import type { Project } from "@shared/store/atoms";
 
@@ -48,7 +49,7 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 		return () => document.removeEventListener("keydown", handleKey);
 	}, [onClose]);
 
-	return (
+	return createPortal(
 		<AnimatePresence>
 			<motion.div
 				ref={menuRef}
@@ -56,7 +57,7 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 				animate={{ opacity: 1, scale: 1 }}
 				exit={{ opacity: 0, scale: 0.95 }}
 				transition={{ duration: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
-				className="fixed z-50 w-[160px] overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-xl"
+				className="fixed z-[1000] w-[160px] overflow-hidden rounded-lg border border-border bg-popover p-1 shadow-xl"
 				style={{
 					left: `${adjustedPos.x}px`,
 					top: `${adjustedPos.y}px`,
@@ -108,6 +109,7 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 					删除项目
 				</button>
 			</motion.div>
-		</AnimatePresence>
+		</AnimatePresence>,
+		document.body,
 	);
 }
