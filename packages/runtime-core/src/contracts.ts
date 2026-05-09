@@ -269,6 +269,7 @@ export interface SessionFacade {
 	renameSession(sessionPath: string, name: string): Promise<void>;
 	getSessionPath(sessionId: string): string | undefined;
 	renameSessionById(sessionId: string, name: string): void;
+	autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null>;
 	disposeSession(sessionId: string): Promise<void>;
 	disposeAllSessions(): Promise<void>;
 }
