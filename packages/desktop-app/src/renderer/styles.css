@@ -224,6 +224,26 @@ body {
 	background: transparent;
 }
 
+/* Sidebar surface: subtle primary-tinted glow from top-left for added depth.
+   Pseudo-element overlay so it doesn't affect children stacking/interactions. */
+.sidebar-surface::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: radial-gradient(
+		360px 260px at 22% 14%,
+		color-mix(in srgb, var(--primary) 7%, transparent) 0%,
+		color-mix(in srgb, var(--primary) 3%, transparent) 45%,
+		transparent 75%
+	);
+	z-index: 0;
+}
+.sidebar-surface > * {
+	position: relative;
+	z-index: 1;
+}
+
 /* Selection highlight */
 ::selection {
 	background: color-mix(in srgb, var(--primary) 15%, transparent);
