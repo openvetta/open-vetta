@@ -12,6 +12,7 @@ import {
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { ArtifactCard } from "@shared/components/ArtifactCard";
+import { BotAvatar } from "@shared/components/BotAvatar";
 import { cn, pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
@@ -369,7 +370,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isLastAssista
 		<div className="flex flex-col">
 			{/* Header: avatar + name + timestamp + duration */}
 			<div className="mb-2 flex items-center gap-2">
-				<StreamingBotAvatar active={isCurrentlyStreaming} />
+				<BotAvatar active={isCurrentlyStreaming} />
 				<span className="text-[13px] font-semibold text-foreground/80">
 					Vetta
 				</span>
@@ -650,152 +651,3 @@ const VirtuosoListContainer = forwardRef<HTMLDivElement, React.HTMLAttributes<HT
 		);
 	},
 );
-
-// ─── Streaming bot avatar with random idle animations ───
-type AvatarMood = "idle" | "left" | "right" | "think" | "blink" | "bounce";
-
-const ACTIVE_MOODS: AvatarMood[] = ["left", "right", "think", "blink", "bounce"];
-
-const HOLD_MS: Record<Exclude<AvatarMood, "idle">, number> = {
-	left: 700,
-	right: 700,
-	think: 900,
-	blink: 320,
-	bounce: 760,
-};
-
-const StreamingBotAvatar = memo(function StreamingBotAvatar({ active }: { active: boolean }): JSX.Element {
-	const [mood, setMood] = useState<AvatarMood>("idle");
-	const [, forceTick] = useState(0);
-	const moodRef = useRef(mood);
-	moodRef.current = mood;
-
-	const pickRandomMood = useCallback((): AvatarMood => {
-		const choices = ACTIVE_MOODS.filter((m) => m !== moodRef.current);
-		return choices[Math.floor(Math.random() * choices.length)] ?? "blink";
-	}, []);
-
-	const triggerMood = useCallback((m: AvatarMood) => {
-		setMood(m);
-		forceTick((t) => t + 1);
-	}, []);
-
-	// Hold gesture briefly, then return to idle.
-	useEffect(() => {
-		if (mood === "idle") return;
-		const id = setTimeout(() => setMood("idle"), HOLD_MS[mood]);
-		return () => clearTimeout(id);
-	}, [mood]);
-
-	// While streaming + idle, schedule next random gesture.
-	useEffect(() => {
-		if (!active || mood !== "idle") return;
-		const id = setTimeout(
-			() => triggerMood(pickRandomMood()),
-			280 + Math.random() * 420,
-		);
-		return () => clearTimeout(id);
-	}, [active, mood, triggerMood, pickRandomMood]);
-
-	// Snap to idle when streaming stops.
-	useEffect(() => {
-		if (!active) setMood("idle");
-	}, [active]);
-
-	const handleClick = useCallback(() => {
-		triggerMood(pickRandomMood());
-	}, [triggerMood, pickRandomMood]);
-
-	const headAnim = (() => {
-		switch (mood) {
-			case "left":
-				return { rotate: -10, scale: 1, y: 0, scaleX: 1, scaleY: 1 };
-			case "right":
-				return { rotate: 10, scale: 1, y: 0, scaleX: 1, scaleY: 1 };
-			case "think":
-				return { rotate: [0, 5, -5, 0], y: [0, -1.5, 0, -1, 0], scaleX: 1, scaleY: 1 };
-			case "blink":
-				return { rotate: 0, scale: [1, 0.96, 1], y: 0 };
-			case "bounce":
-				return {
-					rotate: 0,
-					y: [0, -8, 0, -2, 0],
-					scaleX: [1, 0.92, 1.28, 0.96, 1],
-					scaleY: [1, 1.18, 0.72, 1.08, 1],
-				};
-			default:
-				return { rotate: 0, scale: 1, y: 0, scaleX: 1, scaleY: 1 };
-		}
-	})();
-
-	const eyesShift = mood === "left" ? -1.4 : mood === "right" ? 1.4 : 0;
-	const eyesScaleY = mood === "blink" ? [1, 0.1, 1] : 1;
-	const showThoughtBubble = mood === "think";
-
-	return (
-		<button
-			type="button"
-			onClick={handleClick}
-			title="戳一下"
-			className="no-drag relative flex h-5 w-5 shrink-0 items-center justify-center focus:outline-none"
-		>
-			{/* Glow ring while streaming */}
-			{active && (
-				<motion.span
-					aria-hidden
-					className="absolute -inset-1 rounded-lg bg-primary/30 blur-[6px]"
-					animate={{ opacity: [0.35, 0.65, 0.35], scale: [0.95, 1.05, 0.95] }}
-					transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-				/>
-			)}
-			<motion.div
-				className="relative flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-primary to-primary/85 text-primary-foreground shadow-[0_2px_6px_-2px_var(--primary)]"
-				animate={headAnim}
-				transition={{
-					type:
-						mood === "think" || mood === "blink" || mood === "bounce" ? "tween" : "spring",
-					stiffness: 280,
-					damping: 16,
-					duration:
-						mood === "bounce"
-							? 0.7
-							: mood === "think"
-								? 0.8
-								: mood === "blink"
-									? 0.32
-									: undefined,
-					ease: mood === "bounce" ? "easeOut" : "easeInOut",
-					times: mood === "bounce" ? [0, 0.28, 0.55, 0.8, 1] : undefined,
-				}}
-				style={{ transformOrigin: mood === "bounce" ? "50% 100%" : "50% 50%" }}
-			>
-				{/* Two eyes */}
-				<div className="flex items-center gap-[3px]">
-					<motion.span
-						className="block h-[3px] w-[3px] rounded-full bg-primary-foreground"
-						animate={{ x: eyesShift, scaleY: eyesScaleY }}
-						transition={{ type: "spring", stiffness: 380, damping: 22, duration: mood === "blink" ? 0.3 : undefined }}
-					/>
-					<motion.span
-						className="block h-[3px] w-[3px] rounded-full bg-primary-foreground"
-						animate={{ x: eyesShift, scaleY: eyesScaleY }}
-						transition={{ type: "spring", stiffness: 380, damping: 22, duration: mood === "blink" ? 0.3 : undefined }}
-					/>
-				</div>
-			</motion.div>
-			{/* Thought bubble while "thinking" */}
-			<AnimatePresence>
-				{showThoughtBubble && (
-					<motion.span
-						aria-hidden
-						className="pointer-events-none absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-primary/70"
-						initial={{ opacity: 0, scale: 0.4, y: 0 }}
-						animate={{ opacity: [0, 1, 0], scale: [0.4, 1, 0.7], y: [-1, -5, -8] }}
-						exit={{ opacity: 0 }}
-						transition={{ duration: 0.9, ease: "easeOut" }}
-					/>
-				)}
-			</AnimatePresence>
-		</button>
-	);
-});

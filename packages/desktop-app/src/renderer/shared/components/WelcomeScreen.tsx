@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useAtom, useSetAtom } from "jotai";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import type { SkillInfo } from "@preload/api";
-import { inputValueAtom, selectedSkillAtom } from "@shared/store/atoms";
+import { authUserAtom, inputValueAtom, selectedSkillAtom } from "@shared/store/atoms";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { useSessionManager } from "@domains/chat/hooks/useSessionManager";
+import { BotAvatar } from "./BotAvatar";
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32 };
+const SCENE_PAGE_SIZE = 3;
+const easeOut = [0.16, 1, 0.3, 1] as const;
 
 function makeProjectName(text: string): string {
 	const trimmed = text.trim().replace(/[\\/:*?"<>|]/g, "").slice(0, 16);
@@ -24,6 +27,7 @@ export function WelcomeScreen(): JSX.Element {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const { createProject } = useProjects();
 	const { openSession } = useSessionManager();
+	const authUser = useAtomValue(authUserAtom);
 
 	useEffect(() => {
 		const timer = setTimeout(() => setMounted(true), 30);
@@ -34,7 +38,8 @@ export function WelcomeScreen(): JSX.Element {
 		void window.vetta.skills.list().then(setSkills);
 	}, []);
 
-	const scenes = skills.filter((s) => s.type === "scene");
+	const scenes = useMemo(() => skills.filter((s) => s.type === "scene"), [skills]);
+	const skillBadges = useMemo(() => skills.filter((s) => s.type === "skill"), [skills]);
 
 	const resize = useCallback(() => {
 		const el = textareaRef.current;
@@ -51,8 +56,6 @@ export function WelcomeScreen(): JSX.Element {
 		if (!canSend) return;
 		setCreating(true);
 		try {
-			// Pre-populate the chat input so the new ChatView shows the text
-			// (and the selected skill capsule) the moment it mounts.
 			setInputValue(text);
 			const name = makeProjectName(text);
 			const cwd = await createProject(name);
@@ -77,217 +80,345 @@ export function WelcomeScreen(): JSX.Element {
 		[setSelectedSkill],
 	);
 
+	const handleSelectSkill = useCallback(
+		(skill: SkillInfo) => {
+			const isSelected = selectedSkill?.name === skill.name && selectedSkill?.type === skill.type;
+			setSelectedSkill(isSelected ? null : { name: skill.name, type: skill.type });
+			textareaRef.current?.focus();
+		},
+		[selectedSkill, setSelectedSkill],
+	);
+
+	const greetingTitle = authUser?.nickname
+		? `你好，${authUser.nickname}`
+		: "今天怎么样？";
+
 	return (
 		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-background">
 			{/* Drag region */}
 			<div className="drag-region absolute inset-x-0 top-0 z-10 h-12" />
 
+			{/* Primary grid texture, faded toward edges */}
+			<div
+				aria-hidden
+				className="pointer-events-none absolute inset-0"
+				style={{
+					backgroundImage:
+						"linear-gradient(to right, color-mix(in srgb, var(--primary) 7%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--primary) 7%, transparent) 1px, transparent 1px)",
+					backgroundSize: "32px 32px",
+					backgroundPosition: "center center",
+					maskImage:
+						"radial-gradient(ellipse 70% 60% at 50% 45%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)",
+					WebkitMaskImage:
+						"radial-gradient(ellipse 70% 60% at 50% 45%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)",
+				}}
+			/>
+
 			{/* Ambient glow */}
 			<div className="pointer-events-none absolute inset-0">
 				<div
-					className="absolute left-1/2 top-[40%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.08]"
+					className="absolute left-1/2 top-[30%] h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.1]"
 					style={{
 						background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)",
 					}}
 				/>
-				<div
-					className="absolute left-1/2 top-[35%] h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.06]"
-					style={{
-						background: "radial-gradient(circle, var(--primary) 0%, transparent 60%)",
-					}}
-				/>
 			</div>
 
-			<div className="no-drag relative flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
+			{/* Scrollable single column: hero + carousel + badges + input */}
+			<div className="no-drag relative flex flex-1 min-h-0 flex-col items-center overflow-y-auto px-6 pb-6 pt-12">
 				<motion.div
 					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 12 }}
-					transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-					className="flex w-full max-w-2xl flex-col items-center"
+					transition={{ duration: 0.5, ease: easeOut }}
+					className="my-auto flex w-full max-w-3xl flex-col items-center"
 				>
-					{/* Hero */}
-					<div className="relative mb-5">
-						<div
-							className="absolute -inset-4 rounded-[24px] opacity-50"
-							style={{
-								background:
-									"radial-gradient(circle, color-mix(in srgb, var(--primary) 45%, transparent) 0%, transparent 70%)",
-								filter: "blur(14px)",
-							}}
-						/>
-						<div
-							className="relative flex h-[68px] w-[68px] items-center justify-center rounded-[18px] bg-primary text-primary-foreground"
-							style={{
-								boxShadow:
-									"0 8px 32px -8px color-mix(in srgb, var(--primary) 60%, transparent)",
-							}}
-						>
-							<span className="icon-[mdi--robot-outline] h-9 w-9" />
-						</div>
-					</div>
-
-					<h1 className="text-[24px] font-semibold tracking-[-0.03em] text-foreground">
-						开启一个新项目
-					</h1>
-					<p className="mt-1.5 text-[13px] text-muted-foreground/70">
-						告诉我你想做什么，我会自动为你创建项目并开始
-					</p>
-
-					{/* Mini AI Input card */}
-					<motion.div
+					{/* Hero: Bot avatar + greeting */}
+					<BotAvatar size="lg" autoplay />
+					<motion.h1
 						initial={{ opacity: 0, y: 8 }}
-						animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
-						transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
-						className="mt-7 w-full rounded-[20px] border border-primary/20 bg-card shadow-[0_8px_30px_-12px_color-mix(in_srgb,var(--primary)_25%,transparent)]"
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
+						className="mt-4 bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent"
 					>
-						{/* Selected scene capsule */}
-						<AnimatePresence initial={false}>
-							{selectedSkill && (
-								<motion.div
-									initial={{ height: 0, opacity: 0 }}
-									animate={{ height: "auto", opacity: 1 }}
-									exit={{ height: 0, opacity: 0 }}
-									transition={{ duration: 0.18 }}
-									className="overflow-hidden"
-								>
-									<div className="px-4 pt-3">
-										<motion.button
-											type="button"
-											onClick={() => setSelectedSkill(null)}
-											initial={{ scale: 0.85, opacity: 0 }}
-											animate={{ scale: 1, opacity: 1 }}
-											exit={{ scale: 0.85, opacity: 0 }}
-											transition={SPRING}
-											className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
-											title="点击移除"
-										>
-											<span
-												className={`${
-													selectedSkill.type === "scene"
-														? "icon-[mdi--movie-open-outline]"
-														: "icon-[mdi--puzzle-outline]"
-												} h-3 w-3`}
-											/>
-											<span className="max-w-[160px] truncate">{selectedSkill.name}</span>
-											<span className="icon-[mdi--close] h-3 w-3 opacity-60" />
-										</motion.button>
-									</div>
-								</motion.div>
-							)}
-						</AnimatePresence>
+						{greetingTitle}
+					</motion.h1>
+					<motion.p
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						transition={{ duration: 0.5, delay: 0.2 }}
+						className="mt-1 text-[12px] text-muted-foreground/70"
+					>
+						我可以帮助你处理工作，有什么我可以帮你的吗？
+					</motion.p>
 
-						<div className="px-4 pt-3 pb-1">
-							<textarea
-								ref={textareaRef}
-								rows={1}
-								autoFocus
-								value={text}
-								onChange={(e) => setText(e.target.value)}
-								onKeyDown={handleKeyDown}
-								placeholder="想让 Vetta 帮你做点什么？"
-								className="w-full resize-none bg-transparent text-[14px] leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/50"
-								style={{ minHeight: 28, maxHeight: 180 }}
-							/>
-						</div>
-
-						<div className="flex items-center justify-between gap-2 px-3 pb-2.5">
-							<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-								<span className="icon-[mdi--folder-plus-outline] h-3.5 w-3.5" />
-								<span>发送后将自动创建新项目</span>
-							</div>
-							<motion.button
-								type="button"
-								onClick={() => void handleSend()}
-								disabled={!canSend}
-								whileHover={canSend ? { scale: 1.05, y: -1 } : undefined}
-								whileTap={canSend ? { scale: 0.94 } : undefined}
-								transition={SPRING}
-								className="flex h-8 w-8 items-center justify-center rounded-full transition-shadow disabled:cursor-not-allowed"
-								style={{
-									background: canSend
-										? "var(--primary)"
-										: "color-mix(in srgb, var(--muted-foreground) 18%, transparent)",
-									color: canSend ? "var(--primary-foreground)" : "var(--muted-foreground)",
-									boxShadow: canSend
-										? "0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)"
-										: "none",
-								}}
-								title="发送 (⏎)"
-							>
-								{creating ? (
-									<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
-								) : (
-									<span className="icon-[mdi--arrow-up] h-4 w-4" />
-								)}
-							</motion.button>
-						</div>
-					</motion.div>
-
-					{/* Scenes grid */}
+					{/* Scene carousel */}
 					{scenes.length > 0 && (
+						<SceneCarousel
+							scenes={scenes}
+							selected={selectedSkill}
+							onSelect={handleSelectScene}
+						/>
+					)}
+
+					{/* Skill badges */}
+					{skillBadges.length > 0 && (
 						<motion.div
 							initial={{ opacity: 0, y: 8 }}
 							animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
-							transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.16 }}
-							className="mt-8 w-full"
+							transition={{ duration: 0.5, delay: 0.3, ease: easeOut }}
+							className="mt-4 flex w-full flex-col items-center"
 						>
-							<div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
-								<span className="icon-[mdi--movie-open-outline] h-3.5 w-3.5" />
-								场景 · 快速开始
-							</div>
-							<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-								{scenes.map((s, idx) => {
-									const active = selectedSkill?.name === s.name && selectedSkill?.type === "scene";
+							<div className="flex flex-wrap items-center justify-center gap-1.5">
+								{skillBadges.map((s, idx) => {
+									const active =
+										selectedSkill?.name === s.name && selectedSkill?.type === "skill";
 									return (
 										<motion.button
 											key={s.name}
 											type="button"
-											onClick={() => handleSelectScene(s)}
-											initial={{ opacity: 0, y: 8 }}
-											animate={{ opacity: 1, y: 0 }}
+											onClick={() => handleSelectSkill(s)}
+											initial={{ opacity: 0, y: 6, scale: 0.95 }}
+											animate={{ opacity: 1, y: 0, scale: 1 }}
 											transition={{
-												duration: 0.35,
-												ease: [0.16, 1, 0.3, 1],
-												delay: 0.22 + idx * 0.04,
+												type: "spring",
+												stiffness: 360,
+												damping: 26,
+												delay: 0.32 + idx * 0.03,
 											}}
-											whileHover={{ y: -2 }}
-											whileTap={{ scale: 0.98 }}
-											className={`group flex items-start gap-3 rounded-2xl border p-3 text-left transition-colors ${
+											whileHover={{ y: -2, scale: 1.04 }}
+											whileTap={{ scale: 0.96 }}
+											className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
 												active
-													? "border-primary bg-primary/10"
-													: "border-border bg-card hover:border-primary/40 hover:bg-primary/5"
+													? "border-primary/50 bg-primary/15 text-primary"
+													: "border-border/60 bg-card/40 text-muted-foreground hover:border-primary/30 hover:bg-primary/8 hover:text-primary"
 											}`}
+											title={s.description || s.name}
 										>
-											<div
-												className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors ${
-													active
-														? "bg-primary text-primary-foreground"
-														: "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
-												}`}
-											>
-												<span className="icon-[mdi--movie-open-outline] h-4 w-4" />
-											</div>
-											<div className="min-w-0 flex-1">
-												<div className="truncate text-[13px] font-medium text-foreground">
-													{s.alias || s.name}
-												</div>
-												{s.description && (
-													<div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground/70">
-														{s.description}
-													</div>
-												)}
-											</div>
-											{active && (
-												<span className="icon-[mdi--check-circle] h-4 w-4 shrink-0 text-primary" />
-											)}
+											<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
+											{s.alias || s.name}
 										</motion.button>
 									);
 								})}
 							</div>
 						</motion.div>
 					)}
+
+					{/* AI input — inline below badges */}
+					<motion.div
+						initial={{ opacity: 0, y: 8 }}
+						animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
+						transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
+						className="mt-5 w-full rounded-[20px] border border-primary/20 bg-card"
+					>
+					<AnimatePresence initial={false}>
+						{selectedSkill && (
+							<motion.div
+								initial={{ height: 0, opacity: 0 }}
+								animate={{ height: "auto", opacity: 1 }}
+								exit={{ height: 0, opacity: 0 }}
+								transition={{ duration: 0.18 }}
+								className="overflow-hidden"
+							>
+								<div className="px-4 pt-3">
+									<motion.button
+										type="button"
+										onClick={() => setSelectedSkill(null)}
+										initial={{ scale: 0.85, opacity: 0 }}
+										animate={{ scale: 1, opacity: 1 }}
+										exit={{ scale: 0.85, opacity: 0 }}
+										transition={SPRING}
+										className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
+										title="点击移除"
+									>
+										<span
+											className={`${
+												selectedSkill.type === "scene"
+													? "icon-[mdi--movie-open-outline]"
+													: "icon-[mdi--puzzle-outline]"
+											} h-3 w-3`}
+										/>
+										<span className="max-w-[160px] truncate">{selectedSkill.name}</span>
+										<span className="icon-[mdi--close] h-3 w-3 opacity-60" />
+									</motion.button>
+								</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
+
+					<div className="px-4 pt-3 pb-1">
+						<textarea
+							ref={textareaRef}
+							rows={1}
+							autoFocus
+							value={text}
+							onChange={(e) => setText(e.target.value)}
+							onKeyDown={handleKeyDown}
+							placeholder="想让 Vetta 帮你做点什么？"
+							className="w-full resize-none bg-transparent text-[14px] leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/50"
+							style={{ minHeight: 28, maxHeight: 180 }}
+						/>
+					</div>
+
+					<div className="flex items-center justify-between gap-2 px-3 pb-2.5">
+						<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
+							<span className="icon-[mdi--folder-plus-outline] h-3.5 w-3.5" />
+							<span>发送后将自动创建新项目</span>
+						</div>
+						<motion.button
+							type="button"
+							onClick={() => void handleSend()}
+							disabled={!canSend}
+							whileHover={canSend ? { scale: 1.05, y: -1 } : undefined}
+							whileTap={canSend ? { scale: 0.94 } : undefined}
+							transition={SPRING}
+							className="flex h-8 w-8 items-center justify-center rounded-full transition-shadow disabled:cursor-not-allowed"
+							style={{
+								background: canSend
+									? "var(--primary)"
+									: "color-mix(in srgb, var(--muted-foreground) 18%, transparent)",
+								color: canSend ? "var(--primary-foreground)" : "var(--muted-foreground)",
+								boxShadow: canSend
+									? "0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)"
+									: "none",
+							}}
+							title="发送 (⏎)"
+						>
+							{creating ? (
+								<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
+							) : (
+								<span className="icon-[mdi--arrow-up] h-4 w-4" />
+							)}
+						</motion.button>
+					</div>
+					</motion.div>
 				</motion.div>
 			</div>
 		</div>
+	);
+}
+
+interface SceneCarouselProps {
+	scenes: SkillInfo[];
+	selected: { name: string; type: "skill" | "scene" } | null;
+	onSelect: (s: SkillInfo) => void;
+}
+
+function SceneCarousel({ scenes, selected, onSelect }: SceneCarouselProps): JSX.Element {
+	const [page, setPage] = useState(0);
+	const totalPages = Math.max(1, Math.ceil(scenes.length / SCENE_PAGE_SIZE));
+	const safePage = Math.min(page, totalPages - 1);
+	const visible = scenes.slice(
+		safePage * SCENE_PAGE_SIZE,
+		safePage * SCENE_PAGE_SIZE + SCENE_PAGE_SIZE,
+	);
+	const canPrev = safePage > 0;
+	const canNext = safePage < totalPages - 1;
+
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.5, delay: 0.25, ease: easeOut }}
+			className="group relative mt-6 w-full"
+		>
+			{totalPages > 1 && (
+				<div className="mb-3 flex items-center justify-end gap-1">
+					{Array.from({ length: totalPages }).map((_, i) => (
+						<button
+							key={i}
+							type="button"
+							onClick={() => setPage(i)}
+							className={`h-1 rounded-full transition-all ${
+								i === safePage ? "w-4 bg-primary" : "w-1 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+							}`}
+							aria-label={`第 ${i + 1} 页`}
+						/>
+					))}
+				</div>
+			)}
+
+			<div className="relative">
+				<AnimatePresence mode="wait" initial={false}>
+					<motion.div
+						key={safePage}
+						initial={{ opacity: 0, x: 16 }}
+						animate={{ opacity: 1, x: 0 }}
+						exit={{ opacity: 0, x: -16 }}
+						transition={{ duration: 0.25, ease: easeOut }}
+						className="flex flex-wrap justify-center gap-3"
+					>
+						{visible.map((s) => {
+							const active = selected?.name === s.name && selected?.type === "scene";
+							return (
+								<motion.button
+									key={s.name}
+									type="button"
+									onClick={() => onSelect(s)}
+									whileHover={{ y: -3 }}
+									whileTap={{ scale: 0.98 }}
+									transition={{ type: "spring", stiffness: 360, damping: 24 }}
+									className={`relative flex w-full flex-col items-start gap-2 overflow-hidden rounded-2xl border p-4 text-left transition-colors sm:w-[calc(50%-6px)] lg:w-[calc(33.333%-8px)] ${
+										active
+											? "border-primary/60 bg-card shadow-[0_12px_30px_-18px_var(--primary)]"
+											: "border-border/60 bg-card hover:border-primary/40"
+									}`}
+								>
+									<div
+										className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
+											active
+												? "bg-primary text-primary-foreground"
+												: "bg-primary/10 text-primary"
+										}`}
+									>
+										<span className="icon-[mdi--movie-open-outline] h-4 w-4" />
+									</div>
+									<div className="min-w-0 w-full">
+										<div className="truncate text-[13px] font-semibold text-foreground">
+											{s.alias || s.name}
+										</div>
+										{s.description && (
+											<div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/70">
+												{s.description}
+											</div>
+										)}
+									</div>
+									{active && (
+										<span className="icon-[mdi--check-circle] absolute right-3 top-3 h-4 w-4 text-primary" />
+									)}
+								</motion.button>
+							);
+						})}
+					</motion.div>
+				</AnimatePresence>
+
+				{/* Hover-revealed prev/next buttons */}
+				{canPrev && (
+					<motion.button
+						type="button"
+						onClick={() => setPage((p) => Math.max(0, p - 1))}
+						initial={{ opacity: 0, x: 4 }}
+						whileHover={{ scale: 1.08 }}
+						whileTap={{ scale: 0.92 }}
+						className="absolute -left-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
+						title="上一页"
+					>
+						<span className="icon-[mdi--chevron-left] h-4 w-4" />
+					</motion.button>
+				)}
+				{canNext && (
+					<motion.button
+						type="button"
+						onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+						initial={{ opacity: 0, x: -4 }}
+						whileHover={{ scale: 1.08 }}
+						whileTap={{ scale: 0.92 }}
+						className="absolute -right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
+						title="下一页"
+					>
+						<span className="icon-[mdi--chevron-right] h-4 w-4" />
+					</motion.button>
+				)}
+			</div>
+		</motion.div>
 	);
 }
