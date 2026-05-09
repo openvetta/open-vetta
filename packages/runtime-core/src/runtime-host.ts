@@ -45,6 +45,29 @@ interface SessionHandle {
 	executionMode: SessionExecutionMode;
 }
 
+/**
+ * Per-session buffer of the currently-streaming LLM call's deltas.
+ *
+ * The runtime persists assistant messages to the JSONL history only on
+ * `message_end`. So if a renderer disconnects mid-stream and reconnects
+ * (e.g. user switches sessions and switches back), `getFullHistory` returns
+ * nothing for the in-flight assistant, and a fresh `subscribe()` only forwards
+ * future events. Without this buffer, all text/thinking/tool-call events
+ * received before reconnection would be lost.
+ *
+ * Text and thinking are cleared on `message_end` because each LLM call inside
+ * a multi-step turn produces its own deltas; the prior call's content is
+ * already on disk via `message.final`. `isActive` flips on at `agent_start`
+ * and off at `agent_end`.
+ */
+interface InFlightBuffer {
+	turnStartedAt: number;
+	text: string;
+	thinking: string;
+	toolCallStarts: Array<{ toolCallId: string; toolName: string }>;
+	isActive: boolean;
+}
+
 const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
 
 export interface RuntimeHostOptions {
@@ -62,6 +85,8 @@ export interface RuntimeHostOptions {
 export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
 	private currentTurnStartedAt = new Map<string, number>();
+	private inFlightBuffers = new Map<string, InFlightBuffer>();
+	private inFlightUnsubscribers = new Map<string, () => void>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
@@ -203,8 +228,70 @@ export class RuntimeHost implements SessionFacade {
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
 		this.sessions.set(sessionId, { session, executionMode });
+		this.attachInFlightBuffer(sessionId, session);
 		console.log(`[perf][RuntimeHost.createSession] exit total=${Date.now() - __t0}ms`);
 		return { sessionId };
+	}
+
+	/**
+	 * Attach a permanent listener to the session that maintains the in-flight
+	 * buffer regardless of whether any external subscriber is connected. Replayed
+	 * by `subscribe()` so a re-subscribing renderer sees prior in-flight content.
+	 */
+	private attachInFlightBuffer(sessionId: string, session: AgentSession): void {
+		const buffer: InFlightBuffer = {
+			turnStartedAt: 0,
+			text: "",
+			thinking: "",
+			toolCallStarts: [],
+			isActive: false,
+		};
+		this.inFlightBuffers.set(sessionId, buffer);
+		const unsubscribe = session.subscribe((event) => {
+			if (event.type === "agent_start") {
+				buffer.turnStartedAt = Date.now();
+				buffer.text = "";
+				buffer.thinking = "";
+				buffer.toolCallStarts = [];
+				buffer.isActive = true;
+				return;
+			}
+			if (event.type === "agent_end") {
+				buffer.text = "";
+				buffer.thinking = "";
+				buffer.toolCallStarts = [];
+				buffer.isActive = false;
+				return;
+			}
+			if (event.type === "message_end") {
+				// Each LLM call inside a multi-step turn ends with message_end and
+				// its content gets persisted to history. The chat draft in the UI
+				// keeps accumulating across calls, but the buffer should reset so
+				// it only ever holds the *current* in-flight LLM call's deltas.
+				buffer.text = "";
+				buffer.thinking = "";
+				buffer.toolCallStarts = [];
+				return;
+			}
+			if (event.type === "message_update") {
+				const sub = event.assistantMessageEvent;
+				if (sub.type === "text_delta") {
+					buffer.text += sub.delta;
+				} else if (sub.type === "thinking_delta") {
+					buffer.thinking += sub.delta;
+				} else if (sub.type === "toolcall_start") {
+					const idx = sub.contentIndex;
+					const tc = sub.partial?.content?.[idx];
+					if (tc && tc.type === "toolCall") {
+						buffer.toolCallStarts.push({
+							toolCallId: String(tc.id ?? ""),
+							toolName: String(tc.name ?? ""),
+						});
+					}
+				}
+			}
+		});
+		this.inFlightUnsubscribers.set(sessionId, unsubscribe);
 	}
 
 	async setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void> {
@@ -306,6 +393,38 @@ export class RuntimeHost implements SessionFacade {
 				type: "todo_update",
 				items: [...todoItems],
 			} as SessionEvent);
+		}
+
+		// Replay in-flight assistant deltas accumulated since agent_start so that
+		// a renderer reconnecting mid-stream (e.g. after switching sessions away
+		// and back) sees the partial assistant content. Without this, any text
+		// produced before reconnection would be lost (the runtime only persists
+		// assistant messages on message_end, and a fresh subscribe only forwards
+		// future events).
+		const buffer = this.inFlightBuffers.get(sessionId);
+		if (buffer?.isActive) {
+			if (buffer.thinking) {
+				handler({
+					...this.baseEvent(sessionId, "agent"),
+					type: "thinking.delta",
+					delta: buffer.thinking,
+				});
+			}
+			if (buffer.text) {
+				handler({
+					...this.baseEvent(sessionId, "agent"),
+					type: "message.delta",
+					delta: buffer.text,
+				});
+			}
+			for (const tc of buffer.toolCallStarts) {
+				handler({
+					...this.baseEvent(sessionId, "agent"),
+					type: "toolcall.start",
+					toolCallId: tc.toolCallId,
+					toolName: tc.toolName,
+				});
+			}
 		}
 
 		return handle.session.subscribe((event) => {
@@ -426,6 +545,9 @@ export class RuntimeHost implements SessionFacade {
 		// lock is released and the in-memory handle does not outlive the file.
 		const existing = this.findHandleBySessionPath(sessionPath);
 		if (existing) {
+			this.inFlightUnsubscribers.get(existing.sessionId)?.();
+			this.inFlightUnsubscribers.delete(existing.sessionId);
+			this.inFlightBuffers.delete(existing.sessionId);
 			existing.handle.session.dispose();
 			this.sessions.delete(existing.sessionId);
 		}
@@ -466,6 +588,9 @@ export class RuntimeHost implements SessionFacade {
 	async disposeSession(sessionId: string): Promise<void> {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return;
+		this.inFlightUnsubscribers.get(sessionId)?.();
+		this.inFlightUnsubscribers.delete(sessionId);
+		this.inFlightBuffers.delete(sessionId);
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
 		this.currentTurnStartedAt.delete(sessionId);
@@ -480,6 +605,7 @@ export class RuntimeHost implements SessionFacade {
 	async disposeAllSessions(): Promise<void> {
 		for (const [sessionId, handle] of this.sessions) {
 			try {
+				this.inFlightUnsubscribers.get(sessionId)?.();
 				handle.session.dispose();
 			} catch (err) {
 				console.error(`[RuntimeHost.disposeAllSessions] failed to dispose ${sessionId}:`, err);
@@ -488,6 +614,8 @@ export class RuntimeHost implements SessionFacade {
 		}
 		this.sessions.clear();
 		this.currentTurnStartedAt.clear();
+		this.inFlightUnsubscribers.clear();
+		this.inFlightBuffers.clear();
 	}
 
 	private requireSession(sessionId: string): SessionHandle {
