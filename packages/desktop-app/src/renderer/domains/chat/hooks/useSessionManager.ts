@@ -161,10 +161,22 @@ export function useSessionManager(): SessionManagerResult {
 
 			// If session is still streaming, adopt the last history assistant message as draft
 			// so that incoming streaming events append to it instead of creating a duplicate.
+			// IMPORTANT: only adopt an assistant message that appears AFTER the latest user
+			// message. Otherwise the still-streaming turn (whose assistant content is not yet
+			// persisted to disk) would be appended to the previous turn's assistant — which
+			// sits BEFORE the new user message in history, causing the streaming bubble to
+			// render above the user bubble.
 			if (state.isStreaming) {
 				const startedAt = state.currentTurnStartedAt ?? Date.now();
 				let adoptedId: string | null = null;
+				let lastUserIdx = -1;
 				for (let i = mapped.length - 1; i >= 0; i--) {
+					if (mapped[i].role === "user") {
+						lastUserIdx = i;
+						break;
+					}
+				}
+				for (let i = mapped.length - 1; i > lastUserIdx; i--) {
 					if (mapped[i].role === "assistant") {
 						adoptDraftId(mapped[i].id);
 						adoptedId = mapped[i].id;
