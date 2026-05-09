@@ -8,6 +8,7 @@ import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
 import { DocxPreview } from "../../activity-panel/components/previews/DocxPreview";
+import { HtmlPreview } from "../../activity-panel/components/previews/HtmlPreview";
 import { ImagePreview } from "../../activity-panel/components/previews/ImagePreview";
 import { MarkdownPreview } from "../../activity-panel/components/previews/MarkdownPreview";
 import { PdfPreview } from "../../activity-panel/components/previews/PdfPreview";
@@ -18,7 +19,7 @@ const MARKDOWN_EXTENSIONS = new Set(["md", "mdx"]);
 const TEXT_EXTENSIONS = new Set([
 	"md", "mdx",
 	"ts", "tsx", "js", "jsx", "mjs", "cjs",
-	"json", "yaml", "yml", "toml", "xml", "html", "css", "scss", "less",
+	"json", "yaml", "yml", "toml", "xml", "html", "htm", "css", "scss", "less",
 	"py", "go", "rs", "java", "kt", "swift", "rb", "php", "c", "cpp", "h", "cs",
 	"sh", "bash", "zsh", "sql", "graphql", "gql", "lua", "r", "dart",
 	"env", "lock", "ini", "cfg", "conf", "log", "txt",
@@ -242,6 +243,9 @@ function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
 				<PdfPreview content={state.content} />
 			</div>
 		);
+	}
+	if ((ext === "html" || ext === "htm") && state.encoding === "utf8") {
+		return <HtmlPreview content={state.content} extension={ext} theme={theme} />;
 	}
 
 	const scrollWrap = "min-h-0 flex-1 overflow-y-auto";

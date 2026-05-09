@@ -14,6 +14,7 @@ const EXT_TO_LANG: Record<string, string> = {
 	toml: "toml",
 	xml: "xml",
 	html: "html",
+	htm: "html",
 	css: "css",
 	scss: "scss",
 	less: "less",
