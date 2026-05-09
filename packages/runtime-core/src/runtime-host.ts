@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { Message, TextContent } from "@mariozechner/pi-ai";
+import { completeSimple, type Message, type TextContent } from "@mariozechner/pi-ai";
 import {
 	type AgentSession,
 	type AgentSessionEvent,
@@ -585,6 +585,90 @@ export class RuntimeHost implements SessionFacade {
 		handle.session.setSessionName(name);
 	}
 
+	/**
+	 * Generate a short title from the first round of conversation and persist it
+	 * onto the session. Returns the persisted name, or null when the model/key
+	 * is not available or the LLM produced no usable text.
+	 */
+	async autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null> {
+		const handle = this.requireSession(sessionId);
+		const model = handle.session.model;
+		if (!model) {
+			console.warn(`[autoTitleSession] session=${sessionId} skipped: no model on session`);
+			return null;
+		}
+		const apiKey = await handle.session.modelRegistry.getApiKey(model);
+		if (!apiKey) {
+			console.warn(
+				`[autoTitleSession] session=${sessionId} skipped: no apiKey for model ${model.provider}/${model.id}`,
+			);
+			return null;
+		}
+		console.log(
+			`[autoTitleSession] session=${sessionId} model=${model.provider}/${model.id} userLen=${userText.length} assistantLen=${assistantText.length}`,
+		);
+
+		const trimmedUser = userText.trim().slice(0, 800);
+		const trimmedAssistant = assistantText.trim().slice(0, 1500);
+		const promptText =
+			`请为下面这段对话生成一个 6 到 14 个字符之间的中文短标题，用来在侧边栏标识这个会话。\n` +
+			`要求：只输出标题本身；不要引号、书名号、句号、感叹号或其他标点；不要任何解释或前后缀。\n\n` +
+			`<用户消息>\n${trimmedUser}\n</用户消息>\n\n` +
+			`<助手回复>\n${trimmedAssistant}\n</助手回复>`;
+
+		try {
+			const response = await completeSimple(
+				model,
+				{
+					systemPrompt: "你是会话标题生成器。严格按用户要求只输出一个简短中文标题。",
+					messages: [
+						{
+							role: "user" as const,
+							content: [{ type: "text" as const, text: promptText }],
+							timestamp: Date.now(),
+						},
+					],
+				},
+				// reasoning: "minimal" — for reasoning-capable models (e.g. gpt-oss)
+				// minimise the thinking budget so the answer comes out as text
+				// instead of being consumed entirely by the thinking channel.
+				{ apiKey, maxTokens: 256, reasoning: "minimal" },
+			);
+			if (response.stopReason === "error") {
+				console.warn(
+					`[autoTitleSession] session=${sessionId} stopReason=error message=${
+						(response as { errorMessage?: string }).errorMessage ?? "(none)"
+					}`,
+				);
+				return null;
+			}
+			const rawText = response.content
+				.filter((c): c is TextContent => c.type === "text")
+				.map((c) => c.text)
+				.join("")
+				.trim();
+			// Fallback: some reasoning models (e.g. gpt-oss) route the whole short
+			// answer through the thinking channel. Use thinking content as a
+			// candidate when no plain text was produced.
+			const rawThinking = response.content
+				.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
+				.map((c) => c.thinking)
+				.join("\n")
+				.trim();
+			const raw = rawText || rawThinking;
+			const cleaned = sanitizeAutoTitle(raw);
+			console.log(
+				`[autoTitleSession] session=${sessionId} textLen=${rawText.length} thinkingLen=${rawThinking.length} cleaned=${JSON.stringify(cleaned)}`,
+			);
+			if (!cleaned) return null;
+			handle.session.setSessionName(cleaned);
+			return cleaned;
+		} catch (err) {
+			console.warn(`[RuntimeHost.autoTitleSession] generation failed for session=${sessionId}:`, err);
+			return null;
+		}
+	}
+
 	async disposeSession(sessionId: string): Promise<void> {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return;
@@ -968,4 +1052,25 @@ export class RuntimeHost implements SessionFacade {
 			.map((item) => item.text)
 			.join("");
 	}
+}
+
+function sanitizeAutoTitle(raw: string): string {
+	if (!raw) return "";
+	// Reasoning models often emit a long internal monologue ending with the
+	// final short answer. Heuristic: prefer the LAST non-empty line if it is
+	// reasonably short (≤ 30 chars), else fall back to the first non-empty line.
+	const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+	if (lines.length === 0) return "";
+	const lastLine = lines[lines.length - 1];
+	const firstLine = lines[0];
+	const candidate = Array.from(lastLine.trim()).length <= 30 ? lastLine : firstLine;
+	// Strip wrapping quotes/brackets/punctuation that the model commonly adds.
+	const stripped = candidate
+		.replace(/^[\s"'`「『《<[(（【“”‘’]+/, "")
+		.replace(/[\s"'`」』》>\])）】“”‘’。．.!?！？，,、；;：:]+$/, "")
+		.trim();
+	if (!stripped) return "";
+	// Hard cap at 14 chars (Array.from to count code points correctly).
+	const chars = Array.from(stripped);
+	return chars.length > 14 ? chars.slice(0, 14).join("") : stripped;
 }

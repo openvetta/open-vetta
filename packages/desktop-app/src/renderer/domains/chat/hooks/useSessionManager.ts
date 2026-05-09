@@ -68,10 +68,15 @@ export function useSessionManager(): SessionManagerResult {
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
-	const { loadSessions } = useProjects();
+	const { loadSessions, applyLocalRename, ensureLocalSession, projects } = useProjects();
+	const projectsRef = useRef(projects);
+	projectsRef.current = projects;
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef =
 		useRef<(cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>>();
+	// Sessions for which auto-title has already been attempted (or skipped because
+	// the session was opened with prior history / already had a name).
+	const autoTitledSessionsRef = useRef<Set<string>>(new Set());
 
 	// ── Delta batching: accumulate text/thinking deltas per rAF frame ──
 	const pendingTextDeltaRef = useRef("");
@@ -135,6 +140,12 @@ export function useSessionManager(): SessionManagerResult {
 			setChatMessages(mapped);
 			setTurnModifiedFiles(extractModifiedFiles(mapped));
 
+			// If this session already has any prior turn (loaded from disk) we never
+			// want to auto-rename — only brand-new sessions on their first round.
+			if (sessionPath && mapped.some((m) => m.role === "user")) {
+				autoTitledSessionsRef.current.add(sessionPath);
+			}
+
 			// Restore per-session state: context usage from backend, turn stats from cache
 			const state = await window.vetta.session.getState(sessionId);
 			__perf("after getState");
@@ -156,7 +167,11 @@ export function useSessionManager(): SessionManagerResult {
 				localStorage.setItem("vetta-selected-model", backendModelKey);
 			}
 
-			const cachedKey = sessionPath ?? "";
+			// Resolve the on-disk session path so that downstream features (turn
+			// stats cache, auto-title rename) can key off the actual file path even
+			// for sessions that were just created by the runtime.
+			const resolvedSessionPath = sessionPath ?? (await window.vetta.session.getSessionPath(sessionId)) ?? "";
+			const cachedKey = resolvedSessionPath;
 			setLastTurnUsage(turnStatsCache.get(cachedKey) ?? null);
 
 			// If session is still streaming, adopt the last history assistant message as draft
@@ -246,6 +261,67 @@ export function useSessionManager(): SessionManagerResult {
 								}
 								return prev;
 							});
+
+							// First-round auto title: trigger only on successful agent_end of
+							// a brand-new session, exactly once per sessionPath.
+							if (event.phase === "agent_end") {
+								const active = activeSessionRef.current;
+								const sp = active?.sessionPath;
+								const cwd = active?.cwd;
+								const rid = active?.runtimeId;
+								// Skip auto-title for batch-task projects entirely — those sessions
+								// are driven by the batch executor and should keep their batch-managed
+								// names (or default firstMessage label).
+								const projectType = cwd ? projectsRef.current.find((p) => p.cwd === cwd)?.type : undefined;
+								if (sp && cwd && rid && projectType !== "batch" && !autoTitledSessionsRef.current.has(sp)) {
+									autoTitledSessionsRef.current.add(sp);
+									// Snapshot current chat messages via a no-op updater, then run
+									// the LLM call asynchronously without blocking the UI.
+									let snapshot: ChatMessage[] = [];
+									setChatMessages((prev) => {
+										snapshot = prev;
+										return prev;
+									});
+									void (async () => {
+										const firstUser = snapshot.find((m) => m.role === "user");
+										let lastAssistant: ChatMessage | undefined;
+										for (let i = snapshot.length - 1; i >= 0; i--) {
+											if (snapshot[i].role === "assistant") {
+												lastAssistant = snapshot[i];
+												break;
+											}
+										}
+										if (!firstUser || !lastAssistant) {
+											autoTitledSessionsRef.current.delete(sp);
+											return;
+										}
+										const userText = firstUser.text ?? "";
+										const assistantText = lastAssistant.text ?? "";
+										if (!userText.trim() && !assistantText.trim()) {
+											autoTitledSessionsRef.current.delete(sp);
+											return;
+										}
+										try {
+											console.log(`[auto-title] requesting for session=${rid} sp=${sp}`);
+											const name = await window.vetta.session.autoTitle(rid, userText, assistantText);
+											console.log(`[auto-title] got name=${name ?? "(null)"} for sp=${sp}`);
+											if (name) {
+												// Optimistic local update for sessions already present in the map.
+												applyLocalRename(cwd, sp, name);
+												// Re-read from disk: handles brand-new sessions whose JSONL only
+												// just appeared after the assistant's first message flushed, and
+												// guarantees the persisted name is reflected in the sidebar.
+												await loadSessions(cwd);
+											} else {
+												autoTitledSessionsRef.current.delete(sp);
+											}
+										} catch (err) {
+											console.warn("[useSessionManager] auto-title failed", err);
+											autoTitledSessionsRef.current.delete(sp);
+										}
+									})();
+								}
+							}
 						}
 						return;
 					}
@@ -370,6 +446,7 @@ export function useSessionManager(): SessionManagerResult {
 			setTurnModifiedFiles,
 			flushDeltas,
 			scheduleDeltaFlush,
+			applyLocalRename,
 		],
 	);
 
@@ -401,6 +478,22 @@ export function useSessionManager(): SessionManagerResult {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 		}
 		setChatMessages((prev) => [...prev, userMsg]);
+
+		// Optimistically expose this session in the sidebar before the disk file
+		// has been flushed (SessionManager only writes after the assistant's
+		// first message). Use the user's prompt prefix as a temporary label;
+		// auto-title or the next loadSessions will overwrite as appropriate.
+		const sp = activeSessionRef.current?.sessionPath;
+		if (sp) {
+			ensureLocalSession(session.cwd, {
+				id: session.runtimeId,
+				path: sp,
+				cwd: session.cwd,
+				firstMessage: rawText.slice(0, 80) || "(image)",
+				modifiedAt: Date.now(),
+			});
+		}
+
 		const promptReq: {
 			text: string;
 			images?: Array<{ type: "image"; data: string; mimeType: string }>;
@@ -429,6 +522,7 @@ export function useSessionManager(): SessionManagerResult {
 		setMentionedFiles,
 		setChatMessages,
 		loadSessions,
+		ensureLocalSession,
 	]);
 
 	const abortMessage = useCallback(async () => {
