@@ -111,6 +111,33 @@ function parseFrontmatter(content: string): SkillFrontmatter {
 	return result;
 }
 
+function yamlDoubleQuote(value: string): string {
+	const escaped = value
+		.replace(/\\/g, "\\\\")
+		.replace(/"/g, '\\"')
+		.replace(/\r/g, "\\r")
+		.replace(/\n/g, "\\n")
+		.replace(/\t/g, "\\t");
+	return `"${escaped}"`;
+}
+
+/**
+ * 把 frontmatter 中 description 字段重写为 double-quoted YAML 字符串，
+ * 防止 description 包含 `:` 等字符时 YAML 解析失败（agent 用的是严格 YAML 解析器）。
+ * 仅替换单行 description；其他字段原样保留。
+ */
+function rewriteFrontmatterDescription(content: string, description: string): string {
+	const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+	if (!match) return content;
+	const original = match[0];
+	const body = match[1];
+	const replaced = body.replace(/^description:[ \t]*.*$/m, `description: ${yamlDoubleQuote(description)}`);
+	if (replaced === body) return content;
+	const eolMatch = original.match(/\r?\n/);
+	const eol = eolMatch ? eolMatch[0] : "\n";
+	return content.replace(original, `---${eol}${replaced}${eol}---`);
+}
+
 function findShallowestSkillMd(rootDir: string): string | null {
 	let best: { path: string; depth: number } | null = null;
 	const walk = (dir: string, depth: number): void => {
@@ -329,6 +356,19 @@ export function registerSkillsIpc(): () => void {
 
 			await mkdir(skillsBaseDir, { recursive: true });
 			cpSync(dirname(skillMdPath), targetDir, { recursive: true });
+
+			// 规范化落盘后的 SKILL.md：将 description 重写为 double-quoted，避免内含 `:` 等字符
+			// 触发 agent 端 YAML 解析失败导致技能加载不出来。
+			try {
+				const targetSkillMd = join(targetDir, "SKILL.md");
+				const original = readFileSync(targetSkillMd, "utf-8");
+				const normalized = rewriteFrontmatterDescription(original, fm.description);
+				if (normalized !== original) {
+					writeFileSync(targetSkillMd, normalized, "utf-8");
+				}
+			} catch {
+				// 规范化失败不阻塞导入，保留原始文件
+			}
 
 			manifest[fm.name] = {
 				name: fm.name,
