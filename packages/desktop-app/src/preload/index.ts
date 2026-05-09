@@ -27,6 +27,7 @@ const CHANNELS = {
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
+	AUTO_TITLE: "vetta:session:auto-title",
 	DISPOSE: "vetta:session:dispose",
 	EVENT: "vetta:session:event",
 } as const;
@@ -407,6 +408,8 @@ const api: DesktopApi = {
 		getFullHistory: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_FULL_HISTORY, sessionId),
 		delete: async (sessionPath) => ipcRenderer.invoke(CHANNELS.DELETE, sessionPath),
 		rename: async (sessionPath, name) => ipcRenderer.invoke(CHANNELS.RENAME, sessionPath, name),
+		autoTitle: async (sessionId, userText, assistantText) =>
+			ipcRenderer.invoke(CHANNELS.AUTO_TITLE, sessionId, userText, assistantText),
 		dispose: async (sessionId) => ipcRenderer.invoke(CHANNELS.DISPOSE, sessionId),
 	},
 };

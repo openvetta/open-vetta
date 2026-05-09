@@ -44,6 +44,7 @@ export interface DesktopSessionApi {
 	getFullHistory(sessionId: string): Promise<HistoryEntry[]>;
 	delete(sessionPath: string): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
+	autoTitle(sessionId: string, userText: string, assistantText: string): Promise<string | null>;
 	dispose(sessionId: string): Promise<void>;
 }
 
