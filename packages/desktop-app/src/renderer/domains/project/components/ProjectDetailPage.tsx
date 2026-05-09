@@ -1,6 +1,7 @@
 import { useParams } from "@tanstack/react-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
 	activityPanelOpenAtom,
 	authTokenAtom,
@@ -143,6 +144,8 @@ function useCreatedAt(cwd: string) {
 	return createdAt;
 }
 
+const easeOut = [0.22, 1, 0.36, 1] as const;
+
 export function ProjectDetailPage(): JSX.Element {
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
@@ -159,6 +162,7 @@ export function ProjectDetailPage(): JSX.Element {
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
+	const [editorFocused, setEditorFocused] = useState(false);
 
 	// 监听工作流 SSE 事件
 	useWorkflowSSE();
@@ -227,187 +231,351 @@ export function ProjectDetailPage(): JSX.Element {
 			{/* Drag region */}
 			<div className="drag-region h-12 shrink-0" />
 			<div className="flex min-h-0 flex-1">
-				<div className="flex min-w-0 flex-1 flex-col">
-			{/* Hero header */}
-			<div className="shrink-0 px-8 pb-6">
-				{/* Top row: badge + actions */}
-				<div className="mb-4 flex items-center justify-between">
-					<div className="flex items-center gap-2">
-						{projectTypeLabel && (
-							<span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-								{projectTypeLabel}
-							</span>
-						)}
-						{!isPersonal && project?.type === "normal" && !workflowInstance && (
-							<Button
-								variant="ghost"
-								size="xs"
-								className="gap-1 text-muted-foreground/60 hover:text-foreground"
-								onClick={() => setBindDialogOpen(true)}
-							>
-								<span className="icon-[mdi--sitemap-outline] text-xs" />
-								<span className="text-[10px]">绑定工作流</span>
-							</Button>
-						)}
-					</div>
-					<div className="flex items-center gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							className="gap-1.5 rounded-lg border-border/50 text-muted-foreground/70 transition-all duration-200 hover:border-foreground/20 hover:text-foreground"
-							onClick={() => void window.vetta.shell.showInFolder(decodedCwd)}
-							title={isMac ? "在 Finder 中显示" : "在资源管理器中显示"}
+				<div className="relative flex min-w-0 flex-1 flex-col">
+					{/* Hero header */}
+					<div className="relative shrink-0 px-10 pt-0 pb-5">
+						{/* Top row: badge + actions */}
+						<motion.div
+							className="mb-3 flex items-center justify-between"
+							initial={{ opacity: 0, y: -8 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.5, ease: easeOut }}
 						>
-							<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
-							<span className="text-[12px]">{isMac ? "Finder" : "资源管理器"}</span>
-						</Button>
-						{exportable && (
-							<Button
-								variant="outline"
-								size="sm"
-								className="gap-1.5 rounded-lg border-border/50 text-muted-foreground/70 transition-all duration-200 hover:border-foreground/20 hover:text-foreground"
-								onClick={handleExportProject}
-								title="导出项目（含会话历史）"
-							>
-								<span className="icon-[mdi--export-variant] h-3.5 w-3.5" />
-								<span className="text-[12px]">导出</span>
-							</Button>
-						)}
-						<Button
-							size="sm"
-							className="gap-1.5 rounded-lg bg-foreground text-background transition-all duration-200 hover:bg-foreground/90"
-							onClick={handleNewSession}
-						>
-							<span className="icon-[mdi--plus] h-4 w-4" />
-							<span className="text-[12px] font-medium">新会话</span>
-						</Button>
-						<Button
-							size="icon-xs"
-							variant="ghost"
-							title={activityOpen ? "关闭活动面板" : "打开活动面板"}
-							onClick={() => setActivityOpen((o) => !o)}
-							className={activityOpen ? "bg-accent text-foreground" : ""}
-						>
-							<span className="icon-[mdi--dock-right] text-[14px]" />
-						</Button>
-					</div>
-				</div>
-
-				{/* Project title */}
-				<h1 className="mb-1.5 text-[28px] font-bold leading-tight tracking-tight text-foreground">
-					{displayName}
-				</h1>
-				<p className="mb-4 truncate font-mono text-[11px] text-muted-foreground/40">{decodedCwd}</p>
-
-				{/* Stat pills */}
-				<div className="flex items-center gap-2">
-					<StatPill icon="icon-[mdi--chat-outline]" value={`${sessionCount} 个会话`} />
-					{createdAt && <StatPill icon="icon-[mdi--calendar-outline]" value={formatDate(createdAt)} />}
-					{isBatch && (
-						<StatPill
-							icon="icon-[mdi--layers-outline]"
-							value={`${batchProject.tasks.length} 个任务`}
-						/>
-					)}
-				</div>
-			</div>
-
-			{/* Divider */}
-			<div className="mx-8 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
-
-			{/* Scrollable content area */}
-			<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-				{/* Batch queue status (for batch projects only) */}
-				{isBatch && (
-					<div className="px-8 py-5">
-						<BatchQueueStatus project={batchProject} />
-					</div>
-				)}
-
-				{/* Schedule status (for schedule projects only) */}
-				{project?.type === "schedule" && <ScheduleStatus cwd={decodedCwd} />}
-
-				{/* Flowing workflow (for flowing projects only) */}
-				{project?.type === "flowing" && flowingId && (
-					<div className="px-8 py-5">
-						<FlowingWorkflow flowingId={flowingId} />
-					</div>
-				)}
-
-				{/* Workflow progress */}
-				{!isPersonal && workflowInstance && (
-					<div className="px-8 py-5">
-						<WorkflowProgress instance={workflowInstance} />
-					</div>
-				)}
-
-				{/* AGENTS.md editor section */}
-				<div className="flex min-h-[300px] flex-1 flex-col px-8 py-5">
-					<div className="mb-3 flex items-center justify-between">
-						<div className="flex items-center gap-2.5">
-							<div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/60">
-								<span className="icon-[mdi--file-document-edit-outline] h-3.5 w-3.5 text-muted-foreground" />
-							</div>
-							<h2 className="text-[13px] font-semibold text-foreground">AGENTS.md</h2>
-							{isDirty && (
-								<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ring" title="未保存的更改" />
-							)}
-						</div>
-						<div className="flex items-center gap-2.5">
-							{saveStatus === "saved" && (
-								<span className="animate-in fade-in text-[12px] font-medium text-emerald-400/90">
-									已保存
-								</span>
-							)}
-							{saveStatus === "error" && (
-								<span className="animate-in fade-in text-[12px] font-medium text-destructive">
-									保存失败
-								</span>
-							)}
-							<Button
-								variant="outline"
-								size="sm"
-								className="gap-1.5 rounded-lg border-border/50 transition-all duration-200 hover:border-foreground/20"
-								onClick={() => void save()}
-								disabled={!isDirty || saveStatus === "saving"}
-							>
-								{saveStatus === "saving" ? (
-									<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
-								) : (
-									<span className="icon-[mdi--content-save-outline] h-3.5 w-3.5" />
+							<div className="flex items-center gap-2.5">
+								<AnimatePresence mode="popLayout">
+									{projectTypeLabel && (
+										<motion.span
+											key={projectTypeLabel}
+											initial={{ opacity: 0, scale: 0.85, y: -4 }}
+											animate={{ opacity: 1, scale: 1, y: 0 }}
+											exit={{ opacity: 0, scale: 0.85, y: -4 }}
+											transition={{ type: "spring", stiffness: 380, damping: 26 }}
+											className="relative inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary shadow-[0_0_24px_-8px_var(--primary)]"
+										>
+											<span className="relative flex h-1.5 w-1.5">
+												<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+												<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+											</span>
+											{projectTypeLabel}
+										</motion.span>
+									)}
+								</AnimatePresence>
+								{!isPersonal && project?.type === "normal" && !workflowInstance && (
+									<motion.div
+										initial={{ opacity: 0, x: -6 }}
+										animate={{ opacity: 1, x: 0 }}
+										transition={{ delay: 0.15, duration: 0.4, ease: easeOut }}
+									>
+										<Button
+											variant="ghost"
+											size="xs"
+											className="gap-1 rounded-full text-muted-foreground/60 hover:bg-primary/8 hover:text-primary"
+											onClick={() => setBindDialogOpen(true)}
+										>
+											<span className="icon-[mdi--sitemap-outline] text-xs" />
+											<span className="text-[10px]">绑定工作流</span>
+										</Button>
+									</motion.div>
 								)}
-								保存
-							</Button>
-						</div>
+							</div>
+							<motion.div
+								className="flex items-center gap-2"
+								initial="hidden"
+								animate="show"
+								variants={{
+									hidden: {},
+									show: { transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
+								}}
+							>
+								<ActionButton
+									variant="outline"
+									onClick={() => void window.vetta.shell.showInFolder(decodedCwd)}
+									title={isMac ? "在 Finder 中显示" : "在资源管理器中显示"}
+								>
+									<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
+									<span className="text-[12px]">{isMac ? "Finder" : "资源管理器"}</span>
+								</ActionButton>
+								{exportable && (
+									<ActionButton
+										variant="outline"
+										onClick={handleExportProject}
+										title="导出项目（含会话历史）"
+									>
+										<span className="icon-[mdi--export-variant] h-3.5 w-3.5" />
+										<span className="text-[12px]">导出</span>
+									</ActionButton>
+								)}
+								<motion.div
+									variants={{
+										hidden: { opacity: 0, y: -6, scale: 0.96 },
+										show: { opacity: 1, y: 0, scale: 1 },
+									}}
+									transition={{ type: "spring", stiffness: 380, damping: 26 }}
+									whileHover={{ scale: 1.04, y: -1 }}
+									whileTap={{ scale: 0.96 }}
+								>
+									<Button
+										size="sm"
+										className="gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-4 text-primary-foreground shadow-[0_8px_24px_-10px_var(--primary)] transition-shadow hover:shadow-[0_12px_30px_-8px_var(--primary)]"
+										onClick={handleNewSession}
+									>
+										<span className="icon-[mdi--plus] h-4 w-4" />
+										<span className="text-[12px] font-medium">新会话</span>
+									</Button>
+								</motion.div>
+								<motion.div
+									variants={{
+										hidden: { opacity: 0, y: -6, scale: 0.96 },
+										show: { opacity: 1, y: 0, scale: 1 },
+									}}
+									transition={{ type: "spring", stiffness: 380, damping: 26 }}
+									whileHover={{ scale: 1.08 }}
+									whileTap={{ scale: 0.92 }}
+								>
+									<Button
+										size="icon-xs"
+										variant="ghost"
+										title={activityOpen ? "关闭活动面板" : "打开活动面板"}
+										onClick={() => setActivityOpen((o) => !o)}
+										className={
+											activityOpen
+												? "bg-primary/15 text-primary hover:bg-primary/20"
+												: "hover:bg-accent"
+										}
+									>
+										<span className="icon-[mdi--dock-right] text-[14px]" />
+									</Button>
+								</motion.div>
+							</motion.div>
+						</motion.div>
+
+						{/* Project title */}
+						<motion.h1
+							className="mb-1.5 bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[30px] font-bold leading-[1.1] tracking-tight text-transparent"
+							initial={{ opacity: 0, y: 14 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.1, ease: easeOut }}
+						>
+							{displayName}
+						</motion.h1>
+						<motion.p
+							className="mb-4 flex items-center gap-1.5 truncate font-mono text-[11px] text-muted-foreground/50"
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							transition={{ duration: 0.5, delay: 0.25 }}
+						>
+							<span className="icon-[mdi--folder-outline] h-3 w-3 opacity-60" />
+							{decodedCwd}
+						</motion.p>
+
+						{/* Stat pills */}
+						<motion.div
+							className="flex flex-wrap items-center gap-2"
+							initial="hidden"
+							animate="show"
+							variants={{
+								hidden: {},
+								show: { transition: { staggerChildren: 0.07, delayChildren: 0.3 } },
+							}}
+						>
+							<StatPill icon="icon-[mdi--chat-outline]" value={`${sessionCount} 个会话`} />
+							{createdAt && <StatPill icon="icon-[mdi--calendar-outline]" value={formatDate(createdAt)} />}
+							{isBatch && (
+								<StatPill
+									icon="icon-[mdi--layers-outline]"
+									value={`${batchProject.tasks.length} 个任务`}
+								/>
+							)}
+						</motion.div>
 					</div>
 
-					{loading ? (
-						<div className="flex flex-1 items-center justify-center">
-							<span className="icon-[mdi--loading] h-5 w-5 animate-spin text-muted-foreground/50" />
-						</div>
-					) : (
-						<div className="group relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/30 bg-muted/15 transition-colors duration-300 focus-within:border-ring/30 focus-within:bg-muted/25">
-							<textarea
-								ref={textareaRef}
-								value={content}
-								onChange={(e) => setContent(e.target.value)}
-								placeholder="在此编写 AGENTS.md 项目指令..."
-								spellCheck={false}
-								className="min-h-0 flex-1 resize-none bg-transparent px-5 py-4 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/25 focus:outline-none"
-							/>
-						</div>
-					)}
+					{/* Divider */}
+					<div className="relative mx-10 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
-					<p className="mt-3 text-[11px] text-muted-foreground/40">
-						AGENTS.md 用于定义项目级别的 AI 指令，所有会话都会自动加载此文件。
-						<kbd className="ml-1 rounded border border-border/30 bg-accent/30 px-1 py-0.5 font-mono text-[10px] text-muted-foreground/50">
-							{isMac ? "⌘" : "Ctrl"}+S
-						</kbd>
-						{" "}快速保存
-					</p>
-				</div>
-			</div>
+					{/* Scrollable content area */}
+					<div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
+						{/* Batch queue status (for batch projects only) */}
+						{isBatch && (
+							<motion.div
+								className="px-10 py-6"
+								initial={{ opacity: 0, y: 10 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
+							>
+								<BatchQueueStatus project={batchProject} />
+							</motion.div>
+						)}
 
+						{/* Schedule status (for schedule projects only) */}
+						{project?.type === "schedule" && (
+							<motion.div
+								initial={{ opacity: 0, y: 10 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
+							>
+								<ScheduleStatus cwd={decodedCwd} />
+							</motion.div>
+						)}
+
+						{/* Flowing workflow (for flowing projects only) */}
+						{project?.type === "flowing" && flowingId && (
+							<motion.div
+								className="px-10 py-6"
+								initial={{ opacity: 0, y: 10 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
+							>
+								<FlowingWorkflow flowingId={flowingId} />
+							</motion.div>
+						)}
+
+						{/* Workflow progress */}
+						{!isPersonal && workflowInstance && (
+							<motion.div
+								className="px-10 py-6"
+								initial={{ opacity: 0, y: 10 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.5, delay: 0.4, ease: easeOut }}
+							>
+								<WorkflowProgress instance={workflowInstance} />
+							</motion.div>
+						)}
+
+						{/* AGENTS.md editor section */}
+						<motion.div
+							className="flex min-h-[340px] flex-1 flex-col px-10 py-6"
+							initial={{ opacity: 0, y: 16 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.45, ease: easeOut }}
+						>
+							<div className="mb-4 flex items-center justify-between">
+								<div className="flex items-center gap-2.5">
+									<motion.div
+										className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-inset ring-primary/20"
+										whileHover={{ rotate: -6, scale: 1.08 }}
+										transition={{ type: "spring", stiffness: 320, damping: 18 }}
+									>
+										<span className="icon-[mdi--file-document-edit-outline] h-3.5 w-3.5 text-primary" />
+									</motion.div>
+									<h2 className="text-[13px] font-semibold tracking-tight text-foreground">
+										项目人设
+									</h2>
+									<AnimatePresence>
+										{isDirty && (
+											<motion.span
+												key="dirty"
+												initial={{ opacity: 0, scale: 0 }}
+												animate={{ opacity: 1, scale: 1 }}
+												exit={{ opacity: 0, scale: 0 }}
+												className="relative flex h-1.5 w-1.5"
+												title="未保存的更改"
+											>
+												<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-70" />
+												<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+											</motion.span>
+										)}
+									</AnimatePresence>
+								</div>
+								<div className="flex items-center gap-2.5">
+									<AnimatePresence mode="popLayout">
+										{saveStatus === "saved" && (
+											<motion.span
+												key="saved"
+												initial={{ opacity: 0, x: 6 }}
+												animate={{ opacity: 1, x: 0 }}
+												exit={{ opacity: 0, x: 6 }}
+												className="flex items-center gap-1 text-[12px] font-medium text-emerald-400/90"
+											>
+												<span className="icon-[mdi--check-circle] h-3.5 w-3.5" />
+												已保存
+											</motion.span>
+										)}
+										{saveStatus === "error" && (
+											<motion.span
+												key="error"
+												initial={{ opacity: 0, x: 6 }}
+												animate={{ opacity: 1, x: 0 }}
+												exit={{ opacity: 0, x: 6 }}
+												className="flex items-center gap-1 text-[12px] font-medium text-destructive"
+											>
+												<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />
+												保存失败
+											</motion.span>
+										)}
+									</AnimatePresence>
+									<motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+										<Button
+											variant="outline"
+											size="sm"
+											className="gap-1.5 rounded-full border-border/50 transition-all duration-200 hover:border-primary/40 hover:text-primary disabled:opacity-40"
+											onClick={() => void save()}
+											disabled={!isDirty || saveStatus === "saving"}
+										>
+											{saveStatus === "saving" ? (
+												<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+											) : (
+												<span className="icon-[mdi--content-save-outline] h-3.5 w-3.5" />
+											)}
+											保存
+										</Button>
+									</motion.div>
+								</div>
+							</div>
+
+							{loading ? (
+								<div className="flex flex-1 items-center justify-center">
+									<motion.span
+										className="icon-[mdi--loading] h-5 w-5 text-primary/60"
+										animate={{ rotate: 360 }}
+										transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+									/>
+								</div>
+							) : (
+								<motion.div
+									className="group relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm"
+									animate={{
+										borderColor: editorFocused
+											? "color-mix(in oklab, var(--primary) 45%, transparent)"
+											: "color-mix(in oklab, var(--border) 50%, transparent)",
+										boxShadow: editorFocused
+											? "0 20px 60px -30px var(--primary), 0 0 0 4px color-mix(in oklab, var(--primary) 12%, transparent)"
+											: "0 1px 2px 0 rgba(0,0,0,0.05)",
+									}}
+									transition={{ duration: 0.35, ease: easeOut }}
+								>
+									{/* Subtle top accent bar */}
+									<motion.div
+										className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent"
+										initial={{ opacity: 0, scaleX: 0.5 }}
+										animate={{
+											opacity: editorFocused ? 1 : 0.25,
+											scaleX: editorFocused ? 1 : 0.6,
+										}}
+										transition={{ duration: 0.4, ease: easeOut }}
+									/>
+									<textarea
+										ref={textareaRef}
+										value={content}
+										onChange={(e) => setContent(e.target.value)}
+										onFocus={() => setEditorFocused(true)}
+										onBlur={() => setEditorFocused(false)}
+										placeholder="在此编写 AGENTS.md 项目指令..."
+										spellCheck={false}
+										className="min-h-0 flex-1 resize-none bg-transparent px-6 py-5 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
+									/>
+								</motion.div>
+							)}
+
+							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+								<span className="icon-[mdi--information-outline] h-3 w-3 opacity-60" />
+								AGENTS.md 用于定义项目级别的 AI 指令，所有会话都会自动加载此文件。
+								<kbd className="ml-1 rounded-md border border-border/40 bg-accent/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70 shadow-sm">
+									{isMac ? "⌘" : "Ctrl"}+S
+								</kbd>
+								<span>快速保存</span>
+							</p>
+						</motion.div>
+					</div>
 				</div>
 				<ActivityPanel cwd={decodedCwd} />
 			</div>
@@ -426,11 +594,53 @@ export function ProjectDetailPage(): JSX.Element {
 	);
 }
 
+function ActionButton({
+	children,
+	variant,
+	onClick,
+	title,
+}: {
+	children: React.ReactNode;
+	variant: "outline";
+	onClick: () => void;
+	title?: string;
+}): JSX.Element {
+	return (
+		<motion.div
+			variants={{
+				hidden: { opacity: 0, y: -6, scale: 0.96 },
+				show: { opacity: 1, y: 0, scale: 1 },
+			}}
+			transition={{ type: "spring", stiffness: 380, damping: 26 }}
+			whileHover={{ scale: 1.04, y: -1 }}
+			whileTap={{ scale: 0.96 }}
+		>
+			<Button
+				variant={variant}
+				size="sm"
+				className="gap-1.5 rounded-full border-border/50 bg-card/30 text-muted-foreground/80 backdrop-blur-sm transition-colors duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+				onClick={onClick}
+				title={title}
+			>
+				{children}
+			</Button>
+		</motion.div>
+	);
+}
+
 function StatPill({ icon, value }: { icon: string; value: string }): JSX.Element {
 	return (
-		<div className="flex items-center gap-1.5 rounded-lg bg-accent/40 px-2.5 py-1.5 text-[12px] text-muted-foreground/70 transition-colors duration-200 hover:bg-accent/60">
-			<span className={`${icon} h-3.5 w-3.5 opacity-50`} />
+		<motion.div
+			variants={{
+				hidden: { opacity: 0, y: 8, scale: 0.94 },
+				show: { opacity: 1, y: 0, scale: 1 },
+			}}
+			transition={{ type: "spring", stiffness: 320, damping: 24 }}
+			whileHover={{ y: -2, scale: 1.03 }}
+			className="group flex items-center gap-1.5 rounded-full border border-border/40 bg-card/40 px-3 py-1.5 text-[12px] text-muted-foreground/80 backdrop-blur-sm transition-colors duration-200 hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+		>
+			<span className={`${icon} h-3.5 w-3.5 opacity-60 transition-opacity group-hover:opacity-100`} />
 			<span>{value}</span>
-		</div>
+		</motion.div>
 	);
 }
