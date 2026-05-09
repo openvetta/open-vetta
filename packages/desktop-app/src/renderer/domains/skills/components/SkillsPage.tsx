@@ -273,14 +273,6 @@ function SceneCard({
 	actionState: ActionState;
 }): JSX.Element {
 	const isLoading = actionState === "loading";
-	// Stable per-scene radial spotlight position (gives each card a subtle, unique character).
-	const spot = useMemo(() => {
-		let h = 0;
-		for (let i = 0; i < scene.name.length; i++) {
-			h = (h * 31 + scene.name.charCodeAt(i)) & 0xffff;
-		}
-		return { x: 20 + (h % 60), y: 20 + ((h >> 4) % 50) };
-	}, [scene.name]);
 
 	return (
 		<motion.div
@@ -292,27 +284,48 @@ function SceneCard({
 			whileHover={{ y: -3 }}
 			className="group relative flex flex-col overflow-hidden rounded-2xl bg-muted ring-1 ring-inset ring-transparent transition-[box-shadow,background-color] duration-200 hover:ring-primary/40"
 		>
-			{/* Decorative hero strip — primary-only, soft */}
-			<div
-				className="relative h-16 overflow-hidden"
-				style={{
-					background: `radial-gradient(circle at ${spot.x}% ${spot.y}%, color-mix(in srgb, var(--primary) 22%, transparent) 0%, color-mix(in srgb, var(--primary) 9%, transparent) 55%, transparent 100%), linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, transparent) 0%, color-mix(in srgb, var(--primary) 5%, transparent) 100%)`,
-				}}
-			>
-				{/* Subtle dot pattern */}
+			{/* Decorative hero strip — solid primary in light, black + primary/40 overlay in dark */}
+			<div className="relative h-16 overflow-hidden bg-primary/60 dark:bg-black">
+				{/* Dark-mode primary overlay (40%) */}
 				<div
 					aria-hidden
-					className="absolute inset-0 opacity-[0.18]"
+					className="pointer-events-none absolute inset-0 hidden dark:block"
+					style={{
+						background: "color-mix(in srgb, var(--primary) 40%, transparent)",
+					}}
+				/>
+				{/* Grid texture overlay (dark mode: white lines) */}
+				<div
+					aria-hidden
+					className="pointer-events-none absolute inset-0 hidden dark:block"
 					style={{
 						backgroundImage:
-							"radial-gradient(circle, color-mix(in srgb, var(--primary) 60%, transparent) 1px, transparent 1px)",
+							"linear-gradient(to right, rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.09) 1px, transparent 1px)",
 						backgroundSize: "10px 10px",
+						maskImage:
+							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
+						WebkitMaskImage:
+							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
+					}}
+				/>
+				{/* Grid texture overlay (light mode: stronger white lines on primary wash) */}
+				<div
+					aria-hidden
+					className="pointer-events-none absolute inset-0 block dark:hidden"
+					style={{
+						backgroundImage:
+							"linear-gradient(to right, rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.35) 1px, transparent 1px)",
+						backgroundSize: "10px 10px",
+						maskImage:
+							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
+						WebkitMaskImage:
+							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
 					}}
 				/>
 				{/* Scene icon — top-right */}
 				<motion.span
 					aria-hidden
-					className="icon-[mdi--movie-open-outline] absolute right-3 top-3 h-10 w-10 text-primary/25"
+					className="icon-[mdi--movie-open-outline] absolute right-3 top-3 h-10 w-10 text-white/70"
 					initial={{ scale: 0.9, rotate: -8 }}
 					whileHover={{ scale: 1.05, rotate: -4 }}
 					transition={{ type: "spring", stiffness: 300, damping: 20 }}
