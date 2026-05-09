@@ -33,6 +33,7 @@ const CHANNELS = {
 	GET_MESSAGES: "vetta:session:get-messages",
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
+	AUTO_TITLE: "vetta:session:auto-title",
 	DISPOSE: "vetta:session:dispose",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
 	GET_SESSION_PATH: "vetta:session:get-session-path",
@@ -256,6 +257,18 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertNonEmptyString(name, "name");
 		await runtime.renameSession(sessionPath, name);
 	});
+
+	ipcMain.handle(
+		CHANNELS.AUTO_TITLE,
+		async (_event, sessionId: unknown, userText: unknown, assistantText: unknown): Promise<string | null> => {
+			assertNonEmptyString(sessionId, "sessionId");
+			if (typeof userText !== "string" || typeof assistantText !== "string") {
+				throw new Error("Invalid auto-title payload");
+			}
+			if (userText.trim().length === 0 && assistantText.trim().length === 0) return null;
+			return runtime.autoTitleSession(sessionId, userText, assistantText);
+		},
+	);
 
 	ipcMain.handle(CHANNELS.DISPOSE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");

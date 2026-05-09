@@ -44,6 +44,7 @@ export interface DesktopSessionApi {
 	getFullHistory(sessionId: string): Promise<HistoryEntry[]>;
 	delete(sessionPath: string): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
+	autoTitle(sessionId: string, userText: string, assistantText: string): Promise<string | null>;
 	dispose(sessionId: string): Promise<void>;
 }
 
@@ -94,6 +95,19 @@ export interface InstalledMarketSkill {
 	marketDescription?: string;
 }
 
+export interface InstalledCustomSkill {
+	name: string;
+	version: string;
+	installedAt: string;
+	source: "custom";
+	enabled: boolean;
+	type: "skill";
+	alias?: string;
+	description: string;
+}
+
+export type InstalledSkill = InstalledMarketSkill | InstalledCustomSkill;
+
 export interface DesktopSkillsApi {
 	list(): Promise<SkillInfo[]>;
 	installFromMarket(
@@ -102,9 +116,11 @@ export interface DesktopSkillsApi {
 		type: "skill" | "scene",
 		meta?: { alias?: string; marketDescription?: string },
 	): Promise<void>;
+	importCustom(archiveBuffer: ArrayBuffer): Promise<{ name: string }>;
 	uninstall(name: string, type: "skill" | "scene"): Promise<void>;
 	toggle(name: string): Promise<void>;
-	getMarketManifest(): Promise<Record<string, InstalledMarketSkill>>;
+	getMarketManifest(): Promise<Record<string, InstalledSkill>>;
+	getSkillMdPath(name: string, type: "skill" | "scene"): Promise<string>;
 }
 
 export interface ProjectEntry {

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { Message, TextContent } from "@mariozechner/pi-ai";
+import { completeSimple, type Message, type TextContent } from "@mariozechner/pi-ai";
 import {
 	type AgentSession,
 	type AgentSessionEvent,
@@ -45,6 +45,29 @@ interface SessionHandle {
 	executionMode: SessionExecutionMode;
 }
 
+/**
+ * Per-session buffer of the currently-streaming LLM call's deltas.
+ *
+ * The runtime persists assistant messages to the JSONL history only on
+ * `message_end`. So if a renderer disconnects mid-stream and reconnects
+ * (e.g. user switches sessions and switches back), `getFullHistory` returns
+ * nothing for the in-flight assistant, and a fresh `subscribe()` only forwards
+ * future events. Without this buffer, all text/thinking/tool-call events
+ * received before reconnection would be lost.
+ *
+ * Text and thinking are cleared on `message_end` because each LLM call inside
+ * a multi-step turn produces its own deltas; the prior call's content is
+ * already on disk via `message.final`. `isActive` flips on at `agent_start`
+ * and off at `agent_end`.
+ */
+interface InFlightBuffer {
+	turnStartedAt: number;
+	text: string;
+	thinking: string;
+	toolCallStarts: Array<{ toolCallId: string; toolName: string }>;
+	isActive: boolean;
+}
+
 const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
 
 export interface RuntimeHostOptions {
@@ -62,6 +85,8 @@ export interface RuntimeHostOptions {
 export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
 	private currentTurnStartedAt = new Map<string, number>();
+	private inFlightBuffers = new Map<string, InFlightBuffer>();
+	private inFlightUnsubscribers = new Map<string, () => void>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
@@ -203,8 +228,70 @@ export class RuntimeHost implements SessionFacade {
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
 		this.sessions.set(sessionId, { session, executionMode });
+		this.attachInFlightBuffer(sessionId, session);
 		console.log(`[perf][RuntimeHost.createSession] exit total=${Date.now() - __t0}ms`);
 		return { sessionId };
+	}
+
+	/**
+	 * Attach a permanent listener to the session that maintains the in-flight
+	 * buffer regardless of whether any external subscriber is connected. Replayed
+	 * by `subscribe()` so a re-subscribing renderer sees prior in-flight content.
+	 */
+	private attachInFlightBuffer(sessionId: string, session: AgentSession): void {
+		const buffer: InFlightBuffer = {
+			turnStartedAt: 0,
+			text: "",
+			thinking: "",
+			toolCallStarts: [],
+			isActive: false,
+		};
+		this.inFlightBuffers.set(sessionId, buffer);
+		const unsubscribe = session.subscribe((event) => {
+			if (event.type === "agent_start") {
+				buffer.turnStartedAt = Date.now();
+				buffer.text = "";
+				buffer.thinking = "";
+				buffer.toolCallStarts = [];
+				buffer.isActive = true;
+				return;
+			}
+			if (event.type === "agent_end") {
+				buffer.text = "";
+				buffer.thinking = "";
+				buffer.toolCallStarts = [];
+				buffer.isActive = false;
+				return;
+			}
+			if (event.type === "message_end") {
+				// Each LLM call inside a multi-step turn ends with message_end and
+				// its content gets persisted to history. The chat draft in the UI
+				// keeps accumulating across calls, but the buffer should reset so
+				// it only ever holds the *current* in-flight LLM call's deltas.
+				buffer.text = "";
+				buffer.thinking = "";
+				buffer.toolCallStarts = [];
+				return;
+			}
+			if (event.type === "message_update") {
+				const sub = event.assistantMessageEvent;
+				if (sub.type === "text_delta") {
+					buffer.text += sub.delta;
+				} else if (sub.type === "thinking_delta") {
+					buffer.thinking += sub.delta;
+				} else if (sub.type === "toolcall_start") {
+					const idx = sub.contentIndex;
+					const tc = sub.partial?.content?.[idx];
+					if (tc && tc.type === "toolCall") {
+						buffer.toolCallStarts.push({
+							toolCallId: String(tc.id ?? ""),
+							toolName: String(tc.name ?? ""),
+						});
+					}
+				}
+			}
+		});
+		this.inFlightUnsubscribers.set(sessionId, unsubscribe);
 	}
 
 	async setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void> {
@@ -306,6 +393,38 @@ export class RuntimeHost implements SessionFacade {
 				type: "todo_update",
 				items: [...todoItems],
 			} as SessionEvent);
+		}
+
+		// Replay in-flight assistant deltas accumulated since agent_start so that
+		// a renderer reconnecting mid-stream (e.g. after switching sessions away
+		// and back) sees the partial assistant content. Without this, any text
+		// produced before reconnection would be lost (the runtime only persists
+		// assistant messages on message_end, and a fresh subscribe only forwards
+		// future events).
+		const buffer = this.inFlightBuffers.get(sessionId);
+		if (buffer?.isActive) {
+			if (buffer.thinking) {
+				handler({
+					...this.baseEvent(sessionId, "agent"),
+					type: "thinking.delta",
+					delta: buffer.thinking,
+				});
+			}
+			if (buffer.text) {
+				handler({
+					...this.baseEvent(sessionId, "agent"),
+					type: "message.delta",
+					delta: buffer.text,
+				});
+			}
+			for (const tc of buffer.toolCallStarts) {
+				handler({
+					...this.baseEvent(sessionId, "agent"),
+					type: "toolcall.start",
+					toolCallId: tc.toolCallId,
+					toolName: tc.toolName,
+				});
+			}
 		}
 
 		return handle.session.subscribe((event) => {
@@ -426,6 +545,9 @@ export class RuntimeHost implements SessionFacade {
 		// lock is released and the in-memory handle does not outlive the file.
 		const existing = this.findHandleBySessionPath(sessionPath);
 		if (existing) {
+			this.inFlightUnsubscribers.get(existing.sessionId)?.();
+			this.inFlightUnsubscribers.delete(existing.sessionId);
+			this.inFlightBuffers.delete(existing.sessionId);
 			existing.handle.session.dispose();
 			this.sessions.delete(existing.sessionId);
 		}
@@ -463,9 +585,96 @@ export class RuntimeHost implements SessionFacade {
 		handle.session.setSessionName(name);
 	}
 
+	/**
+	 * Generate a short title from the first round of conversation and persist it
+	 * onto the session. Returns the persisted name, or null when the model/key
+	 * is not available or the LLM produced no usable text.
+	 */
+	async autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null> {
+		const handle = this.requireSession(sessionId);
+		const model = handle.session.model;
+		if (!model) {
+			console.warn(`[autoTitleSession] session=${sessionId} skipped: no model on session`);
+			return null;
+		}
+		const apiKey = await handle.session.modelRegistry.getApiKey(model);
+		if (!apiKey) {
+			console.warn(
+				`[autoTitleSession] session=${sessionId} skipped: no apiKey for model ${model.provider}/${model.id}`,
+			);
+			return null;
+		}
+		console.log(
+			`[autoTitleSession] session=${sessionId} model=${model.provider}/${model.id} userLen=${userText.length} assistantLen=${assistantText.length}`,
+		);
+
+		const trimmedUser = userText.trim().slice(0, 800);
+		const trimmedAssistant = assistantText.trim().slice(0, 1500);
+		const promptText =
+			`请为下面这段对话生成一个 6 到 14 个字符之间的中文短标题，用来在侧边栏标识这个会话。\n` +
+			`要求：只输出标题本身；不要引号、书名号、句号、感叹号或其他标点；不要任何解释或前后缀。\n\n` +
+			`<用户消息>\n${trimmedUser}\n</用户消息>\n\n` +
+			`<助手回复>\n${trimmedAssistant}\n</助手回复>`;
+
+		try {
+			const response = await completeSimple(
+				model,
+				{
+					systemPrompt: "你是会话标题生成器。严格按用户要求只输出一个简短中文标题。",
+					messages: [
+						{
+							role: "user" as const,
+							content: [{ type: "text" as const, text: promptText }],
+							timestamp: Date.now(),
+						},
+					],
+				},
+				// reasoning: "minimal" — for reasoning-capable models (e.g. gpt-oss)
+				// minimise the thinking budget so the answer comes out as text
+				// instead of being consumed entirely by the thinking channel.
+				{ apiKey, maxTokens: 256, reasoning: "minimal" },
+			);
+			if (response.stopReason === "error") {
+				console.warn(
+					`[autoTitleSession] session=${sessionId} stopReason=error message=${
+						(response as { errorMessage?: string }).errorMessage ?? "(none)"
+					}`,
+				);
+				return null;
+			}
+			const rawText = response.content
+				.filter((c): c is TextContent => c.type === "text")
+				.map((c) => c.text)
+				.join("")
+				.trim();
+			// Fallback: some reasoning models (e.g. gpt-oss) route the whole short
+			// answer through the thinking channel. Use thinking content as a
+			// candidate when no plain text was produced.
+			const rawThinking = response.content
+				.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
+				.map((c) => c.thinking)
+				.join("\n")
+				.trim();
+			const raw = rawText || rawThinking;
+			const cleaned = sanitizeAutoTitle(raw);
+			console.log(
+				`[autoTitleSession] session=${sessionId} textLen=${rawText.length} thinkingLen=${rawThinking.length} cleaned=${JSON.stringify(cleaned)}`,
+			);
+			if (!cleaned) return null;
+			handle.session.setSessionName(cleaned);
+			return cleaned;
+		} catch (err) {
+			console.warn(`[RuntimeHost.autoTitleSession] generation failed for session=${sessionId}:`, err);
+			return null;
+		}
+	}
+
 	async disposeSession(sessionId: string): Promise<void> {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return;
+		this.inFlightUnsubscribers.get(sessionId)?.();
+		this.inFlightUnsubscribers.delete(sessionId);
+		this.inFlightBuffers.delete(sessionId);
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
 		this.currentTurnStartedAt.delete(sessionId);
@@ -480,6 +689,7 @@ export class RuntimeHost implements SessionFacade {
 	async disposeAllSessions(): Promise<void> {
 		for (const [sessionId, handle] of this.sessions) {
 			try {
+				this.inFlightUnsubscribers.get(sessionId)?.();
 				handle.session.dispose();
 			} catch (err) {
 				console.error(`[RuntimeHost.disposeAllSessions] failed to dispose ${sessionId}:`, err);
@@ -488,6 +698,8 @@ export class RuntimeHost implements SessionFacade {
 		}
 		this.sessions.clear();
 		this.currentTurnStartedAt.clear();
+		this.inFlightUnsubscribers.clear();
+		this.inFlightBuffers.clear();
 	}
 
 	private requireSession(sessionId: string): SessionHandle {
@@ -840,4 +1052,25 @@ export class RuntimeHost implements SessionFacade {
 			.map((item) => item.text)
 			.join("");
 	}
+}
+
+function sanitizeAutoTitle(raw: string): string {
+	if (!raw) return "";
+	// Reasoning models often emit a long internal monologue ending with the
+	// final short answer. Heuristic: prefer the LAST non-empty line if it is
+	// reasonably short (≤ 30 chars), else fall back to the first non-empty line.
+	const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+	if (lines.length === 0) return "";
+	const lastLine = lines[lines.length - 1];
+	const firstLine = lines[0];
+	const candidate = Array.from(lastLine.trim()).length <= 30 ? lastLine : firstLine;
+	// Strip wrapping quotes/brackets/punctuation that the model commonly adds.
+	const stripped = candidate
+		.replace(/^[\s"'`「『《<[(（【“”‘’]+/, "")
+		.replace(/[\s"'`」』》>\])）】“”‘’。．.!?！？，,、；;：:]+$/, "")
+		.trim();
+	if (!stripped) return "";
+	// Hard cap at 14 chars (Array.from to count code points correctly).
+	const chars = Array.from(stripped);
+	return chars.length > 14 ? chars.slice(0, 14).join("") : stripped;
 }
