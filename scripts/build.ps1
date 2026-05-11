@@ -55,11 +55,9 @@ function Build-Layer2 {
 
 function Build-Apps {
 	Build-Pkg "packages/cli-app"
-	Build-Pkg "packages/desktop-app"
 }
 
 function Build-Admin {
-	Build-Pkg "packages/admin"
 }
 
 function Build-Libs {
