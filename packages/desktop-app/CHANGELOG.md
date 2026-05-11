@@ -6,9 +6,13 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **批量任务接入 Webhook 消息推送**：新建 / 编辑批量项目 Dialog 新增「启用消息推送」开关（默认关）。开启后，每个子任务终态（成功 / 失败 / 超时 / 产物缺失）会向所有已启用的 Webhook 推送一条富文本卡片，含本次子任务名 + 结果 + 耗时 + 模型、总进度条与状态分布表、正在运行任务列表、等待队列长度；当 pending + running + paused 全部为 0 且至少有一次完成时额外推送一条「项目汇总」消息（成功/失败合计、总耗时、平均耗时、并发度、失败列表前 10 条）。用户主动暂停不推送。推送走 main 进程 `getWebhookManager().broadcast()` 直接调用，best-effort（失败仅 console.warn，不阻塞任务终态）；消息模板支持飞书 lark_md 卡片与钉钉 markdown，header 颜色按 success / warn / error 自动切换。`notifyEnabled` 字段持久化到 `.vetta/meta.json`，IPC / preload / atoms 全链路透传。
+
 - **Webhook 消息推送基础设施**：设置页新增「消息推送」Tab，支持多条飞书 / 钉钉自定义机器人 endpoint 并行配置（每条独立启用、独立测试），URL 与签名 Secret 持久化到 `~/.vetta/desktop-app/webhook-credentials.json`（chmod 0600），非敏感字段（名称、@配置、钉钉关键词）写到 `webhook-config.json`。`WebhookProvider` 接口 + `WEBHOOK_PROVIDERS` 注册表使后续接入企业微信 / Slack / Discord 只需新增 provider 文件 + 注册一行；UI / IPC / 存储 / Manager 一律基于 kind 动态展开。飞书走 `msg_type:"interactive"` 卡片 + `lark_md` 元素（HMAC 签名 key=`timestamp\nsecret`、data=空 → body 内 timestamp/sign），钉钉走 `msgtype:"markdown"`（HMAC 签名 key=secret、data=`timestamp\nsecret` → URL append timestamp/sign），统一映射通用 `WebhookMessage { title, text, level }`；钉钉关键词模式会自动拼到 title 前满足安全校验。主进程任意模块通过 `getWebhookManager().broadcast(message, { onlyKinds?, onlyIds? })` 直接推送，不走 IPC；CRUD / toggle / test 走 `vetta:webhook:*` 通道。30s 超时、不重试。后续业务接入点（批量任务完成 / 定时任务失败 / 更新通知等）按需挂在 main 进程对应位置。
 
 ### Fixed
+
+- **批量任务 Webhook 推送的状态分布表在飞书不渲染**：飞书 `lark_md` 与钉钉 markdown 都不识别 GFM 表格语法，子任务终态与项目汇总两条消息里 `| 状态 | 数量 |` 三行被原样输出。改成 `- 标签：**N**` 列表展示，两端渲染一致。
 
 - **无感更新装完后启动仍弹"立即重启"对话框**：mac/linux 的 detached swap.sh 是异步执行的，安装成功后 `pending-install.json` 未必被及时清理；新版本启动时 `onAppReady` 仍读到该记录、又进入 ready 状态、再弹 Dialog。改为用版本号比较作为权威信号：若 `currentVersion ≥ pending.version` 说明已升级成功，直接清掉 `pending-install.json` 与 staging 目录；否则才恢复 ready 状态展示对话框。
 
