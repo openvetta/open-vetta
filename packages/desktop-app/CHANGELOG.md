@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Fixed
+
+- **无感更新装完后启动仍弹"立即重启"对话框**：mac/linux 的 detached swap.sh 是异步执行的，安装成功后 `pending-install.json` 未必被及时清理；新版本启动时 `onAppReady` 仍读到该记录、又进入 ready 状态、再弹 Dialog。改为用版本号比较作为权威信号：若 `currentVersion ≥ pending.version` 说明已升级成功，直接清掉 `pending-install.json` 与 staging 目录；否则才恢复 ready 状态展示对话框。
+
 ### Added
 
 - **无感更新（in-place auto-update）**：发现新版本后侧边栏左上角出现下载图标，点击触发后台静默下载（不打开浏览器、不打开 Finder），下载完成后弹出"立即重启 / 稍后"对话框；点稍后则保留下载产物，下次启动会再次提示。三平台均支持：mac 解压 `.zip` 内的 `.app`、清 quarantine 后通过 detached shell 覆盖 `/Applications/Vetta.app` 并 relaunch；win 走 NSIS `/S` 静默安装 + `--force-run` 自启动；linux 覆盖 `$APPIMAGE` 指向的文件后 relaunch。启动时自动 `GET /releases/latest?platform=&arch=` 检查一次，命中新版本（按三段式版本号比较）即激活 sidebar icon。下载产物写到 `app.getPath("userData")/updates/<version>/`，pending-install.json 记录"待重启"状态，文件丢失时自动重置。客户端按 platform/arch + 平台首选扩展名（mac `.zip` / win `.exe` / linux `.AppImage`）从 `assets[]` 里挑资产；未匹配平台或后端未上传对应资产时返回友好错误。配套发版资产规范见 `docs/release-guide.md`。
