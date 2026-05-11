@@ -219,6 +219,7 @@ export class RuntimeHost implements SessionFacade {
 			thinkingLevel: config.thinkingLevel,
 			customTools,
 			appendSystemPrompt: config.appendSystemPrompt,
+			env: config.env,
 		};
 
 		console.log(`[perf][RuntimeHost.createSession] before createAgentSession +${Date.now() - __t0}ms`);

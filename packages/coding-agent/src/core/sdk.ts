@@ -83,6 +83,12 @@ export interface CreateAgentSessionOptions {
 
 	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
 	appendSystemPrompt?: string;
+
+	/**
+	 * 注入到 bash/shell 工具子进程的环境变量覆盖层。仅对该 session 内的命令执行生效；
+	 * 不传则行为等同旧版。常用于将 TMPDIR/TEMP/TMP 重定向到 session 私有目录。
+	 */
+	env?: Record<string, string>;
 }
 
 /** Result from createAgentSession */
@@ -413,6 +419,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		modelRegistry,
 		initialActiveToolNames,
 		extensionRunnerRef,
+		envOverlay: options.env,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();
