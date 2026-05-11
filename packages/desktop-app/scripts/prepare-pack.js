@@ -23,6 +23,9 @@ const require = createRequire(import.meta.url);
 const electronPkgPath = require.resolve("electron/package.json");
 const electronVersion = JSON.parse(readFileSync(electronPkgPath, "utf8")).version;
 
+// 应用版本号以 packages/desktop-app/package.json 为唯一真源
+const appVersion = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version;
+
 // Clean previous build stage
 rmSync(buildStageDir, { recursive: true, force: true });
 mkdirSync(buildStageDir, { recursive: true });
@@ -30,7 +33,7 @@ mkdirSync(buildStageDir, { recursive: true });
 // Write minimal package.json (no dependencies)
 const appPkg = {
 	name: "@vetta/desktop-app",
-	version: "0.0.1",
+	version: appVersion,
 	description: "Vetta Desktop App",
 	author: "Vetta",
 	type: "module",
