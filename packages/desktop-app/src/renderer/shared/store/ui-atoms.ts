@@ -9,7 +9,16 @@ export const pageHeaderRightSlotAtom = atom<ReactNode | null>(null);
 
 // ─── Settings page ───
 
-export type SettingsTab = "general" | "account" | "models" | "mcp" | "im" | "shortcuts" | "archive" | "team";
+export type SettingsTab =
+	| "general"
+	| "account"
+	| "models"
+	| "mcp"
+	| "im"
+	| "webhook"
+	| "shortcuts"
+	| "archive"
+	| "team";
 
 // ─── Theme ───
 

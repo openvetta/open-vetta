@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Added
+
+- **Webhook 消息推送基础设施**：设置页新增「消息推送」Tab，支持多条飞书 / 钉钉自定义机器人 endpoint 并行配置（每条独立启用、独立测试），URL 与签名 Secret 持久化到 `~/.vetta/desktop-app/webhook-credentials.json`（chmod 0600），非敏感字段（名称、@配置、钉钉关键词）写到 `webhook-config.json`。`WebhookProvider` 接口 + `WEBHOOK_PROVIDERS` 注册表使后续接入企业微信 / Slack / Discord 只需新增 provider 文件 + 注册一行；UI / IPC / 存储 / Manager 一律基于 kind 动态展开。飞书走 `msg_type:"interactive"` 卡片 + `lark_md` 元素（HMAC 签名 key=`timestamp\nsecret`、data=空 → body 内 timestamp/sign），钉钉走 `msgtype:"markdown"`（HMAC 签名 key=secret、data=`timestamp\nsecret` → URL append timestamp/sign），统一映射通用 `WebhookMessage { title, text, level }`；钉钉关键词模式会自动拼到 title 前满足安全校验。主进程任意模块通过 `getWebhookManager().broadcast(message, { onlyKinds?, onlyIds? })` 直接推送，不走 IPC；CRUD / toggle / test 走 `vetta:webhook:*` 通道。30s 超时、不重试。后续业务接入点（批量任务完成 / 定时任务失败 / 更新通知等）按需挂在 main 进程对应位置。
+
 ### Fixed
 
 - **无感更新装完后启动仍弹"立即重启"对话框**：mac/linux 的 detached swap.sh 是异步执行的，安装成功后 `pending-install.json` 未必被及时清理；新版本启动时 `onAppReady` 仍读到该记录、又进入 ready 状态、再弹 Dialog。改为用版本号比较作为权威信号：若 `currentVersion ≥ pending.version` 说明已升级成功，直接清掉 `pending-install.json` 与 staging 目录；否则才恢复 ready 状态展示对话框。

@@ -79,6 +79,17 @@ const IM_CHANNELS = {
 	WECHAT_BIND_EVENT: "vetta:im:wechat:bind-event",
 } as const;
 
+const WEBHOOK_CHANNELS = {
+	LIST: "vetta:webhook:list",
+	LIST_PROVIDERS: "vetta:webhook:list-providers",
+	CREATE: "vetta:webhook:create",
+	UPDATE: "vetta:webhook:update",
+	DELETE: "vetta:webhook:delete",
+	TOGGLE: "vetta:webhook:toggle",
+	TEST: "vetta:webhook:test",
+	SEND: "vetta:webhook:send",
+} as const;
+
 const BATCH_TASKS_CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
 	CREATE_PROJECT: "vetta:batch-tasks:create-project",
@@ -362,6 +373,16 @@ const api: DesktopApi = {
 	project: {
 		export: async (projectDir) => ipcRenderer.invoke("vetta:project:export", projectDir),
 		import: async () => ipcRenderer.invoke("vetta:project:import"),
+	},
+	webhook: {
+		list: async () => ipcRenderer.invoke(WEBHOOK_CHANNELS.LIST),
+		listProviders: async () => ipcRenderer.invoke(WEBHOOK_CHANNELS.LIST_PROVIDERS),
+		create: async (input) => ipcRenderer.invoke(WEBHOOK_CHANNELS.CREATE, input),
+		update: async (id, patch) => ipcRenderer.invoke(WEBHOOK_CHANNELS.UPDATE, id, patch),
+		delete: async (id) => ipcRenderer.invoke(WEBHOOK_CHANNELS.DELETE, id),
+		toggle: async (id, enabled) => ipcRenderer.invoke(WEBHOOK_CHANNELS.TOGGLE, id, enabled),
+		test: async (id) => ipcRenderer.invoke(WEBHOOK_CHANNELS.TEST, id),
+		send: async (id, message) => ipcRenderer.invoke(WEBHOOK_CHANNELS.SEND, id, message),
 	},
 	session: {
 		create: async (config) => ipcRenderer.invoke(CHANNELS.CREATE, config),
