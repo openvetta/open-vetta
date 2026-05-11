@@ -249,22 +249,31 @@ class UpdaterService {
 	async onAppReady(): Promise<void> {
 		const pending = readPendingRecord();
 		if (pending && pending.platform === getPlatformId() && pending.arch === getArchId()) {
-			this.state = {
-				...this.state,
-				phase: "ready",
-				latestVersion: pending.version,
-				assetFileName: pending.assetPath.split(/[/\\]/).pop(),
-				pendingInstall: true,
-			};
-			this.selectedAsset = {
-				id: 0,
-				platform: pending.platform,
-				arch: pending.arch,
-				file_name: pending.assetPath.split(/[/\\]/).pop() ?? "",
-				file_size: 0,
-				content_type: "",
-			};
-			this.emit(true);
+			// 用版本号判断是否真的还有"待安装"——install 成功后新版本启动时，
+			// pending-install.json 因为 detached swap.sh 异步执行可能没被及时清理，
+			// 但 currentVersion 一定 ≥ pending.version。此时清理掉。
+			const upgradeStillPending = compareVersions(getAppVersion(), pending.version);
+			if (!upgradeStillPending) {
+				rmSync(pending.stagingDir, { recursive: true, force: true });
+				clearPendingRecord();
+			} else {
+				this.state = {
+					...this.state,
+					phase: "ready",
+					latestVersion: pending.version,
+					assetFileName: pending.assetPath.split(/[/\\]/).pop(),
+					pendingInstall: true,
+				};
+				this.selectedAsset = {
+					id: 0,
+					platform: pending.platform,
+					arch: pending.arch,
+					file_name: pending.assetPath.split(/[/\\]/).pop() ?? "",
+					file_size: 0,
+					content_type: "",
+				};
+				this.emit(true);
+			}
 		}
 		// 不 await：check 在后台异步执行，不阻塞启动
 		void this.check();
