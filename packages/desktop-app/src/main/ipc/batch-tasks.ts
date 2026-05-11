@@ -64,7 +64,7 @@ async function cleanTaskFilesAndState(projectId: string, task: BatchTask, runtim
 
 export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	console.log(`[BatchTaskIPC] registerBatchTasksIpc: subscribing to batch task events`);
-	subscribeBatchTaskEvents((event) => {
+	const unsubscribeBatchEvents = subscribeBatchTaskEvents((event) => {
 		console.log(`[BatchTaskIPC] Forwarding batch task event to renderer: ${event.type}`, event);
 		webContents.send(CHANNELS.EVENT, event);
 	});
@@ -87,6 +87,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				folders: string[];
 				concurrency: number;
 				executionMode?: ExecutionModeOverride;
+				artifactPatterns?: string[];
 			},
 		) => {
 			console.log(`[BatchTaskIPC] CREATE_PROJECT: ${data.name}`);
@@ -97,6 +98,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				data.folders,
 				data.concurrency,
 				data.executionMode,
+				data.artifactPatterns,
 			);
 		},
 	);
@@ -112,6 +114,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				modelKey: string;
 				concurrency: number;
 				executionMode: ExecutionModeOverride;
+				artifactPatterns: string[];
 				newFolders: string[];
 			}>,
 		) => {
@@ -307,6 +310,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	});
 
 	return () => {
+		unsubscribeBatchEvents();
 		ipcMain.removeHandler(CHANNELS.GET_PROJECTS);
 		ipcMain.removeHandler(CHANNELS.CREATE_PROJECT);
 		ipcMain.removeHandler(CHANNELS.UPDATE_PROJECT);

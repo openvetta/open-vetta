@@ -64,6 +64,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.sourcePath) ?? []);
 	const [folderText, setFolderText] = useState((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
 	const [folderInputMode, setFolderInputMode] = useState<"picker" | "textarea">("picker");
+	const [artifactPatternsText, setArtifactPatternsText] = useState((project?.artifactPatterns ?? []).join("\n"));
 	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 	const modelDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -96,6 +97,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setConcurrency(project?.concurrency ?? 1);
 		setFolders(project?.tasks.map((t) => t.sourcePath) ?? []);
 		setFolderText((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
+		setArtifactPatternsText((project?.artifactPatterns ?? []).join("\n"));
 	}, [project]);
 
 	useEffect(() => {
@@ -178,12 +180,25 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
 
+		const artifactPatterns = artifactPatternsText
+			.split(/\r?\n/)
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0);
+
 		if (project) {
 			const originalSources = new Set(project.tasks.map((t) => t.sourcePath));
 			const newFolders = folders.filter((f) => !originalSources.has(f));
-			await updateProject(project.id, { name, prompt, modelKey, executionMode, concurrency, newFolders });
+			await updateProject(project.id, {
+				name,
+				prompt,
+				modelKey,
+				executionMode,
+				concurrency,
+				artifactPatterns,
+				newFolders,
+			});
 		} else {
-			await createProject({ name, prompt, modelKey, executionMode, folders, concurrency });
+			await createProject({ name, prompt, modelKey, executionMode, folders, concurrency, artifactPatterns });
 		}
 		onClose();
 	};
@@ -339,6 +354,22 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 								</SelectItem>
 							</SelectContent>
 						</Select>
+					</div>
+
+					<div className="mt-4">
+						<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
+							<span>产物校验</span>
+							<span className="text-xs font-normal text-muted-foreground/60">可选</span>
+						</label>
+						<Textarea
+							value={artifactPatternsText}
+							onChange={(e) => setArtifactPatternsText(e.target.value)}
+							className="min-h-[72px] text-sm"
+							placeholder="每行一个文件名或通配符；为空则跳过校验"
+						/>
+						<p className="mt-2 text-xs text-muted-foreground/60">
+							子任务目录顶层必须全部匹配才算成功。支持 glob：* 匹配任意字符、? 匹配单个字符。
+						</p>
 					</div>
 
 					<div className="mt-4">

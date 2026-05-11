@@ -1,10 +1,14 @@
 import { join } from "node:path";
-import type { RuntimeHost, SessionEvent, SessionExecutionMode } from "../../../../runtime-core/src/index.js";
+import type { AssistantMessage, Message, StopReason } from "@mariozechner/pi-ai";
+import type { RuntimeHost, SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
+import { verifyArtifacts } from "./artifact-validator";
 import { type BatchTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
+
+const TASK_TIMEOUT_MS = 60 * 60 * 1000;
 
 export type BatchTaskEvent =
 	| {
@@ -23,10 +27,14 @@ export type BatchTaskEvent =
 interface ExecutingTask {
 	projectId: string;
 	taskId: string;
+	cwd: string;
+	artifactPatterns: string[] | undefined;
 	sessionId: string;
 	sessionPath: string | undefined;
 	executionMode: SessionExecutionMode;
 	abortController: AbortController;
+	timeoutHandle: ReturnType<typeof setTimeout>;
+	timedOut: boolean;
 }
 
 const executingTasks = new Map<string, ExecutingTask>();
@@ -45,71 +53,12 @@ export function subscribeBatchTaskEvents(handler: (event: BatchTaskEvent) => voi
 	};
 }
 
-function createTaskEventHandler(
-	projectId: string,
-	taskId: string,
-	_abortController: AbortController,
-): (event: SessionEvent) => void {
-	return async (event: SessionEvent) => {
-		console.log(`[BatchTask] Session event: ${event.type} for task ${taskId}`, event);
-		if (event.type === "session.lifecycle" && event.phase === "agent_end") {
-			if (!executingTasks.has(taskId)) return;
-			console.log(`[BatchTask] agent_end received, task ${taskId} completed`);
-			const executing = executingTasks.get(taskId)!;
-			const state: BatchTaskState = {
-				taskId,
-				status: "completed",
-				sessionId: executing.sessionId,
-				sessionPath: executing.sessionPath,
-				executionMode: executing.executionMode,
-				completedAt: Date.now(),
-				lastModified: Date.now(),
-			};
-			await saveTaskState(projectId, taskId, state);
-			executingTasks.delete(taskId);
-			emitBatchTaskEvent({ type: "task.completed", projectId, taskId });
-		}
-
-		if (event.type === "session.lifecycle" && event.phase === "aborted") {
-			if (!executingTasks.has(taskId)) return;
-			console.log(`[BatchTask] session aborted, task ${taskId} paused`);
-			const executing = executingTasks.get(taskId)!;
-			const state: BatchTaskState = {
-				taskId,
-				status: "paused",
-				sessionId: executing.sessionId,
-				sessionPath: executing.sessionPath,
-				executionMode: executing.executionMode,
-				lastModified: Date.now(),
-			};
-			await saveTaskState(projectId, taskId, state);
-			executingTasks.delete(taskId);
-			emitBatchTaskEvent({ type: "task.paused", projectId, taskId });
-		}
-
-		if (event.type === "error") {
-			if (!executingTasks.has(taskId)) return;
-			if (event.error?.retryable) {
-				console.log(`[BatchTask] retryable error for task ${taskId}, skipping: ${event.error.message}`);
-				return;
-			}
-			console.log(`[BatchTask] non-retryable error for task ${taskId}: ${event.error?.message}`);
-			const executing = executingTasks.get(taskId)!;
-			const state: BatchTaskState = {
-				taskId,
-				status: "failed",
-				error: event.error?.message ?? "Unknown error",
-				sessionId: executing.sessionId,
-				sessionPath: executing.sessionPath,
-				executionMode: executing.executionMode,
-				completedAt: Date.now(),
-				lastModified: Date.now(),
-			};
-			await saveTaskState(projectId, taskId, state);
-			executingTasks.delete(taskId);
-			emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: event.error?.message ?? "Unknown error" });
-		}
-	};
+function findLastAssistant(messages: Message[]): AssistantMessage | undefined {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const m = messages[i];
+		if (m.role === "assistant") return m;
+	}
+	return undefined;
 }
 
 function buildTaskSystemPrompt(task: BatchTask): string {
@@ -126,16 +75,91 @@ function buildTaskSystemPrompt(task: BatchTask): string {
 	].join("\n");
 }
 
+function scheduleTimeout(taskId: string, runtime: RuntimeHost): ReturnType<typeof setTimeout> {
+	return setTimeout(() => {
+		const executing = executingTasks.get(taskId);
+		if (!executing) return;
+		console.warn(`[BatchTask] Task ${taskId} timed out after ${TASK_TIMEOUT_MS}ms, aborting`);
+		executing.timedOut = true;
+		runtime.abort(executing.sessionId).catch((err) => {
+			console.warn(`[BatchTask] abort on timeout failed for ${taskId}: ${err}`);
+		});
+	}, TASK_TIMEOUT_MS);
+}
+
+// runtime.prompt / runtime.continue 在所有 auto-retry 用尽后才 return（session 内 waitForRetry）。
+// 此时最后一条 assistant message 的 stopReason 才是任务真正的终态。
+// 直接监听 lifecycle agent_end 不可靠：retry 序列里每次 LLM 调用都会触发 agent_end。
+async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeHost): Promise<void> {
+	const executing = executingTasks.get(taskId);
+	if (!executing) {
+		// pauseTask 已经写过终态并清理
+		return;
+	}
+	clearTimeout(executing.timeoutHandle);
+
+	let last: AssistantMessage | undefined;
+	try {
+		last = findLastAssistant(runtime.getMessages(executing.sessionId));
+	} catch (err) {
+		console.warn(`[BatchTask] finalizeTask: failed to read messages for ${taskId}: ${err}`);
+	}
+
+	const stopReason: StopReason | undefined = last?.stopReason;
+	const errMessage = last?.errorMessage;
+	const now = Date.now();
+	const base = {
+		taskId,
+		sessionId: executing.sessionId,
+		sessionPath: executing.sessionPath,
+		executionMode: executing.executionMode,
+		lastModified: now,
+	};
+
+	let state: BatchTaskState;
+
+	if (executing.timedOut) {
+		const message = `任务超时（${Math.round(TASK_TIMEOUT_MS / 60000)} 分钟未完成）`;
+		state = { ...base, status: "failed", error: message, completedAt: now };
+		emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: message });
+	} else if (stopReason === "stop") {
+		const verify = await verifyArtifacts(executing.cwd, executing.artifactPatterns);
+		if (verify.ok) {
+			state = { ...base, status: "completed", completedAt: now };
+			emitBatchTaskEvent({ type: "task.completed", projectId, taskId });
+		} else {
+			const message = `产物缺失: ${verify.missingPatterns.join(", ")}`;
+			state = { ...base, status: "failed", error: message, completedAt: now };
+			emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: message });
+		}
+	} else if (stopReason === "aborted") {
+		state = { ...base, status: "paused" };
+		emitBatchTaskEvent({ type: "task.paused", projectId, taskId });
+	} else {
+		const message = errMessage ?? `Agent ended unexpectedly (stopReason=${stopReason ?? "unknown"})`;
+		state = { ...base, status: "failed", error: message, completedAt: now };
+		emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: message });
+	}
+
+	await saveTaskState(projectId, taskId, state);
+	executingTasks.delete(taskId);
+}
+
 export async function runTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
 	const abortController = new AbortController();
 	console.log(
 		`[BatchTask] runTask: project=${project.id}(${project.name}), task=${task.id}(${task.name}), cwd=${task.cwd}`,
 	);
 
+	let sessionId: string | undefined;
+	let sessionPath: string | undefined;
+	let executionMode: SessionExecutionMode | undefined;
+
 	try {
 		const config = await readDesktopConfig();
-		const executionMode = resolveExecutionMode(project.executionMode, config.defaultExecutionMode);
-		await assertSandboxAvailableForMode(executionMode, async () => executionMode);
+		const mode = resolveExecutionMode(project.executionMode, config.defaultExecutionMode);
+		executionMode = mode;
+		await assertSandboxAvailableForMode(mode, async () => mode);
 
 		const sessionDir = join(project.id, ".vetta", "sessions");
 		const taskSystemPrompt = buildTaskSystemPrompt(task);
@@ -143,32 +167,38 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			cwd: task.cwd,
 			sessionDir,
 			appendSystemPrompt: taskSystemPrompt,
-			executionMode,
+			executionMode: mode,
 		});
-		const sessionId = result.sessionId;
-		const sessionPath = runtime.getSessionPath(sessionId);
+		sessionId = result.sessionId;
+		sessionPath = runtime.getSessionPath(sessionId);
+
+		const timeoutHandle = scheduleTimeout(task.id, runtime);
 		executingTasks.set(task.id, {
 			projectId: project.id,
 			taskId: task.id,
+			cwd: task.cwd,
+			artifactPatterns: project.artifactPatterns,
 			sessionId,
 			sessionPath,
-			executionMode,
+			executionMode: mode,
 			abortController,
+			timeoutHandle,
+			timedOut: false,
 		});
 		console.log(`[BatchTask] Session created: ${sessionId}, path=${sessionPath}`);
 
 		runtime.renameSessionById(sessionId, `${project.name}: ${task.name}`);
 
-		const state: BatchTaskState = {
+		const runningState: BatchTaskState = {
 			taskId: task.id,
 			status: "running",
 			sessionId,
 			sessionPath,
-			executionMode,
+			executionMode: mode,
 			startedAt: Date.now(),
 			lastModified: Date.now(),
 		};
-		await saveTaskState(project.id, task.id, state);
+		await saveTaskState(project.id, task.id, runningState);
 
 		emitBatchTaskEvent({
 			type: "task.started",
@@ -176,17 +206,17 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			taskId: task.id,
 			sessionId,
 			sessionPath,
-			executionMode,
+			executionMode: mode,
 		});
 		console.log(`[BatchTask] task.started emitted: ${task.id}`);
-
-		runtime.subscribe(sessionId, createTaskEventHandler(project.id, task.id, abortController));
 
 		if (project.modelKey) {
 			console.log(`[BatchTask] Applying model ${project.modelKey} for session ${sessionId}`);
 			await runtime.updateSettings(sessionId, { modelKey: project.modelKey });
-			const state = runtime.getState(sessionId);
-			const activeModelKey = state.model ? `${state.model.provider}/${state.model.id}` : undefined;
+			const settingsState = runtime.getState(sessionId);
+			const activeModelKey = settingsState.model
+				? `${settingsState.model.provider}/${settingsState.model.id}`
+				: undefined;
 			if (activeModelKey !== project.modelKey) {
 				throw new Error(`模型不可用: ${project.modelKey}`);
 			}
@@ -194,18 +224,21 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 
 		console.log(`[BatchTask] Sending prompt for session ${sessionId}`);
 		await runtime.prompt(sessionId, { text: project.prompt });
-		console.log(`[BatchTask] Prompt sent, task ${task.id} is now running`);
+		console.log(`[BatchTask] prompt returned, finalizing task ${task.id}`);
+
+		await finalizeTask(project.id, task.id, runtime);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		console.error(`[BatchTask] runTask failed for task ${task.id}: ${errorMessage}`);
 		const executing = executingTasks.get(task.id);
+		if (executing) clearTimeout(executing.timeoutHandle);
 		const state: BatchTaskState = {
 			taskId: task.id,
 			status: "failed",
 			error: errorMessage,
-			sessionId: executing?.sessionId,
-			sessionPath: executing?.sessionPath,
-			executionMode: executing?.executionMode,
+			sessionId: executing?.sessionId ?? sessionId,
+			sessionPath: executing?.sessionPath ?? sessionPath,
+			executionMode: executing?.executionMode ?? executionMode,
 			completedAt: Date.now(),
 			lastModified: Date.now(),
 		};
@@ -223,8 +256,9 @@ export async function pauseTask(projectId: string, taskId: string, runtime: Runt
 		return;
 	}
 
-	// 先从 map 中删除，防止 abort 触发的事件回调重复处理状态
+	// 先从 map 中删除，防止 finalizeTask 在 prompt return 后重入
 	executingTasks.delete(taskId);
+	clearTimeout(executing.timeoutHandle);
 	await runtime.abort(executing.sessionId);
 	executing.abortController.abort();
 	console.log(`[BatchTask] Abort called for session ${executing.sessionId}`);
@@ -250,34 +284,61 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 	}
 
 	const abortController = new AbortController();
-	const executionMode = task.executionMode ?? "full-access";
+	const executionMode: SessionExecutionMode = task.executionMode ?? "full-access";
+	const sessionId = task.sessionId;
+
+	const timeoutHandle = scheduleTimeout(task.id, runtime);
 	executingTasks.set(task.id, {
 		projectId: project.id,
 		taskId: task.id,
-		sessionId: task.sessionId,
+		cwd: task.cwd,
+		artifactPatterns: project.artifactPatterns,
+		sessionId,
 		sessionPath: task.sessionPath,
 		executionMode,
 		abortController,
+		timeoutHandle,
+		timedOut: false,
 	});
 
-	const state: BatchTaskState = {
+	const runningState: BatchTaskState = {
 		taskId: task.id,
 		status: "running",
-		sessionId: task.sessionId,
+		sessionId,
 		sessionPath: task.sessionPath,
 		executionMode,
 		lastModified: Date.now(),
 	};
-	await saveTaskState(project.id, task.id, state);
+	await saveTaskState(project.id, task.id, runningState);
 
 	emitBatchTaskEvent({ type: "task.resumed", projectId: project.id, taskId: task.id });
 	console.log(`[BatchTask] task.resumed emitted: ${task.id}`);
 
-	runtime.subscribe(task.sessionId, createTaskEventHandler(project.id, task.id, abortController));
+	try {
+		console.log(`[BatchTask] Calling continue for session ${sessionId}`);
+		await runtime.continue(sessionId);
+		console.log(`[BatchTask] continue returned, finalizing task ${task.id}`);
 
-	console.log(`[BatchTask] Calling continue for session ${task.sessionId}`);
-	await runtime.continue(task.sessionId);
-	console.log(`[BatchTask] continue succeeded for task ${task.id}`);
+		await finalizeTask(project.id, task.id, runtime);
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		console.error(`[BatchTask] resumeTask failed for task ${task.id}: ${errorMessage}`);
+		const executing = executingTasks.get(task.id);
+		if (executing) clearTimeout(executing.timeoutHandle);
+		const state: BatchTaskState = {
+			taskId: task.id,
+			status: "failed",
+			error: errorMessage,
+			sessionId,
+			sessionPath: task.sessionPath,
+			executionMode,
+			completedAt: Date.now(),
+			lastModified: Date.now(),
+		};
+		await saveTaskState(project.id, task.id, state);
+		executingTasks.delete(task.id);
+		emitBatchTaskEvent({ type: "task.failed", projectId: project.id, taskId: task.id, error: errorMessage });
+	}
 }
 
 export function isTaskRunning(taskId: string): boolean {
