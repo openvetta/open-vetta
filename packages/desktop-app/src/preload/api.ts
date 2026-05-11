@@ -425,6 +425,7 @@ export interface BatchProject {
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
 	concurrency: number;
+	artifactPatterns?: string[];
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -453,6 +454,7 @@ export interface DesktopBatchTasksApi {
 		executionMode?: ExecutionModeOverride;
 		folders: string[];
 		concurrency: number;
+		artifactPatterns?: string[];
 	}): Promise<BatchProject>;
 	updateProject(
 		projectId: string,
@@ -462,6 +464,7 @@ export interface DesktopBatchTasksApi {
 			modelKey: string;
 			executionMode: ExecutionModeOverride;
 			concurrency: number;
+			artifactPatterns: string[];
 			newFolders: string[];
 		}>,
 	): Promise<void>;

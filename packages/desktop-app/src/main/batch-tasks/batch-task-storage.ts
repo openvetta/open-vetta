@@ -22,6 +22,7 @@ interface BatchProjectMeta {
 	modelKey?: string;
 	concurrency: number;
 	executionMode?: ExecutionModeOverride;
+	artifactPatterns?: string[];
 	items: BatchItemMeta[];
 	createdAt: number;
 	updatedAt: number;
@@ -50,6 +51,7 @@ export interface BatchProject {
 	modelKey?: string;
 	concurrency: number;
 	executionMode?: ExecutionModeOverride;
+	artifactPatterns?: string[];
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -124,6 +126,7 @@ function assembleProject(
 		modelKey: meta.modelKey,
 		concurrency: meta.concurrency,
 		executionMode: normalizeExecutionModeOverride(meta.executionMode, "full-access"),
+		artifactPatterns: meta.artifactPatterns,
 		tasks,
 		createdAt: meta.createdAt,
 		updatedAt: meta.updatedAt,
@@ -233,6 +236,7 @@ export async function createProject(
 	folders: string[],
 	concurrency: number,
 	executionMode?: ExecutionModeOverride,
+	artifactPatterns?: string[],
 ): Promise<BatchProject> {
 	const config = await readDesktopConfig();
 	const projectDir = join(config.workspacePath, name);
@@ -260,6 +264,7 @@ export async function createProject(
 		modelKey,
 		concurrency,
 		executionMode: normalizeExecutionModeOverride(executionMode, "full-access"),
+		artifactPatterns: artifactPatterns && artifactPatterns.length > 0 ? artifactPatterns : undefined,
 		items,
 		createdAt: now,
 		updatedAt: now,
@@ -295,6 +300,7 @@ export async function updateProject(
 		modelKey: string;
 		concurrency: number;
 		executionMode: ExecutionModeOverride;
+		artifactPatterns: string[];
 		newFolders: string[];
 	}>,
 ): Promise<void> {
@@ -305,6 +311,9 @@ export async function updateProject(
 	if (data.modelKey !== undefined) meta.modelKey = data.modelKey;
 	if (data.concurrency !== undefined) meta.concurrency = data.concurrency;
 	if (data.executionMode !== undefined) meta.executionMode = normalizeExecutionModeOverride(data.executionMode);
+	if (data.artifactPatterns !== undefined) {
+		meta.artifactPatterns = data.artifactPatterns.length > 0 ? data.artifactPatterns : undefined;
+	}
 
 	if (data.newFolders) {
 		const now = Date.now();

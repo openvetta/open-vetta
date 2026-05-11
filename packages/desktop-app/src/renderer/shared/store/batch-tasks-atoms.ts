@@ -25,6 +25,7 @@ export interface BatchProject {
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
 	concurrency: number;
+	artifactPatterns?: string[];
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;

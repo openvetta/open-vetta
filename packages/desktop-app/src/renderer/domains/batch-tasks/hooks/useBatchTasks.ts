@@ -25,6 +25,7 @@ export function useBatchTasks() {
 			executionMode?: ExecutionModeOverride;
 			folders: string[];
 			concurrency: number;
+			artifactPatterns?: string[];
 		}) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
@@ -43,6 +44,7 @@ export function useBatchTasks() {
 				modelKey?: string;
 				executionMode?: ExecutionModeOverride;
 				concurrency?: number;
+				artifactPatterns?: string[];
 				newFolders?: string[];
 			},
 		) => {
@@ -70,6 +72,7 @@ export function useBatchTasks() {
 						...(data.modelKey !== undefined ? { modelKey: data.modelKey } : {}),
 						...(data.executionMode !== undefined ? { executionMode: data.executionMode } : {}),
 						...(data.concurrency !== undefined ? { concurrency: data.concurrency } : {}),
+						...(data.artifactPatterns !== undefined ? { artifactPatterns: data.artifactPatterns } : {}),
 						tasks: [...p.tasks, ...newTasks],
 						updatedAt: Date.now(),
 					};
