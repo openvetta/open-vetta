@@ -38,14 +38,30 @@ export function ResizeHandle({ side, onResize, onResizeEnd }: ResizeHandleProps)
 		[side, onResize, onResizeEnd],
 	);
 
+	const edge = side === "right" ? "right-0" : "left-0";
 	return (
 		<div
 			onPointerDown={onPointerDown}
-			className={`group absolute top-0 bottom-0 z-30 w-[6px] cursor-col-resize ${
-				side === "right" ? "right-0" : "left-0"
-			}`}
+			className={`group absolute top-0 bottom-0 z-30 w-[8px] cursor-col-resize ${edge}`}
 		>
-			<div className="h-full w-px mx-auto bg-transparent group-hover:bg-primary/40 group-active:bg-primary/60 transition-colors" />
+			{/* 光晕（更宽、blur 模糊） */}
+			<div
+				aria-hidden
+				className={`pointer-events-none absolute ${edge} top-1/2 h-[55%] w-[4px] -translate-y-1/2 rounded-full opacity-0 blur-[3px] transition-opacity duration-200 group-hover:opacity-100 group-active:opacity-100`}
+				style={{
+					background:
+						"linear-gradient(to bottom, transparent, var(--primary) 50%, transparent)",
+				}}
+			/>
+			{/* 锐利提示线（1px、贴 sidebar 边框，中间到两端 fade） */}
+			<div
+				aria-hidden
+				className={`pointer-events-none absolute ${edge} top-1/2 h-[60%] w-px -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-active:opacity-100`}
+				style={{
+					background:
+						"linear-gradient(to bottom, transparent, var(--primary) 50%, transparent)",
+				}}
+			/>
 		</div>
 	);
 }
