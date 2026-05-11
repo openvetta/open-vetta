@@ -423,11 +423,16 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		params.tool_choice = options.toolChoice;
 	}
 
-	if (compat.thinkingFormat === "zai" && model.reasoning) {
+	// Whenever a non-default thinkingFormat is in effect (explicit user config or
+	// auto-detected z.ai), always emit the disable/enable hint so the user's "off"
+	// toggle is honored even when model.reasoning isn't set. The OpenAI-standard
+	// reasoning_effort branch keeps requiring model.reasoning to avoid sending
+	// unsupported params to vanilla OpenAI endpoints.
+	if (compat.thinkingFormat === "zai") {
 		// Z.ai uses binary thinking: { type: "enabled" | "disabled" }
 		// Must explicitly disable since z.ai defaults to thinking enabled
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
-	} else if (compat.thinkingFormat === "qwen" && model.reasoning) {
+	} else if (compat.thinkingFormat === "qwen") {
 		// Qwen uses enable_thinking: boolean + reasoning_effort for effort control
 		(params as any).enable_thinking = !!options?.reasoningEffort;
 		if (options?.reasoningEffort) {
@@ -435,7 +440,7 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		} else {
 			params.reasoning_effort = "none" as any;
 		}
-	} else if (compat.thinkingFormat === "nvidia" && model.reasoning) {
+	} else if (compat.thinkingFormat === "nvidia") {
 		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
 		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };
 	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
