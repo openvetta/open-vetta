@@ -1,3 +1,4 @@
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { AssistantMessage, Message, StopReason } from "@mariozechner/pi-ai";
 import type { RuntimeHost, SessionExecutionMode } from "../../../../runtime-core/src/index.js";
@@ -7,6 +8,8 @@ import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import { verifyArtifacts } from "./artifact-validator";
 import { type BatchTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
+
+const TASK_TMP_SUBDIR = ".tmp";
 
 const TASK_TIMEOUT_MS = 60 * 60 * 1000;
 
@@ -62,15 +65,19 @@ function findLastAssistant(messages: Message[]): AssistantMessage | undefined {
 }
 
 function buildTaskSystemPrompt(task: BatchTask): string {
+	const tmpDir = join(task.cwd, TASK_TMP_SUBDIR);
 	return [
 		`## 批量任务上下文`,
 		`- 源目录路径（只读参考）: ${task.sourcePath}`,
 		`- 工作目录: ${task.cwd}`,
+		`- 临时目录（已为本任务私有，可写入中间文件）: ${tmpDir}`,
 		`- 任务名称: ${task.name}`,
 		``,
 		`## 规则`,
 		`- 只读取源目录路径中的文件作为参考，不要修改源目录中的任何内容`,
-		`- 所有输出/生成的文件应放在当前工作目录中`,
+		`- 最终产物文件必须放在工作目录的顶层（不要放进 ${TASK_TMP_SUBDIR}/ 子目录）`,
+		`- 任何临时文件、辅助脚本、中间产物必须写入上面给出的临时目录，禁止写入 /tmp、/var/tmp、C:\\Windows\\Temp 等系统共享目录`,
+		`- TMPDIR、TEMP、TMP 环境变量已自动指向该临时目录，Python tempfile、bash mktemp 等会自动落到这里`,
 		`- 完成所有工作后直接结束，不要等待用户确认`,
 	].join("\n");
 }
@@ -163,11 +170,21 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 
 		const sessionDir = join(project.id, ".vetta", "sessions");
 		const taskSystemPrompt = buildTaskSystemPrompt(task);
+		// 为本任务准备私有临时目录。三套环境变量同时设：
+		// TMPDIR 覆盖 macOS / Linux，TEMP + TMP 覆盖 Windows，
+		// 同时也覆盖 Python tempfile / bash mktemp 等系统调用的隐式路径。
+		const taskTmpDir = join(task.cwd, TASK_TMP_SUBDIR);
+		await mkdir(taskTmpDir, { recursive: true });
 		const result = await runtime.createSession({
 			cwd: task.cwd,
 			sessionDir,
 			appendSystemPrompt: taskSystemPrompt,
 			executionMode: mode,
+			env: {
+				TMPDIR: taskTmpDir,
+				TEMP: taskTmpDir,
+				TMP: taskTmpDir,
+			},
 		});
 		sessionId = result.sessionId;
 		sessionPath = runtime.getSessionPath(sessionId);

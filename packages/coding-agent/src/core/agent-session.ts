@@ -83,7 +83,7 @@ import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocatio
 import { buildSystemPrompt } from "./system-prompt.js";
 import { TODO_SNAPSHOT_TYPE, type TodoItem, type TodoSnapshot, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
-import { createAllTools, getDefaultCodingToolNames } from "./tools/index.js";
+import { type BashSpawnHook, createAllTools, getDefaultCodingToolNames } from "./tools/index.js";
 import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
 import { createTodoTool } from "./tools/todo/index.js";
 
@@ -159,6 +159,11 @@ export interface AgentSessionConfig {
 	enableMcp?: boolean;
 	/** Enable MCP debug logging (default: false) */
 	mcpDebug?: boolean;
+	/**
+	 * 注入到 bash/shell 工具子进程的环境变量覆盖层（合并到默认 shell env 之上）。
+	 * 用于把 TMPDIR/TEMP/TMP 等系统级路径重定向到 session 私有目录。
+	 */
+	envOverlay?: Record<string, string>;
 }
 
 export interface ExtensionBindings {
@@ -268,6 +273,7 @@ export class AgentSession {
 	private _extensionRunnerRef?: { current?: ExtensionRunner };
 	private _initialActiveToolNames?: string[];
 	private _baseToolsOverride?: Record<string, AgentTool>;
+	private _envOverlay?: Record<string, string>;
 	private _extensionUIContext?: ExtensionUIContext;
 	private _extensionCommandContextActions?: ExtensionCommandContextActions;
 	private _extensionShutdownHandler?: ShutdownHandler;
@@ -303,6 +309,7 @@ export class AgentSession {
 		this._extensionRunnerRef = config.extensionRunnerRef;
 		this._initialActiveToolNames = config.initialActiveToolNames;
 		this._baseToolsOverride = config.baseToolsOverride;
+		this._envOverlay = config.envOverlay;
 		this._enableMcp = config.enableMcp !== undefined ? config.enableMcp : true;
 		this._mcpDebug = config.mcpDebug || false;
 
@@ -2302,12 +2309,16 @@ export class AgentSession {
 	}): void {
 		const autoResizeImages = this.settingsManager.getImageAutoResize();
 		const shellCommandPrefix = this.settingsManager.getShellCommandPrefix();
+		const envOverlay = this._envOverlay;
+		const spawnHook: BashSpawnHook | undefined = envOverlay
+			? (ctx) => ({ ...ctx, env: { ...ctx.env, ...envOverlay } })
+			: undefined;
 		const baseTools: Record<string, AgentTool<any>> = this._baseToolsOverride
 			? { ...this._baseToolsOverride }
 			: createAllTools(this._cwd, {
 					read: { autoResizeImages },
-					bash: { commandPrefix: shellCommandPrefix },
-					shell: { commandPrefix: shellCommandPrefix },
+					bash: { commandPrefix: shellCommandPrefix, spawnHook },
+					shell: { commandPrefix: shellCommandPrefix, spawnHook },
 				});
 
 		// Add invoke_skill tool if skills are available
