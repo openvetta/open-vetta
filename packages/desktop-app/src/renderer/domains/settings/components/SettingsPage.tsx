@@ -12,6 +12,7 @@ import { McpSettings } from "./McpSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
+import { WebhookSettings } from "./WebhookSettings";
 
 const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean }[] = [
 	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
@@ -20,6 +21,7 @@ const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?:
 	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
 	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
 	{ key: "im", label: "IM 集成", icon: "icon-[mdi--message-text-outline]" },
+	{ key: "webhook", label: "消息推送", icon: "icon-[mdi--webhook]" },
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
 	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },
 ];
@@ -30,6 +32,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	models: ModelsSettings,
 	mcp: McpSettings,
 	im: ImBridgeSettings,
+	webhook: WebhookSettings,
 	shortcuts: ShortcutsSettings,
 	archive: ArchivedProjectsSettings,
 	team: TeamSettings,
