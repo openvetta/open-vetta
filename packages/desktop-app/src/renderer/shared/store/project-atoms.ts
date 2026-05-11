@@ -26,7 +26,16 @@ export type SidebarFilter = "all" | "normal" | "schedule" | "batch" | "flowing";
 export const projectsAtom = atom<Project[]>([]);
 export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());
 export const sessionsMapAtom = atom<Map<string, SessionInfo[]>>(new Map<string, SessionInfo[]>());
-export const sidebarWidthAtom = atom<number>(220);
+
+export const SIDEBAR_WIDTH_STORAGE_KEY = "vetta-sidebar-width";
+const SIDEBAR_WIDTH_DEFAULT = 220;
+const readSidebarWidth = (): number => {
+	const raw = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+	if (raw == null) return SIDEBAR_WIDTH_DEFAULT;
+	const n = Number(raw);
+	return Number.isFinite(n) && n > 0 ? n : SIDEBAR_WIDTH_DEFAULT;
+};
+export const sidebarWidthAtom = atom<number>(readSidebarWidth());
 export const sidebarFilterAtom = atom<SidebarFilter>("all");
 // Always start expanded on app launch — collapse state is per-session only.
 export const sidebarCollapsedAtom = atom<boolean>(false);

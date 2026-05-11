@@ -17,6 +17,8 @@ interface ProjectGroupProps {
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 }
 
+const DEFAULT_VISIBLE_SESSIONS = 5;
+
 const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
 	normal: "icon-[mdi--folder-outline]",
 	schedule: "icon-[mdi--robot-outline]",
@@ -112,6 +114,17 @@ export function ProjectGroup({
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
+	const [showAllSessions, setShowAllSessions] = useState(false);
+
+	useEffect(() => {
+		if (!isExpanded) setShowAllSessions(false);
+	}, [isExpanded]);
+
+	const hasMoreSessions = sortedSessions.length > DEFAULT_VISIBLE_SESSIONS;
+	const visibleSessions = showAllSessions
+		? sortedSessions
+		: sortedSessions.slice(0, DEFAULT_VISIBLE_SESSIONS);
+	const hiddenCount = sortedSessions.length - DEFAULT_VISIBLE_SESSIONS;
 
 	const displayName = project.name ?? pathBasename(project.cwd);
 	const projectType = project.type;
@@ -198,7 +211,7 @@ export function ProjectGroup({
 							No sessions yet
 						</p>
 					) : (
-						sortedSessions.map((session) => {
+						visibleSessions.map((session) => {
 							const isActive = activeSessionPath === session.path;
 							const isRenaming = renamingSessionPath === session.path;
 							const label = session.name || session.firstMessage || session.id;
@@ -252,6 +265,21 @@ export function ProjectGroup({
 								</button>
 							);
 						})
+					)}
+					{hasMoreSessions && (
+						<button
+							type="button"
+							onClick={() => setShowAllSessions((v) => !v)}
+							className="flex w-full items-center gap-1 rounded-lg px-2.5 py-[6px] pl-[36px] text-left text-[12px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+						>
+							<span
+								className={cn(
+									showAllSessions ? "icon-[mdi--chevron-up]" : "icon-[mdi--chevron-down]",
+									"h-3.5 w-3.5 shrink-0",
+								)}
+							/>
+							{showAllSessions ? "折叠会话" : `展开更多（${hiddenCount}）`}
+						</button>
 					)}
 				</div>
 			)}
