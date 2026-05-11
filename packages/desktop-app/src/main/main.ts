@@ -24,7 +24,7 @@ import {
 	rebuildTrayContextMenu,
 	setHideToTrayOnClose,
 } from "./tray-manager.js";
-import { getAppVersion } from "./updater.js";
+import { getAppVersion, updaterService } from "./updater.js";
 import { createWindow, getMainWindow, setMainWindow } from "./window-manager.js";
 
 const PROTOCOL = "vetta";
@@ -244,6 +244,10 @@ app.whenReady().then(async () => {
 
 	// Register IPC handlers
 	ipcTeardown = registerAllIpc(mainWindow.webContents);
+
+	// 启动 Updater：恢复 pending-install + 后台检查一次
+	updaterService.setMainWindow(mainWindow);
+	void updaterService.onAppReady();
 
 	// On Windows/Linux: close button hides to tray
 	mainWindow.on("close", (event) => {
