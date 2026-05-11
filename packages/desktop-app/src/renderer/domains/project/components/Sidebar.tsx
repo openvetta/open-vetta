@@ -7,6 +7,7 @@ import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { SettingsMenu } from "./SettingsMenu";
+import { SidebarUpdateButton } from "./SidebarUpdateButton";
 import { MessageCenter } from "@domains/message/components/MessageCenter";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 
@@ -54,7 +55,9 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 				style={{ paddingLeft: isMac ? 78 : 12, paddingRight: 6 }}
 			>
 				{isMac ? (
-					<div />
+					<div className="flex min-w-0 items-center">
+						<SidebarUpdateButton />
+					</div>
 				) : (
 					<div className="flex min-w-0 items-center gap-2">
 						<img
@@ -63,18 +66,21 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 							className="h-5 w-5 shrink-0 rounded-[5px]"
 						/>
 						<span className="truncate text-[13px] font-semibold text-foreground">Vetta</span>
+						<SidebarUpdateButton />
 					</div>
 				)}
-				{onCollapse && (
-					<button
-						type="button"
-						onClick={onCollapse}
-						title="隐藏侧边栏"
-						className="no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-					>
-						<span className="icon-[mdi--dock-left] h-4 w-4" />
-					</button>
-				)}
+				<div className="flex items-center gap-0.5">
+					{onCollapse && (
+						<button
+							type="button"
+							onClick={onCollapse}
+							title="隐藏侧边栏"
+							className="no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						>
+							<span className="icon-[mdi--dock-left] h-4 w-4" />
+						</button>
+					)}
+				</div>
 			</div>
 
 			{/* Page nav entries (with 新建项目 on top) */}

@@ -12,12 +12,14 @@ import { useProjects } from "./domains/project/hooks/useProjects";
 import { useTheme } from "./shared/hooks/useTheme";
 import { useAuth } from "./domains/auth/hooks/useAuth";
 import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
+import { useUpdaterInit } from "./shared/hooks/useUpdaterInit";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
 import { useFlowingInit } from "./domains/flowing/hooks/useFlowingInit";
 import { useFlowingChatInit } from "./domains/flowing-chat/hooks/useFlowingChatInit";
 import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
 import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
+import { UpdateRestartDialog } from "./shared/components/UpdateRestartDialog";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	sandboxPermissionDrawerAtom,
@@ -113,6 +115,7 @@ export function RootLayout(): JSX.Element {
 	useFlowingInit();
 	useFlowingChatInit();
 	useDownloadsInit();
+	useUpdaterInit();
 	const { openSession, openSessionRef } = useSessionManager();
 	const confirmationQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]>(
 		[],
@@ -265,6 +268,7 @@ export function RootLayout(): JSX.Element {
 					<FlowingSendDialog />
 					<WorkflowCompleteDialog />
 					<FilePreviewDialog />
+					<UpdateRestartDialog />
 				</div>
 			</div>
 		</TooltipProvider>

@@ -203,8 +203,21 @@ const api: DesktopApi = {
 	},
 	updater: {
 		check: async () => ipcRenderer.invoke("vetta:updater:check"),
+		getState: async () => ipcRenderer.invoke("vetta:updater:get-state"),
 		getCurrentVersion: async () => ipcRenderer.invoke("vetta:updater:get-current-version"),
-		download: async (url) => ipcRenderer.invoke("vetta:updater:download", url),
+		download: async () => ipcRenderer.invoke("vetta:updater:download"),
+		install: async () => ipcRenderer.invoke("vetta:updater:install"),
+		dismiss: async () => ipcRenderer.invoke("vetta:updater:dismiss"),
+		cancel: async () => ipcRenderer.invoke("vetta:updater:cancel"),
+		onStateChanged: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, state: unknown) => {
+				handler(state as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on("vetta:updater:state", listener);
+			return () => {
+				ipcRenderer.removeListener("vetta:updater:state", listener);
+			};
+		},
 	},
 	tray: {
 		setQuitBehavior: async (hideToTray) => ipcRenderer.invoke("vetta:tray:set-quit-behavior", hideToTray),

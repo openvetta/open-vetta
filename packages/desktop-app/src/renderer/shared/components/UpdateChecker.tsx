@@ -1,37 +1,44 @@
+import { updaterRestartDialogOpenAtom, updaterStateAtom } from "@shared/store/atoms";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import { Button } from "./ui/button";
 
-interface UpdateCheckResult {
-	hasUpdate: boolean;
-	currentVersion: string;
-	latestVersion?: string;
-	releaseNote?: string;
-	downloadUrl?: string;
-	error?: string;
-}
-
 export function UpdateChecker(): JSX.Element {
-	const [checking, setChecking] = useState(false);
-	const [result, setResult] = useState<UpdateCheckResult | null>(null);
+	const state = useAtomValue(updaterStateAtom);
+	const openRestartDialog = useSetAtom(updaterRestartDialogOpenAtom);
+	const [busy, setBusy] = useState(false);
 
 	const handleCheck = async () => {
-		setChecking(true);
-		setResult(null);
+		setBusy(true);
 		try {
-			const res = await window.vetta.updater.check();
-			setResult(res);
-		} catch {
-			setResult({ hasUpdate: false, currentVersion: "", error: "检查更新失败" });
+			await window.vetta.updater.check();
 		} finally {
-			setChecking(false);
+			setBusy(false);
 		}
 	};
 
-	const handleDownload = async () => {
-		if (result?.downloadUrl) {
-			await window.vetta.updater.download(result.downloadUrl);
+	const handlePrimary = async () => {
+		if (state.phase === "available") {
+			await window.vetta.updater.download();
+			return;
+		}
+		if (state.phase === "ready") {
+			openRestartDialog(true);
+			return;
 		}
 	};
+
+	const checking = busy || state.phase === "checking";
+	const showStatus =
+		state.phase === "idle" || state.phase === "error" || state.phase === "checking";
+
+	const statusText = (() => {
+		if (state.phase === "checking") return "正在检查...";
+		if (state.phase === "error") return state.error;
+		if (state.phase === "idle") return `当前已是最新版本（${state.currentVersion}）`;
+		return "";
+	})();
+	const statusColor = state.phase === "error" ? "text-red-500" : "text-muted-foreground";
 
 	return (
 		<div className="space-y-3">
@@ -43,39 +50,47 @@ export function UpdateChecker(): JSX.Element {
 				>
 					{checking ? "检查中..." : "检查更新"}
 				</Button>
-				{result && !result.hasUpdate && !result.error && (
-					<span className="text-[12px] text-muted-foreground">
-						当前已是最新版本 ({result.currentVersion})
-					</span>
-				)}
-				{result?.error && (
-					<span className="text-[12px] text-red-500">
-						{result.error}
-					</span>
+				{showStatus && statusText && (
+					<span className={`text-[12px] ${statusColor}`}>{statusText}</span>
 				)}
 			</div>
 
-			{result?.hasUpdate && (
-				<div className="rounded-lg border border-border bg-secondary p-3 space-y-2">
-					<div className="flex items-center justify-between">
-						<div>
+			{(state.phase === "available" || state.phase === "downloading" || state.phase === "ready") && (
+				<div className="space-y-2 rounded-lg border border-border bg-secondary p-3">
+					<div className="flex items-center justify-between gap-3">
+						<div className="min-w-0">
 							<span className="text-[13px] font-medium text-foreground">
-								新版本 {result.latestVersion}
+								新版本 {state.latestVersion}
 							</span>
 							<span className="ml-2 text-[12px] text-muted-foreground">
-								(当前 {result.currentVersion})
+								(当前 {state.currentVersion})
 							</span>
 						</div>
-						<Button
-							onClick={() => void handleDownload()}
-							className="h-7 rounded-lg px-3 text-[12px]"
-						>
-							下载更新
-						</Button>
+						{state.phase === "available" && (
+							<Button
+								onClick={() => void handlePrimary()}
+								className="h-7 rounded-lg px-3 text-[12px]"
+							>
+								下载更新
+							</Button>
+						)}
+						{state.phase === "downloading" && (
+							<span className="shrink-0 text-[12px] text-muted-foreground">
+								下载中 {Math.round((state.progress ?? 0) * 100)}%
+							</span>
+						)}
+						{state.phase === "ready" && (
+							<Button
+								onClick={() => void handlePrimary()}
+								className="h-7 rounded-lg px-3 text-[12px]"
+							>
+								立即重启
+							</Button>
+						)}
 					</div>
-					{result.releaseNote && (
-						<p className="text-[12px] text-muted-foreground whitespace-pre-wrap">
-							{result.releaseNote}
+					{state.releaseNote && (
+						<p className="whitespace-pre-wrap text-[12px] text-muted-foreground">
+							{state.releaseNote}
 						</p>
 					)}
 				</div>

@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **无感更新（in-place auto-update）**：发现新版本后侧边栏左上角出现下载图标，点击触发后台静默下载（不打开浏览器、不打开 Finder），下载完成后弹出"立即重启 / 稍后"对话框；点稍后则保留下载产物，下次启动会再次提示。三平台均支持：mac 解压 `.zip` 内的 `.app`、清 quarantine 后通过 detached shell 覆盖 `/Applications/Vetta.app` 并 relaunch；win 走 NSIS `/S` 静默安装 + `--force-run` 自启动；linux 覆盖 `$APPIMAGE` 指向的文件后 relaunch。启动时自动 `GET /releases/latest?platform=&arch=` 检查一次，命中新版本（按三段式版本号比较）即激活 sidebar icon。下载产物写到 `app.getPath("userData")/updates/<version>/`，pending-install.json 记录"待重启"状态，文件丢失时自动重置。客户端按 platform/arch + 平台首选扩展名（mac `.zip` / win `.exe` / linux `.AppImage`）从 `assets[]` 里挑资产；未匹配平台或后端未上传对应资产时返回友好错误。配套发版资产规范见 `docs/release-guide.md`。
+
 - **侧边栏会话默认折叠**：项目展开后默认只显示前 5 个 session，超过则底部出现「展开更多（N）」按钮；点击展开全部后按钮变为「折叠会话」，再次点击恢复 5 个。避免项目下 session 过多时一次性渲染导致的卡顿。
 
 ### Fixed
