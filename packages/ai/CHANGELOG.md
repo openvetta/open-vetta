@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 修复"思考关闭"对自定义端点不生效的问题：
+  - `anthropic-messages` provider 当 `baseUrl`/`gatewayUrl` 不指向官方 Anthropic API 时（LM Studio 等 Anthropic 兼容层），始终下发 `thinking: { type: "disabled" }`，避免底层模型（如 Qwen）按默认思考行为输出 reasoning 内容。
+  - `openai-completions` provider 的 `zai`/`qwen`/`nvidia` thinking 格式分支不再要求 `model.reasoning: true`，确保自定义模型的"off"指令能下发为 `enable_thinking: false` / `thinking: { type: "disabled" }`。
+  - 副带：当用户启用思考且端点为非官方 Anthropic 兼容层时，即使模型未标 `reasoning: true` 也尝试以 budget 模式启用。
+
 ## [0.55.3] - 2026-03-06
 
 ## [0.55.2] - 2026-03-06

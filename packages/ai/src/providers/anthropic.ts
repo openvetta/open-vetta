@@ -620,23 +620,38 @@ function buildParams(
 	}
 
 	// Configure thinking mode: adaptive (Opus 4.6 and Sonnet 4.6) or budget-based (older models)
-	if (options?.thinkingEnabled && model.reasoning) {
-		if (supportsAdaptiveThinking(model.id)) {
-			// Adaptive thinking: Claude decides when and how much to think
-			params.thinking = { type: "adaptive" };
-			if (options.effort) {
-				params.output_config = { effort: options.effort };
+	const effectiveBaseUrl = model.gatewayUrl || model.baseUrl;
+	const isOfficialAnthropic = effectiveBaseUrl.includes("api.anthropic.com");
+	if (options?.thinkingEnabled) {
+		if (model.reasoning) {
+			if (supportsAdaptiveThinking(model.id)) {
+				// Adaptive thinking: Claude decides when and how much to think
+				params.thinking = { type: "adaptive" };
+				if (options.effort) {
+					params.output_config = { effort: options.effort };
+				}
+			} else {
+				// Budget-based thinking for older models
+				params.thinking = {
+					type: "enabled",
+					budget_tokens: options.thinkingBudgetTokens || 1024,
+				};
 			}
-		} else {
-			// Budget-based thinking for older models
+		} else if (!isOfficialAnthropic) {
+			// Non-official endpoint (LM Studio etc.) — attempt budget-based enable
+			// even when the model isn't marked reasoning: true. Compatible backends
+			// honor it; others silently ignore.
 			params.thinking = {
 				type: "enabled",
 				budget_tokens: options.thinkingBudgetTokens || 1024,
 			};
 		}
-	} else if (model.reasoning && supportsAdaptiveThinking(model.id)) {
-		// Adaptive thinking models default to thinking when param is omitted,
-		// so we must explicitly disable it
+	} else if (supportsAdaptiveThinking(model.id) || !isOfficialAnthropic) {
+		// Explicitly disable thinking when user selected "off":
+		// - Adaptive models default to thinking when the param is omitted
+		// - Non-official endpoints (LM Studio etc.) may run an underlying model
+		//   that defaults to thinking-on (Qwen and similar), so we always send
+		//   the explicit disable hint to honor the user's toggle
 		params.thinking = { type: "disabled" };
 	}
 
