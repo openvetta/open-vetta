@@ -41,11 +41,11 @@ export function ResizeHandle({ side, onResize, onResizeEnd }: ResizeHandleProps)
 	return (
 		<div
 			onPointerDown={onPointerDown}
-			className={`absolute top-0 bottom-0 z-20 w-[5px] cursor-col-resize ${
-				side === "right" ? "right-0 translate-x-1/2" : "left-0 -translate-x-1/2"
+			className={`group absolute top-0 bottom-0 z-30 w-[6px] cursor-col-resize ${
+				side === "right" ? "right-0" : "left-0"
 			}`}
 		>
-			<div className="h-full w-px mx-auto bg-transparent hover:bg-primary/10 transition-colors" />
+			<div className="h-full w-px mx-auto bg-transparent group-hover:bg-primary/40 group-active:bg-primary/60 transition-colors" />
 		</div>
 	);
 }

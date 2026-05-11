@@ -4,7 +4,13 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Added
+
+- **侧边栏会话默认折叠**：项目展开后默认只显示前 5 个 session，超过则底部出现「展开更多（N）」按钮；点击展开全部后按钮变为「折叠会话」，再次点击恢复 5 个。避免项目下 session 过多时一次性渲染导致的卡顿。
+
 ### Fixed
+
+- **侧边栏无法拖拽收缩**：`ResizeHandle` 用了 `translate-x-1/2` 让 5px 命中区域骑在 `<aside>` 右边缘，但 `<aside>` 与外层 `motion.div` 都是 `overflow-hidden`，外侧那 2.5px 被裁切，实际可点击只剩 ~2.5px，几乎抓不住。改为完全位于父容器内部、宽度 6px，并把 hover 高亮提升至 `primary/40`、active 状态 `primary/60`；同时把侧边栏宽度持久化到 `localStorage[vetta-sidebar-width]`，只在拖拽结束时落盘。
 
 - **导入项目后打开会话报 EPERM**：批量项目的 `.vetta/task-states.json:sessionPath` 与 session JSONL 首行的 `cwd` / 历史 tool_call 内嵌的文件路径都是绝对路径；跨机器或跨 workspace 导入时这些路径仍指向原项目根，导致 `SessionManager.open` 在 mkdir 旧 sessions 目录时报 `EPERM: operation not permitted`。修复：导入解压完成后，对 `.vetta/task-states.json` 与 `.vetta/sessions/*.jsonl` 做 path-rewrite——递归扫描 JSON / JSONL 中的字符串值，把以 manifest.originalPath 开头的绝对路径前缀替换成新项目根，并按目标平台规则化分隔符（macOS `/` ↔ Windows `\`）。重写策略保守：只匹配"完整等于"或"以原根 + 分隔符开头"的字符串，不影响指向原机器其它资源的外部绝对路径。
 

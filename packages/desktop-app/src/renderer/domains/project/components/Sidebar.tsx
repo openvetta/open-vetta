@@ -1,7 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import { SIDEBAR_WIDTH_STORAGE_KEY, sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
 import { isMac } from "@shared/lib/platform";
 import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
@@ -30,6 +30,8 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
+	const widthRef = useRef(width);
+	widthRef.current = width;
 
 	const onResize = useCallback(
 		(delta: number) => {
@@ -37,6 +39,9 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 		},
 		[setWidth],
 	);
+	const onResizeEnd = useCallback(() => {
+		localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(widthRef.current));
+	}, []);
 
 	return (
 		<aside
@@ -111,7 +116,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 				</div>
 				<MessageCenter />
 			</div>
-			<ResizeHandle side="right" onResize={onResize} />
+			<ResizeHandle side="right" onResize={onResize} onResizeEnd={onResizeEnd} />
 		</aside>
 	);
 }
