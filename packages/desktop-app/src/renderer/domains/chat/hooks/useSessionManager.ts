@@ -82,13 +82,23 @@ export function useSessionManager(): SessionManagerResult {
 	const pendingTextDeltaRef = useRef("");
 	const pendingThinkingDeltaRef = useRef("");
 	const deltaRafRef = useRef<number | null>(null);
+	// Tracks which session the currently-pending deltas belong to. If the user
+	// switches away before the next rAF fires, we drop the deltas instead of
+	// appending them to the new session's messages.
+	const pendingDeltaSessionRef = useRef<string | null>(null);
 
 	const flushDeltas = useCallback(() => {
 		deltaRafRef.current = null;
 		const textDelta = pendingTextDeltaRef.current;
 		const thinkingDelta = pendingThinkingDeltaRef.current;
+		const owningSession = pendingDeltaSessionRef.current;
 		pendingTextDeltaRef.current = "";
 		pendingThinkingDeltaRef.current = "";
+		pendingDeltaSessionRef.current = null;
+
+		if (owningSession && activeSessionRef.current?.runtimeId !== owningSession) {
+			return;
+		}
 
 		if (textDelta || thinkingDelta) {
 			setChatMessages((prev) => {
@@ -123,18 +133,35 @@ export function useSessionManager(): SessionManagerResult {
 			// Teardown previous session
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
+			// Cancel any in-flight rAF and drop pending deltas — otherwise the prior
+			// session's accumulated delta text gets flushed into the new session's atom.
+			if (deltaRafRef.current !== null) {
+				cancelAnimationFrame(deltaRafRef.current);
+				deltaRafRef.current = null;
+			}
+			pendingTextDeltaRef.current = "";
+			pendingThinkingDeltaRef.current = "";
+			pendingDeltaSessionRef.current = null;
 			resetStreamState();
 			setIsStreaming(false);
 			setIsCompacting(false);
 			setTurnModifiedFiles([]);
+			// Clear messages immediately so the user sees the switch take effect
+			// instead of staring at the old session while history loads.
+			setChatMessages([]);
 
 			void navigate({ to: "/" });
 			__perf("before session.create");
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath, executionMode });
 			__perf("after session.create");
 
-			// Load full history (includes compaction boundaries for complete UI display)
-			const history = await window.vetta.session.getFullHistory(sessionId);
+			// Fire history + state in parallel so renderer doesn't wait on two
+			// sequential IPC round-trips. History is rendered as soon as it lands;
+			// state arrives shortly after and fills in context/streaming UI.
+			const historyPromise = window.vetta.session.getFullHistory(sessionId);
+			const statePromise = window.vetta.session.getState(sessionId);
+
+			const history = await historyPromise;
 			__perf("after getFullHistory");
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
@@ -146,8 +173,7 @@ export function useSessionManager(): SessionManagerResult {
 				autoTitledSessionsRef.current.add(sessionPath);
 			}
 
-			// Restore per-session state: context usage from backend, turn stats from cache
-			const state = await window.vetta.session.getState(sessionId);
+			const state = await statePromise;
 			__perf("after getState");
 			setContextUsage({
 				percent: state.contextPercent,
@@ -219,6 +245,11 @@ export function useSessionManager(): SessionManagerResult {
 			// ─── Subscribe to live session events ───
 			setCurrentUnsubscribe(
 				await window.vetta.session.subscribe(sessionId, (event) => {
+					// Defensive guard: if user has already switched away to another
+					// session, drop this event so its delta/state can't bleed into
+					// the new session's atom. activeSessionRef is updated synchronously
+					// above and reflects the latest user-facing session.
+					if (activeSessionRef.current?.runtimeId !== sessionId) return;
 					// ── Lifecycle ──
 					if (event.type === "session.lifecycle") {
 						if (event.phase === "agent_start") {
@@ -329,6 +360,7 @@ export function useSessionManager(): SessionManagerResult {
 					// ── Thinking delta (streaming thinking text) ──
 					if (event.type === "thinking.delta") {
 						pendingThinkingDeltaRef.current += event.delta;
+						pendingDeltaSessionRef.current = sessionId;
 						scheduleDeltaFlush();
 						return;
 					}
@@ -336,6 +368,7 @@ export function useSessionManager(): SessionManagerResult {
 					// ── Text delta (streaming assistant text) ──
 					if (event.type === "message.delta") {
 						pendingTextDeltaRef.current += event.delta;
+						pendingDeltaSessionRef.current = sessionId;
 						scheduleDeltaFlush();
 						return;
 					}
