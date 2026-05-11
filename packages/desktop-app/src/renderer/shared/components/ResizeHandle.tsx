@@ -39,6 +39,10 @@ export function ResizeHandle({ side, onResize, onResizeEnd }: ResizeHandleProps)
 	);
 
 	const edge = side === "right" ? "right-0" : "left-0";
+	const lineGradient =
+		"linear-gradient(to bottom, transparent, color-mix(in srgb, var(--primary) 55%, transparent) 50%, transparent)";
+	const glowGradient =
+		"linear-gradient(to bottom, transparent, color-mix(in srgb, var(--primary) 35%, transparent) 50%, transparent)";
 	return (
 		<div
 			onPointerDown={onPointerDown}
@@ -47,20 +51,14 @@ export function ResizeHandle({ side, onResize, onResizeEnd }: ResizeHandleProps)
 			{/* 光晕（更宽、blur 模糊） */}
 			<div
 				aria-hidden
-				className={`pointer-events-none absolute ${edge} top-1/2 h-[55%] w-[4px] -translate-y-1/2 rounded-full opacity-0 blur-[3px] transition-opacity duration-200 group-hover:opacity-100 group-active:opacity-100`}
-				style={{
-					background:
-						"linear-gradient(to bottom, transparent, var(--primary) 50%, transparent)",
-				}}
+				className={`pointer-events-none absolute ${edge} top-1/2 h-[55%] w-[4px] -translate-y-1/2 rounded-full opacity-0 blur-[3px] transition-opacity duration-300 ease-out group-hover:opacity-100 group-active:opacity-100`}
+				style={{ background: glowGradient }}
 			/>
 			{/* 锐利提示线（1px、贴 sidebar 边框，中间到两端 fade） */}
 			<div
 				aria-hidden
-				className={`pointer-events-none absolute ${edge} top-1/2 h-[60%] w-px -translate-y-1/2 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-active:opacity-100`}
-				style={{
-					background:
-						"linear-gradient(to bottom, transparent, var(--primary) 50%, transparent)",
-				}}
+				className={`pointer-events-none absolute ${edge} top-1/2 h-[60%] w-px -translate-y-1/2 opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100 group-active:opacity-100`}
+				style={{ background: lineGradient }}
 			/>
 		</div>
 	);
