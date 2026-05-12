@@ -453,6 +453,7 @@ export interface BatchProject {
 	executionMode?: ExecutionModeOverride;
 	concurrency: number;
 	artifactPatterns?: string[];
+	notifyEnabled?: boolean;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -470,7 +471,8 @@ export type BatchTaskEvent =
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }
-	| { type: "task.resumed"; projectId: string; taskId: string };
+	| { type: "task.resumed"; projectId: string; taskId: string }
+	| { type: "task.reset"; projectId: string; taskId: string };
 
 export interface DesktopBatchTasksApi {
 	getProjects(): Promise<BatchProject[]>;
@@ -482,6 +484,7 @@ export interface DesktopBatchTasksApi {
 		folders: string[];
 		concurrency: number;
 		artifactPatterns?: string[];
+		notifyEnabled?: boolean;
 	}): Promise<BatchProject>;
 	updateProject(
 		projectId: string,
@@ -492,6 +495,7 @@ export interface DesktopBatchTasksApi {
 			executionMode: ExecutionModeOverride;
 			concurrency: number;
 			artifactPatterns: string[];
+			notifyEnabled: boolean;
 			newFolders: string[];
 		}>,
 	): Promise<void>;
@@ -502,6 +506,7 @@ export interface DesktopBatchTasksApi {
 	resumeTask(projectId: string, taskId: string): Promise<void>;
 	deleteTask(projectId: string, taskId: string): Promise<void>;
 	batchRetryFailed(projectId: string): Promise<void>;
+	batchClearFailedAndRetry(projectId: string): Promise<void>;
 	batchPause(projectId: string): Promise<void>;
 	batchResume(projectId: string): Promise<void>;
 	batchDelete(projectId: string): Promise<void>;

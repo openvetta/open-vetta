@@ -12,6 +12,7 @@ import {
 import { Textarea } from "@shared/components/ui/textarea";
 import { Input } from "@shared/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
+import { Switch } from "@shared/components/ui/switch";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 
 interface ModelOption {
@@ -65,6 +66,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [folderText, setFolderText] = useState((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
 	const [folderInputMode, setFolderInputMode] = useState<"picker" | "textarea">("picker");
 	const [artifactPatternsText, setArtifactPatternsText] = useState((project?.artifactPatterns ?? []).join("\n"));
+	const [notifyEnabled, setNotifyEnabled] = useState<boolean>(project?.notifyEnabled ?? false);
 	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 	const modelDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -98,6 +100,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setFolders(project?.tasks.map((t) => t.sourcePath) ?? []);
 		setFolderText((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
 		setArtifactPatternsText((project?.artifactPatterns ?? []).join("\n"));
+		setNotifyEnabled(project?.notifyEnabled ?? false);
 	}, [project]);
 
 	useEffect(() => {
@@ -195,10 +198,20 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 				executionMode,
 				concurrency,
 				artifactPatterns,
+				notifyEnabled,
 				newFolders,
 			});
 		} else {
-			await createProject({ name, prompt, modelKey, executionMode, folders, concurrency, artifactPatterns });
+			await createProject({
+				name,
+				prompt,
+				modelKey,
+				executionMode,
+				folders,
+				concurrency,
+				artifactPatterns,
+				notifyEnabled,
+			});
 		}
 		onClose();
 	};
@@ -354,6 +367,16 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 								</SelectItem>
 							</SelectContent>
 						</Select>
+					</div>
+
+					<div className="mt-4 flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 px-3 py-2.5">
+						<div className="min-w-0">
+							<div className="text-sm font-medium text-foreground">启用消息推送</div>
+							<div className="mt-0.5 text-xs text-muted-foreground/80">
+								每个子任务完成后向已配置的 Webhook 推送一次，并在项目全部完成时推送汇总（可在 设置 → 消息推送 管理 Webhook）。
+							</div>
+						</div>
+						<Switch checked={notifyEnabled} onCheckedChange={setNotifyEnabled} />
 					</div>
 
 					<div className="mt-4">

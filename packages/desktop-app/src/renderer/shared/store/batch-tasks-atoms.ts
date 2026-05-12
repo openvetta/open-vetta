@@ -26,6 +26,8 @@ export interface BatchProject {
 	executionMode?: ExecutionModeOverride;
 	concurrency: number;
 	artifactPatterns?: string[];
+	/** When true, finalized subtasks broadcast a webhook notification. */
+	notifyEnabled?: boolean;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;

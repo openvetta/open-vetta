@@ -1,6 +1,7 @@
 import { ipcMain, type WebContents } from "electron";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import {
+	emitBatchTaskEvent,
 	isTaskRunning,
 	pauseTask as pauseTaskExecutor,
 	resumeTask,
@@ -34,6 +35,7 @@ const CHANNELS = {
 	RESUME_TASK: "vetta:batch-tasks:resume-task",
 	DELETE_TASK: "vetta:batch-tasks:delete-task",
 	BATCH_RETRY_FAILED: "vetta:batch-tasks:batch-retry-failed",
+	BATCH_CLEAR_FAILED_AND_RETRY: "vetta:batch-tasks:batch-clear-failed-and-retry",
 	BATCH_PAUSE: "vetta:batch-tasks:batch-pause",
 	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
@@ -88,6 +90,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				concurrency: number;
 				executionMode?: ExecutionModeOverride;
 				artifactPatterns?: string[];
+				notifyEnabled?: boolean;
 			},
 		) => {
 			console.log(`[BatchTaskIPC] CREATE_PROJECT: ${data.name}`);
@@ -99,6 +102,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				data.concurrency,
 				data.executionMode,
 				data.artifactPatterns,
+				data.notifyEnabled,
 			);
 		},
 	);
@@ -115,6 +119,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				concurrency: number;
 				executionMode: ExecutionModeOverride;
 				artifactPatterns: string[];
+				notifyEnabled: boolean;
 				newFolders: string[];
 			}>,
 		) => {
@@ -206,6 +211,33 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			await cleanTaskFilesAndState(projectId, task, runtime);
 			await runTask(project, task, runtime);
 		});
+		await pLimit(project.concurrency, taskRunners);
+	});
+
+	// 与 BATCH_RETRY_FAILED 的差别：先把所有失败任务一次性清理为 pending（UI
+	// 上立刻看到失败标记消失），再按并发数排队执行。RETRY_FAILED 是逐个 worker
+	// 拿到任务后才清理，所以排队中的失败任务在 UI 上会一直显示"失败"直到轮到它。
+	ipcMain.handle(CHANNELS.BATCH_CLEAR_FAILED_AND_RETRY, async (_, projectId: string) => {
+		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: project=${projectId}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+
+		const failedTasks = project.tasks.filter((t) => t.status === "failed");
+		if (failedTasks.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: no failed tasks in ${projectId}`);
+			return;
+		}
+		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: resetting ${failedTasks.length} tasks then retrying`);
+		const runtime = getRuntime();
+
+		await Promise.all(
+			failedTasks.map(async (task) => {
+				await cleanTaskFilesAndState(projectId, task, runtime);
+				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
+			}),
+		);
+
+		const taskRunners = failedTasks.map((task) => () => runTask(project, task, runtime));
 		await pLimit(project.concurrency, taskRunners);
 	});
 
@@ -321,6 +353,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.RESUME_TASK);
 		ipcMain.removeHandler(CHANNELS.DELETE_TASK);
 		ipcMain.removeHandler(CHANNELS.BATCH_RETRY_FAILED);
+		ipcMain.removeHandler(CHANNELS.BATCH_CLEAR_FAILED_AND_RETRY);
 		ipcMain.removeHandler(CHANNELS.BATCH_PAUSE);
 		ipcMain.removeHandler(CHANNELS.BATCH_RESUME);
 		ipcMain.removeHandler(CHANNELS.BATCH_DELETE);
