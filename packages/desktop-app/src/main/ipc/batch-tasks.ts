@@ -36,6 +36,7 @@ const CHANNELS = {
 	DELETE_TASK: "vetta:batch-tasks:delete-task",
 	BATCH_RETRY_FAILED: "vetta:batch-tasks:batch-retry-failed",
 	BATCH_CLEAR_FAILED_AND_RETRY: "vetta:batch-tasks:batch-clear-failed-and-retry",
+	BATCH_CLEAR_FAILED: "vetta:batch-tasks:batch-clear-failed",
 	BATCH_PAUSE: "vetta:batch-tasks:batch-pause",
 	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
@@ -241,6 +242,29 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		await pLimit(project.concurrency, taskRunners);
 	});
 
+	// 仅清空失败任务的状态与产物，不重新执行。失败任务的 session、task-state、
+	// 工作目录会被并行清理，UI 立即收到 task.reset 把状态重置为 pending。
+	ipcMain.handle(CHANNELS.BATCH_CLEAR_FAILED, async (_, projectId: string) => {
+		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED: project=${projectId}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+
+		const failedTasks = project.tasks.filter((t) => t.status === "failed");
+		if (failedTasks.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED: no failed tasks in ${projectId}`);
+			return;
+		}
+		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED: clearing ${failedTasks.length} tasks`);
+		const runtime = getRuntime();
+
+		await Promise.all(
+			failedTasks.map(async (task) => {
+				await cleanTaskFilesAndState(projectId, task, runtime);
+				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
+			}),
+		);
+	});
+
 	ipcMain.handle(CHANNELS.BATCH_PAUSE, async (_, projectId: string) => {
 		console.log(`[BatchTaskIPC] BATCH_PAUSE: project=${projectId}`);
 		const project = await getProject(projectId);
@@ -354,6 +378,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.DELETE_TASK);
 		ipcMain.removeHandler(CHANNELS.BATCH_RETRY_FAILED);
 		ipcMain.removeHandler(CHANNELS.BATCH_CLEAR_FAILED_AND_RETRY);
+		ipcMain.removeHandler(CHANNELS.BATCH_CLEAR_FAILED);
 		ipcMain.removeHandler(CHANNELS.BATCH_PAUSE);
 		ipcMain.removeHandler(CHANNELS.BATCH_RESUME);
 		ipcMain.removeHandler(CHANNELS.BATCH_DELETE);

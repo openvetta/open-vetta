@@ -507,6 +507,7 @@ export interface DesktopBatchTasksApi {
 	deleteTask(projectId: string, taskId: string): Promise<void>;
 	batchRetryFailed(projectId: string): Promise<void>;
 	batchClearFailedAndRetry(projectId: string): Promise<void>;
+	batchClearFailed(projectId: string): Promise<void>;
 	batchPause(projectId: string): Promise<void>;
 	batchResume(projectId: string): Promise<void>;
 	batchDelete(projectId: string): Promise<void>;

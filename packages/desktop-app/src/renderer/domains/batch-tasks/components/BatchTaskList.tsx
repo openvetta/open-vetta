@@ -94,7 +94,7 @@ interface ProjectCounts {
 	total: number;
 }
 
-type RetryFailedMode = "retry" | "clear-and-retry";
+type RetryFailedMode = "retry" | "clear-and-retry" | "clear-only";
 
 function computeCounts(tasks: BatchTask[]): ProjectCounts {
 	let failed = 0;
@@ -153,6 +153,7 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		deleteTask,
 		batchRetryFailed,
 		batchClearFailedAndRetry,
+		batchClearFailed,
 		batchPause,
 		batchResume,
 		batchRunNeverExecuted,
@@ -198,14 +199,27 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 			});
 			return;
 		}
+		if (mode === "clear-and-retry") {
+			setConfirm({
+				title: "确认清除失败状态并重试",
+				message: `将先把 ${counts.failed} 个失败任务的会话和文件全部清空（状态立刻变为未执行），再按并发数重新执行。此操作不可撤回，是否继续？`,
+				confirmLabel: "清除并重试",
+				cancelLabel: "取消",
+				variant: "danger",
+				onConfirm: async () => {
+					await batchClearFailedAndRetry(project.id);
+				},
+			});
+			return;
+		}
 		setConfirm({
-			title: "确认清除失败状态并重试",
-			message: `将先把 ${counts.failed} 个失败任务的会话和文件全部清空（状态立刻变为未执行），再按并发数重新执行。此操作不可撤回，是否继续？`,
-			confirmLabel: "清除并重试",
+			title: "确认仅清除失败状态",
+			message: `将把 ${counts.failed} 个失败任务的会话和文件全部清空，状态重置为未执行，但不会自动重新运行。此操作不可撤回，是否继续？`,
+			confirmLabel: "清除",
 			cancelLabel: "取消",
 			variant: "danger",
 			onConfirm: async () => {
-				await batchClearFailedAndRetry(project.id);
+				await batchClearFailed(project.id);
 			},
 		});
 	};
@@ -754,6 +768,17 @@ function RetryFailedDropdown({
 					>
 						<span className="text-foreground">清除失败状态并重试</span>
 						<span className="text-[10px] text-muted-foreground/60">先全部重置为未执行，再按并发数执行</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							setOpen(false);
+							onSelect("clear-only");
+						}}
+						className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-accent/50"
+					>
+						<span className="text-foreground">仅清除失败状态</span>
+						<span className="text-[10px] text-muted-foreground/60">重置为未执行并清除产物，不重新执行</span>
 					</button>
 				</div>
 			)}
