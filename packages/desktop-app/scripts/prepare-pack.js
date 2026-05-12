@@ -207,6 +207,7 @@ const builderConfig = {
 	linux: {
 		target: ["AppImage"],
 		category: "Utility",
+		icon: "build/icon.png",
 	},
 	// Sidecar binaries are picked up from the staged ./im-gateway dir
 	// (populated above by the cross-build step).
@@ -220,6 +221,11 @@ const builderConfig = {
 			from: "sandbox",
 			to: "sandbox",
 			filter: ["**/*"],
+		},
+		{
+			from: "build",
+			to: "build",
+			filter: ["icon*"],
 		},
 	],
 	nsis: {
