@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-## [0.55.3] - 2026-03-06
+### Added
+
+- **`errorRecovery` 配置：LLM 调用失败时不再立即终止 session，可注入提示让模型换路径继续。** 之前 `agentLoop` 看到 provider 返回 `stopReason === "error"`（OOM、5xx、流被服务器中断等）会立刻 `agent_end`，整条 session 停下，调用方只能在外层手动重试。新增 `AgentLoopConfig.errorRecovery: { mode: "halt" | "inject-and-retry"; maxConsecutiveErrors?; buildRetryPrompt? }` 与对应的 `AgentOptions.errorRecovery`、`Agent#errorRecovery` 读写。`mode === "inject-and-retry"` 时：(1) 把刚那条 `stopReason === "error"` 的 assistant 从 LLM 上下文里 pop 掉（newMessages 仍保留供 UI / session jsonl 复盘）；(2) 注入一条 user 消息，默认中文模板告知失败原因 + 引导（"不要重复刚才操作；用 bash 看元数据；跳过失败步骤；拆分任务"）；(3) 复用既有 `pendingMessages` 通路继续 inner loop。连续失败 `maxConsecutiveErrors`（默认 3）次后自动 fallback 到 halt，避免死循环。用户主动 abort（`stopReason === "aborted"`）始终立即停，不走恢复。默认行为不变（未配置时仍 halt），覆盖所有 provider（anthropic / openai / google / bedrock / qwen / nvidia 等共用 stopReason 约定）。
 
 ## [0.55.2] - 2026-03-06
 

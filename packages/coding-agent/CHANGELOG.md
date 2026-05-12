@@ -2,6 +2,7 @@
 
 ### Added
 
+- **LLM 调用失败时 session 不再立即终止，默认尝试自我恢复（最多 3 次）**：批量任务跑本地视觉模型时，单张大图触发后端 CUDA OOM 会让 provider 返回 `stopReason === "error"`，原 agent loop 看到就立刻 `agent_end`，整个 session 直接结束、被 batch executor 标 `task.failed`。新增 `Settings.errorRecovery: { mode?: "halt" | "inject-and-retry"; maxConsecutiveErrors?: number }`（`SettingsManager#getErrorRecoverySettings()`），sdk.ts 在 `new Agent({...})` 时透传到 `AgentOptions.errorRecovery`。**默认 `mode === "inject-and-retry"`、`maxConsecutiveErrors === 3`**：失败时把 error assistant 从 LLM 上下文 pop 掉，注入一条带引导文案的 user 消息（"上次调用失败：…，不要重复刚才操作；用 bash 看元数据；跳过失败步骤；拆分任务"），让模型自行换路径继续；连续失败到上限才真正 halt。要恢复旧行为在 settings.json 加 `{ "errorRecovery": { "mode": "halt" } }` 即可。
 - Added `html_to_pdf` tool as a thin wrapper around Vetta Desktop's PDF command-line mode.
 
 ### Fixed
