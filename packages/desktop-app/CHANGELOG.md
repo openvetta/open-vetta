@@ -14,6 +14,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Ubuntu 打包后显示 Electron 默认图标**：Linux electron-builder 配置现在显式使用 `build/icon.png` 作为应用图标，并把 `build/icon*` 作为 `extraResources` 打入安装包；主进程在 packaged 模式下从 `process.resourcesPath/build` 解析窗口 / 托盘图标，避免继续访问被排除在 `app.asar` 外的 `app.asar/build/icon.png`。
+
 - **批量任务 Webhook 推送的状态分布表在飞书不渲染**：飞书 `lark_md` 与钉钉 markdown 都不识别 GFM 表格语法，子任务终态与项目汇总两条消息里 `| 状态 | 数量 |` 三行被原样输出。改成 `- 标签：**N**` 列表展示，两端渲染一致。
 
 - **无感更新装完后启动仍弹"立即重启"对话框**：mac/linux 的 detached swap.sh 是异步执行的，安装成功后 `pending-install.json` 未必被及时清理；新版本启动时 `onAppReady` 仍读到该记录、又进入 ready 状态、再弹 Dialog。改为用版本号比较作为权威信号：若 `currentVersion ≥ pending.version` 说明已升级成功，直接清掉 `pending-install.json` 与 staging 目录；否则才恢复 ready 状态展示对话框。

@@ -4,7 +4,7 @@ import { app, BrowserWindow, nativeTheme } from "electron";
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const resDir = app.isPackaged ? appRoot : join(appRoot, "dist");
-const buildDir = join(appRoot, "build");
+const buildDir = app.isPackaged ? join(process.resourcesPath, "build") : join(appRoot, "build");
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
 
 export const iconPath: Record<string, string> = {
