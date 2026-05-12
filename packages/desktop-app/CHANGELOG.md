@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **批量重试失败下拉新增「仅清除失败状态」**：在原有「重试失败」/「清除失败状态并重试」基础上加入第三项，把所有失败任务的会话、task-state 与工作目录并行清理并广播 `task.reset` 事件把 UI 重置为未执行，但**不**触发重新运行——适合先批量清空再人工筛选哪些任务真要重跑的场景。新增 IPC `vetta:batch-tasks:batch-clear-failed` 与 preload `batchClearFailed`，复用既有的 `cleanTaskFilesAndState` + `task.reset` 通路。
+
 - **批量重试失败按钮支持下拉两种模式**：批量任务列表项目头部的「批量重试失败」按钮改为下拉，提供两种重试策略：(1)「重试失败」沿用原行为——把每个失败任务的清理（删 session、删 task-state、清工作目录）放在 `pLimit(concurrency)` 内由 worker 拿到任务后再做，所以排队中的失败任务在轮到前 UI 上仍显示"失败"；(2)「清除失败状态并重试」先 `Promise.all` 并行清理所有失败任务的状态/会话/文件并向 renderer 广播新增的 `task.reset` 事件（renderer 收到后立即把 status 重置为 `pending`、清空 sessionId/sessionPath/error），再交给 `pLimit` 按并发数排队执行，UI 上能立刻看到所有失败标记消失。新增 IPC `vetta:batch-tasks:batch-clear-failed-and-retry` 与 preload `batchClearFailedAndRetry`，并在 `BatchTaskEvent` 联合类型里加入 `task.reset` 分支供 hook reducer 处理。
 
 - **批量任务接入 Webhook 消息推送**：新建 / 编辑批量项目 Dialog 新增「启用消息推送」开关（默认关）。开启后，每个子任务终态（成功 / 失败 / 超时 / 产物缺失）会向所有已启用的 Webhook 推送一条富文本卡片，含本次子任务名 + 结果 + 耗时 + 模型、总进度条与状态分布表、正在运行任务列表、等待队列长度；当 pending + running + paused 全部为 0 且至少有一次完成时额外推送一条「项目汇总」消息（成功/失败合计、总耗时、平均耗时、并发度、失败列表前 10 条）。用户主动暂停不推送。推送走 main 进程 `getWebhookManager().broadcast()` 直接调用，best-effort（失败仅 console.warn，不阻塞任务终态）；消息模板支持飞书 lark_md 卡片与钉钉 markdown，header 颜色按 success / warn / error 自动切换。`notifyEnabled` 字段持久化到 `.vetta/meta.json`，IPC / preload / atoms 全链路透传。

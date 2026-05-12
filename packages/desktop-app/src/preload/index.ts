@@ -102,6 +102,7 @@ const BATCH_TASKS_CHANNELS = {
 	DELETE_TASK: "vetta:batch-tasks:delete-task",
 	BATCH_RETRY_FAILED: "vetta:batch-tasks:batch-retry-failed",
 	BATCH_CLEAR_FAILED_AND_RETRY: "vetta:batch-tasks:batch-clear-failed-and-retry",
+	BATCH_CLEAR_FAILED: "vetta:batch-tasks:batch-clear-failed",
 	BATCH_PAUSE: "vetta:batch-tasks:batch-pause",
 	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
@@ -278,6 +279,7 @@ const api: DesktopApi = {
 		batchRetryFailed: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RETRY_FAILED, projectId),
 		batchClearFailedAndRetry: (projectId) =>
 			ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_CLEAR_FAILED_AND_RETRY, projectId),
+		batchClearFailed: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_CLEAR_FAILED, projectId),
 		batchPause: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_PAUSE, projectId),
 		batchResume: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RESUME, projectId),
 		batchDelete: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_DELETE, projectId),

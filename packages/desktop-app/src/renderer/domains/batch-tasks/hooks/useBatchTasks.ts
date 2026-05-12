@@ -149,6 +149,10 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.batchClearFailedAndRetry(projectId);
 	}, []);
 
+	const batchClearFailed = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchClearFailed(projectId);
+	}, []);
+
 	const batchPause = useCallback(async (projectId: string) => {
 		await window.vetta.batchTasks.batchPause(projectId);
 	}, []);
@@ -250,6 +254,7 @@ export function useBatchTasks() {
 		deleteTask,
 		batchRetryFailed,
 		batchClearFailedAndRetry,
+		batchClearFailed,
 		batchPause,
 		batchResume,
 		batchDelete,
