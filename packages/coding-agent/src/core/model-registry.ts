@@ -258,6 +258,14 @@ interface RemoteModelsConfig {
 export class ModelRegistry {
 	private models: Model<Api>[] = [];
 	private customProviderApiKeys: Map<string, string> = new Map();
+	/**
+	 * Provider names contributed by models.json or registerProvider() — i.e.
+	 * user-defined providers (typically pointing at local inference servers
+	 * like ollama / lm-studio). Tracked so getAvailable() can include their
+	 * models even when no API key is configured (local servers usually don't
+	 * require one).
+	 */
+	private customProviderNames: Set<string> = new Set();
 	private registeredProviders: Map<string, ProviderConfigInput> = new Map();
 	private loadError: string | undefined = undefined;
 	private remoteModels: Model<Api>[] = [];
@@ -415,6 +423,7 @@ export class ModelRegistry {
 	/** Rebuild the full model list: built-in + remote + local custom */
 	private rebuildModels(): void {
 		this.customProviderApiKeys.clear();
+		this.customProviderNames.clear();
 		this.loadError = undefined;
 
 		const {
@@ -535,13 +544,28 @@ export class ModelRegistry {
 				return emptyCustomModelsResult(`Invalid models.json schema:\n${errors}\n\nFile: ${modelsJsonPath}`);
 			}
 
-			// Additional validation
-			this.validateConfig(config);
+			// Per-provider validation: collect errors instead of throwing on the
+			// first bad provider. Otherwise a single misconfigured entry (e.g. a
+			// local ollama provider without `apiKey`) used to wipe out every other
+			// custom provider in models.json — the user would see "No model
+			// selected" with no hint that their other providers were silently
+			// dropped.
+			const { skip, errors } = this.validateConfig(config);
+
+			const validConfig: ModelsConfig =
+				skip.size === 0
+					? config
+					: {
+							...config,
+							providers: Object.fromEntries(
+								Object.entries(config.providers).filter(([name]) => !skip.has(name)),
+							),
+						};
 
 			const overrides = new Map<string, ProviderOverride>();
 			const modelOverrides = new Map<string, Map<string, ModelOverride>>();
 
-			for (const [providerName, providerConfig] of Object.entries(config.providers)) {
+			for (const [providerName, providerConfig] of Object.entries(validConfig.providers)) {
 				// Apply provider-level baseUrl/headers/apiKey override to built-in models when configured.
 				if (providerConfig.baseUrl || providerConfig.headers || providerConfig.apiKey) {
 					overrides.set(providerName, {
@@ -561,7 +585,12 @@ export class ModelRegistry {
 				}
 			}
 
-			return { models: this.parseModels(config), overrides, modelOverrides, error: undefined };
+			const error =
+				errors.length > 0
+					? `Some providers in models.json were skipped:\n${errors.map((e) => `  - ${e}`).join("\n")}\n\nFile: ${modelsJsonPath}`
+					: undefined;
+
+			return { models: this.parseModels(validConfig), overrides, modelOverrides, error };
 		} catch (error) {
 			if (error instanceof SyntaxError) {
 				return emptyCustomModelsResult(`Failed to parse models.json: ${error.message}\n\nFile: ${modelsJsonPath}`);
@@ -572,44 +601,57 @@ export class ModelRegistry {
 		}
 	}
 
-	private validateConfig(config: ModelsConfig): void {
+	private validateConfig(config: ModelsConfig): { skip: Set<string>; errors: string[] } {
+		const skip = new Set<string>();
+		const errors: string[] = [];
 		for (const [providerName, providerConfig] of Object.entries(config.providers)) {
-			const hasProviderApi = !!providerConfig.api;
-			const models = providerConfig.models ?? [];
-			const hasModelOverrides =
-				providerConfig.modelOverrides && Object.keys(providerConfig.modelOverrides).length > 0;
+			try {
+				this.validateProvider(providerName, providerConfig);
+			} catch (e) {
+				errors.push(e instanceof Error ? e.message : String(e));
+				skip.add(providerName);
+			}
+		}
+		return { skip, errors };
+	}
 
-			if (models.length === 0) {
-				// Override-only config: needs baseUrl OR modelOverrides (or both)
-				if (!providerConfig.baseUrl && !hasModelOverrides) {
-					throw new Error(`Provider ${providerName}: must specify "baseUrl", "modelOverrides", or "models".`);
-				}
-			} else {
-				// Custom models are merged into provider models and require endpoint + auth.
-				if (!providerConfig.baseUrl) {
-					throw new Error(`Provider ${providerName}: "baseUrl" is required when defining custom models.`);
-				}
-				if (!providerConfig.apiKey) {
-					throw new Error(`Provider ${providerName}: "apiKey" is required when defining custom models.`);
-				}
+	private validateProvider(providerName: string, providerConfig: ModelsConfig["providers"][string]): void {
+		const hasProviderApi = !!providerConfig.api;
+		const models = providerConfig.models ?? [];
+		const hasModelOverrides = providerConfig.modelOverrides && Object.keys(providerConfig.modelOverrides).length > 0;
+
+		if (models.length === 0) {
+			// Override-only config: needs baseUrl OR modelOverrides (or both)
+			if (!providerConfig.baseUrl && !hasModelOverrides) {
+				throw new Error(`Provider ${providerName}: must specify "baseUrl", "modelOverrides", or "models".`);
+			}
+		} else {
+			// Custom models need an endpoint. apiKey is intentionally NOT required
+			// here — local inference servers (ollama / lm-studio / vLLM) don't use
+			// an API key. If the upstream actually rejects unauth'd requests, the
+			// caller will see a precise "No API key found for ..." error at request
+			// time (agent-session.ts), instead of having every other custom
+			// provider silently dropped from this models.json.
+			if (!providerConfig.baseUrl) {
+				throw new Error(`Provider ${providerName}: "baseUrl" is required when defining custom models.`);
+			}
+		}
+
+		for (const modelDef of models) {
+			const hasModelApi = !!modelDef.api;
+
+			if (!hasProviderApi && !hasModelApi) {
+				throw new Error(
+					`Provider ${providerName}, model ${modelDef.id}: no "api" specified. Set at provider or model level.`,
+				);
 			}
 
-			for (const modelDef of models) {
-				const hasModelApi = !!modelDef.api;
-
-				if (!hasProviderApi && !hasModelApi) {
-					throw new Error(
-						`Provider ${providerName}, model ${modelDef.id}: no "api" specified. Set at provider or model level.`,
-					);
-				}
-
-				if (!modelDef.id) throw new Error(`Provider ${providerName}: model missing "id"`);
-				// Validate contextWindow/maxTokens only if provided (they have defaults)
-				if (modelDef.contextWindow !== undefined && modelDef.contextWindow <= 0)
-					throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid contextWindow`);
-				if (modelDef.maxTokens !== undefined && modelDef.maxTokens <= 0)
-					throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid maxTokens`);
-			}
+			if (!modelDef.id) throw new Error(`Provider ${providerName}: model missing "id"`);
+			// Validate contextWindow/maxTokens only if provided (they have defaults)
+			if (modelDef.contextWindow !== undefined && modelDef.contextWindow <= 0)
+				throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid contextWindow`);
+			if (modelDef.maxTokens !== undefined && modelDef.maxTokens <= 0)
+				throw new Error(`Provider ${providerName}, model ${modelDef.id}: invalid maxTokens`);
 		}
 	}
 
@@ -619,6 +661,8 @@ export class ModelRegistry {
 		for (const [providerName, providerConfig] of Object.entries(config.providers)) {
 			const modelDefs = providerConfig.models ?? [];
 			if (modelDefs.length === 0) continue; // Override-only, no custom models
+
+			this.customProviderNames.add(providerName);
 
 			// Store API key config for fallback resolver
 			if (providerConfig.apiKey) {
@@ -676,11 +720,22 @@ export class ModelRegistry {
 	}
 
 	/**
-	 * Get only models that have auth configured.
-	 * Remote models are always included (auth is handled server-side or via local apiKey).
+	 * Get only models that are usable right now.
+	 *
+	 * - Remote models: always included (gateway handles auth via server JWT).
+	 * - Custom providers from models.json / registerProvider(): always included
+	 *   even without an API key. Local inference servers (ollama / lm-studio /
+	 *   vLLM) typically don't need one; for the few that do, the request will
+	 *   fail with a precise "No API key found for ..." at call time instead of
+	 *   silently being filtered out here (which produced the misleading
+	 *   "No model selected" error before the user had even chosen anything).
+	 * - Built-in providers: only when authStorage has an API key / OAuth
+	 *   credential / env var configured for them.
 	 */
 	getAvailable(): Model<Api>[] {
-		return this.models.filter((m) => this.isRemote(m) || this.authStorage.hasAuth(m.provider));
+		return this.models.filter(
+			(m) => this.isRemote(m) || this.customProviderNames.has(m.provider) || this.authStorage.hasAuth(m.provider),
+		);
 	}
 
 	/**
@@ -710,6 +765,15 @@ export class ModelRegistry {
 	}
 
 	/**
+	 * Placeholder returned for custom providers that have no configured key.
+	 * Local inference servers (ollama / lm-studio / vLLM) ignore Authorization
+	 * entirely; for those that don't, the upstream will reject the request
+	 * with its own precise error — much better than short-circuiting here as
+	 * "No API key found" when the user explicitly chose a local-only setup.
+	 */
+	private static readonly NO_AUTH_PLACEHOLDER = "no-auth-needed-for-local-provider";
+
+	/**
 	 * Get API key for a model.
 	 * Remote models use server JWT token instead of provider API key.
 	 */
@@ -719,7 +783,16 @@ export class ModelRegistry {
 		if (this.isRemote(model) && token) {
 			return token;
 		}
-		return this.authStorage.getApiKey(model.provider);
+		const key = await this.authStorage.getApiKey(model.provider);
+		if (key) return key;
+		// Custom providers without a key fall through to a placeholder so
+		// downstream `if (!apiKey)` gates don't reject local-only setups. OAuth
+		// configs are excluded so a real refresh failure still surfaces as an
+		// auth error rather than being masked.
+		if (this.customProviderNames.has(model.provider) && !this.isUsingOAuth(model)) {
+			return ModelRegistry.NO_AUTH_PLACEHOLDER;
+		}
+		return undefined;
 	}
 
 	/**
@@ -732,7 +805,15 @@ export class ModelRegistry {
 		if (this.getRemoteProviders().has(provider) && token) {
 			return token;
 		}
-		return this.authStorage.getApiKey(provider);
+		const key = await this.authStorage.getApiKey(provider);
+		if (key) return key;
+		if (this.customProviderNames.has(provider)) {
+			const cred = this.authStorage.get(provider);
+			if (cred?.type !== "oauth") {
+				return ModelRegistry.NO_AUTH_PLACEHOLDER;
+			}
+		}
+		return undefined;
 	}
 
 	/**
@@ -798,6 +879,8 @@ export class ModelRegistry {
 		if (config.models && config.models.length > 0) {
 			// Full replacement: remove existing models for this provider
 			this.models = this.models.filter((m) => m.provider !== providerName);
+
+			this.customProviderNames.add(providerName);
 
 			// Validate required fields
 			if (!config.baseUrl) {
