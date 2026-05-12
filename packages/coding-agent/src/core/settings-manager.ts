@@ -22,6 +22,20 @@ export interface RetrySettings {
 	maxDelayMs?: number; // default: 60000 (max server-requested delay before failing)
 }
 
+/**
+ * LLM-call error recovery (separate from low-level transport retry).
+ * On `stopReason: "error"` from a provider, the agent loop normally halts the session.
+ * When `mode === "inject-and-retry"`, the failed assistant message is dropped from the
+ * LLM-visible context and a synthetic user message is injected ("last call failed: <err>;
+ * try a different approach"), letting the model recover (e.g. skip the OOM-triggering image,
+ * use bash to read metadata instead) without ending the session. Falls back to halt after
+ * `maxConsecutiveErrors` consecutive failures.
+ */
+export interface ErrorRecoverySettings {
+	mode?: "halt" | "inject-and-retry"; // default: "inject-and-retry"
+	maxConsecutiveErrors?: number; // default: 3
+}
+
 export interface TerminalSettings {
 	showImages?: boolean; // default: true (only relevant if terminal supports images)
 	clearOnShrink?: boolean; // default: false (clear empty rows when content shrinks)
@@ -72,6 +86,7 @@ export interface Settings {
 	compaction?: CompactionSettings;
 	branchSummary?: BranchSummarySettings;
 	retry?: RetrySettings;
+	errorRecovery?: ErrorRecoverySettings;
 	hideThinkingBlock?: boolean;
 	shellPath?: string; // Custom shell path (e.g., for Cygwin users on Windows)
 	quietStartup?: boolean;
@@ -647,6 +662,13 @@ export class SettingsManager {
 			maxRetries: this.settings.retry?.maxRetries ?? 3,
 			baseDelayMs: this.settings.retry?.baseDelayMs ?? 2000,
 			maxDelayMs: this.settings.retry?.maxDelayMs ?? 60000,
+		};
+	}
+
+	getErrorRecoverySettings(): { mode: "halt" | "inject-and-retry"; maxConsecutiveErrors: number } {
+		return {
+			mode: this.settings.errorRecovery?.mode ?? "inject-and-retry",
+			maxConsecutiveErrors: this.settings.errorRecovery?.maxConsecutiveErrors ?? 3,
 		};
 	}
 

@@ -95,6 +95,40 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	 * Use this for follow-up messages that should wait until the agent finishes.
 	 */
 	getFollowUpMessages?: () => Promise<AgentMessage[]>;
+
+	/**
+	 * Strategy for recovering from LLM call errors (`stopReason === "error"`).
+	 *
+	 * Default behavior (no config or `mode === "halt"`) is to terminate the
+	 * agent immediately on the first error — preserving original semantics.
+	 *
+	 * When `mode === "inject-and-retry"`, the failed assistant message is
+	 * removed from the LLM context (but kept in `newMessages` so the UI / session
+	 * jsonl still records the failure), a synthetic user message is injected
+	 * carrying the error text plus guidance to "try a different approach", and
+	 * the loop continues. After `maxConsecutiveErrors` consecutive failures the
+	 * agent falls back to halt to avoid runaway loops.
+	 */
+	errorRecovery?: ErrorRecoveryConfig;
+}
+
+/**
+ * LLM-error recovery strategy. See `AgentLoopConfig.errorRecovery`.
+ */
+export interface ErrorRecoveryConfig {
+	mode: "halt" | "inject-and-retry";
+	/**
+	 * Cap on consecutive failed LLM calls before falling back to halt. Reset
+	 * to zero on the first successful (non-error, non-aborted) assistant turn.
+	 * Default: 3.
+	 */
+	maxConsecutiveErrors?: number;
+	/**
+	 * Build the user-message body that gets injected after a failed call.
+	 * `attempt` is 1-indexed and counts only post-recovery retries.
+	 * If omitted, a sensible Chinese default is used.
+	 */
+	buildRetryPrompt?: (errorMessage: string, attempt: number) => string;
 }
 
 /**
