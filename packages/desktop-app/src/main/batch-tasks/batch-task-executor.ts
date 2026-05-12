@@ -5,9 +5,17 @@ import type { RuntimeHost, SessionExecutionMode } from "../../../../runtime-core
 import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
+import { getWebhookManager } from "../webhook/index.js";
 import { verifyArtifacts } from "./artifact-validator";
 import { type BatchTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
+import { getProject } from "./batch-task-storage";
+import {
+	buildProjectSummaryMessage,
+	buildTaskFinishedMessage,
+	isProjectFinished,
+	type TaskOutcome,
+} from "./notification-templates.js";
 
 const TASK_TMP_SUBDIR = ".tmp";
 
@@ -25,7 +33,8 @@ export type BatchTaskEvent =
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }
-	| { type: "task.resumed"; projectId: string; taskId: string };
+	| { type: "task.resumed"; projectId: string; taskId: string }
+	| { type: "task.reset"; projectId: string; taskId: string };
 
 interface ExecutingTask {
 	projectId: string;
@@ -38,6 +47,8 @@ interface ExecutingTask {
 	abortController: AbortController;
 	timeoutHandle: ReturnType<typeof setTimeout>;
 	timedOut: boolean;
+	startedAt: number;
+	modelKey: string | undefined;
 }
 
 const executingTasks = new Map<string, ExecutingTask>();
@@ -46,6 +57,52 @@ const eventHandlers = new Set<(event: BatchTaskEvent) => void>();
 export function emitBatchTaskEvent(event: BatchTaskEvent): void {
 	for (const handler of eventHandlers) {
 		handler(event);
+	}
+}
+
+/**
+ * Push a task-finished webhook (and, when the project is fully done, a
+ * summary message). Best-effort: failures are logged and never bubble up so a
+ * misbehaving webhook can't strand a finalized batch task.
+ *
+ * `getProject` is re-read so the message reflects post-save state (statuses
+ * for sibling tasks may have changed concurrently under parallel workers).
+ */
+async function maybeNotifyTaskFinished(
+	projectId: string,
+	taskId: string,
+	outcome: TaskOutcome,
+	startedAt: number | undefined,
+	finishedAt: number,
+	modelKey: string | undefined,
+): Promise<void> {
+	try {
+		const project = await getProject(projectId);
+		if (!project?.notifyEnabled) return;
+		const task = project.tasks.find((t) => t.id === taskId);
+		if (!task) return;
+
+		const manager = getWebhookManager();
+		const taskMessage = buildTaskFinishedMessage({
+			project,
+			task,
+			outcome,
+			startedAt,
+			finishedAt,
+			modelKey,
+		});
+		void manager.broadcast(taskMessage).catch((err: unknown) => {
+			console.warn(`[BatchTask] notify task-finished broadcast failed: ${(err as Error).message}`);
+		});
+
+		if (isProjectFinished(project.tasks)) {
+			const summary = buildProjectSummaryMessage({ project, finishedAt });
+			void manager.broadcast(summary).catch((err: unknown) => {
+				console.warn(`[BatchTask] notify project-summary broadcast failed: ${(err as Error).message}`);
+			});
+		}
+	} catch (err) {
+		console.warn(`[BatchTask] maybeNotifyTaskFinished failed: ${(err as Error).message}`);
 	}
 }
 
@@ -124,32 +181,44 @@ async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeH
 	};
 
 	let state: BatchTaskState;
+	let outcome: TaskOutcome | null = null;
 
 	if (executing.timedOut) {
 		const message = `任务超时（${Math.round(TASK_TIMEOUT_MS / 60000)} 分钟未完成）`;
 		state = { ...base, status: "failed", error: message, completedAt: now };
 		emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: message });
+		outcome = { kind: "timeout" };
 	} else if (stopReason === "stop") {
 		const verify = await verifyArtifacts(executing.cwd, executing.artifactPatterns);
 		if (verify.ok) {
 			state = { ...base, status: "completed", completedAt: now };
 			emitBatchTaskEvent({ type: "task.completed", projectId, taskId });
+			outcome = { kind: "completed" };
 		} else {
 			const message = `产物缺失: ${verify.missingPatterns.join(", ")}`;
 			state = { ...base, status: "failed", error: message, completedAt: now };
 			emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: message });
+			outcome = { kind: "artifact-missing", missing: verify.missingPatterns };
 		}
 	} else if (stopReason === "aborted") {
 		state = { ...base, status: "paused" };
 		emitBatchTaskEvent({ type: "task.paused", projectId, taskId });
+		// 主动暂停不推送
 	} else {
 		const message = errMessage ?? `Agent ended unexpectedly (stopReason=${stopReason ?? "unknown"})`;
 		state = { ...base, status: "failed", error: message, completedAt: now };
 		emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: message });
+		outcome = { kind: "failed", error: message };
 	}
 
 	await saveTaskState(projectId, taskId, state);
+	const capturedStartedAt = executing.startedAt;
+	const capturedModelKey = executing.modelKey;
 	executingTasks.delete(taskId);
+
+	if (outcome) {
+		await maybeNotifyTaskFinished(projectId, taskId, outcome, capturedStartedAt, now, capturedModelKey);
+	}
 }
 
 export async function runTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
@@ -189,6 +258,7 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 		sessionId = result.sessionId;
 		sessionPath = runtime.getSessionPath(sessionId);
 
+		const startedAt = Date.now();
 		const timeoutHandle = scheduleTimeout(task.id, runtime);
 		executingTasks.set(task.id, {
 			projectId: project.id,
@@ -201,6 +271,8 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			abortController,
 			timeoutHandle,
 			timedOut: false,
+			startedAt,
+			modelKey: project.modelKey,
 		});
 		console.log(`[BatchTask] Session created: ${sessionId}, path=${sessionPath}`);
 
@@ -212,8 +284,8 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			sessionId,
 			sessionPath,
 			executionMode: mode,
-			startedAt: Date.now(),
-			lastModified: Date.now(),
+			startedAt,
+			lastModified: startedAt,
 		};
 		await saveTaskState(project.id, task.id, runningState);
 
@@ -227,20 +299,18 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 		});
 		console.log(`[BatchTask] task.started emitted: ${task.id}`);
 
-		if (project.modelKey) {
-			console.log(`[BatchTask] Applying model ${project.modelKey} for session ${sessionId}`);
-			await runtime.updateSettings(sessionId, { modelKey: project.modelKey });
-			const settingsState = runtime.getState(sessionId);
-			const activeModelKey = settingsState.model
-				? `${settingsState.model.provider}/${settingsState.model.id}`
-				: undefined;
-			if (activeModelKey !== project.modelKey) {
-				throw new Error(`模型不可用: ${project.modelKey}`);
-			}
-		}
-
-		console.log(`[BatchTask] Sending prompt for session ${sessionId}`);
-		await runtime.prompt(sessionId, { text: project.prompt });
+		// 模型选择透传给 prompt — 跟 chat 走完全一致的路径（useSessionManager 也是
+		// 把 modelKey 放进 PromptRequest）。原来这里走的是 updateSettings + getState
+		// 严格校验，对本地 provider 容易误报"模型不可用"：updateSettings 内部用
+		// getAvailable() 过滤，而本地 provider 的 hasAuth 在某些时序下不为 true，
+		// 模型会被静默忽略；prompt 路径已加 find() 回退，可以兜住这种情况。
+		console.log(
+			`[BatchTask] Sending prompt for session ${sessionId}, model=${project.modelKey ?? "(session default)"}`,
+		);
+		await runtime.prompt(sessionId, {
+			text: project.prompt,
+			...(project.modelKey ? { modelKey: project.modelKey } : {}),
+		});
 		console.log(`[BatchTask] prompt returned, finalizing task ${task.id}`);
 
 		await finalizeTask(project.id, task.id, runtime);
@@ -249,6 +319,7 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 		console.error(`[BatchTask] runTask failed for task ${task.id}: ${errorMessage}`);
 		const executing = executingTasks.get(task.id);
 		if (executing) clearTimeout(executing.timeoutHandle);
+		const failedAt = Date.now();
 		const state: BatchTaskState = {
 			taskId: task.id,
 			status: "failed",
@@ -256,12 +327,22 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 			sessionId: executing?.sessionId ?? sessionId,
 			sessionPath: executing?.sessionPath ?? sessionPath,
 			executionMode: executing?.executionMode ?? executionMode,
-			completedAt: Date.now(),
-			lastModified: Date.now(),
+			completedAt: failedAt,
+			lastModified: failedAt,
 		};
 		await saveTaskState(project.id, task.id, state);
+		const capturedStartedAt = executing?.startedAt;
+		const capturedModelKey = executing?.modelKey ?? project.modelKey;
 		executingTasks.delete(task.id);
 		emitBatchTaskEvent({ type: "task.failed", projectId: project.id, taskId: task.id, error: errorMessage });
+		await maybeNotifyTaskFinished(
+			project.id,
+			task.id,
+			{ kind: "failed", error: errorMessage },
+			capturedStartedAt,
+			failedAt,
+			capturedModelKey,
+		);
 	}
 }
 
@@ -304,6 +385,7 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 	const executionMode: SessionExecutionMode = task.executionMode ?? "full-access";
 	const sessionId = task.sessionId;
 
+	const startedAt = Date.now();
 	const timeoutHandle = scheduleTimeout(task.id, runtime);
 	executingTasks.set(task.id, {
 		projectId: project.id,
@@ -316,6 +398,8 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 		abortController,
 		timeoutHandle,
 		timedOut: false,
+		startedAt,
+		modelKey: project.modelKey,
 	});
 
 	const runningState: BatchTaskState = {
@@ -324,7 +408,7 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 		sessionId,
 		sessionPath: task.sessionPath,
 		executionMode,
-		lastModified: Date.now(),
+		lastModified: startedAt,
 	};
 	await saveTaskState(project.id, task.id, runningState);
 
@@ -342,6 +426,7 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 		console.error(`[BatchTask] resumeTask failed for task ${task.id}: ${errorMessage}`);
 		const executing = executingTasks.get(task.id);
 		if (executing) clearTimeout(executing.timeoutHandle);
+		const failedAt = Date.now();
 		const state: BatchTaskState = {
 			taskId: task.id,
 			status: "failed",
@@ -349,12 +434,22 @@ export async function resumeTask(project: BatchProject, task: BatchTask, runtime
 			sessionId,
 			sessionPath: task.sessionPath,
 			executionMode,
-			completedAt: Date.now(),
-			lastModified: Date.now(),
+			completedAt: failedAt,
+			lastModified: failedAt,
 		};
 		await saveTaskState(project.id, task.id, state);
+		const capturedStartedAt = executing?.startedAt;
+		const capturedModelKey = executing?.modelKey ?? project.modelKey;
 		executingTasks.delete(task.id);
 		emitBatchTaskEvent({ type: "task.failed", projectId: project.id, taskId: task.id, error: errorMessage });
+		await maybeNotifyTaskFinished(
+			project.id,
+			task.id,
+			{ kind: "failed", error: errorMessage },
+			capturedStartedAt,
+			failedAt,
+			capturedModelKey,
+		);
 	}
 }
 

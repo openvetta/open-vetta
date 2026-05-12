@@ -26,6 +26,7 @@ export function useBatchTasks() {
 			folders: string[];
 			concurrency: number;
 			artifactPatterns?: string[];
+			notifyEnabled?: boolean;
 		}) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
@@ -45,6 +46,7 @@ export function useBatchTasks() {
 				executionMode?: ExecutionModeOverride;
 				concurrency?: number;
 				artifactPatterns?: string[];
+				notifyEnabled?: boolean;
 				newFolders?: string[];
 			},
 		) => {
@@ -73,6 +75,7 @@ export function useBatchTasks() {
 						...(data.executionMode !== undefined ? { executionMode: data.executionMode } : {}),
 						...(data.concurrency !== undefined ? { concurrency: data.concurrency } : {}),
 						...(data.artifactPatterns !== undefined ? { artifactPatterns: data.artifactPatterns } : {}),
+						...(data.notifyEnabled !== undefined ? { notifyEnabled: data.notifyEnabled } : {}),
 						tasks: [...p.tasks, ...newTasks],
 						updatedAt: Date.now(),
 					};
@@ -142,6 +145,10 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.batchRetryFailed(projectId);
 	}, []);
 
+	const batchClearFailedAndRetry = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchClearFailedAndRetry(projectId);
+	}, []);
+
 	const batchPause = useCallback(async (projectId: string) => {
 		await window.vetta.batchTasks.batchPause(projectId);
 	}, []);
@@ -209,6 +216,16 @@ export function useBatchTasks() {
 							if (event.type === "task.resumed") {
 								return { ...t, status: "running" as const };
 							}
+							if (event.type === "task.reset") {
+								return {
+									...t,
+									status: "pending" as const,
+									sessionId: undefined,
+									sessionPath: undefined,
+									error: undefined,
+									updatedAt: Date.now(),
+								};
+							}
 							return t;
 						}),
 					};
@@ -232,6 +249,7 @@ export function useBatchTasks() {
 		resumeTask,
 		deleteTask,
 		batchRetryFailed,
+		batchClearFailedAndRetry,
 		batchPause,
 		batchResume,
 		batchDelete,

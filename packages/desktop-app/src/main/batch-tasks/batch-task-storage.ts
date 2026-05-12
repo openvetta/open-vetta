@@ -23,6 +23,8 @@ interface BatchProjectMeta {
 	concurrency: number;
 	executionMode?: ExecutionModeOverride;
 	artifactPatterns?: string[];
+	/** When true, broadcast a webhook message after each subtask finalizes and once when the project as a whole finishes. */
+	notifyEnabled?: boolean;
 	items: BatchItemMeta[];
 	createdAt: number;
 	updatedAt: number;
@@ -52,6 +54,7 @@ export interface BatchProject {
 	concurrency: number;
 	executionMode?: ExecutionModeOverride;
 	artifactPatterns?: string[];
+	notifyEnabled?: boolean;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -127,6 +130,7 @@ function assembleProject(
 		concurrency: meta.concurrency,
 		executionMode: normalizeExecutionModeOverride(meta.executionMode, "full-access"),
 		artifactPatterns: meta.artifactPatterns,
+		notifyEnabled: meta.notifyEnabled ?? false,
 		tasks,
 		createdAt: meta.createdAt,
 		updatedAt: meta.updatedAt,
@@ -237,6 +241,7 @@ export async function createProject(
 	concurrency: number,
 	executionMode?: ExecutionModeOverride,
 	artifactPatterns?: string[],
+	notifyEnabled?: boolean,
 ): Promise<BatchProject> {
 	const config = await readDesktopConfig();
 	const projectDir = join(config.workspacePath, name);
@@ -265,6 +270,7 @@ export async function createProject(
 		concurrency,
 		executionMode: normalizeExecutionModeOverride(executionMode, "full-access"),
 		artifactPatterns: artifactPatterns && artifactPatterns.length > 0 ? artifactPatterns : undefined,
+		notifyEnabled: notifyEnabled || undefined,
 		items,
 		createdAt: now,
 		updatedAt: now,
@@ -301,6 +307,7 @@ export async function updateProject(
 		concurrency: number;
 		executionMode: ExecutionModeOverride;
 		artifactPatterns: string[];
+		notifyEnabled: boolean;
 		newFolders: string[];
 	}>,
 ): Promise<void> {
@@ -313,6 +320,9 @@ export async function updateProject(
 	if (data.executionMode !== undefined) meta.executionMode = normalizeExecutionModeOverride(data.executionMode);
 	if (data.artifactPatterns !== undefined) {
 		meta.artifactPatterns = data.artifactPatterns.length > 0 ? data.artifactPatterns : undefined;
+	}
+	if (data.notifyEnabled !== undefined) {
+		meta.notifyEnabled = data.notifyEnabled || undefined;
 	}
 
 	if (data.newFolders) {

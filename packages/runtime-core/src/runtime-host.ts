@@ -331,8 +331,17 @@ export class RuntimeHost implements SessionFacade {
 		if (request.modelKey) {
 			const [provider, ...rest] = request.modelKey.split("/");
 			const modelId = rest.join("/");
+			// getAvailable() filters out providers where authStorage.hasAuth() is
+			// false. Local custom providers (e.g. a self-hosted qwen-local) can
+			// fail that check even when fully configured in models.json — the
+			// fallback resolver depends on construction-time state and some
+			// host-process scenarios race with it. Fall back to find() so an
+			// explicit user selection isn't silently dropped; if auth is truly
+			// missing, the provider request itself will return a clean error.
 			const available = handle.session.modelRegistry.getAvailable();
-			const model = available.find((m) => m.provider === provider && m.id === modelId);
+			const model =
+				available.find((m) => m.provider === provider && m.id === modelId) ??
+				handle.session.modelRegistry.find(provider, modelId);
 			if (model) {
 				const current = handle.session.model;
 				if (!current || current.provider !== provider || current.id !== modelId) {
@@ -440,8 +449,12 @@ export class RuntimeHost implements SessionFacade {
 		if (partialSettings.modelKey) {
 			const [provider, ...rest] = partialSettings.modelKey.split("/");
 			const modelId = rest.join("/");
+			// 见 prompt() 中的同名注释：getAvailable() 会因为 hasAuth 误判把本地 provider 过滤
+			// 掉，导致用户的显式选择被静默丢弃。先尝试 available，再回退到 registry.find()。
 			const available = handle.session.modelRegistry.getAvailable();
-			const model = available.find((m) => m.provider === provider && m.id === modelId);
+			const model =
+				available.find((m) => m.provider === provider && m.id === modelId) ??
+				handle.session.modelRegistry.find(provider, modelId);
 			if (model) {
 				await handle.session.setModel(model);
 			}
