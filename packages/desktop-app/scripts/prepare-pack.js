@@ -30,7 +30,9 @@ const appVersion = JSON.parse(readFileSync(join(projectRoot, "package.json"), "u
 rmSync(buildStageDir, { recursive: true, force: true });
 mkdirSync(buildStageDir, { recursive: true });
 
-// Write minimal package.json (no dependencies)
+// Write minimal package.json. dependencies 在 externalDeps 复制完成后回填，
+// 否则 electron-builder 会按 package.json 剪枝 node_modules，把整个 staging
+// node_modules 都从 asar 里剔除掉（运行时报 ERR_MODULE_NOT_FOUND）。
 const appPkg = {
 	name: "vetta",
 	version: appVersion,
@@ -38,6 +40,7 @@ const appPkg = {
 	author: "Vetta",
 	type: "module",
 	main: "main/index.js",
+	dependencies: {},
 };
 writeFileSync(join(buildStageDir, "package.json"), JSON.stringify(appPkg, null, "\t") + "\n");
 
@@ -93,6 +96,11 @@ function copyExternalDependency(dep, fromPaths = [projectRoot]) {
 	cpSync(depDir, destDir, { recursive: true });
 
 	const depPkg = JSON.parse(readFileSync(join(depDir, "package.json"), "utf8"));
+	// 在 staging package.json 中声明本依赖，否则 electron-builder 会把
+	// node_modules 整体当未声明依赖剪掉，asar 里没有任何 node_modules，
+	// 主进程加载时报 ERR_MODULE_NOT_FOUND。版本用复制源的真实版本，避免
+	// electron-builder 校验失败。
+	appPkg.dependencies[dep] = depPkg.version;
 	const nestedPaths = [join(depDir, "node_modules"), ...fromPaths];
 	for (const childDep of Object.keys(depPkg.dependencies ?? {})) {
 		copyExternalDependency(childDep, nestedPaths);
@@ -102,6 +110,9 @@ function copyExternalDependency(dep, fromPaths = [projectRoot]) {
 for (const dep of externalDeps) {
 	copyExternalDependency(dep);
 }
+
+// 把回填的 dependencies 重写到 staging package.json
+writeFileSync(join(buildStageDir, "package.json"), JSON.stringify(appPkg, null, "\t") + "\n");
 
 // =============================================================================
 // im-gateway sidecar binaries (extraResources)
