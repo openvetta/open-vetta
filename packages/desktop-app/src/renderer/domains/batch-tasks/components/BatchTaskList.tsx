@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
-import { confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
+import { batchQueuedTaskIdsAtom, confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 
 /**
@@ -335,6 +335,7 @@ function ProjectBlock({
 	const progress = counts.total > 0 ? (counts.completed / counts.total) * 100 : 0;
 	const [expanded, setExpanded] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
+	const queuedTaskIds = useAtomValue(batchQueuedTaskIdsAtom);
 	const normalizedQuery = searchQuery.trim().toLowerCase();
 	const filteredTasks = useMemo(
 		() =>
@@ -520,7 +521,12 @@ function ProjectBlock({
 				) : (
 					<div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
 						{visibleTasks.map((task) => (
-							<TaskCard key={task.id} task={task} callbacks={callbacks} />
+							<TaskCard
+								key={task.id}
+								task={task}
+								callbacks={callbacks}
+								isQueued={queuedTaskIds.has(task.id)}
+							/>
 						))}
 					</div>
 				)}
@@ -550,11 +556,14 @@ function ProjectBlock({
 const TaskCard = memo(function TaskCard({
 	task,
 	callbacks,
+	isQueued,
 }: {
 	task: BatchTask;
 	callbacks: TaskCallbacks;
+	isQueued: boolean;
 }): JSX.Element {
-	const tone = STATUS_TONE[task.status];
+	const tone = isQueued ? STATUS_TONE.paused : STATUS_TONE[task.status];
+	const label = isQueued ? "等待中" : statusLabel(task.status, !!task.sessionId);
 	return (
 		<div
 			className={`group relative flex flex-col gap-2 overflow-hidden rounded-xl border border-border/40 bg-card/40 p-3 ring-1 ring-inset ${tone.ring} transition-colors duration-200 hover:border-primary/30`}
@@ -562,7 +571,7 @@ const TaskCard = memo(function TaskCard({
 			{/* Top: status dot + name + status pill */}
 			<div className="flex items-center gap-2">
 				<div className="relative flex h-2 w-2 shrink-0">
-					{task.status === "running" && (
+					{task.status === "running" && !isQueued && (
 						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
 					)}
 					<span className={`relative inline-flex h-2 w-2 rounded-full ${tone.dot}`} />
@@ -573,7 +582,7 @@ const TaskCard = memo(function TaskCard({
 				<span
 					className={`inline-flex h-5 shrink-0 items-center rounded-full px-2 text-[10px] font-medium ${tone.bg} ${tone.text}`}
 				>
-					{statusLabel(task.status, !!task.sessionId)}
+					{label}
 				</span>
 			</div>
 
@@ -622,7 +631,16 @@ const TaskCard = memo(function TaskCard({
 						</button>
 					)}
 					<div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-						{task.status === "pending" ? (
+						{isQueued ? (
+							<TaskActionButton
+								icon="icon-[mdi--close]"
+								title="取消等待"
+								onClick={(e) => {
+									e.stopPropagation();
+									callbacks.pause(task);
+								}}
+							/>
+						) : task.status === "pending" ? (
 							<TaskActionButton
 								icon="icon-[mdi--play]"
 								title="执行"

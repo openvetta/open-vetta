@@ -1,12 +1,18 @@
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { pathBasename } from "@shared/lib/utils";
-import { batchProjectsAtom, type ExecutionModeOverride, expandedBatchProjectsAtom } from "@shared/store/atoms";
-import { useAtom } from "jotai";
+import {
+	batchProjectsAtom,
+	batchQueuedTaskIdsAtom,
+	type ExecutionModeOverride,
+	expandedBatchProjectsAtom,
+} from "@shared/store/atoms";
+import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
 export function useBatchTasks() {
 	const [projects, setProjects] = useAtom(batchProjectsAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedBatchProjectsAtom);
+	const setQueuedTaskIds = useSetAtom(batchQueuedTaskIdsAtom);
 	// Batch project create/delete also mutates desktop-config.json (single
 	// source of sidebar truth), so we must refresh the config-driven project
 	// list whenever a batch CRUD lands.
@@ -191,6 +197,37 @@ export function useBatchTasks() {
 				projectId: event.projectId,
 				taskId: event.taskId,
 			});
+
+			// 维护后端调度器排队中的 taskId 集合
+			if (event.type === "task.queued") {
+				setQueuedTaskIds((prev) => {
+					if (prev.has(event.taskId)) return prev;
+					const next = new Set(prev);
+					next.add(event.taskId);
+					return next;
+				});
+				return;
+			}
+			if (
+				event.type === "task.dequeued" ||
+				event.type === "task.started" ||
+				event.type === "task.completed" ||
+				event.type === "task.failed" ||
+				event.type === "task.paused" ||
+				event.type === "task.resumed" ||
+				event.type === "task.reset"
+			) {
+				setQueuedTaskIds((prev) => {
+					if (!prev.has(event.taskId)) return prev;
+					const next = new Set(prev);
+					next.delete(event.taskId);
+					return next;
+				});
+			}
+
+			// task.dequeued 不改 BatchTask 状态本身（status 已是 pending），只清 queued 集合
+			if (event.type === "task.dequeued") return;
+
 			setProjects((prev) =>
 				prev.map((p) => {
 					if (p.id !== event.projectId) return p;
@@ -237,7 +274,7 @@ export function useBatchTasks() {
 			);
 		});
 		return unsubscribe;
-	}, [setProjects]);
+	}, [setProjects, setQueuedTaskIds]);
 
 	return {
 		projects,

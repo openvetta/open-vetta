@@ -34,7 +34,9 @@ export type BatchTaskEvent =
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }
 	| { type: "task.resumed"; projectId: string; taskId: string }
-	| { type: "task.reset"; projectId: string; taskId: string };
+	| { type: "task.reset"; projectId: string; taskId: string }
+	| { type: "task.queued"; projectId: string; taskId: string }
+	| { type: "task.dequeued"; projectId: string; taskId: string };
 
 interface ExecutingTask {
 	projectId: string;
@@ -53,6 +55,136 @@ interface ExecutingTask {
 
 const executingTasks = new Map<string, ExecutingTask>();
 const eventHandlers = new Set<(event: BatchTaskEvent) => void>();
+
+// ─── Per-project concurrency scheduler ─────────────────────────────────────
+//
+// 单点"运行"和批量启动共用一个调度器，保证同一项目内同时执行的任务数永远不
+// 超过 project.concurrency。runningByProject 跟踪已经启动并占用 worker 槽位的
+// taskId；pendingByProject 是 FIFO 等待队列。所有 run/resume 入口都经过
+// enqueueJob，由调度器决定立即执行还是排队。
+//
+// 仅在主进程内存中维护——重启后队列丢失（pending 的任务回到"未执行"或上次
+// 持久化的状态），与 recoverRunningTasks() 把 stale running 标 failed 的行为一致。
+
+type PendingJob = {
+	kind: "run" | "resume";
+	project: BatchProject;
+	task: BatchTask;
+	runtime: RuntimeHost;
+};
+
+const runningByProject = new Map<string, Set<string>>();
+const pendingByProject = new Map<string, PendingJob[]>();
+
+function getRunningSet(projectId: string): Set<string> {
+	let s = runningByProject.get(projectId);
+	if (!s) {
+		s = new Set<string>();
+		runningByProject.set(projectId, s);
+	}
+	return s;
+}
+
+function getPendingQueue(projectId: string): PendingJob[] {
+	let q = pendingByProject.get(projectId);
+	if (!q) {
+		q = [];
+		pendingByProject.set(projectId, q);
+	}
+	return q;
+}
+
+export function isTaskQueued(taskId: string): boolean {
+	for (const queue of pendingByProject.values()) {
+		if (queue.some((j) => j.task.id === taskId)) return true;
+	}
+	return false;
+}
+
+export function getQueuedTaskIds(): string[] {
+	const ids: string[] = [];
+	for (const queue of pendingByProject.values()) {
+		for (const j of queue) ids.push(j.task.id);
+	}
+	return ids;
+}
+
+function enqueueJob(job: PendingJob): void {
+	const projectId = job.project.id;
+	const running = getRunningSet(projectId);
+	const queue = getPendingQueue(projectId);
+
+	if (running.has(job.task.id)) {
+		console.warn(`[BatchTask] enqueueJob: task ${job.task.id} already running, skip`);
+		return;
+	}
+	if (queue.some((j) => j.task.id === job.task.id)) {
+		console.warn(`[BatchTask] enqueueJob: task ${job.task.id} already queued, skip`);
+		return;
+	}
+
+	const concurrency = Math.max(1, job.project.concurrency);
+	if (running.size < concurrency) {
+		running.add(job.task.id);
+		void startJob(job);
+	} else {
+		queue.push(job);
+		console.log(
+			`[BatchTask] task ${job.task.id} queued (project ${projectId}, running=${running.size}/${concurrency})`,
+		);
+		emitBatchTaskEvent({ type: "task.queued", projectId, taskId: job.task.id });
+	}
+}
+
+async function startJob(job: PendingJob): Promise<void> {
+	try {
+		if (job.kind === "run") {
+			await runTaskInner(job.project, job.task, job.runtime);
+		} else {
+			await resumeTaskInner(job.project, job.task, job.runtime);
+		}
+	} finally {
+		const running = getRunningSet(job.project.id);
+		running.delete(job.task.id);
+		drainQueue(job.project.id);
+	}
+}
+
+function drainQueue(projectId: string): void {
+	const queue = getPendingQueue(projectId);
+	const running = getRunningSet(projectId);
+	while (queue.length > 0) {
+		const next = queue[0];
+		const concurrency = Math.max(1, next.project.concurrency);
+		if (running.size >= concurrency) break;
+		queue.shift();
+		running.add(next.task.id);
+		void startJob(next);
+	}
+}
+
+export function enqueueRunTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): void {
+	enqueueJob({ kind: "run", project, task, runtime });
+}
+
+export function enqueueResumeTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): void {
+	enqueueJob({ kind: "resume", project, task, runtime });
+}
+
+/**
+ * 从 pending 队列移除一个尚未启动的任务。返回是否命中。
+ * 用于 pauseTask / deleteTask / cleanTaskFilesAndState 在任务进入执行之前
+ * 直接撤销排队，无需走 abort 路径。
+ */
+export function removeFromPending(projectId: string, taskId: string): boolean {
+	const queue = getPendingQueue(projectId);
+	const idx = queue.findIndex((j) => j.task.id === taskId);
+	if (idx < 0) return false;
+	queue.splice(idx, 1);
+	emitBatchTaskEvent({ type: "task.dequeued", projectId, taskId });
+	console.log(`[BatchTask] task ${taskId} removed from pending queue`);
+	return true;
+}
 
 export function emitBatchTaskEvent(event: BatchTaskEvent): void {
 	for (const handler of eventHandlers) {
@@ -221,7 +353,7 @@ async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeH
 	}
 }
 
-export async function runTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
+async function runTaskInner(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
 	const abortController = new AbortController();
 	console.log(
 		`[BatchTask] runTask: project=${project.id}(${project.name}), task=${task.id}(${task.name}), cwd=${task.cwd}`,
@@ -348,6 +480,8 @@ export async function runTask(project: BatchProject, task: BatchTask, runtime: R
 
 export async function pauseTask(projectId: string, taskId: string, runtime: RuntimeHost): Promise<void> {
 	console.log(`[BatchTask] pauseTask: project=${projectId}, task=${taskId}`);
+	// 排队中的任务还没真正启动 session，直接从队列移除即可
+	if (removeFromPending(projectId, taskId)) return;
 	const executing = executingTasks.get(taskId);
 	if (!executing) {
 		console.warn(`[BatchTask] pauseTask: task ${taskId} not found in executingTasks`);
@@ -374,7 +508,7 @@ export async function pauseTask(projectId: string, taskId: string, runtime: Runt
 	console.log(`[BatchTask] task.paused emitted: ${taskId}`);
 }
 
-export async function resumeTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
+async function resumeTaskInner(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
 	console.log(`[BatchTask] resumeTask: project=${project.id}, task=${task.id}, session=${task.sessionId}`);
 	if (!task.sessionId) {
 		console.warn(`[BatchTask] resumeTask: task ${task.id} has no sessionId`);

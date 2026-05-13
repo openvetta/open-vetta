@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
-import { confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
+import { batchQueuedTaskIdsAtom, confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@shared/components/ui/tooltip";
 import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 
@@ -47,6 +47,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 
 	const [searchQuery, setSearchQuery] = useState("");
 	const normalizedQuery = searchQuery.trim().toLowerCase();
+	const queuedTaskIds = useAtomValue(batchQueuedTaskIdsAtom);
 	const tasks = project.tasks;
 	const filteredTasks = useMemo(
 		() =>
@@ -257,6 +258,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 						<TaskRow
 							key={task.id}
 							task={task}
+							isQueued={queuedTaskIds.has(task.id)}
 							onRun={() => void handleRunTask(task.id)}
 							onPause={() => handlePauseTask(task)}
 							onResume={() => void handleResumeTask(task.id)}
@@ -330,12 +332,14 @@ function QueueActionButton({
 
 function TaskRow({
 	task,
+	isQueued,
 	onRun,
 	onPause,
 	onResume,
 	onGoToSession,
 }: {
 	task: BatchTask;
+	isQueued: boolean;
 	onRun: () => void;
 	onPause: () => void;
 	onResume: () => void;
@@ -343,8 +347,9 @@ function TaskRow({
 }): JSX.Element {
 	const hasSession = !!task.sessionId;
 
-	const dotColor =
-		task.status === "completed"
+	const dotColor = isQueued
+		? "bg-yellow-500"
+		: task.status === "completed"
 			? "bg-emerald-500"
 			: task.status === "running"
 				? "bg-emerald-500"
@@ -354,11 +359,13 @@ function TaskRow({
 						? "bg-yellow-500"
 						: "bg-muted-foreground/30";
 
+	const label = isQueued ? "等待中" : statusLabel(task.status, hasSession);
+
 	return (
 		<div className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors duration-150 hover:bg-accent/40">
 			{/* Status dot */}
 			<div className="relative flex h-2 w-2 shrink-0">
-				{task.status === "running" && (
+				{task.status === "running" && !isQueued && (
 					<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
 				)}
 				<span className={`relative inline-flex h-2 w-2 rounded-full ${dotColor}`} />
@@ -383,9 +390,7 @@ function TaskRow({
 			)}
 
 			{/* Status label */}
-			<span className="shrink-0 text-[11px] text-muted-foreground/50">
-				{statusLabel(task.status, hasSession)}
-			</span>
+			<span className="shrink-0 text-[11px] text-muted-foreground/50">{label}</span>
 
 			{/* Time */}
 			{task.sessionId && (
@@ -410,7 +415,20 @@ function TaskRow({
 						<TooltipContent>跳转到会话</TooltipContent>
 					</Tooltip>
 				)}
-				{task.status === "pending" && (
+				{isQueued ? (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								type="button"
+								onClick={onPause}
+								className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+							>
+								<span className="icon-[mdi--close] h-3.5 w-3.5" />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent>取消等待</TooltipContent>
+					</Tooltip>
+				) : task.status === "pending" ? (
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<button
@@ -423,8 +441,8 @@ function TaskRow({
 						</TooltipTrigger>
 						<TooltipContent>执行</TooltipContent>
 					</Tooltip>
-				)}
-				{task.status === "running" && (
+				) : null}
+				{task.status === "running" && !isQueued && (
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<button
