@@ -2,10 +2,10 @@ import type { ImageContent } from "@mariozechner/pi-ai";
 import { loadPhoton } from "./photon.js";
 
 export interface ImageResizeOptions {
-	maxWidth?: number; // Default: 2000
-	maxHeight?: number; // Default: 2000
-	maxBytes?: number; // Default: 4.5MB (below Anthropic's 5MB limit)
-	jpegQuality?: number; // Default: 80
+	maxWidth?: number; // Default: 1280
+	maxHeight?: number; // Default: 1280
+	maxBytes?: number; // Default: 2MB
+	jpegQuality?: number; // Default: 70
 }
 
 export interface ResizedImage {
@@ -18,14 +18,17 @@ export interface ResizedImage {
 	wasResized: boolean;
 }
 
-// 4.5MB - provides headroom below Anthropic's 5MB limit
-const DEFAULT_MAX_BYTES = 4.5 * 1024 * 1024;
+// 2MB - conservative default tuned for local/open-source VL models whose
+// GPU memory budget is dominated by visual token count rather than raw bytes.
+// Anthropic Claude tolerates up to 5MB; if you exclusively target Claude you
+// can raise this via ReadToolOptions.
+const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
 
 const DEFAULT_OPTIONS: Required<ImageResizeOptions> = {
-	maxWidth: 2000,
-	maxHeight: 2000,
+	maxWidth: 1280,
+	maxHeight: 1280,
 	maxBytes: DEFAULT_MAX_BYTES,
-	jpegQuality: 80,
+	jpegQuality: 70,
 };
 
 /** Helper to pick the smaller of two buffers */

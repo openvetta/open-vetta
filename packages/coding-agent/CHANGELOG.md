@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Session-level 图片预算（默认保留最近 2 张）**：新增 `packages/coding-agent/src/core/image-budget.ts` 中的 `applyImageBudget(messages, budget)`，并在 `sdk.ts` 的 `transformContext` 里挂在 `extensionRunner.emitContext` + `session.preCallCompaction` 之后调用。每次发起 LLM 调用前从最新消息往前扫描，最多保留 `budget` 张 `ImageContent`，更早的图片就地替换为占位文本 `[earlier image omitted to conserve memory]`。配套在 `SettingsManager` 暴露 `getMaxRecentImages()` / `setMaxRecentImages()`，对应 `settings.json` 的 `images.maxRecentImages`（默认 `2`，`<=0` 关闭预算/保留全部）。**解决的具体问题**：单张图被 resize 到合规上限不等于 N 张并存也合规——VL 后端是按"当前请求里所有图的视觉 token 总和"占显存的，旧会话每多保留一张大图就多 5000+ patch tokens，到第 2~3 张时本地推理服务就 CUDA OOM 直接返 500。通过把超出预算的旧图替换为短文本，既保住最近上下文的视觉能力，又把累积视觉 token 钉死在常数级。
 - **LLM 调用失败时 session 不再立即终止，默认尝试自我恢复（最多 3 次）**：批量任务跑本地视觉模型时，单张大图触发后端 CUDA OOM 会让 provider 返回 `stopReason === "error"`，原 agent loop 看到就立刻 `agent_end`，整个 session 直接结束、被 batch executor 标 `task.failed`。新增 `Settings.errorRecovery: { mode?: "halt" | "inject-and-retry"; maxConsecutiveErrors?: number }`（`SettingsManager#getErrorRecoverySettings()`），sdk.ts 在 `new Agent({...})` 时透传到 `AgentOptions.errorRecovery`。**默认 `mode === "inject-and-retry"`、`maxConsecutiveErrors === 3`**：失败时把 error assistant 从 LLM 上下文 pop 掉，注入一条带引导文案的 user 消息（"上次调用失败：…，不要重复刚才操作；用 bash 看元数据；跳过失败步骤；拆分任务"），让模型自行换路径继续；连续失败到上限才真正 halt。要恢复旧行为在 settings.json 加 `{ "errorRecovery": { "mode": "halt" } }` 即可。
 - Added `html_to_pdf` tool as a thin wrapper around Vetta Desktop's PDF command-line mode.
 
@@ -11,6 +12,7 @@
 
 ### Changed
 
+- **图片预处理默认值面向本地 VL 模型调低**：`packages/coding-agent/src/utils/image-resize.ts` 中 `DEFAULT_OPTIONS` 的 `maxWidth/maxHeight` 由 `2000` → `1280`，`jpegQuality` 由 `80` → `70`，`DEFAULT_MAX_BYTES` 由 `4.5MB` → `2MB`。原值是按 Anthropic 5MB 字节限制设计的；但本地/开源视觉模型（Qwen-VL、InternVL 等）的瓶颈不是字节数而是 vision encoder 中的视觉 token 数（patch tokens），2000×2000 单张图就有 5000+ tokens，连续读两张就足以撑爆 GPU 显存返回 `500 (no body)` / CUDA OOM。新默认 1280×1280 把单图视觉 token 量降到约 1/2.4，给多图场景留出预算。如果只用 Claude，可通过 `ReadToolOptions.imageResize` 自定义拉回 2000（待后续暴露）。
 - Scene 触发时按 `tasks.json` 1:1 工程化加载 todo 列表：先重置已有 todos，再批量创建，并锁定列表禁止 LLM 通过 `todo(action="create")` 追加。同 session 内重复触发同一 scene 会被无视；新 session 自动解锁。锁定状态会随 `todo_snapshot` 持久化以支持会话恢复。
 
 ### Removed

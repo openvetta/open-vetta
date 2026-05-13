@@ -6,6 +6,7 @@ import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
 import type { ExtensionRunner, LoadExtensionsResult, ToolDefinition } from "./extensions/index.js";
+import { applyImageBudget } from "./image-budget.js";
 import { convertToLlm } from "./messages.js";
 import { ModelRegistry } from "./model-registry.js";
 import { findInitialModel } from "./model-resolver.js";
@@ -360,6 +361,9 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			if (session) {
 				messages = await session.preCallCompaction(messages, signal);
 			}
+			// Cap session-wide image count to bound visual-token cost for VL models.
+			// Read setting dynamically so mid-session changes take effect.
+			messages = applyImageBudget(messages, settingsManager.getMaxRecentImages());
 			return messages;
 		},
 		steeringMode: settingsManager.getSteeringMode(),
