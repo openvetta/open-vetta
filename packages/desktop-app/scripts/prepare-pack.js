@@ -64,11 +64,24 @@ cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: tr
 const externalDeps = ["dbus-next"];
 const copiedExternalDeps = new Set();
 
-function copyExternalDependency(dep) {
+// fromPaths：当前依赖的搜索目录列表。递归时把上一级依赖的 node_modules 也带上，
+// 以兼容 bun / pnpm 的 isolated node_modules 布局（间接依赖不会被 hoist 到项目
+// 根目录，而是嵌套在自己父包的 node_modules 下）。
+function copyExternalDependency(dep, fromPaths = [projectRoot]) {
 	if (copiedExternalDeps.has(dep)) return;
 	copiedExternalDeps.add(dep);
 
-	const entry = require.resolve(dep, { paths: [projectRoot] });
+	let entry;
+	try {
+		entry = require.resolve(dep, { paths: fromPaths });
+	} catch (err) {
+		// 间接依赖在某些场景下可能未真正安装（如 optionalDependencies 在当前
+		// 平台跳过、被供应链审计工具拦截的旧版本、纯类型依赖等）。这种依赖如果
+		// 运行时确实用不到就跳过；如果用到了，会在运行时报错，比静默吞掉真正
+		// 缺失的模块更容易发现。
+		console.warn(`[prepare-pack] skipping ${dep}: ${err.code ?? err.message}`);
+		return;
+	}
 	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
 	const idx = entry.lastIndexOf(marker);
 	if (idx < 0) {
@@ -80,8 +93,9 @@ function copyExternalDependency(dep) {
 	cpSync(depDir, destDir, { recursive: true });
 
 	const depPkg = JSON.parse(readFileSync(join(depDir, "package.json"), "utf8"));
+	const nestedPaths = [join(depDir, "node_modules"), ...fromPaths];
 	for (const childDep of Object.keys(depPkg.dependencies ?? {})) {
-		copyExternalDependency(childDep);
+		copyExternalDependency(childDep, nestedPaths);
 	}
 }
 
