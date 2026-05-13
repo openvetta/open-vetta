@@ -64,3 +64,9 @@ export const expandedBatchProjectsAtom = atom<Set<string>>(new Set<string>());
 export const batchProjectsOffsetAtom = atom<number>(0);
 export const batchProjectsHasMoreAtom = atom<boolean>(true);
 export const batchTaskStatesAtom = atom<Record<string, Record<string, BatchTaskState>>>({});
+
+/**
+ * 后端调度器排队中、但还未真正启动的 taskId 集合。
+ * 与持久化的 BatchTask.status 解耦，仅在主进程内存中维护，重启后清空。
+ */
+export const batchQueuedTaskIdsAtom = atom<Set<string>>(new Set<string>());

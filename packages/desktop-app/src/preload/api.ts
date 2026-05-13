@@ -472,7 +472,9 @@ export type BatchTaskEvent =
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.paused"; projectId: string; taskId: string }
 	| { type: "task.resumed"; projectId: string; taskId: string }
-	| { type: "task.reset"; projectId: string; taskId: string };
+	| { type: "task.reset"; projectId: string; taskId: string }
+	| { type: "task.queued"; projectId: string; taskId: string }
+	| { type: "task.dequeued"; projectId: string; taskId: string };
 
 export interface DesktopBatchTasksApi {
 	getProjects(): Promise<BatchProject[]>;

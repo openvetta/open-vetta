@@ -2,10 +2,12 @@ import { ipcMain, type WebContents } from "electron";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import {
 	emitBatchTaskEvent,
+	enqueueResumeTask,
+	enqueueRunTask,
+	isTaskQueued,
 	isTaskRunning,
 	pauseTask as pauseTaskExecutor,
-	resumeTask,
-	runTask,
+	removeFromPending,
 	subscribeBatchTaskEvents,
 } from "../batch-tasks/batch-task-executor";
 import { clearAllTaskStates, deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
@@ -20,7 +22,6 @@ import {
 	resetTaskFiles,
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
-import { pLimit } from "../batch-tasks/queue";
 import type { ExecutionModeOverride } from "../execution-mode.js";
 import { getSharedRuntime } from "../runtime.js";
 
@@ -51,7 +52,7 @@ function getRuntime(): RuntimeHost {
 }
 
 async function cleanTaskFilesAndState(projectId: string, task: BatchTask, runtime: RuntimeHost): Promise<void> {
-	if (isTaskRunning(task.id)) {
+	if (isTaskRunning(task.id) || isTaskQueued(task.id)) {
 		await pauseTaskExecutor(projectId, task.id, runtime);
 	}
 	if (task.sessionPath) {
@@ -146,7 +147,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			console.warn(`[BatchTaskIPC] RUN_TASK: task ${taskId} not found`);
 			return;
 		}
-		await runTask(project, task, getRuntime());
+		enqueueRunTask(project, task, getRuntime());
 	});
 
 	ipcMain.handle(CHANNELS.RETRY_TASK, async (_, projectId: string, taskId: string) => {
@@ -163,7 +164,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 		const runtime = getRuntime();
 		await cleanTaskFilesAndState(projectId, task, runtime);
-		await runTask(project, task, runtime);
+		enqueueRunTask(project, task, runtime);
 	});
 
 	ipcMain.handle(CHANNELS.PAUSE_TASK, async (_, projectId: string, taskId: string) => {
@@ -183,7 +184,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			console.warn(`[BatchTaskIPC] RESUME_TASK: task ${taskId} not found`);
 			return;
 		}
-		await resumeTask(project, task, getRuntime());
+		enqueueResumeTask(project, task, getRuntime());
 	});
 
 	ipcMain.handle(CHANNELS.DELETE_TASK, async (_, projectId: string, taskId: string) => {
@@ -192,6 +193,8 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			console.warn(`[BatchTaskIPC] DELETE_TASK: task ${taskId} is running, skip`);
 			return;
 		}
+		// 排队中的任务先从队列移除，避免删除后调度器仍试图执行
+		removeFromPending(projectId, taskId);
 		await removeTaskFromProject(projectId, taskId);
 		await deleteTaskState(projectId, taskId);
 	});
@@ -208,16 +211,15 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 		console.log(`[BatchTaskIPC] BATCH_RETRY_FAILED: retrying ${failedTasks.length} tasks`);
 		const runtime = getRuntime();
-		const taskRunners = failedTasks.map((task) => async () => {
+		for (const task of failedTasks) {
 			await cleanTaskFilesAndState(projectId, task, runtime);
-			await runTask(project, task, runtime);
-		});
-		await pLimit(project.concurrency, taskRunners);
+			enqueueRunTask(project, task, runtime);
+		}
 	});
 
 	// 与 BATCH_RETRY_FAILED 的差别：先把所有失败任务一次性清理为 pending（UI
-	// 上立刻看到失败标记消失），再按并发数排队执行。RETRY_FAILED 是逐个 worker
-	// 拿到任务后才清理，所以排队中的失败任务在 UI 上会一直显示"失败"直到轮到它。
+	// 上立刻看到失败标记消失），再交给调度器按并发执行。RETRY_FAILED 是逐个清
+	// 理后立即入队，所以排队中的失败任务在 UI 上会一直显示"失败"直到轮到它。
 	ipcMain.handle(CHANNELS.BATCH_CLEAR_FAILED_AND_RETRY, async (_, projectId: string) => {
 		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: project=${projectId}`);
 		const project = await getProject(projectId);
@@ -238,8 +240,9 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			}),
 		);
 
-		const taskRunners = failedTasks.map((task) => () => runTask(project, task, runtime));
-		await pLimit(project.concurrency, taskRunners);
+		for (const task of failedTasks) {
+			enqueueRunTask(project, task, runtime);
+		}
 	});
 
 	// 仅清空失败任务的状态与产物，不重新执行。失败任务的 session、task-state、
@@ -289,8 +292,9 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 		console.log(`[BatchTaskIPC] BATCH_RESUME: resuming ${pausedTasks.length} tasks`);
 		const runtime = getRuntime();
-		const taskRunners = pausedTasks.map((task) => () => resumeTask(project, task, runtime));
-		await pLimit(project.concurrency, taskRunners);
+		for (const task of pausedTasks) {
+			enqueueResumeTask(project, task, runtime);
+		}
 	});
 
 	ipcMain.handle(CHANNELS.BATCH_DELETE, async (_, projectId: string) => {
@@ -317,8 +321,9 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 		console.log(`[BatchTaskIPC] BATCH_RUN_NEVER_EXECUTED: running ${pendingTasks.length} tasks`);
 		const runtime = getRuntime();
-		const taskRunners = pendingTasks.map((task) => () => runTask(project, task, runtime));
-		await pLimit(project.concurrency, taskRunners);
+		for (const task of pendingTasks) {
+			enqueueRunTask(project, task, runtime);
+		}
 	});
 
 	ipcMain.handle(CHANNELS.BATCH_RESTART_ALL, async (_, projectId: string) => {
@@ -356,8 +361,9 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		const refreshedProject = await getProject(projectId);
 		if (!refreshedProject) return;
 		console.log(`[BatchTaskIPC] BATCH_RESTART_ALL: restarting ${refreshedProject.tasks.length} tasks`);
-		const taskRunners = refreshedProject.tasks.map((task) => () => runTask(refreshedProject, task, runtime));
-		await pLimit(refreshedProject.concurrency, taskRunners);
+		for (const task of refreshedProject.tasks) {
+			enqueueRunTask(refreshedProject, task, runtime);
+		}
 	});
 
 	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_, sessionPath: string) => {
