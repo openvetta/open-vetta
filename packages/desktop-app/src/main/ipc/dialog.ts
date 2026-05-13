@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { dialog, ipcMain } from "electron";
 import { allowProjectRoot } from "./fs.js";
+import { selectFoldersWithLinuxPortal } from "./linux-portal-dialog.js";
 
 const IMAGE_MIME: Record<string, string> = {
 	".png": "image/png",
@@ -54,6 +55,18 @@ export function registerDialogIpc(): () => void {
 	});
 
 	ipcMain.handle("vetta:dialog:select-folders", async () => {
+		if (process.platform === "linux") {
+			try {
+				const selected = await selectFoldersWithLinuxPortal();
+				for (const p of selected) {
+					allowProjectRoot(p);
+				}
+				return selected;
+			} catch (error) {
+				console.warn("Linux portal folder picker failed, falling back to Electron dialog:", error);
+			}
+		}
+
 		const result = await dialog.showOpenDialog({
 			properties: ["openDirectory", "multiSelections"],
 			title: "Select Folders",
