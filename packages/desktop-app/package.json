@@ -41,6 +41,7 @@
 		"@mariozechner/pi-ai": "workspace:*",
 		"@ocr-web/core": "^0.2.1",
 		"@ocr-web/models-ppocrv5": "^0.1.1",
+		"@silvia-odwyer/photon-node": "^0.3.4",
 		"@tanstack/react-router": "^1.130.15",
 		"@types/adm-zip": "^0.5.8",
 		"@vetta/runtime-core": "workspace:*",
