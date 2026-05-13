@@ -17,9 +17,36 @@ function resolveDiagnosticsLogPath(): string {
 	return diagnosticsLogPath;
 }
 
+// 递归打印 error.cause 链，并附带 code/errno/address/port —— 这是诊断 fetch
+// 失败（如 ECONNREFUSED / EHOSTUNREACH / undici "fetch failed"）的关键信息，
+// 没有 cause 链就只能看到 "Connection error." 这种顶层占位文案，根因丢失。
+function formatErrorChain(err: Error): string {
+	const parts: string[] = [err.stack ?? `${err.name}: ${err.message}`];
+	const seen = new Set<unknown>([err]);
+	let cur: unknown = (err as { cause?: unknown }).cause;
+	while (cur && !seen.has(cur)) {
+		seen.add(cur);
+		if (cur instanceof Error) {
+			const meta: string[] = [];
+			const anyCur = cur as Error & { code?: string; errno?: number | string; address?: string; port?: number };
+			if (anyCur.code) meta.push(`code=${anyCur.code}`);
+			if (anyCur.errno !== undefined) meta.push(`errno=${anyCur.errno}`);
+			if (anyCur.address) meta.push(`address=${anyCur.address}`);
+			if (anyCur.port !== undefined) meta.push(`port=${anyCur.port}`);
+			parts.push(
+				`  Caused by: ${cur.stack ?? `${cur.name}: ${cur.message}`}${meta.length ? `  [${meta.join(", ")}]` : ""}`,
+			);
+		} else {
+			parts.push(`  Caused by: ${String(cur)}`);
+		}
+		cur = (cur as { cause?: unknown }).cause;
+	}
+	return parts.join("\n");
+}
+
 function formatArg(arg: unknown): string {
 	if (typeof arg === "string") return arg;
-	if (arg instanceof Error) return `${arg.stack ?? arg.message}`;
+	if (arg instanceof Error) return formatErrorChain(arg);
 	return inspect(arg, { depth: 8, breakLength: 160 });
 }
 
@@ -34,6 +61,24 @@ export function writeDiagnosticLog(level: ConsoleLevel, ...args: unknown[]): voi
 
 export function getDiagnosticsLogPath(): string {
 	return resolveDiagnosticsLogPath();
+}
+
+// 包裹 globalThis.fetch：fetch 失败时把请求 URL 和完整 cause 链记下来。诊断
+// "Connection error." 必备：anthropic-ai-sdk / openai-node 在网络层失败时只会
+// 抛 "Connection error." 占位文案，真正的 ECONNREFUSED / EHOSTUNREACH / DNS
+// 错误都藏在底层 fetch 的 cause 里，不在这里捕获就拿不到。
+function patchFetch(): void {
+	const orig = globalThis.fetch;
+	if (typeof orig !== "function") return;
+	globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+		try {
+			return await orig(input, init);
+		} catch (err) {
+			const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+			console.error("[fetch] failed", { url }, err);
+			throw err;
+		}
+	}) as typeof fetch;
 }
 
 export function installMainDiagnostics(): void {
@@ -80,5 +125,32 @@ export function installMainDiagnostics(): void {
 
 	app.on("quit", (_event, exitCode) => {
 		writeDiagnosticLog("log", "[app] quit", { exitCode });
+	});
+
+	patchFetch();
+
+	// 启动时打印关键 env —— 排查 "终端启动 OK / Finder 启动异常" 这类
+	// launchd vs shell 环境差异问题（PATH / proxy / VETTA_SERVER_URL 等）的
+	// 第一手依据。
+	console.log("[startup]", {
+		version: app.getVersion(),
+		platform: process.platform,
+		arch: process.arch,
+		node: process.versions.node,
+		electron: process.versions.electron,
+		execPath: process.execPath,
+		cwd: process.cwd(),
+		argv: process.argv,
+		env: {
+			PATH: process.env.PATH,
+			SHELL: process.env.SHELL,
+			HOME: process.env.HOME,
+			LANG: process.env.LANG,
+			HTTP_PROXY: process.env.HTTP_PROXY ?? process.env.http_proxy,
+			HTTPS_PROXY: process.env.HTTPS_PROXY ?? process.env.https_proxy,
+			NO_PROXY: process.env.NO_PROXY ?? process.env.no_proxy,
+			ALL_PROXY: process.env.ALL_PROXY ?? process.env.all_proxy,
+			VETTA_SERVER_URL: process.env.VETTA_SERVER_URL,
+		},
 	});
 }
