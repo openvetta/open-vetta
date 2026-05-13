@@ -16,6 +16,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Linux AppImage 启动找不到 `dbus-next`**：主进程为避免 Vite 内联 `dbus-next` 并触发其惰性 `x11` 解析，已将该包设为 external；打包 staging 现在会递归复制 external 运行时依赖，避免 AppImage 启动时报 `ERR_MODULE_NOT_FOUND: Cannot find package 'dbus-next'`。
+
 - **Linux 批量项目多目录选择报错**：批量项目选择多个文件夹时，Linux Electron/Chromium portal 后端会把 `openDirectory + multiSelections` 错误收尾为单选目录选择，触发 `Got >1 file URI from a single-file chooser` 并丢弃结果。现在 Linux 下改为主进程直接调用 `org.freedesktop.portal.FileChooser.OpenFile`，同时传 `directory=true` 与 `multiple=true`，保留系统原生文件选择器体验；portal 不可用或失败时再回退到 Electron dialog。
 
 - **Linux AppImage / unpacked 应用名统一为 Vetta**：packaged 主进程现在会把 console、未捕获异常、renderer/child process 退出、窗口加载失败、preload 错误等关键事件写入 Electron `logs/main.log`，启动时同步输出日志路径；同时修正打包 staging 的包名并显式设置 `executableName: "Vetta"`，避免 Linux unpacked 产物生成 scoped package 派生名称并触发 `xdg-settings: invalid application name`。
