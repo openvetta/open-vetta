@@ -28,6 +28,7 @@ import { isContextOverflow, modelsAreEqual, resetApiProviders, supportsXhigh } f
 import { getDocsPath } from "../config.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { stripFrontmatter } from "../utils/frontmatter.js";
+import { resizeImage } from "../utils/image-resize.js";
 import { sleep } from "../utils/sleep.js";
 import { type BashResult, executeBash as executeBashCommand, executeBashWithOperations } from "./bash-executor.js";
 import {
@@ -946,6 +947,12 @@ export class AgentSession {
 			}
 		}
 
+		// Normalize user-attached images (paste / drag / desktop attach) through the
+		// same resize pipeline as the read tool. Without this, large pasted images
+		// reach the model at original resolution and can blow past local VL models'
+		// GPU memory budget (CUDA OOM → 500 no body).
+		currentImages = await this._normalizeUserImages(currentImages);
+
 		// Expand skill commands (/skill:name args) and prompt templates (/template args)
 		let expandedText = currentText;
 		let sceneInjection: string | undefined;
@@ -1254,6 +1261,28 @@ export class AgentSession {
 	/**
 	 * Internal: Queue a steering message (already expanded, no extension command check).
 	 */
+	/**
+	 * Run user-attached images (paste / drag / desktop attach) through the same
+	 * resize pipeline the `read` tool uses. Respects `images.autoResize` setting:
+	 * when disabled, returns input unchanged.
+	 */
+	private async _normalizeUserImages(images?: ImageContent[]): Promise<ImageContent[] | undefined> {
+		if (!images || images.length === 0) return images;
+		if (!this.settingsManager.getImageAutoResize()) return images;
+
+		const out: ImageContent[] = [];
+		for (const img of images) {
+			try {
+				const resized = await resizeImage(img);
+				out.push({ type: "image", data: resized.data, mimeType: resized.mimeType });
+			} catch {
+				// On any failure (e.g., Photon not loaded), pass the original through.
+				out.push(img);
+			}
+		}
+		return out;
+	}
+
 	private async _queueSteer(text: string, images?: ImageContent[]): Promise<void> {
 		this._steeringMessages.push(text);
 		const content: (TextContent | ImageContent)[] = [{ type: "text", text }];
