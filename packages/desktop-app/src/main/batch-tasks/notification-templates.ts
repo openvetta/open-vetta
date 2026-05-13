@@ -84,21 +84,6 @@ function buildStatusList(counts: StatusCounts): string {
 	return STATUS_ROWS.map(({ key, label }) => `- ${label}：**${counts[key]}**`).join("\n");
 }
 
-/**
- * Truncate a list of running-task names to avoid blowing up the card. We keep
- * the first 5 names and replace the tail with "… 等 N 个" so the card stays
- * compact regardless of concurrency setting.
- */
-function joinTaskNames(names: string[], max = 5): string {
-	if (names.length === 0) return "—";
-	if (names.length <= max) return names.map((n) => `\`${n}\``).join("、");
-	const shown = names
-		.slice(0, max)
-		.map((n) => `\`${n}\``)
-		.join("、");
-	return `${shown}、… 等 ${names.length} 个`;
-}
-
 /** Strip newlines from error messages so they don't break table rows. */
 function sanitizeError(err: string | undefined): string {
 	if (!err) return "未知错误";
@@ -129,11 +114,11 @@ export function buildTaskFinishedMessage(ctx: TaskFinishedContext): WebhookMessa
 	// `project` 是 saveTaskState 之后才读的，本次刚结束的子任务**已经**反映在快照里
 	// （completed / failed 已经记账）。所以直接用 counts 即可，不要再手动 +1。
 	const counts = countStatuses(project.tasks);
-	const running = project.tasks.filter((t) => t.status === "running" && t.id !== task.id).map((t) => t.name);
+	const runningCount = project.tasks.filter((t) => t.status === "running" && t.id !== task.id).length;
 	const duration = startedAt ? formatDuration(finishedAt - startedAt) : "—";
 
 	const success = outcome.kind === "completed";
-	const title = `${success ? "✅" : "❌"} ${project.name} - ${task.name} ${success ? "已完成" : "失败"}`;
+	const title = `${success ? "✅" : "❌"} 子任务${success ? "已完成" : "失败"}`;
 
 	const resultLine = (() => {
 		switch (outcome.kind) {
@@ -165,7 +150,7 @@ export function buildTaskFinishedMessage(ctx: TaskFinishedContext): WebhookMessa
 	const pct = counts.total > 0 ? Math.round((finishedSoFar / counts.total) * 100) : 0;
 
 	const lines: string[] = [
-		`**子任务**：\`${task.name}\``,
+		"**子任务**：`****`",
 		`**结果**：${resultLine}`,
 		...(errorLine ? [errorLine] : []),
 		`**耗时**：${duration}`,
@@ -177,12 +162,12 @@ export function buildTaskFinishedMessage(ctx: TaskFinishedContext): WebhookMessa
 		"",
 		buildStatusList(counts),
 		"",
-		`**正在运行**：${joinTaskNames(running)}`,
+		`**正在运行**：**${runningCount}** 个`,
 		`**等待队列**：${counts.pending} 个`,
 		"",
 		"---",
 		"",
-		`📁 项目：${project.name}`,
+		"📁 项目：****",
 		`🕒 完成于：${formatTimestamp(finishedAt)}`,
 	];
 
