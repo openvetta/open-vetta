@@ -7,6 +7,7 @@ const FILE_CHOOSER_INTERFACE = "org.freedesktop.portal.FileChooser";
 const REQUEST_INTERFACE = "org.freedesktop.portal.Request";
 const PORTAL_RESPONSE_SUCCESS = 0;
 const PORTAL_RESPONSE_CANCELLED = 1;
+const PORTAL_RESPONSE_ENDED = 2;
 const PORTAL_RESPONSE_TIMEOUT_MS = 5 * 60 * 1000;
 
 interface PortalFileChooserInterface extends ClientInterface {
@@ -60,7 +61,7 @@ async function waitForPortalResponse(bus: MessageBus, requestPath: string): Prom
 					resolve(extractFilePaths(results));
 					return;
 				}
-				if (response === PORTAL_RESPONSE_CANCELLED) {
+				if (response === PORTAL_RESPONSE_CANCELLED || response === PORTAL_RESPONSE_ENDED) {
 					resolve([]);
 					return;
 				}
