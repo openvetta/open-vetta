@@ -1,6 +1,3 @@
-// 必须放在最前：file-logger 顶层副作用安装 console / 未捕获异常 / fetch 失败的
-// 文件日志，确保所有后续 import 的副作用也能被捕获（ESM import 是 hoist 的）。
-import "./file-logger.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
