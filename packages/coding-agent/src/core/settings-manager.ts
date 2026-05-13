@@ -42,8 +42,9 @@ export interface TerminalSettings {
 }
 
 export interface ImageSettings {
-	autoResize?: boolean; // default: true (resize images to 2000x2000 max for better model compatibility)
+	autoResize?: boolean; // default: true (resize images to 1280x1280 max for better model compatibility)
 	blockImages?: boolean; // default: false - when true, prevents all images from being sent to LLM providers
+	maxRecentImages?: number; // default: 2 - keep this many most-recent images in context, replace older with text placeholder. <=0 disables (keep all)
 }
 
 export interface ThinkingBudgetsSettings {
@@ -874,6 +875,19 @@ export class SettingsManager {
 		}
 		this.globalSettings.images.blockImages = blocked;
 		this.markModified("images", "blockImages");
+		this.save();
+	}
+
+	getMaxRecentImages(): number {
+		return this.settings.images?.maxRecentImages ?? 2;
+	}
+
+	setMaxRecentImages(count: number): void {
+		if (!this.globalSettings.images) {
+			this.globalSettings.images = {};
+		}
+		this.globalSettings.images.maxRecentImages = count;
+		this.markModified("images", "maxRecentImages");
 		this.save();
 	}
 
