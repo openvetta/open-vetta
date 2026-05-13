@@ -433,13 +433,13 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		// Must explicitly disable since z.ai defaults to thinking enabled
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
 	} else if (compat.thinkingFormat === "qwen") {
-		// Qwen uses enable_thinking: boolean + reasoning_effort for effort control
-		(params as any).enable_thinking = !!options?.reasoningEffort;
-		if (options?.reasoningEffort) {
-			params.reasoning_effort = options.reasoningEffort;
-		} else {
-			params.reasoning_effort = "none" as any;
-		}
+		// Qwen uses enable_thinking: boolean + reasoning_effort for effort control.
+		// Valid efforts: "none" | "low" | "medium" | "high". OpenAI's "minimal" is
+		// not in Qwen's allow-list and produces a 400 from vLLM/SGLang, so clamp it
+		// up to "low" before serialising.
+		const qwenEffort = options?.reasoningEffort === "minimal" ? "low" : options?.reasoningEffort;
+		(params as any).enable_thinking = !!qwenEffort;
+		params.reasoning_effort = (qwenEffort ?? "none") as any;
 	} else if (compat.thinkingFormat === "nvidia") {
 		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
 		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };
