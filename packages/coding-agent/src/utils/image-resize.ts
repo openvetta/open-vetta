@@ -1,6 +1,9 @@
 import type { ImageContent } from "@mariozechner/pi-ai";
 import { loadPhoton } from "./photon.js";
 
+let warnedNoPhoton = false;
+const DEBUG_RESIZE = process.env.DEBUG_IMAGE_RESIZE === "1" || process.env.DEBUG_IMAGE_RESIZE === "true";
+
 export interface ImageResizeOptions {
 	maxWidth?: number; // Default: 1280
 	maxHeight?: number; // Default: 1280
@@ -39,6 +42,16 @@ function pickSmaller(
 	return a.buffer.length <= b.buffer.length ? a : b;
 }
 
+function debugLog(result: ResizedImage, originalBytes: number): ResizedImage {
+	if (DEBUG_RESIZE) {
+		const finalBytes = Math.round((result.data.length * 3) / 4);
+		console.warn(
+			`[image-resize] ${result.originalWidth}x${result.originalHeight} (${originalBytes}B) → ${result.width}x${result.height} (~${finalBytes}B ${result.mimeType}) wasResized=${result.wasResized}`,
+		);
+	}
+	return result;
+}
+
 /**
  * Resize an image to fit within the specified max dimensions and file size.
  * Returns the original image if it already fits within the limits.
@@ -58,7 +71,12 @@ export async function resizeImage(img: ImageContent, options?: ImageResizeOption
 
 	const photon = await loadPhoton();
 	if (!photon) {
-		// Photon not available, return original image
+		if (!warnedNoPhoton) {
+			warnedNoPhoton = true;
+			console.warn(
+				`[image-resize] Skipping resize: Photon unavailable. Image (${inputBuffer.length} bytes, ${img.mimeType}) is being sent at ORIGINAL resolution.`,
+			);
+		}
 		return {
 			data: img.data,
 			mimeType: img.mimeType,
@@ -81,15 +99,18 @@ export async function resizeImage(img: ImageContent, options?: ImageResizeOption
 		// Check if already within all limits (dimensions AND size)
 		const originalSize = inputBuffer.length;
 		if (originalWidth <= opts.maxWidth && originalHeight <= opts.maxHeight && originalSize <= opts.maxBytes) {
-			return {
-				data: img.data,
-				mimeType: img.mimeType ?? `image/${format}`,
-				originalWidth,
-				originalHeight,
-				width: originalWidth,
-				height: originalHeight,
-				wasResized: false,
-			};
+			return debugLog(
+				{
+					data: img.data,
+					mimeType: img.mimeType ?? `image/${format}`,
+					originalWidth,
+					originalHeight,
+					width: originalWidth,
+					height: originalHeight,
+					wasResized: false,
+				},
+				inputBuffer.length,
+			);
 		}
 
 		// Calculate initial dimensions respecting max limits
@@ -138,23 +159,8 @@ export async function resizeImage(img: ImageContent, options?: ImageResizeOption
 		best = tryBothFormats(targetWidth, targetHeight, opts.jpegQuality);
 
 		if (best.buffer.length <= opts.maxBytes) {
-			return {
-				data: Buffer.from(best.buffer).toString("base64"),
-				mimeType: best.mimeType,
-				originalWidth,
-				originalHeight,
-				width: finalWidth,
-				height: finalHeight,
-				wasResized: true,
-			};
-		}
-
-		// Still too large - try JPEG with decreasing quality
-		for (const quality of qualitySteps) {
-			best = tryBothFormats(targetWidth, targetHeight, quality);
-
-			if (best.buffer.length <= opts.maxBytes) {
-				return {
+			return debugLog(
+				{
 					data: Buffer.from(best.buffer).toString("base64"),
 					mimeType: best.mimeType,
 					originalWidth,
@@ -162,7 +168,28 @@ export async function resizeImage(img: ImageContent, options?: ImageResizeOption
 					width: finalWidth,
 					height: finalHeight,
 					wasResized: true,
-				};
+				},
+				inputBuffer.length,
+			);
+		}
+
+		// Still too large - try JPEG with decreasing quality
+		for (const quality of qualitySteps) {
+			best = tryBothFormats(targetWidth, targetHeight, quality);
+
+			if (best.buffer.length <= opts.maxBytes) {
+				return debugLog(
+					{
+						data: Buffer.from(best.buffer).toString("base64"),
+						mimeType: best.mimeType,
+						originalWidth,
+						originalHeight,
+						width: finalWidth,
+						height: finalHeight,
+						wasResized: true,
+					},
+					inputBuffer.length,
+				);
 			}
 		}
 
@@ -179,31 +206,39 @@ export async function resizeImage(img: ImageContent, options?: ImageResizeOption
 				best = tryBothFormats(finalWidth, finalHeight, quality);
 
 				if (best.buffer.length <= opts.maxBytes) {
-					return {
-						data: Buffer.from(best.buffer).toString("base64"),
-						mimeType: best.mimeType,
-						originalWidth,
-						originalHeight,
-						width: finalWidth,
-						height: finalHeight,
-						wasResized: true,
-					};
+					return debugLog(
+						{
+							data: Buffer.from(best.buffer).toString("base64"),
+							mimeType: best.mimeType,
+							originalWidth,
+							originalHeight,
+							width: finalWidth,
+							height: finalHeight,
+							wasResized: true,
+						},
+						inputBuffer.length,
+					);
 				}
 			}
 		}
 
 		// Last resort: return smallest version we produced
-		return {
-			data: Buffer.from(best.buffer).toString("base64"),
-			mimeType: best.mimeType,
-			originalWidth,
-			originalHeight,
-			width: finalWidth,
-			height: finalHeight,
-			wasResized: true,
-		};
-	} catch {
-		// Failed to load image
+		return debugLog(
+			{
+				data: Buffer.from(best.buffer).toString("base64"),
+				mimeType: best.mimeType,
+				originalWidth,
+				originalHeight,
+				width: finalWidth,
+				height: finalHeight,
+				wasResized: true,
+			},
+			inputBuffer.length,
+		);
+	} catch (err) {
+		console.warn(
+			`[image-resize] Resize failed (${inputBuffer.length} bytes, ${img.mimeType}); passing image through at ORIGINAL resolution. Error: ${err instanceof Error ? err.message : String(err)}`,
+		);
 		return {
 			data: img.data,
 			mimeType: img.mimeType,

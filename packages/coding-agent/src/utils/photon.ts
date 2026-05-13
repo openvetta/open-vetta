@@ -127,7 +127,12 @@ export async function loadPhoton(): Promise<typeof import("@silvia-odwyer/photon
 		try {
 			photonModule = await import("@silvia-odwyer/photon-node");
 			return photonModule;
-		} catch {
+		} catch (err) {
+			console.warn(
+				"[image-resize] Photon WASM failed to load — images will be sent at ORIGINAL resolution. " +
+					"This can blow past local VL models' GPU memory budget. " +
+					`Tried fallback paths: ${getFallbackWasmPaths().join(", ")}. Error: ${err instanceof Error ? err.message : String(err)}`,
+			);
 			photonModule = null;
 			return photonModule;
 		} finally {
