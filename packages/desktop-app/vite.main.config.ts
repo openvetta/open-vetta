@@ -26,6 +26,13 @@ export default defineConfig(({ mode }) => {
 					"electron",
 					...builtinModules,
 					...builtinModules.map((m) => `node:${m}`),
+					// Photon-node ships as CJS with __dirname-based WASM loading.
+					// Inlining it into this ESM bundle makes Node interpret its .js
+					// as ESM (because desktop-app/package.json has "type":"module"),
+					// which breaks __dirname and silently disables image resize ->
+					// large images reach the model at original resolution and OOM
+					// local VL backends.
+					"@silvia-odwyer/photon-node",
 				],
 			},
 			minify: false,
