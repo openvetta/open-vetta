@@ -216,6 +216,22 @@ const builderConfig = {
 		// restrictive entitlements. Provided as inline strings so the
 		// staging dir doesn't need a separate entitlements.plist file.
 		hardenedRuntime: false,
+		// 用户的本地模型（Ollama / LM Studio / vLLM 等）通常监听在局域网
+		// 明文 HTTP（http://192.168.x.x:port）。macOS 14+ 的 TCC 与 ATS 默认
+		// 会静默拦截这种请求，表现为 Finder 双击启动后随机出现 "Connection
+		// error."，而从终端启动 Vetta 时 launchd context 不同会偶发放行。
+		// 三个 key 缺一不可：
+		//   - NSAppTransportSecurity.NSAllowsLocalNetworking：放开局域网明文 HTTP
+		//   - NSLocalNetworkUsageDescription：macOS 14+ 触发本地网络权限弹窗
+		//   - NSBonjourServices：协助 TCC 识别 app 需要本地网络访问
+		extendInfo: {
+			NSAppTransportSecurity: {
+				NSAllowsLocalNetworking: true,
+			},
+			NSLocalNetworkUsageDescription:
+				"Vetta 需要访问本地网络以连接你在局域网内运行的 AI 模型服务（如 Ollama、LM Studio、vLLM 等）。",
+			NSBonjourServices: ["_http._tcp", "_https._tcp"],
+		},
 	},
 	win: {
 		target: ["nsis"],
