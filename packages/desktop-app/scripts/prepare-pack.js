@@ -32,7 +32,7 @@ mkdirSync(buildStageDir, { recursive: true });
 
 // Write minimal package.json (no dependencies)
 const appPkg = {
-	name: "@vetta/desktop-app",
+	name: "vetta-desktop-app",
 	version: appVersion,
 	description: "Vetta Desktop App",
 	author: "Vetta",
@@ -179,6 +179,7 @@ if (existsSync(runtimeCoreSandboxDir)) {
 const builderConfig = {
 	appId: "com.vetta.desktop",
 	productName: "Vetta",
+	executableName: "Vetta",
 	electronVersion,
 	npmRebuild: false,
 	protocols: {

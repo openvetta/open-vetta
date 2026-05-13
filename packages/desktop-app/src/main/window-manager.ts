@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { app, BrowserWindow, nativeTheme } from "electron";
+import { writeDiagnosticLog } from "./diagnostics.js";
 
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
@@ -24,6 +25,15 @@ export function setMainWindow(win: BrowserWindow | null): void {
 }
 
 export function createWindow(): BrowserWindow {
+	const preloadPath = join(resDir, "preload/index.js");
+	const rendererPath = join(resDir, "renderer/index.html");
+	writeDiagnosticLog("log", "[window] create", {
+		devServerUrl,
+		iconPath: iconPath[process.platform],
+		preloadPath,
+		rendererPath,
+	});
+
 	mainWindow = new BrowserWindow({
 		width: 1280,
 		height: 800,
@@ -38,14 +48,57 @@ export function createWindow(): BrowserWindow {
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
-			preload: join(resDir, "preload/index.js"),
+			preload: preloadPath,
 		},
 	});
 
+	mainWindow.on("ready-to-show", () => {
+		console.log("[window] ready-to-show");
+	});
+	mainWindow.on("show", () => {
+		console.log("[window] show");
+	});
+	mainWindow.on("hide", () => {
+		console.log("[window] hide");
+	});
+	mainWindow.on("close", () => {
+		console.log("[window] close");
+	});
+	mainWindow.on("closed", () => {
+		console.log("[window] closed");
+	});
+	mainWindow.webContents.on("did-finish-load", () => {
+		console.log("[window] did-finish-load", mainWindow?.webContents.getURL());
+	});
+	mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+		console.error("[window] did-fail-load", {
+			errorCode,
+			errorDescription,
+			validatedURL,
+			isMainFrame,
+		});
+	});
+	mainWindow.webContents.on("preload-error", (_event, preloadPathForError, error) => {
+		console.error("[window] preload-error", { preloadPath: preloadPathForError, error });
+	});
+	mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+		writeDiagnosticLog("log", "[renderer] console-message", { level, message, line, sourceId });
+	});
+	mainWindow.webContents.on("unresponsive", () => {
+		console.error("[window] unresponsive");
+	});
+	mainWindow.webContents.on("responsive", () => {
+		console.log("[window] responsive");
+	});
+
 	if (devServerUrl) {
-		void mainWindow.loadURL(devServerUrl);
+		void mainWindow.loadURL(devServerUrl).catch((error: unknown) => {
+			console.error("[window] loadURL failed", error);
+		});
 	} else {
-		void mainWindow.loadFile(join(resDir, "renderer/index.html"));
+		void mainWindow.loadFile(rendererPath).catch((error: unknown) => {
+			console.error("[window] loadFile failed", error);
+		});
 	}
 	if (!app.isPackaged) {
 		mainWindow.webContents.openDevTools({ mode: "detach" });
