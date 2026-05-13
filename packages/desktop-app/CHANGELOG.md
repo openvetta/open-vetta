@@ -16,6 +16,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Linux AppImage / unpacked 应用名统一为 Vetta**：packaged 主进程现在会把 console、未捕获异常、renderer/child process 退出、窗口加载失败、preload 错误等关键事件写入 Electron `logs/main.log`，启动时同步输出日志路径；同时修正打包 staging 的包名并显式设置 `executableName: "Vetta"`，避免 Linux unpacked 产物生成 scoped package 派生名称并触发 `xdg-settings: invalid application name`。
+
 - **技能广场场景安装 / 卸载报 EACCES**：历史版本把临时 tar 包写到 `~/.vetta/scene/` 内，少数环境下该目录的 owner 写位被破坏（变成 `dr-xr-xr-x`）后，后续 install-from-market 写 `_tmp_*.tar.gz` 与 uninstall rmdir 子目录都会报 `EACCES: permission denied`。修复两点：(1) 临时 tar 改写到独立的 `~/.vetta/tmp/_install_*.tar.gz`，不再污染 baseDir；(2) install 与 uninstall 在动 baseDir / skillDir 之前先 `ensureDirWritable` 自愈，只补 owner 写位（`u+w`）不放宽其他权限位，自愈失败时让真正的写操作抛出更具体的错误。
 
 - **Ubuntu 打包后显示 Electron 默认图标**：Linux electron-builder 配置现在显式使用 `build/icon.png` 作为应用图标，并把 `build/icon*` 作为 `extraResources` 打入安装包；主进程在 packaged 模式下从 `process.resourcesPath/build` 解析窗口 / 托盘图标，避免继续访问被排除在 `app.asar` 外的 `app.asar/build/icon.png`。

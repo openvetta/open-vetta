@@ -32,7 +32,7 @@ mkdirSync(buildStageDir, { recursive: true });
 
 // Write minimal package.json (no dependencies)
 const appPkg = {
-	name: "vetta-desktop-app",
+	name: "vetta",
 	version: appVersion,
 	description: "Vetta Desktop App",
 	author: "Vetta",
