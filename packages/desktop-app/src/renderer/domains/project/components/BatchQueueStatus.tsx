@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useSetAtom } from "jotai";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
 import { confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
@@ -44,7 +45,16 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 	const { runTask, pauseTask, resumeTask, batchRetryFailed, batchPause, batchResume, batchRunNeverExecuted, batchRestartAll } =
 		useBatchTasks();
 
+	const [searchQuery, setSearchQuery] = useState("");
+	const normalizedQuery = searchQuery.trim().toLowerCase();
 	const tasks = project.tasks;
+	const filteredTasks = useMemo(
+		() =>
+			normalizedQuery
+				? tasks.filter((t) => t.name.toLowerCase().includes(normalizedQuery))
+				: tasks,
+		[tasks, normalizedQuery],
+	);
 	const total = tasks.length;
 	const completed = tasks.filter((t) => t.status === "completed").length;
 	const running = tasks.filter((t) => t.status === "running").length;
@@ -205,18 +215,55 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 					<span className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground/40">
 						任务队列
 					</span>
+					{normalizedQuery && (
+						<span className="text-[11px] text-muted-foreground/50">
+							{filteredTasks.length}/{tasks.length} 匹配
+						</span>
+					)}
 					<div className="h-px flex-1 bg-border/30" />
 				</div>
-				{tasks.map((task) => (
-					<TaskRow
-						key={task.id}
-						task={task}
-						onRun={() => void handleRunTask(task.id)}
-						onPause={() => handlePauseTask(task)}
-						onResume={() => void handleResumeTask(task.id)}
-						onGoToSession={() => handleGoToSession(task)}
+
+				{/* Search box */}
+				<div className="relative mb-1">
+					<span className="icon-[mdi--magnify] pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+					<input
+						type="text"
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						placeholder="搜索任务标题…"
+						className="h-8 w-full rounded-lg border border-border/40 bg-card/30 pl-8 pr-8 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors focus:border-primary/40 focus:bg-card/50"
 					/>
-				))}
+					{searchQuery && (
+						<button
+							type="button"
+							onClick={() => setSearchQuery("")}
+							title="清除"
+							className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+						>
+							<span className="icon-[mdi--close] h-3 w-3" />
+						</button>
+					)}
+				</div>
+
+				{filteredTasks.length === 0 ? (
+					<div className="flex flex-col items-center gap-1.5 rounded-xl bg-accent/20 py-6 text-center">
+						<span className="icon-[mdi--magnify-close] h-5 w-5 text-muted-foreground/50" />
+						<p className="text-[12px] text-muted-foreground/60">
+							{normalizedQuery ? `没有匹配「${searchQuery}」的任务` : "暂无任务"}
+						</p>
+					</div>
+				) : (
+					filteredTasks.map((task) => (
+						<TaskRow
+							key={task.id}
+							task={task}
+							onRun={() => void handleRunTask(task.id)}
+							onPause={() => handlePauseTask(task)}
+							onResume={() => void handleResumeTask(task.id)}
+							onGoToSession={() => handleGoToSession(task)}
+						/>
+					))
+				)}
 			</div>
 		</div>
 	);
