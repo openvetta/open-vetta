@@ -125,7 +125,14 @@ export async function loadPhoton(): Promise<typeof import("@silvia-odwyer/photon
 	loadPromise = (async () => {
 		const restoreReadFileSync = patchPhotonWasmRead();
 		try {
-			photonModule = await import("@silvia-odwyer/photon-node");
+			// Use CJS require: photon-node ships as CommonJS using __dirname to
+			// locate its WASM. Dynamic `import()` of CJS through ESM can produce
+			// `{ default: ... }` wrapping and triggers __dirname-undefined errors
+			// when bundlers inline the package into an ESM host (e.g., Vite main
+			// build with "type":"module"). require keeps CJS semantics and
+			// resolves the package's own package.json (CJS by default).
+			const required = require("@silvia-odwyer/photon-node") as typeof import("@silvia-odwyer/photon-node");
+			photonModule = required;
 			return photonModule;
 		} catch (err) {
 			console.warn(
