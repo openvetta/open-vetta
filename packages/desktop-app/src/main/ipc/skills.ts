@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -166,6 +166,20 @@ function findShallowestSkillMd(rootDir: string): string | null {
 	return best?.path ?? null;
 }
 
+// 历史版本曾把临时 tar 写入 baseDir 内，少数环境下 baseDir 的写权限被破坏后会卡死后续安装/卸载。
+// 这里在每次写操作前主动给目录补上 u+w，做一次自愈。仅修复缺失的 owner 写权限，不放宽其他位。
+function ensureDirWritable(dir: string): void {
+	if (!existsSync(dir)) return;
+	try {
+		const mode = statSync(dir).mode & 0o777;
+		if ((mode & 0o200) === 0) {
+			chmodSync(dir, mode | 0o200);
+		}
+	} catch {
+		// 权限修复失败时，让后续真正的写操作抛出更具体的错误
+	}
+}
+
 function parseVersionFromSkillDir(skillDir: string): string {
 	const skillMdPath = join(skillDir, "SKILL.md");
 	if (!existsSync(skillMdPath)) return "0.0.0";
@@ -229,13 +243,16 @@ export function registerSkillsIpc(): () => void {
 			if (!existsSync(baseDir)) {
 				await mkdir(baseDir, { recursive: true });
 			}
+			ensureDirWritable(baseDir);
 
 			const skillDir = join(baseDir, name);
 			if (!existsSync(skillDir)) {
 				await mkdir(skillDir, { recursive: true });
 			}
+			ensureDirWritable(skillDir);
 
-			const tmpFile = join(baseDir, `_tmp_${name}_${Date.now()}.tar.gz`);
+			await mkdir(tmpBaseDir, { recursive: true });
+			const tmpFile = join(tmpBaseDir, `_install_${name}_${Date.now()}.tar.gz`);
 			try {
 				await writeFile(tmpFile, buffer);
 				execSync(`tar -xzf "${tmpFile}" -C "${skillDir}"`, { timeout: 30000 });
@@ -272,8 +289,11 @@ export function registerSkillsIpc(): () => void {
 		const itemType: "skill" | "scene" =
 			type === "scene" ? "scene" : manifest[name]?.type === "scene" ? "scene" : "skill";
 
-		const skillDir = join(getBaseDir(itemType), name);
+		const baseDir = getBaseDir(itemType);
+		ensureDirWritable(baseDir);
+		const skillDir = join(baseDir, name);
 		if (existsSync(skillDir)) {
+			ensureDirWritable(skillDir);
 			await rm(skillDir, { recursive: true, force: true });
 		}
 
