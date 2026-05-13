@@ -243,7 +243,7 @@ function SkillCard({
 								<button
 									type="button"
 									onClick={(e) => e.stopPropagation()}
-									className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-primary/10 hover:text-primary"
+									className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 opacity-60 transition-all group-hover:opacity-100 hover:bg-primary/10 hover:text-primary"
 								>
 									<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
 								</button>
@@ -447,7 +447,7 @@ function SceneCard({
 										<button
 											type="button"
 											onClick={(e) => e.stopPropagation()}
-											className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-primary/10 hover:text-primary"
+											className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 opacity-60 transition-all group-hover:opacity-100 hover:bg-primary/10 hover:text-primary"
 										>
 											<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
 										</button>
