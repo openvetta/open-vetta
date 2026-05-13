@@ -5,6 +5,7 @@ import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "el
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 import { ensureDevCliShim } from "./dev-cli-shim.js";
+import { getDiagnosticsLogPath, installMainDiagnostics } from "./diagnostics.js";
 import { getImHost } from "./im-host/index.js";
 import { persistVettaAppPath } from "./ipc/fs.js";
 import {
@@ -39,6 +40,8 @@ const devMainEntryPath = join(appRoot, "dist/main/index.js");
 const ocrCliCommand = parseOcrCliCommand(process.argv);
 const pdfCliCommand = ocrCliCommand === null ? parsePdfCliCommand(process.argv) : null;
 const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null;
+
+installMainDiagnostics();
 
 if (isCliMode) {
 	const cliUserDataDir = ocrCliCommand !== null ? "vetta-ocr-cli" : "vetta-pdf-cli";
@@ -131,6 +134,15 @@ app.whenReady().then(async () => {
 		app.exit(exitCode);
 		return;
 	}
+
+	console.log("[diagnostics] main log", getDiagnosticsLogPath());
+	console.log("[app] ready", {
+		isPackaged: app.isPackaged,
+		appPath: app.getAppPath(),
+		resourcesPath: process.resourcesPath,
+		execPath: process.execPath,
+		argv: process.argv,
+	});
 
 	if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
 		const capability = await initializeSandboxCapability();
