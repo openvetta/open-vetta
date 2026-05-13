@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
@@ -61,8 +61,13 @@ cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: tr
 // main entry instead and trim the path back to the package root inside
 // node_modules. This works regardless of how the package author configured
 // `exports`.
-const externalDeps = [];
-for (const dep of externalDeps) {
+const externalDeps = ["dbus-next"];
+const copiedExternalDeps = new Set();
+
+function copyExternalDependency(dep) {
+	if (copiedExternalDeps.has(dep)) return;
+	copiedExternalDeps.add(dep);
+
 	const entry = require.resolve(dep, { paths: [projectRoot] });
 	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
 	const idx = entry.lastIndexOf(marker);
@@ -70,7 +75,18 @@ for (const dep of externalDeps) {
 		throw new Error(`prepare-pack: cannot locate ${dep} package root in ${entry}`);
 	}
 	const depDir = entry.slice(0, idx + marker.length - 1);
-	cpSync(depDir, join(buildStageDir, "node_modules", dep), { recursive: true });
+	const destDir = join(buildStageDir, "node_modules", dep);
+	mkdirSync(dirname(destDir), { recursive: true });
+	cpSync(depDir, destDir, { recursive: true });
+
+	const depPkg = JSON.parse(readFileSync(join(depDir, "package.json"), "utf8"));
+	for (const childDep of Object.keys(depPkg.dependencies ?? {})) {
+		copyExternalDependency(childDep);
+	}
+}
+
+for (const dep of externalDeps) {
+	copyExternalDependency(dep);
 }
 
 // =============================================================================
