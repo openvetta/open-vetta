@@ -1,0 +1,5 @@
+# 反向白名单：根 .gitignore 把 .env.* 全部忽略，但 desktop-app 的三套环境配置
+# （仅是后端地址，不含密钥）需要纳入版本管理，方便团队/CI 共享。
+!/.env.development
+!/.env.test
+!/.env.production
