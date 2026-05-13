@@ -334,9 +334,20 @@ function ProjectBlock({
 	const counts = useMemo(() => computeCounts(project.tasks), [project.tasks]);
 	const progress = counts.total > 0 ? (counts.completed / counts.total) * 100 : 0;
 	const [expanded, setExpanded] = useState(false);
-	const collapsed = !expanded && counts.total > TASK_COLLAPSE_THRESHOLD;
-	const visibleTasks = collapsed ? project.tasks.slice(0, TASK_COLLAPSE_THRESHOLD) : project.tasks;
-	const hiddenCount = counts.total - visibleTasks.length;
+	const [searchQuery, setSearchQuery] = useState("");
+	const normalizedQuery = searchQuery.trim().toLowerCase();
+	const filteredTasks = useMemo(
+		() =>
+			normalizedQuery
+				? project.tasks.filter((t) => t.name.toLowerCase().includes(normalizedQuery))
+				: project.tasks,
+		[project.tasks, normalizedQuery],
+	);
+	const filteredTotal = filteredTasks.length;
+	// 搜索激活时强制展开，方便用户直接看到所有匹配项
+	const collapsed = !normalizedQuery && !expanded && filteredTotal > TASK_COLLAPSE_THRESHOLD;
+	const visibleTasks = collapsed ? filteredTasks.slice(0, TASK_COLLAPSE_THRESHOLD) : filteredTasks;
+	const hiddenCount = filteredTotal - visibleTasks.length;
 
 	const callbacks = useMemo<TaskCallbacks>(
 		() => ({
@@ -406,7 +417,9 @@ function ProjectBlock({
 							{project.name}
 						</h3>
 						<span className="inline-flex h-5 items-center rounded-full bg-accent/50 px-2 text-[10px] text-muted-foreground/70">
-							{counts.total} 个任务
+							{normalizedQuery
+								? `${filteredTotal}/${counts.total} 匹配`
+								: `${counts.total} 个任务`}
 						</span>
 					</div>
 					<p className="mt-1 truncate text-[11px] text-muted-foreground/60">
@@ -475,12 +488,43 @@ function ProjectBlock({
 
 			{/* Task grid — plain divs, leaf is React.memo'd */}
 			<div className="border-t border-border/30 bg-background/30 px-5 py-4">
-				<div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
-					{visibleTasks.map((task) => (
-						<TaskCard key={task.id} task={task} callbacks={callbacks} />
-					))}
-				</div>
-				{counts.total > TASK_COLLAPSE_THRESHOLD && (
+				{counts.total > 0 && (
+					<div className="relative mb-3">
+						<span className="icon-[mdi--magnify] pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+						<input
+							type="text"
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							placeholder="搜索任务标题…"
+							className="h-8 w-full rounded-lg border border-border/40 bg-card/30 pl-8 pr-8 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors focus:border-primary/40 focus:bg-card/50"
+						/>
+						{searchQuery && (
+							<button
+								type="button"
+								onClick={() => setSearchQuery("")}
+								title="清除"
+								className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+							>
+								<span className="icon-[mdi--close] h-3 w-3" />
+							</button>
+						)}
+					</div>
+				)}
+				{filteredTotal === 0 ? (
+					<div className="flex flex-col items-center gap-1.5 py-6 text-center">
+						<span className="icon-[mdi--magnify-close] h-5 w-5 text-muted-foreground/50" />
+						<p className="text-[12px] text-muted-foreground/60">
+							{normalizedQuery ? `没有匹配「${searchQuery}」的任务` : "暂无任务"}
+						</p>
+					</div>
+				) : (
+					<div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+						{visibleTasks.map((task) => (
+							<TaskCard key={task.id} task={task} callbacks={callbacks} />
+						))}
+					</div>
+				)}
+				{!normalizedQuery && counts.total > TASK_COLLAPSE_THRESHOLD && (
 					<div className="mt-3 flex justify-center">
 						<button
 							type="button"
