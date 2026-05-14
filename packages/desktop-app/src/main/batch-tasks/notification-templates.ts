@@ -228,7 +228,7 @@ export function buildProjectSummaryMessage(ctx: ProjectSummaryContext): WebhookM
 
 	const failureList = (() => {
 		const max = 10;
-		const shown = failed.slice(0, max).map((t) => `- \`${t.name}\`：${sanitizeError(t.error)}`);
+		const shown = failed.slice(0, max).map((t) => `- \`****\`：${sanitizeError(t.error)}`);
 		if (failed.length > max) {
 			shown.push(`- ... 还有 ${failed.length - max} 条`);
 		}

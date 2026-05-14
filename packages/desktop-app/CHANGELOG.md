@@ -18,6 +18,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 - **批量子任务完成消息标题带上项目名**：原标题 `✅ 子任务已完成` / `❌ 子任务失败` 在多项目并行时无法分辨是哪个项目，改为 `[${project.name}] ✅ 子任务已完成`；body 末尾的 `📁 项目：****` 同步去掉 mask 改为真实项目名（标题既已暴露，body 再 mask 已无意义）。子任务名仍以 `****` 脱敏，错误信息与模型 Key 保持原文不变。
 
+- **批量项目汇总消息的失败列表任务名也脱敏**：`buildProjectSummaryMessage` 在 `failed.length > 0` 时输出的 `**失败列表**：- \`${t.name}\`：…` 与子任务消息脱敏规则不一致，按相同规则改为 `- \`****\`：…`，仅保留错误信息原文。汇总标题 / body 项目名维持原样（与子任务消息一致地显示 `project.name`）。
+
 ### Fixed
 
 - **Linux AppImage 启动找不到 `dbus-next`**：主进程为避免 Vite 内联 `dbus-next` 并触发其惰性 `x11` 解析，已将该包设为 external；打包 staging 现在会递归复制 external 运行时依赖，避免 AppImage 启动时报 `ERR_MODULE_NOT_FOUND: Cannot find package 'dbus-next'`。
