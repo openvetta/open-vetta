@@ -4,7 +4,7 @@ import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { inspect } from "node:util";
-import { app } from "electron";
+import { app, net } from "electron";
 
 type ConsoleLevel = "log" | "info" | "warn" | "error";
 
@@ -163,6 +163,35 @@ export function registerLocalNetworkAccess(): void {
 	if (process.platform !== "darwin") return;
 	probeUnicastLocalNetwork();
 	probeMulticastLocalNetwork();
+}
+
+// macOS 15 (Sequoia) 的 Local Network Privacy 在 socket 层拦截私网访问，
+// 但仅针对**直接调 BSD connect(2) 的网络栈**（Node undici / 裸 socket）。
+// Electron 的 Chromium 网络栈走自己注册的网络客户端路径，不被同样拦截 ——
+// 这也是为什么登录到 LAN 服务器（renderer fetch 走 Chromium）正常，
+// 而 main 进程里的 OpenAI/Anthropic SDK 调用（默认用 Node undici）报
+// EHOSTUNREACH 的原因。
+//
+// 这里把 main 进程的 globalThis.fetch 换成 electron.net.fetch，让所有
+// 走全局 fetch 的 SDK（OpenAI / Anthropic / 自家代码）都自动走 Chromium
+// 网络栈，绕过 LNP 对裸 socket 的拦截。必须在 app.whenReady() 之后调用，
+// 因为 net.fetch 依赖 session 初始化。
+export function installChromiumFetchForMain(): void {
+	if (typeof net?.fetch !== "function") {
+		console.warn("[main] electron.net.fetch unavailable; keeping default fetch");
+		return;
+	}
+	const chromiumFetch = net.fetch.bind(net);
+	globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+		try {
+			return await chromiumFetch(input as Parameters<typeof net.fetch>[0], init);
+		} catch (err) {
+			const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+			console.error("[fetch] failed", { url, via: "chromium" }, err);
+			throw err;
+		}
+	}) as typeof fetch;
+	console.log("[main] swapped globalThis.fetch to electron.net.fetch (Chromium network stack)");
 }
 
 // 包裹 globalThis.fetch：fetch 失败时把请求 URL 和完整 cause 链记下来。诊断
