@@ -76,6 +76,19 @@ async function cleanTaskFilesAndState(projectId: string, task: BatchTask, runtim
 	await resetTaskFiles(projectId, task.id);
 }
 
+/**
+ * 取消项目级"已暂停"标志：清掉持久化的 meta.pausedAt、从调度器内存
+ * paused 集合移除、广播 project.resumed 让 renderer 同步 atom。
+ * 所有"批量执行/批量重启/批量清空"类的 IPC handler 开头都应调用一次——
+ * 这些操作语义上都覆盖了"项目暂停"的意图（用户主动要求重置或跑任务），
+ * 否则项目仍卡在 paused 态，后续 enqueueJob 会被 paused gate 全部 skip。
+ */
+async function clearProjectPausedFlag(projectId: string): Promise<void> {
+	await setProjectPaused(projectId, undefined);
+	resumeProjectScheduling(projectId);
+	emitBatchTaskEvent({ type: "project.resumed", projectId });
+}
+
 export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	console.log(`[BatchTaskIPC] registerBatchTasksIpc: subscribing to batch task events`);
 	const unsubscribeBatchEvents = subscribeBatchTaskEvents((event) => {
@@ -231,6 +244,9 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			console.log(`[BatchTaskIPC] BATCH_RETRY_FAILED: no failed tasks in ${projectId}`);
 			return;
 		}
+		// 用户主动要求"批量重试失败"，覆盖原有项目暂停意图；否则 enqueueRunTask
+		// 都会被 paused gate 静默 skip。
+		await clearProjectPausedFlag(projectId);
 		console.log(`[BatchTaskIPC] BATCH_RETRY_FAILED: retrying ${failedTasks.length} tasks`);
 		const runtime = getRuntime();
 		for (const task of failedTasks) {
@@ -252,6 +268,8 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: no failed tasks in ${projectId}`);
 			return;
 		}
+		// 清失败 + 重试：同样覆盖项目暂停意图，避免 enqueueRunTask 被 paused gate skip。
+		await clearProjectPausedFlag(projectId);
 		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: resetting ${failedTasks.length} tasks then retrying`);
 		const runtime = getRuntime();
 
@@ -375,6 +393,9 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			console.log(`[BatchTaskIPC] BATCH_RUN_NEVER_EXECUTED: no pending tasks in ${projectId}`);
 			return;
 		}
+		// 用户主动点"执行全部"，覆盖项目暂停意图——否则所有 enqueueRunTask
+		// 会被 paused gate 静默 skip，UI 看不出任何反应。
+		await clearProjectPausedFlag(projectId);
 		console.log(`[BatchTaskIPC] BATCH_RUN_NEVER_EXECUTED: running ${pendingTasks.length} tasks`);
 		const runtime = getRuntime();
 		for (const task of pendingTasks) {
@@ -387,6 +408,8 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		const project = await getProject(projectId);
 		if (!project) return;
 
+		// "全部重新开始"是项目级大重置，自然覆盖暂停意图。
+		await clearProjectPausedFlag(projectId);
 		const runtime = getRuntime();
 
 		// 1. Pause all running tasks
@@ -440,6 +463,9 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: nothing to clear in ${projectId}`);
 			return;
 		}
+		// "清空队列状态"语义是项目回到全新状态，包括取消项目级暂停标志。
+		// 否则用户清空后再点"执行全部"，所有 enqueue 仍会被 paused gate skip。
+		await clearProjectPausedFlag(projectId);
 		console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: clearing ${targets.length} tasks`);
 		const runtime = getRuntime();
 
