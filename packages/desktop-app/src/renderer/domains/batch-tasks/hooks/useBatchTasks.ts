@@ -197,10 +197,16 @@ export function useBatchTasks() {
 
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
-			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, {
-				projectId: event.projectId,
-				taskId: event.taskId,
-			});
+			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, event);
+
+			// 项目级事件单独处理：只更新 BatchProject.pausedAt，不涉及 task.id。
+			if (event.type === "project.paused" || event.type === "project.resumed") {
+				const pausedAt = event.type === "project.paused" ? event.pausedAt : undefined;
+				setProjects((prev) =>
+					prev.map((p) => (p.id === event.projectId ? { ...p, pausedAt, updatedAt: Date.now() } : p)),
+				);
+				return;
+			}
 
 			// 维护后端调度器排队中的 taskId 集合
 			if (event.type === "task.queued") {

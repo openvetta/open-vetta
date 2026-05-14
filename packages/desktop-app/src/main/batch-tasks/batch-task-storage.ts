@@ -25,6 +25,12 @@ interface BatchProjectMeta {
 	artifactPatterns?: string[];
 	/** When true, broadcast a webhook message after each subtask finalizes and once when the project as a whole finishes. */
 	notifyEnabled?: boolean;
+	/**
+	 * 项目级暂停状态：set 时整个调度器对该项目停摆——既不会启动新任务，
+	 * worker 完成后也不会从 pending 队列里替补；undefined 表示正常运行。
+	 * 持久化以便 app 重启后保持暂停。
+	 */
+	pausedAt?: number;
 	items: BatchItemMeta[];
 	createdAt: number;
 	updatedAt: number;
@@ -55,6 +61,7 @@ export interface BatchProject {
 	executionMode?: ExecutionModeOverride;
 	artifactPatterns?: string[];
 	notifyEnabled?: boolean;
+	pausedAt?: number;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -131,6 +138,7 @@ function assembleProject(
 		executionMode: normalizeExecutionModeOverride(meta.executionMode, "full-access"),
 		artifactPatterns: meta.artifactPatterns,
 		notifyEnabled: meta.notifyEnabled ?? false,
+		pausedAt: meta.pausedAt,
 		tasks,
 		createdAt: meta.createdAt,
 		updatedAt: meta.updatedAt,
@@ -455,4 +463,21 @@ export async function resetProjectFiles(projectDir: string): Promise<void> {
 
 export function generateTaskId(): string {
 	return `batch-task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+/**
+ * 持久化项目级暂停标志。pausedAt 为时间戳表示项目已暂停，调度器应停止
+ * 启动新任务并放弃 drainQueue；undefined 表示恢复运行。重启后通过
+ * loadProjects 读回，调度器据此重建内存级 paused 集合。
+ */
+export async function setProjectPaused(projectDir: string, pausedAt: number | undefined): Promise<void> {
+	const meta = await readProjectMeta(projectDir);
+	if (!meta) return;
+	if (pausedAt === undefined) {
+		delete meta.pausedAt;
+	} else {
+		meta.pausedAt = pausedAt;
+	}
+	meta.updatedAt = Date.now();
+	await writeProjectMeta(projectDir, meta);
 }

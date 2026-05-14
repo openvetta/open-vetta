@@ -63,6 +63,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 	const paused = tasks.filter((t) => t.status === "paused").length;
 	const neverExecuted = tasks.filter((t) => t.status === "pending" && !t.sessionId).length;
 	const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+	const isQueuePaused = !!project.pausedAt;
 
 	const handleBatchRunNeverExecuted = () => {
 		if (neverExecuted === 0) return;
@@ -77,11 +78,14 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 	};
 
 	const handleBatchPause = () => {
-		if (running === 0) return;
+		if (isQueuePaused) return;
 		setConfirm({
-			title: "确认暂停所有任务",
-			message: "正在运行的任务将暂停执行，是否继续？",
-			confirmLabel: "暂停",
+			title: "确认暂停队列",
+			message:
+				running > 0
+					? `将暂停整个队列：当前运行中的 ${running} 个任务会被中断，排队中的任务也会停止调度。是否继续？`
+					: "将暂停整个队列：排队中的任务会停止调度，已完成的任务不受影响。是否继续？",
+			confirmLabel: "暂停队列",
 			onConfirm: async () => {
 				await batchPause(project.id);
 			},
@@ -89,7 +93,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 	};
 
 	const handleBatchResume = async () => {
-		if (paused === 0) return;
+		if (!isQueuePaused && paused === 0) return;
 		await batchResume(project.id);
 	};
 
@@ -147,6 +151,12 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 		<div className="flex flex-col gap-5">
 			{/* Progress overview */}
 			<div className="rounded-2xl border border-border/40 bg-gradient-to-b from-accent/30 to-transparent p-5">
+				{isQueuePaused && (
+					<div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
+						<span className="icon-[mdi--pause-circle-outline] h-4 w-4 shrink-0" />
+						<span>队列已暂停，新任务不会被调度。点击「恢复队列」继续执行。</span>
+					</div>
+				)}
 				{/* Progress bar */}
 				<div className="mb-4">
 					<div className="mb-2 flex items-end justify-between">
@@ -185,9 +195,9 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 					/>
 					<QueueActionButton
 						icon="icon-[mdi--play]"
-						label={`继续 (${paused})`}
+						label={isQueuePaused ? `恢复队列 (${paused})` : `继续 (${paused})`}
 						onClick={() => void handleBatchResume()}
-						disabled={paused === 0}
+						disabled={!isQueuePaused && paused === 0}
 					/>
 					<QueueActionButton
 						icon="icon-[mdi--restart]"
@@ -197,9 +207,9 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 					/>
 					<QueueActionButton
 						icon="icon-[mdi--pause]"
-						label={`暂停全部 (${running})`}
+						label={isQueuePaused ? "已暂停" : `暂停队列 (${running})`}
 						onClick={handleBatchPause}
-						disabled={running === 0}
+						disabled={isQueuePaused || (running === 0 && neverExecuted === 0)}
 					/>
 					<QueueActionButton
 						icon="icon-[mdi--refresh]"

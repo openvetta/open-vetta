@@ -36,7 +36,9 @@ export type BatchTaskEvent =
 	| { type: "task.resumed"; projectId: string; taskId: string }
 	| { type: "task.reset"; projectId: string; taskId: string }
 	| { type: "task.queued"; projectId: string; taskId: string }
-	| { type: "task.dequeued"; projectId: string; taskId: string };
+	| { type: "task.dequeued"; projectId: string; taskId: string }
+	| { type: "project.paused"; projectId: string; pausedAt: number }
+	| { type: "project.resumed"; projectId: string };
 
 interface ExecutingTask {
 	projectId: string;
@@ -76,6 +78,45 @@ type PendingJob = {
 const runningByProject = new Map<string, Set<string>>();
 const pendingByProject = new Map<string, PendingJob[]>();
 
+/**
+ * 项目级"已暂停"内存集合。BATCH_PAUSE 写入，BATCH_RESUME 移除；
+ * enqueueJob / drainQueue 都查这个集合，paused 时直接拒绝调度，
+ * 防止 worker 完成后从 pending 队列里替补出新任务。重启后由
+ * batch-tasks IPC 启动逻辑根据持久化的 meta.pausedAt 重建。
+ */
+const pausedProjects = new Set<string>();
+
+export function isProjectSchedulingPaused(projectId: string): boolean {
+	return pausedProjects.has(projectId);
+}
+
+/**
+ * 标记项目为暂停态并清空内存 pending 队列。返回被赶出的 task 列表，
+ * 调用方通常会把这些 task 的持久化状态置为 "paused"，让 BATCH_RESUME
+ * 能凭 status === "paused" 一次性重启它们，而不用区分"被暂停的排队
+ * 任务"和"从未执行过的 pending"。已经在跑的 running 任务由调用方
+ * 逐个走 pauseTask abort，这里不处理。
+ */
+export function pauseProjectScheduling(projectId: string): { kind: "run" | "resume"; task: BatchTask }[] {
+	pausedProjects.add(projectId);
+	const queue = getPendingQueue(projectId);
+	if (queue.length === 0) {
+		console.log(`[BatchTask] pauseProjectScheduling: project=${projectId}, no pending jobs`);
+		return [];
+	}
+	const dequeued = queue.splice(0, queue.length);
+	for (const job of dequeued) {
+		emitBatchTaskEvent({ type: "task.dequeued", projectId, taskId: job.task.id });
+	}
+	console.log(`[BatchTask] pauseProjectScheduling: project=${projectId}, dequeued ${dequeued.length} pending jobs`);
+	return dequeued.map((j) => ({ kind: j.kind, task: j.task }));
+}
+
+export function resumeProjectScheduling(projectId: string): void {
+	pausedProjects.delete(projectId);
+	console.log(`[BatchTask] resumeProjectScheduling: project=${projectId}`);
+}
+
 function getRunningSet(projectId: string): Set<string> {
 	let s = runningByProject.get(projectId);
 	if (!s) {
@@ -111,6 +152,10 @@ export function getQueuedTaskIds(): string[] {
 
 function enqueueJob(job: PendingJob): void {
 	const projectId = job.project.id;
+	if (pausedProjects.has(projectId)) {
+		console.log(`[BatchTask] enqueueJob: project ${projectId} paused, skip task ${job.task.id}`);
+		return;
+	}
 	const running = getRunningSet(projectId);
 	const queue = getPendingQueue(projectId);
 
@@ -151,6 +196,7 @@ async function startJob(job: PendingJob): Promise<void> {
 }
 
 function drainQueue(projectId: string): void {
+	if (pausedProjects.has(projectId)) return;
 	const queue = getPendingQueue(projectId);
 	const running = getRunningSet(projectId);
 	while (queue.length > 0) {

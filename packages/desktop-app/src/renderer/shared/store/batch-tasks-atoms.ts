@@ -28,6 +28,8 @@ export interface BatchProject {
 	artifactPatterns?: string[];
 	/** When true, finalized subtasks broadcast a webhook notification. */
 	notifyEnabled?: boolean;
+	/** 项目级暂停时间戳；set 表示整个调度器对该项目停摆。 */
+	pausedAt?: number;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
