@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
-import { app, BrowserWindow, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 
@@ -27,7 +27,7 @@ import {
 	setHideToTrayOnClose,
 } from "./tray-manager.js";
 import { getAppVersion, updaterService } from "./updater.js";
-import { createWindow, getMainWindow, setMainWindow } from "./window-manager.js";
+import { createWindow, getMainWindow, setMainWindow, showMainWindow } from "./window-manager.js";
 
 const PROTOCOL = "vetta";
 const isMac = process.platform === "darwin";
@@ -105,227 +105,220 @@ app.on("open-url", (event, url) => {
 // Windows/Linux: second instance passes URL via argv
 const gotSingleLock = isCliMode ? true : app.requestSingleInstanceLock();
 if (!gotSingleLock) {
-	app.quit();
+	app.exit(0);
 } else {
 	app.on("second-instance", (_event, argv) => {
 		const protocolUrl = argv.find((arg) => arg.startsWith(`${PROTOCOL}://`));
 		if (protocolUrl) {
 			handleProtocolUrl(protocolUrl);
 		}
-		const mainWindow = getMainWindow();
-		if (mainWindow) {
-			if (mainWindow.isMinimized()) mainWindow.restore();
-			mainWindow.focus();
+		showMainWindow();
+	});
+	app.whenReady().then(async () => {
+		if (pdfCliCommand) {
+			const exitCode = await runPdfCliCommand(pdfCliCommand);
+			// `app.quit()` does not honour `process.exitCode` reliably on macOS —
+			// the graceful-quit flow can race with stdio flush and end up reporting
+			// 0. Use `app.exit()` for headless one-shot CLI invocations.
+			app.exit(exitCode);
+			return;
 		}
-	});
-}
 
-app.whenReady().then(async () => {
-	if (pdfCliCommand) {
-		const exitCode = await runPdfCliCommand(pdfCliCommand);
-		// `app.quit()` does not honour `process.exitCode` reliably on macOS —
-		// the graceful-quit flow can race with stdio flush and end up reporting
-		// 0. Use `app.exit()` for headless one-shot CLI invocations.
-		app.exit(exitCode);
-		return;
-	}
+		if (ocrCliCommand) {
+			const exitCode = await runOcrCliCommand(ocrCliCommand);
+			app.exit(exitCode);
+			return;
+		}
 
-	if (ocrCliCommand) {
-		const exitCode = await runOcrCliCommand(ocrCliCommand);
-		app.exit(exitCode);
-		return;
-	}
-
-	console.log("[diagnostics] main log", getDiagnosticsLogPath());
-	console.log("[app] ready", {
-		isPackaged: app.isPackaged,
-		appPath: app.getAppPath(),
-		resourcesPath: process.resourcesPath,
-		execPath: process.execPath,
-		argv: process.argv,
-	});
-
-	if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
-		const capability = await initializeSandboxCapability();
-		console.log("[sandbox] startup probe", capability);
-	}
-
-	// 开发模式下覆盖 About 面板信息，避免显示 Electron 框架版本
-	if (!app.isPackaged) {
-		const appVersion = getAppVersion();
-		app.setAboutPanelOptions({
-			applicationName: "Vetta",
-			applicationVersion: appVersion,
-			version: "",
+		console.log("[diagnostics] main log", getDiagnosticsLogPath());
+		console.log("[app] ready", {
+			isPackaged: app.isPackaged,
+			appPath: app.getAppPath(),
+			resourcesPath: process.resourcesPath,
+			execPath: process.execPath,
+			argv: process.argv,
 		});
-	}
 
-	// Theme IPC
-	ipcMain.handle("vetta:theme:set", (_event, mode: string) => {
-		nativeTheme.themeSource = mode as "system" | "light" | "dark";
-		const mainWindow = getMainWindow();
-		if (mainWindow) {
-			const isDark = mode === "dark" || (mode === "system" && nativeTheme.shouldUseDarkColors);
-			mainWindow.setVibrancy(isDark ? "sidebar" : "sidebar");
+		if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
+			const capability = await initializeSandboxCapability();
+			console.log("[sandbox] startup probe", capability);
 		}
-	});
 
-	ipcMain.handle("vetta:theme:get-native", () => {
-		return {
-			source: nativeTheme.themeSource,
-			shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
-		};
-	});
+		// 开发模式下覆盖 About 面板信息，避免显示 Electron 框架版本
+		if (!app.isPackaged) {
+			const appVersion = getAppVersion();
+			app.setAboutPanelOptions({
+				applicationName: "Vetta",
+				applicationVersion: appVersion,
+				version: "",
+			});
+		}
 
-	nativeTheme.on("updated", () => {
-		const mainWindow = getMainWindow();
-		if (mainWindow) {
-			if (!isMac) {
-				mainWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#161616" : "#f5f5f7");
+		// Theme IPC
+		ipcMain.handle("vetta:theme:set", (_event, mode: string) => {
+			nativeTheme.themeSource = mode as "system" | "light" | "dark";
+			const mainWindow = getMainWindow();
+			if (mainWindow) {
+				const isDark = mode === "dark" || (mode === "system" && nativeTheme.shouldUseDarkColors);
+				mainWindow.setVibrancy(isDark ? "sidebar" : "sidebar");
 			}
-			mainWindow.webContents.send("vetta:theme:native-changed", {
+		});
+
+		ipcMain.handle("vetta:theme:get-native", () => {
+			return {
+				source: nativeTheme.themeSource,
 				shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
-			});
-		}
-	});
+			};
+		});
 
-	ipcMain.handle("vetta:shell:show-in-folder", async (_event, fullPath: string) => {
-		await shell.openPath(fullPath);
-	});
-
-	ipcMain.handle("vetta:shell:show-item-in-folder", (_event, fullPath: string) => {
-		shell.showItemInFolder(fullPath);
-	});
-
-	ipcMain.handle("vetta:window:minimize", () => {
-		getMainWindow()?.minimize();
-	});
-
-	ipcMain.handle("vetta:window:maximize", () => {
-		const mainWindow = getMainWindow();
-		if (mainWindow?.isMaximized()) {
-			mainWindow.unmaximize();
-		} else {
-			mainWindow?.maximize();
-		}
-	});
-
-	ipcMain.handle("vetta:window:close", () => {
-		getMainWindow()?.close();
-	});
-
-	ipcMain.handle("vetta:window:is-maximized", () => {
-		return getMainWindow()?.isMaximized() ?? false;
-	});
-
-	ipcMain.handle("vetta:tray:set-quit-behavior", (_event, hideToTray: boolean) => {
-		setHideToTrayOnClose(hideToTray);
-	});
-
-	ipcMain.handle("vetta:tray:get-quit-behavior", () => {
-		return getHideToTrayOnClose();
-	});
-
-	ipcMain.handle("vetta:tray:set-tooltip", (_event, tooltip: string) => {
-		getTray()?.setToolTip(tooltip);
-	});
-
-	ipcMain.handle("vetta:auth:open-external", async (_event, url: string) => {
-		await shell.openExternal(url);
-	});
-
-	if (process.platform === "darwin") {
-		app.dock.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
-	}
-
-	try {
-		if (app.isPackaged) {
-			await persistVettaAppPath(process.execPath);
-		} else {
-			const devCliShimPath = await ensureDevCliShim({
-				appRoot,
-				electronPath: process.execPath,
-				mainEntryPath: devMainEntryPath,
-			});
-			await persistVettaAppPath(devCliShimPath);
-		}
-	} catch (err) {
-		console.error("[desktop-config] failed to persist vettaAppPath", err);
-	}
-
-	const mainWindow = createWindow();
-
-	// Register IPC handlers
-	ipcTeardown = registerAllIpc(mainWindow.webContents);
-
-	// 启动 Updater：恢复 pending-install + 后台检查一次
-	updaterService.setMainWindow(mainWindow);
-	void updaterService.onAppReady();
-
-	// On Windows/Linux: close button hides to tray
-	mainWindow.on("close", (event) => {
-		if (!isMac && getHideToTrayOnClose() && getTray()) {
-			const appAny = app as typeof app & { isQuitting?: boolean };
-			if (!appAny.isQuitting) {
-				event.preventDefault();
-				getMainWindow()?.hide();
-				rebuildTrayContextMenu();
-				return;
+		nativeTheme.on("updated", () => {
+			const mainWindow = getMainWindow();
+			if (mainWindow) {
+				if (!isMac) {
+					mainWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? "#161616" : "#f5f5f7");
+				}
+				mainWindow.webContents.send("vetta:theme:native-changed", {
+					shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+				});
 			}
-		}
-	});
+		});
 
-	mainWindow.on("closed", () => {
-		setMainWindow(null);
-		if (ipcTeardown) {
-			teardownAllIpc(ipcTeardown);
-			ipcTeardown = undefined;
+		ipcMain.handle("vetta:shell:show-in-folder", async (_event, fullPath: string) => {
+			await shell.openPath(fullPath);
+		});
+
+		ipcMain.handle("vetta:shell:show-item-in-folder", (_event, fullPath: string) => {
+			shell.showItemInFolder(fullPath);
+		});
+
+		ipcMain.handle("vetta:window:minimize", () => {
+			getMainWindow()?.minimize();
+		});
+
+		ipcMain.handle("vetta:window:maximize", () => {
+			const mainWindow = getMainWindow();
+			if (mainWindow?.isMaximized()) {
+				mainWindow.unmaximize();
+			} else {
+				mainWindow?.maximize();
+			}
+		});
+
+		ipcMain.handle("vetta:window:close", () => {
+			getMainWindow()?.close();
+		});
+
+		ipcMain.handle("vetta:window:is-maximized", () => {
+			return getMainWindow()?.isMaximized() ?? false;
+		});
+
+		ipcMain.handle("vetta:tray:set-quit-behavior", (_event, hideToTray: boolean) => {
+			setHideToTrayOnClose(hideToTray);
+		});
+
+		ipcMain.handle("vetta:tray:get-quit-behavior", () => {
+			return getHideToTrayOnClose();
+		});
+
+		ipcMain.handle("vetta:tray:set-tooltip", (_event, tooltip: string) => {
+			getTray()?.setToolTip(tooltip);
+		});
+
+		ipcMain.handle("vetta:auth:open-external", async (_event, url: string) => {
+			await shell.openExternal(url);
+		});
+
+		if (process.platform === "darwin") {
+			app.dock.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
 		}
+
+		try {
+			if (app.isPackaged) {
+				await persistVettaAppPath(process.execPath);
+			} else {
+				const devCliShimPath = await ensureDevCliShim({
+					appRoot,
+					electronPath: process.execPath,
+					mainEntryPath: devMainEntryPath,
+				});
+				await persistVettaAppPath(devCliShimPath);
+			}
+		} catch (err) {
+			console.error("[desktop-config] failed to persist vettaAppPath", err);
+		}
+
+		const mainWindow = createWindow();
+
+		// Register IPC handlers
+		ipcTeardown = registerAllIpc(mainWindow.webContents);
+
+		// 启动 Updater：恢复 pending-install + 后台检查一次
+		updaterService.setMainWindow(mainWindow);
+		void updaterService.onAppReady();
+
+		// On Windows/Linux: close button hides to tray
+		mainWindow.on("close", (event) => {
+			if (!isMac && getHideToTrayOnClose() && getTray()) {
+				const appAny = app as typeof app & { isQuitting?: boolean };
+				if (!appAny.isQuitting) {
+					event.preventDefault();
+					getMainWindow()?.hide();
+					rebuildTrayContextMenu();
+					return;
+				}
+			}
+		});
+
+		mainWindow.on("closed", () => {
+			setMainWindow(null);
+			if (ipcTeardown) {
+				teardownAllIpc(ipcTeardown);
+				ipcTeardown = undefined;
+			}
+			if (teardownSchedulerIpc) {
+				teardownSchedulerIpc();
+				teardownSchedulerIpc = undefined;
+			}
+			if (teardownBatchTasksIpc) {
+				teardownBatchTasksIpc();
+				teardownBatchTasksIpc = undefined;
+			}
+		});
+
+		// Create tray icon on Windows and Linux
+		if (!isMac) {
+			createTray();
+		}
+
+		// Initialize scheduler
 		if (teardownSchedulerIpc) {
 			teardownSchedulerIpc();
 			teardownSchedulerIpc = undefined;
 		}
-		if (teardownBatchTasksIpc) {
-			teardownBatchTasksIpc();
-			teardownBatchTasksIpc = undefined;
-		}
-	});
 
-	// Create tray icon on Windows and Linux
-	if (!isMac) {
-		createTray();
-	}
-
-	// Initialize scheduler
-	if (teardownSchedulerIpc) {
-		teardownSchedulerIpc();
-		teardownSchedulerIpc = undefined;
-	}
-
-	void initScheduler().then(() => {
-		const win = getMainWindow();
-		if (win) {
-			teardownSchedulerIpc = registerSchedulerIpc(win.webContents);
-		}
-	});
-
-	teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents);
-
-	// Bootstrap IM bridge subsystem (im-gateway sidecar). Errors during
-	// bootstrap are non-fatal — IM is an opt-in feature and the rest of
-	// the desktop-app must keep working.
-	void getImHost()
-		.bootstrap()
-		.catch((err: unknown) => {
-			console.error("[im-host] bootstrap failed", err);
+		void initScheduler().then(() => {
+			const win = getMainWindow();
+			if (win) {
+				teardownSchedulerIpc = registerSchedulerIpc(win.webContents);
+			}
 		});
 
-	app.on("activate", () => {
-		if (BrowserWindow.getAllWindows().length === 0) {
-			createWindow();
-		}
+		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents);
+
+		// Bootstrap IM bridge subsystem (im-gateway sidecar). Errors during
+		// bootstrap are non-fatal — IM is an opt-in feature and the rest of
+		// the desktop-app must keep working.
+		void getImHost()
+			.bootstrap()
+			.catch((err: unknown) => {
+				console.error("[im-host] bootstrap failed", err);
+			});
+
+		app.on("activate", () => {
+			showMainWindow();
+		});
 	});
-});
+}
 
 app.on("window-all-closed", () => {
 	if (isCliMode) return;
