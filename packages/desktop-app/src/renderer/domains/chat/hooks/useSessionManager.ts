@@ -540,7 +540,22 @@ export function useSessionManager(): SessionManagerResult {
 		if (selectedModel) {
 			promptReq.modelKey = selectedModel;
 		}
-		await window.vetta.session.prompt(session.runtimeId, promptReq);
+		try {
+			await window.vetta.session.prompt(session.runtimeId, promptReq);
+		} catch (err) {
+			// RuntimeHost.prompt 现在会先把 prompt 期同步抛错（"No model
+			// selected" / "No API key found" / "Agent is already processing"
+			// 等）转换成 error 事件广播给所有订阅者，再把异常向上抛——所以
+			// 正常情况下这里 catch 到的时候 chat 里已经多了一条 error block。
+			// 但保留这层兜底是因为：(1) 旧版 RuntimeHost 或其它 host 实现未
+			// 必有合成事件机制；(2) IPC 链路自身（preload / electron）出错
+			// 时不会经过 RuntimeHost。任何 reject 在这里直接落成一条 error
+			// 气泡，杜绝「按了发送但屏幕完全没反应」的死寂体验。
+			const message = err instanceof Error ? err.message : String(err);
+			console.error("[useSessionManager.sendMessage] prompt rejected:", err);
+			setIsStreaming(false);
+			setChatMessages((prev) => appendError(prev, message));
+		}
 		await loadSessions(session.cwd);
 	}, [
 		activeSession,
@@ -554,6 +569,7 @@ export function useSessionManager(): SessionManagerResult {
 		setSelectedSkill,
 		setMentionedFiles,
 		setChatMessages,
+		setIsStreaming,
 		loadSessions,
 		ensureLocalSession,
 	]);

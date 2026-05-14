@@ -1,4 +1,5 @@
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
+import { DEFAULT_SERVER_URL } from "./constants.js";
 import { readDesktopConfig } from "./ipc/fs.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "./sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolver.js";
@@ -24,6 +25,10 @@ export function getSharedRuntime(): RuntimeHost {
 			sandboxHostPath: resolveWindowsSandboxHostBinary()?.path,
 			linuxBubblewrapPath: getAvailableLinuxBubblewrapPath(),
 			macosSandboxExecPath: getAvailableMacosSandboxExecPath(),
+			// 把 desktop-app 编译期注入的 VETTA_SERVER_URL 显式喂给 SDK，
+			// 防止 coding-agent 退回到自己 config.ts 里硬编码的 LAN 默认值，
+			// 并把它静默写入 settings.json 污染 prod 用户的配置。
+			serverUrl: DEFAULT_SERVER_URL,
 		});
 	}
 	return sharedRuntime;
