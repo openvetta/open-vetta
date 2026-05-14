@@ -454,6 +454,7 @@ export interface BatchProject {
 	concurrency: number;
 	artifactPatterns?: string[];
 	notifyEnabled?: boolean;
+	pausedAt?: number;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -474,7 +475,9 @@ export type BatchTaskEvent =
 	| { type: "task.resumed"; projectId: string; taskId: string }
 	| { type: "task.reset"; projectId: string; taskId: string }
 	| { type: "task.queued"; projectId: string; taskId: string }
-	| { type: "task.dequeued"; projectId: string; taskId: string };
+	| { type: "task.dequeued"; projectId: string; taskId: string }
+	| { type: "project.paused"; projectId: string; pausedAt: number }
+	| { type: "project.resumed"; projectId: string };
 
 export interface DesktopBatchTasksApi {
 	getProjects(): Promise<BatchProject[]>;
