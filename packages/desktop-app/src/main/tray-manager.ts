@@ -1,5 +1,5 @@
 import { app, Menu, nativeImage, Tray } from "electron";
-import { getMainWindow, iconPath } from "./window-manager.js";
+import { getMainWindow, iconPath, showMainWindow } from "./window-manager.js";
 
 const isWindows = process.platform === "win32";
 
@@ -31,8 +31,7 @@ function buildTrayMenu(): Electron.Menu {
 				if (win.isVisible()) {
 					win.hide();
 				} else {
-					win.show();
-					win.focus();
+					showMainWindow();
 				}
 				rebuildTrayContextMenu();
 			},
@@ -76,8 +75,7 @@ export function createTray(): void {
 		if (win.isVisible()) {
 			win.hide();
 		} else {
-			win.show();
-			win.focus();
+			showMainWindow();
 		}
 		rebuildTrayContextMenu();
 	});
