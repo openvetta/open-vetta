@@ -154,7 +154,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 				{isQueuePaused && (
 					<div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
 						<span className="icon-[mdi--pause-circle-outline] h-4 w-4 shrink-0" />
-						<span>队列已暂停，新任务不会被调度。点击「恢复队列」继续执行。</span>
+						<span>队列已暂停。请先点「恢复队列」才能执行、重试或重新开始任务。</span>
 					</div>
 				)}
 				{/* Progress bar */}
@@ -191,7 +191,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 						icon="icon-[mdi--rocket-launch-outline]"
 						label={`执行全部 (${neverExecuted})`}
 						onClick={handleBatchRunNeverExecuted}
-						disabled={neverExecuted === 0}
+						disabled={isQueuePaused || neverExecuted === 0}
 					/>
 					<QueueActionButton
 						icon="icon-[mdi--play]"
@@ -203,7 +203,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 						icon="icon-[mdi--restart]"
 						label={`重试失败 (${failed})`}
 						onClick={handleBatchRetry}
-						disabled={failed === 0}
+						disabled={isQueuePaused || failed === 0}
 					/>
 					<QueueActionButton
 						icon="icon-[mdi--pause]"
@@ -215,7 +215,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 						icon="icon-[mdi--refresh]"
 						label="全部重新开始"
 						onClick={handleBatchRestartAll}
-						disabled={total === 0}
+						disabled={isQueuePaused || total === 0}
 					/>
 				</div>
 			</div>

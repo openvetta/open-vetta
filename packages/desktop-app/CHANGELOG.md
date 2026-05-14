@@ -22,6 +22,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **批量项目暂停时其他批量操作按钮没禁用，点了 UI 没反应**：项目处于 `pausedAt` 状态时，`enqueueJob` 会被 paused gate 拒绝，但 `BatchQueueStatus` 的「执行全部 / 重试失败 / 全部重新开始」按钮没跟着 disable，用户点了之后所有任务被 `enqueueJob` 静默 skip，UI 看不出来。改为这三个按钮在 `isQueuePaused` 时一律置灰；banner 文案改为「请先点『恢复队列』才能执行、重试或重新开始任务」，把行动路径写清楚。
+
 - **批量项目「暂停」无法真正停下整个队列**：原 `BATCH_PAUSE` 只对 `task.status === "running"` 调 `pauseTask`，没有同步阻断调度器。当前任务被 abort 后，`startJob` 的 `finally { drainQueue() }` 立刻从内存 `pendingByProject` 队列里拉出下一个 pending 任务替补，导致用户点了"暂停"队列仍在继续推进。修复方案：(1) `BatchProjectMeta` 增加 `pausedAt` 字段并通过新 `setProjectPaused()` 持久化到 `.vetta/meta.json`，重启后 `registerBatchTasksIpc` 读回 meta 重建内存级 `pausedProjects` 集合保持暂停态；(2) executor 新增 `pauseProjectScheduling(projectId)` / `resumeProjectScheduling(projectId)` 维护内存集合，`enqueueJob` 与 `drainQueue` 入口都加 paused gate 拒绝调度，从根本上切断 worker 完成后的替补链路；(3) 暂停时被赶出内存队列的 pending 任务也持久化为 `status === "paused"`，与"从未执行过的 pending"区分，恢复时凭 `status === "paused"` 一次性 `enqueueResumeTask` / `enqueueRunTask`，避免把用户根本没启动过的任务带跑；(4) 新增 `project.paused` / `project.resumed` 事件，`useBatchTasks` hook 收到后更新 `BatchProject.pausedAt`，`BatchQueueStatus` 在暂停态显示「队列已暂停」横幅，并把"暂停全部"/"继续"按钮文案切换为"暂停队列"/"恢复队列"。
 
 - **Linux AppImage 启动找不到 `dbus-next` / `x11`**：`dbus-next` 现在随主进程 bundle 内联打包，避免 AppImage 运行时查找外置 `node_modules`；同时用本地 `x11` shim 保留 `dbus-next` 的旧式 DBus 地址发现 fallback 边界，避免打包器提前解析其惰性 `require("x11")`。
