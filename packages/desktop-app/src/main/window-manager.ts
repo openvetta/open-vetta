@@ -106,3 +106,18 @@ export function createWindow(): BrowserWindow {
 
 	return mainWindow;
 }
+
+export function showMainWindow(): BrowserWindow {
+	if (!mainWindow || mainWindow.isDestroyed()) {
+		return createWindow();
+	}
+
+	if (!mainWindow.isVisible()) {
+		mainWindow.show();
+	}
+	if (mainWindow.isMinimized()) {
+		mainWindow.restore();
+	}
+	mainWindow.focus();
+	return mainWindow;
+}
