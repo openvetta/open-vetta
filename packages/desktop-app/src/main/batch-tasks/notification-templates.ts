@@ -118,7 +118,7 @@ export function buildTaskFinishedMessage(ctx: TaskFinishedContext): WebhookMessa
 	const duration = startedAt ? formatDuration(finishedAt - startedAt) : "—";
 
 	const success = outcome.kind === "completed";
-	const title = `${success ? "✅" : "❌"} 子任务${success ? "已完成" : "失败"}`;
+	const title = `[${project.name}] ${success ? "✅" : "❌"} 子任务${success ? "已完成" : "失败"}`;
 
 	const resultLine = (() => {
 		switch (outcome.kind) {
@@ -167,7 +167,7 @@ export function buildTaskFinishedMessage(ctx: TaskFinishedContext): WebhookMessa
 		"",
 		"---",
 		"",
-		"📁 项目：****",
+		`📁 项目：${project.name}`,
 		`🕒 完成于：${formatTimestamp(finishedAt)}`,
 	];
 
