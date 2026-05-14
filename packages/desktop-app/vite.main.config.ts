@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => {
 
 	return {
 		define,
+		resolve: {
+			alias: {
+				x11: resolve(process.cwd(), "src/main/shims/x11.ts"),
+			},
+		},
 		build: {
 			lib: {
 				entry: resolve(process.cwd(), "src/main/main.ts"),
@@ -44,9 +49,6 @@ export default defineConfig(({ mode }) => {
 					// large images reach the model at original resolution and OOM
 					// local VL backends.
 					"@silvia-odwyer/photon-node",
-					// dbus-next lazily requires x11 only for legacy DBus address
-					// discovery. Bundling turns that into startup-time resolution.
-					"dbus-next",
 				],
 			},
 			minify: false,
