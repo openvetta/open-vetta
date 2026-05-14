@@ -158,6 +158,7 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		batchResume,
 		batchRunNeverExecuted,
 		batchRestartAll,
+		batchClearUnfinished,
 		deleteProject,
 	} = useBatchTasks();
 
@@ -253,6 +254,28 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		});
 	};
 
+	const handleBatchClearUnfinished = (project: BatchProject, counts: ProjectCounts) => {
+		const targetCount = counts.total - counts.completed;
+		if (targetCount === 0) return;
+		setConfirm({
+			title: "确认清空队列状态",
+			message: [
+				`将清空除「已完成」之外的所有任务（${targetCount} 个）的会话和产物，状态重置为「未执行」。`,
+				"",
+				"保留：已完成任务的会话、产物和状态。",
+				`清空：${counts.failed > 0 ? `${counts.failed} 个失败 · ` : ""}${counts.paused > 0 ? `${counts.paused} 个已暂停 · ` : ""}${counts.neverExecuted > 0 ? `${counts.neverExecuted} 个未执行 · ` : ""}其余任务的会话文件、产物目录、运行状态。`,
+				"",
+				"此操作不可撤回，是否继续？",
+			].join("\n"),
+			confirmLabel: "清空队列状态",
+			cancelLabel: "取消",
+			variant: "danger",
+			onConfirm: async () => {
+				await batchClearUnfinished(project.id);
+			},
+		});
+	};
+
 	const handleBatchRestartAll = (project: BatchProject) => {
 		setConfirm({
 			title: "确认全部重新开始",
@@ -279,6 +302,7 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 					onBatchResume={handleBatchResume}
 					onBatchRunNeverExecuted={handleBatchRunNeverExecuted}
 					onBatchRestartAll={handleBatchRestartAll}
+					onBatchClearUnfinished={handleBatchClearUnfinished}
 					runTask={runTask}
 					retryTask={retryTask}
 					pauseTask={pauseTask}
@@ -307,6 +331,7 @@ interface ProjectBlockProps {
 	onBatchResume: (project: BatchProject, counts: ProjectCounts) => Promise<void>;
 	onBatchRunNeverExecuted: (project: BatchProject, counts: ProjectCounts) => void;
 	onBatchRestartAll: (project: BatchProject) => void;
+	onBatchClearUnfinished: (project: BatchProject, counts: ProjectCounts) => void;
 	runTask: (projectId: string, taskId: string) => Promise<void>;
 	retryTask: (projectId: string, taskId: string) => Promise<void>;
 	pauseTask: (projectId: string, taskId: string) => Promise<void>;
@@ -324,6 +349,7 @@ function ProjectBlock({
 	onBatchResume,
 	onBatchRunNeverExecuted,
 	onBatchRestartAll,
+	onBatchClearUnfinished,
 	runTask,
 	retryTask,
 	pauseTask,
@@ -453,6 +479,17 @@ function ProjectBlock({
 						title="批量暂停"
 						onClick={() => onBatchPause(project, counts)}
 						disabled={counts.running === 0}
+					/>
+					<ActionButton
+						icon="icon-[mdi--broom]"
+						title="清空队列状态"
+						variant="danger"
+						onClick={() => onBatchClearUnfinished(project, counts)}
+						disabled={
+							counts.running > 0 ||
+							project.tasks.some((t) => queuedTaskIds.has(t.id)) ||
+							counts.total - counts.completed === 0
+						}
 					/>
 					<ActionButton
 						icon="icon-[mdi--refresh]"

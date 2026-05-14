@@ -515,6 +515,7 @@ export interface DesktopBatchTasksApi {
 	batchDelete(projectId: string): Promise<void>;
 	batchRunNeverExecuted(projectId: string): Promise<void>;
 	batchRestartAll(projectId: string): Promise<void>;
+	batchClearUnfinished(projectId: string): Promise<void>;
 	deleteSession(sessionPath: string): Promise<void>;
 	onTaskEvent(handler: (event: BatchTaskEvent) => void): () => void;
 }
