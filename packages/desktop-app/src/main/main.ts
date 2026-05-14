@@ -6,7 +6,7 @@ import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 
 import { ensureDevCliShim } from "./dev-cli-shim.js";
-import { getDiagnosticsLogPath, installMainDiagnostics } from "./diagnostics.js";
+import { getDiagnosticsLogPath, installMainDiagnostics, registerLocalNetworkAccess } from "./diagnostics.js";
 import { getImHost } from "./im-host/index.js";
 import { persistVettaAppPath } from "./ipc/fs.js";
 import {
@@ -138,6 +138,11 @@ if (!gotSingleLock) {
 			execPath: process.execPath,
 			argv: process.argv,
 		});
+
+		// 必须放在 whenReady 之后：早于 ready 调用时主进程 bundle identity
+		// 尚未在 launchd/TCC 子系统注册，syscall 关联不到 com.vetta.desktop，
+		// 探针白发。
+		registerLocalNetworkAccess();
 
 		if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
 			const capability = await initializeSandboxCapability();

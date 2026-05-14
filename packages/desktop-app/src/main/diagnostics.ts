@@ -1,5 +1,6 @@
 import { createSocket } from "node:dgram";
 import { appendFileSync, mkdirSync } from "node:fs";
+import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { inspect } from "node:util";
@@ -69,17 +70,57 @@ export function getDiagnosticsLogPath(): string {
 // 局域网请求被静默拒绝并返回 EHOSTUNREACH（errno -65），表现为 OpenAI / Anthropic
 // SDK 抛 "Connection error."。
 //
-// 触发弹窗的条件：(1) Info.plist 必须声明 NSLocalNetworkUsageDescription +
-// NSBonjourServices，(2) app 必须实际发起 Bonjour 浏览或 mDNS 多播。Electron
-// 默认两个都不做，所以即使 Info.plist 写好了也不会弹窗，TCC 表里也没有 Vetta
-// 的记录，用户无法去系统设置里手动开启 —— 进入死锁。
+// 触发条件：(1) Info.plist 必须声明 NSLocalNetworkUsageDescription +
+// NSBonjourServices，(2) app 必须实际发起 *被内核识别为本地网络访问* 的 syscall。
+// 仅靠 mDNS 多播在新版 macOS 上不稳：内核常常不把多播 send 记入"本地网络访问"，
+// 导致 app 一直进不了「系统设置 → 隐私与安全性 → 本地网络」列表，用户无法授权。
 //
-// 这里在主进程启动时主动向 224.0.0.251:5353（mDNS 多播地址）发一个空 UDP 包，
-// 让 macOS 把 Vetta 识别为"需要本地网络"的 app，从而触发权限弹窗或把 Vetta
-// 加入系统设置 → 隐私与安全性 → 本地网络的列表，让用户能手动授权。一旦授权，
-// 后续 192.168.x 单播请求也会被放行。
-function triggerLocalNetworkPermission(): void {
-	if (process.platform !== "darwin") return;
+// 实测稳定的做法是 **主动 unicast TCP connect 到 RFC1918 私网地址**。即使连接
+// 失败（端口拒绝 / 不可达 / 超时）都没关系，内核已经把这次 connect syscall
+// 记为本地网络访问，TCC 就会把 app 注册进列表。多打几个不同私网段确保命中。
+// mDNS 多播保留作为辅助。
+//
+// 必须在 app.whenReady() 之后调用，否则主进程的 bundle identity 还没在
+// launchd / TCC 子系统里就位，syscall 关联不到 com.vetta.desktop。
+const UNICAST_PROBE_TARGETS: ReadonlyArray<{ host: string; port: number }> = [
+	{ host: "192.168.0.1", port: 1 },
+	{ host: "10.0.0.1", port: 1 },
+	{ host: "172.16.0.1", port: 1 },
+];
+
+function probeUnicastLocalNetwork(): void {
+	for (const target of UNICAST_PROBE_TARGETS) {
+		try {
+			const socket = createConnection({ host: target.host, port: target.port });
+			socket.setTimeout(500);
+			const cleanup = () => {
+				try {
+					socket.destroy();
+				} catch {
+					// already destroyed
+				}
+			};
+			socket.once("connect", () => {
+				console.log("[local-network-probe] unicast connected", target);
+				cleanup();
+			});
+			socket.once("error", (err: NodeJS.ErrnoException) => {
+				// 期望大概率失败 —— ECONNREFUSED / EHOSTUNREACH / ETIMEDOUT 都算
+				// 成功触发了内核记录，只看 syscall 是否发出。
+				console.log("[local-network-probe] unicast attempt", target, err.code ?? err.message);
+				cleanup();
+			});
+			socket.once("timeout", () => {
+				console.log("[local-network-probe] unicast timeout", target);
+				cleanup();
+			});
+		} catch (err) {
+			console.warn("[local-network-probe] unicast probe threw", target, err);
+		}
+	}
+}
+
+function probeMulticastLocalNetwork(): void {
 	try {
 		const socket = createSocket({ type: "udp4", reuseAddr: true });
 		socket.on("error", (err) => {
@@ -96,16 +137,13 @@ function triggerLocalNetworkPermission(): void {
 			} catch {
 				// best effort
 			}
-			// 最小 DNS query header（12 字节全 0），mDNS 解析方会忽略，但内核会
-			// 把这次多播发送记为本地网络访问 → 触发 TCC 检查。
+			// 最小 DNS query header（12 字节全 0），mDNS 解析方会忽略。
 			const probe = Buffer.alloc(12, 0);
 			socket.send(probe, 5353, "224.0.0.251", (err) => {
 				if (err) {
 					console.warn("[local-network-probe] mDNS probe send failed", err);
 				} else {
-					console.log(
-						"[local-network-probe] mDNS probe sent — macOS should now register Vetta for Local Network access",
-					);
+					console.log("[local-network-probe] mDNS probe sent");
 				}
 				setTimeout(() => {
 					try {
@@ -119,6 +157,12 @@ function triggerLocalNetworkPermission(): void {
 	} catch (err) {
 		console.warn("[local-network-probe] failed to send mDNS probe", err);
 	}
+}
+
+export function registerLocalNetworkAccess(): void {
+	if (process.platform !== "darwin") return;
+	probeUnicastLocalNetwork();
+	probeMulticastLocalNetwork();
 }
 
 // 包裹 globalThis.fetch：fetch 失败时把请求 URL 和完整 cause 链记下来。诊断
@@ -186,7 +230,6 @@ export function installMainDiagnostics(): void {
 	});
 
 	patchFetch();
-	triggerLocalNetworkPermission();
 
 	// 启动时打印关键 env —— 排查 "终端启动 OK / Finder 启动异常" 这类
 	// launchd vs shell 环境差异问题（PATH / proxy / VETTA_SERVER_URL 等）的
