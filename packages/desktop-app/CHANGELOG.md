@@ -14,6 +14,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 - **Webhook 消息推送基础设施**：设置页新增「消息推送」Tab，支持多条飞书 / 钉钉自定义机器人 endpoint 并行配置（每条独立启用、独立测试），URL 与签名 Secret 持久化到 `~/.vetta/desktop-app/webhook-credentials.json`（chmod 0600），非敏感字段（名称、@配置、钉钉关键词）写到 `webhook-config.json`。`WebhookProvider` 接口 + `WEBHOOK_PROVIDERS` 注册表使后续接入企业微信 / Slack / Discord 只需新增 provider 文件 + 注册一行；UI / IPC / 存储 / Manager 一律基于 kind 动态展开。飞书走 `msg_type:"interactive"` 卡片 + `lark_md` 元素（HMAC 签名 key=`timestamp\nsecret`、data=空 → body 内 timestamp/sign），钉钉走 `msgtype:"markdown"`（HMAC 签名 key=secret、data=`timestamp\nsecret` → URL append timestamp/sign），统一映射通用 `WebhookMessage { title, text, level }`；钉钉关键词模式会自动拼到 title 前满足安全校验。主进程任意模块通过 `getWebhookManager().broadcast(message, { onlyKinds?, onlyIds? })` 直接推送，不走 IPC；CRUD / toggle / test 走 `vetta:webhook:*` 通道。30s 超时、不重试。后续业务接入点（批量任务完成 / 定时任务失败 / 更新通知等）按需挂在 main 进程对应位置。
 
+### Changed
+
+- **批量子任务完成消息标题带上项目名**：原标题 `✅ 子任务已完成` / `❌ 子任务失败` 在多项目并行时无法分辨是哪个项目，改为 `[${project.name}] ✅ 子任务已完成`；body 末尾的 `📁 项目：****` 同步去掉 mask 改为真实项目名（标题既已暴露，body 再 mask 已无意义）。子任务名仍以 `****` 脱敏，错误信息与模型 Key 保持原文不变。
+
 ### Fixed
 
 - **Linux AppImage 启动找不到 `dbus-next`**：主进程为避免 Vite 内联 `dbus-next` 并触发其惰性 `x11` 解析，已将该包设为 external；打包 staging 现在会递归复制 external 运行时依赖，避免 AppImage 启动时报 `ERR_MODULE_NOT_FOUND: Cannot find package 'dbus-next'`。
