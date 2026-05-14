@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
@@ -30,9 +30,7 @@ const appVersion = JSON.parse(readFileSync(join(projectRoot, "package.json"), "u
 rmSync(buildStageDir, { recursive: true, force: true });
 mkdirSync(buildStageDir, { recursive: true });
 
-// Write minimal package.json. dependencies 在 externalDeps 复制完成后回填，
-// 否则 electron-builder 会按 package.json 剪枝 node_modules，把整个 staging
-// node_modules 都从 asar 里剔除掉（运行时报 ERR_MODULE_NOT_FOUND）。
+// Write minimal package.json (no dependencies)
 const appPkg = {
 	name: "vetta",
 	version: appVersion,
@@ -40,7 +38,6 @@ const appPkg = {
 	author: "Vetta",
 	type: "module",
 	main: "main/index.js",
-	dependencies: {},
 };
 writeFileSync(join(buildStageDir, "package.json"), JSON.stringify(appPkg, null, "\t") + "\n");
 
@@ -64,55 +61,17 @@ cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: tr
 // main entry instead and trim the path back to the package root inside
 // node_modules. This works regardless of how the package author configured
 // `exports`.
-const externalDeps = ["dbus-next"];
-const copiedExternalDeps = new Set();
-
-// fromPaths：当前依赖的搜索目录列表。递归时把上一级依赖的 node_modules 也带上，
-// 以兼容 bun / pnpm 的 isolated node_modules 布局（间接依赖不会被 hoist 到项目
-// 根目录，而是嵌套在自己父包的 node_modules 下）。
-function copyExternalDependency(dep, fromPaths = [projectRoot]) {
-	if (copiedExternalDeps.has(dep)) return;
-	copiedExternalDeps.add(dep);
-
-	let entry;
-	try {
-		entry = require.resolve(dep, { paths: fromPaths });
-	} catch (err) {
-		// 间接依赖在某些场景下可能未真正安装（如 optionalDependencies 在当前
-		// 平台跳过、被供应链审计工具拦截的旧版本、纯类型依赖等）。这种依赖如果
-		// 运行时确实用不到就跳过；如果用到了，会在运行时报错，比静默吞掉真正
-		// 缺失的模块更容易发现。
-		console.warn(`[prepare-pack] skipping ${dep}: ${err.code ?? err.message}`);
-		return;
-	}
+const externalDeps = [];
+for (const dep of externalDeps) {
+	const entry = require.resolve(dep, { paths: [projectRoot] });
 	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
 	const idx = entry.lastIndexOf(marker);
 	if (idx < 0) {
 		throw new Error(`prepare-pack: cannot locate ${dep} package root in ${entry}`);
 	}
 	const depDir = entry.slice(0, idx + marker.length - 1);
-	const destDir = join(buildStageDir, "node_modules", dep);
-	mkdirSync(dirname(destDir), { recursive: true });
-	cpSync(depDir, destDir, { recursive: true });
-
-	const depPkg = JSON.parse(readFileSync(join(depDir, "package.json"), "utf8"));
-	// 在 staging package.json 中声明本依赖，否则 electron-builder 会把
-	// node_modules 整体当未声明依赖剪掉，asar 里没有任何 node_modules，
-	// 主进程加载时报 ERR_MODULE_NOT_FOUND。版本用复制源的真实版本，避免
-	// electron-builder 校验失败。
-	appPkg.dependencies[dep] = depPkg.version;
-	const nestedPaths = [join(depDir, "node_modules"), ...fromPaths];
-	for (const childDep of Object.keys(depPkg.dependencies ?? {})) {
-		copyExternalDependency(childDep, nestedPaths);
-	}
+	cpSync(depDir, join(buildStageDir, "node_modules", dep), { recursive: true });
 }
-
-for (const dep of externalDeps) {
-	copyExternalDependency(dep);
-}
-
-// 把回填的 dependencies 重写到 staging package.json
-writeFileSync(join(buildStageDir, "package.json"), JSON.stringify(appPkg, null, "\t") + "\n");
 
 // =============================================================================
 // im-gateway sidecar binaries (extraResources)
