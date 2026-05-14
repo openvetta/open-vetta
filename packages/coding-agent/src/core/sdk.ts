@@ -90,6 +90,16 @@ export interface CreateAgentSessionOptions {
 	 * 不传则行为等同旧版。常用于将 TMPDIR/TEMP/TMP 重定向到 session 私有目录。
 	 */
 	env?: Record<string, string>;
+
+	/**
+	 * Vetta 远端服务 URL（拉取 remote models / providers）。当宿主进程已经从环境
+	 * 变量解析出权威值（例如 desktop-app 的 VETTA_SERVER_URL）时显式传入，避免
+	 * SDK 退回到内置的 LAN 默认值并把它持久化到 settings.json，造成 desktop-app
+	 * 与 coding-agent SDK 各自指向不同 server 的"半边大脑"问题。
+	 * 不传则保留旧行为：先读 settings.json，再回退到内置 DEFAULT_SERVER_URL，
+	 * 并把内置值写入 settings.json 以便下次复用。
+	 */
+	serverUrl?: string;
 }
 
 /** Result from createAgentSession */
@@ -212,12 +222,20 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
 	__perfMark("before loadRemoteModels");
 
-	// Ensure serverUrl has a default value, then load remote models
+	// Ensure serverUrl has a default value, then load remote models.
+	// 优先级：调用方显式传入 > settings.json > 内置 DEFAULT_SERVER_URL。
+	// 调用方传入的 URL 不写入 settings.json——宿主进程（如 desktop-app）才是
+	// 权威来源，settings 里的残留值由宿主自行清理（参考 desktop-app
+	// registerSettingsIpc 启动时的 scrub 逻辑）。
 	if (!options.modelRegistry) {
-		let serverUrl = settingsManager.getServerUrl();
+		let serverUrl = options.serverUrl ?? settingsManager.getServerUrl();
+		let writeBackDefault = false;
 		if (!serverUrl) {
-			settingsManager.setServerUrl(DEFAULT_SERVER_URL);
 			serverUrl = DEFAULT_SERVER_URL;
+			writeBackDefault = options.serverUrl === undefined;
+		}
+		if (writeBackDefault) {
+			settingsManager.setServerUrl(serverUrl);
 		}
 		modelRegistry.setServerUrl(serverUrl);
 		modelRegistry.setServerToken(settingsManager.getServerToken());

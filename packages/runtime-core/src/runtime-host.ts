@@ -80,6 +80,12 @@ export interface RuntimeHostOptions {
 		request: RuntimeSandboxGrantRequest,
 		signal?: AbortSignal,
 	) => Promise<RuntimeSandboxGrantDecision>;
+	/**
+	 * Vetta 远端服务 URL。宿主进程显式注入后，下挂的 createAgentSession 不会再
+	 * 回退到 coding-agent 内置的 LAN 默认值，避免主进程内 desktop-app 路径
+	 * （env-injected URL）与 SDK 路径（硬编码 URL）"半边大脑"。
+	 */
+	serverUrl?: string;
 }
 
 export class RuntimeHost implements SessionFacade {
@@ -87,10 +93,18 @@ export class RuntimeHost implements SessionFacade {
 	private currentTurnStartedAt = new Map<string, number>();
 	private inFlightBuffers = new Map<string, InFlightBuffer>();
 	private inFlightUnsubscribers = new Map<string, () => void>();
+	/**
+	 * 外部订阅者表。`subscribe()` 在挂到 session.subscribe 的同时把 handler 也
+	 * 登记在这里，方便 RuntimeHost 自己注入合成事件（例如 prompt 同步抛错时
+	 * 把 error 事件广播出去，否则错误只会以 IPC reject 形式回到调用方，
+	 * 一旦调用方没 try/catch 就被静默吞掉）。
+	 */
+	private externalSubscribers = new Map<string, Set<(event: SessionEvent) => void>>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
 	private readonly macosSandboxExecPath: string | undefined;
+	private readonly serverUrl: string | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
@@ -103,6 +117,7 @@ export class RuntimeHost implements SessionFacade {
 		this.sandboxHostPath = options.sandboxHostPath;
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
+		this.serverUrl = options.serverUrl;
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
 	}
@@ -220,6 +235,7 @@ export class RuntimeHost implements SessionFacade {
 			customTools,
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
+			serverUrl: this.serverUrl,
 		};
 
 		console.log(`[perf][RuntimeHost.createSession] before createAgentSession +${Date.now() - __t0}ms`);
@@ -372,11 +388,30 @@ export class RuntimeHost implements SessionFacade {
 				);
 			}
 		}
-		await handle.session.prompt(text, {
-			images,
-			streamingBehavior: request.streamingBehavior,
-			source: "extension",
-		});
+		try {
+			await handle.session.prompt(text, {
+				images,
+				streamingBehavior: request.streamingBehavior,
+				source: "extension",
+			});
+		} catch (err) {
+			// session.prompt 在进入 agent.start 之前会做同步校验（"No model
+			// selected"、"No API key found"、"Agent is already processing"
+			// 等），抛出的异常 *不会* 经由 session 事件流回到订阅者。如果不
+			// 主动把它转换成一个 error 事件，renderer 这边的体验就是「发了一
+			// 条消息但完全没反应、没气泡、没 spinner、没报错」（issue 现象）。
+			// 这里合成一个 error 事件广播给所有 subscribe() 拿过 handler 的
+			// 订阅者，然后照原样把异常再向上抛，scheduler / batch-tasks 等
+			// 已经自带 try/catch 的调用方仍然能拿到 reject 做重试 / 落账。
+			const message = err instanceof Error ? err.message : String(err);
+			console.error(`[RuntimeHost.prompt] session=${sessionId} pre-stream error: ${message}`);
+			this.broadcastSyntheticEvent(sessionId, {
+				...this.baseEvent(sessionId, "agent"),
+				type: "error",
+				error: runtimeError("INTERNAL_ERROR", message, false, "runtime"),
+			});
+			throw err;
+		}
 		console.log(`[RuntimeHost.prompt] session=${sessionId} prompt handed to agent`);
 	}
 
@@ -437,11 +472,47 @@ export class RuntimeHost implements SessionFacade {
 			}
 		}
 
-		return handle.session.subscribe((event) => {
+		// 登记到外部订阅者表，便于 prompt() 等同步路径直接广播合成事件
+		// （session.subscribe 链路要求事件先经过 session.emit → mapEvent，
+		// 而 prompt 期的 throw 拿不到 session emit 这一条线）。
+		let externals = this.externalSubscribers.get(sessionId);
+		if (!externals) {
+			externals = new Set();
+			this.externalSubscribers.set(sessionId, externals);
+		}
+		externals.add(handler);
+
+		const unsubscribeSession = handle.session.subscribe((event) => {
 			for (const mapped of this.mapEvent(sessionId, event, handle.session)) {
 				handler(mapped);
 			}
 		});
+
+		return () => {
+			unsubscribeSession();
+			const set = this.externalSubscribers.get(sessionId);
+			if (set) {
+				set.delete(handler);
+				if (set.size === 0) this.externalSubscribers.delete(sessionId);
+			}
+		};
+	}
+
+	/**
+	 * 向某个 session 当前所有的外部订阅者广播一个合成事件。仅用于 RuntimeHost
+	 * 内部，覆盖那些 session 事件流本身覆盖不到的边界（例如 prompt 入参校验
+	 * 同步 throw 的场景）。
+	 */
+	private broadcastSyntheticEvent(sessionId: string, event: SessionEvent): void {
+		const subscribers = this.externalSubscribers.get(sessionId);
+		if (!subscribers || subscribers.size === 0) return;
+		for (const handler of subscribers) {
+			try {
+				handler(event);
+			} catch (err) {
+				console.warn(`[RuntimeHost.broadcastSyntheticEvent] subscriber threw:`, err);
+			}
+		}
 	}
 
 	async updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void> {
@@ -689,6 +760,7 @@ export class RuntimeHost implements SessionFacade {
 		this.inFlightUnsubscribers.get(sessionId)?.();
 		this.inFlightUnsubscribers.delete(sessionId);
 		this.inFlightBuffers.delete(sessionId);
+		this.externalSubscribers.delete(sessionId);
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
 		this.currentTurnStartedAt.delete(sessionId);
@@ -714,6 +786,7 @@ export class RuntimeHost implements SessionFacade {
 		this.currentTurnStartedAt.clear();
 		this.inFlightUnsubscribers.clear();
 		this.inFlightBuffers.clear();
+		this.externalSubscribers.clear();
 	}
 
 	private requireSession(sessionId: string): SessionHandle {
