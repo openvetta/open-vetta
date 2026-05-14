@@ -191,6 +191,10 @@ export function useBatchTasks() {
 		[refreshProjects],
 	);
 
+	const batchClearUnfinished = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchClearUnfinished(projectId);
+	}, []);
+
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
 			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, {
@@ -298,5 +302,6 @@ export function useBatchTasks() {
 		deleteSession,
 		batchRunNeverExecuted,
 		batchRestartAll,
+		batchClearUnfinished,
 	};
 }

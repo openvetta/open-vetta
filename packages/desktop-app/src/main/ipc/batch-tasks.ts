@@ -43,6 +43,7 @@ const CHANNELS = {
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
 	BATCH_RUN_NEVER_EXECUTED: "vetta:batch-tasks:batch-run-never-executed",
 	BATCH_RESTART_ALL: "vetta:batch-tasks:batch-restart-all",
+	BATCH_CLEAR_UNFINISHED: "vetta:batch-tasks:batch-clear-unfinished",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	EVENT: "vetta:batch-tasks:event",
 } as const;
@@ -366,6 +367,35 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 	});
 
+	// 仅保留已完成（completed）的任务原样不动；其他所有任务（pending / paused /
+	// failed，含从未跑过的 pending）的 session、task-state 和工作目录产物全部
+	// 清空，状态重置为"未执行"。运行中（含调度器排队中）的任务存在时直接拒绝。
+	ipcMain.handle(CHANNELS.BATCH_CLEAR_UNFINISHED, async (_, projectId: string) => {
+		console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: project=${projectId}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+
+		if (project.tasks.some((t) => isTaskRunning(t.id) || isTaskQueued(t.id))) {
+			console.warn(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: project has running/queued tasks, skip`);
+			return;
+		}
+
+		const targets = project.tasks.filter((t) => t.status !== "completed");
+		if (targets.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: nothing to clear in ${projectId}`);
+			return;
+		}
+		console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: clearing ${targets.length} tasks`);
+		const runtime = getRuntime();
+
+		await Promise.all(
+			targets.map(async (task) => {
+				await cleanTaskFilesAndState(projectId, task, runtime);
+				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
+			}),
+		);
+	});
+
 	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_, sessionPath: string) => {
 		console.log(`[BatchTaskIPC] DELETE_SESSION: ${sessionPath}`);
 		await getRuntime().deleteSession(sessionPath);
@@ -390,6 +420,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.BATCH_DELETE);
 		ipcMain.removeHandler(CHANNELS.BATCH_RUN_NEVER_EXECUTED);
 		ipcMain.removeHandler(CHANNELS.BATCH_RESTART_ALL);
+		ipcMain.removeHandler(CHANNELS.BATCH_CLEAR_UNFINISHED);
 		ipcMain.removeHandler(CHANNELS.DELETE_SESSION);
 	};
 }

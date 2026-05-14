@@ -108,6 +108,7 @@ const BATCH_TASKS_CHANNELS = {
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
 	BATCH_RUN_NEVER_EXECUTED: "vetta:batch-tasks:batch-run-never-executed",
 	BATCH_RESTART_ALL: "vetta:batch-tasks:batch-restart-all",
+	BATCH_CLEAR_UNFINISHED: "vetta:batch-tasks:batch-clear-unfinished",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	EVENT: "vetta:batch-tasks:event",
 } as const;
@@ -286,6 +287,7 @@ const api: DesktopApi = {
 		batchRunNeverExecuted: (projectId) =>
 			ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RUN_NEVER_EXECUTED, projectId),
 		batchRestartAll: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RESTART_ALL, projectId),
+		batchClearUnfinished: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_CLEAR_UNFINISHED, projectId),
 		deleteSession: (sessionPath) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.DELETE_SESSION, sessionPath),
 		onTaskEvent: (handler) => {
 			const listener = (_event: Electron.IpcRendererEvent, data: unknown) => {
