@@ -1,16 +1,37 @@
 import { memo, useMemo, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
+import { AnimatePresence, motion } from "motion/react";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
 import { batchQueuedTaskIdsAtom, confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 
 /**
  * How many task cards a project shows before the user clicks "展开更多".
- * Tuned to keep first-paint cheap when a project holds hundreds of subtasks;
- * collapsed state is per-project local UI state (no persistence — fresh
- * navigation always starts collapsed).
+ * 3 列 × 3 行 = 9，对应用户要求；超过则折叠。
  */
-const TASK_COLLAPSE_THRESHOLD = 6;
+const TASK_COLLAPSE_THRESHOLD = 9;
+
+/**
+ * 子任务排序：运行中优先，其次按 createdAt latest（新创建在前）。
+ * 项目级排序使用 max(task.createdAt) 作为近似——最近活动的项目靠前。
+ */
+function sortTasks(tasks: BatchTask[]): BatchTask[] {
+	return [...tasks].sort((a, b) => {
+		const aRun = a.status === "running" ? 1 : 0;
+		const bRun = b.status === "running" ? 1 : 0;
+		if (aRun !== bRun) return bRun - aRun;
+		return b.createdAt - a.createdAt;
+	});
+}
+
+function sortProjects(projects: BatchProject[]): BatchProject[] {
+	return [...projects].sort((a, b) => {
+		const aRun = a.tasks.some((t) => t.status === "running") ? 1 : 0;
+		const bRun = b.tasks.some((t) => t.status === "running") ? 1 : 0;
+		if (aRun !== bRun) return bRun - aRun;
+		return b.createdAt - a.createdAt;
+	});
+}
 
 interface BatchTaskListProps {
 	projects: BatchProject[];
@@ -209,9 +230,11 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		});
 	};
 
+	const sortedProjects = useMemo(() => sortProjects(projects), [projects]);
+
 	return (
-		<div className="flex flex-col gap-5">
-			{projects.map((project) => (
+		<div className="flex flex-col gap-6">
+			{sortedProjects.map((project) => (
 				<ProjectBlock
 					key={project.id}
 					project={project}
@@ -271,12 +294,10 @@ function ProjectBlock({
 	const [searchQuery, setSearchQuery] = useState("");
 	const queuedTaskIds = useAtomValue(batchQueuedTaskIdsAtom);
 	const normalizedQuery = searchQuery.trim().toLowerCase();
+	const sortedTasks = useMemo(() => sortTasks(project.tasks), [project.tasks]);
 	const filteredTasks = useMemo(
-		() =>
-			normalizedQuery
-				? project.tasks.filter((t) => t.name.toLowerCase().includes(normalizedQuery))
-				: project.tasks,
-		[project.tasks, normalizedQuery],
+		() => (normalizedQuery ? sortedTasks.filter((t) => t.name.toLowerCase().includes(normalizedQuery)) : sortedTasks),
+		[sortedTasks, normalizedQuery],
 	);
 	const filteredTotal = filteredTasks.length;
 	// 搜索激活时强制展开，方便用户直接看到所有匹配项
@@ -327,14 +348,11 @@ function ProjectBlock({
 	);
 
 	return (
-		<div className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/20 backdrop-blur-sm">
-			{/* Top accent bar */}
-			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-
+		<div className="relative">
 			{/* Project header */}
-			<div className="flex items-center gap-3 px-5 pt-5 pb-3">
-				<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-inset ring-primary/20">
-					<span className="icon-[mdi--folder-multiple-outline] h-5 w-5 text-primary" />
+			<div className="flex items-center gap-3 pb-3">
+				<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-inset ring-primary/20">
+					<span className="icon-[mdi--folder-multiple-outline] h-[18px] w-[18px] text-primary" />
 				</div>
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
@@ -342,9 +360,7 @@ function ProjectBlock({
 							{project.name}
 						</h3>
 						<span className="inline-flex h-5 items-center rounded-full bg-accent/50 px-2 text-[10px] text-muted-foreground/70">
-							{normalizedQuery
-								? `${filteredTotal}/${counts.total} 匹配`
-								: `${counts.total} 个任务`}
+							{normalizedQuery ? `${filteredTotal}/${counts.total} 匹配` : `${counts.total} 个任务`}
 						</span>
 					</div>
 					<p className="mt-1 truncate text-[11px] text-muted-foreground/60">
@@ -400,7 +416,7 @@ function ProjectBlock({
 			</div>
 
 			{/* Progress bar — pure CSS width transition, no motion runtime cost */}
-			<div className="px-5 pb-4">
+			<div className="pb-3">
 				<div className="relative h-1 overflow-hidden rounded-full bg-accent/30">
 					<div
 						className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/60 via-primary to-primary/80 transition-[width] duration-700 ease-out"
@@ -410,7 +426,7 @@ function ProjectBlock({
 			</div>
 
 			{/* Task grid — plain divs, leaf is React.memo'd */}
-			<div className="border-t border-border/30 bg-background/30 px-5 py-4">
+			<div>
 				{counts.total > 0 && (
 					<div className="relative mb-3">
 						<span className="icon-[mdi--magnify] pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
@@ -441,7 +457,7 @@ function ProjectBlock({
 						</p>
 					</div>
 				) : (
-					<div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+					<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
 						{visibleTasks.map((task) => (
 							<TaskCard
 								key={task.id}
@@ -486,96 +502,99 @@ const TaskCard = memo(function TaskCard({
 }): JSX.Element {
 	const tone = isQueued ? QUEUED_TONE : STATUS_TONE[task.status];
 	const label = isQueued ? "等待中" : statusLabel(task.status, !!task.sessionId);
+	const [hovered, setHovered] = useState(false);
 	return (
 		<div
-			className={`group relative flex flex-col gap-2 overflow-hidden rounded-xl border border-border/40 bg-card/40 p-3 ring-1 ring-inset ${tone.ring} transition-colors duration-200 hover:border-primary/30`}
+			onMouseEnter={() => setHovered(true)}
+			onMouseLeave={() => setHovered(false)}
+			className="relative flex flex-col gap-1 overflow-hidden rounded-lg bg-accent/50 px-2.5 py-2 transition-colors duration-300 ease-out hover:bg-accent/80"
 		>
-			{/* Top: status dot + name + status pill */}
-			<div className="flex items-center gap-2">
-				<div className="relative flex h-2 w-2 shrink-0">
+			{/* 顶部：状态点 + 名称 + 状态 pill */}
+			<div className="flex items-center gap-1.5">
+				<div className="relative flex h-1.5 w-1.5 shrink-0">
 					{task.status === "running" && !isQueued && (
 						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
 					)}
-					<span className={`relative inline-flex h-2 w-2 rounded-full ${tone.dot}`} />
+					<span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${tone.dot}`} />
 				</div>
-				<span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-					{task.name}
-				</span>
+				<span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground">{task.name}</span>
 				<span
-					className={`inline-flex h-5 shrink-0 items-center rounded-full px-2 text-[10px] font-medium ${tone.bg} ${tone.text}`}
+					className={`inline-flex h-4 shrink-0 items-center rounded-full px-1.5 text-[9px] font-medium leading-none ${tone.bg} ${tone.text}`}
 				>
 					{label}
 				</span>
 			</div>
 
-			{/* Source path */}
-			<div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-				<span className="icon-[mdi--folder-outline] h-3 w-3 shrink-0" />
-				<span className="truncate" title={task.sourcePath}>
-					{task.sourcePath}
-				</span>
-			</div>
-
-			{/* Failure error — native tooltip via title, no Radix mount cost */}
-			{task.status === "failed" && task.error && (
-				<div
-					className="flex items-start gap-1.5 rounded-md bg-red-500/8 px-2 py-1.5 text-[11px] text-red-400"
-					title={task.error}
-				>
-					<span className="icon-[mdi--alert-circle] mt-px h-3 w-3 shrink-0" />
-					<span className="line-clamp-2 leading-snug">{task.error}</span>
-				</div>
-			)}
-
-			{/* Footer */}
-			<div className="mt-auto flex items-center gap-2 pt-1 text-[11px] text-muted-foreground/50">
+			{/* 底部：仅时间（去掉路径） */}
+			<div className="flex items-center text-[10px] text-muted-foreground/50">
 				{task.sessionId ? (
-					<span className="flex items-center gap-1">
-						<span className="icon-[mdi--clock-outline] h-3 w-3" />
+					<span className="flex items-center gap-0.5">
+						<span className="icon-[mdi--clock-outline] h-2.5 w-2.5" />
 						{relativeTime(task.updatedAt)}
 					</span>
 				) : (
 					<span className="text-muted-foreground/40">未执行</span>
 				)}
-				<div className="ml-auto flex items-center gap-1">
-					{task.sessionPath && (
-						<button
-							type="button"
-							onClick={(e) => {
-								e.stopPropagation();
-								callbacks.goToSession(task);
-							}}
-							className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-primary/10 hover:text-primary"
-							title="跳转到会话"
-						>
-							<span className="icon-[mdi--open-in-new] h-3 w-3" />
-							会话
-						</button>
-					)}
-					<div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+				{task.status === "failed" && task.error && (
+					<span
+						className="ml-auto flex max-w-[60%] items-center gap-0.5 truncate text-red-400/80"
+						title={task.error}
+					>
+						<span className="icon-[mdi--alert-circle] h-2.5 w-2.5 shrink-0" />
+						<span className="truncate">{task.error}</span>
+					</span>
+				)}
+			</div>
+
+			{/* hover 蒙层：motion 驱动的渐入渐出，操作按钮居中排列 */}
+			<AnimatePresence>
+				{hovered && (
+					<motion.div
+						key="overlay"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+						className="absolute inset-0 flex items-center justify-center gap-1.5 bg-background/75 backdrop-blur-[3px]"
+					>
+						{task.sessionPath && (
+							<OverlayActionButton
+								icon="icon-[mdi--open-in-new]"
+								title="跳转到会话"
+								delay={0}
+								onClick={(e) => {
+									e.stopPropagation();
+									callbacks.goToSession(task);
+								}}
+							/>
+						)}
 						{isQueued ? (
-							<TaskActionButton
+							<OverlayActionButton
 								icon="icon-[mdi--close]"
 								title="取消等待"
+								variant="danger"
+								delay={0.05}
 								onClick={(e) => {
 									e.stopPropagation();
 									callbacks.stop(task.id);
 								}}
 							/>
 						) : task.status === "pending" ? (
-							<TaskActionButton
+							<OverlayActionButton
 								icon="icon-[mdi--play]"
 								title="执行"
+								delay={0.05}
 								onClick={(e) => {
 									e.stopPropagation();
 									callbacks.run(task.id);
 								}}
 							/>
 						) : task.status === "failed" ? (
-							<TaskActionButton
+							<OverlayActionButton
 								icon="icon-[mdi--restart]"
 								title="重试"
 								variant="danger"
+								delay={0.05}
 								onClick={(e) => {
 									e.stopPropagation();
 									callbacks.retry(task);
@@ -583,19 +602,20 @@ const TaskCard = memo(function TaskCard({
 							/>
 						) : null}
 						{task.status !== "running" && (
-							<TaskActionButton
+							<OverlayActionButton
 								icon="icon-[mdi--delete-outline]"
 								title="删除"
 								variant="danger"
+								delay={0.1}
 								onClick={(e) => {
 									e.stopPropagation();
 									callbacks.delete(task);
 								}}
 							/>
 						)}
-					</div>
-				</div>
-			</div>
+					</motion.div>
+				)}
+			</AnimatePresence>
 		</div>
 	);
 });
@@ -634,30 +654,38 @@ function ActionButton({
 	);
 }
 
-function TaskActionButton({
+function OverlayActionButton({
 	icon,
 	title,
 	variant,
 	onClick,
+	delay = 0,
 }: {
 	icon: string;
 	title: string;
 	variant?: "danger";
 	onClick: (e: React.MouseEvent) => void;
+	delay?: number;
 }): JSX.Element {
 	return (
-		<button
+		<motion.button
 			type="button"
 			onClick={onClick}
 			title={title}
-			className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors duration-150 ${
+			initial={{ opacity: 0, y: 6, scale: 0.85 }}
+			animate={{ opacity: 1, y: 0, scale: 1 }}
+			exit={{ opacity: 0, y: 4, scale: 0.9 }}
+			transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1], delay }}
+			whileHover={{ scale: 1.12 }}
+			whileTap={{ scale: 0.92 }}
+			className={`flex h-7 w-7 items-center justify-center rounded-full bg-card/90 ring-1 ring-inset ring-border/50 backdrop-blur-sm ${
 				variant === "danger"
-					? "text-muted-foreground/60 hover:bg-red-500/10 hover:text-red-400"
-					: "text-muted-foreground/60 hover:bg-primary/10 hover:text-primary"
+					? "text-muted-foreground hover:bg-red-500/15 hover:text-red-400 hover:ring-red-500/40"
+					: "text-muted-foreground hover:bg-primary/15 hover:text-primary hover:ring-primary/40"
 			}`}
 		>
-			<span className={`${icon} text-[12px]`} />
-		</button>
+			<span className={`${icon} text-[13px]`} />
+		</motion.button>
 	);
 }
 

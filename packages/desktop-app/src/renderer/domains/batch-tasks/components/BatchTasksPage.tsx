@@ -85,58 +85,23 @@ export function BatchTasksPage(): JSX.Element {
 						</p>
 					</motion.div>
 
-					<motion.button
-						type="button"
-						onClick={handleNewProject}
-						initial={{ opacity: 0, y: -6, scale: 0.96 }}
-						animate={{ opacity: 1, y: 0, scale: 1 }}
-						transition={{ type: "spring", stiffness: 380, damping: 26, delay: 0.1 }}
-						whileHover={{ scale: 1.04, y: -1 }}
-						whileTap={{ scale: 0.96 }}
-						className="flex items-center gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-[0_8px_24px_-10px_var(--primary)] transition-shadow hover:shadow-[0_12px_30px_-8px_var(--primary)]"
-					>
-						<span className="icon-[mdi--plus] text-[15px]" />
-						新建项目
-					</motion.button>
+					<div className="flex items-center gap-3">
+						{stats.total > 0 && <CompactStats stats={stats} />}
+						<motion.button
+							type="button"
+							onClick={handleNewProject}
+							initial={{ opacity: 0, y: -6, scale: 0.96 }}
+							animate={{ opacity: 1, y: 0, scale: 1 }}
+							transition={{ type: "spring", stiffness: 380, damping: 26, delay: 0.1 }}
+							whileHover={{ scale: 1.04, y: -1 }}
+							whileTap={{ scale: 0.96 }}
+							className="flex items-center gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-[0_8px_24px_-10px_var(--primary)] transition-shadow hover:shadow-[0_12px_30px_-8px_var(--primary)]"
+						>
+							<span className="icon-[mdi--plus] text-[15px]" />
+							新建项目
+						</motion.button>
+					</div>
 				</div>
-
-				{/* Stat strip */}
-				{stats.total > 0 && (
-					<motion.div
-						className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
-						initial="hidden"
-						animate="show"
-						variants={{
-							hidden: {},
-							show: { transition: { staggerChildren: 0.06, delayChildren: 0.15 } },
-						}}
-					>
-						<StatCard
-							icon="icon-[mdi--format-list-bulleted]"
-							label="任务总数"
-							value={stats.total}
-							tint="primary"
-						/>
-						<StatCard
-							icon="icon-[mdi--play-circle-outline]"
-							label="运行中"
-							value={stats.running}
-							tint="emerald"
-						/>
-						<StatCard
-							icon="icon-[mdi--check-circle-outline]"
-							label="已完成"
-							value={stats.completed}
-							tint="emerald"
-						/>
-						<StatCard
-							icon="icon-[mdi--alert-circle-outline]"
-							label="失败"
-							value={stats.failed}
-							tint="red"
-						/>
-					</motion.div>
-				)}
 			</div>
 
 			{/* Divider */}
@@ -166,43 +131,35 @@ export function BatchTasksPage(): JSX.Element {
 	);
 }
 
-function StatCard({
-	icon,
-	label,
-	value,
-	tint,
-}: {
-	icon: string;
-	label: string;
-	value: number;
-	tint: "primary" | "emerald" | "red";
-}): JSX.Element {
-	const tintClasses = {
-		primary: { iconBg: "bg-primary/10 ring-primary/20", iconColor: "text-primary" },
-		emerald: { iconBg: "bg-emerald-500/10 ring-emerald-500/20", iconColor: "text-emerald-400" },
-		red: { iconBg: "bg-red-500/10 ring-red-500/20", iconColor: "text-red-400" },
-	}[tint];
+interface BatchStats {
+	total: number;
+	running: number;
+	completed: number;
+	failed: number;
+	projects: number;
+}
+
+function CompactStats({ stats }: { stats: BatchStats }): JSX.Element {
+	const items: { label: string; value: number; tone: string }[] = [
+		{ label: "总数", value: stats.total, tone: "text-muted-foreground" },
+		{ label: "运行中", value: stats.running, tone: "text-emerald-400" },
+		{ label: "已完成", value: stats.completed, tone: "text-emerald-400" },
+		{ label: "失败", value: stats.failed, tone: "text-red-400" },
+	];
 	return (
 		<motion.div
-			variants={{
-				hidden: { opacity: 0, y: 10, scale: 0.95 },
-				show: { opacity: 1, y: 0, scale: 1 },
-			}}
-			transition={{ type: "spring", stiffness: 320, damping: 26 }}
-			whileHover={{ y: -2 }}
-			className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/40 bg-card/30 px-3.5 py-3 backdrop-blur-sm transition-colors duration-200 hover:border-primary/30"
+			initial={{ opacity: 0, y: -4 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.35, ease: easeOut, delay: 0.05 }}
+			className="hidden items-center gap-3 rounded-full border border-border/40 bg-card/30 px-3 py-1.5 text-[11px] backdrop-blur-sm sm:flex"
 		>
-			<div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${tintClasses.iconBg}`}>
-				<span className={`${icon} h-4 w-4 ${tintClasses.iconColor}`} />
-			</div>
-			<div className="min-w-0 flex-1">
-				<p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-					{label}
-				</p>
-				<p className="mt-0.5 text-[20px] font-semibold leading-none tracking-tight text-foreground">
-					{value}
-				</p>
-			</div>
+			{items.map((it, idx) => (
+				<div key={it.label} className="flex items-center gap-1.5">
+					{idx > 0 && <span className="h-3 w-px bg-border/50" />}
+					<span className="text-muted-foreground/60">{it.label}</span>
+					<span className={`tabular-nums text-[12px] font-semibold leading-none ${it.tone}`}>{it.value}</span>
+				</div>
+			))}
 		</motion.div>
 	);
 }
