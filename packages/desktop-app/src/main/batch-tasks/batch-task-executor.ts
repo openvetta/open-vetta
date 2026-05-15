@@ -32,13 +32,9 @@ export type BatchTaskEvent =
 	  }
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
-	| { type: "task.paused"; projectId: string; taskId: string }
-	| { type: "task.resumed"; projectId: string; taskId: string }
 	| { type: "task.reset"; projectId: string; taskId: string }
 	| { type: "task.queued"; projectId: string; taskId: string }
-	| { type: "task.dequeued"; projectId: string; taskId: string }
-	| { type: "project.paused"; projectId: string; pausedAt: number }
-	| { type: "project.resumed"; projectId: string };
+	| { type: "task.dequeued"; projectId: string; taskId: string };
 
 interface ExecutingTask {
 	projectId: string;
@@ -69,7 +65,6 @@ const eventHandlers = new Set<(event: BatchTaskEvent) => void>();
 // 持久化的状态），与 recoverRunningTasks() 把 stale running 标 failed 的行为一致。
 
 type PendingJob = {
-	kind: "run" | "resume";
 	project: BatchProject;
 	task: BatchTask;
 	runtime: RuntimeHost;
@@ -77,45 +72,6 @@ type PendingJob = {
 
 const runningByProject = new Map<string, Set<string>>();
 const pendingByProject = new Map<string, PendingJob[]>();
-
-/**
- * 项目级"已暂停"内存集合。BATCH_PAUSE 写入，BATCH_RESUME 移除；
- * enqueueJob / drainQueue 都查这个集合，paused 时直接拒绝调度，
- * 防止 worker 完成后从 pending 队列里替补出新任务。重启后由
- * batch-tasks IPC 启动逻辑根据持久化的 meta.pausedAt 重建。
- */
-const pausedProjects = new Set<string>();
-
-export function isProjectSchedulingPaused(projectId: string): boolean {
-	return pausedProjects.has(projectId);
-}
-
-/**
- * 标记项目为暂停态并清空内存 pending 队列。返回被赶出的 task 列表，
- * 调用方通常会把这些 task 的持久化状态置为 "paused"，让 BATCH_RESUME
- * 能凭 status === "paused" 一次性重启它们，而不用区分"被暂停的排队
- * 任务"和"从未执行过的 pending"。已经在跑的 running 任务由调用方
- * 逐个走 pauseTask abort，这里不处理。
- */
-export function pauseProjectScheduling(projectId: string): { kind: "run" | "resume"; task: BatchTask }[] {
-	pausedProjects.add(projectId);
-	const queue = getPendingQueue(projectId);
-	if (queue.length === 0) {
-		console.log(`[BatchTask] pauseProjectScheduling: project=${projectId}, no pending jobs`);
-		return [];
-	}
-	const dequeued = queue.splice(0, queue.length);
-	for (const job of dequeued) {
-		emitBatchTaskEvent({ type: "task.dequeued", projectId, taskId: job.task.id });
-	}
-	console.log(`[BatchTask] pauseProjectScheduling: project=${projectId}, dequeued ${dequeued.length} pending jobs`);
-	return dequeued.map((j) => ({ kind: j.kind, task: j.task }));
-}
-
-export function resumeProjectScheduling(projectId: string): void {
-	pausedProjects.delete(projectId);
-	console.log(`[BatchTask] resumeProjectScheduling: project=${projectId}`);
-}
 
 function getRunningSet(projectId: string): Set<string> {
 	let s = runningByProject.get(projectId);
@@ -152,10 +108,6 @@ export function getQueuedTaskIds(): string[] {
 
 function enqueueJob(job: PendingJob): void {
 	const projectId = job.project.id;
-	if (pausedProjects.has(projectId)) {
-		console.log(`[BatchTask] enqueueJob: project ${projectId} paused, skip task ${job.task.id}`);
-		return;
-	}
 	const running = getRunningSet(projectId);
 	const queue = getPendingQueue(projectId);
 
@@ -183,11 +135,7 @@ function enqueueJob(job: PendingJob): void {
 
 async function startJob(job: PendingJob): Promise<void> {
 	try {
-		if (job.kind === "run") {
-			await runTaskInner(job.project, job.task, job.runtime);
-		} else {
-			await resumeTaskInner(job.project, job.task, job.runtime);
-		}
+		await runTaskInner(job.project, job.task, job.runtime);
 	} finally {
 		const running = getRunningSet(job.project.id);
 		running.delete(job.task.id);
@@ -196,7 +144,6 @@ async function startJob(job: PendingJob): Promise<void> {
 }
 
 function drainQueue(projectId: string): void {
-	if (pausedProjects.has(projectId)) return;
 	const queue = getPendingQueue(projectId);
 	const running = getRunningSet(projectId);
 	while (queue.length > 0) {
@@ -210,16 +157,12 @@ function drainQueue(projectId: string): void {
 }
 
 export function enqueueRunTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): void {
-	enqueueJob({ kind: "run", project, task, runtime });
-}
-
-export function enqueueResumeTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): void {
-	enqueueJob({ kind: "resume", project, task, runtime });
+	enqueueJob({ project, task, runtime });
 }
 
 /**
  * 从 pending 队列移除一个尚未启动的任务。返回是否命中。
- * 用于 pauseTask / deleteTask / cleanTaskFilesAndState 在任务进入执行之前
+ * 用于 abortTask / deleteTask / cleanTaskFilesAndState 在任务进入执行之前
  * 直接撤销排队，无需走 abort 路径。
  */
 export function removeFromPending(projectId: string, taskId: string): boolean {
@@ -335,7 +278,7 @@ function scheduleTimeout(taskId: string, runtime: RuntimeHost): ReturnType<typeo
 async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeHost): Promise<void> {
 	const executing = executingTasks.get(taskId);
 	if (!executing) {
-		// pauseTask 已经写过终态并清理
+		// abortTask 已经清理掉 executing 记录；持久化状态由调用方（停止流）统一处理。
 		return;
 	}
 	clearTimeout(executing.timeoutHandle);
@@ -379,9 +322,15 @@ async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeH
 			outcome = { kind: "artifact-missing", missing: verify.missingPatterns };
 		}
 	} else if (stopReason === "aborted") {
-		state = { ...base, status: "paused" };
-		emitBatchTaskEvent({ type: "task.paused", projectId, taskId });
-		// 主动暂停不推送
+		// 正常 abort 路径下 abortTask 会先清空 executingTasks，finalizeTask 顶部就会
+		// 直接 return；不会走到这里。万一其它路径触发（如 runtime 内部主动 abort），
+		// 把任务复位为「未执行」，让用户从 banner 重新开始。
+		state = {
+			taskId,
+			lastModified: now,
+			status: "pending",
+		};
+		emitBatchTaskEvent({ type: "task.reset", projectId, taskId });
 	} else {
 		const message = errMessage ?? `Agent ended unexpectedly (stopReason=${stopReason ?? "unknown"})`;
 		state = { ...base, status: "failed", error: message, completedAt: now };
@@ -524,13 +473,17 @@ async function runTaskInner(project: BatchProject, task: BatchTask, runtime: Run
 	}
 }
 
-export async function pauseTask(projectId: string, taskId: string, runtime: RuntimeHost): Promise<void> {
-	console.log(`[BatchTask] pauseTask: project=${projectId}, task=${taskId}`);
-	// 排队中的任务还没真正启动 session，直接从队列移除即可
+/**
+ * 中断一个任务的执行：从队列里撤销（如尚未启动）或 abort runtime 会话（如运行中）。
+ * 不写持久化状态——调用方（停止流）随后会通过 cleanTaskFilesAndState 统一清理
+ * session、task-state 和工作目录产物。
+ */
+export async function abortTask(projectId: string, taskId: string, runtime: RuntimeHost): Promise<void> {
+	console.log(`[BatchTask] abortTask: project=${projectId}, task=${taskId}`);
 	if (removeFromPending(projectId, taskId)) return;
 	const executing = executingTasks.get(taskId);
 	if (!executing) {
-		console.warn(`[BatchTask] pauseTask: task ${taskId} not found in executingTasks`);
+		console.warn(`[BatchTask] abortTask: task ${taskId} not found in executingTasks`);
 		return;
 	}
 
@@ -540,97 +493,6 @@ export async function pauseTask(projectId: string, taskId: string, runtime: Runt
 	await runtime.abort(executing.sessionId);
 	executing.abortController.abort();
 	console.log(`[BatchTask] Abort called for session ${executing.sessionId}`);
-
-	const state: BatchTaskState = {
-		taskId,
-		status: "paused",
-		sessionId: executing.sessionId,
-		sessionPath: executing.sessionPath,
-		executionMode: executing.executionMode,
-		lastModified: Date.now(),
-	};
-	await saveTaskState(projectId, taskId, state);
-	emitBatchTaskEvent({ type: "task.paused", projectId, taskId });
-	console.log(`[BatchTask] task.paused emitted: ${taskId}`);
-}
-
-async function resumeTaskInner(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
-	console.log(`[BatchTask] resumeTask: project=${project.id}, task=${task.id}, session=${task.sessionId}`);
-	if (!task.sessionId) {
-		console.warn(`[BatchTask] resumeTask: task ${task.id} has no sessionId`);
-		return;
-	}
-
-	const abortController = new AbortController();
-	const executionMode: SessionExecutionMode = task.executionMode ?? "full-access";
-	const sessionId = task.sessionId;
-
-	const startedAt = Date.now();
-	const timeoutHandle = scheduleTimeout(task.id, runtime);
-	executingTasks.set(task.id, {
-		projectId: project.id,
-		taskId: task.id,
-		cwd: task.cwd,
-		artifactPatterns: project.artifactPatterns,
-		sessionId,
-		sessionPath: task.sessionPath,
-		executionMode,
-		abortController,
-		timeoutHandle,
-		timedOut: false,
-		startedAt,
-		modelKey: project.modelKey,
-	});
-
-	const runningState: BatchTaskState = {
-		taskId: task.id,
-		status: "running",
-		sessionId,
-		sessionPath: task.sessionPath,
-		executionMode,
-		lastModified: startedAt,
-	};
-	await saveTaskState(project.id, task.id, runningState);
-
-	emitBatchTaskEvent({ type: "task.resumed", projectId: project.id, taskId: task.id });
-	console.log(`[BatchTask] task.resumed emitted: ${task.id}`);
-
-	try {
-		console.log(`[BatchTask] Calling continue for session ${sessionId}`);
-		await runtime.continue(sessionId);
-		console.log(`[BatchTask] continue returned, finalizing task ${task.id}`);
-
-		await finalizeTask(project.id, task.id, runtime);
-	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error(`[BatchTask] resumeTask failed for task ${task.id}: ${errorMessage}`);
-		const executing = executingTasks.get(task.id);
-		if (executing) clearTimeout(executing.timeoutHandle);
-		const failedAt = Date.now();
-		const state: BatchTaskState = {
-			taskId: task.id,
-			status: "failed",
-			error: errorMessage,
-			sessionId,
-			sessionPath: task.sessionPath,
-			executionMode,
-			completedAt: failedAt,
-			lastModified: failedAt,
-		};
-		await saveTaskState(project.id, task.id, state);
-		const capturedStartedAt = executing?.startedAt;
-		const capturedModelKey = executing?.modelKey ?? project.modelKey;
-		executingTasks.delete(task.id);
-		emitBatchTaskEvent({ type: "task.failed", projectId: project.id, taskId: task.id, error: errorMessage });
-		await maybeNotifyTaskFinished(
-			project.id,
-			task.id,
-			{ kind: "failed", error: errorMessage },
-			capturedStartedAt,
-			failedAt,
-			capturedModelKey,
-		);
-	}
 }
 
 export function isTaskRunning(taskId: string): boolean {

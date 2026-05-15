@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
 import { batchQueuedTaskIdsAtom, confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
@@ -36,7 +36,6 @@ function statusLabel(status: BatchTask["status"], hasSession: boolean): string {
 	}
 	const labels: Record<Exclude<BatchTask["status"], "pending">, string> = {
 		running: "运行中",
-		paused: "已暂停",
 		completed: "已完成",
 		failed: "失败",
 	};
@@ -65,18 +64,20 @@ const STATUS_TONE: Record<
 		text: "text-red-400",
 		bg: "bg-red-500/10",
 	},
-	paused: {
-		dot: "bg-amber-500 shadow-[0_0_6px_var(--color-amber-500,#f59e0b)]",
-		ring: "ring-amber-500/30",
-		text: "text-amber-400",
-		bg: "bg-amber-500/10",
-	},
 	pending: {
 		dot: "bg-muted-foreground/40",
 		ring: "ring-border/50",
 		text: "text-muted-foreground/70",
 		bg: "bg-muted/40",
 	},
+};
+
+// 「等待中」（queued）的色调：使用琥珀色用以与「未执行」的灰色区分。
+const QUEUED_TONE = {
+	dot: "bg-amber-500 shadow-[0_0_6px_var(--color-amber-500,#f59e0b)]",
+	ring: "ring-amber-500/30",
+	text: "text-amber-400",
+	bg: "bg-amber-500/10",
 };
 
 // ─── Counts ────────────────────────────────────────────────────────────────
@@ -88,18 +89,14 @@ const STATUS_TONE: Record<
 interface ProjectCounts {
 	failed: number;
 	running: number;
-	paused: number;
 	completed: number;
 	neverExecuted: number;
 	total: number;
 }
 
-type RetryFailedMode = "retry" | "clear-and-retry" | "clear-only";
-
 function computeCounts(tasks: BatchTask[]): ProjectCounts {
 	let failed = 0;
 	let running = 0;
-	let paused = 0;
 	let completed = 0;
 	let neverExecuted = 0;
 	for (const t of tasks) {
@@ -110,9 +107,6 @@ function computeCounts(tasks: BatchTask[]): ProjectCounts {
 			case "running":
 				running++;
 				break;
-			case "paused":
-				paused++;
-				break;
 			case "completed":
 				completed++;
 				break;
@@ -121,7 +115,7 @@ function computeCounts(tasks: BatchTask[]): ProjectCounts {
 				break;
 		}
 	}
-	return { failed, running, paused, completed, neverExecuted, total: tasks.length };
+	return { failed, running, completed, neverExecuted, total: tasks.length };
 }
 
 // ─── Task action callback contract ─────────────────────────────────────────
@@ -136,8 +130,7 @@ interface TaskCallbacks {
 	goToSession: (task: BatchTask) => void;
 	run: (taskId: string) => void;
 	retry: (task: BatchTask) => void;
-	pause: (task: BatchTask) => void;
-	resume: (taskId: string) => void;
+	stop: (taskId: string) => void;
 	delete: (task: BatchTask) => void;
 }
 
@@ -145,29 +138,15 @@ interface TaskCallbacks {
 
 export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const {
-		runTask,
-		retryTask,
-		pauseTask,
-		resumeTask,
-		deleteTask,
-		batchRetryFailed,
-		batchClearFailedAndRetry,
-		batchClearFailed,
-		batchPause,
-		batchResume,
-		batchRunNeverExecuted,
-		batchRestartAll,
-		batchClearUnfinished,
-		deleteProject,
-	} = useBatchTasks();
+	const { runTask, retryTask, stopTask, deleteTask, batchStart, batchStop, batchReset, deleteProject } =
+		useBatchTasks();
 
 	const handleDeleteProject = (project: BatchProject) => {
 		const runningCount = project.tasks.filter((t) => t.status === "running").length;
 		if (runningCount > 0) {
 			setConfirm({
 				title: "无法删除项目",
-				message: "请先暂停所有任务后再删除。",
+				message: "请先点停止。",
 				confirmLabel: "确定",
 				onConfirm: () => {},
 			});
@@ -185,106 +164,47 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		});
 	};
 
-	const handleBatchRetry = (project: BatchProject, counts: ProjectCounts, mode: RetryFailedMode) => {
-		if (counts.failed === 0) return;
-		if (mode === "retry") {
-			setConfirm({
-				title: "确认重试失败的任务",
-				message: `将删除 ${counts.failed} 个失败任务的会话和文件，然后按并发数重新执行。排队中的任务在轮到前仍显示"失败"。此操作不可撤回，是否继续？`,
-				confirmLabel: "重试",
-				cancelLabel: "取消",
-				variant: "danger",
-				onConfirm: async () => {
-					await batchRetryFailed(project.id);
-				},
-			});
-			return;
-		}
-		if (mode === "clear-and-retry") {
-			setConfirm({
-				title: "确认清除失败状态并重试",
-				message: `将先把 ${counts.failed} 个失败任务的会话和文件全部清空（状态立刻变为未执行），再按并发数重新执行。此操作不可撤回，是否继续？`,
-				confirmLabel: "清除并重试",
-				cancelLabel: "取消",
-				variant: "danger",
-				onConfirm: async () => {
-					await batchClearFailedAndRetry(project.id);
-				},
-			});
-			return;
-		}
-		setConfirm({
-			title: "确认仅清除失败状态",
-			message: `将把 ${counts.failed} 个失败任务的会话和文件全部清空，状态重置为未执行，但不会自动重新运行。此操作不可撤回，是否继续？`,
-			confirmLabel: "清除",
-			cancelLabel: "取消",
-			variant: "danger",
-			onConfirm: async () => {
-				await batchClearFailed(project.id);
-			},
-		});
-	};
-
-	const handleBatchPause = (project: BatchProject, counts: ProjectCounts) => {
-		if (counts.running === 0) return;
-		setConfirm({
-			title: "确认暂停所有任务",
-			message: "正在运行的任务将暂停执行，是否继续？",
-			confirmLabel: "暂停",
-			onConfirm: async () => {
-				await batchPause(project.id);
-			},
-		});
-	};
-
-	const handleBatchResume = async (project: BatchProject, counts: ProjectCounts) => {
-		if (counts.paused === 0) return;
-		await batchResume(project.id);
-	};
-
-	const handleBatchRunNeverExecuted = (project: BatchProject, counts: ProjectCounts) => {
+	const handleBatchStart = (project: BatchProject, counts: ProjectCounts) => {
 		if (counts.neverExecuted === 0) return;
 		setConfirm({
-			title: "确认执行所有未执行的任务",
-			message: `将执行 ${counts.neverExecuted} 个未执行的任务，是否继续？`,
-			confirmLabel: "执行",
+			title: "确认开始执行",
+			message: `将按并发数依次执行 ${counts.neverExecuted} 个「未执行」任务（其余状态不受影响），是否继续？`,
+			confirmLabel: "开始",
 			onConfirm: async () => {
-				await batchRunNeverExecuted(project.id);
+				await batchStart(project.id);
 			},
 		});
 	};
 
-	const handleBatchClearUnfinished = (project: BatchProject, counts: ProjectCounts) => {
+	const handleBatchStop = (project: BatchProject, counts: ProjectCounts) => {
 		const targetCount = counts.total - counts.completed;
 		if (targetCount === 0) return;
 		setConfirm({
-			title: "确认清空队列状态",
+			title: "确认停止",
 			message: [
-				`将清空除「已完成」之外的所有任务（${targetCount} 个）的会话和产物，状态重置为「未执行」。`,
+				`将中断所有运行中的任务（${counts.running} 个），并清空除「已完成」之外的所有任务（${targetCount} 个）的会话、产物和状态，重置为「未执行」。`,
 				"",
 				"保留：已完成任务的会话、产物和状态。",
-				`清空：${counts.failed > 0 ? `${counts.failed} 个失败 · ` : ""}${counts.paused > 0 ? `${counts.paused} 个已暂停 · ` : ""}${counts.neverExecuted > 0 ? `${counts.neverExecuted} 个未执行 · ` : ""}其余任务的会话文件、产物目录、运行状态。`,
-				"",
-				"此操作不可撤回，是否继续？",
+				"已完成任务保留，此操作不可撤回。",
 			].join("\n"),
-			confirmLabel: "清空队列状态",
+			confirmLabel: "停止",
 			cancelLabel: "取消",
 			variant: "danger",
 			onConfirm: async () => {
-				await batchClearUnfinished(project.id);
+				await batchStop(project.id);
 			},
 		});
 	};
 
-	const handleBatchRestartAll = (project: BatchProject) => {
+	const handleBatchReset = (project: BatchProject) => {
 		setConfirm({
-			title: "确认全部重新开始",
-			message: `将删除所有任务的会话和文件，然后重新执行全部 ${project.tasks.length} 个任务。此操作不可撤回，是否继续？`,
-			confirmLabel: "全部重新开始",
+			title: "确认重置",
+			message: `将删除所有任务的会话和文件（包含已完成），然后重新执行全部 ${project.tasks.length} 个任务。此操作不可撤回，是否继续？`,
+			confirmLabel: "重置",
 			cancelLabel: "取消",
 			variant: "danger",
 			onConfirm: async () => {
-				await batchRestartAll(project.id);
+				await batchReset(project.id);
 			},
 		});
 	};
@@ -297,16 +217,12 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 					project={project}
 					onEditProject={onEditProject}
 					onDeleteProject={handleDeleteProject}
-					onBatchRetry={handleBatchRetry}
-					onBatchPause={handleBatchPause}
-					onBatchResume={handleBatchResume}
-					onBatchRunNeverExecuted={handleBatchRunNeverExecuted}
-					onBatchRestartAll={handleBatchRestartAll}
-					onBatchClearUnfinished={handleBatchClearUnfinished}
+					onBatchStart={handleBatchStart}
+					onBatchStop={handleBatchStop}
+					onBatchReset={handleBatchReset}
 					runTask={runTask}
 					retryTask={retryTask}
-					pauseTask={pauseTask}
-					resumeTask={resumeTask}
+					stopTask={stopTask}
 					deleteTask={deleteTask}
 					setConfirm={setConfirm}
 				/>
@@ -326,16 +242,12 @@ interface ProjectBlockProps {
 	project: BatchProject;
 	onEditProject: (project: BatchProject) => void;
 	onDeleteProject: (project: BatchProject) => void;
-	onBatchRetry: (project: BatchProject, counts: ProjectCounts, mode: RetryFailedMode) => void;
-	onBatchPause: (project: BatchProject, counts: ProjectCounts) => void;
-	onBatchResume: (project: BatchProject, counts: ProjectCounts) => Promise<void>;
-	onBatchRunNeverExecuted: (project: BatchProject, counts: ProjectCounts) => void;
-	onBatchRestartAll: (project: BatchProject) => void;
-	onBatchClearUnfinished: (project: BatchProject, counts: ProjectCounts) => void;
+	onBatchStart: (project: BatchProject, counts: ProjectCounts) => void;
+	onBatchStop: (project: BatchProject, counts: ProjectCounts) => void;
+	onBatchReset: (project: BatchProject) => void;
 	runTask: (projectId: string, taskId: string) => Promise<void>;
 	retryTask: (projectId: string, taskId: string) => Promise<void>;
-	pauseTask: (projectId: string, taskId: string) => Promise<void>;
-	resumeTask: (projectId: string, taskId: string) => Promise<void>;
+	stopTask: (projectId: string, taskId: string) => Promise<void>;
 	deleteTask: (projectId: string, taskId: string) => Promise<void>;
 	setConfirm: ReturnType<typeof useSetAtom<typeof confirmDialogAtom>>;
 }
@@ -344,16 +256,12 @@ function ProjectBlock({
 	project,
 	onEditProject,
 	onDeleteProject,
-	onBatchRetry,
-	onBatchPause,
-	onBatchResume,
-	onBatchRunNeverExecuted,
-	onBatchRestartAll,
-	onBatchClearUnfinished,
+	onBatchStart,
+	onBatchStop,
+	onBatchReset,
 	runTask,
 	retryTask,
-	pauseTask,
-	resumeTask,
+	stopTask,
 	deleteTask,
 	setConfirm,
 }: ProjectBlockProps): JSX.Element {
@@ -398,18 +306,8 @@ function ProjectBlock({
 					},
 				});
 			},
-			pause: (task) => {
-				setConfirm({
-					title: "确认暂停任务",
-					message: "任务将暂停执行，是否继续？",
-					confirmLabel: "暂停",
-					onConfirm: async () => {
-						await pauseTask(project.id, task.id);
-					},
-				});
-			},
-			resume: (taskId) => {
-				void resumeTask(project.id, taskId);
+			stop: (taskId) => {
+				void stopTask(project.id, taskId);
 			},
 			delete: (task) => {
 				if (task.status === "running") return;
@@ -425,7 +323,7 @@ function ProjectBlock({
 				});
 			},
 		}),
-		[project.id, runTask, retryTask, pauseTask, resumeTask, deleteTask, setConfirm],
+		[project.id, runTask, retryTask, stopTask, deleteTask, setConfirm],
 	);
 
 	return (
@@ -453,49 +351,36 @@ function ProjectBlock({
 						{counts.completed}/{counts.total} 已完成
 						{counts.running > 0 && ` · ${counts.running} 运行中`}
 						{counts.failed > 0 && ` · ${counts.failed} 失败`}
-						{counts.paused > 0 && ` · ${counts.paused} 已暂停`}
 					</p>
 				</div>
 				<div className="flex items-center gap-0.5">
-					<ActionButton
-						icon="icon-[mdi--rocket-launch-outline]"
-						title="批量执行"
-						onClick={() => onBatchRunNeverExecuted(project, counts)}
-						disabled={counts.neverExecuted === 0}
-					/>
-					<ActionButton
-						icon="icon-[mdi--play]"
-						title="批量继续"
-						onClick={() => void onBatchResume(project, counts)}
-						disabled={counts.paused === 0}
-					/>
-					<RetryFailedDropdown
-						disabled={counts.failed === 0}
-						failedCount={counts.failed}
-						onSelect={(mode) => onBatchRetry(project, counts, mode)}
-					/>
-					<ActionButton
-						icon="icon-[mdi--pause]"
-						title="批量暂停"
-						onClick={() => onBatchPause(project, counts)}
-						disabled={counts.running === 0}
-					/>
-					<ActionButton
-						icon="icon-[mdi--broom]"
-						title="清空队列状态"
-						variant="danger"
-						onClick={() => onBatchClearUnfinished(project, counts)}
-						disabled={
-							counts.running > 0 ||
-							project.tasks.some((t) => queuedTaskIds.has(t.id)) ||
-							counts.total - counts.completed === 0
-						}
-					/>
+					{(() => {
+						// 「开始 / 停止」二合一 toggle：
+						// 队列处于活动态（有 running 或 queued）→ 显示「停止」；
+						// 否则 → 显示「开始」（无未执行时 disabled）。
+						const hasQueued = project.tasks.some((t) => queuedTaskIds.has(t.id));
+						const isActive = counts.running > 0 || hasQueued;
+						return isActive ? (
+							<ActionButton
+								icon="icon-[mdi--stop]"
+								title="停止"
+								variant="danger"
+								onClick={() => onBatchStop(project, counts)}
+							/>
+						) : (
+							<ActionButton
+								icon="icon-[mdi--play]"
+								title="开始"
+								onClick={() => onBatchStart(project, counts)}
+								disabled={counts.neverExecuted === 0}
+							/>
+						);
+					})()}
 					<ActionButton
 						icon="icon-[mdi--refresh]"
-						title="全部重新开始"
+						title="重置"
 						variant="danger"
-						onClick={() => onBatchRestartAll(project)}
+						onClick={() => onBatchReset(project)}
 						disabled={counts.total === 0}
 					/>
 					<div className="mx-1 h-4 w-px bg-border/60" />
@@ -599,7 +484,7 @@ const TaskCard = memo(function TaskCard({
 	callbacks: TaskCallbacks;
 	isQueued: boolean;
 }): JSX.Element {
-	const tone = isQueued ? STATUS_TONE.paused : STATUS_TONE[task.status];
+	const tone = isQueued ? QUEUED_TONE : STATUS_TONE[task.status];
 	const label = isQueued ? "等待中" : statusLabel(task.status, !!task.sessionId);
 	return (
 		<div
@@ -674,7 +559,7 @@ const TaskCard = memo(function TaskCard({
 								title="取消等待"
 								onClick={(e) => {
 									e.stopPropagation();
-									callbacks.pause(task);
+									callbacks.stop(task.id);
 								}}
 							/>
 						) : task.status === "pending" ? (
@@ -686,36 +571,7 @@ const TaskCard = memo(function TaskCard({
 									callbacks.run(task.id);
 								}}
 							/>
-						) : task.status === "running" ? (
-							<TaskActionButton
-								icon="icon-[mdi--pause]"
-								title="暂停"
-								onClick={(e) => {
-									e.stopPropagation();
-									callbacks.pause(task);
-								}}
-							/>
-						) : task.status === "paused" ? (
-							<>
-								<TaskActionButton
-									icon="icon-[mdi--play]"
-									title="继续"
-									onClick={(e) => {
-										e.stopPropagation();
-										callbacks.resume(task.id);
-									}}
-								/>
-								<TaskActionButton
-									icon="icon-[mdi--restart]"
-									title="重试"
-									variant="danger"
-									onClick={(e) => {
-										e.stopPropagation();
-										callbacks.retry(task);
-									}}
-								/>
-							</>
-						) : (
+						) : task.status === "failed" ? (
 							<TaskActionButton
 								icon="icon-[mdi--restart]"
 								title="重试"
@@ -725,7 +581,7 @@ const TaskCard = memo(function TaskCard({
 									callbacks.retry(task);
 								}}
 							/>
-						)}
+						) : null}
 						{task.status !== "running" && (
 							<TaskActionButton
 								icon="icon-[mdi--delete-outline]"
@@ -805,82 +661,3 @@ function TaskActionButton({
 	);
 }
 
-function RetryFailedDropdown({
-	disabled,
-	failedCount,
-	onSelect,
-}: {
-	disabled: boolean;
-	failedCount: number;
-	onSelect: (mode: RetryFailedMode) => void;
-}): JSX.Element {
-	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (!open) return;
-		function handleClick(e: MouseEvent) {
-			if (ref.current && !ref.current.contains(e.target as Node)) {
-				setOpen(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, [open]);
-
-	return (
-		<div className="relative" ref={ref}>
-			<button
-				type="button"
-				disabled={disabled}
-				onClick={() => setOpen((v) => !v)}
-				title={failedCount > 0 ? `批量重试失败（${failedCount}）` : "批量重试失败"}
-				className={`flex h-7 items-center gap-0.5 rounded-lg px-1.5 transition-colors duration-150 ${
-					disabled
-						? "cursor-not-allowed text-muted-foreground/20"
-						: "text-muted-foreground/60 hover:bg-primary/10 hover:text-primary"
-				}`}
-			>
-				<span className="icon-[mdi--restart] text-[14px]" />
-				<span className="icon-[mdi--chevron-down] text-[10px]" />
-			</button>
-			{open && !disabled && (
-				<div className="absolute right-0 top-full z-50 mt-1 w-[200px] overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-xl">
-					<button
-						type="button"
-						onClick={() => {
-							setOpen(false);
-							onSelect("retry");
-						}}
-						className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-accent/50"
-					>
-						<span className="text-foreground">重试失败</span>
-						<span className="text-[10px] text-muted-foreground/60">逐个清理后按并发数执行</span>
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							setOpen(false);
-							onSelect("clear-and-retry");
-						}}
-						className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-accent/50"
-					>
-						<span className="text-foreground">清除失败状态并重试</span>
-						<span className="text-[10px] text-muted-foreground/60">先全部重置为未执行，再按并发数执行</span>
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							setOpen(false);
-							onSelect("clear-only");
-						}}
-						className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-accent/50"
-					>
-						<span className="text-foreground">仅清除失败状态</span>
-						<span className="text-[10px] text-muted-foreground/60">重置为未执行并清除产物，不重新执行</span>
-					</button>
-				</div>
-			)}
-		</div>
-	);
-}
