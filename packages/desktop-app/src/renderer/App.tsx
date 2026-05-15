@@ -22,6 +22,8 @@ import { FilePreviewDialog } from "./domains/file-preview/components/FilePreview
 import { UpdateRestartDialog } from "./shared/components/UpdateRestartDialog";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
+	activeSessionAtom,
+	defaultConversationCwdAtom,
 	sandboxPermissionDrawerAtom,
 	sidebarCollapsedAtom,
 	pageHeaderTitleAtom,
@@ -105,7 +107,21 @@ export function RootLayout(): JSX.Element {
 	const { openProject, projects } = useProjects();
 	const navigate = useNavigate();
 	const setSandboxPermissionDrawer = useSetAtom(sandboxPermissionDrawerAtom);
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const activeSession = useAtomValue(activeSessionAtom);
+	const matchesForGuard = useMatches();
+	const currentPath = matchesForGuard[matchesForGuard.length - 1]?.pathname ?? "/";
 	const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom);
+
+	// 路由守卫：当在根路径但没有 active session 时，直接跳到默认「对话」项目的 NewSession 页。
+	// 等价于"首次启动也落到 NewSession"。
+	useEffect(() => {
+		if (currentPath !== "/" || activeSession || !defaultConversationCwd) return;
+		void navigate({
+			to: "/new-session/$cwd",
+			params: { cwd: encodeURIComponent(defaultConversationCwd) },
+		});
+	}, [currentPath, activeSession, defaultConversationCwd, navigate]);
 	const toggleSidebar = useCallback(() => {
 		setSidebarCollapsed((v) => !v);
 	}, [setSidebarCollapsed]);
@@ -116,7 +132,7 @@ export function RootLayout(): JSX.Element {
 	useFlowingChatInit();
 	useDownloadsInit();
 	useUpdaterInit();
-	const { openSession, openSessionRef } = useSessionManager();
+	const { openSession } = useSessionManager();
 	const confirmationQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]>(
 		[],
 	);
@@ -211,14 +227,21 @@ export function RootLayout(): JSX.Element {
 	const projectsRef = useRef(projects);
 	projectsRef.current = projects;
 
+	const defaultCwdRef = useRef(defaultConversationCwd);
+	defaultCwdRef.current = defaultConversationCwd;
+
 	useGlobalShortcuts(
 		useCallback(
 			(actionId: string) => {
 				switch (actionId) {
 					case "new-session": {
-						const firstProject = projectsRef.current[0];
-						if (firstProject) {
-							void openSessionRef.current?.(firstProject.cwd);
+						// 默认走「对话」项目的 NewSession 页面；若主进程尚未返回 cwd，退回第一个项目。
+						const target = defaultCwdRef.current || projectsRef.current[0]?.cwd;
+						if (target) {
+							void navigate({
+								to: "/new-session/$cwd",
+								params: { cwd: encodeURIComponent(target) },
+							});
 						}
 						break;
 					}

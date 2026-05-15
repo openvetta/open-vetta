@@ -1,4 +1,5 @@
-import { tmpdir } from "node:os";
+import { mkdir } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
@@ -244,6 +245,13 @@ if (!gotSingleLock) {
 
 		if (process.platform === "darwin") {
 			app.dock.setIcon(nativeImage.createFromPath(join(buildDir, "icon-dock.png")));
+		}
+
+		// 默认「对话」项目目录：保证一直存在。
+		try {
+			await mkdir(join(homedir(), ".vetta", "conversation"), { recursive: true });
+		} catch (err) {
+			console.error("[default-project] failed to ensure conversation dir", err);
 		}
 
 		try {

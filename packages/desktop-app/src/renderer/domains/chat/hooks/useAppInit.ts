@@ -2,6 +2,7 @@ import { useBatchTasks } from "@domains/batch-tasks/hooks/useBatchTasks";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { fetchServerInfo } from "@shared/lib/api";
 import {
+	defaultConversationCwdAtom,
 	deployModeAtom,
 	remoteProvidersAtom,
 	selectedModelAtom,
@@ -15,6 +16,7 @@ import { currentUnsubscribe, setCurrentUnsubscribe } from "../services/chat-serv
 
 export function useAppInit(): void {
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
+	const setDefaultConversationCwd = useSetAtom(defaultConversationCwdAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
@@ -34,6 +36,9 @@ export function useAppInit(): void {
 			if (config.workspacePath) {
 				setWorkspacePath(config.workspacePath);
 				localStorage.setItem("vetta-workspace-path", config.workspacePath);
+			}
+			if (config.defaultConversationCwd) {
+				setDefaultConversationCwd(config.defaultConversationCwd);
 			}
 			const executionMode = config.defaultExecutionMode ?? "full-access";
 			setSessionExecutionMode(executionMode);
@@ -66,6 +71,7 @@ export function useAppInit(): void {
 		};
 	}, [
 		setWorkspacePath,
+		setDefaultConversationCwd,
 		setSelectedModel,
 		setSessionExecutionMode,
 		setRemoteProviders,

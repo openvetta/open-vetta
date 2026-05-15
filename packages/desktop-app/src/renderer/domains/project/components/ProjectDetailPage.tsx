@@ -1,4 +1,4 @@
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -8,7 +8,6 @@ import {
 	batchProjectsAtom,
 	confirmDialogAtom,
 	isPersonalModeAtom,
-	openSessionFnRef,
 	projectsAtom,
 	sessionsMapAtom,
 	workflowInstanceAtom,
@@ -163,6 +162,7 @@ export function ProjectDetailPage(): JSX.Element {
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
 	const [editorFocused, setEditorFocused] = useState(false);
+	const navigate = useNavigate();
 
 	// 监听工作流 SSE 事件
 	useWorkflowSSE();
@@ -183,11 +183,9 @@ export function ProjectDetailPage(): JSX.Element {
 
 	const projectTypeLabel = getProjectTypeLabel(project);
 
-	// New session handler
+	// New session handler — 跳转到 NewSession 页面，由用户在该页发起首条消息再创建会话
 	const handleNewSession = () => {
-		if (openSessionFnRef.current) {
-			void openSessionFnRef.current(decodedCwd);
-		}
+		void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(decodedCwd) } });
 	};
 
 	// Export handler — only normal/batch are exportable; flowing/schedule hide the button.

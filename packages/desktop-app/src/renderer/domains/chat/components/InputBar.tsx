@@ -30,6 +30,11 @@ import type { SkillInfo } from "@preload/api";
 interface InputBarProps {
 	onSend: () => Promise<void>;
 	onAbort: () => Promise<void>;
+	/**
+	 * 当无 activeSession 但仍希望放行输入与发送时（例如 NewSessionPage），
+	 * 把该项目的 cwd 传进来：InputBar 把它视为「有会话」、@ 文件面板用它作为根目录。
+	 */
+	cwdOverride?: string;
 }
 
 const MIN_HEIGHT = 24;
@@ -60,7 +65,7 @@ function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; 
 	});
 }
 
-export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
+export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.Element {
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
@@ -83,7 +88,8 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 	const [drawerActiveTab, setDrawerActiveTab] = useState<string | null>(null);
 
-	const hasSession = Boolean(activeSession);
+	const effectiveCwd = activeSession?.cwd ?? cwdOverride ?? "";
+	const hasSession = Boolean(activeSession) || Boolean(cwdOverride);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
 	const hasCapsules = Boolean(selectedSkill) || mentionedFiles.length > 0;
@@ -366,7 +372,7 @@ export function InputBar({ onSend, onAbort }: InputBarProps): JSX.Element {
 					onClose={() => setAtOpen(false)}
 					onSelect={handleAtSelect}
 					filter={getAtFilter()}
-					cwd={activeSession?.cwd ?? ""}
+					cwd={effectiveCwd}
 				/>
 
 				<ActionButtonBar />

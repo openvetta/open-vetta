@@ -49,6 +49,8 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 		return () => document.removeEventListener("keydown", handleKey);
 	}, [onClose]);
 
+	const isDefault = project.isDefault === true;
+
 	return createPortal(
 		<AnimatePresence>
 			<motion.div
@@ -74,40 +76,48 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 					<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 					{isMac ? "在访达中打开" : "从此电脑打开"}
 				</button>
-				<button
-					type="button"
-					onClick={() => {
-						onArchive(project.cwd);
-						onClose();
-					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-				>
-					<span className="icon-[mdi--archive-outline] h-3.5 w-3.5" />
-					归档项目
-				</button>
-				<button
-					type="button"
-					onClick={() => {
-						onRemove(project.cwd);
-						onClose();
-					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-				>
-					<span className="icon-[mdi--playlist-remove] h-3.5 w-3.5" />
-					从列表中移除
-				</button>
-				<div className="mx-1.5 my-1 h-px bg-border" />
-				<button
-					type="button"
-					onClick={() => {
-						onDelete(project.cwd);
-						onClose();
-					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
-				>
-					<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-					删除项目
-				</button>
+				{!isDefault && (
+					<button
+						type="button"
+						onClick={() => {
+							onArchive(project.cwd);
+							onClose();
+						}}
+						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+					>
+						<span className="icon-[mdi--archive-outline] h-3.5 w-3.5" />
+						归档项目
+					</button>
+				)}
+				{!isDefault && (
+					<button
+						type="button"
+						onClick={() => {
+							onRemove(project.cwd);
+							onClose();
+						}}
+						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+					>
+						<span className="icon-[mdi--playlist-remove] h-3.5 w-3.5" />
+						从列表中移除
+					</button>
+				)}
+				{!isDefault && (
+					<>
+						<div className="mx-1.5 my-1 h-px bg-border" />
+						<button
+							type="button"
+							onClick={() => {
+								onDelete(project.cwd);
+								onClose();
+							}}
+							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
+						>
+							<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+							删除项目
+						</button>
+					</>
+				)}
 			</motion.div>
 		</AnimatePresence>,
 		document.body,

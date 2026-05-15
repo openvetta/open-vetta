@@ -162,6 +162,8 @@ export interface DesktopConfigData {
 		checkedAt?: number;
 	};
 	debugMode?: boolean;
+	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
+	defaultConversationCwd?: string;
 }
 
 export interface DesktopConfigApi {

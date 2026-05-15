@@ -10,7 +10,17 @@ export interface Project {
 	workflowInstanceId?: number;
 	/** 流转项目对应的 flowing id（来自 meta.json） */
 	flowingId?: number;
+	/** 是否为默认「对话」项目（运行时虚拟注入，不写入 config.projects）。 */
+	isDefault?: boolean;
 }
+
+/** 默认「对话」项目的显示名称。 */
+export const DEFAULT_CONVERSATION_PROJECT_NAME = "对话";
+/**
+ * 默认「对话」项目的 cwd（绝对路径）。
+ * 启动时由主进程 ConfigGet 返回真实路径并写入此 atom；在收到之前保持空串作为「未就绪」标记。
+ */
+export const defaultConversationCwdAtom = atom<string>("");
 
 export interface SessionInfo {
 	id: string;
