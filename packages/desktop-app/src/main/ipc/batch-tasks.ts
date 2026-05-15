@@ -1,24 +1,15 @@
 import { ipcMain, type WebContents } from "electron";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import {
+	abortTask as abortTaskExecutor,
 	emitBatchTaskEvent,
-	enqueueResumeTask,
 	enqueueRunTask,
 	isTaskQueued,
 	isTaskRunning,
-	pauseProjectScheduling,
-	pauseTask as pauseTaskExecutor,
 	removeFromPending,
-	resumeProjectScheduling,
 	subscribeBatchTaskEvents,
 } from "../batch-tasks/batch-task-executor";
-import {
-	type BatchTaskState,
-	clearAllTaskStates,
-	deleteTaskState,
-	recoverRunningTasks,
-	saveTaskState,
-} from "../batch-tasks/batch-task-state";
+import { clearAllTaskStates, deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
 import type { BatchTask } from "../batch-tasks/batch-task-storage";
 import {
 	createProject,
@@ -28,7 +19,6 @@ import {
 	removeTaskFromProject,
 	resetProjectFiles,
 	resetTaskFiles,
-	setProjectPaused,
 	updateProject as updateProjectStorage,
 } from "../batch-tasks/batch-task-storage";
 import type { ExecutionModeOverride } from "../execution-mode.js";
@@ -41,18 +31,12 @@ const CHANNELS = {
 	DELETE_PROJECT: "vetta:batch-tasks:delete-project",
 	RUN_TASK: "vetta:batch-tasks:run-task",
 	RETRY_TASK: "vetta:batch-tasks:retry-task",
-	PAUSE_TASK: "vetta:batch-tasks:pause-task",
-	RESUME_TASK: "vetta:batch-tasks:resume-task",
+	STOP_TASK: "vetta:batch-tasks:stop-task",
 	DELETE_TASK: "vetta:batch-tasks:delete-task",
-	BATCH_RETRY_FAILED: "vetta:batch-tasks:batch-retry-failed",
-	BATCH_CLEAR_FAILED_AND_RETRY: "vetta:batch-tasks:batch-clear-failed-and-retry",
-	BATCH_CLEAR_FAILED: "vetta:batch-tasks:batch-clear-failed",
-	BATCH_PAUSE: "vetta:batch-tasks:batch-pause",
-	BATCH_RESUME: "vetta:batch-tasks:batch-resume",
 	BATCH_DELETE: "vetta:batch-tasks:batch-delete",
-	BATCH_RUN_NEVER_EXECUTED: "vetta:batch-tasks:batch-run-never-executed",
-	BATCH_RESTART_ALL: "vetta:batch-tasks:batch-restart-all",
-	BATCH_CLEAR_UNFINISHED: "vetta:batch-tasks:batch-clear-unfinished",
+	BATCH_START: "vetta:batch-tasks:batch-start",
+	BATCH_STOP: "vetta:batch-tasks:batch-stop",
+	BATCH_RESET: "vetta:batch-tasks:batch-reset",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	EVENT: "vetta:batch-tasks:event",
 } as const;
@@ -63,7 +47,7 @@ function getRuntime(): RuntimeHost {
 
 async function cleanTaskFilesAndState(projectId: string, task: BatchTask, runtime: RuntimeHost): Promise<void> {
 	if (isTaskRunning(task.id) || isTaskQueued(task.id)) {
-		await pauseTaskExecutor(projectId, task.id, runtime);
+		await abortTaskExecutor(projectId, task.id, runtime);
 	}
 	if (task.sessionPath) {
 		try {
@@ -76,19 +60,6 @@ async function cleanTaskFilesAndState(projectId: string, task: BatchTask, runtim
 	await resetTaskFiles(projectId, task.id);
 }
 
-/**
- * 取消项目级"已暂停"标志：清掉持久化的 meta.pausedAt、从调度器内存
- * paused 集合移除、广播 project.resumed 让 renderer 同步 atom。
- * 所有"批量执行/批量重启/批量清空"类的 IPC handler 开头都应调用一次——
- * 这些操作语义上都覆盖了"项目暂停"的意图（用户主动要求重置或跑任务），
- * 否则项目仍卡在 paused 态，后续 enqueueJob 会被 paused gate 全部 skip。
- */
-async function clearProjectPausedFlag(projectId: string): Promise<void> {
-	await setProjectPaused(projectId, undefined);
-	resumeProjectScheduling(projectId);
-	emitBatchTaskEvent({ type: "project.resumed", projectId });
-}
-
 export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	console.log(`[BatchTaskIPC] registerBatchTasksIpc: subscribing to batch task events`);
 	const unsubscribeBatchEvents = subscribeBatchTaskEvents((event) => {
@@ -97,18 +68,6 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	});
 
 	void recoverRunningTasks();
-	// 重启后根据持久化的 meta.pausedAt 重建调度器内存级 paused 集合，
-	// 避免应用重启后用户原本暂停的项目又被自动调度。
-	void (async () => {
-		try {
-			const projects = await loadProjects();
-			for (const p of projects) {
-				if (p.pausedAt) pauseProjectScheduling(p.id);
-			}
-		} catch (err) {
-			console.warn(`[BatchTaskIPC] recover paused projects failed: ${(err as Error).message}`);
-		}
-	})();
 
 	ipcMain.handle(CHANNELS.GET_PROJECTS, async () => {
 		console.log(`[BatchTaskIPC] GET_PROJECTS`);
@@ -202,24 +161,17 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		enqueueRunTask(project, task, runtime);
 	});
 
-	ipcMain.handle(CHANNELS.PAUSE_TASK, async (_, projectId: string, taskId: string) => {
-		console.log(`[BatchTaskIPC] PAUSE_TASK: project=${projectId}, task=${taskId}`);
-		await pauseTaskExecutor(projectId, taskId, getRuntime());
-	});
-
-	ipcMain.handle(CHANNELS.RESUME_TASK, async (_, projectId: string, taskId: string) => {
-		console.log(`[BatchTaskIPC] RESUME_TASK: project=${projectId}, task=${taskId}`);
+	// "取消等待 / 中断单任务"：对一个 queued 或 running 的任务执行 abort + 清理，
+	// 让它回到「未执行」状态。和 BATCH_STOP 的单任务版本语义一致。
+	ipcMain.handle(CHANNELS.STOP_TASK, async (_, projectId: string, taskId: string) => {
+		console.log(`[BatchTaskIPC] STOP_TASK: project=${projectId}, task=${taskId}`);
 		const project = await getProject(projectId);
-		if (!project) {
-			console.warn(`[BatchTaskIPC] RESUME_TASK: project ${projectId} not found`);
-			return;
-		}
+		if (!project) return;
 		const task = project.tasks.find((t) => t.id === taskId);
-		if (!task) {
-			console.warn(`[BatchTaskIPC] RESUME_TASK: task ${taskId} not found`);
-			return;
-		}
-		enqueueResumeTask(project, task, getRuntime());
+		if (!task) return;
+		const runtime = getRuntime();
+		await cleanTaskFilesAndState(projectId, task, runtime);
+		emitBatchTaskEvent({ type: "task.reset", projectId, taskId });
 	});
 
 	ipcMain.handle(CHANNELS.DELETE_TASK, async (_, projectId: string, taskId: string) => {
@@ -234,143 +186,6 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		await deleteTaskState(projectId, taskId);
 	});
 
-	ipcMain.handle(CHANNELS.BATCH_RETRY_FAILED, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_RETRY_FAILED: project=${projectId}`);
-		const project = await getProject(projectId);
-		if (!project) return;
-
-		const failedTasks = project.tasks.filter((t) => t.status === "failed");
-		if (failedTasks.length === 0) {
-			console.log(`[BatchTaskIPC] BATCH_RETRY_FAILED: no failed tasks in ${projectId}`);
-			return;
-		}
-		// 用户主动要求"批量重试失败"，覆盖原有项目暂停意图；否则 enqueueRunTask
-		// 都会被 paused gate 静默 skip。
-		await clearProjectPausedFlag(projectId);
-		console.log(`[BatchTaskIPC] BATCH_RETRY_FAILED: retrying ${failedTasks.length} tasks`);
-		const runtime = getRuntime();
-		for (const task of failedTasks) {
-			await cleanTaskFilesAndState(projectId, task, runtime);
-			enqueueRunTask(project, task, runtime);
-		}
-	});
-
-	// 与 BATCH_RETRY_FAILED 的差别：先把所有失败任务一次性清理为 pending（UI
-	// 上立刻看到失败标记消失），再交给调度器按并发执行。RETRY_FAILED 是逐个清
-	// 理后立即入队，所以排队中的失败任务在 UI 上会一直显示"失败"直到轮到它。
-	ipcMain.handle(CHANNELS.BATCH_CLEAR_FAILED_AND_RETRY, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: project=${projectId}`);
-		const project = await getProject(projectId);
-		if (!project) return;
-
-		const failedTasks = project.tasks.filter((t) => t.status === "failed");
-		if (failedTasks.length === 0) {
-			console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: no failed tasks in ${projectId}`);
-			return;
-		}
-		// 清失败 + 重试：同样覆盖项目暂停意图，避免 enqueueRunTask 被 paused gate skip。
-		await clearProjectPausedFlag(projectId);
-		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED_AND_RETRY: resetting ${failedTasks.length} tasks then retrying`);
-		const runtime = getRuntime();
-
-		await Promise.all(
-			failedTasks.map(async (task) => {
-				await cleanTaskFilesAndState(projectId, task, runtime);
-				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
-			}),
-		);
-
-		for (const task of failedTasks) {
-			enqueueRunTask(project, task, runtime);
-		}
-	});
-
-	// 仅清空失败任务的状态与产物，不重新执行。失败任务的 session、task-state、
-	// 工作目录会被并行清理，UI 立即收到 task.reset 把状态重置为 pending。
-	ipcMain.handle(CHANNELS.BATCH_CLEAR_FAILED, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED: project=${projectId}`);
-		const project = await getProject(projectId);
-		if (!project) return;
-
-		const failedTasks = project.tasks.filter((t) => t.status === "failed");
-		if (failedTasks.length === 0) {
-			console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED: no failed tasks in ${projectId}`);
-			return;
-		}
-		console.log(`[BatchTaskIPC] BATCH_CLEAR_FAILED: clearing ${failedTasks.length} tasks`);
-		const runtime = getRuntime();
-
-		await Promise.all(
-			failedTasks.map(async (task) => {
-				await cleanTaskFilesAndState(projectId, task, runtime);
-				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
-			}),
-		);
-	});
-
-	ipcMain.handle(CHANNELS.BATCH_PAUSE, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_PAUSE: project=${projectId}`);
-		const project = await getProject(projectId);
-		if (!project) return;
-		// 1. 持久化项目级 paused 标志（重启后保持暂停）。
-		const pausedAt = Date.now();
-		await setProjectPaused(projectId, pausedAt);
-		// 2. 进入内存级 paused 集合，并清空内存 pending 队列：
-		//    阻断 worker 完成后通过 drainQueue 替补出新任务的链路。
-		const dequeued = pauseProjectScheduling(projectId);
-		// 3. 把被赶出队列的任务持久化为 "paused"，让 BATCH_RESUME 凭
-		//    status === "paused" 一次性重启它们；同时跟"从未启动过"的
-		//    pending 任务区分开，避免恢复时误启动用户根本没让它跑过的。
-		const now = Date.now();
-		for (const { task } of dequeued) {
-			const state: BatchTaskState = {
-				taskId: task.id,
-				status: "paused",
-				sessionId: task.sessionId,
-				sessionPath: task.sessionPath,
-				executionMode: task.executionMode,
-				lastModified: now,
-			};
-			await saveTaskState(projectId, task.id, state);
-			emitBatchTaskEvent({ type: "task.paused", projectId, taskId: task.id });
-		}
-		// 4. 逐个 abort 当前 running 的任务，标记为 paused（pauseTaskExecutor 内部处理）。
-		const runtime = getRuntime();
-		for (const task of project.tasks) {
-			if (task.status === "running") {
-				await pauseTaskExecutor(projectId, task.id, runtime);
-			}
-		}
-		// 5. 通知 renderer 项目已暂停。
-		emitBatchTaskEvent({ type: "project.paused", projectId, pausedAt });
-	});
-
-	ipcMain.handle(CHANNELS.BATCH_RESUME, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_RESUME: project=${projectId}`);
-		// 1. 清持久化标志，再清内存集合，让调度器重新接受 enqueue / drain。
-		await setProjectPaused(projectId, undefined);
-		resumeProjectScheduling(projectId);
-		// 2. 重新读 project：暂停期间 task 状态可能已被外部 IPC 改动。
-		const project = await getProject(projectId);
-		if (!project) {
-			emitBatchTaskEvent({ type: "project.resumed", projectId });
-			return;
-		}
-		const runtime = getRuntime();
-		// 3. 仅重启 status === "paused" 的任务（包括被 abort 的 running 和被
-		//    赶出队列的 pending）。从未执行过的 pending 保持原状，留给"执行
-		//    全部 (未执行)"按钮处理，避免恢复时把用户根本没启动过的任务带跑。
-		for (const task of project.tasks) {
-			if (task.status !== "paused") continue;
-			if (task.sessionId) {
-				enqueueResumeTask(project, task, runtime);
-			} else {
-				enqueueRunTask(project, task, runtime);
-			}
-		}
-		emitBatchTaskEvent({ type: "project.resumed", projectId });
-	});
-
 	ipcMain.handle(CHANNELS.BATCH_DELETE, async (_, projectId: string) => {
 		console.log(`[BatchTaskIPC] BATCH_DELETE: project=${projectId}`);
 		const project = await getProject(projectId);
@@ -383,43 +198,66 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 	});
 
-	ipcMain.handle(CHANNELS.BATCH_RUN_NEVER_EXECUTED, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_RUN_NEVER_EXECUTED: project=${projectId}`);
+	// "开始"按钮：把所有未执行（status === pending 且无 session）的任务一次性
+	// 按并发数入队执行。已完成 / 运行中 / 失败 / 等待中的任务保持不变。
+	ipcMain.handle(CHANNELS.BATCH_START, async (_, projectId: string) => {
+		console.log(`[BatchTaskIPC] BATCH_START: project=${projectId}`);
 		const project = await getProject(projectId);
 		if (!project) return;
 
 		const pendingTasks = project.tasks.filter((t) => t.status === "pending" && !t.sessionId);
 		if (pendingTasks.length === 0) {
-			console.log(`[BatchTaskIPC] BATCH_RUN_NEVER_EXECUTED: no pending tasks in ${projectId}`);
+			console.log(`[BatchTaskIPC] BATCH_START: no pending tasks in ${projectId}`);
 			return;
 		}
-		// 用户主动点"执行全部"，覆盖项目暂停意图——否则所有 enqueueRunTask
-		// 会被 paused gate 静默 skip，UI 看不出任何反应。
-		await clearProjectPausedFlag(projectId);
-		console.log(`[BatchTaskIPC] BATCH_RUN_NEVER_EXECUTED: running ${pendingTasks.length} tasks`);
+		console.log(`[BatchTaskIPC] BATCH_START: running ${pendingTasks.length} tasks`);
 		const runtime = getRuntime();
 		for (const task of pendingTasks) {
 			enqueueRunTask(project, task, runtime);
 		}
 	});
 
-	ipcMain.handle(CHANNELS.BATCH_RESTART_ALL, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_RESTART_ALL: project=${projectId}`);
+	// "停止"按钮：中断所有运行中的任务、清空调度器排队、并把所有非「已完成」
+	// 任务的 session、task-state、工作目录产物全部清空，状态重置为「未执行」。
+	// 已完成任务保留。完成后队列只剩「已完成」和「未执行」两种状态。
+	ipcMain.handle(CHANNELS.BATCH_STOP, async (_, projectId: string) => {
+		console.log(`[BatchTaskIPC] BATCH_STOP: project=${projectId}`);
 		const project = await getProject(projectId);
 		if (!project) return;
 
-		// "全部重新开始"是项目级大重置，自然覆盖暂停意图。
-		await clearProjectPausedFlag(projectId);
+		const targets = project.tasks.filter((t) => t.status !== "completed");
+		if (targets.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_STOP: nothing to stop in ${projectId}`);
+			return;
+		}
+		console.log(`[BatchTaskIPC] BATCH_STOP: stopping ${targets.length} tasks`);
 		const runtime = getRuntime();
 
-		// 1. Pause all running tasks
+		// 1. 先中断所有 running / queued 的任务（cleanTaskFilesAndState 内部会做）。
+		// 2. 删 session、task-state、工作目录产物，让 UI 立刻回到「未执行」。
+		await Promise.all(
+			targets.map(async (task) => {
+				await cleanTaskFilesAndState(projectId, task, runtime);
+				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
+			}),
+		);
+	});
+
+	// "重置"按钮：项目级硬重置。删除所有任务（含已完成）的会话和文件，
+	// 然后按并发数依次重新执行全部任务。
+	ipcMain.handle(CHANNELS.BATCH_RESET, async (_, projectId: string) => {
+		console.log(`[BatchTaskIPC] BATCH_RESET: project=${projectId}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+
+		const runtime = getRuntime();
+
 		for (const task of project.tasks) {
-			if (isTaskRunning(task.id)) {
-				await pauseTaskExecutor(projectId, task.id, runtime);
+			if (isTaskRunning(task.id) || isTaskQueued(task.id)) {
+				await abortTaskExecutor(projectId, task.id, runtime);
 			}
 		}
 
-		// 2. Delete all session files via runtime
 		for (const task of project.tasks) {
 			if (task.sessionPath) {
 				try {
@@ -430,51 +268,15 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 			}
 		}
 
-		// 3. Clear task states cache
 		await clearAllTaskStates(projectId);
-
-		// 4. Delete all item directories, sessions, task-states.json; keep meta.json; rebuild empty item dirs
 		await resetProjectFiles(projectId);
 
-		// 5. Re-load project (now all tasks are pending) and run all
 		const refreshedProject = await getProject(projectId);
 		if (!refreshedProject) return;
-		console.log(`[BatchTaskIPC] BATCH_RESTART_ALL: restarting ${refreshedProject.tasks.length} tasks`);
+		console.log(`[BatchTaskIPC] BATCH_RESET: restarting ${refreshedProject.tasks.length} tasks`);
 		for (const task of refreshedProject.tasks) {
 			enqueueRunTask(refreshedProject, task, runtime);
 		}
-	});
-
-	// 仅保留已完成（completed）的任务原样不动；其他所有任务（pending / paused /
-	// failed，含从未跑过的 pending）的 session、task-state 和工作目录产物全部
-	// 清空，状态重置为"未执行"。运行中（含调度器排队中）的任务存在时直接拒绝。
-	ipcMain.handle(CHANNELS.BATCH_CLEAR_UNFINISHED, async (_, projectId: string) => {
-		console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: project=${projectId}`);
-		const project = await getProject(projectId);
-		if (!project) return;
-
-		if (project.tasks.some((t) => isTaskRunning(t.id) || isTaskQueued(t.id))) {
-			console.warn(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: project has running/queued tasks, skip`);
-			return;
-		}
-
-		const targets = project.tasks.filter((t) => t.status !== "completed");
-		if (targets.length === 0) {
-			console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: nothing to clear in ${projectId}`);
-			return;
-		}
-		// "清空队列状态"语义是项目回到全新状态，包括取消项目级暂停标志。
-		// 否则用户清空后再点"执行全部"，所有 enqueue 仍会被 paused gate skip。
-		await clearProjectPausedFlag(projectId);
-		console.log(`[BatchTaskIPC] BATCH_CLEAR_UNFINISHED: clearing ${targets.length} tasks`);
-		const runtime = getRuntime();
-
-		await Promise.all(
-			targets.map(async (task) => {
-				await cleanTaskFilesAndState(projectId, task, runtime);
-				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
-			}),
-		);
 	});
 
 	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_, sessionPath: string) => {
@@ -490,18 +292,12 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.DELETE_PROJECT);
 		ipcMain.removeHandler(CHANNELS.RUN_TASK);
 		ipcMain.removeHandler(CHANNELS.RETRY_TASK);
-		ipcMain.removeHandler(CHANNELS.PAUSE_TASK);
-		ipcMain.removeHandler(CHANNELS.RESUME_TASK);
+		ipcMain.removeHandler(CHANNELS.STOP_TASK);
 		ipcMain.removeHandler(CHANNELS.DELETE_TASK);
-		ipcMain.removeHandler(CHANNELS.BATCH_RETRY_FAILED);
-		ipcMain.removeHandler(CHANNELS.BATCH_CLEAR_FAILED_AND_RETRY);
-		ipcMain.removeHandler(CHANNELS.BATCH_CLEAR_FAILED);
-		ipcMain.removeHandler(CHANNELS.BATCH_PAUSE);
-		ipcMain.removeHandler(CHANNELS.BATCH_RESUME);
 		ipcMain.removeHandler(CHANNELS.BATCH_DELETE);
-		ipcMain.removeHandler(CHANNELS.BATCH_RUN_NEVER_EXECUTED);
-		ipcMain.removeHandler(CHANNELS.BATCH_RESTART_ALL);
-		ipcMain.removeHandler(CHANNELS.BATCH_CLEAR_UNFINISHED);
+		ipcMain.removeHandler(CHANNELS.BATCH_START);
+		ipcMain.removeHandler(CHANNELS.BATCH_STOP);
+		ipcMain.removeHandler(CHANNELS.BATCH_RESET);
 		ipcMain.removeHandler(CHANNELS.DELETE_SESSION);
 	};
 }

@@ -45,7 +45,6 @@ function progressBar(done: number, total: number, width = 20): string {
 interface StatusCounts {
 	pending: number;
 	running: number;
-	paused: number;
 	completed: number;
 	failed: number;
 	total: number;
@@ -55,7 +54,6 @@ function countStatuses(tasks: BatchTask[]): StatusCounts {
 	const counts: StatusCounts = {
 		pending: 0,
 		running: 0,
-		paused: 0,
 		completed: 0,
 		failed: 0,
 		total: tasks.length,
@@ -70,7 +68,6 @@ const STATUS_ROWS: readonly { key: keyof Omit<StatusCounts, "total">; label: str
 	{ key: "completed", label: "✅ 成功" },
 	{ key: "failed", label: "❌ 失败" },
 	{ key: "running", label: "🔄 运行中" },
-	{ key: "paused", label: "⏸ 暂停" },
 	{ key: "pending", label: "⏳ 待执行" },
 ];
 
@@ -190,13 +187,12 @@ interface ProjectSummaryContext {
 /**
  * Decide whether the project as a whole has reached a terminal state. We
  * consider the project "done" when there is at least one finished task AND no
- * tasks are still pending / running. Paused tasks count as "not done" — the
- * user explicitly paused them and likely intends to resume.
+ * tasks are still pending / running.
  */
 export function isProjectFinished(tasks: BatchTask[]): boolean {
 	const counts = countStatuses(tasks);
 	if (counts.total === 0) return false;
-	if (counts.pending + counts.running + counts.paused > 0) return false;
+	if (counts.pending + counts.running > 0) return false;
 	return counts.completed + counts.failed > 0;
 }
 

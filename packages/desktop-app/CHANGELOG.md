@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Breaking Changes
+
+- **批量任务状态模型简化为 4 态、项目级控制按钮重做**：`BatchTaskStatus` 联合类型移除 `"paused"`，新模型仅保留 `pending / running / completed / failed`（UI 上 pending+queued 仍展示为「等待中」，pending+无 session 展示为「未执行」）。`BatchProject.pausedAt` 字段、调度器 `pausedProjects` 集合、`pauseProjectScheduling` / `resumeProjectScheduling`、project 级 paused/resumed 事件全部下线。项目 banner 仅保留两个执行控制按钮——「开始 / 停止」合二为一的 toggle（队列活动态即 `running > 0` 或存在 queued 任务时显示「停止」并执行 abort + 清非已完成；空闲态显示「开始」，按并发把所有未执行入队，无未执行时 disabled），以及独立的「重置」（删全部 session 包括已完成重跑）；不再有「批量暂停 / 批量继续 / 批量重试失败下拉 / 清空队列状态」。单任务 hover 操作移除「暂停 / 继续」，仅保留「执行 / 重试 / 取消等待 / 删除」。后端 IPC `BATCH_PAUSE` / `BATCH_RESUME` / `PAUSE_TASK` / `RESUME_TASK` / `BATCH_RETRY_FAILED` / `BATCH_CLEAR_FAILED_AND_RETRY` / `BATCH_CLEAR_FAILED` / `BATCH_RUN_NEVER_EXECUTED` / `BATCH_RESTART_ALL` / `BATCH_CLEAR_UNFINISHED` 通道全部删除，对应 preload API（`batchPause` / `batchResume` / `pauseTask` / `resumeTask` / `batchRetryFailed` / `batchClearFailedAndRetry` / `batchClearFailed` / `batchRunNeverExecuted` / `batchRestartAll` / `batchClearUnfinished`）一并下线；新增 `BATCH_START` / `BATCH_STOP` / `BATCH_RESET` / `STOP_TASK` 通道，对应 `batchStart` / `batchStop` / `batchReset` / `stopTask`。executor 的 `pauseTask` 重命名为 `abortTask`（不再写持久化状态），停止流由 IPC 层 `cleanTaskFilesAndState` 统一收尾。`task.paused` / `task.resumed` / `project.paused` / `project.resumed` 事件类型从 `BatchTaskEvent` 联合中删除，renderer hook 不再监听。`.vetta/meta.json` 的 `pausedAt` 字段在 `readProjectMeta` 中静默剥离；`.vetta/task-states.json` 中 `status === "paused"` 的子任务在 `loadProjectTaskStates` 中静默迁移为 `pending`。详情页 `BatchQueueStatus` 也同步重构：移除 `isQueuePaused` 横幅 / 单任务 pause/resume 按钮 / 「暂停队列 / 继续 / 重试失败」按钮，对齐 banner 的「开始 / 停止 / 重置」三键模式。webhook 通知模板 `STATUS_ROWS` 与 `isProjectFinished` 删除 paused 行/分支。
+
 ### Added
 
 - **批量重试失败下拉新增「仅清除失败状态」**：在原有「重试失败」/「清除失败状态并重试」基础上加入第三项，把所有失败任务的会话、task-state 与工作目录并行清理并广播 `task.reset` 事件把 UI 重置为未执行，但**不**触发重新运行——适合先批量清空再人工筛选哪些任务真要重跑的场景。新增 IPC `vetta:batch-tasks:batch-clear-failed` 与 preload `batchClearFailed`，复用既有的 `cleanTaskFilesAndState` + `task.reset` 通路。

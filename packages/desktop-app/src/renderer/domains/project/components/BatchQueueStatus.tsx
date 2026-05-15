@@ -11,7 +11,6 @@ function statusLabel(status: BatchTask["status"], hasSession: boolean): string {
 	}
 	const labels: Record<Exclude<BatchTask["status"], "pending">, string> = {
 		running: "运行中",
-		paused: "已暂停",
 		completed: "已完成",
 		failed: "失败",
 	};
@@ -42,82 +41,64 @@ interface BatchQueueStatusProps {
 
 export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const { runTask, pauseTask, resumeTask, batchRetryFailed, batchPause, batchResume, batchRunNeverExecuted, batchRestartAll } =
-		useBatchTasks();
+	const { runTask, stopTask, batchStart, batchStop, batchReset } = useBatchTasks();
 
 	const [searchQuery, setSearchQuery] = useState("");
 	const normalizedQuery = searchQuery.trim().toLowerCase();
 	const queuedTaskIds = useAtomValue(batchQueuedTaskIdsAtom);
 	const tasks = project.tasks;
 	const filteredTasks = useMemo(
-		() =>
-			normalizedQuery
-				? tasks.filter((t) => t.name.toLowerCase().includes(normalizedQuery))
-				: tasks,
+		() => (normalizedQuery ? tasks.filter((t) => t.name.toLowerCase().includes(normalizedQuery)) : tasks),
 		[tasks, normalizedQuery],
 	);
 	const total = tasks.length;
 	const completed = tasks.filter((t) => t.status === "completed").length;
 	const running = tasks.filter((t) => t.status === "running").length;
 	const failed = tasks.filter((t) => t.status === "failed").length;
-	const paused = tasks.filter((t) => t.status === "paused").length;
 	const neverExecuted = tasks.filter((t) => t.status === "pending" && !t.sessionId).length;
+	const nonCompleted = total - completed;
 	const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-	const isQueuePaused = !!project.pausedAt;
 
-	const handleBatchRunNeverExecuted = () => {
+	const handleBatchStart = () => {
 		if (neverExecuted === 0) return;
 		setConfirm({
-			title: "确认执行所有未执行的任务",
-			message: `将执行 ${neverExecuted} 个未执行的任务，是否继续？`,
-			confirmLabel: "执行",
+			title: "确认开始执行",
+			message: `将按并发数依次执行 ${neverExecuted} 个「未执行」任务，是否继续？`,
+			confirmLabel: "开始",
 			onConfirm: async () => {
-				await batchRunNeverExecuted(project.id);
+				await batchStart(project.id);
 			},
 		});
 	};
 
-	const handleBatchPause = () => {
-		if (isQueuePaused) return;
+	const handleBatchStop = () => {
+		if (nonCompleted === 0) return;
 		setConfirm({
-			title: "确认暂停队列",
-			message:
-				running > 0
-					? `将暂停整个队列：当前运行中的 ${running} 个任务会被中断，排队中的任务也会停止调度。是否继续？`
-					: "将暂停整个队列：排队中的任务会停止调度，已完成的任务不受影响。是否继续？",
-			confirmLabel: "暂停队列",
-			onConfirm: async () => {
-				await batchPause(project.id);
-			},
-		});
-	};
-
-	const handleBatchResume = async () => {
-		if (!isQueuePaused && paused === 0) return;
-		await batchResume(project.id);
-	};
-
-	const handleBatchRetry = () => {
-		if (failed === 0) return;
-		setConfirm({
-			title: "确认重试失败的任务",
-			message: `将重新执行 ${failed} 个失败的任务，是否继续？`,
-			confirmLabel: "重试",
-			onConfirm: async () => {
-				await batchRetryFailed(project.id);
-			},
-		});
-	};
-
-	const handleBatchRestartAll = () => {
-		setConfirm({
-			title: "确认全部重新开始",
-			message: `将删除所有任务的会话和文件，然后重新执行全部 ${total} 个任务。此操作不可撤回，是否继续？`,
-			confirmLabel: "全部重新开始",
+			title: "确认停止",
+			message: [
+				`将中断所有运行中的任务（${running} 个），并清空除「已完成」之外的所有任务（${nonCompleted} 个）的会话、产物和状态，重置为「未执行」。`,
+				"",
+				"保留：已完成任务的会话、产物和状态。",
+				"已完成任务保留，此操作不可撤回。",
+			].join("\n"),
+			confirmLabel: "停止",
 			cancelLabel: "取消",
 			variant: "danger",
 			onConfirm: async () => {
-				await batchRestartAll(project.id);
+				await batchStop(project.id);
+			},
+		});
+	};
+
+	const handleBatchReset = () => {
+		setConfirm({
+			title: "确认重置",
+			message: `将删除所有任务的会话和文件（包含已完成），然后重新执行全部 ${total} 个任务。此操作不可撤回，是否继续？`,
+			confirmLabel: "重置",
+			cancelLabel: "取消",
+			variant: "danger",
+			onConfirm: async () => {
+				await batchReset(project.id);
 			},
 		});
 	};
@@ -126,19 +107,8 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 		await runTask(project.id, taskId);
 	};
 
-	const handlePauseTask = (task: BatchTask) => {
-		setConfirm({
-			title: "确认暂停任务",
-			message: "任务将暂停执行，是否继续？",
-			confirmLabel: "暂停",
-			onConfirm: async () => {
-				await pauseTask(project.id, task.id);
-			},
-		});
-	};
-
-	const handleResumeTask = async (taskId: string) => {
-		await resumeTask(project.id, taskId);
+	const handleStopTask = async (taskId: string) => {
+		await stopTask(project.id, taskId);
 	};
 
 	const handleGoToSession = (task: BatchTask) => {
@@ -151,12 +121,6 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 		<div className="flex flex-col gap-5">
 			{/* Progress overview */}
 			<div className="rounded-2xl border border-border/40 bg-gradient-to-b from-accent/30 to-transparent p-5">
-				{isQueuePaused && (
-					<div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-600 dark:text-amber-400">
-						<span className="icon-[mdi--pause-circle-outline] h-4 w-4 shrink-0" />
-						<span>队列已暂停。请先点「恢复队列」才能执行、重试或重新开始任务。</span>
-					</div>
-				)}
 				{/* Progress bar */}
 				<div className="mb-4">
 					<div className="mb-2 flex items-end justify-between">
@@ -187,45 +151,28 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 
 				{/* Batch actions */}
 				<div className="mt-4 flex items-center gap-1.5">
-					<QueueActionButton
-						icon="icon-[mdi--rocket-launch-outline]"
-						label={`执行全部 (${neverExecuted})`}
-						onClick={handleBatchRunNeverExecuted}
-						disabled={isQueuePaused || neverExecuted === 0}
-					/>
-					<QueueActionButton
-						icon="icon-[mdi--play]"
-						label={isQueuePaused ? `恢复队列 (${paused})` : `继续 (${paused})`}
-						onClick={() => void handleBatchResume()}
-						disabled={!isQueuePaused && paused === 0}
-					/>
-					<QueueActionButton
-						icon="icon-[mdi--restart]"
-						label={`重试失败 (${failed})`}
-						onClick={handleBatchRetry}
-						disabled={isQueuePaused || failed === 0}
-					/>
-					<QueueActionButton
-						icon="icon-[mdi--pause]"
-						label={isQueuePaused ? "已暂停" : `暂停队列 (${running})`}
-						onClick={handleBatchPause}
-						disabled={isQueuePaused || (running === 0 && neverExecuted === 0)}
-					/>
-					<QueueActionButton
-						icon="icon-[mdi--refresh]"
-						label="全部重新开始"
-						onClick={handleBatchRestartAll}
-						disabled={isQueuePaused || total === 0}
-					/>
+					{(() => {
+						const hasQueued = tasks.some((t) => queuedTaskIds.has(t.id));
+						const isActive = running > 0 || hasQueued;
+						return isActive ? (
+							<QueueActionButton icon="icon-[mdi--stop]" label="停止" onClick={handleBatchStop} />
+						) : (
+							<QueueActionButton
+								icon="icon-[mdi--play]"
+								label={`开始 (${neverExecuted})`}
+								onClick={handleBatchStart}
+								disabled={neverExecuted === 0}
+							/>
+						);
+					})()}
+					<QueueActionButton icon="icon-[mdi--refresh]" label="重置" onClick={handleBatchReset} disabled={total === 0} />
 				</div>
 			</div>
 
 			{/* Task list */}
 			<div className="flex flex-col gap-1.5">
 				<div className="mb-1 flex items-center gap-2 px-1">
-					<span className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground/40">
-						任务队列
-					</span>
+					<span className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground/40">任务队列</span>
 					{normalizedQuery && (
 						<span className="text-[11px] text-muted-foreground/50">
 							{filteredTasks.length}/{tasks.length} 匹配
@@ -270,8 +217,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 							task={task}
 							isQueued={queuedTaskIds.has(task.id)}
 							onRun={() => void handleRunTask(task.id)}
-							onPause={() => handlePauseTask(task)}
-							onResume={() => void handleResumeTask(task.id)}
+							onCancelQueued={() => void handleStopTask(task.id)}
 							onGoToSession={() => handleGoToSession(task)}
 						/>
 					))
@@ -344,15 +290,13 @@ function TaskRow({
 	task,
 	isQueued,
 	onRun,
-	onPause,
-	onResume,
+	onCancelQueued,
 	onGoToSession,
 }: {
 	task: BatchTask;
 	isQueued: boolean;
 	onRun: () => void;
-	onPause: () => void;
-	onResume: () => void;
+	onCancelQueued: () => void;
 	onGoToSession: () => void;
 }): JSX.Element {
 	const hasSession = !!task.sessionId;
@@ -365,9 +309,7 @@ function TaskRow({
 				? "bg-emerald-500"
 				: task.status === "failed"
 					? "bg-red-500"
-					: task.status === "paused"
-						? "bg-yellow-500"
-						: "bg-muted-foreground/30";
+					: "bg-muted-foreground/30";
 
 	const label = isQueued ? "等待中" : statusLabel(task.status, hasSession);
 
@@ -430,7 +372,7 @@ function TaskRow({
 						<TooltipTrigger asChild>
 							<button
 								type="button"
-								onClick={onPause}
+								onClick={onCancelQueued}
 								className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
 							>
 								<span className="icon-[mdi--close] h-3.5 w-3.5" />
@@ -451,35 +393,20 @@ function TaskRow({
 						</TooltipTrigger>
 						<TooltipContent>执行</TooltipContent>
 					</Tooltip>
-				) : null}
-				{task.status === "running" && !isQueued && (
+				) : task.status === "failed" ? (
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<button
 								type="button"
-								onClick={onPause}
-								className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
-							>
-								<span className="icon-[mdi--pause] h-3.5 w-3.5" />
-							</button>
-						</TooltipTrigger>
-						<TooltipContent>暂停</TooltipContent>
-					</Tooltip>
-				)}
-				{(task.status === "paused" || task.status === "failed") && (
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<button
-								type="button"
-								onClick={task.status === "paused" ? onResume : onRun}
+								onClick={onRun}
 								className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
 							>
 								<span className="icon-[mdi--restart] h-3.5 w-3.5" />
 							</button>
 						</TooltipTrigger>
-						<TooltipContent>{task.status === "paused" ? "继续" : "重试"}</TooltipContent>
+						<TooltipContent>重试</TooltipContent>
 					</Tooltip>
-				)}
+				) : null}
 			</div>
 		</div>
 	);

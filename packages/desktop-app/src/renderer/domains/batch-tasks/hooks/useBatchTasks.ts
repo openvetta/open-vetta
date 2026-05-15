@@ -95,7 +95,7 @@ export function useBatchTasks() {
 		async (projectId: string) => {
 			const project = projects.find((p) => p.id === projectId);
 			if (project?.tasks.some((t) => t.status === "running")) {
-				throw new Error("请先暂停所有任务");
+				throw new Error("请先点停止");
 			}
 			await window.vetta.batchTasks.deleteProject(projectId);
 			setProjects((prev) => prev.filter((p) => p.id !== projectId));
@@ -127,12 +127,8 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.retryTask(projectId, taskId);
 	}, []);
 
-	const pauseTask = useCallback(async (projectId: string, taskId: string) => {
-		await window.vetta.batchTasks.pauseTask(projectId, taskId);
-	}, []);
-
-	const resumeTask = useCallback(async (projectId: string, taskId: string) => {
-		await window.vetta.batchTasks.resumeTask(projectId, taskId);
+	const stopTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.stopTask(projectId, taskId);
 	}, []);
 
 	const deleteTask = useCallback(
@@ -147,26 +143,6 @@ export function useBatchTasks() {
 		[setProjects],
 	);
 
-	const batchRetryFailed = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchRetryFailed(projectId);
-	}, []);
-
-	const batchClearFailedAndRetry = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchClearFailedAndRetry(projectId);
-	}, []);
-
-	const batchClearFailed = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchClearFailed(projectId);
-	}, []);
-
-	const batchPause = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchPause(projectId);
-	}, []);
-
-	const batchResume = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchResume(projectId);
-	}, []);
-
 	const batchDelete = useCallback(
 		async (projectId: string) => {
 			await window.vetta.batchTasks.batchDelete(projectId);
@@ -179,34 +155,25 @@ export function useBatchTasks() {
 		await window.vetta.batchTasks.deleteSession(sessionPath);
 	}, []);
 
-	const batchRunNeverExecuted = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchRunNeverExecuted(projectId);
+	const batchStart = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchStart(projectId);
 	}, []);
 
-	const batchRestartAll = useCallback(
+	const batchStop = useCallback(async (projectId: string) => {
+		await window.vetta.batchTasks.batchStop(projectId);
+	}, []);
+
+	const batchReset = useCallback(
 		async (projectId: string) => {
-			await window.vetta.batchTasks.batchRestartAll(projectId);
+			await window.vetta.batchTasks.batchReset(projectId);
 			await refreshProjects();
 		},
 		[refreshProjects],
 	);
 
-	const batchClearUnfinished = useCallback(async (projectId: string) => {
-		await window.vetta.batchTasks.batchClearUnfinished(projectId);
-	}, []);
-
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
 			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, event);
-
-			// 项目级事件单独处理：只更新 BatchProject.pausedAt，不涉及 task.id。
-			if (event.type === "project.paused" || event.type === "project.resumed") {
-				const pausedAt = event.type === "project.paused" ? event.pausedAt : undefined;
-				setProjects((prev) =>
-					prev.map((p) => (p.id === event.projectId ? { ...p, pausedAt, updatedAt: Date.now() } : p)),
-				);
-				return;
-			}
 
 			// 维护后端调度器排队中的 taskId 集合
 			if (event.type === "task.queued") {
@@ -223,8 +190,6 @@ export function useBatchTasks() {
 				event.type === "task.started" ||
 				event.type === "task.completed" ||
 				event.type === "task.failed" ||
-				event.type === "task.paused" ||
-				event.type === "task.resumed" ||
 				event.type === "task.reset"
 			) {
 				setQueuedTaskIds((prev) => {
@@ -261,12 +226,6 @@ export function useBatchTasks() {
 							if (event.type === "task.failed") {
 								return { ...t, status: "failed" as const, error: event.error };
 							}
-							if (event.type === "task.paused") {
-								return { ...t, status: "paused" as const };
-							}
-							if (event.type === "task.resumed") {
-								return { ...t, status: "running" as const };
-							}
 							if (event.type === "task.reset") {
 								return {
 									...t,
@@ -296,18 +255,12 @@ export function useBatchTasks() {
 		toggleProject,
 		runTask,
 		retryTask,
-		pauseTask,
-		resumeTask,
+		stopTask,
 		deleteTask,
-		batchRetryFailed,
-		batchClearFailedAndRetry,
-		batchClearFailed,
-		batchPause,
-		batchResume,
 		batchDelete,
 		deleteSession,
-		batchRunNeverExecuted,
-		batchRestartAll,
-		batchClearUnfinished,
+		batchStart,
+		batchStop,
+		batchReset,
 	};
 }

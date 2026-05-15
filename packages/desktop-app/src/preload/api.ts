@@ -429,7 +429,7 @@ export interface DesktopFlowingApi {
 	findProjectByFlowingId(flowingId: number, projects: ProjectEntry[]): Promise<string | null>;
 }
 
-export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
+export type BatchTaskStatus = "pending" | "running" | "completed" | "failed";
 
 export interface BatchTask {
 	id: string;
@@ -454,7 +454,6 @@ export interface BatchProject {
 	concurrency: number;
 	artifactPatterns?: string[];
 	notifyEnabled?: boolean;
-	pausedAt?: number;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -471,13 +470,9 @@ export type BatchTaskEvent =
 	  }
 	| { type: "task.completed"; projectId: string; taskId: string }
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
-	| { type: "task.paused"; projectId: string; taskId: string }
-	| { type: "task.resumed"; projectId: string; taskId: string }
 	| { type: "task.reset"; projectId: string; taskId: string }
 	| { type: "task.queued"; projectId: string; taskId: string }
-	| { type: "task.dequeued"; projectId: string; taskId: string }
-	| { type: "project.paused"; projectId: string; pausedAt: number }
-	| { type: "project.resumed"; projectId: string };
+	| { type: "task.dequeued"; projectId: string; taskId: string };
 
 export interface DesktopBatchTasksApi {
 	getProjects(): Promise<BatchProject[]>;
@@ -507,18 +502,12 @@ export interface DesktopBatchTasksApi {
 	deleteProject(projectId: string): Promise<void>;
 	runTask(projectId: string, taskId: string): Promise<void>;
 	retryTask(projectId: string, taskId: string): Promise<void>;
-	pauseTask(projectId: string, taskId: string): Promise<void>;
-	resumeTask(projectId: string, taskId: string): Promise<void>;
+	stopTask(projectId: string, taskId: string): Promise<void>;
 	deleteTask(projectId: string, taskId: string): Promise<void>;
-	batchRetryFailed(projectId: string): Promise<void>;
-	batchClearFailedAndRetry(projectId: string): Promise<void>;
-	batchClearFailed(projectId: string): Promise<void>;
-	batchPause(projectId: string): Promise<void>;
-	batchResume(projectId: string): Promise<void>;
 	batchDelete(projectId: string): Promise<void>;
-	batchRunNeverExecuted(projectId: string): Promise<void>;
-	batchRestartAll(projectId: string): Promise<void>;
-	batchClearUnfinished(projectId: string): Promise<void>;
+	batchStart(projectId: string): Promise<void>;
+	batchStop(projectId: string): Promise<void>;
+	batchReset(projectId: string): Promise<void>;
 	deleteSession(sessionPath: string): Promise<void>;
 	onTaskEvent(handler: (event: BatchTaskEvent) => void): () => void;
 }

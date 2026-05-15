@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { discoverBatchProjects } from "./batch-task-storage";
 
-export type BatchTaskStatus = "pending" | "running" | "paused" | "completed" | "failed";
+export type BatchTaskStatus = "pending" | "running" | "completed" | "failed";
 
 export interface BatchTaskState {
 	taskId: string;
@@ -38,6 +38,15 @@ export async function loadProjectTaskStates(projectDir: string): Promise<Project
 		states = JSON.parse(data) as ProjectTaskStates;
 	} catch {
 		// file doesn't exist yet
+	}
+	// 历史数据迁移：老版本可能存在 status === "paused" 的子任务。新模型已废弃
+	// paused 状态，统一在加载时映射为 pending（保留 sessionId 等无副作用字段——
+	// 用户后续通过 banner「停止」会一次性清理，「开始」按未执行的口径处理）。
+	for (const taskId of Object.keys(states)) {
+		const s = states[taskId] as { status: string } & BatchTaskState;
+		if ((s.status as string) === "paused") {
+			s.status = "pending";
+		}
 	}
 	cachedStates.set(projectDir, states);
 	return states;
