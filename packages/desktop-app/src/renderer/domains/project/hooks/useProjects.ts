@@ -1,5 +1,8 @@
 import {
+	DEFAULT_CONVERSATION_PROJECT_NAME,
+	defaultConversationCwdAtom,
 	expandedProjectsAtom,
+	type Project,
 	type ProjectType,
 	projectsAtom,
 	type SessionInfo,
@@ -17,6 +20,7 @@ export function useProjects() {
 	const [sessionsMap, setSessionsMap] = useAtom(sessionsMapAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedProjectsAtom);
 	const workspacePath = useAtomValue(workspacePathAtom);
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
 
 	const loadSessions = useCallback(
 		async (cwd: string) => {
@@ -44,17 +48,33 @@ export function useProjects() {
 				return { ...entry, type, workflowInstanceId, flowingId };
 			}),
 		);
-		setProjects(metaResults);
 
-		// Load sessions for each project
-		for (const project of metaResults) {
+		// 虚拟注入默认「对话」项目，置于最前，且过滤掉用户误手动加入的同名条目。
+		const defaultCwd = config.defaultConversationCwd ?? "";
+		const filtered = defaultCwd ? metaResults.filter((p) => p.cwd !== defaultCwd) : metaResults;
+		const all: Project[] = defaultCwd
+			? [
+					{
+						cwd: defaultCwd,
+						name: DEFAULT_CONVERSATION_PROJECT_NAME,
+						sessionCount: 0,
+						type: "normal" as const,
+						isDefault: true,
+					},
+					...filtered,
+				]
+			: filtered;
+		setProjects(all);
+
+		// Load sessions for each project (含默认项目)
+		for (const project of all) {
 			void loadSessions(project.cwd);
 		}
 
-		if (!didAutoExpand && metaResults.length > 0) {
+		if (!didAutoExpand && all.length > 0) {
 			didAutoExpand = true;
-			setExpandedProjects(new Set<string>([metaResults[0].cwd]));
-			await loadSessions(metaResults[0].cwd);
+			setExpandedProjects(new Set<string>([all[0].cwd]));
+			await loadSessions(all[0].cwd);
 		}
 	}, [setProjects, setExpandedProjects, loadSessions]);
 
@@ -142,16 +162,19 @@ export function useProjects() {
 
 	const removeProject = useCallback(
 		async (cwd: string) => {
+			// 默认「对话」项目不允许从列表中移除。
+			if (cwd === defaultConversationCwd) return;
 			const config = await window.vetta.config.get();
 			config.projects = config.projects.filter((p) => p.path !== cwd);
 			await window.vetta.config.set({ projects: config.projects });
 			await refreshProjects();
 		},
-		[refreshProjects],
+		[refreshProjects, defaultConversationCwd],
 	);
 
 	const archiveProject = useCallback(
 		async (cwd: string) => {
+			if (cwd === defaultConversationCwd) return;
 			const config = await window.vetta.config.get();
 			const entry = config.projects.find((p) => p.path === cwd);
 			config.projects = config.projects.filter((p) => p.path !== cwd);
@@ -162,7 +185,7 @@ export function useProjects() {
 			await window.vetta.config.set({ projects: config.projects, archivedProjects: archived });
 			await refreshProjects();
 		},
-		[refreshProjects],
+		[refreshProjects, defaultConversationCwd],
 	);
 
 	const unarchiveProject = useCallback(
@@ -187,6 +210,7 @@ export function useProjects() {
 	/** Remove project from config AND delete from disk */
 	const deleteProjectFromDisk = useCallback(
 		async (cwd: string) => {
+			if (cwd === defaultConversationCwd) return;
 			const config = await window.vetta.config.get();
 			config.projects = config.projects.filter((p) => p.path !== cwd);
 			const archived = (config.archivedProjects ?? []).filter((p) => p.path !== cwd);
@@ -194,7 +218,7 @@ export function useProjects() {
 			await window.vetta.fs.delete(cwd);
 			await refreshProjects();
 		},
-		[refreshProjects],
+		[refreshProjects, defaultConversationCwd],
 	);
 
 	const deleteSession = useCallback(

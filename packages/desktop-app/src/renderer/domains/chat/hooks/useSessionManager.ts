@@ -490,7 +490,9 @@ export function useSessionManager(): SessionManagerResult {
 	openSessionFnRef.current = openSession;
 
 	const sendMessage = useCallback(async () => {
-		const session = activeSession;
+		// 读 ref 而非 state：允许在同一 tick 内先 openSession 再立即 sendMessage
+		// （例如 NewSessionPage 的"创建会话+发送"组合调用），避免 React 闭包拿到旧 null。
+		const session = activeSessionRef.current ?? activeSession;
 		if (!session?.runtimeId || (!inputValue.trim() && attachedImages.length === 0)) return;
 		const rawText = inputValue.trim();
 		const images = attachedImages.length > 0 ? attachedImages : undefined;

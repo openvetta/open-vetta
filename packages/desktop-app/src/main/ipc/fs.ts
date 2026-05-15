@@ -35,7 +35,11 @@ export interface LinuxSandboxConfigState {
 export interface DesktopConfigSnapshot extends DesktopConfig {
 	sandbox: SandboxCapability;
 	linuxSandbox: LinuxSandboxConfigState;
+	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
+	defaultConversationCwd: string;
 }
+
+const DEFAULT_CONVERSATION_CWD = join(homedir(), ".vetta", "conversation");
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
 const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
@@ -482,10 +486,12 @@ export function registerFsIpc(): () => void {
 		for (const p of config.projects) allowProjectRoot(p.path);
 		for (const p of config.archivedProjects) allowProjectRoot(p.path);
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
+		allowProjectRoot(DEFAULT_CONVERSATION_CWD);
 		return {
 			...config,
 			sandbox: getSandboxCapability(),
 			linuxSandbox: getLinuxSandboxCapability(),
+			defaultConversationCwd: DEFAULT_CONVERSATION_CWD,
 		};
 	});
 

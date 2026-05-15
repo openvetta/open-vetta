@@ -1,16 +1,15 @@
 import { useAtomValue } from "jotai";
 import { activeSessionAtom } from "@shared/store/atoms";
-import { WelcomeScreen } from "@shared/components/WelcomeScreen";
 import { useSessionManager } from "../hooks/useSessionManager";
 import { ChatView } from "./ChatView";
 
-export function ChatPage(): JSX.Element {
+export function ChatPage(): JSX.Element | null {
 	const activeSession = useAtomValue(activeSessionAtom);
 	const { sendMessage, abortMessage } = useSessionManager();
 
-	if (!activeSession) {
-		return <WelcomeScreen />;
-	}
+	// 没有 activeSession 时 RootLayout 的路由守卫会跳到 /new-session/<default>。
+	// 这里返回 null 让本次渲染留白，避免和 Welcome 时代的旧 fallback 同时出现。
+	if (!activeSession) return null;
 
 	return <ChatView onSend={sendMessage} onAbort={abortMessage} />;
 }

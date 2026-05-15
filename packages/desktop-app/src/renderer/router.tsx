@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, createHashHistory } from "@tanstack/react-router";
 import { RootLayout } from "./App";
 import { ChatPage } from "./domains/chat/components/ChatPage";
+import { NewSessionPage } from "./domains/chat/components/NewSessionPage";
 import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
 import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage";
 import { SkillsPage } from "./domains/skills/components/SkillsPage";
@@ -54,6 +55,12 @@ const downloadsRoute = createRoute({
 	component: DownloadsPage,
 });
 
+const newSessionRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/new-session/$cwd",
+	component: NewSessionPage,
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	automationRoute,
@@ -62,6 +69,7 @@ const routeTree = rootRoute.addChildren([
 	settingsTabRoute,
 	projectDetailRoute,
 	downloadsRoute,
+	newSessionRoute,
 ]);
 
 export const router = createRouter({

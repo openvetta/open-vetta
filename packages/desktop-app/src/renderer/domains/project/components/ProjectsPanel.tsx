@@ -1,9 +1,9 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { pathBasename } from "@shared/lib/utils";
+import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, renamingSessionPathAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -69,11 +69,12 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const showBatchGroup = filter === "all" || filter === "batch";
 
+	// 默认「对话」项目独立渲染在最上方，不参与过滤、不和其他项目混排。
+	const defaultProject = useMemo(() => projects.find((p) => p.isDefault), [projects]);
+
 	const filteredProjects = useMemo(() => {
-		// Batch projects are rendered via the dedicated batch group below
-		// (with full task/session detail). Skip them here to avoid double-rendering
-		// since they are also registered in desktop-config.json now.
-		const visible = projects.filter((p) => p.type !== "batch");
+		// 排除：批量项目（下方专用 group 渲染）和默认对话项目（顶部独立块渲染）。
+		const visible = projects.filter((p) => p.type !== "batch" && !p.isDefault);
 		if (filter === "all") return visible;
 		return visible.filter((p) => p.type === filter);
 	}, [projects, filter]);
@@ -92,7 +93,8 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 				if (!wasActive) return;
 				setActiveSession(null);
 				if (currentPath === "/") {
-					void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(projectCwd) } });
+					// 删除当前 active session 后，回到该项目的 NewSession 页，方便立即开始下一段对话。
+					void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(projectCwd) } });
 				}
 			};
 			// Batch-task session: route to batch deleteTask so batchProjectsAtom updates.
@@ -239,18 +241,21 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		[setExpandedBatchProjects],
 	);
 
-	if (filteredProjects.length === 0 && (!showBatchGroup || batchAsProjects.length === 0)) {
-		return (
-			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
-				<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-muted-foreground" />
-				<p className="text-[11px] text-foreground">还没有项目</p>
-				<p className="text-[11px] text-muted-foreground">点击上方 + 新建项目</p>
-			</div>
-		);
-	}
+	const noOtherProjects =
+		filteredProjects.length === 0 && (!showBatchGroup || batchAsProjects.length === 0);
+
+	const defaultExpanded = defaultProject ? expandedProjects.has(defaultProject.cwd) : false;
+	const defaultSessions = defaultProject ? (sessionsMap.get(defaultProject.cwd) ?? []) : [];
 
 	return (
 		<>
+			{noOtherProjects && !defaultProject && (
+				<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
+					<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-muted-foreground" />
+					<p className="text-[11px] text-foreground">还没有项目</p>
+					<p className="text-[11px] text-muted-foreground">点击上方 + 新建项目</p>
+				</div>
+			)}
 			{filteredProjects.map((project) => (
 				<ProjectGroup
 					key={project.cwd}
@@ -261,7 +266,9 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					onExpand={expandProject}
 					onCollapse={collapseProject}
 					onNavigateProject={handleNavigateProject}
-					onNewSession={(cwd) => void onOpenSession(cwd)}
+					onNewSession={(cwd) =>
+						void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(cwd) } })
+					}
 					onSelectSession={(cwd, path) => void onOpenSession(cwd, path)}
 					onRenameSession={handleRenameSession}
 				/>
@@ -287,6 +294,69 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						onRenameSession={handleRenameSession}
 					/>
 				))}
+			{/* 默认「对话」：放在项目列表下方，flat 风格 session 列表（没有文件夹外壳）。 */}
+			{defaultProject && (
+				<div className="mt-2">
+					<div
+						className="group flex w-full items-center gap-1 rounded-md px-2.5 py-[6px] text-left"
+						onContextMenu={(e) => {
+							e.preventDefault();
+							setProjectMenu({ x: e.clientX, y: e.clientY, project: defaultProject });
+						}}
+					>
+						<button
+							type="button"
+							onClick={() =>
+								defaultExpanded ? collapseProject(defaultProject.cwd) : expandProject(defaultProject.cwd)
+							}
+							className="flex min-w-0 flex-1 items-center gap-1 text-left text-[12px] font-medium text-muted-foreground/80 transition-colors hover:text-foreground"
+							title={defaultExpanded ? "折叠" : "展开"}
+						>
+							<span className="truncate">{defaultProject.name ?? "对话"}</span>
+							<span
+								className={cn(
+									"icon-[mdi--chevron-down] h-3.5 w-3.5 shrink-0 transition-transform",
+									defaultExpanded ? "" : "-rotate-90",
+								)}
+							/>
+						</button>
+						<button
+							type="button"
+							title="更多"
+							onClick={(e) => {
+								e.stopPropagation();
+								const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+								setProjectMenu({ x: rect.left, y: rect.bottom + 4, project: defaultProject });
+							}}
+							className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-muted-foreground/60 opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+						>
+							<span className="icon-[mdi--dots-horizontal] h-3.5 w-3.5" />
+						</button>
+						<button
+							type="button"
+							title="新会话"
+							onClick={() =>
+								void navigate({
+									to: "/new-session/$cwd",
+									params: { cwd: encodeURIComponent(defaultProject.cwd) },
+								})
+							}
+							className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+						>
+							<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
+						</button>
+					</div>
+					{defaultExpanded && (
+						<DefaultSessionList
+							cwd={defaultProject.cwd}
+							sessions={defaultSessions}
+							activeSessionPath={activeSession?.sessionPath ?? ""}
+							onSelectSession={(path) => void onOpenSession(defaultProject.cwd, path)}
+							onRenameSession={(path, name) => handleRenameSession(defaultProject.cwd, path, name)}
+						/>
+					)}
+				</div>
+			)}
 			{contextMenu && (
 				<SessionContextMenu
 					x={contextMenu.x}
@@ -308,5 +378,133 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 				/>
 			)}
 		</>
+	);
+}
+
+function relativeTime(timestamp: number): string {
+	const diff = Date.now() - timestamp;
+	const minutes = Math.floor(diff / 60_000);
+	if (minutes < 1) return "刚刚";
+	if (minutes < 60) return `${minutes} 分钟`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} 小时`;
+	const days = Math.floor(hours / 24);
+	if (days < 7) return `${days} 天`;
+	const weeks = Math.floor(days / 7);
+	if (weeks < 5) return `${weeks} 周`;
+	const months = Math.floor(days / 30);
+	if (months < 12) return `${months} 个月`;
+	return `${Math.floor(months / 12)} 年`;
+}
+
+interface DefaultSessionListProps {
+	cwd: string;
+	sessions: SessionInfo[];
+	activeSessionPath: string;
+	onSelectSession: (sessionPath: string) => void;
+	onRenameSession: (sessionPath: string, name: string) => void;
+}
+
+function DefaultSessionList({
+	sessions,
+	activeSessionPath,
+	onSelectSession,
+	onRenameSession,
+}: DefaultSessionListProps): JSX.Element {
+	const sorted = [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt);
+	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
+	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
+
+	if (sorted.length === 0) {
+		return (
+			<p className="px-2.5 py-1.5 text-[11px] text-muted-foreground/60">暂无对话</p>
+		);
+	}
+
+	return (
+		<div className="space-y-px">
+			{sorted.map((session) => {
+				const isActive = activeSessionPath === session.path;
+				const isRenaming = renamingSessionPath === session.path;
+				const label = session.name || session.firstMessage || session.id;
+				return (
+					<button
+						key={session.path}
+						type="button"
+						onClick={() => {
+							if (!isRenaming) onSelectSession(session.path);
+						}}
+						onContextMenu={(e) => {
+							e.preventDefault();
+							setContextMenu({ x: e.clientX, y: e.clientY, session });
+						}}
+						className={cn(
+							"flex w-full items-center gap-2 rounded-md px-2.5 py-[6px] text-left transition-colors duration-100",
+							isActive ? "bg-primary/15 text-primary" : "hover:bg-accent/50",
+						)}
+						title={isRenaming ? undefined : label}
+					>
+						{isRenaming ? (
+							<InlineDefaultRenameInput
+								session={session}
+								onRename={(name) => onRenameSession(session.path, name)}
+								onDone={() => setRenamingSessionPath(null)}
+							/>
+						) : (
+							<>
+								<span
+									className={cn(
+										"min-w-0 flex-1 truncate text-[13px]",
+										isActive ? "font-semibold text-primary" : "text-foreground",
+									)}
+								>
+									{label}
+								</span>
+								<span className="shrink-0 text-[11px] text-muted-foreground">
+									{relativeTime(session.modifiedAt)}
+								</span>
+							</>
+						)}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
+
+function InlineDefaultRenameInput({
+	session,
+	onRename,
+	onDone,
+}: {
+	session: SessionInfo;
+	onRename: (name: string) => void;
+	onDone: () => void;
+}): JSX.Element {
+	const [value, setValue] = useState(session.name || session.firstMessage || session.id);
+	const inputRef = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		inputRef.current?.focus();
+		inputRef.current?.select();
+	}, []);
+	function commit() {
+		const trimmed = value.trim();
+		if (trimmed && trimmed !== (session.name || session.firstMessage || session.id)) {
+			onRename(trimmed);
+		}
+		onDone();
+	}
+	return (
+		<input
+			ref={inputRef}
+			value={value}
+			onChange={(e) => setValue(e.target.value)}
+			onBlur={commit}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") commit();
+				if (e.key === "Escape") onDone();
+			}}
+			className="min-w-0 flex-1 truncate rounded-[3px] border border-input bg-accent/50 text-[13px] text-foreground outline-none"
+		/>
 	);
 }

@@ -1,33 +1,57 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
+import { useParams } from "@tanstack/react-router";
 import type { SkillInfo } from "@preload/api";
-import { authUserAtom, inputValueAtom, selectedSkillAtom } from "@shared/store/atoms";
-import { useProjects } from "@domains/project/hooks/useProjects";
-import { useSessionManager } from "@domains/chat/hooks/useSessionManager";
-import { BotAvatar } from "./BotAvatar";
+import {
+	attachedImagesAtom,
+	authUserAtom,
+	inputValueAtom,
+	mentionedFilesAtom,
+	pageHeaderTitleAtom,
+	projectsAtom,
+	selectedSkillAtom,
+} from "@shared/store/atoms";
+import { BotAvatar } from "@shared/components/BotAvatar";
+import { pathBasename } from "@shared/lib/utils";
+import { InputBar } from "./InputBar";
+import { useSessionManager } from "../hooks/useSessionManager";
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32 };
 const SCENE_PAGE_SIZE = 3;
 const easeOut = [0.16, 1, 0.3, 1] as const;
 
-function makeProjectName(text: string): string {
-	const trimmed = text.trim().replace(/[\\/:*?"<>|]/g, "").slice(0, 16);
-	const stamp = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 12);
-	return trimmed ? `${trimmed}-${stamp}` : `新项目-${stamp}`;
-}
+export function NewSessionPage(): JSX.Element {
+	const { cwd } = useParams({ strict: false }) as { cwd: string };
+	const decodedCwd = decodeURIComponent(cwd);
 
-export function WelcomeScreen(): JSX.Element {
 	const [mounted, setMounted] = useState(false);
-	const [text, setText] = useState("");
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
-	const setInputValue = useSetAtom(inputValueAtom);
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
-	const [creating, setCreating] = useState(false);
-	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const { createProject } = useProjects();
-	const { openSession } = useSessionManager();
+	const setInputValue = useSetAtom(inputValueAtom);
+	const setAttachedImages = useSetAtom(attachedImagesAtom);
+	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
+	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
 	const authUser = useAtomValue(authUserAtom);
+	const projects = useAtomValue(projectsAtom);
+	const { openSession, sendMessage, abortMessage } = useSessionManager();
+
+	const project = projects.find((p) => p.cwd === decodedCwd);
+	const displayName = project?.name ?? pathBasename(decodedCwd);
+
+	// 进入页面时清空上下文输入态，避免从别处带过来未发的内容。
+	useEffect(() => {
+		setInputValue("");
+		setSelectedSkill(null);
+		setMentionedFiles([]);
+		setAttachedImages([]);
+	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages]);
+
+	// 顶栏标题：项目名 · 新会话
+	useEffect(() => {
+		setHeaderTitle(`${displayName} · 新会话`);
+		return () => setHeaderTitle(null);
+	}, [displayName, setHeaderTitle]);
 
 	useEffect(() => {
 		const timer = setTimeout(() => setMounted(true), 30);
@@ -41,41 +65,9 @@ export function WelcomeScreen(): JSX.Element {
 	const scenes = useMemo(() => skills.filter((s) => s.type === "scene"), [skills]);
 	const skillBadges = useMemo(() => skills.filter((s) => s.type === "skill"), [skills]);
 
-	const resize = useCallback(() => {
-		const el = textareaRef.current;
-		if (!el) return;
-		el.style.height = "0";
-		el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
-	}, []);
-
-	useEffect(resize, [text, resize]);
-
-	const canSend = text.trim().length > 0 && !creating;
-
-	const handleSend = useCallback(async () => {
-		if (!canSend) return;
-		setCreating(true);
-		try {
-			setInputValue(text);
-			const name = makeProjectName(text);
-			const cwd = await createProject(name);
-			await openSession(cwd);
-		} finally {
-			setCreating(false);
-		}
-	}, [canSend, text, createProject, openSession, setInputValue]);
-
-	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-		if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-			e.preventDefault();
-			void handleSend();
-		}
-	};
-
 	const handleSelectScene = useCallback(
 		(skill: SkillInfo) => {
 			setSelectedSkill({ name: skill.name, type: skill.type });
-			textareaRef.current?.focus();
 		},
 		[setSelectedSkill],
 	);
@@ -84,10 +76,16 @@ export function WelcomeScreen(): JSX.Element {
 		(skill: SkillInfo) => {
 			const isSelected = selectedSkill?.name === skill.name && selectedSkill?.type === skill.type;
 			setSelectedSkill(isSelected ? null : { name: skill.name, type: skill.type });
-			textareaRef.current?.focus();
 		},
 		[selectedSkill, setSelectedSkill],
 	);
+
+	// 发送：先创建/打开会话（openSession 内部会 navigate('/')），再触发 sendMessage。
+	// sendMessage 现在从 activeSessionRef 读取 session，因此 await 链可以串起来。
+	const handleSend = useCallback(async () => {
+		await openSession(decodedCwd);
+		await sendMessage();
+	}, [decodedCwd, openSession, sendMessage]);
 
 	const greetingTitle = authUser?.nickname
 		? `你好，${authUser.nickname}`
@@ -95,9 +93,6 @@ export function WelcomeScreen(): JSX.Element {
 
 	return (
 		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-background">
-			{/* Drag region */}
-			<div className="drag-region absolute inset-x-0 top-0 z-10 h-12" />
-
 			{/* Primary grid texture, faded toward edges */}
 			<div
 				aria-hidden
@@ -124,15 +119,14 @@ export function WelcomeScreen(): JSX.Element {
 				/>
 			</div>
 
-			{/* Scrollable single column: hero + carousel + badges + input */}
-			<div className="no-drag relative flex flex-1 min-h-0 flex-col items-center overflow-y-auto px-6 pb-6 pt-12">
+			{/* Scrollable upper area: hero + scenes + skill badges */}
+			<div className="no-drag relative flex flex-1 min-h-0 flex-col items-center overflow-y-auto px-6 pb-2 pt-6">
 				<motion.div
 					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 12 }}
 					transition={{ duration: 0.5, ease: easeOut }}
 					className="my-auto flex w-full max-w-3xl flex-col items-center"
 				>
-					{/* Hero: Bot avatar + greeting */}
 					<BotAvatar size="lg" autoplay />
 					<motion.h1
 						initial={{ opacity: 0, y: 8 }}
@@ -151,7 +145,6 @@ export function WelcomeScreen(): JSX.Element {
 						我可以帮助你处理工作，有什么我可以帮你的吗？
 					</motion.p>
 
-					{/* Scene carousel */}
 					{scenes.length > 0 && (
 						<SceneCarousel
 							scenes={scenes}
@@ -160,7 +153,6 @@ export function WelcomeScreen(): JSX.Element {
 						/>
 					)}
 
-					{/* Skill badges */}
 					{skillBadges.length > 0 && (
 						<motion.div
 							initial={{ opacity: 0, y: 8 }}
@@ -202,96 +194,16 @@ export function WelcomeScreen(): JSX.Element {
 							</div>
 						</motion.div>
 					)}
-
-					{/* AI input — inline below badges */}
-					<motion.div
-						initial={{ opacity: 0, y: 8 }}
-						animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
-						transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
-						className="mt-5 w-full rounded-[20px] border border-primary/20 bg-card"
-					>
-					<AnimatePresence initial={false}>
-						{selectedSkill && (
-							<motion.div
-								initial={{ height: 0, opacity: 0 }}
-								animate={{ height: "auto", opacity: 1 }}
-								exit={{ height: 0, opacity: 0 }}
-								transition={{ duration: 0.18 }}
-								className="overflow-hidden"
-							>
-								<div className="px-4 pt-3">
-									<motion.button
-										type="button"
-										onClick={() => setSelectedSkill(null)}
-										initial={{ scale: 0.85, opacity: 0 }}
-										animate={{ scale: 1, opacity: 1 }}
-										exit={{ scale: 0.85, opacity: 0 }}
-										transition={SPRING}
-										className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
-										title="点击移除"
-									>
-										<span
-											className={`${
-												selectedSkill.type === "scene"
-													? "icon-[mdi--movie-open-outline]"
-													: "icon-[mdi--puzzle-outline]"
-											} h-3 w-3`}
-										/>
-										<span className="max-w-[160px] truncate">{selectedSkill.name}</span>
-										<span className="icon-[mdi--close] h-3 w-3 opacity-60" />
-									</motion.button>
-								</div>
-							</motion.div>
-						)}
-					</AnimatePresence>
-
-					<div className="px-4 pt-3 pb-1">
-						<textarea
-							ref={textareaRef}
-							rows={1}
-							autoFocus
-							value={text}
-							onChange={(e) => setText(e.target.value)}
-							onKeyDown={handleKeyDown}
-							placeholder="想让 Vetta 帮你做点什么？"
-							className="w-full resize-none bg-transparent text-[14px] leading-[1.6] text-foreground outline-none placeholder:text-muted-foreground/50"
-							style={{ minHeight: 28, maxHeight: 180 }}
-						/>
-					</div>
-
-					<div className="flex items-center justify-between gap-2 px-3 pb-2.5">
-						<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
-							<span className="icon-[mdi--folder-plus-outline] h-3.5 w-3.5" />
-							<span>发送后将自动创建新项目</span>
-						</div>
-						<motion.button
-							type="button"
-							onClick={() => void handleSend()}
-							disabled={!canSend}
-							whileHover={canSend ? { scale: 1.05, y: -1 } : undefined}
-							whileTap={canSend ? { scale: 0.94 } : undefined}
-							transition={SPRING}
-							className="flex h-8 w-8 items-center justify-center rounded-full transition-shadow disabled:cursor-not-allowed"
-							style={{
-								background: canSend
-									? "var(--primary)"
-									: "color-mix(in srgb, var(--muted-foreground) 18%, transparent)",
-								color: canSend ? "var(--primary-foreground)" : "var(--muted-foreground)",
-								boxShadow: canSend
-									? "0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)"
-									: "none",
-							}}
-							title="发送 (⏎)"
-						>
-							{creating ? (
-								<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
-							) : (
-								<span className="icon-[mdi--arrow-up] h-4 w-4" />
-							)}
-						</motion.button>
-					</div>
-					</motion.div>
 				</motion.div>
+			</div>
+
+			{/* Global InputBar — 与 ChatView 共用同一个组件 */}
+			<div className="relative w-full">
+				<InputBar
+					onSend={handleSend}
+					onAbort={abortMessage}
+					cwdOverride={decodedCwd}
+				/>
 			</div>
 		</div>
 	);
@@ -356,7 +268,7 @@ function SceneCarousel({ scenes, selected, onSelect }: SceneCarouselProps): JSX.
 									onClick={() => onSelect(s)}
 									whileHover={{ y: -3 }}
 									whileTap={{ scale: 0.98 }}
-									transition={{ type: "spring", stiffness: 360, damping: 24 }}
+									transition={SPRING}
 									className={`relative flex w-full flex-col items-start gap-2 overflow-hidden rounded-2xl border p-4 text-left transition-colors sm:w-[calc(50%-6px)] lg:w-[calc(33.333%-8px)] ${
 										active
 											? "border-primary/60 bg-card shadow-[0_12px_30px_-18px_var(--primary)]"
@@ -391,7 +303,6 @@ function SceneCarousel({ scenes, selected, onSelect }: SceneCarouselProps): JSX.
 					</motion.div>
 				</AnimatePresence>
 
-				{/* Hover-revealed prev/next buttons */}
 				{canPrev && (
 					<motion.button
 						type="button"
