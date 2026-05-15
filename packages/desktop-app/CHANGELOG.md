@@ -20,6 +20,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **批量任务页面 UI 紧凑化**：顶部 4 张 StatCard 卡片网格收敛为「新建项目」按钮左侧的内联紧凑 stat strip（总数 / 运行中 / 已完成 / 失败，pill 内分隔线），移除卡片背景与 hover 动画；项目 list 去掉外层卡片框（border + bg-card + 顶部 accent + 内部分隔线全部移除），只保留 header 行 + 进度条 + 任务网格的扁平结构；子任务网格固定 3 列（`sm:grid-cols-2 lg:grid-cols-3`），折叠阈值从 6 提升到 9（3×3 对齐 UI 网格）。子任务 item 去掉边框/ring，背景改 `bg-muted/40` 与主背景区分，padding 收紧到 `px-2.5 py-2`，字号下调（标题 12px / 状态 pill 9px / 时间 10px），不再展示 sourcePath，默认仅显示项目名 + 时间 + 状态 pill；hover 时整张卡片浮一层 `bg-background/70 backdrop-blur` 蒙层，操作按钮（跳转会话 / 执行 / 重试 / 取消等待 / 删除）以圆形 `OverlayActionButton` 居中排列在蒙层正中。失败错误从单独错误条改为时间右侧的内联红色省略式提示（hover 看完整 tooltip）。新增 `sortProjects` / `sortTasks` 两个本地排序函数：项目级与子任务级一律「运行中靠前，其次 createdAt latest」，让正在跑的批次和最近新建的子任务自动浮顶。
+
 - **批量子任务完成消息标题带上项目名**：原标题 `✅ 子任务已完成` / `❌ 子任务失败` 在多项目并行时无法分辨是哪个项目，改为 `[${project.name}] ✅ 子任务已完成`；body 末尾的 `📁 项目：****` 同步去掉 mask 改为真实项目名（标题既已暴露，body 再 mask 已无意义）。子任务名仍以 `****` 脱敏，错误信息与模型 Key 保持原文不变。
 
 - **批量项目汇总消息的失败列表任务名也脱敏**：`buildProjectSummaryMessage` 在 `failed.length > 0` 时输出的 `**失败列表**：- \`${t.name}\`：…` 与子任务消息脱敏规则不一致，按相同规则改为 `- \`****\`：…`，仅保留错误信息原文。汇总标题 / body 项目名维持原样（与子任务消息一致地显示 `project.name`）。
