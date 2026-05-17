@@ -10,6 +10,7 @@ import {
 	type CustomEntry,
 	createAgentSession,
 	type ExtensionUIContext,
+	type ModelRegistry,
 	type SessionInfo,
 	SessionManager,
 } from "@vetta/coding-agent";
@@ -86,6 +87,15 @@ export interface RuntimeHostOptions {
 	 * （env-injected URL）与 SDK 路径（硬编码 URL）"半边大脑"。
 	 */
 	serverUrl?: string;
+	/**
+	 * 进程级共享的 ModelRegistry。注入后每次 createSession 都复用同一份，
+	 * sdk 内部 `if (!options.modelRegistry)` 的远程 fetch 分支就会跳过——
+	 * 第一次发消息不再被 5s 的 `/providers/models.json` 阻塞。
+	 *
+	 * 仍然需要保证模型实时性：见 `createSession` 末尾的 stale-while-revalidate
+	 * 后台刷新，以及 `reloadServerAuth` 在登录/登出时的同步刷新。
+	 */
+	modelRegistry?: ModelRegistry;
 }
 
 export class RuntimeHost implements SessionFacade {
@@ -105,6 +115,7 @@ export class RuntimeHost implements SessionFacade {
 	private readonly linuxBubblewrapPath: string | undefined;
 	private readonly macosSandboxExecPath: string | undefined;
 	private readonly serverUrl: string | undefined;
+	private readonly modelRegistry: ModelRegistry | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
@@ -118,6 +129,7 @@ export class RuntimeHost implements SessionFacade {
 		this.linuxBubblewrapPath = options.linuxBubblewrapPath;
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.serverUrl = options.serverUrl;
+		this.modelRegistry = options.modelRegistry;
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
 	}
@@ -157,11 +169,24 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
-	 * Push a new server token to every active session's ModelRegistry and
-	 * refresh remote models. Call this after login / logout so long-lived
-	 * sessions pick up auth changes without an app restart.
+	 * Push a new server token to the ModelRegistry and refresh remote models.
+	 * Call this after login / logout so long-lived sessions pick up auth changes
+	 * without an app restart.
+	 *
+	 * 共享 modelRegistry 模式（desktop-app）：单点更新，所有 session 立即看到。
+	 * 兼容旧模式（无共享 registry）：遍历每个 session 的 registry。
 	 */
 	async reloadServerAuth(token: string | undefined): Promise<void> {
+		if (this.modelRegistry) {
+			try {
+				this.modelRegistry.setServerToken(token);
+				// 没 token 时 loadRemoteModels 内部直接早退；有 token 时拉一次最新。
+				await this.modelRegistry.loadRemoteModels();
+			} catch (err) {
+				console.warn("[RuntimeHost] reloadServerAuth (shared) failed:", err);
+			}
+			return;
+		}
 		const handles = Array.from(this.sessions.values());
 		await Promise.all(
 			handles.map(async ({ session }) => {
@@ -236,6 +261,9 @@ export class RuntimeHost implements SessionFacade {
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
 			serverUrl: this.serverUrl,
+			// 传入共享 registry，sdk 内部就会跳过它自己的远程 fetch 分支
+			// （sdk.ts: `if (!options.modelRegistry) { ... loadRemoteModels() }`）。
+			modelRegistry: this.modelRegistry,
 		};
 
 		console.log(`[perf][RuntimeHost.createSession] before createAgentSession +${Date.now() - __t0}ms`);
@@ -247,6 +275,16 @@ export class RuntimeHost implements SessionFacade {
 		this.sessions.set(sessionId, { session, executionMode });
 		this.attachInFlightBuffer(sessionId, session);
 		console.log(`[perf][RuntimeHost.createSession] exit total=${Date.now() - __t0}ms`);
+
+		// Stale-while-revalidate：当前的远程 model 数据已就绪可用（来自启动预热
+		// 或上一次刷新），这里再 fire-and-forget 一次刷新，不 await。
+		// - loadRemoteModels 内部对 inflight 做了 dedupe，并发安全；
+		// - 未登录时该方法立即早退，无副作用；
+		// - 任何错误已在 doLoadRemoteModels 内静默吞掉，不会扩散。
+		// 效果：用户每次 createSession 都会触发一次"下一次会更新"的后台刷新。
+		if (this.modelRegistry) {
+			void this.modelRegistry.loadRemoteModels();
+		}
 		return { sessionId };
 	}
 

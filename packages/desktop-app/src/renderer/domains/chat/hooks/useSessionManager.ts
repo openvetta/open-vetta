@@ -150,10 +150,18 @@ export function useSessionManager(): SessionManagerResult {
 			// instead of staring at the old session while history loads.
 			setChatMessages([]);
 
-			void navigate({ to: "/" });
 			__perf("before session.create");
 			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath, executionMode });
 			__perf("after session.create");
+
+			// 拿到 sessionId 就立即写 activeSession 并 navigate，让用户尽快看到 ChatView。
+			// 真实 sessionPath 解析（可能还要再走一次 IPC）放到后面，等好了再补一次写入。
+			// 这样 Welcome → Chat 的转场就不会被 getFullHistory / getState / getSessionPath
+			// 的串行 IPC 拖住，体感保持瞬时。
+			const earlySessionInfo = { cwd, sessionPath: sessionPath ?? "", runtimeId: sessionId };
+			setActiveSession(earlySessionInfo);
+			activeSessionRef.current = earlySessionInfo;
+			void navigate({ to: "/" });
 
 			// Fire history + state in parallel so renderer doesn't wait on two
 			// sequential IPC round-trips. History is rendered as soon as it lands;
@@ -237,9 +245,13 @@ export function useSessionManager(): SessionManagerResult {
 				setTurnStartTime(startedAt);
 			}
 
-			const sessionInfo = { cwd, sessionPath: cachedKey, runtimeId: sessionId };
-			setActiveSession(sessionInfo);
-			activeSessionRef.current = sessionInfo;
+			// 补一次写入：把解析好的真实 sessionPath 落到 activeSession 上。
+			// （早写入用的是 sessionPath ?? ""，对新 session 是空串。）
+			if (cachedKey !== earlySessionInfo.sessionPath) {
+				const sessionInfo = { cwd, sessionPath: cachedKey, runtimeId: sessionId };
+				setActiveSession(sessionInfo);
+				activeSessionRef.current = sessionInfo;
+			}
 
 			__perf("before session.subscribe");
 			// ─── Subscribe to live session events ───

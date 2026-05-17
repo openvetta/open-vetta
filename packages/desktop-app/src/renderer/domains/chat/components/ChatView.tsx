@@ -130,18 +130,9 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 							: "flex min-w-0 flex-1 flex-col"
 					}
 				>
-					{messages.length === 0 ? (
-						<div className="flex flex-1 flex-col items-center justify-center gap-3">
-							<div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted">
-								<span className="icon-[mdi--chat-outline] h-5 w-5 text-muted-foreground/50" />
-							</div>
-							<p className="text-[13px] text-muted-foreground/50">
-								No messages yet. Say something!
-							</p>
-						</div>
-					) : (
-						<MessageList messages={messages} isStreaming={isStreaming} />
-					)}
+					{/* 不再渲染空态占位：Welcome→Chat 的过渡瞬间 messages 可能短暂为空，
+					    占位图会"一闪而过"，体验比直接留白更差。空 list 由 MessageList 自身处理。 */}
+					<MessageList messages={messages} isStreaming={isStreaming} />
 					<InputBar onSend={onSend} onAbort={onAbort} />
 				</div>
 

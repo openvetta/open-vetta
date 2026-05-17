@@ -336,6 +336,13 @@ export class ModelRegistry {
 		if (!this.serverUrl) {
 			return undefined;
 		}
+		// 未登录（没有 server token）就不去打远程接口——既能省掉 5 秒的 fetch
+		// 阻塞，也避免给未登录用户发未授权请求。任何依赖远程 model 的代码路径
+		// 会在登录回调里再次触发本方法（ModelRegistry.setServerToken 会清掉
+		// remoteLoadAttempted，让 ensureRemoteLoaded 重新放行）。
+		if (!this.resolveServerToken()) {
+			return undefined;
+		}
 		if (this.remoteLoadInflight) {
 			return this.remoteLoadInflight;
 		}
