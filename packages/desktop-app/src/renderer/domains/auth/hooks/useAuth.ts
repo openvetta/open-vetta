@@ -7,6 +7,7 @@ import {
 	sseClientAtom,
 	sseConnectionStateAtom,
 } from "@shared/store/atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
@@ -15,6 +16,8 @@ export function useAuth() {
 	const [user, setUser] = useAtom(authUserAtom);
 	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
+	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
+	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
 	const sseClient = useAtomValue(sseClientAtom);
 	const setSseState = useSetAtom(sseConnectionStateAtom);
 
@@ -70,6 +73,22 @@ export function useAuth() {
 		});
 		return cleanup;
 	}, [setToken, setUser, setLoginOpen, setRemoteProviders]);
+
+	// 登录态变化时刷新积分；登出时清空
+	useEffect(() => {
+		if (!token) {
+			setCreditsBalance(null);
+			setCreditsUnlimited(false);
+			return;
+		}
+		void window.vetta.credits
+			.getBalance()
+			.then((result) => {
+				setCreditsBalance(result.balance);
+				setCreditsUnlimited(result.unlimited ?? false);
+			})
+			.catch(console.error);
+	}, [token, setCreditsBalance, setCreditsUnlimited]);
 
 	// SSE: connect when token is available, disconnect on logout
 	useEffect(() => {
