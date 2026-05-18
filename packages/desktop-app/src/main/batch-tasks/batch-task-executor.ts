@@ -7,9 +7,9 @@ import { readDesktopConfig } from "../ipc/fs.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import { getWebhookManager } from "../webhook/index.js";
 import { verifyArtifacts } from "./artifact-validator";
-import { type BatchTaskState, saveTaskState } from "./batch-task-state";
+import { type BatchTaskState, getTaskState, saveTaskState } from "./batch-task-state";
 import type { BatchProject, BatchTask } from "./batch-task-storage";
-import { getProject } from "./batch-task-storage";
+import { DEFAULT_BATCH_TIMEOUT_MINUTES, getProject } from "./batch-task-storage";
 import {
 	buildProjectSummaryMessage,
 	buildTaskFinishedMessage,
@@ -19,7 +19,15 @@ import {
 
 const TASK_TMP_SUBDIR = ".tmp";
 
-const TASK_TIMEOUT_MS = 60 * 60 * 1000;
+const DEFAULT_TASK_TIMEOUT_MS = DEFAULT_BATCH_TIMEOUT_MINUTES * 60 * 1000;
+
+function resolveTaskTimeoutMs(project: BatchProject): number {
+	const minutes = project.timeoutMinutes;
+	if (typeof minutes === "number" && minutes > 0) {
+		return Math.floor(minutes * 60 * 1000);
+	}
+	return DEFAULT_TASK_TIMEOUT_MS;
+}
 
 export type BatchTaskEvent =
 	| {
@@ -34,7 +42,15 @@ export type BatchTaskEvent =
 	| { type: "task.failed"; projectId: string; taskId: string; error: string }
 	| { type: "task.reset"; projectId: string; taskId: string }
 	| { type: "task.queued"; projectId: string; taskId: string }
-	| { type: "task.dequeued"; projectId: string; taskId: string };
+	| { type: "task.dequeued"; projectId: string; taskId: string }
+	| {
+			type: "task.paused";
+			projectId: string;
+			taskId: string;
+			sessionId: string;
+			sessionPath: string | undefined;
+			executionMode: SessionExecutionMode;
+	  };
 
 interface ExecutingTask {
 	projectId: string;
@@ -68,6 +84,12 @@ type PendingJob = {
 	project: BatchProject;
 	task: BatchTask;
 	runtime: RuntimeHost;
+	/**
+	 * When present, this job is a "resume" of a paused task: reuse the existing
+	 * sessionId on the task instead of creating a new session, and send this
+	 * text as the next user prompt. Absent on regular runs.
+	 */
+	resumeText?: string;
 };
 
 const runningByProject = new Map<string, Set<string>>();
@@ -106,7 +128,7 @@ export function getQueuedTaskIds(): string[] {
 	return ids;
 }
 
-function enqueueJob(job: PendingJob): void {
+function enqueueJob(job: PendingJob, options?: { priority?: boolean }): void {
 	const projectId = job.project.id;
 	const running = getRunningSet(projectId);
 	const queue = getPendingQueue(projectId);
@@ -115,8 +137,17 @@ function enqueueJob(job: PendingJob): void {
 		console.warn(`[BatchTask] enqueueJob: task ${job.task.id} already running, skip`);
 		return;
 	}
-	if (queue.some((j) => j.task.id === job.task.id)) {
-		console.warn(`[BatchTask] enqueueJob: task ${job.task.id} already queued, skip`);
+	const existingIdx = queue.findIndex((j) => j.task.id === job.task.id);
+	if (existingIdx >= 0) {
+		// 同一任务已在队列里。如果新入队是优先（resume）就把它移到队首并替换
+		// payload（取最新的 resumeText/project 副本），否则保持原状跳过。
+		if (options?.priority) {
+			queue.splice(existingIdx, 1);
+			queue.unshift(job);
+			console.log(`[BatchTask] task ${job.task.id} re-prioritized to head of queue`);
+		} else {
+			console.warn(`[BatchTask] enqueueJob: task ${job.task.id} already queued, skip`);
+		}
 		return;
 	}
 
@@ -125,9 +156,19 @@ function enqueueJob(job: PendingJob): void {
 		running.add(job.task.id);
 		void startJob(job);
 	} else {
-		queue.push(job);
+		if (options?.priority) {
+			// 多个 paused 同时恢复时按 FIFO 插队首：先恢复的先在前。寻找当前
+			// 队列中第一个非 priority 项的位置，把新 job 插在所有 priority 项之后。
+			let insertAt = 0;
+			while (insertAt < queue.length && queue[insertAt].resumeText !== undefined) {
+				insertAt++;
+			}
+			queue.splice(insertAt, 0, job);
+		} else {
+			queue.push(job);
+		}
 		console.log(
-			`[BatchTask] task ${job.task.id} queued (project ${projectId}, running=${running.size}/${concurrency})`,
+			`[BatchTask] task ${job.task.id} queued${options?.priority ? " (priority)" : ""} (project ${projectId}, running=${running.size}/${concurrency})`,
 		);
 		emitBatchTaskEvent({ type: "task.queued", projectId, taskId: job.task.id });
 	}
@@ -135,7 +176,7 @@ function enqueueJob(job: PendingJob): void {
 
 async function startJob(job: PendingJob): Promise<void> {
 	try {
-		await runTaskInner(job.project, job.task, job.runtime);
+		await runTaskInner(job.project, job.task, job.runtime, job.resumeText);
 	} finally {
 		const running = getRunningSet(job.project.id);
 		running.delete(job.task.id);
@@ -158,6 +199,24 @@ function drainQueue(projectId: string): void {
 
 export function enqueueRunTask(project: BatchProject, task: BatchTask, runtime: RuntimeHost): void {
 	enqueueJob({ project, task, runtime });
+}
+
+/**
+ * Enqueue a "resume" of a paused task. Reuses the existing sessionId stored
+ * on the task; sends `resumeText` as the next user prompt instead of
+ * `project.prompt`. Inserted at the head of the pending queue (or run
+ * immediately if a worker slot is free).
+ *
+ * If `resumeText` is omitted, defaults to "继续" — a generic continuation
+ * cue used by the card-level "继续" overlay button.
+ */
+export function enqueueResumeTask(
+	project: BatchProject,
+	task: BatchTask,
+	runtime: RuntimeHost,
+	resumeText: string = "继续",
+): void {
+	enqueueJob({ project, task, runtime, resumeText }, { priority: true });
 }
 
 /**
@@ -260,16 +319,16 @@ function buildTaskSystemPrompt(task: BatchTask): string {
 	].join("\n");
 }
 
-function scheduleTimeout(taskId: string, runtime: RuntimeHost): ReturnType<typeof setTimeout> {
+function scheduleTimeout(taskId: string, runtime: RuntimeHost, timeoutMs: number): ReturnType<typeof setTimeout> {
 	return setTimeout(() => {
 		const executing = executingTasks.get(taskId);
 		if (!executing) return;
-		console.warn(`[BatchTask] Task ${taskId} timed out after ${TASK_TIMEOUT_MS}ms, aborting`);
+		console.warn(`[BatchTask] Task ${taskId} timed out after ${timeoutMs}ms, aborting`);
 		executing.timedOut = true;
 		runtime.abort(executing.sessionId).catch((err) => {
 			console.warn(`[BatchTask] abort on timeout failed for ${taskId}: ${err}`);
 		});
-	}, TASK_TIMEOUT_MS);
+	}, timeoutMs);
 }
 
 // runtime.prompt / runtime.continue 在所有 auto-retry 用尽后才 return（session 内 waitForRetry）。
@@ -322,15 +381,25 @@ async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeH
 			outcome = { kind: "artifact-missing", missing: verify.missingPatterns };
 		}
 	} else if (stopReason === "aborted") {
-		// 正常 abort 路径下 abortTask 会先清空 executingTasks，finalizeTask 顶部就会
-		// 直接 return；不会走到这里。万一其它路径触发（如 runtime 内部主动 abort），
-		// 把任务复位为「未执行」，让用户从 banner 重新开始。
+		// 正常项目级停止/重置走 abortTask，会先清空 executingTasks，finalizeTask
+		// 顶部就直接 return，不会到这里。走到这里说明 abort 来自其它路径——典型场景
+		// 是用户在该子任务的对话页点了 InputBar 上的「停止」按钮（直接 session.abort，
+		// 不经 batch executor 的 abortTask）。此时把任务标记为「已暂停」并保留
+		// sessionId/sessionPath/产物等，等用户手动「继续」或在 session 内发新消息
+		// 走 resume 路径恢复运行。
 		state = {
-			taskId,
-			lastModified: now,
-			status: "pending",
+			...base,
+			status: "paused",
+			startedAt: executing.startedAt,
 		};
-		emitBatchTaskEvent({ type: "task.reset", projectId, taskId });
+		emitBatchTaskEvent({
+			type: "task.paused",
+			projectId,
+			taskId,
+			sessionId: executing.sessionId,
+			sessionPath: executing.sessionPath,
+			executionMode: executing.executionMode,
+		});
 	} else {
 		const message = errMessage ?? `Agent ended unexpectedly (stopReason=${stopReason ?? "unknown"})`;
 		state = { ...base, status: "failed", error: message, completedAt: now };
@@ -348,10 +417,16 @@ async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeH
 	}
 }
 
-async function runTaskInner(project: BatchProject, task: BatchTask, runtime: RuntimeHost): Promise<void> {
+async function runTaskInner(
+	project: BatchProject,
+	task: BatchTask,
+	runtime: RuntimeHost,
+	resumeText?: string,
+): Promise<void> {
 	const abortController = new AbortController();
+	const isResume = resumeText !== undefined;
 	console.log(
-		`[BatchTask] runTask: project=${project.id}(${project.name}), task=${task.id}(${task.name}), cwd=${task.cwd}`,
+		`[BatchTask] runTask${isResume ? " (resume)" : ""}: project=${project.id}(${project.name}), task=${task.id}(${task.name}), cwd=${task.cwd}`,
 	);
 
 	let sessionId: string | undefined;
@@ -364,29 +439,42 @@ async function runTaskInner(project: BatchProject, task: BatchTask, runtime: Run
 		executionMode = mode;
 		await assertSandboxAvailableForMode(mode, async () => mode);
 
-		const sessionDir = join(project.id, ".vetta", "sessions");
-		const taskSystemPrompt = buildTaskSystemPrompt(task);
-		// 为本任务准备私有临时目录。三套环境变量同时设：
-		// TMPDIR 覆盖 macOS / Linux，TEMP + TMP 覆盖 Windows，
-		// 同时也覆盖 Python tempfile / bash mktemp 等系统调用的隐式路径。
-		const taskTmpDir = join(task.cwd, TASK_TMP_SUBDIR);
-		await mkdir(taskTmpDir, { recursive: true });
-		const result = await runtime.createSession({
-			cwd: task.cwd,
-			sessionDir,
-			appendSystemPrompt: taskSystemPrompt,
-			executionMode: mode,
-			env: {
-				TMPDIR: taskTmpDir,
-				TEMP: taskTmpDir,
-				TMP: taskTmpDir,
-			},
-		});
-		sessionId = result.sessionId;
-		sessionPath = runtime.getSessionPath(sessionId);
+		if (isResume) {
+			// Resume 路径：复用 paused 时保留的 sessionId 与产物目录，不 createSession。
+			// 优先用 disk 上的 task state（最新），fallback 到入参 task。
+			const persisted = await getTaskState(project.id, task.id);
+			const existingSessionId = persisted?.sessionId ?? task.sessionId;
+			const existingSessionPath = persisted?.sessionPath ?? task.sessionPath;
+			if (!existingSessionId) {
+				throw new Error(`恢复失败：任务 ${task.id} 缺少 sessionId`);
+			}
+			sessionId = existingSessionId;
+			sessionPath = existingSessionPath;
+		} else {
+			const sessionDir = join(project.id, ".vetta", "sessions");
+			const taskSystemPrompt = buildTaskSystemPrompt(task);
+			// 为本任务准备私有临时目录。三套环境变量同时设：
+			// TMPDIR 覆盖 macOS / Linux，TEMP + TMP 覆盖 Windows，
+			// 同时也覆盖 Python tempfile / bash mktemp 等系统调用的隐式路径。
+			const taskTmpDir = join(task.cwd, TASK_TMP_SUBDIR);
+			await mkdir(taskTmpDir, { recursive: true });
+			const result = await runtime.createSession({
+				cwd: task.cwd,
+				sessionDir,
+				appendSystemPrompt: taskSystemPrompt,
+				executionMode: mode,
+				env: {
+					TMPDIR: taskTmpDir,
+					TEMP: taskTmpDir,
+					TMP: taskTmpDir,
+				},
+			});
+			sessionId = result.sessionId;
+			sessionPath = runtime.getSessionPath(sessionId);
+		}
 
 		const startedAt = Date.now();
-		const timeoutHandle = scheduleTimeout(task.id, runtime);
+		const timeoutHandle = scheduleTimeout(task.id, runtime, resolveTaskTimeoutMs(project));
 		executingTasks.set(task.id, {
 			projectId: project.id,
 			taskId: task.id,
@@ -401,9 +489,11 @@ async function runTaskInner(project: BatchProject, task: BatchTask, runtime: Run
 			startedAt,
 			modelKey: project.modelKey,
 		});
-		console.log(`[BatchTask] Session created: ${sessionId}, path=${sessionPath}`);
+		console.log(`[BatchTask] Session ${isResume ? "resumed" : "created"}: ${sessionId}, path=${sessionPath}`);
 
-		runtime.renameSessionById(sessionId, `${project.name}: ${task.name}`);
+		if (!isResume) {
+			runtime.renameSessionById(sessionId, `${project.name}: ${task.name}`);
+		}
 
 		const runningState: BatchTaskState = {
 			taskId: task.id,
@@ -431,11 +521,12 @@ async function runTaskInner(project: BatchProject, task: BatchTask, runtime: Run
 		// 严格校验，对本地 provider 容易误报"模型不可用"：updateSettings 内部用
 		// getAvailable() 过滤，而本地 provider 的 hasAuth 在某些时序下不为 true，
 		// 模型会被静默忽略；prompt 路径已加 find() 回退，可以兜住这种情况。
+		const promptText = isResume ? (resumeText as string) : project.prompt;
 		console.log(
-			`[BatchTask] Sending prompt for session ${sessionId}, model=${project.modelKey ?? "(session default)"}`,
+			`[BatchTask] Sending prompt for session ${sessionId}, model=${project.modelKey ?? "(session default)"}, resume=${isResume}`,
 		);
 		await runtime.prompt(sessionId, {
-			text: project.prompt,
+			text: promptText,
 			...(project.modelKey ? { modelKey: project.modelKey } : {}),
 		});
 		console.log(`[BatchTask] prompt returned, finalizing task ${task.id}`);

@@ -12,22 +12,27 @@ import { useBatchTasks } from "../hooks/useBatchTasks";
 const TASK_COLLAPSE_THRESHOLD = 9;
 
 /**
- * 子任务排序：运行中优先，其次按 createdAt latest（新创建在前）。
- * 项目级排序使用 max(task.createdAt) 作为近似——最近活动的项目靠前。
+ * 子任务排序：运行中 > 已暂停 > 其他，组内按 createdAt latest（新创建在前）。
+ * 项目级排序使用「任意 task 在 running/paused」作为近似 — 最近活动的项目靠前。
  */
+function taskSortRank(status: BatchTask["status"]): number {
+	if (status === "running") return 2;
+	if (status === "paused") return 1;
+	return 0;
+}
+
 function sortTasks(tasks: BatchTask[]): BatchTask[] {
 	return [...tasks].sort((a, b) => {
-		const aRun = a.status === "running" ? 1 : 0;
-		const bRun = b.status === "running" ? 1 : 0;
-		if (aRun !== bRun) return bRun - aRun;
+		const rankDiff = taskSortRank(b.status) - taskSortRank(a.status);
+		if (rankDiff !== 0) return rankDiff;
 		return b.createdAt - a.createdAt;
 	});
 }
 
 function sortProjects(projects: BatchProject[]): BatchProject[] {
 	return [...projects].sort((a, b) => {
-		const aRun = a.tasks.some((t) => t.status === "running") ? 1 : 0;
-		const bRun = b.tasks.some((t) => t.status === "running") ? 1 : 0;
+		const aRun = a.tasks.some((t) => t.status === "running" || t.status === "paused") ? 1 : 0;
+		const bRun = b.tasks.some((t) => t.status === "running" || t.status === "paused") ? 1 : 0;
 		if (aRun !== bRun) return bRun - aRun;
 		return b.createdAt - a.createdAt;
 	});
@@ -59,6 +64,7 @@ function statusLabel(status: BatchTask["status"], hasSession: boolean): string {
 		running: "运行中",
 		completed: "已完成",
 		failed: "失败",
+		paused: "已暂停",
 	};
 	return labels[status];
 }
@@ -84,6 +90,12 @@ const STATUS_TONE: Record<
 		ring: "ring-red-500/30",
 		text: "text-red-400",
 		bg: "bg-red-500/10",
+	},
+	paused: {
+		dot: "bg-sky-500 shadow-[0_0_8px_var(--color-sky-500,#0ea5e9)]",
+		ring: "ring-sky-500/30",
+		text: "text-sky-400",
+		bg: "bg-sky-500/10",
 	},
 	pending: {
 		dot: "bg-muted-foreground/40",
@@ -111,6 +123,7 @@ interface ProjectCounts {
 	failed: number;
 	running: number;
 	completed: number;
+	paused: number;
 	neverExecuted: number;
 	total: number;
 }
@@ -119,6 +132,7 @@ function computeCounts(tasks: BatchTask[]): ProjectCounts {
 	let failed = 0;
 	let running = 0;
 	let completed = 0;
+	let paused = 0;
 	let neverExecuted = 0;
 	for (const t of tasks) {
 		switch (t.status) {
@@ -131,12 +145,15 @@ function computeCounts(tasks: BatchTask[]): ProjectCounts {
 			case "completed":
 				completed++;
 				break;
+			case "paused":
+				paused++;
+				break;
 			case "pending":
 				if (!t.sessionId) neverExecuted++;
 				break;
 		}
 	}
-	return { failed, running, completed, neverExecuted, total: tasks.length };
+	return { failed, running, completed, paused, neverExecuted, total: tasks.length };
 }
 
 // ─── Task action callback contract ─────────────────────────────────────────
@@ -152,6 +169,7 @@ interface TaskCallbacks {
 	run: (taskId: string) => void;
 	retry: (task: BatchTask) => void;
 	stop: (taskId: string) => void;
+	resume: (taskId: string) => void;
 	delete: (task: BatchTask) => void;
 }
 
@@ -159,8 +177,17 @@ interface TaskCallbacks {
 
 export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const { runTask, retryTask, stopTask, deleteTask, batchStart, batchStop, batchReset, deleteProject } =
-		useBatchTasks();
+	const {
+		runTask,
+		retryTask,
+		stopTask,
+		resumeTask,
+		deleteTask,
+		batchStart,
+		batchStop,
+		batchReset,
+		deleteProject,
+	} = useBatchTasks();
 
 	const handleDeleteProject = (project: BatchProject) => {
 		const runningCount = project.tasks.filter((t) => t.status === "running").length;
@@ -186,10 +213,13 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 	};
 
 	const handleBatchStart = (project: BatchProject, counts: ProjectCounts) => {
-		if (counts.neverExecuted === 0) return;
+		if (counts.neverExecuted === 0 && counts.paused === 0) return;
+		const parts: string[] = [];
+		if (counts.neverExecuted > 0) parts.push(`${counts.neverExecuted} 个「未执行」`);
+		if (counts.paused > 0) parts.push(`${counts.paused} 个「已暂停」`);
 		setConfirm({
 			title: "确认开始执行",
-			message: `将按并发数依次执行 ${counts.neverExecuted} 个「未执行」任务（其余状态不受影响），是否继续？`,
+			message: `将按并发数依次执行 ${parts.join(" 和 ")} 任务（其余状态不受影响），是否继续？`,
 			confirmLabel: "开始",
 			onConfirm: async () => {
 				await batchStart(project.id);
@@ -246,6 +276,7 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 					runTask={runTask}
 					retryTask={retryTask}
 					stopTask={stopTask}
+					resumeTask={resumeTask}
 					deleteTask={deleteTask}
 					setConfirm={setConfirm}
 				/>
@@ -271,6 +302,7 @@ interface ProjectBlockProps {
 	runTask: (projectId: string, taskId: string) => Promise<void>;
 	retryTask: (projectId: string, taskId: string) => Promise<void>;
 	stopTask: (projectId: string, taskId: string) => Promise<void>;
+	resumeTask: (projectId: string, taskId: string) => Promise<void>;
 	deleteTask: (projectId: string, taskId: string) => Promise<void>;
 	setConfirm: ReturnType<typeof useSetAtom<typeof confirmDialogAtom>>;
 }
@@ -285,6 +317,7 @@ function ProjectBlock({
 	runTask,
 	retryTask,
 	stopTask,
+	resumeTask,
 	deleteTask,
 	setConfirm,
 }: ProjectBlockProps): JSX.Element {
@@ -330,6 +363,9 @@ function ProjectBlock({
 			stop: (taskId) => {
 				void stopTask(project.id, taskId);
 			},
+			resume: (taskId) => {
+				void resumeTask(project.id, taskId);
+			},
 			delete: (task) => {
 				if (task.status === "running") return;
 				setConfirm({
@@ -344,7 +380,7 @@ function ProjectBlock({
 				});
 			},
 		}),
-		[project.id, runTask, retryTask, stopTask, deleteTask, setConfirm],
+		[project.id, runTask, retryTask, stopTask, resumeTask, deleteTask, setConfirm],
 	);
 
 	return (
@@ -366,6 +402,7 @@ function ProjectBlock({
 					<p className="mt-1 truncate text-[11px] text-muted-foreground/60">
 						{counts.completed}/{counts.total} 已完成
 						{counts.running > 0 && ` · ${counts.running} 运行中`}
+						{counts.paused > 0 && ` · ${counts.paused} 暂停`}
 						{counts.failed > 0 && ` · ${counts.failed} 失败`}
 					</p>
 				</div>
@@ -373,7 +410,7 @@ function ProjectBlock({
 					{(() => {
 						// 「开始 / 停止」二合一 toggle：
 						// 队列处于活动态（有 running 或 queued）→ 显示「停止」；
-						// 否则 → 显示「开始」（无未执行时 disabled）。
+						// 否则 → 显示「开始」（同时覆盖未执行 + 已暂停，两类都可启动）。
 						const hasQueued = project.tasks.some((t) => queuedTaskIds.has(t.id));
 						const isActive = counts.running > 0 || hasQueued;
 						return isActive ? (
@@ -388,7 +425,7 @@ function ProjectBlock({
 								icon="icon-[mdi--play]"
 								title="开始"
 								onClick={() => onBatchStart(project, counts)}
-								disabled={counts.neverExecuted === 0}
+								disabled={counts.neverExecuted === 0 && counts.paused === 0}
 							/>
 						);
 					})()}
@@ -587,6 +624,16 @@ const TaskCard = memo(function TaskCard({
 								onClick={(e) => {
 									e.stopPropagation();
 									callbacks.run(task.id);
+								}}
+							/>
+						) : task.status === "paused" ? (
+							<OverlayActionButton
+								icon="icon-[mdi--play]"
+								title="继续"
+								delay={0.05}
+								onClick={(e) => {
+									e.stopPropagation();
+									callbacks.resume(task.id);
 								}}
 							/>
 						) : task.status === "failed" ? (

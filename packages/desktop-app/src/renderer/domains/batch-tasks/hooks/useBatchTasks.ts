@@ -33,6 +33,7 @@ export function useBatchTasks() {
 			concurrency: number;
 			artifactPatterns?: string[];
 			notifyEnabled?: boolean;
+			timeoutMinutes?: number;
 		}) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
@@ -53,6 +54,7 @@ export function useBatchTasks() {
 				concurrency?: number;
 				artifactPatterns?: string[];
 				notifyEnabled?: boolean;
+				timeoutMinutes?: number;
 				newFolders?: string[];
 			},
 		) => {
@@ -82,6 +84,7 @@ export function useBatchTasks() {
 						...(data.concurrency !== undefined ? { concurrency: data.concurrency } : {}),
 						...(data.artifactPatterns !== undefined ? { artifactPatterns: data.artifactPatterns } : {}),
 						...(data.notifyEnabled !== undefined ? { notifyEnabled: data.notifyEnabled } : {}),
+						...(data.timeoutMinutes !== undefined ? { timeoutMinutes: data.timeoutMinutes } : {}),
 						tasks: [...p.tasks, ...newTasks],
 						updatedAt: Date.now(),
 					};
@@ -129,6 +132,14 @@ export function useBatchTasks() {
 
 	const stopTask = useCallback(async (projectId: string, taskId: string) => {
 		await window.vetta.batchTasks.stopTask(projectId, taskId);
+	}, []);
+
+	const resumeTask = useCallback(async (projectId: string, taskId: string) => {
+		await window.vetta.batchTasks.resumeTask(projectId, taskId);
+	}, []);
+
+	const resumeTaskWithText = useCallback(async (projectId: string, taskId: string, text: string) => {
+		await window.vetta.batchTasks.resumeTaskWithText(projectId, taskId, text);
 	}, []);
 
 	const deleteTask = useCallback(
@@ -190,7 +201,8 @@ export function useBatchTasks() {
 				event.type === "task.started" ||
 				event.type === "task.completed" ||
 				event.type === "task.failed" ||
-				event.type === "task.reset"
+				event.type === "task.reset" ||
+				event.type === "task.paused"
 			) {
 				setQueuedTaskIds((prev) => {
 					if (!prev.has(event.taskId)) return prev;
@@ -236,6 +248,16 @@ export function useBatchTasks() {
 									updatedAt: Date.now(),
 								};
 							}
+							if (event.type === "task.paused") {
+								return {
+									...t,
+									status: "paused" as const,
+									sessionId: event.sessionId,
+									sessionPath: event.sessionPath,
+									executionMode: event.executionMode,
+									updatedAt: Date.now(),
+								};
+							}
 							return t;
 						}),
 					};
@@ -256,6 +278,8 @@ export function useBatchTasks() {
 		runTask,
 		retryTask,
 		stopTask,
+		resumeTask,
+		resumeTaskWithText,
 		deleteTask,
 		batchDelete,
 		deleteSession,

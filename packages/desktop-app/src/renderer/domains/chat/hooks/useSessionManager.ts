@@ -2,6 +2,7 @@ import { useProjects } from "@domains/project/hooks/useProjects";
 import {
 	activeSessionAtom,
 	attachedImagesAtom,
+	batchProjectsAtom,
 	type ChatMessage,
 	chatMessagesAtom,
 	contextUsageAtom,
@@ -21,7 +22,7 @@ import {
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import {
 	adoptDraftId,
@@ -68,6 +69,12 @@ export function useSessionManager(): SessionManagerResult {
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
+	// 用于判断当前 session 是否归属一个 paused 的 batch-task 子任务。命中时
+	// sendMessage 改走 batchTasks.resumeTaskWithText 入队首恢复运行，而不是
+	// 直接 session.prompt 立即 streaming（与并发上限共生）。
+	const batchProjects = useAtomValue(batchProjectsAtom);
+	const batchProjectsRef = useRef(batchProjects);
+	batchProjectsRef.current = batchProjects;
 	const { loadSessions, applyLocalRename, ensureLocalSession, projects } = useProjects();
 	const projectsRef = useRef(projects);
 	projectsRef.current = projects;
@@ -539,6 +546,29 @@ export function useSessionManager(): SessionManagerResult {
 				firstMessage: rawText.slice(0, 80) || "(image)",
 				modifiedAt: Date.now(),
 			});
+		}
+
+		// 检查当前 session 是否归属一个 paused 的 batch-task 子任务。命中则改走
+		// resume 路径（入队首，由调度器按并发数放行），跳过 session.prompt。
+		let pausedBatch: { projectId: string; taskId: string } | undefined;
+		for (const p of batchProjectsRef.current) {
+			const matched = p.tasks.find((t) => t.sessionId === session.runtimeId && t.status === "paused");
+			if (matched) {
+				pausedBatch = { projectId: p.id, taskId: matched.id };
+				break;
+			}
+		}
+
+		if (pausedBatch) {
+			try {
+				await window.vetta.batchTasks.resumeTaskWithText(pausedBatch.projectId, pausedBatch.taskId, text);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				console.error("[useSessionManager.sendMessage] resumeTaskWithText rejected:", err);
+				setChatMessages((prev) => appendError(prev, message));
+			}
+			await loadSessions(session.cwd);
+			return;
 		}
 
 		const promptReq: {

@@ -62,6 +62,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
 	const [concurrency, setConcurrency] = useState(project?.concurrency ?? 1);
+	const [timeoutMinutes, setTimeoutMinutes] = useState<number>(project?.timeoutMinutes ?? 60);
 	const [folders, setFolders] = useState<string[]>(project?.tasks.map((t) => t.sourcePath) ?? []);
 	const [folderText, setFolderText] = useState((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
 	const [folderInputMode, setFolderInputMode] = useState<"picker" | "textarea">("picker");
@@ -97,6 +98,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setModelKey(project?.modelKey);
 		setExecutionMode(project?.executionMode ?? "full-access");
 		setConcurrency(project?.concurrency ?? 1);
+		setTimeoutMinutes(project?.timeoutMinutes ?? 60);
 		setFolders(project?.tasks.map((t) => t.sourcePath) ?? []);
 		setFolderText((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
 		setArtifactPatternsText((project?.artifactPatterns ?? []).join("\n"));
@@ -188,6 +190,8 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 			.map((line) => line.trim())
 			.filter((line) => line.length > 0);
 
+		const safeTimeoutMinutes = Number.isFinite(timeoutMinutes) && timeoutMinutes > 0 ? Math.floor(timeoutMinutes) : 60;
+
 		if (project) {
 			const originalSources = new Set(project.tasks.map((t) => t.sourcePath));
 			const newFolders = folders.filter((f) => !originalSources.has(f));
@@ -199,6 +203,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 				concurrency,
 				artifactPatterns,
 				notifyEnabled,
+				timeoutMinutes: safeTimeoutMinutes,
 				newFolders,
 			});
 		} else {
@@ -211,6 +216,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 				concurrency,
 				artifactPatterns,
 				notifyEnabled,
+				timeoutMinutes: safeTimeoutMinutes,
 			});
 		}
 		onClose();
@@ -328,26 +334,47 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 						</div>
 					</div>
 
-					<div className="mt-4">
-						<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
-							<span>并发数</span>
-						</label>
-						<Select
-							value={String(concurrency)}
-							onValueChange={(v) => setConcurrency(Number(v))}
-						>
-							<SelectTrigger className="w-24">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="1">1</SelectItem>
-								<SelectItem value="2">2</SelectItem>
-								<SelectItem value="3">3</SelectItem>
-								<SelectItem value="4">4</SelectItem>
-								<SelectItem value="5">5</SelectItem>
-							</SelectContent>
-						</Select>
+					<div className="mt-4 flex items-end gap-6">
+						<div>
+							<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
+								<span>并发数</span>
+							</label>
+							<Select
+								value={String(concurrency)}
+								onValueChange={(v) => setConcurrency(Number(v))}
+							>
+								<SelectTrigger className="w-24">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="1">1</SelectItem>
+									<SelectItem value="2">2</SelectItem>
+									<SelectItem value="3">3</SelectItem>
+									<SelectItem value="4">4</SelectItem>
+									<SelectItem value="5">5</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div>
+							<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
+								<span>超时（分钟）</span>
+							</label>
+							<Input
+								type="number"
+								min={1}
+								step={1}
+								value={String(timeoutMinutes)}
+								onChange={(e) => {
+									const v = Number(e.target.value);
+									setTimeoutMinutes(Number.isFinite(v) && v > 0 ? Math.floor(v) : 60);
+								}}
+								className="h-9 w-28"
+							/>
+						</div>
 					</div>
+					<p className="mt-2 text-xs text-muted-foreground/60">
+						子任务单次运行的硬超时。暂停后恢复会重新计时。
+					</p>
 
 					<div className="mt-4">
 						<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
