@@ -25,6 +25,8 @@ interface BatchProjectMeta {
 	artifactPatterns?: string[];
 	/** When true, broadcast a webhook message after each subtask finalizes and once when the project as a whole finishes. */
 	notifyEnabled?: boolean;
+	/** Per-task hard timeout in minutes. Used by executor's scheduleTimeout. Defaults to 60. */
+	timeoutMinutes?: number;
 	items: BatchItemMeta[];
 	createdAt: number;
 	updatedAt: number;
@@ -55,10 +57,13 @@ export interface BatchProject {
 	executionMode?: ExecutionModeOverride;
 	artifactPatterns?: string[];
 	notifyEnabled?: boolean;
+	timeoutMinutes?: number;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
 }
+
+export const DEFAULT_BATCH_TIMEOUT_MINUTES = 60;
 
 // ─── Internal helpers ───
 
@@ -136,6 +141,7 @@ function assembleProject(
 		executionMode: normalizeExecutionModeOverride(meta.executionMode, "full-access"),
 		artifactPatterns: meta.artifactPatterns,
 		notifyEnabled: meta.notifyEnabled ?? false,
+		timeoutMinutes: meta.timeoutMinutes ?? DEFAULT_BATCH_TIMEOUT_MINUTES,
 		tasks,
 		createdAt: meta.createdAt,
 		updatedAt: meta.updatedAt,
@@ -247,6 +253,7 @@ export async function createProject(
 	executionMode?: ExecutionModeOverride,
 	artifactPatterns?: string[],
 	notifyEnabled?: boolean,
+	timeoutMinutes?: number,
 ): Promise<BatchProject> {
 	const config = await readDesktopConfig();
 	const projectDir = join(config.workspacePath, name);
@@ -276,6 +283,10 @@ export async function createProject(
 		executionMode: normalizeExecutionModeOverride(executionMode, "full-access"),
 		artifactPatterns: artifactPatterns && artifactPatterns.length > 0 ? artifactPatterns : undefined,
 		notifyEnabled: notifyEnabled || undefined,
+		timeoutMinutes:
+			timeoutMinutes && timeoutMinutes > 0 && timeoutMinutes !== DEFAULT_BATCH_TIMEOUT_MINUTES
+				? timeoutMinutes
+				: undefined,
 		items,
 		createdAt: now,
 		updatedAt: now,
@@ -313,6 +324,7 @@ export async function updateProject(
 		executionMode: ExecutionModeOverride;
 		artifactPatterns: string[];
 		notifyEnabled: boolean;
+		timeoutMinutes: number;
 		newFolders: string[];
 	}>,
 ): Promise<void> {
@@ -328,6 +340,12 @@ export async function updateProject(
 	}
 	if (data.notifyEnabled !== undefined) {
 		meta.notifyEnabled = data.notifyEnabled || undefined;
+	}
+	if (data.timeoutMinutes !== undefined) {
+		meta.timeoutMinutes =
+			data.timeoutMinutes > 0 && data.timeoutMinutes !== DEFAULT_BATCH_TIMEOUT_MINUTES
+				? data.timeoutMinutes
+				: undefined;
 	}
 
 	if (data.newFolders) {

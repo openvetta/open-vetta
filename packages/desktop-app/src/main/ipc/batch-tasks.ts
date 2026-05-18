@@ -3,6 +3,7 @@ import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import {
 	abortTask as abortTaskExecutor,
 	emitBatchTaskEvent,
+	enqueueResumeTask,
 	enqueueRunTask,
 	isTaskQueued,
 	isTaskRunning,
@@ -38,6 +39,8 @@ const CHANNELS = {
 	BATCH_STOP: "vetta:batch-tasks:batch-stop",
 	BATCH_RESET: "vetta:batch-tasks:batch-reset",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
+	RESUME_TASK: "vetta:batch-tasks:resume-task",
+	RESUME_TASK_WITH_TEXT: "vetta:batch-tasks:resume-task-with-text",
 	EVENT: "vetta:batch-tasks:event",
 } as const;
 
@@ -87,6 +90,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				executionMode?: ExecutionModeOverride;
 				artifactPatterns?: string[];
 				notifyEnabled?: boolean;
+				timeoutMinutes?: number;
 			},
 		) => {
 			console.log(`[BatchTaskIPC] CREATE_PROJECT: ${data.name}`);
@@ -99,6 +103,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				data.executionMode,
 				data.artifactPatterns,
 				data.notifyEnabled,
+				data.timeoutMinutes,
 			);
 		},
 	);
@@ -116,6 +121,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				executionMode: ExecutionModeOverride;
 				artifactPatterns: string[];
 				notifyEnabled: boolean;
+				timeoutMinutes: number;
 				newFolders: string[];
 			}>,
 		) => {
@@ -199,21 +205,28 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 	});
 
 	// "开始"按钮：把所有未执行（status === pending 且无 session）的任务一次性
-	// 按并发数入队执行。已完成 / 运行中 / 失败 / 等待中的任务保持不变。
+	// 按并发数入队执行；同时把所有 paused 的任务以"继续"语义送回队首恢复运行。
+	// 已完成 / 运行中 / 失败 / 等待中的任务保持不变。
 	ipcMain.handle(CHANNELS.BATCH_START, async (_, projectId: string) => {
 		console.log(`[BatchTaskIPC] BATCH_START: project=${projectId}`);
 		const project = await getProject(projectId);
 		if (!project) return;
 
 		const pendingTasks = project.tasks.filter((t) => t.status === "pending" && !t.sessionId);
-		if (pendingTasks.length === 0) {
-			console.log(`[BatchTaskIPC] BATCH_START: no pending tasks in ${projectId}`);
+		const pausedTasks = project.tasks.filter((t) => t.status === "paused");
+		if (pendingTasks.length === 0 && pausedTasks.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_START: nothing to start in ${projectId}`);
 			return;
 		}
-		console.log(`[BatchTaskIPC] BATCH_START: running ${pendingTasks.length} tasks`);
+		console.log(
+			`[BatchTaskIPC] BATCH_START: running ${pendingTasks.length} pending + resuming ${pausedTasks.length} paused`,
+		);
 		const runtime = getRuntime();
 		for (const task of pendingTasks) {
 			enqueueRunTask(project, task, runtime);
+		}
+		for (const task of pausedTasks) {
+			enqueueResumeTask(project, task, runtime);
 		}
 	});
 
@@ -284,6 +297,37 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		await getRuntime().deleteSession(sessionPath);
 	});
 
+	// "继续"卡片按钮：让一个 paused 子任务回到队列，下一次放行优先处理。
+	ipcMain.handle(CHANNELS.RESUME_TASK, async (_, projectId: string, taskId: string) => {
+		console.log(`[BatchTaskIPC] RESUME_TASK: project=${projectId}, task=${taskId}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+		const task = project.tasks.find((t) => t.id === taskId);
+		if (!task) return;
+		if (task.status !== "paused") {
+			console.warn(`[BatchTaskIPC] RESUME_TASK: task ${taskId} not in paused state (status=${task.status})`);
+			return;
+		}
+		enqueueResumeTask(project, task, getRuntime());
+	});
+
+	// 在 paused session 对话页发新消息：把用户输入作为 resumeText 送回队列。
+	ipcMain.handle(CHANNELS.RESUME_TASK_WITH_TEXT, async (_, projectId: string, taskId: string, text: string) => {
+		console.log(`[BatchTaskIPC] RESUME_TASK_WITH_TEXT: project=${projectId}, task=${taskId}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+		const task = project.tasks.find((t) => t.id === taskId);
+		if (!task) return;
+		if (task.status !== "paused") {
+			console.warn(
+				`[BatchTaskIPC] RESUME_TASK_WITH_TEXT: task ${taskId} not in paused state (status=${task.status})`,
+			);
+			return;
+		}
+		const trimmed = (text ?? "").trim();
+		enqueueResumeTask(project, task, getRuntime(), trimmed.length > 0 ? text : "继续");
+	});
+
 	return () => {
 		unsubscribeBatchEvents();
 		ipcMain.removeHandler(CHANNELS.GET_PROJECTS);
@@ -299,5 +343,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.BATCH_STOP);
 		ipcMain.removeHandler(CHANNELS.BATCH_RESET);
 		ipcMain.removeHandler(CHANNELS.DELETE_SESSION);
+		ipcMain.removeHandler(CHANNELS.RESUME_TASK);
+		ipcMain.removeHandler(CHANNELS.RESUME_TASK_WITH_TEXT);
 	};
 }

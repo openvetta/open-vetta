@@ -1,7 +1,7 @@
 import { atom } from "jotai";
 import type { ExecutionModeOverride, SessionExecutionMode } from "./chat-atoms";
 
-export type BatchTaskStatus = "pending" | "running" | "completed" | "failed";
+export type BatchTaskStatus = "pending" | "running" | "completed" | "failed" | "paused";
 
 export interface BatchTask {
 	id: string;
@@ -28,6 +28,8 @@ export interface BatchProject {
 	artifactPatterns?: string[];
 	/** When true, finalized subtasks broadcast a webhook notification. */
 	notifyEnabled?: boolean;
+	/** Per-task hard timeout in minutes. Defaults to 60 when undefined. */
+	timeoutMinutes?: number;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
