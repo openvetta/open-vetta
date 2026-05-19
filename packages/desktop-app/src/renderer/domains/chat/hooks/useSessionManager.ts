@@ -94,8 +94,15 @@ export function useSessionManager(): SessionManagerResult {
 	// appending them to the new session's messages.
 	const pendingDeltaSessionRef = useRef<string | null>(null);
 
+	// Idempotent flush: safe to call from rAF callback OR synchronously before any
+	// non-delta event handler. Always cancels any pending rAF before draining.
+	// Calling this before a tool/state event is what keeps streamed text on the
+	// correct side of tool blocks — see ordering bug fix.
 	const flushDeltas = useCallback(() => {
-		deltaRafRef.current = null;
+		if (deltaRafRef.current !== null) {
+			cancelAnimationFrame(deltaRafRef.current);
+			deltaRafRef.current = null;
+		}
 		const textDelta = pendingTextDeltaRef.current;
 		const thinkingDelta = pendingThinkingDeltaRef.current;
 		const owningSession = pendingDeltaSessionRef.current;
@@ -279,10 +286,6 @@ export function useSessionManager(): SessionManagerResult {
 						}
 						if (event.phase === "agent_end" || event.phase === "aborted") {
 							// Flush any pending deltas before finalizing
-							if (deltaRafRef.current !== null) {
-								cancelAnimationFrame(deltaRafRef.current);
-								deltaRafRef.current = null;
-							}
 							flushDeltas();
 							// Always reset streaming state first to unblock the UI
 							const endedAt = event.timestamp;
@@ -394,18 +397,24 @@ export function useSessionManager(): SessionManagerResult {
 
 					// ── Tool call generating (model started generating a tool call) ──
 					if (event.type === "toolcall.start") {
+						// Flush pending text/thinking deltas FIRST so the tool block lands
+						// after any text that streamed before it (otherwise batched deltas
+						// get appended on the wrong side of the tool block).
+						flushDeltas();
 						setChatMessages((prev) => handleToolStart(prev, event.toolCallId, event.toolName, {}));
 						return;
 					}
 
 					// ── Message final (full assistant message — text, thinking, tool calls) ──
 					if (event.type === "message.final" && event.message.role === "assistant") {
+						flushDeltas();
 						setChatMessages((prev) => finalizeMessage(prev, event.message.content));
 						return;
 					}
 
 					// ── Tool start ──
 					if (event.type === "tool.start") {
+						flushDeltas();
 						setChatMessages((prev) =>
 							handleToolStart(
 								prev,
@@ -419,12 +428,14 @@ export function useSessionManager(): SessionManagerResult {
 
 					// ── Tool end ──
 					if (event.type === "tool.end") {
+						flushDeltas();
 						setChatMessages((prev) => handleToolEnd(prev, event.toolCallId, event.result, event.isError));
 						return;
 					}
 
 					// ── Error (provider / runtime error) ──
 					if (event.type === "error") {
+						flushDeltas();
 						setChatMessages((prev) => appendError(prev, event.error.message));
 						return;
 					}

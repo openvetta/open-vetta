@@ -4,11 +4,15 @@ import { atom } from "jotai";
 
 export interface TextBlock {
 	type: "text";
+	/** Stable id for React keying — survives reorder of surrounding blocks. */
+	id: string;
 	text: string;
 }
 
 export interface ThinkingBlock {
 	type: "thinking";
+	/** Stable id for React keying. */
+	id: string;
 	text: string;
 }
 
@@ -33,6 +37,8 @@ export interface ToolResultBlock {
 
 export interface ErrorBlock {
 	type: "error";
+	/** Stable id for React keying. */
+	id: string;
 	text: string;
 }
 
