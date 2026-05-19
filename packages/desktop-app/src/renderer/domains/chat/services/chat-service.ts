@@ -35,15 +35,15 @@ export function extractResultText(result: unknown): string {
  */
 export function messageToBlocks(content: unknown): ContentBlock[] {
 	if (typeof content === "string") {
-		return content ? [{ type: "text", text: content }] : [];
+		return content ? [{ type: "text", id: nextId("blk"), text: content }] : [];
 	}
 	if (!Array.isArray(content)) return [];
 	const blocks: ContentBlock[] = [];
 	for (const part of content as Array<Record<string, unknown>>) {
 		if (part.type === "text" && typeof part.text === "string") {
-			blocks.push({ type: "text", text: part.text });
+			blocks.push({ type: "text", id: nextId("blk"), text: part.text });
 		} else if (part.type === "thinking" && typeof part.thinking === "string") {
-			blocks.push({ type: "thinking", text: part.thinking });
+			blocks.push({ type: "thinking", id: nextId("blk"), text: part.thinking });
 		} else if (part.type === "toolCall" && typeof part.name === "string") {
 			blocks.push({
 				type: "tool_call",
@@ -109,7 +109,7 @@ export function historyToChat(
 			if (text) target.text = target.text ? `${target.text}\n${text}` : text;
 			// Handle error messages (e.g. provider 404)
 			if (m.stopReason === "error" && m.errorMessage) {
-				target.blocks!.push({ type: "error", text: m.errorMessage });
+				target.blocks!.push({ type: "error", id: nextId("blk"), text: m.errorMessage });
 				if (!target.text) target.text = m.errorMessage;
 			}
 		} else if (m.role === "toolResult" && m.toolCallId) {
@@ -199,7 +199,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			const text = extractText(m.content);
 			if (text) target.text = target.text ? `${target.text}\n${text}` : text;
 			if (m.stopReason === "error" && m.errorMessage) {
-				target.blocks!.push({ type: "error", text: m.errorMessage });
+				target.blocks!.push({ type: "error", id: nextId("blk"), text: m.errorMessage });
 				if (!target.text) target.text = m.errorMessage;
 			}
 		} else if (m.role === "toolResult" && m.toolCallId) {
@@ -302,7 +302,7 @@ export function appendTextDelta(prev: ChatMessage[], delta: string): ChatMessage
 	if (last?.type === "text") {
 		blocks[blocks.length - 1] = { ...last, text: last.text + delta };
 	} else {
-		blocks.push({ type: "text", text: delta });
+		blocks.push({ type: "text", id: nextId("blk"), text: delta });
 	}
 
 	msgs[idx] = { ...msg, text: msg.text + delta, blocks };
@@ -321,7 +321,7 @@ export function appendThinkingDelta(prev: ChatMessage[], delta: string): ChatMes
 	if (last?.type === "thinking") {
 		blocks[blocks.length - 1] = { ...last, text: last.text + delta };
 	} else {
-		blocks.push({ type: "thinking", text: delta });
+		blocks.push({ type: "thinking", id: nextId("blk"), text: delta });
 	}
 
 	msgs[idx] = { ...msg, blocks };
@@ -537,7 +537,7 @@ export function appendError(prev: ChatMessage[], errorMessage: string): ChatMess
 	const [msgs, idx] = ensureDraft(prev);
 	const msg = msgs[idx];
 	const blocks = [...(msg.blocks ?? [])];
-	blocks.push({ type: "error", text: errorMessage });
+	blocks.push({ type: "error", id: nextId("blk"), text: errorMessage });
 	msgs[idx] = { ...msg, text: msg.text || errorMessage, blocks };
 	return msgs;
 }
@@ -715,7 +715,7 @@ export function appendTextDeltaWithRef(
 	if (last?.type === "text") {
 		blocks[blocks.length - 1] = { ...last, text: last.text + delta };
 	} else {
-		blocks.push({ type: "text", text: delta });
+		blocks.push({ type: "text", id: nextId("blk"), text: delta });
 	}
 	msgs[idx] = { ...msg, text: msg.text + delta, blocks };
 	return msgs;
@@ -733,7 +733,7 @@ export function appendThinkingDeltaWithRef(
 	if (last?.type === "thinking") {
 		blocks[blocks.length - 1] = { ...last, text: last.text + delta };
 	} else {
-		blocks.push({ type: "thinking", text: delta });
+		blocks.push({ type: "thinking", id: nextId("blk"), text: delta });
 	}
 	msgs[idx] = { ...msg, blocks };
 	return msgs;

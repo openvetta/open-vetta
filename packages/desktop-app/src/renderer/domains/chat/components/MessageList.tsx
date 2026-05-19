@@ -28,6 +28,32 @@ type BlockSegment =
 	| { type: "single"; block: ContentBlock }
 	| { type: "tool_group"; blocks: (ToolCallBlock | ThinkingBlock)[] };
 
+/**
+ * Stable React key for a content block. Used so segments survive reorder when
+ * streaming inserts a new block in the middle (e.g. a tool_call landing between
+ * two text blocks). Avoids index-based keys which cause DOM reuse across
+ * mismatched content.
+ */
+function blockKey(block: ContentBlock): string {
+	switch (block.type) {
+		case "tool_call":
+			return `tc-${block.toolCallId}`;
+		case "tool_result":
+			return `tr-${block.toolCallId}`;
+		case "text":
+		case "thinking":
+		case "error":
+			return `${block.type}-${block.id}`;
+	}
+}
+
+function segmentKey(segment: BlockSegment): string {
+	if (segment.type === "single") return blockKey(segment.block);
+	// Tool group: first block's key is stable because tool/thinking blocks are
+	// only appended (never reordered within a batch).
+	return `group-${blockKey(segment.blocks[0])}`;
+}
+
 /** Group consecutive tool_call and thinking blocks into collapsible groups. */
 function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 	const segments: BlockSegment[] = [];
@@ -128,11 +154,11 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 						className="overflow-hidden"
 					>
 						<div className="flex flex-col gap-0.5 pl-2">
-							{blocks.map((block, i) =>
+							{blocks.map((block) =>
 								block.type === "tool_call" ? (
 									<ToolCallBlockView key={block.toolCallId} block={block} />
 								) : (
-									<ThinkingBlockView key={`thinking-${i}`} text={block.text} />
+									<ThinkingBlockView key={`thinking-${block.id}`} text={block.text} />
 								),
 							)}
 						</div>
@@ -420,8 +446,8 @@ const AssistantMessage = memo(function AssistantMessage({ message, isLastAssista
 			<div>
 				{hasBlocks ? (
 					<div className="flex flex-col gap-0.5">
-						{segments.map((segment, i) => (
-							<SegmentRenderer key={`seg-${i}`} segment={segment} />
+						{segments.map((segment) => (
+							<SegmentRenderer key={segmentKey(segment)} segment={segment} />
 						))}
 					</div>
 				) : (
