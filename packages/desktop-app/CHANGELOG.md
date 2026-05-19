@@ -10,6 +10,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **批量任务已完成子任务支持「重新运行」**：批量任务页（`BatchTaskList`）与项目详情页（`BatchQueueStatus`）的子任务在 `status === "completed"` 时，hover 操作中新增「重新运行」按钮，复用既有 `retryTask` IPC 走 `cleanTaskFilesAndState`（删 session + 删 task-state + `resetTaskFiles` 清产物目录），随后重新入队。按钮视觉沿用 `mdi--restart` 图标但去掉 danger 红色（completed 是正常态，danger 色会误导为失败），破坏性语义通过二次确认弹窗兜底——标题「确认重新运行任务「xxx」」、描述「将删除该任务现有的会话和产物，并重新执行」、确认按钮「重新运行」。failed 重试沿用原"重试"文案与 danger 视觉不变。
+
 - **批量重试失败下拉新增「仅清除失败状态」**：在原有「重试失败」/「清除失败状态并重试」基础上加入第三项，把所有失败任务的会话、task-state 与工作目录并行清理并广播 `task.reset` 事件把 UI 重置为未执行，但**不**触发重新运行——适合先批量清空再人工筛选哪些任务真要重跑的场景。新增 IPC `vetta:batch-tasks:batch-clear-failed` 与 preload `batchClearFailed`，复用既有的 `cleanTaskFilesAndState` + `task.reset` 通路。
 
 - **批量重试失败按钮支持下拉两种模式**：批量任务列表项目头部的「批量重试失败」按钮改为下拉，提供两种重试策略：(1)「重试失败」沿用原行为——把每个失败任务的清理（删 session、删 task-state、清工作目录）放在 `pLimit(concurrency)` 内由 worker 拿到任务后再做，所以排队中的失败任务在轮到前 UI 上仍显示"失败"；(2)「清除失败状态并重试」先 `Promise.all` 并行清理所有失败任务的状态/会话/文件并向 renderer 广播新增的 `task.reset` 事件（renderer 收到后立即把 status 重置为 `pending`、清空 sessionId/sessionPath/error），再交给 `pLimit` 按并发数排队执行，UI 上能立刻看到所有失败标记消失。新增 IPC `vetta:batch-tasks:batch-clear-failed-and-retry` 与 preload `batchClearFailedAndRetry`，并在 `BatchTaskEvent` 联合类型里加入 `task.reset` 分支供 hook reducer 处理。
@@ -19,6 +21,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **Webhook 消息推送基础设施**：设置页新增「消息推送」Tab，支持多条飞书 / 钉钉自定义机器人 endpoint 并行配置（每条独立启用、独立测试），URL 与签名 Secret 持久化到 `~/.vetta/desktop-app/webhook-credentials.json`（chmod 0600），非敏感字段（名称、@配置、钉钉关键词）写到 `webhook-config.json`。`WebhookProvider` 接口 + `WEBHOOK_PROVIDERS` 注册表使后续接入企业微信 / Slack / Discord 只需新增 provider 文件 + 注册一行；UI / IPC / 存储 / Manager 一律基于 kind 动态展开。飞书走 `msg_type:"interactive"` 卡片 + `lark_md` 元素（HMAC 签名 key=`timestamp\nsecret`、data=空 → body 内 timestamp/sign），钉钉走 `msgtype:"markdown"`（HMAC 签名 key=secret、data=`timestamp\nsecret` → URL append timestamp/sign），统一映射通用 `WebhookMessage { title, text, level }`；钉钉关键词模式会自动拼到 title 前满足安全校验。主进程任意模块通过 `getWebhookManager().broadcast(message, { onlyKinds?, onlyIds? })` 直接推送，不走 IPC；CRUD / toggle / test 走 `vetta:webhook:*` 通道。30s 超时、不重试。后续业务接入点（批量任务完成 / 定时任务失败 / 更新通知等）按需挂在 main 进程对应位置。
 
 ### Changed
+
+- **项目详情页失败任务「重试」改为先清理再重跑**：`BatchQueueStatus` 中失败子任务的「重试」按钮原先调用 `runTask`（直接重新入队，旧 session / 产物原样保留），与批量任务页 `BatchTaskList` 调用 `retryTask`（先清 session + 清产物再重跑）的行为不一致——同一个标着"重试"的按钮在两处语义不同。现统一改为 `retryTask`，并补上和批量任务页一致的二次确认弹窗（标题「确认重试任务「xxx」」、danger 变体）。
 
 - **批量任务页面 UI 紧凑化**：顶部 4 张 StatCard 卡片网格收敛为「新建项目」按钮左侧的内联紧凑 stat strip（总数 / 运行中 / 已完成 / 失败，pill 内分隔线），移除卡片背景与 hover 动画；项目 list 去掉外层卡片框（border + bg-card + 顶部 accent + 内部分隔线全部移除），只保留 header 行 + 进度条 + 任务网格的扁平结构；子任务网格固定 3 列（`sm:grid-cols-2 lg:grid-cols-3`），折叠阈值从 6 提升到 9（3×3 对齐 UI 网格）。子任务 item 去掉边框/ring，背景改 `bg-muted/40` 与主背景区分，padding 收紧到 `px-2.5 py-2`，字号下调（标题 12px / 状态 pill 9px / 时间 10px），不再展示 sourcePath，默认仅显示项目名 + 时间 + 状态 pill；hover 时整张卡片浮一层 `bg-background/70 backdrop-blur` 蒙层，操作按钮（跳转会话 / 执行 / 重试 / 取消等待 / 删除）以圆形 `OverlayActionButton` 居中排列在蒙层正中。失败错误从单独错误条改为时间右侧的内联红色省略式提示（hover 看完整 tooltip）。新增 `sortProjects` / `sortTasks` 两个本地排序函数：项目级与子任务级一律「运行中靠前，其次 createdAt latest」，让正在跑的批次和最近新建的子任务自动浮顶。
 
