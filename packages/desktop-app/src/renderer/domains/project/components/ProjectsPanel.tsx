@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, renamingSessionPathAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -446,6 +446,7 @@ function DefaultSessionList({
 	const sorted = [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
+	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
 
 	if (sorted.length === 0) {
 		return (
@@ -458,6 +459,7 @@ function DefaultSessionList({
 			{sorted.map((session) => {
 				const isActive = activeSessionPath === session.path;
 				const isRenaming = renamingSessionPath === session.path;
+				const isRunning = runningSessionPaths.has(session.path);
 				const label = session.name || session.firstMessage || session.id;
 				return (
 					<button
@@ -484,6 +486,14 @@ function DefaultSessionList({
 							/>
 						) : (
 							<>
+								{isRunning && (
+									<span
+										className={cn(
+											"icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin",
+											isActive ? "text-primary" : "text-muted-foreground",
+										)}
+									/>
+								)}
 								<span
 									className={cn(
 										"min-w-0 flex-1 truncate text-[13px]",
