@@ -30,6 +30,8 @@ const CHANNELS = {
 	AUTO_TITLE: "vetta:session:auto-title",
 	DISPOSE: "vetta:session:dispose",
 	EVENT: "vetta:session:event",
+	LIST_RUNNING: "vetta:session:list-running",
+	RUNNING_CHANGED: "vetta:session:running-changed",
 } as const;
 
 const SCHEDULER_CHANNELS = {
@@ -443,6 +445,16 @@ const api: DesktopApi = {
 		autoTitle: async (sessionId, userText, assistantText) =>
 			ipcRenderer.invoke(CHANNELS.AUTO_TITLE, sessionId, userText, assistantText),
 		dispose: async (sessionId) => ipcRenderer.invoke(CHANNELS.DISPOSE, sessionId),
+		listRunning: async () => ipcRenderer.invoke(CHANNELS.LIST_RUNNING),
+		onRunningChanged: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+				handler(payload as { sessionPath: string; running: boolean });
+			};
+			ipcRenderer.on(CHANNELS.RUNNING_CHANGED, listener);
+			return () => {
+				ipcRenderer.removeListener(CHANNELS.RUNNING_CHANGED, listener);
+			};
+		},
 	},
 };
 

@@ -1,8 +1,8 @@
-import { useAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useAtom, useAtomValue } from "jotai";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, ProjectType, SessionInfo } from "@shared/store/atoms";
-import { projectContextMenuAtom, renamingSessionPathAtom, sessionContextMenuAtom } from "@shared/store/atoms";
+import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom } from "@shared/store/atoms";
 
 interface ProjectGroupProps {
 	project: Project;
@@ -55,6 +55,15 @@ function relativeTime(timestamp: number): string {
 	const months = Math.floor(days / 30);
 	if (months < 12) return `${months} 个月`;
 	return `${Math.floor(months / 12)} 年`;
+}
+
+function RunningPulseDot(): JSX.Element {
+	return (
+		<span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-2 w-2 items-center justify-center">
+			<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+			<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+		</span>
+	);
 }
 
 function InlineRenameInput({
@@ -117,6 +126,11 @@ export function ProjectGroup({
 	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 	const [showAllSessions, setShowAllSessions] = useState(false);
+	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
+	const projectHasRunning = useMemo(
+		() => sessions.some((s) => runningSessionPaths.has(s.path)),
+		[sessions, runningSessionPaths],
+	);
 
 	useEffect(() => {
 		if (!isExpanded) setShowAllSessions(false);
@@ -151,7 +165,7 @@ export function ProjectGroup({
 					<button
 						type="button"
 						onClick={() => onCollapse(project.cwd)}
-						className="flex shrink-0 items-center justify-center"
+						className="relative flex shrink-0 items-center justify-center"
 					>
 						<span
 							className={cn(
@@ -159,6 +173,7 @@ export function ProjectGroup({
 								isActive ? "text-primary" : "text-foreground",
 							)}
 						/>
+						{projectHasRunning && <RunningPulseDot />}
 					</button>
 				) : (
 					<button
@@ -167,7 +182,7 @@ export function ProjectGroup({
 							onExpand(project.cwd);
 							onNavigateProject(project.cwd);
 						}}
-						className="flex shrink-0 items-center justify-center"
+						className="relative flex shrink-0 items-center justify-center"
 					>
 						<span
 							className={cn(
@@ -176,6 +191,7 @@ export function ProjectGroup({
 								isActive ? "text-primary" : "text-foreground",
 							)}
 						/>
+						{projectHasRunning && <RunningPulseDot />}
 					</button>
 				)}
 
@@ -233,7 +249,9 @@ export function ProjectGroup({
 						visibleSessions.map((session) => {
 							const isActive = activeSessionPath === session.path;
 							const isRenaming = renamingSessionPath === session.path;
+							const isRunning = runningSessionPaths.has(session.path);
 							const label = session.name || session.firstMessage || session.id;
+							const isSchedule = label.startsWith("[定时]");
 							return (
 								<button
 									key={session.path}
@@ -262,19 +280,27 @@ export function ProjectGroup({
 										/>
 									) : (
 										<>
-											{label.startsWith("[定时]") && (
+											{isRunning ? (
+												<span
+													className={cn(
+														"icon-[mdi--loading] ml-[20px] h-3.5 w-3.5 shrink-0 animate-spin",
+														isActive ? "text-primary" : "text-muted-foreground",
+													)}
+												/>
+											) : isSchedule ? (
 												<span className="icon-[mdi--clock-outline] ml-[20px] shrink-0 text-[11px] text-muted-foreground" />
-											)}
+											) : null}
 											<span
 												className={cn(
 													"min-w-0 flex-1 truncate text-[13px]",
-													!label.startsWith("[定时]") && "pl-[20px]",
+													!isSchedule && !isRunning && "pl-[20px]",
+													isRunning && "pl-1",
 													isActive
 														? "font-semibold text-primary"
 														: "text-foreground",
 												)}
 											>
-												{label.startsWith("[定时]") ? label.slice(5) : label}
+												{isSchedule ? label.slice(5) : label}
 											</span>
 										</>
 									)}

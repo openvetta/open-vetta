@@ -1,7 +1,7 @@
-import { useCallback, useRef } from "react";
-import { useAtom, useAtomValue } from "jotai";
+import { useCallback, useEffect, useRef } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { SIDEBAR_WIDTH_STORAGE_KEY, sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import { runningSessionPathsAtom, SIDEBAR_WIDTH_STORAGE_KEY, sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
 import { isMac } from "@shared/lib/platform";
 import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
@@ -33,6 +33,30 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 	const widthRef = useRef(width);
 	widthRef.current = width;
+	const setRunningSessionPaths = useSetAtom(runningSessionPathsAtom);
+
+	useEffect(() => {
+		let cancelled = false;
+		void window.vetta.session.listRunning().then((paths) => {
+			if (cancelled) return;
+			setRunningSessionPaths(new Set(paths));
+		});
+		const unsubscribe = window.vetta.session.onRunningChanged(({ sessionPath, running }) => {
+			setRunningSessionPaths((prev) => {
+				const had = prev.has(sessionPath);
+				if (running && had) return prev;
+				if (!running && !had) return prev;
+				const next = new Set(prev);
+				if (running) next.add(sessionPath);
+				else next.delete(sessionPath);
+				return next;
+			});
+		});
+		return () => {
+			cancelled = true;
+			unsubscribe();
+		};
+	}, [setRunningSessionPaths]);
 
 	const onResize = useCallback(
 		(delta: number) => {

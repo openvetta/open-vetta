@@ -46,6 +46,10 @@ export interface DesktopSessionApi {
 	rename(sessionPath: string, name: string): Promise<void>;
 	autoTitle(sessionId: string, userText: string, assistantText: string): Promise<string | null>;
 	dispose(sessionId: string): Promise<void>;
+	/** Snapshot of session paths currently in the agent loop. */
+	listRunning(): Promise<string[]>;
+	/** Subscribe to running-set changes. Fires for each toggle (running=true|false). */
+	onRunningChanged(handler: (payload: { sessionPath: string; running: boolean }) => void): () => void;
 }
 
 export interface SelectedImageFile {

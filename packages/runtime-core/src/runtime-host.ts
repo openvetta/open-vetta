@@ -110,6 +110,13 @@ export class RuntimeHost implements SessionFacade {
 	 * 一旦调用方没 try/catch 就被静默吞掉）。
 	 */
 	private externalSubscribers = new Map<string, Set<(event: SessionEvent) => void>>();
+	/**
+	 * 当前正在 streaming 的 session 集合（key 为 sessionPath / sessionFile）。
+	 * 在 attachInFlightBuffer 里随 agent_start/agent_end/aborted 同步维护，并通过
+	 * runningChangedHandlers 广播给宿主（main 进程 IPC 层），用于侧边栏渲染 spin。
+	 */
+	private runningSessionPaths = new Set<string>();
+	private runningChangedHandlers = new Set<(sessionPath: string, running: boolean) => void>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
@@ -309,6 +316,7 @@ export class RuntimeHost implements SessionFacade {
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];
 				buffer.isActive = true;
+				this.markRunning(session.sessionFile, true);
 				return;
 			}
 			if (event.type === "agent_end") {
@@ -316,6 +324,7 @@ export class RuntimeHost implements SessionFacade {
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];
 				buffer.isActive = false;
+				this.markRunning(session.sessionFile, false);
 				return;
 			}
 			if (event.type === "message_end") {
@@ -671,6 +680,7 @@ export class RuntimeHost implements SessionFacade {
 			this.inFlightUnsubscribers.get(existing.sessionId)?.();
 			this.inFlightUnsubscribers.delete(existing.sessionId);
 			this.inFlightBuffers.delete(existing.sessionId);
+			this.markRunning(existing.handle.session.sessionFile, false);
 			existing.handle.session.dispose();
 			this.sessions.delete(existing.sessionId);
 		}
@@ -692,6 +702,38 @@ export class RuntimeHost implements SessionFacade {
 			manager.appendSessionInfo(name);
 		} finally {
 			manager.close();
+		}
+	}
+
+	/** Snapshot of session paths whose agent loop is currently active. */
+	getRunningSessionPaths(): string[] {
+		return Array.from(this.runningSessionPaths);
+	}
+
+	/**
+	 * Subscribe to running-set changes. Handler receives (sessionPath, running).
+	 * Returns an unsubscribe function.
+	 */
+	onRunningChanged(handler: (sessionPath: string, running: boolean) => void): () => void {
+		this.runningChangedHandlers.add(handler);
+		return () => {
+			this.runningChangedHandlers.delete(handler);
+		};
+	}
+
+	private markRunning(sessionPath: string | undefined, running: boolean): void {
+		if (!sessionPath) return;
+		const had = this.runningSessionPaths.has(sessionPath);
+		if (running && had) return;
+		if (!running && !had) return;
+		if (running) this.runningSessionPaths.add(sessionPath);
+		else this.runningSessionPaths.delete(sessionPath);
+		for (const h of this.runningChangedHandlers) {
+			try {
+				h(sessionPath, running);
+			} catch (err) {
+				console.warn("[RuntimeHost.markRunning] handler threw:", err);
+			}
 		}
 	}
 
@@ -799,6 +841,7 @@ export class RuntimeHost implements SessionFacade {
 		this.inFlightUnsubscribers.delete(sessionId);
 		this.inFlightBuffers.delete(sessionId);
 		this.externalSubscribers.delete(sessionId);
+		this.markRunning(handle.session.sessionFile, false);
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
 		this.currentTurnStartedAt.delete(sessionId);
@@ -820,11 +863,22 @@ export class RuntimeHost implements SessionFacade {
 			}
 			clearSessionGrants(sessionId);
 		}
+		const wasRunning = Array.from(this.runningSessionPaths);
 		this.sessions.clear();
 		this.currentTurnStartedAt.clear();
 		this.inFlightUnsubscribers.clear();
 		this.inFlightBuffers.clear();
 		this.externalSubscribers.clear();
+		this.runningSessionPaths.clear();
+		for (const p of wasRunning) {
+			for (const h of this.runningChangedHandlers) {
+				try {
+					h(p, false);
+				} catch {
+					// 忽略，下游接收方异常不影响其他处理器
+				}
+			}
+		}
 	}
 
 	private requireSession(sessionId: string): SessionHandle {

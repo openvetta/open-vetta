@@ -47,6 +47,8 @@ const CHANNELS = {
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
 	SANDBOX_GRANTS_REVOKE: "vetta:session:sandbox-grants-revoke",
 	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
+	LIST_RUNNING: "vetta:session:list-running",
+	RUNNING_CHANGED: "vetta:session:running-changed",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -280,6 +282,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return runtime.getSessionPath(sessionId);
 	});
 
+	ipcMain.handle(CHANNELS.LIST_RUNNING, () => runtime.getRunningSessionPaths());
+
+	const unsubscribeRunning = runtime.onRunningChanged((sessionPath, running) => {
+		if (webContents.isDestroyed()) return;
+		webContents.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running });
+	});
+
 	ipcMain.handle(CHANNELS.CONFIRM_RESPONSE, (_event, requestId: unknown, confirmed: unknown) => {
 		assertNonEmptyString(requestId, "requestId");
 		const resolve = confirmationMap.get(requestId);
@@ -366,6 +375,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	});
 
 	return () => {
+		unsubscribeRunning();
 		for (const unsubscribe of subscriptionMap.values()) {
 			unsubscribe();
 		}
