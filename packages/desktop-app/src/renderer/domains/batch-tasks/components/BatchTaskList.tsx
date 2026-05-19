@@ -349,12 +349,15 @@ function ProjectBlock({
 				void runTask(project.id, taskId);
 			},
 			retry: (task) => {
+				const isCompleted = task.status === "completed";
 				setConfirm({
-					title: `确认重试任务「${task.name}」`,
-					message: "将删除该任务的会话和文件，然后重新执行。此操作不可撤回，是否继续？",
-					confirmLabel: "重试",
+					title: isCompleted ? `确认重新运行任务「${task.name}」` : `确认重试任务「${task.name}」`,
+					message: isCompleted
+						? "将删除该任务现有的会话和产物，并重新执行。此操作不可撤回，是否继续？"
+						: "将删除该任务的会话和文件，然后重新执行。此操作不可撤回，是否继续？",
+					confirmLabel: isCompleted ? "重新运行" : "重试",
 					cancelLabel: "取消",
-					variant: "danger",
+					variant: isCompleted ? undefined : "danger",
 					onConfirm: async () => {
 						await retryTask(project.id, task.id);
 					},
@@ -641,6 +644,16 @@ const TaskCard = memo(function TaskCard({
 								icon="icon-[mdi--restart]"
 								title="重试"
 								variant="danger"
+								delay={0.05}
+								onClick={(e) => {
+									e.stopPropagation();
+									callbacks.retry(task);
+								}}
+							/>
+						) : task.status === "completed" ? (
+							<OverlayActionButton
+								icon="icon-[mdi--restart]"
+								title="重新运行"
 								delay={0.05}
 								onClick={(e) => {
 									e.stopPropagation();

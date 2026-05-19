@@ -41,7 +41,7 @@ interface BatchQueueStatusProps {
 
 export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
-	const { runTask, stopTask, batchStart, batchStop, batchReset } = useBatchTasks();
+	const { runTask, retryTask, stopTask, batchStart, batchStop, batchReset } = useBatchTasks();
 
 	const [searchQuery, setSearchQuery] = useState("");
 	const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -109,6 +109,22 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 
 	const handleStopTask = async (taskId: string) => {
 		await stopTask(project.id, taskId);
+	};
+
+	const handleRetryTask = (task: BatchTask) => {
+		const isCompleted = task.status === "completed";
+		setConfirm({
+			title: isCompleted ? `确认重新运行任务「${task.name}」` : `确认重试任务「${task.name}」`,
+			message: isCompleted
+				? "将删除该任务现有的会话和产物，并重新执行。此操作不可撤回，是否继续？"
+				: "将删除该任务的会话和文件，然后重新执行。此操作不可撤回，是否继续？",
+			confirmLabel: isCompleted ? "重新运行" : "重试",
+			cancelLabel: "取消",
+			variant: isCompleted ? undefined : "danger",
+			onConfirm: async () => {
+				await retryTask(project.id, task.id);
+			},
+		});
 	};
 
 	const handleGoToSession = (task: BatchTask) => {
@@ -217,6 +233,7 @@ export function BatchQueueStatus({ project }: BatchQueueStatusProps): JSX.Elemen
 							task={task}
 							isQueued={queuedTaskIds.has(task.id)}
 							onRun={() => void handleRunTask(task.id)}
+							onRetry={() => handleRetryTask(task)}
 							onCancelQueued={() => void handleStopTask(task.id)}
 							onGoToSession={() => handleGoToSession(task)}
 						/>
@@ -290,12 +307,14 @@ function TaskRow({
 	task,
 	isQueued,
 	onRun,
+	onRetry,
 	onCancelQueued,
 	onGoToSession,
 }: {
 	task: BatchTask;
 	isQueued: boolean;
 	onRun: () => void;
+	onRetry: () => void;
 	onCancelQueued: () => void;
 	onGoToSession: () => void;
 }): JSX.Element {
@@ -398,13 +417,26 @@ function TaskRow({
 						<TooltipTrigger asChild>
 							<button
 								type="button"
-								onClick={onRun}
+								onClick={onRetry}
 								className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
 							>
 								<span className="icon-[mdi--restart] h-3.5 w-3.5" />
 							</button>
 						</TooltipTrigger>
 						<TooltipContent>重试</TooltipContent>
+					</Tooltip>
+				) : task.status === "completed" ? (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								type="button"
+								onClick={onRetry}
+								className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
+							>
+								<span className="icon-[mdi--restart] h-3.5 w-3.5" />
+							</button>
+						</TooltipTrigger>
+						<TooltipContent>重新运行</TooltipContent>
 					</Tooltip>
 				) : null}
 			</div>
