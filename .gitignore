@@ -58,3 +58,4 @@ prompt/
 spec/
 requirement/
 .agents/
+skills-lock.json
