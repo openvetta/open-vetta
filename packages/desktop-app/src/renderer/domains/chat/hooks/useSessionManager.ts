@@ -187,7 +187,7 @@ export function useSessionManager(): SessionManagerResult {
 			__perf("after getFullHistory");
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
-			setTurnModifiedFiles(extractModifiedFiles(mapped));
+			setTurnModifiedFiles(extractModifiedFiles(mapped, cwd));
 
 			// If this session already has any prior turn (loaded from disk) we never
 			// want to auto-rename — only brand-new sessions on their first round.
@@ -297,7 +297,7 @@ export function useSessionManager(): SessionManagerResult {
 							// Write total duration onto the last assistant message
 							// and extract modified files from this turn
 							setChatMessages((prev) => {
-								setTurnModifiedFiles(extractModifiedFiles(prev));
+								setTurnModifiedFiles(extractModifiedFiles(prev, activeSessionRef.current?.cwd));
 								if (elapsed > 0) {
 									for (let i = prev.length - 1; i >= 0; i--) {
 										if (prev[i].role === "assistant") {

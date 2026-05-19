@@ -1,3 +1,4 @@
+import { pathBasename, pathJoin, pathNormalize } from "@shared/lib/utils";
 import type { ChatMessage, ContentBlock, ToolCallBlock } from "@shared/store/atoms";
 import type { HistoryEntry } from "../../../../../runtime-core/src/index.js";
 
@@ -564,12 +565,37 @@ export function appendError(prev: ChatMessage[], errorMessage: string): ChatMess
  * out — those file types are noise for non-developer users.
  */
 const HIDDEN_EXTENSIONS = new Set([".js", ".py", ".json"]);
+const NOISE_EXTENSIONS = new Set([".log", ".tmp"]);
+const NOISE_BASENAMES = new Set([".DS_Store", "Thumbs.db"]);
+const EXTENSIONLESS_ALLOWLIST = new Set([
+	"Makefile",
+	"Dockerfile",
+	"Rakefile",
+	"Gemfile",
+	"Procfile",
+	"LICENSE",
+	"README",
+	"CHANGELOG",
+	"AUTHORS",
+	"NOTICE",
+]);
 
 function getExt(p: string): string {
 	const slash = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
 	const dot = p.lastIndexOf(".");
 	if (dot > slash) return p.slice(dot).toLowerCase();
 	return "";
+}
+
+function isAbsolutePath(p: string): boolean {
+	return p.startsWith("/") || p.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(p);
+}
+
+function hasHiddenSegment(relPath: string): boolean {
+	for (const seg of relPath.split("/")) {
+		if (seg.startsWith(".") && seg !== "." && seg !== "..") return true;
+	}
+	return false;
 }
 
 function replaceExt(p: string, newExt: string): string {
@@ -583,12 +609,35 @@ function asStr(v: unknown): string | undefined {
 	return typeof v === "string" && v ? v : undefined;
 }
 
+/**
+ * Strip heredoc bodies from a shell command so their contents are not scanned
+ * for redirections — `cat > out.html <<HTMLEOF\n<body>...\nHTMLEOF` would
+ * otherwise leak `body` / `HTMLEOF` into the artifact list as false positives.
+ */
+function stripHeredocs(cmd: string): string {
+	const lines = cmd.split("\n");
+	const out: string[] = [];
+	let terminator: string | null = null;
+	const re = /<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?/;
+	for (const line of lines) {
+		if (terminator !== null) {
+			if (line.trim() === terminator) terminator = null;
+			continue;
+		}
+		const m = line.match(re);
+		if (m) terminator = m[1];
+		out.push(line);
+	}
+	return out.join("\n");
+}
+
 /** Extract output paths from a shell command via redirection / tee patterns. */
 function extractPathsFromShellCommand(cmd: string): string[] {
 	const paths = new Set<string>();
+	const cleaned = stripHeredocs(cmd);
 	// `> path`, `>> path`, `| tee [-a|-i] path` — path may be quoted
 	const re = /(?:>>?|\|\s*tee(?:\s+-[aAi]+)?)\s+(?:"([^"]+)"|'([^']+)'|([^\s|;&<>()`]+))/g;
-	for (const m of cmd.matchAll(re)) {
+	for (const m of cleaned.matchAll(re)) {
 		const p = m[1] ?? m[2] ?? m[3];
 		if (p && p !== "/dev/null" && !p.startsWith("&")) paths.add(p);
 	}
@@ -650,19 +699,55 @@ function extractToolOutputs(block: ToolCallBlock): string[] {
 	return out;
 }
 
-export function extractModifiedFiles(messages: ChatMessage[]): string[] {
-	const modified = new Set<string>();
+/**
+ * Collect tool-produced file paths and filter out noise so the UI artifact list
+ * stays focused on real, project-local outputs:
+ *   1. drop files whose extension is in HIDDEN_EXTENSIONS / NOISE_EXTENSIONS,
+ *      or whose basename is in NOISE_BASENAMES (.DS_Store etc.);
+ *   2. drop anything that resolves outside `cwd` (skipped when cwd is absent);
+ *   3. drop paths with any "."-prefixed segment (.git/, src/.cache/x, root .env).
+ * Dedupe by normalized absolute path; display the project-relative form when
+ * available so the list reads naturally.
+ */
+export function extractModifiedFiles(messages: ChatMessage[], cwd?: string): string[] {
+	const normalizedCwd = cwd ? pathNormalize(cwd) : "";
+	const seen = new Set<string>();
+	const out: Array<{ abs: string; display: string }> = [];
 	for (const msg of messages) {
 		if (msg.role !== "assistant" || !msg.blocks) continue;
 		for (const block of msg.blocks) {
 			if (block.type !== "tool_call") continue;
-			for (const p of extractToolOutputs(block)) {
-				if (HIDDEN_EXTENSIONS.has(getExt(p))) continue;
-				modified.add(p);
+			for (const raw of extractToolOutputs(block)) {
+				const base = pathBasename(raw);
+				if (NOISE_BASENAMES.has(base)) continue;
+				const ext = getExt(raw);
+				if (HIDDEN_EXTENSIONS.has(ext) || NOISE_EXTENSIONS.has(ext)) continue;
+				// Drop extensionless tokens — almost always heredoc terminators
+				// or bash barewords (`body`, `HTMLEOF`). Keep well-known files.
+				if (!ext && !EXTENSIONLESS_ALLOWLIST.has(base)) continue;
+
+				const joined = isAbsolutePath(raw) || !normalizedCwd ? raw : pathJoin(normalizedCwd, raw);
+				const abs = pathNormalize(joined);
+
+				let rel: string | null = null;
+				if (normalizedCwd) {
+					if (abs === normalizedCwd) continue;
+					if (abs.startsWith(`${normalizedCwd}/`)) {
+						rel = abs.slice(normalizedCwd.length + 1);
+					} else {
+						continue;
+					}
+				}
+				const segCheck = rel ?? abs;
+				if (hasHiddenSegment(segCheck)) continue;
+
+				if (seen.has(abs)) continue;
+				seen.add(abs);
+				out.push({ abs, display: rel ?? raw });
 			}
 		}
 	}
-	return [...modified].sort();
+	return out.map((e) => e.display).sort();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
