@@ -6,15 +6,6 @@ Vetta 是一套面向企业与个人的 AI Agent 产品栈：在本地/桌面运
 
 > 仓库由 `@mariozechner/pi-ai` / `pi-mono` 演化而来，上游保留了通用的 LLM API 与 Agent Loop 能力；Vetta 在其基础上增加了桌面宿主（Electron）、业务后台（Go/Gin）、IM 旁路（Go）、管理台（React）以及批量任务、定时自动化、技能广场、工作流流转等企业侧能力。
 
-## 应用预览
-
-<p align="center">
-  <img src="docs/preview/p1.png" alt="Vetta 桌面应用预览 1" width="860" />
-</p>
-<p align="center">
-  <img src="docs/preview/p2.png" alt="Vetta 桌面应用预览 2" width="860" />
-</p>
-
 ---
 
 ## 快速开始
@@ -215,4 +206,3 @@ vetta-mono/
 
 - [`docs/architecture-overview.md`](docs/architecture-overview.md) — 依赖方向、请求流、应用/运行时边界
 - [`docs/package-conventions.md`](docs/package-conventions.md) — 包与目录所有权约定
-
