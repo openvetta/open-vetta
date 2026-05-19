@@ -42,6 +42,22 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
 	const { toggleProject: toggleBatchProject, deleteTask: deleteBatchTask, deleteProject: deleteBatchProject } = useBatchTasks();
 
+	// 手风琴：展开任一项目（普通 / 批量）时，关闭另一侧的所有展开项。
+	const expandProjectAccordion = useCallback(
+		(cwd: string) => {
+			setExpandedBatchProjects(new Set());
+			expandProject(cwd);
+		},
+		[expandProject, setExpandedBatchProjects],
+	);
+	const expandBatchProjectAccordion = useCallback(
+		(cwd: string) => {
+			for (const c of expandedProjects) collapseProject(c);
+			setExpandedBatchProjects(new Set([cwd]));
+		},
+		[collapseProject, expandedProjects, setExpandedBatchProjects],
+	);
+
 	// Convert visible batch projects to Project + SessionInfo format
 	const visibleBatchProjects = useMemo(() => batchProjects.filter((bp) =>
 		bp.tasks.some((t) => t.sessionPath),
@@ -217,18 +233,6 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject, sessionsMap, cleanupAfterProjectGone],
 	);
 
-	const expandBatchProject = useCallback(
-		(key: string) => {
-			setExpandedBatchProjects((prev) => {
-				if (prev.has(key)) return prev;
-				const next = new Set(prev);
-				next.add(key);
-				return next;
-			});
-		},
-		[setExpandedBatchProjects],
-	);
-
 	const collapseBatchProject = useCallback(
 		(key: string) => {
 			setExpandedBatchProjects((prev) => {
@@ -239,6 +243,30 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 			});
 		},
 		[setExpandedBatchProjects],
+	);
+
+	// 当前激活的项目 cwd：基于 `/project/<cwd>` 路径识别；兼容 tanstack-router 可能的多次编码。
+	const activeProjectCandidates = useMemo(() => {
+		if (!currentPath.startsWith("/project/")) return new Set<string>();
+		const raw = currentPath.slice("/project/".length);
+		if (!raw) return new Set<string>();
+		const variants = new Set<string>([raw]);
+		let v = raw;
+		for (let i = 0; i < 3; i++) {
+			try {
+				const decoded = decodeURIComponent(v);
+				if (decoded === v) break;
+				variants.add(decoded);
+				v = decoded;
+			} catch {
+				break;
+			}
+		}
+		return variants;
+	}, [currentPath]);
+	const isProjectActive = useCallback(
+		(cwd: string) => activeProjectCandidates.has(cwd),
+		[activeProjectCandidates],
 	);
 
 	const noOtherProjects =
@@ -262,8 +290,9 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					project={project}
 					sessions={sessionsMap.get(project.cwd) ?? []}
 					isExpanded={expandedProjects.has(project.cwd)}
+					isActive={isProjectActive(project.cwd)}
 					activeSessionPath={activeSession?.sessionPath ?? ""}
-					onExpand={expandProject}
+					onExpand={expandProjectAccordion}
 					onCollapse={collapseProject}
 					onNavigateProject={handleNavigateProject}
 					onNewSession={(cwd) =>
@@ -280,8 +309,9 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						project={project}
 						sessions={sessions}
 						isExpanded={expandedBatchProjects.has(project.cwd)}
+						isActive={isProjectActive(project.cwd)}
 						activeSessionPath={activeSession?.sessionPath ?? ""}
-						onExpand={expandBatchProject}
+						onExpand={expandBatchProjectAccordion}
 						onCollapse={collapseBatchProject}
 						onNavigateProject={handleNavigateProject}
 						onNewSession={(cwd) => void onOpenSession(cwd)}
@@ -307,7 +337,9 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						<button
 							type="button"
 							onClick={() =>
-								defaultExpanded ? collapseProject(defaultProject.cwd) : expandProject(defaultProject.cwd)
+								defaultExpanded
+									? collapseProject(defaultProject.cwd)
+									: expandProjectAccordion(defaultProject.cwd)
 							}
 							className="flex min-w-0 flex-1 items-center gap-1 text-left text-[12px] font-medium text-muted-foreground/80 transition-colors hover:text-foreground"
 							title={defaultExpanded ? "折叠" : "展开"}
