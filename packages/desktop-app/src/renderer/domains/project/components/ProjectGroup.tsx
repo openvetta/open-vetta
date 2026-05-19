@@ -8,6 +8,7 @@ interface ProjectGroupProps {
 	project: Project;
 	sessions: SessionInfo[];
 	isExpanded: boolean;
+	isActive?: boolean;
 	activeSessionPath: string;
 	onExpand: (cwd: string) => void;
 	onCollapse: (cwd: string) => void;
@@ -102,6 +103,7 @@ export function ProjectGroup({
 	project,
 	sessions,
 	isExpanded,
+	isActive = false,
 	activeSessionPath,
 	onExpand,
 	onCollapse,
@@ -134,7 +136,10 @@ export function ProjectGroup({
 		<div className="mb-1">
 			{/* Project row */}
 			<div
-				className="group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left hover:bg-accent/50"
+				className={cn(
+					"group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
+					isActive ? "bg-primary/15 text-primary" : "hover:bg-accent/50",
+				)}
 				title={project.cwd}
 				onContextMenu={(e) => {
 					e.preventDefault();
@@ -148,7 +153,12 @@ export function ProjectGroup({
 						onClick={() => onCollapse(project.cwd)}
 						className="flex shrink-0 items-center justify-center"
 					>
-						<span className="icon-[mdi--chevron-down] h-4 w-4 text-foreground" />
+						<span
+							className={cn(
+								"icon-[mdi--chevron-down] h-4 w-4",
+								isActive ? "text-primary" : "text-foreground",
+							)}
+						/>
 					</button>
 				) : (
 					<button
@@ -159,7 +169,13 @@ export function ProjectGroup({
 						}}
 						className="flex shrink-0 items-center justify-center"
 					>
-						<span className={cn(PROJECT_TYPE_ICONS[projectType], "h-4 w-4 text-foreground")} />
+						<span
+							className={cn(
+								PROJECT_TYPE_ICONS[projectType],
+								"h-4 w-4",
+								isActive ? "text-primary" : "text-foreground",
+							)}
+						/>
 					</button>
 				)}
 
@@ -172,7 +188,10 @@ export function ProjectGroup({
 						}
 						onNavigateProject(project.cwd);
 					}}
-					className="min-w-0 flex-1 truncate text-left text-[13px] font-medium text-foreground"
+					className={cn(
+						"min-w-0 flex-1 truncate text-left text-[13px] font-medium",
+						isActive ? "font-semibold text-primary" : "text-foreground",
+					)}
 				>
 					{displayName}
 				</button>

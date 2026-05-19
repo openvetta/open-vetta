@@ -122,11 +122,10 @@ export function useProjects() {
 	const expandProject = useCallback(
 		(cwd: string) => {
 			setExpandedProjects((prev) => {
-				if (prev.has(cwd)) return prev;
-				const next = new Set(prev);
-				next.add(cwd);
+				if (prev.size === 1 && prev.has(cwd)) return prev;
 				void loadSessions(cwd);
-				return next;
+				// 手风琴：同一时间仅一个项目处于展开状态。
+				return new Set([cwd]);
 			});
 		},
 		[setExpandedProjects, loadSessions],
@@ -147,14 +146,14 @@ export function useProjects() {
 	const toggleProject = useCallback(
 		(cwd: string) => {
 			setExpandedProjects((prev) => {
-				const next = new Set(prev);
-				if (next.has(cwd)) {
+				if (prev.has(cwd)) {
+					const next = new Set(prev);
 					next.delete(cwd);
-				} else {
-					next.add(cwd);
-					void loadSessions(cwd);
+					return next;
 				}
-				return next;
+				void loadSessions(cwd);
+				// 手风琴：展开新项目时清除其他展开项。
+				return new Set([cwd]);
 			});
 		},
 		[setExpandedProjects, loadSessions],
