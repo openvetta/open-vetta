@@ -660,8 +660,8 @@ export class RuntimeHost implements SessionFacade {
 			.sort((a, b) => a.cwd.localeCompare(b.cwd));
 	}
 
-	async listSessions(cwd: string): Promise<SessionHistoryInfo[]> {
-		const sessions = await SessionManager.list(cwd);
+	async listSessions(cwd: string, sessionDir?: string): Promise<SessionHistoryInfo[]> {
+		const sessions = await SessionManager.list(cwd, sessionDir);
 		return sessions.map((session: SessionInfo) => ({
 			id: session.id,
 			path: session.path,

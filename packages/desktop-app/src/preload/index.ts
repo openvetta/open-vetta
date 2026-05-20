@@ -32,6 +32,7 @@ const CHANNELS = {
 	EVENT: "vetta:session:event",
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
+	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
 } as const;
 
 const SCHEDULER_CHANNELS = {
@@ -458,6 +459,7 @@ const api: DesktopApi = {
 				ipcRenderer.removeListener(CHANNELS.RUNNING_CHANGED, listener);
 			};
 		},
+		clearDefaultConversation: async () => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_CONVERSATION),
 	},
 };
 

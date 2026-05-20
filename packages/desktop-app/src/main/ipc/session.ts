@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { basename } from "node:path";
+import { mkdir, readdir, rm } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
 import { ipcMain, type WebContents } from "electron";
 import type {
 	PromptRequest,
@@ -14,8 +15,27 @@ import type {
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
-import { allowProjectRoot, readConfigSync, readDesktopConfig, writeDesktopConfig } from "./fs.js";
+import {
+	allowProjectRoot,
+	DEFAULT_CONVERSATION_CWD,
+	DEFAULT_CONVERSATION_SESSION_DIR,
+	readConfigSync,
+	readDesktopConfig,
+	writeDesktopConfig,
+} from "./fs.js";
 import { readSettings, writeSettings } from "./settings.js";
+
+/**
+ * 默认「对话」项目的会话改放到 <cwd>/.vetta/sessions（与批量项目一致）。
+ * 当请求的 cwd 是默认项目时，自动注入 sessionDir，渲染端无需感知。
+ */
+function resolveSessionDirForCwd(cwd: string | undefined): string | undefined {
+	if (!cwd) return undefined;
+	if (resolve(cwd) === resolve(DEFAULT_CONVERSATION_CWD)) {
+		return DEFAULT_CONVERSATION_SESSION_DIR;
+	}
+	return undefined;
+}
 
 const CHANNELS = {
 	CREATE: "vetta:session:create",
@@ -49,6 +69,7 @@ const CHANNELS = {
 	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
+	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -153,7 +174,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (config?.cwd) allowProjectRoot(config.cwd);
 		assertExecutionMode(config?.executionMode);
 		await assertSandboxAvailableForMode(config?.executionMode, resolveDefaultExecutionMode);
-		const result = await runtime.createSession(config);
+		// 默认项目：缺省把 session 落到 <cwd>/.vetta/sessions（与批量项目一致）。
+		const injectedSessionDir = config?.sessionDir ?? resolveSessionDirForCwd(config?.cwd);
+		const effectiveConfig: SessionConfig | undefined = injectedSessionDir
+			? { ...(config ?? {}), sessionDir: injectedSessionDir }
+			: config;
+		const result = await runtime.createSession(effectiveConfig);
 		if (config?.cwd) {
 			sessionCwdMap.set(result.sessionId, config.cwd);
 		}
@@ -169,7 +195,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.LIST_SESSIONS, async (_event, cwd: unknown) => {
 		assertNonEmptyString(cwd, "cwd");
 		allowProjectRoot(cwd);
-		return runtime.listSessions(cwd);
+		const sessionDir = resolveSessionDirForCwd(cwd);
+		return runtime.listSessions(cwd, sessionDir);
 	});
 
 	ipcMain.handle(CHANNELS.PROMPT, async (_event, sessionId: unknown, request: unknown) => {
@@ -283,6 +310,43 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.LIST_RUNNING, () => runtime.getRunningSessionPaths());
+
+	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_CONVERSATION, async () => {
+		// 双保险：如果默认项目还有 session 在跑，拒绝执行——避免 dispose 跑飞的 agent。
+		const defaultCwd = resolve(DEFAULT_CONVERSATION_CWD);
+		const sessionDir = resolve(DEFAULT_CONVERSATION_SESSION_DIR);
+		const running = runtime.getRunningSessionPaths();
+		const sessionDirWithSep = `${sessionDir}/`;
+		if (running.some((p) => resolve(p).startsWith(sessionDirWithSep))) {
+			throw new Error("默认项目存在运行中的会话，请先停止后再清空。");
+		}
+		// 释放所有指向默认项目的 session handle，避免 rm 时残留文件锁。
+		const toDispose: string[] = [];
+		for (const [sessionId, cwd] of sessionCwdMap.entries()) {
+			if (resolve(cwd) === defaultCwd) toDispose.push(sessionId);
+		}
+		await Promise.all(
+			toDispose.map(async (sessionId) => {
+				try {
+					await runtime.disposeSession(sessionId);
+				} catch (err) {
+					console.error("[clear-default-conversation] dispose failed", sessionId, err);
+				}
+				sessionCwdMap.delete(sessionId);
+			}),
+		);
+		// 递归清空 ~/.vetta/conversation/ 下的全部内容，但保留目录本身。
+		// 同时一并清掉 sessionDir 内容（它就在 cwd 下，会被这一步覆盖）。
+		try {
+			const entries = await readdir(defaultCwd, { withFileTypes: true });
+			await Promise.all(entries.map((entry) => rm(join(defaultCwd, entry.name), { recursive: true, force: true })));
+		} catch (err) {
+			console.error("[clear-default-conversation] failed to clear conversation cwd", err);
+			throw err;
+		}
+		// 重建 .vetta/sessions/，下一次 createSession 立即可用。
+		await mkdir(sessionDir, { recursive: true });
+	});
 
 	const unsubscribeRunning = runtime.onRunningChanged((sessionPath, running) => {
 		if (webContents.isDestroyed()) return;

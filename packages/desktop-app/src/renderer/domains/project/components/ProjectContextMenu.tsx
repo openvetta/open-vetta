@@ -13,9 +13,23 @@ interface ProjectContextMenuProps {
 	onArchive: (cwd: string) => void;
 	onRemove: (cwd: string) => void;
 	onDelete: (cwd: string) => void;
+	/** 默认「对话」项目专用：清空所有会话与产物。其他项目类型不会渲染此项。 */
+	onClearDefault?: (cwd: string) => void;
+	/** 默认项目存在 running 会话时为 true，菜单项置灰。 */
+	clearDefaultDisabled?: boolean;
 }
 
-export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove, onDelete }: ProjectContextMenuProps): JSX.Element {
+export function ProjectContextMenu({
+	x,
+	y,
+	project,
+	onClose,
+	onArchive,
+	onRemove,
+	onDelete,
+	onClearDefault,
+	clearDefaultDisabled,
+}: ProjectContextMenuProps): JSX.Element {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const [adjustedPos, setAdjustedPos] = useState({ x, y });
 
@@ -76,6 +90,25 @@ export function ProjectContextMenu({ x, y, project, onClose, onArchive, onRemove
 					<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 					{isMac ? "在访达中打开" : "从此电脑打开"}
 				</button>
+				{isDefault && onClearDefault && (
+					<>
+						<div className="mx-1.5 my-1 h-px bg-border" />
+						<button
+							type="button"
+							disabled={clearDefaultDisabled}
+							title={clearDefaultDisabled ? "请先停止运行中的会话" : undefined}
+							onClick={() => {
+								if (clearDefaultDisabled) return;
+								onClearDefault(project.cwd);
+								onClose();
+							}}
+							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
+						>
+							<span className="icon-[mdi--broom] h-3.5 w-3.5" />
+							清空会话
+						</button>
+					</>
+				)}
 				{!isDefault && (
 					<button
 						type="button"
