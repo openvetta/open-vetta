@@ -13,6 +13,7 @@ import type {
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ThinkingLevel,
+	ToolPhase,
 } from "@mariozechner/pi-agent-core";
 import type {
 	Api,
@@ -567,6 +568,7 @@ export interface ToolExecutionStartEvent {
 	toolCallId: string;
 	toolName: string;
 	args: any;
+	startedAt: number;
 }
 
 /** Fired during tool execution with partial/streaming output */
@@ -578,6 +580,18 @@ export interface ToolExecutionUpdateEvent {
 	partialResult: any;
 }
 
+/**
+ * Fired when a tool reports a phase boundary via ctx.phase(label) during execution.
+ * Out-of-band metadata — never sent to LLMs.
+ */
+export interface ToolExecutionPhaseEvent {
+	type: "tool_execution_phase";
+	toolCallId: string;
+	toolName: string;
+	label: string;
+	atMs: number;
+}
+
 /** Fired when a tool finishes executing */
 export interface ToolExecutionEndEvent {
 	type: "tool_execution_end";
@@ -585,6 +599,9 @@ export interface ToolExecutionEndEvent {
 	toolName: string;
 	result: any;
 	isError: boolean;
+	startedAt: number;
+	durationMs: number;
+	phases: ToolPhase[];
 }
 
 // ============================================================================
@@ -848,6 +865,7 @@ export type ExtensionEvent =
 	| MessageEndEvent
 	| ToolExecutionStartEvent
 	| ToolExecutionUpdateEvent
+	| ToolExecutionPhaseEvent
 	| ToolExecutionEndEvent
 	| ModelSelectEvent
 	| UserBashEvent
@@ -985,6 +1003,7 @@ export interface ExtensionAPI {
 	on(event: "message_end", handler: ExtensionHandler<MessageEndEvent>): void;
 	on(event: "tool_execution_start", handler: ExtensionHandler<ToolExecutionStartEvent>): void;
 	on(event: "tool_execution_update", handler: ExtensionHandler<ToolExecutionUpdateEvent>): void;
+	on(event: "tool_execution_phase", handler: ExtensionHandler<ToolExecutionPhaseEvent>): void;
 	on(event: "tool_execution_end", handler: ExtensionHandler<ToolExecutionEndEvent>): void;
 	on(event: "model_select", handler: ExtensionHandler<ModelSelectEvent>): void;
 	on(event: "tool_call", handler: ExtensionHandler<ToolCallEvent, ToolCallEventResult>): void;

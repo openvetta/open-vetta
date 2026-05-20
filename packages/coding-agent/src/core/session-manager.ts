@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { AgentMessage, ToolPhase } from "@mariozechner/pi-agent-core";
 import type { ImageContent, Message, TextContent } from "@mariozechner/pi-ai";
 import { randomUUID } from "crypto";
 import {
@@ -116,6 +116,25 @@ export interface SessionInfoEntry extends SessionEntryBase {
 }
 
 /**
+ * Tool execution timing entry.
+ *
+ * Recorded once per tool call at tool_execution_end. Carries startedAt (absolute
+ * ms), durationMs, and any phases the tool reported via ctx.phase(label).
+ *
+ * Deliberately a non-message SessionEntry: LLM providers only consume `message`
+ * entries when building the API payload, so timing data never enters the prompt.
+ * See docs/adr/0001-tool-timing-as-separate-session-entry.md.
+ */
+export interface ToolTimingEntry extends SessionEntryBase {
+	type: "tool_timing";
+	toolCallId: string;
+	toolName: string;
+	startedAt: number;
+	durationMs: number;
+	phases: ToolPhase[];
+}
+
+/**
  * Custom message entry for extensions to inject messages into LLM context.
  * Use customType to identify your extension's entries.
  *
@@ -145,7 +164,8 @@ export type SessionEntry =
 	| CustomEntry
 	| CustomMessageEntry
 	| LabelEntry
-	| SessionInfoEntry;
+	| SessionInfoEntry
+	| ToolTimingEntry;
 
 /** Raw file entry (includes header) */
 export type FileEntry = SessionHeader | SessionEntry;
@@ -891,6 +911,33 @@ export class SessionManager {
 			parentId: this.leafId,
 			timestamp: new Date().toISOString(),
 			thinkingLevel,
+		};
+		this._appendEntry(entry);
+		return entry.id;
+	}
+
+	/**
+	 * Append a tool timing entry as child of current leaf, then advance leaf.
+	 * Returns entry id. Out-of-band metadata — never read by buildSessionContext,
+	 * so this never enters LLM payloads.
+	 */
+	appendToolTiming(
+		toolCallId: string,
+		toolName: string,
+		startedAt: number,
+		durationMs: number,
+		phases: ToolPhase[],
+	): string {
+		const entry: ToolTimingEntry = {
+			type: "tool_timing",
+			id: generateId(this.byId),
+			parentId: this.leafId,
+			timestamp: new Date().toISOString(),
+			toolCallId,
+			toolName,
+			startedAt,
+			durationMs,
+			phases,
 		};
 		this._appendEntry(entry);
 		return entry.id;

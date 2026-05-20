@@ -38,6 +38,7 @@ import {
 	fullHistoryToChat,
 	getOpenSessionToken,
 	handleToolEnd,
+	handleToolPhase,
 	handleToolStart,
 	nextId,
 	resetStreamState,
@@ -435,15 +436,28 @@ export function useSessionManager(): SessionManagerResult {
 							event.toolCallId,
 							event.toolName,
 							(event.args as Record<string, unknown>) ?? {},
+							event.startedAt,
 						),
 					);
+					return;
+				}
+
+				// ── Tool phase (live, never persisted into LLM context) ──
+				if (event.type === "tool.phase") {
+					setChatMessages((prev) => handleToolPhase(prev, event.toolCallId, event.label, event.atMs));
 					return;
 				}
 
 				// ── Tool end ──
 				if (event.type === "tool.end") {
 					flushDeltas();
-					setChatMessages((prev) => handleToolEnd(prev, event.toolCallId, event.result, event.isError));
+					setChatMessages((prev) =>
+						handleToolEnd(prev, event.toolCallId, event.result, event.isError, {
+							startedAt: event.startedAt,
+							durationMs: event.durationMs,
+							phases: event.phases,
+						}),
+					);
 					return;
 				}
 

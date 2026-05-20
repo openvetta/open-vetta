@@ -187,6 +187,21 @@ export interface AgentToolResult<T> {
 // Callback for streaming tool execution updates
 export type AgentToolUpdateCallback<T = any> = (partialResult: AgentToolResult<T>) => void;
 
+// A timing phase reported by a tool via ctx.phase(label) during execution.
+// atMs is the offset (in milliseconds) from the tool's startedAt; each phase
+// implicitly ends when the next phase starts (or when execution ends).
+export interface ToolPhase {
+	label: string;
+	atMs: number;
+}
+
+// Out-of-band runtime hooks made available to a tool's execute() — purely
+// metadata reporting, never affects tool result content. Optional fourth-style
+// argument so existing tools that don't take ctx keep working.
+export interface ToolExecutionContext {
+	phase: (label: string) => void;
+}
+
 // AgentTool extends Tool but adds the execute function
 export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any> extends Tool<TParameters> {
 	// A human-readable label for the tool to be displayed in UI
@@ -196,6 +211,7 @@ export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any
 		params: Static<TParameters>,
 		signal?: AbortSignal,
 		onUpdate?: AgentToolUpdateCallback<TDetails>,
+		ctx?: ToolExecutionContext,
 	) => Promise<AgentToolResult<TDetails>>;
 }
 
@@ -223,6 +239,16 @@ export type AgentEvent =
 	| { type: "message_update"; message: AgentMessage; assistantMessageEvent: AssistantMessageEvent }
 	| { type: "message_end"; message: AgentMessage }
 	// Tool execution lifecycle
-	| { type: "tool_execution_start"; toolCallId: string; toolName: string; args: any }
+	| { type: "tool_execution_start"; toolCallId: string; toolName: string; args: any; startedAt: number }
 	| { type: "tool_execution_update"; toolCallId: string; toolName: string; args: any; partialResult: any }
-	| { type: "tool_execution_end"; toolCallId: string; toolName: string; result: any; isError: boolean };
+	| { type: "tool_execution_phase"; toolCallId: string; toolName: string; label: string; atMs: number }
+	| {
+			type: "tool_execution_end";
+			toolCallId: string;
+			toolName: string;
+			result: any;
+			isError: boolean;
+			startedAt: number;
+			durationMs: number;
+			phases: ToolPhase[];
+	  };

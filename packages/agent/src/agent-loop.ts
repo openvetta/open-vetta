@@ -367,11 +367,15 @@ async function executeToolCalls(
 		const toolCall = toolCalls[index];
 		const tool = tools?.find((t) => t.name === toolCall.name);
 
+		const startedAt = Date.now();
+		const phases: import("./types.js").ToolPhase[] = [];
+
 		stream.push({
 			type: "tool_execution_start",
 			toolCallId: toolCall.id,
 			toolName: toolCall.name,
 			args: toolCall.arguments,
+			startedAt,
 		});
 
 		let result: AgentToolResult<any>;
@@ -382,15 +386,33 @@ async function executeToolCalls(
 
 			const validatedArgs = validateToolArguments(tool, toolCall);
 
-			result = await tool.execute(toolCall.id, validatedArgs, signal, (partialResult) => {
-				stream.push({
-					type: "tool_execution_update",
-					toolCallId: toolCall.id,
-					toolName: toolCall.name,
-					args: toolCall.arguments,
-					partialResult,
-				});
-			});
+			result = await tool.execute(
+				toolCall.id,
+				validatedArgs,
+				signal,
+				(partialResult) => {
+					stream.push({
+						type: "tool_execution_update",
+						toolCallId: toolCall.id,
+						toolName: toolCall.name,
+						args: toolCall.arguments,
+						partialResult,
+					});
+				},
+				{
+					phase: (label: string) => {
+						const atMs = Date.now() - startedAt;
+						phases.push({ label, atMs });
+						stream.push({
+							type: "tool_execution_phase",
+							toolCallId: toolCall.id,
+							toolName: toolCall.name,
+							label,
+							atMs,
+						});
+					},
+				},
+			);
 		} catch (e) {
 			result = {
 				content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }],
@@ -405,6 +427,9 @@ async function executeToolCalls(
 			toolName: toolCall.name,
 			result,
 			isError,
+			startedAt,
+			durationMs: Date.now() - startedAt,
+			phases,
 		});
 
 		const toolResultMessage: ToolResultMessage = {
@@ -447,11 +472,13 @@ function skipToolCall(
 		details: {},
 	};
 
+	const startedAt = Date.now();
 	stream.push({
 		type: "tool_execution_start",
 		toolCallId: toolCall.id,
 		toolName: toolCall.name,
 		args: toolCall.arguments,
+		startedAt,
 	});
 	stream.push({
 		type: "tool_execution_end",
@@ -459,6 +486,9 @@ function skipToolCall(
 		toolName: toolCall.name,
 		result,
 		isError: true,
+		startedAt,
+		durationMs: 0,
+		phases: [],
 	});
 
 	const toolResultMessage: ToolResultMessage = {

@@ -135,6 +135,7 @@ export type {
 	ToolDefinition,
 	// Events - Tool Execution
 	ToolExecutionEndEvent,
+	ToolExecutionPhaseEvent,
 	ToolExecutionStartEvent,
 	ToolExecutionUpdateEvent,
 	ToolInfo,

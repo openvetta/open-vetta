@@ -17,6 +17,11 @@ export interface ThinkingBlock {
 	text: string;
 }
 
+export interface ToolPhaseInfo {
+	label: string;
+	atMs: number;
+}
+
 export interface ToolCallBlock {
 	type: "tool_call";
 	toolCallId: string;
@@ -26,6 +31,19 @@ export interface ToolCallBlock {
 	status: "pending" | "success" | "error";
 	result?: string;
 	isError?: boolean;
+	/**
+	 * Out-of-band timing metadata. Never sent to LLMs.
+	 * - startedAt: absolute ms when execution began (from tool.start event)
+	 * - durationMs: total execution time (from tool.end event or ToolTimingEntry)
+	 * - phases: tool-reported phase boundaries; each phase ends when the next
+	 *   one starts (or when execution ends)
+	 * - currentPhase: only set while status === "pending" — the most recent
+	 *   tool.phase event's label, for live display.
+	 */
+	startedAt?: number;
+	durationMs?: number;
+	phases?: ToolPhaseInfo[];
+	currentPhase?: string;
 }
 
 export interface ToolResultBlock {

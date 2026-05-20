@@ -63,6 +63,7 @@ import {
 	type ShutdownHandler,
 	type ToolDefinition,
 	type ToolExecutionEndEvent,
+	type ToolExecutionPhaseEvent,
 	type ToolExecutionStartEvent,
 	type ToolExecutionUpdateEvent,
 	type ToolInfo,
@@ -430,6 +431,19 @@ export class AgentSession {
 		// Notify all listeners
 		this._emit(event);
 
+		// Persist tool timing as an out-of-band SessionEntry. Kept separate from
+		// SessionMessageEntry so it never enters LLM context — providers only
+		// serialize message-type entries. See ADR 0001.
+		if (event.type === "tool_execution_end") {
+			this.sessionManager.appendToolTiming(
+				event.toolCallId,
+				event.toolName,
+				event.startedAt,
+				event.durationMs,
+				event.phases,
+			);
+		}
+
 		// Handle session persistence
 		if (event.type === "message_end") {
 			// Check if this is a custom message from extensions
@@ -619,6 +633,7 @@ export class AgentSession {
 				toolCallId: event.toolCallId,
 				toolName: event.toolName,
 				args: event.args,
+				startedAt: event.startedAt,
 			};
 			await this._extensionRunner.emit(extensionEvent);
 		} else if (event.type === "tool_execution_update") {
@@ -630,6 +645,15 @@ export class AgentSession {
 				partialResult: event.partialResult,
 			};
 			await this._extensionRunner.emit(extensionEvent);
+		} else if (event.type === "tool_execution_phase") {
+			const extensionEvent: ToolExecutionPhaseEvent = {
+				type: "tool_execution_phase",
+				toolCallId: event.toolCallId,
+				toolName: event.toolName,
+				label: event.label,
+				atMs: event.atMs,
+			};
+			await this._extensionRunner.emit(extensionEvent);
 		} else if (event.type === "tool_execution_end") {
 			const extensionEvent: ToolExecutionEndEvent = {
 				type: "tool_execution_end",
@@ -637,6 +661,9 @@ export class AgentSession {
 				toolName: event.toolName,
 				result: event.result,
 				isError: event.isError,
+				startedAt: event.startedAt,
+				durationMs: event.durationMs,
+				phases: event.phases,
 			};
 			await this._extensionRunner.emit(extensionEvent);
 		}

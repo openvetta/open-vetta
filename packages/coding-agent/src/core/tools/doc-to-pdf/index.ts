@@ -237,11 +237,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 		label: "doc_to_pdf",
 		description,
 		parameters: docToPdfSchema,
-		execute: async (
-			_toolCallId: string,
-			{ path, output }: { path: string; output?: string },
-			signal?: AbortSignal,
-		) => {
+		execute: async (_toolCallId, { path, output }, signal, _onUpdate, ctx) => {
 			return new Promise<{ content: Array<{ type: "text"; text: string }>; details: undefined }>(
 				(resolve, reject) => {
 					if (signal?.aborted) {
@@ -261,6 +257,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 
 					(async () => {
 						try {
+							ctx?.phase("locate");
 							// Resolve input path
 							const inputPath = resolveExistingPath(path, cwd);
 							const ext = nodePath.extname(inputPath).toLowerCase();
@@ -283,6 +280,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 
 							if (aborted) return;
 
+							ctx?.phase("detect");
 							// Detect available backend
 							const backend = await ops.detect();
 							if (!backend) {
@@ -300,6 +298,7 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 
 							if (aborted) return;
 
+							ctx?.phase("convert");
 							// Perform conversion
 							const resultPath = await ops.convert(inputPath, outputPath, backend);
 
