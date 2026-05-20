@@ -269,7 +269,7 @@ export interface SessionFacade {
 	/** Full conversation history including compaction boundaries (for UI display). */
 	getFullHistory(sessionId: string): HistoryEntry[];
 	listProjects(): Promise<ProjectInfo[]>;
-	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
+	listSessions(cwd: string, sessionDir?: string): Promise<SessionHistoryInfo[]>;
 	deleteSession(sessionPath: string): Promise<void>;
 	renameSession(sessionPath: string, name: string): Promise<void>;
 	getSessionPath(sessionId: string): string | undefined;

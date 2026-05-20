@@ -50,6 +50,11 @@ export interface DesktopSessionApi {
 	listRunning(): Promise<string[]>;
 	/** Subscribe to running-set changes. Fires for each toggle (running=true|false). */
 	onRunningChanged(handler: (payload: { sessionPath: string; running: boolean }) => void): () => void;
+	/**
+	 * 清空默认「对话」项目：递归删除 ~/.vetta/conversation/ 下所有会话与产物，保留目录本身。
+	 * 主进程会先 dispose 所有指向该 cwd 的 session handle；若存在运行中会话则抛错拒绝。
+	 */
+	clearDefaultConversation(): Promise<void>;
 }
 
 export interface SelectedImageFile {

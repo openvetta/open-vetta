@@ -39,7 +39,13 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	defaultConversationCwd: string;
 }
 
-const DEFAULT_CONVERSATION_CWD = join(homedir(), ".vetta", "conversation");
+export const DEFAULT_CONVERSATION_CWD = join(homedir(), ".vetta", "conversation");
+
+/**
+ * 默认「对话」项目的会话目录：仿照批量项目，把 session jsonl 放到 cwd 内部，
+ * 避免 ~/.vetta/agent/sessions/<encoded-cwd>/ 的设备相关编码路径。
+ */
+export const DEFAULT_CONVERSATION_SESSION_DIR = join(DEFAULT_CONVERSATION_CWD, ".vetta", "sessions");
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
 const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");

@@ -28,7 +28,9 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		archiveProject,
 		removeProject,
 		deleteProjectFromDisk,
+		loadSessions,
 	} = useProjects();
+	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const activeSessionPath = activeSession?.sessionPath ?? "";
@@ -278,6 +280,33 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject, sessionsMap, cleanupAfterProjectGone],
 	);
 
+	const handleClearDefault = useCallback(
+		(cwd: string) => {
+			setProjectMenu(null);
+			const sessions = sessionsMap.get(cwd) ?? [];
+			setConfirm({
+				title: "清空会话",
+				message: `将删除「对话」项目下 ${sessions.length} 个会话及其所有产物，此操作不可恢复。`,
+				confirmLabel: "清空",
+				variant: "danger",
+				onConfirm: async () => {
+					await window.vetta.session.clearDefaultConversation();
+					// 当前 active session 若在被清空范围内，复位并跳回 NewSession 页。
+					const sessionPaths = sessions.map((s) => s.path);
+					if (activeSession && (activeSession.cwd === cwd || sessionPaths.includes(activeSession.sessionPath))) {
+						setActiveSession(null);
+						void navigate({
+							to: "/new-session/$cwd",
+							params: { cwd: encodeURIComponent(cwd) },
+						});
+					}
+					await loadSessions(cwd);
+				},
+			});
+		},
+		[setProjectMenu, setConfirm, sessionsMap, activeSession, setActiveSession, navigate, loadSessions],
+	);
+
 	const collapseBatchProject = useCallback(
 		(key: string) => {
 			setExpandedBatchProjects((prev) => {
@@ -445,6 +474,11 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					onArchive={handleArchive}
 					onRemove={handleRemove}
 					onDelete={handleDelete}
+					onClearDefault={handleClearDefault}
+					clearDefaultDisabled={
+						projectMenu.project.isDefault === true &&
+						(sessionsMap.get(projectMenu.project.cwd) ?? []).some((s) => runningSessionPaths.has(s.path))
+					}
 				/>
 			)}
 		</>

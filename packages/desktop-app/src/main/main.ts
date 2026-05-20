@@ -248,8 +248,10 @@ if (!gotSingleLock) {
 		}
 
 		// 默认「对话」项目目录：保证一直存在。
+		// 顺带把 in-tree session 目录（<cwd>/.vetta/sessions）也建好，
+		// 让默认项目走与批量项目一致的会话布局，避免设备相关的编码路径。
 		try {
-			await mkdir(join(homedir(), ".vetta", "conversation"), { recursive: true });
+			await mkdir(join(homedir(), ".vetta", "conversation", ".vetta", "sessions"), { recursive: true });
 		} catch (err) {
 			console.error("[default-project] failed to ensure conversation dir", err);
 		}
