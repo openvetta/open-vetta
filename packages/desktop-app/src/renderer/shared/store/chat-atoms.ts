@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import { runningSessionPathsAtom } from "./running-sessions-atoms";
 
 // ─── Rich content blocks ───
 
@@ -122,10 +123,33 @@ export const chatMessagesAtom = atom<ChatMessage[]>([]);
 
 /** Files modified/created during the last agent turn (set on agent_end, cleared on agent_start) */
 export const turnModifiedFilesAtom = atom<string[]>([]);
-export const isStreamingAtom = atom<boolean>(false);
 export const inputValueAtom = atom<string>("");
 export const attachedImagesAtom = atom<AttachedImage[]>([]);
 export const activeSessionAtom = atom<ActiveSession | null>(null);
+
+/**
+ * 「当前 active session 正在 streaming」的本地直读信号。
+ *
+ * 由 useSessionManager 的 IPC subscribe 在收到 agent_start/agent_end 时写入。
+ * 它能 cover 一个场景：brand-new session 创建后第一次 streaming —— 此时
+ * activeSession.sessionPath 可能还没解析完，runningSessionPathsAtom 也尚未
+ * 同步到当前会话，但 in-renderer subscribe 已经能直接听到 agent_start。
+ *
+ * 切走会话再切回的丢失场景由 runningSessionPathsAtom 兜底（main 进程全局广播，
+ * 不依赖单一 subscribe 的存活）。两路 OR 起来即可。
+ */
+export const activeSessionStreamingAtom = atom<boolean>(false);
+
+/**
+ * 当前 active session 是否处于 streaming（agent_start..agent_end）。
+ * = 本地信号 OR (runningSessionPathsAtom 中存在当前 sessionPath)
+ */
+export const isStreamingAtom = atom<boolean>((get) => {
+	if (get(activeSessionStreamingAtom)) return true;
+	const active = get(activeSessionAtom);
+	if (!active?.sessionPath) return false;
+	return get(runningSessionPathsAtom).has(active.sessionPath);
+});
 function getStoredExecutionMode(): SessionExecutionMode {
 	return localStorage.getItem("vetta-session-execution-mode") === "sandbox" ? "sandbox" : "full-access";
 }

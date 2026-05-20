@@ -554,8 +554,9 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
-	const lastMessage = messages.at(-1);
-	const showTyping = isStreaming && (!lastMessage || lastMessage.role !== "assistant" || !lastMessage.text);
+	// streaming 期间始终显示底部三点跳动动画 —— 哪怕 assistant 已开始吐字也保留，
+	// 作为「agent 仍在工作」的持续视觉信号；agent_end 后随 isStreaming 一起隐藏。
+	const showTyping = isStreaming;
 
 	// Find the last assistant message id
 	const lastAssistantId = useMemo(() => {
@@ -565,27 +566,77 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 		return null;
 	}, [messages]);
 
-	// Track whether we should follow output (stick to bottom)
-	const followOutputRef = useRef(true);
+	// 是否处于「贴底跟随」状态：true 时启动 rAF 平滑 lerp 把 scrollTop 拉向底部。
+	// 由 Virtuoso 的 atBottomStateChange 维护；用户手动向上滚动会自动转为 false，
+	// 跟随循环下一帧自然退出。
+	const atBottomRef = useRef(true);
+	// 当前是否正在 streaming —— 给 tick 闭包用，避免 useCallback 依赖触发重建。
+	const isStreamingRef = useRef(isStreaming);
+	isStreamingRef.current = isStreaming;
+	const lerpRafRef = useRef<number | null>(null);
 
-	const handleAtBottom = useCallback((atBottom: boolean) => {
-		followOutputRef.current = atBottom;
+	const tickLerp = useCallback(() => {
+		const el = scrollerRef.current;
+		if (!el || !atBottomRef.current) {
+			lerpRafRef.current = null;
+			return;
+		}
+		const target = el.scrollHeight - el.clientHeight;
+		const diff = target - el.scrollTop;
+		if (diff > 0.5) {
+			// 线性 lerp：每帧吃掉差值的 20%，开局快收尾稳，视觉上「持续追着底部」
+			// 而非「跳—停—跳」。
+			el.scrollTop = el.scrollTop + diff * 0.2;
+			lerpRafRef.current = requestAnimationFrame(tickLerp);
+		} else if (isStreamingRef.current) {
+			// 已贴底但 streaming 还在继续：保持循环，等下一帧的新内容继续抬高底部。
+			lerpRafRef.current = requestAnimationFrame(tickLerp);
+		} else {
+			lerpRafRef.current = null;
+		}
 	}, []);
 
-	// When user sends a new message, always scroll to bottom
+	const startLerp = useCallback(() => {
+		if (lerpRafRef.current === null) {
+			lerpRafRef.current = requestAnimationFrame(tickLerp);
+		}
+	}, [tickLerp]);
+
+	const handleAtBottom = useCallback(
+		(atBottom: boolean) => {
+			atBottomRef.current = atBottom;
+			if (atBottom) startLerp();
+		},
+		[startLerp],
+	);
+
+	// streaming 开关、消息变更都可能拉高 scrollHeight，触发一次 lerp。
+	// 实际是否真跟随由 atBottomRef 决定；用户向上滚走后下一帧就退出。
+	useEffect(() => {
+		if (atBottomRef.current) startLerp();
+	}, [messages, isStreaming, startLerp]);
+
+	// 用户发送新消息：无论之前是否贴底，都强制接管为「跟随」并启动 lerp 滑到底。
 	const prevMsgCountRef = useRef(messages.length);
 	useEffect(() => {
 		const prevCount = prevMsgCountRef.current;
 		prevMsgCountRef.current = messages.length;
 		const newMsg = messages.at(-1);
 		if (messages.length > prevCount && newMsg?.role === "user") {
-			followOutputRef.current = true;
-			const el = scrollerRef.current;
-			if (el) {
-				el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-			}
+			atBottomRef.current = true;
+			startLerp();
 		}
-	}, [messages]);
+	}, [messages, startLerp]);
+
+	// 卸载时停掉跟随循环
+	useEffect(() => {
+		return () => {
+			if (lerpRafRef.current !== null) {
+				cancelAnimationFrame(lerpRafRef.current);
+				lerpRafRef.current = null;
+			}
+		};
+	}, []);
 
 	const itemContent = useCallback((index: number, message: ChatMessage) => (
 		<div className="pb-5">
@@ -596,11 +647,6 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 			/>
 		</div>
 	), [lastAssistantId, isStreaming]);
-
-	const followOutput = useCallback((): boolean | "smooth" => {
-		if (followOutputRef.current) return "smooth";
-		return false;
-	}, []);
 
 	const scrollerRefCallback = useCallback((el: HTMLElement | Window | null) => {
 		scrollerRef.current = el instanceof HTMLElement ? el : null;
@@ -645,7 +691,6 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 				data={messages}
 				className="flex-1 pt-2"
 				style={{ overflowX: "hidden" }}
-				followOutput={followOutput}
 				atBottomStateChange={handleAtBottom}
 				atBottomThreshold={80}
 				overscan={400}
