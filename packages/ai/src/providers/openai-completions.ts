@@ -112,32 +112,40 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 			let currentBlock: TextContent | ThinkingContent | (ToolCall & { partialArgs?: string }) | null = null;
 			const blocks = output.content;
 			const blockIndex = () => blocks.length - 1;
+			// Stable lookup of in-progress toolCall blocks keyed by the protocol-level
+			// `tool_calls[].index`. Without this, a text/thinking delta between two
+			// chunks for the same tool call (or a placeholder-only frame) would cause
+			// the type-based switch below to mistakenly create a second block.
+			const toolCallByIndex = new Map<number, ToolCall & { partialArgs?: string }>();
 			const finishCurrentBlock = (block?: typeof currentBlock) => {
-				if (block) {
-					if (block.type === "text") {
-						stream.push({
-							type: "text_end",
-							contentIndex: blockIndex(),
-							content: block.text,
-							partial: output,
-						});
-					} else if (block.type === "thinking") {
-						stream.push({
-							type: "thinking_end",
-							contentIndex: blockIndex(),
-							content: block.thinking,
-							partial: output,
-						});
-					} else if (block.type === "toolCall") {
-						block.arguments = parseStreamingJson(block.partialArgs);
-						delete block.partialArgs;
-						stream.push({
-							type: "toolcall_end",
-							contentIndex: blockIndex(),
-							toolCall: block,
-							partial: output,
-						});
-					}
+				if (!block) return;
+				// Use the block's actual position in the array, not blocks.length-1.
+				// A toolCall block may be resurrected after text/thinking interleaves,
+				// in which case it is no longer the last-pushed block.
+				const idx = blocks.indexOf(block as (typeof blocks)[number]);
+				if (block.type === "text") {
+					stream.push({
+						type: "text_end",
+						contentIndex: idx,
+						content: block.text,
+						partial: output,
+					});
+				} else if (block.type === "thinking") {
+					stream.push({
+						type: "thinking_end",
+						contentIndex: idx,
+						content: block.thinking,
+						partial: output,
+					});
+				} else if (block.type === "toolCall") {
+					block.arguments = parseStreamingJson(block.partialArgs);
+					delete block.partialArgs;
+					stream.push({
+						type: "toolcall_end",
+						contentIndex: idx,
+						toolCall: block,
+						partial: output,
+					});
 				}
 			};
 
@@ -243,39 +251,60 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 
 					if (choice?.delta?.tool_calls) {
 						for (const toolCall of choice.delta.tool_calls) {
-							if (
-								!currentBlock ||
-								currentBlock.type !== "toolCall" ||
-								(toolCall.id && currentBlock.id !== toolCall.id)
-							) {
+							// OpenAI-compatible protocol: `index` is the authoritative
+							// identity for streaming tool_calls. Multiple deltas with the
+							// same index belong to the same tool call, regardless of any
+							// text/thinking deltas that interleave between them.
+							const idx = typeof toolCall.index === "number" ? toolCall.index : -1;
+							let block = idx >= 0 ? toolCallByIndex.get(idx) : undefined;
+
+							if (!block) {
+								// Some OpenAI-compatible servers (e.g. Qwen's compat
+								// endpoint) emit pure placeholder frames like
+								// `tool_calls: [{index: N}]` before any id/name/args
+								// arrive. Creating a block on such a frame would leave a
+								// permanent {id:"", name:""} toolCall in the message
+								// (because once it gets flushed by an interleaving text
+								// delta, no future frame is matched to it). Skip the
+								// placeholder; the next non-empty delta for this index
+								// will create the block.
+								const hasPayload = !!(toolCall.id || toolCall.function?.name || toolCall.function?.arguments);
+								if (!hasPayload) continue;
+
 								finishCurrentBlock(currentBlock);
-								currentBlock = {
+								block = {
 									type: "toolCall",
 									id: toolCall.id || "",
 									name: toolCall.function?.name || "",
 									arguments: {},
 									partialArgs: "",
 								};
-								output.content.push(currentBlock);
+								output.content.push(block);
+								if (idx >= 0) toolCallByIndex.set(idx, block);
+								currentBlock = block;
 								stream.push({ type: "toolcall_start", contentIndex: blockIndex(), partial: output });
+							} else if (currentBlock !== block) {
+								// Same index, but text/thinking interleaved since the
+								// previous delta for this tool call. End whatever block
+								// we were on and resume this one.
+								finishCurrentBlock(currentBlock);
+								currentBlock = block;
 							}
 
-							if (currentBlock.type === "toolCall") {
-								if (toolCall.id) currentBlock.id = toolCall.id;
-								if (toolCall.function?.name) currentBlock.name = toolCall.function.name;
-								let delta = "";
-								if (toolCall.function?.arguments) {
-									delta = toolCall.function.arguments;
-									currentBlock.partialArgs += toolCall.function.arguments;
-									currentBlock.arguments = parseStreamingJson(currentBlock.partialArgs);
-								}
-								stream.push({
-									type: "toolcall_delta",
-									contentIndex: blockIndex(),
-									delta,
-									partial: output,
-								});
+							if (toolCall.id) block.id = toolCall.id;
+							if (toolCall.function?.name) block.name = toolCall.function.name;
+							let delta = "";
+							if (toolCall.function?.arguments) {
+								delta = toolCall.function.arguments;
+								block.partialArgs = (block.partialArgs ?? "") + toolCall.function.arguments;
+								block.arguments = parseStreamingJson(block.partialArgs);
 							}
+							stream.push({
+								type: "toolcall_delta",
+								contentIndex: blocks.indexOf(block as (typeof blocks)[number]),
+								delta,
+								partial: output,
+							});
 						}
 					}
 

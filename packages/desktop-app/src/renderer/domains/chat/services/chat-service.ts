@@ -45,7 +45,11 @@ export function messageToBlocks(content: unknown): ContentBlock[] {
 			blocks.push({ type: "text", id: nextId("blk"), text: part.text });
 		} else if (part.type === "thinking" && typeof part.thinking === "string") {
 			blocks.push({ type: "thinking", id: nextId("blk"), text: part.thinking });
-		} else if (part.type === "toolCall" && typeof part.name === "string") {
+		} else if (part.type === "toolCall" && typeof part.name === "string" && part.name !== "") {
+			// Skip empty-name toolCall parts left behind by old provider parser bugs
+			// (OpenAI-compat placeholder frames produced ghost {id:"", name:""} blocks
+			// in some sessions). Showing them as unnamed tool blocks is meaningless
+			// and confuses users.
 			blocks.push({
 				type: "tool_call",
 				toolCallId: String(part.id ?? ""),
