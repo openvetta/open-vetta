@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue } from "jotai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, ProjectType, SessionInfo } from "@shared/store/atoms";
 import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom } from "@shared/store/atoms";
@@ -108,7 +108,7 @@ function InlineRenameInput({
 	);
 }
 
-export function ProjectGroup({
+export const ProjectGroup = memo(function ProjectGroup({
 	project,
 	sessions,
 	isExpanded,
@@ -121,7 +121,10 @@ export function ProjectGroup({
 	onSelectSession,
 	onRenameSession,
 }: ProjectGroupProps): JSX.Element {
-	const sortedSessions = [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt);
+	const sortedSessions = useMemo(
+		() => [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt),
+		[sessions],
+	);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [, setProjectContextMenu] = useAtom(projectContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
@@ -330,4 +333,4 @@ export function ProjectGroup({
 			)}
 		</div>
 	);
-}
+});

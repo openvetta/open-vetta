@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
@@ -31,6 +31,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	} = useProjects();
 	const activeSession = useAtomValue(activeSessionAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
+	const activeSessionPath = activeSession?.sessionPath ?? "";
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [projectMenu, setProjectMenu] = useAtom(projectContextMenuAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
@@ -97,9 +98,49 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleNavigateProject = useCallback(
 		(cwd: string) => {
+			// 切到项目详情时清除 session 激活，避免侧边栏「项目 + session」同时高亮
+			setActiveSession(null);
 			void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(cwd) } });
 		},
+		[navigate, setActiveSession],
+	);
+
+	const handleSelectSession = useCallback(
+		(cwd: string, path: string) => {
+			void onOpenSession(cwd, path);
+		},
+		[onOpenSession],
+	);
+
+	const handleNewSession = useCallback(
+		(cwd: string) => {
+			void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(cwd) } });
+		},
 		[navigate],
+	);
+
+	const handleSelectBatchSession = useCallback(
+		(_cwd: string, path: string) => {
+			const task = visibleBatchProjects
+				.flatMap((bp) => bp.tasks)
+				.find((t) => t.sessionPath === path);
+			if (task) void onOpenSession(task.cwd, path, task.executionMode);
+		},
+		[visibleBatchProjects, onOpenSession],
+	);
+
+	const handleBatchNewSession = useCallback(
+		(cwd: string) => {
+			void onOpenSession(cwd);
+		},
+		[onOpenSession],
+	);
+
+	const handleDefaultSelectSession = useCallback(
+		(cwd: string, path: string) => {
+			void onOpenSession(cwd, path);
+		},
+		[onOpenSession],
 	);
 
 	const handleDeleteSession = useCallback(
@@ -291,14 +332,12 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					sessions={sessionsMap.get(project.cwd) ?? []}
 					isExpanded={expandedProjects.has(project.cwd)}
 					isActive={isProjectActive(project.cwd)}
-					activeSessionPath={activeSession?.sessionPath ?? ""}
+					activeSessionPath={activeSessionPath}
 					onExpand={expandProjectAccordion}
 					onCollapse={collapseProject}
 					onNavigateProject={handleNavigateProject}
-					onNewSession={(cwd) =>
-						void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(cwd) } })
-					}
-					onSelectSession={(cwd, path) => void onOpenSession(cwd, path)}
+					onNewSession={handleNewSession}
+					onSelectSession={handleSelectSession}
 					onRenameSession={handleRenameSession}
 				/>
 			))}
@@ -310,17 +349,12 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						sessions={sessions}
 						isExpanded={expandedBatchProjects.has(project.cwd)}
 						isActive={isProjectActive(project.cwd)}
-						activeSessionPath={activeSession?.sessionPath ?? ""}
+						activeSessionPath={activeSessionPath}
 						onExpand={expandBatchProjectAccordion}
 						onCollapse={collapseBatchProject}
 						onNavigateProject={handleNavigateProject}
-						onNewSession={(cwd) => void onOpenSession(cwd)}
-						onSelectSession={(_, path) => {
-							const task = visibleBatchProjects
-								.flatMap((bp) => bp.tasks)
-								.find((t) => t.sessionPath === path);
-							if (task) void onOpenSession(task.cwd, path, task.executionMode);
-						}}
+						onNewSession={handleBatchNewSession}
+						onSelectSession={handleSelectBatchSession}
 						onRenameSession={handleRenameSession}
 					/>
 				))}
@@ -382,9 +416,9 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						<DefaultSessionList
 							cwd={defaultProject.cwd}
 							sessions={defaultSessions}
-							activeSessionPath={activeSession?.sessionPath ?? ""}
-							onSelectSession={(path) => void onOpenSession(defaultProject.cwd, path)}
-							onRenameSession={(path, name) => handleRenameSession(defaultProject.cwd, path, name)}
+							activeSessionPath={activeSessionPath}
+							onSelectSession={handleDefaultSelectSession}
+							onRenameSession={handleRenameSession}
 						/>
 					)}
 				</div>
@@ -433,17 +467,21 @@ interface DefaultSessionListProps {
 	cwd: string;
 	sessions: SessionInfo[];
 	activeSessionPath: string;
-	onSelectSession: (sessionPath: string) => void;
-	onRenameSession: (sessionPath: string, name: string) => void;
+	onSelectSession: (cwd: string, sessionPath: string) => void;
+	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 }
 
-function DefaultSessionList({
+const DefaultSessionList = memo(function DefaultSessionList({
+	cwd,
 	sessions,
 	activeSessionPath,
 	onSelectSession,
 	onRenameSession,
 }: DefaultSessionListProps): JSX.Element {
-	const sorted = [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt);
+	const sorted = useMemo(
+		() => [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt),
+		[sessions],
+	);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
@@ -466,7 +504,7 @@ function DefaultSessionList({
 						key={session.path}
 						type="button"
 						onClick={() => {
-							if (!isRenaming) onSelectSession(session.path);
+							if (!isRenaming) onSelectSession(cwd, session.path);
 						}}
 						onContextMenu={(e) => {
 							e.preventDefault();
@@ -481,7 +519,7 @@ function DefaultSessionList({
 						{isRenaming ? (
 							<InlineDefaultRenameInput
 								session={session}
-								onRename={(name) => onRenameSession(session.path, name)}
+								onRename={(name) => onRenameSession(cwd, session.path, name)}
 								onDone={() => setRenamingSessionPath(null)}
 							/>
 						) : (
@@ -512,7 +550,7 @@ function DefaultSessionList({
 			})}
 		</div>
 	);
-}
+});
 
 function InlineDefaultRenameInput({
 	session,
