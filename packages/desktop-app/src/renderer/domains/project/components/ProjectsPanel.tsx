@@ -98,9 +98,13 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleNavigateProject = useCallback(
 		(cwd: string) => {
-			// 切到项目详情时清除 session 激活，避免侧边栏「项目 + session」同时高亮
-			setActiveSession(null);
-			void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(cwd) } });
+			// 必须先 navigate 再清 activeSession：否则在 `/` 路径下，setActiveSession(null) 会触发
+			// RootLayout 的根路径守卫（currentPath==="/" && !activeSession）抢跑到 /new-session。
+			void (async () => {
+				await navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(cwd) } });
+				// 切到项目详情后清除 session 激活，避免侧边栏「项目 + session」同时高亮
+				setActiveSession(null);
+			})();
 		},
 		[navigate, setActiveSession],
 	);
