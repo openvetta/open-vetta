@@ -1,7 +1,8 @@
 import { app, Menu, nativeImage, Tray } from "electron";
-import { getMainWindow, iconPath, showMainWindow } from "./window-manager.js";
+import { getMainWindow, iconPath, macTrayIconPath, showMainWindow } from "./window-manager.js";
 
 const isWindows = process.platform === "win32";
+const isMac = process.platform === "darwin";
 
 let tray: Tray | null = null;
 let hideToTrayOnClose = true;
@@ -22,20 +23,42 @@ export function getTray(): Tray | null {
 function buildTrayMenu(): Electron.Menu {
 	const mainWindow = getMainWindow();
 	const isVisible = mainWindow?.isVisible() ?? false;
-	return Menu.buildFromTemplate([
-		{
-			label: isVisible ? "隐藏窗口" : "显示窗口",
-			click: () => {
-				const win = getMainWindow();
-				if (!win) return;
-				if (win.isVisible()) {
-					win.hide();
-				} else {
-					showMainWindow();
-				}
-				rebuildTrayContextMenu();
-			},
+	const toggleItem = {
+		label: isVisible ? "隐藏窗口" : "显示窗口",
+		click: () => {
+			const win = getMainWindow();
+			if (!win) return;
+			if (win.isVisible()) {
+				win.hide();
+			} else {
+				showMainWindow();
+			}
+			rebuildTrayContextMenu();
 		},
+	};
+
+	// Mac 不接入 hide-to-tray 分支（close 走 Electron 默认隐藏窗口、应用留 Dock），
+	// 菜单只保留显示/隐藏 + 退出，避免暴露在 Mac 上无效的切换项。
+	if (isMac) {
+		return Menu.buildFromTemplate([
+			toggleItem,
+			{ type: "separator" },
+			{
+				label: "退出 Vetta",
+				click: () => {
+					(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
+					if (tray) {
+						tray.destroy();
+						tray = null;
+					}
+					app.quit();
+				},
+			},
+		]);
+	}
+
+	return Menu.buildFromTemplate([
+		toggleItem,
 		{
 			label: hideToTrayOnClose ? "退出" : "隐藏到托盘",
 			click: () => {
@@ -50,35 +73,46 @@ function buildTrayMenu(): Electron.Menu {
 	]);
 }
 
+function loadTrayIcon(): Electron.NativeImage {
+	if (isMac) {
+		const image = nativeImage.createFromPath(macTrayIconPath);
+		if (image.isEmpty()) return image;
+		return image.resize({ width: 22, height: 22 });
+	}
+	const icon = nativeImage.createFromPath(iconPath[process.platform]);
+	if (icon.isEmpty()) return icon;
+	return isWindows ? icon.resize({ width: 16, height: 16 }) : icon.resize({ width: 22, height: 22 });
+}
+
 export function createTray(): void {
 	if (tray) return;
 
-	const iconFilePath = iconPath[process.platform];
-	console.log(`[tray] Loading icon from: ${iconFilePath}`);
-	const icon = nativeImage.createFromPath(iconFilePath);
-	console.log(`[tray] Icon loaded: isEmpty=${icon.isEmpty()}`);
-	if (icon.isEmpty()) {
+	const trayIcon = loadTrayIcon();
+	console.log(`[tray] Icon loaded: platform=${process.platform}, isEmpty=${trayIcon.isEmpty()}`);
+	if (trayIcon.isEmpty()) {
 		console.warn("[tray] Icon not found, skipping tray creation");
 		return;
 	}
-
-	const trayIcon = isWindows ? icon.resize({ width: 16, height: 16 }) : icon.resize({ width: 22, height: 22 });
 
 	tray = new Tray(trayIcon);
 	console.log("[tray] Created successfully");
 	tray.setToolTip("Vetta");
 	tray.setContextMenu(buildTrayMenu());
 
-	tray.on("click", () => {
-		const win = getMainWindow();
-		if (!win) return;
-		if (win.isVisible()) {
-			win.hide();
-		} else {
-			showMainWindow();
-		}
-		rebuildTrayContextMenu();
-	});
+	// Mac 状态栏惯例：左/右键都由 setContextMenu 默认弹菜单，不另绑 click。
+	// Win/Linux：左键切换主窗口显隐，右键走上下文菜单。
+	if (!isMac) {
+		tray.on("click", () => {
+			const win = getMainWindow();
+			if (!win) return;
+			if (win.isVisible()) {
+				win.hide();
+			} else {
+				showMainWindow();
+			}
+			rebuildTrayContextMenu();
+		});
+	}
 }
 
 export function rebuildTrayContextMenu(): void {

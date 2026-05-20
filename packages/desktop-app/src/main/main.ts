@@ -307,10 +307,8 @@ if (!gotSingleLock) {
 			}
 		});
 
-		// Create tray icon on Windows and Linux
-		if (!isMac) {
-			createTray();
-		}
+		// 创建托盘/状态栏图标（三平台均启用；行为差异见 tray-manager.ts）
+		createTray();
 
 		// Initialize scheduler
 		if (teardownSchedulerIpc) {
