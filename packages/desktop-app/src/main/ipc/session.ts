@@ -358,6 +358,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			} catch {
 				// Debug recording should never break the event pipeline
 			}
+			// 渲染进程崩溃后 webContents 短暂处于"frame 已 disposed"状态——
+			// runtime 这边 agent 还在跑，每个事件都尝试 send 就会刷屏
+			// "Render frame was disposed before WebFrameMain could be accessed"。
+			// 此处提前 bail，避免把事件 buffer 灌进死掉的渲染端。
+			if (webContents.isDestroyed()) return;
 			webContents.send(CHANNELS.EVENT, subscriptionId, runtimeEvent);
 		});
 		subscriptionMap.set(subscriptionId, unsubscribe);
@@ -374,7 +379,29 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 	});
 
+	// 渲染进程崩溃 / 重新加载时，旧 subscription 永远不会等到 UNSUBSCRIBE IPC
+	// 调用——它们的回调还挂在 runtime 上、继续接收 agent 事件、继续往 dead
+	// frame 上 send（哪怕有 isDestroyed 守卫，事件流仍在 runtime 端继续）。
+	// 这里集中清理一次：渲染端恢复后会重新 SUBSCRIBE，生成新的 subscriptionId。
+	const onRenderGone = (): void => {
+		console.warn(`[session ipc] render-process-gone; clearing ${subscriptionMap.size} subscription(s)`);
+		for (const unsubscribe of subscriptionMap.values()) {
+			unsubscribe();
+		}
+		subscriptionMap.clear();
+		for (const resolve of confirmationMap.values()) {
+			resolve(false);
+		}
+		confirmationMap.clear();
+		for (const resolve of sandboxGrantMap.values()) {
+			resolve("deny");
+		}
+		sandboxGrantMap.clear();
+	};
+	webContents.on("render-process-gone", onRenderGone);
+
 	return () => {
+		webContents.removeListener("render-process-gone", onRenderGone);
 		unsubscribeRunning();
 		for (const unsubscribe of subscriptionMap.values()) {
 			unsubscribe();
