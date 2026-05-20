@@ -66,6 +66,24 @@ function toolLabel(block: ToolCallBlock): { name: string; detail: string } {
 	} else if (name === "find" || name === "ls" || name === "dir_tree" || name === "tree") {
 		const path = args.path ?? args.pattern;
 		if (typeof path === "string") detail = shortenPath(path);
+		else if (name === "dir_tree" || name === "tree") detail = ".";
+	} else if (name === "extract_text_from_img" || name === "extract_text_from_pdf" || name === "html_to_pdf") {
+		const input = args.input;
+		if (typeof input === "string") detail = shortenPath(input);
+	} else if (name === "doc_to_pdf") {
+		const path = args.path;
+		if (typeof path === "string") detail = shortenPath(path);
+	} else if (name === "todo") {
+		const action = args.action;
+		if (typeof action === "string") {
+			detail = action;
+			if (action === "update") {
+				if (typeof args.id === "number") detail += ` #${args.id}`;
+				if (typeof args.status === "string") detail += ` → ${args.status}`;
+			} else if (action === "create" && Array.isArray(args.items)) {
+				detail += ` (${args.items.length})`;
+			}
+		}
 	}
 
 	return { name, detail };
