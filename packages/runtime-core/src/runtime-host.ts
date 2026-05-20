@@ -643,6 +643,16 @@ export class RuntimeHost implements SessionFacade {
 						timestamp: entry.timestamp,
 					});
 				}
+			} else if (entry.type === "tool_timing") {
+				entries.push({
+					type: "tool_timing",
+					toolCallId: entry.toolCallId,
+					toolName: entry.toolName,
+					startedAt: entry.startedAt,
+					durationMs: entry.durationMs,
+					phases: entry.phases,
+					timestamp: entry.timestamp,
+				});
 			}
 		}
 		return entries;
@@ -1117,6 +1127,7 @@ export class RuntimeHost implements SessionFacade {
 				toolCallId: event.toolCallId,
 				toolName: event.toolName,
 				args: event.args,
+				startedAt: event.startedAt,
 			});
 			return events;
 		}
@@ -1132,9 +1143,21 @@ export class RuntimeHost implements SessionFacade {
 			return events;
 		}
 
+		if (event.type === "tool_execution_phase") {
+			events.push({
+				...this.baseEvent(sessionId, "tool"),
+				type: "tool.phase",
+				toolCallId: event.toolCallId,
+				toolName: event.toolName,
+				label: event.label,
+				atMs: event.atMs,
+			});
+			return events;
+		}
+
 		if (event.type === "tool_execution_end") {
 			console.log(
-				`[RuntimeHost.event] session=${sessionId} type=tool_end toolCallId=${event.toolCallId} toolName=${event.toolName} isError=${event.isError}`,
+				`[RuntimeHost.event] session=${sessionId} type=tool_end toolCallId=${event.toolCallId} toolName=${event.toolName} isError=${event.isError} durationMs=${event.durationMs}`,
 			);
 			events.push({
 				...this.baseEvent(sessionId, "tool"),
@@ -1143,6 +1166,9 @@ export class RuntimeHost implements SessionFacade {
 				toolName: event.toolName,
 				isError: event.isError,
 				result: event.result,
+				startedAt: event.startedAt,
+				durationMs: event.durationMs,
+				phases: event.phases,
 			});
 			return events;
 		}

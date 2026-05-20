@@ -178,6 +178,18 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			continue;
 		}
 
+		if (entry.type === "tool_timing") {
+			// Attach out-of-band timing to its matching tool_call block. UI-only;
+			// never round-trips into LLM context (see ADR 0001).
+			const block = toolCallIndex.get(entry.toolCallId);
+			if (block) {
+				block.startedAt = entry.startedAt;
+				block.durationMs = entry.durationMs;
+				block.phases = entry.phases.map((p) => ({ label: p.label, atMs: p.atMs }));
+			}
+			continue;
+		}
+
 		const m = entry.message as {
 			role: string;
 			content: unknown;
@@ -462,6 +474,7 @@ export function handleToolStart(
 	toolCallId: string,
 	toolName: string,
 	args: Record<string, unknown>,
+	startedAt?: number,
 ): ChatMessage[] {
 	// First: search for a finalized message from the current turn (not a draft)
 	// or the current draft. We only want to attach to the LAST assistant message
@@ -475,10 +488,15 @@ export function handleToolStart(
 		// Check if this tool_call block already exists (from toolcall.start or message.final)
 		const existing = blocks.findIndex((b) => b.type === "tool_call" && b.toolCallId === toolCallId);
 		if (existing !== -1) {
-			// Update args if the existing block has empty args (created by toolcall.start)
 			const block = blocks[existing] as ToolCallBlock;
-			if (Object.keys(block.args).length === 0 && Object.keys(args).length > 0) {
-				blocks[existing] = { ...block, args };
+			const argsChanged = Object.keys(block.args).length === 0 && Object.keys(args).length > 0;
+			const startedAtChanged = startedAt !== undefined && block.startedAt === undefined;
+			if (argsChanged || startedAtChanged) {
+				blocks[existing] = {
+					...block,
+					args: argsChanged ? args : block.args,
+					startedAt: startedAtChanged ? startedAt : block.startedAt,
+				};
 				const copy = [...prev];
 				copy[copy.length - 1] = { ...lastMsg, blocks };
 				return copy;
@@ -492,6 +510,7 @@ export function handleToolStart(
 			toolName,
 			args,
 			status: "pending",
+			startedAt,
 		});
 
 		const copy = [...prev];
@@ -509,6 +528,7 @@ export function handleToolStart(
 		toolName,
 		args,
 		status: "pending",
+		startedAt,
 	});
 	msgs[idx] = { ...msg, blocks };
 	return msgs;
@@ -522,6 +542,7 @@ export function handleToolEnd(
 	toolCallId: string,
 	result: unknown,
 	isError: boolean,
+	timing?: { startedAt: number; durationMs: number; phases: Array<{ label: string; atMs: number }> },
 ): ChatMessage[] {
 	const resultText = extractResultText(result);
 
@@ -541,6 +562,39 @@ export function handleToolEnd(
 			status: isError ? "error" : "success",
 			result: resultText,
 			isError,
+			startedAt: timing?.startedAt ?? block.startedAt,
+			durationMs: timing?.durationMs ?? block.durationMs,
+			phases: timing?.phases ?? block.phases,
+			// Clear currentPhase — execution is over, the badge is no longer "live".
+			currentPhase: undefined,
+		};
+		copy[i] = { ...msg, blocks };
+		return copy;
+	}
+
+	return prev;
+}
+
+/**
+ * Handle tool.phase: append a phase boundary to the matching tool_call block
+ * while it's still streaming, and mark it as the live "currentPhase" for header
+ * display. Both are out-of-band metadata — never sent to the LLM.
+ */
+export function handleToolPhase(prev: ChatMessage[], toolCallId: string, label: string, atMs: number): ChatMessage[] {
+	for (let i = prev.length - 1; i >= 0; i--) {
+		const msg = prev[i];
+		if (msg.role !== "assistant" || !msg.blocks) continue;
+
+		const blockIdx = msg.blocks.findIndex((b) => b.type === "tool_call" && b.toolCallId === toolCallId);
+		if (blockIdx === -1) continue;
+
+		const copy = [...prev];
+		const blocks = [...msg.blocks];
+		const block = blocks[blockIdx] as ToolCallBlock;
+		blocks[blockIdx] = {
+			...block,
+			phases: [...(block.phases ?? []), { label, atMs }],
+			currentPhase: label,
 		};
 		copy[i] = { ...msg, blocks };
 		return copy;

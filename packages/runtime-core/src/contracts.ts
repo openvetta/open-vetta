@@ -1,4 +1,4 @@
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
+import type { ThinkingLevel, ToolPhase } from "@mariozechner/pi-agent-core";
 import type { Message, Model } from "@mariozechner/pi-ai";
 
 export type RuntimeEventSource = "runtime-core" | "agent" | "tool" | "mcp";
@@ -42,6 +42,8 @@ export interface ToolStartEvent extends SessionEventBase {
 	toolCallId: string;
 	toolName: string;
 	args: unknown;
+	/** Absolute timestamp (ms) when the tool began executing. */
+	startedAt: number;
 }
 
 export interface ToolUpdateEvent extends SessionEventBase {
@@ -51,12 +53,31 @@ export interface ToolUpdateEvent extends SessionEventBase {
 	partialResult: unknown;
 }
 
+/**
+ * Emitted when a tool reports a phase boundary via ctx.phase(label) during
+ * execution. Out-of-band metadata — UI-only, never sent to LLMs.
+ */
+export interface ToolPhaseEvent extends SessionEventBase {
+	type: "tool.phase";
+	toolCallId: string;
+	toolName: string;
+	label: string;
+	/** Offset (ms) from the tool's startedAt. */
+	atMs: number;
+}
+
 export interface ToolEndEvent extends SessionEventBase {
 	type: "tool.end";
 	toolCallId: string;
 	toolName: string;
 	isError: boolean;
 	result: unknown;
+	/** Absolute timestamp (ms) when the tool began executing. */
+	startedAt: number;
+	/** Total execution duration in milliseconds. */
+	durationMs: number;
+	/** Phases reported by the tool via ctx.phase(label) — possibly empty. */
+	phases: ToolPhase[];
 }
 
 export interface McpStatusEvent extends SessionEventBase {
@@ -155,6 +176,7 @@ export type SessionEvent =
 	| ToolCallGeneratingEvent
 	| ToolStartEvent
 	| ToolUpdateEvent
+	| ToolPhaseEvent
 	| ToolEndEvent
 	| McpStatusEvent
 	| UsageUpdateEvent
@@ -240,7 +262,16 @@ export interface AssistantTurnTiming {
 export type HistoryEntry =
 	| { type: "message"; message: Message }
 	| { type: "compaction"; summary: string; tokensBefore: number; timestamp: string }
-	| { type: "assistant_turn_timing"; timing: AssistantTurnTiming; timestamp: string };
+	| { type: "assistant_turn_timing"; timing: AssistantTurnTiming; timestamp: string }
+	| {
+			type: "tool_timing";
+			toolCallId: string;
+			toolName: string;
+			startedAt: number;
+			durationMs: number;
+			phases: ToolPhase[];
+			timestamp: string;
+	  };
 
 export interface SessionFacade {
 	setUserConfirmationHandler(

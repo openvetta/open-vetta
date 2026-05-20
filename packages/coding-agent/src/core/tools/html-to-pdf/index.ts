@@ -134,14 +134,17 @@ export function createHtmlToPdfTool(cwd: string): AgentTool<typeof htmlToPdfSche
 		description,
 		parameters: htmlToPdfSchema,
 		execute: async (
-			_toolCallId: string,
-			{ input, output, pageSize, marginTop, marginRight, marginBottom, marginLeft }: HtmlToPdfToolInput,
-			signal?: AbortSignal,
+			_toolCallId,
+			{ input, output, pageSize, marginTop, marginRight, marginBottom, marginLeft },
+			signal,
+			_onUpdate,
+			ctx,
 		) => {
 			if (signal?.aborted) {
 				throw new Error("Operation aborted");
 			}
 
+			ctx?.phase("locate");
 			const inputPath = resolveExistingPath(input, cwd);
 			const outputPath = resolveToCwd(output, cwd);
 			const vetta = await findVettaExecutable();
@@ -152,6 +155,7 @@ export function createHtmlToPdfTool(cwd: string): AgentTool<typeof htmlToPdfSche
 			if (marginBottom !== undefined) args.push("--margin-bottom", String(marginBottom));
 			if (marginLeft !== undefined) args.push("--margin-left", String(marginLeft));
 
+			ctx?.phase("render");
 			const child = execFileAsync(vetta.path, args, {
 				encoding: "utf8",
 				timeout: 120000,

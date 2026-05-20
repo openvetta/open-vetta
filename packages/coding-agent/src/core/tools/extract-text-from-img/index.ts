@@ -177,13 +177,10 @@ export function createExtractTextFromImgTool(cwd: string): AgentTool<typeof extr
 		label: "extract_text_from_img",
 		description,
 		parameters: extractTextFromImgSchema,
-		execute: async (
-			_toolCallId: string,
-			{ input, output, maxChars }: ExtractTextFromImgToolInput,
-			signal?: AbortSignal,
-		) => {
+		execute: async (_toolCallId, { input, output, maxChars }, signal, _onUpdate, ctx) => {
 			if (signal?.aborted) throw new Error("Operation aborted");
 
+			ctx?.phase("locate");
 			const inputPath = resolveExistingPath(input, cwd);
 			const ext = nodePath.extname(inputPath).toLowerCase();
 			if (!SUPPORTED_EXTS.has(ext)) {
@@ -196,6 +193,7 @@ export function createExtractTextFromImgTool(cwd: string): AgentTool<typeof extr
 
 			const args = ["--ocr-img", inputPath, "--output", outputPath];
 
+			ctx?.phase("ocr");
 			const child = execFileAsync(vetta.path, args, {
 				encoding: "utf8",
 				timeout: OCR_TIMEOUT_MS,
@@ -230,6 +228,7 @@ export function createExtractTextFromImgTool(cwd: string): AgentTool<typeof extr
 					throw new Error("Vetta Desktop did not return an output path");
 				}
 
+				ctx?.phase("read");
 				const docRaw = await readFile(response.output, "utf8");
 				const doc = JSON.parse(docRaw) as OcrJsonDocument;
 				const cap = maxChars ?? DEFAULT_MAX_CHARS;

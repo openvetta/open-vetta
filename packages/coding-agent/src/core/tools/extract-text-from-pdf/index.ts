@@ -208,12 +208,15 @@ export function createExtractTextFromPdfTool(cwd: string): AgentTool<typeof extr
 		description,
 		parameters: extractTextFromPdfSchema,
 		execute: async (
-			_toolCallId: string,
-			{ input, output, pages, dpi, maxChars, preferTextLayer }: ExtractTextFromPdfToolInput,
-			signal?: AbortSignal,
+			_toolCallId,
+			{ input, output, pages, dpi, maxChars, preferTextLayer },
+			signal,
+			_onUpdate,
+			ctx,
 		) => {
 			if (signal?.aborted) throw new Error("Operation aborted");
 
+			ctx?.phase("locate");
 			const inputPath = resolveExistingPath(input, cwd);
 			const outputPath = resolveToCwd(output ?? defaultOutputPath(inputPath), cwd);
 			const vetta = await findVettaExecutable();
@@ -223,6 +226,7 @@ export function createExtractTextFromPdfTool(cwd: string): AgentTool<typeof extr
 			if (dpi !== undefined) args.push("--dpi", String(dpi));
 			if (preferTextLayer === false) args.push("--no-text-layer");
 
+			ctx?.phase("ocr");
 			const child = execFileAsync(vetta.path, args, {
 				encoding: "utf8",
 				timeout: OCR_TIMEOUT_MS,
@@ -257,6 +261,7 @@ export function createExtractTextFromPdfTool(cwd: string): AgentTool<typeof extr
 					throw new Error("Vetta Desktop did not return an output path");
 				}
 
+				ctx?.phase("read");
 				const docRaw = await readFile(response.output, "utf8");
 				const doc = JSON.parse(docRaw) as OcrJsonDocument;
 				const cap = maxChars ?? DEFAULT_MAX_CHARS;
