@@ -105,6 +105,7 @@ const BATCH_TASKS_CHANNELS = {
 	BATCH_START: "vetta:batch-tasks:batch-start",
 	BATCH_STOP: "vetta:batch-tasks:batch-stop",
 	BATCH_RESET: "vetta:batch-tasks:batch-reset",
+	BATCH_RESET_FAILED: "vetta:batch-tasks:batch-reset-failed",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	RESUME_TASK: "vetta:batch-tasks:resume-task",
 	RESUME_TASK_WITH_TEXT: "vetta:batch-tasks:resume-task-with-text",
@@ -278,6 +279,8 @@ const api: DesktopApi = {
 		batchStart: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_START, projectId),
 		batchStop: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_STOP, projectId),
 		batchReset: (projectId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RESET, projectId),
+		batchResetFailed: (projectId, taskIds) =>
+			ipcRenderer.invoke(BATCH_TASKS_CHANNELS.BATCH_RESET_FAILED, projectId, taskIds),
 		deleteSession: (sessionPath) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.DELETE_SESSION, sessionPath),
 		resumeTask: (projectId, taskId) => ipcRenderer.invoke(BATCH_TASKS_CHANNELS.RESUME_TASK, projectId, taskId),
 		resumeTaskWithText: (projectId, taskId, text) =>

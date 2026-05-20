@@ -177,6 +177,7 @@ interface TaskCallbacks {
 
 export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): JSX.Element {
 	const setConfirm = useSetAtom(confirmDialogAtom);
+	const queuedTaskIds = useAtomValue(batchQueuedTaskIdsAtom);
 	const {
 		runTask,
 		retryTask,
@@ -186,6 +187,7 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		batchStart,
 		batchStop,
 		batchReset,
+		batchResetFailed,
 		deleteProject,
 	} = useBatchTasks();
 
@@ -247,6 +249,29 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		});
 	};
 
+	const handleResetFailed = (project: BatchProject, counts: ProjectCounts) => {
+		if (counts.failed === 0) return;
+		// 快照：以点击瞬间前端可见的 failed 任务 ID 为准，避免与之后新失败的任务竞争。
+		const failedIds = project.tasks.filter((t) => t.status === "failed").map((t) => t.id);
+		if (failedIds.length === 0) return;
+		const queueActive = project.tasks.some(
+			(t) => t.status === "running" || queuedTaskIds.has(t.id),
+		);
+		const message = queueActive
+			? `将清空 ${failedIds.length} 个失败任务的会话、产物和状态，并加入队尾继续执行。此操作不可撤回，是否继续？`
+			: `将清空 ${failedIds.length} 个失败任务的会话、产物和状态，重置为「未执行」。可随后点击「开始」继续。此操作不可撤回，是否继续？`;
+		setConfirm({
+			title: "确认重置失败任务",
+			message,
+			confirmLabel: "重置",
+			cancelLabel: "取消",
+			variant: "danger",
+			onConfirm: async () => {
+				await batchResetFailed(project.id, failedIds);
+			},
+		});
+	};
+
 	const handleBatchReset = (project: BatchProject) => {
 		setConfirm({
 			title: "确认重置",
@@ -273,6 +298,7 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 					onBatchStart={handleBatchStart}
 					onBatchStop={handleBatchStop}
 					onBatchReset={handleBatchReset}
+					onResetFailed={handleResetFailed}
 					runTask={runTask}
 					retryTask={retryTask}
 					stopTask={stopTask}
@@ -299,6 +325,7 @@ interface ProjectBlockProps {
 	onBatchStart: (project: BatchProject, counts: ProjectCounts) => void;
 	onBatchStop: (project: BatchProject, counts: ProjectCounts) => void;
 	onBatchReset: (project: BatchProject) => void;
+	onResetFailed: (project: BatchProject, counts: ProjectCounts) => void;
 	runTask: (projectId: string, taskId: string) => Promise<void>;
 	retryTask: (projectId: string, taskId: string) => Promise<void>;
 	stopTask: (projectId: string, taskId: string) => Promise<void>;
@@ -314,6 +341,7 @@ function ProjectBlock({
 	onBatchStart,
 	onBatchStop,
 	onBatchReset,
+	onResetFailed,
 	runTask,
 	retryTask,
 	stopTask,
@@ -402,11 +430,25 @@ function ProjectBlock({
 							{normalizedQuery ? `${filteredTotal}/${counts.total} 匹配` : `${counts.total} 个任务`}
 						</span>
 					</div>
-					<p className="mt-1 truncate text-[11px] text-muted-foreground/60">
-						{counts.completed}/{counts.total} 已完成
-						{counts.running > 0 && ` · ${counts.running} 运行中`}
-						{counts.paused > 0 && ` · ${counts.paused} 暂停`}
-						{counts.failed > 0 && ` · ${counts.failed} 失败`}
+					<p className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground/60">
+						<span>
+							{counts.completed}/{counts.total} 已完成
+							{counts.running > 0 && ` · ${counts.running} 运行中`}
+							{counts.paused > 0 && ` · ${counts.paused} 暂停`}
+						</span>
+						{counts.failed > 0 && (
+							<>
+								<span>·</span>
+								<button
+									type="button"
+									onClick={() => onResetFailed(project, counts)}
+									title={`点击重置 ${counts.failed} 个失败任务`}
+									className="inline-flex h-4 items-center rounded-full bg-red-500/10 px-1.5 text-[10px] font-medium leading-none text-red-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+								>
+									{counts.failed} 失败 · 重置
+								</button>
+							</>
+						)}
 					</p>
 				</div>
 				<div className="flex items-center gap-0.5">
@@ -426,7 +468,13 @@ function ProjectBlock({
 						) : (
 							<ActionButton
 								icon="icon-[mdi--play]"
-								title="开始"
+								title={
+									counts.neverExecuted === 0 && counts.paused === 0
+										? counts.failed > 0
+											? `所有任务已完成或失败，点击「${counts.failed} 失败 · 重置」徽章可重置后重试`
+											: "所有任务已完成"
+										: "开始"
+								}
 								onClick={() => onBatchStart(project, counts)}
 								disabled={counts.neverExecuted === 0 && counts.paused === 0}
 							/>
