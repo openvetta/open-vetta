@@ -12,7 +12,6 @@ import {
 import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
-import { currentUnsubscribe, setCurrentUnsubscribe } from "../services/chat-service";
 
 export function useAppInit(): void {
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
@@ -65,10 +64,9 @@ export function useAppInit(): void {
 			setCreditsBalance(result.balance);
 			setCreditsUnlimited(result.unlimited ?? false);
 		});
-		return () => {
-			currentUnsubscribe?.();
-			setCurrentUnsubscribe(null);
-		};
+		// 注意：此处之前有一段 cleanup `currentUnsubscribe?.()`，但 useAppInit
+		// 挂在 RootLayout 上、与应用同生命周期，cleanup 永远不会触发——已删除。
+		// session 订阅的清理统一由 useSessionManager.openSession 管理。
 	}, [
 		setWorkspacePath,
 		setDefaultConversationCwd,
