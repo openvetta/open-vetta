@@ -1,6 +1,7 @@
 import { useProjects } from "@domains/project/hooks/useProjects";
 import {
 	activeSessionAtom,
+	activeSessionStreamingAtom,
 	activityPanelOpenAtom,
 	attachedImagesAtom,
 	batchProjectsAtom,
@@ -10,7 +11,6 @@ import {
 	inlineFilePreviewAtom,
 	inputValueAtom,
 	isCompactingAtom,
-	isStreamingAtom,
 	lastTurnUsageAtom,
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
@@ -59,7 +59,7 @@ interface SessionManagerResult {
 export function useSessionManager(): SessionManagerResult {
 	const [activeSession, setActiveSession] = useAtom(activeSessionAtom);
 	const setChatMessages = useSetAtom(chatMessagesAtom);
-	const setIsStreaming = useSetAtom(isStreamingAtom);
+	const setActiveSessionStreaming = useSetAtom(activeSessionStreamingAtom);
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
@@ -170,7 +170,9 @@ export function useSessionManager(): SessionManagerResult {
 			pendingThinkingDeltaRef.current = "";
 			pendingDeltaSessionRef.current = null;
 			resetStreamState();
-			setIsStreaming(false);
+			// 切会话时清掉本地 streaming 信号；若新会话仍在跑，下面 state.isStreaming
+			// 分支 + runningSessionPathsAtom 派生兜底会把 TypingIndicator 重新拉回来。
+			setActiveSessionStreaming(false);
 			setIsCompacting(false);
 			setTurnModifiedFiles([]);
 			// Clear messages immediately so the user sees the switch take effect
@@ -268,7 +270,7 @@ export function useSessionManager(): SessionManagerResult {
 						),
 					);
 				}
-				setIsStreaming(true);
+				setActiveSessionStreaming(true);
 				setTurnStartTime(startedAt);
 			}
 
@@ -293,7 +295,7 @@ export function useSessionManager(): SessionManagerResult {
 					if (event.phase === "agent_start") {
 						resetStreamState();
 						setTurnStartTime(event.timestamp);
-						setIsStreaming(true);
+						setActiveSessionStreaming(true);
 						setTurnModifiedFiles([]);
 					}
 					if (event.phase === "agent_end" || event.phase === "aborted") {
@@ -304,7 +306,7 @@ export function useSessionManager(): SessionManagerResult {
 						const startedAt = turnStartTime;
 						const elapsed = startedAt ? (endedAt - startedAt) / 1000 : 0;
 						resetStreamState();
-						setIsStreaming(false);
+						setActiveSessionStreaming(false);
 						setTurnStartTime(0);
 						// Write total duration onto the last assistant message
 						// and extract modified files from this turn
@@ -517,7 +519,7 @@ export function useSessionManager(): SessionManagerResult {
 		[
 			setChatMessages,
 			setActiveSession,
-			setIsStreaming,
+			setActiveSessionStreaming,
 			setIsCompacting,
 			navigate,
 			loadSessions,
@@ -632,7 +634,6 @@ export function useSessionManager(): SessionManagerResult {
 			// 气泡，杜绝「按了发送但屏幕完全没反应」的死寂体验。
 			const message = err instanceof Error ? err.message : String(err);
 			console.error("[useSessionManager.sendMessage] prompt rejected:", err);
-			setIsStreaming(false);
 			setChatMessages((prev) => appendError(prev, message));
 		}
 		await loadSessions(session.cwd);
@@ -648,7 +649,6 @@ export function useSessionManager(): SessionManagerResult {
 		setSelectedSkill,
 		setMentionedFiles,
 		setChatMessages,
-		setIsStreaming,
 		loadSessions,
 		ensureLocalSession,
 	]);
