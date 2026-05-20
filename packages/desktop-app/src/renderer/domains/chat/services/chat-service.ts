@@ -224,6 +224,20 @@ export function setCurrentUnsubscribe(fn: (() => void) | null): void {
 	currentUnsubscribe = fn;
 }
 
+// 调用令牌：openSession 是一段串行 await，期间用户可能再次切换 session，
+// 第二个 openSession 会在第一个尚未把 unsub 写入 currentUnsubscribe 时就完成
+// 自己的 teardown（teardown 时 currentUnsubscribe 还是 null，什么都拆不掉），
+// 然后两个 subscribe 都成功 → 后者覆盖前者，前者的 IPC 监听器永远泄漏。
+// 每次进入 openSession 调用 bumpOpenSessionToken() 拿到自己的 token，在 await
+// 完 subscribe() 后再校验一次 token，发现被超越就立刻 unsub 自己创建的订阅。
+let openSessionToken = 0;
+export function bumpOpenSessionToken(): number {
+	return ++openSessionToken;
+}
+export function getOpenSessionToken(): number {
+	return openSessionToken;
+}
+
 /**
  * ID of the current "draft" assistant message being streamed.
  * - Set when the first delta (text or thinking) of a turn arrives.

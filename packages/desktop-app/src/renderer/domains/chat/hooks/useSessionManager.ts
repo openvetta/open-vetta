@@ -29,10 +29,12 @@ import {
 	appendError,
 	appendTextDelta,
 	appendThinkingDelta,
+	bumpOpenSessionToken,
 	currentUnsubscribe,
 	extractModifiedFiles,
 	finalizeMessage,
 	fullHistoryToChat,
+	getOpenSessionToken,
 	handleToolEnd,
 	handleToolStart,
 	nextId,
@@ -144,6 +146,9 @@ export function useSessionManager(): SessionManagerResult {
 			const __t0 = Date.now();
 			const __perf = (label: string) => console.log(`[perf][openSession] ${label} +${Date.now() - __t0}ms`);
 			__perf(`enter cwd=${cwd} sessionPath=${sessionPath ?? "-"}`);
+			// 取自己的调用令牌；若中途被新的 openSession 抢跑，会在 subscribe()
+			// 返回后被发现并立即清理自己刚建好的 IPC 订阅，避免泄漏。
+			const myOpenToken = bumpOpenSessionToken();
 			// Teardown previous session
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
@@ -269,224 +274,233 @@ export function useSessionManager(): SessionManagerResult {
 
 			__perf("before session.subscribe");
 			// ─── Subscribe to live session events ───
-			setCurrentUnsubscribe(
-				await window.vetta.session.subscribe(sessionId, (event) => {
-					// Defensive guard: if user has already switched away to another
-					// session, drop this event so its delta/state can't bleed into
-					// the new session's atom. activeSessionRef is updated synchronously
-					// above and reflects the latest user-facing session.
-					if (activeSessionRef.current?.runtimeId !== sessionId) return;
-					// ── Lifecycle ──
-					if (event.type === "session.lifecycle") {
-						if (event.phase === "agent_start") {
-							resetStreamState();
-							setTurnStartTime(event.timestamp);
-							setIsStreaming(true);
-							setTurnModifiedFiles([]);
-						}
-						if (event.phase === "agent_end" || event.phase === "aborted") {
-							// Flush any pending deltas before finalizing
-							flushDeltas();
-							// Always reset streaming state first to unblock the UI
-							const endedAt = event.timestamp;
-							const startedAt = turnStartTime;
-							const elapsed = startedAt ? (endedAt - startedAt) / 1000 : 0;
-							resetStreamState();
-							setIsStreaming(false);
-							setTurnStartTime(0);
-							// Write total duration onto the last assistant message
-							// and extract modified files from this turn
-							setChatMessages((prev) => {
-								setTurnModifiedFiles(extractModifiedFiles(prev, activeSessionRef.current?.cwd));
-								if (elapsed > 0) {
-									for (let i = prev.length - 1; i >= 0; i--) {
-										if (prev[i].role === "assistant") {
-											const copy = [...prev];
-											copy[i] = {
-												...copy[i],
-												startedAt: copy[i].startedAt ?? startedAt,
-												endedAt,
-												durationSeconds: elapsed,
-											};
-											return copy;
-										}
+			const unsubscribeFn = await window.vetta.session.subscribe(sessionId, (event) => {
+				// Defensive guard: if user has already switched away to another
+				// session, drop this event so its delta/state can't bleed into
+				// the new session's atom. activeSessionRef is updated synchronously
+				// above and reflects the latest user-facing session.
+				if (activeSessionRef.current?.runtimeId !== sessionId) return;
+				// ── Lifecycle ──
+				if (event.type === "session.lifecycle") {
+					if (event.phase === "agent_start") {
+						resetStreamState();
+						setTurnStartTime(event.timestamp);
+						setIsStreaming(true);
+						setTurnModifiedFiles([]);
+					}
+					if (event.phase === "agent_end" || event.phase === "aborted") {
+						// Flush any pending deltas before finalizing
+						flushDeltas();
+						// Always reset streaming state first to unblock the UI
+						const endedAt = event.timestamp;
+						const startedAt = turnStartTime;
+						const elapsed = startedAt ? (endedAt - startedAt) / 1000 : 0;
+						resetStreamState();
+						setIsStreaming(false);
+						setTurnStartTime(0);
+						// Write total duration onto the last assistant message
+						// and extract modified files from this turn
+						setChatMessages((prev) => {
+							setTurnModifiedFiles(extractModifiedFiles(prev, activeSessionRef.current?.cwd));
+							if (elapsed > 0) {
+								for (let i = prev.length - 1; i >= 0; i--) {
+									if (prev[i].role === "assistant") {
+										const copy = [...prev];
+										copy[i] = {
+											...copy[i],
+											startedAt: copy[i].startedAt ?? startedAt,
+											endedAt,
+											durationSeconds: elapsed,
+										};
+										return copy;
 									}
 								}
-								return prev;
-							});
+							}
+							return prev;
+						});
 
-							// First-round auto title: trigger only on successful agent_end of
-							// a brand-new session, exactly once per sessionPath.
-							if (event.phase === "agent_end") {
-								const active = activeSessionRef.current;
-								const sp = active?.sessionPath;
-								const cwd = active?.cwd;
-								const rid = active?.runtimeId;
-								// Skip auto-title for batch-task projects entirely — those sessions
-								// are driven by the batch executor and should keep their batch-managed
-								// names (or default firstMessage label).
-								const projectType = cwd ? projectsRef.current.find((p) => p.cwd === cwd)?.type : undefined;
-								if (sp && cwd && rid && projectType !== "batch" && !autoTitledSessionsRef.current.has(sp)) {
-									autoTitledSessionsRef.current.add(sp);
-									// Snapshot current chat messages via a no-op updater, then run
-									// the LLM call asynchronously without blocking the UI.
-									let snapshot: ChatMessage[] = [];
-									setChatMessages((prev) => {
-										snapshot = prev;
-										return prev;
-									});
-									void (async () => {
-										const firstUser = snapshot.find((m) => m.role === "user");
-										let lastAssistant: ChatMessage | undefined;
-										for (let i = snapshot.length - 1; i >= 0; i--) {
-											if (snapshot[i].role === "assistant") {
-												lastAssistant = snapshot[i];
-												break;
-											}
+						// First-round auto title: trigger only on successful agent_end of
+						// a brand-new session, exactly once per sessionPath.
+						if (event.phase === "agent_end") {
+							const active = activeSessionRef.current;
+							const sp = active?.sessionPath;
+							const cwd = active?.cwd;
+							const rid = active?.runtimeId;
+							// Skip auto-title for batch-task projects entirely — those sessions
+							// are driven by the batch executor and should keep their batch-managed
+							// names (or default firstMessage label).
+							const projectType = cwd ? projectsRef.current.find((p) => p.cwd === cwd)?.type : undefined;
+							if (sp && cwd && rid && projectType !== "batch" && !autoTitledSessionsRef.current.has(sp)) {
+								autoTitledSessionsRef.current.add(sp);
+								// Snapshot current chat messages via a no-op updater, then run
+								// the LLM call asynchronously without blocking the UI.
+								let snapshot: ChatMessage[] = [];
+								setChatMessages((prev) => {
+									snapshot = prev;
+									return prev;
+								});
+								void (async () => {
+									const firstUser = snapshot.find((m) => m.role === "user");
+									let lastAssistant: ChatMessage | undefined;
+									for (let i = snapshot.length - 1; i >= 0; i--) {
+										if (snapshot[i].role === "assistant") {
+											lastAssistant = snapshot[i];
+											break;
 										}
-										if (!firstUser || !lastAssistant) {
-											autoTitledSessionsRef.current.delete(sp);
-											return;
-										}
-										const userText = firstUser.text ?? "";
-										const assistantText = lastAssistant.text ?? "";
-										if (!userText.trim() && !assistantText.trim()) {
-											autoTitledSessionsRef.current.delete(sp);
-											return;
-										}
-										try {
-											console.log(`[auto-title] requesting for session=${rid} sp=${sp}`);
-											const name = await window.vetta.session.autoTitle(rid, userText, assistantText);
-											console.log(`[auto-title] got name=${name ?? "(null)"} for sp=${sp}`);
-											if (name) {
-												// Optimistic local update for sessions already present in the map.
-												applyLocalRename(cwd, sp, name);
-												// Re-read from disk: handles brand-new sessions whose JSONL only
-												// just appeared after the assistant's first message flushed, and
-												// guarantees the persisted name is reflected in the sidebar.
-												await loadSessions(cwd);
-											} else {
-												autoTitledSessionsRef.current.delete(sp);
-											}
-										} catch (err) {
-											console.warn("[useSessionManager] auto-title failed", err);
+									}
+									if (!firstUser || !lastAssistant) {
+										autoTitledSessionsRef.current.delete(sp);
+										return;
+									}
+									const userText = firstUser.text ?? "";
+									const assistantText = lastAssistant.text ?? "";
+									if (!userText.trim() && !assistantText.trim()) {
+										autoTitledSessionsRef.current.delete(sp);
+										return;
+									}
+									try {
+										console.log(`[auto-title] requesting for session=${rid} sp=${sp}`);
+										const name = await window.vetta.session.autoTitle(rid, userText, assistantText);
+										console.log(`[auto-title] got name=${name ?? "(null)"} for sp=${sp}`);
+										if (name) {
+											// Optimistic local update for sessions already present in the map.
+											applyLocalRename(cwd, sp, name);
+											// Re-read from disk: handles brand-new sessions whose JSONL only
+											// just appeared after the assistant's first message flushed, and
+											// guarantees the persisted name is reflected in the sidebar.
+											await loadSessions(cwd);
+										} else {
 											autoTitledSessionsRef.current.delete(sp);
 										}
-									})();
-								}
+									} catch (err) {
+										console.warn("[useSessionManager] auto-title failed", err);
+										autoTitledSessionsRef.current.delete(sp);
+									}
+								})();
 							}
 						}
-						return;
 					}
+					return;
+				}
 
-					// ── Thinking delta (streaming thinking text) ──
-					if (event.type === "thinking.delta") {
-						pendingThinkingDeltaRef.current += event.delta;
-						pendingDeltaSessionRef.current = sessionId;
-						scheduleDeltaFlush();
-						return;
-					}
+				// ── Thinking delta (streaming thinking text) ──
+				if (event.type === "thinking.delta") {
+					pendingThinkingDeltaRef.current += event.delta;
+					pendingDeltaSessionRef.current = sessionId;
+					scheduleDeltaFlush();
+					return;
+				}
 
-					// ── Text delta (streaming assistant text) ──
-					if (event.type === "message.delta") {
-						pendingTextDeltaRef.current += event.delta;
-						pendingDeltaSessionRef.current = sessionId;
-						scheduleDeltaFlush();
-						return;
-					}
+				// ── Text delta (streaming assistant text) ──
+				if (event.type === "message.delta") {
+					pendingTextDeltaRef.current += event.delta;
+					pendingDeltaSessionRef.current = sessionId;
+					scheduleDeltaFlush();
+					return;
+				}
 
-					// ── Tool call generating (model started generating a tool call) ──
-					if (event.type === "toolcall.start") {
-						// Flush pending text/thinking deltas FIRST so the tool block lands
-						// after any text that streamed before it (otherwise batched deltas
-						// get appended on the wrong side of the tool block).
-						flushDeltas();
-						setChatMessages((prev) => handleToolStart(prev, event.toolCallId, event.toolName, {}));
-						return;
-					}
+				// ── Tool call generating (model started generating a tool call) ──
+				if (event.type === "toolcall.start") {
+					// Flush pending text/thinking deltas FIRST so the tool block lands
+					// after any text that streamed before it (otherwise batched deltas
+					// get appended on the wrong side of the tool block).
+					flushDeltas();
+					setChatMessages((prev) => handleToolStart(prev, event.toolCallId, event.toolName, {}));
+					return;
+				}
 
-					// ── Message final (full assistant message — text, thinking, tool calls) ──
-					if (event.type === "message.final" && event.message.role === "assistant") {
-						flushDeltas();
-						setChatMessages((prev) => finalizeMessage(prev, event.message.content));
-						return;
-					}
+				// ── Message final (full assistant message — text, thinking, tool calls) ──
+				if (event.type === "message.final" && event.message.role === "assistant") {
+					flushDeltas();
+					setChatMessages((prev) => finalizeMessage(prev, event.message.content));
+					return;
+				}
 
-					// ── Tool start ──
-					if (event.type === "tool.start") {
-						flushDeltas();
-						setChatMessages((prev) =>
-							handleToolStart(
-								prev,
-								event.toolCallId,
-								event.toolName,
-								(event.args as Record<string, unknown>) ?? {},
-							),
-						);
-						return;
-					}
+				// ── Tool start ──
+				if (event.type === "tool.start") {
+					flushDeltas();
+					setChatMessages((prev) =>
+						handleToolStart(
+							prev,
+							event.toolCallId,
+							event.toolName,
+							(event.args as Record<string, unknown>) ?? {},
+						),
+					);
+					return;
+				}
 
-					// ── Tool end ──
-					if (event.type === "tool.end") {
-						flushDeltas();
-						setChatMessages((prev) => handleToolEnd(prev, event.toolCallId, event.result, event.isError));
-						return;
-					}
+				// ── Tool end ──
+				if (event.type === "tool.end") {
+					flushDeltas();
+					setChatMessages((prev) => handleToolEnd(prev, event.toolCallId, event.result, event.isError));
+					return;
+				}
 
-					// ── Error (provider / runtime error) ──
-					if (event.type === "error") {
-						flushDeltas();
-						setChatMessages((prev) => appendError(prev, event.error.message));
-						return;
-					}
+				// ── Error (provider / runtime error) ──
+				if (event.type === "error") {
+					flushDeltas();
+					setChatMessages((prev) => appendError(prev, event.error.message));
+					return;
+				}
 
-					// ── Usage update (emitted per assistant message) ──
-					if (event.type === "usage.update") {
-						const elapsed = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
-						const outputSpeed = elapsed > 0 ? event.output / elapsed : 0;
-						const turnStats = { outputSpeed, durationSeconds: elapsed };
-						setLastTurnUsage(turnStats);
-						// Cache turn stats for session restore
-						const sp = activeSessionRef.current?.sessionPath;
-						if (sp != null) turnStatsCache.set(sp, turnStats);
-						setContextUsage({
-							percent: event.contextPercent ?? null,
-							contextWindow: event.contextWindow ?? 0,
+				// ── Usage update (emitted per assistant message) ──
+				if (event.type === "usage.update") {
+					const elapsed = turnStartTime ? (Date.now() - turnStartTime) / 1000 : 0;
+					const outputSpeed = elapsed > 0 ? event.output / elapsed : 0;
+					const turnStats = { outputSpeed, durationSeconds: elapsed };
+					setLastTurnUsage(turnStats);
+					// Cache turn stats for session restore
+					const sp = activeSessionRef.current?.sessionPath;
+					if (sp != null) turnStatsCache.set(sp, turnStats);
+					setContextUsage({
+						percent: event.contextPercent ?? null,
+						contextWindow: event.contextWindow ?? 0,
+					});
+					return;
+				}
+
+				// ── Compaction start ──
+				if (event.type === "compaction.start") {
+					setIsCompacting(true);
+					return;
+				}
+
+				// ── Compaction end ──
+				if (event.type === "compaction.end") {
+					setIsCompacting(false);
+					return;
+				}
+
+				// ── Todo update ──
+				if (event.type === "todo_update") {
+					const sessionCwd = activeSessionRef.current?.cwd;
+					if (sessionCwd) {
+						const items = (event as { items?: unknown[] }).items ?? [];
+						setTodoItems((prev) => {
+							const next = new Map(prev);
+							if (items.length > 0) {
+								next.set(sessionCwd, items as TodoItem[]);
+							} else {
+								next.delete(sessionCwd);
+							}
+							return next;
 						});
-						return;
 					}
+					return;
+				}
+			});
 
-					// ── Compaction start ──
-					if (event.type === "compaction.start") {
-						setIsCompacting(true);
-						return;
-					}
-
-					// ── Compaction end ──
-					if (event.type === "compaction.end") {
-						setIsCompacting(false);
-						return;
-					}
-
-					// ── Todo update ──
-					if (event.type === "todo_update") {
-						const sessionCwd = activeSessionRef.current?.cwd;
-						if (sessionCwd) {
-							const items = (event as { items?: unknown[] }).items ?? [];
-							setTodoItems((prev) => {
-								const next = new Map(prev);
-								if (items.length > 0) {
-									next.set(sessionCwd, items as TodoItem[]);
-								} else {
-									next.delete(sessionCwd);
-								}
-								return next;
-							});
-						}
-						return;
-					}
-				}),
-			);
+			// 校验令牌：如果 await 期间用户已经切换到下一个 session，本次的
+			// subscribe 已经成了孤儿——立刻 unsub，绝不要写进 currentUnsubscribe，
+			// 否则它会覆盖后来者，新订阅永不被清理；而每个泄漏的订阅都会在 preload
+			// 全局 ipcRenderer 上留下一个 listener，长期累积会触发 Oilpan OOM。
+			if (myOpenToken !== getOpenSessionToken()) {
+				unsubscribeFn();
+				__perf("superseded; orphan subscription cleaned");
+				return;
+			}
+			setCurrentUnsubscribe(unsubscribeFn);
 
 			__perf("after subscribe, before loadSessions");
 			await loadSessions(cwd);
