@@ -182,6 +182,10 @@ export function useBatchTasks() {
 		[refreshProjects],
 	);
 
+	const batchResetFailed = useCallback(async (projectId: string, taskIds: string[]) => {
+		await window.vetta.batchTasks.batchResetFailed(projectId, taskIds);
+	}, []);
+
 	useEffect(() => {
 		const unsubscribe = window.vetta.batchTasks.onTaskEvent((event) => {
 			console.log(`[BatchTaskRenderer] Event received: ${event.type}`, event);
@@ -286,5 +290,6 @@ export function useBatchTasks() {
 		batchStart,
 		batchStop,
 		batchReset,
+		batchResetFailed,
 	};
 }

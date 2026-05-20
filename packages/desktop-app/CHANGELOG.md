@@ -10,6 +10,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **批量任务「失败 · 重置」徽章**：项目头部副标题里的失败计数文案改成红色可点击徽章「N 失败 · 重置」，仅在 `failed > 0` 时渲染；点击弹确认对话框，确认后清空所有失败任务的 session / 产物 / 状态（`status` 回到 `pending`，清 `sessionId` / `sessionPath` / `error`）并复用既有 `task.reset` 事件刷 UI。前端按点击瞬间快照取 failed 任务 ID 列表，与之后新失败的任务无关；后端按队列状态分流——若该项目还有 `running` 或 queued 任务（队列活动态）则把这些 ID 重新 `enqueueRunTask` 到队尾继续执行，否则仅重置等用户手动「开始」。当 `neverExecuted=0 && paused=0` 且「开始」按钮 disabled 时，按钮 `title` 提示「所有任务已完成或失败，点击「N 失败 · 重置」徽章可重置后重试」引导用户发现新入口。新增 IPC `vetta:batch-tasks:batch-reset-failed` 与 preload `batchResetFailed(projectId, taskIds)`。
+
 - **侧边栏显示后台 streaming session 的运行指示**：runtime-host 维护 `runningSessionPaths` 集合，在 `attachInFlightBuffer` 里随 `agent_start`/`agent_end` 同步增删并通过 `onRunningChanged` 回调向上广播；desktop-app main 进程新增 `vetta:session:list-running` 与 `vetta:session:running-changed` 两个 IPC 通道（前者用于挂载时拉 snapshot，后者用于增量推送），preload 暴露 `session.listRunning` / `session.onRunningChanged`。renderer 新增 `runningSessionPathsAtom`，在 `Sidebar` 挂载时一次性拉取并订阅事件维护；`ProjectGroup` 中正在运行的 sessionItem 左侧 20px 槽位放 `mdi--loading` 旋转 spin（覆盖 `[定时]` 时钟图标），项目 row 的 folder/chevron 图标右上角叠加一个 primary 色微小 ping 脉动点表示「此项目内含运行中会话」；`DefaultSessionList`（底部默认对话）里的会话同样加 spin，标题行不加。批量项目复用同一通路（其 task session 也通过 `runtime.prompt` 触发 lifecycle 事件）。
 
 - **批量任务已完成子任务支持「重新运行」**：批量任务页（`BatchTaskList`）与项目详情页（`BatchQueueStatus`）的子任务在 `status === "completed"` 时，hover 操作中新增「重新运行」按钮，复用既有 `retryTask` IPC 走 `cleanTaskFilesAndState`（删 session + 删 task-state + `resetTaskFiles` 清产物目录），随后重新入队。按钮视觉沿用 `mdi--restart` 图标但去掉 danger 红色（completed 是正常态，danger 色会误导为失败），破坏性语义通过二次确认弹窗兜底——标题「确认重新运行任务「xxx」」、描述「将删除该任务现有的会话和产物，并重新执行」、确认按钮「重新运行」。failed 重试沿用原"重试"文案与 danger 视觉不变。

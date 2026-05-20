@@ -525,6 +525,7 @@ export interface DesktopBatchTasksApi {
 	batchStart(projectId: string): Promise<void>;
 	batchStop(projectId: string): Promise<void>;
 	batchReset(projectId: string): Promise<void>;
+	batchResetFailed(projectId: string, taskIds: string[]): Promise<void>;
 	deleteSession(sessionPath: string): Promise<void>;
 	resumeTask(projectId: string, taskId: string): Promise<void>;
 	resumeTaskWithText(projectId: string, taskId: string, text: string): Promise<void>;

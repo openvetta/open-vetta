@@ -38,6 +38,7 @@ const CHANNELS = {
 	BATCH_START: "vetta:batch-tasks:batch-start",
 	BATCH_STOP: "vetta:batch-tasks:batch-stop",
 	BATCH_RESET: "vetta:batch-tasks:batch-reset",
+	BATCH_RESET_FAILED: "vetta:batch-tasks:batch-reset-failed",
 	DELETE_SESSION: "vetta:batch-tasks:delete-session",
 	RESUME_TASK: "vetta:batch-tasks:resume-task",
 	RESUME_TASK_WITH_TEXT: "vetta:batch-tasks:resume-task-with-text",
@@ -292,6 +293,44 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		}
 	});
 
+	// 「重置失败」入口：仅针对调用方传入的 failed taskIds 做快照式重置，避免与
+	// 实时新失败的任务发生竞争。清空 session/产物/状态后：
+	// - 若该项目当前队列处于活动态（有 running 或 queued），自动 enqueue 到队尾继续；
+	// - 否则仅重置为「未执行」，等用户手动「开始」。
+	ipcMain.handle(CHANNELS.BATCH_RESET_FAILED, async (_, projectId: string, taskIds: string[]) => {
+		console.log(`[BatchTaskIPC] BATCH_RESET_FAILED: project=${projectId}, ids=${taskIds.length}`);
+		const project = await getProject(projectId);
+		if (!project) return;
+
+		const idSet = new Set(taskIds);
+		const targets = project.tasks.filter((t) => idSet.has(t.id) && t.status === "failed");
+		if (targets.length === 0) {
+			console.log(`[BatchTaskIPC] BATCH_RESET_FAILED: no matching failed tasks`);
+			return;
+		}
+
+		const runtime = getRuntime();
+		// 在重置之前判定队列是否活动：检查项目下是否还有 running 或 queued 的任务
+		// （targets 本身是 failed，不会处于 running/queued，所以不影响判定）。
+		const queueActive = project.tasks.some((t) => isTaskRunning(t.id) || isTaskQueued(t.id));
+
+		await Promise.all(
+			targets.map(async (task) => {
+				await cleanTaskFilesAndState(projectId, task, runtime);
+				emitBatchTaskEvent({ type: "task.reset", projectId, taskId: task.id });
+			}),
+		);
+
+		if (queueActive) {
+			const refreshed = await getProject(projectId);
+			if (!refreshed) return;
+			console.log(`[BatchTaskIPC] BATCH_RESET_FAILED: queue active, enqueueing ${targets.length} tasks to tail`);
+			for (const task of refreshed.tasks) {
+				if (idSet.has(task.id)) enqueueRunTask(refreshed, task, runtime);
+			}
+		}
+	});
+
 	ipcMain.handle(CHANNELS.DELETE_SESSION, async (_, sessionPath: string) => {
 		console.log(`[BatchTaskIPC] DELETE_SESSION: ${sessionPath}`);
 		await getRuntime().deleteSession(sessionPath);
@@ -342,6 +381,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.BATCH_START);
 		ipcMain.removeHandler(CHANNELS.BATCH_STOP);
 		ipcMain.removeHandler(CHANNELS.BATCH_RESET);
+		ipcMain.removeHandler(CHANNELS.BATCH_RESET_FAILED);
 		ipcMain.removeHandler(CHANNELS.DELETE_SESSION);
 		ipcMain.removeHandler(CHANNELS.RESUME_TASK);
 		ipcMain.removeHandler(CHANNELS.RESUME_TASK_WITH_TEXT);
