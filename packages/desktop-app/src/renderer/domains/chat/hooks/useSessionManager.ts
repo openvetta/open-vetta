@@ -1,11 +1,13 @@
 import { useProjects } from "@domains/project/hooks/useProjects";
 import {
 	activeSessionAtom,
+	activityPanelOpenAtom,
 	attachedImagesAtom,
 	batchProjectsAtom,
 	type ChatMessage,
 	chatMessagesAtom,
 	contextUsageAtom,
+	inlineFilePreviewAtom,
 	inputValueAtom,
 	isCompactingAtom,
 	isStreamingAtom,
@@ -71,6 +73,8 @@ export function useSessionManager(): SessionManagerResult {
 	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
+	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
+	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
 	// 用于判断当前 session 是否归属一个 paused 的 batch-task 子任务。命中时
 	// sendMessage 改走 batchTasks.resumeTaskWithText 入队首恢复运行，而不是
 	// 直接 session.prompt 立即 streaming（与并发上限共生）。
@@ -149,6 +153,10 @@ export function useSessionManager(): SessionManagerResult {
 			// 取自己的调用令牌；若中途被新的 openSession 抢跑，会在 subscribe()
 			// 返回后被发现并立即清理自己刚建好的 IPC 订阅，避免泄漏。
 			const myOpenToken = bumpOpenSessionToken();
+			// 切换 session 前先关闭当前活动面板与内嵌文件预览，避免新 session 沿用
+			// 上一个 session 的文件预览内容（活动面板默认收起，由用户按需再次展开）。
+			setInlineFilePreview(null);
+			setActivityPanelOpen(false);
 			// Teardown previous session
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
@@ -524,6 +532,8 @@ export function useSessionManager(): SessionManagerResult {
 			flushDeltas,
 			scheduleDeltaFlush,
 			applyLocalRename,
+			setActivityPanelOpen,
+			setInlineFilePreview,
 		],
 	);
 
