@@ -125,13 +125,7 @@ export function GeneralSettings(): JSX.Element {
 				</div>
 			</SettingSection>
 
-			<SettingSection title="开发者">
-				<SettingRow
-					title="调试模式"
-					description="打开调试模式，可以协助开发者定位问题"
-				>
-					<Switch checked={debugMode} onCheckedChange={handleToggleDebug} />
-				</SettingRow>
+			<SettingSection title="沙盒">
 				<SettingRow
 					title="默认沙盒状态"
 					description="新建会话未单独设置时使用的工具访问范围；不会改变已打开会话"
@@ -153,6 +147,16 @@ export function GeneralSettings(): JSX.Element {
 							</SelectItem>
 						</SelectContent>
 					</Select>
+				</SettingRow>
+			</SettingSection>
+
+			<SettingSection title="开发者">
+				<SettingRow
+					title="调试模式"
+					description="打开调试模式，可以协助开发者定位问题"
+					border={false}
+				>
+					<Switch checked={debugMode} onCheckedChange={handleToggleDebug} />
 				</SettingRow>
 			</SettingSection>
 		</div>
