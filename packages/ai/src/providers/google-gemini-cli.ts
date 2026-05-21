@@ -237,6 +237,10 @@ function extractErrorMessage(errorText: string): string {
 
 /**
  * Sleep for a given number of milliseconds, respecting abort signal.
+ *
+ * Both the timeout and abort paths remove the listener, otherwise
+ * long-lived signals (one per agent turn, shared across many retries)
+ * accumulate listeners and trip MaxListenersExceededWarning.
  */
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 	return new Promise((resolve, reject) => {

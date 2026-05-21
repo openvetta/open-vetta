@@ -13,6 +13,18 @@ import {
 	type ThinkingBudgets,
 	type Transport,
 } from "@mariozechner/pi-ai";
+
+// NEVER convert to top-level import — agent 包也被 web-ui (Vite/browser) 引用，
+// node:events 不存在于浏览器。和 openai-codex-responses.ts 处理 node:os 一致。
+type SetMaxListenersFn = (n: number, target: EventTarget) => void;
+let _setMaxListeners: SetMaxListenersFn | null = null;
+if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
+	import("node:events").then((m) => {
+		const fn = (m as unknown as { setMaxListeners?: SetMaxListenersFn }).setMaxListeners;
+		if (typeof fn === "function") _setMaxListeners = fn;
+	});
+}
+
 import { agentLoop, agentLoopContinue } from "./agent-loop.js";
 import type {
 	AgentContext,
@@ -444,6 +456,10 @@ export class Agent {
 		});
 
 		this.abortController = new AbortController();
+		// per-prompt signal 会被 stream(fetch+SDK)、并发 tool、sandbox、retry sleep 等
+		// 多个子系统共享。Node 默认 maxListeners=10，工具稍多就会误报 leak。配合
+		// 各处成对清理，这里把上限放开以避免告警与潜在 GC 压力。
+		_setMaxListeners?.(0, this.abortController.signal);
 		this._state.isStreaming = true;
 		this._state.streamMessage = null;
 		this._state.error = undefined;

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 修复 `proxy.ts` 的 `streamProxy` 在 abort listener 上未传 `{ once: true }`：abort 触发后 listener 仍残留到 finally 才被移除，并发 finally 路径异常下可能漏清理。补齐 `{ once: true }` 作为防御。
+- 主进程长跑时主流 `AbortSignal` 因外部库累积 abort listener 触发 `MaxListenersExceededWarning`（10 默认上限被多 turn / 多重试场景秒爆）：在 `Agent._runLoop` 创建 per-prompt `AbortController` 时调用 `events.setMaxListeners(0, signal)` 关闭单 signal 的告警阈值。Node 环境通过条件动态加载 `node:events`，浏览器 (web-ui) 自动跳过。配合 `@mariozechner/pi-ai` 中三处 sleep 的成对 listener 清理，彻底解决 listener 泄漏告警与潜在 GC 压力。
+
 ### Added
 
 - **`AgentTool.execute` 新增第五个可选参数 `ctx: ToolExecutionContext`，工具可上报阶段计时**：`ctx.phase(label)` 表示「从此刻起开始做 label 这一段」，下一次 `ctx.phase` 调用（或 tool_execution_end）隐含上一段结束。每次调用 push 一条 `tool_execution_phase` AgentEvent（含 `toolCallId / toolName / label / atMs`，`atMs` 是相对 startedAt 的偏移）。`tool_execution_start` 事件加 `startedAt`、`tool_execution_end` 加 `startedAt / durationMs / phases`。导出新类型 `ToolPhase` 与 `ToolExecutionContext`。旧工具不传 `ctx` 仍正常工作——`phases` 为空数组、startedAt/durationMs 仍由 agent-loop 计算并上报。设计意图：让上层（coding-agent / desktop-app）能持久化并 UI 展示工具内部分段耗时，同时通过把数据放在事件而非 result.content 里、由调用方决定如何存——保证 timing 不混进 LLM 上下文。
