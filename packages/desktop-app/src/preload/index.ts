@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopApi } from "./api.js";
 
 const CHANNELS = {
@@ -154,6 +154,7 @@ const api: DesktopApi = {
 				ipcRenderer.removeListener("vetta:fs:dir-changed", listener);
 			};
 		},
+		pathForFile: (file: File) => webUtils.getPathForFile(file),
 	},
 	skills: {
 		list: async () => ipcRenderer.invoke("vetta:skills:list"),

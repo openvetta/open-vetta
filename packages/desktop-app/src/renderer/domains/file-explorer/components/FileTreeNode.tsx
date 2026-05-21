@@ -85,7 +85,13 @@ export function FileTreeNode({
 	// Drag source
 	function handleDragStart(e: React.DragEvent) {
 		e.dataTransfer.setData(DRAG_MIME, entry.path);
-		e.dataTransfer.effectAllowed = "move";
+		// Meta payload consumed by SessionDropZone (chat) — original in-tree handler
+		// only reads DRAG_MIME, so this addition is backward-compatible.
+		e.dataTransfer.setData(
+			"application/vetta-path-meta",
+			JSON.stringify({ isDirectory: entry.isDirectory, name: entry.name }),
+		);
+		e.dataTransfer.effectAllowed = "copyMove";
 	}
 
 	// Drop target (directories only)
