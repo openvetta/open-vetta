@@ -1,68 +1,27 @@
 import { createSocket } from "node:dgram";
-import { appendFileSync, mkdirSync } from "node:fs";
 import { createConnection } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { inspect } from "node:util";
 import { app, net } from "electron";
-
-type ConsoleLevel = "log" | "info" | "warn" | "error";
+import {
+	type AppLogLevel,
+	configureAppLogging,
+	getAppLogger,
+	getAppLogPath,
+	patchConsoleToAppLogger,
+	writeAppLog,
+} from "./logger.js";
 
 let diagnosticsInstalled = false;
-let diagnosticsLogPath: string | undefined;
 
-function resolveDiagnosticsLogPath(): string {
-	if (diagnosticsLogPath) return diagnosticsLogPath;
-	const baseDir = app.isReady() ? app.getPath("logs") : join(tmpdir(), "vetta-desktop-logs");
-	mkdirSync(baseDir, { recursive: true });
-	diagnosticsLogPath = join(baseDir, "main.log");
-	return diagnosticsLogPath;
-}
-
-// 递归打印 error.cause 链，并附带 code/errno/address/port —— 这是诊断 fetch
-// 失败（如 ECONNREFUSED / EHOSTUNREACH / undici "fetch failed"）的关键信息，
-// 没有 cause 链就只能看到 "Connection error." 这种顶层占位文案，根因丢失。
-function formatErrorChain(err: Error): string {
-	const parts: string[] = [err.stack ?? `${err.name}: ${err.message}`];
-	const seen = new Set<unknown>([err]);
-	let cur: unknown = (err as { cause?: unknown }).cause;
-	while (cur && !seen.has(cur)) {
-		seen.add(cur);
-		if (cur instanceof Error) {
-			const meta: string[] = [];
-			const anyCur = cur as Error & { code?: string; errno?: number | string; address?: string; port?: number };
-			if (anyCur.code) meta.push(`code=${anyCur.code}`);
-			if (anyCur.errno !== undefined) meta.push(`errno=${anyCur.errno}`);
-			if (anyCur.address) meta.push(`address=${anyCur.address}`);
-			if (anyCur.port !== undefined) meta.push(`port=${anyCur.port}`);
-			parts.push(
-				`  Caused by: ${cur.stack ?? `${cur.name}: ${cur.message}`}${meta.length ? `  [${meta.join(", ")}]` : ""}`,
-			);
-		} else {
-			parts.push(`  Caused by: ${String(cur)}`);
-		}
-		cur = (cur as { cause?: unknown }).cause;
-	}
-	return parts.join("\n");
-}
-
-function formatArg(arg: unknown): string {
-	if (typeof arg === "string") return arg;
-	if (arg instanceof Error) return formatErrorChain(arg);
-	return inspect(arg, { depth: 8, breakLength: 160 });
-}
-
-export function writeDiagnosticLog(level: ConsoleLevel, ...args: unknown[]): void {
+export function writeDiagnosticLog(level: AppLogLevel, ...args: unknown[]): void {
 	try {
-		const line = `[${new Date().toISOString()}] [${level}] ${args.map(formatArg).join(" ")}\n`;
-		appendFileSync(resolveDiagnosticsLogPath(), line, "utf8");
+		writeAppLog(level, "diagnostics", ...args);
 	} catch {
 		// Logging must never become a startup failure.
 	}
 }
 
 export function getDiagnosticsLogPath(): string {
-	return resolveDiagnosticsLogPath();
+	return getAppLogPath();
 }
 
 // macOS 14+/15+ 的 Local Network Privacy 在 app 第一次访问局域网（192.168.x、
@@ -216,19 +175,9 @@ export function installMainDiagnostics(): void {
 	if (diagnosticsInstalled) return;
 	diagnosticsInstalled = true;
 
-	const originalConsole: Pick<Console, ConsoleLevel> = {
-		log: console.log.bind(console),
-		info: console.info.bind(console),
-		warn: console.warn.bind(console),
-		error: console.error.bind(console),
-	};
-
-	for (const level of ["log", "info", "warn", "error"] as const) {
-		console[level] = (...args: unknown[]) => {
-			writeDiagnosticLog(level, ...args);
-			originalConsole[level](...args);
-		};
-	}
+	configureAppLogging();
+	patchConsoleToAppLogger();
+	const diagnosticsLog = getAppLogger("diagnostics");
 
 	process.on("uncaughtException", (error) => {
 		console.error("[main] uncaughtException", error);
@@ -236,6 +185,10 @@ export function installMainDiagnostics(): void {
 
 	process.on("unhandledRejection", (reason) => {
 		console.error("[main] unhandledRejection", reason);
+	});
+
+	process.on("warning", (warning) => {
+		diagnosticsLog.warn("[process] warning", warning);
 	});
 
 	app.on("render-process-gone", (_event, webContents, details) => {

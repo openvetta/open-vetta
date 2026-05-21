@@ -22,6 +22,7 @@ import {
 	registerSchedulerIpc,
 	teardownAllIpc,
 } from "./ipc/index.js";
+import { getAppLogger } from "./logger.js";
 import { disposeSharedRuntime } from "./runtime.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler } from "./scheduler/scheduler.js";
@@ -49,6 +50,7 @@ const pdfCliCommand = ocrCliCommand === null ? parsePdfCliCommand(process.argv) 
 const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null;
 
 installMainDiagnostics();
+const mainLog = getAppLogger("main");
 
 if (isCliMode) {
 	const cliUserDataDir = ocrCliCommand !== null ? "vetta-ocr-cli" : "vetta-pdf-cli";
@@ -136,8 +138,8 @@ if (!gotSingleLock) {
 			return;
 		}
 
-		console.log("[diagnostics] main log", getDiagnosticsLogPath());
-		console.log("[app] ready", {
+		mainLog.info("diagnostics log", getDiagnosticsLogPath());
+		mainLog.info("ready", {
 			isPackaged: app.isPackaged,
 			appPath: app.getAppPath(),
 			resourcesPath: process.resourcesPath,
@@ -156,7 +158,7 @@ if (!gotSingleLock) {
 
 		if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
 			const capability = await initializeSandboxCapability();
-			console.log("[sandbox] startup probe", capability);
+			mainLog.info("sandbox startup probe", capability);
 		}
 
 		// 开发模式下覆盖 About 面板信息，避免显示 Electron 框架版本
@@ -253,7 +255,7 @@ if (!gotSingleLock) {
 		try {
 			await mkdir(join(homedir(), ".vetta", "conversation", ".vetta", "sessions"), { recursive: true });
 		} catch (err) {
-			console.error("[default-project] failed to ensure conversation dir", err);
+			mainLog.error("failed to ensure default conversation dir", err);
 		}
 
 		try {
@@ -268,7 +270,7 @@ if (!gotSingleLock) {
 				await persistVettaAppPath(devCliShimPath);
 			}
 		} catch (err) {
-			console.error("[desktop-config] failed to persist vettaAppPath", err);
+			mainLog.error("failed to persist vettaAppPath", err);
 		}
 
 		const mainWindow = createWindow();
@@ -333,7 +335,7 @@ if (!gotSingleLock) {
 		void getImHost()
 			.bootstrap()
 			.catch((err: unknown) => {
-				console.error("[im-host] bootstrap failed", err);
+				mainLog.error("im-host bootstrap failed", err);
 			});
 
 		app.on("activate", () => {
@@ -367,7 +369,7 @@ app.on("before-quit", async (event) => {
 		try {
 			await host.shutdownForQuit();
 		} catch (err) {
-			console.error("[im-host] shutdown failed", err);
+			mainLog.error("im-host shutdown failed", err);
 		}
 	}
 	// 退出前统一释放共享 RuntimeHost 持有的所有 session 文件锁，
@@ -375,7 +377,7 @@ app.on("before-quit", async (event) => {
 	try {
 		await disposeSharedRuntime();
 	} catch (err) {
-		console.error("[runtime] disposeSharedRuntime failed", err);
+		mainLog.error("disposeSharedRuntime failed", err);
 	}
 	app.exit(0);
 });
