@@ -61,7 +61,14 @@ cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: tr
 // main entry instead and trim the path back to the package root inside
 // node_modules. This works regardless of how the package author configured
 // `exports`.
-const externalDeps = [];
+// 与 vite.main.config.ts 的 rollupOptions.external 保持同步。photon-node 在
+// 主 bundle 被 external 后，代码里 createRequire("@silvia-odwyer/photon-node")
+// 在 packaged AppImage 中找不到包就降级到原图（image-resize 早期日志的
+// `Cannot find module '@silvia-odwyer/photon-node'` 即此），图片以原始分辨率
+// 喂模型，长会话直接吃满主进程内存。把它复制进 staging/node_modules 让
+// createRequire 真能 resolve 到，恢复图片缩放路径。photon-node 是纯 WASM、
+// 无平台二进制差异，可安全跨平台打包。
+const externalDeps = ["@silvia-odwyer/photon-node"];
 for (const dep of externalDeps) {
 	const entry = require.resolve(dep, { paths: [projectRoot] });
 	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
@@ -254,6 +261,12 @@ const builderConfig = {
 		output: join(projectRoot, "release"),
 	},
 	asar: true,
+	// photon-node 是 createRequire 加载的 external 包，其 photon_rs_bg.wasm
+	// 通过 readFileSync(__dirname + "/photon_rs_bg.wasm") 读取。asar 虚拟
+	// 文件系统对 readFileSync 透明，但 wasm 这类二进制在部分 Electron 版本
+	// 上偶尔出问题（photon.ts 已经有 fallback paths 兜底，但能避免就避免）。
+	// 直接 unpack 到 app.asar.unpacked/，让 wasm 落到真实文件系统。
+	asarUnpack: ["node_modules/@silvia-odwyer/photon-node/**/*"],
 };
 writeFileSync(join(buildStageDir, "electron-builder.json"), JSON.stringify(builderConfig, null, "\t") + "\n");
 
