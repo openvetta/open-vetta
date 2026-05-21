@@ -254,6 +254,17 @@ const builderConfig = {
 		output: join(projectRoot, "release"),
 	},
 	asar: true,
+	// 这些 CJS 包在 vite.main.config.ts 里被 external，运行时通过 createRequire
+	// 从 node_modules 真实加载。它们内部会用 __filename / __dirname / native
+	// .node / .wasm 路径探测，必须以真实文件形式落地 —— 不能塞进 asar 里。
+	// 与 external 列表保持同步。
+	asarUnpack: [
+		"node_modules/@silvia-odwyer/photon-node/**/*",
+		"node_modules/dbus-next/**/*",
+		"node_modules/usocket/**/*",
+		"node_modules/bindings/**/*",
+		"node_modules/@mariozechner/clipboard/**/*",
+	],
 };
 writeFileSync(join(buildStageDir, "electron-builder.json"), JSON.stringify(builderConfig, null, "\t") + "\n");
 

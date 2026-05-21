@@ -49,6 +49,15 @@ const ocrCliCommand = parseOcrCliCommand(process.argv);
 const pdfCliCommand = ocrCliCommand === null ? parsePdfCliCommand(process.argv) : null;
 const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null;
 
+// 给 V8 老生代一个明确上限：超过会抛 `RangeError: Invalid string length` /
+// JS heap out of memory，能被 uncaughtException 接到并落盘栈；否则任 RSS 自然
+// 膨胀，最终被 Linux OOM Killer SIGKILL，进程静默消失、连一行日志都来不及写。
+// 4096MB 是当前桌面端图片/PDF/批量任务工作集的经验上限，未来如果常驻数据更大
+// 再上调；CLI 模式跑短任务，沿用默认值即可。
+if (!isCliMode) {
+	app.commandLine.appendSwitch("js-flags", "--max-old-space-size=4096");
+}
+
 installMainDiagnostics();
 const mainLog = getAppLogger("main");
 
