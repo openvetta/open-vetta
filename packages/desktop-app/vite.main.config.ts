@@ -42,23 +42,13 @@ export default defineConfig(({ mode }) => {
 					"electron",
 					...builtinModules,
 					...builtinModules.map((m) => `node:${m}`),
-					// CJS-with-native-loader 包不能被内联进 ESM 主 bundle。它们
-					// 内部裸用 __filename / __dirname 定位 .node / .wasm，rollup
-					// 不改写这些标识符 —— 一旦运行时走到那段代码就抛
-					// `ReferenceError: __filename is not defined`，并被上层 stream
-					// catch 当成 errorMessage 暴露在 UI 上（看上去像是模型回了这
-					// 段错误文本）。
-					//
-					// 修法：全部 external，让运行时通过 createRequire 走 Node 真正
-					// 的 CJS 加载器（那里 __filename 真实存在）。后续遇到同类报错
-					// 的包也加进这个列表。配合 electron-builder 的 asarUnpack 让
-					// native .node / .wasm 文件以真实文件形式落地，否则 bindings
-					// 走文件系统探测时找不到 addon。
+					// Photon-node ships as CJS with __dirname-based WASM loading.
+					// Inlining it into this ESM bundle makes Node interpret its .js
+					// as ESM (because desktop-app/package.json has "type":"module"),
+					// which breaks __dirname and silently disables image resize ->
+					// large images reach the model at original resolution and OOM
+					// local VL backends.
 					"@silvia-odwyer/photon-node",
-					"dbus-next",
-					"usocket",
-					"bindings",
-					"@mariozechner/clipboard",
 				],
 			},
 			minify: false,
