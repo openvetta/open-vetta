@@ -75,7 +75,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
-	const [isDragOver, setIsDragOver] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
 	const [atOpen, setAtOpen] = useState(false);
 	const todoMap = useAtomValue(todoItemsByCwdAtom);
@@ -310,36 +309,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		[addImages, modelSupportsImages],
 	);
 
-	const handleDragOver = useCallback(
-		(e: React.DragEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			if (hasSession && !isDragOver) setIsDragOver(true);
-		},
-		[hasSession, isDragOver],
-	);
-
-	const handleDragLeave = useCallback((e: React.DragEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		setIsDragOver(false);
-	}, []);
-
-	const handleDrop = useCallback(
-		async (e: React.DragEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			setIsDragOver(false);
-			if (!hasSession || !modelSupportsImages) return;
-			const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
-			if (files.length === 0) return;
-			const images = await Promise.all(files.map(readFileAsImage));
-			addImages(images);
-			textareaRef.current?.focus();
-		},
-		[hasSession, addImages, modelSupportsImages],
-	);
-
 	const placeholder = !hasSession
 		? "选择或创建会话以开始"
 		: isStreaming
@@ -349,11 +318,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	// Card visual class composition
 	const cardClass = [
 		"input-card relative rounded-[20px] bg-card border transition-[border-color,box-shadow,transform] duration-200",
-		isDragOver
-			? "border-primary/60 shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_18%,transparent)]"
-			: isFocused
-				? "border-primary/20"
-				: "border-border",
+		isFocused ? "border-primary/20" : "border-border",
 		isStreaming ? "input-aurora" : "",
 	].join(" ");
 
@@ -384,40 +349,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 				/>
 
 				<div
-					onDragOver={handleDragOver}
-					onDragLeave={handleDragLeave}
-					onDrop={(e) => void handleDrop(e)}
 					style={{ opacity: hasSession ? 1 : 0.55 }}
 					className={cardClass}
 				>
-					{/* Drag overlay — full card */}
-					<AnimatePresence>
-						{isDragOver && hasSession && modelSupportsImages && (
-							<motion.div
-								key="drag-overlay"
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1 }}
-								exit={{ opacity: 0 }}
-								transition={SOFT}
-								className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 rounded-[20px]"
-								style={{
-									background: "color-mix(in srgb, var(--primary) 8%, transparent)",
-									backdropFilter: "blur(2px)",
-									border: "1.5px dashed color-mix(in srgb, var(--primary) 60%, transparent)",
-								}}
-							>
-								<motion.span
-									className="icon-[mdi--image-plus-outline] h-7 w-7 text-primary"
-									initial={{ y: 4, scale: 0.9 }}
-									animate={{ y: 0, scale: 1 }}
-									transition={SPRING}
-								/>
-								<div className="text-[13px] font-medium text-primary">松开放入图片</div>
-								<div className="text-[11px] text-primary/70">仅支持图片附件</div>
-							</motion.div>
-						)}
-					</AnimatePresence>
-
 					{/* Capsule strip — appears above textarea, like the reference top variant */}
 					<AnimatePresence initial={false}>
 						{(hasCapsules || attachedImages.length > 0) && (

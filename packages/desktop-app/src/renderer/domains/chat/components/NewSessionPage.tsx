@@ -15,6 +15,7 @@ import {
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { pathBasename } from "@shared/lib/utils";
 import { InputBar } from "./InputBar";
+import { SessionDropZone } from "./SessionDropZone";
 import { useSessionManager } from "../hooks/useSessionManager";
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32 };
@@ -92,7 +93,10 @@ export function NewSessionPage(): JSX.Element {
 		: "今天怎么样？";
 
 	return (
-		<div className="relative flex h-full flex-1 flex-col overflow-hidden bg-background">
+		<SessionDropZone
+			cwdOverride={decodedCwd}
+			className="relative flex h-full flex-1 flex-col overflow-hidden bg-background"
+		>
 			{/* Primary grid texture, faded toward edges */}
 			<div
 				aria-hidden
@@ -205,7 +209,7 @@ export function NewSessionPage(): JSX.Element {
 					cwdOverride={decodedCwd}
 				/>
 			</div>
-		</div>
+		</SessionDropZone>
 	);
 }
 
