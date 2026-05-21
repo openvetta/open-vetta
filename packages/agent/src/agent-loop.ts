@@ -9,7 +9,6 @@ import {
 	EventStream,
 	streamSimple,
 	type ToolResultMessage,
-	type UserMessage,
 	validateToolArguments,
 } from "@mariozechner/pi-ai";
 import type {
@@ -19,26 +18,8 @@ import type {
 	AgentMessage,
 	AgentTool,
 	AgentToolResult,
-	ErrorRecoveryConfig,
 	StreamFn,
 } from "./types.js";
-
-/** Default retry-prompt builder used when ErrorRecoveryConfig.buildRetryPrompt is omitted. */
-function defaultBuildRetryPrompt(errorMessage: string, attempt: number): string {
-	return [
-		`上一次模型调用失败（第 ${attempt} 次）：${errorMessage}`,
-		"",
-		"这通常由以下原因导致：",
-		"1. 输入图片过大触发后端 CUDA OOM",
-		"2. 上下文过长超出后端预分配显存",
-		"3. 后端服务临时不可用 / 5xx",
-		"",
-		"请不要原样重复刚才的操作，改用其他方式继续：",
-		"- 跳过当前需要读取大文件 / 大图的步骤，先用 bash (`file`、`identify`、`ls -lh`) 查看元数据",
-		"- 把任务拆成更小的单位分批处理",
-		"- 如果某个步骤反复失败，记录原因后跳过，继续完成其他可独立完成的工作",
-	].join("\n");
-}
 
 /**
  * Start an agent loop with a new prompt message.
@@ -129,9 +110,6 @@ async function runLoop(
 	streamFn?: StreamFn,
 ): Promise<void> {
 	let firstTurn = true;
-	// Counts consecutive LLM-call failures recovered via inject-and-retry.
-	// Reset to zero on the first non-error, non-aborted assistant turn.
-	let consecutiveErrors = 0;
 	// Check for steering messages at start (user may have typed while waiting)
 	let pendingMessages: AgentMessage[] = (await config.getSteeringMessages?.()) || [];
 
@@ -172,42 +150,11 @@ async function runLoop(
 			}
 
 			if (message.stopReason === "error") {
-				const recovery: ErrorRecoveryConfig | undefined = config.errorRecovery;
-				const cap = recovery?.maxConsecutiveErrors ?? 3;
-				const canRecover = recovery?.mode === "inject-and-retry" && consecutiveErrors < cap;
-
 				stream.push({ type: "turn_end", message, toolResults: [] });
-
-				if (!canRecover) {
-					stream.push({ type: "agent_end", messages: newMessages });
-					stream.end(newMessages);
-					return;
-				}
-
-				consecutiveErrors++;
-
-				// Drop the failed assistant from the LLM-visible context so the next
-				// request doesn't carry a partial / empty assistant turn that some
-				// providers reject. newMessages keeps it for UI / session jsonl.
-				const lastCtx = currentContext.messages[currentContext.messages.length - 1];
-				if (lastCtx?.role === "assistant" && (lastCtx as AssistantMessage).stopReason === "error") {
-					currentContext.messages.pop();
-				}
-
-				const buildPrompt = recovery.buildRetryPrompt ?? defaultBuildRetryPrompt;
-				const retryText = buildPrompt(message.errorMessage ?? "未知错误", consecutiveErrors);
-				const retryMessage: UserMessage = {
-					role: "user",
-					content: [{ type: "text", text: retryText }],
-					timestamp: Date.now(),
-				};
-				pendingMessages = [retryMessage];
-				hasMoreToolCalls = false;
-				continue;
+				stream.push({ type: "agent_end", messages: newMessages });
+				stream.end(newMessages);
+				return;
 			}
-
-			// Non-error turn — clear the recovery counter.
-			consecutiveErrors = 0;
 
 			// Check for tool calls
 			const toolCalls = message.content.filter((c) => c.type === "toolCall");
