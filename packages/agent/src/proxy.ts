@@ -114,7 +114,7 @@ export function streamProxy(model: Model<any>, context: Context, options: ProxyS
 		};
 
 		if (options.signal) {
-			options.signal.addEventListener("abort", abortHandler);
+			options.signal.addEventListener("abort", abortHandler, { once: true });
 		}
 
 		try {
