@@ -33,7 +33,6 @@ import type {
 	AgentMessage,
 	AgentState,
 	AgentTool,
-	ErrorRecoveryConfig,
 	StreamFn,
 	ThinkingLevel,
 } from "./types.js";
@@ -104,11 +103,6 @@ export interface AgentOptions {
 	 * Default: 60000 (60 seconds). Set to 0 to disable the cap.
 	 */
 	maxRetryDelayMs?: number;
-
-	/**
-	 * LLM-error recovery strategy. See `AgentLoopConfig.errorRecovery`.
-	 */
-	errorRecovery?: ErrorRecoveryConfig;
 }
 
 export class Agent {
@@ -142,7 +136,6 @@ export class Agent {
 	private _thinkingBudgets?: ThinkingBudgets;
 	private _transport: Transport;
 	private _maxRetryDelayMs?: number;
-	private _errorRecovery?: ErrorRecoveryConfig;
 
 	constructor(opts: AgentOptions = {}) {
 		this._state = { ...this._state, ...opts.initialState };
@@ -156,7 +149,6 @@ export class Agent {
 		this._thinkingBudgets = opts.thinkingBudgets;
 		this._transport = opts.transport ?? "sse";
 		this._maxRetryDelayMs = opts.maxRetryDelayMs;
-		this._errorRecovery = opts.errorRecovery;
 	}
 
 	/**
@@ -215,21 +207,6 @@ export class Agent {
 	 */
 	set maxRetryDelayMs(value: number | undefined) {
 		this._maxRetryDelayMs = value;
-	}
-
-	/**
-	 * Get the current LLM-error recovery config.
-	 */
-	get errorRecovery(): ErrorRecoveryConfig | undefined {
-		return this._errorRecovery;
-	}
-
-	/**
-	 * Set / replace the LLM-error recovery config.
-	 * Pass undefined (or `{ mode: "halt" }`) to restore default halt-on-error behavior.
-	 */
-	set errorRecovery(value: ErrorRecoveryConfig | undefined) {
-		this._errorRecovery = value;
 	}
 
 	get state(): AgentState {
@@ -481,7 +458,6 @@ export class Agent {
 			transport: this._transport,
 			thinkingBudgets: this._thinkingBudgets,
 			maxRetryDelayMs: this._maxRetryDelayMs,
-			errorRecovery: this._errorRecovery,
 			convertToLlm: this.convertToLlm,
 			transformContext: this.transformContext,
 			getApiKey: this.getApiKey,
