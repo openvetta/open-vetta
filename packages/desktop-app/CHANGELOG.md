@@ -42,6 +42,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **packaged AppImage 里 photon-node 找不到，图片以原图喂模型导致主进程内存膨胀**：`@silvia-odwyer/photon-node` 在 `vite.main.config.ts` 里被 external，运行时由 `photon.ts` 通过 `createRequire(import.meta.url)("@silvia-odwyer/photon-node")` 加载；但 `prepare-pack.js` 的 `externalDeps` 是空数组，staging 里从来没把这个包复制进 `node_modules`，packaged 后 createRequire 一直 resolve 失败，photon.ts 走 catch 降级 → image-resize 失效 → 历史里的 base64 图片以**原始分辨率**重复拼进每一轮 LLM request body，长会话主进程 RSS 直线上涨，最终触发 OOM。`externalDeps` 补上 `@silvia-odwyer/photon-node`，配合 `asarUnpack` 让 `photon_rs_bg.wasm` 落在 `app.asar.unpacked/`，恢复图片缩放路径。photon-node 是纯 WASM、无平台二进制差异，跨平台打包安全。
+
 - **主进程长跑后被 Linux OOM Killer 静默 SIGKILL**：主进程从未给 V8 设过老生代上限，长跑批量任务 + 图片预算未生效（photon WASM 在 packaged 路径 load 失败导致原图喂模型）后 RSS 自然膨胀，最终被 kernel SIGKILL，进程静默消失、连一行日志都来不及写。`main.ts` 在 app 启动前 `appendSwitch("js-flags", "--max-old-space-size=4096")`，超限时改由 V8 抛 `RangeError: JS heap out of memory`，可被 `uncaughtException` handler 接到并落盘栈；CLI 模式跑短任务沿用默认。`__filename is not defined` 那条错误文本来源待进一步定位，先前把 `dbus-next` / `bindings` 加进 vite external 的尝试因 bun 的 napi-rs 平台二进制 / native addon 在 cross-platform 打包链路下不齐而导致 packaged 启动 ERR_MODULE_NOT_FOUND，已回滚到只 external `@silvia-odwyer/photon-node`。
 
 - **桌面端主进程日志改为 electron-log 滚动文件日志**：新增统一 `main/logger.ts` 封装 `electron-log/main` 配置，`main.log` 由 file transport 管理并按 5MB 自动滚动为 `.old.log`；主进程 `console.*` 统一 patch 到 scoped file logger，避免继续手写 `appendFileSync` 与临时目录 fallback。应用生命周期、窗口事件与 renderer console 捕获分别落到 `main` / `window` / `renderer` scope，`process.on("warning")` 现在也会进入日志文件，便于排查 `MaxListenersExceededWarning` 等 Node warning。仅在 `VETTA_DESKTOP_DEV_URL` 开发模式启用 console transport，打包与 PDF/OCR CLI 模式禁用 console transport，避免 stdout/stderr 被诊断日志污染。
