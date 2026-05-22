@@ -7,10 +7,9 @@ import {
 	DialogContent,
 } from "@shared/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
-import { projectsAtom, remoteProvidersAtom } from "@shared/store/atoms";
+import { projectsAtom, remoteProvidersAtom, defaultConversationCwdAtom, getProjectDisplayName } from "@shared/store/atoms";
 import type { ExecutionModeOverride, ScheduledTask, SessionExecutionMode } from "@shared/store/atoms";
 import type { ModelsConfigData } from "@preload/api";
-import { pathBasename } from "@shared/lib/utils";
 import {
 	type Schedule,
 	type OnceSchedule,
@@ -28,10 +27,6 @@ interface TaskFormDialogProps {
 	open: boolean;
 	task?: ScheduledTask;
 	onClose: () => void;
-}
-
-function projectName(cwd: string): string {
-	return pathBasename(cwd);
 }
 
 // ─── Schedule modes (no weekly) ───
@@ -173,6 +168,8 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 	const { createTask, updateTask } = useScheduledTasks();
 	const projects = useAtomValue(projectsAtom);
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
+	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
+	const projectName = useCallback((c: string) => getProjectDisplayName(c, defaultCwd), [defaultCwd]);
 	const [name, setName] = useState("");
 	const [cwd, setCwd] = useState("");
 	const [prompt, setPrompt] = useState("");

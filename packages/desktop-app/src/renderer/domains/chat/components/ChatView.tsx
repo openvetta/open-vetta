@@ -13,17 +13,14 @@ import {
 	pageHeaderRightSlotAtom,
 	inlineFilePreviewContextReadonlyAtom,
 	inlineFilePreviewAtom,
+	defaultConversationCwdAtom,
+	getProjectDisplayName,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
-import { pathBasename } from "@shared/lib/utils";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
 import { SandboxGrantsBadge } from "./SandboxGrantsBadge";
 import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
-
-function projectName(cwd: string): string {
-	return pathBasename(cwd);
-}
 
 interface ChatViewProps {
 	onSend: () => Promise<void>;
@@ -44,6 +41,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const inlinePreviewActive = inlinePreviewCtx !== null;
 	const setInlinePreview = useSetAtom(inlineFilePreviewAtom);
+	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 
 	const handleTogglePanel = useCallback(() => {
 		// When in inline preview mode, the "hide panel" button should also close
@@ -65,7 +63,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 		workflowInstance.stages[workflowInstance.current_stage]?.member_ids.includes(authUser.id);
 
 	// Push session name into the global page header
-	const sessionTitle = activeSession ? projectName(activeSession.cwd) : null;
+	const sessionTitle = activeSession ? getProjectDisplayName(activeSession.cwd, defaultCwd) : null;
 	useEffect(() => {
 		setHeaderTitle(sessionTitle);
 		return () => setHeaderTitle(null);

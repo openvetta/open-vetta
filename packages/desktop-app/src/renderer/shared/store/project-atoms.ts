@@ -1,3 +1,4 @@
+import { pathBasename } from "@shared/lib/utils";
 import { atom } from "jotai";
 
 export type ProjectType = "normal" | "flowing" | "schedule" | "batch";
@@ -21,6 +22,15 @@ export const DEFAULT_CONVERSATION_PROJECT_NAME = "对话";
  * 启动时由主进程 ConfigGet 返回真实路径并写入此 atom；在收到之前保持空串作为「未就绪」标记。
  */
 export const defaultConversationCwdAtom = atom<string>("");
+
+/**
+ * 根据 cwd 获取项目展示名：默认「对话」项目返回中文名，其它项目使用 cwd basename。
+ * 传入 defaultCwd 来识别默认项目（避免对 atom 的隐式依赖，便于在非 React 环境调用）。
+ */
+export function getProjectDisplayName(cwd: string, defaultCwd: string): string {
+	if (defaultCwd && cwd === defaultCwd) return DEFAULT_CONVERSATION_PROJECT_NAME;
+	return pathBasename(cwd);
+}
 
 export interface SessionInfo {
 	id: string;

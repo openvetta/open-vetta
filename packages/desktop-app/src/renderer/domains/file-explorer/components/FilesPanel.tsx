@@ -8,12 +8,14 @@ import {
 	fileContextMenuAtom,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
+	defaultConversationCwdAtom,
+	getProjectDisplayName,
 	type FilePreviewItem,
 	type FsEntry,
 } from "@shared/store/atoms";
 import { useState } from "react";
 import { Button } from "@shared/components/ui/button";
-import { pathBasename, pathDirname } from "@shared/lib/utils";
+import { pathDirname } from "@shared/lib/utils";
 
 interface FilesPanelProps {
 	/** 显式根目录（项目详情页等无 active session 场景使用） */
@@ -38,6 +40,7 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 	const previewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const [deleteTarget, setDeleteTarget] = useState<FsEntry | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
+	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 
 	const handleSelectFile = useCallback(
 		(entry: FsEntry) => {
@@ -115,7 +118,7 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 		);
 	}
 
-	const projectName = pathBasename(rootDir);
+	const projectName = getProjectDisplayName(rootDir, defaultCwd);
 
 	return (
 		<>
