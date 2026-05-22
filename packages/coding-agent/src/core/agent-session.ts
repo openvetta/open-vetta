@@ -983,10 +983,12 @@ export class AgentSession {
 		// Expand skill commands (/skill:name args) and prompt templates (/template args)
 		let expandedText = currentText;
 		let sceneInjection: string | undefined;
+		let skillInjection: string | undefined;
 		if (expandPromptTemplates) {
 			const expanded = this._expandSkillCommand(expandedText);
 			expandedText = expanded.text;
 			sceneInjection = expanded.sceneInjection;
+			skillInjection = expanded.skillInjection;
 			expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 		}
 
@@ -997,8 +999,9 @@ export class AgentSession {
 					"Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.",
 				);
 			}
-			// For streaming, combine scene injection with user text since we can't inject custom messages
-			const textForStream = sceneInjection ? `${sceneInjection}\n\n${expandedText}` : expandedText;
+			// For streaming, combine injections with user text since we can't inject custom messages
+			const injection = [skillInjection, sceneInjection].filter(Boolean).join("\n\n");
+			const textForStream = injection ? `${injection}\n\n${expandedText}` : expandedText;
 			if (options.streamingBehavior === "followUp") {
 				await this._queueFollowUp(textForStream, currentImages);
 			} else {
@@ -1045,7 +1048,17 @@ export class AgentSession {
 		// Build messages array (custom message if any, then user message)
 		const messages: AgentMessage[] = [];
 
-		// Inject scene content as a hidden custom message (before user message so model sees it first)
+		// Inject skill/scene content as hidden custom messages (before user message so model sees it first).
+		// Skill goes first so the model parses its `<skill>` block before any scene context.
+		if (skillInjection) {
+			messages.push({
+				role: "custom",
+				customType: "skill_expansion",
+				content: skillInjection,
+				display: false,
+				timestamp: Date.now(),
+			});
+		}
 		if (sceneInjection) {
 			messages.push({
 				role: "custom",
@@ -1142,7 +1155,7 @@ export class AgentSession {
 	 * Returns the expanded text, or the original text if not a skill/scene command or not found.
 	 * Emits errors via extension runner if file read fails.
 	 */
-	private _expandSkillCommand(text: string): { text: string; sceneInjection?: string } {
+	private _expandSkillCommand(text: string): { text: string; sceneInjection?: string; skillInjection?: string } {
 		let prefix: string;
 		let isScene = false;
 
@@ -1231,8 +1244,11 @@ export class AgentSession {
 				return { text: userText, sceneInjection: lines.join("\n") };
 			}
 
+			// Skill expansion mirrors scene: keep the original `/skill:name args` shorthand
+			// on the user message (so reload-from-disk renders the badge instead of the
+			// full SKILL.md), and inject the expanded block as a hidden custom message.
 			const skillBlock = `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
-			return { text: args ? `${skillBlock}\n\n${args}` : skillBlock };
+			return { text, skillInjection: skillBlock };
 		} catch (err) {
 			this._extensionRunner?.emitError({
 				extensionPath: skill.filePath,
@@ -1258,7 +1274,8 @@ export class AgentSession {
 
 		// Expand skill commands and prompt templates
 		const expanded = this._expandSkillCommand(text);
-		let expandedText = expanded.sceneInjection ? `${expanded.sceneInjection}\n\n${expanded.text}` : expanded.text;
+		const injection = [expanded.skillInjection, expanded.sceneInjection].filter(Boolean).join("\n\n");
+		let expandedText = injection ? `${injection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 
 		await this._queueSteer(expandedText, images);
@@ -1279,7 +1296,8 @@ export class AgentSession {
 
 		// Expand skill commands and prompt templates
 		const expanded = this._expandSkillCommand(text);
-		let expandedText = expanded.sceneInjection ? `${expanded.sceneInjection}\n\n${expanded.text}` : expanded.text;
+		const injection = [expanded.skillInjection, expanded.sceneInjection].filter(Boolean).join("\n\n");
+		let expandedText = injection ? `${injection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 
 		await this._queueFollowUp(expandedText, images);
