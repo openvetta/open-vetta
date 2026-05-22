@@ -13,10 +13,13 @@ export function DocxPreview({ content }: DocxPreviewProps): JSX.Element {
 	useEffect(() => {
 		let cancelled = false;
 
-		const buffer = Uint8Array.from(atob(content), (c) => c.charCodeAt(0)).buffer;
-
-		mammoth
-			.convertToHtml({ arrayBuffer: buffer })
+		// atob 和 mammoth.convertToHtml 在面对损坏/非 base64 内容时会同步抛错，
+		// 用 Promise.resolve().then(...) 把同步异常一并转成 reject，由统一的 .catch 处理。
+		Promise.resolve()
+			.then(() => {
+				const buffer = Uint8Array.from(atob(content), (c) => c.charCodeAt(0)).buffer;
+				return mammoth.convertToHtml({ arrayBuffer: buffer });
+			})
 			.then((result) => {
 				if (!cancelled) {
 					setState({ status: "done", html: result.value });
