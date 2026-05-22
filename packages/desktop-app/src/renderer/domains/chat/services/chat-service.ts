@@ -1,5 +1,5 @@
 import { pathBasename, pathJoin, pathNormalize } from "@shared/lib/utils";
-import type { ChatMessage, ContentBlock, ToolCallBlock } from "@shared/store/atoms";
+import type { ChatMessage, ContentBlock, ToolCallBlock, ToolImagePreview } from "@shared/store/atoms";
 import type { HistoryEntry } from "../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -27,6 +27,46 @@ export function extractResultText(result: unknown): string {
 			.join("\n");
 	}
 	return "";
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+	return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function asFiniteNumber(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function base64SizeBytes(data: string): number {
+	const padding = data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0;
+	return Math.max(0, Math.floor((data.length * 3) / 4) - padding);
+}
+
+export function extractToolImagePreview(result: unknown, details: unknown): ToolImagePreview | undefined {
+	const resultRecord = asRecord(result);
+	const content = Array.isArray(resultRecord?.content) ? resultRecord.content : Array.isArray(result) ? result : [];
+	const image = content.find((part): part is { type: "image"; data: string; mimeType: string } => {
+		const record = asRecord(part);
+		return record?.type === "image" && typeof record.data === "string" && typeof record.mimeType === "string";
+	});
+	if (!image) return undefined;
+
+	const detailsRecord = asRecord(details) ?? asRecord(resultRecord?.details);
+	const imageDetails = asRecord(detailsRecord?.image);
+
+	return {
+		data: image.data,
+		mimeType: image.mimeType,
+		originalPath: typeof imageDetails?.originalPath === "string" ? imageDetails.originalPath : undefined,
+		originalMimeType: typeof imageDetails?.originalMimeType === "string" ? imageDetails.originalMimeType : undefined,
+		originalSizeBytes: asFiniteNumber(imageDetails?.originalSizeBytes),
+		originalWidth: asFiniteNumber(imageDetails?.originalWidth),
+		originalHeight: asFiniteNumber(imageDetails?.originalHeight),
+		processedSizeBytes: asFiniteNumber(imageDetails?.processedSizeBytes) ?? base64SizeBytes(image.data),
+		processedWidth: asFiniteNumber(imageDetails?.processedWidth),
+		processedHeight: asFiniteNumber(imageDetails?.processedHeight),
+		wasResized: typeof imageDetails?.wasResized === "boolean" ? imageDetails.wasResized : undefined,
+	};
 }
 
 /**
@@ -75,6 +115,7 @@ export function historyToChat(
 		isError?: boolean;
 		errorMessage?: string;
 		stopReason?: string;
+		details?: unknown;
 	}>,
 ): ChatMessage[] {
 	const messages: ChatMessage[] = [];
@@ -121,6 +162,7 @@ export function historyToChat(
 			const block = toolCallIndex.get(String(m.toolCallId));
 			if (block) {
 				block.result = extractText(m.content);
+				block.imagePreview = extractToolImagePreview(m.content, m.details);
 				block.isError = m.isError === true;
 				block.status = m.isError ? "error" : "success";
 			}
@@ -198,6 +240,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			isError?: boolean;
 			errorMessage?: string;
 			stopReason?: string;
+			details?: unknown;
 		};
 
 		if (m.role === "user") {
@@ -223,6 +266,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			const block = toolCallIndex.get(String(m.toolCallId));
 			if (block) {
 				block.result = extractText(m.content);
+				block.imagePreview = extractToolImagePreview(m.content, m.details);
 				block.isError = m.isError === true;
 				block.status = m.isError ? "error" : "success";
 			}
@@ -545,6 +589,7 @@ export function handleToolEnd(
 	timing?: { startedAt: number; durationMs: number; phases: Array<{ label: string; atMs: number }> },
 ): ChatMessage[] {
 	const resultText = extractResultText(result);
+	const imagePreview = extractToolImagePreview(result, undefined);
 
 	// Search backwards for the matching tool_call block
 	for (let i = prev.length - 1; i >= 0; i--) {
@@ -561,6 +606,7 @@ export function handleToolEnd(
 			...block,
 			status: isError ? "error" : "success",
 			result: resultText,
+			imagePreview,
 			isError,
 			startedAt: timing?.startedAt ?? block.startedAt,
 			durationMs: timing?.durationMs ?? block.durationMs,
