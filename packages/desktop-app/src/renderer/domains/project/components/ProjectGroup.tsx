@@ -246,7 +246,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 				<div className="mt-px space-y-px">
 					{sortedSessions.length === 0 ? (
 						<p className="px-2.5 py-1.5 pl-[36px] text-[12px] text-muted-foreground">
-							No sessions yet
+							暂无会话
 						</p>
 					) : (
 						visibleSessions.map((session) => {
