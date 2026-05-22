@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ToolCallBlock, ToolPhaseInfo } from "@shared/store/atoms";
+import type { ToolCallBlock, ToolImagePreview, ToolPhaseInfo } from "@shared/store/atoms";
 
 interface ToolCallBlockProps {
 	block: ToolCallBlock;
@@ -23,6 +23,24 @@ function parseMcpTool(name: string): { server: string; tool: string } | null {
 function shortenPath(path: string): string {
 	const parts = path.replace(/\\/g, "/").split("/");
 	return parts.length > 3 ? `.../${parts.slice(-3).join("/")}` : path;
+}
+
+function formatBytes(bytes: number | undefined): string {
+	if (bytes === undefined) return "未知";
+	if (bytes < 1024) return `${bytes} B`;
+	const units = ["KB", "MB", "GB"];
+	let value = bytes / 1024;
+	let unit = units[0];
+	for (let i = 1; i < units.length && value >= 1024; i++) {
+		value /= 1024;
+		unit = units[i];
+	}
+	return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)} ${unit}`;
+}
+
+function formatDimensions(width: number | undefined, height: number | undefined): string {
+	if (width === undefined || height === undefined || width <= 0 || height <= 0) return "未知";
+	return `${width} x ${height}`;
 }
 
 function getShellCommand(block: ToolCallBlock): string | null {
@@ -163,6 +181,58 @@ function useElapsedWhilePending(startedAt: number | undefined, pending: boolean)
 	return Math.max(0, now - startedAt);
 }
 
+function ReadImageResult({ image }: { image: ToolImagePreview }): JSX.Element {
+	const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+	const processedWidth = image.processedWidth && image.processedWidth > 0 ? image.processedWidth : naturalSize?.width;
+	const processedHeight = image.processedHeight && image.processedHeight > 0 ? image.processedHeight : naturalSize?.height;
+	const originalWidth = image.originalWidth && image.originalWidth > 0 ? image.originalWidth : undefined;
+	const originalHeight = image.originalHeight && image.originalHeight > 0 ? image.originalHeight : undefined;
+	const wasProcessed = image.wasResized === true;
+
+	const openOriginal = (): void => {
+		if (!image.originalPath) return;
+		void window.vetta.shell.showItemInFolder(image.originalPath);
+	};
+
+	return (
+		<div className="space-y-2">
+			<div className="overflow-hidden rounded-md border border-muted-foreground/10 bg-muted/20">
+				<img
+					src={`data:${image.mimeType};base64,${image.data}`}
+					alt="读取的图片"
+					className="max-h-[420px] max-w-full object-contain"
+					onLoad={(event) => {
+						const img = event.currentTarget;
+						setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+					}}
+				/>
+			</div>
+			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground/55">
+				<span>
+					{wasProcessed ? "模型使用图" : "图片"} {formatDimensions(processedWidth, processedHeight)} ·{" "}
+					{formatBytes(image.processedSizeBytes)}
+				</span>
+				{wasProcessed && (originalWidth !== undefined || image.originalSizeBytes !== undefined) && (
+					<span>
+						原图 {formatDimensions(originalWidth, originalHeight)} · {formatBytes(image.originalSizeBytes)}
+					</span>
+				)}
+				{image.originalPath && (
+					<button
+						type="button"
+						onClick={openOriginal}
+						className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] text-primary/75 hover:bg-primary/10"
+						title={image.originalPath}
+					>
+						<span className="icon-[mdi--folder-eye-outline] h-3 w-3" />
+						<span>在文件管理器中显示原图</span>
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
 export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
 	const hasResult = block.result !== undefined;
@@ -273,11 +343,13 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 									{shellCommand}
 								</pre>
 							)}
-							{hasResult && (
+							{block.toolName === "read" && block.imagePreview ? (
+								<ReadImageResult image={block.imagePreview} />
+							) : hasResult ? (
 								<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
 									{block.result}
 								</pre>
-							)}
+							) : null}
 							{block.isError && (
 								<div className="mt-1 text-[11px] font-medium text-destructive/70">Error</div>
 							)}

@@ -22,6 +22,20 @@ export interface ToolPhaseInfo {
 	atMs: number;
 }
 
+export interface ToolImagePreview {
+	data: string;
+	mimeType: string;
+	originalPath?: string;
+	originalMimeType?: string;
+	originalSizeBytes?: number;
+	originalWidth?: number;
+	originalHeight?: number;
+	processedSizeBytes?: number;
+	processedWidth?: number;
+	processedHeight?: number;
+	wasResized?: boolean;
+}
+
 export interface ToolCallBlock {
 	type: "tool_call";
 	toolCallId: string;
@@ -30,6 +44,7 @@ export interface ToolCallBlock {
 	/** "pending" = waiting for result, "success" = completed, "error" = failed */
 	status: "pending" | "success" | "error";
 	result?: string;
+	imagePreview?: ToolImagePreview;
 	isError?: boolean;
 	/**
 	 * Out-of-band timing metadata. Never sent to LLMs.
