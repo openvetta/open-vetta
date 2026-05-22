@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ToolCallBlock, ToolPhaseInfo } from "@shared/store/atoms";
+import type { ToolCallBlock, ToolImagePreview, ToolPhaseInfo } from "@shared/store/atoms";
 
 interface ToolCallBlockProps {
 	block: ToolCallBlock;
@@ -25,10 +25,75 @@ function shortenPath(path: string): string {
 	return parts.length > 3 ? `.../${parts.slice(-3).join("/")}` : path;
 }
 
+function formatBytes(bytes: number | undefined): string {
+	if (bytes === undefined) return "未知";
+	if (bytes < 1024) return `${bytes} B`;
+	const units = ["KB", "MB", "GB"];
+	let value = bytes / 1024;
+	let unit = units[0];
+	for (let i = 1; i < units.length && value >= 1024; i++) {
+		value /= 1024;
+		unit = units[i];
+	}
+	return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)} ${unit}`;
+}
+
+function formatDimensions(width: number | undefined, height: number | undefined): string {
+	if (width === undefined || height === undefined || width <= 0 || height <= 0) return "未知";
+	return `${width} x ${height}`;
+}
+
 function getShellCommand(block: ToolCallBlock): string | null {
 	if (block.toolName !== "bash" && block.toolName !== "shell") return null;
 	const cmd = block.args.command;
 	return typeof cmd === "string" ? cmd : null;
+}
+
+function getStringArg(args: Record<string, unknown>, key: string): string | null {
+	const value = args[key];
+	return typeof value === "string" ? value : null;
+}
+
+function lineCount(text: string): number {
+	if (text.length === 0) return 0;
+	return text.split("\n").length;
+}
+
+type DiffLineKind = "added" | "removed" | "context" | "meta";
+
+interface DiffLine {
+	text: string;
+	kind: DiffLineKind;
+}
+
+interface DiffStats {
+	added: number;
+	removed: number;
+}
+
+function classifyDiffLine(line: string): DiffLineKind {
+	if (line.startsWith("+") && !line.startsWith("+++")) return "added";
+	if (line.startsWith("-") && !line.startsWith("---")) return "removed";
+	if (line.trim() === "...") return "meta";
+	return "context";
+}
+
+function parseDiff(diff: string): { lines: DiffLine[]; stats: DiffStats } {
+	const lines = diff.split("\n").map((line) => ({ text: line, kind: classifyDiffLine(line) }));
+	const stats = lines.reduce<DiffStats>(
+		(acc, line) => {
+			if (line.kind === "added") acc.added += 1;
+			if (line.kind === "removed") acc.removed += 1;
+			return acc;
+		},
+		{ added: 0, removed: 0 },
+	);
+	return { lines, stats };
+}
+
+function formatSignedCount(value: number): string {
+	if (value > 0) return `+${value}`;
+	return String(value);
 }
 
 /** Get icon for tool */
@@ -64,6 +129,9 @@ function toolLabel(block: ToolCallBlock): { name: string; detail: string } {
 	if (name === "read" || name === "write" || name === "edit") {
 		const path = args.file_path ?? args.path;
 		if (typeof path === "string") detail = shortenPath(path);
+		if (name === "edit" && block.uiDetails?.firstChangedLine !== undefined) {
+			detail += `:${block.uiDetails.firstChangedLine}`;
+		}
 	} else if (name === "bash" || name === "shell") {
 		const cmd = args.command;
 		if (typeof cmd === "string") detail = cmd.length > 80 ? `${cmd.slice(0, 77)}...` : cmd;
@@ -163,11 +231,169 @@ function useElapsedWhilePending(startedAt: number | undefined, pending: boolean)
 	return Math.max(0, now - startedAt);
 }
 
+function ReadImageResult({ image }: { image: ToolImagePreview }): JSX.Element {
+	const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+	const processedWidth = image.processedWidth && image.processedWidth > 0 ? image.processedWidth : naturalSize?.width;
+	const processedHeight = image.processedHeight && image.processedHeight > 0 ? image.processedHeight : naturalSize?.height;
+	const originalWidth = image.originalWidth && image.originalWidth > 0 ? image.originalWidth : undefined;
+	const originalHeight = image.originalHeight && image.originalHeight > 0 ? image.originalHeight : undefined;
+	const wasProcessed = image.wasResized === true;
+
+	const openOriginal = (): void => {
+		if (!image.originalPath) return;
+		void window.vetta.shell.showItemInFolder(image.originalPath);
+	};
+
+	return (
+		<div className="space-y-2">
+			<div className="overflow-hidden rounded-md border border-muted-foreground/10 bg-muted/20">
+				<img
+					src={`data:${image.mimeType};base64,${image.data}`}
+					alt="读取的图片"
+					className="max-h-[420px] max-w-full object-contain"
+					onLoad={(event) => {
+						const img = event.currentTarget;
+						setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+					}}
+				/>
+			</div>
+			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground/55">
+				<span>
+					{wasProcessed ? "模型使用图" : "图片"} {formatDimensions(processedWidth, processedHeight)} ·{" "}
+					{formatBytes(image.processedSizeBytes)}
+				</span>
+				{wasProcessed && (originalWidth !== undefined || image.originalSizeBytes !== undefined) && (
+					<span>
+						原图 {formatDimensions(originalWidth, originalHeight)} · {formatBytes(image.originalSizeBytes)}
+					</span>
+				)}
+				{image.originalPath && (
+					<button
+						type="button"
+						onClick={openOriginal}
+						className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] text-primary/75 hover:bg-primary/10"
+						title={image.originalPath}
+					>
+						<span className="icon-[mdi--folder-eye-outline] h-3 w-3" />
+						<span>在文件管理器中显示原图</span>
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
+function TextPreview({
+	label,
+	text,
+	emptyLabel = "空内容",
+}: {
+	label: string;
+	text: string;
+	emptyLabel?: string;
+}): JSX.Element {
+	const lines = lineCount(text);
+	return (
+		<div className="space-y-1.5">
+			<div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
+				<span className="font-medium text-muted-foreground/60">{label}</span>
+				<span>
+					{lines} 行 · {text.length} 字符
+				</span>
+			</div>
+			<pre className="max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/25 p-2 text-[11px] leading-[1.5] text-foreground/70">
+				{text.length > 0 ? text : emptyLabel}
+			</pre>
+		</div>
+	);
+}
+
+function DiffPreview({ diff }: { diff: string }): JSX.Element {
+	const { lines, stats } = parseDiff(diff);
+	const net = stats.added - stats.removed;
+
+	return (
+		<div className="space-y-1.5">
+			<div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/50">
+				<span className="font-medium text-muted-foreground/60">diff</span>
+				<span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-600 dark:text-emerald-400">
+					+{stats.added}
+				</span>
+				<span className="rounded bg-red-500/10 px-1.5 py-0.5 font-medium text-red-600 dark:text-red-400">
+					-{stats.removed}
+				</span>
+				<span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground/60">
+					净 {formatSignedCount(net)}
+				</span>
+			</div>
+			<div className="max-h-[420px] overflow-auto rounded-md bg-muted/25 py-2 font-mono text-[11px] leading-[1.5]">
+				{lines.map((line, index) => {
+					const rowClass =
+						line.kind === "added"
+							? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+							: line.kind === "removed"
+								? "bg-red-500/10 text-red-700 dark:text-red-300"
+								: line.kind === "meta"
+									? "text-muted-foreground/45"
+									: "text-foreground/70";
+					const markerClass =
+						line.kind === "added"
+							? "text-emerald-600 dark:text-emerald-400"
+							: line.kind === "removed"
+								? "text-red-600 dark:text-red-400"
+								: "text-muted-foreground/35";
+					const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " ";
+					const content = line.kind === "added" || line.kind === "removed" ? line.text.slice(1) : line.text;
+					return (
+						<div key={`${index}-${line.text}`} className={`flex min-w-max px-2 ${rowClass}`}>
+							<span className={`w-4 shrink-0 select-none ${markerClass}`}>{marker}</span>
+							<span className="whitespace-pre">{content}</span>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
+function EditTextFallback({ block }: { block: ToolCallBlock }): JSX.Element | null {
+	const oldText = getStringArg(block.args, "oldText");
+	const newText = getStringArg(block.args, "newText");
+	if (oldText === null && newText === null) return null;
+
+	return (
+		<div className="space-y-3">
+			{oldText !== null && <TextPreview label="oldText" text={oldText} emptyLabel="空匹配文本" />}
+			{newText !== null && <TextPreview label="newText" text={newText} emptyLabel="空替换文本" />}
+		</div>
+	);
+}
+
+function ToolSpecificResult({ block }: { block: ToolCallBlock }): JSX.Element | null {
+	if (block.toolName === "write") {
+		const content = getStringArg(block.args, "content");
+		if (content !== null) return <TextPreview label="写入内容" text={content} />;
+	}
+
+	if (block.toolName === "edit") {
+		if (block.uiDetails?.diff) return <DiffPreview diff={block.uiDetails.diff} />;
+		return <EditTextFallback block={block} />;
+	}
+
+	return null;
+}
+
 export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
 	const hasResult = block.result !== undefined;
 	const hasMeta = block.startedAt !== undefined;
-	const canExpand = hasResult || hasMeta;
+	const hasToolSpecificResult =
+		(block.toolName === "write" && getStringArg(block.args, "content") !== null) ||
+		(block.toolName === "edit" &&
+			(block.uiDetails?.diff !== undefined ||
+				getStringArg(block.args, "oldText") !== null ||
+				getStringArg(block.args, "newText") !== null));
+	const canExpand = hasResult || hasMeta || hasToolSpecificResult;
 	const { name, detail } = toolLabel(block);
 	const mcp = parseMcpTool(block.toolName);
 	const icon = toolIcon(block.toolName);
@@ -273,11 +499,22 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 									{shellCommand}
 								</pre>
 							)}
-							{hasResult && (
+							{block.toolName === "read" && block.imagePreview ? (
+								<ReadImageResult image={block.imagePreview} />
+							) : block.toolName === "write" || block.toolName === "edit" ? (
+								<>
+									<ToolSpecificResult block={block} />
+									{block.isError && block.result && (
+										<pre className="mt-2 max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-destructive/70">
+											{block.result}
+										</pre>
+									)}
+								</>
+							) : hasResult ? (
 								<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
 									{block.result}
 								</pre>
-							)}
+							) : null}
 							{block.isError && (
 								<div className="mt-1 text-[11px] font-medium text-destructive/70">Error</div>
 							)}
