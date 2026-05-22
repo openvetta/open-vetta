@@ -327,6 +327,17 @@ a {
 	}
 }
 
+@keyframes bash-cursor-blink {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	51%,
+	100% {
+		opacity: 0;
+	}
+}
+
 /* Streaming state: calm indigo breathing glow.
    A separate pseudo element fades opacity 0→1→0 — pure opacity interpolation
    stays smooth across the whole cycle, no perceptible "step". */
