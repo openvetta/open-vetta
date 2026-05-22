@@ -296,6 +296,79 @@ function parseUserPrefixes(text: string): {
 	return { skillName, skillType, files, body: remaining };
 }
 
+/** 提取 user 消息的可复制文本：去掉 /skill: 与 @file 前缀，仅保留正文 body。 */
+function getUserCopyText(message: ChatMessage): string {
+	const { body } = parseUserPrefixes(message.text ?? "");
+	return body.trim();
+}
+
+/**
+ * 提取 assistant 消息的结论文本：取最后一个 tool_call/thinking 之后的所有 text block。
+ * 无 tool/thinking 时整段都是结论；纯工具轮 / 仅 error 时返回空字符串。
+ */
+function getAssistantConclusionText(message: ChatMessage): string {
+	const blocks = message.blocks ?? [];
+	if (blocks.length === 0) return (message.text ?? "").trim();
+	const lastProcessIndex = blocks.findLastIndex(
+		(b) => b.type === "tool_call" || b.type === "thinking",
+	);
+	const texts = blocks
+		.slice(lastProcessIndex + 1)
+		.filter((b): b is TextBlock => b.type === "text")
+		.map((b) => b.text.trim())
+		.filter(Boolean);
+	return texts.join("\n\n");
+}
+
+/** 复制按钮：icon-only + tooltip，点击后原位切到 check 持续 1.5s。 */
+function CopyButton({ getText }: { getText: () => string }): JSX.Element {
+	const [copied, setCopied] = useState(false);
+	const timerRef = useRef<number | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+		};
+	}, []);
+
+	const onClick = useCallback(() => {
+		const text = getText();
+		if (!text) return;
+		void navigator.clipboard.writeText(text).then(
+			() => {
+				setCopied(true);
+				if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+				timerRef.current = window.setTimeout(() => {
+					setCopied(false);
+					timerRef.current = null;
+				}, 1500);
+			},
+			(err) => {
+				console.warn("[MessageActions] copy failed", err);
+			},
+		);
+	}, [getText]);
+
+	const label = copied ? "已复制" : "复制";
+
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			title={label}
+			aria-label={label}
+			className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/45 transition-colors hover:bg-muted/60 hover:text-foreground"
+		>
+			<span
+				className={cn(
+					"h-3.5 w-3.5",
+					copied ? "icon-[mdi--check]" : "icon-[mdi--content-copy]",
+				)}
+			/>
+		</button>
+	);
+}
+
 function SkillBadge({ name, type = "skill" }: { name: string; type?: "skill" | "scene" }): JSX.Element {
 	const icon = type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]";
 	return (
@@ -325,10 +398,11 @@ const UserMessage = memo(function UserMessage({ message }: { message: ChatMessag
 	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const displayText = body;
 	const hasBadges = skillName || files.length > 0;
+	const copyText = displayText.trim();
 
 	return (
-		<div className="flex justify-end">
-			<div className="max-w-[72%]">
+		<div className="group/user flex justify-end">
+			<div className="relative max-w-[72%] before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
 				{hasImages && (
 					<div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
 						{message.images!.map((img, i) => (
@@ -371,6 +445,11 @@ const UserMessage = memo(function UserMessage({ message }: { message: ChatMessag
 						{"\u2026"}
 					</div>
 				)}
+				{copyText && (
+					<div className="pointer-events-none absolute right-0 top-full mt-1 flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
+						<CopyButton getText={() => copyText} />
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -392,6 +471,11 @@ const AssistantMessage = memo(function AssistantMessage({ message, isLastAssista
 		return foldData.outputBlocks;
 	}, [expanded, foldData, isCurrentlyStreaming, message.blocks]);
 	const segments = useMemo(() => groupBlocks(visibleBlocks), [visibleBlocks]);
+	const conclusionText = useMemo(
+		() => getAssistantConclusionText(message),
+		[message],
+	);
+	const showActions = !isCurrentlyStreaming && conclusionText.length > 0;
 
 	return (
 		<div className="flex flex-col">
@@ -460,6 +544,12 @@ const AssistantMessage = memo(function AssistantMessage({ message, isLastAssista
 					</div>
 				)}
 			</div>
+
+			{showActions && (
+				<div className="mt-2 flex items-center gap-0.5">
+					<CopyButton getText={() => conclusionText} />
+				</div>
+			)}
 		</div>
 	);
 });
