@@ -59,6 +59,43 @@ function lineCount(text: string): number {
 	return text.split("\n").length;
 }
 
+type DiffLineKind = "added" | "removed" | "context" | "meta";
+
+interface DiffLine {
+	text: string;
+	kind: DiffLineKind;
+}
+
+interface DiffStats {
+	added: number;
+	removed: number;
+}
+
+function classifyDiffLine(line: string): DiffLineKind {
+	if (line.startsWith("+") && !line.startsWith("+++")) return "added";
+	if (line.startsWith("-") && !line.startsWith("---")) return "removed";
+	if (line.trim() === "...") return "meta";
+	return "context";
+}
+
+function parseDiff(diff: string): { lines: DiffLine[]; stats: DiffStats } {
+	const lines = diff.split("\n").map((line) => ({ text: line, kind: classifyDiffLine(line) }));
+	const stats = lines.reduce<DiffStats>(
+		(acc, line) => {
+			if (line.kind === "added") acc.added += 1;
+			if (line.kind === "removed") acc.removed += 1;
+			return acc;
+		},
+		{ added: 0, removed: 0 },
+	);
+	return { lines, stats };
+}
+
+function formatSignedCount(value: number): string {
+	if (value > 0) return `+${value}`;
+	return String(value);
+}
+
 /** Get icon for tool */
 function toolIcon(name: string): string {
 	if (name.startsWith("mcp_")) return "icon-[mdi--cloud-outline]";
@@ -272,12 +309,49 @@ function TextPreview({
 }
 
 function DiffPreview({ diff }: { diff: string }): JSX.Element {
+	const { lines, stats } = parseDiff(diff);
+	const net = stats.added - stats.removed;
+
 	return (
 		<div className="space-y-1.5">
-			<div className="text-[10px] font-medium text-muted-foreground/60">diff</div>
-			<pre className="max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/25 p-2 text-[11px] leading-[1.5] text-foreground/70">
-				{diff}
-			</pre>
+			<div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/50">
+				<span className="font-medium text-muted-foreground/60">diff</span>
+				<span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-600 dark:text-emerald-400">
+					+{stats.added}
+				</span>
+				<span className="rounded bg-red-500/10 px-1.5 py-0.5 font-medium text-red-600 dark:text-red-400">
+					-{stats.removed}
+				</span>
+				<span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground/60">
+					净 {formatSignedCount(net)}
+				</span>
+			</div>
+			<div className="max-h-[420px] overflow-auto rounded-md bg-muted/25 py-2 font-mono text-[11px] leading-[1.5]">
+				{lines.map((line, index) => {
+					const rowClass =
+						line.kind === "added"
+							? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+							: line.kind === "removed"
+								? "bg-red-500/10 text-red-700 dark:text-red-300"
+								: line.kind === "meta"
+									? "text-muted-foreground/45"
+									: "text-foreground/70";
+					const markerClass =
+						line.kind === "added"
+							? "text-emerald-600 dark:text-emerald-400"
+							: line.kind === "removed"
+								? "text-red-600 dark:text-red-400"
+								: "text-muted-foreground/35";
+					const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " ";
+					const content = line.kind === "added" || line.kind === "removed" ? line.text.slice(1) : line.text;
+					return (
+						<div key={`${index}-${line.text}`} className={`flex min-w-max px-2 ${rowClass}`}>
+							<span className={`w-4 shrink-0 select-none ${markerClass}`}>{marker}</span>
+							<span className="whitespace-pre">{content}</span>
+						</div>
+					);
+				})}
+			</div>
 		</div>
 	);
 }
