@@ -69,7 +69,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 						onClick={() => onSelectTask(task.id)}
 						className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-card/30 p-5 backdrop-blur-sm transition-colors duration-300 ${
 							isSelected
-								? "border-primary/50 bg-primary/[0.04] shadow-[0_20px_50px_-25px_var(--primary)]"
+								? "border-primary/50 bg-primary/[0.04]"
 								: "border-border/50 hover:border-primary/30 hover:bg-card/60"
 						}`}
 					>

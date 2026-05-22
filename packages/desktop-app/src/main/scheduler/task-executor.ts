@@ -158,7 +158,10 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 
 		executingTasks.set(task.id, { sessionId, abortFn: safeUnsubscribe });
 
-		await runtime.prompt(sessionId, { text: task.prompt });
+		await runtime.prompt(sessionId, {
+			text: task.prompt,
+			...(task.modelKey ? { modelKey: task.modelKey } : {}),
+		});
 	} catch (error) {
 		record.status = "failed";
 		record.completedAt = Date.now();
