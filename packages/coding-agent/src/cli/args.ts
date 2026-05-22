@@ -178,7 +178,7 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 
 export function printHelp(): void {
 	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
-	const defaultToolsList = `read,${defaultCommandTool},edit,write,dir_tree,doc_to_pdf,html_to_pdf,extract_text_from_pdf,extract_text_from_img,current_time`;
+	const defaultToolsList = `read,${defaultCommandTool},edit,write,grep,glob,dir_tree,doc_to_pdf,html_to_pdf,extract_text_from_pdf,extract_text_from_img,current_time`;
 	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with ${defaultToolsList} tools
 
 ${chalk.bold("Usage:")}
@@ -269,7 +269,7 @@ ${chalk.bold("Examples:")}
   ${APP_NAME} --thinking high "Solve this complex problem"
 
   # Read-only mode (no file modifications possible)
-  ${APP_NAME} --tools read,grep,find,ls,dir_tree -p "Review the code in src/"
+  ${APP_NAME} --tools read,grep,glob,find,ls,dir_tree -p "Review the code in src/"
 
   # Export a session file to HTML
   ${APP_NAME} --export ~/${CONFIG_DIR_NAME}/agent/sessions/--path--/session.jsonl
@@ -311,7 +311,8 @@ ${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   shell  - Execute shell commands (PowerShell on Windows by default)
   edit   - Edit files with find/replace
   write  - Write files (creates/overwrites)
-  grep   - Search file contents (read-only, off by default)
+  grep   - Search file contents
+  glob   - Find files by glob pattern
   find   - Find files by glob pattern (read-only, off by default)
   ls     - List directory contents (read-only, off by default)
   dir_tree - Show directory tree with [D]/[F] node types (read-only)

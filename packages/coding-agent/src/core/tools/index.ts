@@ -48,6 +48,14 @@ export {
 	findTool,
 } from "./find/index.js";
 export {
+	createGlobTool,
+	type GlobOperations,
+	type GlobToolDetails,
+	type GlobToolInput,
+	type GlobToolOptions,
+	globTool,
+} from "./glob/index.js";
+export {
 	createGrepTool,
 	type GrepOperations,
 	type GrepToolDetails,
@@ -127,6 +135,7 @@ import { createEditTool, editTool } from "./edit/index.js";
 import { createExtractTextFromImgTool, extractTextFromImgTool } from "./extract-text-from-img/index.js";
 import { createExtractTextFromPdfTool, extractTextFromPdfTool } from "./extract-text-from-pdf/index.js";
 import { createFindTool, findTool } from "./find/index.js";
+import { createGlobTool, type GlobToolOptions, globTool } from "./glob/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
 import { createHtmlToPdfTool, htmlToPdfTool } from "./html-to-pdf/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
@@ -144,8 +153,8 @@ export function getDefaultCommandToolName(): CommandToolName {
 	return process.platform === "win32" ? "shell" : "bash";
 }
 
-export function getDefaultCodingToolNames(): ["read", CommandToolName, "edit", "write", "dir_tree"] {
-	return ["read", getDefaultCommandToolName(), "edit", "write", "dir_tree"];
+export function getDefaultCodingToolNames(): ["read", CommandToolName, "edit", "write", "grep", "glob", "dir_tree"] {
+	return ["read", getDefaultCommandToolName(), "edit", "write", "grep", "glob", "dir_tree"];
 }
 
 // Default tools for full access mode (using process.cwd())
@@ -156,6 +165,8 @@ export const codingTools: Tool[] = [
 	defaultCommandTool,
 	editTool,
 	writeTool,
+	grepTool,
+	globTool,
 	treeTool,
 	docToPdfTool,
 	htmlToPdfTool,
@@ -164,7 +175,7 @@ export const codingTools: Tool[] = [
 ];
 
 // Read-only tools for exploration without modification (using process.cwd())
-export const readOnlyTools: Tool[] = [readTool, grepTool, findTool, lsTool, treeTool];
+export const readOnlyTools: Tool[] = [readTool, grepTool, globTool, findTool, lsTool, treeTool];
 
 // All available tools (using process.cwd())
 export const allTools = {
@@ -174,6 +185,7 @@ export const allTools = {
 	edit: editTool,
 	write: writeTool,
 	grep: grepTool,
+	glob: globTool,
 	find: findTool,
 	ls: lsTool,
 	dir_tree: treeTool,
@@ -195,6 +207,8 @@ export interface ToolsOptions {
 	shell?: ShellToolOptions;
 	/** Options for the doc-to-pdf tool */
 	docToPdf?: DocToPdfToolOptions;
+	/** Options for the glob tool */
+	glob?: GlobToolOptions;
 }
 
 /**
@@ -211,6 +225,8 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 		commandTool,
 		createEditTool(cwd),
 		createWriteTool(cwd),
+		createGrepTool(cwd),
+		createGlobTool(cwd, options?.glob),
 		createTreeTool(cwd),
 		createDocToPdfTool(cwd, options?.docToPdf),
 		createHtmlToPdfTool(cwd),
@@ -226,6 +242,7 @@ export function createReadOnlyTools(cwd: string, options?: ToolsOptions): Tool[]
 	return [
 		createReadTool(cwd, options?.read),
 		createGrepTool(cwd),
+		createGlobTool(cwd, options?.glob),
 		createFindTool(cwd),
 		createLsTool(cwd),
 		createTreeTool(cwd),
@@ -243,6 +260,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		edit: createEditTool(cwd),
 		write: createWriteTool(cwd),
 		grep: createGrepTool(cwd),
+		glob: createGlobTool(cwd, options?.glob),
 		find: createFindTool(cwd),
 		ls: createLsTool(cwd),
 		dir_tree: createTreeTool(cwd),

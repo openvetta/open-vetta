@@ -73,6 +73,8 @@ export type {
 	GetAllToolsHandler,
 	GetCommandsHandler,
 	GetThinkingLevelHandler,
+	GlobToolCallEvent,
+	GlobToolResultEvent,
 	GrepToolCallEvent,
 	GrepToolResultEvent,
 	// Events - Input
@@ -158,6 +160,7 @@ export {
 	isDirTreeToolResult,
 	isEditToolResult,
 	isFindToolResult,
+	isGlobToolResult,
 	isGrepToolResult,
 	isLsToolResult,
 	isReadToolResult,

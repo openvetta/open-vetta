@@ -14,6 +14,7 @@ const toolDescriptions: Record<string, string> = {
 	edit: "Make surgical edits to files (find exact text and replace)",
 	write: "Create or overwrite files",
 	grep: "Search file contents for patterns (respects .gitignore)",
+	glob: "Find files by glob pattern (respects .gitignore)",
 	find: "Find files by glob pattern (respects .gitignore)",
 	ls: "List directory contents",
 	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
@@ -153,17 +154,18 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const hasEdit = tools.includes("edit");
 	const hasWrite = tools.includes("write");
 	const hasGrep = tools.includes("grep");
+	const hasGlob = tools.includes("glob");
 	const hasFind = tools.includes("find");
 	const hasLs = tools.includes("ls");
 	const hasDirTree = tools.includes("dir_tree");
 	const hasRead = tools.includes("read");
 
 	// File exploration guidelines
-	if (hasCommandTool && !hasGrep && !hasFind && !hasLs && !hasDirTree) {
+	if (hasCommandTool && !hasGrep && !hasGlob && !hasFind && !hasLs && !hasDirTree) {
 		guidelinesList.push("Use the shell tool for file operations like ls, rg, find");
-	} else if (hasCommandTool && (hasGrep || hasFind || hasLs || hasDirTree)) {
+	} else if (hasCommandTool && (hasGrep || hasGlob || hasFind || hasLs || hasDirTree)) {
 		guidelinesList.push(
-			"Prefer grep/find/ls/dir_tree tools over the shell tool for file exploration (faster, respects .gitignore)",
+			"Prefer grep/glob/find/ls/dir_tree tools over the shell tool for file exploration (faster, respects .gitignore)",
 		);
 	}
 
