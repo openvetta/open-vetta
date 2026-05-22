@@ -68,7 +68,7 @@ export function NewSessionPage(): JSX.Element {
 
 	const handleSelectScene = useCallback(
 		(skill: SkillInfo) => {
-			setSelectedSkill({ name: skill.name, type: skill.type });
+			setSelectedSkill({ name: skill.name, alias: skill.alias, type: skill.type });
 		},
 		[setSelectedSkill],
 	);
@@ -76,7 +76,9 @@ export function NewSessionPage(): JSX.Element {
 	const handleSelectSkill = useCallback(
 		(skill: SkillInfo) => {
 			const isSelected = selectedSkill?.name === skill.name && selectedSkill?.type === skill.type;
-			setSelectedSkill(isSelected ? null : { name: skill.name, type: skill.type });
+			setSelectedSkill(
+				isSelected ? null : { name: skill.name, alias: skill.alias, type: skill.type },
+			);
 		},
 		[selectedSkill, setSelectedSkill],
 	);

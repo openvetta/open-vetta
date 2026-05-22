@@ -124,6 +124,7 @@ export interface ContextUsageData {
 
 export interface SelectedSkill {
 	name: string;
+	alias?: string;
 	type: "skill" | "scene";
 }
 

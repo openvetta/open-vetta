@@ -172,7 +172,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 
 	const handleSlashSelect = useCallback(
 		(skill: SkillInfo) => {
-			setSelectedSkill({ name: skill.name, type: skill.type });
+			setSelectedSkill({ name: skill.name, alias: skill.alias, type: skill.type });
 			setSlashOpen(false);
 			if (inputValue.startsWith("/")) {
 				setInputValue("");
@@ -373,7 +373,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 														? "icon-[mdi--movie-open-outline]"
 														: "icon-[mdi--puzzle-outline]"
 												}
-												label={selectedSkill.name}
+												label={selectedSkill.alias || selectedSkill.name}
 												tone="primary"
 												onRemove={handleRemoveSkill}
 											/>
