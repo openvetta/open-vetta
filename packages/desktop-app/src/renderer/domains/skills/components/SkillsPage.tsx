@@ -331,79 +331,44 @@ function SceneCard({
 	return (
 		<motion.div
 			variants={{
-				hidden: { opacity: 0, y: 12, scale: 0.97 },
+				hidden: { opacity: 0, y: 10, scale: 0.98 },
 				show: { opacity: 1, y: 0, scale: 1 },
 			}}
 			transition={{ type: "spring", stiffness: 280, damping: 26 }}
-			whileHover={{ y: -3 }}
+			whileHover={{ y: -2 }}
 			onClick={previewable ? () => onPreview?.(scene) : undefined}
-			className={`group relative flex flex-col overflow-hidden rounded-2xl bg-muted ring-1 ring-inset ring-transparent transition-[box-shadow,background-color] duration-200 hover:ring-primary/40 ${
+			className={`group relative flex flex-col overflow-hidden rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm transition-colors duration-200 hover:border-primary/40 hover:bg-card/60 ${
 				previewable ? "cursor-pointer" : ""
 			}`}
 		>
-			{/* Decorative hero strip — solid primary in light, black + primary/40 overlay in dark */}
-			<div className="relative h-16 overflow-hidden bg-primary/60 dark:bg-black">
-				{/* Dark-mode primary overlay (40%) */}
-				<div
-					aria-hidden
-					className="pointer-events-none absolute inset-0 hidden dark:block"
-					style={{
-						background: "color-mix(in srgb, var(--primary) 40%, transparent)",
-					}}
-				/>
-				{/* Grid texture overlay (dark mode: white lines) */}
-				<div
-					aria-hidden
-					className="pointer-events-none absolute inset-0 hidden dark:block"
-					style={{
-						backgroundImage:
-							"linear-gradient(to right, rgba(255,255,255,0.09) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.09) 1px, transparent 1px)",
-						backgroundSize: "10px 10px",
-						maskImage:
-							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
-						WebkitMaskImage:
-							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
-					}}
-				/>
-				{/* Grid texture overlay (light mode: stronger white lines on primary wash) */}
-				<div
-					aria-hidden
-					className="pointer-events-none absolute inset-0 block dark:hidden"
-					style={{
-						backgroundImage:
-							"linear-gradient(to right, rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.35) 1px, transparent 1px)",
-						backgroundSize: "10px 10px",
-						maskImage:
-							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
-						WebkitMaskImage:
-							"radial-gradient(ellipse 90% 100% at 50% 50%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.5) 70%, transparent 100%)",
-					}}
-				/>
-				{/* Scene icon — top-right */}
-				<motion.span
-					aria-hidden
-					className="icon-[mdi--movie-open-outline] absolute right-3 top-3 h-10 w-10 text-white/70"
-					initial={{ scale: 0.9, rotate: -8 }}
-					whileHover={{ scale: 1.05, rotate: -4 }}
-					transition={{ type: "spring", stiffness: 300, damping: 20 }}
-				/>
-			</div>
-
 			{/* Body */}
-			<div className="flex flex-1 flex-col gap-2 px-4 pt-3 pb-3">
-				<div className="flex items-baseline gap-2">
-					<h4 className="truncate text-[14px] font-semibold tracking-tight text-foreground">
-						{scene.alias || scene.name}
-					</h4>
-					{scene.installed && scene.localVersion && (
-						<span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/45">
-							v{scene.localVersion}
-						</span>
-					)}
+			<div className="flex flex-1 flex-col gap-2 px-3.5 pt-3 pb-3">
+				<div className="flex items-start gap-2.5">
+					<div
+						className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+							scene.installed
+								? "bg-primary/10 text-primary ring-1 ring-inset ring-primary/20"
+								: "bg-accent/50 text-muted-foreground/70"
+						}`}
+					>
+						<span className="icon-[mdi--movie-open-outline] h-4 w-4" />
+					</div>
+					<div className="min-w-0 flex-1">
+						<div className="flex items-baseline gap-2">
+							<h4 className="truncate text-[13px] font-semibold tracking-tight text-foreground">
+								{scene.alias || scene.name}
+							</h4>
+							{scene.installed && scene.localVersion && (
+								<span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/45">
+									v{scene.localVersion}
+								</span>
+							)}
+						</div>
+						<p className="mt-0.5 line-clamp-2 text-[12px] leading-[1.5] text-muted-foreground/65">
+							{scene.description || "暂无描述"}
+						</p>
+					</div>
 				</div>
-				<p className="line-clamp-2 text-[12px] leading-[1.55] text-muted-foreground/70">
-					{scene.description || "暂无描述"}
-				</p>
 
 				{/* Footer */}
 				<div className="mt-auto flex items-center gap-2 pt-2">
@@ -561,7 +526,7 @@ function TagGroup({
 			<motion.div
 				className={
 					isScene
-						? "grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3"
+						? "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5"
 						: "grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-x-2 gap-y-0.5"
 				}
 				initial="hidden"

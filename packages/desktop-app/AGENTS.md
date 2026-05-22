@@ -87,6 +87,11 @@ src/
 
 ## **CRITICAL** 开发规范 **CRITICAL**
 
+### 0. UI 改动必读 DESIGN.md
+
+**修改 `src/renderer/**` 任何 `.tsx` / `.css`、`shared/components/ui/**`、或新增 `motion/react` 动画前，必须读 [`DESIGN.md`](./DESIGN.md)。**
+该文件定义颜色 token / 卡片阴影 / 圆角 / 间距 / 动画 / 图标 / 桌面端 drag-region 等的硬性规则，违反即视为不合格 PR。
+
 ### 1. 不要重复造轮子
 
 **UI 组件**：所有操作按钮（提交、保存、取消、删除、安装等）**必须**使用 `@shared/components/ui/button` 的 `Button` 组件，不要用原生 `<button>` 手写样式。Button 提供以下 variant：
