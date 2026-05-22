@@ -190,6 +190,8 @@ const api: DesktopApi = {
 		getServerUrl: async () => ipcRenderer.invoke("vetta:settings:get-server-url"),
 		getServerToken: async () => ipcRenderer.invoke("vetta:settings:get-server-token"),
 		setServerToken: async (token) => ipcRenderer.invoke("vetta:settings:set-server-token", token),
+		getServerRefreshToken: async () => ipcRenderer.invoke("vetta:settings:get-server-refresh-token"),
+		setServerRefreshToken: async (token) => ipcRenderer.invoke("vetta:settings:set-server-refresh-token", token),
 	},
 	credits: {
 		getBalance: async () => ipcRenderer.invoke("vetta:credits:balance"),
@@ -207,12 +209,27 @@ const api: DesktopApi = {
 	auth: {
 		openExternal: async (url) => ipcRenderer.invoke("vetta:auth:open-external", url),
 		onOAuthCallback: (handler) => {
-			const listener = (_event: Electron.IpcRendererEvent, data: { token: string }) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: { token: string; refreshToken?: string }) => {
 				handler(data);
 			};
 			ipcRenderer.on("vetta:auth:oauth-callback", listener);
 			return () => {
 				ipcRenderer.removeListener("vetta:auth:oauth-callback", listener);
+			};
+		},
+		onUnauthorized: (handler) => {
+			const listener = () => handler();
+			ipcRenderer.on("vetta:auth:unauthorized", listener);
+			return () => {
+				ipcRenderer.removeListener("vetta:auth:unauthorized", listener);
+			};
+		},
+		onTokenRefreshed: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, data: { accessToken: string; refreshToken: string }) =>
+				handler(data);
+			ipcRenderer.on("vetta:auth:token-refreshed", listener);
+			return () => {
+				ipcRenderer.removeListener("vetta:auth:token-refreshed", listener);
 			};
 		},
 	},
