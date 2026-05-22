@@ -1,6 +1,6 @@
 {
 	"name": "@vetta/desktop-app",
-	"version": "0.1.10",
+	"version": "0.1.14",
 	"description": "Vetta Desktop App",
 	"author": "Vetta",
 	"type": "module",
