@@ -77,6 +77,11 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const [isFocused, setIsFocused] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
 	const [atOpen, setAtOpen] = useState(false);
+	// 记录用户主动关闭浮层时的「触发标识」，避免后续按键反复重开
+	// slash：只要 val 仍以 `/` 开头，就保持驳回；val 不再以 `/` 开头时清除
+	const slashDismissedRef = useRef(false);
+	// at：记录被驳回时光标前 `@` 的位置；该 `@` 仍在原位则保持驳回
+	const atDismissedIndexRef = useRef<number | null>(null);
 	const todoMap = useAtomValue(todoItemsByCwdAtom);
 	const sandboxPermission = useAtomValue(sandboxPermissionDrawerAtom);
 	const todoItems = useMemo(
@@ -145,21 +150,50 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>): void {
 		const val = e.target.value;
 		setInputValue(val);
-		if (val === "/" || (val.startsWith("/") && !val.includes(" "))) {
+
+		// slash 触发：仅当 val 形如 `/xxx`（无空格）时算激活
+		const slashActive = val === "/" || (val.startsWith("/") && !val.includes(" "));
+		if (!slashActive) {
+			// 触发条件失效，清除驳回记忆
+			slashDismissedRef.current = false;
+			if (slashOpen) setSlashOpen(false);
+		} else if (!slashDismissedRef.current) {
 			if (!slashOpen) setSlashOpen(true);
 			if (atOpen) setAtOpen(false);
-		} else if (slashOpen && !val.startsWith("/")) {
-			setSlashOpen(false);
 		}
+
+		// at 触发：光标前最后一个连续 `@xxx` 段
 		const cursorPos = e.target.selectionStart ?? val.length;
 		const textBeforeCursor = val.slice(0, cursorPos);
 		const atMatch = textBeforeCursor.match(/@([^\s]*)$/);
-		if (atMatch && !slashOpen) {
+		const atIndex = atMatch ? (atMatch.index ?? null) : null;
+		if (atIndex === null) {
+			atDismissedIndexRef.current = null;
+			if (atOpen) setAtOpen(false);
+		} else if (atDismissedIndexRef.current === atIndex) {
+			// 用户已主动驳回当前这个 `@` 的浮层
+			if (atOpen) setAtOpen(false);
+		} else if (!slashActive) {
 			if (!atOpen) setAtOpen(true);
-		} else if (atOpen) {
-			setAtOpen(false);
 		}
 	}
+
+	const handleSlashClose = useCallback(() => {
+		setSlashOpen(false);
+		// 仅当当前 val 仍处于触发状态时，才记忆为「已驳回」
+		if (inputValue === "/" || (inputValue.startsWith("/") && !inputValue.includes(" "))) {
+			slashDismissedRef.current = true;
+		}
+	}, [inputValue]);
+
+	const handleAtClose = useCallback(() => {
+		setAtOpen(false);
+		const el = textareaRef.current;
+		const cursorPos = el?.selectionStart ?? inputValue.length;
+		const textBeforeCursor = inputValue.slice(0, cursorPos);
+		const atMatch = textBeforeCursor.match(/@([^\s]*)$/);
+		atDismissedIndexRef.current = atMatch?.index ?? null;
+	}, [inputValue]);
 
 	function getAtFilter(): string {
 		const val = inputValue;
@@ -327,14 +361,14 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 			<div className="relative mx-auto w-full max-w-2xl">
 				<SlashPanel
 					open={slashOpen}
-					onClose={() => setSlashOpen(false)}
+					onClose={handleSlashClose}
 					onSelect={handleSlashSelect}
 					filter={inputValue.startsWith("/") ? inputValue : ""}
 				/>
 
 				<AtPanel
 					open={atOpen}
-					onClose={() => setAtOpen(false)}
+					onClose={handleAtClose}
 					onSelect={handleAtSelect}
 					filter={getAtFilter()}
 					cwd={effectiveCwd}
