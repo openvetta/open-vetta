@@ -23,6 +23,18 @@ export type ReadToolInput = Static<typeof readSchema>;
 
 export interface ReadToolDetails {
 	truncation?: TruncationResult;
+	image?: {
+		originalPath: string;
+		originalMimeType: string;
+		originalSizeBytes: number;
+		originalWidth: number;
+		originalHeight: number;
+		processedMimeType: string;
+		processedSizeBytes: number;
+		processedWidth: number;
+		processedHeight: number;
+		wasResized: boolean;
+	};
 }
 
 /**
@@ -193,12 +205,40 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 										{ type: "text", text: textNote },
 										{ type: "image", data: resized.data, mimeType: resized.mimeType },
 									];
+									details = {
+										image: {
+											originalPath: absolutePath,
+											originalMimeType: mimeType,
+											originalSizeBytes: buffer.length,
+											originalWidth: resized.originalWidth,
+											originalHeight: resized.originalHeight,
+											processedMimeType: resized.mimeType,
+											processedSizeBytes: Buffer.byteLength(resized.data, "base64"),
+											processedWidth: resized.width,
+											processedHeight: resized.height,
+											wasResized: resized.wasResized,
+										},
+									};
 								} else {
 									const textNote = `Read image file [${mimeType}]`;
 									content = [
 										{ type: "text", text: textNote },
 										{ type: "image", data: base64, mimeType },
 									];
+									details = {
+										image: {
+											originalPath: absolutePath,
+											originalMimeType: mimeType,
+											originalSizeBytes: buffer.length,
+											originalWidth: 0,
+											originalHeight: 0,
+											processedMimeType: mimeType,
+											processedSizeBytes: buffer.length,
+											processedWidth: 0,
+											processedHeight: 0,
+											wasResized: false,
+										},
+									};
 								}
 							} else {
 								// Read as text
@@ -291,7 +331,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 							}
 
 							resolve({ content, details });
-						} catch (error: any) {
+						} catch (error: unknown) {
 							// Clean up abort handler
 							if (signal) {
 								signal.removeEventListener("abort", onAbort);
