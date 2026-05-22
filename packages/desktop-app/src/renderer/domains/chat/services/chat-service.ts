@@ -1,5 +1,11 @@
 import { pathBasename, pathJoin, pathNormalize } from "@shared/lib/utils";
-import type { ChatMessage, ContentBlock, ToolCallBlock, ToolImagePreview } from "@shared/store/atoms";
+import type {
+	ChatMessage,
+	ContentBlock,
+	ToolCallBlock,
+	ToolCallUiDetails,
+	ToolImagePreview,
+} from "@shared/store/atoms";
 import type { HistoryEntry } from "../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -66,6 +72,21 @@ export function extractToolImagePreview(result: unknown, details: unknown): Tool
 		processedWidth: asFiniteNumber(imageDetails?.processedWidth),
 		processedHeight: asFiniteNumber(imageDetails?.processedHeight),
 		wasResized: typeof imageDetails?.wasResized === "boolean" ? imageDetails.wasResized : undefined,
+	};
+}
+
+export function extractToolUiDetails(result: unknown, details: unknown): ToolCallUiDetails | undefined {
+	const resultRecord = asRecord(result);
+	const detailsRecord = asRecord(details) ?? asRecord(resultRecord?.details);
+	if (!detailsRecord) return undefined;
+
+	const diff = typeof detailsRecord.diff === "string" ? detailsRecord.diff : undefined;
+	const firstChangedLine = asFiniteNumber(detailsRecord.firstChangedLine);
+	if (diff === undefined && firstChangedLine === undefined) return undefined;
+
+	return {
+		...(diff !== undefined ? { diff } : {}),
+		...(firstChangedLine !== undefined ? { firstChangedLine } : {}),
 	};
 }
 
@@ -163,6 +184,7 @@ export function historyToChat(
 			if (block) {
 				block.result = extractText(m.content);
 				block.imagePreview = extractToolImagePreview(m.content, m.details);
+				block.uiDetails = extractToolUiDetails(m.content, m.details);
 				block.isError = m.isError === true;
 				block.status = m.isError ? "error" : "success";
 			}
@@ -267,6 +289,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			if (block) {
 				block.result = extractText(m.content);
 				block.imagePreview = extractToolImagePreview(m.content, m.details);
+				block.uiDetails = extractToolUiDetails(m.content, m.details);
 				block.isError = m.isError === true;
 				block.status = m.isError ? "error" : "success";
 			}
@@ -590,6 +613,7 @@ export function handleToolEnd(
 ): ChatMessage[] {
 	const resultText = extractResultText(result);
 	const imagePreview = extractToolImagePreview(result, undefined);
+	const uiDetails = extractToolUiDetails(result, undefined);
 
 	// Search backwards for the matching tool_call block
 	for (let i = prev.length - 1; i >= 0; i--) {
@@ -607,6 +631,7 @@ export function handleToolEnd(
 			status: isError ? "error" : "success",
 			result: resultText,
 			imagePreview,
+			uiDetails,
 			isError,
 			startedAt: timing?.startedAt ?? block.startedAt,
 			durationMs: timing?.durationMs ?? block.durationMs,
