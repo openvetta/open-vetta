@@ -49,6 +49,16 @@ function getShellCommand(block: ToolCallBlock): string | null {
 	return typeof cmd === "string" ? cmd : null;
 }
 
+function getStringArg(args: Record<string, unknown>, key: string): string | null {
+	const value = args[key];
+	return typeof value === "string" ? value : null;
+}
+
+function lineCount(text: string): number {
+	if (text.length === 0) return 0;
+	return text.split("\n").length;
+}
+
 /** Get icon for tool */
 function toolIcon(name: string): string {
 	if (name.startsWith("mcp_")) return "icon-[mdi--cloud-outline]";
@@ -82,6 +92,9 @@ function toolLabel(block: ToolCallBlock): { name: string; detail: string } {
 	if (name === "read" || name === "write" || name === "edit") {
 		const path = args.file_path ?? args.path;
 		if (typeof path === "string") detail = shortenPath(path);
+		if (name === "edit" && block.uiDetails?.firstChangedLine !== undefined) {
+			detail += `:${block.uiDetails.firstChangedLine}`;
+		}
 	} else if (name === "bash" || name === "shell") {
 		const cmd = args.command;
 		if (typeof cmd === "string") detail = cmd.length > 80 ? `${cmd.slice(0, 77)}...` : cmd;
@@ -233,11 +246,80 @@ function ReadImageResult({ image }: { image: ToolImagePreview }): JSX.Element {
 	);
 }
 
+function TextPreview({
+	label,
+	text,
+	emptyLabel = "空内容",
+}: {
+	label: string;
+	text: string;
+	emptyLabel?: string;
+}): JSX.Element {
+	const lines = lineCount(text);
+	return (
+		<div className="space-y-1.5">
+			<div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
+				<span className="font-medium text-muted-foreground/60">{label}</span>
+				<span>
+					{lines} 行 · {text.length} 字符
+				</span>
+			</div>
+			<pre className="max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/25 p-2 text-[11px] leading-[1.5] text-foreground/70">
+				{text.length > 0 ? text : emptyLabel}
+			</pre>
+		</div>
+	);
+}
+
+function DiffPreview({ diff }: { diff: string }): JSX.Element {
+	return (
+		<div className="space-y-1.5">
+			<div className="text-[10px] font-medium text-muted-foreground/60">diff</div>
+			<pre className="max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/25 p-2 text-[11px] leading-[1.5] text-foreground/70">
+				{diff}
+			</pre>
+		</div>
+	);
+}
+
+function EditTextFallback({ block }: { block: ToolCallBlock }): JSX.Element | null {
+	const oldText = getStringArg(block.args, "oldText");
+	const newText = getStringArg(block.args, "newText");
+	if (oldText === null && newText === null) return null;
+
+	return (
+		<div className="space-y-3">
+			{oldText !== null && <TextPreview label="oldText" text={oldText} emptyLabel="空匹配文本" />}
+			{newText !== null && <TextPreview label="newText" text={newText} emptyLabel="空替换文本" />}
+		</div>
+	);
+}
+
+function ToolSpecificResult({ block }: { block: ToolCallBlock }): JSX.Element | null {
+	if (block.toolName === "write") {
+		const content = getStringArg(block.args, "content");
+		if (content !== null) return <TextPreview label="写入内容" text={content} />;
+	}
+
+	if (block.toolName === "edit") {
+		if (block.uiDetails?.diff) return <DiffPreview diff={block.uiDetails.diff} />;
+		return <EditTextFallback block={block} />;
+	}
+
+	return null;
+}
+
 export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
 	const hasResult = block.result !== undefined;
 	const hasMeta = block.startedAt !== undefined;
-	const canExpand = hasResult || hasMeta;
+	const hasToolSpecificResult =
+		(block.toolName === "write" && getStringArg(block.args, "content") !== null) ||
+		(block.toolName === "edit" &&
+			(block.uiDetails?.diff !== undefined ||
+				getStringArg(block.args, "oldText") !== null ||
+				getStringArg(block.args, "newText") !== null));
+	const canExpand = hasResult || hasMeta || hasToolSpecificResult;
 	const { name, detail } = toolLabel(block);
 	const mcp = parseMcpTool(block.toolName);
 	const icon = toolIcon(block.toolName);
@@ -345,6 +427,15 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 							)}
 							{block.toolName === "read" && block.imagePreview ? (
 								<ReadImageResult image={block.imagePreview} />
+							) : block.toolName === "write" || block.toolName === "edit" ? (
+								<>
+									<ToolSpecificResult block={block} />
+									{block.isError && block.result && (
+										<pre className="mt-2 max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-destructive/70">
+											{block.result}
+										</pre>
+									)}
+								</>
 							) : hasResult ? (
 								<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
 									{block.result}

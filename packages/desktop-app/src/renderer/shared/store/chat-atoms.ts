@@ -36,6 +36,13 @@ export interface ToolImagePreview {
 	wasResized?: boolean;
 }
 
+export interface ToolCallUiDetails {
+	/** Unified diff for UI rendering only. Never sent back to the model. */
+	diff?: string;
+	/** First changed line in the new file, for compact path display. */
+	firstChangedLine?: number;
+}
+
 export interface ToolCallBlock {
 	type: "tool_call";
 	toolCallId: string;
@@ -45,6 +52,7 @@ export interface ToolCallBlock {
 	status: "pending" | "success" | "error";
 	result?: string;
 	imagePreview?: ToolImagePreview;
+	uiDetails?: ToolCallUiDetails;
 	isError?: boolean;
 	/**
 	 * Out-of-band timing metadata. Never sent to LLMs.
