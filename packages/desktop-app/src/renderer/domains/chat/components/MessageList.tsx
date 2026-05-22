@@ -21,6 +21,7 @@ import { ToolCallBlockView } from "./blocks/ToolCallBlock";
 interface MessageListProps {
 	messages: ChatMessage[];
 	isStreaming: boolean;
+	sessionId?: string | null;
 }
 
 /** A grouped segment of content blocks for rendering. */
@@ -550,7 +551,7 @@ const ListFooter = memo(function ListFooter({ showTyping, isCompacting }: { show
 	);
 });
 
-export function MessageList({ messages, isStreaming }: MessageListProps): JSX.Element {
+export function MessageList({ messages, isStreaming, sessionId }: MessageListProps): JSX.Element {
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
@@ -610,9 +611,33 @@ export function MessageList({ messages, isStreaming }: MessageListProps): JSX.El
 		[startLerp],
 	);
 
+	// session 切换：瞬间跳到底部，且取消任何 in-flight lerp 动画，避免出现
+	// 「从旧位置滑向新底部」的视觉动画。
+	const prevSessionIdRef = useRef<string | null | undefined>(sessionId);
+	const skipNextLerpRef = useRef(false);
+	useEffect(() => {
+		if (prevSessionIdRef.current === sessionId) return;
+		prevSessionIdRef.current = sessionId;
+		if (lerpRafRef.current !== null) {
+			cancelAnimationFrame(lerpRafRef.current);
+			lerpRafRef.current = null;
+		}
+		atBottomRef.current = true;
+		// 同 tick 触发的 messages/isStreaming effect 会另起一轮 lerp，标记跳过一次。
+		skipNextLerpRef.current = true;
+		// Virtuoso 接收新 data 后下一帧再 scrollToIndex 才稳。
+		requestAnimationFrame(() => {
+			virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "auto" });
+		});
+	}, [sessionId]);
+
 	// streaming 开关、消息变更都可能拉高 scrollHeight，触发一次 lerp。
 	// 实际是否真跟随由 atBottomRef 决定；用户向上滚走后下一帧就退出。
 	useEffect(() => {
+		if (skipNextLerpRef.current) {
+			skipNextLerpRef.current = false;
+			return;
+		}
 		if (atBottomRef.current) startLerp();
 	}, [messages, isStreaming, startLerp]);
 

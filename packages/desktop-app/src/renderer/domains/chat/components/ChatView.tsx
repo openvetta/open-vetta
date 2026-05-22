@@ -132,7 +132,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				>
 					{/* 不再渲染空态占位：Welcome→Chat 的过渡瞬间 messages 可能短暂为空，
 					    占位图会"一闪而过"，体验比直接留白更差。空 list 由 MessageList 自身处理。 */}
-					<MessageList messages={messages} isStreaming={isStreaming} />
+					<MessageList messages={messages} isStreaming={isStreaming} sessionId={activeSession?.sessionPath ?? null} />
 					<InputBar onSend={onSend} onAbort={onAbort} />
 				</div>
 
