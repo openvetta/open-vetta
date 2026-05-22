@@ -91,11 +91,65 @@ interface MarkdownPreviewProps {
 	content: string;
 }
 
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+
+type FrontmatterEntry = { key: string; value: string; depth: number };
+
+function parseFrontmatter(raw: string): { entries: FrontmatterEntry[]; body: string } | null {
+	const match = raw.match(FRONTMATTER_RE);
+	if (!match) return null;
+	const block = match[1] ?? "";
+	const entries: FrontmatterEntry[] = [];
+	for (const line of block.split(/\r?\n/)) {
+		if (!line.trim()) continue;
+		const indent = line.match(/^\s*/)?.[0].length ?? 0;
+		const depth = Math.floor(indent / 2);
+		const rest = line.slice(indent);
+		const colon = rest.indexOf(":");
+		if (colon === -1) {
+			entries.push({ key: "", value: rest.trim(), depth });
+			continue;
+		}
+		const key = rest.slice(0, colon).trim();
+		const value = rest.slice(colon + 1).trim().replace(/^["']|["']$/g, "");
+		entries.push({ key, value, depth });
+	}
+	return { entries, body: raw.slice(match[0].length) };
+}
+
+function Frontmatter({ entries }: { entries: FrontmatterEntry[] }): JSX.Element {
+	return (
+		<div className="mb-4 overflow-hidden rounded-lg border border-border bg-muted/40">
+			<div className="border-b border-border/60 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+				Frontmatter
+			</div>
+			<div className="px-3 py-2">
+				<dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[12px] leading-[1.6]">
+					{entries.map((entry, i) => (
+						<div key={i} className="contents">
+							<dt
+								className="font-medium text-muted-foreground"
+								style={{ paddingLeft: `${entry.depth * 12}px` }}
+							>
+								{entry.key || "-"}
+							</dt>
+							<dd className="break-words text-foreground">{entry.value || <span className="text-muted-foreground/40">—</span>}</dd>
+						</div>
+					))}
+				</dl>
+			</div>
+		</div>
+	);
+}
+
 export function MarkdownPreview({ content }: MarkdownPreviewProps): JSX.Element {
+	const parsed = parseFrontmatter(content);
+	const body = parsed?.body ?? content;
 	return (
 		<div className="markdown-body break-words p-4">
+			{parsed && parsed.entries.length > 0 && <Frontmatter entries={parsed.entries} />}
 			<ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-				{content}
+				{body}
 			</ReactMarkdown>
 		</div>
 	);
