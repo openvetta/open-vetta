@@ -4,12 +4,10 @@ import { fetchServerInfo } from "@shared/lib/api";
 import {
 	defaultConversationCwdAtom,
 	deployModeAtom,
-	remoteProvidersAtom,
 	selectedModelAtom,
 	sessionExecutionModeAtom,
 	workspacePathAtom,
 } from "@shared/store/atoms";
-import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
 
@@ -18,10 +16,7 @@ export function useAppInit(): void {
 	const setDefaultConversationCwd = useSetAtom(defaultConversationCwdAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
-	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const setDeployMode = useSetAtom(deployModeAtom);
-	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
-	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
 	const { refreshProjects } = useProjects();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
@@ -53,17 +48,7 @@ export function useAppInit(): void {
 		});
 		void refreshProjects().catch(console.error);
 		void refreshBatchProjects().catch(console.error);
-		// Fetch remote models on startup
-		void window.vetta.models.fetchRemote().then((result) => {
-			if (result.providers && Object.keys(result.providers).length > 0) {
-				setRemoteProviders(result.providers);
-			}
-		});
-		// Fetch credits balance
-		void window.vetta.credits.getBalance().then((result) => {
-			setCreditsBalance(result.balance);
-			setCreditsUnlimited(result.unlimited ?? false);
-		});
+		// 远程模型 & credits 余额已由 useAuth 在 token 变化时统一拉取，这里不再重复。
 		// 注意：此处之前有一段 cleanup `currentUnsubscribe?.()`，但 useAppInit
 		// 挂在 RootLayout 上、与应用同生命周期，cleanup 永远不会触发——已删除。
 		// session 订阅的清理统一由 useSessionManager.openSession 管理。
@@ -94,10 +79,7 @@ export function useAppInit(): void {
 		setDefaultConversationCwd,
 		setSelectedModel,
 		setSessionExecutionMode,
-		setRemoteProviders,
 		setDeployMode,
-		setCreditsBalance,
-		setCreditsUnlimited,
 		refreshProjects,
 		refreshBatchProjects,
 	]);

@@ -6,7 +6,7 @@ async function getApiBase(): Promise<string> {
 	return cachedBaseUrl;
 }
 
-/** Listeners notified when server responds with 401 */
+/** Listeners notified when server responds with 401 and refresh fails. */
 type UnauthorizedListener = () => void;
 const unauthorizedListeners = new Set<UnauthorizedListener>();
 
@@ -21,24 +21,142 @@ function notifyUnauthorized(): void {
 	}
 }
 
+/**
+ * Listeners notified after a successful refresh — gives renderer atoms /
+ * localStorage / settings.json a single sync point.
+ */
+type TokenRefreshedListener = (next: { accessToken: string; refreshToken: string }) => void;
+const tokenRefreshedListeners = new Set<TokenRefreshedListener>();
+
+export function onTokenRefreshed(listener: TokenRefreshedListener): () => void {
+	tokenRefreshedListeners.add(listener);
+	return () => tokenRefreshedListeners.delete(listener);
+}
+
+function notifyTokenRefreshed(next: { accessToken: string; refreshToken: string }): void {
+	for (const listener of tokenRefreshedListeners) {
+		listener(next);
+	}
+}
+
 interface ApiResponse<T> {
 	code: number;
 	message: string;
 	data?: T;
 }
 
+const ACCESS_TOKEN_KEY = "vetta-auth-token";
+const REFRESH_TOKEN_KEY = "vetta-refresh-token";
+
+function readStoredAccessToken(): string | undefined {
+	return localStorage.getItem(ACCESS_TOKEN_KEY) ?? undefined;
+}
+
+function readStoredRefreshToken(): string | undefined {
+	return localStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
+}
+
+/**
+ * 同步把新 token 落到 localStorage（HTTP 层立即可见）。
+ * atom 同步交给 useAuth 的 onTokenRefreshed 监听器（保证 React 树一起更新）。
+ */
+function persistRefreshedTokens(accessToken: string, refreshToken: string): void {
+	localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+	localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+	void window.vetta.settings.setServerToken(accessToken);
+	void window.vetta.settings.setServerRefreshToken(refreshToken);
+	notifyTokenRefreshed({ accessToken, refreshToken });
+}
+
+/**
+ * 单飞：并发 401 只触发一次 refresh。
+ * 返回新的 access token；失败返回 null。
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function tryRefreshAccessToken(): Promise<string | null> {
+	if (refreshInFlight) return refreshInFlight;
+	refreshInFlight = (async (): Promise<string | null> => {
+		const refreshToken = readStoredRefreshToken();
+		if (!refreshToken) return null;
+		try {
+			const base = await getApiBase();
+			const res = await fetch(`${base}/auth/refresh`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ refresh_token: refreshToken }),
+			});
+			if (!res.ok) return null;
+			const json = (await res.json()) as ApiResponse<{ access_token: string; refresh_token: string }>;
+			if (json.code !== 0 || !json.data?.access_token || !json.data?.refresh_token) return null;
+			persistRefreshedTokens(json.data.access_token, json.data.refresh_token);
+			return json.data.access_token;
+		} catch {
+			return null;
+		}
+	})();
+	try {
+		return await refreshInFlight;
+	} finally {
+		refreshInFlight = null;
+	}
+}
+
+/**
+ * 主进程广播的 refresh 结果：把新 token 也写到 localStorage，并通知 atom 订阅者。
+ * 主进程已经写过 settings.json，所以这里不再回写主进程，避免回环。
+ */
+window.vetta?.auth?.onTokenRefreshed?.((next) => {
+	localStorage.setItem(ACCESS_TOKEN_KEY, next.accessToken);
+	localStorage.setItem(REFRESH_TOKEN_KEY, next.refreshToken);
+	notifyTokenRefreshed(next);
+});
+
+/**
+ * 若 options.headers 含 Authorization，则用新 token 替换；否则保持原样。
+ */
+function withNewAuth(options: RequestInit | undefined, accessToken: string): RequestInit | undefined {
+	if (!options?.headers) return options;
+	const headers = new Headers(options.headers as HeadersInit);
+	if (headers.has("Authorization")) {
+		headers.set("Authorization", `Bearer ${accessToken}`);
+		return { ...options, headers };
+	}
+	return options;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	const base = await getApiBase();
-	const res = await fetch(base + path, options);
+	let res = await fetch(base + path, options);
 	if (res.status === 401) {
-		notifyUnauthorized();
-		throw new Error("登录已过期，请重新登录");
+		// 不要给 /auth/refresh 自身做 refresh-retry，避免死循环
+		if (path === "/auth/refresh") {
+			notifyUnauthorized();
+			throw new Error("登录已过期，请重新登录");
+		}
+		const newAccess = await tryRefreshAccessToken();
+		if (newAccess) {
+			res = await fetch(base + path, withNewAuth(options, newAccess));
+		}
+		if (res.status === 401) {
+			notifyUnauthorized();
+			throw new Error("登录已过期，请重新登录");
+		}
 	}
 	const json = (await res.json()) as ApiResponse<T>;
 	if (json.code !== 0) {
 		throw new Error(json.message);
 	}
 	return json.data as T;
+}
+
+/**
+ * 读取当前最新的 access token（refresh 后会自动更新）。
+ * 提供给 SSE / 直接拼 URL（如 flowingDownloadUrl）的场景使用——
+ * 这些路径不走 request()，所以无法自动 refresh，至少要能拿到最新值。
+ */
+export function getCurrentAccessToken(): string | undefined {
+	return readStoredAccessToken();
 }
 
 function authHeaders(token: string): HeadersInit {
@@ -144,12 +262,35 @@ export interface UserInfo {
 	created_at: string;
 }
 
-export async function loginByAccount(account: string, password: string): Promise<{ token: string; user: UserInfo }> {
-	return request<{ token: string; user: UserInfo }>("/auth/login", {
+export interface LoginResponse {
+	/** deprecated alias，等同于 access_token；保留兼容字段 */
+	token: string;
+	access_token: string;
+	refresh_token: string;
+	user: UserInfo;
+}
+
+export async function loginByAccount(account: string, password: string): Promise<LoginResponse> {
+	return request<LoginResponse>("/auth/login", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ account, password }),
 	});
+}
+
+/** 主动注销 refresh token（登出时调用，失败不阻塞本地清理） */
+export async function logoutOnServer(refreshToken: string | undefined): Promise<void> {
+	if (!refreshToken) return;
+	try {
+		const base = await getApiBase();
+		await fetch(`${base}/auth/logout`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ refresh_token: refreshToken }),
+		});
+	} catch {
+		// 网络失败也不阻断本地登出
+	}
 }
 
 export async function fetchOAuthProviders(): Promise<string[]> {

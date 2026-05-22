@@ -316,6 +316,8 @@ export interface DesktopSettingsApi {
 	getServerUrl(): Promise<string>;
 	getServerToken(): Promise<string | undefined>;
 	setServerToken(token: string | undefined): Promise<void>;
+	getServerRefreshToken(): Promise<string | undefined>;
+	setServerRefreshToken(token: string | undefined): Promise<void>;
 }
 
 export interface DesktopCreditsApi {
@@ -366,7 +368,14 @@ export interface DesktopUpdaterApi {
 
 export interface DesktopAuthApi {
 	openExternal(url: string): Promise<void>;
-	onOAuthCallback(handler: (data: { token: string }) => void): () => void;
+	onOAuthCallback(handler: (data: { token: string; refreshToken?: string }) => void): () => void;
+	/**
+	 * 主进程发起的请求（如 fetchRemoteProviders / credits balance）收到 401 时触发。
+	 * 渲染层应在这里执行登出，但不要中断正在运行的本地模型会话。
+	 */
+	onUnauthorized(handler: () => void): () => void;
+	/** 主进程通过 refresh token 拿到新 access+refresh 后广播给渲染层。 */
+	onTokenRefreshed(handler: (data: { accessToken: string; refreshToken: string }) => void): () => void;
 }
 
 export interface ScheduledTask {

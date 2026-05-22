@@ -1,4 +1,4 @@
-import { fetchCurrentUser, onUnauthorized } from "@shared/lib/api";
+import { fetchCurrentUser, logoutOnServer, onTokenRefreshed, onUnauthorized } from "@shared/lib/api";
 import {
 	authTokenAtom,
 	authUserAtom,
@@ -11,6 +11,9 @@ import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-ato
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
+const ACCESS_TOKEN_KEY = "vetta-auth-token";
+const REFRESH_TOKEN_KEY = "vetta-refresh-token";
+
 export function useAuth() {
 	const [token, setToken] = useAtom(authTokenAtom);
 	const [user, setUser] = useAtom(authUserAtom);
@@ -22,14 +25,18 @@ export function useAuth() {
 	const setSseState = useSetAtom(sseConnectionStateAtom);
 
 	const logout = useCallback(() => {
+		// 注意：这里只清服务器侧状态（token / user / 远程 providers / SSE）。
+		// 不要中断正在运行的会话，也不要清 selectedModel——
+		// 用户可能正用本地模型离线工作，token 掉了完全不影响他们。
+		const storedRefresh = localStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
+		void logoutOnServer(storedRefresh);
 		setToken(null);
 		setUser(null);
-		localStorage.removeItem("vetta-auth-token");
-		// Clear server token from settings.json
+		localStorage.removeItem(ACCESS_TOKEN_KEY);
+		localStorage.removeItem(REFRESH_TOKEN_KEY);
 		void window.vetta.settings.setServerToken(undefined);
-		// Clear remote providers
+		void window.vetta.settings.setServerRefreshToken(undefined);
 		setRemoteProviders({});
-		// Disconnect SSE
 		sseClient.disconnect();
 	}, [setToken, setUser, setRemoteProviders, sseClient]);
 
@@ -39,46 +46,58 @@ export function useAuth() {
 			void fetchCurrentUser(token)
 				.then((u) => setUser(u))
 				.catch(() => {
-					// Token invalid, clear
+					// Token invalid (refresh also failed inside request()), clear
 					logout();
 				});
 		}
 	}, [token, user, setUser, logout]);
 
-	// Listen for 401 responses - auto logout
+	// Listen for 401 responses (refresh 已失败) - auto logout
 	useEffect(() => {
 		return onUnauthorized(() => {
 			logout();
 		});
 	}, [logout]);
 
+	// 主进程在 refresh 失败时广播 unauthorized
+	useEffect(() => {
+		return window.vetta.auth.onUnauthorized(() => {
+			logout();
+		});
+	}, [logout]);
+
+	// refresh 成功后，把新 token 同步到 atom，保证 React 树立刻拿到新值
+	useEffect(() => {
+		return onTokenRefreshed(({ accessToken }) => {
+			setToken(accessToken);
+		});
+	}, [setToken]);
+
 	// Listen for OAuth callback from main process
 	useEffect(() => {
 		const cleanup = window.vetta.auth.onOAuthCallback((data) => {
 			setToken(data.token);
-			localStorage.setItem("vetta-auth-token", data.token);
+			localStorage.setItem(ACCESS_TOKEN_KEY, data.token);
+			if (data.refreshToken) {
+				localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+				void window.vetta.settings.setServerRefreshToken(data.refreshToken);
+			}
 			setLoginOpen(false);
-			// Save token to settings.json for coding-agent to use
 			void window.vetta.settings.setServerToken(data.token);
-			// Fetch user info
 			void fetchCurrentUser(data.token)
 				.then((u) => setUser(u))
 				.catch(console.error);
-			// Re-fetch remote models with new token
-			void window.vetta.models.fetchRemote().then((result) => {
-				if (result.providers && Object.keys(result.providers).length > 0) {
-					setRemoteProviders(result.providers);
-				}
-			});
+			// 远程模型 / credits 拉取由下面的 token effect 统一负责
 		});
 		return cleanup;
-	}, [setToken, setUser, setLoginOpen, setRemoteProviders]);
+	}, [setToken, setUser, setLoginOpen]);
 
-	// 登录态变化时刷新积分；登出时清空
+	// 登录态变化时刷新积分与远程模型列表；登出时清空。
 	useEffect(() => {
 		if (!token) {
 			setCreditsBalance(null);
 			setCreditsUnlimited(false);
+			setRemoteProviders({});
 			return;
 		}
 		void window.vetta.credits
@@ -88,7 +107,15 @@ export function useAuth() {
 				setCreditsUnlimited(result.unlimited ?? false);
 			})
 			.catch(console.error);
-	}, [token, setCreditsBalance, setCreditsUnlimited]);
+		void window.vetta.models
+			.fetchRemote()
+			.then((result) => {
+				// 无条件赋值：401 时主进程返回 {}，必须覆盖旧的远程 providers，
+				// 否则 ModelSelector 仍会展示已失效的线上模型。
+				setRemoteProviders((result.providers ?? {}) as Record<string, unknown>);
+			})
+			.catch(console.error);
+	}, [token, setCreditsBalance, setCreditsUnlimited, setRemoteProviders]);
 
 	// SSE: connect when token is available, disconnect on logout
 	useEffect(() => {

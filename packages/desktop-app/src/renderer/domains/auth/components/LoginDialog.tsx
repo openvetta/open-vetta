@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAtom, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
-import { authTokenAtom, authUserAtom, loginDialogOpenAtom, remoteProvidersAtom } from "@shared/store/atoms";
+import { authTokenAtom, authUserAtom, loginDialogOpenAtom } from "@shared/store/atoms";
 import { fetchOAuthProviders, fetchOAuthURL, loginByAccount } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
@@ -28,7 +28,6 @@ export function LoginDialog(): JSX.Element {
 	const [open, setOpen] = useAtom(loginDialogOpenAtom);
 	const setToken = useSetAtom(authTokenAtom);
 	const setUser = useSetAtom(authUserAtom);
-	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const [providers, setProviders] = useState<string[]>([]);
 	const [loading, setLoading] = useState<string | null>(null);
 	const [account, setAccount] = useState("");
@@ -63,15 +62,16 @@ export function LoginDialog(): JSX.Element {
 		setLoginError("");
 		try {
 			const data = await loginByAccount(account, password);
-			setToken(data.token);
-			localStorage.setItem("vetta-auth-token", data.token);
+			const access = data.access_token ?? data.token;
+			setToken(access);
+			localStorage.setItem("vetta-auth-token", access);
+			if (data.refresh_token) {
+				localStorage.setItem("vetta-refresh-token", data.refresh_token);
+				void window.vetta.settings.setServerRefreshToken(data.refresh_token);
+			}
 			setUser(data.user);
-			void window.vetta.settings.setServerToken(data.token);
-			void window.vetta.models.fetchRemote().then((result) => {
-				if (result.providers && Object.keys(result.providers).length > 0) {
-					setRemoteProviders(result.providers);
-				}
-			});
+			void window.vetta.settings.setServerToken(access);
+			// 远程模型 / credits 拉取由 useAuth 在 token 变化时统一负责
 			setOpen(false);
 		} catch (err) {
 			setLoginError(err instanceof Error ? err.message : "登录失败");

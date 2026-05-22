@@ -98,9 +98,13 @@ function handleProtocolUrl(rawUrl: string): void {
 		const parsed = new URL(rawUrl);
 		if (parsed.hostname === "oauth" && parsed.pathname.startsWith("/callback")) {
 			const token = parsed.searchParams.get("token");
+			const refreshToken = parsed.searchParams.get("refresh_token");
 			const mainWindow = getMainWindow();
 			if (token && mainWindow) {
-				mainWindow.webContents.send("vetta:auth:oauth-callback", { token });
+				mainWindow.webContents.send("vetta:auth:oauth-callback", {
+					token,
+					refreshToken: refreshToken ?? undefined,
+				});
 			}
 		}
 	} catch {
