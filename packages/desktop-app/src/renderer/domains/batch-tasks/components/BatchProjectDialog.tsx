@@ -229,19 +229,25 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 
 	return (
 		<Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-			<DialogContent className="flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-				<DialogHeader className="px-6 pt-5 pb-2">
-					<DialogTitle className="pb-2">{project ? "编辑项目" : "新建批量项目"}</DialogTitle>
+			<DialogContent
+				className="flex max-h-[82vh] flex-col gap-0 overflow-hidden rounded-xl border border-border/60 bg-card/95 p-0 backdrop-blur-md sm:max-w-xl"
+				showCloseButton={false}
+			>
+				<DialogHeader className="flex flex-row items-center gap-3 space-y-0 px-7 pt-6 pb-3">
+					<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/20">
+						<span className="icon-[mdi--layers-outline] h-4 w-4 text-primary" />
+					</div>
+					<DialogTitle className="sr-only">{project ? "编辑项目" : "新建批量项目"}</DialogTitle>
 					<Input
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="h-8 w-full border-none bg-transparent text-lg font-semibold text-foreground placeholder:text-muted-foreground/50 focus:outline-none! focus-visible:outline-none!"
-						placeholder="项目名称"
+						className="h-8 w-full border-none bg-transparent text-[15px] font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none! focus-visible:outline-none!"
+						placeholder={project ? "项目名称" : "新建批量项目"}
 						autoFocus
 					/>
 				</DialogHeader>
 
-				<div className="flex-1 overflow-y-auto px-6 pb-4">
+				<div className="flex-1 overflow-y-auto px-7 pb-4">
 					<Textarea
 						value={prompt}
 						onChange={(e) => setPrompt(e.target.value)}
@@ -301,7 +307,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 																{m.displayName}
 															</span>
 															{m.supportsImage && (
-																<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
+																<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 																	vision
 																</span>
 															)}
@@ -491,13 +497,22 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 					</div>
 				</div>
 
-				<div className="flex items-center gap-2 border-t border-border px-5 py-3">
-					<div className="flex-1" />
-					<Button variant="ghost" onClick={onClose}>
-						取消
+				<div className="flex items-center justify-end gap-2 border-t border-border/40 px-5 py-3">
+					<Button
+						variant="ghost"
+						onClick={onClose}
+						className="h-9 rounded-lg px-3 text-[13px] text-muted-foreground hover:text-foreground"
+					>
+						<span className="icon-[mdi--close] h-4 w-4" />
+						<span>取消</span>
 					</Button>
-					<Button onClick={handleSubmit} disabled={!canSubmit}>
-						{project ? "保存" : "创建"}
+					<Button
+						onClick={handleSubmit}
+						disabled={!canSubmit}
+						className="h-9 rounded-lg bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/90"
+					>
+						<span className="icon-[mdi--check] h-4 w-4" />
+						<span>{project ? "保存" : "创建"}</span>
 					</Button>
 				</div>
 			</DialogContent>

@@ -18,7 +18,7 @@ export interface ScheduledTask {
 	enabled: boolean;
 	/** Project working directory this task is associated with */
 	cwd: string;
-	modelId?: string;
+	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
 	createdAt: number;
 	updatedAt: number;
