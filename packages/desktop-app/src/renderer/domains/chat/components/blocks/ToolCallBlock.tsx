@@ -1,6 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ToolCallBlock, ToolImagePreview, ToolPhaseInfo } from "@shared/store/atoms";
+import type { ToolCallBlock } from "@shared/store/atoms";
+import { BashTerminalCard } from "./tool-views/BashTerminalCard";
+import { EditDiffView } from "./tool-views/EditDiffView";
+import { ReadImageView } from "./tool-views/ReadImageView";
+import { WriteContentView } from "./tool-views/WriteContentView";
+import { StatusIndicator } from "./tool-views/shared/StatusIndicator";
+import { useElapsedWhilePending } from "./tool-views/shared/use-elapsed";
+import {
+	formatDurationCompact,
+	formatDurationPrecise,
+	formatPhases,
+	formatStartedAt,
+} from "./tool-views/shared/format";
+import { getShellCommand, getStringArg, parseMcpTool, toolIcon, toolLabel } from "./tool-views/shared/parse-tool";
 
 interface ToolCallBlockProps {
 	block: ToolCallBlock;
@@ -12,376 +25,6 @@ interface ToolCallBlockProps {
  * meta panel, but the header stays uncluttered.
  */
 const CONSPICUOUS_DURATION_MS = 1000;
-
-/** Parse MCP tool name: mcp_serverName_toolName */
-function parseMcpTool(name: string): { server: string; tool: string } | null {
-	const match = name.match(/^mcp_([^_]+)_(.+)$/);
-	return match ? { server: match[1], tool: match[2] } : null;
-}
-
-/** Shorten path for display */
-function shortenPath(path: string): string {
-	const parts = path.replace(/\\/g, "/").split("/");
-	return parts.length > 3 ? `.../${parts.slice(-3).join("/")}` : path;
-}
-
-function formatBytes(bytes: number | undefined): string {
-	if (bytes === undefined) return "未知";
-	if (bytes < 1024) return `${bytes} B`;
-	const units = ["KB", "MB", "GB"];
-	let value = bytes / 1024;
-	let unit = units[0];
-	for (let i = 1; i < units.length && value >= 1024; i++) {
-		value /= 1024;
-		unit = units[i];
-	}
-	return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)} ${unit}`;
-}
-
-function formatDimensions(width: number | undefined, height: number | undefined): string {
-	if (width === undefined || height === undefined || width <= 0 || height <= 0) return "未知";
-	return `${width} x ${height}`;
-}
-
-function getShellCommand(block: ToolCallBlock): string | null {
-	if (block.toolName !== "bash" && block.toolName !== "shell") return null;
-	const cmd = block.args.command;
-	return typeof cmd === "string" ? cmd : null;
-}
-
-function getStringArg(args: Record<string, unknown>, key: string): string | null {
-	const value = args[key];
-	return typeof value === "string" ? value : null;
-}
-
-function lineCount(text: string): number {
-	if (text.length === 0) return 0;
-	return text.split("\n").length;
-}
-
-type DiffLineKind = "added" | "removed" | "context" | "meta";
-
-interface DiffLine {
-	text: string;
-	kind: DiffLineKind;
-}
-
-interface DiffStats {
-	added: number;
-	removed: number;
-}
-
-function classifyDiffLine(line: string): DiffLineKind {
-	if (line.startsWith("+") && !line.startsWith("+++")) return "added";
-	if (line.startsWith("-") && !line.startsWith("---")) return "removed";
-	if (line.trim() === "...") return "meta";
-	return "context";
-}
-
-function parseDiff(diff: string): { lines: DiffLine[]; stats: DiffStats } {
-	const lines = diff.split("\n").map((line) => ({ text: line, kind: classifyDiffLine(line) }));
-	const stats = lines.reduce<DiffStats>(
-		(acc, line) => {
-			if (line.kind === "added") acc.added += 1;
-			if (line.kind === "removed") acc.removed += 1;
-			return acc;
-		},
-		{ added: 0, removed: 0 },
-	);
-	return { lines, stats };
-}
-
-function formatSignedCount(value: number): string {
-	if (value > 0) return `+${value}`;
-	return String(value);
-}
-
-/** Get icon for tool */
-function toolIcon(name: string): string {
-	if (name.startsWith("mcp_")) return "icon-[mdi--cloud-outline]";
-	switch (name) {
-		case "read": return "icon-[mdi--file-document-outline]";
-		case "write": return "icon-[mdi--file-edit-outline]";
-		case "edit": return "icon-[mdi--file-replace-outline]";
-		case "bash": case "shell": return "icon-[mdi--console]";
-		case "ls": case "find": case "dir_tree": case "tree": return "icon-[mdi--folder-search-outline]";
-		case "grep": return "icon-[mdi--text-search]";
-		default: return "icon-[mdi--wrench-outline]";
-	}
-}
-
-/** Format the tool header label */
-function toolLabel(block: ToolCallBlock): { name: string; detail: string } {
-	const mcp = parseMcpTool(block.toolName);
-	const args = block.args;
-
-	if (mcp) {
-		const path = args.path || args.uri || args.url || args.file_path;
-		return {
-			name: mcp.tool,
-			detail: path ? shortenPath(String(path)) : "",
-		};
-	}
-
-	const name = block.toolName;
-	let detail = "";
-
-	if (name === "read" || name === "write" || name === "edit") {
-		const path = args.file_path ?? args.path;
-		if (typeof path === "string") detail = shortenPath(path);
-		if (name === "edit" && block.uiDetails?.firstChangedLine !== undefined) {
-			detail += `:${block.uiDetails.firstChangedLine}`;
-		}
-	} else if (name === "bash" || name === "shell") {
-		const cmd = args.command;
-		if (typeof cmd === "string") detail = cmd.length > 80 ? `${cmd.slice(0, 77)}...` : cmd;
-	} else if (name === "grep") {
-		const pattern = args.pattern;
-		if (typeof pattern === "string") detail = `/${pattern}/`;
-	} else if (name === "find" || name === "ls" || name === "dir_tree" || name === "tree") {
-		const path = args.path ?? args.pattern;
-		if (typeof path === "string") detail = shortenPath(path);
-		else if (name === "dir_tree" || name === "tree") detail = ".";
-	} else if (name === "extract_text_from_img" || name === "extract_text_from_pdf" || name === "html_to_pdf") {
-		const input = args.input;
-		if (typeof input === "string") detail = shortenPath(input);
-	} else if (name === "doc_to_pdf") {
-		const path = args.path;
-		if (typeof path === "string") detail = shortenPath(path);
-	} else if (name === "todo") {
-		const action = args.action;
-		if (typeof action === "string") {
-			detail = action;
-			if (action === "update") {
-				if (typeof args.id === "number") detail += ` #${args.id}`;
-				if (typeof args.status === "string") detail += ` → ${args.status}`;
-			} else if (action === "create" && Array.isArray(args.items)) {
-				detail += ` (${args.items.length})`;
-			}
-		}
-	}
-
-	return { name, detail };
-}
-
-/** Status indicator dot/icon */
-function StatusIndicator({ status }: { status: ToolCallBlock["status"] }): JSX.Element {
-	if (status === "pending") {
-		return (
-			<span
-				className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40"
-				style={{ animation: "pulse 1.5s infinite" }}
-			/>
-		);
-	}
-	if (status === "error") {
-		return <span className="icon-[mdi--close-circle-outline] h-3.5 w-3.5 shrink-0 text-destructive/70" />;
-	}
-	return <span className={`${toolIcon("success")} h-3.5 w-3.5 shrink-0 text-muted-foreground/30`} />;
-}
-
-/** Compact "1.2s" / "12.3s" / "2m04s" — for header badges. */
-function formatDurationCompact(ms: number): string {
-	if (ms < 1000) return `${ms}ms`;
-	if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-	const minutes = Math.floor(ms / 60_000);
-	const seconds = Math.floor((ms % 60_000) / 1000);
-	return `${minutes}m${seconds.toString().padStart(2, "0")}s`;
-}
-
-/** Precise "12.345s" / "1m02.345s" — for the meta panel. */
-function formatDurationPrecise(ms: number): string {
-	if (ms < 60_000) return `${(ms / 1000).toFixed(3)}s`;
-	const minutes = Math.floor(ms / 60_000);
-	const seconds = (ms % 60_000) / 1000;
-	return `${minutes}m${seconds.toFixed(3).padStart(6, "0")}s`;
-}
-
-function formatStartedAt(ms: number): string {
-	const d = new Date(ms);
-	return `${d.getHours().toString().padStart(2, "0")}:${d
-		.getMinutes()
-		.toString()
-		.padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
-}
-
-/**
- * Render phases as a centred-dot string: "download 2.1s · ocr 12.3s · write 0.8s".
- * Each phase's duration = next phase's atMs minus its own (last uses totalMs).
- */
-function formatPhases(phases: ToolPhaseInfo[], totalMs: number): string {
-	return phases
-		.map((p, i) => {
-			const end = i + 1 < phases.length ? phases[i + 1].atMs : totalMs;
-			const dur = Math.max(0, end - p.atMs);
-			return `${p.label} ${formatDurationCompact(dur)}`;
-		})
-		.join(" · ");
-}
-
-/** Tick once per second while the tool is still running, so the live badge updates. */
-function useElapsedWhilePending(startedAt: number | undefined, pending: boolean): number | null {
-	const [now, setNow] = useState(() => Date.now());
-	useEffect(() => {
-		if (!pending || startedAt === undefined) return;
-		const id = setInterval(() => setNow(Date.now()), 1000);
-		return () => clearInterval(id);
-	}, [pending, startedAt]);
-	if (startedAt === undefined) return null;
-	return Math.max(0, now - startedAt);
-}
-
-function ReadImageResult({ image }: { image: ToolImagePreview }): JSX.Element {
-	const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
-	const processedWidth = image.processedWidth && image.processedWidth > 0 ? image.processedWidth : naturalSize?.width;
-	const processedHeight = image.processedHeight && image.processedHeight > 0 ? image.processedHeight : naturalSize?.height;
-	const originalWidth = image.originalWidth && image.originalWidth > 0 ? image.originalWidth : undefined;
-	const originalHeight = image.originalHeight && image.originalHeight > 0 ? image.originalHeight : undefined;
-	const wasProcessed = image.wasResized === true;
-
-	const openOriginal = (): void => {
-		if (!image.originalPath) return;
-		void window.vetta.shell.showItemInFolder(image.originalPath);
-	};
-
-	return (
-		<div className="space-y-2">
-			<div className="overflow-hidden rounded-md border border-muted-foreground/10 bg-muted/20">
-				<img
-					src={`data:${image.mimeType};base64,${image.data}`}
-					alt="读取的图片"
-					className="max-h-[420px] max-w-full object-contain"
-					onLoad={(event) => {
-						const img = event.currentTarget;
-						setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
-					}}
-				/>
-			</div>
-			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground/55">
-				<span>
-					{wasProcessed ? "模型使用图" : "图片"} {formatDimensions(processedWidth, processedHeight)} ·{" "}
-					{formatBytes(image.processedSizeBytes)}
-				</span>
-				{wasProcessed && (originalWidth !== undefined || image.originalSizeBytes !== undefined) && (
-					<span>
-						原图 {formatDimensions(originalWidth, originalHeight)} · {formatBytes(image.originalSizeBytes)}
-					</span>
-				)}
-				{image.originalPath && (
-					<button
-						type="button"
-						onClick={openOriginal}
-						className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] text-primary/75 hover:bg-primary/10"
-						title={image.originalPath}
-					>
-						<span className="icon-[mdi--folder-eye-outline] h-3 w-3" />
-						<span>在文件管理器中显示原图</span>
-					</button>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function TextPreview({
-	label,
-	text,
-	emptyLabel = "空内容",
-}: {
-	label: string;
-	text: string;
-	emptyLabel?: string;
-}): JSX.Element {
-	const lines = lineCount(text);
-	return (
-		<div className="space-y-1.5">
-			<div className="flex items-center gap-2 text-[10px] text-muted-foreground/50">
-				<span className="font-medium text-muted-foreground/60">{label}</span>
-				<span>
-					{lines} 行 · {text.length} 字符
-				</span>
-			</div>
-			<pre className="max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/25 p-2 text-[11px] leading-[1.5] text-foreground/70">
-				{text.length > 0 ? text : emptyLabel}
-			</pre>
-		</div>
-	);
-}
-
-function DiffPreview({ diff }: { diff: string }): JSX.Element {
-	const { lines, stats } = parseDiff(diff);
-	const net = stats.added - stats.removed;
-
-	return (
-		<div className="space-y-1.5">
-			<div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground/50">
-				<span className="font-medium text-muted-foreground/60">diff</span>
-				<span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-600 dark:text-emerald-400">
-					+{stats.added}
-				</span>
-				<span className="rounded bg-red-500/10 px-1.5 py-0.5 font-medium text-red-600 dark:text-red-400">
-					-{stats.removed}
-				</span>
-				<span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground/60">
-					净 {formatSignedCount(net)}
-				</span>
-			</div>
-			<div className="max-h-[420px] overflow-auto rounded-md bg-muted/25 py-2 font-mono text-[11px] leading-[1.5]">
-				{lines.map((line, index) => {
-					const rowClass =
-						line.kind === "added"
-							? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-							: line.kind === "removed"
-								? "bg-red-500/10 text-red-700 dark:text-red-300"
-								: line.kind === "meta"
-									? "text-muted-foreground/45"
-									: "text-foreground/70";
-					const markerClass =
-						line.kind === "added"
-							? "text-emerald-600 dark:text-emerald-400"
-							: line.kind === "removed"
-								? "text-red-600 dark:text-red-400"
-								: "text-muted-foreground/35";
-					const marker = line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " ";
-					const content = line.kind === "added" || line.kind === "removed" ? line.text.slice(1) : line.text;
-					return (
-						<div key={`${index}-${line.text}`} className={`flex min-w-max px-2 ${rowClass}`}>
-							<span className={`w-4 shrink-0 select-none ${markerClass}`}>{marker}</span>
-							<span className="whitespace-pre">{content}</span>
-						</div>
-					);
-				})}
-			</div>
-		</div>
-	);
-}
-
-function EditTextFallback({ block }: { block: ToolCallBlock }): JSX.Element | null {
-	const oldText = getStringArg(block.args, "oldText");
-	const newText = getStringArg(block.args, "newText");
-	if (oldText === null && newText === null) return null;
-
-	return (
-		<div className="space-y-3">
-			{oldText !== null && <TextPreview label="oldText" text={oldText} emptyLabel="空匹配文本" />}
-			{newText !== null && <TextPreview label="newText" text={newText} emptyLabel="空替换文本" />}
-		</div>
-	);
-}
-
-function ToolSpecificResult({ block }: { block: ToolCallBlock }): JSX.Element | null {
-	if (block.toolName === "write") {
-		const content = getStringArg(block.args, "content");
-		if (content !== null) return <TextPreview label="写入内容" text={content} />;
-	}
-
-	if (block.toolName === "edit") {
-		if (block.uiDetails?.diff) return <DiffPreview diff={block.uiDetails.diff} />;
-		return <EditTextFallback block={block} />;
-	}
-
-	return null;
-}
 
 export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
@@ -405,7 +48,7 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	// Pick the duration we know about: live elapsed while pending, recorded
 	// durationMs once the tool has ended. The header badge only appears past
 	// CONSPICUOUS_DURATION_MS so quick tools stay visually unobtrusive.
-	const badgeMs = isPending ? liveElapsedMs : block.durationMs ?? null;
+	const badgeMs = isPending ? liveElapsedMs : (block.durationMs ?? null);
 	const showBadge = badgeMs !== null && badgeMs >= CONSPICUOUS_DURATION_MS;
 
 	return (
@@ -432,9 +75,7 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 						</span>
 					)}
 					<span className="font-medium text-foreground/70">{name}</span>
-					{detail && (
-						<span className="min-w-0 truncate text-muted-foreground/40">{detail}</span>
-					)}
+					{detail && <span className="min-w-0 truncate text-muted-foreground/40">{detail}</span>}
 					{isPending && block.currentPhase && (
 						<span className="shrink-0 italic text-muted-foreground/50">— {block.currentPhase}</span>
 					)}
@@ -444,9 +85,7 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 				{showBadge && badgeMs !== null && (
 					<span
 						className={`shrink-0 rounded px-1 py-0.5 text-[10px] tabular-nums ${
-							isPending
-								? "bg-primary/10 text-primary/70"
-								: "bg-muted text-muted-foreground/60"
+							isPending ? "bg-primary/10 text-primary/70" : "bg-muted text-muted-foreground/60"
 						}`}
 					>
 						{formatDurationCompact(badgeMs)}
@@ -472,51 +111,67 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 						className="overflow-hidden"
 					>
 						<div className="ml-2 border-l-2 border-muted-foreground/10 pl-4 pt-1 pb-2">
-							{/* Meta row — out-of-band, never sent to the LLM */}
-							{hasMeta && block.startedAt !== undefined && (
-								<div
-									className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/50"
-									title="本地元数据，仅 UI 展示，不发送给大模型"
-								>
-									<span className="font-medium text-muted-foreground/60">meta</span>
-									<span className="tabular-nums">{formatStartedAt(block.startedAt)}</span>
-									{block.durationMs !== undefined && (
-										<>
-											<span className="text-muted-foreground/30">·</span>
-											<span className="tabular-nums">{formatDurationPrecise(block.durationMs)}</span>
-										</>
-									)}
-									{block.phases && block.phases.length > 0 && block.durationMs !== undefined && (
-										<>
-											<span className="text-muted-foreground/30">·</span>
-											<span className="break-all">{formatPhases(block.phases, block.durationMs)}</span>
-										</>
-									)}
-								</div>
-							)}
-							{shellCommand && (
-								<pre className="mb-2 max-h-[180px] overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/30 p-2 text-[11px] leading-[1.5] text-foreground/70">
-									{shellCommand}
-								</pre>
-							)}
-							{block.toolName === "read" && block.imagePreview ? (
-								<ReadImageResult image={block.imagePreview} />
-							) : block.toolName === "write" || block.toolName === "edit" ? (
+							{shellCommand ? (
+								<BashTerminalCard
+									command={shellCommand}
+									result={block.result}
+									status={block.status}
+									isError={block.isError}
+									startedAt={block.startedAt}
+									durationMs={block.durationMs}
+									phases={block.phases}
+								/>
+							) : (
 								<>
-									<ToolSpecificResult block={block} />
-									{block.isError && block.result && (
-										<pre className="mt-2 max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-destructive/70">
+									{/* Meta row — out-of-band, never sent to the LLM */}
+									{hasMeta && block.startedAt !== undefined && (
+										<div
+											className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/50"
+											title="本地元数据，仅 UI 展示，不发送给大模型"
+										>
+											<span className="font-medium text-muted-foreground/60">meta</span>
+											<span className="tabular-nums">{formatStartedAt(block.startedAt)}</span>
+											{block.durationMs !== undefined && (
+												<>
+													<span className="text-muted-foreground/30">·</span>
+													<span className="tabular-nums">{formatDurationPrecise(block.durationMs)}</span>
+												</>
+											)}
+											{block.phases && block.phases.length > 0 && block.durationMs !== undefined && (
+												<>
+													<span className="text-muted-foreground/30">·</span>
+													<span className="break-all">{formatPhases(block.phases, block.durationMs)}</span>
+												</>
+											)}
+										</div>
+									)}
+									{block.toolName === "read" && block.imagePreview ? (
+										<ReadImageView image={block.imagePreview} />
+									) : block.toolName === "write" ? (
+										<>
+											<WriteContentView block={block} />
+											{block.isError && block.result && (
+												<pre className="mt-2 max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-destructive/70">
+													{block.result}
+												</pre>
+											)}
+										</>
+									) : block.toolName === "edit" ? (
+										<>
+											<EditDiffView block={block} />
+											{block.isError && block.result && (
+												<pre className="mt-2 max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-destructive/70">
+													{block.result}
+												</pre>
+											)}
+										</>
+									) : hasResult ? (
+										<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
 											{block.result}
 										</pre>
-									)}
+									) : null}
+									{block.isError && <div className="mt-1 text-[11px] font-medium text-destructive/70">Error</div>}
 								</>
-							) : hasResult ? (
-								<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
-									{block.result}
-								</pre>
-							) : null}
-							{block.isError && (
-								<div className="mt-1 text-[11px] font-medium text-destructive/70">Error</div>
 							)}
 						</div>
 					</motion.div>

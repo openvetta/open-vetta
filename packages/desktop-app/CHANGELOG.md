@@ -40,6 +40,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 - **批量项目汇总消息的失败列表任务名也脱敏**：`buildProjectSummaryMessage` 在 `failed.length > 0` 时输出的 `**失败列表**：- \`${t.name}\`：…` 与子任务消息脱敏规则不一致，按相同规则改为 `- \`****\`：…`，仅保留错误信息原文。汇总标题 / body 项目名维持原样（与子任务消息一致地显示 `project.name`）。
 
+- **对话消息中 bash 工具调用展开 UI 改造为终端卡片**：原先 bash/shell 工具的展开内容只是一个灰底 `<pre>` 命令块加另一个 `<pre>` 输出块。重做为带边框的终端卡片：标题栏（状态点 + 中文文案「执行命令 / 正在执行 / 命令失败：{首行≤40 字符}」+ hover 出现的复制命令按钮）、命令行区（amber 色 `$` 提示符 + 完整命令，`max-h-[180px]` 独立滚动，pending 时末尾 1s 闪烁方块光标）、输出区（`max-h-[300px]` 独立滚动）、底部脚注（pending 时显示「正在执行···」+ 旋转 loader，结束后显示原 meta 行）。配色全用 `bg-muted/*`、`text-foreground/*` 等主题 token，深浅色主题自适应。新增 `bash-cursor-blink` keyframe。同时按工具拆分 `ToolCallBlock.tsx`（原 ~700 行）：新建 `blocks/tool-views/` 目录，bash/edit/read-image/write 各一个 view 文件，公共 utils（format/parse-tool/parse-diff/use-elapsed/StatusIndicator/CopyIconButton/TextPreview）归到 `tool-views/shared/`，容器只负责 header + expand + 按 toolName dispatch（~180 行）。外部 `ToolCallBlockView` 导出保持不变。
+
 ### Fixed
 
 - **packaged AppImage 里 photon-node 找不到，图片以原图喂模型导致主进程内存膨胀**：`@silvia-odwyer/photon-node` 在 `vite.main.config.ts` 里被 external，运行时由 `photon.ts` 通过 `createRequire(import.meta.url)("@silvia-odwyer/photon-node")` 加载；但 `prepare-pack.js` 的 `externalDeps` 是空数组，staging 里从来没把这个包复制进 `node_modules`，packaged 后 createRequire 一直 resolve 失败，photon.ts 走 catch 降级 → image-resize 失效 → 历史里的 base64 图片以**原始分辨率**重复拼进每一轮 LLM request body，长会话主进程 RSS 直线上涨，最终触发 OOM。`externalDeps` 补上 `@silvia-odwyer/photon-node`，配合 `asarUnpack` 让 `photon_rs_bg.wasm` 落在 `app.asar.unpacked/`，恢复图片缩放路径。photon-node 是纯 WASM、无平台二进制差异，跨平台打包安全。
