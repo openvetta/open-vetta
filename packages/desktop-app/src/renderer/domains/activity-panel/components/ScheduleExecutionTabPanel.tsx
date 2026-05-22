@@ -129,7 +129,7 @@ export function ScheduleExecutionTabPanel({ cwd }: ScheduleExecutionTabPanelProp
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden">
-			<div className="shrink-0 border-b border-border/50 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_45%),radial-gradient(circle_at_top_left,rgba(56,189,248,0.1),transparent_40%)] px-3 py-3">
+			<div className="shrink-0 border-b border-border/50 px-3 py-3">
 				<div className="mb-2 flex items-center justify-between">
 					<span className="text-[12px] font-medium text-foreground">自动化执行概览</span>
 					<Button
