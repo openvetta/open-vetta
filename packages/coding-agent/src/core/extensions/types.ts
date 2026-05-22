@@ -64,6 +64,8 @@ import type {
 	EditToolInput,
 	FindToolDetails,
 	FindToolInput,
+	GlobToolDetails,
+	GlobToolInput,
 	GrepToolDetails,
 	GrepToolInput,
 	LsToolDetails,
@@ -696,6 +698,11 @@ export interface FindToolCallEvent extends ToolCallEventBase {
 	input: FindToolInput;
 }
 
+export interface GlobToolCallEvent extends ToolCallEventBase {
+	toolName: "glob";
+	input: GlobToolInput;
+}
+
 export interface LsToolCallEvent extends ToolCallEventBase {
 	toolName: "ls";
 	input: LsToolInput;
@@ -718,6 +725,7 @@ export type ToolCallEvent =
 	| EditToolCallEvent
 	| WriteToolCallEvent
 	| GrepToolCallEvent
+	| GlobToolCallEvent
 	| FindToolCallEvent
 	| LsToolCallEvent
 	| DirTreeToolCallEvent
@@ -761,6 +769,11 @@ export interface FindToolResultEvent extends ToolResultEventBase {
 	details: FindToolDetails | undefined;
 }
 
+export interface GlobToolResultEvent extends ToolResultEventBase {
+	toolName: "glob";
+	details: GlobToolDetails | undefined;
+}
+
 export interface LsToolResultEvent extends ToolResultEventBase {
 	toolName: "ls";
 	details: LsToolDetails | undefined;
@@ -783,6 +796,7 @@ export type ToolResultEvent =
 	| EditToolResultEvent
 	| WriteToolResultEvent
 	| GrepToolResultEvent
+	| GlobToolResultEvent
 	| FindToolResultEvent
 	| LsToolResultEvent
 	| DirTreeToolResultEvent
@@ -806,6 +820,9 @@ export function isGrepToolResult(e: ToolResultEvent): e is GrepToolResultEvent {
 }
 export function isFindToolResult(e: ToolResultEvent): e is FindToolResultEvent {
 	return e.toolName === "find";
+}
+export function isGlobToolResult(e: ToolResultEvent): e is GlobToolResultEvent {
+	return e.toolName === "glob";
 }
 export function isLsToolResult(e: ToolResultEvent): e is LsToolResultEvent {
 	return e.toolName === "ls";
@@ -839,6 +856,7 @@ export function isToolCallEventType(toolName: "read", event: ToolCallEvent): eve
 export function isToolCallEventType(toolName: "edit", event: ToolCallEvent): event is EditToolCallEvent;
 export function isToolCallEventType(toolName: "write", event: ToolCallEvent): event is WriteToolCallEvent;
 export function isToolCallEventType(toolName: "grep", event: ToolCallEvent): event is GrepToolCallEvent;
+export function isToolCallEventType(toolName: "glob", event: ToolCallEvent): event is GlobToolCallEvent;
 export function isToolCallEventType(toolName: "find", event: ToolCallEvent): event is FindToolCallEvent;
 export function isToolCallEventType(toolName: "ls", event: ToolCallEvent): event is LsToolCallEvent;
 export function isToolCallEventType(toolName: "dir_tree", event: ToolCallEvent): event is DirTreeToolCallEvent;
