@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAtomValue } from "jotai";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import { Button } from "@shared/components/ui/button";
@@ -184,7 +184,6 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 	const [modelKey, setModelKey] = useState<string | undefined>(undefined);
 	const [modelsConfig, setModelsConfig] = useState<ModelsConfigData | null>(null);
 	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-	const modelDropdownRef = useRef<HTMLDivElement>(null);
 
 	const models = useMemo(() => {
 		const localModels = modelsConfig ? flattenModels(modelsConfig) : [];
@@ -257,17 +256,6 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 			});
 		}
 	}, [open, task, projects, remoteProviders]);
-
-	useEffect(() => {
-		if (!modelDropdownOpen) return;
-		function handleClick(e: MouseEvent) {
-			if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
-				setModelDropdownOpen(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, [modelDropdownOpen]);
 
 	const mode = schedule.mode === "weekly" ? "daily" : schedule.mode as CompactScheduleMode;
 
@@ -464,21 +452,21 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 					</Popover>
 
 					{/* Model picker */}
-					<div ref={modelDropdownRef} className="relative">
-						<button
-							type="button"
-							onClick={() => setModelDropdownOpen((v) => !v)}
-							className="flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card/70 hover:text-foreground"
-						>
-							<span className="icon-[mdi--brain] h-3.5 w-3.5" />
-							<span className="max-w-[160px] truncate">
-								{selectedModel?.displayName ?? (models.length === 0 ? "暂无模型" : "选择模型")}
-							</span>
-							<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 opacity-60" />
-						</button>
-
-						{modelDropdownOpen && models.length > 0 && (
-							<div className="absolute bottom-full left-0 z-50 mb-1 w-72 overflow-hidden rounded-xl border border-border bg-popover shadow-md">
+					<Popover open={modelDropdownOpen} onOpenChange={setModelDropdownOpen}>
+						<PopoverTrigger asChild>
+							<button
+								type="button"
+								className="flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card/70 hover:text-foreground"
+							>
+								<span className="icon-[mdi--brain] h-3.5 w-3.5" />
+								<span className="max-w-[160px] truncate">
+									{selectedModel?.displayName ?? (models.length === 0 ? "暂无模型" : "选择模型")}
+								</span>
+								<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 opacity-60" />
+							</button>
+						</PopoverTrigger>
+						{models.length > 0 && (
+							<PopoverContent align="start" side="top" className="w-72 overflow-hidden rounded-xl p-0">
 								<div className="max-h-[280px] overflow-y-auto py-1">
 									{[...groupedModels.entries()].map(([provider, providerModels]) => (
 										<div key={provider}>
@@ -530,9 +518,9 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 										</div>
 									))}
 								</div>
-							</div>
+							</PopoverContent>
 						)}
-					</div>
+					</Popover>
 				</div>
 
 				{/* ─── Action footer ─── */}
