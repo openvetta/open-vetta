@@ -1,19 +1,14 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
-import { confirmDialogAtom, scheduledTasksAtom } from "@shared/store/atoms";
+import { confirmDialogAtom, scheduledTasksAtom, defaultConversationCwdAtom, getProjectDisplayName } from "@shared/store/atoms";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import type { ScheduledTask } from "@shared/store/atoms";
-import { pathBasename } from "@shared/lib/utils";
 import { describeSchedule, parseCronExpression } from "./schedule-picker/cron-utils";
 
 interface TaskListProps {
 	selectedTaskId: string | null;
 	onSelectTask: (id: string | null) => void;
 	onEditTask: (task: ScheduledTask) => void;
-}
-
-function projectName(cwd: string): string {
-	return pathBasename(cwd);
 }
 
 function formatLastRun(timestamp: number | null): string {
@@ -42,6 +37,7 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListProps): JSX.Element {
 	const tasks = useAtomValue(scheduledTasksAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
+	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const { deleteTask, toggleTask, runNow } = useScheduledTasks();
 
 	return (
@@ -188,7 +184,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 							{task.cwd && (
 								<MetaPill
 									icon="icon-[mdi--folder-outline]"
-									text={projectName(task.cwd)}
+									text={getProjectDisplayName(task.cwd, defaultCwd)}
 									tone="default"
 								/>
 							)}
