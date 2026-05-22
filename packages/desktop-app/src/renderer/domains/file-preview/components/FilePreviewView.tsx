@@ -6,6 +6,7 @@ import {
 } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PreviewErrorBoundary } from "./PreviewErrorBoundary";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
 import { DocxPreview } from "../../activity-panel/components/previews/DocxPreview";
 import { HtmlPreview } from "../../activity-panel/components/previews/HtmlPreview";
@@ -100,7 +101,9 @@ export function FilePreviewView({
 				canPrev={canNavigate && canPrev}
 				canNext={canNavigate && canNext}
 			/>
-			<PreviewBody item={item} />
+			<PreviewErrorBoundary resetKey={item}>
+				<PreviewBody item={item} />
+			</PreviewErrorBoundary>
 		</div>
 	);
 }
