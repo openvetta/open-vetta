@@ -629,23 +629,28 @@ export function convertMessages(
 
 			// Handle thinking blocks
 			const thinkingBlocks = msg.content.filter((b) => b.type === "thinking") as ThinkingContent[];
-			// Filter out empty thinking blocks to avoid API validation errors
-			const nonEmptyThinkingBlocks = thinkingBlocks.filter((b) => b.thinking && b.thinking.trim().length > 0);
-			if (nonEmptyThinkingBlocks.length > 0) {
+			if (thinkingBlocks.length > 0) {
 				if (compat.requiresThinkingAsText) {
-					// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
-					const thinkingText = nonEmptyThinkingBlocks.map((b) => b.thinking).join("\n\n");
-					const textContent = assistantMsg.content as Array<{ type: "text"; text: string }> | null;
-					if (textContent) {
-						textContent.unshift({ type: "text", text: thinkingText });
-					} else {
-						assistantMsg.content = [{ type: "text", text: thinkingText }];
+					const nonEmptyThinkingBlocks = thinkingBlocks.filter((b) => b.thinking && b.thinking.trim().length > 0);
+					if (nonEmptyThinkingBlocks.length > 0) {
+						// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
+						const thinkingText = nonEmptyThinkingBlocks.map((b) => b.thinking).join("\n\n");
+						const textContent = assistantMsg.content as Array<{ type: "text"; text: string }> | null;
+						if (textContent) {
+							textContent.unshift({ type: "text", text: thinkingText });
+						} else {
+							assistantMsg.content = [{ type: "text", text: thinkingText }];
+						}
 					}
 				} else {
-					// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
-					const signature = nonEmptyThinkingBlocks[0].thinkingSignature;
-					if (signature && signature.length > 0) {
-						(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((b) => b.thinking).join("\n");
+					// DeepSeek thinking mode rule: for assistant turns that include tool_calls,
+					// reasoning_content must be fully passed back in subsequent requests, otherwise
+					// the API returns 400. We therefore replay the field whenever any block carries
+					// a signature, even if the thinking text itself is empty/whitespace.
+					const sigBlock = thinkingBlocks.find((b) => b.thinkingSignature && b.thinkingSignature.length > 0);
+					if (sigBlock) {
+						const signature = sigBlock.thinkingSignature!;
+						(assistantMsg as any)[signature] = thinkingBlocks.map((b) => b.thinking ?? "").join("\n");
 					}
 				}
 			}
