@@ -5,6 +5,7 @@ import {
 	batchQueuedTaskIdsAtom,
 	type ExecutionModeOverride,
 	expandedBatchProjectsAtom,
+	type SelectedSkill,
 } from "@shared/store/atoms";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
@@ -34,6 +35,7 @@ export function useBatchTasks() {
 			artifactPatterns?: string[];
 			notifyEnabled?: boolean;
 			timeoutMinutes?: number;
+			skill?: SelectedSkill;
 		}) => {
 			const project = await window.vetta.batchTasks.createProject(data);
 			setProjects((prev) => [...prev, project]);
@@ -56,6 +58,7 @@ export function useBatchTasks() {
 				notifyEnabled?: boolean;
 				timeoutMinutes?: number;
 				newFolders?: string[];
+				skill?: SelectedSkill | null;
 			},
 		) => {
 			await window.vetta.batchTasks.updateProject(projectId, data);
@@ -85,6 +88,7 @@ export function useBatchTasks() {
 						...(data.artifactPatterns !== undefined ? { artifactPatterns: data.artifactPatterns } : {}),
 						...(data.notifyEnabled !== undefined ? { notifyEnabled: data.notifyEnabled } : {}),
 						...(data.timeoutMinutes !== undefined ? { timeoutMinutes: data.timeoutMinutes } : {}),
+						...(data.skill !== undefined ? { skill: data.skill ?? undefined } : {}),
 						tasks: [...p.tasks, ...newTasks],
 						updatedAt: Date.now(),
 					};

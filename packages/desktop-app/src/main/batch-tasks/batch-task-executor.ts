@@ -29,6 +29,17 @@ function resolveTaskTimeoutMs(project: BatchProject): number {
 	return DEFAULT_TASK_TIMEOUT_MS;
 }
 
+/**
+ * 在 prompt 文本前面注入 `/skill:` 或 `/scene:` 前缀行。
+ * 与会话页 useSessionManager.sendMessage 的拼装方式保持一致，
+ * 由后端 agent 解析。resume 文本（用户重输）不参与注入。
+ */
+function applySkillPrefix(prompt: string, skill: BatchProject["skill"]): string {
+	if (!skill) return prompt;
+	const prefix = skill.type === "scene" ? `/scene:${skill.name}\n` : `/skill:${skill.name}\n`;
+	return `${prefix}${prompt}`;
+}
+
 export type BatchTaskEvent =
 	| {
 			type: "task.started";
@@ -521,7 +532,7 @@ async function runTaskInner(
 		// 严格校验，对本地 provider 容易误报"模型不可用"：updateSettings 内部用
 		// getAvailable() 过滤，而本地 provider 的 hasAuth 在某些时序下不为 true，
 		// 模型会被静默忽略；prompt 路径已加 find() 回退，可以兜住这种情况。
-		const promptText = isResume ? (resumeText as string) : project.prompt;
+		const promptText = isResume ? (resumeText as string) : applySkillPrefix(project.prompt, project.skill);
 		console.log(
 			`[BatchTask] Sending prompt for session ${sessionId}, model=${project.modelKey ?? "(session default)"}, resume=${isResume}`,
 		);

@@ -20,7 +20,7 @@ import {
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
 	type TodoItem,
-	todoItemsByCwdAtom,
+	todoItemsBySessionAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
@@ -71,7 +71,12 @@ export function useSessionManager(): SessionManagerResult {
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
-	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
+	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
+	// sendMessage 需要读「当前 session 的 todo 状态」决定是否在下一个 prompt 前清空。
+	// 用 ref 镜像，避免在 useCallback 闭包里拿到旧值或让 sendMessage 依赖 atom 频繁变化。
+	const todoItemsMap = useAtomValue(todoItemsBySessionAtom);
+	const todoItemsMapRef = useRef(todoItemsMap);
+	todoItemsMapRef.current = todoItemsMap;
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
@@ -498,15 +503,15 @@ export function useSessionManager(): SessionManagerResult {
 
 				// ── Todo update ──
 				if (event.type === "todo_update") {
-					const sessionCwd = activeSessionRef.current?.cwd;
-					if (sessionCwd) {
+					const sid = activeSessionRef.current?.runtimeId;
+					if (sid) {
 						const items = (event as { items?: unknown[] }).items ?? [];
 						setTodoItems((prev) => {
 							const next = new Map(prev);
 							if (items.length > 0) {
-								next.set(sessionCwd, items as TodoItem[]);
+								next.set(sid, items as TodoItem[]);
 							} else {
-								next.delete(sessionCwd);
+								next.delete(sid);
 							}
 							return next;
 						});
@@ -583,6 +588,9 @@ export function useSessionManager(): SessionManagerResult {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 		}
 		setChatMessages((prev) => [...prev, userMsg]);
+		// 新一轮开始：立刻清空上一轮的产物列表，不要等 agent_start 事件 IPC
+		// 往返回来才清——那个窗口里上一轮的卡片会挂在新 user 气泡下方一闪而散。
+		setTurnModifiedFiles([]);
 
 		// Optimistically expose this session in the sidebar before the disk file
 		// has been flushed (SessionManager only writes after the assistant's
@@ -620,6 +628,23 @@ export function useSessionManager(): SessionManagerResult {
 			}
 			await loadSessions(session.cwd);
 			return;
+		}
+
+		// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
+		// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
+		// 批量任务依赖严格 todo 机制，不在此清空；scene 等 lock 状态后端会自行拒绝。
+		{
+			const projectType = projectsRef.current.find((p) => p.cwd === session.cwd)?.type;
+			if (projectType !== "batch") {
+				const items = todoItemsMapRef.current.get(session.runtimeId) ?? [];
+				if (items.length > 0 && items.every((i) => i.status === "done")) {
+					try {
+						await window.vetta.session.clearTodos(session.runtimeId);
+					} catch (err) {
+						console.error("[useSessionManager.sendMessage] clearTodos failed:", err);
+					}
+				}
+			}
 		}
 
 		const promptReq: {
@@ -663,6 +688,7 @@ export function useSessionManager(): SessionManagerResult {
 		setSelectedSkill,
 		setMentionedFiles,
 		setChatMessages,
+		setTurnModifiedFiles,
 		loadSessions,
 		ensureLocalSession,
 	]);

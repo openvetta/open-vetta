@@ -7,6 +7,12 @@ interface SlashPanelProps {
 	onClose: () => void;
 	onSelect: (skill: SkillInfo) => void;
 	filter: string;
+	/**
+	 * "top"（默认）面板从锚点上方弹出，匹配会话页 InputBar 在屏幕底部的形态。
+	 * "bottom" 朝下展开，用于面板锚点位于容器顶部、上方被 overflow 裁切的场景
+	 * （如 Dialog 顶部的 prompt 区）。
+	 */
+	placement?: "top" | "bottom";
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -16,7 +22,7 @@ const SOURCE_LABELS: Record<string, string> = {
 	scene: "场景",
 };
 
-export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps): JSX.Element {
+export function SlashPanel({ open, onClose, onSelect, filter, placement = "top" }: SlashPanelProps): JSX.Element {
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -107,11 +113,13 @@ export function SlashPanel({ open, onClose, onSelect, filter }: SlashPanelProps)
 			{open && (
 				<motion.div
 					ref={panelRef}
-					initial={{ opacity: 0, y: 8, scaleY: 0.96 }}
+					initial={{ opacity: 0, y: placement === "top" ? 8 : -8, scaleY: 0.96 }}
 					animate={{ opacity: 1, y: 0, scaleY: 1 }}
-					exit={{ opacity: 0, y: 8, scaleY: 0.96 }}
+					exit={{ opacity: 0, y: placement === "top" ? 8 : -8, scaleY: 0.96 }}
 					transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl bg-card border border-border shadow-md"
+					className={`absolute inset-x-0 z-50 overflow-hidden rounded-2xl bg-card border border-border ${
+						placement === "top" ? "bottom-full mb-1.5 origin-bottom" : "top-full mt-1.5 origin-top"
+					}`}
 					style={{
 						maxHeight: 320,
 					}}
