@@ -456,14 +456,14 @@ const UserMessage = memo(function UserMessage({ message }: { message: ChatMessag
 });
 
 /** Assistant message — full-width, no bubble, with header */
-const AssistantMessage = memo(function AssistantMessage({ message, isLastAssistant, isStreaming }: {
+const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage, isStreaming }: {
 	message: ChatMessage;
-	isLastAssistant: boolean;
+	isTailMessage: boolean;
 	isStreaming: boolean;
 }) {
 	const hasBlocks = message.blocks && message.blocks.length > 0;
-	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !(isLastAssistant && isStreaming);
-	const isCurrentlyStreaming = isLastAssistant && isStreaming;
+	const isCurrentlyStreaming = isTailMessage && isStreaming;
+	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !isCurrentlyStreaming;
 	const [expanded, setExpanded] = useState(false);
 	const foldData = useMemo(() => getAssistantFoldData(message.blocks ?? []), [message.blocks]);
 	const visibleBlocks = useMemo(() => {
@@ -554,9 +554,9 @@ const AssistantMessage = memo(function AssistantMessage({ message, isLastAssista
 	);
 });
 
-const Message = memo(function Message({ message, isLastAssistant, isStreaming }: {
+const Message = memo(function Message({ message, isTailMessage, isStreaming }: {
 	message: ChatMessage;
-	isLastAssistant: boolean;
+	isTailMessage: boolean;
 	isStreaming: boolean;
 }) {
 	if (message.role === "compaction") {
@@ -565,7 +565,7 @@ const Message = memo(function Message({ message, isLastAssistant, isStreaming }:
 	if (message.role === "user") {
 		return <UserMessage message={message} />;
 	}
-	return <AssistantMessage message={message} isLastAssistant={isLastAssistant} isStreaming={isStreaming} />;
+	return <AssistantMessage message={message} isTailMessage={isTailMessage} isStreaming={isStreaming} />;
 });
 
 /** Compaction boundary marker — shows where context was compressed. */
@@ -649,13 +649,10 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	// 作为「agent 仍在工作」的持续视觉信号；agent_end 后随 isStreaming 一起隐藏。
 	const showTyping = isStreaming;
 
-	// Find the last assistant message id
-	const lastAssistantId = useMemo(() => {
-		for (let i = messages.length - 1; i >= 0; i--) {
-			if (messages[i].role === "assistant") return messages[i].id;
-		}
-		return null;
-	}, [messages]);
+	// 末尾消息 id：仅当末尾是 assistant 时才用它判断「正在吐字」。
+	// 不能用「最后一条 assistant 的 id」——用户追加新消息后，旧 assistant 仍会被
+	// 误判为 streaming，触发短暂展开后再折叠的闪烁。
+	const tailMessageId = messages.at(-1)?.id ?? null;
 
 	// 是否处于「贴底跟随」状态：true 时启动 rAF 平滑 lerp 把 scrollTop 拉向底部。
 	// 由 Virtuoso 的 atBottomStateChange 维护；用户手动向上滚动会自动转为 false，
@@ -757,11 +754,11 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 		<div className="pb-5">
 			<Message
 				message={message}
-				isLastAssistant={message.id === lastAssistantId}
+				isTailMessage={message.id === tailMessageId}
 				isStreaming={isStreaming}
 			/>
 		</div>
-	), [lastAssistantId, isStreaming]);
+	), [tailMessageId, isStreaming]);
 
 	const scrollerRefCallback = useCallback((el: HTMLElement | Window | null) => {
 		scrollerRef.current = el instanceof HTMLElement ? el : null;
