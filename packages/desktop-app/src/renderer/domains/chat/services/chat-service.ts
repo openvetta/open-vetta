@@ -843,6 +843,18 @@ function extractToolOutputs(block: ToolCallBlock): string[] {
 }
 
 /**
+ * 仅保留「本轮」消息：从最后一条 user 消息（含）开始的尾部切片。
+ * 用于产物列表——本轮没动文件就该是空，不能把历史轮的文件捞回来。
+ * 没有 user 消息时回退到整段（兼容仅 assistant / 空对话场景）。
+ */
+function sliceCurrentTurn(messages: ChatMessage[]): ChatMessage[] {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		if (messages[i].role === "user") return messages.slice(i);
+	}
+	return messages;
+}
+
+/**
  * Collect tool-produced file paths and filter out noise so the UI artifact list
  * stays focused on real, project-local outputs:
  *   1. drop files whose extension is in HIDDEN_EXTENSIONS / NOISE_EXTENSIONS,
@@ -851,8 +863,11 @@ function extractToolOutputs(block: ToolCallBlock): string[] {
  *   3. drop paths with any "."-prefixed segment (.git/, src/.cache/x, root .env).
  * Dedupe by normalized absolute path; display the project-relative form when
  * available so the list reads naturally.
+ *
+ * 默认只扫「本轮」（最后一条 user 消息之后），保持「产物列表 = 本轮产出」语义。
  */
 export function extractModifiedFiles(messages: ChatMessage[], cwd?: string): string[] {
+	messages = sliceCurrentTurn(messages);
 	const normalizedCwd = cwd ? pathNormalize(cwd) : "";
 	const seen = new Set<string>();
 	const out: Array<{ abs: string; display: string }> = [];
