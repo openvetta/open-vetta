@@ -6,6 +6,7 @@ import type { SkillInfo } from "@preload/api";
 import {
 	attachedImagesAtom,
 	authUserAtom,
+	contextUsageAtom,
 	inputValueAtom,
 	mentionedFilesAtom,
 	pageHeaderTitleAtom,
@@ -33,6 +34,7 @@ export function NewSessionPage(): JSX.Element {
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
 	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
+	const setContextUsage = useSetAtom(contextUsageAtom);
 	const authUser = useAtomValue(authUserAtom);
 	const projects = useAtomValue(projectsAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
@@ -46,7 +48,9 @@ export function NewSessionPage(): JSX.Element {
 		setSelectedSkill(null);
 		setMentionedFiles([]);
 		setAttachedImages([]);
-	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages]);
+		// 清掉上一个会话残留的上下文用量，避免 ContextRing 显示旧会话的百分比。
+		setContextUsage(null);
+	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages, setContextUsage]);
 
 	// 顶栏标题：项目名 · 新会话
 	useEffect(() => {
