@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { convertToPng } from "../src/utils/image-convert.js";
 import {
 	formatDimensionNote,
+	formatImageResizeFailureNote,
 	isImageResizeFailure,
 	resizeImage,
 	resizeImageBuffer,
@@ -128,6 +129,8 @@ describe("resizeImage", () => {
 		expect(isImageResizeFailure(result)).toBe(true);
 		if (!isImageResizeFailure(result)) return;
 		expect(result.reason).toBe("input_too_large");
+		expect(formatImageResizeFailureNote(result)).toContain("8001x8000");
+		expect(formatImageResizeFailureNote(result)).not.toContain("Check the application logs");
 	});
 
 	it("should reject images exceeding the input edge limit before decoding", async () => {
@@ -166,5 +169,21 @@ describe("formatDimensionNote", () => {
 		expect(note).toContain("original 2000x1000");
 		expect(note).toContain("displayed at 1000x500");
 		expect(note).toContain("2.00"); // scale factor
+	});
+});
+
+describe("formatImageResizeFailureNote", () => {
+	it("should not expose internal image processing implementation details", () => {
+		const note = formatImageResizeFailureNote({
+			failed: true,
+			mimeType: "image/png",
+			originalSizeBytes: 1024,
+			reason: "processing_failed",
+			message: "The image could not be decoded or resized into a safe model-sized image.",
+		});
+
+		expect(note).toContain("image could not be decoded or resized");
+		expect(note).not.toMatch(/photon/i);
+		expect(note).not.toContain("local image processor");
 	});
 });
