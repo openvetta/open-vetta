@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import type { ExecutionModeOverride, SessionExecutionMode } from "./chat-atoms";
+import type { ExecutionModeOverride, SelectedSkill, SessionExecutionMode } from "./chat-atoms";
 
 export interface ScheduledTask {
 	id: string;
@@ -13,6 +13,8 @@ export interface ScheduledTask {
 	cwd: string;
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
+	/** 任务级技能/场景。运行时主进程会在 prompt 前注入 `/skill:` 或 `/scene:` 行。 */
+	skill?: SelectedSkill;
 	createdAt: number;
 	updatedAt: number;
 	lastRunAt: number | null;

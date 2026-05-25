@@ -86,6 +86,16 @@ export interface SkillInfo {
 	type: "skill" | "scene";
 }
 
+/**
+ * 选中的技能/场景。会话页、批量任务、自动化共用同一种结构；
+ * 执行时由各自的 executor 在 prompt 前拼 `/skill:name\n` 或 `/scene:name\n`。
+ */
+export interface SelectedSkillRef {
+	name: string;
+	alias?: string;
+	type: "skill" | "scene";
+}
+
 export interface MarketSkillMeta {
 	name: string;
 	description: string;
@@ -391,6 +401,7 @@ export interface ScheduledTask {
 	cwd: string;
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
+	skill?: SelectedSkillRef;
 	createdAt: number;
 	updatedAt: number;
 	lastRunAt: number | null;
@@ -477,6 +488,7 @@ export interface BatchProject {
 	artifactPatterns?: string[];
 	notifyEnabled?: boolean;
 	timeoutMinutes?: number;
+	skill?: SelectedSkillRef;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -517,6 +529,7 @@ export interface DesktopBatchTasksApi {
 		artifactPatterns?: string[];
 		notifyEnabled?: boolean;
 		timeoutMinutes?: number;
+		skill?: SelectedSkillRef;
 	}): Promise<BatchProject>;
 	updateProject(
 		projectId: string,
@@ -530,6 +543,7 @@ export interface DesktopBatchTasksApi {
 			notifyEnabled: boolean;
 			timeoutMinutes: number;
 			newFolders: string[];
+			skill: SelectedSkillRef | null;
 		}>,
 	): Promise<void>;
 	deleteProject(projectId: string): Promise<void>;
