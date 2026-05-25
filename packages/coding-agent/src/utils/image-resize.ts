@@ -53,6 +53,14 @@ interface ImageDimensions {
 	height: number;
 }
 
+interface InputDimensionLimitDetails {
+	width: number;
+	height: number;
+	pixels: number;
+	maxInputPixels: number;
+	maxInputEdge: number;
+}
+
 /** Helper to pick the smaller of two buffers */
 function pickSmaller(
 	a: { buffer: Uint8Array; mimeType: string },
@@ -98,25 +106,23 @@ function createFailure(
 	inputBuffer: Buffer,
 	mimeType: string,
 	reason: ImageResizeFailure["reason"],
-	logMessage: string,
+	message: string,
 ): ImageResizeFailure {
 	return {
 		failed: true,
 		mimeType,
 		originalSizeBytes: inputBuffer.length,
 		reason,
-		message: `${logMessage} The original image was omitted instead of being sent to the model because it may be too large for the vision backend.`,
+		message,
 	};
 }
 
 export function formatImageResizeFailureNote(result: ImageResizeFailure, label = "image"): string {
-	const reason =
-		result.reason === "processor_unavailable"
-			? "the image processor is unavailable"
-			: result.reason === "input_too_large"
-				? "the image exceeds the safe input size for local image processing"
-				: "image processing failed before a safe model-sized image could be produced";
-	return `[Image omitted: ${label} was not sent to the model because ${reason}. Original: ${result.mimeType}, ${formatBytes(result.originalSizeBytes)}. Check the application logs for the detailed processing error.]`;
+	return `[Image omitted: ${label} was not sent to the model. ${result.message} Original: ${result.mimeType}, ${formatBytes(result.originalSizeBytes)}.]`;
+}
+
+function createInputTooLargeMessage(details: InputDimensionLimitDetails): string {
+	return `The image is ${details.width}x${details.height} (${details.pixels} pixels), which exceeds the safe local processing limit of ${details.maxInputPixels} pixels or ${details.maxInputEdge}px on either edge.`;
 }
 
 function readUint24LE(buffer: Buffer, offset: number): number {
@@ -283,7 +289,16 @@ function validateInputDimensions(
 	mimeType: string,
 	opts: Required<ImageResizeOptions>,
 ): ImageResizeFailure | undefined {
-	const dimensions = getImageDimensions(inputBuffer, mimeType);
+	let dimensions: ImageDimensions | undefined;
+	try {
+		dimensions = getImageDimensions(inputBuffer, mimeType);
+	} catch (err) {
+		console.warn(
+			`[image-resize] Failed to read image metadata before Photon decode (${inputBuffer.length} bytes, ${mimeType}); continuing with Photon decode. Error: ${describeError(err)}`,
+		);
+		return undefined;
+	}
+
 	if (!dimensions) {
 		return undefined;
 	}
@@ -293,16 +308,17 @@ function validateInputDimensions(
 	const maxEdge = Math.max(width, height);
 
 	if (pixels > opts.maxInputPixels || maxEdge > opts.maxInputEdge) {
-		const detail = `${width}x${height} (${pixels} pixels) exceeds maxInputPixels=${opts.maxInputPixels} or maxInputEdge=${opts.maxInputEdge}`;
+		const details = {
+			width,
+			height,
+			pixels,
+			maxInputPixels: opts.maxInputPixels,
+			maxInputEdge: opts.maxInputEdge,
+		};
 		console.warn(
-			`[image-resize] Skipping image before Photon decode (${inputBuffer.length} bytes, ${mimeType}); ${detail}.`,
+			`[image-resize] Skipping image before Photon decode (${inputBuffer.length} bytes, ${mimeType}); ${createInputTooLargeMessage(details)}`,
 		);
-		return createFailure(
-			inputBuffer,
-			mimeType,
-			"input_too_large",
-			`Image input dimensions are too large: ${detail}.`,
-		);
+		return createFailure(inputBuffer, mimeType, "input_too_large", createInputTooLargeMessage(details));
 	}
 
 	return undefined;
@@ -356,7 +372,12 @@ export async function resizeImageBuffer(
 				`[image-resize] Skipping image: Photon unavailable. Image (${inputBuffer.length} bytes, ${mimeType}) will be omitted instead of being sent at original resolution.`,
 			);
 		}
-		return createFailure(inputBuffer, mimeType, "processor_unavailable", "Photon image processor is unavailable.");
+		return createFailure(
+			inputBuffer,
+			mimeType,
+			"processor_unavailable",
+			"The image could not be prepared for model input because image processing is currently unavailable.",
+		);
 	}
 
 	let image: ReturnType<typeof photon.PhotonImage.new_from_byteslice> | undefined;
@@ -511,7 +532,12 @@ export async function resizeImageBuffer(
 		console.warn(
 			`[image-resize] Resize failed (${inputBuffer.length} bytes, ${mimeType}); image omitted instead of passing through at ORIGINAL resolution. Error: ${detail}`,
 		);
-		return createFailure(inputBuffer, mimeType, "processing_failed", "Image processing failed.");
+		return createFailure(
+			inputBuffer,
+			mimeType,
+			"processing_failed",
+			"The image could not be decoded or resized into a safe model-sized image.",
+		);
 	} finally {
 		if (image) {
 			image.free();
