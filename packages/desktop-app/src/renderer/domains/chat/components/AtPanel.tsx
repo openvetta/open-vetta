@@ -205,7 +205,7 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 					animate={{ opacity: 1, y: 0, scaleY: 1 }}
 					exit={{ opacity: 0, y: 8, scaleY: 0.96 }}
 					transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl bg-card border border-border shadow-md"
+					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl bg-card border border-border"
 					style={{
 						maxHeight: 320,
 					}}

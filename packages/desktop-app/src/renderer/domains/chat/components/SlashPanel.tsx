@@ -117,7 +117,7 @@ export function SlashPanel({ open, onClose, onSelect, filter, placement = "top" 
 					animate={{ opacity: 1, y: 0, scaleY: 1 }}
 					exit={{ opacity: 0, y: placement === "top" ? 8 : -8, scaleY: 0.96 }}
 					transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-					className={`absolute inset-x-0 z-50 overflow-hidden rounded-2xl bg-card border border-border shadow-md ${
+					className={`absolute inset-x-0 z-50 overflow-hidden rounded-2xl bg-card border border-border ${
 						placement === "top" ? "bottom-full mb-1.5 origin-bottom" : "top-full mt-1.5 origin-top"
 					}`}
 					style={{

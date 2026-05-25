@@ -3,13 +3,66 @@ import { useAtomValue } from "jotai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
+import type { Element as HastElement, ElementContent, Root as HastRoot, Text as HastText } from "hast";
 import { resolvedThemeAtom } from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
 
 const remarkPlugins = [remarkGfm];
 
+/**
+ * rehype 插件：把渲染后的纯文本节点（不在 code/pre 内）按词切成 .streaming-word span。
+ * CSS 给每个 .streaming-word 挂 mount-time 一次性 fade-in 动画；旧 span 靠 React reconciliation
+ * 复用 DOM、动画自然停在终态，新追加的 span 在出现位置就地淡入。
+ */
+function rehypeStreamingWords() {
+	return (tree: HastRoot): void => {
+		const wordRe = /\S+/g;
+
+		function visit(node: HastRoot | HastElement, inCode: boolean): void {
+			const newChildren: ElementContent[] = [];
+			for (const child of node.children) {
+				if (child.type === "text" && !inCode) {
+					const value = (child as HastText).value;
+					let last = 0;
+					wordRe.lastIndex = 0;
+					let m: RegExpExecArray | null;
+					while ((m = wordRe.exec(value)) !== null) {
+						if (m.index > last) {
+							newChildren.push({ type: "text", value: value.slice(last, m.index) } as HastText);
+						}
+						newChildren.push({
+							type: "element",
+							tagName: "span",
+							properties: { className: ["streaming-word"] },
+							children: [{ type: "text", value: m[0] } as HastText],
+						});
+						last = m.index + m[0].length;
+					}
+					if (last < value.length) {
+						newChildren.push({ type: "text", value: value.slice(last) } as HastText);
+					}
+				} else {
+					newChildren.push(child);
+					if (child.type === "element") {
+						const tag = child.tagName;
+						visit(child, inCode || tag === "code" || tag === "pre");
+					}
+				}
+			}
+			node.children = newChildren as typeof node.children;
+		}
+
+		visit(tree, false);
+	};
+}
+
+const streamingRehypePlugins = [rehypeStreamingWords];
+
 interface TextBlockProps {
 	text: string;
+	/** 仅当本 block 是「正在 streaming 消息」的最后一个 text block 时为 true，
+	 * 启用逐词淡入效果。 */
+	isStreamingTail?: boolean;
 }
 
 /**
@@ -17,7 +70,7 @@ interface TextBlockProps {
  * delta batching in useSessionManager (~16fps), so we render directly
  * without internal debounce to avoid layout jumps during streaming.
  */
-export const TextBlockView = memo(function TextBlockView({ text }: TextBlockProps) {
+export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail = false }: TextBlockProps) {
 	const theme = useAtomValue(resolvedThemeAtom);
 
 	const components = useMemo<Components>(() => ({
@@ -114,8 +167,12 @@ export const TextBlockView = memo(function TextBlockView({ text }: TextBlockProp
 	}), [theme]);
 
 	return (
-		<div className="markdown-body break-words">
-			<ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+		<div className={`markdown-body break-words${isStreamingTail ? " markdown-streaming-tail" : ""}`}>
+			<ReactMarkdown
+				remarkPlugins={remarkPlugins}
+				rehypePlugins={isStreamingTail ? streamingRehypePlugins : undefined}
+				components={components}
+			>
 				{text}
 			</ReactMarkdown>
 		</div>
