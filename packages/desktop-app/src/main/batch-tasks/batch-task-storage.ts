@@ -16,6 +16,12 @@ interface BatchItemMeta {
 	createdAt: number;
 }
 
+export interface BatchSkillRef {
+	name: string;
+	alias?: string;
+	type: "skill" | "scene";
+}
+
 interface BatchProjectMeta {
 	type: "batch";
 	prompt: string;
@@ -27,6 +33,7 @@ interface BatchProjectMeta {
 	notifyEnabled?: boolean;
 	/** Per-task hard timeout in minutes. Used by executor's scheduleTimeout. Defaults to 60. */
 	timeoutMinutes?: number;
+	skill?: BatchSkillRef;
 	items: BatchItemMeta[];
 	createdAt: number;
 	updatedAt: number;
@@ -58,6 +65,7 @@ export interface BatchProject {
 	artifactPatterns?: string[];
 	notifyEnabled?: boolean;
 	timeoutMinutes?: number;
+	skill?: BatchSkillRef;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -142,6 +150,7 @@ function assembleProject(
 		artifactPatterns: meta.artifactPatterns,
 		notifyEnabled: meta.notifyEnabled ?? false,
 		timeoutMinutes: meta.timeoutMinutes ?? DEFAULT_BATCH_TIMEOUT_MINUTES,
+		skill: meta.skill,
 		tasks,
 		createdAt: meta.createdAt,
 		updatedAt: meta.updatedAt,
@@ -254,6 +263,7 @@ export async function createProject(
 	artifactPatterns?: string[],
 	notifyEnabled?: boolean,
 	timeoutMinutes?: number,
+	skill?: BatchSkillRef,
 ): Promise<BatchProject> {
 	const config = await readDesktopConfig();
 	const projectDir = join(config.workspacePath, name);
@@ -287,6 +297,7 @@ export async function createProject(
 			timeoutMinutes && timeoutMinutes > 0 && timeoutMinutes !== DEFAULT_BATCH_TIMEOUT_MINUTES
 				? timeoutMinutes
 				: undefined,
+		skill,
 		items,
 		createdAt: now,
 		updatedAt: now,
@@ -326,6 +337,7 @@ export async function updateProject(
 		notifyEnabled: boolean;
 		timeoutMinutes: number;
 		newFolders: string[];
+		skill: BatchSkillRef | null;
 	}>,
 ): Promise<void> {
 	const meta = await readProjectMeta(projectDir);
@@ -346,6 +358,9 @@ export async function updateProject(
 			data.timeoutMinutes > 0 && data.timeoutMinutes !== DEFAULT_BATCH_TIMEOUT_MINUTES
 				? data.timeoutMinutes
 				: undefined;
+	}
+	if (data.skill !== undefined) {
+		meta.skill = data.skill ?? undefined;
 	}
 
 	if (data.newFolders) {

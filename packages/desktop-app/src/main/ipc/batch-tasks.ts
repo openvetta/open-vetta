@@ -11,7 +11,7 @@ import {
 	subscribeBatchTaskEvents,
 } from "../batch-tasks/batch-task-executor";
 import { clearAllTaskStates, deleteTaskState, recoverRunningTasks } from "../batch-tasks/batch-task-state";
-import type { BatchTask } from "../batch-tasks/batch-task-storage";
+import type { BatchSkillRef, BatchTask } from "../batch-tasks/batch-task-storage";
 import {
 	createProject,
 	deleteProject,
@@ -92,6 +92,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				artifactPatterns?: string[];
 				notifyEnabled?: boolean;
 				timeoutMinutes?: number;
+				skill?: BatchSkillRef;
 			},
 		) => {
 			console.log(`[BatchTaskIPC] CREATE_PROJECT: ${data.name}`);
@@ -105,6 +106,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				data.artifactPatterns,
 				data.notifyEnabled,
 				data.timeoutMinutes,
+				data.skill,
 			);
 		},
 	);
@@ -124,6 +126,7 @@ export function registerBatchTasksIpc(webContents: WebContents): () => void {
 				notifyEnabled: boolean;
 				timeoutMinutes: number;
 				newFolders: string[];
+				skill: BatchSkillRef | null;
 			}>,
 		) => {
 			console.log(`[BatchTaskIPC] UPDATE_PROJECT: ${projectId}`);
