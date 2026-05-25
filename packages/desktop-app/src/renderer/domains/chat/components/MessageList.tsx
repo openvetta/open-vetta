@@ -170,14 +170,14 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 	);
 });
 
-const SegmentRenderer = memo(function SegmentRenderer({ segment }: { segment: BlockSegment }) {
+const SegmentRenderer = memo(function SegmentRenderer({ segment, isStreamingTail = false }: { segment: BlockSegment; isStreamingTail?: boolean }) {
 	if (segment.type === "tool_group") {
 		return <ToolCallGroup blocks={segment.blocks} />;
 	}
 	const { block } = segment;
 	switch (block.type) {
 		case "text":
-			return <TextBlockView text={block.text} />;
+			return <TextBlockView text={block.text} isStreamingTail={isStreamingTail} />;
 		case "thinking":
 			return <ThinkingBlockView text={block.text} />;
 		case "tool_call":
@@ -471,6 +471,20 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 		return foldData.outputBlocks;
 	}, [expanded, foldData, isCurrentlyStreaming, message.blocks]);
 	const segments = useMemo(() => groupBlocks(visibleBlocks), [visibleBlocks]);
+	// 仅在 streaming 时给「最后一个足够长的 text segment」标记 streaming tail，
+	// 用于触发末端羽化遮罩。长度阈值用于规避对单行短消息整体淡化。
+	const streamingTailIndex = useMemo(() => {
+		if (!isCurrentlyStreaming) return -1;
+		for (let i = segments.length - 1; i >= 0; i--) {
+			const seg = segments[i];
+			if (seg.type !== "single") continue;
+			const b = seg.block;
+			if (b.type === "text" && (b.text.length > 60 || b.text.includes("\n"))) {
+				return i;
+			}
+		}
+		return -1;
+	}, [segments, isCurrentlyStreaming]);
 	const conclusionText = useMemo(
 		() => getAssistantConclusionText(message),
 		[message],
@@ -531,8 +545,12 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 			<div>
 				{hasBlocks ? (
 					<div className="flex flex-col gap-0.5">
-						{segments.map((segment) => (
-							<SegmentRenderer key={segmentKey(segment)} segment={segment} />
+						{segments.map((segment, i) => (
+							<SegmentRenderer
+								key={segmentKey(segment)}
+								segment={segment}
+								isStreamingTail={i === streamingTailIndex}
+							/>
 						))}
 					</div>
 				) : (
