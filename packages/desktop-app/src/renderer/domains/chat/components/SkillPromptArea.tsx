@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import type { SkillInfo } from "@preload/api";
 import type { SelectedSkill } from "@shared/store/atoms";
@@ -35,9 +36,28 @@ export function SkillPromptArea({
 	autoFocus,
 }: SkillPromptAreaProps): JSX.Element {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const cardRef = useRef<HTMLDivElement>(null);
 	const [slashOpen, setSlashOpen] = useState(false);
 	const slashDismissedRef = useRef(false);
 	const [installedSkills, setInstalledSkills] = useState<SkillInfo[] | null>(null);
+	// 面板通过 portal 挂到 body，用 fixed 跟随 prompt 卡片的下边缘。
+	// 这样能盖住 Dialog footer / meta 行，不被 overflow-y-auto 容器裁切。
+	const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+
+	useEffect(() => {
+		if (!slashOpen) return;
+		const updateRect = (): void => {
+			const el = cardRef.current;
+			if (el) setAnchorRect(el.getBoundingClientRect());
+		};
+		updateRect();
+		window.addEventListener("resize", updateRect);
+		window.addEventListener("scroll", updateRect, true);
+		return () => {
+			window.removeEventListener("resize", updateRect);
+			window.removeEventListener("scroll", updateRect, true);
+		};
+	}, [slashOpen]);
 
 	// 拉一次已安装列表，用于胶囊上"未安装"标记。
 	useEffect(() => {
@@ -109,17 +129,32 @@ export function SkillPromptArea({
 
 	const isScene = skill?.type === "scene";
 
+	const slashPortal =
+		slashOpen && anchorRect
+			? createPortal(
+					<div
+						className="pointer-events-none fixed z-[60]"
+						style={{ left: anchorRect.left, top: anchorRect.bottom, width: anchorRect.width }}
+					>
+						<div className="pointer-events-auto relative">
+							<SlashPanel
+								open={slashOpen}
+								onClose={handleSlashClose}
+								onSelect={handleSlashSelect}
+								filter={prompt.startsWith("/") ? prompt : ""}
+								placement="bottom"
+							/>
+						</div>
+					</div>,
+					document.body,
+				)
+			: null;
+
 	return (
 		<div className={`relative ${className ?? ""}`}>
-			<SlashPanel
-				open={slashOpen}
-				onClose={handleSlashClose}
-				onSelect={handleSlashSelect}
-				filter={prompt.startsWith("/") ? prompt : ""}
-				placement="bottom"
-			/>
+			{slashPortal}
 
-			<div className="rounded-lg border border-border/60 bg-background/30">
+			<div ref={cardRef} className="rounded-lg border border-border/60 bg-background/30">
 				<AnimatePresence initial={false}>
 					{skill && (
 						<motion.div
