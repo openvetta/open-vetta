@@ -116,6 +116,7 @@ export function SkillPromptArea({
 				onClose={handleSlashClose}
 				onSelect={handleSlashSelect}
 				filter={prompt.startsWith("/") ? prompt : ""}
+				placement="bottom"
 			/>
 
 			<div className="rounded-lg border border-border/60 bg-background/30">
