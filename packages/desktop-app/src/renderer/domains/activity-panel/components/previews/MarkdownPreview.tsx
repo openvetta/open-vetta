@@ -94,10 +94,11 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): JSX.Element 
 		),
 		li: ({ children }) => <li className="pl-0.5">{children}</li>,
 		code: ({ className, children }) => {
-			const isBlock = className?.startsWith("language-");
+			const raw = String(children);
+			const isBlock = (className?.startsWith("language-") ?? false) || raw.includes("\n");
 			if (isBlock) {
 				const lang = className?.replace("language-", "") ?? "";
-				const code = String(children).replace(/\n$/, "");
+				const code = raw.replace(/\n$/, "");
 				return (
 					<div className="my-2 overflow-hidden rounded-lg border border-border bg-muted">
 						{lang && (
