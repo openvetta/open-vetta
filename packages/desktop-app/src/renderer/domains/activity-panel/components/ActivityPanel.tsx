@@ -6,8 +6,8 @@ import {
 	activityPanelTabByProjectAtom,
 	activeSessionAtom,
 	flowingChatUnreadAtom,
-	todoItemsByCwdAtom,
-	getTodoItemsForCwd,
+	todoItemsBySessionAtom,
+	getTodoItemsForSession,
 	debugModeAtom,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
@@ -68,8 +68,11 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	const { profile } = useProjectProfile(cwd);
 	const unreadMap = useAtomValue(flowingChatUnreadAtom);
 	const chatUnread = profile?.flowingId != null ? (unreadMap.get(profile.flowingId) ?? 0) : 0;
-	const todoMap = useAtomValue(todoItemsByCwdAtom);
-	const todoItems = useMemo(() => getTodoItemsForCwd(todoMap, cwd), [todoMap, cwd]);
+	const todoMap = useAtomValue(todoItemsBySessionAtom);
+	const todoItems = useMemo(
+		() => getTodoItemsForSession(todoMap, activeSession?.runtimeId ?? null),
+		[todoMap, activeSession?.runtimeId],
+	);
 	const hasTodo = todoItems.length > 0;
 	const debugMode = useAtomValue(debugModeAtom);
 
@@ -168,7 +171,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 						{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}
 						{activeTab === "batch-progress" && cwd && <BatchProgressTabPanel cwd={cwd} />}
 						{activeTab === "schedule-records" && cwd && <ScheduleExecutionTabPanel cwd={cwd} />}
-						{activeTab === "todo" && cwd && <TodoTabPanel cwd={cwd} />}
+						{activeTab === "todo" && cwd && <TodoTabPanel />}
 						{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
 					</div>
 				</div>
