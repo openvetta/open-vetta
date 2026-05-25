@@ -72,6 +72,11 @@ export function useSessionManager(): SessionManagerResult {
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
+	// sendMessage 需要读「当前 session 的 todo 状态」决定是否在下一个 prompt 前清空。
+	// 用 ref 镜像，避免在 useCallback 闭包里拿到旧值或让 sendMessage 依赖 atom 频繁变化。
+	const todoItemsMap = useAtomValue(todoItemsBySessionAtom);
+	const todoItemsMapRef = useRef(todoItemsMap);
+	todoItemsMapRef.current = todoItemsMap;
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
@@ -620,6 +625,23 @@ export function useSessionManager(): SessionManagerResult {
 			}
 			await loadSessions(session.cwd);
 			return;
+		}
+
+		// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
+		// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
+		// 批量任务依赖严格 todo 机制，不在此清空；scene 等 lock 状态后端会自行拒绝。
+		{
+			const projectType = projectsRef.current.find((p) => p.cwd === session.cwd)?.type;
+			if (projectType !== "batch") {
+				const items = todoItemsMapRef.current.get(session.runtimeId) ?? [];
+				if (items.length > 0 && items.every((i) => i.status === "done")) {
+					try {
+						await window.vetta.session.clearTodos(session.runtimeId);
+					} catch (err) {
+						console.error("[useSessionManager.sendMessage] clearTodos failed:", err);
+					}
+				}
+			}
 		}
 
 		const promptReq: {
