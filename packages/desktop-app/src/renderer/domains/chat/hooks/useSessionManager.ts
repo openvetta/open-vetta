@@ -588,6 +588,9 @@ export function useSessionManager(): SessionManagerResult {
 			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 		}
 		setChatMessages((prev) => [...prev, userMsg]);
+		// 新一轮开始：立刻清空上一轮的产物列表，不要等 agent_start 事件 IPC
+		// 往返回来才清——那个窗口里上一轮的卡片会挂在新 user 气泡下方一闪而散。
+		setTurnModifiedFiles([]);
 
 		// Optimistically expose this session in the sidebar before the disk file
 		// has been flushed (SessionManager only writes after the assistant's
@@ -685,6 +688,7 @@ export function useSessionManager(): SessionManagerResult {
 		setSelectedSkill,
 		setMentionedFiles,
 		setChatMessages,
+		setTurnModifiedFiles,
 		loadSessions,
 		ensureLocalSession,
 	]);
