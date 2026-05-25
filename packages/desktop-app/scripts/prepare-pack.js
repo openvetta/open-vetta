@@ -90,8 +90,23 @@ cpSync(join(projectRoot, "dist/renderer"), join(buildStageDir, "renderer"), { re
 cpSync(join(projectRoot, "dist/ocr-preload"), join(buildStageDir, "ocr-preload"), { recursive: true });
 cpSync(join(projectRoot, "dist/ocr-runner"), join(buildStageDir, "ocr-runner"), { recursive: true });
 
+// macOS DMG: 生成背景图（写入 repo build/，下面 cpSync 会一并带到 staging）。
+// 仅 darwin host 跑；非 darwin 上即使存在 mac target，也不会真正出 dmg。
+if (process.platform === "darwin") {
+	execFileSync("node", [join(import.meta.dirname, "generate-dmg-background.js")], { stdio: "inherit" });
+}
+
 // Copy icons
 cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: true });
+
+// macOS DMG: 编译「修复已损坏.app」直接落到 staging build/，由下面 dmg.contents 引用。
+if (process.platform === "darwin") {
+	execFileSync(
+		"node",
+		[join(import.meta.dirname, "build-mac-repair-helper.js"), join(buildStageDir, "build")],
+		{ stdio: "inherit" },
+	);
+}
 
 for (const { dep, dir } of externalDepInfos) {
 	cpSync(dir, join(buildStageDir, "node_modules", dep), { recursive: true });
@@ -240,6 +255,23 @@ const builderConfig = {
 				"Vetta 需要访问本地网络以连接你在局域网内运行的 AI 模型服务（如 Ollama、LM Studio、vLLM 等）。",
 			NSBonjourServices: ["_http._tcp", "_https._tcp"],
 		},
+	},
+	// DMG 视觉与三图标布局。详见 docs/adr/0003-dmg-repair-helper.md。
+	// 坐标以 @1x 660×440 为准；背景图 build/background.png 与 build/background@2x.png
+	// 由 scripts/generate-dmg-background.js 在 prebuild 阶段生成。
+	// 「修复已损坏.app」由 scripts/build-mac-repair-helper.js osacompile 生成，
+	// 与未签名主 app 配套：用户首次需 control-click → 「打开」绕过 Gatekeeper，
+	// 之后弹原生密码框对 /Applications/Vetta.app 执行 xattr -dr com.apple.quarantine。
+	dmg: {
+		background: "build/background.png",
+		window: { width: 660, height: 440 },
+		iconSize: 100,
+		iconTextSize: 12,
+		contents: [
+			{ x: 100, y: 200, type: "file" }, // Vetta.app（electron-builder 自动填入产物路径）
+			{ x: 330, y: 200, type: "link", path: "/Applications" },
+			{ x: 560, y: 200, type: "file", path: "build/修复已损坏.app" },
+		],
 	},
 	win: {
 		target: ["nsis"],
