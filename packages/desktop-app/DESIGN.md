@@ -56,6 +56,14 @@ Alpha 写法只允许 `/5 /10 /15 /20 /25 /30 /40 /50 /60 /70 /80`，例：`bg-p
 
 ## 2. 卡片：默认 0 阴影，靠 border + bg 分层
 
+### 2.0 线条粗细：全局统一 1px
+
+- **所有线条（border、divider、ring、outline）必须是 1px**，全局统一，不允许出现粗细混用。
+- 默认即 `border` / `ring-1` / `outline-1`（Tailwind 默认就是 1px），**禁止** `border-2`、`border-4`、`ring-2`、`outline-2` 及以上。
+- 禁止 `border-[Npx]` 等任意值；如需"加重"分隔，改用更深的 token 颜色（如 `border-border` 替 `border-border/40`）或叠 `bg-*`，**不要**通过加粗线条来强调。
+- 选中态、focus 态也走 `ring-1 ring-inset`，不要用 `ring-2` 增加视觉重量。
+
+
 ### 2.1 卡片基线
 
 ```tsx
@@ -217,6 +225,7 @@ UI 是工具，不是 showroom。**hover 只反馈，不表演。**
 
 - [ ] 没有 hex / `rgb(` / 默认 Tailwind 调色盘（slate/zinc/sky/violet/pink/orange/red/blue/green，除 §1.3 白名单的 emerald/amber）
 - [ ] 没有 `shadow-[...]` 自定义任意值；卡片 hover 无 shadow
+- [ ] 所有线条 1px：没有 `border-2/4`、`ring-2`、`outline-2`、`border-[Npx]`
 - [ ] 没有 `rounded-3xl` / `rounded-[Npx]`
 - [ ] 没有 `transition-all`
 - [ ] hover `whileHover` 不超过 §5.1 表格
