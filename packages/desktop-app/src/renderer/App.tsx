@@ -104,7 +104,7 @@ function PageHeader({
 }
 
 export function RootLayout(): JSX.Element {
-	const { openProject, projects } = useProjects();
+	const { openProject, projects, ensureLocalSession } = useProjects();
 	const navigate = useNavigate();
 	const setSandboxPermissionDrawer = useSetAtom(sandboxPermissionDrawerAtom);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
@@ -222,6 +222,24 @@ export function RootLayout(): JSX.Element {
 			showGrant(request);
 		});
 	}, [setSandboxPermissionDrawer]);
+
+	// 调度任务（自动化）"立即执行"时，session 在 main 进程已经建好，但 JSONL
+	// 要等 assistant 首个回复才落盘。这里订阅 task.started，乐观地把 session
+	// 插入 sidebar，避免必须等 agent 跑完才出现的延迟。
+	useEffect(() => {
+		return window.vetta.scheduler.onTaskEvent((event) => {
+			if (event.type !== "task.started") return;
+			if (!event.sessionPath || !event.cwd) return;
+			ensureLocalSession(event.cwd, {
+				id: event.sessionId,
+				path: event.sessionPath,
+				cwd: event.cwd,
+				name: event.sessionName,
+				firstMessage: event.firstMessage,
+				modifiedAt: Date.now(),
+			});
+		});
+	}, [ensureLocalSession]);
 
 	// ─── Global keyboard shortcuts ───
 	const projectsRef = useRef(projects);

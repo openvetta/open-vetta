@@ -427,7 +427,16 @@ export interface TaskExecutionRecord {
 }
 
 export type TaskEvent =
-	| { type: "task.started"; taskId: string; recordId: string }
+	| {
+			type: "task.started";
+			taskId: string;
+			recordId: string;
+			sessionId: string;
+			sessionPath: string;
+			cwd: string;
+			sessionName: string;
+			firstMessage: string;
+	  }
 	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
 	| { type: "task.failed"; taskId: string; error: string }
 	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };

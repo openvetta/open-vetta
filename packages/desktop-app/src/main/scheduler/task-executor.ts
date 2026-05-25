@@ -62,6 +62,11 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 			type: "task.started",
 			taskId: task.id,
 			recordId,
+			sessionId,
+			sessionPath: record.sessionPath ?? "",
+			cwd: task.cwd,
+			sessionName: `[定时] ${task.name}`,
+			firstMessage: task.prompt.slice(0, 80),
 		});
 
 		let responseText = "";
