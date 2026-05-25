@@ -91,12 +91,12 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 					</Button>
 				) : (
 					<Button
-						size="sm"
-						className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+						size="icon-xs"
+						variant="ghost"
+						title="文件转发"
 						onClick={() => setFlowingSendOpen(true)}
 					>
 						<span className="icon-[mdi--swap-horizontal] text-[14px]" />
-						<span>文件转发</span>
 					</Button>
 				)}
 				<Button
