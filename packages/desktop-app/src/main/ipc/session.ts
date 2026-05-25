@@ -44,6 +44,7 @@ const CHANNELS = {
 	PROMPT: "vetta:session:prompt",
 	CONTINUE: "vetta:session:continue",
 	ABORT: "vetta:session:abort",
+	CLEAR_TODOS: "vetta:session:clear-todos",
 	SUBSCRIBE: "vetta:session:subscribe",
 	UNSUBSCRIBE: "vetta:session:unsubscribe",
 	UPDATE_SETTINGS: "vetta:session:update-settings",
@@ -225,6 +226,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.ABORT, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		await runtime.abort(sessionId);
+	});
+
+	ipcMain.handle(CHANNELS.CLEAR_TODOS, async (_event, sessionId: unknown) => {
+		assertNonEmptyString(sessionId, "sessionId");
+		return runtime.clearTodos(sessionId);
 	});
 
 	ipcMain.handle(CHANNELS.UPDATE_SETTINGS, async (_event, sessionId: unknown, partialSettings: SettingsPatch) => {

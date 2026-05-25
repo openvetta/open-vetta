@@ -25,6 +25,8 @@ export interface DesktopSessionApi {
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;
 	continue(sessionId: string): Promise<void>;
 	abort(sessionId: string): Promise<void>;
+	/** 清空 session 的 todo 列表（被 scene 等 lock 时返回 false）。 */
+	clearTodos(sessionId: string): Promise<boolean>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
 	onConfirmationRequest(handler: (request: RuntimeUserConfirmationRequest) => void): () => void;
 	respondToConfirmation(requestId: string, confirmed: boolean): Promise<void>;
