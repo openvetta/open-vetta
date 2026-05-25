@@ -295,9 +295,17 @@ if (!gotSingleLock) {
 		updaterService.setMainWindow(mainWindow);
 		void updaterService.onAppReady();
 
+		// On macOS: close button hides window (follows macOS platform convention)
 		// On Windows/Linux: close button hides to tray
 		mainWindow.on("close", (event) => {
-			if (!isMac && getHideToTrayOnClose() && getTray()) {
+			if (isMac) {
+				const appAny = app as typeof app & { isQuitting?: boolean };
+				if (!appAny.isQuitting) {
+					event.preventDefault();
+					getMainWindow()?.hide();
+					return;
+				}
+			} else if (getHideToTrayOnClose() && getTray()) {
 				const appAny = app as typeof app & { isQuitting?: boolean };
 				if (!appAny.isQuitting) {
 					event.preventDefault();
@@ -375,6 +383,7 @@ app.on("before-quit", async (event) => {
 	if (isCliMode) return;
 	if (quitCleanupStarted) return;
 	quitCleanupStarted = true;
+	(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
 	event.preventDefault();
 
 	const host = getImHost();
