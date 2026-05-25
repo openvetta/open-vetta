@@ -14,11 +14,14 @@
 
 ### Fixed
 
+- **图片 resize 失败时不再把原图透传给模型**：`resizeImage()` 现在在 Photon 不可用或 WASM 处理失败（例如超大 PNG 触发 `unreachable`）时返回显式失败结果，并把详细错误写入日志；`read` 工具、用户上传图片与 CLI `@file` 图片入口会改为给模型返回可读文本说明并省略图片附件，避免 20MB+ 原图 fallback 后继续撑爆本地 VL 后端。
+
 - **未登录时本地模型也被拦截，报 "No model selected"**：`packages/coding-agent/src/core/model-registry.ts` 三处合修。(1) `validateConfig` 原本对所有定义了 `models` 的 custom provider 强制要求 `apiKey`，但 ollama / lm-studio / vLLM 等本地推理服务通常不需要 key——把这条 throw 移除（`baseUrl` 仍必填）。(2) `loadCustomModels` 原本 `validateConfig` 抛错就 catch 后整段返回 `emptyCustomModelsResult`——一个 provider 配错会株连 `models.json` 里所有其它 provider 全部失效；改成 per-provider 收集错误，坏 provider 跳过、好 provider 照常加载，错误聚合到 `loadError` 供 UI 展示。(3) 新增 `customProviderNames: Set<string>` 跟踪所有用户自定义 provider；`getAvailable()` 把它们也算可用（原先只看 `isRemote || hasAuth`，本地无 key provider 既不是 remote 也没有任何 auth 形态，会被过滤掉，导致 `findInitialModel` 返回 undefined → agent-session 入口报 "No model selected"）。`getApiKey` / `getApiKeyForProvider` 对自定义 provider 在没有真实 key 且未配置 OAuth 时返回常量占位符 `no-auth-needed-for-local-provider`，让请求走到上游——本地服务忽略 Authorization、远端真要 key 时返回精准 401，远比"在挑选阶段就拒绝"对用户友好。
 
 ### Changed
 
-- **用户粘贴/拖入/桌面端上传的图片也走 resize 管线**：`packages/coding-agent/src/core/agent-session.ts` 新增 `_normalizeUserImages(images)`，在 `prompt()` 内取到 `currentImages`、且 extension input transform 跑完之后调用，对每张 `ImageContent` 跑 `resizeImage()`（默认 1280×1280 / 2MB），再分发给 `_queueSteer` / `_queueFollowUp` / userContent。原先 resize 只接在 `read` 工具里——但 desktop-app `InputBar.tsx` / web-ui 上传图片走的是 RPC `PromptRequest.images`，**完全跳过 resize**，到达本地 VL 后端时仍是原始分辨率（实测 qwen3.6-35b 单张 4032×3024 图 = 17,057 input tokens），叠加 2 张就足以 CUDA OOM。新增 `images.autoResize` 设置项（已存在）现在同时管 read 工具与用户上传两路；关掉后保持原行为。Photon WASM 加载失败时按原图透传。
+- `extract_text_from_pdf` OCR fallback DPI 默认值从 200 调整为 150；未显式传入 DPI 时，会根据 `pdfinfo -box` 读取到的 PDF 页面尺寸自动下调 DPI，避免超大页面经 `pdftoppm` 渲染出过大图片导致 OOM。
+- **用户粘贴/拖入/桌面端上传的图片也走 resize 管线**：`packages/coding-agent/src/core/agent-session.ts` 新增 `_normalizeUserImages(images)`，在 `prompt()` 内取到 `currentImages`、且 extension input transform 跑完之后调用，对每张 `ImageContent` 跑 `resizeImage()`（默认 1280×1280 / 2MB），再分发给 `_queueSteer` / `_queueFollowUp` / userContent。原先 resize 只接在 `read` 工具里——但 desktop-app `InputBar.tsx` / web-ui 上传图片走的是 RPC `PromptRequest.images`，**完全跳过 resize**，到达本地 VL 后端时仍是原始分辨率（实测 qwen3.6-35b 单张 4032×3024 图 = 17,057 input tokens），叠加 2 张就足以 CUDA OOM。新增 `images.autoResize` 设置项（已存在）现在同时管 read 工具与用户上传两路；关掉后保持原行为。Photon WASM 加载或处理失败时省略图片附件并给模型返回文本说明，不再按原图透传。
 - **图片预处理默认值面向本地 VL 模型调低**：`packages/coding-agent/src/utils/image-resize.ts` 中 `DEFAULT_OPTIONS` 的 `maxWidth/maxHeight` 由 `2000` → `1280`，`jpegQuality` 由 `80` → `70`，`DEFAULT_MAX_BYTES` 由 `4.5MB` → `2MB`。原值是按 Anthropic 5MB 字节限制设计的；但本地/开源视觉模型（Qwen-VL、InternVL 等）的瓶颈不是字节数而是 vision encoder 中的视觉 token 数（patch tokens），2000×2000 单张图就有 5000+ tokens，连续读两张就足以撑爆 GPU 显存返回 `500 (no body)` / CUDA OOM。新默认 1280×1280 把单图视觉 token 量降到约 1/2.4，给多图场景留出预算。如果只用 Claude，可通过 `ReadToolOptions.imageResize` 自定义拉回 2000（待后续暴露）。
 - Scene 触发时按 `tasks.json` 1:1 工程化加载 todo 列表：先重置已有 todos，再批量创建，并锁定列表禁止 LLM 通过 `todo(action="create")` 追加。同 session 内重复触发同一 scene 会被无视；新 session 自动解锁。锁定状态会随 `todo_snapshot` 持久化以支持会话恢复。
 

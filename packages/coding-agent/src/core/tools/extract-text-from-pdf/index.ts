@@ -25,8 +25,9 @@ const extractTextFromPdfSchema = Type.Object({
 	),
 	dpi: Type.Optional(
 		Type.Integer({
-			description: "Render DPI for OCR fallback. 72-600. Default 200.",
-			minimum: 72,
+			description:
+				"Render DPI for OCR fallback. 36-600. Default 150. If OCR hits OOM, retry with a smaller DPI. When omitted, the tool may automatically lower DPI for oversized PDF pages.",
+			minimum: 36,
 			maximum: 600,
 		}),
 	),
@@ -83,6 +84,10 @@ interface ExecFileError extends Error {
 }
 
 const DEFAULT_MAX_CHARS = 8000;
+const DEFAULT_RENDER_DPI = 150;
+const MIN_RENDER_DPI = 36;
+const MAX_RENDER_DPI = 600;
+const MAX_RENDERED_PAGE_EDGE_PX = 10000;
 // 30 minutes — large scanned PDFs at 200 DPI run ~1-2s/page on M2; with
 // hundreds of pages plus model warm-up the worst case is well under this.
 const OCR_TIMEOUT_MS = 30 * 60 * 1000;
@@ -169,6 +174,87 @@ function defaultOutputPath(input: string): string {
 	return `${input}.ocr.json`;
 }
 
+interface PdfPageRange {
+	first?: number;
+	last?: number;
+}
+
+interface PdfPageSize {
+	widthPts: number;
+	heightPts: number;
+}
+
+function clampDpi(dpi: number): number {
+	return Math.min(MAX_RENDER_DPI, Math.max(MIN_RENDER_DPI, Math.floor(dpi)));
+}
+
+function parsePageRange(pages: string | undefined): PdfPageRange {
+	if (!pages || pages === "all") return {};
+
+	const single = /^(\d+)$/.exec(pages);
+	if (single) {
+		const page = Number(single[1]);
+		return { first: page, last: page };
+	}
+
+	const range = /^(\d+)-(\d+)$/.exec(pages);
+	if (range) {
+		const first = Number(range[1]);
+		const last = Number(range[2]);
+		return first <= last ? { first, last } : {};
+	}
+
+	return {};
+}
+
+function parsePdfInfoPageSizes(stdout: string): PdfPageSize[] {
+	const sizes: PdfPageSize[] = [];
+	const pattern = /Page(?:\s+\d+)?\s+size:\s+([\d.]+)\s+x\s+([\d.]+)\s+pts/gi;
+	for (const match of stdout.matchAll(pattern)) {
+		const widthPts = Number(match[1]);
+		const heightPts = Number(match[2]);
+		if (Number.isFinite(widthPts) && Number.isFinite(heightPts) && widthPts > 0 && heightPts > 0) {
+			sizes.push({ widthPts, heightPts });
+		}
+	}
+	return sizes;
+}
+
+async function readPdfPageSizes(inputPath: string, pages: string | undefined): Promise<PdfPageSize[]> {
+	const range = parsePageRange(pages);
+	const args = ["-box"];
+	if (range.first !== undefined) args.push("-f", String(range.first));
+	if (range.last !== undefined) args.push("-l", String(range.last));
+	args.push(inputPath);
+
+	try {
+		const { stdout } = await execFileAsync("pdfinfo", args, {
+			encoding: "utf8",
+			timeout: 30 * 1000,
+			maxBuffer: 4 * 1024 * 1024,
+			windowsHide: true,
+		});
+		return parsePdfInfoPageSizes(stdout);
+	} catch {
+		return [];
+	}
+}
+
+async function resolveRenderDpi(
+	inputPath: string,
+	pages: string | undefined,
+	requestedDpi: number | undefined,
+): Promise<number> {
+	if (requestedDpi !== undefined) return clampDpi(requestedDpi);
+
+	const pageSizes = await readPdfPageSizes(inputPath, pages);
+	const maxPageEdgePts = Math.max(0, ...pageSizes.map((size) => Math.max(size.widthPts, size.heightPts)));
+	if (maxPageEdgePts <= 0) return DEFAULT_RENDER_DPI;
+
+	const maxSafeDpi = Math.floor((MAX_RENDERED_PAGE_EDGE_PX * 72) / maxPageEdgePts);
+	return clampDpi(Math.min(DEFAULT_RENDER_DPI, maxSafeDpi));
+}
+
 function formatPageBlock(p: OcrPageResult): string {
 	return `=== Page ${p.page} (${p.source}${p.confidence !== undefined ? `, conf ${p.confidence}` : ""}) ===\n${p.text}`;
 }
@@ -220,10 +306,11 @@ export function createExtractTextFromPdfTool(cwd: string): AgentTool<typeof extr
 			const inputPath = resolveExistingPath(input, cwd);
 			const outputPath = resolveToCwd(output ?? defaultOutputPath(inputPath), cwd);
 			const vetta = await findVettaExecutable();
+			const renderDpi = await resolveRenderDpi(inputPath, pages, dpi);
 
 			const args = ["--ocr-pdf", inputPath, "--output", outputPath];
 			if (pages) args.push("--pages", pages);
-			if (dpi !== undefined) args.push("--dpi", String(dpi));
+			args.push("--dpi", String(renderDpi));
 			if (preferTextLayer === false) args.push("--no-text-layer");
 
 			ctx?.phase("ocr");

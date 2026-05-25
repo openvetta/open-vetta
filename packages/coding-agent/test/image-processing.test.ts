@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { convertToPng } from "../src/utils/image-convert.js";
-import { formatDimensionNote, resizeImage } from "../src/utils/image-resize.js";
+import { formatDimensionNote, isImageResizeFailure, resizeImage } from "../src/utils/image-resize.js";
 
 // Small 2x2 red PNG image (base64) - generated with ImageMagick
 const TINY_PNG =
@@ -52,6 +52,8 @@ describe("resizeImage", () => {
 			{ maxWidth: 100, maxHeight: 100, maxBytes: 1024 * 1024 },
 		);
 
+		expect(isImageResizeFailure(result)).toBe(false);
+		if (isImageResizeFailure(result)) return;
 		expect(result.wasResized).toBe(false);
 		expect(result.data).toBe(TINY_PNG);
 		expect(result.originalWidth).toBe(2);
@@ -66,6 +68,8 @@ describe("resizeImage", () => {
 			{ maxWidth: 50, maxHeight: 50, maxBytes: 1024 * 1024 },
 		);
 
+		expect(isImageResizeFailure(result)).toBe(false);
+		if (isImageResizeFailure(result)) return;
 		expect(result.wasResized).toBe(true);
 		expect(result.originalWidth).toBe(100);
 		expect(result.originalHeight).toBe(100);
@@ -83,6 +87,8 @@ describe("resizeImage", () => {
 			{ maxWidth: 2000, maxHeight: 2000, maxBytes: Math.floor(originalSize / 2) },
 		);
 
+		expect(isImageResizeFailure(result)).toBe(false);
+		if (isImageResizeFailure(result)) return;
 		// Should have tried to reduce size
 		const resultBuffer = Buffer.from(result.data, "base64");
 		expect(resultBuffer.length).toBeLessThan(originalSize);
@@ -94,6 +100,8 @@ describe("resizeImage", () => {
 			{ maxWidth: 100, maxHeight: 100, maxBytes: 1024 * 1024 },
 		);
 
+		expect(isImageResizeFailure(result)).toBe(false);
+		if (isImageResizeFailure(result)) return;
 		expect(result.wasResized).toBe(false);
 		expect(result.originalWidth).toBe(2);
 		expect(result.originalHeight).toBe(2);
