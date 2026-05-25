@@ -270,7 +270,7 @@ const builderConfig = {
 		contents: [
 			{ x: 100, y: 200, type: "file" }, // Vetta.app（electron-builder 自动填入产物路径）
 			{ x: 330, y: 200, type: "link", path: "/Applications" },
-			{ x: 560, y: 200, type: "file", path: "build/修复已损坏.app" },
+			{ x: 560, y: 200, type: "file", path: join(buildStageDir, "build", "修复已损坏.app") },
 		],
 	},
 	win: {
