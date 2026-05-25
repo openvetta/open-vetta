@@ -32,6 +32,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **主进程日志滚动策略增强**：保留 Electron 默认日志目录与当前文件 `main.log`，但归档文件从 `.old.log` 改为带中国时区时间戳与原因的文件名（如 `main.2026-05-25T143012+0800.size.log` / `.date.log`）。日志同时支持 5MB 大小滚动与按 Asia/Shanghai 日期跨日滚动，日志行时间戳也改为中国时区，并自动清理只保留最近 10 个归档文件。
+
 - **项目详情页失败任务「重试」改为先清理再重跑**：`BatchQueueStatus` 中失败子任务的「重试」按钮原先调用 `runTask`（直接重新入队，旧 session / 产物原样保留），与批量任务页 `BatchTaskList` 调用 `retryTask`（先清 session + 清产物再重跑）的行为不一致——同一个标着"重试"的按钮在两处语义不同。现统一改为 `retryTask`，并补上和批量任务页一致的二次确认弹窗（标题「确认重试任务「xxx」」、danger 变体）。
 
 - **批量任务页面 UI 紧凑化**：顶部 4 张 StatCard 卡片网格收敛为「新建项目」按钮左侧的内联紧凑 stat strip（总数 / 运行中 / 已完成 / 失败，pill 内分隔线），移除卡片背景与 hover 动画；项目 list 去掉外层卡片框（border + bg-card + 顶部 accent + 内部分隔线全部移除），只保留 header 行 + 进度条 + 任务网格的扁平结构；子任务网格固定 3 列（`sm:grid-cols-2 lg:grid-cols-3`），折叠阈值从 6 提升到 9（3×3 对齐 UI 网格）。子任务 item 去掉边框/ring，背景改 `bg-muted/40` 与主背景区分，padding 收紧到 `px-2.5 py-2`，字号下调（标题 12px / 状态 pill 9px / 时间 10px），不再展示 sourcePath，默认仅显示项目名 + 时间 + 状态 pill；hover 时整张卡片浮一层 `bg-background/70 backdrop-blur` 蒙层，操作按钮（跳转会话 / 执行 / 重试 / 取消等待 / 删除）以圆形 `OverlayActionButton` 居中排列在蒙层正中。失败错误从单独错误条改为时间右侧的内联红色省略式提示（hover 看完整 tooltip）。新增 `sortProjects` / `sortTasks` 两个本地排序函数：项目级与子任务级一律「运行中靠前，其次 createdAt latest」，让正在跑的批次和最近新建的子任务自动浮顶。
