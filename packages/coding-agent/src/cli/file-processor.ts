@@ -11,7 +11,7 @@ import {
 	formatDimensionNote,
 	formatImageResizeFailureNote,
 	isImageResizeFailure,
-	resizeImage,
+	resizeImageBuffer,
 } from "../utils/image-resize.js";
 import { detectSupportedImageMimeTypeFromFile } from "../utils/mime.js";
 
@@ -55,13 +55,12 @@ export async function processFileArguments(fileArgs: string[], options?: Process
 		if (mimeType) {
 			// Handle image file
 			const content = await readFile(absolutePath);
-			const base64Content = content.toString("base64");
 
 			let attachment: ImageContent;
 			let dimensionNote: string | undefined;
 
 			if (autoResizeImages) {
-				const resized = await resizeImage({ type: "image", data: base64Content, mimeType });
+				const resized = await resizeImageBuffer(content, mimeType);
 				if (isImageResizeFailure(resized)) {
 					text += `<file name="${absolutePath}">${formatImageResizeFailureNote(resized, absolutePath)}</file>\n`;
 					continue;
@@ -76,7 +75,7 @@ export async function processFileArguments(fileArgs: string[], options?: Process
 				attachment = {
 					type: "image",
 					mimeType,
-					data: base64Content,
+					data: content.toString("base64"),
 				};
 			}
 
