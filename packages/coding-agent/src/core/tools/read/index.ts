@@ -4,7 +4,12 @@ import { type Static, Type } from "@sinclair/typebox";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
 import nodePath from "path";
-import { formatDimensionNote, resizeImage } from "../../../utils/image-resize.js";
+import {
+	formatDimensionNote,
+	formatImageResizeFailureNote,
+	isImageResizeFailure,
+	resizeImage,
+} from "../../../utils/image-resize.js";
 import { detectSupportedImageMimeTypeFromFile } from "../../../utils/mime.js";
 import { decodeTextBuffer } from "../../../utils/shell.js";
 import { loadToolDescription } from "../description.js";
@@ -194,6 +199,12 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 								if (autoResizeImages) {
 									// Resize image if needed
 									const resized = await resizeImage({ type: "image", data: base64, mimeType });
+									if (isImageResizeFailure(resized)) {
+										content = [{ type: "text", text: formatImageResizeFailureNote(resized, absolutePath) }];
+										details = undefined;
+										resolve({ content, details });
+										return;
+									}
 									const dimensionNote = formatDimensionNote(resized);
 
 									let textNote = `Read image file [${resized.mimeType}]`;

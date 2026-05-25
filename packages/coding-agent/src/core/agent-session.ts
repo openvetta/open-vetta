@@ -28,7 +28,7 @@ import { isContextOverflow, modelsAreEqual, resetApiProviders, supportsXhigh } f
 import { getDocsPath } from "../config.js";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { stripFrontmatter } from "../utils/frontmatter.js";
-import { resizeImage } from "../utils/image-resize.js";
+import { formatImageResizeFailureNote, isImageResizeFailure, resizeImage } from "../utils/image-resize.js";
 import { sleep } from "../utils/sleep.js";
 import { type BashResult, executeBash as executeBashCommand, executeBashWithOperations } from "./bash-executor.js";
 import {
@@ -978,7 +978,11 @@ export class AgentSession {
 		// same resize pipeline as the read tool. Without this, large pasted images
 		// reach the model at original resolution and can blow past local VL models'
 		// GPU memory budget (CUDA OOM → 500 no body).
-		currentImages = await this._normalizeUserImages(currentImages);
+		const normalizedImages = await this._normalizeUserImages(currentImages);
+		currentImages = normalizedImages.images;
+		if (normalizedImages.notes.length > 0) {
+			currentText = [currentText, ...normalizedImages.notes].filter(Boolean).join("\n\n");
+		}
 
 		// Expand skill commands (/skill:name args) and prompt templates (/template args)
 		let expandedText = currentText;
@@ -1278,7 +1282,12 @@ export class AgentSession {
 		let expandedText = injection ? `${injection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 
-		await this._queueSteer(expandedText, images);
+		const normalizedImages = await this._normalizeUserImages(images);
+		if (normalizedImages.notes.length > 0) {
+			expandedText = [expandedText, ...normalizedImages.notes].filter(Boolean).join("\n\n");
+		}
+
+		await this._queueSteer(expandedText, normalizedImages.images);
 	}
 
 	/**
@@ -1300,7 +1309,12 @@ export class AgentSession {
 		let expandedText = injection ? `${injection}\n\n${expanded.text}` : expanded.text;
 		expandedText = expandPromptTemplate(expandedText, [...this.promptTemplates]);
 
-		await this._queueFollowUp(expandedText, images);
+		const normalizedImages = await this._normalizeUserImages(images);
+		if (normalizedImages.notes.length > 0) {
+			expandedText = [expandedText, ...normalizedImages.notes].filter(Boolean).join("\n\n");
+		}
+
+		await this._queueFollowUp(expandedText, normalizedImages.images);
 	}
 
 	/**
@@ -1311,21 +1325,34 @@ export class AgentSession {
 	 * resize pipeline the `read` tool uses. Respects `images.autoResize` setting:
 	 * when disabled, returns input unchanged.
 	 */
-	private async _normalizeUserImages(images?: ImageContent[]): Promise<ImageContent[] | undefined> {
-		if (!images || images.length === 0) return images;
-		if (!this.settingsManager.getImageAutoResize()) return images;
+	private async _normalizeUserImages(
+		images?: ImageContent[],
+	): Promise<{ images: ImageContent[] | undefined; notes: string[] }> {
+		if (!images || images.length === 0) return { images, notes: [] };
+		if (!this.settingsManager.getImageAutoResize()) return { images, notes: [] };
 
 		const out: ImageContent[] = [];
-		for (const img of images) {
+		const notes: string[] = [];
+		for (const [index, img] of images.entries()) {
 			try {
 				const resized = await resizeImage(img);
+				if (isImageResizeFailure(resized)) {
+					notes.push(formatImageResizeFailureNote(resized, `attached image ${index + 1}`));
+					continue;
+				}
 				out.push({ type: "image", data: resized.data, mimeType: resized.mimeType });
-			} catch {
-				// On any failure (e.g., Photon not loaded), pass the original through.
-				out.push(img);
+			} catch (error) {
+				console.warn(
+					`[image-resize] Unexpected user attachment resize error; image omitted. Error: ${
+						error instanceof Error ? error.stack || error.message : String(error)
+					}`,
+				);
+				notes.push(
+					`[Image omitted: attached image ${index + 1} was not sent to the model because image processing failed unexpectedly. Check the application logs for the detailed processing error.]`,
+				);
 			}
 		}
-		return out;
+		return { images: out.length > 0 ? out : undefined, notes };
 	}
 
 	private async _queueSteer(text: string, images?: ImageContent[]): Promise<void> {

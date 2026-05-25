@@ -11,6 +11,10 @@ IMPORTANT: NEVER use bash for operations that have dedicated tools. Use the righ
 
 Use bash ONLY for: running scripts, package managers (npm, pip, cargo, etc.), git commands, compilers, interpreters, complex piping, or commands with no dedicated tool equivalent.
 
+PDF image conversion safety:
+- Avoid running `pdftoppm` at a fixed high DPI on unknown PDFs. Large page boxes can render to images over 17000px on one edge and may trigger OOM.
+- Prefer the dedicated `extract_text_from_pdf` tool for OCR. If `pdftoppm` is necessary, inspect page dimensions first with `pdfinfo -box` and choose DPI from `floor(max_edge_px * 72 / max_page_edge_pts)`; use a conservative max edge such as 10000px and reduce DPI further after OOM.
+
 # Git Safety Protocol
 
 When running git commands, follow these rules strictly:

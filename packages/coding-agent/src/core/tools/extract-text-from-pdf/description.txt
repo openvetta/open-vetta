@@ -8,7 +8,7 @@ Input
   - input: path to the PDF file
   - output (optional): path to write the full structured JSON result. Default: <input>.ocr.json next to the source.
   - pages (optional): "all" | "N" | "N-M". Default "all". For PDFs with many pages, prefer a range so you don't burn time on parts you don't need.
-  - dpi (optional): render DPI for OCR fallback. Default 200. Lower (150) is faster, higher (300) helps small print.
+  - dpi (optional): render DPI for OCR fallback. Default 150. Lower values are faster and use less memory; higher values help small print. If OCR hits OOM, retry with a smaller DPI. When omitted, this tool may automatically lower DPI for oversized PDF pages so rendered images stay within a safer pixel size.
   - max_chars (optional): truncate the returned text at this many characters. Default 8000. The full text is always written to the output JSON.
   - prefer_text_layer (optional): try the embedded text layer first. Default true.
 

@@ -7,7 +7,12 @@ import type { ImageContent } from "@mariozechner/pi-ai";
 import chalk from "chalk";
 import { resolve } from "path";
 import { resolveReadPath } from "../core/tools/path-utils.js";
-import { formatDimensionNote, resizeImage } from "../utils/image-resize.js";
+import {
+	formatDimensionNote,
+	formatImageResizeFailureNote,
+	isImageResizeFailure,
+	resizeImage,
+} from "../utils/image-resize.js";
 import { detectSupportedImageMimeTypeFromFile } from "../utils/mime.js";
 
 export interface ProcessedFiles {
@@ -57,6 +62,10 @@ export async function processFileArguments(fileArgs: string[], options?: Process
 
 			if (autoResizeImages) {
 				const resized = await resizeImage({ type: "image", data: base64Content, mimeType });
+				if (isImageResizeFailure(resized)) {
+					text += `<file name="${absolutePath}">${formatImageResizeFailureNote(resized, absolutePath)}</file>\n`;
+					continue;
+				}
 				dimensionNote = formatDimensionNote(resized);
 				attachment = {
 					type: "image",

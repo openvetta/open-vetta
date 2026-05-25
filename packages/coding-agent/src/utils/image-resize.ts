@@ -21,6 +21,16 @@ export interface ResizedImage {
 	wasResized: boolean;
 }
 
+export interface ImageResizeFailure {
+	failed: true;
+	mimeType: string;
+	originalSizeBytes: number;
+	reason: "processor_unavailable" | "processing_failed";
+	message: string;
+}
+
+export type ImageResizeResult = ResizedImage | ImageResizeFailure;
+
 // 2MB - conservative default tuned for local/open-source VL models whose
 // GPU memory budget is dominated by visual token count rather than raw bytes.
 // Anthropic Claude tolerates up to 5MB; if you exclusively target Claude you
@@ -52,12 +62,59 @@ function debugLog(result: ResizedImage, originalBytes: number): ResizedImage {
 	return result;
 }
 
+export function isImageResizeFailure(result: ImageResizeResult): result is ImageResizeFailure {
+	return "failed" in result;
+}
+
+function formatBytes(bytes: number): string {
+	if (!Number.isFinite(bytes) || bytes < 0) return "unknown size";
+	const units = ["B", "KB", "MB", "GB"];
+	let value = bytes;
+	let unitIndex = 0;
+	while (value >= 1024 && unitIndex < units.length - 1) {
+		value /= 1024;
+		unitIndex++;
+	}
+	return unitIndex === 0 ? `${bytes} ${units[unitIndex]}` : `${value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function describeError(err: unknown): string {
+	if (err instanceof Error) {
+		return [err.name, err.message, err.stack].filter(Boolean).join(": ");
+	}
+	return String(err);
+}
+
+function createFailure(
+	inputBuffer: Buffer,
+	mimeType: string,
+	reason: ImageResizeFailure["reason"],
+	logMessage: string,
+): ImageResizeFailure {
+	return {
+		failed: true,
+		mimeType,
+		originalSizeBytes: inputBuffer.length,
+		reason,
+		message: `${logMessage} The original image was omitted instead of being sent to the model because it may be too large for the vision backend.`,
+	};
+}
+
+export function formatImageResizeFailureNote(result: ImageResizeFailure, label = "image"): string {
+	const reason =
+		result.reason === "processor_unavailable"
+			? "the image processor is unavailable"
+			: "image processing failed before a safe model-sized image could be produced";
+	return `[Image omitted: ${label} was not sent to the model because ${reason}. Original: ${result.mimeType}, ${formatBytes(result.originalSizeBytes)}. Check the application logs for the detailed processing error.]`;
+}
+
 /**
  * Resize an image to fit within the specified max dimensions and file size.
  * Returns the original image if it already fits within the limits.
  *
- * Uses Photon (Rust/WASM) for image processing. If Photon is not available,
- * returns the original image unchanged.
+ * Uses Photon (Rust/WASM) for image processing. If Photon is not available or
+ * processing fails, returns a failure result instead of forwarding the original
+ * image to the model.
  *
  * Strategy for staying under maxBytes:
  * 1. First resize to maxWidth/maxHeight
@@ -65,7 +122,7 @@ function debugLog(result: ResizedImage, originalBytes: number): ResizedImage {
  * 3. If still too large, try JPEG with decreasing quality
  * 4. If still too large, progressively reduce dimensions
  */
-export async function resizeImage(img: ImageContent, options?: ImageResizeOptions): Promise<ResizedImage> {
+export async function resizeImage(img: ImageContent, options?: ImageResizeOptions): Promise<ImageResizeResult> {
 	const opts = { ...DEFAULT_OPTIONS, ...options };
 	const inputBuffer = Buffer.from(img.data, "base64");
 
@@ -74,18 +131,15 @@ export async function resizeImage(img: ImageContent, options?: ImageResizeOption
 		if (!warnedNoPhoton) {
 			warnedNoPhoton = true;
 			console.warn(
-				`[image-resize] Skipping resize: Photon unavailable. Image (${inputBuffer.length} bytes, ${img.mimeType}) is being sent at ORIGINAL resolution.`,
+				`[image-resize] Skipping image: Photon unavailable. Image (${inputBuffer.length} bytes, ${img.mimeType}) will be omitted instead of being sent at original resolution.`,
 			);
 		}
-		return {
-			data: img.data,
-			mimeType: img.mimeType,
-			originalWidth: 0,
-			originalHeight: 0,
-			width: 0,
-			height: 0,
-			wasResized: false,
-		};
+		return createFailure(
+			inputBuffer,
+			img.mimeType,
+			"processor_unavailable",
+			"Photon image processor is unavailable.",
+		);
 	}
 
 	let image: ReturnType<typeof photon.PhotonImage.new_from_byteslice> | undefined;
@@ -236,18 +290,11 @@ export async function resizeImage(img: ImageContent, options?: ImageResizeOption
 			inputBuffer.length,
 		);
 	} catch (err) {
+		const detail = describeError(err);
 		console.warn(
-			`[image-resize] Resize failed (${inputBuffer.length} bytes, ${img.mimeType}); passing image through at ORIGINAL resolution. Error: ${err instanceof Error ? err.message : String(err)}`,
+			`[image-resize] Resize failed (${inputBuffer.length} bytes, ${img.mimeType}); image omitted instead of passing through at ORIGINAL resolution. Error: ${detail}`,
 		);
-		return {
-			data: img.data,
-			mimeType: img.mimeType,
-			originalWidth: 0,
-			originalHeight: 0,
-			width: 0,
-			height: 0,
-			wasResized: false,
-		};
+		return createFailure(inputBuffer, img.mimeType, "processing_failed", "Image processing failed.");
 	} finally {
 		if (image) {
 			image.free();
