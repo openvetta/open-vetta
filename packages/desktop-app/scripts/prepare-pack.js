@@ -26,11 +26,49 @@ const electronVersion = JSON.parse(readFileSync(electronPkgPath, "utf8")).versio
 // 应用版本号以 packages/desktop-app/package.json 为唯一真源
 const appVersion = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version;
 
+// Copy externalized dependencies (not bundled by Vite due to ESM compatibility issues).
+//
+// Some packages (e.g. modern node-cron) restrict their `exports` map and no
+// longer allow `require.resolve("<pkg>/package.json")`. Resolve the package's
+// main entry instead and trim the path back to the package root inside
+// node_modules. This works regardless of how the package author configured
+// `exports`.
+// 与 vite.main.config.ts 的 rollupOptions.external 保持同步。photon-node 在
+// 主 bundle 被 external 后，代码里 createRequire("@silvia-odwyer/photon-node")
+// 在 packaged AppImage 中找不到包就降级到原图（image-resize 早期日志的
+// `Cannot find module '@silvia-odwyer/photon-node'` 即此），图片以原始分辨率
+// 喂模型，长会话直接吃满主进程内存。把它复制进 staging/node_modules 让
+// createRequire 真能 resolve 到，恢复图片缩放路径。photon-node 是纯 WASM、
+// 无平台二进制差异，可安全跨平台打包。
+const externalDeps = ["@silvia-odwyer/photon-node"];
+
+function resolvePackageRoot(dep) {
+	const entry = require.resolve(dep, { paths: [projectRoot] });
+	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
+	const idx = entry.lastIndexOf(marker);
+	if (idx < 0) {
+		throw new Error(`prepare-pack: cannot locate ${dep} package root in ${entry}`);
+	}
+	return entry.slice(0, idx + marker.length - 1);
+}
+
+const externalDepInfos = externalDeps.map((dep) => {
+	const dir = resolvePackageRoot(dep);
+	const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+	if (typeof pkg.version !== "string" || !pkg.version) {
+		throw new Error(`prepare-pack: ${dep} package.json is missing a version`);
+	}
+	return { dep, dir, version: pkg.version };
+});
+
 // Clean previous build stage
 rmSync(buildStageDir, { recursive: true, force: true });
 mkdirSync(buildStageDir, { recursive: true });
 
-// Write minimal package.json (no dependencies)
+// Write the staged package metadata. Electron-builder decides which
+// node_modules entries belong in app.asar from production dependencies, so
+// externalized runtime deps must be declared here even though we copy them
+// manually below.
 const appPkg = {
 	name: "vetta",
 	version: appVersion,
@@ -38,6 +76,7 @@ const appPkg = {
 	author: "Vetta",
 	type: "module",
 	main: "main/index.js",
+	dependencies: Object.fromEntries(externalDepInfos.map(({ dep, version }) => [dep, version])),
 };
 writeFileSync(join(buildStageDir, "package.json"), JSON.stringify(appPkg, null, "\t") + "\n");
 
@@ -54,30 +93,8 @@ cpSync(join(projectRoot, "dist/ocr-runner"), join(buildStageDir, "ocr-runner"), 
 // Copy icons
 cpSync(join(projectRoot, "build"), join(buildStageDir, "build"), { recursive: true });
 
-// Copy externalized dependencies (not bundled by Vite due to ESM compatibility issues).
-//
-// Some packages (e.g. modern node-cron) restrict their `exports` map and no
-// longer allow `require.resolve("<pkg>/package.json")`. Resolve the package's
-// main entry instead and trim the path back to the package root inside
-// node_modules. This works regardless of how the package author configured
-// `exports`.
-// 与 vite.main.config.ts 的 rollupOptions.external 保持同步。photon-node 在
-// 主 bundle 被 external 后，代码里 createRequire("@silvia-odwyer/photon-node")
-// 在 packaged AppImage 中找不到包就降级到原图（image-resize 早期日志的
-// `Cannot find module '@silvia-odwyer/photon-node'` 即此），图片以原始分辨率
-// 喂模型，长会话直接吃满主进程内存。把它复制进 staging/node_modules 让
-// createRequire 真能 resolve 到，恢复图片缩放路径。photon-node 是纯 WASM、
-// 无平台二进制差异，可安全跨平台打包。
-const externalDeps = ["@silvia-odwyer/photon-node"];
-for (const dep of externalDeps) {
-	const entry = require.resolve(dep, { paths: [projectRoot] });
-	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
-	const idx = entry.lastIndexOf(marker);
-	if (idx < 0) {
-		throw new Error(`prepare-pack: cannot locate ${dep} package root in ${entry}`);
-	}
-	const depDir = entry.slice(0, idx + marker.length - 1);
-	cpSync(depDir, join(buildStageDir, "node_modules", dep), { recursive: true });
+for (const { dep, dir } of externalDepInfos) {
+	cpSync(dir, join(buildStageDir, "node_modules", dep), { recursive: true });
 }
 
 // =============================================================================
