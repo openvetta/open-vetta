@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import type { ExecutionModeOverride, SessionExecutionMode } from "./chat-atoms";
+import type { ExecutionModeOverride, SelectedSkill, SessionExecutionMode } from "./chat-atoms";
 
 export type BatchTaskStatus = "pending" | "running" | "completed" | "failed" | "paused";
 
@@ -30,6 +30,8 @@ export interface BatchProject {
 	notifyEnabled?: boolean;
 	/** Per-task hard timeout in minutes. Defaults to 60 when undefined. */
 	timeoutMinutes?: number;
+	/** 项目级技能/场景。运行时主进程会在 prompt 前注入 `/skill:` 或 `/scene:` 行。 */
+	skill?: SelectedSkill;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;

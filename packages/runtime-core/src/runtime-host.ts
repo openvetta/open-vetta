@@ -472,6 +472,19 @@ export class RuntimeHost implements SessionFacade {
 		await handle.session.abort();
 	}
 
+	/**
+	 * 清空 session 的 todo 列表。被 scene 等机制 lock 时拒绝清空。
+	 * 返回是否实际执行了清空。
+	 */
+	async clearTodos(sessionId: string): Promise<boolean> {
+		const handle = this.requireSession(sessionId);
+		const store = handle.session.todoStore;
+		if (store.isLocked()) return false;
+		if (store.getAll().length === 0) return false;
+		store.clear();
+		return true;
+	}
+
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void {
 		const handle = this.requireSession(sessionId);
 		handler(this.lifecycleEvent(sessionId, "created"));

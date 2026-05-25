@@ -25,6 +25,8 @@ export interface DesktopSessionApi {
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;
 	continue(sessionId: string): Promise<void>;
 	abort(sessionId: string): Promise<void>;
+	/** 清空 session 的 todo 列表（被 scene 等 lock 时返回 false）。 */
+	clearTodos(sessionId: string): Promise<boolean>;
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
 	onConfirmationRequest(handler: (request: RuntimeUserConfirmationRequest) => void): () => void;
 	respondToConfirmation(requestId: string, confirmed: boolean): Promise<void>;
@@ -81,6 +83,16 @@ export interface SkillInfo {
 	alias?: string;
 	description: string;
 	source: string;
+	type: "skill" | "scene";
+}
+
+/**
+ * 选中的技能/场景。会话页、批量任务、自动化共用同一种结构；
+ * 执行时由各自的 executor 在 prompt 前拼 `/skill:name\n` 或 `/scene:name\n`。
+ */
+export interface SelectedSkillRef {
+	name: string;
+	alias?: string;
 	type: "skill" | "scene";
 }
 
@@ -389,6 +401,7 @@ export interface ScheduledTask {
 	cwd: string;
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
+	skill?: SelectedSkillRef;
 	createdAt: number;
 	updatedAt: number;
 	lastRunAt: number | null;
@@ -414,7 +427,16 @@ export interface TaskExecutionRecord {
 }
 
 export type TaskEvent =
-	| { type: "task.started"; taskId: string; recordId: string }
+	| {
+			type: "task.started";
+			taskId: string;
+			recordId: string;
+			sessionId: string;
+			sessionPath: string;
+			cwd: string;
+			sessionName: string;
+			firstMessage: string;
+	  }
 	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
 	| { type: "task.failed"; taskId: string; error: string }
 	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };
@@ -475,6 +497,7 @@ export interface BatchProject {
 	artifactPatterns?: string[];
 	notifyEnabled?: boolean;
 	timeoutMinutes?: number;
+	skill?: SelectedSkillRef;
 	tasks: BatchTask[];
 	createdAt: number;
 	updatedAt: number;
@@ -515,6 +538,7 @@ export interface DesktopBatchTasksApi {
 		artifactPatterns?: string[];
 		notifyEnabled?: boolean;
 		timeoutMinutes?: number;
+		skill?: SelectedSkillRef;
 	}): Promise<BatchProject>;
 	updateProject(
 		projectId: string,
@@ -528,6 +552,7 @@ export interface DesktopBatchTasksApi {
 			notifyEnabled: boolean;
 			timeoutMinutes: number;
 			newFolders: string[];
+			skill: SelectedSkillRef | null;
 		}>,
 	): Promise<void>;
 	deleteProject(projectId: string): Promise<void>;

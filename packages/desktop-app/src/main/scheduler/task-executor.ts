@@ -13,6 +13,16 @@ interface ExecutingTask {
 
 const executingTasks = new Map<string, ExecutingTask>();
 
+/**
+ * 与 batch-task-executor.applySkillPrefix 等价：在 prompt 前注入 `/skill:` 或 `/scene:` 行。
+ * 与会话页的发送逻辑保持一致，由后端 agent 解析。
+ */
+function applySkillPrefix(prompt: string, skill: ScheduledTask["skill"]): string {
+	if (!skill) return prompt;
+	const prefix = skill.type === "scene" ? `/scene:${skill.name}\n` : `/skill:${skill.name}\n`;
+	return `${prefix}${prompt}`;
+}
+
 export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Promise<void> {
 	const recordId = generateId();
 	let sessionId = "";
@@ -52,6 +62,11 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 			type: "task.started",
 			taskId: task.id,
 			recordId,
+			sessionId,
+			sessionPath: record.sessionPath ?? "",
+			cwd: task.cwd,
+			sessionName: `[定时] ${task.name}`,
+			firstMessage: task.prompt.slice(0, 80),
 		});
 
 		let responseText = "";
@@ -159,7 +174,7 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		executingTasks.set(task.id, { sessionId, abortFn: safeUnsubscribe });
 
 		await runtime.prompt(sessionId, {
-			text: task.prompt,
+			text: applySkillPrefix(task.prompt, task.skill),
 			...(task.modelKey ? { modelKey: task.modelKey } : {}),
 		});
 	} catch (error) {

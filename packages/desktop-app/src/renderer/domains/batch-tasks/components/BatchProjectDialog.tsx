@@ -1,7 +1,13 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useAtomValue } from "jotai";
 import type { ModelsConfigData } from "@preload/api";
-import { type BatchProject, type ExecutionModeOverride, remoteProvidersAtom, type SessionExecutionMode } from "@shared/store/atoms";
+import {
+	type BatchProject,
+	type ExecutionModeOverride,
+	remoteProvidersAtom,
+	type SelectedSkill,
+	type SessionExecutionMode,
+} from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import {
 	Dialog,
@@ -13,6 +19,7 @@ import { Textarea } from "@shared/components/ui/textarea";
 import { Input } from "@shared/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
+import { SkillPromptArea } from "@domains/chat/components/SkillPromptArea";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 
 interface ModelOption {
@@ -68,6 +75,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 	const [folderInputMode, setFolderInputMode] = useState<"picker" | "textarea">("picker");
 	const [artifactPatternsText, setArtifactPatternsText] = useState((project?.artifactPatterns ?? []).join("\n"));
 	const [notifyEnabled, setNotifyEnabled] = useState<boolean>(project?.notifyEnabled ?? false);
+	const [skill, setSkill] = useState<SelectedSkill | null>(project?.skill ?? null);
 	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 	const modelDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -103,6 +111,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 		setFolderText((project?.tasks.map((t) => t.sourcePath) ?? []).join("\n"));
 		setArtifactPatternsText((project?.artifactPatterns ?? []).join("\n"));
 		setNotifyEnabled(project?.notifyEnabled ?? false);
+		setSkill(project?.skill ?? null);
 	}, [project]);
 
 	useEffect(() => {
@@ -205,6 +214,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 				notifyEnabled,
 				timeoutMinutes: safeTimeoutMinutes,
 				newFolders,
+				skill,
 			});
 		} else {
 			await createProject({
@@ -217,6 +227,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 				artifactPatterns,
 				notifyEnabled,
 				timeoutMinutes: safeTimeoutMinutes,
+				skill: skill ?? undefined,
 			});
 		}
 		onClose();
@@ -248,12 +259,13 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 				</DialogHeader>
 
 				<div className="flex-1 overflow-y-auto px-7 pb-4">
-					<Textarea
-						value={prompt}
-						onChange={(e) => setPrompt(e.target.value)}
-						className="min-h-[120px] w-full resize-y border-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-						placeholder="输入提示词..."
-						rows={5}
+					<SkillPromptArea
+						prompt={prompt}
+						onPromptChange={setPrompt}
+						skill={skill}
+						onSkillChange={setSkill}
+						placeholder="输入提示词...使用 / 唤出技能/场景"
+						minHeight={120}
 					/>
 
 					<div className="mt-4">

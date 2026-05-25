@@ -9,6 +9,12 @@ const CONFIG_DIR = join(homedir(), ".vetta");
 const TASKS_FILE = join(CONFIG_DIR, "scheduled-tasks.json");
 const RECORDS_DIR = join(CONFIG_DIR, "task-records");
 
+export interface ScheduledTaskSkillRef {
+	name: string;
+	alias?: string;
+	type: "skill" | "scene";
+}
+
 export interface ScheduledTask {
 	id: string;
 	name: string;
@@ -20,6 +26,7 @@ export interface ScheduledTask {
 	cwd: string;
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
+	skill?: ScheduledTaskSkillRef;
 	createdAt: number;
 	updatedAt: number;
 	lastRunAt: number | null;

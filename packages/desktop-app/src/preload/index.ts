@@ -8,6 +8,7 @@ const CHANNELS = {
 	PROMPT: "vetta:session:prompt",
 	CONTINUE: "vetta:session:continue",
 	ABORT: "vetta:session:abort",
+	CLEAR_TODOS: "vetta:session:clear-todos",
 	SUBSCRIBE: "vetta:session:subscribe",
 	UNSUBSCRIBE: "vetta:session:unsubscribe",
 	UPDATE_SETTINGS: "vetta:session:update-settings",
@@ -413,6 +414,7 @@ const api: DesktopApi = {
 		prompt: async (sessionId, request) => ipcRenderer.invoke(CHANNELS.PROMPT, sessionId, request),
 		continue: async (sessionId) => ipcRenderer.invoke(CHANNELS.CONTINUE, sessionId),
 		abort: async (sessionId) => ipcRenderer.invoke(CHANNELS.ABORT, sessionId),
+		clearTodos: async (sessionId) => ipcRenderer.invoke(CHANNELS.CLEAR_TODOS, sessionId),
 		subscribe: async (sessionId, handler) => {
 			const { subscriptionId } = await ipcRenderer.invoke(CHANNELS.SUBSCRIBE, sessionId);
 			const listener = (_event: Electron.IpcRendererEvent, incomingId: string, runtimeEvent: unknown) => {

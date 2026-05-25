@@ -8,8 +8,9 @@ import {
 } from "@shared/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { projectsAtom, remoteProvidersAtom, defaultConversationCwdAtom, getProjectDisplayName } from "@shared/store/atoms";
-import type { ExecutionModeOverride, ScheduledTask, SessionExecutionMode } from "@shared/store/atoms";
+import type { ExecutionModeOverride, ScheduledTask, SelectedSkill, SessionExecutionMode } from "@shared/store/atoms";
 import type { ModelsConfigData } from "@preload/api";
+import { SkillPromptArea } from "@domains/chat/components/SkillPromptArea";
 import {
 	type Schedule,
 	type OnceSchedule,
@@ -184,6 +185,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 	const [modelKey, setModelKey] = useState<string | undefined>(undefined);
 	const [modelsConfig, setModelsConfig] = useState<ModelsConfigData | null>(null);
 	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+	const [skill, setSkill] = useState<SelectedSkill | null>(null);
 
 	const models = useMemo(() => {
 		const localModels = modelsConfig ? flattenModels(modelsConfig) : [];
@@ -213,6 +215,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 			setPrompt(task?.prompt ?? "");
 			setIsOnce(task?.isOnce ?? false);
 			setExecutionMode(task?.executionMode ?? "full-access");
+			setSkill(task?.skill ?? null);
 
 			if (task?.cron) {
 				const parsed = parseCronExpression(task.cron, task.isOnce);
@@ -275,7 +278,17 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 	const handleSubmit = async () => {
 		if (!canSubmit) return;
 		const cron = toCronExpression(schedule);
-		const taskData = { name, prompt, cron, isOnce, enabled: true, cwd, executionMode, modelKey };
+		const taskData = {
+			name,
+			prompt,
+			cron,
+			isOnce,
+			enabled: true,
+			cwd,
+			executionMode,
+			modelKey,
+			skill: skill ?? undefined,
+		};
 
 		if (task) {
 			await updateTask(task.id, taskData);
@@ -324,12 +337,13 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 
 				{/* ─── Body: prompt textarea ─── */}
 				<div className="flex-1 overflow-y-auto px-7 pb-5">
-					<textarea
-						value={prompt}
-						onChange={(e) => setPrompt(e.target.value)}
-						className="min-h-[140px] w-full resize-y rounded-lg border-none bg-transparent text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
-						placeholder="输入提示词..."
-						rows={6}
+					<SkillPromptArea
+						prompt={prompt}
+						onPromptChange={setPrompt}
+						skill={skill}
+						onSkillChange={setSkill}
+						placeholder="输入提示词...使用 / 唤出技能/场景"
+						minHeight={140}
 					/>
 				</div>
 
