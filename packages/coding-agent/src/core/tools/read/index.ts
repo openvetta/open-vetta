@@ -8,7 +8,7 @@ import {
 	formatDimensionNote,
 	formatImageResizeFailureNote,
 	isImageResizeFailure,
-	resizeImage,
+	resizeImageBuffer,
 } from "../../../utils/image-resize.js";
 import { detectSupportedImageMimeTypeFromFile } from "../../../utils/mime.js";
 import { decodeTextBuffer } from "../../../utils/shell.js";
@@ -194,11 +194,10 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 							if (mimeType) {
 								// Read as image (binary)
 								const buffer = await ops.readFile(absolutePath);
-								const base64 = buffer.toString("base64");
 
 								if (autoResizeImages) {
 									// Resize image if needed
-									const resized = await resizeImage({ type: "image", data: base64, mimeType });
+									const resized = await resizeImageBuffer(buffer, mimeType);
 									if (isImageResizeFailure(resized)) {
 										content = [{ type: "text", text: formatImageResizeFailureNote(resized, absolutePath) }];
 										details = undefined;
@@ -234,7 +233,7 @@ export function createReadTool(cwd: string, options?: ReadToolOptions): AgentToo
 									const textNote = `Read image file [${mimeType}]`;
 									content = [
 										{ type: "text", text: textNote },
-										{ type: "image", data: base64, mimeType },
+										{ type: "image", data: buffer.toString("base64"), mimeType },
 									];
 									details = {
 										image: {
