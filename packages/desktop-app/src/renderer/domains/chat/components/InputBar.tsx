@@ -11,8 +11,8 @@ import {
 	mentionedFilesAtom,
 	type AttachedImage,
 	type MentionedFile,
-	todoItemsByCwdAtom,
-	getTodoItemsForCwd,
+	todoItemsBySessionAtom,
+	getTodoItemsForSession,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	sandboxPermissionDrawerAtom,
@@ -82,11 +82,11 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const slashDismissedRef = useRef(false);
 	// at：记录被驳回时光标前 `@` 的位置；该 `@` 仍在原位则保持驳回
 	const atDismissedIndexRef = useRef<number | null>(null);
-	const todoMap = useAtomValue(todoItemsByCwdAtom);
+	const todoMap = useAtomValue(todoItemsBySessionAtom);
 	const sandboxPermission = useAtomValue(sandboxPermissionDrawerAtom);
 	const todoItems = useMemo(
-		() => getTodoItemsForCwd(todoMap, activeSession?.cwd ?? null),
-		[todoMap, activeSession?.cwd],
+		() => getTodoItemsForSession(todoMap, activeSession?.runtimeId ?? null),
+		[todoMap, activeSession?.runtimeId],
 	);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);

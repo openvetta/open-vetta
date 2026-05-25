@@ -20,7 +20,7 @@ import {
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
 	type TodoItem,
-	todoItemsByCwdAtom,
+	todoItemsBySessionAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
@@ -71,7 +71,7 @@ export function useSessionManager(): SessionManagerResult {
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
-	const setTodoItems = useSetAtom(todoItemsByCwdAtom);
+	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
@@ -498,15 +498,15 @@ export function useSessionManager(): SessionManagerResult {
 
 				// ── Todo update ──
 				if (event.type === "todo_update") {
-					const sessionCwd = activeSessionRef.current?.cwd;
-					if (sessionCwd) {
+					const sid = activeSessionRef.current?.runtimeId;
+					if (sid) {
 						const items = (event as { items?: unknown[] }).items ?? [];
 						setTodoItems((prev) => {
 							const next = new Map(prev);
 							if (items.length > 0) {
-								next.set(sessionCwd, items as TodoItem[]);
+								next.set(sid, items as TodoItem[]);
 							} else {
-								next.delete(sessionCwd);
+								next.delete(sid);
 							}
 							return next;
 						});
