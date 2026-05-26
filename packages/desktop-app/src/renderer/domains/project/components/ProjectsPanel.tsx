@@ -442,7 +442,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 							}
 							className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
 						>
-							<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
+							<span className="icon-[mdi--message-plus-outline] h-3.5 w-3.5" />
 						</button>
 					</div>
 					{defaultExpanded && (
