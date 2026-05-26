@@ -248,7 +248,7 @@ export function ProjectDetailPage(): JSX.Element {
 											animate={{ opacity: 1, scale: 1, y: 0 }}
 											exit={{ opacity: 0, scale: 0.85, y: -4 }}
 											transition={{ type: "spring", stiffness: 380, damping: 26 }}
-											className="relative inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary shadow-[0_0_24px_-8px_var(--primary)]"
+											className="relative inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary"
 										>
 											<span className="relative flex h-1.5 w-1.5">
 												<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
@@ -535,9 +535,6 @@ export function ProjectDetailPage(): JSX.Element {
 										borderColor: editorFocused
 											? "color-mix(in oklab, var(--primary) 45%, transparent)"
 											: "color-mix(in oklab, var(--border) 50%, transparent)",
-										boxShadow: editorFocused
-											? "0 20px 60px -30px var(--primary), 0 0 0 4px color-mix(in oklab, var(--primary) 12%, transparent)"
-											: "0 1px 2px 0 rgba(0,0,0,0.05)",
 									}}
 									transition={{ duration: 0.35, ease: easeOut }}
 								>
