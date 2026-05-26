@@ -128,10 +128,10 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): JSX.Element 
 			</div>
 		),
 		thead: ({ children }) => (
-			<thead className="border-b border-primary/30 bg-primary/15">{children}</thead>
+			<thead className="border-b border-border bg-muted">{children}</thead>
 		),
 		th: ({ children }) => (
-			<th className="px-3 py-1.5 text-left font-semibold text-primary">{children}</th>
+			<th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">{children}</th>
 		),
 		td: ({ children }) => (
 			<td className="border-t border-border px-3 py-1.5 text-foreground">{children}</td>
