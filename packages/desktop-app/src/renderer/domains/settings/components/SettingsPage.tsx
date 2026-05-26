@@ -5,6 +5,7 @@ import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
 import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
 import { AccountSettings } from "./AccountSettings";
+import { AppearanceSettings } from "./AppearanceSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ImBridgeSettings } from "./ImBridgeSettings";
 import { ModelsSettings } from "./ModelsSettings";
@@ -16,6 +17,7 @@ import { WebhookSettings } from "./WebhookSettings";
 
 const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean }[] = [
 	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
+	{ key: "appearance", label: "外观", icon: "icon-[mdi--palette-outline]" },
 	{ key: "account", label: "账户", icon: "icon-[mdi--account-outline]", requireAuth: true },
 	{ key: "team", label: "团队管理", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
 	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
@@ -28,6 +30,7 @@ const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?:
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	general: GeneralSettings,
+	appearance: AppearanceSettings,
 	account: AccountSettings,
 	models: ModelsSettings,
 	mcp: McpSettings,
