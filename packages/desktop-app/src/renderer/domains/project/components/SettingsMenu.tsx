@@ -61,32 +61,33 @@ export function SettingsMenu(): JSX.Element {
 				className="w-[180px] gap-0 overflow-hidden rounded-lg border border-border p-1"
 			>
 				{/* Theme section */}
-				<div className="px-2 pb-1 pt-1.5">
+				<div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-1.5">
 					<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
 						主题
 					</span>
+					<div className="flex items-center gap-0.5 rounded-md bg-accent/60 p-0.5">
+						{THEME_OPTIONS.map((opt) => (
+							<button
+								key={opt.value}
+								type="button"
+								title={opt.label}
+								aria-label={opt.label}
+								aria-pressed={mode === opt.value}
+								onClick={() => {
+									void setMode(opt.value);
+								}}
+								className={cn(
+									"flex h-5 w-6 items-center justify-center rounded-[4px] transition-colors",
+									mode === opt.value
+										? "bg-primary text-primary-foreground shadow-sm"
+										: "text-muted-foreground hover:text-foreground",
+								)}
+							>
+								<span className={cn(opt.icon, "h-3.5 w-3.5")} />
+							</button>
+						))}
+					</div>
 				</div>
-				{THEME_OPTIONS.map((opt) => (
-					<button
-						key={opt.value}
-						type="button"
-						onClick={() => {
-							void setMode(opt.value);
-						}}
-						className={cn(
-							"flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium transition-colors",
-							mode === opt.value
-								? "bg-primary text-primary-foreground"
-								: "text-foreground hover:bg-accent",
-						)}
-					>
-						<span className={cn(opt.icon, "h-3.5 w-3.5")} />
-						{opt.label}
-						{mode === opt.value && (
-							<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5" />
-						)}
-					</button>
-				))}
 
 				{/* Credits balance */}
 				{user && (creditsBalance !== null || creditsUnlimited) && (
