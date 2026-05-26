@@ -1,12 +1,25 @@
 import type { ThemeDef } from "../tokens";
 import { defaultTheme } from "./default";
+import { emeraldTheme } from "./emerald";
+import { jadeTheme } from "./jade";
 import { monoTheme } from "./mono";
 import { neonTheme } from "./neon";
 import { oceanTheme } from "./ocean";
+import { retroTheme } from "./retro";
 import { scarletTheme } from "./scarlet";
 import { voltageTheme } from "./voltage";
 
-export const THEMES: ThemeDef[] = [defaultTheme, monoTheme, voltageTheme, scarletTheme, neonTheme, oceanTheme];
+export const THEMES: ThemeDef[] = [
+	defaultTheme,
+	monoTheme,
+	voltageTheme,
+	scarletTheme,
+	neonTheme,
+	oceanTheme,
+	jadeTheme,
+	emeraldTheme,
+	retroTheme,
+];
 
 export const THEME_MAP: Record<string, ThemeDef> = Object.fromEntries(THEMES.map((t) => [t.id, t]));
 
