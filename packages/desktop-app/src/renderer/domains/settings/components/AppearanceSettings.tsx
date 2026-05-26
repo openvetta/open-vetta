@@ -3,7 +3,6 @@ import { useTheme } from "@shared/hooks/useTheme";
 import type { ThemeMode } from "@shared/store/atoms";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
-import { SettingSection } from "./shared";
 
 const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] = [
 	{
@@ -213,8 +212,9 @@ export function AppearanceSettings(): JSX.Element {
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">外观</h1>
 
-			<SettingSection title="外观模式">
-				<div className="grid grid-cols-3 gap-3 p-3">
+			<div className="mb-6">
+				<h2 className="mb-3 text-[15px] font-semibold text-foreground">外观模式</h2>
+				<div className="grid grid-cols-3 gap-3">
 					{MODES.map((m) => (
 						<ModeCard
 							key={m.value}
@@ -227,7 +227,7 @@ export function AppearanceSettings(): JSX.Element {
 						/>
 					))}
 				</div>
-			</SettingSection>
+			</div>
 
 			<div className="mb-6">
 				<h2 className="mb-3 text-[15px] font-semibold text-foreground">主题</h2>

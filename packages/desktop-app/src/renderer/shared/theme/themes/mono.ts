@@ -12,11 +12,14 @@ export const monoTheme: ThemeDef = {
 		primary: "rgb(245, 245, 245)",
 		primaryForeground: "rgb(20, 22, 30)",
 		ring: "rgb(245, 245, 245)",
+		// 抬高 accent 与 popover/card 的色差，确保 dropdown hover 可见
+		accent: "rgb(58, 62, 78)",
 	},
 	light: {
 		...defaultTheme.light,
 		primary: "rgb(0, 0, 0)",
 		primaryForeground: "rgb(255, 255, 255)",
 		ring: "rgb(0, 0, 0)",
+		accent: "rgb(218, 218, 218)",
 	},
 };

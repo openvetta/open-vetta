@@ -75,7 +75,7 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 					<Button variant="ghost" size="sm" onClick={onCancel}>
 						取消
 					</Button>
-					<Button size="sm" onClick={handleSubmit}>
+					<Button variant="primary" size="sm" onClick={handleSubmit}>
 						创建
 					</Button>
 				</div>
