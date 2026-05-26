@@ -127,11 +127,13 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 				))}
 			</nav>
 
-			{/* Section header: filter dropdown */}
+			{/* Section header: 项目 label + filter dropdown */}
 			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
-				<div className="flex min-w-0 items-center gap-1">
-					<SidebarFilterSelect />
+				<div className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground/80">
+					<span className="icon-[mdi--view-grid-outline] h-3.5 w-3.5 shrink-0" />
+					<span>项目</span>
 				</div>
+				<SidebarFilterSelect />
 			</div>
 
 			{/* Panel content */}

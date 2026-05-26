@@ -122,7 +122,6 @@ export function ModelSelector(): JSX.Element {
 						: "border-transparent bg-transparent text-muted-foreground hover:border-border/60 hover:bg-accent/50 hover:text-foreground"
 				}`}
 			>
-				<span className="icon-[mdi--brain] h-3.5 w-3.5 shrink-0" />
 				<span className="min-w-0 max-w-[80px] truncate sm:max-w-[120px] md:max-w-[160px]">
 					{selectedOption?.displayName ?? "选择模型"}
 				</span>

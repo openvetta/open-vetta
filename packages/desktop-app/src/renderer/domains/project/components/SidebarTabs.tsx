@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { useAtom } from "jotai";
 import { sidebarFilterAtom, type SidebarFilter } from "@shared/store/atoms";
+import { Popover, PopoverTrigger, PopoverContent } from "@shared/components/ui/popover";
+import { cn } from "@shared/lib/utils";
 
 const FILTER_OPTIONS: { value: SidebarFilter; label: string }[] = [
 	{ value: "all", label: "全部" },
@@ -11,18 +14,53 @@ const FILTER_OPTIONS: { value: SidebarFilter; label: string }[] = [
 
 export function SidebarFilterSelect(): JSX.Element {
 	const [filter, setFilter] = useAtom(sidebarFilterAtom);
+	const [open, setOpen] = useState(false);
+	const current = FILTER_OPTIONS.find((o) => o.value === filter) ?? FILTER_OPTIONS[0];
 
 	return (
-		<select
-			value={filter}
-			onChange={(e) => setFilter(e.target.value as SidebarFilter)}
-			className="no-drag cursor-pointer appearance-none rounded-md border-none bg-transparent px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-foreground outline-none hover:bg-accent"
-		>
-			{FILTER_OPTIONS.map((opt) => (
-				<option key={opt.value} value={opt.value}>
-					{opt.label}
-				</option>
-			))}
-		</select>
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					className={cn(
+						"no-drag flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-medium transition-colors",
+						open
+							? "bg-accent text-foreground"
+							: "text-muted-foreground/80 hover:bg-accent hover:text-foreground",
+					)}
+				>
+					<span>{current.label}</span>
+					<span className="icon-[mdi--chevron-down] h-3 w-3" />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent
+				side="bottom"
+				align="end"
+				sideOffset={4}
+				className="w-[140px] gap-0 overflow-hidden rounded-lg border border-border p-1"
+			>
+				{FILTER_OPTIONS.map((opt) => (
+					<button
+						key={opt.value}
+						type="button"
+						onClick={() => {
+							setFilter(opt.value);
+							setOpen(false);
+						}}
+						className={cn(
+							"flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium transition-colors",
+							filter === opt.value
+								? "bg-primary text-primary-foreground"
+								: "text-foreground hover:bg-accent",
+						)}
+					>
+						<span>{opt.label}</span>
+						{filter === opt.value && (
+							<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5" />
+						)}
+					</button>
+				))}
+			</PopoverContent>
+		</Popover>
 	);
 }

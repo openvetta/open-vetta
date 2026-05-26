@@ -214,7 +214,7 @@ export const BotAvatar = memo(function BotAvatar({
 			>
 				<div className={`flex items-center ${cfg.gap}`}>
 					<motion.span
-						className={`block rounded-full bg-primary-foreground ${cfg.eye}`}
+						className={`block rounded-full bg-white ${cfg.eye}`}
 						animate={{ x: eyesShift, scaleY: eyesScaleY }}
 						transition={{
 							type: mood === "sleep" ? "tween" : "spring",
@@ -226,7 +226,7 @@ export const BotAvatar = memo(function BotAvatar({
 						}}
 					/>
 					<motion.span
-						className={`block rounded-full bg-primary-foreground ${cfg.eye}`}
+						className={`block rounded-full bg-white ${cfg.eye}`}
 						animate={{ x: eyesShift, scaleY: eyesScaleY }}
 						transition={{
 							type: mood === "sleep" ? "tween" : "spring",
