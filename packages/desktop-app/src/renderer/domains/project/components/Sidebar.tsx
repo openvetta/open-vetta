@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
-import { runningSessionPathsAtom, SIDEBAR_WIDTH_STORAGE_KEY, sidebarFilterAtom, sidebarWidthAtom } from "@shared/store/atoms";
+import {
+	activeSessionAtom,
+	defaultConversationCwdAtom,
+	runningSessionPathsAtom,
+	SIDEBAR_WIDTH_STORAGE_KEY,
+	sidebarFilterAtom,
+	sidebarWidthAtom,
+} from "@shared/store/atoms";
 import { isMac } from "@shared/lib/platform";
 import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
@@ -29,7 +36,34 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
-	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
+	const lastMatch = matches[matches.length - 1];
+	const currentPath = lastMatch?.pathname ?? "/";
+	const activeSession = useAtomValue(activeSessionAtom);
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+
+	// 「新对话」按钮目标 cwd 解析顺序：
+	//   1. 当前路由参数 cwd（/project/$cwd 或 /new-session/$cwd）
+	//   2. 当前 activeSession 的 cwd（在 / 路径上时）
+	//   3. 默认「对话」项目的 cwd
+	const newChatCwd = (() => {
+		const params = lastMatch?.params as { cwd?: string } | undefined;
+		if (params?.cwd) {
+			try {
+				return decodeURIComponent(params.cwd);
+			} catch {
+				return params.cwd;
+			}
+		}
+		if (activeSession?.cwd) return activeSession.cwd;
+		return defaultConversationCwd || "";
+	})();
+	const onNewChat = useCallback(() => {
+		if (!newChatCwd) return;
+		void navigate({
+			to: "/new-session/$cwd",
+			params: { cwd: encodeURIComponent(newChatCwd) },
+		});
+	}, [navigate, newChatCwd]);
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 	const widthRef = useRef(width);
 	widthRef.current = width;
@@ -107,9 +141,18 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 				</div>
 			</div>
 
-			{/* Page nav entries (with 新建项目 on top) */}
+			{/* Page nav entries */}
 			<nav className="flex flex-col gap-0.5 px-1.5 pb-2 pt-2">
-				<AddProjectMenu variant="navItem" />
+				<button
+					type="button"
+					onClick={onNewChat}
+					disabled={!newChatCwd}
+					title="新对话"
+					className="no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					<span className="icon-[mdi--square-edit-outline] h-4 w-4 shrink-0" />
+					新对话
+				</button>
 				{NAV_ITEMS.map(({ path, label, icon }) => (
 					<button
 						key={path}
@@ -127,13 +170,15 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 				))}
 			</nav>
 
-			{/* Section header: 项目 label + filter dropdown */}
-			<div className="flex items-center justify-between px-3.5 pb-1 pt-1">
-				<div className="flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground/80">
-					<span className="icon-[mdi--view-grid-outline] h-3.5 w-3.5 shrink-0" />
-					<span>项目</span>
-				</div>
+			{/* Section header: filter dropdown on the left, 新建项目 icon button on the right.
+			    Inline z-index overrides `.sidebar-surface > *` which pins children to z:1,
+			    so the dropdown can float above the project list below. */}
+			<div
+				className="flex items-center justify-between px-2 pb-1 pt-1"
+				style={{ position: "relative", zIndex: 20 }}
+			>
 				<SidebarFilterSelect />
+				<AddProjectMenu />
 			</div>
 
 			{/* Panel content */}
