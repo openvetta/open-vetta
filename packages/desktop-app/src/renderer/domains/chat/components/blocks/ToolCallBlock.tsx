@@ -52,11 +52,11 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const showBadge = badgeMs !== null && badgeMs >= CONSPICUOUS_DURATION_MS;
 
 	return (
-		<div className="group">
+		<div className="group min-w-0">
 			<button
 				type="button"
 				onClick={() => canExpand && setExpanded(!expanded)}
-				className={`inline-flex items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors ${canExpand ? "hover:bg-muted/60 cursor-pointer" : "cursor-default"}`}
+				className={`inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors ${canExpand ? "hover:bg-muted/60 cursor-pointer" : "cursor-default"}`}
 			>
 				{/* Status + Icon */}
 				{isPending ? (
@@ -68,16 +68,16 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 				)}
 
 				{/* Tool name and detail */}
-				<div className="flex min-w-0 items-center gap-1.5 text-[12px]">
+				<div className="flex min-w-0 flex-1 items-center gap-1.5 text-[12px]">
 					{mcp && (
 						<span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground/50">
 							{mcp.server}
 						</span>
 					)}
-					<span className="font-medium text-foreground/70">{name}</span>
+					<span className="shrink-0 font-medium text-foreground/70">{name}</span>
 					{detail && <span className="min-w-0 truncate text-muted-foreground/40">{detail}</span>}
 					{isPending && block.currentPhase && (
-						<span className="shrink-0 italic text-muted-foreground/50">— {block.currentPhase}</span>
+						<span className="min-w-0 truncate italic text-muted-foreground/50">— {block.currentPhase}</span>
 					)}
 				</div>
 
@@ -108,9 +108,9 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 						animate={{ height: "auto", opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
 						transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-						className="overflow-hidden"
+						className="min-w-0 overflow-hidden"
 					>
-						<div className="ml-2 border-l-2 border-muted-foreground/10 pl-4 pt-1 pb-2">
+						<div className="ml-2 min-w-0 border-l-2 border-muted-foreground/10 pl-4 pt-1 pb-2">
 							{shellCommand ? (
 								<BashTerminalCard
 									command={shellCommand}

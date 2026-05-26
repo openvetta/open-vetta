@@ -26,7 +26,7 @@ export function BashTerminalCard({
 	const hasResult = result !== undefined && result.length > 0;
 
 	return (
-		<div className="group/term overflow-hidden rounded-lg border border-muted-foreground/15 bg-muted/30">
+		<div className="group/term min-w-0 max-w-full overflow-hidden rounded-lg border border-muted-foreground/15 bg-muted/30">
 			<div className="flex items-center gap-2 border-b border-muted-foreground/10 bg-muted/20 px-3 py-1.5">
 				<span
 					className={`h-1.5 w-1.5 shrink-0 rounded-full ${
@@ -41,9 +41,9 @@ export function BashTerminalCard({
 			</div>
 
 			<div className="max-h-[180px] overflow-auto px-3 py-2 font-mono text-[12px] leading-[1.55]">
-				<div className="flex">
+				<div className="flex min-w-0">
 					<span className="shrink-0 select-none pr-2 text-amber-500 dark:text-amber-400">$</span>
-					<pre className="m-0 whitespace-pre-wrap break-words text-foreground/85">
+					<pre className="m-0 min-w-0 flex-1 whitespace-pre-wrap break-words text-foreground/85">
 						{command}
 						{isPending && (
 							<span
@@ -57,7 +57,7 @@ export function BashTerminalCard({
 
 			{!isPending && hasResult && (
 				<div className="max-h-[300px] overflow-auto border-t border-muted-foreground/10 px-3 py-2 font-mono text-[12px] leading-[1.55]">
-					<pre className="m-0 whitespace-pre-wrap break-words text-foreground/75">{result}</pre>
+					<pre className="m-0 min-w-0 whitespace-pre-wrap break-words text-foreground/75">{result}</pre>
 				</div>
 			)}
 
@@ -68,7 +68,7 @@ export function BashTerminalCard({
 				</div>
 			) : startedAt !== undefined ? (
 				<div
-					className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] text-muted-foreground/50"
+					className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] text-muted-foreground/50"
 					title="本地元数据，仅 UI 展示，不发送给大模型"
 				>
 					<span className="font-medium text-muted-foreground/60">meta</span>
