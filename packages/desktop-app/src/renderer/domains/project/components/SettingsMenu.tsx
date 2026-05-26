@@ -98,13 +98,13 @@ export function SettingsMenu(): JSX.Element {
 								<span className="text-[11px] text-muted-foreground">剩余积分</span>
 							</div>
 							{creditsUnlimited ? (
-								<span className="text-[12px] font-semibold text-purple-500">
+								<span className="text-[12px] font-semibold text-primary">
 									无限制
 								</span>
 							) : (
 								<span className={cn(
 									"text-[12px] font-semibold tabular-nums",
-									(creditsBalance ?? 0) <= 0 ? "text-red-500" : "text-foreground",
+									(creditsBalance ?? 0) <= 0 ? "text-destructive" : "text-foreground",
 								)}>
 									{(creditsBalance ?? 0).toFixed(2)}
 								</span>

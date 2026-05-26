@@ -44,6 +44,7 @@ export function UpdateChecker(): JSX.Element {
 		<div className="space-y-3">
 			<div className="flex items-center gap-3">
 				<Button
+					variant="primary"
 					onClick={() => void handleCheck()}
 					disabled={checking}
 					className="h-8 rounded-lg px-3 text-[12px]"
@@ -68,6 +69,7 @@ export function UpdateChecker(): JSX.Element {
 						</div>
 						{state.phase === "available" && (
 							<Button
+								variant="primary"
 								onClick={() => void handlePrimary()}
 								className="h-7 rounded-lg px-3 text-[12px]"
 							>
@@ -81,6 +83,7 @@ export function UpdateChecker(): JSX.Element {
 						)}
 						{state.phase === "ready" && (
 							<Button
+								variant="primary"
 								onClick={() => void handlePrimary()}
 								className="h-7 rounded-lg px-3 text-[12px]"
 							>
