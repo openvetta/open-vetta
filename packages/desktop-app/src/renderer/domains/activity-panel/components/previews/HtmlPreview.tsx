@@ -17,6 +17,7 @@ interface HtmlPreviewProps {
 
 export function HtmlPreview({ content, extension, theme }: HtmlPreviewProps): JSX.Element {
 	const [mode, setMode] = useState<Mode>("preview");
+	const srcDoc = `<style>:root{color-scheme:${theme}}</style>${content}`;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -26,7 +27,7 @@ export function HtmlPreview({ content, extension, theme }: HtmlPreviewProps): JS
 			{mode === "preview" ? (
 				<iframe
 					title="HTML 预览"
-					srcDoc={content}
+					srcDoc={srcDoc}
 					sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
 					className="min-h-0 flex-1 border-0 bg-white"
 				/>
