@@ -25,6 +25,7 @@ import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
 import { ActionButtonBar } from "./ActionButtonBar";
+import { pathBasename } from "@shared/lib/utils";
 import type { SkillInfo } from "@preload/api";
 
 interface InputBarProps {
@@ -327,6 +328,24 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		textareaRef.current?.focus();
 	}, [hasSession, addImages]);
 
+	const handleSelectFiles = useCallback(async () => {
+		if (!hasSession) return;
+		const paths = await window.vetta.dialog.selectFiles(effectiveCwd || undefined);
+		if (paths.length > 0) {
+			setMentionedFiles((prev) => {
+				const seen = new Set(prev.map((f) => f.path));
+				const additions: MentionedFile[] = [];
+				for (const path of paths) {
+					if (seen.has(path)) continue;
+					seen.add(path);
+					additions.push({ path, name: pathBasename(path), isDirectory: false });
+				}
+				return additions.length > 0 ? [...prev, ...additions] : prev;
+			});
+		}
+		textareaRef.current?.focus();
+	}, [hasSession, effectiveCwd, setMentionedFiles]);
+
 	const handlePaste = useCallback(
 		async (e: React.ClipboardEvent) => {
 			if (!modelSupportsImages) return;
@@ -501,6 +520,12 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 								}
 								disabled={!hasSession || !modelSupportsImages}
 								onClick={() => void handleSelectImages()}
+							/>
+							<ToolbarButton
+								icon="icon-[mdi--paperclip]"
+								title="附加文件引用"
+								disabled={!hasSession}
+								onClick={() => void handleSelectFiles()}
 							/>
 							<div className="ml-1 h-4 w-px shrink-0 bg-border/70" />
 							<div className="min-w-0 flex-shrink">
