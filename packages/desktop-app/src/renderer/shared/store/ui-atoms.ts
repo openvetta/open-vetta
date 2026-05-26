@@ -11,6 +11,7 @@ export const pageHeaderRightSlotAtom = atom<ReactNode | null>(null);
 
 export type SettingsTab =
 	| "general"
+	| "appearance"
 	| "account"
 	| "models"
 	| "mcp"
@@ -25,6 +26,7 @@ export type SettingsTab =
 export type ThemeMode = "light" | "dark" | "auto";
 export const themeModeAtom = atom<ThemeMode>((localStorage.getItem("vetta-theme") as ThemeMode) || "dark");
 export const resolvedThemeAtom = atom<"light" | "dark">("dark");
+export const themeNameAtom = atom<string>(localStorage.getItem("vetta-color-theme") || "default");
 
 // ─── Confirm dialog ───
 

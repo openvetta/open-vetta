@@ -1,11 +1,11 @@
 @import "tailwindcss";
 @plugin "@iconify/tailwind4";
 
-@custom-variant dark (&:is([data-theme="dark"] *));
+@custom-variant dark (&:is([data-mode="dark"] *));
 
-/* ─── Dark theme (default) ─── */
+/* ─── Dark mode (default) ─── */
 :root,
-[data-theme="dark"] {
+[data-mode="dark"] {
 	color-scheme: dark;
 
 	--background: rgb(20, 22, 30);
@@ -54,8 +54,8 @@
 	--shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
 }
 
-/* ─── Light theme ─── */
-[data-theme="light"] {
+/* ─── Light mode ─── */
+[data-mode="light"] {
 	color-scheme: light;
 
 	--background: rgb(252, 252, 252);
@@ -147,6 +147,22 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+}
+
+/* 切换主题/模式时短暂启用过渡。由 shared/theme/apply.ts 的
+   withThemeTransition() 添加/移除根节点 class。仅作用于颜色/边框/阴影，
+   不影响 transform、opacity 等交互反馈相关的属性。 */
+[data-theme].theme-transitioning,
+[data-theme].theme-transitioning *,
+[data-theme].theme-transitioning *::before,
+[data-theme].theme-transitioning *::after {
+	transition:
+		background-color 180ms ease,
+		color 180ms ease,
+		border-color 180ms ease,
+		fill 180ms ease,
+		stroke 180ms ease,
+		box-shadow 180ms ease !important;
 }
 
 :root {

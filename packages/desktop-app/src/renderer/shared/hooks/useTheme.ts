@@ -1,19 +1,26 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
-import { resolvedThemeAtom, type ThemeMode, themeModeAtom } from "../store/atoms";
-
-function applyTheme(resolved: "light" | "dark"): void {
-	document.documentElement.setAttribute("data-theme", resolved);
-}
+import { resolvedThemeAtom, type ThemeMode, themeModeAtom, themeNameAtom } from "../store/atoms";
+import {
+	applyTheme,
+	MODE_STORAGE_KEY,
+	type ResolvedMode,
+	THEME_STORAGE_KEY,
+	withThemeTransition,
+} from "../theme/apply";
 
 export function useTheme() {
 	const [mode, setModeAtom] = useAtom(themeModeAtom);
 	const [resolved, setResolved] = useAtom(resolvedThemeAtom);
+	const [themeName, setThemeNameAtom] = useAtom(themeNameAtom);
 
-	// On mount: resolve initial theme
+	// 挂载时与 mode 变化时同步原生窗口主题 + 解析当前 mode。
+	// applyInitialTheme() 已在 main.tsx 启动时写过一次 inline style，这里只做：
+	// 1) auto 模式下查询原生当前是 dark 还是 light（异步，更权威）
+	// 2) 通知主进程切换 nativeTheme（影响 macOS vibrancy）
 	useEffect(() => {
-		async function init() {
-			let isDark = true;
+		async function syncWithNative() {
+			let isDark: boolean;
 			if (mode === "auto") {
 				try {
 					const native = await window.vetta.theme.getNative();
@@ -26,23 +33,22 @@ export function useTheme() {
 				isDark = mode === "dark";
 				await window.vetta.theme.set(mode).catch(() => {});
 			}
-			const r = isDark ? "dark" : "light";
+			const r: ResolvedMode = isDark ? "dark" : "light";
 			setResolved(r);
-			applyTheme(r);
+			applyTheme(r, themeName);
 		}
-		void init();
-	}, [mode, setResolved]);
+		void syncWithNative();
+	}, [mode, themeName, setResolved]);
 
-	// Listen for system theme changes (for auto mode)
+	// 监听原生主题变化（auto 模式下才响应）。
 	useEffect(() => {
 		const unsubscribe = window.vetta.theme.onNativeChanged((info) => {
-			// Only react if in auto mode — read from localStorage to avoid stale closure
-			const current = localStorage.getItem("vetta-theme") || "dark";
-			if (current === "auto") {
-				const r = info.shouldUseDarkColors ? "dark" : "light";
-				setResolved(r);
-				applyTheme(r);
-			}
+			const current = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode | null) ?? "dark";
+			if (current !== "auto") return;
+			const r: ResolvedMode = info.shouldUseDarkColors ? "dark" : "light";
+			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? "default";
+			setResolved(r);
+			applyTheme(r, currentTheme);
 		});
 		return unsubscribe;
 	}, [setResolved]);
@@ -50,26 +56,35 @@ export function useTheme() {
 	const setMode = useCallback(
 		async (newMode: ThemeMode) => {
 			setModeAtom(newMode);
-			localStorage.setItem("vetta-theme", newMode);
+			localStorage.setItem(MODE_STORAGE_KEY, newMode);
 
+			let r: ResolvedMode;
 			if (newMode === "auto") {
 				await window.vetta.theme.set("system").catch(() => {});
 				try {
 					const native = await window.vetta.theme.getNative();
-					const r = native.shouldUseDarkColors ? "dark" : "light";
-					setResolved(r);
-					applyTheme(r);
+					r = native.shouldUseDarkColors ? "dark" : "light";
 				} catch {
-					// fallback
+					r = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 				}
 			} else {
 				await window.vetta.theme.set(newMode).catch(() => {});
-				setResolved(newMode);
-				applyTheme(newMode);
+				r = newMode;
 			}
+			setResolved(r);
+			withThemeTransition(() => applyTheme(r, themeName));
 		},
-		[setModeAtom, setResolved],
+		[setModeAtom, setResolved, themeName],
 	);
 
-	return { mode, resolved, setMode };
+	const setThemeName = useCallback(
+		(name: string) => {
+			setThemeNameAtom(name);
+			localStorage.setItem(THEME_STORAGE_KEY, name);
+			withThemeTransition(() => applyTheme(resolved, name));
+		},
+		[resolved, setThemeNameAtom],
+	);
+
+	return { mode, resolved, themeName, setMode, setThemeName };
 }
