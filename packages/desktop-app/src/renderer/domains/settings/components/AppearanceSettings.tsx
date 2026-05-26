@@ -3,6 +3,7 @@ import { useTheme } from "@shared/hooks/useTheme";
 import type { ThemeMode } from "@shared/store/atoms";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
+import { BotAvatar } from "@shared/components/BotAvatar";
 
 const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] = [
 	{
@@ -210,10 +211,17 @@ export function AppearanceSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">外观</h1>
+			<div className="mb-4 flex items-start justify-between gap-4">
+				<div>
+					<h1 className="text-[20px] font-bold text-foreground">外观</h1>
+					<h2 className="mt-3 text-[15px] font-semibold text-foreground">外观模式</h2>
+				</div>
+				<div className="flex items-center justify-start pt-1" style={{ height: 56, width: 200 }}>
+					<BotAvatar pacing size="lg" />
+				</div>
+			</div>
 
 			<div className="mb-6">
-				<h2 className="mb-3 text-[15px] font-semibold text-foreground">外观模式</h2>
 				<div className="grid grid-cols-3 gap-3">
 					{MODES.map((m) => (
 						<ModeCard
