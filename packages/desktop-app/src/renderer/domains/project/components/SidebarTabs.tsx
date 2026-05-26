@@ -29,13 +29,14 @@ export function SidebarFilterSelect(): JSX.Element {
 							: "text-muted-foreground/80 hover:bg-accent hover:text-foreground",
 					)}
 				>
+					<span className="icon-[mdi--view-grid-outline] h-3.5 w-3.5 shrink-0" />
 					<span>{current.label}</span>
 					<span className="icon-[mdi--chevron-down] h-3 w-3" />
 				</button>
 			</PopoverTrigger>
 			<PopoverContent
 				side="bottom"
-				align="end"
+				align="start"
 				sideOffset={4}
 				className="w-[140px] gap-0 overflow-hidden rounded-lg border border-border p-1"
 			>
