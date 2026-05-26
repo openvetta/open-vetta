@@ -79,6 +79,13 @@ export function ModelSelector(): JSX.Element {
 	const models = [...localModels, ...remoteModels.filter((m) => !localKeys.has(m.key))];
 	const selectedOption = models.find((m) => m.key === selectedModel);
 
+	// 模型列表/选中项变化时，同步图片支持状态。
+	// 修复首次启动进入欢迎页时，atom 默认 true 导致非视觉模型的图片按钮可点的问题。
+	useEffect(() => {
+		if (!selectedModel || models.length === 0) return;
+		setModelSupportsImages(selectedOption?.supportsImage ?? false);
+	}, [selectedModel, selectedOption?.supportsImage, models.length, setModelSupportsImages]);
+
 	const handleSelect = useCallback(
 		(key: string) => {
 			setSelectedModel(key);
