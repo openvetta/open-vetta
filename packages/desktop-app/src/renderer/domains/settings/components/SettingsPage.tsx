@@ -57,9 +57,11 @@ export function SettingsPage(): JSX.Element {
 	const Content = SETTINGS_CONTENT[tab];
 
 	return (
-		<div className="flex h-full w-full flex-1 overflow-hidden">
+		<div className="relative flex h-full w-full flex-1 overflow-hidden">
+			{/* Vertical divider — stops short of the bottom by titlebar-height so it doesn't touch the window edge */}
+			<div className="pointer-events-none absolute left-[200px] top-0 bottom-11 w-px bg-border" />
 			{/* Settings sidebar */}
-			<div className="flex w-[200px] shrink-0 flex-col border-r border-border">
+			<div className="flex w-[200px] shrink-0 flex-col">
 				<div className="drag-region px-5 pb-4 pt-5">
 					<h1 className="text-[20px] font-bold tracking-[-0.02em] text-foreground">
 						设置

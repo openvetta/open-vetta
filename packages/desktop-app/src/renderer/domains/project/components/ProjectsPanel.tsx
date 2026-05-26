@@ -395,7 +395,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 			{defaultProject && (
 				<div className="mt-2">
 					<div
-						className="group flex w-full items-center gap-1 rounded-md px-2.5 py-[6px] text-left"
+						className="group -mx-1.5 flex items-center justify-between px-2 pb-1 pt-1"
 						onContextMenu={(e) => {
 							e.preventDefault();
 							setProjectMenu({ x: e.clientX, y: e.clientY, project: defaultProject });
@@ -408,42 +408,44 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 									? collapseProject(defaultProject.cwd)
 									: expandProjectAccordion(defaultProject.cwd)
 							}
-							className="flex min-w-0 flex-1 items-center gap-1 text-left text-[12px] font-medium text-muted-foreground/80 transition-colors hover:text-foreground"
+							className="flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-medium text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
 							title={defaultExpanded ? "折叠" : "展开"}
 						>
-							<span className="truncate">{defaultProject.name ?? "对话"}</span>
 							<span
 								className={cn(
-									"icon-[mdi--chevron-down] h-3.5 w-3.5 shrink-0 transition-transform",
+									"icon-[mdi--chevron-down] h-3 w-3 shrink-0 transition-transform",
 									defaultExpanded ? "" : "-rotate-90",
 								)}
 							/>
+							<span className="truncate">{defaultProject.name ?? "对话"}</span>
 						</button>
-						<button
-							type="button"
-							title="更多"
-							onClick={(e) => {
-								e.stopPropagation();
-								const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-								setProjectMenu({ x: rect.left, y: rect.bottom + 4, project: defaultProject });
-							}}
-							className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-muted-foreground/60 opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-						>
-							<span className="icon-[mdi--dots-horizontal] h-3.5 w-3.5" />
-						</button>
-						<button
-							type="button"
-							title="新会话"
-							onClick={() =>
-								void navigate({
-									to: "/new-session/$cwd",
-									params: { cwd: encodeURIComponent(defaultProject.cwd) },
-								})
-							}
-							className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
-						>
-							<span className="icon-[mdi--message-plus-outline] h-3.5 w-3.5" />
-						</button>
+						<div className="flex items-center">
+							<button
+								type="button"
+								title="更多"
+								onClick={(e) => {
+									e.stopPropagation();
+									const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+									setProjectMenu({ x: rect.left, y: rect.bottom + 4, project: defaultProject });
+								}}
+								className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100"
+							>
+								<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
+							</button>
+							<button
+								type="button"
+								title="新会话"
+								onClick={() =>
+									void navigate({
+										to: "/new-session/$cwd",
+										params: { cwd: encodeURIComponent(defaultProject.cwd) },
+									})
+								}
+								className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-60 transition-colors hover:bg-accent hover:opacity-100"
+							>
+								<span className="icon-[mdi--message-plus-outline] h-4 w-4" />
+							</button>
+						</div>
 					</div>
 					{defaultExpanded && (
 						<DefaultSessionList
