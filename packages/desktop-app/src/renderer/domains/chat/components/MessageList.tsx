@@ -647,9 +647,9 @@ function TypingIndicator(): JSX.Element {
 /** Footer component rendered below the virtualized list — contains typing indicator, compaction, artifacts */
 const ListFooter = memo(function ListFooter({ showTyping, isCompacting }: { showTyping: boolean; isCompacting: boolean }) {
 	const files = useAtomValue(turnModifiedFilesAtom);
-	if (!showTyping && !isCompacting && files.length === 0) return <div style={{ height: 38 }} />;
+	if (!showTyping && !isCompacting && files.length === 0) return <div style={{ height: 64 }} />;
 	return (
-		<div className="mx-auto flex max-w-3xl flex-col gap-5 px-5 pt-5 pb-[38px]">
+		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-1 pb-16">
 			<AnimatePresence initial={false}>
 				{showTyping && <TypingIndicator key="typing" />}
 				{isCompacting && <CompactionIndicator key="compacting" />}
