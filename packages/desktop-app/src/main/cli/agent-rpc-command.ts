@@ -1,3 +1,6 @@
+import { join } from "node:path";
+import { app } from "electron";
+
 // ---------------------------------------------------------------------------
 // Coding-agent RPC CLI mode
 // ---------------------------------------------------------------------------
@@ -28,8 +31,32 @@ export function parseAgentRpcCommand(argv: string[]): string[] | null {
 	return argv.slice(idx + 1);
 }
 
+/**
+ * Resolve the directory coding-agent should treat as its package root for
+ * looking up bundled on-disk assets (themes, export-html template, banner,
+ * package.json). The agent's `getPackageDir()` walks up from `__dirname`
+ * looking for a `package.json`, which inside an Electron asar bundle lands
+ * on the host app's package.json — wrong tree, missing assets. We override
+ * via `VETTA_PACKAGE_DIR` (the env var coding-agent's config.ts already
+ * honours) so theme + export-html lookups succeed.
+ *
+ * Layout matched by prepare-pack.js / extraResources:
+ *   Production:  <Resources>/coding-agent/{package.json,dist/...}
+ *   Dev:         <workspace>/packages/coding-agent/
+ */
+function resolveCodingAgentPackageDir(): string {
+	if (app.isPackaged) {
+		return join(process.resourcesPath, "coding-agent");
+	}
+	const appRoot = app.getAppPath();
+	return join(appRoot, "..", "coding-agent");
+}
+
 export async function runAgentRpcCommand(args: string[]): Promise<number> {
 	try {
+		if (!process.env.VETTA_PACKAGE_DIR && !process.env.PI_PACKAGE_DIR) {
+			process.env.VETTA_PACKAGE_DIR = resolveCodingAgentPackageDir();
+		}
 		const { main } = await import("@vetta/coding-agent");
 		await main(args);
 		return typeof process.exitCode === "number" ? process.exitCode : 0;
