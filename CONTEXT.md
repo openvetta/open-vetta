@@ -54,6 +54,18 @@ A user-attached file or directory reference carried alongside a chat prompt. Sha
 
 按钮不存在的情形（整条 bar 不渲染）：`role === "compaction"`、user 仅图片或完全空、assistant 仅含 error block、assistant 纯工具轮（outputBlocks 为空）。这是"按钮无可复制内容"的自然 fall-out，不是 hasConclusion 判定的例外。
 
+### conversation cwd
+
+`~/.vetta/conversation`，即 desktop-app 中虚拟注入的「对话」项目的 cwd（常量 `DEFAULT_CONVERSATION_CWD`，`packages/desktop-app/src/main/ipc/fs.ts`）。session 文件落在 `<conversation cwd>/.vetta/sessions/`。
+
+im-gateway 的 IM 入口一律把消息收敛到这个 cwd，不再像旧版那样让 IM 用户在多个项目间 `/use` 切换。conversation cwd 的真实路径由 desktop-app 在启动 sidecar 时通过 hostproto `InitFrame.conversationCwd` 下发；gateway 不再读 `desktop-config.json` 的项目列表。
+
+### session origin
+
+`SessionHeader.origin: "im" | "desktop"`。标记一条 session 由哪个入口创建：desktop-app 直接拉起的为 `"desktop"`，im-gateway 通过 coding-agent RPC 拉起的为 `"im"`。缺省（旧 session）按 `"desktop"` 渲染。
+
+desktop-app sidebar 据此对「对话」项目下混合排列的 session 加 badge 区分；同一 cwd 下多个 IM 用户的会话互不混淆是路由层（`(im_user, chatID)`）保证的，badge 只是视觉提示，不参与路由判定。
+
 ### drop overlay (of ChatPage)
 
 A full-`ChatPage` overlay rendered while an OS-level drag carrying `Files` (or an internal drag carrying the `application/vetta-path` MIME) is hovering. Provides the visual affordance "release to reference"; on drop, each dragged item becomes a `mentionedFile` (or an `attachedImage` for image MIME). Triggers regardless of whether a session is currently active — items dropped on `NewSessionPage` stay in `mentionedFilesAtom` and are picked up by the next `sendPrompt`. Internal drags from File Explorer are detected via the `application/vetta-path` MIME and bypass `webUtils.getPathForFile`, reading the path directly from the dataTransfer payload.

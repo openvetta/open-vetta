@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"vetta-im-gateway/internal/command"
 	"vetta-im-gateway/internal/hostclient"
 	hclocal "vetta-im-gateway/internal/hostclient/local"
 	"vetta-im-gateway/internal/hostproto"
-	"vetta-im-gateway/internal/projects"
 	"vetta-im-gateway/internal/router"
 	"vetta-im-gateway/internal/state"
 	"vetta-im-gateway/internal/transport"
@@ -47,7 +47,7 @@ type hostOptions struct {
 //	parent spawns sidecar
 //	parent → child: init frame (within initTimeout)
 //	child  → parent: ready event
-//	... runtime: parent may send config_update / projects_update / shutdown ...
+//	... runtime: parent may send config_update / shutdown ...
 //	stdin EOF or shutdown frame → graceful close → exit 0
 //
 // Returns the process exit code.
@@ -104,25 +104,41 @@ func runHostWithIO(opts hostOptions) int {
 		fmt.Fprintf(os.Stderr, "im-gateway host: %v\n", err)
 		return 1
 	}
+	if initFrame.ConversationCwd == "" {
+		fmt.Fprintln(os.Stderr, "im-gateway host: init frame missing conversationCwd")
+		return 1
+	}
 
 	// 2. Build runtime components.
-	projectDir := projects.NewInjectedDirectory()
-	projectDir.Replace(projectsFromFrames(initFrame.Projects))
-
 	// State store with patch hook → forward to parent as state_patch events.
 	stateStore := state.NewMemoryStore(func(entry state.SessionEntry) {
 		_ = out.WriteFrame(hostproto.StatePatchEvent{
 			Type:        hostproto.TypeStatePatch,
 			UserID:      entry.UserID,
-			ProjectID:   entry.ProjectID,
+			ChatID:      entry.ChatID,
 			SessionPath: entry.SessionPath,
 			UpdatedAt:   entry.UpdatedAt,
 		})
 	})
 	stateStore.Replace(stateFromFrames(initFrame.State))
 
-	hostClient := hclocal.New(hclocal.Options{})
+	// Mirror desktop-app's resolveSessionDirForCwd convention: the default
+	// "对话" project stores its sessions under <cwd>/.vetta/sessions/ instead
+	// of the global ~/.vetta/agent/sessions/<encoded-cwd>/. Passing
+	// SessionDir here makes IM-created sessions land where desktop-app's
+	// sidebar reads from, so they show up under the "对话" project (with
+	// the IM badge).
+	hostClient := hclocal.New(hclocal.Options{
+		Origin:     "im",
+		SessionDir: filepath.Join(initFrame.ConversationCwd, ".vetta", "sessions"),
+	})
 	pool := hostclient.NewProcessPool(hostClient, 0)
+	// IM messages arrive sparsely. Keep coding-agent subprocesses warm
+	// between turns of the SAME chat is wasteful, and — worse — the
+	// subprocess holds the session-file lockfile for its entire lifetime,
+	// which would block desktop-app from opening that session in its
+	// sidebar. Close on idle.
+	pool.SetCloseOnIdle(true)
 
 	// 3. Build transport from injected config. errAwaitingBind is a
 	//    legitimate startup state for the wechat slot — we park the
@@ -149,7 +165,7 @@ func runHostWithIO(opts hostOptions) int {
 	if tr == nil {
 		tr = newPlaceholderTransport()
 	}
-	r := router.New(tr, command.NewRouter(), stateStore, projectDir, pool)
+	r := router.New(tr, command.NewRouter(), stateStore, pool, initFrame.ConversationCwd)
 
 	// 4. Start transport (or skip if awaiting bind).
 	tCtx, tCancel := context.WithCancel(context.Background())
@@ -181,11 +197,11 @@ func runHostWithIO(opts hostOptions) int {
 	}
 	emitLog("info", "im-gateway host ready",
 		map[string]any{
-			"transport":     tr.Name(),
-			"version":       version,
-			"projects":      len(initFrame.Projects),
-			"state":         len(initFrame.State),
-			"awaitingBind":  awaitingBind,
+			"transport":       tr.Name(),
+			"version":         version,
+			"conversationCwd": initFrame.ConversationCwd,
+			"state":           len(initFrame.State),
+			"awaitingBind":    awaitingBind,
 		})
 
 	// 5b. Set up the wechat bind coordinator if wechat is the active
@@ -209,7 +225,6 @@ func runHostWithIO(opts hostOptions) int {
 	hostState := &hostRuntime{
 		out:        out,
 		stateStore: stateStore,
-		projectDir: projectDir,
 		emitLog:    emitLog,
 		emitStatus: emitStatus,
 		wcoord:     wcoord,
@@ -336,7 +351,6 @@ loop:
 type hostRuntime struct {
 	out        *hostproto.Writer
 	stateStore *state.MemoryStore
-	projectDir *projects.InjectedDirectory
 	emitLog    func(level, msg string, fields map[string]any)
 	emitStatus func(status, lastErr string)
 
@@ -387,11 +401,6 @@ func (h *hostRuntime) handleFrame(frame any) frameAction {
 			}
 		}
 		return frameAction{rebuild: true}
-
-	case *hostproto.ProjectsUpdateFrame:
-		h.projectDir.Replace(projectsFromFrames(f.Projects))
-		h.emitLog("info", "projects updated", map[string]any{"count": len(f.Projects)})
-		return frameAction{}
 
 	case *hostproto.WechatBindStartFrame:
 		if h.wcoord == nil {
@@ -508,21 +517,6 @@ func (placeholderTransport) ShowTyping(_ context.Context, _ string) error { retu
 // Compile-time interface check.
 var _ transport.Transport = (*placeholderTransport)(nil)
 
-// projectsFromFrames converts hostproto wire entries into the internal
-// projects.Project shape. Path is the only required field; ID is derived
-// downstream if missing.
-func projectsFromFrames(in []hostproto.ProjectEntry) []projects.Project {
-	out := make([]projects.Project, 0, len(in))
-	for _, e := range in {
-		out = append(out, projects.Project{
-			ID:   e.ID,
-			Name: e.Name,
-			Path: e.Path,
-		})
-	}
-	return out
-}
-
 // stateFromFrames converts wire entries into RouterState for MemoryStore.
 func stateFromFrames(in []hostproto.SessionStateEntry) state.RouterState {
 	out := state.RouterState{
@@ -534,13 +528,12 @@ func stateFromFrames(in []hostproto.SessionStateEntry) state.RouterState {
 		if updated.IsZero() {
 			updated = time.Now().UTC()
 		}
-		out.Sessions[state.SessionKey(e.UserID, e.ProjectID)] = state.SessionEntry{
+		out.Sessions[state.SessionKey(e.UserID, e.ChatID)] = state.SessionEntry{
 			UserID:      e.UserID,
-			ProjectID:   e.ProjectID,
+			ChatID:      e.ChatID,
 			SessionPath: e.SessionPath,
 			UpdatedAt:   updated,
 		}
 	}
 	return out
 }
-

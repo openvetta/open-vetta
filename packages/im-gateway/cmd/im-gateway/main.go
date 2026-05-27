@@ -36,7 +36,6 @@ import (
 	"vetta-im-gateway/internal/hostclient"
 	hclocal "vetta-im-gateway/internal/hostclient/local"
 	"vetta-im-gateway/internal/logger"
-	"vetta-im-gateway/internal/projects"
 	"vetta-im-gateway/internal/router"
 	"vetta-im-gateway/internal/state"
 	"vetta-im-gateway/internal/transport"
@@ -170,11 +169,11 @@ func runStart(args []string) int {
 	}
 
 	stateStore := state.NewFileStore(cfg.Paths.State)
-	projectDir := projects.NewDesktopConfigDirectory(cfg.Paths.DesktopConfig)
 	hostClient := hclocal.New(hclocal.Options{
 		Bin:              cfg.HostClient.CodingAgentBin,
 		HandshakeTimeout: cfg.HostClient.HandshakeTimeout,
 		CloseTimeout:     cfg.HostClient.CloseTimeout,
+		Origin:           "im",
 	})
 	pool := hostclient.NewProcessPool(hostClient, cfg.HostClient.PoolMaxSize)
 	defer func() {
@@ -183,7 +182,7 @@ func runStart(args []string) int {
 		}
 	}()
 
-	r := router.New(tr, command.NewRouter(), stateStore, projectDir, pool)
+	r := router.New(tr, command.NewRouter(), stateStore, pool, cfg.Paths.ConversationCwd)
 	defer r.Shutdown()
 
 	pidPath := filepath.Join(filepath.Dir(cfg.Paths.State), "im-gateway.pid")

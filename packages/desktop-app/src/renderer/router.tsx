@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter, createHashHistory, type Err
 import { RootLayout } from "./App";
 import { ChatPage } from "./domains/chat/components/ChatPage";
 import { NewSessionPage } from "./domains/chat/components/NewSessionPage";
+import { SessionViewerPage } from "./domains/chat/components/SessionViewerPage";
 import { AutomationPage } from "./domains/scheduler/components/AutomationPage";
 import { BatchTasksPage } from "./domains/batch-tasks/components/BatchTasksPage";
 import { SkillsPage } from "./domains/skills/components/SkillsPage";
@@ -61,6 +62,12 @@ const newSessionRoute = createRoute({
 	component: NewSessionPage,
 });
 
+const sessionViewerRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/viewer/$path",
+	component: SessionViewerPage,
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	automationRoute,
@@ -70,6 +77,7 @@ const routeTree = rootRoute.addChildren([
 	projectDetailRoute,
 	downloadsRoute,
 	newSessionRoute,
+	sessionViewerRoute,
 ]);
 
 function DefaultRouteErrorComponent({ error, reset }: ErrorComponentProps): JSX.Element {

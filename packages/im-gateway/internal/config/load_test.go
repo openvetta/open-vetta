@@ -25,11 +25,11 @@ func TestLoadConfig_NoFile_AppliesDefaults(t *testing.T) {
 	if cfg.Logging.Level != "info" {
 		t.Errorf("default log level: want info, got %q", cfg.Logging.Level)
 	}
-	if cfg.Paths.DesktopConfig == "" {
-		t.Error("DesktopConfig path not defaulted")
+	if cfg.Paths.ConversationCwd == "" {
+		t.Error("ConversationCwd path not defaulted")
 	}
-	if !strings.HasSuffix(cfg.Paths.DesktopConfig, "desktop-config.json") {
-		t.Errorf("DesktopConfig path looks wrong: %s", cfg.Paths.DesktopConfig)
+	if !strings.HasSuffix(cfg.Paths.ConversationCwd, "conversation") {
+		t.Errorf("ConversationCwd path looks wrong: %s", cfg.Paths.ConversationCwd)
 	}
 }
 

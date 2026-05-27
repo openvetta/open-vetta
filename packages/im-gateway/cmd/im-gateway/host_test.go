@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -151,6 +150,8 @@ func (p *pipeReader) Read(b []byte) (int, error) {
 
 var errEOF = errors.New("EOF")
 
+const testConversationCwd = "/home/u/.vetta/conversation"
+
 // TestHost_InitTimeout asserts the sidecar exits non-zero when the parent
 // fails to send an init frame within the timeout.
 func TestHost_InitTimeout(t *testing.T) {
@@ -203,8 +204,8 @@ func TestHost_InitReadyShutdown(t *testing.T) {
 			AppID:     "stub-app",
 			AppSecret: "stub-secret",
 		},
-		Projects: []hostproto.ProjectEntry{{Path: "/tmp/example"}},
-		State:    nil,
+		ConversationCwd: testConversationCwd,
+		State:           nil,
 	}
 	data, err := hostproto.EncodeFrame(initFrame)
 	if err != nil {
@@ -235,6 +236,41 @@ func TestHost_InitReadyShutdown(t *testing.T) {
 	}
 }
 
+// TestHost_InitWithoutConversationCwd asserts the sidecar refuses to start
+// when the init frame omits conversationCwd — the gateway can't route
+// without knowing where sessions should live.
+func TestHost_InitWithoutConversationCwd(t *testing.T) {
+	in := newPipeReader()
+	out := &captureWriter{}
+
+	done := make(chan int, 1)
+	go func() {
+		done <- runHostWithIO(hostOptions{
+			stdin:          in,
+			stdout:         out,
+			buildTransport: stubBuilder,
+			initTimeout:    1 * time.Second,
+		})
+	}()
+
+	bad := hostproto.InitFrame{
+		Type:   hostproto.TypeInit,
+		Feishu: &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
+		// ConversationCwd intentionally empty.
+	}
+	data, _ := hostproto.EncodeFrame(bad)
+	in.Write(data)
+
+	select {
+	case code := <-done:
+		if code == 0 {
+			t.Error("expected non-zero exit when conversationCwd is missing")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("runHostWithIO did not return")
+	}
+}
+
 // TestHost_StdinEOFShutdown asserts that closing stdin is equivalent to a
 // shutdown frame.
 func TestHost_StdinEOFShutdown(t *testing.T) {
@@ -253,9 +289,9 @@ func TestHost_StdinEOFShutdown(t *testing.T) {
 	}()
 
 	data, _ := hostproto.EncodeFrame(hostproto.InitFrame{
-		Type:     hostproto.TypeInit,
-		Feishu:   &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
-		Projects: []hostproto.ProjectEntry{},
+		Type:            hostproto.TypeInit,
+		Feishu:          &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
+		ConversationCwd: testConversationCwd,
 	})
 	in.Write(data)
 
@@ -272,62 +308,6 @@ func TestHost_StdinEOFShutdown(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("runHostWithIO did not return after stdin EOF")
 	}
-}
-
-// TestHost_ProjectsUpdate asserts the projects_update frame is processed.
-func TestHost_ProjectsUpdate(t *testing.T) {
-	in := newPipeReader()
-	out := &captureWriter{}
-
-	done := make(chan int, 1)
-	go func() {
-		done <- runHostWithIO(hostOptions{
-			stdin:          in,
-			stdout:         out,
-			buildTransport: stubBuilder,
-			initTimeout:    2 * time.Second,
-			shutdownGrace:  500 * time.Millisecond,
-		})
-	}()
-
-	initData, _ := hostproto.EncodeFrame(hostproto.InitFrame{
-		Type:     hostproto.TypeInit,
-		Feishu:   &hostproto.FeishuConfig{AppID: "x", AppSecret: "y"},
-		Projects: []hostproto.ProjectEntry{},
-	})
-	in.Write(initData)
-	waitForType(t, out, hostproto.TypeReady, 2*time.Second)
-
-	upd, _ := hostproto.EncodeFrame(hostproto.ProjectsUpdateFrame{
-		Type: hostproto.TypeProjectsUpdate,
-		Projects: []hostproto.ProjectEntry{
-			{Path: "/tmp/foo"},
-			{Path: "/tmp/bar", Name: "Bar"},
-		},
-	})
-	in.Write(upd)
-
-	// Verify the host emitted a "projects updated" log line.
-	deadline := time.Now().Add(2 * time.Second)
-	found := false
-	for time.Now().Before(deadline) && !found {
-		for _, ev := range out.Lines() {
-			if ev["type"] != hostproto.TypeLog {
-				continue
-			}
-			if msg, ok := ev["msg"].(string); ok && strings.Contains(msg, "projects updated") {
-				found = true
-				break
-			}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if !found {
-		t.Errorf("did not see projects updated log; output:\n%s", out.Bytes())
-	}
-
-	in.Close()
-	<-done
 }
 
 // TestHost_BadInitFrameType verifies that the first non-init frame causes
@@ -394,7 +374,7 @@ func TestHost_WechatInitAwaitingBind(t *testing.T) {
 			Enabled:   true,
 			StatePath: statePath,
 		},
-		Projects: []hostproto.ProjectEntry{},
+		ConversationCwd: testConversationCwd,
 	}
 	data, err := hostproto.EncodeFrame(initFrame)
 	if err != nil {
@@ -466,7 +446,7 @@ func TestHost_WechatBindStartIgnoredWhenInactive(t *testing.T) {
 			AppID:     "stub",
 			AppSecret: "stub",
 		},
-		Projects: []hostproto.ProjectEntry{},
+		ConversationCwd: testConversationCwd,
 	}
 	data, _ := hostproto.EncodeFrame(initFrame)
 	in.Write(data)

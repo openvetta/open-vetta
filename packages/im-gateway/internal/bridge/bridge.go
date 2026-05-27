@@ -44,6 +44,21 @@ type Bridge struct {
 	thinkingBuf   strings.Builder
 	editMessageID string    // empty if not yet sent
 	lastEdit      time.Time // throttle anchor for edit mode
+
+	// pendingErrors accumulates error events seen during this turn. We
+	// deliberately do NOT push each error to the user as a separate IM
+	// card: coding-agent's startup pipeline (skill / extension / theme
+	// loading, model probe retries) emits non-fatal `type:"error"`
+	// events that it then recovers from, and forwarding each one
+	// floods the chat with "(agent error)" bubbles before the real
+	// reply. We surface them only if the whole turn produces no text
+	// (see flushAll). Reset to nil on any successful text send.
+	pendingErrors []string
+
+	// anyOutputSent tracks whether this turn produced any user-visible
+	// IM message (text / chunk / tool summary). Drives the
+	// "suppress transient errors" rule above.
+	anyOutputSent bool
 }
 
 // New constructs a Bridge for one outbound conversation.
@@ -137,19 +152,31 @@ func (b *Bridge) handle(ctx context.Context, ev hostclient.AgentEvent) error {
 		return b.flushAll(ctx)
 
 	case hostclient.AgentEventTypeError:
-		// Surface errors verbatim to the user. The exact shape varies
-		// upstream so we just dump the raw text.
-		if err := b.flushAll(ctx); err != nil {
-			return err
-		}
+		// Buffer the error rather than sending immediately. Most error
+		// events the upstream agent emits during startup are recovered
+		// from before the turn ends; forwarding each one floods the
+		// chat with redundant "(agent error)" cards.
 		text := extractErrorText(ev.Raw)
 		if text == "" {
-			text = "(agent error)"
+			// Fallback: include a truncated raw snippet so the next
+			// person debugging this can see what actually happened.
+			snippet := string(ev.Raw)
+			if len(snippet) > 240 {
+				snippet = snippet[:240] + "…"
+			}
+			text = "(agent error) " + snippet
 		}
-		_, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: text})
-		return err
+		b.pendingErrors = append(b.pendingErrors, text)
+		return nil
 	}
 	return nil
+}
+
+// markOutputSent records that this turn produced a visible IM message.
+// Drops any buffered transient errors — the agent clearly recovered.
+func (b *Bridge) markOutputSent() {
+	b.anyOutputSent = true
+	b.pendingErrors = nil
 }
 
 // appendText incorporates a text delta into the bridge's buffer and
@@ -221,6 +248,7 @@ func (b *Bridge) commitEdit(ctx context.Context, text string) error {
 			return err
 		}
 	}
+	b.markOutputSent()
 	b.lastEdit = time.Now()
 	return nil
 }
@@ -255,6 +283,7 @@ func (b *Bridge) maybeChunk(ctx context.Context) error {
 			if _, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: head}); err != nil {
 				return err
 			}
+			b.markOutputSent()
 		}
 		tail := text[split:]
 		b.buf.Reset()
@@ -304,14 +333,32 @@ func (b *Bridge) flushText(ctx context.Context) error {
 		b.editMessageID = ""
 		b.buf.Reset()
 		b.lastEdit = time.Time{}
-		return nil
+		return b.flushPendingErrors(ctx)
 	}
 	text := b.buf.String()
 	if text == "" {
-		return nil
+		return b.flushPendingErrors(ctx)
 	}
 	b.buf.Reset()
-	_, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: text})
+	if _, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: text}); err != nil {
+		return err
+	}
+	b.markOutputSent()
+	return nil
+}
+
+// flushPendingErrors emits a single consolidated error message when the
+// turn ended with no user-visible output and at least one error event
+// was buffered. No-op when output was produced (errors get dropped by
+// markOutputSent) or when no errors were seen.
+func (b *Bridge) flushPendingErrors(ctx context.Context) error {
+	if b.anyOutputSent || len(b.pendingErrors) == 0 {
+		b.pendingErrors = nil
+		return nil
+	}
+	combined := strings.Join(b.pendingErrors, "\n")
+	b.pendingErrors = nil
+	_, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: combined})
 	return err
 }
 
@@ -320,10 +367,13 @@ func (b *Bridge) sendToolCallSummary(ctx context.Context, raw json.RawMessage) e
 	if toolName == "" {
 		toolName = "unknown"
 	}
-	_, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{
+	if _, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{
 		Text: "调用工具：`" + toolName + "`",
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+	b.markOutputSent()
+	return nil
 }
 
 // extractAssistantMessageDelta extracts the message_update subtype and delta.

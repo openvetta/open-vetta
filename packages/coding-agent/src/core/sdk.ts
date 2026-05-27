@@ -210,7 +210,11 @@ function getDefaultAgentDir(): string {
 export async function createAgentSession(options: CreateAgentSessionOptions = {}): Promise<CreateAgentSessionResult> {
 	const __perfStart = Date.now();
 	const __perfMark = (label: string) => {
-		console.log(`[perf][createAgentSession] ${label} +${Date.now() - __perfStart}ms`);
+		// stderr, not stdout: in rpc mode stdout carries the NDJSON wire
+		// protocol and any non-JSON line would be parsed as a malformed
+		// event by clients like im-gateway (which then surfaces it as an
+		// "(agent error)" card).
+		console.error(`[perf][createAgentSession] ${label} +${Date.now() - __perfStart}ms`);
 	};
 	__perfMark("enter");
 	const cwd = options.cwd ?? process.cwd();

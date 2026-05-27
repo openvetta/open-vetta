@@ -6,11 +6,15 @@ import { completeSimple, type Message, type TextContent } from "@mariozechner/pi
 import {
 	type AgentSession,
 	type AgentSessionEvent,
+	type SessionEntry as CodingSessionEntry,
 	type CreateAgentSessionOptions,
 	type CustomEntry,
 	createAgentSession,
 	type ExtensionUIContext,
+	type FileEntry,
+	loadEntriesFromFile,
 	type ModelRegistry,
+	type SessionHeader,
 	type SessionInfo,
 	SessionManager,
 } from "@vetta/coding-agent";
@@ -44,6 +48,43 @@ import { buildSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
 interface SessionHandle {
 	session: AgentSession;
 	executionMode: SessionExecutionMode;
+}
+
+/**
+ * Reconstruct the leaf→root branch from a flat list of FileEntries (as
+ * returned by loadEntriesFromFile). Mirrors what SessionManager.getBranch
+ * does in-process but without instantiating SessionManager (which would
+ * acquire the session-file lock).
+ *
+ * Strategy: find the most recent non-header entry that has no children,
+ * then walk parentId back to the root. Order returned is root → leaf.
+ */
+function branchFromFileEntries(entries: FileEntry[]): CodingSessionEntry[] {
+	const byId = new Map<string, CodingSessionEntry>();
+	const hasChild = new Set<string>();
+	for (const e of entries) {
+		if (e.type === "session") continue;
+		const se = e as CodingSessionEntry;
+		byId.set(se.id, se);
+		if (se.parentId) hasChild.add(se.parentId);
+	}
+	let leafId: string | null = null;
+	for (let i = entries.length - 1; i >= 0; i--) {
+		const e = entries[i];
+		if (e.type === "session") continue;
+		const se = e as CodingSessionEntry;
+		if (!hasChild.has(se.id)) {
+			leafId = se.id;
+			break;
+		}
+	}
+	const branch: CodingSessionEntry[] = [];
+	let cur = leafId ? byId.get(leafId) : undefined;
+	while (cur) {
+		branch.unshift(cur);
+		cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+	}
+	return branch;
 }
 
 /**
@@ -632,7 +673,24 @@ export class RuntimeHost implements SessionFacade {
 
 	getFullHistory(sessionId: string): HistoryEntry[] {
 		const handle = this.requireSession(sessionId);
-		const branch = handle.session.getSessionBranch();
+		return this.entriesToHistory(handle.session.getSessionBranch());
+	}
+
+	/**
+	 * Read a session .jsonl directly from disk and translate to HistoryEntry[].
+	 * Does NOT acquire the session-file lock — used by the desktop sidebar's
+	 * read-only viewer for IM sessions (origin="im") where the sidecar may be
+	 * actively writing to the same file. Caller decides what to do with the
+	 * origin tag (e.g. render an IM badge / disable the input bar).
+	 */
+	readSessionHistoryFromFile(path: string): { history: HistoryEntry[]; origin?: SessionHeader["origin"] } {
+		const fileEntries = loadEntriesFromFile(path);
+		const header = fileEntries.find((e) => e.type === "session") as SessionHeader | undefined;
+		const branch = branchFromFileEntries(fileEntries);
+		return { history: this.entriesToHistory(branch), origin: header?.origin };
+	}
+
+	private entriesToHistory(branch: CodingSessionEntry[]): HistoryEntry[] {
 		const entries: HistoryEntry[] = [];
 		for (const entry of branch) {
 			if (entry.type === "message") {
@@ -692,6 +750,7 @@ export class RuntimeHost implements SessionFacade {
 			name: session.name,
 			firstMessage: session.firstMessage,
 			modifiedAt: session.modified.getTime(),
+			origin: session.origin,
 		}));
 	}
 

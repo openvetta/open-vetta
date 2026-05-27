@@ -6,12 +6,19 @@ All notable changes to `@vetta/im-gateway` are documented in this file.
 
 ### Breaking Changes
 
+- IM 侧彻底移除「项目」概念：所有 IM 会话统一落在 desktop-app 的默认「对话」cwd（`~/.vetta/conversation`）。删除 `/projects` `/use` 命令；`/new` 改为「在当前对话中开启新 session」。详见根目录 `docs/adr/0004-im-gateway-collapses-to-default-conversation.md`。
+- `hostproto` 破坏性升级：`InitFrame.projects` 与 `ProjectsUpdateFrame` 删除；`InitFrame.conversationCwd`（必填，绝对路径）取而代之。`SessionStateEntry` / `StatePatchEvent` 中的 `projectId` 字段更名为 `chatId`。
+- `internal/projects` 包整体移除；`router.New` 签名从 `(tr, cmds, store, projects, pool)` 变为 `(tr, cmds, store, pool, conversationCwd)`。
+- `state.RouterState` schema 升至 v2（key 由 `(userID, projectID)` 改为 `(userID, chatID)`）。检测到 v1 文件时直接清空并以 v2 重写——旧 sessionPath 绑定的是用户项目 cwd，与新的对话 cwd 不兼容，无法迁移。旧 `.jsonl` 文件本身保留，desktop-app 仍可见。
+- `config.PathsConfig` 的 `desktopConfig` 字段重命名为 `conversationCwd`；环境变量 `IM_GATEWAY_DESKTOP_CONFIG` 改为 `IM_GATEWAY_CONVERSATION_CWD`。
 - Removed multi-source configuration loading (yaml + credentials.yaml + OS keychain + env vars). Configuration is now injected exclusively via the new `host` subcommand's stdin protocol. The `start` subcommand still reads `~/.vetta/im-gateway/config.yaml` but is reserved for developer debugging.
-- The `host` mode does not read `~/.vetta/desktop-config.json`, `~/.vetta/im-gateway/state.json`, or any other filesystem source. Project list and routing-table snapshot are sent in the `init` frame; runtime updates flow via `projects_update` and outbound `state_patch` events.
+- The `host` mode does not read `~/.vetta/im-gateway/state.json` or any other filesystem source. Routing-table snapshot is sent in the `init` frame; runtime updates flow via outbound `state_patch` events.
+
 - `host` mode never writes log files. Logs are surfaced as NDJSON `log` events on stdout for the parent process to consume.
 
 ### Added
 
+- `hostclient/local.Options.Origin` 字段。host runtime 设为 `"im"`，给 coding-agent 拉起的会话打上 `--origin im` 标记，desktop-app sidebar 据此渲染「IM」badge。
 - New WeChat (iLink) transport in `internal/transport/wechat`. Speaks the iLink bot protocol directly (no OpenClaw dependency), reverse-engineered from `@tencent-weixin/openclaw-weixin@2.1.7`. M1 scope: 1-on-1 text only, scan-to-bind, long-poll receive, send with per-peer 24h/10-message quota tracking. New `im-gateway wechat <login|status|logout>` subcommand drives the QR scan flow and persists credentials to `~/.vetta/im-gateway/wechat.json`. Protocol reference: `docs/ilink-protocol.md`.
 - Host mode support for WeChat: `InitFrame.wechat` slot selects the wechat transport, new inbound frames `wechat_bind_start` / `wechat_logout` drive the QR scan flow from the parent process, new outbound events `wechat_qr` / `wechat_bind_status` / `wechat_bound` / `wechat_unbound` stream live progress back. New transport status `awaiting_bind` signals "wechat selected but no credentials yet". The desktop-app's IM Settings page uses these to render the WeChat binding card.
 - `Router.SetTransport` for in-process transport swaps. Used by host mode to replace the placeholder transport with the real wechat transport after a successful bind, without restarting the sidecar.

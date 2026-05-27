@@ -1,3 +1,4 @@
+import { DEFAULT_CONVERSATION_CWD } from "../ipc/fs.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
 import {
 	defaultImConfig,
@@ -12,7 +13,6 @@ import { defaultCredentialsPath, type ImCredentials, loadCredentials, saveCreden
 import type {
 	FeishuConfig,
 	LogEvent,
-	ProjectEntry,
 	SessionStateEntry,
 	WechatBindStatusEvent,
 	WechatBoundEvent,
@@ -22,7 +22,6 @@ import type {
 } from "./host-protocol.js";
 import { LogBuffer } from "./log-buffer.js";
 import { archiveLegacyFiles, detectLegacyImGateway, type LegacyDetection } from "./migration.js";
-import { loadDesktopProjects, watchDesktopProjects } from "./project-source.js";
 import { SidecarManager } from "./sidecar-manager.js";
 import { applyStatePatch, defaultImStatePath, type ImStateFile, loadImState, saveImState } from "./state-store.js";
 import { type ImBridgeStatus, StatusStore } from "./status-store.js";
@@ -100,16 +99,19 @@ export class ImHost {
 
 	private config: ImConfig = defaultImConfig();
 	private credentials: ImCredentials = {};
-	private state: ImStateFile = { version: 1, sessions: [] };
-	private projects: ProjectEntry[] = [];
+	private state: ImStateFile = { version: 2, sessions: [] };
 
 	private manager: SidecarManager;
 	private binaryPath?: string;
-	private projectWatchUnsub?: () => void;
 
 	// Wechat bind subscribers. Multiple renderer windows may subscribe;
 	// each gets every event in arrival order.
 	private wechatBindHandlers: Set<(event: WechatBindEvent) => void> = new Set();
+
+	// Listeners notified after every state_patch is applied. The IPC layer
+	// uses this to broadcast "im session list changed" to the renderer so
+	// the sidebar refreshes without the user having to manually reload.
+	private stateChangeHandlers: Set<() => void> = new Set();
 
 	constructor() {
 		this.manager = new SidecarManager({
@@ -146,7 +148,7 @@ export class ImHost {
 				onStatePatch: (event) => {
 					this.state = applyStatePatch(this.state, {
 						userId: event.userId,
-						projectId: event.projectId,
+						chatId: event.chatId,
 						sessionPath: event.sessionPath,
 						updatedAt: event.updatedAt,
 					});
@@ -154,6 +156,13 @@ export class ImHost {
 						saveImState(this.state);
 					} catch (err) {
 						this.appendLog("warn", `state save failed: ${(err as Error).message}`);
+					}
+					for (const h of this.stateChangeHandlers) {
+						try {
+							h();
+						} catch (err) {
+							this.appendLog("warn", `state change handler threw: ${(err as Error).message}`);
+						}
 					}
 				},
 				onSpawned: (pid) => {
@@ -231,22 +240,8 @@ export class ImHost {
 		try {
 			this.state = loadImState();
 		} catch {
-			this.state = { version: 1, sessions: [] };
+			this.state = { version: 2, sessions: [] };
 		}
-
-		// Hydrate the project list from desktop-app's config and watch
-		// the file for changes. This is what makes /projects in feishu
-		// reflect what the user has pinned in the desktop UI.
-		try {
-			this.projects = loadDesktopProjects();
-		} catch {
-			this.projects = [];
-		}
-		this.projectWatchUnsub = watchDesktopProjects((projects) => {
-			this.projects = projects;
-			this.manager.updateProjects(projects);
-			this.appendLog("info", `desktop project list updated (${projects.length} projects)`);
-		});
 
 		if (this.config.enabled && this.hasRequiredCredentials()) {
 			await this.startSidecar();
@@ -329,13 +324,6 @@ export class ImHost {
 				this.appendLog("warn", `wechat bind handler threw: ${(err as Error).message}`);
 			}
 		}
-	}
-
-	/** Plug in or replace the project list. Used by desktop-app's project
-	 * source whenever the user adds/removes a project. */
-	setProjects(projects: ProjectEntry[]): void {
-		this.projects = projects;
-		this.manager.updateProjects(projects);
 	}
 
 	getPublicConfig(): ImHostPublicConfig {
@@ -426,8 +414,6 @@ export class ImHost {
 	}
 
 	async shutdownForQuit(): Promise<void> {
-		this.projectWatchUnsub?.();
-		this.projectWatchUnsub = undefined;
 		await this.manager.shutdownForQuit();
 	}
 
@@ -445,6 +431,16 @@ export class ImHost {
 
 	subscribeLog(handler: (event: LogEvent) => void): () => void {
 		return this.logBuffer.subscribe(handler);
+	}
+
+	/** Fire-and-forget notification that the IM routing table changed
+	 * (state_patch from sidecar). Subscribers typically reload the
+	 * affected project's session list. */
+	subscribeStateChange(handler: () => void): () => void {
+		this.stateChangeHandlers.add(handler);
+		return () => {
+			this.stateChangeHandlers.delete(handler);
+		};
 	}
 
 	getPaths(): { config: string; credentials: string; state: string; wechatState: string } {
@@ -537,14 +533,14 @@ export class ImHost {
 			return {
 				binaryPath: this.binaryPath,
 				wechat: this.buildWechatConfig(),
-				projects: this.projects,
+				conversationCwd: DEFAULT_CONVERSATION_CWD,
 				state: this.stateAsEntries(),
 			};
 		}
 		return {
 			binaryPath: this.binaryPath,
 			feishu: this.buildFeishuConfig(),
-			projects: this.projects,
+			conversationCwd: DEFAULT_CONVERSATION_CWD,
 			state: this.stateAsEntries(),
 		};
 	}

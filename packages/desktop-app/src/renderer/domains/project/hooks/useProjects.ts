@@ -10,10 +10,16 @@ import {
 	workspacePathAtom,
 } from "@shared/store/atoms";
 import { useAtom, useAtomValue } from "jotai";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 // Module-level flag so auto-expand only happens once per app session
 let didAutoExpand = false;
+
+// Module-level guard so the IM session-changed subscription only runs once
+// per renderer (useProjects is called from many components). The subscriber
+// reloads the default "对话" project's session list whenever the sidecar
+// emits a state_patch (i.e. an IM message just created or updated a session).
+let imSubscribed = false;
 
 export function useProjects() {
 	const [projects, setProjects] = useAtom(projectsAtom);
@@ -29,6 +35,23 @@ export function useProjects() {
 		},
 		[setSessionsMap],
 	);
+
+	// Keep a ref to loadSessions so the IM subscription (set up once at module
+	// scope via imSubscribed) always calls the latest closure.
+	const loadSessionsRef = useRef(loadSessions);
+	loadSessionsRef.current = loadSessions;
+	const defaultCwdRef = useRef(defaultConversationCwd);
+	defaultCwdRef.current = defaultConversationCwd;
+	useEffect(() => {
+		if (imSubscribed) return;
+		imSubscribed = true;
+		window.vetta.im.onSessionChanged(() => {
+			const cwd = defaultCwdRef.current;
+			if (cwd) void loadSessionsRef.current(cwd);
+		});
+		// Intentionally no cleanup: the listener lives for the renderer's
+		// lifetime, mirroring the singleton-style hooks (useAppInit, etc.).
+	}, []);
 
 	const refreshProjects = useCallback(async () => {
 		// Read project list from app-specific config file (not shared with CLI)

@@ -34,15 +34,16 @@ The `host` subcommand is the only one wired into the user deployment path. Every
 │  ...         │    │                 │    │                        │
 └──────────────┘    └─────────────────┘    └────────────────────────┘
                             │                        │
-                            ▼                        ▼
-                    ~/.vetta/im-gateway/    ~/.vetta/agent/sessions/
-                    state.json                <project>/<id>.jsonl
-                    config.yaml               (shared with desktop-app)
+                            ▼                                ▼
+                    ~/.vetta/im-gateway/         ~/.vetta/conversation/
+                    state.json                   .vetta/sessions/<id>.jsonl
+                    config.yaml                  (shared with desktop-app's
+                                                  default "对话" project)
 ```
 
-- **Zero touch on `desktop-app` and `coding-agent`** — uses the existing `coding-agent --mode rpc` JSON protocol over stdin/stdout
+- **All IM sessions live in `~/.vetta/conversation`** — the same default "对话" project desktop-app uses, so a conversation started in IM shows up in the desktop sidebar (with an "IM" badge) and vice-versa. No `/projects` / `/use` switching.
 - **Same session files** as the desktop app — pick up a conversation in IM, continue it on your laptop, single-writer enforced via the `<file>.lock` protocol added to `SessionManager`
-- **Reads project list from `~/.vetta/desktop-config.json`** — whatever you pinned in the desktop app shows up in IM
+- **Routes by `(im_user, chatID)`** — private chat and group chat are independent sessions for the same user
 - **Process pool** keyed by absolute session path; LRU eviction; one subprocess per active conversation
 - **Transport interface** so adding telegram / dingtalk later is purely additive
 
@@ -51,11 +52,10 @@ The `host` subcommand is the only one wired into the user deployment path. Every
 ```
 internal/
   transport/    # IMTransport interface + feishu / mock implementations
-  command/      # /projects /use /new /whoami /help command parser
-  router/       # (im_user, project) → session routing
+  command/      # /new /whoami /help command parser
+  router/       # (im_user, chatID) → session routing in conversationCwd
   bridge/       # agent event stream → IM message translation
   hostclient/   # HostClient interface + local (subprocess) implementation
-  projects/     # ProjectDirectory: read ~/.vetta/desktop-config.json
   state/        # router state persistence (atomic write)
   config/       # yaml + env + keychain credential loader
   logger/       # zap-based structured logging

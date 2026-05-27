@@ -1,5 +1,5 @@
 // Package command implements the slash-command parser and handlers for
-// /projects, /use, /new, /whoami, /help.
+// /new, /whoami, /help.
 //
 // # Boundary rules
 //
@@ -7,9 +7,9 @@
 //     same way across all transports — the only platform-specific behavior
 //     is whether output uses rich formatting (a Capabilities decision made
 //     in the bridge layer, not here).
-//   - Command handlers MUST NOT bypass projects.ProjectDirectory or
-//     state.Store; they go through the canonical interfaces so future
-//     project sources (server registry, etc.) work without changes.
+//   - Command handlers MUST NOT bypass state.Store; routing state goes
+//     through the canonical interface so future store backends work
+//     without changes.
 //
 // # Adding a command
 //
