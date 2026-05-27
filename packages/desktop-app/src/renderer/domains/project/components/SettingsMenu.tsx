@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { useTheme } from "@shared/hooks/useTheme";
@@ -13,6 +14,16 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
 	{ value: "dark", label: "深色", icon: "icon-[mdi--moon-waning-crescent]" },
 	{ value: "auto", label: "跟随系统", icon: "icon-[mdi--laptop]" },
 ];
+
+const itemVariants = {
+	hidden: { opacity: 0, x: -12 },
+	show: { opacity: 1, x: 0 },
+};
+
+const dividerVariants = {
+	hidden: { opacity: 0, scaleX: 0.9 },
+	show: { opacity: 1, scaleX: 1 },
+};
 
 export function SettingsMenu(): JSX.Element {
 	const [open, setOpen] = useState(false);
@@ -54,130 +65,165 @@ export function SettingsMenu(): JSX.Element {
 					)}
 				</button>
 			</PopoverTrigger>
-			<PopoverContent
-				side="top"
-				align="start"
-				sideOffset={6}
-				className="w-[180px] gap-0 overflow-hidden rounded-lg border border-border p-1"
-			>
-				{/* Theme section */}
-				<div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-1.5">
-					<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-						主题
-					</span>
-					<div className="flex items-center gap-0.5 rounded-md bg-accent/60 p-0.5">
-						{THEME_OPTIONS.map((opt) => (
-							<button
-								key={opt.value}
-								type="button"
-								title={opt.label}
-								aria-label={opt.label}
-								aria-pressed={mode === opt.value}
-								onClick={() => {
-									void setMode(opt.value);
-								}}
-								className={cn(
-									"flex h-5 w-6 items-center justify-center rounded-[4px] transition-colors",
-									mode === opt.value
-										? "bg-primary text-primary-foreground shadow-sm"
-										: "text-muted-foreground hover:text-foreground",
-								)}
-							>
-								<span className={cn(opt.icon, "h-3.5 w-3.5")} />
-							</button>
-						))}
-					</div>
-				</div>
-
-				{/* Credits balance */}
-				{user && (creditsBalance !== null || creditsUnlimited) && (
-					<>
-						<div className="mx-1 my-1 border-t border-border" />
-						<div className="mx-2 my-1.5 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1.5">
-							<div className="flex items-center gap-1.5">
-								<span className="icon-[mdi--wallet-outline] h-3.5 w-3.5 text-muted-foreground" />
-								<span className="text-[11px] text-muted-foreground">剩余积分</span>
+			<AnimatePresence>
+				{open && (
+					<PopoverContent
+						forceMount
+						asChild
+						side="top"
+						align="start"
+						sideOffset={6}
+						className="w-[180px] gap-0 overflow-hidden rounded-lg border border-border bg-[color-mix(in_srgb,var(--popover)_82%,white)] p-1 shadow-xl"
+						style={{ animation: "none" }}
+					>
+						<motion.div
+							initial={{ opacity: 0, scale: 0.96, y: 8 }}
+							animate={{ opacity: 1, scale: 1, y: 0 }}
+							exit={{ opacity: 0, scale: 0.96, y: 8 }}
+							transition={{ duration: 0.1, ease: [0.16, 1, 0.3, 1] }}
+						>
+					<motion.div
+						variants={{
+							hidden: {},
+							show: { transition: { staggerChildren: 0.025, delayChildren: 0.02 } },
+						}}
+						initial="hidden"
+						animate="show"
+					>
+						{/* Theme section */}
+						<motion.div variants={itemVariants}>
+							<div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-1.5">
+								<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+									主题
+								</span>
+								<div className="flex items-center gap-0.5 rounded-md bg-accent/60 p-0.5">
+									{THEME_OPTIONS.map((opt) => (
+										<button
+											key={opt.value}
+											type="button"
+											title={opt.label}
+											aria-label={opt.label}
+											aria-pressed={mode === opt.value}
+											onClick={() => {
+												void setMode(opt.value);
+											}}
+											className={cn(
+												"flex h-5 w-6 items-center justify-center rounded-[4px] transition-colors",
+												mode === opt.value
+													? "bg-primary text-primary-foreground shadow-sm"
+													: "text-muted-foreground hover:text-foreground",
+											)}
+										>
+											<span className={cn(opt.icon, "h-3.5 w-3.5")} />
+										</button>
+									))}
+								</div>
 							</div>
-							{creditsUnlimited ? (
-								<span className="text-[12px] font-semibold text-primary">
-									无限制
-								</span>
+						</motion.div>
+
+						{/* Credits balance */}
+						{user && (creditsBalance !== null || creditsUnlimited) && (
+							<motion.div key="credits" variants={itemVariants}>
+								<div className="mx-1 my-1 border-t border-border" />
+								<div className="mx-2 my-1.5 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1.5">
+									<div className="flex items-center gap-1.5">
+										<span className="icon-[mdi--wallet-outline] h-3.5 w-3.5 text-muted-foreground" />
+										<span className="text-[11px] text-muted-foreground">剩余积分</span>
+									</div>
+									{creditsUnlimited ? (
+										<span className="text-[12px] font-semibold text-primary">
+											无限制
+										</span>
+									) : (
+										<span className={cn(
+											"text-[12px] font-semibold tabular-nums",
+											(creditsBalance ?? 0) <= 0 ? "text-destructive" : "text-foreground",
+										)}>
+											{(creditsBalance ?? 0).toFixed(2)}
+										</span>
+									)}
+								</div>
+							</motion.div>
+						)}
+
+						{/* Separator */}
+						<motion.div variants={dividerVariants}>
+							<div className="mx-1 my-1 border-t border-border" />
+						</motion.div>
+
+						{/* Login / User */}
+						<motion.div variants={itemVariants}>
+							{user ? (
+								<button
+									type="button"
+									onClick={() => {
+										setOpen(false);
+										logout();
+									}}
+									className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+								>
+									<span className="icon-[mdi--logout] h-3.5 w-3.5" />
+									退出登录
+								</button>
 							) : (
-								<span className={cn(
-									"text-[12px] font-semibold tabular-nums",
-									(creditsBalance ?? 0) <= 0 ? "text-destructive" : "text-foreground",
-								)}>
-									{(creditsBalance ?? 0).toFixed(2)}
-								</span>
+								<button
+									type="button"
+									onClick={() => {
+										setOpen(false);
+										setLoginOpen(true);
+									}}
+									className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+								>
+									<span className="icon-[mdi--login] h-3.5 w-3.5" />
+									登录
+								</button>
 							)}
-						</div>
-					</>
+						</motion.div>
+
+						{/* Separator */}
+						<motion.div variants={dividerVariants}>
+							<div className="mx-1 my-1 border-t border-border" />
+						</motion.div>
+
+						{/* Downloads */}
+						<motion.div variants={itemVariants}>
+							<button
+								type="button"
+								onClick={() => {
+									setOpen(false);
+									void navigate({ to: "/downloads" });
+								}}
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+							>
+								<span className="icon-[mdi--download-outline] h-3.5 w-3.5" />
+								下载管理
+								{activeDownloads > 0 && (
+									<span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+										{activeDownloads}
+									</span>
+								)}
+							</button>
+						</motion.div>
+
+						{/* Settings */}
+						<motion.div variants={itemVariants}>
+							<button
+								type="button"
+								onClick={() => {
+									setOpen(false);
+									void navigate({ to: "/settings/$tab", params: { tab: "general" } });
+								}}
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+							>
+								<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
+								设置
+							</button>
+						</motion.div>
+					</motion.div>
+						</motion.div>
+					</PopoverContent>
 				)}
-
-				{/* Separator */}
-				<div className="mx-1 my-1 border-t border-border" />
-
-				{/* Login / User */}
-				{user ? (
-					<button
-						type="button"
-						onClick={() => {
-							setOpen(false);
-							logout();
-						}}
-						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-					>
-						<span className="icon-[mdi--logout] h-3.5 w-3.5" />
-						退出登录
-					</button>
-				) : (
-					<button
-						type="button"
-						onClick={() => {
-							setOpen(false);
-							setLoginOpen(true);
-						}}
-						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-					>
-						<span className="icon-[mdi--login] h-3.5 w-3.5" />
-						登录
-					</button>
-				)}
-
-				{/* Separator */}
-				<div className="mx-1 my-1 border-t border-border" />
-
-				{/* Downloads */}
-				<button
-					type="button"
-					onClick={() => {
-						setOpen(false);
-						void navigate({ to: "/downloads" });
-					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-				>
-					<span className="icon-[mdi--download-outline] h-3.5 w-3.5" />
-					下载管理
-					{activeDownloads > 0 && (
-						<span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
-							{activeDownloads}
-						</span>
-					)}
-				</button>
-
-				{/* Settings */}
-				<button
-					type="button"
-					onClick={() => {
-						setOpen(false);
-						void navigate({ to: "/settings/$tab", params: { tab: "general" } });
-					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-				>
-					<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
-					设置
-				</button>
-			</PopoverContent>
+			</AnimatePresence>
 		</Popover>
 	);
 }

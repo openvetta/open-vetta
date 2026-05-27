@@ -235,7 +235,14 @@ export function MessageCenter(): JSX.Element {
 				)}
 				title="消息中心"
 			>
-				<span className="icon-[mdi--bell-outline] h-4 w-4" />
+				<span
+					className={cn(
+						"inline-flex h-4 w-4 items-center justify-center",
+						totalUnread > 0 && "message-bell-swing",
+					)}
+				>
+					<span className="icon-[mdi--bell-outline] h-4 w-4" />
+				</span>
 				{totalUnread > 0 && (
 					<span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm shadow-red-500/30">
 						{totalUnread}

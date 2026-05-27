@@ -361,6 +361,38 @@ a {
 	}
 }
 
+@keyframes message-bell-swing {
+	0%,
+	28%,
+	100% {
+		transform: rotate(0deg);
+	}
+	3% {
+		transform: rotate(-22deg);
+	}
+	6% {
+		transform: rotate(20deg);
+	}
+	9% {
+		transform: rotate(-16deg);
+	}
+	13% {
+		transform: rotate(12deg);
+	}
+	17% {
+		transform: rotate(-7deg);
+	}
+	22% {
+		transform: rotate(3deg);
+	}
+}
+
+.message-bell-swing {
+	transform-origin: top center;
+	animation: message-bell-swing 3.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+	will-change: transform;
+}
+
 @keyframes bash-cursor-blink {
 	0%,
 	50% {
