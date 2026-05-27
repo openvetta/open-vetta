@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useParams } from "@tanstack/react-router";
 import type { SkillInfo } from "@preload/api";
 import {
+	activeSessionAtom,
 	attachedImagesAtom,
 	authUserAtom,
 	contextUsageAtom,
@@ -35,6 +36,7 @@ export function NewSessionPage(): JSX.Element {
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
 	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
+	const setActiveSession = useSetAtom(activeSessionAtom);
 	const authUser = useAtomValue(authUserAtom);
 	const projects = useAtomValue(projectsAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
@@ -50,7 +52,9 @@ export function NewSessionPage(): JSX.Element {
 		setAttachedImages([]);
 		// 清掉上一个会话残留的上下文用量，避免 ContextRing 显示旧会话的百分比。
 		setContextUsage(null);
-	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages, setContextUsage]);
+		// 清掉 activeSession，避免 InputBar 的 todo 抽屉等仍读取旧会话状态。
+		setActiveSession(null);
+	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages, setContextUsage, setActiveSession]);
 
 	// 顶栏标题：项目名 · 新会话
 	useEffect(() => {
