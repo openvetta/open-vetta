@@ -12,6 +12,8 @@ import (
 
 	"vetta-im-gateway/internal/hostproto"
 	"vetta-im-gateway/internal/transport"
+	"vetta-im-gateway/internal/transport/wechat"
+	"vetta-im-gateway/internal/transport/wechat/ilink"
 )
 
 // stubTransport is a no-op transport that just blocks Start() until ctx
@@ -472,5 +474,114 @@ func TestHost_WechatBindStartIgnoredWhenInactive(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("did not exit")
+	}
+}
+
+// TestHost_WechatSessionTimeoutRecovers asserts that when a previously-bound
+// wechat session is rejected by the server (errcode -14 → ErrSessionTimeout
+// from Start()), the host clears the dead credentials, drops back to
+// awaiting_bind, and KEEPS THE SIDECAR ALIVE so the user's next "扫码绑定"
+// click can deliver a wechat_bind_start frame. Regression: previously the
+// host treated this as a fatal transport error and exited, leaving the
+// desktop-app stuck on a spinner.
+func TestHost_WechatSessionTimeoutRecovers(t *testing.T) {
+	in := newPipeReader()
+	out := &captureWriter{}
+
+	// Seed a state file with non-empty credentials so the wechat
+	// coordinator gets constructed and LogoutAndClear has something to
+	// remove.
+	statePath := filepath.Join(t.TempDir(), "wechat.json")
+	store, err := wechat.NewStateStoreForCLI(statePath)
+	if err != nil {
+		t.Fatalf("NewStateStoreForCLI: %v", err)
+	}
+	if err := store.SetCredentials(ilink.Credentials{
+		BotToken:   "dead-token",
+		ILinkBotID: "expired-bot",
+		BaseURL:    "https://example.invalid",
+	}); err != nil {
+		t.Fatalf("seed creds: %v", err)
+	}
+
+	// Custom builder: returns a transport whose Start immediately
+	// returns ErrSessionTimeout. Simulates a -14 from getupdates.
+	builder := func(spec *buildSpec) (transport.Transport, error) {
+		if spec.Wechat == nil {
+			return newStubTransport("stub"), nil
+		}
+		return &stubTransport{name: "wechat", startErr: ilink.ErrSessionTimeout}, nil
+	}
+
+	done := make(chan int, 1)
+	go func() {
+		done <- runHostWithIO(hostOptions{
+			stdin:          in,
+			stdout:         out,
+			buildTransport: builder,
+			initTimeout:    2 * time.Second,
+			shutdownGrace:  500 * time.Millisecond,
+		})
+	}()
+
+	initFrame := hostproto.InitFrame{
+		Type: hostproto.TypeInit,
+		Wechat: &hostproto.WechatConfig{
+			Enabled:   true,
+			StatePath: statePath,
+		},
+		ConversationCwd: testConversationCwd,
+	}
+	data, _ := hostproto.EncodeFrame(initFrame)
+	in.Write(data)
+
+	waitForType(t, out, hostproto.TypeReady, 2*time.Second)
+
+	// After the transport's immediate failure the host should recover to
+	// awaiting_bind and emit wechat_unbound. Sidecar must stay alive.
+	deadline := time.Now().Add(3 * time.Second)
+	sawAwaiting := false
+	sawUnbound := false
+	for time.Now().Before(deadline) && !(sawAwaiting && sawUnbound) {
+		for _, ev := range out.Lines() {
+			if ev["type"] == hostproto.TypeStatus && ev["transport"] == hostproto.TransportStatusAwaitingBind {
+				sawAwaiting = true
+			}
+			if ev["type"] == hostproto.TypeWechatUnbound {
+				sawUnbound = true
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !sawAwaiting {
+		t.Errorf("never saw awaiting_bind after session timeout. captured:\n%s", out.Bytes())
+	}
+	if !sawUnbound {
+		t.Errorf("never saw wechat_unbound after session timeout. captured:\n%s", out.Bytes())
+	}
+
+	// Sidecar must NOT have exited.
+	select {
+	case code := <-done:
+		t.Fatalf("sidecar exited early with code=%d after session timeout; should have recovered. captured:\n%s", code, out.Bytes())
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	// Confirm dead credentials were cleared from disk.
+	freshStore, _ := wechat.NewStateStoreForCLI(statePath)
+	if freshStore.HasCredentials() {
+		t.Errorf("dead credentials should have been cleared from %s", statePath)
+	}
+
+	// Clean shutdown still works.
+	sd, _ := hostproto.EncodeFrame(hostproto.ShutdownFrame{Type: hostproto.TypeShutdown})
+	in.Write(sd)
+	select {
+	case code := <-done:
+		if code != 0 {
+			t.Errorf("exit code = %d, want 0", code)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("did not exit after shutdown frame")
 	}
 }

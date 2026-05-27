@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useParams } from "@tanstack/react-router";
 import type { SkillInfo } from "@preload/api";
 import {
+	activeSessionAtom,
 	attachedImagesAtom,
 	authUserAtom,
 	contextUsageAtom,
@@ -35,6 +36,7 @@ export function NewSessionPage(): JSX.Element {
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
 	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
+	const setActiveSession = useSetAtom(activeSessionAtom);
 	const authUser = useAtomValue(authUserAtom);
 	const projects = useAtomValue(projectsAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
@@ -50,7 +52,9 @@ export function NewSessionPage(): JSX.Element {
 		setAttachedImages([]);
 		// 清掉上一个会话残留的上下文用量，避免 ContextRing 显示旧会话的百分比。
 		setContextUsage(null);
-	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages, setContextUsage]);
+		// 清掉 activeSession，避免 InputBar 的 todo 抽屉等仍读取旧会话状态。
+		setActiveSession(null);
+	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages, setContextUsage, setActiveSession]);
 
 	// 顶栏标题：项目名 · 新会话
 	useEffect(() => {
@@ -129,8 +133,10 @@ export function NewSessionPage(): JSX.Element {
 				/>
 			</div>
 
-			{/* Scrollable upper area: hero + scenes + skill badges */}
-			<div className="no-drag relative flex flex-1 min-h-0 flex-col items-center overflow-y-auto px-6 pb-2 pt-6">
+			{/* Scrollable upper area: hero + scenes + skill badges.
+			    用 absolute 填满整个容器，使 hero 的居中点固定为视口中心，
+			    InputBar 长高时不会再"顶起" hero。 */}
+			<div className="no-drag absolute inset-0 flex flex-col items-center overflow-y-auto px-6 pb-48 pt-6">
 				<motion.div
 					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 12 }}
@@ -207,8 +213,9 @@ export function NewSessionPage(): JSX.Element {
 				</motion.div>
 			</div>
 
-			{/* Global InputBar — 与 ChatView 共用同一个组件 */}
-			<div className="relative w-full">
+			{/* Global InputBar — 与 ChatView 共用同一个组件。
+			    绝对定位浮在底部，避免长高时把上方 hero 顶起。 */}
+			<div className="absolute inset-x-0 bottom-0 z-10">
 				<InputBar
 					onSend={handleSend}
 					onAbort={abortMessage}

@@ -157,16 +157,28 @@ const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
 
 // ─── MCP config ───
 
-export interface McpServerConfig {
-	command: string;
-	args?: string[];
-	env?: Record<string, string>;
-	cwd?: string;
+export interface McpServerCommonConfig {
 	disabled?: boolean;
 	autoApprove?: string[];
 	startupTimeout?: number;
 	debug?: boolean;
 }
+
+export interface McpStdioServerConfig extends McpServerCommonConfig {
+	type?: "stdio";
+	command: string;
+	args?: string[];
+	env?: Record<string, string>;
+	cwd?: string;
+}
+
+export interface McpHttpServerConfig extends McpServerCommonConfig {
+	type: "http";
+	url: string;
+	headers?: Record<string, string>;
+}
+
+export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
 
 export interface McpConfig {
 	mcpServers: Record<string, McpServerConfig>;

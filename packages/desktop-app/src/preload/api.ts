@@ -246,16 +246,28 @@ export interface DesktopModelsApi {
 	fetchRemote(): Promise<RemoteProvidersResult>;
 }
 
-export interface McpServerConfigData {
-	command: string;
-	args?: string[];
-	env?: Record<string, string>;
-	cwd?: string;
+export interface McpServerCommonConfigData {
 	disabled?: boolean;
 	autoApprove?: string[];
 	startupTimeout?: number;
 	debug?: boolean;
 }
+
+export interface McpStdioServerConfigData extends McpServerCommonConfigData {
+	type?: "stdio";
+	command: string;
+	args?: string[];
+	env?: Record<string, string>;
+	cwd?: string;
+}
+
+export interface McpHttpServerConfigData extends McpServerCommonConfigData {
+	type: "http";
+	url: string;
+	headers?: Record<string, string>;
+}
+
+export type McpServerConfigData = McpStdioServerConfigData | McpHttpServerConfigData;
 
 export interface McpConfigData {
 	mcpServers: Record<string, McpServerConfigData>;
