@@ -454,6 +454,15 @@ export function ImBridgeSettings(): JSX.Element {
 						onAction={() => {
 							setSaveError(null);
 							setSaveOk(null);
+							// 预热：未绑定时，提前让 main 把 sidecar 切到 wechat / 拉起来。
+							// 这样 dialog 内的 startBind 在等 awaiting_bind 时几乎无需轮询，
+							// 直接快速进入发送 bind 帧 → 二维码到达的时间显著缩短。
+							if (
+								!config.wechat.bound &&
+								(config.transport !== "wechat" || !config.enabled)
+							) {
+								void window.vetta.im.setConfig({ enabled: true, transport: "wechat" });
+							}
 							setWechatDialogOpen(true);
 						}}
 						onActivate={
@@ -844,6 +853,13 @@ function WechatBindDialog({
 		}
 	}, [onConfirmedRefresh, onOpenChange]);
 
+	// 未绑定时自动触发 startBind，省去用户点「开始绑定」一步直接看到二维码。
+	useEffect(() => {
+		if (open && !bound && state.phase === "idle") {
+			void startBind();
+		}
+	}, [open, bound, state.phase, startBind]);
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[460px]">
@@ -852,7 +868,7 @@ function WechatBindDialog({
 					<DialogDescription>
 						{bound
 							? "已绑定的 iLink 机器人。Vetta 与微信服务器之间通过长轮询交换消息。"
-							: "在 iPhone 上打开微信 (≥ 8.0.70)，扫描下方二维码即可绑定。"}
+							: "打开微信扫一扫，扫描下方二维码完成授权。"}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -865,9 +881,6 @@ function WechatBindDialog({
 						<div className="rounded-md border border-input bg-secondary px-3 py-2">
 							<div className="text-muted-foreground">ilink_user_id</div>
 							<div className="font-mono text-[11px] break-all">{ilinkUserId ?? "—"}</div>
-						</div>
-						<div className="rounded-md bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-							注意：iLink 协议限制单聊每 24 小时主动消息上限 10 条；用户回复后窗口重置。
 						</div>
 					</div>
 				) : (
@@ -914,25 +927,8 @@ function WechatBindBody({
 	state: WechatDialogState;
 	onStart: () => void;
 }): JSX.Element {
-	if (state.phase === "idle") {
-		return (
-			<div className="flex flex-col items-center gap-4 py-6 text-center">
-				<span className="icon-[mdi--qrcode-scan] h-12 w-12 text-muted-foreground" />
-				<div className="text-[12px] text-muted-foreground">
-					点击下方按钮生成二维码，然后用 iPhone 微信扫码绑定。
-				</div>
-				<button
-					type="button"
-					onClick={onStart}
-					className="rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-				>
-					开始绑定
-				</button>
-			</div>
-		);
-	}
-
-	if (state.phase === "starting") {
+	// idle 阶段由父组件自动触发 startBind，渲染同 starting 的 loading，避免按钮闪现。
+	if (state.phase === "idle" || state.phase === "starting") {
 		return (
 			<div className="flex flex-col items-center gap-3 py-10 text-center text-[12px] text-muted-foreground">
 				<span className="icon-[mdi--loading] h-6 w-6 animate-spin" />
@@ -977,8 +973,8 @@ function WechatBindBody({
 				return "服务器路由切换中…";
 			default:
 				return state.qrAttempt > 1
-					? `请用 iPhone 微信扫描二维码 (第 ${state.qrAttempt} 次)`
-					: "请用 iPhone 微信扫描二维码";
+					? `请用微信扫一扫扫描二维码 (第 ${state.qrAttempt} 次)`
+					: "请用微信扫一扫扫描二维码";
 		}
 	})();
 
@@ -994,7 +990,7 @@ function WechatBindBody({
 			</div>
 			<div className="text-center text-[12px] text-muted-foreground">{progressLabel}</div>
 			<div className="text-center text-[11px] text-muted-foreground">
-				需 iPhone 微信 ≥ 8.0.70；Android 暂不支持
+				打开微信扫一扫，扫描下方二维码完成授权
 			</div>
 		</div>
 	);
