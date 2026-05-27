@@ -198,11 +198,11 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 							type="button"
 							onClick={onOpenClawSettings}
 							title="Claw 已连接 · 点击打开设置"
-							className="no-drag relative flex h-6 items-center gap-1.5 rounded-full bg-primary/15 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/25"
+							className="no-drag relative flex h-5 items-center gap-1 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/25"
 						>
-							<span className="relative flex h-1.5 w-1.5">
+							<span className="relative flex h-1 w-1">
 								<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-70" />
-								<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+								<span className="relative inline-flex h-1 w-1 rounded-full bg-primary" />
 							</span>
 							Claw
 						</button>
