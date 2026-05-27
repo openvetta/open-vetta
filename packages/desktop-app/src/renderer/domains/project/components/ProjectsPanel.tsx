@@ -301,20 +301,24 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		[deleteProjectFromDisk, setProjectMenu, setConfirm, projects, batchProjects, deleteBatchProject, sessionsMap, cleanupAfterProjectGone],
 	);
 
-	const handleClearDefault = useCallback(
+	const handleClearConversation = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
-			const sessions = sessionsMap.get(cwd) ?? [];
+			const allSessions = sessionsMap.get(cwd) ?? [];
+			const nonImSessions = allSessions.filter((s) => s.origin !== "im");
 			setConfirm({
 				title: "清空会话",
-				message: `将删除「对话」项目下 ${sessions.length} 个会话及其所有产物，此操作不可恢复。`,
+				message: `将删除「对话」项目下 ${nonImSessions.length} 个会话及其产物（Claw 会话不受影响），此操作不可恢复。`,
 				confirmLabel: "清空",
 				variant: "danger",
 				onConfirm: async () => {
-					await window.vetta.session.clearDefaultConversation();
-					// 当前 active session 若在被清空范围内，复位并跳回 NewSession 页。
-					const sessionPaths = sessions.map((s) => s.path);
-					if (activeSession && (activeSession.cwd === cwd || sessionPaths.includes(activeSession.sessionPath))) {
+					await window.vetta.session.clearDefaultConversation("conversation");
+					const removedPaths = new Set(nonImSessions.map((s) => s.path));
+					if (
+						activeSession &&
+						(removedPaths.has(activeSession.sessionPath) ||
+							(activeSession.cwd === cwd && !removedPaths.size))
+					) {
 						setActiveSession(null);
 						void navigate({
 							to: "/new-session/$cwd",
@@ -327,6 +331,38 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		},
 		[setProjectMenu, setConfirm, sessionsMap, activeSession, setActiveSession, navigate, loadSessions],
 	);
+
+	const handleClearClaw = useCallback(
+		(cwd: string) => {
+			setProjectMenu(null);
+			const allSessions = sessionsMap.get(cwd) ?? [];
+			const imSessions = allSessions.filter((s) => s.origin === "im");
+			setConfirm({
+				title: "清空 Claw 记录",
+				message: `将删除 ${imSessions.length} 条 Claw 会话记录，不影响产物与其他会话，此操作不可恢复。`,
+				confirmLabel: "清空",
+				variant: "danger",
+				onConfirm: async () => {
+					await window.vetta.session.clearDefaultConversation("claw");
+					const removedPaths = new Set(imSessions.map((s) => s.path));
+					if (activeSession && removedPaths.has(activeSession.sessionPath)) {
+						setActiveSession(null);
+						void navigate({
+							to: "/new-session/$cwd",
+							params: { cwd: encodeURIComponent(cwd) },
+						});
+					}
+					await loadSessions(cwd);
+				},
+			});
+		},
+		[setProjectMenu, setConfirm, sessionsMap, activeSession, setActiveSession, navigate, loadSessions],
+	);
+
+	const handleOpenClawSettings = useCallback(() => {
+		setProjectMenu(null);
+		void navigate({ to: "/settings/$tab", params: { tab: "im" } });
+	}, [setProjectMenu, navigate]);
 
 	const collapseBatchProject = useCallback(
 		(key: string) => {
@@ -505,10 +541,23 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					onArchive={handleArchive}
 					onRemove={handleRemove}
 					onDelete={handleDelete}
-					onClearDefault={handleClearDefault}
-					clearDefaultDisabled={
+					defaultScope={
+						projectMenu.project.isDefault === true ? defaultConversationFilter : undefined
+					}
+					onClearConversation={handleClearConversation}
+					onClearClaw={handleClearClaw}
+					onOpenClawSettings={handleOpenClawSettings}
+					clearConversationDisabled={
 						projectMenu.project.isDefault === true &&
-						(sessionsMap.get(projectMenu.project.cwd) ?? []).some((s) => runningSessionPaths.has(s.path))
+						(sessionsMap.get(projectMenu.project.cwd) ?? []).some(
+							(s) => s.origin !== "im" && runningSessionPaths.has(s.path),
+						)
+					}
+					clearClawDisabled={
+						projectMenu.project.isDefault === true &&
+						(sessionsMap.get(projectMenu.project.cwd) ?? []).some(
+							(s) => s.origin === "im" && runningSessionPaths.has(s.path),
+						)
 					}
 				/>
 			)}

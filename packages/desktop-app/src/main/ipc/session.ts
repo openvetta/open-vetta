@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type FSWatcher, watch } from "node:fs";
+import { type Dirent, type FSWatcher, watch } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { ipcMain, type WebContents } from "electron";
@@ -36,6 +36,41 @@ function resolveSessionDirForCwd(cwd: string | undefined): string | undefined {
 		return DEFAULT_CONVERSATION_SESSION_DIR;
 	}
 	return undefined;
+}
+
+/**
+ * 递归删除 dir 下内容，但保留 preserve 集合中的文件以及通往它们的祖先目录。
+ * 返回 true 表示本目录尚有保留内容（调用方据此判断是否还能整体删除）。
+ */
+async function rmExceptPreserved(dir: string, preserve: Set<string>): Promise<boolean> {
+	let entries: Dirent[];
+	try {
+		entries = await readdir(dir, { withFileTypes: true });
+	} catch {
+		return false;
+	}
+	let kept = false;
+	await Promise.all(
+		entries.map(async (entry) => {
+			const full = join(dir, entry.name);
+			const abs = resolve(full);
+			if (preserve.has(abs)) {
+				kept = true;
+				return;
+			}
+			if (entry.isDirectory()) {
+				const childKept = await rmExceptPreserved(full, preserve);
+				if (childKept) {
+					kept = true;
+				} else {
+					await rm(full, { recursive: true, force: true });
+				}
+			} else {
+				await rm(full, { force: true });
+			}
+		}),
+	);
+	return kept;
 }
 
 const CHANNELS = {
@@ -325,19 +360,44 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.LIST_RUNNING, () => runtime.getRunningSessionPaths());
 
-	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_CONVERSATION, async () => {
-		// 双保险：如果默认项目还有 session 在跑，拒绝执行——避免 dispose 跑飞的 agent。
+	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_CONVERSATION, async (_event, scope: unknown) => {
+		// scope 控制清理范围：
+		// - "conversation"：清非 IM 会话 + cwd 下所有产物，保留 IM 会话 jsonl
+		// - "claw"：仅删 sessionDir 中 origin==="im" 的 jsonl，其他一切不动
+		if (scope !== "conversation" && scope !== "claw") {
+			throw new Error("Invalid scope for clearDefaultConversation");
+		}
 		const defaultCwd = resolve(DEFAULT_CONVERSATION_CWD);
 		const sessionDir = resolve(DEFAULT_CONVERSATION_SESSION_DIR);
+
+		// 读取所有会话，按 origin 分类
+		const sessions = await runtime.listSessions(DEFAULT_CONVERSATION_CWD, DEFAULT_CONVERSATION_SESSION_DIR);
+		const imPathSet = new Set(sessions.filter((s) => s.origin === "im").map((s) => resolve(s.path)));
+		const isImPath = (p: string): boolean => imPathSet.has(resolve(p));
+
+		// 仅检查本次 scope 内的 running session
 		const running = runtime.getRunningSessionPaths();
 		const sessionDirWithSep = `${sessionDir}/`;
-		if (running.some((p) => resolve(p).startsWith(sessionDirWithSep))) {
-			throw new Error("默认项目存在运行中的会话，请先停止后再清空。");
+		const blocking = running.filter((p) => {
+			if (!resolve(p).startsWith(sessionDirWithSep)) return false;
+			return scope === "claw" ? isImPath(p) : !isImPath(p);
+		});
+		if (blocking.length > 0) {
+			throw new Error(
+				scope === "claw"
+					? "存在运行中的 Claw 会话，请先停止后再清空。"
+					: "默认项目存在运行中的会话，请先停止后再清空。",
+			);
 		}
-		// 释放所有指向默认项目的 session handle，避免 rm 时残留文件锁。
+
+		// 释放本 scope 涉及的 session handle
 		const toDispose: string[] = [];
 		for (const [sessionId, cwd] of sessionCwdMap.entries()) {
-			if (resolve(cwd) === defaultCwd) toDispose.push(sessionId);
+			if (resolve(cwd) !== defaultCwd) continue;
+			const p = runtime.getSessionPath(sessionId);
+			if (!p) continue;
+			const match = scope === "claw" ? isImPath(p) : !isImPath(p);
+			if (match) toDispose.push(sessionId);
 		}
 		await Promise.all(
 			toDispose.map(async (sessionId) => {
@@ -349,16 +409,26 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				sessionCwdMap.delete(sessionId);
 			}),
 		);
-		// 递归清空 ~/.vetta/conversation/ 下的全部内容，但保留目录本身。
-		// 同时一并清掉 sessionDir 内容（它就在 cwd 下，会被这一步覆盖）。
+
+		if (scope === "claw") {
+			// 仅删 sessionDir 中 origin==="im" 的 .jsonl
+			try {
+				await Promise.all([...imPathSet].map((p) => rm(p, { force: true })));
+			} catch (err) {
+				console.error("[clear-default-conversation] claw rm failed", err);
+				throw err;
+			}
+			return;
+		}
+
+		// scope === "conversation"：rm cwd 下所有内容，但保留 IM jsonl 的祖先链路
 		try {
-			const entries = await readdir(defaultCwd, { withFileTypes: true });
-			await Promise.all(entries.map((entry) => rm(join(defaultCwd, entry.name), { recursive: true, force: true })));
+			await rmExceptPreserved(defaultCwd, imPathSet);
 		} catch (err) {
 			console.error("[clear-default-conversation] failed to clear conversation cwd", err);
 			throw err;
 		}
-		// 重建 .vetta/sessions/，下一次 createSession 立即可用。
+		// 重建 sessionDir 以便下次 createSession 立即可用
 		await mkdir(sessionDir, { recursive: true });
 	});
 
