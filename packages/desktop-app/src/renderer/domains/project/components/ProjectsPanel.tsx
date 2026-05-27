@@ -403,7 +403,6 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const noOtherProjects =
 		filteredProjects.length === 0 && (!showBatchGroup || batchAsProjects.length === 0);
 
-	const defaultExpanded = defaultProject ? expandedProjects.has(defaultProject.cwd) : false;
 	const defaultSessions = defaultProject ? (sessionsMap.get(defaultProject.cwd) ?? []) : [];
 	const defaultConversationFilter = useAtomValue(defaultConversationFilterAtom);
 
@@ -460,25 +459,6 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						}}
 					>
 						<div className="flex min-w-0 items-center gap-0.5">
-							<button
-								type="button"
-								onClick={() =>
-									defaultExpanded
-										? collapseProject(defaultProject.cwd)
-										: expandProjectAccordion(defaultProject.cwd)
-								}
-								className="flex items-center justify-center rounded-md p-0.5 text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-								title={defaultExpanded ? "折叠" : "展开"}
-							>
-								<span
-									className={cn(
-										"h-3.5 w-3.5 shrink-0",
-										defaultExpanded
-											? "icon-[mdi--folder-open-outline]"
-											: "icon-[mdi--folder-outline]",
-									)}
-								/>
-							</button>
 							<DefaultConversationFilterSelect />
 						</div>
 						<div className="flex items-center">
@@ -511,16 +491,14 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 							)}
 						</div>
 					</div>
-					{defaultExpanded && (
-						<DefaultSessionList
-							cwd={defaultProject.cwd}
-							sessions={defaultSessions}
-							filter={defaultConversationFilter}
-							activeSessionPath={activeSessionPath}
-							onSelectSession={handleDefaultSelectSession}
-							onRenameSession={handleRenameSession}
-						/>
-					)}
+					<DefaultSessionList
+						cwd={defaultProject.cwd}
+						sessions={defaultSessions}
+						filter={defaultConversationFilter}
+						activeSessionPath={activeSessionPath}
+						onSelectSession={handleDefaultSelectSession}
+						onRenameSession={handleRenameSession}
+					/>
 				</div>
 			)}
 			{contextMenu && (
@@ -610,6 +588,12 @@ const DefaultSessionList = memo(function DefaultSessionList({
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
+	const [showAll, setShowAll] = useState(false);
+
+	// 切换 filter（对话/Claw）时收起溢出列表，避免上一个 tab 的展开状态延续到另一个 tab。
+	useEffect(() => {
+		setShowAll(false);
+	}, [filter]);
 
 	if (sorted.length === 0) {
 		return (
@@ -617,9 +601,15 @@ const DefaultSessionList = memo(function DefaultSessionList({
 		);
 	}
 
+	const hasMore = sorted.length > DEFAULT_VISIBLE_DEFAULT_SESSIONS;
+	const visible = showAll
+		? sorted
+		: sorted.slice(0, DEFAULT_VISIBLE_DEFAULT_SESSIONS);
+	const hiddenCount = sorted.length - DEFAULT_VISIBLE_DEFAULT_SESSIONS;
+
 	return (
 		<div className="space-y-px">
-			{sorted.map((session) => {
+			{visible.map((session) => {
 				const isActive = activeSessionPath === session.path;
 				const isRenaming = renamingSessionPath === session.path;
 				const isRunning = runningSessionPaths.has(session.path);
@@ -673,9 +663,26 @@ const DefaultSessionList = memo(function DefaultSessionList({
 					</button>
 				);
 			})}
+			{hasMore && (
+				<button
+					type="button"
+					onClick={() => setShowAll((v) => !v)}
+					className="flex w-full items-center gap-1 rounded-md px-2.5 py-[6px] text-left text-[12px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+				>
+					<span
+						className={cn(
+							showAll ? "icon-[mdi--chevron-up]" : "icon-[mdi--chevron-down]",
+							"h-3.5 w-3.5 shrink-0",
+						)}
+					/>
+					{showAll ? "折叠会话" : `展开更多（${hiddenCount}）`}
+				</button>
+			)}
 		</div>
 	);
 });
+
+const DEFAULT_VISIBLE_DEFAULT_SESSIONS = 5;
 
 function InlineDefaultRenameInput({
 	session,
