@@ -133,8 +133,10 @@ export function NewSessionPage(): JSX.Element {
 				/>
 			</div>
 
-			{/* Scrollable upper area: hero + scenes + skill badges */}
-			<div className="no-drag relative flex flex-1 min-h-0 flex-col items-center overflow-y-auto px-6 pb-2 pt-6">
+			{/* Scrollable upper area: hero + scenes + skill badges.
+			    用 absolute 填满整个容器，使 hero 的居中点固定为视口中心，
+			    InputBar 长高时不会再"顶起" hero。 */}
+			<div className="no-drag absolute inset-0 flex flex-col items-center overflow-y-auto px-6 pb-48 pt-6">
 				<motion.div
 					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 12 }}
@@ -211,8 +213,9 @@ export function NewSessionPage(): JSX.Element {
 				</motion.div>
 			</div>
 
-			{/* Global InputBar — 与 ChatView 共用同一个组件 */}
-			<div className="relative w-full">
+			{/* Global InputBar — 与 ChatView 共用同一个组件。
+			    绝对定位浮在底部，避免长高时把上方 hero 顶起。 */}
+			<div className="absolute inset-x-0 bottom-0 z-10">
 				<InputBar
 					onSend={handleSend}
 					onAbort={abortMessage}
