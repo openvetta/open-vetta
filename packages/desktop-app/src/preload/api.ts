@@ -269,10 +269,6 @@ export interface McpHttpServerConfigData extends McpServerCommonConfigData {
 
 export type McpServerConfigData = McpStdioServerConfigData | McpHttpServerConfigData;
 
-export function isHttpMcpServerConfigData(c: McpServerConfigData): c is McpHttpServerConfigData {
-	return c.type === "http";
-}
-
 export interface McpConfigData {
 	mcpServers: Record<string, McpServerConfigData>;
 }
