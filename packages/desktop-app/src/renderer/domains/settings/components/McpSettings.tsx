@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-	isHttpMcpServerConfigData,
-	type McpConfigData,
-	type McpHttpServerConfigData,
-	type McpServerConfigData,
-	type McpStdioServerConfigData,
+import type {
+	McpConfigData,
+	McpHttpServerConfigData,
+	McpServerConfigData,
+	McpStdioServerConfigData,
 } from "@preload/api.js";
+
+function isHttpMcpServerConfigData(c: McpServerConfigData): c is McpHttpServerConfigData {
+	return c.type === "http";
+}
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
