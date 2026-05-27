@@ -52,45 +52,21 @@ function readStoredAccessToken(): string | undefined {
 	return localStorage.getItem(ACCESS_TOKEN_KEY) ?? undefined;
 }
 
-function readStoredRefreshToken(): string | undefined {
-	return localStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
-}
-
-/**
- * 同步把新 token 落到 localStorage（HTTP 层立即可见）。
- * atom 同步交给 useAuth 的 onTokenRefreshed 监听器（保证 React 树一起更新）。
- */
-function persistRefreshedTokens(accessToken: string, refreshToken: string): void {
-	localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-	localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-	void window.vetta.settings.setServerToken(accessToken);
-	void window.vetta.settings.setServerRefreshToken(refreshToken);
-	notifyTokenRefreshed({ accessToken, refreshToken });
-}
-
 /**
  * 单飞：并发 401 只触发一次 refresh。
- * 返回新的 access token；失败返回 null。
+ * 实现：委托主进程做唯一权威 refresh，避免主/渲染两端同时拿同一个
+ * refresh_token 调 /auth/refresh 触发服务端 reuse-detection 的 revoked 错误。
+ * 主进程成功后会写 settings.json + 广播 `vetta:auth:token-refreshed`，
+ * 渲染层的 localStorage / atom 由顶部的广播订阅 + notifyTokenRefreshed 同步。
  */
 let refreshInFlight: Promise<string | null> | null = null;
 
-async function tryRefreshAccessToken(): Promise<string | null> {
+export async function tryRefreshAccessToken(): Promise<string | null> {
 	if (refreshInFlight) return refreshInFlight;
 	refreshInFlight = (async (): Promise<string | null> => {
-		const refreshToken = readStoredRefreshToken();
-		if (!refreshToken) return null;
 		try {
-			const base = await getApiBase();
-			const res = await fetch(`${base}/auth/refresh`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ refresh_token: refreshToken }),
-			});
-			if (!res.ok) return null;
-			const json = (await res.json()) as ApiResponse<{ access_token: string; refresh_token: string }>;
-			if (json.code !== 0 || !json.data?.access_token || !json.data?.refresh_token) return null;
-			persistRefreshedTokens(json.data.access_token, json.data.refresh_token);
-			return json.data.access_token;
+			const next = await window.vetta.auth.refreshToken();
+			return next ?? null;
 		} catch {
 			return null;
 		}

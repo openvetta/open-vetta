@@ -1,4 +1,5 @@
 import { fetchCurrentUser, logoutOnServer, onTokenRefreshed, onUnauthorized } from "@shared/lib/api";
+import { cancelProactiveRefresh, scheduleProactiveRefresh } from "@shared/lib/token-scheduler";
 import {
 	authTokenAtom,
 	authUserAtom,
@@ -72,6 +73,16 @@ export function useAuth() {
 			setToken(accessToken);
 		});
 	}, [setToken]);
+
+	// 主动刷新：每次 token 变化（含初次挂载、登录、refresh 成功）都重排到下次到期前
+	useEffect(() => {
+		if (!token) {
+			cancelProactiveRefresh();
+			return;
+		}
+		scheduleProactiveRefresh(token);
+		return () => cancelProactiveRefresh();
+	}, [token]);
 
 	// Listen for OAuth callback from main process
 	useEffect(() => {
