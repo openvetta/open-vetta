@@ -492,7 +492,7 @@ const api: DesktopApi = {
 				ipcRenderer.removeListener(CHANNELS.RUNNING_CHANGED, listener);
 			};
 		},
-		clearDefaultConversation: async () => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_CONVERSATION),
+		clearDefaultConversation: async (scope) => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_CONVERSATION, scope),
 		openViewer: async (path) => ipcRenderer.invoke(CHANNELS.VIEWER_OPEN, path),
 		subscribeViewer: async (path, handler) => {
 			const { subscriptionId } = (await ipcRenderer.invoke(CHANNELS.VIEWER_SUBSCRIBE, path)) as {
