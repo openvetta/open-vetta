@@ -75,15 +75,19 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 		let unsub: (() => void) | null = null;
 		void (async () => {
 			try {
-				const snap = await window.vetta.im.subscribeStatus(
+				const unsubFn = await window.vetta.im.subscribeStatus(
 					(s) => setImOnline(s.transport === "online"),
 					() => {},
 				);
 				if (cancelled) {
-					snap();
+					unsubFn();
 					return;
 				}
-				unsub = snap;
+				unsub = unsubFn;
+				// Initial push from subscribeStatus races with our listener
+				// attachment, so fetch once explicitly to seed state.
+				const current = await window.vetta.im.getStatus();
+				if (!cancelled) setImOnline(current.transport === "online");
 			} catch {
 				// ignore; badge stays hidden
 			}
