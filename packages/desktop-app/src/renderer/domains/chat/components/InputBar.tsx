@@ -25,6 +25,7 @@ import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
 import { ActionButtonBar } from "./ActionButtonBar";
+import { SendButton } from "./SendButton";
 import { pathBasename } from "@shared/lib/utils";
 import type { SkillInfo } from "@preload/api";
 
@@ -596,84 +597,6 @@ function Capsule({
 			<span className="max-w-[140px] truncate">{label}</span>
 			<span className="icon-[mdi--close] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
 		</motion.button>
-	);
-}
-
-function SendButton({
-	canSend,
-	isStreaming,
-	onSend,
-	onAbort,
-}: {
-	canSend: boolean;
-	isStreaming: boolean;
-	onSend: () => void;
-	onAbort: () => void;
-}): JSX.Element {
-	return (
-		<AnimatePresence mode="wait" initial={false}>
-			{isStreaming ? (
-				<motion.button
-					key="stop"
-					type="button"
-					onClick={onAbort}
-					initial={{ scale: 0.6, opacity: 0, rotate: -45 }}
-					animate={{ scale: 1, opacity: 1, rotate: 0 }}
-					exit={{ scale: 0.6, opacity: 0, rotate: 45 }}
-					transition={SPRING}
-					whileHover={{ scale: 1.05 }}
-					whileTap={{ scale: 0.92 }}
-					className="relative flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--primary)_60%,transparent)]"
-					title="停止生成"
-				>
-					<motion.span
-						aria-hidden
-						className="absolute inset-0 rounded-full"
-						style={{
-							background: "color-mix(in srgb, var(--primary) 50%, transparent)",
-						}}
-						animate={{ scale: [1, 1.35], opacity: [0, 0.7, 0] }}
-						transition={{
-							duration: 1.4,
-							times: [0, 0.15, 1],
-							repeat: Number.POSITIVE_INFINITY,
-							ease: "easeOut",
-						}}
-					/>
-					<span className="relative h-2.5 w-2.5 rounded-[3px] bg-primary-foreground" />
-				</motion.button>
-			) : (
-				<motion.button
-					key="send"
-					type="button"
-					onClick={onSend}
-					disabled={!canSend}
-					initial={{ scale: 0.6, opacity: 0, rotate: 45 }}
-					animate={{ scale: 1, opacity: 1, rotate: 0 }}
-					exit={{ scale: 0.6, opacity: 0, rotate: -45 }}
-					transition={SPRING}
-					whileHover={canSend ? { scale: 1.05, y: -1 } : undefined}
-					whileTap={canSend ? { scale: 0.92 } : undefined}
-					className="flex h-8 w-8 items-center justify-center rounded-full transition-shadow disabled:cursor-not-allowed"
-					style={{
-						background: canSend
-							? "var(--primary)"
-							: "color-mix(in srgb, var(--muted-foreground) 18%, transparent)",
-						color: canSend ? "var(--primary-foreground)" : "var(--muted-foreground)",
-						boxShadow: canSend
-							? "0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)"
-							: "none",
-					}}
-					title="发送消息"
-				>
-					<motion.span
-						className="icon-[mdi--arrow-up] h-4 w-4"
-						animate={canSend ? { y: [0, -1.5, 0] } : { y: 0 }}
-						transition={{ duration: 1.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-					/>
-				</motion.button>
-			)}
-		</AnimatePresence>
 	);
 }
 
