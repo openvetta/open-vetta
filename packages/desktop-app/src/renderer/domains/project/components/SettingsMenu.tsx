@@ -73,7 +73,7 @@ export function SettingsMenu(): JSX.Element {
 						side="top"
 						align="start"
 						sideOffset={6}
-						className="w-[180px] gap-0 overflow-hidden rounded-lg border border-border bg-[color-mix(in_srgb,var(--popover)_82%,white)] p-1 shadow-xl"
+						className="w-[180px] gap-0 overflow-hidden rounded-lg border border-border p-1"
 						style={{ animation: "none" }}
 					>
 						<motion.div

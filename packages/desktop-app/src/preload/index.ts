@@ -346,25 +346,50 @@ const api: DesktopApi = {
 		setConfig: async (payload) => ipcRenderer.invoke(IM_CHANNELS.SET_CONFIG, payload),
 		getStatus: async () => ipcRenderer.invoke(IM_CHANNELS.GET_STATUS),
 		subscribeStatus: async (statusHandler, logHandler) => {
-			const { subscriptionId } = (await ipcRenderer.invoke(IM_CHANNELS.SUBSCRIBE_STATUS)) as {
-				subscriptionId: string;
-			};
+			// 必须先 attach listener 再 invoke SUBSCRIBE_STATUS：主进程 handler 在同步
+			// 上下文里就会 webContents.send(STATUS_EVENT, initial snapshot)，如果先 await
+			// invoke 再 attach，这条 initial snapshot 会在 listener 未挂载时到达并丢失，
+			// 导致 UI 一直停在初值（看上去桥接没连）。
+			let subscriptionId: string | undefined;
+			type StatusSnap = Parameters<typeof statusHandler>[0];
+			type LogSnap = Parameters<typeof logHandler>[0];
+			const pendingStatus: Array<{ id: string; snap: StatusSnap }> = [];
+			const pendingLog: Array<{ id: string; snap: LogSnap }> = [];
 			const statusListener = (_event: Electron.IpcRendererEvent, incomingId: string, snapshot: unknown) => {
-				if (incomingId === subscriptionId) {
-					statusHandler(snapshot as Parameters<typeof statusHandler>[0]);
+				const snap = snapshot as StatusSnap;
+				if (subscriptionId === undefined) {
+					pendingStatus.push({ id: incomingId, snap });
+					return;
 				}
+				if (incomingId === subscriptionId) statusHandler(snap);
 			};
 			const logListener = (_event: Electron.IpcRendererEvent, incomingId: string, log: unknown) => {
-				if (incomingId === subscriptionId) {
-					logHandler(log as Parameters<typeof logHandler>[0]);
+				const snap = log as LogSnap;
+				if (subscriptionId === undefined) {
+					pendingLog.push({ id: incomingId, snap });
+					return;
 				}
+				if (incomingId === subscriptionId) logHandler(snap);
 			};
 			ipcRenderer.on(IM_CHANNELS.STATUS_EVENT, statusListener);
 			ipcRenderer.on(IM_CHANNELS.LOG_EVENT, logListener);
+			const { subscriptionId: id } = (await ipcRenderer.invoke(IM_CHANNELS.SUBSCRIBE_STATUS)) as {
+				subscriptionId: string;
+			};
+			subscriptionId = id;
+			// drain initial snapshot(s) that arrived before subscriptionId was known
+			for (const { id: incomingId, snap } of pendingStatus) {
+				if (incomingId === id) statusHandler(snap);
+			}
+			for (const { id: incomingId, snap } of pendingLog) {
+				if (incomingId === id) logHandler(snap);
+			}
+			pendingStatus.length = 0;
+			pendingLog.length = 0;
 			return () => {
 				ipcRenderer.removeListener(IM_CHANNELS.STATUS_EVENT, statusListener);
 				ipcRenderer.removeListener(IM_CHANNELS.LOG_EVENT, logListener);
-				void ipcRenderer.invoke(IM_CHANNELS.UNSUBSCRIBE_STATUS, subscriptionId);
+				void ipcRenderer.invoke(IM_CHANNELS.UNSUBSCRIBE_STATUS, id);
 			};
 		},
 		testConnection: async (payload) => ipcRenderer.invoke(IM_CHANNELS.TEST_CONNECTION, payload),
@@ -492,7 +517,7 @@ const api: DesktopApi = {
 				ipcRenderer.removeListener(CHANNELS.RUNNING_CHANGED, listener);
 			};
 		},
-		clearDefaultConversation: async () => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_CONVERSATION),
+		clearDefaultConversation: async (scope) => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_CONVERSATION, scope),
 		openViewer: async (path) => ipcRenderer.invoke(CHANNELS.VIEWER_OPEN, path),
 		subscribeViewer: async (path, handler) => {
 			const { subscriptionId } = (await ipcRenderer.invoke(CHANNELS.VIEWER_SUBSCRIBE, path)) as {
