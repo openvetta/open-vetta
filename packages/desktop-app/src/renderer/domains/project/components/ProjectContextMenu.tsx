@@ -13,10 +13,18 @@ interface ProjectContextMenuProps {
 	onArchive: (cwd: string) => void;
 	onRemove: (cwd: string) => void;
 	onDelete: (cwd: string) => void;
-	/** 默认「对话」项目专用：清空所有会话与产物。其他项目类型不会渲染此项。 */
-	onClearDefault?: (cwd: string) => void;
-	/** 默认项目存在 running 会话时为 true，菜单项置灰。 */
-	clearDefaultDisabled?: boolean;
+	/** 默认「对话」项目专用：左侧 dropdown 当前选中（conversation / claw），决定菜单内容。 */
+	defaultScope?: "conversation" | "claw";
+	/** 默认「对话」项目专用：清空非 IM 会话与产物（保留 claw session 文件）。 */
+	onClearConversation?: (cwd: string) => void;
+	/** 默认「对话」项目专用：仅清空 IM (claw) session 文件。 */
+	onClearClaw?: (cwd: string) => void;
+	/** Claw 设置入口；点击后跳转到 /settings/im。 */
+	onOpenClawSettings?: () => void;
+	/** 当 scope=conversation 且存在非 IM running session 时为 true，菜单项置灰。 */
+	clearConversationDisabled?: boolean;
+	/** 当 scope=claw 且存在 IM running session 时为 true，菜单项置灰。 */
+	clearClawDisabled?: boolean;
 }
 
 export function ProjectContextMenu({
@@ -27,8 +35,12 @@ export function ProjectContextMenu({
 	onArchive,
 	onRemove,
 	onDelete,
-	onClearDefault,
-	clearDefaultDisabled,
+	defaultScope,
+	onClearConversation,
+	onClearClaw,
+	onOpenClawSettings,
+	clearConversationDisabled,
+	clearClawDisabled,
 }: ProjectContextMenuProps): JSX.Element {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const [adjustedPos, setAdjustedPos] = useState({ x, y });
@@ -90,16 +102,16 @@ export function ProjectContextMenu({
 					<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 					{isMac ? "在访达中打开" : "从此电脑打开"}
 				</button>
-				{isDefault && onClearDefault && (
+				{isDefault && defaultScope === "conversation" && onClearConversation && (
 					<>
 						<div className="mx-1.5 my-1 h-px bg-border" />
 						<button
 							type="button"
-							disabled={clearDefaultDisabled}
-							title={clearDefaultDisabled ? "请先停止运行中的会话" : undefined}
+							disabled={clearConversationDisabled}
+							title={clearConversationDisabled ? "请先停止运行中的会话" : undefined}
 							onClick={() => {
-								if (clearDefaultDisabled) return;
-								onClearDefault(project.cwd);
+								if (clearConversationDisabled) return;
+								onClearConversation(project.cwd);
 								onClose();
 							}}
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
@@ -107,6 +119,42 @@ export function ProjectContextMenu({
 							<span className="icon-[mdi--broom] h-3.5 w-3.5" />
 							清空会话
 						</button>
+					</>
+				)}
+				{isDefault && defaultScope === "claw" && (
+					<>
+						{onClearClaw && (
+							<>
+								<div className="mx-1.5 my-1 h-px bg-border" />
+								<button
+									type="button"
+									disabled={clearClawDisabled}
+									title={clearClawDisabled ? "请先停止运行中的 Claw 会话" : undefined}
+									onClick={() => {
+										if (clearClawDisabled) return;
+										onClearClaw(project.cwd);
+										onClose();
+									}}
+									className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
+								>
+									<span className="icon-[mdi--broom] h-3.5 w-3.5" />
+									清空记录
+								</button>
+							</>
+						)}
+						{onOpenClawSettings && (
+							<button
+								type="button"
+								onClick={() => {
+									onOpenClawSettings();
+									onClose();
+								}}
+								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+							>
+								<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
+								Claw 设置
+							</button>
+						)}
 					</>
 				)}
 				{!isDefault && (

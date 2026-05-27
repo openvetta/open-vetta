@@ -94,6 +94,40 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 		});
 	}, [activeNavIndex, width]);
 
+	const [imOnline, setImOnline] = useState(false);
+
+	useEffect(() => {
+		let cancelled = false;
+		let unsub: (() => void) | null = null;
+		void (async () => {
+			try {
+				const unsubFn = await window.vetta.im.subscribeStatus(
+					(s) => setImOnline(s.transport === "online" || s.transport === "connecting"),
+					() => {},
+				);
+				if (cancelled) {
+					unsubFn();
+					return;
+				}
+				unsub = unsubFn;
+				// Initial push from subscribeStatus races with our listener
+				// attachment, so fetch once explicitly to seed state.
+				const current = await window.vetta.im.getStatus();
+				if (!cancelled) setImOnline(current.transport === "online" || current.transport === "connecting");
+			} catch {
+				// ignore; badge stays hidden
+			}
+		})();
+		return () => {
+			cancelled = true;
+			unsub?.();
+		};
+	}, []);
+
+	const onOpenClawSettings = useCallback(() => {
+		void navigate({ to: "/settings/$tab", params: { tab: "im" } });
+	}, [navigate]);
+
 	useEffect(() => {
 		let cancelled = false;
 		void window.vetta.session.listRunning().then((paths) => {
@@ -152,7 +186,21 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 						<SidebarUpdateButton />
 					</div>
 				)}
-				<div className="flex items-center gap-0.5">
+				<div className="flex items-center gap-1">
+					{imOnline && (
+						<button
+							type="button"
+							onClick={onOpenClawSettings}
+							title="Claw 已连接 · 点击打开设置"
+							className="no-drag relative flex h-6 items-center gap-1.5 rounded-full bg-primary/15 px-2 text-[11px] font-medium text-primary transition-colors hover:bg-primary/25"
+						>
+							<span className="relative flex h-1.5 w-1.5">
+								<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-70" />
+								<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+							</span>
+							Claw
+						</button>
+					)}
 					{onCollapse && (
 						<button
 							type="button"
