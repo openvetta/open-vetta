@@ -7,11 +7,11 @@
 
 import { type ChildProcess, spawn } from "child_process";
 import { EventEmitter } from "events";
-import type { McpServerConfig } from "./types.js";
+import type { McpStdioServerConfig } from "./types.js";
 
 export interface McpProcessOptions {
 	/** Server configuration */
-	config: McpServerConfig;
+	config: McpStdioServerConfig;
 	/** Server name (for logging) */
 	name: string;
 	/** Enable debug logging */
@@ -29,7 +29,7 @@ export interface McpProcessOptions {
  */
 export class McpProcess extends EventEmitter {
 	private process: ChildProcess | null = null;
-	private config: McpServerConfig;
+	private config: McpStdioServerConfig;
 	private name: string;
 	private debug: boolean;
 	private startupTimeout: number;

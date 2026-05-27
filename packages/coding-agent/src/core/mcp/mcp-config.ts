@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { CONFIG_DIR_NAME, getAgentDir } from "../../config.js";
-import type { McpConfig, McpServerConfig } from "./types.js";
+import { isHttpServerConfig, type McpConfig, type McpServerConfig } from "./types.js";
 
 /**
  * Load MCP configuration from global and project locations
@@ -125,7 +125,19 @@ export class McpConfigLoader {
 	 * Process a single server configuration
 	 */
 	private processServerConfig(config: McpServerConfig): McpServerConfig {
-		const processed: McpServerConfig = {
+		if (isHttpServerConfig(config)) {
+			return {
+				...config,
+				url: this.replaceVariables(config.url),
+				headers: config.headers
+					? Object.fromEntries(
+							Object.entries(config.headers).map(([key, value]) => [key, this.replaceVariables(value)]),
+						)
+					: undefined,
+			};
+		}
+
+		return {
 			...config,
 			command: this.replaceVariables(config.command),
 			args: config.args?.map((arg) => this.replaceVariables(arg)),
@@ -134,8 +146,6 @@ export class McpConfigLoader {
 				? Object.fromEntries(Object.entries(config.env).map(([key, value]) => [key, this.replaceVariables(value)]))
 				: undefined,
 		};
-
-		return processed;
 	}
 
 	/**
@@ -188,20 +198,34 @@ export class McpConfigLoader {
 			throw new Error(`Invalid server config for '${name}': must be an object`);
 		}
 
-		if (!config.command || typeof config.command !== "string") {
-			throw new Error(`Invalid server config for '${name}': missing or invalid 'command'`);
+		const type = config.type ?? "stdio";
+		if (type !== "stdio" && type !== "http") {
+			throw new Error(`Invalid server config for '${name}': 'type' must be "stdio" or "http"`);
 		}
 
-		if (config.args !== undefined && !Array.isArray(config.args)) {
-			throw new Error(`Invalid server config for '${name}': 'args' must be an array`);
-		}
+		if (type === "http") {
+			if (!config.url || typeof config.url !== "string") {
+				throw new Error(`Invalid server config for '${name}': missing or invalid 'url'`);
+			}
+			if (config.headers !== undefined && (typeof config.headers !== "object" || Array.isArray(config.headers))) {
+				throw new Error(`Invalid server config for '${name}': 'headers' must be an object`);
+			}
+		} else {
+			if (!config.command || typeof config.command !== "string") {
+				throw new Error(`Invalid server config for '${name}': missing or invalid 'command'`);
+			}
 
-		if (config.env !== undefined && typeof config.env !== "object") {
-			throw new Error(`Invalid server config for '${name}': 'env' must be an object`);
-		}
+			if (config.args !== undefined && !Array.isArray(config.args)) {
+				throw new Error(`Invalid server config for '${name}': 'args' must be an array`);
+			}
 
-		if (config.cwd !== undefined && typeof config.cwd !== "string") {
-			throw new Error(`Invalid server config for '${name}': 'cwd' must be a string`);
+			if (config.env !== undefined && typeof config.env !== "object") {
+				throw new Error(`Invalid server config for '${name}': 'env' must be an object`);
+			}
+
+			if (config.cwd !== undefined && typeof config.cwd !== "string") {
+				throw new Error(`Invalid server config for '${name}': 'cwd' must be a string`);
+			}
 		}
 
 		if (config.disabled !== undefined && typeof config.disabled !== "boolean") {

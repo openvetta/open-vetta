@@ -2,6 +2,7 @@
 
 ### Added
 
+- **MCP HTTP transport 支持**：`McpServerConfig` 改为 stdio/http 联合类型。`type: "http"` 配置走 `@modelcontextprotocol/sdk` 的 `StreamableHTTPClientTransport`，支持 `url` 和可选 `headers`（含 `${VAR}` 替换）。原 stdio 配置（带 `command`）行为不变，`type` 字段缺省即视为 stdio。配置示例：`{ "exa": { "type": "http", "url": "https://mcp.exa.ai/mcp" } }`。
 - Added `glob` tool for default file name glob searches using ripgrep-backed matching.
 - Added `grep` to the default coding tool set for content searches.
 
