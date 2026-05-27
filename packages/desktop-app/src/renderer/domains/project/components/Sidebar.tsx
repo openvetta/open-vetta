@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
+import { motion } from "motion/react";
 import {
 	activeSessionAtom,
 	defaultConversationCwdAtom,
@@ -32,6 +33,13 @@ interface SidebarProps {
 	onCollapse?: () => void;
 }
 
+interface NavIndicatorBounds {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+}
+
 export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Element {
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
@@ -40,6 +48,8 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const currentPath = lastMatch?.pathname ?? "/";
 	const activeSession = useAtomValue(activeSessionAtom);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const navItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+	const [navIndicatorBounds, setNavIndicatorBounds] = useState<NavIndicatorBounds | null>(null);
 
 	// 「新对话」按钮目标 cwd 解析顺序：
 	//   1. 当前路由参数 cwd（/project/$cwd 或 /new-session/$cwd）
@@ -68,6 +78,21 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const widthRef = useRef(width);
 	widthRef.current = width;
 	const setRunningSessionPaths = useSetAtom(runningSessionPathsAtom);
+	const activeNavIndex = NAV_ITEMS.findIndex((item) => item.path === currentPath);
+
+	useLayoutEffect(() => {
+		const activeElement = navItemRefs.current[activeNavIndex];
+		if (!activeElement) {
+			setNavIndicatorBounds(null);
+			return;
+		}
+		setNavIndicatorBounds({
+			left: activeElement.offsetLeft,
+			top: activeElement.offsetTop,
+			width: activeElement.offsetWidth,
+			height: activeElement.offsetHeight,
+		});
+	}, [activeNavIndex, width]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -76,7 +101,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 			setRunningSessionPaths(new Set(paths));
 		});
 		const unsubscribe = window.vetta.session.onRunningChanged(({ sessionPath, running }) => {
-			setRunningSessionPaths((prev) => {
+			setRunningSessionPaths((prev: Set<string>) => {
 				const had = prev.has(sessionPath);
 				if (running && had) return prev;
 				if (!running && !had) return prev;
@@ -142,32 +167,51 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 			</div>
 
 			{/* Page nav entries */}
-			<nav className="flex flex-col gap-0.5 px-1.5 pb-2 pt-2">
+			<nav className="relative flex flex-col gap-0.5 px-1.5 pb-2 pt-2">
+				{navIndicatorBounds && (
+					<motion.span
+						className="pointer-events-none absolute rounded-md bg-primary shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)]"
+						initial={false}
+						animate={{
+							left: navIndicatorBounds.left,
+							top: navIndicatorBounds.top,
+							width: navIndicatorBounds.width,
+							height: navIndicatorBounds.height,
+						}}
+						transition={{ type: "spring", stiffness: 430, damping: 28, mass: 0.75 }}
+					/>
+				)}
 				<button
 					type="button"
 					onClick={onNewChat}
 					disabled={!newChatCwd}
 					title="新对话"
-					className="no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+					className="no-drag relative flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<span className="icon-[mdi--square-edit-outline] h-4 w-4 shrink-0" />
 					新对话
 				</button>
-				{NAV_ITEMS.map(({ path, label, icon }) => (
-					<button
-						key={path}
-						type="button"
-						onClick={() => void navigate({ to: path })}
-						className={`no-drag flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
-							currentPath === path
-								? "bg-primary font-medium text-primary-foreground shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)]"
-								: "text-foreground hover:bg-accent"
-						}`}
-					>
-						<span className={`${icon} h-4 w-4 shrink-0`} />
-						{label}
-					</button>
-				))}
+				{NAV_ITEMS.map(({ path, label, icon }, index) => {
+					const active = currentPath === path;
+					return (
+						<button
+							key={path}
+							ref={(element) => {
+								navItemRefs.current[index] = element;
+							}}
+							type="button"
+							onClick={() => void navigate({ to: path })}
+							className={`no-drag relative flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+								active
+									? "font-medium text-primary-foreground"
+									: "text-foreground hover:bg-accent"
+							}`}
+						>
+							<span className={`${icon} relative z-10 h-4 w-4 shrink-0`} />
+							<span className="relative z-10">{label}</span>
+						</button>
+					);
+				})}
 			</nav>
 
 			{/* Section header: filter dropdown on the left, 新建项目 icon button on the right.
