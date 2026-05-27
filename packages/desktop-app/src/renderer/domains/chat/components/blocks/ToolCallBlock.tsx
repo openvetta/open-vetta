@@ -75,9 +75,15 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 						</span>
 					)}
 					<span className="shrink-0 font-medium text-foreground/70">{name}</span>
-					{detail && <span className="min-w-0 truncate text-muted-foreground/40">{detail}</span>}
+					{detail && (
+						<span className={`min-w-0 truncate text-muted-foreground/40 ${isPending ? "tool-call-shimmer-text" : ""}`}>
+							{detail}
+						</span>
+					)}
 					{isPending && block.currentPhase && (
-						<span className="min-w-0 truncate italic text-muted-foreground/50">— {block.currentPhase}</span>
+						<span className="tool-call-shimmer-text min-w-0 truncate italic text-muted-foreground/50">
+							— {block.currentPhase}
+						</span>
 					)}
 				</div>
 
