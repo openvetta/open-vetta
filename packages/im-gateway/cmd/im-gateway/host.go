@@ -171,9 +171,13 @@ func runHostWithIO(opts hostOptions) int {
 	tCtx, tCancel := context.WithCancel(context.Background())
 	var transportDone chan error
 	startTransport := func(t transport.Transport) {
+		// Emit "connecting" synchronously before spawning the start
+		// goroutine. Emitting from inside the goroutine races with the
+		// caller's subsequent "online" emit and can leave the renderer
+		// stuck on "connecting" if the goroutine is scheduled after.
+		emitStatus(hostproto.TransportStatusConnecting, "")
 		transportDone = make(chan error, 1)
 		go func(t transport.Transport, ctx context.Context, done chan error) {
-			emitStatus(hostproto.TransportStatusConnecting, "")
 			done <- t.Start(ctx, r)
 		}(t, tCtx, transportDone)
 	}
