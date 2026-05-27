@@ -34,7 +34,9 @@ export function BashTerminalCard({
 					}`}
 					style={isPending ? { animation: "pulse 1.5s infinite" } : undefined}
 				/>
-				<span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70">{headerLabel}</span>
+				<span className={`min-w-0 flex-1 truncate text-[11px] text-muted-foreground/70 ${isPending ? "tool-call-shimmer-text" : ""}`}>
+					{headerLabel}
+				</span>
 				<div className="opacity-0 transition-opacity group-hover/term:opacity-100">
 					<CopyIconButton getText={() => command} label="复制命令" />
 				</div>
@@ -64,7 +66,7 @@ export function BashTerminalCard({
 			{isPending ? (
 				<div className="flex items-center gap-1.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] italic text-muted-foreground/55">
 					<span className="icon-[mdi--loading] h-3 w-3 animate-spin" />
-					<span>正在执行···</span>
+					<span className="tool-call-shimmer-text">正在执行···</span>
 				</div>
 			) : startedAt !== undefined ? (
 				<div

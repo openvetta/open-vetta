@@ -141,7 +141,7 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 				<span className="flex h-5 min-w-5 items-center justify-center rounded bg-muted px-1.5 text-[11px] font-medium text-muted-foreground/60">
 					{blocks.length}
 				</span>
-				<span className="text-[12px] text-muted-foreground/50">
+				<span className={`text-[12px] text-muted-foreground/50 ${allDone ? "" : "tool-call-shimmer-text"}`}>
 					{getSummary()}
 				</span>
 			</button>

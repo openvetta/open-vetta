@@ -52,6 +52,9 @@
 	--shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
 		0px 8px 10px -1px hsl(0 0% 0% / 0.18);
 	--shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
+
+	--tool-call-shimmer-base: rgb(255 255 255 / 0.45);
+	--tool-call-shimmer-peak: rgb(255 255 255 / 0.95);
 }
 
 /* ─── Light mode ─── */
@@ -96,6 +99,9 @@
 	--shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
 		0px 8px 10px -1px hsl(0 0% 0% / 0.18);
 	--shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
+
+	--tool-call-shimmer-base: rgb(255 255 255 / 0.55);
+	--tool-call-shimmer-peak: rgb(255 255 255 / 0.9);
 }
 
 @theme inline {
@@ -402,6 +408,31 @@ a {
 	100% {
 		opacity: 0;
 	}
+}
+
+@keyframes tool-call-text-shimmer {
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
+}
+
+.tool-call-shimmer-text {
+	background: linear-gradient(
+		90deg,
+		var(--tool-call-shimmer-base) 0%,
+		var(--tool-call-shimmer-base) 42%,
+		var(--tool-call-shimmer-peak) 50%,
+		var(--tool-call-shimmer-base) 58%,
+		var(--tool-call-shimmer-base) 100%
+	);
+	background-size: 220% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: tool-call-text-shimmer 3.2s linear infinite;
 }
 
 /* Streaming state: calm indigo breathing glow.
