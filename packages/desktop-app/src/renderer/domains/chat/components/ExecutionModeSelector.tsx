@@ -1,6 +1,8 @@
 import { activeSessionAtom, isStreamingAtom, sessionExecutionModeAtom, type SessionExecutionMode } from "@shared/store/atoms";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { cn } from "@shared/lib/utils";
 import { useAtom, useAtomValue } from "jotai";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const MODE_OPTIONS: Array<{
@@ -23,10 +25,16 @@ const MODE_OPTIONS: Array<{
 	},
 ];
 
+const itemVariants = {
+	hidden: { opacity: 0, x: -12 },
+	show: { opacity: 1, x: 0 },
+};
+
 export function ExecutionModeSelector(): JSX.Element {
 	const activeSession = useAtomValue(activeSessionAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const [mode, setMode] = useAtom(sessionExecutionModeAtom);
+	const [open, setOpen] = useState(false);
 	const [isSwitching, setIsSwitching] = useState(false);
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 	const disabled = !activeSession || isStreaming || isSwitching;
@@ -61,6 +69,8 @@ export function ExecutionModeSelector(): JSX.Element {
 		[sandboxUnavailableReason],
 	);
 
+	const selectedOption = modeOptions.find((option) => option.mode === mode) ?? modeOptions[0];
+
 	const handleSelect = useCallback(
 		async (nextMode: SessionExecutionMode) => {
 			if (!activeSession || disabled || nextMode === mode) return;
@@ -84,30 +94,79 @@ export function ExecutionModeSelector(): JSX.Element {
 
 	return (
 		<div className="ml-1 min-w-0">
-			<Select value={mode} onValueChange={(value) => void handleSelect(value as SessionExecutionMode)} disabled={disabled}>
-				<SelectTrigger
-					size="sm"
-					className="h-7 max-w-full min-w-0 border-border/70 bg-background/50 px-2 text-[12px] text-muted-foreground hover:text-foreground [&>span]:truncate"
-				>
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					{modeOptions.map((option) => (
-						<SelectItem
-							key={option.mode}
-							value={option.mode}
-							title={option.title}
-							className="text-[12px]"
-							disabled={option.disabled}
+			<Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
+				<PopoverTrigger asChild>
+					<button
+						type="button"
+						disabled={disabled}
+						title={selectedOption.title}
+						className={cn(
+							"no-drag flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-40",
+							open
+								? "bg-accent text-foreground"
+								: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+						)}
+					>
+						<span className={cn(selectedOption.icon, "h-3.5 w-3.5 shrink-0")} />
+						<span className="truncate">{selectedOption.label}</span>
+					</button>
+				</PopoverTrigger>
+				<AnimatePresence>
+					{open && (
+						<PopoverContent
+							forceMount
+							asChild
+							side="top"
+							align="start"
+							sideOffset={6}
+							className="w-[148px] gap-0 overflow-hidden rounded-lg border border-border bg-[color-mix(in_srgb,var(--popover)_82%,white)] p-1 shadow-xl"
+							style={{ animation: "none" }}
 						>
-							<span className="inline-flex items-center gap-1.5">
-								<span className={`${option.icon} h-3.5 w-3.5`} />
-								<span>{option.label}</span>
-							</span>
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+							<motion.div
+								initial={{ opacity: 0, scale: 0.96, y: 8 }}
+								animate={{ opacity: 1, scale: 1, y: 0 }}
+								exit={{ opacity: 0, scale: 0.96, y: 8 }}
+								transition={{ duration: 0.1, ease: [0.16, 1, 0.3, 1] }}
+							>
+								<motion.div
+									variants={{
+										hidden: {},
+										show: { transition: { staggerChildren: 0.025, delayChildren: 0.02 } },
+									}}
+									initial="hidden"
+									animate="show"
+								>
+									{modeOptions.map((option) => (
+										<motion.div key={option.mode} variants={itemVariants}>
+											<button
+												type="button"
+												title={option.title}
+												disabled={option.disabled}
+												onClick={() => {
+													setOpen(false);
+													void handleSelect(option.mode);
+												}}
+												className={cn(
+													"flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45",
+													mode === option.mode
+														? "bg-accent text-foreground"
+														: "text-foreground hover:bg-accent",
+												)}
+											>
+												<span className={cn(option.icon, "h-3.5 w-3.5 shrink-0")} />
+												<span className="truncate">{option.label}</span>
+												{mode === option.mode && (
+													<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5 text-primary" />
+												)}
+											</button>
+										</motion.div>
+									))}
+								</motion.div>
+							</motion.div>
+						</PopoverContent>
+					)}
+				</AnimatePresence>
+			</Popover>
 		</div>
 	);
 }
