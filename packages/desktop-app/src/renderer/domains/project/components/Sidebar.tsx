@@ -40,6 +40,15 @@ interface NavIndicatorBounds {
 	height: number;
 }
 
+function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
+	return {
+		left: element.offsetLeft,
+		top: element.offsetTop,
+		width: element.offsetWidth,
+		height: element.offsetHeight,
+	};
+}
+
 export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Element {
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
@@ -50,6 +59,8 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
 	const navItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 	const [navIndicatorBounds, setNavIndicatorBounds] = useState<NavIndicatorBounds | null>(null);
+	const [hoverNavIndicatorBounds, setHoverNavIndicatorBounds] =
+		useState<NavIndicatorBounds | null>(null);
 
 	// 「新对话」按钮目标 cwd 解析顺序：
 	//   1. 当前路由参数 cwd（/project/$cwd 或 /new-session/$cwd）
@@ -86,12 +97,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 			setNavIndicatorBounds(null);
 			return;
 		}
-		setNavIndicatorBounds({
-			left: activeElement.offsetLeft,
-			top: activeElement.offsetTop,
-			width: activeElement.offsetWidth,
-			height: activeElement.offsetHeight,
-		});
+		setNavIndicatorBounds(getNavIndicatorBounds(activeElement));
 	}, [activeNavIndex, width]);
 
 	const [imOnline, setImOnline] = useState(false);
@@ -215,10 +221,26 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 			</div>
 
 			{/* Page nav entries */}
-			<nav className="relative flex flex-col gap-0.5 px-1.5 pb-2 pt-2">
+			<nav
+				className="relative flex flex-col gap-0.5 px-1.5 pb-2 pt-2"
+				onMouseLeave={() => setHoverNavIndicatorBounds(null)}
+			>
+				{hoverNavIndicatorBounds && (
+					<motion.span
+						className="pointer-events-none absolute z-0 rounded-md bg-accent"
+						initial={false}
+						animate={{
+							left: hoverNavIndicatorBounds.left,
+							top: hoverNavIndicatorBounds.top,
+							width: hoverNavIndicatorBounds.width,
+							height: hoverNavIndicatorBounds.height,
+						}}
+						transition={{ type: "tween", duration: 0.08, ease: "easeOut" }}
+					/>
+				)}
 				{navIndicatorBounds && (
 					<motion.span
-						className="pointer-events-none absolute rounded-md bg-primary shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)]"
+						className="pointer-events-none absolute z-10 rounded-md bg-primary shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)]"
 						initial={false}
 						animate={{
 							left: navIndicatorBounds.left,
@@ -234,7 +256,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 					onClick={onNewChat}
 					disabled={!newChatCwd}
 					title="新对话"
-					className="no-drag relative flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+					className="no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<span className="icon-[mdi--square-edit-outline] h-4 w-4 shrink-0" />
 					新对话
@@ -249,10 +271,13 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 							}}
 							type="button"
 							onClick={() => void navigate({ to: path })}
-							className={`no-drag relative flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+							onMouseEnter={(event) =>
+								setHoverNavIndicatorBounds(getNavIndicatorBounds(event.currentTarget))
+							}
+							className={`no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 								active
 									? "font-medium text-primary-foreground"
-									: "text-foreground hover:bg-accent"
+									: "text-foreground"
 							}`}
 						>
 							<span className={`${icon} relative z-10 h-4 w-4 shrink-0`} />
