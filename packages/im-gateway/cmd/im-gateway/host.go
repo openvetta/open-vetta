@@ -18,6 +18,7 @@ import (
 	"vetta-im-gateway/internal/transport"
 	"vetta-im-gateway/internal/transport/feishu"
 	"vetta-im-gateway/internal/transport/wechat"
+	"vetta-im-gateway/internal/transport/wechat/ilink"
 )
 
 // transportBuilder constructs a transport.Transport from the active
@@ -311,8 +312,27 @@ loop:
 			shutdownReason = "stdin error"
 			break loop
 		case err := <-transportDone:
-			trErr = err
 			transportDone = nil
+			// wechat session timeout (-14) is recoverable: the bot token is
+			// dead but the user can rescan. Clear the persisted credentials,
+			// drop back to a placeholder + awaiting_bind, and keep the
+			// sidecar alive so the next wechat_bind_start works.
+			if err != nil && errors.Is(err, ilink.ErrSessionTimeout) && hostState.wcoord != nil {
+				emitLog("warn", "wechat session expired, awaiting re-bind", map[string]any{"err": err.Error()})
+				if clearErr := hostState.wcoord.LogoutAndClear("session timeout"); clearErr != nil {
+					emitLog("error", "wechat clear after session timeout failed", map[string]any{"err": clearErr.Error()})
+				}
+				tCancel()
+				_ = tr.Stop()
+				newCtx, newCancel := context.WithCancel(context.Background())
+				tCtx = newCtx
+				tCancel = newCancel
+				tr = newPlaceholderTransport()
+				r.SetTransport(tr)
+				emitStatus(hostproto.TransportStatusAwaitingBind, "")
+				continue
+			}
+			trErr = err
 			if err != nil && !errors.Is(err, context.Canceled) {
 				emitLog("error", "transport stopped with error", map[string]any{"err": err.Error()})
 				emitStatus(hostproto.TransportStatusError, err.Error())
