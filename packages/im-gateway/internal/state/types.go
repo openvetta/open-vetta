@@ -7,27 +7,32 @@ import (
 
 // Schema version. Bump when RouterState fields change in an incompatible way
 // and add a migration path in Store.Load.
-const CurrentVersion = 1
+const CurrentVersion = 2
 
 // RouterState is the gateway's persistent routing table — a flat map from
-// (im_user, project) to the agent session that should handle messages for
+// (im_user, chatID) to the agent session that should handle messages for
 // that pair.
+//
+// All sessions live in desktop-app's default "对话" cwd; the gateway no
+// longer routes per project. ChatID is the platform-native conversation id
+// (feishu open_chat_id, wechat chat id, ...). Same user in private chat vs
+// a group gets two independent sessions.
 //
 // Note: this state intentionally does NOT contain any conversation content.
 // The agent's session manager owns the .jsonl files; the gateway only
-// remembers which file belongs to which user/project pair, so it can
+// remembers which file belongs to which user/chat pair, so it can
 // reattach after restart.
 type RouterState struct {
 	Version  int                     `json:"version"`
-	Sessions map[string]SessionEntry `json:"sessions"` // key = SessionKey(userID, projectID)
+	Sessions map[string]SessionEntry `json:"sessions"` // key = SessionKey(userID, chatID)
 }
 
-// SessionEntry is one mapping from (user, project) to a concrete session
+// SessionEntry is one mapping from (user, chat) to a concrete session
 // file. Persisted in state.json under a key derived from the user and
-// project IDs.
+// chat IDs.
 type SessionEntry struct {
 	UserID      string    `json:"userId"`
-	ProjectID   string    `json:"projectId"`
+	ChatID      string    `json:"chatId"`
 	SessionPath string    `json:"sessionPath"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
@@ -48,9 +53,9 @@ type Store interface {
 	// mutex.
 	Save(ctx context.Context, state RouterState) error
 
-	// GetSession looks up the current session entry for a (user, project)
+	// GetSession looks up the current session entry for a (user, chat)
 	// pair. Returns false if no entry exists.
-	GetSession(ctx context.Context, userID, projectID string) (SessionEntry, bool, error)
+	GetSession(ctx context.Context, userID, chatID string) (SessionEntry, bool, error)
 
 	// SetSession upserts a session entry and persists the new state.
 	SetSession(ctx context.Context, entry SessionEntry) error
@@ -58,6 +63,6 @@ type Store interface {
 
 // SessionKey is the canonical key used to index Sessions in RouterState.
 // Exported so tests and migration tools can use it.
-func SessionKey(userID, projectID string) string {
-	return userID + "::" + projectID
+func SessionKey(userID, chatID string) string {
+	return userID + "::" + chatID
 }

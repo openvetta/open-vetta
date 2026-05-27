@@ -22,6 +22,10 @@ const CHANNELS = {
 	WECHAT_SUBSCRIBE: "vetta:im:wechat:subscribe",
 	WECHAT_UNSUBSCRIBE: "vetta:im:wechat:unsubscribe",
 	WECHAT_BIND_EVENT: "vetta:im:wechat:bind-event",
+	// Fire-and-forget broadcast: "something in the IM routing table
+	// changed, you may want to refresh." No payload, no subscription
+	// handshake — every webContents that wants it just listens.
+	SESSION_CHANGED: "vetta:im:session-changed",
 } as const;
 
 interface SubscriptionEntry {
@@ -36,6 +40,15 @@ let wechatCounter = 0;
 
 export function registerImIpc(webContents: WebContents): () => void {
 	const host = getImHost();
+
+	// Broadcast a "session list changed" ping after every sidecar
+	// state_patch so the renderer's sidebar can refresh without a manual
+	// reload. Lives outside the SUBSCRIBE_STATUS handshake on purpose:
+	// the renderer hooks this in App boot and never unsubscribes.
+	const sessionChangeUnsub = host.subscribeStateChange(() => {
+		if (webContents.isDestroyed()) return;
+		webContents.send(CHANNELS.SESSION_CHANGED);
+	});
 
 	ipcMain.handle(CHANNELS.GET_CONFIG, () => {
 		return host.getPublicConfig();
@@ -158,6 +171,7 @@ export function registerImIpc(webContents: WebContents): () => void {
 	});
 
 	return () => {
+		sessionChangeUnsub();
 		ipcMain.removeHandler(CHANNELS.GET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.SET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.GET_STATUS);

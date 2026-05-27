@@ -58,7 +58,7 @@ func (s *FileStore) Save(_ context.Context, state RouterState) error {
 
 // GetSession looks up a session entry. Loads from disk if the cache has not
 // been primed.
-func (s *FileStore) GetSession(ctx context.Context, userID, projectID string) (SessionEntry, bool, error) {
+func (s *FileStore) GetSession(ctx context.Context, userID, chatID string) (SessionEntry, bool, error) {
 	s.mu.Lock()
 	if !s.dirty {
 		s.mu.Unlock()
@@ -68,7 +68,7 @@ func (s *FileStore) GetSession(ctx context.Context, userID, projectID string) (S
 		s.mu.Lock()
 	}
 	defer s.mu.Unlock()
-	entry, ok := s.cache.Sessions[SessionKey(userID, projectID)]
+	entry, ok := s.cache.Sessions[SessionKey(userID, chatID)]
 	return entry, ok, nil
 }
 
@@ -93,7 +93,7 @@ func (s *FileStore) SetSession(ctx context.Context, entry SessionEntry) error {
 		s.cache.Sessions = make(map[string]SessionEntry)
 	}
 	entry.UpdatedAt = time.Now().UTC()
-	s.cache.Sessions[SessionKey(entry.UserID, entry.ProjectID)] = entry
+	s.cache.Sessions[SessionKey(entry.UserID, entry.ChatID)] = entry
 	return s.saveLocked(s.cache)
 }
 
@@ -143,8 +143,15 @@ func (s *FileStore) saveLocked(state RouterState) error {
 }
 
 // readStateFile loads RouterState from disk. Returns an empty state when
-// the file does not exist (this is the first-run case). Returns an error
-// for malformed files.
+// the file does not exist (this is the first-run case) or when the file
+// is in the legacy (userID, projectID) format. Returns an error for
+// malformed files.
+//
+// Legacy detection: pre-v2 files use a different routing key (projectId
+// instead of chatId) and the entries reference sessionPaths rooted under
+// per-project cwds. There is no useful migration — the new model collapses
+// every IM session into the default "对话" cwd, which is a different
+// directory entirely. We drop the file and start fresh.
 func readStateFile(path string) (RouterState, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -152,6 +159,14 @@ func readStateFile(path string) (RouterState, error) {
 			return RouterState{Version: CurrentVersion, Sessions: make(map[string]SessionEntry)}, nil
 		}
 		return RouterState{}, fmt.Errorf("read state %s: %w", path, err)
+	}
+	// Probe the version field before full unmarshal so we can recognize the
+	// legacy schema without forcing struct compatibility.
+	var probe struct {
+		Version int `json:"version"`
+	}
+	if err := json.Unmarshal(raw, &probe); err == nil && probe.Version != 0 && probe.Version < CurrentVersion {
+		return RouterState{Version: CurrentVersion, Sessions: make(map[string]SessionEntry)}, nil
 	}
 	var state RouterState
 	if err := json.Unmarshal(raw, &state); err != nil {

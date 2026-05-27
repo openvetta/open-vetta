@@ -57,6 +57,22 @@ export interface DesktopSessionApi {
 	 * 主进程会先 dispose 所有指向该 cwd 的 session handle；若存在运行中会话则抛错拒绝。
 	 */
 	clearDefaultConversation(): Promise<void>;
+	/**
+	 * Open a session for read-only viewing. Does NOT acquire the
+	 * session-file lock, so IM-owned sessions (sidecar may be actively
+	 * writing) can be viewed live without conflict. Returns initial
+	 * HistoryEntry[] plus the SessionHeader.origin tag.
+	 */
+	openViewer(path: string): Promise<{ history: HistoryEntry[]; origin?: "im" | "desktop" }>;
+	/**
+	 * Subscribe to live updates for a viewer-mode session. Handler fires
+	 * whenever the underlying .jsonl is written. Returns an unsubscribe
+	 * function — caller MUST call it on unmount to release the fs.watch.
+	 */
+	subscribeViewer(
+		path: string,
+		handler: (snapshot: { history: HistoryEntry[]; origin?: "im" | "desktop" }) => void,
+	): Promise<() => void>;
 }
 
 export interface SelectedImageFile {
@@ -780,6 +796,11 @@ export interface DesktopImApi {
 	getPaths(): Promise<ImPathInfo>;
 	detectLegacy(): Promise<ImLegacyDetection>;
 	importLegacy(detection: ImLegacyDetection): Promise<{ ok: boolean; error?: string }>;
+	/** Subscribe to "IM routing table changed" pings emitted by the sidecar's
+	 * state_patch events. Renderer uses this to refresh the sidebar's
+	 * default "对话" project session list without manual reload. Returns
+	 * an unsubscribe function. */
+	onSessionChanged(handler: () => void): () => void;
 	/** Wechat (iLink) bind flow. See ImWechatApi. */
 	wechat: ImWechatApi;
 }

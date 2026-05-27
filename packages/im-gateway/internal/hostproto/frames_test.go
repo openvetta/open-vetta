@@ -10,7 +10,7 @@ import (
 )
 
 func TestDecodeInbound_Init(t *testing.T) {
-	line := []byte(`{"type":"init","feishu":{"appId":"a","appSecret":"s"},"projects":[{"path":"/x","name":"X"}],"state":[{"userId":"u","projectId":"p","sessionPath":"/s.jsonl"}],"logLevel":"info"}`)
+	line := []byte(`{"type":"init","feishu":{"appId":"a","appSecret":"s"},"conversationCwd":"/home/u/.vetta/conversation","state":[{"userId":"u","chatId":"c","sessionPath":"/s.jsonl"}],"logLevel":"info"}`)
 	v, err := DecodeInbound(line)
 	if err != nil {
 		t.Fatalf("decode: %v", err)
@@ -22,10 +22,10 @@ func TestDecodeInbound_Init(t *testing.T) {
 	if init.Feishu == nil || init.Feishu.AppID != "a" || init.Feishu.AppSecret != "s" {
 		t.Errorf("feishu mismatch: %+v", init.Feishu)
 	}
-	if len(init.Projects) != 1 || init.Projects[0].Path != "/x" {
-		t.Errorf("projects mismatch: %+v", init.Projects)
+	if init.ConversationCwd != "/home/u/.vetta/conversation" {
+		t.Errorf("conversationCwd mismatch: %q", init.ConversationCwd)
 	}
-	if len(init.State) != 1 || init.State[0].SessionPath != "/s.jsonl" {
+	if len(init.State) != 1 || init.State[0].SessionPath != "/s.jsonl" || init.State[0].ChatID != "c" {
 		t.Errorf("state mismatch: %+v", init.State)
 	}
 	if init.LogLevel != "info" {
@@ -48,21 +48,6 @@ func TestDecodeInbound_ConfigUpdate(t *testing.T) {
 	}
 }
 
-func TestDecodeInbound_ProjectsUpdate(t *testing.T) {
-	line := []byte(`{"type":"projects_update","projects":[{"path":"/a"},{"path":"/b","name":"B"}]}`)
-	v, err := DecodeInbound(line)
-	if err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	p, ok := v.(*ProjectsUpdateFrame)
-	if !ok {
-		t.Fatalf("type: %T", v)
-	}
-	if len(p.Projects) != 2 {
-		t.Errorf("len: %d", len(p.Projects))
-	}
-}
-
 func TestDecodeInbound_Shutdown(t *testing.T) {
 	line := []byte(`{"type":"shutdown"}`)
 	v, err := DecodeInbound(line)
@@ -75,7 +60,7 @@ func TestDecodeInbound_Shutdown(t *testing.T) {
 }
 
 func TestDecodeInbound_InitWechat(t *testing.T) {
-	line := []byte(`{"type":"init","wechat":{"enabled":true,"statePath":"/tmp/wx.json"},"projects":[],"state":[]}`)
+	line := []byte(`{"type":"init","wechat":{"enabled":true,"statePath":"/tmp/wx.json"},"conversationCwd":"/c","state":[]}`)
 	v, err := DecodeInbound(line)
 	if err != nil {
 		t.Fatalf("decode: %v", err)
@@ -223,7 +208,7 @@ func TestEncodeFrame_StatePatch_RoundTrip(t *testing.T) {
 	ev := StatePatchEvent{
 		Type:        TypeStatePatch,
 		UserID:      "u",
-		ProjectID:   "p",
+		ChatID:      "c",
 		SessionPath: "/x.jsonl",
 		UpdatedAt:   time.Now().UTC().Truncate(time.Second),
 	}
@@ -241,8 +226,7 @@ func TestEncodeFrame_StatePatch_RoundTrip(t *testing.T) {
 }
 
 func TestReader_ReadsMultipleFrames(t *testing.T) {
-	src := strings.NewReader(`{"type":"init","projects":[],"state":[]}` + "\n" +
-		`{"type":"projects_update","projects":[{"path":"/x"}]}` + "\n" +
+	src := strings.NewReader(`{"type":"init","conversationCwd":"/c","state":[]}` + "\n" +
 		`{"type":"shutdown"}` + "\n")
 	r := NewReader(src)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -254,13 +238,11 @@ func TestReader_ReadsMultipleFrames(t *testing.T) {
 		switch f.(type) {
 		case *InitFrame:
 			got = append(got, "init")
-		case *ProjectsUpdateFrame:
-			got = append(got, "projects_update")
 		case *ShutdownFrame:
 			got = append(got, "shutdown")
 		}
 	}
-	want := []string{"init", "projects_update", "shutdown"}
+	want := []string{"init", "shutdown"}
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -272,7 +254,7 @@ func TestReader_ReadsMultipleFrames(t *testing.T) {
 }
 
 func TestReader_EOFClosesChannel(t *testing.T) {
-	src := strings.NewReader(`{"type":"init","projects":[],"state":[]}` + "\n")
+	src := strings.NewReader(`{"type":"init","conversationCwd":"/c","state":[]}` + "\n")
 	r := NewReader(src)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -294,7 +276,7 @@ func TestReader_EOFClosesChannel(t *testing.T) {
 }
 
 func TestReader_BadLineSendsErrorAndCloses(t *testing.T) {
-	src := strings.NewReader(`{"type":"init","projects":[],"state":[]}` + "\n" + `garbage` + "\n")
+	src := strings.NewReader(`{"type":"init","conversationCwd":"/c","state":[]}` + "\n" + `garbage` + "\n")
 	r := NewReader(src)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

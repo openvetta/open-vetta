@@ -34,6 +34,10 @@ const CHANNELS = {
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
 	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
+	VIEWER_OPEN: "vetta:session:viewer-open",
+	VIEWER_SUBSCRIBE: "vetta:session:viewer-subscribe",
+	VIEWER_UNSUBSCRIBE: "vetta:session:viewer-unsubscribe",
+	VIEWER_EVENT: "vetta:session:viewer-event",
 } as const;
 
 const SCHEDULER_CHANNELS = {
@@ -81,6 +85,7 @@ const IM_CHANNELS = {
 	WECHAT_SUBSCRIBE: "vetta:im:wechat:subscribe",
 	WECHAT_UNSUBSCRIBE: "vetta:im:wechat:unsubscribe",
 	WECHAT_BIND_EVENT: "vetta:im:wechat:bind-event",
+	SESSION_CHANGED: "vetta:im:session-changed",
 } as const;
 
 const WEBHOOK_CHANNELS = {
@@ -368,6 +373,13 @@ const api: DesktopApi = {
 		getPaths: async () => ipcRenderer.invoke(IM_CHANNELS.GET_PATHS),
 		detectLegacy: async () => ipcRenderer.invoke(IM_CHANNELS.DETECT_LEGACY),
 		importLegacy: async (detection) => ipcRenderer.invoke(IM_CHANNELS.IMPORT_LEGACY, detection),
+		onSessionChanged: (handler) => {
+			const listener = () => handler();
+			ipcRenderer.on(IM_CHANNELS.SESSION_CHANGED, listener);
+			return () => {
+				ipcRenderer.removeListener(IM_CHANNELS.SESSION_CHANGED, listener);
+			};
+		},
 		wechat: {
 			startBind: async () => ipcRenderer.invoke(IM_CHANNELS.WECHAT_START_BIND),
 			logout: async () => ipcRenderer.invoke(IM_CHANNELS.WECHAT_LOGOUT),
@@ -481,6 +493,22 @@ const api: DesktopApi = {
 			};
 		},
 		clearDefaultConversation: async () => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_CONVERSATION),
+		openViewer: async (path) => ipcRenderer.invoke(CHANNELS.VIEWER_OPEN, path),
+		subscribeViewer: async (path, handler) => {
+			const { subscriptionId } = (await ipcRenderer.invoke(CHANNELS.VIEWER_SUBSCRIBE, path)) as {
+				subscriptionId: string;
+			};
+			const listener = (_event: Electron.IpcRendererEvent, incomingId: string, snapshot: unknown) => {
+				if (incomingId === subscriptionId) {
+					handler(snapshot as Parameters<typeof handler>[0]);
+				}
+			};
+			ipcRenderer.on(CHANNELS.VIEWER_EVENT, listener);
+			return () => {
+				ipcRenderer.removeListener(CHANNELS.VIEWER_EVENT, listener);
+				void ipcRenderer.invoke(CHANNELS.VIEWER_UNSUBSCRIBE, subscriptionId);
+			};
+		},
 	},
 };
 

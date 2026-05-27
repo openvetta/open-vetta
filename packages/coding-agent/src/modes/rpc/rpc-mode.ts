@@ -638,6 +638,15 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 		}
 	});
 
+	// Exit when the parent closes stdin. Without this, the process keeps
+	// running indefinitely after the parent dies (the `return new Promise(() => {})`
+	// below would otherwise block forever), leaving stale session-file locks
+	// that prevent the next sidecar from reusing the same .jsonl. See ADR-0004
+	// — im-gateway depends on this for clean reattach after a sidecar restart.
+	rl.on("close", () => {
+		process.exit(0);
+	});
+
 	// Keep process alive forever
 	return new Promise(() => {});
 }

@@ -29,6 +29,8 @@ export { SessionLockError } from "./session-lock.js";
 
 export const CURRENT_SESSION_VERSION = 3;
 
+export type SessionOrigin = "im" | "desktop";
+
 export interface SessionHeader {
 	type: "session";
 	version?: number; // v1 sessions don't have this
@@ -36,10 +38,17 @@ export interface SessionHeader {
 	timestamp: string;
 	cwd: string;
 	parentSession?: string;
+	/**
+	 * Which entrypoint created this session. Used by desktop-app's sidebar to
+	 * render an "IM" badge. Absent (legacy) and any unknown value should be
+	 * treated as "desktop" by consumers.
+	 */
+	origin?: SessionOrigin;
 }
 
 export interface NewSessionOptions {
 	parentSession?: string;
+	origin?: SessionOrigin;
 }
 
 export interface SessionEntryBase {
@@ -198,6 +207,8 @@ export interface SessionInfo {
 	messageCount: number;
 	firstMessage: string;
 	allMessagesText: string;
+	/** Entrypoint that created the session (see SessionHeader.origin). */
+	origin?: SessionOrigin;
 }
 
 export type ReadonlySessionManager = Pick<
@@ -613,6 +624,7 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 
 		const cwd = typeof (header as SessionHeader).cwd === "string" ? (header as SessionHeader).cwd : "";
 		const parentSessionPath = (header as SessionHeader).parentSession;
+		const origin = (header as SessionHeader).origin;
 
 		const modified = getSessionModifiedDate(entries, header as SessionHeader, stats.mtime);
 
@@ -622,6 +634,7 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 			cwd,
 			name,
 			parentSessionPath,
+			origin,
 			created: new Date((header as SessionHeader).timestamp),
 			modified,
 			messageCount,
@@ -695,11 +708,25 @@ export class SessionManager {
 	private labelsById: Map<string, string> = new Map();
 	private leafId: string | null = null;
 	private lockHandle?: SessionLockHandle;
+	/**
+	 * Default origin written into the SessionHeader for any session this
+	 * manager creates. Threaded in from `SessionManager.create(.., { origin })`
+	 * so the IM gateway can tag the sessions it spawns. Undefined means
+	 * "no tag" — consumers treat absent origin as desktop.
+	 */
+	private defaultOrigin?: SessionOrigin;
 
-	private constructor(cwd: string, sessionDir: string, sessionFile: string | undefined, persist: boolean) {
+	private constructor(
+		cwd: string,
+		sessionDir: string,
+		sessionFile: string | undefined,
+		persist: boolean,
+		options?: NewSessionOptions,
+	) {
 		this.cwd = cwd;
 		this.sessionDir = sessionDir;
 		this.persist = persist;
+		this.defaultOrigin = options?.origin;
 		if (persist && sessionDir && !existsSync(sessionDir)) {
 			mkdirSync(sessionDir, { recursive: true });
 		}
@@ -710,7 +737,7 @@ export class SessionManager {
 		if (sessionFile) {
 			this.setSessionFile(sessionFile);
 		} else {
-			this.newSession();
+			this.newSession(options);
 		}
 	}
 
@@ -774,6 +801,7 @@ export class SessionManager {
 			timestamp,
 			cwd: this.cwd,
 			parentSession: options?.parentSession,
+			origin: options?.origin ?? this.defaultOrigin,
 		};
 		this.fileEntries = [header];
 		this.byId.clear();
@@ -1340,9 +1368,9 @@ export class SessionManager {
 	 * @param cwd Working directory (stored in session header)
 	 * @param sessionDir Optional session directory. If omitted, uses default (~/.pi/agent/sessions/<encoded-cwd>/).
 	 */
-	static create(cwd: string, sessionDir?: string): SessionManager {
+	static create(cwd: string, sessionDir?: string, options?: NewSessionOptions): SessionManager {
 		const dir = sessionDir ?? getDefaultSessionDir(cwd);
-		return new SessionManager(cwd, dir, undefined, true);
+		return new SessionManager(cwd, dir, undefined, true, options);
 	}
 
 	/**

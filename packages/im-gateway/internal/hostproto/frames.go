@@ -11,7 +11,6 @@ const (
 	// Inbound (parent → child)
 	TypeInit             = "init"
 	TypeConfigUpdate     = "config_update"
-	TypeProjectsUpdate   = "projects_update"
 	TypeShutdown         = "shutdown"
 	TypeWechatBindStart  = "wechat_bind_start"
 	TypeWechatLogout     = "wechat_logout"
@@ -42,16 +41,6 @@ const (
 	TransportStatusAwaitingBind  = "awaiting_bind"
 )
 
-// Wechat bind status values reported on TypeWechatBindStatus events.
-const (
-	WechatBindStatusScanned    = "scanned"
-	WechatBindStatusExpired    = "expired"     // a refresh follows in WechatQREvent
-	WechatBindStatusRedirected = "redirected"
-	WechatBindStatusConfirmed  = "confirmed"
-	WechatBindStatusFailed     = "failed"
-	WechatBindStatusCancelled  = "cancelled"
-)
-
 // FeishuConfig carries the credentials and options needed to spin up a
 // feishu transport. Mirrors the configuration the parent persists in its
 // own credential store.
@@ -78,25 +67,20 @@ type WechatConfig struct {
 	StatePath string `json:"statePath,omitempty"`
 }
 
-// ProjectEntry mirrors projects.Project but uses JSON tags for the wire
-// format. Kept separate from internal types so the protocol stays free of
-// internal package imports.
-type ProjectEntry struct {
-	ID   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
-	Path string `json:"path"`
-}
-
-// SessionStateEntry mirrors a single (user, project) routing entry.
+// SessionStateEntry mirrors a single (im_user, chatID) routing entry.
 type SessionStateEntry struct {
 	UserID      string    `json:"userId"`
-	ProjectID   string    `json:"projectId"`
+	ChatID      string    `json:"chatId"`
 	SessionPath string    `json:"sessionPath,omitempty"`
 	UpdatedAt   time.Time `json:"updatedAt,omitzero"`
 }
 
 // InitFrame is the first frame the parent must send after spawn. The sidecar
 // blocks for up to 10s waiting for it; absence triggers a non-zero exit.
+//
+// ConversationCwd is the absolute cwd of desktop-app's virtual "对话" project
+// (DEFAULT_CONVERSATION_CWD in fs.ts). All IM sessions live under this cwd;
+// the gateway no longer carries a project list.
 //
 // The active transport is determined by which sub-config is non-nil:
 //
@@ -108,12 +92,12 @@ type SessionStateEntry struct {
 // Exactly one of Feishu / Wechat should be non-nil for a configured run;
 // neither yields the legacy "fall back to mock" behavior used in tests.
 type InitFrame struct {
-	Type     string              `json:"type"` // always TypeInit
-	Feishu   *FeishuConfig       `json:"feishu,omitempty"`
-	Wechat   *WechatConfig       `json:"wechat,omitempty"`
-	Projects []ProjectEntry      `json:"projects"`
-	State    []SessionStateEntry `json:"state"`
-	LogLevel string              `json:"logLevel,omitempty"` // debug|info|warn|error
+	Type            string              `json:"type"` // always TypeInit
+	Feishu          *FeishuConfig       `json:"feishu,omitempty"`
+	Wechat          *WechatConfig       `json:"wechat,omitempty"`
+	ConversationCwd string              `json:"conversationCwd"`
+	State           []SessionStateEntry `json:"state"`
+	LogLevel        string              `json:"logLevel,omitempty"` // debug|info|warn|error
 }
 
 // ConfigUpdateFrame replaces the active credentials and/or switches the
@@ -123,13 +107,6 @@ type ConfigUpdateFrame struct {
 	Type   string        `json:"type"` // always TypeConfigUpdate
 	Feishu *FeishuConfig `json:"feishu,omitempty"`
 	Wechat *WechatConfig `json:"wechat,omitempty"`
-}
-
-// ProjectsUpdateFrame replaces the in-memory project list without a
-// reconnect.
-type ProjectsUpdateFrame struct {
-	Type     string         `json:"type"` // always TypeProjectsUpdate
-	Projects []ProjectEntry `json:"projects"`
 }
 
 // ShutdownFrame requests graceful shutdown. Equivalent semantics to closing
@@ -184,9 +161,9 @@ type StatusEvent struct {
 // StatePatchEvent reports a routing-table mutation. Parent persists the
 // patch to its own state file.
 type StatePatchEvent struct {
-	Type      string    `json:"type"` // always TypeStatePatch
-	UserID    string    `json:"userId"`
-	ProjectID string    `json:"projectId"`
+	Type      string `json:"type"` // always TypeStatePatch
+	UserID    string `json:"userId"`
+	ChatID    string `json:"chatId"`
 	// SessionPath empty means "delete this entry". Non-empty means upsert.
 	SessionPath string    `json:"sessionPath"`
 	UpdatedAt   time.Time `json:"updatedAt"`
@@ -237,6 +214,16 @@ type WechatUnboundEvent struct {
 	Reason string `json:"reason,omitempty"`
 }
 
+// Wechat bind status values reported on TypeWechatBindStatus events.
+const (
+	WechatBindStatusScanned    = "scanned"
+	WechatBindStatusExpired    = "expired"     // a refresh follows in WechatQREvent
+	WechatBindStatusRedirected = "redirected"
+	WechatBindStatusConfirmed  = "confirmed"
+	WechatBindStatusFailed     = "failed"
+	WechatBindStatusCancelled  = "cancelled"
+)
+
 // envelope is a minimal probe used to discriminate inbound frames before
 // dispatching to the typed decoder.
 type envelope struct {
@@ -245,7 +232,7 @@ type envelope struct {
 
 // DecodeInbound parses one line of NDJSON into the appropriate inbound
 // frame variant. Returns a typed pointer (*InitFrame, *ConfigUpdateFrame,
-// *ProjectsUpdateFrame, *ShutdownFrame) or an error.
+// *ShutdownFrame) or an error.
 func DecodeInbound(line []byte) (any, error) {
 	var env envelope
 	if err := json.Unmarshal(line, &env); err != nil {
@@ -262,12 +249,6 @@ func DecodeInbound(line []byte) (any, error) {
 		var f ConfigUpdateFrame
 		if err := json.Unmarshal(line, &f); err != nil {
 			return nil, fmt.Errorf("hostproto: parse config_update: %w", err)
-		}
-		return &f, nil
-	case TypeProjectsUpdate:
-		var f ProjectsUpdateFrame
-		if err := json.Unmarshal(line, &f); err != nil {
-			return nil, fmt.Errorf("hostproto: parse projects_update: %w", err)
 		}
 		return &f, nil
 	case TypeShutdown:

@@ -195,6 +195,7 @@ export {
 	type CustomMessageEntry,
 	type FileEntry,
 	getLatestCompactionEntry,
+	loadEntriesFromFile,
 	type ModelChangeEntry,
 	migrateSessionEntries,
 	type NewSessionOptions,
@@ -207,6 +208,7 @@ export {
 	type SessionInfoEntry,
 	SessionManager,
 	type SessionMessageEntry,
+	type SessionOrigin,
 	type ThinkingLevelChangeEntry,
 } from "./core/session-manager.js";
 export {

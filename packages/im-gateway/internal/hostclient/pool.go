@@ -27,6 +27,14 @@ type ProcessPool struct {
 	client  HostClient
 	maxSize int
 
+	// closeOnIdle, if true, immediately closes a session (and removes it
+	// from the pool) when its in-flight count drops to 0 in release().
+	// Set by IM host runtime: IM messages arrive sparsely and the
+	// coding-agent subprocess holds the session-file lock for as long as
+	// it is alive, which would otherwise block desktop-app from opening
+	// the same session from its sidebar.
+	closeOnIdle bool
+
 	mu      sync.Mutex
 	entries map[string]*list.Element // sessionPath → list element
 	lru     *list.List               // front = MRU, back = LRU
@@ -52,6 +60,17 @@ func NewProcessPool(client HostClient, maxSize int) *ProcessPool {
 		entries: make(map[string]*list.Element),
 		lru:     list.New(),
 	}
+}
+
+// SetCloseOnIdle toggles whether the pool closes a session as soon as
+// its in-flight count drops to 0. Used by IM host runtime so the lockfile
+// is released between sparse IM messages, allowing desktop-app to open
+// the same session for inspection. Safe to call before any Acquire; do
+// not toggle at runtime.
+func (p *ProcessPool) SetCloseOnIdle(enabled bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.closeOnIdle = enabled
 }
 
 // Acquired wraps a HostSession with the bookkeeping the pool needs to know
@@ -165,10 +184,9 @@ func (p *ProcessPool) Acquire(ctx context.Context, cwd, sessionPath string) (*Ac
 
 func (p *ProcessPool) release(sessionPath string) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	elem, ok := p.entries[sessionPath]
 	if !ok {
+		p.mu.Unlock()
 		return
 	}
 	ps := elem.Value.(*pooledSession)
@@ -176,6 +194,20 @@ func (p *ProcessPool) release(sessionPath string) {
 		ps.inFlight--
 	}
 	p.lru.MoveToFront(elem)
+
+	// IM mode: drop the entry and close the subprocess as soon as nothing
+	// is in flight. The coding-agent subprocess holds the session-file
+	// lockfile for as long as it is alive; keeping it warm in the pool
+	// would block desktop-app from opening the same session.
+	if p.closeOnIdle && ps.inFlight == 0 {
+		delete(p.entries, sessionPath)
+		p.lru.Remove(elem)
+		session := ps.session
+		p.mu.Unlock()
+		_ = session.Close()
+		return
+	}
+	p.mu.Unlock()
 }
 
 // evictOldestIdleLocked removes the least-recently-used session that has no

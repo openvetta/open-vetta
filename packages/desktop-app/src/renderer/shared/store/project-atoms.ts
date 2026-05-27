@@ -39,6 +39,12 @@ export interface SessionInfo {
 	name?: string;
 	firstMessage: string;
 	modifiedAt: number;
+	/**
+	 * Where the session was created. "im" means im-gateway spawned it
+	 * (sidebar renders an "IM" badge); undefined / "desktop" means it
+	 * came from the desktop app and no badge is drawn.
+	 */
+	origin?: "im" | "desktop";
 }
 
 export type SidebarFilter = "all" | "normal" | "schedule" | "batch" | "flowing";

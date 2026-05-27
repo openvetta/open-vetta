@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"vetta-im-gateway/internal/command"
-	"vetta-im-gateway/internal/projects"
 	"vetta-im-gateway/internal/router"
 	"vetta-im-gateway/internal/state"
 	"vetta-im-gateway/internal/transport/mock"
@@ -28,7 +27,7 @@ func TestEndToEnd_MockTransport_HelpCommand(t *testing.T) {
 
 	tr := mock.New(mock.Options{In: in, Out: out})
 
-	r := router.New(tr, command.NewRouter(), &noopStore{}, &noopProjects{}, nil)
+	r := router.New(tr, command.NewRouter(), &noopStore{}, nil, "/home/u/.vetta/conversation")
 	defer r.Shutdown()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,7 +40,7 @@ func TestEndToEnd_MockTransport_HelpCommand(t *testing.T) {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if out.Contains("/projects") && out.Contains("/help") {
+		if out.Contains("/new") && out.Contains("/help") {
 			break
 		}
 		time.Sleep(20 * time.Millisecond)
@@ -53,9 +52,14 @@ func TestEndToEnd_MockTransport_HelpCommand(t *testing.T) {
 	<-done
 
 	got := out.String()
-	for _, want := range []string{"/projects", "/use", "/new", "/whoami", "/help"} {
+	for _, want := range []string{"/new", "/whoami", "/help"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected /help reply to mention %s, got:\n%s", want, got)
+		}
+	}
+	for _, gone := range []string{"/projects", "/use"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("/help should no longer mention removed command %s, got:\n%s", gone, got)
 		}
 	}
 }
@@ -120,7 +124,7 @@ func (p *pipeBuffer) Contains(s string) bool {
 }
 
 // =============================================================================
-// no-op deps used by the /help path (which doesn't touch projects/store)
+// no-op deps used by the /help path (which doesn't touch store)
 // =============================================================================
 
 type noopStore struct{}
@@ -133,10 +137,3 @@ func (noopStore) GetSession(_ context.Context, _, _ string) (state.SessionEntry,
 	return state.SessionEntry{}, false, nil
 }
 func (noopStore) SetSession(_ context.Context, _ state.SessionEntry) error { return nil }
-
-type noopProjects struct{}
-
-func (noopProjects) List(_ context.Context) ([]projects.Project, error) { return nil, nil }
-func (noopProjects) Resolve(_ context.Context, _ string) (*projects.Project, error) {
-	return nil, projects.ErrProjectNotFound
-}

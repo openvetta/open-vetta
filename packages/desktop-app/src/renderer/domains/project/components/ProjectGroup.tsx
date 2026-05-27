@@ -307,6 +307,14 @@ export const ProjectGroup = memo(function ProjectGroup({
 											</span>
 										</>
 									)}
+									{session.origin === "im" && (
+										<span
+											className="shrink-0 rounded bg-emerald-500/15 px-1 py-[1px] text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
+											title="该会话来自 IM 网关"
+										>
+											IM
+										</span>
+									)}
 									<span className="shrink-0 text-[11px] text-muted-foreground">
 										{relativeTime(session.modifiedAt)}
 									</span>

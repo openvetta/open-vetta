@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { type FSWatcher, watch } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { ipcMain, type WebContents } from "electron";
@@ -71,6 +72,13 @@ const CHANNELS = {
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
 	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
+	// Read-only viewer for sessions we don't want to (or can't) take the
+	// write lock on — currently IM sessions, see ADR-0004. The viewer
+	// reads the .jsonl directly and tails fs.watch for new entries.
+	VIEWER_OPEN: "vetta:session:viewer-open",
+	VIEWER_SUBSCRIBE: "vetta:session:viewer-subscribe",
+	VIEWER_UNSUBSCRIBE: "vetta:session:viewer-unsubscribe",
+	VIEWER_EVENT: "vetta:session:viewer-event",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -470,8 +478,71 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	};
 	webContents.on("render-process-gone", onRenderGone);
 
+	// ----- read-only viewer (no lock) -----------------------------------
+	// Tracks live fs watchers per subscription id so the renderer can
+	// open/close many concurrent viewers (e.g. preview hover) without
+	// leaking watchers.
+	interface ViewerSub {
+		watcher: FSWatcher;
+		path: string;
+	}
+	const viewerSubs = new Map<string, ViewerSub>();
+	let viewerSeq = 0;
+
+	ipcMain.handle(CHANNELS.VIEWER_OPEN, async (_event, path: unknown) => {
+		assertNonEmptyString(path, "path");
+		return runtime.readSessionHistoryFromFile(resolve(path));
+	});
+
+	ipcMain.handle(CHANNELS.VIEWER_SUBSCRIBE, async (_event, path: unknown) => {
+		assertNonEmptyString(path, "path");
+		const abs = resolve(path);
+		viewerSeq += 1;
+		const subscriptionId = `viewer-${viewerSeq}`;
+		// Debounce flurries of write events (jsonl is append-only but
+		// editors/fs sometimes fire multiple change events per write).
+		let pending: NodeJS.Timeout | undefined;
+		const emit = () => {
+			pending = undefined;
+			if (webContents.isDestroyed()) return;
+			try {
+				const snapshot = runtime.readSessionHistoryFromFile(abs);
+				webContents.send(CHANNELS.VIEWER_EVENT, subscriptionId, snapshot);
+			} catch {
+				// File may have been deleted between events; ignore.
+			}
+		};
+		const watcher = watch(abs, { persistent: false }, () => {
+			if (pending) return;
+			pending = setTimeout(emit, 80);
+		});
+		viewerSubs.set(subscriptionId, { watcher, path: abs });
+		return { subscriptionId };
+	});
+
+	ipcMain.handle(CHANNELS.VIEWER_UNSUBSCRIBE, (_event, subscriptionId: unknown) => {
+		if (typeof subscriptionId !== "string") return;
+		const sub = viewerSubs.get(subscriptionId);
+		if (sub) {
+			try {
+				sub.watcher.close();
+			} catch {
+				// already closed
+			}
+			viewerSubs.delete(subscriptionId);
+		}
+	});
+
 	return () => {
 		webContents.removeListener("render-process-gone", onRenderGone);
+		for (const sub of viewerSubs.values()) {
+			try {
+				sub.watcher.close();
+			} catch {
+				// ignore
+			}
+		}
+		viewerSubs.clear();
 		unsubscribeRunning();
 		for (const unsubscribe of subscriptionMap.values()) {
 			unsubscribe();

@@ -93,10 +93,13 @@ type LoggingConfig struct {
 // PathsConfig overrides on-disk file locations. All optional; sane defaults
 // are derived from $HOME/.vetta when fields are empty.
 type PathsConfig struct {
-	DesktopConfig string `yaml:"desktopConfig,omitempty"` // ~/.vetta/desktop-config.json
-	State         string `yaml:"state,omitempty"`         // ~/.vetta/im-gateway/state.json
-	LogsDir       string `yaml:"logsDir,omitempty"`       // ~/.vetta/im-gateway/logs/
-	WechatState   string `yaml:"wechatState,omitempty"`   // ~/.vetta/im-gateway/wechat.json
+	// ConversationCwd is the absolute cwd of desktop-app's default "对话"
+	// project. Every IM session lives in this directory (see CONTEXT.md
+	// → "conversation cwd"). Defaults to ~/.vetta/conversation.
+	ConversationCwd string `yaml:"conversationCwd,omitempty"`
+	State           string `yaml:"state,omitempty"`         // ~/.vetta/im-gateway/state.json
+	LogsDir         string `yaml:"logsDir,omitempty"`       // ~/.vetta/im-gateway/logs/
+	WechatState     string `yaml:"wechatState,omitempty"`   // ~/.vetta/im-gateway/wechat.json
 }
 
 // Credentials carries secret values loaded separately from Config.

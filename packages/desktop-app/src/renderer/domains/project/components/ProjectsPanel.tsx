@@ -120,9 +120,17 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleSelectSession = useCallback(
 		(cwd: string, path: string) => {
+			// IM-origin sessions are owned by the im-gateway sidecar. Opening
+			// them via the normal write path would race the sidecar for the
+			// session-file lock; route to the read-only viewer instead.
+			const session = sessionsMap.get(cwd)?.find((s) => s.path === path);
+			if (session?.origin === "im") {
+				void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
+				return;
+			}
 			void onOpenSession(cwd, path);
 		},
-		[onOpenSession],
+		[onOpenSession, sessionsMap, navigate],
 	);
 
 	const handleNewSession = useCallback(
@@ -151,9 +159,14 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleDefaultSelectSession = useCallback(
 		(cwd: string, path: string) => {
+			const session = sessionsMap.get(cwd)?.find((s) => s.path === path);
+			if (session?.origin === "im") {
+				void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
+				return;
+			}
 			void onOpenSession(cwd, path);
 		},
-		[onOpenSession],
+		[onOpenSession, sessionsMap, navigate],
 	);
 
 	const handleDeleteSession = useCallback(
@@ -587,6 +600,14 @@ const DefaultSessionList = memo(function DefaultSessionList({
 								>
 									{label}
 								</span>
+								{session.origin === "im" && (
+									<span
+										className="shrink-0 rounded bg-emerald-500/15 px-1 py-[1px] text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
+										title="该会话来自 IM 网关"
+									>
+										IM
+									</span>
+								)}
 								<span className="shrink-0 text-[11px] text-muted-foreground">
 									{relativeTime(session.modifiedAt)}
 								</span>
