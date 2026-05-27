@@ -703,6 +703,15 @@ export class SessionManager {
 	private cwd: string;
 	private persist: boolean;
 	private flushed: boolean = false;
+	/**
+	 * Tracks whether the session header has been written to disk independently
+	 * of the deferred body flush. New sessions write the header eagerly so
+	 * external listers / fs.watch consumers (notably desktop-app's sidebar
+	 * via im-gateway's state_patch) can see the file before the first
+	 * assistant response triggers the full flush. _persist skips the header
+	 * during initial flush if this is true to avoid duplicating it.
+	 */
+	private headerOnDisk: boolean = false;
 	private fileEntries: FileEntry[] = [];
 	private byId: Map<string, SessionEntry> = new Map();
 	private labelsById: Map<string, string> = new Map();
@@ -762,25 +771,58 @@ export class SessionManager {
 			const header = this.fileEntries.find((e) => e.type === "session") as SessionHeader | undefined;
 			this.sessionId = header?.id ?? randomUUID();
 
+			let needsRewrite = false;
+			// Backfill origin for legacy sessions opened by a caller (e.g. im-gateway)
+			// that passes --origin. Sessions created before --origin was threaded
+			// through have no origin tag in the header, which makes desktop-app
+			// classify them as "desktop" and place them under the wrong filter.
+			if (header && this.defaultOrigin && !header.origin) {
+				header.origin = this.defaultOrigin;
+				needsRewrite = true;
+			}
+
 			if (migrateToCurrentVersion(this.fileEntries)) {
+				needsRewrite = true;
+			}
+
+			if (needsRewrite) {
 				this._rewriteFile();
 			}
 
 			this._buildIndex();
 			this.flushed = true;
+			this.headerOnDisk = true;
 			this._acquireLockForCurrentFile();
 		} else {
 			const explicitPath = this.sessionFile;
 			this._newSessionInternal();
 			this.sessionFile = explicitPath; // preserve explicit path from --session flag
 			this._acquireLockForCurrentFile();
+			this._writeHeaderEagerly();
 		}
 	}
 
 	newSession(options?: NewSessionOptions): string | undefined {
 		this._newSessionInternal(options);
 		this._acquireLockForCurrentFile();
+		this._writeHeaderEagerly();
 		return this.sessionFile;
+	}
+
+	/**
+	 * Append the in-memory header to disk immediately after a fresh session
+	 * is set up. This makes the .jsonl visible to external readers (e.g.
+	 * desktop-app's listSessions, called in response to im-gateway's
+	 * state_patch event) without waiting for the first assistant reply to
+	 * trigger the deferred body flush in _persist.
+	 */
+	private _writeHeaderEagerly(): void {
+		if (!this.persist || !this.sessionFile) return;
+		if (this.headerOnDisk) return;
+		const header = this.fileEntries[0];
+		if (!header) return;
+		appendFileSync(this.sessionFile, `${JSON.stringify(header)}\n`);
+		this.headerOnDisk = true;
 	}
 
 	/**
@@ -808,6 +850,7 @@ export class SessionManager {
 		this.labelsById.clear();
 		this.leafId = null;
 		this.flushed = false;
+		this.headerOnDisk = false;
 
 		if (this.persist) {
 			const fileTimestamp = timestamp.replace(/[:.]/g, "-");
@@ -864,6 +907,7 @@ export class SessionManager {
 		if (!this.persist || !this.sessionFile) return;
 		const content = `${this.fileEntries.map((e) => JSON.stringify(e)).join("\n")}\n`;
 		writeFileSync(this.sessionFile, content);
+		this.headerOnDisk = true;
 	}
 
 	isPersisted(): boolean {
@@ -897,10 +941,14 @@ export class SessionManager {
 		}
 
 		if (!this.flushed) {
-			for (const e of this.fileEntries) {
-				appendFileSync(this.sessionFile, `${JSON.stringify(e)}\n`);
+			// Skip the header if it was already eagerly written when the session
+			// was created — otherwise we'd duplicate it on first flush.
+			const startIdx = this.headerOnDisk && this.fileEntries[0]?.type === "session" ? 1 : 0;
+			for (let i = startIdx; i < this.fileEntries.length; i++) {
+				appendFileSync(this.sessionFile, `${JSON.stringify(this.fileEntries[i])}\n`);
 			}
 			this.flushed = true;
+			this.headerOnDisk = true;
 		} else {
 			appendFileSync(this.sessionFile, `${JSON.stringify(entry)}\n`);
 		}
@@ -1377,15 +1425,18 @@ export class SessionManager {
 	 * Open a specific session file.
 	 * @param path Path to session file
 	 * @param sessionDir Optional session directory for /new or /branch. If omitted, derives from file's parent.
+	 * @param options Optional NewSessionOptions; only `origin` is used here, as a
+	 *   default for backfilling the SessionHeader when an existing file lacks
+	 *   one (see setSessionFile).
 	 */
-	static open(path: string, sessionDir?: string): SessionManager {
+	static open(path: string, sessionDir?: string, options?: NewSessionOptions): SessionManager {
 		// Extract cwd from session header if possible, otherwise use process.cwd()
 		const entries = loadEntriesFromFile(path);
 		const header = entries.find((e) => e.type === "session") as SessionHeader | undefined;
 		const cwd = header?.cwd ?? process.cwd();
 		// If no sessionDir provided, derive from file's parent directory
 		const dir = sessionDir ?? resolve(path, "..");
-		return new SessionManager(cwd, dir, path, true);
+		return new SessionManager(cwd, dir, path, true, options);
 	}
 
 	/**

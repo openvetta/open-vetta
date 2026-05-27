@@ -390,7 +390,11 @@ async function createSessionManager(parsed: Args, cwd: string): Promise<SessionM
 		switch (resolved.type) {
 			case "path":
 			case "local":
-				return SessionManager.open(resolved.path, parsed.sessionDir);
+				return SessionManager.open(
+					resolved.path,
+					parsed.sessionDir,
+					parsed.origin ? { origin: parsed.origin } : undefined,
+				);
 
 			case "global": {
 				// Session found in different project - ask user if they want to fork
