@@ -1,7 +1,9 @@
+import { mkdirSync, watch } from "node:fs";
 import { ipcMain, type WebContents } from "electron";
 import type { LogEvent } from "../im-host/host-protocol.js";
 import { getImHost, type SetConfigPayload, type WechatBindEvent } from "../im-host/index.js";
 import type { LegacyDetection } from "../im-host/migration.js";
+import { DEFAULT_CONVERSATION_SESSION_DIR } from "./fs.js";
 
 const CHANNELS = {
 	GET_CONFIG: "vetta:im:get-config",
@@ -49,6 +51,36 @@ export function registerImIpc(webContents: WebContents): () => void {
 		if (webContents.isDestroyed()) return;
 		webContents.send(CHANNELS.SESSION_CHANGED);
 	});
+
+	// Belt-and-suspenders: also watch the default 对话 sessions dir directly.
+	// The sidecar's state_patch fires when im-gateway *learns* of a new
+	// session path, but for already-known (userID, chatID) pairs the patch
+	// is skipped, so a fresh .jsonl appearing on disk (e.g. after a stale
+	// state entry triggered a header eager-write at the same path) never
+	// reaches the renderer. The fs watcher closes that gap: any change
+	// under the sessions dir broadcasts the same refresh ping.
+	try {
+		mkdirSync(DEFAULT_CONVERSATION_SESSION_DIR, { recursive: true });
+	} catch {
+		// best-effort; watcher attempt below will simply error and we skip
+	}
+	let fsDebounce: NodeJS.Timeout | undefined;
+	let fsWatcher: ReturnType<typeof watch> | undefined;
+	try {
+		fsWatcher = watch(DEFAULT_CONVERSATION_SESSION_DIR, (_event, filename) => {
+			if (filename && !filename.endsWith(".jsonl")) return;
+			if (webContents.isDestroyed()) return;
+			if (fsDebounce) clearTimeout(fsDebounce);
+			fsDebounce = setTimeout(() => {
+				if (webContents.isDestroyed()) return;
+				webContents.send(CHANNELS.SESSION_CHANGED);
+			}, 80);
+		});
+	} catch {
+		// Watcher init can fail on some platforms (e.g. transient missing
+		// dir). State_patch path still works; the loss is just the
+		// real-time refresh fallback.
+	}
 
 	ipcMain.handle(CHANNELS.GET_CONFIG, () => {
 		return host.getPublicConfig();
@@ -172,6 +204,12 @@ export function registerImIpc(webContents: WebContents): () => void {
 
 	return () => {
 		sessionChangeUnsub();
+		if (fsDebounce) clearTimeout(fsDebounce);
+		try {
+			fsWatcher?.close();
+		} catch {
+			// ignore
+		}
 		ipcMain.removeHandler(CHANNELS.GET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.SET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.GET_STATUS);

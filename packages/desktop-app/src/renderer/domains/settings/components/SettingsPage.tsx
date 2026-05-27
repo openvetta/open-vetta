@@ -22,7 +22,7 @@ const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?:
 	{ key: "team", label: "团队管理", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
 	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
 	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
-	{ key: "im", label: "IM 集成", icon: "icon-[mdi--message-text-outline]" },
+	{ key: "im", label: "Claw", icon: "icon-[mdi--message-text-outline]" },
 	{ key: "webhook", label: "消息推送", icon: "icon-[mdi--webhook]" },
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
 	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },

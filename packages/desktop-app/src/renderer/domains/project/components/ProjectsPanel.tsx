@@ -2,12 +2,13 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
-import type { Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, activityPanelOpenAtom, confirmDialogAtom, inlineFilePreviewAtom, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
+import { activeSessionAtom, activityPanelOpenAtom, confirmDialogAtom, defaultConversationFilterAtom, inlineFilePreviewAtom, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
 import { SessionContextMenu } from "./SessionContextMenu";
+import { DefaultConversationFilterSelect } from "./SidebarTabs";
 import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 
 interface ProjectsPanelProps {
@@ -368,6 +369,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const defaultExpanded = defaultProject ? expandedProjects.has(defaultProject.cwd) : false;
 	const defaultSessions = defaultProject ? (sessionsMap.get(defaultProject.cwd) ?? []) : [];
+	const defaultConversationFilter = useAtomValue(defaultConversationFilterAtom);
 
 	return (
 		<>
@@ -421,24 +423,28 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 							setProjectMenu({ x: e.clientX, y: e.clientY, project: defaultProject });
 						}}
 					>
-						<button
-							type="button"
-							onClick={() =>
-								defaultExpanded
-									? collapseProject(defaultProject.cwd)
-									: expandProjectAccordion(defaultProject.cwd)
-							}
-							className="flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-medium text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
-							title={defaultExpanded ? "折叠" : "展开"}
-						>
-							<span
-								className={cn(
-									"icon-[mdi--chevron-down] h-3 w-3 shrink-0 transition-transform",
-									defaultExpanded ? "" : "-rotate-90",
-								)}
-							/>
-							<span className="truncate">{defaultProject.name ?? "对话"}</span>
-						</button>
+						<div className="flex min-w-0 items-center gap-0.5">
+							<button
+								type="button"
+								onClick={() =>
+									defaultExpanded
+										? collapseProject(defaultProject.cwd)
+										: expandProjectAccordion(defaultProject.cwd)
+								}
+								className="flex items-center justify-center rounded-md p-0.5 text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+								title={defaultExpanded ? "折叠" : "展开"}
+							>
+								<span
+									className={cn(
+										"h-3.5 w-3.5 shrink-0",
+										defaultExpanded
+											? "icon-[mdi--folder-open-outline]"
+											: "icon-[mdi--folder-outline]",
+									)}
+								/>
+							</button>
+							<DefaultConversationFilterSelect />
+						</div>
 						<div className="flex items-center">
 							<button
 								type="button"
@@ -452,25 +458,28 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 							>
 								<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
 							</button>
-							<button
-								type="button"
-								title="新会话"
-								onClick={() =>
-									void navigate({
-										to: "/new-session/$cwd",
-										params: { cwd: encodeURIComponent(defaultProject.cwd) },
-									})
-								}
-								className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-60 transition-colors hover:bg-accent hover:opacity-100"
-							>
-								<span className="icon-[mdi--message-plus-outline] h-4 w-4" />
-							</button>
+							{defaultConversationFilter !== "claw" && (
+								<button
+									type="button"
+									title="新会话"
+									onClick={() =>
+										void navigate({
+											to: "/new-session/$cwd",
+											params: { cwd: encodeURIComponent(defaultProject.cwd) },
+										})
+									}
+									className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-60 transition-colors hover:bg-accent hover:opacity-100"
+								>
+									<span className="icon-[mdi--message-plus-outline] h-4 w-4" />
+								</button>
+							)}
 						</div>
 					</div>
 					{defaultExpanded && (
 						<DefaultSessionList
 							cwd={defaultProject.cwd}
 							sessions={defaultSessions}
+							filter={defaultConversationFilter}
 							activeSessionPath={activeSessionPath}
 							onSelectSession={handleDefaultSelectSession}
 							onRenameSession={handleRenameSession}
@@ -526,6 +535,7 @@ function relativeTime(timestamp: number): string {
 interface DefaultSessionListProps {
 	cwd: string;
 	sessions: SessionInfo[];
+	filter: DefaultConversationFilter;
 	activeSessionPath: string;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
@@ -534,13 +544,19 @@ interface DefaultSessionListProps {
 const DefaultSessionList = memo(function DefaultSessionList({
 	cwd,
 	sessions,
+	filter,
 	activeSessionPath,
 	onSelectSession,
 	onRenameSession,
 }: DefaultSessionListProps): JSX.Element {
 	const sorted = useMemo(
-		() => [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt),
-		[sessions],
+		() => {
+			const matched = sessions.filter((s) =>
+				filter === "claw" ? s.origin === "im" : s.origin !== "im",
+			);
+			return matched.sort((a, b) => b.modifiedAt - a.modifiedAt);
+		},
+		[sessions, filter],
 	);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
@@ -600,14 +616,6 @@ const DefaultSessionList = memo(function DefaultSessionList({
 								>
 									{label}
 								</span>
-								{session.origin === "im" && (
-									<span
-										className="shrink-0 rounded bg-emerald-500/15 px-1 py-[1px] text-[9px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
-										title="该会话来自 IM 网关"
-									>
-										IM
-									</span>
-								)}
 								<span className="shrink-0 text-[11px] text-muted-foreground">
 									{relativeTime(session.modifiedAt)}
 								</span>

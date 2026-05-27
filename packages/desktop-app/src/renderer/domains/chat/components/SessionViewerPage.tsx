@@ -1,5 +1,7 @@
 import { useParams } from "@tanstack/react-router";
+import { useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
+import { pageHeaderRightSlotAtom } from "@shared/store/atoms";
 import { fullHistoryToChat } from "../services/chat-service";
 import type { ChatMessage } from "../services/chat-service";
 import { MessageList } from "./MessageList";
@@ -24,6 +26,26 @@ export function SessionViewerPage(): JSX.Element {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [origin, setOrigin] = useState<"im" | "desktop" | undefined>();
 	const [error, setError] = useState<string | null>(null);
+	const setHeaderRight = useSetAtom(pageHeaderRightSlotAtom);
+
+	useEffect(() => {
+		if (!origin) {
+			setHeaderRight(null);
+			return;
+		}
+		const badgeLabel = origin === "im" ? "实时更新" : "只读视图";
+		const badgeClass =
+			origin === "im"
+				? "rounded bg-primary/15 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-primary"
+				: "rounded bg-muted/60 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground";
+		setHeaderRight(
+			<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
+				<span className="hidden truncate sm:inline">该会话由其他端写入，桌面端仅展示</span>
+				<span className={badgeClass}>{badgeLabel}</span>
+			</div>,
+		);
+		return () => setHeaderRight(null);
+	}, [origin, setHeaderRight]);
 
 	useEffect(() => {
 		if (!path) return;
@@ -69,22 +91,8 @@ export function SessionViewerPage(): JSX.Element {
 		);
 	}
 
-	const badgeLabel = origin === "im" ? "IM 实时只读" : "只读视图";
-
 	return (
 		<div className="relative flex h-full min-h-0 flex-1 flex-col">
-			<div className="flex shrink-0 items-center gap-2 border-b border-border/40 bg-muted/30 px-4 py-2 text-[12px] text-muted-foreground">
-				<span
-					className={
-						origin === "im"
-							? "rounded bg-emerald-500/15 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
-							: "rounded bg-muted/60 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-					}
-				>
-					{badgeLabel}
-				</span>
-				<span className="truncate">该会话由其他端写入，桌面端仅展示，无法发送消息</span>
-			</div>
 			<div className="flex min-h-0 flex-1 flex-col">
 				<MessageList messages={messages} isStreaming={false} sessionId={null} />
 			</div>

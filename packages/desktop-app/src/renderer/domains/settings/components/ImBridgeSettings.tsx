@@ -339,7 +339,7 @@ export function ImBridgeSettings(): JSX.Element {
 	if (!config) {
 		return (
 			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-				<h1 className="mb-6 text-[20px] font-bold text-foreground">IM 集成</h1>
+				<h1 className="mb-6 text-[20px] font-bold text-foreground">Vetta Claw</h1>
 				<div className="text-[13px] text-muted-foreground">加载中...</div>
 			</div>
 		);
@@ -349,7 +349,7 @@ export function ImBridgeSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">IM 集成</h1>
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">Vetta Claw</h1>
 
 
 			{legacy?.hasLegacyData && (
