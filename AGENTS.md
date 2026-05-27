@@ -88,6 +88,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## Commands
 - Use Bun for package management and scripts (`bun`/`bunx`) unless the user explicitly asks for npm.
 - After code changes (not documentation changes): `bun run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
+- After code changes under `packages/desktop-app`: also run `bunx tsc --noEmit` from `packages/desktop-app` because the root `bun run check` does not include desktop TypeScript checks.
 - Note: `bun run check` does not run tests.
 - NEVER run: `bun run dev`, `bun run build`, `bun test`
 - Only run specific tests if user instructs: `bunx tsx ../../node_modules/vitest/dist/cli.js --run test/specific.test.ts`

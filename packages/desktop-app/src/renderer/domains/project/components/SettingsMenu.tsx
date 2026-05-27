@@ -93,9 +93,10 @@ export function SettingsMenu(): JSX.Element {
 						{/* Theme section */}
 						<motion.div variants={itemVariants}>
 							<div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-1.5">
-								<span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-									主题
-								</span>
+								<div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
+									<span className="icon-[mdi--palette-outline] h-3.5 w-3.5" />
+									<span>主题</span>
+								</div>
 								<div className="flex items-center gap-0.5 rounded-md bg-accent/60 p-0.5">
 									{THEME_OPTIONS.map((opt) => (
 										<button

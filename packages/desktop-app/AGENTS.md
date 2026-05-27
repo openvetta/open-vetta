@@ -168,3 +168,4 @@ cd packages/desktop-app && bun dev
 - 消费 `@vetta/runtime-core` 的事件契约，契约变更需同步适配
 - 主进程和渲染进程通过 IPC 通信，注意安全边界
 - desktop-app 的类型测试需要执行 lint 和 tsc 检查，根目录的检查不包含该项目的检查。
+- 修改 `packages/desktop-app` 代码后，除根目录 `bun run check` 外，还必须在 `packages/desktop-app` 目录运行 `bunx tsc --noEmit`。
