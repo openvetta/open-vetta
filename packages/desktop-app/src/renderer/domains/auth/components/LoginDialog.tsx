@@ -5,6 +5,7 @@ import { authTokenAtom, authUserAtom, loginDialogOpenAtom } from "@shared/store/
 import { fetchOAuthProviders, fetchOAuthURL, loginByAccount } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
+import { BotAvatar } from "@shared/components/BotAvatar";
 
 const PROVIDER_META: Record<string, { label: string; icon: string }> = {
 	github: {
@@ -116,8 +117,8 @@ export function LoginDialog(): JSX.Element {
 						<div className="relative px-6 pb-6 pt-7">
 							{/* Header with brand mark */}
 							<div className="mb-6 flex flex-col items-center text-center">
-								<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/50 bg-primary/10 ring-1 ring-inset ring-primary/20">
-									<span className="icon-[mdi--shield-account] h-6 w-6 text-primary" />
+								<div className="mb-3 flex items-center justify-center">
+									<BotAvatar size="md" autoplay />
 								</div>
 								<h2 className="text-[15px] font-semibold text-foreground">
 									登录 Vetta

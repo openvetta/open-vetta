@@ -56,11 +56,11 @@
 		"@mariozechner/pi-agent-core": "^0.55.3",
 		"@mariozechner/pi-ai": "^0.55.3",
 		"@mariozechner/pi-tui": "^0.55.3",
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@silvia-odwyer/photon-node": "^0.3.4",
 		"@sinclair/typebox": "^0.34.41",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
-		"strip-ansi": "^7.1.0",
-		"@silvia-odwyer/photon-node": "^0.3.4",
 		"chalk": "^5.5.0",
 		"cli-highlight": "^2.1.11",
 		"diff": "^8.0.2",
@@ -72,6 +72,7 @@
 		"marked": "^15.0.12",
 		"minimatch": "^10.1.1",
 		"proper-lockfile": "^4.1.2",
+		"strip-ansi": "^7.1.0",
 		"yaml": "^2.8.2"
 	},
 	"overrides": {
