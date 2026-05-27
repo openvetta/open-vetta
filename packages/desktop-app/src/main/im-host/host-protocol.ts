@@ -80,6 +80,20 @@ export interface SessionStateEntry {
  * project (`DEFAULT_CONVERSATION_CWD`). Every IM session lives in this
  * directory; the gateway no longer maintains a project list.
  */
+/**
+ * Overrides how the sidecar invokes the coding-agent subprocess. When
+ * omitted, the sidecar falls back to `vetta` on PATH — only valid in dev
+ * where workspace linking puts it there. Production must populate this so
+ * the sidecar can spawn the packaged Vetta.app executable (which detects
+ * `--agent-rpc` in argv and short-circuits into coding-agent's main).
+ *
+ * Final argv: [bin, ...prefixArgs, "--mode", "rpc", "--cwd", <cwd>, ...].
+ */
+export interface CodingAgentSpec {
+	bin: string;
+	prefixArgs?: string[];
+}
+
 export interface InitFrame {
 	type: typeof FRAME_INIT;
 	feishu?: FeishuConfig;
@@ -87,6 +101,7 @@ export interface InitFrame {
 	conversationCwd: string;
 	state: SessionStateEntry[];
 	logLevel?: "debug" | "info" | "warn" | "error";
+	codingAgent?: CodingAgentSpec;
 }
 
 export interface ConfigUpdateFrame {

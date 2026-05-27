@@ -3,6 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 
@@ -47,7 +48,11 @@ const devMainEntryPath = join(appRoot, "dist/main/index.js");
 // inconsequential.
 const ocrCliCommand = parseOcrCliCommand(process.argv);
 const pdfCliCommand = ocrCliCommand === null ? parsePdfCliCommand(process.argv) : null;
-const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null;
+// `--agent-rpc` is the IM sidecar's discriminator: when present we
+// short-circuit into @vetta/coding-agent's main and skip every UI/IPC
+// bring-up below. See cli/agent-rpc-command.ts for the full rationale.
+const agentRpcArgs = pdfCliCommand === null && ocrCliCommand === null ? parseAgentRpcCommand(process.argv) : null;
+const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null || agentRpcArgs !== null;
 
 // 给 V8 老生代一个明确上限：超过会抛 `RangeError: Invalid string length` /
 // JS heap out of memory，能被 uncaughtException 接到并落盘栈；否则任 RSS 自然
@@ -62,7 +67,12 @@ installMainDiagnostics();
 const mainLog = getAppLogger("main");
 
 if (isCliMode) {
-	const cliUserDataDir = ocrCliCommand !== null ? "vetta-ocr-cli" : "vetta-pdf-cli";
+	const cliUserDataDir =
+		ocrCliCommand !== null
+			? "vetta-ocr-cli"
+			: pdfCliCommand !== null
+				? "vetta-pdf-cli"
+				: `vetta-agent-rpc-${process.pid}`;
 	app.setPath("userData", join(tmpdir(), cliUserDataDir));
 	app.commandLine.appendSwitch("disable-gpu");
 	app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
@@ -147,6 +157,12 @@ if (!gotSingleLock) {
 
 		if (ocrCliCommand) {
 			const exitCode = await runOcrCliCommand(ocrCliCommand);
+			app.exit(exitCode);
+			return;
+		}
+
+		if (agentRpcArgs) {
+			const exitCode = await runAgentRpcCommand(agentRpcArgs);
 			app.exit(exitCode);
 			return;
 		}

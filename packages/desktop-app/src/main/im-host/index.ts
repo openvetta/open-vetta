@@ -1,5 +1,6 @@
 import { DEFAULT_CONVERSATION_CWD } from "../ipc/fs.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
+import { buildCodingAgentSpec } from "./coding-agent-spec.js";
 import {
 	defaultImConfig,
 	defaultImConfigPath,
@@ -527,6 +528,7 @@ export class ImHost {
 			this.binaryPath = resolveImGatewayBinary().path;
 			this.statusStore.patch({ binaryPath: this.binaryPath });
 		}
+		const codingAgent = buildCodingAgentSpec();
 		// Send only the slot for the currently selected transport. The
 		// sidecar uses nil-discriminator to pick which to start.
 		if (this.config.transport === "wechat") {
@@ -535,6 +537,7 @@ export class ImHost {
 				wechat: this.buildWechatConfig(),
 				conversationCwd: DEFAULT_CONVERSATION_CWD,
 				state: this.stateAsEntries(),
+				codingAgent,
 			};
 		}
 		return {
@@ -542,6 +545,7 @@ export class ImHost {
 			feishu: this.buildFeishuConfig(),
 			conversationCwd: DEFAULT_CONVERSATION_CWD,
 			state: this.stateAsEntries(),
+			codingAgent,
 		};
 	}
 
