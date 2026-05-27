@@ -6,21 +6,18 @@ import { fetchOAuthProviders, fetchOAuthURL, loginByAccount } from "@shared/lib/
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 
-const PROVIDER_META: Record<string, { label: string; icon: string; color: string }> = {
+const PROVIDER_META: Record<string, { label: string; icon: string }> = {
 	github: {
 		label: "GitHub",
 		icon: "icon-[mdi--github]",
-		color: "hover:bg-[#24292e] hover:text-white",
 	},
 	wechat: {
 		label: "WeChat",
 		icon: "icon-[mdi--wechat]",
-		color: "hover:bg-[#07c160] hover:text-white",
 	},
 	dingtalk: {
 		label: "DingTalk",
 		icon: "icon-[mdi--message-text]",
-		color: "hover:bg-[#0089ff] hover:text-white",
 	},
 };
 
@@ -92,89 +89,149 @@ export function LoginDialog(): JSX.Element {
 					onClick={() => setOpen(false)}
 				>
 					{/* Backdrop */}
-					<div className="absolute inset-0 bg-black/50" />
+					<div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
 
 					{/* Dialog */}
 					<motion.div
-						initial={{ opacity: 0, scale: 0.95, y: 8 }}
+						initial={{ opacity: 0, scale: 0.97, y: 8 }}
 						animate={{ opacity: 1, scale: 1, y: 0 }}
-						exit={{ opacity: 0, scale: 0.95, y: 8 }}
-						transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-						className="relative w-[360px] overflow-hidden rounded-xl border border-border bg-popover p-6 shadow-xl"
+						exit={{ opacity: 0, scale: 0.97, y: 8 }}
+						transition={{ type: "spring", stiffness: 300, damping: 26 }}
+						className="relative w-[380px] overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-lg backdrop-blur-md"
 						onClick={(e) => e.stopPropagation()}
 					>
-						{/* Header */}
-						<div className="mb-5 text-center">
-							<h2 className="text-[15px] font-semibold text-foreground">
-								Login
-							</h2>
-							<p className="mt-1 text-[12px] text-muted-foreground">
-								Sign in to your account
-							</p>
-						</div>
-
-						{/* Account/Password form */}
-						<form onSubmit={handleAccountLogin} className="space-y-3">
-							<input
-								type="text"
-								placeholder="Account"
-								value={account}
-								onChange={(e) => setAccount(e.target.value)}
-								className="h-9 w-full rounded-lg border border-input bg-muted px-3 text-[13px] text-foreground placeholder-muted-foreground/50 outline-none transition focus:border-ring/50"
-							/>
-							<input
-								type="password"
-								placeholder="Password"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
-								className="h-9 w-full rounded-lg border border-input bg-muted px-3 text-[13px] text-foreground placeholder-muted-foreground/50 outline-none transition focus:border-ring/50"
-							/>
-							{loginError && (
-								<p className="text-[12px] text-destructive">{loginError}</p>
-							)}
-							<Button type="submit" className="w-full" disabled={loginLoading}>
-								{loginLoading ? "Logging in..." : "Login"}
-							</Button>
-						</form>
-
-						{/* Divider */}
-						{providers.length > 0 && (
-							<div className="my-5 flex items-center gap-3">
-								<div className="h-px flex-1 bg-border" />
-								<span className="text-[11px] text-muted-foreground/50">OR</span>
-								<div className="h-px flex-1 bg-border" />
-							</div>
-						)}
-
-						{/* OAuth providers */}
-						{providers.length > 0 && (
-							<div className="space-y-2">
-								{providers.map((p) => {
-									const meta = PROVIDER_META[p] ?? {
-										label: p,
-										icon: "icon-[mdi--login]",
-										color: "hover:bg-accent",
-									};
-									return (
-										<Button
-											key={p}
-											variant="outline"
-											disabled={loading === p}
-											onClick={() => void handleOAuth(p)}
-											className={cn("w-full", meta.color, loading === p && "opacity-50")}
-										>
-											<span className={cn(meta.icon, "h-4 w-4")} />
-											{loading === p ? "Redirecting..." : meta.label}
-										</Button>
-									);
-								})}
-							</div>
-						)}
+						{/* Decorative top accent */}
+						<div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/10 to-transparent" />
 
 						{/* Close button */}
-						<Button variant="ghost" size="icon-xs" onClick={() => setOpen(false)} className="absolute right-3 top-3">
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							onClick={() => setOpen(false)}
+							className="absolute right-3 top-3 z-10"
+						>
 							<span className="icon-[mdi--close] h-4 w-4" />
 						</Button>
+
+						<div className="relative px-6 pb-6 pt-7">
+							{/* Header with brand mark */}
+							<div className="mb-6 flex flex-col items-center text-center">
+								<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/50 bg-primary/10 ring-1 ring-inset ring-primary/20">
+									<span className="icon-[mdi--shield-account] h-6 w-6 text-primary" />
+								</div>
+								<h2 className="text-[15px] font-semibold text-foreground">
+									登录 Vetta
+								</h2>
+								<p className="mt-1 text-[12px] text-muted-foreground">
+									使用账号或第三方平台继续
+								</p>
+							</div>
+
+							{/* Account/Password form */}
+							<form onSubmit={handleAccountLogin} className="space-y-2.5">
+								<div className="relative">
+									<span className="icon-[mdi--account-outline] pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+									<input
+										type="text"
+										placeholder="账号"
+										value={account}
+										onChange={(e) => setAccount(e.target.value)}
+										className="h-10 w-full rounded-lg border border-border/50 bg-muted/40 pl-9 pr-3 text-[13px] text-foreground placeholder-muted-foreground/50 outline-none transition-colors hover:border-border focus:border-primary/40 focus:bg-muted/60 focus:ring-1 focus:ring-inset focus:ring-primary/20"
+									/>
+								</div>
+								<div className="relative">
+									<span className="icon-[mdi--lock-outline] pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+									<input
+										type="password"
+										placeholder="密码"
+										value={password}
+										onChange={(e) => setPassword(e.target.value)}
+										className="h-10 w-full rounded-lg border border-border/50 bg-muted/40 pl-9 pr-3 text-[13px] text-foreground placeholder-muted-foreground/50 outline-none transition-colors hover:border-border focus:border-primary/40 focus:bg-muted/60 focus:ring-1 focus:ring-inset focus:ring-primary/20"
+									/>
+								</div>
+								<AnimatePresence>
+									{loginError && (
+										<motion.p
+											initial={{ opacity: 0, y: -4 }}
+											animate={{ opacity: 1, y: 0 }}
+											exit={{ opacity: 0, y: -4 }}
+											className="flex items-center gap-1.5 text-[12px] text-destructive"
+										>
+											<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />
+											{loginError}
+										</motion.p>
+									)}
+								</AnimatePresence>
+								<Button
+									type="submit"
+									className="mt-1 h-10 w-full rounded-lg text-[13px]"
+									disabled={loginLoading || !account || !password}
+								>
+									{loginLoading ? (
+										<>
+											<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
+											登录中...
+										</>
+									) : (
+										"登录"
+									)}
+								</Button>
+							</form>
+
+							{/* Divider */}
+							{providers.length > 0 && (
+								<div className="my-5 flex items-center gap-3">
+									<div className="h-px flex-1 bg-border/60" />
+									<span className="text-[11px] text-muted-foreground/60">
+										或使用第三方登录
+									</span>
+									<div className="h-px flex-1 bg-border/60" />
+								</div>
+							)}
+
+							{/* OAuth providers */}
+							{providers.length > 0 && (
+								<div className={cn("grid gap-2", providers.length > 1 ? "grid-cols-3" : "grid-cols-1")}>
+									{providers.map((p) => {
+										const meta = PROVIDER_META[p] ?? {
+											label: p,
+											icon: "icon-[mdi--login]",
+										};
+										const isLoading = loading === p;
+										return (
+											<button
+												key={p}
+												type="button"
+												disabled={isLoading}
+												onClick={() => void handleOAuth(p)}
+												title={meta.label}
+												className={cn(
+													"group flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border/50 bg-muted/30 text-[12px] text-muted-foreground transition-colors",
+													"hover:border-primary/40 hover:bg-primary/5 hover:text-foreground",
+													isLoading && "opacity-50",
+												)}
+											>
+												{isLoading ? (
+													<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
+												) : (
+													<>
+														<span className={cn(meta.icon, "h-4 w-4")} />
+														{providers.length <= 2 && (
+															<span>{meta.label}</span>
+														)}
+													</>
+												)}
+											</button>
+										);
+									})}
+								</div>
+							)}
+
+							{/* Footer hint */}
+							<p className="mt-5 text-center text-[11px] text-muted-foreground/60">
+								登录即表示同意服务条款与隐私政策
+							</p>
+						</div>
 					</motion.div>
 				</motion.div>
 			)}
