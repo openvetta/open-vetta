@@ -209,6 +209,7 @@ const api: DesktopApi = {
 	},
 	auth: {
 		openExternal: async (url) => ipcRenderer.invoke("vetta:auth:open-external", url),
+		refreshToken: async () => ipcRenderer.invoke("vetta:auth:refresh-token"),
 		onOAuthCallback: (handler) => {
 			const listener = (_event: Electron.IpcRendererEvent, data: { token: string; refreshToken?: string }) => {
 				handler(data);

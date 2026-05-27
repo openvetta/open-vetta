@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
-import { BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, powerMonitor } from "electron";
 
 import { DEFAULT_SERVER_URL } from "../constants.js";
 import { peekSharedRuntime } from "../runtime.js";
@@ -72,7 +72,7 @@ function persistTokens(access: string, refresh: string): void {
 	}
 }
 
-async function tryRefreshAccessToken(): Promise<string | null> {
+export async function tryRefreshAccessToken(): Promise<string | null> {
 	if (refreshInFlight) return refreshInFlight;
 	refreshInFlight = (async () => {
 		const settings = readSettings();
@@ -186,6 +186,51 @@ async function fetchCreditsBalance(): Promise<{ balance: number | null; unlimite
 	}
 }
 
+/**
+ * focus / 系统 wake 时若 access token 剩余寿命 < WAKE_REFRESH_THRESHOLD_MS，主动 refresh。
+ * 解决"合上笔记本一夜，第二天第一个请求 401 才被动刷新"的体感问题。
+ */
+const WAKE_REFRESH_THRESHOLD_MS = 10 * 60 * 1000;
+
+function decodeAccessTokenExpMs(token: string): number | null {
+	const parts = token.split(".");
+	if (parts.length !== 3) return null;
+	try {
+		const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+		const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+		const json = JSON.parse(Buffer.from(padded, "base64").toString("utf-8")) as { exp?: number };
+		if (typeof json.exp !== "number") return null;
+		return json.exp * 1000;
+	} catch {
+		return null;
+	}
+}
+
+function maybeRefreshOnWake(reason: string): void {
+	const settings = readSettings();
+	const token = settings.serverToken as string | undefined;
+	if (!token) return;
+	const expMs = decodeAccessTokenExpMs(token);
+	if (expMs === null) return;
+	const remaining = expMs - Date.now();
+	if (remaining > WAKE_REFRESH_THRESHOLD_MS) return;
+	// tryRefreshAccessToken 内部有 single-flight，重复触发安全
+	void tryRefreshAccessToken().catch((err) => {
+		console.warn(`[auth] wake refresh (${reason}) failed:`, err);
+	});
+}
+
+function registerWakeRefreshHooks(): () => void {
+	const onFocus = () => maybeRefreshOnWake("focus");
+	const onResume = () => maybeRefreshOnWake("resume");
+	app.on("browser-window-focus", onFocus);
+	powerMonitor.on("resume", onResume);
+	return () => {
+		app.off("browser-window-focus", onFocus);
+		powerMonitor.off("resume", onResume);
+	};
+}
+
 export function registerSettingsIpc(): () => void {
 	// 清理 settings.json 中残留的 serverUrl，现在统一由环境变量管理
 	const settings = readSettings();
@@ -248,7 +293,17 @@ export function registerSettingsIpc(): () => void {
 		return fetchCreditsBalance();
 	});
 
+	// 渲染层 401 时统一委托主进程 refresh，避免跨进程并发使用同一 refresh_token
+	// 触发服务端 reuse-detection（revoked）导致误踢登录。
+	ipcMain.handle("vetta:auth:refresh-token", async () => {
+		const accessToken = await tryRefreshAccessToken();
+		return accessToken ?? null;
+	});
+
+	const teardownWakeHooks = registerWakeRefreshHooks();
+
 	return () => {
+		teardownWakeHooks();
 		ipcMain.removeHandler("vetta:settings:get-server-url");
 		ipcMain.removeHandler("vetta:settings:get-server-token");
 		ipcMain.removeHandler("vetta:settings:set-server-token");
@@ -256,5 +311,6 @@ export function registerSettingsIpc(): () => void {
 		ipcMain.removeHandler("vetta:settings:set-server-refresh-token");
 		ipcMain.removeHandler("vetta:models:fetch-remote");
 		ipcMain.removeHandler("vetta:credits:balance");
+		ipcMain.removeHandler("vetta:auth:refresh-token");
 	};
 }
