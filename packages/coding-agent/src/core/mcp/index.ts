@@ -7,9 +7,10 @@
 
 // Client
 export * from "./mcp-client.js";
-
 // Configuration
 export * from "./mcp-config.js";
+// HTTP client
+export * from "./mcp-http-client.js";
 // Manager
 export * from "./mcp-manager.js";
 // Process management

@@ -9,17 +9,9 @@
 // ============================================================================
 
 /**
- * Configuration for a single MCP server
+ * Common fields shared by all MCP server transports
  */
-export interface McpServerConfig {
-	/** Command to execute (e.g., "npx", "node", "/path/to/binary") */
-	command: string;
-	/** Command arguments */
-	args?: string[];
-	/** Environment variables for the server process */
-	env?: Record<string, string>;
-	/** Working directory for the server process (supports ${PROJECT_ROOT} variable) */
-	cwd?: string;
+export interface McpServerCommonConfig {
 	/** Whether this server is disabled */
 	disabled?: boolean;
 	/** List of tool names that should be auto-approved without user confirmation */
@@ -28,6 +20,52 @@ export interface McpServerConfig {
 	startupTimeout?: number;
 	/** Whether to enable debug logging for this server */
 	debug?: boolean;
+}
+
+/**
+ * Configuration for an MCP server launched as a local child process (stdio transport)
+ */
+export interface McpStdioServerConfig extends McpServerCommonConfig {
+	/** Transport type. Omitting this field defaults to stdio for backwards compat. */
+	type?: "stdio";
+	/** Command to execute (e.g., "npx", "node", "/path/to/binary") */
+	command: string;
+	/** Command arguments */
+	args?: string[];
+	/** Environment variables for the server process */
+	env?: Record<string, string>;
+	/** Working directory for the server process (supports ${PROJECT_ROOT} variable) */
+	cwd?: string;
+}
+
+/**
+ * Configuration for an MCP server accessed over Streamable HTTP transport
+ */
+export interface McpHttpServerConfig extends McpServerCommonConfig {
+	type: "http";
+	/** Server endpoint URL (supports ${VAR} substitution) */
+	url: string;
+	/** Optional HTTP headers sent with every request (supports ${VAR} substitution) */
+	headers?: Record<string, string>;
+}
+
+/**
+ * Configuration for a single MCP server
+ */
+export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
+
+/**
+ * Returns true if the config uses the HTTP transport
+ */
+export function isHttpServerConfig(config: McpServerConfig): config is McpHttpServerConfig {
+	return config.type === "http";
+}
+
+/**
+ * Returns true if the config uses the stdio transport
+ */
+export function isStdioServerConfig(config: McpServerConfig): config is McpStdioServerConfig {
+	return config.type === undefined || config.type === "stdio";
 }
 
 /**

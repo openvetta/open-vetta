@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { McpConfigData, McpServerConfigData } from "@preload/api.js";
+import {
+	isHttpMcpServerConfigData,
+	type McpConfigData,
+	type McpHttpServerConfigData,
+	type McpServerConfigData,
+	type McpStdioServerConfigData,
+} from "@preload/api.js";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
@@ -7,13 +13,20 @@ import { InputField } from "./ModelsSettings";
 import { SettingSection } from "./shared";
 
 type McpEditMode = "visual" | "json";
+type McpTransportType = "stdio" | "http";
 
 interface McpServerFormState {
 	name: string;
+	transport: McpTransportType;
+	// stdio
 	command: string;
 	args: string;
 	env: string;
 	cwd: string;
+	// http
+	url: string;
+	headers: string;
+	// common
 	disabled: boolean;
 	autoApprove: string;
 	startupTimeout: string;
@@ -22,51 +35,84 @@ interface McpServerFormState {
 
 const emptyMcpServer: McpServerFormState = {
 	name: "",
+	transport: "stdio",
 	command: "",
 	args: "",
 	env: "",
 	cwd: "",
+	url: "",
+	headers: "",
 	disabled: false,
 	autoApprove: "",
 	startupTimeout: "",
 	debug: false,
 };
 
+function kvLinesToObject(text: string): Record<string, string> | undefined {
+	const lines = text.trim() ? text.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+	if (lines.length === 0) return undefined;
+	return Object.fromEntries(lines.map((l) => {
+		const idx = l.indexOf("=");
+		return idx > 0 ? [l.slice(0, idx), l.slice(idx + 1)] : [l, ""];
+	}));
+}
+
+function objectToKvLines(obj: Record<string, string> | undefined): string {
+	if (!obj) return "";
+	return Object.entries(obj).map(([k, v]) => `${k}=${v}`).join("\n");
+}
+
 function serverToForm(name: string, s: McpServerConfigData): McpServerFormState {
-	return {
+	const common = {
 		name,
-		command: s.command,
-		args: s.args?.join(", ") ?? "",
-		env: s.env ? Object.entries(s.env).map(([k, v]) => `${k}=${v}`).join("\n") : "",
-		cwd: s.cwd ?? "",
 		disabled: s.disabled ?? false,
 		autoApprove: s.autoApprove?.join(", ") ?? "",
 		startupTimeout: s.startupTimeout != null ? String(s.startupTimeout) : "",
 		debug: s.debug ?? false,
 	};
+	if (isHttpMcpServerConfigData(s)) {
+		return {
+			...emptyMcpServer,
+			...common,
+			transport: "http",
+			url: s.url,
+			headers: objectToKvLines(s.headers),
+		};
+	}
+	return {
+		...emptyMcpServer,
+		...common,
+		transport: "stdio",
+		command: s.command,
+		args: s.args?.join(", ") ?? "",
+		env: objectToKvLines(s.env),
+		cwd: s.cwd ?? "",
+	};
 }
 
 function formToServer(form: McpServerFormState): McpServerConfigData {
-	const args = form.args.trim()
-		? form.args.split(",").map((s) => s.trim()).filter(Boolean)
-		: undefined;
-	const envLines = form.env.trim()
-		? form.env.split("\n").map((l) => l.trim()).filter(Boolean)
-		: [];
-	const env = envLines.length > 0
-		? Object.fromEntries(envLines.map((l) => {
-			const idx = l.indexOf("=");
-			return idx > 0 ? [l.slice(0, idx), l.slice(idx + 1)] : [l, ""];
-		}))
-		: undefined;
 	const autoApprove = form.autoApprove.trim()
 		? form.autoApprove.split(",").map((s) => s.trim()).filter(Boolean)
 		: undefined;
-	const startupTimeout = form.startupTimeout.trim()
-		? Number(form.startupTimeout.trim())
-		: undefined;
+	const startupTimeout = form.startupTimeout.trim() ? Number(form.startupTimeout.trim()) : undefined;
 
-	const cfg: McpServerConfigData = { command: form.command.trim() };
+	if (form.transport === "http") {
+		const cfg: McpHttpServerConfigData = { type: "http", url: form.url.trim() };
+		const headers = kvLinesToObject(form.headers);
+		if (headers) cfg.headers = headers;
+		if (form.disabled) cfg.disabled = true;
+		if (autoApprove && autoApprove.length > 0) cfg.autoApprove = autoApprove;
+		if (startupTimeout && !isNaN(startupTimeout)) cfg.startupTimeout = startupTimeout;
+		if (form.debug) cfg.debug = true;
+		return cfg;
+	}
+
+	const args = form.args.trim()
+		? form.args.split(",").map((s) => s.trim()).filter(Boolean)
+		: undefined;
+	const env = kvLinesToObject(form.env);
+
+	const cfg: McpStdioServerConfigData = { command: form.command.trim() };
 	if (args && args.length > 0) cfg.args = args;
 	if (env) cfg.env = env;
 	if (form.cwd.trim()) cfg.cwd = form.cwd.trim();
@@ -75,6 +121,12 @@ function formToServer(form: McpServerFormState): McpServerConfigData {
 	if (startupTimeout && !isNaN(startupTimeout)) cfg.startupTimeout = startupTimeout;
 	if (form.debug) cfg.debug = true;
 	return cfg;
+}
+
+function isFormValid(form: McpServerFormState): boolean {
+	if (!form.name.trim()) return false;
+	if (form.transport === "http") return !!form.url.trim();
+	return !!form.command.trim();
 }
 
 export function TextareaField({
@@ -155,8 +207,19 @@ function McpServerForm({
 }): JSX.Element {
 	return (
 		<>
+			<div className="mb-3">
+				<label className="mb-1 block text-[11px] text-muted-foreground">传输类型</label>
+				<SegmentedControl
+					items={[
+						{ key: "stdio" as McpTransportType, label: "stdio (本地命令)" },
+						{ key: "http" as McpTransportType, label: "HTTP" },
+					]}
+					value={form.transport}
+					onChange={(t) => setForm((f) => ({ ...f, transport: t }))}
+				/>
+			</div>
 			<div className="grid grid-cols-2 gap-3">
-				<div>
+				<div className={form.transport === "http" ? "" : "col-span-1"}>
 					<label className="mb-1 block text-[11px] text-muted-foreground">服务器名称 *</label>
 					<InputField
 						value={form.name}
@@ -164,39 +227,63 @@ function McpServerForm({
 						placeholder="e.g. filesystem"
 					/>
 				</div>
-				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">命令 *</label>
-					<InputField
-						value={form.command}
-						onChange={(v) => setForm((f) => ({ ...f, command: v }))}
-						placeholder="e.g. npx, node, uvx"
-					/>
-				</div>
-				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-muted-foreground">参数 (逗号分隔)</label>
-					<InputField
-						value={form.args}
-						onChange={(v) => setForm((f) => ({ ...f, args: v }))}
-						placeholder="e.g. -y, @modelcontextprotocol/server-filesystem, /path"
-					/>
-				</div>
-				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-muted-foreground">环境变量 (每行一个 KEY=VALUE，支持 ${"{"}VAR{"}"} 引用)</label>
-					<TextareaField
-						value={form.env}
-						onChange={(v) => setForm((f) => ({ ...f, env: v }))}
-						placeholder={"GITHUB_TOKEN=${GITHUB_TOKEN}\nNODE_ENV=production"}
-						rows={3}
-					/>
-				</div>
-				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">工作目录</label>
-					<InputField
-						value={form.cwd}
-						onChange={(v) => setForm((f) => ({ ...f, cwd: v }))}
-						placeholder="e.g. ${PROJECT_ROOT}"
-					/>
-				</div>
+				{form.transport === "stdio" ? (
+					<>
+						<div>
+							<label className="mb-1 block text-[11px] text-muted-foreground">命令 *</label>
+							<InputField
+								value={form.command}
+								onChange={(v) => setForm((f) => ({ ...f, command: v }))}
+								placeholder="e.g. npx, node, uvx"
+							/>
+						</div>
+						<div className="col-span-2">
+							<label className="mb-1 block text-[11px] text-muted-foreground">参数 (逗号分隔)</label>
+							<InputField
+								value={form.args}
+								onChange={(v) => setForm((f) => ({ ...f, args: v }))}
+								placeholder="e.g. -y, @modelcontextprotocol/server-filesystem, /path"
+							/>
+						</div>
+						<div className="col-span-2">
+							<label className="mb-1 block text-[11px] text-muted-foreground">环境变量 (每行一个 KEY=VALUE，支持 ${"{"}VAR{"}"} 引用)</label>
+							<TextareaField
+								value={form.env}
+								onChange={(v) => setForm((f) => ({ ...f, env: v }))}
+								placeholder={"GITHUB_TOKEN=${GITHUB_TOKEN}\nNODE_ENV=production"}
+								rows={3}
+							/>
+						</div>
+						<div>
+							<label className="mb-1 block text-[11px] text-muted-foreground">工作目录</label>
+							<InputField
+								value={form.cwd}
+								onChange={(v) => setForm((f) => ({ ...f, cwd: v }))}
+								placeholder="e.g. ${PROJECT_ROOT}"
+							/>
+						</div>
+					</>
+				) : (
+					<>
+						<div className="col-span-2">
+							<label className="mb-1 block text-[11px] text-muted-foreground">URL *</label>
+							<InputField
+								value={form.url}
+								onChange={(v) => setForm((f) => ({ ...f, url: v }))}
+								placeholder="e.g. https://mcp.exa.ai/mcp"
+							/>
+						</div>
+						<div className="col-span-2">
+							<label className="mb-1 block text-[11px] text-muted-foreground">请求头 (每行一个 KEY=VALUE，支持 ${"{"}VAR{"}"} 引用)</label>
+							<TextareaField
+								value={form.headers}
+								onChange={(v) => setForm((f) => ({ ...f, headers: v }))}
+								placeholder={"Authorization=Bearer ${EXA_TOKEN}"}
+								rows={2}
+							/>
+						</div>
+					</>
+				)}
 				<div>
 					<label className="mb-1 block text-[11px] text-muted-foreground">启动超时 (ms)</label>
 					<InputField
@@ -234,7 +321,7 @@ function McpServerForm({
 					variant="primary"
 					size="sm"
 					onClick={onSave}
-					disabled={!form.name.trim() || !form.command.trim() || saving}
+					disabled={!isFormValid(form) || saving}
 				>
 					{saveLabel}
 				</Button>
@@ -280,7 +367,7 @@ export function McpSettings(): JSX.Element {
 	// --- Visual mode CRUD ---
 
 	const handleAddServer = useCallback(async () => {
-		if (!config || !serverForm.name.trim() || !serverForm.command.trim()) return;
+		if (!config || !isFormValid(serverForm)) return;
 		const newConfig: McpConfigData = {
 			...config,
 			mcpServers: {
@@ -295,7 +382,7 @@ export function McpSettings(): JSX.Element {
 	}, [config, serverForm, saveConfig]);
 
 	const handleUpdateServer = useCallback(async (oldName: string) => {
-		if (!config || !serverForm.name.trim() || !serverForm.command.trim()) return;
+		if (!config || !isFormValid(serverForm)) return;
 		const newServers = { ...config.mcpServers };
 		if (oldName !== serverForm.name.trim()) {
 			delete newServers[oldName];
@@ -346,11 +433,25 @@ export function McpSettings(): JSX.Element {
 				setJsonError("JSON 必须包含 mcpServers 对象");
 				return;
 			}
-			// Validate each server has command
+			// Validate each server config based on transport type
 			for (const [name, srv] of Object.entries(parsed.mcpServers)) {
-				if (!srv.command || typeof srv.command !== "string") {
-					setJsonError(`服务器 "${name}" 缺少 command 字段`);
+				const type = (srv as { type?: string }).type ?? "stdio";
+				if (type !== "stdio" && type !== "http") {
+					setJsonError(`服务器 "${name}" 的 type 必须是 "stdio" 或 "http"`);
 					return;
+				}
+				if (type === "http") {
+					const httpSrv = srv as { url?: unknown };
+					if (!httpSrv.url || typeof httpSrv.url !== "string") {
+						setJsonError(`服务器 "${name}" 缺少 url 字段`);
+						return;
+					}
+				} else {
+					const stdioSrv = srv as { command?: unknown };
+					if (!stdioSrv.command || typeof stdioSrv.command !== "string") {
+						setJsonError(`服务器 "${name}" 缺少 command 字段`);
+						return;
+					}
 				}
 			}
 			setJsonError(null);
@@ -444,8 +545,9 @@ export function McpSettings(): JSX.Element {
 													)}
 												</div>
 												<div className="mt-0.5 text-[11px] text-muted-foreground">
-													{server.command}
-													{server.args && server.args.length > 0 && ` ${server.args.join(" ")}`}
+													{isHttpMcpServerConfigData(server)
+														? `HTTP · ${server.url}`
+														: `${server.command}${server.args && server.args.length > 0 ? ` ${server.args.join(" ")}` : ""}`}
 												</div>
 											</div>
 										</button>
@@ -514,18 +616,35 @@ export function McpSettings(): JSX.Element {
 									{isExpanded && !isEditing && (
 										<div className="border-t border-border bg-secondary/30 px-5 py-3">
 											<div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
-												<DetailItem label="命令" value={server.command} />
-												<DetailItem label="参数" value={server.args?.join(", ") || "—"} />
-												<DetailItem label="工作目录" value={server.cwd || "—"} />
+												<DetailItem label="类型" value={isHttpMcpServerConfigData(server) ? "HTTP" : "stdio"} />
+												{isHttpMcpServerConfigData(server) ? (
+													<DetailItem label="URL" value={server.url} />
+												) : (
+													<>
+														<DetailItem label="命令" value={server.command} />
+														<DetailItem label="参数" value={server.args?.join(", ") || "—"} />
+														<DetailItem label="工作目录" value={server.cwd || "—"} />
+													</>
+												)}
 												<DetailItem label="启动超时" value={server.startupTimeout != null ? `${server.startupTimeout}ms` : "默认 (10s)"} />
 												<DetailItem label="调试模式" value={server.debug ? "开启" : "关闭"} />
 												<DetailItem label="自动批准" value={server.autoApprove?.join(", ") || "—"} />
 											</div>
-											{server.env && Object.keys(server.env).length > 0 && (
+											{!isHttpMcpServerConfigData(server) && server.env && Object.keys(server.env).length > 0 && (
 												<div className="mt-3">
 													<div className="mb-1 text-[11px] text-muted-foreground">环境变量</div>
 													<div className="rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
 														{Object.entries(server.env).map(([k, v]) => (
+															<div key={k}>{k}={v}</div>
+														))}
+													</div>
+												</div>
+											)}
+											{isHttpMcpServerConfigData(server) && server.headers && Object.keys(server.headers).length > 0 && (
+												<div className="mt-3">
+													<div className="mb-1 text-[11px] text-muted-foreground">请求头</div>
+													<div className="rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
+														{Object.entries(server.headers).map(([k, v]) => (
 															<div key={k}>{k}={v}</div>
 														))}
 													</div>
