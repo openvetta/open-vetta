@@ -63,7 +63,15 @@ if (!isCliMode) {
 	app.commandLine.appendSwitch("js-flags", "--max-old-space-size=4096");
 }
 
-installMainDiagnostics();
+// agent-rpc mode talks to its parent over stdout via console.log (NDJSON
+// command/response protocol). installMainDiagnostics() monkey-patches
+// console.log into a file logger, which would silently swallow every RPC
+// response — the IM sidecar then hangs forever on handshake. PDF/OCR are
+// unaffected because they call writeSync(1, ...) directly. Skip the patch
+// only on the agent-rpc path.
+if (!agentRpcArgs) {
+	installMainDiagnostics();
+}
 const mainLog = getAppLogger("main");
 
 if (isCliMode) {
