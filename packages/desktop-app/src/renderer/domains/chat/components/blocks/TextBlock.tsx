@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue } from "jotai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,37 +9,36 @@ import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode"
 
 const remarkPlugins = [remarkGfm];
 
-/**
- * rehype 插件：把渲染后的纯文本节点（不在 code/pre 内）按词切成 .streaming-word span。
- * CSS 给每个 .streaming-word 挂 mount-time 一次性 fade-in 动画；旧 span 靠 React reconciliation
- * 复用 DOM、动画自然停在终态，新追加的 span 在出现位置就地淡入。
- */
-function rehypeStreamingWords() {
-	return (tree: HastRoot): void => {
-		const wordRe = /\S+/g;
+const STREAMING_CHUNK_SIZE = 10;
 
+/**
+ * rehype 插件：把渲染后的纯文本节点（不在 code/pre 内）切成稳定的 .streaming-chunk span。
+ * CSS 给每个新 chunk 挂 mount-time fade-in 动画；旧 chunk 靠 React reconciliation
+ * 复用 DOM、动画自然停在终态，新追加的 chunk 在出现位置就地淡入。
+ */
+function rehypeStreamingChunks() {
+	return (tree: HastRoot): void => {
 		function visit(node: HastRoot | HastElement, inCode: boolean): void {
 			const newChildren: ElementContent[] = [];
 			for (const child of node.children) {
 				if (child.type === "text" && !inCode) {
 					const value = (child as HastText).value;
-					let last = 0;
-					wordRe.lastIndex = 0;
-					let m: RegExpExecArray | null;
-					while ((m = wordRe.exec(value)) !== null) {
-						if (m.index > last) {
-							newChildren.push({ type: "text", value: value.slice(last, m.index) } as HastText);
+					for (let index = 0; index < value.length;) {
+						const spaceMatch = /^\s+/.exec(value.slice(index));
+						if (spaceMatch) {
+							newChildren.push({ type: "text", value: spaceMatch[0] } as HastText);
+							index += spaceMatch[0].length;
+							continue;
 						}
+
+						const end = getSliceEnd(value, index, STREAMING_CHUNK_SIZE);
 						newChildren.push({
 							type: "element",
 							tagName: "span",
-							properties: { className: ["streaming-word"] },
-							children: [{ type: "text", value: m[0] } as HastText],
+							properties: { className: ["streaming-chunk"] },
+							children: [{ type: "text", value: value.slice(index, end) } as HastText],
 						});
-						last = m.index + m[0].length;
-					}
-					if (last < value.length) {
-						newChildren.push({ type: "text", value: value.slice(last) } as HastText);
+						index = end;
 					}
 				} else {
 					newChildren.push(child);
@@ -56,12 +55,133 @@ function rehypeStreamingWords() {
 	};
 }
 
-const streamingRehypePlugins = [rehypeStreamingWords];
+const streamingRehypePlugins = [rehypeStreamingChunks];
+
+const STREAM_REVEAL_INTERVAL_MS = 500;
+
+function getSliceEnd(text: string, start: number, count: number): number {
+	let end = Math.min(text.length, start + count);
+	if (end < text.length) {
+		const previous = text.charCodeAt(end - 1);
+		const next = text.charCodeAt(end);
+		if (previous >= 0xd800 && previous <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) {
+			end++;
+		}
+	}
+	return end;
+}
+
+interface StreamingDisplayState {
+	displayText: string;
+	animateChunks: boolean;
+}
+
+function useStreamingDisplayText(text: string, active: boolean): StreamingDisplayState {
+	const [displayText, setDisplayText] = useState(() => (active ? "" : text));
+	const [animateChunks, setAnimateChunks] = useState(active);
+	const displayRef = useRef(active ? "" : text);
+	const targetRef = useRef(text);
+	const rafRef = useRef<number | null>(null);
+	const lastRevealRef = useRef<number | null>(null);
+	const settleTimerRef = useRef<number | null>(null);
+	const wasActiveRef = useRef(active);
+
+	useEffect(() => {
+		targetRef.current = text;
+
+		function clearSettleTimer(): void {
+			if (settleTimerRef.current !== null) {
+				window.clearTimeout(settleTimerRef.current);
+				settleTimerRef.current = null;
+			}
+		}
+
+		function scheduleSettle(): void {
+			clearSettleTimer();
+			settleTimerRef.current = window.setTimeout(() => {
+				setAnimateChunks(false);
+				settleTimerRef.current = null;
+			}, STREAM_REVEAL_INTERVAL_MS);
+		}
+
+		if (!text.startsWith(displayRef.current)) {
+			if (rafRef.current !== null) {
+				cancelAnimationFrame(rafRef.current);
+				rafRef.current = null;
+			}
+			clearSettleTimer();
+			setDisplayText(text);
+			setAnimateChunks(false);
+			displayRef.current = text;
+			lastRevealRef.current = null;
+			wasActiveRef.current = active;
+			return;
+		}
+
+		function tick(timestamp: number): void {
+			rafRef.current = null;
+			const target = targetRef.current;
+			const current = displayRef.current;
+			const backlog = target.length - current.length;
+
+			if (backlog <= 0) {
+				lastRevealRef.current = timestamp;
+				return;
+			}
+
+			const previousReveal = lastRevealRef.current;
+			if (previousReveal !== null && timestamp - previousReveal < STREAM_REVEAL_INTERVAL_MS) {
+				rafRef.current = requestAnimationFrame(tick);
+				return;
+			}
+			lastRevealRef.current = timestamp;
+
+			const next = target;
+			displayRef.current = next;
+			setAnimateChunks(true);
+			setDisplayText(next);
+
+			if (!active) {
+				scheduleSettle();
+			}
+		}
+
+		if (active && !wasActiveRef.current && displayRef.current.length >= text.length) {
+			clearSettleTimer();
+			displayRef.current = "";
+			setDisplayText("");
+			lastRevealRef.current = null;
+		}
+		wasActiveRef.current = active;
+		if (active) {
+			clearSettleTimer();
+			setAnimateChunks(true);
+		} else if (displayRef.current.length < text.length) {
+			setAnimateChunks(true);
+		} else {
+			scheduleSettle();
+		}
+
+		if (rafRef.current === null && displayRef.current.length < text.length) {
+			rafRef.current = requestAnimationFrame(tick);
+		}
+
+		return () => {
+			if (rafRef.current !== null) {
+				cancelAnimationFrame(rafRef.current);
+				rafRef.current = null;
+			}
+			clearSettleTimer();
+		};
+	}, [text, active]);
+
+	return { displayText, animateChunks };
+}
 
 interface TextBlockProps {
 	text: string;
 	/** 仅当本 block 是「正在 streaming 消息」的最后一个 text block 时为 true，
-	 * 启用逐词淡入效果。 */
+	 * 启用分块渐现效果。 */
 	isStreamingTail?: boolean;
 }
 
@@ -72,6 +192,7 @@ interface TextBlockProps {
  */
 export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail = false }: TextBlockProps) {
 	const theme = useAtomValue(resolvedThemeAtom);
+	const { displayText, animateChunks } = useStreamingDisplayText(text, isStreamingTail);
 
 	const components = useMemo<Components>(() => ({
 		// Headings
@@ -167,13 +288,13 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 	}), [theme]);
 
 	return (
-		<div className={`markdown-body break-words${isStreamingTail ? " markdown-streaming-tail" : ""}`}>
+		<div className={`markdown-body break-words${animateChunks ? " markdown-streaming-tail" : ""}`}>
 			<ReactMarkdown
 				remarkPlugins={remarkPlugins}
-				rehypePlugins={isStreamingTail ? streamingRehypePlugins : undefined}
+				rehypePlugins={animateChunks ? streamingRehypePlugins : undefined}
 				components={components}
 			>
-				{text}
+				{displayText}
 			</ReactMarkdown>
 		</div>
 	);

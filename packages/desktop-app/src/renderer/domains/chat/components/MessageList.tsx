@@ -111,7 +111,6 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 	const toolBlocks = blocks.filter((b): b is ToolCallBlock => b.type === "tool_call");
 	const thinkingCount = blocks.filter((b) => b.type === "thinking").length;
 	const completedCount = toolBlocks.filter((b) => b.status !== "pending").length;
-	const hasError = toolBlocks.some((b) => b.status === "error");
 	const allDone = completedCount === toolBlocks.length;
 
 	function getSummary(): string {
@@ -130,22 +129,24 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 	}
 
 	return (
-		<div>
-			<button
-				type="button"
-				onClick={() => setExpanded(!expanded)}
-				className="inline-flex items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors hover:bg-muted/60"
-			>
-				<span
-					className={`icon-[mdi--chevron-right] h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${expanded ? "rotate-90" : ""} ${hasError ? "text-destructive/70" : "text-muted-foreground/30"}`}
-				/>
-				<span className="flex h-5 min-w-5 items-center justify-center rounded bg-muted px-1.5 text-[11px] font-medium text-muted-foreground/60">
-					{blocks.length}
-				</span>
-				<span className={`text-[12px] text-muted-foreground/50 ${allDone ? "" : "tool-call-shimmer-text"}`}>
-					{getSummary()}
-				</span>
-			</button>
+		<div className="relative w-fit max-w-full overflow-hidden rounded-lg px-1 py-0.5">
+			<div className="inline-block max-w-full align-top">
+				<button
+					type="button"
+					onClick={() => setExpanded(!expanded)}
+					className="inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors hover:bg-muted/60"
+				>
+					<span
+						className={`icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground/80 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+					/>
+					<span className="flex h-5 min-w-5 items-center justify-center rounded bg-muted px-1.5 text-[11px] font-medium text-muted-foreground/60">
+						{blocks.length}
+					</span>
+					<span className={`min-w-0 truncate text-[12px] text-muted-foreground/50 ${allDone ? "" : "tool-call-shimmer-text"}`}>
+						{getSummary()}
+					</span>
+				</button>
+			</div>
 			<AnimatePresence initial={false}>
 				{expanded && (
 					<motion.div
@@ -155,7 +156,7 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 						transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
 						className="overflow-hidden"
 					>
-						<div className="flex flex-col gap-0.5 pl-2">
+						<div className="flex flex-col gap-0.5 pl-2 pr-1 pb-1">
 							{blocks.map((block) =>
 								block.type === "tool_call" ? (
 									<ToolCallBlockView key={block.toolCallId} block={block} />
@@ -171,30 +172,56 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 	);
 });
 
-const SegmentRenderer = memo(function SegmentRenderer({ segment, isStreamingTail = false }: { segment: BlockSegment; isStreamingTail?: boolean }) {
+const SegmentRenderer = memo(function SegmentRenderer({
+	segment,
+	isStreamingTail = false,
+	animateIn = false,
+}: {
+	segment: BlockSegment;
+	isStreamingTail?: boolean;
+	animateIn?: boolean;
+}) {
+	let content: JSX.Element | null;
 	if (segment.type === "tool_group") {
-		return <ToolCallGroup blocks={segment.blocks} />;
+		content = <ToolCallGroup blocks={segment.blocks} />;
+	} else {
+		const { block } = segment;
+		switch (block.type) {
+			case "text":
+				content = <TextBlockView text={block.text} isStreamingTail={isStreamingTail} />;
+				break;
+			case "thinking":
+				content = <ThinkingBlockView text={block.text} />;
+				break;
+			case "tool_call":
+				content = <ToolCallBlockView block={block} />;
+				break;
+			case "error":
+				content = (
+					<div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+						<span className="icon-[mdi--alert-circle-outline] mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
+						<span className="text-[13px] leading-[1.6] text-destructive/90" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+							{block.text}
+						</span>
+					</div>
+				);
+				break;
+			default:
+				content = null;
+		}
 	}
-	const { block } = segment;
-	switch (block.type) {
-		case "text":
-			return <TextBlockView text={block.text} isStreamingTail={isStreamingTail} />;
-		case "thinking":
-			return <ThinkingBlockView text={block.text} />;
-		case "tool_call":
-			return <ToolCallBlockView block={block} />;
-		case "error":
-			return (
-				<div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
-					<span className="icon-[mdi--alert-circle-outline] mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
-					<span className="text-[13px] leading-[1.6] text-destructive/90" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-						{block.text}
-					</span>
-				</div>
-			);
-		default:
-			return null;
-	}
+
+	if (!content) return null;
+	if (!animateIn) return content;
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 4 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+		>
+			{content}
+		</motion.div>
+	);
 });
 
 /** Format timestamp to HH:mm:ss */
@@ -500,15 +527,15 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 		return foldData.outputBlocks;
 	}, [expanded, foldData, isCurrentlyStreaming, message.blocks]);
 	const segments = useMemo(() => groupBlocks(visibleBlocks), [visibleBlocks]);
-	// 仅在 streaming 时给「最后一个足够长的 text segment」标记 streaming tail，
-	// 用于触发末端羽化遮罩。长度阈值用于规避对单行短消息整体淡化。
+	// streaming 时给最后一个非空 text segment 标记 streaming tail，
+	// 由 TextBlockView 控制展示节奏，避免高速 token 直接整块刷出。
 	const streamingTailIndex = useMemo(() => {
 		if (!isCurrentlyStreaming) return -1;
 		for (let i = segments.length - 1; i >= 0; i--) {
 			const seg = segments[i];
 			if (seg.type !== "single") continue;
 			const b = seg.block;
-			if (b.type === "text" && (b.text.length > 60 || b.text.includes("\n"))) {
+			if (b.type === "text" && b.text.length > 0) {
 				return i;
 			}
 		}
@@ -579,6 +606,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 								key={segmentKey(segment)}
 								segment={segment}
 								isStreamingTail={i === streamingTailIndex}
+								animateIn={isCurrentlyStreaming}
 							/>
 						))}
 					</div>

@@ -290,21 +290,25 @@ textarea:focus {
 	margin-bottom: 0 !important;
 }
 
-/* Streaming tail: 逐词淡入。rehype 插件把流式末尾消息的文字按词包成 .streaming-word，
+/* Streaming tail: 分块淡入。rehype 插件把流式末尾消息的文字按稳定片段包成 .streaming-chunk，
    只在「该 span 首次 mount」时跑一次动画 —— 依赖 React reconciliation 复用旧 span 的 DOM，
-   旧词的动画自然停留在终态（opacity 1），只有新追加的 span 触发新动画。
-   不再用全局 CSS 变量，避免每帧重算 delay 把已在场的 span 视觉位置往回拖。 */
-.markdown-streaming-tail .streaming-word {
-	animation: streaming-word-fade 320ms ease-out both;
+   旧片段的动画自然停留在终态（opacity 1），只有新追加的 span 触发新动画。
+   不使用 blur，避免大段消息持续追加时产生额外绘制压力。 */
+.markdown-streaming-tail .streaming-chunk {
+	display: inline-block;
+	vertical-align: baseline;
+	animation: streaming-chunk-fade 500ms ease-out both;
 }
-@keyframes streaming-word-fade {
+@keyframes streaming-chunk-fade {
 	from {
-		opacity: 0;
-		filter: blur(4px);
+		opacity: 0.08;
+		filter: blur(5px);
+		transform: translateY(8px);
 	}
 	to {
 		opacity: 1;
 		filter: blur(0);
+		transform: translateY(0);
 	}
 }
 
