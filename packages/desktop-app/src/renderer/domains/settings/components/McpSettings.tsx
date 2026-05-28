@@ -339,7 +339,13 @@ function McpServerForm({
 function marketToServer(m: MarketMcpServer): McpServerConfigData {
 	// admin 原样存储完整 mcpServers 条目 JSON；客户端按当前协议解释。
 	// 不在此处做字段适配 —— MCP 协议演进时只需升级 desktop-app。
-	return m.config as unknown as McpServerConfigData;
+	// 附带把 admin 维护的 display_name/description 写进 common 字段，方便
+	// 服务器列表展示，agent 端是 extra field 会被忽略。
+	const base = (m.config ?? {}) as Record<string, unknown>;
+	const merged: Record<string, unknown> = { ...base };
+	if (m.display_name && !merged.displayName) merged.displayName = m.display_name;
+	if (m.description && !merged.description) merged.description = m.description;
+	return merged as unknown as McpServerConfigData;
 }
 
 function summarizeRemoteConfig(cfg: Record<string, unknown>): string {
@@ -737,17 +743,18 @@ export function McpSettings(): JSX.Element {
 											/>
 											<div className="min-w-0 flex-1">
 												<div className={cn(
-													"text-[13px] font-medium",
+													"text-[13px] font-medium truncate",
 													isDisabled ? "text-muted-foreground" : "text-foreground",
 												)}>
-													{name}
+													{server.displayName || name}
 													{isDisabled && (
 														<span className="ml-2 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
 															已禁用
 														</span>
 													)}
 												</div>
-												<div className="mt-0.5 text-[11px] text-muted-foreground">
+												<div className="mt-0.5 text-[11px] text-muted-foreground font-mono truncate">
+													{server.displayName ? `${name} · ` : ""}
 													{isHttpMcpServerConfigData(server)
 														? `HTTP · ${server.url}`
 														: `${server.command}${server.args && server.args.length > 0 ? ` ${server.args.join(" ")}` : ""}`}
@@ -818,6 +825,17 @@ export function McpSettings(): JSX.Element {
 									{/* Expanded detail view */}
 									{isExpanded && !isEditing && (
 										<div className="border-t border-border bg-secondary/30 px-5 py-3">
+											{(server.displayName || server.description) && (
+												<div className="mb-3 grid grid-cols-1 gap-y-2 text-[12px]">
+													{server.displayName && (
+														<DetailItem label="显示名" value={server.displayName} />
+													)}
+													<DetailItem label="名称 (key)" value={name} />
+													{server.description && (
+														<DetailItem label="描述" value={server.description} />
+													)}
+												</div>
+											)}
 											<div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
 												<DetailItem label="类型" value={isHttpMcpServerConfigData(server) ? "HTTP" : "stdio"} />
 												{isHttpMcpServerConfigData(server) ? (
