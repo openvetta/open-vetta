@@ -337,17 +337,26 @@ function McpServerForm({
 }
 
 function marketToServer(m: MarketMcpServer): McpServerConfigData {
-	if (m.transport === "http") {
-		const cfg: McpHttpServerConfigData = { type: "http", url: m.url };
-		if (m.headers && Object.keys(m.headers).length > 0) cfg.headers = m.headers;
-		if (m.auto_approve && m.auto_approve.length > 0) cfg.autoApprove = m.auto_approve;
-		return cfg;
+	// admin 原样存储完整 mcpServers 条目 JSON；客户端按当前协议解释。
+	// 不在此处做字段适配 —— MCP 协议演进时只需升级 desktop-app。
+	return m.config as unknown as McpServerConfigData;
+}
+
+function summarizeRemoteConfig(cfg: Record<string, unknown>): string {
+	const type = typeof cfg.type === "string" ? cfg.type : cfg.command ? "stdio" : cfg.url ? "http" : "";
+	if (type === "http" && typeof cfg.url === "string") return cfg.url;
+	if (typeof cfg.command === "string") {
+		const args = Array.isArray(cfg.args) ? cfg.args.filter((x) => typeof x === "string").join(" ") : "";
+		return `${cfg.command}${args ? " " + args : ""}`;
 	}
-	const cfg: McpStdioServerConfigData = { command: m.command };
-	if (m.args && m.args.length > 0) cfg.args = m.args;
-	if (m.env && Object.keys(m.env).length > 0) cfg.env = m.env;
-	if (m.auto_approve && m.auto_approve.length > 0) cfg.autoApprove = m.auto_approve;
-	return cfg;
+	return "";
+}
+
+function configTransportLabel(cfg: Record<string, unknown>): string {
+	if (typeof cfg.type === "string") return cfg.type;
+	if (typeof cfg.url === "string") return "http";
+	if (typeof cfg.command === "string") return "stdio";
+	return "—";
 }
 
 function RemoteMcpSection({
@@ -459,7 +468,7 @@ function RemoteMcpSection({
 											{m.display_name || m.name}
 										</span>
 										<span className="rounded-full bg-accent px-1.5 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
-											{m.transport}
+											{configTransportLabel(m.config)}
 										</span>
 										{added && (
 											<span className="rounded-full bg-green-500/10 px-1.5 py-0.5 text-[9px] font-medium text-green-400">
@@ -468,9 +477,7 @@ function RemoteMcpSection({
 										)}
 									</div>
 									<div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-										{m.transport === "http"
-											? m.url
-											: `${m.command}${m.args?.length ? " " + m.args.join(" ") : ""}`}
+										{summarizeRemoteConfig(m.config)}
 									</div>
 									{m.description && (
 										<div className="mt-0.5 truncate text-[11px] text-muted-foreground/80">
