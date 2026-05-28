@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue } from "jotai";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
@@ -392,16 +392,37 @@ function FileBadge({ path }: { path: string }): JSX.Element {
 	);
 }
 
+type UserMessageEntryState = "static" | "hidden" | "enter";
+
 /** User message — right-aligned bubble */
-const UserMessage = memo(function UserMessage({ message }: { message: ChatMessage }) {
+const UserMessage = memo(function UserMessage({
+	message,
+	entryState,
+	onEntryComplete,
+}: {
+	message: ChatMessage;
+	entryState: UserMessageEntryState;
+	onEntryComplete?: () => void;
+}) {
 	const hasImages = message.images && message.images.length > 0;
 	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const displayText = body;
 	const hasBadges = skillName || files.length > 0;
 	const copyText = displayText.trim();
+	const shouldAnimateIn = entryState === "enter";
+	const shouldHoldHidden = entryState === "hidden";
+	const hiddenVisualState = { opacity: 0, scale: 0.82, x: 14, y: 12 };
+	const visibleVisualState = { opacity: 1, scale: 1, x: 0, y: 0 };
 
 	return (
-		<div className="group/user flex justify-end">
+		<motion.div
+			className="group/user flex justify-end"
+			initial={shouldAnimateIn ? hiddenVisualState : false}
+			animate={shouldHoldHidden ? hiddenVisualState : visibleVisualState}
+			transition={{ type: "spring", stiffness: 520, damping: 24, mass: 0.8 }}
+			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
+			style={{ originX: 1, originY: 1 }}
+		>
 			<div className="relative max-w-[72%] before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
 				{hasImages && (
 					<div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
@@ -433,7 +454,14 @@ const UserMessage = memo(function UserMessage({ message }: { message: ChatMessag
 							</div>
 						)}
 						{displayText && (
-							<div style={{ whiteSpace: "pre-wrap" }}>{displayText}</div>
+							<motion.div
+								initial={shouldAnimateIn ? { filter: "blur(6px)" } : false}
+								animate={{ filter: shouldHoldHidden ? "blur(6px)" : "blur(0px)" }}
+								transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+								style={{ whiteSpace: "pre-wrap" }}
+							>
+								{displayText}
+							</motion.div>
 						)}
 					</div>
 				)}
@@ -451,7 +479,7 @@ const UserMessage = memo(function UserMessage({ message }: { message: ChatMessag
 					</div>
 				)}
 			</div>
-		</div>
+		</motion.div>
 	);
 });
 
@@ -572,16 +600,24 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 	);
 });
 
-const Message = memo(function Message({ message, isTailMessage, isStreaming }: {
+const Message = memo(function Message({ message, isTailMessage, isStreaming, userMessageEntryState, onUserMessageEntryComplete }: {
 	message: ChatMessage;
 	isTailMessage: boolean;
 	isStreaming: boolean;
+	userMessageEntryState: UserMessageEntryState;
+	onUserMessageEntryComplete?: () => void;
 }) {
 	if (message.role === "compaction") {
 		return <CompactionBoundary />;
 	}
 	if (message.role === "user") {
-		return <UserMessage message={message} />;
+		return (
+			<UserMessage
+				message={message}
+				entryState={userMessageEntryState}
+				onEntryComplete={onUserMessageEntryComplete}
+			/>
+		);
 	}
 	return <AssistantMessage message={message} isTailMessage={isTailMessage} isStreaming={isStreaming} />;
 });
@@ -676,6 +712,22 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	// 由 Virtuoso 的 atBottomStateChange 维护；用户手动向上滚动会自动转为 false，
 	// 跟随循环下一帧自然退出。
 	const atBottomRef = useRef(true);
+	const lastMessage = messages.at(-1);
+	const previousRenderMsgCountRef = useRef(messages.length);
+	const enteringUserMessageId =
+		messages.length > previousRenderMsgCountRef.current && lastMessage?.role === "user"
+			? lastMessage.id
+			: null;
+	const [pendingUserAnimationId, setPendingUserAnimationId] = useState<string | null>(null);
+	const pendingUserAnimationIdRef = useRef<string | null>(null);
+	const [activeUserAnimationId, setActiveUserAnimationId] = useState<string | null>(null);
+	const releasePendingUserAnimation = useCallback(() => {
+		const id = pendingUserAnimationIdRef.current;
+		if (!id) return;
+		pendingUserAnimationIdRef.current = null;
+		setPendingUserAnimationId(null);
+		setActiveUserAnimationId(id);
+	}, []);
 	// 当前是否正在 streaming —— 给 tick 闭包用，避免 useCallback 依赖触发重建。
 	const isStreamingRef = useRef(isStreaming);
 	isStreamingRef.current = isStreaming;
@@ -687,7 +739,7 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 			lerpRafRef.current = null;
 			return;
 		}
-		const target = el.scrollHeight - el.clientHeight;
+		const target = Math.max(0, el.scrollHeight - el.clientHeight);
 		const diff = target - el.scrollTop;
 		if (diff > 0.5) {
 			// 线性 lerp：每帧吃掉差值的 20%，开局快收尾稳，视觉上「持续追着底部」
@@ -695,12 +747,14 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 			el.scrollTop = el.scrollTop + diff * 0.2;
 			lerpRafRef.current = requestAnimationFrame(tickLerp);
 		} else if (isStreamingRef.current) {
+			releasePendingUserAnimation();
 			// 已贴底但 streaming 还在继续：保持循环，等下一帧的新内容继续抬高底部。
 			lerpRafRef.current = requestAnimationFrame(tickLerp);
 		} else {
+			releasePendingUserAnimation();
 			lerpRafRef.current = null;
 		}
-	}, []);
+	}, [releasePendingUserAnimation]);
 
 	const startLerp = useCallback(() => {
 		if (lerpRafRef.current === null) {
@@ -711,9 +765,12 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	const handleAtBottom = useCallback(
 		(atBottom: boolean) => {
 			atBottomRef.current = atBottom;
-			if (atBottom) startLerp();
+			if (atBottom) {
+				releasePendingUserAnimation();
+				startLerp();
+			}
 		},
-		[startLerp],
+		[releasePendingUserAnimation, startLerp],
 	);
 
 	// session 切换：瞬间跳到底部，且取消任何 in-flight lerp 动画，避免出现
@@ -728,6 +785,9 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 			lerpRafRef.current = null;
 		}
 		atBottomRef.current = true;
+		pendingUserAnimationIdRef.current = null;
+		setPendingUserAnimationId(null);
+		setActiveUserAnimationId(null);
 		// 同 tick 触发的 messages/isStreaming effect 会另起一轮 lerp，标记跳过一次。
 		skipNextLerpRef.current = true;
 		// Virtuoso 接收新 data 后下一帧再 scrollToIndex 才稳。
@@ -748,15 +808,29 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 
 	// 用户发送新消息：无论之前是否贴底，都强制接管为「跟随」并启动 lerp 滑到底。
 	const prevMsgCountRef = useRef(messages.length);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const prevCount = prevMsgCountRef.current;
 		prevMsgCountRef.current = messages.length;
 		const newMsg = messages.at(-1);
 		if (messages.length > prevCount && newMsg?.role === "user") {
+			if (atBottomRef.current) {
+				setActiveUserAnimationId(newMsg.id);
+			} else {
+				pendingUserAnimationIdRef.current = newMsg.id;
+				setPendingUserAnimationId(newMsg.id);
+			}
 			atBottomRef.current = true;
 			startLerp();
 		}
 	}, [messages, startLerp]);
+
+	useEffect(() => {
+		previousRenderMsgCountRef.current = messages.length;
+	}, [messages.length]);
+
+	const handleUserMessageEntryComplete = useCallback(() => {
+		setActiveUserAnimationId(null);
+	}, []);
 
 	// 卸载时停掉跟随循环
 	useEffect(() => {
@@ -774,9 +848,26 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 				message={message}
 				isTailMessage={message.id === tailMessageId}
 				isStreaming={isStreaming}
+				userMessageEntryState={
+					message.id === activeUserAnimationId
+						? "enter"
+						: message.id === pendingUserAnimationId || message.id === enteringUserMessageId
+							? "hidden"
+							: "static"
+				}
+				onUserMessageEntryComplete={
+					message.id === activeUserAnimationId ? handleUserMessageEntryComplete : undefined
+				}
 			/>
 		</div>
-	), [tailMessageId, isStreaming]);
+	), [
+		activeUserAnimationId,
+		enteringUserMessageId,
+		handleUserMessageEntryComplete,
+		isStreaming,
+		pendingUserAnimationId,
+		tailMessageId,
+	]);
 
 	const scrollerRefCallback = useCallback((el: HTMLElement | Window | null) => {
 		scrollerRef.current = el instanceof HTMLElement ? el : null;
