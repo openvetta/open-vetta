@@ -10,6 +10,7 @@ import {
 	DialogTitle,
 } from "@shared/components/ui/dialog";
 import type {
+	ImAgentModelRef,
 	ImBridgeConfig,
 	ImBridgeStatus,
 	ImLegacyDetection,
@@ -18,6 +19,7 @@ import type {
 	ImTransportSelector,
 	ImTransportStatus,
 	ImWechatBindEvent,
+	ModelsConfigData,
 } from "@preload/api";
 import { SettingRow, SettingSection } from "./shared";
 
@@ -115,6 +117,9 @@ export function ImBridgeSettings(): JSX.Element {
 	const [logs, setLogs] = useState<ImLogEvent[]>([]);
 	const [legacy, setLegacy] = useState<ImLegacyDetection | null>(null);
 	const [importing, setImporting] = useState(false);
+	const [models, setModels] = useState<ModelsConfigData | null>(null);
+	const [probing, setProbing] = useState(false);
+	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
 	const unsubRef = useRef<(() => void) | null>(null);
 
 	// Initial load + subscribe.
@@ -143,6 +148,13 @@ export function ImBridgeSettings(): JSX.Element {
 				}
 			} catch {
 				// best effort; non-fatal
+			}
+
+			try {
+				const m = await window.vetta.models.get();
+				if (!cancelled) setModels(m);
+			} catch {
+				// non-fatal — UI will just show empty model picker
 			}
 		})();
 
@@ -193,11 +205,75 @@ export function ImBridgeSettings(): JSX.Element {
 		[],
 	);
 
+	// Flatten models config into a list of selectable (provider, model)
+	// pairs. We deliberately don't filter to "enabled" since the model
+	// picker is its own scope — users may want to pick a model that
+	// isn't in their default models filter.
+	const modelOptions = useMemo<ImAgentModelRef[]>(() => {
+		if (!models?.providers) return [];
+		const out: ImAgentModelRef[] = [];
+		for (const [provider, p] of Object.entries(models.providers)) {
+			for (const m of p?.models ?? []) {
+				if (m.id) out.push({ provider, model: m.id });
+			}
+		}
+		return out;
+	}, [models]);
+
+	const handlePickModel = useCallback(
+		async (next: ImAgentModelRef | null) => {
+			if (!config) return;
+			setSaving(true);
+			setSaveError(null);
+			setSaveOk(null);
+			setProbeResult(null);
+			try {
+				const result = await window.vetta.im.setConfig({
+					enabled: config.enabled,
+					transport: config.transport,
+					agentModel: next, // null → clear
+				});
+				if (!result.ok) {
+					setSaveError(result.error ?? "保存模型失败");
+					return;
+				}
+				const refreshed = await window.vetta.im.getConfig();
+				setConfig(refreshed);
+				setSaveOk(next ? `已设为 ${next.provider} / ${next.model}` : "已清除模型设定");
+			} finally {
+				setSaving(false);
+			}
+		},
+		[config],
+	);
+
+	const handleProbeModel = useCallback(async () => {
+		if (!config?.agentModel) {
+			setProbeResult({ ok: false, msg: "请先选择模型" });
+			return;
+		}
+		setProbing(true);
+		setProbeResult(null);
+		try {
+			const result = await window.vetta.im.probeAgentModel(config.agentModel);
+			setProbeResult({
+				ok: result.ok,
+				msg: result.ok ? (result.message ?? "可连通") : (result.error ?? "未知错误"),
+			});
+		} finally {
+			setProbing(false);
+		}
+	}, [config]);
+
 	const handleToggleEnabled = useCallback(
 		async (enabled: boolean) => {
 			if (!config) return;
 			// Validate per-transport before allowing the switch on.
 			if (enabled) {
+				if (!config.agentModel) {
+					setSaveError("请先在「对话模型」里选择 IM 桥接使用的模型");
+					return;
+				}
 				if (config.transport === "feishu" && !feishuValidation.valid) {
 					setSaveError("请先填写飞书 App ID 与 App Secret");
 					setFeishuDialogOpen(true);
@@ -409,6 +485,61 @@ export function ImBridgeSettings(): JSX.Element {
 						/>
 					</button>
 				</SettingRow>
+			</SettingSection>
+
+			{/* ─────────────────────────────────────────────────────────────── */}
+			<SettingSection
+				title="对话模型"
+				description="IM 桥接拉起的 coding-agent 子进程会用这个模型回复消息；未设置时跟随 Vetta 全局默认模型。"
+			>
+				<SettingRow title="模型" description="选择一个 provider / model 组合">
+					<div className="flex items-center gap-2">
+						<select
+							value={
+								config.agentModel ? `${config.agentModel.provider}/${config.agentModel.model}` : ""
+							}
+							onChange={(e) => {
+								const v = e.target.value;
+								if (!v) {
+									void handlePickModel(null);
+									return;
+								}
+								const sep = v.indexOf("/");
+								if (sep < 0) return;
+								void handlePickModel({ provider: v.slice(0, sep), model: v.slice(sep + 1) });
+							}}
+							disabled={saving}
+							className="rounded-md border border-input bg-secondary px-2 py-1 text-[12px] text-foreground"
+						>
+							<option value="">— 未设置 —</option>
+							{modelOptions.map((o) => (
+								<option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>
+									{o.provider} / {o.model}
+								</option>
+							))}
+						</select>
+						<button
+							type="button"
+							onClick={() => void handleProbeModel()}
+							disabled={probing || !config.agentModel}
+							className="rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+						>
+							{probing ? "测试中…" : "测试连通"}
+						</button>
+					</div>
+				</SettingRow>
+				{probeResult && (
+					<SettingRow title="" description="">
+						<span
+							className={cn(
+								"text-[12px]",
+								probeResult.ok ? "text-green-600 dark:text-green-400" : "text-red-500",
+							)}
+						>
+							{probeResult.msg}
+						</span>
+					</SettingRow>
+				)}
 			</SettingSection>
 
 			{/* ─────────────────────────────────────────────────────────────── */}

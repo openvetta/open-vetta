@@ -78,6 +78,7 @@ const IM_CHANNELS = {
 	RESTART: "vetta:im:restart",
 	GET_RECENT_LOGS: "vetta:im:get-recent-logs",
 	GET_PATHS: "vetta:im:get-paths",
+	PROBE_AGENT_MODEL: "vetta:im:probe-agent-model",
 	DETECT_LEGACY: "vetta:im:detect-legacy",
 	IMPORT_LEGACY: "vetta:im:import-legacy",
 	WECHAT_START_BIND: "vetta:im:wechat:start-bind",
@@ -396,6 +397,7 @@ const api: DesktopApi = {
 		restart: async () => ipcRenderer.invoke(IM_CHANNELS.RESTART),
 		getRecentLogs: async () => ipcRenderer.invoke(IM_CHANNELS.GET_RECENT_LOGS),
 		getPaths: async () => ipcRenderer.invoke(IM_CHANNELS.GET_PATHS),
+		probeAgentModel: async (ref) => ipcRenderer.invoke(IM_CHANNELS.PROBE_AGENT_MODEL, ref),
 		detectLegacy: async () => ipcRenderer.invoke(IM_CHANNELS.DETECT_LEGACY),
 		importLegacy: async (detection) => ipcRenderer.invoke(IM_CHANNELS.IMPORT_LEGACY, detection),
 		onSessionChanged: (handler) => {

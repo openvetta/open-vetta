@@ -1,3 +1,7 @@
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { net } from "electron";
 import { DEFAULT_CONVERSATION_CWD } from "../ipc/fs.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
 import { buildCodingAgentSpec } from "./coding-agent-spec.js";
@@ -41,6 +45,11 @@ import { type ImBridgeStatus, StatusStore } from "./status-store.js";
  * Single instance per process. Created in main.ts at app.whenReady() and
  * disposed via shutdownForQuit() in app.before-quit.
  */
+export interface ImAgentModelRef {
+	provider: string;
+	model: string;
+}
+
 export interface ImHostPublicConfig {
 	enabled: boolean;
 	transport: ImTransportSelector;
@@ -60,6 +69,9 @@ export interface ImHostPublicConfig {
 	// Retained for backwards compat with renderer; always false now that
 	// we no longer encrypt via safeStorage.
 	encryptionAvailable: boolean;
+	// Optional override telling IM-session coding-agent which model to
+	// use. Undefined → fall back to agent settings default.
+	agentModel?: ImAgentModelRef;
 }
 
 export interface SetConfigPayload {
@@ -75,6 +87,9 @@ export interface SetConfigPayload {
 		encryptKey?: string;
 		baseUrl?: string;
 	};
+	// `null` clears the override (use agent settings default).
+	// `undefined` (key omitted) preserves the existing value.
+	agentModel?: ImAgentModelRef | null;
 }
 
 export interface SetConfigResult {
@@ -345,6 +360,7 @@ export class ImHost {
 			},
 			transportMode: this.config.transportMode,
 			encryptionAvailable: false,
+			agentModel: this.config.agentModel,
 		};
 	}
 
@@ -354,6 +370,15 @@ export class ImHost {
 		// previous config so callers can update enabled / feishu without
 		// resetting the user's choice.
 		const nextTransport: ImTransportSelector = payload.transport ?? this.config.transport;
+
+		// agentModel handling: `undefined` in the payload means "no change",
+		// explicit `null` means "clear the override".
+		let nextAgentModel = this.config.agentModel;
+		if (payload.agentModel === null) {
+			nextAgentModel = undefined;
+		} else if (payload.agentModel !== undefined) {
+			nextAgentModel = payload.agentModel;
+		}
 
 		const nextConfig: ImConfig = {
 			enabled: payload.enabled,
@@ -366,7 +391,24 @@ export class ImHost {
 				: this.config.feishu,
 			wechat: this.config.wechat,
 			transportMode: "long-connection",
+			agentModel: nextAgentModel,
 		};
+
+		// Enabling the bridge requires a working agent model. Probe the
+		// configured provider's baseUrl so users get a fast actionable
+		// error instead of "Connection error." on every IM message. Done
+		// BEFORE persisting so a failed probe leaves the on-disk config
+		// untouched (enabled stays off).
+		const prevEnabled = this.config.enabled;
+		if (nextConfig.enabled && !prevEnabled) {
+			if (!nextConfig.agentModel) {
+				return { ok: false, error: "请先在「对话模型」里选择 IM 桥接使用的模型" };
+			}
+			const probe = await this.probeAgentModel(nextConfig.agentModel);
+			if (!probe.ok) {
+				return { ok: false, error: `模型连通性检查失败：${probe.error ?? "未知错误"}` };
+			}
+		}
 
 		// Update credentials only when the payload sent a feishu block.
 		const nextCreds: ImCredentials = { ...this.credentials };
@@ -499,6 +541,56 @@ export class ImHost {
 	 *   - wechat: always true — the sidecar boots into awaiting_bind when
 	 *     no credentials are present and waits for the user to scan a QR
 	 */
+	/**
+	 * Probe the given (provider, model)'s baseUrl to see if the model
+	 * server is reachable. Returns ok=true on a 2xx/4xx response (4xx
+	 * still proves the host answered — auth issue is a separate concern
+	 * and shouldn't block the bridge), ok=false on network / DNS / TLS
+	 * failures.
+	 *
+	 * Uses electron.net.fetch deliberately so we go through Chromium's
+	 * network stack and bypass macOS 15 LNP — the same reason the main
+	 * process swaps globalThis.fetch for the GUI session. We don't rely
+	 * on globalThis.fetch here because installChromiumFetchForMain might
+	 * not have run yet at probe time.
+	 *
+	 * Public so the renderer can re-probe on demand (test-connect button).
+	 */
+	async probeAgentModel(ref: {
+		provider: string;
+		model: string;
+	}): Promise<{ ok: boolean; message?: string; error?: string }> {
+		let providers: Record<string, { baseUrl?: string }> = {};
+		try {
+			const raw = await readFile(join(homedir(), ".vetta", "agent", "models.json"), "utf8");
+			const parsed = JSON.parse(raw) as { providers?: typeof providers };
+			providers = parsed.providers ?? {};
+		} catch {
+			return { ok: false, error: "无法读取 ~/.vetta/agent/models.json" };
+		}
+		const provider = providers[ref.provider];
+		if (!provider) {
+			return { ok: false, error: `provider "${ref.provider}" 不存在于 models.json` };
+		}
+		if (!provider.baseUrl) {
+			return { ok: false, error: `provider "${ref.provider}" 缺 baseUrl` };
+		}
+		const url = `${provider.baseUrl.replace(/\/+$/, "")}/models`;
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 5_000);
+		try {
+			const resp = await net.fetch(url, { method: "GET", signal: controller.signal });
+			// Treat any HTTP response (including 4xx — auth) as "host
+			// reachable". Only network-level failures fail the probe.
+			return { ok: true, message: `HTTP ${resp.status} from ${url}` };
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return { ok: false, error: `${url}: ${msg}` };
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
 	private hasRequiredCredentials(): boolean {
 		if (this.config.transport === "wechat") {
 			return true;
@@ -528,7 +620,7 @@ export class ImHost {
 			this.binaryPath = resolveImGatewayBinary().path;
 			this.statusStore.patch({ binaryPath: this.binaryPath });
 		}
-		const codingAgent = buildCodingAgentSpec();
+		const codingAgent = buildCodingAgentSpec({ agentModel: this.config.agentModel });
 		// Send only the slot for the currently selected transport. The
 		// sidecar uses nil-discriminator to pick which to start.
 		if (this.config.transport === "wechat") {

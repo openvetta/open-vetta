@@ -63,13 +63,30 @@ if (!isCliMode) {
 	app.commandLine.appendSwitch("js-flags", "--max-old-space-size=4096");
 }
 
-// agent-rpc mode talks to its parent over stdout via console.log (NDJSON
-// command/response protocol). installMainDiagnostics() monkey-patches
-// console.log into a file logger, which would silently swallow every RPC
-// response — the IM sidecar then hangs forever on handshake. PDF/OCR are
-// unaffected because they call writeSync(1, ...) directly. Skip the patch
-// only on the agent-rpc path.
-if (!agentRpcArgs) {
+// agent-rpc mode talks to its parent over stdout via the coding-agent
+// RPC protocol (NDJSON). Two console-related hazards we have to defuse:
+//
+//   1) installMainDiagnostics() monkey-patches console.log into a file
+//      logger. coding-agent's RPC output goes through `console.log` so
+//      the patch would swallow every response and the sidecar hangs on
+//      handshake. Skip it.
+//   2) Other main-process modules (installChromiumFetchForMain,
+//      registerLocalNetworkAccess, sandbox probes…) call `console.log`
+//      for status. With (1) skipped, those land on raw stdout and
+//      interleave with RPC NDJSON, corrupting the protocol. Redirect
+//      every console method to stderr in agent-rpc mode so the only
+//      thing on stdout is coding-agent's own JSON.
+if (agentRpcArgs) {
+	const writeStderr = (level: string, args: unknown[]) => {
+		const line = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 0))).join(" ");
+		process.stderr.write(`[${level}] ${line}\n`);
+	};
+	console.log = (...args: unknown[]) => writeStderr("log", args);
+	console.info = (...args: unknown[]) => writeStderr("info", args);
+	console.warn = (...args: unknown[]) => writeStderr("warn", args);
+	console.error = (...args: unknown[]) => writeStderr("error", args);
+	console.debug = (...args: unknown[]) => writeStderr("debug", args);
+} else {
 	installMainDiagnostics();
 }
 const mainLog = getAppLogger("main");
