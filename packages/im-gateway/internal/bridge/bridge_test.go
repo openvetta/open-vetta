@@ -513,3 +513,206 @@ func TestBridge_ContextCancellation(t *testing.T) {
 		t.Error("Run did not return after cancel")
 	}
 }
+
+// --- Deferred-digest mode (wechat) ---------------------------------------
+
+func assistantMessageEnd(text string) hostclient.AgentEvent {
+	raw, _ := json.Marshal(map[string]any{
+		"type": hostclient.AgentEventTypeMessageEnd,
+		"message": map[string]any{
+			"role": "assistant",
+			"content": []map[string]any{
+				{"type": "text", "text": text},
+			},
+			"stopReason": "stop",
+		},
+	})
+	return hostclient.AgentEvent{Type: hostclient.AgentEventTypeMessageEnd, Raw: raw}
+}
+
+func deferredCaps() transport.Capabilities {
+	return transport.Capabilities{DeferUntilTurnEnd: true}
+}
+
+// 0 tool + final text → bare text, no meta line, no ack.
+func TestBridge_DeferredMode_NoToolSimpleTurn(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 8)
+	events <- assistantMessageEnd("你好。")
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	if err := b.Run(context.Background(), events); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	calls := tr.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
+	}
+	if calls[0].Text != "你好。" {
+		t.Errorf("expected bare text, got %q", calls[0].Text)
+	}
+}
+
+// ≥1 tool + final text → meta line prepended.
+func TestBridge_DeferredMode_WithTools(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 16)
+	events <- toolExecutionStart("bash")
+	events <- plainEvent(hostclient.AgentEventTypeToolExecutionEnd)
+	events <- toolExecutionStart("read_file")
+	events <- plainEvent(hostclient.AgentEventTypeToolExecutionEnd)
+	events <- assistantMessageEnd("找到 14 个函数。")
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	if err := b.Run(context.Background(), events); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	calls := tr.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
+	}
+	if !strings.HasPrefix(calls[0].Text, "调用了 2 次工具，耗时 ") {
+		t.Errorf("expected meta prefix with tool count 2, got %q", calls[0].Text)
+	}
+	if !strings.HasSuffix(calls[0].Text, "找到 14 个函数。") {
+		t.Errorf("expected text body suffix, got %q", calls[0].Text)
+	}
+}
+
+// Multiple assistant messages within one turn → last one wins, mid-turn
+// "I'll go check" is discarded so the user only sees the final answer.
+func TestBridge_DeferredMode_LastMessageWins(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 16)
+	events <- assistantMessageEnd("我去查一下。")
+	events <- toolExecutionStart("read_file")
+	events <- plainEvent(hostclient.AgentEventTypeToolExecutionEnd)
+	events <- assistantMessageEnd("查到了：foo。")
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	_ = b.Run(context.Background(), events)
+	calls := tr.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
+	}
+	if !strings.Contains(calls[0].Text, "查到了：foo。") {
+		t.Errorf("expected last assistant text, got %q", calls[0].Text)
+	}
+	if strings.Contains(calls[0].Text, "我去查一下") {
+		t.Errorf("mid-turn text should be discarded, got %q", calls[0].Text)
+	}
+}
+
+// stopReason=error + no text → meta (when tools called) + ⚠️ error body.
+func TestBridge_DeferredMode_ErrorNoText(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 8)
+	events <- toolExecutionStart("bash")
+	events <- plainEvent(hostclient.AgentEventTypeToolExecutionEnd)
+	events <- hostclient.AgentEvent{
+		Type: hostclient.AgentEventTypeMessageEnd,
+		Raw:  json.RawMessage(`{"message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"Connection error."}}`),
+	}
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	_ = b.Run(context.Background(), events)
+	calls := tr.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
+	}
+	if !strings.Contains(calls[0].Text, "调用了 1 次工具") {
+		t.Errorf("expected meta line, got %q", calls[0].Text)
+	}
+	if !strings.Contains(calls[0].Text, "⚠️ Connection error.") {
+		t.Errorf("expected error body, got %q", calls[0].Text)
+	}
+}
+
+// 0 tool + error → no meta line, just ⚠️ error.
+func TestBridge_DeferredMode_ErrorNoToolNoText(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 4)
+	events <- hostclient.AgentEvent{
+		Type: hostclient.AgentEventTypeMessageEnd,
+		Raw:  json.RawMessage(`{"message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"timeout"}}`),
+	}
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	_ = b.Run(context.Background(), events)
+	calls := tr.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
+	}
+	if strings.Contains(calls[0].Text, "调用了") {
+		t.Errorf("expected no meta line when 0 tools, got %q", calls[0].Text)
+	}
+	if calls[0].Text != "⚠️ timeout" {
+		t.Errorf("got %q", calls[0].Text)
+	}
+}
+
+// agent_end with no text and no error → "未返回文本内容" placeholder, never silent.
+func TestBridge_DeferredMode_EmptyTurnNeverSilent(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 2)
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	_ = b.Run(context.Background(), events)
+	calls := tr.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
+	}
+	if calls[0].Text != DeferredEmptyText {
+		t.Errorf("expected empty placeholder, got %q", calls[0].Text)
+	}
+}
+
+// Fast turn (finishes before DeferredAckDelay) → no ack, just final.
+func TestBridge_DeferredMode_FastTurnSkipsAck(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 4)
+	events <- assistantMessageEnd("快回")
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	_ = b.Run(context.Background(), events)
+	calls := tr.snapshot()
+	for _, c := range calls {
+		if strings.Contains(c.Text, "vetta正在处理") {
+			t.Errorf("ack should not fire on a fast turn, got %+v", calls)
+		}
+	}
+	if len(calls) != 1 {
+		t.Fatalf("expected exactly 1 send (final only), got %d: %+v", len(calls), calls)
+	}
+}
+
+// Intermediate text_delta / thinking_delta / tool-call summaries are
+// suppressed: nothing is emitted before agent_end.
+func TestBridge_DeferredMode_NoIntermediateEmissions(t *testing.T) {
+	tr := newFakeTransport(deferredCaps())
+	b := New(tr, "c1")
+	events := make(chan hostclient.AgentEvent, 32)
+	events <- textDelta("partial 1 ")
+	events <- textDelta("partial 2")
+	events <- thinkingDelta("considering options")
+	events <- toolExecutionStart("bash")
+	// No assistant_message_end -> deliberately empty final text path.
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+	_ = b.Run(context.Background(), events)
+	calls := tr.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected exactly 1 send at agent_end, got %d: %+v", len(calls), calls)
+	}
+	// Sanity: meta + placeholder, never a partial text leak.
+	if strings.Contains(calls[0].Text, "partial 1") || strings.Contains(calls[0].Text, "considering") {
+		t.Errorf("intermediate content leaked into digest: %q", calls[0].Text)
+	}
+}

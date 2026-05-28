@@ -3,7 +3,10 @@ package bridge
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"vetta-im-gateway/internal/hostclient"
@@ -14,6 +17,20 @@ import (
 // transport supports message editing. Default mirrors the typical IM rate
 // limit window.
 const EditThrottle = 800 * time.Millisecond
+
+// DeferredAckDelay is how long the bridge waits in DeferUntilTurnEnd mode
+// before sending a "still working" ack. If the agent finishes the turn
+// inside this window we skip the ack entirely so trivial turns stay
+// single-message.
+const DeferredAckDelay = 1500 * time.Millisecond
+
+// DeferredAckText is the placeholder the bridge sends when a turn takes
+// longer than DeferredAckDelay. Wechat is plain-text — emoji renders fine.
+const DeferredAckText = "👀收到，vetta正在处理..."
+
+// DeferredEmptyText is shown in the digest when a turn ends with no
+// final assistant text and no error to report.
+const DeferredEmptyText = "⚠️ 未返回文本内容"
 
 // Bridge translates a stream of agent events into outbound IM messages.
 //
@@ -59,15 +76,47 @@ type Bridge struct {
 	// IM message (text / chunk / tool summary). Drives the
 	// "suppress transient errors" rule above.
 	anyOutputSent bool
+
+	// Deferred-digest mode (caps.DeferUntilTurnEnd=true) state. All
+	// intermediate emissions are suppressed; we accumulate stats here
+	// and emit one digest message on agent_end. See runDeferred /
+	// handleDeferred / sendDeferredDigest.
+	deferred *deferredState
+}
+
+// deferredState tracks what one turn produced when the transport defers
+// emission to agent_end. The bridge keeps last-assistant-message text
+// (overwriting on each message_end so an intermediate "I'll look that
+// up" gets discarded in favour of the final answer), the tool-call
+// count, and any error text. An ack timer fires once if the agent is
+// still working DeferredAckDelay after the prompt landed.
+type deferredState struct {
+	promptAt          time.Time
+	toolCount         int
+	lastAssistantText string
+	lastErrorText     string
+
+	mu        sync.Mutex
+	ackSent   bool
+	finalSent bool
+	ackTimer  *time.Timer
 }
 
 // New constructs a Bridge for one outbound conversation.
 func New(tr transport.Transport, chatID string) *Bridge {
-	return &Bridge{
+	b := &Bridge{
 		tr:     tr,
 		chatID: chatID,
 		caps:   tr.Capabilities(),
 	}
+	if b.caps.DeferUntilTurnEnd {
+		// The "prompt received" anchor: bridge.New runs immediately
+		// after router.go's pool.Acquire+Send, so this is within a
+		// few ms of the real prompt delivery — close enough for
+		// elapsed-time display rounded to whole seconds.
+		b.deferred = &deferredState{promptAt: time.Now()}
+	}
+	return b
 }
 
 // Run consumes events until the agent's turn ends and emits IM messages
@@ -84,6 +133,9 @@ func New(tr transport.Transport, chatID string) *Bridge {
 // reporting). Run is intended to be called from one goroutine; the caller
 // owns goroutine lifetime.
 func (b *Bridge) Run(ctx context.Context, events <-chan hostclient.AgentEvent) error {
+	if b.caps.DeferUntilTurnEnd {
+		return b.runDeferred(ctx, events)
+	}
 	var firstErr error
 	for {
 		select {
@@ -111,6 +163,144 @@ func (b *Bridge) Run(ctx context.Context, events <-chan hostclient.AgentEvent) e
 			}
 		}
 	}
+}
+
+// runDeferred is the wechat-style path: suppress every intermediate
+// emission and send a single digest message at agent_end (plus an ack
+// after DeferredAckDelay if the turn is still running).
+func (b *Bridge) runDeferred(ctx context.Context, events <-chan hostclient.AgentEvent) error {
+	// Start the ack timer: if no final message has been sent by the time
+	// it fires, we emit a single "still working" placeholder so the user
+	// is not left in silence on a long turn.
+	b.startAckTimer(ctx)
+
+	var firstErr error
+	for {
+		select {
+		case <-ctx.Done():
+			b.cancelAckTimer()
+			if err := b.sendDeferredDigest(ctx); err != nil && firstErr == nil {
+				firstErr = err
+			}
+			if firstErr == nil {
+				return ctx.Err()
+			}
+			return firstErr
+		case ev, ok := <-events:
+			if !ok {
+				b.cancelAckTimer()
+				if err := b.sendDeferredDigest(ctx); err != nil && firstErr == nil {
+					firstErr = err
+				}
+				return firstErr
+			}
+			if err := b.handleDeferred(ctx, ev); err != nil && firstErr == nil {
+				firstErr = err
+			}
+			if ev.Type == hostclient.AgentEventTypeAgentEnd {
+				b.cancelAckTimer()
+				if err := b.sendDeferredDigest(ctx); err != nil && firstErr == nil {
+					firstErr = err
+				}
+				return firstErr
+			}
+		}
+	}
+}
+
+func (b *Bridge) handleDeferred(_ context.Context, ev hostclient.AgentEvent) error {
+	d := b.deferred
+	switch ev.Type {
+	case hostclient.AgentEventTypeToolExecutionStart:
+		d.toolCount++
+	case hostclient.AgentEventTypeMessageEnd:
+		// Capture the text content of every assistant message_end so the
+		// last one wins. An intermediate "I'll look that up" gets
+		// overwritten by the real answer; if the agent never produced a
+		// final answer the last partial stays as a best-effort fallback.
+		if text := extractAssistantText(ev.Raw); text != "" {
+			d.lastAssistantText = text
+		}
+		if errText := extractMessageEndError(ev.Raw); errText != "" {
+			d.lastErrorText = errText
+		}
+	case hostclient.AgentEventTypeError:
+		if t := extractErrorText(ev.Raw); t != "" {
+			d.lastErrorText = t
+		}
+	}
+	return nil
+}
+
+func (b *Bridge) startAckTimer(ctx context.Context) {
+	d := b.deferred
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.ackTimer = time.AfterFunc(DeferredAckDelay, func() {
+		d.mu.Lock()
+		if d.finalSent || d.ackSent {
+			d.mu.Unlock()
+			return
+		}
+		d.ackSent = true
+		d.mu.Unlock()
+		_, _ = b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: DeferredAckText})
+	})
+}
+
+func (b *Bridge) cancelAckTimer() {
+	d := b.deferred
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.ackTimer != nil {
+		d.ackTimer.Stop()
+		d.ackTimer = nil
+	}
+}
+
+// sendDeferredDigest assembles the single digest message for this turn
+// and sends it. Idempotent: subsequent calls are no-ops, so the
+// channel-closed / ctx-cancelled / agent_end paths can all call it
+// without coordinating.
+func (b *Bridge) sendDeferredDigest(ctx context.Context) error {
+	d := b.deferred
+	d.mu.Lock()
+	if d.finalSent {
+		d.mu.Unlock()
+		return nil
+	}
+	d.finalSent = true
+	d.mu.Unlock()
+
+	elapsedSec := int(math.Ceil(time.Since(d.promptAt).Seconds()))
+	if elapsedSec < 0 {
+		elapsedSec = 0
+	}
+
+	text := d.lastAssistantText
+	errText := d.lastErrorText
+
+	var body string
+	switch {
+	case errText != "" && text == "":
+		body = "⚠️ " + errText
+	case errText != "" && text != "":
+		// Both present: prefer surfacing the recovered text but keep
+		// the error note as a footnote so the user knows something
+		// went sideways mid-turn.
+		body = text + "\n\n⚠️ " + errText
+	case text != "":
+		body = text
+	default:
+		body = DeferredEmptyText
+	}
+
+	out := body
+	if d.toolCount > 0 {
+		out = fmt.Sprintf("调用了 %d 次工具，耗时 %d 秒。\n\n%s", d.toolCount, elapsedSec, body)
+	}
+	_, err := b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: out})
+	return err
 }
 
 func (b *Bridge) handle(ctx context.Context, ev hostclient.AgentEvent) error {
@@ -450,6 +640,40 @@ func extractMessageEndError(raw json.RawMessage) string {
 	// rather than going silent so the user at least knows something
 	// broke. Should be rare; coding-agent normally fills errorMessage.
 	return "⚠ 模型调用失败（无具体错误信息）"
+}
+
+// extractAssistantText pulls the concatenated plain text from a
+// message_end event's final assistant message. Returns "" for user
+// messages or messages with no text blocks (e.g. tool-call-only).
+//
+// Shape we read (subset of coding-agent's AssistantMessage):
+//
+//	{ "message": { "role": "assistant", "content": [
+//	    { "type": "text", "text": "..." }, ...
+//	] } }
+func extractAssistantText(raw json.RawMessage) string {
+	var v struct {
+		Message struct {
+			Role    string `json:"role"`
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return ""
+	}
+	if v.Message.Role != "assistant" {
+		return ""
+	}
+	var sb strings.Builder
+	for _, c := range v.Message.Content {
+		if c.Type == "text" && c.Text != "" {
+			sb.WriteString(c.Text)
+		}
+	}
+	return sb.String()
 }
 
 // extractErrorText pulls a human-readable error string from an error event.

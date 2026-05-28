@@ -90,6 +90,14 @@ type Capabilities struct {
 	SupportsFileUpload  bool
 	SupportsThreads     bool
 	MaxMessageLength    int // 0 = unlimited
+	// DeferUntilTurnEnd makes the bridge skip every intermediate
+	// emission (text deltas, thinking, tool-call summaries) and instead
+	// send a single digest message at agent_end. Used by transports with
+	// strict per-window outbound caps where flooding chunks would burn
+	// quota — currently wechat's 10-outbound-per-inbound-reset rule. The
+	// bridge still emits an optional "still working" ack after a short
+	// delay so the user is not left in silence on long turns.
+	DeferUntilTurnEnd bool
 }
 
 // MessageHandler is what a Transport calls when an inbound message arrives.

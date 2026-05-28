@@ -160,6 +160,11 @@ func (t *Transport) Capabilities() transport.Capabilities {
 		SupportsFileUpload:  false, // protocol supports it; M1 does not
 		SupportsThreads:     false,
 		MaxMessageLength:    0, // unknown; will be probed in real testing
+		// iLink enforces ≤10 outbound messages per peer until the next
+		// inbound resets the window. Streaming chunks would burn that
+		// budget in one turn, so the bridge defers everything to a
+		// single digest message at agent_end (plus an optional ack).
+		DeferUntilTurnEnd: true,
 	}
 }
 
