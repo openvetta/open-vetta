@@ -113,6 +113,7 @@ const CHANNELS = {
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
 	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
+	CLEAR_DEFAULT_ARTIFACTS: "vetta:session:clear-default-artifacts",
 	// Read-only viewer for sessions we don't want to (or can't) take the
 	// write lock on — currently IM sessions, see ADR-0004. The viewer
 	// reads the .jsonl directly and tails fs.watch for new entries.
@@ -368,8 +369,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_CONVERSATION, async (_event, scope: unknown) => {
 		// 物理分家后（ADR-0005）每个 scope 对应一个独立 cwd，互不干扰：
-		// - "conversation"：清桌面「对话」cwd 下的会话与产物
-		// - "claw"：清 IM cwd 下的会话 jsonl（产物也在那个目录里，一并清掉）
+		// - "conversation"：清桌面「对话」cwd 下 .vetta/sessions 内的全部会话（保留产物）
+		// - "claw"：清 IM cwd 下 .vetta/sessions 内的全部会话（保留产物）
 		if (scope !== "conversation" && scope !== "claw") {
 			throw new Error("Invalid scope for clearDefaultConversation");
 		}
@@ -406,12 +407,32 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		);
 
 		try {
-			await rmExceptPreserved(targetCwd, new Set());
+			await rmExceptPreserved(targetSessionDir, new Set());
 		} catch (err) {
-			console.error("[clear-default-conversation] failed to clear cwd", err);
+			console.error("[clear-default-conversation] failed to clear session dir", err);
 			throw err;
 		}
 		await mkdir(targetSessionDir, { recursive: true });
+	});
+
+	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_ARTIFACTS, async (_event, scope: unknown) => {
+		// 清空「对话」或 Claw cwd 下的产物文件（保留 .vetta 目录，会话不受影响）。
+		if (scope !== "conversation" && scope !== "claw") {
+			throw new Error("Invalid scope for clearDefaultArtifacts");
+		}
+		const targetCwd = resolve(scope === "claw" ? DEFAULT_IM_CONVERSATION_CWD : DEFAULT_CONVERSATION_CWD);
+
+		let entries: Dirent[];
+		try {
+			entries = await readdir(targetCwd, { withFileTypes: true });
+		} catch {
+			return;
+		}
+		await Promise.all(
+			entries
+				.filter((entry) => entry.name !== ".vetta")
+				.map((entry) => rm(join(targetCwd, entry.name), { recursive: true, force: true })),
+		);
 	});
 
 	const unsubscribeRunning = runtime.onRunningChanged((sessionPath, running) => {

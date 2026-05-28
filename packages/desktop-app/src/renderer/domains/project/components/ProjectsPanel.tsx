@@ -312,7 +312,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 			const allSessions = sessionsMap.get(cwd) ?? [];
 			setConfirm({
 				title: "清空会话",
-				message: `将删除「对话」项目下 ${allSessions.length} 个会话及其产物（Claw 会话不受影响），此操作不可恢复。`,
+				message: `将删除「对话」项目下 ${allSessions.length} 个会话（保留产物，Claw 会话不受影响），此操作不可恢复。`,
 				confirmLabel: "清空",
 				variant: "danger",
 				onConfirm: async () => {
@@ -343,7 +343,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 			const imSessions = sessionsMap.get(imCwd) ?? [];
 			setConfirm({
 				title: "清空 Claw 记录",
-				message: `将删除 ${imSessions.length} 条 Claw 会话记录及其产物，此操作不可恢复。`,
+				message: `将删除 ${imSessions.length} 条 Claw 会话记录（保留产物），此操作不可恢复。`,
 				confirmLabel: "清空",
 				variant: "danger",
 				onConfirm: async () => {
