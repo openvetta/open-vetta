@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtomValue } from "jotai";
 import QRCode from "qrcode";
 import { cn } from "@shared/lib/utils";
+import { remoteProvidersAtom } from "@shared/store/atoms";
 import {
 	Dialog,
 	DialogContent,
@@ -9,6 +11,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@shared/components/ui/dialog";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from "@shared/components/ui/select";
 import type {
 	ImAgentModelRef,
 	ImBridgeConfig,
@@ -22,6 +33,10 @@ import type {
 	ModelsConfigData,
 } from "@preload/api";
 import { SettingRow, SettingSection } from "./shared";
+
+// shadcn Select treats "" as "no value set" internally and refuses items
+// with an empty value, so we use a magic sentinel for the "未设置" row.
+const MODEL_NONE = "__vetta_im_model_none__";
 
 // =============================================================================
 // Form state
@@ -205,20 +220,58 @@ export function ImBridgeSettings(): JSX.Element {
 		[],
 	);
 
-	// Flatten models config into a list of selectable (provider, model)
-	// pairs. We deliberately don't filter to "enabled" since the model
-	// picker is its own scope — users may want to pick a model that
-	// isn't in their default models filter.
-	const modelOptions = useMemo<ImAgentModelRef[]>(() => {
-		if (!models?.providers) return [];
-		const out: ImAgentModelRef[] = [];
-		for (const [provider, p] of Object.entries(models.providers)) {
-			for (const m of p?.models ?? []) {
-				if (m.id) out.push({ provider, model: m.id });
+	// Mirror ModelSelector.tsx's source-of-truth: local models from
+	// models.json + remote models from the auth-server (Vetta Zen et al.,
+	// streamed in by useAuth and parked in remoteProvidersAtom). Same
+	// dedup-by-key rule so local overrides win.
+	const remoteProviders = useAtomValue(remoteProvidersAtom);
+	const modelOptions = useMemo<
+		Array<{ provider: string; model: string; displayName: string; remote: boolean; key: string }>
+	>(() => {
+		type ProviderShape = {
+			models?: Array<{ id: string; name?: string }>;
+		};
+		const flatten = (
+			providers: Record<string, ProviderShape | undefined>,
+			remote: boolean,
+		) => {
+			const out: Array<{
+				provider: string;
+				model: string;
+				displayName: string;
+				remote: boolean;
+				key: string;
+			}> = [];
+			for (const [provider, p] of Object.entries(providers)) {
+				for (const m of p?.models ?? []) {
+					if (!m.id) continue;
+					out.push({
+						provider,
+						model: m.id,
+						displayName: m.name || m.id,
+						remote,
+						key: `${provider}/${m.id}`,
+					});
+				}
 			}
+			return out;
+		};
+		const local = models?.providers ? flatten(models.providers, false) : [];
+		const remote = flatten(remoteProviders as Record<string, ProviderShape>, true);
+		const localKeys = new Set(local.map((m) => m.key));
+		return [...local, ...remote.filter((m) => !localKeys.has(m.key))];
+	}, [models, remoteProviders]);
+
+	// Group by provider for SelectGroup rendering.
+	const groupedModelOptions = useMemo(() => {
+		const groups = new Map<string, typeof modelOptions>();
+		for (const m of modelOptions) {
+			const list = groups.get(m.provider) ?? [];
+			list.push(m);
+			groups.set(m.provider, list);
 		}
-		return out;
-	}, [models]);
+		return [...groups.entries()];
+	}, [modelOptions]);
 
 	const handlePickModel = useCallback(
 		async (next: ImAgentModelRef | null) => {
@@ -492,15 +545,14 @@ export function ImBridgeSettings(): JSX.Element {
 				title="对话模型"
 				description="IM 桥接拉起的 coding-agent 子进程会用这个模型回复消息；未设置时跟随 Vetta 全局默认模型。"
 			>
-				<SettingRow title="模型" description="选择一个 provider / model 组合">
+				<SettingRow title="模型" description="本地配置 + Vetta Zen 线上模型一起列出">
 					<div className="flex items-center gap-2">
-						<select
+						<Select
 							value={
-								config.agentModel ? `${config.agentModel.provider}/${config.agentModel.model}` : ""
+								config.agentModel ? `${config.agentModel.provider}/${config.agentModel.model}` : MODEL_NONE
 							}
-							onChange={(e) => {
-								const v = e.target.value;
-								if (!v) {
+							onValueChange={(v) => {
+								if (v === MODEL_NONE) {
 									void handlePickModel(null);
 									return;
 								}
@@ -509,15 +561,40 @@ export function ImBridgeSettings(): JSX.Element {
 								void handlePickModel({ provider: v.slice(0, sep), model: v.slice(sep + 1) });
 							}}
 							disabled={saving}
-							className="rounded-md border border-input bg-secondary px-2 py-1 text-[12px] text-foreground"
 						>
-							<option value="">— 未设置 —</option>
-							{modelOptions.map((o) => (
-								<option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>
-									{o.provider} / {o.model}
-								</option>
-							))}
-						</select>
+							<SelectTrigger className="h-7 min-w-[220px] px-2 py-1 text-[12px]">
+								<SelectValue placeholder="— 未设置 —" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									<SelectItem value={MODEL_NONE} className="text-[12px]">
+										— 未设置（用 Vetta 全局默认模型）—
+									</SelectItem>
+								</SelectGroup>
+								{groupedModelOptions.map(([provider, items]) => (
+									<SelectGroup key={provider}>
+										<SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+											{provider}
+											{items[0]?.remote && (
+												<span className="ml-1.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
+													云端
+												</span>
+											)}
+										</SelectLabel>
+										{items.map((o) => (
+											<SelectItem
+												key={o.key}
+												value={o.key}
+												className="text-[12px]"
+												title={o.key}
+											>
+												{o.displayName}
+											</SelectItem>
+										))}
+									</SelectGroup>
+								))}
+							</SelectContent>
+						</Select>
 						<button
 							type="button"
 							onClick={() => void handleProbeModel()}
