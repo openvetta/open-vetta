@@ -1,4 +1,5 @@
 import { existsSync, readdirSync, renameSync, statSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, parse } from "node:path";
 import { inspect } from "node:util";
 import electronLog from "electron-log/main";
@@ -9,6 +10,7 @@ const APP_LOG_MAX_SIZE = 5 * 1024 * 1024;
 const APP_LOG_ARCHIVE_RETENTION = 10;
 const APP_LOG_DAY_CHECK_INTERVAL_MS = 60 * 1000;
 const APP_LOG_TIME_ZONE = "Asia/Shanghai";
+const APP_LOG_DIR = join(homedir(), ".vetta", "desktop-app", "logs");
 const SHOULD_MIRROR_LOGS_TO_CONSOLE = process.env.VETTA_DESKTOP_DEV_URL !== undefined;
 
 let appLoggingConfigured = false;
@@ -30,6 +32,7 @@ export function configureAppLogging(): void {
 	electronLog.scope.labelPadding = 18;
 	electronLog.transports.file.setAppName("Vetta");
 	electronLog.transports.file.fileName = "main.log";
+	electronLog.transports.file.resolvePathFn = ({ fileName }) => join(APP_LOG_DIR, fileName ?? "main.log");
 	electronLog.transports.file.level = "info";
 	electronLog.transports.file.maxSize = APP_LOG_MAX_SIZE;
 	electronLog.transports.file.format = ({ data, level, message }) => [

@@ -37,6 +37,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **桌面端主进程日志目录跨平台统一**：主进程 `main.log` 不再使用 Electron 各平台默认日志目录，统一写入 `~/.vetta/desktop-app/logs/main.log`；Windows / macOS / Linux 现在共享同一用户目录结构。日志滚动文件仍与 `main.log` 同目录，继续保留 5MB 大小滚动、按 Asia/Shanghai 日期跨日滚动和最近 10 个归档文件清理策略。
+
 - **主进程日志滚动策略增强**：保留 Electron 默认日志目录与当前文件 `main.log`，但归档文件从 `.old.log` 改为带中国时区时间戳与原因的文件名（如 `main.2026-05-25T143012+0800.size.log` / `.date.log`）。日志同时支持 5MB 大小滚动与按 Asia/Shanghai 日期跨日滚动，日志行时间戳也改为中国时区，并自动清理只保留最近 10 个归档文件。
 
 - **项目详情页失败任务「重试」改为先清理再重跑**：`BatchQueueStatus` 中失败子任务的「重试」按钮原先调用 `runTask`（直接重新入队，旧 session / 产物原样保留），与批量任务页 `BatchTaskList` 调用 `retryTask`（先清 session + 清产物再重跑）的行为不一致——同一个标着"重试"的按钮在两处语义不同。现统一改为 `retryTask`，并补上和批量任务页一致的二次确认弹窗（标题「确认重试任务「xxx」」、danger 变体）。
