@@ -23,10 +23,21 @@ const MIN_WIDTH = 160;
 const MAX_WIDTH = 400;
 
 const NAV_ITEMS = [
-	{ path: "/automation" as const, label: "自动化", icon: "icon-[mdi--robot-outline]" },
-	{ path: "/batch-tasks" as const, label: "批量任务", icon: "icon-[mdi--format-list-bulleted]" },
-	{ path: "/skills" as const, label: "技能广场", icon: "icon-[mdi--puzzle-outline]" },
-];
+	{
+		type: "new-session",
+		label: "新会话",
+		icon: "icon-[mdi--square-edit-outline]",
+		title: "新会话",
+	},
+	{ type: "route", path: "/automation" as const, label: "自动化", icon: "icon-[mdi--robot-outline]" },
+	{
+		type: "route",
+		path: "/batch-tasks" as const,
+		label: "批量任务",
+		icon: "icon-[mdi--format-list-bulleted]",
+	},
+	{ type: "route", path: "/skills" as const, label: "技能广场", icon: "icon-[mdi--puzzle-outline]" },
+] as const;
 
 interface SidebarProps {
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
@@ -62,7 +73,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const [hoverNavIndicatorBounds, setHoverNavIndicatorBounds] =
 		useState<NavIndicatorBounds | null>(null);
 
-	// 「新对话」按钮目标 cwd 解析顺序：
+	// 「新会话」按钮目标 cwd 解析顺序：
 	//   1. 当前路由参数 cwd（/project/$cwd 或 /new-session/$cwd）
 	//   2. 当前 activeSession 的 cwd（在 / 路径上时）
 	//   3. 默认「对话」项目的 cwd
@@ -89,7 +100,9 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 	const widthRef = useRef(width);
 	widthRef.current = width;
 	const setRunningSessionPaths = useSetAtom(runningSessionPathsAtom);
-	const activeNavIndex = NAV_ITEMS.findIndex((item) => item.path === currentPath);
+	const activeNavIndex = NAV_ITEMS.findIndex(
+		(item) => item.type === "route" && item.path === currentPath,
+	);
 
 	useLayoutEffect(() => {
 		const activeElement = navItemRefs.current[activeNavIndex];
@@ -251,37 +264,42 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 						transition={{ type: "spring", stiffness: 430, damping: 28, mass: 0.75 }}
 					/>
 				)}
-				<button
-					type="button"
-					onClick={onNewChat}
-					disabled={!newChatCwd}
-					title="新对话"
-					className="no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					<span className="icon-[mdi--square-edit-outline] h-4 w-4 shrink-0" />
-					新对话
-				</button>
-				{NAV_ITEMS.map(({ path, label, icon }, index) => {
-					const active = currentPath === path;
+				{NAV_ITEMS.map((item, index) => {
+					const active = item.type === "route" && currentPath === item.path;
+					const disabled = item.type === "new-session" && !newChatCwd;
 					return (
 						<button
-							key={path}
+							key={item.type === "route" ? item.path : item.type}
 							ref={(element) => {
 								navItemRefs.current[index] = element;
 							}}
 							type="button"
-							onClick={() => void navigate({ to: path })}
-							onMouseEnter={(event) =>
-								setHoverNavIndicatorBounds(getNavIndicatorBounds(event.currentTarget))
-							}
+							onClick={() => {
+								if (disabled) return;
+								if (item.type === "new-session") {
+									onNewChat();
+									return;
+								}
+								void navigate({ to: item.path });
+							}}
+							onMouseEnter={(event) => {
+								if (disabled) {
+									setHoverNavIndicatorBounds(null);
+									return;
+								}
+								setHoverNavIndicatorBounds(getNavIndicatorBounds(event.currentTarget));
+							}}
+							aria-disabled={disabled}
+							tabIndex={disabled ? -1 : undefined}
+							title={item.type === "new-session" ? item.title : undefined}
 							className={`no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 								active
 									? "font-medium text-primary-foreground"
-									: "text-foreground"
+									: `text-foreground ${disabled ? "cursor-not-allowed opacity-50" : ""}`
 							}`}
 						>
-							<span className={`${icon} relative z-10 h-4 w-4 shrink-0`} />
-							<span className="relative z-10">{label}</span>
+							<span className={`${item.icon} relative z-10 h-4 w-4 shrink-0`} />
+							<span className="relative z-10">{item.label}</span>
 						</button>
 					);
 				})}
