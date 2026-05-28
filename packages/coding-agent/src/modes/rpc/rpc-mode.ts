@@ -19,11 +19,15 @@ import type {
 	ExtensionUIDialogOptions,
 	ExtensionWidgetOptions,
 } from "../../core/extensions/index.js";
+import type { ToolDefinition } from "../../core/extensions/types.js";
+import { createImSendAttachmentTool, type ImHostBridge } from "../../core/tools/im-send-attachment/index.js";
 import { type Theme, theme } from "../interactive/theme/theme.js";
 import type {
 	RpcCommand,
 	RpcExtensionUIRequest,
 	RpcExtensionUIResponse,
+	RpcHostRequest,
+	RpcHostResponse,
 	RpcResponse,
 	RpcSessionState,
 	RpcSlashCommand,
@@ -38,12 +42,20 @@ export type {
 	RpcSessionState,
 } from "./rpc-types.js";
 
+export interface RunRpcModeOptions {
+	/** Register the im_send_attachment tool and accept host_response commands. */
+	enableHostBridge?: boolean;
+}
+
+/** How long a single host_request waits before failing the tool with a timeout. */
+const HOST_REQUEST_TIMEOUT_MS = 30_000;
+
 /**
  * Run in RPC mode.
  * Listens for JSON commands on stdin, outputs events and responses on stdout.
  */
-export async function runRpcMode(session: AgentSession): Promise<never> {
-	const output = (obj: RpcResponse | RpcExtensionUIRequest | object) => {
+export async function runRpcMode(session: AgentSession, options: RunRpcModeOptions = {}): Promise<never> {
+	const output = (obj: RpcResponse | RpcExtensionUIRequest | RpcHostRequest | object) => {
 		// Use process.stdout.write directly (not console.log) so callers
 		// that patch / hijack `console.*` for diagnostics don't swallow
 		// the RPC protocol stream. Specifically, desktop-app's agent-rpc
@@ -277,6 +289,45 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 			// Tool expansion not supported in RPC mode - no TUI
 		},
 	});
+
+	// Pending host_request promises waiting for matching host_response on stdin.
+	const pendingHostRequests = new Map<
+		string,
+		{
+			resolve: (value: { messageId?: string }) => void;
+			reject: (error: Error) => void;
+			timer: ReturnType<typeof setTimeout>;
+		}
+	>();
+
+	if (options.enableHostBridge) {
+		const bridge: ImHostBridge = {
+			sendAttachment(params) {
+				return new Promise<{ messageId?: string }>((resolve, reject) => {
+					const id = crypto.randomUUID();
+					const timer = setTimeout(() => {
+						pendingHostRequests.delete(id);
+						reject(new Error(`im_send_attachment: host did not respond within ${HOST_REQUEST_TIMEOUT_MS}ms`));
+					}, HOST_REQUEST_TIMEOUT_MS);
+					pendingHostRequests.set(id, { resolve, reject, timer });
+					output({
+						type: "host_request",
+						id,
+						method: "send_attachment",
+						params,
+					} as RpcHostRequest);
+				});
+			},
+		};
+		// Register the built-in IM-aware tool. reconfigureCustomTools rebuilds
+		// the runtime tool list synchronously; agent will see it in the next
+		// turn's tool dispatch.
+		// ToolDefinition is invariant in its TParams generic; the concrete
+		// schema we return from createImSendAttachmentTool is narrower than
+		// the registry's `ToolDefinition<TSchema, unknown>` slot. Cast to
+		// erase the narrowing — runtime is identical.
+		session.reconfigureCustomTools([createImSendAttachmentTool(bridge) as unknown as ToolDefinition]);
+	}
 
 	// Set up extensions with RPC-based UI context
 	await session.bindExtensions({
@@ -627,6 +678,24 @@ export async function runRpcMode(session: AgentSession): Promise<never> {
 				if (pending) {
 					pendingExtensionRequests.delete(response.id);
 					pending.resolve(response);
+				}
+				return;
+			}
+
+			// Handle host_response (reply to host_request issued by built-in tools).
+			if (parsed.type === "host_response") {
+				const response = parsed as RpcHostResponse;
+				const pending = pendingHostRequests.get(response.id);
+				if (!pending) {
+					return; // late / duplicate
+				}
+				pendingHostRequests.delete(response.id);
+				clearTimeout(pending.timer);
+				if (response.success) {
+					pending.resolve({ messageId: response.data?.messageId });
+				} else {
+					const code = response.errorCode ? ` [${response.errorCode}]` : "";
+					pending.reject(new Error(`${response.error}${code}`));
 				}
 				return;
 			}

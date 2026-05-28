@@ -16,14 +16,17 @@
 //   - 24h/10-msg quota tracking per peer (server-side enforced; we shadow
 //     it client-side to fail fast)
 //
-// Out of scope: streaming responses, message edit, media (image/video/file/
-// voice), typing indicators, group chat, multi-account.
+// Out of scope: streaming responses, message edit, voice transcoding,
+// typing indicators, group chat, multi-account. Image and generic-file
+// receive + send ARE in scope as of ADR-0006.
 package wechat
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +36,12 @@ import (
 	"vetta-im-gateway/internal/transport"
 	"vetta-im-gateway/internal/transport/wechat/ilink"
 )
+
+// MaxInboundAttachmentBytes caps the size of a single inbound media we
+// will download + decrypt + persist. Wechat itself enforces a sub-100MB
+// limit; we add our own ceiling so a misconfigured peer cannot OOM the
+// gateway.
+const MaxInboundAttachmentBytes = 50 * 1024 * 1024
 
 // ErrNotBound is returned by New when the on-disk state has no credentials
 // yet. The caller should run `im-gateway wechat login` to populate them.
@@ -70,6 +79,14 @@ type Options struct {
 	// PollInitialBackoff is the initial backoff between retries.
 	// Defaults to 1s.
 	PollInitialBackoff time.Duration
+
+	// InboxDir is where the transport persists decrypted inbound media
+	// (image / file). Each file is written under a per-day subdirectory:
+	// `<InboxDir>/<YYYY-MM-DD>/<msgId>-<filename-or-ext>`. Required when
+	// the agent should be able to read attachments via `@<path>` mentions.
+	// Empty disables inbound media handling — image/file messages are
+	// dropped just like in M1.
+	InboxDir string
 }
 
 // Transport implements transport.Transport. Construct via New; the zero
@@ -79,6 +96,7 @@ type Transport struct {
 	client   *ilink.Client
 	quota    *Quota
 	log      *zap.Logger
+	inboxDir string
 
 	pollMaxBackoff     time.Duration
 	pollInitialBackoff time.Duration
@@ -138,6 +156,7 @@ func New(opts Options) (*Transport, error) {
 		client:             client,
 		quota:              NewQuota(quotaPer, quotaWin, time.Now),
 		log:                logger,
+		inboxDir:           opts.InboxDir,
 		pollMaxBackoff:     pollMax,
 		pollInitialBackoff: pollInit,
 	}, nil
@@ -157,7 +176,7 @@ func (t *Transport) Capabilities() transport.Capabilities {
 		SupportsMessageEdit: false,
 		SupportsCards:       false,
 		SupportsButtons:     false,
-		SupportsFileUpload:  false, // protocol supports it; M1 does not
+		SupportsFileUpload:  true, // image + file via SendAttachment (ADR-0006)
 		SupportsThreads:     false,
 		MaxMessageLength:    0, // unknown; will be probed in real testing
 		// iLink enforces ≤10 outbound messages per peer until the next
@@ -237,6 +256,12 @@ func (t *Transport) Start(ctx context.Context, handler transport.MessageHandler)
 // records the new context_token + quota reset, and invokes the handler.
 // Errors from the handler are logged and swallowed — one bad message must
 // not stall the poll loop.
+//
+// Image/file items are downloaded + AES-128-ECB decrypted + persisted to
+// the per-day inbox before being surfaced as transport.Attachment entries.
+// Text messages still flow through Text. A message with media but no text
+// reaches the bridge with an empty Text and a non-empty Attachments slice;
+// the bridge prepends `@<absPath>` lines onto the prompt the agent sees.
 func (t *Transport) dispatchInbound(ctx context.Context, msg *ilink.WeixinMessage, handler transport.MessageHandler) {
 	peer := msg.FromUserID
 	if peer == "" {
@@ -245,8 +270,10 @@ func (t *Transport) dispatchInbound(ctx context.Context, msg *ilink.WeixinMessag
 	}
 
 	text := extractText(msg)
-	if text == "" {
-		t.log.Debug("wechat dropping non-text message",
+	attachments := t.extractAndPersistAttachments(ctx, peer, msg)
+
+	if text == "" && len(attachments) == 0 {
+		t.log.Debug("wechat dropping unsupported message",
 			zap.String("peer", peer),
 			zap.Int("items", len(msg.ItemList)),
 		)
@@ -269,13 +296,14 @@ func (t *Transport) dispatchInbound(ctx context.Context, msg *ilink.WeixinMessag
 	}
 
 	in := transport.InboundMessage{
-		Platform:   "wechat",
-		ChatID:     peer, // 1-on-1 only in M1: chat == peer
-		UserID:     peer,
-		MessageID:  formatMessageID(msg),
-		Text:       text,
-		ReceivedAt: time.Now(),
-		Raw:        msg,
+		Platform:    "wechat",
+		ChatID:      peer, // 1-on-1 only in M1: chat == peer
+		UserID:      peer,
+		MessageID:   formatMessageID(msg),
+		Text:        text,
+		Attachments: attachments,
+		ReceivedAt:  time.Now(),
+		Raw:         msg,
 	}
 
 	if err := handler.HandleInbound(ctx, in); err != nil {
@@ -284,6 +312,215 @@ func (t *Transport) dispatchInbound(ctx context.Context, msg *ilink.WeixinMessag
 			zap.Error(err),
 		)
 	}
+}
+
+// extractAndPersistAttachments walks msg.ItemList, downloads and decrypts
+// image/file media into the configured inbox, and returns the resulting
+// transport.Attachment list (URL field populated with the absolute local
+// path; the bridge consumes this).
+//
+// Voice and video items are deliberately skipped (see ADR-0006 scope).
+// Errors on a single item are logged and silently dropped so one bad
+// download cannot stall the rest of the message.
+func (t *Transport) extractAndPersistAttachments(ctx context.Context, peer string, msg *ilink.WeixinMessage) []transport.Attachment {
+	if t.inboxDir == "" {
+		return nil
+	}
+	var out []transport.Attachment
+	msgID := formatMessageID(msg)
+	for i := range msg.ItemList {
+		item := &msg.ItemList[i]
+		switch item.Type {
+		case ilink.MessageItemTypeImage:
+			if item.ImageItem == nil {
+				continue
+			}
+			att, err := t.fetchImage(ctx, msgID, i, item.ImageItem)
+			if err != nil {
+				t.log.Warn("wechat inbound image fetch failed",
+					zap.String("peer", peer),
+					zap.Int("itemIndex", i),
+					zap.Error(err),
+				)
+				continue
+			}
+			out = append(out, att)
+		case ilink.MessageItemTypeFile:
+			if item.FileItem == nil {
+				continue
+			}
+			att, err := t.fetchFile(ctx, msgID, i, item.FileItem)
+			if err != nil {
+				t.log.Warn("wechat inbound file fetch failed",
+					zap.String("peer", peer),
+					zap.Int("itemIndex", i),
+					zap.Error(err),
+				)
+				continue
+			}
+			out = append(out, att)
+		}
+	}
+	return out
+}
+
+// fetchImage downloads + decrypts + persists one ImageItem.
+func (t *Transport) fetchImage(ctx context.Context, msgID string, idx int, img *ilink.ImageItem) (transport.Attachment, error) {
+	url, aesKey := imageDownloadFields(img)
+	if url == "" {
+		return transport.Attachment{}, errors.New("image_item has no downloadable url")
+	}
+	plaintext, err := t.client.DownloadAndDecrypt(ctx, url, aesKey)
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	if len(plaintext) > MaxInboundAttachmentBytes {
+		return transport.Attachment{}, fmt.Errorf("image exceeds %d-byte cap (%d)", MaxInboundAttachmentBytes, len(plaintext))
+	}
+	ext := guessImageExt(plaintext)
+	filename := fmt.Sprintf("%s-img-%d%s", sanitizeForFilename(msgID), idx, ext)
+	absPath, err := t.persistInbox(filename, plaintext)
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	return transport.Attachment{
+		Kind:     transport.AttachmentImage,
+		Name:     filepath.Base(absPath),
+		MimeType: mimeFromExt(ext),
+		URL:      absPath,
+	}, nil
+}
+
+// fetchFile downloads + decrypts + persists one FileItem.
+func (t *Transport) fetchFile(ctx context.Context, msgID string, idx int, f *ilink.FileItem) (transport.Attachment, error) {
+	if f.Media == nil || f.Media.EncryptQueryParam == "" {
+		return transport.Attachment{}, errors.New("file_item has no media reference")
+	}
+	url := ilink.BuildCDNDownloadURL(ilink.DefaultCDNBaseURL, f.Media.EncryptQueryParam)
+	plaintext, err := t.client.DownloadAndDecrypt(ctx, url, f.Media.AESKey)
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	if len(plaintext) > MaxInboundAttachmentBytes {
+		return transport.Attachment{}, fmt.Errorf("file exceeds %d-byte cap (%d)", MaxInboundAttachmentBytes, len(plaintext))
+	}
+	name := f.FileName
+	if name == "" {
+		name = fmt.Sprintf("file-%d.bin", idx)
+	}
+	filename := fmt.Sprintf("%s-%s", sanitizeForFilename(msgID), filepath.Base(name))
+	absPath, err := t.persistInbox(filename, plaintext)
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	return transport.Attachment{
+		Kind:     transport.AttachmentFile,
+		Name:     filepath.Base(absPath),
+		MimeType: mimeFromExt(filepath.Ext(name)),
+		URL:      absPath,
+	}, nil
+}
+
+// persistInbox writes b under <inboxDir>/<YYYY-MM-DD>/filename, creating
+// the per-day directory on demand. Returns the absolute path that was
+// written. A name collision retries with a counter suffix.
+func (t *Transport) persistInbox(filename string, b []byte) (string, error) {
+	dayDir := filepath.Join(t.inboxDir, time.Now().Format("2006-01-02"))
+	if err := os.MkdirAll(dayDir, 0o755); err != nil {
+		return "", fmt.Errorf("create inbox dir: %w", err)
+	}
+	path := filepath.Join(dayDir, filename)
+	// Avoid silent overwrites: if path already exists, suffix -<n>.
+	if _, err := os.Stat(path); err == nil {
+		ext := filepath.Ext(filename)
+		stem := strings.TrimSuffix(filename, ext)
+		for n := 1; n < 1000; n++ {
+			candidate := filepath.Join(dayDir, fmt.Sprintf("%s-%d%s", stem, n, ext))
+			if _, err := os.Stat(candidate); errors.Is(err, os.ErrNotExist) {
+				path = candidate
+				break
+			}
+		}
+	}
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		return "", fmt.Errorf("write inbox file: %w", err)
+	}
+	return path, nil
+}
+
+// imageDownloadFields picks the right url+aeskey pair from an ImageItem.
+// The newer media.CDNMedia form wins when present; falls back to the
+// legacy top-level URL + aeskey (hex) form.
+func imageDownloadFields(img *ilink.ImageItem) (url, aesKey string) {
+	if img.Media != nil && img.Media.EncryptQueryParam != "" {
+		return ilink.BuildCDNDownloadURL(ilink.DefaultCDNBaseURL, img.Media.EncryptQueryParam), img.Media.AESKey
+	}
+	if img.URL != "" {
+		return img.URL, img.AESKey
+	}
+	return "", ""
+}
+
+// guessImageExt sniffs a couple of magic bytes to pick a sensible
+// extension when the protocol doesn't tell us the format. Falls back to
+// .jpg which is the WeChat default.
+func guessImageExt(b []byte) string {
+	if len(b) >= 8 && b[0] == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G' {
+		return ".png"
+	}
+	if len(b) >= 6 && (b[0] == 'G' && b[1] == 'I' && b[2] == 'F') {
+		return ".gif"
+	}
+	if len(b) >= 12 && string(b[0:4]) == "RIFF" && string(b[8:12]) == "WEBP" {
+		return ".webp"
+	}
+	return ".jpg"
+}
+
+func mimeFromExt(ext string) string {
+	switch strings.ToLower(ext) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".pdf":
+		return "application/pdf"
+	case ".zip":
+		return "application/zip"
+	case ".mp4":
+		return "video/mp4"
+	case ".mp3":
+		return "audio/mpeg"
+	case ".txt":
+		return "text/plain"
+	}
+	return "application/octet-stream"
+}
+
+// sanitizeForFilename keeps only characters safe across mac/linux/windows
+// filesystems. Used on msgID + filename components.
+func sanitizeForFilename(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '-' || r == '_' || r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	out := b.String()
+	if out == "" {
+		return "msg"
+	}
+	return out
 }
 
 // Stop signals Start to return. Safe to call multiple times.
@@ -363,6 +600,99 @@ func (t *Transport) DeleteMessage(_ context.Context, _, _ string) error {
 // ShowTyping is a no-op in M1. The protocol supports a typing indicator
 // but it requires a 5-8s heartbeat goroutine which we defer.
 func (t *Transport) ShowTyping(_ context.Context, _ string) error { return nil }
+
+// SendAttachment uploads a local file via the iLink CDN flow and sends it
+// to the peer as an image (kind="image") or generic file (kind="file").
+// Consumes one slot of the per-peer 24h send quota. ErrQuotaExhausted is
+// returned when the local quota tracker says we are out of budget.
+func (t *Transport) SendAttachment(ctx context.Context, chatID string, att transport.OutboundAttachment) (string, error) {
+	if chatID == "" {
+		return "", errors.New("wechat: chatID required")
+	}
+	if att.Path == "" {
+		return "", errors.New("wechat: attachment path required")
+	}
+	if !t.quota.CanSend(chatID) {
+		t.log.Warn("wechat quota exhausted, refusing attachment send",
+			zap.String("peer", chatID),
+			zap.String("kind", string(att.Kind)),
+		)
+		return "", ErrQuotaExhausted
+	}
+
+	plaintext, err := os.ReadFile(att.Path)
+	if err != nil {
+		return "", fmt.Errorf("wechat: read attachment: %w", err)
+	}
+	if len(plaintext) == 0 {
+		return "", errors.New("wechat: attachment is empty")
+	}
+
+	ctxToken := t.store.ContextToken(chatID)
+	if ctxToken == "" {
+		t.log.Warn("wechat sending attachment without context_token (proactive push)",
+			zap.String("peer", chatID),
+		)
+	}
+
+	var cid string
+	switch att.Kind {
+	case transport.AttachmentImage:
+		cid, err = t.client.SendImage(ctx, ilink.SendImageOptions{
+			PeerUserID:   chatID,
+			Plaintext:    plaintext,
+			ContextToken: ctxToken,
+		})
+	case transport.AttachmentFile, "":
+		cid, err = t.client.SendFile(ctx, ilink.SendFileOptions{
+			PeerUserID:   chatID,
+			Plaintext:    plaintext,
+			FileName:     filepath.Base(att.Path),
+			ContextToken: ctxToken,
+		})
+	default:
+		return "", fmt.Errorf("wechat: unsupported attachment kind %q", att.Kind)
+	}
+	if err != nil {
+		return "", fmt.Errorf("wechat send attachment: %w", err)
+	}
+	t.quota.RecordSend(chatID)
+
+	// If a caption was supplied, send it as a follow-up text message. Best
+	// effort — failing here doesn't undo the attachment send. We deliberately
+	// do NOT count caption against quota separately: the agent already chose
+	// to spend a slot on the attachment and the caption is "free" only if
+	// budget remains.
+	if att.Caption != "" {
+		if t.quota.CanSend(chatID) {
+			if _, capErr := t.client.SendText(ctx, ilink.SendTextOptions{
+				PeerUserID:   chatID,
+				Text:         att.Caption,
+				ContextToken: ctxToken,
+			}); capErr != nil {
+				t.log.Warn("wechat attachment caption send failed",
+					zap.String("peer", chatID),
+					zap.Error(capErr),
+				)
+			} else {
+				t.quota.RecordSend(chatID)
+			}
+		} else {
+			t.log.Info("wechat skipping caption: quota exhausted",
+				zap.String("peer", chatID),
+			)
+		}
+	}
+
+	t.log.Debug("wechat attachment send ok",
+		zap.String("peer", chatID),
+		zap.String("kind", string(att.Kind)),
+		zap.String("client_id", cid),
+		zap.Int("bytes", len(plaintext)),
+		zap.Int("remaining", t.quota.Remaining(chatID)),
+	)
+	return cid, nil
+}
 
 // =============================================================================
 // helpers

@@ -33,6 +33,14 @@ type HostSession interface {
 	// generate one if Cmd.ID is empty.
 	Send(ctx context.Context, cmd Command) (Response, error)
 
+	// SendNoReply delivers a command and returns immediately, without
+	// waiting for any response. Used for fire-and-forget host→agent
+	// messages such as `host_response` where the agent consumes the
+	// command but does not emit a `response` event back. Implementations
+	// MUST NOT register a pending entry for cmd.ID — doing so would leak
+	// a goroutine waiting on a channel that never resolves.
+	SendNoReply(ctx context.Context, cmd Command) error
+
 	// Events returns a stream of agent events. The channel is closed when
 	// the session is closed (either via Close() or because the underlying
 	// process exited unexpectedly). On unexpected exit a final event of

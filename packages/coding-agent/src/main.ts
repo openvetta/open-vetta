@@ -807,7 +807,7 @@ export async function main(args: string[]) {
 	}
 
 	if (mode === "rpc") {
-		await runRpcMode(session);
+		await runRpcMode(session, { enableHostBridge: parsed.enableHostBridge });
 	} else if (isInteractive) {
 		if (scopedModels.length > 0 && (parsed.verbose || !settingsManager.getQuietStartup())) {
 			const modelList = scopedModels

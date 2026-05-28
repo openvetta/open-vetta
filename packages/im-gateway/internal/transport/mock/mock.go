@@ -194,6 +194,13 @@ func (t *Transport) ShowTyping(_ context.Context, chatID string) error {
 	})
 }
 
+// SendAttachment is not supported on the mock transport. The mock keeps its
+// surface minimal so tests stay deterministic — adding fake CDN handshakes
+// would obscure what the tests actually exercise.
+func (t *Transport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
+	return "", errors.New("mock: attachment send not supported")
+}
+
 func (t *Transport) writeJSON(v any) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()

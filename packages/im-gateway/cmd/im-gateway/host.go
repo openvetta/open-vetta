@@ -130,6 +130,11 @@ func runHostWithIO(opts hostOptions) int {
 	// read-only.
 	hclocalOpts := hclocal.Options{
 		SessionDir: filepath.Join(initFrame.ConversationCwd, ".vetta", "sessions"),
+		// Always enable the host-bridge channel in embedded mode: it's how
+		// im-gateway-driven sessions deliver IM attachments via
+		// im_send_attachment / host_request. Other agents (desktop, TUI,
+		// CLI) never set this flag and the tool stays invisible to them.
+		EnableHostBridge: true,
 	}
 	if initFrame.CodingAgent != nil && initFrame.CodingAgent.Bin != "" {
 		hclocalOpts.Bin = initFrame.CodingAgent.Bin
@@ -516,6 +521,7 @@ func buildHostTransport(spec *buildSpec) (transport.Transport, error) {
 	if spec.Wechat != nil && spec.Wechat.Enabled {
 		tr, err := wechat.New(wechat.Options{
 			StatePath: spec.WechatStatePath,
+			InboxDir:  spec.ConversationCwd,
 		})
 		if err != nil {
 			if errors.Is(err, wechat.ErrNotBound) {
@@ -566,6 +572,9 @@ func (placeholderTransport) DeleteMessage(_ context.Context, _, _ string) error 
 	return errors.New("placeholder transport: not bound")
 }
 func (placeholderTransport) ShowTyping(_ context.Context, _ string) error { return nil }
+func (placeholderTransport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
+	return "", errors.New("placeholder transport: not bound")
+}
 
 // Compile-time interface check.
 var _ transport.Transport = (*placeholderTransport)(nil)
