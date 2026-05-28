@@ -180,16 +180,10 @@ if (existsSync(imGatewayDistDir)) {
 // =============================================================================
 //
 // The bundled main-*.js (Vite output) contains `@vetta/coding-agent`'s JS
-// but NOT its on-disk asset files: theme JSONs, the export-html template,
-// package.json (read for version), banner, etc. Without them the agent-rpc
-// CLI mode crashes on first read — e.g. `ENOENT, dist/modes/interactive/
-// theme/dark.json` because `getThemesDir()` resolves against the bundle's
-// own asar root.
-//
-// Stage the package's `dist/modes/interactive/theme/`, `dist/core/
-// export-html/`, plus the top-level package.json into Resources/coding-
-// agent/. agent-rpc-command.ts sets VETTA_PACKAGE_DIR to that dir at
-// runtime so coding-agent's getPackageDir() picks it up.
+// but not its on-disk package tree. Stage the full dist plus metadata into
+// Resources/coding-agent/. macOS/Linux agent-rpc-command.ts uses it as
+// VETTA_PACKAGE_DIR for assets; Windows additionally runs dist/cli.js via
+// ELECTRON_RUN_AS_NODE because GUI Electron stdio is not reliable for RPC.
 const stagedCodingAgentDir = join(buildStageDir, "coding-agent");
 rmSync(stagedCodingAgentDir, { recursive: true, force: true });
 mkdirSync(stagedCodingAgentDir, { recursive: true });
@@ -198,8 +192,7 @@ const codingAgentAssets = [
 	"banner.txt",
 	"README.md",
 	"CHANGELOG.md",
-	"dist/modes/interactive/theme",
-	"dist/core/export-html",
+	"dist",
 ];
 for (const rel of codingAgentAssets) {
 	const src = join(codingAgentDir, rel);
@@ -211,10 +204,28 @@ for (const rel of codingAgentAssets) {
 	}
 	cpSync(src, join(stagedCodingAgentDir, rel), { recursive: true });
 }
+const bundledAgentRpcCli = join(stagedCodingAgentDir, "dist", "agent-rpc-cli.mjs");
+console.log(`[prepare-pack] bundling Windows agent-rpc CLI -> ${bundledAgentRpcCli}`);
+execFileSync(process.platform === "win32" ? "bun.exe" : "bun", [
+	"build",
+	join(codingAgentDir, "dist", "cli.js"),
+	"--target",
+	"node",
+	"--format",
+	"esm",
+	"--outfile",
+	bundledAgentRpcCli,
+], {
+	cwd: projectRoot,
+	stdio: "inherit",
+});
 // Sanity-check the load-bearing files are actually in the stage dir.
 const stagedThemeDir = join(stagedCodingAgentDir, "dist/modes/interactive/theme");
 if (!existsSync(join(stagedThemeDir, "dark.json"))) {
 	throw new Error(`coding-agent theme assets missing after stage: ${stagedThemeDir}`);
+}
+if (!existsSync(bundledAgentRpcCli)) {
+	throw new Error(`bundled agent-rpc CLI missing after stage: ${bundledAgentRpcCli}`);
 }
 
 // =============================================================================

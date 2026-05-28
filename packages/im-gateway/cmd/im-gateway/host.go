@@ -32,11 +32,11 @@ type transportBuilder func(*buildSpec) (transport.Transport, error)
 // hostOptions configures runHostWithIO. Used so tests can inject mock IO
 // streams and a stub transport builder.
 type hostOptions struct {
-	stdin            io.Reader
-	stdout           io.Writer
-	buildTransport   transportBuilder
-	initTimeout      time.Duration
-	shutdownGrace    time.Duration
+	stdin          io.Reader
+	stdout         io.Writer
+	buildTransport transportBuilder
+	initTimeout    time.Duration
+	shutdownGrace  time.Duration
 }
 
 // runHost is the entry point for the embedded host mode. The sidecar reads
@@ -136,6 +136,12 @@ func runHostWithIO(opts hostOptions) int {
 	if initFrame.CodingAgent != nil && initFrame.CodingAgent.Bin != "" {
 		hclocalOpts.Bin = initFrame.CodingAgent.Bin
 		hclocalOpts.BinPrefixArgs = initFrame.CodingAgent.PrefixArgs
+		if initFrame.CodingAgent.RunAsNode {
+			if hclocalOpts.ExtraEnv == nil {
+				hclocalOpts.ExtraEnv = map[string]string{}
+			}
+			hclocalOpts.ExtraEnv["ELECTRON_RUN_AS_NODE"] = "1"
+		}
 		if initFrame.CodingAgent.PackageDir != "" {
 			if hclocalOpts.ExtraEnv == nil {
 				hclocalOpts.ExtraEnv = map[string]string{}
@@ -152,6 +158,7 @@ func runHostWithIO(opts hostOptions) int {
 			map[string]any{
 				"bin":        initFrame.CodingAgent.Bin,
 				"prefixArgs": initFrame.CodingAgent.PrefixArgs,
+				"runAsNode":  initFrame.CodingAgent.RunAsNode,
 				"packageDir": initFrame.CodingAgent.PackageDir,
 				"serverUrl":  initFrame.CodingAgent.ServerURL,
 			})

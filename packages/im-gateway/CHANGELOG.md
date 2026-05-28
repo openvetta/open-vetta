@@ -37,6 +37,8 @@ All notable changes to `@vetta/im-gateway` are documented in this file.
 
 ### Fixed
 
+- Windows desktop-app host mode now supports `InitFrame.codingAgent.runAsNode`; when set, `hostclient/local` spawns the configured Electron executable with `ELECTRON_RUN_AS_NODE=1`. This lets Windows packaged desktop builds run coding-agent RPC over reliable Node stdio instead of GUI Electron stdio, fixing WeChat/Claw messages failing at `subprocess exited during handshake`.
+
 - 生产环境 IM 发消息报 `exec: "vetta": executable file not found in $PATH`：sidecar 默认从 PATH 找 `vetta`，但打包好的 Vetta.app 没有把 CLI 软链到系统 PATH，所以每条 IM 消息都拉不起 coding-agent。配合 desktop-app 新增的 `--agent-rpc` CLI mode + 新增的 `InitFrame.codingAgent` 字段，sidecar 会在 IM session 启动时用 desktop-app 指定的可执行文件，根治。
 - WeChat 桥接：服务器返回 `errcode -14`（bot session timeout）时，host 不再把它当成致命 transport 错误退出 sidecar，而是清掉已失效的本地凭据、emit `wechat_unbound` + `awaiting_bind`，让 sidecar 留活；用户下一次点「扫码绑定」可以直接走 `wechat_bind_start` 出新二维码。此前 desktop-app 会卡在「正在生成二维码…」的转圈，伴随日志 `ilink: bot session timeout, re-login required: session timeout`。
 - `host` 模式启动 transport 时存在状态事件竞态：`emitStatus("connecting")` 写在 `t.Start` 的 goroutine 内，而紧接其后的 `emitStatus("online")` 在主 goroutine 同步发出。当 goroutine 被调度晚于主 goroutine 时，最终顺序变成 `online → connecting`，desktop-app 状态卡在「连接中」即使 transport 已正常工作。改为在主 goroutine 同步 emit `connecting`，再 spawn goroutine 跑 `Start`，保证 `connecting → online` 顺序固定。`rebuildTransport` 路径同样受益。

@@ -9,11 +9,11 @@ import (
 // Frame type discriminators. Strings are the wire format.
 const (
 	// Inbound (parent → child)
-	TypeInit             = "init"
-	TypeConfigUpdate     = "config_update"
-	TypeShutdown         = "shutdown"
-	TypeWechatBindStart  = "wechat_bind_start"
-	TypeWechatLogout     = "wechat_logout"
+	TypeInit            = "init"
+	TypeConfigUpdate    = "config_update"
+	TypeShutdown        = "shutdown"
+	TypeWechatBindStart = "wechat_bind_start"
+	TypeWechatLogout    = "wechat_logout"
 
 	// Outbound (child → parent)
 	TypeReady            = "ready"
@@ -34,11 +34,11 @@ const (
 // no transport is running. The parent should drive the bind flow via
 // TypeWechatBindStart.
 const (
-	TransportStatusOffline       = "offline"
-	TransportStatusConnecting    = "connecting"
-	TransportStatusOnline        = "online"
-	TransportStatusError         = "error"
-	TransportStatusAwaitingBind  = "awaiting_bind"
+	TransportStatusOffline      = "offline"
+	TransportStatusConnecting   = "connecting"
+	TransportStatusOnline       = "online"
+	TransportStatusError        = "error"
+	TransportStatusAwaitingBind = "awaiting_bind"
 )
 
 // FeishuConfig carries the credentials and options needed to spin up a
@@ -118,6 +118,11 @@ type InitFrame struct {
 type CodingAgentSpec struct {
 	Bin        string   `json:"bin"`
 	PrefixArgs []string `json:"prefixArgs,omitempty"`
+	// RunAsNode, when true, asks the sidecar to set ELECTRON_RUN_AS_NODE=1
+	// before spawning Bin. Windows packaged desktop builds use this to run
+	// the Electron executable as a Node runtime for coding-agent's CLI,
+	// because the normal GUI mode closes stdio before RPC can handshake.
+	RunAsNode bool `json:"runAsNode,omitempty"`
 	// PackageDir, when non-empty, is forwarded to the spawned subprocess
 	// as the `VETTA_PACKAGE_DIR` environment variable. The agent's
 	// `getPackageDir()` defaults to walking up `__dirname` to find
@@ -198,9 +203,9 @@ type StatusEvent struct {
 // StatePatchEvent reports a routing-table mutation. Parent persists the
 // patch to its own state file.
 type StatePatchEvent struct {
-	Type      string `json:"type"` // always TypeStatePatch
-	UserID    string `json:"userId"`
-	ChatID    string `json:"chatId"`
+	Type   string `json:"type"` // always TypeStatePatch
+	UserID string `json:"userId"`
+	ChatID string `json:"chatId"`
 	// SessionPath empty means "delete this entry". Non-empty means upsert.
 	SessionPath string    `json:"sessionPath"`
 	UpdatedAt   time.Time `json:"updatedAt"`
@@ -254,7 +259,7 @@ type WechatUnboundEvent struct {
 // Wechat bind status values reported on TypeWechatBindStatus events.
 const (
 	WechatBindStatusScanned    = "scanned"
-	WechatBindStatusExpired    = "expired"     // a refresh follows in WechatQREvent
+	WechatBindStatusExpired    = "expired" // a refresh follows in WechatQREvent
 	WechatBindStatusRedirected = "redirected"
 	WechatBindStatusConfirmed  = "confirmed"
 	WechatBindStatusFailed     = "failed"
