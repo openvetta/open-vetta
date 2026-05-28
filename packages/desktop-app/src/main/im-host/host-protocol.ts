@@ -93,6 +93,12 @@ export interface CodingAgentSpec {
 	bin: string;
 	prefixArgs?: string[];
 	/**
+	 * When true, the sidecar sets `ELECTRON_RUN_AS_NODE=1` before spawning
+	 * `bin`. Windows packaged builds need this because the GUI Electron
+	 * executable closes stdio too early for the RPC protocol.
+	 */
+	runAsNode?: boolean;
+	/**
 	 * Forwarded to the spawned coding-agent subprocess as
 	 * `VETTA_PACKAGE_DIR`. The agent's `getPackageDir()` falls back to
 	 * walking up `__dirname` to find `package.json`, which lands on the

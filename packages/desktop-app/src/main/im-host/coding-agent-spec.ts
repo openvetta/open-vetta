@@ -40,10 +40,10 @@ function resolveCodingAgentPackageDir(): string {
  * Build the {@link CodingAgentSpec} that the im-gateway sidecar uses to
  * spawn one coding-agent subprocess per IM session.
  *
- * Production: Vetta.app's executable + `--agent-rpc` — main.ts detects the
- * flag early and short-circuits into `@vetta/coding-agent`'s `main`,
- * skipping window/UI bring-up. No external `vetta` CLI is required, which
- * is the whole point — packaged installs don't ship one on PATH.
+ * Production: Vetta.app's executable. macOS/Linux use `--agent-rpc`, which
+ * main.ts detects before window/UI bring-up. Windows runs the staged
+ * coding-agent CLI under `ELECTRON_RUN_AS_NODE=1`, because GUI Electron
+ * mode closes stdio too early for the RPC handshake.
  *
  * Dev: Electron + the bundled dev main entry + `--agent-rpc`. Mirrors the
  * production argv shape so the sidecar code path stays identical.
@@ -73,6 +73,15 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 	const serverUrl = DEFAULT_SERVER_URL;
 
 	if (app.isPackaged) {
+		if (process.platform === "win32") {
+			return {
+				bin: process.execPath,
+				prefixArgs: [join(packageDir, "dist", "agent-rpc-cli.mjs"), ...modelArgs],
+				runAsNode: true,
+				packageDir,
+				serverUrl,
+			};
+		}
 		return {
 			bin: process.execPath,
 			prefixArgs: ["--agent-rpc", ...modelArgs],
