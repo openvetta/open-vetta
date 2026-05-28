@@ -257,6 +257,32 @@ export type RpcExtensionUIResponse =
 	| { type: "extension_ui_response"; id: string; cancelled: true };
 
 // ============================================================================
+// Host Bridge (agent → host reverse RPC)
+// ============================================================================
+//
+// Enabled only with `--mode rpc --enable-host-bridge`. Lets built-in tools
+// (currently `im_send_attachment`) call back into the host process — for
+// im-gateway that means "actually send this image/file via the IM
+// transport, return the messageId or a structured error". See docs/rpc.md.
+//
+// Wire shape mirrors the extension_ui_request / _response pair: stdout
+// carries `host_request`, stdin carries `host_response`, both correlate by
+// `id`. The tool's execute() body awaits its response with a 30s timeout.
+
+/** Request from agent to host (stdout). `method` reserved for future extension. */
+export type RpcHostRequest = {
+	type: "host_request";
+	id: string;
+	method: "send_attachment";
+	params: { path: string; kind: "image" | "file"; caption?: string };
+};
+
+/** Response from host back to agent (stdin). `id` echoes the request. */
+export type RpcHostResponse =
+	| { type: "host_response"; id: string; success: true; data?: { messageId?: string } }
+	| { type: "host_response"; id: string; success: false; error: string; errorCode?: string };
+
+// ============================================================================
 // Helper type for extracting command types
 // ============================================================================
 

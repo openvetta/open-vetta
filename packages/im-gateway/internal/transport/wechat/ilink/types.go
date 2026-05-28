@@ -208,6 +208,78 @@ type QRStatusResp struct {
 	RedirectHost string   `json:"redirect_host,omitempty"`
 }
 
+// =============================================================================
+// CDN upload (POST /ilink/bot/getuploadurl)
+// =============================================================================
+
+// MediaType values for GetUploadUrlReq.media_type.
+//
+// CRITICAL: this enum is *different* from MessageItemType. Upstream exposes
+// it as `UploadMediaType` in src/api/types.ts:
+//
+//	IMAGE = 1, VIDEO = 2, FILE = 3, VOICE = 4
+//
+// MessageItemType (used in sendmessage's `item_list[0].type`) is:
+//
+//	TEXT = 1, IMAGE = 2, VOICE = 3, FILE = 4, VIDEO = 5
+//
+// They share NO numeric overlap except IMAGE happens to differ; passing
+// MessageItemType into media_type silently mislabels every upload (file
+// becomes voice → server rejects, image becomes video → wrong codec
+// validation, etc.). Do not collapse the two enums.
+const (
+	MediaTypeImage = 1
+	MediaTypeVideo = 2
+	MediaTypeFile  = 3
+	MediaTypeVoice = 4
+)
+
+// GetUploadUrlReq mirrors src/api/types.ts GetUploadUrlReq. Field names on
+// the wire must stay snake_case.
+//
+//   - rawsize        : plaintext size in bytes
+//   - rawfilemd5     : md5(plaintext) lowercase hex
+//   - filesize       : ciphertext size after AES-128-ECB + PKCS7 padding
+//   - aeskey         : 32-char hex of the 16-byte AES key (legacy field)
+//   - no_need_thumb  : upstream sets true for non-image; we set true for all
+//     because we don't generate thumbnails (see ADR-0006)
+type GetUploadUrlReq struct {
+	FileKey         string   `json:"filekey"`
+	MediaType       int      `json:"media_type"`
+	ToUserID        string   `json:"to_user_id"`
+	RawSize         int      `json:"rawsize"`
+	RawFileMD5      string   `json:"rawfilemd5"`
+	FileSize        int      `json:"filesize"`
+	ThumbRawSize    int      `json:"thumb_rawsize,omitempty"`
+	ThumbRawFileMD5 string   `json:"thumb_rawfilemd5,omitempty"`
+	ThumbFileSize   int      `json:"thumb_filesize,omitempty"`
+	NoNeedThumb     bool     `json:"no_need_thumb,omitempty"`
+	AESKey          string   `json:"aeskey"`
+	BaseInfo        BaseInfo `json:"base_info"`
+}
+
+// GetUploadUrlResp is the response from /ilink/bot/getuploadurl.
+//
+// The server actually emits **two** generations of this shape:
+//
+//   - Legacy (matches upstream ts source): only `upload_param` — an
+//     opaque token the caller has to splice into BuildCDNUploadURL.
+//   - Current (observed in production traffic Q2 2026): `upload_full_url`
+//     — the fully-constructed CDN URL ready to POST to. `upload_param`
+//     is empty in this case.
+//
+// We support both: prefer UploadFullURL when present, fall back to
+// constructing the URL ourselves from UploadParam + filekey.
+type GetUploadUrlResp struct {
+	Ret                int    `json:"ret,omitempty"`
+	ErrCode            int    `json:"errcode,omitempty"`
+	ErrMsg             string `json:"errmsg,omitempty"`
+	UploadParam        string `json:"upload_param,omitempty"`
+	UploadFullURL      string `json:"upload_full_url,omitempty"`
+	ThumbUploadParam   string `json:"thumb_upload_param,omitempty"`
+	ThumbUploadFullURL string `json:"thumb_upload_full_url,omitempty"`
+}
+
 // Credentials is everything needed to talk to the messaging API after a
 // successful bind. The four fields below are returned together by a
 // confirmed QRStatusResp and must all be persisted as a unit.

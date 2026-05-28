@@ -232,12 +232,6 @@ export interface SessionHistoryInfo {
 	name?: string;
 	firstMessage: string;
 	modifiedAt: number;
-	/**
-	 * Entrypoint that created the session ("im" if originated from
-	 * im-gateway, "desktop" or undefined for sessions created by
-	 * desktop-app). Used by the sidebar to render an IM badge.
-	 */
-	origin?: "im" | "desktop";
 }
 
 export type SessionExecutionMode = "sandbox" | "full-access";
@@ -329,10 +323,10 @@ export interface SessionFacade {
 	 * Read a session .jsonl directly from disk and translate to
 	 * HistoryEntry[] without acquiring the session-file lock. Used by the
 	 * desktop sidebar's read-only viewer for sessions written by other
-	 * processes (e.g. IM gateway). Returns the SessionHeader.origin tag so
-	 * the renderer can render an "IM" badge / disable inputs.
+	 * processes (e.g. IM gateway). The caller infers whether the session
+	 * is IM-owned from the path (it lives under the IM conversation cwd).
 	 */
-	readSessionHistoryFromFile(path: string): { history: HistoryEntry[]; origin?: "im" | "desktop" };
+	readSessionHistoryFromFile(path: string): { history: HistoryEntry[] };
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string, sessionDir?: string): Promise<SessionHistoryInfo[]>;
 	deleteSession(sessionPath: string): Promise<void>;

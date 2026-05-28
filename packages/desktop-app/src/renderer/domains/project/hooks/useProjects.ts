@@ -1,6 +1,7 @@
 import {
 	DEFAULT_CONVERSATION_PROJECT_NAME,
 	defaultConversationCwdAtom,
+	defaultImConversationCwdAtom,
 	expandedProjectsAtom,
 	type Project,
 	type ProjectType,
@@ -27,6 +28,7 @@ export function useProjects() {
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedProjectsAtom);
 	const workspacePath = useAtomValue(workspacePathAtom);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const defaultImConversationCwd = useAtomValue(defaultImConversationCwdAtom);
 
 	const loadSessions = useCallback(
 		async (cwd: string) => {
@@ -42,12 +44,18 @@ export function useProjects() {
 	loadSessionsRef.current = loadSessions;
 	const defaultCwdRef = useRef(defaultConversationCwd);
 	defaultCwdRef.current = defaultConversationCwd;
+	const imCwdRef = useRef(defaultImConversationCwd);
+	imCwdRef.current = defaultImConversationCwd;
 	useEffect(() => {
 		if (imSubscribed) return;
 		imSubscribed = true;
 		window.vetta.im.onSessionChanged(() => {
+			// Claw 会话写在独立的 IM cwd 下（ADR-0005），fs watcher 监听的也是它；
+			// 桌面「对话」cwd 不会被 sidecar 写，但保留刷新以兼容历史路径。
+			const imCwd = imCwdRef.current;
+			if (imCwd) void loadSessionsRef.current(imCwd);
 			const cwd = defaultCwdRef.current;
-			if (cwd) void loadSessionsRef.current(cwd);
+			if (cwd && cwd !== imCwd) void loadSessionsRef.current(cwd);
 		});
 		// Intentionally no cleanup: the listener lives for the renderer's
 		// lifetime, mirroring the singleton-style hooks (useAppInit, etc.).
@@ -93,6 +101,11 @@ export function useProjects() {
 		for (const project of all) {
 			void loadSessions(project.cwd);
 		}
+
+		// Claw tab 的 sessions 存放在独立 cwd 下（ADR-0005），单独拉一遍 —— 它不在 `all`
+		// 项目列表里，但「对话」project 的 Claw tab 需要读到。
+		const imCwd = config.defaultImConversationCwd ?? "";
+		if (imCwd) void loadSessions(imCwd);
 
 		if (!didAutoExpand && all.length > 0) {
 			didAutoExpand = true;

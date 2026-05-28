@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { net } from "electron";
-import { DEFAULT_CONVERSATION_CWD } from "../ipc/fs.js";
+import { DEFAULT_IM_CONVERSATION_CWD } from "../ipc/fs.js";
 import { fetchRemoteProviders } from "../ipc/settings.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
 import { buildCodingAgentSpec } from "./coding-agent-spec.js";
@@ -670,7 +670,7 @@ export class ImHost {
 			return {
 				binaryPath: this.binaryPath,
 				wechat: this.buildWechatConfig(),
-				conversationCwd: DEFAULT_CONVERSATION_CWD,
+				conversationCwd: DEFAULT_IM_CONVERSATION_CWD,
 				state: this.stateAsEntries(),
 				codingAgent,
 			};
@@ -678,7 +678,7 @@ export class ImHost {
 		return {
 			binaryPath: this.binaryPath,
 			feishu: this.buildFeishuConfig(),
-			conversationCwd: DEFAULT_CONVERSATION_CWD,
+			conversationCwd: DEFAULT_IM_CONVERSATION_CWD,
 			state: this.stateAsEntries(),
 			codingAgent,
 		};

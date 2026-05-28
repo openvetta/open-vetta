@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, activityPanelOpenAtom, confirmDialogAtom, defaultConversationFilterAtom, inlineFilePreviewAtom, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, activityPanelOpenAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -33,6 +33,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	} = useProjects();
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
+	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
@@ -121,17 +122,16 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleSelectSession = useCallback(
 		(cwd: string, path: string) => {
-			// IM-origin sessions are owned by the im-gateway sidecar. Opening
-			// them via the normal write path would race the sidecar for the
-			// session-file lock; route to the read-only viewer instead.
+			// IM 会话由 im-gateway sidecar 持有写锁，桌面端走 viewer 路径只读打开，
+			// 避免抢锁。判定依据：cwd 是否等于 im-gateway cwd（ADR-0005）。
 			const session = sessionsMap.get(cwd)?.find((s) => s.path === path);
-			if (session?.origin === "im") {
+			if (session && isImSession(session, imCwd)) {
 				void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
 				return;
 			}
 			void onOpenSession(cwd, path);
 		},
-		[onOpenSession, sessionsMap, navigate],
+		[onOpenSession, sessionsMap, navigate, imCwd],
 	);
 
 	const handleNewSession = useCallback(
@@ -160,14 +160,18 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleDefaultSelectSession = useCallback(
 		(cwd: string, path: string) => {
-			const session = sessionsMap.get(cwd)?.find((s) => s.path === path);
-			if (session?.origin === "im") {
-				void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
-				return;
+			// Claw tab 下 path 落在 imCwd 的 sessionDir 下；DefaultSessionList 传进
+			// 来的 cwd 仍是「对话」project cwd，不能用 cwd lookup 判 IM，直接看 path。
+			if (imCwd) {
+				const prefix = imCwd.endsWith("/") ? imCwd : `${imCwd}/`;
+				if (path.startsWith(prefix)) {
+					void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(path) } });
+					return;
+				}
 			}
 			void onOpenSession(cwd, path);
 		},
-		[onOpenSession, sessionsMap, navigate],
+		[onOpenSession, navigate, imCwd],
 	);
 
 	const handleDeleteSession = useCallback(
@@ -304,16 +308,16 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const handleClearConversation = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
+			// 分家后（ADR-0005）「对话」cwd 下不会出现 IM 会话，allSessions 即全部待删项。
 			const allSessions = sessionsMap.get(cwd) ?? [];
-			const nonImSessions = allSessions.filter((s) => s.origin !== "im");
 			setConfirm({
 				title: "清空会话",
-				message: `将删除「对话」项目下 ${nonImSessions.length} 个会话及其产物（Claw 会话不受影响），此操作不可恢复。`,
+				message: `将删除「对话」项目下 ${allSessions.length} 个会话（保留产物，Claw 会话不受影响），此操作不可恢复。`,
 				confirmLabel: "清空",
 				variant: "danger",
 				onConfirm: async () => {
 					await window.vetta.session.clearDefaultConversation("conversation");
-					const removedPaths = new Set(nonImSessions.map((s) => s.path));
+					const removedPaths = new Set(allSessions.map((s) => s.path));
 					if (
 						activeSession &&
 						(removedPaths.has(activeSession.sessionPath) ||
@@ -335,11 +339,11 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const handleClearClaw = useCallback(
 		(cwd: string) => {
 			setProjectMenu(null);
-			const allSessions = sessionsMap.get(cwd) ?? [];
-			const imSessions = allSessions.filter((s) => s.origin === "im");
+			// Claw 会话存放在独立 cwd（imCwd）下，从那里读列表与对应路径。
+			const imSessions = sessionsMap.get(imCwd) ?? [];
 			setConfirm({
 				title: "清空 Claw 记录",
-				message: `将删除 ${imSessions.length} 条 Claw 会话记录，不影响产物与其他会话，此操作不可恢复。`,
+				message: `将删除 ${imSessions.length} 条 Claw 会话记录（保留产物），此操作不可恢复。`,
 				confirmLabel: "清空",
 				variant: "danger",
 				onConfirm: async () => {
@@ -352,11 +356,11 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 							params: { cwd: encodeURIComponent(cwd) },
 						});
 					}
-					await loadSessions(cwd);
+					if (imCwd) await loadSessions(imCwd);
 				},
 			});
 		},
-		[setProjectMenu, setConfirm, sessionsMap, activeSession, setActiveSession, navigate, loadSessions],
+		[setProjectMenu, setConfirm, sessionsMap, imCwd, activeSession, setActiveSession, navigate, loadSessions],
 	);
 
 	const handleOpenClawSettings = useCallback(() => {
@@ -403,8 +407,24 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const noOtherProjects =
 		filteredProjects.length === 0 && (!showBatchGroup || batchAsProjects.length === 0);
 
-	const defaultSessions = defaultProject ? (sessionsMap.get(defaultProject.cwd) ?? []) : [];
 	const defaultConversationFilter = useAtomValue(defaultConversationFilterAtom);
+	// 切到 Claw tab 时主动 reload 一次 IM cwd 的 sessions，避免上一次 watcher 漏触发
+	// 或刚启动时尚未拉取导致的「列表空白需手动刷新」体感。
+	useEffect(() => {
+		if (defaultConversationFilter === "claw" && imCwd) {
+			void loadSessions(imCwd);
+		}
+	}, [defaultConversationFilter, imCwd, loadSessions]);
+	// 「对话」与 Claw 现在物理分两个 cwd（ADR-0005）。filter 决定 DefaultSessionList
+	// 拿哪份 sessions —— DefaultSessionList 内部不再按 origin 过滤。
+	const defaultSessions =
+		defaultConversationFilter === "claw"
+			? imCwd
+				? (sessionsMap.get(imCwd) ?? [])
+				: []
+			: defaultProject
+				? (sessionsMap.get(defaultProject.cwd) ?? [])
+				: [];
 
 	return (
 		<>
@@ -527,15 +547,13 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					onOpenClawSettings={handleOpenClawSettings}
 					clearConversationDisabled={
 						projectMenu.project.isDefault === true &&
-						(sessionsMap.get(projectMenu.project.cwd) ?? []).some(
-							(s) => s.origin !== "im" && runningSessionPaths.has(s.path),
+						(sessionsMap.get(projectMenu.project.cwd) ?? []).some((s) =>
+							runningSessionPaths.has(s.path),
 						)
 					}
 					clearClawDisabled={
 						projectMenu.project.isDefault === true &&
-						(sessionsMap.get(projectMenu.project.cwd) ?? []).some(
-							(s) => s.origin === "im" && runningSessionPaths.has(s.path),
-						)
+						(sessionsMap.get(imCwd) ?? []).some((s) => runningSessionPaths.has(s.path))
 					}
 				/>
 			)}
@@ -577,13 +595,8 @@ const DefaultSessionList = memo(function DefaultSessionList({
 	onRenameSession,
 }: DefaultSessionListProps): JSX.Element {
 	const sorted = useMemo(
-		() => {
-			const matched = sessions.filter((s) =>
-				filter === "claw" ? s.origin === "im" : s.origin !== "im",
-			);
-			return matched.sort((a, b) => b.modifiedAt - a.modifiedAt);
-		},
-		[sessions, filter],
+		() => [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt),
+		[sessions],
 	);
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
@@ -623,6 +636,9 @@ const DefaultSessionList = memo(function DefaultSessionList({
 						}}
 						onContextMenu={(e) => {
 							e.preventDefault();
+							// Claw 会话 (filter === "claw") 在 GUI 是只读，不允许重命名/删除
+							// 等写入式元操作；批量清理走「清空 Claw 记录」菜单。
+							if (filter === "claw") return;
 							setContextMenu({ x: e.clientX, y: e.clientY, session });
 						}}
 						className={cn(

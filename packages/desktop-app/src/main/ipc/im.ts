@@ -3,7 +3,7 @@ import { ipcMain, type WebContents } from "electron";
 import type { LogEvent } from "../im-host/host-protocol.js";
 import { getImHost, type SetConfigPayload, type WechatBindEvent } from "../im-host/index.js";
 import type { LegacyDetection } from "../im-host/migration.js";
-import { DEFAULT_CONVERSATION_SESSION_DIR } from "./fs.js";
+import { DEFAULT_IM_CONVERSATION_SESSION_DIR } from "./fs.js";
 
 const CHANNELS = {
 	GET_CONFIG: "vetta:im:get-config",
@@ -53,7 +53,8 @@ export function registerImIpc(webContents: WebContents): () => void {
 		webContents.send(CHANNELS.SESSION_CHANGED);
 	});
 
-	// Belt-and-suspenders: also watch the default 对话 sessions dir directly.
+	// Belt-and-suspenders: also watch the IM sessions dir directly (ADR-0005
+	// 分家后 IM session 写到独立 cwd，桌面「对话」cwd 已不再有 IM 文件)。
 	// The sidecar's state_patch fires when im-gateway *learns* of a new
 	// session path, but for already-known (userID, chatID) pairs the patch
 	// is skipped, so a fresh .jsonl appearing on disk (e.g. after a stale
@@ -61,14 +62,14 @@ export function registerImIpc(webContents: WebContents): () => void {
 	// reaches the renderer. The fs watcher closes that gap: any change
 	// under the sessions dir broadcasts the same refresh ping.
 	try {
-		mkdirSync(DEFAULT_CONVERSATION_SESSION_DIR, { recursive: true });
+		mkdirSync(DEFAULT_IM_CONVERSATION_SESSION_DIR, { recursive: true });
 	} catch {
 		// best-effort; watcher attempt below will simply error and we skip
 	}
 	let fsDebounce: NodeJS.Timeout | undefined;
 	let fsWatcher: ReturnType<typeof watch> | undefined;
 	try {
-		fsWatcher = watch(DEFAULT_CONVERSATION_SESSION_DIR, (_event, filename) => {
+		fsWatcher = watch(DEFAULT_IM_CONVERSATION_SESSION_DIR, (_event, filename) => {
 			if (filename && !filename.endsWith(".jsonl")) return;
 			if (webContents.isDestroyed()) return;
 			if (fsDebounce) clearTimeout(fsDebounce);

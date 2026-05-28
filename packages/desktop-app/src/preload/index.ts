@@ -34,6 +34,7 @@ const CHANNELS = {
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
 	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
+	CLEAR_DEFAULT_ARTIFACTS: "vetta:session:clear-default-artifacts",
 	VIEWER_OPEN: "vetta:session:viewer-open",
 	VIEWER_SUBSCRIBE: "vetta:session:viewer-subscribe",
 	VIEWER_UNSUBSCRIBE: "vetta:session:viewer-unsubscribe",
@@ -520,6 +521,7 @@ const api: DesktopApi = {
 			};
 		},
 		clearDefaultConversation: async (scope) => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_CONVERSATION, scope),
+		clearDefaultArtifacts: async (scope) => ipcRenderer.invoke(CHANNELS.CLEAR_DEFAULT_ARTIFACTS, scope),
 		openViewer: async (path) => ipcRenderer.invoke(CHANNELS.VIEWER_OPEN, path),
 		subscribeViewer: async (path, handler) => {
 			const { subscriptionId } = (await ipcRenderer.invoke(CHANNELS.VIEWER_SUBSCRIBE, path)) as {

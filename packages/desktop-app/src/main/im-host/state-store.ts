@@ -12,17 +12,18 @@ import type { SessionStateEntry } from "./host-protocol.js";
  *
  * Path: ~/.vetta/desktop-app/im-state.json
  *
- * Schema v2: keyed by (userId, chatId) instead of (userId, projectId).
- * Pre-v2 files are dropped on load — see ADR-0004 (the new model collapses
- * all IM sessions into the default "对话" cwd, so old per-project routing
- * entries are not migrate-able).
+ * Schema v3: keyed by (userId, chatId). v3 supersedes v2 in everything but
+ * version number — ADR-0005 split im-gateway's cwd from the desktop "对话"
+ * cwd, which makes every v2 entry's `sessionPath` (pointing into the old
+ * shared cwd) a dead reference. Pre-v3 files are dropped on load so each
+ * chat starts a brand-new session in the new IM cwd on its next message.
  */
 export interface ImStateFile {
-	version: 2;
+	version: 3;
 	sessions: SessionStateEntry[];
 }
 
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
 const DEFAULT_PATH = join(homedir(), ".vetta", "desktop-app", "im-state.json");
 
 export function defaultImStatePath(): string {
@@ -37,7 +38,8 @@ export function loadImState(filePath = DEFAULT_PATH): ImStateFile {
 		const raw = readFileSync(filePath, "utf-8");
 		const parsed = JSON.parse(raw) as { version?: number; sessions?: unknown };
 		if (parsed.version !== STATE_VERSION) {
-			// Legacy file (v1 used projectId). Start fresh — see ADR-0004.
+			// v1 用 projectId（ADR-0004），v2 用旧的共享 cwd 路径（ADR-0005）。两者都
+			// 不能向 v3 迁移——sessionPath 已经是死引用，直接重置让每个 chat 重起。
 			return { version: STATE_VERSION, sessions: [] };
 		}
 		return {

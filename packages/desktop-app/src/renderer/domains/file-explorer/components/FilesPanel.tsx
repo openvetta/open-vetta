@@ -5,11 +5,13 @@ import { FileContextMenu } from "./FileContextMenu";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
+	confirmDialogAtom,
+	defaultConversationCwdAtom,
+	defaultImConversationCwdAtom,
 	fileContextMenuAtom,
+	getProjectDisplayName,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
-	defaultConversationCwdAtom,
-	getProjectDisplayName,
 	type FilePreviewItem,
 	type FsEntry,
 } from "@shared/store/atoms";
@@ -41,6 +43,35 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 	const [deleteTarget, setDeleteTarget] = useState<FsEntry | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
+	const imCwd = useAtomValue(defaultImConversationCwdAtom);
+	const setConfirm = useSetAtom(confirmDialogAtom);
+
+	const clearArtifactsScope: "conversation" | "claw" | null =
+		rootDir && defaultCwd && rootDir === defaultCwd
+			? "conversation"
+			: rootDir && imCwd && rootDir === imCwd
+				? "claw"
+				: null;
+
+	const handleClearArtifacts = useCallback(() => {
+		if (!clearArtifactsScope || !rootDir) return;
+		const label = clearArtifactsScope === "claw" ? "Claw" : "「对话」";
+		setConfirm({
+			title: "清空产物",
+			message: `将删除 ${label} 项目 cwd 下的全部产物文件（保留会话记录），此操作不可恢复。`,
+			confirmLabel: "清空",
+			variant: "danger",
+			onConfirm: async () => {
+				try {
+					await window.vetta.session.clearDefaultArtifacts(clearArtifactsScope);
+				} catch (err: unknown) {
+					setErrorToast(err instanceof Error ? err.message : "清空产物失败");
+					return;
+				}
+				await refreshDir(rootDir);
+			},
+		});
+	}, [clearArtifactsScope, rootDir, setConfirm, refreshDir]);
 
 	const handleSelectFile = useCallback(
 		(entry: FsEntry) => {
@@ -127,9 +158,21 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
 					{projectName}
 				</span>
-				<Button variant="ghost" size="icon-xs" title="刷新" onClick={() => void refreshDir(rootDir)}>
-					<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
-				</Button>
+				<div className="flex items-center gap-0.5">
+					{clearArtifactsScope && (
+						<Button
+							variant="ghost"
+							size="icon-xs"
+							title="清空产物"
+							onClick={handleClearArtifacts}
+						>
+							<span className="icon-[mdi--broom] h-3.5 w-3.5" />
+						</Button>
+					)}
+					<Button variant="ghost" size="icon-xs" title="刷新" onClick={() => void refreshDir(rootDir)}>
+						<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
+					</Button>
+				</div>
 			</div>
 
 			{/* Loading indicator for root */}

@@ -46,6 +46,9 @@ func (s *stubTransport) EditMessage(_ context.Context, _, _ string, _ transport.
 func (s *stubTransport) DeleteMessage(_ context.Context, _, _ string) error { return nil }
 func (s *stubTransport) ShowTyping(_ context.Context, _ string) error       { return nil }
 func (s *stubTransport) EndStream(_ context.Context, _, _ string) error     { return nil }
+func (s *stubTransport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
+	return "", nil
+}
 
 // stubBuilder returns a stubTransport ignoring the spec (allows tests
 // to bypass the feishu credential validation).

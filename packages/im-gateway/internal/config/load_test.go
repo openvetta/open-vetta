@@ -28,7 +28,7 @@ func TestLoadConfig_NoFile_AppliesDefaults(t *testing.T) {
 	if cfg.Paths.ConversationCwd == "" {
 		t.Error("ConversationCwd path not defaulted")
 	}
-	if !strings.HasSuffix(cfg.Paths.ConversationCwd, "conversation") {
+	if !strings.HasSuffix(cfg.Paths.ConversationCwd, filepath.Join("im-gateway", "conversation")) {
 		t.Errorf("ConversationCwd path looks wrong: %s", cfg.Paths.ConversationCwd)
 	}
 }

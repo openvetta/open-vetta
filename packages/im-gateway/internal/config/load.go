@@ -99,7 +99,7 @@ func applyDefaults(cfg *Config) error {
 	vettaDir := filepath.Join(home, ".vetta")
 	gatewayDir := filepath.Join(vettaDir, "im-gateway")
 	if cfg.Paths.ConversationCwd == "" {
-		cfg.Paths.ConversationCwd = filepath.Join(vettaDir, "conversation")
+		cfg.Paths.ConversationCwd = filepath.Join(gatewayDir, "conversation")
 	}
 	if cfg.Paths.State == "" {
 		cfg.Paths.State = filepath.Join(gatewayDir, "state.json")

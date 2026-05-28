@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"vetta-im-gateway/internal/bridge"
@@ -199,13 +200,46 @@ func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessag
 
 	if _, err := acq.Session.Send(ctx, hostclient.Command{
 		Type: hostclient.CommandTypePrompt,
-		Data: map[string]any{"message": msg.Text},
+		Data: map[string]any{"message": buildPromptMessage(msg)},
 	}); err != nil {
 		return fmt.Errorf("send prompt: %w", err)
 	}
 
 	br := bridge.New(r.tr, msg.ChatID)
+	// host_request → host_response reverse RPC. The bridge invokes this
+	// when the agent's `im_send_attachment` tool fires; we route the
+	// command back to the same coding-agent subprocess via the session's
+	// stdin. SendNoReply because the agent never echoes a `response`
+	// frame for host_response — registering a pending entry would leak.
+	session := acq.Session
+	br.SetHostResponder(func(rctx context.Context, cmd hostclient.Command) error {
+		return session.SendNoReply(rctx, cmd)
+	})
 	return br.Run(ctx, acq.Session.Events())
+}
+
+// buildPromptMessage assembles the text the agent sees. Mirrors desktop-app's
+// `mentionedFile` convention: each attachment becomes an `@<absolute-path>`
+// line prepended to the user's text. Agent reads each path via its own Read
+// tool — `resizeImageBuffer` handles image sizing automatically, see ADR-0006.
+//
+// Returns msg.Text unchanged when no attachments are present so plain text
+// flows behave identically to before.
+func buildPromptMessage(msg transport.InboundMessage) string {
+	if len(msg.Attachments) == 0 {
+		return msg.Text
+	}
+	var b strings.Builder
+	for _, a := range msg.Attachments {
+		if a.URL == "" {
+			continue
+		}
+		b.WriteString("@")
+		b.WriteString(a.URL)
+		b.WriteString("\n")
+	}
+	b.WriteString(msg.Text)
+	return b.String()
 }
 
 func (r *Router) replyError(ctx context.Context, chatID string, err error) {
