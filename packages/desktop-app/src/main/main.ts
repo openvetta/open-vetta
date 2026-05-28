@@ -170,6 +170,16 @@ if (!gotSingleLock) {
 		}
 
 		if (agentRpcArgs) {
+			// agent-rpc 子进程会发出 LLM 网络请求；macOS 15 Local Network
+			// Privacy 在 socket 层拦截 Node 默认 fetch 对 192.168.x / 10.x
+			// 等私网地址的访问，OpenAI/Anthropic SDK 在这种情况下只能抛
+			// "Connection error."。必须复用主进程对话页同款的两步规避：
+			// 先触发 TCC 探针让 com.vetta.desktop 拿到 LAN 授权，再把
+			// globalThis.fetch 换成 electron.net.fetch（Chromium 网络栈，
+			// 不被 LNP 拦截）。PDF / OCR CLI 不需要这条，因为它们不发
+			// 跨进程网络请求。
+			registerLocalNetworkAccess();
+			installChromiumFetchForMain();
 			const exitCode = await runAgentRpcCommand(agentRpcArgs);
 			app.exit(exitCode);
 			return;
