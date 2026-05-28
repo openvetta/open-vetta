@@ -335,6 +335,60 @@ func TestBridge_ErrorEventForwarded(t *testing.T) {
 	}
 }
 
+// TestBridge_MessageEndStopReasonError forwards the error string to IM
+// when an LLM call fails and the assistant message ends with
+// stopReason=error / errorMessage (typical OpenAI/Anthropic SDK
+// "Connection error." path). Before this fix the bridge silently flushed
+// such turns and the IM user never saw anything.
+func TestBridge_MessageEndStopReasonError(t *testing.T) {
+	tr := newFakeTransport(transport.Capabilities{SupportsMessageEdit: false, MaxMessageLength: 1000})
+	b := New(tr, "c1")
+
+	events := make(chan hostclient.AgentEvent, 4)
+	events <- hostclient.AgentEvent{
+		Type: hostclient.AgentEventTypeMessageEnd,
+		Raw:  json.RawMessage(`{"message":{"role":"assistant","content":[],"stopReason":"error","errorMessage":"Connection error."}}`),
+	}
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+
+	if err := b.Run(context.Background(), events); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	calls := tr.snapshot()
+	if len(calls) != 1 || !strings.Contains(calls[0].Text, "Connection error.") {
+		t.Errorf("expected one IM send with the error text, got %+v", calls)
+	}
+}
+
+// TestBridge_MessageEndStopReasonErrorSuppressedWhenTextSent — if the
+// assistant did produce visible text before erroring, we trust the user
+// already saw something useful and skip the redundant error notice
+// (matches the policy for type:"error" events).
+func TestBridge_MessageEndStopReasonErrorSuppressedWhenTextSent(t *testing.T) {
+	tr := newFakeTransport(transport.Capabilities{SupportsMessageEdit: false, MaxMessageLength: 1000})
+	b := New(tr, "c1")
+
+	events := make(chan hostclient.AgentEvent, 8)
+	events <- textDelta("partial answer before failure")
+	events <- hostclient.AgentEvent{
+		Type: hostclient.AgentEventTypeMessageEnd,
+		Raw:  json.RawMessage(`{"message":{"stopReason":"error","errorMessage":"Rate limited"}}`),
+	}
+	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
+	close(events)
+
+	if err := b.Run(context.Background(), events); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	calls := tr.snapshot()
+	for _, c := range calls {
+		if strings.Contains(c.Text, "Rate limited") {
+			t.Errorf("error message should be suppressed when text was sent; got %+v", calls)
+		}
+	}
+}
+
 func TestBridge_ForwardsThinkingAndHidesToolcallDeltas(t *testing.T) {
 	tr := newFakeTransport(transport.Capabilities{SupportsMessageEdit: true, MaxMessageLength: 0})
 	b := New(tr, "c1")

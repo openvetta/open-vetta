@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 import {
+	type CodingAgentSpec,
 	decodeEvent,
 	EVENT_LOG,
 	EVENT_METRIC,
@@ -97,6 +98,12 @@ export interface SidecarConfig {
 	 */
 	conversationCwd: string;
 	state: SessionStateEntry[];
+	/**
+	 * Tells the sidecar which binary + prefix args to use when spawning
+	 * coding-agent for each IM session. Required in production (no `vetta`
+	 * on PATH); the dev path populates it too so behavior matches.
+	 */
+	codingAgent?: CodingAgentSpec;
 }
 
 export interface SidecarManagerOptions {
@@ -247,6 +254,7 @@ export class SidecarManager {
 			wechat: cfg.wechat,
 			conversationCwd: cfg.conversationCwd,
 			state: cfg.state,
+			codingAgent: cfg.codingAgent,
 		});
 	}
 

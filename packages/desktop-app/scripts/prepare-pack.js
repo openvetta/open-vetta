@@ -8,6 +8,7 @@ const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
 const imGatewayDir = join(projectRoot, "..", "im-gateway");
 const imGatewayDistDir = join(imGatewayDir, "dist");
+const codingAgentDir = join(projectRoot, "..", "coding-agent");
 const runtimeCoreWindowsSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "bin");
 const runtimeCoreSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "linux");
 const imGatewayCrossTargets = [
@@ -175,6 +176,48 @@ if (existsSync(imGatewayDistDir)) {
 }
 
 // =============================================================================
+// coding-agent runtime assets (extraResources)
+// =============================================================================
+//
+// The bundled main-*.js (Vite output) contains `@vetta/coding-agent`'s JS
+// but NOT its on-disk asset files: theme JSONs, the export-html template,
+// package.json (read for version), banner, etc. Without them the agent-rpc
+// CLI mode crashes on first read — e.g. `ENOENT, dist/modes/interactive/
+// theme/dark.json` because `getThemesDir()` resolves against the bundle's
+// own asar root.
+//
+// Stage the package's `dist/modes/interactive/theme/`, `dist/core/
+// export-html/`, plus the top-level package.json into Resources/coding-
+// agent/. agent-rpc-command.ts sets VETTA_PACKAGE_DIR to that dir at
+// runtime so coding-agent's getPackageDir() picks it up.
+const stagedCodingAgentDir = join(buildStageDir, "coding-agent");
+rmSync(stagedCodingAgentDir, { recursive: true, force: true });
+mkdirSync(stagedCodingAgentDir, { recursive: true });
+const codingAgentAssets = [
+	"package.json",
+	"banner.txt",
+	"README.md",
+	"CHANGELOG.md",
+	"dist/modes/interactive/theme",
+	"dist/core/export-html",
+];
+for (const rel of codingAgentAssets) {
+	const src = join(codingAgentDir, rel);
+	if (!existsSync(src)) {
+		// banner / README / CHANGELOG are best-effort; theme + export-html
+		// are required and would have failed the build at this point if
+		// missing from the source repo.
+		continue;
+	}
+	cpSync(src, join(stagedCodingAgentDir, rel), { recursive: true });
+}
+// Sanity-check the load-bearing files are actually in the stage dir.
+const stagedThemeDir = join(stagedCodingAgentDir, "dist/modes/interactive/theme");
+if (!existsSync(join(stagedThemeDir, "dark.json"))) {
+	throw new Error(`coding-agent theme assets missing after stage: ${stagedThemeDir}`);
+}
+
+// =============================================================================
 // Sandbox binaries (extraResources)
 // =============================================================================
 //
@@ -289,6 +332,11 @@ const builderConfig = {
 			from: "im-gateway",
 			to: "im-gateway",
 			filter: ["im-gateway-*"],
+		},
+		{
+			from: "coding-agent",
+			to: "coding-agent",
+			filter: ["**/*"],
 		},
 		{
 			from: "sandbox",

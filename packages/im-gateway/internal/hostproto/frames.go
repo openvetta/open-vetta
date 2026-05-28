@@ -98,6 +98,34 @@ type InitFrame struct {
 	ConversationCwd string              `json:"conversationCwd"`
 	State           []SessionStateEntry `json:"state"`
 	LogLevel        string              `json:"logLevel,omitempty"` // debug|info|warn|error
+	// CodingAgent overrides how the sidecar invokes the coding-agent
+	// subprocess for IM sessions. When omitted, the sidecar falls back to
+	// looking up `vetta` on PATH — fine for dev (where `bun link` puts it
+	// there) but broken in production where the Vetta.app bundle does not
+	// install a global CLI. Desktop-app's host runtime populates this with
+	// the Vetta.app executable path + the `--agent-rpc` discriminator so
+	// the spawned Electron process short-circuits into coding-agent's main.
+	CodingAgent *CodingAgentSpec `json:"codingAgent,omitempty"`
+}
+
+// CodingAgentSpec describes the executable the sidecar should spawn for
+// each IM-session coding-agent subprocess. The final argv is:
+//
+//	[Bin, PrefixArgs..., "--mode", "rpc", "--cwd", <cwd>, ...]
+//
+// PrefixArgs is where the parent stuffs e.g. `--agent-rpc` (to switch
+// Vetta.app into CLI mode) or, in dev, the Electron main-entry path.
+type CodingAgentSpec struct {
+	Bin        string   `json:"bin"`
+	PrefixArgs []string `json:"prefixArgs,omitempty"`
+	// PackageDir, when non-empty, is forwarded to the spawned subprocess
+	// as the `VETTA_PACKAGE_DIR` environment variable. The agent's
+	// `getPackageDir()` defaults to walking up `__dirname` to find
+	// `package.json` — which lands on the host bundle when coding-agent is
+	// Vite-bundled into Electron's main process. Setting this explicitly
+	// points at the staged assets dir so theme / template lookups
+	// resolve correctly.
+	PackageDir string `json:"packageDir,omitempty"`
 }
 
 // ConfigUpdateFrame replaces the active credentials and/or switches the
