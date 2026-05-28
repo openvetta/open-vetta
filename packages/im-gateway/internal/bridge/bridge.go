@@ -784,10 +784,16 @@ func classifyAttachmentError(err error) string {
 }
 
 func (b *Bridge) replyHostSuccess(ctx context.Context, id, messageID string) {
+	// CRITICAL: id must go in cmd.ID, not cmd.Data["id"]. hostclient.local's
+	// writeCommand explicitly skips Data["id"] / Data["type"] to prevent
+	// callers from clobbering the protocol's reserved keys — so an id buried
+	// in Data ends up as "" on the wire, the agent's pendingHostRequests
+	// lookup misses, and the tool times out at 30s. Same applies to
+	// replyHostError below.
 	cmd := hostclient.Command{
+		ID:   id,
 		Type: "host_response",
 		Data: map[string]any{
-			"id":      id,
 			"success": true,
 		},
 	}
@@ -807,7 +813,6 @@ func (b *Bridge) replyHostError(ctx context.Context, id, code, message string) {
 		return
 	}
 	data := map[string]any{
-		"id":      id,
 		"success": false,
 		"error":   message,
 	}
@@ -815,6 +820,7 @@ func (b *Bridge) replyHostError(ctx context.Context, id, code, message string) {
 		data["errorCode"] = code
 	}
 	_ = b.responder(ctx, hostclient.Command{
+		ID:   id,
 		Type: "host_response",
 		Data: data,
 	})
