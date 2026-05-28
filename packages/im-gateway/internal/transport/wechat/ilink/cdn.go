@@ -102,9 +102,22 @@ func parseAESKey(s string) ([]byte, error) {
 }
 
 // encodeAESKeyBase64 produces the on-wire form used by media.aes_key in
-// outbound sendmessage payloads (16 raw bytes → base64).
+// outbound sendmessage payloads.
+//
+// CRITICAL: this is **double-encoded** — base64 of the ASCII hex string,
+// NOT base64 of the 16 raw bytes. Upstream ts does:
+//
+//	Buffer.from(aeskeyHexString).toString("base64")
+//
+// where the argument is the 32-char lowercase hex (treated as UTF-8). The
+// receiver's parseAesKey first base64-decodes, gets 32 ASCII hex chars,
+// THEN hex-decodes to the 16 raw bytes. parseAesKey accepts both shapes
+// on inbound, but the WeChat **client** appears to only render outbound
+// media when this exact double-encoded shape is used — sending raw 16-byte
+// base64 makes sendmessage succeed but the message never appears in the
+// recipient's chat. Don't simplify to plain base64(key).
 func encodeAESKeyBase64(key []byte) string {
-	return base64.StdEncoding.EncodeToString(key)
+	return base64.StdEncoding.EncodeToString([]byte(hex.EncodeToString(key)))
 }
 
 // encodeAESKeyHex produces the on-wire form used by getuploadurl's `aeskey`

@@ -212,14 +212,26 @@ type QRStatusResp struct {
 // CDN upload (POST /ilink/bot/getuploadurl)
 // =============================================================================
 
-// MediaType values for GetUploadUrlReq.media_type. The numeric values are
-// not officially documented; they match MessageItemType in upstream usage
-// (image=2, voice=3, file=4, video=5).
+// MediaType values for GetUploadUrlReq.media_type.
+//
+// CRITICAL: this enum is *different* from MessageItemType. Upstream exposes
+// it as `UploadMediaType` in src/api/types.ts:
+//
+//	IMAGE = 1, VIDEO = 2, FILE = 3, VOICE = 4
+//
+// MessageItemType (used in sendmessage's `item_list[0].type`) is:
+//
+//	TEXT = 1, IMAGE = 2, VOICE = 3, FILE = 4, VIDEO = 5
+//
+// They share NO numeric overlap except IMAGE happens to differ; passing
+// MessageItemType into media_type silently mislabels every upload (file
+// becomes voice → server rejects, image becomes video → wrong codec
+// validation, etc.). Do not collapse the two enums.
 const (
-	MediaTypeImage = MessageItemTypeImage
-	MediaTypeVoice = MessageItemTypeVoice
-	MediaTypeFile  = MessageItemTypeFile
-	MediaTypeVideo = MessageItemTypeVideo
+	MediaTypeImage = 1
+	MediaTypeVideo = 2
+	MediaTypeFile  = 3
+	MediaTypeVoice = 4
 )
 
 // GetUploadUrlReq mirrors src/api/types.ts GetUploadUrlReq. Field names on
@@ -248,14 +260,24 @@ type GetUploadUrlReq struct {
 
 // GetUploadUrlResp is the response from /ilink/bot/getuploadurl.
 //
-// UploadParam goes into BuildCDNUploadURL as the encrypted_query_param
-// query argument; ThumbUploadParam is unused on our side (no thumbnails).
+// The server actually emits **two** generations of this shape:
+//
+//   - Legacy (matches upstream ts source): only `upload_param` — an
+//     opaque token the caller has to splice into BuildCDNUploadURL.
+//   - Current (observed in production traffic Q2 2026): `upload_full_url`
+//     — the fully-constructed CDN URL ready to POST to. `upload_param`
+//     is empty in this case.
+//
+// We support both: prefer UploadFullURL when present, fall back to
+// constructing the URL ourselves from UploadParam + filekey.
 type GetUploadUrlResp struct {
-	Ret              int    `json:"ret,omitempty"`
-	ErrCode          int    `json:"errcode,omitempty"`
-	ErrMsg           string `json:"errmsg,omitempty"`
-	UploadParam      string `json:"upload_param,omitempty"`
-	ThumbUploadParam string `json:"thumb_upload_param,omitempty"`
+	Ret                int    `json:"ret,omitempty"`
+	ErrCode            int    `json:"errcode,omitempty"`
+	ErrMsg             string `json:"errmsg,omitempty"`
+	UploadParam        string `json:"upload_param,omitempty"`
+	UploadFullURL      string `json:"upload_full_url,omitempty"`
+	ThumbUploadParam   string `json:"thumb_upload_param,omitempty"`
+	ThumbUploadFullURL string `json:"thumb_upload_full_url,omitempty"`
 }
 
 // Credentials is everything needed to talk to the messaging API after a

@@ -2,7 +2,9 @@ package ilink
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strconv"
 )
@@ -139,19 +141,53 @@ func (c *Client) uploadMedia(ctx context.Context, peerUserID string, mediaType i
 		AESKey:      encodeAESKeyHex(key),
 		BaseInfo:    c.baseInfo(),
 	}
-	var getResp GetUploadUrlResp
-	if err := c.postJSON(ctx, c.MessagingBaseURL(), "ilink/bot/getuploadurl", getReq, &getResp, c.apiTimeout, "getuploadurl"); err != nil {
+
+	// Hit the endpoint manually instead of postJSON so we can log the raw
+	// response body. Servers have been observed to return HTTP 200 with
+	// ret=0 errcode=0 but an empty `upload_param` — which is functionally
+	// a refusal but invisible if we only look at the structured fields.
+	reqBody, err := json.Marshal(getReq)
+	if err != nil {
+		return nil, fmt.Errorf("ilink: marshal getuploadurl: %w", err)
+	}
+	raw, err := c.doHTTP(ctx, httpDoOptions{
+		method:   http.MethodPost,
+		baseURL:  c.MessagingBaseURL(),
+		endpoint: "ilink/bot/getuploadurl",
+		body:     reqBody,
+		token:    c.botTokenValue(),
+		timeout:  c.apiTimeout,
+		label:    "getuploadurl",
+	})
+	if err != nil {
 		return nil, err
 	}
-	if getResp.Ret != 0 || getResp.ErrCode != 0 {
-		return nil, fmt.Errorf("ilink: getuploadurl ret=%d errcode=%d errmsg=%q",
-			getResp.Ret, getResp.ErrCode, getResp.ErrMsg)
+	var getResp GetUploadUrlResp
+	if err := json.Unmarshal(raw, &getResp); err != nil {
+		return nil, fmt.Errorf("ilink: unmarshal getuploadurl response %q: %w", truncateForLog(raw), err)
 	}
-	if getResp.UploadParam == "" {
-		return nil, fmt.Errorf("ilink: getuploadurl returned empty upload_param")
+	if getResp.Ret != 0 || getResp.ErrCode != 0 {
+		return nil, fmt.Errorf("ilink: getuploadurl ret=%d errcode=%d errmsg=%q rawResponse=%s",
+			getResp.Ret, getResp.ErrCode, getResp.ErrMsg, truncateForLog(raw))
+	}
+	// Pick the upload URL. Current server response uses upload_full_url
+	// (fully-constructed); older code paths still emit upload_param (token
+	// only). When neither is set the server quietly refused.
+	uploadURL := getResp.UploadFullURL
+	if uploadURL == "" && getResp.UploadParam != "" {
+		uploadURL = BuildCDNUploadURL(DefaultCDNBaseURL, getResp.UploadParam, filekey)
+	}
+	if uploadURL == "" {
+		c.logger.Warn("ilink getuploadurl returned no upload url",
+			"mediaType", mediaType,
+			"peerUserID", peerUserID,
+			"rawsize", len(plaintext),
+			"filesize", len(ciphertext),
+			"rawResponse", string(raw),
+		)
+		return nil, fmt.Errorf("ilink: getuploadurl returned no upload url (rawResponse=%s)", truncateForLog(raw))
 	}
 
-	uploadURL := BuildCDNUploadURL(DefaultCDNBaseURL, getResp.UploadParam, filekey)
 	token, err := c.UploadCiphertext(ctx, uploadURL, ciphertext)
 	if err != nil {
 		return nil, err
@@ -162,6 +198,16 @@ func (c *Client) uploadMedia(ctx context.Context, peerUserID string, mediaType i
 		CiphertextSize:    len(ciphertext),
 		PlaintextSize:     len(plaintext),
 	}, nil
+}
+
+// truncateForLog renders raw bytes for inclusion in an error message,
+// truncating with an ellipsis to keep error strings readable.
+func truncateForLog(b []byte) string {
+	const limit = 512
+	if len(b) <= limit {
+		return string(b)
+	}
+	return string(b[:limit]) + "…"
 }
 
 // sendSingleItem wraps a MessageItem in the sendmessage envelope and posts
