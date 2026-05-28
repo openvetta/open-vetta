@@ -20,6 +20,11 @@ export interface McpServerCommonConfig {
 	startupTimeout?: number;
 	/** Whether to enable debug logging for this server */
 	debug?: boolean;
+	/** Optional human-readable label for UIs that list servers. The agent itself
+	 * keys servers by their object key; this field is purely cosmetic. */
+	displayName?: string;
+	/** Optional UI-only description (purely cosmetic, ignored by the agent). */
+	description?: string;
 }
 
 /**

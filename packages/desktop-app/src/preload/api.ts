@@ -251,6 +251,10 @@ export interface McpServerCommonConfigData {
 	autoApprove?: string[];
 	startupTimeout?: number;
 	debug?: boolean;
+	/** 仅 UI 展示用的可读名（mcp.json 里的 key 仍是真实 name）。 */
+	displayName?: string;
+	/** 仅 UI 展示用的描述。 */
+	description?: string;
 }
 
 export interface McpStdioServerConfigData extends McpServerCommonConfigData {
