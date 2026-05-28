@@ -603,20 +603,32 @@ export class ImHost {
 			return { ok: false, error: `provider "${ref.provider}" 缺 baseUrl` };
 		}
 
-		const url = `${provider.baseUrl.replace(/\/+$/, "")}/models`;
+		// Reachability check only — we deliberately do NOT probe any
+		// specific endpoint (like /models). Different providers expose
+		// different health paths (OpenAI: /v1/models, Anthropic: none,
+		// custom gateways: anything), so testing a path gives misleading
+		// results (404 because the path is wrong vs because the host is
+		// down). Hit the bare origin and treat any HTTP response — including
+		// 4xx / 5xx / 404 — as "host reachable". Only network / DNS / TLS
+		// failures fail the probe.
+		let origin: string;
+		try {
+			const u = new URL(provider.baseUrl);
+			origin = `${u.protocol}//${u.host}`;
+		} catch {
+			return { ok: false, error: `provider "${ref.provider}" 的 baseUrl 解析失败：${provider.baseUrl}` };
+		}
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 5_000);
 		try {
-			const resp = await net.fetch(url, { method: "GET", signal: controller.signal });
-			// Any HTTP response (including 4xx — auth is a separate concern)
-			// counts as "host reachable". Only network-level failures fail.
+			await net.fetch(origin, { method: "GET", signal: controller.signal });
 			return {
 				ok: true,
-				message: `HTTP ${resp.status} from ${url}（${source === "remote" ? "云端" : "本地"} provider）`,
+				message: `${origin} 可达（${source === "remote" ? "云端" : "本地"} provider）`,
 			};
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			return { ok: false, error: `${url}: ${msg}` };
+			return { ok: false, error: `${origin} 不可达：${msg}` };
 		} finally {
 			clearTimeout(timer);
 		}
