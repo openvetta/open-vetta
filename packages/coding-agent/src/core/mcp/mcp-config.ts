@@ -5,7 +5,8 @@
  * from global (~/.vetta/agent/mcp.json) and project (.vetta/mcp.json) locations.
  */
 
-import { existsSync, readFileSync } from "fs";
+import { createHash } from "crypto";
+import { existsSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { CONFIG_DIR_NAME, getAgentDir } from "../../config.js";
 import { isHttpServerConfig, type McpConfig, type McpServerConfig } from "./types.js";
@@ -243,6 +244,33 @@ export class McpConfigLoader {
 		if (config.debug !== undefined && typeof config.debug !== "boolean") {
 			throw new Error(`Invalid server config for '${name}': 'debug' must be a boolean`);
 		}
+	}
+
+	/**
+	 * 计算当前 (global + project) mcp.json 的"快照签名"。
+	 *
+	 * 用于 prompt 入口处快速判断是否需要 reload：先比 mtime（一次 stat，
+	 * <0.1ms），同秒内连续写或 mtime 相同但内容改了的极端情况由 content
+	 * hash 兜底。文件不存在时按空串处理；两个文件都不存在签名就是常量
+	 * "none"，永远不会触发误重建。
+	 */
+	getMergedSignature(): string {
+		const parts: string[] = [];
+		for (const path of [this.globalConfigPath, this.projectConfigPath]) {
+			if (!existsSync(path)) {
+				parts.push(`${path}:missing`);
+				continue;
+			}
+			try {
+				const stat = statSync(path);
+				const content = readFileSync(path, "utf-8");
+				const hash = createHash("sha1").update(content).digest("hex").slice(0, 16);
+				parts.push(`${path}:${stat.mtimeMs}:${hash}`);
+			} catch {
+				parts.push(`${path}:err`);
+			}
+		}
+		return parts.length === 0 ? "none" : parts.join("|");
 	}
 
 	/**

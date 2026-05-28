@@ -11,6 +11,7 @@ import {
 	inlineFilePreviewAtom,
 	inputValueAtom,
 	isCompactingAtom,
+	isReloadingMcpAtom,
 	lastTurnUsageAtom,
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
@@ -79,6 +80,7 @@ export function useSessionManager(): SessionManagerResult {
 	todoItemsMapRef.current = todoItemsMap;
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
+	const setIsReloadingMcp = useSetAtom(isReloadingMcpAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
 	// 用于判断当前 session 是否归属一个 paused 的 batch-task 子任务。命中时
@@ -501,6 +503,16 @@ export function useSessionManager(): SessionManagerResult {
 					return;
 				}
 
+				// ── MCP lazy reload (on prompt) ──
+				if (event.type === "mcp.reload.start") {
+					setIsReloadingMcp(true);
+					return;
+				}
+				if (event.type === "mcp.reload.end") {
+					setIsReloadingMcp(false);
+					return;
+				}
+
 				// ── Todo update ──
 				if (event.type === "todo_update") {
 					const sid = activeSessionRef.current?.runtimeId;
@@ -540,6 +552,7 @@ export function useSessionManager(): SessionManagerResult {
 			setActiveSession,
 			setActiveSessionStreaming,
 			setIsCompacting,
+			setIsReloadingMcp,
 			navigate,
 			loadSessions,
 			setLastTurnUsage,

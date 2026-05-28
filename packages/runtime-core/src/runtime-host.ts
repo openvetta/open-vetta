@@ -249,25 +249,6 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
-	 * 重新加载所有 session 的 MCP 配置（从 ~/.vetta/agent/mcp.json 与项目级
-	 * mcp.json 读取），重建每个 session 的 runtime 以便新 MCP 工具立即对
-	 * LLM 可见。调用方应在写入 mcp.json 后调用。
-	 */
-	async reloadMcpForAllSessions(): Promise<void> {
-		const handles = Array.from(this.sessions.values());
-		await Promise.all(
-			handles.map(async ({ session }) => {
-				try {
-					const anySession = session as AgentSession & { reloadMcp?: () => Promise<void> };
-					await anySession.reloadMcp?.();
-				} catch (err) {
-					console.warn("[RuntimeHost] reloadMcpForAllSessions failed for session:", err);
-				}
-			}),
-		);
-	}
-
-	/**
 	 * Look up an open SessionHandle by absolute session file path.
 	 * Used to dedupe re-opens of the same file (avoids self-conflicts on the
 	 * file lock, since SessionManager rejects same-pid re-acquisition).
@@ -1292,6 +1273,24 @@ export class RuntimeHost implements SessionFacade {
 				...this.baseEvent(sessionId, "agent"),
 				type: "compaction.start",
 				reason: event.reason,
+			});
+			return events;
+		}
+
+		if (event.type === "mcp_reload_start") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "mcp.reload.start",
+			});
+			return events;
+		}
+
+		if (event.type === "mcp_reload_end") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "mcp.reload.end",
+				changed: event.changed,
+				errorMessage: event.errorMessage,
 			});
 			return events;
 		}

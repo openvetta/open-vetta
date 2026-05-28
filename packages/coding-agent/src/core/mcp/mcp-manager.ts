@@ -34,6 +34,8 @@ export class McpManager {
 	private configLoader: McpConfigLoader;
 	private projectRoot: string;
 	private debug: boolean;
+	/** mcp.json 签名快照，用于 reloadIfChanged 的 fast-path 判等。 */
+	private lastSignature: string | undefined;
 
 	constructor(options: McpManagerOptions = {}) {
 		this.projectRoot = options.projectRoot || process.cwd();
@@ -76,6 +78,7 @@ export class McpManager {
 			// Wait for all servers to initialize (in parallel)
 			await Promise.allSettled(initPromises);
 
+			this.lastSignature = this.configLoader.getMergedSignature();
 			this.log(`Initialized ${this.state.servers.size} MCP servers`);
 		} catch (error) {
 			this.log(`Failed to initialize MCP servers: ${(error as Error).message}`);
@@ -213,6 +216,115 @@ export class McpManager {
 	}
 
 	/**
+	 * 仅探测：mcp.json 是否自上次加载后发生变化。无副作用，O(stat+hash)。
+	 * 用于 prompt 入口的 fast-path 判等。
+	 */
+	hasConfigChanged(): boolean {
+		if (!this.state.enabled) return false;
+		const sig = this.configLoader.getMergedSignature();
+		return this.lastSignature !== sig;
+	}
+
+	/**
+	 * 若 mcp.json 自上次加载以来发生变化，则按需重启变化的 server。
+	 *
+	 * Fast-path：mtime+hash 签名相等直接返回 false，0 副作用。
+	 * Slow-path：diff 旧/新配置：
+	 *   - 删除的 server → close client + 移除实例
+	 *   - 新增的 server → initializeServer
+	 *   - 配置改变的 server → close 旧 client + 用新配置重建
+	 *   - 不变的 server → 保留运行中的 client，不抖
+	 * 这种最小化重启避免了 "改 A server 把 B 也抖一下" 的副作用。
+	 *
+	 * @returns 是否真的执行了重启（false = 配置未变 / MCP 关闭）
+	 */
+	async reloadIfChanged(): Promise<boolean> {
+		if (!this.state.enabled) return false;
+
+		const currentSignature = this.configLoader.getMergedSignature();
+		if (this.lastSignature !== undefined && this.lastSignature === currentSignature) {
+			return false;
+		}
+
+		this.log("MCP config changed, diff-reloading");
+
+		// 解析新配置
+		let mergedConfig: { mcpServers: Record<string, McpServerConfig> };
+		try {
+			mergedConfig = this.configLoader.loadMerged();
+		} catch (err) {
+			this.log(`Failed to load new MCP config, keeping current state: ${(err as Error).message}`);
+			// 签名仍然推进，避免下一轮 prompt 再次踩坑
+			this.lastSignature = currentSignature;
+			return false;
+		}
+
+		const oldNames = new Set(this.state.servers.keys());
+		const newNames = new Set(Object.keys(mergedConfig.mcpServers));
+
+		// 1) 删除：旧有新没
+		for (const name of oldNames) {
+			if (!newNames.has(name)) {
+				const instance = this.state.servers.get(name);
+				if (instance?.client) {
+					try {
+						await instance.client.close();
+					} catch (err) {
+						this.log(`Error closing removed server ${name}: ${(err as Error).message}`);
+					}
+				}
+				this.state.servers.delete(name);
+				this.log(`Removed server: ${name}`);
+			}
+		}
+
+		// 2) 新增 + 修改
+		const tasks: Promise<void>[] = [];
+		for (const [name, newConfig] of Object.entries(mergedConfig.mcpServers)) {
+			const oldInstance = this.state.servers.get(name);
+			const newDisabled = !!newConfig.disabled;
+
+			if (!oldInstance) {
+				// 新增（仅启用项才真起进程）
+				if (!newDisabled) tasks.push(this.initializeServer(name, newConfig));
+				continue;
+			}
+
+			const oldConfigJson = JSON.stringify(oldInstance.config);
+			const newConfigJson = JSON.stringify(newConfig);
+			if (oldConfigJson === newConfigJson) {
+				// 完全没变，保留
+				continue;
+			}
+
+			// 改了：先停旧的（不管旧的是不是 disabled，都清理一次）
+			if (oldInstance.client) {
+				try {
+					await oldInstance.client.close();
+				} catch (err) {
+					this.log(`Error closing changed server ${name}: ${(err as Error).message}`);
+				}
+			}
+			this.state.servers.delete(name);
+			if (!newDisabled) {
+				tasks.push(this.initializeServer(name, newConfig));
+			} else {
+				this.log(`Server ${name} is now disabled, kept stopped`);
+			}
+		}
+
+		await Promise.allSettled(tasks);
+
+		// 更新 cached config / signature
+		this.state.globalConfig = this.configLoader.loadGlobal() || undefined;
+		this.state.projectConfig = this.configLoader.loadProject() || undefined;
+		this.lastSignature = currentSignature;
+
+		this.log(`Diff-reload done, ${this.state.servers.size} servers active`);
+		return true;
+	}
+
+	/**
 	 * Reload configuration and restart servers
 	 */
 	async reload(): Promise<void> {
@@ -223,6 +335,7 @@ export class McpManager {
 
 		// Clear state
 		this.state.servers.clear();
+		this.lastSignature = undefined;
 
 		// Reinitialize
 		await this.initialize();
