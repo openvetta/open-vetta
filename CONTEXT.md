@@ -56,15 +56,15 @@ A user-attached file or directory reference carried alongside a chat prompt. Sha
 
 ### conversation cwd
 
-`~/.vetta/conversation`，即 desktop-app 中虚拟注入的「对话」项目的 cwd（常量 `DEFAULT_CONVERSATION_CWD`，`packages/desktop-app/src/main/ipc/fs.ts`）。session 文件落在 `<conversation cwd>/.vetta/sessions/`。
+`~/.vetta/conversation`，desktop-app 中虚拟注入的「对话」项目的 cwd（常量 `DEFAULT_CONVERSATION_CWD`，`packages/desktop-app/src/main/ipc/fs.ts`）。session 文件落在 `<conversation cwd>/.vetta/sessions/`。
 
-im-gateway 的 IM 入口一律把消息收敛到这个 cwd，不再像旧版那样让 IM 用户在多个项目间 `/use` 切换。conversation cwd 的真实路径由 desktop-app 在启动 sidecar 时通过 hostproto `InitFrame.conversationCwd` 下发；gateway 不再读 `desktop-config.json` 的项目列表。
+**仅指 desktop 侧。** im-gateway 自 ADR-0005 起改用独立 cwd（见 [[im-gateway cwd]]），不再共用本目录。文档/代码里出现「conversation cwd」时默认指 desktop 这一份。
 
-### session origin
+### im-gateway cwd
 
-`SessionHeader.origin: "im" | "desktop"`。标记一条 session 由哪个入口创建：desktop-app 直接拉起的为 `"desktop"`，im-gateway 通过 coding-agent RPC 拉起的为 `"im"`。缺省（旧 session）按 `"desktop"` 渲染。
+`~/.vetta/im-gateway/conversation/`，im-gateway 所有 IM 渠道（wechat / feishu / ilink ...）共用的工作目录。session 文件落在 `<im-gateway cwd>/.vetta/sessions/`，agent 生成的产物（html/py/md 等）落在 cwd 根。路由 key 仍是 `(im_user, chatID)`（继承自 ADR-0004），单一 cwd 内靠 sessions 文件名区分不同 IM 会话。
 
-desktop-app sidebar 据此对「对话」项目下混合排列的 session 加 badge 区分；同一 cwd 下多个 IM 用户的会话互不混淆是路由层（`(im_user, chatID)`）保证的，badge 只是视觉提示，不参与路由判定。
+与 [[conversation cwd]] 物理分离：桌面「对话」与 IM 入口的 session / 产物互不可见，desktop sidebar 不再展示 IM session（ADR-0005 推翻了 ADR-0004 的混合展示形态）。
 
 ### drop overlay (of ChatPage)
 

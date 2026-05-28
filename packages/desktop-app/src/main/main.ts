@@ -330,6 +330,16 @@ if (!gotSingleLock) {
 			mainLog.error("failed to ensure default conversation dir", err);
 		}
 
+		// im-gateway 独立 cwd（ADR-0005）：跟桌面「对话」物理分家。先把空目录建好，
+		// 这样 sidecar 启动前 desktop 的 Claw tab 也能正常 listSessions（拿到空列表）。
+		try {
+			await mkdir(join(homedir(), ".vetta", "im-gateway", "conversation", ".vetta", "sessions"), {
+				recursive: true,
+			});
+		} catch (err) {
+			mainLog.error("failed to ensure im-gateway conversation dir", err);
+		}
+
 		try {
 			if (app.isPackaged) {
 				await persistVettaAppPath(process.execPath);

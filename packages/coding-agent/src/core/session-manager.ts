@@ -29,8 +29,6 @@ export { SessionLockError } from "./session-lock.js";
 
 export const CURRENT_SESSION_VERSION = 3;
 
-export type SessionOrigin = "im" | "desktop";
-
 export interface SessionHeader {
 	type: "session";
 	version?: number; // v1 sessions don't have this
@@ -38,17 +36,10 @@ export interface SessionHeader {
 	timestamp: string;
 	cwd: string;
 	parentSession?: string;
-	/**
-	 * Which entrypoint created this session. Used by desktop-app's sidebar to
-	 * render an "IM" badge. Absent (legacy) and any unknown value should be
-	 * treated as "desktop" by consumers.
-	 */
-	origin?: SessionOrigin;
 }
 
 export interface NewSessionOptions {
 	parentSession?: string;
-	origin?: SessionOrigin;
 }
 
 export interface SessionEntryBase {
@@ -207,8 +198,6 @@ export interface SessionInfo {
 	messageCount: number;
 	firstMessage: string;
 	allMessagesText: string;
-	/** Entrypoint that created the session (see SessionHeader.origin). */
-	origin?: SessionOrigin;
 }
 
 export type ReadonlySessionManager = Pick<
@@ -624,7 +613,6 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 
 		const cwd = typeof (header as SessionHeader).cwd === "string" ? (header as SessionHeader).cwd : "";
 		const parentSessionPath = (header as SessionHeader).parentSession;
-		const origin = (header as SessionHeader).origin;
 
 		const modified = getSessionModifiedDate(entries, header as SessionHeader, stats.mtime);
 
@@ -634,7 +622,6 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 			cwd,
 			name,
 			parentSessionPath,
-			origin,
 			created: new Date((header as SessionHeader).timestamp),
 			modified,
 			messageCount,
@@ -717,13 +704,6 @@ export class SessionManager {
 	private labelsById: Map<string, string> = new Map();
 	private leafId: string | null = null;
 	private lockHandle?: SessionLockHandle;
-	/**
-	 * Default origin written into the SessionHeader for any session this
-	 * manager creates. Threaded in from `SessionManager.create(.., { origin })`
-	 * so the IM gateway can tag the sessions it spawns. Undefined means
-	 * "no tag" — consumers treat absent origin as desktop.
-	 */
-	private defaultOrigin?: SessionOrigin;
 
 	private constructor(
 		cwd: string,
@@ -735,7 +715,6 @@ export class SessionManager {
 		this.cwd = cwd;
 		this.sessionDir = sessionDir;
 		this.persist = persist;
-		this.defaultOrigin = options?.origin;
 		if (persist && sessionDir && !existsSync(sessionDir)) {
 			mkdirSync(sessionDir, { recursive: true });
 		}
@@ -772,15 +751,6 @@ export class SessionManager {
 			this.sessionId = header?.id ?? randomUUID();
 
 			let needsRewrite = false;
-			// Backfill origin for legacy sessions opened by a caller (e.g. im-gateway)
-			// that passes --origin. Sessions created before --origin was threaded
-			// through have no origin tag in the header, which makes desktop-app
-			// classify them as "desktop" and place them under the wrong filter.
-			if (header && this.defaultOrigin && !header.origin) {
-				header.origin = this.defaultOrigin;
-				needsRewrite = true;
-			}
-
 			if (migrateToCurrentVersion(this.fileEntries)) {
 				needsRewrite = true;
 			}
@@ -843,7 +813,6 @@ export class SessionManager {
 			timestamp,
 			cwd: this.cwd,
 			parentSession: options?.parentSession,
-			origin: options?.origin ?? this.defaultOrigin,
 		};
 		this.fileEntries = [header];
 		this.byId.clear();
@@ -1425,9 +1394,8 @@ export class SessionManager {
 	 * Open a specific session file.
 	 * @param path Path to session file
 	 * @param sessionDir Optional session directory for /new or /branch. If omitted, derives from file's parent.
-	 * @param options Optional NewSessionOptions; only `origin` is used here, as a
-	 *   default for backfilling the SessionHeader when an existing file lacks
-	 *   one (see setSessionFile).
+	 * @param options Optional NewSessionOptions forwarded to the constructor for
+	 *   any path that ends up creating a fresh session (empty/missing file).
 	 */
 	static open(path: string, sessionDir?: string, options?: NewSessionOptions): SessionManager {
 		// Extract cwd from session header if possible, otherwise use process.cwd()

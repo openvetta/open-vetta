@@ -76,9 +76,10 @@ export interface SessionStateEntry {
  * frame. The sidecar's buildHostTransport prefers wechat when both are set
  * but the parent should never rely on that.
  *
- * `conversationCwd` is the absolute cwd of desktop-app's default "对话"
- * project (`DEFAULT_CONVERSATION_CWD`). Every IM session lives in this
- * directory; the gateway no longer maintains a project list.
+ * `conversationCwd` is the absolute cwd shared by all IM sessions
+ * (`DEFAULT_IM_CONVERSATION_CWD`, `~/.vetta/im-gateway/conversation`). It
+ * is physically separate from desktop-app's "对话" cwd (ADR-0005) so the
+ * two sides don't share sessions or generated artifacts.
  */
 /**
  * Overrides how the sidecar invokes the coding-agent subprocess. When

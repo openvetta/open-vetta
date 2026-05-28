@@ -89,7 +89,7 @@ logging:
 
 # Override on-disk file locations. All optional.
 # paths:
-#   conversationCwd: ~/.vetta/conversation
+#   conversationCwd: ~/.vetta/im-gateway/conversation
 #   state: ~/.vetta/im-gateway/state.json
 #   logsDir: ~/.vetta/im-gateway/logs
 `

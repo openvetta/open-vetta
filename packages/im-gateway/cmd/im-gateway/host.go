@@ -123,14 +123,12 @@ func runHostWithIO(opts hostOptions) int {
 	})
 	stateStore.Replace(stateFromFrames(initFrame.State))
 
-	// Mirror desktop-app's resolveSessionDirForCwd convention: the default
-	// "对话" project stores its sessions under <cwd>/.vetta/sessions/ instead
-	// of the global ~/.vetta/agent/sessions/<encoded-cwd>/. Passing
-	// SessionDir here makes IM-created sessions land where desktop-app's
-	// sidebar reads from, so they show up under the "对话" project (with
-	// the IM badge).
+	// Mirror desktop-app's resolveSessionDirForCwd convention: the IM
+	// conversation cwd stores its sessions under <cwd>/.vetta/sessions/
+	// instead of the global ~/.vetta/agent/sessions/<encoded-cwd>/. desktop-
+	// app's Claw tab reads from this same directory to render IM sessions
+	// read-only.
 	hclocalOpts := hclocal.Options{
-		Origin:     "im",
 		SessionDir: filepath.Join(initFrame.ConversationCwd, ".vetta", "sessions"),
 	}
 	if initFrame.CodingAgent != nil && initFrame.CodingAgent.Bin != "" {
