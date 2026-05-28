@@ -102,6 +102,16 @@ export interface CodingAgentSpec {
 	 * `getThemesDir()` / `getExportTemplateDir()` resolve correctly.
 	 */
 	packageDir?: string;
+	/**
+	 * Forwarded as `VETTA_SERVER_URL`. coding-agent's main.ts reads this env
+	 * ahead of `~/.vetta/agent/settings.json`, so an IM-session subprocess
+	 * uses the host's compile-time gateway URL instead of any stale
+	 * `serverUrl` left in the settings file (e.g. from a previous dev/LAN
+	 * login). Without it, prod desktop-app + stale settings produced
+	 * "Unknown provider" exits on the first IM message because remote model
+	 * loading 401'd against the wrong gateway.
+	 */
+	serverUrl?: string;
 }
 
 export interface InitFrame {

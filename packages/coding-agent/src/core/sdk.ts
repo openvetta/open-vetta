@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { Agent, type AgentMessage, type ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Message, Model } from "@mariozechner/pi-ai";
-import { DEFAULT_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
+import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./defaults.js";
@@ -236,7 +236,9 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	// 权威来源，settings 里的残留值由宿主自行清理（参考 desktop-app
 	// registerSettingsIpc 启动时的 scrub 逻辑）。
 	if (!options.modelRegistry) {
-		let serverUrl = options.serverUrl ?? settingsManager.getServerUrl();
+		// 同 main.ts：环境变量（宿主注入）优先于 settings.json，避免子进程
+		// 读到陈旧的 LAN 地址。详见 main.ts 中的 serverUrl 注释。
+		let serverUrl = options.serverUrl ?? process.env[ENV_SERVER_URL] ?? settingsManager.getServerUrl();
 		let writeBackDefault = false;
 		if (!serverUrl) {
 			serverUrl = DEFAULT_SERVER_URL;
