@@ -3,6 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 
@@ -47,7 +48,11 @@ const devMainEntryPath = join(appRoot, "dist/main/index.js");
 // inconsequential.
 const ocrCliCommand = parseOcrCliCommand(process.argv);
 const pdfCliCommand = ocrCliCommand === null ? parsePdfCliCommand(process.argv) : null;
-const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null;
+// `--agent-rpc` is the IM sidecar's discriminator: when present we
+// short-circuit into @vetta/coding-agent's main and skip every UI/IPC
+// bring-up below. See cli/agent-rpc-command.ts for the full rationale.
+const agentRpcArgs = pdfCliCommand === null && ocrCliCommand === null ? parseAgentRpcCommand(process.argv) : null;
+const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null || agentRpcArgs !== null;
 
 // 给 V8 老生代一个明确上限：超过会抛 `RangeError: Invalid string length` /
 // JS heap out of memory，能被 uncaughtException 接到并落盘栈；否则任 RSS 自然
@@ -58,11 +63,41 @@ if (!isCliMode) {
 	app.commandLine.appendSwitch("js-flags", "--max-old-space-size=4096");
 }
 
-installMainDiagnostics();
+// agent-rpc mode talks to its parent over stdout via the coding-agent
+// RPC protocol (NDJSON). Two console-related hazards we have to defuse:
+//
+//   1) installMainDiagnostics() monkey-patches console.log into a file
+//      logger. coding-agent's RPC output goes through `console.log` so
+//      the patch would swallow every response and the sidecar hangs on
+//      handshake. Skip it.
+//   2) Other main-process modules (installChromiumFetchForMain,
+//      registerLocalNetworkAccess, sandbox probes…) call `console.log`
+//      for status. With (1) skipped, those land on raw stdout and
+//      interleave with RPC NDJSON, corrupting the protocol. Redirect
+//      every console method to stderr in agent-rpc mode so the only
+//      thing on stdout is coding-agent's own JSON.
+if (agentRpcArgs) {
+	const writeStderr = (level: string, args: unknown[]) => {
+		const line = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 0))).join(" ");
+		process.stderr.write(`[${level}] ${line}\n`);
+	};
+	console.log = (...args: unknown[]) => writeStderr("log", args);
+	console.info = (...args: unknown[]) => writeStderr("info", args);
+	console.warn = (...args: unknown[]) => writeStderr("warn", args);
+	console.error = (...args: unknown[]) => writeStderr("error", args);
+	console.debug = (...args: unknown[]) => writeStderr("debug", args);
+} else {
+	installMainDiagnostics();
+}
 const mainLog = getAppLogger("main");
 
 if (isCliMode) {
-	const cliUserDataDir = ocrCliCommand !== null ? "vetta-ocr-cli" : "vetta-pdf-cli";
+	const cliUserDataDir =
+		ocrCliCommand !== null
+			? "vetta-ocr-cli"
+			: pdfCliCommand !== null
+				? "vetta-pdf-cli"
+				: `vetta-agent-rpc-${process.pid}`;
 	app.setPath("userData", join(tmpdir(), cliUserDataDir));
 	app.commandLine.appendSwitch("disable-gpu");
 	app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
@@ -147,6 +182,22 @@ if (!gotSingleLock) {
 
 		if (ocrCliCommand) {
 			const exitCode = await runOcrCliCommand(ocrCliCommand);
+			app.exit(exitCode);
+			return;
+		}
+
+		if (agentRpcArgs) {
+			// agent-rpc 子进程会发出 LLM 网络请求；macOS 15 Local Network
+			// Privacy 在 socket 层拦截 Node 默认 fetch 对 192.168.x / 10.x
+			// 等私网地址的访问，OpenAI/Anthropic SDK 在这种情况下只能抛
+			// "Connection error."。必须复用主进程对话页同款的两步规避：
+			// 先触发 TCC 探针让 com.vetta.desktop 拿到 LAN 授权，再把
+			// globalThis.fetch 换成 electron.net.fetch（Chromium 网络栈，
+			// 不被 LNP 拦截）。PDF / OCR CLI 不需要这条，因为它们不发
+			// 跨进程网络请求。
+			registerLocalNetworkAccess();
+			installChromiumFetchForMain();
+			const exitCode = await runAgentRpcCommand(agentRpcArgs);
 			app.exit(exitCode);
 			return;
 		}

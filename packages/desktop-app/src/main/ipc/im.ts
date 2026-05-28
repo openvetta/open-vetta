@@ -17,6 +17,7 @@ const CHANNELS = {
 	RESTART: "vetta:im:restart",
 	GET_RECENT_LOGS: "vetta:im:get-recent-logs",
 	GET_PATHS: "vetta:im:get-paths",
+	PROBE_AGENT_MODEL: "vetta:im:probe-agent-model",
 	DETECT_LEGACY: "vetta:im:detect-legacy",
 	IMPORT_LEGACY: "vetta:im:import-legacy",
 	WECHAT_START_BIND: "vetta:im:wechat:start-bind",
@@ -152,6 +153,10 @@ export function registerImIpc(webContents: WebContents): () => void {
 		return host.getPaths();
 	});
 
+	ipcMain.handle(CHANNELS.PROBE_AGENT_MODEL, async (_event, ref: { provider: string; model: string }) => {
+		return host.probeAgentModel(ref);
+	});
+
 	ipcMain.handle(CHANNELS.DETECT_LEGACY, () => {
 		return host.detectLegacy();
 	});
@@ -219,6 +224,7 @@ export function registerImIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.RESTART);
 		ipcMain.removeHandler(CHANNELS.GET_RECENT_LOGS);
 		ipcMain.removeHandler(CHANNELS.GET_PATHS);
+		ipcMain.removeHandler(CHANNELS.PROBE_AGENT_MODEL);
 		ipcMain.removeHandler(CHANNELS.DETECT_LEGACY);
 		ipcMain.removeHandler(CHANNELS.IMPORT_LEGACY);
 		ipcMain.removeHandler(CHANNELS.WECHAT_START_BIND);

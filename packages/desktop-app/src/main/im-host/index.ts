@@ -1,5 +1,11 @@
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { net } from "electron";
 import { DEFAULT_CONVERSATION_CWD } from "../ipc/fs.js";
+import { fetchRemoteProviders } from "../ipc/settings.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
+import { buildCodingAgentSpec } from "./coding-agent-spec.js";
 import {
 	defaultImConfig,
 	defaultImConfigPath,
@@ -40,6 +46,11 @@ import { type ImBridgeStatus, StatusStore } from "./status-store.js";
  * Single instance per process. Created in main.ts at app.whenReady() and
  * disposed via shutdownForQuit() in app.before-quit.
  */
+export interface ImAgentModelRef {
+	provider: string;
+	model: string;
+}
+
 export interface ImHostPublicConfig {
 	enabled: boolean;
 	transport: ImTransportSelector;
@@ -59,6 +70,9 @@ export interface ImHostPublicConfig {
 	// Retained for backwards compat with renderer; always false now that
 	// we no longer encrypt via safeStorage.
 	encryptionAvailable: boolean;
+	// Optional override telling IM-session coding-agent which model to
+	// use. Undefined → fall back to agent settings default.
+	agentModel?: ImAgentModelRef;
 }
 
 export interface SetConfigPayload {
@@ -74,6 +88,9 @@ export interface SetConfigPayload {
 		encryptKey?: string;
 		baseUrl?: string;
 	};
+	// `null` clears the override (use agent settings default).
+	// `undefined` (key omitted) preserves the existing value.
+	agentModel?: ImAgentModelRef | null;
 }
 
 export interface SetConfigResult {
@@ -344,6 +361,7 @@ export class ImHost {
 			},
 			transportMode: this.config.transportMode,
 			encryptionAvailable: false,
+			agentModel: this.config.agentModel,
 		};
 	}
 
@@ -353,6 +371,15 @@ export class ImHost {
 		// previous config so callers can update enabled / feishu without
 		// resetting the user's choice.
 		const nextTransport: ImTransportSelector = payload.transport ?? this.config.transport;
+
+		// agentModel handling: `undefined` in the payload means "no change",
+		// explicit `null` means "clear the override".
+		let nextAgentModel = this.config.agentModel;
+		if (payload.agentModel === null) {
+			nextAgentModel = undefined;
+		} else if (payload.agentModel !== undefined) {
+			nextAgentModel = payload.agentModel;
+		}
 
 		const nextConfig: ImConfig = {
 			enabled: payload.enabled,
@@ -365,7 +392,24 @@ export class ImHost {
 				: this.config.feishu,
 			wechat: this.config.wechat,
 			transportMode: "long-connection",
+			agentModel: nextAgentModel,
 		};
+
+		// Enabling the bridge requires a working agent model. Probe the
+		// configured provider's baseUrl so users get a fast actionable
+		// error instead of "Connection error." on every IM message. Done
+		// BEFORE persisting so a failed probe leaves the on-disk config
+		// untouched (enabled stays off).
+		const prevEnabled = this.config.enabled;
+		if (nextConfig.enabled && !prevEnabled) {
+			if (!nextConfig.agentModel) {
+				return { ok: false, error: "请先在「对话模型」里选择 IM 桥接使用的模型" };
+			}
+			const probe = await this.probeAgentModel(nextConfig.agentModel);
+			if (!probe.ok) {
+				return { ok: false, error: `模型连通性检查失败：${probe.error ?? "未知错误"}` };
+			}
+		}
 
 		// Update credentials only when the payload sent a feishu block.
 		const nextCreds: ImCredentials = { ...this.credentials };
@@ -498,6 +542,98 @@ export class ImHost {
 	 *   - wechat: always true — the sidecar boots into awaiting_bind when
 	 *     no credentials are present and waits for the user to scan a QR
 	 */
+	/**
+	 * Probe the given (provider, model)'s baseUrl to see if the model
+	 * server is reachable. Returns ok=true on a 2xx/4xx response (4xx
+	 * still proves the host answered — auth issue is a separate concern
+	 * and shouldn't block the bridge), ok=false on network / DNS / TLS
+	 * failures.
+	 *
+	 * Uses electron.net.fetch deliberately so we go through Chromium's
+	 * network stack and bypass macOS 15 LNP — the same reason the main
+	 * process swaps globalThis.fetch for the GUI session. We don't rely
+	 * on globalThis.fetch here because installChromiumFetchForMain might
+	 * not have run yet at probe time.
+	 *
+	 * Public so the renderer can re-probe on demand (test-connect button).
+	 */
+	async probeAgentModel(ref: {
+		provider: string;
+		model: string;
+	}): Promise<{ ok: boolean; message?: string; error?: string }> {
+		// 1) Try local models.json first — the usual case for LAN model
+		//    servers (Ollama, qwen-local, vLLM, …).
+		let provider: { baseUrl?: string } | undefined;
+		try {
+			const raw = await readFile(join(homedir(), ".vetta", "agent", "models.json"), "utf8");
+			const parsed = JSON.parse(raw) as {
+				providers?: Record<string, { baseUrl?: string }>;
+			};
+			provider = parsed.providers?.[ref.provider];
+		} catch {
+			// File missing/unreadable is fine — fall through to remote.
+		}
+
+		// 2) Fall back to the auth-server's remote provider catalogue
+		//    (Vetta Zen et al.). The renderer's atom may be stale or empty
+		//    if the user never opened the chat page, so we re-fetch here
+		//    instead of trusting it.
+		let source: "local" | "remote" = "local";
+		if (!provider) {
+			const remote = await fetchRemoteProviders();
+			const r = remote.providers[ref.provider] as { baseUrl?: string } | undefined;
+			if (r) {
+				provider = r;
+				source = "remote";
+			} else if (remote.error && Object.keys(remote.providers).length === 0) {
+				return {
+					ok: false,
+					error: `provider "${ref.provider}" 既不在本地 models.json 也无法查询云端 provider 列表（${remote.error}）`,
+				};
+			}
+		}
+
+		if (!provider) {
+			return {
+				ok: false,
+				error: `provider "${ref.provider}" 既不在本地 models.json 也不在云端 provider 列表`,
+			};
+		}
+		if (!provider.baseUrl) {
+			return { ok: false, error: `provider "${ref.provider}" 缺 baseUrl` };
+		}
+
+		// Reachability check only — we deliberately do NOT probe any
+		// specific endpoint (like /models). Different providers expose
+		// different health paths (OpenAI: /v1/models, Anthropic: none,
+		// custom gateways: anything), so testing a path gives misleading
+		// results (404 because the path is wrong vs because the host is
+		// down). Hit the bare origin and treat any HTTP response — including
+		// 4xx / 5xx / 404 — as "host reachable". Only network / DNS / TLS
+		// failures fail the probe.
+		let origin: string;
+		try {
+			const u = new URL(provider.baseUrl);
+			origin = `${u.protocol}//${u.host}`;
+		} catch {
+			return { ok: false, error: `provider "${ref.provider}" 的 baseUrl 解析失败：${provider.baseUrl}` };
+		}
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), 5_000);
+		try {
+			await net.fetch(origin, { method: "GET", signal: controller.signal });
+			return {
+				ok: true,
+				message: `${origin} 可达（${source === "remote" ? "云端" : "本地"} provider）`,
+			};
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return { ok: false, error: `${origin} 不可达：${msg}` };
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
 	private hasRequiredCredentials(): boolean {
 		if (this.config.transport === "wechat") {
 			return true;
@@ -527,6 +663,7 @@ export class ImHost {
 			this.binaryPath = resolveImGatewayBinary().path;
 			this.statusStore.patch({ binaryPath: this.binaryPath });
 		}
+		const codingAgent = buildCodingAgentSpec({ agentModel: this.config.agentModel });
 		// Send only the slot for the currently selected transport. The
 		// sidecar uses nil-discriminator to pick which to start.
 		if (this.config.transport === "wechat") {
@@ -535,6 +672,7 @@ export class ImHost {
 				wechat: this.buildWechatConfig(),
 				conversationCwd: DEFAULT_CONVERSATION_CWD,
 				state: this.stateAsEntries(),
+				codingAgent,
 			};
 		}
 		return {
@@ -542,6 +680,7 @@ export class ImHost {
 			feishu: this.buildFeishuConfig(),
 			conversationCwd: DEFAULT_CONVERSATION_CWD,
 			state: this.stateAsEntries(),
+			codingAgent,
 		};
 	}
 

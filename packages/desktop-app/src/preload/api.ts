@@ -657,6 +657,11 @@ export type ImTransportStatus = "offline" | "connecting" | "online" | "error" | 
 
 export type ImTransportSelector = "feishu" | "wechat";
 
+export interface ImAgentModelRef {
+	provider: string;
+	model: string;
+}
+
 export interface ImBridgeConfig {
 	enabled: boolean;
 	transport: ImTransportSelector;
@@ -674,6 +679,7 @@ export interface ImBridgeConfig {
 	};
 	transportMode: "long-connection";
 	encryptionAvailable: boolean;
+	agentModel?: ImAgentModelRef;
 }
 
 export interface ImSetConfigPayload {
@@ -686,6 +692,8 @@ export interface ImSetConfigPayload {
 		encryptKey?: string;
 		baseUrl?: string;
 	};
+	// null clears the override; undefined preserves the current value.
+	agentModel?: ImAgentModelRef | null;
 }
 
 export interface ImSetConfigResult {
@@ -808,6 +816,11 @@ export interface DesktopImApi {
 	restart(): Promise<{ ok: boolean }>;
 	getRecentLogs(): Promise<ImLogEvent[]>;
 	getPaths(): Promise<ImPathInfo>;
+	/** Reachability check for an IM-session model. Used by the bridge
+	 * settings page's "测试连通" button and gated automatically on
+	 * setConfig(enabled=true). ok=true also for HTTP 4xx — host is up,
+	 * auth is a separate concern. */
+	probeAgentModel(ref: ImAgentModelRef): Promise<{ ok: boolean; message?: string; error?: string }>;
 	detectLegacy(): Promise<ImLegacyDetection>;
 	importLegacy(detection: ImLegacyDetection): Promise<{ ok: boolean; error?: string }>;
 	/** Subscribe to "IM routing table changed" pings emitted by the sidecar's

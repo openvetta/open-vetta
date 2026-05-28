@@ -43,6 +43,13 @@ type Options struct {
 	// under the default "对话" project. Empty → coding-agent falls back
 	// to `~/.vetta/agent/sessions/<encoded-cwd>/`.
 	SessionDir string
+
+	// BinPrefixArgs are prepended to the spawned subprocess's argv
+	// (after Bin, before --mode rpc). Desktop-app production uses this
+	// to inject `--agent-rpc`, the discriminator that flips Vetta.app
+	// into coding-agent CLI mode. In dev it carries the Electron main-
+	// entry path. Empty in `im-gateway start` standalone mode.
+	BinPrefixArgs []string
 }
 
 const (
@@ -86,7 +93,9 @@ var _ hostclient.HostClient = (*Client)(nil)
 //     by main.ts and return ErrSessionLocked. Otherwise return a generic
 //     error wrapping the captured stderr.
 func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (hostclient.HostSession, error) {
-	args := []string{"--mode", "rpc", "--cwd", cwd}
+	args := make([]string, 0, len(c.opts.BinPrefixArgs)+8)
+	args = append(args, c.opts.BinPrefixArgs...)
+	args = append(args, "--mode", "rpc", "--cwd", cwd)
 	// Empty sessionPath means "create a new session in this cwd". coding-agent
 	// expects --session to be omitted entirely in that case (passing it as
 	// empty string causes argument parsing errors). We capture the actual

@@ -153,7 +153,7 @@ async function authedGet(path: string, timeoutMs = 5000): Promise<Response | nul
 	return res;
 }
 
-async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
+export async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
 	try {
 		const response = await authedGet("/providers/models.json");
 		if (!response) return { providers: {}, error: "未登录" };
