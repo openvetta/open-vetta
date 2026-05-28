@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry } from "../../preload/fs-types.js";
+import { getSharedRuntime } from "../runtime.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
@@ -551,6 +552,13 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.MCP_SET, async (_event, config: unknown) => {
 		if (typeof config !== "object" || config === null) throw new Error("Invalid MCP config");
 		await writeMcpConfig(config as McpConfig);
+		// 写盘后让所有在跑的 session 重新加载 MCP 工具，否则 LLM 直到下次开
+		// 新会话才会看到新增/移除的 MCP 服务器。
+		try {
+			await getSharedRuntime().reloadMcpForAllSessions();
+		} catch (err) {
+			console.warn("[mcp] reloadMcpForAllSessions failed:", err);
+		}
 	});
 
 	return () => {
