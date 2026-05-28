@@ -2548,6 +2548,21 @@ export class AgentSession {
 		this.agent.setSystemPrompt(this._baseSystemPrompt);
 	}
 
+	/**
+	 * Reload MCP servers from disk (~/.vetta/agent/mcp.json + project mcp.json)
+	 * and rebuild the runtime so the new tool set is visible to the LLM on
+	 * the next turn. Safe to call while idle; if a turn is in flight the new
+	 * tools become visible after the next _buildRuntime tick.
+	 */
+	async reloadMcp(): Promise<void> {
+		if (!this._mcpManager) return;
+		await this._mcpManager.reload();
+		this._buildRuntime({
+			activeToolNames: this.getActiveToolNames(),
+			includeAllExtensionTools: true,
+		});
+	}
+
 	async reload(): Promise<void> {
 		const previousFlagValues = this._extensionRunner?.getFlagValues();
 		await this._extensionRunner?.emit({ type: "session_shutdown" });
