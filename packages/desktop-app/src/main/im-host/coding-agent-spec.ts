@@ -1,9 +1,8 @@
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { app } from "electron";
 import type { CodingAgentSpec } from "./host-protocol.js";
-
-const require = createRequire(import.meta.url);
 
 /**
  * Resolve the on-disk root of the `@vetta/coding-agent` package so the
@@ -20,8 +19,20 @@ function resolveCodingAgentPackageDir(): string {
 	if (app.isPackaged) {
 		return join(process.resourcesPath, "coding-agent");
 	}
-	const pkgJsonPath = require.resolve("@vetta/coding-agent/package.json");
-	return join(pkgJsonPath, "..");
+	// Use ESM's import.meta.resolve to find coding-agent's main entry,
+	// then walk up to the package root. We avoid require.resolve because
+	// coding-agent's "exports" map has no "require" / "default" condition
+	// (ESM-only export) and CJS resolution refuses it. We also avoid
+	// "@vetta/coding-agent/package.json" subpath because "./package.json"
+	// isn't listed in "exports".
+	const entryUrl = import.meta.resolve("@vetta/coding-agent");
+	const entry = fileURLToPath(entryUrl);
+	let dir = dirname(entry);
+	while (dir !== dirname(dir)) {
+		if (existsSync(join(dir, "package.json"))) return dir;
+		dir = dirname(dir);
+	}
+	throw new Error(`coding-agent package.json not found walking up from ${entry}`);
 }
 
 /**
