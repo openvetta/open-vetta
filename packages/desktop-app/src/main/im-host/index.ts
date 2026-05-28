@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { net } from "electron";
 import { DEFAULT_CONVERSATION_CWD } from "../ipc/fs.js";
+import { fetchRemoteProviders } from "../ipc/settings.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
 import { buildCodingAgentSpec } from "./coding-agent-spec.js";
 import {
@@ -560,29 +561,59 @@ export class ImHost {
 		provider: string;
 		model: string;
 	}): Promise<{ ok: boolean; message?: string; error?: string }> {
-		let providers: Record<string, { baseUrl?: string }> = {};
+		// 1) Try local models.json first — the usual case for LAN model
+		//    servers (Ollama, qwen-local, vLLM, …).
+		let provider: { baseUrl?: string } | undefined;
 		try {
 			const raw = await readFile(join(homedir(), ".vetta", "agent", "models.json"), "utf8");
-			const parsed = JSON.parse(raw) as { providers?: typeof providers };
-			providers = parsed.providers ?? {};
+			const parsed = JSON.parse(raw) as {
+				providers?: Record<string, { baseUrl?: string }>;
+			};
+			provider = parsed.providers?.[ref.provider];
 		} catch {
-			return { ok: false, error: "无法读取 ~/.vetta/agent/models.json" };
+			// File missing/unreadable is fine — fall through to remote.
 		}
-		const provider = providers[ref.provider];
+
+		// 2) Fall back to the auth-server's remote provider catalogue
+		//    (Vetta Zen et al.). The renderer's atom may be stale or empty
+		//    if the user never opened the chat page, so we re-fetch here
+		//    instead of trusting it.
+		let source: "local" | "remote" = "local";
 		if (!provider) {
-			return { ok: false, error: `provider "${ref.provider}" 不存在于 models.json` };
+			const remote = await fetchRemoteProviders();
+			const r = remote.providers[ref.provider] as { baseUrl?: string } | undefined;
+			if (r) {
+				provider = r;
+				source = "remote";
+			} else if (remote.error && Object.keys(remote.providers).length === 0) {
+				return {
+					ok: false,
+					error: `provider "${ref.provider}" 既不在本地 models.json 也无法查询云端 provider 列表（${remote.error}）`,
+				};
+			}
+		}
+
+		if (!provider) {
+			return {
+				ok: false,
+				error: `provider "${ref.provider}" 既不在本地 models.json 也不在云端 provider 列表`,
+			};
 		}
 		if (!provider.baseUrl) {
 			return { ok: false, error: `provider "${ref.provider}" 缺 baseUrl` };
 		}
+
 		const url = `${provider.baseUrl.replace(/\/+$/, "")}/models`;
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 5_000);
 		try {
 			const resp = await net.fetch(url, { method: "GET", signal: controller.signal });
-			// Treat any HTTP response (including 4xx — auth) as "host
-			// reachable". Only network-level failures fail the probe.
-			return { ok: true, message: `HTTP ${resp.status} from ${url}` };
+			// Any HTTP response (including 4xx — auth is a separate concern)
+			// counts as "host reachable". Only network-level failures fail.
+			return {
+				ok: true,
+				message: `HTTP ${resp.status} from ${url}（${source === "remote" ? "云端" : "本地"} provider）`,
+			};
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			return { ok: false, error: `${url}: ${msg}` };
