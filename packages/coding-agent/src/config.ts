@@ -173,6 +173,7 @@ export const VERSION: string = pkg.version;
 export const ENV_AGENT_DIR = `${APP_NAME.toUpperCase()}_CODING_AGENT_DIR`;
 export const ENV_PACKAGE_DIR = `${APP_NAME.toUpperCase()}_PACKAGE_DIR`;
 export const ENV_SHARE_VIEWER_URL = `${APP_NAME.toUpperCase()}_SHARE_VIEWER_URL`;
+export const ENV_SERVER_URL = `${APP_NAME.toUpperCase()}_SERVER_URL`;
 
 const DEFAULT_SHARE_VIEWER_URL = "https://pi.dev/session/";
 

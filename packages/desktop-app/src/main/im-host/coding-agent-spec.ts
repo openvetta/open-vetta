@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app } from "electron";
+import { DEFAULT_SERVER_URL } from "../constants.js";
 import type { CodingAgentSpec } from "./host-protocol.js";
 
 /**
@@ -62,11 +63,21 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 		? ["--provider", opts.agentModel.provider, "--model", opts.agentModel.model]
 		: [];
 
+	// Inject the host's compile-time server URL into the subprocess env.
+	// coding-agent's main.ts reads `process.env.VETTA_SERVER_URL` ahead of
+	// `~/.vetta/agent/settings.json`, which avoids the prod failure where a
+	// stale `serverUrl` (e.g. left over from a dev/LAN login) causes
+	// `loadRemoteModels` to 401 against the wrong gateway — remote providers
+	// (vetta-zen et al.) disappear and the agent exits with
+	// "Unknown provider" before the prompt is ever processed.
+	const serverUrl = DEFAULT_SERVER_URL;
+
 	if (app.isPackaged) {
 		return {
 			bin: process.execPath,
 			prefixArgs: ["--agent-rpc", ...modelArgs],
 			packageDir,
+			serverUrl,
 		};
 	}
 	const appRoot = process.cwd();
@@ -74,5 +85,6 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 		bin: process.execPath,
 		prefixArgs: [join(appRoot, "dist/main/index.js"), "--agent-rpc", ...modelArgs],
 		packageDir,
+		serverUrl,
 	};
 }

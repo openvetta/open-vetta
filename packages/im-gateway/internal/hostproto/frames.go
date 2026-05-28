@@ -126,6 +126,15 @@ type CodingAgentSpec struct {
 	// points at the staged assets dir so theme / template lookups
 	// resolve correctly.
 	PackageDir string `json:"packageDir,omitempty"`
+	// ServerURL, when non-empty, is forwarded to the spawned subprocess as
+	// the `VETTA_SERVER_URL` environment variable. coding-agent's main.ts
+	// otherwise reads serverUrl from `~/.vetta/agent/settings.json`, which
+	// may carry a stale LAN address (test env / fresh dev login residue)
+	// that produces 401 on the prod gateway. With this env present the
+	// agent ignores the settings residue and uses the host-injected URL.
+	// Desktop-app populates it with its compile-time DEFAULT_SERVER_URL so
+	// IM-session subprocesses talk to the same gateway the GUI does.
+	ServerURL string `json:"serverUrl,omitempty"`
 }
 
 // ConfigUpdateFrame replaces the active credentials and/or switches the
