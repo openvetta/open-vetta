@@ -37,7 +37,9 @@ export function ExecutionModeSelector(): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const [isSwitching, setIsSwitching] = useState(false);
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
-	const disabled = !activeSession || isStreaming || isSwitching;
+	// 没有 activeSession 也允许切换：此时只更新本地 atom + localStorage，
+	// 新会话创建时会读取该值传给 session.create。
+	const disabled = isStreaming || isSwitching;
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
@@ -73,11 +75,14 @@ export function ExecutionModeSelector(): JSX.Element {
 
 	const handleSelect = useCallback(
 		async (nextMode: SessionExecutionMode) => {
-			if (!activeSession || disabled || nextMode === mode) return;
+			if (disabled || nextMode === mode) return;
 			if (nextMode === "sandbox" && sandboxUnavailableReason) return;
 			const previousMode = mode;
 			setMode(nextMode);
 			localStorage.setItem("vetta-session-execution-mode", nextMode);
+			// 没有 activeSession（如 NewSessionPage）时只更新本地状态，
+			// 不发 IPC——会话尚未创建。
+			if (!activeSession) return;
 			setIsSwitching(true);
 			try {
 				await window.vetta.session.setExecutionMode(activeSession.runtimeId, nextMode);
