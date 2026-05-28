@@ -92,6 +92,16 @@ export interface SessionStateEntry {
 export interface CodingAgentSpec {
 	bin: string;
 	prefixArgs?: string[];
+	/**
+	 * Forwarded to the spawned coding-agent subprocess as
+	 * `VETTA_PACKAGE_DIR`. The agent's `getPackageDir()` falls back to
+	 * walking up `__dirname` to find `package.json`, which lands on the
+	 * host bundle's tree once coding-agent is Vite-bundled into Electron's
+	 * main process. Setting this explicitly points at the staged
+	 * `coding-agent/` directory (resources in prod, workspace in dev) so
+	 * `getThemesDir()` / `getExportTemplateDir()` resolve correctly.
+	 */
+	packageDir?: string;
 }
 
 export interface InitFrame {

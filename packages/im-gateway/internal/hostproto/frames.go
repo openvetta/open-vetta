@@ -118,6 +118,14 @@ type InitFrame struct {
 type CodingAgentSpec struct {
 	Bin        string   `json:"bin"`
 	PrefixArgs []string `json:"prefixArgs,omitempty"`
+	// PackageDir, when non-empty, is forwarded to the spawned subprocess
+	// as the `VETTA_PACKAGE_DIR` environment variable. The agent's
+	// `getPackageDir()` defaults to walking up `__dirname` to find
+	// `package.json` — which lands on the host bundle when coding-agent is
+	// Vite-bundled into Electron's main process. Setting this explicitly
+	// points at the staged assets dir so theme / template lookups
+	// resolve correctly.
+	PackageDir string `json:"packageDir,omitempty"`
 }
 
 // ConfigUpdateFrame replaces the active credentials and/or switches the
