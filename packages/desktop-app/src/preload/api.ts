@@ -53,28 +53,28 @@ export interface DesktopSessionApi {
 	/** Subscribe to running-set changes. Fires for each toggle (running=true|false). */
 	onRunningChanged(handler: (payload: { sessionPath: string; running: boolean }) => void): () => void;
 	/**
-	 * 清空默认「对话」项目，按 scope 分流：
-	 * - "conversation"：删除非 IM 会话 + cwd 下所有产物文件，保留 IM (claw) session 的 .jsonl
-	 * - "claw"：仅删除 origin==="im" 的 session .jsonl，其他一切不动
+	 * 清空默认「对话」或 Claw 项目的全部会话（保留产物），按 scope 分流（物理 cwd 分家，ADR-0005）：
+	 * - "conversation"：清桌面「对话」cwd 的 .vetta/sessions
+	 * - "claw"：清 IM cwd 的 .vetta/sessions
 	 * 主进程会先 dispose 本 scope 涉及的 session handle；若该 scope 仍有运行中的会话则抛错拒绝。
 	 */
 	clearDefaultConversation(scope: "conversation" | "claw"): Promise<void>;
 	/**
+	 * 清空默认「对话」或 Claw 项目 cwd 下的产物文件（保留 .vetta 目录，会话不受影响）。
+	 */
+	clearDefaultArtifacts(scope: "conversation" | "claw"): Promise<void>;
+	/**
 	 * Open a session for read-only viewing. Does NOT acquire the
 	 * session-file lock, so IM-owned sessions (sidecar may be actively
-	 * writing) can be viewed live without conflict. Returns initial
-	 * HistoryEntry[] plus the SessionHeader.origin tag.
+	 * writing) can be viewed live without conflict.
 	 */
-	openViewer(path: string): Promise<{ history: HistoryEntry[]; origin?: "im" | "desktop" }>;
+	openViewer(path: string): Promise<{ history: HistoryEntry[] }>;
 	/**
 	 * Subscribe to live updates for a viewer-mode session. Handler fires
 	 * whenever the underlying .jsonl is written. Returns an unsubscribe
 	 * function — caller MUST call it on unmount to release the fs.watch.
 	 */
-	subscribeViewer(
-		path: string,
-		handler: (snapshot: { history: HistoryEntry[]; origin?: "im" | "desktop" }) => void,
-	): Promise<() => void>;
+	subscribeViewer(path: string, handler: (snapshot: { history: HistoryEntry[] }) => void): Promise<() => void>;
 }
 
 export interface SelectedImageFile {
@@ -203,6 +203,8 @@ export interface DesktopConfigData {
 	debugMode?: boolean;
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
 	defaultConversationCwd?: string;
+	/** im-gateway 自己的 cwd（~/.vetta/im-gateway/conversation），与桌面「对话」物理分家（ADR-0005）。 */
+	defaultImConversationCwd?: string;
 }
 
 export interface DesktopConfigApi {

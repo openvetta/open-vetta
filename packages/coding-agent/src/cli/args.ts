@@ -24,12 +24,6 @@ export interface Args {
 	noSession?: boolean;
 	session?: string;
 	sessionDir?: string;
-	/**
-	 * Tag new sessions with this entrypoint. Currently only "im" is
-	 * meaningful (used by im-gateway). Sessions created by the desktop-app
-	 * leave this unset; legacy sessions also have no origin.
-	 */
-	origin?: "im" | "desktop";
 	models?: string[];
 	tools?: ToolName[];
 	noTools?: boolean;
@@ -46,6 +40,13 @@ export interface Args {
 	listModels?: string | true;
 	offline?: boolean;
 	verbose?: boolean;
+	/**
+	 * Enable the host-bridge channel in rpc mode. Registers the `im_send_attachment`
+	 * tool and lets it issue `host_request` events that the host (im-gateway)
+	 * answers via `host_response` commands. Only meaningful with `--mode rpc`.
+	 * See docs/rpc.md.
+	 */
+	enableHostBridge?: boolean;
 	messages: string[];
 	fileArgs: string[];
 	/** Unknown flags (potentially extension flags) - map of flag name to value */
@@ -97,13 +98,6 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			result.session = args[++i];
 		} else if (arg === "--session-dir" && i + 1 < args.length) {
 			result.sessionDir = args[++i];
-		} else if (arg === "--origin" && i + 1 < args.length) {
-			const o = args[++i];
-			if (o === "im" || o === "desktop") {
-				result.origin = o;
-			} else {
-				console.error(chalk.yellow(`Warning: Invalid --origin "${o}". Valid: im, desktop`));
-			}
 		} else if (arg === "--models" && i + 1 < args.length) {
 			result.models = args[++i].split(",").map((s) => s.trim());
 		} else if (arg === "--no-tools") {
@@ -165,6 +159,8 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			}
 		} else if (arg === "--verbose") {
 			result.verbose = true;
+		} else if (arg === "--enable-host-bridge") {
+			result.enableHostBridge = true;
 		} else if (arg === "--offline") {
 			result.offline = true;
 		} else if (arg.startsWith("@")) {
@@ -217,8 +213,6 @@ ${chalk.bold("Options:")}
   --resume, -r                   Select a session to resume
   --session <path>               Use specific session file
   --session-dir <dir>            Directory for session storage and lookup
-  --origin <im|desktop>          Tag newly-created sessions with this entrypoint
-                                 (default: unset; consumers treat as "desktop")
   --no-session                   Don't save session (ephemeral)
   --models <patterns>            Comma-separated model patterns for Ctrl+P cycling
                                  Supports globs (anthropic/*, *sonnet*) and fuzzy matching
@@ -237,6 +231,7 @@ ${chalk.bold("Options:")}
   --export <file>                Export session file to HTML and exit
   --list-models [search]         List available models (with optional fuzzy search)
   --verbose                      Force verbose startup (overrides quietStartup setting)
+  --enable-host-bridge           (--mode rpc only) Register im_send_attachment and host_request RPC channel
   --offline                      Disable startup network operations (same as PI_OFFLINE=1)
   --help, -h                     Show this help
   --version, -v                  Show version number

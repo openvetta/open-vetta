@@ -3,6 +3,7 @@ import { useProjects } from "@domains/project/hooks/useProjects";
 import { fetchServerInfo } from "@shared/lib/api";
 import {
 	defaultConversationCwdAtom,
+	defaultImConversationCwdAtom,
 	deployModeAtom,
 	selectedModelAtom,
 	sessionExecutionModeAtom,
@@ -14,6 +15,7 @@ import { useEffect } from "react";
 export function useAppInit(): void {
 	const setWorkspacePath = useSetAtom(workspacePathAtom);
 	const setDefaultConversationCwd = useSetAtom(defaultConversationCwdAtom);
+	const setDefaultImConversationCwd = useSetAtom(defaultImConversationCwdAtom);
 	const setSelectedModel = useSetAtom(selectedModelAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setDeployMode = useSetAtom(deployModeAtom);
@@ -33,6 +35,9 @@ export function useAppInit(): void {
 			}
 			if (config.defaultConversationCwd) {
 				setDefaultConversationCwd(config.defaultConversationCwd);
+			}
+			if (config.defaultImConversationCwd) {
+				setDefaultImConversationCwd(config.defaultImConversationCwd);
 			}
 			const executionMode = config.defaultExecutionMode ?? "full-access";
 			setSessionExecutionMode(executionMode);
@@ -82,5 +87,6 @@ export function useAppInit(): void {
 		setDeployMode,
 		refreshProjects,
 		refreshBatchProjects,
+		setDefaultImConversationCwd,
 	]);
 }

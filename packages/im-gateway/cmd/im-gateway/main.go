@@ -173,7 +173,9 @@ func runStart(args []string) int {
 		Bin:              cfg.HostClient.CodingAgentBin,
 		HandshakeTimeout: cfg.HostClient.HandshakeTimeout,
 		CloseTimeout:     cfg.HostClient.CloseTimeout,
-		Origin:           "im",
+		// Standalone `start` mode is also wechat-aware: same im_send_attachment
+		// pipeline applies (see ADR-0006). Cheap to always enable.
+		EnableHostBridge: true,
 	})
 	pool := hostclient.NewProcessPool(hostClient, cfg.HostClient.PoolMaxSize)
 	defer func() {
@@ -231,6 +233,7 @@ func buildTransport(cfg *config.Config, creds *config.Credentials, log *zap.Logg
 		opts := wechat.Options{
 			StatePath: cfg.Paths.WechatState,
 			Logger:    log,
+			InboxDir:  cfg.Paths.ConversationCwd,
 		}
 		if cfg.Transport.Wechat != nil {
 			opts.QuotaPerWindow = cfg.Transport.Wechat.QuotaPerWindow

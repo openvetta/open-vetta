@@ -56,15 +56,40 @@ A user-attached file or directory reference carried alongside a chat prompt. Sha
 
 ### conversation cwd
 
-`~/.vetta/conversation`，即 desktop-app 中虚拟注入的「对话」项目的 cwd（常量 `DEFAULT_CONVERSATION_CWD`，`packages/desktop-app/src/main/ipc/fs.ts`）。session 文件落在 `<conversation cwd>/.vetta/sessions/`。
+`~/.vetta/conversation`，desktop-app 中虚拟注入的「对话」项目的 cwd（常量 `DEFAULT_CONVERSATION_CWD`，`packages/desktop-app/src/main/ipc/fs.ts`）。session 文件落在 `<conversation cwd>/.vetta/sessions/`。
 
-im-gateway 的 IM 入口一律把消息收敛到这个 cwd，不再像旧版那样让 IM 用户在多个项目间 `/use` 切换。conversation cwd 的真实路径由 desktop-app 在启动 sidecar 时通过 hostproto `InitFrame.conversationCwd` 下发；gateway 不再读 `desktop-config.json` 的项目列表。
+**仅指 desktop 侧。** im-gateway 自 ADR-0005 起改用独立 cwd（见 [[im-gateway cwd]]），不再共用本目录。文档/代码里出现「conversation cwd」时默认指 desktop 这一份。
 
-### session origin
+### im-gateway cwd
 
-`SessionHeader.origin: "im" | "desktop"`。标记一条 session 由哪个入口创建：desktop-app 直接拉起的为 `"desktop"`，im-gateway 通过 coding-agent RPC 拉起的为 `"im"`。缺省（旧 session）按 `"desktop"` 渲染。
+`~/.vetta/im-gateway/conversation/`，im-gateway 所有 IM 渠道（wechat / feishu / ilink ...）共用的工作目录。session 文件落在 `<im-gateway cwd>/.vetta/sessions/`，agent 生成的产物（html/py/md 等）落在 cwd 根。路由 key 仍是 `(im_user, chatID)`（继承自 ADR-0004），单一 cwd 内靠 sessions 文件名区分不同 IM 会话。
 
-desktop-app sidebar 据此对「对话」项目下混合排列的 session 加 badge 区分；同一 cwd 下多个 IM 用户的会话互不混淆是路由层（`(im_user, chatID)`）保证的，badge 只是视觉提示，不参与路由判定。
+与 [[conversation cwd]] 物理分离：桌面「对话」与 IM 入口的 session / 产物互不可见，desktop sidebar 不再展示 IM session（ADR-0005 推翻了 ADR-0004 的混合展示形态）。
+
+### im-gateway inbox
+
+`~/.vetta/im-gateway/conversation/<YYYY-MM-DD>/`，im-gateway 把 IM 入站的图片/文件解密后**原样字节**落盘到此（按本地日期分目录），文件名形如 `<msgId>-<原文件名或 ext>`。落盘后 bridge 在 prompt 文本头部 prepend 一行 `@<abspath>`，agent 通过 Read 工具自行读取（图片走 `resizeImageBuffer` 自动缩放）。
+
+**刻意不走 RPC `images[]`**：避免 im-gateway 重复造缩放轮子，复用 Read 既有图像处理，且把"是否要看图"的决策权留给 agent。与 desktop 的 `attachedImage` 多模态直投是不同路径——两者刻意不统一，IM 端走 [[mentionedFile]] 单轨。
+
+### im_send_attachment
+
+coding-agent 内置工具（`packages/coding-agent/src/core/tools/...`），仅在 `--mode rpc --enable-host-bridge` 启动时注册，对 TUI / CLI / desktop 启动的 agent 不可见。签名：`im_send_attachment({path: string, kind: "image"|"file", caption?: string})`。
+
+实现通过 [[host_request / host_response]] 同步等待宿主（im-gateway）真实发送结果（30s 超时）；成功返回 `messageId`，失败返回结构化 error（如 `quota_exhausted` / `peer_unreachable`）。Agent 拿到真实结果再决定收尾文本怎么说，避免"声称已发送实际没发"。
+
+每次成功调用占用 1 次 wechat per-peer quota，与最终 digest 文本独立计数。
+
+### host_request / host_response
+
+agent ↔ host 之间的反向 RPC 通道，扩自 coding-agent 的 RPC 协议（`packages/coding-agent/docs/rpc.md` 待补）。形状：
+
+- agent → host（stdout event line）：`{"type":"host_request","id":"hr-N","method":"send_attachment","params":{...}}`
+- host → agent（stdin command line）：`{"type":"host_response","id":"hr-N","success":bool,"data":{...},"error":""}`
+
+`method` 字段预留扩展（未来可能有 `send_typing` / `query_peer` 等）。`id` 由 agent 侧生成，host 必须原样回填。无应答时 agent 工具侧 30s 超时。
+
+与 RPC 现有的 `command/response` 是镜像方向：现有是 host→agent（驱动），新增是 agent→host（回调）。共用 stdin/stdout，靠 `type` 字段区分。
 
 ### drop overlay (of ChatPage)
 

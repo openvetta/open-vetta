@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"strings"
 	"sync"
@@ -87,6 +88,9 @@ func (t *fakeTransport) EditMessage(_ context.Context, _, _ string, _ transport.
 }
 func (t *fakeTransport) DeleteMessage(_ context.Context, _, _ string) error { return nil }
 func (t *fakeTransport) ShowTyping(_ context.Context, _ string) error       { return nil }
+func (t *fakeTransport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
+	return "", errors.New("fake: not supported")
+}
 func (t *fakeTransport) EndStream(_ context.Context, _, _ string) error     { return nil }
 
 func (t *fakeTransport) snapshot() []sendRecord {
@@ -302,6 +306,8 @@ type streamingFakeSession struct {
 	events chan hostclient.AgentEvent
 	reply  string
 }
+
+func (s *streamingFakeSession) SendNoReply(_ context.Context, _ hostclient.Command) error { return nil }
 
 func (s *streamingFakeSession) Send(_ context.Context, cmd hostclient.Command) (hostclient.Response, error) {
 	if cmd.Type == hostclient.CommandTypePrompt {

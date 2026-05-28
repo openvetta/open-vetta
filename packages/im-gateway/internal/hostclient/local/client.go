@@ -29,13 +29,6 @@ type Options struct {
 	// future use; current callers leave it empty.
 	ExtraEnv map[string]string
 
-	// Origin is forwarded to coding-agent as `--origin <value>` when
-	// non-empty. Currently used by the host runtime to tag IM-created
-	// sessions with `origin=im` so desktop-app's sidebar can render an
-	// "IM" badge on them. Empty → no flag emitted → coding-agent's
-	// default ("desktop" semantics) applies.
-	Origin string
-
 	// SessionDir, when non-empty, is forwarded as `--session-dir`. The
 	// IM host runtime sets this to `<conversationCwd>/.vetta/sessions/`
 	// to match desktop-app's `resolveSessionDirForCwd` convention so
@@ -50,6 +43,14 @@ type Options struct {
 	// into coding-agent CLI mode. In dev it carries the Electron main-
 	// entry path. Empty in `im-gateway start` standalone mode.
 	BinPrefixArgs []string
+
+	// EnableHostBridge appends `--enable-host-bridge` to the spawned
+	// coding-agent subprocess argv. The flag tells coding-agent to
+	// register the `im_send_attachment` tool and to accept `host_response`
+	// commands on stdin (see packages/coding-agent/docs/rpc.md and
+	// ADR-0006). Without it the agent has no way to call back into the
+	// IM transport — the tool is invisible to the LLM.
+	EnableHostBridge bool
 }
 
 const (
@@ -107,8 +108,8 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 	if c.opts.SessionDir != "" {
 		args = append(args, "--session-dir", c.opts.SessionDir)
 	}
-	if c.opts.Origin != "" {
-		args = append(args, "--origin", c.opts.Origin)
+	if c.opts.EnableHostBridge {
+		args = append(args, "--enable-host-bridge")
 	}
 	cmd := exec.CommandContext(ctx, c.opts.Bin, args...)
 	// CRITICAL: explicitly set the subprocess's working directory.

@@ -1149,6 +1149,43 @@ Dismiss any dialog method. The extension receives `undefined` (for select/input/
 {"type": "extension_ui_response", "id": "uuid-3", "cancelled": true}
 ```
 
+## Host Bridge (`--enable-host-bridge`)
+
+Opt-in reverse RPC channel. When the agent is launched with `--mode rpc --enable-host-bridge`, two new wire shapes become valid and the built-in `im_send_attachment` tool is registered. Used by `im-gateway` to let the agent deliver IM attachments (image / file) through whichever IM transport is active.
+
+When the flag is absent, none of this exists: `im_send_attachment` is not registered, `host_response` lines on stdin are ignored, and no `host_request` is ever emitted.
+
+### `host_request` (stdout)
+
+Emitted by a tool execution that needs the host to perform an action and return a result. Mirrors `extension_ui_request` in shape (correlated by `id`) but distinguished by `type` so consumers can route the two channels independently.
+
+```json
+{
+  "type": "host_request",
+  "id": "uuid-1",
+  "method": "send_attachment",
+  "params": { "path": "/abs/path/to/file.pdf", "kind": "file", "caption": "report" }
+}
+```
+
+`method` is currently `send_attachment` only. `params.kind` is `"image"` for jpg/png/gif/webp, `"file"` for everything else. `caption` is optional.
+
+The tool waits up to 30 s for a matching `host_response`; on timeout the tool returns an error to the agent.
+
+### `host_response` (stdin)
+
+Reply from the host. The host MUST echo the same `id`. Exactly one of the two shapes:
+
+```json
+{ "type": "host_response", "id": "uuid-1", "success": true, "data": { "messageId": "wx-..." } }
+```
+
+```json
+{ "type": "host_response", "id": "uuid-1", "success": false, "error": "per-peer 24h quota exhausted", "errorCode": "quota_exhausted" }
+```
+
+`data.messageId` is optional but recommended for traceability. `errorCode` is an opaque short slug (`quota_exhausted`, `peer_unreachable`, `transport_error`, …) the host may surface so the agent can branch on it.
+
 ## Error Handling
 
 Failed commands return a response with `success: false`:

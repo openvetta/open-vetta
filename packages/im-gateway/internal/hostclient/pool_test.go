@@ -62,7 +62,8 @@ type fakeSession struct {
 func (s *fakeSession) Send(_ context.Context, _ Command) (Response, error) {
 	return Response{Success: true}, nil
 }
-func (s *fakeSession) Events() <-chan AgentEvent { return s.events }
+func (s *fakeSession) SendNoReply(_ context.Context, _ Command) error { return nil }
+func (s *fakeSession) Events() <-chan AgentEvent                      { return s.events }
 func (s *fakeSession) SessionPath() string       { return s.path }
 func (s *fakeSession) Close() error {
 	if s.closed.Swap(true) {

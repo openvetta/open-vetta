@@ -23,11 +23,17 @@ type buildSpec struct {
 	Feishu          *hostproto.FeishuConfig
 	Wechat          *hostproto.WechatConfig
 	WechatStatePath string // resolved absolute path; empty → use wechat package default
+
+	// ConversationCwd is the host runtime's working directory for the
+	// gateway. The wechat transport uses `<ConversationCwd>/inbox/` (well,
+	// the directory itself per ADR-0006) as the destination for decrypted
+	// inbound media. Empty disables inbound media handling.
+	ConversationCwd string
 }
 
 // fromInit constructs a buildSpec from an InitFrame.
 func specFromInit(f *hostproto.InitFrame) *buildSpec {
-	s := &buildSpec{Feishu: f.Feishu, Wechat: f.Wechat}
+	s := &buildSpec{Feishu: f.Feishu, Wechat: f.Wechat, ConversationCwd: f.ConversationCwd}
 	if s.Wechat != nil {
 		s.WechatStatePath = s.Wechat.StatePath
 	}

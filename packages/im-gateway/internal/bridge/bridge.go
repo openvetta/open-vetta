@@ -32,6 +32,16 @@ const DeferredAckText = "👀收到，vetta正在处理..."
 // final assistant text and no error to report.
 const DeferredEmptyText = "⚠️ 未返回文本内容"
 
+// HostResponder is the optional callback the bridge uses to answer
+// `host_request` events emitted by built-in coding-agent tools (see
+// ADR-0006). Receiving a host_request and not having a responder set is
+// not an error — the bridge logs and drops the request.
+//
+// The send function is expected to be a thin adapter over
+// hostclient.HostSession.Send; the bridge does not care about the
+// response (the agent side waits on stdin for the host_response command).
+type HostResponder func(ctx context.Context, cmd hostclient.Command) error
+
 // Bridge translates a stream of agent events into outbound IM messages.
 //
 // One Bridge instance per (transport, chatID) pair; constructed at the
@@ -52,9 +62,10 @@ const DeferredEmptyText = "⚠️ 未返回文本内容"
 // thinking_delta is emitted as a separate message. Tool execution events
 // flush pending output and emit a one-line tool summary.
 type Bridge struct {
-	tr     transport.Transport
-	chatID string
-	caps   transport.Capabilities
+	tr        transport.Transport
+	chatID    string
+	caps      transport.Capabilities
+	responder HostResponder
 
 	// streaming state
 	buf           strings.Builder
@@ -118,6 +129,10 @@ func New(tr transport.Transport, chatID string) *Bridge {
 	}
 	return b
 }
+
+// SetHostResponder installs the callback used to answer `host_request`
+// events. Optional — when unset, host_request events are logged and dropped.
+func (b *Bridge) SetHostResponder(r HostResponder) { b.responder = r }
 
 // Run consumes events until the agent's turn ends and emits IM messages
 // along the way. A turn ends on the first of:
@@ -208,9 +223,15 @@ func (b *Bridge) runDeferred(ctx context.Context, events <-chan hostclient.Agent
 	}
 }
 
-func (b *Bridge) handleDeferred(_ context.Context, ev hostclient.AgentEvent) error {
+func (b *Bridge) handleDeferred(ctx context.Context, ev hostclient.AgentEvent) error {
 	d := b.deferred
 	switch ev.Type {
+	case "host_request":
+		// host_request events are handled identically in deferred and
+		// streaming modes — attachment sends happen *now*, not at
+		// turn-end, so the agent gets a real result to continue from.
+		b.handleHostRequest(ctx, ev.Raw)
+		return nil
 	case hostclient.AgentEventTypeToolExecutionStart:
 		d.toolCount++
 	case hostclient.AgentEventTypeMessageEnd:
@@ -305,6 +326,9 @@ func (b *Bridge) sendDeferredDigest(ctx context.Context) error {
 
 func (b *Bridge) handle(ctx context.Context, ev hostclient.AgentEvent) error {
 	switch ev.Type {
+	case "host_request":
+		b.handleHostRequest(ctx, ev.Raw)
+		return nil
 	case hostclient.AgentEventTypeMessageUpdate:
 		eventType, delta := extractAssistantMessageDelta(ev.Raw)
 		switch eventType {
@@ -674,6 +698,132 @@ func extractAssistantText(raw json.RawMessage) string {
 		}
 	}
 	return sb.String()
+}
+
+// hostRequest is the on-wire shape of an agent-emitted reverse RPC. The
+// only `method` currently understood is `send_attachment` — see ADR-0006
+// and packages/coding-agent/docs/rpc.md.
+type hostRequest struct {
+	Type   string `json:"type"`
+	ID     string `json:"id"`
+	Method string `json:"method"`
+	Params struct {
+		Path    string `json:"path"`
+		Kind    string `json:"kind"`
+		Caption string `json:"caption"`
+	} `json:"params"`
+}
+
+// handleHostRequest dispatches one `host_request` event. The reply (via
+// the installed HostResponder) carries a matching `host_response` command
+// the agent will read off its stdin and resolve the in-flight tool call.
+//
+// Failures (missing responder, missing method, transport error) are all
+// reported back to the agent as host_response{success:false}; we never
+// drop the request silently because that would leave the tool hanging
+// until its 30s timeout.
+func (b *Bridge) handleHostRequest(ctx context.Context, raw json.RawMessage) {
+	var req hostRequest
+	if err := json.Unmarshal(raw, &req); err != nil || req.ID == "" {
+		// No id → no way to correlate. Best effort: drop.
+		return
+	}
+	if b.responder == nil {
+		b.replyHostError(ctx, req.ID, "no_responder", "host bridge not configured for this session")
+		return
+	}
+	switch req.Method {
+	case "send_attachment":
+		b.dispatchSendAttachment(ctx, req)
+	default:
+		b.replyHostError(ctx, req.ID, "unknown_method", fmt.Sprintf("unknown host_request method %q", req.Method))
+	}
+}
+
+func (b *Bridge) dispatchSendAttachment(ctx context.Context, req hostRequest) {
+	kind := transport.AttachmentKind(strings.ToLower(req.Params.Kind))
+	if kind != transport.AttachmentImage && kind != transport.AttachmentFile {
+		b.replyHostError(ctx, req.ID, "bad_kind", fmt.Sprintf("kind must be image|file, got %q", req.Params.Kind))
+		return
+	}
+	if req.Params.Path == "" {
+		b.replyHostError(ctx, req.ID, "bad_path", "params.path is required")
+		return
+	}
+	messageID, err := b.tr.SendAttachment(ctx, b.chatID, transport.OutboundAttachment{
+		Kind:    kind,
+		Path:    req.Params.Path,
+		Caption: req.Params.Caption,
+	})
+	if err != nil {
+		code := classifyAttachmentError(err)
+		b.replyHostError(ctx, req.ID, code, err.Error())
+		return
+	}
+	// Mark output so any buffered transient errors are dropped — the user
+	// just received a real attachment, that's clearly progress.
+	b.markOutputSent()
+	b.replyHostSuccess(ctx, req.ID, messageID)
+}
+
+// classifyAttachmentError maps a transport error to a short slug agent-side
+// callers can branch on. Currently only quota_exhausted is recognised
+// specially; everything else funnels into transport_error.
+func classifyAttachmentError(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "quota") {
+		return "quota_exhausted"
+	}
+	if strings.Contains(msg, "not supported") {
+		return "unsupported_transport"
+	}
+	return "transport_error"
+}
+
+func (b *Bridge) replyHostSuccess(ctx context.Context, id, messageID string) {
+	// CRITICAL: id must go in cmd.ID, not cmd.Data["id"]. hostclient.local's
+	// writeCommand explicitly skips Data["id"] / Data["type"] to prevent
+	// callers from clobbering the protocol's reserved keys — so an id buried
+	// in Data ends up as "" on the wire, the agent's pendingHostRequests
+	// lookup misses, and the tool times out at 30s. Same applies to
+	// replyHostError below.
+	cmd := hostclient.Command{
+		ID:   id,
+		Type: "host_response",
+		Data: map[string]any{
+			"success": true,
+		},
+	}
+	if messageID != "" {
+		cmd.Data["data"] = map[string]any{"messageId": messageID}
+	}
+	if err := b.responder(ctx, cmd); err != nil {
+		// Nothing we can do — the agent's tool call will time out. Don't
+		// retry: at-most-once delivery is fine here, the user-visible
+		// damage was already done (or not) on the transport side.
+		_ = err
+	}
+}
+
+func (b *Bridge) replyHostError(ctx context.Context, id, code, message string) {
+	if b.responder == nil {
+		return
+	}
+	data := map[string]any{
+		"success": false,
+		"error":   message,
+	}
+	if code != "" {
+		data["errorCode"] = code
+	}
+	_ = b.responder(ctx, hostclient.Command{
+		ID:   id,
+		Type: "host_response",
+		Data: data,
+	})
 }
 
 // extractErrorText pulls a human-readable error string from an error event.

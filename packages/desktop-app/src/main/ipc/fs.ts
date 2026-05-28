@@ -37,6 +37,8 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	linuxSandbox: LinuxSandboxConfigState;
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
 	defaultConversationCwd: string;
+	/** im-gateway 自己的 cwd（~/.vetta/im-gateway/conversation）。Claw tab 据此判定一条 session 是否来自 IM。 */
+	defaultImConversationCwd: string;
 }
 
 export const DEFAULT_CONVERSATION_CWD = join(homedir(), ".vetta", "conversation");
@@ -46,6 +48,13 @@ export const DEFAULT_CONVERSATION_CWD = join(homedir(), ".vetta", "conversation"
  * 避免 ~/.vetta/agent/sessions/<encoded-cwd>/ 的设备相关编码路径。
  */
 export const DEFAULT_CONVERSATION_SESSION_DIR = join(DEFAULT_CONVERSATION_CWD, ".vetta", "sessions");
+
+/**
+ * im-gateway 自己的 cwd，跟桌面「对话」物理分离（ADR-0005）。Claw tab 只读
+ * 列出此目录下的 session；im-gateway sidecar 启动时也注入此路径。
+ */
+export const DEFAULT_IM_CONVERSATION_CWD = join(homedir(), ".vetta", "im-gateway", "conversation");
+export const DEFAULT_IM_CONVERSATION_SESSION_DIR = join(DEFAULT_IM_CONVERSATION_CWD, ".vetta", "sessions");
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
 const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
@@ -505,11 +514,13 @@ export function registerFsIpc(): () => void {
 		for (const p of config.archivedProjects) allowProjectRoot(p.path);
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
 		allowProjectRoot(DEFAULT_CONVERSATION_CWD);
+		allowProjectRoot(DEFAULT_IM_CONVERSATION_CWD);
 		return {
 			...config,
 			sandbox: getSandboxCapability(),
 			linuxSandbox: getLinuxSandboxCapability(),
 			defaultConversationCwd: DEFAULT_CONVERSATION_CWD,
+			defaultImConversationCwd: DEFAULT_IM_CONVERSATION_CWD,
 		};
 	});
 

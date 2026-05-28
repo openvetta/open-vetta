@@ -24,6 +24,12 @@ export const DEFAULT_CONVERSATION_PROJECT_NAME = "对话";
 export const defaultConversationCwdAtom = atom<string>("");
 
 /**
+ * im-gateway 的 cwd（绝对路径），与桌面「对话」cwd 物理分离（ADR-0005）。
+ * 用于判定一条 session 是否是 Claw（IM）来源：session.cwd === defaultImConversationCwdAtom。
+ */
+export const defaultImConversationCwdAtom = atom<string>("");
+
+/**
  * 根据 cwd 获取项目展示名：默认「对话」项目返回中文名，其它项目使用 cwd basename。
  * 传入 defaultCwd 来识别默认项目（避免对 atom 的隐式依赖，便于在非 React 环境调用）。
  */
@@ -39,12 +45,15 @@ export interface SessionInfo {
 	name?: string;
 	firstMessage: string;
 	modifiedAt: number;
-	/**
-	 * Where the session was created. "im" means im-gateway spawned it
-	 * (sidebar renders an "IM" badge); undefined / "desktop" means it
-	 * came from the desktop app and no badge is drawn.
-	 */
-	origin?: "im" | "desktop";
+}
+
+/**
+ * 判断一条 session 是否来自 IM（Claw）。物理来源即身份：会话 cwd 等于 im-gateway cwd
+ * 就是 Claw 会话。`imCwd` 由 [[defaultImConversationCwdAtom]] 提供，空串表示 ConfigGet
+ * 还没回来，此时一律视为非 IM（避免误把桌面会话归到 Claw tab）。
+ */
+export function isImSession(session: Pick<SessionInfo, "cwd">, imCwd: string): boolean {
+	return imCwd !== "" && session.cwd === imCwd;
 }
 
 export type SidebarFilter = "all" | "normal" | "schedule" | "batch" | "flowing";
