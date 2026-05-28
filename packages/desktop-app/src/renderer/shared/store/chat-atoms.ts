@@ -187,9 +187,12 @@ export const activeSessionStreamingAtom = atom<boolean>(false);
  * = 本地信号 OR (runningSessionPathsAtom 中存在当前 sessionPath)
  */
 export const isStreamingAtom = atom<boolean>((get) => {
-	if (get(activeSessionStreamingAtom)) return true;
+	// 没有 activeSession 时一律视为非 streaming，避免上一个会话残留的
+	// activeSessionStreamingAtom=true 信号污染 NewSessionPage 等无会话场景。
 	const active = get(activeSessionAtom);
-	if (!active?.sessionPath) return false;
+	if (!active) return false;
+	if (get(activeSessionStreamingAtom)) return true;
+	if (!active.sessionPath) return false;
 	return get(runningSessionPathsAtom).has(active.sessionPath);
 });
 function getStoredExecutionMode(): SessionExecutionMode {
@@ -206,6 +209,10 @@ export const contextUsageAtom = atom<ContextUsageData | null>(null);
 
 /** Whether context compaction is currently in progress */
 export const isCompactingAtom = atom<boolean>(false);
+
+/** 当前 session 是否正在懒重载 MCP 配置（用户发 prompt 后 ~1-3s）。
+ * 仅由 mcp.reload.start/end 驱动；UI 用一条非阻塞的小提示告知用户。 */
+export const isReloadingMcpAtom = atom<boolean>(false);
 
 /** Selected model identifier: "provider/modelId" */
 export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));
