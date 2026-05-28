@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtomValue } from "jotai";
 import type {
 	McpConfigData,
 	McpHttpServerConfigData,
 	McpServerConfigData,
 	McpStdioServerConfigData,
 } from "@preload/api.js";
+import { fetchMarketMcpServers, type MarketMcpServer } from "@shared/lib/api";
+import { authTokenAtom } from "@shared/store/auth-atoms";
 
 function isHttpMcpServerConfigData(c: McpServerConfigData): c is McpHttpServerConfigData {
 	return c.type === "http";
@@ -333,6 +336,175 @@ function McpServerForm({
 	);
 }
 
+function marketToServer(m: MarketMcpServer): McpServerConfigData {
+	if (m.transport === "http") {
+		const cfg: McpHttpServerConfigData = { type: "http", url: m.url };
+		if (m.headers && Object.keys(m.headers).length > 0) cfg.headers = m.headers;
+		if (m.auto_approve && m.auto_approve.length > 0) cfg.autoApprove = m.auto_approve;
+		return cfg;
+	}
+	const cfg: McpStdioServerConfigData = { command: m.command };
+	if (m.args && m.args.length > 0) cfg.args = m.args;
+	if (m.env && Object.keys(m.env).length > 0) cfg.env = m.env;
+	if (m.auto_approve && m.auto_approve.length > 0) cfg.autoApprove = m.auto_approve;
+	return cfg;
+}
+
+function RemoteMcpSection({
+	addedNames,
+	onAdd,
+	onRemove,
+}: {
+	addedNames: Set<string>;
+	onAdd: (m: MarketMcpServer) => Promise<void> | void;
+	onRemove: (name: string) => Promise<void> | void;
+}): JSX.Element {
+	const token = useAtomValue(authTokenAtom);
+	const [items, setItems] = useState<MarketMcpServer[] | null>(null);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState<string | null>(null);
+
+	const load = useCallback(() => {
+		if (!token) {
+			setError("请先登录后再查看远程 MCP 列表");
+			setItems([]);
+			return;
+		}
+		setLoading(true);
+		setError(null);
+		void fetchMarketMcpServers(token)
+			.then((list) => {
+				setItems(list);
+				setError(null);
+			})
+			.catch((err: Error) => {
+				setError(err.message || "加载失败");
+				setItems([]);
+			})
+			.finally(() => setLoading(false));
+	}, [token]);
+
+	useEffect(() => {
+		load();
+	}, [load]);
+
+	const handleAction = useCallback(
+		async (m: MarketMcpServer, action: "add" | "remove") => {
+			setBusy(m.name);
+			try {
+				if (action === "add") {
+					await onAdd(m);
+				} else {
+					await onRemove(m.name);
+				}
+			} finally {
+				setBusy(null);
+			}
+		},
+		[onAdd, onRemove],
+	);
+
+	return (
+		<div className="mt-8">
+			<div className="mb-3 flex items-center justify-between">
+				<div>
+					<h2 className="text-[15px] font-semibold text-foreground">远程 MCP 列表</h2>
+					<p className="mt-0.5 text-[11px] text-muted-foreground">
+						由管理员统一维护，可一键添加到本地配置
+					</p>
+				</div>
+				<Button variant="ghost" size="sm" onClick={load} disabled={loading}>
+					<span
+						className={cn(
+							"icon-[mdi--refresh] h-3.5 w-3.5 mr-1",
+							loading && "animate-spin",
+						)}
+					/>
+					刷新
+				</Button>
+			</div>
+
+			<SettingSection title="可添加的远程服务器">
+				{loading && (
+					<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
+						加载中…
+					</div>
+				)}
+
+				{!loading && error && (
+					<div className="px-5 py-4 text-center text-[12px] text-red-400">{error}</div>
+				)}
+
+				{!loading && !error && items && items.length === 0 && (
+					<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
+						暂无远程 MCP 服务器
+					</div>
+				)}
+
+				{!loading &&
+					!error &&
+					items &&
+					items.map((m) => {
+						const added = addedNames.has(m.name);
+						const isBusy = busy === m.name;
+						return (
+							<div
+								key={m.id}
+								className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0"
+							>
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-2">
+										<span className="text-[13px] font-medium text-foreground">
+											{m.display_name || m.name}
+										</span>
+										<span className="rounded-full bg-accent px-1.5 py-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+											{m.transport}
+										</span>
+										{added && (
+											<span className="rounded-full bg-green-500/10 px-1.5 py-0.5 text-[9px] font-medium text-green-400">
+												已添加
+											</span>
+										)}
+									</div>
+									<div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+										{m.transport === "http"
+											? m.url
+											: `${m.command}${m.args?.length ? " " + m.args.join(" ") : ""}`}
+									</div>
+									{m.description && (
+										<div className="mt-0.5 truncate text-[11px] text-muted-foreground/80">
+											{m.description}
+										</div>
+									)}
+								</div>
+								{added ? (
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={isBusy}
+										onClick={() => void handleAction(m, "remove")}
+									>
+										{isBusy ? "处理中…" : "移除"}
+									</Button>
+								) : (
+									<Button
+										variant="primary"
+										size="sm"
+										disabled={isBusy}
+										onClick={() => void handleAction(m, "add")}
+									>
+										{isBusy ? "处理中…" : "添加"}
+									</Button>
+								)}
+							</div>
+						);
+					})}
+			</SettingSection>
+		</div>
+	);
+}
+
 export function McpSettings(): JSX.Element {
 	const [config, setConfig] = useState<McpConfigData | null>(null);
 	const [mode, setMode] = useState<McpEditMode>("visual");
@@ -398,6 +570,26 @@ export function McpSettings(): JSX.Element {
 			setExpandedServer(serverForm.name.trim());
 		}
 	}, [config, serverForm, saveConfig]);
+
+	const addRemoteServer = useCallback(
+		async (m: MarketMcpServer) => {
+			if (!config) return;
+			const newServers = { ...config.mcpServers, [m.name]: marketToServer(m) };
+			await saveConfig({ ...config, mcpServers: newServers });
+		},
+		[config, saveConfig],
+	);
+
+	const removeRemoteServer = useCallback(
+		async (name: string) => {
+			if (!config) return;
+			const newServers = { ...config.mcpServers };
+			delete newServers[name];
+			await saveConfig({ ...config, mcpServers: newServers });
+			if (expandedServer === name) setExpandedServer(null);
+		},
+		[config, expandedServer, saveConfig],
+	);
 
 	const handleDeleteServer = useCallback(async (name: string) => {
 		if (!config) return;
@@ -489,6 +681,7 @@ export function McpSettings(): JSX.Element {
 	}
 
 	const serverNames = Object.keys(config.mcpServers);
+	const addedServerNames = new Set(serverNames);
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
@@ -728,6 +921,15 @@ export function McpSettings(): JSX.Element {
 						</div>
 					)}
 				</div>
+			)}
+
+			{/* Remote MCP list (only in visual mode) */}
+			{mode === "visual" && (
+				<RemoteMcpSection
+					addedNames={addedServerNames}
+					onAdd={addRemoteServer}
+					onRemove={removeRemoteServer}
+				/>
 			)}
 
 			{/* Config file path hint */}

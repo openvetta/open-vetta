@@ -365,6 +365,28 @@ export async function fetchSkillInfo(token: string, name: string): Promise<Marke
 	});
 }
 
+// ─── Remote MCP Servers ───
+
+export interface MarketMcpServer {
+	id: number;
+	name: string;
+	display_name: string;
+	description: string;
+	transport: "http" | "stdio";
+	url: string;
+	headers: Record<string, string>;
+	command: string;
+	args: string[];
+	env: Record<string, string>;
+	auto_approve: string[];
+}
+
+export async function fetchMarketMcpServers(token: string): Promise<MarketMcpServer[]> {
+	return request<MarketMcpServer[]>("/mcp-servers/market", {
+		headers: authHeaders(token),
+	});
+}
+
 // ─── Flowing ───
 
 export interface FlowingTransferVO {
