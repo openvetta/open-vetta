@@ -15,9 +15,9 @@ interface ProjectContextMenuProps {
 	onDelete: (cwd: string) => void;
 	/** 默认「对话」项目专用：左侧 dropdown 当前选中（conversation / claw），决定菜单内容。 */
 	defaultScope?: "conversation" | "claw";
-	/** 默认「对话」项目专用：清空非 IM 会话与产物（保留 claw session 文件）。 */
+	/** 默认「对话」项目专用：仅清空非 IM 会话（保留产物，保留 claw session 文件）。 */
 	onClearConversation?: (cwd: string) => void;
-	/** 默认「对话」项目专用：仅清空 IM (claw) session 文件。 */
+	/** 默认「对话」项目专用：仅清空 IM (claw) session 文件（保留产物）。 */
 	onClearClaw?: (cwd: string) => void;
 	/** Claw 设置入口；点击后跳转到 /settings/im。 */
 	onOpenClawSettings?: () => void;

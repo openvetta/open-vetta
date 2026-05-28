@@ -53,12 +53,16 @@ export interface DesktopSessionApi {
 	/** Subscribe to running-set changes. Fires for each toggle (running=true|false). */
 	onRunningChanged(handler: (payload: { sessionPath: string; running: boolean }) => void): () => void;
 	/**
-	 * 清空默认「对话」或 Claw 项目，按 scope 分流（物理 cwd 分家，ADR-0005）：
-	 * - "conversation"：清桌面「对话」cwd（~/.vetta/conversation）下的全部会话与产物
-	 * - "claw"：清 IM cwd（~/.vetta/im-gateway/conversation）下的全部会话与产物
+	 * 清空默认「对话」或 Claw 项目的全部会话（保留产物），按 scope 分流（物理 cwd 分家，ADR-0005）：
+	 * - "conversation"：清桌面「对话」cwd 的 .vetta/sessions
+	 * - "claw"：清 IM cwd 的 .vetta/sessions
 	 * 主进程会先 dispose 本 scope 涉及的 session handle；若该 scope 仍有运行中的会话则抛错拒绝。
 	 */
 	clearDefaultConversation(scope: "conversation" | "claw"): Promise<void>;
+	/**
+	 * 清空默认「对话」或 Claw 项目 cwd 下的产物文件（保留 .vetta 目录，会话不受影响）。
+	 */
+	clearDefaultArtifacts(scope: "conversation" | "claw"): Promise<void>;
 	/**
 	 * Open a session for read-only viewing. Does NOT acquire the
 	 * session-file lock, so IM-owned sessions (sidecar may be actively
