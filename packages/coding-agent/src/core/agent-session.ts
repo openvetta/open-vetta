@@ -297,6 +297,10 @@ export class AgentSession {
 	private _mcpManager: McpManager | undefined = undefined;
 	private _enableMcp: boolean;
 	private _mcpDebug: boolean;
+	/** session 构造时 kick 出的初次 mcpManager.initialize() Promise。
+	 * prompt 入口需 await 它，避免"新 session 第一个 prompt 在 init 还没完成
+	 * 时就发出去、LLM 看不到 MCP 工具"的竞态。 */
+	private _mcpInitPromise: Promise<void> | undefined = undefined;
 
 	// Todo list
 	private _todoStore: TodoStore;
@@ -334,8 +338,10 @@ export class AgentSession {
 				enabled: true,
 			});
 
-			// Initialize MCP servers asynchronously, then rebuild runtime to include MCP tools
-			this._mcpManager
+			// Initialize MCP servers asynchronously, then rebuild runtime to include MCP tools.
+			// 保留 Promise 句柄给 prompt 入口 await，避免新 session 在首条 prompt
+			// 时 init 还没跑完导致 LLM 看不到工具。
+			this._mcpInitPromise = this._mcpManager
 				.initialize()
 				.then(() => {
 					// Rebuild runtime after MCP initialization to include MCP tools
@@ -2579,6 +2585,21 @@ export class AgentSession {
 		const manager = this._mcpManager;
 		if (!manager) return;
 
+		// 首条 prompt 可能赶在初次 initialize 还没跑完 —— 必须等，否则
+		// getTools() 会返回部分/0 个工具。等待期间通过 mcp_reload_start/end
+		// 让 UI 显示提示，不阻塞用户操作。
+		const initPending = this._mcpInitPromise !== undefined;
+		if (initPending) {
+			this._emit({ type: "mcp_reload_start" });
+			try {
+				await this._mcpInitPromise;
+			} catch {
+				// initialize 内部已经 catch 了，这里再兜一次防御
+			} finally {
+				this._mcpInitPromise = undefined;
+			}
+		}
+
 		// 不进 slow-path 时尽量不发事件，避免 UI 闪 toast。先用一次签名比对，
 		// 不变直接退出；只有真的要重启才 emit start。
 		let willChange = false;
@@ -2588,9 +2609,16 @@ export class AgentSession {
 			// 比对失败就走 reload，让 reloadIfChanged 兜底
 			willChange = true;
 		}
-		if (!willChange) return;
 
-		this._emit({ type: "mcp_reload_start" });
+		if (!willChange) {
+			// 仅当上面发了 start 时才补一个 end，保持事件成对
+			if (initPending) {
+				this._emit({ type: "mcp_reload_end", changed: false });
+			}
+			return;
+		}
+
+		if (!initPending) this._emit({ type: "mcp_reload_start" });
 		let changed = false;
 		let errorMessage: string | undefined;
 		try {
