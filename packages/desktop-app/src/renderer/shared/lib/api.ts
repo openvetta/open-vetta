@@ -372,13 +372,8 @@ export interface MarketMcpServer {
 	name: string;
 	display_name: string;
 	description: string;
-	transport: "http" | "stdio";
-	url: string;
-	headers: Record<string, string>;
-	command: string;
-	args: string[];
-	env: Record<string, string>;
-	auto_approve: string[];
+	/** 由管理员维护的原样配置，直接作为 mcpServers[name] 写入本地 mcp.json */
+	config: Record<string, unknown>;
 }
 
 export async function fetchMarketMcpServers(token: string): Promise<MarketMcpServer[]> {
