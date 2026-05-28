@@ -93,9 +93,10 @@ type LoggingConfig struct {
 // PathsConfig overrides on-disk file locations. All optional; sane defaults
 // are derived from $HOME/.vetta when fields are empty.
 type PathsConfig struct {
-	// ConversationCwd is the absolute cwd of desktop-app's default "对话"
-	// project. Every IM session lives in this directory (see CONTEXT.md
-	// → "conversation cwd"). Defaults to ~/.vetta/conversation.
+	// ConversationCwd is the absolute cwd shared by all im-gateway IM
+	// sessions (see CONTEXT.md → "im-gateway cwd"). Physically separate
+	// from desktop-app's "对话" cwd so the two sides don't share sessions
+	// or generated artifacts. Defaults to ~/.vetta/im-gateway/conversation.
 	ConversationCwd string `yaml:"conversationCwd,omitempty"`
 	State           string `yaml:"state,omitempty"`         // ~/.vetta/im-gateway/state.json
 	LogsDir         string `yaml:"logsDir,omitempty"`       // ~/.vetta/im-gateway/logs/

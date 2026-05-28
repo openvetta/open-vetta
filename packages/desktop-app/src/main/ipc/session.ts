@@ -20,6 +20,8 @@ import {
 	allowProjectRoot,
 	DEFAULT_CONVERSATION_CWD,
 	DEFAULT_CONVERSATION_SESSION_DIR,
+	DEFAULT_IM_CONVERSATION_CWD,
+	DEFAULT_IM_CONVERSATION_SESSION_DIR,
 	readConfigSync,
 	readDesktopConfig,
 	writeDesktopConfig,
@@ -27,13 +29,17 @@ import {
 import { readSettings, writeSettings } from "./settings.js";
 
 /**
- * 默认「对话」项目的会话改放到 <cwd>/.vetta/sessions（与批量项目一致）。
- * 当请求的 cwd 是默认项目时，自动注入 sessionDir，渲染端无需感知。
+ * 默认「对话」与 IM cwd 的会话都放到 <cwd>/.vetta/sessions（与批量项目一致）。
+ * 当请求的 cwd 是这两类之一时自动注入 sessionDir，渲染端无需感知。
  */
 function resolveSessionDirForCwd(cwd: string | undefined): string | undefined {
 	if (!cwd) return undefined;
-	if (resolve(cwd) === resolve(DEFAULT_CONVERSATION_CWD)) {
+	const abs = resolve(cwd);
+	if (abs === resolve(DEFAULT_CONVERSATION_CWD)) {
 		return DEFAULT_CONVERSATION_SESSION_DIR;
+	}
+	if (abs === resolve(DEFAULT_IM_CONVERSATION_CWD)) {
+		return DEFAULT_IM_CONVERSATION_SESSION_DIR;
 	}
 	return undefined;
 }
@@ -361,27 +367,20 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.LIST_RUNNING, () => runtime.getRunningSessionPaths());
 
 	ipcMain.handle(CHANNELS.CLEAR_DEFAULT_CONVERSATION, async (_event, scope: unknown) => {
-		// scope 控制清理范围：
-		// - "conversation"：清非 IM 会话 + cwd 下所有产物，保留 IM 会话 jsonl
-		// - "claw"：仅删 sessionDir 中 origin==="im" 的 jsonl，其他一切不动
+		// 物理分家后（ADR-0005）每个 scope 对应一个独立 cwd，互不干扰：
+		// - "conversation"：清桌面「对话」cwd 下的会话与产物
+		// - "claw"：清 IM cwd 下的会话 jsonl（产物也在那个目录里，一并清掉）
 		if (scope !== "conversation" && scope !== "claw") {
 			throw new Error("Invalid scope for clearDefaultConversation");
 		}
-		const defaultCwd = resolve(DEFAULT_CONVERSATION_CWD);
-		const sessionDir = resolve(DEFAULT_CONVERSATION_SESSION_DIR);
+		const targetCwd = resolve(scope === "claw" ? DEFAULT_IM_CONVERSATION_CWD : DEFAULT_CONVERSATION_CWD);
+		const targetSessionDir = resolve(
+			scope === "claw" ? DEFAULT_IM_CONVERSATION_SESSION_DIR : DEFAULT_CONVERSATION_SESSION_DIR,
+		);
 
-		// 读取所有会话，按 origin 分类
-		const sessions = await runtime.listSessions(DEFAULT_CONVERSATION_CWD, DEFAULT_CONVERSATION_SESSION_DIR);
-		const imPathSet = new Set(sessions.filter((s) => s.origin === "im").map((s) => resolve(s.path)));
-		const isImPath = (p: string): boolean => imPathSet.has(resolve(p));
-
-		// 仅检查本次 scope 内的 running session
 		const running = runtime.getRunningSessionPaths();
-		const sessionDirWithSep = `${sessionDir}/`;
-		const blocking = running.filter((p) => {
-			if (!resolve(p).startsWith(sessionDirWithSep)) return false;
-			return scope === "claw" ? isImPath(p) : !isImPath(p);
-		});
+		const sessionDirWithSep = `${targetSessionDir}/`;
+		const blocking = running.filter((p) => resolve(p).startsWith(sessionDirWithSep));
 		if (blocking.length > 0) {
 			throw new Error(
 				scope === "claw"
@@ -390,14 +389,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			);
 		}
 
-		// 释放本 scope 涉及的 session handle
 		const toDispose: string[] = [];
 		for (const [sessionId, cwd] of sessionCwdMap.entries()) {
-			if (resolve(cwd) !== defaultCwd) continue;
-			const p = runtime.getSessionPath(sessionId);
-			if (!p) continue;
-			const match = scope === "claw" ? isImPath(p) : !isImPath(p);
-			if (match) toDispose.push(sessionId);
+			if (resolve(cwd) !== targetCwd) continue;
+			toDispose.push(sessionId);
 		}
 		await Promise.all(
 			toDispose.map(async (sessionId) => {
@@ -410,26 +405,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			}),
 		);
 
-		if (scope === "claw") {
-			// 仅删 sessionDir 中 origin==="im" 的 .jsonl
-			try {
-				await Promise.all([...imPathSet].map((p) => rm(p, { force: true })));
-			} catch (err) {
-				console.error("[clear-default-conversation] claw rm failed", err);
-				throw err;
-			}
-			return;
-		}
-
-		// scope === "conversation"：rm cwd 下所有内容，但保留 IM jsonl 的祖先链路
 		try {
-			await rmExceptPreserved(defaultCwd, imPathSet);
+			await rmExceptPreserved(targetCwd, new Set());
 		} catch (err) {
-			console.error("[clear-default-conversation] failed to clear conversation cwd", err);
+			console.error("[clear-default-conversation] failed to clear cwd", err);
 			throw err;
 		}
-		// 重建 sessionDir 以便下次 createSession 立即可用
-		await mkdir(sessionDir, { recursive: true });
+		await mkdir(targetSessionDir, { recursive: true });
 	});
 
 	const unsubscribeRunning = runtime.onRunningChanged((sessionPath, running) => {

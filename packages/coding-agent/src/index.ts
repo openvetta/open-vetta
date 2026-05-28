@@ -208,7 +208,6 @@ export {
 	type SessionInfoEntry,
 	SessionManager,
 	type SessionMessageEntry,
-	type SessionOrigin,
 	type ThinkingLevelChangeEntry,
 } from "./core/session-manager.js";
 export {

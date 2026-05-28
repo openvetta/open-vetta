@@ -24,12 +24,6 @@ export interface Args {
 	noSession?: boolean;
 	session?: string;
 	sessionDir?: string;
-	/**
-	 * Tag new sessions with this entrypoint. Currently only "im" is
-	 * meaningful (used by im-gateway). Sessions created by the desktop-app
-	 * leave this unset; legacy sessions also have no origin.
-	 */
-	origin?: "im" | "desktop";
 	models?: string[];
 	tools?: ToolName[];
 	noTools?: boolean;
@@ -97,13 +91,6 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			result.session = args[++i];
 		} else if (arg === "--session-dir" && i + 1 < args.length) {
 			result.sessionDir = args[++i];
-		} else if (arg === "--origin" && i + 1 < args.length) {
-			const o = args[++i];
-			if (o === "im" || o === "desktop") {
-				result.origin = o;
-			} else {
-				console.error(chalk.yellow(`Warning: Invalid --origin "${o}". Valid: im, desktop`));
-			}
 		} else if (arg === "--models" && i + 1 < args.length) {
 			result.models = args[++i].split(",").map((s) => s.trim());
 		} else if (arg === "--no-tools") {
@@ -217,8 +204,6 @@ ${chalk.bold("Options:")}
   --resume, -r                   Select a session to resume
   --session <path>               Use specific session file
   --session-dir <dir>            Directory for session storage and lookup
-  --origin <im|desktop>          Tag newly-created sessions with this entrypoint
-                                 (default: unset; consumers treat as "desktop")
   --no-session                   Don't save session (ephemeral)
   --models <patterns>            Comma-separated model patterns for Ctrl+P cycling
                                  Supports globs (anthropic/*, *sonnet*) and fuzzy matching

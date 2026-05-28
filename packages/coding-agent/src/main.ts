@@ -398,11 +398,7 @@ async function createSessionManager(parsed: Args, cwd: string): Promise<SessionM
 		switch (resolved.type) {
 			case "path":
 			case "local":
-				return SessionManager.open(
-					resolved.path,
-					parsed.sessionDir,
-					parsed.origin ? { origin: parsed.origin } : undefined,
-				);
+				return SessionManager.open(resolved.path, parsed.sessionDir);
 
 			case "global": {
 				// Session found in different project - ask user if they want to fork
@@ -426,13 +422,7 @@ async function createSessionManager(parsed: Args, cwd: string): Promise<SessionM
 	// --resume is handled separately (needs picker UI)
 	// If --session-dir provided without --continue/--resume, create new session there
 	if (parsed.sessionDir) {
-		return SessionManager.create(cwd, parsed.sessionDir, parsed.origin ? { origin: parsed.origin } : undefined);
-	}
-	// --origin alone forces us to build the manager here so the origin tag
-	// lands in the SessionHeader. (Otherwise SDK falls back to its own
-	// SessionManager.create call which doesn't know about origin.)
-	if (parsed.origin) {
-		return SessionManager.create(cwd, undefined, { origin: parsed.origin });
+		return SessionManager.create(cwd, parsed.sessionDir);
 	}
 	// Default case (new session) returns undefined, SDK will create one
 	return undefined;

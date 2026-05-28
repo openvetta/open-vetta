@@ -28,6 +28,7 @@
 
 ### Removed
 
+- **移除 `SessionHeader.origin` 字段、`SessionOrigin` 类型与 `--origin` CLI 参数**：原本由 im-gateway 启动子进程时传 `--origin im` 给会话打标，desktop-app sidebar 据此渲染「IM」badge。ADR-0005 把 im-gateway 和 desktop「对话」的 cwd 物理分家后，"哪个 cwd 出来的就是哪一类 session" 已是单一可信源，origin 字段沦为冗余。`SessionManager` 的 `defaultOrigin` 私字段、`NewSessionOptions.origin`、构造器对 origin 的 backfill 一并清除；`@vetta/coding-agent` 不再导出 `SessionOrigin`。下游 desktop-app 改用 `session.cwd === imConversationCwd` 判定 IM 会话。
 - 移除 `invoke_scene` 工具及其在 system prompt 中的指引。Scene 完全由服务端 `_expandSkillCommand` 在 `/scene:` 前缀进入时直接处理（注入隐藏 scene 内容 + 预填 todo 列表），不再依赖大模型自行调用工具。
 - **移除 LLM 调用 500 错误时的"鞭策机制"（inject-and-retry）**：之前 provider 返回 `stopReason === "error"` 时会注入一条 user 消息（"这通常由以下原因导致：1. 输入图片过大触发后端 CUDA OOM / 2. 上下文过长超出后端预分配显存 / 3. 后端服务临时不可用 / 5xx ……"）让模型自行换路径继续，连续失败 3 次才 halt。实测该机制对本地 VL 模型的恢复价值有限，反而把失败原因揉进上下文干扰后续 turn，且 `Session-level 图片预算` 已从源头解决主要诱因（多图累计 OOM）。删除 `Settings.errorRecovery`、`SettingsManager#getErrorRecoverySettings()`、`ErrorRecoverySettings` 类型，以及 `sdk.ts` 中向 `AgentOptions.errorRecovery` 的透传；同时删除 `@mariozechner/pi-agent-core` 的 `AgentLoopConfig.errorRecovery`、`AgentOptions.errorRecovery`、`Agent#errorRecovery` 与 `ErrorRecoveryConfig` 类型。恢复旧的 halt 语义：LLM 返 error 即 `agent_end`，由上层（如 batch executor）决定如何重试。
 

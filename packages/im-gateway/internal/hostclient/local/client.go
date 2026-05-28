@@ -29,13 +29,6 @@ type Options struct {
 	// future use; current callers leave it empty.
 	ExtraEnv map[string]string
 
-	// Origin is forwarded to coding-agent as `--origin <value>` when
-	// non-empty. Currently used by the host runtime to tag IM-created
-	// sessions with `origin=im` so desktop-app's sidebar can render an
-	// "IM" badge on them. Empty → no flag emitted → coding-agent's
-	// default ("desktop" semantics) applies.
-	Origin string
-
 	// SessionDir, when non-empty, is forwarded as `--session-dir`. The
 	// IM host runtime sets this to `<conversationCwd>/.vetta/sessions/`
 	// to match desktop-app's `resolveSessionDirForCwd` convention so
@@ -106,9 +99,6 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 	}
 	if c.opts.SessionDir != "" {
 		args = append(args, "--session-dir", c.opts.SessionDir)
-	}
-	if c.opts.Origin != "" {
-		args = append(args, "--origin", c.opts.Origin)
 	}
 	cmd := exec.CommandContext(ctx, c.opts.Bin, args...)
 	// CRITICAL: explicitly set the subprocess's working directory.

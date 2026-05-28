@@ -14,7 +14,6 @@ import {
 	type FileEntry,
 	loadEntriesFromFile,
 	type ModelRegistry,
-	type SessionHeader,
 	type SessionInfo,
 	SessionManager,
 } from "@vetta/coding-agent";
@@ -679,15 +678,13 @@ export class RuntimeHost implements SessionFacade {
 	/**
 	 * Read a session .jsonl directly from disk and translate to HistoryEntry[].
 	 * Does NOT acquire the session-file lock — used by the desktop sidebar's
-	 * read-only viewer for IM sessions (origin="im") where the sidecar may be
-	 * actively writing to the same file. Caller decides what to do with the
-	 * origin tag (e.g. render an IM badge / disable the input bar).
+	 * read-only viewer for IM sessions where the sidecar may be actively
+	 * writing to the same file.
 	 */
-	readSessionHistoryFromFile(path: string): { history: HistoryEntry[]; origin?: SessionHeader["origin"] } {
+	readSessionHistoryFromFile(path: string): { history: HistoryEntry[] } {
 		const fileEntries = loadEntriesFromFile(path);
-		const header = fileEntries.find((e) => e.type === "session") as SessionHeader | undefined;
 		const branch = branchFromFileEntries(fileEntries);
-		return { history: this.entriesToHistory(branch), origin: header?.origin };
+		return { history: this.entriesToHistory(branch) };
 	}
 
 	private entriesToHistory(branch: CodingSessionEntry[]): HistoryEntry[] {
@@ -750,7 +747,6 @@ export class RuntimeHost implements SessionFacade {
 			name: session.name,
 			firstMessage: session.firstMessage,
 			modifiedAt: session.modified.getTime(),
-			origin: session.origin,
 		}));
 	}
 

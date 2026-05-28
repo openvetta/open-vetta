@@ -173,7 +173,6 @@ func runStart(args []string) int {
 		Bin:              cfg.HostClient.CodingAgentBin,
 		HandshakeTimeout: cfg.HostClient.HandshakeTimeout,
 		CloseTimeout:     cfg.HostClient.CloseTimeout,
-		Origin:           "im",
 	})
 	pool := hostclient.NewProcessPool(hostClient, cfg.HostClient.PoolMaxSize)
 	defer func() {
