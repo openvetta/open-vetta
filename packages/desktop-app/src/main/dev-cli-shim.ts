@@ -47,24 +47,39 @@ async function needsCompile(sourcePath: string, binaryPath: string, sourceChange
 }
 
 function createLauncherSource(options: DevCliShimOptions): string {
-	return `import { spawnSync } from "node:child_process";
+	// Use spawn + explicit pipe forwarding instead of spawnSync's "inherit".
+	// On Windows, GUI-subsystem children (Electron) inheriting a Go-created
+	// stdin pipe handle end up with a stream that Node's readline sees as
+	// already closed — the agent-rpc child exits before the handshake byte
+	// is ever read. Manual forwarding gives the child a Node-managed pipe
+	// it can actually read. Mac/Linux work both ways; we use the same
+	// strategy everywhere for consistency.
+	return `import { spawn } from "node:child_process";
 
 const electronPath = ${JSON.stringify(options.electronPath)};
 const mainEntryPath = ${JSON.stringify(options.mainEntryPath)};
 const appRoot = ${JSON.stringify(options.appRoot)};
 
-const result = spawnSync(electronPath, [mainEntryPath, ...process.argv.slice(2)], {
+const child = spawn(electronPath, [mainEntryPath, ...process.argv.slice(2)], {
 \tcwd: appRoot,
-\tstdio: "inherit",
+\tstdio: ["pipe", "pipe", "pipe"],
 \twindowsHide: true,
 });
 
-if (result.error) {
-\tconsole.error(result.error.message);
+child.on("error", (err) => {
+\tconsole.error(err.message);
 \tprocess.exit(1);
-}
+});
 
-process.exit(result.status ?? 1);
+process.stdin.on("error", () => {});
+child.stdin.on("error", () => {});
+process.stdin.pipe(child.stdin);
+child.stdout.pipe(process.stdout);
+child.stderr.pipe(process.stderr);
+
+child.on("exit", (code, signal) => {
+\tprocess.exit(code ?? (signal ? 1 : 0));
+});
 `;
 }
 

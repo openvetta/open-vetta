@@ -86,6 +86,14 @@ if (agentRpcArgs) {
 	console.warn = (...args: unknown[]) => writeStderr("warn", args);
 	console.error = (...args: unknown[]) => writeStderr("error", args);
 	console.debug = (...args: unknown[]) => writeStderr("debug", args);
+	// Quietly swallow stdin errors so a parent-side EPIPE / ECONNRESET
+	// doesn't surface as a Node unhandledException before readline has
+	// a chance to attach its own listeners. Deliberately do NOT call
+	// resume() here — that would drain bytes the downstream readline
+	// expects to read as the handshake line.
+	if (process.stdin) {
+		process.stdin.on("error", () => {});
+	}
 } else {
 	installMainDiagnostics();
 }
