@@ -129,7 +129,9 @@ export type AgentSessionEvent =
 	  }
 	| { type: "auto_retry_start"; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
 	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
-	| { type: "todo_update"; items: ReadonlyArray<TodoItem> };
+	| { type: "todo_update"; items: ReadonlyArray<TodoItem> }
+	| { type: "mcp_reload_start" }
+	| { type: "mcp_reload_end"; changed: boolean; errorMessage?: string };
 
 /** Listener function for agent session events */
 export type AgentSessionEventListener = (event: AgentSessionEvent) => void;
@@ -945,6 +947,11 @@ export class AgentSession {
 			this._baseSystemPrompt = this._rebuildSystemPrompt(this.getActiveToolNames());
 			this.agent.setSystemPrompt(this._baseSystemPrompt);
 		}
+
+		// 懒重载 MCP：mcp.json 自上次以来若有变化，diff-reload 变化的 server。
+		// fast-path（签名相等）<1ms，无副作用；变化时停掉/启动变化的 server 后
+		// 重建 runtime 让本轮 prompt 立刻看到新工具。失败不阻塞 prompt。
+		await this._maybeReloadMcpForPrompt();
 
 		// Handle extension commands first (execute immediately, even during streaming)
 		// Extension commands manage their own LLM interaction via pi.sendMessage()
@@ -2561,6 +2568,44 @@ export class AgentSession {
 			activeToolNames: this.getActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
+	}
+
+	/**
+	 * prompt() 入口处的懒检查：仅当 mcp.json 自上次以来真的变了，才停/启动变化
+	 * 的 server 并重建 runtime。fast-path 几乎免费；slow-path 用户能感知到 1-3s
+	 * 的初始化时间，因此通过 mcp_reload_start/end 事件让 UI 提示，但不阻塞用户。
+	 */
+	private async _maybeReloadMcpForPrompt(): Promise<void> {
+		const manager = this._mcpManager;
+		if (!manager) return;
+
+		// 不进 slow-path 时尽量不发事件，避免 UI 闪 toast。先用一次签名比对，
+		// 不变直接退出；只有真的要重启才 emit start。
+		let willChange = false;
+		try {
+			willChange = manager.hasConfigChanged();
+		} catch {
+			// 比对失败就走 reload，让 reloadIfChanged 兜底
+			willChange = true;
+		}
+		if (!willChange) return;
+
+		this._emit({ type: "mcp_reload_start" });
+		let changed = false;
+		let errorMessage: string | undefined;
+		try {
+			changed = await manager.reloadIfChanged();
+			if (changed) {
+				this._buildRuntime({
+					activeToolNames: this.getActiveToolNames(),
+					includeAllExtensionTools: true,
+				});
+			}
+		} catch (err) {
+			errorMessage = (err as Error).message;
+		} finally {
+			this._emit({ type: "mcp_reload_end", changed, errorMessage });
+		}
 	}
 
 	async reload(): Promise<void> {

@@ -86,6 +86,24 @@ export interface McpStatusEvent extends SessionEventBase {
 	details?: string;
 }
 
+/**
+ * MCP 懒重载启动：用户提交 prompt 时检测到 mcp.json 变化，开始 diff-reload。
+ * UI 可据此显示一个轻提示，不应阻塞用户。
+ */
+export interface McpReloadStartEvent extends SessionEventBase {
+	type: "mcp.reload.start";
+}
+
+/**
+ * MCP 懒重载结束。changed=false 表示真正的工具集合没变（少见，比如 stop/start
+ * 后服务器输出相同 tools），UI 一般什么都不用显示；errorMessage 仅在异常时存在。
+ */
+export interface McpReloadEndEvent extends SessionEventBase {
+	type: "mcp.reload.end";
+	changed: boolean;
+	errorMessage?: string;
+}
+
 export interface UsageUpdateEvent extends SessionEventBase {
 	type: "usage.update";
 	input: number;
@@ -179,6 +197,8 @@ export type SessionEvent =
 	| ToolPhaseEvent
 	| ToolEndEvent
 	| McpStatusEvent
+	| McpReloadStartEvent
+	| McpReloadEndEvent
 	| UsageUpdateEvent
 	| ErrorEvent
 	| TodoUpdateEvent
