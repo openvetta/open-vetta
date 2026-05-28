@@ -40,6 +40,13 @@ export interface Args {
 	listModels?: string | true;
 	offline?: boolean;
 	verbose?: boolean;
+	/**
+	 * Enable the host-bridge channel in rpc mode. Registers the `im_send_attachment`
+	 * tool and lets it issue `host_request` events that the host (im-gateway)
+	 * answers via `host_response` commands. Only meaningful with `--mode rpc`.
+	 * See docs/rpc.md.
+	 */
+	enableHostBridge?: boolean;
 	messages: string[];
 	fileArgs: string[];
 	/** Unknown flags (potentially extension flags) - map of flag name to value */
@@ -152,6 +159,8 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			}
 		} else if (arg === "--verbose") {
 			result.verbose = true;
+		} else if (arg === "--enable-host-bridge") {
+			result.enableHostBridge = true;
 		} else if (arg === "--offline") {
 			result.offline = true;
 		} else if (arg.startsWith("@")) {
@@ -222,6 +231,7 @@ ${chalk.bold("Options:")}
   --export <file>                Export session file to HTML and exit
   --list-models [search]         List available models (with optional fuzzy search)
   --verbose                      Force verbose startup (overrides quietStartup setting)
+  --enable-host-bridge           (--mode rpc only) Register im_send_attachment and host_request RPC channel
   --offline                      Disable startup network operations (same as PI_OFFLINE=1)
   --help, -h                     Show this help
   --version, -v                  Show version number

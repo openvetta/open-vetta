@@ -208,6 +208,56 @@ type QRStatusResp struct {
 	RedirectHost string   `json:"redirect_host,omitempty"`
 }
 
+// =============================================================================
+// CDN upload (POST /ilink/bot/getuploadurl)
+// =============================================================================
+
+// MediaType values for GetUploadUrlReq.media_type. The numeric values are
+// not officially documented; they match MessageItemType in upstream usage
+// (image=2, voice=3, file=4, video=5).
+const (
+	MediaTypeImage = MessageItemTypeImage
+	MediaTypeVoice = MessageItemTypeVoice
+	MediaTypeFile  = MessageItemTypeFile
+	MediaTypeVideo = MessageItemTypeVideo
+)
+
+// GetUploadUrlReq mirrors src/api/types.ts GetUploadUrlReq. Field names on
+// the wire must stay snake_case.
+//
+//   - rawsize        : plaintext size in bytes
+//   - rawfilemd5     : md5(plaintext) lowercase hex
+//   - filesize       : ciphertext size after AES-128-ECB + PKCS7 padding
+//   - aeskey         : 32-char hex of the 16-byte AES key (legacy field)
+//   - no_need_thumb  : upstream sets true for non-image; we set true for all
+//     because we don't generate thumbnails (see ADR-0006)
+type GetUploadUrlReq struct {
+	FileKey         string   `json:"filekey"`
+	MediaType       int      `json:"media_type"`
+	ToUserID        string   `json:"to_user_id"`
+	RawSize         int      `json:"rawsize"`
+	RawFileMD5      string   `json:"rawfilemd5"`
+	FileSize        int      `json:"filesize"`
+	ThumbRawSize    int      `json:"thumb_rawsize,omitempty"`
+	ThumbRawFileMD5 string   `json:"thumb_rawfilemd5,omitempty"`
+	ThumbFileSize   int      `json:"thumb_filesize,omitempty"`
+	NoNeedThumb     bool     `json:"no_need_thumb,omitempty"`
+	AESKey          string   `json:"aeskey"`
+	BaseInfo        BaseInfo `json:"base_info"`
+}
+
+// GetUploadUrlResp is the response from /ilink/bot/getuploadurl.
+//
+// UploadParam goes into BuildCDNUploadURL as the encrypted_query_param
+// query argument; ThumbUploadParam is unused on our side (no thumbnails).
+type GetUploadUrlResp struct {
+	Ret              int    `json:"ret,omitempty"`
+	ErrCode          int    `json:"errcode,omitempty"`
+	ErrMsg           string `json:"errmsg,omitempty"`
+	UploadParam      string `json:"upload_param,omitempty"`
+	ThumbUploadParam string `json:"thumb_upload_param,omitempty"`
+}
+
 // Credentials is everything needed to talk to the messaging API after a
 // successful bind. The four fields below are returned together by a
 // confirmed QRStatusResp and must all be persisted as a unit.

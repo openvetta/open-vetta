@@ -66,4 +66,27 @@ type Transport interface {
 	// ShowTyping signals that the bot is composing a reply. Implementations
 	// for platforms without typing indicators may no-op and return nil.
 	ShowTyping(ctx context.Context, chatID string) error
+
+	// SendAttachment delivers a local file to the chat as a first-class
+	// IM attachment (image / file). The bridge calls this in response to
+	// an `im_send_attachment` tool invocation from the agent (see ADR-0006).
+	//
+	// `kind` selects the wire shape ("image" for inline-rendered media,
+	// "file" for everything else). `caption` is an optional short text
+	// platforms may render alongside the attachment; transports without
+	// caption support should silently drop it.
+	//
+	// Transports whose Capabilities.SupportsFileUpload is false should
+	// return an error and the bridge will surface it back to the agent
+	// as a tool error. Returns the platform's message ID on success.
+	SendAttachment(ctx context.Context, chatID string, att OutboundAttachment) (messageID string, err error)
+}
+
+// OutboundAttachment is the bridge → transport payload for SendAttachment.
+// The path is read from local disk by the transport; the bridge never reads
+// the bytes itself.
+type OutboundAttachment struct {
+	Kind    AttachmentKind // "image" / "file"
+	Path    string         // absolute local path; transport reads bytes
+	Caption string         // optional accompanying text
 }

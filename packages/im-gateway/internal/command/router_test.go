@@ -65,6 +65,7 @@ type fakeSess struct {
 func (s *fakeSess) Send(_ context.Context, _ hostclient.Command) (hostclient.Response, error) {
 	return hostclient.Response{Success: true}, nil
 }
+func (s *fakeSess) SendNoReply(_ context.Context, _ hostclient.Command) error { return nil }
 func (s *fakeSess) Events() <-chan hostclient.AgentEvent {
 	ch := make(chan hostclient.AgentEvent)
 	close(ch)

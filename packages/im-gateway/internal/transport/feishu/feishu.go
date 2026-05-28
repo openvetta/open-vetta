@@ -496,6 +496,14 @@ func (t *Transport) ShowTyping(_ context.Context, _ string) error {
 	return nil
 }
 
+// SendAttachment is not implemented on Feishu yet. The platform supports
+// it (im.v1 file upload), but ADR-0006 scopes media to wechat first;
+// feishu remains text-only. Returning a real error makes mistaken
+// invocations visible in tool results rather than silently noop'ing.
+func (t *Transport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
+	return "", errors.New("feishu: attachment send not supported (ADR-0006 scope)")
+}
+
 // =============================================================================
 // helpers
 // =============================================================================

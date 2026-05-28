@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -69,6 +70,18 @@ func (f *fakeTransport) ShowTyping(_ context.Context, chatID string) error {
 	f.calls = append(f.calls, transportCall{Action: "typing", ChatID: chatID})
 	return nil
 }
+
+func (f *fakeTransport) SendAttachment(_ context.Context, chatID string, att transport.OutboundAttachment) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nextID++
+	id := "att-" + itoa(f.nextID)
+	f.calls = append(f.calls, transportCall{Action: "attachment", ChatID: chatID, MessageID: id, Text: string(att.Kind) + ":" + att.Path})
+	return id, nil
+}
+
+// Static guard to keep errors import live when no test exercises this code path.
+var _ = errors.New
 
 func (f *fakeTransport) EndStream(_ context.Context, chatID, messageID string) error {
 	f.mu.Lock()
