@@ -51,19 +51,28 @@ function resolveCodingAgentPackageDir(): string {
  * `VETTA_PACKAGE_DIR` to the child — the only reliable way for the
  * bundled agent to find its on-disk assets.
  */
-export function buildCodingAgentSpec(): CodingAgentSpec {
+export interface BuildCodingAgentSpecOptions {
+	/** When set, forwarded to coding-agent as `--provider <p> --model <m>`. */
+	agentModel?: { provider: string; model: string };
+}
+
+export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): CodingAgentSpec {
 	const packageDir = resolveCodingAgentPackageDir();
+	const modelArgs: string[] = opts.agentModel
+		? ["--provider", opts.agentModel.provider, "--model", opts.agentModel.model]
+		: [];
+
 	if (app.isPackaged) {
 		return {
 			bin: process.execPath,
-			prefixArgs: ["--agent-rpc"],
+			prefixArgs: ["--agent-rpc", ...modelArgs],
 			packageDir,
 		};
 	}
 	const appRoot = process.cwd();
 	return {
 		bin: process.execPath,
-		prefixArgs: [join(appRoot, "dist/main/index.js"), "--agent-rpc"],
+		prefixArgs: [join(appRoot, "dist/main/index.js"), "--agent-rpc", ...modelArgs],
 		packageDir,
 	};
 }

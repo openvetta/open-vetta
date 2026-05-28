@@ -44,7 +44,12 @@ export type {
  */
 export async function runRpcMode(session: AgentSession): Promise<never> {
 	const output = (obj: RpcResponse | RpcExtensionUIRequest | object) => {
-		console.log(JSON.stringify(obj));
+		// Use process.stdout.write directly (not console.log) so callers
+		// that patch / hijack `console.*` for diagnostics don't swallow
+		// the RPC protocol stream. Specifically, desktop-app's agent-rpc
+		// CLI mode redirects every console method to stderr to keep stdout
+		// pristine for this exact NDJSON payload.
+		process.stdout.write(`${JSON.stringify(obj)}\n`);
 	};
 
 	const success = <T extends RpcCommand["type"]>(

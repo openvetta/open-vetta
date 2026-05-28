@@ -133,8 +133,18 @@ func (b *Bridge) handle(ctx context.Context, ev hostclient.AgentEvent) error {
 		}
 
 	case hostclient.AgentEventTypeMessageEnd:
-		// End of one assistant message — flush so the next message
-		// starts fresh in chunk mode and edit mode commits final state.
+		// End of one assistant message. Two responsibilities here:
+		// 1) If the agent emitted a message-level error (stopReason ==
+		//    "error" with an errorMessage) — e.g. the LLM call returned
+		//    a fetch failure / 4xx / rate limit — record it so the
+		//    user sees something other than silence. The bridge only
+		//    surfaces it if the turn ends with no other text output
+		//    (same suppression policy as type:"error" events).
+		// 2) flush so the next message starts fresh in chunk mode and
+		//    edit mode commits final state.
+		if errText := extractMessageEndError(ev.Raw); errText != "" {
+			b.pendingErrors = append(b.pendingErrors, errText)
+		}
 		return b.flushAll(ctx)
 
 	case hostclient.AgentEventTypeToolExecutionStart:
@@ -408,6 +418,38 @@ func extractToolName(raw json.RawMessage) string {
 		return ""
 	}
 	return strings.TrimSpace(v.ToolName)
+}
+
+// extractMessageEndError pulls a user-facing error string from a
+// `message_end` event whose payload is a fully-formed AssistantMessage
+// with stopReason == "error". Returns "" when the message ended normally.
+//
+// Shape we read (subset of @vetta/coding-agent's AssistantMessage):
+//
+//	{ "message": { "stopReason": "error", "errorMessage": "Connection error." } }
+//
+// We deliberately ignore other stop reasons (aborted / end_turn / etc.)
+// — those are normal terminations, no IM-side notice needed.
+func extractMessageEndError(raw json.RawMessage) string {
+	var v struct {
+		Message struct {
+			StopReason   string `json:"stopReason"`
+			ErrorMessage string `json:"errorMessage"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return ""
+	}
+	if v.Message.StopReason != "error" {
+		return ""
+	}
+	if v.Message.ErrorMessage != "" {
+		return v.Message.ErrorMessage
+	}
+	// stopReason=error but no explicit message — surface a generic note
+	// rather than going silent so the user at least knows something
+	// broke. Should be rare; coding-agent normally fills errorMessage.
+	return "⚠ 模型调用失败（无具体错误信息）"
 }
 
 // extractErrorText pulls a human-readable error string from an error event.
