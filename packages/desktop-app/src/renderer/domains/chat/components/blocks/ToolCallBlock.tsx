@@ -5,7 +5,6 @@ import { BashTerminalCard } from "./tool-views/BashTerminalCard";
 import { EditDiffView } from "./tool-views/EditDiffView";
 import { ReadImageView } from "./tool-views/ReadImageView";
 import { WriteContentView } from "./tool-views/WriteContentView";
-import { StatusIndicator } from "./tool-views/shared/StatusIndicator";
 import { useElapsedWhilePending } from "./tool-views/shared/use-elapsed";
 import {
 	formatDurationCompact,
@@ -43,6 +42,12 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const shellCommand = getShellCommand(block);
 
 	const isPending = block.status === "pending";
+	const iconColorClass =
+		block.status === "error" || block.isError === true
+			? "text-destructive/70"
+			: block.status === "success"
+				? "text-emerald-500/70"
+				: "text-muted-foreground/40";
 	const liveElapsedMs = useElapsedWhilePending(block.startedAt, isPending);
 
 	// Pick the duration we know about: live elapsed while pending, recorded
@@ -58,17 +63,9 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 				onClick={() => canExpand && setExpanded(!expanded)}
 				className={`inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors ${canExpand ? "hover:bg-muted/60 cursor-pointer" : "cursor-default"}`}
 			>
-				{/* Status + Icon */}
-				{isPending ? (
-					<StatusIndicator status="pending" />
-				) : block.status === "error" ? (
-					<StatusIndicator status="error" />
-				) : (
-					<span className={`${icon} h-3.5 w-3.5 shrink-0 text-muted-foreground/40`} />
-				)}
-
 				{/* Tool name and detail */}
 				<div className="flex min-w-0 flex-1 items-center gap-1.5 text-[12px]">
+					<span className={`${icon} h-3.5 w-3.5 shrink-0 ${iconColorClass}`} />
 					{mcp && (
 						<span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground/50">
 							{mcp.server}
