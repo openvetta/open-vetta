@@ -2,7 +2,6 @@
 	animation: input-switch-bump-a 300ms ease-out both;
 	transform-origin: 50% 100%;
 	backface-visibility: hidden;
-	contain: paint;
 	will-change: transform;
 }
 
@@ -10,7 +9,6 @@
 	animation: input-switch-bump-b 300ms ease-out both;
 	transform-origin: 50% 100%;
 	backface-visibility: hidden;
-	contain: paint;
 	will-change: transform;
 }
 
