@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useRef, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useRef, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	inputValueAtom,
@@ -44,6 +44,20 @@ const MAX_HEIGHT = 200;
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32, mass: 0.9 };
 const SOFT = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
+const COLLAPSE_INITIAL = { height: 0, opacity: 0 };
+const COLLAPSE_ANIMATE = { height: "auto", opacity: 1 };
+const COLLAPSE_EXIT = { height: 0, opacity: 0 };
+const IMAGE_INITIAL = { scale: 0.8, opacity: 0 };
+const IMAGE_ANIMATE = { scale: 1, opacity: 1 };
+const TOOLBAR_BUTTON_HOVER = { scale: 1.06 };
+const TOOLBAR_BUTTON_TAP = { scale: 0.92 };
+const SEND_HINT_INITIAL = { opacity: 0, y: 2 };
+const SEND_HINT_ANIMATE = { opacity: 1, y: 0 };
+const CAPSULE_INITIAL = { scale: 0.85, opacity: 0, y: 4 };
+const CAPSULE_ANIMATE = { scale: 1, opacity: 1, y: 0 };
+const CAPSULE_EXIT = { scale: 0.85, opacity: 0, y: -2 };
+const CAPSULE_HOVER = { y: -1 };
+const CAPSULE_TAP = { scale: 0.96 };
 
 let imageIdCounter = 0;
 function nextImageId(): string {
@@ -363,6 +377,14 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		[addImages, modelSupportsImages],
 	);
 
+	const handleSend = useCallback(() => {
+		void onSend();
+	}, [onSend]);
+
+	const handleAbort = useCallback(() => {
+		void onAbort();
+	}, [onAbort]);
+
 	const placeholder = !hasSession
 		? "选择或创建会话以开始"
 		: isStreaming
@@ -411,9 +433,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 						{(hasCapsules || attachedImages.length > 0) && (
 							<motion.div
 								key="capsules"
-								initial={{ height: 0, opacity: 0 }}
-								animate={{ height: "auto", opacity: 1 }}
-								exit={{ height: 0, opacity: 0 }}
+								initial={COLLAPSE_INITIAL}
+								animate={COLLAPSE_ANIMATE}
+								exit={COLLAPSE_EXIT}
 								transition={SOFT}
 								className="overflow-hidden"
 							>
@@ -449,9 +471,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 										{attachedImages.map((img) => (
 											<motion.div
 												key={img.id}
-												initial={{ scale: 0.8, opacity: 0 }}
-												animate={{ scale: 1, opacity: 1 }}
-												exit={{ scale: 0.8, opacity: 0 }}
+												initial={IMAGE_INITIAL}
+												animate={IMAGE_ANIMATE}
+												exit={IMAGE_INITIAL}
 												transition={SPRING}
 												className="group relative"
 											>
@@ -520,13 +542,13 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 									modelSupportsImages ? "添加图片" : "当前模型不支持图片输入"
 								}
 								disabled={!hasSession || !modelSupportsImages}
-								onClick={() => void handleSelectImages()}
+								onClick={handleSelectImages}
 							/>
 							<ToolbarButton
 								icon="icon-[mdi--paperclip]"
 								title="附加文件引用"
 								disabled={!hasSession}
-								onClick={() => void handleSelectFiles()}
+								onClick={handleSelectFiles}
 							/>
 							<div className="ml-1 h-4 w-px shrink-0 bg-border/70" />
 							<div className="min-w-0 flex-shrink">
@@ -541,8 +563,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 							<ContextRing />
 							<motion.span
 								key={isStreaming ? "s" : isEmpty ? "e" : "n"}
-								initial={{ opacity: 0, y: 2 }}
-								animate={{ opacity: 1, y: 0 }}
+								initial={SEND_HINT_INITIAL}
+								animate={SEND_HINT_ANIMATE}
 								transition={SOFT}
 								className="mx-1 hidden text-[10.5px] text-muted-foreground/50 select-none md:inline"
 							>
@@ -551,8 +573,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 							<SendButton
 								canSend={canSend}
 								isStreaming={isStreaming}
-								onSend={() => void onSend()}
-								onAbort={() => void onAbort()}
+								onSend={handleSend}
+								onAbort={handleAbort}
 							/>
 						</div>
 					</div>
@@ -562,7 +584,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	);
 }
 
-function Capsule({
+const Capsule = memo(function Capsule({
 	icon,
 	label,
 	title,
@@ -583,12 +605,12 @@ function Capsule({
 		<motion.button
 			type="button"
 			layout
-			initial={{ scale: 0.85, opacity: 0, y: 4 }}
-			animate={{ scale: 1, opacity: 1, y: 0 }}
-			exit={{ scale: 0.85, opacity: 0, y: -2 }}
+			initial={CAPSULE_INITIAL}
+			animate={CAPSULE_ANIMATE}
+			exit={CAPSULE_EXIT}
 			transition={SPRING}
-			whileHover={{ y: -1 }}
-			whileTap={{ scale: 0.96 }}
+			whileHover={CAPSULE_HOVER}
+			whileTap={CAPSULE_TAP}
 			onClick={onRemove}
 			title={title ? `${title}\n点击移除` : "点击移除"}
 			className={`group flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${toneClass}`}
@@ -598,7 +620,7 @@ function Capsule({
 			<span className="icon-[mdi--close] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
 		</motion.button>
 	);
-}
+});
 
 function SandboxPermissionCard({
 	request,
@@ -654,7 +676,7 @@ function SandboxPermissionCard({
 	);
 }
 
-function ToolbarButton({
+const ToolbarButton = memo(function ToolbarButton({
 	icon,
 	title,
 	disabled,
@@ -673,8 +695,8 @@ function ToolbarButton({
 			title={title}
 			disabled={disabled}
 			onClick={onClick}
-			whileHover={!disabled ? { scale: 1.06 } : undefined}
-			whileTap={!disabled ? { scale: 0.92 } : undefined}
+			whileHover={!disabled ? TOOLBAR_BUTTON_HOVER : undefined}
+			whileTap={!disabled ? TOOLBAR_BUTTON_TAP : undefined}
 			transition={SPRING}
 			className={`flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30 ${
 				active
@@ -685,4 +707,4 @@ function ToolbarButton({
 			<span className={`${icon} h-[17px] w-[17px]`} />
 		</motion.button>
 	);
-}
+});

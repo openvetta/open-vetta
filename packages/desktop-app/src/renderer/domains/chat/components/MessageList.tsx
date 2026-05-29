@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import type { Transition } from "motion/react";
 import { useAtomValue } from "jotai";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
@@ -29,6 +30,32 @@ interface MessageListProps {
 type BlockSegment =
 	| { type: "single"; block: ContentBlock }
 	| { type: "tool_group"; blocks: (ToolCallBlock | ThinkingBlock)[] };
+
+const SEGMENT_INITIAL = { opacity: 0, y: 4 };
+const SEGMENT_ANIMATE = { opacity: 1, y: 0 };
+const SEGMENT_TRANSITION = { duration: 0.18, ease: [0.25, 0.1, 0.25, 1] as const } satisfies Transition;
+const COLLAPSE_INITIAL = { height: 0, opacity: 0 };
+const COLLAPSE_ANIMATE = { height: "auto", opacity: 1 };
+const COLLAPSE_EXIT = { height: 0, opacity: 0 };
+const COLLAPSE_TRANSITION = { duration: 0.2, ease: [0.25, 0.1, 0.25, 1] as const } satisfies Transition;
+const USER_HIDDEN_VISUAL_STATE = { opacity: 0, scale: 0.82, x: 14, y: 12 };
+const USER_VISIBLE_VISUAL_STATE = { opacity: 1, scale: 1, x: 0, y: 0 };
+const USER_ENTRY_TRANSITION = { type: "spring", stiffness: 520, damping: 24, mass: 0.8 } satisfies Transition;
+const USER_TEXT_INITIAL = { filter: "blur(6px)" };
+const USER_TEXT_VISIBLE = { filter: "blur(0px)" };
+const USER_TEXT_TRANSITION = { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] as const } satisfies Transition;
+const USER_MESSAGE_STYLE = { originX: 1, originY: 1 };
+const INDICATOR_INITIAL = { opacity: 0, y: 6 };
+const INDICATOR_ANIMATE = { opacity: 1, y: 0 };
+const INDICATOR_EXIT = { opacity: 0, y: 6 };
+const INDICATOR_TRANSITION = { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] as const } satisfies Transition;
+const STREAMING_OVERSCAN = 80;
+const IDLE_OVERSCAN = 400;
+const STREAMING_INCREASE_VIEWPORT_BY = { top: 0, bottom: 80 };
+const IDLE_INCREASE_VIEWPORT_BY = { top: 200, bottom: 200 };
+const VIRTUOSO_STYLE = { overflowX: "hidden" as const };
+const STREAMING_SCROLL_LERP_RATIO = 0.35;
+const IDLE_SCROLL_LERP_RATIO = 0.2;
 
 /**
  * Stable React key for a content block. Used so segments survive reorder when
@@ -87,13 +114,21 @@ function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 	return segments;
 }
 
+function findLastProcessBlockIndex(blocks: ContentBlock[]): number {
+	for (let i = blocks.length - 1; i >= 0; i--) {
+		const block = blocks[i];
+		if (block.type === "tool_call" || block.type === "thinking") return i;
+	}
+	return -1;
+}
+
 interface AssistantFoldData {
 	outputBlocks: TextBlock[];
 	hiddenCount: number;
 }
 
 function getAssistantFoldData(blocks: ContentBlock[]): AssistantFoldData | null {
-	const lastProcessIndex = blocks.findLastIndex((block) => block.type === "tool_call" || block.type === "thinking");
+	const lastProcessIndex = findLastProcessBlockIndex(blocks);
 	if (lastProcessIndex === -1) return null;
 	const outputBlocks = blocks
 		.slice(lastProcessIndex + 1)
@@ -150,10 +185,10 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 			<AnimatePresence initial={false}>
 				{expanded && (
 					<motion.div
-						initial={{ height: 0, opacity: 0 }}
-						animate={{ height: "auto", opacity: 1 }}
-						exit={{ height: 0, opacity: 0 }}
-						transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+						initial={COLLAPSE_INITIAL}
+						animate={COLLAPSE_ANIMATE}
+						exit={COLLAPSE_EXIT}
+						transition={COLLAPSE_TRANSITION}
 						className="overflow-hidden"
 					>
 						<div className="flex flex-col gap-0.5 pl-2 pr-1 pb-1">
@@ -172,15 +207,32 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 	);
 });
 
+interface SegmentRendererProps {
+	segment: BlockSegment;
+	isStreamingTail?: boolean;
+	animateIn?: boolean;
+}
+
+function areSegmentsEqual(prev: BlockSegment, next: BlockSegment): boolean {
+	if (prev.type === "single") return next.type === "single" && prev.block === next.block;
+	if (next.type !== "tool_group") return false;
+	if (prev.blocks.length !== next.blocks.length) return false;
+	return prev.blocks.every((block, index) => block === next.blocks[index]);
+}
+
+function areSegmentRendererPropsEqual(prev: SegmentRendererProps, next: SegmentRendererProps): boolean {
+	return (
+		prev.isStreamingTail === next.isStreamingTail &&
+		prev.animateIn === next.animateIn &&
+		areSegmentsEqual(prev.segment, next.segment)
+	);
+}
+
 const SegmentRenderer = memo(function SegmentRenderer({
 	segment,
 	isStreamingTail = false,
 	animateIn = false,
-}: {
-	segment: BlockSegment;
-	isStreamingTail?: boolean;
-	animateIn?: boolean;
-}) {
+}: SegmentRendererProps) {
 	let content: JSX.Element | null;
 	if (segment.type === "tool_group") {
 		content = <ToolCallGroup blocks={segment.blocks} />;
@@ -215,14 +267,14 @@ const SegmentRenderer = memo(function SegmentRenderer({
 	if (!animateIn) return content;
 	return (
 		<motion.div
-			initial={{ opacity: 0, y: 4 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+			initial={SEGMENT_INITIAL}
+			animate={SEGMENT_ANIMATE}
+			transition={SEGMENT_TRANSITION}
 		>
 			{content}
 		</motion.div>
 	);
-});
+}, areSegmentRendererPropsEqual);
 
 /** Format timestamp to HH:mm:ss */
 function formatTime(ts: number): string {
@@ -337,9 +389,7 @@ function getUserCopyText(message: ChatMessage): string {
 function getAssistantConclusionText(message: ChatMessage): string {
 	const blocks = message.blocks ?? [];
 	if (blocks.length === 0) return (message.text ?? "").trim();
-	const lastProcessIndex = blocks.findLastIndex(
-		(b) => b.type === "tool_call" || b.type === "thinking",
-	);
+	const lastProcessIndex = findLastProcessBlockIndex(blocks);
 	const texts = blocks
 		.slice(lastProcessIndex + 1)
 		.filter((b): b is TextBlock => b.type === "text")
@@ -439,17 +489,15 @@ const UserMessage = memo(function UserMessage({
 	const copyText = displayText.trim();
 	const shouldAnimateIn = entryState === "enter";
 	const shouldHoldHidden = entryState === "hidden";
-	const hiddenVisualState = { opacity: 0, scale: 0.82, x: 14, y: 12 };
-	const visibleVisualState = { opacity: 1, scale: 1, x: 0, y: 0 };
 
 	return (
 		<motion.div
 			className="group/user flex justify-end"
-			initial={shouldAnimateIn ? hiddenVisualState : false}
-			animate={shouldHoldHidden ? hiddenVisualState : visibleVisualState}
-			transition={{ type: "spring", stiffness: 520, damping: 24, mass: 0.8 }}
+			initial={shouldAnimateIn ? USER_HIDDEN_VISUAL_STATE : false}
+			animate={shouldHoldHidden ? USER_HIDDEN_VISUAL_STATE : USER_VISIBLE_VISUAL_STATE}
+			transition={USER_ENTRY_TRANSITION}
 			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
-			style={{ originX: 1, originY: 1 }}
+			style={USER_MESSAGE_STYLE}
 		>
 			<div className="relative max-w-[72%] before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
 				{hasImages && (
@@ -483,9 +531,9 @@ const UserMessage = memo(function UserMessage({
 						)}
 						{displayText && (
 							<motion.div
-								initial={shouldAnimateIn ? { filter: "blur(6px)" } : false}
-								animate={{ filter: shouldHoldHidden ? "blur(6px)" : "blur(0px)" }}
-								transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+								initial={shouldAnimateIn ? USER_TEXT_INITIAL : false}
+								animate={shouldHoldHidden ? USER_TEXT_INITIAL : USER_TEXT_VISIBLE}
+								transition={USER_TEXT_TRANSITION}
 								style={{ whiteSpace: "pre-wrap" }}
 							>
 								{displayText}
@@ -606,7 +654,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 								key={segmentKey(segment)}
 								segment={segment}
 								isStreamingTail={i === streamingTailIndex}
-								animateIn={isCurrentlyStreaming}
+								animateIn={isCurrentlyStreaming && i === segments.length - 1}
 							/>
 						))}
 					</div>
@@ -668,10 +716,10 @@ const CompactionBoundary = memo(function CompactionBoundary() {
 function McpReloadIndicator(): JSX.Element {
 	return (
 		<motion.div
-			initial={{ opacity: 0, y: 6 }}
-			animate={{ opacity: 1, y: 0 }}
-			exit={{ opacity: 0, y: 6 }}
-			transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+			initial={INDICATOR_INITIAL}
+			animate={INDICATOR_ANIMATE}
+			exit={INDICATOR_EXIT}
+			transition={INDICATOR_TRANSITION}
 			className="flex items-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2"
 		>
 			<svg width={14} height={14} style={{ animation: "context-ring-spin 1s linear infinite" }}>
@@ -690,10 +738,10 @@ function McpReloadIndicator(): JSX.Element {
 function CompactionIndicator(): JSX.Element {
 	return (
 		<motion.div
-			initial={{ opacity: 0, y: 6 }}
-			animate={{ opacity: 1, y: 0 }}
-			exit={{ opacity: 0, y: 6 }}
-			transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+			initial={INDICATOR_INITIAL}
+			animate={INDICATOR_ANIMATE}
+			exit={INDICATOR_EXIT}
+			transition={INDICATOR_TRANSITION}
 			className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2"
 		>
 			<svg width={14} height={14} style={{ animation: "context-ring-spin 1s linear infinite" }}>
@@ -712,10 +760,10 @@ function CompactionIndicator(): JSX.Element {
 function TypingIndicator(): JSX.Element {
 	return (
 		<motion.div
-			initial={{ opacity: 0, y: 6 }}
-			animate={{ opacity: 1, y: 0 }}
-			exit={{ opacity: 0, y: 6 }}
-			transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+			initial={INDICATOR_INITIAL}
+			animate={INDICATOR_ANIMATE}
+			exit={INDICATOR_EXIT}
+			transition={INDICATOR_TRANSITION}
 			className="flex items-center gap-2"
 		>
 			<div className="flex gap-[3px] py-2">
@@ -769,10 +817,11 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	// 误判为 streaming，触发短暂展开后再折叠的闪烁。
 	const tailMessageId = messages.at(-1)?.id ?? null;
 
-	// 是否处于「贴底跟随」状态：true 时启动 rAF 平滑 lerp 把 scrollTop 拉向底部。
-	// 由 Virtuoso 的 atBottomStateChange 维护；用户手动向上滚动会自动转为 false，
-	// 跟随循环下一帧自然退出。
+	// 是否处于真实贴底状态，由 Virtuoso 的 atBottomStateChange 维护。
 	const atBottomRef = useRef(true);
+	// 是否应该继续跟随底部。内容增长会让 atBottom 短暂变 false，但不应关闭跟随；
+	// 只有用户主动滚动离开底部时才关闭。
+	const shouldFollowBottomRef = useRef(true);
 	const lastMessage = messages.at(-1);
 	const previousRenderMsgCountRef = useRef(messages.length);
 	const enteringUserMessageId =
@@ -789,27 +838,27 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 		setPendingUserAnimationId(null);
 		setActiveUserAnimationId(id);
 	}, []);
-	// 当前是否正在 streaming —— 给 tick 闭包用，避免 useCallback 依赖触发重建。
+	const lerpRafRef = useRef<number | null>(null);
+	const userScrollIntentRafRef = useRef<number | null>(null);
 	const isStreamingRef = useRef(isStreaming);
 	isStreamingRef.current = isStreaming;
-	const lerpRafRef = useRef<number | null>(null);
 
 	const tickLerp = useCallback(() => {
 		const el = scrollerRef.current;
-		if (!el || !atBottomRef.current) {
+		if (!el || !shouldFollowBottomRef.current) {
 			lerpRafRef.current = null;
 			return;
 		}
 		const target = Math.max(0, el.scrollHeight - el.clientHeight);
 		const diff = target - el.scrollTop;
 		if (diff > 0.5) {
-			// 线性 lerp：每帧吃掉差值的 20%，开局快收尾稳，视觉上「持续追着底部」
-			// 而非「跳—停—跳」。
-			el.scrollTop = el.scrollTop + diff * 0.2;
+			// 线性 lerp：每帧吃掉差值的一部分，开局快收尾稳，视觉上「持续追着底部」
+			// 而非「跳—停—跳」。streaming 期间系数更高，避免内容生成时明显落后底部。
+			el.scrollTop =
+				el.scrollTop + diff * (isStreamingRef.current ? STREAMING_SCROLL_LERP_RATIO : IDLE_SCROLL_LERP_RATIO);
 			lerpRafRef.current = requestAnimationFrame(tickLerp);
 		} else if (isStreamingRef.current) {
 			releasePendingUserAnimation();
-			// 已贴底但 streaming 还在继续：保持循环，等下一帧的新内容继续抬高底部。
 			lerpRafRef.current = requestAnimationFrame(tickLerp);
 		} else {
 			releasePendingUserAnimation();
@@ -827,12 +876,30 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 		(atBottom: boolean) => {
 			atBottomRef.current = atBottom;
 			if (atBottom) {
+				shouldFollowBottomRef.current = true;
 				releasePendingUserAnimation();
 				startLerp();
 			}
 		},
 		[releasePendingUserAnimation, startLerp],
 	);
+
+	const handleUserScrollIntent = useCallback(() => {
+		if (userScrollIntentRafRef.current !== null) return;
+		userScrollIntentRafRef.current = requestAnimationFrame(() => {
+			userScrollIntentRafRef.current = null;
+			const el = scrollerRef.current;
+			if (!el) return;
+			const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
+			if (distanceFromBottom > 80) {
+				shouldFollowBottomRef.current = false;
+				if (lerpRafRef.current !== null) {
+					cancelAnimationFrame(lerpRafRef.current);
+					lerpRafRef.current = null;
+				}
+			}
+		});
+	}, []);
 
 	// session 切换：瞬间跳到底部，且取消任何 in-flight lerp 动画，避免出现
 	// 「从旧位置滑向新底部」的视觉动画。
@@ -846,6 +913,7 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 			lerpRafRef.current = null;
 		}
 		atBottomRef.current = true;
+		shouldFollowBottomRef.current = true;
 		pendingUserAnimationIdRef.current = null;
 		setPendingUserAnimationId(null);
 		setActiveUserAnimationId(null);
@@ -864,7 +932,7 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 			skipNextLerpRef.current = false;
 			return;
 		}
-		if (atBottomRef.current) startLerp();
+		if (shouldFollowBottomRef.current) startLerp();
 	}, [messages, isStreaming, startLerp]);
 
 	// 用户发送新消息：无论之前是否贴底，都强制接管为「跟随」并启动 lerp 滑到底。
@@ -881,6 +949,7 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 				setPendingUserAnimationId(newMsg.id);
 			}
 			atBottomRef.current = true;
+			shouldFollowBottomRef.current = true;
 			startLerp();
 		}
 	}, [messages, startLerp]);
@@ -899,6 +968,10 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 			if (lerpRafRef.current !== null) {
 				cancelAnimationFrame(lerpRafRef.current);
 				lerpRafRef.current = null;
+			}
+			if (userScrollIntentRafRef.current !== null) {
+				cancelAnimationFrame(userScrollIntentRafRef.current);
+				userScrollIntentRafRef.current = null;
 			}
 		};
 	}, []);
@@ -934,9 +1007,25 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 		scrollerRef.current = el instanceof HTMLElement ? el : null;
 	}, []);
 
+	useEffect(() => {
+		const el = scrollerRef.current;
+		if (!el) return;
+		el.addEventListener("wheel", handleUserScrollIntent, { passive: true });
+		el.addEventListener("touchmove", handleUserScrollIntent, { passive: true });
+		return () => {
+			el.removeEventListener("wheel", handleUserScrollIntent);
+			el.removeEventListener("touchmove", handleUserScrollIntent);
+		};
+	}, [handleUserScrollIntent]);
+
 	const footer = useCallback(() => (
 		<ListFooter showTyping={showTyping} isCompacting={isCompacting} isReloadingMcp={isReloadingMcp} />
-	), [showTyping, isCompacting]);
+	), [showTyping, isCompacting, isReloadingMcp]);
+
+	const virtuosoComponents = useMemo(() => ({
+		List: VirtuosoListContainer,
+		Footer: footer,
+	}), [footer]);
 
 	return (
 		<>
@@ -955,16 +1044,13 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 					to { transform: rotate(360deg); }
 				}
 				@keyframes processing-shimmer {
-					0% { background-position: 200% 0; }
-					100% { background-position: -200% 0; }
+					0%, 100% { opacity: 0.58; }
+					50% { opacity: 1; }
 				}
 				.processing-shimmer {
-					background: linear-gradient(90deg, var(--muted-foreground) 0%, var(--foreground) 50%, var(--muted-foreground) 100%);
-					background-size: 200% 100%;
-					-webkit-background-clip: text;
-					background-clip: text;
-					color: transparent;
-					animation: processing-shimmer 1.6s linear infinite;
+					color: var(--foreground);
+					animation: processing-shimmer 1.6s ease-in-out infinite;
+					will-change: opacity;
 				}
 			`}</style>
 			<Virtuoso
@@ -972,16 +1058,13 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 				scrollerRef={scrollerRefCallback}
 				data={messages}
 				className="flex-1 pt-2"
-				style={{ overflowX: "hidden" }}
+				style={VIRTUOSO_STYLE}
 				atBottomStateChange={handleAtBottom}
 				atBottomThreshold={80}
-				overscan={400}
-				increaseViewportBy={{ top: 200, bottom: 200 }}
+				overscan={isStreaming ? STREAMING_OVERSCAN : IDLE_OVERSCAN}
+				increaseViewportBy={isStreaming ? STREAMING_INCREASE_VIEWPORT_BY : IDLE_INCREASE_VIEWPORT_BY}
 				defaultItemHeight={80}
-				components={{
-					List: VirtuosoListContainer,
-					Footer: footer,
-				}}
+				components={virtuosoComponents}
 				itemContent={itemContent}
 				initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
 			/>
