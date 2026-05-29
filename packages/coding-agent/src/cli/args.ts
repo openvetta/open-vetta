@@ -47,6 +47,15 @@ export interface Args {
 	 * See docs/rpc.md.
 	 */
 	enableHostBridge?: boolean;
+	/**
+	 * Enable memory-mode (ADR-0009): MEMORY.md cross-session memory injected as a
+	 * frozen system-prompt snapshot, the `memory` tool, session rollover replacing
+	 * the LLM compaction layer, and the dated work log. Only meaningful with
+	 * `--mode rpc`; im-gateway sets it for the Claw conversation cwd.
+	 */
+	memoryMode?: boolean;
+	/** Absolute path to MEMORY.md (run-cwd-independent). Defaults to <cwd>/MEMORY.md. */
+	memoryFile?: string;
 	messages: string[];
 	fileArgs: string[];
 	/** Unknown flags (potentially extension flags) - map of flag name to value */
@@ -161,6 +170,10 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			result.verbose = true;
 		} else if (arg === "--enable-host-bridge") {
 			result.enableHostBridge = true;
+		} else if (arg === "--memory-mode") {
+			result.memoryMode = true;
+		} else if (arg === "--memory-file" && i + 1 < args.length) {
+			result.memoryFile = args[++i];
 		} else if (arg === "--offline") {
 			result.offline = true;
 		} else if (arg.startsWith("@")) {
@@ -232,6 +245,8 @@ ${chalk.bold("Options:")}
   --list-models [search]         List available models (with optional fuzzy search)
   --verbose                      Force verbose startup (overrides quietStartup setting)
   --enable-host-bridge           (--mode rpc only) Register im_send_attachment and host_request RPC channel
+  --memory-mode                  (--mode rpc only) Enable MEMORY.md cross-session memory, memory tool, session rollover, dated work log (ADR-0009)
+  --memory-file <path>           Absolute path to MEMORY.md (default: <cwd>/MEMORY.md). Implies --memory-mode is honored only when set
   --offline                      Disable startup network operations (same as PI_OFFLINE=1)
   --help, -h                     Show this help
   --version, -v                  Show version number

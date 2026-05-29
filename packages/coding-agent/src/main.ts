@@ -762,6 +762,16 @@ export async function main(args: string[]) {
 	sessionOptions.authStorage = authStorage;
 	sessionOptions.modelRegistry = modelRegistry;
 	sessionOptions.resourceLoader = resourceLoader;
+	// memory-mode (ADR-0009): honored only with an explicit MEMORY.md path or the
+	// --memory-mode switch, AND only in rpc mode. The entire memory system (tool,
+	// MEMORY.md injection, rollover, dated work log) is designed for the im-gateway
+	// RPC host driving the Claw conversation — it is the sole caller that passes
+	// these flags. Requiring rpc mode is defense-in-depth: it keeps the whole
+	// subsystem inert for desktop / TUI / CLI / other projects even if the flag
+	// were ever passed there by accident, so the memory tool is never registered
+	// outside Claw. See system-prompt.ts / rpc-mode.ts gates.
+	sessionOptions.memoryMode = mode === "rpc" && (parsed.memoryMode || parsed.memoryFile !== undefined);
+	sessionOptions.memoryFile = parsed.memoryFile;
 
 	// Handle CLI --api-key as runtime override (not persisted)
 	if (parsed.apiKey) {

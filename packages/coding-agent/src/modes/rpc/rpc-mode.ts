@@ -21,6 +21,7 @@ import type {
 } from "../../core/extensions/index.js";
 import type { ToolDefinition } from "../../core/extensions/types.js";
 import { createImSendAttachmentTool, type ImHostBridge } from "../../core/tools/im-send-attachment/index.js";
+import { createMemoryTool } from "../../core/tools/memory/index.js";
 import { type Theme, theme } from "../interactive/theme/theme.js";
 import type {
 	RpcCommand,
@@ -300,6 +301,15 @@ export async function runRpcMode(session: AgentSession, options: RunRpcModeOptio
 		}
 	>();
 
+	// Custom tools registered for this RPC session. Both the host-bridge tool
+	// and the memory tool are IM-mode built-ins, gated independently. We collect
+	// them and call reconfigureCustomTools once so the runtime is rebuilt a
+	// single time. ToolDefinition is invariant in its TParams generic; the
+	// concrete schemas returned by the factories are narrower than the
+	// registry's `ToolDefinition<TSchema, unknown>` slot, so we cast to erase
+	// the narrowing — runtime is identical.
+	const customTools: ToolDefinition[] = [];
+
 	if (options.enableHostBridge) {
 		const bridge: ImHostBridge = {
 			sendAttachment(params) {
@@ -319,14 +329,18 @@ export async function runRpcMode(session: AgentSession, options: RunRpcModeOptio
 				});
 			},
 		};
-		// Register the built-in IM-aware tool. reconfigureCustomTools rebuilds
-		// the runtime tool list synchronously; agent will see it in the next
-		// turn's tool dispatch.
-		// ToolDefinition is invariant in its TParams generic; the concrete
-		// schema we return from createImSendAttachmentTool is narrower than
-		// the registry's `ToolDefinition<TSchema, unknown>` slot. Cast to
-		// erase the narrowing — runtime is identical.
-		session.reconfigureCustomTools([createImSendAttachmentTool(bridge) as unknown as ToolDefinition]);
+		customTools.push(createImSendAttachmentTool(bridge) as unknown as ToolDefinition);
+	}
+
+	// memory tool (ADR-0009): gated by memory-mode, independent of host-bridge.
+	if (session.memoryMode && session.memoryFile) {
+		customTools.push(createMemoryTool(session.memoryFile, session.memoryCharLimit) as unknown as ToolDefinition);
+	}
+
+	if (customTools.length > 0) {
+		// reconfigureCustomTools rebuilds the runtime tool list synchronously;
+		// the agent sees these in the next turn's tool dispatch.
+		session.reconfigureCustomTools(customTools);
 	}
 
 	// Set up extensions with RPC-based UI context
@@ -513,6 +527,15 @@ export async function runRpcMode(session: AgentSession, options: RunRpcModeOptio
 			case "set_auto_compaction": {
 				session.setAutoCompactionEnabled(command.enabled);
 				return success(id, "set_auto_compaction");
+			}
+
+			// =================================================================
+			// Memory (ADR-0009)
+			// =================================================================
+
+			case "flush_memory": {
+				const written = await session.flushMemory();
+				return success(id, "flush_memory", { written });
 			}
 
 			// =================================================================

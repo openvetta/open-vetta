@@ -49,6 +49,8 @@ export interface BuildSystemPromptOptions {
 	skills?: Skill[];
 	/** MCP tools available (from Model Context Protocol servers). */
 	mcpTools?: McpToolInfo[];
+	/** Pre-rendered persistent-memory block (memory-mode only, frozen snapshot). */
+	memory?: string;
 }
 
 /** Build the system prompt with tools, guidelines, and context */
@@ -61,6 +63,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		contextFiles: providedContextFiles,
 		skills: providedSkills,
 		mcpTools: providedMcpTools,
+		memory,
 	} = options;
 	const resolvedCwd = cwd ?? process.cwd();
 
@@ -114,6 +117,11 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 			for (const { path: filePath, content } of contextFiles) {
 				prompt += `## ${filePath}\n\n${content}\n\n`;
 			}
+		}
+
+		// Persistent memory (memory-mode only, frozen snapshot)
+		if (memory) {
+			prompt += `\n\n${memory}`;
 		}
 
 		// Append skills section (if invoke_skill or read tool is available)
@@ -262,6 +270,11 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 		for (const { path: filePath, content } of contextFiles) {
 			prompt += `## ${filePath}\n\n${content}\n\n`;
 		}
+	}
+
+	// Persistent memory (memory-mode only, frozen snapshot)
+	if (memory) {
+		prompt += `\n\n${memory}`;
 	}
 
 	// Append skills section (if invoke_skill or read tool is available)
