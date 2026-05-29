@@ -37,13 +37,17 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
-	const activeSessionPath = activeSession?.sessionPath ?? "";
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [projectMenu, setProjectMenu] = useAtom(projectContextMenuAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
 	const currentPath = matches[matches.length - 1]?.pathname ?? "/";
+	// Claw 会话经 /viewer/$path 路由展示，不写入 activeSessionAtom；用路由 path 参与高亮，
+	// 否则 Claw 列表项永远没有 active 效果。viewer path 优先于 activeSession，避免双高亮。
+	const viewerParams = matches[matches.length - 1]?.params as { path?: string } | undefined;
+	const viewerSessionPath = viewerParams?.path ? decodeURIComponent(viewerParams.path) : "";
+	const activeSessionPath = viewerSessionPath || activeSession?.sessionPath || "";
 
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
@@ -643,7 +647,7 @@ const DefaultSessionList = memo(function DefaultSessionList({
 						}}
 						className={cn(
 							"flex w-full items-center gap-2 rounded-md px-2.5 py-[6px] text-left transition-colors duration-100",
-							isActive ? "bg-primary/15 text-primary" : "hover:bg-accent/50",
+							isActive ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
 						)}
 						title={isRenaming ? undefined : label}
 					>
@@ -659,14 +663,14 @@ const DefaultSessionList = memo(function DefaultSessionList({
 									<span
 										className={cn(
 											"icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin",
-											isActive ? "text-primary" : "text-muted-foreground",
+											isActive ? "text-foreground" : "text-muted-foreground",
 										)}
 									/>
 								)}
 								<span
 									className={cn(
 										"min-w-0 flex-1 truncate text-[13px]",
-										isActive ? "font-semibold text-primary" : "text-foreground",
+										isActive ? "font-semibold text-foreground" : "text-foreground",
 									)}
 								>
 									{label}
