@@ -15,6 +15,7 @@ export type SettingsTab =
 	| "account"
 	| "models"
 	| "mcp"
+	| "environment"
 	| "im"
 	| "webhook"
 	| "shortcuts"

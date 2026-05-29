@@ -194,6 +194,11 @@ const api: DesktopApi = {
 		get: async () => ipcRenderer.invoke("vetta:mcp:get"),
 		set: async (config) => ipcRenderer.invoke("vetta:mcp:set", config),
 	},
+	runtimes: {
+		getStatus: async () => ipcRenderer.invoke("vetta:runtimes:get-status"),
+		reinstall: async (type) => ipcRenderer.invoke("vetta:runtimes:reinstall", type),
+		redetect: async () => ipcRenderer.invoke("vetta:runtimes:redetect"),
+	},
 	settings: {
 		getServerUrl: async () => ipcRenderer.invoke("vetta:settings:get-server-url"),
 		getServerToken: async () => ipcRenderer.invoke("vetta:settings:get-server-token"),
