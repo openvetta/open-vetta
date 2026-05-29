@@ -599,24 +599,19 @@ export function ImBridgeSettings(): JSX.Element {
 							type="button"
 							onClick={() => void handleProbeModel()}
 							disabled={probing || !config.agentModel}
-							className="rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+							className="inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 						>
-							{probing ? "测试中…" : "测试连通"}
+							<span>测试连通</span>
+							{probing ? (
+								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+							) : probeResult?.ok ? (
+								<span className="icon-[mdi--check] h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+							) : probeResult && !probeResult.ok ? (
+								<span className="icon-[mdi--close] h-3.5 w-3.5 text-red-500" />
+							) : null}
 						</button>
 					</div>
 				</SettingRow>
-				{probeResult && (
-					<SettingRow title="" description="">
-						<span
-							className={cn(
-								"text-[12px]",
-								probeResult.ok ? "text-green-600 dark:text-green-400" : "text-red-500",
-							)}
-						>
-							{probeResult.msg}
-						</span>
-					</SettingRow>
-				)}
 			</SettingSection>
 
 			{/* ─────────────────────────────────────────────────────────────── */}
@@ -902,7 +897,7 @@ function ChannelCard({
 				<button
 					type="button"
 					onClick={onAction}
-					className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+					className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-input bg-secondary py-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--cog-outline] h-4 w-4" />
 					{actionLabel}
