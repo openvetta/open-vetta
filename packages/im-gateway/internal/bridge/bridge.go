@@ -42,6 +42,13 @@ const DeferredEmptyText = "⚠️ 未返回文本内容"
 // response (the agent side waits on stdin for the host_response command).
 type HostResponder func(ctx context.Context, cmd hostclient.Command) error
 
+// PathChangeHandler is the optional callback the bridge invokes when the agent
+// emits a `session_path_changed` event (memory-mode rollover, ADR-0009). The
+// router uses it to repoint the (user, chat) → sessionPath mapping at the new
+// .jsonl so the next inbound message resumes the rolled-over session rather
+// than the archived one.
+type PathChangeHandler func(newPath string)
+
 // Bridge translates a stream of agent events into outbound IM messages.
 //
 // One Bridge instance per (transport, chatID) pair; constructed at the
@@ -62,10 +69,11 @@ type HostResponder func(ctx context.Context, cmd hostclient.Command) error
 // thinking_delta is emitted as a separate message. Tool execution events
 // flush pending output and emit a one-line tool summary.
 type Bridge struct {
-	tr        transport.Transport
-	chatID    string
-	caps      transport.Capabilities
-	responder HostResponder
+	tr         transport.Transport
+	chatID     string
+	caps       transport.Capabilities
+	responder  HostResponder
+	pathChange PathChangeHandler
 
 	// streaming state
 	buf           strings.Builder
@@ -133,6 +141,28 @@ func New(tr transport.Transport, chatID string) *Bridge {
 // SetHostResponder installs the callback used to answer `host_request`
 // events. Optional — when unset, host_request events are logged and dropped.
 func (b *Bridge) SetHostResponder(r HostResponder) { b.responder = r }
+
+// SetPathChangeHandler installs the callback invoked on `session_path_changed`
+// events (memory-mode rollover). Optional — when unset, the event is ignored.
+func (b *Bridge) SetPathChangeHandler(h PathChangeHandler) { b.pathChange = h }
+
+// handleSessionPathChanged parses a session_path_changed event and forwards the
+// new path to the handler. Best-effort: a malformed event or empty `to` is
+// dropped silently (the next message would re-handshake the live path anyway).
+func (b *Bridge) handleSessionPathChanged(raw json.RawMessage) {
+	if b.pathChange == nil {
+		return
+	}
+	var ev struct {
+		To string `json:"to"`
+	}
+	if err := json.Unmarshal(raw, &ev); err != nil {
+		return
+	}
+	if ev.To != "" {
+		b.pathChange(ev.To)
+	}
+}
 
 // Run consumes events until the agent's turn ends and emits IM messages
 // along the way. A turn ends on the first of:
@@ -232,6 +262,9 @@ func (b *Bridge) handleDeferred(ctx context.Context, ev hostclient.AgentEvent) e
 		// turn-end, so the agent gets a real result to continue from.
 		b.handleHostRequest(ctx, ev.Raw)
 		return nil
+	case hostclient.AgentEventTypeSessionPathChanged:
+		b.handleSessionPathChanged(ev.Raw)
+		return nil
 	case hostclient.AgentEventTypeToolExecutionStart:
 		d.toolCount++
 	case hostclient.AgentEventTypeMessageEnd:
@@ -328,6 +361,9 @@ func (b *Bridge) handle(ctx context.Context, ev hostclient.AgentEvent) error {
 	switch ev.Type {
 	case "host_request":
 		b.handleHostRequest(ctx, ev.Raw)
+		return nil
+	case hostclient.AgentEventTypeSessionPathChanged:
+		b.handleSessionPathChanged(ev.Raw)
 		return nil
 	case hostclient.AgentEventTypeMessageUpdate:
 		eventType, delta := extractAssistantMessageDelta(ev.Raw)

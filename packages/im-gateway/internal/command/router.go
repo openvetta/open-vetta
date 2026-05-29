@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"vetta-im-gateway/internal/hostclient"
 	"vetta-im-gateway/internal/state"
 	"vetta-im-gateway/internal/transport"
 )
+
+// flushMemoryTimeout bounds the memory-consolidation step on /new so a slow or
+// hung LLM flush can never wedge the command indefinitely.
+const flushMemoryTimeout = 60 * time.Second
 
 // Result is what a Handler returns. Reply, if non-empty, is the message
 // the gateway should deliver back to the user. Mutated, if true, signals
@@ -137,12 +142,22 @@ func reply(text string) Result {
 type newCmd struct{}
 
 func (newCmd) Name() string { return "new" }
-func (newCmd) Help() string { return "`/new` — 在当前对话中开启新会话（清空上下文）" }
+func (newCmd) Help() string {
+	return "`/new` — 在当前对话中开启新会话（清空上下文）"
+}
 
 func (newCmd) Run(ctx context.Context, env Env, _ []string) (Result, error) {
 	if env.ConversationCwd == "" {
 		return reply("**未配置对话目录**，请稍后再试。"), nil
 	}
+
+	// Consolidate the current session's durable facts into MEMORY.md before we
+	// discard it (ADR-0009). The automatic flush only fires at a rollover, so a
+	// short session the user abandons via /new before ever hitting the threshold
+	// would otherwise lose its memory. Best-effort: a flush failure must not
+	// block /new.
+	wrote := flushSessionMemory(ctx, env)
+
 	// Clear the existing routing entry — next prompt will spawn a fresh
 	// session via the pool (sessionPath="" semantics in router).
 	if err := env.State.SetSession(ctx, state.SessionEntry{
@@ -152,10 +167,51 @@ func (newCmd) Run(ctx context.Context, env Env, _ []string) (Result, error) {
 	}); err != nil {
 		return Result{}, fmt.Errorf("clear session: %w", err)
 	}
+
+	text := "已开启新会话，下一条消息将从空上下文开始。"
+	if wrote > 0 {
+		text = fmt.Sprintf("已开启新会话（已凝结 %d 条记忆到长期记忆），下一条消息将从空上下文开始。", wrote)
+	}
 	return Result{
-		Reply:   transport.OutboundMessage{Text: "已开启新会话，下一条消息将从空上下文开始。"},
+		Reply:   transport.OutboundMessage{Text: text},
 		Mutated: true,
 	}, nil
+}
+
+// flushSessionMemory drives a one-shot memory consolidation on the chat's
+// current session before it is discarded. Returns the number of entries
+// written (0 on any error, no existing session, or when memory-mode is off —
+// coding-agent answers flush_memory with written:0 in that case). Best-effort
+// throughout: nothing here blocks or fails /new.
+func flushSessionMemory(ctx context.Context, env Env) int {
+	if env.HostPool == nil || env.State == nil {
+		return 0
+	}
+	entry, ok, err := env.State.GetSession(ctx, env.UserID, env.ChatID)
+	if err != nil || !ok || entry.SessionPath == "" {
+		return 0
+	}
+
+	fctx, cancel := context.WithTimeout(ctx, flushMemoryTimeout)
+	defer cancel()
+
+	// cwd is irrelevant to the flush: MEMORY.md is fixed by the spawn args
+	// (<conversationCwd>/MEMORY.md) regardless of run cwd, and flush touches no
+	// tools or the dated work log.
+	acq, err := env.HostPool.Acquire(fctx, env.ConversationCwd, entry.SessionPath)
+	if err != nil {
+		return 0
+	}
+	defer acq.Release()
+
+	resp, err := acq.Session.Send(fctx, hostclient.Command{Type: hostclient.CommandTypeFlushMemory})
+	if err != nil || !resp.Success {
+		return 0
+	}
+	if w, ok := resp.Data["written"].(float64); ok {
+		return int(w)
+	}
+	return 0
 }
 
 // =============================================================================

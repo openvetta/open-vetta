@@ -51,6 +51,18 @@ type Options struct {
 	// ADR-0006). Without it the agent has no way to call back into the
 	// IM transport — the tool is invisible to the LLM.
 	EnableHostBridge bool
+
+	// MemoryMode appends `--memory-mode` to the spawned coding-agent argv,
+	// enabling MEMORY.md cross-session memory, the `memory` tool, session
+	// rollover (replacing the LLM compaction layer), and the dated work log
+	// (ADR-0009). im-gateway sets it for the Claw conversation.
+	MemoryMode bool
+
+	// MemoryFile is forwarded as `--memory-file`. It must be an absolute,
+	// run-cwd-independent path (im-gateway sets it to
+	// `<conversationCwd>/MEMORY.md`) because the agent's run cwd is a daily
+	// date directory, not the conversation root. Only emitted when MemoryMode.
+	MemoryFile string
 }
 
 const (
@@ -110,6 +122,12 @@ func (c *Client) OpenSession(ctx context.Context, cwd, sessionPath string) (host
 	}
 	if c.opts.EnableHostBridge {
 		args = append(args, "--enable-host-bridge")
+	}
+	if c.opts.MemoryMode {
+		args = append(args, "--memory-mode")
+		if c.opts.MemoryFile != "" {
+			args = append(args, "--memory-file", c.opts.MemoryFile)
+		}
 	}
 	cmd := exec.CommandContext(ctx, c.opts.Bin, args...)
 	// CRITICAL: explicitly set the subprocess's working directory.
