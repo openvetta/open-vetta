@@ -297,18 +297,17 @@ textarea:focus {
 .markdown-streaming-tail .streaming-chunk {
 	display: inline-block;
 	vertical-align: baseline;
-	animation: streaming-chunk-fade 500ms ease-out both;
+	animation: streaming-chunk-fade 360ms ease-out both;
+	will-change: opacity, transform;
 }
 @keyframes streaming-chunk-fade {
 	from {
-		opacity: 0.08;
-		filter: blur(5px);
-		transform: translateY(8px);
+		opacity: 0.12;
+		transform: translate3d(0, 6px, 0);
 	}
 	to {
 		opacity: 1;
-		filter: blur(0);
-		transform: translateY(0);
+		transform: translate3d(0, 0, 0);
 	}
 }
 
@@ -415,11 +414,12 @@ a {
 }
 
 @keyframes tool-call-text-shimmer {
-	0% {
-		background-position: 200% 0;
-	}
+	0%,
 	100% {
-		background-position: -200% 0;
+		opacity: 0.62;
+	}
+	50% {
+		opacity: 1;
 	}
 }
 
@@ -436,7 +436,8 @@ a {
 	-webkit-background-clip: text;
 	background-clip: text;
 	-webkit-text-fill-color: transparent;
-	animation: tool-call-text-shimmer 3.2s linear infinite;
+	animation: tool-call-text-shimmer 2.4s ease-in-out infinite;
+	will-change: opacity;
 }
 
 /* Streaming state: calm indigo breathing glow.

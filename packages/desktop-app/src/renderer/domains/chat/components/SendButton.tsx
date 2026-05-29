@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import "./SendButton.css";
 
 interface SendButtonProps {
@@ -10,11 +10,20 @@ interface SendButtonProps {
 
 type IconState = "send" | "to-stop" | "stop" | "to-send";
 
-export function SendButton({ canSend, isStreaming, onSend, onAbort }: SendButtonProps): JSX.Element {
+export const SendButton = memo(function SendButton({ canSend, isStreaming, onSend, onAbort }: SendButtonProps): JSX.Element {
 	const isActive = isStreaming || canSend;
 	const wasStreamingRef = useRef(isStreaming);
 	const [iconState, setIconState] = useState<IconState>(isStreaming ? "stop" : "send");
 	const [showOutgoingArrow, setShowOutgoingArrow] = useState(false);
+	const buttonStyle = useMemo(() => ({
+		background: isActive
+			? "var(--primary)"
+			: "color-mix(in srgb, var(--muted-foreground) 18%, transparent)",
+		color: isActive ? "var(--primary-foreground)" : "var(--muted-foreground)",
+		boxShadow: isActive
+			? "0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)"
+			: "none",
+	}), [isActive]);
 
 	useEffect(() => {
 		if (!wasStreamingRef.current && isStreaming) {
@@ -42,15 +51,7 @@ export function SendButton({ canSend, isStreaming, onSend, onAbort }: SendButton
 			disabled={!isStreaming && !canSend}
 			className="send-button relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full transition-shadow disabled:cursor-not-allowed"
 			data-icon-state={iconState}
-			style={{
-				background: isActive
-					? "var(--primary)"
-					: "color-mix(in srgb, var(--muted-foreground) 18%, transparent)",
-				color: isActive ? "var(--primary-foreground)" : "var(--muted-foreground)",
-				boxShadow: isActive
-					? "0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)"
-					: "none",
-			}}
+			style={buttonStyle}
 			title={isStreaming ? "停止生成" : "发送消息"}
 		>
 			{showOutgoingArrow ? (
@@ -78,4 +79,4 @@ export function SendButton({ canSend, isStreaming, onSend, onAbort }: SendButton
 			</span>
 		</button>
 	);
-}
+});

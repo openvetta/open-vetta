@@ -82,6 +82,7 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 	const displayRef = useRef(active ? "" : text);
 	const targetRef = useRef(text);
 	const rafRef = useRef<number | null>(null);
+	const revealTimerRef = useRef<number | null>(null);
 	const lastRevealRef = useRef<number | null>(null);
 	const settleTimerRef = useRef<number | null>(null);
 	const wasActiveRef = useRef(active);
@@ -96,6 +97,13 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 			}
 		}
 
+		function clearRevealTimer(): void {
+			if (revealTimerRef.current !== null) {
+				window.clearTimeout(revealTimerRef.current);
+				revealTimerRef.current = null;
+			}
+		}
+
 		function scheduleSettle(): void {
 			clearSettleTimer();
 			settleTimerRef.current = window.setTimeout(() => {
@@ -104,11 +112,28 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 			}, STREAM_REVEAL_INTERVAL_MS);
 		}
 
+		function scheduleReveal(delayMs: number): void {
+			if (delayMs <= 0) {
+				if (rafRef.current === null) {
+					rafRef.current = requestAnimationFrame(tick);
+				}
+				return;
+			}
+			if (revealTimerRef.current !== null) return;
+			revealTimerRef.current = window.setTimeout(() => {
+				revealTimerRef.current = null;
+				if (rafRef.current === null) {
+					rafRef.current = requestAnimationFrame(tick);
+				}
+			}, delayMs);
+		}
+
 		if (!text.startsWith(displayRef.current)) {
 			if (rafRef.current !== null) {
 				cancelAnimationFrame(rafRef.current);
 				rafRef.current = null;
 			}
+			clearRevealTimer();
 			clearSettleTimer();
 			setDisplayText(text);
 			setAnimateChunks(false);
@@ -131,7 +156,7 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 
 			const previousReveal = lastRevealRef.current;
 			if (previousReveal !== null && timestamp - previousReveal < STREAM_REVEAL_INTERVAL_MS) {
-				rafRef.current = requestAnimationFrame(tick);
+				scheduleReveal(STREAM_REVEAL_INTERVAL_MS - (timestamp - previousReveal));
 				return;
 			}
 			lastRevealRef.current = timestamp;
@@ -154,6 +179,7 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 		}
 		wasActiveRef.current = active;
 		if (active) {
+			clearRevealTimer();
 			clearSettleTimer();
 			setAnimateChunks(true);
 		} else if (displayRef.current.length < text.length) {
@@ -163,7 +189,11 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 		}
 
 		if (rafRef.current === null && displayRef.current.length < text.length) {
-			rafRef.current = requestAnimationFrame(tick);
+			const previousReveal = lastRevealRef.current;
+			const delayMs = previousReveal === null
+				? 0
+				: Math.max(0, STREAM_REVEAL_INTERVAL_MS - (performance.now() - previousReveal));
+			scheduleReveal(delayMs);
 		}
 
 		return () => {
@@ -171,6 +201,7 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 				cancelAnimationFrame(rafRef.current);
 				rafRef.current = null;
 			}
+			clearRevealTimer();
 			clearSettleTimer();
 		};
 	}, [text, active]);
