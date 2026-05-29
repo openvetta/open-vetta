@@ -1025,6 +1025,92 @@ export class SessionManager {
 		return entry.id;
 	}
 
+	/**
+	 * memory-mode rollover (ADR-0009). Start a FRESH session file seeded with the
+	 * post-compaction state (summary + kept tail) and point its `parentSession`
+	 * back at the file being rolled away. The new file is small, so im-gateway's
+	 * per-message cold-start parse cost stays bounded even after a long-running
+	 * conversation — this is the im-gateway-specific reason rollover exists where
+	 * Hermes (a long-lived process) just compacts in place.
+	 *
+	 * Must be called AFTER {@link appendCompaction} has applied a compaction to
+	 * the current branch: it carries that compaction's summary + kept tail into
+	 * the new file. The compaction is re-homed as the new root, so
+	 * buildSessionContext on the new file yields `summary + kept tail` — exactly
+	 * the in-memory state — while the old file is left intact as an archive.
+	 *
+	 * Returns the { from, to } absolute paths (equal when nothing rolled: an
+	 * in-memory session, or no compaction in the current branch).
+	 */
+	rolloverToNewFile(): { from: string | undefined; to: string | undefined } {
+		const from = this.sessionFile;
+		if (!this.persist) return { from, to: from };
+
+		const path = this.getBranch();
+		let compactionIdx = -1;
+		for (let i = path.length - 1; i >= 0; i--) {
+			if (path[i].type === "compaction") {
+				compactionIdx = i;
+				break;
+			}
+		}
+		if (compactionIdx === -1) return { from, to: from };
+
+		const compaction = path[compactionIdx] as CompactionEntry;
+
+		// Kept tail: entries from firstKeptEntryId (inclusive) up to the
+		// compaction, plus anything appended after it (normally nothing right
+		// after an auto-compaction, but stay general).
+		const kept: SessionEntry[] = [];
+		let foundFirstKept = false;
+		for (let i = 0; i < compactionIdx; i++) {
+			const e = path[i];
+			if (e.id === compaction.firstKeptEntryId) foundFirstKept = true;
+			if (foundFirstKept) kept.push(e);
+		}
+		for (let i = compactionIdx + 1; i < path.length; i++) kept.push(path[i]);
+
+		// Build the new linear chain: compaction' (root) -> kept'... Entry ids are
+		// unique within the old session and this is a brand-new byId map, so we
+		// keep them and only rewrite parentId to form the chain. With the
+		// compaction at the root, buildSessionContext emits summary + every later
+		// entry, so firstKeptEntryId only needs to stay valid.
+		const carried: SessionEntry[] = [compaction, ...kept];
+		const newEntries: SessionEntry[] = [];
+		let prevId: string | null = null;
+		for (const e of carried) {
+			newEntries.push({ ...e, parentId: prevId } as SessionEntry);
+			prevId = e.id;
+		}
+		(newEntries[0] as CompactionEntry).firstKeptEntryId = kept.length > 0 ? kept[0].id : compaction.id;
+
+		const newSessionId = randomUUID();
+		const timestamp = new Date().toISOString();
+		const header: SessionHeader = {
+			type: "session",
+			version: CURRENT_SESSION_VERSION,
+			id: newSessionId,
+			timestamp,
+			cwd: this.cwd,
+			parentSession: from,
+		};
+
+		if (this.lockHandle) {
+			this.lockHandle.release();
+			this.lockHandle = undefined;
+		}
+		this.sessionId = newSessionId;
+		this.fileEntries = [header, ...newEntries];
+		this.sessionFile = join(this.getSessionDir(), `${timestamp.replace(/[:.]/g, "-")}_${newSessionId}.jsonl`);
+		this._buildIndex();
+		this._rewriteFile();
+		this.flushed = true;
+		this.headerOnDisk = true;
+		this._acquireLockForCurrentFile();
+
+		return { from, to: this.sessionFile };
+	}
+
 	/** Append a custom entry (for extensions) as child of current leaf, then advance leaf. Returns entry id. */
 	appendCustomEntry(customType: string, data?: unknown): string {
 		const entry: CustomEntry = {

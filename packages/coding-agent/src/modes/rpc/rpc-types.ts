@@ -64,7 +64,11 @@ export type RpcCommand =
 	| { id?: string; type: "get_messages" }
 
 	// Commands (available for invocation via prompt)
-	| { id?: string; type: "get_commands" };
+	| { id?: string; type: "get_commands" }
+
+	// Memory (ADR-0009): consolidate durable facts from the current context into
+	// MEMORY.md on demand — e.g. before the host discards the session on /new.
+	| { id?: string; type: "flush_memory" };
 
 // ============================================================================
 // RPC Slash Command (for get_commands response)
@@ -159,6 +163,9 @@ export type RpcResponse =
 	// Compaction
 	| { id?: string; type: "response"; command: "compact"; success: true; data: CompactionResult }
 	| { id?: string; type: "response"; command: "set_auto_compaction"; success: true }
+
+	// Memory
+	| { id?: string; type: "response"; command: "flush_memory"; success: true; data: { written: number } }
 
 	// Retry
 	| { id?: string; type: "response"; command: "set_auto_retry"; success: true }

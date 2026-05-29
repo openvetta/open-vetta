@@ -94,6 +94,16 @@ export interface CreateAgentSessionOptions {
 	env?: Record<string, string>;
 
 	/**
+	 * memory-mode（ADR-0009）：启用 MEMORY.md 跨会话记忆注入 + memory 工具 +
+	 * session rollover + 日期工作史。仅 im-gateway 为 Claw cwd 启用。
+	 */
+	memoryMode?: boolean;
+	/** MEMORY.md 绝对路径（run cwd 无关）。memoryMode 下不传则默认 <cwd>/MEMORY.md。 */
+	memoryFile?: string;
+	/** MEMORY.md 字符预算（默认 DEFAULT_MEMORY_CHAR_LIMIT）。 */
+	memoryCharLimit?: number;
+
+	/**
 	 * Vetta 远端服务 URL（拉取 remote models / providers）。当宿主进程已经从环境
 	 * 变量解析出权威值（例如 desktop-app 的 VETTA_SERVER_URL）时显式传入，避免
 	 * SDK 退回到内置的 LAN 默认值并把它持久化到 settings.json，造成 desktop-app
@@ -452,6 +462,9 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		initialActiveToolNames,
 		extensionRunnerRef,
 		envOverlay: options.env,
+		memoryMode: options.memoryMode,
+		memoryFile: options.memoryFile,
+		memoryCharLimit: options.memoryCharLimit,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();

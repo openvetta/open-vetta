@@ -108,3 +108,57 @@ agent ↔ host 之间的反向 RPC 通道，扩自 coding-agent 的 RPC 协议�
 ### drop overlay (of ChatPage)
 
 A full-`ChatPage` overlay rendered while an OS-level drag carrying `Files` (or an internal drag carrying the `application/vetta-path` MIME) is hovering. Provides the visual affordance "release to reference"; on drop, each dragged item becomes a `mentionedFile` (or an `attachedImage` for image MIME). Triggers regardless of whether a session is currently active — items dropped on `NewSessionPage` stay in `mentionedFilesAtom` and are picked up by the next `sendPrompt`. Internal drags from File Explorer are detected via the `application/vetta-path` MIME and bypass `webUtils.getPathForFile`, reading the path directly from the dataTransfer payload.
+
+### memory-mode
+
+coding-agent 的一个**门控开关**（拟 `--memory-mode` 启动参数，默认关）。开启后激活下面整套「记忆 + 滚动」机制：[[MEMORY.md]] 注入、[[memory 工具]]、[[memory flush]]、[[session rollover]] 接管 [[Layer2 压缩]]、[[日期工作史]]。
+
+刻意做成门控而非全局默认：仅 im-gateway 为 [[im-gateway cwd]]（Claw 这一个固定且唯一的项目）spawn coding-agent 时传入；desktop / TUI 永不传，行为完全不变。靠**显式 flag 而非 cwd 探测**——不引入「按目录猜行为」的魔法。与 [[host_request / host_response]] 所依赖的 `--enable-host-bridge` 是两个正交的门控（记忆不必依赖出站 IM 工具，反之亦然）。
+
+记忆的归属是**项目级单一**：Claw 是单 owner 的客户端，不区分 user/project、不考虑多租户，全部 IM 会话共享同一份 [[MEMORY.md]] 与 [[日期工作史]]。
+
+### MEMORY.md
+
+[[im-gateway cwd]] 根下的**单一项目级记忆文件**（策展式 Markdown），是 Claw 跨会话记忆的常驻层。由 coding-agent 的 `resource-loader` 在 session 启动时**作为冻结快照**注入 system prompt——与现有 `AGENTS.md / CLAUDE.md` 注入走同一通道。
+
+「冻结快照」是硬纪律：当前进程内 system prompt 里的 MEMORY.md 内容**不随写入实时变化**，agent 通过 [[memory 工具]] 的返回值看到自己的写入，新内容**下一次进程加载时**才进 system prompt。目的是保住 Anthropic 前缀缓存（每次改写 system prompt 会令缓存失效，吃掉约 75% token 成本节省）。因 im-gateway `closeOnIdle` 每条消息重启进程，「下一次加载」≈ 下一条 IM 消息，故记忆跨消息近实时生效。
+
+借鉴 Hermes 的 `MEMORY.md`，但**合并掉 `USER.md`**——单 owner 下「关于用户」与「关于项目」无意义区分。
+
+### memory 工具
+
+memory-mode 下注册给 agent 的工具，签名 `add / replace / remove` 操作 [[MEMORY.md]] 条目，原子写盘。agent 主动决定何时记。与 [[memory flush]] 互补：flush 是保证写入点，工具是随时写入。
+
+### memory flush
+
+[[session rollover]] 前的**抢救步骤**：注入一条系统消息邀请 agent 把即将被滚动掉的重要信息写进 [[MEMORY.md]]，再执行滚动。借鉴 Hermes `flush_memories()`。是 MEMORY.md 不会长期为空的保证写入点。
+
+### session rollover
+
+memory-mode 下取代 [[Layer2 压缩]] 的会话滚动：上下文逼近压缩阈值时，不在原 jsonl 原地做 LLM 压缩，而是 ① 先 [[memory flush]]；② 复用 compaction 现成逻辑生成「保留近期尾巴（`keepRecentTokens`，默认 ~20k）+ LLM 摘要」；③ 把尾巴+摘要**写进一条新 jsonl**，`SessionHeader.parentSession` 指回旧文件，旧 jsonl 归档不再追加。
+
+承接进新会话起始上下文的 = 近期尾巴 + 摘要 + （resource-loader 注入的）[[MEMORY.md]]。
+
+存在的**理由是 im-gateway 专属**，不同于 Hermes：im-gateway `closeOnIdle` 每条消息 spawn 新进程并**全量解析整条 jsonl**，而原地压缩只追加 entry、不截断文件 → jsonl 无限增长 → 每条消息冷启动解析成本随时间上涨。rollover 给单文件大小封顶。Hermes 是长驻进程不付此成本，故不做 rollover。
+
+[[Layer1 microcompact]]（免费裁旧工具输出）在 memory-mode 下**照常运行**，只有 [[Layer2 压缩]] 被 rollover 取代。`session_search`（跨 jsonl 全文回溯，借 parentSession 链）**延后到二期**，一期只留好指针。
+
+### Layer1 microcompact
+
+coding-agent 现有压缩的第一层：纯函数、零成本，每次 LLM 调用前裁掉旧的工具结果 / bash 输出、删旧 thinking block（留 signature）。memory-mode 下保留。
+
+### Layer2 压缩
+
+coding-agent 现有压缩的第二层：Layer1 后仍超阈值时触发的 LLM 摘要压缩，结果以 `compaction` entry 写回**同一** jsonl。默认阈值贴近上下文 80%（`minFreePercent:20`），是「逼近阈值后每轮都重压缩」卡顿的根因。memory-mode 下被 [[session rollover]] 取代。
+
+### 日期工作史
+
+memory-mode 下的**按需渐进披露记忆层**，与常驻的 [[MEMORY.md]] 互补。物理形态：agent 的**运行 cwd 设为今日日期目录** `<im-gateway cwd>/<YYYY-MM-DD>/`，故 agent 写 `./` 产物自然落今日目录、读 `../<昨天>/` 回溯。与 [[im-gateway inbox]] 的按日分目录天然同构（入站媒体、出站产物、当日 [[JOURNAL.md]] 同处一个日期目录——刻意**按日期而非按 session 物理隔离**）。
+
+「问 agent 昨天干了什么」即由此成立：agent 自助翻昨天的日期目录（读 [[JOURNAL.md]] + 产物文件）。产物被视为记忆的一部分。
+
+借鉴 ADR-0007 desktop 的 per-cwd 隔离思路，但轴是**日期**而非 sessionId（IM 不做 per-session 产物隔离）。
+
+### JOURNAL.md
+
+[[日期工作史]] 每个日期目录下的当日日报，是「昨天干了什么」的渐进披露索引。填充来源：**每个 turn-end coding-agent append 一行精简摘要**（做了什么 / 生成了什么文件）+ [[session rollover]] 时额外写一段提炼。两路保证轻聊日子也有记录、重度日子有提炼。

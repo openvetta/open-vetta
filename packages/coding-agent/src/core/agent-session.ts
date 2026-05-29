@@ -74,6 +74,9 @@ import {
 	wrapToolsWithExtensions,
 } from "./extensions/index.js";
 import { createMcpManager, type McpManager } from "./mcp/index.js";
+import { flushMemoryBeforeRollover } from "./memory/memory-flush.js";
+import { appendJournalLine, appendJournalSection } from "./memory/memory-journal.js";
+import { DEFAULT_MEMORY_CHAR_LIMIT, readMemoryContent, renderMemoryForPrompt } from "./memory/memory-store.js";
 import type { BashExecutionMessage, CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.js";
@@ -131,7 +134,10 @@ export type AgentSessionEvent =
 	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
 	| { type: "todo_update"; items: ReadonlyArray<TodoItem> }
 	| { type: "mcp_reload_start" }
-	| { type: "mcp_reload_end"; changed: boolean; errorMessage?: string };
+	| { type: "mcp_reload_end"; changed: boolean; errorMessage?: string }
+	// memory-mode session rollover (ADR-0009): the active session jsonl changed.
+	// The host (im-gateway) repoints its routing state at `to`.
+	| { type: "session_path_changed"; from: string | undefined; to: string; reason: "rollover" };
 
 /** Listener function for agent session events */
 export type AgentSessionEventListener = (event: AgentSessionEvent) => void;
@@ -168,6 +174,15 @@ export interface AgentSessionConfig {
 	 * 用于把 TMPDIR/TEMP/TMP 等系统级路径重定向到 session 私有目录。
 	 */
 	envOverlay?: Record<string, string>;
+	/**
+	 * memory-mode：启用 MEMORY.md 跨会话记忆注入 + memory 工具 + session
+	 * rollover + 日期工作史（ADR-0009）。仅 im-gateway 为 Claw cwd 启用，默认关。
+	 */
+	memoryMode?: boolean;
+	/** MEMORY.md 的绝对路径（run cwd 无关的稳定位置）。memoryMode 下必填。 */
+	memoryFile?: string;
+	/** MEMORY.md 字符预算（默认 DEFAULT_MEMORY_CHAR_LIMIT）。 */
+	memoryCharLimit?: number;
 }
 
 export interface ExtensionBindings {
@@ -271,6 +286,13 @@ export class AgentSession {
 	private _turnIndex = 0;
 
 	private _resourceLoader: ResourceLoader;
+	// memory-mode (ADR-0009)
+	private _memoryMode: boolean = false;
+	private _memoryFile: string | undefined;
+	private _memoryCharLimit: number = DEFAULT_MEMORY_CHAR_LIMIT;
+	/** Frozen MEMORY.md snapshot captured at session start; injected into the
+	 * system prompt and never re-read mid-session (preserves the prompt cache). */
+	private _memorySnapshot: string = "";
 	private _customTools: ToolDefinition[];
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
 	private _cwd: string;
@@ -320,6 +342,17 @@ export class AgentSession {
 		this._envOverlay = config.envOverlay;
 		this._enableMcp = config.enableMcp !== undefined ? config.enableMcp : true;
 		this._mcpDebug = config.mcpDebug || false;
+
+		// memory-mode: capture the frozen MEMORY.md snapshot once, here at
+		// construction. im-gateway spawns a fresh process per message burst, so
+		// "once at construction" ≈ once per inbound message — memory edits land
+		// in the next message's prompt without busting the in-process cache.
+		this._memoryMode = config.memoryMode ?? false;
+		this._memoryFile = config.memoryFile ?? (this._memoryMode ? join(this._cwd, "MEMORY.md") : undefined);
+		this._memoryCharLimit = config.memoryCharLimit ?? DEFAULT_MEMORY_CHAR_LIMIT;
+		if (this._memoryMode && this._memoryFile) {
+			this._memorySnapshot = readMemoryContent(this._memoryFile);
+		}
 
 		// Initialize TodoStore with session persistence
 		this._todoStore = new TodoStore((snapshot) => {
@@ -501,6 +534,12 @@ export class AgentSession {
 			if (this._isRetryableError(msg)) {
 				const didRetry = await this._handleRetryableError(msg);
 				if (didRetry) return; // Retry was initiated, don't proceed to compaction
+			}
+
+			// memory-mode (ADR-0009): record a one-line digest of this turn in
+			// today's JOURNAL.md before any rollover. Best-effort, run cwd = date dir.
+			if (this._memoryMode) {
+				appendJournalLine(this._cwd, msg);
 			}
 
 			await this._checkCompaction(msg);
@@ -920,6 +959,11 @@ export class AgentSession {
 				description: tool.description || `Tool from MCP server`,
 			})) ?? [];
 
+		const memory =
+			this._memoryMode && this._memoryFile
+				? renderMemoryForPrompt(this._memoryFile, this._memorySnapshot, this._memoryCharLimit)
+				: undefined;
+
 		return buildSystemPrompt({
 			cwd: this._cwd,
 			skills: loadedSkills,
@@ -928,7 +972,23 @@ export class AgentSession {
 			appendSystemPrompt,
 			selectedTools: validToolNames,
 			mcpTools,
+			memory,
 		});
+	}
+
+	/** memory-mode enabled? (ADR-0009) */
+	get memoryMode(): boolean {
+		return this._memoryMode;
+	}
+
+	/** Absolute MEMORY.md path, or undefined when memory-mode is off. */
+	get memoryFile(): string | undefined {
+		return this._memoryFile;
+	}
+
+	/** MEMORY.md character budget. */
+	get memoryCharLimit(): number {
+		return this._memoryCharLimit;
 	}
 
 	// =========================================================================
@@ -1971,6 +2031,51 @@ export class AgentSession {
 	}
 
 	/**
+	 * Compaction trigger settings, adjusted for memory-mode (ADR-0009).
+	 *
+	 * memory-mode rolls over earlier (~70% of the context window) so each jsonl
+	 * stays small. getCompactThreshold takes max(window - reserve, window *
+	 * (1 - minFreePercent/100)); to actually trigger at ~70% on large windows we
+	 * must lower BOTH terms, so bump minFreePercent to 30 AND raise reserveTokens
+	 * to ≥30% of the window. keepRecentTokens (the carried tail) is untouched.
+	 * Off for non-memory sessions — desktop/TUI behaviour is unchanged.
+	 */
+	private _compactionSettingsFor(contextWindow: number): ReturnType<SettingsManager["getCompactionSettings"]> {
+		const base = this.settingsManager.getCompactionSettings();
+		if (!this._memoryMode) return base;
+		return {
+			...base,
+			minFreePercent: Math.max(base.minFreePercent, 30),
+			reserveTokens:
+				contextWindow > 0 ? Math.max(base.reserveTokens, Math.ceil(contextWindow * 0.3)) : base.reserveTokens,
+		};
+	}
+
+	/**
+	 * Consolidate durable facts from the CURRENT context into MEMORY.md on demand
+	 * (ADR-0009). Unlike the automatic flush that runs before a rollover, this is
+	 * an explicit consolidation point — the host calls it before discarding the
+	 * session (e.g. the user's `/new`), so a short session that never hit the
+	 * rollover threshold still gets its memory凝结. memory-mode only; best-effort;
+	 * returns the number of entries written.
+	 */
+	async flushMemory(): Promise<number> {
+		if (!this._memoryMode || !this._memoryFile || !this.model) return 0;
+		const apiKey = await this._modelRegistry.getApiKey(this.model);
+		if (!apiKey) return 0;
+		const messages = this.sessionManager.buildSessionContext().messages;
+		if (messages.length === 0) return 0;
+		const written = await flushMemoryBeforeRollover({
+			memoryFile: this._memoryFile,
+			limit: this._memoryCharLimit,
+			messages,
+			model: this.model,
+			apiKey,
+		});
+		return written.length;
+	}
+
+	/**
 	 * Pre-LLM-call compaction. Called from transformContext before each LLM call.
 	 *
 	 * Layer 1: microcompact — clears old tool results (pure, zero cost).
@@ -1988,7 +2093,7 @@ export class AgentSession {
 		if (contextWindow <= 0) return messages;
 
 		const estimate = estimateContextTokens(messages);
-		if (!shouldCompact(estimate.tokens, contextWindow, settings)) return messages;
+		if (!shouldCompact(estimate.tokens, contextWindow, this._compactionSettingsFor(contextWindow))) return messages;
 
 		// Circuit breaker check
 		if (!this._compactionCircuitBreaker.canAttempt()) return messages;
@@ -2060,7 +2165,7 @@ export class AgentSession {
 		if (assistantMessage.stopReason === "error") return;
 
 		const contextTokens = calculateContextTokens(assistantMessage.usage);
-		if (shouldCompact(contextTokens, contextWindow, settings)) {
+		if (shouldCompact(contextTokens, contextWindow, this._compactionSettingsFor(contextWindow))) {
 			await this._runAutoCompaction("threshold", false);
 		}
 	}
@@ -2092,6 +2197,23 @@ export class AgentSession {
 			if (!preparation) {
 				this._emit({ type: "auto_compaction_end", result: undefined, aborted: false, willRetry: false });
 				return;
+			}
+
+			// memory-mode (ADR-0009): flush durable facts out of the
+			// about-to-be-discarded context into MEMORY.md BEFORE summarizing, so
+			// the rollover never silently loses what's worth remembering. Best
+			// effort — flush failures must not block compaction/rollover.
+			if (this._memoryMode && this._memoryFile && this.model) {
+				// Disk-only write; the frozen system-prompt snapshot is intentionally
+				// left as-is and picks the new entries up on the next session.
+				await flushMemoryBeforeRollover({
+					memoryFile: this._memoryFile,
+					limit: this._memoryCharLimit,
+					messages: preparation.messagesToSummarize,
+					model: this.model,
+					apiKey,
+					signal: this._autoCompactionAbortController.signal,
+				});
 			}
 
 			let extensionCompaction: CompactionResult | undefined;
@@ -2149,6 +2271,20 @@ export class AgentSession {
 			}
 
 			this.sessionManager.appendCompaction(summary, firstKeptEntryId, tokensBefore, details, fromExtension);
+
+			// memory-mode (ADR-0009): instead of leaving the compaction appended to
+			// an ever-growing jsonl, roll the compacted state (summary + kept tail)
+			// into a fresh, small file pointing back at the old one. The resolved
+			// messages are identical, so agent state / willRetry are unaffected.
+			// Emit session_path_changed so im-gateway repoints its routing state.
+			if (this._memoryMode) {
+				appendJournalSection(this._cwd, summary);
+				const { from, to } = this.sessionManager.rolloverToNewFile();
+				if (to && to !== from) {
+					this._emit({ type: "session_path_changed", from, to, reason: "rollover" });
+				}
+			}
+
 			const newEntries = this.sessionManager.getEntries();
 			const sessionContext = this.sessionManager.buildSessionContext();
 			this.agent.replaceMessages(sessionContext.messages);
