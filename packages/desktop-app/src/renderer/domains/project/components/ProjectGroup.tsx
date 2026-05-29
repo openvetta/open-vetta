@@ -155,7 +155,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 			<div
 				className={cn(
 					"group flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
-					isActive ? "bg-primary/15 text-primary" : "hover:bg-accent/50",
+					isActive ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
 				)}
 				title={project.cwd}
 				onContextMenu={(e) => {
@@ -173,7 +173,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 						<span
 							className={cn(
 								"icon-[mdi--chevron-down] h-4 w-4",
-								isActive ? "text-primary" : "text-foreground",
+								"text-foreground",
 							)}
 						/>
 						{projectHasRunning && <RunningPulseDot />}
@@ -191,7 +191,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 							className={cn(
 								PROJECT_TYPE_ICONS[projectType],
 								"h-4 w-4",
-								isActive ? "text-primary" : "text-foreground",
+								"text-foreground",
 							)}
 						/>
 						{projectHasRunning && <RunningPulseDot />}
@@ -209,7 +209,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 					}}
 					className={cn(
 						"min-w-0 flex-1 truncate text-left text-[13px] font-medium",
-						isActive ? "font-semibold text-primary" : "text-foreground",
+						isActive ? "font-semibold text-foreground" : "text-foreground",
 					)}
 				>
 					{displayName}
@@ -269,7 +269,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 									className={cn(
 										"relative flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
 										isActive
-											? "bg-primary/15 text-primary"
+											? "bg-primary/15 text-foreground"
 											: "hover:bg-accent/50",
 									)}
 									title={isRenaming ? undefined : label}
@@ -299,7 +299,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 													!isSchedule && !isRunning && "pl-[20px]",
 													isRunning && "pl-1",
 													isActive
-														? "font-semibold text-primary"
+														? "font-semibold text-foreground"
 														: "text-foreground",
 												)}
 											>

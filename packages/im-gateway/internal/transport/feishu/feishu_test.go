@@ -355,18 +355,99 @@ func TestHandleInbound_GroupDropped(t *testing.T) {
 	}
 }
 
-func TestHandleInbound_NonTextDropped(t *testing.T) {
-	// Note: non-text triggers a bot reply which would call SendMessage
-	// against the Feishu API. We only verify the handler is NOT invoked
-	// (the SendMessage failure is silent in tests since we can't reach
-	// Feishu). The snapshot remains empty.
+func TestHandleInbound_UnsupportedTypeDropped(t *testing.T) {
+	// Still-unsupported types (audio / video / merge_forward / sticker)
+	// trigger a hint reply (which would call SendMessage against the Feishu
+	// API — silent failure in tests) and never reach the handler.
+	tr, _ := New(Options{AppID: "x", AppSecret: "y"})
+	h := &captureHandler{}
+
+	ev := makeP2("p2p", "audio", `{"file_key":"f1"}`, "ou_user_1", "oc_chat_1")
+	_ = tr.handleInbound(context.Background(), ev, h)
+	if len(h.snapshot()) != 0 {
+		t.Error("unsupported types should not reach the handler")
+	}
+}
+
+func TestHandleInbound_ImageWithoutInboxDropped(t *testing.T) {
+	// With no InboxDir configured the transport cannot persist media, so an
+	// image message yields no attachment and (having no text) is dropped
+	// without any network call.
 	tr, _ := New(Options{AppID: "x", AppSecret: "y"})
 	h := &captureHandler{}
 
 	ev := makeP2("p2p", "image", `{"image_key":"img1"}`, "ou_user_1", "oc_chat_1")
 	_ = tr.handleInbound(context.Background(), ev, h)
 	if len(h.snapshot()) != 0 {
-		t.Error("non-text messages should not reach the handler")
+		t.Error("image with no inbox configured should be dropped")
+	}
+}
+
+func TestHandleInbound_PostTextOnly(t *testing.T) {
+	// A post with only text runs (no embedded images) needs no download and
+	// reaches the handler with the flattened text — even without an inbox.
+	tr, _ := New(Options{AppID: "x", AppSecret: "y"})
+	h := &captureHandler{}
+
+	content := `{"title":"标题","content":[[{"tag":"text","text":"hello "},{"tag":"a","text":"链接","href":"https://x.io"}]]}`
+	ev := makeP2("p2p", "post", content, "ou_user_1", "oc_chat_1")
+	if err := tr.handleInbound(context.Background(), ev, h); err != nil {
+		t.Fatal(err)
+	}
+	got := h.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("expected 1 inbound, got %d", len(got))
+	}
+	if got[0].Text != "标题\nhello 链接(https://x.io)" {
+		t.Errorf("post text flatten: %q", got[0].Text)
+	}
+}
+
+func TestExtractImageKey(t *testing.T) {
+	if got := extractImageKey(`{"image_key":"img_v2_abc"}`); got != "img_v2_abc" {
+		t.Errorf("got %q", got)
+	}
+	if got := extractImageKey("not json"); got != "" {
+		t.Errorf("invalid content should yield empty, got %q", got)
+	}
+}
+
+func TestExtractFileKey(t *testing.T) {
+	key, name := extractFileKey(`{"file_key":"file_v2_x","file_name":"report.pdf"}`)
+	if key != "file_v2_x" || name != "report.pdf" {
+		t.Errorf("got key=%q name=%q", key, name)
+	}
+}
+
+func TestExtractPost(t *testing.T) {
+	content := `{"title":"T","content":[` +
+		`[{"tag":"text","text":"line1 "},{"tag":"at","user_name":"bob"},{"tag":"img","image_key":"img_a"}],` +
+		`[{"tag":"img","image_key":"img_b"},{"tag":"text","text":"end"}]]}`
+	text, keys := extractPost(content)
+	want := "T\nline1 @bob\nend"
+	if text != want {
+		t.Errorf("text: got %q want %q", text, want)
+	}
+	if len(keys) != 2 || keys[0] != "img_a" || keys[1] != "img_b" {
+		t.Errorf("image keys: %v", keys)
+	}
+}
+
+func TestFeishuFileType(t *testing.T) {
+	cases := map[string]string{
+		"a.pdf":  "pdf",
+		"a.DOCX": "doc",
+		"a.xlsx": "xls",
+		"a.ppt":  "ppt",
+		"a.mp4":  "mp4",
+		"a.opus": "opus",
+		"a.zip":  "stream",
+		"noext":  "stream",
+	}
+	for name, want := range cases {
+		if got := feishuFileType(name); got != want {
+			t.Errorf("feishuFileType(%q) = %q, want %q", name, got, want)
+		}
 	}
 }
 

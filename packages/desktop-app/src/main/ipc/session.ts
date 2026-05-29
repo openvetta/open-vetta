@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type Dirent, type FSWatcher, watch } from "node:fs";
-import { mkdir, readdir, rm } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { ipcMain, type WebContents } from "electron";
 import type {
 	PromptRequest,
@@ -42,6 +42,46 @@ function resolveSessionDirForCwd(cwd: string | undefined): string | undefined {
 		return DEFAULT_IM_CONVERSATION_SESSION_DIR;
 	}
 	return undefined;
+}
+
+/**
+ * 判断给定 cwd 是不是「对话」项目根下的某个 session 子目录
+ * （即 ADR-0007 引入的 per-session artifact dir）。
+ */
+function isConversationSubCwd(cwd: string): boolean {
+	const abs = resolve(cwd);
+	const root = resolve(DEFAULT_CONVERSATION_CWD);
+	if (abs === root) return false;
+	const rel = relative(root, abs);
+	return rel.length > 0 && !rel.startsWith("..") && !isAbsolute(rel) && !rel.includes("/");
+}
+
+/**
+ * ADR-0007: 「对话」默认项目下每个新建 session eager 一个独立子目录作为运行 cwd，
+ * 避免不同 session 的 agent 产物在根目录互相覆盖/被误读。
+ * 仅作用于 cwd 恰好为 DEFAULT_CONVERSATION_CWD 的场景；其他项目原样返回。
+ */
+async function ensureConversationSubCwd(requestedCwd: string | undefined): Promise<string | undefined> {
+	if (!requestedCwd) return requestedCwd;
+	if (resolve(requestedCwd) !== resolve(DEFAULT_CONVERSATION_CWD)) return requestedCwd;
+	const sub = join(DEFAULT_CONVERSATION_CWD, randomUUID());
+	await mkdir(sub, { recursive: true });
+	return sub;
+}
+
+/** 从 session jsonl 第一行 header 里读 cwd；读不到返回 undefined。 */
+async function readSessionCwdFromHeader(sessionPath: string): Promise<string | undefined> {
+	try {
+		const text = await readFile(sessionPath, "utf8");
+		const nl = text.indexOf("\n");
+		const firstLine = nl === -1 ? text : text.slice(0, nl);
+		if (!firstLine) return undefined;
+		const header = JSON.parse(firstLine) as { type?: string; cwd?: string };
+		if (header.type !== "session") return undefined;
+		return typeof header.cwd === "string" ? header.cwd : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /**
@@ -226,15 +266,33 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertExecutionMode(config?.executionMode);
 		await assertSandboxAvailableForMode(config?.executionMode, resolveDefaultExecutionMode);
 		// 默认项目：缺省把 session 落到 <cwd>/.vetta/sessions（与批量项目一致）。
+		// 关键：sessionDir 用「原始」projectCwd 推导（DEFAULT_CONVERSATION_SESSION_DIR
+		// 仍在项目根，不进 per-session 子目录），然后 cwd 再 swap 到子目录。
 		const injectedSessionDir = config?.sessionDir ?? resolveSessionDirForCwd(config?.cwd);
-		const effectiveConfig: SessionConfig | undefined = injectedSessionDir
-			? { ...(config ?? {}), sessionDir: injectedSessionDir }
+		// ADR-0007: 重新打开已存在的 session 时，渲染端传进来的 cwd 是项目根，
+		// 但 session header 里持久化的真实 cwd 可能是 per-session 子目录。
+		// 优先用 header 里的 cwd，避免 activeSession.cwd 退化回项目根。
+		const cwdFromExistingHeader = config?.sessionPath
+			? await readSessionCwdFromHeader(config.sessionPath)
+			: undefined;
+		// ADR-0007: 「对话」项目下「新建」session 拿独立 cwd 子目录；
+		// 已有 session 不重 mkdir，直接沿用 header cwd。
+		const effectiveCwd = cwdFromExistingHeader ?? (await ensureConversationSubCwd(config?.cwd));
+		if (effectiveCwd && effectiveCwd !== config?.cwd) {
+			allowProjectRoot(effectiveCwd);
+		}
+		const needPatch = effectiveCwd !== config?.cwd || injectedSessionDir !== config?.sessionDir;
+		const effectiveConfig: SessionConfig | undefined = needPatch
+			? { ...(config ?? {}), cwd: effectiveCwd, sessionDir: injectedSessionDir ?? config?.sessionDir }
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
-		if (config?.cwd) {
-			sessionCwdMap.set(result.sessionId, config.cwd);
+		if (effectiveCwd) {
+			sessionCwdMap.set(result.sessionId, effectiveCwd);
 		}
-		return result;
+		// ADR-0007: 把实际 cwd（可能是「对话」per-session 子目录）返回给渲染端，
+		// 否则 activeSession.cwd 仍是用户传入的项目根，ActivityPanel 文件树会
+		// 落到项目根、看到其他 session 的子目录。
+		return { ...result, cwd: effectiveCwd };
 	});
 
 	ipcMain.handle(CHANNELS.LIST_PROJECTS, async () => {
@@ -334,7 +392,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.DELETE, async (_event, sessionPath: unknown) => {
 		assertNonEmptyString(sessionPath, "sessionPath");
+		// ADR-0007: 「对话」项目下的 session cwd 是独立子目录；删除 session 时
+		// 连带回收子目录里的产物。读 header 先取 cwd，再 delete，最后 rm 子目录。
+		const cwdFromHeader = await readSessionCwdFromHeader(sessionPath);
 		await runtime.deleteSession(sessionPath);
+		if (cwdFromHeader && isConversationSubCwd(cwdFromHeader)) {
+			await rm(resolve(cwdFromHeader), { recursive: true, force: true }).catch((err) => {
+				console.error("[session ipc] failed to remove conversation sub cwd", cwdFromHeader, err);
+			});
+		}
 	});
 
 	ipcMain.handle(CHANNELS.RENAME, async (_event, sessionPath: unknown, name: unknown) => {
@@ -392,7 +458,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 		const toDispose: string[] = [];
 		for (const [sessionId, cwd] of sessionCwdMap.entries()) {
-			if (resolve(cwd) !== targetCwd) continue;
+			const absCwd = resolve(cwd);
+			// "conversation" 场景下 session cwd 可能是 DEFAULT_CONVERSATION_CWD
+			// 本身（老 session）或其 per-session 子目录（ADR-0007 之后的新 session）。
+			const matched = absCwd === targetCwd || (scope === "conversation" && isConversationSubCwd(cwd));
+			if (!matched) continue;
 			toDispose.push(sessionId);
 		}
 		await Promise.all(

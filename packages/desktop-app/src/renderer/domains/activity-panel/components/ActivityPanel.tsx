@@ -165,7 +165,9 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 						</div>
 					)}
 
-					<div className="flex min-h-0 flex-1 flex-col">
+					{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
+					    新 cwd 重新拉取，避免上个 session 的卡片内容残留。 */}
+					<div key={cwd ?? "__none__"} className="flex min-h-0 flex-1 flex-col">
 						{activeTab === "file" && <FileTabContent cwd={cwd} />}
 						{activeTab === "journey" && cwd && <JourneyPanel cwd={cwd} />}
 						{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}

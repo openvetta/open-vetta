@@ -6,6 +6,8 @@ status: accepted
 
 im-gateway 的 wechat transport 此前只跑文本（ADR-0005 之后的 M1 范围），`docs/ilink-protocol.md §7` 把媒体（image/file/voice/video）明确列为不实现。这一轮要把 image + file 双向收发加上（voice/video 仍延后；feishu 不在范围）。
 
+> **范围更新**：本 ADR 的「feishu 不在范围」已被 ADR-0008 推翻——feishu 现已复用同一套 inbox + host_request 单轨，并新增 post 富文本入站。本文其余决策（单轨 vs `images[]`、工具回调 vs digest 扫描）仍是两个 transport 的共同基础。
+
 设计上有两个非平凡决定。
 
 **入站统一走 [[mentionedFile]] 单轨，不走 RPC `images[]`。** 一开始的方案是把图片解密后 base64 直接塞进 `prompt.images[]`（多模态视觉直投），同时也落盘以便 agent 二次编辑——即"图片双轨"。复盘时发现 coding-agent 的 `Read` 工具早就有完备的图片处理 (`packages/coding-agent/src/core/tools/read/index.ts` + `resizeImageBuffer`，默认缩到 2000x2000)，由 im-gateway 再做一份 Go 侧的解码/缩放是重复造轮子；同时把原始 base64 塞 stdin 会面临 ~50 MB 单行 JSON、爆 session jsonl、踩 LLM provider 大小上限的风险。所以入站统一改为：图片 + 文件都只把**原样字节**落盘到 [[im-gateway inbox]] (`~/.vetta/im-gateway/conversation/<YYYY-MM-DD>/`)，bridge 在 `prompt.message` 头部 prepend 一行 `@<abspath>`，agent 想看图就调 Read，bridge 不参与缩放。代价是 agent "看见"图片要多花一次工具调用，不再是上来就能视觉读取——值得，换来 Go 侧零图像依赖、可控的 RPC payload 大小、对所有 IM 媒体统一处理。
