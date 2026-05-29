@@ -22,10 +22,14 @@
 //     `streaming_mode` back to false on the underlying card so the
 //     blinking cursor goes away.
 //
-// First-milestone scope:
+// Scope:
 //   - private chats only (group / topic_group are silently dropped per
 //     the Non-Goals in the spec)
-//   - inbound: text messages only (rich blocks / attachments deferred)
+//   - inbound: text + image + file + post rich-text (downloaded to the
+//     inbox and surfaced as `@<path>` mentions); audio / video /
+//     merge_forward / sticker still get a hint reply and drop. See ADR-0008.
+//   - outbound media via SendAttachment (image upload with file fallback,
+//     file upload, caption as a follow-up text). See ADR-0008.
 //   - automatic reconnect via SDK default behavior (autoReconnect=true,
 //     unlimited retries, 2-minute interval)
 //
@@ -37,6 +41,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -49,7 +56,14 @@ import (
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 
 	"vetta-im-gateway/internal/transport"
+	"vetta-im-gateway/internal/transport/inbox"
 )
+
+// MaxInboundAttachmentBytes caps a single inbound media we will download +
+// persist. Feishu's own bot limits are smaller (image ≤10MB, file ≤30MB);
+// this is a defensive ceiling so a misconfigured peer cannot OOM the
+// gateway. Mirrors the wechat transport's cap.
+const MaxInboundAttachmentBytes = 50 * 1024 * 1024
 
 // streamElementID is the fixed element_id we assign to the single markdown
 // component inside every streaming card. The cardkit content-update API
@@ -76,6 +90,13 @@ type Options struct {
 
 	// LogLevel for the SDK's internal logger. Defaults to Warn.
 	LogLevel larkcore.LogLevel
+
+	// InboxDir is where the transport persists downloaded inbound media
+	// (image / file / post-embedded images). Each file is written under a
+	// per-day subdirectory via the shared inbox package. Empty disables
+	// inbound media handling — image/file/post images are dropped and only
+	// text survives, matching the text-only behaviour from before ADR-0008.
+	InboxDir string
 }
 
 // streamHandle remembers what cardkit card backs an in-flight streaming
@@ -93,12 +114,13 @@ type streamHandle struct {
 
 // Transport implements transport.Transport for Feishu.
 type Transport struct {
-	opts   Options
-	api    *lark.Client
-	ws     *larkws.Client
-	mu     sync.Mutex
-	closed atomic.Bool
-	done   chan struct{}
+	opts     Options
+	api      *lark.Client
+	ws       *larkws.Client
+	inboxDir string
+	mu       sync.Mutex
+	closed   atomic.Bool
+	done     chan struct{}
 
 	// Streaming state. The map is keyed by IM message ID (what the bridge
 	// holds onto) and stores the cardkit card_id we need for subsequent
@@ -127,10 +149,11 @@ func New(opts Options) (*Transport, error) {
 	}
 
 	t := &Transport{
-		opts:    opts,
-		api:     lark.NewClient(opts.AppID, opts.AppSecret, apiOpts...),
-		done:    make(chan struct{}),
-		streams: make(map[string]*streamHandle),
+		opts:     opts,
+		api:      lark.NewClient(opts.AppID, opts.AppSecret, apiOpts...),
+		inboxDir: opts.InboxDir,
+		done:     make(chan struct{}),
+		streams:  make(map[string]*streamHandle),
 	}
 	return t, nil
 }
@@ -220,16 +243,35 @@ func (t *Transport) Stop() error {
 	return nil
 }
 
+// inboundMediaHint is the friendly reply sent for message types we still
+// don't support (audio / video / merge_forward / sticker ...). Image, file
+// and post are handled as of ADR-0008.
+const inboundMediaHint = "暂不支持该消息类型（语音/视频/合并转发等），请发送文字、图片或文件。"
+
 // handleInbound translates a Feishu P2MessageReceiveV1 event into the
 // gateway's normalized InboundMessage and forwards it to the handler.
 //
+// Supported message types (ADR-0008):
+//   - text:  plain text, @-mentions stripped.
+//   - image: the image_key is downloaded + persisted to the inbox and
+//     surfaced as an image Attachment.
+//   - file:  the file_key is downloaded + persisted and surfaced as a file
+//     Attachment.
+//   - post:  the rich-text runs are flattened into Text and every embedded
+//     image_key becomes an image Attachment.
+//
 // Filters:
-//   - Group / topic_group chats are silently dropped (Non-Goal for first
-//     milestone). The bot still receives the events but does nothing.
-//   - Non-text messages (image, file, post, etc.) are dropped with a
-//     friendly reply suggesting text-only.
+//   - Group / topic_group chats are silently dropped (Non-Goal). The bot
+//     still receives the events but does nothing.
+//   - Other message types (audio / video / merge_forward / sticker) get a
+//     friendly hint then drop.
 //   - Bot-self messages should not loop back here (Feishu's open platform
 //     doesn't deliver them) but we defensively check anyway.
+//
+// Media download happens synchronously here. larkws dispatches each inbound
+// frame on its own goroutine (ws/client.go `go handleMessage`) and runs the
+// ping loop independently, so a slow download blocks only this message, not
+// heartbeats or other events.
 func (t *Transport) handleInbound(ctx context.Context, event *larkim.P2MessageReceiveV1, handler transport.MessageHandler) error {
 	if event == nil || event.Event == nil || event.Event.Message == nil || event.Event.Sender == nil {
 		return nil
@@ -238,26 +280,9 @@ func (t *Transport) handleInbound(ctx context.Context, event *larkim.P2MessageRe
 
 	chatType := strVal(msg.ChatType)
 	if chatType != "p2p" {
-		// Group / topic_group: Non-Goal for first milestone. Drop silently.
+		// Group / topic_group: Non-Goal. Drop silently.
 		return nil
 	}
-
-	msgType := strVal(msg.MessageType)
-	if msgType != "text" {
-		// Reply with a hint then drop.
-		if msg.ChatId != nil {
-			_, _ = t.SendMessage(ctx, *msg.ChatId, transport.OutboundMessage{
-				Text: "Sorry, this gateway only supports text messages right now.",
-			})
-		}
-		return nil
-	}
-
-	text := extractText(strVal(msg.Content))
-	if text == "" {
-		return nil
-	}
-	text = stripBotMentions(text, msg.Mentions)
 
 	userID := ""
 	if event.Event.Sender.SenderId != nil {
@@ -267,15 +292,144 @@ func (t *Transport) handleInbound(ctx context.Context, event *larkim.P2MessageRe
 		return nil
 	}
 
+	chatID := strVal(msg.ChatId)
+	msgID := strVal(msg.MessageId)
+	content := strVal(msg.Content)
+
+	var text string
+	var attachments []transport.Attachment
+
+	switch strVal(msg.MessageType) {
+	case "text":
+		text = stripBotMentions(extractText(content), msg.Mentions)
+	case "image":
+		if key := extractImageKey(content); key != "" {
+			if att, err := t.fetchInboundImage(ctx, msgID, 0, key); err == nil {
+				attachments = append(attachments, att)
+			}
+		}
+	case "file":
+		if key, name := extractFileKey(content); key != "" {
+			if att, err := t.fetchInboundFile(ctx, msgID, key, name); err == nil {
+				attachments = append(attachments, att)
+			}
+		}
+	case "post":
+		var imageKeys []string
+		text, imageKeys = extractPost(content)
+		for i, key := range imageKeys {
+			if att, err := t.fetchInboundImage(ctx, msgID, i, key); err == nil {
+				attachments = append(attachments, att)
+			}
+		}
+	default:
+		if chatID != "" {
+			_, _ = t.SendMessage(ctx, chatID, transport.OutboundMessage{Text: inboundMediaHint})
+		}
+		return nil
+	}
+
+	if text == "" && len(attachments) == 0 {
+		// Either an empty text, or media whose downloads all failed (errors
+		// are swallowed per-item above). Nothing useful to forward.
+		return nil
+	}
+
 	inbound := transport.InboundMessage{
-		Platform:  "feishu",
-		ChatID:    strVal(msg.ChatId),
-		UserID:    userID,
-		MessageID: strVal(msg.MessageId),
-		Text:      text,
-		Raw:       event,
+		Platform:    "feishu",
+		ChatID:      chatID,
+		UserID:      userID,
+		MessageID:   msgID,
+		Text:        text,
+		Attachments: attachments,
+		Raw:         event,
 	}
 	return handler.HandleInbound(ctx, inbound)
+}
+
+// fetchInboundImage downloads an image resource (image message or a
+// post-embedded image), persists it to the inbox, and returns the
+// resulting Attachment. Requires inboxDir to be set.
+func (t *Transport) fetchInboundImage(ctx context.Context, msgID string, idx int, imageKey string) (transport.Attachment, error) {
+	if t.inboxDir == "" {
+		return transport.Attachment{}, errors.New("feishu: inbox dir not configured")
+	}
+	b, err := t.downloadResource(ctx, msgID, imageKey, "image")
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	ext := inbox.GuessImageExt(b)
+	filename := fmt.Sprintf("%s-img-%d%s", inbox.SanitizeForFilename(msgID), idx, ext)
+	absPath, err := inbox.Persist(t.inboxDir, filename, b)
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	return transport.Attachment{
+		Kind:     transport.AttachmentImage,
+		Name:     filepath.Base(absPath),
+		MimeType: inbox.MimeFromExt(ext),
+		URL:      absPath,
+	}, nil
+}
+
+// fetchInboundFile downloads a file resource, persists it to the inbox, and
+// returns the resulting Attachment. Requires inboxDir to be set.
+func (t *Transport) fetchInboundFile(ctx context.Context, msgID, fileKey, name string) (transport.Attachment, error) {
+	if t.inboxDir == "" {
+		return transport.Attachment{}, errors.New("feishu: inbox dir not configured")
+	}
+	b, err := t.downloadResource(ctx, msgID, fileKey, "file")
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	if name == "" {
+		name = "file.bin"
+	}
+	filename := fmt.Sprintf("%s-%s", inbox.SanitizeForFilename(msgID), filepath.Base(name))
+	absPath, err := inbox.Persist(t.inboxDir, filename, b)
+	if err != nil {
+		return transport.Attachment{}, err
+	}
+	return transport.Attachment{
+		Kind:     transport.AttachmentFile,
+		Name:     filepath.Base(absPath),
+		MimeType: inbox.MimeFromExt(filepath.Ext(name)),
+		URL:      absPath,
+	}, nil
+}
+
+// downloadResource fetches one message resource (image_key / file_key) via
+// the authenticated Im.MessageResource.Get API. `typ` is "image" for image
+// resources and "file" for everything else. Unlike wechat there is no
+// decryption step — the SDK returns the plaintext bytes directly. The read
+// is capped at MaxInboundAttachmentBytes.
+func (t *Transport) downloadResource(ctx context.Context, msgID, fileKey, typ string) ([]byte, error) {
+	if msgID == "" || fileKey == "" {
+		return nil, errors.New("feishu resource: empty message_id or file_key")
+	}
+	req := larkim.NewGetMessageResourceReqBuilder().
+		MessageId(msgID).
+		FileKey(fileKey).
+		Type(typ).
+		Build()
+	resp, err := t.api.Im.MessageResource.Get(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("feishu get resource: %w", err)
+	}
+	if !resp.Success() {
+		return nil, fmt.Errorf("feishu get resource: %s (%d)", resp.Msg, resp.Code)
+	}
+	if resp.File == nil {
+		return nil, errors.New("feishu get resource: empty body")
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.File, MaxInboundAttachmentBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("feishu read resource: %w", err)
+	}
+	if len(b) > MaxInboundAttachmentBytes {
+		return nil, fmt.Errorf("feishu resource exceeds %d-byte cap", MaxInboundAttachmentBytes)
+	}
+	return b, nil
 }
 
 // SendMessage delivers a message to the chat. Two paths:
@@ -303,12 +457,20 @@ func (t *Transport) sendStaticCard(ctx context.Context, chatID, text string) (st
 	if err != nil {
 		return "", err
 	}
+	return t.sendRawMessage(ctx, chatID, "interactive", body)
+}
+
+// sendRawMessage is the shared Im.Message.Create tail: it sends one message
+// of the given msg_type with the already-encoded content string to chatID
+// and returns the platform message_id. Used by the card, image, and file
+// send paths.
+func (t *Transport) sendRawMessage(ctx context.Context, chatID, msgType, content string) (string, error) {
 	req := larkim.NewCreateMessageReqBuilder().
 		ReceiveIdType("chat_id").
 		Body(larkim.NewCreateMessageReqBodyBuilder().
 			ReceiveId(chatID).
-			MsgType("interactive").
-			Content(body).
+			MsgType(msgType).
+			Content(content).
 			Build()).
 		Build()
 
@@ -496,12 +658,116 @@ func (t *Transport) ShowTyping(_ context.Context, _ string) error {
 	return nil
 }
 
-// SendAttachment is not implemented on Feishu yet. The platform supports
-// it (im.v1 file upload), but ADR-0006 scopes media to wechat first;
-// feishu remains text-only. Returning a real error makes mistaken
-// invocations visible in tool results rather than silently noop'ing.
-func (t *Transport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
-	return "", errors.New("feishu: attachment send not supported (ADR-0006 scope)")
+// SendAttachment uploads a local file to Feishu and sends it to the chat as
+// an image or generic file (ADR-0008).
+//
+//   - kind=image: upload via Im.Image.Create → send msg_type=image. If the
+//     upload fails (Feishu's image API only accepts jpg/png/webp/gif/bmp and
+//     enforces a size cap), fall back to sending it as a file so the user
+//     still receives the bytes.
+//   - kind=file: upload via Im.File.Create (FileType derived from the
+//     extension, default "stream") → send msg_type=file.
+//
+// A non-empty caption is sent as a follow-up text card (mirrors wechat).
+// Best-effort: a caption failure does not undo the attachment send. Feishu
+// has no per-peer quota, so unlike wechat there is no quota gating.
+func (t *Transport) SendAttachment(ctx context.Context, chatID string, att transport.OutboundAttachment) (string, error) {
+	if chatID == "" {
+		return "", errors.New("feishu: chatID required")
+	}
+	if att.Path == "" {
+		return "", errors.New("feishu: attachment path required")
+	}
+
+	var (
+		messageID string
+		err       error
+	)
+	switch att.Kind {
+	case transport.AttachmentImage:
+		messageID, err = t.sendImage(ctx, chatID, att.Path)
+		if err != nil {
+			// Format/size reject (svg, oversized tiff, ...): fall back to a
+			// plain file send so the user still gets the bytes.
+			messageID, err = t.sendFile(ctx, chatID, att.Path)
+		}
+	case transport.AttachmentFile, "":
+		messageID, err = t.sendFile(ctx, chatID, att.Path)
+	default:
+		return "", fmt.Errorf("feishu: unsupported attachment kind %q", att.Kind)
+	}
+	if err != nil {
+		return "", err
+	}
+
+	if att.Caption != "" {
+		// Best effort; swallow caption errors (the attachment already landed).
+		_, _ = t.sendStaticCard(ctx, chatID, att.Caption)
+	}
+	return messageID, nil
+}
+
+// sendImage uploads the file at path as a message image and sends it. The
+// caller falls back to sendFile when this returns an error.
+func (t *Transport) sendImage(ctx context.Context, chatID, path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("feishu: open image: %w", err)
+	}
+	defer f.Close()
+
+	up, err := t.api.Im.Image.Create(ctx, larkim.NewCreateImageReqBuilder().
+		Body(larkim.NewCreateImageReqBodyBuilder().
+			ImageType(larkim.ImageTypeMessage).
+			Image(f).
+			Build()).
+		Build())
+	if err != nil {
+		return "", fmt.Errorf("feishu image upload: %w", err)
+	}
+	if !up.Success() {
+		return "", fmt.Errorf("feishu image upload: %s (%d)", up.Msg, up.Code)
+	}
+	if up.Data == nil || up.Data.ImageKey == nil {
+		return "", errors.New("feishu image upload: missing image_key")
+	}
+	content, err := (&larkim.MessageImage{ImageKey: *up.Data.ImageKey}).String()
+	if err != nil {
+		return "", fmt.Errorf("feishu image content: %w", err)
+	}
+	return t.sendRawMessage(ctx, chatID, larkim.MsgTypeImage, content)
+}
+
+// sendFile uploads the file at path and sends it as a msg_type=file message.
+func (t *Transport) sendFile(ctx context.Context, chatID, path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("feishu: open file: %w", err)
+	}
+	defer f.Close()
+
+	fileName := filepath.Base(path)
+	up, err := t.api.Im.File.Create(ctx, larkim.NewCreateFileReqBuilder().
+		Body(larkim.NewCreateFileReqBodyBuilder().
+			FileType(feishuFileType(fileName)).
+			FileName(fileName).
+			File(f).
+			Build()).
+		Build())
+	if err != nil {
+		return "", fmt.Errorf("feishu file upload: %w", err)
+	}
+	if !up.Success() {
+		return "", fmt.Errorf("feishu file upload: %s (%d)", up.Msg, up.Code)
+	}
+	if up.Data == nil || up.Data.FileKey == nil {
+		return "", errors.New("feishu file upload: missing file_key")
+	}
+	content, err := (&larkim.MessageFile{FileKey: *up.Data.FileKey}).String()
+	if err != nil {
+		return "", fmt.Errorf("feishu file content: %w", err)
+	}
+	return t.sendRawMessage(ctx, chatID, larkim.MsgTypeFile, content)
 }
 
 // =============================================================================
@@ -711,6 +977,105 @@ func extractText(content string) string {
 		return ""
 	}
 	return v.Text
+}
+
+// extractImageKey pulls image_key out of an image message's content
+// envelope (`{"image_key":"img_v2_..."}`).
+func extractImageKey(content string) string {
+	var v struct {
+		ImageKey string `json:"image_key"`
+	}
+	if err := json.Unmarshal([]byte(content), &v); err != nil {
+		return ""
+	}
+	return v.ImageKey
+}
+
+// extractFileKey pulls file_key + file_name out of a file message's content
+// envelope (`{"file_key":"file_v2_...","file_name":"report.pdf"}`).
+func extractFileKey(content string) (key, name string) {
+	var v struct {
+		FileKey  string `json:"file_key"`
+		FileName string `json:"file_name"`
+	}
+	if err := json.Unmarshal([]byte(content), &v); err != nil {
+		return "", ""
+	}
+	return v.FileKey, v.FileName
+}
+
+// postNode is one inline element of a post (rich-text) message paragraph.
+type postNode struct {
+	Tag      string `json:"tag"`
+	Text     string `json:"text"`
+	Href     string `json:"href"`
+	UserName string `json:"user_name"`
+	ImageKey string `json:"image_key"`
+}
+
+// extractPost flattens a post (rich-text) message into plain text plus the
+// list of embedded image_keys, in document order. The content envelope is
+// `{"title":"...","content":[[node, ...], ...]}` where the outer array is
+// paragraphs and the inner array is inline nodes. Links render as
+// "text(href)", @-mentions as "@name", and img nodes contribute an
+// image_key (their text placeholder is dropped).
+func extractPost(content string) (text string, imageKeys []string) {
+	var v struct {
+		Title   string       `json:"title"`
+		Content [][]postNode `json:"content"`
+	}
+	if err := json.Unmarshal([]byte(content), &v); err != nil {
+		return "", nil
+	}
+	var sb strings.Builder
+	if v.Title != "" {
+		sb.WriteString(v.Title)
+		sb.WriteString("\n")
+	}
+	for _, line := range v.Content {
+		for _, node := range line {
+			switch node.Tag {
+			case "text":
+				sb.WriteString(node.Text)
+			case "a":
+				if node.Href != "" {
+					sb.WriteString(node.Text + "(" + node.Href + ")")
+				} else {
+					sb.WriteString(node.Text)
+				}
+			case "at":
+				sb.WriteString("@" + node.UserName)
+			case "img":
+				if node.ImageKey != "" {
+					imageKeys = append(imageKeys, node.ImageKey)
+				}
+			}
+		}
+		sb.WriteString("\n")
+	}
+	return strings.TrimSpace(sb.String()), imageKeys
+}
+
+// feishuFileType maps a filename extension to the Feishu file_type enum used
+// by Im.File.Create. The typed values give the client a proper preview
+// (PDF/Office/video); everything else falls back to "stream", which always
+// works but renders as a generic file.
+func feishuFileType(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".pdf":
+		return "pdf"
+	case ".doc", ".docx":
+		return "doc"
+	case ".xls", ".xlsx":
+		return "xls"
+	case ".ppt", ".pptx":
+		return "ppt"
+	case ".mp4":
+		return "mp4"
+	case ".opus":
+		return "opus"
+	}
+	return "stream"
 }
 
 // stripBotMentions removes leading "@bot " noise from message text. Feishu

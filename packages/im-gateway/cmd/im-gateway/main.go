@@ -228,6 +228,7 @@ func buildTransport(cfg *config.Config, creds *config.Credentials, log *zap.Logg
 			AppID:     creds.Feishu.AppID,
 			AppSecret: creds.Feishu.AppSecret,
 			Domain:    domain,
+			InboxDir:  cfg.Paths.ConversationCwd,
 		})
 	case config.TransportWechat:
 		opts := wechat.Options{
