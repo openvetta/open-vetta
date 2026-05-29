@@ -91,7 +91,7 @@ func (t *fakeTransport) ShowTyping(_ context.Context, _ string) error       { re
 func (t *fakeTransport) SendAttachment(_ context.Context, _ string, _ transport.OutboundAttachment) (string, error) {
 	return "", errors.New("fake: not supported")
 }
-func (t *fakeTransport) EndStream(_ context.Context, _, _ string) error     { return nil }
+func (t *fakeTransport) EndStream(_ context.Context, _, _ string) error { return nil }
 
 func (t *fakeTransport) snapshot() []sendRecord {
 	t.mu.Lock()
@@ -269,6 +269,72 @@ func TestRouter_PerChatIsolation(t *testing.T) {
 	}
 	if _, ok, _ := st.GetSession(context.Background(), "u1", "c-group"); !ok {
 		t.Error("expected per-chat state entry for c-group")
+	}
+}
+
+// gatedClient blocks OpenSession until release is closed, signalling via
+// opened once the first OpenSession is reached. Lets a test deterministically
+// enqueue a second message inside the acquire window (ADR-0010).
+type gatedClient struct {
+	reply   string
+	release chan struct{}
+	opened  chan struct{}
+	once    sync.Once
+}
+
+func (c *gatedClient) OpenSession(_ context.Context, _ string, sessionPath string) (hostclient.HostSession, error) {
+	c.once.Do(func() { close(c.opened) })
+	<-c.release
+	resolved := sessionPath
+	if resolved == "" {
+		resolved = "/sessions/synthesized/gated.jsonl"
+	}
+	return &streamingFakeSession{
+		path:   resolved,
+		events: make(chan hostclient.AgentEvent, 16),
+		reply:  c.reply,
+	}, nil
+}
+
+func TestRouter_CoalescesBurstDuringAcquire(t *testing.T) {
+	// Two messages from the same chat, the second arriving while the agent is
+	// still being acquired (cold start), must coalesce into a single prompt and
+	// produce exactly one reply — not two turns, two replies (ADR-0010).
+	tr := newFakeTransport()
+	st := newFakeStore()
+	gc := &gatedClient{reply: "ok", release: make(chan struct{}), opened: make(chan struct{})}
+	pool := hostclient.NewProcessPool(gc, 4)
+	r := New(tr, command.NewRouter(), st, pool, testCwd)
+	defer r.Shutdown()
+
+	// First message seeds the turn; runTurn blocks inside Acquire/OpenSession.
+	if err := r.HandleInbound(context.Background(), transport.InboundMessage{
+		Platform: "fake", ChatID: "c1", UserID: "u1", Text: "part one",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	<-gc.opened // runTurn is now blocked in the acquire window
+
+	// Second message lands in the queue before Acquire returns. HandleInbound
+	// returns only after the message is enqueued, so releasing afterwards
+	// guarantees the drain sees it — coalescing it into the seed prompt.
+	if err := r.HandleInbound(context.Background(), transport.InboundMessage{
+		Platform: "fake", ChatID: "c1", UserID: "u1", Text: "part two",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	close(gc.release)
+
+	waitForSend(t, tr, 1, 2*time.Second)
+	// Give any erroneous second turn a chance to surface before asserting.
+	time.Sleep(100 * time.Millisecond)
+
+	got := tr.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("expected exactly one coalesced reply, got %d: %v", len(got), got)
+	}
+	if !strings.Contains(got[0].Text, "part one") || !strings.Contains(got[0].Text, "part two") {
+		t.Errorf("coalesced reply should contain both messages, got %q", got[0].Text)
 	}
 }
 

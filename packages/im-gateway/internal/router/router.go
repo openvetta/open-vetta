@@ -141,19 +141,55 @@ func convKey(userID, chatID string) string {
 	return userID + "::" + chatID
 }
 
-// processConversation drains one queue serially. Each message goes
-// through command.Router first; if it's not a command, the router
-// forwards it to the agent via the host pool and runs a Bridge.
+// processConversation drains one queue, implementing the live-turn state
+// machine (ADR-0010). A message received while no turn is active (IDLE) is
+// either a slash-command (handled inline, no turn) or the seed of a new turn.
+// Messages that arrive while a turn is live fold into it — merged into the
+// initial prompt during the acquire window, or steered into the running agent
+// afterwards. The turn ends at agent_end; the next message starts a fresh one.
 func (r *Router) processConversation(ctx context.Context, queue chan transport.InboundMessage) {
 	defer r.wg.Done()
-	for msg := range queue {
-		if err := r.handleOne(ctx, msg); err != nil {
-			r.replyError(ctx, msg.ChatID, err)
+
+	// pending carries a message that was dequeued but turned out to belong to
+	// the next turn — set by runTurn when a turn ends in the narrow window
+	// between dequeue and fold. nil the rest of the time.
+	var pending *transport.InboundMessage
+	for {
+		var seed transport.InboundMessage
+		if pending != nil {
+			seed, pending = *pending, nil
+		} else {
+			m, ok := <-queue
+			if !ok {
+				return
+			}
+			seed = m
 		}
+
+		// IDLE: a slash-command is handled here and does not start a turn.
+		handled, err := r.tryCommand(ctx, seed)
+		if err != nil {
+			r.replyError(ctx, seed.ChatID, err)
+			continue
+		}
+		if handled {
+			continue
+		}
+
+		next, err := r.runTurn(ctx, queue, seed)
+		if err != nil {
+			r.replyError(ctx, seed.ChatID, err)
+		}
+		pending = next
 	}
 }
 
-func (r *Router) handleOne(ctx context.Context, msg transport.InboundMessage) error {
+// tryCommand dispatches msg through the command router. handled=true means it
+// was a slash-command (already executed, reply sent); handled=false means it's
+// a normal prompt that should seed or fold into a turn. Slash-commands are only
+// recognised in IDLE — messages folded into a live turn are never dispatched
+// here (ADR-0010), they go to the agent as plain text.
+func (r *Router) tryCommand(ctx context.Context, msg transport.InboundMessage) (bool, error) {
 	env := command.Env{
 		UserID:          msg.UserID,
 		ChatID:          msg.ChatID,
@@ -161,40 +197,40 @@ func (r *Router) handleOne(ctx context.Context, msg transport.InboundMessage) er
 		State:           r.state,
 		HostPool:        r.pool,
 	}
-
 	res, err := r.commands.Dispatch(ctx, env, msg.Text)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if res.Reply.Text != "" || len(res.Reply.Blocks) > 0 {
 		if _, err := r.getTransport().SendMessage(ctx, msg.ChatID, res.Reply); err != nil {
-			return err
+			return false, err
 		}
 	}
-	if !res.NotACommand {
-		// It was a command and has already been handled.
-		return nil
-	}
-
-	// Not a command — forward to the agent.
-	return r.forwardToAgent(ctx, msg)
+	return !res.NotACommand, nil
 }
 
-// forwardToAgent looks up the (user, chat)'s existing session (if any),
-// acquires a HostSession from the pool rooted in conversationCwd, sends
-// a prompt, and runs a Bridge to translate the agent's events back to
-// IM messages.
-func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessage) error {
-	entry, _, _ := r.state.GetSession(ctx, msg.UserID, msg.ChatID)
+// runTurn drives one live turn (ADR-0010): look up the (user, chat) session,
+// acquire a HostSession, send the seed prompt (merging any messages that
+// arrived during the acquire window), run the Bridge in its own goroutine, and
+// fold any further inbound messages into the running agent via steer until the
+// agent reaches agent_end. Returns a non-nil *message when a dequeued message
+// turned out to belong to the next turn (the turn ended before it could be
+// folded), so the caller seeds the next turn with it instead of losing it.
+func (r *Router) runTurn(
+	ctx context.Context,
+	queue chan transport.InboundMessage,
+	seed transport.InboundMessage,
+) (*transport.InboundMessage, error) {
+	entry, _, _ := r.state.GetSession(ctx, seed.UserID, seed.ChatID)
 
 	cwd, err := r.agentCwd()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	acq, err := r.pool.Acquire(ctx, cwd, entry.SessionPath)
 	if err != nil {
-		return fmt.Errorf("acquire session: %w", err)
+		return nil, fmt.Errorf("acquire session: %w", err)
 	}
 	defer acq.Release()
 
@@ -203,21 +239,35 @@ func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessag
 	if entry.SessionPath == "" {
 		if real := acq.Session.SessionPath(); real != "" {
 			_ = r.state.SetSession(ctx, state.SessionEntry{
-				UserID:      msg.UserID,
-				ChatID:      msg.ChatID,
+				UserID:      seed.UserID,
+				ChatID:      seed.ChatID,
 				SessionPath: real,
 			})
 		}
 	}
 
-	if _, err := acq.Session.Send(ctx, hostclient.Command{
-		Type: hostclient.CommandTypePrompt,
-		Data: map[string]any{"message": buildPromptMessage(msg)},
-	}); err != nil {
-		return fmt.Errorf("send prompt: %w", err)
+	// Acquire window (ADR-0010): cold-start latency is a free coalescing
+	// window — no debounce timer. Drain whatever already queued during Acquire
+	// and merge it into the seed prompt so a burst of messages becomes one.
+	prompt := buildPromptMessage(seed)
+drain:
+	for {
+		select {
+		case m := <-queue:
+			prompt += "\n" + buildPromptMessage(m)
+		default:
+			break drain
+		}
 	}
 
-	br := bridge.New(r.tr, msg.ChatID)
+	if _, err := acq.Session.Send(ctx, hostclient.Command{
+		Type: hostclient.CommandTypePrompt,
+		Data: map[string]any{"message": prompt},
+	}); err != nil {
+		return nil, fmt.Errorf("send prompt: %w", err)
+	}
+
+	br := bridge.New(r.tr, seed.ChatID)
 	// host_request → host_response reverse RPC. The bridge invokes this
 	// when the agent's `im_send_attachment` tool fires; we route the
 	// command back to the same coding-agent subprocess via the session's
@@ -232,12 +282,53 @@ func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessag
 	// next message resumes the rolled-over session, not the archived one.
 	br.SetPathChangeHandler(func(newPath string) {
 		_ = r.state.SetSession(ctx, state.SessionEntry{
-			UserID:      msg.UserID,
-			ChatID:      msg.ChatID,
+			UserID:      seed.UserID,
+			ChatID:      seed.ChatID,
 			SessionPath: newPath,
 		})
 	})
-	return br.Run(ctx, acq.Session.Events())
+
+	// The bridge consumes events until agent_end (then returns). Running it in
+	// its own goroutine lets this loop keep draining the queue and steering
+	// folds into the still-streaming agent — a steered message defers agent_end
+	// so the bridge keeps producing into the same turn (one reply).
+	done := make(chan error, 1)
+	go func() { done <- br.Run(ctx, session.Events()) }()
+
+	for {
+		select {
+		case err := <-done:
+			return nil, err
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case m := <-queue:
+			// A message arrived during the live turn. If the turn just ended,
+			// hand it back as the next turn's seed rather than steering it into
+			// an agent that is no longer listening.
+			select {
+			case err := <-done:
+				return &m, err
+			default:
+			}
+			r.steer(ctx, session, m)
+		}
+	}
+}
+
+// steer folds a message into the running agent. Sent as a prompt with
+// streamingBehavior "steer" so coding-agent queues it as a steering message
+// while streaming, or — if the turn ended in the meantime — runs it as a fresh
+// prompt (see rpc-mode.ts). A failed fold is non-fatal and intentionally not
+// surfaced to the user: it only happens on a dead session, which the bridge's
+// done error reports anyway.
+func (r *Router) steer(ctx context.Context, session hostclient.HostSession, msg transport.InboundMessage) {
+	_, _ = session.Send(ctx, hostclient.Command{
+		Type: hostclient.CommandTypePrompt,
+		Data: map[string]any{
+			"message":           buildPromptMessage(msg),
+			"streamingBehavior": "steer",
+		},
+	})
 }
 
 // SetDatedCwd toggles per-day run directories (ADR-0009). Called by the

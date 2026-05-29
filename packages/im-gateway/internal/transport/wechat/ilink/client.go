@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -129,6 +130,12 @@ type Client struct {
 
 	// botToken is the per-account bearer token. nil before bind.
 	botToken atomic.Pointer[string]
+
+	// typingTickets caches the per-peer typing_ticket fetched from getconfig
+	// (see typing.go). Guarded by typingMu; entries are dropped on a rejected
+	// sendtyping so the next pulse refetches.
+	typingMu      sync.Mutex
+	typingTickets map[string]string
 }
 
 // New constructs a fresh Client with no credentials. Used to drive the QR

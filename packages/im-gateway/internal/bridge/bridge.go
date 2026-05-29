@@ -18,15 +18,13 @@ import (
 // limit window.
 const EditThrottle = 800 * time.Millisecond
 
-// DeferredAckDelay is how long the bridge waits in DeferUntilTurnEnd mode
-// before sending a "still working" ack. If the agent finishes the turn
-// inside this window we skip the ack entirely so trivial turns stay
-// single-message.
-const DeferredAckDelay = 1500 * time.Millisecond
-
-// DeferredAckText is the placeholder the bridge sends when a turn takes
-// longer than DeferredAckDelay. Wechat is plain-text — emoji renders fine.
-const DeferredAckText = "👀收到，vetta正在处理..."
+// TypingHeartbeatInterval is how often the bridge re-asserts the platform's
+// native "typing" indicator (e.g. WeChat's "对方正在输入") while a turn is in
+// flight in DeferUntilTurnEnd mode. The indicator's server-side lifetime is
+// short, so it must be re-sent below that ceiling to stay visible. This
+// replaces the old "still processing" ack message — progress is shown via the
+// native typing status instead of a pushed placeholder.
+const TypingHeartbeatInterval = 5 * time.Second
 
 // DeferredEmptyText is shown in the digest when a turn ends with no
 // final assistant text and no error to report.
@@ -107,8 +105,8 @@ type Bridge struct {
 // emission to agent_end. The bridge keeps last-assistant-message text
 // (overwriting on each message_end so an intermediate "I'll look that
 // up" gets discarded in favour of the final answer), the tool-call
-// count, and any error text. An ack timer fires once if the agent is
-// still working DeferredAckDelay after the prompt landed.
+// count, and any error text. Progress is shown via the native typing
+// indicator (see typingHeartbeat), not a pushed ack message.
 type deferredState struct {
 	promptAt          time.Time
 	toolCount         int
@@ -116,9 +114,7 @@ type deferredState struct {
 	lastErrorText     string
 
 	mu        sync.Mutex
-	ackSent   bool
 	finalSent bool
-	ackTimer  *time.Timer
 }
 
 // New constructs a Bridge for one outbound conversation.
@@ -210,45 +206,64 @@ func (b *Bridge) Run(ctx context.Context, events <-chan hostclient.AgentEvent) e
 	}
 }
 
-// runDeferred is the wechat-style path: suppress every intermediate
-// emission and send a single digest message at agent_end (plus an ack
-// after DeferredAckDelay if the turn is still running).
+// runDeferred is the wechat-style path: suppress every intermediate emission
+// and send a single digest message at agent_end. While the turn runs, the
+// native typing indicator is kept alive via typingHeartbeat so the user sees
+// "对方正在输入" instead of a pushed "still processing" placeholder.
 func (b *Bridge) runDeferred(ctx context.Context, events <-chan hostclient.AgentEvent) error {
-	// Start the ack timer: if no final message has been sent by the time
-	// it fires, we emit a single "still working" placeholder so the user
-	// is not left in silence on a long turn.
-	b.startAckTimer(ctx)
+	typingCtx, stopTyping := context.WithCancel(ctx)
+	defer stopTyping()
+	go b.typingHeartbeat(typingCtx)
 
 	var firstErr error
+	// finish stops the typing indicator and emits the single digest. Called on
+	// every exit path; stopping typing before the digest avoids the indicator
+	// lingering for a heartbeat interval after the reply already landed.
+	finish := func() {
+		stopTyping()
+		if err := b.sendDeferredDigest(ctx); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			b.cancelAckTimer()
-			if err := b.sendDeferredDigest(ctx); err != nil && firstErr == nil {
-				firstErr = err
-			}
+			finish()
 			if firstErr == nil {
 				return ctx.Err()
 			}
 			return firstErr
 		case ev, ok := <-events:
 			if !ok {
-				b.cancelAckTimer()
-				if err := b.sendDeferredDigest(ctx); err != nil && firstErr == nil {
-					firstErr = err
-				}
+				finish()
 				return firstErr
 			}
 			if err := b.handleDeferred(ctx, ev); err != nil && firstErr == nil {
 				firstErr = err
 			}
 			if ev.Type == hostclient.AgentEventTypeAgentEnd {
-				b.cancelAckTimer()
-				if err := b.sendDeferredDigest(ctx); err != nil && firstErr == nil {
-					firstErr = err
-				}
+				finish()
 				return firstErr
 			}
+		}
+	}
+}
+
+// typingHeartbeat keeps the transport's native typing indicator visible for
+// the life of ctx by re-asserting it every TypingHeartbeatInterval. The first
+// pulse fires immediately so the indicator appears as soon as the prompt
+// lands. ShowTyping errors are ignored (best-effort progress hint); transports
+// without a typing indicator implement it as a no-op.
+func (b *Bridge) typingHeartbeat(ctx context.Context) {
+	_ = b.tr.ShowTyping(ctx, b.chatID)
+	ticker := time.NewTicker(TypingHeartbeatInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = b.tr.ShowTyping(ctx, b.chatID)
 		}
 	}
 }
@@ -284,32 +299,6 @@ func (b *Bridge) handleDeferred(ctx context.Context, ev hostclient.AgentEvent) e
 		}
 	}
 	return nil
-}
-
-func (b *Bridge) startAckTimer(ctx context.Context) {
-	d := b.deferred
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.ackTimer = time.AfterFunc(DeferredAckDelay, func() {
-		d.mu.Lock()
-		if d.finalSent || d.ackSent {
-			d.mu.Unlock()
-			return
-		}
-		d.ackSent = true
-		d.mu.Unlock()
-		_, _ = b.tr.SendMessage(ctx, b.chatID, transport.OutboundMessage{Text: DeferredAckText})
-	})
-}
-
-func (b *Bridge) cancelAckTimer() {
-	d := b.deferred
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.ackTimer != nil {
-		d.ackTimer.Stop()
-		d.ackTimer = nil
-	}
 }
 
 // sendDeferredDigest assembles the single digest message for this turn

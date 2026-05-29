@@ -98,6 +98,20 @@ func (f *fakeTransport) snapshot() []transportCall {
 	return out
 }
 
+// sendsOnly drops the native "typing" pulses the deferred path emits as a
+// progress hint (see Bridge.typingHeartbeat). Those fire asynchronously on a
+// heartbeat goroutine, so their count is non-deterministic; assertions about
+// the digest must ignore them. A no-op on typing-free (streaming) snapshots.
+func sendsOnly(calls []transportCall) []transportCall {
+	out := make([]transportCall, 0, len(calls))
+	for _, c := range calls {
+		if c.Action != "typing" {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func itoa(n int) string {
 	if n == 0 {
 		return "0"
@@ -182,7 +196,7 @@ func TestBridge_ChunkMode_FlushOnAgentEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
 	}
@@ -207,7 +221,7 @@ func TestBridge_ChunkMode_NoParagraphSplit(t *testing.T) {
 
 	_ = b.Run(context.Background(), events)
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected single send (no paragraph split), got %d: %+v", len(calls), calls)
 	}
@@ -227,7 +241,7 @@ func TestBridge_ChunkMode_HardLengthCap(t *testing.T) {
 
 	_ = b.Run(context.Background(), events)
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) < 2 {
 		t.Fatalf("expected at least 2 chunks for 20 chars at limit 10, got %d", len(calls))
 	}
@@ -253,7 +267,7 @@ func TestBridge_EditMode_StreamsViaEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	// First call should be a send (initial message), subsequent are edits.
 	if calls[0].Action != "send" {
 		t.Errorf("first action should be send, got %q", calls[0].Action)
@@ -290,7 +304,7 @@ func TestBridge_EditMode_FlushSplitsAcrossMessageEnd(t *testing.T) {
 
 	_ = b.Run(context.Background(), events)
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	// We should see at least two SENDs (one per message_end boundary),
 	// because flush resets editMessageID.
 	sendCount := 0
@@ -317,7 +331,7 @@ func TestBridge_ToolExecutionFlushes(t *testing.T) {
 
 	_ = b.Run(context.Background(), events)
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 3 {
 		t.Fatalf("expected pre-tool flush + tool summary + post-tool send = 3 calls, got %d: %+v", len(calls), calls)
 	}
@@ -342,7 +356,7 @@ func TestBridge_ErrorEventForwarded(t *testing.T) {
 
 	_ = b.Run(context.Background(), events)
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 || !strings.Contains(calls[0].Text, "model unavailable") {
 		t.Errorf("expected error message in send, got %+v", calls)
 	}
@@ -368,7 +382,7 @@ func TestBridge_MessageEndStopReasonError(t *testing.T) {
 	if err := b.Run(context.Background(), events); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 || !strings.Contains(calls[0].Text, "Connection error.") {
 		t.Errorf("expected one IM send with the error text, got %+v", calls)
 	}
@@ -394,7 +408,7 @@ func TestBridge_MessageEndStopReasonErrorSuppressedWhenTextSent(t *testing.T) {
 	if err := b.Run(context.Background(), events); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	for _, c := range calls {
 		if strings.Contains(c.Text, "Rate limited") {
 			t.Errorf("error message should be suppressed when text was sent; got %+v", calls)
@@ -425,7 +439,7 @@ func TestBridge_ForwardsThinkingAndHidesToolcallDeltas(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	combined := ""
 	for _, c := range calls {
 		combined += c.Text + "\n"
@@ -463,7 +477,7 @@ func TestBridge_ThinkingFlushesBeforeText(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 2 {
 		t.Fatalf("expected thinking + final text, got %d: %+v", len(calls), calls)
 	}
@@ -501,7 +515,7 @@ func TestBridge_ReturnsOnAgentEndEvenIfChannelStaysOpen(t *testing.T) {
 		t.Fatal("Run did not return after agent_end with channel still open — multi-turn conversations would deadlock")
 	}
 
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 || calls[0].Text != "hi" {
 		t.Errorf("expected single send 'hi', got %+v", calls)
 	}
@@ -558,7 +572,7 @@ func TestBridge_DeferredMode_NoToolSimpleTurn(t *testing.T) {
 	if err := b.Run(context.Background(), events); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
 	}
@@ -582,7 +596,7 @@ func TestBridge_DeferredMode_WithTools(t *testing.T) {
 	if err := b.Run(context.Background(), events); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
 	}
@@ -607,7 +621,7 @@ func TestBridge_DeferredMode_LastMessageWins(t *testing.T) {
 	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
 	close(events)
 	_ = b.Run(context.Background(), events)
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
 	}
@@ -633,7 +647,7 @@ func TestBridge_DeferredMode_ErrorNoText(t *testing.T) {
 	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
 	close(events)
 	_ = b.Run(context.Background(), events)
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
 	}
@@ -657,7 +671,7 @@ func TestBridge_DeferredMode_ErrorNoToolNoText(t *testing.T) {
 	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
 	close(events)
 	_ = b.Run(context.Background(), events)
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
 	}
@@ -677,7 +691,7 @@ func TestBridge_DeferredMode_EmptyTurnNeverSilent(t *testing.T) {
 	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
 	close(events)
 	_ = b.Run(context.Background(), events)
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 send, got %d: %+v", len(calls), calls)
 	}
@@ -695,7 +709,7 @@ func TestBridge_DeferredMode_FastTurnSkipsAck(t *testing.T) {
 	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
 	close(events)
 	_ = b.Run(context.Background(), events)
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	for _, c := range calls {
 		if strings.Contains(c.Text, "vetta正在处理") {
 			t.Errorf("ack should not fire on a fast turn, got %+v", calls)
@@ -720,7 +734,7 @@ func TestBridge_DeferredMode_NoIntermediateEmissions(t *testing.T) {
 	events <- plainEvent(hostclient.AgentEventTypeAgentEnd)
 	close(events)
 	_ = b.Run(context.Background(), events)
-	calls := tr.snapshot()
+	calls := sendsOnly(tr.snapshot())
 	if len(calls) != 1 {
 		t.Fatalf("expected exactly 1 send at agent_end, got %d: %+v", len(calls), calls)
 	}

@@ -509,9 +509,18 @@ func (t *Transport) DeleteMessage(_ context.Context, _, _ string) error {
 	return errors.New("wechat: delete not supported")
 }
 
-// ShowTyping is a no-op in M1. The protocol supports a typing indicator
-// but it requires a 5-8s heartbeat goroutine which we defer.
-func (t *Transport) ShowTyping(_ context.Context, _ string) error { return nil }
+// ShowTyping sends one "对方正在输入" pulse to the peer. The indicator's
+// server-side lifetime is short (~5-8s); the bridge re-calls this on a
+// heartbeat while the agent is working (replacing the old "still processing"
+// ack message). Does not consume the send quota — typing is not a message.
+// Best-effort: errors (missing credentials, expired ticket) are returned for
+// the caller to ignore rather than surfaced to the user.
+func (t *Transport) ShowTyping(ctx context.Context, chatID string) error {
+	if chatID == "" {
+		return errors.New("wechat: chatID required")
+	}
+	return t.client.SendTyping(ctx, chatID, t.store.ContextToken(chatID), true)
+}
 
 // SendAttachment uploads a local file via the iLink CDN flow and sends it
 // to the peer as an image (kind="image") or generic file (kind="file").
