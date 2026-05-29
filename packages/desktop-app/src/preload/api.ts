@@ -14,6 +14,7 @@ import type {
 	SessionStateSnapshot,
 	SettingsPatch,
 } from "../../../runtime-core/src/index.js";
+import type { RuntimeStatus, RuntimesStatus, RuntimeType } from "../main/runtimes/types.js";
 import type { DesktopFsApi } from "./fs-types.js";
 
 export type ExecutionModeOverride = "inherit" | SessionExecutionMode;
@@ -910,6 +911,15 @@ export interface DesktopWebhookApi {
 	send(id: string, message: WebhookMessage): Promise<WebhookSendResult>;
 }
 
+/** 托管运行时(环境管理面板)。见 ADR-0011。 */
+export interface DesktopRuntimesApi {
+	getStatus(): Promise<RuntimesStatus>;
+	/** 强制重新获取(内置 vendor 拷贝,失败回退下载)推荐版本。 */
+	reinstall(type: RuntimeType): Promise<RuntimeStatus>;
+	/** 重新探测系统已装运行时。 */
+	redetect(): Promise<RuntimesStatus>;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -934,6 +944,7 @@ export interface DesktopApi {
 	debug: DesktopDebugApi;
 	project: DesktopProjectApi;
 	webhook: DesktopWebhookApi;
+	runtimes: DesktopRuntimesApi;
 }
 
 declare global {

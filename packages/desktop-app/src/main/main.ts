@@ -25,6 +25,7 @@ import {
 } from "./ipc/index.js";
 import { getAppLogger } from "./logger.js";
 import { disposeSharedRuntime } from "./runtime.js";
+import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler } from "./scheduler/scheduler.js";
 import {
@@ -338,6 +339,18 @@ if (!gotSingleLock) {
 			});
 		} catch (err) {
 			mainLog.error("failed to ensure im-gateway conversation dir", err);
+		}
+
+		// 托管运行时(ADR-0011):首启从内置 vendor 拷贝 node/python 到 ~/.vetta/runtimes,
+		// 再把它们 + 国内镜像源注入全局 process.env。必须早于 getImHost().bootstrap()——
+		// IM sidecar 继承本进程 env,coding-agent bash 子进程才能拿到托管运行时与镜像源。
+		// 只做零网络的 vendor 拷贝,失败不阻断启动(面板可手动获取/升级)。
+		try {
+			const runtimeManager = getRuntimeManager();
+			await runtimeManager.initialize();
+			runtimeManager.applyEnv();
+		} catch (err) {
+			mainLog.error("runtime manager init failed", err);
 		}
 
 		try {
