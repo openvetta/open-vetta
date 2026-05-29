@@ -19,7 +19,7 @@ import type { DesktopFsApi } from "./fs-types.js";
 export type ExecutionModeOverride = "inherit" | SessionExecutionMode;
 
 export interface DesktopSessionApi {
-	create(config?: SessionConfig): Promise<{ sessionId: string }>;
+	create(config?: SessionConfig): Promise<{ sessionId: string; cwd?: string }>;
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;

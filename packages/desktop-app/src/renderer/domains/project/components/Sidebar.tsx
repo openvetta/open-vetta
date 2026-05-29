@@ -253,7 +253,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 				)}
 				{navIndicatorBounds && (
 					<motion.span
-						className="pointer-events-none absolute z-10 rounded-md bg-primary shadow-[0_4px_14px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)]"
+						className="pointer-events-none absolute z-10 rounded-md bg-primary/15"
 						initial={false}
 						animate={{
 							left: navIndicatorBounds.left,
@@ -294,7 +294,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 							title={item.type === "new-session" ? item.title : undefined}
 							className={`no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 								active
-									? "font-medium text-primary-foreground"
+									? "font-semibold text-foreground"
 									: `text-foreground ${disabled ? "cursor-not-allowed opacity-50" : ""}`
 							}`}
 						>

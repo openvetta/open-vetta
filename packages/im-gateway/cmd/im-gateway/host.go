@@ -539,6 +539,7 @@ func buildHostTransport(spec *buildSpec) (transport.Transport, error) {
 			AppID:     spec.Feishu.AppID,
 			AppSecret: spec.Feishu.AppSecret,
 			Domain:    spec.Feishu.BaseURL,
+			InboxDir:  spec.ConversationCwd,
 		})
 	}
 	return nil, errors.New("build spec selects no transport")
