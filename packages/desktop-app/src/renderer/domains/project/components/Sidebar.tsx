@@ -317,7 +317,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 			</div>
 
 			{/* Panel content */}
-			<div className="flex-1 overflow-y-auto px-1.5 py-0.5">
+			<div className="project-list-containment flex-1 overflow-y-auto px-1.5 py-0.5">
 				<ProjectsPanel filter={filter} onOpenSession={onOpenSession} />
 			</div>
 

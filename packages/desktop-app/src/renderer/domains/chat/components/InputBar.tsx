@@ -28,6 +28,7 @@ import { ActionButtonBar } from "./ActionButtonBar";
 import { SendButton } from "./SendButton";
 import { pathBasename } from "@shared/lib/utils";
 import type { SkillInfo } from "@preload/api";
+import "./InputBar.css";
 
 interface InputBarProps {
 	onSend: () => Promise<void>;
@@ -60,6 +61,8 @@ const CAPSULE_HOVER = { y: -1 };
 const CAPSULE_TAP = { scale: 0.96 };
 
 let imageIdCounter = 0;
+let lastRenderedSessionKey: string | null = null;
+
 function nextImageId(): string {
 	return `img-${++imageIdCounter}-${Date.now()}`;
 }
@@ -93,6 +96,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const [isFocused, setIsFocused] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
 	const [atOpen, setAtOpen] = useState(false);
+	const [switchPulseVariant, setSwitchPulseVariant] = useState<"a" | "b" | null>(null);
 	// 记录用户主动关闭浮层时的「触发标识」，避免后续按键反复重开
 	// slash：只要 val 仍以 `/` 开头，就保持驳回；val 不再以 `/` 开头时清除
 	const slashDismissedRef = useRef(false);
@@ -109,6 +113,11 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const [drawerActiveTab, setDrawerActiveTab] = useState<string | null>(null);
 
 	const effectiveCwd = activeSession?.cwd ?? cwdOverride ?? "";
+	const inputContextKey = cwdOverride
+		? `new-session:${cwdOverride}`
+		: activeSession
+			? (activeSession.runtimeId ?? activeSession.sessionPath)
+			: null;
 	const hasSession = Boolean(activeSession) || Boolean(cwdOverride);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
@@ -134,6 +143,18 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 			textareaRef.current?.focus();
 		}
 	}, [hasSession, isStreaming]);
+
+	useEffect(() => {
+		if (!inputContextKey) return;
+		const previous = lastRenderedSessionKey;
+		lastRenderedSessionKey = inputContextKey;
+		if (previous === inputContextKey) return;
+
+		setSwitchPulseVariant((variant) => {
+			const nextVariant = variant === "a" ? "b" : "a";
+			return nextVariant;
+		});
+	}, [inputContextKey]);
 
 	function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
 		if (
@@ -396,6 +417,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		"input-card relative rounded-[20px] bg-card border transition-[border-color,box-shadow,transform] duration-200",
 		isFocused ? "border-primary/20" : "border-border",
 		isStreaming ? "input-aurora" : "",
+		switchPulseVariant ? `input-switch-bump-${switchPulseVariant}` : "",
 	].join(" ");
 
 	return (
