@@ -624,11 +624,14 @@ export class ImHost {
 			await net.fetch(origin, { method: "GET", signal: controller.signal });
 			return {
 				ok: true,
-				message: `${origin} 可达（${source === "remote" ? "云端" : "本地"} provider）`,
+				message: `provider 可达（${source === "remote" ? "云端" : "本地"}）`,
 			};
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			return { ok: false, error: `${origin} 不可达：${msg}` };
+			const sanitized = msg
+				.replace(/https?:\/\/[^\s]+/gi, "目标地址")
+				.replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, "目标地址");
+			return { ok: false, error: `provider 不可达：${sanitized}` };
 		} finally {
 			clearTimeout(timer);
 		}
