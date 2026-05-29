@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, activityPanelOpenAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -36,7 +36,6 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
-	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const [contextMenu, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [projectMenu, setProjectMenu] = useAtom(projectContextMenuAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
@@ -111,17 +110,16 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 			// 必须先 navigate 再清 activeSession：否则在 `/` 路径下，setActiveSession(null) 会触发
 			// RootLayout 的根路径守卫（currentPath==="/" && !activeSession）抢跑到 /new-session。
 			void (async () => {
-				// 跳转前先收起活动面板与内嵌文件预览，与切换 session 的行为一致
-				// （见 useSessionManager.openSession）。否则项目详情页的 ActivityPanel
-				// 会继续渲染上一个 session 的全局文件预览状态。
+				// 跳转前清掉内嵌文件预览（指向旧 cwd 的具体文件），但**保留**活动面板的
+				// 展开状态，与 useSessionManager.openSession 一致。ActivityPanel 内部以
+				// cwd 为 key remount，新项目的数据会重拉，不会出现旧 session 的卡片残留。
 				setInlineFilePreview(null);
-				setActivityPanelOpen(false);
 				await navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(cwd) } });
 				// 切到项目详情后清除 session 激活，避免侧边栏「项目 + session」同时高亮
 				setActiveSession(null);
 			})();
 		},
-		[navigate, setActiveSession, setInlineFilePreview, setActivityPanelOpen],
+		[navigate, setActiveSession, setInlineFilePreview],
 	);
 
 	const handleSelectSession = useCallback(

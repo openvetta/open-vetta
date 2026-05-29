@@ -151,12 +151,21 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 
 	const projectName = getProjectDisplayName(rootDir, defaultCwd);
 
+	// ADR-0007: 「对话」/ Claw 项目下 session 的 rootDir 是 `<root>/<uuid>` 子目录，
+	// 直接 basename 出来是 UUID，没有可读性也无信息量；这里隐藏 name，只保留右侧操作按钮。
+	const isHashedSubCwd = (() => {
+		const root = defaultCwd && rootDir.startsWith(`${defaultCwd}/`) ? defaultCwd : imCwd && rootDir.startsWith(`${imCwd}/`) ? imCwd : null;
+		if (!root) return false;
+		const rest = rootDir.slice(root.length + 1);
+		return rest.length > 0 && !rest.includes("/");
+	})();
+
 	return (
 		<>
 			{/* Header with project name + refresh */}
 			<div className="flex items-center justify-between px-3 py-1.5">
 				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-					{projectName}
+					{isHashedSubCwd ? "文件列表" : projectName}
 				</span>
 				<div className="flex items-center gap-0.5">
 					{clearArtifactsScope && (

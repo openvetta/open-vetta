@@ -257,16 +257,16 @@ export function useProjects() {
 	);
 
 	const deleteSession = useCallback(
-		async (cwd: string, sessionPath: string) => {
+		async (_cwd: string, sessionPath: string) => {
 			await window.vetta.session.delete(sessionPath);
 			setSessionsMap((prev) => {
+				// ADR-0007: 「对话」项目下的 session.cwd 是 per-session 子目录，但
+				// sessionsMap 的 key 仍是项目根。这里不再用传入的 cwd 反查，而是
+				// 遍历所有桶把命中 sessionPath 的条目摘掉，避免侧栏不刷新。
 				const next = new Map(prev);
-				const sessions = next.get(cwd);
-				if (sessions) {
-					next.set(
-						cwd,
-						sessions.filter((s) => s.path !== sessionPath),
-					);
+				for (const [key, sessions] of prev) {
+					const filtered = sessions.filter((s) => s.path !== sessionPath);
+					if (filtered.length !== sessions.length) next.set(key, filtered);
 				}
 				return next;
 			});
