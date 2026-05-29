@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom, expandedProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel, batchProjectsAtom, expandedBatchProjectsAtom, expandedProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -631,7 +631,7 @@ const DefaultSessionList = memo(function DefaultSessionList({
 				const isActive = activeSessionPath === session.path;
 				const isRenaming = renamingSessionPath === session.path;
 				const isRunning = runningSessionPaths.has(session.path);
-				const label = session.name || session.firstMessage || session.id;
+				const label = sessionDisplayLabel(session);
 				return (
 					<button
 						key={session.path}
@@ -714,7 +714,7 @@ function InlineDefaultRenameInput({
 	onRename: (name: string) => void;
 	onDone: () => void;
 }): JSX.Element {
-	const [value, setValue] = useState(session.name || session.firstMessage || session.id);
+	const [value, setValue] = useState(sessionDisplayLabel(session));
 	const inputRef = useRef<HTMLInputElement>(null);
 	useEffect(() => {
 		inputRef.current?.focus();
@@ -722,7 +722,7 @@ function InlineDefaultRenameInput({
 	}, []);
 	function commit() {
 		const trimmed = value.trim();
-		if (trimmed && trimmed !== (session.name || session.firstMessage || session.id)) {
+		if (trimmed && trimmed !== sessionDisplayLabel(session)) {
 			onRename(trimmed);
 		}
 		onDone();

@@ -10,7 +10,6 @@ import {
 	type ThinkingBlock,
 	type ToolCallBlock,
 	isCompactingAtom,
-	isReloadingMcpAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { ArtifactCard } from "@shared/components/ArtifactCard";
@@ -713,28 +712,6 @@ const CompactionBoundary = memo(function CompactionBoundary() {
 	);
 });
 
-function McpReloadIndicator(): JSX.Element {
-	return (
-		<motion.div
-			initial={INDICATOR_INITIAL}
-			animate={INDICATOR_ANIMATE}
-			exit={INDICATOR_EXIT}
-			transition={INDICATOR_TRANSITION}
-			className="flex items-center gap-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2"
-		>
-			<svg width={14} height={14} style={{ animation: "context-ring-spin 1s linear infinite" }}>
-				<circle cx={7} cy={7} r={5} fill="none" stroke="var(--secondary, #333)" strokeWidth={2} opacity={0.3} />
-				<circle
-					cx={7} cy={7} r={5} fill="none" stroke="#0ea5e9" strokeWidth={2}
-					strokeDasharray={`${Math.PI * 5 * 0.25} ${Math.PI * 5 * 0.75}`}
-					strokeLinecap="round"
-				/>
-			</svg>
-			<span className="text-[12px] text-sky-500/80">MCP 配置已变更，正在重新加载工具...</span>
-		</motion.div>
-	);
-}
-
 function CompactionIndicator(): JSX.Element {
 	return (
 		<motion.div
@@ -783,18 +760,15 @@ function TypingIndicator(): JSX.Element {
 const ListFooter = memo(function ListFooter({
 	showTyping,
 	isCompacting,
-	isReloadingMcp,
 }: {
 	showTyping: boolean;
 	isCompacting: boolean;
-	isReloadingMcp: boolean;
 }) {
 	const files = useAtomValue(turnModifiedFilesAtom);
-	if (!showTyping && !isCompacting && !isReloadingMcp && files.length === 0) return <div style={{ height: 64 }} />;
+	if (!showTyping && !isCompacting && files.length === 0) return <div style={{ height: 64 }} />;
 	return (
 		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-1 pb-16">
 			<AnimatePresence initial={false}>
-				{isReloadingMcp && <McpReloadIndicator key="mcp-reload" />}
 				{showTyping && <TypingIndicator key="typing" />}
 				{isCompacting && <CompactionIndicator key="compacting" />}
 			</AnimatePresence>
@@ -807,7 +781,6 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
-	const isReloadingMcp = useAtomValue(isReloadingMcpAtom);
 	// streaming 期间始终显示底部三点跳动动画 —— 哪怕 assistant 已开始吐字也保留，
 	// 作为「agent 仍在工作」的持续视觉信号；agent_end 后随 isStreaming 一起隐藏。
 	const showTyping = isStreaming;
@@ -1019,8 +992,8 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	}, [handleUserScrollIntent]);
 
 	const footer = useCallback(() => (
-		<ListFooter showTyping={showTyping} isCompacting={isCompacting} isReloadingMcp={isReloadingMcp} />
-	), [showTyping, isCompacting, isReloadingMcp]);
+		<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
+	), [showTyping, isCompacting]);
 
 	const virtuosoComponents = useMemo(() => ({
 		List: VirtuosoListContainer,
