@@ -2,7 +2,7 @@ import { useAtom, useAtomValue } from "jotai";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, ProjectType, SessionInfo } from "@shared/store/atoms";
-import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom } from "@shared/store/atoms";
+import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel } from "@shared/store/atoms";
 
 interface ProjectGroupProps {
 	project: Project;
@@ -77,7 +77,7 @@ function InlineRenameInput({
 	onRename: (cwd: string, sessionPath: string, name: string) => void;
 	onDone: () => void;
 }): JSX.Element {
-	const [value, setValue] = useState(session.name || session.firstMessage || session.id);
+	const [value, setValue] = useState(sessionDisplayLabel(session));
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
@@ -87,7 +87,7 @@ function InlineRenameInput({
 
 	function commit() {
 		const trimmed = value.trim();
-		if (trimmed && trimmed !== (session.name || session.firstMessage || session.id)) {
+		if (trimmed && trimmed !== sessionDisplayLabel(session)) {
 			onRename(cwd, session.path, trimmed);
 		}
 		onDone();
@@ -253,7 +253,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 							const isActive = activeSessionPath === session.path;
 							const isRenaming = renamingSessionPath === session.path;
 							const isRunning = runningSessionPaths.has(session.path);
-							const label = session.name || session.firstMessage || session.id;
+							const label = sessionDisplayLabel(session);
 							const isSchedule = label.startsWith("[定时]");
 							return (
 								<button

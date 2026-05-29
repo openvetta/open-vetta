@@ -7,6 +7,7 @@ import {
 	type ChatMessage,
 	chatMessagesAtom,
 	contextUsageAtom,
+	defaultConversationCwdAtom,
 	inlineFilePreviewAtom,
 	inputValueAtom,
 	isCompactingAtom,
@@ -90,6 +91,12 @@ export function useSessionManager(): SessionManagerResult {
 	const { loadSessions, applyLocalRename, ensureLocalSession, projects } = useProjects();
 	const projectsRef = useRef(projects);
 	projectsRef.current = projects;
+	// ADR-0007：「对话」session 运行 cwd 是项目根下的 per-session 子目录，但其 jsonl 与
+	// 侧边栏 sessionsMap bucket 都挂在项目根 cwd 上。重命名/刷新必须落到「根」bucket，
+	// 否则侧边栏与顶部标题读不到更新。用此 ref 把子目录 cwd 归一回项目根。
+	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const defaultConversationCwdRef = useRef(defaultConversationCwd);
+	defaultConversationCwdRef.current = defaultConversationCwd;
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
 	const openSessionRef =
 		useRef<(cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>>();
@@ -384,12 +391,16 @@ export function useSessionManager(): SessionManagerResult {
 										const name = await window.vetta.session.autoTitle(rid, userText, assistantText);
 										console.log(`[auto-title] got name=${name ?? "(null)"} for sp=${sp}`);
 										if (name) {
+											// 归一到侧边栏 bucket 的 cwd：「对话」session 的 cwd 是项目根下的
+											// per-session 子目录（ADR-0007），但 sessionsMap / 侧边栏挂在根上。
+											const root = defaultConversationCwdRef.current;
+											const bucketCwd = root && cwd !== root && cwd.startsWith(`${root}/`) ? root : cwd;
 											// Optimistic local update for sessions already present in the map.
-											applyLocalRename(cwd, sp, name);
+											applyLocalRename(bucketCwd, sp, name);
 											// Re-read from disk: handles brand-new sessions whose JSONL only
 											// just appeared after the assistant's first message flushed, and
 											// guarantees the persisted name is reflected in the sidebar.
-											await loadSessions(cwd);
+											await loadSessions(bucketCwd);
 										} else {
 											autoTitledSessionsRef.current.delete(sp);
 										}

@@ -15,6 +15,8 @@ import {
 	inlineFilePreviewAtom,
 	defaultConversationCwdAtom,
 	getProjectDisplayName,
+	sessionDisplayLabel,
+	sessionsMapAtom,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { MessageList } from "./MessageList";
@@ -42,6 +44,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const inlinePreviewActive = inlinePreviewCtx !== null;
 	const setInlinePreview = useSetAtom(inlineFilePreviewAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
+	const sessionsMap = useAtomValue(sessionsMapAtom);
 
 	const handleTogglePanel = useCallback(() => {
 		// When in inline preview mode, the "hide panel" button should also close
@@ -62,8 +65,17 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 		workflowInstance.current_stage === workflowInstance.stages.length - 1 &&
 		workflowInstance.stages[workflowInstance.current_stage]?.member_ids.includes(authUser.id);
 
-	// Push session name into the global page header
-	const sessionTitle = activeSession ? getProjectDisplayName(activeSession.cwd, defaultCwd) : null;
+	// Push session name into the global page header —— 跟随 sidebar 的 session 标签
+	// （name || firstMessage || id），保证与首轮自动重命名后的侧边栏名称一致。
+	// 找不到对应 SessionInfo 时（如刚创建尚未入 map）回退到项目展示名。
+	const sessionTitle = useMemo(() => {
+		if (!activeSession) return null;
+		for (const list of sessionsMap.values()) {
+			const found = list.find((s) => s.path === activeSession.sessionPath);
+			if (found) return sessionDisplayLabel(found);
+		}
+		return getProjectDisplayName(activeSession.cwd, defaultCwd);
+	}, [activeSession, sessionsMap, defaultCwd]);
 	useEffect(() => {
 		setHeaderTitle(sessionTitle);
 		return () => setHeaderTitle(null);

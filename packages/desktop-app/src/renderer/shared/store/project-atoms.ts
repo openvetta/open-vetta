@@ -47,6 +47,21 @@ export interface SessionInfo {
 	modifiedAt: number;
 }
 
+/** coding-agent 对「无消息」session 给出的占位 firstMessage，UI 层不直接展示。 */
+export const NO_MESSAGES_SENTINEL = "(no messages)";
+/** 既无用户命名、也无首条消息时的展示名。 */
+export const UNNAMED_SESSION_LABEL = "未命名会话";
+
+/**
+ * 会话在侧边栏 / 标题栏的展示名：优先用户命名，其次首条消息文本；
+ * 两者皆空（或仅为 coding-agent 占位串）时回退到「未命名会话」。
+ */
+export function sessionDisplayLabel(session: Pick<SessionInfo, "name" | "firstMessage">): string {
+	const raw = (session.name || session.firstMessage || "").trim();
+	if (!raw || raw === NO_MESSAGES_SENTINEL) return UNNAMED_SESSION_LABEL;
+	return raw;
+}
+
 /**
  * 判断一条 session 是否来自 IM（Claw）。物理来源即身份：会话 cwd 等于 im-gateway cwd
  * 就是 Claw 会话。`imCwd` 由 [[defaultImConversationCwdAtom]] 提供，空串表示 ConfigGet
