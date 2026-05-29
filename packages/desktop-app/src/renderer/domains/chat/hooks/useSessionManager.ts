@@ -2,7 +2,6 @@ import { useProjects } from "@domains/project/hooks/useProjects";
 import {
 	activeSessionAtom,
 	activeSessionStreamingAtom,
-	activityPanelOpenAtom,
 	attachedImagesAtom,
 	batchProjectsAtom,
 	type ChatMessage,
@@ -81,7 +80,6 @@ export function useSessionManager(): SessionManagerResult {
 	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const setIsReloadingMcp = useSetAtom(isReloadingMcpAtom);
-	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
 	// 用于判断当前 session 是否归属一个 paused 的 batch-task 子任务。命中时
 	// sendMessage 改走 batchTasks.resumeTaskWithText 入队首恢复运行，而不是
@@ -161,10 +159,11 @@ export function useSessionManager(): SessionManagerResult {
 			// 取自己的调用令牌；若中途被新的 openSession 抢跑，会在 subscribe()
 			// 返回后被发现并立即清理自己刚建好的 IPC 订阅，避免泄漏。
 			const myOpenToken = bumpOpenSessionToken();
-			// 切换 session 前先关闭当前活动面板与内嵌文件预览，避免新 session 沿用
-			// 上一个 session 的文件预览内容（活动面板默认收起，由用户按需再次展开）。
+			// 切换 session 前清掉内嵌文件预览（指向旧 cwd 的某个具体文件），但
+			// **保留**活动面板的展开状态：用户在上一个 session 打开过 ActivityPanel
+			// 后，切到新 session 仍维持打开，避免每次切换都要重新点开。
+			// ActivityPanel 内部以 cwd 为 key remount，新 session 的数据会重拉。
 			setInlineFilePreview(null);
-			setActivityPanelOpen(false);
 			// Teardown previous session
 			currentUnsubscribe?.();
 			setCurrentUnsubscribe(null);
@@ -188,14 +187,18 @@ export function useSessionManager(): SessionManagerResult {
 			setChatMessages([]);
 
 			__perf("before session.create");
-			const { sessionId } = await window.vetta.session.create({ cwd, sessionPath, executionMode });
+			const createResult = await window.vetta.session.create({ cwd, sessionPath, executionMode });
+			const { sessionId } = createResult;
+			// ADR-0007: 「对话」项目下 main 会把 cwd 改写成 per-session 子目录，
+			// 这里以 main 返回的 effective cwd 为准，保证 FilesPanel/调试 cwd 都指向子目录。
+			const effectiveCwd = createResult.cwd ?? cwd;
 			__perf("after session.create");
 
 			// 拿到 sessionId 就立即写 activeSession 并 navigate，让用户尽快看到 ChatView。
 			// 真实 sessionPath 解析（可能还要再走一次 IPC）放到后面，等好了再补一次写入。
 			// 这样 Welcome → Chat 的转场就不会被 getFullHistory / getState / getSessionPath
 			// 的串行 IPC 拖住，体感保持瞬时。
-			const earlySessionInfo = { cwd, sessionPath: sessionPath ?? "", runtimeId: sessionId };
+			const earlySessionInfo = { cwd: effectiveCwd, sessionPath: sessionPath ?? "", runtimeId: sessionId };
 			setActiveSession(earlySessionInfo);
 			activeSessionRef.current = earlySessionInfo;
 			void navigate({ to: "/" });
@@ -210,7 +213,7 @@ export function useSessionManager(): SessionManagerResult {
 			__perf("after getFullHistory");
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
-			setTurnModifiedFiles(extractModifiedFiles(mapped, cwd));
+			setTurnModifiedFiles(extractModifiedFiles(mapped, effectiveCwd));
 
 			// If this session already has any prior turn (loaded from disk) we never
 			// want to auto-rename — only brand-new sessions on their first round.
@@ -285,7 +288,7 @@ export function useSessionManager(): SessionManagerResult {
 			// 补一次写入：把解析好的真实 sessionPath 落到 activeSession 上。
 			// （早写入用的是 sessionPath ?? ""，对新 session 是空串。）
 			if (cachedKey !== earlySessionInfo.sessionPath) {
-				const sessionInfo = { cwd, sessionPath: cachedKey, runtimeId: sessionId };
+				const sessionInfo = { cwd: effectiveCwd, sessionPath: cachedKey, runtimeId: sessionId };
 				setActiveSession(sessionInfo);
 				activeSessionRef.current = sessionInfo;
 			}
@@ -566,7 +569,6 @@ export function useSessionManager(): SessionManagerResult {
 			flushDeltas,
 			scheduleDeltaFlush,
 			applyLocalRename,
-			setActivityPanelOpen,
 			setInlineFilePreview,
 		],
 	);
