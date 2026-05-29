@@ -36,6 +36,9 @@ type fakeILink struct {
 	// captured sendmessage requests
 	sent []ilink.SendMessageReq
 
+	// captured sendtyping requests
+	typing []ilink.SendTypingReq
+
 	// optional injected error for the next sendmessage
 	sendErr error
 }
@@ -46,6 +49,8 @@ func newFakeILink(t *testing.T) *fakeILink {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ilink/bot/getupdates", f.handleGetUpdates)
 	mux.HandleFunc("/ilink/bot/sendmessage", f.handleSendMessage)
+	mux.HandleFunc("/ilink/bot/getconfig", f.handleGetConfig)
+	mux.HandleFunc("/ilink/bot/sendtyping", f.handleSendTyping)
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f
@@ -114,6 +119,31 @@ func (f *fakeILink) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	f.sent = append(f.sent, req)
 	w.Write([]byte(`{}`))
+}
+
+func (f *fakeILink) handleGetConfig(w http.ResponseWriter, _ *http.Request) {
+	_ = json.NewEncoder(w).Encode(ilink.GetConfigResp{Ret: 0, TypingTicket: "ticket-xyz"})
+}
+
+func (f *fakeILink) handleSendTyping(w http.ResponseWriter, r *http.Request) {
+	var req ilink.SendTypingReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	f.mu.Lock()
+	f.typing = append(f.typing, req)
+	f.mu.Unlock()
+	w.Write([]byte(`{}`))
+}
+
+// typingRequests returns a snapshot of all captured sendtyping requests.
+func (f *fakeILink) typingRequests() []ilink.SendTypingReq {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]ilink.SendTypingReq, len(f.typing))
+	copy(out, f.typing)
+	return out
 }
 
 func itoa(n int64) string {
@@ -478,8 +508,25 @@ func TestTransport_EditAndDeleteAreErrors(t *testing.T) {
 	if err := tr.EndStream(context.Background(), "c", "m"); err != nil {
 		t.Errorf("EndStream should be no-op, got %v", err)
 	}
-	if err := tr.ShowTyping(context.Background(), "c"); err != nil {
-		t.Errorf("ShowTyping should be no-op, got %v", err)
+}
+
+func TestTransport_ShowTypingSendsIndicator(t *testing.T) {
+	tr, fake, _ := newBoundTransport(t)
+	if err := tr.ShowTyping(context.Background(), "peer1"); err != nil {
+		t.Fatalf("ShowTyping: %v", err)
+	}
+	got := fake.typingRequests()
+	if len(got) != 1 {
+		t.Fatalf("expected 1 sendtyping, got %d", len(got))
+	}
+	if got[0].ILinkUserID != "peer1" {
+		t.Errorf("peer = %q, want peer1", got[0].ILinkUserID)
+	}
+	if got[0].Status != 1 {
+		t.Errorf("status = %d, want 1 (typing)", got[0].Status)
+	}
+	if got[0].TypingTicket != "ticket-xyz" {
+		t.Errorf("ticket = %q, want ticket-xyz (from getconfig)", got[0].TypingTicket)
 	}
 }
 
