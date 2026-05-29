@@ -1,0 +1,45 @@
+.input-switch-bump-a {
+	animation: input-switch-bump-a 300ms ease-out both;
+	transform-origin: 50% 100%;
+	backface-visibility: hidden;
+	contain: paint;
+	will-change: transform;
+}
+
+.input-switch-bump-b {
+	animation: input-switch-bump-b 300ms ease-out both;
+	transform-origin: 50% 100%;
+	backface-visibility: hidden;
+	contain: paint;
+	will-change: transform;
+}
+
+@keyframes input-switch-bump-a {
+	0% {
+		transform: scale(1);
+	}
+	38% {
+		transform: scale(0.972);
+	}
+	68% {
+		transform: scale(1.008);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+@keyframes input-switch-bump-b {
+	0% {
+		transform: scale(1);
+	}
+	38% {
+		transform: scale(0.972);
+	}
+	68% {
+		transform: scale(1.008);
+	}
+	100% {
+		transform: scale(1);
+	}
+}

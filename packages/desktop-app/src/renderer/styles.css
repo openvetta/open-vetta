@@ -197,7 +197,6 @@ body {
 * {
 	scrollbar-width: thin;
 	scrollbar-color: transparent transparent;
-	transition: scrollbar-color 0.2s ease;
 }
 *:hover,
 *:focus-within {
@@ -264,6 +263,20 @@ body {
 .sidebar-surface > *:not(.absolute) {
 	position: relative;
 	z-index: 1;
+}
+
+.project-list-containment {
+	contain: layout paint style;
+}
+
+.project-group-contain {
+	contain: layout style;
+}
+
+.project-running-icon,
+.project-running-ping {
+	contain: layout paint style;
+	will-change: transform;
 }
 
 /* Selection highlight */
@@ -340,7 +353,10 @@ textarea:focus {
 /* Smooth transitions globally */
 button,
 a {
-	transition: all 0.15s ease;
+	transition:
+		color 0.15s ease,
+		background-color 0.15s ease,
+		border-color 0.15s ease;
 }
 
 /* ─── InputBar visual effects ─── */

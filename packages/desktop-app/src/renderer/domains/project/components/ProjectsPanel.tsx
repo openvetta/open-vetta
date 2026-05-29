@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, activityPanelOpenAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, activityPanelOpenAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, batchProjectsAtom, expandedBatchProjectsAtom, expandedProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -15,6 +15,8 @@ interface ProjectsPanelProps {
 	filter: SidebarFilter;
 	onOpenSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
 }
+
+const EMPTY_SESSIONS: SessionInfo[] = [];
 
 export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JSX.Element {
 	const {
@@ -47,6 +49,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
+	const setExpandedProjects = useSetAtom(expandedProjectsAtom);
 	const { toggleProject: toggleBatchProject, deleteTask: deleteBatchTask, deleteProject: deleteBatchProject } = useBatchTasks();
 
 	// 手风琴：展开任一项目（普通 / 批量）时，关闭另一侧的所有展开项。
@@ -59,10 +62,10 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	);
 	const expandBatchProjectAccordion = useCallback(
 		(cwd: string) => {
-			for (const c of expandedProjects) collapseProject(c);
+			setExpandedProjects((prev) => (prev.size === 0 ? prev : new Set()));
 			setExpandedBatchProjects(new Set([cwd]));
 		},
-		[collapseProject, expandedProjects, setExpandedBatchProjects],
+		[setExpandedProjects, setExpandedBatchProjects],
 	);
 
 	// Convert visible batch projects to Project + SessionInfo format
@@ -420,11 +423,11 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 	const defaultSessions =
 		defaultConversationFilter === "claw"
 			? imCwd
-				? (sessionsMap.get(imCwd) ?? [])
-				: []
+				? (sessionsMap.get(imCwd) ?? EMPTY_SESSIONS)
+				: EMPTY_SESSIONS
 			: defaultProject
-				? (sessionsMap.get(defaultProject.cwd) ?? [])
-				: [];
+				? (sessionsMap.get(defaultProject.cwd) ?? EMPTY_SESSIONS)
+				: EMPTY_SESSIONS;
 
 	return (
 		<>
@@ -439,7 +442,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 				<ProjectGroup
 					key={project.cwd}
 					project={project}
-					sessions={sessionsMap.get(project.cwd) ?? []}
+					sessions={sessionsMap.get(project.cwd) ?? EMPTY_SESSIONS}
 					isExpanded={expandedProjects.has(project.cwd)}
 					isActive={isProjectActive(project.cwd)}
 					activeSessionPath={activeSessionPath}
@@ -658,7 +661,7 @@ const DefaultSessionList = memo(function DefaultSessionList({
 								{isRunning && (
 									<span
 										className={cn(
-											"icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin",
+											"project-running-icon icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin",
 											isActive ? "text-primary" : "text-muted-foreground",
 										)}
 									/>
