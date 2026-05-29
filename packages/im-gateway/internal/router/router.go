@@ -3,8 +3,11 @@ package router
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"vetta-im-gateway/internal/bridge"
 	"vetta-im-gateway/internal/command"
@@ -30,10 +33,14 @@ type Router struct {
 	state           state.Store
 	pool            *hostclient.ProcessPool
 	conversationCwd string
+	// datedCwd, when true, runs each agent in a per-day subdirectory
+	// <conversationCwd>/<YYYY-MM-DD>/ (the dated work log, ADR-0009) instead of
+	// the conversation root. Set via SetDatedCwd by the embedded host runtime.
+	datedCwd bool
 
-	mu        sync.Mutex
-	queues    map[string]chan transport.InboundMessage
-	closed    bool
+	mu     sync.Mutex
+	queues map[string]chan transport.InboundMessage
+	closed bool
 
 	wg sync.WaitGroup
 }
@@ -180,7 +187,12 @@ func (r *Router) handleOne(ctx context.Context, msg transport.InboundMessage) er
 func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessage) error {
 	entry, _, _ := r.state.GetSession(ctx, msg.UserID, msg.ChatID)
 
-	acq, err := r.pool.Acquire(ctx, r.conversationCwd, entry.SessionPath)
+	cwd, err := r.agentCwd()
+	if err != nil {
+		return err
+	}
+
+	acq, err := r.pool.Acquire(ctx, cwd, entry.SessionPath)
 	if err != nil {
 		return fmt.Errorf("acquire session: %w", err)
 	}
@@ -215,7 +227,38 @@ func (r *Router) forwardToAgent(ctx context.Context, msg transport.InboundMessag
 	br.SetHostResponder(func(rctx context.Context, cmd hostclient.Command) error {
 		return session.SendNoReply(rctx, cmd)
 	})
+	// memory-mode rollover (ADR-0009): when the agent rolls the session into a
+	// fresh .jsonl, repoint this chat's routing state at the new path so the
+	// next message resumes the rolled-over session, not the archived one.
+	br.SetPathChangeHandler(func(newPath string) {
+		_ = r.state.SetSession(ctx, state.SessionEntry{
+			UserID:      msg.UserID,
+			ChatID:      msg.ChatID,
+			SessionPath: newPath,
+		})
+	})
 	return br.Run(ctx, acq.Session.Events())
+}
+
+// SetDatedCwd toggles per-day run directories (ADR-0009). Called by the
+// embedded host runtime for the Claw conversation; left off for standalone
+// dev mode and tests.
+func (r *Router) SetDatedCwd(enabled bool) { r.datedCwd = enabled }
+
+// agentCwd returns the working directory to spawn the agent in. With datedCwd
+// off it's the conversation root (legacy behaviour). With it on it's today's
+// date subdirectory <conversationCwd>/<YYYY-MM-DD>/ (created if missing),
+// matching the inbox layout so inbound media, artifacts, and JOURNAL.md share
+// one per-day directory.
+func (r *Router) agentCwd() (string, error) {
+	if !r.datedCwd {
+		return r.conversationCwd, nil
+	}
+	cwd := filepath.Join(r.conversationCwd, time.Now().Format("2006-01-02"))
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		return "", fmt.Errorf("create dated cwd: %w", err)
+	}
+	return cwd, nil
 }
 
 // buildPromptMessage assembles the text the agent sees. Mirrors desktop-app's
