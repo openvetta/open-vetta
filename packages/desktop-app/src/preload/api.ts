@@ -204,6 +204,8 @@ export interface DesktopConfigData {
 		checkedAt?: number;
 	};
 	debugMode?: boolean;
+	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
+	notificationsEnabled?: boolean;
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
 	defaultConversationCwd?: string;
 	/** im-gateway 自己的 cwd（~/.vetta/im-gateway/conversation），与桌面「对话」物理分家（ADR-0005）。 */
@@ -935,6 +937,21 @@ export interface DesktopRuntimesApi {
 	redetect(): Promise<RuntimesStatus>;
 }
 
+// ─── System notifications ───
+/** 点击系统通知后主进程下发的路由意图（按 type 分流，见 CONTEXT.md「通知类型」）。 */
+export type NotificationNavigatePayload = {
+	type: "agent-turn-complete";
+	sessionPath: string;
+	cwd: string;
+};
+
+export interface DesktopNotificationApi {
+	/** 上报聊天页当前所在 session path；离开聊天页传 null。主进程据此 + 窗口聚焦态做抑制判定。 */
+	setForegroundSession(sessionPath: string | null): Promise<void>;
+	/** 用户点击系统通知时触发，渲染端按 payload.type 路由。返回取消订阅函数。 */
+	onNavigate(handler: (payload: NotificationNavigatePayload) => void): () => void;
+}
+
 export interface DesktopApi {
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
@@ -961,6 +978,7 @@ export interface DesktopApi {
 	webhook: DesktopWebhookApi;
 	runtimes: DesktopRuntimesApi;
 	permissions: DesktopPermissionsApi;
+	notification: DesktopNotificationApi;
 }
 
 declare global {

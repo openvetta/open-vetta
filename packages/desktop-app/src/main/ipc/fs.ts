@@ -22,6 +22,8 @@ export interface DesktopConfig {
 	defaultExecutionMode: "sandbox" | "full-access";
 	debugMode?: boolean;
 	vettaAppPath?: string;
+	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
+	notificationsEnabled?: boolean;
 }
 
 export interface LinuxSandboxConfigState {
@@ -65,6 +67,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	workspacePath: join(homedir(), ".vetta", "workspace"),
 	defaultExecutionMode: "full-access",
 	debugMode: false,
+	notificationsEnabled: true,
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -93,6 +96,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
+			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -112,6 +116,7 @@ export function readConfigSync(): DesktopConfig {
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
+			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -538,6 +543,7 @@ export function registerFsIpc(): () => void {
 					: current.defaultExecutionMode,
 			debugMode: patch.debugMode ?? current.debugMode,
 			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
+			notificationsEnabled: patch.notificationsEnabled ?? current.notificationsEnabled,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

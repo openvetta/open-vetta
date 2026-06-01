@@ -14,6 +14,7 @@ import type {
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
+import { notify } from "../notifications/index.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import {
@@ -224,6 +225,53 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const debugSeqMap = new Map<string, number>();
 	/** Track turn start time per session for duration calculation */
 	const turnStartMap = new Map<string, number>();
+	/**
+	 * ADR-0002: 交互式 session 的常驻通知订阅（独立于渲染端视图订阅，不随
+	 * 切换 session 销毁）。只有经本 IPC CHANNELS.CREATE 创建的 session 才会挂，
+	 * 故天然只覆盖交互式 session（批量/定时任务直接调 runtime.createSession）。
+	 */
+	const notificationSubs = new Map<string, () => void>();
+
+	/** 给某交互式 session 挂常驻通知订阅；已挂则跳过。 */
+	const attachNotificationSub = (sessionId: string, cwd: string): void => {
+		if (notificationSubs.has(sessionId)) return;
+		// 逐轮跟踪终结状态：message.final 带 stopReason，error 事件、aborted
+		// lifecycle 各自独立。agent_end 时按累积状态判定该不该通知。
+		let lastStopReason: string | undefined;
+		let aborted = false;
+		const unsubscribe = runtime.subscribe(sessionId, (ev: SessionEvent) => {
+			if (ev.type === "message.final") {
+				const sr = (ev.message as unknown as { stopReason?: unknown }).stopReason;
+				if (typeof sr === "string") lastStopReason = sr;
+			} else if (ev.type === "error") {
+				lastStopReason = "error";
+			} else if (ev.type === "session.lifecycle") {
+				if (ev.phase === "aborted") {
+					aborted = true;
+				} else if (ev.phase === "agent_end") {
+					const wasAborted = aborted || lastStopReason === "aborted";
+					const outcome = lastStopReason === "error" ? "error" : "completed";
+					const sessionPath = runtime.getSessionPath(sessionId);
+					lastStopReason = undefined;
+					aborted = false;
+					// 中断不通知；正常完成 / 出错才通知（见 CONTEXT.md「agent 完成通知」）。
+					if (!wasAborted && sessionPath) {
+						void notify({ type: "agent-turn-complete", sessionPath, cwd, outcome });
+					}
+				}
+			}
+		});
+		notificationSubs.set(sessionId, unsubscribe);
+	};
+
+	/** 释放某 session 的常驻通知订阅。 */
+	const detachNotificationSub = (sessionId: string): void => {
+		const unsubscribe = notificationSubs.get(sessionId);
+		if (unsubscribe) {
+			unsubscribe();
+			notificationSubs.delete(sessionId);
+		}
+	};
 
 	runtime.setUserConfirmationHandler((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => {
 		if (webContents.isDestroyed()) return Promise.resolve(false);
@@ -291,6 +339,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);
 		}
+		// ADR-0002: 经本通道创建的即交互式 session，挂常驻通知订阅。
+		attachNotificationSub(result.sessionId, effectiveCwd ?? config?.cwd ?? "");
 		// ADR-0007: 把实际 cwd（可能是「对话」per-session 子目录）返回给渲染端，
 		// 否则 activeSession.cwd 仍是用户传入的项目根，ActivityPanel 文件树会
 		// 落到项目根、看到其他 session 的子目录。
@@ -446,6 +496,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.DISPOSE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
+		detachNotificationSub(sessionId);
 		await runtime.disposeSession(sessionId);
 	});
 
@@ -490,6 +541,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 		await Promise.all(
 			toDispose.map(async (sessionId) => {
+				detachNotificationSub(sessionId);
 				try {
 					await runtime.disposeSession(sessionId);
 				} catch (err) {
@@ -710,6 +762,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 		viewerSubs.clear();
 		unsubscribeRunning();
+		for (const unsubscribe of notificationSubs.values()) {
+			unsubscribe();
+		}
+		notificationSubs.clear();
 		for (const unsubscribe of subscriptionMap.values()) {
 			unsubscribe();
 		}

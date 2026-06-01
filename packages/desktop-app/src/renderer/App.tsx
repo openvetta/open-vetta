@@ -133,6 +133,23 @@ export function RootLayout(): JSX.Element {
 	useDownloadsInit();
 	useUpdaterInit();
 	const { openSession } = useSessionManager();
+
+	// 上报「聊天页当前所在 session」给主进程：仅在聊天路由 "/" 且有 activeSession
+	// 时报其 sessionPath，否则 null。主进程据此 + 窗口聚焦态做系统通知抑制判定。
+	useEffect(() => {
+		const sessionPath = currentPath === "/" ? activeSession?.sessionPath || null : null;
+		void window.vetta.notification.setForegroundSession(sessionPath);
+	}, [currentPath, activeSession]);
+
+	// 点击系统通知 → 主进程已前台化窗口，这里把对应 session 打开并路由到聊天页。
+	useEffect(() => {
+		return window.vetta.notification.onNavigate((payload) => {
+			if (payload.type === "agent-turn-complete") {
+				void openSession(payload.cwd, payload.sessionPath);
+			}
+		});
+	}, [openSession]);
+
 	const confirmationQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]>(
 		[],
 	);

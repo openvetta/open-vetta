@@ -12,9 +12,11 @@ export function GeneralSettings(): JSX.Element {
 	const [executionMode, setExecutionMode] = useAtom(sessionExecutionModeAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
+	const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
+			setNotificationsEnabled(config.notificationsEnabled !== false);
 			const mode = config.defaultExecutionMode ?? "full-access";
 			setExecutionMode(mode);
 			localStorage.setItem("vetta-session-execution-mode", mode);
@@ -68,6 +70,11 @@ export function GeneralSettings(): JSX.Element {
 		},
 		[setDebugMode, setConfirmDialog],
 	);
+
+	const handleToggleNotifications = useCallback((checked: boolean) => {
+		setNotificationsEnabled(checked);
+		void window.vetta.config.set({ notificationsEnabled: checked });
+	}, []);
 
 	const handleExecutionModeChange = useCallback(
 		async (mode: SessionExecutionMode) => {
@@ -147,6 +154,16 @@ export function GeneralSettings(): JSX.Element {
 							</SelectItem>
 						</SelectContent>
 					</Select>
+				</SettingRow>
+			</SettingSection>
+
+			<SettingSection title="通知">
+				<SettingRow
+					title="系统通知"
+					description="agent 完成一轮回答时发系统通知；你正在前台查看该会话时不打扰"
+					border={false}
+				>
+					<Switch checked={notificationsEnabled} onCheckedChange={handleToggleNotifications} />
 				</SettingRow>
 			</SettingSection>
 
