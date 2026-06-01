@@ -103,6 +103,11 @@ const WEBHOOK_CHANNELS = {
 	SEND: "vetta:webhook:send",
 } as const;
 
+const NOTIFICATION_CHANNELS = {
+	SET_FOREGROUND: "vetta:notification:set-foreground-session",
+	NAVIGATE: "vetta:notification:navigate",
+} as const;
+
 const BATCH_TASKS_CHANNELS = {
 	GET_PROJECTS: "vetta:batch-tasks:get-projects",
 	CREATE_PROJECT: "vetta:batch-tasks:create-project",
@@ -448,6 +453,19 @@ const api: DesktopApi = {
 	permissions: {
 		checkAll: async () => ipcRenderer.invoke("vetta:permissions:check-all"),
 		openPane: async (kind) => ipcRenderer.invoke("vetta:permissions:open-pane", kind),
+	},
+	notification: {
+		setForegroundSession: async (sessionPath) =>
+			ipcRenderer.invoke(NOTIFICATION_CHANNELS.SET_FOREGROUND, sessionPath),
+		onNavigate: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+				handler(payload as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(NOTIFICATION_CHANNELS.NAVIGATE, listener);
+			return () => {
+				ipcRenderer.removeListener(NOTIFICATION_CHANNELS.NAVIGATE, listener);
+			};
+		},
 	},
 	webhook: {
 		list: async () => ipcRenderer.invoke(WEBHOOK_CHANNELS.LIST),
