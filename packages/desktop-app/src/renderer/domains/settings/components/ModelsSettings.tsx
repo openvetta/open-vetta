@@ -1024,7 +1024,7 @@ export function ModelsSettings(): JSX.Element {
 																{model.reasoning && (
 																	<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">reasoning</span>
 																)}
-																{(model as Record<string, unknown>).tags && Array.isArray((model as Record<string, unknown>).tags) && ((model as Record<string, unknown>).tags as string[]).map((tag: string) => (
+																{Array.isArray((model as Record<string, unknown>).tags) && ((model as Record<string, unknown>).tags as string[]).map((tag: string) => (
 																	<span key={tag} className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">{tag.trim()}</span>
 																))}
 																{model.contextWindow != null && (

@@ -16,7 +16,7 @@
 			"@/*": ["./src/*"],
 			"@shared/*": ["./src/renderer/shared/*"],
 			"@domains/*": ["./src/renderer/domains/*"],
-			"@preload/*": ["./preload/*"],
+			"@preload/*": ["./src/preload/*"],
 			"@mariozechner/pi-ai": ["../ai/src/index.ts"]
 		},
 		"allowImportingTsExtensions": true

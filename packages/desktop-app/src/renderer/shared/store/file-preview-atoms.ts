@@ -55,7 +55,8 @@ export const filePreviewAtom = atom(
 /** 当前预览上下文（包含 items + index），用于 Dialog 内的切换。 */
 export const filePreviewContextReadonlyAtom = atom(
 	(get) => get(filePreviewContextAtom),
-	(_get, set, ctx: FilePreviewContext | null) => set(filePreviewContextAtom, ctx),
+	(get, set, ctx: FilePreviewContext | null | ((prev: FilePreviewContext | null) => FilePreviewContext | null)) =>
+		set(filePreviewContextAtom, typeof ctx === "function" ? ctx(get(filePreviewContextAtom)) : ctx),
 );
 
 /**

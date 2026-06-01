@@ -1,7 +1,7 @@
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { activeSessionAtom } from "@shared/store/atoms";
-import type { RuntimeSandboxGrantInfo } from "../../../../../runtime-core/src/index.js";
+import type { RuntimeSandboxGrantInfo } from "../../../../../../runtime-core/src/index.js";
 
 const REFRESH_INTERVAL_MS = 4000;
 

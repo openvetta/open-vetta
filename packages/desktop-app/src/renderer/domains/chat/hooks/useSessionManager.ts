@@ -98,8 +98,9 @@ export function useSessionManager(): SessionManagerResult {
 	const defaultConversationCwdRef = useRef(defaultConversationCwd);
 	defaultConversationCwdRef.current = defaultConversationCwd;
 	const activeSessionRef = useRef<{ cwd: string; sessionPath: string; runtimeId: string } | null>(null);
-	const openSessionRef =
-		useRef<(cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>>();
+	const openSessionRef = useRef<
+		((cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>) | undefined
+	>(undefined);
 	// Sessions for which auto-title has already been attempted (or skipped because
 	// the session was opened with prior history / already had a name).
 	const autoTitledSessionsRef = useRef<Set<string>>(new Set());

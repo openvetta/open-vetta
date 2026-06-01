@@ -31,18 +31,21 @@ export function SettingRow({
 
 export function SettingSection({
 	title,
+	description,
 	children,
 }: {
 	title: React.ReactNode;
+	description?: string;
 	children: React.ReactNode;
 }): JSX.Element {
 	return (
 		<div className="mb-6">
 			{typeof title === "string" ? (
-				<h2 className="mb-3 text-[15px] font-semibold text-foreground">{title}</h2>
+				<h2 className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{title}</h2>
 			) : (
-				<div className="mb-3 text-[15px] font-semibold text-foreground">{title}</div>
+				<div className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{title}</div>
 			)}
+			{description && <p className="mb-3 text-[12px] text-muted-foreground">{description}</p>}
 			<div className="overflow-hidden rounded-xl border border-border bg-muted">
 				{children}
 			</div>

@@ -116,7 +116,7 @@ export class ImHost {
 
 	private config: ImConfig = defaultImConfig();
 	private credentials: ImCredentials = {};
-	private state: ImStateFile = { version: 2, sessions: [] };
+	private state: ImStateFile = { version: 3, sessions: [] };
 
 	private manager: SidecarManager;
 	private binaryPath?: string;
@@ -257,7 +257,7 @@ export class ImHost {
 		try {
 			this.state = loadImState();
 		} catch {
-			this.state = { version: 2, sessions: [] };
+			this.state = { version: 3, sessions: [] };
 		}
 
 		if (this.config.enabled && this.hasRequiredCredentials()) {

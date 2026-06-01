@@ -19,7 +19,7 @@ const STREAMING_CHUNK_SIZE = 10;
 function rehypeStreamingChunks() {
 	return (tree: HastRoot): void => {
 		function visit(node: HastRoot | HastElement, inCode: boolean): void {
-			const newChildren: ElementContent[] = [];
+			const newChildren: Array<(typeof node.children)[number]> = [];
 			for (const child of node.children) {
 				if (child.type === "text" && !inCode) {
 					const value = (child as HastText).value;
