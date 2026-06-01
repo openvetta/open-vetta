@@ -42,18 +42,23 @@ export function UpdateChecker(): JSX.Element {
 
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center gap-3">
+			<div className="flex items-center justify-between gap-3">
+				{showStatus && statusText ? (
+					<span className={`min-w-0 truncate text-[12px] ${statusColor}`}>{statusText}</span>
+				) : (
+					<span />
+				)}
 				<Button
-					variant="primary"
+					variant="secondary"
 					onClick={() => void handleCheck()}
 					disabled={checking}
-					className="h-8 rounded-lg px-3 text-[12px]"
+					className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
 				>
+					<span
+						className={`icon-[mdi--refresh] h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`}
+					/>
 					{checking ? "检查中..." : "检查更新"}
 				</Button>
-				{showStatus && statusText && (
-					<span className={`text-[12px] ${statusColor}`}>{statusText}</span>
-				)}
 			</div>
 
 			{(state.phase === "available" || state.phase === "downloading" || state.phase === "ready") && (
