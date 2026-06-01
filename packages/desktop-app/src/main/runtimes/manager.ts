@@ -201,6 +201,248 @@ export class RuntimeManager {
 		return existsSync(executablePathFor(type));
 	}
 
+	private npmConfigPath(): string {
+		return join(runtimesDir(), ".npmrc");
+	}
+
+	private writeNpmConfig(): void {
+		if (!this.isReady("node")) return;
+		mkdirSync(runtimesDir(), { recursive: true });
+		mkdirSync(npmGlobalPrefixDir(), { recursive: true });
+		mkdirSync(npmCacheDir(), { recursive: true });
+		writeFileSync(
+			this.npmConfigPath(),
+			[
+				`registry=${RUNTIME_MANIFEST.mirrors.npmRegistry}`,
+				`prefix=${npmGlobalPrefixDir()}`,
+				`cache=${npmCacheDir()}`,
+				"",
+			].join("\n"),
+		);
+	}
+
+	private async writeNpmShimScripts(): Promise<void> {
+		if (!this.isReady("node")) return;
+		const npmCli = join(installDir("node"), "node_modules", "npm", "bin", "npm-cli.js");
+		const npxCli = join(installDir("node"), "node_modules", "npm", "bin", "npx-cli.js");
+		if (!existsSync(npmCli) || !existsSync(npxCli)) return;
+
+		const shimDir = npmGlobalBinDir();
+		mkdirSync(shimDir, { recursive: true });
+		if (process.platform === "win32") {
+			const npmScript = [
+				"@echo off",
+				`if not defined npm_config_userconfig set "npm_config_userconfig=${this.npmConfigPath()}"`,
+				`if not defined NPM_CONFIG_USERCONFIG set "NPM_CONFIG_USERCONFIG=${this.npmConfigPath()}"`,
+				`"${executablePathFor("node")}" "${npmCli}" %*`,
+				"",
+			].join("\r\n");
+			const npxScript = [
+				"@echo off",
+				`if not defined npm_config_userconfig set "npm_config_userconfig=${this.npmConfigPath()}"`,
+				`if not defined NPM_CONFIG_USERCONFIG set "NPM_CONFIG_USERCONFIG=${this.npmConfigPath()}"`,
+				`"${executablePathFor("node")}" "${npxCli}" %*`,
+				"",
+			].join("\r\n");
+			writeFileSync(join(shimDir, "npm.cmd"), npmScript);
+			writeFileSync(join(shimDir, "npx.cmd"), npxScript);
+			return;
+		}
+
+		const npmScript = [
+			"#!/usr/bin/env sh",
+			`: "${`npm_config_userconfig:=${this.npmConfigPath()}`}"`,
+			`: "${`NPM_CONFIG_USERCONFIG:=${this.npmConfigPath()}`}"`,
+			"export npm_config_userconfig NPM_CONFIG_USERCONFIG",
+			`exec "${executablePathFor("node")}" "${npmCli}" "$@"`,
+			"",
+		].join("\n");
+		const npxScript = [
+			"#!/usr/bin/env sh",
+			`: "${`npm_config_userconfig:=${this.npmConfigPath()}`}"`,
+			`: "${`NPM_CONFIG_USERCONFIG:=${this.npmConfigPath()}`}"`,
+			"export npm_config_userconfig NPM_CONFIG_USERCONFIG",
+			`exec "${executablePathFor("node")}" "${npxCli}" "$@"`,
+			"",
+		].join("\n");
+		const npmPath = join(shimDir, "npm");
+		const npxPath = join(shimDir, "npx");
+		writeFileSync(npmPath, npmScript);
+		writeFileSync(npxPath, npxScript);
+		await chmod(npmPath, 0o755);
+		await chmod(npxPath, 0o755);
+	}
+
+	private async ensureNpm(type: RuntimeType): Promise<void> {
+		if (process.platform !== "win32") return;
+		if (type !== "node" || !this.isReady(type)) return;
+		this.writeNpmConfig();
+		await this.writeNpmShimScripts();
+	}
+
+	private pipScriptsDir(): string {
+		const root = installDir("python");
+		return process.platform === "win32" ? join(root, "Scripts") : join(root, "bin");
+	}
+
+	private pipConfigPath(): string {
+		return join(installDir("python"), "pip.ini");
+	}
+
+	private writePipConfig(): void {
+		if (!this.isReady("python")) return;
+		writeFileSync(
+			this.pipConfigPath(),
+			[
+				"[global]",
+				`index-url = ${RUNTIME_MANIFEST.mirrors.pipIndexUrl}`,
+				`trusted-host = ${RUNTIME_MANIFEST.mirrors.pipTrustedHost}`,
+				"",
+			].join("\n"),
+		);
+	}
+
+	private pipEntryCandidates(): string[] {
+		const scriptsDir = this.pipScriptsDir();
+		if (process.platform === "win32") {
+			return [
+				join(scriptsDir, "pip.exe"),
+				join(scriptsDir, "pip3.exe"),
+				join(scriptsDir, "pip.cmd"),
+				join(scriptsDir, "pip3.cmd"),
+			];
+		}
+		return [join(scriptsDir, "pip"), join(scriptsDir, "pip3")];
+	}
+
+	private hasPipEntry(): boolean {
+		return this.pipEntryCandidates().some((path) => existsSync(path));
+	}
+
+	private runPython(args: string[], timeout: number, env?: NodeJS.ProcessEnv): boolean {
+		const res = spawnSync(executablePathFor("python"), args, {
+			encoding: "utf-8",
+			timeout,
+			env,
+		});
+		if (res.status === 0) return true;
+		log.warn("python command failed", {
+			args,
+			status: res.status,
+			stderr: res.stderr,
+			stdout: res.stdout,
+			error: res.error?.message,
+		});
+		return false;
+	}
+
+	private getEnsurepipBundledDir(): string | undefined {
+		const res = spawnSync(
+			executablePathFor("python"),
+			["-c", "import ensurepip, pathlib; print(pathlib.Path(ensurepip.__file__).with_name('_bundled'))"],
+			{ encoding: "utf-8", timeout: 10_000 },
+		);
+		const bundledDir = res.status === 0 ? res.stdout.trim() : "";
+		return bundledDir && existsSync(bundledDir) ? bundledDir : undefined;
+	}
+
+	private async writePipShimScripts(): Promise<void> {
+		if (!this.runPython(["-m", "pip", "--version"], 10_000)) return;
+
+		const scriptsDir = this.pipScriptsDir();
+		mkdirSync(scriptsDir, { recursive: true });
+		if (process.platform === "win32") {
+			const script = [
+				"@echo off",
+				`if not defined PIP_CONFIG_FILE set "PIP_CONFIG_FILE=${this.pipConfigPath()}"`,
+				`if not defined PIP_INDEX_URL set "PIP_INDEX_URL=${RUNTIME_MANIFEST.mirrors.pipIndexUrl}"`,
+				`if not defined PIP_TRUSTED_HOST set "PIP_TRUSTED_HOST=${RUNTIME_MANIFEST.mirrors.pipTrustedHost}"`,
+				`"${executablePathFor("python")}" -m pip %*`,
+				"",
+			].join("\r\n");
+			writeFileSync(join(scriptsDir, "pip.cmd"), script);
+			writeFileSync(join(scriptsDir, "pip3.cmd"), script);
+			return;
+		}
+
+		const script = [
+			"#!/usr/bin/env sh",
+			`: "${`PIP_CONFIG_FILE:=${this.pipConfigPath()}`}"`,
+			`: "${`PIP_INDEX_URL:=${RUNTIME_MANIFEST.mirrors.pipIndexUrl}`}"`,
+			`: "${`PIP_TRUSTED_HOST:=${RUNTIME_MANIFEST.mirrors.pipTrustedHost}`}"`,
+			"export PIP_CONFIG_FILE PIP_INDEX_URL PIP_TRUSTED_HOST",
+			`exec "${executablePathFor("python")}" -m pip "$@"`,
+			"",
+		].join("\n");
+		const pipPath = join(scriptsDir, "pip");
+		const pip3Path = join(scriptsDir, "pip3");
+		writeFileSync(pipPath, script);
+		writeFileSync(pip3Path, script);
+		await chmod(pipPath, 0o755);
+		await chmod(pip3Path, 0o755);
+	}
+
+	/**
+	 * python-build-standalone 自带 pip 包但可能缺少 CLI 入口(pip.exe/pip3.exe),
+	 * 导致 bash 中 `pip` 落到系统的 pyenv shim 报错。优先生成轻量 wrapper,
+	 * 再用本地 bundled wheel 修复官方入口,仅本地修复失败时走镜像网络兜底。
+	 */
+	private async ensurePip(type: RuntimeType): Promise<void> {
+		if (process.platform !== "win32") return;
+		if (type !== "python" || !this.isReady(type)) return;
+		this.writePipConfig();
+		if (this.hasPipEntry()) {
+			await this.writePipShimScripts();
+			return;
+		}
+
+		log.info("generating pip CLI entry points");
+		try {
+			mkdirSync(this.pipScriptsDir(), { recursive: true });
+
+			this.runPython(["-m", "ensurepip", "--upgrade", "--default-pip"], 30_000);
+			if (this.hasPipEntry()) return;
+
+			await this.writePipShimScripts();
+			if (this.hasPipEntry()) return;
+
+			const bundledDir = this.getEnsurepipBundledDir();
+			if (bundledDir) {
+				this.runPython(
+					[
+						"-m",
+						"pip",
+						"install",
+						"--force-reinstall",
+						"--no-index",
+						"--find-links",
+						bundledDir,
+						"--no-warn-script-location",
+						"pip",
+					],
+					60_000,
+				);
+				if (this.hasPipEntry()) return;
+				await this.writePipShimScripts();
+				if (this.hasPipEntry()) return;
+			}
+
+			this.runPython(
+				["-m", "pip", "install", "--force-reinstall", "--no-deps", "--no-warn-script-location", "pip"],
+				60_000,
+				{
+					...process.env,
+					PIP_INDEX_URL: RUNTIME_MANIFEST.mirrors.pipIndexUrl,
+					PIP_TRUSTED_HOST: RUNTIME_MANIFEST.mirrors.pipTrustedHost,
+				},
+			);
+			await this.writePipShimScripts();
+			if (!this.hasPipEntry()) log.warn("pip entry point generation did not create a pip executable");
+		} catch (err) {
+			log.warn("ensure pip scripts failed", err);
+		}
+	}
+
 	private recordManaged(type: RuntimeType): void {
 		const version = runtimeVersion(type);
 		this.data.binaries[type] = {
@@ -230,6 +472,8 @@ export class RuntimeManager {
 				}
 				if (this.isReady(type)) {
 					this.recordManaged(type);
+					await this.ensureNpm(type);
+					await this.ensurePip(type);
 				} else {
 					delete this.data.binaries[type];
 					log.warn(`${type} not ready (vendor absent); deferring to panel-driven download`);
@@ -247,20 +491,34 @@ export class RuntimeManager {
 	 * 幂等:重复调用安全。即使运行时未就绪也安全(前置不存在目录无害)。
 	 */
 	applyEnv(): void {
-		const dirs: string[] = [];
+		const dirs: string[] = process.platform === "win32" ? [npmGlobalBinDir()] : [];
 		for (const type of RUNTIME_TYPES) {
 			if (this.isReady(type)) dirs.push(...binDirsFor(type));
 		}
-		dirs.push(npmGlobalBinDir());
+		if (process.platform !== "win32") dirs.push(npmGlobalBinDir());
 
 		const pathKey = Object.keys(process.env).find((k) => k.toLowerCase() === "path") ?? "PATH";
 		const existing = (process.env[pathKey] ?? "").split(delimiter).filter(Boolean);
 		const merged = [...dirs.filter((d) => !existing.includes(d)), ...existing];
 		process.env[pathKey] = merged.join(delimiter);
 
+		if (process.platform === "win32" && this.isReady("node")) {
+			try {
+				this.writeNpmConfig();
+				void this.writeNpmShimScripts().catch((err) => log.warn("npm shim generation failed", err));
+				process.env.npm_config_userconfig = this.npmConfigPath();
+				process.env.NPM_CONFIG_USERCONFIG = this.npmConfigPath();
+			} catch (err) {
+				log.warn("npm config generation failed", err);
+			}
+		}
 		process.env.npm_config_registry = RUNTIME_MANIFEST.mirrors.npmRegistry;
 		process.env.npm_config_prefix = npmGlobalPrefixDir();
 		process.env.npm_config_cache = npmCacheDir();
+		if (process.platform === "win32" && this.isReady("python")) {
+			this.writePipConfig();
+			process.env.PIP_CONFIG_FILE = this.pipConfigPath();
+		}
 		process.env.PIP_INDEX_URL = RUNTIME_MANIFEST.mirrors.pipIndexUrl;
 		process.env.PIP_TRUSTED_HOST = RUNTIME_MANIFEST.mirrors.pipTrustedHost;
 
@@ -312,7 +570,11 @@ export class RuntimeManager {
 		rmSync(join(target, ".vendor-version"), { force: true });
 		const seeded = await this.seedFromVendor(type);
 		if (!seeded) await this.download(type);
-		if (this.isReady(type)) this.recordManaged(type);
+		if (this.isReady(type)) {
+			this.recordManaged(type);
+			await this.ensureNpm(type);
+			await this.ensurePip(type);
+		}
 		this.saveRegistry();
 		this.applyEnv();
 		return this.statusFor(type);

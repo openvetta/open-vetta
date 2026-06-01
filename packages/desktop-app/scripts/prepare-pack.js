@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
+const vendorCacheDir = join(tmpdir(), "vetta-desktop-vendor-cache");
 const imGatewayDir = join(projectRoot, "..", "im-gateway");
 const imGatewayDistDir = join(imGatewayDir, "dist");
 const codingAgentDir = join(projectRoot, "..", "coding-agent");
@@ -316,27 +317,33 @@ async function stageVendorRuntimes() {
 				.replace("{release}", def.release ?? "")
 				.replace("{filename}", entry.filename),
 		);
-		const archivePath = join(destTypeDir, entry.filename);
-		let downloaded = false;
+		const cacheTypeDir = join(vendorCacheDir, platformTag, type);
+		const archivePath = join(cacheTypeDir, entry.filename);
+		mkdirSync(cacheTypeDir, { recursive: true });
+
+		let readyArchive = existsSync(archivePath);
+		if (readyArchive) {
+			console.log(`[prepare-pack] using cached vendor ${type} archive -> ${archivePath}`);
+		}
 		for (const url of urls) {
+			if (readyArchive) break;
 			try {
 				console.log(`[prepare-pack] downloading vendor ${type} <- ${url}`);
 				const res = await fetch(url, { redirect: "follow" });
 				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				writeFileSync(archivePath, Buffer.from(await res.arrayBuffer()));
-				downloaded = true;
+				readyArchive = true;
 				break;
 			} catch (err) {
 				console.warn(`[prepare-pack] download failed (${url}): ${err.message}`);
 			}
 		}
-		if (!downloaded) {
+		if (!readyArchive) {
 			throw new Error(`[prepare-pack] 无法下载 vendor ${type}(${platformTag});检查构建机网络或设 VETTA_SKIP_VENDOR=1`);
 		}
 
 		// 解压:系统 tar 同时处理 tar.gz 与 zip(Win10+/bsdtar)。
 		execFileSync("tar", ["-xf", archivePath, "-C", destTypeDir], { stdio: "inherit" });
-		rmSync(archivePath, { force: true });
 		if (!existsSync(extractedDir)) {
 			throw new Error(`[prepare-pack] vendor ${type} 解压后未找到预期目录: ${extractedDir}`);
 		}
