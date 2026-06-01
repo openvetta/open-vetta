@@ -97,6 +97,11 @@ export {
 	readTool,
 } from "./read/index.js";
 export {
+	createRenderPdfPageTool,
+	type RenderPdfPageToolInput,
+	renderPdfPageTool,
+} from "./render-pdf-page/index.js";
+export {
 	createShellTool,
 	type ShellOperations,
 	type ShellSpawnContext,
@@ -146,6 +151,7 @@ import { createGrepTool, grepTool } from "./grep/index.js";
 import { createHtmlToPdfTool, htmlToPdfTool } from "./html-to-pdf/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
+import { createRenderPdfPageTool, renderPdfPageTool } from "./render-pdf-page/index.js";
 import { createShellTool, type ShellToolOptions, shellTool } from "./shell/index.js";
 import { createTreeTool, treeTool } from "./tree/index.js";
 import { createWriteTool, writeTool } from "./write/index.js";
@@ -178,6 +184,7 @@ export const codingTools: Tool[] = [
 	htmlToPdfTool,
 	extractTextFromPdfTool,
 	extractTextFromImgTool,
+	renderPdfPageTool,
 ];
 
 // Read-only tools for exploration without modification (using process.cwd())
@@ -199,6 +206,7 @@ export const allTools = {
 	html_to_pdf: htmlToPdfTool,
 	extract_text_from_pdf: extractTextFromPdfTool,
 	extract_text_from_img: extractTextFromImgTool,
+	render_pdf_page: renderPdfPageTool,
 	current_time: currentTimeTool,
 };
 
@@ -238,6 +246,7 @@ export function createCodingTools(cwd: string, options?: ToolsOptions): Tool[] {
 		createHtmlToPdfTool(cwd),
 		createExtractTextFromPdfTool(cwd),
 		createExtractTextFromImgTool(cwd),
+		createRenderPdfPageTool(cwd),
 	];
 }
 
@@ -274,6 +283,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		html_to_pdf: createHtmlToPdfTool(cwd),
 		extract_text_from_pdf: createExtractTextFromPdfTool(cwd),
 		extract_text_from_img: createExtractTextFromImgTool(cwd),
+		render_pdf_page: createRenderPdfPageTool(cwd),
 		current_time: createCurrentTimeTool(),
 	};
 }
