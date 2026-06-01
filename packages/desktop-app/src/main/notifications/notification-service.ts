@@ -13,18 +13,25 @@ export const NOTIFICATION_NAVIGATE_CHANNEL = "vetta:notification:navigate";
  * 在这里加一个分支，并在 shouldSuppress / buildDescriptor 各补一段即可；
  * 已有类型不受影响。当前唯一成员是 [[agent 完成通知]]。
  */
-export type AppNotification = {
-	type: "agent-turn-complete";
-	/** session jsonl 路径，既是点击路由目标，也是「同 session 合并」的 key。 */
-	sessionPath: string;
-	cwd: string;
-	/** agent_end 正常完成 vs error 收尾——只影响正文文案。 */
-	outcome: "completed" | "error";
-};
+export type AppNotification =
+	| {
+			type: "agent-turn-complete";
+			/** session jsonl 路径，既是点击路由目标，也是「同 session 合并」的 key。 */
+			sessionPath: string;
+			cwd: string;
+			/** agent_end 正常完成 vs error 收尾——只影响正文文案。 */
+			outcome: "completed" | "error";
+	  }
+	| {
+			/** agent 调用 ask_user_question、有问题待用户确认。 */
+			type: "agent-question-pending";
+			sessionPath: string;
+			cwd: string;
+	  };
 
 /** 点击通知后推给渲染端的路由意图（按 type 分流）。 */
 export type NotificationNavigatePayload = {
-	type: "agent-turn-complete";
+	type: "agent-turn-complete" | "agent-question-pending";
 	sessionPath: string;
 	cwd: string;
 };
@@ -63,7 +70,9 @@ export function closeAllNotifications(): void {
  */
 function shouldSuppress(n: AppNotification): boolean {
 	switch (n.type) {
-		case "agent-turn-complete": {
+		case "agent-turn-complete":
+		case "agent-question-pending": {
+			// 用户正聚焦看着该 session 时不打扰——问答面板已在他眼前。
 			const win = getMainWindow();
 			const focused = win?.isFocused() ?? false;
 			return focused && foregroundSessionPath === n.sessionPath;
@@ -79,6 +88,15 @@ async function buildDescriptor(n: AppNotification): Promise<NotificationDescript
 				body: n.outcome === "error" ? "本轮回答出错" : "已完成回答",
 				coalesceKey: n.sessionPath,
 				navigate: { type: "agent-turn-complete", sessionPath: n.sessionPath, cwd: n.cwd },
+			};
+		}
+		case "agent-question-pending": {
+			return {
+				title: await resolveSessionTitle(n.sessionPath),
+				body: "有问题待确认，点击查看",
+				// 与完成通知用不同 key，避免两类事件互相覆盖。
+				coalesceKey: `question:${n.sessionPath}`,
+				navigate: { type: "agent-question-pending", sessionPath: n.sessionPath, cwd: n.cwd },
 			};
 		}
 	}

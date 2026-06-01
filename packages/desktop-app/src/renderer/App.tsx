@@ -145,7 +145,7 @@ export function RootLayout(): JSX.Element {
 	// 点击系统通知 → 主进程已前台化窗口，这里把对应 session 打开并路由到聊天页。
 	useEffect(() => {
 		return window.vetta.notification.onNavigate((payload) => {
-			if (payload.type === "agent-turn-complete") {
+			if (payload.type === "agent-turn-complete" || payload.type === "agent-question-pending") {
 				void openSession(payload.cwd, payload.sessionPath);
 			}
 		});

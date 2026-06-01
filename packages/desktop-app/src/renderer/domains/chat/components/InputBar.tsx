@@ -423,14 +423,31 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		switchPulseVariant ? `input-switch-bump-${switchPulseVariant}` : "",
 	].join(" ");
 
-	// 待答的 ask_user_question：完全接管输入栏为「问答面板」。
-	if (pendingQuestion) {
-		return <QuestionPanel pending={pendingQuestion} />;
-	}
-
 	return (
 		<div className="relative px-2 pb-3 pt-1 sm:px-4 sm:pb-4">
-			<div className="relative mx-auto w-full max-w-2xl">
+			{/* 待答的 ask_user_question：问答面板绝对定位贴底悬浮接管输入栏——
+			    不占文档流（不把上方消息区顶起来），跳出/关闭走渐入渐出动画。 */}
+			<AnimatePresence>
+				{pendingQuestion && (
+					<motion.div
+						key="ask-user-question"
+						initial={{ opacity: 0, y: 12 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: 12 }}
+						transition={SOFT}
+						className="absolute inset-x-0 bottom-0 z-20"
+					>
+						<QuestionPanel pending={pendingQuestion} />
+					</motion.div>
+				)}
+			</AnimatePresence>
+
+			<div
+				className={`relative mx-auto w-full max-w-2xl transition-opacity duration-150 ${
+					pendingQuestion ? "pointer-events-none opacity-0" : ""
+				}`}
+				aria-hidden={pendingQuestion ? true : undefined}
+			>
 				<SlashPanel
 					open={slashOpen}
 					onClose={handleSlashClose}
