@@ -15,6 +15,8 @@ interface SegmentedControlProps<T extends string> {
 	value: T;
 	onChange: (value: T) => void;
 	className?: string;
+	/** 容器尺寸正在变化时设为 true，禁用指示器的 layout 动画，避免抖动 */
+	suppressLayoutAnimation?: boolean;
 }
 
 export function SegmentedControl<T extends string>({
@@ -22,6 +24,7 @@ export function SegmentedControl<T extends string>({
 	value,
 	onChange,
 	className,
+	suppressLayoutAnimation = false,
 }: SegmentedControlProps<T>): JSX.Element {
 	const layoutId = useId();
 
@@ -48,7 +51,11 @@ export function SegmentedControl<T extends string>({
 							<motion.span
 								layoutId={`seg-indicator-${layoutId}`}
 								className="absolute inset-0 rounded-[6px] bg-background shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)] ring-[0.5px] ring-inset ring-primary/30 dark:bg-white/[0.12] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
-								transition={{ type: "spring", stiffness: 480, damping: 32, mass: 0.8 }}
+								transition={
+									suppressLayoutAnimation
+										? { duration: 0 }
+										: { type: "spring", stiffness: 480, damping: 32, mass: 0.8 }
+								}
 							/>
 						)}
 						<motion.span
