@@ -4,6 +4,46 @@
 	--send-button-to-stop-duration: calc(var(--send-button-to-send-duration) / 3);
 }
 
+/* Streaming-state ripple: two staggered rings expand outward from the
+   button. Sits in the wrapper (not the button) so it isn't clipped by
+   the button's overflow-hidden. */
+.send-button-ripple {
+	position: absolute;
+	inset: 0;
+	border-radius: 9999px;
+	border: 1.5px solid color-mix(in srgb, var(--primary) 55%, transparent);
+	pointer-events: none;
+	opacity: 0;
+	transform: scale(1);
+	animation: send-button-ripple 1.8s ease-out infinite;
+	will-change: transform, opacity;
+}
+
+.send-button-ripple-2 {
+	animation-delay: 0.9s;
+}
+
+@keyframes send-button-ripple {
+	0% {
+		transform: scale(1);
+		opacity: 0.55;
+	}
+	80% {
+		opacity: 0.05;
+	}
+	100% {
+		transform: scale(1.35);
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.send-button-ripple {
+		animation: none;
+		display: none;
+	}
+}
+
 .send-button-icon,
 .send-button-outgoing-arrow {
 	position: absolute;

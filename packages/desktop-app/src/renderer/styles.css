@@ -456,36 +456,6 @@ a {
 	will-change: opacity;
 }
 
-/* Streaming state: calm indigo breathing glow.
-   A separate pseudo element fades opacity 0→1→0 — pure opacity interpolation
-   stays smooth across the whole cycle, no perceptible "step". */
-@keyframes input-streaming-breathe {
-	0%,
-	100% {
-		opacity: 0.25;
-	}
-	50% {
-		opacity: 1;
-	}
-}
-
-.input-aurora {
-	position: relative;
-}
-.input-aurora::after {
-	content: "";
-	position: absolute;
-	inset: -1px;
-	border-radius: inherit;
-	pointer-events: none;
-	box-shadow:
-		0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent),
-		0 0 28px 0 color-mix(in srgb, var(--primary) 40%, transparent);
-	animation: input-streaming-breathe 3.2s ease-in-out infinite;
-	z-index: -1;
-	will-change: opacity;
-}
-
 /* Soft halo behind the card on focus. */
 .input-halo::after {
 	content: "";
