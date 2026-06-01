@@ -1,5 +1,6 @@
 import { useAtom, useAtomValue } from "jotai";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, ProjectType, SessionInfo } from "@shared/store/atoms";
 import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel } from "@shared/store/atoms";
@@ -242,8 +243,17 @@ export const ProjectGroup = memo(function ProjectGroup({
 			</div>
 
 			{/* Sessions */}
-			{isExpanded && (
-				<div className="mt-px space-y-px">
+			<AnimatePresence initial={false}>
+				{isExpanded && (
+					<motion.div
+						key="sessions"
+						initial={{ height: 0, opacity: 0 }}
+						animate={{ height: "auto", opacity: 1 }}
+						exit={{ height: 0, opacity: 0 }}
+						transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+						style={{ overflow: "hidden" }}
+					>
+						<div className="mt-px space-y-px">
 					{sortedSessions.length === 0 ? (
 						<p className="px-2.5 py-1.5 pl-[36px] text-[12px] text-muted-foreground">
 							暂无会话
@@ -329,8 +339,10 @@ export const ProjectGroup = memo(function ProjectGroup({
 							{showAllSessions ? "折叠会话" : `展开更多（${hiddenCount}）`}
 						</button>
 					)}
-				</div>
-			)}
+						</div>
+					</motion.div>
+				)}
+			</AnimatePresence>
 		</div>
 	);
 });
