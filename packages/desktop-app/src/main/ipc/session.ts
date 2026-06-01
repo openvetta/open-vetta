@@ -142,6 +142,8 @@ const CHANNELS = {
 	GET_SESSION_PATH: "vetta:session:get-session-path",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
+	SET_MAX_RECENT_IMAGES: "vetta:session:set-max-recent-images",
+	GET_MAX_RECENT_IMAGES: "vetta:session:get-max-recent-images",
 	EVENT: "vetta:session:event",
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
@@ -373,6 +375,27 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.GET_GLOBAL_THINKING, () => {
 		const settings = readSettings();
 		return (settings.defaultThinkingLevel as string) ?? "off";
+	});
+
+	// 上下文里保留的图片张数（coding-agent images.maxRecentImages）。
+	// 0 = 不限制（保留全部）。仅写盘；运行中的 session 在下一轮 prompt 经
+	// settingsManager.reloadImageSettings() 懒重读生效，新建/重开的 session
+	// 在构造时直接读到——无需重启或广播。
+	ipcMain.handle(CHANNELS.SET_MAX_RECENT_IMAGES, (_event, count: unknown) => {
+		if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+			throw new Error("Invalid maxRecentImages value");
+		}
+		const settings = readSettings();
+		const images = (settings.images as Record<string, unknown> | undefined) ?? {};
+		images.maxRecentImages = count;
+		settings.images = images;
+		writeSettings(settings);
+	});
+
+	ipcMain.handle(CHANNELS.GET_MAX_RECENT_IMAGES, () => {
+		const settings = readSettings();
+		const images = settings.images as { maxRecentImages?: number } | undefined;
+		return images?.maxRecentImages ?? 2;
 	});
 
 	ipcMain.handle(CHANNELS.GET_STATE, async (_event, sessionId: unknown) => {
