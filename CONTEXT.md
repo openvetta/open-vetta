@@ -239,3 +239,59 @@ desktop-app 经由 OS 原生通知中心（macOS / Windows）向用户推送的�
 [[image budget]] 的核心判定：一张图若位于消息历史里**最后一条 assistant 消息之后**，则即将发起的这次 LLM 调用是模型**第一次**看到它 → 判为「未看过」→ 无条件保留，不受预算 N 约束。一旦其后出现了 assistant 消息（模型已处理过这一批），转为「看过」→ 才进入预算被砍候选。
 
 这是消息数组结构的**确定性、无状态**信号，不需要额外标志位。它保证 agent 批量 `read` 多张图时，模型在第一次调用里能完整看到全部图，根治「读了=没读」（模型对本该现在看的图收到占位符的幻读不可能）。代价见 [[image budget]]：未看过的图全保留 ⇒ 算法层不再防 OOM。
+
+### 个性化（personalization）
+
+一个**全局、跨所有项目/session** 的系统提示词追加能力，入口在 desktop-app 设置页「Agent配置」最上方。由两部分组成：一个 [[人设]] 单选 + 一段 [[自定义指令]] 自由文本。配置写入 `~/.vetta/agent/settings.json` 的 `personalization` 块（`{ personaId, customPrompt }`），与 [[image budget]] 的 `maxRecentImages` 同文件不同字段。
+
+生效走 [[个性化懒重建]]：点「应用」只落盘、不触发任何 session 重建；每个 session 在**下一个 user prompt** 时按需检测并重建系统提示词。语义刻意复刻 MCP 的懒重建（mcp.json 写盘不 fan-out，prompt 入口 diff-reload）。
+
+默认态（`personaId = "default"` 且 `customPrompt` 为空）**什么都不追加**，系统提示词与未开启该功能时完全一致。
+
+### 人设（persona）
+
+[[个性化]] 的预设提示词项，**唯一编辑来源**是 coding-agent 的 `src/core/personas/*.md`（一人设一个 md，frontmatter 存 `id / label / description`，正文存提示词）。构建期由 `scripts/generate-personas.mjs` 把 md 内联成 `src/core/personas-data.ts`（`FILE_PERSONAS`），`personas.ts` 引入它合成 `PERSONAS`——**运行时零文件系统依赖**。settings.json 只存 `personaId`，提示词正文在系统提示词构建时由注册表解析。desktop 通过 IPC 拉取注册表渲染选择器，避免前后端清单漂移；日后改预设措辞对存量用户自动生效。
+
+**为何 codegen 而非运行时读盘**：coding-agent 会被 desktop 的 `vite.main.config.ts` 打进 main bundle（不在 external 列表），打包后基于 `__dirname` 的 `readdirSync` 会落到 desktop 的 dist 路径、读不到 md（同 photon-node 的 `__dirname` 失效问题，注释已记载）。曾先用运行时读盘，desktop 里只显示「默认」即此故。内联成字面量后任何打包/二进制场景都稳。
+
+特殊成员 `default`：no-op 占位，不落 md、在 `personas.ts` 里合成并永远置顶。首期除 `default` 外有 `务实`（回答精炼、切入准、不绕弯、专注任务）与 `交互`（主动提问对齐需求、附推荐方向、获授权再执行）。**人设正文用英文写**（label/description 保持中文供 UI 展示）。新增人设 = 往目录加一个 md（按文件名排序决定展示顺序）后重新构建（`bun run build` 会先跑 `generate:personas`），不触碰存储与注入逻辑。
+
+人设正文是**预设、产品维护**的；与 [[自定义指令]] 正交——后者是用户自己写的。
+
+### 自定义指令（custom instructions）
+
+[[个性化]] 中用户在 [[人设]] 之上追加的一段自由文本（设置页 textarea），存于 settings.json `personalization.customPrompt`。与人设**相互独立**：即便选「默认」人设，只要本文本非空就照样追加。
+
+刻意不叫「全局提示词」——「全局」在本系统里已指 [[个性化]] 的作用域，复用会歧义。
+
+### 个性化懒重建（personalization lazy reload）
+
+[[个性化]] 的生效机制，与 MCP 懒重建、`image budget` 懒重读同构：desktop 写 settings.json 后**不** fan-out 重建；coding-agent 在每次 `prompt()` 入口对 `personalization` 块做签名比对（缓存上次签名，相等走 fast-path、无副作用），变化时才重建系统提示词、令本轮 prompt 立即看到新人设/指令。
+
+刻意与 `APPEND_SYSTEM.md` 文件注入分离：那条路径只在 session 初始化/显式 `reload()` 时读盘，无 per-prompt 懒重载；个性化需要「应用后下一轮即生效」故走独立的轻量签名路径。注入位置见 [[个性化]]——拼在系统提示词末尾，顺序为 `APPEND_SYSTEM.md → 人设 → 自定义指令`。
+
+### ask_user_question
+
+coding-agent 的一个内置工具，让 agent 在执行途中**主动向用户提一组多选题并阻塞等待回答**。借鉴 Claude Code 的 `AskUserQuestion`，转成本仓 snake_case 命名。input schema 是 Claude Code 的**核心子集**：`questions[1-4]`，每题 `{ question, header(短标签), options[2-4]{ label, description, badges? }, multiSelect }`；自动附「Other」自由输入；**不做** Claude Code 的选项级 preview / notes 批注 / metadata。回传给模型走自然语言拼接（`"Q"="A"` 串联，多选逗号连，取消回传明确措辞），[[option badge]] 不进回传。
+
+工具是否对 agent 可见由 [[user question handler]] 的存在与否门控（能力=注册），按 [[实验性功能]] 开关动态启停。交互界面是 [[问答面板]]，transcript 里另留一个富视图 tool_call block 永久记录问题与所选答案。
+
+### user question handler
+
+设在 `getSharedRuntime()` 上的、承载 ask_user_question「阻塞等回答」能力的回调（拟 `setUserQuestionHandler`），与既有 `setUserConfirmationHandler` 同构——但 confirm 只传 bool，本 handler 承载 `questions/options` 富结构与结构化答案。新增 IPC channel（question-request / question-response）承载该结构，与 [[host_request / host_response]] 同属「agent 阻塞等宿主响应」家族。
+
+**「能力=注册」是门控核心**：[[ask_user_question]] 是否进 agent 的 active tool set + system prompt，唯一取决于共享 runtime 上此 handler 是否存在；[[实验性功能]] 开关开→desktop 注入 handler，关→清除。AgentSession 在**每个 prompt 入口**比对「handler 是否存在」与上次构建态，变化即 `_buildRuntime` 重建——与 MCP 懒重建（`_maybeReloadMcpForPrompt`）、[[个性化懒重建]] 同一机制族，故新旧会话都能在下一轮 prompt 动态生效，不向 coding-agent 额外透传布尔 flag。
+
+### 问答面板
+
+ask_user_question 待答时，desktop-app 聊天页**输入栏被完全接管**转换成的 Q&A 选择 UI。多问题(问题组)以**紧凑可折叠的堆叠列表**呈现、可在问题间自由切换，不占过大篇幅；已答问题折叠成所选答案摘要。逃生出口=**显式取消按钮**（→ 触发 abort 语义，工具回传「用户拒绝回答」）+ 每题 Other 自由输入；接管期间隐藏普通文本输入。
+
+**绑定所属 [[交互式 session]]**：请求携 sessionId，切到别的 session 只是隐藏面板（该 agent 仍阻塞），切回恢复待答；后台 session 提问时在侧边栏该会话上打待答徽标。App 关闭/刷新（webContents 销毁）视为取消。
+
+### option badge
+
+[[ask_user_question]] 每个 option 上的结构化标记列表（`badges?: string[]`）。取代 Claude Code「把 `(Recommended)` 塞进 label 文本」的写死做法：agent 可给某选项 append 任意 badge（「推荐」只是其一），既作 [[问答面板]] 展示的引导 badge、也是模型表达倾向性的结构化通道。仅用于展示与引导，**不进**回传给模型的 tool_result。
+
+### 实验性功能（experimental features）
+
+desktop-app 设置页「Agent配置」下的一个分类，首个成员是 [[ask_user_question]] 的开关。配置存储预留分组结构 `experimental.askUserQuestion`，将来加实验项只是加一个键、UI 同区域追加一行。**默认关、用户手动开**——「实验性」只是标签，不代表工具不可用或有额外使用成本，开关只控制是否把工具加载给 agent（经 [[user question handler]] 的注入/清除生效）。

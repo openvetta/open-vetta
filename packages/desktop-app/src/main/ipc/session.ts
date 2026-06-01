@@ -2,12 +2,15 @@ import { randomUUID } from "node:crypto";
 import { type Dirent, type FSWatcher, watch } from "node:fs";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
 import { ipcMain, type WebContents } from "electron";
 import type {
 	PromptRequest,
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
+	RuntimeUserQuestionRequest,
+	RuntimeUserQuestionResult,
 	SessionConfig,
 	SessionEvent,
 	SessionExecutionMode,
@@ -145,9 +148,15 @@ const CHANNELS = {
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	SET_MAX_RECENT_IMAGES: "vetta:session:set-max-recent-images",
 	GET_MAX_RECENT_IMAGES: "vetta:session:get-max-recent-images",
+	GET_PERSONAS: "vetta:session:get-personas",
+	GET_PERSONALIZATION: "vetta:session:get-personalization",
+	SET_PERSONALIZATION: "vetta:session:set-personalization",
 	EVENT: "vetta:session:event",
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
+	QUESTION_REQUEST: "vetta:session:question-request",
+	QUESTION_RESPONSE: "vetta:session:question-response",
+	QUESTION_SET_ENABLED: "vetta:session:question-set-enabled",
 	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
 	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
@@ -209,6 +218,20 @@ function assertExecutionMode(value: unknown): void {
 	}
 }
 
+/** Sanitize the renderer's ask_user_question reply into a RuntimeUserQuestionResult. */
+function normalizeQuestionResult(value: unknown): RuntimeUserQuestionResult {
+	if (typeof value !== "object" || value === null) return { cancelled: true, answers: [] };
+	const v = value as Record<string, unknown>;
+	if (v.cancelled === true || !Array.isArray(v.answers)) return { cancelled: true, answers: [] };
+	const answers = (v.answers as Array<Record<string, unknown>>)
+		.filter((a) => a && typeof a.question === "string" && Array.isArray(a.answers))
+		.map((a) => ({
+			question: a.question as string,
+			answers: (a.answers as unknown[]).filter((x): x is string => typeof x === "string"),
+		}));
+	return { cancelled: false, answers };
+}
+
 export function registerSessionIpc(webContents: WebContents): () => void {
 	const resolveDefaultExecutionMode = async (): Promise<SessionExecutionMode> => {
 		const config = await readDesktopConfig();
@@ -218,6 +241,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const runtime = getSharedRuntime();
 	const subscriptionMap = new Map<string, () => void>();
 	const confirmationMap = new Map<string, (confirmed: boolean) => void>();
+	const questionMap = new Map<string, (result: RuntimeUserQuestionResult) => void>();
 	const sandboxGrantMap = new Map<string, (decision: RuntimeSandboxGrantDecision) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
@@ -290,6 +314,49 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			confirmationMap.set(request.requestId, finish);
 			webContents.send(CHANNELS.CONFIRM_REQUEST, request);
 		});
+	});
+
+	const CANCELLED_QUESTION: RuntimeUserQuestionResult = { cancelled: true, answers: [] };
+
+	// ask_user_question 后端：把请求送到渲染端「问答面板」，阻塞等用户提交/取消。
+	// 镜像 confirm 的 requestId map 模式；abort（中断/窗口销毁）一律视为取消。
+	const questionHandler = (
+		request: RuntimeUserQuestionRequest,
+		signal?: AbortSignal,
+	): Promise<RuntimeUserQuestionResult> => {
+		if (webContents.isDestroyed()) return Promise.resolve(CANCELLED_QUESTION);
+		return new Promise<RuntimeUserQuestionResult>((resolve) => {
+			const finish = (result: RuntimeUserQuestionResult): void => {
+				questionMap.delete(request.requestId);
+				if (signal) signal.removeEventListener("abort", onAbort);
+				resolve(result);
+			};
+			const onAbort = (): void => finish(CANCELLED_QUESTION);
+			if (signal?.aborted) {
+				resolve(CANCELLED_QUESTION);
+				return;
+			}
+			if (signal) signal.addEventListener("abort", onAbort, { once: true });
+			questionMap.set(request.requestId, finish);
+			webContents.send(CHANNELS.QUESTION_REQUEST, request);
+		});
+	};
+
+	// 「能力=注册」：实验性开关开 → 注入 handler（agent 下一轮 prompt 即看到工具）；
+	// 关 → 清除 handler 并取消所有在途提问。开关变化经 QUESTION_SET_ENABLED 即时生效。
+	const applyAskUserQuestion = (enabled: boolean): void => {
+		if (enabled) {
+			runtime.setUserQuestionHandler(questionHandler);
+		} else {
+			runtime.setUserQuestionHandler(undefined);
+			for (const resolve of questionMap.values()) resolve(CANCELLED_QUESTION);
+			questionMap.clear();
+		}
+	};
+
+	// 启动时按盘上配置决定初始态（默认关）。
+	void readDesktopConfig().then((config) => {
+		applyAskUserQuestion(config.experimental?.askUserQuestion === true);
 	});
 
 	runtime.setUserSandboxGrantHandler((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => {
@@ -448,6 +515,38 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return images?.maxRecentImages ?? 2;
 	});
 
+	// 个性化人设清单：唯一来源是 coding-agent 注册表，只下发 id/label/description，不含提示词正文。
+	ipcMain.handle(CHANNELS.GET_PERSONAS, () => {
+		return PERSONAS.map((p) => ({ id: p.id, label: p.label, description: p.description }));
+	});
+
+	// 个性化配置（人设 + 自定义指令）。仅写盘；运行中的 session 在下一轮 prompt 经
+	// settingsManager.reloadPersonalizationSettings() 懒重建生效，无需重启或广播。
+	ipcMain.handle(CHANNELS.GET_PERSONALIZATION, () => {
+		const settings = readSettings();
+		const p = settings.personalization as { personaId?: string; customPrompt?: string } | undefined;
+		return {
+			personaId: p?.personaId ?? DEFAULT_PERSONA_ID,
+			customPrompt: p?.customPrompt ?? "",
+		};
+	});
+
+	ipcMain.handle(CHANNELS.SET_PERSONALIZATION, (_event, input: unknown) => {
+		if (typeof input !== "object" || input === null) {
+			throw new Error("Invalid personalization payload");
+		}
+		const { personaId, customPrompt } = input as { personaId?: unknown; customPrompt?: unknown };
+		if (typeof personaId !== "string" || !PERSONAS.some((p) => p.id === personaId)) {
+			throw new Error("Invalid personaId");
+		}
+		if (typeof customPrompt !== "string") {
+			throw new Error("Invalid customPrompt");
+		}
+		const settings = readSettings();
+		settings.personalization = { personaId, customPrompt };
+		writeSettings(settings);
+	});
+
 	ipcMain.handle(CHANNELS.GET_STATE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.getState(sessionId);
@@ -592,6 +691,17 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		resolve(confirmed === true);
 	});
 
+	ipcMain.handle(CHANNELS.QUESTION_RESPONSE, (_event, requestId: unknown, result: unknown) => {
+		assertNonEmptyString(requestId, "requestId");
+		const resolve = questionMap.get(requestId);
+		if (!resolve) return;
+		resolve(normalizeQuestionResult(result));
+	});
+
+	ipcMain.handle(CHANNELS.QUESTION_SET_ENABLED, (_event, enabled: unknown) => {
+		applyAskUserQuestion(enabled === true);
+	});
+
 	ipcMain.handle(CHANNELS.SANDBOX_GRANT_RESPONSE, (_event, requestId: unknown, decision: unknown) => {
 		assertNonEmptyString(requestId, "requestId");
 		const resolve = sandboxGrantMap.get(requestId);
@@ -689,6 +799,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve(false);
 		}
 		confirmationMap.clear();
+		for (const resolve of questionMap.values()) {
+			resolve(CANCELLED_QUESTION);
+		}
+		questionMap.clear();
 		for (const resolve of sandboxGrantMap.values()) {
 			resolve("deny");
 		}
@@ -774,11 +888,16 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve(false);
 		}
 		confirmationMap.clear();
+		for (const resolve of questionMap.values()) {
+			resolve(CANCELLED_QUESTION);
+		}
+		questionMap.clear();
 		for (const resolve of sandboxGrantMap.values()) {
 			resolve("deny");
 		}
 		sandboxGrantMap.clear();
 		runtime.setUserConfirmationHandler(undefined);
+		runtime.setUserQuestionHandler(undefined);
 		runtime.setUserSandboxGrantHandler(undefined);
 		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
 		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts

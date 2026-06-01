@@ -16,6 +16,7 @@ import { SessionManager } from "./session-manager.js";
 import { SettingsManager } from "./settings-manager.js";
 import { time } from "./timings.js";
 import {
+	type AskUserQuestionCapability,
 	allTools,
 	bashTool,
 	codingTools,
@@ -104,6 +105,12 @@ export interface CreateAgentSessionOptions {
 	memoryFile?: string;
 	/** MEMORY.md 字符预算（默认 DEFAULT_MEMORY_CHAR_LIMIT）。 */
 	memoryCharLimit?: number;
+
+	/**
+	 * 宿主提供的「向用户提问」能力，作为 ask_user_question 工具的后端。不传则工具不注册。
+	 * `isEnabled()` 在每个 prompt 入口被实时读取，故宿主可动态启停而无需重建 session。
+	 */
+	askUserQuestion?: AskUserQuestionCapability;
 
 	/**
 	 * Vetta 远端服务 URL（拉取 remote models / providers）。当宿主进程已经从环境
@@ -469,6 +476,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		memoryMode: options.memoryMode,
 		memoryFile: options.memoryFile,
 		memoryCharLimit: options.memoryCharLimit,
+		askUserQuestion: options.askUserQuestion,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();

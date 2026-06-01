@@ -38,6 +38,8 @@ export function toolIcon(name: string): string {
 			return "icon-[mdi--folder-search-outline]";
 		case "grep":
 			return "icon-[mdi--text-search]";
+		case "ask_user_question":
+			return "icon-[mdi--comment-question-outline]";
 		default:
 			return "icon-[mdi--wrench-outline]";
 	}
@@ -87,6 +89,14 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 	} else if (name === "doc_to_pdf") {
 		const path = args.path;
 		if (typeof path === "string") detail = shortenPath(path);
+	} else if (name === "ask_user_question") {
+		const questions = args.questions;
+		if (Array.isArray(questions) && questions.length > 0) {
+			const first = questions[0] as { header?: unknown; question?: unknown };
+			const head =
+				typeof first.header === "string" ? first.header : typeof first.question === "string" ? first.question : "";
+			detail = questions.length > 1 ? `${head} +${questions.length - 1}` : head;
+		}
 	} else if (name === "todo") {
 		const action = args.action;
 		if (typeof action === "string") {

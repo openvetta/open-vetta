@@ -15,6 +15,12 @@ export interface ProjectEntry {
 	name?: string;
 }
 
+/** 实验性功能开关分组（设置页「Agent配置 → 实验性功能」）。新增实验项只加一个键。 */
+export interface ExperimentalConfig {
+	/** ask_user_question 工具：开启后 agent 可在执行途中向用户提多选题。缺省关。 */
+	askUserQuestion?: boolean;
+}
+
 export interface DesktopConfig {
 	projects: ProjectEntry[];
 	archivedProjects: ProjectEntry[];
@@ -24,6 +30,8 @@ export interface DesktopConfig {
 	vettaAppPath?: string;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
+	/** 实验性功能开关分组。缺省视为全部关闭。 */
+	experimental?: ExperimentalConfig;
 }
 
 export interface LinuxSandboxConfigState {
@@ -68,6 +76,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,
+	experimental: { askUserQuestion: false },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -84,6 +93,12 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 	return value === "sandbox" ? "sandbox" : "full-access";
 }
 
+function normalizeExperimental(value: unknown): ExperimentalConfig {
+	if (typeof value !== "object" || value === null) return { askUserQuestion: false };
+	const v = value as Record<string, unknown>;
+	return { askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : false };
+}
+
 export async function readDesktopConfig(): Promise<DesktopConfig> {
 	try {
 		const raw = await readFile(CONFIG_PATH, "utf8");
@@ -97,6 +112,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
+			experimental: normalizeExperimental(parsed.experimental),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -117,6 +133,7 @@ export function readConfigSync(): DesktopConfig {
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
+			experimental: normalizeExperimental(parsed.experimental),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -544,6 +561,8 @@ export function registerFsIpc(): () => void {
 			debugMode: patch.debugMode ?? current.debugMode,
 			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
 			notificationsEnabled: patch.notificationsEnabled ?? current.notificationsEnabled,
+			experimental:
+				patch.experimental !== undefined ? normalizeExperimental(patch.experimental) : current.experimental,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

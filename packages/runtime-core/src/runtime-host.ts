@@ -22,10 +22,13 @@ import type {
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
+	RuntimeQuestionItem,
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantInfo,
 	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
+	RuntimeUserQuestionRequest,
+	RuntimeUserQuestionResult,
 	SessionConfig,
 	SessionEvent,
 	SessionEventBase,
@@ -117,6 +120,10 @@ export interface RuntimeHostOptions {
 	linuxBubblewrapPath?: string;
 	macosSandboxExecPath?: string;
 	userConfirmationHandler?: (request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>;
+	userQuestionHandler?: (
+		request: RuntimeUserQuestionRequest,
+		signal?: AbortSignal,
+	) => Promise<RuntimeUserQuestionResult>;
 	userSandboxGrantHandler?: (
 		request: RuntimeSandboxGrantRequest,
 		signal?: AbortSignal,
@@ -166,6 +173,9 @@ export class RuntimeHost implements SessionFacade {
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
+	private userQuestionHandler:
+		| ((request: RuntimeUserQuestionRequest, signal?: AbortSignal) => Promise<RuntimeUserQuestionResult>)
+		| undefined;
 	private userSandboxGrantHandler:
 		| ((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => Promise<RuntimeSandboxGrantDecision>)
 		| undefined;
@@ -178,6 +188,7 @@ export class RuntimeHost implements SessionFacade {
 		this.serverUrl = options.serverUrl;
 		this.modelRegistry = options.modelRegistry;
 		this.userConfirmationHandler = options.userConfirmationHandler;
+		this.userQuestionHandler = options.userQuestionHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
 	}
 
@@ -185,6 +196,14 @@ export class RuntimeHost implements SessionFacade {
 		handler: ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>) | undefined,
 	): void {
 		this.userConfirmationHandler = handler;
+	}
+
+	setUserQuestionHandler(
+		handler:
+			| ((request: RuntimeUserQuestionRequest, signal?: AbortSignal) => Promise<RuntimeUserQuestionResult>)
+			| undefined,
+	): void {
+		this.userQuestionHandler = handler;
 	}
 
 	setUserSandboxGrantHandler(
@@ -307,6 +326,29 @@ export class RuntimeHost implements SessionFacade {
 			customTools,
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
+			// 「向用户提问」能力：isEnabled / ask 都实时读取 this.userQuestionHandler，
+			// 故宿主 setUserQuestionHandler(fn|undefined) 的切换对所有 session 即时生效
+			// （能力存在与否即工具是否注册，见 AgentSession._maybeReloadAskUserQuestionForPrompt）。
+			askUserQuestion: {
+				isEnabled: () => this.userQuestionHandler != null,
+				ask: async (
+					request: { questions: RuntimeQuestionItem[] },
+					signal?: AbortSignal,
+				): Promise<RuntimeUserQuestionResult> => {
+					const handler = this.userQuestionHandler;
+					if (!handler || signal?.aborted) {
+						return { cancelled: true, answers: [] };
+					}
+					return handler(
+						{
+							requestId: randomUUID(),
+							sessionId: sessionIdRef.current ?? "",
+							questions: request.questions,
+						},
+						signal,
+					);
+				},
+			},
 			serverUrl: this.serverUrl,
 			// 传入共享 registry，sdk 内部就会跳过它自己的远程 fetch 分支
 			// （sdk.ts: `if (!options.modelRegistry) { ... loadRemoteModels() }`）。

@@ -41,6 +41,42 @@ export interface ToolCallUiDetails {
 	diff?: string;
 	/** First changed line in the new file, for compact path display. */
 	firstChangedLine?: number;
+	/** ask_user_question 的用户作答结果，供 transcript 富视图回显（不回传模型）。 */
+	askUserQuestion?: AskUserQuestionResolution;
+}
+
+/** ask_user_question：单个选项。 */
+export interface QuestionOption {
+	label: string;
+	description: string;
+	badges?: string[];
+}
+
+/** ask_user_question：单个问题（问题组成员）。 */
+export interface QuestionItem {
+	question: string;
+	header: string;
+	options: QuestionOption[];
+	multiSelect?: boolean;
+}
+
+/** ask_user_question：一次提问的用户作答（每题选中的标签 / 自由文本）。 */
+export interface QuestionAnswer {
+	question: string;
+	answers: string[];
+}
+
+/** ask_user_question：作答结果（取消 or 各题答案）。 */
+export interface AskUserQuestionResolution {
+	cancelled: boolean;
+	answers: QuestionAnswer[];
+}
+
+/** 一次待答的 ask_user_question 请求，绑定到发起它的 session。 */
+export interface PendingQuestion {
+	requestId: string;
+	sessionId: string;
+	questions: QuestionItem[];
 }
 
 export interface ToolCallBlock {
@@ -213,6 +249,13 @@ export const isCompactingAtom = atom<boolean>(false);
 /** 当前 session 是否正在懒重载 MCP 配置（用户发 prompt 后 ~1-3s）。
  * 仅由 mcp.reload.start/end 驱动；UI 用一条非阻塞的小提示告知用户。 */
 export const isReloadingMcpAtom = atom<boolean>(false);
+
+/**
+ * 待答的 ask_user_question 请求，按发起 session 的 runtimeId 索引。
+ * InputBar 据此把对应 session 的输入栏接管为「问答面板」；切换 session 只是隐藏，
+ * 切回恢复（该 session 的 agent 仍阻塞等回答）。提交/取消后由面板删除对应项。
+ */
+export const pendingQuestionsAtom = atom<Record<string, PendingQuestion>>({});
 
 /** Selected model identifier: "provider/modelId" */
 export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));

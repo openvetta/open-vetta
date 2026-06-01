@@ -7,7 +7,7 @@ import { cn } from "@shared/lib/utils";
 import { isMac } from "@shared/lib/platform";
 import { AccountSettings } from "./AccountSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
-import { ContextStrategySettings } from "./ContextStrategySettings";
+import { AgentSettings } from "./AgentSettings";
 import { EnvironmentSettings } from "./EnvironmentSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ImBridgeSettings } from "./ImBridgeSettings";
@@ -48,7 +48,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	shortcuts: ShortcutsSettings,
 	archive: ArchivedProjectsSettings,
 	team: TeamSettings,
-	context: ContextStrategySettings,
+	context: AgentSettings,
 };
 
 export function SettingsPage(): JSX.Element {

@@ -7,6 +7,8 @@ import type {
 	RuntimeSandboxGrantInfo,
 	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
+	RuntimeUserQuestionRequest,
+	RuntimeUserQuestionResult,
 	SessionConfig,
 	SessionEvent,
 	SessionExecutionMode,
@@ -18,6 +20,19 @@ import type { RuntimeStatus, RuntimesStatus, RuntimeType } from "../main/runtime
 import type { DesktopFsApi } from "./fs-types.js";
 
 export type ExecutionModeOverride = "inherit" | SessionExecutionMode;
+
+/** 个性化人设选项（由 coding-agent 注册表下发，不含提示词正文）。 */
+export interface PersonaOption {
+	id: string;
+	label: string;
+	description: string;
+}
+
+/** 个性化配置：选中的人设 id + 自定义指令文本。 */
+export interface PersonalizationConfig {
+	personaId: string;
+	customPrompt: string;
+}
 
 export interface DesktopSessionApi {
 	create(config?: SessionConfig): Promise<{ sessionId: string; cwd?: string }>;
@@ -31,6 +46,12 @@ export interface DesktopSessionApi {
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): Promise<() => void>;
 	onConfirmationRequest(handler: (request: RuntimeUserConfirmationRequest) => void): () => void;
 	respondToConfirmation(requestId: string, confirmed: boolean): Promise<void>;
+	/** ask_user_question：监听主进程发来的提问请求（携 sessionId + questions）。 */
+	onQuestionRequest(handler: (request: RuntimeUserQuestionRequest) => void): () => void;
+	/** 回传用户对某次提问的答案 / 取消。 */
+	respondToQuestion(requestId: string, result: RuntimeUserQuestionResult): Promise<void>;
+	/** 实验性开关切换：开 → 注入问答 handler（能力=注册），关 → 清除。 */
+	setQuestionEnabled(enabled: boolean): Promise<void>;
 	onSandboxGrantRequest(handler: (request: RuntimeSandboxGrantRequest) => void): () => void;
 	respondToSandboxGrant(requestId: string, decision: RuntimeSandboxGrantDecision): Promise<void>;
 	listSandboxGrants(sessionId: string): Promise<RuntimeSandboxGrantInfo[]>;
@@ -44,6 +65,9 @@ export interface DesktopSessionApi {
 	getGlobalThinkingLevel(): Promise<string>;
 	setMaxRecentImages(count: number): Promise<void>;
 	getMaxRecentImages(): Promise<number>;
+	getPersonas(): Promise<PersonaOption[]>;
+	getPersonalization(): Promise<PersonalizationConfig>;
+	setPersonalization(input: PersonalizationConfig): Promise<void>;
 	getState(sessionId: string): Promise<SessionStateSnapshot>;
 	getMessages(sessionId: string): Promise<Message[]>;
 	getFullHistory(sessionId: string): Promise<HistoryEntry[]>;
@@ -206,6 +230,11 @@ export interface DesktopConfigData {
 	debugMode?: boolean;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
+	/** 实验性功能开关分组（「Agent配置 → 实验性功能」）。缺省视为全部关闭。 */
+	experimental?: {
+		/** ask_user_question 工具开关。缺省关。 */
+		askUserQuestion?: boolean;
+	};
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
 	defaultConversationCwd?: string;
 	/** im-gateway 自己的 cwd（~/.vetta/im-gateway/conversation），与桌面「对话」物理分家（ADR-0005）。 */

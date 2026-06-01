@@ -33,6 +33,11 @@ export interface ImageSettings {
 	maxRecentImages?: number; // default: 2 - keep this many most-recent images in context, replace older with text placeholder. <=0 disables (keep all)
 }
 
+export interface PersonalizationSettings {
+	personaId?: string; // default: "default" (no-op). Selected persona id, resolved against the persona registry.
+	customPrompt?: string; // default: "" - free-text custom instructions appended on top of the persona
+}
+
 export interface ThinkingBudgetsSettings {
 	minimal?: number;
 	low?: number;
@@ -86,6 +91,7 @@ export interface Settings {
 	enableSkillCommands?: boolean; // default: true - register skills as /skill:name commands
 	terminal?: TerminalSettings;
 	images?: ImageSettings;
+	personalization?: PersonalizationSettings; // 全局个性化：人设选择 + 自定义指令，追加到系统提示词末尾
 	enabledModels?: string[]; // Model patterns for cycling (same format as --models CLI flag)
 	doubleEscapeAction?: "fork" | "tree" | "none"; // Action for double-escape with empty editor (default: "tree")
 	thinkingBudgets?: ThinkingBudgetsSettings; // Custom token budgets for thinking levels
@@ -377,6 +383,25 @@ export class SettingsManager {
 		const projectLoad = SettingsManager.tryLoadFromStorage(this.storage, "project");
 		if (!projectLoad.error) {
 			this.projectSettings.images = projectLoad.settings.images;
+		}
+		this.settings = deepMergeSettings(this.globalSettings, this.projectSettings);
+	}
+
+	/**
+	 * Re-read only the `personalization` block from storage and refresh the merged
+	 * view. Cheap, targeted lazy-reload used at prompt entry so a desktop 个性化
+	 * change (人设 / 自定义指令) takes effect on the session's next turn without a
+	 * restart — mirrors reloadImageSettings / the MCP lazy-reload pattern. Scoped to
+	 * `personalization` so it never clobbers other in-memory state.
+	 */
+	reloadPersonalizationSettings(): void {
+		const globalLoad = SettingsManager.tryLoadFromStorage(this.storage, "global");
+		if (!globalLoad.error) {
+			this.globalSettings.personalization = globalLoad.settings.personalization;
+		}
+		const projectLoad = SettingsManager.tryLoadFromStorage(this.storage, "project");
+		if (!projectLoad.error) {
+			this.projectSettings.personalization = projectLoad.settings.personalization;
 		}
 		this.settings = deepMergeSettings(this.globalSettings, this.projectSettings);
 	}
@@ -887,6 +912,14 @@ export class SettingsManager {
 		this.globalSettings.images.maxRecentImages = count;
 		this.markModified("images", "maxRecentImages");
 		this.save();
+	}
+
+	/** 个性化配置，已应用默认值（personaId 缺省为 "default"，customPrompt 缺省为 ""）。 */
+	getPersonalization(): { personaId: string; customPrompt: string } {
+		return {
+			personaId: this.settings.personalization?.personaId ?? "default",
+			customPrompt: this.settings.personalization?.customPrompt ?? "",
+		};
 	}
 
 	getEnabledModels(): string[] | undefined {
