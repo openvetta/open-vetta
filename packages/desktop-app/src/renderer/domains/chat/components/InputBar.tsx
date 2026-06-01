@@ -16,6 +16,7 @@ import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	sandboxPermissionDrawerAtom,
+	pendingQuestionsAtom,
 } from "@shared/store/atoms";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { TodoCard } from "@shared/components/TodoCard";
@@ -26,6 +27,7 @@ import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
 import { ActionButtonBar } from "./ActionButtonBar";
 import { SendButton } from "./SendButton";
+import { QuestionPanel } from "./QuestionPanel";
 import { pathBasename } from "@shared/lib/utils";
 import type { SkillInfo } from "@preload/api";
 import "./InputBar.css";
@@ -88,6 +90,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
+	const pendingQuestions = useAtomValue(pendingQuestionsAtom);
+	const pendingQuestion = activeSession?.runtimeId ? pendingQuestions[activeSession.runtimeId] : undefined;
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
@@ -418,6 +422,11 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		isFocused ? "border-primary/20" : "border-border",
 		switchPulseVariant ? `input-switch-bump-${switchPulseVariant}` : "",
 	].join(" ");
+
+	// 待答的 ask_user_question：完全接管输入栏为「问答面板」。
+	if (pendingQuestion) {
+		return <QuestionPanel pending={pendingQuestion} />;
+	}
 
 	return (
 		<div className="relative px-2 pb-3 pt-1 sm:px-4 sm:pb-4">

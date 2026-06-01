@@ -1,4 +1,17 @@
 export {
+	type AskUserQuestionAnswer,
+	type AskUserQuestionCapability,
+	type AskUserQuestionFn,
+	type AskUserQuestionItem,
+	type AskUserQuestionOption,
+	type AskUserQuestionRequest,
+	type AskUserQuestionResult,
+	type AskUserQuestionToolDetails,
+	type AskUserQuestionToolInput,
+	type AskUserQuestionToolOptions,
+	createAskUserQuestionTool,
+} from "./ask-user-question/index.js";
+export {
 	type BashOperations,
 	type BashSpawnContext,
 	type BashSpawnHook,

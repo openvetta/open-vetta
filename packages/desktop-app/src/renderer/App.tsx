@@ -24,6 +24,7 @@ import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,
 	defaultConversationCwdAtom,
+	pendingQuestionsAtom,
 	sandboxPermissionDrawerAtom,
 	sidebarCollapsedAtom,
 	pageHeaderTitleAtom,
@@ -190,6 +191,15 @@ export function RootLayout(): JSX.Element {
 			showRequest(request);
 		});
 	}, [setSandboxPermissionDrawer]);
+
+	// ask_user_question：把提问请求按 sessionId 存入 pendingQuestionsAtom，
+	// 由对应 session 的 InputBar 接管为「问答面板」。不在此弹全局框（与 confirm 不同）。
+	const setPendingQuestions = useSetAtom(pendingQuestionsAtom);
+	useEffect(() => {
+		return window.vetta.session.onQuestionRequest((request) => {
+			setPendingQuestions((prev) => ({ ...prev, [request.sessionId]: request }));
+		});
+	}, [setPendingQuestions]);
 
 	const grantQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onSandboxGrantRequest>[0]>[0][]>([]);
 	const grantActiveRef = useRef(false);

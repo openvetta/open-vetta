@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ToolCallBlock } from "@shared/store/atoms";
+import { AskUserQuestionView } from "./tool-views/AskUserQuestionView";
 import { BashTerminalCard } from "./tool-views/BashTerminalCard";
 import { EditDiffView } from "./tool-views/EditDiffView";
 import { ReadImageView } from "./tool-views/ReadImageView";
@@ -34,7 +35,8 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 		(block.toolName === "edit" &&
 			(block.uiDetails?.diff !== undefined ||
 				getStringArg(block.args, "oldText") !== null ||
-				getStringArg(block.args, "newText") !== null));
+				getStringArg(block.args, "newText") !== null)) ||
+		(block.toolName === "ask_user_question" && Array.isArray(block.args.questions));
 	const canExpand = hasResult || hasMeta || hasToolSpecificResult;
 	const { name, detail } = toolLabel(block);
 	const mcp = parseMcpTool(block.toolName);
@@ -168,6 +170,8 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 												</pre>
 											)}
 										</>
+									) : block.toolName === "ask_user_question" ? (
+										<AskUserQuestionView block={block} />
 									) : hasResult ? (
 										<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
 											{block.result}
