@@ -416,7 +416,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const cardClass = [
 		"input-card relative rounded-[20px] bg-card border transition-[border-color,box-shadow,transform] duration-200",
 		isFocused ? "border-primary/20" : "border-border",
-		isStreaming ? "input-aurora" : "",
 		switchPulseVariant ? `input-switch-bump-${switchPulseVariant}` : "",
 	].join(" ");
 
