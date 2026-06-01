@@ -581,7 +581,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 						const projectName = basename(cwd);
 						const seq = (debugSeqMap.get(sessionId) ?? 0) + 1;
 						debugSeqMap.set(sessionId, seq);
-						const msg = runtimeEvent.message as Record<string, unknown>;
+						const msg = runtimeEvent.message as unknown as Record<string, unknown>;
 						const usage = (msg.usage ?? {}) as DebugRequestData["usage"];
 						const turnStart = turnStartMap.get(sessionId) ?? Date.now();
 						const now = Date.now();

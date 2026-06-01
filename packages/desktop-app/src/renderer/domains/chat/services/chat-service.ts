@@ -6,7 +6,7 @@ import type {
 	ToolCallUiDetails,
 	ToolImagePreview,
 } from "@shared/store/atoms";
-import type { HistoryEntry } from "../../../../../runtime-core/src/index.js";
+import type { HistoryEntry } from "../../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Message conversion helpers

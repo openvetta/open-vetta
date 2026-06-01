@@ -13,6 +13,7 @@ function statusLabel(status: BatchTask["status"], hasSession: boolean): string {
 		running: "运行中",
 		completed: "已完成",
 		failed: "失败",
+		paused: "已暂停",
 	};
 	return labels[status];
 }

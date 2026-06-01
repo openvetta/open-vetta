@@ -240,7 +240,7 @@ export interface ActionButtonDef {
 export const actionButtonDefsAtom = atom<ActionButtonDef[]>([]);
 
 /** Set of hidden button ids for visibility control */
-export const hiddenActionButtonsAtom = atom<Set<string>>(new Set());
+export const hiddenActionButtonsAtom = atom<Set<string>>(new Set<string>());
 
 /** Derived: visible buttons sorted by order */
 export const visibleActionButtonsAtom = atom((get) => {
