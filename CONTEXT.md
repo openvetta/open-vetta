@@ -218,7 +218,11 @@ desktop-app 经由 OS 原生通知中心（macOS / Windows）向用户推送的�
 
 ### 通知类型（NotificationType）
 
-[[系统通知]] 的判别联合标签。每种类型自带 payload 形状与「点击后做什么」的路由意图。当前唯一成员是 [[agent 完成通知]]（payload 携带定位目标 session 所需的标识）。新增类型 = 加一个联合分支 + 在薄 dispatch 里补一段判定/构造/路由，**不触碰**已有类型。
+[[系统通知]] 的判别联合标签。每种类型自带 payload 形状与「点击后做什么」的路由意图。当前成员：[[agent 完成通知]] 与 [[agent 提问待确认通知]]（payload 均携带定位目标 session 所需的标识）。新增类型 = 加一个联合分支 + 在薄 dispatch 里补一段判定/构造/路由，**不触碰**已有类型。
+
+### agent 提问待确认通知
+
+[[通知类型]] 成员：[[交互式 session]] 的 agent 调用 [[ask_user_question]]、有问题待用户确认时触发的 [[系统通知]]。正文固定「有问题待确认，点击查看」，标题取 session 名。抑制规则与 [[agent 完成通知]] 同（聚焦且正停在该 session 聊天页时不弹——[[问答面板]] 已在眼前）。coalesceKey 用 `question:<sessionPath>` 与完成通知区分，二者互不覆盖。点击前台化并路由到该 session。
 
 ### agent 完成通知
 

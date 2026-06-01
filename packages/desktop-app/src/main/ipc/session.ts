@@ -339,6 +339,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			questionMap.set(request.requestId, finish);
 			webContents.send(CHANNELS.QUESTION_REQUEST, request);
+			// 同时发系统通知「有问题待确认」（点击跳转该 session）；前台看着该 session 时自动抑制。
+			const sessionPath = runtime.getSessionPath(request.sessionId);
+			const cwd = sessionCwdMap.get(request.sessionId);
+			if (sessionPath && cwd) {
+				void notify({ type: "agent-question-pending", sessionPath, cwd });
+			}
 		});
 	};
 
