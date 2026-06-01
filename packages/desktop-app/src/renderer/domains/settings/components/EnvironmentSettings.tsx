@@ -107,9 +107,9 @@ export function EnvironmentSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">环境管理</h1>
+			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">应用环境</h1>
 			<p className="mb-6 text-[13px] text-muted-foreground">
-				Vetta 自带 Node.js 与 Python 运行时，无需你手动安装。运行命令时会自动切换到国内镜像源，无需配置代理。
+				Vetta 自带 Node.js 与 Python 运行时，来协助你完成更多任务
 			</p>
 
 			{error && (
