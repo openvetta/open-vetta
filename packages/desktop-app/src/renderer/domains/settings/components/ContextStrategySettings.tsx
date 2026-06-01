@@ -31,7 +31,7 @@ export function ContextStrategySettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">上下文策略</h1>
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">Agent配置</h1>
 
 			<SettingSection title="图片">
 				<div className="px-5 py-4">
