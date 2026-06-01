@@ -14,13 +14,23 @@ function carriesImageContent(msg: AgentMessage): msg is MessageWithImageContent 
 }
 
 /**
- * Keep at most `budget` most-recent images in the message stream.
+ * Keep at most `budget` most-recent *already-seen* images in the message stream.
  *
- * Older ImageContent items are replaced with a short text placeholder so the
- * model still sees a marker for the dropped attachment without paying its
- * visual-token cost. This prevents accumulated visual tokens from blowing past
- * the GPU memory budget of local/open-source VL models when a session reads
- * multiple images.
+ * "Seen" is determined structurally: any image sitting after the last assistant
+ * message has never been shown to the model yet — the upcoming LLM call is its
+ * first viewing — so it is kept unconditionally regardless of budget. This is
+ * the hard guarantee that a batch of freshly `read` images is never dropped
+ * before the model gets to look at it even once (fixes "read == not read").
+ *
+ * Images at or before the last assistant message have been seen at least once;
+ * only these are subject to the budget. Older seen ImageContent beyond the
+ * budget is replaced with a short text placeholder so the model still sees a
+ * marker for the dropped attachment without paying its visual-token cost.
+ *
+ * Note: this intentionally no longer caps the number of *unseen* images, so it
+ * does not by itself protect memory-constrained local VL models from OOM on a
+ * large batch read — that is delegated to prompt-level guidance ("read images
+ * one at a time"). See ADR-0012.
  *
  * Pass `budget <= 0` to disable the filter (all images are kept).
  */
@@ -29,12 +39,28 @@ export function applyImageBudget(messages: AgentMessage[], budget: number): Agen
 		return messages;
 	}
 
+	// Index of the last assistant message. Images after it are unseen.
+	let lastAssistantIdx = -1;
+	for (let i = messages.length - 1; i >= 0; i--) {
+		if ((messages[i] as { role?: unknown }).role === "assistant") {
+			lastAssistantIdx = i;
+			break;
+		}
+	}
+
 	let remaining = budget;
 	let mutated = false;
 	const reversedResult: AgentMessage[] = [];
 
 	for (let i = messages.length - 1; i >= 0; i--) {
 		const msg = messages[i];
+
+		// Unseen images (after the last assistant message) are kept untouched.
+		if (i > lastAssistantIdx) {
+			reversedResult.push(msg);
+			continue;
+		}
+
 		if (!carriesImageContent(msg)) {
 			reversedResult.push(msg);
 			continue;

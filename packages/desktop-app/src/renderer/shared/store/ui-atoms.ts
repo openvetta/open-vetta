@@ -21,7 +21,8 @@ export type SettingsTab =
 	| "webhook"
 	| "shortcuts"
 	| "archive"
-	| "team";
+	| "team"
+	| "context";
 
 // ─── Theme ───
 

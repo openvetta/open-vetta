@@ -1019,6 +1019,10 @@ export class AgentSession {
 		// 重建 runtime 让本轮 prompt 立刻看到新工具。失败不阻塞 prompt。
 		await this._maybeReloadMcpForPrompt();
 
+		// 懒重读图片预算：desktop「上下文策略」改动写盘后，本轮 prompt 即生效，
+		// 无需重启 session。仅刷新 images 块，纯文件读、无其他副作用。
+		this.settingsManager.reloadImageSettings();
+
 		// Handle extension commands first (execute immediately, even during streaming)
 		// Extension commands manage their own LLM interaction via pi.sendMessage()
 		if (expandPromptTemplates && text.startsWith("/")) {

@@ -7,6 +7,7 @@ import { cn } from "@shared/lib/utils";
 import { isMac } from "@shared/lib/platform";
 import { AccountSettings } from "./AccountSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
+import { ContextStrategySettings } from "./ContextStrategySettings";
 import { EnvironmentSettings } from "./EnvironmentSettings";
 import { GeneralSettings } from "./GeneralSettings";
 import { ImBridgeSettings } from "./ImBridgeSettings";
@@ -31,6 +32,7 @@ const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?:
 	{ key: "webhook", label: "消息推送", icon: "icon-[mdi--webhook]" },
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
 	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },
+	{ key: "context", label: "上下文策略", icon: "icon-[mdi--image-multiple-outline]" },
 ];
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
@@ -46,6 +48,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	shortcuts: ShortcutsSettings,
 	archive: ArchivedProjectsSettings,
 	team: TeamSettings,
+	context: ContextStrategySettings,
 };
 
 export function SettingsPage(): JSX.Element {

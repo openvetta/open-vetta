@@ -42,6 +42,8 @@ export interface DesktopSessionApi {
 	setGlobalExecutionMode(mode: SessionExecutionMode): Promise<void>;
 	setGlobalThinkingLevel(level: string): Promise<void>;
 	getGlobalThinkingLevel(): Promise<string>;
+	setMaxRecentImages(count: number): Promise<void>;
+	getMaxRecentImages(): Promise<number>;
 	getState(sessionId: string): Promise<SessionStateSnapshot>;
 	getMessages(sessionId: string): Promise<Message[]>;
 	getFullHistory(sessionId: string): Promise<HistoryEntry[]>;

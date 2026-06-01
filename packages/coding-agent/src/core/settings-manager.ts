@@ -361,6 +361,26 @@ export class SettingsManager {
 		this.settings = deepMergeSettings(this.globalSettings, this.projectSettings);
 	}
 
+	/**
+	 * Re-read only the `images` settings block from storage and refresh the
+	 * in-memory merged view. This is a cheap, targeted lazy-reload used at prompt
+	 * entry so a desktop "上下文策略" change (e.g. maxRecentImages) takes effect on
+	 * the session's next turn without a restart — mirrors the MCP/skills
+	 * lazy-reload-at-prompt pattern. Scoped to `images` so it never clobbers other
+	 * in-memory state (modified-field markers, session overrides).
+	 */
+	reloadImageSettings(): void {
+		const globalLoad = SettingsManager.tryLoadFromStorage(this.storage, "global");
+		if (!globalLoad.error) {
+			this.globalSettings.images = globalLoad.settings.images;
+		}
+		const projectLoad = SettingsManager.tryLoadFromStorage(this.storage, "project");
+		if (!projectLoad.error) {
+			this.projectSettings.images = projectLoad.settings.images;
+		}
+		this.settings = deepMergeSettings(this.globalSettings, this.projectSettings);
+	}
+
 	/** Apply additional overrides on top of current settings */
 	applyOverrides(overrides: Partial<Settings>): void {
 		this.settings = deepMergeSettings(this.settings, overrides);
