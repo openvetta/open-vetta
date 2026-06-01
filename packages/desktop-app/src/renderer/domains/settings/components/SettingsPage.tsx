@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
 import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
+import { isMac } from "@shared/lib/platform";
 import { AccountSettings } from "./AccountSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { EnvironmentSettings } from "./EnvironmentSettings";
@@ -11,12 +12,13 @@ import { GeneralSettings } from "./GeneralSettings";
 import { ImBridgeSettings } from "./ImBridgeSettings";
 import { ModelsSettings } from "./ModelsSettings";
 import { McpSettings } from "./McpSettings";
+import { PermissionsSettings } from "./PermissionsSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
 import { WebhookSettings } from "./WebhookSettings";
 
-const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean }[] = [
+const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean; macOnly?: boolean }[] = [
 	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
 	{ key: "appearance", label: "外观", icon: "icon-[mdi--palette-outline]" },
 	{ key: "account", label: "账户", icon: "icon-[mdi--account-outline]", requireAuth: true },
@@ -24,6 +26,7 @@ const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?:
 	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
 	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
 	{ key: "environment", label: "环境管理", icon: "icon-[mdi--package-variant-closed]" },
+	{ key: "permissions", label: "权限管理", icon: "icon-[mdi--shield-lock-outline]", macOnly: true },
 	{ key: "im", label: "Claw", icon: "icon-[mdi--message-text-outline]" },
 	{ key: "webhook", label: "消息推送", icon: "icon-[mdi--webhook]" },
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
@@ -37,6 +40,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	models: ModelsSettings,
 	mcp: McpSettings,
 	environment: EnvironmentSettings,
+	permissions: PermissionsSettings,
 	im: ImBridgeSettings,
 	webhook: WebhookSettings,
 	shortcuts: ShortcutsSettings,
@@ -51,7 +55,13 @@ export function SettingsPage(): JSX.Element {
 	const authUser = useAtomValue(authUserAtom);
 
 	const visibleTabs = useMemo(
-		() => BASE_TABS.filter((t) => (!t.personalOnly || isPersonal) && (!t.requireAuth || authUser)),
+		() =>
+			BASE_TABS.filter(
+				(t) =>
+					(!t.personalOnly || isPersonal) &&
+					(!t.requireAuth || authUser) &&
+					(!t.macOnly || isMac),
+			),
 		[isPersonal, authUser],
 	);
 	const validTabKeys = useMemo(() => new Set(visibleTabs.map((t) => t.key)), [visibleTabs]);

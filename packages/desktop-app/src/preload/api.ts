@@ -911,6 +911,19 @@ export interface DesktopWebhookApi {
 	send(id: string, message: WebhookMessage): Promise<WebhookSendResult>;
 }
 
+// ─── Permissions (macOS) ───
+export type PermissionKind = "full-disk-access" | "accessibility" | "notifications";
+export type PermissionStatus = "granted" | "denied" | "unknown";
+export interface PermissionsSnapshot {
+	fullDiskAccess: PermissionStatus;
+	accessibility: PermissionStatus;
+	notifications: PermissionStatus;
+}
+export interface DesktopPermissionsApi {
+	checkAll(): Promise<PermissionsSnapshot>;
+	openPane(kind: PermissionKind): Promise<void>;
+}
+
 /** 托管运行时(环境管理面板)。见 ADR-0011。 */
 export interface DesktopRuntimesApi {
 	getStatus(): Promise<RuntimesStatus>;
@@ -945,6 +958,7 @@ export interface DesktopApi {
 	project: DesktopProjectApi;
 	webhook: DesktopWebhookApi;
 	runtimes: DesktopRuntimesApi;
+	permissions: DesktopPermissionsApi;
 }
 
 declare global {

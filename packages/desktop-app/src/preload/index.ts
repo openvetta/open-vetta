@@ -443,6 +443,10 @@ const api: DesktopApi = {
 		export: async (projectDir) => ipcRenderer.invoke("vetta:project:export", projectDir),
 		import: async () => ipcRenderer.invoke("vetta:project:import"),
 	},
+	permissions: {
+		checkAll: async () => ipcRenderer.invoke("vetta:permissions:check-all"),
+		openPane: async (kind) => ipcRenderer.invoke("vetta:permissions:open-pane", kind),
+	},
 	webhook: {
 		list: async () => ipcRenderer.invoke(WEBHOOK_CHANNELS.LIST),
 		listProviders: async () => ipcRenderer.invoke(WEBHOOK_CHANNELS.LIST_PROVIDERS),
