@@ -51,6 +51,8 @@ interface FilePreviewViewProps {
 	canPrev: boolean;
 	canNext: boolean;
 	enableKeyboard?: boolean;
+	onToggleSidebar?: () => void;
+	sidebarCollapsed?: boolean;
 }
 
 export function FilePreviewView({
@@ -61,6 +63,8 @@ export function FilePreviewView({
 	canPrev,
 	canNext,
 	enableKeyboard = false,
+	onToggleSidebar,
+	sidebarCollapsed,
 }: FilePreviewViewProps): JSX.Element | null {
 	const total = ctx.items.length;
 	const index = ctx.index;
@@ -100,6 +104,8 @@ export function FilePreviewView({
 				position={canNavigate ? `${index + 1} / ${total}` : undefined}
 				canPrev={canNavigate && canPrev}
 				canNext={canNavigate && canNext}
+				onToggleSidebar={onToggleSidebar}
+				sidebarCollapsed={sidebarCollapsed}
 			/>
 			<PreviewErrorBoundary resetKey={item}>
 				<PreviewBody item={item} />
@@ -116,6 +122,8 @@ function Header({
 	position,
 	canPrev,
 	canNext,
+	onToggleSidebar,
+	sidebarCollapsed,
 }: {
 	item: FilePreviewItem;
 	onClose: () => void;
@@ -124,11 +132,20 @@ function Header({
 	position?: string;
 	canPrev: boolean;
 	canNext: boolean;
+	onToggleSidebar?: () => void;
+	sidebarCollapsed?: boolean;
 }): JSX.Element {
 	const downloadable = !!item.url;
 	return (
-		<div className="flex shrink-0 items-center gap-2 border-b border-border/40 px-4 py-2.5">
-			<h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
+		<div className="flex shrink-0 items-center gap-1.5 border-b border-border/40 py-1.5 pl-2 pr-3">
+			{onToggleSidebar && (
+				<HeaderButton
+					icon="icon-[mdi--dock-left]"
+					title={sidebarCollapsed ? "显示文件树" : "隐藏文件树"}
+					onClick={onToggleSidebar}
+				/>
+			)}
+			<h2 className="-ml-0.5 min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
 				{item.name}
 			</h2>
 			{position && (
