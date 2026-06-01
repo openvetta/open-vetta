@@ -827,6 +827,13 @@ function extractToolOutputs(block: ToolCallBlock): string[] {
 			if (p) out.push(p);
 			break;
 		}
+		case "render_pdf_page": {
+			const input = asStr(args.input);
+			const page = typeof args.page === "number" ? args.page : undefined;
+			const p = asStr(args.output) ?? (input && page !== undefined ? `${input}.p${page}.png` : undefined);
+			if (p) out.push(p);
+			break;
+		}
 		case "bash":
 		case "shell": {
 			const cmd = asStr(args.command);

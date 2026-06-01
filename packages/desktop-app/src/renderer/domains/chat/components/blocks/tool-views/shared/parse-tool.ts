@@ -78,6 +78,12 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 	} else if (name === "extract_text_from_img" || name === "extract_text_from_pdf" || name === "html_to_pdf") {
 		const input = args.input;
 		if (typeof input === "string") detail = shortenPath(input);
+	} else if (name === "render_pdf_page") {
+		const input = args.input;
+		if (typeof input === "string") {
+			detail = shortenPath(input);
+			if (typeof args.page === "number") detail += `:p${args.page}`;
+		}
 	} else if (name === "doc_to_pdf") {
 		const path = args.path;
 		if (typeof path === "string") detail = shortenPath(path);

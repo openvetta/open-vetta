@@ -2657,6 +2657,9 @@ export class AgentSession {
 		if (this._baseToolRegistry.has("extract_text_from_img")) {
 			activeToolNameSet.add("extract_text_from_img");
 		}
+		if (this._baseToolRegistry.has("render_pdf_page")) {
+			activeToolNameSet.add("render_pdf_page");
+		}
 		if (this._baseToolRegistry.has("current_time")) {
 			activeToolNameSet.add("current_time");
 		}
