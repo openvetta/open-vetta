@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel, batchProjectsAtom, expandedBatchProjectsAtom, expandedProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -52,23 +52,19 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const batchProjects = useAtomValue(batchProjectsAtom);
 	const [expandedBatchProjects, setExpandedBatchProjects] = useAtom(expandedBatchProjectsAtom);
-	const setExpandedProjects = useSetAtom(expandedProjectsAtom);
 	const { toggleProject: toggleBatchProject, deleteTask: deleteBatchTask, deleteProject: deleteBatchProject } = useBatchTasks();
 
-	// 手风琴：展开任一项目（普通 / 批量）时，关闭另一侧的所有展开项。
-	const expandProjectAccordion = useCallback(
+	// 项目展开为独立状态，互不联动。
+	const expandBatchProject = useCallback(
 		(cwd: string) => {
-			setExpandedBatchProjects(new Set());
-			expandProject(cwd);
+			setExpandedBatchProjects((prev) => {
+				if (prev.has(cwd)) return prev;
+				const next = new Set(prev);
+				next.add(cwd);
+				return next;
+			});
 		},
-		[expandProject, setExpandedBatchProjects],
-	);
-	const expandBatchProjectAccordion = useCallback(
-		(cwd: string) => {
-			setExpandedProjects((prev) => (prev.size === 0 ? prev : new Set()));
-			setExpandedBatchProjects(new Set([cwd]));
-		},
-		[setExpandedProjects, setExpandedBatchProjects],
+		[setExpandedBatchProjects],
 	);
 
 	// Convert visible batch projects to Project + SessionInfo format
@@ -448,7 +444,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 					isExpanded={expandedProjects.has(project.cwd)}
 					isActive={isProjectActive(project.cwd)}
 					activeSessionPath={activeSessionPath}
-					onExpand={expandProjectAccordion}
+					onExpand={expandProject}
 					onCollapse={collapseProject}
 					onNavigateProject={handleNavigateProject}
 					onNewSession={handleNewSession}
@@ -465,7 +461,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						isExpanded={expandedBatchProjects.has(project.cwd)}
 						isActive={isProjectActive(project.cwd)}
 						activeSessionPath={activeSessionPath}
-						onExpand={expandBatchProjectAccordion}
+						onExpand={expandBatchProject}
 						onCollapse={collapseBatchProject}
 						onNavigateProject={handleNavigateProject}
 						onNewSession={handleBatchNewSession}
