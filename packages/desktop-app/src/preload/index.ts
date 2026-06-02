@@ -223,6 +223,9 @@ const api: DesktopApi = {
 	credits: {
 		getBalance: async () => ipcRenderer.invoke("vetta:credits:balance"),
 	},
+	subscription: {
+		getStatus: async () => ipcRenderer.invoke("vetta:subscription:status"),
+	},
 	shell: {
 		showInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-in-folder", fullPath),
 		showItemInFolder: async (fullPath) => ipcRenderer.invoke("vetta:shell:show-item-in-folder", fullPath),
