@@ -5,6 +5,7 @@ import { UpdateChecker } from "@shared/components/UpdateChecker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
 import { SettingRow, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 export function GeneralSettings(): JSX.Element {
 	const [workspacePath, setWorkspacePath] = useAtom(workspacePathAtom);
@@ -98,7 +99,7 @@ export function GeneralSettings(): JSX.Element {
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">常规</h1>
 
-			<SettingSection title="工作区">
+			<SettingSection section={SETTINGS_SECTION["general-workspace"]}>
 				<SettingRow
 					title="工作目录"
 					description="新建项目时将在此目录下创建对应的项目文件夹"
@@ -126,13 +127,13 @@ export function GeneralSettings(): JSX.Element {
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection title="版本更新">
+			<SettingSection section={SETTINGS_SECTION["general-updates"]}>
 				<div className="px-5 py-4">
 					<UpdateChecker />
 				</div>
 			</SettingSection>
 
-			<SettingSection title="沙盒">
+			<SettingSection section={SETTINGS_SECTION["general-sandbox"]}>
 				<SettingRow
 					title="默认沙盒状态"
 					description="新建会话未单独设置时使用的工具访问范围；不会改变已打开会话"
@@ -157,7 +158,7 @@ export function GeneralSettings(): JSX.Element {
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection title="通知">
+			<SettingSection section={SETTINGS_SECTION["general-notifications"]}>
 				<SettingRow
 					title="系统通知"
 					description="agent 完成一轮回答时发系统通知；你正在前台查看该会话时不打扰"
@@ -167,7 +168,7 @@ export function GeneralSettings(): JSX.Element {
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection title="开发者">
+			<SettingSection section={SETTINGS_SECTION["general-developer"]}>
 				<SettingRow
 					title="调试模式"
 					description="打开调试模式，可以协助开发者定位问题"

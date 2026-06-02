@@ -9,6 +9,7 @@ import {
 	type ShortcutMap,
 } from "@shared/lib/shortcuts";
 import { SettingRow, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 function ShortcutRecorder({
 	value,
@@ -130,7 +131,7 @@ export function ShortcutsSettings(): JSX.Element {
 				</button>
 			</div>
 
-			<SettingSection title="全局快捷键">
+			<SettingSection section={SETTINGS_SECTION["shortcuts-global"]}>
 				{SHORTCUT_ACTIONS.map((action, idx) => {
 					const effective = getEffectiveShortcut(action.id, customShortcuts);
 					const isDefault = !customShortcuts[action.id];

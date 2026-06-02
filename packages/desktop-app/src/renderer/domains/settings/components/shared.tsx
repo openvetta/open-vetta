@@ -1,4 +1,5 @@
 import { cn } from "@shared/lib/utils";
+import type { SettingsSectionRegistration } from "../registry";
 
 export function SettingRow({
 	title,
@@ -30,25 +31,48 @@ export function SettingRow({
 }
 
 export function SettingSection({
+	section,
 	title,
 	description,
 	children,
 }: {
-	title: React.ReactNode;
+	section: SettingsSectionRegistration;
+	title?: React.ReactNode;
 	description?: string;
 	children: React.ReactNode;
 }): JSX.Element {
+	const renderedTitle = title ?? section.title;
 	return (
 		<div className="mb-6">
-			{typeof title === "string" ? (
-				<h2 className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{title}</h2>
+			{typeof renderedTitle === "string" ? (
+				<h2 id={section.id} className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{renderedTitle}</h2>
 			) : (
-				<div className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{title}</div>
+				<div id={section.id} className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{renderedTitle}</div>
 			)}
 			{description && <p className="mb-3 text-[12px] text-muted-foreground">{description}</p>}
-			<div className="overflow-hidden rounded-xl border border-border bg-muted">
+			<div className="overflow-hidden rounded-xl border border-border bg-muted" data-setting-section-id={section.id}>
 				{children}
 			</div>
 		</div>
+	);
+}
+
+export function SettingHeading({
+	section,
+	title,
+	className,
+}: {
+	section: SettingsSectionRegistration;
+	title?: React.ReactNode;
+	className?: string;
+}): JSX.Element {
+	const renderedTitle = title ?? section.title;
+	return (
+		<h2
+			id={section.id}
+			className={cn("text-[15px] font-semibold text-foreground", className)}
+		>
+			{renderedTitle}
+		</h2>
 	);
 }

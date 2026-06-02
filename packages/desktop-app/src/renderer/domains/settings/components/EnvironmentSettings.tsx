@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { SettingRow, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 type RuntimesStatus = Awaited<ReturnType<typeof window.vetta.runtimes.getStatus>>;
 type RuntimeStatus = RuntimesStatus["node"];
@@ -118,7 +119,7 @@ export function EnvironmentSettings(): JSX.Element {
 				</div>
 			)}
 
-			<SettingSection title="运行时">
+			<SettingSection section={SETTINGS_SECTION["environment-runtime"]}>
 				{status ? (
 					<>
 						<RuntimeCard
@@ -139,7 +140,7 @@ export function EnvironmentSettings(): JSX.Element {
 				)}
 			</SettingSection>
 
-			<SettingSection title="镜像源">
+			<SettingSection section={SETTINGS_SECTION["environment-mirrors"]}>
 				<SettingRow title="npm 仓库" description="安装 npm 包时使用的镜像，自动注入" border>
 					<span className="text-[12px] text-muted-foreground">{status?.mirrors.npmRegistry ?? "—"}</span>
 				</SettingRow>

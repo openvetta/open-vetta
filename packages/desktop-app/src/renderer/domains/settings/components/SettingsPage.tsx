@@ -1,6 +1,6 @@
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useAtomValue } from "jotai";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
 import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
@@ -18,22 +18,7 @@ import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
 import { WebhookSettings } from "./WebhookSettings";
-
-const BASE_TABS: { key: SettingsTab; label: string; icon: string; personalOnly?: boolean; requireAuth?: boolean; macOnly?: boolean }[] = [
-	{ key: "general", label: "通用设置", icon: "icon-[mdi--cog-outline]" },
-	{ key: "appearance", label: "外观", icon: "icon-[mdi--palette-outline]" },
-	{ key: "account", label: "账户", icon: "icon-[mdi--account-outline]", requireAuth: true },
-	{ key: "team", label: "团队管理", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
-	{ key: "models", label: "模型配置", icon: "icon-[mdi--brain]" },
-	{ key: "mcp", label: "MCP 服务器", icon: "icon-[mdi--server-outline]" },
-	{ key: "environment", label: "应用环境", icon: "icon-[mdi--package-variant-closed]" },
-	{ key: "permissions", label: "权限管理", icon: "icon-[mdi--shield-lock-outline]", macOnly: true },
-	{ key: "im", label: "Claw", icon: "icon-[mdi--message-text-outline]" },
-	{ key: "webhook", label: "消息推送", icon: "icon-[mdi--webhook]" },
-	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
-	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },
-	{ key: "context", label: "Agent配置", icon: "icon-[mdi--robot-outline]" },
-];
+import { findSettingsSection, SETTINGS_TABS } from "../registry";
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	general: GeneralSettings,
@@ -59,7 +44,7 @@ export function SettingsPage(): JSX.Element {
 
 	const visibleTabs = useMemo(
 		() =>
-			BASE_TABS.filter(
+			SETTINGS_TABS.filter(
 				(t) =>
 					(!t.personalOnly || isPersonal) &&
 					(!t.requireAuth || authUser) &&
@@ -71,6 +56,64 @@ export function SettingsPage(): JSX.Element {
 
 	const tab: SettingsTab = rawTab && validTabKeys.has(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "general";
 	const Content = SETTINGS_CONTENT[tab];
+
+	const search = useSearch({ strict: false }) as Record<string, unknown>;
+	const sectionId = typeof search.section === "string"
+		? search.section
+		: typeof search.h2 === "string"
+			? search.h2
+			: undefined;
+	const targetSection = sectionId ? findSettingsSection(sectionId) : undefined;
+	const flashingRef = useRef(false);
+
+	useEffect(() => {
+		if (!targetSection || targetSection.tab === tab || !validTabKeys.has(targetSection.tab)) return;
+		void navigate({
+			to: "/settings/$tab",
+			params: { tab: targetSection.tab },
+			search: { section: targetSection.id },
+		});
+	}, [navigate, tab, targetSection, validTabKeys]);
+
+	useEffect(() => {
+		if (!targetSection || targetSection.tab !== tab || flashingRef.current) return;
+
+		const el = document.getElementById(targetSection.id);
+		if (!el) return;
+
+		flashingRef.current = true;
+
+		el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+		const target = document.querySelector<HTMLElement>(`[data-setting-section-id="${targetSection.id}"]`)
+			?? (el.closest(".mb-6") as HTMLElement)
+			?? el.parentElement;
+
+		if (!target) {
+			flashingRef.current = false;
+			return;
+		}
+
+		let count = 0;
+		const maxFlashes = 6;
+		const tick = () => {
+			if (count >= maxFlashes) {
+				target.classList.remove("border-primary");
+				flashingRef.current = false;
+				return;
+			}
+			target.classList.toggle("border-primary");
+			count++;
+			timer = setTimeout(tick, 250);
+		};
+		let timer = setTimeout(tick, 500);
+
+		return () => {
+			clearTimeout(timer);
+			target.classList.remove("border-primary");
+			flashingRef.current = false;
+		};
+	}, [tab, targetSection]);
 
 	return (
 		<div className="relative flex h-full w-full flex-1 overflow-hidden">

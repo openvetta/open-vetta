@@ -5,6 +5,8 @@ import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import type { MouseEvent } from "react";
+import { SettingHeading } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] = [
 	{
@@ -215,7 +217,7 @@ export function AppearanceSettings(): JSX.Element {
 			<div className="mb-4 flex items-start justify-between gap-4">
 				<div>
 					<h1 className="text-[20px] font-bold text-foreground">外观</h1>
-					<h2 className="mt-3 text-[15px] font-semibold text-foreground">外观模式</h2>
+					<SettingHeading section={SETTINGS_SECTION["appearance-mode"]} className="mt-3" />
 				</div>
 				<div className="flex items-center justify-start pt-1" style={{ height: 56, width: 200 }}>
 					<BotAvatar pacing size="lg" />
@@ -241,7 +243,7 @@ export function AppearanceSettings(): JSX.Element {
 			</div>
 
 			<div className="mb-6">
-				<h2 className="mb-3 text-[15px] font-semibold text-foreground">主题</h2>
+				<SettingHeading section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
 				<div className="grid grid-cols-3 gap-x-4 gap-y-4">
 					{THEMES.map((t) => (
 						<ThemeCard

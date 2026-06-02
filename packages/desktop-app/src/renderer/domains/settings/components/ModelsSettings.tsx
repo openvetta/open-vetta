@@ -5,10 +5,11 @@ import { remoteProvidersAtom } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
-import { SettingSection } from "./shared";
+import { SettingHeading, SettingSection } from "./shared";
 import { CheckboxField } from "./McpSettings";
 import { PresetProvidersSection } from "./PresetProvidersSection";
 import { ProviderIcon } from "@shared/components/provider-icon";
+import { SETTINGS_SECTION } from "../registry";
 
 const API_OPTIONS = [
 	"openai-completions",
@@ -663,7 +664,7 @@ export function ModelsSettings(): JSX.Element {
 			</div>
 
 			{/* Thinking level global control */}
-			<SettingSection title="思考模式">
+			<SettingSection section={SETTINGS_SECTION["models-thinking"]}>
 				<div className="px-5 py-3.5">
 					<SegmentedControl
 						items={[
@@ -688,7 +689,7 @@ export function ModelsSettings(): JSX.Element {
 					<PresetProvidersSection config={config} saveConfig={saveConfig} />
 
 					{/* Provider list */}
-					<SettingSection title="服务商">
+					<SettingSection section={SETTINGS_SECTION["models-providers"]}>
 						{providerNames.length === 0 && !addingProvider && (
 							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 								尚未配置任何服务商，点击下方按钮添加
@@ -947,6 +948,7 @@ export function ModelsSettings(): JSX.Element {
 					{/* Remote providers (read-only, from server) */}
 					<div className="mt-6">
 						<SettingSection
+							section={SETTINGS_SECTION["models-remote-providers"]}
 							title={
 								<div className="flex items-center justify-between">
 									<span>远程服务商</span>
@@ -1056,7 +1058,7 @@ export function ModelsSettings(): JSX.Element {
 				/* JSON mode */
 				<div className="mb-6">
 					<div className="mb-3 flex items-center justify-between">
-						<h2 className="text-[15px] font-semibold text-foreground">编辑 JSON</h2>
+						<SettingHeading section={SETTINGS_SECTION["models-json"]} />
 						<Button
 							variant="primary"
 							size="sm"

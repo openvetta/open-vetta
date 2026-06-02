@@ -9,6 +9,7 @@ import {
 } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { SettingRow, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 const TX_TYPE_LABELS: Record<string, string> = {
 	deduct: "消费",
@@ -105,7 +106,7 @@ export function AccountSettings(): JSX.Element {
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">账户</h1>
 
 			{/* Profile */}
-			<SettingSection title="个人信息">
+			<SettingSection section={SETTINGS_SECTION["account-profile"]}>
 				<SettingRow title="用户名" description="用户名不可修改" border>
 					<span className="text-[13px] text-muted-foreground">{user.username}</span>
 				</SettingRow>
@@ -140,7 +141,7 @@ export function AccountSettings(): JSX.Element {
 			</SettingSection>
 
 			{/* Credits */}
-			<SettingSection title="积分">
+			<SettingSection section={SETTINGS_SECTION["account-credits"]}>
 				<div className="px-5 py-4">
 					<div className="flex items-center gap-3">
 						<span className="icon-[mdi--wallet-outline] h-5 w-5 text-muted-foreground" />
@@ -160,7 +161,7 @@ export function AccountSettings(): JSX.Element {
 			</SettingSection>
 
 			{/* Transactions */}
-			<SettingSection title="积分记录">
+			<SettingSection section={SETTINGS_SECTION["account-transactions"]}>
 				{txLoading && transactions.length === 0 ? (
 					<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 						加载中...

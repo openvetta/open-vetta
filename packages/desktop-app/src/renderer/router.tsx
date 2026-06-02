@@ -42,6 +42,14 @@ const settingsTabRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/settings/$tab",
 	component: SettingsPage,
+	validateSearch: (search: Record<string, unknown>) => {
+		const section = typeof search.section === "string" ? search.section : undefined;
+		const h2 = typeof search.h2 === "string" ? search.h2 : undefined;
+		return {
+			...(section ? { section } : {}),
+			...(h2 ? { h2 } : {}),
+		};
+	},
 });
 
 const projectDetailRoute = createRoute({

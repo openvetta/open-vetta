@@ -21,7 +21,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@shared/components/ui/dialog";
-import { SettingSection } from "./shared";
+import { SettingHeading, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 export function TeamSettings(): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
@@ -60,7 +61,7 @@ export function TeamSettings(): JSX.Element {
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h2 className="text-[18px] font-bold text-foreground">团队管理</h2>
+					<SettingHeading section={SETTINGS_SECTION["team-management"]} className="text-[18px] font-bold" />
 					<p className="mt-1 text-[12px] text-muted-foreground">创建或加入团队，与成员协作</p>
 				</div>
 				<div className="flex gap-2">
@@ -125,7 +126,7 @@ function TeamList({
 }): JSX.Element {
 	if (teams.length === 0) {
 		return (
-			<SettingSection title="我的团队">
+			<SettingSection section={SETTINGS_SECTION["team-my-teams"]}>
 				<div className="px-5 py-8 text-center text-[13px] text-muted-foreground">
 					暂无团队，创建一个或通过邀请码加入
 				</div>
@@ -134,7 +135,7 @@ function TeamList({
 	}
 
 	return (
-		<SettingSection title="我的团队">
+		<SettingSection section={SETTINGS_SECTION["team-my-teams"]}>
 			{teams.map((team, i) => (
 				<button
 					key={team.id}
@@ -212,7 +213,7 @@ function TeamDetail({
 			</button>
 
 			{/* Team info */}
-			<SettingSection title={detail.name}>
+			<SettingSection section={SETTINGS_SECTION["team-detail-info"]} title={detail.name}>
 				{/* Invite code */}
 				<div className="flex items-center justify-between border-b border-border px-5 py-3.5">
 					<div>
@@ -241,7 +242,7 @@ function TeamDetail({
 			</SettingSection>
 
 			{/* Members */}
-			<SettingSection title="成员列表">
+			<SettingSection section={SETTINGS_SECTION["team-members"]}>
 				{detail.members.map((member, i) => (
 					<div
 						key={member.id}
