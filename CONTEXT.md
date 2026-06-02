@@ -321,3 +321,13 @@ ask_user_question 待答时，desktop-app 聊天页**输入栏被完全接管**�
 ### 实验性功能（experimental features）
 
 desktop-app 设置页「Agent配置」下的一个分类，首个成员是 [[ask_user_question]] 的开关。配置存储预留分组结构 `experimental.askUserQuestion`，将来加实验项只是加一个键、UI 同区域追加一行。**默认关、用户手动开**——「实验性」只是标签，不代表工具不可用或有额外使用成本，开关只控制是否把工具加载给 agent（经 [[user question handler]] 的注入/清除生效）。
+
+### Vetta Go / Token Plan
+
+新增的订阅式计费方式，仿主流 token plan。用户开通某 [[档位]] 后，在该档位的[[窗口配额]]内使用其[[模型分组 tag]]覆盖的模型，**不走积分钱包扣减**。desktop 中作为独立服务商「Vetta Go」呈现；开通后有特殊标记与卡片。
+
+### 模型分组 tag（model group tag）
+
+模型的分类标签，一个模型可打多个。**独立受管实体**（id + 名称），与现有自由文本 `ProviderModel.tags`（"free,fast,vision" 展示标签）完全分离，模型与分组多对多（中间表）。在「模型设置」页有「模型分组」配置入口预设 n 个分组，模型设置中给模型多选打 tag。
+
+**通用概念，不与 Go 强绑定**：分组本身是独立特性，[[档位]]关联若干分组 tag 决定可用模型只是当前**第一个消费者**；未来可能有其他业务按分组处理。建模时保持解耦——分组实体不依赖订阅，订阅单向引用分组。当前仅约束 Go 可用范围，[[Vetta Zen / 按需付费]] 仍暴露所有启用模型、与分组无关。
