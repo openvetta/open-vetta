@@ -363,7 +363,7 @@ export function ModelsSettings(): JSX.Element {
 	const [remoteProviders, setRemoteProviders] = useAtom(remoteProvidersAtom);
 	const [refreshing, setRefreshing] = useState(false);
 	const [remoteError, setRemoteError] = useState<string | null>(null);
-	const [expandedRemoteProvider, setExpandedRemoteProvider] = useState<string | null>(null);
+	const [zenModelsExpanded, setZenModelsExpanded] = useState(false);
 
 	// Thinking level
 	type ThinkingLevelValue = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -648,6 +648,14 @@ export function ModelsSettings(): JSX.Element {
 	// 预设模板采纳而来的条目(source:"template")只在「预设服务商」区展示,从手搓「服务商」区隐藏,避免重复。
 	const providerNames = Object.keys(config.providers).filter((name) => config.providers[name]?.source !== "template");
 
+	// Vetta Zen:唯一的官方远程服务商(不可增删改),取 remoteProviders 中的单一条目。
+	type RemoteModel = { id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number; tags?: string[] };
+	type RemoteProvider = { api?: string; baseUrl?: string; icon?: string; models?: RemoteModel[] };
+	const remoteEntries = Object.entries(remoteProviders as Record<string, RemoteProvider>);
+	const zenEntry = remoteEntries.find(([name]) => name === "vetta-zen") ?? remoteEntries[0];
+	const zenProvider = zenEntry?.[1];
+	const zenModels = zenProvider?.models ?? [];
+
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between">
@@ -684,11 +692,100 @@ export function ModelsSettings(): JSX.Element {
 
 			{mode === "visual" ? (
 				<>
+					{/* Vetta Zen:官方远程服务,会员卡式,模型默认折叠 */}
+					<div className="mb-6">
+						<div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5">
+							<div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/10 blur-3xl" />
+							<div className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
+
+							<div className="relative flex items-start justify-between gap-3">
+								<div className="flex items-center gap-3">
+									<ProviderIcon symbol={zenProvider?.icon} className="h-11 w-11 rounded-xl" />
+									<div>
+										<div className="flex items-center gap-2 text-[16px] font-bold text-foreground">
+											Vetta Zen
+											<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+												官方
+											</span>
+										</div>
+										<div className="mt-0.5 text-[12px] text-muted-foreground">
+											开箱即用 · {zenModels.length} 个模型
+										</div>
+									</div>
+								</div>
+								<button
+									type="button"
+									onClick={() => void handleRefreshRemote()}
+									disabled={refreshing}
+									className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+								>
+									<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
+									{refreshing ? "刷新中…" : "刷新"}
+								</button>
+							</div>
+
+							{remoteError && (
+								<div className="relative mt-3 flex items-center gap-2 text-[12px] text-amber-400">
+									<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
+									{remoteError === "unauthorized" ? "未授权，请先登录" : remoteError}
+								</div>
+							)}
+
+							{/* 查看模型:点击展开,grid 布局 */}
+							<button
+								type="button"
+								onClick={() => setZenModelsExpanded((v) => !v)}
+								disabled={zenModels.length === 0}
+								className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+							>
+								<span
+									className={cn(
+										"icon-[mdi--chevron-down] h-4 w-4 transition-transform",
+										zenModelsExpanded && "rotate-180",
+									)}
+								/>
+								{zenModels.length === 0 ? "暂无模型，点击上方刷新" : zenModelsExpanded ? "收起模型" : "查看模型"}
+							</button>
+
+							{zenModelsExpanded && zenModels.length > 0 && (
+								<div className="relative mt-3 grid grid-cols-2 gap-2">
+									{zenModels.map((model) => (
+										<div
+											key={model.id}
+											className="rounded-xl border border-border bg-background/40 px-3 py-2.5"
+										>
+											<div className="truncate text-[12px] font-medium text-foreground">
+												{model.name || model.id}
+											</div>
+											<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+												{model.input?.includes("image") && (
+													<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">vision</span>
+												)}
+												{model.reasoning && (
+													<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">reasoning</span>
+												)}
+												{model.tags?.map((tag) => (
+													<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
+												))}
+												{model.contextWindow != null && (
+													<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
+												)}
+												{model.maxTokens != null && (
+													<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
+												)}
+											</div>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					</div>
+
 					{/* 预设服务商(BYOK 模板,ADR-0015) */}
 					<PresetProvidersSection config={config} saveConfig={saveConfig} />
 
 					{/* Provider list */}
-					<SettingSection title="服务商">
+					<SettingSection title="本地服务商">
 						{providerNames.length === 0 && !addingProvider && (
 							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 								尚未配置任何服务商，点击下方按钮添加
@@ -943,114 +1040,6 @@ export function ModelsSettings(): JSX.Element {
 							添加服务商
 						</button>
 					)}
-
-					{/* Remote providers (read-only, from server) */}
-					<div className="mt-6">
-						<SettingSection
-							title={
-								<div className="flex items-center justify-between">
-									<span>远程服务商</span>
-									<button
-										type="button"
-										onClick={() => void handleRefreshRemote()}
-										disabled={refreshing}
-										className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-									>
-										<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
-										{refreshing ? "刷新中…" : "刷新"}
-									</button>
-								</div>
-							}
-						>
-							{remoteError && (
-								<div className="flex items-center gap-2 px-5 py-3 text-[12px] text-amber-400">
-									<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
-									{remoteError === "unauthorized" ? "未授权，请先登录" : remoteError}
-								</div>
-							)}
-							{Object.keys(remoteProviders).length === 0 && !remoteError && (
-								<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-									暂无远程服务商，点击刷新获取
-								</div>
-							)}
-							{Object.entries(remoteProviders as Record<string, { api?: string; baseUrl?: string; icon?: string; models?: Array<{ id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number }> }>).map(([name, provider]) => {
-								const models = provider.models ?? [];
-								const isExpanded = expandedRemoteProvider === name;
-								return (
-									<div key={name} className="border-b border-border last:border-b-0">
-										{/* Provider header -- same layout as local providers */}
-										<div className="flex items-center gap-3 px-5 py-3.5">
-											<button
-												type="button"
-												onClick={() => setExpandedRemoteProvider(isExpanded ? null : name)}
-												className="flex flex-1 items-center gap-3 text-left"
-											>
-												<span
-													className={cn(
-														"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-														isExpanded && "rotate-90",
-													)}
-												/>
-												<div className="min-w-0 flex-1">
-													<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-														<ProviderIcon symbol={provider.icon} className="h-5 w-5" />
-															{name === "vetta-zen" ? "Vetta Zen" : name}
-														<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-															remote
-														</span>
-													</div>
-													<div className="mt-0.5 text-[11px] text-muted-foreground">
-														{models.length} 个模型
-													</div>
-												</div>
-											</button>
-										</div>
-
-										{/* Expanded: models list */}
-										{isExpanded && (
-											<div className="border-t border-border bg-secondary/30">
-												{models.length === 0 && (
-													<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-														暂无模型
-													</div>
-												)}
-												{models.map((model) => (
-													<div
-														key={model.id}
-														className="flex items-center justify-between border-b border-border/50 px-5 py-2.5 last:border-b-0"
-													>
-														<div className="min-w-0 flex-1">
-															<div className="text-[12px] font-medium text-foreground">
-																{model.name || model.id}
-															</div>
-															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
-																<span>{model.id}</span>
-																{model.input?.includes("image") && (
-																	<span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] text-blue-400">vision</span>
-																)}
-																{model.reasoning && (
-																	<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">reasoning</span>
-																)}
-																{Array.isArray((model as Record<string, unknown>).tags) && ((model as Record<string, unknown>).tags as string[]).map((tag: string) => (
-																	<span key={tag} className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">{tag.trim()}</span>
-																))}
-																{model.contextWindow != null && (
-																	<span>· {(model.contextWindow / 1024).toFixed(0)}K ctx</span>
-																)}
-																{model.maxTokens != null && (
-																	<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
-																)}
-															</div>
-														</div>
-													</div>
-												))}
-											</div>
-										)}
-									</div>
-								);
-							})}
-						</SettingSection>
-					</div>
 				</>
 			) : (
 				/* JSON mode */
