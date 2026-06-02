@@ -178,7 +178,7 @@
 }
 
 ::view-transition-new(root) {
-	animation: theme-reveal 420ms ease-out both;
+	animation: theme-reveal 620ms ease-in-out both;
 	z-index: 1;
 }
 
