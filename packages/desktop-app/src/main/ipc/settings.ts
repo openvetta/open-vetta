@@ -6,6 +6,7 @@ import { app, BrowserWindow, ipcMain, powerMonitor } from "electron";
 import { DEFAULT_SERVER_URL } from "../constants.js";
 import { peekSharedRuntime } from "../runtime.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
+import { type ModelsConfig, type ProviderConfig, readModelsConfig, writeModelsConfig } from "./fs.js";
 
 function getSettingsPath(): string {
 	return join(getAgentDir(), "settings.json");
@@ -170,6 +171,147 @@ export async function fetchRemoteProviders(): Promise<RemoteProvidersResult> {
 	}
 }
 
+// ─── 预设模板（provider templates，BYOK 直连，见 ADR-0015 / CONTEXT.md「预设模板」）───
+
+interface ProviderTemplate {
+	id: string;
+	displayName: string;
+	api: string;
+	baseUrl?: string;
+	icon?: string;
+	models: Array<{
+		id: string;
+		name?: string;
+		api?: string;
+		reasoning?: boolean;
+		input?: string[];
+		contextWindow?: number;
+		maxTokens?: number;
+		cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
+	}>;
+}
+
+interface ProviderTemplatesResult {
+	templates: ProviderTemplate[];
+	error?: string;
+}
+
+/** 服务端 /providers/templates.json 的 provider 形状(公开,不含 key)。 */
+interface RemoteTemplateProvider {
+	display_name?: string;
+	displayName?: string;
+	api: string;
+	baseUrl?: string;
+	base_url?: string;
+	icon?: string;
+	models?: Array<{
+		id: string;
+		name?: string;
+		api?: string;
+		reasoning?: boolean;
+		input?: string[];
+		contextWindow?: number;
+		maxTokens?: number;
+		cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
+	}>;
+}
+
+/** 公开免登录 GET——预设模板目录无密钥,不需要也不应带 Authorization。 */
+async function publicGet(path: string, timeoutMs = 5000): Promise<Response | null> {
+	const url = `${DEFAULT_SERVER_URL.replace(/\/$/, "")}${path}`;
+	try {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), timeoutMs);
+		try {
+			return await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
+		} finally {
+			clearTimeout(timer);
+		}
+	} catch {
+		return null;
+	}
+}
+
+export async function fetchProviderTemplates(): Promise<ProviderTemplatesResult> {
+	const response = await publicGet("/providers/templates.json");
+	if (!response) return { templates: [], error: "服务器不可达" };
+	if (!response.ok) return { templates: [], error: `HTTP ${response.status}` };
+	try {
+		const body = (await response.json()) as {
+			code: number;
+			data?: { providers?: Record<string, RemoteTemplateProvider> };
+		};
+		if (body.code !== 0 || !body.data?.providers) return { templates: [] };
+		const templates: ProviderTemplate[] = [];
+		for (const [id, p] of Object.entries(body.data.providers)) {
+			templates.push({
+				id,
+				displayName: p.displayName ?? p.display_name ?? id,
+				api: p.api,
+				baseUrl: p.baseUrl ?? p.base_url,
+				icon: p.icon,
+				models: (p.models ?? []).map((m) => ({
+					id: m.id,
+					name: m.name,
+					api: m.api,
+					reasoning: m.reasoning,
+					input: m.input,
+					contextWindow: m.contextWindow,
+					maxTokens: m.maxTokens,
+					cost: m.cost,
+				})),
+			});
+		}
+		return { templates };
+	} catch {
+		return { templates: [] };
+	}
+}
+
+/**
+ * 在线合并:用服务端模板的最新元数据覆写本地 models.json 中 source:"template" 的条目,
+ * 只保留用户填的 apiKey;服务端已删除该模板(byId 无命中)则保留本地快照不动。
+ * 手搓自定义服务商(无 source 标记)绝不触碰。返回 models.json 是否被改写。
+ */
+function mergeAdoptedTemplates(config: ModelsConfig, templates: ProviderTemplate[]): boolean {
+	const byId = new Map(templates.map((t) => [t.id, t]));
+	let changed = false;
+	for (const [name, p] of Object.entries(config.providers)) {
+		if (p.source !== "template") continue;
+		const t = byId.get(p.templateId ?? name);
+		if (!t) continue; // 服务端删除 → 回退快照,保留本地条目
+		const merged: ProviderConfig = {
+			...p,
+			displayName: t.displayName,
+			api: t.api,
+			baseUrl: t.baseUrl,
+			icon: t.icon,
+			models: t.models,
+		};
+		if (JSON.stringify(merged) !== JSON.stringify(p)) {
+			config.providers[name] = merged;
+			changed = true;
+		}
+	}
+	return changed;
+}
+
+/** 拉取模板并就地在线合并已采纳条目。返回 live 模板列表供渲染层展示。 */
+export async function syncProviderTemplates(): Promise<ProviderTemplatesResult> {
+	const result = await fetchProviderTemplates();
+	if (result.templates.length > 0) {
+		try {
+			const config = await readModelsConfig();
+			if (mergeAdoptedTemplates(config, result.templates)) {
+				await writeModelsConfig(config);
+			}
+		} catch (err) {
+			console.warn("[settings ipc] mergeAdoptedTemplates failed:", err);
+		}
+	}
+	return result;
+}
+
 async function fetchCreditsBalance(): Promise<{ balance: number | null; unlimited?: boolean }> {
 	try {
 		const response = await authedGet("/credits/balance");
@@ -289,6 +431,14 @@ export function registerSettingsIpc(): () => void {
 		return fetchRemoteProviders();
 	});
 
+	ipcMain.handle("vetta:models:fetch-templates", async () => {
+		return syncProviderTemplates();
+	});
+
+	// 启动时静默同步一次:让已采纳的预设模板拿到服务端最新元数据(url/模型/图标),
+	// 即便用户从不打开设置页,ModelSelector 也能反映更新。失败静默(离线回退快照)。
+	void syncProviderTemplates().catch(() => {});
+
 	ipcMain.handle("vetta:credits:balance", async () => {
 		return fetchCreditsBalance();
 	});
@@ -310,6 +460,7 @@ export function registerSettingsIpc(): () => void {
 		ipcMain.removeHandler("vetta:settings:get-server-refresh-token");
 		ipcMain.removeHandler("vetta:settings:set-server-refresh-token");
 		ipcMain.removeHandler("vetta:models:fetch-remote");
+		ipcMain.removeHandler("vetta:models:fetch-templates");
 		ipcMain.removeHandler("vetta:credits:balance");
 		ipcMain.removeHandler("vetta:auth:refresh-token");
 	};

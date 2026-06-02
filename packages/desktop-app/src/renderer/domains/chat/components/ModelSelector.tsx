@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ModelsConfigData } from "@preload/api";
 import { selectedModelAtom, activeSessionAtom, remoteProvidersAtom, modelSupportsImagesAtom } from "@shared/store/atoms";
+import { ProviderIcon } from "@shared/components/provider-icon";
 
 interface ModelOption {
 	provider: string;
@@ -104,6 +105,23 @@ export function ModelSelector(): JSX.Element {
 		[setSelectedModel, setModelSupportsImages, activeSession, models],
 	);
 
+	// 供应商图标 symbol:本地 config / 远程 providers 的 icon 字段
+	const iconFor = (provider: string): string | undefined => {
+		const local = config?.providers[provider] as { icon?: string } | undefined;
+		const remote = (remoteProviders as Record<string, { icon?: string }>)[provider];
+		return local?.icon ?? remote?.icon;
+	};
+
+	// 供应商显示名(分组标题用):优先 config / 远程的 displayName,回退到 provider 标识 key
+	const labelFor = (provider: string): string => {
+		const local = config?.providers[provider] as { displayName?: string } | undefined;
+		const remote = (remoteProviders as Record<string, { displayName?: string }>)[provider];
+		if (local?.displayName) return local.displayName;
+		if (remote?.displayName) return remote.displayName;
+		if (provider === "vetta-zen") return "Vetta Zen";
+		return provider;
+	};
+
 	// Group models by provider
 	const grouped = new Map<string, ModelOption[]>();
 	for (const m of models) {
@@ -129,6 +147,7 @@ export function ModelSelector(): JSX.Element {
 						: "border-transparent bg-transparent text-muted-foreground hover:border-border/60 hover:bg-accent/50 hover:text-foreground"
 				}`}
 			>
+				{selectedOption && <ProviderIcon symbol={iconFor(selectedOption.provider)} className="h-3.5 w-3.5" />}
 				<span className="min-w-0 max-w-[80px] truncate sm:max-w-[120px] md:max-w-[160px]">
 					{selectedOption?.displayName ?? "选择模型"}
 				</span>
@@ -154,8 +173,9 @@ export function ModelSelector(): JSX.Element {
 							{[...grouped.entries()].map(([provider, providerModels]) => (
 								<div key={provider}>
 									{/* Provider header */}
-									<div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-										{provider}
+									<div className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+										<ProviderIcon symbol={iconFor(provider)} className="h-3 w-3" />
+										{labelFor(provider)}
 									</div>
 									{providerModels.map((m) => {
 										const isSelected = m.key === selectedModel;

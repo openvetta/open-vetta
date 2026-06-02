@@ -202,6 +202,7 @@ const api: DesktopApi = {
 		get: async () => ipcRenderer.invoke("vetta:models:get"),
 		set: async (config) => ipcRenderer.invoke("vetta:models:set", config),
 		fetchRemote: async () => ipcRenderer.invoke("vetta:models:fetch-remote"),
+		fetchTemplates: async () => ipcRenderer.invoke("vetta:models:fetch-templates"),
 	},
 	mcp: {
 		get: async () => ipcRenderer.invoke("vetta:mcp:get"),

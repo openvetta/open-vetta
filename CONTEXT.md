@@ -274,6 +274,28 @@ desktop-app 经由 OS 原生通知中心（macOS / Windows）向用户推送的�
 
 刻意与 `APPEND_SYSTEM.md` 文件注入分离：那条路径只在 session 初始化/显式 `reload()` 时读盘，无 per-prompt 懒重载；个性化需要「应用后下一轮即生效」故走独立的轻量签名路径。注入位置见 [[个性化]]——拼在系统提示词末尾，顺序为 `APPEND_SYSTEM.md → 人设 → 自定义指令`。
 
+### 预设模板（provider template）
+
+服务端下发的、用于「免配置接入大模型服务商」的**目录条目**:每个模板描述一个服务商的 `baseUrl`、模型列表(含上下文/输入形态/是否思考/价格等能力元数据)、`api` 类型、供应商图标等——但**不含 key**。客户端启动时 fetch 一份(BYOK 直连,见下),用户只需填入**自己的 key** 即可使用该服务商的预设模型。
+
+与 [[远程网关]] 是**两个独立、并存**的来源,术语上刻意不复用 "remote":
+- **预设模板 = BYOK 直连**:请求直发服务商原站(`api.anthropic.com` / `api.deepseek.com` …),用**用户自己的 key**,服务端只提供目录、**不碰 key、不转发流量、不扣 credits**。
+- **远程网关**:请求经服务端代理(`gatewayUrl`),用登录 JWT 当 key,服务端可计费。
+
+**采纳即持久化(snapshot-on-key)**:用户给某模板填入 key 的那一刻,该模板被落成本地 [[models.json]] 里的一个普通 provider 条目(带 `apiKey`),并打上来源标记 `source:"template"` + `templateId`。由此 `getAvailable()` / `ModelSelector` / 离线 fallback 全部复用既有机制。手搓的自定义服务商无此标记,**任何同步逻辑都不得触碰**。
+
+**在线合并 / 离线回退快照**:每次 fetch 成功,用服务端最新的 url/模型/参数**覆写** `source:"template"` 的本地条目(只保留用户填的 `apiKey`);服务端删除该模板或 fetch 失败时,本地已持久化的快照照常可用——「服务端能修正错误配置」与「离线/下线不影响存量用户」二者兼得。
+
+设置页中作为**独立的「预设服务商」区**呈现,与「服务商」(手搓自定义、models.json 中无 `source` 标记)、[[远程网关]]「远程服务商」三区语义并列、互不重复:`source:"template"` 的条目只在预设区显示、从手搓区隐藏。fetch / 合并 / 写回 [[models.json]] **只发生在 desktop-app main 进程**;coding-agent 不感知模板,仅需其 ProviderConfigSchema 容忍 `source`/`templateId`/`icon` 字段,复用同一份已持久化的 models.json。无内置种子目录:首启离线且 fetch 失败时预设区为空 + 提示重试。填入 key 即持久化启用、**不做 /models 校验**,首次真实请求才暴露无效 key。
+
+### 远程网关（remote gateway）
+
+见 [[预设模板]] 的对比定义。指现有的 `fetchRemote → /providers/models.json` 机制:登录后服务端下发模型,请求经服务端代理转发(`gatewayUrl`),以登录 JWT 为 key,服务端可计费。是与预设模板**并存**的另一条链路。同样携带 [[icon symbol]]。
+
+### icon symbol
+
+供应商图标的下发方式:**客户端内置一套图标资源,每个资源有唯一 symbol 字符串**(可无限扩充)。服务端的 [[预设模板]] 配置与 [[远程网关]] 供应商配置都只填这个 symbol;客户端按 symbol 解析到内置图标渲染。`icon` 字段**可选**,空则不显示图标。symbol 随 [[预设模板]] 快照一并持久化进 [[models.json]],离线照常渲染。刻意不下发图片字节/URL——客户端资源 + 服务端 slug,既离线安全又省带宽,新增图标=客户端加一张资源。是**供应商(provider)级**,非模型级。
+
 ### ask_user_question
 
 coding-agent 的一个内置工具，让 agent 在执行途中**主动向用户提一组多选题并阻塞等待回答**。借鉴 Claude Code 的 `AskUserQuestion`，转成本仓 snake_case 命名。input schema 是 Claude Code 的**核心子集**：`questions[1-4]`，每题 `{ question, header(短标签), options[2-4]{ label, description, badges? }, multiSelect }`；自动附「Other」自由输入；**不做** Claude Code 的选项级 preview / notes 批注 / metadata。回传给模型走自然语言拼接（`"Q"="A"` 串联，多选逗号连，取消回传明确措辞），[[option badge]] 不进回传。

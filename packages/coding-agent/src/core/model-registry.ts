@@ -127,6 +127,11 @@ const ProviderConfigSchema = Type.Object({
 	headers: Type.Optional(Type.Record(Type.String(), Type.String())),
 	authHeader: Type.Optional(Type.Boolean()),
 	compat: Type.Optional(OpenAICompatSchema),
+	// 预设模板采纳标记(desktop 写入,coding-agent 仅需容忍不报错,复用同一份 models.json)。
+	source: Type.Optional(Type.String()),
+	templateId: Type.Optional(Type.String()),
+	icon: Type.Optional(Type.String()),
+	displayName: Type.Optional(Type.String()),
 	models: Type.Optional(Type.Array(ModelDefinitionSchema)),
 	modelOverrides: Type.Optional(Type.Record(Type.String(), ModelOverrideSchema)),
 });
