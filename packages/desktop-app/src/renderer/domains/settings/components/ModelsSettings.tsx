@@ -7,6 +7,8 @@ import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { SettingSection } from "./shared";
 import { CheckboxField } from "./McpSettings";
+import { PresetProvidersSection } from "./PresetProvidersSection";
+import { ProviderIcon } from "@shared/components/provider-icon";
 
 const API_OPTIONS = [
 	"openai-completions",
@@ -643,7 +645,8 @@ export function ModelsSettings(): JSX.Element {
 		);
 	}
 
-	const providerNames = Object.keys(config.providers);
+	// 预设模板采纳而来的条目(source:"template")只在「预设服务商」区展示,从手搓「服务商」区隐藏,避免重复。
+	const providerNames = Object.keys(config.providers).filter((name) => config.providers[name]?.source !== "template");
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
@@ -681,6 +684,9 @@ export function ModelsSettings(): JSX.Element {
 
 			{mode === "visual" ? (
 				<>
+					{/* 预设服务商(BYOK 模板,ADR-0015) */}
+					<PresetProvidersSection config={config} saveConfig={saveConfig} />
+
 					{/* Provider list */}
 					<SettingSection title="服务商">
 						{providerNames.length === 0 && !addingProvider && (
@@ -967,7 +973,7 @@ export function ModelsSettings(): JSX.Element {
 									暂无远程服务商，点击刷新获取
 								</div>
 							)}
-							{Object.entries(remoteProviders as Record<string, { api?: string; baseUrl?: string; models?: Array<{ id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number }> }>).map(([name, provider]) => {
+							{Object.entries(remoteProviders as Record<string, { api?: string; baseUrl?: string; icon?: string; models?: Array<{ id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number }> }>).map(([name, provider]) => {
 								const models = provider.models ?? [];
 								const isExpanded = expandedRemoteProvider === name;
 								return (
@@ -987,7 +993,8 @@ export function ModelsSettings(): JSX.Element {
 												/>
 												<div className="min-w-0 flex-1">
 													<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-														{name === "vetta-zen" ? "Vetta Zen" : name}
+														<ProviderIcon symbol={provider.icon} className="h-5 w-5" />
+															{name === "vetta-zen" ? "Vetta Zen" : name}
 														<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
 															remote
 														</span>

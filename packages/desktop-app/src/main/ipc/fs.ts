@@ -170,6 +170,14 @@ export interface ProviderConfig {
 	api?: string;
 	headers?: Record<string, string>;
 	authHeader?: boolean;
+	/** 供应商显示名(如 "DeepSeek"),UI 分组用;无则回退 provider 标识。 */
+	displayName?: string;
+	/** "template" = 由[[预设模板]]采纳而来,在线合并时会被服务端数据覆写(仅保留 apiKey)。 */
+	source?: "template";
+	/** 对应服务端模板的 provider 标识,仅 source==="template" 时存在。 */
+	templateId?: string;
+	/** 供应商图标 symbol(见 CONTEXT.md「icon symbol」)。 */
+	icon?: string;
 	models?: ModelDefinition[];
 	modelOverrides?: Record<string, Record<string, unknown>>;
 }
@@ -182,6 +190,8 @@ export interface ModelDefinition {
 	input?: string[];
 	contextWindow?: number;
 	maxTokens?: number;
+	/** 价格($/百万 tokens),见 [[预设模板]] 价格展示。 */
+	cost?: { input: number; output: number; cacheRead: number; cacheWrite: number };
 }
 
 const DEFAULT_MODELS_CONFIG: ModelsConfig = { providers: {} };
@@ -231,7 +241,7 @@ async function writeMcpConfig(config: McpConfig): Promise<void> {
 	atomicWriteJSON(MCP_CONFIG_PATH, config);
 }
 
-async function readModelsConfig(): Promise<ModelsConfig> {
+export async function readModelsConfig(): Promise<ModelsConfig> {
 	try {
 		const raw = await readFile(MODELS_CONFIG_PATH, "utf8");
 		const parsed = JSON.parse(raw) as Partial<ModelsConfig>;
@@ -241,7 +251,7 @@ async function readModelsConfig(): Promise<ModelsConfig> {
 	}
 }
 
-async function writeModelsConfig(config: ModelsConfig): Promise<void> {
+export async function writeModelsConfig(config: ModelsConfig): Promise<void> {
 	atomicWriteJSON(MODELS_CONFIG_PATH, config);
 }
 
