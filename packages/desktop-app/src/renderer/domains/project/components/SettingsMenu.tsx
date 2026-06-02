@@ -4,10 +4,11 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useAuth } from "@domains/auth/hooks/useAuth";
-import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { downloadsActiveCountAtom, themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/store/atoms";
 import { Popover, PopoverTrigger, PopoverContent } from "@shared/components/ui/popover";
 import { cn } from "@shared/lib/utils";
+import { formatResetCountdown } from "@shared/lib/subscription-format";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
 	{ value: "light", label: "浅色", icon: "icon-[mdi--white-balance-sunny]" },
@@ -35,6 +36,11 @@ export function SettingsMenu(): JSX.Element {
 	const { user, logout } = useAuth();
 	const creditsBalance = useAtomValue(creditsBalanceAtom);
 	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
+	const subscription = useAtomValue(subscriptionStatusAtom);
+
+	// 后台开启 Vetta Go 时，头像挂会员标志，并在展开后展示 5 小时额度。
+	const goEnabled = subscription.go_enabled;
+	const fiveHourWindow = goEnabled ? subscription.windows?.find((w) => w.kind === "5h") : undefined;
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -50,11 +56,20 @@ export function SettingsMenu(): JSX.Element {
 				>
 					{user ? (
 						<>
-							{user.avatar ? (
-								<img src={user.avatar} className="h-4 w-4 rounded-full" />
-							) : (
-								<span className="icon-[mdi--account-circle] h-4 w-4" />
-							)}
+							<span className="relative inline-flex h-4 w-4 shrink-0">
+								{user.avatar ? (
+									<img src={user.avatar} className="h-4 w-4 rounded-full" />
+								) : (
+									<span className="icon-[mdi--account-circle] h-4 w-4" />
+								)}
+								{goEnabled && (
+									<span
+										className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-muted"
+										style={{ backgroundColor: subscription.badge_color || "#f59e0b" }}
+										title={subscription.tier_name || "Vetta Go"}
+									/>
+								)}
+							</span>
 							<span className="truncate">{user.nickname || user.username}</span>
 						</>
 					) : (
@@ -146,6 +161,35 @@ export function SettingsMenu(): JSX.Element {
 											{(creditsBalance ?? 0).toFixed(2)}
 										</span>
 									)}
+								</div>
+							</motion.div>
+						)}
+
+						{/* 5 小时额度（仅后台开启 Vetta Go 时展示） */}
+						{fiveHourWindow && (
+							<motion.div key="quota" variants={itemVariants}>
+								<div className="mx-1 my-1 border-t border-border" />
+								<div className="mx-2 my-1.5 rounded-md bg-accent/50 px-2 py-1.5">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-1.5">
+											<span className="icon-[mdi--timer-sand] h-3.5 w-3.5 text-muted-foreground" />
+											<span className="text-[11px] text-muted-foreground">5 小时额度</span>
+										</div>
+										<span className="text-[11px] font-semibold tabular-nums text-foreground">
+											{Math.round(fiveHourWindow.consumed)} / {Math.round(fiveHourWindow.limit)}
+										</span>
+									</div>
+									<div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-border">
+										<div
+											className="h-full rounded-full bg-primary/70 transition-all"
+											style={{
+												width: `${fiveHourWindow.limit > 0 ? Math.min(100, Math.round((fiveHourWindow.consumed / fiveHourWindow.limit) * 100)) : 0}%`,
+											}}
+										/>
+									</div>
+									<div className="mt-1 text-[10px] text-muted-foreground">
+										{formatResetCountdown(fiveHourWindow.reset_at, Date.now())}
+									</div>
 								</div>
 							</motion.div>
 						)}

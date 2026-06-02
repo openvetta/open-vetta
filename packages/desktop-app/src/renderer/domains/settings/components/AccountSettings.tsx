@@ -9,6 +9,7 @@ import {
 } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { SettingRow, SettingSection } from "./shared";
+import { SubscriptionCards } from "./SubscriptionCards";
 
 const TX_TYPE_LABELS: Record<string, string> = {
 	deduct: "消费",
@@ -103,6 +104,9 @@ export function AccountSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">账户</h1>
+
+			{/* 会员套餐:Vetta Go / Vetta Zen */}
+			<SubscriptionCards />
 
 			{/* Profile */}
 			<SettingSection title="个人信息">
