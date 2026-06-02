@@ -13,6 +13,7 @@ import {
 	pageHeaderTitleAtom,
 	projectsAtom,
 	selectedSkillAtom,
+	sessionExecutionModeAtom,
 } from "@shared/store/atoms";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { pathBasename } from "@shared/lib/utils";
@@ -60,6 +61,7 @@ export function NewSessionPage(): JSX.Element {
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const authUser = useAtomValue(authUserAtom);
 	const projects = useAtomValue(projectsAtom);
+	const executionMode = useAtomValue(sessionExecutionModeAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
 
 	const project = projects.find((p) => p.cwd === decodedCwd);
@@ -143,9 +145,11 @@ export function NewSessionPage(): JSX.Element {
 	// 发送：先创建/打开会话（openSession 内部会 navigate('/')），再触发 sendMessage。
 	// sendMessage 现在从 activeSessionRef 读取 session，因此 await 链可以串起来。
 	const handleSend = useCallback(async () => {
-		await openSession(decodedCwd);
+		// 欢迎页选中的执行模式（沙盒受限/完全访问）必须随会话创建一起传给后端，
+		// 否则 session.create 会落到默认 full-access，再被 getState 回填覆盖。
+		await openSession(decodedCwd, undefined, executionMode);
 		await sendMessage();
-	}, [decodedCwd, openSession, sendMessage]);
+	}, [decodedCwd, executionMode, openSession, sendMessage]);
 
 	const greetingTitle = authUser?.nickname
 		? `你好，${authUser.nickname}`
