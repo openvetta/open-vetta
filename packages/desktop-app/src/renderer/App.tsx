@@ -29,7 +29,6 @@ import {
 	sidebarCollapsedAtom,
 	pageHeaderTitleAtom,
 	pageHeaderRightSlotAtom,
-	subscriptionStatusAtom,
 } from "./shared/store/atoms";
 import { isMac } from "./shared/lib/platform";
 import { cn } from "./shared/lib/utils";
@@ -101,21 +100,6 @@ function PageHeader({
 				{rightSlot}
 				{!isMac && <WindowControls />}
 			</div>
-		</div>
-	);
-}
-
-/** 全局尊贵标识：套餐 active 时在窗口右下角展示一枚低调的会员徽章。 */
-function SubscriptionBadge(): JSX.Element | null {
-	const status = useAtomValue(subscriptionStatusAtom);
-	if (!status.active || !status.badge_text) return null;
-	return (
-		<div
-			className="pointer-events-none fixed bottom-3 right-3 z-50 select-none rounded-full px-2 py-0.5 text-[10px] font-medium text-white opacity-80 shadow-sm"
-			style={{ backgroundColor: status.badge_color || "#f59e0b" }}
-			title={status.tier_name}
-		>
-			{status.badge_text}
 		</div>
 	);
 }
@@ -354,7 +338,6 @@ export function RootLayout(): JSX.Element {
 					<FilePreviewDialog />
 					<UpdateRestartDialog />
 				</div>
-				<SubscriptionBadge />
 			</div>
 		</TooltipProvider>
 	);
