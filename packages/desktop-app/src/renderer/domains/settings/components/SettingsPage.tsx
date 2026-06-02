@@ -19,6 +19,7 @@ import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
 import { WebhookSettings } from "./WebhookSettings";
 import { findSettingsSection, SETTINGS_TABS } from "../registry";
+import "./settings-highlight.css";
 
 const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	general: GeneralSettings,
@@ -64,7 +65,7 @@ export function SettingsPage(): JSX.Element {
 			? search.h2
 			: undefined;
 	const targetSection = sectionId ? findSettingsSection(sectionId) : undefined;
-	const flashingRef = useRef(false);
+	const highlightingRef = useRef(false);
 
 	useEffect(() => {
 		if (!targetSection || targetSection.tab === tab || !validTabKeys.has(targetSection.tab)) return;
@@ -76,42 +77,37 @@ export function SettingsPage(): JSX.Element {
 	}, [navigate, tab, targetSection, validTabKeys]);
 
 	useEffect(() => {
-		if (!targetSection || targetSection.tab !== tab || flashingRef.current) return;
+		if (!targetSection || targetSection.tab !== tab || highlightingRef.current) return;
 
 		const el = document.getElementById(targetSection.id);
 		if (!el) return;
 
-		flashingRef.current = true;
+		highlightingRef.current = true;
 
 		el.scrollIntoView({ behavior: "smooth", block: "center" });
 
-		const target = document.querySelector<HTMLElement>(`[data-setting-section-id="${targetSection.id}"]`)
-			?? (el.closest(".mb-6") as HTMLElement)
-			?? el.parentElement;
+		const target = document.querySelector<HTMLElement>(
+			`[data-setting-section-highlight-target="${targetSection.id}"]`,
+		) ?? (el.closest(".mb-6") as HTMLElement | null) ?? el;
 
 		if (!target) {
-			flashingRef.current = false;
+			highlightingRef.current = false;
 			return;
 		}
 
-		let count = 0;
-		const maxFlashes = 6;
-		const tick = () => {
-			if (count >= maxFlashes) {
-				target.classList.remove("border-primary");
-				flashingRef.current = false;
-				return;
-			}
-			target.classList.toggle("border-primary");
-			count++;
-			timer = setTimeout(tick, 250);
-		};
-		let timer = setTimeout(tick, 500);
+		const timer = setTimeout(() => {
+			target.classList.add("setting-section-breathe");
+		}, 500);
+		const cleanupTimer = setTimeout(() => {
+			target.classList.remove("setting-section-breathe");
+			highlightingRef.current = false;
+		}, 4100);
 
 		return () => {
 			clearTimeout(timer);
-			target.classList.remove("border-primary");
-			flashingRef.current = false;
+			clearTimeout(cleanupTimer);
+			target.classList.remove("setting-section-breathe");
+			highlightingRef.current = false;
 		};
 	}, [tab, targetSection]);
 
