@@ -158,6 +158,7 @@ export type {
 	ResolvedResource,
 } from "./core/package-manager.js";
 export { DefaultPackageManager } from "./core/package-manager.js";
+export { DEFAULT_PERSONA_ID, getPersonaPrompt, PERSONAS, type Persona } from "./core/personas.js";
 export type { ResourceCollision, ResourceDiagnostic, ResourceLoader } from "./core/resource-loader.js";
 export { DefaultResourceLoader } from "./core/resource-loader.js";
 // SDK for programmatic usage
@@ -179,6 +180,7 @@ export {
 	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
+	createRenderPdfPageTool,
 	createShellTool,
 	createTreeTool,
 	createWriteTool,
@@ -214,6 +216,7 @@ export {
 	type CompactionSettings,
 	type ImageSettings,
 	type PackageSource,
+	type PersonalizationSettings,
 	type RetrySettings,
 	SettingsManager,
 } from "./core/settings-manager.js";
@@ -229,6 +232,16 @@ export {
 } from "./core/skills.js";
 // Tools
 export {
+	type AskUserQuestionAnswer,
+	type AskUserQuestionCapability,
+	type AskUserQuestionFn,
+	type AskUserQuestionItem,
+	type AskUserQuestionOption,
+	type AskUserQuestionRequest,
+	type AskUserQuestionResult,
+	type AskUserQuestionToolDetails,
+	type AskUserQuestionToolInput,
+	type AskUserQuestionToolOptions,
 	type BashOperations,
 	type BashSpawnContext,
 	type BashSpawnHook,
@@ -238,6 +251,7 @@ export {
 	bashTool,
 	type CommandToolName,
 	codingTools,
+	createAskUserQuestionTool,
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	type EditOperations,
@@ -278,7 +292,9 @@ export {
 	type ReadToolDetails,
 	type ReadToolInput,
 	type ReadToolOptions,
+	type RenderPdfPageToolInput,
 	readTool,
+	renderPdfPageTool,
 	type ShellOperations,
 	type ShellSpawnContext,
 	type ShellSpawnHook,

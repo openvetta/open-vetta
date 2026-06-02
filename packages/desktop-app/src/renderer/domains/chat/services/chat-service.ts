@@ -1,12 +1,13 @@
 import { pathBasename, pathJoin, pathNormalize } from "@shared/lib/utils";
 import type {
+	AskUserQuestionResolution,
 	ChatMessage,
 	ContentBlock,
 	ToolCallBlock,
 	ToolCallUiDetails,
 	ToolImagePreview,
 } from "@shared/store/atoms";
-import type { HistoryEntry } from "../../../../../runtime-core/src/index.js";
+import type { HistoryEntry } from "../../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Message conversion helpers
@@ -82,12 +83,26 @@ export function extractToolUiDetails(result: unknown, details: unknown): ToolCal
 
 	const diff = typeof detailsRecord.diff === "string" ? detailsRecord.diff : undefined;
 	const firstChangedLine = asFiniteNumber(detailsRecord.firstChangedLine);
-	if (diff === undefined && firstChangedLine === undefined) return undefined;
+	const askUserQuestion = extractAskUserQuestion(detailsRecord);
+	if (diff === undefined && firstChangedLine === undefined && askUserQuestion === undefined) return undefined;
 
 	return {
 		...(diff !== undefined ? { diff } : {}),
 		...(firstChangedLine !== undefined ? { firstChangedLine } : {}),
+		...(askUserQuestion !== undefined ? { askUserQuestion } : {}),
 	};
+}
+
+/** ask_user_question 的 details（{cancelled, answers}）→ transcript 富视图用的 resolution。 */
+function extractAskUserQuestion(detailsRecord: Record<string, unknown>): AskUserQuestionResolution | undefined {
+	if (typeof detailsRecord.cancelled !== "boolean" || !Array.isArray(detailsRecord.answers)) return undefined;
+	const answers = (detailsRecord.answers as Array<Record<string, unknown>>)
+		.filter((a) => a && typeof a.question === "string" && Array.isArray(a.answers))
+		.map((a) => ({
+			question: a.question as string,
+			answers: (a.answers as unknown[]).filter((x): x is string => typeof x === "string"),
+		}));
+	return { cancelled: detailsRecord.cancelled, answers };
 }
 
 /**
@@ -824,6 +839,13 @@ function extractToolOutputs(block: ToolCallBlock): string[] {
 		case "extract_text_from_pdf":
 		case "extract_text_from_img": {
 			const p = asStr(args.output) ?? (asStr(args.input) ? `${asStr(args.input)!}.ocr.json` : undefined);
+			if (p) out.push(p);
+			break;
+		}
+		case "render_pdf_page": {
+			const input = asStr(args.input);
+			const page = typeof args.page === "number" ? args.page : undefined;
+			const p = asStr(args.output) ?? (input && page !== undefined ? `${input}.p${page}.png` : undefined);
 			if (p) out.push(p);
 			break;
 		}

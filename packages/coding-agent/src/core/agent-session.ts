@@ -79,6 +79,7 @@ import { appendJournalLine, appendJournalSection } from "./memory/memory-journal
 import { DEFAULT_MEMORY_CHAR_LIMIT, readMemoryContent, renderMemoryForPrompt } from "./memory/memory-store.js";
 import type { BashExecutionMessage, CustomMessage } from "./messages.js";
 import type { ModelRegistry } from "./model-registry.js";
+import { getPersonaPrompt } from "./personas.js";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.js";
 import type { BranchSummaryEntry, CompactionEntry, CustomEntry, SessionManager } from "./session-manager.js";
@@ -88,7 +89,13 @@ import { BUILTIN_SLASH_COMMANDS, type SlashCommandInfo, type SlashCommandLocatio
 import { buildSystemPrompt } from "./system-prompt.js";
 import { TODO_SNAPSHOT_TYPE, type TodoItem, type TodoSnapshot, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
-import { type BashSpawnHook, createAllTools, getDefaultCodingToolNames } from "./tools/index.js";
+import {
+	type AskUserQuestionCapability,
+	type BashSpawnHook,
+	createAllTools,
+	createAskUserQuestionTool,
+	getDefaultCodingToolNames,
+} from "./tools/index.js";
 import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
 import { createTodoTool } from "./tools/todo/index.js";
 
@@ -183,6 +190,12 @@ export interface AgentSessionConfig {
 	memoryFile?: string;
 	/** MEMORY.md 字符预算（默认 DEFAULT_MEMORY_CHAR_LIMIT）。 */
 	memoryCharLimit?: number;
+	/**
+	 * 宿主提供的「向用户提问」能力（ask_user_question 工具的后端）。
+	 * `isEnabled()` 在每个 prompt 入口被实时读取——能力存在与否即工具是否注册（见
+	 * _maybeReloadAskUserQuestionForPrompt），故开关可在不重启 session 的情况下动态生效。
+	 */
+	askUserQuestion?: AskUserQuestionCapability;
 }
 
 export interface ExtensionBindings {
@@ -315,6 +328,10 @@ export class AgentSession {
 	// Base system prompt (without extension appends) - used to apply fresh appends each turn
 	private _baseSystemPrompt = "";
 
+	// 个性化（人设 + 自定义指令）签名，用于 prompt 入口懒重建判定（见 _maybeReloadPersonalizationForPrompt）。
+	// undefined 表示尚未建立基线，首个 prompt 时按当前盘上配置建立、不触发重建。
+	private _personalizationSignature: string | undefined = undefined;
+
 	// MCP (Model Context Protocol) manager
 	private _mcpManager: McpManager | undefined = undefined;
 	private _enableMcp: boolean;
@@ -326,6 +343,11 @@ export class AgentSession {
 
 	// Todo list
 	private _todoStore: TodoStore;
+
+	/** 宿主「向用户提问」能力（ask_user_question 后端）。undefined 表示宿主不支持。 */
+	private _askUserQuestion?: AskUserQuestionCapability;
+	/** 上次 _buildRuntime 时 ask_user_question 是否启用，用于 prompt 入口懒重建判定。 */
+	private _askUserQuestionEnabledLastBuilt = false;
 
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
@@ -342,6 +364,7 @@ export class AgentSession {
 		this._envOverlay = config.envOverlay;
 		this._enableMcp = config.enableMcp !== undefined ? config.enableMcp : true;
 		this._mcpDebug = config.mcpDebug || false;
+		this._askUserQuestion = config.askUserQuestion;
 
 		// memory-mode: capture the frozen MEMORY.md snapshot once, here at
 		// construction. im-gateway spawns a fresh process per message burst, so
@@ -964,6 +987,8 @@ export class AgentSession {
 				? renderMemoryForPrompt(this._memoryFile, this._memorySnapshot, this._memoryCharLimit)
 				: undefined;
 
+		const personalization = this._buildPersonalizationBlock();
+
 		return buildSystemPrompt({
 			cwd: this._cwd,
 			skills: loadedSkills,
@@ -973,6 +998,59 @@ export class AgentSession {
 			selectedTools: validToolNames,
 			mcpTools,
 			memory,
+			personalization,
+		});
+	}
+
+	/**
+	 * 把当前个性化配置（人设 + 自定义指令）拼成系统提示词追加块。
+	 * 顺序：人设在前、自定义指令在后；默认人设贡献空字符串。两者皆空时返回 undefined。
+	 */
+	private _buildPersonalizationBlock(): string | undefined {
+		const { personaId, customPrompt } = this.settingsManager.getPersonalization();
+		const parts: string[] = [];
+		const personaPrompt = getPersonaPrompt(personaId);
+		if (personaPrompt.trim()) parts.push(personaPrompt.trim());
+		if (customPrompt.trim()) parts.push(customPrompt.trim());
+		return parts.length > 0 ? parts.join("\n\n") : undefined;
+	}
+
+	/** 个性化配置签名，用于懒重建变更检测。 */
+	private _personalizationSig(): string {
+		const { personaId, customPrompt } = this.settingsManager.getPersonalization();
+		return `${personaId} ${customPrompt}`;
+	}
+
+	/**
+	 * 个性化懒重建：prompt 入口先重读 settings.json 的 personalization 块，签名变化时
+	 * 才重建系统提示词，令本轮 prompt 立即生效。复刻 MCP/image budget 的懒重载模式：
+	 * Apply 只落盘、不 fan-out，签名相等走 fast-path 无副作用。
+	 */
+	private _maybeReloadPersonalizationForPrompt(): void {
+		this.settingsManager.reloadPersonalizationSettings();
+		const sig = this._personalizationSig();
+		if (this._personalizationSignature === undefined) {
+			// 首个 prompt：构造时已按盘上配置建过系统提示词，仅建立基线、不重建。
+			this._personalizationSignature = sig;
+			return;
+		}
+		if (sig === this._personalizationSignature) return;
+		this._personalizationSignature = sig;
+		this._baseSystemPrompt = this._rebuildSystemPrompt(this.getActiveToolNames());
+		this.agent.setSystemPrompt(this._baseSystemPrompt);
+	}
+
+	/**
+	 * ask_user_question 懒重建：宿主开关切换后，本轮 prompt 即生效（新旧 session 同此机制）。
+	 * 信号是「宿主能力 isEnabled() 是否存在」与上次 _buildRuntime 时的态——变化才重建，
+	 * 把工具加入/移出 active set + system prompt。复刻 MCP / 个性化的 per-prompt 懒重建。
+	 */
+	private _maybeReloadAskUserQuestionForPrompt(): void {
+		const enabled = this._askUserQuestion?.isEnabled() ?? false;
+		if (enabled === this._askUserQuestionEnabledLastBuilt) return;
+		this._buildRuntime({
+			activeToolNames: this.getActiveToolNames(),
+			includeAllExtensionTools: true,
 		});
 	}
 
@@ -1018,6 +1096,17 @@ export class AgentSession {
 		// fast-path（签名相等）<1ms，无副作用；变化时停掉/启动变化的 server 后
 		// 重建 runtime 让本轮 prompt 立刻看到新工具。失败不阻塞 prompt。
 		await this._maybeReloadMcpForPrompt();
+
+		// 懒重读图片预算：desktop「上下文策略」改动写盘后，本轮 prompt 即生效，
+		// 无需重启 session。仅刷新 images 块，纯文件读、无其他副作用。
+		this.settingsManager.reloadImageSettings();
+
+		// 懒重建个性化：desktop 个性化（人设 / 自定义指令）改动写盘后，本轮 prompt 即生效。
+		// 签名相等走 fast-path，变化时才重建系统提示词。
+		this._maybeReloadPersonalizationForPrompt();
+
+		// 懒重建 ask_user_question：实验性开关切换后，本轮 prompt 即生效（能力存在与否即注册）。
+		this._maybeReloadAskUserQuestionForPrompt();
 
 		// Handle extension commands first (execute immediately, even during streaming)
 		// Extension commands manage their own LLM interaction via pi.sendMessage()
@@ -2589,6 +2678,17 @@ export class AgentSession {
 		const todoTool = createTodoTool({ getTodoStore: () => this._todoStore });
 		baseTools.todo = todoTool;
 
+		// Add ask_user_question only when the host exposes the capability (capability=registration).
+		// Tracked so the prompt-entry lazy reload can detect a toggle and rebuild.
+		const askEnabled = this._askUserQuestion?.isEnabled() ?? false;
+		this._askUserQuestionEnabledLastBuilt = askEnabled;
+		if (askEnabled && this._askUserQuestion) {
+			const capability = this._askUserQuestion;
+			baseTools.ask_user_question = createAskUserQuestionTool({
+				ask: (request, signal) => capability.ask(request, signal),
+			});
+		}
+
 		this._baseToolRegistry = new Map(Object.entries(baseTools).map(([name, tool]) => [name, tool as AgentTool]));
 
 		const extensionsResult = this._resourceLoader.getExtensions();
@@ -2657,8 +2757,14 @@ export class AgentSession {
 		if (this._baseToolRegistry.has("extract_text_from_img")) {
 			activeToolNameSet.add("extract_text_from_img");
 		}
+		if (this._baseToolRegistry.has("render_pdf_page")) {
+			activeToolNameSet.add("render_pdf_page");
+		}
 		if (this._baseToolRegistry.has("current_time")) {
 			activeToolNameSet.add("current_time");
+		}
+		if (this._baseToolRegistry.has("ask_user_question")) {
+			activeToolNameSet.add("ask_user_question");
 		}
 		if (options.includeAllExtensionTools) {
 			for (const tool of wrappedExtensionTools as AgentTool[]) {

@@ -11,7 +11,7 @@ import {
 	pageHeaderRightSlotAtom,
 } from "@shared/store/atoms";
 import { fullHistoryToChat } from "../services/chat-service";
-import type { ChatMessage } from "../services/chat-service";
+import type { ChatMessage } from "@shared/store/atoms";
 import { MessageList } from "./MessageList";
 
 /**

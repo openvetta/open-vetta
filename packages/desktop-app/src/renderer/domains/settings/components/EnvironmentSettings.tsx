@@ -105,19 +105,11 @@ export function EnvironmentSettings(): JSX.Element {
 		[refresh],
 	);
 
-	const handleRedetect = useCallback(async () => {
-		try {
-			setStatus(await window.vetta.runtimes.redetect());
-		} catch (err) {
-			setError(err instanceof Error ? err.message : String(err));
-		}
-	}, []);
-
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">环境管理</h1>
+			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">应用环境</h1>
 			<p className="mb-6 text-[13px] text-muted-foreground">
-				Vetta 自带 Node.js 与 Python 运行时，无需你手动安装。运行命令时会自动切换到国内镜像源，无需配置代理。
+				Vetta 自带 Node.js 与 Python 运行时，来协助你完成更多任务
 			</p>
 
 			{error && (
@@ -156,36 +148,6 @@ export function EnvironmentSettings(): JSX.Element {
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection
-				title={
-					<div className="flex items-center justify-between">
-						<span>系统已装运行时</span>
-						<button
-							type="button"
-							onClick={() => void handleRedetect()}
-							className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-						>
-							<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
-							重新探测
-						</button>
-					</div>
-				}
-			>
-				<SettingRow
-					title="Node.js"
-					description="Vetta 始终优先使用自带运行时，此处仅供参考"
-					border
-				>
-					<span className="text-[12px] text-muted-foreground">
-						{status?.node.system ? status.node.system.version : "未检测到"}
-					</span>
-				</SettingRow>
-				<SettingRow title="Python" description="Vetta 始终优先使用自带运行时，此处仅供参考" border={false}>
-					<span className="text-[12px] text-muted-foreground">
-						{status?.python.system ? status.python.system.version : "未检测到"}
-					</span>
-				</SettingRow>
-			</SettingSection>
 		</div>
 	);
 }

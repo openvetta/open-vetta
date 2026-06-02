@@ -161,7 +161,12 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 					{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab） */}
 					{segmentedItems.length > 0 && (
 						<div className="flex shrink-0 items-center justify-start border-b border-border px-3 py-2">
-							<SegmentedControl items={segmentedItems} value={activeTab} onChange={onTabChange} />
+							<SegmentedControl
+								items={segmentedItems}
+								value={activeTab}
+								onChange={onTabChange}
+								suppressLayoutAnimation={isResizing}
+							/>
 						</div>
 					)}
 
@@ -185,6 +190,10 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	);
 }
 
+const TREE_DEFAULT_WIDTH = 200;
+const TREE_MIN_WIDTH = 140;
+const TREE_MAX_WIDTH = 320;
+
 function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 	const [previewCtx, setPreviewCtx] = useAtom(inlineFilePreviewContextReadonlyAtom);
 	const setPreview = useSetAtom(inlineFilePreviewAtom);
@@ -196,16 +205,27 @@ function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 		}
 	});
 
+	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
+	const [treeCollapsed, setTreeCollapsed] = useState(false);
+
+	const onTreeResize = useCallback((delta: number) => {
+		setTreeWidth((w) => Math.max(TREE_MIN_WIDTH, Math.min(TREE_MAX_WIDTH, w + delta)));
+	}, []);
+
 	if (previewCtx) {
 		return (
 			<div className="flex min-h-0 flex-1 overflow-hidden">
-				{/* Left: file tree (compressed) */}
-				<div className="flex w-[260px] shrink-0 flex-col overflow-hidden border-r border-border/50">
-					<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-						<FilesPanel cwd={cwd} />
+				{!treeCollapsed && (
+					<div
+						className="relative flex shrink-0 flex-col overflow-hidden border-r border-border/50"
+						style={{ width: treeWidth }}
+					>
+						<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+							<FilesPanel cwd={cwd} />
+						</div>
+						<ResizeHandle side="right" onResize={onTreeResize} />
 					</div>
-				</div>
-				{/* Right: preview */}
+				)}
 				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 					<FilePreviewView
 						ctx={previewCtx}
@@ -215,6 +235,8 @@ function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 						canPrev={previewCtx.index > 0}
 						canNext={previewCtx.index < previewCtx.items.length - 1}
 						enableKeyboard
+						onToggleSidebar={() => setTreeCollapsed((v) => !v)}
+						sidebarCollapsed={treeCollapsed}
 					/>
 				</div>
 			</div>

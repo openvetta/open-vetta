@@ -16,6 +16,7 @@ import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	sandboxPermissionDrawerAtom,
+	pendingQuestionsAtom,
 } from "@shared/store/atoms";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { TodoCard } from "@shared/components/TodoCard";
@@ -26,6 +27,7 @@ import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
 import { ActionButtonBar } from "./ActionButtonBar";
 import { SendButton } from "./SendButton";
+import { QuestionPanel } from "./QuestionPanel";
 import { pathBasename } from "@shared/lib/utils";
 import type { SkillInfo } from "@preload/api";
 import "./InputBar.css";
@@ -88,6 +90,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
+	const pendingQuestions = useAtomValue(pendingQuestionsAtom);
+	const pendingQuestion = activeSession?.runtimeId ? pendingQuestions[activeSession.runtimeId] : undefined;
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
@@ -416,13 +420,34 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const cardClass = [
 		"input-card relative rounded-[20px] bg-card border transition-[border-color,box-shadow,transform] duration-200",
 		isFocused ? "border-primary/20" : "border-border",
-		isStreaming ? "input-aurora" : "",
 		switchPulseVariant ? `input-switch-bump-${switchPulseVariant}` : "",
 	].join(" ");
 
 	return (
 		<div className="relative px-2 pb-3 pt-1 sm:px-4 sm:pb-4">
-			<div className="relative mx-auto w-full max-w-2xl">
+			{/* 待答的 ask_user_question：问答面板绝对定位贴底悬浮接管输入栏——
+			    不占文档流（不把上方消息区顶起来），跳出/关闭走渐入渐出动画。 */}
+			<AnimatePresence>
+				{pendingQuestion && (
+					<motion.div
+						key="ask-user-question"
+						initial={{ opacity: 0, y: 12 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: 12 }}
+						transition={SOFT}
+						className="absolute inset-x-0 bottom-0 z-20"
+					>
+						<QuestionPanel pending={pendingQuestion} />
+					</motion.div>
+				)}
+			</AnimatePresence>
+
+			<div
+				className={`relative mx-auto w-full max-w-2xl transition-opacity duration-150 ${
+					pendingQuestion ? "pointer-events-none opacity-0" : ""
+				}`}
+				aria-hidden={pendingQuestion ? true : undefined}
+			>
 				<SlashPanel
 					open={slashOpen}
 					onClose={handleSlashClose}

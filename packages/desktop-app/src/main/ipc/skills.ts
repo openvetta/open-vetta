@@ -139,7 +139,7 @@ function rewriteFrontmatterDescription(content: string, description: string): st
 }
 
 function findShallowestSkillMd(rootDir: string): string | null {
-	let best: { path: string; depth: number } | null = null;
+	const holder: { best: { path: string; depth: number } | null } = { best: null };
 	const walk = (dir: string, depth: number): void => {
 		let entries: string[];
 		try {
@@ -156,14 +156,14 @@ function findShallowestSkillMd(rootDir: string): string | null {
 				continue;
 			}
 			if (st.isFile() && entry === "SKILL.md") {
-				if (!best || depth < best.depth) best = { path: full, depth };
+				if (!holder.best || depth < holder.best.depth) holder.best = { path: full, depth };
 			} else if (st.isDirectory()) {
 				walk(full, depth + 1);
 			}
 		}
 	};
 	walk(rootDir, 0);
-	return best?.path ?? null;
+	return holder.best?.path ?? null;
 }
 
 // 历史版本曾把临时 tar 写入 baseDir 内，少数环境下 baseDir 的写权限被破坏后会卡死后续安装/卸载。
@@ -217,7 +217,7 @@ export function registerSkillsIpc(): () => void {
 				return {
 					name: s.name,
 					alias: s.alias || entry?.alias,
-					description: entry?.marketDescription || s.description,
+					description: (entry?.source === "market" ? entry.marketDescription : undefined) || s.description,
 					source: s.source,
 					type: s.type,
 				};

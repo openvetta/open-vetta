@@ -47,6 +47,7 @@ interface StatusCounts {
 	running: number;
 	completed: number;
 	failed: number;
+	paused: number;
 	total: number;
 }
 
@@ -56,6 +57,7 @@ function countStatuses(tasks: BatchTask[]): StatusCounts {
 		running: 0,
 		completed: 0,
 		failed: 0,
+		paused: 0,
 		total: tasks.length,
 	};
 	for (const t of tasks) {

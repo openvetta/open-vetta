@@ -2,18 +2,22 @@ import { randomUUID } from "node:crypto";
 import { type Dirent, type FSWatcher, watch } from "node:fs";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
+import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
 import { ipcMain, type WebContents } from "electron";
 import type {
 	PromptRequest,
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantRequest,
 	RuntimeUserConfirmationRequest,
+	RuntimeUserQuestionRequest,
+	RuntimeUserQuestionResult,
 	SessionConfig,
 	SessionEvent,
 	SessionExecutionMode,
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
+import { notify } from "../notifications/index.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import {
@@ -142,9 +146,17 @@ const CHANNELS = {
 	GET_SESSION_PATH: "vetta:session:get-session-path",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
+	SET_MAX_RECENT_IMAGES: "vetta:session:set-max-recent-images",
+	GET_MAX_RECENT_IMAGES: "vetta:session:get-max-recent-images",
+	GET_PERSONAS: "vetta:session:get-personas",
+	GET_PERSONALIZATION: "vetta:session:get-personalization",
+	SET_PERSONALIZATION: "vetta:session:set-personalization",
 	EVENT: "vetta:session:event",
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
+	QUESTION_REQUEST: "vetta:session:question-request",
+	QUESTION_RESPONSE: "vetta:session:question-response",
+	QUESTION_SET_ENABLED: "vetta:session:question-set-enabled",
 	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
 	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
@@ -206,6 +218,20 @@ function assertExecutionMode(value: unknown): void {
 	}
 }
 
+/** Sanitize the renderer's ask_user_question reply into a RuntimeUserQuestionResult. */
+function normalizeQuestionResult(value: unknown): RuntimeUserQuestionResult {
+	if (typeof value !== "object" || value === null) return { cancelled: true, answers: [] };
+	const v = value as Record<string, unknown>;
+	if (v.cancelled === true || !Array.isArray(v.answers)) return { cancelled: true, answers: [] };
+	const answers = (v.answers as Array<Record<string, unknown>>)
+		.filter((a) => a && typeof a.question === "string" && Array.isArray(a.answers))
+		.map((a) => ({
+			question: a.question as string,
+			answers: (a.answers as unknown[]).filter((x): x is string => typeof x === "string"),
+		}));
+	return { cancelled: false, answers };
+}
+
 export function registerSessionIpc(webContents: WebContents): () => void {
 	const resolveDefaultExecutionMode = async (): Promise<SessionExecutionMode> => {
 		const config = await readDesktopConfig();
@@ -215,6 +241,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const runtime = getSharedRuntime();
 	const subscriptionMap = new Map<string, () => void>();
 	const confirmationMap = new Map<string, (confirmed: boolean) => void>();
+	const questionMap = new Map<string, (result: RuntimeUserQuestionResult) => void>();
 	const sandboxGrantMap = new Map<string, (decision: RuntimeSandboxGrantDecision) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
@@ -222,6 +249,53 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const debugSeqMap = new Map<string, number>();
 	/** Track turn start time per session for duration calculation */
 	const turnStartMap = new Map<string, number>();
+	/**
+	 * ADR-0002: 交互式 session 的常驻通知订阅（独立于渲染端视图订阅，不随
+	 * 切换 session 销毁）。只有经本 IPC CHANNELS.CREATE 创建的 session 才会挂，
+	 * 故天然只覆盖交互式 session（批量/定时任务直接调 runtime.createSession）。
+	 */
+	const notificationSubs = new Map<string, () => void>();
+
+	/** 给某交互式 session 挂常驻通知订阅；已挂则跳过。 */
+	const attachNotificationSub = (sessionId: string, cwd: string): void => {
+		if (notificationSubs.has(sessionId)) return;
+		// 逐轮跟踪终结状态：message.final 带 stopReason，error 事件、aborted
+		// lifecycle 各自独立。agent_end 时按累积状态判定该不该通知。
+		let lastStopReason: string | undefined;
+		let aborted = false;
+		const unsubscribe = runtime.subscribe(sessionId, (ev: SessionEvent) => {
+			if (ev.type === "message.final") {
+				const sr = (ev.message as unknown as { stopReason?: unknown }).stopReason;
+				if (typeof sr === "string") lastStopReason = sr;
+			} else if (ev.type === "error") {
+				lastStopReason = "error";
+			} else if (ev.type === "session.lifecycle") {
+				if (ev.phase === "aborted") {
+					aborted = true;
+				} else if (ev.phase === "agent_end") {
+					const wasAborted = aborted || lastStopReason === "aborted";
+					const outcome = lastStopReason === "error" ? "error" : "completed";
+					const sessionPath = runtime.getSessionPath(sessionId);
+					lastStopReason = undefined;
+					aborted = false;
+					// 中断不通知；正常完成 / 出错才通知（见 CONTEXT.md「agent 完成通知」）。
+					if (!wasAborted && sessionPath) {
+						void notify({ type: "agent-turn-complete", sessionPath, cwd, outcome });
+					}
+				}
+			}
+		});
+		notificationSubs.set(sessionId, unsubscribe);
+	};
+
+	/** 释放某 session 的常驻通知订阅。 */
+	const detachNotificationSub = (sessionId: string): void => {
+		const unsubscribe = notificationSubs.get(sessionId);
+		if (unsubscribe) {
+			unsubscribe();
+			notificationSubs.delete(sessionId);
+		}
+	};
 
 	runtime.setUserConfirmationHandler((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => {
 		if (webContents.isDestroyed()) return Promise.resolve(false);
@@ -240,6 +314,55 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			confirmationMap.set(request.requestId, finish);
 			webContents.send(CHANNELS.CONFIRM_REQUEST, request);
 		});
+	});
+
+	const CANCELLED_QUESTION: RuntimeUserQuestionResult = { cancelled: true, answers: [] };
+
+	// ask_user_question 后端：把请求送到渲染端「问答面板」，阻塞等用户提交/取消。
+	// 镜像 confirm 的 requestId map 模式；abort（中断/窗口销毁）一律视为取消。
+	const questionHandler = (
+		request: RuntimeUserQuestionRequest,
+		signal?: AbortSignal,
+	): Promise<RuntimeUserQuestionResult> => {
+		if (webContents.isDestroyed()) return Promise.resolve(CANCELLED_QUESTION);
+		return new Promise<RuntimeUserQuestionResult>((resolve) => {
+			const finish = (result: RuntimeUserQuestionResult): void => {
+				questionMap.delete(request.requestId);
+				if (signal) signal.removeEventListener("abort", onAbort);
+				resolve(result);
+			};
+			const onAbort = (): void => finish(CANCELLED_QUESTION);
+			if (signal?.aborted) {
+				resolve(CANCELLED_QUESTION);
+				return;
+			}
+			if (signal) signal.addEventListener("abort", onAbort, { once: true });
+			questionMap.set(request.requestId, finish);
+			webContents.send(CHANNELS.QUESTION_REQUEST, request);
+			// 同时发系统通知「有问题待确认」（点击跳转该 session）；前台看着该 session 时自动抑制。
+			const sessionPath = runtime.getSessionPath(request.sessionId);
+			const cwd = sessionCwdMap.get(request.sessionId);
+			if (sessionPath && cwd) {
+				void notify({ type: "agent-question-pending", sessionPath, cwd });
+			}
+		});
+	};
+
+	// 「能力=注册」：实验性开关开 → 注入 handler（agent 下一轮 prompt 即看到工具）；
+	// 关 → 清除 handler 并取消所有在途提问。开关变化经 QUESTION_SET_ENABLED 即时生效。
+	const applyAskUserQuestion = (enabled: boolean): void => {
+		if (enabled) {
+			runtime.setUserQuestionHandler(questionHandler);
+		} else {
+			runtime.setUserQuestionHandler(undefined);
+			for (const resolve of questionMap.values()) resolve(CANCELLED_QUESTION);
+			questionMap.clear();
+		}
+	};
+
+	// 启动时按盘上配置决定初始态（默认关）。
+	void readDesktopConfig().then((config) => {
+		applyAskUserQuestion(config.experimental?.askUserQuestion === true);
 	});
 
 	runtime.setUserSandboxGrantHandler((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => {
@@ -289,6 +412,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);
 		}
+		// ADR-0002: 经本通道创建的即交互式 session，挂常驻通知订阅。
+		attachNotificationSub(result.sessionId, effectiveCwd ?? config?.cwd ?? "");
 		// ADR-0007: 把实际 cwd（可能是「对话」per-session 子目录）返回给渲染端，
 		// 否则 activeSession.cwd 仍是用户传入的项目根，ActivityPanel 文件树会
 		// 落到项目根、看到其他 session 的子目录。
@@ -375,6 +500,59 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		return (settings.defaultThinkingLevel as string) ?? "off";
 	});
 
+	// 上下文里保留的图片张数（coding-agent images.maxRecentImages）。
+	// 0 = 不限制（保留全部）。仅写盘；运行中的 session 在下一轮 prompt 经
+	// settingsManager.reloadImageSettings() 懒重读生效，新建/重开的 session
+	// 在构造时直接读到——无需重启或广播。
+	ipcMain.handle(CHANNELS.SET_MAX_RECENT_IMAGES, (_event, count: unknown) => {
+		if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+			throw new Error("Invalid maxRecentImages value");
+		}
+		const settings = readSettings();
+		const images = (settings.images as Record<string, unknown> | undefined) ?? {};
+		images.maxRecentImages = count;
+		settings.images = images;
+		writeSettings(settings);
+	});
+
+	ipcMain.handle(CHANNELS.GET_MAX_RECENT_IMAGES, () => {
+		const settings = readSettings();
+		const images = settings.images as { maxRecentImages?: number } | undefined;
+		return images?.maxRecentImages ?? 2;
+	});
+
+	// 个性化人设清单：唯一来源是 coding-agent 注册表，只下发 id/label/description，不含提示词正文。
+	ipcMain.handle(CHANNELS.GET_PERSONAS, () => {
+		return PERSONAS.map((p) => ({ id: p.id, label: p.label, description: p.description }));
+	});
+
+	// 个性化配置（人设 + 自定义指令）。仅写盘；运行中的 session 在下一轮 prompt 经
+	// settingsManager.reloadPersonalizationSettings() 懒重建生效，无需重启或广播。
+	ipcMain.handle(CHANNELS.GET_PERSONALIZATION, () => {
+		const settings = readSettings();
+		const p = settings.personalization as { personaId?: string; customPrompt?: string } | undefined;
+		return {
+			personaId: p?.personaId ?? DEFAULT_PERSONA_ID,
+			customPrompt: p?.customPrompt ?? "",
+		};
+	});
+
+	ipcMain.handle(CHANNELS.SET_PERSONALIZATION, (_event, input: unknown) => {
+		if (typeof input !== "object" || input === null) {
+			throw new Error("Invalid personalization payload");
+		}
+		const { personaId, customPrompt } = input as { personaId?: unknown; customPrompt?: unknown };
+		if (typeof personaId !== "string" || !PERSONAS.some((p) => p.id === personaId)) {
+			throw new Error("Invalid personaId");
+		}
+		if (typeof customPrompt !== "string") {
+			throw new Error("Invalid customPrompt");
+		}
+		const settings = readSettings();
+		settings.personalization = { personaId, customPrompt };
+		writeSettings(settings);
+	});
+
 	ipcMain.handle(CHANNELS.GET_STATE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.getState(sessionId);
@@ -423,6 +601,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.DISPOSE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
+		detachNotificationSub(sessionId);
 		await runtime.disposeSession(sessionId);
 	});
 
@@ -467,6 +646,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 		await Promise.all(
 			toDispose.map(async (sessionId) => {
+				detachNotificationSub(sessionId);
 				try {
 					await runtime.disposeSession(sessionId);
 				} catch (err) {
@@ -517,6 +697,17 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		resolve(confirmed === true);
 	});
 
+	ipcMain.handle(CHANNELS.QUESTION_RESPONSE, (_event, requestId: unknown, result: unknown) => {
+		assertNonEmptyString(requestId, "requestId");
+		const resolve = questionMap.get(requestId);
+		if (!resolve) return;
+		resolve(normalizeQuestionResult(result));
+	});
+
+	ipcMain.handle(CHANNELS.QUESTION_SET_ENABLED, (_event, enabled: unknown) => {
+		applyAskUserQuestion(enabled === true);
+	});
+
 	ipcMain.handle(CHANNELS.SANDBOX_GRANT_RESPONSE, (_event, requestId: unknown, decision: unknown) => {
 		assertNonEmptyString(requestId, "requestId");
 		const resolve = sandboxGrantMap.get(requestId);
@@ -558,7 +749,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 						const projectName = basename(cwd);
 						const seq = (debugSeqMap.get(sessionId) ?? 0) + 1;
 						debugSeqMap.set(sessionId, seq);
-						const msg = runtimeEvent.message as Record<string, unknown>;
+						const msg = runtimeEvent.message as unknown as Record<string, unknown>;
 						const usage = (msg.usage ?? {}) as DebugRequestData["usage"];
 						const turnStart = turnStartMap.get(sessionId) ?? Date.now();
 						const now = Date.now();
@@ -614,6 +805,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve(false);
 		}
 		confirmationMap.clear();
+		for (const resolve of questionMap.values()) {
+			resolve(CANCELLED_QUESTION);
+		}
+		questionMap.clear();
 		for (const resolve of sandboxGrantMap.values()) {
 			resolve("deny");
 		}
@@ -687,6 +882,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 		viewerSubs.clear();
 		unsubscribeRunning();
+		for (const unsubscribe of notificationSubs.values()) {
+			unsubscribe();
+		}
+		notificationSubs.clear();
 		for (const unsubscribe of subscriptionMap.values()) {
 			unsubscribe();
 		}
@@ -695,11 +894,16 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve(false);
 		}
 		confirmationMap.clear();
+		for (const resolve of questionMap.values()) {
+			resolve(CANCELLED_QUESTION);
+		}
+		questionMap.clear();
 		for (const resolve of sandboxGrantMap.values()) {
 			resolve("deny");
 		}
 		sandboxGrantMap.clear();
 		runtime.setUserConfirmationHandler(undefined);
+		runtime.setUserQuestionHandler(undefined);
 		runtime.setUserSandboxGrantHandler(undefined);
 		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
 		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts

@@ -21,12 +21,16 @@ const toolDescriptions: Record<string, string> = {
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
 	todo: "Plan and track progress on multi-step tasks with a todo list",
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
+	ask_user_question:
+		"Ask the user multiple-choice questions and wait for their answers (clarify ambiguity, gather preferences, offer decisions)",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 	html_to_pdf: "Convert HTML files to PDF using Vetta Desktop's PDF command-line mode",
 	extract_text_from_pdf:
 		"Extract text from a PDF (scanned or born-digital) via Vetta Desktop's local PP-OCRv5 OCR; uses the embedded text layer when present, otherwise OCRs each page",
 	extract_text_from_img:
 		"Extract text from a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop's local PP-OCRv5 OCR",
+	render_pdf_page:
+		"Render a single PDF page to a PNG (via pdftoppm) for VISUAL inspection — seals/stamps (盖章), signatures, handwriting, layout, logos, figures. Follow up with `read` on the returned PNG path. Use this instead of `extract_text_from_pdf` when the task needs a visual judgment OCR cannot make.",
 };
 
 export interface McpToolInfo {
@@ -51,6 +55,11 @@ export interface BuildSystemPromptOptions {
 	mcpTools?: McpToolInfo[];
 	/** Pre-rendered persistent-memory block (memory-mode only, frozen snapshot). */
 	memory?: string;
+	/**
+	 * 个性化追加块（人设 + 自定义指令，调用方已按「人设在前、自定义在后」拼好）。
+	 * 拼在系统提示词末尾（date/cwd 页脚之前），recency 最高。
+	 */
+	personalization?: string;
 }
 
 /** Build the system prompt with tools, guidelines, and context */
@@ -64,6 +73,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		skills: providedSkills,
 		mcpTools: providedMcpTools,
 		memory,
+		personalization,
 	} = options;
 	const resolvedCwd = cwd ?? process.cwd();
 
@@ -136,6 +146,11 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 			"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. ";
 		prompt += "NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. ";
 		prompt += "When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
+
+		// 个性化（人设 + 自定义指令）：拼在末尾，recency 最高
+		if (personalization) {
+			prompt += `\n\n${personalization}`;
+		}
 
 		// Add date/time and working directory last
 		prompt += `\nCurrent date and time: ${dateTime}`;
@@ -281,6 +296,11 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
 	const hasInvokeSkill = tools.includes("invoke_skill");
 	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
 		prompt += formatSkillsForPrompt(skills);
+	}
+
+	// 个性化（人设 + 自定义指令）：拼在末尾，recency 最高
+	if (personalization) {
+		prompt += `\n\n${personalization}`;
 	}
 
 	// Add date/time and working directory last

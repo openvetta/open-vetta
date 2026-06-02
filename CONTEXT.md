@@ -203,3 +203,99 @@ im-gateway 一个 IM 会话（路由 key `(userID, chatID)`）从**首条消息*
 ### 环境管理（Environment Management）
 
 desktop-app 系统设置中新增的面板，普通用户在此查看/获取 [[托管运行时]]。是「专业性太强、依赖开发环境」这一痛点的用户入口。面板暴露的是运行时本身，[[源重定向]] 对用户透明（在 bash 执行时自动发生）。
+
+### image budget
+
+coding-agent 在每次 LLM 调用前（`transformContext` 钩子，`applyImageBudget`）对消息历史里的图片做的保留策略：对**看过的**旧图只保留最新 N 张（`maxRecentImages`，默认 2，desktop-app 设置页可调；`<=0` 禁用即全保留），其余替换为文本占位符以省视觉 token。是**只作用于本次发送 payload 的纯函数变换**，不 mutate 原始历史、不落盘（脏读不可能）。
+
+ADR-0012 起判定依据从「留最新 N 张」改为引入 [[未看过的图]]：N 只约束「看过的」旧图，未看过的图无条件保留。原本附带的 OOM 硬保护（把批量读的图强砍到 N）被**刻意移除**——显存受限的本地模型改由部署方提示词软引导「一张一张读」来兜底，云端模型无显存墙不受影响。文档/代码里出现「图片预算」「视觉 token 封顶」时即指本机制。
+
+### 系统通知（system notification）
+
+desktop-app 经由 OS 原生通知中心（macOS / Windows）向用户推送的、APP 内事件的横向通知能力。设计为**类型化**：每条通知带一个 [[通知类型]] 判别字段，共用同一套「是否展示 → 构造内容 → 点击路由」基础设施。点击通知统一**前台化 APP** 并按该类型的路由意图跳转。首期只落地 [[agent 完成通知]] 一种类型，其余类型（更新提醒、错误告警等）为未来横向扩充预留位。
+
+权限**交给操作系统**：不在代码层主动申请或检测授权，依赖 OS 首次弹窗接管。设置层面只提供一个全局总开关（「通用设置」下），不按类型拆分开关。
+
+### 通知类型（NotificationType）
+
+[[系统通知]] 的判别联合标签。每种类型自带 payload 形状与「点击后做什么」的路由意图。当前成员：[[agent 完成通知]] 与 [[agent 提问待确认通知]]（payload 均携带定位目标 session 所需的标识）。新增类型 = 加一个联合分支 + 在薄 dispatch 里补一段判定/构造/路由，**不触碰**已有类型。
+
+### agent 提问待确认通知
+
+[[通知类型]] 成员：[[交互式 session]] 的 agent 调用 [[ask_user_question]]、有问题待用户确认时触发的 [[系统通知]]。正文固定「有问题待确认，点击查看」，标题取 session 名。抑制规则与 [[agent 完成通知]] 同（聚焦且正停在该 session 聊天页时不弹——[[问答面板]] 已在眼前）。coalesceKey 用 `question:<sessionPath>` 与完成通知区分，二者互不覆盖。点击前台化并路由到该 session。
+
+### agent 完成通知
+
+[[通知类型]] 的首个成员：一个[[交互式 session]]「完成一轮回答」时触发的 [[系统通知]]。**触发**条件是该轮以正常结束（`agent_end`，对应 stopReason `stop`）或**出错**（stopReason `error`）收尾；用户主动中断（`aborted`）**不**触发。标题取 session 名（auto-title，回退首条用户消息截断），正文为固定文案。点击后前台化 APP 并路由到该 session 的聊天界面；若该 session 已被删除/文件不存在，则仅前台化、停留当前界面、不报错。
+
+同一 session 的连续完成**合并为一条**（新通知替换该 session 的旧通知）；不同 session 各占一条。
+
+### 通知抑制规则（前台同 session）
+
+[[agent 完成通知]] 唯一**不**弹出的情形：APP 窗口当前**聚焦**（`isFocused`，窗口可见但失焦不算前台）**且**用户当前正停在**该 session 的聊天界面**上。两个条件缺一即通知——APP 在后台时即便看的就是该 session 也通知；APP 聚焦但停在设置页/自动化页等非聊天界面（即便内部 activeSession 仍指向该 session）也通知。「正在看哪个 session」由渲染进程上报给主进程，与主进程持有的窗口聚焦态合并判定。
+
+### 交互式 session
+
+用户在聊天界面**手动发起**的 session，与自动化/批量任务/定时任务等**非手动发起**的 session 相对。判别依据是创建路径：交互式 session 经渲染进程的 `session:create` 通道创建，批量/定时任务直接调运行时创建——故主进程可在 `session:create` 处天然圈定交互式 session。[[agent 完成通知]] **只针对交互式 session**，避免后台任务刷屏。
+
+### 未看过的图（unseen image）
+
+[[image budget]] 的核心判定：一张图若位于消息历史里**最后一条 assistant 消息之后**，则即将发起的这次 LLM 调用是模型**第一次**看到它 → 判为「未看过」→ 无条件保留，不受预算 N 约束。一旦其后出现了 assistant 消息（模型已处理过这一批），转为「看过」→ 才进入预算被砍候选。
+
+这是消息数组结构的**确定性、无状态**信号，不需要额外标志位。它保证 agent 批量 `read` 多张图时，模型在第一次调用里能完整看到全部图，根治「读了=没读」（模型对本该现在看的图收到占位符的幻读不可能）。代价见 [[image budget]]：未看过的图全保留 ⇒ 算法层不再防 OOM。
+
+### 个性化（personalization）
+
+一个**全局、跨所有项目/session** 的系统提示词追加能力，入口在 desktop-app 设置页「Agent配置」最上方。由两部分组成：一个 [[人设]] 单选 + 一段 [[自定义指令]] 自由文本。配置写入 `~/.vetta/agent/settings.json` 的 `personalization` 块（`{ personaId, customPrompt }`），与 [[image budget]] 的 `maxRecentImages` 同文件不同字段。
+
+生效走 [[个性化懒重建]]：点「应用」只落盘、不触发任何 session 重建；每个 session 在**下一个 user prompt** 时按需检测并重建系统提示词。语义刻意复刻 MCP 的懒重建（mcp.json 写盘不 fan-out，prompt 入口 diff-reload）。
+
+默认态（`personaId = "default"` 且 `customPrompt` 为空）**什么都不追加**，系统提示词与未开启该功能时完全一致。
+
+### 人设（persona）
+
+[[个性化]] 的预设提示词项，**唯一编辑来源**是 coding-agent 的 `src/core/personas/*.md`（一人设一个 md，frontmatter 存 `id / label / description`，正文存提示词）。构建期由 `scripts/generate-personas.mjs` 把 md 内联成 `src/core/personas-data.ts`（`FILE_PERSONAS`），`personas.ts` 引入它合成 `PERSONAS`——**运行时零文件系统依赖**。settings.json 只存 `personaId`，提示词正文在系统提示词构建时由注册表解析。desktop 通过 IPC 拉取注册表渲染选择器，避免前后端清单漂移；日后改预设措辞对存量用户自动生效。
+
+**为何 codegen 而非运行时读盘**：coding-agent 会被 desktop 的 `vite.main.config.ts` 打进 main bundle（不在 external 列表），打包后基于 `__dirname` 的 `readdirSync` 会落到 desktop 的 dist 路径、读不到 md（同 photon-node 的 `__dirname` 失效问题，注释已记载）。曾先用运行时读盘，desktop 里只显示「默认」即此故。内联成字面量后任何打包/二进制场景都稳。
+
+特殊成员 `default`：no-op 占位，不落 md、在 `personas.ts` 里合成并永远置顶。首期除 `default` 外有 `务实`（回答精炼、切入准、不绕弯、专注任务）与 `交互`（主动提问对齐需求、附推荐方向、获授权再执行）。**人设正文用英文写**（label/description 保持中文供 UI 展示）。新增人设 = 往目录加一个 md（按文件名排序决定展示顺序）后重新构建（`bun run build` 会先跑 `generate:personas`），不触碰存储与注入逻辑。
+
+人设正文是**预设、产品维护**的；与 [[自定义指令]] 正交——后者是用户自己写的。
+
+### 自定义指令（custom instructions）
+
+[[个性化]] 中用户在 [[人设]] 之上追加的一段自由文本（设置页 textarea），存于 settings.json `personalization.customPrompt`。与人设**相互独立**：即便选「默认」人设，只要本文本非空就照样追加。
+
+刻意不叫「全局提示词」——「全局」在本系统里已指 [[个性化]] 的作用域，复用会歧义。
+
+### 个性化懒重建（personalization lazy reload）
+
+[[个性化]] 的生效机制，与 MCP 懒重建、`image budget` 懒重读同构：desktop 写 settings.json 后**不** fan-out 重建；coding-agent 在每次 `prompt()` 入口对 `personalization` 块做签名比对（缓存上次签名，相等走 fast-path、无副作用），变化时才重建系统提示词、令本轮 prompt 立即看到新人设/指令。
+
+刻意与 `APPEND_SYSTEM.md` 文件注入分离：那条路径只在 session 初始化/显式 `reload()` 时读盘，无 per-prompt 懒重载；个性化需要「应用后下一轮即生效」故走独立的轻量签名路径。注入位置见 [[个性化]]——拼在系统提示词末尾，顺序为 `APPEND_SYSTEM.md → 人设 → 自定义指令`。
+
+### ask_user_question
+
+coding-agent 的一个内置工具，让 agent 在执行途中**主动向用户提一组多选题并阻塞等待回答**。借鉴 Claude Code 的 `AskUserQuestion`，转成本仓 snake_case 命名。input schema 是 Claude Code 的**核心子集**：`questions[1-4]`，每题 `{ question, header(短标签), options[2-4]{ label, description, badges? }, multiSelect }`；自动附「Other」自由输入；**不做** Claude Code 的选项级 preview / notes 批注 / metadata。回传给模型走自然语言拼接（`"Q"="A"` 串联，多选逗号连，取消回传明确措辞），[[option badge]] 不进回传。
+
+工具是否对 agent 可见由 [[user question handler]] 的存在与否门控（能力=注册），按 [[实验性功能]] 开关动态启停。交互界面是 [[问答面板]]，transcript 里另留一个富视图 tool_call block 永久记录问题与所选答案。
+
+### user question handler
+
+设在 `getSharedRuntime()` 上的、承载 ask_user_question「阻塞等回答」能力的回调（拟 `setUserQuestionHandler`），与既有 `setUserConfirmationHandler` 同构——但 confirm 只传 bool，本 handler 承载 `questions/options` 富结构与结构化答案。新增 IPC channel（question-request / question-response）承载该结构，与 [[host_request / host_response]] 同属「agent 阻塞等宿主响应」家族。
+
+**「能力=注册」是门控核心**：[[ask_user_question]] 是否进 agent 的 active tool set + system prompt，唯一取决于共享 runtime 上此 handler 是否存在；[[实验性功能]] 开关开→desktop 注入 handler，关→清除。AgentSession 在**每个 prompt 入口**比对「handler 是否存在」与上次构建态，变化即 `_buildRuntime` 重建——与 MCP 懒重建（`_maybeReloadMcpForPrompt`）、[[个性化懒重建]] 同一机制族，故新旧会话都能在下一轮 prompt 动态生效，不向 coding-agent 额外透传布尔 flag。
+
+### 问答面板
+
+ask_user_question 待答时，desktop-app 聊天页**输入栏被完全接管**转换成的 Q&A 选择 UI。多问题(问题组)以**紧凑可折叠的堆叠列表**呈现、可在问题间自由切换，不占过大篇幅；已答问题折叠成所选答案摘要。逃生出口=**显式取消按钮**（→ 触发 abort 语义，工具回传「用户拒绝回答」）+ 每题 Other 自由输入；接管期间隐藏普通文本输入。
+
+**绑定所属 [[交互式 session]]**：请求携 sessionId，切到别的 session 只是隐藏面板（该 agent 仍阻塞），切回恢复待答；后台 session 提问时在侧边栏该会话上打待答徽标。App 关闭/刷新（webContents 销毁）视为取消。
+
+### option badge
+
+[[ask_user_question]] 每个 option 上的结构化标记列表（`badges?: string[]`）。取代 Claude Code「把 `(Recommended)` 塞进 label 文本」的写死做法：agent 可给某选项 append 任意 badge（「推荐」只是其一），既作 [[问答面板]] 展示的引导 badge、也是模型表达倾向性的结构化通道。仅用于展示与引导，**不进**回传给模型的 tool_result。
+
+### 实验性功能（experimental features）
+
+desktop-app 设置页「Agent配置」下的一个分类，首个成员是 [[ask_user_question]] 的开关。配置存储预留分组结构 `experimental.askUserQuestion`，将来加实验项只是加一个键、UI 同区域追加一行。**默认关、用户手动开**——「实验性」只是标签，不代表工具不可用或有额外使用成本，开关只控制是否把工具加载给 agent（经 [[user question handler]] 的注入/清除生效）。

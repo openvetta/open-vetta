@@ -200,7 +200,7 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 
 export function printHelp(): void {
 	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
-	const defaultToolsList = `read,${defaultCommandTool},edit,write,grep,glob,dir_tree,doc_to_pdf,html_to_pdf,extract_text_from_pdf,extract_text_from_img,current_time`;
+	const defaultToolsList = `read,${defaultCommandTool},edit,write,grep,glob,dir_tree,doc_to_pdf,html_to_pdf,extract_text_from_pdf,extract_text_from_img,render_pdf_page,current_time`;
 	console.log(`${chalk.bold(APP_NAME)} - AI coding assistant with ${defaultToolsList} tools
 
 ${chalk.bold("Usage:")}
@@ -345,6 +345,7 @@ ${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   html_to_pdf - Convert HTML files to PDF
   extract_text_from_pdf - OCR a PDF (PP-OCRv5, scanned or born-digital) via Vetta Desktop
   extract_text_from_img - OCR a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop
+  render_pdf_page - Render a PDF page to PNG for visual inspection (seals, signatures, layout); follow up with read
   current_time - Get the current date and time
 `);
 }
