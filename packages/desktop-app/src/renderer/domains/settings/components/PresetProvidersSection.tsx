@@ -184,35 +184,35 @@ export function PresetProvidersSection({
 								<button
 									type="button"
 									onClick={() => setExpandedId(isExpanded ? null : row.id)}
-									className="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+									className="flex flex-1 items-center gap-3 text-left"
 									title={isExpanded ? "收起模型" : "查看模型与价格"}
 								>
 									<span
 										className={cn(
-											"icon-[mdi--chevron-right] h-4 w-4 transition-transform",
+											"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
 											isExpanded && "rotate-90",
 										)}
 									/>
+									<ProviderIcon symbol={row.icon} className="h-7 w-7" />
+									<div className="min-w-0 flex-1">
+										<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
+											{row.displayName}
+											{adopted && (
+												<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+													已启用
+												</span>
+											)}
+											{row.offline && (
+												<span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+													服务端已下线
+												</span>
+											)}
+										</div>
+										<div className="mt-0.5 text-[11px] text-muted-foreground">
+											{row.api || "—"} · {row.models.length} 个模型
+										</div>
+									</div>
 								</button>
-								<ProviderIcon symbol={row.icon} className="h-7 w-7" />
-								<div className="min-w-0 flex-1">
-									<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-										{row.displayName}
-										{adopted && (
-											<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-												已启用
-											</span>
-										)}
-										{row.offline && (
-											<span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
-												服务端已下线
-											</span>
-										)}
-									</div>
-									<div className="mt-0.5 text-[11px] text-muted-foreground">
-										{row.api || "—"} · {row.models.length} 个模型
-									</div>
-								</div>
 								<div className="flex items-center gap-1">
 									{adopted ? (
 										<>
