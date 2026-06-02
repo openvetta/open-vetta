@@ -25,7 +25,25 @@ const WINDOWS_SANDBOX_HOST_RELATIVE_DIRS = [
 	"sandbox/windows-sandbox-cli",
 	"sandbox",
 ] as const;
-const ENV_WHITELIST = ["PATH", "SystemRoot", "COMSPEC"] as const;
+const ENV_WHITELIST = [
+	"PATH",
+	"SystemRoot",
+	"COMSPEC",
+	"npm_config_registry",
+	"npm_config_prefix",
+	"npm_config_cache",
+	"npm_config_userconfig",
+	"NPM_CONFIG_REGISTRY",
+	"NPM_CONFIG_PREFIX",
+	"NPM_CONFIG_CACHE",
+	"NPM_CONFIG_USERCONFIG",
+	"PIP_INDEX_URL",
+	"PIP_TRUSTED_HOST",
+	"PIP_CONFIG_FILE",
+	"PIP_CACHE_DIR",
+	"VETTA_MANAGED_PYTHON_SITE_PACKAGES",
+	"VETTA_MANAGED_PYTHON_SCRIPTS",
+] as const;
 
 type WindowsSandboxBackend = "auto" | "elevated" | "unelevated";
 
@@ -68,7 +86,7 @@ function buildSandboxEnv(sourceEnv: NodeJS.ProcessEnv | undefined, tempRoot: str
 			args.push("--env", `${key}=${value}`);
 		}
 	}
-	args.push("--env", `TEMP=${tempRoot}`, "--env", `TMP=${tempRoot}`);
+	args.push("--env", `TEMP=${tempRoot}`, "--env", `TMP=${tempRoot}`, "--env", "VETTA_WINDOWS_SANDBOX=1");
 	return args;
 }
 
