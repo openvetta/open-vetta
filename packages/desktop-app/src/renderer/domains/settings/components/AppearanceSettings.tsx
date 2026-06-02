@@ -4,6 +4,7 @@ import type { ThemeMode } from "@shared/store/atoms";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { BotAvatar } from "@shared/components/BotAvatar";
+import type { MouseEvent } from "react";
 
 const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] = [
 	{
@@ -39,12 +40,12 @@ function ModeCard({
 	icon: string;
 	hint: string;
 	active: boolean;
-	onSelect: (value: ThemeMode) => void;
+	onSelect: (value: ThemeMode, event: MouseEvent<HTMLButtonElement>) => void;
 }): JSX.Element {
 	return (
 		<button
 			type="button"
-			onClick={() => onSelect(mode)}
+			onClick={(event) => onSelect(mode, event)}
 			className={cn(
 				"group relative flex flex-col items-start gap-2 rounded-xl border bg-card px-4 py-3 text-left transition-all",
 				active
@@ -88,7 +89,7 @@ function ThemeCard({
 }: {
 	theme: ThemeDef;
 	active: boolean;
-	onSelect: (id: string) => void;
+	onSelect: (id: string, event: MouseEvent<HTMLButtonElement>) => void;
 }): JSX.Element {
 	const palette = theme.dark;
 	const colors = [
@@ -101,7 +102,7 @@ function ThemeCard({
 	return (
 		<button
 			type="button"
-			onClick={() => onSelect(theme.id)}
+			onClick={(event) => onSelect(theme.id, event)}
 			className="group flex flex-col items-stretch gap-2 text-left"
 		>
 			<div
@@ -231,7 +232,9 @@ export function AppearanceSettings(): JSX.Element {
 							icon={m.icon}
 							hint={m.hint}
 							active={mode === m.value}
-							onSelect={(value) => void setMode(value)}
+							onSelect={(value, event) =>
+								void setMode(value, { x: event.clientX, y: event.clientY })
+							}
 						/>
 					))}
 				</div>
@@ -245,7 +248,9 @@ export function AppearanceSettings(): JSX.Element {
 							key={t.id}
 							theme={t}
 							active={themeName === t.id}
-							onSelect={setThemeName}
+							onSelect={(id, event) =>
+								setThemeName(id, { x: event.clientX, y: event.clientY })
+							}
 						/>
 					))}
 				</div>

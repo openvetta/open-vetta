@@ -6,6 +6,7 @@ import {
 	MODE_STORAGE_KEY,
 	type ResolvedMode,
 	THEME_STORAGE_KEY,
+	type ThemeTransitionOptions,
 	withThemeTransition,
 } from "../theme/apply";
 
@@ -34,11 +35,12 @@ export function useTheme() {
 				await window.vetta.theme.set(mode).catch(() => {});
 			}
 			const r: ResolvedMode = isDark ? "dark" : "light";
+			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? "default";
 			setResolved(r);
-			applyTheme(r, themeName);
+			applyTheme(r, currentTheme);
 		}
 		void syncWithNative();
-	}, [mode, themeName, setResolved]);
+	}, [mode, setResolved]);
 
 	// 监听原生主题变化（auto 模式下才响应）。
 	useEffect(() => {
@@ -54,8 +56,7 @@ export function useTheme() {
 	}, [setResolved]);
 
 	const setMode = useCallback(
-		async (newMode: ThemeMode) => {
-			setModeAtom(newMode);
+		async (newMode: ThemeMode, transitionOptions?: ThemeTransitionOptions) => {
 			localStorage.setItem(MODE_STORAGE_KEY, newMode);
 
 			let r: ResolvedMode;
@@ -71,17 +72,22 @@ export function useTheme() {
 				await window.vetta.theme.set(newMode).catch(() => {});
 				r = newMode;
 			}
-			setResolved(r);
-			withThemeTransition(() => applyTheme(r, themeName));
+			withThemeTransition(() => {
+				setModeAtom(newMode);
+				setResolved(r);
+				applyTheme(r, themeName);
+			}, transitionOptions);
 		},
 		[setModeAtom, setResolved, themeName],
 	);
 
 	const setThemeName = useCallback(
-		(name: string) => {
-			setThemeNameAtom(name);
+		(name: string, transitionOptions?: ThemeTransitionOptions) => {
 			localStorage.setItem(THEME_STORAGE_KEY, name);
-			withThemeTransition(() => applyTheme(resolved, name));
+			withThemeTransition(() => {
+				setThemeNameAtom(name);
+				applyTheme(resolved, name);
+			}, transitionOptions);
 		},
 		[resolved, setThemeNameAtom],
 	);

@@ -171,6 +171,31 @@
 		box-shadow 180ms ease !important;
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation: none;
+	mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+	animation: theme-reveal 420ms ease-out both;
+	z-index: 1;
+}
+
+@keyframes theme-reveal {
+	from {
+		clip-path: circle(
+			0 at var(--theme-transition-x, 50%) var(--theme-transition-y, 50%)
+		);
+	}
+	to {
+		clip-path: circle(
+			var(--theme-transition-radius, 150vmax) at var(--theme-transition-x, 50%)
+				var(--theme-transition-y, 50%)
+		);
+	}
+}
+
 :root {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;

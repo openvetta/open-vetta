@@ -41,9 +41,16 @@ const TRANSITION_CLASS = "theme-transitioning";
 const TRANSITION_MS = 180;
 let transitionTimer: number | null = null;
 
-// 切换主题/模式时短暂启用全局 transition，让色彩柔和过渡。
-export function withThemeTransition(fn: () => void): void {
-	const root = document.documentElement;
+export interface ThemeTransitionOptions {
+	x?: number;
+	y?: number;
+}
+
+function prefersReducedMotion(): boolean {
+	return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function runFallbackTransition(root: HTMLElement, fn: () => void): void {
 	root.classList.add(TRANSITION_CLASS);
 	fn();
 	if (transitionTimer !== null) {
@@ -53,4 +60,27 @@ export function withThemeTransition(fn: () => void): void {
 		root.classList.remove(TRANSITION_CLASS);
 		transitionTimer = null;
 	}, TRANSITION_MS);
+}
+
+// 切换主题/模式时优先使用 View Transition 做圆形揭示；不支持时回退为颜色过渡。
+export function withThemeTransition(fn: () => void, options: ThemeTransitionOptions = {}): void {
+	const root = document.documentElement;
+	if (!("startViewTransition" in document) || prefersReducedMotion()) {
+		runFallbackTransition(root, fn);
+		return;
+	}
+
+	const x = options.x ?? window.innerWidth / 2;
+	const y = options.y ?? window.innerHeight / 2;
+	const endRadius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+	root.style.setProperty("--theme-transition-x", `${x}px`);
+	root.style.setProperty("--theme-transition-y", `${y}px`);
+	root.style.setProperty("--theme-transition-radius", `${endRadius}px`);
+	const transition = document.startViewTransition(fn);
+
+	void transition.finished.finally(() => {
+		root.style.removeProperty("--theme-transition-x");
+		root.style.removeProperty("--theme-transition-y");
+		root.style.removeProperty("--theme-transition-radius");
+	});
 }
