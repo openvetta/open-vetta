@@ -158,10 +158,11 @@ export function useProjects() {
 	const expandProject = useCallback(
 		(cwd: string) => {
 			setExpandedProjects((prev) => {
-				if (prev.size === 1 && prev.has(cwd)) return prev;
+				if (prev.has(cwd)) return prev;
 				void loadSessions(cwd);
-				// 手风琴：同一时间仅一个项目处于展开状态。
-				return new Set([cwd]);
+				const next = new Set(prev);
+				next.add(cwd);
+				return next;
 			});
 		},
 		[setExpandedProjects, loadSessions],
@@ -188,8 +189,9 @@ export function useProjects() {
 					return next;
 				}
 				void loadSessions(cwd);
-				// 手风琴：展开新项目时清除其他展开项。
-				return new Set([cwd]);
+				const next = new Set(prev);
+				next.add(cwd);
+				return next;
 			});
 		},
 		[setExpandedProjects, loadSessions],

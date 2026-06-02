@@ -24,6 +24,7 @@ import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,
 	defaultConversationCwdAtom,
+	pendingQuestionsAtom,
 	sandboxPermissionDrawerAtom,
 	sidebarCollapsedAtom,
 	pageHeaderTitleAtom,
@@ -133,6 +134,23 @@ export function RootLayout(): JSX.Element {
 	useDownloadsInit();
 	useUpdaterInit();
 	const { openSession } = useSessionManager();
+
+	// 上报「聊天页当前所在 session」给主进程：仅在聊天路由 "/" 且有 activeSession
+	// 时报其 sessionPath，否则 null。主进程据此 + 窗口聚焦态做系统通知抑制判定。
+	useEffect(() => {
+		const sessionPath = currentPath === "/" ? activeSession?.sessionPath || null : null;
+		void window.vetta.notification.setForegroundSession(sessionPath);
+	}, [currentPath, activeSession]);
+
+	// 点击系统通知 → 主进程已前台化窗口，这里把对应 session 打开并路由到聊天页。
+	useEffect(() => {
+		return window.vetta.notification.onNavigate((payload) => {
+			if (payload.type === "agent-turn-complete" || payload.type === "agent-question-pending") {
+				void openSession(payload.cwd, payload.sessionPath);
+			}
+		});
+	}, [openSession]);
+
 	const confirmationQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]>(
 		[],
 	);
@@ -173,6 +191,15 @@ export function RootLayout(): JSX.Element {
 			showRequest(request);
 		});
 	}, [setSandboxPermissionDrawer]);
+
+	// ask_user_question：把提问请求按 sessionId 存入 pendingQuestionsAtom，
+	// 由对应 session 的 InputBar 接管为「问答面板」。不在此弹全局框（与 confirm 不同）。
+	const setPendingQuestions = useSetAtom(pendingQuestionsAtom);
+	useEffect(() => {
+		return window.vetta.session.onQuestionRequest((request) => {
+			setPendingQuestions((prev) => ({ ...prev, [request.sessionId]: request }));
+		});
+	}, [setPendingQuestions]);
 
 	const grantQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onSandboxGrantRequest>[0]>[0][]>([]);
 	const grantActiveRef = useRef(false);

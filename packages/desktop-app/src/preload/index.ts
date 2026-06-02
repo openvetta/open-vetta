@@ -19,6 +19,9 @@ const CHANNELS = {
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
 	CONFIRM_REQUEST: "vetta:session:confirm-request",
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
+	QUESTION_REQUEST: "vetta:session:question-request",
+	QUESTION_RESPONSE: "vetta:session:question-response",
+	QUESTION_SET_ENABLED: "vetta:session:question-set-enabled",
 	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
 	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
@@ -26,6 +29,11 @@ const CHANNELS = {
 	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
+	SET_MAX_RECENT_IMAGES: "vetta:session:set-max-recent-images",
+	GET_MAX_RECENT_IMAGES: "vetta:session:get-max-recent-images",
+	GET_PERSONAS: "vetta:session:get-personas",
+	GET_PERSONALIZATION: "vetta:session:get-personalization",
+	SET_PERSONALIZATION: "vetta:session:set-personalization",
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
 	AUTO_TITLE: "vetta:session:auto-title",
@@ -99,6 +107,11 @@ const WEBHOOK_CHANNELS = {
 	TOGGLE: "vetta:webhook:toggle",
 	TEST: "vetta:webhook:test",
 	SEND: "vetta:webhook:send",
+} as const;
+
+const NOTIFICATION_CHANNELS = {
+	SET_FOREGROUND: "vetta:notification:set-foreground-session",
+	NAVIGATE: "vetta:notification:navigate",
 } as const;
 
 const BATCH_TASKS_CHANNELS = {
@@ -443,6 +456,23 @@ const api: DesktopApi = {
 		export: async (projectDir) => ipcRenderer.invoke("vetta:project:export", projectDir),
 		import: async () => ipcRenderer.invoke("vetta:project:import"),
 	},
+	permissions: {
+		checkAll: async () => ipcRenderer.invoke("vetta:permissions:check-all"),
+		openPane: async (kind) => ipcRenderer.invoke("vetta:permissions:open-pane", kind),
+	},
+	notification: {
+		setForegroundSession: async (sessionPath) =>
+			ipcRenderer.invoke(NOTIFICATION_CHANNELS.SET_FOREGROUND, sessionPath),
+		onNavigate: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+				handler(payload as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(NOTIFICATION_CHANNELS.NAVIGATE, listener);
+			return () => {
+				ipcRenderer.removeListener(NOTIFICATION_CHANNELS.NAVIGATE, listener);
+			};
+		},
+	},
 	webhook: {
 		list: async () => ipcRenderer.invoke(WEBHOOK_CHANNELS.LIST),
 		listProviders: async () => ipcRenderer.invoke(WEBHOOK_CHANNELS.LIST_PROVIDERS),
@@ -485,6 +515,17 @@ const api: DesktopApi = {
 		},
 		respondToConfirmation: async (requestId, confirmed) =>
 			ipcRenderer.invoke(CHANNELS.CONFIRM_RESPONSE, requestId, confirmed),
+		onQuestionRequest: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, request: unknown) => {
+				handler(request as Parameters<typeof handler>[0]);
+			};
+			ipcRenderer.on(CHANNELS.QUESTION_REQUEST, listener);
+			return () => {
+				ipcRenderer.removeListener(CHANNELS.QUESTION_REQUEST, listener);
+			};
+		},
+		respondToQuestion: async (requestId, result) => ipcRenderer.invoke(CHANNELS.QUESTION_RESPONSE, requestId, result),
+		setQuestionEnabled: async (enabled) => ipcRenderer.invoke(CHANNELS.QUESTION_SET_ENABLED, enabled),
 		onSandboxGrantRequest: (handler) => {
 			const listener = (_event: Electron.IpcRendererEvent, request: unknown) => {
 				handler(request as Parameters<typeof handler>[0]);
@@ -507,6 +548,11 @@ const api: DesktopApi = {
 		setGlobalExecutionMode: async (mode) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_EXECUTION_MODE, mode),
 		setGlobalThinkingLevel: async (level) => ipcRenderer.invoke(CHANNELS.SET_GLOBAL_THINKING, level),
 		getGlobalThinkingLevel: async () => ipcRenderer.invoke(CHANNELS.GET_GLOBAL_THINKING),
+		setMaxRecentImages: async (count) => ipcRenderer.invoke(CHANNELS.SET_MAX_RECENT_IMAGES, count),
+		getMaxRecentImages: async () => ipcRenderer.invoke(CHANNELS.GET_MAX_RECENT_IMAGES),
+		getPersonas: async () => ipcRenderer.invoke(CHANNELS.GET_PERSONAS),
+		getPersonalization: async () => ipcRenderer.invoke(CHANNELS.GET_PERSONALIZATION),
+		setPersonalization: async (input) => ipcRenderer.invoke(CHANNELS.SET_PERSONALIZATION, input),
 		getState: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_STATE, sessionId),
 		getMessages: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_MESSAGES, sessionId),
 		getFullHistory: async (sessionId) => ipcRenderer.invoke(CHANNELS.GET_FULL_HISTORY, sessionId),

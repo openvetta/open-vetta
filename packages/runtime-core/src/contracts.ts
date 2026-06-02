@@ -159,6 +159,35 @@ export interface RuntimeUserConfirmationRequest {
 	message: string;
 }
 
+export interface RuntimeQuestionOption {
+	label: string;
+	description: string;
+	badges?: string[];
+}
+
+export interface RuntimeQuestionItem {
+	question: string;
+	header: string;
+	options: RuntimeQuestionOption[];
+	multiSelect?: boolean;
+}
+
+export interface RuntimeUserQuestionRequest {
+	requestId: string;
+	sessionId: string;
+	questions: RuntimeQuestionItem[];
+}
+
+export interface RuntimeUserQuestionAnswer {
+	question: string;
+	answers: string[];
+}
+
+export interface RuntimeUserQuestionResult {
+	cancelled: boolean;
+	answers: RuntimeUserQuestionAnswer[];
+}
+
 export type RuntimeSandboxGrantDecision = "deny" | "allow_once" | "allow_session";
 
 export interface RuntimeSandboxGrantRequest {
@@ -296,6 +325,11 @@ export type HistoryEntry =
 export interface SessionFacade {
 	setUserConfirmationHandler(
 		handler: ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>) | undefined,
+	): void;
+	setUserQuestionHandler(
+		handler:
+			| ((request: RuntimeUserQuestionRequest, signal?: AbortSignal) => Promise<RuntimeUserQuestionResult>)
+			| undefined,
 	): void;
 	setUserSandboxGrantHandler(
 		handler:

@@ -73,6 +73,7 @@ interface ExecutingTask {
 	executionMode: SessionExecutionMode;
 	abortController: AbortController;
 	timeoutHandle: ReturnType<typeof setTimeout>;
+	timeoutMs: number;
 	timedOut: boolean;
 	startedAt: number;
 	modelKey: string | undefined;
@@ -375,7 +376,7 @@ async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeH
 	let outcome: TaskOutcome | null = null;
 
 	if (executing.timedOut) {
-		const message = `任务超时（${Math.round(TASK_TIMEOUT_MS / 60000)} 分钟未完成）`;
+		const message = `任务超时（${Math.round(executing.timeoutMs / 60000)} 分钟未完成）`;
 		state = { ...base, status: "failed", error: message, completedAt: now };
 		emitBatchTaskEvent({ type: "task.failed", projectId, taskId, error: message });
 		outcome = { kind: "timeout" };
@@ -485,7 +486,8 @@ async function runTaskInner(
 		}
 
 		const startedAt = Date.now();
-		const timeoutHandle = scheduleTimeout(task.id, runtime, resolveTaskTimeoutMs(project));
+		const timeoutMs = resolveTaskTimeoutMs(project);
+		const timeoutHandle = scheduleTimeout(task.id, runtime, timeoutMs);
 		executingTasks.set(task.id, {
 			projectId: project.id,
 			taskId: task.id,
@@ -496,6 +498,7 @@ async function runTaskInner(
 			executionMode: mode,
 			abortController,
 			timeoutHandle,
+			timeoutMs,
 			timedOut: false,
 			startedAt,
 			modelKey: project.modelKey,

@@ -65,6 +65,17 @@ export function FileContextMenu({ x, y, entry, onClose, onDelete }: FileContextM
 					<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 					{isMac ? "在访达中打开" : "在资源管理器中打开"}
 				</button>
+				<button
+					type="button"
+					onClick={() => {
+						void navigator.clipboard.writeText(entry.name);
+						onClose();
+					}}
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+				>
+					<span className="icon-[mdi--content-copy] h-3.5 w-3.5" />
+					复制名称
+				</button>
 				<div className="mx-1.5 my-1 h-px bg-border" />
 				<button
 					type="button"

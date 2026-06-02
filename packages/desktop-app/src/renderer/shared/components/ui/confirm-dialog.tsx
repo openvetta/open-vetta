@@ -17,7 +17,7 @@ export function ConfirmDialog(): JSX.Element | null {
 		if (!state) return;
 		function handleKey(e: KeyboardEvent) {
 			if (e.key === "Escape") {
-				state.onCancel?.();
+				state?.onCancel?.();
 				setState(null);
 			}
 		}

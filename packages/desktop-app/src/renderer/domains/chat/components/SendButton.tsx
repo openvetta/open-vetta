@@ -45,15 +45,22 @@ export const SendButton = memo(function SendButton({ canSend, isStreaming, onSen
 	}
 
 	return (
-		<button
-			type="button"
-			onClick={isStreaming ? onAbort : onSend}
-			disabled={!isStreaming && !canSend}
-			className="send-button relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full transition-shadow disabled:cursor-not-allowed"
-			data-icon-state={iconState}
-			style={buttonStyle}
-			title={isStreaming ? "停止生成" : "发送消息"}
-		>
+		<span className="send-button-wrap relative inline-flex h-8 w-8 items-center justify-center">
+			{isStreaming ? (
+				<>
+					<span aria-hidden className="send-button-ripple send-button-ripple-1" />
+					<span aria-hidden className="send-button-ripple send-button-ripple-2" />
+				</>
+			) : null}
+			<button
+				type="button"
+				onClick={isStreaming ? onAbort : onSend}
+				disabled={!isStreaming && !canSend}
+				className="send-button relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full transition-shadow disabled:cursor-not-allowed"
+				data-icon-state={iconState}
+				style={buttonStyle}
+				title={isStreaming ? "停止生成" : "发送消息"}
+			>
 			{showOutgoingArrow ? (
 				<span
 					aria-hidden
@@ -78,5 +85,6 @@ export const SendButton = memo(function SendButton({ canSend, isStreaming, onSen
 				<span className="send-button-side send-button-side-right" />
 			</span>
 		</button>
+		</span>
 	);
 });
