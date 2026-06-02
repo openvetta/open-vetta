@@ -11,6 +11,7 @@ import {
 	npmCacheDir,
 	npmGlobalBinDir,
 	npmGlobalPrefixDir,
+	pipCacheDir,
 	platformEntry,
 	RUNTIME_MANIFEST,
 	type RuntimeType,
@@ -285,18 +286,68 @@ export class RuntimeManager {
 		return process.platform === "win32" ? join(root, "Scripts") : join(root, "bin");
 	}
 
+	private pythonSitePackagesDir(): string {
+		return join(installDir("python"), "Lib", "site-packages");
+	}
+
 	private pipConfigPath(): string {
 		return join(installDir("python"), "pip.ini");
 	}
 
+	private pythonSiteCustomizePath(): string {
+		return join(this.pythonSitePackagesDir(), "sitecustomize.py");
+	}
+
+	private writePythonSiteCustomize(): void {
+		if (process.platform !== "win32" || !this.isReady("python")) return;
+		const siteCustomizePath = this.pythonSiteCustomizePath();
+		mkdirSync(this.pythonSitePackagesDir(), { recursive: true });
+		writeFileSync(
+			siteCustomizePath,
+			[
+				"import errno",
+				"import os",
+				"import sys",
+				"import tempfile",
+				"",
+				"if os.name == 'nt' and os.environ.get('VETTA_WINDOWS_SANDBOX') == '1':",
+				"    def _vetta_mkdtemp(suffix=None, prefix=None, dir=None):",
+				"        prefix, suffix, dir, output_type = tempfile._sanitize_params(prefix, suffix, dir)",
+				"        names = tempfile._get_candidate_names()",
+				"        if output_type is bytes:",
+				"            names = map(os.fsencode, names)",
+				"        for _ in range(tempfile.TMP_MAX):",
+				"            name = next(names)",
+				"            file = os.path.join(dir, prefix + name + suffix)",
+				"            sys.audit('tempfile.mkdtemp', file)",
+				"            try:",
+				"                os.mkdir(file, 0o777)",
+				"            except FileExistsError:",
+				"                continue",
+				"            except PermissionError:",
+				"                if os.path.isdir(dir) and os.access(dir, os.W_OK):",
+				"                    continue",
+				"                raise",
+				"            return os.path.abspath(file)",
+				"        raise FileExistsError(errno.EEXIST, 'No usable temporary directory name found')",
+				"",
+				"    tempfile.mkdtemp = _vetta_mkdtemp",
+				"",
+			].join("\n"),
+		);
+	}
+
 	private writePipConfig(): void {
 		if (!this.isReady("python")) return;
+		mkdirSync(pipCacheDir(), { recursive: true });
+		this.writePythonSiteCustomize();
 		writeFileSync(
 			this.pipConfigPath(),
 			[
 				"[global]",
 				`index-url = ${RUNTIME_MANIFEST.mirrors.pipIndexUrl}`,
 				`trusted-host = ${RUNTIME_MANIFEST.mirrors.pipTrustedHost}`,
+				`cache-dir = ${pipCacheDir()}`,
 				"",
 			].join("\n"),
 		);
@@ -357,6 +408,7 @@ export class RuntimeManager {
 				`if not defined PIP_CONFIG_FILE set "PIP_CONFIG_FILE=${this.pipConfigPath()}"`,
 				`if not defined PIP_INDEX_URL set "PIP_INDEX_URL=${RUNTIME_MANIFEST.mirrors.pipIndexUrl}"`,
 				`if not defined PIP_TRUSTED_HOST set "PIP_TRUSTED_HOST=${RUNTIME_MANIFEST.mirrors.pipTrustedHost}"`,
+				`if not defined PIP_CACHE_DIR set "PIP_CACHE_DIR=${pipCacheDir()}"`,
 				`"${executablePathFor("python")}" -m pip %*`,
 				"",
 			].join("\r\n");
@@ -370,7 +422,8 @@ export class RuntimeManager {
 			`: "${`PIP_CONFIG_FILE:=${this.pipConfigPath()}`}"`,
 			`: "${`PIP_INDEX_URL:=${RUNTIME_MANIFEST.mirrors.pipIndexUrl}`}"`,
 			`: "${`PIP_TRUSTED_HOST:=${RUNTIME_MANIFEST.mirrors.pipTrustedHost}`}"`,
-			"export PIP_CONFIG_FILE PIP_INDEX_URL PIP_TRUSTED_HOST",
+			`: "${`PIP_CACHE_DIR:=${pipCacheDir()}`}"`,
+			"export PIP_CONFIG_FILE PIP_INDEX_URL PIP_TRUSTED_HOST PIP_CACHE_DIR",
 			`exec "${executablePathFor("python")}" -m pip "$@"`,
 			"",
 		].join("\n");
@@ -434,6 +487,7 @@ export class RuntimeManager {
 					...process.env,
 					PIP_INDEX_URL: RUNTIME_MANIFEST.mirrors.pipIndexUrl,
 					PIP_TRUSTED_HOST: RUNTIME_MANIFEST.mirrors.pipTrustedHost,
+					PIP_CACHE_DIR: pipCacheDir(),
 				},
 			);
 			await this.writePipShimScripts();
@@ -518,14 +572,18 @@ export class RuntimeManager {
 		if (process.platform === "win32" && this.isReady("python")) {
 			this.writePipConfig();
 			process.env.PIP_CONFIG_FILE = this.pipConfigPath();
+			process.env.VETTA_MANAGED_PYTHON_SITE_PACKAGES = this.pythonSitePackagesDir();
+			process.env.VETTA_MANAGED_PYTHON_SCRIPTS = this.pipScriptsDir();
 		}
 		process.env.PIP_INDEX_URL = RUNTIME_MANIFEST.mirrors.pipIndexUrl;
 		process.env.PIP_TRUSTED_HOST = RUNTIME_MANIFEST.mirrors.pipTrustedHost;
+		process.env.PIP_CACHE_DIR = pipCacheDir();
 
 		// 确保 npm 全局前缀目录存在,否则首个 `npm i -g` 会因 prefix 不存在报错。
 		try {
 			mkdirSync(npmGlobalBinDir(), { recursive: true });
 			mkdirSync(npmCacheDir(), { recursive: true });
+			mkdirSync(pipCacheDir(), { recursive: true });
 		} catch {
 			// best-effort
 		}

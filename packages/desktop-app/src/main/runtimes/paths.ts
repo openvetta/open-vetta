@@ -87,6 +87,10 @@ export function npmCacheDir(): string {
 	return join(runtimesDir(), ".npm-cache");
 }
 
+export function pipCacheDir(): string {
+	return join(runtimesDir(), ".pip-cache");
+}
+
 /** 本地安装登记表路径：~/.vetta/runtimes/.cache/registry.json */
 export function registryPath(): string {
 	return join(runtimesDir(), ".cache", "registry.json");
