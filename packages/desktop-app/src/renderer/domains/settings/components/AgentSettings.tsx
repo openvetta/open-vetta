@@ -94,7 +94,7 @@ export function AgentSettings(): JSX.Element {
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">Agent配置</h1>
 
-			<div className="mb-6">
+			<div className="mb-6 p-1.5">
 				<SettingHeading section={SETTINGS_SECTION["agent-personalization"]} className="mb-1" />
 				<p className="mb-4 text-[12px] text-muted-foreground">
 					为 agent 选择一个预设人设，并可在其之上追加自定义指令。应用后在每个 session 的下一条消息生效，无需重启。
