@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
@@ -105,8 +105,11 @@ export function SettingsMenu(): JSX.Element {
 											title={opt.label}
 											aria-label={opt.label}
 											aria-pressed={mode === opt.value}
-											onClick={() => {
-												void setMode(opt.value);
+											onClick={(event: MouseEvent<HTMLButtonElement>) => {
+												void setMode(opt.value, {
+													x: event.clientX,
+													y: event.clientY,
+												});
 											}}
 											className={cn(
 												"flex h-5 w-6 items-center justify-center rounded-[4px] transition-colors",
