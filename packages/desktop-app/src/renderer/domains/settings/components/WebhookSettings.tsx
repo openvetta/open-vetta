@@ -17,6 +17,7 @@ import {
 import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
 import { SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 // =============================================================================
 // Form state
@@ -228,6 +229,7 @@ export function WebhookSettings(): JSX.Element {
 			</p>
 
 			<SettingSection
+				section={SETTINGS_SECTION["webhook-channels"]}
 				title={
 					<div className="flex items-center justify-between">
 						<span>渠道列表</span>

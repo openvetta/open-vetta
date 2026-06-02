@@ -32,7 +32,8 @@ import type {
 	ImWechatBindEvent,
 	ModelsConfigData,
 } from "@preload/api";
-import { SettingRow, SettingSection } from "./shared";
+import { SettingHeading, SettingRow, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 // shadcn Select treats "" as "no value set" internally and refuses items
 // with an empty value, so we use a magic sentinel for the "未设置" row.
@@ -513,7 +514,7 @@ export function ImBridgeSettings(): JSX.Element {
 			)}
 
 			{/* ─────────────────────────────────────────────────────────────── */}
-			<SettingSection title="总开关">
+			<SettingSection section={SETTINGS_SECTION["imbridge-toggle"]}>
 				<SettingRow
 					title="启用 IM 桥接"
 					description="开启后，桥接进程随 Vetta 一起运行；完全退出 Vetta 后立即停止接收消息。"
@@ -542,7 +543,7 @@ export function ImBridgeSettings(): JSX.Element {
 
 			{/* ─────────────────────────────────────────────────────────────── */}
 			<SettingSection
-				title="对话模型"
+				section={SETTINGS_SECTION["imbridge-model"]}
 				description="IM 桥接拉起的 coding-agent 子进程会用这个模型回复消息；未设置时跟随 Vetta 全局默认模型。"
 			>
 				<SettingRow title="模型" description="本地配置 + Vetta Zen 线上模型一起列出">
@@ -618,7 +619,7 @@ export function ImBridgeSettings(): JSX.Element {
 			{/* 消息渠道：卡片网格，未来新增的渠道直接追加新的 ChannelCard 即可。 */}
 			<div className="mb-6">
 				<div className="mb-3 flex items-baseline gap-2">
-					<h2 className="text-[15px] font-semibold text-foreground">消息渠道</h2>
+					<SettingHeading section={SETTINGS_SECTION["imbridge-channels"]} />
 					<span className="text-[12px] text-muted-foreground">2 个渠道</span>
 				</div>
 				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -777,6 +778,7 @@ export function ImBridgeSettings(): JSX.Element {
 
 			{/* ─────────────────────────────────────────────────────────────── */}
 			<SettingSection
+				section={SETTINGS_SECTION["imbridge-status"]}
 				title={
 					<div className="flex items-center justify-between">
 						<span>状态与日志</span>
@@ -1211,7 +1213,7 @@ function LogDrawer({ logs, onClose }: { logs: ImLogEvent[]; onClose: () => void 
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="flex items-center justify-between border-b border-border px-5 py-3">
-					<h2 className="text-[14px] font-semibold text-foreground">实时日志（最近 500 条）</h2>
+					<SettingHeading section={SETTINGS_SECTION["imbridge-logs"]} title="实时日志（最近 500 条）" className="text-[14px]" />
 					<button
 						type="button"
 						onClick={onClose}

@@ -6,7 +6,8 @@ import { Slider } from "@shared/components/ui/slider";
 import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
-import { SettingRow, SettingSection } from "./shared";
+import { SettingHeading, SettingRow, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 const personaItemVariants = {
 	hidden: { opacity: 0, x: -12 },
@@ -94,7 +95,7 @@ export function AgentSettings(): JSX.Element {
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">Agent配置</h1>
 
 			<div className="mb-6">
-				<h2 className="mb-1 text-[15px] font-semibold text-foreground">个性化</h2>
+				<SettingHeading section={SETTINGS_SECTION["agent-personalization"]} className="mb-1" />
 				<p className="mb-4 text-[12px] text-muted-foreground">
 					为 agent 选择一个预设人设，并可在其之上追加自定义指令。应用后在每个 session 的下一条消息生效，无需重启。
 				</p>
@@ -199,7 +200,7 @@ export function AgentSettings(): JSX.Element {
 			</div>
 
 			<div>
-				<SettingSection title="图片">
+				<SettingSection section={SETTINGS_SECTION["agent-images"]}>
 					<div className="px-5 py-4">
 						<div className="flex items-baseline justify-between gap-4">
 							<div className="text-[13px] font-medium text-foreground">上下文保留图片数</div>
@@ -247,7 +248,7 @@ export function AgentSettings(): JSX.Element {
 			</div>
 
 			<div className="mt-2">
-				<SettingSection title="实验性功能">
+				<SettingSection section={SETTINGS_SECTION["agent-experimental"]}>
 					<SettingRow
 						title="提问用户面板"
 						description="开启后 agent 可在执行途中向你提多选题，输入栏会临时变为问答选择界面。"

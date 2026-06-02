@@ -6,6 +6,7 @@ import { useProjects } from "@domains/project/hooks/useProjects";
 import { Button } from "@shared/components/ui/button";
 import { SettingSection } from "./shared";
 import { pathBasename } from "@shared/lib/utils";
+import { SETTINGS_SECTION } from "../registry";
 
 function projectName(entry: ProjectEntry): string {
 	return entry.name ?? pathBasename(entry.path);
@@ -57,7 +58,7 @@ export function ArchivedProjectsSettings(): JSX.Element {
 					<p className="text-[13px] text-muted-foreground">暂无归档项目</p>
 				</div>
 			) : (
-				<SettingSection title="归档列表">
+				<SettingSection section={SETTINGS_SECTION["archived-list"]}>
 					{archivedList.map((entry) => (
 						<div
 							key={entry.path}

@@ -16,7 +16,8 @@ import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { InputField } from "./ModelsSettings";
-import { SettingSection } from "./shared";
+import { SettingHeading, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 type McpEditMode = "visual" | "json";
 type McpTransportType = "stdio" | "http";
@@ -424,7 +425,7 @@ function RemoteMcpSection({
 		<div className="mt-8">
 			<div className="mb-3 flex items-center justify-between">
 				<div>
-					<h2 className="text-[15px] font-semibold text-foreground">远程 MCP 列表</h2>
+					<SettingHeading section={SETTINGS_SECTION["mcp-remote-list"]} />
 					<p className="mt-0.5 text-[11px] text-muted-foreground">
 						由管理员统一维护，可一键添加到本地配置
 					</p>
@@ -440,7 +441,7 @@ function RemoteMcpSection({
 				</Button>
 			</div>
 
-			<SettingSection title="可添加的远程服务器">
+			<SettingSection section={SETTINGS_SECTION["mcp-remote-available"]}>
 				{loading && (
 					<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
 						加载中…
@@ -713,7 +714,7 @@ export function McpSettings(): JSX.Element {
 			{mode === "visual" ? (
 				<>
 					{/* Server list */}
-					<SettingSection title="服务器列表">
+					<SettingSection section={SETTINGS_SECTION["mcp-server-list"]}>
 						{serverNames.length === 0 && !addingServer && (
 							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 								尚未配置任何 MCP 服务器，点击下方按钮添加
@@ -915,7 +916,7 @@ export function McpSettings(): JSX.Element {
 				/* JSON mode */
 				<div className="mb-6">
 					<div className="mb-3 flex items-center justify-between">
-						<h2 className="text-[15px] font-semibold text-foreground">编辑 JSON</h2>
+						<SettingHeading section={SETTINGS_SECTION["mcp-json"]} />
 						<Button
 							variant="primary"
 							size="sm"

@@ -5,6 +5,7 @@ import { Button } from "@shared/components/ui/button";
 import { ProviderIcon } from "@shared/components/provider-icon";
 import { SettingSection } from "./shared";
 import { InputField } from "./ModelsSettings";
+import { SETTINGS_SECTION } from "../registry";
 
 type ProviderEntry = ModelsConfigData["providers"][string];
 
@@ -147,6 +148,7 @@ export function PresetProvidersSection({
 	return (
 		<div className="mt-6">
 			<SettingSection
+				section={SETTINGS_SECTION["models-preset-providers"]}
 				title={
 					<div className="flex items-center justify-between">
 						<span>预设服务商</span>

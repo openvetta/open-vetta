@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { PermissionKind, PermissionStatus, PermissionsSnapshot } from "@preload/api";
 import { cn } from "@shared/lib/utils";
 import { SettingRow, SettingSection } from "./shared";
+import { SETTINGS_SECTION } from "../registry";
 
 interface ItemMeta {
 	kind: PermissionKind;
@@ -143,7 +144,7 @@ export function PermissionsSettings(): JSX.Element {
 				</div>
 			)}
 
-			<SettingSection title="系统权限">
+			<SettingSection section={SETTINGS_SECTION["permissions-system"]}>
 				{ITEMS.map((item, idx) => (
 					<PermissionItem
 						key={item.kind}
