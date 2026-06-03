@@ -178,7 +178,7 @@ export function SettingsMenu(): JSX.Element {
 											<span className="text-[11px] text-muted-foreground">5 小时额度</span>
 										</div>
 										<span className="text-[11px] font-semibold tabular-nums text-foreground">
-											{Math.round(fiveHourWindow.consumed)} / {Math.round(fiveHourWindow.limit)}
+											{fiveHourWindow.limit > 0 ? Math.min(100, Math.round((fiveHourWindow.consumed / fiveHourWindow.limit) * 100)) : 0}%
 										</span>
 									</div>
 									<div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-border">
