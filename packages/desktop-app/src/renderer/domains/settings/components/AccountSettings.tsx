@@ -5,6 +5,7 @@ import { authTokenAtom, authUserAtom, subscriptionStatusAtom } from "@shared/sto
 import { updateProfile } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { Dialog, DialogContent, DialogTitle } from "@shared/components/ui/dialog";
+import { UserAvatar } from "@shared/components/UserAvatar";
 import { SubscriptionCards } from "./SubscriptionCards";
 
 export function AccountSettings(): JSX.Element {
@@ -67,13 +68,13 @@ export function AccountSettings(): JSX.Element {
 			>
 				<div className="relative shrink-0">
 					<div className="rounded-full bg-gradient-to-br from-primary/40 to-primary/10 p-[2px]">
-						{user.avatar ? (
-							<img src={user.avatar} alt="" className="h-20 w-20 rounded-full object-cover" />
-						) : (
-							<div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent">
-								<span className="icon-[mdi--account] h-10 w-10 text-muted-foreground" />
-							</div>
-						)}
+						<UserAvatar
+							avatar={user.avatar}
+							nickname={user.nickname}
+							username={user.username}
+							className="h-20 w-20"
+							textClassName="text-3xl"
+						/>
 					</div>
 				</div>
 
