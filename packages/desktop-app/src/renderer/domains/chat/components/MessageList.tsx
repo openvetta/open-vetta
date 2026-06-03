@@ -321,7 +321,7 @@ function AssistantFoldTip({ state, count, expanded, startedAt, onToggle }: Assis
 						正在处理{elapsedSeconds}s
 					</span>
 				</div>
-				<div className="h-0.5 w-full rounded-full bg-border/80" />
+				<div className="h-px w-full rounded-full bg-border/80" />
 			</div>
 		);
 	}
@@ -341,7 +341,7 @@ function AssistantFoldTip({ state, count, expanded, startedAt, onToggle }: Assis
 				/>
 				<span>{expanded ? "收起" : "展开"}{count}条内容</span>
 			</button>
-			<div className="h-0.5 w-full rounded-full bg-border/80" />
+			<div className="h-px w-full rounded-full bg-border/80" />
 		</div>
 	);
 }
