@@ -16,6 +16,7 @@ import { useUpdaterInit } from "./shared/hooks/useUpdaterInit";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
 import { useFlowingInit } from "./domains/flowing/hooks/useFlowingInit";
+import { useNotificationInit } from "./domains/message/hooks/useNotificationInit";
 import { useFlowingChatInit } from "./domains/flowing-chat/hooks/useFlowingChatInit";
 import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
 import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
@@ -130,6 +131,7 @@ export function RootLayout(): JSX.Element {
 	useAuth();
 	useAppInit();
 	useFlowingInit();
+	useNotificationInit();
 	useFlowingChatInit();
 	useDownloadsInit();
 	useUpdaterInit();
