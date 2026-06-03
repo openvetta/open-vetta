@@ -297,7 +297,7 @@ export function RootLayout(): JSX.Element {
 						break;
 					}
 					case "open-settings": {
-						void navigate({ to: "/settings/$tab", params: { tab: "general" } });
+						void navigate({ to: "/settings/$tab", params: { tab: "account" } });
 						break;
 					}
 				}

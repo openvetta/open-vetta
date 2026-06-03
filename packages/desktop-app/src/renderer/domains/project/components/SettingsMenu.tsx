@@ -292,7 +292,7 @@ export function SettingsMenu(): JSX.Element {
 								type="button"
 								onClick={() => {
 									setOpen(false);
-									void navigate({ to: "/settings/$tab", params: { tab: "general" } });
+									void navigate({ to: "/settings/$tab", params: { tab: "account" } });
 								}}
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
