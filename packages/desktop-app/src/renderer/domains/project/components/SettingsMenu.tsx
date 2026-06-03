@@ -7,6 +7,7 @@ import { useAuth } from "@domains/auth/hooks/useAuth";
 import { creditsBalanceAtom, creditsUnlimitedAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { downloadsActiveCountAtom, themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/store/atoms";
 import { Popover, PopoverTrigger, PopoverContent } from "@shared/components/ui/popover";
+import { UserAvatar } from "@shared/components/UserAvatar";
 import { cn } from "@shared/lib/utils";
 import { formatResetCountdown } from "@shared/lib/subscription-format";
 
@@ -58,11 +59,13 @@ export function SettingsMenu(): JSX.Element {
 				>
 					{user ? (
 						<>
-							{user.avatar ? (
-								<img src={user.avatar} className="h-4 w-4 shrink-0 rounded-full" />
-							) : (
-								<span className="icon-[mdi--account-circle] h-4 w-4 shrink-0" />
-							)}
+							<UserAvatar
+								avatar={user.avatar}
+								nickname={user.nickname}
+								username={user.username}
+								className="h-4 w-4 shrink-0"
+								textClassName="text-[9px]"
+							/>
 							<span className="truncate">{user.nickname || user.username}</span>
 							{goEnabled && (
 								<span
