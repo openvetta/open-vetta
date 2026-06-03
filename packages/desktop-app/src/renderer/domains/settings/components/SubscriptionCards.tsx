@@ -284,7 +284,13 @@ function VettaGoCard({
 					onClick={() => setModelsExpanded((v) => !v)}
 					disabled={models.length === 0}
 					whileTap={{ scale: 0.98 }}
-					className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 py-2 text-[12px] font-medium text-amber-500 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
+					whileHover={{ backgroundColor: hexToRgba(themeColor, 0.12) }}
+					className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-[12px] font-medium transition-colors disabled:opacity-50"
+					style={{
+						borderColor: hexToRgba(themeColor, 0.22),
+						backgroundColor: hexToRgba(themeColor, 0.06),
+						color: themeColor,
+					}}
 				>
 					<motion.span
 						className="icon-[mdi--chevron-down] h-4 w-4"
