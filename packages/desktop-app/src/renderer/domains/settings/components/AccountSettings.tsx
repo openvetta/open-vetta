@@ -1,45 +1,23 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useState } from "react";
-import { authTokenAtom, authUserAtom, creditsBalanceAtom } from "@shared/store/auth-atoms";
-import {
-	fetchCreditsBalance,
-	fetchCreditTransactions,
-	updateProfile,
-	type CreditTransactionVO,
-} from "@shared/lib/api";
+import { authTokenAtom, authUserAtom, creditsBalanceAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
+import { fetchCreditsBalance, updateProfile } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { SettingRow, SettingSection } from "./shared";
 import { SubscriptionCards } from "./SubscriptionCards";
-
-const TX_TYPE_LABELS: Record<string, string> = {
-	deduct: "消费",
-	topup: "充值",
-	admin_adjust: "管理员调整",
-	initial: "初始赠送",
-};
-
-function formatDate(iso: string): string {
-	const d = new Date(iso);
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export function AccountSettings(): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const [user, setUser] = useAtom(authUserAtom);
 	const [creditsBalance, setCreditsBalance] = useAtom(creditsBalanceAtom);
+	const subscription = useAtomValue(subscriptionStatusAtom);
+	// 积分是 Vetta Zen 计费体系，后台关闭 Zen 时隐藏积分余额
+	const showCredits = subscription.zen_enabled;
 
 	// Nickname editing
 	const [nickname, setNickname] = useState(user?.nickname ?? "");
 	const [saving, setSaving] = useState(false);
 	const [saveMsg, setSaveMsg] = useState<string | null>(null);
-
-	// Credit transactions
-	const [transactions, setTransactions] = useState<CreditTransactionVO[]>([]);
-	const [txTotal, setTxTotal] = useState(0);
-	const [txPage, setTxPage] = useState(1);
-	const [txLoading, setTxLoading] = useState(false);
-	const txPageSize = 10;
 
 	useEffect(() => {
 		setNickname(user?.nickname ?? "");
@@ -52,27 +30,6 @@ export function AccountSettings(): JSX.Element {
 			.then((r) => setCreditsBalance(r.balance))
 			.catch(() => {});
 	}, [token, setCreditsBalance]);
-
-	// Fetch transactions
-	const loadTransactions = useCallback(
-		(page: number) => {
-			if (!token) return;
-			setTxLoading(true);
-			void fetchCreditTransactions(token, page, txPageSize)
-				.then((r) => {
-					setTransactions(r.list ?? []);
-					setTxTotal(r.total);
-					setTxPage(r.page);
-				})
-				.catch(() => {})
-				.finally(() => setTxLoading(false));
-		},
-		[token],
-	);
-
-	useEffect(() => {
-		loadTransactions(1);
-	}, [loadTransactions]);
 
 	const handleSaveNickname = useCallback(async () => {
 		if (!token || !nickname.trim()) return;
@@ -89,8 +46,6 @@ export function AccountSettings(): JSX.Element {
 			setSaving(false);
 		}
 	}, [token, nickname, setUser]);
-
-	const totalPages = Math.ceil(txTotal / txPageSize);
 
 	if (!user) {
 		return (
@@ -143,98 +98,27 @@ export function AccountSettings(): JSX.Element {
 				</SettingRow>
 			</SettingSection>
 
-			{/* Credits */}
-			<SettingSection title="积分">
-				<div className="px-5 py-4">
-					<div className="flex items-center gap-3">
-						<span className="icon-[mdi--wallet-outline] h-5 w-5 text-muted-foreground" />
-						<div>
-							<div className="text-[12px] text-muted-foreground">当前余额</div>
-							<div className={cn(
-								"text-[20px] font-bold tabular-nums",
-								creditsBalance !== null && creditsBalance <= 0
-									? "text-red-500"
-									: "text-foreground",
-							)}>
-								{creditsBalance !== null ? creditsBalance.toFixed(2) : "--"}
-							</div>
-						</div>
-					</div>
-				</div>
-			</SettingSection>
-
-			{/* Transactions */}
-			<SettingSection title="积分记录">
-				{txLoading && transactions.length === 0 ? (
-					<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
-						加载中...
-					</div>
-				) : transactions.length === 0 ? (
-					<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
-						暂无记录
-					</div>
-				) : (
-					<>
-						<div className="divide-y divide-border">
-							{transactions.map((tx) => (
-								<div key={tx.id} className="flex items-center justify-between px-5 py-3">
-									<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-2">
-											<span className="text-[13px] font-medium text-foreground">
-												{TX_TYPE_LABELS[tx.type] ?? tx.type}
-											</span>
-											{tx.model_id && (
-												<span className="truncate text-[11px] text-muted-foreground">
-													{tx.model_id}
-												</span>
-											)}
-										</div>
-										<div className="mt-0.5 text-[11px] text-muted-foreground">
-											{formatDate(tx.created_at)}
-											{tx.remark && ` - ${tx.remark}`}
-										</div>
-									</div>
-									<div className="ml-4 shrink-0 text-right">
-										<div className={cn(
-											"text-[13px] font-semibold tabular-nums",
-											tx.amount > 0 ? "text-green-600 dark:text-green-400" : "text-red-500",
-										)}>
-											{tx.amount > 0 ? "+" : ""}{tx.amount.toFixed(2)}
-										</div>
-										<div className="text-[11px] tabular-nums text-muted-foreground">
-											余额 {tx.balance.toFixed(2)}
-										</div>
-									</div>
+			{/* Credits：后台关闭 Vetta Zen 时隐藏 */}
+			{showCredits && (
+				<SettingSection title="积分">
+					<div className="px-5 py-4">
+						<div className="flex items-center gap-3">
+							<span className="icon-[mdi--wallet-outline] h-5 w-5 text-muted-foreground" />
+							<div>
+								<div className="text-[12px] text-muted-foreground">当前余额</div>
+								<div className={cn(
+									"text-[20px] font-bold tabular-nums",
+									creditsBalance !== null && creditsBalance <= 0
+										? "text-red-500"
+										: "text-foreground",
+								)}>
+									{creditsBalance !== null ? creditsBalance.toFixed(2) : "--"}
 								</div>
-							))}
-						</div>
-						{/* Pagination */}
-						{totalPages > 1 && (
-							<div className="flex items-center justify-center gap-2 border-t border-border px-5 py-3">
-								<button
-									type="button"
-									disabled={txPage <= 1}
-									onClick={() => loadTransactions(txPage - 1)}
-									className="rounded px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
-								>
-									上一页
-								</button>
-								<span className="text-[12px] tabular-nums text-muted-foreground">
-									{txPage} / {totalPages}
-								</span>
-								<button
-									type="button"
-									disabled={txPage >= totalPages}
-									onClick={() => loadTransactions(txPage + 1)}
-									className="rounded px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
-								>
-									下一页
-								</button>
 							</div>
-						)}
-					</>
-				)}
-			</SettingSection>
+						</div>
+					</div>
+				</SettingSection>
+			)}
 		</div>
 	);
 }
