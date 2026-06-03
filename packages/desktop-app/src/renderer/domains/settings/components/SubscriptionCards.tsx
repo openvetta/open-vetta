@@ -147,7 +147,7 @@ function VettaGoCard({
 			}}
 		>
 			<div
-				className="group relative overflow-hidden rounded-2xl border p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg"
+				className="group relative overflow-hidden rounded-2xl border p-5"
 				style={{
 					borderColor: hexToRgba(themeColor, 0.2),
 					backgroundImage: `linear-gradient(to bottom right, ${hexToRgba(themeColor, 0.1)}, ${hexToRgba(themeColor, 0.035)}, transparent)`,
