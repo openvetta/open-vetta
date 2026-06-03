@@ -74,8 +74,13 @@ function VettaGoCard({
 					</div>
 				)}
 
-				{/* 配额窗口 */}
-				{windows.length > 0 && (
+				{/* 配额窗口：所有窗口 limit<=0 视为无限制，隐藏进度只提示不限额度 */}
+				{windows.length > 0 && windows.every((w) => w.limit <= 0) ? (
+					<div className="relative mt-4 flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 text-[12px] font-medium text-amber-500">
+						<span className="icon-[mdi--infinity] h-4 w-4 shrink-0" />
+						无限制 · 不限额度
+					</div>
+				) : windows.length > 0 ? (
 					<div className="relative mt-4 space-y-2">
 						{windows.map((w) => {
 							const pct = w.limit > 0 ? Math.min(100, Math.round((w.consumed / w.limit) * 100)) : 0;
@@ -100,7 +105,7 @@ function VettaGoCard({
 							);
 						})}
 					</div>
-				)}
+				) : null}
 
 				{/* 模型列表 */}
 				<button
