@@ -812,7 +812,7 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 		setActiveUserAnimationId(id);
 	}, []);
 	const lerpRafRef = useRef<number | null>(null);
-	const userScrollIntentRafRef = useRef<number | null>(null);
+	const lastTouchYRef = useRef<number | null>(null);
 	const isStreamingRef = useRef(isStreaming);
 	isStreamingRef.current = isStreaming;
 
@@ -857,22 +857,40 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 		[releasePendingUserAnimation, startLerp],
 	);
 
-	const handleUserScrollIntent = useCallback(() => {
-		if (userScrollIntentRafRef.current !== null) return;
-		userScrollIntentRafRef.current = requestAnimationFrame(() => {
-			userScrollIntentRafRef.current = null;
-			const el = scrollerRef.current;
-			if (!el) return;
-			const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
-			if (distanceFromBottom > 80) {
-				shouldFollowBottomRef.current = false;
-				if (lerpRafRef.current !== null) {
-					cancelAnimationFrame(lerpRafRef.current);
-					lerpRafRef.current = null;
-				}
-			}
-		});
+	// 用户主动「向上滚」即视为离开底部，立刻停止自动跟随。
+	// 关键：按滚动「方向」判定，而非「距底距离」。旧实现用 distanceFromBottom > 80
+	// 做判定，导致贴底 80px 内的小幅上滚被无视，lerp 每帧又把 scrollTop 拉回底部，
+	// 和用户打架。重新跟随由 Virtuoso 的 atBottomStateChange(true) 在用户滚回底部时触发。
+	const stopFollowingBottom = useCallback(() => {
+		shouldFollowBottomRef.current = false;
+		if (lerpRafRef.current !== null) {
+			cancelAnimationFrame(lerpRafRef.current);
+			lerpRafRef.current = null;
+		}
 	}, []);
+
+	const handleWheelIntent = useCallback(
+		(event: WheelEvent) => {
+			if (event.deltaY < 0) stopFollowingBottom();
+		},
+		[stopFollowingBottom],
+	);
+
+	const handleTouchStart = useCallback((event: TouchEvent) => {
+		lastTouchYRef.current = event.touches[0]?.clientY ?? null;
+	}, []);
+
+	const handleTouchMove = useCallback(
+		(event: TouchEvent) => {
+			const y = event.touches[0]?.clientY;
+			if (y == null) return;
+			const last = lastTouchYRef.current;
+			lastTouchYRef.current = y;
+			// 手指下移（y 增大）= 内容向上滚 = 用户想看上文
+			if (last != null && y > last) stopFollowingBottom();
+		},
+		[stopFollowingBottom],
+	);
 
 	// session 切换：瞬间跳到底部，且取消任何 in-flight lerp 动画，避免出现
 	// 「从旧位置滑向新底部」的视觉动画。
@@ -942,10 +960,6 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 				cancelAnimationFrame(lerpRafRef.current);
 				lerpRafRef.current = null;
 			}
-			if (userScrollIntentRafRef.current !== null) {
-				cancelAnimationFrame(userScrollIntentRafRef.current);
-				userScrollIntentRafRef.current = null;
-			}
 		};
 	}, []);
 
@@ -983,13 +997,15 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	useEffect(() => {
 		const el = scrollerRef.current;
 		if (!el) return;
-		el.addEventListener("wheel", handleUserScrollIntent, { passive: true });
-		el.addEventListener("touchmove", handleUserScrollIntent, { passive: true });
+		el.addEventListener("wheel", handleWheelIntent, { passive: true });
+		el.addEventListener("touchstart", handleTouchStart, { passive: true });
+		el.addEventListener("touchmove", handleTouchMove, { passive: true });
 		return () => {
-			el.removeEventListener("wheel", handleUserScrollIntent);
-			el.removeEventListener("touchmove", handleUserScrollIntent);
+			el.removeEventListener("wheel", handleWheelIntent);
+			el.removeEventListener("touchstart", handleTouchStart);
+			el.removeEventListener("touchmove", handleTouchMove);
 		};
-	}, [handleUserScrollIntent]);
+	}, [handleWheelIntent, handleTouchStart, handleTouchMove]);
 
 	const footer = useCallback(() => (
 		<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
