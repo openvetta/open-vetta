@@ -140,8 +140,8 @@ export function SettingsMenu(): JSX.Element {
 							</div>
 						</motion.div>
 
-						{/* Credits balance */}
-						{user && (creditsBalance !== null || creditsUnlimited) && (
+						{/* Credits balance：积分是 Vetta Zen 计费体系，后台关闭 Zen 时不展示 */}
+						{user && subscription.zen_enabled && (creditsBalance !== null || creditsUnlimited) && (
 							<motion.div key="credits" variants={itemVariants}>
 								<div className="mx-1 my-1 border-t border-border" />
 								<div className="mx-2 my-1.5 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1.5">
