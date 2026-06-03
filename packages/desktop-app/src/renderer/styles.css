@@ -257,6 +257,15 @@ body {
 	background-clip: padding-box;
 }
 
+/* Fully hide scrollbar (still scrollable). Unlayered so it overrides the
+   global overlay-scrollbar rules above, which Tailwind utilities cannot. */
+.no-scrollbar {
+	scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
 /* macOS window drag region */
 .drag-region {
 	-webkit-app-region: drag;
