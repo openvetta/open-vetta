@@ -5,12 +5,20 @@ import { AnimatePresence, motion } from "motion/react";
 import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
+	authTokenAtom,
 	flowingChatSummaryAtom,
 	flowingChatTotalUnreadAtom,
 	flowingPendingCountAtom,
 	flowingPendingListAtom,
+	notificationUnreadAtom,
+	notificationsAtom,
 	projectsAtom,
 } from "@shared/store/atoms";
+import {
+	markAllNotificationsRead,
+	markNotificationRead,
+	type NotificationVO,
+} from "@shared/lib/api";
 import { Button } from "@shared/components/ui/button";
 import { Dialog, DialogContent } from "@shared/components/ui/dialog";
 import { useFlowingReceive } from "@domains/flowing/hooks/useFlowingReceive";
@@ -105,7 +113,81 @@ function FlowingList(): JSX.Element {
 }
 
 function NotificationList(): JSX.Element {
-	return <EmptyState text="暂无通知" icon="icon-[mdi--bell-outline]" />;
+	const token = useAtomValue(authTokenAtom);
+	const notifications = useAtomValue(notificationsAtom);
+	const setNotifications = useSetAtom(notificationsAtom);
+	const setUnread = useSetAtom(notificationUnreadAtom);
+
+	if (notifications.length === 0) {
+		return <EmptyState text="暂无通知" icon="icon-[mdi--bell-outline]" />;
+	}
+
+	const handleClick = (n: NotificationVO): void => {
+		if (n.read || !token) return;
+		setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+		setUnread((prev) => Math.max(0, prev - 1));
+		void markNotificationRead(token, n.id).catch(console.error);
+	};
+
+	const handleReadAll = (): void => {
+		if (!token) return;
+		setNotifications((prev) => prev.map((x) => ({ ...x, read: true })));
+		setUnread(0);
+		void markAllNotificationsRead(token).catch(console.error);
+	};
+
+	const hasUnread = notifications.some((n) => !n.read);
+
+	return (
+		<div className="flex flex-col gap-1.5 p-3">
+			{hasUnread && (
+				<div className="flex justify-end">
+					<button
+						type="button"
+						onClick={handleReadAll}
+						className="rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					>
+						全部已读
+					</button>
+				</div>
+			)}
+			{notifications.map((n) => (
+				<button
+					key={n.id}
+					type="button"
+					onClick={() => handleClick(n)}
+					className="group rounded-xl border border-border/60 bg-background p-3.5 text-left transition-colors hover:border-border hover:bg-accent/30"
+				>
+					<div className="flex items-start gap-3">
+						<div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+							<span className="icon-[mdi--bell-outline] h-4.5 w-4.5 text-primary" />
+							{!n.read && (
+								<span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
+							)}
+						</div>
+						<div className="min-w-0 flex-1">
+							<p
+								className={cn(
+									"truncate text-[12.5px] leading-snug",
+									n.read ? "text-muted-foreground" : "font-semibold text-foreground",
+								)}
+							>
+								{n.title}
+							</p>
+							{n.body && (
+								<p className="mt-1 whitespace-pre-line text-[11.5px] leading-relaxed text-muted-foreground">
+									{n.body}
+								</p>
+							)}
+							<p className="mt-1.5 text-[10px] text-muted-foreground/50">
+								{formatRelativeTime(n.created_at)}
+							</p>
+						</div>
+					</div>
+				</button>
+			))}
+		</div>
+	);
 }
 
 function ChatList({ onClose }: { onClose: () => void }): JSX.Element {
@@ -218,8 +300,9 @@ export function MessageCenter(): JSX.Element {
 	const [activeTab, setActiveTab] = useState<Tab>("all");
 	const pendingCount = useAtomValue(flowingPendingCountAtom);
 	const chatUnread = useAtomValue(flowingChatTotalUnreadAtom);
+	const notifUnread = useAtomValue(notificationUnreadAtom);
 
-	const totalUnread = pendingCount + chatUnread;
+	const totalUnread = pendingCount + chatUnread + notifUnread;
 
 	return (
 		<>
@@ -275,7 +358,13 @@ export function MessageCenter(): JSX.Element {
 						{TABS.map(({ value, label, icon }) => {
 							const isActive = activeTab === value;
 							const count =
-								value === "flowing" ? pendingCount : value === "chat" ? chatUnread : 0;
+								value === "flowing"
+									? pendingCount
+									: value === "chat"
+										? chatUnread
+										: value === "notifications"
+											? notifUnread
+											: 0;
 							return (
 								<button
 									key={value}
@@ -316,7 +405,8 @@ export function MessageCenter(): JSX.Element {
 							<>
 								{chatUnread > 0 && <ChatList onClose={() => setOpen(false)} />}
 								{pendingCount > 0 && <FlowingList />}
-								{chatUnread === 0 && pendingCount === 0 && (
+								{notifUnread > 0 && <NotificationList />}
+								{chatUnread === 0 && pendingCount === 0 && notifUnread === 0 && (
 									<EmptyState text="暂无消息" icon="icon-[mdi--inbox-outline]" />
 								)}
 							</>
