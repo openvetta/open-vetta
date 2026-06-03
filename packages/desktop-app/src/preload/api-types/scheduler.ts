@@ -1,0 +1,69 @@
+import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
+import type { ExecutionModeOverride, SelectedSkillRef } from "./shared.js";
+
+export interface ScheduledTask {
+	id: string;
+	name: string;
+	prompt: string;
+	cron: string;
+	isOnce: boolean;
+	enabled: boolean;
+	/** Project working directory this task is associated with */
+	cwd: string;
+	modelKey?: string;
+	executionMode?: ExecutionModeOverride;
+	skill?: SelectedSkillRef;
+	createdAt: number;
+	updatedAt: number;
+	lastRunAt: number | null;
+	lastRunStatus: "success" | "failed" | null;
+}
+
+export interface TaskExecutionRecord {
+	id: string;
+	taskId: string;
+	sessionId: string;
+	/** Session file path for navigating to the conversation */
+	sessionPath?: string;
+	/** Project working directory */
+	cwd?: string;
+	startedAt: number;
+	completedAt: number | null;
+	status: "running" | "success" | "failed" | "aborted";
+	prompt: string;
+	responsePreview: string;
+	error?: string;
+	durationMs?: number;
+	executionMode?: SessionExecutionMode;
+}
+
+export type TaskEvent =
+	| {
+			type: "task.started";
+			taskId: string;
+			recordId: string;
+			sessionId: string;
+			sessionPath: string;
+			cwd: string;
+			sessionName: string;
+			firstMessage: string;
+	  }
+	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
+	| { type: "task.failed"; taskId: string; error: string }
+	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };
+
+export interface DesktopSchedulerApi {
+	getTasks(): Promise<ScheduledTask[]>;
+	createTask(
+		task: Omit<ScheduledTask, "id" | "createdAt" | "updatedAt" | "lastRunAt" | "lastRunStatus">,
+	): Promise<ScheduledTask>;
+	updateTask(id: string, patch: Partial<ScheduledTask>): Promise<void>;
+	deleteTask(id: string): Promise<void>;
+	toggleTask(id: string): Promise<void>;
+	/** Disable a task (set enabled=false and stop its scheduled job) */
+	disableTask(id: string): Promise<void>;
+	getRecords(taskId: string): Promise<TaskExecutionRecord[]>;
+	runTaskNow(id: string): Promise<void>;
+	abortTask(id: string): Promise<void>;
+	onTaskEvent(handler: (event: TaskEvent) => void): () => void;
+}
