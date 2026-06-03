@@ -57,6 +57,7 @@
 		"@silvia-odwyer/photon-node": "^0.3.4",
 		"@tanstack/react-router": "^1.130.15",
 		"@types/adm-zip": "^0.5.8",
+		"@vetta/action-rpc": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
 		"@xyflow/react": "^12.10.2",
 		"adm-zip": "^0.5.16",

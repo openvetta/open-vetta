@@ -38,6 +38,7 @@ function Build-Layer0 {
 	Build-Pkg "packages/tui"
 	Build-Pkg "packages/ai"
 	Build-Pkg "packages/agent"
+	Build-Pkg "packages/action-rpc"
 	Build-Pkg "packages/runtime-telemetry"
 }
 

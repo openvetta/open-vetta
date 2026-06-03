@@ -17,7 +17,9 @@
 			"@shared/*": ["./src/renderer/shared/*"],
 			"@domains/*": ["./src/renderer/domains/*"],
 			"@preload/*": ["./src/preload/*"],
-			"@mariozechner/pi-ai": ["../ai/src/index.ts"]
+			"@mariozechner/pi-ai": ["../ai/src/index.ts"],
+			"@vetta/action-rpc": ["../action-rpc/src/index.ts"],
+			"@vetta/action-rpc/*": ["../action-rpc/src/*"]
 		},
 		"allowImportingTsExtensions": true
 	},
