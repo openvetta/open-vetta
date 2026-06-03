@@ -38,6 +38,29 @@ export function SettingsMenu(): JSX.Element {
 	const creditsBalance = useAtomValue(creditsBalanceAtom);
 	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
 	const subscription = useAtomValue(subscriptionStatusAtom);
+	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
+	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
+	const setSubscriptionStatus = useSetAtom(subscriptionStatusAtom);
+
+	// popover 打开时重新拉取额度/订阅，保证展示的是最新消耗值（消息消耗后无主动 invalidate）。
+	const handleOpenChange = (next: boolean): void => {
+		setOpen(next);
+		if (next && user) {
+			void window.vetta.credits
+				.getBalance()
+				.then((result) => {
+					setCreditsBalance(result.balance);
+					setCreditsUnlimited(result.unlimited ?? false);
+				})
+				.catch(console.error);
+			void window.vetta.subscription
+				.getStatus()
+				.then((result) => {
+					if (result.status) setSubscriptionStatus(result.status);
+				})
+				.catch(console.error);
+		}
+	};
 
 	// 后台开启 Vetta Go 时，头像挂会员标志，并在展开后展示 5 小时额度。
 	const goEnabled = subscription.go_enabled;
@@ -46,7 +69,7 @@ export function SettingsMenu(): JSX.Element {
 	const fiveHourWindow = fiveHourWindowRaw && fiveHourWindowRaw.limit > 0 ? fiveHourWindowRaw : undefined;
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover open={open} onOpenChange={handleOpenChange}>
 			<PopoverTrigger asChild>
 				<button
 					type="button"
