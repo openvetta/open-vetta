@@ -4,13 +4,7 @@ import { motion } from "motion/react";
 import { authTokenAtom, authUserAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { updateProfile } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
-import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@shared/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@shared/components/ui/dialog";
 import { SubscriptionCards } from "./SubscriptionCards";
 
 export function AccountSettings(): JSX.Element {
@@ -119,13 +113,22 @@ export function AccountSettings(): JSX.Element {
 			{/* 会员套餐:Vetta Go / Vetta Zen（积分余额展示于 Vetta Zen 卡内） */}
 			<SubscriptionCards />
 
-			{/* 编辑昵称弹窗 */}
+			{/* 编辑昵称弹窗（与自动化 dialog 风格统一） */}
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-				<DialogContent className="sm:max-w-[400px]">
-					<DialogHeader>
-						<DialogTitle>编辑昵称</DialogTitle>
-					</DialogHeader>
-					<div className="space-y-2 py-1">
+				<DialogContent
+					showCloseButton={false}
+					className="flex flex-col gap-0 overflow-hidden rounded-xl border border-border/60 bg-card/95 p-0 backdrop-blur-md sm:max-w-[420px]"
+				>
+					{/* 头部：图标 + 标题 */}
+					<div className="flex items-center gap-3 px-6 pt-5 pb-3">
+						<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/20">
+							<span className="icon-[mdi--account-edit-outline] h-4 w-4 text-primary" />
+						</div>
+						<DialogTitle className="text-[15px] font-semibold text-foreground">编辑昵称</DialogTitle>
+					</div>
+
+					{/* 内容 */}
+					<div className="px-6 pb-5">
 						<input
 							type="text"
 							value={nickname}
@@ -136,15 +139,17 @@ export function AccountSettings(): JSX.Element {
 							}}
 							placeholder="输入昵称"
 							maxLength={50}
-							className="h-10 w-full rounded-lg border border-input bg-background px-3 text-[14px] text-foreground outline-none transition-colors focus:border-primary"
+							className="h-10 w-full rounded-lg border-none bg-muted px-3 text-[14px] text-foreground outline-none transition-colors focus:ring-2 focus:ring-primary/40"
 						/>
-						{error && <p className="text-[12px] text-destructive">{error}</p>}
+						{error && <p className="mt-2 text-[12px] text-destructive">{error}</p>}
 					</div>
-					<DialogFooter>
+
+					{/* 底栏 */}
+					<div className="flex items-center justify-end gap-2 border-t border-border/40 bg-background/30 px-5 py-3">
 						<button
 							type="button"
 							onClick={() => setDialogOpen(false)}
-							className="h-9 rounded-lg px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent"
+							className="h-8 rounded-lg px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent"
 						>
 							取消
 						</button>
@@ -153,7 +158,7 @@ export function AccountSettings(): JSX.Element {
 							disabled={saving || !nickname.trim()}
 							onClick={() => void handleSaveNickname()}
 							className={cn(
-								"h-9 rounded-lg px-4 text-[13px] font-medium transition-colors",
+								"h-8 rounded-lg px-3.5 text-[12px] font-medium transition-colors",
 								saving || !nickname.trim()
 									? "bg-muted text-muted-foreground"
 									: "bg-primary text-primary-foreground hover:bg-primary/90",
@@ -161,7 +166,7 @@ export function AccountSettings(): JSX.Element {
 						>
 							{saving ? "保存中..." : "保存"}
 						</button>
-					</DialogFooter>
+					</div>
 				</DialogContent>
 			</Dialog>
 		</div>
