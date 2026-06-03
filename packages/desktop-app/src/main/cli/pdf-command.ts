@@ -34,8 +34,8 @@ const HELP_TEXT = `Vetta PDF command line interface
 Usage:
   Vetta.exe --html-to-pdf <input.html> --output <output.pdf> [options]
   Vetta.exe pdf html-to-pdf <input.html> --output <output.pdf> [options]
-  Vetta.exe -h
-  Vetta.exe --help
+  Vetta.exe pdf -h
+  Vetta.exe pdf --help
 
 Description:
   Convert an HTML file to PDF using Vetta Desktop's bundled Electron Chromium
@@ -77,7 +77,7 @@ class PdfCliError extends Error {
 }
 
 function findCommandStart(argv: string[]): number {
-	return argv.findIndex((arg) => arg === "--html-to-pdf" || arg === "pdf" || arg === "-h" || arg === "--help");
+	return argv.findIndex((arg) => arg === "--html-to-pdf" || arg === "pdf");
 }
 
 function parseNumberOption(name: string, value: string | undefined): number {

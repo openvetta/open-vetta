@@ -65,6 +65,7 @@
 		"@radix-ui/react-popover": "^1.1.15",
 		"@radix-ui/react-select": "^2.2.6",
 		"@radix-ui/react-slot": "^1.2.4",
+		"@vetta/cli-app": "workspace:*",
 		"@vetta/coding-agent": "workspace:*",
 		"date-fns": "^4.1.0",
 		"get-east-asian-width": "^1.4.0",

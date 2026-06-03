@@ -8,7 +8,7 @@
 		"configDir": ".vetta"
 	},
 	"bin": {
-		"vetta": "dist/cli.js"
+		"vetta-agent": "dist/cli.js"
 	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
