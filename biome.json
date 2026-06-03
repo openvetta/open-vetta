@@ -33,6 +33,7 @@
 			"!**/node_modules/**/*",
 			"!**/test-sessions.ts",
 			"!**/models.generated.ts",
+			"!**/personas-data.ts",
 			"!packages/web-ui/src/app.css",
 			"!!**/node_modules"
 		]
