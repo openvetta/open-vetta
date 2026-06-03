@@ -1,10 +1,54 @@
 import { useAtom } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import type { SubscriptionStatus } from "@preload/api.js";
 import { remoteProvidersAtom, subscriptionStatusAtom } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import { ProviderIcon } from "@shared/components/provider-icon";
 import { WINDOW_LABELS, formatExpiry, formatResetCountdown } from "@shared/lib/subscription-format";
+
+/** Vetta Go 品牌标志：渐变 emblem + 字标，带漂浮与光环脉冲。 */
+function VettaGoBrand(): JSX.Element {
+	return (
+		<div className="flex items-center gap-3">
+			<motion.div
+				className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
+				animate={{ y: [0, -3, 0] }}
+				transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+			>
+				<span className="icon-[mdi--rocket-launch] h-6 w-6 text-white drop-shadow" />
+				<motion.span
+					className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-amber-300/60"
+					animate={{ opacity: [0.6, 0, 0.6], scale: [1, 1.18, 1] }}
+					transition={{ duration: 2.4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+				/>
+			</motion.div>
+			<div className="flex flex-col leading-tight">
+				<span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-[18px] font-extrabold tracking-tight text-transparent">
+					Vetta Go
+				</span>
+				<span className="text-[10px] font-medium uppercase tracking-[0.18em] text-amber-500/70">
+					Token Plan
+				</span>
+			</div>
+		</div>
+	);
+}
+
+const cardVariants = {
+	hidden: { opacity: 0, y: 14, scale: 0.985 },
+	show: { opacity: 1, y: 0, scale: 1 },
+};
+
+const listVariants = {
+	hidden: {},
+	show: { transition: { staggerChildren: 0.04 } },
+};
+
+const chipVariants = {
+	hidden: { opacity: 0, y: 8, scale: 0.96 },
+	show: { opacity: 1, y: 0, scale: 1 },
+};
 
 /** Vetta Go 会员卡：仅在 active && go_enabled 时展示。 */
 function VettaGoCard({
@@ -20,9 +64,12 @@ function VettaGoCard({
 }): JSX.Element {
 	const [modelsExpanded, setModelsExpanded] = useState(false);
 	const [now, setNow] = useState(() => Date.now());
+	const [showDone, setShowDone] = useState(false);
+	const prevRefreshing = useRef(refreshing);
 	const models = goProvider?.models ?? [];
 	const windows = status.windows ?? [];
 	const expiry = formatExpiry(status.expires_at);
+	const unlimited = windows.length > 0 && windows.every((w) => w.limit <= 0);
 
 	// 每分钟刷新倒计时显示。
 	useEffect(() => {
@@ -30,72 +77,139 @@ function VettaGoCard({
 		return () => clearInterval(timer);
 	}, []);
 
+	// 刷新完成的正反馈：短暂展示「已更新」。
+	useEffect(() => {
+		if (prevRefreshing.current && !refreshing) {
+			setShowDone(true);
+			const t = setTimeout(() => setShowDone(false), 1600);
+			prevRefreshing.current = refreshing;
+			return () => clearTimeout(t);
+		}
+		prevRefreshing.current = refreshing;
+	}, [refreshing]);
+
 	return (
-		<div className="mb-6">
-			<div className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/15 via-amber-400/5 to-transparent p-5">
-				<div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-amber-500/15 blur-3xl" />
-				<div className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-amber-400/10 blur-3xl" />
+		<motion.div
+			className="mb-6"
+			variants={cardVariants}
+			initial="hidden"
+			animate="show"
+			transition={{ type: "spring", stiffness: 320, damping: 26 }}
+			whileHover={{ y: -3 }}
+		>
+			<div className="group relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/15 via-amber-400/5 to-transparent p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg hover:shadow-amber-500/10">
+				{/* 流动光晕 */}
+				<motion.div
+					className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-amber-500/15 blur-3xl"
+					animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
+					transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+				/>
+				<motion.div
+					className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-orange-400/10 blur-3xl"
+					animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
+					transition={{ duration: 7, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut", delay: 1 }}
+				/>
 
 				<div className="relative flex items-start justify-between gap-3">
-					<div className="flex items-center gap-3">
-						<ProviderIcon symbol={goProvider?.icon} className="h-11 w-11 rounded-xl" />
-						<div>
-							<div className="flex items-center gap-2 text-[16px] font-bold text-foreground">
-								{status.tier_name || "Vetta Go"}
-								{status.badge_text && (
-									<span
-										className="rounded-full px-1.5 py-0.5 text-[9px] font-medium text-white"
-										style={{ backgroundColor: status.badge_color || "#f59e0b" }}
-									>
-										{status.badge_text}
-									</span>
-								)}
-							</div>
-							<div className="mt-0.5 text-[12px] text-muted-foreground">
-								{status.description || `Token 套餐 · ${models.length} 个模型`}
-							</div>
-						</div>
-					</div>
-					<button
+					<VettaGoBrand />
+					<motion.button
 						type="button"
 						onClick={onRefresh}
 						disabled={refreshing}
-						className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-amber-500 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
+						whileTap={{ scale: 0.92 }}
+						className={cn(
+							"flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-50",
+							showDone ? "text-green-500" : "text-amber-500 hover:bg-amber-500/10",
+						)}
 					>
-						<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
-						{refreshing ? "刷新中…" : "刷新"}
-					</button>
+						<AnimatePresence mode="wait" initial={false}>
+							{showDone ? (
+								<motion.span
+									key="done"
+									initial={{ scale: 0, opacity: 0 }}
+									animate={{ scale: 1, opacity: 1 }}
+									exit={{ scale: 0, opacity: 0 }}
+									className="flex items-center gap-1.5"
+								>
+									<span className="icon-[mdi--check-circle] h-3.5 w-3.5" />
+									已更新
+								</motion.span>
+							) : (
+								<motion.span
+									key="idle"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={{ opacity: 0 }}
+									className="flex items-center gap-1.5"
+								>
+									<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
+									{refreshing ? "刷新中…" : "刷新"}
+								</motion.span>
+							)}
+						</AnimatePresence>
+					</motion.button>
+				</div>
+
+				{/* 套餐名 / 描述 */}
+				<div className="relative mt-3 flex flex-wrap items-center gap-2">
+					{status.badge_text && (
+						<span
+							className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+							style={{ backgroundColor: status.badge_color || "#f59e0b" }}
+						>
+							{status.badge_text}
+						</span>
+					)}
+					<span className="text-[12px] text-muted-foreground">
+						{status.description || `${status.tier_name || "Token 套餐"} · ${models.length} 个模型`}
+					</span>
 				</div>
 
 				{expiry && (
-					<div className="relative mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+					<div className="relative mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
 						<span className="icon-[mdi--calendar-clock] h-3.5 w-3.5 shrink-0" />
 						到期日 {expiry}
 					</div>
 				)}
 
 				{/* 配额窗口：所有窗口 limit<=0 视为无限制，隐藏进度只提示不限额度 */}
-				{windows.length > 0 && windows.every((w) => w.limit <= 0) ? (
-					<div className="relative mt-4 flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-3 py-2.5 text-[12px] font-medium text-amber-500">
-						<span className="icon-[mdi--infinity] h-4 w-4 shrink-0" />
-						无限制 · 不限额度
-					</div>
+				{unlimited ? (
+					<motion.div
+						className="relative mt-4 flex items-center gap-2 overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-3 py-3 text-[13px] font-semibold text-amber-500"
+						initial={{ opacity: 0, scale: 0.97 }}
+						animate={{ opacity: 1, scale: 1 }}
+						transition={{ delay: 0.1 }}
+					>
+						<motion.span
+							className="icon-[mdi--infinity] h-5 w-5 shrink-0"
+							animate={{ scale: [1, 1.15, 1] }}
+							transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+						/>
+						无限制 · 畅享不限额度
+						<motion.span
+							className="pointer-events-none absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/15 to-transparent"
+							animate={{ x: ["-120%", "220%"] }}
+							transition={{ duration: 2.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut", repeatDelay: 1.4 }}
+						/>
+					</motion.div>
 				) : windows.length > 0 ? (
 					<div className="relative mt-4 space-y-2">
-						{windows.map((w) => {
+						{windows.map((w, i) => {
 							const pct = w.limit > 0 ? Math.min(100, Math.round((w.consumed / w.limit) * 100)) : 0;
 							return (
 								<div key={w.kind} className="rounded-xl border border-border bg-background/40 px-3 py-2.5">
 									<div className="flex items-center justify-between text-[12px]">
 										<span className="font-medium text-foreground">{WINDOW_LABELS[w.kind]}</span>
-										<span className="text-muted-foreground">
+										<span className="tabular-nums text-muted-foreground">
 											{Math.round(w.consumed)} / {Math.round(w.limit)}
 										</span>
 									</div>
 									<div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border">
-										<div
-											className="h-full rounded-full bg-amber-500/70 transition-all"
-											style={{ width: `${pct}%` }}
+										<motion.div
+											className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+											initial={{ width: 0 }}
+											animate={{ width: `${pct}%` }}
+											transition={{ duration: 0.7, delay: 0.12 + i * 0.08, ease: "easeOut" }}
 										/>
 									</div>
 									<div className="mt-1 text-[10px] text-muted-foreground">
@@ -108,51 +222,72 @@ function VettaGoCard({
 				) : null}
 
 				{/* 模型列表 */}
-				<button
+				<motion.button
 					type="button"
 					onClick={() => setModelsExpanded((v) => !v)}
 					disabled={models.length === 0}
+					whileTap={{ scale: 0.98 }}
 					className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 py-2 text-[12px] font-medium text-amber-500 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
 				>
-					<span
-						className={cn(
-							"icon-[mdi--chevron-down] h-4 w-4 transition-transform",
-							modelsExpanded && "rotate-180",
-						)}
+					<motion.span
+						className="icon-[mdi--chevron-down] h-4 w-4"
+						animate={{ rotate: modelsExpanded ? 180 : 0 }}
+						transition={{ type: "spring", stiffness: 300, damping: 20 }}
 					/>
-					{models.length === 0 ? "暂无模型，点击上方刷新" : modelsExpanded ? "收起模型" : "查看模型"}
-				</button>
+					{models.length === 0 ? "暂无模型，点击上方刷新" : modelsExpanded ? "收起模型" : `查看 ${models.length} 个模型`}
+				</motion.button>
 
-				{modelsExpanded && models.length > 0 && (
-					<div className="relative mt-3 grid grid-cols-2 gap-2">
-						{models.map((model) => (
-							<div key={model.id} className="rounded-xl border border-border bg-background/40 px-3 py-2.5">
-								<div className="truncate text-[12px] font-medium text-foreground">
-									{model.name || model.id}
-								</div>
-								<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-									{model.input?.includes("image") && (
-										<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">vision</span>
-									)}
-									{model.reasoning && (
-										<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">reasoning</span>
-									)}
-									{model.tags?.map((tag) => (
-										<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
-									))}
-									{model.contextWindow != null && (
-										<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
-									)}
-									{model.maxTokens != null && (
-										<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
-									)}
-								</div>
-							</div>
-						))}
-					</div>
-				)}
+				<AnimatePresence initial={false}>
+					{modelsExpanded && models.length > 0 && (
+						<motion.div
+							key="models"
+							initial={{ height: 0, opacity: 0 }}
+							animate={{ height: "auto", opacity: 1 }}
+							exit={{ height: 0, opacity: 0 }}
+							transition={{ duration: 0.3, ease: "easeInOut" }}
+							className="relative overflow-hidden"
+						>
+							<motion.div
+								className="mt-3 grid grid-cols-2 gap-2"
+								variants={listVariants}
+								initial="hidden"
+								animate="show"
+							>
+								{models.map((model) => (
+									<motion.div
+										key={model.id}
+										variants={chipVariants}
+										whileHover={{ y: -2, scale: 1.02 }}
+										className="rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors hover:border-amber-500/40 hover:bg-amber-500/5"
+									>
+										<div className="truncate text-[12px] font-medium text-foreground">
+											{model.name || model.id}
+										</div>
+										<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+											{model.input?.includes("image") && (
+												<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">vision</span>
+											)}
+											{model.reasoning && (
+												<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">reasoning</span>
+											)}
+											{model.tags?.map((tag) => (
+												<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
+											))}
+											{model.contextWindow != null && (
+												<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
+											)}
+											{model.maxTokens != null && (
+												<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
+											)}
+										</div>
+									</motion.div>
+								))}
+							</motion.div>
+						</motion.div>
+					)}
+				</AnimatePresence>
 			</div>
-		</div>
+		</motion.div>
 	);
 }
 
