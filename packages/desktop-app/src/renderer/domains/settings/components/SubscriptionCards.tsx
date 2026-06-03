@@ -7,6 +7,15 @@ import { cn } from "@shared/lib/utils";
 import { ProviderIcon } from "@shared/components/provider-icon";
 import { WINDOW_LABELS, formatExpiry, formatResetCountdown } from "@shared/lib/subscription-format";
 
+/** hex(#rgb / #rrggbb) 转 rgba，用于按 badge 颜色生成低饱和渐变（深浅色通用）。 */
+function hexToRgba(hex: string, alpha: number): string {
+	let h = hex.replace("#", "");
+	if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+	const n = Number.parseInt(h, 16);
+	if (Number.isNaN(n)) return `rgba(245, 158, 11, ${alpha})`;
+	return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 /** Vetta Go 品牌标志：渐变 emblem + 字标，带漂浮与光环脉冲。 */
 function VettaGoBrand(): JSX.Element {
 	return (
@@ -74,13 +83,15 @@ function VettaGoCard({
 	const windows = status.windows ?? [];
 	const expiry = formatExpiry(status.expires_at);
 	const unlimited = windows.length > 0 && windows.every((w) => w.limit <= 0);
+	// 卡片渐变跟随订阅主 badge 背景色，低透明度降饱和。
+	const themeColor = status.badge_color || "#f59e0b";
 
 	// 鼠标跟随的 3D 倾斜：进卡片悬停时归位停止。
 	const rotateX = useSpring(0, { stiffness: 150, damping: 18, mass: 0.4 });
 	const rotateY = useSpring(0, { stiffness: 150, damping: 18, mass: 0.4 });
 
 	useEffect(() => {
-		const MAX = 6;
+		const MAX = 3;
 		const handle = (e: MouseEvent) => {
 			const el = cardRef.current;
 			if (!el || hoveringRef.current) return;
@@ -135,15 +146,23 @@ function VettaGoCard({
 				hoveringRef.current = false;
 			}}
 		>
-			<div className="group relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/15 via-amber-400/5 to-transparent p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg hover:shadow-amber-500/10">
+			<div
+				className="group relative overflow-hidden rounded-2xl border p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg"
+				style={{
+					borderColor: hexToRgba(themeColor, 0.2),
+					backgroundImage: `linear-gradient(to bottom right, ${hexToRgba(themeColor, 0.1)}, ${hexToRgba(themeColor, 0.035)}, transparent)`,
+				}}
+			>
 				{/* 流动光晕 */}
 				<motion.div
-					className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-amber-500/15 blur-3xl"
+					className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full blur-3xl"
+					style={{ backgroundColor: hexToRgba(themeColor, 0.12) }}
 					animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
 					transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
 				/>
 				<motion.div
-					className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-orange-400/10 blur-3xl"
+					className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full blur-3xl"
+					style={{ backgroundColor: hexToRgba(themeColor, 0.08) }}
 					animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
 					transition={{ duration: 7, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut", delay: 1 }}
 				/>
