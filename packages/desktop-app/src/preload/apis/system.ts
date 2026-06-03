@@ -1,5 +1,6 @@
-import type { IpcRenderer, WebUtils } from "electron";
+import type { IpcRenderer, IpcRendererEvent, WebUtils } from "electron";
 import type { DesktopApi } from "../api.js";
+import type { DesktopThemeChangeRequest } from "../api-types/theme.js";
 import { onIpcEvent, onIpcVoidEvent } from "./helper.js";
 
 export function createSystemApi(
@@ -39,6 +40,61 @@ export function createSystemApi(
 			getNative: () => ipc.invoke("vetta:theme:get-native"),
 			onNativeChanged: (handler) => onIpcEvent(ipc, "vetta:theme:native-changed", handler),
 			onModeRequested: (handler) => onIpcEvent(ipc, "vetta:theme:mode-requested", handler),
+			onChangeRequested: (handler) => {
+				const listener = (_event: IpcRendererEvent, data: unknown) => {
+					const request = data as { requestId?: unknown; mode?: unknown; themeId?: unknown };
+					if (typeof request.requestId !== "string") return;
+					const changeRequest: DesktopThemeChangeRequest = {};
+					if (request.mode === "light" || request.mode === "dark" || request.mode === "auto") {
+						changeRequest.mode = request.mode;
+					}
+					if (typeof request.themeId === "string") {
+						changeRequest.themeId = request.themeId;
+					}
+					void Promise.resolve(handler(changeRequest)).then(
+						(state) => ipc.send("vetta:theme:change-response", { requestId: request.requestId, state }),
+						(error: unknown) =>
+							ipc.send("vetta:theme:change-response", {
+								requestId: request.requestId,
+								error: error instanceof Error ? error.message : String(error),
+							}),
+					);
+				};
+				ipc.on("vetta:theme:change-requested", listener);
+				return () => ipc.removeListener("vetta:theme:change-requested", listener);
+			},
+			onStateRequested: (handler) => {
+				const listener = (_event: IpcRendererEvent, data: unknown) => {
+					const request = data as { requestId?: unknown };
+					if (typeof request.requestId !== "string") return;
+					void Promise.resolve(handler()).then(
+						(state) => ipc.send("vetta:theme:state-response", { requestId: request.requestId, state }),
+						(error: unknown) =>
+							ipc.send("vetta:theme:state-response", {
+								requestId: request.requestId,
+								error: error instanceof Error ? error.message : String(error),
+							}),
+					);
+				};
+				ipc.on("vetta:theme:state-requested", listener);
+				return () => ipc.removeListener("vetta:theme:state-requested", listener);
+			},
+			onHelpRequested: (handler) => {
+				const listener = (_event: IpcRendererEvent, data: unknown) => {
+					const request = data as { requestId?: unknown };
+					if (typeof request.requestId !== "string") return;
+					void Promise.resolve(handler()).then(
+						(help) => ipc.send("vetta:theme:help-response", { requestId: request.requestId, help }),
+						(error: unknown) =>
+							ipc.send("vetta:theme:help-response", {
+								requestId: request.requestId,
+								error: error instanceof Error ? error.message : String(error),
+							}),
+					);
+				};
+				ipc.on("vetta:theme:help-requested", listener);
+				return () => ipc.removeListener("vetta:theme:help-requested", listener);
+			},
 		},
 		fs: {
 			readDir: (dirPath) => ipc.invoke("vetta:fs:read-dir", dirPath),

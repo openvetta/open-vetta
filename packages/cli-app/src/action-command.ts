@@ -1,18 +1,64 @@
 import { writeSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { parseArgs } from "node:util";
 import {
 	type ActionRpcEndpoint,
 	ActionRpcError,
 	createActionRpcClient,
 	getActionRpcEndpointFilePath,
 } from "@vetta/action-rpc";
+import { z } from "zod";
 
-type ActionCommand =
-	| { type: "help" }
-	| { type: "error"; code: string; exitCode: number; message: string }
-	| { type: "search"; query?: string; domain?: string }
-	| { type: "describe"; actionId: string }
-	| { type: "run"; actionId: string; input: unknown };
+const actionErrorCommandSchema = z.object({
+	type: z.literal("error"),
+	code: z.string(),
+	exitCode: z.number(),
+	message: z.string(),
+});
+
+const actionHelpCommandSchema = z.object({ type: z.literal("help") });
+const actionSearchCommandSchema = z.object({
+	type: z.literal("search"),
+	query: z.string().optional(),
+	domain: z.string().optional(),
+});
+const actionDescribeCommandSchema = z.object({
+	type: z.literal("describe"),
+	actionId: z.string(),
+});
+const actionRunCommandSchema = z.object({
+	type: z.literal("run"),
+	actionId: z.string(),
+	input: z.unknown(),
+});
+
+const actionCommandSchema = z.discriminatedUnion("type", [
+	actionHelpCommandSchema,
+	actionErrorCommandSchema,
+	actionSearchCommandSchema,
+	actionDescribeCommandSchema,
+	actionRunCommandSchema,
+]);
+
+const actionEndpointSchema = z.object({
+	transport: z.literal("http"),
+	url: z.string(),
+	token: z.string(),
+});
+
+const searchOptionsSchema = z.object({
+	domain: z.string().optional(),
+});
+
+type ActionCommand = z.infer<typeof actionCommandSchema>;
+type ActionErrorCommand = z.infer<typeof actionErrorCommandSchema>;
+type ActionRpcClient = ReturnType<typeof createActionRpcClient>;
+type ActionSubcommandDefinition = {
+	name: string;
+	parse: (args: string[]) => ActionCommand;
+	canRun: (command: ActionCommand) => boolean;
+	run: (client: ActionRpcClient, command: ActionCommand) => Promise<unknown> | unknown;
+};
 
 const HELP_TEXT = `Vetta action command line interface
 
@@ -37,55 +83,110 @@ function writeJson(response: unknown): void {
 	writeSync(1, `${JSON.stringify(response)}\n`);
 }
 
+function argumentError(message: string): ActionErrorCommand {
+	return {
+		type: "error",
+		code: "ARGUMENT_ERROR",
+		exitCode: 2,
+		message,
+	};
+}
+
 function parseJsonInput(raw: string | undefined): ActionCommand | unknown {
 	if (raw === undefined) return {};
 	try {
 		return JSON.parse(raw) as unknown;
 	} catch {
-		return {
-			type: "error",
-			code: "ARGUMENT_ERROR",
-			exitCode: 2,
-			message: "json-input must be valid JSON",
-		} satisfies ActionCommand;
+		return argumentError("json-input must be valid JSON");
 	}
 }
 
 function isActionErrorCommand(value: unknown): value is Extract<ActionCommand, { type: "error" }> {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		"type" in value &&
-		value.type === "error" &&
-		"code" in value &&
-		"exitCode" in value &&
-		"message" in value
-	);
+	return actionErrorCommandSchema.safeParse(value).success;
 }
 
-function parseSearchOptions(args: string[]): ActionCommand {
-	let query: string | undefined;
-	let domain: string | undefined;
-	for (let i = 0; i < args.length; i++) {
-		const arg = args[i];
-		if (arg === "--domain") {
-			const value = args[++i];
-			if (!value) {
-				return { type: "error", code: "ARGUMENT_ERROR", exitCode: 2, message: "--domain requires a value" };
-			}
-			domain = value;
-			continue;
-		}
-		if (arg.startsWith("-")) {
-			return { type: "error", code: "ARGUMENT_ERROR", exitCode: 2, message: `Unknown option: ${arg}` };
-		}
-		if (query !== undefined) {
-			return { type: "error", code: "ARGUMENT_ERROR", exitCode: 2, message: `Unexpected argument: ${arg}` };
-		}
-		query = arg;
-	}
-	return { type: "search", query, domain };
+function parseRequiredSingleArgument(args: string[], argumentName: string): string | ActionErrorCommand {
+	const value = args[0];
+	if (!value) return argumentError(`Missing <${argumentName}>`);
+	if (args.length > 1) return argumentError(`Unexpected argument: ${args[1]}`);
+	return value;
 }
+
+function formatParseArgsError(error: unknown): string {
+	if (!(error instanceof Error)) return String(error);
+	const optionName = "optionName" in error && typeof error.optionName === "string" ? error.optionName : undefined;
+	if (error.message.includes("does not take an argument") && optionName) return `Unknown option: ${optionName}`;
+	if (error.message.includes("requires a value") && optionName) return `${optionName} requires a value`;
+	return error.message;
+}
+
+function parseSearchCommand(args: string[]): ActionCommand {
+	let parsed: ReturnType<typeof parseArgs>;
+	try {
+		parsed = parseArgs({
+			args,
+			allowPositionals: true,
+			options: {
+				domain: { type: "string" },
+			},
+			strict: true,
+		});
+	} catch (error) {
+		return argumentError(formatParseArgsError(error));
+	}
+
+	const [query, unexpected] = parsed.positionals;
+	if (unexpected !== undefined) {
+		return argumentError(`Unexpected argument: ${unexpected}`);
+	}
+	const options = searchOptionsSchema.parse(parsed.values);
+	return { type: "search", query, domain: options.domain };
+}
+
+function parseDescribeCommand(args: string[]): ActionCommand {
+	const actionId = parseRequiredSingleArgument(args, "action-id");
+	if (isActionErrorCommand(actionId)) return actionId;
+	return { type: "describe", actionId };
+}
+
+function parseRunCommand(args: string[]): ActionCommand {
+	const actionId = args[0];
+	if (!actionId) return argumentError("Missing <action-id>");
+	if (args.length > 2) return argumentError(`Unexpected argument: ${args[2]}`);
+	const input = parseJsonInput(args[1]);
+	if (isActionErrorCommand(input)) return input;
+	return { type: "run", actionId, input };
+}
+
+const actionSubcommands: ActionSubcommandDefinition[] = [
+	{
+		name: "search",
+		parse: parseSearchCommand,
+		canRun: (command) => actionSearchCommandSchema.safeParse(command).success,
+		run: (client, command) => {
+			const parsed = actionSearchCommandSchema.parse(command);
+			return client.search({ query: parsed.query, domain: parsed.domain });
+		},
+	},
+	{
+		name: "describe",
+		parse: parseDescribeCommand,
+		canRun: (command) => actionDescribeCommandSchema.safeParse(command).success,
+		run: (client, command) => {
+			const parsed = actionDescribeCommandSchema.parse(command);
+			return client.describe(parsed.actionId);
+		},
+	},
+	{
+		name: "run",
+		parse: parseRunCommand,
+		canRun: (command) => actionRunCommandSchema.safeParse(command).success,
+		run: (client, command) => {
+			const parsed = actionRunCommandSchema.parse(command);
+			return client.run(parsed.actionId, parsed.input);
+		},
+	},
+];
 
 export function parseActionCommand(args: string[]): ActionCommand | undefined {
 	if (args[0] !== "action") return undefined;
@@ -93,49 +194,21 @@ export function parseActionCommand(args: string[]): ActionCommand | undefined {
 	if (subcommand === undefined || subcommand === "-h" || subcommand === "--help") {
 		return { type: "help" };
 	}
-	if (subcommand === "search") {
-		return parseSearchOptions(args.slice(2));
-	}
-	if (subcommand === "describe") {
-		const actionId = args[2];
-		if (!actionId) return { type: "error", code: "ARGUMENT_ERROR", exitCode: 2, message: "Missing <action-id>" };
-		if (args.length > 3) {
-			return { type: "error", code: "ARGUMENT_ERROR", exitCode: 2, message: `Unexpected argument: ${args[3]}` };
-		}
-		return { type: "describe", actionId };
-	}
-	if (subcommand === "run") {
-		const actionId = args[2];
-		if (!actionId) return { type: "error", code: "ARGUMENT_ERROR", exitCode: 2, message: "Missing <action-id>" };
-		if (args.length > 4) {
-			return { type: "error", code: "ARGUMENT_ERROR", exitCode: 2, message: `Unexpected argument: ${args[4]}` };
-		}
-		const input = parseJsonInput(args[3]);
-		if (isActionErrorCommand(input)) return input;
-		return { type: "run", actionId, input };
-	}
-	return {
-		type: "error",
-		code: "ARGUMENT_ERROR",
-		exitCode: 2,
-		message: `Unknown action subcommand: ${subcommand}`,
-	};
-}
 
-function isActionEndpoint(value: unknown): value is ActionRpcEndpoint {
-	if (typeof value !== "object" || value === null) return false;
-	const record = value as Record<string, unknown>;
-	return record.transport === "http" && typeof record.url === "string" && typeof record.token === "string";
+	const definition = actionSubcommands.find((candidate) => candidate.name === subcommand);
+	if (!definition) return argumentError(`Unknown action subcommand: ${subcommand}`);
+	return definition.parse(args.slice(2));
 }
 
 async function readActionEndpoint(): Promise<ActionRpcEndpoint> {
 	const endpointFilePath = getActionRpcEndpointFilePath();
 	const raw = await readFile(endpointFilePath, "utf8");
 	const endpoint = JSON.parse(raw) as unknown;
-	if (!isActionEndpoint(endpoint)) {
+	const result = actionEndpointSchema.safeParse(endpoint);
+	if (!result.success) {
 		throw new Error(`Invalid action server endpoint file: ${endpointFilePath}`);
 	}
-	return endpoint;
+	return result.data;
 }
 
 function isConnectionError(error: unknown): boolean {
@@ -154,12 +227,9 @@ export async function runActionCommand(command: ActionCommand): Promise<number> 
 
 	try {
 		const client = createActionRpcClient(await readActionEndpoint());
-		const result =
-			command.type === "search"
-				? await client.search({ query: command.query, domain: command.domain })
-				: command.type === "describe"
-					? await client.describe(command.actionId)
-					: await client.run(command.actionId, command.input);
+		const definition = actionSubcommands.find((candidate) => candidate.canRun(command));
+		if (!definition) throw new Error(`Unhandled action command: ${command.type}`);
+		const result = await definition.run(client, command);
 		writeJson({ ok: true, result });
 		return 0;
 	} catch (error) {

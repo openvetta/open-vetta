@@ -1,5 +1,6 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
+import type { DesktopThemeSnapshot } from "../../../preload/api-types/theme";
 import { resolvedThemeAtom, type ThemeMode, themeModeAtom, themeNameAtom } from "../store/atoms";
 import {
 	applyTheme,
@@ -9,11 +10,25 @@ import {
 	type ThemeTransitionOptions,
 	withThemeTransition,
 } from "../theme/apply";
+import { THEMES } from "../theme/themes";
 
 export function useTheme() {
 	const [mode, setModeAtom] = useAtom(themeModeAtom);
 	const [resolved, setResolved] = useAtom(resolvedThemeAtom);
 	const [themeName, setThemeNameAtom] = useAtom(themeNameAtom);
+
+	const getThemeSnapshot = useCallback((): DesktopThemeSnapshot => {
+		const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
+		const storedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
+		const root = document.documentElement;
+		const resolvedMode = root.getAttribute("data-mode");
+		return {
+			mode: storedMode === "light" || storedMode === "dark" || storedMode === "auto" ? storedMode : "dark",
+			themeId: storedThemeId && storedThemeId.length > 0 ? storedThemeId : "default",
+			resolved: resolvedMode === "light" || resolvedMode === "dark" ? resolvedMode : null,
+			appliedThemeId: root.getAttribute("data-theme"),
+		};
+	}, []);
 
 	// 挂载时与 mode 变化时同步原生窗口主题 + 解析当前 mode。
 	// applyInitialTheme() 已在 main.tsx 启动时写过一次 inline style，这里只做：
@@ -56,7 +71,7 @@ export function useTheme() {
 	}, [setResolved]);
 
 	const setMode = useCallback(
-		async (newMode: ThemeMode, transitionOptions?: ThemeTransitionOptions) => {
+		async (newMode: ThemeMode, transitionOptions?: ThemeTransitionOptions, themeNameOverride?: string) => {
 			localStorage.setItem(MODE_STORAGE_KEY, newMode);
 
 			let r: ResolvedMode;
@@ -72,10 +87,11 @@ export function useTheme() {
 				await window.vetta.theme.set(newMode).catch(() => {});
 				r = newMode;
 			}
+			const nextThemeName = themeNameOverride ?? themeName;
 			withThemeTransition(() => {
 				setModeAtom(newMode);
 				setResolved(r);
-				applyTheme(r, themeName);
+				applyTheme(r, nextThemeName);
 			}, transitionOptions);
 		},
 		[setModeAtom, setResolved, themeName],
@@ -97,6 +113,34 @@ export function useTheme() {
 		},
 		[resolved, setThemeNameAtom],
 	);
+
+	useEffect(() => {
+		return window.vetta.theme.onChangeRequested(async ({ mode: requestedMode, themeId }) => {
+			if (requestedMode !== undefined) {
+				if (typeof themeId === "string") {
+					localStorage.setItem(THEME_STORAGE_KEY, themeId);
+					setThemeNameAtom(themeId);
+				}
+				await setMode(requestedMode, undefined, themeId);
+				return getThemeSnapshot();
+			}
+			if (typeof themeId === "string") {
+				setThemeName(themeId);
+			}
+			return getThemeSnapshot();
+		});
+	}, [getThemeSnapshot, setMode, setThemeName, setThemeNameAtom]);
+
+	useEffect(() => {
+		return window.vetta.theme.onStateRequested(getThemeSnapshot);
+	}, [getThemeSnapshot]);
+
+	useEffect(() => {
+		return window.vetta.theme.onHelpRequested(() => ({
+			state: getThemeSnapshot(),
+			themes: THEMES.map(({ id, label }) => ({ id, label })),
+		}));
+	}, [getThemeSnapshot]);
 
 	return { mode, resolved, themeName, setMode, setThemeName };
 }
