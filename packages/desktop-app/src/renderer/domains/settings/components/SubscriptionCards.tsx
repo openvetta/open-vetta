@@ -36,8 +36,8 @@ function VettaGoBrand(): JSX.Element {
 				<span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-[18px] font-extrabold tracking-tight text-transparent">
 					Vetta Go
 				</span>
-				<span className="text-[10px] font-medium uppercase tracking-[0.18em] text-amber-500/70">
-					Token Plan
+				<span className="text-[10px] font-medium tracking-[0.18em] text-amber-500/70">
+					当前订阅
 				</span>
 			</div>
 		</div>
