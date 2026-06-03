@@ -56,21 +56,21 @@ export function SettingsMenu(): JSX.Element {
 				>
 					{user ? (
 						<>
-							<span className="relative inline-flex h-4 w-4 shrink-0">
-								{user.avatar ? (
-									<img src={user.avatar} className="h-4 w-4 rounded-full" />
-								) : (
-									<span className="icon-[mdi--account-circle] h-4 w-4" />
-								)}
-								{goEnabled && (
-									<span
-										className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-muted"
-										style={{ backgroundColor: subscription.badge_color || "#f59e0b" }}
-										title={subscription.tier_name || "Vetta Go"}
-									/>
-								)}
-							</span>
+							{user.avatar ? (
+								<img src={user.avatar} className="h-4 w-4 shrink-0 rounded-full" />
+							) : (
+								<span className="icon-[mdi--account-circle] h-4 w-4 shrink-0" />
+							)}
 							<span className="truncate">{user.nickname || user.username}</span>
+							{goEnabled && (
+								<span
+									className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none text-white"
+									style={{ backgroundColor: subscription.badge_color || "#f59e0b" }}
+									title={subscription.tier_name || "Vetta Go"}
+								>
+									{subscription.badge_text || subscription.tier_name || "Go"}
+								</span>
+							)}
 						</>
 					) : (
 						<>
