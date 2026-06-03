@@ -43,6 +43,9 @@ const ENV_WHITELIST = [
 	"PIP_CACHE_DIR",
 	"VETTA_MANAGED_PYTHON_SITE_PACKAGES",
 	"VETTA_MANAGED_PYTHON_SCRIPTS",
+	"VETTA_HOME",
+	"VETTA_ACTION_RPC_ENDPOINT_FILE",
+	"VETTA_DESKTOP_EXE",
 ] as const;
 
 type WindowsSandboxBackend = "auto" | "elevated" | "unelevated";

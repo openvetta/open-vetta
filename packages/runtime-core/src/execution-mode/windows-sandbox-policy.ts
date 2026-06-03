@@ -63,6 +63,11 @@ export function buildWindowsSandboxPolicy(options: WindowsSandboxPolicyOptions):
 		optionalEnvDir(options.env, "NPM_CONFIG_USERCONFIG"),
 		optionalEnvDir(options.env, "PIP_CONFIG_FILE"),
 	]);
+	const actionRpcReadRoots = compactPaths([
+		optionalEnvPath(options.env, "VETTA_HOME"),
+		optionalEnvDir(options.env, "VETTA_ACTION_RPC_ENDPOINT_FILE"),
+		optionalEnvDir(options.env, "VETTA_DESKTOP_EXE"),
+	]);
 	const packageManagerWriteRoots = compactPaths([
 		optionalEnvPath(options.env, "npm_config_prefix"),
 		optionalEnvPath(options.env, "NPM_CONFIG_PREFIX"),
@@ -79,6 +84,7 @@ export function buildWindowsSandboxPolicy(options: WindowsSandboxPolicyOptions):
 		system32Root ?? "",
 		...packageManagerReadRoots,
 		...packageManagerWriteRoots,
+		...actionRpcReadRoots,
 		...(options.grant?.allowReadRoots ?? []),
 	]);
 	const allowWriteRoots = uniqueResolved([

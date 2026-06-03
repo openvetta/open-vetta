@@ -2,10 +2,14 @@ import { mkdir } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
+import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
 import { type LocalActionServerHandle, startLocalActionServer } from "./app-actions/local-server.js";
+import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
 import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
+import { parseHelpCliCommand, runHelpCliCommand } from "./cli/help-command.js";
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 
@@ -45,17 +49,28 @@ const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
 const devMainEntryPath = join(appRoot, "dist/main/index.js");
-// OCR is checked first so that `ocr --help` (and other ocr-scoped flags) is
-// not swallowed by the older pdf CLI parser, which eagerly matches `-h` /
-// `--help`. Either CLI uses keywords distinct enough that order is otherwise
-// inconsequential.
+// Command-specific parsers run before the top-level help parser so commands
+// like `action -h` and `ocr -h` can render their own help text.
 const ocrCliCommand = parseOcrCliCommand(process.argv);
-const pdfCliCommand = ocrCliCommand === null ? parsePdfCliCommand(process.argv) : null;
+const actionCliCommand = ocrCliCommand === null ? parseActionCliCommand(process.argv) : null;
+const pdfCliCommand = ocrCliCommand === null && actionCliCommand === null ? parsePdfCliCommand(process.argv) : null;
+const helpCliCommand =
+	ocrCliCommand === null && actionCliCommand === null && pdfCliCommand === null
+		? parseHelpCliCommand(process.argv)
+		: null;
 // `--agent-rpc` is the IM sidecar's discriminator: when present we
 // short-circuit into @vetta/coding-agent's main and skip every UI/IPC
 // bring-up below. See cli/agent-rpc-command.ts for the full rationale.
-const agentRpcArgs = pdfCliCommand === null && ocrCliCommand === null ? parseAgentRpcCommand(process.argv) : null;
-const isCliMode = pdfCliCommand !== null || ocrCliCommand !== null || agentRpcArgs !== null;
+const agentRpcArgs =
+	pdfCliCommand === null && ocrCliCommand === null && actionCliCommand === null && helpCliCommand === null
+		? parseAgentRpcCommand(process.argv)
+		: null;
+const isCliMode =
+	pdfCliCommand !== null ||
+	ocrCliCommand !== null ||
+	actionCliCommand !== null ||
+	helpCliCommand !== null ||
+	agentRpcArgs !== null;
 
 // 给 V8 老生代一个明确上限：超过会抛 `RangeError: Invalid string length` /
 // JS heap out of memory，能被 uncaughtException 接到并落盘栈；否则任 RSS 自然
@@ -101,6 +116,7 @@ if (agentRpcArgs) {
 	installMainDiagnostics();
 }
 const mainLog = getAppLogger("main");
+process.env[VETTA_HOME_ENV] = getVettaHomePath();
 
 if (isCliMode) {
 	const cliUserDataDir =
@@ -108,7 +124,11 @@ if (isCliMode) {
 			? "vetta-ocr-cli"
 			: pdfCliCommand !== null
 				? "vetta-pdf-cli"
-				: `vetta-agent-rpc-${process.pid}`;
+				: actionCliCommand !== null
+					? `vetta-action-cli-${process.pid}`
+					: helpCliCommand !== null
+						? `vetta-help-cli-${process.pid}`
+						: `vetta-agent-rpc-${process.pid}`;
 	app.setPath("userData", join(tmpdir(), cliUserDataDir));
 	app.commandLine.appendSwitch("disable-gpu");
 	app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
@@ -194,6 +214,18 @@ if (!gotSingleLock) {
 
 		if (ocrCliCommand) {
 			const exitCode = await runOcrCliCommand(ocrCliCommand);
+			app.exit(exitCode);
+			return;
+		}
+
+		if (actionCliCommand) {
+			const exitCode = await runActionCliCommand(actionCliCommand);
+			app.exit(exitCode);
+			return;
+		}
+
+		if (helpCliCommand) {
+			const exitCode = runHelpCliCommand();
 			app.exit(exitCode);
 			return;
 		}
@@ -357,16 +389,18 @@ if (!gotSingleLock) {
 		}
 
 		try {
+			let vettaAppPath: string;
 			if (app.isPackaged) {
-				await persistVettaAppPath(process.execPath);
+				vettaAppPath = process.execPath;
 			} else {
-				const devCliShimPath = await ensureDevCliShim({
+				vettaAppPath = await ensureDevCliShim({
 					appRoot,
 					electronPath: process.execPath,
 					mainEntryPath: devMainEntryPath,
 				});
-				await persistVettaAppPath(devCliShimPath);
 			}
+			process.env.VETTA_DESKTOP_EXE = vettaAppPath;
+			await persistVettaAppPath(vettaAppPath);
 		} catch (err) {
 			mainLog.error("failed to persist vettaAppPath", err);
 		}
@@ -379,7 +413,7 @@ if (!gotSingleLock) {
 		try {
 			const actionRuntime = createAppActionRuntime();
 			localActionServer = await startLocalActionServer(actionRuntime, {
-				userDataPath: app.getPath("userData"),
+				endpointFilePath: getActionServerEndpointFilePath(),
 			});
 			mainLog.info("local action server ready", {
 				transport: localActionServer.endpoint.transport,

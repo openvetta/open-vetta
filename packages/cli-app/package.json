@@ -5,6 +5,7 @@
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"bin": {
+		"vetta": "dist/cli.js",
 		"vetta-cli-app": "dist/cli.js"
 	},
 	"files": ["dist"],
@@ -13,6 +14,8 @@
 		"build": "tsgo -p tsconfig.build.json"
 	},
 	"dependencies": {
+		"@vetta/action-rpc": "workspace:*",
+		"@vetta/coding-agent": "workspace:*",
 		"@vetta/runtime-core": "workspace:*"
 	},
 	"devDependencies": {
