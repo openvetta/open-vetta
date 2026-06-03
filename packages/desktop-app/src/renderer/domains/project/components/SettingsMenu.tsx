@@ -67,6 +67,10 @@ export function SettingsMenu(): JSX.Element {
 	const fiveHourWindowRaw = goEnabled ? subscription.windows?.find((w) => w.kind === "5h") : undefined;
 	// 无限制套餐(limit<=0)不展示额度进度。
 	const fiveHourWindow = fiveHourWindowRaw && fiveHourWindowRaw.limit > 0 ? fiveHourWindowRaw : undefined;
+	// 展示剩余额度百分比（100% 满额 → 0% 用尽），比已消耗更符合直觉。
+	const fiveHourRemainingPercent = fiveHourWindow
+		? Math.max(0, Math.min(100, Math.round((1 - fiveHourWindow.consumed / fiveHourWindow.limit) * 100)))
+		: 0;
 
 	return (
 		<Popover open={open} onOpenChange={handleOpenChange}>
@@ -203,16 +207,17 @@ export function SettingsMenu(): JSX.Element {
 											<span className="icon-[mdi--timer-sand] h-3.5 w-3.5 text-muted-foreground" />
 											<span className="text-[11px] text-muted-foreground">5 小时额度</span>
 										</div>
-										<span className="text-[11px] font-semibold tabular-nums text-foreground">
-											{fiveHourWindow.limit > 0 ? Math.min(100, Math.round((fiveHourWindow.consumed / fiveHourWindow.limit) * 100)) : 0}%
+										<span className={cn(
+											"text-[11px] font-semibold tabular-nums",
+											fiveHourRemainingPercent <= 0 ? "text-destructive" : "text-foreground",
+										)}>
+											{fiveHourRemainingPercent}%
 										</span>
 									</div>
 									<div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-border">
 										<div
 											className="h-full rounded-full bg-primary/70 transition-all"
-											style={{
-												width: `${fiveHourWindow.limit > 0 ? Math.min(100, Math.round((fiveHourWindow.consumed / fiveHourWindow.limit) * 100)) : 0}%`,
-											}}
+											style={{ width: `${fiveHourRemainingPercent}%` }}
 										/>
 									</div>
 									<div className="mt-1 text-[10px] text-muted-foreground">
