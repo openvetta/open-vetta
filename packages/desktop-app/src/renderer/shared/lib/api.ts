@@ -451,6 +451,20 @@ export async function markAllNotificationsRead(token: string): Promise<void> {
 	});
 }
 
+export async function deleteNotification(token: string, id: number): Promise<void> {
+	await request<unknown>(`/notifications/${id}`, {
+		method: "DELETE",
+		headers: authHeaders(token),
+	});
+}
+
+export async function clearReadNotifications(token: string): Promise<void> {
+	await request<unknown>("/notifications/clear-read", {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
 export interface ColleagueInfo {
 	id: number;
 	username: string;
