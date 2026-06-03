@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useState } from "react";
-import { authTokenAtom, authUserAtom, creditsBalanceAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
-import { fetchCreditsBalance, updateProfile } from "@shared/lib/api";
+import { authTokenAtom, authUserAtom } from "@shared/store/auth-atoms";
+import { updateProfile } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { SettingRow, SettingSection } from "./shared";
 import { SubscriptionCards } from "./SubscriptionCards";
@@ -9,10 +9,6 @@ import { SubscriptionCards } from "./SubscriptionCards";
 export function AccountSettings(): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const [user, setUser] = useAtom(authUserAtom);
-	const [creditsBalance, setCreditsBalance] = useAtom(creditsBalanceAtom);
-	const subscription = useAtomValue(subscriptionStatusAtom);
-	// 积分是 Vetta Zen 计费体系，后台关闭 Zen 时隐藏积分余额
-	const showCredits = subscription.zen_enabled;
 
 	// Nickname editing
 	const [nickname, setNickname] = useState(user?.nickname ?? "");
@@ -22,14 +18,6 @@ export function AccountSettings(): JSX.Element {
 	useEffect(() => {
 		setNickname(user?.nickname ?? "");
 	}, [user?.nickname]);
-
-	// Fetch balance
-	useEffect(() => {
-		if (!token) return;
-		void fetchCreditsBalance(token)
-			.then((r) => setCreditsBalance(r.balance))
-			.catch(() => {});
-	}, [token, setCreditsBalance]);
 
 	const handleSaveNickname = useCallback(async () => {
 		if (!token || !nickname.trim()) return;
@@ -60,7 +48,7 @@ export function AccountSettings(): JSX.Element {
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">账户</h1>
 
-			{/* 会员套餐:Vetta Go / Vetta Zen */}
+			{/* 会员套餐:Vetta Go / Vetta Zen（积分余额展示于 Vetta Zen 卡内） */}
 			<SubscriptionCards />
 
 			{/* Profile */}
@@ -97,28 +85,6 @@ export function AccountSettings(): JSX.Element {
 					</div>
 				</SettingRow>
 			</SettingSection>
-
-			{/* Credits：后台关闭 Vetta Zen 时隐藏 */}
-			{showCredits && (
-				<SettingSection title="积分">
-					<div className="px-5 py-4">
-						<div className="flex items-center gap-3">
-							<span className="icon-[mdi--wallet-outline] h-5 w-5 text-muted-foreground" />
-							<div>
-								<div className="text-[12px] text-muted-foreground">当前余额</div>
-								<div className={cn(
-									"text-[20px] font-bold tabular-nums",
-									creditsBalance !== null && creditsBalance <= 0
-										? "text-red-500"
-										: "text-foreground",
-								)}>
-									{creditsBalance !== null ? creditsBalance.toFixed(2) : "--"}
-								</div>
-							</div>
-						</div>
-					</div>
-				</SettingSection>
-			)}
 		</div>
 	);
 }

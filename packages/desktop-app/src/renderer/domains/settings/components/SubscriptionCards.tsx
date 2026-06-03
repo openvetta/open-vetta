@@ -1,8 +1,9 @@
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useSpring } from "motion/react";
 import type { SubscriptionStatus } from "@preload/api.js";
 import { remoteProvidersAtom, subscriptionStatusAtom } from "@shared/store/atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
 import { ProviderIcon } from "@shared/components/provider-icon";
 import { WINDOW_LABELS, formatExpiry, formatResetCountdown } from "@shared/lib/subscription-format";
@@ -358,6 +359,217 @@ function VettaGoCard({
 type RemoteModel = { id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number; tags?: string[] };
 type RemoteProvider = { api?: string; baseUrl?: string; icon?: string; models?: RemoteModel[] };
 
+/** Vetta Zen 官方卡：动效与 Vetta Go 一致（primary 主题），无鼠标倾斜。 */
+function VettaZenCard({
+	provider,
+	onRefresh,
+	refreshing,
+	error,
+	creditsBalance,
+	creditsUnlimited,
+}: {
+	provider: RemoteProvider | undefined;
+	onRefresh: () => void;
+	refreshing: boolean;
+	error: string | null;
+	creditsBalance: number | null;
+	creditsUnlimited: boolean;
+}): JSX.Element {
+	const [modelsExpanded, setModelsExpanded] = useState(false);
+	const [modelsOverflowVisible, setModelsOverflowVisible] = useState(false);
+	const [showDone, setShowDone] = useState(false);
+	const prevRefreshing = useRef(refreshing);
+	const models = provider?.models ?? [];
+
+	// 折叠时收回 overflow，保证高度动画不漏出内容。
+	useEffect(() => {
+		if (!modelsExpanded) setModelsOverflowVisible(false);
+	}, [modelsExpanded]);
+
+	// 刷新完成的正反馈：短暂展示「已更新」。
+	useEffect(() => {
+		if (prevRefreshing.current && !refreshing) {
+			setShowDone(true);
+			const t = setTimeout(() => setShowDone(false), 1600);
+			prevRefreshing.current = refreshing;
+			return () => clearTimeout(t);
+		}
+		prevRefreshing.current = refreshing;
+	}, [refreshing]);
+
+	return (
+		<motion.div
+			className="mb-6"
+			variants={cardVariants}
+			initial="hidden"
+			animate="show"
+			transition={{ type: "spring", stiffness: 320, damping: 26 }}
+			whileHover={{ y: -3 }}
+		>
+			<div className="group relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5">
+				{/* 流动光晕 */}
+				<motion.div
+					className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/10 blur-3xl"
+					animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
+					transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+				/>
+				<motion.div
+					className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-primary/5 blur-3xl"
+					animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
+					transition={{ duration: 7, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut", delay: 1 }}
+				/>
+
+				<div className="relative flex items-start justify-between gap-3">
+					<div className="flex items-center gap-3">
+						<ProviderIcon symbol={provider?.icon} className="h-11 w-11 rounded-xl" />
+						<div>
+							<div className="flex items-center gap-2 text-[16px] font-bold text-foreground">
+								Vetta Zen
+								<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+									官方
+								</span>
+							</div>
+							<div className="mt-0.5 text-[12px] text-muted-foreground">
+								开箱即用 · {models.length} 个模型
+							</div>
+						</div>
+					</div>
+					<motion.button
+						type="button"
+						onClick={onRefresh}
+						disabled={refreshing}
+						whileTap={{ scale: 0.92 }}
+						className={cn(
+							"flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-50",
+							showDone ? "text-green-500" : "text-primary hover:bg-primary/10",
+						)}
+					>
+						<AnimatePresence mode="wait" initial={false}>
+							{showDone ? (
+								<motion.span
+									key="done"
+									initial={{ scale: 0, opacity: 0 }}
+									animate={{ scale: 1, opacity: 1 }}
+									exit={{ scale: 0, opacity: 0 }}
+									className="flex items-center gap-1.5"
+								>
+									<span className="icon-[mdi--check-circle] h-3.5 w-3.5" />
+									已更新
+								</motion.span>
+							) : (
+								<motion.span
+									key="idle"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={{ opacity: 0 }}
+									className="flex items-center gap-1.5"
+								>
+									<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
+									{refreshing ? "刷新中…" : "刷新"}
+								</motion.span>
+							)}
+						</AnimatePresence>
+					</motion.button>
+				</div>
+
+				{/* 积分余额（Vetta Zen 计费体系） */}
+				<div className="relative mt-4 flex items-center justify-between rounded-xl border border-primary/15 bg-primary/5 px-3 py-2.5">
+					<div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+						<span className="icon-[mdi--wallet-outline] h-4 w-4" />
+						积分余额
+					</div>
+					{creditsUnlimited ? (
+						<span className="text-[14px] font-bold text-primary">无限制</span>
+					) : (
+						<span
+							className={cn(
+								"text-[15px] font-bold tabular-nums",
+								(creditsBalance ?? 0) <= 0 ? "text-destructive" : "text-foreground",
+							)}
+						>
+							{creditsBalance !== null ? creditsBalance.toFixed(2) : "--"}
+						</span>
+					)}
+				</div>
+
+				{error && (
+					<div className="relative mt-3 flex items-center gap-2 text-[12px] text-amber-400">
+						<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
+						{error === "unauthorized" ? "未授权，请先登录" : error}
+					</div>
+				)}
+
+				{/* 查看模型 */}
+				<motion.button
+					type="button"
+					onClick={() => setModelsExpanded((v) => !v)}
+					disabled={models.length === 0}
+					whileTap={{ scale: 0.98 }}
+					className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+				>
+					<motion.span
+						className="icon-[mdi--chevron-down] h-4 w-4"
+						animate={{ rotate: modelsExpanded ? 180 : 0 }}
+						transition={{ type: "spring", stiffness: 300, damping: 20 }}
+					/>
+					{models.length === 0 ? "暂无模型，点击上方刷新" : modelsExpanded ? "收起模型" : `查看 ${models.length} 个模型`}
+				</motion.button>
+
+				<AnimatePresence initial={false}>
+					{modelsExpanded && models.length > 0 && (
+						<motion.div
+							key="models"
+							initial={{ height: 0, opacity: 0 }}
+							animate={{ height: "auto", opacity: 1 }}
+							exit={{ height: 0, opacity: 0 }}
+							transition={{ duration: 0.3, ease: "easeInOut" }}
+							onAnimationComplete={() => modelsExpanded && setModelsOverflowVisible(true)}
+							className={cn("relative", modelsOverflowVisible ? "overflow-visible" : "overflow-hidden")}
+						>
+							<motion.div
+								className="mt-3 grid grid-cols-2 gap-2"
+								variants={listVariants}
+								initial="hidden"
+								animate="show"
+							>
+								{models.map((model) => (
+									<motion.div
+										key={model.id}
+										variants={chipVariants}
+										whileHover={{ y: -2, scale: 1.02 }}
+										className="rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-primary/5"
+									>
+										<div className="truncate text-[12px] font-medium text-foreground">
+											{model.name || model.id}
+										</div>
+										<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+											{model.input?.includes("image") && (
+												<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">vision</span>
+											)}
+											{model.reasoning && (
+												<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">reasoning</span>
+											)}
+											{model.tags?.map((tag) => (
+												<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
+											))}
+											{model.contextWindow != null && (
+												<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
+											)}
+											{model.maxTokens != null && (
+												<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
+											)}
+										</div>
+									</motion.div>
+								))}
+							</motion.div>
+						</motion.div>
+					)}
+				</AnimatePresence>
+			</div>
+		</motion.div>
+	);
+}
+
 /**
  * Vetta Zen / Vetta Go 会员卡片区。原先位于模型设置页，现归入账户设置页。
  * 自行拉取一次套餐状态与远程 providers，并提供刷新按钮。
@@ -367,7 +579,8 @@ export function SubscriptionCards(): JSX.Element | null {
 	const [subscriptionStatus, setSubscriptionStatus] = useAtom(subscriptionStatusAtom);
 	const [refreshing, setRefreshing] = useState(false);
 	const [remoteError, setRemoteError] = useState<string | null>(null);
-	const [zenModelsExpanded, setZenModelsExpanded] = useState(false);
+	const creditsBalance = useAtomValue(creditsBalanceAtom);
+	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
 
 	const handleRefreshRemote = useCallback(async () => {
 		setRefreshing(true);
@@ -403,7 +616,6 @@ export function SubscriptionCards(): JSX.Element | null {
 	// Vetta Zen:唯一的官方远程服务商(不可增删改),取 remoteProviders 中的单一条目。
 	const remoteEntries = Object.entries(remoteProviders as Record<string, RemoteProvider>);
 	const zenProvider = remoteEntries.find(([name]) => name === "vetta-zen")?.[1];
-	const zenModels = zenProvider?.models ?? [];
 	// Zen 可用：provider 存在 或 缓存标志 zen_enabled（离线回退）。两者皆否则隐藏会员卡。
 	const zenAvailable = zenProvider !== undefined || subscriptionStatus.zen_enabled;
 
@@ -427,93 +639,14 @@ export function SubscriptionCards(): JSX.Element | null {
 
 			{/* Vetta Zen:官方远程服务,会员卡式,模型默认折叠。Zen 不可用时整卡隐藏 */}
 			{zenAvailable && (
-				<div className="mb-6">
-					<div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5">
-						<div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/10 blur-3xl" />
-						<div className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
-
-						<div className="relative flex items-start justify-between gap-3">
-							<div className="flex items-center gap-3">
-								<ProviderIcon symbol={zenProvider?.icon} className="h-11 w-11 rounded-xl" />
-								<div>
-									<div className="flex items-center gap-2 text-[16px] font-bold text-foreground">
-										Vetta Zen
-										<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-											官方
-										</span>
-									</div>
-									<div className="mt-0.5 text-[12px] text-muted-foreground">
-										开箱即用 · {zenModels.length} 个模型
-									</div>
-								</div>
-							</div>
-							<button
-								type="button"
-								onClick={() => void handleRefreshRemote()}
-								disabled={refreshing}
-								className="flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-							>
-								<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
-								{refreshing ? "刷新中…" : "刷新"}
-							</button>
-						</div>
-
-						{remoteError && (
-							<div className="relative mt-3 flex items-center gap-2 text-[12px] text-amber-400">
-								<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
-								{remoteError === "unauthorized" ? "未授权，请先登录" : remoteError}
-							</div>
-						)}
-
-						{/* 查看模型:点击展开,grid 布局 */}
-						<button
-							type="button"
-							onClick={() => setZenModelsExpanded((v) => !v)}
-							disabled={zenModels.length === 0}
-							className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-						>
-							<span
-								className={cn(
-									"icon-[mdi--chevron-down] h-4 w-4 transition-transform",
-									zenModelsExpanded && "rotate-180",
-								)}
-							/>
-							{zenModels.length === 0 ? "暂无模型，点击上方刷新" : zenModelsExpanded ? "收起模型" : "查看模型"}
-						</button>
-
-						{zenModelsExpanded && zenModels.length > 0 && (
-							<div className="relative mt-3 grid grid-cols-2 gap-2">
-								{zenModels.map((model) => (
-									<div
-										key={model.id}
-										className="rounded-xl border border-border bg-background/40 px-3 py-2.5"
-									>
-										<div className="truncate text-[12px] font-medium text-foreground">
-											{model.name || model.id}
-										</div>
-										<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-											{model.input?.includes("image") && (
-												<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">vision</span>
-											)}
-											{model.reasoning && (
-												<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">reasoning</span>
-											)}
-											{model.tags?.map((tag) => (
-												<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
-											))}
-											{model.contextWindow != null && (
-												<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
-											)}
-											{model.maxTokens != null && (
-												<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
-											)}
-										</div>
-									</div>
-								))}
-							</div>
-						)}
-					</div>
-				</div>
+				<VettaZenCard
+					provider={zenProvider}
+					onRefresh={() => void handleRefreshRemote()}
+					refreshing={refreshing}
+					error={remoteError}
+					creditsBalance={creditsBalance}
+					creditsUnlimited={creditsUnlimited}
+				/>
 			)}
 		</>
 	);
