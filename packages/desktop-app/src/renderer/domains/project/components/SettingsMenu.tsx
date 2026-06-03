@@ -40,7 +40,9 @@ export function SettingsMenu(): JSX.Element {
 
 	// 后台开启 Vetta Go 时，头像挂会员标志，并在展开后展示 5 小时额度。
 	const goEnabled = subscription.go_enabled;
-	const fiveHourWindow = goEnabled ? subscription.windows?.find((w) => w.kind === "5h") : undefined;
+	const fiveHourWindowRaw = goEnabled ? subscription.windows?.find((w) => w.kind === "5h") : undefined;
+	// 无限制套餐(limit<=0)不展示额度进度。
+	const fiveHourWindow = fiveHourWindowRaw && fiveHourWindowRaw.limit > 0 ? fiveHourWindowRaw : undefined;
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -64,7 +66,7 @@ export function SettingsMenu(): JSX.Element {
 							<span className="truncate">{user.nickname || user.username}</span>
 							{goEnabled && (
 								<span
-									className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none text-white"
+									className="inline-flex shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none text-white"
 									style={{ backgroundColor: subscription.badge_color || "#f59e0b" }}
 									title={subscription.tier_name || "Vetta Go"}
 								>
