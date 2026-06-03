@@ -5,7 +5,7 @@ import { jadeTheme } from "./jade";
 import { monoTheme } from "./mono";
 import { neonTheme } from "./neon";
 import { oceanTheme } from "./ocean";
-import { retroTheme } from "./retro";
+import { sandTheme } from "./sand";
 import { scarletTheme } from "./scarlet";
 import { voltageTheme } from "./voltage";
 
@@ -18,7 +18,7 @@ export const THEMES: ThemeDef[] = [
 	oceanTheme,
 	jadeTheme,
 	emeraldTheme,
-	retroTheme,
+	sandTheme,
 ];
 
 export const THEME_MAP: Record<string, ThemeDef> = Object.fromEntries(THEMES.map((t) => [t.id, t]));
