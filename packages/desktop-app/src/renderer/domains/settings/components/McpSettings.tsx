@@ -426,7 +426,7 @@ function RemoteMcpSection({
 				<div>
 					<h2 className="text-[15px] font-semibold text-foreground">远程 MCP 列表</h2>
 					<p className="mt-0.5 text-[11px] text-muted-foreground">
-						由管理员统一维护，可一键添加到本地配置
+						Vetta 支持远程 MCP 服务器
 					</p>
 				</div>
 				<Button variant="ghost" size="sm" onClick={load} disabled={loading}>
