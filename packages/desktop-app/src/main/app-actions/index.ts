@@ -1,4 +1,5 @@
 import { AppActionCatalog } from "./catalog.js";
+import { registerAppearanceActions } from "./domains/appearance.actions.js";
 import { registerSystemActions } from "./domains/system.actions.js";
 import { AppActionRuntime } from "./runtime.js";
 
@@ -7,6 +8,7 @@ export function createAppActionRuntime(): AppActionRuntime {
 	const register = catalog.register.bind(catalog);
 
 	registerSystemActions(register);
+	registerAppearanceActions(register);
 
 	return new AppActionRuntime(catalog);
 }

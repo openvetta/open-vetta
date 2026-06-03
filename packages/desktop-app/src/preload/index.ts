@@ -153,6 +153,15 @@ const api: DesktopApi = {
 				ipcRenderer.removeListener("vetta:theme:native-changed", listener);
 			};
 		},
+		onModeRequested: (handler) => {
+			const listener = (_event: Electron.IpcRendererEvent, info: { mode: "light" | "dark" | "auto" }) => {
+				handler(info);
+			};
+			ipcRenderer.on("vetta:theme:mode-requested", listener);
+			return () => {
+				ipcRenderer.removeListener("vetta:theme:mode-requested", listener);
+			};
+		},
 	},
 	fs: {
 		readDir: async (dirPath) => ipcRenderer.invoke("vetta:fs:read-dir", dirPath),

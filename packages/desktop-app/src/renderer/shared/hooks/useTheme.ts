@@ -81,6 +81,12 @@ export function useTheme() {
 		[setModeAtom, setResolved, themeName],
 	);
 
+	useEffect(() => {
+		return window.vetta.theme.onModeRequested(({ mode: requestedMode }) => {
+			void setMode(requestedMode);
+		});
+	}, [setMode]);
+
 	const setThemeName = useCallback(
 		(name: string, transitionOptions?: ThemeTransitionOptions) => {
 			localStorage.setItem(THEME_STORAGE_KEY, name);
