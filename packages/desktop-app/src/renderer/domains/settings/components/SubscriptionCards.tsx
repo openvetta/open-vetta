@@ -17,27 +17,29 @@ function hexToRgba(hex: string, alpha: number): string {
 	return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
-/** Vetta Go 品牌标志：渐变 emblem + 字标，带漂浮与光环脉冲。 */
-function VettaGoBrand(): JSX.Element {
+/** Vetta Go 品牌标志：emblem + 字标随主 badge 色，带漂浮与光环脉冲。 */
+function VettaGoBrand({ themeColor }: { themeColor: string }): JSX.Element {
 	return (
 		<div className="flex items-center gap-3">
 			<motion.div
-				className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
+				className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg"
+				style={{ backgroundColor: themeColor, boxShadow: `0 10px 15px -3px ${hexToRgba(themeColor, 0.3)}` }}
 				animate={{ y: [0, -3, 0] }}
 				transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
 			>
 				<span className="icon-[mdi--rocket-launch] h-6 w-6 text-white drop-shadow" />
 				<motion.span
-					className="pointer-events-none absolute inset-0 rounded-2xl ring-2 ring-amber-300/60"
+					className="pointer-events-none absolute inset-0 rounded-2xl border-2"
+					style={{ borderColor: hexToRgba(themeColor, 0.6) }}
 					animate={{ opacity: [0.6, 0, 0.6], scale: [1, 1.18, 1] }}
 					transition={{ duration: 2.4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
 				/>
 			</motion.div>
 			<div className="flex flex-col leading-tight">
-				<span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-[18px] font-extrabold tracking-tight text-transparent">
+				<span className="text-[18px] font-extrabold tracking-tight" style={{ color: themeColor }}>
 					Vetta Go
 				</span>
-				<span className="text-[10px] font-medium tracking-[0.18em] text-amber-500/70">
+				<span className="text-[10px] font-medium tracking-[0.18em]" style={{ color: hexToRgba(themeColor, 0.7) }}>
 					当前订阅
 				</span>
 			</div>
@@ -169,16 +171,18 @@ function VettaGoCard({
 				/>
 
 				<div className="relative flex items-start justify-between gap-3">
-					<VettaGoBrand />
+					<VettaGoBrand themeColor={themeColor} />
 					<motion.button
 						type="button"
 						onClick={onRefresh}
 						disabled={refreshing}
 						whileTap={{ scale: 0.92 }}
+						whileHover={showDone ? undefined : { backgroundColor: hexToRgba(themeColor, 0.1) }}
 						className={cn(
 							"flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-50",
-							showDone ? "text-green-500" : "text-amber-500 hover:bg-amber-500/10",
+							showDone && "text-green-500",
 						)}
+						style={showDone ? undefined : { color: themeColor }}
 					>
 						<AnimatePresence mode="wait" initial={false}>
 							{showDone ? (
@@ -233,7 +237,12 @@ function VettaGoCard({
 				{/* 配额窗口：所有窗口 limit<=0 视为无限制，隐藏进度只提示不限额度 */}
 				{unlimited ? (
 					<motion.div
-						className="relative mt-4 flex items-center gap-2 overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-3 py-3 text-[13px] font-semibold text-amber-500"
+						className="relative mt-4 flex items-center gap-2 overflow-hidden rounded-xl border px-3 py-3 text-[13px] font-semibold"
+						style={{
+							borderColor: hexToRgba(themeColor, 0.3),
+							backgroundImage: `linear-gradient(to right, ${hexToRgba(themeColor, 0.15)}, ${hexToRgba(themeColor, 0.1)})`,
+							color: themeColor,
+						}}
 						initial={{ opacity: 0, scale: 0.97 }}
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ delay: 0.1 }}
@@ -264,7 +273,8 @@ function VettaGoCard({
 									</div>
 									<div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border">
 										<motion.div
-											className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+											className="h-full rounded-full"
+											style={{ backgroundColor: themeColor }}
 											initial={{ width: 0 }}
 											animate={{ width: `${pct}%` }}
 											transition={{ duration: 0.7, delay: 0.12 + i * 0.08, ease: "easeOut" }}
@@ -322,7 +332,7 @@ function VettaGoCard({
 									<ModelChip
 										key={model.id}
 										model={model}
-										accentClass="hover:border-amber-500/40 hover:bg-amber-500/5"
+										hoverColor={themeColor}
 									/>
 								))}
 							</motion.div>
@@ -343,14 +353,18 @@ function formatCredit(n: number): string {
 	return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 }
 
-/** 单个模型卡片：Go/Zen 共用，accentClass 控制 hover 主题色。 */
-function ModelChip({ model, accentClass }: { model: RemoteModel; accentClass: string }): JSX.Element {
+/** 单个模型卡片：Zen 用 accentClass（primary），Go 传 hoverColor 跟随 badge 色。 */
+function ModelChip({ model, accentClass, hoverColor }: { model: RemoteModel; accentClass?: string; hoverColor?: string }): JSX.Element {
 	const cost = model.cost;
 	const hasPrice = !!cost && (cost.input > 0 || cost.output > 0);
 	return (
 		<motion.div
 			variants={chipVariants}
-			whileHover={{ y: -2, scale: 1.02 }}
+			whileHover={
+				hoverColor
+					? { y: -2, scale: 1.02, borderColor: hexToRgba(hoverColor, 0.4), backgroundColor: hexToRgba(hoverColor, 0.05) }
+					: { y: -2, scale: 1.02 }
+			}
 			className={cn("rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors", accentClass)}
 		>
 			<div className="truncate text-[12px] font-medium text-foreground">{model.name || model.id}</div>
