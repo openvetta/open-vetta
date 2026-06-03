@@ -8,6 +8,7 @@
 		"packages/agent",
 		"packages/coding-agent",
 		"packages/runtime-core",
+		"packages/action-rpc",
 		"packages/runtime-tools",
 		"packages/runtime-mcp",
 		"packages/runtime-storage",

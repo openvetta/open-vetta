@@ -41,6 +41,7 @@ build_layer0() {
   build_pkg packages/tui
   build_pkg packages/ai
   build_pkg packages/agent
+  build_pkg packages/action-rpc
   build_pkg packages/runtime-telemetry
 }
 

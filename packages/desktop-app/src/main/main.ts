@@ -3,6 +3,8 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { createAppActionRuntime } from "./app-actions/index.js";
+import { type LocalActionServerHandle, startLocalActionServer } from "./app-actions/local-server.js";
 import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
@@ -125,6 +127,7 @@ if (!app.isPackaged) {
 let ipcTeardown: IpcTeardown | undefined;
 let teardownSchedulerIpc: (() => void) | undefined;
 let teardownBatchTasksIpc: (() => void) | undefined;
+let localActionServer: LocalActionServerHandle | undefined;
 
 // Register custom protocol for OAuth callback
 // Windows dev mode: must pass electron.exe path and app entry as args,
@@ -373,6 +376,19 @@ if (!gotSingleLock) {
 		// Register IPC handlers
 		ipcTeardown = registerAllIpc(mainWindow.webContents);
 
+		try {
+			const actionRuntime = createAppActionRuntime();
+			localActionServer = await startLocalActionServer(actionRuntime, {
+				userDataPath: app.getPath("userData"),
+			});
+			mainLog.info("local action server ready", {
+				transport: localActionServer.endpoint.transport,
+				url: localActionServer.endpoint.url,
+			});
+		} catch (err) {
+			mainLog.error("failed to start local action server", err);
+		}
+
 		// 启动 Updater：恢复 pending-install + 后台检查一次
 		updaterService.setMainWindow(mainWindow);
 		void updaterService.onAppReady();
@@ -482,6 +498,14 @@ app.on("before-quit", async (event) => {
 		await disposeSharedRuntime();
 	} catch (err) {
 		mainLog.error("disposeSharedRuntime failed", err);
+	}
+	if (localActionServer) {
+		try {
+			await localActionServer.close();
+		} catch (err) {
+			mainLog.error("local action server shutdown failed", err);
+		}
+		localActionServer = undefined;
 	}
 	app.exit(0);
 });
