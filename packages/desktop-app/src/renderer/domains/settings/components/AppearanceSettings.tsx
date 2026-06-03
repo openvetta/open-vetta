@@ -114,25 +114,39 @@ function ThemeCard({
 				)}
 				style={{ background: palette.background }}
 			>
-				{/* blob 层：超出容器 + 重度模糊，硬边互相涂抹融合 */}
+				{/* blob 层：居中的大正方形旋转层（active 时绕中心 360° 无限流转）+ 重度模糊。
+				    正方形 180% 宽，任意旋转角内切圆都盖满卡片，不露底色 */}
 				<div
-					className="absolute -inset-[20%]"
-					style={{ filter: "blur(28px) saturate(115%)" }}
+					className="absolute inset-0 flex items-center justify-center"
 				>
+					<div
+						className={cn("relative aspect-square w-[180%]", active && "theme-blob-spin")}
+						style={{ filter: "blur(28px) saturate(115%)" }}
+					>
 					{BLOB_LAYOUT.map((b, i) => (
 						<div
 							key={`${theme.id}-${i}`}
-							className="absolute rounded-full"
+							className="absolute"
 							style={{
 								left: b.left,
 								top: b.top,
 								width: b.w,
 								height: b.h,
-								background: colors[i],
 								transform: `rotate(${b.rotate}deg)`,
 							}}
-						/>
+						>
+							<div
+								className={cn("h-full w-full rounded-full", active && "theme-blob-ripple")}
+								style={{
+									background: colors[i],
+									// 时长/相位各自错开，叠加后形成无规律混沌涟漪
+									animationDuration: `${5 + i * 1.3}s`,
+									animationDelay: `${i * -1.7}s`,
+								}}
+							/>
+						</div>
 					))}
+				</div>
 				</div>
 				{/* 居中的迷你"窗口"，展示 card/border/foreground/primary 在 UI 上下文中的样子 */}
 				<div
