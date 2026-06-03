@@ -1,5 +1,6 @@
 import { AppActionCatalog } from "./catalog.js";
 import { registerAppearanceActions } from "./domains/appearance.actions.js";
+import { registerNavigationActions } from "./domains/navigation.actions.js";
 import { registerSystemActions } from "./domains/system.actions.js";
 import { AppActionRuntime } from "./runtime.js";
 
@@ -9,6 +10,7 @@ export function createAppActionRuntime(): AppActionRuntime {
 
 	registerSystemActions(register);
 	registerAppearanceActions(register);
+	registerNavigationActions(register);
 
 	return new AppActionRuntime(catalog);
 }

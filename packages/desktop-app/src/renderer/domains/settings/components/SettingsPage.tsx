@@ -64,6 +64,7 @@ export function SettingsPage(): JSX.Element {
 		: typeof search.h2 === "string"
 			? search.h2
 			: undefined;
+	const navigationNonce = typeof search.nav === "string" ? search.nav : undefined;
 	const targetSection = sectionId ? findSettingsSection(sectionId) : undefined;
 	const highlightingRef = useRef(false);
 
@@ -109,7 +110,7 @@ export function SettingsPage(): JSX.Element {
 			target.classList.remove("setting-section-breathe");
 			highlightingRef.current = false;
 		};
-	}, [tab, targetSection]);
+	}, [tab, targetSection, navigationNonce]);
 
 	return (
 		<div className="relative flex h-full w-full flex-1 overflow-hidden">
