@@ -63,6 +63,8 @@ function VettaGoCard({
 	refreshing: boolean;
 }): JSX.Element {
 	const [modelsExpanded, setModelsExpanded] = useState(false);
+	// 展开动画结束后放开 overflow，避免模型卡 hover 放大被裁剪。
+	const [modelsOverflowVisible, setModelsOverflowVisible] = useState(false);
 	const [now, setNow] = useState(() => Date.now());
 	const [showDone, setShowDone] = useState(false);
 	const prevRefreshing = useRef(refreshing);
@@ -91,6 +93,11 @@ function VettaGoCard({
 		window.addEventListener("mousemove", handle);
 		return () => window.removeEventListener("mousemove", handle);
 	}, [rotateX, rotateY]);
+
+	// 折叠时立刻收回 overflow，保证高度动画不漏出内容。
+	useEffect(() => {
+		if (!modelsExpanded) setModelsOverflowVisible(false);
+	}, [modelsExpanded]);
 
 	// 每分钟刷新倒计时显示。
 	useEffect(() => {
@@ -276,7 +283,8 @@ function VettaGoCard({
 							animate={{ height: "auto", opacity: 1 }}
 							exit={{ height: 0, opacity: 0 }}
 							transition={{ duration: 0.3, ease: "easeInOut" }}
-							className="relative overflow-hidden"
+							onAnimationComplete={() => modelsExpanded && setModelsOverflowVisible(true)}
+							className={cn("relative", modelsOverflowVisible ? "overflow-visible" : "overflow-hidden")}
 						>
 							<motion.div
 								className="mt-3 grid grid-cols-2 gap-2"
