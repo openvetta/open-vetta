@@ -68,7 +68,7 @@ function VettaGoCard({
 	refreshing,
 }: {
 	status: SubscriptionStatus;
-	goProvider: { icon?: string; models?: Array<{ id: string; name?: string; input?: string[]; reasoning?: boolean; tags?: string[]; contextWindow?: number; maxTokens?: number }> } | undefined;
+	goProvider: { icon?: string; models?: RemoteModel[] } | undefined;
 	onRefresh: () => void;
 	refreshing: boolean;
 }): JSX.Element {
@@ -319,33 +319,11 @@ function VettaGoCard({
 								animate="show"
 							>
 								{models.map((model) => (
-									<motion.div
+									<ModelChip
 										key={model.id}
-										variants={chipVariants}
-										whileHover={{ y: -2, scale: 1.02 }}
-										className="rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors hover:border-amber-500/40 hover:bg-amber-500/5"
-									>
-										<div className="truncate text-[12px] font-medium text-foreground">
-											{model.name || model.id}
-										</div>
-										<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-											{model.input?.includes("image") && (
-												<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">vision</span>
-											)}
-											{model.reasoning && (
-												<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">reasoning</span>
-											)}
-											{model.tags?.map((tag) => (
-												<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
-											))}
-											{model.contextWindow != null && (
-												<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
-											)}
-											{model.maxTokens != null && (
-												<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
-											)}
-										</div>
-									</motion.div>
+										model={model}
+										accentClass="hover:border-amber-500/40 hover:bg-amber-500/5"
+									/>
 								))}
 							</motion.div>
 						</motion.div>
@@ -356,8 +334,55 @@ function VettaGoCard({
 	);
 }
 
-type RemoteModel = { id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number; tags?: string[] };
+type ModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
+type RemoteModel = { id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number; tags?: string[]; cost?: ModelCost };
 type RemoteProvider = { api?: string; baseUrl?: string; icon?: string; models?: RemoteModel[] };
+
+/** 积分价格数字格式化：整数原样，否则最多两位小数去尾零。 */
+function formatCredit(n: number): string {
+	return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+}
+
+/** 单个模型卡片：Go/Zen 共用，accentClass 控制 hover 主题色。 */
+function ModelChip({ model, accentClass }: { model: RemoteModel; accentClass: string }): JSX.Element {
+	const cost = model.cost;
+	const hasPrice = !!cost && (cost.input > 0 || cost.output > 0);
+	return (
+		<motion.div
+			variants={chipVariants}
+			whileHover={{ y: -2, scale: 1.02 }}
+			className={cn("rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors", accentClass)}
+		>
+			<div className="truncate text-[12px] font-medium text-foreground">{model.name || model.id}</div>
+			<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+				{model.input?.includes("image") && (
+					<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">视觉</span>
+				)}
+				{model.reasoning && (
+					<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">推理</span>
+				)}
+				{model.tags?.map((tag) => (
+					<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
+				))}
+				{model.contextWindow != null && (
+					<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
+				)}
+				{model.maxTokens != null && (
+					<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
+				)}
+			</div>
+			{hasPrice && cost && (
+				<div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+					<span className="icon-[mdi--circle-multiple-outline] h-3 w-3 shrink-0 opacity-70" />
+					<span className="tabular-nums">
+						入 {formatCredit(cost.input)} · 出 {formatCredit(cost.output)}
+					</span>
+					<span className="opacity-60">积分/百万tok</span>
+				</div>
+			)}
+		</motion.div>
+	);
+}
 
 /** Vetta Zen 官方卡：动效与 Vetta Go 一致（primary 主题），无鼠标倾斜。 */
 function VettaZenCard({
@@ -533,33 +558,11 @@ function VettaZenCard({
 								animate="show"
 							>
 								{models.map((model) => (
-									<motion.div
+									<ModelChip
 										key={model.id}
-										variants={chipVariants}
-										whileHover={{ y: -2, scale: 1.02 }}
-										className="rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-primary/5"
-									>
-										<div className="truncate text-[12px] font-medium text-foreground">
-											{model.name || model.id}
-										</div>
-										<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-											{model.input?.includes("image") && (
-												<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">vision</span>
-											)}
-											{model.reasoning && (
-												<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">reasoning</span>
-											)}
-											{model.tags?.map((tag) => (
-												<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
-											))}
-											{model.contextWindow != null && (
-												<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
-											)}
-											{model.maxTokens != null && (
-												<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
-											)}
-										</div>
-									</motion.div>
+										model={model}
+										accentClass="hover:border-primary/40 hover:bg-primary/5"
+									/>
 								))}
 							</motion.div>
 						</motion.div>
