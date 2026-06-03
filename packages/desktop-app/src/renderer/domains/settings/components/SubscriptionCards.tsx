@@ -1,6 +1,6 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useSpring } from "motion/react";
 import type { SubscriptionStatus } from "@preload/api.js";
 import { remoteProvidersAtom, subscriptionStatusAtom } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
@@ -66,10 +66,31 @@ function VettaGoCard({
 	const [now, setNow] = useState(() => Date.now());
 	const [showDone, setShowDone] = useState(false);
 	const prevRefreshing = useRef(refreshing);
+	const cardRef = useRef<HTMLDivElement>(null);
+	const hoveringRef = useRef(false);
 	const models = goProvider?.models ?? [];
 	const windows = status.windows ?? [];
 	const expiry = formatExpiry(status.expires_at);
 	const unlimited = windows.length > 0 && windows.every((w) => w.limit <= 0);
+
+	// 鼠标跟随的 3D 倾斜：进卡片悬停时归位停止。
+	const rotateX = useSpring(0, { stiffness: 150, damping: 18, mass: 0.4 });
+	const rotateY = useSpring(0, { stiffness: 150, damping: 18, mass: 0.4 });
+
+	useEffect(() => {
+		const MAX = 6;
+		const handle = (e: MouseEvent) => {
+			const el = cardRef.current;
+			if (!el || hoveringRef.current) return;
+			const r = el.getBoundingClientRect();
+			const dx = (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2);
+			const dy = (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2);
+			rotateY.set(Math.max(-MAX, Math.min(MAX, dx * MAX)));
+			rotateX.set(Math.max(-MAX, Math.min(MAX, -dy * MAX)));
+		};
+		window.addEventListener("mousemove", handle);
+		return () => window.removeEventListener("mousemove", handle);
+	}, [rotateX, rotateY]);
 
 	// 每分钟刷新倒计时显示。
 	useEffect(() => {
@@ -90,12 +111,22 @@ function VettaGoCard({
 
 	return (
 		<motion.div
+			ref={cardRef}
 			className="mb-6"
+			style={{ rotateX, rotateY, transformPerspective: 900 }}
 			variants={cardVariants}
 			initial="hidden"
 			animate="show"
 			transition={{ type: "spring", stiffness: 320, damping: 26 }}
 			whileHover={{ y: -3 }}
+			onMouseEnter={() => {
+				hoveringRef.current = true;
+				rotateX.set(0);
+				rotateY.set(0);
+			}}
+			onMouseLeave={() => {
+				hoveringRef.current = false;
+			}}
 		>
 			<div className="group relative overflow-hidden rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/15 via-amber-400/5 to-transparent p-5 shadow-sm transition-shadow duration-300 hover:shadow-lg hover:shadow-amber-500/10">
 				{/* 流动光晕 */}
