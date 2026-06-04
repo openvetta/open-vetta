@@ -23,6 +23,8 @@ const toolDescriptions: Record<string, string> = {
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	ask_user_question:
 		"Ask the user multiple-choice questions and wait for their answers (clarify ambiguity, gather preferences, offer decisions)",
+	easy_use_vettaApp:
+		"Request Vetta Desktop UI assistance before app-control actions; returns structured user-approved or user-edited action-specific output",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 	html_to_pdf: "Convert HTML files to PDF using Vetta Desktop's PDF command-line mode",
 	extract_text_from_pdf:
@@ -203,6 +205,13 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	if (hasCurrentTime) {
 		guidelinesList.push(
 			'ALWAYS use current_time tool (not bash "date", "timedatectl", or other shell commands) when you need to know the current date or time. Only fall back to bash if current_time cannot fulfill the specific requirement (e.g., timezone conversion, date arithmetic)',
+		);
+	}
+
+	const hasEasyUseVettaApp = tools.includes("easy_use_vettaApp");
+	if (hasEasyUseVettaApp) {
+		guidelinesList.push(
+			"Before calling Vetta Desktop app-control actions such as appearance.theme or navigation.open, call easy_use_vettaApp with the action id, intent, proposed input, and a UI plan; then follow its structured status/output/allowedActions. Do not reduce it to a simple yes/no prompt when the action needs richer UI or edited input.",
 		);
 	}
 

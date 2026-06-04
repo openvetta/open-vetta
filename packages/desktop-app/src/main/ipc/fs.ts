@@ -19,6 +19,8 @@ export interface ProjectEntry {
 export interface ExperimentalConfig {
 	/** ask_user_question 工具：开启后 agent 可在执行途中向用户提多选题。缺省关。 */
 	askUserQuestion?: boolean;
+	/** easy_use_vettaApp 工具：开启后 agent 可在调用桌面 app action 前请求协作 UI。缺省关。 */
+	easyUseVettaApp?: boolean;
 }
 
 export interface DesktopConfig {
@@ -76,7 +78,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,
-	experimental: { askUserQuestion: false },
+	experimental: { askUserQuestion: false, easyUseVettaApp: false },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -94,9 +96,12 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 }
 
 function normalizeExperimental(value: unknown): ExperimentalConfig {
-	if (typeof value !== "object" || value === null) return { askUserQuestion: false };
+	if (typeof value !== "object" || value === null) return { askUserQuestion: false, easyUseVettaApp: false };
 	const v = value as Record<string, unknown>;
-	return { askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : false };
+	return {
+		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : false,
+		easyUseVettaApp: typeof v.easyUseVettaApp === "boolean" ? v.easyUseVettaApp : false,
+	};
 }
 
 export async function readDesktopConfig(): Promise<DesktopConfig> {
@@ -572,7 +577,9 @@ export function registerFsIpc(): () => void {
 			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
 			notificationsEnabled: patch.notificationsEnabled ?? current.notificationsEnabled,
 			experimental:
-				patch.experimental !== undefined ? normalizeExperimental(patch.experimental) : current.experimental,
+				patch.experimental !== undefined
+					? normalizeExperimental({ ...current.experimental, ...patch.experimental })
+					: current.experimental,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

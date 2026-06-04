@@ -35,6 +35,21 @@ export {
 	docToPdfTool,
 } from "./doc-to-pdf/index.js";
 export {
+	createEasyUseVettaAppTool,
+	type EasyUseVettaAppAllowedAction,
+	type EasyUseVettaAppCapability,
+	type EasyUseVettaAppField,
+	type EasyUseVettaAppFieldOption,
+	type EasyUseVettaAppJsonPrimitive,
+	type EasyUseVettaAppJsonValue,
+	type EasyUseVettaAppRequestFn,
+	type EasyUseVettaAppResult,
+	type EasyUseVettaAppToolDetails,
+	type EasyUseVettaAppToolInput,
+	type EasyUseVettaAppToolOptions,
+	type EasyUseVettaAppUi,
+} from "./easy-use-vetta-app/index.js";
+export {
 	createEditTool,
 	type EditOperations,
 	type EditToolDetails,

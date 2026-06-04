@@ -40,6 +40,8 @@ export function toolIcon(name: string): string {
 			return "icon-[mdi--text-search]";
 		case "ask_user_question":
 			return "icon-[mdi--comment-question-outline]";
+		case "easy_use_vettaApp":
+			return "icon-[mdi--application-cog-outline]";
 		default:
 			return "icon-[mdi--wrench-outline]";
 	}
@@ -97,6 +99,9 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 				typeof first.header === "string" ? first.header : typeof first.question === "string" ? first.question : "";
 			detail = questions.length > 1 ? `${head} +${questions.length - 1}` : head;
 		}
+	} else if (name === "easy_use_vettaApp") {
+		const actionId = args.actionId;
+		if (typeof actionId === "string") detail = actionId;
 	} else if (name === "todo") {
 		const action = args.action;
 		if (typeof action === "string") {

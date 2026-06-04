@@ -188,6 +188,60 @@ export interface RuntimeUserQuestionResult {
 	answers: RuntimeUserQuestionAnswer[];
 }
 
+export type RuntimeJsonPrimitive = string | number | boolean | null;
+export type RuntimeJsonValue = RuntimeJsonPrimitive | RuntimeJsonValue[] | { [key: string]: RuntimeJsonValue };
+
+export interface RuntimeEasyUseVettaAppFieldOption {
+	label: string;
+	value: RuntimeJsonValue;
+	description?: string;
+}
+
+export interface RuntimeEasyUseVettaAppField {
+	id: string;
+	label: string;
+	description?: string;
+	type: "text" | "textarea" | "select" | "multiselect" | "toggle" | "number" | "json" | "custom";
+	required?: boolean;
+	options?: RuntimeEasyUseVettaAppFieldOption[];
+	defaultValue?: RuntimeJsonValue;
+}
+
+export interface RuntimeEasyUseVettaAppUi {
+	kind: "confirm" | "form" | "select" | "preview" | "custom";
+	title: string;
+	description: string;
+	component?: string;
+	primaryLabel?: string;
+	cancelLabel?: string;
+}
+
+export interface RuntimeEasyUseVettaAppToolRequest {
+	actionId: string;
+	intent: string;
+	proposedInput?: RuntimeJsonValue;
+	ui: RuntimeEasyUseVettaAppUi;
+	fields?: RuntimeEasyUseVettaAppField[];
+	metadata?: RuntimeJsonValue;
+}
+
+export interface RuntimeEasyUseVettaAppRequest extends RuntimeEasyUseVettaAppToolRequest {
+	requestId: string;
+	sessionId: string;
+}
+
+export interface RuntimeEasyUseVettaAppAllowedAction {
+	actionId: string;
+	input?: RuntimeJsonValue;
+}
+
+export interface RuntimeEasyUseVettaAppResult {
+	status: "approved" | "rejected" | "submitted" | "cancelled";
+	message?: string;
+	output?: RuntimeJsonValue;
+	allowedActions?: RuntimeEasyUseVettaAppAllowedAction[];
+}
+
 export type RuntimeSandboxGrantDecision = "deny" | "allow_once" | "allow_session";
 
 export interface RuntimeSandboxGrantRequest {
@@ -329,6 +383,11 @@ export interface SessionFacade {
 	setUserQuestionHandler(
 		handler:
 			| ((request: RuntimeUserQuestionRequest, signal?: AbortSignal) => Promise<RuntimeUserQuestionResult>)
+			| undefined,
+	): void;
+	setEasyUseVettaAppHandler(
+		handler:
+			| ((request: RuntimeEasyUseVettaAppRequest, signal?: AbortSignal) => Promise<RuntimeEasyUseVettaAppResult>)
 			| undefined,
 	): void;
 	setUserSandboxGrantHandler(
