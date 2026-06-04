@@ -1,11 +1,12 @@
-import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useParams } from "@tanstack/react-router";
-import type { SkillInfo } from "@preload/api";
+import type { InstalledSkill, SkillInfo } from "@preload/api";
 import {
 	activeSessionAtom,
 	attachedImagesAtom,
+	authTokenAtom,
 	authUserAtom,
 	contextUsageAtom,
 	inputValueAtom,
@@ -15,6 +16,8 @@ import {
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
 } from "@shared/store/atoms";
+import type { MarketSkillInfo } from "@shared/lib/api";
+import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { pathBasename } from "@shared/lib/utils";
 import { InputBar } from "./InputBar";
@@ -22,8 +25,22 @@ import { SessionDropZone } from "./SessionDropZone";
 import { useSessionManager } from "../hooks/useSessionManager";
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32 };
-const SCENE_PAGE_SIZE = 3;
+const SCENE_PAGE_SIZE = 6;
 const easeOut = [0.16, 1, 0.3, 1] as const;
+
+// 场景三态：active=已安装并启用（可直接 attach）；disabled=已安装但被禁用（点击仅启用）；
+// uninstalled=未安装（点击下载安装）。
+type SceneState = "active" | "disabled" | "uninstalled";
+type SceneActionState = "idle" | "loading" | "error";
+
+interface SceneItem {
+	name: string;
+	alias?: string;
+	description: string;
+	state: SceneState;
+}
+
+const SCENE_STATE_RANK: Record<SceneState, number> = { active: 0, disabled: 1, uninstalled: 2 };
 
 function scheduleIdle(callback: () => void, timeout: number): () => void {
 	let cancelled = false;
@@ -53,6 +70,11 @@ export function NewSessionPage(): JSX.Element {
 	const [avatarAutoplay, setAvatarAutoplay] = useState(false);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
+	const [marketScenes, setMarketScenes] = useState<MarketSkillInfo[]>([]);
+	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
+	const [sceneActions, setSceneActions] = useState<Record<string, SceneActionState>>({});
+	// 记录最近一次安装/启用的 Promise，发送时 await 它，保证落盘先于 session.create。
+	const installRef = useRef<Promise<void> | null>(null);
 	const setInputValue = useSetAtom(inputValueAtom);
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
@@ -60,6 +82,7 @@ export function NewSessionPage(): JSX.Element {
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const authUser = useAtomValue(authUserAtom);
+	const token = useAtomValue(authTokenAtom);
 	const projects = useAtomValue(projectsAtom);
 	const executionMode = useAtomValue(sessionExecutionModeAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
@@ -108,28 +131,98 @@ export function NewSessionPage(): JSX.Element {
 		};
 	}, [renderHero]);
 
+	// 拉取本地已启用技能/场景 + 市场场景目录 + 安装清单。
+	// 市场拉取失败 / 未登录 / 离线时静默降级为仅本地，绝不阻断首屏。
+	const loadResources = useCallback(async () => {
+		const localList = await window.vetta.skills.list();
+		setSkills(localList);
+		if (!token) {
+			setMarketScenes([]);
+			setManifest({});
+			return;
+		}
+		try {
+			const [market, mani] = await Promise.all([
+				fetchMarketSkills(token),
+				window.vetta.skills.getMarketManifest(),
+			]);
+			setMarketScenes(market.filter((s) => s.type === "scene"));
+			setManifest(mani);
+		} catch {
+			setMarketScenes([]);
+			setManifest({});
+		}
+	}, [token]);
+
 	useEffect(() => {
-		let cancelled = false;
-		const cancelIdle = scheduleIdle(() => {
-			void window.vetta.skills.list().then((nextSkills) => {
-				if (cancelled) return;
-				startTransition(() => setSkills(nextSkills));
+		return scheduleIdle(() => {
+			startTransition(() => {
+				void loadResources();
 			});
 		}, 240);
-		return () => {
-			cancelled = true;
-			cancelIdle();
-		};
-	}, []);
+	}, [loadResources]);
 
-	const scenes = useMemo(() => skills.filter((s) => s.type === "scene"), [skills]);
+	const scenes = useMemo<SceneItem[]>(() => {
+		const map = new Map<string, SceneItem>();
+		// 本地 skills.list() 返回的 scene 必然是「已安装且启用」，直接 active。
+		// 同时覆盖非市场的 custom/user 场景，让它们照常展示为可用。
+		for (const s of skills) {
+			if (s.type !== "scene") continue;
+			map.set(s.name, { name: s.name, alias: s.alias, description: s.description, state: "active" });
+		}
+		for (const ms of marketScenes) {
+			if (map.has(ms.name)) continue;
+			const local = manifest[ms.name];
+			const state: SceneState = local ? (local.enabled ? "active" : "disabled") : "uninstalled";
+			map.set(ms.name, { name: ms.name, alias: ms.alias, description: ms.description, state });
+		}
+		// 已装优先排序；sort 稳定，同态内保持插入序。
+		return Array.from(map.values()).sort(
+			(a, b) => SCENE_STATE_RANK[a.state] - SCENE_STATE_RANK[b.state],
+		);
+	}, [skills, marketScenes, manifest]);
+
 	const skillBadges = useMemo(() => skills.filter((s) => s.type === "skill"), [skills]);
 
-	const handleSelectScene = useCallback(
-		(skill: SkillInfo) => {
-			setSelectedSkill({ name: skill.name, alias: skill.alias, type: skill.type });
+	const setSceneAction = useCallback((name: string, state: SceneActionState) => {
+		setSceneActions((prev) => ({ ...prev, [name]: state }));
+	}, []);
+
+	// active → 直接 attach；disabled → toggle 启用后 attach；uninstalled → 下载安装后 attach。
+	// 安装/启用全程同步：成功落盘 + 刷新本地列表后才 setSelectedSkill。
+	const handleSceneClick = useCallback(
+		(item: SceneItem) => {
+			if (item.state === "active") {
+				setSelectedSkill({ name: item.name, alias: item.alias, type: "scene" });
+				return;
+			}
+			if (sceneActions[item.name] === "loading") return;
+			const run = (async () => {
+				setSceneAction(item.name, "loading");
+				try {
+					if (item.state === "uninstalled") {
+						if (!token) throw new Error("未登录，无法安装场景");
+						const buffer = await downloadSkill(token, item.name);
+						await window.vetta.skills.installFromMarket(item.name, buffer, "scene", {
+							alias: item.alias,
+							marketDescription: item.description,
+						});
+					} else {
+						// disabled：已落盘，仅切换启用，无需重新下载。
+						await window.vetta.skills.toggle(item.name);
+					}
+					await loadResources();
+					setSelectedSkill({ name: item.name, alias: item.alias, type: "scene" });
+					setSceneAction(item.name, "idle");
+				} catch (err) {
+					console.error("场景安装失败:", err);
+					setSceneAction(item.name, "error");
+					window.setTimeout(() => setSceneAction(item.name, "idle"), 2200);
+				}
+			})();
+			installRef.current = run;
 		},
-		[setSelectedSkill],
+		[sceneActions, token, loadResources, setSceneAction, setSelectedSkill],
 	);
 
 	const handleSelectSkill = useCallback(
@@ -145,6 +238,15 @@ export function NewSessionPage(): JSX.Element {
 	// 发送：先创建/打开会话（openSession 内部会 navigate('/')），再触发 sendMessage。
 	// sendMessage 现在从 activeSessionRef 读取 session，因此 await 链可以串起来。
 	const handleSend = useCallback(async () => {
+		// 若有正在进行的场景安装，先 await 其落盘，保证 scene 文件先于 session.create 写入，
+		// 否则新 session 扫盘时读不到刚点的场景。
+		if (installRef.current) {
+			try {
+				await installRef.current;
+			} catch {
+				// 安装失败已在点击处处理，这里照常发送（不带场景）。
+			}
+		}
 		// 欢迎页选中的执行模式（沙盒受限/完全访问）必须随会话创建一起传给后端，
 		// 否则 session.create 会落到默认 full-access，再被 getState 回填覆盖。
 		await openSession(decodedCwd, undefined, executionMode);
@@ -219,7 +321,8 @@ export function NewSessionPage(): JSX.Element {
 							<SceneCarousel
 								scenes={scenes}
 								selected={selectedSkill}
-								onSelect={handleSelectScene}
+								actions={sceneActions}
+								onSceneClick={handleSceneClick}
 							/>
 						)}
 
@@ -282,12 +385,13 @@ export function NewSessionPage(): JSX.Element {
 }
 
 interface SceneCarouselProps {
-	scenes: SkillInfo[];
+	scenes: SceneItem[];
 	selected: { name: string; type: "skill" | "scene" } | null;
-	onSelect: (s: SkillInfo) => void;
+	actions: Record<string, SceneActionState>;
+	onSceneClick: (s: SceneItem) => void;
 }
 
-function SceneCarousel({ scenes, selected, onSelect }: SceneCarouselProps): JSX.Element {
+function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouselProps): JSX.Element {
 	const [page, setPage] = useState(0);
 	const totalPages = Math.max(1, Math.ceil(scenes.length / SCENE_PAGE_SIZE));
 	const safePage = Math.min(page, totalPages - 1);
@@ -329,46 +433,65 @@ function SceneCarousel({ scenes, selected, onSelect }: SceneCarouselProps): JSX.
 						animate={{ opacity: 1, x: 0 }}
 						exit={{ opacity: 0, x: -16 }}
 						transition={{ duration: 0.25, ease: easeOut }}
-						className="flex flex-wrap justify-center gap-3"
+						className="grid grid-cols-2 gap-2 sm:grid-cols-3"
 					>
 						{visible.map((s) => {
-							const active = selected?.name === s.name && selected?.type === "scene";
+							const action = actions[s.name] ?? "idle";
+							const isMuted = s.state !== "active";
+							const selectedActive =
+								s.state === "active" && selected?.name === s.name && selected?.type === "scene";
 							return (
 								<motion.button
 									key={s.name}
 									type="button"
-									onClick={() => onSelect(s)}
-									whileHover={{ y: -3 }}
+									disabled={action === "loading"}
+									onClick={() => onSceneClick(s)}
+									whileHover={{ y: -2 }}
 									whileTap={{ scale: 0.98 }}
 									transition={SPRING}
-									className={`relative flex w-full flex-col items-start gap-2 overflow-hidden rounded-2xl border p-4 text-left transition-colors sm:w-[calc(50%-6px)] lg:w-[calc(33.333%-8px)] ${
-										active
-											? "border-primary/60 bg-card shadow-[0_12px_30px_-18px_var(--primary)]"
-											: "border-border/60 bg-card hover:border-primary/40"
+									title={s.state === "uninstalled" ? "点击安装并使用" : s.description || s.name}
+									className={`relative flex items-start gap-2 overflow-hidden rounded-xl border p-2.5 text-left transition-colors disabled:cursor-wait ${
+										selectedActive
+											? "border-primary/60 bg-card shadow-[0_10px_24px_-18px_var(--primary)]"
+											: isMuted
+												? "border-dashed border-border/50 bg-card/60 hover:border-primary/40"
+												: "border-border/60 bg-card hover:border-primary/40"
 									}`}
 								>
 									<div
-										className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
-											active
+										className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+											selectedActive
 												? "bg-primary text-primary-foreground"
-												: "bg-primary/10 text-primary"
+												: isMuted
+													? "bg-accent/50 text-muted-foreground/70"
+													: "bg-primary/10 text-primary"
 										}`}
 									>
-										<span className="icon-[mdi--movie-open-outline] h-4 w-4" />
+										<span className="icon-[mdi--movie-open-outline] h-3.5 w-3.5" />
 									</div>
-									<div className="min-w-0 w-full">
-										<div className="truncate text-[13px] font-semibold text-foreground">
+									<div className="min-w-0 flex-1">
+										<div
+											className={`truncate text-[12px] font-semibold ${
+												isMuted ? "text-muted-foreground" : "text-foreground"
+											}`}
+										>
 											{s.alias || s.name}
 										</div>
 										{s.description && (
-											<div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/70">
+											<div className="mt-0.5 line-clamp-1 text-[10px] leading-relaxed text-muted-foreground/70">
 												{s.description}
 											</div>
 										)}
 									</div>
-									{active && (
-										<span className="icon-[mdi--check-circle] absolute right-3 top-3 h-4 w-4 text-primary" />
-									)}
+									{action === "loading" ? (
+										<span className="icon-[mdi--loading] absolute right-2 top-2 h-3.5 w-3.5 animate-spin text-primary" />
+									) : action === "error" ? (
+										<span className="icon-[mdi--alert-circle] absolute right-2 top-2 h-3.5 w-3.5 text-destructive" />
+									) : isMuted ? (
+										<span className="icon-[mdi--download] absolute right-2 top-2 h-3.5 w-3.5 text-muted-foreground/60" />
+									) : selectedActive ? (
+										<span className="icon-[mdi--check-circle] absolute right-2 top-2 h-3.5 w-3.5 text-primary" />
+									) : null}
 								</motion.button>
 							);
 						})}
