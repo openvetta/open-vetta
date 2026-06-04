@@ -1,6 +1,6 @@
 # 反向白名单：根 .gitignore 把 .env.* 全部忽略，但 desktop-app 的环境配置
 # （仅是后端地址，不含密钥）需要纳入版本管理，方便团队/CI 共享。
-!/.env.development
+# .env.development 改由各开发者本地维护（本地后端地址各异），不纳入版本管理。
 !/.env.test
 !/.env.production
 
