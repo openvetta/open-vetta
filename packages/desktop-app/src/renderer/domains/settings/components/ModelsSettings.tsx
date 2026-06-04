@@ -1,7 +1,6 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import type { ModelsConfigData } from "@preload/api.js";
-import { remoteProvidersAtom } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
@@ -9,6 +8,7 @@ import { SettingHeading, SettingSection } from "./shared";
 import { CheckboxField } from "./McpSettings";
 import { PresetProvidersSection } from "./PresetProvidersSection";
 import { ProviderIcon } from "@shared/components/provider-icon";
+import { remoteProvidersAtom } from "@shared/store/atoms";
 import { SETTINGS_SECTION } from "../registry";
 
 const API_OPTIONS = [
@@ -356,15 +356,15 @@ export function ModelsSettings(): JSX.Element {
 	const [modelForm, setModelForm] = useState<ModelFormState>({ ...emptyModel });
 	const [saving, setSaving] = useState(false);
 
-	// JSON mode state
-	const [jsonText, setJsonText] = useState("");
-	const [jsonError, setJsonError] = useState<string | null>(null);
-
-	// Remote providers
+	// Remote providers state
 	const [remoteProviders, setRemoteProviders] = useAtom(remoteProvidersAtom);
 	const [refreshing, setRefreshing] = useState(false);
 	const [remoteError, setRemoteError] = useState<string | null>(null);
 	const [expandedRemoteProvider, setExpandedRemoteProvider] = useState<string | null>(null);
+
+	// JSON mode state
+	const [jsonText, setJsonText] = useState("");
+	const [jsonError, setJsonError] = useState<string | null>(null);
 
 	// Thinking level
 	type ThinkingLevelValue = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -380,22 +380,6 @@ export function ModelsSettings(): JSX.Element {
 		setThinkingLevel(level);
 		void window.vetta.session.setGlobalThinkingLevel(level);
 	}, []);
-
-	const handleRefreshRemote = useCallback(async () => {
-		setRefreshing(true);
-		setRemoteError(null);
-		try {
-			const result = await window.vetta.models.fetchRemote();
-			if (result.error) {
-				setRemoteError(result.error);
-			}
-			setRemoteProviders(result.providers);
-		} catch {
-			setRemoteError("请求失败");
-		} finally {
-			setRefreshing(false);
-		}
-	}, [setRemoteProviders]);
 
 	// Load config on mount
 	useEffect(() => {
@@ -418,6 +402,23 @@ export function ModelsSettings(): JSX.Element {
 		},
 		[],
 	);
+
+	// Remote providers
+	const handleRefreshRemote = useCallback(async () => {
+		setRefreshing(true);
+		setRemoteError(null);
+		try {
+			const result = await window.vetta.models.fetchRemote();
+			if (result.error) {
+				setRemoteError(result.error);
+			}
+			setRemoteProviders(result.providers);
+		} catch {
+			setRemoteError("请求失败");
+		} finally {
+			setRefreshing(false);
+		}
+	}, [setRemoteProviders]);
 
 	// --- Provider CRUD ---
 
@@ -689,7 +690,7 @@ export function ModelsSettings(): JSX.Element {
 					<PresetProvidersSection config={config} saveConfig={saveConfig} />
 
 					{/* Provider list */}
-					<SettingSection section={SETTINGS_SECTION["models-providers"]}>
+					<SettingSection section={SETTINGS_SECTION["models-providers"]} title="本地服务商">
 						{providerNames.length === 0 && !addingProvider && (
 							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 								尚未配置任何服务商，点击下方按钮添加
@@ -980,7 +981,6 @@ export function ModelsSettings(): JSX.Element {
 								const isExpanded = expandedRemoteProvider === name;
 								return (
 									<div key={name} className="border-b border-border last:border-b-0">
-										{/* Provider header -- same layout as local providers */}
 										<div className="flex items-center gap-3 px-5 py-3.5">
 											<button
 												type="button"
@@ -1008,7 +1008,6 @@ export function ModelsSettings(): JSX.Element {
 											</button>
 										</div>
 
-										{/* Expanded: models list */}
 										{isExpanded && (
 											<div className="border-t border-border bg-secondary/30">
 												{models.length === 0 && (
