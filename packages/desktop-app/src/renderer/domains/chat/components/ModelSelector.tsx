@@ -119,6 +119,7 @@ export function ModelSelector(): JSX.Element {
 		if (local?.displayName) return local.displayName;
 		if (remote?.displayName) return remote.displayName;
 		if (provider === "vetta-zen") return "Vetta Zen";
+		if (provider === "vetta-go") return "Vetta Go";
 		return provider;
 	};
 

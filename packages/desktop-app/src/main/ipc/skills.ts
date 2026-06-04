@@ -235,6 +235,7 @@ export function registerSkillsIpc(): () => void {
 			const metaObj = (meta != null && typeof meta === "object" ? meta : {}) as {
 				alias?: string;
 				marketDescription?: string;
+				version?: string;
 			};
 
 			const buffer = Buffer.isBuffer(archiveBuffer) ? archiveBuffer : Buffer.from(archiveBuffer as ArrayBuffer);
@@ -264,7 +265,12 @@ export function registerSkillsIpc(): () => void {
 				}
 			}
 
-			const version = parseVersionFromSkillDir(skillDir);
+			// 版本以服务端为唯一真相：优先用 meta.version；缺省才回落到本地解析（兼容旧客户端）。
+			// 避免「服务端默认版本与本地解析默认值不一致 → 永远显示可更新」的问题。
+			const version =
+				typeof metaObj.version === "string" && metaObj.version.trim().length > 0
+					? metaObj.version.trim()
+					: parseVersionFromSkillDir(skillDir);
 
 			const manifest = readManifest();
 			manifest[name] = {

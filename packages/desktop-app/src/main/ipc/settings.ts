@@ -328,6 +328,43 @@ async function fetchCreditsBalance(): Promise<{ balance: number | null; unlimite
 	}
 }
 
+interface SubscriptionWindow {
+	kind: "5h" | "week" | "month";
+	limit: number;
+	consumed: number;
+	reset_at: string;
+}
+
+interface SubscriptionStatus {
+	active: boolean;
+	zen_enabled: boolean;
+	go_enabled: boolean;
+	tier_id?: string;
+	tier_name?: string;
+	badge_text?: string;
+	badge_color?: string;
+	description?: string;
+	expires_at?: string;
+	windows?: SubscriptionWindow[];
+}
+
+async function fetchSubscriptionStatus(): Promise<{ status: SubscriptionStatus | null; error?: string }> {
+	try {
+		const response = await authedGet("/subscription/me");
+		if (!response) return { status: null, error: "未登录" };
+		if (response.status === 401) return { status: null, error: "unauthorized" };
+		if (!response.ok) return { status: null, error: `HTTP ${response.status}` };
+
+		const body = (await response.json()) as { code: number; data?: SubscriptionStatus };
+		if (body.code !== 0 || !body.data) {
+			return { status: null };
+		}
+		return { status: body.data };
+	} catch {
+		return { status: null, error: "服务器不可达" };
+	}
+}
+
 /**
  * focus / 系统 wake 时若 access token 剩余寿命 < WAKE_REFRESH_THRESHOLD_MS，主动 refresh。
  * 解决"合上笔记本一夜，第二天第一个请求 401 才被动刷新"的体感问题。
@@ -443,6 +480,10 @@ export function registerSettingsIpc(): () => void {
 		return fetchCreditsBalance();
 	});
 
+	ipcMain.handle("vetta:subscription:status", async () => {
+		return fetchSubscriptionStatus();
+	});
+
 	// 渲染层 401 时统一委托主进程 refresh，避免跨进程并发使用同一 refresh_token
 	// 触发服务端 reuse-detection（revoked）导致误踢登录。
 	ipcMain.handle("vetta:auth:refresh-token", async () => {
@@ -462,6 +503,7 @@ export function registerSettingsIpc(): () => void {
 		ipcMain.removeHandler("vetta:models:fetch-remote");
 		ipcMain.removeHandler("vetta:models:fetch-templates");
 		ipcMain.removeHandler("vetta:credits:balance");
+		ipcMain.removeHandler("vetta:subscription:status");
 		ipcMain.removeHandler("vetta:auth:refresh-token");
 	};
 }

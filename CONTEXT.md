@@ -321,3 +321,106 @@ ask_user_question 待答时，desktop-app 聊天页**输入栏被完全接管**�
 ### 实验性功能（experimental features）
 
 desktop-app 设置页「Agent配置」下的一个分类，首个成员是 [[ask_user_question]] 的开关。配置存储预留分组结构 `experimental.askUserQuestion`，将来加实验项只是加一个键、UI 同区域追加一行。**默认关、用户手动开**——「实验性」只是标签，不代表工具不可用或有额外使用成本，开关只控制是否把工具加载给 agent（经 [[user question handler]] 的注入/清除生效）。
+
+### 积分（credit）
+
+计量单位，1 积分 = 1 元真实成本（模型 token 真实价格按元/百万 token 折算，见 ADR-0015）。[[Vetta Zen / 按需付费]] 与 [[Vetta Go / Token Plan]] 共用同一单位语义，区别只在「积分从哪扣、受什么约束」。
+
+### Vetta Zen / 按需付费（pay as you go）
+
+自建远程模型服务的既有计费方式。用户持有 `user_credits.balance` 积分钱包，每次请求按真实成本（`CalcRealCostCNY`）从余额扣减，余额 ≤ 0 即拒绝（除非 `unlimited`）。desktop 中作为聚合云端 provider「Vetta Zen」呈现。与 [[Vetta Go / Token Plan]] 是 desktop 侧**两个并列服务商**。
+
+### Vetta Go / Token Plan
+
+新增的订阅式计费方式，仿主流 token plan。用户开通某 [[档位]] 后，在该档位的[[窗口配额]]内使用其[[模型分组 tag]]覆盖的模型，**不走积分钱包扣减**。desktop 中作为独立服务商「Vetta Go」呈现；开通后有特殊标记与卡片。
+
+### 档位（tier）
+
+[[Vetta Go / Token Plan]] 的订阅等级，在 admin「订阅配置」可增删改。预设 Lite / Pro / Max 三档。每档字段：名称、三个[[窗口配额]]、关联若干[[模型分组 tag]]、一个**主 badge**（文字标签 + 颜色，desktop 右下角尊贵标识）、一段 **desc** 套餐描述。售价不在档位上，按[[订阅授予]]逐次录入。
+
+### 订阅授予（subscription grant）
+
+admin 在后台手动把某[[档位]]授予某用户：选档位 + 录入售价 + 指定月数，生成一条**购买记录**（含售价，供「总收入」统计）。有效期 = **授予当日起算满 N 个自然月**（如 6/15 授予 1 月 → 6/15 04:00 至 7/15 04:00）。本期不接支付/自助购买/退款。
+
+**每用户同时只有一个 active 订阅**，新授予直接覆盖旧的（升级/续期均重置周期与窗口）。订阅只存 `tier_id` **实时引用**档位：admin 改档位配额/分组，存量订阅用户下次请求即按新值，不做授予时快照。
+
+### 窗口配额（window quota）
+
+[[档位]]的配额，按三个并行时间窗口同时约束（任一超额即拒绝），消耗以真实成本积分计：
+- **5 小时窗口** → 固定错峰[[5 小时段]]，全员统一重置。
+- **周窗口** → 自然周，周一 04:00 重置，服务器时区。
+- **月窗口** → 跟随[[订阅授予]]周期（授予日起算自然月），到期随订阅周期重置。
+
+预设值：Lite 2000/10000/40000、Pro 4000/20000/80000、Max 6000/24000/96000（5h/周/月，单位积分）。
+
+### 服务总开关（service master switch）
+
+网关设置中对 [[Vetta Zen / 按需付费]] 与 [[Vetta Go / Token Plan]] 各自的全局启停开关。是**硬全局门、优先级最高**：关闭某服务 → 该服务所有请求拒绝，desktop 隐藏其服务商与（模型设置页的）section，盖过任何个体状态（active 订阅、钱包余额均不豁免；订阅数据保留只是不可用）。
+
+客户端显隐**跟随服务端下发的开关状态**；拉取失败（离线）时**沿用上次已知缓存**，首启无缓存默认隐藏——与[[预设模板]]/Zen 模型的离线快照思路一致。
+
+### 5 小时段（5h slot）
+
+5 小时窗口的固定错峰时段。锚点 04:00、服务器统一时区，一天 5 段（04-09、09-14、14-19、19-24、00-04），到点全员重置（非按用户首次请求滚动）。
+
+### 站内信（in-app notification）
+
+服务端持久化、经 SSE 实时推送、在 desktop「消息中心」的「通知」(铃铛) Tab 内呈现的应用内消息。每条带一个 `type` 判别字段（**通用类型化**：首期消费者是[[订阅操作]]，未来系统公告/额度告警等可复用同一张表与同一套列表/未读/标已读接口）、`title`/`body`、可选定位 `payload`、以及 per-user 已读状态（驱动铃铛未读角标）。
+
+与 [[系统通知（system notification）]] 是**两个不同概念，不要混用**：
+- **系统通知** = desktop-main 经 **OS 原生通知中心**弹出的横幅，由**本地 session 事件**（agent 完成/提问）触发，不持久化、无应用内收件箱。
+- **站内信** = **服务端**产生、持久化进数据库、经 SSE 下发、在**应用内**铃铛 Tab 累积的消息。离线期间产生的站内信，用户上线后仍可在 Tab 内看到。
+
+二者可叠加（一条站内信到达时也可顺带弹一次系统通知），但存储与入口彼此独立。
+_Avoid_: 把服务端推送的应用内消息叫「系统通知」。
+
+### 订阅操作（subscription operation）
+
+admin 在「订阅管理」页「用户订阅」Tab 对单个用户施加的三种操作，每种默认产生一条 [[站内信]]（带 action 默认文案 + 可选管理员附言，可勾选「不通知」静默执行）：
+- **移除订阅**：删除该用户的 `UserSubscription` 授予行**并清空其 `GoUsageWindow` 计数**，用户随即落回[[默认订阅]]（未配置默认档位则彻底无 Go 权限）。不同于「删除用户」。
+- **更改订阅**：复用既有[[订阅授予]] dialog（选档位+售价+月数，**生成购买记录**、覆盖旧订阅、重置周期与窗口）。「更改」与「授予」是同一动作，仅入口/语境不同。
+- **重置订阅额度**：删除该用户三个 [[窗口配额]]（5h/周/月）的 `GoUsageWindow` 行，使其立即从 0 重新计量。**不**改档位、不碰订阅有效期、不碰积分钱包。
+
+顶部另有**批量重置订阅额度**：多选若干[[档位]]，对**持有该档位 active 授予**的所有用户一次性重置三窗口。
+
+**默认档位的特殊处理**：付费档位按显式授予算；但当筛选/批量重置命中[[默认订阅]]所配档位时，覆盖所有「实际落在默认订阅」的用户（无有效付费授予者——含新用户、过期、被移除、显式授予默认档位）。「用户订阅」列表按该档位筛选即列出这批用户（标记 `is_default`、无到期时间、状态「默认」）。批量重置默认档位时**只重置有窗口消耗记录的消耗者**（避免向全量 free 用户广播通知）。默认档位行隐藏「移除订阅」（无授予可移除）。
+_Avoid_: 把「移除订阅」叫「删除用户」；把「重置额度」与「调整积分」混为一谈（后者是 Vetta Zen 钱包，前者是 Go 窗口）。
+
+### 默认订阅（default subscription）
+
+用户在无任何[[订阅授予]]、或授予已过期/档位停用时**自带**的 [[Vetta Go / Token Plan]] 档位。admin 在[[网关设置]]选定一个档位为默认（`gateway.default_tier_id`，0=不启用）。命中默认订阅时合成一个**永不过期**的订阅，月[[窗口配额]]锚点优先沿用过期授予起点、否则取账号创建时间以保证窗口键稳定；其额度按所选档位的 5h/周/月正常限流。是**全局基线**（在[[网关设置]]选定），但落在默认档位的用户**可**在「用户订阅」Tab 按该档位筛选出来、并被逐用户/批量重置额度（见[[订阅操作]]）。
+_Avoid_: 把默认订阅当成一条真实的 `UserSubscription` 授予记录——它是请求时合成的，库里无行（故按默认档位筛选走的是「全体用户 NOT IN 有效付费授予」而非查 `user_subscriptions`）。
+
+### 模型分组 tag（model group tag）
+
+模型的分类标签，一个模型可打多个。**独立受管实体**（id + 名称），与现有自由文本 `ProviderModel.tags`（"free,fast,vision" 展示标签）完全分离，模型与分组多对多（中间表）。在「模型设置」页有「模型分组」配置入口预设 n 个分组，模型设置中给模型多选打 tag。
+
+**通用概念，不与 Go 强绑定**：分组本身是独立特性，[[档位]]关联若干分组 tag 决定可用模型只是当前**第一个消费者**；未来可能有其他业务按分组处理。建模时保持解耦——分组实体不依赖订阅，订阅单向引用分组。当前仅约束 Go 可用范围，[[Vetta Zen / 按需付费]] 仍暴露所有启用模型、与分组无关。
+
+### 技能管理字段（skill management fields）
+
+[[技能市场]]里一个 Skill/Scene 的平台侧可管字段：`type`(skill|scene)、`category`、`tags`、`version`、`author`、`alias`、`description`、`is_enabled`、`download_count`。**真相源是平台数据库，不是 SKILL.md。** SKILL.md 的 `metadata` 块仅在**上传那一刻**作导入兜底（用来预填表单初值），入库后一切以 DB 为准、由 admin 编辑；agent 触发只读包内 SKILL.md 原文。
+_Avoid_: 把 SKILL.md 的 `metadata` 当成运行期真相源——第三方 skill 不该为了上传被迫改造 metadata。
+
+### market description
+
+[[技能市场]]列表/详情给人看的展示性描述，admin 上传/编辑时填写，**留空降级到 SKILL.md frontmatter 的 `description`**。**纯展示层**：客户端存在 manifest 的 `marketDescription`，不回写包内 SKILL.md。
+_Avoid_: 与 **SKILL.md description** 混为一谈——后者是 agent 判断何时触发该 skill 的功能性描述，二者用途不同、互不覆盖。
+
+### skill version（技能版本口径）
+
+Skill 的版本以**服务端 DB 值为唯一真相**。来源优先级：**上传表单值 > SKILL.md metadata.version > 兜底**（新包 `1.0.0`、重传在当前 DB 版本上 `patch+1`）。单包上传时 metadata.version 预填表单、admin 可改；批量上传无表单，新包取 metadata.version、重传取 metadata.version 否则 patch+1。客户端安装时把服务端下发的 version 经 `meta` 存入 [[skills-manifest]]，**绝不重新解析本地 SKILL.md**；`needsUpdate = manifest.version !== market.version`。
+_Avoid_: 客户端装完重解析本地 SKILL.md 取版本——SKILL.md 常缺 version，服务端缺省 `0.0.1` 与本地解析缺省 `0.0.0` 永不相等，导致「一直可更新」。
+
+### skill category（技能分类）
+
+Skill/Scene 的分类，**独立受管实体**（id + 名称 + `scope` 区分 skill / scene），admin 有「分类管理」入口 CRUD，上传/编辑时按当前 type 过滤后**单选一个**。与 [[模型分组 tag]] 同构思路：从 metadata 自由文本解耦，改分类不需重传包。`tags` 仍是自由描述性标签、与 category 分离。
+
+### skills-manifest
+
+客户端 `~/.vetta/skills-manifest.json`，记录每个已装 Skill/Scene 的安装态（`version`/`source`/`enabled`/`type`/`alias`/`marketDescription`）。本地文件扁平铺在 `~/.vetta/{skills,scene}/<name>/`，**同名同时只存一个版本**，路径不含版本号。manifest 里的 `version` 是 [[skill version]] 的更新比对基准。
+
+### skill download_count（下载量）
+
+Skill 的热度计数，**后端 `DownloadArchive` 每成功一次 +1，不按用户去重**（含重装/更新）。admin 表格与 desktop 市场页都展示，市场页可按热度排序。
+_Avoid_: 当成「装机量/独立安装数」——它是原始下载次数，不减卸载、不去重。

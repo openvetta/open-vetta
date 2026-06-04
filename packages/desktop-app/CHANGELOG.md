@@ -12,6 +12,12 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **技能市场展示下载量热度**：市场页技能/场景卡片展示服务端下发的 `download_count`，同分类内按下载量降序排列便于区分热门（已安装/启用项仍优先靠前）。
+- **站内信（in-app notification，ADR-0018）**：消息中心「通知」(铃铛) Tab 从空壳接入服务端推送的持久化站内信——登录后拉取列表与未读数，并监听 SSE `notification:new` 事件实时插入；铃铛角标、「全部」与「通知」Tab 计数纳入未读数，点击单条标已读、支持「全部已读」/「清空已读」、通知条目 hover 右上角可硬删除单条。首期消费者是管理员的订阅操作（移除/更改/重置额度），与本地 OS「系统通知」是两套独立系统。新增 `notification-atoms`、`useNotificationInit`、`api.ts` 站内信接口。
+
+### Changed
+
+- **消息中心弹窗重构（motion 动效 + 主题色）**：从居中 Radix 弹窗改为锚定右上角铃铛、spring 弹出/退场的下拉面板；Tab 栏引入主题色（active 用 `primary`，带 `layoutId` 滑动指示块），Tab 内容切换、列表增删、空态均加 motion 过渡；面板视觉重做（图标徽章头部、主题色高亮未读条目）。
 - **预设服务商：服务端模板 + 自带 key 直连（BYOK，ADR-0015）**：模型配置页新增独立「预设服务商」区，列出服务端下发的 provider 模板（claude / openai / deepseek / qwen 等，含 baseUrl、模型列表与能力参数、供应商图标），用户只需填入**自己的 key** 即可直连服务商原站使用——服务端只提供目录、不碰 key、不转发流量、不计费，与登录制「远程网关」并存。填 key 即「采纳」：模板被快照成本地 `~/.vetta/agent/models.json` 的普通 provider 条目（带 `apiKey` + `source:"template"`/`templateId`/`icon` 标记），离线/服务端下线均可用；App 启动及手动「刷新」时经新公开接口 `/providers/templates.json`（免登录）拉取并**在线合并**——用服务端最新 url/模型/参数覆写已采纳条目（仅保留本地 key），服务端删除该模板或拉取失败时回退本地快照。采纳的条目只在「预设服务商」区展示、从手搓「服务商」区隐藏，互不重复；填 key 不做校验，首次真实请求才暴露无效 key；首启离线且拉取失败时该区为空 + 提示重试（不内置种子）。新增供应商图标注册表（客户端内置 symbol→图标，服务端只下发可选 symbol），「预设服务商」区、「远程服务商」区与聊天页 ModelSelector（触发按钮 + 分组标题）均按 symbol 渲染图标。新增 IPC `vetta:models:fetch-templates` 与 preload `models.fetchTemplates`；`ProviderConfig`/`ModelsConfigData` 新增可选 `source`/`templateId`/`icon`/模型级 `cost` 字段（coding-agent 共享同一份 models.json，仅做 schema 兼容、不感知模板）。「预设服务商」每个模板行可展开查看其模型（上下文 / vision / 思考）与价格摘要（只展示模型实际配置的价格项——输入(未命中)/命中/写入/输出，缺省项不展示，单位「元/百万 tokens」，display-only，随快照持久化）。
 
 - **实验性功能：向用户提问（`ask_user_question`，ADR-0014）**：设置页「Agent配置」新增「实验性功能」section，含 ask_user_question 开关（默认关，存 `desktop-config.json` 的 `experimental.askUserQuestion`）。开启后 agent 可在执行途中向用户提一组多选题：该会话的输入栏被**完全接管**为「问答面板」——多问题以紧凑可折叠堆叠列表呈现、可自由切换，已答折叠成所选摘要；每题含选项（带 `badges` 引导标签）+ Other 自由输入，底部「取消 / 提交」。面板**绑定发起它的会话**（按 runtimeId 索引 `pendingQuestionsAtom`），切到别的会话只隐藏、切回恢复，App 关闭/刷新视为取消。提交/取消后 transcript 留一个富视图 tool_call block 回显问题与所选答案。开关切换即时生效：经新 IPC `vetta:session:question-set-enabled` 在共享 runtime 上注入/清除问答 handler（`setUserQuestionHandler`），agent 下一条消息即看到/看不到工具（能力=注册）；新增 `vetta:session:question-request` / `question-response` 两个 IPC 与 preload `onQuestionRequest` / `respondToQuestion` / `setQuestionEnabled`，runtime-core 新增 `RuntimeUserQuestion*` 契约与 `setUserQuestionHandler`。触发提问时同时发系统通知「有问题待确认，点击查看」（新通知类型 `agent-question-pending`，点击跳转该 session；聚焦看着该 session 时抑制），问答面板跳出/关闭走渐入渐出动画；transcript 富视图单问题平铺、多问题用带滑动下划线的 tab 切换（含淡入淡出动画），并修长标题挤压 header 标签的问题。
@@ -68,6 +74,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **市场技能/场景安装后一直显示「可更新」**：客户端安装时会重新解析本地 SKILL.md 取版本，而 SKILL.md 常缺 `version`、本地解析缺省 `0.0.0`，与服务端缺省 `0.0.1` 永不相等，导致 `needsUpdate` 恒为真。修复：`installFromMarket` 的 `meta` 新增 `version`，安装时以服务端下发版本写入 manifest 作为更新比对基准，不再重解析本地（缺省才回落本地解析以兼容旧客户端）。两处安装入口（市场页、新会话场景轮播）均透传 `version`。
 - **生产环境 IM（飞书 / 微信）发消息一律报 `exec: "vetta": executable file not found in $PATH`**：im-gateway sidecar 默认从 PATH 找 `vetta` 拉起 coding-agent，但打包后的 Vetta.app 不包含独立 CLI 二进制，PATH 也没软链，整条 IM 发消息链路都断在 spawn 上。修复：`main.ts` 新增 `--agent-rpc` CLI mode（参考既有 ocr / pdf CLI 实现），新增 `src/main/cli/agent-rpc-command.ts` 检测到该 flag 后短路 UI 引导，把后续 argv 直接交给 `@vetta/coding-agent` 的 `main` 跑 stdio RPC 会话；`im-host/index.ts` 新增 `buildCodingAgentSpec()` 把 `{ bin: process.execPath, prefixArgs: ["--agent-rpc"] }`（dev 模式额外塞 main entry 路径）通过新增的 `InitFrame.codingAgent` 字段下发给 sidecar，sidecar 据此 fork Vetta.app 本体充当 coding-agent。免去要求用户全局安装 `@vetta/coding-agent`，dev 与 prod 走同一代码路径。
 
 - **`--agent-rpc` 子进程一启动整条 stdout/stderr 静默 → IM sidecar 卡在 handshake 上**：`installMainDiagnostics()` 在 main.ts 顶部无条件运行，会用 `patchConsoleToAppLogger()` 把 `console.log` / `info` / `warn` / `error` 全部劫持成 electron-log 的文件 logger。coding-agent 的 RPC 模式恰好用 `console.log(JSON.stringify(...))` 作为对 parent 的 NDJSON 协议输出 —— 一被劫持就全进了文件，sidecar 永远读不到响应。PDF / OCR CLI 不受影响是因为它们用 `writeSync(1, ...)` 直接写 fd1。修复：把 `installMainDiagnostics()` 用 `if (!agentRpcArgs)` 包起来；其它 CLI mode 行为不变。
