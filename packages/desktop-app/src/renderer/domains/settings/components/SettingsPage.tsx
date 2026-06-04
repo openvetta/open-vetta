@@ -143,7 +143,7 @@ export function SettingsPage(): JSX.Element {
 			</div>
 
 			{/* Settings content */}
-			<div className="flex flex-1 flex-col overflow-y-auto bg-background">
+			<div className="no-scrollbar flex flex-1 flex-col overflow-y-auto bg-background">
 				{/* Drag region */}
 				<div className="drag-region h-12 shrink-0" />
 				<Content />

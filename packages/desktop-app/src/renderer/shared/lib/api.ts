@@ -342,6 +342,7 @@ export interface MarketSkillInfo {
 	author: string;
 	tags: string[];
 	category: string;
+	download_count: number;
 }
 
 export async function fetchMarketSkills(token: string): Promise<MarketSkillInfo[]> {
@@ -402,6 +403,67 @@ export interface FlowingTransferVO {
 	stage_index: number | null;
 	created_at: string;
 	responded_at: string | null;
+}
+
+// ─── Notifications (站内信, ADR-0018) ───
+
+export interface NotificationVO {
+	id: number;
+	type: string;
+	title: string;
+	body: string;
+	payload?: unknown;
+	read: boolean;
+	created_at: string;
+}
+
+export async function fetchNotifications(
+	token: string,
+	params?: { page?: number; page_size?: number },
+): Promise<{ list: NotificationVO[]; total: number; page: number; page_size: number }> {
+	const qs = new URLSearchParams();
+	if (params?.page) qs.set("page", String(params.page));
+	if (params?.page_size) qs.set("page_size", String(params.page_size));
+	const suffix = qs.toString() ? `?${qs.toString()}` : "";
+	return request<{ list: NotificationVO[]; total: number; page: number; page_size: number }>(
+		`/notifications${suffix}`,
+		{ headers: authHeaders(token) },
+	);
+}
+
+export async function fetchNotificationUnread(token: string): Promise<number> {
+	const data = await request<{ unread: number }>("/notifications/unread-count", {
+		headers: authHeaders(token),
+	});
+	return data.unread;
+}
+
+export async function markNotificationRead(token: string, id: number): Promise<void> {
+	await request<unknown>(`/notifications/${id}/read`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
+export async function markAllNotificationsRead(token: string): Promise<void> {
+	await request<unknown>("/notifications/read-all", {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
+export async function deleteNotification(token: string, id: number): Promise<void> {
+	await request<unknown>(`/notifications/${id}`, {
+		method: "DELETE",
+		headers: authHeaders(token),
+	});
+}
+
+export async function clearReadNotifications(token: string): Promise<void> {
+	await request<unknown>("/notifications/clear-read", {
+		method: "POST",
+		headers: authHeaders(token),
+	});
 }
 
 export interface ColleagueInfo {
