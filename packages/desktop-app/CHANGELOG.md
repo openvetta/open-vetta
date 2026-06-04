@@ -12,6 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **技能市场展示下载量热度**：市场页技能/场景卡片展示服务端下发的 `download_count`，同分类内按下载量降序排列便于区分热门（已安装/启用项仍优先靠前）。
 - **站内信（in-app notification，ADR-0018）**：消息中心「通知」(铃铛) Tab 从空壳接入服务端推送的持久化站内信——登录后拉取列表与未读数，并监听 SSE `notification:new` 事件实时插入；铃铛角标、「全部」与「通知」Tab 计数纳入未读数，点击单条标已读、支持「全部已读」/「清空已读」、通知条目 hover 右上角可硬删除单条。首期消费者是管理员的订阅操作（移除/更改/重置额度），与本地 OS「系统通知」是两套独立系统。新增 `notification-atoms`、`useNotificationInit`、`api.ts` 站内信接口。
 
 ### Changed
@@ -73,6 +74,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **市场技能/场景安装后一直显示「可更新」**：客户端安装时会重新解析本地 SKILL.md 取版本，而 SKILL.md 常缺 `version`、本地解析缺省 `0.0.0`，与服务端缺省 `0.0.1` 永不相等，导致 `needsUpdate` 恒为真。修复：`installFromMarket` 的 `meta` 新增 `version`，安装时以服务端下发版本写入 manifest 作为更新比对基准，不再重解析本地（缺省才回落本地解析以兼容旧客户端）。两处安装入口（市场页、新会话场景轮播）均透传 `version`。
 - **生产环境 IM（飞书 / 微信）发消息一律报 `exec: "vetta": executable file not found in $PATH`**：im-gateway sidecar 默认从 PATH 找 `vetta` 拉起 coding-agent，但打包后的 Vetta.app 不包含独立 CLI 二进制，PATH 也没软链，整条 IM 发消息链路都断在 spawn 上。修复：`main.ts` 新增 `--agent-rpc` CLI mode（参考既有 ocr / pdf CLI 实现），新增 `src/main/cli/agent-rpc-command.ts` 检测到该 flag 后短路 UI 引导，把后续 argv 直接交给 `@vetta/coding-agent` 的 `main` 跑 stdio RPC 会话；`im-host/index.ts` 新增 `buildCodingAgentSpec()` 把 `{ bin: process.execPath, prefixArgs: ["--agent-rpc"] }`（dev 模式额外塞 main entry 路径）通过新增的 `InitFrame.codingAgent` 字段下发给 sidecar，sidecar 据此 fork Vetta.app 本体充当 coding-agent。免去要求用户全局安装 `@vetta/coding-agent`，dev 与 prod 走同一代码路径。
 
 - **`--agent-rpc` 子进程一启动整条 stdout/stderr 静默 → IM sidecar 卡在 handshake 上**：`installMainDiagnostics()` 在 main.ts 顶部无条件运行，会用 `patchConsoleToAppLogger()` 把 `console.log` / `info` / `warn` / `error` 全部劫持成 electron-log 的文件 logger。coding-agent 的 RPC 模式恰好用 `console.log(JSON.stringify(...))` 作为对 parent 的 NDJSON 协议输出 —— 一被劫持就全进了文件，sidecar 永远读不到响应。PDF / OCR CLI 不受影响是因为它们用 `writeSync(1, ...)` 直接写 fd1。修复：把 `installMainDiagnostics()` 用 `if (!agentRpcArgs)` 包起来；其它 CLI mode 行为不变。
