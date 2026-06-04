@@ -39,6 +39,7 @@ interface SceneItem {
 	description: string;
 	state: SceneState;
 	version?: string;
+	downloadCount?: number;
 }
 
 const SCENE_STATE_RANK: Record<SceneState, number> = { active: 0, disabled: 1, uninstalled: 2 };
@@ -181,6 +182,7 @@ export function NewSessionPage(): JSX.Element {
 				description: ms.description,
 				state,
 				version: ms.version,
+				downloadCount: ms.download_count,
 			});
 		}
 		// 已装优先排序；sort 稳定，同态内保持插入序。
@@ -488,6 +490,21 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 										{s.description && (
 											<div className="mt-0.5 line-clamp-1 text-[10px] leading-relaxed text-muted-foreground/70">
 												{s.description}
+											</div>
+										)}
+										{(s.version || (s.downloadCount ?? 0) > 0) && (
+											<div className="mt-1 flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground/60">
+												{s.version && (
+													<span className="inline-flex h-4 items-center rounded-full bg-accent/50 px-1.5 font-medium">
+														v{s.version}
+													</span>
+												)}
+												{(s.downloadCount ?? 0) > 0 && (
+													<span className="inline-flex h-4 items-center gap-0.5 rounded-full bg-accent/50 px-1.5 font-medium">
+														<span className="icon-[mdi--download] h-2.5 w-2.5" />
+														{s.downloadCount}
+													</span>
+												)}
 											</div>
 										)}
 									</div>
