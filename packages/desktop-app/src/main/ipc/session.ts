@@ -278,10 +278,6 @@ function normalizeEasyUseVettaAppResult(value: unknown): RuntimeEasyUseVettaAppR
 	};
 }
 
-function toActionApprovalInput(input: RuntimeJsonValue | undefined): JsonValue {
-	return (input ?? {}) as JsonValue;
-}
-
 export function registerSessionIpc(webContents: WebContents): () => void {
 	const resolveDefaultExecutionMode = async (): Promise<SessionExecutionMode> => {
 		const config = await readDesktopConfig();
@@ -811,7 +807,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			for (const action of normalized.allowedActions) {
 				actionApprovalGrants.createGrant({
 					actionId: action.actionId,
-					input: toActionApprovalInput(action.input),
+					...(action.input !== undefined ? { input: action.input as JsonValue } : {}),
 					sessionId: entry.request.sessionId,
 					requestId: entry.request.requestId,
 				});

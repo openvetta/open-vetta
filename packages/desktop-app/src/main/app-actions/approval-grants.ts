@@ -6,7 +6,7 @@ const DEFAULT_ACTION_APPROVAL_TTL_MS = 2 * 60 * 1000;
 interface ActionApprovalGrant {
 	id: string;
 	actionId: string;
-	inputFingerprint: string;
+	inputFingerprint?: string;
 	sessionId: string;
 	requestId: string;
 	createdAt: number;
@@ -15,7 +15,7 @@ interface ActionApprovalGrant {
 
 export interface CreateActionApprovalGrantOptions {
 	actionId: string;
-	input: JsonValue;
+	input?: JsonValue;
 	sessionId: string;
 	requestId: string;
 	ttlMs?: number;
@@ -42,13 +42,15 @@ export class ActionApprovalGrantStore {
 
 	createGrant(options: CreateActionApprovalGrantOptions): string {
 		this.clearExpired();
+		const inputFingerprint = options.input !== undefined ? fingerprintInput(options.input) : undefined;
+		this.deleteGrantsByScope(options.actionId, inputFingerprint);
 		const id = randomUUID();
 		const now = Date.now();
 		const ttlMs = options.ttlMs ?? DEFAULT_ACTION_APPROVAL_TTL_MS;
 		this.grants.set(id, {
 			id,
 			actionId: options.actionId,
-			inputFingerprint: fingerprintInput(options.input),
+			...(inputFingerprint !== undefined ? { inputFingerprint } : {}),
 			sessionId: options.sessionId,
 			requestId: options.requestId,
 			createdAt: now,
@@ -60,9 +62,9 @@ export class ActionApprovalGrantStore {
 	consumeGrant(options: ConsumeActionApprovalGrantOptions): void {
 		this.clearExpired();
 		const inputFingerprint = fingerprintInput(options.input);
-		for (const grant of this.grants.values()) {
-			if (grant.actionId !== options.actionId || grant.inputFingerprint !== inputFingerprint) continue;
-			this.grants.delete(grant.id);
+		const deleted = this.deleteGrantsByScope(options.actionId, inputFingerprint);
+		const deletedActionOnly = this.deleteGrantsByScope(options.actionId, undefined);
+		if (deleted + deletedActionOnly > 0) {
 			return;
 		}
 		throw new ActionError(
@@ -94,6 +96,16 @@ export class ActionApprovalGrantStore {
 
 	clear(): void {
 		this.grants.clear();
+	}
+
+	private deleteGrantsByScope(actionId: string, inputFingerprint: string | undefined): number {
+		let deleted = 0;
+		for (const grant of this.grants.values()) {
+			if (grant.actionId !== actionId || grant.inputFingerprint !== inputFingerprint) continue;
+			this.grants.delete(grant.id);
+			deleted += 1;
+		}
+		return deleted;
 	}
 }
 
