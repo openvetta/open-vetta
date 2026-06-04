@@ -3,12 +3,14 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
 	type ActionRpcEndpoint,
+	ActionRpcError,
 	type ActionRpcRuntime,
 	type ActionRpcServerHandle,
 	startActionRpcServer,
 } from "@vetta/action-rpc";
 import { getActionServerEndpointFilePath } from "./endpoint-file.js";
 import type { AppActionRuntime, JsonValue } from "./index.js";
+import { ActionError } from "./types.js";
 
 export interface LocalActionServerHandle {
 	endpoint: ActionRpcEndpoint;
@@ -23,12 +25,23 @@ function createToken(): string {
 	return randomBytes(32).toString("hex");
 }
 
+async function toActionRpcResult<T>(operation: () => Promise<T> | T): Promise<T> {
+	try {
+		return await operation();
+	} catch (error) {
+		if (error instanceof ActionError) {
+			throw new ActionRpcError(error.code, error.message, error.details);
+		}
+		throw error;
+	}
+}
+
 function createRpcRuntime(runtime: AppActionRuntime): ActionRpcRuntime {
 	return {
-		search: (options) => runtime.search(options),
-		describe: (actionId) => runtime.describe(actionId),
+		search: (options) => toActionRpcResult(() => runtime.search(options)),
+		describe: (actionId) => toActionRpcResult(() => runtime.describe(actionId)),
 		run: async (actionId, input): Promise<JsonValue> =>
-			await runtime.run(actionId, input ?? {}, { source: "local-server" }),
+			await toActionRpcResult(() => runtime.run(actionId, input ?? {}, { source: "local-server" })),
 	};
 }
 
