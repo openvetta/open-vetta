@@ -3,6 +3,7 @@ export {
 	codingTools,
 	createBashTool,
 	createCodingTools,
+	createEasyUseVettaAppTool,
 	createEditTool,
 	createFindTool,
 	createGlobTool,

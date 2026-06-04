@@ -40,6 +40,8 @@ export interface DesktopConfigData {
 	experimental?: {
 		/** ask_user_question 工具开关。缺省关。 */
 		askUserQuestion?: boolean;
+		/** easy_use_vettaApp 工具开关。缺省关。 */
+		easyUseVettaApp?: boolean;
 	};
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
 	defaultConversationCwd?: string;
