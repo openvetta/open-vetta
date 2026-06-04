@@ -544,9 +544,10 @@ export function ImBridgeSettings(): JSX.Element {
 			{/* ─────────────────────────────────────────────────────────────── */}
 			<SettingSection
 				section={SETTINGS_SECTION["imbridge-model"]}
+				title="对话模型"
 				description="IM 桥接拉起的 coding-agent 子进程会用这个模型回复消息；未设置时跟随 Vetta 全局默认模型。"
 			>
-				<SettingRow title="模型" description="本地配置 + Vetta Zen 线上模型一起列出">
+				<SettingRow title="模型" description="可以用模型配置中的模型">
 					<div className="flex items-center gap-2">
 						<Select
 							value={
@@ -786,9 +787,6 @@ export function ImBridgeSettings(): JSX.Element {
 					</div>
 				}
 			>
-				<SettingRow title="活跃会话数" description="桥接进程当前持有的 coding-agent 子进程数量">
-					<span className="text-[13px] tabular-nums text-foreground">{status?.activeSessions ?? 0}</span>
-				</SettingRow>
 				<SettingRow title="桥接进程 PID" description="im-gateway 子进程的 PID">
 					<span className="text-[13px] tabular-nums text-muted-foreground">{status?.sidecarPid ?? "—"}</span>
 				</SettingRow>

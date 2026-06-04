@@ -8,7 +8,7 @@ import {
 	sseClientAtom,
 	sseConnectionStateAtom,
 } from "@shared/store/atoms";
-import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
@@ -22,6 +22,7 @@ export function useAuth() {
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
 	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
+	const setSubscriptionStatus = useSetAtom(subscriptionStatusAtom);
 	const sseClient = useAtomValue(sseClientAtom);
 	const setSseState = useSetAtom(sseConnectionStateAtom);
 
@@ -109,6 +110,8 @@ export function useAuth() {
 			setCreditsBalance(null);
 			setCreditsUnlimited(false);
 			setRemoteProviders({});
+			// 登出：重置内存态为 null，读 atom 时回退到 localStorage 缓存(保留上次已知)。
+			setSubscriptionStatus(null);
 			return;
 		}
 		void window.vetta.credits
@@ -126,7 +129,14 @@ export function useAuth() {
 				setRemoteProviders((result.providers ?? {}) as Record<string, unknown>);
 			})
 			.catch(console.error);
-	}, [token, setCreditsBalance, setCreditsUnlimited, setRemoteProviders]);
+		void window.vetta.subscription
+			.getStatus()
+			.then((result) => {
+				// 拉取成功才覆盖；失败(status:null)保持内存态不变，UI 用 localStorage 缓存回退。
+				if (result.status) setSubscriptionStatus(result.status);
+			})
+			.catch(console.error);
+	}, [token, setCreditsBalance, setCreditsUnlimited, setRemoteProviders, setSubscriptionStatus]);
 
 	// SSE: connect when token is available, disconnect on logout
 	useEffect(() => {

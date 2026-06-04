@@ -24,6 +24,7 @@
 
 ### Fixed
 
+- **配额耗尽类 429 不再自动重试**：`AgentSession._isRetryableError` 原先正则命中 `429` 就当瞬时错误重试（默认 3 次、2s/4s/8s 退避）。但「429 Token Plan 5h 窗口额度已用尽，将于 … 重置」这类**计划/窗口配额耗尽**错误的重置时间在数小时后，退避窗口内绝无可能恢复——白重试 3 次，每次还经 runtime-host 转成一条 `error` 事件推给 UI，桌面端表现为同一条 429 连刷 4 条。修复：在瞬时错误判定前先匹配配额耗尽关键词（`额度已用尽` / `窗口额度` / `余额不足` / `Token Plan` / `insufficient quota` / `quota exhausted` 等），命中即判为不可重试，立即向用户呈现单条错误并停下；真正的瞬时 429/限速/5xx 仍照常重试。
 - **图片 resize 失败时不再把原图透传给模型**：`resizeImage()` 现在在 Photon 不可用或 WASM 处理失败（例如超大 PNG 触发 `unreachable`）时返回显式失败结果，并把详细错误写入日志；`read` 工具、用户上传图片与 CLI `@file` 图片入口会改为给模型返回可读文本说明并省略图片附件，避免 20MB+ 原图 fallback 后继续撑爆本地 VL 后端。
 
 - **未登录时本地模型也被拦截，报 "No model selected"**：`packages/coding-agent/src/core/model-registry.ts` 三处合修。(1) `validateConfig` 原本对所有定义了 `models` 的 custom provider 强制要求 `apiKey`，但 ollama / lm-studio / vLLM 等本地推理服务通常不需要 key——把这条 throw 移除（`baseUrl` 仍必填）。(2) `loadCustomModels` 原本 `validateConfig` 抛错就 catch 后整段返回 `emptyCustomModelsResult`——一个 provider 配错会株连 `models.json` 里所有其它 provider 全部失效；改成 per-provider 收集错误，坏 provider 跳过、好 provider 照常加载，错误聚合到 `loadError` 供 UI 展示。(3) 新增 `customProviderNames: Set<string>` 跟踪所有用户自定义 provider；`getAvailable()` 把它们也算可用（原先只看 `isRemote || hasAuth`，本地无 key provider 既不是 remote 也没有任何 auth 形态，会被过滤掉，导致 `findInitialModel` 返回 undefined → agent-session 入口报 "No model selected"）。`getApiKey` / `getApiKeyForProvider` 对自定义 provider 在没有真实 key 且未配置 OAuth 时返回常量占位符 `no-auth-needed-for-local-provider`，让请求走到上游——本地服务忽略 Authorization、远端真要 key 时返回精准 401，远比"在挑选阶段就拒绝"对用户友好。
