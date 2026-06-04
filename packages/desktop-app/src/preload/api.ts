@@ -517,14 +517,26 @@ export interface DesktopUpdaterApi {
 	onStateChanged(handler: (state: UpdaterState) => void): () => void;
 }
 
+/**
+ * refresh 的三态结果。区分「明确拒绝」与「暂时性失败」是避免快速刷新误踢登录的关键：
+ * - ok：拿到新 access token。
+ * - unauthorized：服务端明确返回 401（refresh token 失效/过期/撤销）或本地无 refresh token —— 应登出。
+ * - transient：网络失败 / 超时 / 5xx —— 绝不能登出。对「一次性轮转」尤其致命：
+ *   服务端可能已提交轮转但响应丢失，此时登出只会把用户踢下线，应保留会话稍后重试。
+ */
+export type RefreshOutcome =
+	| { status: "ok"; accessToken: string }
+	| { status: "unauthorized" }
+	| { status: "transient" };
+
 export interface DesktopAuthApi {
 	openExternal(url: string): Promise<void>;
 	/**
-	 * 委托主进程用磁盘上的 refresh_token 换新 access。返回新 access token 或 null。
+	 * 委托主进程用磁盘上的 refresh_token 换新 access。返回三态结果（见 RefreshOutcome）。
 	 * 渲染层不要再直接调 /auth/refresh —— 跨进程同时用同一 refresh_token 会被服务端
 	 * 视作 reuse 并 revoke，造成"老是掉登录"的体感问题。
 	 */
-	refreshToken(): Promise<string | null>;
+	refreshToken(): Promise<RefreshOutcome>;
 	onOAuthCallback(handler: (data: { token: string; refreshToken?: string }) => void): () => void;
 	/**
 	 * 主进程发起的请求（如 fetchRemoteProviders / credits balance）收到 401 时触发。

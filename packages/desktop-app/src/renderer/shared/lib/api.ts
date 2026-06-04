@@ -1,3 +1,5 @@
+import type { RefreshOutcome } from "@preload/api";
+
 let cachedBaseUrl: string | undefined;
 
 async function getApiBase(): Promise<string> {
@@ -59,16 +61,16 @@ function readStoredAccessToken(): string | undefined {
  * 主进程成功后会写 settings.json + 广播 `vetta:auth:token-refreshed`，
  * 渲染层的 localStorage / atom 由顶部的广播订阅 + notifyTokenRefreshed 同步。
  */
-let refreshInFlight: Promise<string | null> | null = null;
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
-export async function tryRefreshAccessToken(): Promise<string | null> {
+export async function tryRefreshAccessToken(): Promise<RefreshOutcome> {
 	if (refreshInFlight) return refreshInFlight;
-	refreshInFlight = (async (): Promise<string | null> => {
+	refreshInFlight = (async (): Promise<RefreshOutcome> => {
 		try {
-			const next = await window.vetta.auth.refreshToken();
-			return next ?? null;
+			return await window.vetta.auth.refreshToken();
 		} catch {
-			return null;
+			// IPC 异常按暂时性处理，不登出。
+			return { status: "transient" };
 		}
 	})();
 	try {
@@ -110,10 +112,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 			notifyUnauthorized();
 			throw new Error("登录已过期，请重新登录");
 		}
-		const newAccess = await tryRefreshAccessToken();
-		if (newAccess) {
-			res = await fetch(base + path, withNewAuth(options, newAccess));
+		const outcome = await tryRefreshAccessToken();
+		if (outcome.status === "transient") {
+			// 暂时性失败（网络/超时/5xx）：不登出，抛普通错误让上层重试/提示。
+			throw new Error("网络异常，请稍后重试");
 		}
+		if (outcome.status === "unauthorized") {
+			notifyUnauthorized();
+			throw new Error("登录已过期，请重新登录");
+		}
+		res = await fetch(base + path, withNewAuth(options, outcome.accessToken));
 		if (res.status === 401) {
 			notifyUnauthorized();
 			throw new Error("登录已过期，请重新登录");

@@ -47,12 +47,14 @@ export function useAuth() {
 		if (token && !user) {
 			void fetchCurrentUser(token)
 				.then((u) => setUser(u))
-				.catch(() => {
-					// Token invalid (refresh also failed inside request()), clear
-					logout();
+				.catch((err) => {
+					// 不要在这里登出：明确的 401（token 失效/撤销）已由 request() 内部
+					// notifyUnauthorized → onUnauthorized 监听器统一处理登出。
+					// 这里只会收到暂时性错误（网络/超时/5xx），登出反而会因为快速刷新误踢用户。
+					console.warn("[useAuth] fetchCurrentUser on mount failed (transient, keep session):", err);
 				});
 		}
-	}, [token, user, setUser, logout]);
+	}, [token, user, setUser]);
 
 	// Listen for 401 responses (refresh 已失败) - auto logout
 	useEffect(() => {
