@@ -260,6 +260,10 @@ export function registerAppearanceActions(register: (action: ActionDefinition) =
 			},
 		],
 		validateInput: validateThemeActionInput,
+		requiresApproval: (input, context) => {
+			const request = input as unknown as ThemeActionInput;
+			return context.source === "local-server" && request.type === "set";
+		},
 		run: async (input) => {
 			const request = input as unknown as ThemeActionInput;
 			if (request.type === "help") {

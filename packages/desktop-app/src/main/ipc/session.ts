@@ -20,6 +20,8 @@ import type {
 	SessionExecutionMode,
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
+import { getActionApprovalGrantStore } from "../app-actions/approval-grants.js";
+import type { JsonValue } from "../app-actions/types.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { notify } from "../notifications/index.js";
 import { getSharedRuntime } from "../runtime.js";
@@ -276,6 +278,10 @@ function normalizeEasyUseVettaAppResult(value: unknown): RuntimeEasyUseVettaAppR
 	};
 }
 
+function toActionApprovalInput(input: RuntimeJsonValue | undefined): JsonValue {
+	return (input ?? {}) as JsonValue;
+}
+
 export function registerSessionIpc(webContents: WebContents): () => void {
 	const resolveDefaultExecutionMode = async (): Promise<SessionExecutionMode> => {
 		const config = await readDesktopConfig();
@@ -286,7 +292,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const subscriptionMap = new Map<string, () => void>();
 	const confirmationMap = new Map<string, (confirmed: boolean) => void>();
 	const questionMap = new Map<string, (result: RuntimeUserQuestionResult) => void>();
-	const easyUseVettaAppMap = new Map<string, (result: RuntimeEasyUseVettaAppResult) => void>();
+	const actionApprovalGrants = getActionApprovalGrantStore();
+	const easyUseVettaAppMap = new Map<
+		string,
+		{ request: RuntimeEasyUseVettaAppRequest; resolve: (result: RuntimeEasyUseVettaAppResult) => void }
+	>();
 	const sandboxGrantMap = new Map<string, (decision: RuntimeSandboxGrantDecision) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
@@ -427,7 +437,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				return;
 			}
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
-			easyUseVettaAppMap.set(request.requestId, finish);
+			easyUseVettaAppMap.set(request.requestId, { request, resolve: finish });
 			webContents.send(CHANNELS.EASY_USE_VETTA_APP_REQUEST, request);
 		});
 	};
@@ -437,8 +447,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			runtime.setEasyUseVettaAppHandler(easyUseVettaAppHandler);
 		} else {
 			runtime.setEasyUseVettaAppHandler(undefined);
-			for (const resolve of easyUseVettaAppMap.values()) resolve(CANCELLED_EASY_USE);
+			for (const entry of easyUseVettaAppMap.values()) entry.resolve(CANCELLED_EASY_USE);
 			easyUseVettaAppMap.clear();
+			actionApprovalGrants.clear();
 		}
 	};
 
@@ -685,6 +696,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.DISPOSE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		detachNotificationSub(sessionId);
+		actionApprovalGrants.revokeBySession(sessionId);
 		await runtime.disposeSession(sessionId);
 	});
 
@@ -789,9 +801,23 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.EASY_USE_VETTA_APP_RESPONSE, (_event, requestId: unknown, result: unknown) => {
 		assertNonEmptyString(requestId, "requestId");
-		const resolve = easyUseVettaAppMap.get(requestId);
-		if (!resolve) return;
-		resolve(normalizeEasyUseVettaAppResult(result));
+		const entry = easyUseVettaAppMap.get(requestId);
+		if (!entry) return;
+		const normalized = normalizeEasyUseVettaAppResult(result);
+		if (
+			(normalized.status === "approved" || normalized.status === "submitted") &&
+			normalized.allowedActions !== undefined
+		) {
+			for (const action of normalized.allowedActions) {
+				actionApprovalGrants.createGrant({
+					actionId: action.actionId,
+					input: toActionApprovalInput(action.input),
+					sessionId: entry.request.sessionId,
+					requestId: entry.request.requestId,
+				});
+			}
+		}
+		entry.resolve(normalized);
 	});
 
 	ipcMain.handle(CHANNELS.QUESTION_SET_ENABLED, (_event, enabled: unknown) => {
@@ -903,10 +929,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve(CANCELLED_QUESTION);
 		}
 		questionMap.clear();
-		for (const resolve of easyUseVettaAppMap.values()) {
-			resolve(CANCELLED_EASY_USE);
+		for (const entry of easyUseVettaAppMap.values()) {
+			entry.resolve(CANCELLED_EASY_USE);
 		}
 		easyUseVettaAppMap.clear();
+		actionApprovalGrants.clear();
 		for (const resolve of sandboxGrantMap.values()) {
 			resolve("deny");
 		}
@@ -996,10 +1023,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve(CANCELLED_QUESTION);
 		}
 		questionMap.clear();
-		for (const resolve of easyUseVettaAppMap.values()) {
-			resolve(CANCELLED_EASY_USE);
+		for (const entry of easyUseVettaAppMap.values()) {
+			entry.resolve(CANCELLED_EASY_USE);
 		}
 		easyUseVettaAppMap.clear();
+		actionApprovalGrants.clear();
 		for (const resolve of sandboxGrantMap.values()) {
 			resolve("deny");
 		}

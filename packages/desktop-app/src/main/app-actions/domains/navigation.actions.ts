@@ -281,6 +281,10 @@ export function registerNavigationActions(register: (action: ActionDefinition) =
 			},
 		],
 		validateInput: validateNavigationActionInput,
+		requiresApproval: (input, context) => {
+			const request = input as unknown as NavigationActionInput;
+			return context.source === "local-server" && request.type === "open";
+		},
 		run: async (input) => {
 			const request = input as unknown as NavigationActionInput;
 			if (request.type === "help") {

@@ -38,6 +38,7 @@ export interface ActionContext {
 
 export interface ActionDefinition extends ActionMetadata {
 	validateInput: (input: unknown) => JsonValue;
+	requiresApproval?: (input: JsonValue, context: ActionContext) => boolean;
 	run: (input: JsonValue, context: ActionContext) => Promise<JsonValue> | JsonValue;
 }
 

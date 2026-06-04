@@ -1,8 +1,12 @@
+import { type ActionApprovalGrantStore, getActionApprovalGrantStore } from "./approval-grants.js";
 import type { AppActionCatalog } from "./catalog.js";
 import type { ActionContext, JsonValue } from "./types.js";
 
 export class AppActionRuntime {
-	constructor(private readonly catalog: AppActionCatalog) {}
+	constructor(
+		private readonly catalog: AppActionCatalog,
+		private readonly approvalGrants: ActionApprovalGrantStore = getActionApprovalGrantStore(),
+	) {}
 
 	search(options: { query?: string; domain?: string }): JsonValue {
 		return this.catalog.search(options) as unknown as JsonValue;
@@ -15,6 +19,9 @@ export class AppActionRuntime {
 	async run(actionId: string, input: unknown, context: ActionContext): Promise<JsonValue> {
 		const action = this.catalog.get(actionId);
 		const validatedInput = action.validateInput(input);
+		if (action.requiresApproval?.(validatedInput, context)) {
+			this.approvalGrants.consumeGrant({ actionId, input: validatedInput });
+		}
 		return await action.run(validatedInput, context);
 	}
 }
