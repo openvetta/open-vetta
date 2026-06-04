@@ -342,3 +342,31 @@ _Avoid_: 把服务端推送的应用内消息叫「系统通知」。
 模型的分类标签，一个模型可打多个。**独立受管实体**（id + 名称），与现有自由文本 `ProviderModel.tags`（"free,fast,vision" 展示标签）完全分离，模型与分组多对多（中间表）。在「模型设置」页有「模型分组」配置入口预设 n 个分组，模型设置中给模型多选打 tag。
 
 **通用概念，不与 Go 强绑定**：分组本身是独立特性，[[档位]]关联若干分组 tag 决定可用模型只是当前**第一个消费者**；未来可能有其他业务按分组处理。建模时保持解耦——分组实体不依赖订阅，订阅单向引用分组。当前仅约束 Go 可用范围，[[Vetta Zen / 按需付费]] 仍暴露所有启用模型、与分组无关。
+
+### 技能管理字段（skill management fields）
+
+[[技能市场]]里一个 Skill/Scene 的平台侧可管字段：`type`(skill|scene)、`category`、`tags`、`version`、`author`、`alias`、`description`、`is_enabled`、`download_count`。**真相源是平台数据库，不是 SKILL.md。** SKILL.md 的 `metadata` 块仅在**上传那一刻**作导入兜底（用来预填表单初值），入库后一切以 DB 为准、由 admin 编辑；agent 触发只读包内 SKILL.md 原文。
+_Avoid_: 把 SKILL.md 的 `metadata` 当成运行期真相源——第三方 skill 不该为了上传被迫改造 metadata。
+
+### market description
+
+[[技能市场]]列表/详情给人看的展示性描述，admin 上传/编辑时填写，**留空降级到 SKILL.md frontmatter 的 `description`**。**纯展示层**：客户端存在 manifest 的 `marketDescription`，不回写包内 SKILL.md。
+_Avoid_: 与 **SKILL.md description** 混为一谈——后者是 agent 判断何时触发该 skill 的功能性描述，二者用途不同、互不覆盖。
+
+### skill version（技能版本口径）
+
+Skill 的版本以**服务端 DB 值为唯一真相**。来源优先级：**上传表单值 > SKILL.md metadata.version > 兜底**（新包 `1.0.0`、重传在当前 DB 版本上 `patch+1`）。单包上传时 metadata.version 预填表单、admin 可改；批量上传无表单，新包取 metadata.version、重传取 metadata.version 否则 patch+1。客户端安装时把服务端下发的 version 经 `meta` 存入 [[skills-manifest]]，**绝不重新解析本地 SKILL.md**；`needsUpdate = manifest.version !== market.version`。
+_Avoid_: 客户端装完重解析本地 SKILL.md 取版本——SKILL.md 常缺 version，服务端缺省 `0.0.1` 与本地解析缺省 `0.0.0` 永不相等，导致「一直可更新」。
+
+### skill category（技能分类）
+
+Skill/Scene 的分类，**独立受管实体**（id + 名称 + `scope` 区分 skill / scene），admin 有「分类管理」入口 CRUD，上传/编辑时按当前 type 过滤后**单选一个**。与 [[模型分组 tag]] 同构思路：从 metadata 自由文本解耦，改分类不需重传包。`tags` 仍是自由描述性标签、与 category 分离。
+
+### skills-manifest
+
+客户端 `~/.vetta/skills-manifest.json`，记录每个已装 Skill/Scene 的安装态（`version`/`source`/`enabled`/`type`/`alias`/`marketDescription`）。本地文件扁平铺在 `~/.vetta/{skills,scene}/<name>/`，**同名同时只存一个版本**，路径不含版本号。manifest 里的 `version` 是 [[skill version]] 的更新比对基准。
+
+### skill download_count（下载量）
+
+Skill 的热度计数，**后端 `DownloadArchive` 每成功一次 +1，不按用户去重**（含重装/更新）。admin 表格与 desktop 市场页都展示，市场页可按热度排序。
+_Avoid_: 当成「装机量/独立安装数」——它是原始下载次数，不减卸载、不去重。

@@ -38,6 +38,7 @@ interface SceneItem {
 	alias?: string;
 	description: string;
 	state: SceneState;
+	version?: string;
 }
 
 const SCENE_STATE_RANK: Record<SceneState, number> = { active: 0, disabled: 1, uninstalled: 2 };
@@ -174,7 +175,13 @@ export function NewSessionPage(): JSX.Element {
 			if (map.has(ms.name)) continue;
 			const local = manifest[ms.name];
 			const state: SceneState = local ? (local.enabled ? "active" : "disabled") : "uninstalled";
-			map.set(ms.name, { name: ms.name, alias: ms.alias, description: ms.description, state });
+			map.set(ms.name, {
+				name: ms.name,
+				alias: ms.alias,
+				description: ms.description,
+				state,
+				version: ms.version,
+			});
 		}
 		// 已装优先排序；sort 稳定，同态内保持插入序。
 		return Array.from(map.values()).sort(
@@ -206,6 +213,7 @@ export function NewSessionPage(): JSX.Element {
 						await window.vetta.skills.installFromMarket(item.name, buffer, "scene", {
 							alias: item.alias,
 							marketDescription: item.description,
+							version: item.version,
 						});
 					} else {
 						// disabled：已落盘，仅切换启用，无需重新下载。

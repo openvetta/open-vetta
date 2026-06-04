@@ -342,6 +342,7 @@ export interface MarketSkillInfo {
 	author: string;
 	tags: string[];
 	category: string;
+	download_count: number;
 }
 
 export async function fetchMarketSkills(token: string): Promise<MarketSkillInfo[]> {

@@ -183,7 +183,7 @@ const api: DesktopApi = {
 			name: string,
 			archiveBuffer: ArrayBuffer,
 			type: "skill" | "scene",
-			meta?: { alias?: string; marketDescription?: string },
+			meta?: { alias?: string; marketDescription?: string; version?: string },
 		) => ipcRenderer.invoke("vetta:skills:install-from-market", name, archiveBuffer, type, meta),
 		importCustom: async (archiveBuffer: ArrayBuffer) =>
 			ipcRenderer.invoke("vetta:skills:import-custom", archiveBuffer),
