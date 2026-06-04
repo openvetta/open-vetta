@@ -1,34 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { RuntimeEasyUseVettaAppRequest, RuntimeJsonValue } from "../../../../../../runtime-core/src/index.js";
 import { Button } from "@shared/components/ui/button";
 
 interface EasyUseVettaAppPanelProps {
 	request: RuntimeEasyUseVettaAppRequest;
 	onClose: () => void;
-}
-
-function formatJson(value: RuntimeJsonValue | undefined): string {
-	if (value === undefined) return "{}";
-	return JSON.stringify(value, null, 2);
-}
-
-function parseJson(text: string): { ok: true; value: RuntimeJsonValue } | { ok: false; message: string } {
-	try {
-		const parsed = JSON.parse(text) as unknown;
-		if (!isJsonValue(parsed)) return { ok: false, message: "JSON 只能包含对象、数组、字符串、数字、布尔值或 null。" };
-		return { ok: true, value: parsed };
-	} catch (error) {
-		return { ok: false, message: error instanceof Error ? error.message : String(error) };
-	}
-}
-
-function isJsonValue(value: unknown): value is RuntimeJsonValue {
-	if (value === null) return true;
-	const t = typeof value;
-	if (t === "string" || t === "number" || t === "boolean") return true;
-	if (Array.isArray(value)) return value.every(isJsonValue);
-	if (t !== "object") return false;
-	return Object.values(value as Record<string, unknown>).every(isJsonValue);
 }
 
 function defaultFieldValues(request: RuntimeEasyUseVettaAppRequest): Record<string, RuntimeJsonValue> {
@@ -58,23 +34,23 @@ function buildUiOutput(
 	};
 }
 
+function buildAllowedAction(request: RuntimeEasyUseVettaAppRequest): { actionId: string; input?: RuntimeJsonValue } {
+	return {
+		actionId: request.actionId,
+		...(request.proposedInput !== undefined ? { input: request.proposedInput } : {}),
+	};
+}
+
 export function EasyUseVettaAppPanel({ request, onClose }: EasyUseVettaAppPanelProps): JSX.Element {
-	const [inputText, setInputText] = useState(formatJson(request.proposedInput));
 	const [fieldValues, setFieldValues] = useState<Record<string, RuntimeJsonValue>>(() => defaultFieldValues(request));
-	const [error, setError] = useState<string | null>(null);
-	const actionInput = useMemo(() => parseJson(inputText), [inputText]);
 
 	const finish = async (status: "approved" | "submitted" | "rejected" | "cancelled"): Promise<void> => {
 		if (status === "approved" || status === "submitted") {
-			if (!actionInput.ok) {
-				setError(actionInput.message);
-				return;
-			}
 			await window.vetta.session.respondToEasyUseVettaApp(request.requestId, {
 				status,
 				message: status === "approved" ? "用户允许执行该 Vetta App action。" : "用户提交了 Vetta App UI 输出。",
-				output: buildUiOutput(request, fieldValues, actionInput.value),
-				allowedActions: [{ actionId: request.actionId, input: actionInput.value }],
+				output: buildUiOutput(request, fieldValues, request.proposedInput),
+				allowedActions: [buildAllowedAction(request)],
 			});
 			onClose();
 			return;
@@ -128,19 +104,6 @@ export function EasyUseVettaAppPanel({ request, onClose }: EasyUseVettaAppPanelP
 							))}
 						</div>
 					)}
-
-					<label className="block space-y-1">
-						<span className="text-xs font-medium text-muted-foreground">Action 输入 JSON</span>
-						<textarea
-							className="min-h-32 w-full resize-y rounded-md border border-input bg-background px-2 py-2 font-mono text-xs leading-5 outline-none focus:border-ring"
-							value={inputText}
-							onChange={(event) => {
-								setInputText(event.target.value);
-								setError(null);
-							}}
-						/>
-					</label>
-					{error && <div className="text-xs text-destructive">{error}</div>}
 				</div>
 
 				<div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
