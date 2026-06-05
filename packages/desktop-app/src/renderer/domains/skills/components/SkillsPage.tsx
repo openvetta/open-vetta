@@ -7,6 +7,7 @@ import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { Button } from "@shared/components/ui/button";
 
 type TypeTab = "skill" | "scene";
 type ActionState = "idle" | "loading" | "done";
@@ -231,7 +232,7 @@ function SkillCard({
 						</span>
 					)}
 					{skill.isCustom && (
-						<span className="inline-flex h-4 shrink-0 items-center rounded-full bg-violet-500/15 px-1.5 text-[10px] font-medium text-violet-400">
+						<span className="inline-flex h-4 shrink-0 items-center rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
 							自定义
 						</span>
 					)}
@@ -296,17 +297,15 @@ function SkillCard({
 						/>
 					</>
 				) : (
-					<motion.button
+					<Button
 						type="button"
+						variant="primary"
+						size="sm"
 						onClick={(e) => {
 							e.stopPropagation();
 							onInstall(skill);
 						}}
 						disabled={isLoading}
-						whileHover={!isLoading ? { scale: 1.04 } : undefined}
-						whileTap={!isLoading ? { scale: 0.94 } : undefined}
-						transition={{ type: "spring", stiffness: 380, damping: 22 }}
-						className="flex h-7 items-center gap-1 rounded-full bg-primary/10 px-2.5 text-[11px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
 					>
 						{isLoading ? (
 							<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
@@ -314,7 +313,7 @@ function SkillCard({
 							<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 						)}
 						<span>安装</span>
-					</motion.button>
+					</Button>
 				)}
 			</div>
 		</motion.div>
@@ -465,17 +464,15 @@ function SceneCard({
 								/>
 							</>
 						) : (
-							<motion.button
+							<Button
 								type="button"
+								variant="primary"
+								size="sm"
 								onClick={(e) => {
 									e.stopPropagation();
 									onInstall(scene);
 								}}
 								disabled={isLoading}
-								whileHover={!isLoading ? { scale: 1.04 } : undefined}
-								whileTap={!isLoading ? { scale: 0.94 } : undefined}
-								transition={{ type: "spring", stiffness: 380, damping: 22 }}
-								className="flex h-7 items-center gap-1 rounded-full bg-primary px-3 text-[11px] font-medium text-primary-foreground shadow-[0_4px_14px_-4px_var(--primary)] transition-shadow hover:shadow-[0_6px_18px_-4px_var(--primary)] disabled:opacity-50"
 							>
 								{isLoading ? (
 									<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
@@ -483,7 +480,7 @@ function SceneCard({
 									<span className="icon-[mdi--play] h-3.5 w-3.5" />
 								)}
 								<span>使用</span>
-							</motion.button>
+							</Button>
 						)}
 					</div>
 				</div>
@@ -572,48 +569,6 @@ function TagGroup({
 					),
 				)}
 			</motion.div>
-		</motion.div>
-	);
-}
-
-// ─── Stats card ───
-function StatCard({
-	icon,
-	label,
-	value,
-	tint,
-}: {
-	icon: string;
-	label: string;
-	value: number;
-	tint: "primary" | "emerald" | "amber";
-}): JSX.Element {
-	const tintClasses = {
-		primary: { iconBg: "bg-primary/10 ring-primary/20", iconColor: "text-primary" },
-		emerald: { iconBg: "bg-emerald-500/10 ring-emerald-500/20", iconColor: "text-emerald-400" },
-		amber: { iconBg: "bg-amber-500/10 ring-amber-500/20", iconColor: "text-amber-400" },
-	}[tint];
-	return (
-		<motion.div
-			variants={{
-				hidden: { opacity: 0, y: 10, scale: 0.95 },
-				show: { opacity: 1, y: 0, scale: 1 },
-			}}
-			transition={{ type: "spring", stiffness: 320, damping: 26 }}
-			whileHover={{ y: -2 }}
-			className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/40 bg-card/30 px-3.5 py-3 backdrop-blur-sm transition-colors duration-200 hover:border-primary/30"
-		>
-			<div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${tintClasses.iconBg}`}>
-				<span className={`${icon} h-4 w-4 ${tintClasses.iconColor}`} />
-			</div>
-			<div className="min-w-0 flex-1">
-				<p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-					{label}
-				</p>
-				<p className="mt-0.5 text-[20px] font-semibold leading-none tracking-tight text-foreground">
-					{value}
-				</p>
-			</div>
 		</motion.div>
 	);
 }
@@ -788,15 +743,6 @@ export function SkillsPage(): JSX.Element {
 
 	const groups = useMemo(() => groupByCategory(filtered), [filtered]);
 
-	const stats = useMemo(() => {
-		const all = [...filtered, ...customSkills];
-		const total = all.length;
-		const installed = all.filter((s) => s.installed).length;
-		const enabled = all.filter((s) => s.enabled).length;
-		const updates = all.filter((s) => s.needsUpdate).length;
-		return { total, installed, enabled, updates };
-	}, [filtered, customSkills]);
-
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			<div className="drag-region h-12 shrink-0" />
@@ -851,14 +797,11 @@ export function SkillsPage(): JSX.Element {
 									className="hidden"
 									onChange={handleFileChange}
 								/>
-								<motion.button
+								<Button
 									type="button"
+									variant="outline"
 									onClick={handleImportClick}
 									disabled={importing}
-									whileHover={!importing ? { scale: 1.03 } : undefined}
-									whileTap={!importing ? { scale: 0.96 } : undefined}
-									transition={{ type: "spring", stiffness: 380, damping: 22 }}
-									className="flex h-8 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 text-[12px] font-medium text-primary transition-colors hover:bg-primary/15 disabled:opacity-50"
 								>
 									{importing ? (
 										<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
@@ -866,7 +809,7 @@ export function SkillsPage(): JSX.Element {
 										<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
 									)}
 									<span>导入技能</span>
-								</motion.button>
+								</Button>
 							</>
 						)}
 						<SegmentedControl
@@ -879,47 +822,7 @@ export function SkillsPage(): JSX.Element {
 						/>
 					</motion.div>
 				</div>
-
-				{/* Stats strip */}
-				{stats.total > 0 && (
-					<motion.div
-						className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
-						initial="hidden"
-						animate="show"
-						variants={{
-							hidden: {},
-							show: { transition: { staggerChildren: 0.06, delayChildren: 0.15 } },
-						}}
-					>
-						<StatCard
-							icon="icon-[mdi--puzzle-outline]"
-							label="可用总数"
-							value={stats.total}
-							tint="primary"
-						/>
-						<StatCard
-							icon="icon-[mdi--download-outline]"
-							label="已安装"
-							value={stats.installed}
-							tint="primary"
-						/>
-						<StatCard
-							icon="icon-[mdi--check-circle-outline]"
-							label="已启用"
-							value={stats.enabled}
-							tint="emerald"
-						/>
-						<StatCard
-							icon="icon-[mdi--arrow-up-bold-circle-outline]"
-							label="可更新"
-							value={stats.updates}
-							tint="amber"
-						/>
-					</motion.div>
-				)}
 			</div>
-
-			<div className="mx-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
 
 			{/* Content */}
 			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8">
