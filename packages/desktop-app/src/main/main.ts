@@ -21,6 +21,7 @@ import {
 	installMainDiagnostics,
 	registerLocalNetworkAccess,
 } from "./diagnostics.js";
+import { fixPath } from "./fix-path.js";
 import { getImHost } from "./im-host/index.js";
 import { persistVettaAppPath } from "./ipc/fs.js";
 import {
@@ -44,6 +45,10 @@ import {
 } from "./tray-manager.js";
 import { getAppVersion, updaterService } from "./updater.js";
 import { createWindow, getMainWindow, setMainWindow, showMainWindow } from "./window-manager.js";
+
+// 启动早期修复 GUI 进程的 PATH(补回 homebrew 等登录 shell 路径),必须先于
+// RuntimeManager.applyEnv() 与 coding-agent 的 bash 执行。详见 fix-path.ts。
+fixPath();
 
 const PROTOCOL = "vetta";
 const isMac = process.platform === "darwin";
