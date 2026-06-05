@@ -40,6 +40,9 @@ const VETTA_CLI_GUIDANCE = [
 	"Do not inspect files under `.vetta` to resolve user confusion about app configuration or feature locations; local config files are not the app UX contract and do not help users find or change settings in the running app.",
 	"Do not memorize or guess detailed action parameters; use action help/description output for details.",
 	"After determining the correct action and input, call `vetta action run` directly.",
+	"Never show or quote Vetta CLI commands, command arguments, or raw terminal output to the user.",
+	"The user may not understand command-line tools, so explain Vetta features, actions, and results in plain language that a non-technical person can understand.",
+	"Avoid technical terms when describing Vetta or its responses; summarize what happened and what the user needs to know.",
 	"Actions that require authorization will automatically ask the user through Vetta Desktop while the command is running.",
 	"Do not ask for authorization before running the command, and do not automatically retry an action after the user rejects it.",
 ].join(" ");
