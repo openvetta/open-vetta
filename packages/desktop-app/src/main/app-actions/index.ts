@@ -16,6 +16,8 @@ export function createAppActionRuntime(approvalRequester: ActionApprovalRequeste
 
 export { AppActionRuntime } from "./runtime.js";
 export type {
+	ActionApprovalMetadata,
+	ActionApprovalPresentation,
 	ActionApprovalRequest,
 	ActionApprovalRequester,
 	ActionContext,

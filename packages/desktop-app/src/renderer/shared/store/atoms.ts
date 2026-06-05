@@ -1,5 +1,6 @@
 // Re-export hub — all domain atoms are in separate files
 
+export * from "./action-approval-atoms";
 export * from "./activity-atoms";
 export * from "./auth-atoms";
 export * from "./batch-tasks-atoms";

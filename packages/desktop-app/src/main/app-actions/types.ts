@@ -13,6 +13,17 @@ export interface ActionInputSchema {
 	description: string;
 }
 
+export interface ActionApprovalPresentation {
+	id: string;
+	title: string;
+	description: string;
+}
+
+export interface ActionApprovalMetadata {
+	defaultPresentation: string;
+	presentations: ActionApprovalPresentation[];
+}
+
 export interface ActionMetadata {
 	id: string;
 	domain: string;
@@ -20,6 +31,7 @@ export interface ActionMetadata {
 	summary: string;
 	availability: ActionAvailability;
 	permission: string;
+	approval?: ActionApprovalMetadata;
 	inputSchema: ActionInputSchema;
 	examples: ActionExample[];
 }
@@ -40,6 +52,7 @@ export interface ActionContext {
 
 export interface ActionApprovalRequest {
 	actionId: string;
+	approvalPresentation: string;
 	input: JsonValue;
 	title: string;
 	summary: string;

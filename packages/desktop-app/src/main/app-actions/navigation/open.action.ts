@@ -9,9 +9,24 @@ export const openAction: ActionDefinition = {
 	summary: "根据稳定页面 id 打开应用内页面；支持跳转到设置页分类和具体设置项。",
 	availability: "gui-main",
 	permission: "navigation.write",
+	approval: {
+		defaultPresentation: "navigation.open",
+		presentations: [
+			{
+				id: "navigation.open",
+				title: "页面跳转确认",
+				description: "使用页面跳转专用审批界面；该界面未挂载时自动回退到通用审批界面。",
+			},
+			{
+				id: "generic",
+				title: "通用确认",
+				description: "使用通用 Action 审批界面，直接展示 Action 信息和完整输入。",
+			},
+		],
+	},
 	inputSchema: {
 		description:
-			'对象参数：{ "type": "help" } 或 { "type": "open", "target": string, "tab"?: string, "section"?: string }。target 可为普通页面 id、设置分类 id 或设置子项 id。',
+			'对象参数：{ "type": "help" } 或 { "type": "open", "target": string, "tab"?: string, "section"?: string, "approvalUi"?: "navigation.open" | "generic" }。target 可为普通页面 id、设置分类 id 或设置子项 id；approvalUi 由调用方按本次交互选择审批界面，省略时使用默认的 navigation.open。',
 	},
 	examples: [
 		{
@@ -33,6 +48,10 @@ export const openAction: ActionDefinition = {
 		{
 			description: "打开 Agent 个性化设置项",
 			input: { type: "open", target: "agent-personalization" },
+		},
+		{
+			description: "打开技能广场并明确使用通用审批界面",
+			input: { type: "open", target: "skills", approvalUi: "generic" },
 		},
 	],
 	validateInput: validateNavigationActionInput,

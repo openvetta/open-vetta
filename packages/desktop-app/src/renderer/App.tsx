@@ -1,5 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from "react";
-import type { DesktopActionApprovalRequest } from "@preload/api.js";
+import { useRef, useCallback, useEffect } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
@@ -23,6 +22,7 @@ import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
 import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
 import { UpdateRestartDialog } from "./shared/components/UpdateRestartDialog";
 import { ActionApprovalDialog } from "./shared/components/ActionApprovalDialog";
+import { ActionApprovalCenter } from "./shared/action-approval/ActionApprovalCenter";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,
@@ -116,8 +116,6 @@ export function RootLayout(): JSX.Element {
 	const matchesForGuard = useMatches();
 	const currentPath = matchesForGuard[matchesForGuard.length - 1]?.pathname ?? "/";
 	const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom);
-	const [actionApprovalRequest, setActionApprovalRequest] = useState<DesktopActionApprovalRequest | null>(null);
-	const actionApprovalQueueRef = useRef<DesktopActionApprovalRequest[]>([]);
 
 	// 路由守卫：当在根路径但没有 active session 时，直接跳到默认「对话」项目的 NewSession 页。
 	// 等价于"首次启动也落到 NewSession"。
@@ -206,28 +204,6 @@ export function RootLayout(): JSX.Element {
 			setPendingQuestions((prev) => ({ ...prev, [request.sessionId]: request }));
 		});
 	}, [setPendingQuestions]);
-
-	useEffect(() => {
-		return window.vetta.actionApproval.onRequest((request) => {
-			setActionApprovalRequest((current) => {
-				if (current) {
-					actionApprovalQueueRef.current.push(request);
-					return current;
-				}
-				return request;
-			});
-		});
-	}, []);
-
-	const handleActionApprovalDecision = useCallback(
-		(approved: boolean) => {
-			const request = actionApprovalRequest;
-			if (!request) return;
-			void window.vetta.actionApproval.respond(request.approvalId, approved);
-			setActionApprovalRequest(actionApprovalQueueRef.current.shift() ?? null);
-		},
-		[actionApprovalRequest],
-	);
 
 	const grantQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onSandboxGrantRequest>[0]>[0][]>([]);
 	const grantActiveRef = useRef(false);
@@ -365,10 +341,8 @@ export function RootLayout(): JSX.Element {
 					<WorkflowCompleteDialog />
 					<FilePreviewDialog />
 					<UpdateRestartDialog />
-					<ActionApprovalDialog
-						request={actionApprovalRequest}
-						onDecision={handleActionApprovalDecision}
-					/>
+					<ActionApprovalCenter />
+					<ActionApprovalDialog />
 				</div>
 			</div>
 		</TooltipProvider>

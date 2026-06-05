@@ -8,6 +8,27 @@ export class AppActionCatalog {
 		if (this.actions.has(action.id)) {
 			throw new ActionError("ACTION_DUPLICATE", `Action is already registered: ${action.id}`);
 		}
+		if (action.requiresApproval && !action.approval) {
+			throw new ActionError(
+				"ACTION_APPROVAL_CONFIG_INVALID",
+				`Action requires approval but has no approval UI configured: ${action.id}`,
+			);
+		}
+		if (action.approval) {
+			const presentationIds = action.approval.presentations.map((presentation) => presentation.id);
+			if (new Set(presentationIds).size !== presentationIds.length) {
+				throw new ActionError(
+					"ACTION_APPROVAL_CONFIG_INVALID",
+					`Action has duplicate approval UI ids: ${action.id}`,
+				);
+			}
+			if (!presentationIds.includes(action.approval.defaultPresentation)) {
+				throw new ActionError(
+					"ACTION_APPROVAL_CONFIG_INVALID",
+					`Action default approval UI is not declared: ${action.id}`,
+				);
+			}
+		}
 		this.actions.set(action.id, action);
 	}
 
@@ -41,6 +62,7 @@ export class AppActionCatalog {
 			summary: action.summary,
 			availability: action.availability,
 			permission: action.permission,
+			approval: action.approval,
 			inputSchema: action.inputSchema,
 			examples: action.examples,
 		};
