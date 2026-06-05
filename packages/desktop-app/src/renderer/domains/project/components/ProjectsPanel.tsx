@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
-import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
+import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, scheduledSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
 import { useProjects } from "../hooks/useProjects";
 import { ProjectGroup } from "./ProjectGroup";
 import { ProjectContextMenu } from "./ProjectContextMenu";
@@ -602,6 +602,12 @@ const DefaultSessionList = memo(function DefaultSessionList({
 	const [, setContextMenu] = useAtom(sessionContextMenuAtom);
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
+	const scheduledSessionPaths = useAtomValue(scheduledSessionPathsAtom);
+	const scheduledBasenames = useMemo(() => {
+		const s = new Set<string>();
+		for (const p of scheduledSessionPaths) s.add(p.slice(p.lastIndexOf("/") + 1));
+		return s;
+	}, [scheduledSessionPaths]);
 	const [showAll, setShowAll] = useState(false);
 
 	// 切换 filter（对话/Claw）时收起溢出列表，避免上一个 tab 的展开状态延续到另一个 tab。
@@ -627,6 +633,9 @@ const DefaultSessionList = memo(function DefaultSessionList({
 				const isActive = activeSessionPath === session.path;
 				const isRenaming = renamingSessionPath === session.path;
 				const isRunning = runningSessionPaths.has(session.path);
+				const isSchedule =
+					scheduledSessionPaths.has(session.path) ||
+					scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
 				const label = sessionDisplayLabel(session);
 				return (
 					<button
@@ -656,11 +665,20 @@ const DefaultSessionList = memo(function DefaultSessionList({
 							/>
 						) : (
 							<>
-								{isRunning && (
+								{isRunning ? (
 									<span
 										className={cn(
 											"project-running-icon icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin",
 											isActive ? "text-primary" : "text-muted-foreground",
+										)}
+									/>
+								) : isSchedule ? (
+									<span className="icon-[mdi--clock-outline] h-3.5 w-3.5 shrink-0 text-primary/80" />
+								) : (
+									<span
+										className={cn(
+											"icon-[mdi--message-text-outline] h-3.5 w-3.5 shrink-0",
+											isActive ? "text-foreground/70" : "text-muted-foreground/50",
 										)}
 									/>
 								)}

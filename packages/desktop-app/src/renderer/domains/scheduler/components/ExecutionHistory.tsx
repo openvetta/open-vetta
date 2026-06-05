@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
+import { useAtomValue } from "jotai";
 import type { TaskExecutionRecord } from "@shared/store/atoms";
-import { openSessionFnRef } from "@shared/store/atoms";
+import { openSessionFnRef, scheduledRecordsVersionAtom } from "@shared/store/atoms";
 
 interface ExecutionHistoryProps {
 	taskId: string;
+	/**
+	 * 嵌入抽屉时去掉自带外框/标题，body 自适应填满父容器高度；
+	 * 独立使用（旧布局）时保留卡片外观。
+	 */
+	embedded?: boolean;
 }
 
-export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element {
+export function ExecutionHistory({ taskId, embedded = false }: ExecutionHistoryProps): JSX.Element {
 	const [records, setRecords] = useState<TaskExecutionRecord[]>([]);
 	const [loading, setLoading] = useState(true);
+	// 删除定时 session 会删掉对应执行记录并 +1，这里据此重新拉取。
+	const recordsVersion = useAtomValue(scheduledRecordsVersionAtom);
 
 	useEffect(() => {
 		loadRecords();
-	}, [taskId]);
+	}, [taskId, recordsVersion]);
 
 	useEffect(() => {
 		const unsubscribe = window.vetta.scheduler.onTaskEvent((event) => {
@@ -39,26 +47,9 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 		}
 	};
 
-	return (
-		<div className="overflow-hidden rounded-xl border border-border">
-			{/* ─── Header ─── */}
-			<div className="flex items-center gap-2 border-b border-border px-4 py-3">
-				<span className="icon-[mdi--history] text-sm text-muted-foreground/50" />
-				<span className="text-sm font-medium text-foreground">执行历史</span>
-				<div className="flex-1" />
-				<button
-					type="button"
-					onClick={loadRecords}
-					title="刷新"
-					className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-all duration-150 hover:bg-accent hover:text-muted-foreground active:scale-90"
-				>
-					<span className="icon-[mdi--refresh] text-sm" />
-				</button>
-			</div>
-
-			{/* ─── Body ─── */}
-			<div className="max-h-72 overflow-y-auto">
-				{loading ? (
+	const body = (
+		<>
+			{loading ? (
 					<div className="flex items-center justify-center py-10">
 						<span className="icon-[mdi--loading] animate-spin text-lg text-muted-foreground/50" />
 					</div>
@@ -108,7 +99,50 @@ export function ExecutionHistory({ taskId }: ExecutionHistoryProps): JSX.Element
 						))}
 					</div>
 				)}
+		</>
+	);
+
+	if (embedded) {
+		return (
+			<div className="flex min-h-0 flex-1 flex-col">
+				<div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
+					<span className="icon-[mdi--history] text-sm text-muted-foreground/50" />
+					<span className="text-[13px] font-medium text-foreground">执行历史</span>
+					<span className="text-[11px] text-muted-foreground/40">{records.length}</span>
+					<div className="flex-1" />
+					<button
+						type="button"
+						onClick={loadRecords}
+						title="刷新"
+						className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-all duration-150 hover:bg-accent hover:text-muted-foreground active:scale-90"
+					>
+						<span className="icon-[mdi--refresh] text-sm" />
+					</button>
+				</div>
+				<div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
 			</div>
+		);
+	}
+
+	return (
+		<div className="overflow-hidden rounded-xl border border-border">
+			{/* ─── Header ─── */}
+			<div className="flex items-center gap-2 border-b border-border px-4 py-3">
+				<span className="icon-[mdi--history] text-sm text-muted-foreground/50" />
+				<span className="text-sm font-medium text-foreground">执行历史</span>
+				<div className="flex-1" />
+				<button
+					type="button"
+					onClick={loadRecords}
+					title="刷新"
+					className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-all duration-150 hover:bg-accent hover:text-muted-foreground active:scale-90"
+				>
+					<span className="icon-[mdi--refresh] text-sm" />
+				</button>
+			</div>
+
+			{/* ─── Body ─── */}
+			<div className="max-h-72 overflow-y-auto">{body}</div>
 		</div>
 	);
 }

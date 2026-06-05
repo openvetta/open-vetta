@@ -37,7 +37,7 @@ import { readSettings, writeSettings } from "./settings.js";
  * 默认「对话」与 IM cwd 的会话都放到 <cwd>/.vetta/sessions（与批量项目一致）。
  * 当请求的 cwd 是这两类之一时自动注入 sessionDir，渲染端无需感知。
  */
-function resolveSessionDirForCwd(cwd: string | undefined): string | undefined {
+export function resolveSessionDirForCwd(cwd: string | undefined): string | undefined {
 	if (!cwd) return undefined;
 	const abs = resolve(cwd);
 	if (abs === resolve(DEFAULT_CONVERSATION_CWD)) {

@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
@@ -56,34 +56,96 @@ async function ensureDirectories(): Promise<void> {
 	await mkdir(RECORDS_DIR, { recursive: true });
 }
 
+/** 回填旧任务缺失字段，归一 executionMode。 */
+function backfillTasks(tasks: ScheduledTask[]): ScheduledTask[] {
+	for (const task of tasks) {
+		if (!("isOnce" in task)) {
+			(task as ScheduledTask).isOnce = false;
+		}
+		if (!("cwd" in task)) {
+			(task as ScheduledTask).cwd = `${homedir()}/.vetta/workspace`;
+		}
+		task.executionMode = normalizeExecutionModeOverride(task.executionMode, "full-access");
+	}
+	return tasks;
+}
+
+/**
+ * 从可能带尾部垃圾的文本里截出「第一个完整的顶层 JSON 数组」。
+ * 用于自愈并发写残留（如多一个 `]`）导致的损坏文件，避免任务静默丢失。
+ */
+function extractFirstJsonArray(s: string): string | null {
+	const start = s.indexOf("[");
+	if (start === -1) return null;
+	let depth = 0;
+	let inStr = false;
+	let esc = false;
+	for (let i = start; i < s.length; i++) {
+		const c = s[i];
+		if (inStr) {
+			if (esc) esc = false;
+			else if (c === "\\") esc = true;
+			else if (c === '"') inStr = false;
+			continue;
+		}
+		if (c === '"') inStr = true;
+		else if (c === "[") depth++;
+		else if (c === "]") {
+			depth--;
+			if (depth === 0) return s.slice(start, i + 1);
+		}
+	}
+	return null;
+}
+
 export async function loadTasks(): Promise<ScheduledTask[]> {
+	let data: string;
 	try {
 		await ensureDirectories();
-		const data = await readFile(TASKS_FILE, "utf-8");
-		const tasks: ScheduledTask[] = JSON.parse(data);
-		// Backfill fields for old tasks
-		for (const task of tasks) {
-			if (!("isOnce" in task)) {
-				(task as ScheduledTask).isOnce = false;
-			}
-			if (!("cwd" in task)) {
-				(task as ScheduledTask).cwd = `${homedir()}/.vetta/workspace`;
-			}
-			task.executionMode = normalizeExecutionModeOverride(task.executionMode, "full-access");
-		}
-		return tasks;
+		data = await readFile(TASKS_FILE, "utf-8");
 	} catch {
+		// 文件不存在（首次运行）等：视为空列表。
+		return [];
+	}
+	try {
+		return backfillTasks(JSON.parse(data) as ScheduledTask[]);
+	} catch {
+		// 文件损坏（曾因并发写出现尾部多余 `]`）：尝试截出首个完整数组自愈，
+		// 救回任务并原子重写干净文件，避免被后续写入静默覆盖丢数据。
+		const recovered = extractFirstJsonArray(data);
+		if (recovered) {
+			try {
+				const tasks = backfillTasks(JSON.parse(recovered) as ScheduledTask[]);
+				await saveTasks(tasks).catch(() => {});
+				return tasks;
+			} catch {
+				// fall through
+			}
+		}
+		// 实在无法恢复：备份损坏文件后返回空，至少不让原始数据被覆盖。
+		await rename(TASKS_FILE, `${TASKS_FILE}.corrupt-${Date.now()}`).catch(() => {});
 		return [];
 	}
 }
 
+// 串行化任务文件写入：多处（updateTaskLastRun / updateTaskEnabled / createTask 等）
+// 可能在任务执行收尾时并发写同一文件，非原子写会互相截断导致 JSON 损坏。
+let saveChain: Promise<void> = Promise.resolve();
+
 export async function saveTasks(tasks: ScheduledTask[]): Promise<void> {
-	await ensureDirectories();
-	const normalized = tasks.map((task) => ({
-		...task,
-		executionMode: normalizeExecutionModeOverride(task.executionMode, "full-access"),
-	}));
-	await writeFile(TASKS_FILE, JSON.stringify(normalized, null, 2), "utf-8");
+	const run = async (): Promise<void> => {
+		await ensureDirectories();
+		const normalized = tasks.map((task) => ({
+			...task,
+			executionMode: normalizeExecutionModeOverride(task.executionMode, "full-access"),
+		}));
+		// 写临时文件后 rename：rename 在同一文件系统是原子操作，杜绝半截写入。
+		const tmp = `${TASKS_FILE}.tmp-${process.pid}-${Date.now()}`;
+		await writeFile(tmp, JSON.stringify(normalized, null, 2), "utf-8");
+		await rename(tmp, TASKS_FILE);
+	};
+	saveChain = saveChain.then(run, run);
+	return saveChain;
 }
 
 function getTaskRecordsDir(taskId: string): string {
@@ -158,6 +220,53 @@ export async function deleteTaskRecords(taskId: string): Promise<void> {
 		return;
 	}
 	await rm(taskDir, { recursive: true, force: true });
+}
+
+/**
+ * 扫描所有任务的执行记录，收集其 sessionPath。
+ * 渲染端据此识别「哪些 session 来自定时任务」并挂专属图标。
+ */
+export async function loadAllScheduledSessionPaths(): Promise<string[]> {
+	if (!existsSync(RECORDS_DIR)) return [];
+	const paths = new Set<string>();
+	try {
+		const taskDirs = await readdir(RECORDS_DIR, { withFileTypes: true });
+		for (const d of taskDirs) {
+			if (!d.isDirectory()) continue;
+			const recs = await loadRecords(d.name);
+			for (const r of recs) {
+				if (r.sessionPath) paths.add(r.sessionPath);
+			}
+		}
+	} catch {
+		// ignore
+	}
+	return [...paths];
+}
+
+/**
+ * 按 sessionPath 删除对应的执行记录文件（侧栏删除定时 session 时调用，
+ * 保证「自动化」执行历史里不再残留该条记录）。返回受影响的 taskId 列表。
+ */
+export async function deleteRecordsBySessionPath(sessionPath: string): Promise<string[]> {
+	if (!existsSync(RECORDS_DIR)) return [];
+	const affected = new Set<string>();
+	try {
+		const taskDirs = await readdir(RECORDS_DIR, { withFileTypes: true });
+		for (const d of taskDirs) {
+			if (!d.isDirectory()) continue;
+			const recs = await loadRecords(d.name);
+			for (const r of recs) {
+				if (r.sessionPath === sessionPath) {
+					await rm(getRecordFilePath(d.name, r.sessionId), { force: true });
+					affected.add(d.name);
+				}
+			}
+		}
+	} catch {
+		// ignore
+	}
+	return [...affected];
 }
 
 export function loadRecordsSync(taskId: string): TaskExecutionRecord[] {

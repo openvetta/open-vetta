@@ -3,7 +3,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, ProjectType, SessionInfo } from "@shared/store/atoms";
-import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel } from "@shared/store/atoms";
+import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, scheduledSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel } from "@shared/store/atoms";
 
 interface ProjectGroupProps {
 	project: Project;
@@ -131,6 +131,15 @@ export const ProjectGroup = memo(function ProjectGroup({
 	const [renamingSessionPath, setRenamingSessionPath] = useAtom(renamingSessionPathAtom);
 	const [showAllSessions, setShowAllSessions] = useState(false);
 	const runningSessionPaths = useAtomValue(runningSessionPathsAtom);
+	const scheduledSessionPaths = useAtomValue(scheduledSessionPathsAtom);
+	// 兜底用文件名匹配：执行记录里的 sessionPath 与侧栏 listSessions 的 path 理应相等，
+	// 但默认「对话」项目存在 sessionDir / per-session 子目录等路径间接层，按 basename
+	// 再兜一层，避免个别路径细节导致定时图标不显示。文件名含时间戳+uuid，全局唯一。
+	const scheduledBasenames = useMemo(() => {
+		const s = new Set<string>();
+		for (const p of scheduledSessionPaths) s.add(p.slice(p.lastIndexOf("/") + 1));
+		return s;
+	}, [scheduledSessionPaths]);
 	const projectHasRunning = useMemo(
 		() => sessions.some((s) => runningSessionPaths.has(s.path)),
 		[sessions, runningSessionPaths],
@@ -264,7 +273,9 @@ export const ProjectGroup = memo(function ProjectGroup({
 							const isRenaming = renamingSessionPath === session.path;
 							const isRunning = runningSessionPaths.has(session.path);
 							const label = sessionDisplayLabel(session);
-							const isSchedule = label.startsWith("[定时]");
+							const isSchedule =
+								scheduledSessionPaths.has(session.path) ||
+								scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
 							return (
 								<button
 									key={session.path}
@@ -301,19 +312,25 @@ export const ProjectGroup = memo(function ProjectGroup({
 													)}
 												/>
 											) : isSchedule ? (
-												<span className="icon-[mdi--clock-outline] ml-[20px] shrink-0 text-[11px] text-muted-foreground" />
-											) : null}
+												<span className="icon-[mdi--clock-outline] ml-[20px] h-3.5 w-3.5 shrink-0 text-primary/80" />
+											) : (
+												<span
+													className={cn(
+														"icon-[mdi--message-text-outline] ml-[20px] h-3.5 w-3.5 shrink-0",
+														isActive ? "text-foreground/70" : "text-muted-foreground/50",
+													)}
+												/>
+											)}
 											<span
 												className={cn(
 													"min-w-0 flex-1 truncate text-[13px]",
-													!isSchedule && !isRunning && "pl-[20px]",
 													isRunning && "pl-1",
 													isActive
 														? "font-semibold text-foreground"
 														: "text-foreground",
 												)}
 											>
-												{isSchedule ? label.slice(5) : label}
+												{label}
 											</span>
 										</>
 									)}
