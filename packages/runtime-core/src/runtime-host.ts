@@ -344,6 +344,7 @@ export class RuntimeHost implements SessionFacade {
 		const effectiveCwd = config.cwd ?? process.cwd();
 		const sessionIdRef: { current?: string } = {};
 		const customTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
+		const easyUseVettaAppEnabledForSession = config.enableEasyUseVettaApp === true;
 
 		const options: RuntimeCreateAgentSessionOptions = {
 			cwd: config.cwd,
@@ -378,13 +379,13 @@ export class RuntimeHost implements SessionFacade {
 				},
 			},
 			easyUseVettaApp: {
-				isEnabled: () => this.easyUseVettaAppHandler != null,
+				isEnabled: () => easyUseVettaAppEnabledForSession && this.easyUseVettaAppHandler != null,
 				request: async (request, signal): Promise<RuntimeEasyUseVettaAppResult> => {
 					const handler = this.easyUseVettaAppHandler;
 					if (signal?.aborted) {
 						throw new Error("easy_use_vettaApp request was aborted before the renderer returned a result.");
 					}
-					if (!handler) {
+					if (!easyUseVettaAppEnabledForSession || !handler) {
 						throw new Error("easy_use_vettaApp handler is not registered.");
 					}
 					return handler(

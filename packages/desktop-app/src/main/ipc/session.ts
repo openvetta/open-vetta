@@ -494,10 +494,16 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (effectiveCwd && effectiveCwd !== config?.cwd) {
 			allowProjectRoot(effectiveCwd);
 		}
+		const enableEasyUseVettaApp = config?.cwd ? resolve(config.cwd) === resolve(DEFAULT_CONVERSATION_CWD) : false;
 		const needPatch = effectiveCwd !== config?.cwd || injectedSessionDir !== config?.sessionDir;
 		const effectiveConfig: SessionConfig | undefined = needPatch
-			? { ...(config ?? {}), cwd: effectiveCwd, sessionDir: injectedSessionDir ?? config?.sessionDir }
-			: config;
+			? {
+					...(config ?? {}),
+					cwd: effectiveCwd,
+					sessionDir: injectedSessionDir ?? config?.sessionDir,
+					enableEasyUseVettaApp,
+				}
+			: { ...(config ?? {}), enableEasyUseVettaApp };
 		const result = await runtime.createSession(effectiveConfig);
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);
