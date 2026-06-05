@@ -1,5 +1,6 @@
 import { pathBasename } from "@shared/lib/utils";
 import { atom } from "jotai";
+import { SCHEDULE_SESSION_MARKER } from "../../../shared/scheduled-session";
 
 export type ProjectType = "normal" | "flowing" | "schedule" | "batch";
 
@@ -57,7 +58,8 @@ export const UNNAMED_SESSION_LABEL = "未命名会话";
  * 两者皆空（或仅为 coding-agent 占位串）时回退到「未命名会话」。
  */
 export function sessionDisplayLabel(session: Pick<SessionInfo, "name" | "firstMessage">): string {
-	const raw = (session.name || session.firstMessage || "").trim();
+	// 兼容旧定时 session：剥离历史遗留的不可见标记前缀（见 scheduled-session）。
+	const raw = (session.name || session.firstMessage || "").split(SCHEDULE_SESSION_MARKER).join("").trim();
 	if (!raw || raw === NO_MESSAGES_SENTINEL) return UNNAMED_SESSION_LABEL;
 	return raw;
 }
