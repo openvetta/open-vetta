@@ -1,5 +1,4 @@
 import { once } from "node:events";
-import { z } from "zod";
 import {
 	SETTINGS_SECTIONS,
 	SETTINGS_TABS,
@@ -7,21 +6,8 @@ import {
 	type SettingsTabRegistration,
 } from "../../../renderer/domains/settings/registry.js";
 import { getMainWindow, showMainWindow } from "../../window-manager.js";
-import { type ActionDefinition, ActionError, type JsonValue } from "../types.js";
-
-const navigationActionInputSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("help"),
-	}),
-	z.object({
-		type: z.literal("open"),
-		target: z.string().trim().min(1),
-		tab: z.string().trim().min(1).optional(),
-		section: z.string().trim().min(1).optional(),
-	}),
-]);
-
-type NavigationActionInput = z.infer<typeof navigationActionInputSchema>;
+import { ActionError, type JsonValue } from "../types.js";
+import type { NavigationActionInput } from "./open.schema.js";
 
 interface StaticNavigationTarget {
 	id: string;
@@ -76,19 +62,6 @@ const STATIC_TARGETS: readonly StaticNavigationTarget[] = [
 	},
 ];
 
-function validateNavigationActionInput(input: unknown): JsonValue {
-	const result = navigationActionInputSchema.safeParse(input);
-	if (!result.success) {
-		throw new ActionError("ACTION_INVALID_INPUT", "Input must match the navigation action schema.", {
-			issues: result.error.issues.map((issue) => ({
-				path: issue.path.map(String).join("."),
-				message: issue.message,
-			})),
-		});
-	}
-	return result.data as JsonValue;
-}
-
 function normalizeTarget(value: string): string {
 	return value.trim().toLowerCase();
 }
@@ -129,7 +102,7 @@ function buildSettingsCatalog(): JsonValue {
 	})) as JsonValue;
 }
 
-function getNavigationHelp(): JsonValue {
+export function getNavigationHelp(): JsonValue {
 	return {
 		type: "help",
 		description:
@@ -165,7 +138,7 @@ function getNavigationHelp(): JsonValue {
 	};
 }
 
-function resolveNavigationTarget(input: Extract<NavigationActionInput, { type: "open" }>): {
+export function resolveNavigationTarget(input: Extract<NavigationActionInput, { type: "open" }>): {
 	hashPath: string;
 	resolved: JsonValue;
 } {
@@ -233,70 +206,15 @@ function resolveNavigationTarget(input: Extract<NavigationActionInput, { type: "
 	throw new ActionError("ACTION_INVALID_INPUT", `Unknown navigation target: ${input.target}`);
 }
 
-async function waitForWindowLoad(): Promise<void> {
-	const mainWindow = getMainWindow();
-	if (!mainWindow) return;
-	if (!mainWindow.webContents.isLoading()) return;
-	await once(mainWindow.webContents, "did-finish-load");
-}
-
-async function openHashPath(hashPath: string): Promise<void> {
+export async function openHashPath(hashPath: string): Promise<void> {
 	const mainWindow = showMainWindow();
 	await waitForWindowLoad();
 	await mainWindow.webContents.executeJavaScript(`window.location.hash = ${JSON.stringify(`#${hashPath}`)};`, true);
 }
 
-export function registerNavigationActions(register: (action: ActionDefinition) => void): void {
-	register({
-		id: "navigation.open",
-		domain: "navigation",
-		title: "打开应用页面",
-		summary: "根据稳定页面 id 打开应用内页面；支持跳转到设置页分类和具体设置项。",
-		availability: "gui-main",
-		permission: "navigation.write",
-		inputSchema: {
-			description:
-				'对象参数：{ "type": "help" } 或 { "type": "open", "target": string, "tab"?: string, "section"?: string }。target 可为普通页面 id、设置分类 id 或设置子项 id。',
-		},
-		examples: [
-			{
-				description: "查看可导航页面和设置项目录",
-				input: { type: "help" },
-			},
-			{
-				description: "打开技能广场",
-				input: { type: "open", target: "skills" },
-			},
-			{
-				description: "打开模型配置页",
-				input: { type: "open", target: "models" },
-			},
-			{
-				description: "打开模型服务商设置项",
-				input: { type: "open", target: "models-providers" },
-			},
-			{
-				description: "打开 Agent 个性化设置项",
-				input: { type: "open", target: "agent-personalization" },
-			},
-		],
-		validateInput: validateNavigationActionInput,
-		requiresApproval: (input, context) => {
-			const request = input as unknown as NavigationActionInput;
-			return context.source === "local-server" && request.type === "open";
-		},
-		run: async (input) => {
-			const request = input as unknown as NavigationActionInput;
-			if (request.type === "help") {
-				return getNavigationHelp();
-			}
-
-			const target = resolveNavigationTarget(request);
-			await openHashPath(target.hashPath);
-			return {
-				type: "open",
-				resolved: target.resolved,
-			};
-		},
-	});
+async function waitForWindowLoad(): Promise<void> {
+	const mainWindow = getMainWindow();
+	if (!mainWindow) return;
+	if (!mainWindow.webContents.isLoading()) return;
+	await once(mainWindow.webContents, "did-finish-load");
 }
