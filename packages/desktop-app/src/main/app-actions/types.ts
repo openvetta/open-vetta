@@ -59,8 +59,13 @@ export interface ActionApprovalRequest {
 	permission: string;
 }
 
+export interface ActionApprovalDecision {
+	approved: boolean;
+	input?: JsonValue;
+}
+
 export interface ActionApprovalRequester {
-	request(request: ActionApprovalRequest, signal?: AbortSignal): Promise<boolean>;
+	request(request: ActionApprovalRequest, signal?: AbortSignal): Promise<ActionApprovalDecision>;
 }
 
 export interface ActionDefinition extends ActionMetadata {

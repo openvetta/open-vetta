@@ -1,5 +1,5 @@
 import { getMainWindow } from "../../window-manager.js";
-import type { ActionDefinition, JsonValue } from "../types.js";
+import { type ActionDefinition, ActionError, type JsonValue } from "../types.js";
 import { type ThemeActionInput, validateThemeActionInput } from "./theme.schema.js";
 import {
 	applyNativeThemeMode,
@@ -26,6 +26,11 @@ export const themeAction: ActionDefinition = {
 				description: "使用主题变更专用审批界面；该界面未挂载时自动回退到通用审批界面。",
 			},
 			{
+				id: "appearance.picker",
+				title: "主题选择器",
+				description: "使用可交互的主题选择界面，并按用户最终选择执行主题变更。",
+			},
+			{
 				id: "generic",
 				title: "通用确认",
 				description: "使用通用 Action 审批界面，直接展示 Action 信息和完整输入。",
@@ -34,7 +39,7 @@ export const themeAction: ActionDefinition = {
 	},
 	inputSchema: {
 		description:
-			'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string, "approvalUi"?: "appearance.theme-change" | "generic" }。approvalUi 由调用方按本次交互选择审批界面；省略时使用默认的 appearance.theme-change。',
+			'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string, "approvalUi"?: "appearance.theme-change" | "appearance.picker" | "generic" }。appearance.picker 可省略 mode 和 themeId，由用户在审批界面中选择；其他审批界面至少需要提供其中一项。approvalUi 省略时使用默认的 appearance.theme-change。',
 	},
 	examples: [
 		{
@@ -52,6 +57,10 @@ export const themeAction: ActionDefinition = {
 		{
 			description: "只切换主题风格",
 			input: { type: "set", themeId: "ocean" },
+		},
+		{
+			description: "在主题选择器中确认或调整主题",
+			input: { type: "set", approvalUi: "appearance.picker" },
 		},
 		{
 			description: "切换主题并明确使用通用审批界面",
@@ -72,6 +81,10 @@ export const themeAction: ActionDefinition = {
 		if (request.type === "get") {
 			const mainWindow = getMainWindow();
 			return mainWindow === null ? getFallbackThemeState() : await getThemeState();
+		}
+
+		if (request.mode === undefined && request.themeId === undefined) {
+			throw new ActionError("ACTION_INVALID_INPUT", "Theme set requires a mode or themeId after approval.");
 		}
 
 		if (request.mode !== undefined) {

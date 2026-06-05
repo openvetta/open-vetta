@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ActionError, type JsonValue } from "../types.js";
 
 export const themeModeSchema = z.enum(["light", "dark", "auto"]);
-export const themeApprovalUiSchema = z.enum(["appearance.theme-change", "generic"]);
+export const themeApprovalUiSchema = z.enum(["appearance.theme-change", "appearance.picker", "generic"]);
 export const themeActionInputSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("help"),
@@ -17,9 +17,12 @@ export const themeActionInputSchema = z.discriminatedUnion("type", [
 			themeId: z.string().trim().min(1).optional(),
 			approvalUi: themeApprovalUiSchema.optional(),
 		})
-		.refine((input) => input.mode !== undefined || input.themeId !== undefined, {
-			message: "set requires at least one of: mode, themeId.",
-		}),
+		.refine(
+			(input) => input.mode !== undefined || input.themeId !== undefined || input.approvalUi === "appearance.picker",
+			{
+				message: "set requires mode or themeId unless approvalUi is appearance.picker.",
+			},
+		),
 ]);
 export const rendererThemeSnapshotSchema = z.object({
 	mode: themeModeSchema,

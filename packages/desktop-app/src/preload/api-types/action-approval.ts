@@ -16,5 +16,5 @@ export interface DesktopActionApprovalRequest {
 
 export interface DesktopActionApprovalApi {
 	onRequest(handler: (request: DesktopActionApprovalRequest) => void): () => void;
-	respond(approvalId: string, approved: boolean): Promise<boolean>;
+	respond(approvalId: string, approved: boolean, input?: DesktopActionJsonValue): Promise<boolean>;
 }

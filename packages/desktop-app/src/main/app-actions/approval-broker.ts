@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { WebContents } from "electron";
 import { showMainWindow } from "../window-manager.js";
-import { type ActionApprovalRequest, type ActionApprovalRequester, ActionError } from "./types.js";
+import {
+	type ActionApprovalDecision,
+	type ActionApprovalRequest,
+	type ActionApprovalRequester,
+	ActionError,
+	type JsonValue,
+} from "./types.js";
 
 const ACTION_APPROVAL_REQUEST_CHANNEL = "vetta:action-approval:request";
 const DEFAULT_APPROVAL_TIMEOUT_MS = 2 * 60 * 1000;
@@ -11,7 +17,7 @@ export interface DesktopActionApprovalRequest extends ActionApprovalRequest {
 }
 
 interface PendingApproval {
-	finish: (approved: boolean) => void;
+	finish: (decision: ActionApprovalDecision) => void;
 	cancel: (error: ActionError) => void;
 }
 
@@ -28,24 +34,24 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 		this.webContents.on("render-process-gone", this.onRenderProcessGone);
 	}
 
-	request(request: ActionApprovalRequest, signal?: AbortSignal): Promise<boolean> {
+	request(request: ActionApprovalRequest, signal?: AbortSignal): Promise<ActionApprovalDecision> {
 		if (this.webContents.isDestroyed()) {
 			return Promise.reject(new ActionError("ACTION_APPROVAL_UNAVAILABLE", "Vetta Desktop 授权界面不可用。"));
 		}
 
 		const approvalId = randomUUID();
-		return new Promise<boolean>((resolve, reject) => {
+		return new Promise<ActionApprovalDecision>((resolve, reject) => {
 			let settled = false;
 			const cleanup = (): void => {
 				this.pending.delete(approvalId);
 				clearTimeout(timeout);
 				signal?.removeEventListener("abort", onAbort);
 			};
-			const finish = (approved: boolean): void => {
+			const finish = (decision: ActionApprovalDecision): void => {
 				if (settled) return;
 				settled = true;
 				cleanup();
-				resolve(approved);
+				resolve(decision);
 			};
 			const cancel = (error: ActionError): void => {
 				if (settled) return;
@@ -75,10 +81,10 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 		});
 	}
 
-	respond(approvalId: string, approved: boolean): boolean {
+	respond(approvalId: string, approved: boolean, input?: JsonValue): boolean {
 		const pending = this.pending.get(approvalId);
 		if (!pending) return false;
-		pending.finish(approved);
+		pending.finish(input === undefined ? { approved } : { approved, input });
 		return true;
 	}
 

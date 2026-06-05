@@ -50,10 +50,10 @@ export class AppActionRuntime {
 
 	async run(actionId: string, input: unknown, context: ActionContext): Promise<JsonValue> {
 		const action = this.catalog.get(actionId);
-		const validatedInput = action.validateInput(input);
+		let validatedInput = action.validateInput(input);
 		if (action.requiresApproval?.(validatedInput, context)) {
 			const approvalPresentation = resolveApprovalPresentation(validatedInput, action.approval);
-			const approved = await this.approvalRequester.request(
+			const decision = await this.approvalRequester.request(
 				{
 					actionId,
 					approvalPresentation,
@@ -64,8 +64,11 @@ export class AppActionRuntime {
 				},
 				context.signal,
 			);
-			if (!approved) {
+			if (!decision.approved) {
 				throw new ActionError("ACTION_REJECTED", "用户拒绝执行该 Vetta action。", { actionId });
+			}
+			if (decision.input !== undefined) {
+				validatedInput = action.validateInput(decision.input);
 			}
 		}
 		return await action.run(validatedInput, context);
