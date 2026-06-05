@@ -207,6 +207,12 @@ export async function executeTask(
 		await createRecord(record);
 		await updateTaskLastRun(task.id, "failed");
 		executingTasks.delete(task.id);
+
+		emitTaskEvent({
+			type: "task.failed",
+			taskId: task.id,
+			error: String(error),
+		});
 	}
 }
 
@@ -221,4 +227,8 @@ export async function abortTask(taskId: string): Promise<boolean> {
 
 export function isTaskRunning(taskId: string): boolean {
 	return executingTasks.has(taskId);
+}
+
+export function getRunningTaskIds(): string[] {
+	return [...executingTasks.keys()];
 }

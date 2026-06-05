@@ -64,6 +64,8 @@ export interface DesktopSchedulerApi {
 	/** Disable a task (set enabled=false and stop its scheduled job) */
 	disableTask(id: string): Promise<void>;
 	getRecords(taskId: string): Promise<TaskExecutionRecord[]>;
+	/** 当前正在执行的任务 id 列表（main 进程内存态快照）。 */
+	getRunningTaskIds(): Promise<string[]>;
 	/** 所有定时任务执行过的 session 路径（侧栏据此识别定时 session）。 */
 	getScheduledSessionPaths(): Promise<string[]>;
 	/** 按 session 路径删除其执行记录，返回受影响的 taskId 列表。 */

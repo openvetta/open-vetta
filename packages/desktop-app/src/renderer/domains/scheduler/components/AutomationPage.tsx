@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { useAtomValue, useAtom } from "jotai";
+import { useEffect, useState } from "react";
+import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import { motion } from "motion/react";
-import { scheduledTasksAtom, selectedTaskIdAtom, formOpenAtom, projectsAtom } from "@shared/store/atoms";
+import { scheduledTasksAtom, selectedTaskIdAtom, formOpenAtom, projectsAtom, runningTaskIdsAtom } from "@shared/store/atoms";
 import type { ScheduledTask } from "@shared/store/atoms";
+import { Button } from "@shared/components/ui/button";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import { TaskList } from "./TaskList";
 import { HistoryDrawer } from "./HistoryDrawer";
@@ -16,6 +17,7 @@ export function AutomationPage(): JSX.Element {
 	const [selectedTaskId, setSelectedTaskId] = useAtom(selectedTaskIdAtom);
 	const [formEditingTask, setFormEditingTask] = useAtom(formOpenAtom);
 	const { refreshTasks } = useScheduledTasks();
+	const setRunningTaskIds = useSetAtom(runningTaskIdsAtom);
 	const selectedTask = tasks.find((t) => t.id === selectedTaskId);
 
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -23,6 +25,22 @@ export function AutomationPage(): JSX.Element {
 	useEffect(() => {
 		refreshTasks();
 	}, [refreshTasks]);
+
+	// 运行态：进入时拉取快照，再订阅事件增量维护。task.started 标记为运行中，
+	// 完成/中止/失败时移除，让卡片在「运行中」与「待运行」之间正确切换。
+	useEffect(() => {
+		void window.vetta.scheduler.getRunningTaskIds().then((ids) => {
+			setRunningTaskIds(new Set(ids));
+		});
+		return window.vetta.scheduler.onTaskEvent((event) => {
+			setRunningTaskIds((prev) => {
+				const next = new Set(prev);
+				if (event.type === "task.started") next.add(event.taskId);
+				else next.delete(event.taskId);
+				return next;
+			});
+		});
+	}, [setRunningTaskIds]);
 
 	useEffect(() => {
 		if (formEditingTask !== undefined) {
@@ -46,14 +64,6 @@ export function AutomationPage(): JSX.Element {
 	};
 
 	const noProjects = projects.length === 0;
-
-	const stats = useMemo(() => {
-		const total = tasks.length;
-		const enabled = tasks.filter((t) => t.enabled).length;
-		const succeeded = tasks.filter((t) => t.lastRunStatus === "success").length;
-		const failed = tasks.filter((t) => t.lastRunStatus === "failed").length;
-		return { total, enabled, succeeded, failed };
-	}, [tasks]);
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
@@ -85,64 +95,18 @@ export function AutomationPage(): JSX.Element {
 						</p>
 					</motion.div>
 
-					<motion.button
+					<Button
 						type="button"
+						variant="primary"
 						onClick={handleNewTask}
 						disabled={noProjects}
 						title={noProjects ? "请先在侧边栏添加项目" : "新建定时任务"}
-						initial={{ opacity: 0, y: -6, scale: 0.96 }}
-						animate={{ opacity: 1, y: 0, scale: 1 }}
-						transition={{ type: "spring", stiffness: 380, damping: 26, delay: 0.1 }}
-						whileHover={{ scale: 1.04, y: -1 }}
-						whileTap={{ scale: 0.96 }}
-						className="flex items-center gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-[0_8px_24px_-10px_var(--primary)] transition-shadow hover:shadow-[0_12px_30px_-8px_var(--primary)] disabled:pointer-events-none disabled:opacity-30 disabled:shadow-none"
 					>
 						<span className="icon-[mdi--plus] text-[15px]" />
 						新建任务
-					</motion.button>
+					</Button>
 				</div>
-
-				{/* Stat strip */}
-				{tasks.length > 0 && (
-					<motion.div
-						className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
-						initial="hidden"
-						animate="show"
-						variants={{
-							hidden: {},
-							show: { transition: { staggerChildren: 0.06, delayChildren: 0.15 } },
-						}}
-					>
-						<StatCard
-							icon="icon-[mdi--clock-outline]"
-							label="任务总数"
-							value={stats.total}
-							tint="primary"
-						/>
-						<StatCard
-							icon="icon-[mdi--play-circle-outline]"
-							label="运行中"
-							value={stats.enabled}
-							tint="emerald"
-						/>
-						<StatCard
-							icon="icon-[mdi--check-circle-outline]"
-							label="最近成功"
-							value={stats.succeeded}
-							tint="emerald"
-						/>
-						<StatCard
-							icon="icon-[mdi--alert-circle-outline]"
-							label="最近失败"
-							value={stats.failed}
-							tint="red"
-						/>
-					</motion.div>
-				)}
 			</div>
-
-			{/* Divider */}
-			<div className="mx-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
 
 			{/* ─── Content ─── */}
 			<div className="flex flex-1 flex-col gap-5 overflow-y-auto px-8 pt-5 pb-6">
@@ -175,62 +139,6 @@ export function AutomationPage(): JSX.Element {
 	);
 }
 
-function StatCard({
-	icon,
-	label,
-	value,
-	tint,
-}: {
-	icon: string;
-	label: string;
-	value: number;
-	tint: "primary" | "emerald" | "red";
-}): JSX.Element {
-	const tintClasses = {
-		primary: {
-			iconBg: "bg-primary/10 ring-primary/20",
-			iconColor: "text-primary",
-			value: "text-foreground",
-		},
-		emerald: {
-			iconBg: "bg-emerald-500/10 ring-emerald-500/20",
-			iconColor: "text-emerald-400",
-			value: "text-foreground",
-		},
-		red: {
-			iconBg: "bg-red-500/10 ring-red-500/20",
-			iconColor: "text-red-400",
-			value: "text-foreground",
-		},
-	}[tint];
-
-	return (
-		<motion.div
-			variants={{
-				hidden: { opacity: 0, y: 10, scale: 0.95 },
-				show: { opacity: 1, y: 0, scale: 1 },
-			}}
-			transition={{ type: "spring", stiffness: 320, damping: 26 }}
-			whileHover={{ y: -2 }}
-			className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-border/40 bg-card/30 px-3.5 py-3 backdrop-blur-sm transition-colors duration-200 hover:border-primary/30"
-		>
-			<div
-				className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset ${tintClasses.iconBg}`}
-			>
-				<span className={`${icon} h-4 w-4 ${tintClasses.iconColor}`} />
-			</div>
-			<div className="min-w-0 flex-1">
-				<p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-					{label}
-				</p>
-				<p className={`mt-0.5 text-[20px] font-semibold leading-none tracking-tight ${tintClasses.value}`}>
-					{value}
-				</p>
-			</div>
-		</motion.div>
-	);
-}
-
 function EmptyState({ onNew, noProjects }: { onNew?: () => void; noProjects: boolean }): JSX.Element {
 	return (
 		<motion.div
@@ -258,16 +166,10 @@ function EmptyState({ onNew, noProjects }: { onNew?: () => void; noProjects: boo
 				</p>
 			</div>
 			{onNew && (
-				<motion.button
-					type="button"
-					onClick={onNew}
-					whileHover={{ scale: 1.04, y: -1 }}
-					whileTap={{ scale: 0.96 }}
-					className="mt-2 flex items-center gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-5 py-2 text-[13px] font-medium text-primary-foreground shadow-[0_10px_30px_-12px_var(--primary)]"
-				>
+				<Button type="button" variant="primary" onClick={onNew} className="mt-2">
 					<span className="icon-[mdi--plus] text-[15px]" />
 					创建第一个任务
-				</motion.button>
+				</Button>
 			)}
 		</motion.div>
 	);
