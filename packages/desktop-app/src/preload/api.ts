@@ -19,6 +19,7 @@ import type {
 	DesktopRuntimesApi,
 	DesktopSettingsApi,
 	DesktopShellApi,
+	DesktopSubscriptionApi,
 	DesktopTrayApi,
 	DesktopWindowApi,
 } from "./api-types/system.js";
@@ -59,6 +60,7 @@ export interface DesktopApi {
 	mcp: DesktopMcpApi;
 	settings: DesktopSettingsApi;
 	credits: DesktopCreditsApi;
+	subscription: DesktopSubscriptionApi;
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;
 	auth: DesktopAuthApi;

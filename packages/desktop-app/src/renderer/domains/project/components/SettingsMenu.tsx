@@ -4,10 +4,12 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useAuth } from "@domains/auth/hooks/useAuth";
-import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { downloadsActiveCountAtom, themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/store/atoms";
 import { Popover, PopoverTrigger, PopoverContent } from "@shared/components/ui/popover";
+import { UserAvatar } from "@shared/components/UserAvatar";
 import { cn } from "@shared/lib/utils";
+import { formatResetCountdown } from "@shared/lib/subscription-format";
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
 	{ value: "light", label: "浅色", icon: "icon-[mdi--white-balance-sunny]" },
@@ -35,9 +37,43 @@ export function SettingsMenu(): JSX.Element {
 	const { user, logout } = useAuth();
 	const creditsBalance = useAtomValue(creditsBalanceAtom);
 	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
+	const subscription = useAtomValue(subscriptionStatusAtom);
+	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
+	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
+	const setSubscriptionStatus = useSetAtom(subscriptionStatusAtom);
+
+	// popover 打开时重新拉取额度/订阅，保证展示的是最新消耗值（消息消耗后无主动 invalidate）。
+	const handleOpenChange = (next: boolean): void => {
+		setOpen(next);
+		if (next && user) {
+			void window.vetta.credits
+				.getBalance()
+				.then((result) => {
+					setCreditsBalance(result.balance);
+					setCreditsUnlimited(result.unlimited ?? false);
+				})
+				.catch(console.error);
+			void window.vetta.subscription
+				.getStatus()
+				.then((result) => {
+					if (result.status) setSubscriptionStatus(result.status);
+				})
+				.catch(console.error);
+		}
+	};
+
+	// 后台开启 Vetta Go 时，头像挂会员标志，并在展开后展示 5 小时额度。
+	const goEnabled = subscription.go_enabled;
+	const fiveHourWindowRaw = goEnabled ? subscription.windows?.find((w) => w.kind === "5h") : undefined;
+	// 无限制套餐(limit<=0)不展示额度进度。
+	const fiveHourWindow = fiveHourWindowRaw && fiveHourWindowRaw.limit > 0 ? fiveHourWindowRaw : undefined;
+	// 展示剩余额度百分比（100% 满额 → 0% 用尽），比已消耗更符合直觉。
+	const fiveHourRemainingPercent = fiveHourWindow
+		? Math.max(0, Math.min(100, Math.round((1 - fiveHourWindow.consumed / fiveHourWindow.limit) * 100)))
+		: 0;
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover open={open} onOpenChange={handleOpenChange}>
 			<PopoverTrigger asChild>
 				<button
 					type="button"
@@ -50,12 +86,23 @@ export function SettingsMenu(): JSX.Element {
 				>
 					{user ? (
 						<>
-							{user.avatar ? (
-								<img src={user.avatar} className="h-4 w-4 rounded-full" />
-							) : (
-								<span className="icon-[mdi--account-circle] h-4 w-4" />
-							)}
+							<UserAvatar
+								avatar={user.avatar}
+								nickname={user.nickname}
+								username={user.username}
+								className="h-4 w-4 shrink-0"
+								textClassName="text-[9px]"
+							/>
 							<span className="truncate">{user.nickname || user.username}</span>
+							{goEnabled && (
+								<span
+									className="inline-flex shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none text-white"
+									style={{ backgroundColor: subscription.badge_color || "#f59e0b" }}
+									title={subscription.tier_name || "Vetta Go"}
+								>
+									{subscription.badge_text || subscription.tier_name || "Go"}
+								</span>
+							)}
 						</>
 					) : (
 						<>
@@ -125,8 +172,8 @@ export function SettingsMenu(): JSX.Element {
 							</div>
 						</motion.div>
 
-						{/* Credits balance */}
-						{user && (creditsBalance !== null || creditsUnlimited) && (
+						{/* Credits balance：积分是 Vetta Zen 计费体系，后台关闭 Zen 时不展示 */}
+						{user && subscription.zen_enabled && (creditsBalance !== null || creditsUnlimited) && (
 							<motion.div key="credits" variants={itemVariants}>
 								<div className="mx-1 my-1 border-t border-border" />
 								<div className="mx-2 my-1.5 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1.5">
@@ -146,6 +193,36 @@ export function SettingsMenu(): JSX.Element {
 											{(creditsBalance ?? 0).toFixed(2)}
 										</span>
 									)}
+								</div>
+							</motion.div>
+						)}
+
+						{/* 5 小时额度（仅后台开启 Vetta Go 时展示） */}
+						{fiveHourWindow && (
+							<motion.div key="quota" variants={itemVariants}>
+								<div className="mx-1 my-1 border-t border-border" />
+								<div className="mx-2 my-1.5 rounded-md bg-accent/50 px-2 py-1.5">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-1.5">
+											<span className="icon-[mdi--timer-sand] h-3.5 w-3.5 text-muted-foreground" />
+											<span className="text-[11px] text-muted-foreground">5 小时额度</span>
+										</div>
+										<span className={cn(
+											"text-[11px] font-semibold tabular-nums",
+											fiveHourRemainingPercent <= 0 ? "text-destructive" : "text-foreground",
+										)}>
+											{fiveHourRemainingPercent}%
+										</span>
+									</div>
+									<div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-border">
+										<div
+											className="h-full rounded-full bg-primary/70 transition-all"
+											style={{ width: `${fiveHourRemainingPercent}%` }}
+										/>
+									</div>
+									<div className="mt-1 text-[10px] text-muted-foreground">
+										{formatResetCountdown(fiveHourWindow.reset_at, Date.now())}
+									</div>
 								</div>
 							</motion.div>
 						)}
@@ -215,7 +292,7 @@ export function SettingsMenu(): JSX.Element {
 								type="button"
 								onClick={() => {
 									setOpen(false);
-									void navigate({ to: "/settings/$tab", params: { tab: "general" } });
+									void navigate({ to: "/settings/$tab", params: { tab: "account" } });
 								}}
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>

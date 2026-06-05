@@ -257,6 +257,15 @@ body {
 	background-clip: padding-box;
 }
 
+/* Fully hide scrollbar (still scrollable). Unlayered so it overrides the
+   global overlay-scrollbar rules above, which Tailwind utilities cannot. */
+.no-scrollbar {
+	scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
 /* macOS window drag region */
 .drag-region {
 	-webkit-app-region: drag;
@@ -511,4 +520,51 @@ a {
 	background-clip: text;
 	-webkit-text-fill-color: transparent;
 	animation: input-shimmer 2s linear infinite;
+}
+
+/* 主题色卡（active）blob 漂移缩放，叠加容器重模糊后呈现混沌涟漪流转感。
+   旋转交给外层 wrapper，这里只动 translate/scale，避免与内联 transform 冲突。 */
+.theme-blob-ripple {
+	animation-name: theme-blob-drift;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+	animation-direction: alternate;
+	will-change: transform;
+}
+
+@keyframes theme-blob-drift {
+	0% {
+		transform: translate(0%, 0%) scale(1);
+	}
+	25% {
+		transform: translate(22%, -16%) scale(1.22);
+	}
+	50% {
+		transform: translate(-14%, 20%) scale(0.82);
+	}
+	75% {
+		transform: translate(16%, 14%) scale(1.12);
+	}
+	100% {
+		transform: translate(-20%, -10%) scale(0.94);
+	}
+}
+
+/* 整个 blob 层绕中心缓慢 360° 无限旋转，让背景颜色不停绕圈流转。 */
+.theme-blob-spin {
+	animation: theme-blob-spin 36s linear infinite;
+	will-change: transform;
+}
+
+@keyframes theme-blob-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.theme-blob-ripple,
+	.theme-blob-spin {
+		animation: none;
+	}
 }

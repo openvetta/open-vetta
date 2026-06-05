@@ -1,17 +1,17 @@
-import { createInterface } from "node:readline";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
-import { spawn } from "child_process";
-import { statSync } from "fs";
+import { existsSync, readFileSync, statSync } from "fs";
+import { glob } from "glob";
+import ignore from "ignore";
 import path from "path";
-import { ensureTool } from "../../../utils/tools-manager.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const globSchema = Type.Object({
 	pattern: Type.String({
-		description: "Glob pattern to match files, e.g. '**/*.ts', 'src/**/*.spec.ts', or 'package*.json'",
+		description:
+			"Glob pattern to match files and directories, e.g. '**/*.ts', 'src/**/*.spec.ts', 'src/**', or 'package*.json'",
 	}),
 	path: Type.Optional(Type.String({ description: "Directory to search in (default: current directory)" })),
 	limit: Type.Optional(Type.Number({ description: "Maximum number of results (default: 100)" })),
@@ -31,7 +31,7 @@ export interface GlobToolDetails {
 export interface GlobOperations {
 	/** Check if path exists and is a directory. Throws if path doesn't exist. */
 	isDirectory: (absolutePath: string) => Promise<boolean> | boolean;
-	/** Find files matching glob pattern. Returns absolute or search-directory-relative paths. */
+	/** Find files and directories matching glob pattern. Returns absolute or search-directory-relative paths. */
 	glob: (
 		pattern: string,
 		cwd: string,
@@ -44,7 +44,7 @@ const defaultGlobOperations: Pick<GlobOperations, "isDirectory"> = {
 };
 
 export interface GlobToolOptions {
-	/** Custom operations for glob. Default: local filesystem + ripgrep */
+	/** Custom operations for glob. Default: local filesystem + node glob */
 	operations?: GlobOperations;
 }
 
@@ -78,92 +78,116 @@ function extractGlobBaseDirectory(patternValue: string): { baseDir: string | und
 }
 
 function normalizeOutputPath(filePath: string, searchPath: string): string {
+	const hadTrailingSlash = filePath.endsWith("/") || filePath.endsWith("\\");
 	const absolute = path.isAbsolute(filePath) ? filePath : path.join(searchPath, filePath);
 	const relative = path.relative(searchPath, absolute);
-	return (relative || path.basename(absolute)).replace(/\\/g, "/");
+	const normalized = (relative || path.basename(absolute)).replace(/\\/g, "/");
+	return hadTrailingSlash && !normalized.endsWith("/") ? `${normalized}/` : normalized;
 }
 
-async function runRipgrepGlob(
+interface IgnoreMatcher {
+	basePath: string;
+	ignores: ReturnType<typeof ignore>;
+}
+
+function normalizeForIgnore(filePath: string): string {
+	return filePath
+		.replace(/\\/g, "/")
+		.replace(/^\.\/+/, "")
+		.replace(/^\/+/, "");
+}
+
+function loadGitignoreMatchers(searchPath: string): IgnoreMatcher[] {
+	const matchers: IgnoreMatcher[] = [];
+	const gitignorePaths = glob.sync("**/.gitignore", {
+		cwd: searchPath,
+		dot: true,
+		absolute: true,
+		ignore: ["**/.git/**"],
+		windowsPathsNoEscape: true,
+	});
+
+	const rootGitignore = path.join(searchPath, ".gitignore");
+	if (existsSync(rootGitignore) && !gitignorePaths.includes(rootGitignore)) {
+		gitignorePaths.push(rootGitignore);
+	}
+
+	for (const gitignorePath of gitignorePaths) {
+		const content = readFileSync(gitignorePath, "utf8");
+		const basePath = path.dirname(gitignorePath);
+		const ignores = ignore().add(content);
+		matchers.push({ basePath, ignores });
+	}
+
+	return matchers.sort((a, b) => a.basePath.length - b.basePath.length);
+}
+
+function isIgnoredByGitignore(filePath: string, searchPath: string, matchers: IgnoreMatcher[]): boolean {
+	const hadTrailingSlash = filePath.endsWith("/") || filePath.endsWith("\\");
+	const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(searchPath, filePath);
+	let ignored = false;
+
+	for (const matcher of matchers) {
+		const relativeToIgnoreFile = path.relative(matcher.basePath, absolutePath);
+		if (!relativeToIgnoreFile || relativeToIgnoreFile.startsWith("..") || path.isAbsolute(relativeToIgnoreFile)) {
+			continue;
+		}
+
+		let normalized = normalizeForIgnore(relativeToIgnoreFile);
+		if (hadTrailingSlash && !normalized.endsWith("/")) {
+			normalized += "/";
+		}
+		if (!normalized) {
+			continue;
+		}
+
+		const result = matcher.ignores.test(normalized);
+		if (result.ignored) {
+			ignored = true;
+		} else if (result.unignored) {
+			ignored = false;
+		}
+	}
+
+	return ignored;
+}
+
+async function runNodeGlob(
 	patternValue: string,
 	searchPath: string,
 	limit: number,
 	signal?: AbortSignal,
 ): Promise<string[]> {
-	const rgPath = await ensureTool("rg", true);
-	if (!rgPath) {
-		throw new Error("ripgrep (rg) is not available and could not be downloaded");
+	if (signal?.aborted) {
+		throw new Error("Operation aborted");
 	}
 
-	return new Promise((resolve, reject) => {
-		if (signal?.aborted) {
-			reject(new Error("Operation aborted"));
-			return;
+	const gitignoreMatchers = loadGitignoreMatchers(searchPath);
+	const results: string[] = [];
+
+	for await (const entry of glob.iterate(patternValue, {
+		cwd: searchPath,
+		dot: true,
+		mark: true,
+		posix: true,
+		signal,
+		windowsPathsNoEscape: true,
+		ignore: ["**/.git/**"],
+	})) {
+		if (isIgnoredByGitignore(entry, searchPath, gitignoreMatchers)) {
+			continue;
 		}
 
-		const args = ["--files", "--glob", patternValue, "--sort=modified", "--hidden"];
-		const child = spawn(rgPath, args, { cwd: searchPath, stdio: ["ignore", "pipe", "pipe"] });
-		const rl = createInterface({ input: child.stdout });
-		const results: string[] = [];
-		let stderr = "";
-		let settled = false;
-		let aborted = false;
-		let killedDueToLimit = false;
+		results.push(entry);
+		if (results.length >= limit) break;
+	}
 
-		const settle = (fn: () => void) => {
-			if (!settled) {
-				settled = true;
-				fn();
-			}
-		};
-		const cleanup = () => {
-			rl.close();
-			signal?.removeEventListener("abort", onAbort);
-		};
-		const onAbort = () => {
-			aborted = true;
-			if (!child.killed) child.kill();
-		};
-
-		signal?.addEventListener("abort", onAbort, { once: true });
-
-		child.stderr?.on("data", (chunk) => {
-			stderr += chunk.toString();
-		});
-
-		rl.on("line", (line) => {
-			if (results.length >= limit) return;
-			const trimmed = line.replace(/\r$/, "").trim();
-			if (!trimmed) return;
-			results.push(trimmed);
-			if (results.length >= limit) {
-				killedDueToLimit = true;
-				if (!child.killed) child.kill();
-			}
-		});
-
-		child.on("error", (error) => {
-			cleanup();
-			settle(() => reject(new Error(`Failed to run ripgrep: ${error.message}`)));
-		});
-
-		child.on("close", (code) => {
-			cleanup();
-			if (aborted) {
-				settle(() => reject(new Error("Operation aborted")));
-				return;
-			}
-			if (!killedDueToLimit && code !== 0 && code !== 1) {
-				settle(() => reject(new Error(stderr.trim() || `ripgrep exited with code ${code}`)));
-				return;
-			}
-			settle(() => resolve(results));
-		});
-	});
+	return results;
 }
 
 export function createGlobTool(cwd: string, options?: GlobToolOptions): AgentTool<typeof globSchema> {
 	const customOps = options?.operations;
-	const fallbackDescription = `Fast file pattern matching by glob pattern. Returns matching file paths relative to the search directory. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} results or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
+	const fallbackDescription = `Fast file and directory pattern matching by glob pattern. Returns matching paths relative to the search directory. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} results or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
 	return {
@@ -202,7 +226,7 @@ export function createGlobTool(cwd: string, options?: GlobToolOptions): AgentToo
 			const effectiveLimit = Math.max(1, limit ?? DEFAULT_LIMIT);
 			const rawResults = customOps
 				? await customOps.glob(effectivePattern, searchPath, { limit: effectiveLimit, signal })
-				: await runRipgrepGlob(effectivePattern, searchPath, effectiveLimit, signal);
+				: await runNodeGlob(effectivePattern, searchPath, effectiveLimit, signal);
 
 			const normalized = rawResults.map((filePath) => normalizeOutputPath(filePath, searchPath));
 			const uniqueResults = Array.from(new Set(normalized));
@@ -217,7 +241,7 @@ export function createGlobTool(cwd: string, options?: GlobToolOptions): AgentToo
 
 			if (limitedResults.length === 0) {
 				return {
-					content: [{ type: "text", text: "No files found matching pattern" }],
+					content: [{ type: "text", text: "No files or directories found matching pattern" }],
 					details,
 				};
 			}

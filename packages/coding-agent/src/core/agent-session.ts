@@ -2948,6 +2948,8 @@ export class AgentSession {
 	/**
 	 * Check if an error is retryable (overloaded, rate limit, server errors).
 	 * Context overflow errors are NOT retryable (handled by compaction instead).
+	 * Plan/quota exhaustion errors are NOT retryable either: their reset time is
+	 * hours away, so retrying within the backoff window just spams identical errors.
 	 */
 	private _isRetryableError(message: AssistantMessage): boolean {
 		if (message.stopReason !== "error" || !message.errorMessage) return false;
@@ -2957,6 +2959,18 @@ export class AgentSession {
 		if (isContextOverflow(message, contextWindow)) return false;
 
 		const err = message.errorMessage;
+
+		// Plan/quota exhaustion (e.g. "429 Token Plan 5h 窗口额度已用尽，将于 ... 重置",
+		// "insufficient quota"). These won't recover within the retry backoff window,
+		// so treat them as non-retryable and surface a single error to the user.
+		if (
+			/额度已用尽|额度不足|窗口额度|余额不足|Token Plan|insufficient.?quota|insufficient.?balance|quota.?exhausted|quota.?exceeded|out of quota|exceeded your current quota/i.test(
+				err,
+			)
+		) {
+			return false;
+		}
+
 		// Match: overloaded_error, rate limit, 429, 500, 502, 503, 504, service unavailable, connection errors, fetch failed, terminated, retry delay exceeded
 		return /overloaded|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server error|internal error|connection.?error|connection.?refused|other side closed|fetch failed|upstream.?connect|reset before headers|terminated|retry delay/i.test(
 			err,

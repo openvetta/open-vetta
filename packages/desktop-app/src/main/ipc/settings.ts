@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getAgentDir } from "@vetta/coding-agent";
 import { app, BrowserWindow, ipcMain, powerMonitor } from "electron";
 
+import type { RefreshOutcome } from "../../preload/api.js";
 import { DEFAULT_SERVER_URL } from "../constants.js";
 import { peekSharedRuntime } from "../runtime.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
@@ -55,9 +56,15 @@ function broadcastTokenRefreshed(accessToken: string, refreshToken: string): voi
  * 主进程内部使用的 token refresh。
  * - 进程内单飞（去重）：并发请求只触发一次 refresh。
  * - 成功：写回 settings.json，广播 token-refreshed 给渲染层。
- * - 失败：返回 null，由调用方决定是否广播 unauthorized。
+ * - 失败：返回三态结果（见 RefreshOutcome），由调用方决定是否登出。
+ *   只有 unauthorized 才该登出；transient（网络/超时/5xx）必须保留会话。
  */
-let refreshInFlight: Promise<string | null> | null = null;
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
+
+// 远大于真实刷新延迟（正常 <100ms）。一次性轮转下，绝不能因为短超时丢弃一个
+// 服务端可能已提交的轮转响应——那会让 settings.json 永久停在已撤销的 refresh token。
+// 这里只用一个宽松上限防止真正挂死的连接无限占用 single-flight。
+const REFRESH_TIMEOUT_MS = 30_000;
 
 function persistTokens(access: string, refresh: string): void {
 	const settings = readSettings();
@@ -73,37 +80,49 @@ function persistTokens(access: string, refresh: string): void {
 	}
 }
 
-export async function tryRefreshAccessToken(): Promise<string | null> {
+export async function tryRefreshAccessToken(): Promise<RefreshOutcome> {
 	if (refreshInFlight) return refreshInFlight;
-	refreshInFlight = (async () => {
+	refreshInFlight = (async (): Promise<RefreshOutcome> => {
 		const settings = readSettings();
 		const refreshToken = settings.serverRefreshToken as string | undefined;
-		if (!refreshToken) return null;
+		if (!refreshToken) return { status: "unauthorized" };
 		const url = `${DEFAULT_SERVER_URL.replace(/\/$/, "")}/auth/refresh`;
 		try {
 			const controller = new AbortController();
-			const timeout = setTimeout(() => controller.abort(), 5000);
-			const response = await fetch(url, {
-				method: "POST",
-				signal: controller.signal,
-				headers: {
-					Accept: "application/json",
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ refresh_token: refreshToken }),
-			});
-			clearTimeout(timeout);
-			if (!response.ok) return null;
+			const timeout = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
+			let response: Response;
+			try {
+				response = await fetch(url, {
+					method: "POST",
+					signal: controller.signal,
+					headers: {
+						Accept: "application/json",
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({ refresh_token: refreshToken }),
+				});
+			} finally {
+				clearTimeout(timeout);
+			}
+			// 服务端对 refresh token 失效/过期/撤销一律返回 HTTP 401（见 api errcode 40105/40106/40107）。
+			// 这是唯一应当登出的明确信号。
+			if (response.status === 401) return { status: "unauthorized" };
+			// 其它非 2xx（5xx 等）视为暂时性，保留会话。
+			if (!response.ok) return { status: "transient" };
 			const body = (await response.json()) as {
 				code: number;
 				data?: { access_token?: string; refresh_token?: string };
 			};
-			if (body.code !== 0 || !body.data?.access_token || !body.data?.refresh_token) return null;
+			// 200 但 body 异常：保守按暂时性处理，不登出。
+			if (body.code !== 0 || !body.data?.access_token || !body.data?.refresh_token) {
+				return { status: "transient" };
+			}
 			persistTokens(body.data.access_token, body.data.refresh_token);
 			broadcastTokenRefreshed(body.data.access_token, body.data.refresh_token);
-			return body.data.access_token;
+			return { status: "ok", accessToken: body.data.access_token };
 		} catch {
-			return null;
+			// 网络失败 / abort / 超时 → 暂时性，绝不登出。
+			return { status: "transient" };
 		}
 	})();
 	try {
@@ -140,14 +159,19 @@ async function authedGet(path: string, timeoutMs = 5000): Promise<Response | nul
 	};
 	let res = await doFetch(token);
 	if (res.status === 401) {
-		const newToken = await tryRefreshAccessToken();
-		if (!newToken) {
+		const outcome = await tryRefreshAccessToken();
+		if (outcome.status === "unauthorized") {
 			broadcastUnauthorized();
 			return res;
 		}
-		token = newToken;
+		if (outcome.status === "transient") {
+			// 暂时性失败（网络/超时/5xx）：保留会话，返回原 401，调用方按"暂不可达"降级。
+			return res;
+		}
+		token = outcome.accessToken;
 		res = await doFetch(token);
 		if (res.status === 401) {
+			// 用刚换来的新 token 仍 401 → 确属鉴权失败，登出。
 			broadcastUnauthorized();
 		}
 	}
@@ -328,6 +352,43 @@ async function fetchCreditsBalance(): Promise<{ balance: number | null; unlimite
 	}
 }
 
+interface SubscriptionWindow {
+	kind: "5h" | "week" | "month";
+	limit: number;
+	consumed: number;
+	reset_at: string;
+}
+
+interface SubscriptionStatus {
+	active: boolean;
+	zen_enabled: boolean;
+	go_enabled: boolean;
+	tier_id?: string;
+	tier_name?: string;
+	badge_text?: string;
+	badge_color?: string;
+	description?: string;
+	expires_at?: string;
+	windows?: SubscriptionWindow[];
+}
+
+async function fetchSubscriptionStatus(): Promise<{ status: SubscriptionStatus | null; error?: string }> {
+	try {
+		const response = await authedGet("/subscription/me");
+		if (!response) return { status: null, error: "未登录" };
+		if (response.status === 401) return { status: null, error: "unauthorized" };
+		if (!response.ok) return { status: null, error: `HTTP ${response.status}` };
+
+		const body = (await response.json()) as { code: number; data?: SubscriptionStatus };
+		if (body.code !== 0 || !body.data) {
+			return { status: null };
+		}
+		return { status: body.data };
+	} catch {
+		return { status: null, error: "服务器不可达" };
+	}
+}
+
 /**
  * focus / 系统 wake 时若 access token 剩余寿命 < WAKE_REFRESH_THRESHOLD_MS，主动 refresh。
  * 解决"合上笔记本一夜，第二天第一个请求 401 才被动刷新"的体感问题。
@@ -443,11 +504,14 @@ export function registerSettingsIpc(): () => void {
 		return fetchCreditsBalance();
 	});
 
+	ipcMain.handle("vetta:subscription:status", async () => {
+		return fetchSubscriptionStatus();
+	});
+
 	// 渲染层 401 时统一委托主进程 refresh，避免跨进程并发使用同一 refresh_token
 	// 触发服务端 reuse-detection（revoked）导致误踢登录。
 	ipcMain.handle("vetta:auth:refresh-token", async () => {
-		const accessToken = await tryRefreshAccessToken();
-		return accessToken ?? null;
+		return tryRefreshAccessToken();
 	});
 
 	const teardownWakeHooks = registerWakeRefreshHooks();
@@ -462,6 +526,7 @@ export function registerSettingsIpc(): () => void {
 		ipcMain.removeHandler("vetta:models:fetch-remote");
 		ipcMain.removeHandler("vetta:models:fetch-templates");
 		ipcMain.removeHandler("vetta:credits:balance");
+		ipcMain.removeHandler("vetta:subscription:status");
 		ipcMain.removeHandler("vetta:auth:refresh-token");
 	};
 }
