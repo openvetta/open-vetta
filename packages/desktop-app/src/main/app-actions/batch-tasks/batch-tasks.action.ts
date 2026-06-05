@@ -11,13 +11,50 @@ import {
 	validateBatchTasksTaskInput,
 } from "./batch-tasks.schema.js";
 
-const genericApproval = {
-	defaultPresentation: "generic",
+const projectApproval = {
+	defaultPresentation: "batch-tasks.project",
 	presentations: [
+		{
+			id: "batch-tasks.project",
+			title: "批量项目操作确认",
+			description: "展示批量项目创建、更新或删除操作详情，由用户确认是否执行。",
+		},
+		{
+			id: "generic",
+			title: "批量项目操作确认",
+			description: "展示批量项目操作及完整输入，由用户确认是否执行。",
+		},
+	],
+};
+
+const taskApproval = {
+	defaultPresentation: "batch-tasks.task",
+	presentations: [
+		{
+			id: "batch-tasks.task",
+			title: "批量任务操作确认",
+			description: "展示批量任务执行、重试、停止、删除等操作详情，由用户确认是否执行。",
+		},
 		{
 			id: "generic",
 			title: "批量任务操作确认",
 			description: "展示批量任务操作及完整输入，由用户确认是否执行。",
+		},
+	],
+};
+
+const executionApproval = {
+	defaultPresentation: "batch-tasks.execution",
+	presentations: [
+		{
+			id: "batch-tasks.execution",
+			title: "批量执行控制确认",
+			description: "展示批量执行开始、停止、重置等操作详情，由用户确认是否执行。",
+		},
+		{
+			id: "generic",
+			title: "批量执行控制确认",
+			description: "展示批量执行控制操作及完整输入，由用户确认是否执行。",
 		},
 	],
 };
@@ -76,7 +113,7 @@ export function createBatchTasksActions(service: BatchTaskService): ActionDefini
 		summary: "创建、更新或删除批量项目。",
 		availability: "gui-main",
 		permission: "batch-tasks.project.write",
-		approval: genericApproval,
+		approval: projectApproval,
 		inputSchema: {
 			description:
 				'对象参数，operation 为 "create"、"update" 或 "delete"。create 使用 data{name,prompt,folders,concurrency,...}；update 使用 projectId + data；delete 使用 projectId。可选 approvalUi 仅支持 "generic"。',
@@ -121,7 +158,7 @@ export function createBatchTasksActions(service: BatchTaskService): ActionDefini
 		summary: "执行、重试、停止、删除、继续子任务，或删除子任务会话。",
 		availability: "gui-main",
 		permission: "batch-tasks.task.write",
-		approval: genericApproval,
+		approval: taskApproval,
 		inputSchema: {
 			description:
 				'对象参数：{ "operation": "run" | "retry" | "stop" | "delete" | "resume" | "resume-with-text" | "delete-session", "projectId": string, "taskId": string, "text"?: string, "approvalUi"?: "generic" }。text 仅用于 resume-with-text。',
@@ -175,7 +212,7 @@ export function createBatchTasksActions(service: BatchTaskService): ActionDefini
 		summary: "批量开始、停止、重置、重置失败任务或删除全部非运行任务。",
 		availability: "gui-main",
 		permission: "batch-tasks.execution.write",
-		approval: genericApproval,
+		approval: executionApproval,
 		inputSchema: {
 			description:
 				'对象参数：{ "operation": "delete-all" | "start" | "stop" | "reset" | "reset-failed", "projectId": string, "taskIds"?: string[], "approvalUi"?: "generic" }。taskIds 仅用于 reset-failed。',
