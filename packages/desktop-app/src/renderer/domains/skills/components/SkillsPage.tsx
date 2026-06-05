@@ -28,6 +28,7 @@ interface MergedSkill {
 	needsUpdate: boolean;
 	localVersion?: string;
 	isCustom?: boolean;
+	downloadCount: number;
 }
 
 function mergeSkills(
@@ -54,6 +55,7 @@ function mergeSkills(
 			enabled: installed ? local.enabled : false,
 			needsUpdate,
 			localVersion: isMarketLocal ? local.version : undefined,
+			downloadCount: ms.download_count ?? 0,
 		});
 	}
 
@@ -73,6 +75,7 @@ function mergeSkills(
 				enabled: local.enabled,
 				needsUpdate: false,
 				localVersion: local.version,
+				downloadCount: 0,
 			});
 		}
 	}
@@ -98,6 +101,7 @@ function buildCustomSkills(manifest: Record<string, InstalledSkill>): MergedSkil
 			needsUpdate: false,
 			localVersion: entry.version,
 			isCustom: true,
+			downloadCount: 0,
 		});
 	}
 	list.sort((a, b) => {
@@ -122,6 +126,8 @@ function groupByCategory(skills: MergedSkill[]): Map<string, MergedSkill[]> {
 		group.sort((a, b) => {
 			if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
 			if (a.installed !== b.installed) return a.installed ? -1 : 1;
+			// 同等安装态下按热度（下载量）降序，便于区分热门
+			if (a.downloadCount !== b.downloadCount) return b.downloadCount - a.downloadCount;
 			return a.name.localeCompare(b.name);
 		});
 	}
@@ -216,6 +222,12 @@ function SkillCard({
 					{skill.installed && skill.localVersion && (
 						<span className="inline-flex h-4 shrink-0 items-center rounded-full bg-accent/50 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground/70">
 							v{skill.localVersion}
+						</span>
+					)}
+					{!skill.isCustom && skill.downloadCount > 0 && (
+						<span className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded-full bg-accent/50 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground/70">
+							<span className="icon-[mdi--download] h-2.5 w-2.5" />
+							{skill.downloadCount}
 						</span>
 					)}
 					{skill.isCustom && (
@@ -662,6 +674,7 @@ export function SkillsPage(): JSX.Element {
 					window.vetta.skills.installFromMarket(skill.name, buffer, skill.type, {
 						alias: skill.alias,
 						marketDescription: skill.description,
+						version: skill.version,
 					}),
 				)
 				.then(() => {

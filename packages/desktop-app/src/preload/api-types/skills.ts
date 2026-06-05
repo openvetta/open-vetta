@@ -45,7 +45,7 @@ export interface DesktopSkillsApi {
 		name: string,
 		archiveBuffer: ArrayBuffer,
 		type: "skill" | "scene",
-		meta?: { alias?: string; marketDescription?: string },
+		meta?: { alias?: string; marketDescription?: string; version?: string },
 	): Promise<void>;
 	importCustom(archiveBuffer: ArrayBuffer): Promise<{ name: string }>;
 	uninstall(name: string, type: "skill" | "scene"): Promise<void>;

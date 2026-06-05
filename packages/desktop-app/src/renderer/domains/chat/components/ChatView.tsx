@@ -85,12 +85,6 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const rightSlot = useMemo(
 		() => (
 			<>
-				{isStreaming && (
-					<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
-						<span className="h-[5px] w-[5px] animate-pulse rounded-full bg-muted-foreground/50" />
-						Thinking...
-					</div>
-				)}
 				<SandboxGrantsBadge />
 				{isLastStage ? (
 					<Button
@@ -122,7 +116,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				</Button>
 			</>
 		),
-		[isStreaming, isLastStage, panelOpen, setFlowingSendOpen, setWorkflowCompleteOpen, handleTogglePanel],
+		[isLastStage, panelOpen, setFlowingSendOpen, setWorkflowCompleteOpen, handleTogglePanel],
 	);
 	useEffect(() => {
 		setHeaderRightSlot(rightSlot);

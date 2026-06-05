@@ -8,7 +8,7 @@ import {
 	sseClientAtom,
 	sseConnectionStateAtom,
 } from "@shared/store/atoms";
-import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
+import { creditsBalanceAtom, creditsUnlimitedAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 
@@ -22,6 +22,7 @@ export function useAuth() {
 	const setRemoteProviders = useSetAtom(remoteProvidersAtom);
 	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
 	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
+	const setSubscriptionStatus = useSetAtom(subscriptionStatusAtom);
 	const sseClient = useAtomValue(sseClientAtom);
 	const setSseState = useSetAtom(sseConnectionStateAtom);
 
@@ -46,12 +47,14 @@ export function useAuth() {
 		if (token && !user) {
 			void fetchCurrentUser(token)
 				.then((u) => setUser(u))
-				.catch(() => {
-					// Token invalid (refresh also failed inside request()), clear
-					logout();
+				.catch((err) => {
+					// 不要在这里登出：明确的 401（token 失效/撤销）已由 request() 内部
+					// notifyUnauthorized → onUnauthorized 监听器统一处理登出。
+					// 这里只会收到暂时性错误（网络/超时/5xx），登出反而会因为快速刷新误踢用户。
+					console.warn("[useAuth] fetchCurrentUser on mount failed (transient, keep session):", err);
 				});
 		}
-	}, [token, user, setUser, logout]);
+	}, [token, user, setUser]);
 
 	// Listen for 401 responses (refresh 已失败) - auto logout
 	useEffect(() => {
@@ -109,6 +112,8 @@ export function useAuth() {
 			setCreditsBalance(null);
 			setCreditsUnlimited(false);
 			setRemoteProviders({});
+			// 登出：重置内存态为 null，读 atom 时回退到 localStorage 缓存(保留上次已知)。
+			setSubscriptionStatus(null);
 			return;
 		}
 		void window.vetta.credits
@@ -126,7 +131,14 @@ export function useAuth() {
 				setRemoteProviders((result.providers ?? {}) as Record<string, unknown>);
 			})
 			.catch(console.error);
-	}, [token, setCreditsBalance, setCreditsUnlimited, setRemoteProviders]);
+		void window.vetta.subscription
+			.getStatus()
+			.then((result) => {
+				// 拉取成功才覆盖；失败(status:null)保持内存态不变，UI 用 localStorage 缓存回退。
+				if (result.status) setSubscriptionStatus(result.status);
+			})
+			.catch(console.error);
+	}, [token, setCreditsBalance, setCreditsUnlimited, setRemoteProviders, setSubscriptionStatus]);
 
 	// SSE: connect when token is available, disconnect on logout
 	useEffect(() => {

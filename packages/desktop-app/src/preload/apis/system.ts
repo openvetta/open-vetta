@@ -18,6 +18,7 @@ export function createSystemApi(
 	| "runtimes"
 	| "settings"
 	| "credits"
+	| "subscription"
 	| "shell"
 	| "window"
 	| "auth"
@@ -149,6 +150,9 @@ export function createSystemApi(
 		},
 		credits: {
 			getBalance: () => ipc.invoke("vetta:credits:balance"),
+		},
+		subscription: {
+			getStatus: () => ipc.invoke("vetta:subscription:status"),
 		},
 		shell: {
 			showInFolder: (fullPath) => ipc.invoke("vetta:shell:show-in-folder", fullPath),
