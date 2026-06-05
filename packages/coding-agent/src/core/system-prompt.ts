@@ -2,7 +2,6 @@
  * System prompt construction and project context loading
  */
 
-import { getDocsPath, getExamplesPath, getReadmePath } from "../config.js";
 import { formatSkillsForPrompt, type Skill } from "./skills.js";
 import { SUBCONSCIOUS } from "./subconscious.js";
 
@@ -161,11 +160,6 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		return prompt;
 	}
 
-	// Get absolute paths to documentation and examples
-	const readmePath = getReadmePath();
-	const docsPath = getDocsPath();
-	const examplesPath = getExamplesPath();
-
 	// Build tools list based on selected tools (only built-in tools with known descriptions)
 	const tools = (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
 		(t) => t in toolDescriptions,
@@ -212,6 +206,17 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	if (hasEasyUseVettaApp) {
 		guidelinesList.push(
 			"Before calling Vetta Desktop app-control actions such as appearance.theme or navigation.open, call easy_use_vettaApp with the action id, intent, proposed input, and a UI plan; then follow its structured status/output/allowedActions. Do not reduce it to a simple yes/no prompt when the action needs richer UI or edited input.",
+		);
+		guidelinesList.push(
+			[
+				"Vetta CLI is connected to easy_use_vettaApp: use `vetta action` to work with the running Vetta Desktop app.",
+				"It can search GUI actions, describe a specific action, and run an action through the local Desktop action RPC.",
+				"When the user asks about Vetta Desktop app features, settings, pages, navigation, appearance/theme changes, or how to operate the app, you MUST inspect Vetta CLI help first with `vetta action -h` and then search/describe relevant actions as needed.",
+				"Do not answer by guessing from memory.",
+				"Do not inspect files under `.vetta` to resolve user confusion about app configuration or feature locations; local config files are not the app UX contract and do not help users find or change settings in the running app.",
+				"Do not memorize or guess detailed action parameters; use action help/description output for details.",
+				"When an action needs user authorization, edited input, or a user-facing prompt, use easy_use_vettaApp so Desktop can show the action-specific UI, then proceed only according to the returned status/output/allowedActions.",
+			].join(" "),
 		);
 	}
 
@@ -274,14 +279,7 @@ ${toolsList}${mcpToolsSection}
 
 Guidelines:
 ${guidelines}
-
-Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
-- Main documentation: ${readmePath}
-- Additional docs: ${docsPath}
-- Examples: ${examplesPath} (extensions, custom tools, SDK)
-- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md)
-- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
-- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
+`;
 
 	if (appendSection) {
 		prompt += appendSection;
