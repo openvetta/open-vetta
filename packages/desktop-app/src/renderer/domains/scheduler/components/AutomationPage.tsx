@@ -5,7 +5,7 @@ import { scheduledTasksAtom, selectedTaskIdAtom, formOpenAtom, projectsAtom } fr
 import type { ScheduledTask } from "@shared/store/atoms";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import { TaskList } from "./TaskList";
-import { ExecutionHistory } from "./ExecutionHistory";
+import { HistoryDrawer } from "./HistoryDrawer";
 import { TaskFormDialog } from "./TaskForm";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
@@ -149,24 +149,22 @@ export function AutomationPage(): JSX.Element {
 				{tasks.length === 0 ? (
 					<EmptyState onNew={noProjects ? undefined : handleNewTask} noProjects={noProjects} />
 				) : (
-					<>
-						<TaskList
-							selectedTaskId={selectedTaskId}
-							onSelectTask={(id) => setSelectedTaskId(selectedTaskId === id ? null : id)}
-							onEditTask={handleEditTask}
-						/>
-						{selectedTask && (
-							<motion.div
-								initial={{ opacity: 0, y: 10 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ duration: 0.4, ease: easeOut }}
-							>
-								<ExecutionHistory taskId={selectedTask.id} />
-							</motion.div>
-						)}
-					</>
+					<TaskList
+						selectedTaskId={selectedTaskId}
+						onSelectTask={(id) => setSelectedTaskId(selectedTaskId === id ? null : id)}
+						onEditTask={handleEditTask}
+					/>
 				)}
 			</div>
+
+			{/* Execution history slides in from the right instead of stacking
+			    below the grid — keeps history tied to the clicked card even when
+			    there are many tasks. */}
+			<HistoryDrawer
+				task={selectedTask ?? null}
+				onClose={() => setSelectedTaskId(null)}
+				onEdit={handleEditTask}
+			/>
 
 			<TaskFormDialog
 				open={dialogOpen}

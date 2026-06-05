@@ -7,10 +7,12 @@ import {
 	type ProjectType,
 	projectsAtom,
 	type SessionInfo,
+	scheduledRecordsVersionAtom,
+	scheduledSessionPathsAtom,
 	sessionsMapAtom,
 	workspacePathAtom,
 } from "@shared/store/atoms";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 
 // Module-level flag so auto-expand only happens once per app session
@@ -25,6 +27,9 @@ let imSubscribed = false;
 export function useProjects() {
 	const [projects, setProjects] = useAtom(projectsAtom);
 	const [sessionsMap, setSessionsMap] = useAtom(sessionsMapAtom);
+	const scheduledSessionPaths = useAtomValue(scheduledSessionPathsAtom);
+	const setScheduledSessionPaths = useSetAtom(scheduledSessionPathsAtom);
+	const setScheduledRecordsVersion = useSetAtom(scheduledRecordsVersionAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedProjectsAtom);
 	const workspacePath = useAtomValue(workspacePathAtom);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
@@ -32,8 +37,19 @@ export function useProjects() {
 
 	const loadSessions = useCallback(
 		async (cwd: string) => {
-			const sessions = await window.vetta.session.listSessions(cwd);
-			setSessionsMap((prev) => new Map([...prev, [cwd, sessions as SessionInfo[]]]));
+			const sessions = (await window.vetta.session.listSessions(cwd)) as SessionInfo[];
+			setSessionsMap((prev) => {
+				// 定时 / 新建 session 的 name 记录（session_info）在首个 assistant 回复落盘前
+				// 只存在内存里，磁盘只有 header。此刻 listSessions 读到的 name 为空，会让侧栏
+				// 闪现「未命名会话」。这里用上一次已知的非空 name 兜底，避免闪烁。
+				const prevByPath = new Map((prev.get(cwd) ?? []).map((s) => [s.path, s]));
+				const merged = sessions.map((s) => {
+					if (s.name) return s;
+					const known = prevByPath.get(s.path)?.name;
+					return known ? { ...s, name: known } : s;
+				});
+				return new Map([...prev, [cwd, merged]]);
+			});
 		},
 		[setSessionsMap],
 	);
@@ -261,6 +277,18 @@ export function useProjects() {
 	const deleteSession = useCallback(
 		async (_cwd: string, sessionPath: string) => {
 			await window.vetta.session.delete(sessionPath);
+			// 定时任务 session：同步删掉「自动化」里的执行记录，否则历史列表会残留。
+			if (scheduledSessionPaths.has(sessionPath)) {
+				await window.vetta.scheduler.deleteRecordsBySession(sessionPath);
+				setScheduledSessionPaths((prev) => {
+					if (!prev.has(sessionPath)) return prev;
+					const next = new Set(prev);
+					next.delete(sessionPath);
+					return next;
+				});
+				// 驱动正在展示的执行历史重新拉取。
+				setScheduledRecordsVersion((v) => v + 1);
+			}
 			setSessionsMap((prev) => {
 				// ADR-0007: 「对话」项目下的 session.cwd 是 per-session 子目录，但
 				// sessionsMap 的 key 仍是项目根。这里不再用传入的 cwd 反查，而是
@@ -273,7 +301,7 @@ export function useProjects() {
 				return next;
 			});
 		},
-		[setSessionsMap],
+		[setSessionsMap, scheduledSessionPaths, setScheduledSessionPaths, setScheduledRecordsVersion],
 	);
 
 	/**

@@ -2,7 +2,15 @@ import { ipcMain, type WebContents } from "electron";
 import { abortTask, getRuntime, scheduleTaskInCron, unscheduleTaskInCron } from "../scheduler/scheduler.js";
 import { executeTask } from "../scheduler/task-executor";
 import type { ScheduledTask } from "../scheduler/task-storage";
-import { deleteTaskRecords, generateId, loadRecords, loadTasks, saveTasks } from "../scheduler/task-storage";
+import {
+	deleteRecordsBySessionPath,
+	deleteTaskRecords,
+	generateId,
+	loadAllScheduledSessionPaths,
+	loadRecords,
+	loadTasks,
+	saveTasks,
+} from "../scheduler/task-storage";
 
 const CHANNELS = {
 	GET_TASKS: "vetta:scheduler:get-tasks",
@@ -12,6 +20,8 @@ const CHANNELS = {
 	TOGGLE_TASK: "vetta:scheduler:toggle-task",
 	DISABLE_TASK: "vetta:scheduler:disable-task",
 	GET_RECORDS: "vetta:scheduler:get-records",
+	GET_SESSION_PATHS: "vetta:scheduler:get-session-paths",
+	DELETE_RECORD_BY_SESSION: "vetta:scheduler:delete-record-by-session",
 	RUN_NOW: "vetta:scheduler:run-now",
 	ABORT: "vetta:scheduler:abort",
 	EVENT: "vetta:scheduler:event",
@@ -151,6 +161,14 @@ export function registerSchedulerIpc(webContents: WebContents): () => void {
 		return loadRecords(taskId);
 	});
 
+	ipcMain.handle(CHANNELS.GET_SESSION_PATHS, async () => {
+		return loadAllScheduledSessionPaths();
+	});
+
+	ipcMain.handle(CHANNELS.DELETE_RECORD_BY_SESSION, async (_, sessionPath: string) => {
+		return deleteRecordsBySessionPath(sessionPath);
+	});
+
 	ipcMain.handle(CHANNELS.ABORT, async (_, taskId: string) => {
 		abortTask(taskId);
 	});
@@ -172,6 +190,8 @@ export function registerSchedulerIpc(webContents: WebContents): () => void {
 		ipcMain.removeHandler(CHANNELS.TOGGLE_TASK);
 		ipcMain.removeHandler(CHANNELS.DISABLE_TASK);
 		ipcMain.removeHandler(CHANNELS.GET_RECORDS);
+		ipcMain.removeHandler(CHANNELS.GET_SESSION_PATHS);
+		ipcMain.removeHandler(CHANNELS.DELETE_RECORD_BY_SESSION);
 		ipcMain.removeHandler(CHANNELS.ABORT);
 		ipcMain.removeHandler(CHANNELS.RUN_NOW);
 	};

@@ -1,7 +1,9 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
+import { formatScheduleSessionName } from "../../shared/scheduled-session.js";
 import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { emitTaskEvent, emitTaskStreamEvent } from "../ipc/scheduler.js";
+import { resolveSessionDirForCwd } from "../ipc/session.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import type { ScheduledTask, TaskExecutionRecord } from "./task-storage";
 import { createRecord, generateId, updateRecordMetadata, updateTaskLastRun } from "./task-storage";
@@ -46,12 +48,22 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 		await assertSandboxAvailableForMode(executionMode, async () => executionMode);
 		record.executionMode = executionMode;
 
-		const result = await runtime.createSession({ cwd: task.cwd, executionMode });
+		// 与 desktop session IPC（CHANNELS.CREATE）保持一致：默认「对话」/IM 项目的
+		// session 必须落到 <cwd>/.vetta/sessions，否则侧栏 listSessions 读不到该目录，
+		// 定时任务 session 会在首次 loadSessions 整桶替换后从侧栏消失。
+		const sessionDir = resolveSessionDirForCwd(task.cwd);
+		const result = await runtime.createSession({
+			cwd: task.cwd,
+			executionMode,
+			...(sessionDir ? { sessionDir } : {}),
+		});
 		sessionId = result.sessionId;
 		record.sessionId = sessionId;
 
-		// Name the session so it's identifiable in the sidebar
-		runtime.renameSessionById(sessionId, `[定时] ${task.name}`);
+		// 会话名 = 任务名 · 执行时间；前缀一个不可见标记，渲染端据此挂定时图标
+		// 并统一剥离标记展示（不再用可见的 "[定时]" 文字占位）。
+		const sessionName = formatScheduleSessionName(task.name, record.startedAt);
+		runtime.renameSessionById(sessionId, sessionName);
 
 		// Get session path for navigation
 		record.sessionPath = runtime.getSessionPath(sessionId);
@@ -65,7 +77,7 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 			sessionId,
 			sessionPath: record.sessionPath ?? "",
 			cwd: task.cwd,
-			sessionName: `[定时] ${task.name}`,
+			sessionName,
 			firstMessage: task.prompt.slice(0, 80),
 		});
 
