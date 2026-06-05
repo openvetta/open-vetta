@@ -329,6 +329,8 @@ export interface SessionConfig {
 	executionMode?: SessionExecutionMode;
 	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
 	appendSystemPrompt?: string;
+	/** Enable the desktop-hosted easy_use_vettaApp tool for this session. */
+	enableEasyUseVettaApp?: boolean;
 	/**
 	 * 注入到 bash/shell 工具子进程的环境变量覆盖层（如 TMPDIR/TEMP/TMP）。
 	 * 仅对该 session 内的命令执行生效；不传则行为等同旧版。
