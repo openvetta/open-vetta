@@ -40,6 +40,8 @@ export interface TaskExecutionRecord {
 }
 
 export const scheduledTasksAtom = atom<ScheduledTask[]>([]);
+/** 当前正在执行的任务 id 集合，由 task.started/record.updated 等事件维护。 */
+export const runningTaskIdsAtom = atom<Set<string>>(new Set<string>());
 export const selectedTaskIdAtom = atom<string | null>(null);
 export const selectedRecordIdAtom = atom<string | null>(null);
 export const formOpenAtom = atom<ScheduledTask | null | undefined>(undefined);
