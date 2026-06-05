@@ -21,8 +21,9 @@ import { useFlowingChatInit } from "./domains/flowing-chat/hooks/useFlowingChatI
 import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
 import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
 import { UpdateRestartDialog } from "./shared/components/UpdateRestartDialog";
-import { ActionApprovalDialog } from "./shared/components/ActionApprovalDialog";
 import { ActionApprovalCenter } from "./shared/action-approval/ActionApprovalCenter";
+import { ThemeChangeApproval } from "./shared/action-approval/ThemeChangeApproval";
+import { NavigationOpenApproval } from "./shared/action-approval/NavigationOpenApproval";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,
@@ -342,7 +343,8 @@ export function RootLayout(): JSX.Element {
 					<FilePreviewDialog />
 					<UpdateRestartDialog />
 					<ActionApprovalCenter />
-					<ActionApprovalDialog />
+					<ThemeChangeApproval />
+					<NavigationOpenApproval />
 				</div>
 			</div>
 		</TooltipProvider>
