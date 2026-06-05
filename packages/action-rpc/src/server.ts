@@ -42,7 +42,11 @@ function getBearerToken(value: string | undefined): string | undefined {
 	return value.slice(prefix.length);
 }
 
-async function dispatch(runtime: ActionRpcRuntime, request: ReturnType<typeof parseActionRpcRequest>) {
+async function dispatch(
+	runtime: ActionRpcRuntime,
+	request: ReturnType<typeof parseActionRpcRequest>,
+	signal: AbortSignal,
+) {
 	if (request.method === "actions.search") {
 		return await runtime.search({
 			query: request.params?.query,
@@ -52,7 +56,10 @@ async function dispatch(runtime: ActionRpcRuntime, request: ReturnType<typeof pa
 	if (request.method === "actions.describe") {
 		return await runtime.describe(request.params.actionId);
 	}
-	return await runtime.run(request.params.actionId, request.params.input ?? {});
+	return await runtime.run(request.params.actionId, request.params.input ?? {}, {
+		requestId: request.id,
+		signal,
+	});
 }
 
 export async function startActionRpcServer(
@@ -71,7 +78,7 @@ export async function startActionRpcServer(
 			}
 			const request = parseActionRpcRequest(await c.req.json());
 			id = request.id;
-			const result = await dispatch(runtime, request);
+			const result = await dispatch(runtime, request, c.req.raw.signal);
 			return c.json({ id, ok: true, result } satisfies ActionRpcResponse);
 		} catch (err) {
 			return c.json({ id, ok: false, error: errorBody(err) } satisfies ActionRpcResponse, 400);

@@ -34,6 +34,20 @@ export interface ActionSearchResult {
 
 export interface ActionContext {
 	source: "internal" | "local-server";
+	requestId?: string;
+	signal?: AbortSignal;
+}
+
+export interface ActionApprovalRequest {
+	actionId: string;
+	input: JsonValue;
+	title: string;
+	summary: string;
+	permission: string;
+}
+
+export interface ActionApprovalRequester {
+	request(request: ActionApprovalRequest, signal?: AbortSignal): Promise<boolean>;
 }
 
 export interface ActionDefinition extends ActionMetadata {

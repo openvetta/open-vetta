@@ -3,8 +3,9 @@ import { registerAppearanceActions } from "./domains/appearance.actions.js";
 import { registerNavigationActions } from "./domains/navigation.actions.js";
 import { registerSystemActions } from "./domains/system.actions.js";
 import { AppActionRuntime } from "./runtime.js";
+import type { ActionApprovalRequester } from "./types.js";
 
-export function createAppActionRuntime(): AppActionRuntime {
+export function createAppActionRuntime(approvalRequester: ActionApprovalRequester): AppActionRuntime {
 	const catalog = new AppActionCatalog();
 	const register = catalog.register.bind(catalog);
 
@@ -12,11 +13,13 @@ export function createAppActionRuntime(): AppActionRuntime {
 	registerAppearanceActions(register);
 	registerNavigationActions(register);
 
-	return new AppActionRuntime(catalog);
+	return new AppActionRuntime(catalog, approvalRequester);
 }
 
 export { AppActionRuntime } from "./runtime.js";
 export type {
+	ActionApprovalRequest,
+	ActionApprovalRequester,
 	ActionContext,
 	ActionDefinition,
 	ActionErrorBody,

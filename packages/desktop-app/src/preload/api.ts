@@ -1,3 +1,4 @@
+import type { DesktopActionApprovalApi } from "./api-types/action-approval.js";
 import type { DesktopAuthApi } from "./api-types/auth.js";
 import type { DesktopBatchTasksApi } from "./api-types/batch-tasks.js";
 import type { DesktopConfigApi } from "./api-types/config.js";
@@ -28,6 +29,7 @@ import type { DesktopUpdaterApi } from "./api-types/updater.js";
 import type { DesktopWebhookApi } from "./api-types/webhook.js";
 import type { DesktopFsApi } from "./fs-types.js";
 
+export type * from "./api-types/action-approval.js";
 export type * from "./api-types/auth.js";
 export type * from "./api-types/batch-tasks.js";
 export type * from "./api-types/config.js";
@@ -50,6 +52,7 @@ export type * from "./api-types/updater.js";
 export type * from "./api-types/webhook.js";
 
 export interface DesktopApi {
+	actionApproval: DesktopActionApprovalApi;
 	session: DesktopSessionApi;
 	dialog: DesktopDialogApi;
 	theme: DesktopThemeApi;

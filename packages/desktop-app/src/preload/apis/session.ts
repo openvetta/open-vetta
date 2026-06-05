@@ -23,9 +23,6 @@ const CHANNELS = {
 	QUESTION_REQUEST: "vetta:session:question-request",
 	QUESTION_RESPONSE: "vetta:session:question-response",
 	QUESTION_SET_ENABLED: "vetta:session:question-set-enabled",
-	EASY_USE_VETTA_APP_REQUEST: "vetta:session:easy-use-vetta-app-request",
-	EASY_USE_VETTA_APP_RESPONSE: "vetta:session:easy-use-vetta-app-response",
-	EASY_USE_VETTA_APP_SET_ENABLED: "vetta:session:easy-use-vetta-app-set-enabled",
 	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
 	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
@@ -70,10 +67,6 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			onQuestionRequest: (handler) => onIpcEvent(ipc, CHANNELS.QUESTION_REQUEST, handler),
 			respondToQuestion: (requestId, result) => ipc.invoke(CHANNELS.QUESTION_RESPONSE, requestId, result),
 			setQuestionEnabled: (enabled) => ipc.invoke(CHANNELS.QUESTION_SET_ENABLED, enabled),
-			onEasyUseVettaAppRequest: (handler) => onIpcEvent(ipc, CHANNELS.EASY_USE_VETTA_APP_REQUEST, handler),
-			respondToEasyUseVettaApp: (requestId, result) =>
-				ipc.invoke(CHANNELS.EASY_USE_VETTA_APP_RESPONSE, requestId, result),
-			setEasyUseVettaAppEnabled: (enabled) => ipc.invoke(CHANNELS.EASY_USE_VETTA_APP_SET_ENABLED, enabled),
 			onSandboxGrantRequest: (handler) => onIpcEvent(ipc, CHANNELS.SANDBOX_GRANT_REQUEST, handler),
 			respondToSandboxGrant: (requestId, decision) =>
 				ipc.invoke(CHANNELS.SANDBOX_GRANT_RESPONSE, requestId, decision),

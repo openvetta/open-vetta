@@ -347,6 +347,5 @@ ${chalk.bold(`Available Tools (default: ${defaultToolsList}):`)}
   extract_text_from_img - OCR a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop
   render_pdf_page - Render a PDF page to PNG for visual inspection (seals, signatures, layout); follow up with read
   current_time - Get the current date and time
-  easy_use_vettaApp - Request Vetta Desktop UI assistance for app actions (desktop host only, off by default)
 `);
 }

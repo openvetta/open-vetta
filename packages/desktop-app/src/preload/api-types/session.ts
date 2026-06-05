@@ -3,8 +3,6 @@ import type {
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
-	RuntimeEasyUseVettaAppRequest,
-	RuntimeEasyUseVettaAppResult,
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantInfo,
 	RuntimeSandboxGrantRequest,
@@ -50,12 +48,6 @@ export interface DesktopSessionApi {
 	respondToQuestion(requestId: string, result: RuntimeUserQuestionResult): Promise<void>;
 	/** 实验性开关切换：开 → 注入问答 handler（能力=注册），关 → 清除。 */
 	setQuestionEnabled(enabled: boolean): Promise<void>;
-	/** easy_use_vettaApp：监听 agent 发来的 Vetta App 协作 UI 请求。 */
-	onEasyUseVettaAppRequest(handler: (request: RuntimeEasyUseVettaAppRequest) => void): () => void;
-	/** 回传 Vetta App 协作 UI 的结构化结果。 */
-	respondToEasyUseVettaApp(requestId: string, result: RuntimeEasyUseVettaAppResult): Promise<void>;
-	/** 实验性开关切换：开 → 注入 Vetta App 协作 UI handler（能力=注册），关 → 清除。 */
-	setEasyUseVettaAppEnabled(enabled: boolean): Promise<void>;
 	onSandboxGrantRequest(handler: (request: RuntimeSandboxGrantRequest) => void): () => void;
 	respondToSandboxGrant(requestId: string, decision: RuntimeSandboxGrantDecision): Promise<void>;
 	listSandboxGrants(sessionId: string): Promise<RuntimeSandboxGrantInfo[]>;

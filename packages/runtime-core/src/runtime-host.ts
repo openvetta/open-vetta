@@ -22,9 +22,6 @@ import type {
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
-	RuntimeEasyUseVettaAppRequest,
-	RuntimeEasyUseVettaAppResult,
-	RuntimeEasyUseVettaAppToolRequest,
 	RuntimeQuestionItem,
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantInfo,
@@ -54,15 +51,6 @@ interface SessionHandle {
 	session: AgentSession;
 	executionMode: SessionExecutionMode;
 }
-
-type RuntimeEasyUseVettaAppCapability = {
-	isEnabled: () => boolean;
-	request: (request: RuntimeEasyUseVettaAppToolRequest, signal?: AbortSignal) => Promise<RuntimeEasyUseVettaAppResult>;
-};
-
-type RuntimeCreateAgentSessionOptions = CreateAgentSessionOptions & {
-	easyUseVettaApp?: RuntimeEasyUseVettaAppCapability;
-};
 
 /**
  * Reconstruct the leaf→root branch from a flat list of FileEntries (as
@@ -136,10 +124,6 @@ export interface RuntimeHostOptions {
 		request: RuntimeUserQuestionRequest,
 		signal?: AbortSignal,
 	) => Promise<RuntimeUserQuestionResult>;
-	easyUseVettaAppHandler?: (
-		request: RuntimeEasyUseVettaAppRequest,
-		signal?: AbortSignal,
-	) => Promise<RuntimeEasyUseVettaAppResult>;
 	userSandboxGrantHandler?: (
 		request: RuntimeSandboxGrantRequest,
 		signal?: AbortSignal,
@@ -192,9 +176,6 @@ export class RuntimeHost implements SessionFacade {
 	private userQuestionHandler:
 		| ((request: RuntimeUserQuestionRequest, signal?: AbortSignal) => Promise<RuntimeUserQuestionResult>)
 		| undefined;
-	private easyUseVettaAppHandler:
-		| ((request: RuntimeEasyUseVettaAppRequest, signal?: AbortSignal) => Promise<RuntimeEasyUseVettaAppResult>)
-		| undefined;
 	private userSandboxGrantHandler:
 		| ((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => Promise<RuntimeSandboxGrantDecision>)
 		| undefined;
@@ -208,7 +189,6 @@ export class RuntimeHost implements SessionFacade {
 		this.modelRegistry = options.modelRegistry;
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
-		this.easyUseVettaAppHandler = options.easyUseVettaAppHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
 	}
 
@@ -224,14 +204,6 @@ export class RuntimeHost implements SessionFacade {
 			| undefined,
 	): void {
 		this.userQuestionHandler = handler;
-	}
-
-	setEasyUseVettaAppHandler(
-		handler:
-			| ((request: RuntimeEasyUseVettaAppRequest, signal?: AbortSignal) => Promise<RuntimeEasyUseVettaAppResult>)
-			| undefined,
-	): void {
-		this.easyUseVettaAppHandler = handler;
 	}
 
 	setUserSandboxGrantHandler(
@@ -344,9 +316,7 @@ export class RuntimeHost implements SessionFacade {
 		const effectiveCwd = config.cwd ?? process.cwd();
 		const sessionIdRef: { current?: string } = {};
 		const customTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
-		const easyUseVettaAppEnabledForSession = config.enableEasyUseVettaApp === true;
-
-		const options: RuntimeCreateAgentSessionOptions = {
+		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
 			sessionManager,
@@ -373,26 +343,6 @@ export class RuntimeHost implements SessionFacade {
 							requestId: randomUUID(),
 							sessionId: sessionIdRef.current ?? "",
 							questions: request.questions,
-						},
-						signal,
-					);
-				},
-			},
-			easyUseVettaApp: {
-				isEnabled: () => easyUseVettaAppEnabledForSession && this.easyUseVettaAppHandler != null,
-				request: async (request, signal): Promise<RuntimeEasyUseVettaAppResult> => {
-					const handler = this.easyUseVettaAppHandler;
-					if (signal?.aborted) {
-						throw new Error("easy_use_vettaApp request was aborted before the renderer returned a result.");
-					}
-					if (!easyUseVettaAppEnabledForSession || !handler) {
-						throw new Error("easy_use_vettaApp handler is not registered.");
-					}
-					return handler(
-						{
-							requestId: randomUUID(),
-							sessionId: sessionIdRef.current ?? "",
-							...request,
 						},
 						signal,
 					);

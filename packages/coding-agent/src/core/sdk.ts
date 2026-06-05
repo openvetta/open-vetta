@@ -22,7 +22,6 @@ import {
 	codingTools,
 	createBashTool,
 	createCodingTools,
-	createEasyUseVettaAppTool,
 	createEditTool,
 	createExtractTextFromImgTool,
 	createExtractTextFromPdfTool,
@@ -37,7 +36,6 @@ import {
 	createShellTool,
 	createTreeTool,
 	createWriteTool,
-	type EasyUseVettaAppCapability,
 	editTool,
 	extractTextFromImgTool,
 	extractTextFromPdfTool,
@@ -115,12 +113,6 @@ export interface CreateAgentSessionOptions {
 	askUserQuestion?: AskUserQuestionCapability;
 
 	/**
-	 * 宿主提供的 Vetta App 协作 UI 能力，作为 easy_use_vettaApp 工具后端。
-	 * 不传则工具不注册；传入后模型可先请求宿主 UI 收集/确认 action-specific 输出。
-	 */
-	easyUseVettaApp?: EasyUseVettaAppCapability;
-
-	/**
 	 * Vetta 远端服务 URL（拉取 remote models / providers）。当宿主进程已经从环境
 	 * 变量解析出权威值（例如 desktop-app 的 VETTA_SERVER_URL）时显式传入，避免
 	 * SDK 退回到内置的 LAN 默认值并把它持久化到 settings.json，造成 desktop-app
@@ -167,7 +159,6 @@ export {
 	// Tool factories (for custom cwd)
 	createCodingTools,
 	createEditTool,
-	createEasyUseVettaAppTool,
 	createExtractTextFromImgTool,
 	createExtractTextFromPdfTool,
 	createFindTool,
@@ -486,7 +477,6 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		memoryFile: options.memoryFile,
 		memoryCharLimit: options.memoryCharLimit,
 		askUserQuestion: options.askUserQuestion,
-		easyUseVettaApp: options.easyUseVettaApp,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();

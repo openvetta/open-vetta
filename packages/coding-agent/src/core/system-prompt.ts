@@ -22,8 +22,6 @@ const toolDescriptions: Record<string, string> = {
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	ask_user_question:
 		"Ask the user multiple-choice questions and wait for their answers (clarify ambiguity, gather preferences, offer decisions)",
-	easy_use_vettaApp:
-		"Request Vetta Desktop UI assistance before app-control actions; returns structured user-approved or user-edited action-specific output",
 	doc_to_pdf: "Convert .doc/.docx files to PDF using Microsoft Office or WPS Office",
 	html_to_pdf: "Convert HTML files to PDF using Vetta Desktop's PDF command-line mode",
 	extract_text_from_pdf:
@@ -33,6 +31,18 @@ const toolDescriptions: Record<string, string> = {
 	render_pdf_page:
 		"Render a single PDF page to a PNG (via pdftoppm) for VISUAL inspection — seals/stamps (盖章), signatures, handwriting, layout, logos, figures. Follow up with `read` on the returned PNG path. Use this instead of `extract_text_from_pdf` when the task needs a visual judgment OCR cannot make.",
 };
+
+const VETTA_CLI_GUIDANCE = [
+	"Use `vetta action` to work with the running Vetta Desktop app.",
+	"It can search GUI actions, describe a specific action, and run an action through the local Desktop action RPC.",
+	"When the user asks about Vetta Desktop app features, settings, pages, navigation, appearance/theme changes, or how to operate the app, you MUST inspect Vetta CLI help first with `vetta action -h` and then search/describe relevant actions as needed.",
+	"Do not answer by guessing from memory.",
+	"Do not inspect files under `.vetta` to resolve user confusion about app configuration or feature locations; local config files are not the app UX contract and do not help users find or change settings in the running app.",
+	"Do not memorize or guess detailed action parameters; use action help/description output for details.",
+	"After determining the correct action and input, call `vetta action run` directly.",
+	"Actions that require authorization will automatically ask the user through Vetta Desktop while the command is running.",
+	"Do not ask for authorization before running the command, and do not automatically retry an action after the user rejects it.",
+].join(" ");
 
 export interface McpToolInfo {
 	name: string;
@@ -92,6 +102,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 
 	const appendSection = appendSystemPrompt ? `\n\n${appendSystemPrompt}` : "";
 	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
+	const hasCommandTool = !selectedTools || selectedTools.includes("bash") || selectedTools.includes("shell");
 
 	const contextFiles = providedContextFiles ?? [];
 	const skills = providedSkills ?? [];
@@ -148,6 +159,10 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		prompt += "NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. ";
 		prompt += "When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
 
+		if (hasCommandTool) {
+			prompt += `\n\n**Vetta Desktop actions**: ${VETTA_CLI_GUIDANCE}`;
+		}
+
 		// 个性化（人设 + 自定义指令）：拼在末尾，recency 最高
 		if (personalization) {
 			prompt += `\n\n${personalization}`;
@@ -169,7 +184,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	// Build guidelines based on which tools are actually available
 	const guidelinesList: string[] = [];
 
-	const hasCommandTool = tools.includes("bash") || tools.includes("shell");
+	const hasSelectedCommandTool = tools.includes("bash") || tools.includes("shell");
 	const hasEdit = tools.includes("edit");
 	const hasWrite = tools.includes("write");
 	const hasGrep = tools.includes("grep");
@@ -180,9 +195,9 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const hasRead = tools.includes("read");
 
 	// File exploration guidelines
-	if (hasCommandTool && !hasGrep && !hasGlob && !hasFind && !hasLs && !hasDirTree) {
+	if (hasSelectedCommandTool && !hasGrep && !hasGlob && !hasFind && !hasLs && !hasDirTree) {
 		guidelinesList.push("Use the shell tool for file operations like ls, rg, find");
-	} else if (hasCommandTool && (hasGrep || hasGlob || hasFind || hasLs || hasDirTree)) {
+	} else if (hasSelectedCommandTool && (hasGrep || hasGlob || hasFind || hasLs || hasDirTree)) {
 		guidelinesList.push(
 			"Prefer grep/glob/find/ls/dir_tree tools over the shell tool for file exploration (faster, respects .gitignore)",
 		);
@@ -202,22 +217,8 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		);
 	}
 
-	const hasEasyUseVettaApp = tools.includes("easy_use_vettaApp");
-	if (hasEasyUseVettaApp) {
-		guidelinesList.push(
-			"Before calling Vetta Desktop app-control actions such as appearance.theme or navigation.open, call easy_use_vettaApp with the action id, intent, proposed input, and a UI plan; then follow its structured status/output/allowedActions. Do not reduce it to a simple yes/no prompt when the action needs richer UI or edited input.",
-		);
-		guidelinesList.push(
-			[
-				"Vetta CLI is connected to easy_use_vettaApp: use `vetta action` to work with the running Vetta Desktop app.",
-				"It can search GUI actions, describe a specific action, and run an action through the local Desktop action RPC.",
-				"When the user asks about Vetta Desktop app features, settings, pages, navigation, appearance/theme changes, or how to operate the app, you MUST inspect Vetta CLI help first with `vetta action -h` and then search/describe relevant actions as needed.",
-				"Do not answer by guessing from memory.",
-				"Do not inspect files under `.vetta` to resolve user confusion about app configuration or feature locations; local config files are not the app UX contract and do not help users find or change settings in the running app.",
-				"Do not memorize or guess detailed action parameters; use action help/description output for details.",
-				"When an action needs user authorization, edited input, or a user-facing prompt, use easy_use_vettaApp so Desktop can show the action-specific UI, then proceed only according to the returned status/output/allowedActions.",
-			].join(" "),
-		);
+	if (hasSelectedCommandTool) {
+		guidelinesList.push(VETTA_CLI_GUIDANCE);
 	}
 
 	// Read before edit guideline

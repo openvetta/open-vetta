@@ -12,8 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
-- **`easy_use_vettaApp` 桌面协作 UI 通道**：设置页「Agent配置 → 实验性功能」新增 Vetta App 协作面板开关（默认关，存 `desktop-config.json` 的 `experimental.easyUseVettaApp`）。开启后 session IPC 经 `vetta:session:easy-use-vetta-app-set-enabled` 即时注入/清除 handler，并新增 `vetta:session:easy-use-vetta-app-request/response` 与 preload `onEasyUseVettaAppRequest` / `respondToEasyUseVettaApp`，共享 `RuntimeHost` 注入 `easyUseVettaApp` capability，使 agent 在执行 appearance/navigation 等 app-control action 前可先请求桌面端展示 action-specific UI 并返回结构化结果（`status / output / allowedActions`）。会话页先提供最小通用弹层：展示 action、意图、组件提示和通用字段，允许时若 tool 请求含 `proposedInput` 则按该 input 精确授权，否则创建 action-only 一次性授权；正式 UI 后续可按 action/component hint 拆分到专门组件。
-- **Vetta App action 一次性授权门禁**：`easy_use_vettaApp` 用户允许后，desktop main 进程会为 renderer 返回的 `allowedActions` 创建短 TTL 的内存授权 grant；`navigation.open` 的 `open` 与 `appearance.theme` 的 `set` 在 `AppActionRuntime.run()` 执行前强制消费匹配的 action/input grant，消费即删除，且同 action/input 作用域的重复 grant 或重叠的 action-only grant 会在首次消费时一并清理。agent 和 CLI 仍按原 `vetta action run <action-id> <json-input>` 调用，不暴露 token；跳过 UI、修改 input 或重复执行都会返回 `ACTION_APPROVAL_REQUIRED`。
+- **Vetta action 同请求授权执行**：`vetta action run` 通过本地 action RPC 调用需要授权的 action 时，Desktop main 进程会在参数校验后挂起当前请求，并通过全局授权弹窗展示 action 元数据与完整输入。用户允许后 `AppActionRuntime` 在同一个 RPC 请求内立即执行并把结果返回 CLI；拒绝返回 `ACTION_REJECTED`，超时、renderer 崩溃或调用方中止会取消请求。授权决定只绑定当前 Promise，不再生成或消费一次性 grant，RPC endpoint Bearer token 仍保留用于本地通信认证。
 - **技能市场展示下载量热度**：市场页技能/场景卡片展示服务端下发的 `download_count`，同分类内按下载量降序排列便于区分热门（已安装/启用项仍优先靠前）。
 - **站内信（in-app notification，ADR-0018）**：消息中心「通知」(铃铛) Tab 从空壳接入服务端推送的持久化站内信——登录后拉取列表与未读数，并监听 SSE `notification:new` 事件实时插入；铃铛角标、「全部」与「通知」Tab 计数纳入未读数，点击单条标已读、支持「全部已读」/「清空已读」、通知条目 hover 右上角可硬删除单条。首期消费者是管理员的订阅操作（移除/更改/重置额度），与本地 OS「系统通知」是两套独立系统。新增 `notification-atoms`、`useNotificationInit`、`api.ts` 站内信接口。
 
