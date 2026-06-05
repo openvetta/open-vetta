@@ -12,6 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **实验性 Vetta CLI 开关**：设置页「Agent配置 → 实验性功能」新增默认关闭的 Vetta CLI 开关。开启后仅在桌面端普通对话会话创建时注入应用操作提示词；Claw、批量任务、自动化与流转会话不注入。
 - **Vetta action 同请求授权执行**：`vetta action run` 通过本地 action RPC 调用需要授权的 action 时，Desktop main 进程会在参数校验后挂起当前请求，并通过全局授权弹窗展示 action 元数据与完整输入。用户允许后 `AppActionRuntime` 在同一个 RPC 请求内立即执行并把结果返回 CLI；拒绝返回 `ACTION_REJECTED`，超时、renderer 崩溃或调用方中止会取消请求。授权决定只绑定当前 Promise，不再生成或消费一次性 grant，RPC endpoint Bearer token 仍保留用于本地通信认证。
 - **技能市场展示下载量热度**：市场页技能/场景卡片展示服务端下发的 `download_count`，同分类内按下载量降序排列便于区分热门（已安装/启用项仍优先靠前）。
 - **站内信（in-app notification，ADR-0018）**：消息中心「通知」(铃铛) Tab 从空壳接入服务端推送的持久化站内信——登录后拉取列表与未读数，并监听 SSE `notification:new` 事件实时插入；铃铛角标、「全部」与「通知」Tab 计数纳入未读数，点击单条标已读、支持「全部已读」/「清空已读」、通知条目 hover 右上角可硬删除单条。首期消费者是管理员的订阅操作（移除/更改/重置额度），与本地 OS「系统通知」是两套独立系统。新增 `notification-atoms`、`useNotificationInit`、`api.ts` 站内信接口。

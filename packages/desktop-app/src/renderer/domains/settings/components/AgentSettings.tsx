@@ -36,6 +36,7 @@ export function AgentSettings(): JSX.Element {
 
 	// 实验性功能：ask_user_question 开关（默认关）。
 	const [askUserQuestionEnabled, setAskUserQuestionEnabled] = useState(false);
+	const [vettaCliEnabled, setVettaCliEnabled] = useState(false);
 
 	useEffect(() => {
 		void window.vetta.session.getMaxRecentImages().then((v) => setMaxRecentImages(clampImages(v)));
@@ -47,6 +48,7 @@ export function AgentSettings(): JSX.Element {
 		});
 		void window.vetta.config.get().then((cfg) => {
 			setAskUserQuestionEnabled(cfg.experimental?.askUserQuestion === true);
+			setVettaCliEnabled(cfg.experimental?.vettaCli === true);
 		});
 	}, []);
 
@@ -55,6 +57,11 @@ export function AgentSettings(): JSX.Element {
 		setAskUserQuestionEnabled(checked);
 		void window.vetta.config.set({ experimental: { askUserQuestion: checked } });
 		void window.vetta.session.setQuestionEnabled(checked);
+	}, []);
+
+	const handleToggleVettaCli = useCallback((checked: boolean) => {
+		setVettaCliEnabled(checked);
+		void window.vetta.config.set({ experimental: { vettaCli: checked } });
 	}, []);
 
 	const dirty = personaId !== applied.personaId || customPrompt !== applied.customPrompt;
@@ -249,6 +256,12 @@ export function AgentSettings(): JSX.Element {
 
 			<div className="mt-2">
 				<SettingSection section={SETTINGS_SECTION["agent-experimental"]}>
+					<SettingRow
+						title="Vetta CLI"
+						description="开启后，仅在新建的对话会话中让 agent 使用 Vetta 应用操作能力，不影响 Claw、批量任务或自动化。"
+					>
+						<Switch checked={vettaCliEnabled} onCheckedChange={handleToggleVettaCli} />
+					</SettingRow>
 					<SettingRow
 						title="提问用户面板"
 						description="开启后 agent 可在执行途中向你提多选题，输入栏会临时变为问答选择界面。"

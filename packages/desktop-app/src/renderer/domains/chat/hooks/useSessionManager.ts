@@ -195,7 +195,15 @@ export function useSessionManager(): SessionManagerResult {
 			setChatMessages([]);
 
 			__perf("before session.create");
-			const createResult = await window.vetta.session.create({ cwd, sessionPath, executionMode });
+			const isBatchSession =
+				sessionPath !== undefined &&
+				batchProjectsRef.current.some((project) => project.tasks.some((task) => task.sessionPath === sessionPath));
+			const projectType = projectsRef.current.find((project) => project.cwd === cwd)?.type;
+			const sessionKind =
+				isBatchSession || projectType === "batch" || projectType === "schedule" || projectType === "flowing"
+					? "other"
+					: "conversation";
+			const createResult = await window.vetta.session.create({ cwd, sessionPath, executionMode }, sessionKind);
 			const { sessionId } = createResult;
 			// ADR-0007: 「对话」项目下 main 会把 cwd 改写成 per-session 子目录，
 			// 这里以 main 返回的 effective cwd 为准，保证 FilesPanel/调试 cwd 都指向子目录。
