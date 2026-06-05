@@ -30,8 +30,10 @@ export interface PersonalizationConfig {
 	customPrompt: string;
 }
 
+export type DesktopSessionKind = "conversation" | "other";
+
 export interface DesktopSessionApi {
-	create(config?: SessionConfig): Promise<{ sessionId: string; cwd?: string }>;
+	create(config: SessionConfig | undefined, kind: DesktopSessionKind): Promise<{ sessionId: string; cwd?: string }>;
 	listProjects(): Promise<ProjectInfo[]>;
 	listSessions(cwd: string): Promise<SessionHistoryInfo[]>;
 	prompt(sessionId: string, request: PromptRequest): Promise<void>;

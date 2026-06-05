@@ -19,6 +19,8 @@ export interface ProjectEntry {
 export interface ExperimentalConfig {
 	/** ask_user_question 工具：开启后 agent 可在执行途中向用户提多选题。缺省关。 */
 	askUserQuestion?: boolean;
+	/** Vetta CLI 提示词：开启后仅注入桌面端对话会话。缺省关。 */
+	vettaCli?: boolean;
 }
 
 export interface DesktopConfig {
@@ -76,7 +78,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,
-	experimental: { askUserQuestion: false },
+	experimental: { askUserQuestion: false, vettaCli: false },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -94,10 +96,11 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 }
 
 function normalizeExperimental(value: unknown): ExperimentalConfig {
-	if (typeof value !== "object" || value === null) return { askUserQuestion: false };
+	if (typeof value !== "object" || value === null) return { askUserQuestion: false, vettaCli: false };
 	const v = value as Record<string, unknown>;
 	return {
 		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : false,
+		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : false,
 	};
 }
 

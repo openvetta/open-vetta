@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
 import { ipcMain, type WebContents } from "electron";
+import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-prompt.js";
 import type {
 	PromptRequest,
 	RuntimeSandboxGrantDecision,
@@ -218,6 +219,12 @@ function assertExecutionMode(value: unknown): void {
 	}
 }
 
+function assertSessionKind(value: unknown): asserts value is "conversation" | "other" {
+	if (value !== "conversation" && value !== "other") {
+		throw new Error("Invalid session kind");
+	}
+}
+
 /** Sanitize the renderer's ask_user_question reply into a RuntimeUserQuestionResult. */
 function normalizeQuestionResult(value: unknown): RuntimeUserQuestionResult {
 	if (typeof value !== "object" || value === null) return { cancelled: true, answers: [] };
@@ -384,7 +391,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		});
 	});
 
-	ipcMain.handle(CHANNELS.CREATE, async (_event, config?: SessionConfig) => {
+	ipcMain.handle(CHANNELS.CREATE, async (_event, config: SessionConfig | undefined, kind: unknown) => {
+		assertSessionKind(kind);
 		if (config?.cwd) allowProjectRoot(config.cwd);
 		assertExecutionMode(config?.executionMode);
 		await assertSandboxAvailableForMode(config?.executionMode, resolveDefaultExecutionMode);
@@ -404,12 +412,23 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (effectiveCwd && effectiveCwd !== config?.cwd) {
 			allowProjectRoot(effectiveCwd);
 		}
-		const needPatch = effectiveCwd !== config?.cwd || injectedSessionDir !== config?.sessionDir;
+		const desktopConfig = kind === "conversation" ? await readDesktopConfig() : undefined;
+		const appendSystemPrompt =
+			desktopConfig?.experimental?.vettaCli === true
+				? config?.appendSystemPrompt
+					? `${config.appendSystemPrompt}\n\n${VETTA_CLI_GUIDANCE}`
+					: VETTA_CLI_GUIDANCE
+				: config?.appendSystemPrompt;
+		const needPatch =
+			effectiveCwd !== config?.cwd ||
+			injectedSessionDir !== config?.sessionDir ||
+			appendSystemPrompt !== config?.appendSystemPrompt;
 		const effectiveConfig: SessionConfig | undefined = needPatch
 			? {
 					...(config ?? {}),
 					cwd: effectiveCwd,
 					sessionDir: injectedSessionDir ?? config?.sessionDir,
+					appendSystemPrompt,
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
