@@ -11,7 +11,7 @@ export function createActionApprovalApi(ipc: IpcRenderer): Pick<DesktopApi, "act
 	return {
 		actionApproval: {
 			onRequest: (handler) => onIpcEvent(ipc, CHANNELS.REQUEST, handler),
-			respond: (approvalId, approved) => ipc.invoke(CHANNELS.RESPONSE, approvalId, approved),
+			respond: (approvalId, approved, input) => ipc.invoke(CHANNELS.RESPONSE, approvalId, approved, input),
 		},
 	};
 }

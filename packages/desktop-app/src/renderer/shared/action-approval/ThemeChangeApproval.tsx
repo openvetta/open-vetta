@@ -69,7 +69,7 @@ export function ThemeChangeApproval(): JSX.Element | null {
 					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
 						拒绝
 					</Button>
-					<Button size="sm" disabled={responding} onClick={approve}>
+					<Button size="sm" disabled={responding} onClick={() => approve()}>
 						{responding ? "提交中..." : "确认变更"}
 					</Button>
 				</div>

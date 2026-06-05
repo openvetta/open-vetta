@@ -66,7 +66,7 @@ export function NavigationOpenApproval(): JSX.Element | null {
 					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
 						拒绝
 					</Button>
-					<Button size="sm" disabled={responding} onClick={approve}>
+					<Button size="sm" disabled={responding} onClick={() => approve()}>
 						{responding ? "跳转中..." : "确认跳转"}
 					</Button>
 				</div>

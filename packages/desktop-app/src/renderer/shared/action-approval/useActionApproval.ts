@@ -1,4 +1,4 @@
-import type { DesktopActionApprovalRequest } from "@preload/api.js";
+import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@preload/api.js";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import {
@@ -14,7 +14,7 @@ export interface ActiveActionApproval {
 	request: DesktopActionApprovalRequest;
 	responding: boolean;
 	error: string | null;
-	approve: () => void;
+	approve: (input?: DesktopActionJsonValue) => void;
 	reject: () => void;
 }
 
@@ -41,10 +41,10 @@ export function useActionApproval(presentation: string): ActiveActionApproval | 
 			: GENERIC_ACTION_APPROVAL_PRESENTATION;
 
 	const respond = useCallback(
-		(approved: boolean) => {
+		(approved: boolean, input?: DesktopActionJsonValue) => {
 			if (!request || !beginResponse(request.approvalId)) return;
 			void window.vetta.actionApproval
-				.respond(request.approvalId, approved)
+				.respond(request.approvalId, approved, input)
 				.then((accepted) => {
 					if (!accepted) {
 						console.warn(`[action approval] Request is no longer pending: ${request.approvalId}`);
@@ -68,7 +68,7 @@ export function useActionApproval(presentation: string): ActiveActionApproval | 
 		request,
 		responding: state.responding,
 		error: state.error,
-		approve: () => respond(true),
+		approve: (input) => respond(true, input),
 		reject: () => respond(false),
 	};
 }
