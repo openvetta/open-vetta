@@ -74,6 +74,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **从 Finder/Dock 启动时 coding-agent 的 bash 找不到 homebrew 安装的命令（`brew`、`git` 等）**：macOS GUI 进程不继承终端 shell 的 PATH，只拿到系统精简 PATH（`/usr/bin:/bin:/usr/sbin:/sbin`），不含 `/opt/homebrew/bin`；而 coding-agent bash 工具用 `bash -c`（非登录非交互），不会 source 任何 profile，也补不回这些路径。修复：新增 `src/main/fix-path.ts`，主进程启动早期跑一次用户登录交互 shell（`-ilc`）解析真实 PATH，把缺失项**追加**到 `process.env.PATH`（追加而非前置以保留 `RuntimeManager.applyEnv()` 注入的托管运行时优先级），`main.ts` 在 `applyEnv()` 与任何 bash 执行前调用。不触碰 `SYSTEM_PATH_SNAPSHOT`，运行时探测行为不变。
 - **市场技能/场景安装后一直显示「可更新」**：客户端安装时会重新解析本地 SKILL.md 取版本，而 SKILL.md 常缺 `version`、本地解析缺省 `0.0.0`，与服务端缺省 `0.0.1` 永不相等，导致 `needsUpdate` 恒为真。修复：`installFromMarket` 的 `meta` 新增 `version`，安装时以服务端下发版本写入 manifest 作为更新比对基准，不再重解析本地（缺省才回落本地解析以兼容旧客户端）。两处安装入口（市场页、新会话场景轮播）均透传 `version`。
 - **生产环境 IM（飞书 / 微信）发消息一律报 `exec: "vetta": executable file not found in $PATH`**：im-gateway sidecar 默认从 PATH 找 `vetta` 拉起 coding-agent，但打包后的 Vetta.app 不包含独立 CLI 二进制，PATH 也没软链，整条 IM 发消息链路都断在 spawn 上。修复：`main.ts` 新增 `--agent-rpc` CLI mode（参考既有 ocr / pdf CLI 实现），新增 `src/main/cli/agent-rpc-command.ts` 检测到该 flag 后短路 UI 引导，把后续 argv 直接交给 `@vetta/coding-agent` 的 `main` 跑 stdio RPC 会话；`im-host/index.ts` 新增 `buildCodingAgentSpec()` 把 `{ bin: process.execPath, prefixArgs: ["--agent-rpc"] }`（dev 模式额外塞 main entry 路径）通过新增的 `InitFrame.codingAgent` 字段下发给 sidecar，sidecar 据此 fork Vetta.app 本体充当 coding-agent。免去要求用户全局安装 `@vetta/coding-agent`，dev 与 prod 走同一代码路径。
 
