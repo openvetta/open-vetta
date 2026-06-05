@@ -58,6 +58,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **「自动化」界面交互重构 + 侧栏 session 图标**：执行历史从网格底部堆叠改为右侧滑出抽屉（背景色与 app 页面一致），点哪张卡片历史就贴着右侧出现，任务多也不用滚动；抽屉头部带任务名/调度描述 + 立即执行/暂停启用/编辑/关闭。定时任务 session 名改为干净的「任务名 · 时间」（去掉 `[定时]` 文字占位），侧栏据调度执行记录里的 sessionPath（含 basename 兜底）识别定时 session 并挂时钟图标，普通会话挂消息图标，运行中挂 spinner；默认「对话」项目的独立 session 列表（`DefaultSessionList`）同步加图标。新增 `src/shared/scheduled-session.ts`、`scheduledSessionPathsAtom`、`HistoryDrawer`，新增 `scheduler.getScheduledSessionPaths` IPC。
 - **消息中心弹窗重构（motion 动效 + 主题色）**：从居中 Radix 弹窗改为锚定右上角铃铛、spring 弹出/退场的下拉面板；Tab 栏引入主题色（active 用 `primary`，带 `layoutId` 滑动指示块），Tab 内容切换、列表增删、空态均加 motion 过渡；面板视觉重做（图标徽章头部、主题色高亮未读条目）。
 
 - **桌面端主进程日志目录跨平台统一**：主进程 `main.log` 不再使用 Electron 各平台默认日志目录，统一写入 `~/.vetta/desktop-app/logs/main.log`；Windows / macOS / Linux 现在共享同一用户目录结构。日志滚动文件仍与 `main.log` 同目录，继续保留 5MB 大小滚动、按 Asia/Shanghai 日期跨日滚动和最近 10 个归档文件清理策略。
@@ -76,6 +77,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **定时任务执行后刷新 app，「自动化」里所有任务卡片消失**：任务执行收尾时多处 `saveTasks` 并发非原子写 `~/.vetta/scheduled-tasks.json`，互相截断导致文件尾部多一个 `]` 而成非法 JSON，`loadTasks` 的 `JSON.parse` 抛错被吞、静默返回 `[]`，任务全没了（且下一次写入会把损坏文件覆盖、永久丢数据）。修复：`saveTasks` 改「写临时文件 + `rename`」原子替换并用 promise 链串行化所有写入；`loadTasks` 解析失败时用括号匹配截出首个完整数组自愈并原子重写干净文件，实在无法恢复则把损坏文件备份成 `.corrupt-<ts>` 再返回空，杜绝静默覆盖。
+- **默认「对话」项目下的定时任务 session 从侧栏消失**：定时任务经 `runtime.createSession` 直连创建，绕过了 desktop session IPC 的 `sessionDir` 注入，默认「对话」/IM 项目的 session 落到了 `~/.vetta/agent/sessions/`，而侧栏 `listSessions` 读的是 `<cwd>/.vetta/sessions/`，首次 `loadSessions` 整桶替换后就再也找不到。`task-executor` 创建时改用 `resolveSessionDirForCwd(task.cwd)` 注入与 IPC 一致的 sessionDir。
+- **运行中的定时 session 被点开会闪现「未命名会话」**：session 的 name 记录（`session_info`）在首个 assistant 回复落盘前只在内存、磁盘只有 header，`openSession` 末尾的 `loadSessions` 重载时读到空 name。`loadSessions` 合并时改为：磁盘 name 为空就沿用上一次已知的非空 name，消除闪烁（对所有新建会话同样生效）。
+- **右键删除侧栏定时 session 不会删掉「自动化」里的执行记录**：`deleteSession` 只删了 session jsonl。新增 main 端 `deleteRecordsBySessionPath` + IPC + preload，删除定时 session 时按 sessionPath 同步删 `~/.vetta/task-records/<taskId>/<sessionId>.jsonl`，并刷新正在展示的执行历史。
 - **从 Finder/Dock 启动时 coding-agent 的 bash 找不到 homebrew 安装的命令（`brew`、`git` 等）**：macOS GUI 进程不继承终端 shell 的 PATH，只拿到系统精简 PATH（`/usr/bin:/bin:/usr/sbin:/sbin`），不含 `/opt/homebrew/bin`；而 coding-agent bash 工具用 `bash -c`（非登录非交互），不会 source 任何 profile，也补不回这些路径。修复：新增 `src/main/fix-path.ts`，主进程启动早期跑一次用户登录交互 shell（`-ilc`）解析真实 PATH，把缺失项**追加**到 `process.env.PATH`（追加而非前置以保留 `RuntimeManager.applyEnv()` 注入的托管运行时优先级），`main.ts` 在 `applyEnv()` 与任何 bash 执行前调用。不触碰 `SYSTEM_PATH_SNAPSHOT`，运行时探测行为不变。
 - **市场技能/场景安装后一直显示「可更新」**：客户端安装时会重新解析本地 SKILL.md 取版本，而 SKILL.md 常缺 `version`、本地解析缺省 `0.0.0`，与服务端缺省 `0.0.1` 永不相等，导致 `needsUpdate` 恒为真。修复：`installFromMarket` 的 `meta` 新增 `version`，安装时以服务端下发版本写入 manifest 作为更新比对基准，不再重解析本地（缺省才回落本地解析以兼容旧客户端）。两处安装入口（市场页、新会话场景轮播）均透传 `version`。
 - **生产环境 IM（飞书 / 微信）发消息一律报 `exec: "vetta": executable file not found in $PATH`**：im-gateway sidecar 默认从 PATH 找 `vetta` 拉起 coding-agent，但打包后的 Vetta.app 不包含独立 CLI 二进制，PATH 也没软链，整条 IM 发消息链路都断在 spawn 上。修复：`main.ts` 新增 `--agent-rpc` CLI mode（参考既有 ocr / pdf CLI 实现），新增 `src/main/cli/agent-rpc-command.ts` 检测到该 flag 后短路 UI 引导，把后续 argv 直接交给 `@vetta/coding-agent` 的 `main` 跑 stdio RPC 会话；`im-host/index.ts` 新增 `buildCodingAgentSpec()` 把 `{ bin: process.execPath, prefixArgs: ["--agent-rpc"] }`（dev 模式额外塞 main entry 路径）通过新增的 `InitFrame.codingAgent` 字段下发给 sidecar，sidecar 据此 fork Vetta.app 本体充当 coding-agent。免去要求用户全局安装 `@vetta/coding-agent`，dev 与 prod 走同一代码路径。

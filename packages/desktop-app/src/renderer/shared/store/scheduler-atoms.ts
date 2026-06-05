@@ -43,3 +43,12 @@ export const scheduledTasksAtom = atom<ScheduledTask[]>([]);
 export const selectedTaskIdAtom = atom<string | null>(null);
 export const selectedRecordIdAtom = atom<string | null>(null);
 export const formOpenAtom = atom<ScheduledTask | null | undefined>(undefined);
+
+/**
+ * 所有定时任务执行产生的 session 路径集合。侧栏据此给对应 session item
+ * 挂定时图标（数据源是调度执行记录里的 sessionPath，可靠且不依赖会话名）。
+ */
+export const scheduledSessionPathsAtom = atom<Set<string>>(new Set<string>());
+
+/** 自增计数器：删除执行记录后 +1，驱动正在展示的执行历史重新拉取。 */
+export const scheduledRecordsVersionAtom = atom(0);
