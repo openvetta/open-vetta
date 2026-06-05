@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
 import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
 import { type LocalActionServerHandle, startLocalActionServer } from "./app-actions/local-server.js";
@@ -406,12 +407,13 @@ if (!gotSingleLock) {
 		}
 
 		const mainWindow = createWindow();
+		const actionApprovalBroker = new ActionApprovalBroker(mainWindow.webContents);
 
 		// Register IPC handlers
-		ipcTeardown = registerAllIpc(mainWindow.webContents);
+		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker });
 
 		try {
-			const actionRuntime = createAppActionRuntime();
+			const actionRuntime = createAppActionRuntime(actionApprovalBroker);
 			localActionServer = await startLocalActionServer(actionRuntime, {
 				endpointFilePath: getActionServerEndpointFilePath(),
 			});

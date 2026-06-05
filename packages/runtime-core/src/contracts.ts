@@ -188,60 +188,6 @@ export interface RuntimeUserQuestionResult {
 	answers: RuntimeUserQuestionAnswer[];
 }
 
-export type RuntimeJsonPrimitive = string | number | boolean | null;
-export type RuntimeJsonValue = RuntimeJsonPrimitive | RuntimeJsonValue[] | { [key: string]: RuntimeJsonValue };
-
-export interface RuntimeEasyUseVettaAppFieldOption {
-	label: string;
-	value: RuntimeJsonValue;
-	description?: string;
-}
-
-export interface RuntimeEasyUseVettaAppField {
-	id: string;
-	label: string;
-	description?: string;
-	type: "text" | "textarea" | "select" | "multiselect" | "toggle" | "number" | "json" | "custom";
-	required?: boolean;
-	options?: RuntimeEasyUseVettaAppFieldOption[];
-	defaultValue?: RuntimeJsonValue;
-}
-
-export interface RuntimeEasyUseVettaAppUi {
-	kind: "confirm" | "form" | "select" | "preview" | "custom";
-	title: string;
-	description: string;
-	component?: string;
-	primaryLabel?: string;
-	cancelLabel?: string;
-}
-
-export interface RuntimeEasyUseVettaAppToolRequest {
-	actionId: string;
-	intent: string;
-	proposedInput?: RuntimeJsonValue;
-	ui: RuntimeEasyUseVettaAppUi;
-	fields?: RuntimeEasyUseVettaAppField[];
-	metadata?: RuntimeJsonValue;
-}
-
-export interface RuntimeEasyUseVettaAppRequest extends RuntimeEasyUseVettaAppToolRequest {
-	requestId: string;
-	sessionId: string;
-}
-
-export interface RuntimeEasyUseVettaAppAllowedAction {
-	actionId: string;
-	input?: RuntimeJsonValue;
-}
-
-export interface RuntimeEasyUseVettaAppResult {
-	status: "approved" | "rejected" | "submitted" | "cancelled";
-	message?: string;
-	output?: RuntimeJsonValue;
-	allowedActions?: RuntimeEasyUseVettaAppAllowedAction[];
-}
-
 export type RuntimeSandboxGrantDecision = "deny" | "allow_once" | "allow_session";
 
 export interface RuntimeSandboxGrantRequest {
@@ -329,8 +275,6 @@ export interface SessionConfig {
 	executionMode?: SessionExecutionMode;
 	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
 	appendSystemPrompt?: string;
-	/** Enable the desktop-hosted easy_use_vettaApp tool for this session. */
-	enableEasyUseVettaApp?: boolean;
 	/**
 	 * 注入到 bash/shell 工具子进程的环境变量覆盖层（如 TMPDIR/TEMP/TMP）。
 	 * 仅对该 session 内的命令执行生效；不传则行为等同旧版。
@@ -385,11 +329,6 @@ export interface SessionFacade {
 	setUserQuestionHandler(
 		handler:
 			| ((request: RuntimeUserQuestionRequest, signal?: AbortSignal) => Promise<RuntimeUserQuestionResult>)
-			| undefined,
-	): void;
-	setEasyUseVettaAppHandler(
-		handler:
-			| ((request: RuntimeEasyUseVettaAppRequest, signal?: AbortSignal) => Promise<RuntimeEasyUseVettaAppResult>)
 			| undefined,
 	): void;
 	setUserSandboxGrantHandler(

@@ -40,8 +40,14 @@ function createRpcRuntime(runtime: AppActionRuntime): ActionRpcRuntime {
 	return {
 		search: (options) => toActionRpcResult(() => runtime.search(options)),
 		describe: (actionId) => toActionRpcResult(() => runtime.describe(actionId)),
-		run: async (actionId, input): Promise<JsonValue> =>
-			await toActionRpcResult(() => runtime.run(actionId, input ?? {}, { source: "local-server" })),
+		run: async (actionId, input, context): Promise<JsonValue> =>
+			await toActionRpcResult(() =>
+				runtime.run(actionId, input ?? {}, {
+					source: "local-server",
+					requestId: context.requestId,
+					signal: context.signal,
+				}),
+			),
 	};
 }
 

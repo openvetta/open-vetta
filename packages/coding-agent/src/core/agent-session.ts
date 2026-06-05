@@ -94,8 +94,6 @@ import {
 	type BashSpawnHook,
 	createAllTools,
 	createAskUserQuestionTool,
-	createEasyUseVettaAppTool,
-	type EasyUseVettaAppCapability,
 	getDefaultCodingToolNames,
 } from "./tools/index.js";
 import { createInvokeSkillTool } from "./tools/invoke-skill/index.js";
@@ -198,11 +196,6 @@ export interface AgentSessionConfig {
 	 * _maybeReloadAskUserQuestionForPrompt），故开关可在不重启 session 的情况下动态生效。
 	 */
 	askUserQuestion?: AskUserQuestionCapability;
-	/**
-	 * 宿主提供的 Vetta App 协作 UI 能力（easy_use_vettaApp 工具后端）。
-	 * 能力存在时工具注册并默认激活；不存在时 CLI/SDK 保持无 UI 依赖。
-	 */
-	easyUseVettaApp?: EasyUseVettaAppCapability;
 }
 
 export interface ExtensionBindings {
@@ -355,10 +348,6 @@ export class AgentSession {
 	private _askUserQuestion?: AskUserQuestionCapability;
 	/** 上次 _buildRuntime 时 ask_user_question 是否启用，用于 prompt 入口懒重建判定。 */
 	private _askUserQuestionEnabledLastBuilt = false;
-	/** 宿主 Vetta App 协作 UI 能力（easy_use_vettaApp 后端）。undefined 表示宿主不支持。 */
-	private _easyUseVettaApp?: EasyUseVettaAppCapability;
-	/** 上次 _buildRuntime 时 easy_use_vettaApp 是否启用，用于 prompt 入口懒重建判定。 */
-	private _easyUseVettaAppEnabledLastBuilt = false;
 
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
@@ -376,7 +365,6 @@ export class AgentSession {
 		this._enableMcp = config.enableMcp !== undefined ? config.enableMcp : true;
 		this._mcpDebug = config.mcpDebug || false;
 		this._askUserQuestion = config.askUserQuestion;
-		this._easyUseVettaApp = config.easyUseVettaApp;
 
 		// memory-mode: capture the frozen MEMORY.md snapshot once, here at
 		// construction. im-gateway spawns a fresh process per message burst, so
@@ -1066,19 +1054,6 @@ export class AgentSession {
 		});
 	}
 
-	/**
-	 * easy_use_vettaApp 懒重建：宿主 UI 能力打开/关闭后，本轮 prompt 即生效。
-	 * 与 ask_user_question 一样，能力存在与否就是工具是否注册。
-	 */
-	private _maybeReloadEasyUseVettaAppForPrompt(): void {
-		const enabled = this._easyUseVettaApp?.isEnabled() ?? false;
-		if (enabled === this._easyUseVettaAppEnabledLastBuilt) return;
-		this._buildRuntime({
-			activeToolNames: this.getActiveToolNames(),
-			includeAllExtensionTools: true,
-		});
-	}
-
 	/** memory-mode enabled? (ADR-0009) */
 	get memoryMode(): boolean {
 		return this._memoryMode;
@@ -1132,9 +1107,6 @@ export class AgentSession {
 
 		// 懒重建 ask_user_question：实验性开关切换后，本轮 prompt 即生效（能力存在与否即注册）。
 		this._maybeReloadAskUserQuestionForPrompt();
-
-		// 懒重建 easy_use_vettaApp：desktop UI 能力存在时注册，取消时移除。
-		this._maybeReloadEasyUseVettaAppForPrompt();
 
 		// Handle extension commands first (execute immediately, even during streaming)
 		// Extension commands manage their own LLM interaction via pi.sendMessage()
@@ -2714,15 +2686,6 @@ export class AgentSession {
 			const capability = this._askUserQuestion;
 			baseTools.ask_user_question = createAskUserQuestionTool({
 				ask: (request, signal) => capability.ask(request, signal),
-			});
-		}
-
-		const easyUseEnabled = this._easyUseVettaApp?.isEnabled() ?? false;
-		this._easyUseVettaAppEnabledLastBuilt = easyUseEnabled;
-		if (easyUseEnabled && this._easyUseVettaApp) {
-			const capability = this._easyUseVettaApp;
-			baseTools.easy_use_vettaApp = createEasyUseVettaAppTool({
-				request: (request, signal) => capability.request(request, signal),
 			});
 		}
 

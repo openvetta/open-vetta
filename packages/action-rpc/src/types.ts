@@ -52,8 +52,13 @@ export interface ActionRpcEndpoint {
 	token: string;
 }
 
+export interface ActionRpcInvocationContext {
+	requestId: string;
+	signal?: AbortSignal;
+}
+
 export interface ActionRpcRuntime {
 	search: (options: { query?: string; domain?: string }) => JsonValue | Promise<JsonValue>;
 	describe: (actionId: string) => JsonValue | Promise<JsonValue>;
-	run: (actionId: string, input: unknown) => JsonValue | Promise<JsonValue>;
+	run: (actionId: string, input: unknown, context: ActionRpcInvocationContext) => JsonValue | Promise<JsonValue>;
 }

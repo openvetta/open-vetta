@@ -36,7 +36,6 @@ export function AgentSettings(): JSX.Element {
 
 	// 实验性功能：ask_user_question 开关（默认关）。
 	const [askUserQuestionEnabled, setAskUserQuestionEnabled] = useState(false);
-	const [easyUseVettaAppEnabled, setEasyUseVettaAppEnabled] = useState(false);
 
 	useEffect(() => {
 		void window.vetta.session.getMaxRecentImages().then((v) => setMaxRecentImages(clampImages(v)));
@@ -48,7 +47,6 @@ export function AgentSettings(): JSX.Element {
 		});
 		void window.vetta.config.get().then((cfg) => {
 			setAskUserQuestionEnabled(cfg.experimental?.askUserQuestion === true);
-			setEasyUseVettaAppEnabled(cfg.experimental?.easyUseVettaApp === true);
 		});
 	}, []);
 
@@ -57,12 +55,6 @@ export function AgentSettings(): JSX.Element {
 		setAskUserQuestionEnabled(checked);
 		void window.vetta.config.set({ experimental: { askUserQuestion: checked } });
 		void window.vetta.session.setQuestionEnabled(checked);
-	}, []);
-
-	const handleToggleEasyUseVettaApp = useCallback((checked: boolean) => {
-		setEasyUseVettaAppEnabled(checked);
-		void window.vetta.config.set({ experimental: { easyUseVettaApp: checked } });
-		void window.vetta.session.setEasyUseVettaAppEnabled(checked);
 	}, []);
 
 	const dirty = personaId !== applied.personaId || customPrompt !== applied.customPrompt;
@@ -260,15 +252,9 @@ export function AgentSettings(): JSX.Element {
 					<SettingRow
 						title="提问用户面板"
 						description="开启后 agent 可在执行途中向你提多选题，输入栏会临时变为问答选择界面。"
-					>
-						<Switch checked={askUserQuestionEnabled} onCheckedChange={handleToggleAskUserQuestion} />
-					</SettingRow>
-					<SettingRow
-						title="Vetta App 协作面板"
-						description="开启后 agent 在调用桌面 app action 前，可请求桌面端展示对应 UI，并由该 UI 返回结构化输出。"
 						border={false}
 					>
-						<Switch checked={easyUseVettaAppEnabled} onCheckedChange={handleToggleEasyUseVettaApp} />
+						<Switch checked={askUserQuestionEnabled} onCheckedChange={handleToggleAskUserQuestion} />
 					</SettingRow>
 				</SettingSection>
 			</div>

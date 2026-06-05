@@ -12,6 +12,7 @@ export { startActionRpcServer } from "./server.js";
 export type {
 	ActionRpcEndpoint,
 	ActionRpcErrorBody,
+	ActionRpcInvocationContext,
 	ActionRpcMethod,
 	ActionRpcRequest,
 	ActionRpcResponse,
