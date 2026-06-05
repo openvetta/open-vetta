@@ -132,9 +132,10 @@ export function isTaskQueued(taskId: string): boolean {
 	return false;
 }
 
-export function getQueuedTaskIds(): string[] {
+export function getQueuedTaskIds(projectId?: string): string[] {
 	const ids: string[] = [];
-	for (const queue of pendingByProject.values()) {
+	const queues = projectId ? [pendingByProject.get(projectId) ?? []] : pendingByProject.values();
+	for (const queue of queues) {
 		for (const j of queue) ids.push(j.task.id);
 	}
 	return ids;

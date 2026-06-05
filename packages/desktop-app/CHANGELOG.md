@@ -12,6 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **批量任务 App Actions**：新增 `batch-tasks.query`、`batch-tasks.project`、`batch-tasks.task`、`batch-tasks.execution` 四个 Action，覆盖现有批量项目查询/创建/更新/删除、单任务执行/重试/停止/删除/继续/删除会话，以及项目级开始/停止/重置/重置失败/删除任务等操作。IPC 与 Action 统一复用主进程 `BatchTaskService` 编排层，执行类 Action 提交命令后立即返回受影响任务和当前排队信息，agent 可继续通过查询 Action 获取进度；所有外部写操作默认进入通用审批流程。
 - **Action 审批渲染管理中心**：renderer 新增无 UI 的全局审批中心，统一订阅主进程请求、按 FIFO 排队、去重并提交结果；每个 Action 可声明多个审批 UI、默认 UI 及用途说明，Agent 可在单次 Action 输入中通过可选 `approvalUi` 选择本次展示界面，省略时使用默认值。运行时只接受 Action 白名单内的 UI，目标 Presenter 未挂载时自动回退到通用审批弹窗。通用弹窗不再持有 IPC 订阅和队列状态，响应失败会保留当前请求并允许重试。
 - **实验性 Vetta CLI 开关**：设置页「Agent配置 → 实验性功能」新增默认关闭的 Vetta CLI 开关。开启后仅在桌面端普通对话会话创建时注入应用操作提示词；Claw、批量任务、自动化与流转会话不注入。
 - **Vetta action 同请求授权执行**：`vetta action run` 通过本地 action RPC 调用需要授权的 action 时，Desktop main 进程会在参数校验后挂起当前请求，并通过全局授权弹窗展示 action 元数据与完整输入。用户允许后 `AppActionRuntime` 在同一个 RPC 请求内立即执行并把结果返回 CLI；拒绝返回 `ACTION_REJECTED`，超时、renderer 崩溃或调用方中止会取消请求。授权决定只绑定当前 Promise，不再生成或消费一次性 grant，RPC endpoint Bearer token 仍保留用于本地通信认证。

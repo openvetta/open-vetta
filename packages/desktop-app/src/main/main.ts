@@ -8,6 +8,7 @@ import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
 import { type LocalActionServerHandle, startLocalActionServer } from "./app-actions/local-server.js";
+import { BatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
 import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
 import { parseHelpCliCommand, runHelpCliCommand } from "./cli/help-command.js";
@@ -32,7 +33,7 @@ import {
 	teardownAllIpc,
 } from "./ipc/index.js";
 import { getAppLogger } from "./logger.js";
-import { disposeSharedRuntime } from "./runtime.js";
+import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler } from "./scheduler/scheduler.js";
@@ -413,12 +414,15 @@ if (!gotSingleLock) {
 
 		const mainWindow = createWindow();
 		const actionApprovalBroker = new ActionApprovalBroker(mainWindow.webContents);
+		const batchTaskService = new BatchTaskService(getSharedRuntime);
+		await batchTaskService.initialize();
 
 		// Register IPC handlers
 		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker });
+		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService);
 
 		try {
-			const actionRuntime = createAppActionRuntime(actionApprovalBroker);
+			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService);
 			localActionServer = await startLocalActionServer(actionRuntime, {
 				endpointFilePath: getActionServerEndpointFilePath(),
 			});
@@ -486,8 +490,6 @@ if (!gotSingleLock) {
 				teardownSchedulerIpc = registerSchedulerIpc(win.webContents);
 			}
 		});
-
-		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents);
 
 		// Bootstrap IM bridge subsystem (im-gateway sidecar). Errors during
 		// bootstrap are non-fatal — IM is an opt-in feature and the rest of
