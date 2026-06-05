@@ -1,17 +1,16 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
+import { useActionApproval } from "../action-approval/useActionApproval";
+import { GENERIC_ACTION_APPROVAL_PRESENTATION } from "../store/action-approval-atoms";
 import { Button } from "./ui/button";
-
-interface ActionApprovalDialogProps {
-	request: DesktopActionApprovalRequest | null;
-	onDecision: (approved: boolean) => void;
-}
 
 function formatInput(request: DesktopActionApprovalRequest): string {
 	return JSON.stringify(request.input, null, 2);
 }
 
-export function ActionApprovalDialog({ request, onDecision }: ActionApprovalDialogProps): JSX.Element | null {
-	if (!request) return null;
+export function ActionApprovalDialog(): JSX.Element | null {
+	const approval = useActionApproval(GENERIC_ACTION_APPROVAL_PRESENTATION);
+	if (!approval) return null;
+	const { request, responding, error, approve, reject } = approval;
 
 	return (
 		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/50 px-4 backdrop-blur-sm">
@@ -40,14 +39,15 @@ export function ActionApprovalDialog({ request, onDecision }: ActionApprovalDial
 						</pre>
 					</div>
 					<div className="text-[11px] text-muted-foreground">权限：{request.permission}</div>
+					{error && <div className="text-[11px] text-destructive">{error}</div>}
 				</div>
 
 				<div className="mt-4 flex justify-end gap-2">
-					<Button variant="ghost" size="sm" onClick={() => onDecision(false)}>
+					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
 						拒绝
 					</Button>
-					<Button size="sm" onClick={() => onDecision(true)}>
-						允许并执行
+					<Button size="sm" disabled={responding} onClick={approve}>
+						{responding ? "提交中..." : "允许并执行"}
 					</Button>
 				</div>
 			</div>

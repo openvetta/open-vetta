@@ -1,5 +1,38 @@
 import type { AppActionCatalog } from "./catalog.js";
-import { type ActionApprovalRequester, type ActionContext, ActionError, type JsonValue } from "./types.js";
+import {
+	type ActionApprovalMetadata,
+	type ActionApprovalRequester,
+	type ActionContext,
+	ActionError,
+	type JsonValue,
+} from "./types.js";
+
+const APPROVAL_UI_INPUT_KEY = "approvalUi";
+
+function resolveApprovalPresentation(input: JsonValue, approval: ActionApprovalMetadata | undefined): string {
+	if (!approval) {
+		throw new ActionError(
+			"ACTION_APPROVAL_CONFIG_INVALID",
+			"Action requires approval but has no approval UI configured.",
+		);
+	}
+
+	const requested =
+		typeof input === "object" &&
+		input !== null &&
+		!Array.isArray(input) &&
+		typeof input[APPROVAL_UI_INPUT_KEY] === "string"
+			? input[APPROVAL_UI_INPUT_KEY]
+			: undefined;
+	const presentation = requested ?? approval.defaultPresentation;
+	if (!approval.presentations.some((candidate) => candidate.id === presentation)) {
+		throw new ActionError("ACTION_INVALID_INPUT", `Unsupported approval UI: ${presentation}`, {
+			path: APPROVAL_UI_INPUT_KEY,
+			allowed: approval.presentations.map((candidate) => candidate.id),
+		});
+	}
+	return presentation;
+}
 
 export class AppActionRuntime {
 	constructor(
@@ -19,9 +52,11 @@ export class AppActionRuntime {
 		const action = this.catalog.get(actionId);
 		const validatedInput = action.validateInput(input);
 		if (action.requiresApproval?.(validatedInput, context)) {
+			const approvalPresentation = resolveApprovalPresentation(validatedInput, action.approval);
 			const approved = await this.approvalRequester.request(
 				{
 					actionId,
+					approvalPresentation,
 					input: validatedInput,
 					title: action.title,
 					summary: action.summary,

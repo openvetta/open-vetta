@@ -17,9 +17,24 @@ export const themeAction: ActionDefinition = {
 	summary: "通过 type 字段查看帮助、读取当前主题，或切换浅色/深色/跟随系统模式与多主题风格。",
 	availability: "gui-main",
 	permission: "appearance.write",
+	approval: {
+		defaultPresentation: "appearance.theme-change",
+		presentations: [
+			{
+				id: "appearance.theme-change",
+				title: "主题变更确认",
+				description: "使用主题变更专用审批界面；该界面未挂载时自动回退到通用审批界面。",
+			},
+			{
+				id: "generic",
+				title: "通用确认",
+				description: "使用通用 Action 审批界面，直接展示 Action 信息和完整输入。",
+			},
+		],
+	},
 	inputSchema: {
 		description:
-			'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string }。',
+			'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string, "approvalUi"?: "appearance.theme-change" | "generic" }。approvalUi 由调用方按本次交互选择审批界面；省略时使用默认的 appearance.theme-change。',
 	},
 	examples: [
 		{
@@ -37,6 +52,10 @@ export const themeAction: ActionDefinition = {
 		{
 			description: "只切换主题风格",
 			input: { type: "set", themeId: "ocean" },
+		},
+		{
+			description: "切换主题并明确使用通用审批界面",
+			input: { type: "set", themeId: "ocean", approvalUi: "generic" },
 		},
 	],
 	validateInput: validateThemeActionInput,

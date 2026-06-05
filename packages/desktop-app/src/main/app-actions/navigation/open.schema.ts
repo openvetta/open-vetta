@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ActionError, type JsonValue } from "../types.js";
 
+export const navigationApprovalUiSchema = z.enum(["navigation.open", "generic"]);
 export const navigationActionInputSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("help"),
@@ -10,6 +11,7 @@ export const navigationActionInputSchema = z.discriminatedUnion("type", [
 		target: z.string().trim().min(1),
 		tab: z.string().trim().min(1).optional(),
 		section: z.string().trim().min(1).optional(),
+		approvalUi: navigationApprovalUiSchema.optional(),
 	}),
 ]);
 

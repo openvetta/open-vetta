@@ -7,6 +7,7 @@ export type DesktopActionJsonValue =
 export interface DesktopActionApprovalRequest {
 	approvalId: string;
 	actionId: string;
+	approvalPresentation: string;
 	input: DesktopActionJsonValue;
 	title: string;
 	summary: string;

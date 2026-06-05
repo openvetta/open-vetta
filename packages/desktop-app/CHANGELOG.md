@@ -12,6 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **Action 审批渲染管理中心**：renderer 新增无 UI 的全局审批中心，统一订阅主进程请求、按 FIFO 排队、去重并提交结果；每个 Action 可声明多个审批 UI、默认 UI 及用途说明，Agent 可在单次 Action 输入中通过可选 `approvalUi` 选择本次展示界面，省略时使用默认值。运行时只接受 Action 白名单内的 UI，目标 Presenter 未挂载时自动回退到通用审批弹窗。通用弹窗不再持有 IPC 订阅和队列状态，响应失败会保留当前请求并允许重试。
 - **实验性 Vetta CLI 开关**：设置页「Agent配置 → 实验性功能」新增默认关闭的 Vetta CLI 开关。开启后仅在桌面端普通对话会话创建时注入应用操作提示词；Claw、批量任务、自动化与流转会话不注入。
 - **Vetta action 同请求授权执行**：`vetta action run` 通过本地 action RPC 调用需要授权的 action 时，Desktop main 进程会在参数校验后挂起当前请求，并通过全局授权弹窗展示 action 元数据与完整输入。用户允许后 `AppActionRuntime` 在同一个 RPC 请求内立即执行并把结果返回 CLI；拒绝返回 `ACTION_REJECTED`，超时、renderer 崩溃或调用方中止会取消请求。授权决定只绑定当前 Promise，不再生成或消费一次性 grant，RPC endpoint Bearer token 仍保留用于本地通信认证。
 - **技能市场展示下载量热度**：市场页技能/场景卡片展示服务端下发的 `download_count`，同分类内按下载量降序排列便于区分热门（已安装/启用项仍优先靠前）。
