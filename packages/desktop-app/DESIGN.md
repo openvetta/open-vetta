@@ -243,4 +243,4 @@ UI 是工具，不是 showroom。**hover 只反馈，不表演。**
 
 以下文件混入了违规色或视觉，agent **不要**以它们为范例，遇到顺手清理：
 
-- `domains/skills/components/SkillsPage.tsx` — 含 `violet-400`（自定义标签）、`emerald-400`（已启用）合法，`bg-amber-500/15`（可更新）合法；`violet-*` 待迁移为 `bg-primary/10 text-primary`。
+- 暂无。`SkillsPage.tsx` 的 `violet-*` 自定义标签已迁移为 `bg-primary/10 text-primary`。

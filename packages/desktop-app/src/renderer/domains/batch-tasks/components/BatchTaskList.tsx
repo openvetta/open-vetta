@@ -74,25 +74,25 @@ const STATUS_TONE: Record<
 	{ dot: string; ring: string; text: string; bg: string }
 > = {
 	completed: {
-		dot: "bg-emerald-500 shadow-[0_0_8px_var(--color-emerald-500,#10b981)]",
+		dot: "bg-emerald-500",
 		ring: "ring-emerald-500/25",
 		text: "text-emerald-400",
 		bg: "bg-emerald-500/10",
 	},
 	running: {
-		dot: "bg-emerald-500 shadow-[0_0_8px_var(--color-emerald-500,#10b981)]",
+		dot: "bg-emerald-500",
 		ring: "ring-emerald-500/30",
 		text: "text-emerald-400",
 		bg: "bg-emerald-500/10",
 	},
 	failed: {
-		dot: "bg-red-500 shadow-[0_0_8px_var(--color-red-500,#ef4444)]",
+		dot: "bg-red-500",
 		ring: "ring-red-500/30",
 		text: "text-red-400",
 		bg: "bg-red-500/10",
 	},
 	paused: {
-		dot: "bg-sky-500 shadow-[0_0_8px_var(--color-sky-500,#0ea5e9)]",
+		dot: "bg-sky-500",
 		ring: "ring-sky-500/30",
 		text: "text-sky-400",
 		bg: "bg-sky-500/10",
@@ -107,7 +107,7 @@ const STATUS_TONE: Record<
 
 // 「等待中」（queued）的色调：使用琥珀色用以与「未执行」的灰色区分。
 const QUEUED_TONE = {
-	dot: "bg-amber-500 shadow-[0_0_6px_var(--color-amber-500,#f59e0b)]",
+	dot: "bg-amber-500",
 	ring: "ring-amber-500/30",
 	text: "text-amber-400",
 	bg: "bg-amber-500/10",
