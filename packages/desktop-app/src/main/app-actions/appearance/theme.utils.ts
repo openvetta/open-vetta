@@ -1,79 +1,23 @@
 import { randomUUID } from "node:crypto";
 import { type IpcMainEvent, ipcMain, nativeTheme } from "electron";
-import { z } from "zod";
 import { getMainWindow } from "../../window-manager.js";
-import { type ActionDefinition, ActionError, type JsonValue } from "../types.js";
+import { ActionError, type JsonValue } from "../types.js";
+import {
+	type RendererThemeHelp,
+	type RendererThemeSnapshot,
+	rendererThemeHelpResponseSchema,
+	rendererThemeResponseSchema,
+	type ThemeMode,
+} from "./theme.schema.js";
 
-const themeModeSchema = z.enum(["light", "dark", "auto"]);
-const themeActionInputSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("help"),
-	}),
-	z.object({
-		type: z.literal("get"),
-	}),
-	z
-		.object({
-			type: z.literal("set"),
-			mode: themeModeSchema.optional(),
-			themeId: z.string().trim().min(1).optional(),
-		})
-		.refine((input) => input.mode !== undefined || input.themeId !== undefined, {
-			message: "set requires at least one of: mode, themeId.",
-		}),
-]);
-const rendererThemeSnapshotSchema = z.object({
-	mode: themeModeSchema,
-	themeId: z.string().min(1),
-	resolved: z.enum(["light", "dark"]).nullable(),
-	appliedThemeId: z.string().nullable(),
-});
-const rendererThemeResponseSchema = z.object({
-	requestId: z.string(),
-	state: rendererThemeSnapshotSchema.optional(),
-	error: z.string().optional(),
-});
-const rendererThemeHelpSchema = z.object({
-	state: rendererThemeSnapshotSchema,
-	themes: z.array(
-		z.object({
-			id: z.string().min(1),
-			label: z.string().min(1),
-		}),
-	),
-});
-const rendererThemeHelpResponseSchema = z.object({
-	requestId: z.string(),
-	help: rendererThemeHelpSchema.optional(),
-	error: z.string().optional(),
-});
-
-type ThemeMode = z.infer<typeof themeModeSchema>;
-type ThemeActionInput = z.infer<typeof themeActionInputSchema>;
-type RendererThemeSnapshot = z.infer<typeof rendererThemeSnapshotSchema>;
-type RendererThemeHelp = z.infer<typeof rendererThemeHelpSchema>;
-
-function validateThemeActionInput(input: unknown): JsonValue {
-	const result = themeActionInputSchema.safeParse(input);
-	if (!result.success) {
-		throw new ActionError("ACTION_INVALID_INPUT", "Input must match the appearance theme action schema.", {
-			issues: result.error.issues.map((issue) => ({
-				path: issue.path.map(String).join("."),
-				message: issue.message,
-			})),
-		});
-	}
-	return result.data as JsonValue;
-}
-
-function getNativeThemeInfo(): JsonValue {
+export function getNativeThemeInfo(): JsonValue {
 	return {
 		source: nativeTheme.themeSource,
 		shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
 	};
 }
 
-function getFallbackThemeState(): JsonValue {
+export function getFallbackThemeState(): JsonValue {
 	return {
 		mode: nativeTheme.themeSource === "system" ? "auto" : nativeTheme.themeSource,
 		themeId: "default",
@@ -85,7 +29,7 @@ function getFallbackThemeState(): JsonValue {
 	};
 }
 
-function waitForRendererThemeResponse(
+export function waitForRendererThemeResponse(
 	requestChannel: "vetta:theme:state-requested" | "vetta:theme:change-requested",
 	responseChannel: "vetta:theme:state-response" | "vetta:theme:change-response",
 	payload: JsonValue,
@@ -166,7 +110,7 @@ function waitForRendererThemeHelp(): Promise<RendererThemeHelp> {
 	});
 }
 
-async function getThemeState(): Promise<JsonValue> {
+export async function getThemeState(): Promise<JsonValue> {
 	const renderer = await waitForRendererThemeResponse("vetta:theme:state-requested", "vetta:theme:state-response", {});
 	return {
 		...renderer,
@@ -176,7 +120,7 @@ async function getThemeState(): Promise<JsonValue> {
 	};
 }
 
-function applyNativeThemeMode(mode: ThemeMode): void {
+export function applyNativeThemeMode(mode: ThemeMode): void {
 	nativeTheme.themeSource = mode === "auto" ? "system" : mode;
 }
 
@@ -214,7 +158,7 @@ function getFallbackThemeHelp(): Record<string, JsonValue> {
 	};
 }
 
-async function getThemeHelp(): Promise<JsonValue> {
+export async function getThemeHelp(): Promise<JsonValue> {
 	const mainWindow = getMainWindow();
 	if (mainWindow === null) return getFallbackThemeHelp();
 
@@ -227,85 +171,4 @@ async function getThemeHelp(): Promise<JsonValue> {
 		rendererAvailable: true,
 		rendererSynced: true,
 	};
-}
-
-export function registerAppearanceActions(register: (action: ActionDefinition) => void): void {
-	register({
-		id: "appearance.theme",
-		domain: "appearance",
-		title: "读取或设置应用主题",
-		summary: "通过 type 字段查看帮助、读取当前主题，或切换浅色/深色/跟随系统模式与多主题风格。",
-		availability: "gui-main",
-		permission: "appearance.write",
-		inputSchema: {
-			description:
-				'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string }。',
-		},
-		examples: [
-			{
-				description: "查看可用主题 id 和操作说明",
-				input: { type: "help" },
-			},
-			{
-				description: "获取当前主题",
-				input: { type: "get" },
-			},
-			{
-				description: "切换到深色默认主题",
-				input: { type: "set", mode: "dark", themeId: "default" },
-			},
-			{
-				description: "只切换主题风格",
-				input: { type: "set", themeId: "ocean" },
-			},
-		],
-		validateInput: validateThemeActionInput,
-		requiresApproval: (input, context) => {
-			const request = input as unknown as ThemeActionInput;
-			return context.source === "local-server" && request.type === "set";
-		},
-		run: async (input) => {
-			const request = input as unknown as ThemeActionInput;
-			if (request.type === "help") {
-				return await getThemeHelp();
-			}
-
-			if (request.type === "get") {
-				const mainWindow = getMainWindow();
-				return mainWindow === null ? getFallbackThemeState() : await getThemeState();
-			}
-
-			if (request.mode !== undefined) {
-				applyNativeThemeMode(request.mode);
-			}
-
-			const changeRequest: Record<string, JsonValue> = {};
-			if (request.mode !== undefined) changeRequest.mode = request.mode;
-			if (request.themeId !== undefined) changeRequest.themeId = request.themeId;
-			const mainWindow = getMainWindow();
-			if (mainWindow === null) {
-				return {
-					type: "set",
-					requested: changeRequest,
-					native: getNativeThemeInfo(),
-					rendererAvailable: false,
-					rendererSynced: false,
-				};
-			}
-			const renderer = await waitForRendererThemeResponse(
-				"vetta:theme:change-requested",
-				"vetta:theme:change-response",
-				changeRequest,
-			);
-
-			return {
-				type: "set",
-				requested: changeRequest,
-				state: renderer,
-				native: getNativeThemeInfo(),
-				rendererAvailable: true,
-				rendererSynced: true,
-			};
-		},
-	});
 }
