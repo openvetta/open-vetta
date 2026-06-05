@@ -3,7 +3,7 @@ import { formatScheduleSessionName } from "../../shared/scheduled-session.js";
 import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { emitTaskEvent, emitTaskStreamEvent } from "../ipc/scheduler.js";
-import { resolveSessionDirForCwd } from "../ipc/session.js";
+import { ensureConversationSubCwd, resolveSessionDirForCwd } from "../ipc/session.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import type { ScheduledTask, TaskExecutionRecord } from "./task-storage";
 import { createRecord, generateId, updateRecordMetadata, updateTaskLastRun } from "./task-storage";
@@ -64,9 +64,15 @@ export async function executeTask(
 		// 与 desktop session IPC（CHANNELS.CREATE）保持一致：默认「对话」/IM 项目的
 		// session 必须落到 <cwd>/.vetta/sessions，否则侧栏 listSessions 读不到该目录，
 		// 定时任务 session 会在首次 loadSessions 整桶替换后从侧栏消失。
+		// 注意 sessionDir 必须用原始 task.cwd 解析（子目录解析不出默认 sessionDir）。
 		const sessionDir = resolveSessionDirForCwd(task.cwd);
+		// 与 UI 创建 session 一致：「对话」项目根下为本次运行分配独立子目录，
+		// 避免定时任务站在项目根、看到其他 session 的产物。其他项目原样返回，
+		// 产物共享行为不受影响。每次触发都是新 session，故每次都拿到新子目录。
+		const runCwd = (await ensureConversationSubCwd(task.cwd)) ?? task.cwd;
+		record.cwd = runCwd;
 		const result = await runtime.createSession({
-			cwd: task.cwd,
+			cwd: runCwd,
 			executionMode,
 			...(sessionDir ? { sessionDir } : {}),
 		});
@@ -89,7 +95,7 @@ export async function executeTask(
 			recordId,
 			sessionId,
 			sessionPath: record.sessionPath ?? "",
-			cwd: task.cwd,
+			cwd: runCwd,
 			sessionName,
 			firstMessage: task.prompt.slice(0, 80),
 		});
