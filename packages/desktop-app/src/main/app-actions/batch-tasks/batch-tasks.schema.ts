@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { ActionError, type JsonValue } from "../types.js";
 
-const approvalUiSchema = z.literal("generic").optional();
+const approvalUiSchema = z
+	.enum(["generic", "batch-tasks.project", "batch-tasks.task", "batch-tasks.execution"])
+	.optional();
 const projectIdSchema = z.string().trim().min(1);
 const taskIdSchema = z.string().trim().min(1);
 const executionModeSchema = z.enum(["inherit", "sandbox", "full-access"]);

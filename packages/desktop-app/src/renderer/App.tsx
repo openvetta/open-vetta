@@ -25,6 +25,9 @@ import { ActionApprovalCenter } from "./shared/action-approval/ActionApprovalCen
 import { AppearancePickerApproval } from "./shared/action-approval/AppearancePickerApproval";
 import { ThemeChangeApproval } from "./shared/action-approval/ThemeChangeApproval";
 import { NavigationOpenApproval } from "./shared/action-approval/NavigationOpenApproval";
+import { BatchTasksProjectApproval } from "./shared/action-approval/BatchTasksProjectApproval";
+import { BatchTasksTaskApproval } from "./shared/action-approval/BatchTasksTaskApproval";
+import { BatchTasksExecutionApproval } from "./shared/action-approval/BatchTasksExecutionApproval";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,
@@ -354,6 +357,9 @@ export function RootLayout(): JSX.Element {
 					<AppearancePickerApproval />
 					<ThemeChangeApproval />
 					<NavigationOpenApproval />
+					<BatchTasksProjectApproval />
+					<BatchTasksTaskApproval />
+					<BatchTasksExecutionApproval />
 				</div>
 			</div>
 		</TooltipProvider>
