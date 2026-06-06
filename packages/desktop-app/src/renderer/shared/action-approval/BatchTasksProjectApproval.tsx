@@ -248,7 +248,7 @@ function BatchTasksProjectApprovalContent({
 			<ActionApprovalFrame editable>
 				<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
 					<div className="flex justify-end border-t border-border/60 px-5 py-4">
-						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+						<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
 							拒绝（{countdown}）
 						</Button>
 					</div>
@@ -463,7 +463,7 @@ function BatchTasksProjectApprovalContent({
 					</div>
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
 						拒绝（{countdown}）
 					</Button>
 					<Button

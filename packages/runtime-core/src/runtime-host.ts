@@ -158,6 +158,12 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	private externalSubscribers = new Map<string, Set<(event: SessionEvent) => void>>();
 	/**
+	 * session 级订阅清理函数。一个 session 只应挂一次
+	 * handle.session.subscribe()，后续 subscribe() 调用只把 handler
+	 * 追加到 externalSubscribers 中，由同一个 session 级监听器广播。
+	 */
+	private sessionSubscriptions = new Map<string, () => void>();
+	/**
 	 * 当前正在 streaming 的 session 集合（key 为 sessionPath / sessionFile）。
 	 * 在 attachInFlightBuffer 里随 agent_start/agent_end/aborted 同步维护，并通过
 	 * runningChangedHandlers 广播给宿主（main 进程 IPC 层），用于侧边栏渲染 spin。
@@ -618,18 +624,35 @@ export class RuntimeHost implements SessionFacade {
 		}
 		externals.add(handler);
 
-		const unsubscribeSession = handle.session.subscribe((event) => {
-			for (const mapped of this.mapEvent(sessionId, event, handle.session)) {
-				handler(mapped);
-			}
-		});
+		// 一个 session 只挂一次 session 级订阅，后续 handler 共享同一事件流。
+		// 避免多个 runtime.subscribe() 调用创建多个 AgentSession 监听器，
+		// 导致 mapEvent 中的副作用（如 persistAssistantTurnTiming）重复执行。
+		if (!this.sessionSubscriptions.has(sessionId)) {
+			const unsubscribeSession = handle.session.subscribe((event) => {
+				const mapped = this.mapEvent(sessionId, event, handle.session);
+				const subs = this.externalSubscribers.get(sessionId);
+				if (!subs) return;
+				for (const sub of subs) {
+					for (const m of mapped) {
+						sub(m);
+					}
+				}
+			});
+			this.sessionSubscriptions.set(sessionId, unsubscribeSession);
+		}
 
 		return () => {
-			unsubscribeSession();
 			const set = this.externalSubscribers.get(sessionId);
 			if (set) {
 				set.delete(handler);
-				if (set.size === 0) this.externalSubscribers.delete(sessionId);
+				if (set.size === 0) {
+					this.externalSubscribers.delete(sessionId);
+					const unsub = this.sessionSubscriptions.get(sessionId);
+					if (unsub) {
+						unsub();
+						this.sessionSubscriptions.delete(sessionId);
+					}
+				}
 			}
 		};
 	}

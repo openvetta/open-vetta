@@ -133,7 +133,7 @@ function SchedulerUpdateLoader({
 				title="编辑定时任务变更"
 				description={approval.request.summary}
 				footer={
-					<Button variant="ghost" size="sm" disabled={approval.responding} onClick={approval.reject}>
+					<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
 						拒绝（{countdown}）
 					</Button>
 				}
@@ -149,7 +149,7 @@ function SchedulerUpdateLoader({
 				title="编辑定时任务变更"
 				description={approval.request.summary}
 				footer={
-					<Button variant="ghost" size="sm" disabled={approval.responding} onClick={approval.reject}>
+					<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
 						拒绝（{countdown}）
 					</Button>
 				}
@@ -187,7 +187,7 @@ function SchedulerUpdateDrawer({
 			description={request.summary}
 			footer={
 				<>
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
 						拒绝（{countdown}）
 					</Button>
 					<Button
