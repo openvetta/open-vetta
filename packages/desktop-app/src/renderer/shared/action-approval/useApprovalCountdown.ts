@@ -1,21 +1,31 @@
 import { useEffect, useState } from "react";
 
 const TIMEOUT_MS = 2 * 60 * 1000;
+const TIMEOUT_SECONDS = TIMEOUT_MS / 1000;
 
-export function useApprovalCountdown(): string {
-	const [remaining, setRemaining] = useState(TIMEOUT_MS);
+export function useApprovalCountdown(approvalId: string | undefined): string {
+	const [remainingSeconds, setRemainingSeconds] = useState(TIMEOUT_SECONDS);
 
 	useEffect(() => {
-		const start = Date.now();
-		const id = setInterval(() => {
-			const left = Math.max(0, TIMEOUT_MS - (Date.now() - start));
-			setRemaining(left);
-			if (left <= 0) clearInterval(id);
-		}, 1000);
-		return () => clearInterval(id);
-	}, []);
+		setRemainingSeconds(TIMEOUT_SECONDS);
+		if (!approvalId) return;
 
-	const minutes = Math.floor(remaining / 60000);
-	const seconds = Math.floor((remaining % 60000) / 1000);
+		const deadline = Date.now() + TIMEOUT_MS;
+		let timeoutId: ReturnType<typeof setTimeout>;
+		const update = (): void => {
+			const remainingMs = Math.max(0, deadline - Date.now());
+			const seconds = Math.ceil(remainingMs / 1000);
+			setRemainingSeconds(seconds);
+			if (seconds === 0) return;
+
+			const untilNextSecond = remainingMs - (seconds - 1) * 1000;
+			timeoutId = setTimeout(update, Math.max(1, untilNextSecond));
+		};
+		timeoutId = setTimeout(update, 1000);
+		return () => clearTimeout(timeoutId);
+	}, [approvalId]);
+
+	const minutes = Math.floor(remainingSeconds / 60);
+	const seconds = remainingSeconds % 60;
 	return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }

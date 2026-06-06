@@ -29,7 +29,7 @@ const operationDetails: Record<
 
 export function SchedulerExecutionApproval(): JSX.Element | null {
 	const approval = useActionApproval("scheduler.run-now");
-	const countdown = useApprovalCountdown();
+	const countdown = useApprovalCountdown(approval?.request.approvalId);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 

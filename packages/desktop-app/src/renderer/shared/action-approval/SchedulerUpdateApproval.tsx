@@ -50,7 +50,7 @@ function SchedulerUpdateLoader({
 	const [task, setTask] = useState<ScheduledTask | undefined>(cachedTask);
 	const [loading, setLoading] = useState(!cachedTask);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const countdown = useApprovalCountdown();
+	const countdown = useApprovalCountdown(approval.request.approvalId);
 
 	useEffect(() => {
 		console.info("[action-approval:scheduler.update] request", {
@@ -179,7 +179,7 @@ function SchedulerUpdateDrawer({
 }): JSX.Element {
 	const { request, responding, error, approve, reject } = approval;
 	const [data, setData] = useState<SchedulerEditableData>(initialData);
-	const countdown = useApprovalCountdown();
+	const countdown = useApprovalCountdown(approval.request.approvalId);
 
 	return (
 		<ActionApprovalDrawer

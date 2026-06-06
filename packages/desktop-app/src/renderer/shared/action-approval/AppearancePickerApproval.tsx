@@ -27,7 +27,7 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 	const input = isThemeSetInput(approval.request.input) ? approval.request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
-	const countdown = useApprovalCountdown();
+	const countdown = useApprovalCountdown(approval.request.approvalId);
 	const { request, responding, error, approve, reject } = approval;
 
 	return (
