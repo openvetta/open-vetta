@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { ActionError, type JsonValue } from "../types.js";
 
-const approvalUiSchema = z
-	.enum(["generic", "batch-tasks.project", "batch-tasks.task", "batch-tasks.execution"])
-	.optional();
+const projectApprovalUiSchema = z.enum(["generic", "batch-tasks.project"]).optional();
+const taskApprovalUiSchema = z.enum(["generic", "batch-tasks.task"]).optional();
+const executionApprovalUiSchema = z.enum(["generic", "batch-tasks.execution"]).optional();
 const projectIdSchema = z.string().trim().min(1);
 const taskIdSchema = z.string().trim().min(1);
 const executionModeSchema = z.enum(["inherit", "sandbox", "full-access"]);
@@ -51,18 +51,18 @@ export const batchTasksProjectInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("create"),
 		data: createProjectDataSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: projectApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("update"),
 		projectId: projectIdSchema,
 		data: updateProjectDataSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: projectApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("delete"),
 		projectId: projectIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: projectApprovalUiSchema,
 	}),
 ]);
 
@@ -71,44 +71,44 @@ export const batchTasksTaskInputSchema = z.discriminatedUnion("operation", [
 		operation: z.literal("run"),
 		projectId: projectIdSchema,
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("retry"),
 		projectId: projectIdSchema,
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("stop"),
 		projectId: projectIdSchema,
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("delete"),
 		projectId: projectIdSchema,
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("resume"),
 		projectId: projectIdSchema,
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("resume-with-text"),
 		projectId: projectIdSchema,
 		taskId: taskIdSchema,
 		text: z.string(),
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("delete-session"),
 		projectId: projectIdSchema,
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 ]);
 
@@ -116,28 +116,28 @@ export const batchTasksExecutionInputSchema = z.discriminatedUnion("operation", 
 	z.object({
 		operation: z.literal("delete-all"),
 		projectId: projectIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: executionApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("start"),
 		projectId: projectIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: executionApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("stop"),
 		projectId: projectIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: executionApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("reset"),
 		projectId: projectIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: executionApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("reset-failed"),
 		projectId: projectIdSchema,
 		taskIds: z.array(taskIdSchema).min(1),
-		approvalUi: approvalUiSchema,
+		approvalUi: executionApprovalUiSchema,
 	}),
 ]);
 
