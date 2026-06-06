@@ -27,9 +27,9 @@ const operationDetails: Record<
 
 export function SchedulerToggleApproval(): JSX.Element | null {
 	const approval = useActionApproval("scheduler.toggle");
+	const countdown = useApprovalCountdown();
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
 
 	const input = request.input as unknown as ToggleTaskInput;
 	const detail = operationDetails[input.operation];

@@ -29,9 +29,9 @@ const operationDetails: Record<
 
 export function SchedulerExecutionApproval(): JSX.Element | null {
 	const approval = useActionApproval("scheduler.run-now");
+	const countdown = useApprovalCountdown();
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
 
 	const input = request.input as unknown as ExecutionTaskInput;
 	const detail = operationDetails[input.operation];

@@ -5,9 +5,9 @@ import { useApprovalCountdown } from "./useApprovalCountdown";
 
 export function GenericActionApproval(): JSX.Element | null {
 	const approval = useActionApproval("generic");
+	const countdown = useApprovalCountdown();
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
 
 	return (
 		<ActionApprovalDialog
