@@ -1,5 +1,6 @@
 import { ipcMain, type WebContents } from "electron";
 import type { SchedulerService } from "../scheduler/scheduler-service.js";
+import { getRunningTaskIds } from "../scheduler/task-executor";
 import type { ScheduledTask } from "../scheduler/task-storage";
 import { deleteRecordsBySessionPath, loadAllScheduledSessionPaths, loadRecords } from "../scheduler/task-storage";
 
@@ -11,6 +12,7 @@ const CHANNELS = {
 	TOGGLE_TASK: "vetta:scheduler:toggle-task",
 	DISABLE_TASK: "vetta:scheduler:disable-task",
 	GET_RECORDS: "vetta:scheduler:get-records",
+	GET_RUNNING: "vetta:scheduler:get-running",
 	GET_SESSION_PATHS: "vetta:scheduler:get-session-paths",
 	DELETE_RECORD_BY_SESSION: "vetta:scheduler:delete-record-by-session",
 	RUN_NOW: "vetta:scheduler:run-now",
@@ -109,6 +111,10 @@ export function registerSchedulerIpc(webContents: WebContents, service: Schedule
 		return loadRecords(taskId);
 	});
 
+	ipcMain.handle(CHANNELS.GET_RUNNING, async () => {
+		return getRunningTaskIds();
+	});
+
 	ipcMain.handle(CHANNELS.GET_SESSION_PATHS, async () => {
 		return loadAllScheduledSessionPaths();
 	});
@@ -136,6 +142,7 @@ export function registerSchedulerIpc(webContents: WebContents, service: Schedule
 		ipcMain.removeHandler(CHANNELS.TOGGLE_TASK);
 		ipcMain.removeHandler(CHANNELS.DISABLE_TASK);
 		ipcMain.removeHandler(CHANNELS.GET_RECORDS);
+		ipcMain.removeHandler(CHANNELS.GET_RUNNING);
 		ipcMain.removeHandler(CHANNELS.GET_SESSION_PATHS);
 		ipcMain.removeHandler(CHANNELS.DELETE_RECORD_BY_SESSION);
 		ipcMain.removeHandler(CHANNELS.ABORT);

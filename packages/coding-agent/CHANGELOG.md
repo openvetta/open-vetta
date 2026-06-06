@@ -2,6 +2,7 @@
 
 ### Changed
 
+- todo 工具区分严格/宽松两档：来自 scene `tasks.json` 的 locked 列表保持严格（顺序锁定、禁止 create/clear、未完成强制续跑）；常规临时（unlocked）列表放宽——允许乱序更新、新增 `action="clear"` 主动放弃重建，未完成时仅软提醒一次并提示在用户转向时调用 `clear`，避免被打断后被旧计划绑架。
 - Vetta CLI guidance is no longer injected into every command-capable agent session; desktop hosts now opt in by appending `VETTA_CLI_GUIDANCE` only for eligible conversation sessions.
 - **`models.json` ProviderConfig schema 容忍预设模板字段（ADR-0015）**：`ProviderConfigSchema` 新增可选 `source` / `templateId` / `icon` 三个字段。这些由 desktop-app 的「预设服务商」(BYOK 模板) 采纳流程写入共享的 `~/.vetta/agent/models.json`；coding-agent 不感知模板、不做拉取/合并，仅需校验时容忍这些字段不报错，照常把采纳后的条目当普通 provider 加载使用。
 - Changed `glob` tool implementation from ripgrep-backed file matching to Node glob matching so it can return both files and directories while keeping relative path output and `.gitignore` filtering.

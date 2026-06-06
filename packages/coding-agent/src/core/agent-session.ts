@@ -276,6 +276,14 @@ export class AgentSession {
 	/** Messages queued to be included with the next user prompt as context ("asides"). */
 	private _pendingNextTurnMessages: CustomMessage[] = [];
 
+	/**
+	 * Signature of the pending-todo set we last nudged for, for ad-hoc (unlocked) lists.
+	 * If the model tries to stop again with the SAME pending set (made no progress and
+	 * didn't clear), we release it instead of looping the soft nudge forever. Reset on
+	 * every new user prompt so each turn gets one fresh nudge.
+	 */
+	private _lastTodoNudgeSignature: string | undefined = undefined;
+
 	// Compaction state
 	private _compactionAbortController: AbortController | undefined = undefined;
 	private _autoCompactionAbortController: AbortController | undefined = undefined;
@@ -609,13 +617,40 @@ export class AgentSession {
 		const pendingList = pending.map((i) => `  #${i.id} ${i.content}`).join("\n");
 		const doneCount = items.length - pending.length;
 
+		// Locked (scene) lists are STRICT: relentlessly force sequential completion —
+		// the agent cannot exit the loop while any item remains.
+		if (this._todoStore.isLocked()) {
+			return [
+				{
+					role: "user",
+					content: [
+						{
+							type: "text",
+							text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nYou MUST work on item #${nextItem.id} next: "${nextItem.content}"\nCall todo(action="update", id=${nextItem.id}, status="in_progress") first, then do the work, then mark it done. Do NOT skip to a later item.`,
+						},
+					],
+					timestamp: Date.now(),
+				},
+			];
+		}
+
+		// Ad-hoc (unlocked) lists are LOOSE: nudge once with an escape hatch. If the model
+		// tries to stop again with the same pending set (no progress, no clear), release it
+		// so a user redirect isn't trapped behind a stale plan.
+		const signature = pending.map((i) => `${i.id}:${i.status}`).join(",");
+		if (signature === this._lastTodoNudgeSignature) {
+			this._lastTodoNudgeSignature = undefined;
+			return [];
+		}
+		this._lastTodoNudgeSignature = signature;
+
 		return [
 			{
 				role: "user",
 				content: [
 					{
 						type: "text",
-						text: `[ephemeral:todo] You have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done). You MUST continue working on them before stopping.\n\nRemaining:\n${pendingList}\n\nYou MUST work on item #${nextItem.id} next: "${nextItem.content}"\nCall todo(action="update", id=${nextItem.id}, status="in_progress") first, then do the work, then mark it done. Do NOT skip to a later item.`,
+						text: `[ephemeral:todo] You still have ${pending.length} uncompleted todo items (${doneCount}/${items.length} done):\n${pendingList}\n\nIf this plan still applies, keep going — work on item #${nextItem.id} next ("${nextItem.content}"): call todo(action="update", id=${nextItem.id}, status="in_progress"). You may reprioritize freely.\nIf the user's latest request has superseded this plan, call todo(action="clear") to abandon it, then proceed with what the user actually wants.`,
 					},
 				],
 				timestamp: Date.now(),
@@ -1280,6 +1315,9 @@ export class AgentSession {
 				this.agent.setSystemPrompt(this._baseSystemPrompt);
 			}
 		}
+
+		// New user turn: reset the ad-hoc todo nudge so this turn gets one fresh nudge.
+		this._lastTodoNudgeSignature = undefined;
 
 		await this.agent.prompt(messages);
 		await this.waitForRetry();
