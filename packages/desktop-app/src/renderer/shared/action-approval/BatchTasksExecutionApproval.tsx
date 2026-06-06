@@ -112,11 +112,11 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 
 	return (
 		<Dialog open>
-			<DialogContent
-				className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
-				showCloseButton={false}
-				onInteractOutside={(event) => event.preventDefault()}
-			>
+<DialogContent
+			className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
+			showCloseButton={false}
+			onInteractOutside={(event) => event.preventDefault()}
+		>
 				<div className="border-b border-border/60 p-5">
 					<div className="flex items-start gap-3">
 						<div
@@ -261,7 +261,7 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 					</div>
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
-						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+						<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
 							拒绝（{countdown}）
 						</Button>
 						<Button

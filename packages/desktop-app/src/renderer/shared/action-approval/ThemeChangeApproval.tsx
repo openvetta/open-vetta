@@ -56,7 +56,7 @@ function ThemeChangeDrawer({
 			description={request.summary}
 			footer={
 			<>
-				<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+				<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
 					拒绝（{countdown}）
 				</Button>
 				<Button

@@ -257,7 +257,7 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 					</div>
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
 						拒绝（{countdown}）
 					</Button>
 					<Button
