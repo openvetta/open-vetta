@@ -33,6 +33,8 @@ export function AutomationPage(): JSX.Element {
 			setRunningTaskIds(new Set(ids));
 		});
 		return window.vetta.scheduler.onTaskEvent((event) => {
+			// tasks.changed 不携带 taskId，且与运行集合无关，直接忽略。
+			if (event.type === "tasks.changed") return;
 			setRunningTaskIds((prev) => {
 				const next = new Set(prev);
 				if (event.type === "task.started") next.add(event.taskId);
