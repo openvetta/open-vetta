@@ -11,9 +11,9 @@ interface DeleteTaskInput {
 
 export function SchedulerDeleteApproval(): JSX.Element | null {
 	const approval = useActionApproval("scheduler.delete");
+	const countdown = useApprovalCountdown();
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
 
 	const input = request.input as unknown as DeleteTaskInput;
 

@@ -106,9 +106,9 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.task");
 	const projects = useAtomValue(batchProjectsAtom);
 	const textRef = useRef<HTMLTextAreaElement>(null);
+	const countdown = useApprovalCountdown();
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
 
 	const input = parseTaskInput(request.input);
 	const project = input ? projects.find((item) => item.id === input.projectId) : undefined;

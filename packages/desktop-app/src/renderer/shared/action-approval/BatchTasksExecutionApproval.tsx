@@ -88,9 +88,9 @@ function countStatuses(tasks: BatchTask[]): Record<BatchTaskStatus, number> {
 export function BatchTasksExecutionApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.execution");
 	const projects = useAtomValue(batchProjectsAtom);
+	const countdown = useApprovalCountdown();
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
 
 	const input = parseExecutionInput(request.input);
 	const project = input ? projects.find((item) => item.id === input.projectId) : undefined;
