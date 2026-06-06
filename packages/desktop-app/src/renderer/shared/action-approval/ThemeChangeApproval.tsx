@@ -45,7 +45,7 @@ function ThemeChangeDrawer({
 	currentThemeId: string;
 }): JSX.Element {
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
+	const countdown = useApprovalCountdown(approval.request.approvalId);
 	const input = isThemeSetInput(request.input) ? request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);

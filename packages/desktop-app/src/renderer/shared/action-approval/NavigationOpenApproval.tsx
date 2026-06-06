@@ -14,7 +14,7 @@ function isNavigationOpenInput(
 
 export function NavigationOpenApproval(): JSX.Element | null {
 	const approval = useActionApproval("navigation.open");
-	const countdown = useApprovalCountdown();
+	const countdown = useApprovalCountdown(approval?.request.approvalId);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 

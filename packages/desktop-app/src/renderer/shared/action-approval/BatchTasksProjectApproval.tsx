@@ -164,7 +164,7 @@ function BatchTasksProjectApprovalContent({
 	const [loading, setLoading] = useState(needsProject && !cachedProject);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown();
+	const countdown = useApprovalCountdown(request.approvalId);
 
 	useEffect(() => {
 		console.info("[action-approval:batch-tasks.project] request", {
