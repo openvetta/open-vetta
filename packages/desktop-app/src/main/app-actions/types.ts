@@ -9,8 +9,22 @@ export interface ActionExample {
 	input: JsonValue;
 }
 
+export interface ActionInputParameter {
+	name: string;
+	type: string;
+	required: boolean;
+	description: string;
+}
+
+export interface ActionInputOperation {
+	name: string;
+	description: string;
+	parameters: ActionInputParameter[];
+}
+
 export interface ActionInputSchema {
 	description: string;
+	operations?: ActionInputOperation[];
 }
 
 export interface ActionApprovalPresentation {
