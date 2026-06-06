@@ -102,7 +102,7 @@ const queryExamples: ActionExample[] = [
 
 const projectInputSchema: ActionInputSchema = {
 	description:
-		'对象参数；operation 为 "create"、"update" 或 "delete"。所有字段、范围、默认值和清空语义见 operations。',
+		'对象参数；operation 为 "create"、"update" 或 "delete"。创建和更新默认使用可编辑确认界面；generic 仅用于查看原始参数并确认。所有字段、范围、默认值和清空语义见 operations。',
 	operations: [
 		{
 			name: "create",
@@ -182,7 +182,7 @@ const projectInputSchema: ActionInputSchema = {
 		{
 			name: "update",
 			description:
-				"局部更新项目；data 至少包含一个字段。只会新增 newFolders，不会删除已有子任务；删除子任务请调用 batch-tasks.task。",
+				"局部更新项目；只传用户要求修改的字段。默认确认界面会加载当前完整配置，用户可在执行前继续编辑。data 至少包含一个字段；只会新增 newFolders，不会删除已有子任务，删除子任务请调用 batch-tasks.task。",
 			parameters: [
 				{ name: "operation", type: '"update"', required: true, description: "固定为 update。" },
 				{
@@ -250,7 +250,8 @@ const projectInputSchema: ActionInputSchema = {
 					name: "approvalUi",
 					type: '"batch-tasks.project" | "generic"',
 					required: false,
-					description: "审批界面；省略时使用 batch-tasks.project。",
+					description:
+						"省略或传 batch-tasks.project 时，用户可编辑项目配置；仅需展示原始参数供确认时才使用 generic。",
 				},
 			],
 		},
@@ -511,6 +512,8 @@ export function createBatchTasksActions(service: BatchTaskService): ActionDefini
 			const request = input as unknown as BatchTasksQueryInput;
 			if (request.operation === "help") {
 				return toJsonValue({
+					guidance:
+						"更新批量项目时只提交用户要求变更的字段。默认确认界面会合并当前配置并允许用户继续编辑；不要为了补全输入而复制未修改字段。",
 					actions: [
 						{ id: "batch-tasks.query", inputSchema: queryInputSchema, examples: queryExamples },
 						{ id: "batch-tasks.project", inputSchema: projectInputSchema, examples: projectExamples },

@@ -96,7 +96,8 @@ const queryExamples: ActionExample[] = [
 ];
 
 const taskInputSchema: ActionInputSchema = {
-	description: '对象参数；operation 为 "create"、"update"、"delete"、"enable" 或 "disable"。',
+	description:
+		'对象参数；operation 为 "create"、"update"、"delete"、"enable" 或 "disable"。需要用户确认时会按 operation 自动使用对应界面，无需传 approvalUi。',
 	operations: [
 		{
 			name: "create",
@@ -122,12 +123,12 @@ const taskInputSchema: ActionInputSchema = {
 					required: false,
 					description: "执行前注入的技能或场景。",
 				},
-				{ name: "approvalUi", type: '"scheduler.create"', required: false, description: "审批界面。" },
 			],
 		},
 		{
 			name: "update",
-			description: "局部更新定时任务；data 至少包含一个字段，modelKey/skill 传 null 可清除。",
+			description:
+				"局部更新定时任务；只传用户要求修改的字段，不要先查询并复制未修改字段。确认界面会加载当前完整配置，用户可在执行前继续编辑。data 至少包含一个字段，modelKey/skill 传 null 可清除。",
 			parameters: [
 				{ name: "operation", type: '"update"', required: true, description: "固定为 update。" },
 				{ name: "taskId", type: "string", required: true, description: "从 query list/get 结果取得。" },
@@ -137,7 +138,6 @@ const taskInputSchema: ActionInputSchema = {
 					required: true,
 					description: "可更新 create 中的任意任务字段；至少提供一项。",
 				},
-				{ name: "approvalUi", type: '"scheduler.update"', required: false, description: "审批界面。" },
 			],
 		},
 		...["delete", "enable", "disable"].map((operation) => ({
@@ -171,7 +171,8 @@ const taskExamples: ActionExample[] = [
 ];
 
 const executionInputSchema: ActionInputSchema = {
-	description: '对象参数；operation 为 "run-now" 或 "abort"。',
+	description:
+		'对象参数；operation 为 "run-now" 或 "abort"。需要用户确认时会按 operation 自动使用对应界面，无需传 approvalUi。',
 	operations: [
 		{
 			name: "run-now",
@@ -199,14 +200,7 @@ function taskIdParameters(operation: string) {
 }
 
 function approvalTaskIdParameters(operation: string) {
-	const approvalUiType =
-		operation === "run-now" || operation === "abort"
-			? '"scheduler.run-now" | "scheduler.abort"'
-			: '"scheduler.delete" | "scheduler.toggle"';
-	return [
-		...taskIdParameters(operation),
-		{ name: "approvalUi", type: approvalUiType, required: false, description: "审批界面。" },
-	];
+	return taskIdParameters(operation);
 }
 
 function toJsonValue(value: unknown): JsonValue {
@@ -251,6 +245,8 @@ export function createSchedulerActions(service: SchedulerService): ActionDefinit
 			const request = input as unknown as SchedulerQueryInput;
 			if (request.operation === "help") {
 				return toJsonValue({
+					guidance:
+						"更新任务时只提交用户要求变更的字段。系统会自动选择与 operation 对应的确认界面；更新确认界面会展示当前完整配置并允许用户继续编辑。",
 					actions: [
 						{ id: "scheduler.query", inputSchema: queryInputSchema, examples: queryExamples },
 						{ id: "scheduler.task", inputSchema: taskInputSchema, examples: taskExamples },

@@ -1,27 +1,11 @@
-import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { Button } from "../components/ui/button";
+import { Dialog, DialogContent } from "../components/ui/dialog";
 import { useActionApproval } from "./useActionApproval";
 
 interface ExecutionTaskInput {
 	operation: "run-now" | "abort";
 	taskId: string;
 	approvalUi?: string;
-}
-
-function parseExecutionInput(input: DesktopActionApprovalRequest["input"]): ExecutionTaskInput | null {
-	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
-	const record = input as Record<string, unknown>;
-	if (
-		(record.operation !== "run-now" && record.operation !== "abort") ||
-		typeof record.taskId !== "string"
-	) {
-		return null;
-	}
-	return {
-		operation: record.operation,
-		taskId: record.taskId,
-		approvalUi: typeof record.approvalUi === "string" ? record.approvalUi : undefined,
-	};
 }
 
 const operationDetails: Record<
@@ -47,12 +31,16 @@ export function SchedulerExecutionApproval(): JSX.Element | null {
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
-	const input = parseExecutionInput(request.input);
-	const detail = input ? operationDetails[input.operation] : undefined;
+	const input = request.input as unknown as ExecutionTaskInput;
+	const detail = operationDetails[input.operation];
 
 	return (
-		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/60 px-4 backdrop-blur-sm">
-			<div className="max-h-[90vh] w-full max-w-[480px] overflow-auto rounded-xl border border-border bg-popover shadow-xl">
+		<Dialog open>
+			<DialogContent
+				className="max-h-[90vh] overflow-auto sm:max-w-[480px]"
+				showCloseButton={false}
+				onInteractOutside={(event) => event.preventDefault()}
+			>
 				<div className="border-b border-border/60 p-5">
 					<div className="flex items-start gap-3">
 						<div
@@ -143,7 +131,7 @@ export function SchedulerExecutionApproval(): JSX.Element | null {
 						</Button>
 					</div>
 				</div>
-			</div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }

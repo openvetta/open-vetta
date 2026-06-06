@@ -65,7 +65,11 @@ export class AppActionRuntime {
 				context.signal,
 			);
 			if (!decision.approved) {
-				throw new ActionError("ACTION_REJECTED", "用户拒绝执行该 Vetta action。", { actionId });
+				throw new ActionError(
+					"ACTION_REJECTED",
+					"用户拒绝执行该 Vetta action。询问用户发生了什么情况，为何拒绝，接下来该怎么做",
+					{ actionId },
+				);
 			}
 			if (decision.input !== undefined) {
 				validatedInput = action.validateInput(decision.input);
