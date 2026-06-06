@@ -8,9 +8,12 @@ import {
 	type ActionRpcServerHandle,
 	startActionRpcServer,
 } from "@vetta/action-rpc";
+import { getAppLogger } from "../logger.js";
 import { getActionServerEndpointFilePath } from "./endpoint-file.js";
 import type { AppActionRuntime, JsonValue } from "./index.js";
 import { ActionError } from "./types.js";
+
+const log = getAppLogger("action-rpc");
 
 export interface LocalActionServerHandle {
 	endpoint: ActionRpcEndpoint;
@@ -32,6 +35,7 @@ async function toActionRpcResult<T>(operation: () => Promise<T> | T): Promise<T>
 		if (error instanceof ActionError) {
 			throw new ActionRpcError(error.code, error.message, error.details);
 		}
+		log.error("toActionRpcResult: unexpected error", error);
 		throw error;
 	}
 }
@@ -57,24 +61,48 @@ export async function startLocalActionServer(
 ): Promise<LocalActionServerHandle> {
 	const endpointFilePath = options.endpointFilePath ?? getActionServerEndpointFilePath();
 	const token = createToken();
-	await mkdir(dirname(endpointFilePath), { recursive: true });
+	try {
+		await mkdir(dirname(endpointFilePath), { recursive: true });
+	} catch (error) {
+		log.error("startLocalActionServer: mkdir failed", { endpointFilePath }, error);
+		throw error;
+	}
 
-	const server: ActionRpcServerHandle = await startActionRpcServer(createRpcRuntime(runtime), {
-		host: "127.0.0.1",
-		port: 0,
-		token,
-	});
+	let server: ActionRpcServerHandle;
+	try {
+		server = await startActionRpcServer(createRpcRuntime(runtime), {
+			host: "127.0.0.1",
+			port: 0,
+			token,
+		});
+	} catch (error) {
+		log.error("startLocalActionServer: startActionRpcServer failed", error);
+		throw error;
+	}
 
-	await writeFile(endpointFilePath, `${JSON.stringify(server.endpoint, null, 2)}\n`, {
-		encoding: "utf8",
-		mode: 0o600,
-	});
+	try {
+		await writeFile(endpointFilePath, `${JSON.stringify(server.endpoint, null, 2)}\n`, {
+			encoding: "utf8",
+			mode: 0o600,
+		});
+	} catch (error) {
+		log.error("startLocalActionServer: writeFile failed", { endpointFilePath }, error);
+		throw error;
+	}
 
 	return {
 		endpoint: server.endpoint,
 		close: async () => {
-			await server.close();
-			await rm(endpointFilePath, { force: true });
+			try {
+				await server.close();
+			} catch (error) {
+				log.warn("close: server.close failed", error);
+			}
+			try {
+				await rm(endpointFilePath, { force: true });
+			} catch (error) {
+				log.warn("close: rm failed", { endpointFilePath }, error);
+			}
 		},
 	};
 }

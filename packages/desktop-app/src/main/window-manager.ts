@@ -88,7 +88,8 @@ export function createWindow(): BrowserWindow {
 		windowLog.error("preload-error", { preloadPath: preloadPathForError, error });
 	});
 	mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-		rendererLog.info("console-message", { level, message, line, sourceId });
+		const levelLabel = (["log", "info", "warn", "error"] as const)[level] ?? "log";
+		rendererLog[levelLabel](`[${sourceId}:${line}] ${message}`);
 	});
 	mainWindow.webContents.on("unresponsive", () => {
 		windowLog.error("unresponsive");

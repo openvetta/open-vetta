@@ -5,9 +5,12 @@ import {
 	type SettingsSectionRegistration,
 	type SettingsTabRegistration,
 } from "../../../renderer/domains/settings/registry.js";
+import { getAppLogger } from "../../logger.js";
 import { getMainWindow, showMainWindow } from "../../window-manager.js";
 import { ActionError, type JsonValue } from "../types.js";
 import type { NavigationActionInput } from "./open.schema.js";
+
+const log = getAppLogger("action-nav");
 
 interface StaticNavigationTarget {
 	id: string;
@@ -216,5 +219,11 @@ async function waitForWindowLoad(): Promise<void> {
 	const mainWindow = getMainWindow();
 	if (!mainWindow) return;
 	if (!mainWindow.webContents.isLoading()) return;
+
+	const timeoutId = setTimeout(() => {
+		log.warn("waitForWindowLoad: timeout waiting for did-finish-load after 10s");
+	}, 10000);
+
 	await once(mainWindow.webContents, "did-finish-load");
+	clearTimeout(timeoutId);
 }

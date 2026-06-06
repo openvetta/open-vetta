@@ -161,9 +161,6 @@ export function useSessionManager(): SessionManagerResult {
 
 	const openSession = useCallback(
 		async (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => {
-			const __t0 = Date.now();
-			const __perf = (label: string) => console.log(`[perf][openSession] ${label} +${Date.now() - __t0}ms`);
-			__perf(`enter cwd=${cwd} sessionPath=${sessionPath ?? "-"}`);
 			// 取自己的调用令牌；若中途被新的 openSession 抢跑，会在 subscribe()
 			// 返回后被发现并立即清理自己刚建好的 IPC 订阅，避免泄漏。
 			const myOpenToken = bumpOpenSessionToken();
@@ -194,7 +191,6 @@ export function useSessionManager(): SessionManagerResult {
 			// instead of staring at the old session while history loads.
 			setChatMessages([]);
 
-			__perf("before session.create");
 			const isBatchSession =
 				sessionPath !== undefined &&
 				batchProjectsRef.current.some((project) => project.tasks.some((task) => task.sessionPath === sessionPath));
@@ -208,7 +204,6 @@ export function useSessionManager(): SessionManagerResult {
 			// ADR-0007: 「对话」项目下 main 会把 cwd 改写成 per-session 子目录，
 			// 这里以 main 返回的 effective cwd 为准，保证 FilesPanel/调试 cwd 都指向子目录。
 			const effectiveCwd = createResult.cwd ?? cwd;
-			__perf("after session.create");
 
 			// 拿到 sessionId 就立即写 activeSession 并 navigate，让用户尽快看到 ChatView。
 			// 真实 sessionPath 解析（可能还要再走一次 IPC）放到后面，等好了再补一次写入。
@@ -226,7 +221,6 @@ export function useSessionManager(): SessionManagerResult {
 			const statePromise = window.vetta.session.getState(sessionId);
 
 			const history = await historyPromise;
-			__perf("after getFullHistory");
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
 			setTurnModifiedFiles(extractModifiedFiles(mapped, effectiveCwd));
@@ -238,7 +232,6 @@ export function useSessionManager(): SessionManagerResult {
 			}
 
 			const state = await statePromise;
-			__perf("after getState");
 			setContextUsage({
 				percent: state.contextPercent,
 				contextWindow: state.contextWindow,
@@ -309,7 +302,6 @@ export function useSessionManager(): SessionManagerResult {
 				activeSessionRef.current = sessionInfo;
 			}
 
-			__perf("before session.subscribe");
 			// ─── Subscribe to live session events ───
 			const unsubscribeFn = await window.vetta.session.subscribe(sessionId, (event) => {
 				// Defensive guard: if user has already switched away to another
@@ -561,14 +553,11 @@ export function useSessionManager(): SessionManagerResult {
 			// 全局 ipcRenderer 上留下一个 listener，长期累积会触发 Oilpan OOM。
 			if (myOpenToken !== getOpenSessionToken()) {
 				unsubscribeFn();
-				__perf("superseded; orphan subscription cleaned");
 				return;
 			}
 			setCurrentUnsubscribe(unsubscribeFn);
 
-			__perf("after subscribe, before loadSessions");
 			await loadSessions(cwd);
-			__perf("exit");
 		},
 		[
 			setChatMessages,

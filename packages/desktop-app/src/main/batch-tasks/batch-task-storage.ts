@@ -243,7 +243,6 @@ export async function loadProjects(): Promise<BatchProject[]> {
 			const states = await loadProjectTaskStates(projectDir);
 			projects.push(assembleProject(projectDir, meta, states));
 		}
-		console.log(`[BatchTaskStorage] loadProjects: loaded ${projects.length} projects`);
 		return projects;
 	} catch (error) {
 		console.error(

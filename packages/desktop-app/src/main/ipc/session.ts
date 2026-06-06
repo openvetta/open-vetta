@@ -759,7 +759,6 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.SUBSCRIBE, async (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		const subscriptionId = `${sessionId}:${randomUUID()}`;
-		console.log(`[session ipc] subscribe session=${sessionId} subscription=${subscriptionId}`);
 		const unsubscribe = runtime.subscribe(sessionId, (runtimeEvent: SessionEvent) => {
 			// Debug mode: intercept events for request history recording
 			try {
