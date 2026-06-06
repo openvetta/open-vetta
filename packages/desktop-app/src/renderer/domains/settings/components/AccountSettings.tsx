@@ -1,4 +1,4 @@
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { authTokenAtom, authUserAtom, creditsBalanceAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
@@ -52,7 +52,8 @@ export function AccountSettings(): JSX.Element {
 	}, [dialogOpen, user?.nickname]);
 
 	// Credit transactions
-	const [creditsBalance, setCreditsBalance] = useAtom(creditsBalanceAtom);
+	// 积分余额仅用于填充共享 atom（供 Vetta Zen 卡片展示），本页不再单独渲染积分 section。
+	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
 	const [transactions, setTransactions] = useState<CreditTransactionVO[]>([]);
 	const [txTotal, setTxTotal] = useState(0);
 	const [txPage, setTxPage] = useState(1);
@@ -230,27 +231,8 @@ export function AccountSettings(): JSX.Element {
 				</DialogContent>
 			</Dialog>
 
-			{/* Credits */}
-			<SettingSection section={SETTINGS_SECTION["account-credits"]}>
-				<div className="px-5 py-4">
-					<div className="flex items-center gap-3">
-						<span className="icon-[mdi--wallet-outline] h-5 w-5 text-muted-foreground" />
-						<div>
-							<div className="text-[12px] text-muted-foreground">当前余额</div>
-							<div className={cn(
-								"text-[20px] font-bold tabular-nums",
-								creditsBalance !== null && creditsBalance <= 0
-									? "text-red-500"
-									: "text-foreground",
-							)}>
-								{creditsBalance !== null ? creditsBalance.toFixed(2) : "--"}
-							</div>
-						</div>
-					</div>
-				</div>
-			</SettingSection>
-
-			{/* Transactions */}
+			{/* Transactions：积分是 Vetta Zen 计费体系，后台关闭 Zen 时隐藏积分记录 */}
+			{subscription.zen_enabled && (
 			<SettingSection section={SETTINGS_SECTION["account-transactions"]}>
 				{txLoading && transactions.length === 0 ? (
 					<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
@@ -321,6 +303,7 @@ export function AccountSettings(): JSX.Element {
 					</>
 				)}
 			</SettingSection>
+			)}
 		</div>
 	);
 }

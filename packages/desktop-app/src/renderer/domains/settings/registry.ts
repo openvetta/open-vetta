@@ -40,7 +40,6 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "appearance", id: "appearance-mode", title: "外观模式" },
 	{ tab: "appearance", id: "appearance-theme", title: "主题" },
 	{ tab: "account", id: "account-profile", title: "个人信息" },
-	{ tab: "account", id: "account-credits", title: "积分" },
 	{ tab: "account", id: "account-transactions", title: "积分记录" },
 	{ tab: "team", id: "team-management", title: "团队管理" },
 	{ tab: "team", id: "team-my-teams", title: "我的团队" },
