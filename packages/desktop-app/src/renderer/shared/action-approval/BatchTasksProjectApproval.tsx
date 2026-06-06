@@ -1,151 +1,302 @@
 import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@preload/api.js";
-import { useActionApproval } from "./useActionApproval";
+import { batchProjectsAtom } from "@shared/store/atoms";
+import { useAtomValue } from "jotai";
 import { Button } from "../components/ui/button";
+import { useActionApproval } from "./useActionApproval";
 
-interface ProjectCreateData {
+interface ProjectSkill {
 	name: string;
-	prompt: string;
-	folders: string[];
-	concurrency: number;
-	[key: string]: DesktopActionJsonValue | undefined;
+	alias?: string;
+	type: "skill" | "scene";
 }
 
-interface ProjectInputBase {
-	operation: string;
+interface ProjectData {
+	name?: string;
+	prompt?: string;
+	modelKey?: string;
+	folders?: string[];
+	concurrency?: number;
+	executionMode?: "inherit" | "sandbox" | "full-access";
+	artifactPatterns?: string[];
+	notifyEnabled?: boolean;
+	timeoutMinutes?: number;
+	newFolders?: string[];
+	skill?: ProjectSkill | null;
+}
+
+interface ProjectInput {
+	operation: "create" | "update" | "delete";
 	projectId?: string;
-	data?: ProjectCreateData | Record<string, DesktopActionJsonValue>;
-	approvalUi?: string;
+	data?: ProjectData;
 }
 
-function parseProjectInput(input: DesktopActionApprovalRequest["input"]): ProjectInputBase | null {
+function parseProjectInput(input: DesktopActionApprovalRequest["input"]): ProjectInput | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const record = input as Record<string, unknown>;
-	if (typeof record.operation !== "string") return null;
-	if (record.operation === "create") {
-		if (typeof record.data === "object" && record.data !== null) {
-			return { operation: "create", data: record.data as ProjectCreateData };
-		}
-		return null;
+	if (record.operation === "create" && isRecord(record.data)) {
+		return { operation: "create", data: record.data as ProjectData };
 	}
-	if (record.operation === "update") {
-		if (typeof record.projectId === "string" && typeof record.data === "object" && record.data !== null) {
-			return { operation: "update", projectId: record.projectId, data: record.data as Record<string, DesktopActionJsonValue> };
-		}
-		return null;
+	if (record.operation === "update" && typeof record.projectId === "string" && isRecord(record.data)) {
+		return { operation: "update", projectId: record.projectId, data: record.data as ProjectData };
 	}
-	if (record.operation === "delete") {
-		if (typeof record.projectId === "string") {
-			return { operation: "delete", projectId: record.projectId };
-		}
-		return null;
+	if (record.operation === "delete" && typeof record.projectId === "string") {
+		return { operation: "delete", projectId: record.projectId };
 	}
 	return null;
 }
 
-const operationLabels: Record<string, string> = {
+function isRecord(value: unknown): value is Record<string, DesktopActionJsonValue> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const operationLabels = {
 	create: "创建项目",
 	update: "更新项目",
 	delete: "删除项目",
-};
+} as const;
+
+const executionModeLabels = {
+	inherit: "跟随全局设置",
+	sandbox: "沙盒",
+	"full-access": "完全访问",
+} as const;
+
+function ValueRow({ label, value }: { label: string; value: string | number }): JSX.Element {
+	return (
+		<div className="flex items-start justify-between gap-4 py-1.5">
+			<span className="shrink-0 text-[11px] text-muted-foreground">{label}</span>
+			<span className="min-w-0 break-words text-right text-[11px] font-medium text-foreground">{value}</span>
+		</div>
+	);
+}
+
+function TextBlock({ label, children }: { label: string; children: string }): JSX.Element {
+	return (
+		<div className="rounded-lg border border-border/50 bg-background/50 p-3">
+			<div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+			<p className="max-h-28 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-foreground">
+				{children}
+			</p>
+		</div>
+	);
+}
+
+function PathList({ label, paths }: { label: string; paths: string[] }): JSX.Element {
+	return (
+		<div className="rounded-lg border border-border/50 bg-background/50 p-3">
+			<div className="mb-2 flex items-center justify-between">
+				<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+				<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+					{paths.length} 个
+				</span>
+			</div>
+			<div className="max-h-28 space-y-1 overflow-auto">
+				{paths.map((path) => (
+					<div key={path} className="flex items-start gap-1.5 text-[11px] leading-4 text-foreground">
+						<span className="icon-[mdi--folder-outline] mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+						<span className="break-all">{path}</span>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
 
 export function BatchTasksProjectApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.project");
+	const projects = useAtomValue(batchProjectsAtom);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
 	const input = parseProjectInput(request.input);
+	const currentProject = input?.projectId ? projects.find((project) => project.id === input.projectId) : undefined;
+	const isDelete = input?.operation === "delete";
+	const data = input?.data;
 
 	return (
-		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/50 px-4 backdrop-blur-sm">
-			<div className="w-full max-w-[400px] rounded-lg border border-border bg-popover p-3 shadow-lg">
-				<div className="flex items-center gap-2.5">
-					<div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-						<span className="icon-[mdi--folder-table-outline] h-3.5 w-3.5" />
-					</div>
-					<div className="min-w-0">
-						<h2 className="text-[13px] font-semibold text-foreground">批量项目操作确认</h2>
-						<p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{request.summary}</p>
+		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/60 px-4 backdrop-blur-sm">
+			<div className="max-h-[90vh] w-full max-w-[560px] overflow-auto rounded-xl border border-border bg-popover shadow-xl">
+				<div className="border-b border-border/60 p-5">
+					<div className="flex items-start gap-3">
+						<div
+							className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+								isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+							}`}
+						>
+							<span
+								className={`${isDelete ? "icon-[mdi--folder-remove-outline]" : "icon-[mdi--folder-cog-outline]"} h-5 w-5`}
+							/>
+						</div>
+						<div className="min-w-0 flex-1">
+							<div className="flex flex-wrap items-center gap-2">
+								<h2 className="text-[15px] font-semibold text-foreground">批量项目操作确认</h2>
+								{input && (
+									<span
+										className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+											isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+										}`}
+									>
+										{operationLabels[input.operation]}
+									</span>
+								)}
+							</div>
+							<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
+						</div>
 					</div>
 				</div>
 
-				{input && (
-					<div className="mt-3 space-y-1.5">
-						<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-							<span className="text-[11px] text-muted-foreground">操作类型</span>
-							<span className="text-[11px] font-medium text-foreground">{operationLabels[input.operation] ?? input.operation}</span>
-						</div>
-
-						{input.operation === "create" && input.data && (
-							<>
-								<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-									<span className="text-[11px] text-muted-foreground">项目名称</span>
-									<span className="text-[11px] font-medium text-foreground">{(input.data as ProjectCreateData).name}</span>
-								</div>
-								<div className="rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-									<span className="text-[11px] text-muted-foreground">提示词</span>
-									<p className="mt-1 max-h-[80px] overflow-auto text-[11px] leading-4 text-foreground">{(input.data as ProjectCreateData).prompt}</p>
-								</div>
-								<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-									<span className="text-[11px] text-muted-foreground">文件夹数量</span>
-									<span className="text-[11px] font-medium text-foreground">{(input.data as ProjectCreateData).folders.length}</span>
-								</div>
-								<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-									<span className="text-[11px] text-muted-foreground">并发数</span>
-									<span className="text-[11px] font-medium text-foreground">{(input.data as ProjectCreateData).concurrency}</span>
-								</div>
-							</>
-						)}
-
-						{input.operation === "update" && input.projectId && (
-							<>
-								<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-									<span className="text-[11px] text-muted-foreground">项目路径</span>
-									<span className="max-w-[200px] truncate text-[11px] font-medium text-foreground" title={input.projectId}>{input.projectId}</span>
-								</div>
-								{input.data && (
-									<div className="rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-										<span className="text-[11px] text-muted-foreground">更新内容</span>
-										<pre className="mt-1 max-h-[120px] overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-4 text-foreground">
-											{JSON.stringify(input.data, null, 2)}
-										</pre>
-									</div>
-								)}
-							</>
-						)}
-
-						{input.operation === "delete" && input.projectId && (
-							<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-								<span className="text-[11px] text-muted-foreground">项目路径</span>
-								<span className="max-w-[200px] truncate text-[11px] font-medium text-foreground" title={input.projectId}>{input.projectId}</span>
+				<div className="space-y-3 p-5">
+					{input?.operation === "create" && data && (
+						<>
+							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+								<ValueRow label="项目名称" value={data.name ?? "未提供"} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="任务数量" value={`${data.folders?.length ?? 0} 个文件夹`} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="最大并发" value={`${data.concurrency ?? "未提供"} 个任务`} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="单任务超时" value={`${data.timeoutMinutes ?? 60} 分钟`} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="模型" value={data.modelKey ?? "应用默认模型"} />
+								<div className="h-px bg-border/40" />
+								<ValueRow
+									label="执行权限"
+									value={executionModeLabels[data.executionMode ?? "full-access"]}
+								/>
+								<div className="h-px bg-border/40" />
+								<ValueRow
+									label="技能 / 场景"
+									value={
+										data.skill
+											? `${data.skill.type === "scene" ? "场景" : "技能"}：${data.skill.alias ?? data.skill.name}`
+											: "未设置"
+									}
+								/>
+								<div className="h-px bg-border/40" />
+								<ValueRow label="完成通知" value={data.notifyEnabled ? "已开启" : "未开启"} />
 							</div>
-						)}
-					</div>
-				)}
+							{data.executionMode === "full-access" || data.executionMode === undefined ? (
+								<div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
+									<span className="icon-[mdi--shield-alert-outline] mt-0.5 h-4 w-4 shrink-0" />
+									<p className="text-[11px] leading-5">
+										任务将以完全访问模式运行，可读取和修改文件夹内外的文件。请确认提示词和目录来源可信。
+									</p>
+								</div>
+							) : null}
+							{data.prompt !== undefined && <TextBlock label="将应用到每个任务的提示词">{data.prompt}</TextBlock>}
+							{data.folders && <PathList label="源文件夹" paths={data.folders} />}
+							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+								<ValueRow
+									label="产物校验"
+									value={
+										data.artifactPatterns?.length
+											? data.artifactPatterns.join("、")
+											: "不校验产物文件"
+									}
+								/>
+							</div>
+						</>
+					)}
 
-				{!input && (
-					<div className="mt-3">
-						<pre className="max-h-[160px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5 font-mono text-[10px] leading-4 text-foreground">
+					{input?.operation === "update" && data && (
+						<>
+							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+								<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="现有任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
+							</div>
+							<div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+								<div className="mb-2 text-[11px] font-semibold text-foreground">本次修改</div>
+								{data.name !== undefined && <ValueRow label="项目名称" value={data.name} />}
+								{data.modelKey !== undefined && <ValueRow label="模型" value={data.modelKey} />}
+								{data.concurrency !== undefined && (
+									<ValueRow
+										label="最大并发"
+										value={`${currentProject?.concurrency ?? "未知"} → ${data.concurrency}`}
+									/>
+								)}
+								{data.timeoutMinutes !== undefined && (
+									<ValueRow
+										label="单任务超时"
+										value={`${currentProject?.timeoutMinutes ?? 60} → ${data.timeoutMinutes} 分钟`}
+									/>
+								)}
+								{data.executionMode !== undefined && (
+									<ValueRow label="执行权限" value={executionModeLabels[data.executionMode]} />
+								)}
+								{data.notifyEnabled !== undefined && (
+									<ValueRow label="完成通知" value={data.notifyEnabled ? "开启" : "关闭"} />
+								)}
+								{data.artifactPatterns !== undefined && (
+									<ValueRow
+										label="产物校验"
+										value={data.artifactPatterns.length ? data.artifactPatterns.join("、") : "清除全部规则"}
+									/>
+								)}
+								{data.skill !== undefined && (
+									<ValueRow
+										label="技能 / 场景"
+										value={
+											data.skill
+												? `${data.skill.type === "scene" ? "场景" : "技能"}：${data.skill.alias ?? data.skill.name}`
+												: "清除现有设置"
+										}
+									/>
+								)}
+							</div>
+							{data.prompt !== undefined && <TextBlock label="新的提示词">{data.prompt}</TextBlock>}
+							{data.newFolders && data.newFolders.length > 0 && (
+								<PathList label="新增文件夹（不会移除现有任务）" paths={data.newFolders} />
+							)}
+						</>
+					)}
+
+					{input?.operation === "delete" && (
+						<>
+							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+								<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
+								<div className="h-px bg-border/40" />
+								<ValueRow label="包含任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
+							</div>
+							<div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+								<span className="icon-[mdi--alert-outline] mt-0.5 h-4 w-4 shrink-0" />
+								<p className="text-[11px] leading-5">
+									该操作会永久删除项目目录、全部任务记录、会话状态和任务产物，无法撤销。存在运行中或排队任务时操作会被拒绝。
+								</p>
+							</div>
+						</>
+					)}
+
+					{!input && (
+						<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[10px] leading-4 text-foreground">
 							{JSON.stringify(request.input, null, 2)}
 						</pre>
+					)}
+				</div>
+
+				<div className="border-t border-border/60 px-5 py-4">
+					<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
+						<span>请求权限</span>
+						<span className="font-mono">{request.permission}</span>
 					</div>
-				)}
-
-				<div className="mt-2.5 text-[10px] text-muted-foreground">权限：{request.permission}</div>
-				{error && <div className="mt-1.5 text-[10px] text-destructive">{error}</div>}
-
-				<div className="mt-3 flex justify-end gap-1.5">
-					<Button variant="ghost" size="sm" className="h-7 px-2.5 text-[11px]" disabled={responding} onClick={reject}>
-						拒绝
-					</Button>
-					<Button
-						size="sm"
-						className="h-7 px-2.5 text-[11px]"
-						variant={input?.operation === "delete" ? "destructive" : "default"}
-						disabled={responding}
-						onClick={() => approve()}
-					>
-						{responding ? "处理中..." : `确认${operationLabels[input?.operation ?? ""] ?? "操作"}`}
-					</Button>
+					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
+					<div className="flex justify-end gap-2">
+						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+							拒绝
+						</Button>
+						<Button
+							size="sm"
+							variant={isDelete ? "destructive" : "default"}
+							disabled={responding}
+							onClick={() => approve()}
+						>
+							{responding ? "处理中..." : `确认${input ? operationLabels[input.operation] : "操作"}`}
+						</Button>
+					</div>
 				</div>
 			</div>
 		</div>
