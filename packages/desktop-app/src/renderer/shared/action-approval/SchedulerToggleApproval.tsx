@@ -1,6 +1,7 @@
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { useActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface ToggleTaskInput {
 	operation: "enable" | "disable";
@@ -28,6 +29,7 @@ export function SchedulerToggleApproval(): JSX.Element | null {
 	const approval = useActionApproval("scheduler.toggle");
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
+	const countdown = useApprovalCountdown();
 
 	const input = request.input as unknown as ToggleTaskInput;
 	const detail = operationDetails[input.operation];
@@ -112,7 +114,7 @@ export function SchedulerToggleApproval(): JSX.Element | null {
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
 						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-							拒绝
+							拒绝（{countdown}）
 						</Button>
 						<Button size="sm" disabled={responding} onClick={() => approve()}>
 							{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}

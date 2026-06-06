@@ -1,22 +1,24 @@
 import { Button } from "../components/ui/button";
 import { ActionApprovalDialog } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 export function GenericActionApproval(): JSX.Element | null {
 	const approval = useActionApproval("generic");
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
+	const countdown = useApprovalCountdown();
 
 	return (
 		<ActionApprovalDialog
 			title={request.title}
 			description={request.summary}
 			footer={
-				<>
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-						拒绝
-					</Button>
-					<Button size="sm" disabled={responding} onClick={() => approve()}>
+			<>
+				<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+					拒绝（{countdown}）
+				</Button>
+				<Button size="sm" disabled={responding} onClick={() => approve()}>
 						{responding ? "处理中..." : "确认执行"}
 					</Button>
 				</>

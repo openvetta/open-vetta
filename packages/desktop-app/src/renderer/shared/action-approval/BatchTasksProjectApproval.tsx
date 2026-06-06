@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { ActionApprovalFrame } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface ProjectSkill {
 	name: string;
@@ -163,6 +164,7 @@ function BatchTasksProjectApprovalContent({
 	const [loading, setLoading] = useState(needsProject && !cachedProject);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const { request, responding, error, approve, reject } = approval;
+	const countdown = useApprovalCountdown();
 
 	useEffect(() => {
 		console.info("[action-approval:batch-tasks.project] request", {
@@ -245,11 +247,11 @@ function BatchTasksProjectApprovalContent({
 		return (
 			<ActionApprovalFrame editable>
 				<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
-				<div className="flex justify-end border-t border-border/60 px-5 py-4">
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-						拒绝
-					</Button>
-				</div>
+					<div className="flex justify-end border-t border-border/60 px-5 py-4">
+						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+							拒绝（{countdown}）
+						</Button>
+					</div>
 			</ActionApprovalFrame>
 		);
 	}
@@ -461,18 +463,18 @@ function BatchTasksProjectApprovalContent({
 					</div>
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
-						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-							拒绝
-						</Button>
-						<Button
-							size="sm"
-							variant={isDelete ? "destructive" : "default"}
-							disabled={responding}
-							onClick={approveEditedInput}
-						>
-							{responding ? "处理中..." : `确认${input ? operationLabels[input.operation] : "操作"}`}
-						</Button>
-					</div>
+					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+						拒绝（{countdown}）
+					</Button>
+					<Button
+						size="sm"
+						variant={isDelete ? "destructive" : "default"}
+						disabled={responding}
+						onClick={approveEditedInput}
+					>
+						{responding ? "处理中..." : `确认${input ? operationLabels[input.operation] : "操作"}`}
+					</Button>
+				</div>
 				</div>
 		</ActionApprovalFrame>
 	);

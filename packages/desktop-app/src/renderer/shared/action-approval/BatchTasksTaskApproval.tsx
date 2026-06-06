@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { ActionApprovalFrame } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 type TaskOperation = "run" | "retry" | "stop" | "delete" | "resume" | "resume-with-text" | "delete-session";
 
@@ -107,6 +108,7 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 	const textRef = useRef<HTMLTextAreaElement>(null);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
+	const countdown = useApprovalCountdown();
 
 	const input = parseTaskInput(request.input);
 	const project = input ? projects.find((item) => item.id === input.projectId) : undefined;
@@ -255,18 +257,18 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 					</div>
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
-						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-							拒绝
-						</Button>
-						<Button
-							size="sm"
-							variant={detail?.destructive ? "destructive" : "default"}
-							disabled={responding}
-							onClick={approveInput}
-						>
-							{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}
-						</Button>
-					</div>
+					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+						拒绝（{countdown}）
+					</Button>
+					<Button
+						size="sm"
+						variant={detail?.destructive ? "destructive" : "default"}
+						disabled={responding}
+						onClick={approveInput}
+					>
+						{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}
+					</Button>
+				</div>
 				</div>
 		</ActionApprovalFrame>
 	);
