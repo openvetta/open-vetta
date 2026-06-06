@@ -1,6 +1,6 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
-import { confirmDialogAtom, scheduledTasksAtom, defaultConversationCwdAtom, getProjectDisplayName } from "@shared/store/atoms";
+import { confirmDialogAtom, scheduledTasksAtom, runningTaskIdsAtom, defaultConversationCwdAtom, getProjectDisplayName } from "@shared/store/atoms";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import type { ScheduledTask } from "@shared/store/atoms";
 import { describeSchedule, parseCronExpression } from "./schedule-picker/cron-utils";
@@ -36,6 +36,7 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListProps): JSX.Element {
 	const tasks = useAtomValue(scheduledTasksAtom);
+	const runningTaskIds = useAtomValue(runningTaskIdsAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const { deleteTask, toggleTask, runNow } = useScheduledTasks();
@@ -52,6 +53,8 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 		>
 			{tasks.map((task) => {
 				const isSelected = selectedTaskId === task.id;
+				const isRunning = runningTaskIds.has(task.id);
+				const statusLabel = isRunning ? "运行中" : task.enabled ? "待运行" : "已停用";
 				return (
 					<motion.div
 						key={task.id}
@@ -69,32 +72,20 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 								: "border-border/50 hover:border-primary/30 hover:bg-card/60"
 						}`}
 					>
-						{/* Top accent bar — primary if enabled, muted otherwise */}
-						<div
-							className={`pointer-events-none absolute inset-x-0 top-0 h-px transition-opacity duration-300 ${
-								task.enabled
-									? "bg-gradient-to-r from-transparent via-primary/25 to-transparent opacity-100"
-									: "bg-gradient-to-r from-transparent via-muted-foreground/15 to-transparent opacity-40"
-							}`}
-						/>
-
-						{/* Hover sheen */}
-						<div className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-							<div className="absolute -top-20 left-1/2 h-32 w-32 -translate-x-1/2 rounded-full bg-primary/[0.04] blur-2xl" />
-						</div>
-
 						{/* ─── Top row: status + name + actions ─── */}
 						<div className="relative flex items-start gap-2.5">
 							<div className="mt-1 flex h-2 w-2 shrink-0">
 								<span className="relative inline-flex h-2 w-2">
-									{task.enabled && (
+									{isRunning && (
 										<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
 									)}
 									<span
 										className={`relative inline-flex h-2 w-2 rounded-full ${
-											task.enabled
-												? "bg-emerald-500 shadow-[0_0_8px_var(--color-emerald-500,#10b981)]"
-												: "bg-muted-foreground/40"
+											isRunning
+												? "bg-emerald-500"
+												: task.enabled
+													? "bg-primary"
+													: "bg-muted-foreground/40"
 										}`}
 									/>
 								</span>
@@ -104,7 +95,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 									{task.name}
 								</h3>
 								<p className="mt-0.5 truncate text-[11px] text-muted-foreground/50">
-									{task.enabled ? "运行中" : "已停用"}
+									{statusLabel}
 									{task.isOnce && " · 一次性"}
 								</p>
 							</div>

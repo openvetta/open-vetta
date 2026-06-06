@@ -64,9 +64,13 @@ function isConversationSubCwd(cwd: string): boolean {
 /**
  * ADR-0007: 「对话」默认项目下每个新建 session eager 一个独立子目录作为运行 cwd，
  * 避免不同 session 的 agent 产物在根目录互相覆盖/被误读。
- * 仅作用于 cwd 恰好为 DEFAULT_CONVERSATION_CWD 的场景；其他项目原样返回。
+ * 仅作用于 cwd 恰好为 DEFAULT_CONVERSATION_CWD 的场景；其他项目原样返回
+ * （有的项目 session 之间产物本就需要共享，不能动）。
+ *
+ * 定时任务执行器（scheduler/task-executor）也复用此函数，使其在「对话」项目下
+ * 触发时同样获得独立子目录，与 UI 创建的 session 行为一致。
  */
-async function ensureConversationSubCwd(requestedCwd: string | undefined): Promise<string | undefined> {
+export async function ensureConversationSubCwd(requestedCwd: string | undefined): Promise<string | undefined> {
 	if (!requestedCwd) return requestedCwd;
 	if (resolve(requestedCwd) !== resolve(DEFAULT_CONVERSATION_CWD)) return requestedCwd;
 	const sub = join(DEFAULT_CONVERSATION_CWD, randomUUID());

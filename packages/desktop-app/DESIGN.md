@@ -215,7 +215,11 @@ UI 是工具，不是 showroom。**hover 只反馈，不表演。**
 
 来自 `AGENTS.md §1`，本节不再展开，仅划红线：
 
-- 操作按钮**必须** `@shared/components/ui/button` 的 `<Button>` + variant。
+- 操作按钮**必须**用 `@shared/components/ui/button` 的 `<Button>` + variant，**优先复用通用组件，禁止重复造按钮**。
+  - **禁止**手写 `<button>` / `<motion.button>` 充当按钮：不允许自拼 `rounded-full bg-gradient-to-* px-4 py-2 text-primary-foreground` 这类样式。
+  - **禁止**给按钮加发光/自定义阴影，如 `shadow-[0_8px_24px_-10px_var(--primary)]`、`shadow-[0_10px_30px_-12px_var(--primary)]`（"肮脏的发光按钮"被明确否决）。主操作直接用 `variant="primary"`，不叠任何 `shadow-*`。
+  - 主操作 → `variant="primary"`；次要 → `variant="outline"` / `secondary` / `ghost`；危险 → `variant="destructive"`。空状态 CTA 同样走 `<Button>`，不要单独造一个"更花"的版本。
+  - 需要微调位置/间距用 `className` 传入（如 `mt-2`），**不要**重写整套视觉。
 - Popover / Dialog / Switch / Select 等先翻 `shared/components/ui/`，不要重写。
 - 自定义 toggle / segmented control 时参考现有 `SegmentedControl`、`ToggleSwitch`，沿用相同 token 与 transition。
 
@@ -224,7 +228,8 @@ UI 是工具，不是 showroom。**hover 只反馈，不表演。**
 ## 9. Lint checklist（agent 提交前自查）
 
 - [ ] 没有 hex / `rgb(` / 默认 Tailwind 调色盘（slate/zinc/sky/violet/pink/orange/red/blue/green，除 §1.3 白名单的 emerald/amber）
-- [ ] 没有 `shadow-[...]` 自定义任意值；卡片 hover 无 shadow
+- [ ] 没有 `shadow-[...]` 自定义任意值；卡片 hover 无 shadow；按钮无发光阴影
+- [ ] 按钮一律用 `<Button>` + variant，没有手写 `<button>` / `<motion.button>` 自拼按钮样式
 - [ ] 所有线条 1px：没有 `border-2/4`、`ring-2`、`outline-2`、`border-[Npx]`
 - [ ] 没有 `rounded-3xl` / `rounded-[Npx]`
 - [ ] 没有 `transition-all`
@@ -238,4 +243,4 @@ UI 是工具，不是 showroom。**hover 只反馈，不表演。**
 
 以下文件混入了违规色或视觉，agent **不要**以它们为范例，遇到顺手清理：
 
-- `domains/skills/components/SkillsPage.tsx` — 含 `violet-400`（自定义标签）、`emerald-400`（已启用）合法，`bg-amber-500/15`（可更新）合法；`violet-*` 待迁移为 `bg-primary/10 text-primary`。
+- 暂无。`SkillsPage.tsx` 的 `violet-*` 自定义标签已迁移为 `bg-primary/10 text-primary`。

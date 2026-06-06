@@ -4,8 +4,9 @@ import type { TodoStore } from "../../todo-store.js";
 import { loadToolDescription } from "../description.js";
 
 const todoSchema = Type.Object({
-	action: Type.Union([Type.Literal("create"), Type.Literal("update"), Type.Literal("list")], {
-		description: 'Action to perform: "create" (add items), "update" (change status), or "list" (show all)',
+	action: Type.Union([Type.Literal("create"), Type.Literal("update"), Type.Literal("list"), Type.Literal("clear")], {
+		description:
+			'Action to perform: "create" (add items), "update" (change status), "list" (show all), or "clear" (abandon the current plan — only allowed for ad-hoc, non-locked lists)',
 	}),
 	items: Type.Optional(
 		Type.Array(Type.String(), {
@@ -67,7 +68,7 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 				items,
 				id,
 				status,
-			}: { action: "create" | "update" | "list"; items?: string[]; id?: number; status?: string },
+			}: { action: "create" | "update" | "list" | "clear"; items?: string[]; id?: number; status?: string },
 		) => {
 			const store = options.getTodoStore();
 
@@ -120,8 +121,10 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 						};
 					}
 
-					// Before progressing any item, check for skipped earlier items
-					if (status === "in_progress" || status === "done") {
+					// Sequential order is enforced ONLY for locked (scene) lists — they are the
+					// authoritative plan and must be worked strictly in order. Ad-hoc lists are
+					// flexible: the model may reprioritize / update out of order.
+					if (store.isLocked() && (status === "in_progress" || status === "done")) {
 						const allItems = store.getAll();
 						const skipped = allItems.filter((i) => i.id < id && i.status !== "done");
 						if (skipped.length > 0) {
@@ -165,12 +168,45 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 					};
 				}
 
+				case "clear": {
+					if (store.isLocked()) {
+						const source = store.getLockSource();
+						return {
+							content: [
+								{
+									type: "text" as const,
+									text:
+										`REJECTED: The todo list is locked by ${source ?? "the system"} and cannot be cleared.\n` +
+										`This list is the authoritative plan — work strictly through the existing items in order.\n\n${formatItems(store)}`,
+								},
+							],
+							details: { action },
+						};
+					}
+					if (store.getAll().length === 0) {
+						return {
+							content: [{ type: "text" as const, text: "Todo list is already empty." }],
+							details: { action },
+						};
+					}
+					store.clear();
+					return {
+						content: [
+							{
+								type: "text" as const,
+								text: 'Cleared all todo items. Create a fresh plan with todo(action="create") if the new direction needs one.',
+							},
+						],
+						details: { action },
+					};
+				}
+
 				default: {
 					return {
 						content: [
 							{
 								type: "text" as const,
-								text: `Error: unknown action "${action}". Use "create", "update", or "list".`,
+								text: `Error: unknown action "${action}". Use "create", "update", "list", or "clear".`,
 							},
 						],
 						details: { action: String(action) },

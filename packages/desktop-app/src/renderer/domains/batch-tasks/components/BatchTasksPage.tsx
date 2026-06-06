@@ -6,6 +6,7 @@ import {
 	batchProjectDialogOpenAtom,
 	type BatchProject,
 } from "@shared/store/atoms";
+import { Button } from "@shared/components/ui/button";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 import { BatchTaskList } from "./BatchTaskList";
 import { BatchProjectDialog } from "./BatchProjectDialog";
@@ -87,25 +88,13 @@ export function BatchTasksPage(): JSX.Element {
 
 					<div className="flex items-center gap-3">
 						{stats.total > 0 && <CompactStats stats={stats} />}
-						<motion.button
-							type="button"
-							onClick={handleNewProject}
-							initial={{ opacity: 0, y: -6, scale: 0.96 }}
-							animate={{ opacity: 1, y: 0, scale: 1 }}
-							transition={{ type: "spring", stiffness: 380, damping: 26, delay: 0.1 }}
-							whileHover={{ scale: 1.04, y: -1 }}
-							whileTap={{ scale: 0.96 }}
-							className="flex items-center gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-[0_8px_24px_-10px_var(--primary)] transition-shadow hover:shadow-[0_12px_30px_-8px_var(--primary)]"
-						>
+						<Button type="button" variant="primary" onClick={handleNewProject}>
 							<span className="icon-[mdi--plus] text-[15px]" />
 							新建项目
-						</motion.button>
+						</Button>
 					</div>
 				</div>
 			</div>
-
-			{/* Divider */}
-			<div className="mx-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
 
 			{/* ─── Content ─── */}
 			<div className="flex flex-1 flex-col gap-6 overflow-y-auto px-8 pt-5 pb-6">
@@ -186,16 +175,10 @@ function EmptyState({ onNew }: { onNew: () => void }): JSX.Element {
 					创建批量任务，让 AI 自动处理多个文件夹
 				</p>
 			</div>
-			<motion.button
-				type="button"
-				onClick={onNew}
-				whileHover={{ scale: 1.04, y: -1 }}
-				whileTap={{ scale: 0.96 }}
-				className="mt-2 flex items-center gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-5 py-2 text-[13px] font-medium text-primary-foreground shadow-[0_10px_30px_-12px_var(--primary)]"
-			>
+			<Button type="button" variant="primary" onClick={onNew} className="mt-2">
 				<span className="icon-[mdi--plus] text-[15px]" />
 				创建第一个项目
-			</motion.button>
+			</Button>
 		</motion.div>
 	);
 }
