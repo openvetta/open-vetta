@@ -64,9 +64,13 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 			};
 			const timeout = setTimeout(() => {
 				cancel(
-					new ActionError("ACTION_APPROVAL_TIMEOUT", "等待用户授权 Vetta action 超时。", {
-						actionId: request.actionId,
-					}),
+					new ActionError(
+						"ACTION_APPROVAL_TIMEOUT",
+						"等待用户授权 Vetta action 超时。可能用户并不在线，你需要询问用户发生了什么情况",
+						{
+							actionId: request.actionId,
+						},
+					),
 				);
 			}, this.timeoutMs);
 
@@ -76,6 +80,12 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 			}
 			signal?.addEventListener("abort", onAbort, { once: true });
 			this.pending.set(approvalId, { finish, cancel });
+			console.info("[action-approval:main] request", {
+				approvalId,
+				actionId: request.actionId,
+				presentation: request.approvalPresentation,
+				input: request.input,
+			});
 			showMainWindow();
 			this.webContents.send(ACTION_APPROVAL_REQUEST_CHANNEL, { approvalId, ...request });
 		});
@@ -83,6 +93,12 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 
 	respond(approvalId: string, approved: boolean, input?: JsonValue): boolean {
 		const pending = this.pending.get(approvalId);
+		console.info("[action-approval:main] response", {
+			approvalId,
+			approved,
+			input,
+			pending: Boolean(pending),
+		});
 		if (!pending) return false;
 		pending.finish(input === undefined ? { approved } : { approved, input });
 		return true;

@@ -22,6 +22,7 @@ import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
 import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
 import { UpdateRestartDialog } from "./shared/components/UpdateRestartDialog";
 import { ActionApprovalCenter } from "./shared/action-approval/ActionApprovalCenter";
+import { GenericActionApproval } from "./shared/action-approval/GenericActionApproval";
 import { AppearancePickerApproval } from "./shared/action-approval/AppearancePickerApproval";
 import { ThemeChangeApproval } from "./shared/action-approval/ThemeChangeApproval";
 import { NavigationOpenApproval } from "./shared/action-approval/NavigationOpenApproval";
@@ -359,6 +360,7 @@ export function RootLayout(): JSX.Element {
 					<FilePreviewDialog />
 					<UpdateRestartDialog />
 					<ActionApprovalCenter />
+					<GenericActionApproval />
 					<AppearancePickerApproval />
 					<ThemeChangeApproval />
 					<NavigationOpenApproval />

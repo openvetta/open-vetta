@@ -1,7 +1,10 @@
 import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@preload/api.js";
-import { batchProjectsAtom } from "@shared/store/atoms";
+import { batchProjectsAtom, type BatchProject } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/ui/button";
+import { Textarea } from "../components/ui/textarea";
+import { ActionApprovalFrame } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
 
 interface ProjectSkill {
@@ -28,6 +31,32 @@ interface ProjectInput {
 	operation: "create" | "update" | "delete";
 	projectId?: string;
 	data?: ProjectData;
+}
+
+function mergeCurrentProjectData(
+	input: ProjectInput | null,
+	project: BatchProject | undefined,
+): ProjectInput | null {
+	if (input?.operation !== "update" || !project) return input;
+	return {
+		...input,
+		data: {
+			name: project.name,
+			prompt: project.prompt,
+			modelKey: project.modelKey,
+			concurrency: project.concurrency,
+			executionMode: project.executionMode,
+			artifactPatterns: project.artifactPatterns ?? [],
+			notifyEnabled: project.notifyEnabled ?? false,
+			timeoutMinutes: project.timeoutMinutes ?? 60,
+			skill: project.skill ?? null,
+			...input.data,
+		},
+	};
+}
+
+function getCurrentProject(projects: BatchProject[], projectId: string | undefined): BatchProject | undefined {
+	return projectId ? projects.find((project) => project.id === projectId) : undefined;
 }
 
 function parseProjectInput(input: DesktopActionApprovalRequest["input"]): ProjectInput | null {
@@ -106,16 +135,145 @@ export function BatchTasksProjectApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.project");
 	const projects = useAtomValue(batchProjectsAtom);
 	if (!approval) return null;
+	const parsedInput = parseProjectInput(approval.request.input);
+	const cachedProject = getCurrentProject(projects, parsedInput?.projectId);
+	return (
+		<BatchTasksProjectApprovalContent
+			key={approval.request.approvalId}
+			approval={approval}
+			parsedInput={parsedInput}
+			cachedProject={cachedProject}
+		/>
+	);
+}
+
+function BatchTasksProjectApprovalContent({
+	approval,
+	parsedInput,
+	cachedProject,
+}: {
+	approval: NonNullable<ReturnType<typeof useActionApproval>>;
+	parsedInput: ProjectInput | null;
+	cachedProject: BatchProject | undefined;
+}): JSX.Element {
+	const editorRef = useRef<HTMLTextAreaElement>(null);
+	const [editorError, setEditorError] = useState<string | null>(null);
+	const needsProject = parsedInput?.operation === "update" || parsedInput?.operation === "delete";
+	const [currentProject, setCurrentProject] = useState<BatchProject | undefined>(cachedProject);
+	const [loading, setLoading] = useState(needsProject && !cachedProject);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const { request, responding, error, approve, reject } = approval;
 
-	const input = parseProjectInput(request.input);
-	const currentProject = input?.projectId ? projects.find((project) => project.id === input.projectId) : undefined;
+	useEffect(() => {
+		console.info("[action-approval:batch-tasks.project] request", {
+			approvalId: request.approvalId,
+			input: request.input,
+			parsedInput,
+			cachedProject,
+		});
+	}, [cachedProject, parsedInput, request.approvalId, request.input]);
+
+	useEffect(() => {
+		if (!needsProject) return;
+		if (cachedProject) {
+			console.info("[action-approval:batch-tasks.project] source", {
+				approvalId: request.approvalId,
+				source: "atom",
+				project: cachedProject,
+			});
+			return;
+		}
+		let cancelled = false;
+		void window.vetta.batchTasks
+			.getProjects()
+			.then((projects) => {
+				if (cancelled) return;
+				const project = getCurrentProject(projects, parsedInput?.projectId);
+				console.info("[action-approval:batch-tasks.project] query", {
+					approvalId: request.approvalId,
+					requestedProjectId: parsedInput?.projectId,
+					returnedProjectIds: projects.map((candidate) => candidate.id),
+					matchedProject: project,
+				});
+				setCurrentProject(project);
+				if (!project) setLoadError("未找到当前批量项目，无法加载完整配置。");
+			})
+			.catch((error: unknown) => {
+				console.error("[action-approval:batch-tasks.project] query-failed", {
+					approvalId: request.approvalId,
+					requestedProjectId: parsedInput?.projectId,
+					error,
+				});
+				if (!cancelled) setLoadError("加载当前批量项目配置失败。");
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [cachedProject, needsProject, parsedInput?.projectId, request.approvalId]);
+
+	const input = useMemo(
+		() => mergeCurrentProjectData(parsedInput, currentProject),
+		[currentProject, parsedInput],
+	);
 	const isDelete = input?.operation === "delete";
+	const isEditable = input?.operation === "create" || input?.operation === "update";
 	const data = input?.data;
+	const editableInput = input ?? request.input;
+
+	useEffect(() => {
+		if (input?.operation !== "update" || !currentProject) return;
+		console.info("[action-approval:batch-tasks.project] merged", {
+			approvalId: request.approvalId,
+			currentProject,
+			agentPatch: parsedInput?.data,
+			mergedInput: input,
+		});
+	}, [currentProject, input, parsedInput?.data, request.approvalId]);
+
+	if (loading) {
+		return (
+			<ActionApprovalFrame editable>
+				<div className="py-10 text-center text-[12px] text-muted-foreground">正在加载当前项目配置...</div>
+			</ActionApprovalFrame>
+		);
+	}
+
+	if (parsedInput?.operation === "update" && !currentProject) {
+		return (
+			<ActionApprovalFrame editable>
+				<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
+				<div className="flex justify-end border-t border-border/60 px-5 py-4">
+					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+						拒绝
+					</Button>
+				</div>
+			</ActionApprovalFrame>
+		);
+	}
+
+	const approveEditedInput = (): void => {
+		if (!isEditable) {
+			approve();
+			return;
+		}
+		try {
+			const editedInput = JSON.parse(editorRef.current?.value ?? "") as DesktopActionJsonValue;
+			console.info("[action-approval:batch-tasks.project] submit", {
+				approvalId: request.approvalId,
+				input: editedInput,
+			});
+			setEditorError(null);
+			approve(editedInput);
+		} catch {
+			setEditorError("参数不是有效的 JSON，请检查后重试。");
+		}
+	};
 
 	return (
-		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/60 px-4 backdrop-blur-sm">
-			<div className="max-h-[90vh] w-full max-w-[560px] overflow-auto rounded-xl border border-border bg-popover shadow-xl">
+		<ActionApprovalFrame editable={isEditable}>
 				<div className="border-b border-border/60 p-5">
 					<div className="flex items-start gap-3">
 						<div
@@ -276,6 +434,24 @@ export function BatchTasksProjectApproval(): JSX.Element | null {
 							{JSON.stringify(request.input, null, 2)}
 						</pre>
 					)}
+					{isEditable && (
+						<div className="rounded-lg border border-border/50 bg-card/40 p-3">
+							<label className="text-[11px] font-medium text-foreground" htmlFor="batch-project-approval-input">
+								编辑操作参数
+							</label>
+							<p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+								可在执行前修改 agent 提供的项目配置。
+							</p>
+							<Textarea
+								key={request.approvalId}
+								id="batch-project-approval-input"
+								ref={editorRef}
+								defaultValue={JSON.stringify(editableInput, null, 2)}
+								className="mt-2 min-h-48 resize-y font-mono text-[11px]"
+							/>
+							{editorError && <div className="mt-2 text-[11px] text-destructive">{editorError}</div>}
+						</div>
+					)}
 				</div>
 
 				<div className="border-t border-border/60 px-5 py-4">
@@ -292,13 +468,12 @@ export function BatchTasksProjectApproval(): JSX.Element | null {
 							size="sm"
 							variant={isDelete ? "destructive" : "default"}
 							disabled={responding}
-							onClick={() => approve()}
+							onClick={approveEditedInput}
 						>
 							{responding ? "处理中..." : `确认${input ? operationLabels[input.operation] : "操作"}`}
 						</Button>
 					</div>
 				</div>
-			</div>
-		</div>
+		</ActionApprovalFrame>
 	);
 }

@@ -3,10 +3,6 @@ import { isValidCronExpression } from "../../scheduler/cron.js";
 import { ActionError, type JsonValue } from "../types.js";
 
 const taskIdSchema = z.string().trim().min(1);
-const taskApprovalUiSchema = z
-	.enum(["scheduler.create", "scheduler.update", "scheduler.delete", "scheduler.toggle"])
-	.optional();
-const executionApprovalUiSchema = z.enum(["scheduler.run-now", "scheduler.abort"]).optional();
 const executionModeSchema = z.enum(["inherit", "sandbox", "full-access"]);
 const cronSchema = z.string().trim().refine(isValidCronExpression, "Invalid cron expression.");
 const skillSchema = z.object({
@@ -52,28 +48,28 @@ export const schedulerTaskInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("create"),
 		data: createTaskDataSchema,
-		approvalUi: taskApprovalUiSchema,
+		approvalUi: z.literal("scheduler.create").optional().default("scheduler.create"),
 	}),
 	z.object({
 		operation: z.literal("update"),
 		taskId: taskIdSchema,
 		data: updateTaskDataSchema,
-		approvalUi: taskApprovalUiSchema,
+		approvalUi: z.literal("scheduler.update").optional().default("scheduler.update"),
 	}),
 	z.object({
 		operation: z.literal("delete"),
 		taskId: taskIdSchema,
-		approvalUi: taskApprovalUiSchema,
+		approvalUi: z.literal("scheduler.delete").optional().default("scheduler.delete"),
 	}),
 	z.object({
 		operation: z.literal("enable"),
 		taskId: taskIdSchema,
-		approvalUi: taskApprovalUiSchema,
+		approvalUi: z.literal("scheduler.toggle").optional().default("scheduler.toggle"),
 	}),
 	z.object({
 		operation: z.literal("disable"),
 		taskId: taskIdSchema,
-		approvalUi: taskApprovalUiSchema,
+		approvalUi: z.literal("scheduler.toggle").optional().default("scheduler.toggle"),
 	}),
 ]);
 
@@ -81,12 +77,12 @@ export const schedulerExecutionInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("run-now"),
 		taskId: taskIdSchema,
-		approvalUi: executionApprovalUiSchema,
+		approvalUi: z.literal("scheduler.run-now").optional().default("scheduler.run-now"),
 	}),
 	z.object({
 		operation: z.literal("abort"),
 		taskId: taskIdSchema,
-		approvalUi: executionApprovalUiSchema,
+		approvalUi: z.literal("scheduler.abort").optional().default("scheduler.abort"),
 	}),
 ]);
 

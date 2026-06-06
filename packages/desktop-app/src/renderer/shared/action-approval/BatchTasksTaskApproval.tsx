@@ -1,7 +1,10 @@
-import type { DesktopActionApprovalRequest } from "@preload/api.js";
+import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@preload/api.js";
 import { batchProjectsAtom, type BatchTaskStatus } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
+import { useRef } from "react";
 import { Button } from "../components/ui/button";
+import { Textarea } from "../components/ui/textarea";
+import { ActionApprovalFrame } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
 
 type TaskOperation = "run" | "retry" | "stop" | "delete" | "resume" | "resume-with-text" | "delete-session";
@@ -101,6 +104,7 @@ const statusLabels: Record<BatchTaskStatus, string> = {
 export function BatchTasksTaskApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.task");
 	const projects = useAtomValue(batchProjectsAtom);
+	const textRef = useRef<HTMLTextAreaElement>(null);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
@@ -108,10 +112,18 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 	const project = input ? projects.find((item) => item.id === input.projectId) : undefined;
 	const task = input ? project?.tasks.find((item) => item.id === input.taskId) : undefined;
 	const detail = input ? operationDetails[input.operation] : undefined;
+	const isEditable = input?.operation === "resume-with-text";
+	const approveInput = (): void => {
+		if (!input || !isEditable) {
+			approve();
+			return;
+		}
+		const originalInput = request.input as Record<string, DesktopActionJsonValue>;
+		approve({ ...originalInput, text: textRef.current?.value.trim() || "继续" });
+	};
 
 	return (
-		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/60 px-4 backdrop-blur-sm">
-			<div className="max-h-[90vh] w-full max-w-[520px] overflow-auto rounded-xl border border-border bg-popover shadow-xl">
+		<ActionApprovalFrame editable={isEditable}>
 				<div className="border-b border-border/60 p-5">
 					<div className="flex items-start gap-3">
 						<div
@@ -195,12 +207,19 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 
 							{input.operation === "resume-with-text" && (
 								<div className="rounded-lg border border-border/50 bg-background/50 p-3">
-									<div className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+									<label
+										className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+										htmlFor="batch-task-resume-text"
+									>
 										发送给原会话的补充说明
-									</div>
-									<p className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-foreground">
-										{input.text?.trim() || "继续"}
-									</p>
+									</label>
+									<Textarea
+										key={request.approvalId}
+										id="batch-task-resume-text"
+										ref={textRef}
+										defaultValue={input.text?.trim() || "继续"}
+										className="min-h-28 resize-y"
+									/>
 								</div>
 							)}
 
@@ -243,13 +262,12 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 							size="sm"
 							variant={detail?.destructive ? "destructive" : "default"}
 							disabled={responding}
-							onClick={() => approve()}
+							onClick={approveInput}
 						>
 							{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}
 						</Button>
 					</div>
 				</div>
-			</div>
-		</div>
+		</ActionApprovalFrame>
 	);
 }

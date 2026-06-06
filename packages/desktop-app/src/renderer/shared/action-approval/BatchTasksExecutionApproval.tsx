@@ -2,6 +2,7 @@ import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { batchProjectsAtom, type BatchTask, type BatchTaskStatus } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { Button } from "../components/ui/button";
+import { Dialog, DialogContent } from "../components/ui/dialog";
 import { useActionApproval } from "./useActionApproval";
 
 type ExecutionOperation = "delete-all" | "start" | "stop" | "reset" | "reset-failed";
@@ -108,8 +109,12 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 		: 0;
 
 	return (
-		<div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/60 px-4 backdrop-blur-sm">
-			<div className="max-h-[90vh] w-full max-w-[560px] overflow-auto rounded-xl border border-border bg-popover shadow-xl">
+		<Dialog open>
+			<DialogContent
+				className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
+				showCloseButton={false}
+				onInteractOutside={(event) => event.preventDefault()}
+			>
 				<div className="border-b border-border/60 p-5">
 					<div className="flex items-start gap-3">
 						<div
@@ -267,7 +272,7 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 						</Button>
 					</div>
 				</div>
-			</div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }
