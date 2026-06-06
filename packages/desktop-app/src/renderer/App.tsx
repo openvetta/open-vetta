@@ -28,6 +28,11 @@ import { NavigationOpenApproval } from "./shared/action-approval/NavigationOpenA
 import { BatchTasksProjectApproval } from "./shared/action-approval/BatchTasksProjectApproval";
 import { BatchTasksTaskApproval } from "./shared/action-approval/BatchTasksTaskApproval";
 import { BatchTasksExecutionApproval } from "./shared/action-approval/BatchTasksExecutionApproval";
+import { SchedulerCreateApproval } from "./shared/action-approval/SchedulerCreateApproval";
+import { SchedulerUpdateApproval } from "./shared/action-approval/SchedulerUpdateApproval";
+import { SchedulerDeleteApproval } from "./shared/action-approval/SchedulerDeleteApproval";
+import { SchedulerToggleApproval } from "./shared/action-approval/SchedulerToggleApproval";
+import { SchedulerExecutionApproval } from "./shared/action-approval/SchedulerExecutionApproval";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,
@@ -360,6 +365,11 @@ export function RootLayout(): JSX.Element {
 					<BatchTasksProjectApproval />
 					<BatchTasksTaskApproval />
 					<BatchTasksExecutionApproval />
+					<SchedulerCreateApproval />
+					<SchedulerUpdateApproval />
+					<SchedulerDeleteApproval />
+					<SchedulerToggleApproval />
+					<SchedulerExecutionApproval />
 				</div>
 			</div>
 		</TooltipProvider>
