@@ -8,6 +8,7 @@ import {
 	type SchedulerEditableData,
 } from "./SchedulerApprovalFields";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface UpdateTaskData extends SchedulerEditableData {
 	skill?: { name: string; alias?: string; type: "skill" | "scene" } | null;
@@ -49,6 +50,7 @@ function SchedulerUpdateLoader({
 	const [task, setTask] = useState<ScheduledTask | undefined>(cachedTask);
 	const [loading, setLoading] = useState(!cachedTask);
 	const [loadError, setLoadError] = useState<string | null>(null);
+	const countdown = useApprovalCountdown();
 
 	useEffect(() => {
 		console.info("[action-approval:scheduler.update] request", {
@@ -132,7 +134,7 @@ function SchedulerUpdateLoader({
 				description={approval.request.summary}
 				footer={
 					<Button variant="ghost" size="sm" disabled={approval.responding} onClick={approval.reject}>
-						拒绝
+						拒绝（{countdown}）
 					</Button>
 				}
 			>
@@ -148,7 +150,7 @@ function SchedulerUpdateLoader({
 				description={approval.request.summary}
 				footer={
 					<Button variant="ghost" size="sm" disabled={approval.responding} onClick={approval.reject}>
-						拒绝
+						拒绝（{countdown}）
 					</Button>
 				}
 			>
@@ -177,6 +179,7 @@ function SchedulerUpdateDrawer({
 }): JSX.Element {
 	const { request, responding, error, approve, reject } = approval;
 	const [data, setData] = useState<SchedulerEditableData>(initialData);
+	const countdown = useApprovalCountdown();
 
 	return (
 		<ActionApprovalDrawer
@@ -185,7 +188,7 @@ function SchedulerUpdateDrawer({
 			footer={
 				<>
 					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-						拒绝
+						拒绝（{countdown}）
 					</Button>
 					<Button
 						size="sm"

@@ -2,6 +2,7 @@ import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { Button } from "../components/ui/button";
 import { ActionApprovalDialog } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 function isNavigationOpenInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -15,6 +16,7 @@ export function NavigationOpenApproval(): JSX.Element | null {
 	const approval = useActionApproval("navigation.open");
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
+	const countdown = useApprovalCountdown();
 
 	const input = isNavigationOpenInput(request.input) ? request.input : null;
 
@@ -23,11 +25,11 @@ export function NavigationOpenApproval(): JSX.Element | null {
 			title="页面跳转确认"
 			description={request.summary}
 			footer={
-				<>
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-						拒绝
-					</Button>
-					<Button size="sm" disabled={responding} onClick={() => approve()}>
+			<>
+				<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+					拒绝（{countdown}）
+				</Button>
+				<Button size="sm" disabled={responding} onClick={() => approve()}>
 						{responding ? "跳转中..." : "确认跳转"}
 					</Button>
 				</>

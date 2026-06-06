@@ -1,6 +1,7 @@
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { useActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface ExecutionTaskInput {
 	operation: "run-now" | "abort";
@@ -30,6 +31,7 @@ export function SchedulerExecutionApproval(): JSX.Element | null {
 	const approval = useActionApproval("scheduler.run-now");
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
+	const countdown = useApprovalCountdown();
 
 	const input = request.input as unknown as ExecutionTaskInput;
 	const detail = operationDetails[input.operation];
@@ -119,7 +121,7 @@ export function SchedulerExecutionApproval(): JSX.Element | null {
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
 						<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-							拒绝
+							拒绝（{countdown}）
 						</Button>
 						<Button
 							size="sm"

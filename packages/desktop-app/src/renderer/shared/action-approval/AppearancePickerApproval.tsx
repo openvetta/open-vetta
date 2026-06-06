@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { ActionApprovalDrawer } from "./ActionApprovalSurface";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 function isThemeSetInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -26,6 +27,7 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 	const input = isThemeSetInput(approval.request.input) ? approval.request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
+	const countdown = useApprovalCountdown();
 	const { request, responding, error, approve, reject } = approval;
 
 	return (
@@ -33,25 +35,25 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 			title="选择应用主题"
 			description={request.summary}
 			footer={
-				<>
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-						拒绝
-					</Button>
-					<Button
-						size="sm"
-						disabled={responding || input === null}
-						onClick={() =>
-							approve({
-								type: "set",
-								mode,
-								themeId,
-								approvalUi: "appearance.picker",
-							})
-						}
-					>
-						{responding ? "提交中..." : "应用主题"}
-					</Button>
-				</>
+			<>
+				<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+					拒绝（{countdown}）
+				</Button>
+				<Button
+					size="sm"
+					disabled={responding || input === null}
+					onClick={() =>
+						approve({
+							type: "set",
+							mode,
+							themeId,
+							approvalUi: "appearance.picker",
+						})
+					}
+				>
+					{responding ? "提交中..." : "应用主题"}
+				</Button>
+			</>
 			}
 		>
 			{input ? (

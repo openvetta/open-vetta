@@ -6,6 +6,7 @@ import {
 	type SchedulerEditableData,
 } from "./SchedulerApprovalFields";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface CreateTaskData extends SchedulerEditableData {
 	name: string;
@@ -30,6 +31,7 @@ export function SchedulerCreateApproval(): JSX.Element | null {
 
 function SchedulerCreateDrawer({ approval }: { approval: ActiveActionApproval }): JSX.Element {
 	const { request, responding, error, approve, reject } = approval;
+	const countdown = useApprovalCountdown();
 	const input = request.input as unknown as CreateTaskInput;
 	const [data, setData] = useState<SchedulerEditableData>(input.data);
 
@@ -38,24 +40,24 @@ function SchedulerCreateDrawer({ approval }: { approval: ActiveActionApproval })
 			title="编辑定时任务"
 			description={request.summary}
 			footer={
-				<>
-					<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
-						拒绝
-					</Button>
-					<Button
-						size="sm"
-						disabled={responding}
-						onClick={() =>
-							approve({
-								operation: "create",
-								data: { ...input.data, ...data },
-								approvalUi: input.approvalUi ?? "scheduler.create",
-							})
-						}
-					>
-						{responding ? "创建中..." : "确认创建"}
-					</Button>
-				</>
+			<>
+				<Button variant="ghost" size="sm" disabled={responding} onClick={reject}>
+					拒绝（{countdown}）
+				</Button>
+				<Button
+					size="sm"
+					disabled={responding}
+					onClick={() =>
+						approve({
+							operation: "create",
+							data: { ...input.data, ...data },
+							approvalUi: input.approvalUi ?? "scheduler.create",
+						})
+					}
+				>
+					{responding ? "创建中..." : "确认创建"}
+				</Button>
+			</>
 			}
 		>
 			<SchedulerApprovalFields value={data} onChange={setData} />
