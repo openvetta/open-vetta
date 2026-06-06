@@ -1,4 +1,5 @@
-import { main } from "@vetta/coding-agent";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { parseActionCommand, runActionCommand } from "./action-command.js";
 
 const HELP_TEXT = `Usage:
@@ -24,6 +25,24 @@ function isTopLevelHelp(argv: string[]): boolean {
 	return argv.length === 0 || argv[0] === "-h" || argv[0] === "--help";
 }
 
+async function runAgentCli(argv: string[]): Promise<number> {
+	const agentCliPath = fileURLToPath(new URL("./agent-cli.js", import.meta.url));
+	const child = spawn(process.execPath, [agentCliPath, ...argv], {
+		stdio: "inherit",
+	});
+
+	return await new Promise<number>((resolve, reject) => {
+		child.once("error", reject);
+		child.once("exit", (code, signal) => {
+			if (signal) {
+				process.kill(process.pid, signal);
+				return;
+			}
+			resolve(code ?? 1);
+		});
+	});
+}
+
 export async function runCli(argv: string[]): Promise<void> {
 	if (isTopLevelHelp(argv)) {
 		process.stdout.write(HELP_TEXT);
@@ -36,5 +55,5 @@ export async function runCli(argv: string[]): Promise<void> {
 		return;
 	}
 
-	await main(argv[0] === "agent" ? argv.slice(1) : argv);
+	process.exitCode = await runAgentCli(argv[0] === "agent" ? argv.slice(1) : argv);
 }
