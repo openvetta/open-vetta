@@ -141,8 +141,10 @@ function getFallbackThemeHelp(): Record<string, JsonValue> {
 			},
 			{
 				type: "set",
-				description: "设置主题。mode 控制 light/dark/auto，themeId 控制具体主题风格；两者可单独或同时传入。",
+				description:
+					"设置主题。agent 已明确用户要使用的 mode 或 themeId 时直接传值；需要让用户查看并选择主题时，使用 approvalUi: appearance.picker，且可省略 mode 和 themeId。",
 				input: { type: "set", mode: "dark", themeId: "default" },
+				interactiveInput: { type: "set", approvalUi: "appearance.picker" },
 			},
 		],
 		modes: [
@@ -150,6 +152,32 @@ function getFallbackThemeHelp(): Record<string, JsonValue> {
 			{ value: "dark", description: "固定深色模式。" },
 			{ value: "auto", description: "跟随系统外观。" },
 		],
+		approvalUi: {
+			parameter: "approvalUi",
+			default: "appearance.theme-change",
+			guidance:
+				"用户未指定具体主题，或适合让用户比较并自行决定时，优先使用 appearance.picker；用户已明确目标值时可省略 approvalUi，使用默认确认界面。",
+			options: [
+				{
+					value: "appearance.theme-change",
+					interactive: false,
+					description:
+						"默认的主题变更确认界面。只确认 agent 已提供的 mode/themeId，不允许用户在界面中改选；至少提供 mode 或 themeId。",
+				},
+				{
+					value: "appearance.picker",
+					interactive: true,
+					description:
+						"可交互主题选择器。用户可查看并调整显示模式和主题风格；mode/themeId 可作为初始值，也可全部省略并使用当前主题作为初始选择。",
+				},
+				{
+					value: "generic",
+					interactive: false,
+					description:
+						"通用 Action 确认界面。展示完整输入但不提供主题选择控件；至少提供 mode 或 themeId，仅在需要通用审批展示时使用。",
+				},
+			],
+		},
 		themes: [],
 		state: getFallbackThemeState(),
 		native: getNativeThemeInfo(),
