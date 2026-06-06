@@ -3,7 +3,10 @@ import { isValidCronExpression } from "../../scheduler/cron.js";
 import { ActionError, type JsonValue } from "../types.js";
 
 const taskIdSchema = z.string().trim().min(1);
-const approvalUiSchema = z.literal("generic").optional();
+const taskApprovalUiSchema = z
+	.enum(["scheduler.create", "scheduler.update", "scheduler.delete", "scheduler.toggle"])
+	.optional();
+const executionApprovalUiSchema = z.enum(["scheduler.run-now", "scheduler.abort"]).optional();
 const executionModeSchema = z.enum(["inherit", "sandbox", "full-access"]);
 const cronSchema = z.string().trim().refine(isValidCronExpression, "Invalid cron expression.");
 const skillSchema = z.object({
@@ -49,28 +52,28 @@ export const schedulerTaskInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("create"),
 		data: createTaskDataSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("update"),
 		taskId: taskIdSchema,
 		data: updateTaskDataSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("delete"),
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("enable"),
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("disable"),
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: taskApprovalUiSchema,
 	}),
 ]);
 
@@ -78,12 +81,12 @@ export const schedulerExecutionInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("run-now"),
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: executionApprovalUiSchema,
 	}),
 	z.object({
 		operation: z.literal("abort"),
 		taskId: taskIdSchema,
-		approvalUi: approvalUiSchema,
+		approvalUi: executionApprovalUiSchema,
 	}),
 ]);
 

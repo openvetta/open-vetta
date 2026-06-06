@@ -5,6 +5,7 @@ import {
 	type UpdateScheduledTaskInput,
 } from "../../scheduler/scheduler-service.js";
 import {
+	type ActionApprovalMetadata,
 	type ActionDefinition,
 	ActionError,
 	type ActionExample,
@@ -20,13 +21,44 @@ import {
 	validateSchedulerTaskInput,
 } from "./scheduler.schema.js";
 
-const approval = {
-	defaultPresentation: "generic",
+const taskApproval: ActionApprovalMetadata = {
+	defaultPresentation: "scheduler.create",
 	presentations: [
 		{
-			id: "generic",
-			title: "定时任务操作确认",
-			description: "展示定时任务变更或执行操作的完整输入，由用户确认是否执行。",
+			id: "scheduler.create",
+			title: "创建定时任务确认",
+			description: "展示待创建的定时任务详情，由用户确认是否创建。",
+		},
+		{
+			id: "scheduler.update",
+			title: "更新定时任务确认",
+			description: "展示定时任务的变更内容，由用户确认是否更新。",
+		},
+		{
+			id: "scheduler.delete",
+			title: "删除定时任务确认",
+			description: "展示待删除的定时任务信息，由用户确认是否删除。",
+		},
+		{
+			id: "scheduler.toggle",
+			title: "启用/停用定时任务确认",
+			description: "展示定时任务的启用状态变更，由用户确认。",
+		},
+	],
+};
+
+const executionApproval: ActionApprovalMetadata = {
+	defaultPresentation: "scheduler.run-now",
+	presentations: [
+		{
+			id: "scheduler.run-now",
+			title: "立即执行定时任务确认",
+			description: "展示待执行的定时任务信息，由用户确认是否立即执行。",
+		},
+		{
+			id: "scheduler.abort",
+			title: "中止定时任务确认",
+			description: "展示运行中的定时任务信息，由用户确认是否中止。",
 		},
 	],
 };
@@ -90,7 +122,7 @@ const taskInputSchema: ActionInputSchema = {
 					required: false,
 					description: "执行前注入的技能或场景。",
 				},
-				{ name: "approvalUi", type: '"generic"', required: false, description: "审批界面。" },
+				{ name: "approvalUi", type: '"scheduler.create"', required: false, description: "审批界面。" },
 			],
 		},
 		{
@@ -105,7 +137,7 @@ const taskInputSchema: ActionInputSchema = {
 					required: true,
 					description: "可更新 create 中的任意任务字段；至少提供一项。",
 				},
-				{ name: "approvalUi", type: '"generic"', required: false, description: "审批界面。" },
+				{ name: "approvalUi", type: '"scheduler.update"', required: false, description: "审批界面。" },
 			],
 		},
 		...["delete", "enable", "disable"].map((operation) => ({
@@ -167,9 +199,13 @@ function taskIdParameters(operation: string) {
 }
 
 function approvalTaskIdParameters(operation: string) {
+	const approvalUiType =
+		operation === "run-now" || operation === "abort"
+			? '"scheduler.run-now" | "scheduler.abort"'
+			: '"scheduler.delete" | "scheduler.toggle"';
 	return [
 		...taskIdParameters(operation),
-		{ name: "approvalUi", type: '"generic"', required: false, description: "审批界面。" },
+		{ name: "approvalUi", type: approvalUiType, required: false, description: "审批界面。" },
 	];
 }
 
@@ -235,7 +271,7 @@ export function createSchedulerActions(service: SchedulerService): ActionDefinit
 		summary: "创建、更新、删除、启用或停用定时任务。",
 		availability: "gui-main",
 		permission: "scheduler.task.write",
-		approval,
+		approval: taskApproval,
 		inputSchema: taskInputSchema,
 		examples: taskExamples,
 		validateInput: validateSchedulerTaskInput,
@@ -264,7 +300,7 @@ export function createSchedulerActions(service: SchedulerService): ActionDefinit
 		summary: "立即执行或中止定时任务。",
 		availability: "gui-main",
 		permission: "scheduler.execution.write",
-		approval,
+		approval: executionApproval,
 		inputSchema: executionInputSchema,
 		examples: executionExamples,
 		validateInput: validateSchedulerExecutionInput,
