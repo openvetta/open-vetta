@@ -33,8 +33,9 @@ const toolDescriptions: Record<string, string> = {
 };
 
 export const VETTA_CLI_GUIDANCE = [
-	"Use `vetta action` to work with the running Vetta Desktop app.",
-	"It can search GUI actions, describe a specific action, and run an action through the local Desktop action RPC.",
+	"Vetta CLI is your interface to the running Vetta Desktop app: use `vetta action` both to learn what Desktop can do and to operate it.",
+	"It can search available Desktop actions, describe their capabilities and inputs, and run them through the local Desktop action.",
+	"Batch tasks and scheduled tasks are Desktop capabilities that can be queried and managed through these actions; use action search and description to discover the correct operations.",
 	"When the user asks about Vetta Desktop app features, settings, pages, navigation, appearance/theme changes, or how to operate the app, you MUST inspect Vetta CLI help first with `vetta action -h` and then search/describe relevant actions as needed.",
 	"Do not answer by guessing from memory.",
 	"Do not inspect files under `.vetta` to resolve user confusion about app configuration or feature locations; local config files are not the app UX contract and do not help users find or change settings in the running app.",

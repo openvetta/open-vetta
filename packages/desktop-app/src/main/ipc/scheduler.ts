@@ -1,16 +1,7 @@
 import { ipcMain, type WebContents } from "electron";
-import { abortTask, getRuntime, scheduleTaskInCron, unscheduleTaskInCron } from "../scheduler/scheduler.js";
-import { executeTask } from "../scheduler/task-executor";
+import type { SchedulerService } from "../scheduler/scheduler-service.js";
 import type { ScheduledTask } from "../scheduler/task-storage";
-import {
-	deleteRecordsBySessionPath,
-	deleteTaskRecords,
-	generateId,
-	loadAllScheduledSessionPaths,
-	loadRecords,
-	loadTasks,
-	saveTasks,
-} from "../scheduler/task-storage";
+import { deleteRecordsBySessionPath, loadAllScheduledSessionPaths, loadRecords } from "../scheduler/task-storage";
 
 const CHANNELS = {
 	GET_TASKS: "vetta:scheduler:get-tasks",
@@ -42,7 +33,7 @@ interface TaskStreamEvent {
 	phase?: string;
 }
 
-type TaskEvent =
+export type TaskEvent =
 	| {
 			type: "task.started";
 			taskId: string;
@@ -55,7 +46,8 @@ type TaskEvent =
 	  }
 	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
 	| { type: "task.failed"; taskId: string; error: string }
-	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };
+	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" }
+	| { type: "tasks.changed" };
 
 const streamHandlers = new Set<TaskStreamHandler>();
 const eventHandlers = new Set<(event: TaskEvent) => void>();
@@ -72,89 +64,45 @@ export function emitTaskEvent(event: TaskEvent): void {
 	}
 }
 
-export function registerSchedulerIpc(webContents: WebContents): () => void {
-	streamHandlers.add((event) => {
+export function registerSchedulerIpc(webContents: WebContents, service: SchedulerService): () => void {
+	const streamHandler = (event: TaskStreamEvent) => {
 		webContents.send(CHANNELS.STREAM_EVENT, event);
-	});
+	};
+	streamHandlers.add(streamHandler);
 
-	eventHandlers.add((event) => {
+	const eventHandler = (event: TaskEvent) => {
 		webContents.send(CHANNELS.EVENT, event);
+	};
+	eventHandlers.add(eventHandler);
+	const unsubscribeTasksChanged = service.onTasksChanged(() => {
+		emitTaskEvent({ type: "tasks.changed" });
 	});
 
 	ipcMain.handle(CHANNELS.GET_TASKS, async () => {
-		return loadTasks();
+		return await service.listTasks();
 	});
 
 	ipcMain.handle(
 		CHANNELS.CREATE_TASK,
 		async (_, task: Omit<ScheduledTask, "id" | "createdAt" | "updatedAt" | "lastRunAt" | "lastRunStatus">) => {
-			const tasks = await loadTasks();
-			const now = Date.now();
-			const newTask: ScheduledTask = {
-				...task,
-				id: generateId(),
-				createdAt: now,
-				updatedAt: now,
-				lastRunAt: null,
-				lastRunStatus: null,
-			};
-			tasks.push(newTask);
-			await saveTasks(tasks);
-
-			if (newTask.enabled) {
-				scheduleTaskInCron(newTask);
-			}
-
-			return newTask;
+			return await service.createTask(task);
 		},
 	);
 
 	ipcMain.handle(CHANNELS.UPDATE_TASK, async (_, id: string, patch: Partial<ScheduledTask>) => {
-		const tasks = await loadTasks();
-		const index = tasks.findIndex((t) => t.id === id);
-		if (index === -1) return;
-
-		tasks[index] = { ...tasks[index], ...patch, updatedAt: Date.now() };
-		await saveTasks(tasks);
-
-		if (tasks[index].enabled) {
-			scheduleTaskInCron(tasks[index]);
-		}
+		await service.updateTask(id, patch);
 	});
 
 	ipcMain.handle(CHANNELS.DELETE_TASK, async (_, id: string) => {
-		unscheduleTaskInCron(id);
-		const tasks = await loadTasks();
-		const filtered = tasks.filter((t) => t.id !== id);
-		await saveTasks(filtered);
-		await deleteTaskRecords(id);
+		await service.deleteTask(id);
 	});
 
 	ipcMain.handle(CHANNELS.TOGGLE_TASK, async (_, id: string) => {
-		const tasks = await loadTasks();
-		const task = tasks.find((t) => t.id === id);
-		if (!task) return;
-
-		task.enabled = !task.enabled;
-		task.updatedAt = Date.now();
-		await saveTasks(tasks);
-
-		if (task.enabled) {
-			scheduleTaskInCron(task);
-		} else {
-			unscheduleTaskInCron(id);
-		}
+		await service.toggleTask(id);
 	});
 
 	ipcMain.handle(CHANNELS.DISABLE_TASK, async (_, id: string) => {
-		const tasks = await loadTasks();
-		const task = tasks.find((t) => t.id === id);
-		if (!task?.enabled) return;
-
-		task.enabled = false;
-		task.updatedAt = Date.now();
-		await saveTasks(tasks);
-		unscheduleTaskInCron(id);
+		await service.setEnabled(id, false);
 	});
 
 	ipcMain.handle(CHANNELS.GET_RECORDS, async (_, taskId: string) => {
@@ -170,19 +118,17 @@ export function registerSchedulerIpc(webContents: WebContents): () => void {
 	});
 
 	ipcMain.handle(CHANNELS.ABORT, async (_, taskId: string) => {
-		abortTask(taskId);
+		await service.abort(taskId);
 	});
 
 	ipcMain.handle(CHANNELS.RUN_NOW, async (_, taskId: string) => {
-		const tasks = await loadTasks();
-		const task = tasks.find((t) => t.id === taskId);
-		if (!task) return;
-		await executeTask(task, getRuntime());
+		await service.runNow(taskId);
 	});
 
 	return () => {
-		streamHandlers.clear();
-		eventHandlers.clear();
+		unsubscribeTasksChanged();
+		streamHandlers.delete(streamHandler);
+		eventHandlers.delete(eventHandler);
 		ipcMain.removeHandler(CHANNELS.GET_TASKS);
 		ipcMain.removeHandler(CHANNELS.CREATE_TASK);
 		ipcMain.removeHandler(CHANNELS.UPDATE_TASK);

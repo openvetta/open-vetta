@@ -1,9 +1,10 @@
 import { AsyncTask, CronJob, ToadScheduler } from "toad-scheduler";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import { getSharedRuntime } from "../runtime.js";
-import { abortTask, executeTask } from "./task-executor";
+import { isValidCronExpression } from "./cron.js";
+import { executeTask, isTaskRunning } from "./task-executor";
 import type { ScheduledTask as TaskData } from "./task-storage";
-import { loadTasks } from "./task-storage";
+import { loadTasks, updateTaskEnabled } from "./task-storage";
 
 const _scheduler = new ToadScheduler();
 const scheduledJobs = new Map<string, CronJob>();
@@ -28,13 +29,25 @@ export async function initScheduler(): Promise<void> {
 
 export function scheduleTaskInCron(task: TaskData): void {
 	unscheduleTaskInCron(task.id);
+	if (!isValidCronExpression(task.cron)) {
+		throw new Error(`Invalid cron expression: ${task.cron}`);
+	}
 
 	const asyncTask = new AsyncTask(
 		`scheduled-task-${task.id}`,
 		async () => {
 			console.log(`[Scheduler] Executing task: ${task.name} (${task.id})`);
+			if (isTaskRunning(task.id)) {
+				console.warn(`[Scheduler] Skipping task because it is already running: ${task.name} (${task.id})`);
+				return;
+			}
 			try {
-				await executeTask(task, getRuntime());
+				await executeTask(task, getRuntime(), {
+					onOneTimeCompleted: async () => {
+						disableTaskInCron(task.id);
+						await updateTaskEnabled(task.id, false);
+					},
+				});
 			} catch (error) {
 				console.error(`[Scheduler] Task execution failed:`, error);
 			}
@@ -83,4 +96,4 @@ export async function rescheduleAll(): Promise<void> {
 	}
 }
 
-export { abortTask, getRuntime };
+export { getRuntime };
