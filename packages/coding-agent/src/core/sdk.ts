@@ -229,15 +229,6 @@ function getDefaultAgentDir(): string {
  * ```
  */
 export async function createAgentSession(options: CreateAgentSessionOptions = {}): Promise<CreateAgentSessionResult> {
-	const __perfStart = Date.now();
-	const __perfMark = (label: string) => {
-		// stderr, not stdout: in rpc mode stdout carries the NDJSON wire
-		// protocol and any non-JSON line would be parsed as a malformed
-		// event by clients like im-gateway (which then surfaces it as an
-		// "(agent error)" card).
-		console.error(`[perf][createAgentSession] ${label} +${Date.now() - __perfStart}ms`);
-	};
-	__perfMark("enter");
 	const cwd = options.cwd ?? process.cwd();
 	const agentDir = options.agentDir ?? getDefaultAgentDir();
 	let resourceLoader = options.resourceLoader;
@@ -249,8 +240,6 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const modelRegistry = options.modelRegistry ?? new ModelRegistry(authStorage, modelsPath);
 
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
-	__perfMark("before loadRemoteModels");
-
 	// Ensure serverUrl has a default value, then load remote models.
 	// 优先级：调用方显式传入 > settings.json > 内置 DEFAULT_SERVER_URL。
 	// 调用方传入的 URL 不写入 settings.json——宿主进程（如 desktop-app）才是
@@ -273,9 +262,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		modelRegistry.setServerTokenGetter(() => settingsManager.getServerTokenFresh());
 		await modelRegistry.loadRemoteModels();
 	}
-	__perfMark("after loadRemoteModels");
 	const sessionManager = options.sessionManager ?? SessionManager.create(cwd);
-	__perfMark("after SessionManager.create");
 
 	if (!resourceLoader) {
 		resourceLoader = new DefaultResourceLoader({
@@ -287,8 +274,6 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		await resourceLoader.reload();
 		time("resourceLoader.reload");
 	}
-	__perfMark("after resourceLoader.reload");
-
 	// Check if session has existing data to restore
 	const existingSession = sessionManager.buildSessionContext();
 	const hasExistingSession = existingSession.messages.length > 0;
@@ -480,7 +465,6 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();
-	__perfMark("exit");
 
 	return {
 		session,

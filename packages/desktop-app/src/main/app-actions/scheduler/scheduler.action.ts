@@ -1,3 +1,4 @@
+import { getAppLogger } from "../../logger.js";
 import {
 	type CreateScheduledTaskInput,
 	type SchedulerService,
@@ -12,6 +13,9 @@ import {
 	type ActionInputSchema,
 	type JsonValue,
 } from "../types.js";
+
+const log = getAppLogger("action-scheduler");
+
 import {
 	type SchedulerExecutionInput,
 	type SchedulerQueryInput,
@@ -204,7 +208,12 @@ function approvalTaskIdParameters(operation: string) {
 }
 
 function toJsonValue(value: unknown): JsonValue {
-	return JSON.parse(JSON.stringify(value)) as JsonValue;
+	try {
+		return JSON.parse(JSON.stringify(value)) as JsonValue;
+	} catch (error) {
+		log.error("toJsonValue: failed to serialize value", error);
+		throw error;
+	}
 }
 
 async function runService<T>(operation: () => Promise<T>): Promise<JsonValue> {
@@ -214,6 +223,7 @@ async function runService<T>(operation: () => Promise<T>): Promise<JsonValue> {
 		if (error instanceof SchedulerServiceError) {
 			throw new ActionError(error.code, error.message, error.details as JsonValue | undefined);
 		}
+		log.error("scheduler runService: unexpected error", error);
 		throw error;
 	}
 }

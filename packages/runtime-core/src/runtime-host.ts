@@ -283,8 +283,6 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	async createSession(config: SessionConfig = {}): Promise<{ sessionId: string }> {
-		const __t0 = Date.now();
-		console.log(`[perf][RuntimeHost.createSession] enter cwd=${config.cwd ?? "-"}`);
 		// Dedupe by sessionPath: a SessionManager.open() takes an exclusive file
 		// lock, and the lock module treats same-pid re-acquisition as a real
 		// conflict. So if the renderer reopens a session this RuntimeHost is
@@ -354,15 +352,12 @@ export class RuntimeHost implements SessionFacade {
 			modelRegistry: this.modelRegistry,
 		};
 
-		console.log(`[perf][RuntimeHost.createSession] before createAgentSession +${Date.now() - __t0}ms`);
 		const { session } = await createAgentSession(options);
-		console.log(`[perf][RuntimeHost.createSession] after createAgentSession +${Date.now() - __t0}ms`);
 		const sessionId = session.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
 		this.sessions.set(sessionId, { session, executionMode });
 		this.attachInFlightBuffer(sessionId, session);
-		console.log(`[perf][RuntimeHost.createSession] exit total=${Date.now() - __t0}ms`);
 
 		// Stale-while-revalidate：当前的远程 model 数据已就绪可用（来自启动预热
 		// 或上一次刷新），这里再 fire-and-forget 一次刷新，不 await。

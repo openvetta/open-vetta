@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { type IpcMainEvent, ipcMain, nativeTheme } from "electron";
+import { getAppLogger } from "../../logger.js";
 import { getMainWindow } from "../../window-manager.js";
 import { ActionError, type JsonValue } from "../types.js";
+
+const log = getAppLogger("action-theme");
+
 import {
 	type RendererThemeHelp,
 	type RendererThemeSnapshot,
@@ -45,6 +49,7 @@ export function waitForRendererThemeResponse(
 	return new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => {
 			ipcMain.removeListener(responseChannel, listener);
+			log.warn("waitForRendererThemeResponse: timeout", { requestChannel, responseChannel, requestId });
 			reject(new ActionError("ACTION_TIMEOUT", "Timed out waiting for renderer theme response."));
 		}, 2000);
 
@@ -57,10 +62,12 @@ export function waitForRendererThemeResponse(
 			ipcMain.removeListener(responseChannel, listener);
 
 			if (response.data.error) {
+				log.warn("waitForRendererThemeResponse: renderer error", { requestId, error: response.data.error });
 				reject(new ActionError("ACTION_RENDERER_ERROR", response.data.error));
 				return;
 			}
 			if (response.data.state === undefined) {
+				log.warn("waitForRendererThemeResponse: missing state", { requestId });
 				reject(new ActionError("ACTION_RENDERER_ERROR", "Renderer theme response is missing state."));
 				return;
 			}
@@ -83,6 +90,7 @@ function waitForRendererThemeHelp(): Promise<RendererThemeHelp> {
 	return new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => {
 			ipcMain.removeListener("vetta:theme:help-response", listener);
+			log.warn("waitForRendererThemeHelp: timeout", { requestId });
 			reject(new ActionError("ACTION_TIMEOUT", "Timed out waiting for renderer theme help."));
 		}, 2000);
 
@@ -95,10 +103,12 @@ function waitForRendererThemeHelp(): Promise<RendererThemeHelp> {
 			ipcMain.removeListener("vetta:theme:help-response", listener);
 
 			if (response.data.error) {
+				log.warn("waitForRendererThemeHelp: renderer error", { requestId, error: response.data.error });
 				reject(new ActionError("ACTION_RENDERER_ERROR", response.data.error));
 				return;
 			}
 			if (response.data.help === undefined) {
+				log.warn("waitForRendererThemeHelp: missing help", { requestId });
 				reject(new ActionError("ACTION_RENDERER_ERROR", "Renderer theme help response is missing help."));
 				return;
 			}

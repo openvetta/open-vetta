@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { WebContents } from "electron";
+import { getAppLogger } from "../logger.js";
 import { showMainWindow } from "../window-manager.js";
 import {
 	type ActionApprovalDecision,
@@ -8,6 +9,8 @@ import {
 	ActionError,
 	type JsonValue,
 } from "./types.js";
+
+const log = getAppLogger("action-approval");
 
 const ACTION_APPROVAL_REQUEST_CHANNEL = "vetta:action-approval:request";
 const DEFAULT_APPROVAL_TIMEOUT_MS = 2 * 60 * 1000;
@@ -36,6 +39,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 
 	request(request: ActionApprovalRequest, signal?: AbortSignal): Promise<ActionApprovalDecision> {
 		if (this.webContents.isDestroyed()) {
+			log.warn("request: webContents destroyed", { actionId: request.actionId });
 			return Promise.reject(new ActionError("ACTION_APPROVAL_UNAVAILABLE", "Vetta Desktop 授权界面不可用。"));
 		}
 
@@ -60,9 +64,15 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 				reject(error);
 			};
 			const onAbort = (): void => {
+				log.warn("request: aborted by signal", { approvalId, actionId: request.actionId });
 				cancel(new ActionError("ACTION_CANCELLED", "Vetta action 请求已取消。", { actionId: request.actionId }));
 			};
 			const timeout = setTimeout(() => {
+				log.warn("request: approval timeout", {
+					approvalId,
+					actionId: request.actionId,
+					timeoutMs: this.timeoutMs,
+				});
 				cancel(
 					new ActionError(
 						"ACTION_APPROVAL_TIMEOUT",
@@ -75,6 +85,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 			}, this.timeoutMs);
 
 			if (signal?.aborted) {
+				log.warn("request: signal already aborted", { actionId: request.actionId, approvalId });
 				onAbort();
 				return;
 			}
@@ -105,6 +116,10 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 	}
 
 	cancelAll(): void {
+		const count = this.pending.size;
+		if (count > 0) {
+			log.warn("cancelAll: cancelling pending approvals", { count });
+		}
 		for (const pending of this.pending.values()) {
 			pending.cancel(new ActionError("ACTION_CANCELLED", "Vetta Desktop 授权请求已取消。"));
 		}
