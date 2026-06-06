@@ -24,7 +24,10 @@ export function ExecutionHistory({ taskId, embedded = false }: ExecutionHistoryP
 
 	useEffect(() => {
 		const unsubscribe = window.vetta.scheduler.onTaskEvent((event) => {
-			if (event.taskId === taskId && (event.type === "task.started" || event.type === "record.updated")) {
+			if (
+				(event.type === "task.started" || event.type === "record.updated") &&
+				event.taskId === taskId
+			) {
 				loadRecords();
 			}
 		});

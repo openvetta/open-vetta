@@ -131,6 +131,7 @@ export async function loadTasks(): Promise<ScheduledTask[]> {
 // 串行化任务文件写入：多处（updateTaskLastRun / updateTaskEnabled / createTask 等）
 // 可能在任务执行收尾时并发写同一文件，非原子写会互相截断导致 JSON 损坏。
 let saveChain: Promise<void> = Promise.resolve();
+let mutationChain: Promise<void> = Promise.resolve();
 
 export async function saveTasks(tasks: ScheduledTask[]): Promise<void> {
 	const run = async (): Promise<void> => {
@@ -146,6 +147,18 @@ export async function saveTasks(tasks: ScheduledTask[]): Promise<void> {
 	};
 	saveChain = saveChain.then(run, run);
 	return saveChain;
+}
+
+export async function mutateTasks<T>(mutate: (tasks: ScheduledTask[]) => T | Promise<T>): Promise<T> {
+	let result!: T;
+	const run = async (): Promise<void> => {
+		const tasks = await loadTasks();
+		result = await mutate(tasks);
+		await saveTasks(tasks);
+	};
+	mutationChain = mutationChain.then(run, run);
+	await mutationChain;
+	return result;
 }
 
 function getTaskRecordsDir(taskId: string): string {
@@ -306,22 +319,20 @@ export function generateId(): string {
 }
 
 export async function updateTaskLastRun(taskId: string, status: "success" | "failed"): Promise<void> {
-	const tasks = await loadTasks();
-	const task = tasks.find((t) => t.id === taskId);
-	if (task) {
+	await mutateTasks((tasks) => {
+		const task = tasks.find((candidate) => candidate.id === taskId);
+		if (!task) return;
 		task.lastRunAt = Date.now();
 		task.lastRunStatus = status;
 		task.updatedAt = Date.now();
-		await saveTasks(tasks);
-	}
+	});
 }
 
 export async function updateTaskEnabled(taskId: string, enabled: boolean): Promise<void> {
-	const tasks = await loadTasks();
-	const task = tasks.find((t) => t.id === taskId);
-	if (task) {
+	await mutateTasks((tasks) => {
+		const task = tasks.find((candidate) => candidate.id === taskId);
+		if (!task) return;
 		task.enabled = enabled;
 		task.updatedAt = Date.now();
-		await saveTasks(tasks);
-	}
+	});
 }

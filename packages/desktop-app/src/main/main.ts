@@ -36,7 +36,8 @@ import { getAppLogger } from "./logger.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
-import { initScheduler } from "./scheduler/scheduler.js";
+import { initScheduler, scheduleTaskInCron, unscheduleTaskInCron } from "./scheduler/scheduler.js";
+import { SchedulerService } from "./scheduler/scheduler-service.js";
 import {
 	createTray,
 	getHideToTrayOnClose,
@@ -415,6 +416,11 @@ if (!gotSingleLock) {
 		const mainWindow = createWindow();
 		const actionApprovalBroker = new ActionApprovalBroker(mainWindow.webContents);
 		const batchTaskService = new BatchTaskService(getSharedRuntime);
+		const schedulerService = new SchedulerService({
+			getRuntime: getSharedRuntime,
+			scheduleTask: scheduleTaskInCron,
+			unscheduleTask: unscheduleTaskInCron,
+		});
 		await batchTaskService.initialize();
 
 		// Register IPC handlers
@@ -422,7 +428,7 @@ if (!gotSingleLock) {
 		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService);
 
 		try {
-			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService);
+			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService, schedulerService);
 			localActionServer = await startLocalActionServer(actionRuntime, {
 				endpointFilePath: getActionServerEndpointFilePath(),
 			});
@@ -487,7 +493,7 @@ if (!gotSingleLock) {
 		void initScheduler().then(() => {
 			const win = getMainWindow();
 			if (win) {
-				teardownSchedulerIpc = registerSchedulerIpc(win.webContents);
+				teardownSchedulerIpc = registerSchedulerIpc(win.webContents, schedulerService);
 			}
 		});
 

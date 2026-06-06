@@ -10,10 +10,15 @@ import { createRecord, generateId, updateRecordMetadata, updateTaskLastRun } fro
 
 interface ExecutingTask {
 	sessionId: string;
-	abortFn: () => void;
+	runtime: RuntimeHost;
+	unsubscribe: () => void;
 }
 
 const executingTasks = new Map<string, ExecutingTask>();
+
+export interface ExecuteTaskOptions {
+	onOneTimeCompleted?: (task: ScheduledTask) => Promise<void> | void;
+}
 
 /**
  * 与 batch-task-executor.applySkillPrefix 等价：在 prompt 前注入 `/skill:` 或 `/scene:` 行。
@@ -25,7 +30,15 @@ function applySkillPrefix(prompt: string, skill: ScheduledTask["skill"]): string
 	return `${prefix}${prompt}`;
 }
 
-export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Promise<void> {
+export async function executeTask(
+	task: ScheduledTask,
+	runtime: RuntimeHost,
+	options: ExecuteTaskOptions = {},
+): Promise<void> {
+	if (isTaskRunning(task.id)) {
+		throw new Error(`Scheduled task is already running: ${task.id}`);
+	}
+
 	const recordId = generateId();
 	let sessionId = "";
 
@@ -173,17 +186,14 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 
 					// Auto-disable one-time tasks after execution completes
 					if (task.isOnce && event.phase === "agent_end") {
-						// Dynamically import to avoid circular dependency
-						const { disableTaskInCron } = await import("./scheduler.js");
-						disableTaskInCron(task.id);
-						const { updateTaskEnabled } = await import("./task-storage");
-						await updateTaskEnabled(task.id, false);
+						await options.onOneTimeCompleted?.(task);
+						emitTaskEvent({ type: "tasks.changed" });
 					}
 				}
 			}
 		});
 
-		executingTasks.set(task.id, { sessionId, abortFn: safeUnsubscribe });
+		executingTasks.set(task.id, { sessionId, runtime, unsubscribe: safeUnsubscribe });
 
 		await runtime.prompt(sessionId, {
 			text: applySkillPrefix(task.prompt, task.skill),
@@ -200,12 +210,13 @@ export async function executeTask(task: ScheduledTask, runtime: RuntimeHost): Pr
 	}
 }
 
-export function abortTask(taskId: string): void {
+export async function abortTask(taskId: string): Promise<boolean> {
 	const executing = executingTasks.get(taskId);
-	if (executing) {
-		executing.abortFn();
-		executingTasks.delete(taskId);
-	}
+	if (!executing) return false;
+	await executing.runtime.abort(executing.sessionId);
+	executing.unsubscribe();
+	executingTasks.delete(taskId);
+	return true;
 }
 
 export function isTaskRunning(taskId: string): boolean {

@@ -50,7 +50,8 @@ export type TaskEvent =
 	  }
 	| { type: "task.completed"; taskId: string; recordId: string; status: "success" | "failed" }
 	| { type: "task.failed"; taskId: string; error: string }
-	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" };
+	| { type: "record.updated"; taskId: string; sessionId: string; status: "success" | "aborted" }
+	| { type: "tasks.changed" };
 
 export interface DesktopSchedulerApi {
 	getTasks(): Promise<ScheduledTask[]>;
