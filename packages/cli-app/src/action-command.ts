@@ -73,6 +73,17 @@ Description:
   Connect to the running Vetta GUI process and invoke its local action RPC
   server. The GUI must already be running.
 
+Examples:
+  vetta action search ""
+  vetta action search "example action"
+  vetta action describe example.action
+  vetta action run example.action
+  vetta action run example.action '{"operation":"get"}'
+
+JSON input:
+  In PowerShell and POSIX shells, wrap the JSON argument in single quotes.
+  Keep JSON property names and string values in unescaped double quotes.
+
 Output:
   stdout contains one JSON object:
     {"ok":true,"result":...}
