@@ -3,7 +3,7 @@ import { themeModeAtom, themeNameAtom, type ThemeMode } from "@shared/store/atom
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { Button } from "../components/ui/button";
-import { ActionApprovalDrawer } from "./ActionApprovalSurface";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
 import { useActionApproval } from "./useActionApproval";
 import { useApprovalCountdown } from "./useApprovalCountdown";
@@ -51,45 +51,48 @@ function ThemeChangeDrawer({
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
 
 	return (
-		<ActionApprovalDrawer
-			title="编辑主题变更"
-			description={request.summary}
-			footer={
-			<>
-				<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-					拒绝（{countdown}）
-				</Button>
-				<Button
-					size="sm"
-					disabled={responding || !input}
-					onClick={() =>
-						approve({
-							type: "set",
-							mode,
-							themeId,
-							approvalUi: input?.approvalUi ?? "appearance.theme-change",
-						})
-					}
-				>
-					{responding ? "提交中..." : "确认变更"}
-				</Button>
-			</>
-			}
-		>
-			{input ? (
-				<AppearanceActionPicker
-					mode={mode}
-					themeId={themeId}
-					onModeChange={setMode}
-					onThemeChange={setThemeId}
-				/>
-			) : (
-				<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[11px] leading-5 text-foreground">
-					{JSON.stringify(request.input, null, 2)}
-				</pre>
-			)}
-			<div className="mt-4 text-[11px] text-muted-foreground">权限：{request.permission}</div>
-			{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
-		</ActionApprovalDrawer>
+		<Drawer open direction="right" dismissible={false}>
+			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
+				<DrawerHeader className="border-b border-border/60">
+					<DrawerTitle>编辑主题变更</DrawerTitle>
+					<DrawerDescription>{request.summary}</DrawerDescription>
+				</DrawerHeader>
+				<div className="min-h-0 flex-1 overflow-y-auto p-4">
+					{input ? (
+						<AppearanceActionPicker
+							mode={mode}
+							themeId={themeId}
+							onModeChange={setMode}
+							onThemeChange={setThemeId}
+						/>
+					) : (
+						<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[11px] leading-5 text-foreground">
+							{JSON.stringify(request.input, null, 2)}
+						</pre>
+					)}
+					<div className="mt-4 text-[11px] text-muted-foreground">权限：{request.permission}</div>
+					{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
+				</div>
+				<DrawerFooter className="border-t border-border/60">
+					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
+						拒绝（{countdown}）
+					</Button>
+					<Button
+						size="sm"
+						disabled={responding || !input}
+						onClick={() =>
+							approve({
+								type: "set",
+								mode,
+								themeId,
+								approvalUi: input?.approvalUi ?? "appearance.theme-change",
+							})
+						}
+					>
+						{responding ? "提交中..." : "确认变更"}
+					</Button>
+				</DrawerFooter>
+			</DrawerContent>
+		</Drawer>
 	);
 }

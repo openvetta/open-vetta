@@ -3,8 +3,9 @@ import { batchProjectsAtom, type BatchProject } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/ui/button";
+import { Dialog, DialogContent } from "../components/ui/dialog";
+import { Drawer, DrawerContent } from "../components/ui/drawer";
 import { Textarea } from "../components/ui/textarea";
-import { ActionApprovalFrame } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
 import { useApprovalCountdown } from "./useApprovalCountdown";
 
@@ -237,22 +238,30 @@ function BatchTasksProjectApprovalContent({
 
 	if (loading) {
 		return (
-			<ActionApprovalFrame editable>
-				<div className="py-10 text-center text-[12px] text-muted-foreground">正在加载当前项目配置...</div>
-			</ActionApprovalFrame>
+			<Drawer open direction="right" dismissible={false}>
+				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
+					<div className="min-h-0 flex-1 overflow-y-auto">
+						<div className="py-10 text-center text-[12px] text-muted-foreground">正在加载当前项目配置...</div>
+					</div>
+				</DrawerContent>
+			</Drawer>
 		);
 	}
 
 	if (parsedInput?.operation === "update" && !currentProject) {
 		return (
-			<ActionApprovalFrame editable>
-				<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
-					<div className="flex justify-end border-t border-border/60 px-5 py-4">
-						<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-							拒绝（{countdown}）
-						</Button>
+			<Drawer open direction="right" dismissible={false}>
+				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
+					<div className="min-h-0 flex-1 overflow-y-auto">
+						<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
+						<div className="flex justify-end border-t border-border/60 px-5 py-4">
+							<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
+								拒绝（{countdown}）
+							</Button>
+						</div>
 					</div>
-			</ActionApprovalFrame>
+				</DrawerContent>
+			</Drawer>
 		);
 	}
 
@@ -274,208 +283,230 @@ function BatchTasksProjectApprovalContent({
 		}
 	};
 
-	return (
-		<ActionApprovalFrame editable={isEditable}>
-				<div className="border-b border-border/60 p-5">
-					<div className="flex items-start gap-3">
-						<div
-							className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-								isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-							}`}
-						>
-							<span
-								className={`${isDelete ? "icon-[mdi--folder-remove-outline]" : "icon-[mdi--folder-cog-outline]"} h-5 w-5`}
-							/>
+	const content = (
+		<>
+			<div className="border-b border-border/60 p-5">
+				<div className="flex items-start gap-3">
+					<div
+						className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+							isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+						}`}
+					>
+						<span
+							className={`${isDelete ? "icon-[mdi--folder-remove-outline]" : "icon-[mdi--folder-cog-outline]"} h-5 w-5`}
+						/>
+					</div>
+					<div className="min-w-0 flex-1">
+						<div className="flex flex-wrap items-center gap-2">
+							<h2 className="text-[15px] font-semibold text-foreground">批量项目操作确认</h2>
+							{input && (
+								<span
+									className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+										isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+									}`}
+								>
+									{operationLabels[input.operation]}
+								</span>
+							)}
 						</div>
-						<div className="min-w-0 flex-1">
-							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="text-[15px] font-semibold text-foreground">批量项目操作确认</h2>
-								{input && (
-									<span
-										className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-											isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-										}`}
-									>
-										{operationLabels[input.operation]}
-									</span>
-								)}
-							</div>
-							<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
-						</div>
+						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
 					</div>
 				</div>
+			</div>
 
-				<div className="space-y-3 p-5">
-					{input?.operation === "create" && data && (
-						<>
-							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
-								<ValueRow label="项目名称" value={data.name ?? "未提供"} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="任务数量" value={`${data.folders?.length ?? 0} 个文件夹`} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="最大并发" value={`${data.concurrency ?? "未提供"} 个任务`} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="单任务超时" value={`${data.timeoutMinutes ?? 60} 分钟`} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="模型" value={data.modelKey ?? "应用默认模型"} />
-								<div className="h-px bg-border/40" />
+			<div className="space-y-3 p-5">
+				{input?.operation === "create" && data && (
+					<>
+						<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+							<ValueRow label="项目名称" value={data.name ?? "未提供"} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="任务数量" value={`${data.folders?.length ?? 0} 个文件夹`} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="最大并发" value={`${data.concurrency ?? "未提供"} 个任务`} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="单任务超时" value={`${data.timeoutMinutes ?? 60} 分钟`} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="模型" value={data.modelKey ?? "应用默认模型"} />
+							<div className="h-px bg-border/40" />
+							<ValueRow
+								label="执行权限"
+								value={executionModeLabels[data.executionMode ?? "full-access"]}
+							/>
+							<div className="h-px bg-border/40" />
+							<ValueRow
+								label="技能 / 场景"
+								value={
+									data.skill
+										? `${data.skill.type === "scene" ? "场景" : "技能"}：${data.skill.alias ?? data.skill.name}`
+										: "未设置"
+								}
+							/>
+							<div className="h-px bg-border/40" />
+							<ValueRow label="完成通知" value={data.notifyEnabled ? "已开启" : "未开启"} />
+						</div>
+						{data.executionMode === "full-access" || data.executionMode === undefined ? (
+							<div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
+								<span className="icon-[mdi--shield-alert-outline] mt-0.5 h-4 w-4 shrink-0" />
+								<p className="text-[11px] leading-5">
+									任务将以完全访问模式运行，可读取和修改文件夹内外的文件。请确认提示词和目录来源可信。
+								</p>
+							</div>
+						) : null}
+						{data.prompt !== undefined && <TextBlock label="将应用到每个任务的提示词">{data.prompt}</TextBlock>}
+						{data.folders && <PathList label="源文件夹" paths={data.folders} />}
+						<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+							<ValueRow
+								label="产物校验"
+								value={
+									data.artifactPatterns?.length
+										? data.artifactPatterns.join("、")
+										: "不校验产物文件"
+								}
+							/>
+						</div>
+					</>
+				)}
+
+				{input?.operation === "update" && data && (
+					<>
+						<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+							<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="现有任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
+						</div>
+						<div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+							<div className="mb-2 text-[11px] font-semibold text-foreground">本次修改</div>
+							{data.name !== undefined && <ValueRow label="项目名称" value={data.name} />}
+							{data.modelKey !== undefined && <ValueRow label="模型" value={data.modelKey} />}
+							{data.concurrency !== undefined && (
 								<ValueRow
-									label="执行权限"
-									value={executionModeLabels[data.executionMode ?? "full-access"]}
+									label="最大并发"
+									value={`${currentProject?.concurrency ?? "未知"} → ${data.concurrency}`}
 								/>
-								<div className="h-px bg-border/40" />
+							)}
+							{data.timeoutMinutes !== undefined && (
+								<ValueRow
+									label="单任务超时"
+									value={`${currentProject?.timeoutMinutes ?? 60} → ${data.timeoutMinutes} 分钟`}
+								/>
+							)}
+							{data.executionMode !== undefined && (
+								<ValueRow label="执行权限" value={executionModeLabels[data.executionMode]} />
+							)}
+							{data.notifyEnabled !== undefined && (
+								<ValueRow label="完成通知" value={data.notifyEnabled ? "开启" : "关闭"} />
+							)}
+							{data.artifactPatterns !== undefined && (
+								<ValueRow
+									label="产物校验"
+									value={data.artifactPatterns.length ? data.artifactPatterns.join("、") : "清除全部规则"}
+								/>
+							)}
+							{data.skill !== undefined && (
 								<ValueRow
 									label="技能 / 场景"
 									value={
 										data.skill
 											? `${data.skill.type === "scene" ? "场景" : "技能"}：${data.skill.alias ?? data.skill.name}`
-											: "未设置"
+											: "清除现有设置"
 									}
 								/>
-								<div className="h-px bg-border/40" />
-								<ValueRow label="完成通知" value={data.notifyEnabled ? "已开启" : "未开启"} />
-							</div>
-							{data.executionMode === "full-access" || data.executionMode === undefined ? (
-								<div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
-									<span className="icon-[mdi--shield-alert-outline] mt-0.5 h-4 w-4 shrink-0" />
-									<p className="text-[11px] leading-5">
-										任务将以完全访问模式运行，可读取和修改文件夹内外的文件。请确认提示词和目录来源可信。
-									</p>
-								</div>
-							) : null}
-							{data.prompt !== undefined && <TextBlock label="将应用到每个任务的提示词">{data.prompt}</TextBlock>}
-							{data.folders && <PathList label="源文件夹" paths={data.folders} />}
-							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
-								<ValueRow
-									label="产物校验"
-									value={
-										data.artifactPatterns?.length
-											? data.artifactPatterns.join("、")
-											: "不校验产物文件"
-									}
-								/>
-							</div>
-						</>
-					)}
-
-					{input?.operation === "update" && data && (
-						<>
-							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
-								<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="现有任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
-							</div>
-							<div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-								<div className="mb-2 text-[11px] font-semibold text-foreground">本次修改</div>
-								{data.name !== undefined && <ValueRow label="项目名称" value={data.name} />}
-								{data.modelKey !== undefined && <ValueRow label="模型" value={data.modelKey} />}
-								{data.concurrency !== undefined && (
-									<ValueRow
-										label="最大并发"
-										value={`${currentProject?.concurrency ?? "未知"} → ${data.concurrency}`}
-									/>
-								)}
-								{data.timeoutMinutes !== undefined && (
-									<ValueRow
-										label="单任务超时"
-										value={`${currentProject?.timeoutMinutes ?? 60} → ${data.timeoutMinutes} 分钟`}
-									/>
-								)}
-								{data.executionMode !== undefined && (
-									<ValueRow label="执行权限" value={executionModeLabels[data.executionMode]} />
-								)}
-								{data.notifyEnabled !== undefined && (
-									<ValueRow label="完成通知" value={data.notifyEnabled ? "开启" : "关闭"} />
-								)}
-								{data.artifactPatterns !== undefined && (
-									<ValueRow
-										label="产物校验"
-										value={data.artifactPatterns.length ? data.artifactPatterns.join("、") : "清除全部规则"}
-									/>
-								)}
-								{data.skill !== undefined && (
-									<ValueRow
-										label="技能 / 场景"
-										value={
-											data.skill
-												? `${data.skill.type === "scene" ? "场景" : "技能"}：${data.skill.alias ?? data.skill.name}`
-												: "清除现有设置"
-										}
-									/>
-								)}
-							</div>
-							{data.prompt !== undefined && <TextBlock label="新的提示词">{data.prompt}</TextBlock>}
-							{data.newFolders && data.newFolders.length > 0 && (
-								<PathList label="新增文件夹（不会移除现有任务）" paths={data.newFolders} />
 							)}
-						</>
-					)}
-
-					{input?.operation === "delete" && (
-						<>
-							<div className="rounded-lg border border-border/50 bg-background/50 px-3">
-								<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
-								<div className="h-px bg-border/40" />
-								<ValueRow label="包含任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
-							</div>
-							<div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">
-								<span className="icon-[mdi--alert-outline] mt-0.5 h-4 w-4 shrink-0" />
-								<p className="text-[11px] leading-5">
-									该操作会永久删除项目目录、全部任务记录、会话状态和任务产物，无法撤销。存在运行中或排队任务时操作会被拒绝。
-								</p>
-							</div>
-						</>
-					)}
-
-					{!input && (
-						<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[10px] leading-4 text-foreground">
-							{JSON.stringify(request.input, null, 2)}
-						</pre>
-					)}
-					{isEditable && (
-						<div className="rounded-lg border border-border/50 bg-card/40 p-3">
-							<label className="text-[11px] font-medium text-foreground" htmlFor="batch-project-approval-input">
-								编辑操作参数
-							</label>
-							<p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-								可在执行前修改 agent 提供的项目配置。
-							</p>
-							<Textarea
-								key={request.approvalId}
-								id="batch-project-approval-input"
-								ref={editorRef}
-								defaultValue={JSON.stringify(editableInput, null, 2)}
-								className="mt-2 min-h-48 resize-y font-mono text-[11px]"
-							/>
-							{editorError && <div className="mt-2 text-[11px] text-destructive">{editorError}</div>}
 						</div>
-					)}
-				</div>
+						{data.prompt !== undefined && <TextBlock label="新的提示词">{data.prompt}</TextBlock>}
+						{data.newFolders && data.newFolders.length > 0 && (
+							<PathList label="新增文件夹（不会移除现有任务）" paths={data.newFolders} />
+						)}
+					</>
+				)}
 
-				<div className="border-t border-border/60 px-5 py-4">
-					<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
-						<span>请求权限</span>
-						<span className="font-mono">{request.permission}</span>
+				{input?.operation === "delete" && (
+					<>
+						<div className="rounded-lg border border-border/50 bg-background/50 px-3">
+							<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
+							<div className="h-px bg-border/40" />
+							<ValueRow label="包含任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
+						</div>
+						<div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+							<span className="icon-[mdi--alert-outline] mt-0.5 h-4 w-4 shrink-0" />
+							<p className="text-[11px] leading-5">
+								该操作会永久删除项目目录、全部任务记录、会话状态和任务产物，无法撤销。存在运行中或排队任务时操作会被拒绝。
+							</p>
+						</div>
+					</>
+				)}
+
+				{!input && (
+					<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[10px] leading-4 text-foreground">
+						{JSON.stringify(request.input, null, 2)}
+					</pre>
+				)}
+				{isEditable && (
+					<div className="rounded-lg border border-border/50 bg-card/40 p-3">
+						<label className="text-[11px] font-medium text-foreground" htmlFor="batch-project-approval-input">
+							编辑操作参数
+						</label>
+						<p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+							可在执行前修改 agent 提供的项目配置。
+						</p>
+						<Textarea
+							key={request.approvalId}
+							id="batch-project-approval-input"
+							ref={editorRef}
+							defaultValue={JSON.stringify(editableInput, null, 2)}
+							className="mt-2 min-h-48 resize-y font-mono text-[11px]"
+						/>
+						{editorError && <div className="mt-2 text-[11px] text-destructive">{editorError}</div>}
 					</div>
-					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
-					<div className="flex justify-end gap-2">
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
-					</Button>
-					<Button
-						size="sm"
-						variant={isDelete ? "destructive" : "default"}
-						disabled={responding}
-						onClick={approveEditedInput}
-					>
-						{responding ? "处理中..." : `确认${input ? operationLabels[input.operation] : "操作"}`}
-					</Button>
+				)}
+			</div>
+
+			<div className="border-t border-border/60 px-5 py-4">
+				<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
+					<span>请求权限</span>
+					<span className="font-mono">{request.permission}</span>
 				</div>
+				{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
+				<div className="flex justify-end gap-2">
+				<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
+					拒绝（{countdown}）
+				</Button>
+				<Button
+					size="sm"
+					variant={isDelete ? "destructive" : "default"}
+					disabled={responding}
+					onClick={approveEditedInput}
+				>
+					{responding ? "处理中..." : `确认${input ? operationLabels[input.operation] : "操作"}`}
+				</Button>
 				</div>
-		</ActionApprovalFrame>
+			</div>
+		</>
+	);
+
+	if (isEditable) {
+		return (
+			<Drawer open direction="right" dismissible={false}>
+				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
+					<div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
+				</DrawerContent>
+			</Drawer>
+		);
+	}
+
+	return (
+		<Dialog open>
+			<DialogContent
+				className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
+				showCloseButton={false}
+				onInteractOutside={(event) => event.preventDefault()}
+			>
+				{content}
+			</DialogContent>
+		</Dialog>
 	);
 }
