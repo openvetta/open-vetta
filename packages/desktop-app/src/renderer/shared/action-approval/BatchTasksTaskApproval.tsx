@@ -3,8 +3,9 @@ import { batchProjectsAtom, type BatchTaskStatus } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useRef } from "react";
 import { Button } from "../components/ui/button";
+import { Dialog, DialogContent } from "../components/ui/dialog";
+import { Drawer, DrawerContent } from "../components/ui/drawer";
 import { Textarea } from "../components/ui/textarea";
-import { ActionApprovalFrame } from "./ActionApprovalSurface";
 import { useActionApproval } from "./useActionApproval";
 import { useApprovalCountdown } from "./useApprovalCountdown";
 
@@ -124,152 +125,174 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 		approve({ ...originalInput, text: textRef.current?.value.trim() || "继续" });
 	};
 
-	return (
-		<ActionApprovalFrame editable={isEditable}>
-				<div className="border-b border-border/60 p-5">
-					<div className="flex items-start gap-3">
-						<div
-							className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-								detail?.destructive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-							}`}
-						>
-							<span className={`${detail?.icon ?? "icon-[mdi--checkbox-marked-circle-outline]"} h-5 w-5`} />
+	const content = (
+		<>
+			<div className="border-b border-border/60 p-5">
+				<div className="flex items-start gap-3">
+					<div
+						className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+							detail?.destructive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+						}`}
+					>
+						<span className={`${detail?.icon ?? "icon-[mdi--checkbox-marked-circle-outline]"} h-5 w-5`} />
+					</div>
+					<div className="min-w-0 flex-1">
+						<div className="flex flex-wrap items-center gap-2">
+							<h2 className="text-[15px] font-semibold text-foreground">批量子任务操作确认</h2>
+							{detail && (
+								<span
+									className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+										detail.destructive
+											? "bg-destructive/10 text-destructive"
+											: "bg-primary/10 text-primary"
+									}`}
+								>
+									{detail.label}
+								</span>
+							)}
 						</div>
-						<div className="min-w-0 flex-1">
-							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="text-[15px] font-semibold text-foreground">批量子任务操作确认</h2>
-								{detail && (
-									<span
-										className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-											detail.destructive
-												? "bg-destructive/10 text-destructive"
-												: "bg-primary/10 text-primary"
-										}`}
-									>
-										{detail.label}
+						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
+					</div>
+				</div>
+			</div>
+
+			<div className="space-y-3 p-5">
+				{input && detail && (
+					<>
+						<div className="rounded-lg border border-border/50 bg-background/50 p-3">
+							<div className="flex items-start gap-3">
+								<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+									<span className="icon-[mdi--folder-outline] h-4 w-4 text-muted-foreground" />
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="truncate text-[12px] font-semibold text-foreground">
+										{task?.name ?? "未在当前列表中找到该任务"}
+									</div>
+									<div className="mt-0.5 truncate text-[10px] text-muted-foreground">
+										{project?.name ?? input.projectId}
+									</div>
+								</div>
+								{task && (
+									<span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
+										{statusLabels[task.status]}
 									</span>
 								)}
 							</div>
-							<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
+							<div className="mt-3 space-y-2 border-t border-border/40 pt-3 text-[11px]">
+								<div className="flex items-start justify-between gap-4">
+									<span className="shrink-0 text-muted-foreground">源文件夹</span>
+									<span className="min-w-0 break-all text-right text-foreground">
+										{task?.sourcePath ?? "未知"}
+									</span>
+								</div>
+								<div className="flex items-start justify-between gap-4">
+									<span className="shrink-0 text-muted-foreground">任务 ID</span>
+									<span className="min-w-0 break-all text-right font-mono text-[10px] text-foreground">
+										{input.taskId}
+									</span>
+								</div>
+								<div className="flex items-center justify-between gap-4">
+									<span className="text-muted-foreground">关联会话</span>
+									<span className="text-foreground">{task?.sessionPath ? "有" : "无"}</span>
+								</div>
+							</div>
 						</div>
-					</div>
-				</div>
 
-				<div className="space-y-3 p-5">
-					{input && detail && (
-						<>
+						<div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+							<div className="flex gap-2">
+								<span className={`${detail.icon} mt-0.5 h-4 w-4 shrink-0 text-primary`} />
+								<div>
+									<div className="text-[11px] font-semibold text-foreground">执行后会发生什么</div>
+									<p className="mt-1 text-[11px] leading-5 text-muted-foreground">{detail.description}</p>
+								</div>
+							</div>
+						</div>
+
+						{input.operation === "resume-with-text" && (
 							<div className="rounded-lg border border-border/50 bg-background/50 p-3">
-								<div className="flex items-start gap-3">
-									<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
-										<span className="icon-[mdi--folder-outline] h-4 w-4 text-muted-foreground" />
-									</div>
-									<div className="min-w-0 flex-1">
-										<div className="truncate text-[12px] font-semibold text-foreground">
-											{task?.name ?? "未在当前列表中找到该任务"}
-										</div>
-										<div className="mt-0.5 truncate text-[10px] text-muted-foreground">
-											{project?.name ?? input.projectId}
-										</div>
-									</div>
-									{task && (
-										<span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
-											{statusLabels[task.status]}
-										</span>
-									)}
-								</div>
-								<div className="mt-3 space-y-2 border-t border-border/40 pt-3 text-[11px]">
-									<div className="flex items-start justify-between gap-4">
-										<span className="shrink-0 text-muted-foreground">源文件夹</span>
-										<span className="min-w-0 break-all text-right text-foreground">
-											{task?.sourcePath ?? "未知"}
-										</span>
-									</div>
-									<div className="flex items-start justify-between gap-4">
-										<span className="shrink-0 text-muted-foreground">任务 ID</span>
-										<span className="min-w-0 break-all text-right font-mono text-[10px] text-foreground">
-											{input.taskId}
-										</span>
-									</div>
-									<div className="flex items-center justify-between gap-4">
-										<span className="text-muted-foreground">关联会话</span>
-										<span className="text-foreground">{task?.sessionPath ? "有" : "无"}</span>
-									</div>
-								</div>
+								<label
+									className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+									htmlFor="batch-task-resume-text"
+								>
+									发送给原会话的补充说明
+								</label>
+								<Textarea
+									key={request.approvalId}
+									id="batch-task-resume-text"
+									ref={textRef}
+									defaultValue={input.text?.trim() || "继续"}
+									className="min-h-28 resize-y"
+								/>
 							</div>
+						)}
 
-							<div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-								<div className="flex gap-2">
-									<span className={`${detail.icon} mt-0.5 h-4 w-4 shrink-0 text-primary`} />
-									<div>
-										<div className="text-[11px] font-semibold text-foreground">执行后会发生什么</div>
-										<p className="mt-1 text-[11px] leading-5 text-muted-foreground">{detail.description}</p>
-									</div>
-								</div>
+						{task?.error && (
+							<div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+								<div className="mb-1 text-[10px] font-medium text-destructive">最近一次错误</div>
+								<p className="max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-muted-foreground">
+									{task.error}
+								</p>
 							</div>
+						)}
 
-							{input.operation === "resume-with-text" && (
-								<div className="rounded-lg border border-border/50 bg-background/50 p-3">
-									<label
-										className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
-										htmlFor="batch-task-resume-text"
-									>
-										发送给原会话的补充说明
-									</label>
-									<Textarea
-										key={request.approvalId}
-										id="batch-task-resume-text"
-										ref={textRef}
-										defaultValue={input.text?.trim() || "继续"}
-										className="min-h-28 resize-y"
-									/>
-								</div>
-							)}
+						{detail.warning && (
+							<div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+								<span className="icon-[mdi--alert-outline] mt-0.5 h-4 w-4 shrink-0" />
+								<p className="text-[11px] leading-5">{detail.warning}</p>
+							</div>
+						)}
+					</>
+				)}
 
-							{task?.error && (
-								<div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-									<div className="mb-1 text-[10px] font-medium text-destructive">最近一次错误</div>
-									<p className="max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-muted-foreground">
-										{task.error}
-									</p>
-								</div>
-							)}
+				{!input && (
+					<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[10px] leading-4 text-foreground">
+						{JSON.stringify(request.input, null, 2)}
+					</pre>
+				)}
+			</div>
 
-							{detail.warning && (
-								<div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">
-									<span className="icon-[mdi--alert-outline] mt-0.5 h-4 w-4 shrink-0" />
-									<p className="text-[11px] leading-5">{detail.warning}</p>
-								</div>
-							)}
-						</>
-					)}
-
-					{!input && (
-						<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[10px] leading-4 text-foreground">
-							{JSON.stringify(request.input, null, 2)}
-						</pre>
-					)}
+			<div className="border-t border-border/60 px-5 py-4">
+				<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
+					<span>请求权限</span>
+					<span className="font-mono">{request.permission}</span>
 				</div>
+				{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
+				<div className="flex justify-end gap-2">
+				<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
+					拒绝（{countdown}）
+				</Button>
+				<Button
+					size="sm"
+					variant={detail?.destructive ? "destructive" : "default"}
+					disabled={responding}
+					onClick={approveInput}
+				>
+					{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}
+				</Button>
+				</div>
+			</div>
+		</>
+	);
 
-				<div className="border-t border-border/60 px-5 py-4">
-					<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
-						<span>请求权限</span>
-						<span className="font-mono">{request.permission}</span>
-					</div>
-					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
-					<div className="flex justify-end gap-2">
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
-					</Button>
-					<Button
-						size="sm"
-						variant={detail?.destructive ? "destructive" : "default"}
-						disabled={responding}
-						onClick={approveInput}
-					>
-						{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}
-					</Button>
-				</div>
-				</div>
-		</ActionApprovalFrame>
+	if (isEditable) {
+		return (
+			<Drawer open direction="right" dismissible={false}>
+				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
+					<div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
+				</DrawerContent>
+			</Drawer>
+		);
+	}
+
+	return (
+		<Dialog open>
+			<DialogContent
+				className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
+				showCloseButton={false}
+				onInteractOutside={(event) => event.preventDefault()}
+			>
+				{content}
+			</DialogContent>
+		</Dialog>
 	);
 }

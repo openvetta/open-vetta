@@ -2,7 +2,7 @@ import { type ScheduledTask, scheduledTasksAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../components/ui/button";
-import { ActionApprovalDrawer } from "./ActionApprovalSurface";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
 import {
 	SchedulerApprovalFields,
 	type SchedulerEditableData,
@@ -129,33 +129,43 @@ function SchedulerUpdateLoader({
 
 	if (loading) {
 		return (
-			<ActionApprovalDrawer
-				title="编辑定时任务变更"
-				description={approval.request.summary}
-				footer={
-					<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
-						拒绝（{countdown}）
-					</Button>
-				}
-			>
-				<div className="py-10 text-center text-[12px] text-muted-foreground">正在加载当前任务配置...</div>
-			</ActionApprovalDrawer>
+			<Drawer open direction="right" dismissible={false}>
+				<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
+					<DrawerHeader className="border-b border-border/60">
+						<DrawerTitle>编辑定时任务变更</DrawerTitle>
+						<DrawerDescription>{approval.request.summary}</DrawerDescription>
+					</DrawerHeader>
+					<div className="min-h-0 flex-1 overflow-y-auto p-4">
+						<div className="py-10 text-center text-[12px] text-muted-foreground">正在加载当前任务配置...</div>
+					</div>
+					<DrawerFooter className="border-t border-border/60">
+						<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
+							拒绝（{countdown}）
+						</Button>
+					</DrawerFooter>
+				</DrawerContent>
+			</Drawer>
 		);
 	}
 
 	if (!task || !initialData) {
 		return (
-			<ActionApprovalDrawer
-				title="编辑定时任务变更"
-				description={approval.request.summary}
-				footer={
-					<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
-						拒绝（{countdown}）
-					</Button>
-				}
-			>
-				<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
-			</ActionApprovalDrawer>
+			<Drawer open direction="right" dismissible={false}>
+				<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
+					<DrawerHeader className="border-b border-border/60">
+						<DrawerTitle>编辑定时任务变更</DrawerTitle>
+						<DrawerDescription>{approval.request.summary}</DrawerDescription>
+					</DrawerHeader>
+					<div className="min-h-0 flex-1 overflow-y-auto p-4">
+						<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
+					</div>
+					<DrawerFooter className="border-t border-border/60">
+						<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
+							拒绝（{countdown}）
+						</Button>
+					</DrawerFooter>
+				</DrawerContent>
+			</Drawer>
 		);
 	}
 
@@ -182,11 +192,22 @@ function SchedulerUpdateDrawer({
 	const countdown = useApprovalCountdown(approval.request.approvalId);
 
 	return (
-		<ActionApprovalDrawer
-			title="编辑定时任务变更"
-			description={request.summary}
-			footer={
-				<>
+		<Drawer open direction="right" dismissible={false}>
+			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
+				<DrawerHeader className="border-b border-border/60">
+					<DrawerTitle>编辑定时任务变更</DrawerTitle>
+					<DrawerDescription>{request.summary}</DrawerDescription>
+				</DrawerHeader>
+				<div className="min-h-0 flex-1 overflow-y-auto p-4">
+					<div className="mb-4 rounded-lg border border-border/50 bg-card/40 p-3">
+						<div className="text-[11px] text-muted-foreground">任务 ID</div>
+						<div className="mt-1 break-all font-mono text-[11px] text-foreground">{input.taskId}</div>
+					</div>
+					<SchedulerApprovalFields value={data} onChange={setData} />
+					<div className="mt-4 text-[11px] text-muted-foreground">权限：{request.permission}</div>
+					{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
+				</div>
+				<DrawerFooter className="border-t border-border/60">
 					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
 						拒绝（{countdown}）
 					</Button>
@@ -209,16 +230,8 @@ function SchedulerUpdateDrawer({
 					>
 						{responding ? "更新中..." : "确认更新"}
 					</Button>
-				</>
-			}
-		>
-			<div className="mb-4 rounded-lg border border-border/50 bg-card/40 p-3">
-				<div className="text-[11px] text-muted-foreground">任务 ID</div>
-				<div className="mt-1 break-all font-mono text-[11px] text-foreground">{input.taskId}</div>
-			</div>
-			<SchedulerApprovalFields value={data} onChange={setData} />
-			<div className="mt-4 text-[11px] text-muted-foreground">权限：{request.permission}</div>
-			{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
-		</ActionApprovalDrawer>
+				</DrawerFooter>
+			</DrawerContent>
+		</Drawer>
 	);
 }
