@@ -38,7 +38,7 @@ export interface DesktopConfigData {
 	notificationsEnabled?: boolean;
 	/** 实验性功能开关分组（「Agent配置 → 实验性功能」）。缺省视为全部关闭。 */
 	experimental?: {
-		/** ask_user_question 工具开关。缺省关。 */
+		/** ask_user_question 工具开关。仅对话会话生效，缺省关。 */
 		askUserQuestion?: boolean;
 		/** Vetta CLI 提示词开关。仅对桌面端对话会话生效，缺省关。 */
 		vettaCli?: boolean;

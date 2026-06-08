@@ -80,6 +80,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **实验性「提问用户面板」现在仅对话会话生效**：`ask_user_question` 不再因全局 handler 开启而出现在 Claw、批量任务、定时任务等非对话 session 的工具列表中；desktop 创建对话 session 时显式允许该工具，其它 session 默认不注册，设置页说明同步更新。
 - **定时任务执行后刷新 app，「自动化」里所有任务卡片消失**：任务执行收尾时多处 `saveTasks` 并发非原子写 `~/.vetta/scheduled-tasks.json`，互相截断导致文件尾部多一个 `]` 而成非法 JSON，`loadTasks` 的 `JSON.parse` 抛错被吞、静默返回 `[]`，任务全没了（且下一次写入会把损坏文件覆盖、永久丢数据）。修复：`saveTasks` 改「写临时文件 + `rename`」原子替换并用 promise 链串行化所有写入；`loadTasks` 解析失败时用括号匹配截出首个完整数组自愈并原子重写干净文件，实在无法恢复则把损坏文件备份成 `.corrupt-<ts>` 再返回空，杜绝静默覆盖。
 - **默认「对话」项目下的定时任务 session 从侧栏消失**：定时任务经 `runtime.createSession` 直连创建，绕过了 desktop session IPC 的 `sessionDir` 注入，默认「对话」/IM 项目的 session 落到了 `~/.vetta/agent/sessions/`，而侧栏 `listSessions` 读的是 `<cwd>/.vetta/sessions/`，首次 `loadSessions` 整桶替换后就再也找不到。`task-executor` 创建时改用 `resolveSessionDirForCwd(task.cwd)` 注入与 IPC 一致的 sessionDir。
 - **运行中的定时 session 被点开会闪现「未命名会话」**：session 的 name 记录（`session_info`）在首个 assistant 回复落盘前只在内存、磁盘只有 header，`openSession` 末尾的 `loadSessions` 重载时读到空 name。`loadSessions` 合并时改为：磁盘 name 为空就沿用上一次已知的非空 name，消除闪烁（对所有新建会话同样生效）。

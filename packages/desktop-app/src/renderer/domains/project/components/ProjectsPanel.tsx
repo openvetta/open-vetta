@@ -154,9 +154,9 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 
 	const handleBatchNewSession = useCallback(
 		(cwd: string) => {
-			void onOpenSession(cwd);
+			void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(cwd) } });
 		},
-		[onOpenSession],
+		[navigate],
 	);
 
 	const handleDefaultSelectSession = useCallback(

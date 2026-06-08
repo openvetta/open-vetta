@@ -280,6 +280,11 @@ export interface SessionConfig {
 	 * 仅对该 session 内的命令执行生效；不传则行为等同旧版。
 	 */
 	env?: Record<string, string>;
+	/**
+	 * 是否允许该 session 注册 ask_user_question 工具。
+	 * 宿主仍可通过 setUserQuestionHandler 动态启停实际能力。
+	 */
+	askUserQuestion?: boolean;
 }
 
 export interface PromptRequest {

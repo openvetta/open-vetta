@@ -264,7 +264,7 @@ export function AgentSettings(): JSX.Element {
 					</SettingRow>
 					<SettingRow
 						title="提问用户面板"
-						description="开启后 agent 可在执行途中向你提多选题，输入栏会临时变为问答选择界面。"
+						description="开启后，仅在对话会话中允许 agent 执行途中向你提多选题，输入栏会临时变为问答选择界面。"
 						border={false}
 					>
 						<Switch checked={askUserQuestionEnabled} onCheckedChange={handleToggleAskUserQuestion} />

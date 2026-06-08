@@ -17,7 +17,7 @@ export interface ProjectEntry {
 
 /** 实验性功能开关分组（设置页「Agent配置 → 实验性功能」）。新增实验项只加一个键。 */
 export interface ExperimentalConfig {
-	/** ask_user_question 工具：开启后 agent 可在执行途中向用户提多选题。缺省关。 */
+	/** ask_user_question 工具：开启后仅对话会话可在执行途中向用户提多选题。缺省关。 */
 	askUserQuestion?: boolean;
 	/** Vetta CLI 提示词：开启后仅注入桌面端对话会话。缺省关。 */
 	vettaCli?: boolean;

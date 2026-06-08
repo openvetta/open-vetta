@@ -172,13 +172,13 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 
 						{/* ─── Footer: meta pills ─── */}
 						<div className="relative mt-4 flex flex-wrap items-center gap-1.5 border-t border-border/30 pt-3 text-[11px]">
-							{task.cwd && (
+							{/* {task.cwd && (
 								<MetaPill
 									icon="icon-[mdi--folder-outline]"
 									text={getProjectDisplayName(task.cwd, defaultCwd)}
 									tone="default"
 								/>
-							)}
+							)} */}
 							<MetaPill
 								icon="icon-[mdi--shield-outline]"
 								text={executionModeLabel(task)}

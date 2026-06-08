@@ -329,29 +329,31 @@ export class RuntimeHost implements SessionFacade {
 			customTools,
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
-			// 「向用户提问」能力：isEnabled / ask 都实时读取 this.userQuestionHandler，
-			// 故宿主 setUserQuestionHandler(fn|undefined) 的切换对所有 session 即时生效
-			// （能力存在与否即工具是否注册，见 AgentSession._maybeReloadAskUserQuestionForPrompt）。
-			askUserQuestion: {
-				isEnabled: () => this.userQuestionHandler != null,
-				ask: async (
-					request: { questions: RuntimeQuestionItem[] },
-					signal?: AbortSignal,
-				): Promise<RuntimeUserQuestionResult> => {
-					const handler = this.userQuestionHandler;
-					if (!handler || signal?.aborted) {
-						return { cancelled: true, answers: [] };
-					}
-					return handler(
-						{
-							requestId: randomUUID(),
-							sessionId: sessionIdRef.current ?? "",
-							questions: request.questions,
-						},
-						signal,
-					);
-				},
-			},
+			// 「向用户提问」能力：只有宿主显式允许的 session 才会注册工具；
+			// isEnabled / ask 仍实时读取 this.userQuestionHandler，保留动态开关能力。
+			askUserQuestion:
+				config.askUserQuestion === true
+					? {
+							isEnabled: () => this.userQuestionHandler != null,
+							ask: async (
+								request: { questions: RuntimeQuestionItem[] },
+								signal?: AbortSignal,
+							): Promise<RuntimeUserQuestionResult> => {
+								const handler = this.userQuestionHandler;
+								if (!handler || signal?.aborted) {
+									return { cancelled: true, answers: [] };
+								}
+								return handler(
+									{
+										requestId: randomUUID(),
+										sessionId: sessionIdRef.current ?? "",
+										questions: request.questions,
+									},
+									signal,
+								);
+							},
+						}
+					: undefined,
 			serverUrl: this.serverUrl,
 			// 传入共享 registry，sdk 内部就会跳过它自己的远程 fetch 分支
 			// （sdk.ts: `if (!options.modelRegistry) { ... loadRemoteModels() }`）。
