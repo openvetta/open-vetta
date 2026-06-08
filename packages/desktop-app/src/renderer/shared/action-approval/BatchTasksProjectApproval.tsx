@@ -148,8 +148,11 @@ function buildApprovedInput(
 export function BatchTasksProjectApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.project");
 	const projects = useAtomValue(batchProjectsAtom);
+	const parsedInput = useMemo(
+		() => (approval ? parseProjectInput(approval.request.input) : null),
+		[approval?.request.input],
+	);
 	if (!approval) return null;
-	const parsedInput = parseProjectInput(approval.request.input);
 	const cachedProject = getCurrentProject(projects, parsedInput?.projectId);
 	return (
 		<BatchTasksProjectApprovalContent

@@ -3,7 +3,6 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import {
 	actionApprovalStateAtom,
-	autoRejectActionApprovalAtom,
 	beginActionApprovalResponseAtom,
 	completeActionApprovalResponseAtom,
 	failActionApprovalResponseAtom,
@@ -27,7 +26,6 @@ export function useActionApproval(presentation: string): ActiveActionApproval | 
 	const beginResponse = useSetAtom(beginActionApprovalResponseAtom);
 	const completeResponse = useSetAtom(completeActionApprovalResponseAtom);
 	const failResponse = useSetAtom(failActionApprovalResponseAtom);
-	const clearTimedOutApproval = useSetAtom(autoRejectActionApprovalAtom);
 
 	useEffect(() => {
 		registerPresenter({ presentation, mounted: true });
@@ -67,11 +65,6 @@ export function useActionApproval(presentation: string): ActiveActionApproval | 
 		},
 		[beginResponse, completeResponse, failResponse, request],
 	);
-
-	useEffect(() => {
-		if (!visibleRequest || !countdown.isTimedOut) return;
-		clearTimedOutApproval(visibleRequest.approvalId);
-	}, [clearTimedOutApproval, countdown.isTimedOut, visibleRequest]);
 
 	if (!request || targetPresentation !== presentation) return null;
 
