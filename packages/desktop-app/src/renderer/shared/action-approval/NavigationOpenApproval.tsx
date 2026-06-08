@@ -2,7 +2,6 @@ import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 function isNavigationOpenInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -14,7 +13,6 @@ function isNavigationOpenInput(
 
 export function NavigationOpenApproval(): JSX.Element | null {
 	const approval = useActionApproval("navigation.open");
-	const countdown = useApprovalCountdown(approval?.request.approvalId);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
@@ -63,7 +61,7 @@ export function NavigationOpenApproval(): JSX.Element | null {
 				</div>
 				<DialogFooter>
 					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
+						拒绝（{approval.countdown.formatted}）
 					</Button>
 					<Button size="sm" disabled={responding} onClick={() => approve()}>
 						{responding ? "跳转中..." : "确认跳转"}

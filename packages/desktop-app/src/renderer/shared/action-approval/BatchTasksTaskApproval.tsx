@@ -7,7 +7,6 @@ import { Dialog, DialogContent } from "../components/ui/dialog";
 import { Drawer, DrawerContent } from "../components/ui/drawer";
 import { Textarea } from "../components/ui/textarea";
 import { useActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 type TaskOperation = "run" | "retry" | "stop" | "delete" | "resume" | "resume-with-text" | "delete-session";
 
@@ -107,7 +106,6 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.task");
 	const projects = useAtomValue(batchProjectsAtom);
 	const textRef = useRef<HTMLTextAreaElement>(null);
-	const countdown = useApprovalCountdown(approval?.request.approvalId);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
@@ -259,7 +257,7 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 				{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 				<div className="flex justify-end gap-2">
 				<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-					拒绝（{countdown}）
+					拒绝（{approval.countdown.formatted}）
 				</Button>
 				<Button
 					size="sm"

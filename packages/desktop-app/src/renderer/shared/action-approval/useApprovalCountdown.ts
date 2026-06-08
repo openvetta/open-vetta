@@ -1,31 +1,47 @@
 import { useEffect, useState } from "react";
 
-const TIMEOUT_MS = 2 * 60 * 1000;
-const TIMEOUT_SECONDS = TIMEOUT_MS / 1000;
+export interface ApprovalCountdownState {
+	formatted: string;
+	isTimedOut: boolean;
+	remainingSeconds: number;
+}
 
-export function useApprovalCountdown(approvalId: string | undefined): string {
-	const [remainingSeconds, setRemainingSeconds] = useState(TIMEOUT_SECONDS);
+function getRemainingSeconds(expiresAt: number | undefined): number {
+	if (!expiresAt) return 0;
+	return Math.ceil(Math.max(0, expiresAt - Date.now()) / 1000);
+}
+
+export function useApprovalCountdown(expiresAt: number | undefined): ApprovalCountdownState {
+	const [remainingSeconds, setRemainingSeconds] = useState(() => getRemainingSeconds(expiresAt));
+	const currentRemainingSeconds = getRemainingSeconds(expiresAt);
+	const displayedRemainingSeconds =
+		expiresAt && currentRemainingSeconds !== remainingSeconds ? currentRemainingSeconds : remainingSeconds;
 
 	useEffect(() => {
-		setRemainingSeconds(TIMEOUT_SECONDS);
-		if (!approvalId) return;
+		if (!expiresAt) {
+			setRemainingSeconds(0);
+			return;
+		}
 
-		const deadline = Date.now() + TIMEOUT_MS;
 		let timeoutId: ReturnType<typeof setTimeout>;
 		const update = (): void => {
-			const remainingMs = Math.max(0, deadline - Date.now());
-			const seconds = Math.ceil(remainingMs / 1000);
+			const seconds = getRemainingSeconds(expiresAt);
 			setRemainingSeconds(seconds);
 			if (seconds === 0) return;
 
+			const remainingMs = Math.max(0, expiresAt - Date.now());
 			const untilNextSecond = remainingMs - (seconds - 1) * 1000;
 			timeoutId = setTimeout(update, Math.max(1, untilNextSecond));
 		};
-		timeoutId = setTimeout(update, 1000);
+		update();
 		return () => clearTimeout(timeoutId);
-	}, [approvalId]);
+	}, [expiresAt]);
 
-	const minutes = Math.floor(remainingSeconds / 60);
-	const seconds = remainingSeconds % 60;
-	return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+	const minutes = Math.floor(displayedRemainingSeconds / 60);
+	const seconds = displayedRemainingSeconds % 60;
+	return {
+		formatted: `${minutes}:${seconds.toString().padStart(2, "0")}`,
+		isTimedOut: displayedRemainingSeconds === 0,
+		remainingSeconds: displayedRemainingSeconds,
+	};
 }

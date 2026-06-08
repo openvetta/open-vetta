@@ -1,7 +1,6 @@
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { useActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface DeleteTaskInput {
 	operation: "delete";
@@ -11,7 +10,6 @@ interface DeleteTaskInput {
 
 export function SchedulerDeleteApproval(): JSX.Element | null {
 	const approval = useActionApproval("scheduler.delete");
-	const countdown = useApprovalCountdown(approval?.request.approvalId);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
@@ -80,7 +78,7 @@ export function SchedulerDeleteApproval(): JSX.Element | null {
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
 						<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-							拒绝（{countdown}）
+							拒绝（{approval.countdown.formatted}）
 						</Button>
 						<Button variant="destructive" size="sm" disabled={responding} onClick={() => approve()}>
 							{responding ? "删除中..." : "确认删除"}

@@ -7,7 +7,6 @@ import { Button } from "../components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 function isThemeSetInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -27,7 +26,6 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 	const input = isThemeSetInput(approval.request.input) ? approval.request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
-	const countdown = useApprovalCountdown(approval.request.approvalId);
 	const { request, responding, error, approve, reject } = approval;
 
 	return (
@@ -55,7 +53,7 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 				</div>
 				<DrawerFooter className="border-t border-border/60">
 					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
+						拒绝（{approval.countdown.formatted}）
 					</Button>
 					<Button
 						size="sm"

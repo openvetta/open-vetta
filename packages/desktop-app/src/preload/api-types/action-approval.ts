@@ -6,6 +6,7 @@ export type DesktopActionJsonValue =
 
 export interface DesktopActionApprovalRequest {
 	approvalId: string;
+	expiresAt: number;
 	actionId: string;
 	approvalPresentation: string;
 	input: DesktopActionJsonValue;
@@ -14,7 +15,12 @@ export interface DesktopActionApprovalRequest {
 	permission: string;
 }
 
+export interface DesktopActionApprovalTimeoutEvent {
+	approvalId: string;
+}
+
 export interface DesktopActionApprovalApi {
 	onRequest(handler: (request: DesktopActionApprovalRequest) => void): () => void;
+	onTimeout(handler: (event: DesktopActionApprovalTimeoutEvent) => void): () => void;
 	respond(approvalId: string, approved: boolean, input?: DesktopActionJsonValue): Promise<boolean>;
 }

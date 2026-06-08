@@ -81,6 +81,28 @@ export const completeActionApprovalResponseAtom = atom(null, (get, set, approval
 	});
 });
 
+export const autoRejectActionApprovalAtom = atom(null, (get, set, approvalId: string) => {
+	const state = get(actionApprovalStateAtom);
+	if (state.active?.approvalId === approvalId) {
+		const [next, ...queue] = state.queue;
+		set(actionApprovalStateAtom, {
+			...state,
+			active: next ?? null,
+			queue,
+			responding: false,
+			error: null,
+		});
+		return;
+	}
+
+	const queue = state.queue.filter((request) => request.approvalId !== approvalId);
+	if (queue.length === state.queue.length) return;
+	set(actionApprovalStateAtom, {
+		...state,
+		queue,
+	});
+});
+
 export const failActionApprovalResponseAtom = atom(null, (get, set, update: { approvalId: string; error: string }) => {
 	const state = get(actionApprovalStateAtom);
 	if (state.active?.approvalId !== update.approvalId) return;

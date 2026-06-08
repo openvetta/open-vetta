@@ -9,7 +9,6 @@ import {
 	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface UpdateTaskData extends SchedulerEditableData {
 	skill?: { name: string; alias?: string; type: "skill" | "scene" } | null;
@@ -51,7 +50,6 @@ function SchedulerUpdateLoader({
 	const [task, setTask] = useState<ScheduledTask | undefined>(cachedTask);
 	const [loading, setLoading] = useState(!cachedTask);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const countdown = useApprovalCountdown(approval.request.approvalId);
 
 	useEffect(() => {
 		console.info("[action-approval:scheduler.update] request", {
@@ -141,7 +139,7 @@ function SchedulerUpdateLoader({
 					</div>
 					<DrawerFooter className="border-t border-border/60">
 						<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
-							拒绝（{countdown}）
+							拒绝（{approval.countdown.formatted}）
 						</Button>
 					</DrawerFooter>
 				</DrawerContent>
@@ -162,7 +160,7 @@ function SchedulerUpdateLoader({
 					</div>
 					<DrawerFooter className="border-t border-border/60">
 						<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
-							拒绝（{countdown}）
+							拒绝（{approval.countdown.formatted}）
 						</Button>
 					</DrawerFooter>
 				</DrawerContent>
@@ -190,7 +188,6 @@ function SchedulerUpdateDrawer({
 }): JSX.Element {
 	const { request, responding, error, approve, reject } = approval;
 	const [data, setData] = useState<SchedulerEditableData>(initialData);
-	const countdown = useApprovalCountdown(approval.request.approvalId);
 
 	return (
 		<Drawer open direction="right" dismissible={false}>
@@ -210,7 +207,7 @@ function SchedulerUpdateDrawer({
 				</div>
 				<DrawerFooter className="border-t border-border/60">
 					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
+						拒绝（{approval.countdown.formatted}）
 					</Button>
 					<Button
 						size="sm"
