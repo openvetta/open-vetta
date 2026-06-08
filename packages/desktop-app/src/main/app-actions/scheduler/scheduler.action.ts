@@ -113,7 +113,7 @@ const taskInputSchema: ActionInputSchema = {
 				{ name: "data.cron", type: "string", required: true, description: "有效的 Cron 表达式。" },
 				{ name: "data.isOnce", type: "boolean", required: true, description: "成功执行后是否自动停用。" },
 				{ name: "data.enabled", type: "boolean", required: false, description: "是否启用；默认 true。" },
-				{ name: "data.cwd", type: "string", required: true, description: "已存在的项目绝对目录。" },
+				{ name: "data.cwd", type: "string", required: true, description: "执行任务时使用的已存在绝对工作目录。" },
 				{ name: "data.modelKey", type: "string", required: false, description: "模型键；省略时使用默认模型。" },
 				{
 					name: "data.executionMode",
@@ -159,10 +159,10 @@ const taskExamples: ActionExample[] = [
 			operation: "create",
 			data: {
 				name: "每日总结",
-				prompt: "总结项目今天的进展",
+				prompt: "总结今天的进展",
 				cron: "0 18 * * *",
 				isOnce: false,
-				cwd: "C:\\workspace\\project",
+				cwd: "C:\\Users\\me\\.vetta\\conversation",
 				executionMode: "inherit",
 			},
 		},

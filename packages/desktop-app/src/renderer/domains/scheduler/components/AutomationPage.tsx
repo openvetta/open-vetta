@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import { motion } from "motion/react";
-import { scheduledTasksAtom, selectedTaskIdAtom, formOpenAtom, projectsAtom, runningTaskIdsAtom } from "@shared/store/atoms";
+import { scheduledTasksAtom, selectedTaskIdAtom, formOpenAtom, runningTaskIdsAtom } from "@shared/store/atoms";
 import type { ScheduledTask } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
@@ -13,7 +13,6 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export function AutomationPage(): JSX.Element {
 	const tasks = useAtomValue(scheduledTasksAtom);
-	const projects = useAtomValue(projectsAtom);
 	const [selectedTaskId, setSelectedTaskId] = useAtom(selectedTaskIdAtom);
 	const [formEditingTask, setFormEditingTask] = useAtom(formOpenAtom);
 	const { refreshTasks } = useScheduledTasks();
@@ -65,8 +64,6 @@ export function AutomationPage(): JSX.Element {
 		setDialogOpen(true);
 	};
 
-	const noProjects = projects.length === 0;
-
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			{/* Drag region */}
@@ -101,8 +98,7 @@ export function AutomationPage(): JSX.Element {
 						type="button"
 						variant="primary"
 						onClick={handleNewTask}
-						disabled={noProjects}
-						title={noProjects ? "请先在侧边栏添加项目" : "新建定时任务"}
+						title="新建定时任务"
 					>
 						<span className="icon-[mdi--plus] text-[15px]" />
 						新建任务
@@ -113,7 +109,7 @@ export function AutomationPage(): JSX.Element {
 			{/* ─── Content ─── */}
 			<div className="flex flex-1 flex-col gap-5 overflow-y-auto px-8 pt-5 pb-6">
 				{tasks.length === 0 ? (
-					<EmptyState onNew={noProjects ? undefined : handleNewTask} noProjects={noProjects} />
+					<EmptyState onNew={handleNewTask} />
 				) : (
 					<TaskList
 						selectedTaskId={selectedTaskId}
@@ -141,7 +137,7 @@ export function AutomationPage(): JSX.Element {
 	);
 }
 
-function EmptyState({ onNew, noProjects }: { onNew?: () => void; noProjects: boolean }): JSX.Element {
+function EmptyState({ onNew }: { onNew: () => void }): JSX.Element {
 	return (
 		<motion.div
 			className="flex flex-1 flex-col items-center justify-center gap-5 text-center"
@@ -159,20 +155,16 @@ function EmptyState({ onNew, noProjects }: { onNew?: () => void; noProjects: boo
 			</motion.div>
 			<div className="space-y-1.5">
 				<p className="text-[15px] font-semibold text-foreground">
-					{noProjects ? "请先添加项目" : "暂无定时任务"}
+					暂无定时任务
 				</p>
 				<p className="max-w-xs text-[12px] text-muted-foreground/60">
-					{noProjects
-						? "在侧边栏中添加项目后即可创建自动化任务"
-						: "创建定时任务，让 AI 按计划自动执行"}
+					创建定时任务，让 AI 按计划自动执行
 				</p>
 			</div>
-			{onNew && (
-				<Button type="button" variant="primary" onClick={onNew} className="mt-2">
-					<span className="icon-[mdi--plus] text-[15px]" />
-					创建第一个任务
-				</Button>
-			)}
+			<Button type="button" variant="primary" onClick={onNew} className="mt-2">
+				<span className="icon-[mdi--plus] text-[15px]" />
+				创建第一个任务
+			</Button>
 		</motion.div>
 	);
 }

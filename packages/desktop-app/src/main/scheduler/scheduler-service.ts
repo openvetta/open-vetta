@@ -1,5 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { stat } from "node:fs/promises";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import { isValidCronExpression } from "./cron.js";
 import { abortTask, executeTask, isTaskRunning } from "./task-executor.js";
@@ -88,7 +87,6 @@ export class SchedulerService {
 		if (task.enabled) {
 			this.dependencies.scheduleTask(task);
 		}
-		await this.markProjectAsSchedule(task.cwd);
 		this.emitTasksChanged();
 		return task;
 	}
@@ -100,12 +98,11 @@ export class SchedulerService {
 		if (patch.cwd !== undefined) {
 			await this.assertDirectory(patch.cwd);
 		}
-		const result = await mutateTasks((tasks) => {
+		const task = await mutateTasks((tasks) => {
 			const index = tasks.findIndex((candidate) => candidate.id === taskId);
 			if (index < 0) {
 				throw new SchedulerServiceError("SCHEDULER_TASK_NOT_FOUND", "定时任务不存在。", { taskId });
 			}
-			const previousCwd = tasks[index].cwd;
 			const updated: ScheduledTask = {
 				...tasks[index],
 				...patch,
@@ -116,14 +113,9 @@ export class SchedulerService {
 				updatedAt: Date.now(),
 			};
 			tasks[index] = updated;
-			return { task: updated, previousCwd };
+			return updated;
 		});
-		const task = result.task;
 		this.syncScheduledJob(task);
-		await this.markProjectAsSchedule(task.cwd);
-		if (result.previousCwd !== task.cwd) {
-			await this.clearScheduleProjectTypeIfUnused(result.previousCwd);
-		}
 		this.emitTasksChanged();
 		return task;
 	}
@@ -134,17 +126,15 @@ export class SchedulerService {
 				taskId,
 			});
 		}
-		const cwd = await mutateTasks((tasks) => {
+		await mutateTasks((tasks) => {
 			const index = tasks.findIndex((candidate) => candidate.id === taskId);
 			if (index < 0) {
 				throw new SchedulerServiceError("SCHEDULER_TASK_NOT_FOUND", "定时任务不存在。", { taskId });
 			}
-			const [removed] = tasks.splice(index, 1);
-			return removed.cwd;
+			tasks.splice(index, 1);
 		});
 		this.dependencies.unscheduleTask(taskId);
 		await deleteTaskRecords(taskId);
-		await this.clearScheduleProjectTypeIfUnused(cwd);
 		this.emitTasksChanged();
 		return { status: "accepted", taskId };
 	}
@@ -221,40 +211,6 @@ export class SchedulerService {
 			this.dependencies.scheduleTask(task);
 		} else {
 			this.dependencies.unscheduleTask(task.id);
-		}
-	}
-
-	private async markProjectAsSchedule(cwd: string): Promise<void> {
-		try {
-			await mkdir(join(cwd, ".vetta"), { recursive: true });
-			const metaPath = join(cwd, ".vetta", "meta.json");
-			const meta = await this.readProjectMeta(metaPath);
-			if (meta.type === "schedule") return;
-			await writeFile(metaPath, JSON.stringify({ ...meta, type: "schedule" }, null, 2), "utf-8");
-		} catch (error) {
-			console.warn(`[SchedulerService] Failed to mark project as schedule: ${cwd}`, error);
-		}
-	}
-
-	private async clearScheduleProjectTypeIfUnused(cwd: string): Promise<void> {
-		try {
-			const tasks = await loadTasks();
-			if (tasks.some((task) => task.cwd === cwd)) return;
-			const metaPath = join(cwd, ".vetta", "meta.json");
-			const meta = await this.readProjectMeta(metaPath);
-			if (meta.type !== "schedule") return;
-			const { type: _, ...rest } = meta;
-			await writeFile(metaPath, JSON.stringify(rest, null, 2), "utf-8");
-		} catch (error) {
-			console.warn(`[SchedulerService] Failed to clear schedule project type: ${cwd}`, error);
-		}
-	}
-
-	private async readProjectMeta(metaPath: string): Promise<Record<string, unknown>> {
-		try {
-			return JSON.parse(await readFile(metaPath, "utf-8")) as Record<string, unknown>;
-		} catch {
-			return {};
 		}
 	}
 

@@ -19,7 +19,6 @@ import { fetchWorkflowInstanceByFlowing } from "@shared/lib/api";
 import { Button } from "@shared/components/ui/button";
 import { isMac } from "@shared/lib/platform";
 import { BatchQueueStatus } from "./BatchQueueStatus";
-import { ScheduleStatus } from "./ScheduleStatus";
 import { FlowingWorkflow } from "@domains/flowing/components/FlowingWorkflow";
 import { WorkflowBindDialog } from "@domains/flowing/components/WorkflowBindDialog";
 import { WorkflowProgress } from "@domains/flowing/components/WorkflowProgress";
@@ -54,9 +53,8 @@ function formatDate(ts: number): string {
 	return d.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function getProjectTypeLabel(project: { type: "normal" | "flowing" | "schedule" | "batch"; workflowInstanceId?: number } | undefined): string | null {
+function getProjectTypeLabel(project: { type: "normal" | "flowing" | "batch"; workflowInstanceId?: number } | undefined): string | null {
 	if (!project) return null;
-	if (project.type === "schedule") return "自动化";
 	if (project.type === "batch") return "批量任务";
 	if (project.type === "flowing") {
 		return typeof project.workflowInstanceId === "number" ? "工作流" : "流转";
@@ -188,7 +186,7 @@ export function ProjectDetailPage(): JSX.Element {
 		void navigate({ to: "/new-session/$cwd", params: { cwd: encodeURIComponent(decodedCwd) } });
 	};
 
-	// Export handler — only normal/batch are exportable; flowing/schedule hide the button.
+	// Export handler — only normal/batch are exportable; flowing hides the button.
 	const exportable = project?.type === "normal" || project?.type === "batch" || isBatch;
 	const handleExportProject = useCallback(() => {
 		setConfirm({
@@ -401,17 +399,6 @@ export function ProjectDetailPage(): JSX.Element {
 								transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
 							>
 								<BatchQueueStatus project={batchProject} />
-							</motion.div>
-						)}
-
-						{/* Schedule status (for schedule projects only) */}
-						{project?.type === "schedule" && (
-							<motion.div
-								initial={{ opacity: 0, y: 10 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
-							>
-								<ScheduleStatus cwd={decodedCwd} />
 							</motion.div>
 						)}
 

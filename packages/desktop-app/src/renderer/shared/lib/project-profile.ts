@@ -45,17 +45,11 @@ const TAB_BATCH_PROGRESS: ActivityTabConfig = {
 	label: "执行进度",
 	icon: "icon-[mdi--progress-clock]",
 };
-const TAB_SCHEDULE_RECORDS: ActivityTabConfig = {
-	key: "schedule-records",
-	label: "执行记录",
-	icon: "icon-[mdi--history]",
-};
-
 /**
  * 根据 meta 推断项目类型与是否工作流。
  * 规则：
  * - meta.type === "flowing" 且 meta.workflowInstanceId 存在 → 工作流项目
- * - meta.type 为 "flowing" / "schedule" / "batch" → 对应类型
+ * - meta.type 为 "flowing" / "batch" → 对应类型
  * - 其他 → "normal"
  */
 function deriveType(meta: Record<string, unknown> | null): {
@@ -76,7 +70,6 @@ function deriveType(meta: Record<string, unknown> | null): {
 	let type: ProjectType;
 	switch (rawType) {
 		case "flowing":
-		case "schedule":
 		case "batch":
 			type = rawType;
 			break;
@@ -113,14 +106,7 @@ function buildActivityTabs(
 		};
 	}
 
-	if (type === "schedule") {
-		return {
-			tabs: [TAB_FILE, TAB_SCHEDULE_RECORDS],
-			defaultTab: "file",
-		};
-	}
-
-	// 非工作流项目（普通 / 流转 / 自动化）只展示文件 tab
+	// 非工作流项目（普通 / 流转）只展示文件 tab
 	return {
 		tabs: [TAB_FILE],
 		defaultTab: "file",

@@ -2,7 +2,7 @@ import { pathBasename } from "@shared/lib/utils";
 import { atom } from "jotai";
 import { SCHEDULE_SESSION_MARKER } from "../../../shared/scheduled-session";
 
-export type ProjectType = "normal" | "flowing" | "schedule" | "batch";
+export type ProjectType = "normal" | "flowing" | "batch";
 
 export interface Project {
 	cwd: string;
@@ -73,7 +73,7 @@ export function isImSession(session: Pick<SessionInfo, "cwd">, imCwd: string): b
 	return imCwd !== "" && session.cwd === imCwd;
 }
 
-export type SidebarFilter = "all" | "normal" | "schedule" | "batch" | "flowing";
+export type SidebarFilter = "all" | "normal" | "batch" | "flowing";
 
 export const projectsAtom = atom<Project[]>([]);
 export const expandedProjectsAtom = atom<Set<string>>(new Set<string>());

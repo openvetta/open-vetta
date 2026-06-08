@@ -1,9 +1,9 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
 import { formatScheduleSessionName } from "../../shared/scheduled-session.js";
 import { resolveExecutionMode } from "../execution-mode.js";
-import { readDesktopConfig } from "../ipc/fs.js";
+import { DEFAULT_CONVERSATION_CWD, DEFAULT_CONVERSATION_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { emitTaskEvent, emitTaskStreamEvent } from "../ipc/scheduler.js";
-import { ensureConversationSubCwd, resolveSessionDirForCwd } from "../ipc/session.js";
+import { ensureConversationSubCwd } from "../ipc/session.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import type { ScheduledTask, TaskExecutionRecord } from "./task-storage";
 import { createRecord, generateId, updateRecordMetadata, updateTaskLastRun } from "./task-storage";
@@ -61,20 +61,15 @@ export async function executeTask(
 		await assertSandboxAvailableForMode(executionMode, async () => executionMode);
 		record.executionMode = executionMode;
 
-		// 与 desktop session IPC（CHANNELS.CREATE）保持一致：默认「对话」/IM 项目的
-		// session 必须落到 <cwd>/.vetta/sessions，否则侧栏 listSessions 读不到该目录，
-		// 定时任务 session 会在首次 loadSessions 整桶替换后从侧栏消失。
-		// 注意 sessionDir 必须用原始 task.cwd 解析（子目录解析不出默认 sessionDir）。
-		const sessionDir = resolveSessionDirForCwd(task.cwd);
-		// 与 UI 创建 session 一致：「对话」项目根下为本次运行分配独立子目录，
-		// 避免定时任务站在项目根、看到其他 session 的产物。其他项目原样返回，
-		// 产物共享行为不受影响。每次触发都是新 session，故每次都拿到新子目录。
+		// 定时任务属于「对话」列表中的一种会话类型：session 文件统一写入默认
+		// 对话 sessionDir，刷新侧边栏后仍留在「对话」列表；运行 cwd 仍使用任务
+		// 自己的工作目录，避免改变任务执行语义。
 		const runCwd = (await ensureConversationSubCwd(task.cwd)) ?? task.cwd;
 		record.cwd = runCwd;
 		const result = await runtime.createSession({
 			cwd: runCwd,
 			executionMode,
-			...(sessionDir ? { sessionDir } : {}),
+			sessionDir: DEFAULT_CONVERSATION_SESSION_DIR,
 		});
 		sessionId = result.sessionId;
 		record.sessionId = sessionId;
@@ -95,7 +90,7 @@ export async function executeTask(
 			recordId,
 			sessionId,
 			sessionPath: record.sessionPath ?? "",
-			cwd: runCwd,
+			cwd: DEFAULT_CONVERSATION_CWD,
 			sessionName,
 			firstMessage: task.prompt.slice(0, 80),
 		});

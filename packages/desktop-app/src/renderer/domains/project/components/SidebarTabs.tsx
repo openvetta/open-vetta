@@ -12,7 +12,6 @@ import { cn } from "@shared/lib/utils";
 const FILTER_OPTIONS: { value: SidebarFilter; label: string }[] = [
 	{ value: "all", label: "全部" },
 	{ value: "normal", label: "普通" },
-	{ value: "schedule", label: "自动化" },
 	{ value: "batch", label: "批量任务" },
 	{ value: "flowing", label: "流转" },
 ];

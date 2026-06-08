@@ -4,6 +4,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 import {
 	SchedulerApprovalFields,
 	type SchedulerEditableData,
+	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
 import { useApprovalCountdown } from "./useApprovalCountdown";
@@ -57,7 +58,7 @@ function SchedulerCreateDrawer({ approval }: { approval: ActiveActionApproval })
 						onClick={() =>
 							approve({
 								operation: "create",
-								data: { ...input.data, ...data },
+								data: toSchedulerApprovalJsonData({ ...input.data, ...data }),
 								approvalUi: input.approvalUi ?? "scheduler.create",
 							})
 						}
