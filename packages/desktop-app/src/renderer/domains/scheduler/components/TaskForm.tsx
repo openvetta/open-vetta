@@ -82,6 +82,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 						value={data}
 						onChange={setData}
 						namePlaceholder={task ? "任务名称" : "新建任务"}
+						showWorkDirSelector={false}
 					/>
 				</div>
 
