@@ -6,7 +6,6 @@ import { Button } from "../components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
 import { useActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 function isThemeSetInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -45,7 +44,6 @@ function ThemeChangeDrawer({
 	currentThemeId: string;
 }): JSX.Element {
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown(approval.request.approvalId);
 	const input = isThemeSetInput(request.input) ? request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
@@ -75,7 +73,7 @@ function ThemeChangeDrawer({
 				</div>
 				<DrawerFooter className="border-t border-border/60">
 					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
+						拒绝（{approval.countdown.formatted}）
 					</Button>
 					<Button
 						size="sm"

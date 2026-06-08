@@ -3,17 +3,20 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import {
 	actionApprovalStateAtom,
+	autoRejectActionApprovalAtom,
 	beginActionApprovalResponseAtom,
 	completeActionApprovalResponseAtom,
 	failActionApprovalResponseAtom,
 	GENERIC_ACTION_APPROVAL_PRESENTATION,
 	registerActionApprovalPresenterAtom,
 } from "../store/action-approval-atoms";
+import { type ApprovalCountdownState, useApprovalCountdown } from "./useApprovalCountdown";
 
 export interface ActiveActionApproval {
 	request: DesktopActionApprovalRequest;
 	responding: boolean;
 	error: string | null;
+	countdown: ApprovalCountdownState;
 	approve: (input?: DesktopActionJsonValue) => void;
 	reject: () => void;
 }
@@ -24,6 +27,7 @@ export function useActionApproval(presentation: string): ActiveActionApproval | 
 	const beginResponse = useSetAtom(beginActionApprovalResponseAtom);
 	const completeResponse = useSetAtom(completeActionApprovalResponseAtom);
 	const failResponse = useSetAtom(failActionApprovalResponseAtom);
+	const clearTimedOutApproval = useSetAtom(autoRejectActionApprovalAtom);
 
 	useEffect(() => {
 		registerPresenter({ presentation, mounted: true });
@@ -39,6 +43,8 @@ export function useActionApproval(presentation: string): ActiveActionApproval | 
 		(state.presenterCounts[requestedPresentation] ?? 0) > 0
 			? requestedPresentation
 			: GENERIC_ACTION_APPROVAL_PRESENTATION;
+	const visibleRequest = request && targetPresentation === presentation ? request : undefined;
+	const countdown = useApprovalCountdown(visibleRequest?.expiresAt);
 
 	const respond = useCallback(
 		(approved: boolean, input?: DesktopActionJsonValue) => {
@@ -62,12 +68,18 @@ export function useActionApproval(presentation: string): ActiveActionApproval | 
 		[beginResponse, completeResponse, failResponse, request],
 	);
 
+	useEffect(() => {
+		if (!visibleRequest || !countdown.isTimedOut) return;
+		clearTimedOutApproval(visibleRequest.approvalId);
+	}, [clearTimedOutApproval, countdown.isTimedOut, visibleRequest]);
+
 	if (!request || targetPresentation !== presentation) return null;
 
 	return {
 		request,
 		responding: state.responding,
 		error: state.error,
+		countdown,
 		approve: (input) => respond(true, input),
 		reject: () => respond(false),
 	};

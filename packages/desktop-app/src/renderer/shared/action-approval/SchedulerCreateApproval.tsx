@@ -7,7 +7,6 @@ import {
 	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 interface CreateTaskData extends SchedulerEditableData {
 	name: string;
@@ -32,7 +31,6 @@ export function SchedulerCreateApproval(): JSX.Element | null {
 
 function SchedulerCreateDrawer({ approval }: { approval: ActiveActionApproval }): JSX.Element {
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown(approval.request.approvalId);
 	const input = request.input as unknown as CreateTaskInput;
 	const [data, setData] = useState<SchedulerEditableData>(input.data);
 
@@ -50,7 +48,7 @@ function SchedulerCreateDrawer({ approval }: { approval: ActiveActionApproval })
 				</div>
 				<DrawerFooter className="border-t border-border/60">
 					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
+						拒绝（{approval.countdown.formatted}）
 					</Button>
 					<Button
 						size="sm"

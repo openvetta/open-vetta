@@ -13,10 +13,12 @@ import {
 const log = getAppLogger("action-approval");
 
 const ACTION_APPROVAL_REQUEST_CHANNEL = "vetta:action-approval:request";
+const ACTION_APPROVAL_TIMEOUT_CHANNEL = "vetta:action-approval:timeout";
 const DEFAULT_APPROVAL_TIMEOUT_MS = 2 * 60 * 1000;
 
 export interface DesktopActionApprovalRequest extends ActionApprovalRequest {
 	approvalId: string;
+	expiresAt: number;
 }
 
 interface PendingApproval {
@@ -44,6 +46,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 		}
 
 		const approvalId = randomUUID();
+		const expiresAt = Date.now() + this.timeoutMs;
 		return new Promise<ActionApprovalDecision>((resolve, reject) => {
 			let settled = false;
 			const cleanup = (): void => {
@@ -73,6 +76,9 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 					actionId: request.actionId,
 					timeoutMs: this.timeoutMs,
 				});
+				if (!this.webContents.isDestroyed()) {
+					this.webContents.send(ACTION_APPROVAL_TIMEOUT_CHANNEL, { approvalId });
+				}
 				cancel(
 					new ActionError(
 						"ACTION_APPROVAL_TIMEOUT",
@@ -98,7 +104,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 				input: request.input,
 			});
 			showMainWindow();
-			this.webContents.send(ACTION_APPROVAL_REQUEST_CHANNEL, { approvalId, ...request });
+			this.webContents.send(ACTION_APPROVAL_REQUEST_CHANNEL, { approvalId, expiresAt, ...request });
 		});
 	}
 

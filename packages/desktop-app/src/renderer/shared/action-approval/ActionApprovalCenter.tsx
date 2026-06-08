@@ -1,15 +1,23 @@
 import { useSetAtom } from "jotai";
 import { useEffect } from "react";
-import { enqueueActionApprovalAtom } from "../store/action-approval-atoms";
+import { autoRejectActionApprovalAtom, enqueueActionApprovalAtom } from "../store/action-approval-atoms";
 
 export function ActionApprovalCenter(): null {
 	const enqueue = useSetAtom(enqueueActionApprovalAtom);
+	const autoReject = useSetAtom(autoRejectActionApprovalAtom);
 
 	useEffect(() => {
-		return window.vetta.actionApproval.onRequest((request) => {
+		const disposeRequest = window.vetta.actionApproval.onRequest((request) => {
 			enqueue(request);
 		});
-	}, [enqueue]);
+		const disposeTimeout = window.vetta.actionApproval.onTimeout((event) => {
+			autoReject(event.approvalId);
+		});
+		return () => {
+			disposeRequest();
+			disposeTimeout();
+		};
+	}, [autoReject, enqueue]);
 
 	return null;
 }

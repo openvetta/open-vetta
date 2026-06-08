@@ -11,7 +11,6 @@ import { Button } from "../components/ui/button";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { Drawer, DrawerContent } from "../components/ui/drawer";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 type ProjectData = BatchProjectEditableData;
 
@@ -176,7 +175,6 @@ function BatchTasksProjectApprovalContent({
 	const [loading, setLoading] = useState(needsProject && !cachedProject);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const { request, responding, error, approve, reject } = approval;
-	const countdown = useApprovalCountdown(request.approvalId);
 
 	useEffect(() => {
 		console.info("[action-approval:batch-tasks.project] request", {
@@ -271,7 +269,7 @@ function BatchTasksProjectApprovalContent({
 						<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
 						<div className="flex justify-end border-t border-border/60 px-5 py-4">
 							<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-								拒绝（{countdown}）
+								拒绝（{approval.countdown.formatted}）
 							</Button>
 						</div>
 					</div>
@@ -399,7 +397,7 @@ function BatchTasksProjectApprovalContent({
 				{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 				<div className="flex justify-end gap-2">
 					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{countdown}）
+						拒绝（{approval.countdown.formatted}）
 					</Button>
 					<Button
 						size="sm"

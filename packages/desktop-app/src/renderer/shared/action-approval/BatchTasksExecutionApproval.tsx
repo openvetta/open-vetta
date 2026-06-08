@@ -4,7 +4,6 @@ import { useAtomValue } from "jotai";
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { useActionApproval } from "./useActionApproval";
-import { useApprovalCountdown } from "./useApprovalCountdown";
 
 type ExecutionOperation = "delete-all" | "start" | "stop" | "reset" | "reset-failed";
 
@@ -88,7 +87,6 @@ function countStatuses(tasks: BatchTask[]): Record<BatchTaskStatus, number> {
 export function BatchTasksExecutionApproval(): JSX.Element | null {
 	const approval = useActionApproval("batch-tasks.execution");
 	const projects = useAtomValue(batchProjectsAtom);
-	const countdown = useApprovalCountdown(approval?.request.approvalId);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
@@ -262,7 +260,7 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
 					<div className="flex justify-end gap-2">
 						<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-							拒绝（{countdown}）
+							拒绝（{approval.countdown.formatted}）
 						</Button>
 						<Button
 							size="sm"
