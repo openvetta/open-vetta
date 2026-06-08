@@ -6,6 +6,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 import {
 	SchedulerApprovalFields,
 	type SchedulerEditableData,
+	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
 import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
 import { useApprovalCountdown } from "./useApprovalCountdown";
@@ -218,7 +219,7 @@ function SchedulerUpdateDrawer({
 							const approvedInput = {
 								operation: "update",
 								taskId: input.taskId,
-								data: { ...initialData, ...data },
+								data: toSchedulerApprovalJsonData({ ...initialData, ...data }),
 								approvalUi: input.approvalUi ?? "scheduler.update",
 							} as const;
 							console.info("[action-approval:scheduler.update] submit", {

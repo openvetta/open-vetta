@@ -23,13 +23,11 @@ const DEFAULT_VISIBLE_SESSIONS = 5;
 
 const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
 	normal: "icon-[mdi--folder-outline]",
-	schedule: "icon-[mdi--robot-outline]",
 	flowing: "icon-[mdi--swap-horizontal]",
 	batch: "icon-[mdi--layers-outline]",
 };
 
 const PROJECT_TYPE_BADGES: Record<Exclude<ProjectType, "normal">, string> = {
-	schedule: "自动化",
 	flowing: "流转",
 	batch: "批量",
 };

@@ -75,7 +75,7 @@ function detectSupportedType(projectDir: string): SupportedProjectType | "unsupp
 	try {
 		const parsed = JSON.parse(readFileSync(metaPath, "utf-8")) as Record<string, unknown>;
 		if (parsed.type === "batch") return "batch";
-		if (parsed.type === "flowing" || parsed.type === "schedule") return "unsupported";
+		if (parsed.type === "flowing") return "unsupported";
 		return "normal";
 	} catch {
 		return "normal";

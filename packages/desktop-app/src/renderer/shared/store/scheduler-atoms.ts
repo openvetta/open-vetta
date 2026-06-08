@@ -9,7 +9,7 @@ export interface ScheduledTask {
 	/** Whether this task runs only once and disables itself after execution */
 	isOnce: boolean;
 	enabled: boolean;
-	/** Project working directory this task is associated with */
+	/** Working directory used when the task executes */
 	cwd: string;
 	modelKey?: string;
 	executionMode?: ExecutionModeOverride;
@@ -27,7 +27,7 @@ export interface TaskExecutionRecord {
 	sessionId: string;
 	/** Session file path for navigating to the conversation */
 	sessionPath?: string;
-	/** Project working directory */
+	/** Working directory used for this execution */
 	cwd?: string;
 	startedAt: number;
 	completedAt: number | null;
