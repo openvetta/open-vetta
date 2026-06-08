@@ -44,6 +44,7 @@ interface SchedulerTaskFieldsProps {
 	onChange: (value: SchedulerTaskDraft) => void;
 	namePlaceholder?: string;
 	showEnabled?: boolean;
+	showWorkDirSelector?: boolean;
 	promptMinHeight?: number;
 }
 
@@ -199,6 +200,7 @@ export function SchedulerTaskFields({
 	onChange,
 	namePlaceholder = "任务名称",
 	showEnabled = false,
+	showWorkDirSelector = true,
 	promptMinHeight = 140,
 }: SchedulerTaskFieldsProps): JSX.Element {
 	const projects = useAtomValue(projectsAtom);
@@ -328,38 +330,40 @@ export function SchedulerTaskFields({
 			/>
 
 			<div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/40 bg-background/30 p-3">
-				<Popover open={workDirPopoverOpen} onOpenChange={setWorkDirPopoverOpen}>
-					<PopoverTrigger asChild>
-						<button
-							type="button"
-							className="flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card/70 hover:text-foreground"
-						>
-							<span className="icon-[mdi--folder-outline] h-3.5 w-3.5" />
-							<span className="max-w-[140px] truncate">{value.cwd ? projectName(value.cwd) : "选择工作目录"}</span>
-							<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 opacity-60" />
-						</button>
-					</PopoverTrigger>
-					<PopoverContent align="start" className="w-56 p-1">
-						{workDirOptions.map((option) => (
+				{showWorkDirSelector && (
+					<Popover open={workDirPopoverOpen} onOpenChange={setWorkDirPopoverOpen}>
+						<PopoverTrigger asChild>
 							<button
-								key={option.cwd}
 								type="button"
-								onClick={() => {
-									set("cwd", option.cwd);
-									setWorkDirPopoverOpen(false);
-								}}
-								className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors ${
-									value.cwd === option.cwd
-										? "bg-primary/10 text-primary"
-										: "text-foreground hover:bg-accent/50"
-								}`}
+								className="flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card/70 hover:text-foreground"
 							>
 								<span className="icon-[mdi--folder-outline] h-3.5 w-3.5" />
-								<span className="truncate">{option.name}</span>
+								<span className="max-w-[140px] truncate">{value.cwd ? projectName(value.cwd) : "选择工作目录"}</span>
+								<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 opacity-60" />
 							</button>
-						))}
-					</PopoverContent>
-				</Popover>
+						</PopoverTrigger>
+						<PopoverContent align="start" className="w-56 p-1">
+							{workDirOptions.map((option) => (
+								<button
+									key={option.cwd}
+									type="button"
+									onClick={() => {
+										set("cwd", option.cwd);
+										setWorkDirPopoverOpen(false);
+									}}
+									className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] transition-colors ${
+										value.cwd === option.cwd
+											? "bg-primary/10 text-primary"
+											: "text-foreground hover:bg-accent/50"
+									}`}
+								>
+									<span className="icon-[mdi--folder-outline] h-3.5 w-3.5" />
+									<span className="truncate">{option.name}</span>
+								</button>
+							))}
+						</PopoverContent>
+					</Popover>
+				)}
 
 				<Popover open={schedulePopoverOpen} onOpenChange={setSchedulePopoverOpen}>
 					<PopoverTrigger asChild>

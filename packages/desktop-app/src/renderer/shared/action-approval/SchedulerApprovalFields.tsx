@@ -22,6 +22,7 @@ export function SchedulerApprovalFields({
 			onChange={onChange}
 			namePlaceholder="任务名称"
 			showEnabled
+			showWorkDirSelector={false}
 			promptMinHeight={160}
 		/>
 	);
