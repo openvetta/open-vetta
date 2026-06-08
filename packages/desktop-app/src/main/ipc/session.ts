@@ -416,7 +416,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (effectiveCwd && effectiveCwd !== config?.cwd) {
 			allowProjectRoot(effectiveCwd);
 		}
-		const desktopConfig = kind === "conversation" ? await readDesktopConfig() : undefined;
+		const isConversation = kind === "conversation";
+		const desktopConfig = isConversation ? await readDesktopConfig() : undefined;
+		const askUserQuestion = isConversation;
 		const appendSystemPrompt =
 			desktopConfig?.experimental?.vettaCli === true
 				? config?.appendSystemPrompt
@@ -426,13 +428,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		const needPatch =
 			effectiveCwd !== config?.cwd ||
 			injectedSessionDir !== config?.sessionDir ||
-			appendSystemPrompt !== config?.appendSystemPrompt;
+			appendSystemPrompt !== config?.appendSystemPrompt ||
+			askUserQuestion !== config?.askUserQuestion;
 		const effectiveConfig: SessionConfig | undefined = needPatch
 			? {
 					...(config ?? {}),
 					cwd: effectiveCwd,
 					sessionDir: injectedSessionDir ?? config?.sessionDir,
 					appendSystemPrompt,
+					askUserQuestion,
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);

@@ -194,9 +194,12 @@ export function useSessionManager(): SessionManagerResult {
 			const isBatchSession =
 				sessionPath !== undefined &&
 				batchProjectsRef.current.some((project) => project.tasks.some((task) => task.sessionPath === sessionPath));
+			const isBatchProject = batchProjectsRef.current.some((project) => project.id === cwd);
 			const projectType = projectsRef.current.find((project) => project.cwd === cwd)?.type;
 			const sessionKind =
-				isBatchSession || projectType === "batch" || projectType === "flowing" ? "other" : "conversation";
+				isBatchSession || isBatchProject || projectType === "batch" || projectType === "flowing"
+					? "other"
+					: "conversation";
 			const createResult = await window.vetta.session.create({ cwd, sessionPath, executionMode }, sessionKind);
 			const { sessionId } = createResult;
 			// ADR-0007: 「对话」项目下 main 会把 cwd 改写成 per-session 子目录，
