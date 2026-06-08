@@ -371,7 +371,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		}
 	};
 
-	// 启动时按盘上配置决定初始态（默认关）。
+	// 启动时按盘上配置决定初始态（默认开）。
 	void readDesktopConfig().then((config) => {
 		applyAskUserQuestion(config.experimental?.askUserQuestion === true);
 	});
