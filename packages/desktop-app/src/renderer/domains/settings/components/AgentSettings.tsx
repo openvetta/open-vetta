@@ -34,9 +34,9 @@ export function AgentSettings(): JSX.Element {
 	const [justSaved, setJustSaved] = useState(false);
 	const [personaOpen, setPersonaOpen] = useState(false);
 
-	// 实验性功能：ask_user_question 开关（默认关）。
-	const [askUserQuestionEnabled, setAskUserQuestionEnabled] = useState(false);
-	const [vettaCliEnabled, setVettaCliEnabled] = useState(false);
+	// 实验性功能：缺省开启；用户显式关闭后按配置覆盖。
+	const [askUserQuestionEnabled, setAskUserQuestionEnabled] = useState(true);
+	const [vettaCliEnabled, setVettaCliEnabled] = useState(true);
 
 	useEffect(() => {
 		void window.vetta.session.getMaxRecentImages().then((v) => setMaxRecentImages(clampImages(v)));

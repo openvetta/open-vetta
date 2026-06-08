@@ -17,9 +17,9 @@ export interface ProjectEntry {
 
 /** 实验性功能开关分组（设置页「Agent配置 → 实验性功能」）。新增实验项只加一个键。 */
 export interface ExperimentalConfig {
-	/** ask_user_question 工具：开启后仅对话会话可在执行途中向用户提多选题。缺省关。 */
+	/** ask_user_question 工具：开启后仅对话会话可在执行途中向用户提多选题。缺省开。 */
 	askUserQuestion?: boolean;
-	/** Vetta CLI 提示词：开启后仅注入桌面端对话会话。缺省关。 */
+	/** Vetta CLI 提示词：开启后仅注入桌面端对话会话。缺省开。 */
 	vettaCli?: boolean;
 }
 
@@ -32,7 +32,7 @@ export interface DesktopConfig {
 	vettaAppPath?: string;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
-	/** 实验性功能开关分组。缺省视为全部关闭。 */
+	/** 实验性功能开关分组。缺省视为全部开启。 */
 	experimental?: ExperimentalConfig;
 }
 
@@ -78,7 +78,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,
-	experimental: { askUserQuestion: false, vettaCli: false },
+	experimental: { askUserQuestion: true, vettaCli: true },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -96,11 +96,11 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 }
 
 function normalizeExperimental(value: unknown): ExperimentalConfig {
-	if (typeof value !== "object" || value === null) return { askUserQuestion: false, vettaCli: false };
+	if (typeof value !== "object" || value === null) return { askUserQuestion: true, vettaCli: true };
 	const v = value as Record<string, unknown>;
 	return {
-		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : false,
-		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : false,
+		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : true,
+		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : true,
 	};
 }
 

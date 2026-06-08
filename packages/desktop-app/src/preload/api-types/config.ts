@@ -36,11 +36,11 @@ export interface DesktopConfigData {
 	debugMode?: boolean;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
-	/** 实验性功能开关分组（「Agent配置 → 实验性功能」）。缺省视为全部关闭。 */
+	/** 实验性功能开关分组（「Agent配置 → 实验性功能」）。缺省视为全部开启。 */
 	experimental?: {
-		/** ask_user_question 工具开关。仅对话会话生效，缺省关。 */
+		/** ask_user_question 工具开关。仅对话会话生效，缺省开。 */
 		askUserQuestion?: boolean;
-		/** Vetta CLI 提示词开关。仅对桌面端对话会话生效，缺省关。 */
+		/** Vetta CLI 提示词开关。仅对桌面端对话会话生效，缺省开。 */
 		vettaCli?: boolean;
 	};
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
