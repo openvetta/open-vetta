@@ -247,14 +247,7 @@ function buildLinuxSandboxArgs(
 	grant: SandboxShellGrant | undefined,
 	vettaCliShimPath: string | undefined,
 ): string[] {
-	const args: string[] = [
-		"--die-with-parent",
-		"--new-session",
-		"--unshare-pid",
-		"--unshare-ipc",
-		"--unshare-uts",
-		"--unshare-net",
-	];
+	const args: string[] = ["--die-with-parent", "--new-session", "--unshare-pid", "--unshare-ipc", "--unshare-uts"];
 	const createdDirs = new Set<string>();
 	const mountedRoots = new Set<string>();
 

@@ -1,6 +1,4 @@
-import { appendFileSync, writeSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { writeSync } from "node:fs";
 import { ActionRpcError, createActionRpcClient } from "@vetta/action-rpc";
 import { readActionServerEndpoint } from "../app-actions/endpoint-file.js";
 
@@ -45,10 +43,6 @@ Exit codes:
   4  Action RPC error.
 `;
 
-const ACTION_CLI_DEBUG_LOG_ENV = "VETTA_ACTION_CLI_DEBUG_LOG";
-const actionCliDebugLogPath =
-	process.env[ACTION_CLI_DEBUG_LOG_ENV] || join(homedir(), "Desktop", "vetta-action-cli-debug.log");
-
 class ActionCliError extends Error {
 	constructor(
 		readonly code: string,
@@ -58,25 +52,6 @@ class ActionCliError extends Error {
 		super(message);
 		this.name = "ActionCliError";
 	}
-}
-
-function writeActionCliLog(event: string, details: Record<string, unknown>): void {
-	const line = `[${new Date().toISOString()} pid:${process.pid}] [vetta action desktop-cli] ${event} ${JSON.stringify(details)}\n`;
-	writeSync(2, line);
-	try {
-		appendFileSync(actionCliDebugLogPath, line, "utf8");
-	} catch {
-		// Keep stdout JSON protocol intact even if the debug file cannot be written.
-	}
-}
-
-function describeCliArg(value: string | undefined): Record<string, unknown> {
-	if (value === undefined) return { value: undefined };
-	return {
-		value,
-		length: value.length,
-		codePoints: Array.from(value).map((char) => char.codePointAt(0)),
-	};
 }
 
 function findCommandStart(argv: string[]): number {
@@ -117,41 +92,33 @@ function unescapeCliDoubleQuotes(raw: string): string | undefined {
 	return raw.replaceAll('\\"', '"');
 }
 
-function tryParseJsonInput(raw: string, strategy: string): { ok: true; value: unknown } | { ok: false } {
+function tryParseJsonInput(raw: string): { ok: true; value: unknown } | { ok: false } {
 	try {
-		const parsed = JSON.parse(raw) as unknown;
-		writeActionCliLog("json-input:parsed", { strategy });
-		return { ok: true, value: parsed };
-	} catch (error) {
-		writeActionCliLog("json-input:parse-failed", {
-			strategy,
-			error: error instanceof Error ? error.message : String(error),
-		});
+		return { ok: true, value: JSON.parse(raw) as unknown };
+	} catch {
 		return { ok: false };
 	}
 }
 
 function parseJsonInput(raw: string | undefined): unknown {
-	writeActionCliLog("json-input:received", describeCliArg(raw));
 	if (raw === undefined) return {};
-	const rawResult = tryParseJsonInput(raw, "raw");
+	const rawResult = tryParseJsonInput(raw);
 	if (rawResult.ok) return rawResult.value;
 
-	const candidates: { strategy: string; value: string }[] = [];
+	const candidates: string[] = [];
 	const unquoted = stripOuterCliQuotes(raw);
-	if (unquoted !== undefined) candidates.push({ strategy: "unquoted", value: unquoted });
+	if (unquoted !== undefined) candidates.push(unquoted);
 	const unescaped = unescapeCliDoubleQuotes(raw);
 	if (unescaped !== undefined) {
-		candidates.push({ strategy: "escaped-quotes", value: unescaped });
+		candidates.push(unescaped);
 		const unescapedUnquoted = stripOuterCliQuotes(unescaped);
 		if (unescapedUnquoted !== undefined) {
-			candidates.push({ strategy: "escaped-quotes-unquoted", value: unescapedUnquoted });
+			candidates.push(unescapedUnquoted);
 		}
 	}
 
 	for (const candidate of candidates) {
-		writeActionCliLog(`json-input:retry-${candidate.strategy}`, describeCliArg(candidate.value));
-		const result = tryParseJsonInput(candidate.value, candidate.strategy);
+		const result = tryParseJsonInput(candidate);
 		if (result.ok) return result.value;
 	}
 
@@ -159,7 +126,6 @@ function parseJsonInput(raw: string | undefined): unknown {
 }
 
 export function parseActionCliCommand(argv: string[]): ActionCliCommand | null {
-	writeActionCliLog("argv", { args: argv.map((arg) => describeCliArg(arg)) });
 	const start = findCommandStart(argv);
 	if (start < 0) return null;
 	const args = argv.slice(start + 1);
