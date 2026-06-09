@@ -131,6 +131,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Vetta action run 在 Windows 命令行无法解析 JSON 参数**：CLI 与桌面可执行入口现在会在原样解析失败后兼容剥离一层完整包裹的 shell 引号；开发模式下 `~/.vetta/agent/bin` 只生成 `vetta.exe`，并清理旧的 `vetta.cmd` / `vetta` shim，避免 Windows batch 二次解析吃掉 JSON 内部双引号。修复 `vetta action run appearance.theme '{"type":"set","mode":"light"}'` 在部分 Windows 调用链中导致 `json-input must be valid JSON` 的问题。
+
 - **Windows 微信/Claw 发消息报 `acquire session: hostclient/local: subprocess exited during handshake`**：打包后的 `Vetta.exe --agent-rpc --mode rpc` 在 Windows GUI Electron 模式下 stdin 会很快关闭，coding-agent 刚完成 `createAgentSession` 就退出 0，im-gateway 因拿不到 `get_state` 握手响应而把 stderr 里的 perf 日志回显到微信。Windows 生产环境现在改为用同一个 `Vetta.exe` 设置 `ELECTRON_RUN_AS_NODE=1` 运行 `Resources/coding-agent/dist/agent-rpc-cli.mjs --mode rpc`，保留可用 stdio；打包阶段同步用 Bun 生成包含 `chalk` 等依赖的 agent-rpc 单文件 bundle，并把 coding-agent 完整 `dist` 放入 `Resources/coding-agent/`。
 
 - **侧边栏无法拖拽收缩**：两层原因叠加导致 `ResizeHandle` 完全失效——(1) `ResizeHandle` 用 `translate-x-1/2` 让 5px 命中区域骑在 `<aside>` 右边缘，但 `<aside>` 与外层 `motion.div` 都是 `overflow-hidden`，外侧那 2.5px 被裁切；(2) 更关键的是 `styles.css` 中 `.sidebar-surface > *` 对 sidebar 所有直接子元素强制 `position: relative; z-index: 1`，把 ResizeHandle 的 `absolute z-30` 直接覆盖回 relative，导致它沦为 flex 流末尾的普通块、`right-0` 完全失去意义、根本拦不到拖拽。修复：把这条规则改为 `:not(.absolute)`（保留对玻璃质感 `::before` 的层级压制能力，但放过绝对定位子元素），同时把 `ResizeHandle` 改为完全位于父容器内部、宽度 6px，hover/active 高亮提升至 `primary/40`、`primary/60`。侧边栏宽度持久化到 `localStorage[vetta-sidebar-width]`，仅在拖拽结束时落盘。

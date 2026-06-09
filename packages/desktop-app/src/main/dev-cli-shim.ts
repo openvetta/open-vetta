@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { accessSync, constants } from "node:fs";
-import { access, chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { access, chmod, copyFile, mkdir, readdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, delimiter, join } from "node:path";
 import { promisify } from "node:util";
 import { getAgentDir } from "@vetta/coding-agent";
@@ -11,7 +11,8 @@ const DEV_CLI_DIR = ".desktop-dev";
 const LAUNCHER_SOURCE_NAME = "vetta-dev-cli-launcher.js";
 const LAUNCHER_BINARY_BASE_NAME = "vetta-dev-cli-launcher";
 const VETTA_CLI_BINARY_BASE_NAME = "vetta-cli-app";
-const VETTA_COMMAND_NAMES = process.platform === "win32" ? ["vetta.cmd", "vetta"] : ["vetta"];
+const VETTA_COMMAND_NAMES = process.platform === "win32" ? ["vetta.exe"] : ["vetta"];
+const WINDOWS_LEGACY_VETTA_COMMAND_NAMES = ["vetta.cmd", "vetta"];
 
 interface DevCliShimOptions {
 	appRoot: string;
@@ -44,6 +45,16 @@ async function writeFileIfChanged(path: string, content: string): Promise<boolea
 	return true;
 }
 
+async function copyFileIfChanged(sourcePath: string, targetPath: string): Promise<void> {
+	try {
+		const [sourceStats, targetStats] = await Promise.all([stat(sourcePath), stat(targetPath)]);
+		if (sourceStats.size === targetStats.size && sourceStats.mtimeMs <= targetStats.mtimeMs) return;
+	} catch {
+		// Missing or unreadable target: copy it below.
+	}
+	await copyFile(sourcePath, targetPath);
+}
+
 async function needsCompile(sourcePath: string, binaryPath: string, sourceChanged: boolean): Promise<boolean> {
 	if (sourceChanged) return true;
 	try {
@@ -52,6 +63,19 @@ async function needsCompile(sourcePath: string, binaryPath: string, sourceChange
 	} catch {
 		return true;
 	}
+}
+
+async function getNewestFileMtimeMs(dir: string): Promise<number> {
+	const entries = await readdir(dir, { withFileTypes: true });
+	const mtimes = await Promise.all(
+		entries.map(async (entry) => {
+			const entryPath = join(dir, entry.name);
+			if (entry.isDirectory()) return await getNewestFileMtimeMs(entryPath);
+			if (!entry.isFile()) return 0;
+			return (await stat(entryPath)).mtimeMs;
+		}),
+	);
+	return Math.max(0, ...mtimes);
 }
 
 function createLauncherSource(options: DevCliShimOptions): string {
@@ -171,13 +195,14 @@ export async function ensureDevCliShim(options: DevCliShimOptions): Promise<stri
 
 export async function ensureDevVettaCliShim(options: DevVettaCliShimOptions): Promise<string> {
 	const shimDir = join(options.appRoot, DEV_CLI_DIR, getCurrentPlatformArchId());
-	const sourcePath = join(options.cliAppRoot, "src", "cli.ts");
+	const sourceDir = join(options.cliAppRoot, "src");
+	const sourcePath = join(sourceDir, "cli.ts");
 	const binaryPath = join(shimDir, getVettaCliBinaryName());
 	await mkdir(shimDir, { recursive: true });
 
 	try {
-		const [sourceStats, binaryStats] = await Promise.all([stat(sourcePath), stat(binaryPath)]);
-		if (sourceStats.mtimeMs <= binaryStats.mtimeMs) {
+		const [sourceMtimeMs, binaryStats] = await Promise.all([getNewestFileMtimeMs(sourceDir), stat(binaryPath)]);
+		if (sourceMtimeMs <= binaryStats.mtimeMs) {
 			await assertExecutable(binaryPath);
 			return binaryPath;
 		}
@@ -202,13 +227,31 @@ function createVettaCommandShim(vettaCliAppPath: string): string {
 	return ["#!/usr/bin/env sh", `exec "${vettaCliAppPath}" "$@"`, ""].join("\n");
 }
 
+async function removeLegacyWindowsCommandShims(binDir: string): Promise<void> {
+	if (process.platform !== "win32") return;
+	await Promise.all(
+		WINDOWS_LEGACY_VETTA_COMMAND_NAMES.map(async (name) => {
+			try {
+				await unlink(join(binDir, name));
+			} catch {
+				// Missing legacy shim is fine.
+			}
+		}),
+	);
+}
+
 export async function ensureVettaCommandShim(vettaCliAppPath: string): Promise<string> {
 	await assertExecutable(vettaCliAppPath);
 	const binDir = join(getAgentDir(), "bin");
 	await mkdir(binDir, { recursive: true });
+	await removeLegacyWindowsCommandShims(binDir);
 	const shimPaths = VETTA_COMMAND_NAMES.map((name) => join(binDir, name));
 	await Promise.all(
-		shimPaths.map((shimPath) => writeFileIfChanged(shimPath, createVettaCommandShim(vettaCliAppPath))),
+		shimPaths.map((shimPath) =>
+			process.platform === "win32" && shimPath.endsWith(".exe")
+				? copyFileIfChanged(vettaCliAppPath, shimPath)
+				: writeFileIfChanged(shimPath, createVettaCommandShim(vettaCliAppPath)),
+		),
 	);
 	for (const shimPath of shimPaths) {
 		if (process.platform !== "win32") {
