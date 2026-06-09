@@ -1,7 +1,5 @@
-import { appendFileSync, writeSync } from "node:fs";
+import { writeSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { parseArgs } from "node:util";
 import {
 	type ActionRpcEndpoint,
@@ -52,10 +50,6 @@ const searchOptionsSchema = z.object({
 	domain: z.string().optional(),
 });
 
-const ACTION_CLI_DEBUG_LOG_ENV = "VETTA_ACTION_CLI_DEBUG_LOG";
-const actionCliDebugLogPath =
-	process.env[ACTION_CLI_DEBUG_LOG_ENV] || join(homedir(), "Desktop", "vetta-action-cli-debug.log");
-
 type ActionCommand = z.infer<typeof actionCommandSchema>;
 type ActionErrorCommand = z.infer<typeof actionErrorCommandSchema>;
 type ActionRpcClient = ReturnType<typeof createActionRpcClient>;
@@ -100,25 +94,6 @@ function writeJson(response: unknown): void {
 	writeSync(1, `${JSON.stringify(response)}\n`);
 }
 
-function writeActionCliLog(event: string, details: Record<string, unknown>): void {
-	const line = `[${new Date().toISOString()} pid:${process.pid}] [vetta action cli] ${event} ${JSON.stringify(details)}\n`;
-	writeSync(2, line);
-	try {
-		appendFileSync(actionCliDebugLogPath, line, "utf8");
-	} catch {
-		// Keep stdout JSON protocol intact even if the debug file cannot be written.
-	}
-}
-
-function describeCliArg(value: string | undefined): Record<string, unknown> {
-	if (value === undefined) return { value: undefined };
-	return {
-		value,
-		length: value.length,
-		codePoints: Array.from(value).map((char) => char.codePointAt(0)),
-	};
-}
-
 function argumentError(message: string): ActionErrorCommand {
 	return {
 		type: "error",
@@ -140,41 +115,33 @@ function unescapeCliDoubleQuotes(raw: string): string | undefined {
 	return raw.replaceAll('\\"', '"');
 }
 
-function tryParseJsonInput(raw: string, strategy: string): { ok: true; value: unknown } | { ok: false } {
+function tryParseJsonInput(raw: string): { ok: true; value: unknown } | { ok: false } {
 	try {
-		const parsed = JSON.parse(raw) as unknown;
-		writeActionCliLog("json-input:parsed", { strategy });
-		return { ok: true, value: parsed };
-	} catch (error) {
-		writeActionCliLog("json-input:parse-failed", {
-			strategy,
-			error: error instanceof Error ? error.message : String(error),
-		});
+		return { ok: true, value: JSON.parse(raw) as unknown };
+	} catch {
 		return { ok: false };
 	}
 }
 
 function parseJsonInput(raw: string | undefined): ActionCommand | unknown {
-	writeActionCliLog("json-input:received", describeCliArg(raw));
 	if (raw === undefined) return {};
-	const rawResult = tryParseJsonInput(raw, "raw");
+	const rawResult = tryParseJsonInput(raw);
 	if (rawResult.ok) return rawResult.value;
 
-	const candidates: { strategy: string; value: string }[] = [];
+	const candidates: string[] = [];
 	const unquoted = stripOuterCliQuotes(raw);
-	if (unquoted !== undefined) candidates.push({ strategy: "unquoted", value: unquoted });
+	if (unquoted !== undefined) candidates.push(unquoted);
 	const unescaped = unescapeCliDoubleQuotes(raw);
 	if (unescaped !== undefined) {
-		candidates.push({ strategy: "escaped-quotes", value: unescaped });
+		candidates.push(unescaped);
 		const unescapedUnquoted = stripOuterCliQuotes(unescaped);
 		if (unescapedUnquoted !== undefined) {
-			candidates.push({ strategy: "escaped-quotes-unquoted", value: unescapedUnquoted });
+			candidates.push(unescapedUnquoted);
 		}
 	}
 
 	for (const candidate of candidates) {
-		writeActionCliLog(`json-input:retry-${candidate.strategy}`, describeCliArg(candidate.value));
-		const result = tryParseJsonInput(candidate.value, candidate.strategy);
+		const result = tryParseJsonInput(candidate);
 		if (result.ok) return result.value;
 	}
 
@@ -269,7 +236,6 @@ const actionSubcommands: ActionSubcommandDefinition[] = [
 ];
 
 export function parseActionCommand(args: string[]): ActionCommand | undefined {
-	writeActionCliLog("argv", { args: args.map((arg) => describeCliArg(arg)) });
 	if (args[0] !== "action") return undefined;
 	const subcommand = args[1];
 	if (subcommand === undefined || subcommand === "-h" || subcommand === "--help") {

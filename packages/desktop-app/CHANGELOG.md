@@ -131,6 +131,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Linux 沙盒无法访问网络与本地 Action RPC**：Bubblewrap 不再创建独立网络命名空间，沙盒内现在可以执行 `npm` / `bun` / `pip` 安装、访问外部网络，并通过宿主机 `127.0.0.1` 连接 Desktop Action RPC；文件系统、PID、IPC 与 UTS 隔离保持不变。
+
 - **Vetta action run 在 Windows 命令行无法解析 JSON 参数**：CLI 与桌面可执行入口现在会在原样解析失败后兼容剥离一层完整包裹的 shell 引号；开发模式下 `~/.vetta/agent/bin` 只生成 `vetta.exe`，并清理旧的 `vetta.cmd` / `vetta` shim，避免 Windows batch 二次解析吃掉 JSON 内部双引号。修复 `vetta action run appearance.theme '{"type":"set","mode":"light"}'` 在部分 Windows 调用链中导致 `json-input must be valid JSON` 的问题。
 
 - **Windows 微信/Claw 发消息报 `acquire session: hostclient/local: subprocess exited during handshake`**：打包后的 `Vetta.exe --agent-rpc --mode rpc` 在 Windows GUI Electron 模式下 stdin 会很快关闭，coding-agent 刚完成 `createAgentSession` 就退出 0，im-gateway 因拿不到 `get_state` 握手响应而把 stderr 里的 perf 日志回显到微信。Windows 生产环境现在改为用同一个 `Vetta.exe` 设置 `ELECTRON_RUN_AS_NODE=1` 运行 `Resources/coding-agent/dist/agent-rpc-cli.mjs --mode rpc`，保留可用 stdio；打包阶段同步用 Bun 生成包含 `chalk` 等依赖的 agent-rpc 单文件 bundle，并把 coding-agent 完整 `dist` 放入 `Resources/coding-agent/`。

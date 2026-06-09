@@ -62,14 +62,7 @@ let sandboxCapability: SandboxCapability = {
 };
 
 function buildLinuxProbeArgs(commandPath: string): string[] {
-	const args: string[] = [
-		"--die-with-parent",
-		"--new-session",
-		"--unshare-pid",
-		"--unshare-ipc",
-		"--unshare-uts",
-		"--unshare-net",
-	];
+	const args: string[] = ["--die-with-parent", "--new-session", "--unshare-pid", "--unshare-ipc", "--unshare-uts"];
 
 	for (const root of STANDARD_READ_ONLY_ROOTS) {
 		if (!existsSync(root)) continue;
