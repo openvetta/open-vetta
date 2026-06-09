@@ -1,19 +1,27 @@
 import { execFile } from "node:child_process";
 import { accessSync, constants } from "node:fs";
-import { access, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, delimiter, join } from "node:path";
 import { promisify } from "node:util";
+import { getAgentDir } from "@vetta/coding-agent";
 
 const execFileAsync = promisify(execFile);
 
 const DEV_CLI_DIR = ".desktop-dev";
 const LAUNCHER_SOURCE_NAME = "vetta-dev-cli-launcher.js";
 const LAUNCHER_BINARY_BASE_NAME = "vetta-dev-cli-launcher";
+const VETTA_CLI_BINARY_BASE_NAME = "vetta-cli-app";
+const VETTA_COMMAND_NAMES = process.platform === "win32" ? ["vetta.cmd", "vetta"] : ["vetta"];
 
 interface DevCliShimOptions {
 	appRoot: string;
 	electronPath: string;
 	mainEntryPath: string;
+}
+
+interface DevVettaCliShimOptions {
+	appRoot: string;
+	cliAppRoot: string;
 }
 
 async function isExecutable(path: string): Promise<boolean> {
@@ -113,6 +121,10 @@ function getLauncherBinaryName(): string {
 	return process.platform === "win32" ? `${LAUNCHER_BINARY_BASE_NAME}.exe` : LAUNCHER_BINARY_BASE_NAME;
 }
 
+function getVettaCliBinaryName(): string {
+	return process.platform === "win32" ? `${VETTA_CLI_BINARY_BASE_NAME}.exe` : VETTA_CLI_BINARY_BASE_NAME;
+}
+
 function resolveBunCommand(): string {
 	const npmExecPath = process.env.npm_execpath;
 	if (npmExecPath && basename(npmExecPath).toLowerCase().startsWith("bun") && pathExistsSync(npmExecPath)) {
@@ -155,4 +167,55 @@ export async function ensureDevCliShim(options: DevCliShimOptions): Promise<stri
 
 	await assertExecutable(binaryPath);
 	return binaryPath;
+}
+
+export async function ensureDevVettaCliShim(options: DevVettaCliShimOptions): Promise<string> {
+	const shimDir = join(options.appRoot, DEV_CLI_DIR, getCurrentPlatformArchId());
+	const sourcePath = join(options.cliAppRoot, "src", "cli.ts");
+	const binaryPath = join(shimDir, getVettaCliBinaryName());
+	await mkdir(shimDir, { recursive: true });
+
+	try {
+		const [sourceStats, binaryStats] = await Promise.all([stat(sourcePath), stat(binaryPath)]);
+		if (sourceStats.mtimeMs <= binaryStats.mtimeMs) {
+			await assertExecutable(binaryPath);
+			return binaryPath;
+		}
+	} catch {
+		// Missing binary or source stats: compile below.
+	}
+
+	const bunCommand = resolveBunCommand();
+	await execFileAsync(bunCommand, ["build", sourcePath, "--compile", "--outfile", binaryPath], {
+		cwd: options.appRoot,
+		windowsHide: true,
+	});
+	await assertExecutable(binaryPath);
+	return binaryPath;
+}
+
+function createVettaCommandShim(vettaCliAppPath: string): string {
+	if (process.platform === "win32") {
+		return ["@echo off", `"${vettaCliAppPath}" %*`, ""].join("\r\n");
+	}
+
+	return ["#!/usr/bin/env sh", `exec "${vettaCliAppPath}" "$@"`, ""].join("\n");
+}
+
+export async function ensureVettaCommandShim(vettaCliAppPath: string): Promise<string> {
+	await assertExecutable(vettaCliAppPath);
+	const binDir = join(getAgentDir(), "bin");
+	await mkdir(binDir, { recursive: true });
+	const shimPaths = VETTA_COMMAND_NAMES.map((name) => join(binDir, name));
+	await Promise.all(
+		shimPaths.map((shimPath) => writeFileIfChanged(shimPath, createVettaCommandShim(vettaCliAppPath))),
+	);
+	for (const shimPath of shimPaths) {
+		if (process.platform !== "win32") {
+			await access(shimPath, constants.F_OK);
+			await chmod(shimPath, 0o755);
+		}
+		await assertExecutable(shimPath);
+	}
+	return shimPaths[0];
 }

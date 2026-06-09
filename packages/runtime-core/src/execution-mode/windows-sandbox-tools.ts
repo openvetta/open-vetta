@@ -1,8 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve as resolvePath } from "node:path";
+import { delimiter, dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	createEditTool,
@@ -46,6 +46,7 @@ const ENV_WHITELIST = [
 	"VETTA_HOME",
 	"VETTA_ACTION_RPC_ENDPOINT_FILE",
 	"VETTA_DESKTOP_EXE",
+	"VETTA_CLI_APP_PATH",
 ] as const;
 
 type WindowsSandboxBackend = "auto" | "elevated" | "unelevated";
@@ -80,11 +81,34 @@ function resolveWindowsSandboxHostPath(explicitPath?: string): string {
 	);
 }
 
-function buildSandboxEnv(sourceEnv: NodeJS.ProcessEnv | undefined, tempRoot: string): string[] {
+function resolveVettaCliAppPath(env: NodeJS.ProcessEnv | undefined): string | undefined {
+	const value = env?.VETTA_CLI_APP_PATH ?? process.env.VETTA_CLI_APP_PATH;
+	return typeof value === "string" && value.length > 0 && existsSync(value) ? value : undefined;
+}
+
+async function createVettaCliShim(tempRoot: string, env: NodeJS.ProcessEnv | undefined): Promise<string | undefined> {
+	const vettaCliAppPath = resolveVettaCliAppPath(env);
+	if (!vettaCliAppPath) return undefined;
+	const shimDir = join(tempRoot, "bin");
+	await mkdir(shimDir, { recursive: true });
+	await writeFile(join(shimDir, "vetta.cmd"), ["@echo off", `"${vettaCliAppPath}" %*`, ""].join("\r\n"), "utf8");
+	return shimDir;
+}
+
+function buildSandboxEnv(
+	sourceEnv: NodeJS.ProcessEnv | undefined,
+	tempRoot: string,
+	vettaShimDir: string | undefined,
+): string[] {
 	const baseEnv = sourceEnv ?? process.env;
 	const args: string[] = ["--clear-env"];
 	for (const key of ENV_WHITELIST) {
-		const value = baseEnv[key];
+		const value =
+			key === "PATH" && vettaShimDir
+				? [vettaShimDir, baseEnv.PATH].filter((item): item is string => Boolean(item)).join(delimiter)
+				: key === "VETTA_CLI_APP_PATH"
+					? resolveVettaCliAppPath(sourceEnv)
+					: baseEnv[key];
 		if (typeof value === "string" && value.length > 0) {
 			args.push("--env", `${key}=${value}`);
 		}
@@ -139,6 +163,7 @@ function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOper
 				void (async () => {
 					const tempRoot = await mkdtemp(join(tmpdir(), "vetta-windows-sandbox-"));
 					await mkdir(join(tempRoot, "home"), { recursive: true });
+					const vettaShimDir = await createVettaCliShim(tempRoot, env);
 					const shellCommand = resolveWindowsShellCommand();
 					const backend = resolveWindowsSandboxBackend();
 					const policy = buildWindowsSandboxPolicy({
@@ -161,7 +186,7 @@ function createWindowsSandboxShellOperations(sandboxHostPath: string): ShellOper
 						policy.tempRoot,
 						"--network",
 						policy.allowNetwork ? "default" : "none",
-						...buildSandboxEnv(env, policy.tempRoot),
+						...buildSandboxEnv(env, policy.tempRoot, vettaShimDir),
 					];
 					for (const root of policy.allowReadRoots) {
 						args.push("--read-root", root);

@@ -10,6 +10,7 @@ const vendorCacheDir = join(tmpdir(), "vetta-desktop-vendor-cache");
 const imGatewayDir = join(projectRoot, "..", "im-gateway");
 const imGatewayDistDir = join(imGatewayDir, "dist");
 const codingAgentDir = join(projectRoot, "..", "coding-agent");
+const cliAppDir = join(projectRoot, "..", "cli-app");
 const runtimeCoreWindowsSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "bin");
 const runtimeCoreSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "linux");
 const imGatewayCrossTargets = [
@@ -19,6 +20,13 @@ const imGatewayCrossTargets = [
 	{ arch: "arm64", os: "linux" },
 	{ arch: "amd64", os: "windows" },
 ];
+const cliAppCompileTargets = {
+	"darwin-arm64": { platformTag: "darwin-arm64", bunTarget: "bun-darwin-arm64", binaryName: "vetta" },
+	"darwin-x64": { platformTag: "darwin-x64", bunTarget: "bun-darwin-x64", binaryName: "vetta" },
+	"linux-arm64": { platformTag: "linux-arm64", bunTarget: "bun-linux-arm64", binaryName: "vetta" },
+	"linux-x64": { platformTag: "linux-x64", bunTarget: "bun-linux-x64", binaryName: "vetta" },
+	"win32-x64": { platformTag: "win32-x64", bunTarget: "bun-windows-x64", binaryName: "vetta.exe" },
+};
 
 // Resolve electron version from the workspace
 const require = createRequire(import.meta.url);
@@ -27,6 +35,29 @@ const electronVersion = JSON.parse(readFileSync(electronPkgPath, "utf8")).versio
 
 // 应用版本号以 packages/desktop-app/package.json 为唯一真源
 const appVersion = JSON.parse(readFileSync(join(projectRoot, "package.json"), "utf8")).version;
+
+function resolveCliAppCompileTargets() {
+	const rawTargets = process.env.VETTA_CLI_TARGET_PLATFORMS ?? process.env.VETTA_VENDOR_PLATFORM;
+	const platformTags =
+		typeof rawTargets === "string" && rawTargets.trim().length > 0
+			? rawTargets
+					.split(",")
+					.map((value) => value.trim())
+					.filter(Boolean)
+			: [`${process.platform}-${process.arch}`];
+
+	return platformTags.map((platformTag) => {
+		const target = cliAppCompileTargets[platformTag];
+		if (!target) {
+			throw new Error(
+				`[prepare-pack] unsupported cli-app platform ${platformTag}; expected one of ${Object.keys(
+					cliAppCompileTargets,
+				).join(", ")}`,
+			);
+		}
+		return target;
+	});
+}
 
 // Copy externalized dependencies (not bundled by Vite due to ESM compatibility issues).
 //
@@ -227,6 +258,49 @@ if (!existsSync(join(stagedThemeDir, "dark.json"))) {
 }
 if (!existsSync(bundledAgentRpcCli)) {
 	throw new Error(`bundled agent-rpc CLI missing after stage: ${bundledAgentRpcCli}`);
+}
+
+// =============================================================================
+// vetta CLI app (extraResources)
+// =============================================================================
+//
+// The agent-facing `vetta` command is @vetta/cli-app, not the desktop
+// executable. Stage it into Resources/cli-app/ so Desktop can write
+// ~/.vetta/agent/bin/vetta as a stable shim to this entry.
+const stagedCliAppDir = join(buildStageDir, "cli-app");
+rmSync(stagedCliAppDir, { recursive: true, force: true });
+mkdirSync(stagedCliAppDir, { recursive: true });
+cpSync(join(cliAppDir, "package.json"), join(stagedCliAppDir, "package.json"));
+console.log("[prepare-pack] building cli-app...");
+execFileSync(process.platform === "win32" ? "bun.exe" : "bun", ["run", "build"], {
+	cwd: cliAppDir,
+	stdio: "inherit",
+});
+for (const target of resolveCliAppCompileTargets()) {
+	const stagedCliAppBinDir = join(stagedCliAppDir, "bin", target.platformTag);
+	const stagedCliAppBinary = join(stagedCliAppBinDir, target.binaryName);
+	mkdirSync(stagedCliAppBinDir, { recursive: true });
+	console.log(`[prepare-pack] compiling vetta CLI (${target.platformTag}) -> ${stagedCliAppBinary}`);
+	execFileSync(process.platform === "win32" ? "bun.exe" : "bun", [
+		"build",
+		join(cliAppDir, "src", "cli.ts"),
+		"--compile",
+		"--target",
+		target.bunTarget,
+		"--outfile",
+		stagedCliAppBinary,
+	], {
+		cwd: projectRoot,
+		stdio: "inherit",
+	});
+	if (!existsSync(stagedCliAppBinary)) {
+		throw new Error(`[prepare-pack] compiled cli-app binary missing after stage: ${stagedCliAppBinary}`);
+	}
+	try {
+		chmodSync(stagedCliAppBinary, 0o755);
+	} catch {
+		// best effort on Windows / FAT
+	}
 }
 
 // =============================================================================
@@ -433,6 +507,11 @@ const builderConfig = {
 		{
 			from: "coding-agent",
 			to: "coding-agent",
+			filter: ["**/*"],
+		},
+		{
+			from: "cli-app",
+			to: "cli-app",
 			filter: ["**/*"],
 		},
 		{

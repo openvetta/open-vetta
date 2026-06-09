@@ -15,7 +15,7 @@ import { parseHelpCliCommand, runHelpCliCommand } from "./cli/help-command.js";
 import { parseOcrCliCommand, runOcrCliCommand } from "./cli/ocr-command.js";
 import { parsePdfCliCommand, runPdfCliCommand } from "./cli/pdf-command.js";
 
-import { ensureDevCliShim } from "./dev-cli-shim.js";
+import { ensureDevCliShim, ensureDevVettaCliShim, ensureVettaCommandShim } from "./dev-cli-shim.js";
 import {
 	getDiagnosticsLogPath,
 	installChromiumFetchForMain,
@@ -24,7 +24,7 @@ import {
 } from "./diagnostics.js";
 import { fixPath } from "./fix-path.js";
 import { getImHost } from "./im-host/index.js";
-import { persistVettaAppPath } from "./ipc/fs.js";
+import { persistVettaCliPaths } from "./ipc/fs.js";
 import {
 	type IpcTeardown,
 	registerAllIpc,
@@ -57,6 +57,9 @@ const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
 const devMainEntryPath = join(appRoot, "dist/main/index.js");
+const packagedCliBinaryName = process.platform === "win32" ? "vetta.exe" : "vetta";
+const packagedCliPlatformTag = `${process.platform}-${process.arch}`;
+const packagedCliAppPath = join(process.resourcesPath, "cli-app", "bin", packagedCliPlatformTag, packagedCliBinaryName);
 // Command-specific parsers run before the top-level help parser so commands
 // like `action -h` and `ocr -h` can render their own help text.
 const ocrCliCommand = parseOcrCliCommand(process.argv);
@@ -398,19 +401,27 @@ if (!gotSingleLock) {
 
 		try {
 			let vettaAppPath: string;
+			let vettaCliPath: string;
 			if (app.isPackaged) {
 				vettaAppPath = process.execPath;
+				vettaCliPath = packagedCliAppPath;
 			} else {
 				vettaAppPath = await ensureDevCliShim({
 					appRoot,
 					electronPath: process.execPath,
 					mainEntryPath: devMainEntryPath,
 				});
+				vettaCliPath = await ensureDevVettaCliShim({
+					appRoot,
+					cliAppRoot: join(appRoot, "..", "cli-app"),
+				});
 			}
 			process.env.VETTA_DESKTOP_EXE = vettaAppPath;
-			await persistVettaAppPath(vettaAppPath);
+			process.env.VETTA_CLI_APP_PATH = vettaCliPath;
+			await ensureVettaCommandShim(vettaCliPath);
+			await persistVettaCliPaths({ vettaAppPath, vettaCliAppPath: vettaCliPath });
 		} catch (err) {
-			mainLog.error("failed to persist vettaAppPath", err);
+			mainLog.error("failed to install vetta CLI paths", err);
 		}
 
 		const mainWindow = createWindow();
