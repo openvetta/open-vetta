@@ -30,6 +30,7 @@ export interface DesktopConfig {
 	defaultExecutionMode: "sandbox" | "full-access";
 	debugMode?: boolean;
 	vettaAppPath?: string;
+	vettaCliAppPath?: string;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
 	/** 实验性功能开关分组。缺省视为全部开启。 */
@@ -116,6 +117,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
+			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 			experimental: normalizeExperimental(parsed.experimental),
 		};
@@ -137,6 +139,7 @@ export function readConfigSync(): DesktopConfig {
 			defaultExecutionMode: normalizeExecutionMode(parsed.defaultExecutionMode),
 			debugMode: typeof parsed.debugMode === "boolean" ? parsed.debugMode : false,
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
+			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 			experimental: normalizeExperimental(parsed.experimental),
 		};
@@ -149,10 +152,10 @@ export async function writeDesktopConfig(config: DesktopConfig): Promise<void> {
 	atomicWriteJSON(CONFIG_PATH, config);
 }
 
-export async function persistVettaAppPath(vettaAppPath: string): Promise<void> {
+export async function persistVettaCliPaths(paths: { vettaAppPath: string; vettaCliAppPath: string }): Promise<void> {
 	const config = await readDesktopConfig();
-	if (config.vettaAppPath === vettaAppPath) return;
-	await writeDesktopConfig({ ...config, vettaAppPath });
+	if (config.vettaAppPath === paths.vettaAppPath && config.vettaCliAppPath === paths.vettaCliAppPath) return;
+	await writeDesktopConfig({ ...config, ...paths });
 }
 
 function expandTilde(p: string): string {
@@ -575,6 +578,7 @@ export function registerFsIpc(): () => void {
 					: current.defaultExecutionMode,
 			debugMode: patch.debugMode ?? current.debugMode,
 			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
+			vettaCliAppPath: patch.vettaCliAppPath ?? current.vettaCliAppPath,
 			notificationsEnabled: patch.notificationsEnabled ?? current.notificationsEnabled,
 			experimental:
 				patch.experimental !== undefined

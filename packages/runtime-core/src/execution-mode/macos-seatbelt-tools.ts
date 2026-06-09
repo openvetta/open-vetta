@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { delimiter, isAbsolute, join } from "node:path";
 import {
 	createBashTool,
 	createEditTool,
@@ -15,7 +15,7 @@ import {
 import { getSandboxShellGrant, type SandboxShellGrant } from "./sandbox-permissions.js";
 import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
 
-const MACOS_ENV_WHITELIST = ["PATH", "LANG", "LC_ALL", "TERM"] as const;
+const MACOS_ENV_WHITELIST = ["PATH", "LANG", "LC_ALL", "TERM", "VETTA_CLI_APP_PATH"] as const;
 const MACOS_SANDBOX_BACKEND = "macos-seatbelt";
 
 function killProcessGroup(pid: number): void {
@@ -120,11 +120,38 @@ function buildMacosSandboxProfile(cwd: string, tempRoot: string, grant: SandboxS
 	].join("\n");
 }
 
-function buildSandboxEnv(cwd: string, tempRoot: string, env: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+function resolveVettaCliAppPath(env: NodeJS.ProcessEnv | undefined): string | undefined {
+	const value = env?.VETTA_CLI_APP_PATH ?? process.env.VETTA_CLI_APP_PATH;
+	return typeof value === "string" && value.length > 0 && existsSync(value) ? value : undefined;
+}
+
+async function createVettaCliShim(tempRoot: string, env: NodeJS.ProcessEnv | undefined): Promise<string | undefined> {
+	const vettaCliAppPath = resolveVettaCliAppPath(env);
+	if (!vettaCliAppPath) return undefined;
+	const shimDir = join(tempRoot, "bin");
+	await mkdir(shimDir, { recursive: true });
+	await writeFile(join(shimDir, "vetta"), ["#!/usr/bin/env sh", `exec "${vettaCliAppPath}" "$@"`, ""].join("\n"), {
+		encoding: "utf8",
+		mode: 0o755,
+	});
+	return shimDir;
+}
+
+function buildSandboxEnv(
+	cwd: string,
+	tempRoot: string,
+	env: NodeJS.ProcessEnv | undefined,
+	vettaShimDir: string | undefined,
+): NodeJS.ProcessEnv {
 	const baseEnv = env ?? process.env;
 	const nextEnv: NodeJS.ProcessEnv = {};
 	for (const key of MACOS_ENV_WHITELIST) {
-		const value = baseEnv[key];
+		const value =
+			key === "PATH" && vettaShimDir
+				? [vettaShimDir, baseEnv.PATH].filter((item): item is string => Boolean(item)).join(delimiter)
+				: key === "VETTA_CLI_APP_PATH"
+					? resolveVettaCliAppPath(env)
+					: baseEnv[key];
 		if (typeof value === "string" && value.length > 0) {
 			nextEnv[key] = value;
 		}
@@ -150,6 +177,7 @@ function createMacosSeatbeltShellOperations(sandboxExecPath: string): ShellOpera
 					const tempRoot = await mkdtemp(join(tmpdir(), "vetta-macos-sandbox-"));
 					await mkdir(join(tempRoot, "home"), { recursive: true });
 					await mkdir(join(tempRoot, "tmp"), { recursive: true });
+					const vettaShimDir = await createVettaCliShim(tempRoot, env);
 					const profilePath = join(tempRoot, "profile.sb");
 					const grant = getSandboxShellGrant(cwd);
 					await writeFile(profilePath, buildMacosSandboxProfile(cwd, tempRoot, grant), "utf8");
@@ -158,7 +186,7 @@ function createMacosSeatbeltShellOperations(sandboxExecPath: string): ShellOpera
 					const child = spawn(sandboxExecPath, args, {
 						cwd,
 						detached: true,
-						env: buildSandboxEnv(cwd, tempRoot, env),
+						env: buildSandboxEnv(cwd, tempRoot, env, vettaShimDir),
 						stdio: ["ignore", "pipe", "pipe"],
 					});
 

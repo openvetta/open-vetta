@@ -67,6 +67,7 @@ export function buildWindowsSandboxPolicy(options: WindowsSandboxPolicyOptions):
 		optionalEnvPath(options.env, "VETTA_HOME"),
 		optionalEnvDir(options.env, "VETTA_ACTION_RPC_ENDPOINT_FILE"),
 		optionalEnvDir(options.env, "VETTA_DESKTOP_EXE"),
+		optionalEnvDir(options.env, "VETTA_CLI_APP_PATH"),
 	]);
 	const packageManagerWriteRoots = compactPaths([
 		optionalEnvPath(options.env, "npm_config_prefix"),
