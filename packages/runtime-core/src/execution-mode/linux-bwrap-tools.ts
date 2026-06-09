@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { isAbsolute, resolve as resolvePath } from "node:path";
+import { delimiter, isAbsolute, join, resolve as resolvePath } from "node:path";
 import {
 	createBashTool,
 	createEditTool,
@@ -13,7 +13,27 @@ import {
 import { getSandboxShellGrant, type SandboxShellGrant } from "./sandbox-permissions.js";
 import { wrapShellPermissionGuard, wrapWorkspaceGuard } from "./sandbox-tool-utils.js";
 
-const LINUX_ENV_WHITELIST = ["PATH", "LANG", "LC_ALL", "TERM"] as const;
+const LINUX_ENV_WHITELIST = [
+	"PATH",
+	"LANG",
+	"LC_ALL",
+	"TERM",
+	"npm_config_registry",
+	"npm_config_prefix",
+	"npm_config_cache",
+	"npm_config_userconfig",
+	"NPM_CONFIG_REGISTRY",
+	"NPM_CONFIG_PREFIX",
+	"NPM_CONFIG_CACHE",
+	"NPM_CONFIG_USERCONFIG",
+	"PIP_INDEX_URL",
+	"PIP_TRUSTED_HOST",
+	"PIP_CONFIG_FILE",
+	"PIP_CACHE_DIR",
+	"VETTA_HOME",
+	"VETTA_ACTION_RPC_ENDPOINT_FILE",
+	"VETTA_DESKTOP_EXE",
+] as const;
 const SANDBOX_HOME = "/tmp/vetta-home";
 const STANDARD_READ_ONLY_ROOTS = ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc"] as const;
 
@@ -106,6 +126,65 @@ function appendParentDirs(args: string[], targetPath: string, createdDirs: Set<s
 	}
 }
 
+function isUnderStandardReadOnlyRoot(path: string): boolean {
+	const normalizedPath = resolvePath(path);
+	return STANDARD_READ_ONLY_ROOTS.some((root) => {
+		const normalizedRoot = resolvePath(root);
+		return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
+	});
+}
+
+function existingDir(path: string | undefined): string | undefined {
+	if (!path || path.trim().length === 0) return undefined;
+	const normalized = resolvePath(path);
+	return existsSync(normalized) && !isUnderStandardReadOnlyRoot(normalized) ? normalized : undefined;
+}
+
+function existingFile(path: string | undefined): string | undefined {
+	if (!path || path.trim().length === 0) return undefined;
+	const normalized = resolvePath(path);
+	return existsSync(normalized) && !isUnderStandardReadOnlyRoot(normalized) ? normalized : undefined;
+}
+
+function collectPathDirs(env: NodeJS.ProcessEnv | undefined): string[] {
+	const pathValue = env?.PATH ?? process.env.PATH;
+	if (!pathValue) return [];
+	return pathValue
+		.split(delimiter)
+		.map(existingDir)
+		.filter((path): path is string => path !== undefined);
+}
+
+interface ReadOnlyMounts {
+	dirs: string[];
+	files: string[];
+}
+
+function collectEnvReadOnlyMounts(env: NodeJS.ProcessEnv | undefined): ReadOnlyMounts {
+	const dirs = [
+		existingDir(env?.npm_config_prefix ?? process.env.npm_config_prefix),
+		existingDir(env?.NPM_CONFIG_PREFIX ?? process.env.NPM_CONFIG_PREFIX),
+		existingDir(env?.npm_config_cache ?? process.env.npm_config_cache),
+		existingDir(env?.NPM_CONFIG_CACHE ?? process.env.NPM_CONFIG_CACHE),
+		existingDir(env?.PIP_CACHE_DIR ?? process.env.PIP_CACHE_DIR),
+	].filter((path): path is string => path !== undefined);
+	const vettaHome = env?.VETTA_HOME ?? process.env.VETTA_HOME;
+	const endpointFile =
+		env?.VETTA_ACTION_RPC_ENDPOINT_FILE ??
+		process.env.VETTA_ACTION_RPC_ENDPOINT_FILE ??
+		(vettaHome ? join(vettaHome, "action-server.json") : undefined);
+	const files = [
+		env?.npm_config_userconfig ?? process.env.npm_config_userconfig,
+		env?.NPM_CONFIG_USERCONFIG ?? process.env.NPM_CONFIG_USERCONFIG,
+		env?.PIP_CONFIG_FILE ?? process.env.PIP_CONFIG_FILE,
+		endpointFile,
+		env?.VETTA_DESKTOP_EXE ?? process.env.VETTA_DESKTOP_EXE,
+	]
+		.map(existingFile)
+		.filter((path): path is string => path !== undefined);
+	return { dirs, files };
+}
+
 function buildLinuxSandboxArgs(
 	command: string,
 	cwd: string,
@@ -129,6 +208,19 @@ function buildLinuxSandboxArgs(
 		if (!existsSync(root) || mountedRoots.has(root)) continue;
 		args.push("--ro-bind", root, root);
 		mountedRoots.add(root);
+	}
+	const readOnlyMounts = collectEnvReadOnlyMounts(env);
+	for (const root of Array.from(new Set([...collectPathDirs(env), ...readOnlyMounts.dirs]))) {
+		if (mountedRoots.has(root)) continue;
+		appendParentDirs(args, root, createdDirs);
+		args.push("--ro-bind", root, root);
+		mountedRoots.add(root);
+	}
+	for (const file of Array.from(new Set(readOnlyMounts.files))) {
+		if (mountedRoots.has(file)) continue;
+		appendParentDirs(args, file, createdDirs);
+		args.push("--ro-bind", file, file);
+		mountedRoots.add(file);
 	}
 
 	args.push("--proc", "/proc", "--dev", "/dev", "--bind", cwd, cwd);
