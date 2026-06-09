@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -91,7 +91,7 @@ async function createVettaCliShim(tempRoot: string, env: NodeJS.ProcessEnv | und
 	if (!vettaCliAppPath) return undefined;
 	const shimDir = join(tempRoot, "bin");
 	await mkdir(shimDir, { recursive: true });
-	await writeFile(join(shimDir, "vetta.cmd"), ["@echo off", `"${vettaCliAppPath}" %*`, ""].join("\r\n"), "utf8");
+	await copyFile(vettaCliAppPath, join(shimDir, "vetta.exe"));
 	return shimDir;
 }
 
