@@ -5,7 +5,6 @@ import type { InstalledSkill } from "@preload/api";
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
-import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { Button } from "@shared/components/ui/button";
 
@@ -764,9 +763,27 @@ export function SkillsPage(): JSX.Element {
 								{typeTab === "scene" ? "Scenes" : "Skills"}
 							</span>
 						</div>
-						<h1 className="bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[26px] font-bold leading-tight tracking-tight text-transparent">
-							{typeTab === "scene" ? "场景广场" : "技能广场"}
-						</h1>
+						<div className="flex items-baseline gap-3">
+							{(
+								[
+									{ key: "scene" as TypeTab, label: "场景广场" },
+									{ key: "skill" as TypeTab, label: "技能广场" },
+								] as const
+							).map(({ key, label }) => (
+								<button
+									key={key}
+									type="button"
+									onClick={() => setTypeTab(key)}
+									className={`leading-tight tracking-tight transition-all duration-300 ${
+										typeTab === key
+											? "bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[26px] font-bold text-transparent"
+											: "text-[17px] font-semibold text-muted-foreground/40 hover:text-muted-foreground/70"
+									}`}
+								>
+									{label}
+								</button>
+							))}
+						</div>
 						<p className="mt-1 text-[12px] text-muted-foreground/60">
 							安装并启用你需要的能力，让 Vetta 拥有更多专业技能
 						</p>
@@ -812,14 +829,6 @@ export function SkillsPage(): JSX.Element {
 								</Button>
 							</>
 						)}
-						<SegmentedControl
-							items={[
-								{ key: "scene" as TypeTab, label: "场景" },
-								{ key: "skill" as TypeTab, label: "技能" },
-							]}
-							value={typeTab}
-							onChange={setTypeTab}
-						/>
 					</motion.div>
 				</div>
 			</div>
