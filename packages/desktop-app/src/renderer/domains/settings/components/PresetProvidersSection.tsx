@@ -186,7 +186,7 @@ export function PresetProvidersSection({
 								<button
 									type="button"
 									onClick={() => setExpandedId(isExpanded ? null : row.id)}
-									className="flex flex-1 items-center gap-3 text-left"
+									className="flex min-w-0 flex-1 items-center gap-3 text-left"
 									title={isExpanded ? "收起模型" : "查看模型与价格"}
 								>
 									<span
@@ -195,7 +195,7 @@ export function PresetProvidersSection({
 											isExpanded && "rotate-90",
 										)}
 									/>
-									<ProviderIcon symbol={row.icon} className="h-7 w-7" />
+									<ProviderIcon symbol={row.icon} className="h-7 w-7 shrink-0" />
 									<div className="min-w-0 flex-1">
 										<div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground">
 											<span className="truncate">{row.displayName}</span>
@@ -210,7 +210,7 @@ export function PresetProvidersSection({
 												</span>
 											)}
 										</div>
-										<div className="mt-0.5 text-[11px] text-muted-foreground">
+										<div className="mt-0.5 truncate text-[11px] text-muted-foreground">
 											{row.api || "—"} · {row.models.length} 个模型
 										</div>
 									</div>
