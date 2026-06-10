@@ -8,6 +8,7 @@ import { registerDownloadsIpc } from "./downloads.js";
 import { registerFlowingIpc } from "./flowing.js";
 import { registerFsIpc } from "./fs.js";
 import { registerImIpc } from "./im.js";
+import { registerMediaIpc } from "./media.js";
 import { registerPermissionsIpc } from "./permissions.js";
 import { registerPluginsIpc } from "./plugins.js";
 import { registerProjectExportIpc } from "./project-export.js";
@@ -30,6 +31,7 @@ interface IpcTeardown {
 	teardownBatchTasks: () => void;
 	teardownDownloads: () => void;
 	teardownIm: () => void;
+	teardownMedia: () => void;
 	teardownDebug: () => void;
 	teardownProjectExport: () => void;
 	teardownWebhook: () => void;
@@ -55,6 +57,7 @@ export function registerAllIpc(
 		teardownBatchTasks: () => {},
 		teardownDownloads: registerDownloadsIpc(webContents),
 		teardownIm: registerImIpc(webContents),
+		teardownMedia: registerMediaIpc(),
 		teardownDebug: registerDebugIpc(),
 		teardownProjectExport: registerProjectExportIpc(),
 		teardownWebhook: registerWebhookIpc(),
@@ -77,6 +80,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownBatchTasks();
 	teardown.teardownDownloads();
 	teardown.teardownIm();
+	teardown.teardownMedia();
 	teardown.teardownDebug();
 	teardown.teardownProjectExport();
 	teardown.teardownWebhook();

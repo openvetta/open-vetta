@@ -15,6 +15,7 @@ export function createSystemApi(
 	| "config"
 	| "models"
 	| "mcp"
+	| "media"
 	| "runtimes"
 	| "settings"
 	| "credits"
@@ -136,6 +137,9 @@ export function createSystemApi(
 		mcp: {
 			get: () => ipc.invoke("vetta:mcp:get"),
 			set: (config) => ipc.invoke("vetta:mcp:set", config),
+		},
+		media: {
+			getAudioMetadata: (filePath) => ipc.invoke("vetta:media:audio-metadata", filePath),
 		},
 		runtimes: {
 			getStatus: () => ipc.invoke("vetta:runtimes:get-status"),

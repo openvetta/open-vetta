@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
-import { app, ipcMain, nativeImage, nativeTheme, shell } from "electron";
+import { app, ipcMain, nativeImage, nativeTheme, protocol, shell } from "electron";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
@@ -33,8 +33,9 @@ import {
 	teardownAllIpc,
 } from "./ipc/index.js";
 import { getAppLogger } from "./logger.js";
+import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-protocol.js";
 import { openExternalUrl } from "./open-external.js";
-import { registerPluginProtocols, registerPluginSchemes } from "./plugins/plugin-protocol.js";
+import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
@@ -55,7 +56,9 @@ import { createWindow, getMainWindow, setMainWindow, showMainWindow } from "./wi
 fixPath();
 
 const PROTOCOL = "vetta";
-registerPluginSchemes();
+// registerSchemesAsPrivileged 整个进程只能调用一次且须在 ready 前：
+// 所有自定义 scheme（插件、媒体流）的特权声明在此合并注册。
+protocol.registerSchemesAsPrivileged([...PLUGIN_PROTOCOL_PRIVILEGES, MEDIA_PROTOCOL_PRIVILEGE]);
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
@@ -278,6 +281,9 @@ if (!gotSingleLock) {
 		// 必须在 ready 之后调用（net.fetch 依赖 session）。
 		installChromiumFetchForMain();
 		registerPluginProtocols();
+
+		// 媒体流协议 handler（scheme 已在 ready 前声明特权）
+		registerMediaProtocolHandler();
 
 		if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
 			const capability = await initializeSandboxCapability();
