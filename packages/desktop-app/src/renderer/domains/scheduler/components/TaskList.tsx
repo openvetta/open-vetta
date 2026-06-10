@@ -66,10 +66,10 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 						transition={{ type: "spring", stiffness: 320, damping: 26 }}
 						whileHover={{ y: -3 }}
 						onClick={() => onSelectTask(task.id)}
-						className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-card/30 p-5 backdrop-blur-sm transition-colors duration-300 ${
+						className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl p-5 transition-colors duration-300 ${
 							isSelected
-								? "border-primary/50 bg-primary/[0.04]"
-								: "border-border/50 hover:border-primary/30 hover:bg-card/60"
+								? "bg-primary/10 ring-1 ring-inset ring-primary/30"
+								: "bg-muted hover:bg-accent"
 						}`}
 					>
 						{/* ─── Top row: status + name + actions ─── */}
