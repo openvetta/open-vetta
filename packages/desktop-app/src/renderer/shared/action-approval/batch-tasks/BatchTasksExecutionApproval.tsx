@@ -1,9 +1,9 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { batchProjectsAtom, type BatchTask, type BatchTaskStatus } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
-import { Button } from "../components/ui/button";
-import { Dialog, DialogContent } from "../components/ui/dialog";
-import { useActionApproval } from "./useActionApproval";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent } from "../../components/ui/dialog";
+import { useActionApproval } from "../useActionApproval";
 
 type ExecutionOperation = "delete-all" | "start" | "stop" | "reset" | "reset-failed";
 

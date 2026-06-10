@@ -1,6 +1,6 @@
-import { Button } from "../components/ui/button";
-import { Dialog, DialogContent } from "../components/ui/dialog";
-import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent } from "../../components/ui/dialog";
+import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
 
 interface ExecutionTaskInput {
 	operation: "run-now" | "abort";

@@ -7,10 +7,10 @@ import {
 import { batchProjectsAtom, type BatchProject } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "../components/ui/button";
-import { Dialog, DialogContent } from "../components/ui/dialog";
-import { Drawer, DrawerContent } from "../components/ui/drawer";
-import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent } from "../../components/ui/dialog";
+import { Drawer, DrawerContent } from "../../components/ui/drawer";
+import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
 
 type ProjectData = BatchProjectEditableData;
 

@@ -1,12 +1,11 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
+import { themeModeAtom, themeNameAtom, type ThemeMode } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
-import type { ThemeMode } from "@shared/store/atoms";
-import { themeModeAtom, themeNameAtom } from "@shared/store/atoms";
-import { Button } from "../components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
+import { Button } from "../../components/ui/button";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../../components/ui/drawer";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
-import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { useActionApproval } from "../useActionApproval";
 
 function isThemeSetInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -20,19 +19,40 @@ function isThemeSetInput(
 	);
 }
 
-function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }): JSX.Element {
+export function ThemeChangeApproval(): JSX.Element | null {
+	const approval = useActionApproval("appearance.theme-change");
 	const currentMode = useAtomValue(themeModeAtom);
 	const currentThemeId = useAtomValue(themeNameAtom);
-	const input = isThemeSetInput(approval.request.input) ? approval.request.input : null;
+	if (!approval) return null;
+	return (
+		<ThemeChangeDrawer
+			key={approval.request.approvalId}
+			approval={approval}
+			currentMode={currentMode}
+			currentThemeId={currentThemeId}
+		/>
+	);
+}
+
+function ThemeChangeDrawer({
+	approval,
+	currentMode,
+	currentThemeId,
+}: {
+	approval: NonNullable<ReturnType<typeof useActionApproval>>;
+	currentMode: ThemeMode;
+	currentThemeId: string;
+}): JSX.Element {
+	const { request, responding, error, approve, reject } = approval;
+	const input = isThemeSetInput(request.input) ? request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
-	const { request, responding, error, approve, reject } = approval;
 
 	return (
 		<Drawer open direction="right" dismissible={false}>
 			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
 				<DrawerHeader className="border-b border-border/60">
-					<DrawerTitle>选择应用主题</DrawerTitle>
+					<DrawerTitle>编辑主题变更</DrawerTitle>
 					<DrawerDescription>{request.summary}</DrawerDescription>
 				</DrawerHeader>
 				<div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -44,7 +64,7 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 							onThemeChange={setThemeId}
 						/>
 					) : (
-						<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 px-3 py-2 font-mono text-[11px] leading-5 text-foreground">
+						<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[11px] leading-5 text-foreground">
 							{JSON.stringify(request.input, null, 2)}
 						</pre>
 					)}
@@ -57,26 +77,20 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 					</Button>
 					<Button
 						size="sm"
-						disabled={responding || input === null}
+						disabled={responding || !input}
 						onClick={() =>
 							approve({
 								type: "set",
 								mode,
 								themeId,
-								approvalUi: "appearance.picker",
+								approvalUi: input?.approvalUi ?? "appearance.theme-change",
 							})
 						}
 					>
-						{responding ? "提交中..." : "应用主题"}
+						{responding ? "提交中..." : "确认变更"}
 					</Button>
 				</DrawerFooter>
 			</DrawerContent>
 		</Drawer>
 	);
-}
-
-export function AppearancePickerApproval(): JSX.Element | null {
-	const approval = useActionApproval("appearance.picker");
-	if (!approval) return null;
-	return <AppearancePickerDialog key={approval.request.approvalId} approval={approval} />;
 }

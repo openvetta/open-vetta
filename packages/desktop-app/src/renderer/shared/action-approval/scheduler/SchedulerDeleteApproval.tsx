@@ -1,6 +1,6 @@
-import { Button } from "../components/ui/button";
-import { Dialog, DialogContent } from "../components/ui/dialog";
-import { useActionApproval } from "./useActionApproval";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent } from "../../components/ui/dialog";
+import { useActionApproval } from "../useActionApproval";
 
 interface DeleteTaskInput {
 	operation: "delete";
