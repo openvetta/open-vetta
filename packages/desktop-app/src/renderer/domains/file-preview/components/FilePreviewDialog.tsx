@@ -1,6 +1,8 @@
 import { filePreviewContextReadonlyAtom } from "@shared/store/atoms";
 import { useAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { cn } from "@shared/lib/utils";
 import { FilePreviewView, usePreviewNav } from "./FilePreviewView";
 
 /**
@@ -11,6 +13,7 @@ export function FilePreviewDialog(): JSX.Element {
 	const [ctx, setCtx] = useAtom(filePreviewContextReadonlyAtom);
 	const { goPrev, goNext, close } = usePreviewNav(setCtx);
 	const open = ctx !== null;
+	const narrow = useNarrowScreen();
 
 	return (
 		<AnimatePresence>
@@ -27,7 +30,11 @@ export function FilePreviewDialog(): JSX.Element {
 					<motion.div
 						role="dialog"
 						aria-modal="true"
-						className="relative flex h-[90vh] w-[60vw] flex-col overflow-hidden rounded-t-[20px] border-[6px] border-b-0 border-border/30 bg-background/95 shadow-[0_-12px_48px_-12px_rgba(15,23,42,0.25)] backdrop-blur-xl"
+						className={cn(
+							"relative flex h-[90vh] flex-col overflow-hidden rounded-t-[20px] bg-background/95 shadow-[0_-12px_48px_-12px_rgba(15,23,42,0.25)] backdrop-blur-xl",
+							// 窄屏：站满全宽、去掉粗边框；宽屏维持 60vw 卡片 + 6px 描边
+							narrow ? "w-full" : "w-[60vw] border-[6px] border-b-0 border-border/30",
+						)}
 						initial={{ y: "100%", opacity: 0 }}
 						animate={{ y: 0, opacity: 1 }}
 						exit={{ y: "100%", opacity: 0 }}
