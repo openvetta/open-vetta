@@ -1,69 +1,64 @@
-import { existsSync, readdirSync, renameSync, statSync, unlinkSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	renameSync,
+	statSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, parse } from "node:path";
 import { inspect } from "node:util";
 import electronLog from "electron-log/main";
 
 export type AppLogLevel = "log" | "info" | "warn" | "error";
+export type AppLogType = "main" | "render" | "im";
 
 const APP_LOG_MAX_SIZE = 5 * 1024 * 1024;
-const APP_LOG_ARCHIVE_RETENTION = 10;
-const APP_LOG_DAY_CHECK_INTERVAL_MS = 60 * 1000;
+const APP_LOG_RETENTION_DAYS = 10;
+const APP_LOG_ROTATION_FALLBACK_SIZE = 256 * 1024;
+const APP_LOG_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 const APP_LOG_TIME_ZONE = "Asia/Shanghai";
 const APP_LOG_DIR = join(homedir(), ".vetta", "desktop-app", "logs");
+const APP_LOG_TYPES: readonly AppLogType[] = ["main", "render", "im"];
 const SHOULD_MIRROR_LOGS_TO_CONSOLE = process.env.VETTA_DESKTOP_DEV_URL !== undefined;
 
 let appLoggingConfigured = false;
 let consolePatched = false;
-let currentLogDateInChina = formatChinaDateKey(new Date());
-let dayRotationTimer: NodeJS.Timeout | undefined;
+let logCleanupTimer: NodeJS.Timeout | undefined;
 
 type AppLogger = ReturnType<typeof electronLog.scope>;
+type ElectronLogger = typeof electronLog;
 type LogFile = ReturnType<typeof electronLog.transports.file.getFile>;
-type InternalLogFile = LogFile & {
-	reset?: () => void;
-};
+
+const loggers = new Map<AppLogType, ElectronLogger>();
 
 export function configureAppLogging(): void {
 	if (appLoggingConfigured) return;
 	appLoggingConfigured = true;
 
 	electronLog.initialize({ preload: false, spyRendererConsole: false });
-	electronLog.scope.labelPadding = 18;
-	electronLog.transports.file.setAppName("Vetta");
-	electronLog.transports.file.fileName = "main.log";
-	electronLog.transports.file.resolvePathFn = ({ fileName }) => join(APP_LOG_DIR, fileName ?? "main.log");
-	electronLog.transports.file.level = "info";
-	electronLog.transports.file.maxSize = APP_LOG_MAX_SIZE;
-	electronLog.transports.file.format = ({ data, level, message }) => [
-		`[${formatChinaLogTimestamp(message.date)}] [${level}] [${message.scope ?? ""}]`,
-		...data,
-	];
-	electronLog.transports.file.inspectOptions = { depth: 8, breakLength: 160 };
-	electronLog.transports.file.sync = true;
-	electronLog.transports.file.archiveLogFn = (file) => {
-		archiveLogFile(file, "size");
-	};
-	electronLog.transports.console.level = SHOULD_MIRROR_LOGS_TO_CONSOLE ? "info" : false;
-	if (SHOULD_MIRROR_LOGS_TO_CONSOLE) {
-		electronLog.transports.console.format = ({ data, level, message }) => [
-			`[${formatChinaLogTimestamp(message.date)}] [${level}] [${message.scope ?? ""}]`,
-			...data,
-		];
+	for (const type of APP_LOG_TYPES) {
+		const logger = type === "main" ? electronLog : electronLog.create({ logId: `app-${type}` });
+		configureLogger(logger, type);
+		loggers.set(type, logger);
 	}
 
-	archiveExistingLogFromPreviousChinaDay(electronLog.transports.file.getFile());
-	startDayRotationTimer();
+	archiveLegacyMainLog();
+	cleanupAllLogDirectories();
+	startLogCleanupTimer();
 }
 
-export function getAppLogger(scope: string): AppLogger {
+export function getAppLogger(scope: string, type: AppLogType = "main"): AppLogger {
 	configureAppLogging();
-	return electronLog.scope(scope);
+	return getLogger(type).scope(scope);
 }
 
-export function getAppLogPath(): string {
+export function getAppLogPath(type: AppLogType = "main"): string {
 	configureAppLogging();
-	return electronLog.transports.file.getFile().path;
+	return getLogger(type).transports.file.getFile().path;
 }
 
 export function patchConsoleToAppLogger(): void {
@@ -125,55 +120,89 @@ function formatLogArg(arg: unknown): string {
 	return inspect(arg, { depth: 8, breakLength: 160 });
 }
 
-function startDayRotationTimer(): void {
-	if (dayRotationTimer !== undefined) return;
-	dayRotationTimer = setInterval(() => {
-		const today = formatChinaDateKey(new Date());
-		if (today === currentLogDateInChina) return;
-		currentLogDateInChina = today;
-		archiveLogFile(electronLog.transports.file.getFile(), "date");
-	}, APP_LOG_DAY_CHECK_INTERVAL_MS);
-	dayRotationTimer.unref?.();
-}
-
-function archiveExistingLogFromPreviousChinaDay(file: LogFile): void {
-	try {
-		if (!existsSync(file.path)) return;
-		if (file.size <= 0) return;
-		const modifiedDate = formatChinaDateKey(statSync(file.path).mtime);
-		const today = formatChinaDateKey(new Date());
-		currentLogDateInChina = today;
-		if (modifiedDate !== today) {
-			archiveLogFile(file, "date");
-		}
-	} catch {
-		// Logging must never become a startup failure.
+function configureLogger(logger: ElectronLogger, type: AppLogType): void {
+	logger.scope.labelPadding = 18;
+	logger.transports.file.setAppName("Vetta");
+	logger.transports.file.fileName = `${type}.log`;
+	logger.transports.file.resolvePathFn = (_variables, message) =>
+		join(APP_LOG_DIR, type, `${formatChinaDateKey(message?.date ?? new Date())}.log`);
+	logger.transports.file.level = type === "im" ? "debug" : "info";
+	logger.transports.file.maxSize = APP_LOG_MAX_SIZE;
+	logger.transports.file.format = ({ data, level, message }) => [
+		`[${formatChinaLogTimestamp(message.date)}] [${level}] [${message.scope ?? ""}]`,
+		...data,
+	];
+	logger.transports.file.inspectOptions = { depth: 8, breakLength: 160 };
+	logger.transports.file.sync = true;
+	logger.transports.file.archiveLogFn = archiveLogFile;
+	logger.transports.console.level = SHOULD_MIRROR_LOGS_TO_CONSOLE ? "info" : false;
+	if (SHOULD_MIRROR_LOGS_TO_CONSOLE) {
+		logger.transports.console.format = ({ data, level, message }) => [
+			`[${formatChinaLogTimestamp(message.date)}] [${level}] [${message.scope ?? ""}]`,
+			...data,
+		];
 	}
 }
 
-function archiveLogFile(file: LogFile, reason: "date" | "size"): void {
+function getLogger(type: AppLogType): ElectronLogger {
+	const logger = loggers.get(type);
+	if (!logger) {
+		throw new Error(`App logger is not configured for type: ${type}`);
+	}
+	return logger;
+}
+
+function startLogCleanupTimer(): void {
+	if (logCleanupTimer !== undefined) return;
+	logCleanupTimer = setInterval(cleanupAllLogDirectories, APP_LOG_CLEANUP_INTERVAL_MS);
+	logCleanupTimer.unref?.();
+}
+
+function cleanupAllLogDirectories(): void {
+	for (const type of APP_LOG_TYPES) {
+		deleteExpiredLogs(join(APP_LOG_DIR, type));
+	}
+}
+
+function archiveLegacyMainLog(): void {
+	const legacyPath = join(APP_LOG_DIR, "main.log");
+	try {
+		if (!existsSync(legacyPath) || statSync(legacyPath).size <= 0) return;
+		const targetDir = join(APP_LOG_DIR, "main");
+		mkdirSync(targetDir, { recursive: true });
+		const archivePath = getAvailableArchivePath(targetDir, "legacy", ".log", "migration");
+		renameSync(legacyPath, archivePath);
+	} catch {
+		// Best effort migration only. New writes never target main.log.
+	}
+}
+
+function archiveLogFile(file: LogFile): void {
 	try {
 		if (!existsSync(file.path)) return;
 		if (statSync(file.path).size <= 0) return;
 		const pathParts = parse(file.path);
-		const archivePath = getAvailableArchivePath(pathParts.dir, pathParts.name, pathParts.ext, reason);
+		const archivePath = getAvailableArchivePath(pathParts.dir, pathParts.name, pathParts.ext, "size");
 		renameSync(file.path, archivePath);
-		resetLogFile(file);
-		deleteOldArchivedLogs(pathParts.dir, pathParts.name, pathParts.ext);
+		deleteExpiredLogs(pathParts.dir);
 	} catch {
-		// If rotation itself fails, keep the app alive and avoid an endless
-		// rotation loop on the next write.
-		file.clear();
-		resetLogFile(file);
+		// Preserve the newest part of the file instead of clearing all logs
+		// when a platform temporarily prevents rename.
+		cropLogFile(file.path);
 	}
 }
 
-function resetLogFile(file: LogFile): void {
-	const internalFile = file as InternalLogFile;
-	internalFile.reset?.();
+function cropLogFile(filePath: string): void {
+	try {
+		const content = readFileSync(filePath);
+		const start = Math.max(0, content.length - APP_LOG_ROTATION_FALLBACK_SIZE);
+		writeFileSync(filePath, content.subarray(start));
+	} catch {
+		// Keep the oversized file intact if even the fallback cannot run.
+	}
 }
 
-function getAvailableArchivePath(dir: string, name: string, ext: string, reason: "date" | "size"): string {
+function getAvailableArchivePath(dir: string, name: string, ext: string, reason: "size" | "migration"): string {
 	const base = join(dir, `${name}.${formatChinaFileTimestamp(new Date())}.${reason}${ext}`);
 	if (!existsSync(base)) return base;
 	for (let index = 1; index < 1000; index += 1) {
@@ -183,19 +212,25 @@ function getAvailableArchivePath(dir: string, name: string, ext: string, reason:
 	return base;
 }
 
-function deleteOldArchivedLogs(dir: string, name: string, ext: string): void {
+function deleteExpiredLogs(dir: string): void {
 	try {
-		const prefix = `${name}.`;
-		const suffix = ext;
-		const archivedLogs = readdirSync(dir)
-			.filter((filename) => filename.startsWith(prefix) && filename.endsWith(suffix) && filename !== `${name}${ext}`)
+		const datedLogs = readdirSync(dir)
+			.filter((filename) => filename.endsWith(".log"))
 			.map((filename) => {
+				const date = /^(\d{4}-\d{2}-\d{2})(?:\.|$)/.exec(filename)?.[1];
 				const path = join(dir, filename);
-				return { path, mtimeMs: statSync(path).mtimeMs };
+				return date ? { date, path } : undefined;
 			})
-			.sort((left, right) => right.mtimeMs - left.mtimeMs);
-		for (const archivedLog of archivedLogs.slice(APP_LOG_ARCHIVE_RETENTION)) {
-			unlinkSync(archivedLog.path);
+			.filter((file): file is { date: string; path: string } => file !== undefined);
+		const retainedDates = new Set(
+			[...new Set(datedLogs.map((file) => file.date))]
+				.sort((left, right) => right.localeCompare(left))
+				.slice(0, APP_LOG_RETENTION_DAYS),
+		);
+		for (const log of datedLogs) {
+			if (!retainedDates.has(log.date)) {
+				unlinkSync(log.path);
+			}
 		}
 	} catch {
 		// Best effort cleanup only.

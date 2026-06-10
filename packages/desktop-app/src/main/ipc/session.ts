@@ -479,7 +479,6 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			console.log(`[IPC PROMPT] no images in request`);
 		}
 		await runtime.prompt(sessionId, request);
-		console.log(`[session ipc] prompt dispatched session=${sessionId}`);
 	});
 
 	ipcMain.handle(CHANNELS.CONTINUE, async (_event, sessionId: unknown) => {

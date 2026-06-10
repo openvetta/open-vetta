@@ -143,6 +143,71 @@ src/
 - 在 `main/ipc/index.ts` 中注册
 - preload 层定义类型契约
 
+## 日志规范
+
+desktop-app 的文本日志统一由 `src/main/logger.ts` 管理。新增或修改日志时，优先使用这里的入口，不要直接手写 `appendFileSync`、`console.log` 文件重定向，或重新实现独立轮转逻辑。
+
+### 日志位置
+
+```text
+~/.vetta/desktop-app/logs/
+├── main/YYYY-MM-DD.log
+├── render/YYYY-MM-DD.log
+└── im/YYYY-MM-DD.log
+```
+
+- `main/`：主进程日志，包含生命周期、诊断、窗口事件、IPC、runtime、action 等主进程模块。
+- `render/`：浏览器渲染进程日志。由 `BrowserWindow.webContents` 的 `console-message` 事件转发到主进程后写入。
+- `im/`：IM sidecar / im-gateway 相关日志。IM 设置页最近日志仍来自内存环形缓冲，但同一批日志也会持久化到这里。
+
+不要再把当天日志写到 `main.log`。旧版本遗留的 `~/.vetta/desktop-app/logs/main.log` 会在启动时迁移到 `main/legacy.*.migration.log`。
+
+### 使用方式
+
+```ts
+import { getAppLogger } from "./logger.js";
+
+const log = getAppLogger("window");
+log.info("created");
+
+const renderLog = getAppLogger("renderer", "render");
+renderLog.warn("renderer warning");
+
+const imLog = getAppLogger("sidecar", "im");
+imLog.debug("sidecar debug message");
+```
+
+- `scope`：模块名，只用于日志行标识，例如 `window`、`diagnostics`、`sidecar`。
+- `type`：日志分类，可选值为 `"main"`、`"render"`、`"im"`；默认是 `"main"`。
+
+日志行格式：
+
+```text
+[2026-06-10T14:03:22.123+08:00] [info] [window] created
+```
+
+### 轮转策略
+
+- 每条日志按北京时间写入对应日期文件。
+- 跨日时由 `electron-log` 的 `resolvePathFn` 自动切换到新的 `YYYY-MM-DD.log`，不通过定时器重命名当天文件。
+- 单文件超过 `5MB` 时触发大小轮转，归档文件仍留在同一分类目录下。
+- 最近 `10` 个日期会保留；同一天的所有轮转分片一起保留。
+- 如果大小轮转时重命名失败，会保留当前日志文件最后 `256KB`，避免清空整个日志文件。
+
+### 进程日志路径
+
+- 主进程启动诊断会调用 `configureAppLogging()` 和 `patchConsoleToAppLogger()`，把主进程 `console.log/info/warn/error` 转到 `main` 日志。新增主进程代码时优先使用显式 logger；只有临时诊断或已有代码路径可以继续走 `console.*`。
+- 渲染进程不要直接写主进程文件。当前路径是 `renderer console.* -> webContents console-message -> getAppLogger("renderer", "render")`，相关实现见 `src/main/window-manager.ts`。
+- IM sidecar 日志路径是 `im-gateway stdout NDJSON -> SidecarManager -> ImHost.pushLog()`，相关实现见 `src/main/im-host/sidecar-manager.ts`、`src/main/im-host/index.ts`、`src/main/im-host/log-buffer.ts`。`LogBuffer` 只负责 UI 最近日志展示，不负责持久化。
+
+### 日志注意事项
+
+- 不要记录 API key、Authorization、Cookie、IM App Secret、完整凭据或用户隐私内容。
+- 不要新增直接文件写入日志逻辑；需要新分类时先扩展 `AppLogType` 和 `APP_LOG_TYPES`。
+- 不要用 `main.log` 作为当前日志文件。
+- 不要依赖 `electron-log` 的内部 `File.reset()`、`File.crop()` 等非公开 API。
+- 文本日志和 AI 请求调试 JSON 分开管理；`debug-writer.ts` 的请求快照不属于文本日志轮转。
+
 ## 开发注意事项
 
 ### bun dev 前置依赖构建
