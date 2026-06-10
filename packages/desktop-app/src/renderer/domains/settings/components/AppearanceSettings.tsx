@@ -4,6 +4,7 @@ import type { ThemeMode } from "@shared/store/atoms";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { BotAvatar } from "@shared/components/BotAvatar";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import type { MouseEvent } from "react";
 import { SettingHeading } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
@@ -225,6 +226,7 @@ function ThemeCard({
 
 export function AppearanceSettings(): JSX.Element {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
+	const narrow = useNarrowScreen();
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
@@ -233,9 +235,12 @@ export function AppearanceSettings(): JSX.Element {
 					<h1 className="text-[20px] font-bold text-foreground">外观</h1>
 					<SettingHeading section={SETTINGS_SECTION["appearance-mode"]} className="mt-3" />
 				</div>
-				<div className="flex items-center justify-start pt-1" style={{ height: 56, width: 200 }}>
-					<BotAvatar pacing size="lg" />
-				</div>
+				{/* 窄屏隐藏装饰性头像，避免占用本就紧张的横向空间 */}
+				{!narrow && (
+					<div className="flex items-center justify-start pt-1" style={{ height: 56, width: 200 }}>
+						<BotAvatar pacing size="lg" />
+					</div>
+				)}
 			</div>
 
 			<div className="mb-6">
