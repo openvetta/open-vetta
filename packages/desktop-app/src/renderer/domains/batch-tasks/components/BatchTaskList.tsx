@@ -3,6 +3,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
 import { batchQueuedTaskIdsAtom, confirmDialogAtom, openSessionFnRef } from "@shared/store/atoms";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useBatchTasks } from "../hooks/useBatchTasks";
 
 /**
@@ -350,6 +351,7 @@ function ProjectBlock({
 	setConfirm,
 }: ProjectBlockProps): JSX.Element {
 	const counts = useMemo(() => computeCounts(project.tasks), [project.tasks]);
+	const narrow = useNarrowScreen();
 	const progress = counts.total > 0 ? (counts.completed / counts.total) * 100 : 0;
 	const [expanded, setExpanded] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -426,9 +428,12 @@ function ProjectBlock({
 						<h3 className="truncate text-[15px] font-semibold tracking-tight text-foreground">
 							{project.name}
 						</h3>
-						<span className="inline-flex h-5 items-center rounded-full bg-accent/50 px-2 text-[10px] text-muted-foreground/70">
-							{normalizedQuery ? `${filteredTotal}/${counts.total} 匹配` : `${counts.total} 个任务`}
-						</span>
+						{/* 窄屏隐藏数量 badge，避免与标题/操作按钮互相挤压导致换行 */}
+						{!narrow && (
+							<span className="inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full bg-accent/50 px-2 text-[10px] text-muted-foreground/70">
+								{normalizedQuery ? `${filteredTotal}/${counts.total} 匹配` : `${counts.total} 个任务`}
+							</span>
+						)}
 					</div>
 					<p className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground/60">
 						<span>
