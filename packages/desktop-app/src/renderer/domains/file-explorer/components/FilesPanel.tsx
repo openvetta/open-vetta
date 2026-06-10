@@ -9,6 +9,7 @@ import {
 	defaultConversationCwdAtom,
 	defaultImConversationCwdAtom,
 	fileContextMenuAtom,
+	filePreviewAtom,
 	getProjectDisplayName,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
@@ -17,6 +18,7 @@ import {
 } from "@shared/store/atoms";
 import { useState } from "react";
 import { Button } from "@shared/components/ui/button";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { pathDirname } from "@shared/lib/utils";
 
 interface FilesPanelProps {
@@ -39,6 +41,8 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 
 	const [contextMenu, setContextMenu] = useAtom(fileContextMenuAtom);
 	const setPreview = useSetAtom(inlineFilePreviewAtom);
+	const setGlobalPreview = useSetAtom(filePreviewAtom);
+	const narrow = useNarrowScreen();
 	const previewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const [deleteTarget, setDeleteTarget] = useState<FsEntry | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
@@ -101,9 +105,16 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 				size: e.size,
 			}));
 			const idx = items.findIndex((it) => it.path === entry.path);
-			setPreview({ items, index: idx >= 0 ? idx : 0 });
+			const ctx = { items, index: idx >= 0 ? idx : 0 };
+			// 窄屏：活动面板是底部 sheet，内嵌分屏预览会把内容挤窄，
+			// 改走全局预览 Dialog（覆盖整屏），不走内嵌拉伸预览。
+			if (narrow) {
+				setGlobalPreview(ctx);
+			} else {
+				setPreview(ctx);
+			}
 		},
-		[cache, setPreview],
+		[cache, narrow, setPreview, setGlobalPreview],
 	);
 
 	// 当前选中的文件路径（来自全局预览上下文，仅当预览来源为本地路径时高亮）
