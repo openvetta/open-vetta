@@ -284,7 +284,7 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 			    Inline z-index overrides `.sidebar-surface > *` which pins children to z:1,
 			    so the dropdown can float above the project list below. */}
 			<div
-				className="flex items-center justify-between pb-1 pl-2 pr-3 pt-1"
+				className="group flex items-center justify-between pb-1 pl-2 pr-3 pt-1"
 				style={{ position: "relative", zIndex: 20 }}
 			>
 				<SidebarFilterSelect />

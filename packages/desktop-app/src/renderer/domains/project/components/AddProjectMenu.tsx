@@ -105,7 +105,12 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 						type="button"
 						title="新建项目"
 						onClick={() => setShowAddMenu((v) => !v)}
-						className="flex items-center justify-center rounded-md p-1.5 transition-colors text-foreground opacity-60 hover:bg-accent hover:opacity-100"
+						className={cn(
+							"flex items-center justify-center rounded-md p-1.5 text-foreground transition-opacity hover:bg-accent",
+							showAddMenu
+								? "opacity-100"
+								: "opacity-0 group-hover:opacity-60 group-hover:hover:opacity-100",
+						)}
 					>
 						<span className="icon-[solar--add-square-outline] h-4 w-4" />
 					</button>
