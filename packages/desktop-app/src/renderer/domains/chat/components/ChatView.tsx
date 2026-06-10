@@ -94,7 +94,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						className="rounded-full bg-emerald-600 hover:bg-emerald-700"
 						onClick={() => setWorkflowCompleteOpen(true)}
 					>
-						<span className="icon-[mdi--check-circle-outline] text-[14px]" />
+						<span className="icon-[solar--check-circle-linear] text-[14px]" />
 						<span>完成</span>
 					</Button>
 				) : (
@@ -104,7 +104,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						title="文件转发"
 						onClick={() => setFlowingSendOpen(true)}
 					>
-						<span className="icon-[mdi--swap-horizontal] text-[14px]" />
+						<span className="icon-[solar--transfer-horizontal-linear] text-[14px]" />
 					</Button>
 				)}
 				<Button
@@ -114,7 +114,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 					onClick={handleTogglePanel}
 					className={panelOpen ? "bg-accent text-foreground" : ""}
 				>
-					<span className="icon-[mdi--dock-right] text-[14px]" />
+					<span className="icon-[solar--sidebar-minimalistic-linear] -scale-x-100 text-[14px]" />
 				</Button>
 			</>
 		),

@@ -104,7 +104,7 @@ export function SandboxGrantsBadge(): JSX.Element | null {
 					open ? "ring-1 ring-amber-500/40" : ""
 				}`}
 			>
-				<span className="icon-[mdi--shield-lock-outline] h-3.5 w-3.5" />
+				<span className="icon-[solar--shield-keyhole-minimalistic-linear] h-3.5 w-3.5" />
 				<span>{grants.length}</span>
 			</button>
 			{open ? (
