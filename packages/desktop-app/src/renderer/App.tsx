@@ -398,7 +398,9 @@ export function RootLayout(): JSX.Element {
 								transition={{ duration: 0.18, ease: [0.22, 0.61, 0.36, 1] }}
 								onMouseEnter={openOverlay}
 								onMouseLeave={closeOverlay}
-								className="absolute inset-y-2 left-2 z-50 overflow-hidden rounded-[10px] shadow-2xl shadow-black/30"
+								// no-drag：挖掉浮层脚下 PageHeader 的 -webkit-app-region: drag，
+								// 否则与其重叠的区域鼠标事件被 OS 拖拽区吞掉，触发 mouseleave 误隐藏。
+								className="no-drag absolute inset-y-2 left-2 z-50 overflow-hidden rounded-[10px] shadow-2xl shadow-black/30"
 							>
 								<Sidebar onOpenSession={openSession} onCollapse={closeOverlay} floating />
 							</motion.div>
