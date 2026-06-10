@@ -507,7 +507,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 									}
 									className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-60 transition-colors hover:bg-accent hover:opacity-100"
 								>
-									<span className="icon-[mdi--message-plus-outline] h-4 w-4" />
+									<span className="icon-[solar--add-square-outline] h-4 w-4" />
 								</button>
 							)}
 						</div>

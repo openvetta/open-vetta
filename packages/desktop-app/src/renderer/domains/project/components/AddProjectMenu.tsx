@@ -107,7 +107,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 						onClick={() => setShowAddMenu((v) => !v)}
 						className="flex items-center justify-center rounded-md p-1.5 transition-colors text-foreground opacity-60 hover:bg-accent hover:opacity-100"
 					>
-						<span className="icon-[mdi--create-new-folder-outline] h-4 w-4" />
+						<span className="icon-[solar--add-square-outline] h-4 w-4" />
 					</button>
 				)}
 				<AnimatePresence>
