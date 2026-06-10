@@ -62,6 +62,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **活动面板 tab 栏改为 VSCode 编辑器标签页风格**：右侧活动面板顶部 tab 从胶囊式 SegmentedControl 改为扁平选项卡——激活 tab 与内容区底色融为一体（底边框断开）、顶部带主题色滑动指示线，非激活 tab 底色略深、hover 提亮，保留图标与未读 badge。新增通用组件 `shared/components/ui/tab-bar.tsx`（SegmentedControl 其他使用处不受影响）。
 - **「自动化」界面交互重构 + 侧栏 session 图标**：执行历史从网格底部堆叠改为右侧滑出抽屉（背景色与 app 页面一致），点哪张卡片历史就贴着右侧出现，任务多也不用滚动；抽屉头部带任务名/调度描述 + 立即执行/暂停启用/编辑/关闭。定时任务 session 名改为干净的「任务名 · 时间」（去掉 `[定时]` 文字占位），侧栏据调度执行记录里的 sessionPath（含 basename 兜底）识别定时 session 并挂时钟图标，普通会话挂消息图标，运行中挂 spinner；默认「对话」项目的独立 session 列表（`DefaultSessionList`）同步加图标。新增 `src/shared/scheduled-session.ts`、`scheduledSessionPathsAtom`、`HistoryDrawer`，新增 `scheduler.getScheduledSessionPaths` IPC。
 - **消息中心弹窗重构（motion 动效 + 主题色）**：从居中 Radix 弹窗改为锚定右上角铃铛、spring 弹出/退场的下拉面板；Tab 栏引入主题色（active 用 `primary`，带 `layoutId` 滑动指示块），Tab 内容切换、列表增删、空态均加 motion 过渡；面板视觉重做（图标徽章头部、主题色高亮未读条目）。
 

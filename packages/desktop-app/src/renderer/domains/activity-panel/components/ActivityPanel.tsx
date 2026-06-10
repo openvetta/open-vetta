@@ -25,7 +25,7 @@ import { BackgroundTasksTabPanel } from "./BackgroundTasksTabPanel";
 import { ScheduleExecutionTabPanel } from "./ScheduleExecutionTabPanel";
 import { TodoTabPanel } from "./TodoTabPanel";
 import { DebugTabPanel } from "./DebugTabPanel";
-import { SegmentedControl, type SegmentedControlItem } from "@shared/components/ui/segmented-control";
+import { TabBar, type TabBarItem } from "@shared/components/ui/tab-bar";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 
 const MIN_WIDTH = 260;
@@ -95,8 +95,8 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 
 	const onResizeEnd = useCallback(() => setIsResizing(false), []);
 
-	const segmentedItems: SegmentedControlItem<ActivityTabKey>[] = useMemo(() => {
-		const base: SegmentedControlItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
+	const tabItems: TabBarItem<ActivityTabKey>[] = useMemo(() => {
+		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
 			key: t.key,
 			label: t.label,
 			icon: t.icon,
@@ -137,12 +137,12 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	const activeTab: ActivityTabKey = useMemo(() => {
 		if (cwd) {
 			const remembered = tabByProject.get(cwd);
-			if (remembered && segmentedItems.some((t) => t.key === remembered)) {
+			if (remembered && tabItems.some((t) => t.key === remembered)) {
 				return remembered;
 			}
 		}
 		return profile?.defaultActivityTab ?? "file";
-	}, [cwd, tabByProject, profile, segmentedItems]);
+	}, [cwd, tabByProject, profile, tabItems]);
 
 	const onTabChange = useCallback(
 		(next: ActivityTabKey) => {
@@ -178,15 +178,13 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 			>
 				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/50">
 					{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab） */}
-					{segmentedItems.length > 0 && (
-						<div className="flex shrink-0 items-center justify-start border-b border-border px-3 py-2">
-							<SegmentedControl
-								items={segmentedItems}
-								value={activeTab}
-								onChange={onTabChange}
-								suppressLayoutAnimation={isResizing}
-							/>
-						</div>
+					{tabItems.length > 0 && (
+						<TabBar
+							items={tabItems}
+							value={activeTab}
+							onChange={onTabChange}
+							suppressLayoutAnimation={isResizing}
+						/>
 					)}
 
 					{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
