@@ -618,12 +618,13 @@ export function ImBridgeSettings(): JSX.Element {
 
 			{/* ─────────────────────────────────────────────────────────────── */}
 			{/* 消息渠道：卡片网格，未来新增的渠道直接追加新的 ChannelCard 即可。 */}
-			<div className="mb-6">
+			<div className="@container mb-6">
 				<div className="mb-3 flex items-baseline gap-2">
 					<SettingHeading section={SETTINGS_SECTION["imbridge-channels"]} />
 					<span className="text-[12px] text-muted-foreground">2 个渠道</span>
 				</div>
-				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+				{/* 容器宽度足够时才双列，窄时单列，避免渠道卡逐字挤压 */}
+				<div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
 					<ChannelCard
 						name="飞书"
 						subtitle="飞书机器人"
