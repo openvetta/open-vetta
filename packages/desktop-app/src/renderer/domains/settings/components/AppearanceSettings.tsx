@@ -244,7 +244,7 @@ export function AppearanceSettings(): JSX.Element {
 			</div>
 
 			<div className="mb-6">
-				<div className="grid grid-cols-3 gap-3">
+				<div className={cn("grid gap-3", narrow ? "grid-cols-1" : "grid-cols-3")}>
 					{MODES.map((m) => (
 						<ModeCard
 							key={m.value}
