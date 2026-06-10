@@ -19,6 +19,7 @@ import {
 } from "@vetta/coding-agent";
 import type {
 	AssistantTurnTiming,
+	BackgroundTaskInfo,
 	HistoryEntry,
 	ProjectInfo,
 	PromptRequest,
@@ -245,6 +246,16 @@ export class RuntimeHost implements SessionFacade {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return 0;
 		return handle.session.backgroundTasks.clearFinished();
+	}
+
+	/**
+	 * 当前后台任务快照。renderer 重载后 atom 状态丢失而注册表仍在内存，
+	 * 订阅方用它在重新订阅时回放一次全量状态（事件流只在状态变化时推送）。
+	 */
+	listBackgroundTasks(sessionId: string): BackgroundTaskInfo[] {
+		const handle = this.sessions.get(sessionId);
+		if (!handle) return [];
+		return handle.session.backgroundTasks.list();
 	}
 
 	/**

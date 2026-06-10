@@ -813,6 +813,23 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			webContents.send(CHANNELS.EVENT, subscriptionId, runtimeEvent);
 		});
 		subscriptionMap.set(subscriptionId, unsubscribe);
+
+		// 回放后台任务快照：注册表在主进程内存中跨 renderer 重载存活，但
+		// background_tasks_update 只在状态变化时推送——renderer 刷新后 atom
+		// 清空，若不回放，无输出的运行中任务（如 sleep）要等到结束才再现。
+		const backgroundTasks = runtime.listBackgroundTasks(sessionId);
+		if (backgroundTasks.length > 0 && !webContents.isDestroyed()) {
+			webContents.send(CHANNELS.EVENT, subscriptionId, {
+				schemaVersion: 1,
+				sessionId,
+				eventId: randomUUID(),
+				timestamp: Date.now(),
+				source: "runtime-core",
+				type: "background_tasks_update",
+				tasks: backgroundTasks,
+			});
+		}
+
 		return { subscriptionId };
 	});
 
