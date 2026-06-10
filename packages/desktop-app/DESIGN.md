@@ -169,7 +169,9 @@ UI 是工具，不是 showroom。**hover 只反馈，不表演。**
 
 ### 6.1 命名
 
-只用 `icon-[mdi--*]` 风格类名。已有项目中其他 collection（`lucide`、`tabler` 等）若已大量使用则沿用，**新增一律 mdi**，避免 collection 蔓延。
+**新增图标一律优先 solar**（`icon-[solar--*-linear]`，统一用 `linear` 线性风格），其次才是 mdi。存量 `icon-[mdi--*]` 渐进迁移，改动相关组件时顺手替换为 solar 同义图标。禁止引入其他 collection（`lucide`、`tabler` 等），避免 collection 蔓延。
+
+solar 常用对照：菜单 `menu-dots`、关闭 `close-circle`、删除 `trash-bin-trash`、编辑 `pen-2`、文件夹 `folder` / `folder-open`、新建 `add-circle` / `add-folder`、设置 `settings`、铃铛 `bell`、会话 `chat-round-line`、加载旋转 `refresh` + `animate-spin`、折叠箭头 `alt-arrow-down` / `alt-arrow-up`。
 
 ### 6.2 尺寸梯度
 

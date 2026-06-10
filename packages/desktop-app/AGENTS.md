@@ -135,6 +135,7 @@ src/
 - 使用项目 CSS 变量（`var(--text-1)`, `var(--hover)`, `var(--border)`, `var(--accent)` 等）
 - **不要**使用 Tailwind 语义色（`bg-primary`, `text-foreground` 等），这些未在项目中配置
 - shadcn 组件的样式已经对齐到项目 CSS 变量
+- 图标优先使用 solar 图标集（`icon-[solar--*-linear]`，统一 linear 风格），其次 mdi；详见 DESIGN.md §6
 
 ### 6. IPC 通信
 

@@ -33,9 +33,9 @@ export function SidebarFilterSelect(): JSX.Element {
 							: "text-muted-foreground/80 hover:bg-accent hover:text-foreground",
 					)}
 				>
-					<span className="icon-[mdi--view-grid-outline] h-3.5 w-3.5 shrink-0" />
+					<span className="icon-[solar--widget-linear] h-3.5 w-3.5 shrink-0" />
 					<span>{current.label}</span>
-					<span className="icon-[mdi--chevron-down] h-3 w-3" />
+					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3" />
 				</button>
 			</PopoverTrigger>
 			<PopoverContent
@@ -61,7 +61,7 @@ export function SidebarFilterSelect(): JSX.Element {
 					>
 						<span>{opt.label}</span>
 						{filter === opt.value && (
-							<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5" />
+							<span className="icon-[solar--check-circle-linear] ml-auto h-3.5 w-3.5" />
 						)}
 					</button>
 				))}
@@ -95,7 +95,7 @@ export function DefaultConversationFilterSelect(): JSX.Element {
 					)}
 				>
 					<span>{current.label}</span>
-					<span className="icon-[mdi--chevron-down] h-3 w-3" />
+					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3" />
 				</button>
 			</PopoverTrigger>
 			<PopoverContent
@@ -121,7 +121,7 @@ export function DefaultConversationFilterSelect(): JSX.Element {
 					>
 						<span>{opt.label}</span>
 						{filter === opt.value && (
-							<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5" />
+							<span className="icon-[solar--check-circle-linear] ml-auto h-3.5 w-3.5" />
 						)}
 					</button>
 				))}

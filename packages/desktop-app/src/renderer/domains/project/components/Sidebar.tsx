@@ -26,17 +26,17 @@ const NAV_ITEMS = [
 	{
 		type: "new-session",
 		label: "新会话",
-		icon: "icon-[mdi--square-edit-outline]",
+		icon: "icon-[solar--pen-new-square-linear]",
 		title: "新会话",
 	},
-	{ type: "route", path: "/automation" as const, label: "自动化", icon: "icon-[mdi--robot-outline]" },
+	{ type: "route", path: "/automation" as const, label: "自动化", icon: "icon-[solar--magic-stick-3-linear]" },
 	{
 		type: "route",
 		path: "/batch-tasks" as const,
 		label: "批量任务",
-		icon: "icon-[mdi--format-list-bulleted]",
+		icon: "icon-[solar--checklist-minimalistic-linear]",
 	},
-	{ type: "route", path: "/skills" as const, label: "技能广场", icon: "icon-[mdi--puzzle-outline]" },
+	{ type: "route", path: "/skills" as const, label: "技能广场", icon: "icon-[solar--shop-linear]" },
 ] as const;
 
 interface SidebarProps {

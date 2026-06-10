@@ -99,7 +99,7 @@ export function ProjectContextMenu({
 					}}
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
-					<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
+					<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
 					{isMac ? "在访达中打开" : "从此电脑打开"}
 				</button>
 				{isDefault && defaultScope === "conversation" && onClearConversation && (
@@ -116,7 +116,7 @@ export function ProjectContextMenu({
 							}}
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
 						>
-							<span className="icon-[mdi--broom] h-3.5 w-3.5" />
+							<span className="icon-[solar--broom-linear] h-3.5 w-3.5" />
 							清空会话
 						</button>
 					</>
@@ -137,7 +137,7 @@ export function ProjectContextMenu({
 									}}
 									className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
 								>
-									<span className="icon-[mdi--broom] h-3.5 w-3.5" />
+									<span className="icon-[solar--broom-linear] h-3.5 w-3.5" />
 									清空记录
 								</button>
 							</>
@@ -151,7 +151,7 @@ export function ProjectContextMenu({
 								}}
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
-								<span className="icon-[mdi--cog-outline] h-3.5 w-3.5" />
+								<span className="icon-[solar--settings-linear] h-3.5 w-3.5" />
 								Claw 设置
 							</button>
 						)}
@@ -166,7 +166,7 @@ export function ProjectContextMenu({
 						}}
 						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 					>
-						<span className="icon-[mdi--archive-outline] h-3.5 w-3.5" />
+						<span className="icon-[solar--archive-minimalistic-linear] h-3.5 w-3.5" />
 						归档项目
 					</button>
 				)}
@@ -179,7 +179,7 @@ export function ProjectContextMenu({
 						}}
 						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 					>
-						<span className="icon-[mdi--playlist-remove] h-3.5 w-3.5" />
+						<span className="icon-[solar--list-cross-minimalistic-linear] h-3.5 w-3.5" />
 						从列表中移除
 					</button>
 				)}
@@ -194,7 +194,7 @@ export function ProjectContextMenu({
 							}}
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
 						>
-							<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+							<span className="icon-[solar--trash-bin-trash-linear] h-3.5 w-3.5" />
 							删除项目
 						</button>
 					</>

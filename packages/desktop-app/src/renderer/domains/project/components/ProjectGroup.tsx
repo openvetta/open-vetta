@@ -22,9 +22,9 @@ interface ProjectGroupProps {
 const DEFAULT_VISIBLE_SESSIONS = 5;
 
 const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
-	normal: "icon-[mdi--folder-outline]",
-	flowing: "icon-[mdi--swap-horizontal]",
-	batch: "icon-[mdi--layers-outline]",
+	normal: "icon-[solar--folder-linear]",
+	flowing: "icon-[solar--transfer-horizontal-linear]",
+	batch: "icon-[solar--layers-minimalistic-linear]",
 };
 
 const PROJECT_TYPE_BADGES: Record<Exclude<ProjectType, "normal">, string> = {
@@ -180,7 +180,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 					>
 						<span
 							className={cn(
-								"icon-[mdi--chevron-down] h-4 w-4",
+								"icon-[solar--alt-arrow-down-linear] h-4 w-4",
 								"text-foreground",
 							)}
 						/>
@@ -244,7 +244,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 							hasBadge ? "hidden group-hover:flex" : "opacity-0 group-hover:opacity-100",
 						)}
 					>
-						<span className="icon-[mdi--plus] h-3 w-3" />
+						<span className="icon-[solar--add-circle-linear] h-3 w-3" />
 					</button>
 				</div>
 			</div>
@@ -305,16 +305,16 @@ export const ProjectGroup = memo(function ProjectGroup({
 											{isRunning ? (
 												<span
 													className={cn(
-														"project-running-icon icon-[mdi--loading] ml-[20px] h-3.5 w-3.5 shrink-0 animate-spin",
+														"project-running-icon icon-[solar--refresh-linear] ml-[20px] h-3.5 w-3.5 shrink-0 animate-spin",
 														isActive ? "text-primary" : "text-muted-foreground",
 													)}
 												/>
 											) : isSchedule ? (
-												<span className="icon-[mdi--clock-outline] ml-[20px] h-3.5 w-3.5 shrink-0 text-primary/80" />
+												<span className="icon-[solar--clock-circle-linear] ml-[20px] h-3.5 w-3.5 shrink-0 text-primary/80" />
 											) : (
 												<span
 													className={cn(
-														"icon-[mdi--message-text-outline] ml-[20px] h-3.5 w-3.5 shrink-0",
+														"icon-[solar--chat-round-line-linear] ml-[20px] h-3.5 w-3.5 shrink-0",
 														isActive ? "text-foreground/70" : "text-muted-foreground/50",
 													)}
 												/>
@@ -347,7 +347,7 @@ export const ProjectGroup = memo(function ProjectGroup({
 						>
 							<span
 								className={cn(
-									showAllSessions ? "icon-[mdi--chevron-up]" : "icon-[mdi--chevron-down]",
+									showAllSessions ? "icon-[solar--alt-arrow-up-linear]" : "icon-[solar--alt-arrow-down-linear]",
 									"h-3.5 w-3.5 shrink-0",
 								)}
 							/>
