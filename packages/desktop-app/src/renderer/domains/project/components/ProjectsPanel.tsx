@@ -431,7 +431,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 		<>
 			{noOtherProjects && !defaultProject && (
 				<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
-					<span className="icon-[mdi--folder-open-outline] h-7 w-7 text-muted-foreground" />
+					<span className="icon-[solar--folder-open-linear] h-7 w-7 text-muted-foreground" />
 					<p className="text-[11px] text-foreground">还没有项目</p>
 					<p className="text-[11px] text-muted-foreground">点击上方 + 新建项目</p>
 				</div>
@@ -493,7 +493,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 								}}
 								className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100"
 							>
-								<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
+								<span className="icon-[solar--menu-dots-linear] h-4 w-4" />
 							</button>
 							{defaultConversationFilter !== "claw" && (
 								<button
@@ -507,7 +507,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 									}
 									className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-60 transition-colors hover:bg-accent hover:opacity-100"
 								>
-									<span className="icon-[mdi--message-plus-outline] h-4 w-4" />
+									<span className="icon-[solar--pen-new-round-linear] h-4 w-4" />
 								</button>
 							)}
 						</div>
@@ -668,16 +668,16 @@ const DefaultSessionList = memo(function DefaultSessionList({
 								{isRunning ? (
 									<span
 										className={cn(
-											"project-running-icon icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin",
+											"project-running-icon icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin",
 											isActive ? "text-primary" : "text-muted-foreground",
 										)}
 									/>
 								) : isSchedule ? (
-									<span className="icon-[mdi--clock-outline] h-3.5 w-3.5 shrink-0 text-primary/80" />
+									<span className="icon-[solar--clock-circle-linear] h-3.5 w-3.5 shrink-0 text-primary/80" />
 								) : (
 									<span
 										className={cn(
-											"icon-[mdi--message-text-outline] h-3.5 w-3.5 shrink-0",
+											"icon-[solar--chat-round-line-linear] h-3.5 w-3.5 shrink-0",
 											isActive ? "text-foreground/70" : "text-muted-foreground/50",
 										)}
 									/>
@@ -706,7 +706,7 @@ const DefaultSessionList = memo(function DefaultSessionList({
 				>
 					<span
 						className={cn(
-							showAll ? "icon-[mdi--chevron-up]" : "icon-[mdi--chevron-down]",
+							showAll ? "icon-[solar--alt-arrow-up-linear]" : "icon-[solar--alt-arrow-down-linear]",
 							"h-3.5 w-3.5 shrink-0",
 						)}
 					/>

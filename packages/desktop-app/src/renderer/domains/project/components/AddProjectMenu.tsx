@@ -97,7 +97,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 								: "text-foreground hover:bg-accent",
 						)}
 					>
-						<span className="icon-[mdi--plus-circle-outline] h-4 w-4 shrink-0" />
+						<span className="icon-[solar--add-circle-linear] h-4 w-4 shrink-0" />
 						新建项目
 					</button>
 				) : (
@@ -107,7 +107,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 						onClick={() => setShowAddMenu((v) => !v)}
 						className="flex items-center justify-center rounded-md p-1.5 transition-colors text-foreground opacity-60 hover:bg-accent hover:opacity-100"
 					>
-						<span className="icon-[mdi--create-new-folder-outline] h-4 w-4" />
+						<span className="icon-[solar--add-folder-linear] h-4 w-4" />
 					</button>
 				)}
 				<AnimatePresence>
@@ -130,7 +130,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 								}}
 								className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent/50"
 							>
-								<span className="icon-[mdi--folder-plus-outline] h-3.5 w-3.5 shrink-0" />
+								<span className="icon-[solar--add-folder-linear] h-3.5 w-3.5 shrink-0" />
 								新建项目
 							</button>
 							<button
@@ -141,7 +141,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 								}}
 								className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent/50"
 							>
-								<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5 shrink-0" />
+								<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5 shrink-0" />
 								打开项目
 							</button>
 							<button
@@ -151,7 +151,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 								}}
 								className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent/50"
 							>
-								<span className="icon-[mdi--import] h-3.5 w-3.5 shrink-0" />
+								<span className="icon-[solar--import-linear] h-3.5 w-3.5 shrink-0" />
 								导入项目
 							</button>
 						</motion.div>

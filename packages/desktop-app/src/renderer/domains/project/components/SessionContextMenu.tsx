@@ -69,7 +69,7 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 					}}
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
-					<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
+					<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
 					重命名
 				</button>
 				{hasArtifactDir && (
@@ -81,7 +81,7 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 						}}
 						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 					>
-						<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
+						<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
 						打开产物目录
 					</button>
 				)}
@@ -90,7 +90,7 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 					onClick={() => onDelete(session)}
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
 				>
-					<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+					<span className="icon-[solar--trash-bin-trash-linear] h-3.5 w-3.5" />
 					删除
 				</button>
 			</motion.div>

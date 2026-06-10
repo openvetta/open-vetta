@@ -88,16 +88,16 @@ export function SidebarUpdateButton(): JSX.Element | null {
 				</svg>
 			) : state.phase === "ready" ? (
 				<>
-					<span className="icon-[mdi--restart] h-4 w-4 text-primary" />
+					<span className="icon-[solar--restart-linear] h-4 w-4 text-primary" />
 					<span className="absolute right-[3px] top-[3px] h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_4px_color-mix(in_srgb,var(--primary)_60%,transparent)]" />
 				</>
 			) : state.phase === "available" ? (
 				<>
-					<span className="icon-[mdi--download-circle-outline] h-4 w-4 text-primary" />
+					<span className="icon-[solar--download-linear] h-4 w-4 text-primary" />
 					<span className="absolute right-[3px] top-[3px] h-1.5 w-1.5 rounded-full bg-primary" />
 				</>
 			) : (
-				<span className="icon-[mdi--alert-circle-outline] h-4 w-4 text-destructive" />
+				<span className="icon-[solar--danger-circle-linear] h-4 w-4 text-destructive" />
 			)}
 		</button>
 	);

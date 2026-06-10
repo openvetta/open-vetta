@@ -29,10 +29,10 @@ import { cn } from "@shared/lib/utils";
 type Tab = "all" | "notifications" | "flowing" | "chat";
 
 const TABS: { value: Tab; label: string; icon: string }[] = [
-	{ value: "all", label: "全部", icon: "icon-[mdi--inbox-outline]" },
-	{ value: "chat", label: "聊天", icon: "icon-[mdi--message-text-outline]" },
-	{ value: "flowing", label: "流转", icon: "icon-[mdi--swap-horizontal]" },
-	{ value: "notifications", label: "通知", icon: "icon-[mdi--bell-outline]" },
+	{ value: "all", label: "全部", icon: "icon-[solar--inbox-linear]" },
+	{ value: "chat", label: "聊天", icon: "icon-[solar--chat-round-line-linear]" },
+	{ value: "flowing", label: "流转", icon: "icon-[solar--transfer-horizontal-linear]" },
+	{ value: "notifications", label: "通知", icon: "icon-[solar--bell-linear]" },
 ];
 
 const SPRING = { type: "spring" as const, stiffness: 420, damping: 32 };
@@ -42,7 +42,7 @@ function FlowingList(): JSX.Element {
 	const { processing, accept, reject } = useFlowingReceive();
 
 	if (pendingList.length === 0) {
-		return <EmptyState text="暂无待处理流转" icon="icon-[mdi--swap-horizontal]" />;
+		return <EmptyState text="暂无待处理流转" icon="icon-[solar--transfer-horizontal-linear]" />;
 	}
 
 	return (
@@ -61,7 +61,7 @@ function FlowingList(): JSX.Element {
 						<div className="flex items-start gap-3">
 							{/* Avatar */}
 							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-								<span className="icon-[mdi--account] h-4.5 w-4.5 text-primary" />
+								<span className="icon-[solar--user-circle-linear] h-4.5 w-4.5 text-primary" />
 							</div>
 
 							<div className="min-w-0 flex-1">
@@ -82,7 +82,7 @@ function FlowingList(): JSX.Element {
 								{/* Meta */}
 								<div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground/50">
 									<span className="flex items-center gap-1">
-										<span className="icon-[mdi--file-multiple-outline] h-3 w-3" />
+										<span className="icon-[solar--documents-minimalistic-linear] h-3 w-3" />
 										{t.file_list.length} 个文件
 									</span>
 									<span>{formatRelativeTime(t.created_at)}</span>
@@ -154,7 +154,7 @@ function NotificationList(): JSX.Element {
 	};
 
 	if (notifications.length === 0) {
-		return <EmptyState text="暂无通知" icon="icon-[mdi--bell-outline]" />;
+		return <EmptyState text="暂无通知" icon="icon-[solar--bell-linear]" />;
 	}
 
 	return (
@@ -162,12 +162,12 @@ function NotificationList(): JSX.Element {
 			{(hasUnread || hasRead) && (
 				<div className="flex justify-end gap-1.5 px-0.5">
 					{hasUnread && (
-						<ToolbarButton icon="icon-[mdi--check-all]" onClick={handleReadAll}>
+						<ToolbarButton icon="icon-[solar--check-read-linear]" onClick={handleReadAll}>
 							全部已读
 						</ToolbarButton>
 					)}
 					{hasRead && (
-						<ToolbarButton icon="icon-[mdi--notification-clear-all]" onClick={handleClearRead}>
+						<ToolbarButton icon="icon-[solar--notification-lines-remove-linear]" onClick={handleClearRead}>
 							清空已读
 						</ToolbarButton>
 					)}
@@ -200,7 +200,7 @@ function NotificationList(): JSX.Element {
 							className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground opacity-0 shadow-sm transition-all hover:border-destructive/40 hover:bg-destructive hover:text-white group-hover:opacity-100"
 							title="删除"
 						>
-							<span className="icon-[mdi--close] h-3 w-3" />
+							<span className="icon-[solar--close-circle-linear] h-3 w-3" />
 						</button>
 
 						<div className="flex items-start gap-3">
@@ -212,7 +212,7 @@ function NotificationList(): JSX.Element {
 							>
 								<span
 									className={cn(
-										"icon-[mdi--bell-outline] h-4.5 w-4.5",
+										"icon-[solar--bell-linear] h-4.5 w-4.5",
 										n.read ? "text-muted-foreground" : "text-primary",
 									)}
 								/>
@@ -286,7 +286,7 @@ function ChatList({ onClose }: { onClose: () => void }): JSX.Element {
 	}, [summaryMap]);
 
 	if (items.length === 0) {
-		return <EmptyState text="暂无未读聊天" icon="icon-[mdi--message-text-outline]" />;
+		return <EmptyState text="暂无未读聊天" icon="icon-[solar--chat-round-line-linear]" />;
 	}
 
 	const cwdByFlowing = new Map<number, string>();
@@ -326,7 +326,7 @@ function ChatList({ onClose }: { onClose: () => void }): JSX.Element {
 				>
 					<div className="flex items-start gap-3">
 						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
-							<span className="icon-[mdi--message-text-outline] h-4 w-4 text-primary" />
+							<span className="icon-[solar--chat-round-line-linear] h-4 w-4 text-primary" />
 						</div>
 						<div className="min-w-0 flex-1">
 							<div className="flex items-center justify-between gap-2">
@@ -411,7 +411,7 @@ export function MessageCenter(): JSX.Element {
 						totalUnread > 0 && "message-bell-swing",
 					)}
 				>
-					<span className="icon-[mdi--bell-outline] h-4 w-4" />
+					<span className="icon-[solar--bell-linear] h-4 w-4" />
 				</span>
 				{totalUnread > 0 && (
 					<span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground shadow-sm shadow-primary/30">
@@ -452,7 +452,7 @@ export function MessageCenter(): JSX.Element {
 									<div className="relative flex items-center justify-between px-5 pt-4 pb-3">
 										<div className="flex items-center gap-2">
 											<span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15">
-												<span className="icon-[mdi--bell-outline] h-3.5 w-3.5 text-primary" />
+												<span className="icon-[solar--bell-linear] h-3.5 w-3.5 text-primary" />
 											</span>
 											<DialogPrimitive.Title className="text-[14px] font-semibold tracking-[-0.01em] text-foreground">
 												消息中心
@@ -463,7 +463,7 @@ export function MessageCenter(): JSX.Element {
 											onClick={close}
 											className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
 										>
-											<span className="icon-[mdi--close] h-4 w-4" />
+											<span className="icon-[solar--close-circle-linear] h-4 w-4" />
 										</button>
 									</div>
 
@@ -533,7 +533,7 @@ export function MessageCenter(): JSX.Element {
 														{pendingCount > 0 && <FlowingList />}
 														{notifUnread > 0 && <NotificationList />}
 														{chatUnread === 0 && pendingCount === 0 && notifUnread === 0 && (
-															<EmptyState text="暂无消息" icon="icon-[mdi--inbox-outline]" />
+															<EmptyState text="暂无消息" icon="icon-[solar--inbox-linear]" />
 														)}
 													</>
 												)}
