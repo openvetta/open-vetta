@@ -35,21 +35,31 @@ export function TabBar<T extends string>({
 	suppressLayoutAnimation = false,
 }: TabBarProps<T>): JSX.Element {
 	const layoutId = useId();
+	const activeIndex = items.findIndex((item) => item.key === value);
 
 	return (
 		<div className={cn("relative z-10 flex shrink-0 items-end px-3", className)}>
-			{items.map(({ key, label, icon, badge }) => {
+			{items.map(({ key, label, icon, badge }, index) => {
 				const active = value === key;
+				// 紧贴激活页签的两侧邻居去掉靠近激活侧的顶部圆角，避免与凸起的激活页签之间出现缺口
+				const cornerClass = active
+					? "rounded-t-lg"
+					: index === activeIndex - 1
+						? "rounded-tl-lg"
+						: index === activeIndex + 1
+							? "rounded-tr-lg"
+							: "rounded-t-lg";
 				return (
 					<button
 						key={key}
 						type="button"
 						onClick={() => onChange(key)}
 						className={cn(
-							"relative flex h-[30px] select-none items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3.5 text-[11px] font-medium leading-none transition-colors duration-150",
+							"relative flex select-none items-center gap-1.5 whitespace-nowrap text-[11px] font-medium leading-none transition-all duration-150",
+							cornerClass,
 							active
-								? "text-foreground"
-								: "bg-black/[0.045] text-muted-foreground hover:bg-black/[0.07] hover:text-foreground/80 dark:bg-white/[0.05] dark:hover:bg-white/[0.08]",
+								? "h-[34px] px-4 text-foreground"
+								: "h-[30px] bg-black/[0.045] px-3.5 text-muted-foreground hover:bg-black/[0.07] hover:text-foreground/80 dark:bg-white/[0.05] dark:hover:bg-white/[0.08]",
 						)}
 					>
 						{active && (
