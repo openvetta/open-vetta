@@ -52,7 +52,9 @@ export function SchedulerToggleApproval(): JSX.Element | null {
 						</div>
 						<div className="min-w-0 flex-1">
 							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="text-[15px] font-semibold text-foreground">定时任务状态变更确认</h2>
+								<h2 className="text-[15px] font-semibold text-foreground">
+									{input?.operation === "disable" ? "停用定时任务确认" : "启用定时任务确认"}
+								</h2>
 								{detail && (
 									<span
 										className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${

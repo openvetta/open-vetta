@@ -1,6 +1,6 @@
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent } from "../components/ui/dialog";
-import { useActionApproval } from "./useActionApproval";
+import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
 
 interface ExecutionTaskInput {
 	operation: "run-now" | "abort";
@@ -27,10 +27,26 @@ const operationDetails: Record<
 };
 
 export function SchedulerExecutionApproval(): JSX.Element | null {
-	const approval = useActionApproval("scheduler.run-now");
-	if (!approval) return null;
-	const { request, responding, error, approve, reject } = approval;
+	return (
+		<>
+			<SchedulerExecutionApprovalForPresentation presentation="scheduler.run-now" />
+			<SchedulerExecutionApprovalForPresentation presentation="scheduler.abort" />
+		</>
+	);
+}
 
+function SchedulerExecutionApprovalForPresentation({
+	presentation,
+}: {
+	presentation: "scheduler.run-now" | "scheduler.abort";
+}): JSX.Element | null {
+	const approval = useActionApproval(presentation);
+	if (!approval) return null;
+	return <SchedulerExecutionDialog approval={approval} />;
+}
+
+function SchedulerExecutionDialog({ approval }: { approval: ActiveActionApproval }): JSX.Element {
+	const { request, responding, error, approve, reject } = approval;
 	const input = request.input as unknown as ExecutionTaskInput;
 	const detail = operationDetails[input.operation];
 
@@ -52,7 +68,9 @@ export function SchedulerExecutionApproval(): JSX.Element | null {
 						</div>
 						<div className="min-w-0 flex-1">
 							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="text-[15px] font-semibold text-foreground">定时任务执行确认</h2>
+								<h2 className="text-[15px] font-semibold text-foreground">
+									{detail?.destructive ? "中止定时任务确认" : "立即执行定时任务确认"}
+								</h2>
 								{detail && (
 									<span
 										className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
