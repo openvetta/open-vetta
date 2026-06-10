@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { AnimatePresence, motion } from "motion/react";
 import {
 	activityPanelWidthAtom,
 	activityPanelOpenAtom,
@@ -27,6 +28,7 @@ import { TodoTabPanel } from "./TodoTabPanel";
 import { DebugTabPanel } from "./DebugTabPanel";
 import { TabBar, type TabBarItem } from "@shared/components/ui/tab-bar";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 
 const MIN_WIDTH = 260;
 const MAX_WIDTH = 600;
@@ -37,7 +39,8 @@ interface ActivityPanelProps {
 }
 
 export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.Element {
-	const isOpen = useAtomValue(activityPanelOpenAtom);
+	const [isOpen, setOpen] = useAtom(activityPanelOpenAtom);
+	const narrow = useNarrowScreen();
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [width, setWidth] = useAtom(activityPanelWidthAtom);
 	const [isResizing, setIsResizing] = useState(false);
@@ -156,55 +159,95 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 		[cwd, setTabByProject],
 	);
 
-	return (
-		<aside
-			style={
-				inlinePreviewActive
-					? undefined
-					: {
-							width: isOpen ? width : 0,
-							transition: isResizing ? "none" : "width 0.2s ease-in-out",
-						}
-			}
-			className={
-				inlinePreviewActive
-					? "relative flex-1 min-w-0 overflow-hidden"
-					: "relative shrink-0 overflow-hidden"
-			}
-		>
-			<div
-				className="flex h-full flex-col"
-				style={inlinePreviewActive ? undefined : { width }}
-			>
-				{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab）。浏览器式页签悬浮在卡片上方，
-				    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。 */}
-				{tabItems.length > 0 && (
-					<TabBar
-						items={tabItems}
-						value={activeTab}
-						onChange={onTabChange}
-						suppressLayoutAnimation={isResizing}
-					/>
-				)}
-				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-					{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
-					    新 cwd 重新拉取，避免上个 session 的卡片内容残留。 */}
-					<div key={cwd ?? "__none__"} className="flex min-h-0 flex-1 flex-col">
-						{activeTab === "file" && <FileTabContent cwd={cwd} />}
-						{activeTab === "journey" && cwd && <JourneyPanel cwd={cwd} />}
-						{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}
-						{activeTab === "batch-progress" && cwd && <BatchProgressTabPanel cwd={cwd} />}
-						{activeTab === "schedule-records" && cwd && <ScheduleExecutionTabPanel cwd={cwd} />}
-						{activeTab === "todo" && cwd && <TodoTabPanel />}
-						{activeTab === "background-tasks" && cwd && <BackgroundTasksTabPanel />}
-						{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
-					</div>
+	// 窄屏：活动面板不再挤压内容，改为从底部升起的全宽 bottom sheet。
+	// 内联预览（接管整块内容区）保持原样，不走 sheet。
+	const bottomSheet = narrow && isOpen && !inlinePreviewActive;
+
+	const panelBody = (
+		<>
+			{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab）。浏览器式页签悬浮在卡片上方，
+			    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。 */}
+			{tabItems.length > 0 && (
+				<TabBar
+					items={tabItems}
+					value={activeTab}
+					onChange={onTabChange}
+					suppressLayoutAnimation={isResizing}
+				/>
+			)}
+			<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+				{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
+				    新 cwd 重新拉取，避免上个 session 的卡片内容残留。 */}
+				<div key={cwd ?? "__none__"} className="flex min-h-0 flex-1 flex-col">
+					{activeTab === "file" && <FileTabContent cwd={cwd} />}
+					{activeTab === "journey" && cwd && <JourneyPanel cwd={cwd} />}
+					{activeTab === "chat" && cwd && <ChatTabPanel cwd={cwd} />}
+					{activeTab === "batch-progress" && cwd && <BatchProgressTabPanel cwd={cwd} />}
+					{activeTab === "schedule-records" && cwd && <ScheduleExecutionTabPanel cwd={cwd} />}
+					{activeTab === "todo" && cwd && <TodoTabPanel />}
+					{activeTab === "background-tasks" && cwd && <BackgroundTasksTabPanel />}
+					{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
 				</div>
 			</div>
-			{isOpen && !inlinePreviewActive && (
-				<ResizeHandle side="left" onResize={onResize} onResizeEnd={onResizeEnd} />
+		</>
+	);
+
+	return (
+		<>
+			{!bottomSheet && (
+				<aside
+					style={
+						inlinePreviewActive
+							? undefined
+							: {
+									width: isOpen ? width : 0,
+									transition: isResizing ? "none" : "width 0.2s ease-in-out",
+								}
+					}
+					className={
+						inlinePreviewActive
+							? "relative flex-1 min-w-0 overflow-hidden"
+							: "relative shrink-0 overflow-hidden"
+					}
+				>
+					<div
+						className="flex h-full flex-col"
+						style={inlinePreviewActive ? undefined : { width }}
+					>
+						{panelBody}
+					</div>
+					{isOpen && !inlinePreviewActive && (
+						<ResizeHandle side="left" onResize={onResize} onResizeEnd={onResizeEnd} />
+					)}
+				</aside>
 			)}
-		</aside>
+			{/* 窄屏 bottom sheet：从底部升起、宽度站满，点击空白区域（遮罩）关闭 */}
+			<AnimatePresence>
+				{bottomSheet && (
+					<>
+						<motion.div
+							key="activity-sheet-backdrop"
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							exit={{ opacity: 0 }}
+							transition={{ duration: 0.2 }}
+							onClick={() => setOpen(false)}
+							className="fixed inset-0 z-40 bg-black/25"
+						/>
+						<motion.div
+							key="activity-sheet"
+							initial={{ y: "100%" }}
+							animate={{ y: 0 }}
+							exit={{ y: "100%" }}
+							transition={{ duration: 0.26, ease: [0.22, 0.61, 0.36, 1] }}
+							className="fixed inset-x-0 bottom-0 top-16 z-50 flex flex-col rounded-t-2xl border-t border-border bg-background p-2 shadow-2xl shadow-black/40"
+						>
+							{panelBody}
+						</motion.div>
+					</>
+				)}
+			</AnimatePresence>
+		</>
 	);
 }
 
