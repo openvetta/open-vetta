@@ -55,6 +55,8 @@ export interface DesktopSessionApi {
 	listSandboxGrants(sessionId: string): Promise<RuntimeSandboxGrantInfo[]>;
 	revokeSandboxGrant(sessionId: string, grantId: string): Promise<boolean>;
 	revokeAllSandboxGrants(sessionId: string): Promise<number>;
+	/** 清除指定 session 中所有已结束的后台任务，返回清除数量。 */
+	clearFinishedBackgroundTasks(sessionId: string): Promise<number>;
 	getSessionPath(sessionId: string): Promise<string | undefined>;
 	updateSettings(sessionId: string, partialSettings: SettingsPatch): Promise<void>;
 	setExecutionMode(sessionId: string, mode: SessionExecutionMode): Promise<void>;
