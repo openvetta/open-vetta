@@ -1,4 +1,5 @@
 import { cn } from "@shared/lib/utils";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import type { SettingsSectionRegistration } from "../registry";
 
 export function SettingRow({
@@ -12,10 +13,13 @@ export function SettingRow({
 	children: React.ReactNode;
 	border?: boolean;
 }): JSX.Element {
+	// 窄屏：标题/描述与右侧控件改为上下堆叠，避免控件挤压文本导致逐字换行。
+	const narrow = useNarrowScreen();
 	return (
 		<div
 			className={cn(
-				"flex items-center justify-between gap-6 px-5 py-4",
+				"flex gap-6 px-5 py-4",
+				narrow ? "flex-col items-stretch gap-3" : "items-center justify-between",
 				border && "border-b border-border",
 			)}
 		>
@@ -25,7 +29,7 @@ export function SettingRow({
 					<div className="mt-0.5 text-[12px] text-muted-foreground">{description}</div>
 				)}
 			</div>
-			<div className="shrink-0">{children}</div>
+			<div className={cn(!narrow && "shrink-0")}>{children}</div>
 		</div>
 	);
 }
