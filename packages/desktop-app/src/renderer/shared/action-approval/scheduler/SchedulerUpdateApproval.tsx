@@ -1,14 +1,14 @@
 import { type ScheduledTask, scheduledTasksAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "../components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
+import { Button } from "../../components/ui/button";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../../components/ui/drawer";
 import {
 	SchedulerApprovalFields,
 	type SchedulerEditableData,
 	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
-import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
 
 interface UpdateTaskData extends SchedulerEditableData {
 	skill?: { name: string; alias?: string; type: "skill" | "scene" } | null;

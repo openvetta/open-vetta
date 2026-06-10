@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Button } from "../components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
+import { Button } from "../../components/ui/button";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../../components/ui/drawer";
 import {
 	SchedulerApprovalFields,
 	type SchedulerEditableData,
 	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
-import { useActionApproval, type ActiveActionApproval } from "./useActionApproval";
+import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
 
 interface CreateTaskData extends SchedulerEditableData {
 	name: string;

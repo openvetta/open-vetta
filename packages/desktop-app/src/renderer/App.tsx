@@ -23,17 +23,17 @@ import { FilePreviewDialog } from "./domains/file-preview/components/FilePreview
 import { UpdateRestartDialog } from "./shared/components/UpdateRestartDialog";
 import { ActionApprovalCenter } from "./shared/action-approval/ActionApprovalCenter";
 import { GenericActionApproval } from "./shared/action-approval/GenericActionApproval";
-import { AppearancePickerApproval } from "./shared/action-approval/AppearancePickerApproval";
-import { ThemeChangeApproval } from "./shared/action-approval/ThemeChangeApproval";
-import { NavigationOpenApproval } from "./shared/action-approval/NavigationOpenApproval";
-import { BatchTasksProjectApproval } from "./shared/action-approval/BatchTasksProjectApproval";
-import { BatchTasksTaskApproval } from "./shared/action-approval/BatchTasksTaskApproval";
-import { BatchTasksExecutionApproval } from "./shared/action-approval/BatchTasksExecutionApproval";
-import { SchedulerCreateApproval } from "./shared/action-approval/SchedulerCreateApproval";
-import { SchedulerUpdateApproval } from "./shared/action-approval/SchedulerUpdateApproval";
-import { SchedulerDeleteApproval } from "./shared/action-approval/SchedulerDeleteApproval";
-import { SchedulerToggleApproval } from "./shared/action-approval/SchedulerToggleApproval";
-import { SchedulerExecutionApproval } from "./shared/action-approval/SchedulerExecutionApproval";
+import { AppearancePickerApproval } from "./shared/action-approval/appearance/AppearancePickerApproval";
+import { ThemeChangeApproval } from "./shared/action-approval/appearance/ThemeChangeApproval";
+import { NavigationOpenApproval } from "./shared/action-approval/navigation/NavigationOpenApproval";
+import { BatchTasksProjectApproval } from "./shared/action-approval/batch-tasks/BatchTasksProjectApproval";
+import { BatchTasksTaskApproval } from "./shared/action-approval/batch-tasks/BatchTasksTaskApproval";
+import { BatchTasksExecutionApproval } from "./shared/action-approval/batch-tasks/BatchTasksExecutionApproval";
+import { SchedulerCreateApproval } from "./shared/action-approval/scheduler/SchedulerCreateApproval";
+import { SchedulerUpdateApproval } from "./shared/action-approval/scheduler/SchedulerUpdateApproval";
+import { SchedulerDeleteApproval } from "./shared/action-approval/scheduler/SchedulerDeleteApproval";
+import { SchedulerToggleApproval } from "./shared/action-approval/scheduler/SchedulerToggleApproval";
+import { SchedulerExecutionApproval } from "./shared/action-approval/scheduler/SchedulerExecutionApproval";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,

@@ -1,7 +1,7 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
-import { Button } from "../components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { useActionApproval } from "./useActionApproval";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { useActionApproval } from "../useActionApproval";
 
 function isNavigationOpenInput(
 	input: DesktopActionApprovalRequest["input"],

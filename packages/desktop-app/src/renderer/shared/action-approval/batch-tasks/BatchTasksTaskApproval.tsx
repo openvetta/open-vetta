@@ -2,11 +2,11 @@ import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@prel
 import { batchProjectsAtom, type BatchTaskStatus } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useRef } from "react";
-import { Button } from "../components/ui/button";
-import { Dialog, DialogContent } from "../components/ui/dialog";
-import { Drawer, DrawerContent } from "../components/ui/drawer";
-import { Textarea } from "../components/ui/textarea";
-import { useActionApproval } from "./useActionApproval";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent } from "../../components/ui/dialog";
+import { Drawer, DrawerContent } from "../../components/ui/drawer";
+import { Textarea } from "../../components/ui/textarea";
+import { useActionApproval } from "../useActionApproval";
 
 type TaskOperation = "run" | "retry" | "stop" | "delete" | "resume" | "resume-with-text" | "delete-session";
 
