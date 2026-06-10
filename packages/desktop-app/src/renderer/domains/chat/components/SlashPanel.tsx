@@ -126,7 +126,7 @@ export function SlashPanel({ open, onClose, onSelect, filter, placement = "top" 
 				>
 					{/* Header */}
 					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-						<span className="icon-[mdi--slash-forward] h-4 w-4 text-muted-foreground/50" />
+						<span className="icon-[solar--slash-circle-linear] h-4 w-4 text-muted-foreground/50" />
 						<span className="text-[12px] font-medium text-muted-foreground/50">
 							选择场景或技能
 						</span>
@@ -233,7 +233,7 @@ function SlashItem({
 				className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isScene ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}
 			>
 				<span
-					className={`${isScene ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]"} h-3.5 w-3.5`}
+					className={`${isScene ? "icon-[solar--clapperboard-open-linear]" : "icon-[solar--magic-stick-linear]"} h-3.5 w-3.5`}
 				/>
 			</div>
 			<div className="min-w-0 flex-1">

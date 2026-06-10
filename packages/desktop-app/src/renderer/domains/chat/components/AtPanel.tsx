@@ -18,7 +18,7 @@ interface AtPanelProps {
 
 /** Icon class for a given file name. */
 function fileIcon(name: string, isDir: boolean): string {
-	if (isDir) return "icon-[mdi--folder-outline]";
+	if (isDir) return "icon-[solar--folder-linear]";
 	const ext = name.split(".").pop()?.toLowerCase() ?? "";
 	switch (ext) {
 		case "ts":
@@ -59,7 +59,7 @@ function fileIcon(name: string, isDir: boolean): string {
 		case "doc":
 			return "icon-[mdi--file-word-outline]";
 		default:
-			return "icon-[mdi--file-outline]";
+			return "icon-[solar--file-linear]";
 	}
 }
 
@@ -212,7 +212,7 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 				>
 					{/* Header */}
 					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-						<span className="icon-[mdi--at] h-4 w-4 text-muted-foreground/50" />
+						<span className="icon-[solar--mention-circle-linear] h-4 w-4 text-muted-foreground/50" />
 						<span className="text-[12px] font-medium text-muted-foreground/50">
 							引用文件
 						</span>
@@ -258,7 +258,7 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 												transition={{ type: "spring", stiffness: 500, damping: 32 }}
 											/>
 										)}
-										<span className="icon-[mdi--arrow-up-left] h-4 w-4 text-muted-foreground/50" />
+										<span className="icon-[solar--arrow-left-up-linear] h-4 w-4 text-muted-foreground/50" />
 										<span className="text-[12px] text-muted-foreground/50">..</span>
 									</button>
 								)}
