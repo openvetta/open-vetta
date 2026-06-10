@@ -19,6 +19,8 @@ const toolDescriptions: Record<string, string> = {
 	dir_tree: "Render directory tree with [D]/[F] node types and child counts",
 	invoke_skill: "Invoke a skill by name to handle specialized tasks (e.g., PDF, DOCX processing)",
 	todo: "Plan and track progress on multi-step tasks with a todo list",
+	task_output: "Read incremental output of a background task started via bash/shell with run_in_background",
+	task_stop: "Terminate a running background task started via bash/shell with run_in_background",
 	current_time: "Get the current date and time (preferred over bash date/time commands)",
 	ask_user_question:
 		"Ask the user multiple-choice questions and wait for their answers (clarify ambiguity, gather preferences, offer decisions)",

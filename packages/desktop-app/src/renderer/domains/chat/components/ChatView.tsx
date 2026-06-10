@@ -21,6 +21,7 @@ import {
 import { Button } from "@shared/components/ui/button";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
+import { BackgroundTasksBadge } from "./BackgroundTasksBadge";
 import { SandboxGrantsBadge } from "./SandboxGrantsBadge";
 import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
 
@@ -85,6 +86,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const rightSlot = useMemo(
 		() => (
 			<>
+				<BackgroundTasksBadge />
 				<SandboxGrantsBadge />
 				{isLastStage ? (
 					<Button

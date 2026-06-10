@@ -11,6 +11,7 @@ import { basename, dirname } from "node:path";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { resetApiProviders } from "@mariozechner/pi-ai";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
+import type { BackgroundTaskManager } from "../background-tasks/index.js";
 import {
 	type ExtensionCommandContextActions,
 	type ExtensionErrorListener,
@@ -33,6 +34,8 @@ import {
 	getDefaultCodingToolNames,
 } from "../tools/index.js";
 import { createInvokeSkillTool } from "../tools/invoke-skill/index.js";
+import { createTaskOutputTool } from "../tools/task-output/index.js";
+import { createTaskStopTool } from "../tools/task-stop/index.js";
 import { createTodoTool } from "../tools/todo/index.js";
 import { bindExtensionCore } from "./extension-binding.js";
 import type { SessionContext } from "./session-context.js";
@@ -49,6 +52,7 @@ export interface RuntimeManagerOptions {
 	enableMcp: boolean;
 	mcpDebug: boolean;
 	askUserQuestion?: AskUserQuestionCapability;
+	backgroundTasks: BackgroundTaskManager;
 }
 
 export class RuntimeManager {
@@ -60,6 +64,7 @@ export class RuntimeManager {
 	private readonly _initialActiveToolNames?: string[];
 	private readonly _extensionRunnerRef?: { current?: ExtensionRunner };
 	private readonly _askUserQuestion?: AskUserQuestionCapability;
+	private readonly _backgroundTasks: BackgroundTaskManager;
 
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -94,6 +99,7 @@ export class RuntimeManager {
 		this._enableMcp = opts.enableMcp;
 		this._mcpDebug = opts.mcpDebug;
 		this._askUserQuestion = opts.askUserQuestion;
+		this._backgroundTasks = opts.backgroundTasks;
 	}
 
 	get extensionRunner(): ExtensionRunner | undefined {
@@ -488,8 +494,8 @@ export class RuntimeManager {
 			? { ...this._baseToolsOverride }
 			: createAllTools(this.ctx.cwd, {
 					read: { autoResizeImages },
-					bash: { commandPrefix: shellCommandPrefix, spawnHook },
-					shell: { commandPrefix: shellCommandPrefix, spawnHook },
+					bash: { commandPrefix: shellCommandPrefix, spawnHook, backgroundTasks: this._backgroundTasks },
+					shell: { commandPrefix: shellCommandPrefix, spawnHook, backgroundTasks: this._backgroundTasks },
 				});
 
 		// Add invoke_skill tool if skills are available
@@ -509,6 +515,10 @@ export class RuntimeManager {
 		// Add todo tool (always available)
 		const todoTool = createTodoTool({ getTodoStore: () => this.todoStore });
 		baseTools.todo = todoTool;
+
+		// Background task companion tools (always available; bash/shell spawn the tasks)
+		baseTools.task_output = createTaskOutputTool({ getManager: () => this._backgroundTasks });
+		baseTools.task_stop = createTaskStopTool({ getManager: () => this._backgroundTasks });
 
 		// Add ask_user_question only when the host exposes the capability (capability=registration).
 		// Tracked so the prompt-entry lazy reload can detect a toggle and rebuild.
@@ -582,6 +592,8 @@ export class RuntimeManager {
 			"current_time",
 			"ask_user_question",
 			"easy_use_vettaApp",
+			"task_output",
+			"task_stop",
 		];
 		for (const name of alwaysActive) {
 			if (this._baseToolRegistry.has(name)) {

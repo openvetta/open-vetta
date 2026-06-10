@@ -17,6 +17,7 @@ import { join } from "node:path";
 import type { Agent, AgentMessage, AgentState, ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { ImageContent, Model, TextContent } from "@mariozechner/pi-ai";
 import { theme } from "../modes/interactive/theme/theme.js";
+import { BackgroundTaskManager, buildTaskNotification } from "./background-tasks/index.js";
 import type { BashResult } from "./bash-executor.js";
 import type { CompactionResult } from "./compaction/index.js";
 import { exportSessionToHtml, type ToolHtmlRenderer } from "./export-html/index.js";
@@ -136,6 +137,9 @@ export class AgentSession {
 	// Todo list
 	private _todoStore: TodoStore;
 
+	// Background bash tasks (run_in_background)
+	private _backgroundTasks: BackgroundTaskManager;
+
 	constructor(config: AgentSessionConfig) {
 		this.agent = config.agent;
 		this.sessionManager = config.sessionManager;
@@ -210,9 +214,12 @@ export class AgentSession {
 			compaction: this._compaction,
 		});
 
+		this._backgroundTasks = new BackgroundTaskManager();
+
 		this._runtime = new RuntimeManager(this._ctx, this, {
 			resourceLoader: this._resourceLoader,
 			todoStore: this._todoStore,
+			backgroundTasks: this._backgroundTasks,
 			customTools: config.customTools ?? [],
 			baseToolsOverride: config.baseToolsOverride,
 			envOverlay: config.envOverlay,
@@ -250,6 +257,22 @@ export class AgentSession {
 		// This runs INSIDE the agent loop (before follow-up queue is consumed),
 		// ensuring the agent cannot exit the loop while todo items remain.
 		this.agent.followUpProvider = () => this._input.buildTodoContinuationMessages();
+
+		// Background task wiring: forward state changes to session listeners (UI),
+		// and inject a <task-notification> back into the agent loop on completion.
+		// While streaming the notification queues as a follow-up (processed after
+		// the current turn); when idle it triggers a new turn (wakes the agent).
+		this._backgroundTasks.subscribe(() => {
+			this._emit({ type: "background_tasks_update", tasks: this._backgroundTasks.list() });
+		});
+		this._backgroundTasks.onNotify = (task) => {
+			void this.sendCustomMessage(
+				{ customType: "task-notification", content: buildTaskNotification(task), display: true },
+				{ triggerTurn: true, deliverAs: "followUp" },
+			).catch((err) => {
+				console.error(`[BackgroundTasks] Failed to deliver task notification for ${task.id}:`, err);
+			});
+		};
 	}
 
 	/** Model registry for API key resolution and model discovery */
@@ -324,6 +347,9 @@ export class AgentSession {
 	dispose(): void {
 		this._disconnectFromAgent();
 		this._eventListeners = [];
+
+		// Kill any still-running background tasks (lifecycle bound to the session).
+		this._backgroundTasks.killAll();
 
 		// Release the session file lock so another writer can take over.
 		this.sessionManager.close();
@@ -444,6 +470,11 @@ export class AgentSession {
 	/** Todo store for task planning and tracking */
 	get todoStore(): TodoStore {
 		return this._todoStore;
+	}
+
+	/** Background bash task manager (run_in_background) */
+	get backgroundTasks(): BackgroundTaskManager {
+		return this._backgroundTasks;
 	}
 
 	/** memory-mode enabled? (ADR-0009) */

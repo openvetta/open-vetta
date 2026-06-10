@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { ToolCallBlock } from "@shared/store/atoms";
+import { useAtomValue } from "jotai";
+import {
+	activeSessionAtom,
+	backgroundTasksBySessionAtom,
+	getBackgroundTasksForSession,
+	type ToolCallBlock,
+} from "@shared/store/atoms";
 import { AskUserQuestionView } from "./tool-views/AskUserQuestionView";
 import { BashTerminalCard } from "./tool-views/BashTerminalCard";
 import { EditDiffView } from "./tool-views/EditDiffView";
@@ -42,6 +48,16 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const mcp = parseMcpTool(block.toolName);
 	const icon = toolIcon(block.toolName);
 	const shellCommand = getShellCommand(block);
+
+	// 后台任务关联：run_in_background 的 bash/shell 调用通过 toolCallId 关联
+	// 到后台任务快照，卡片内实时滚动显示输出尾部。
+	const activeSession = useAtomValue(activeSessionAtom);
+	const backgroundTasksMap = useAtomValue(backgroundTasksBySessionAtom);
+	const backgroundTask = useMemo(() => {
+		if (!shellCommand) return undefined;
+		const tasks = getBackgroundTasksForSession(backgroundTasksMap, activeSession?.runtimeId ?? null);
+		return tasks.find((t) => t.toolCallId === block.toolCallId);
+	}, [shellCommand, backgroundTasksMap, activeSession?.runtimeId, block.toolCallId]);
 
 	const isPending = block.status === "pending";
 	const iconColorClass =
@@ -125,6 +141,7 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 									startedAt={block.startedAt}
 									durationMs={block.durationMs}
 									phases={block.phases}
+									backgroundTask={backgroundTask}
 								/>
 							) : (
 								<>

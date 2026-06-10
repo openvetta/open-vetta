@@ -1,7 +1,58 @@
-import type { ToolCallBlock, ToolPhaseInfo } from "@shared/store/atoms";
+import type { BackgroundTask, ToolCallBlock, ToolPhaseInfo } from "@shared/store/atoms";
+import { useEffect, useRef } from "react";
 import { formatPhases, formatStartedAt, formatDurationPrecise } from "./shared/format";
 import { bashHeaderLabel } from "./shared/parse-tool";
 import { CopyIconButton } from "./shared/CopyIconButton";
+
+/** 后台任务的实时尾部输出区：随 background_tasks_update 事件刷新并自动滚到底部。 */
+function BackgroundTaskTail({ task }: { task: BackgroundTask }): JSX.Element {
+	const tailRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		const el = tailRef.current;
+		if (el) el.scrollTop = el.scrollHeight;
+	}, [task.tail]);
+
+	const statusLine =
+		task.status === "running" ? (
+			<>
+				<span className="icon-[mdi--loading] h-3 w-3 animate-spin" />
+				<span className="tool-call-shimmer-text">后台任务 {task.id} 运行中···</span>
+			</>
+		) : (
+			<>
+				<span
+					className={
+						task.status === "completed"
+							? "icon-[mdi--check-circle-outline] h-3 w-3 text-emerald-600"
+							: task.status === "killed"
+								? "icon-[mdi--stop-circle-outline] h-3 w-3"
+								: "icon-[mdi--close-circle-outline] h-3 w-3 text-destructive"
+					}
+				/>
+				<span>
+					后台任务 {task.id}{" "}
+					{task.status === "completed" ? "已完成" : task.status === "killed" ? "已终止" : "失败"}
+					{task.exitCode !== undefined ? ` (exit ${task.exitCode})` : ""}
+				</span>
+			</>
+		);
+
+	return (
+		<>
+			{task.tail && (
+				<div
+					ref={tailRef}
+					className="max-h-[180px] overflow-auto border-t border-muted-foreground/10 px-3 py-2 font-mono text-[12px] leading-[1.55]"
+				>
+					<pre className="m-0 min-w-0 whitespace-pre-wrap break-words text-foreground/75">{task.tail}</pre>
+				</div>
+			)}
+			<div className="flex items-center gap-1.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] italic text-muted-foreground/55">
+				{statusLine}
+			</div>
+		</>
+	);
+}
 
 export function BashTerminalCard({
 	command,
@@ -11,6 +62,7 @@ export function BashTerminalCard({
 	startedAt,
 	durationMs,
 	phases,
+	backgroundTask,
 }: {
 	command: string;
 	result: string | undefined;
@@ -19,6 +71,8 @@ export function BashTerminalCard({
 	startedAt: number | undefined;
 	durationMs: number | undefined;
 	phases: ToolPhaseInfo[] | undefined;
+	/** 该工具调用对应的后台任务（run_in_background 时存在），用于实时尾部输出 */
+	backgroundTask?: BackgroundTask;
 }): JSX.Element {
 	const headerLabel = bashHeaderLabel(status, command);
 	const isPending = status === "pending";
@@ -62,6 +116,8 @@ export function BashTerminalCard({
 					<pre className="m-0 min-w-0 whitespace-pre-wrap break-words text-foreground/75">{result}</pre>
 				</div>
 			)}
+
+			{!isPending && backgroundTask && <BackgroundTaskTail task={backgroundTask} />}
 
 			{isPending ? (
 				<div className="flex items-center gap-1.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] italic text-muted-foreground/55">

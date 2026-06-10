@@ -7,6 +7,7 @@
 
 import type { Agent, AgentEvent, AgentTool, ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { ImageContent, Model } from "@mariozechner/pi-ai";
+import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { CompactionResult } from "../compaction/index.js";
 import type {
 	ExtensionCommandContextActions,
@@ -38,6 +39,7 @@ export type AgentSessionEvent =
 	| { type: "auto_retry_start"; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
 	| { type: "auto_retry_end"; success: boolean; attempt: number; finalError?: string }
 	| { type: "todo_update"; items: ReadonlyArray<TodoItem> }
+	| { type: "background_tasks_update"; tasks: ReadonlyArray<BackgroundTaskSnapshot> }
 	| { type: "mcp_reload_start" }
 	| { type: "mcp_reload_end"; changed: boolean; errorMessage?: string }
 	// memory-mode session rollover (ADR-0009): the active session jsonl changed.

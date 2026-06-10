@@ -3,6 +3,8 @@ import {
 	activeSessionAtom,
 	activeSessionStreamingAtom,
 	attachedImagesAtom,
+	type BackgroundTask,
+	backgroundTasksBySessionAtom,
 	batchProjectsAtom,
 	type ChatMessage,
 	chatMessagesAtom,
@@ -73,6 +75,7 @@ export function useSessionManager(): SessionManagerResult {
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
+	const setBackgroundTasks = useSetAtom(backgroundTasksBySessionAtom);
 	// sendMessage 需要读「当前 session 的 todo 状态」决定是否在下一个 prompt 前清空。
 	// 用 ref 镜像，避免在 useCallback 闭包里拿到旧值或让 sendMessage 依赖 atom 频繁变化。
 	const todoItemsMap = useAtomValue(todoItemsBySessionAtom);
@@ -529,6 +532,24 @@ export function useSessionManager(): SessionManagerResult {
 					return;
 				}
 
+				// ── Background tasks update (run_in_background) ──
+				if (event.type === "background_tasks_update") {
+					const sid = activeSessionRef.current?.runtimeId;
+					if (sid) {
+						const tasks = ((event as { tasks?: unknown[] }).tasks ?? []) as BackgroundTask[];
+						setBackgroundTasks((prev) => {
+							const next = new Map(prev);
+							if (tasks.length > 0) {
+								next.set(sid, tasks);
+							} else {
+								next.delete(sid);
+							}
+							return next;
+						});
+					}
+					return;
+				}
+
 				// ── Todo update ──
 				if (event.type === "todo_update") {
 					const sid = activeSessionRef.current?.runtimeId;
@@ -575,6 +596,7 @@ export function useSessionManager(): SessionManagerResult {
 			selectedModel,
 			setSelectedModel,
 			setTodoItems,
+			setBackgroundTasks,
 			setTurnModifiedFiles,
 			flushDeltas,
 			scheduleDeltaFlush,
