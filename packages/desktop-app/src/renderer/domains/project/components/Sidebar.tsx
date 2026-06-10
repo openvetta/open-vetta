@@ -11,6 +11,7 @@ import {
 	sidebarWidthAtom,
 } from "@shared/store/atoms";
 import { isMac } from "@shared/lib/platform";
+import { cn } from "@shared/lib/utils";
 import { SidebarFilterSelect } from "./SidebarTabs";
 import { AddProjectMenu } from "./AddProjectMenu";
 import { ProjectsPanel } from "./ProjectsPanel";
@@ -42,6 +43,9 @@ const NAV_ITEMS = [
 interface SidebarProps {
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
 	onCollapse?: () => void;
+	// 窄屏浮层模式：顶部横条不设为窗口拖拽区，否则 -webkit-app-region: drag
+	// 会吞掉鼠标事件，导致悬停顶部时浮层误触 mouseleave 而消失。
+	floating?: boolean;
 }
 
 interface NavIndicatorBounds {
@@ -60,7 +64,7 @@ function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
 	};
 }
 
-export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Element {
+export function Sidebar({ onOpenSession, onCollapse, floating = false }: SidebarProps): JSX.Element {
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
@@ -185,7 +189,10 @@ export function Sidebar({ onOpenSession, onCollapse }: SidebarProps): JSX.Elemen
 		>
 			{/* Top h-11 row — aligns with PageHeader; reserves macOS traffic-light area, collapse button at right */}
 			<div
-				className="drag-region flex h-11 shrink-0 items-center justify-between"
+				className={cn(
+					"flex h-11 shrink-0 items-center justify-between",
+					!floating && "drag-region",
+				)}
 				style={{ paddingLeft: isMac ? 78 : 12, paddingRight: 6 }}
 			>
 				{isMac ? (
