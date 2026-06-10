@@ -30,6 +30,7 @@
 			"@vetta/runtime-storage": ["./packages/runtime-storage/src/index.ts"],
 			"@vetta/runtime-storage/*": ["./packages/runtime-storage/src/*"],
 			"@vetta/runtime-telemetry": ["./packages/runtime-telemetry/src/index.ts"],
+			"@vetta/runtime-telemetry/langfuse": ["./packages/runtime-telemetry/src/langfuse.ts"],
 			"@vetta/runtime-telemetry/*": ["./packages/runtime-telemetry/src/*"],
 			"@vetta/cli-app": ["./packages/cli-app/src/index.ts"],
 			"@vetta/cli-app/*": ["./packages/cli-app/src/*"],

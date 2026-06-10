@@ -576,6 +576,9 @@ pi --thinking high "Solve this complex problem"
 | `PI_PACKAGE_DIR` | Override package directory (useful for Nix/Guix where store paths tokenize poorly) |
 | `PI_SKIP_VERSION_CHECK` | Skip version check at startup |
 | `PI_CACHE_RETENTION` | Set to `long` for extended prompt cache (Anthropic: 1h, OpenAI: 24h) |
+| `VETTA_TRACING` | Set to `langfuse` to emit agent/LLM/tool observations with prompt, completion, tool input, and tool output content to Langfuse |
+| `VETTA_TRACING_TRACE_NAME` | Optional trace name shown in Langfuse |
+| `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | Langfuse credentials and optional host URL |
 | `VISUAL`, `EDITOR` | External editor for Ctrl+G |
 
 ---

@@ -13,6 +13,7 @@ import {
 	type ThinkingBudgets,
 	type Transport,
 } from "@mariozechner/pi-ai";
+import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 
 // NEVER convert to top-level import — agent 包也被 web-ui (Vite/browser) 引用，
 // node:events 不存在于浏览器。和 openai-codex-responses.ts 处理 node:os 一致。
@@ -33,6 +34,7 @@ import type {
 	AgentMessage,
 	AgentState,
 	AgentTool,
+	AgentTracingOptions,
 	StreamFn,
 	ThinkingLevel,
 } from "./types.js";
@@ -103,6 +105,16 @@ export interface AgentOptions {
 	 * Default: 60000 (60 seconds). Set to 0 to disable the cap.
 	 */
 	maxRetryDelayMs?: number;
+
+	/**
+	 * Optional platform-neutral tracer for agent, LLM, and tool observations.
+	 */
+	tracer?: RuntimeTracer;
+
+	/**
+	 * Tracing behavior. Content capture is disabled by default in hosts.
+	 */
+	tracing?: AgentTracingOptions;
 }
 
 export class Agent {
@@ -136,6 +148,8 @@ export class Agent {
 	private _thinkingBudgets?: ThinkingBudgets;
 	private _transport: Transport;
 	private _maxRetryDelayMs?: number;
+	private tracer?: RuntimeTracer;
+	private tracing?: AgentTracingOptions;
 
 	constructor(opts: AgentOptions = {}) {
 		this._state = { ...this._state, ...opts.initialState };
@@ -149,6 +163,8 @@ export class Agent {
 		this._thinkingBudgets = opts.thinkingBudgets;
 		this._transport = opts.transport ?? "sse";
 		this._maxRetryDelayMs = opts.maxRetryDelayMs;
+		this.tracer = opts.tracer;
+		this.tracing = opts.tracing;
 	}
 
 	/**
@@ -458,6 +474,15 @@ export class Agent {
 			transport: this._transport,
 			thinkingBudgets: this._thinkingBudgets,
 			maxRetryDelayMs: this._maxRetryDelayMs,
+			tracer: this.tracer,
+			tracing: {
+				...this.tracing,
+				sessionId: this.tracing?.sessionId ?? this._sessionId,
+				metadata: {
+					...this.tracing?.metadata,
+					sessionId: this._sessionId,
+				},
+			},
 			convertToLlm: this.convertToLlm,
 			transformContext: this.transformContext,
 			getApiKey: this.getApiKey,

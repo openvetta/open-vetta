@@ -10,6 +10,7 @@ import type {
 	ToolResultMessage,
 } from "@mariozechner/pi-ai";
 import type { Static, TSchema } from "@sinclair/typebox";
+import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 
 /** Stream function - can return sync or Promise for async config lookup */
 export type StreamFn = (
@@ -21,6 +22,8 @@ export type StreamFn = (
  */
 export interface AgentLoopConfig extends SimpleStreamOptions {
 	model: Model<any>;
+	tracer?: RuntimeTracer;
+	tracing?: AgentTracingOptions;
 
 	/**
 	 * Converts AgentMessage[] to LLM-compatible Message[] before each LLM call.
@@ -96,6 +99,19 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	 */
 	getFollowUpMessages?: () => Promise<AgentMessage[]>;
 }
+
+export interface AgentTracingOptions {
+	captureContent?: boolean;
+	detail?: AgentTracingDetail;
+	metadata?: Record<string, unknown>;
+	userId?: string;
+	sessionId?: string;
+	traceName?: string;
+	tags?: string[];
+	version?: string;
+}
+
+export type AgentTracingDetail = "standard" | "agent";
 
 /**
  * Thinking/reasoning level for models that support it.

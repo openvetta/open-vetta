@@ -18,7 +18,8 @@
 	},
 	"dependencies": {
 		"@mariozechner/pi-ai": "^0.55.3",
-		"@sinclair/typebox": "^0.34.41"
+		"@sinclair/typebox": "^0.34.41",
+		"@vetta/runtime-telemetry": "workspace:*"
 	},
 	"keywords": [
 		"ai",

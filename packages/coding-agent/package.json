@@ -60,6 +60,7 @@
 		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@silvia-odwyer/photon-node": "^0.3.4",
 		"@sinclair/typebox": "^0.34.41",
+		"@vetta/runtime-telemetry": "workspace:*",
 		"ajv": "^8.17.1",
 		"ajv-formats": "^3.0.1",
 		"chalk": "^5.5.0",
