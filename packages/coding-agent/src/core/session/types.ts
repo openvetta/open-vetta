@@ -92,6 +92,14 @@ export interface AgentSessionConfig {
 	 * 故开关可在不重启 session 的情况下动态生效。
 	 */
 	askUserQuestion?: AskUserQuestionCapability;
+	/**
+	 * 是否启用后台 bash 任务（run_in_background）。默认 true。
+	 * 置 false 时 bash/shell 不接受 run_in_background（返回明确错误引导同步执行），
+	 * task_output / task_stop 工具不注册。用于按 session 生命周期编排执行的宿主
+	 * 场景（如桌面批量任务）——后台任务会让 agent 提前 agent_end 而进程仍在跑，
+	 * 完成通知又会凭空唤醒新 turn，干扰队列对「任务完成」的判定。
+	 */
+	enableBackgroundTasks?: boolean;
 }
 
 export interface ExtensionBindings {

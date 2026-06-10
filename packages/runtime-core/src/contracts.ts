@@ -306,6 +306,12 @@ export interface SessionConfig {
 	 * 宿主仍可通过 setUserQuestionHandler 动态启停实际能力。
 	 */
 	askUserQuestion?: boolean;
+	/**
+	 * 是否启用后台 bash 任务（run_in_background）。默认 true。
+	 * 按 session 生命周期编排执行的宿主场景（如批量任务）应置 false，
+	 * 避免 agent 提前结束而进程仍在跑、完成通知凭空唤醒新 turn 干扰队列判定。
+	 */
+	enableBackgroundTasks?: boolean;
 }
 
 export interface PromptRequest {

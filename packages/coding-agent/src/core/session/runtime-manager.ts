@@ -53,6 +53,8 @@ export interface RuntimeManagerOptions {
 	mcpDebug: boolean;
 	askUserQuestion?: AskUserQuestionCapability;
 	backgroundTasks: BackgroundTaskManager;
+	/** false 时 bash/shell 禁用 run_in_background，且不注册 task_output/task_stop */
+	enableBackgroundTasks: boolean;
 }
 
 export class RuntimeManager {
@@ -65,6 +67,7 @@ export class RuntimeManager {
 	private readonly _extensionRunnerRef?: { current?: ExtensionRunner };
 	private readonly _askUserQuestion?: AskUserQuestionCapability;
 	private readonly _backgroundTasks: BackgroundTaskManager;
+	private readonly _enableBackgroundTasks: boolean;
 
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -100,6 +103,7 @@ export class RuntimeManager {
 		this._mcpDebug = opts.mcpDebug;
 		this._askUserQuestion = opts.askUserQuestion;
 		this._backgroundTasks = opts.backgroundTasks;
+		this._enableBackgroundTasks = opts.enableBackgroundTasks;
 	}
 
 	get extensionRunner(): ExtensionRunner | undefined {
@@ -494,8 +498,16 @@ export class RuntimeManager {
 			? { ...this._baseToolsOverride }
 			: createAllTools(this.ctx.cwd, {
 					read: { autoResizeImages },
-					bash: { commandPrefix: shellCommandPrefix, spawnHook, backgroundTasks: this._backgroundTasks },
-					shell: { commandPrefix: shellCommandPrefix, spawnHook, backgroundTasks: this._backgroundTasks },
+					bash: {
+						commandPrefix: shellCommandPrefix,
+						spawnHook,
+						backgroundTasks: this._enableBackgroundTasks ? this._backgroundTasks : undefined,
+					},
+					shell: {
+						commandPrefix: shellCommandPrefix,
+						spawnHook,
+						backgroundTasks: this._enableBackgroundTasks ? this._backgroundTasks : undefined,
+					},
 				});
 
 		// Add invoke_skill tool if skills are available
@@ -516,9 +528,12 @@ export class RuntimeManager {
 		const todoTool = createTodoTool({ getTodoStore: () => this.todoStore });
 		baseTools.todo = todoTool;
 
-		// Background task companion tools (always available; bash/shell spawn the tasks)
-		baseTools.task_output = createTaskOutputTool({ getManager: () => this._backgroundTasks });
-		baseTools.task_stop = createTaskStopTool({ getManager: () => this._backgroundTasks });
+		// Background task companion tools (bash/shell spawn the tasks). Skipped when
+		// the host disables background tasks (e.g. desktop batch-task sessions).
+		if (this._enableBackgroundTasks) {
+			baseTools.task_output = createTaskOutputTool({ getManager: () => this._backgroundTasks });
+			baseTools.task_stop = createTaskStopTool({ getManager: () => this._backgroundTasks });
+		}
 
 		// Add ask_user_question only when the host exposes the capability (capability=registration).
 		// Tracked so the prompt-entry lazy reload can detect a toggle and rebuild.
