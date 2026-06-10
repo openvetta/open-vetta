@@ -240,6 +240,13 @@ export class RuntimeHost implements SessionFacade {
 		return revokeAllSessionGrants(sessionId);
 	}
 
+	/** 清除指定 session 中所有已结束的后台任务，返回清除数量。 */
+	clearFinishedBackgroundTasks(sessionId: string): number {
+		const handle = this.sessions.get(sessionId);
+		if (!handle) return 0;
+		return handle.session.backgroundTasks.clearFinished();
+	}
+
 	/**
 	 * Push a new server token to the ModelRegistry and refresh remote models.
 	 * Call this after login / logout so long-lived sessions pick up auth changes

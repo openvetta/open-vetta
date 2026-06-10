@@ -37,26 +37,19 @@ export function BackgroundTasksBadge(): JSX.Element | null {
 		setPanelOpen(true);
 	}, [activeSession?.cwd, setPanelOpen, setTabByProject]);
 
-	if (tasks.length === 0) return null;
+	// 只在有运行中任务时显示——badge 是「正在跑」的提醒；任务结束后结果已
+	// 沉淀进对话，历史记录去活动面板「后台任务」tab 追溯。
+	if (running === 0) return null;
 
-	const isActive = running > 0;
 	return (
 		<button
 			type="button"
 			onClick={handleClick}
-			title={isActive ? `${running} 个后台任务运行中` : "后台任务已全部结束"}
-			className={
-				isActive
-					? "flex h-7 items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400"
-					: "flex h-7 items-center gap-1 rounded-full border border-border bg-muted/50 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
-			}
+			title={`${running} 个后台任务运行中`}
+			className="flex h-7 items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-500/20 dark:text-blue-400"
 		>
-			<span
-				className={
-					isActive ? "icon-[mdi--loading] h-3.5 w-3.5 animate-spin" : "icon-[mdi--console-line] h-3.5 w-3.5"
-				}
-			/>
-			<span>{isActive ? running : tasks.length}</span>
+			<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+			<span>{running}</span>
 		</button>
 	);
 }

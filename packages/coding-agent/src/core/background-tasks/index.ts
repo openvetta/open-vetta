@@ -44,7 +44,8 @@ export interface BackgroundTaskSnapshot {
 export type BackgroundTaskEvent =
 	| { type: "task_started"; task: BackgroundTaskSnapshot }
 	| { type: "task_output"; task: BackgroundTaskSnapshot }
-	| { type: "task_ended"; task: BackgroundTaskSnapshot };
+	| { type: "task_ended"; task: BackgroundTaskSnapshot }
+	| { type: "tasks_cleared" };
 
 export type BackgroundTaskListener = (event: BackgroundTaskEvent) => void;
 
@@ -229,6 +230,24 @@ export class BackgroundTaskManager {
 			task.child.kill();
 		}
 		return true;
+	}
+
+	/**
+	 * Remove all finished (non-running) tasks from the registry.
+	 * Driven by the UI's "clear finished" action. Returns the number removed.
+	 */
+	clearFinished(): number {
+		let removed = 0;
+		for (const [id, task] of this.tasks) {
+			if (task.snapshot.status !== "running") {
+				this.tasks.delete(id);
+				removed++;
+			}
+		}
+		if (removed > 0) {
+			this.emit({ type: "tasks_cleared" });
+		}
+		return removed;
 	}
 
 	/** Kill all running tasks. Called on session dispose. */

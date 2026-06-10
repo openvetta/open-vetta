@@ -5,7 +5,7 @@ import {
 	getBackgroundTasksForSession,
 } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function statusMeta(status: BackgroundTask["status"]): { icon: string; label: string; className: string } {
 	switch (status) {
@@ -85,6 +85,15 @@ export function BackgroundTasksTabPanel(): JSX.Element {
 		return () => window.clearInterval(id);
 	}, [hasRunning]);
 
+	const sessionId = activeSession?.runtimeId;
+	const finishedCount = tasks.length - tasks.filter((t) => t.status === "running").length;
+	const handleClearFinished = useCallback(() => {
+		if (!sessionId) return;
+		// 清理落在主进程注册表（数据源），随后的 background_tasks_update 全量
+		// 快照事件会驱动本地 atom 更新，无需乐观更新。
+		void window.vetta.session.clearFinishedBackgroundTasks(sessionId);
+	}, [sessionId]);
+
 	if (tasks.length === 0) {
 		return <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">暂无后台任务</div>;
 	}
@@ -92,10 +101,24 @@ export function BackgroundTasksTabPanel(): JSX.Element {
 	const sorted = tasks.slice().sort((a, b) => b.startedAt - a.startedAt);
 
 	return (
-		<div className="flex-1 space-y-2 overflow-y-auto p-2.5">
-			{sorted.map((task) => (
-				<TaskCard key={task.id} task={task} now={now} />
-			))}
+		<div className="flex min-h-0 flex-1 flex-col">
+			{finishedCount > 0 && (
+				<div className="flex shrink-0 items-center justify-end px-2.5 pt-2">
+					<button
+						type="button"
+						onClick={handleClearFinished}
+						className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+					>
+						<span className="icon-[mdi--broom] h-3 w-3" />
+						<span>清除已结束 ({finishedCount})</span>
+					</button>
+				</div>
+			)}
+			<div className="flex-1 space-y-2 overflow-y-auto p-2.5">
+				{sorted.map((task) => (
+					<TaskCard key={task.id} task={task} now={now} />
+				))}
+			</div>
 		</div>
 	);
 }

@@ -28,6 +28,7 @@ const CHANNELS = {
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
 	SANDBOX_GRANTS_REVOKE: "vetta:session:sandbox-grants-revoke",
 	SANDBOX_GRANTS_REVOKE_ALL: "vetta:session:sandbox-grants-revoke-all",
+	BACKGROUND_TASKS_CLEAR_FINISHED: "vetta:session:background-tasks-clear-finished",
 	SET_GLOBAL_THINKING: "vetta:session:set-global-thinking-level",
 	GET_GLOBAL_THINKING: "vetta:session:get-global-thinking-level",
 	SET_MAX_RECENT_IMAGES: "vetta:session:set-max-recent-images",
@@ -73,6 +74,7 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			listSandboxGrants: (sessionId) => ipc.invoke(CHANNELS.SANDBOX_GRANTS_LIST, sessionId),
 			revokeSandboxGrant: (sessionId, grantId) => ipc.invoke(CHANNELS.SANDBOX_GRANTS_REVOKE, sessionId, grantId),
 			revokeAllSandboxGrants: (sessionId) => ipc.invoke(CHANNELS.SANDBOX_GRANTS_REVOKE_ALL, sessionId),
+			clearFinishedBackgroundTasks: (sessionId) => ipc.invoke(CHANNELS.BACKGROUND_TASKS_CLEAR_FINISHED, sessionId),
 			getSessionPath: (sessionId) => ipc.invoke("vetta:session:get-session-path", sessionId),
 			updateSettings: (sessionId, partialSettings) =>
 				ipc.invoke(CHANNELS.UPDATE_SETTINGS, sessionId, partialSettings),
