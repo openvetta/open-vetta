@@ -493,8 +493,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 												key="skill-capsule"
 												icon={
 													selectedSkill.type === "scene"
-														? "icon-[mdi--movie-open-outline]"
-														: "icon-[mdi--puzzle-outline]"
+														? "icon-[solar--clapperboard-open-linear]"
+														: "icon-[solar--magic-stick-linear]"
 												}
 												label={selectedSkill.alias || selectedSkill.name}
 												tone="primary"
@@ -506,8 +506,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 												key={`file-${file.path}`}
 												icon={
 													file.isDirectory
-														? "icon-[mdi--folder-outline]"
-														: "icon-[mdi--file-outline]"
+														? "icon-[solar--folder-linear]"
+														: "icon-[solar--file-linear]"
 												}
 												label={file.name}
 												title={file.path}
@@ -538,7 +538,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 														title="移除图片"
 														style={{ height: 18, width: 18 }}
 													>
-														<span className="icon-[mdi--close] h-3 w-3" />
+														<span className="icon-[solar--close-circle-linear] h-3 w-3" />
 													</button>
 												</motion.div>
 											))}
@@ -573,7 +573,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 					<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 pb-2 pt-1 sm:px-2.5">
 						<div className="flex min-w-0 flex-shrink items-center gap-0.5">
 							<ToolbarButton
-								icon="icon-[mdi--plus]"
+								icon="icon-[solar--add-circle-linear]"
 								title="技能/场景"
 								disabled={!hasSession}
 								onClick={handlePlusClick}
@@ -582,8 +582,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 							<ToolbarButton
 								icon={
 									modelSupportsImages
-										? "icon-[mdi--image-outline]"
-										: "icon-[mdi--image-off-outline]"
+										? "icon-[solar--gallery-linear]"
+										: "icon-[solar--gallery-remove-linear]"
 								}
 								title={
 									modelSupportsImages ? "添加图片" : "当前模型不支持图片输入"
@@ -592,7 +592,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 								onClick={handleSelectImages}
 							/>
 							<ToolbarButton
-								icon="icon-[mdi--paperclip]"
+								icon="icon-[solar--paperclip-linear]"
 								title="附加文件引用"
 								disabled={!hasSession}
 								onClick={handleSelectFiles}
@@ -664,7 +664,7 @@ const Capsule = memo(function Capsule({
 		>
 			<span className={`${icon} h-3 w-3 shrink-0`} />
 			<span className="max-w-[140px] truncate">{label}</span>
-			<span className="icon-[mdi--close] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
+			<span className="icon-[solar--close-circle-linear] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
 		</motion.button>
 	);
 });
@@ -685,7 +685,7 @@ function SandboxPermissionCard({
 		<div className="space-y-3">
 			<div className="flex items-start gap-2">
 				<div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
-					<span className="icon-[mdi--shield-lock-outline] h-4 w-4" />
+					<span className="icon-[solar--shield-keyhole-minimalistic-linear] h-4 w-4" />
 				</div>
 				<div className="min-w-0 flex-1">
 					<div className="text-[13px] font-medium text-foreground">{request.title}</div>

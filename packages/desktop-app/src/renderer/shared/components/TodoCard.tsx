@@ -82,7 +82,7 @@ function CompactTodoCard({
 						onClick={onViewMore}
 						className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
 					>
-						<span className="icon-[mdi--arrow-right] text-sm" />
+						<span className="icon-[solar--arrow-right-linear] text-sm" />
 						查看更多
 					</button>
 				) : (
@@ -91,7 +91,9 @@ function CompactTodoCard({
 						onClick={() => setExpanded((prev) => !prev)}
 						className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
 					>
-						<span className={`icon-[mdi--chevron-${expanded ? "up" : "down"}] text-sm`} />
+						<span
+							className={`${expanded ? "icon-[solar--alt-arrow-up-linear]" : "icon-[solar--alt-arrow-down-linear]"} text-sm`}
+						/>
 						{expanded ? "收起" : `展开全部（还有 ${hiddenCount} 项）`}
 					</button>
 				)
@@ -174,7 +176,7 @@ function TodoItemRow({ item, size }: { item: TodoItem; size: "sm" | "md" }): JSX
 						className={`flex ${iconSize} ${iconRadius} items-center justify-center border border-primary/50 text-primary`}
 						style={{ borderRadius: size === "sm" ? "30%" : "32%" }}
 					>
-						<span className={`icon-[mdi--loading] animate-spin ${checkGlyph}`} />
+						<span className={`icon-[solar--refresh-linear] animate-spin ${checkGlyph}`} />
 					</div>
 				) : (
 					<div

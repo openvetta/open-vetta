@@ -206,7 +206,7 @@ export function QuestionPanel({ pending }: QuestionPanelProps): JSX.Element {
 				className="rounded-[20px] border border-primary/30 bg-card p-3 shadow-sm outline-none"
 			>
 				<div className="mb-2 flex items-center gap-2 px-1">
-					<span className="icon-[mdi--comment-question-outline] size-4 text-primary" />
+					<span className="icon-[solar--question-circle-linear] size-4 text-primary" />
 					<span className="text-sm font-medium text-foreground">Vetta 需要你的选择</span>
 					{!single && (
 						<span className="text-xs text-muted-foreground">
@@ -231,7 +231,7 @@ export function QuestionPanel({ pending }: QuestionPanelProps): JSX.Element {
 									}`}
 								>
 									<span className="max-w-[120px] truncate">{q.header || `问题 ${i + 1}`}</span>
-									{answered && <span className="icon-[mdi--check-circle] size-3 shrink-0 text-primary" />}
+									{answered && <span className="icon-[solar--check-circle-bold] size-3 shrink-0 text-primary" />}
 									{isActive && (
 										<motion.span
 											layoutId={`askq-panel-underline-${pending.requestId}`}
@@ -389,7 +389,7 @@ function QuestionBody({
 						onMouseEnter={() => onFocusOption(otherIndex)}
 						className="flex items-center gap-2 text-left text-sm text-muted-foreground"
 					>
-						<span className="icon-[mdi--pencil-outline] size-3.5 shrink-0" />
+						<span className="icon-[solar--pen-2-linear] size-3.5 shrink-0" />
 						其它（自定义输入）
 					</button>
 					{state.otherActive && (

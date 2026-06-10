@@ -15,13 +15,13 @@ const MODE_OPTIONS: Array<{
 		mode: "sandbox",
 		label: "沙盒受限",
 		title: "仅允许工作区受限访问",
-		icon: "icon-[mdi--shield-outline]",
+		icon: "icon-[solar--shield-linear]",
 	},
 	{
 		mode: "full-access",
 		label: "完全访问",
 		title: "允许完全访问当前系统",
-		icon: "icon-[mdi--shield-off-outline]",
+		icon: "icon-[solar--shield-cross-linear]",
 	},
 ];
 
@@ -161,7 +161,7 @@ export function ExecutionModeSelector(): JSX.Element {
 												<span className={cn(option.icon, "h-3.5 w-3.5 shrink-0")} />
 												<span className="truncate">{option.label}</span>
 												{mode === option.mode && (
-													<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5 text-primary" />
+													<span className="icon-[solar--check-circle-linear] ml-auto h-3.5 w-3.5 text-primary" />
 												)}
 											</button>
 										</motion.div>

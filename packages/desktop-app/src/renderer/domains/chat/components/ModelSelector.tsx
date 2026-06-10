@@ -153,7 +153,7 @@ export function ModelSelector(): JSX.Element {
 					{selectedOption?.displayName ?? "选择模型"}
 				</span>
 				<motion.span
-					className="icon-[mdi--chevron-down] h-3 w-3 shrink-0"
+					className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0"
 					animate={{ rotate: open ? 180 : 0 }}
 					transition={{ duration: 0.18 }}
 				/>
@@ -218,7 +218,7 @@ export function ModelSelector(): JSX.Element {
 													</span>
 												)}
 												{isSelected && (
-													<span className="icon-[mdi--check] h-3.5 w-3.5 shrink-0" />
+													<span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />
 												)}
 											</button>
 										);
