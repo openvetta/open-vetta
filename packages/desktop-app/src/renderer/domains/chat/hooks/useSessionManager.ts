@@ -317,6 +317,16 @@ export function useSessionManager(): SessionManagerResult {
 				if (event.type === "session.lifecycle") {
 					if (event.phase === "agent_start") {
 						resetStreamState();
+						// 无用户消息介入的唤醒（如后台任务 <task-notification> 触发的新
+						// turn）延续上一个 assistant 气泡，而不是新开一条——与重载时
+						// fullHistoryToChat 合并连续 assistant 消息的行为保持一致。
+						setChatMessages((prev) => {
+							const last = prev.at(-1);
+							if (last?.role === "assistant") {
+								adoptDraftId(last.id);
+							}
+							return prev;
+						});
 						setTurnStartTime(event.timestamp);
 						setActiveSessionStreaming(true);
 						setTurnModifiedFiles([]);
