@@ -493,7 +493,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 								}}
 								className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-60 group-hover:hover:opacity-100"
 							>
-								<span className="icon-[solar--menu-dots-linear] h-4 w-4" />
+								<span className="icon-[mdi--dots-horizontal] h-4 w-4" />
 							</button>
 							{defaultConversationFilter !== "claw" && (
 								<button
@@ -507,7 +507,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 									}
 									className="flex items-center justify-center rounded-md p-1.5 text-foreground opacity-60 transition-colors hover:bg-accent hover:opacity-100"
 								>
-									<span className="icon-[solar--pen-new-round-linear] h-4 w-4" />
+									<span className="icon-[mdi--message-plus-outline] h-4 w-4" />
 								</button>
 							)}
 						</div>
