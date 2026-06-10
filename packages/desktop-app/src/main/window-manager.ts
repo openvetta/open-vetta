@@ -43,6 +43,9 @@ export function createWindow(): BrowserWindow {
 	mainWindow = new BrowserWindow({
 		width: 1280,
 		height: 800,
+		// 最小尺寸：低于此值会过度收缩导致布局不可用。窄屏响应式仍可在 480~640 区间生效。
+		minWidth: 480,
+		minHeight: 600,
 		icon: iconPath[process.platform],
 		transparent: isMac,
 		frame: isMac,
