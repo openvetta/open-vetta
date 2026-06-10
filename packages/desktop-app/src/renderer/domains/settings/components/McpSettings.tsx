@@ -13,6 +13,7 @@ function isHttpMcpServerConfigData(c: McpServerConfigData): c is McpHttpServerCo
 	return c.type === "http";
 }
 import { cn } from "@shared/lib/utils";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
 import { InputField } from "./ModelsSettings";
@@ -523,6 +524,7 @@ export function McpSettings(): JSX.Element {
 	const [config, setConfig] = useState<McpConfigData | null>(null);
 	const [mode, setMode] = useState<McpEditMode>("visual");
 	const [saving, setSaving] = useState(false);
+	const narrow = useNarrowScreen();
 
 	// Visual mode state
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
@@ -727,14 +729,64 @@ export function McpSettings(): JSX.Element {
 							const isEditing = editingServer === name;
 							const isDisabled = server.disabled ?? false;
 
+							const actions = (
+								<div className="flex shrink-0 items-center gap-1">
+									{/* Toggle enable/disable */}
+									<button
+										type="button"
+										onClick={(e) => {
+											e.stopPropagation();
+											void handleToggleDisabled(name);
+										}}
+										className={cn(
+											"flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+											isDisabled
+												? "text-muted-foreground hover:bg-accent hover:text-foreground"
+												: "text-green-400 hover:bg-green-500/10",
+										)}
+										title={isDisabled ? "启用" : "禁用"}
+									>
+										<span className={`${isDisabled ? "icon-[mdi--toggle-switch-off-outline]" : "icon-[mdi--toggle-switch-outline]"} h-4 w-4`} />
+									</button>
+									<button
+										type="button"
+										onClick={(e) => {
+											e.stopPropagation();
+											startEditServer(name);
+											setExpandedServer(name);
+										}}
+										className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+										title="编辑"
+									>
+										<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
+									</button>
+									<button
+										type="button"
+										onClick={(e) => {
+											e.stopPropagation();
+											void handleDeleteServer(name);
+										}}
+										className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
+										title="删除"
+									>
+										<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+									</button>
+								</div>
+							);
+
 							return (
 								<div key={name} className="border-b border-border last:border-b-0">
 									{/* Server header */}
-									<div className="flex items-center gap-3 px-5 py-3.5">
+									<div
+										className={cn(
+											"flex items-center gap-3 px-5",
+											narrow ? "pt-3.5 pb-1" : "py-3.5",
+										)}
+									>
 										<button
 											type="button"
 											onClick={() => setExpandedServer(isExpanded ? null : name)}
-											className="flex flex-1 items-center gap-3 text-left"
+											className="flex min-w-0 flex-1 items-center gap-3 text-left"
 										>
 											<span
 												className={cn(
@@ -762,49 +814,10 @@ export function McpSettings(): JSX.Element {
 												</div>
 											</div>
 										</button>
-										<div className="flex shrink-0 items-center gap-1">
-											{/* Toggle enable/disable */}
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													void handleToggleDisabled(name);
-												}}
-												className={cn(
-													"flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
-													isDisabled
-														? "text-muted-foreground hover:bg-accent hover:text-foreground"
-														: "text-green-400 hover:bg-green-500/10",
-												)}
-												title={isDisabled ? "启用" : "禁用"}
-											>
-												<span className={`${isDisabled ? "icon-[mdi--toggle-switch-off-outline]" : "icon-[mdi--toggle-switch-outline]"} h-4 w-4`} />
-											</button>
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													startEditServer(name);
-													setExpandedServer(name);
-												}}
-												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-												title="编辑"
-											>
-												<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
-											</button>
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													void handleDeleteServer(name);
-												}}
-												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
-												title="删除"
-											>
-												<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-											</button>
-										</div>
+										{!narrow && actions}
 									</div>
+									{/* 极窄：操作按钮挪到第二行右对齐，避免被截断隐藏 */}
+									{narrow && <div className="flex justify-end px-5 pb-3">{actions}</div>}
 
 									{/* Edit form */}
 									{isExpanded && isEditing && (
