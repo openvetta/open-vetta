@@ -24,8 +24,8 @@ interface TabBarProps<T extends string> {
  * 底色与卡片一致并向下延伸 1px 盖住卡片描边，与卡片无缝融合；
  * 非激活页签为半透明灰色圆角块。
  *
- * 须与「无边框 + 1px 描边阴影」的内容卡片配套使用（见 ActivityPanel），
- * 激活页签的左/右/上描边会与卡片描边接成一条连续轮廓。
+ * 须与带 1px `border-border` 边框的内容卡片紧贴配套使用（见 ActivityPanel），
+ * 激活页签的左/右/上边框会与卡片边框接成一条连续轮廓。
  */
 export function TabBar<T extends string>({
 	items,
@@ -37,7 +37,7 @@ export function TabBar<T extends string>({
 	const layoutId = useId();
 
 	return (
-		<div className={cn("relative z-10 flex shrink-0 items-end gap-1 px-3", className)}>
+		<div className={cn("relative z-10 flex shrink-0 items-end px-3", className)}>
 			{items.map(({ key, label, icon, badge }) => {
 				const active = value === key;
 				return (
@@ -55,7 +55,7 @@ export function TabBar<T extends string>({
 						{active && (
 							<motion.span
 								layoutId={`tabbar-active-${layoutId}`}
-								className="absolute inset-x-0 top-0 -bottom-px rounded-t-lg border border-b-0 border-black/[0.06] bg-card dark:border-white/[0.07]"
+								className="absolute inset-x-0 top-0 -bottom-px rounded-t-lg border border-b-0 border-border bg-card"
 								transition={
 									suppressLayoutAnimation
 										? { duration: 0 }
