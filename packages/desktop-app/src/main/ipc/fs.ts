@@ -21,6 +21,8 @@ export interface ExperimentalConfig {
 	askUserQuestion?: boolean;
 	/** Vetta CLI 提示词：开启后仅注入桌面端对话会话。缺省开。 */
 	vettaCli?: boolean;
+	/** 后台 bash 任务（run_in_background）：agent 可将耗时命令转入后台并在完成时被通知唤醒。缺省开；批量任务始终禁用。 */
+	backgroundTasks?: boolean;
 }
 
 export interface DesktopConfig {
@@ -79,7 +81,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,
-	experimental: { askUserQuestion: true, vettaCli: true },
+	experimental: { askUserQuestion: true, vettaCli: true, backgroundTasks: true },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -97,11 +99,13 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 }
 
 function normalizeExperimental(value: unknown): ExperimentalConfig {
-	if (typeof value !== "object" || value === null) return { askUserQuestion: true, vettaCli: true };
+	if (typeof value !== "object" || value === null)
+		return { askUserQuestion: true, vettaCli: true, backgroundTasks: true };
 	const v = value as Record<string, unknown>;
 	return {
 		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : true,
 		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : true,
+		backgroundTasks: typeof v.backgroundTasks === "boolean" ? v.backgroundTasks : true,
 	};
 }
 
