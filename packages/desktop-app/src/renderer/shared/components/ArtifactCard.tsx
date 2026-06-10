@@ -64,7 +64,7 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 			initial={{ opacity: 0, y: 8 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.2 }}
-			className="rounded-xl border border-border bg-muted/30 p-3"
+			className="rounded-xl border border-border bg-muted p-3"
 		>
 			<div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
 				<span className="icon-[mdi--file-document-edit-outline] h-3.5 w-3.5" />
