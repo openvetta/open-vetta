@@ -34,7 +34,7 @@ const NAV_ITEMS = [
 		type: "route",
 		path: "/batch-tasks" as const,
 		label: "批量任务",
-		icon: "icon-[solar--checklist-minimalistic-linear]",
+		icon: "icon-[solar--clipboard-check-outline]",
 	},
 	{ type: "route", path: "/skills" as const, label: "技能广场", icon: "icon-[solar--shop-linear]" },
 ] as const;
