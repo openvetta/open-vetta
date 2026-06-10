@@ -20,9 +20,12 @@ interface TabBarProps<T extends string> {
 }
 
 /**
- * VSCode 编辑器标签页风格的 tab 栏：扁平选项卡贴顶排列，
- * 激活项与下方内容区融为一体（底边框断开）+ 顶部滑动高亮线，
- * 非激活项底色略深、hover 提亮。
+ * 浏览器/文件夹式选项卡：页签悬浮在内容卡片上方，激活页签为圆角凸起、
+ * 底色与卡片一致并向下延伸 1px 盖住卡片描边，与卡片无缝融合；
+ * 非激活页签为半透明灰色圆角块。
+ *
+ * 须与「无边框 + 1px 描边阴影」的内容卡片配套使用（见 ActivityPanel），
+ * 激活页签的左/右/上描边会与卡片描边接成一条连续轮廓。
  */
 export function TabBar<T extends string>({
 	items,
@@ -34,7 +37,7 @@ export function TabBar<T extends string>({
 	const layoutId = useId();
 
 	return (
-		<div className={cn("flex shrink-0 items-stretch overflow-x-auto", className)}>
+		<div className={cn("relative z-10 flex shrink-0 items-end gap-1 px-3", className)}>
 			{items.map(({ key, label, icon, badge }) => {
 				const active = value === key;
 				return (
@@ -43,16 +46,16 @@ export function TabBar<T extends string>({
 						type="button"
 						onClick={() => onChange(key)}
 						className={cn(
-							"relative flex h-[34px] select-none items-center gap-1.5 whitespace-nowrap border-b border-r border-border/60 px-3 text-[11px] font-medium leading-none transition-colors duration-150",
+							"relative flex h-[30px] select-none items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3.5 text-[11px] font-medium leading-none transition-colors duration-150",
 							active
-								? "border-b-transparent text-foreground"
-								: "bg-black/[0.035] text-muted-foreground hover:text-foreground/80 dark:bg-white/[0.04]",
+								? "text-foreground"
+								: "bg-black/[0.045] text-muted-foreground hover:bg-black/[0.07] hover:text-foreground/80 dark:bg-white/[0.05] dark:hover:bg-white/[0.08]",
 						)}
 					>
 						{active && (
 							<motion.span
-								layoutId={`tabbar-indicator-${layoutId}`}
-								className="absolute inset-x-0 -top-px h-[2px] bg-primary"
+								layoutId={`tabbar-active-${layoutId}`}
+								className="absolute inset-x-0 top-0 -bottom-px rounded-t-lg border border-b-0 border-black/[0.06] bg-card dark:border-white/[0.07]"
 								transition={
 									suppressLayoutAnimation
 										? { duration: 0 }
@@ -60,20 +63,22 @@ export function TabBar<T extends string>({
 								}
 							/>
 						)}
-						{icon && (
-							<span className={cn(icon, "h-3.5 w-3.5 shrink-0", active ? "text-primary" : "opacity-70")} />
-						)}
-						{label}
-						{badge && badge > 0 ? (
-							<span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold leading-none text-white">
-								{badge > 99 ? "99+" : badge}
-							</span>
-						) : null}
+						<span className="relative z-10 flex items-center gap-1.5">
+							{icon && (
+								<span
+									className={cn(icon, "h-3.5 w-3.5 shrink-0", active ? "text-primary" : "opacity-70")}
+								/>
+							)}
+							{label}
+							{badge && badge > 0 ? (
+								<span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold leading-none text-white">
+									{badge > 99 ? "99+" : badge}
+								</span>
+							) : null}
+						</span>
 					</button>
 				);
 			})}
-			{/* 末尾占位：补齐底边框 + 延续 tab 栏底色，让激活 tab 形成 VSCode 式缺口 */}
-			<div className="min-w-4 flex-1 border-b border-border/60 bg-black/[0.035] dark:bg-white/[0.04]" />
 		</div>
 	);
 }
