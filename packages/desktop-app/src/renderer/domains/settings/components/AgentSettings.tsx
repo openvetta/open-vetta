@@ -122,10 +122,8 @@ export function AgentSettings(): JSX.Element {
 							<button
 								type="button"
 								className={cn(
-									"mt-2 flex h-8 w-full max-w-[280px] items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition-colors",
-									personaOpen
-										? "border-primary bg-background"
-										: "border-border/70 bg-background/50 hover:border-muted-foreground/40",
+									"mt-2 flex h-8 w-full max-w-[200px] items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors",
+									personaOpen ? "bg-accent" : "bg-muted hover:bg-accent",
 								)}
 							>
 								<span className="truncate text-foreground">{selectedPersona?.label ?? "默认"}</span>
@@ -196,7 +194,7 @@ export function AgentSettings(): JSX.Element {
 						value={customPrompt}
 						onChange={(e) => setCustomPrompt(e.target.value)}
 						placeholder="例如：默认用中文回答；代码注释保持简洁……"
-						className="mt-3 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-[13px] leading-relaxed text-foreground outline-none focus:border-primary"
+						className="mt-3 w-full resize-y rounded-lg bg-muted px-3 py-2 text-[13px] leading-relaxed text-foreground outline-none transition-colors focus:bg-accent focus:ring-1 focus:ring-primary/30"
 						style={{ minHeight: "120px" }}
 					/>
 				</div>
