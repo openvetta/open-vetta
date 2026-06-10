@@ -473,7 +473,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 			{defaultProject && (
 				<div className="mt-2">
 					<div
-						className="group -mx-1.5 flex items-center justify-between px-2 pb-1 pt-1"
+						className="group -mx-1.5 flex items-center justify-between pb-1 pl-2 pr-1 pt-1"
 						onContextMenu={(e) => {
 							e.preventDefault();
 							setProjectMenu({ x: e.clientX, y: e.clientY, project: defaultProject });
