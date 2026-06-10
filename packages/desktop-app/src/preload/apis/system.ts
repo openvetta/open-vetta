@@ -163,6 +163,8 @@ export function createSystemApi(
 			maximize: () => ipc.invoke("vetta:window:maximize"),
 			close: () => ipc.invoke("vetta:window:close"),
 			isMaximized: () => ipc.invoke("vetta:window:is-maximized"),
+			toggleAlwaysOnTop: () => ipc.invoke("vetta:window:toggle-always-on-top"),
+			isAlwaysOnTop: () => ipc.invoke("vetta:window:is-always-on-top"),
 		},
 		auth: {
 			openExternal: (url) => ipc.invoke("vetta:auth:open-external", url),
