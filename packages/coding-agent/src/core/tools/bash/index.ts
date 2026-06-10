@@ -14,6 +14,7 @@ import {
 	killProcessTree,
 	prependCommandPrefixes,
 } from "../../../utils/shell.js";
+import type { BackgroundTaskManager } from "../../background-tasks/index.js";
 import { loadToolDescription } from "../description.js";
 import { type PathLiteralCorrection, rewriteQuotedPathLiterals } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "../truncate.js";
@@ -94,6 +95,12 @@ const bashSchema = Type.Object({
 		description: "Bash command to execute.",
 	}),
 	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
+	run_in_background: Type.Optional(
+		Type.Boolean({
+			description:
+				"Run the command as a background task. Returns a task ID immediately; output is written to a log file and a <task-notification> is delivered when the command finishes. Use for long-running commands (builds, test suites, servers, watchers). Ignores timeout.",
+		}),
+	),
 });
 
 export type BashToolInput = Static<typeof bashSchema>;
@@ -102,6 +109,8 @@ export interface BashToolDetails {
 	truncation?: TruncationResult;
 	fullOutputPath?: string;
 	pathCorrections?: PathLiteralCorrection[];
+	/** Set when the command was started as a background task. */
+	backgroundTaskId?: string;
 }
 
 /**
@@ -244,12 +253,15 @@ export interface BashToolOptions {
 	commandPrefix?: string;
 	/** Hook to adjust command, cwd, or env before execution */
 	spawnHook?: BashSpawnHook;
+	/** Background task manager enabling run_in_background (local execution only) */
+	backgroundTasks?: BackgroundTaskManager;
 }
 
 export function createBashTool(cwd: string, options?: BashToolOptions): AgentTool<typeof bashSchema> {
 	const ops = options?.operations ?? defaultBashOperations;
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;
+	const backgroundTasks = options?.backgroundTasks;
 	const fallbackDescription = `Execute a bash command in the current working directory. Returns stdout and stderr. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
@@ -259,8 +271,8 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 		description,
 		parameters: bashSchema,
 		execute: async (
-			_toolCallId: string,
-			{ command, timeout }: { command: string; timeout?: number },
+			toolCallId: string,
+			{ command, timeout, run_in_background }: { command: string; timeout?: number; run_in_background?: boolean },
 			signal?: AbortSignal,
 			onUpdate?,
 		) => {
@@ -268,6 +280,40 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 			const resolvedCommand = prependCommandPrefixes(command, [commandPrefix]);
 			const { output: correctedCommand, pathCorrections } = rewriteQuotedPathLiterals(resolvedCommand, cwd);
 			const spawnContext = resolveSpawnContext(correctedCommand, cwd, spawnHook);
+
+			if (run_in_background) {
+				if (!backgroundTasks) {
+					throw new Error(
+						"Background execution is not available in this session. Run the command without run_in_background.",
+					);
+				}
+				if (options?.operations) {
+					throw new Error(
+						"Background execution is only supported for local commands. Run the command without run_in_background.",
+					);
+				}
+				const task = backgroundTasks.spawn({
+					command: spawnContext.command,
+					cwd: spawnContext.cwd,
+					env: spawnContext.env,
+					toolCallId,
+				});
+				const text = prependPathCorrectionNotes(
+					`Command running in background with task ID: ${task.id}\n` +
+						`Output file: ${task.outputFile}\n` +
+						`A <task-notification> will be delivered when the command finishes. ` +
+						`Use task_output to read incremental output, task_stop to terminate.`,
+					pathCorrections,
+				);
+				return {
+					content: [{ type: "text", text }],
+					details: {
+						backgroundTaskId: task.id,
+						fullOutputPath: task.outputFile,
+						...(pathCorrections.length > 0 ? { pathCorrections } : {}),
+					} satisfies BashToolDetails,
+				};
+			}
 
 			// Snapshot protected directories before execution
 			const protectedSnapshot = snapshotProtectedDirs(cwd);

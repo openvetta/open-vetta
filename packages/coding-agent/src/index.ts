@@ -23,6 +23,15 @@ export {
 	InMemoryAuthStorageBackend,
 	type OAuthCredential,
 } from "./core/auth-storage.js";
+// Background bash tasks (run_in_background)
+export {
+	type BackgroundTaskEvent,
+	type BackgroundTaskListener,
+	BackgroundTaskManager,
+	type BackgroundTaskSnapshot,
+	type BackgroundTaskStatus,
+	buildTaskNotification,
+} from "./core/background-tasks/index.js";
 // Compaction
 export {
 	type BranchPreparation,
@@ -252,6 +261,8 @@ export {
 	type CommandToolName,
 	codingTools,
 	createAskUserQuestionTool,
+	createTaskOutputTool,
+	createTaskStopTool,
 	DEFAULT_MAX_BYTES,
 	DEFAULT_MAX_LINES,
 	type EditOperations,
@@ -302,6 +313,12 @@ export {
 	type ShellToolInput,
 	type ShellToolOptions,
 	shellTool,
+	type TaskOutputToolDetails,
+	type TaskOutputToolInput,
+	type TaskOutputToolOptions,
+	type TaskStopToolDetails,
+	type TaskStopToolInput,
+	type TaskStopToolOptions,
 	type ToolsOptions,
 	type TreeOperations,
 	type TreeToolDetails,

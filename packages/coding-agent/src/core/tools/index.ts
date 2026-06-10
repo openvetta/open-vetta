@@ -124,6 +124,18 @@ export {
 	type ShellToolOptions,
 	shellTool,
 } from "./shell/index.js";
+export {
+	createTaskOutputTool,
+	type TaskOutputToolDetails,
+	type TaskOutputToolInput,
+	type TaskOutputToolOptions,
+} from "./task-output/index.js";
+export {
+	createTaskStopTool,
+	type TaskStopToolDetails,
+	type TaskStopToolInput,
+	type TaskStopToolOptions,
+} from "./task-stop/index.js";
 export { createTodoTool, type TodoToolDetails, type TodoToolOptions } from "./todo/index.js";
 export {
 	createTreeTool,

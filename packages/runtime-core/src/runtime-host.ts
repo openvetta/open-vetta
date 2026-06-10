@@ -1320,6 +1320,15 @@ export class RuntimeHost implements SessionFacade {
 			return events;
 		}
 
+		if (event.type === "background_tasks_update") {
+			events.push({
+				...this.baseEvent(sessionId, "agent"),
+				type: "background_tasks_update",
+				tasks: event.tasks as any[],
+			});
+			return events;
+		}
+
 		if (event.type === "auto_compaction_start") {
 			console.log(`[RuntimeHost.event] session=${sessionId} type=compaction_start reason=${event.reason}`);
 			events.push({

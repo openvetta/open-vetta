@@ -1,5 +1,7 @@
 export type {
 	AssistantTurnTiming,
+	BackgroundTaskInfo,
+	BackgroundTasksUpdateEvent,
 	ErrorEvent,
 	HistoryEntry,
 	McpStatusEvent,

@@ -5,7 +5,9 @@ import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	activeSessionAtom,
+	backgroundTasksBySessionAtom,
 	flowingChatUnreadAtom,
+	getBackgroundTasksForSession,
 	todoItemsBySessionAtom,
 	getTodoItemsForSession,
 	debugModeAtom,
@@ -19,6 +21,7 @@ import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
 import { JourneyPanel } from "./JourneyPanel";
 import { ChatTabPanel } from "./ChatTabPanel";
 import { BatchProgressTabPanel } from "./BatchProgressTabPanel";
+import { BackgroundTasksTabPanel } from "./BackgroundTasksTabPanel";
 import { ScheduleExecutionTabPanel } from "./ScheduleExecutionTabPanel";
 import { TodoTabPanel } from "./TodoTabPanel";
 import { DebugTabPanel } from "./DebugTabPanel";
@@ -74,6 +77,12 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 		[todoMap, activeSession?.runtimeId],
 	);
 	const hasTodo = todoItems.length > 0;
+	const backgroundTasksMap = useAtomValue(backgroundTasksBySessionAtom);
+	const backgroundTasks = useMemo(
+		() => getBackgroundTasksForSession(backgroundTasksMap, activeSession?.runtimeId ?? null),
+		[backgroundTasksMap, activeSession?.runtimeId],
+	);
+	const hasBackgroundTasks = backgroundTasks.length > 0;
 	const debugMode = useAtomValue(debugModeAtom);
 
 	const onResize = useCallback(
@@ -103,6 +112,16 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 				badge: todoItems.length - todoDone > 0 ? todoItems.length - todoDone : undefined,
 			});
 		}
+		// Dynamically inject background-tasks tab when the session has background tasks
+		if (hasBackgroundTasks) {
+			const running = backgroundTasks.filter((t) => t.status === "running").length;
+			base.push({
+				key: "background-tasks" as ActivityTabKey,
+				label: "后台任务",
+				icon: "icon-[mdi--console-line]",
+				badge: running > 0 ? running : undefined,
+			});
+		}
 		// Dynamically inject debug tab when debug mode is enabled
 		if (debugMode) {
 			base.push({
@@ -112,7 +131,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 			});
 		}
 		return base;
-	}, [profile, chatUnread, hasTodo, todoItems, debugMode]);
+	}, [profile, chatUnread, hasTodo, todoItems, hasBackgroundTasks, backgroundTasks, debugMode]);
 
 	// 当前 active tab：优先取项目记忆，否则用 profile 默认；profile 未就绪时退回 "file"
 	const activeTab: ActivityTabKey = useMemo(() => {
@@ -179,6 +198,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 						{activeTab === "batch-progress" && cwd && <BatchProgressTabPanel cwd={cwd} />}
 						{activeTab === "schedule-records" && cwd && <ScheduleExecutionTabPanel cwd={cwd} />}
 						{activeTab === "todo" && cwd && <TodoTabPanel />}
+						{activeTab === "background-tasks" && cwd && <BackgroundTasksTabPanel />}
 						{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
 					</div>
 				</div>

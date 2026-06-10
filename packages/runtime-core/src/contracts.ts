@@ -141,6 +141,26 @@ export interface TodoUpdateEvent extends SessionEventBase {
 	items: TodoItem[];
 }
 
+/** 后台 bash 任务（run_in_background）的可序列化状态，随事件全量推送。 */
+export interface BackgroundTaskInfo {
+	id: string;
+	command: string;
+	cwd: string;
+	status: "running" | "completed" | "failed" | "killed";
+	outputFile: string;
+	exitCode: number | undefined;
+	startedAt: number;
+	endedAt?: number;
+	toolCallId?: string;
+	/** 输出尾部（约 2KB），用于 UI 实时滚动显示。 */
+	tail: string;
+}
+
+export interface BackgroundTasksUpdateEvent extends SessionEventBase {
+	type: "background_tasks_update";
+	tasks: BackgroundTaskInfo[];
+}
+
 export interface CompactionStartEvent extends SessionEventBase {
 	type: "compaction.start";
 	reason: "threshold" | "overflow";
@@ -231,6 +251,7 @@ export type SessionEvent =
 	| UsageUpdateEvent
 	| ErrorEvent
 	| TodoUpdateEvent
+	| BackgroundTasksUpdateEvent
 	| CompactionStartEvent
 	| CompactionEndEvent;
 
