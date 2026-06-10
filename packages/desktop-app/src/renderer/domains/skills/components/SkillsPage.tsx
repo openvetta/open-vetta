@@ -766,8 +766,8 @@ export function SkillsPage(): JSX.Element {
 						<div className="flex items-baseline gap-3">
 							{(
 								[
-									{ key: "scene" as TypeTab, label: "场景广场" },
-									{ key: "skill" as TypeTab, label: "技能广场" },
+									{ key: "scene" as TypeTab, label: "场景" },
+									{ key: "skill" as TypeTab, label: "技能" },
 								] as const
 							).map(({ key, label }) => (
 								<button
