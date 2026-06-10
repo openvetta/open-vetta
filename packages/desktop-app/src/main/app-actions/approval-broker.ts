@@ -22,6 +22,9 @@ export interface DesktopActionApprovalRequest extends ActionApprovalRequest {
 }
 
 interface PendingApproval {
+	actionId: string;
+	approvalPresentation: string;
+	startedAt: number;
 	finish: (decision: ActionApprovalDecision) => void;
 	cancel: (error: ActionError) => void;
 }
@@ -47,6 +50,7 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 
 		const approvalId = randomUUID();
 		const expiresAt = Date.now() + this.timeoutMs;
+		const startedAt = Date.now();
 		return new Promise<ActionApprovalDecision>((resolve, reject) => {
 			let settled = false;
 			const cleanup = (): void => {
@@ -96,12 +100,19 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 				return;
 			}
 			signal?.addEventListener("abort", onAbort, { once: true });
-			this.pending.set(approvalId, { finish, cancel });
-			console.info("[action-approval:main] request", {
+			this.pending.set(approvalId, {
+				actionId: request.actionId,
+				approvalPresentation: request.approvalPresentation,
+				startedAt,
+				finish,
+				cancel,
+			});
+			log.info("request: sent", {
 				approvalId,
 				actionId: request.actionId,
-				presentation: request.approvalPresentation,
-				input: request.input,
+				approvalPresentation: request.approvalPresentation,
+				expiresAt,
+				timeoutMs: this.timeoutMs,
 			});
 			showMainWindow();
 			this.webContents.send(ACTION_APPROVAL_REQUEST_CHANNEL, { approvalId, expiresAt, ...request });
@@ -110,11 +121,14 @@ export class ActionApprovalBroker implements ActionApprovalRequester {
 
 	respond(approvalId: string, approved: boolean, input?: JsonValue): boolean {
 		const pending = this.pending.get(approvalId);
-		console.info("[action-approval:main] response", {
+		log.info("respond: received", {
 			approvalId,
+			actionId: pending?.actionId,
+			approvalPresentation: pending?.approvalPresentation,
 			approved,
-			input,
+			inputChanged: input !== undefined,
 			pending: Boolean(pending),
+			durationMs: pending ? Date.now() - pending.startedAt : undefined,
 		});
 		if (!pending) return false;
 		pending.finish(input === undefined ? { approved } : { approved, input });

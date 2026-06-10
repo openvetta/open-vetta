@@ -61,6 +61,7 @@ export async function startLocalActionServer(
 ): Promise<LocalActionServerHandle> {
 	const endpointFilePath = options.endpointFilePath ?? getActionServerEndpointFilePath();
 	const token = createToken();
+	log.info("startLocalActionServer: starting", { endpointFilePath });
 	try {
 		await mkdir(dirname(endpointFilePath), { recursive: true });
 	} catch (error) {
@@ -89,17 +90,28 @@ export async function startLocalActionServer(
 		log.error("startLocalActionServer: writeFile failed", { endpointFilePath }, error);
 		throw error;
 	}
+	log.info("startLocalActionServer: started", {
+		endpointFilePath,
+		transport: server.endpoint.transport,
+		url: server.endpoint.url,
+	});
 
 	return {
 		endpoint: server.endpoint,
 		close: async () => {
 			try {
 				await server.close();
+				log.info("close: server closed", {
+					endpointFilePath,
+					transport: server.endpoint.transport,
+					url: server.endpoint.url,
+				});
 			} catch (error) {
 				log.warn("close: server.close failed", error);
 			}
 			try {
 				await rm(endpointFilePath, { force: true });
+				log.info("close: endpoint file removed", { endpointFilePath });
 			} catch (error) {
 				log.warn("close: rm failed", { endpointFilePath }, error);
 			}

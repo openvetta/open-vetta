@@ -1,3 +1,4 @@
+import { getAppLogger } from "../logger.js";
 import type { AppActionCatalog } from "./catalog.js";
 import {
 	type ActionApprovalMetadata,
@@ -8,6 +9,7 @@ import {
 } from "./types.js";
 
 const APPROVAL_UI_INPUT_KEY = "approvalUi";
+const log = getAppLogger("action-runtime");
 
 function resolveApprovalPresentation(input: JsonValue, approval: ActionApprovalMetadata | undefined): string {
 	if (!approval) {
@@ -49,32 +51,63 @@ export class AppActionRuntime {
 	}
 
 	async run(actionId: string, input: unknown, context: ActionContext): Promise<JsonValue> {
-		const action = this.catalog.get(actionId);
-		let validatedInput = action.validateInput(input);
-		if (action.requiresApproval?.(validatedInput, context)) {
-			const approvalPresentation = resolveApprovalPresentation(validatedInput, action.approval);
-			const decision = await this.approvalRequester.request(
-				{
-					actionId,
-					approvalPresentation,
-					input: validatedInput,
-					title: action.title,
-					summary: action.summary,
-					permission: action.permission,
-				},
-				context.signal,
-			);
-			if (!decision.approved) {
-				throw new ActionError(
-					"ACTION_REJECTED",
-					"用户拒绝执行该 Vetta action。询问用户发生了什么情况，为何拒绝，接下来该怎么做",
-					{ actionId },
+		const startedAt = Date.now();
+		const baseMeta = {
+			actionId,
+			source: context.source,
+			requestId: context.requestId,
+		};
+		log.info("run: start", baseMeta);
+		try {
+			const action = this.catalog.get(actionId);
+			let validatedInput = action.validateInput(input);
+			const actionMeta = {
+				...baseMeta,
+				domain: action.domain,
+				permission: action.permission,
+			};
+			log.info("run: input validated", actionMeta, { input: validatedInput });
+			let approvalRequired = false;
+			if (action.requiresApproval?.(validatedInput, context)) {
+				approvalRequired = true;
+				const approvalPresentation = resolveApprovalPresentation(validatedInput, action.approval);
+				log.info("run: approval requested", actionMeta, { approvalPresentation });
+				const approvalStartedAt = Date.now();
+				const decision = await this.approvalRequester.request(
+					{
+						actionId,
+						approvalPresentation,
+						input: validatedInput,
+						title: action.title,
+						summary: action.summary,
+						permission: action.permission,
+					},
+					context.signal,
 				);
+				const approvalDurationMs = Date.now() - approvalStartedAt;
+				log.info("run: approval decided", actionMeta, {
+					approved: decision.approved,
+					inputChanged: decision.input !== undefined,
+					durationMs: approvalDurationMs,
+				});
+				if (!decision.approved) {
+					throw new ActionError(
+						"ACTION_REJECTED",
+						"用户拒绝执行该 Vetta action。询问用户发生了什么情况，为何拒绝，接下来该怎么做",
+						{ actionId },
+					);
+				}
+				if (decision.input !== undefined) {
+					validatedInput = action.validateInput(decision.input);
+					log.info("run: approval input validated", actionMeta, { input: validatedInput });
+				}
 			}
-			if (decision.input !== undefined) {
-				validatedInput = action.validateInput(decision.input);
-			}
+			const result = await action.run(validatedInput, context);
+			log.info("run: success", actionMeta, { approvalRequired, durationMs: Date.now() - startedAt });
+			return result;
+		} catch (error) {
+			log.error("run: failed", baseMeta, { durationMs: Date.now() - startedAt }, error);
+			throw error;
 		}
-		return await action.run(validatedInput, context);
 	}
 }
