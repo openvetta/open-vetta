@@ -71,7 +71,7 @@ export function TabBar<T extends string>({
 						{active && (
 							<motion.span
 								layoutId={`tabbar-active-${layoutId}`}
-								className="absolute inset-x-0 top-0 -bottom-px rounded-t-lg border border-b-0 border-border bg-card"
+								className="absolute inset-x-0 top-0 -bottom-px rounded-t-lg border border-b-0 border-border bg-muted"
 								transition={
 									suppressLayoutAnimation
 										? { duration: 0 }
