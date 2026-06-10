@@ -15,7 +15,7 @@ export interface ProjectEntry {
 	name?: string;
 }
 
-/** 实验性功能开关分组（设置页「Agent配置 → 实验性功能」）。新增实验项只加一个键。 */
+/** 实验性功能开关分组（设置页「Agent配置 → 扩展功能」）。新增实验项只加一个键。 */
 export interface ExperimentalConfig {
 	/** ask_user_question 工具：开启后仅对话会话可在执行途中向用户提多选题。缺省开。 */
 	askUserQuestion?: boolean;

@@ -36,7 +36,7 @@ export interface DesktopConfigData {
 	debugMode?: boolean;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
-	/** 实验性功能开关分组（「Agent配置 → 实验性功能」）。缺省视为全部开启。 */
+	/** 实验性功能开关分组（「Agent配置 → 扩展功能」）。缺省视为全部开启。 */
 	experimental?: {
 		/** ask_user_question 工具开关。仅对话会话生效，缺省开。 */
 		askUserQuestion?: boolean;
