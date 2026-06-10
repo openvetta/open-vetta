@@ -220,6 +220,7 @@ export class AgentSession {
 			resourceLoader: this._resourceLoader,
 			todoStore: this._todoStore,
 			backgroundTasks: this._backgroundTasks,
+			enableBackgroundTasks: config.enableBackgroundTasks !== false,
 			customTools: config.customTools ?? [],
 			baseToolsOverride: config.baseToolsOverride,
 			envOverlay: config.envOverlay,

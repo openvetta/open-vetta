@@ -481,6 +481,10 @@ async function runTaskInner(
 					TEMP: taskTmpDir,
 					TMP: taskTmpDir,
 				},
+				// 批量任务按 session 结束判定子任务完成并调度并发队列：后台任务会让
+				// agent 提前 agent_end 而进程仍在跑，完成通知又会凭空唤醒新 turn，
+				// 干扰队列对「任务完成」的判定，故禁用。
+				enableBackgroundTasks: false,
 			});
 			sessionId = result.sessionId;
 			sessionPath = runtime.getSessionPath(sessionId);

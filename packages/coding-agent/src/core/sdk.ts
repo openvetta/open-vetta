@@ -115,6 +115,12 @@ export interface CreateAgentSessionOptions {
 	askUserQuestion?: AskUserQuestionCapability;
 
 	/**
+	 * 是否启用后台 bash 任务（run_in_background）。默认 true。
+	 * 按 session 生命周期编排执行的宿主（如桌面批量任务）应置 false。
+	 */
+	enableBackgroundTasks?: boolean;
+
+	/**
 	 * Vetta 远端服务 URL（拉取 remote models / providers）。当宿主进程已经从环境
 	 * 变量解析出权威值（例如 desktop-app 的 VETTA_SERVER_URL）时显式传入，避免
 	 * SDK 退回到内置的 LAN 默认值并把它持久化到 settings.json，造成 desktop-app
@@ -488,6 +494,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		memoryFile: options.memoryFile,
 		memoryCharLimit: options.memoryCharLimit,
 		askUserQuestion: options.askUserQuestion,
+		enableBackgroundTasks: options.enableBackgroundTasks,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();
