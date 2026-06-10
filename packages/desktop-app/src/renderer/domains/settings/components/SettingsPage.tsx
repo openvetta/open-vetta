@@ -43,7 +43,8 @@ export function SettingsPage(): JSX.Element {
 	const navigate = useNavigate();
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const authUser = useAtomValue(authUserAtom);
-	const narrow = useNarrowScreen();
+	// 设置页内容是「左侧导航 + 右侧详情」双栏，宽度小于 1000 时就把左侧收成 icon-only。
+	const narrow = useNarrowScreen(1000);
 
 	const visibleTabs = useMemo(
 		() =>
