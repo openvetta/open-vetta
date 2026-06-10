@@ -67,7 +67,7 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "archive", id: "archived-list", title: "归档列表" },
 	{ tab: "context", id: "agent-personalization", title: "个性化" },
 	{ tab: "context", id: "agent-images", title: "图片" },
-	{ tab: "context", id: "agent-experimental", title: "实验性功能" },
+	{ tab: "context", id: "agent-experimental", title: "扩展功能" },
 ] as const satisfies readonly SettingsSectionRegistration[];
 
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
