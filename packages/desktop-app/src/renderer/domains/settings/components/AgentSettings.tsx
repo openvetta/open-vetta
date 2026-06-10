@@ -37,6 +37,7 @@ export function AgentSettings(): JSX.Element {
 	// 实验性功能：缺省开启；用户显式关闭后按配置覆盖。
 	const [askUserQuestionEnabled, setAskUserQuestionEnabled] = useState(true);
 	const [vettaCliEnabled, setVettaCliEnabled] = useState(true);
+	const [backgroundTasksEnabled, setBackgroundTasksEnabled] = useState(true);
 
 	useEffect(() => {
 		void window.vetta.session.getMaxRecentImages().then((v) => setMaxRecentImages(clampImages(v)));
@@ -49,6 +50,7 @@ export function AgentSettings(): JSX.Element {
 		void window.vetta.config.get().then((cfg) => {
 			setAskUserQuestionEnabled(cfg.experimental?.askUserQuestion === true);
 			setVettaCliEnabled(cfg.experimental?.vettaCli === true);
+			setBackgroundTasksEnabled(cfg.experimental?.backgroundTasks === true);
 		});
 	}, []);
 
@@ -62,6 +64,12 @@ export function AgentSettings(): JSX.Element {
 	const handleToggleVettaCli = useCallback((checked: boolean) => {
 		setVettaCliEnabled(checked);
 		void window.vetta.config.set({ experimental: { vettaCli: checked } });
+	}, []);
+
+	// 开关落盘即可：enableBackgroundTasks 在 session 创建时读取，切换/新建会话生效。
+	const handleToggleBackgroundTasks = useCallback((checked: boolean) => {
+		setBackgroundTasksEnabled(checked);
+		void window.vetta.config.set({ experimental: { backgroundTasks: checked } });
 	}, []);
 
 	const dirty = personaId !== applied.personaId || customPrompt !== applied.customPrompt;
@@ -265,9 +273,15 @@ export function AgentSettings(): JSX.Element {
 					<SettingRow
 						title="提问用户面板"
 						description="开启后，仅在对话会话中允许 agent 执行途中向你提多选题，输入栏会临时变为问答选择界面。"
-						border={false}
 					>
 						<Switch checked={askUserQuestionEnabled} onCheckedChange={handleToggleAskUserQuestion} />
+					</SettingRow>
+					<SettingRow
+						title="后台任务"
+						description="开启后，agent 可将耗时命令（构建、测试等）转入后台执行并在完成时收到通知继续处理。批量任务始终禁用。切换后对新打开的会话生效。"
+						border={false}
+					>
+						<Switch checked={backgroundTasksEnabled} onCheckedChange={handleToggleBackgroundTasks} />
 					</SettingRow>
 				</SettingSection>
 			</div>

@@ -418,10 +418,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			allowProjectRoot(effectiveCwd);
 		}
 		const isConversation = kind === "conversation";
-		const desktopConfig = isConversation ? await readDesktopConfig() : undefined;
+		const desktopConfig = await readDesktopConfig();
 		const askUserQuestion = isConversation;
+		// 实验性开关：后台 bash 任务（run_in_background）。批量任务不走本通道
+		// （batch-task-executor 直接 runtime.createSession 且强制 false）。
+		const enableBackgroundTasks = desktopConfig.experimental?.backgroundTasks === true;
 		const appendSystemPrompt =
-			desktopConfig?.experimental?.vettaCli === true
+			isConversation && desktopConfig.experimental?.vettaCli === true
 				? config?.appendSystemPrompt
 					? `${config.appendSystemPrompt}\n\n${VETTA_CLI_GUIDANCE}`
 					: VETTA_CLI_GUIDANCE
@@ -430,7 +433,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			effectiveCwd !== config?.cwd ||
 			injectedSessionDir !== config?.sessionDir ||
 			appendSystemPrompt !== config?.appendSystemPrompt ||
-			askUserQuestion !== config?.askUserQuestion;
+			askUserQuestion !== config?.askUserQuestion ||
+			enableBackgroundTasks !== config?.enableBackgroundTasks;
 		const effectiveConfig: SessionConfig | undefined = needPatch
 			? {
 					...(config ?? {}),
@@ -438,6 +442,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					sessionDir: injectedSessionDir ?? config?.sessionDir,
 					appendSystemPrompt,
 					askUserQuestion,
+					enableBackgroundTasks,
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
