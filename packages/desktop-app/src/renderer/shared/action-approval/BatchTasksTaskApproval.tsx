@@ -47,15 +47,19 @@ function parseTaskInput(input: DesktopActionApprovalRequest["input"]): TaskInput
 
 const operationDetails: Record<
 	TaskOperation,
-	{ label: string; icon: string; description: string; warning?: string; destructive?: boolean }
+	{ label: string; title: string; summary: string; icon: string; description: string; warning?: string; destructive?: boolean }
 > = {
 	run: {
 		label: "执行任务",
+		title: "执行批量子任务确认",
+		summary: "请确认是否为该待执行子任务创建会话并开始运行。",
 		icon: "icon-[mdi--play-circle-outline]",
 		description: "为这个待执行任务创建会话并开始运行。",
 	},
 	retry: {
 		label: "从头重试",
+		title: "重试批量子任务确认",
+		summary: "请确认是否清理该子任务的旧结果，并从头重新执行。",
 		icon: "icon-[mdi--refresh]",
 		description: "清理旧结果后，从头重新执行这个任务。",
 		warning: "旧会话、状态和任务目录中的已有产物会被删除，无法恢复。",
@@ -63,6 +67,8 @@ const operationDetails: Record<
 	},
 	stop: {
 		label: "停止并清理",
+		title: "停止批量子任务确认",
+		summary: "请确认是否中止或移出该子任务，并清理会话、状态和产物。",
 		icon: "icon-[mdi--stop-circle-outline]",
 		description: "中止运行中或排队中的任务，并将状态重置为待执行。",
 		warning: "当前会话、运行状态和任务目录中的已有产物会被删除。",
@@ -70,6 +76,8 @@ const operationDetails: Record<
 	},
 	delete: {
 		label: "删除任务",
+		title: "删除批量子任务确认",
+		summary: "请确认是否从项目中永久删除该子任务及其关联数据。",
 		icon: "icon-[mdi--delete-outline]",
 		description: "从项目中永久移除这个任务。",
 		warning: "任务记录、项目子目录、会话状态及产物会被永久删除，无法撤销。",
@@ -77,16 +85,22 @@ const operationDetails: Record<
 	},
 	resume: {
 		label: "继续任务",
+		title: "继续批量子任务确认",
+		summary: "请确认是否向暂停的原会话发送“继续”，并保留已有上下文继续执行。",
 		icon: "icon-[mdi--play-circle-outline]",
 		description: "向暂停的原会话发送“继续”，保留已有上下文和产物。",
 	},
 	"resume-with-text": {
 		label: "带说明继续",
+		title: "带说明继续批量子任务确认",
+		summary: "请确认发送给暂停会话的补充说明。确认后会保留已有上下文继续执行。",
 		icon: "icon-[mdi--message-plus-outline]",
 		description: "将补充说明发送给暂停的原会话，然后继续执行。",
 	},
 	"delete-session": {
 		label: "删除任务会话",
+		title: "删除批量子任务会话确认",
+		summary: "请确认是否删除该子任务关联的对话会话。任务记录和任务目录会保留。",
 		icon: "icon-[mdi--chat-remove-outline]",
 		description: "删除与任务关联的对话会话。",
 		warning: "会话历史将不可恢复；任务记录和任务目录不会删除。",
@@ -136,7 +150,9 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 					</div>
 					<div className="min-w-0 flex-1">
 						<div className="flex flex-wrap items-center gap-2">
-							<h2 className="text-[15px] font-semibold text-foreground">批量子任务操作确认</h2>
+							<h2 className="text-[15px] font-semibold text-foreground">
+								{detail?.title ?? "批量子任务操作确认"}
+							</h2>
 							{detail && (
 								<span
 									className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -149,7 +165,9 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 								</span>
 							)}
 						</div>
-						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
+						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+							{detail?.summary ?? request.summary}
+						</p>
 					</div>
 				</div>
 			</div>
