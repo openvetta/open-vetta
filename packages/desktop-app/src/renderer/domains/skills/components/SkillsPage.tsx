@@ -7,6 +7,7 @@ import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { Button } from "@shared/components/ui/button";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 
 type TypeTab = "skill" | "scene";
 type ActionState = "idle" | "loading" | "done";
@@ -586,6 +587,7 @@ export function SkillsPage(): JSX.Element {
 
 	const token = useAtomValue(authTokenAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
+	const narrow = useNarrowScreen();
 
 	const refresh = useCallback(() => {
 		void window.vetta.skills.getMarketManifest().then(setManifest);
@@ -748,7 +750,9 @@ export function SkillsPage(): JSX.Element {
 
 			{/* Header */}
 			<div className="relative shrink-0 px-8 pb-4">
-				<div className="flex items-end justify-between gap-4">
+				<div
+					className={`flex gap-4 ${narrow ? "flex-col items-stretch" : "items-end justify-between"}`}
+				>
 					<motion.div
 						initial={{ opacity: 0, y: -8 }}
 						animate={{ opacity: 1, y: 0 }}
@@ -784,16 +788,16 @@ export function SkillsPage(): JSX.Element {
 						initial={{ opacity: 0, y: -6 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
-						className="flex items-center gap-2"
+						className={`flex items-center gap-2 ${narrow ? "w-full" : ""}`}
 					>
-						<div className="relative">
+						<div className={`relative ${narrow ? "flex-1" : ""}`}>
 							<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
 							<input
 								type="text"
 								placeholder={`搜索${typeTab === "scene" ? "场景" : "技能"}...`}
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								className="h-8 w-56 rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30"
+								className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
 							/>
 						</div>
 						{typeTab === "skill" && (
