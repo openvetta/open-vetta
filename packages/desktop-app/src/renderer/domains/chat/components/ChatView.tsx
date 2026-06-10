@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import {
 	activeSessionAtom,
@@ -46,6 +46,16 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const setInlinePreview = useSetAtom(inlineFilePreviewAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const sessionsMap = useAtomValue(sessionsMapAtom);
+
+	// 窗口置顶（钉在屏幕上）状态，初始与主进程真实状态同步
+	const [pinned, setPinned] = useState(false);
+	useEffect(() => {
+		void window.vetta.window.isAlwaysOnTop().then(setPinned);
+	}, []);
+	const handleTogglePin = useCallback(async () => {
+		const next = await window.vetta.window.toggleAlwaysOnTop();
+		setPinned(next);
+	}, []);
 
 	const handleTogglePanel = useCallback(() => {
 		// When in inline preview mode, the "hide panel" button should also close
@@ -110,6 +120,17 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				<Button
 					size="icon-xs"
 					variant="ghost"
+					title={pinned ? "取消窗口置顶" : "窗口置顶（钉在屏幕上）"}
+					onClick={handleTogglePin}
+					className={pinned ? "bg-accent text-foreground" : ""}
+				>
+					<span
+						className={`${pinned ? "icon-[solar--pin-bold]" : "icon-[solar--pin-linear]"} text-[14px]`}
+					/>
+				</Button>
+				<Button
+					size="icon-xs"
+					variant="ghost"
 					title={panelOpen ? "关闭活动面板" : "打开活动面板"}
 					onClick={handleTogglePanel}
 					className={panelOpen ? "bg-accent text-foreground" : ""}
@@ -118,7 +139,15 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				</Button>
 			</>
 		),
-		[isLastStage, panelOpen, setFlowingSendOpen, setWorkflowCompleteOpen, handleTogglePanel],
+		[
+			isLastStage,
+			panelOpen,
+			pinned,
+			setFlowingSendOpen,
+			setWorkflowCompleteOpen,
+			handleTogglePanel,
+			handleTogglePin,
+		],
 	);
 	useEffect(() => {
 		setHeaderRightSlot(rightSlot);

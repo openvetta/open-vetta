@@ -348,6 +348,18 @@ if (!gotSingleLock) {
 			return getMainWindow()?.isMaximized() ?? false;
 		});
 
+		ipcMain.handle("vetta:window:toggle-always-on-top", () => {
+			const mainWindow = getMainWindow();
+			if (!mainWindow) return false;
+			const next = !mainWindow.isAlwaysOnTop();
+			mainWindow.setAlwaysOnTop(next);
+			return next;
+		});
+
+		ipcMain.handle("vetta:window:is-always-on-top", () => {
+			return getMainWindow()?.isAlwaysOnTop() ?? false;
+		});
+
 		ipcMain.handle("vetta:tray:set-quit-behavior", (_event, hideToTray: boolean) => {
 			setHideToTrayOnClose(hideToTray);
 		});
