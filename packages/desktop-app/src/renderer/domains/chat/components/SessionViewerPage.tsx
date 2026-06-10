@@ -78,7 +78,7 @@ export function SessionViewerPage(): JSX.Element {
 					onClick={handleTogglePanel}
 					className={panelOpen ? "bg-accent text-foreground" : ""}
 				>
-					<span className="icon-[mdi--dock-right] text-[14px]" />
+					<span className="icon-[solar--sidebar-minimalistic-linear] -scale-x-100 text-[14px]" />
 				</Button>
 			</div>,
 		);

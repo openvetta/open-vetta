@@ -288,7 +288,7 @@ export function ProjectDetailPage(): JSX.Element {
 									onClick={() => void window.vetta.shell.showInFolder(decodedCwd)}
 									title={isMac ? "在 Finder 中显示" : "在资源管理器中显示"}
 								>
-									<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
+									<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
 									<span className="text-[12px]">{isMac ? "Finder" : "资源管理器"}</span>
 								</ActionButton>
 								{exportable && (
@@ -297,7 +297,7 @@ export function ProjectDetailPage(): JSX.Element {
 										onClick={handleExportProject}
 										title="导出项目（含会话历史）"
 									>
-										<span className="icon-[mdi--export-variant] h-3.5 w-3.5" />
+										<span className="icon-[solar--export-linear] h-3.5 w-3.5" />
 										<span className="text-[12px]">导出</span>
 									</ActionButton>
 								)}
@@ -311,11 +311,11 @@ export function ProjectDetailPage(): JSX.Element {
 									whileTap={{ scale: 0.96 }}
 								>
 									<Button
+										variant="primary"
 										size="sm"
-										className="gap-1.5 rounded-full bg-gradient-to-br from-primary to-primary/85 px-4 text-primary-foreground shadow-[0_8px_24px_-10px_var(--primary)] transition-shadow hover:shadow-[0_12px_30px_-8px_var(--primary)]"
 										onClick={handleNewSession}
 									>
-										<span className="icon-[mdi--plus] h-4 w-4" />
+										<span className="icon-[solar--add-circle-linear] h-4 w-4" />
 										<span className="text-[12px] font-medium">新会话</span>
 									</Button>
 								</motion.div>
@@ -330,16 +330,11 @@ export function ProjectDetailPage(): JSX.Element {
 								>
 									<Button
 										size="icon-xs"
-										variant="ghost"
+										variant={activityOpen ? "secondary" : "ghost"}
 										title={activityOpen ? "关闭活动面板" : "打开活动面板"}
 										onClick={() => setActivityOpen((o) => !o)}
-										className={
-											activityOpen
-												? "bg-primary/15 text-primary hover:bg-primary/20"
-												: "hover:bg-accent"
-										}
 									>
-										<span className="icon-[mdi--dock-right] text-[14px]" />
+										<span className="icon-[solar--sidebar-minimalistic-linear] -scale-x-100 text-[14px]" />
 									</Button>
 								</motion.div>
 							</motion.div>
@@ -600,7 +595,6 @@ function ActionButton({
 			<Button
 				variant={variant}
 				size="sm"
-				className="gap-1.5 rounded-full border-border/50 bg-card/30 text-muted-foreground/80 backdrop-blur-sm transition-colors duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
 				onClick={onClick}
 				title={title}
 			>
