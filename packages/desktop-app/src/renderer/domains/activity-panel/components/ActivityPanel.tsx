@@ -173,7 +173,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 			}
 		>
 			<div
-				className="flex h-full flex-col pb-2 pr-2"
+				className="flex h-full flex-col"
 				style={inlinePreviewActive ? undefined : { width }}
 			>
 				{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab）。浏览器式页签悬浮在卡片上方，
