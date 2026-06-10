@@ -1,5 +1,4 @@
 import { cn } from "@shared/lib/utils";
-import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import type { SettingsSectionRegistration } from "../registry";
 
 export function SettingRow({
@@ -13,13 +12,13 @@ export function SettingRow({
 	children: React.ReactNode;
 	border?: boolean;
 }): JSX.Element {
-	// 窄屏：标题/描述与右侧控件改为上下堆叠，避免控件挤压文本导致逐字换行。
-	const narrow = useNarrowScreen();
+	// 用容器查询（而非窗口宽度）判断可用宽度：当所在卡片窄于 ~576px 时，
+	// 标题/描述与右侧控件改为上下堆叠。这样侧边栏展开导致内容变窄也能正确换行。
 	return (
 		<div
 			className={cn(
-				"flex gap-6 px-5 py-4",
-				narrow ? "flex-col items-stretch gap-3" : "items-center justify-between",
+				"flex items-center justify-between gap-6 px-5 py-4",
+				"@max-xl:flex-col @max-xl:items-stretch @max-xl:justify-start @max-xl:gap-3",
 				border && "border-b border-border",
 			)}
 		>
@@ -29,7 +28,7 @@ export function SettingRow({
 					<div className="mt-0.5 text-[12px] text-muted-foreground">{description}</div>
 				)}
 			</div>
-			<div className={cn(!narrow && "shrink-0")}>{children}</div>
+			<div className="shrink-0 @max-xl:shrink">{children}</div>
 		</div>
 	);
 }
@@ -58,7 +57,7 @@ export function SettingSection({
 			)}
 			{description && <p className="mb-3 text-[12px] text-muted-foreground">{description}</p>}
 			<div
-				className="overflow-hidden rounded-xl border border-border bg-muted"
+				className="@container overflow-hidden rounded-xl border border-border bg-muted"
 				data-setting-section-id={section.id}
 			>
 				{children}
