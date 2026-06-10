@@ -38,8 +38,8 @@ function SchedulerCreateDrawer({ approval }: { approval: ActiveActionApproval })
 		<Drawer open direction="right" dismissible={false}>
 			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
 				<DrawerHeader className="border-b border-border/60">
-					<DrawerTitle>编辑定时任务</DrawerTitle>
-					<DrawerDescription>{request.summary}</DrawerDescription>
+					<DrawerTitle>创建定时任务确认</DrawerTitle>
+					<DrawerDescription>请确认即将创建的定时任务配置。确认后任务会保存，并按启用状态参与调度。</DrawerDescription>
 				</DrawerHeader>
 				<div className="min-h-0 flex-1 overflow-y-auto p-4">
 					<SchedulerApprovalFields value={data} onChange={setData} />
