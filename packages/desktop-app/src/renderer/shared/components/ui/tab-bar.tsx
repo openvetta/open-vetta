@@ -64,8 +64,8 @@ export function TabBar<T extends string>({
 							"relative flex select-none items-center gap-1.5 whitespace-nowrap text-[11px] font-medium leading-none transition-[color,background-color,border-radius] duration-150",
 							cornerClass,
 							active
-								? "h-[34px] px-4 text-foreground"
-								: "h-[30px] bg-black/[0.045] px-3.5 text-muted-foreground hover:bg-black/[0.07] hover:text-foreground/80 dark:bg-white/[0.05] dark:hover:bg-white/[0.08]",
+								? "h-[28px] px-4 text-foreground"
+								: "h-[24px] bg-black/[0.045] px-3.5 text-muted-foreground hover:bg-black/[0.07] hover:text-foreground/80 dark:bg-white/[0.05] dark:hover:bg-white/[0.08]",
 						)}
 					>
 						{active && (
