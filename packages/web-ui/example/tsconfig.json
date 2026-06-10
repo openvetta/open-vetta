@@ -9,7 +9,9 @@
 			"@mariozechner/pi-agent-core": ["../../agent/src/index.ts"],
 			"@mariozechner/pi-ai": ["../../ai/src/index.ts"],
 			"@mariozechner/pi-tui": ["../../tui/src/index.ts"],
-			"@mariozechner/pi-web-ui": ["../src/index.ts"]
+			"@mariozechner/pi-web-ui": ["../src/index.ts"],
+			"@vetta/runtime-telemetry": ["../../runtime-telemetry/src/index.ts"],
+			"@vetta/runtime-telemetry/*": ["../../runtime-telemetry/src/*"]
 		},
 		"strict": true,
 		"skipLibCheck": true,

@@ -2,6 +2,7 @@
 
 ### Changed
 
+- Langfuse tracing 不再通过 `VETTA_TRACING_DETAIL` / `VETTA_TRACING_CAPTURE_CONTENT` 区分采集粒度和正文开关；启用 `VETTA_TRACING=langfuse` 后固定使用 `standard` 粒度并上传 prompt、completion、tool input/output 正文。
 - todo 工具区分严格/宽松两档：来自 scene `tasks.json` 的 locked 列表保持严格（顺序锁定、禁止 create/clear、未完成强制续跑）；常规临时（unlocked）列表放宽——允许乱序更新、新增 `action="clear"` 主动放弃重建，未完成时仅软提醒一次并提示在用户转向时调用 `clear`，避免被打断后被旧计划绑架。
 - Vetta CLI guidance is no longer injected into every command-capable agent session; desktop hosts now opt in by appending `VETTA_CLI_GUIDANCE` only for eligible conversation sessions.
 - **`models.json` ProviderConfig schema 容忍预设模板字段（ADR-0015）**：`ProviderConfigSchema` 新增可选 `source` / `templateId` / `icon` 三个字段。这些由 desktop-app 的「预设服务商」(BYOK 模板) 采纳流程写入共享的 `~/.vetta/agent/models.json`；coding-agent 不感知模板、不做拉取/合并，仅需校验时容忍这些字段不报错，照常把采纳后的条目当普通 provider 加载使用。
@@ -9,6 +10,8 @@
 
 ### Added
 
+- 新增 Langfuse tracing 启用路径：设置 `VETTA_TRACING=langfuse` 后，`createAgentSession` 自动创建 Langfuse exporter，并固定上传 agent/LLM/tool 明细及 prompt、completion、tool input/output 正文。宿主也可通过 `CreateAgentSessionOptions.tracer` 注入其它平台的 `RuntimeTracer`。
+- 新增 `VETTA_TRACING_TRACE_NAME` / `tracingTraceName` 填充 Langfuse Trace Name。
 - **新增 `ask_user_question` 内置工具（ADR-0014）**：让 agent 在执行途中向用户提一组多选题（`questions` 1-4，每题 2-4 个选项，支持 `multiSelect` 与选项级 `badges`，自动附「Other」自由输入）并阻塞等待回答。返回走自然语言拼接（`"Q"="A"`，取消时明确告知用户拒绝）。工具由宿主经 `CreateAgentSessionOptions.askUserQuestion` 能力注入（`AskUserQuestionCapability { isEnabled, ask }`）；`AgentSession` 在每个 `prompt()` 入口比对 `isEnabled()` 与上次构建态，变化即重建工具集——故「能力存在与否=工具是否注册」，可不重启 session 动态启停，复刻 MCP / 个性化的 per-prompt 懒重建。`system-prompt.ts` 登记简述。详见 `docs/adr/0014-ask-user-question-gated-by-handler-presence.md`。
 - **个性化：人设预设 + 自定义指令追加进系统提示词（ADR-0013）**：人设以「一人设一个 md」管理在 `src/core/personas/*.md`（frontmatter 存 `id / label / description`，正文存提示词，英文撰写；文件名排序决定展示顺序），首期含 `pragmatic`（务实）+ `interactive`（交互）。构建期 `scripts/generate-personas.mjs` 把 md 内联成 `src/core/personas-data.ts`，`src/core/personas.ts` 引入合成 `PERSONAS`，`default`（no-op、无正文）在代码里合成并永远置顶——**运行时零文件系统依赖**（coding-agent 被 desktop 打进 bundle，运行时 `__dirname` 读盘会失效）。`bun run build` 先跑 `generate:personas` 再 tsgo，根 `build`/`build:cli` 自动带上。导出 `PERSONAS / Persona / getPersonaPrompt / DEFAULT_PERSONA_ID`。`SettingsManager` 新增 `personalization` 块（`PersonalizationSettings { personaId?, customPrompt? }`）、`getPersonalization()`（应用默认值）与 `reloadPersonalizationSettings()`（仅重读 personalization 块，纯文件读、不动其他 in-memory 状态）。`buildSystemPrompt` 新增 `personalization?` 参数，拼到系统提示词末尾（date/cwd 页脚之前，recency 最高）；`AgentSession._rebuildSystemPrompt` 按「人设在前、自定义指令在后」组合，默认人设贡献空串、两者皆空则不追加。`AgentSession.prompt()` 入口新增个性化懒重建：先 `reloadPersonalizationSettings()`，再按签名（personaId + customPrompt）比对——相等走 fast-path 无副作用，变化才重建系统提示词并 `setSystemPrompt`，令本轮 prompt 立即生效。语义复刻 MCP / image budget 的 lazy-reload-at-prompt 模式：desktop 写盘不 fan-out，每个 session 在下一条消息按需重建。刻意不复用 `APPEND_SYSTEM.md`（该路径无 per-prompt 懒重载、无结构、与用户手改文件冲突），详见 `docs/adr/0013-personalization-via-settings-not-append-system-md.md`。
 - **MCP HTTP transport 支持**：`McpServerConfig` 改为 stdio/http 联合类型。`type: "http"` 配置走 `@modelcontextprotocol/sdk` 的 `StreamableHTTPClientTransport`，支持 `url` 和可选 `headers`（含 `${VAR}` 替换）。原 stdio 配置（带 `command`）行为不变，`type` 字段缺省即视为 stdio。配置示例：`{ "exa": { "type": "http", "url": "https://mcp.exa.ai/mcp" } }`。

@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { Agent, type AgentMessage, type ThinkingLevel } from "@mariozechner/pi-agent-core";
 import type { Message, Model } from "@mariozechner/pi-ai";
+import type { RuntimeTracer } from "@vetta/runtime-telemetry";
+import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
 import { AgentSession } from "./agent-session.js";
 import { AuthStorage } from "./auth-storage.js";
@@ -121,6 +123,17 @@ export interface CreateAgentSessionOptions {
 	 * 并把内置值写入 settings.json 以便下次复用。
 	 */
 	serverUrl?: string;
+
+	/**
+	 * Optional platform-neutral tracer. If omitted, VETTA_TRACING=langfuse enables Langfuse.
+	 */
+	tracer?: RuntimeTracer;
+
+	/** Trace name shown in Langfuse trace lists. */
+	tracingTraceName?: string;
+
+	/** Extra metadata propagated to tracing observations. */
+	tracingMetadata?: Record<string, unknown>;
 }
 
 /** Result from createAgentSession */
@@ -263,6 +276,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		await modelRegistry.loadRemoteModels();
 	}
 	const sessionManager = options.sessionManager ?? SessionManager.create(cwd);
+	const tracer = options.tracer ?? createLangfuseRuntimeTracerFromEnv();
 
 	if (!resourceLoader) {
 		resourceLoader = new DefaultResourceLoader({
@@ -405,6 +419,18 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		transport: settingsManager.getTransport(),
 		thinkingBudgets: settingsManager.getThinkingBudgets(),
 		maxRetryDelayMs: settingsManager.getRetrySettings().maxDelayMs,
+		tracer,
+		tracing: {
+			captureContent: true,
+			detail: "standard",
+			traceName: options.tracingTraceName ?? process.env.VETTA_TRACING_TRACE_NAME ?? "coding-agent run",
+			metadata: {
+				...options.tracingMetadata,
+				app: "coding-agent",
+				cwd,
+				sessionId: sessionManager.getSessionId(),
+			},
+		},
 		getApiKey: async (provider) => {
 			// Use the provider argument from the in-flight request;
 			// agent.state.model may already be switched mid-turn.
