@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
@@ -13,6 +13,7 @@ import { useTheme } from "./shared/hooks/useTheme";
 import { useAuth } from "./domains/auth/hooks/useAuth";
 import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useUpdaterInit } from "./shared/hooks/useUpdaterInit";
+import { useNarrowScreen } from "./shared/hooks/useNarrowScreen";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
 import { useFlowingInit } from "./domains/flowing/hooks/useFlowingInit";
@@ -60,10 +61,16 @@ const ROUTE_TITLES: Array<{ match: RegExp; title: string }> = [
 
 function PageHeader({
 	sidebarCollapsed,
+	narrow,
 	onExpandSidebar,
+	onOverlayOpen,
+	onOverlayClose,
 }: {
 	sidebarCollapsed: boolean;
+	narrow: boolean;
 	onExpandSidebar: () => void;
+	onOverlayOpen: () => void;
+	onOverlayClose: () => void;
 }): JSX.Element {
 	const matches = useMatches();
 	const path = matches[matches.length - 1]?.pathname ?? "/";
@@ -71,6 +78,8 @@ function PageHeader({
 	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
 	const fallbackTitle = ROUTE_TITLES.find((r) => r.match.test(path))?.title ?? "Vetta";
 	const title = titleOverride && titleOverride.length > 0 ? titleOverride : fallbackTitle;
+	// 窄屏始终显示触发按钮（悬浮即唤出浮层）；宽屏仅在手动收起时显示。
+	const triggerVisible = narrow || sidebarCollapsed;
 
 	return (
 		<div
@@ -78,23 +87,25 @@ function PageHeader({
 				!isMac && "h-8"
 			)}
 			style={{
-				paddingLeft: isMac && sidebarCollapsed ? 78 : 12,
+				paddingLeft: isMac && triggerVisible ? 78 : 12,
 				paddingRight: isMac ? 12 : 0,
 				marginBottom: isMac ? 0 : 10
 			}}
 		>
 			<div className="no-drag flex min-w-0 items-center gap-2">
 				<AnimatePresence initial={false}>
-					{sidebarCollapsed && (
+					{triggerVisible && (
 						<motion.button
 							key="expand"
 							type="button"
-							onClick={onExpandSidebar}
+							onClick={narrow ? onOverlayOpen : onExpandSidebar}
+							onMouseEnter={narrow ? onOverlayOpen : undefined}
+							onMouseLeave={narrow ? onOverlayClose : undefined}
 							initial={{ opacity: 0, scale: 0.85, width: 0 }}
 							animate={{ opacity: 1, scale: 1, width: 28 }}
 							exit={{ opacity: 0, scale: 0.85, width: 0 }}
 							transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
-							title="展开侧边栏"
+							title={narrow ? "侧边栏" : "展开侧边栏"}
 							className="flex h-7 shrink-0 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 						>
 							<span className="icon-[solar--sidebar-minimalistic-linear] h-4 w-4" />
@@ -141,6 +152,38 @@ export function RootLayout(): JSX.Element {
 	const toggleSidebar = useCallback(() => {
 		setSidebarCollapsed((v) => !v);
 	}, [setSidebarCollapsed]);
+
+	// 响应式侧边栏：窄屏时不挤压布局，改为悬浮浮层（hover 唤出，移出即隐藏）。
+	const narrow = useNarrowScreen();
+	const [overlayOpen, setOverlayOpen] = useState(false);
+	const overlayCloseTimerRef = useRef<number | null>(null);
+	const cancelOverlayClose = useCallback(() => {
+		if (overlayCloseTimerRef.current != null) {
+			window.clearTimeout(overlayCloseTimerRef.current);
+			overlayCloseTimerRef.current = null;
+		}
+	}, []);
+	const openOverlay = useCallback(() => {
+		cancelOverlayClose();
+		setOverlayOpen(true);
+	}, [cancelOverlayClose]);
+	const closeOverlay = useCallback(() => {
+		cancelOverlayClose();
+		setOverlayOpen(false);
+	}, [cancelOverlayClose]);
+	// 触发按钮 → 浮层之间留出短暂宽限，避免指针经过间隙时闪烁。
+	const scheduleOverlayClose = useCallback(() => {
+		cancelOverlayClose();
+		overlayCloseTimerRef.current = window.setTimeout(() => setOverlayOpen(false), 120);
+	}, [cancelOverlayClose]);
+	// 退出窄屏时复位浮层状态。
+	useEffect(() => {
+		if (!narrow) {
+			cancelOverlayClose();
+			setOverlayOpen(false);
+		}
+	}, [narrow, cancelOverlayClose]);
+
 	useTheme();
 	useAuth();
 	useAppInit();
@@ -329,9 +372,9 @@ export function RootLayout(): JSX.Element {
 	return (
 		<TooltipProvider>
 			<div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
-				<div className="flex flex-1 gap-2 overflow-hidden p-2">
+				<div className="relative flex flex-1 gap-2 overflow-hidden p-2">
 					<AnimatePresence initial={false}>
-						{!sidebarCollapsed && (
+						{!narrow && !sidebarCollapsed && (
 							<motion.div
 								key="sidebar"
 								initial={{ width: 0, opacity: 0, marginRight: -8 }}
@@ -344,10 +387,30 @@ export function RootLayout(): JSX.Element {
 							</motion.div>
 						)}
 					</AnimatePresence>
+					{/* 窄屏悬浮侧边栏：绝对定位覆盖在内容之上，不挤压布局；移出即隐藏 */}
+					<AnimatePresence>
+						{narrow && overlayOpen && (
+							<motion.div
+								key="sidebar-overlay"
+								initial={{ opacity: 0, x: -12 }}
+								animate={{ opacity: 1, x: 0 }}
+								exit={{ opacity: 0, x: -12 }}
+								transition={{ duration: 0.18, ease: [0.22, 0.61, 0.36, 1] }}
+								onMouseEnter={openOverlay}
+								onMouseLeave={closeOverlay}
+								className="absolute inset-y-2 left-2 z-50 overflow-hidden rounded-[10px] shadow-2xl shadow-black/30"
+							>
+								<Sidebar onOpenSession={openSession} onCollapse={closeOverlay} />
+							</motion.div>
+						)}
+					</AnimatePresence>
 					<main className="relative flex min-w-[320px] flex-1 flex-col overflow-hidden bg-transparent">
 						<PageHeader
 							sidebarCollapsed={sidebarCollapsed}
+							narrow={narrow}
 							onExpandSidebar={toggleSidebar}
+							onOverlayOpen={openOverlay}
+							onOverlayClose={scheduleOverlayClose}
 						/>
 						<div className="flex flex-1 overflow-hidden">
 							<Outlet />
