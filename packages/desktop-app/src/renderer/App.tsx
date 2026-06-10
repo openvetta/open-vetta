@@ -400,7 +400,7 @@ export function RootLayout(): JSX.Element {
 								onMouseLeave={closeOverlay}
 								className="absolute inset-y-2 left-2 z-50 overflow-hidden rounded-[10px] shadow-2xl shadow-black/30"
 							>
-								<Sidebar onOpenSession={openSession} onCollapse={closeOverlay} />
+								<Sidebar onOpenSession={openSession} onCollapse={closeOverlay} floating />
 							</motion.div>
 						)}
 					</AnimatePresence>
