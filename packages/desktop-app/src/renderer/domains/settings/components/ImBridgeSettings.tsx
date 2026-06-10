@@ -548,7 +548,7 @@ export function ImBridgeSettings(): JSX.Element {
 				description="IM 桥接拉起的 coding-agent 子进程会用这个模型回复消息；未设置时跟随 Vetta 全局默认模型。"
 			>
 				<SettingRow title="模型" description="可以用模型配置中的模型">
-					<div className="flex items-center gap-2">
+					<div className="flex flex-wrap items-center gap-2">
 						<Select
 							value={
 								config.agentModel ? `${config.agentModel.provider}/${config.agentModel.model}` : MODEL_NONE
@@ -601,7 +601,7 @@ export function ImBridgeSettings(): JSX.Element {
 							type="button"
 							onClick={() => void handleProbeModel()}
 							disabled={probing || !config.agentModel}
-							className="inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+							className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 						>
 							<span>测试连通</span>
 							{probing ? (
