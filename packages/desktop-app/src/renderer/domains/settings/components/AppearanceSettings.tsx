@@ -263,7 +263,7 @@ export function AppearanceSettings(): JSX.Element {
 
 			<div className="mb-6">
 				<SettingHeading section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
-				<div className="grid grid-cols-3 gap-x-4 gap-y-4">
+				<div className={cn("grid gap-x-4 gap-y-4", narrow ? "grid-cols-1" : "grid-cols-3")}>
 					{THEMES.map((t) => (
 						<ThemeCard
 							key={t.id}
