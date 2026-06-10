@@ -793,7 +793,7 @@ export function SkillsPage(): JSX.Element {
 								placeholder={`搜索${typeTab === "scene" ? "场景" : "技能"}...`}
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								className="h-8 w-56 rounded-full border border-border/60 bg-card/40 pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors focus:border-primary/40 focus:outline-none"
+								className="h-8 w-56 rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30"
 							/>
 						</div>
 						{typeTab === "skill" && (
