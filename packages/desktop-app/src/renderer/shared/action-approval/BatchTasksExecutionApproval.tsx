@@ -33,10 +33,12 @@ function parseExecutionInput(input: DesktopActionApprovalRequest["input"]): Exec
 
 const operationDetails: Record<
 	ExecutionOperation,
-	{ label: string; icon: string; description: string; warning?: string; destructive?: boolean }
+	{ label: string; title: string; summary: string; icon: string; description: string; warning?: string; destructive?: boolean }
 > = {
 	"delete-all": {
 		label: "删除全部任务",
+		title: "删除全部批量任务确认",
+		summary: "请确认是否删除该项目内所有非运行子任务。运行中的任务会保留。",
 		icon: "icon-[mdi--delete-sweep-outline]",
 		description: "删除项目内所有非运行任务；运行中的任务会保留。",
 		warning: "排队任务会先移出队列，随后连同任务记录、会话状态和产物目录永久删除。",
@@ -44,11 +46,15 @@ const operationDetails: Record<
 	},
 	start: {
 		label: "开始执行",
+		title: "开始执行批量项目确认",
+		summary: "请确认是否开始执行该批量项目。待执行和已暂停任务会进入执行流程。",
 		icon: "icon-[mdi--play-circle-outline]",
 		description: "将所有待执行任务加入队列，并继续已暂停任务；已完成或失败任务不会重跑。",
 	},
 	stop: {
 		label: "停止并清理",
+		title: "停止批量项目执行确认",
+		summary: "请确认是否停止该项目中的未完成任务，并清理相关会话、状态和产物。",
 		icon: "icon-[mdi--stop-circle-outline]",
 		description: "停止项目中的全部未完成任务，保留已完成任务。",
 		warning: "排队、运行、失败和暂停任务的会话、状态及产物目录会被清理并重置为待执行。",
@@ -56,6 +62,8 @@ const operationDetails: Record<
 	},
 	reset: {
 		label: "清空并重跑",
+		title: "清空并重跑批量项目确认",
+		summary: "请确认是否清空该项目全部任务状态和产物，并立即重新执行整个项目。",
 		icon: "icon-[mdi--restart]",
 		description: "清空整个项目的执行状态和产物，然后立即重新执行全部任务。",
 		warning: "全部任务的会话、状态和产物目录都会被删除，包括已完成任务。该操作无法撤销。",
@@ -63,6 +71,8 @@ const operationDetails: Record<
 	},
 	"reset-failed": {
 		label: "重置失败任务",
+		title: "重置失败批量任务确认",
+		summary: "请确认是否清理所选失败任务。只有当前状态为失败的任务会被处理。",
 		icon: "icon-[mdi--refresh-circle]",
 		description: "清理所选失败任务；项目仍在执行时会立即重新入队，否则恢复为待执行。",
 		warning: "所选失败任务的旧会话、错误状态和已有产物会被删除。",
@@ -126,7 +136,9 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 						</div>
 						<div className="min-w-0 flex-1">
 							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="text-[15px] font-semibold text-foreground">批量执行控制确认</h2>
+								<h2 className="text-[15px] font-semibold text-foreground">
+									{detail?.title ?? "批量执行控制确认"}
+								</h2>
 								{detail && (
 									<span
 										className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -139,7 +151,9 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 									</span>
 								)}
 							</div>
-							<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
+							<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+								{detail?.summary ?? request.summary}
+							</p>
 						</div>
 					</div>
 				</div>

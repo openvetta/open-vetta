@@ -88,6 +88,21 @@ const operationLabels = {
 	delete: "删除项目",
 } as const;
 
+const operationDisplays: Record<ProjectInput["operation"], { title: string; summary: string }> = {
+	create: {
+		title: "创建批量项目确认",
+		summary: "请确认即将创建的批量项目配置。确认后会为每个源文件夹生成一个子任务。",
+	},
+	update: {
+		title: "更新批量项目确认",
+		summary: "请确认即将写入的批量项目变更。确认界面已合并当前配置，并只会追加新的源文件夹。",
+	},
+	delete: {
+		title: "删除批量项目确认",
+		summary: "请确认是否删除该批量项目、全部子任务、会话状态和任务产物。此操作无法撤销。",
+	},
+};
+
 function ValueRow({ label, value }: { label: string; value: string | number }): JSX.Element {
 	return (
 		<div className="flex items-start justify-between gap-4 py-1.5">
@@ -180,22 +195,22 @@ function BatchTasksProjectApprovalContent({
 	const { request, responding, error, approve, reject } = approval;
 
 	useEffect(() => {
-		console.info("[action-approval:batch-tasks.project] request", {
+		console.info("[action-approval:batch-tasks.project] request " + JSON.stringify({
 			approvalId: request.approvalId,
 			input: request.input,
 			parsedInput,
 			cachedProject,
-		});
+		}));
 	}, [cachedProject, parsedInput, request.approvalId, request.input]);
 
 	useEffect(() => {
 		if (!needsProject) return;
 		if (cachedProject) {
-			console.info("[action-approval:batch-tasks.project] source", {
+			console.info("[action-approval:batch-tasks.project] source " + JSON.stringify({
 				approvalId: request.approvalId,
 				source: "atom",
 				project: cachedProject,
-			});
+			}));
 			return;
 		}
 		let cancelled = false;
@@ -204,21 +219,21 @@ function BatchTasksProjectApprovalContent({
 			.then((projects) => {
 				if (cancelled) return;
 				const project = getCurrentProject(projects, parsedInput?.projectId);
-				console.info("[action-approval:batch-tasks.project] query", {
+				console.info("[action-approval:batch-tasks.project] query " + JSON.stringify({
 					approvalId: request.approvalId,
 					requestedProjectId: parsedInput?.projectId,
 					returnedProjectIds: projects.map((candidate) => candidate.id),
 					matchedProject: project,
-				});
+				}));
 				setCurrentProject(project);
 				if (!project) setLoadError("未找到当前批量项目，无法加载完整配置。");
 			})
 			.catch((error: unknown) => {
-				console.error("[action-approval:batch-tasks.project] query-failed", {
+				console.error("[action-approval:batch-tasks.project] query-failed " + JSON.stringify({
 					approvalId: request.approvalId,
 					requestedProjectId: parsedInput?.projectId,
 					error,
-				});
+				}));
 				if (!cancelled) setLoadError("加载当前批量项目配置失败。");
 			})
 			.finally(() => {
@@ -297,6 +312,7 @@ function BatchTasksProjectApprovalContent({
 	const canApprove =
 		!responding &&
 		(!isEditable || hasCreateRequiredData(formData));
+	const display = input ? operationDisplays[input.operation] : null;
 
 	const content = (
 		<>
@@ -313,7 +329,9 @@ function BatchTasksProjectApprovalContent({
 					</div>
 					<div className="min-w-0 flex-1">
 						<div className="flex flex-wrap items-center gap-2">
-							<h2 className="text-[15px] font-semibold text-foreground">批量项目操作确认</h2>
+							<h2 className="text-[15px] font-semibold text-foreground">
+								{display?.title ?? "批量项目操作确认"}
+							</h2>
 							{input && (
 								<span
 									className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -324,7 +342,9 @@ function BatchTasksProjectApprovalContent({
 								</span>
 							)}
 						</div>
-						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">{request.summary}</p>
+						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+							{display?.summary ?? request.summary}
+						</p>
 					</div>
 				</div>
 			</div>
