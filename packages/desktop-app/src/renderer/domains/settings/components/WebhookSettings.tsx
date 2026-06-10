@@ -16,6 +16,7 @@ import {
 } from "@shared/components/ui/dialog";
 import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
@@ -82,6 +83,7 @@ export function WebhookSettings(): JSX.Element {
 	const [saving, setSaving] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
 	const [rowMessage, setRowMessage] = useState<Record<string, { ok: boolean; text: string }>>({});
+	const narrow = useNarrowScreen();
 
 	const refresh = useCallback(async () => {
 		const [list, provs] = await Promise.all([
@@ -253,6 +255,39 @@ export function WebhookSettings(): JSX.Element {
 						{endpoints.map((ep) => {
 							const provider = providerByKind.get(ep.kind);
 							const message = rowMessage[ep.id];
+							const controls = (
+								<div className="flex shrink-0 items-center gap-2">
+									<Switch
+										checked={ep.enabled}
+										onCheckedChange={(v) => void handleToggle(ep, v)}
+									/>
+									<button
+										type="button"
+										onClick={() => void handleTest(ep)}
+										disabled={testingId === ep.id}
+										className="whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+										title="发送测试消息"
+									>
+										{testingId === ep.id ? "测试中..." : "测试"}
+									</button>
+									<button
+										type="button"
+										onClick={() => openEdit(ep)}
+										className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+										title="编辑"
+									>
+										<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
+									</button>
+									<button
+										type="button"
+										onClick={() => void handleDelete(ep)}
+										className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+										title="删除"
+									>
+										<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
+									</button>
+								</div>
+							);
 							return (
 								<div key={ep.id} className="flex flex-col gap-2 px-5 py-3">
 									<div className="flex items-center gap-3">
@@ -280,38 +315,10 @@ export function WebhookSettings(): JSX.Element {
 												{ep.urlMask ?? "—"}
 											</div>
 										</div>
-										<div className="flex shrink-0 items-center gap-2">
-											<Switch
-												checked={ep.enabled}
-												onCheckedChange={(v) => void handleToggle(ep, v)}
-											/>
-											<button
-												type="button"
-												onClick={() => void handleTest(ep)}
-												disabled={testingId === ep.id}
-												className="whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-												title="发送测试消息"
-											>
-												{testingId === ep.id ? "测试中..." : "测试"}
-											</button>
-											<button
-												type="button"
-												onClick={() => openEdit(ep)}
-												className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-												title="编辑"
-											>
-												<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
-											</button>
-											<button
-												type="button"
-												onClick={() => void handleDelete(ep)}
-												className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
-												title="删除"
-											>
-												<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
-											</button>
-										</div>
+										{!narrow && controls}
 									</div>
+									{/* 极窄：控件挪到第二行右对齐，避免与名称/badge 互相挤压 */}
+									{narrow && <div className="flex justify-end">{controls}</div>}
 									{message && (
 										<div
 											className={cn(
