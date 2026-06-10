@@ -263,15 +263,15 @@ export function WebhookSettings(): JSX.Element {
 											)}
 										/>
 										<div className="min-w-0 flex-1">
-											<div className="flex items-center gap-2">
+											<div className="flex min-w-0 items-center gap-2">
 												<span className="truncate text-[13px] font-medium text-foreground">
 													{ep.name}
 												</span>
-												<span className="rounded-full bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+												<span className="shrink-0 whitespace-nowrap rounded-full bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] text-muted-foreground">
 													{provider?.displayName ?? ep.kind}
 												</span>
 												{ep.hasSignSecret && (
-													<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
+													<span className="shrink-0 whitespace-nowrap rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
 														加签
 													</span>
 												)}
@@ -280,35 +280,37 @@ export function WebhookSettings(): JSX.Element {
 												{ep.urlMask ?? "—"}
 											</div>
 										</div>
-										<Switch
-											checked={ep.enabled}
-											onCheckedChange={(v) => void handleToggle(ep, v)}
-										/>
-										<button
-											type="button"
-											onClick={() => void handleTest(ep)}
-											disabled={testingId === ep.id}
-											className="rounded-md border border-input bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-											title="发送测试消息"
-										>
-											{testingId === ep.id ? "测试中..." : "测试"}
-										</button>
-										<button
-											type="button"
-											onClick={() => openEdit(ep)}
-											className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-											title="编辑"
-										>
-											<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
-										</button>
-										<button
-											type="button"
-											onClick={() => void handleDelete(ep)}
-											className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
-											title="删除"
-										>
-											<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
-										</button>
+										<div className="flex shrink-0 items-center gap-2">
+											<Switch
+												checked={ep.enabled}
+												onCheckedChange={(v) => void handleToggle(ep, v)}
+											/>
+											<button
+												type="button"
+												onClick={() => void handleTest(ep)}
+												disabled={testingId === ep.id}
+												className="whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+												title="发送测试消息"
+											>
+												{testingId === ep.id ? "测试中..." : "测试"}
+											</button>
+											<button
+												type="button"
+												onClick={() => openEdit(ep)}
+												className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+												title="编辑"
+											>
+												<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
+											</button>
+											<button
+												type="button"
+												onClick={() => void handleDelete(ep)}
+												className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
+												title="删除"
+											>
+												<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
+											</button>
+										</div>
 									</div>
 									{message && (
 										<div

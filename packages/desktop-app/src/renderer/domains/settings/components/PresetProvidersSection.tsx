@@ -197,15 +197,15 @@ export function PresetProvidersSection({
 									/>
 									<ProviderIcon symbol={row.icon} className="h-7 w-7" />
 									<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-											{row.displayName}
+										<div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-foreground">
+											<span className="truncate">{row.displayName}</span>
 											{adopted && (
-												<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+												<span className="shrink-0 whitespace-nowrap rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 													已启用
 												</span>
 											)}
 											{row.offline && (
-												<span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+												<span className="shrink-0 whitespace-nowrap rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
 													服务端已下线
 												</span>
 											)}
@@ -215,7 +215,7 @@ export function PresetProvidersSection({
 										</div>
 									</div>
 								</button>
-								<div className="flex items-center gap-1">
+								<div className="flex shrink-0 items-center gap-1">
 									{adopted ? (
 										<>
 											<button
