@@ -161,7 +161,10 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 
 	// 窄屏：活动面板不再挤压内容，改为从底部升起的全宽 bottom sheet。
 	// 内联预览（接管整块内容区）保持原样，不走 sheet。
-	const bottomSheet = narrow && isOpen && !inlinePreviewActive;
+	// narrowSheet 时完全不渲染 in-flow 的 <aside>，否则父级 flex 的 gap 会在
+	// 右侧多留一道间距，导致输入栏左右边距不一致。
+	const narrowSheet = narrow && !inlinePreviewActive;
+	const bottomSheet = narrowSheet && isOpen;
 
 	const panelBody = (
 		<>
@@ -194,7 +197,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 
 	return (
 		<>
-			{!bottomSheet && (
+			{!narrowSheet && (
 				<aside
 					style={
 						inlinePreviewActive
