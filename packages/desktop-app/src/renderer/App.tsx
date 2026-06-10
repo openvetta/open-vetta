@@ -397,7 +397,10 @@ export function RootLayout(): JSX.Element {
 								exit={{ opacity: 0, x: -12 }}
 								transition={{ duration: 0.18, ease: [0.22, 0.61, 0.36, 1] }}
 								onMouseEnter={openOverlay}
-								onMouseLeave={closeOverlay}
+								// 缓冲关闭：浮层四周留有 8px 缝，且关闭时会露出 PageHeader 触发按钮。
+								// 指针在顶部边缘微动会反复穿越「浮层↔缝/触发按钮」，若立即关闭便与触发
+								// 按钮的重新打开形成 open/close 抖动。改用 120ms 宽限，re-enter 即取消。
+								onMouseLeave={scheduleOverlayClose}
 								// no-drag：挖掉浮层脚下 PageHeader 的 -webkit-app-region: drag，
 								// 否则与其重叠的区域鼠标事件被 OS 拖拽区吞掉，触发 mouseleave 误隐藏。
 								className="no-drag absolute inset-y-2 left-2 z-50 overflow-hidden rounded-[10px] shadow-2xl shadow-black/30"
