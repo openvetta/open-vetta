@@ -50,12 +50,18 @@ export function TabBar<T extends string>({
 							? "rounded-tr-lg"
 							: "rounded-t-lg";
 				return (
-					<button
+					<motion.button
 						key={key}
 						type="button"
+						layout
+						transition={
+							suppressLayoutAnimation
+								? { duration: 0 }
+								: { type: "spring", stiffness: 480, damping: 36, mass: 0.8 }
+						}
 						onClick={() => onChange(key)}
 						className={cn(
-							"relative flex select-none items-center gap-1.5 whitespace-nowrap text-[11px] font-medium leading-none transition-all duration-150",
+							"relative flex select-none items-center gap-1.5 whitespace-nowrap text-[11px] font-medium leading-none transition-[color,background-color,border-radius] duration-150",
 							cornerClass,
 							active
 								? "h-[34px] px-4 text-foreground"
@@ -86,7 +92,7 @@ export function TabBar<T extends string>({
 								</span>
 							) : null}
 						</span>
-					</button>
+					</motion.button>
 				);
 			})}
 		</div>
