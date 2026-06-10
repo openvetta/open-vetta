@@ -265,8 +265,8 @@ export function AgentSettings(): JSX.Element {
 			<div className="mt-2">
 				<SettingSection section={SETTINGS_SECTION["agent-experimental"]}>
 					<SettingRow
-						title="Vetta CLI"
-						description="开启后，仅在新建的对话会话中让 agent 使用 Vetta 应用操作能力，不影响 Claw、批量任务或自动化。"
+						title="Vetta 应用操作"
+						description="开启后，在新建的对话会话中让 agent 使用 Vetta 应用操作能力。"
 					>
 						<Switch checked={vettaCliEnabled} onCheckedChange={handleToggleVettaCli} />
 					</SettingRow>
@@ -278,7 +278,7 @@ export function AgentSettings(): JSX.Element {
 					</SettingRow>
 					<SettingRow
 						title="后台任务"
-						description="开启后，agent 可将耗时命令（构建、测试等）转入后台执行并在完成时收到通知继续处理。批量任务始终禁用。切换后对新打开的会话生效。"
+						description="开启后，agent 可将耗时命令（构建、测试等）转入后台执行并在完成时收到通知继续处理。切换后对新打开的会话生效。"
 						border={false}
 					>
 						<Switch checked={backgroundTasksEnabled} onCheckedChange={handleToggleBackgroundTasks} />
