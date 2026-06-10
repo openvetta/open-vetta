@@ -186,7 +186,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 						suppressLayoutAnimation={isResizing}
 					/>
 				)}
-				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
 					{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
 					    新 cwd 重新拉取，避免上个 session 的卡片内容残留。 */}
 					<div key={cwd ?? "__none__"} className="flex min-h-0 flex-1 flex-col">
