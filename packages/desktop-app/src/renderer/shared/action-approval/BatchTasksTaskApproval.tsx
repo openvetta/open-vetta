@@ -82,7 +82,7 @@ const operationDetails: Record<
 	},
 	"resume-with-text": {
 		label: "带说明继续",
-		icon: "icon-[mdi--message-play-outline]",
+		icon: "icon-[mdi--message-plus-outline]",
 		description: "将补充说明发送给暂停的原会话，然后继续执行。",
 	},
 	"delete-session": {

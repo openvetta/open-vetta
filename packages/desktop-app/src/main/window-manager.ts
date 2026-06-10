@@ -30,7 +30,7 @@ export function setMainWindow(win: BrowserWindow | null): void {
 
 export function createWindow(): BrowserWindow {
 	const windowLog = getAppLogger("window");
-	const rendererLog = getAppLogger("renderer");
+	const rendererLog = getAppLogger("renderer", "render");
 	const preloadPath = join(resDir, "preload/index.js");
 	const rendererPath = join(resDir, "renderer/index.html");
 	windowLog.info("create", {

@@ -1136,7 +1136,6 @@ export class RuntimeHost implements SessionFacade {
 		const events: SessionEvent[] = [];
 
 		if (event.type === "agent_start") {
-			console.log(`[RuntimeHost.event] session=${sessionId} type=agent_start`);
 			const startedAt = Date.now();
 			this.currentTurnStartedAt.set(sessionId, startedAt);
 			events.push(this.lifecycleEvent(sessionId, "agent_start", startedAt));
@@ -1144,19 +1143,16 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		if (event.type === "turn_start") {
-			console.log(`[RuntimeHost.event] session=${sessionId} type=turn_start`);
 			events.push(this.lifecycleEvent(sessionId, "turn_start"));
 			return events;
 		}
 
 		if (event.type === "turn_end") {
-			console.log(`[RuntimeHost.event] session=${sessionId} type=turn_end`);
 			events.push(this.lifecycleEvent(sessionId, "turn_end"));
 			return events;
 		}
 
 		if (event.type === "agent_end") {
-			console.log(`[RuntimeHost.event] session=${sessionId} type=agent_end`);
 			const endedAt = Date.now();
 			this.persistAssistantTurnTiming(sessionId, session, endedAt);
 			events.push(this.lifecycleEvent(sessionId, "agent_end", endedAt));

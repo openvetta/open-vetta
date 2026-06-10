@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { net } from "electron";
 import { DEFAULT_IM_CONVERSATION_CWD } from "../ipc/fs.js";
 import { fetchRemoteProviders } from "../ipc/settings.js";
+import { getAppLogger } from "../logger.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
 import { buildCodingAgentSpec } from "./coding-agent-spec.js";
 import {
@@ -114,6 +115,7 @@ export class ImHost {
 	readonly statusStore = new StatusStore();
 	readonly logBuffer = new LogBuffer(500);
 
+	private readonly logger = getAppLogger("sidecar", "im");
 	private config: ImConfig = defaultImConfig();
 	private credentials: ImCredentials = {};
 	private state: ImStateFile = { version: 3, sessions: [] };
@@ -140,7 +142,7 @@ export class ImHost {
 					if (this.statusStore.get().transport !== "awaiting_bind") {
 						this.statusStore.patch({ transport: "online", lastError: undefined });
 					}
-					this.logBuffer.push({
+					this.pushLog({
 						type: "log",
 						level: "info",
 						msg: `sidecar ready ${event.transport} v${event.version}`,
@@ -155,7 +157,7 @@ export class ImHost {
 					});
 				},
 				onLog: (event) => {
-					this.logBuffer.push(event);
+					this.pushLog(event);
 				},
 				onMetric: (event) => {
 					if (event.name === "active_sessions") {
@@ -708,12 +710,18 @@ export class ImHost {
 	}
 
 	private appendLog(level: LogEvent["level"], msg: string): void {
-		this.logBuffer.push({
+		this.pushLog({
 			type: "log",
 			level,
 			msg,
 			time: new Date().toISOString(),
 		});
+	}
+
+	private pushLog(event: LogEvent): void {
+		const args = event.fields ? [event.msg, event.fields] : [event.msg];
+		this.logger[event.level](...args);
+		this.logBuffer.push(event);
 	}
 }
 
