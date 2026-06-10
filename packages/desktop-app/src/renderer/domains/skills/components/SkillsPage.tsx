@@ -347,7 +347,7 @@ function SceneCard({
 			transition={{ type: "spring", stiffness: 280, damping: 26 }}
 			whileHover={{ y: -2 }}
 			onClick={previewable ? () => onPreview?.(scene) : undefined}
-			className={`group relative flex flex-col overflow-hidden rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm transition-colors duration-200 hover:border-primary/40 hover:bg-card/60 ${
+			className={`group relative flex flex-col overflow-hidden rounded-xl bg-muted transition-colors duration-200 hover:bg-accent ${
 				previewable ? "cursor-pointer" : ""
 			}`}
 		>
