@@ -365,8 +365,9 @@ function assertPathWithinProject(targetPath: string): void {
  * 除已注册的项目根外，额外允许用户主目录（~）内的文件——
  * 这样 agent 写到 ~/Desktop 等位置的产物点击后也能预览，
  * 同时仍拦截 /etc、/System 等主目录之外的系统路径。
+ * media-protocol（音频流式预览）与 READ_FILE 共用这道边界。
  */
-function assertPathReadableForPreview(targetPath: string): void {
+export function assertPathReadableForPreview(targetPath: string): void {
 	if (isWithinAllowedRoots(targetPath)) return;
 	if (isPathWithin(homedir(), targetPath)) return;
 	throw new Error("Path is outside any previewable directory");

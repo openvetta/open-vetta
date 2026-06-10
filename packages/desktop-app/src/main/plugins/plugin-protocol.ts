@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { protocol } from "electron";
+import { type CustomScheme, protocol } from "electron";
 import { resolvePluginFilePath } from "./plugin-store.js";
 
 function contentTypeForPath(path: string): string {
@@ -101,28 +101,30 @@ export const definePlugin = sdk.definePlugin;
 	return new Response("Not found", { status: 404 });
 }
 
-export function registerPluginSchemes(): void {
-	protocol.registerSchemesAsPrivileged([
-		{
-			scheme: "vetta-plugin",
-			privileges: {
-				standard: true,
-				secure: true,
-				supportFetchAPI: true,
-				corsEnabled: true,
-			},
+/**
+ * registerSchemesAsPrivileged 整个进程只能调用一次，
+ * 故此处只导出特权声明，由 main.ts 合并所有自定义 scheme 统一注册。
+ */
+export const PLUGIN_PROTOCOL_PRIVILEGES: CustomScheme[] = [
+	{
+		scheme: "vetta-plugin",
+		privileges: {
+			standard: true,
+			secure: true,
+			supportFetchAPI: true,
+			corsEnabled: true,
 		},
-		{
-			scheme: "vetta-host",
-			privileges: {
-				standard: true,
-				secure: true,
-				supportFetchAPI: true,
-				corsEnabled: true,
-			},
+	},
+	{
+		scheme: "vetta-host",
+		privileges: {
+			standard: true,
+			secure: true,
+			supportFetchAPI: true,
+			corsEnabled: true,
 		},
-	]);
-}
+	},
+];
 
 export function registerPluginProtocols(): void {
 	protocol.handle("vetta-plugin", async (request) => {

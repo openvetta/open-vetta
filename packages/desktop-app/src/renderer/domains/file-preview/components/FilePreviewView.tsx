@@ -7,6 +7,7 @@ import {
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PreviewErrorBoundary } from "./PreviewErrorBoundary";
+import { AudioPreview } from "../../activity-panel/components/previews/AudioPreview";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
 import { DocxPreview } from "../../activity-panel/components/previews/DocxPreview";
 import { HtmlPreview } from "../../activity-panel/components/previews/HtmlPreview";
@@ -15,6 +16,8 @@ import { MarkdownPreview } from "../../activity-panel/components/previews/Markdo
 import { PdfPreview } from "../../activity-panel/components/previews/PdfPreview";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"]);
+// Chromium 原生可解码的音频格式（ADR-0021）；wma/ape 等维持「不支持 + 下载」
+const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus", "webm"]);
 const MARKDOWN_EXTENSIONS = new Set(["md", "mdx"]);
 
 const TEXT_EXTENSIONS = new Set([
@@ -29,6 +32,7 @@ const TEXT_EXTENSIONS = new Set([
 
 const SUPPORTED_EXTENSIONS = new Set<string>([
 	...IMAGE_EXTENSIONS,
+	...AUDIO_EXTENSIONS,
 	"pdf", "docx",
 	...TEXT_EXTENSIONS,
 ]);
@@ -204,12 +208,14 @@ type LoadState =
 function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
 	const ext = useMemo(() => getExtension(item.name), [item.name]);
 	const supported = isPreviewSupported(item.name);
+	// 音频不走 readFile/fetch 全量加载：本地经媒体流协议、远程直接作 src（ADR-0021）
+	const isAudio = AUDIO_EXTENSIONS.has(ext);
 	const theme = useAtomValue(resolvedThemeAtom);
 
 	const [state, setState] = useState<LoadState>({ status: "loading" });
 
 	useEffect(() => {
-		if (!supported) return;
+		if (!supported || isAudio) return;
 		let cancelled = false;
 		setState({ status: "loading" });
 
@@ -229,9 +235,14 @@ function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
 		return () => {
 			cancelled = true;
 		};
-	}, [item, ext, supported]);
+	}, [item, ext, supported, isAudio]);
 
 	if (!supported) return <UnsupportedDetail item={item} />;
+
+	if (isAudio) {
+		// key 保证切换文件时整组件重挂载，停掉上一首的播放与动画
+		return <AudioPreview key={item.path ?? item.url ?? item.name} item={item} />;
+	}
 
 	if (state.status === "loading") {
 		return (

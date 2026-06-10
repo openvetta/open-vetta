@@ -453,3 +453,17 @@ Vetta 之外的、跨 Agent 通用的 Skill 存放约定：全局 `~/.agents/ski
 
 作用域支持是 coding-agent 核心**默认开**（CLI 也享受），desktop 侧由「Agent配置 → 扩展功能 → 适配通用 Agent Skill」开关控制（默认开、可关），关闭时向会话传入禁用标志。desktop 聊天侧技能选择器（`/` SlashPanel）经 `vetta:skills:list(cwd)` **按当前会话 cwd 列出**：既有全局 `~/.agents/skills`，也有该项目的 `<cwd>/.agents/skills`（不传 cwd 则只列全局来源）。技能**市场页**（技能广场）以独立的「通用 Agent Skill」**只读分区**展示全局 `~/.agents/skills`（按当前 tab 的 skill/scene 类型分流，可预览 SKILL.md，但不可安装/卸载/启停——这些是纯文件、无平台托管）。
 _Avoid_: 把 `agents-*` 来源当成可在市场管理的条目——它们无 manifest、无平台托管，纯文件、纯展示。
+
+### 黑胶播放器（vinyl player）
+
+desktop-app 文件预览（`FilePreviewView`）中音频文件的预览形态：旋转黑胶唱片 + 唱臂起落动画 + 常规进度条 + 频谱可视化（Web Audio AnalyserNode 驱动）。覆盖 Chromium 原生可解格式（mp3/wav/ogg/flac/m4a/aac/opus/webm），其余音频格式维持「不支持 + 下载」现状。
+
+唱片中心贴文件内嵌封面（ID3 APIC / FLAC picture，主进程经 music-metadata 解析并连同标题/艺术家经 IPC 返回），无封面降级为纯 CSS 盘面 + 文件名。播放/暂停驱动唱臂搭上/抬起与唱片加速起转/减速停下；打开**不自动播放**。控制集：播放/暂停、进度 seek、音量、循环、倍速。
+
+_Avoid_: 把音频预览的「拖拽」理解为往预览面板拖文件——它专指**进度条 seek**；文件拖入语义属于 [[drop overlay (of ChatPage)]]，不因音频预览改变或新增 drop 区。
+
+### 媒体流协议（media streaming protocol）
+
+desktop-app 主进程注册的自定义 protocol（`vetta-media://`），把校验过的本地媒体路径映射为支持 Range 的流式 URL，供 `<audio>`（未来含 `<video>`）直接作 `src`。与既有预览的 `readFile` IPC + base64 全量加载**并存**：图片/pdf/docx 等小文件维持旧路径，只有音视频走本协议。见 ADR-0021。
+
+_Avoid_: 把音频也塞进 readFile base64 路径——无损音频可达百 MB，全量 IPC 会阻塞且内存翻倍。
