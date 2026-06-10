@@ -176,17 +176,17 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 				className="flex h-full flex-col pb-2 pr-2"
 				style={inlinePreviewActive ? undefined : { width }}
 			>
-				<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted/50">
-					{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab） */}
-					{tabItems.length > 0 && (
-						<TabBar
-							items={tabItems}
-							value={activeTab}
-							onChange={onTabChange}
-							suppressLayoutAnimation={isResizing}
-						/>
-					)}
-
+				{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab）。浏览器式页签悬浮在卡片上方，
+				    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。 */}
+				{tabItems.length > 0 && (
+					<TabBar
+						items={tabItems}
+						value={activeTab}
+						onChange={onTabChange}
+						suppressLayoutAnimation={isResizing}
+					/>
+				)}
+				<div className="flex flex-1 flex-col overflow-hidden rounded-xl bg-card shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)]">
 					{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
 					    新 cwd 重新拉取，避免上个 session 的卡片内容残留。 */}
 					<div key={cwd ?? "__none__"} className="flex min-h-0 flex-1 flex-col">
