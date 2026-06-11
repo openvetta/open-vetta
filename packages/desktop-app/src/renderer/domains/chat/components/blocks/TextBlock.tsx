@@ -1,13 +1,55 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { useAtomValue } from "jotai";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import type { Element as HastElement, ElementContent, Root as HastRoot, Text as HastText } from "hast";
-import { resolvedThemeAtom } from "@shared/store/atoms";
+import {
+	activeSessionAtom,
+	activityPanelOpenAtom,
+	activityPanelTabByProjectAtom,
+	filePreviewAtom,
+	inlineFilePreviewAtom,
+	resolvedThemeAtom,
+} from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
+import { cn } from "@shared/lib/utils";
+import { getFileIcon } from "../../../file-explorer/components/fileIcons";
+
+/** 文件 / 链接 badge 的公共样式：半透明主题色底 + 主题色描边与文字。 */
+const LINK_BADGE_CLASS =
+	"inline-flex max-w-full items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-1.5 py-px align-middle text-[12px] font-medium text-primary no-underline transition-colors hover:bg-primary/20";
 
 const remarkPlugins = [remarkGfm];
+
+/**
+ * 判断 markdown 链接是否指向本地文件（agent 以绝对路径或 file:// 形式输出）。
+ * 命中则返回解析后的绝对路径，用于触发应用内文件预览；否则返回 null（按外链处理）。
+ */
+function resolveFileLinkPath(href: string | undefined): string | null {
+	if (!href) return null;
+	// react-markdown 会对链接目标做 percent-encoding（含中文/空格），统一解码还原真实路径。
+	const decode = (raw: string): string => {
+		try {
+			return decodeURIComponent(raw);
+		} catch {
+			return raw;
+		}
+	};
+	if (href.startsWith("file://")) {
+		return decode(href.replace(/^file:\/\//, ""));
+	}
+	// 绝对 POSIX 路径（agent 提示词要求文件引用使用绝对路径）
+	if (href.startsWith("/")) return decode(href);
+	return null;
+}
+
+/** 判断绝对路径 target 是否落在目录 dir 内（含 dir 本身）。 */
+function isPathWithinDir(dir: string, target: string): boolean {
+	const stripTrailing = (p: string): string => p.replace(/\/+$/, "");
+	const d = stripTrailing(dir);
+	return target === d || target.startsWith(`${d}/`);
+}
 
 const STREAMING_CHUNK_SIZE = 10;
 
@@ -223,7 +265,25 @@ interface TextBlockProps {
  */
 export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail = false }: TextBlockProps) {
 	const theme = useAtomValue(resolvedThemeAtom);
+	const activeSession = useAtomValue(activeSessionAtom);
+	const setFilePreview = useSetAtom(filePreviewAtom);
+	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
+	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
+	const setActivityTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 	const { displayText, animateChunks } = useStreamingDisplayText(text, isStreamingTail);
+
+	const cwd = activeSession?.cwd ?? null;
+	const openFilePreview = useCallback((path: string) => {
+		const name = path.split("/").pop() || path;
+		// 属于当前项目的文件：在活动面板的文件面板内联预览；否则弹全局 Dialog。
+		if (cwd && isPathWithinDir(cwd, path)) {
+			setActivityPanelOpen(true);
+			setActivityTabByProject((prev) => new Map(prev).set(cwd, "file"));
+			setInlineFilePreview({ name, path });
+			return;
+		}
+		setFilePreview({ name, path });
+	}, [cwd, setFilePreview, setInlineFilePreview, setActivityPanelOpen, setActivityTabByProject]);
 
 	const components = useMemo<Components>(() => ({
 		// Headings
@@ -306,17 +366,51 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 		// Horizontal rule
 		hr: () => <hr className="my-3 border-border" />,
 
-		// Links
-		a: ({ href, children }) => (
-			<a href={href} className="text-chart-2 underline decoration-chart-2/30 hover:decoration-chart-2" target="_blank" rel="noopener noreferrer">
-				{children}
-			</a>
-		),
+		// Links — 文件链接渲染成带文件类型图标的 badge（点击应用内预览），
+		// 网页链接渲染成带地球图标的 badge（新标签打开），普通锚点等保持原样。
+		a: ({ href, children }) => {
+			const filePath = resolveFileLinkPath(href);
+			if (filePath) {
+				const fileName = filePath.split("/").pop() || filePath;
+				return (
+					<button
+						type="button"
+						title={filePath}
+						className={cn(LINK_BADGE_CLASS, "cursor-pointer")}
+						onClick={() => openFilePreview(filePath)}
+					>
+						<span className={cn(getFileIcon(fileName, false, false), "h-3.5 w-3.5 shrink-0")} />
+						<span className="truncate">{children}</span>
+					</button>
+				);
+			}
+			if (href && /^https?:\/\//i.test(href)) {
+				return (
+					<a
+						href={href}
+						title={href}
+						className={LINK_BADGE_CLASS}
+						onClick={(e) => {
+							e.preventDefault();
+							void window.vetta.auth.openExternal(href);
+						}}
+					>
+						<span className="icon-[mdi--web] h-3.5 w-3.5 shrink-0" />
+						<span className="truncate">{children}</span>
+					</a>
+				);
+			}
+			return (
+				<a href={href} className="text-chart-2 underline decoration-chart-2/30 hover:decoration-chart-2" target="_blank" rel="noopener noreferrer">
+					{children}
+				</a>
+			);
+		},
 
 		// Strong / em
 		strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
 		em: ({ children }) => <em className="italic">{children}</em>,
-	}), [theme]);
+	}), [theme, openFilePreview]);
 
 	return (
 		<div className={`markdown-body break-words${animateChunks ? " markdown-streaming-tail" : ""}`}>

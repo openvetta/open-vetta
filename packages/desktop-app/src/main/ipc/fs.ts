@@ -336,21 +336,40 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 	}
 }
 
-function assertPathWithinProject(targetPath: string): void {
-	const normalizeForComparison = (value: string): string => {
-		const normalized = resolve(value);
-		return process.platform === "win32" ? normalized.toLowerCase() : normalized;
-	};
-	const resolved = normalizeForComparison(targetPath);
+function normalizePathForComparison(value: string): string {
+	const normalized = resolve(value);
+	return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+/** 判断 targetPath 是否落在 root 目录内（含 root 本身）。 */
+function isPathWithin(root: string, targetPath: string): boolean {
+	const rel = relative(normalizePathForComparison(root), normalizePathForComparison(targetPath));
+	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function isWithinAllowedRoots(targetPath: string): boolean {
 	for (const root of allowedRoots) {
-		const normalizedRoot = normalizeForComparison(root);
-		const rel = relative(normalizedRoot, resolved);
-		const isWithinRoot = rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-		if (isWithinRoot) {
-			return;
-		}
+		if (isPathWithin(root, targetPath)) return true;
 	}
-	throw new Error("Path is outside any known project directory");
+	return false;
+}
+
+function assertPathWithinProject(targetPath: string): void {
+	if (!isWithinAllowedRoots(targetPath)) {
+		throw new Error("Path is outside any known project directory");
+	}
+}
+
+/**
+ * 预览读取专用的路径校验：比项目根更宽松。
+ * 除已注册的项目根外，额外允许用户主目录（~）内的文件——
+ * 这样 agent 写到 ~/Desktop 等位置的产物点击后也能预览，
+ * 同时仍拦截 /etc、/System 等主目录之外的系统路径。
+ */
+function assertPathReadableForPreview(targetPath: string): void {
+	if (isWithinAllowedRoots(targetPath)) return;
+	if (isPathWithin(homedir(), targetPath)) return;
+	throw new Error("Path is outside any previewable directory");
 }
 
 export function registerFsIpc(): () => void {
@@ -392,7 +411,7 @@ export function registerFsIpc(): () => void {
 		CHANNELS.READ_FILE,
 		async (_event, filePath: unknown): Promise<{ content: string; encoding: "utf8" | "base64" }> => {
 			assertNonEmptyString(filePath, "filePath");
-			assertPathWithinProject(filePath);
+			assertPathReadableForPreview(filePath);
 
 			const resolved = resolve(filePath);
 			let stats: Stats;
