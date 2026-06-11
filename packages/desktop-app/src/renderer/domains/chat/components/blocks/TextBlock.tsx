@@ -14,6 +14,7 @@ import {
 } from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
 import { cn } from "@shared/lib/utils";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { getFileIcon } from "../../../file-explorer/components/fileIcons";
 
 /** 文件 / 链接 badge 的公共样式：半透明主题色底 + 主题色描边与文字。 */
@@ -270,20 +271,22 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setActivityTabByProject = useSetAtom(activityPanelTabByProjectAtom);
+	const narrow = useNarrowScreen();
 	const { displayText, animateChunks } = useStreamingDisplayText(text, isStreamingTail);
 
 	const cwd = activeSession?.cwd ?? null;
 	const openFilePreview = useCallback((path: string) => {
 		const name = path.split("/").pop() || path;
-		// 属于当前项目的文件：在活动面板的文件面板内联预览；否则弹全局 Dialog。
-		if (cwd && isPathWithinDir(cwd, path)) {
+		// 窄屏：活动面板是底部 sheet，内嵌分屏会把内容挤窄，统一走全局预览 Dialog。
+		// 宽屏：属于当前项目的文件在活动面板的文件面板内联预览；项目外文件弹全局 Dialog。
+		if (!narrow && cwd && isPathWithinDir(cwd, path)) {
 			setActivityPanelOpen(true);
 			setActivityTabByProject((prev) => new Map(prev).set(cwd, "file"));
 			setInlineFilePreview({ name, path });
 			return;
 		}
 		setFilePreview({ name, path });
-	}, [cwd, setFilePreview, setInlineFilePreview, setActivityPanelOpen, setActivityTabByProject]);
+	}, [narrow, cwd, setFilePreview, setInlineFilePreview, setActivityPanelOpen, setActivityTabByProject]);
 
 	const components = useMemo<Components>(() => ({
 		// Headings
