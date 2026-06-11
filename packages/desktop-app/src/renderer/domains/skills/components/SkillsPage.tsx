@@ -537,10 +537,8 @@ function TagGroup({
 
 	return (
 		<motion.div
-			variants={{
-				hidden: { opacity: 0, y: 8 },
-				show: { opacity: 1, y: 0 },
-			}}
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.4, ease: easeOut }}
 		>
 			<div className="mb-3 flex items-baseline gap-2">
@@ -626,7 +624,9 @@ export function SkillsPage(): JSX.Element {
 
 	const loadMarket = useCallback(() => {
 		if (!token) {
-			setError("请先登录后再浏览技能市场");
+			// 未登录：不拉取市场数据，但仍展示本地已安装/自定义/Agent 技能。
+			setMarketSkills([]);
+			setError(null);
 			setLoading(false);
 			return;
 		}
@@ -800,6 +800,8 @@ export function SkillsPage(): JSX.Element {
 		[agentSkills, typeTab, filterBySearch],
 	);
 
+	const hasContent = groups.size > 0 || customSkills.length > 0 || agentForTab.length > 0;
+
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			<div className="drag-region h-12 shrink-0" />
@@ -895,12 +897,12 @@ export function SkillsPage(): JSX.Element {
 						/>
 						<p className="text-[13px] text-muted-foreground/60">加载中...</p>
 					</div>
-				) : error ? (
+				) : error && !hasContent ? (
 					<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
 						<span className="icon-[mdi--alert-circle-outline] h-10 w-10 text-muted-foreground/50" />
 						<p className="text-[13px] text-muted-foreground/50">{error}</p>
 					</div>
-				) : groups.size === 0 && customSkills.length === 0 && agentForTab.length === 0 ? (
+				) : !hasContent ? (
 					<motion.div
 						className="flex h-full flex-col items-center justify-center gap-5 text-center"
 						initial={{ opacity: 0, y: 12 }}
@@ -937,6 +939,12 @@ export function SkillsPage(): JSX.Element {
 						animate="show"
 						variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
 					>
+						{error && (
+							<div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[12px] text-muted-foreground/70">
+								<span className="icon-[mdi--alert-circle-outline] h-4 w-4 shrink-0 text-muted-foreground/50" />
+								<span>{error}，当前仅显示已安装的{typeTab === "scene" ? "场景" : "技能"}</span>
+							</div>
+						)}
 						{agentForTab.length > 0 && (
 							<TagGroup
 								tag="通用 Agent Skill"
