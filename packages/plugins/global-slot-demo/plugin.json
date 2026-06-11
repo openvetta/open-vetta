@@ -1,0 +1,11 @@
+{
+	"id": "global-slot-demo",
+	"name": "Global Slot Demo",
+	"version": "0.1.0",
+	"pluginApiVersion": "^1.0.0",
+	"entry": "dist/index.js",
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.global"],
+	"description": "Demonstrates a trusted Vetta desktop UI plugin rendered through the global slot.",
+	"author": "Vetta"
+}
