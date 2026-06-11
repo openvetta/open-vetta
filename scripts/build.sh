@@ -43,6 +43,8 @@ build_layer0() {
   build_pkg packages/runtime-telemetry
   build_pkg packages/agent
   build_pkg packages/action-rpc
+  build_pkg packages/plugin-sdk
+  build_pkg packages/plugin-vite
 }
 
 # ── Layer 1: depends on layer 0 ──
