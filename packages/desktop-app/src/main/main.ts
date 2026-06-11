@@ -33,6 +33,7 @@ import {
 	teardownAllIpc,
 } from "./ipc/index.js";
 import { getAppLogger } from "./logger.js";
+import { registerPluginProtocols, registerPluginSchemes } from "./plugins/plugin-protocol.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
@@ -53,6 +54,7 @@ import { createWindow, getMainWindow, setMainWindow, showMainWindow } from "./wi
 fixPath();
 
 const PROTOCOL = "vetta";
+registerPluginSchemes();
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
@@ -274,6 +276,7 @@ if (!gotSingleLock) {
 		// 走 Chromium 网络栈替代 Node undici，绕过 macOS 15 LNP 对裸 socket 的拦截。
 		// 必须在 ready 之后调用（net.fetch 依赖 session）。
 		installChromiumFetchForMain();
+		registerPluginProtocols();
 
 		if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
 			const capability = await initializeSandboxCapability();

@@ -5,6 +5,7 @@ import { createBatchTasksApi } from "./apis/batch-tasks.js";
 import { createDownloadsApi } from "./apis/downloads.js";
 import { createImApi } from "./apis/im.js";
 import { createNotificationApi } from "./apis/notification.js";
+import { createPluginsApi } from "./apis/plugins.js";
 import { createSchedulerApi } from "./apis/scheduler.js";
 import { createSessionApi } from "./apis/session.js";
 import { createSystemApi } from "./apis/system.js";
@@ -19,6 +20,7 @@ const api: DesktopApi = {
 	...createSchedulerApi(ipcRenderer),
 	...createWebhookApi(ipcRenderer),
 	...createNotificationApi(ipcRenderer),
+	...createPluginsApi(ipcRenderer),
 	...createSystemApi(ipcRenderer, webUtils),
 };
 

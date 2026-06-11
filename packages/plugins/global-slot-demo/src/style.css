@@ -1,0 +1,99 @@
+.vetta-plugin-global-slot-demo {
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	z-index: 100;
+	width: min(320px, calc(100vw - 32px));
+	border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+	border-radius: 12px;
+	background: color-mix(in srgb, var(--popover) 96%, transparent);
+	color: var(--popover-foreground);
+	box-shadow: var(--shadow-lg);
+	padding: 14px;
+	font-family: var(--font-sans);
+}
+
+.vetta-plugin-global-slot-demo-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.vetta-plugin-global-slot-demo-eyebrow {
+	margin: 0 0 4px;
+	color: var(--primary);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.vetta-plugin-global-slot-demo h2 {
+	margin: 0;
+	color: var(--foreground);
+	font-size: 15px;
+	font-weight: 700;
+}
+
+.vetta-plugin-global-slot-demo-body {
+	margin: 10px 0 12px;
+	color: var(--muted-foreground);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.vetta-plugin-global-slot-demo-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.vetta-plugin-global-slot-demo-badge {
+	border-radius: 9999px;
+	background: color-mix(in srgb, var(--accent) 75%, transparent);
+	color: var(--muted-foreground);
+	padding: 3px 8px;
+	font-size: 12px;
+}
+
+.vetta-plugin-global-slot-demo-button,
+.vetta-plugin-global-slot-demo-trigger,
+.vetta-plugin-global-slot-demo-icon-button {
+	border: 1px solid transparent;
+	border-radius: 8px;
+	background: var(--primary);
+	color: var(--primary-foreground);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.vetta-plugin-global-slot-demo-button {
+	padding: 6px 10px;
+}
+
+.vetta-plugin-global-slot-demo-trigger {
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	z-index: 100;
+	padding: 7px 11px;
+	box-shadow: var(--shadow-md);
+}
+
+.vetta-plugin-global-slot-demo-icon-button {
+	width: 26px;
+	height: 26px;
+	background: var(--accent);
+	color: var(--foreground);
+	line-height: 1;
+}
+
+.vetta-plugin-global-slot-demo-button:hover,
+.vetta-plugin-global-slot-demo-trigger:hover,
+.vetta-plugin-global-slot-demo-icon-button:hover {
+	opacity: 0.9;
+}

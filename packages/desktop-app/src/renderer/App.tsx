@@ -21,6 +21,7 @@ import { useNotificationInit } from "./domains/message/hooks/useNotificationInit
 import { useFlowingChatInit } from "./domains/flowing-chat/hooks/useFlowingChatInit";
 import { useDownloadsInit } from "./domains/downloads/hooks/useDownloadsInit";
 import { FilePreviewDialog } from "./domains/file-preview/components/FilePreviewDialog";
+import { PluginGlobalSlotHost } from "./domains/plugins/components/PluginGlobalSlotHost";
 import { UpdateRestartDialog } from "./shared/components/UpdateRestartDialog";
 import { ActionApprovalCenter } from "./shared/action-approval/ActionApprovalCenter";
 import { GenericActionApproval } from "./shared/action-approval/GenericActionApproval";
@@ -440,6 +441,7 @@ export function RootLayout(): JSX.Element {
 					<SchedulerDeleteApproval />
 					<SchedulerToggleApproval />
 					<SchedulerExecutionApproval />
+					<PluginGlobalSlotHost />
 				</div>
 			</div>
 		</TooltipProvider>

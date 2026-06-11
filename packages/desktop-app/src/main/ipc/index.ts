@@ -9,6 +9,7 @@ import { registerFlowingIpc } from "./flowing.js";
 import { registerFsIpc } from "./fs.js";
 import { registerImIpc } from "./im.js";
 import { registerPermissionsIpc } from "./permissions.js";
+import { registerPluginsIpc } from "./plugins.js";
 import { registerProjectExportIpc } from "./project-export.js";
 import { registerRuntimesIpc } from "./runtimes.js";
 import { registerSessionIpc } from "./session.js";
@@ -34,6 +35,7 @@ interface IpcTeardown {
 	teardownWebhook: () => void;
 	teardownRuntimes: () => void;
 	teardownPermissions: () => void;
+	teardownPlugins: () => void;
 	teardownNotifications: () => void;
 }
 
@@ -58,6 +60,7 @@ export function registerAllIpc(
 		teardownWebhook: registerWebhookIpc(),
 		teardownRuntimes: registerRuntimesIpc(),
 		teardownPermissions: registerPermissionsIpc(),
+		teardownPlugins: registerPluginsIpc(),
 		teardownNotifications: registerNotificationIpc(webContents),
 	};
 }
@@ -79,6 +82,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownWebhook();
 	teardown.teardownRuntimes();
 	teardown.teardownPermissions();
+	teardown.teardownPlugins();
 	teardown.teardownNotifications();
 }
 
