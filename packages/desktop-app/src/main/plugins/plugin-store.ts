@@ -26,6 +26,7 @@ function readRegistry(): PluginManifestFile {
 	try {
 		const registry = JSON.parse(readFileSync(manifestPath, "utf-8")) as PluginManifestFile;
 		for (const plugin of Object.values(registry)) {
+			plugin.runtime ??= "esm";
 			plugin.permissions ??= [];
 			plugin.grantedPermissions ??= [];
 			plugin.styleUrls ??= [];
@@ -95,6 +96,15 @@ function parseManifest(raw: unknown): PluginManifest {
 	validatePluginId(id);
 	validatePluginVersion(version);
 	const entry = validateRelativePath(assertString(input.entry, "entry"), "entry");
+	const runtime =
+		input.runtime === undefined || input.runtime === "esm" || input.runtime === "module-federation"
+			? input.runtime
+			: undefined;
+	if (input.runtime !== undefined && runtime === undefined) {
+		throw new Error("Invalid plugin runtime");
+	}
+	const moduleFederation =
+		runtime === "module-federation" ? parseModuleFederationManifest(input.moduleFederation) : undefined;
 	const styles = assertStringArray(input.styles, "styles").map((style) => validateRelativePath(style, "styles"));
 	const permissions = assertPermissionArray(input.permissions);
 	return {
@@ -103,10 +113,31 @@ function parseManifest(raw: unknown): PluginManifest {
 		version,
 		pluginApiVersion: assertString(input.pluginApiVersion, "pluginApiVersion"),
 		entry,
+		runtime: runtime ?? "esm",
+		moduleFederation,
 		styles,
 		permissions,
 		description: typeof input.description === "string" ? input.description : undefined,
 		author: typeof input.author === "string" ? input.author : undefined,
+	};
+}
+
+function parseModuleFederationManifest(raw: unknown): PluginManifest["moduleFederation"] {
+	if (raw == null || typeof raw !== "object") {
+		throw new Error("Missing plugin moduleFederation");
+	}
+	const input = raw as Record<string, unknown>;
+	const remoteName = assertString(input.remoteName, "moduleFederation.remoteName");
+	if (!/^[A-Za-z_$][A-Za-z0-9_$-]{0,63}$/.test(remoteName)) {
+		throw new Error("Invalid plugin moduleFederation.remoteName");
+	}
+	const expose = assertString(input.expose, "moduleFederation.expose");
+	if (!expose.startsWith("./") || expose.includes("..") || expose.includes("\\")) {
+		throw new Error("Invalid plugin moduleFederation.expose");
+	}
+	return {
+		remoteName,
+		expose,
 	};
 }
 
@@ -153,7 +184,9 @@ function installedFromManifest(
 		version: manifest.version,
 		activeVersion,
 		pluginApiVersion: manifest.pluginApiVersion,
+		runtime: previous?.runtime ?? manifest.runtime ?? "esm",
 		entryUrl,
+		moduleFederation: previous?.moduleFederation ?? manifest.moduleFederation,
 		styleUrls,
 		permissions: manifest.permissions ?? [],
 		grantedPermissions,
@@ -305,7 +338,9 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.availableVersion = undefined;
 	const manifestFile = join(pluginsBaseDir, plugin.id, "versions", plugin.activeVersion, "plugin.json");
 	const manifest = parseManifest(JSON.parse(readFileSync(manifestFile, "utf-8")));
+	plugin.runtime = manifest.runtime ?? "esm";
 	plugin.entryUrl = toPluginUrl(plugin.id, plugin.activeVersion, manifest.entry);
+	plugin.moduleFederation = manifest.moduleFederation;
 	plugin.styleUrls = (manifest.styles ?? []).map((style) => toPluginUrl(plugin.id, plugin.activeVersion, style));
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);

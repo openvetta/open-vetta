@@ -10,7 +10,8 @@ Plugins are installed from a zip archive. The archive must contain `plugin.json`
 my-plugin.zip
   plugin.json
   dist/
-    index.js
+    mf-manifest.json
+    remoteEntry.js
     style.css
 ```
 
@@ -22,7 +23,12 @@ my-plugin.zip
   "name": "My Plugin",
   "version": "0.1.0",
   "pluginApiVersion": "^1.0.0",
-  "entry": "dist/index.js",
+  "runtime": "module-federation",
+  "entry": "dist/mf-manifest.json",
+  "moduleFederation": {
+    "remoteName": "my_plugin",
+    "expose": "./plugin"
+  },
   "styles": ["dist/style.css"],
   "permissions": ["ui.slot.global"]
 }
@@ -36,16 +42,15 @@ Installed plugin files are stored by version:
 
 Installing a newer version records it as pending. The app keeps loading `activeVersion` until the user triggers `window.vetta.plugins.reload(id)`.
 
-## Runtime Entry
+## Module Federation Entry
 
 ```tsx
-import { useState } from "vetta-host://react";
-import { jsx, jsxs } from "vetta-host://react/jsx-runtime";
-import { definePlugin } from "vetta-host://plugin-sdk";
+import { definePlugin } from "@vetta/plugin-sdk";
+import { useState } from "react";
 
 function PluginRoot() {
   const [open, setOpen] = useState(true);
-  return open ? jsx("div", { className: "vetta-plugin-my-plugin", children: "Hello" }) : null;
+  return open ? <div className="vetta-plugin-my-plugin">Hello</div> : null;
 }
 
 export default definePlugin({
@@ -58,20 +63,30 @@ export default definePlugin({
 });
 ```
 
-When using Vite/Rollup, map these dependencies to host modules instead of bundling React:
+The host loads `runtime: "module-federation"` plugins through `@module-federation/enhanced/runtime`.
+The plugin should expose its definition through the configured `moduleFederation.expose`.
+React and React DOM are shared as host singletons.
+
+Example Vite configuration:
 
 ```ts
-resolve: {
-  alias: {
-    react: "vetta-host://react",
-    "react/jsx-runtime": "vetta-host://react/jsx-runtime",
-    "react/jsx-dev-runtime": "vetta-host://react/jsx-dev-runtime",
-    "@vetta/plugin-sdk": "vetta-host://plugin-sdk"
-  }
-}
+import { vettaPluginFederation } from "@vetta/plugin-vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [
+    vettaPluginFederation({
+      name: "my_plugin",
+      entry: "./src/index.tsx"
+    })
+  ]
+});
 ```
 
-Other dependencies may be bundled into the plugin.
+Other dependencies may be bundled into the plugin. `@vetta/plugin-sdk` is provided by the host and remains external.
+
+Legacy `runtime: "esm"` plugins are still supported. They can continue to map `react`,
+`react/jsx-runtime`, `react/jsx-dev-runtime`, and `@vetta/plugin-sdk` to `vetta-host://` modules.
 
 ## Permissions
 
