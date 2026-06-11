@@ -5,12 +5,17 @@
 	"type": "module",
 	"scripts": {
 		"build": "bunx vite build",
-		"pack": "bun run build && node scripts/pack-plugin.mjs",
+		"pack": "bun run build",
 		"check": "bunx tsc --noEmit"
 	},
 	"devDependencies": {
 		"@types/node": "^22.10.5",
-		"@types/react": "^19.1.1",
+		"@types/react": "19.1.1",
+		"@types/react-dom": "19.1.1",
+		"@vetta/plugin-sdk": "file:../../plugin-sdk",
+		"@vetta/plugin-vite": "file:../../plugin-vite",
+		"react": "19.1.1",
+		"react-dom": "19.1.1",
 		"typescript": "^5.9.2",
 		"vite": "^7.1.7"
 	}

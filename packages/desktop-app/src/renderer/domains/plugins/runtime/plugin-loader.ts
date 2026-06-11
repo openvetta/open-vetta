@@ -1,6 +1,17 @@
-import type { InstalledPlugin, PluginPermission } from "@preload/api";
-import type { Disposable, PluginContext, PluginDefinition, PluginGlobalSlotContribution } from "@shared/plugin-sdk";
+import { createInstance, type ModuleFederation } from "@module-federation/enhanced/runtime";
+import type { InstalledPlugin } from "@preload/api";
+import type {
+	Disposable,
+	PluginContext,
+	PluginDefinition,
+	PluginGlobalSlotContribution,
+	PluginPermission,
+} from "@vetta/plugin-sdk";
+import * as pluginSdk from "@vetta/plugin-sdk";
 import type { ComponentType } from "react";
+import * as React from "react";
+import * as jsxRuntime from "react/jsx-runtime";
+import * as ReactDom from "react-dom";
 
 export interface LoadedPlugin {
 	id: string;
@@ -14,6 +25,51 @@ interface PluginModule {
 	default?: PluginDefinition;
 	activate?: PluginDefinition["activate"];
 	deactivate?: PluginDefinition["deactivate"];
+}
+
+let moduleFederationHost: ModuleFederation | undefined;
+
+function getModuleFederationHost(): ModuleFederation {
+	moduleFederationHost ??= createInstance({
+		name: "vetta_plugin_host",
+		remotes: [],
+		shared: {
+			"@vetta/plugin-sdk": {
+				version: "1.0.0",
+				lib: () => pluginSdk,
+				shareConfig: {
+					singleton: true,
+					requiredVersion: false,
+				},
+			},
+			react: {
+				version: React.version,
+				lib: () => React,
+				shareConfig: {
+					singleton: true,
+					requiredVersion: false,
+				},
+			},
+			"react-dom": {
+				version: ReactDom.version,
+				lib: () => ReactDom,
+				shareConfig: {
+					singleton: true,
+					requiredVersion: false,
+				},
+			},
+			"react/jsx-runtime": {
+				version: React.version,
+				lib: () => jsxRuntime,
+				shareConfig: {
+					singleton: true,
+					requiredVersion: false,
+				},
+			},
+		},
+		shareStrategy: "loaded-first",
+	});
+	return moduleFederationHost;
 }
 
 function assertPluginModule(value: unknown): PluginModule {
@@ -106,10 +162,55 @@ function createContext(
 	};
 }
 
+async function assertPluginEntryFetchable(plugin: InstalledPlugin): Promise<void> {
+	try {
+		const response = await fetch(plugin.entryUrl, { cache: "no-store" });
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+		}
+		const contentType = response.headers.get("content-type") ?? "";
+		const expectedContentType = plugin.runtime === "module-federation" ? "json" : "javascript";
+		if (!contentType.includes(expectedContentType)) {
+			throw new Error(`Unexpected content type: ${contentType || "unknown"}`);
+		}
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		throw new Error(`Plugin entry is not fetchable: ${plugin.entryUrl}; ${message}`);
+	}
+}
+
+async function loadPluginModule(plugin: InstalledPlugin): Promise<PluginModule> {
+	if (plugin.runtime !== "module-federation") {
+		return assertPluginModule(await import(/* @vite-ignore */ plugin.entryUrl));
+	}
+	const moduleFederation = plugin.moduleFederation;
+	if (!moduleFederation) {
+		throw new Error("Module Federation plugin is missing moduleFederation metadata");
+	}
+	const host = getModuleFederationHost();
+	host.registerRemotes(
+		[
+			{
+				name: moduleFederation.remoteName,
+				alias: plugin.id,
+				entry: plugin.entryUrl,
+			},
+		],
+		{ force: true },
+	);
+	const expose = moduleFederation.expose.replace(/^\.\//, "");
+	const loaded = await host.loadRemote<unknown>(`${moduleFederation.remoteName}/${expose}`, { from: "runtime" });
+	if (loaded == null) {
+		throw new Error(`Module Federation remote returned null: ${moduleFederation.remoteName}/${expose}`);
+	}
+	return assertPluginModule(loaded);
+}
+
 export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void): Promise<LoadedPlugin> {
 	const slots: PluginGlobalSlotContribution[] = [];
 	const styleHandle = loadPluginStyles(plugin);
-	const module = assertPluginModule(await import(/* @vite-ignore */ plugin.entryUrl));
+	await assertPluginEntryFetchable(plugin);
+	const module = await loadPluginModule(plugin);
 	const definition = normalizePluginDefinition(module);
 	const context = createContext(plugin, slots, onChanged);
 	await definition.activate(context);

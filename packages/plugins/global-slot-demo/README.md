@@ -16,6 +16,9 @@ The installable archive is written to:
 packages/plugins/global-slot-demo/release/global-slot-demo-0.1.0.zip
 ```
 
+The archive contains only runtime files required by the desktop host. Module Federation build metadata remains in `dist/` for diagnostics, but is not included in the zip.
+`@vetta/plugin-vite` creates the archive automatically after `vite build`; no separate packaging script is required.
+
 ## Install From Renderer DevTools
 
 After opening the desktop app, run:
@@ -31,10 +34,13 @@ await window.vetta.plugins.installFromArchive(buffer, {
 await window.vetta.plugins.setEnabled("global-slot-demo", true);
 ```
 
-Restart or reload the renderer to load enabled plugins.
+The settings page can also install and enable the generated zip from the plugin management UI.
 
 ## Notes
 
-- React is imported from `vetta-host://react`, so the plugin uses the host React singleton.
+- The plugin is built as a Module Federation remote and exposes `./plugin`.
+- `@vetta/plugin-vite` supplies the default Vite Module Federation and Rollup configuration for Vetta plugins.
+- React is shared by the desktop host through Module Federation, so it is a plugin development dependency only.
+- `@vetta/plugin-sdk` is provided by the host and remains external.
 - The plugin declares `ui.slot.global`; without this grant, `ctx.ui.registerGlobalSlot()` will fail.
 - CSS is scoped under `.vetta-plugin-global-slot-demo` and uses Vetta theme variables.

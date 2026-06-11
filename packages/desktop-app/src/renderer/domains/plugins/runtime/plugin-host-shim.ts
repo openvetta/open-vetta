@@ -1,4 +1,4 @@
-import * as pluginSdk from "@shared/plugin-sdk";
+import * as pluginSdk from "@vetta/plugin-sdk";
 import * as React from "react";
 import * as jsxDevRuntime from "react/jsx-dev-runtime";
 import * as jsxRuntime from "react/jsx-runtime";

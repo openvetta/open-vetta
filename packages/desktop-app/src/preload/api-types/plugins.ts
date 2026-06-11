@@ -15,6 +15,11 @@ export interface PluginManifest {
 	version: string;
 	pluginApiVersion: string;
 	entry: string;
+	runtime?: "esm" | "module-federation";
+	moduleFederation?: {
+		remoteName: string;
+		expose: string;
+	};
 	styles?: string[];
 	permissions?: PluginPermission[];
 	description?: string;
@@ -27,7 +32,12 @@ export interface InstalledPlugin {
 	version: string;
 	activeVersion: string;
 	pluginApiVersion: string;
+	runtime: "esm" | "module-federation";
 	entryUrl: string;
+	moduleFederation?: {
+		remoteName: string;
+		expose: string;
+	};
 	styleUrls: string[];
 	permissions: PluginPermission[];
 	grantedPermissions: PluginPermission[];

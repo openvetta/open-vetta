@@ -9,8 +9,10 @@
 		"forceConsistentCasingInFileNames": true,
 		"moduleResolution": "bundler",
 		"isolatedModules": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "react",
 		"noEmit": true,
 		"types": ["node"]
 	},
-	"include": ["src/**/*.ts", "src/**/*.d.ts"]
+	"include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
 }

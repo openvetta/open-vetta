@@ -1,19 +1,15 @@
-import { resolve } from "node:path";
+import { vettaPluginFederation } from "@vetta/plugin-vite";
+import { defineConfig } from "vite";
 
-export default {
-	build: {
-		outDir: "dist",
-		emptyOutDir: true,
-		lib: {
-			entry: resolve(import.meta.dirname, "src/index.ts"),
-			formats: ["es"],
-			fileName: () => "index.js",
-		},
-		rollupOptions: {
-			external: [/^vetta-host:\/\//],
-			output: {
-				assetFileNames: "style.css",
-			},
-		},
+export default defineConfig({
+	plugins: [
+		vettaPluginFederation({
+			name: "global_slot_demo",
+			entry: "./src/index.tsx",
+		}),
+	],
+	esbuild: {
+		jsx: "automatic",
+		jsxImportSource: "react",
 	},
-};
+});

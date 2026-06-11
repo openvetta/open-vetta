@@ -1,6 +1,7 @@
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import type { PluginGlobalSlotContribution } from "@shared/plugin-sdk";
+import type { PluginGlobalSlotContribution } from "@vetta/plugin-sdk";
+import { PLUGINS_CHANGED_EVENT } from "../runtime/plugin-events";
 import { installPluginHostShim } from "../runtime/plugin-host-shim";
 import { loadPlugin, type LoadedPlugin } from "../runtime/plugin-loader";
 
@@ -27,11 +28,18 @@ class PluginSlotErrorBoundary extends Component<
 export function PluginGlobalSlotHost(): JSX.Element | null {
 	const [plugins, setPlugins] = useState<LoadedPlugin[]>([]);
 	const [revision, forceUpdate] = useReducer((value: number) => value + 1, 0);
+	const [reloadRevision, reloadPlugins] = useReducer((value: number) => value + 1, 0);
+
+	useEffect(() => {
+		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
+		return () => window.removeEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
+	}, []);
 
 	useEffect(() => {
 		let disposed = false;
 		const loaded: LoadedPlugin[] = [];
 		installPluginHostShim();
+		setPlugins([]);
 
 		void window.vetta.plugins
 			.list()
@@ -60,7 +68,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 			disposed = true;
 			void Promise.all(loaded.map((plugin) => plugin.dispose()));
 		};
-	}, []);
+	}, [reloadRevision]);
 
 	const slots = useMemo<PluginGlobalSlotContribution[]>(
 		() => plugins.flatMap((plugin) => plugin.slots),

@@ -15,6 +15,7 @@ import { ImBridgeSettings } from "./ImBridgeSettings";
 import { ModelsSettings } from "./ModelsSettings";
 import { McpSettings } from "./McpSettings";
 import { PermissionsSettings } from "./PermissionsSettings";
+import { PluginSettings } from "./PluginSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
@@ -29,6 +30,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	models: ModelsSettings,
 	mcp: McpSettings,
 	environment: EnvironmentSettings,
+	plugins: PluginSettings,
 	permissions: PermissionsSettings,
 	im: ImBridgeSettings,
 	webhook: WebhookSettings,
