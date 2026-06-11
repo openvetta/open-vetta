@@ -39,6 +39,7 @@ const CHANNELS = {
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
 	AUTO_TITLE: "vetta:session:auto-title",
+	NEXT_PROMPT_SUGGESTIONS: "vetta:session:next-prompt-suggestions",
 	DISPOSE: "vetta:session:dispose",
 	EVENT: "vetta:session:event",
 	LIST_RUNNING: "vetta:session:list-running",
@@ -94,6 +95,8 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			rename: (sessionPath, name) => ipc.invoke(CHANNELS.RENAME, sessionPath, name),
 			autoTitle: (sessionId, userText, assistantText) =>
 				ipc.invoke(CHANNELS.AUTO_TITLE, sessionId, userText, assistantText),
+			nextPromptSuggestions: (sessionId, conversation) =>
+				ipc.invoke(CHANNELS.NEXT_PROMPT_SUGGESTIONS, sessionId, conversation),
 			dispose: (sessionId) => ipc.invoke(CHANNELS.DISPOSE, sessionId),
 			listRunning: () => ipc.invoke(CHANNELS.LIST_RUNNING),
 			onRunningChanged: (handler) => onIpcEvent(ipc, CHANNELS.RUNNING_CHANGED, handler),

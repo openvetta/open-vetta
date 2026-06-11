@@ -9,7 +9,9 @@ import {
 	type TextBlock,
 	type ThinkingBlock,
 	type ToolCallBlock,
+	activeSessionAtom,
 	isCompactingAtom,
+	promptPredictingAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { ArtifactCard } from "@shared/components/ArtifactCard";
@@ -18,11 +20,14 @@ import { cn, pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
+import { SuggestionBubbles } from "./SuggestionBubbles";
 
 interface MessageListProps {
 	messages: ChatMessage[];
 	isStreaming: boolean;
 	sessionId?: string | null;
+	/** 输入预测建议直发回调；省略则不渲染建议气泡（如只读 viewer）。 */
+	onSend?: (overrideText?: string) => Promise<void>;
 }
 
 /** A grouped segment of content blocks for rendering. */
@@ -279,6 +284,42 @@ const SegmentRenderer = memo(function SegmentRenderer({
 function formatTime(ts: number): string {
 	const d = new Date(ts);
 	return d.toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+/**
+ * 人性化相对时间（基于回答结束时间）。返回 null 表示应隐藏。
+ * - 5 分钟以内：隐藏
+ * - 1 小时以内：「n分钟前」
+ * - 1~2 小时：「1小时n分钟前」
+ * - 2~24 小时：「n小时前」（省略分钟）
+ * - 超过 24 小时：「n天前」
+ */
+function formatRelativeTime(ts: number, now: number): string | null {
+	const diffMin = Math.floor((now - ts) / 60000);
+	if (diffMin < 5) return null;
+	if (diffMin < 60) return `${diffMin}分钟前`;
+	if (diffMin < 120) {
+		const mins = diffMin % 60;
+		return mins > 0 ? `1小时${mins}分钟前` : "1小时前";
+	}
+	if (diffMin < 1440) return `${Math.floor(diffMin / 60)}小时前`;
+	return `${Math.floor(diffMin / 1440)}天前`;
+}
+
+/** 回答结束时间的相对 label，随时间自动刷新（30s 一次）。 */
+function RelativeTimeLabel({ endedAt }: { endedAt: number }): JSX.Element | null {
+	const [now, setNow] = useState(() => Date.now());
+	useEffect(() => {
+		const timer = window.setInterval(() => setNow(Date.now()), 30000);
+		return () => window.clearInterval(timer);
+	}, []);
+	const label = formatRelativeTime(endedAt, now);
+	if (!label) return null;
+	return (
+		<span className="text-[11px] text-muted-foreground/40" title={formatTime(endedAt)}>
+			{label}
+		</span>
+	);
 }
 
 /** Format duration */
@@ -549,7 +590,8 @@ const UserMessage = memo(function UserMessage({
 					</div>
 				)}
 				{copyText && (
-					<div className="pointer-events-none absolute right-0 top-full mt-1 flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
+					<div className="pointer-events-none absolute right-0 top-full mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
+						{message.timestamp && <RelativeTimeLabel endedAt={message.timestamp} />}
 						<CopyButton getText={() => copyText} />
 					</div>
 				)}
@@ -568,6 +610,10 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 	const isCurrentlyStreaming = isTailMessage && isStreaming;
 	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !isCurrentlyStreaming;
 	const [expanded, setExpanded] = useState(false);
+	// 输入预测「生成中」：仅末条 assistant 消息、且当前会话正在预测时展示闪光提示。
+	const activeRid = useAtomValue(activeSessionAtom)?.runtimeId;
+	const predictingMap = useAtomValue(promptPredictingAtom);
+	const isPredicting = isTailMessage && !isCurrentlyStreaming && !!activeRid && predictingMap[activeRid] === true;
 	const foldData = useMemo(() => getAssistantFoldData(message.blocks ?? []), [message.blocks]);
 	const visibleBlocks = useMemo(() => {
 		if (!foldData || expanded || isCurrentlyStreaming) return message.blocks ?? [];
@@ -667,9 +713,19 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 				)}
 			</div>
 
-			{showActions && (
-				<div className="mt-2 flex items-center gap-0.5">
-					<CopyButton getText={() => conclusionText} />
+			{(showActions || isPredicting) && (
+				<div className="mt-2 flex items-center gap-2">
+					{showActions && (
+						<div className="flex items-center gap-1">
+							<CopyButton getText={() => conclusionText} />
+							{(message.endedAt ?? message.timestamp) && (
+								<RelativeTimeLabel endedAt={(message.endedAt ?? message.timestamp)!} />
+							)}
+						</div>
+					)}
+					{isPredicting && (
+						<span className="processing-shimmer text-[11px] font-medium">Vetta 正在预测…</span>
+					)}
 				</div>
 			)}
 		</div>
@@ -777,7 +833,7 @@ const ListFooter = memo(function ListFooter({
 	);
 });
 
-export function MessageList({ messages, isStreaming, sessionId }: MessageListProps): JSX.Element {
+export function MessageList({ messages, isStreaming, sessionId, onSend }: MessageListProps): JSX.Element {
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
@@ -964,7 +1020,9 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	}, []);
 
 	const itemContent = useCallback((index: number, message: ChatMessage) => (
-		<div className="pb-5">
+		// 末条 user 消息：hover 出的 action list 绝对定位在气泡下方，需额外底部留白，
+		// 否则被 List 容器的 overflow-hidden 在底边裁掉一截（agent 回复出现后即非末条，自动还原）。
+		<div className={index === messages.length - 1 && message.role === "user" ? "pb-9" : "pb-5"}>
 			<Message
 				message={message}
 				isTailMessage={message.id === tailMessageId}
@@ -986,6 +1044,7 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 		enteringUserMessageId,
 		handleUserMessageEntryComplete,
 		isStreaming,
+		messages.length,
 		pendingUserAnimationId,
 		tailMessageId,
 	]);
@@ -1008,8 +1067,11 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	}, [handleWheelIntent, handleTouchStart, handleTouchMove]);
 
 	const footer = useCallback(() => (
-		<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
-	), [showTyping, isCompacting]);
+		<>
+			{onSend && <SuggestionBubbles onSend={onSend} />}
+			<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
+		</>
+	), [showTyping, isCompacting, onSend]);
 
 	const virtuosoComponents = useMemo(() => ({
 		List: VirtuosoListContainer,

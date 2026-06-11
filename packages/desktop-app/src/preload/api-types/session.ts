@@ -74,6 +74,11 @@ export interface DesktopSessionApi {
 	delete(sessionPath: string): Promise<void>;
 	rename(sessionPath: string, name: string): Promise<void>;
 	autoTitle(sessionId: string, userText: string, assistantText: string): Promise<string | null>;
+	/**
+	 * 输入预测：基于最近几轮对话文本，预测用户下一个可能输入的 prompt，返回 0-3 条
+	 * 建议。模型/key 不可用、出错或对话已收尾时返回空数组。
+	 */
+	nextPromptSuggestions(sessionId: string, conversation: string): Promise<string[]>;
 	dispose(sessionId: string): Promise<void>;
 	/** Snapshot of session paths currently in the agent loop. */
 	listRunning(): Promise<string[]>;

@@ -241,16 +241,23 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 		}
 
 		if (entry.type === "assistant_turn_timing") {
+			const { startedAt, endedAt, durationMs } = entry.timing;
+			let patchedAssistant = false;
 			for (let i = messages.length - 1; i >= 0; i--) {
 				const message = messages[i];
-				if (message.role === "assistant") {
-					const { startedAt, endedAt, durationMs } = entry.timing;
+				if (!patchedAssistant && message.role === "assistant") {
 					messages[i] = {
 						...message,
 						startedAt,
 						endedAt,
 						durationSeconds: durationMs / 1000,
 					};
+					patchedAssistant = true;
+					continue;
+				}
+				// 用户消息无独立持久化时间戳，用本轮开始时间近似其发送时刻。
+				if (message.role === "user" && message.timestamp === undefined) {
+					messages[i] = { ...message, timestamp: startedAt };
 					break;
 				}
 			}
