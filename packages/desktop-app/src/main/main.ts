@@ -33,6 +33,7 @@ import {
 	teardownAllIpc,
 } from "./ipc/index.js";
 import { getAppLogger } from "./logger.js";
+import { openExternalUrl } from "./open-external.js";
 import { registerPluginProtocols, registerPluginSchemes } from "./plugins/plugin-protocol.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
@@ -330,6 +331,10 @@ if (!gotSingleLock) {
 			shell.showItemInFolder(fullPath);
 		});
 
+		ipcMain.handle("vetta:shell:open-external", async (_event, url: string) => {
+			await openExternalUrl(url);
+		});
+
 		ipcMain.handle("vetta:window:minimize", () => {
 			getMainWindow()?.minimize();
 		});
@@ -376,7 +381,7 @@ if (!gotSingleLock) {
 		});
 
 		ipcMain.handle("vetta:auth:open-external", async (_event, url: string) => {
-			await shell.openExternal(url);
+			await openExternalUrl(url);
 		});
 
 		if (process.platform === "darwin") {

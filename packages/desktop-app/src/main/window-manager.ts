@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { app, BrowserWindow, nativeTheme } from "electron";
 import { getAppLogger } from "./logger.js";
+import { openExternalUrl } from "./open-external.js";
 
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
@@ -99,6 +100,12 @@ export function createWindow(): BrowserWindow {
 	});
 	mainWindow.webContents.on("responsive", () => {
 		windowLog.info("responsive");
+	});
+	mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+		void openExternalUrl(url).catch((error: unknown) => {
+			windowLog.error("open external failed", { url, error });
+		});
+		return { action: "deny" };
 	});
 
 	if (devServerUrl) {
