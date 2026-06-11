@@ -25,6 +25,8 @@ export interface ExperimentalConfig {
 	backgroundTasks?: boolean;
 	/** 输入预测：每轮正常回答后预测用户下一个可能输入的 prompt。**缺省关**（区别于本组其他键的缺省开）；批量/流转会话不适用。 */
 	promptPrediction?: boolean;
+	/** 适配通用 Agent Skill：发现 `~/.agents/skills`、`<cwd>/.agents/skills` 下的通用 Agent Skill。缺省开。 */
+	agentSkills?: boolean;
 }
 
 export interface DesktopConfig {
@@ -83,7 +85,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,
-	experimental: { askUserQuestion: true, vettaCli: true, backgroundTasks: true },
+	experimental: { askUserQuestion: true, vettaCli: true, backgroundTasks: true, agentSkills: true },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -103,13 +105,20 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 function normalizeExperimental(value: unknown): ExperimentalConfig {
 	// promptPrediction 缺省 false（区别于其他键缺省 true）。
 	if (typeof value !== "object" || value === null)
-		return { askUserQuestion: true, vettaCli: true, backgroundTasks: true, promptPrediction: false };
+		return {
+			askUserQuestion: true,
+			vettaCli: true,
+			backgroundTasks: true,
+			promptPrediction: false,
+			agentSkills: true,
+		};
 	const v = value as Record<string, unknown>;
 	return {
 		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : true,
 		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : true,
 		backgroundTasks: typeof v.backgroundTasks === "boolean" ? v.backgroundTasks : true,
 		promptPrediction: typeof v.promptPrediction === "boolean" ? v.promptPrediction : false,
+		agentSkills: typeof v.agentSkills === "boolean" ? v.agentSkills : true,
 	};
 }
 

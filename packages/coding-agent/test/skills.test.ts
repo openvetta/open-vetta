@@ -1,6 +1,8 @@
-import { homedir } from "os";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "os";
 import { join, resolve } from "path";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { CONFIG_DIR_NAME } from "../src/config.js";
 import type { ResourceDiagnostic } from "../src/core/diagnostics.js";
 import { formatSkillsForPrompt, loadSkills, loadSkillsFromDir, type Skill } from "../src/core/skills.js";
 
@@ -347,6 +349,8 @@ describe("skills", () => {
 				cwd: emptyCwd,
 				sceneDir: emptySceneDir,
 				skillPaths: [join(fixturesDir, "valid-skill")],
+				// Keep this assertion hermetic against the developer's real ~/.agents/skills.
+				includeAgentSkills: false,
 			});
 			expect(skills).toHaveLength(1);
 			expect(skills[0].source).toBe("path");
@@ -359,6 +363,7 @@ describe("skills", () => {
 				cwd: emptyCwd,
 				sceneDir: emptySceneDir,
 				skillPaths: ["/non/existent/path"],
+				includeAgentSkills: false,
 			});
 			expect(skills).toHaveLength(0);
 			expect(diagnostics.some((d: ResourceDiagnostic) => d.message.includes("does not exist"))).toBe(true);
@@ -377,6 +382,99 @@ describe("skills", () => {
 				skillPaths: [homeSkillsDir],
 			});
 			expect(withTilde.length).toBe(withoutTilde.length);
+		});
+	});
+
+	describe("generic Agent Skill dirs (.agents/skills)", () => {
+		const emptyAgentDir = resolve(__dirname, "fixtures/empty-agent");
+		const emptySceneDir = resolve(__dirname, "fixtures/empty-scene");
+		// Built at runtime in a temp dir: `.agents/` is gitignored, so these fixtures
+		// can't live under test/fixtures and must be created on the fly.
+		let tmpRoot: string;
+		let agentsProjectCwd: string;
+		let agentsPriorityCwd: string;
+
+		const writeSkill = (dir: string, name: string, description: string): void => {
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(join(dir, "SKILL.md"), `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n`);
+		};
+
+		beforeAll(() => {
+			tmpRoot = mkdtempSync(join(tmpdir(), "vetta-agents-skills-"));
+			agentsProjectCwd = join(tmpRoot, "project");
+			agentsPriorityCwd = join(tmpRoot, "priority");
+
+			// project cwd: one valid generic skill + a loose root .md that must be ignored.
+			writeSkill(
+				join(agentsProjectCwd, ".agents", "skills", "generic-agent-skill"),
+				"generic-agent-skill",
+				"A generic Agent Skill discovered from the .agents/skills convention directory.",
+			);
+			writeFileSync(
+				join(agentsProjectCwd, ".agents", "skills", "loose-root.md"),
+				"---\nname: loose-root\ndescription: Loose root .md that must be ignored under the subdir-only rule.\n---\n",
+			);
+
+			// priority cwd: same-named skill in both Vetta project (.vetta) and generic (.agents).
+			writeSkill(
+				join(agentsPriorityCwd, CONFIG_DIR_NAME, "skills", "shared-skill"),
+				"shared-skill",
+				"Vetta-native project skill that must win the collision.",
+			);
+			writeSkill(
+				join(agentsPriorityCwd, ".agents", "skills", "shared-skill"),
+				"shared-skill",
+				"Generic Agent Skill that must lose the collision.",
+			);
+		});
+
+		afterAll(() => {
+			rmSync(tmpRoot, { recursive: true, force: true });
+		});
+
+		it("discovers <cwd>/.agents/skills subdir SKILL.md tagged source=agents-project, ignoring loose root .md", () => {
+			const { skills } = loadSkills({
+				agentDir: emptyAgentDir,
+				cwd: agentsProjectCwd,
+				sceneDir: emptySceneDir,
+				includeDefaults: false,
+				includeAgentSkills: true,
+			});
+			const generic = skills.find((s) => s.name === "generic-agent-skill");
+			expect(generic).toBeDefined();
+			expect(generic?.source).toBe("agents-project");
+			// subdirectory-only rule: loose root .md must not be discovered
+			expect(skills.some((s) => s.name === "loose-root")).toBe(false);
+		});
+
+		it("does not discover .agents/skills when includeAgentSkills is false", () => {
+			const { skills } = loadSkills({
+				agentDir: emptyAgentDir,
+				cwd: agentsProjectCwd,
+				sceneDir: emptySceneDir,
+				includeDefaults: false,
+				includeAgentSkills: false,
+			});
+			expect(skills.some((s) => s.name === "generic-agent-skill")).toBe(false);
+		});
+
+		it("lets a Vetta-native project skill win a name collision over the generic Agent Skill", () => {
+			const { skills, diagnostics } = loadSkills({
+				agentDir: emptyAgentDir,
+				cwd: agentsPriorityCwd,
+				sceneDir: emptySceneDir,
+				includeDefaults: true,
+				includeAgentSkills: true,
+			});
+			const shared = skills.find((s) => s.name === "shared-skill");
+			expect(shared).toBeDefined();
+			// Vetta project dir loads before .agents/skills, so it wins.
+			expect(shared?.source).toBe("project");
+			expect(
+				diagnostics.some(
+					(d: ResourceDiagnostic) => d.collision?.resourceType === "skill" && d.collision.name === "shared-skill",
+				),
+			).toBe(true);
 		});
 	});
 

@@ -1,7 +1,7 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { InstalledSkill } from "@preload/api";
+import type { InstalledSkill, SkillInfo } from "@preload/api";
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
@@ -29,6 +29,8 @@ interface MergedSkill {
 	needsUpdate: boolean;
 	localVersion?: string;
 	isCustom?: boolean;
+	/** 通用 Agent Skill（~/.agents/skills）：只读展示，不可安装/卸载/启停。 */
+	isAgent?: boolean;
 	downloadCount: number;
 }
 
@@ -185,7 +187,7 @@ function SkillCard({
 	actionState: ActionState;
 }): JSX.Element {
 	const isLoading = actionState === "loading";
-	const previewable = !!onPreview && skill.installed;
+	const previewable = !!onPreview && (skill.installed || !!skill.isAgent);
 
 	return (
 		<motion.div
@@ -236,6 +238,12 @@ function SkillCard({
 							自定义
 						</span>
 					)}
+					{skill.isAgent && (
+						<span className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded-full bg-accent/60 px-1.5 text-[10px] font-medium text-muted-foreground/80">
+							<span className="icon-[mdi--earth] h-2.5 w-2.5" />
+							通用
+						</span>
+					)}
 					{skill.needsUpdate && (
 						<span className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 text-[10px] font-medium text-amber-400">
 							<span className="icon-[mdi--arrow-up-bold] h-2.5 w-2.5" />
@@ -249,7 +257,12 @@ function SkillCard({
 			</div>
 
 			<div className="flex shrink-0 items-center gap-1.5">
-				{skill.installed ? (
+				{skill.isAgent ? (
+					<span className="flex h-7 items-center gap-1 px-1.5 text-[11px] text-muted-foreground/50">
+						<span className="icon-[mdi--lock-outline] h-3.5 w-3.5" />
+						只读
+					</span>
+				) : skill.installed ? (
 					<>
 						<Popover>
 							<PopoverTrigger asChild>
@@ -337,7 +350,7 @@ function SceneCard({
 	actionState: ActionState;
 }): JSX.Element {
 	const isLoading = actionState === "loading";
-	const previewable = !!onPreview && scene.installed;
+	const previewable = !!onPreview && (scene.installed || !!scene.isAgent);
 
 	return (
 		<motion.div
@@ -384,21 +397,28 @@ function SceneCard({
 				{/* Footer */}
 				<div className="mt-auto flex items-center gap-2 pt-2">
 					<div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-						{scene.installed && (
-							<span
-								className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold ${
-									scene.enabled
-										? "bg-emerald-500/15 text-emerald-400"
-										: "bg-accent/60 text-muted-foreground"
-								}`}
-							>
-								<span
-									className={`h-1.5 w-1.5 rounded-full ${
-										scene.enabled ? "bg-emerald-400" : "bg-muted-foreground/60"
-									}`}
-								/>
-								{scene.enabled ? "运行中" : "已安装"}
+						{scene.isAgent ? (
+							<span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-accent/60 px-2 text-[10px] font-semibold text-muted-foreground/80">
+								<span className="icon-[mdi--earth] h-2.5 w-2.5" />
+								通用·只读
 							</span>
+						) : (
+							scene.installed && (
+								<span
+									className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold ${
+										scene.enabled
+											? "bg-emerald-500/15 text-emerald-400"
+											: "bg-accent/60 text-muted-foreground"
+									}`}
+								>
+									<span
+										className={`h-1.5 w-1.5 rounded-full ${
+											scene.enabled ? "bg-emerald-400" : "bg-muted-foreground/60"
+										}`}
+									/>
+									{scene.enabled ? "运行中" : "已安装"}
+								</span>
+							)
 						)}
 						{scene.needsUpdate && (
 							<span className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold text-amber-400">
@@ -416,7 +436,12 @@ function SceneCard({
 						))}
 					</div>
 					<div className="ml-auto flex shrink-0 items-center gap-1.5">
-						{scene.installed ? (
+						{scene.isAgent ? (
+							<span className="flex h-7 items-center gap-1 px-1.5 text-[11px] text-muted-foreground/50">
+								<span className="icon-[mdi--lock-outline] h-3.5 w-3.5" />
+								只读
+							</span>
+						) : scene.installed ? (
 							<>
 								<Popover>
 									<PopoverTrigger asChild>
@@ -512,10 +537,8 @@ function TagGroup({
 
 	return (
 		<motion.div
-			variants={{
-				hidden: { opacity: 0, y: 8 },
-				show: { opacity: 1, y: 0 },
-			}}
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.4, ease: easeOut }}
 		>
 			<div className="mb-3 flex items-baseline gap-2">
@@ -579,6 +602,8 @@ export function SkillsPage(): JSX.Element {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [marketSkills, setMarketSkills] = useState<MarketSkillInfo[]>([]);
 	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
+	// 通用 Agent Skill（全局 ~/.agents/skills）：只读分区数据，与市场/自定义无关。
+	const [agentSkills, setAgentSkills] = useState<SkillInfo[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [actionStates, setActionStates] = useState<Record<string, ActionState>>({});
@@ -591,11 +616,17 @@ export function SkillsPage(): JSX.Element {
 
 	const refresh = useCallback(() => {
 		void window.vetta.skills.getMarketManifest().then(setManifest);
+		// 全局通用 Agent Skill（不传 cwd → 仅 ~/.agents/skills），只读展示。
+		void window.vetta.skills
+			.list()
+			.then((list) => setAgentSkills(list.filter((s) => s.source.startsWith("agents-"))));
 	}, []);
 
 	const loadMarket = useCallback(() => {
 		if (!token) {
-			setError("请先登录后再浏览技能市场");
+			// 未登录：不拉取市场数据，但仍展示本地已安装/自定义/Agent 技能。
+			setMarketSkills([]);
+			setError(null);
 			setLoading(false);
 			return;
 		}
@@ -744,6 +775,33 @@ export function SkillsPage(): JSX.Element {
 
 	const groups = useMemo(() => groupByCategory(filtered), [filtered]);
 
+	// 通用 Agent Skill 只读分区：按当前 tab 的 type 过滤 + 搜索过滤。
+	const agentForTab = useMemo<MergedSkill[]>(
+		() =>
+			filterBySearch(
+				agentSkills
+					.filter((s) => s.type === typeTab)
+					.map((s) => ({
+						name: s.name,
+						alias: s.alias ?? "",
+						description: s.description,
+						type: s.type,
+						version: "",
+						author: "",
+						tags: [],
+						category: "",
+						installed: true,
+						enabled: true,
+						needsUpdate: false,
+						isAgent: true,
+						downloadCount: 0,
+					})),
+			),
+		[agentSkills, typeTab, filterBySearch],
+	);
+
+	const hasContent = groups.size > 0 || customSkills.length > 0 || agentForTab.length > 0;
+
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			<div className="drag-region h-12 shrink-0" />
@@ -839,12 +897,12 @@ export function SkillsPage(): JSX.Element {
 						/>
 						<p className="text-[13px] text-muted-foreground/60">加载中...</p>
 					</div>
-				) : error ? (
+				) : error && !hasContent ? (
 					<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
 						<span className="icon-[mdi--alert-circle-outline] h-10 w-10 text-muted-foreground/50" />
 						<p className="text-[13px] text-muted-foreground/50">{error}</p>
 					</div>
-				) : groups.size === 0 && customSkills.length === 0 ? (
+				) : !hasContent ? (
 					<motion.div
 						className="flex h-full flex-col items-center justify-center gap-5 text-center"
 						initial={{ opacity: 0, y: 12 }}
@@ -881,6 +939,23 @@ export function SkillsPage(): JSX.Element {
 						animate="show"
 						variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
 					>
+						{error && (
+							<div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[12px] text-muted-foreground/70">
+								<span className="icon-[mdi--alert-circle-outline] h-4 w-4 shrink-0 text-muted-foreground/50" />
+								<span>{error}，当前仅显示已安装的{typeTab === "scene" ? "场景" : "技能"}</span>
+							</div>
+						)}
+						{agentForTab.length > 0 && (
+							<TagGroup
+								tag="通用 Agent Skill"
+								skills={agentForTab}
+								onInstall={handleInstall}
+								onToggle={handleToggle}
+								onUninstall={handleUninstall}
+								onPreview={handlePreview}
+								actionStates={actionStates}
+							/>
+						)}
 						{customSkills.length > 0 && (
 							<TagGroup
 								tag="自定义"

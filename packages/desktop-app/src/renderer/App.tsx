@@ -118,7 +118,7 @@ function PageHeader({
 					initial={{ opacity: 0, y: 2 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.18 }}
-					className="min-w-0 truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
+					className="drag-region min-w-0 select-none truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
 				>
 					{title}
 				</motion.h1>

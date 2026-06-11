@@ -46,6 +46,8 @@ export interface DesktopConfigData {
 		backgroundTasks?: boolean;
 		/** 输入预测开关。缺省关；批量/流转会话不适用。 */
 		promptPrediction?: boolean;
+		/** 适配通用 Agent Skill 开关。发现 ~/.agents/skills 与 <cwd>/.agents/skills，缺省开。 */
+		agentSkills?: boolean;
 	};
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
 	defaultConversationCwd?: string;
