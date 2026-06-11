@@ -6,6 +6,7 @@ import type { Components } from "react-markdown";
 import type { Element as HastElement, ElementContent, Root as HastRoot, Text as HastText } from "hast";
 import { resolvedThemeAtom } from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
+import { isExternalLink, openExternalLink } from "@shared/lib/open-external-link";
 
 const remarkPlugins = [remarkGfm];
 
@@ -308,7 +309,13 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 
 		// Links
 		a: ({ href, children }) => (
-			<a href={href} className="text-chart-2 underline decoration-chart-2/30 hover:decoration-chart-2" target="_blank" rel="noopener noreferrer">
+			<a
+				href={href}
+				className="text-primary underline decoration-primary/30 hover:decoration-primary"
+				target={isExternalLink(href) ? "_blank" : undefined}
+				rel={isExternalLink(href) ? "noopener noreferrer" : undefined}
+				onClick={(event) => openExternalLink(event, href)}
+			>
 				{children}
 			</a>
 		),

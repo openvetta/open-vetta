@@ -158,6 +158,7 @@ export function createSystemApi(
 		shell: {
 			showInFolder: (fullPath) => ipc.invoke("vetta:shell:show-in-folder", fullPath),
 			showItemInFolder: (fullPath) => ipc.invoke("vetta:shell:show-item-in-folder", fullPath),
+			openExternal: (url) => ipc.invoke("vetta:shell:open-external", url),
 		},
 		window: {
 			minimize: () => ipc.invoke("vetta:window:minimize"),
@@ -168,7 +169,7 @@ export function createSystemApi(
 			isAlwaysOnTop: () => ipc.invoke("vetta:window:is-always-on-top"),
 		},
 		auth: {
-			openExternal: (url) => ipc.invoke("vetta:auth:open-external", url),
+			openExternal: (url) => ipc.invoke("vetta:shell:open-external", url),
 			refreshToken: () => ipc.invoke("vetta:auth:refresh-token"),
 			onOAuthCallback: (handler) => onIpcEvent(ipc, "vetta:auth:oauth-callback", handler),
 			onUnauthorized: (handler) => onIpcVoidEvent(ipc, "vetta:auth:unauthorized", handler),
