@@ -1,12 +1,48 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import type { FsEntry } from "@preload/fs-types";
+import type { FsEntry, FsFileRef } from "@preload/fs-types";
 
 export interface SelectedFile {
 	path: string;
 	name: string;
 	isDirectory: boolean;
 }
+
+/** 统一的展示条目：浏览模式来自当前目录，搜索模式来自全局递归文件列表。 */
+interface DisplayItem {
+	path: string;
+	name: string;
+	isDirectory: boolean;
+	/** 相对项目根的路径，仅搜索模式有值，用于二级展示。 */
+	relPath?: string;
+}
+
+/**
+ * 子序列模糊匹配打分。query 须已小写。返回 null 表示不匹配，分值越高越靠前。
+ * 规则：连续命中、分隔符后命中、文件名整体子串命中都会加分；路径越长轻微减分。
+ */
+function fuzzyScore(query: string, path: string, name: string): number | null {
+	const t = path.toLowerCase();
+	let qi = 0;
+	let score = 0;
+	let prev = -2;
+	for (let ti = 0; ti < t.length && qi < query.length; ti++) {
+		if (t[ti] === query[qi]) {
+			score += prev === ti - 1 ? 6 : 1;
+			const before = ti === 0 ? "/" : t[ti - 1];
+			if (before === "/" || before === "-" || before === "_" || before === ".") score += 4;
+			prev = ti;
+			qi++;
+		}
+	}
+	if (qi < query.length) return null;
+	if (name.toLowerCase().includes(query)) score += 15;
+	score -= t.length * 0.02;
+	return score;
+}
+
+/** 搜索模式下最多展示的结果数。 */
+const MAX_SEARCH_RESULTS = 100;
 
 interface AtPanelProps {
 	open: boolean;
@@ -69,6 +105,7 @@ const HIDDEN = new Set(["node_modules", ".git", ".DS_Store", "Thumbs.db"]);
 export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps): JSX.Element {
 	const [currentDir, setCurrentDir] = useState(cwd);
 	const [entries, setEntries] = useState<FsEntry[]>([]);
+	const [allFiles, setAllFiles] = useState<FsFileRef[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -101,15 +138,41 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 		};
 	}, [open, currentDir]);
 
+	// Load full recursive file list once per open (for global fuzzy search)
+	useEffect(() => {
+		if (!open) return;
+		let cancelled = false;
+		void window.vetta.fs.listFilesRecursive(cwd).then((files) => {
+			if (!cancelled) setAllFiles(files);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [open, cwd]);
+
 	// Filter by text after "@"
 	const normalizedFilter = filter.startsWith("@") ? filter.slice(1) : filter;
-	const filtered = normalizedFilter
-		? entries.filter((e) => e.name.toLowerCase().includes(normalizedFilter.toLowerCase()))
-		: entries;
+	const isSearching = normalizedFilter.length > 0;
 
-	// "Go up" item when not at cwd root
-	const canGoUp = currentDir !== cwd;
-	const allItems = filtered;
+	// 搜索模式：在全局文件列表上做模糊匹配；浏览模式：展示当前目录内容。
+	let allItems: DisplayItem[];
+	if (isSearching) {
+		const q = normalizedFilter.toLowerCase();
+		const scored: { item: DisplayItem; score: number }[] = [];
+		for (const f of allFiles) {
+			const score = fuzzyScore(q, f.relPath, f.name);
+			if (score !== null) {
+				scored.push({ item: { path: f.path, name: f.name, isDirectory: false, relPath: f.relPath }, score });
+			}
+		}
+		scored.sort((a, b) => b.score - a.score);
+		allItems = scored.slice(0, MAX_SEARCH_RESULTS).map((s) => s.item);
+	} else {
+		allItems = entries.map((e) => ({ path: e.path, name: e.name, isDirectory: e.isDirectory }));
+	}
+
+	// "Go up" item when not at cwd root (browse mode only)
+	const canGoUp = !isSearching && currentDir !== cwd;
 
 	// Reset index on filter/dir change
 	useEffect(() => {
@@ -217,7 +280,7 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 							引用文件
 						</span>
 						<span className="ml-auto font-mono text-[11px] text-muted-foreground/50">
-							{relDir}
+							{isSearching ? `${allItems.length} 个结果` : relDir}
 						</span>
 					</div>
 
@@ -294,9 +357,14 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 												/>
 											)}
 											<span className={`${fileIcon(entry.name, entry.isDirectory)} h-4 w-4 shrink-0 ${entry.isDirectory ? "text-muted-foreground" : "text-muted-foreground/50"}`} />
-											<span className={`truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-foreground" : "text-foreground"}`}>
+											<span className={`shrink-0 truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-foreground" : "text-foreground"}`}>
 												{entry.name}
 											</span>
+											{entry.relPath && entry.relPath !== entry.name && (
+												<span className="ml-auto truncate text-right font-mono text-[10px] text-muted-foreground/40">
+													{entry.relPath}
+												</span>
+											)}
 											{entry.isDirectory && (
 												<span className="ml-auto text-[10px] text-muted-foreground/50">
 													Tab 进入

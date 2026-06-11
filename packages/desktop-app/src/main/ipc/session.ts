@@ -146,6 +146,7 @@ const CHANNELS = {
 	DELETE: "vetta:session:delete",
 	RENAME: "vetta:session:rename",
 	AUTO_TITLE: "vetta:session:auto-title",
+	NEXT_PROMPT_SUGGESTIONS: "vetta:session:next-prompt-suggestions",
 	DISPOSE: "vetta:session:dispose",
 	GET_FULL_HISTORY: "vetta:session:get-full-history",
 	GET_SESSION_PATH: "vetta:session:get-session-path",
@@ -632,6 +633,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			}
 			if (userText.trim().length === 0 && assistantText.trim().length === 0) return null;
 			return runtime.autoTitleSession(sessionId, userText, assistantText);
+		},
+	);
+
+	ipcMain.handle(
+		CHANNELS.NEXT_PROMPT_SUGGESTIONS,
+		async (_event, sessionId: unknown, conversation: unknown): Promise<string[]> => {
+			assertNonEmptyString(sessionId, "sessionId");
+			if (typeof conversation !== "string" || conversation.trim().length === 0) return [];
+			return runtime.nextPromptSuggestions(sessionId, conversation);
 		},
 	);
 

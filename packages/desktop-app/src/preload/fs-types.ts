@@ -6,6 +6,13 @@ export interface FsEntry {
 	modifiedAt: number;
 }
 
+/** 递归列文件返回的轻量条目（不含 stat，relPath 相对 root，用于模糊匹配/展示）。 */
+export interface FsFileRef {
+	name: string;
+	path: string;
+	relPath: string;
+}
+
 export interface FsStatResult {
 	size: number;
 	modifiedAt: number;
@@ -22,6 +29,8 @@ export interface DesktopFsApi {
 	move(sourcePath: string, destDir: string): Promise<void>;
 	createDirectory(dirPath: string): Promise<void>;
 	listSubDirs(dirPath: string): Promise<FsEntry[]>;
+	/** 递归列出 rootPath 下所有文件（跳过隐藏/重型目录，有数量上限），用于 @ 引用的全局模糊匹配。 */
+	listFilesRecursive(rootPath: string): Promise<FsFileRef[]>;
 	watchDir(dirPath: string): Promise<void>;
 	unwatchDir(dirPath: string): Promise<void>;
 	onDirChanged(handler: (dirPath: string) => void): () => void;
