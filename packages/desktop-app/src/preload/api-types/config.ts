@@ -44,6 +44,8 @@ export interface DesktopConfigData {
 		vettaCli?: boolean;
 		/** 后台 bash 任务（run_in_background）开关。缺省开；批量任务始终禁用。 */
 		backgroundTasks?: boolean;
+		/** 输入预测开关。缺省关；批量/流转会话不适用。 */
+		promptPrediction?: boolean;
 	};
 	/** 默认「对话」项目的绝对路径（~/.vetta/conversation），主进程已确保目录存在。 */
 	defaultConversationCwd?: string;

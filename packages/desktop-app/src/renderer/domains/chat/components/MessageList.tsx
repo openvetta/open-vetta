@@ -9,7 +9,9 @@ import {
 	type TextBlock,
 	type ThinkingBlock,
 	type ToolCallBlock,
+	activeSessionAtom,
 	isCompactingAtom,
+	promptPredictingAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { ArtifactCard } from "@shared/components/ArtifactCard";
@@ -18,11 +20,14 @@ import { cn, pathBasename } from "@shared/lib/utils";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
+import { SuggestionBubbles } from "./SuggestionBubbles";
 
 interface MessageListProps {
 	messages: ChatMessage[];
 	isStreaming: boolean;
 	sessionId?: string | null;
+	/** 输入预测建议直发回调；省略则不渲染建议气泡（如只读 viewer）。 */
+	onSend?: (overrideText?: string) => Promise<void>;
 }
 
 /** A grouped segment of content blocks for rendering. */
@@ -568,6 +573,10 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 	const isCurrentlyStreaming = isTailMessage && isStreaming;
 	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !isCurrentlyStreaming;
 	const [expanded, setExpanded] = useState(false);
+	// 输入预测「生成中」：仅末条 assistant 消息、且当前会话正在预测时展示闪光提示。
+	const activeRid = useAtomValue(activeSessionAtom)?.runtimeId;
+	const predictingMap = useAtomValue(promptPredictingAtom);
+	const isPredicting = isTailMessage && !isCurrentlyStreaming && !!activeRid && predictingMap[activeRid] === true;
 	const foldData = useMemo(() => getAssistantFoldData(message.blocks ?? []), [message.blocks]);
 	const visibleBlocks = useMemo(() => {
 		if (!foldData || expanded || isCurrentlyStreaming) return message.blocks ?? [];
@@ -667,9 +676,16 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 				)}
 			</div>
 
-			{showActions && (
-				<div className="mt-2 flex items-center gap-0.5">
-					<CopyButton getText={() => conclusionText} />
+			{(showActions || isPredicting) && (
+				<div className="mt-2 flex items-center gap-2">
+					{showActions && (
+						<div className="flex items-center gap-0.5">
+							<CopyButton getText={() => conclusionText} />
+						</div>
+					)}
+					{isPredicting && (
+						<span className="processing-shimmer text-[11px] font-medium">Vetta 正在预测…</span>
+					)}
 				</div>
 			)}
 		</div>
@@ -777,7 +793,7 @@ const ListFooter = memo(function ListFooter({
 	);
 });
 
-export function MessageList({ messages, isStreaming, sessionId }: MessageListProps): JSX.Element {
+export function MessageList({ messages, isStreaming, sessionId, onSend }: MessageListProps): JSX.Element {
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
@@ -1008,8 +1024,11 @@ export function MessageList({ messages, isStreaming, sessionId }: MessageListPro
 	}, [handleWheelIntent, handleTouchStart, handleTouchMove]);
 
 	const footer = useCallback(() => (
-		<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
-	), [showTyping, isCompacting]);
+		<>
+			{onSend && <SuggestionBubbles onSend={onSend} />}
+			<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
+		</>
+	), [showTyping, isCompacting, onSend]);
 
 	const virtuosoComponents = useMemo(() => ({
 		List: VirtuosoListContainer,

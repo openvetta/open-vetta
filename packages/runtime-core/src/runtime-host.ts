@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import { completeSimple, type Message, type TextContent } from "@mariozechner/pi-ai";
+import { completeSimple, type Message, type TextContent, type Tool, type ToolCall, Type } from "@mariozechner/pi-ai";
 import {
 	type AgentSession,
 	type AgentSessionEvent,
@@ -992,6 +992,91 @@ export class RuntimeHost implements SessionFacade {
 		}
 	}
 
+	/**
+	 * 输入预测：基于最近几轮对话，预测用户下一个可能输入的 prompt。
+	 * 复用 autoTitleSession 同款轻量 LLM 调用模式，返回 0-3 条建议；模型/key
+	 * 不可用、出错或对话已收尾时返回空数组（UI 据此不渲染）。
+	 */
+	async nextPromptSuggestions(sessionId: string, conversation: string): Promise<string[]> {
+		const handle = this.requireSession(sessionId);
+		const model = handle.session.model;
+		if (!model) {
+			console.warn(`[nextPromptSuggestions] session=${sessionId} skipped: no model on session`);
+			return [];
+		}
+		const apiKey = await handle.session.modelRegistry.getApiKey(model);
+		if (!apiKey) {
+			console.warn(
+				`[nextPromptSuggestions] session=${sessionId} skipped: no apiKey for model ${model.provider}/${model.id}`,
+			);
+			return [];
+		}
+
+		const trimmed = conversation.trim().slice(0, 4000);
+		if (!trimmed) return [];
+		const promptText =
+			`下面是用户与 AI 助手最近的对话。请站在【用户】的角度，预测用户接下来最可能【亲自打字发给助手】的下一句话。\n\n` +
+			`要求：\n` +
+			`- 每条必须是用户会直接发送的一句话：第一人称、口语化、具体。例如「再写一个悲伤点的结局」「把这个故事翻译成英文」「帮我把刚才的代码加上注释」。\n` +
+			`- 禁止输出对用户意图的分析、第三人称描述、任何思考过程或解释。只给用户会说的话本身。\n` +
+			`- 0 到 3 条，按可能性从高到低；对话已自然收尾、没有合理后续时给空数组。每条不超过 30 字。\n` +
+			`- 必须通过调用 provide_prompt_suggestions 工具提交结果（suggestions 字段），不要用普通文本回答。\n\n` +
+			`<对话>\n${trimmed}\n</对话>`;
+
+		try {
+			const response = await completeSimple(
+				model,
+				{
+					systemPrompt:
+						"你是输入预测器，模拟用户口吻预测其下一句输入。必须调用 provide_prompt_suggestions 工具，把 0-3 条用户第一人称的具体提问/指令放入 suggestions 字段提交，不含任何分析或思考过程。",
+					messages: [
+						{
+							role: "user" as const,
+							content: [{ type: "text" as const, text: promptText }],
+							timestamp: Date.now(),
+						},
+					],
+					tools: [SUGGESTIONS_TOOL],
+				},
+				{ apiKey, maxTokens: 800, reasoning: "minimal" },
+			);
+			if (response.stopReason === "error") {
+				console.warn(
+					`[nextPromptSuggestions] session=${sessionId} stopReason=error message=${
+						(response as { errorMessage?: string }).errorMessage ?? "(none)"
+					}`,
+				);
+				return [];
+			}
+			// 首选：结构化工具调用，arguments 已是解析好的对象（JSON schema 保证形状）。
+			const toolCall = response.content.find(
+				(c): c is ToolCall => c.type === "toolCall" && c.name === SUGGESTIONS_TOOL.name,
+			);
+			if (toolCall) {
+				const rawList = (toolCall.arguments as { suggestions?: unknown }).suggestions;
+				return Array.isArray(rawList) ? cleanSuggestionList(rawList) : [];
+			}
+			// 兜底：模型没调用工具，从正式回答 / 思考通道里扫 JSON 数组（仅认 JSON，
+			// 思考散文不会被误当建议）。
+			const rawText = response.content
+				.filter((c): c is TextContent => c.type === "text")
+				.map((c) => c.text)
+				.join("")
+				.trim();
+			const rawThinking = response.content
+				.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
+				.map((c) => c.thinking)
+				.join("\n")
+				.trim();
+			return sanitizeSuggestions(rawText).length > 0
+				? sanitizeSuggestions(rawText)
+				: sanitizeSuggestions(rawThinking);
+		} catch (err) {
+			console.warn(`[nextPromptSuggestions] generation failed for session=${sessionId}:`, err);
+			return [];
+		}
+	}
+
 	async disposeSession(sessionId: string): Promise<void> {
 		const handle = this.sessions.get(sessionId);
 		if (!handle) return;
@@ -1428,6 +1513,63 @@ export class RuntimeHost implements SessionFacade {
 			.map((item) => item.text)
 			.join("");
 	}
+}
+
+/** 输入预测的结构化输出工具：JSON schema 强约束 suggestions 为字符串数组。 */
+const SUGGESTIONS_TOOL: Tool = {
+	name: "provide_prompt_suggestions",
+	description: "提交预测出的、用户接下来最可能亲自发送给助手的下一句话（0-3 条，用户第一人称口吻）。",
+	parameters: Type.Object({
+		suggestions: Type.Array(
+			Type.String({
+				description: "用户会直接打字发送的一句话：第一人称、具体、口语化，不超过 30 字。",
+			}),
+			{
+				description: "0 到 3 条建议，按可能性从高到低排序；没有合理的后续追问时给空数组。",
+				maxItems: 3,
+			},
+		),
+	}),
+};
+
+/** 清洗建议数组：去围栏/引号、去空、去重，最多保留 3 条。 */
+function cleanSuggestionList(items: unknown[]): string[] {
+	const seen = new Set<string>();
+	const result: string[] = [];
+	for (const item of items) {
+		if (typeof item !== "string") continue;
+		const cleaned = item
+			.replace(/^[\s"'`「『《<[(（【“”‘’]+/, "")
+			.replace(/[\s"'`」』》>\])）】“”‘’]+$/, "")
+			.trim();
+		if (!cleaned || seen.has(cleaned)) continue;
+		seen.add(cleaned);
+		result.push(cleaned);
+		if (result.length >= 3) break;
+	}
+	return result;
+}
+
+/**
+ * 文本兜底解析：当模型未调用工具时，从其文本/思考里**只**抽取 JSON 字符串数组。
+ * 扫描所有不嵌套的 `[...]` 片段，取最后一个能 JSON.parse 成「字符串数组」的，
+ * 这样推理散文与 `[step 1]` 等方括号都不会被误当建议泄漏。
+ */
+function sanitizeSuggestions(raw: string): string[] {
+	if (!raw) return [];
+	let chosen: string[] | null = null;
+	for (const m of raw.matchAll(/\[[^[\]]*\]/g)) {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(m[0]);
+		} catch {
+			continue;
+		}
+		if (Array.isArray(parsed) && parsed.every((v) => typeof v === "string")) {
+			chosen = parsed as string[];
+		}
+	}
+	return chosen ? cleanSuggestionList(chosen) : [];
 }
 
 function sanitizeAutoTitle(raw: string): string {

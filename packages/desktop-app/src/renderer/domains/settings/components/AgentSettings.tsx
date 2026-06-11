@@ -38,6 +38,8 @@ export function AgentSettings(): JSX.Element {
 	const [askUserQuestionEnabled, setAskUserQuestionEnabled] = useState(true);
 	const [vettaCliEnabled, setVettaCliEnabled] = useState(true);
 	const [backgroundTasksEnabled, setBackgroundTasksEnabled] = useState(true);
+	// 输入预测：缺省关（区别于本组其他键的缺省开）。
+	const [promptPredictionEnabled, setPromptPredictionEnabled] = useState(false);
 
 	useEffect(() => {
 		void window.vetta.session.getMaxRecentImages().then((v) => setMaxRecentImages(clampImages(v)));
@@ -51,6 +53,7 @@ export function AgentSettings(): JSX.Element {
 			setAskUserQuestionEnabled(cfg.experimental?.askUserQuestion === true);
 			setVettaCliEnabled(cfg.experimental?.vettaCli === true);
 			setBackgroundTasksEnabled(cfg.experimental?.backgroundTasks === true);
+			setPromptPredictionEnabled(cfg.experimental?.promptPrediction === true);
 		});
 	}, []);
 
@@ -70,6 +73,12 @@ export function AgentSettings(): JSX.Element {
 	const handleToggleBackgroundTasks = useCallback((checked: boolean) => {
 		setBackgroundTasksEnabled(checked);
 		void window.vetta.config.set({ experimental: { backgroundTasks: checked } });
+	}, []);
+
+	// 开关落盘即可：渲染端在每轮 agent_end 时读取配置决定是否生成预测。
+	const handleTogglePromptPrediction = useCallback((checked: boolean) => {
+		setPromptPredictionEnabled(checked);
+		void window.vetta.config.set({ experimental: { promptPrediction: checked } });
 	}, []);
 
 	const dirty = personaId !== applied.personaId || customPrompt !== applied.customPrompt;
@@ -277,9 +286,15 @@ export function AgentSettings(): JSX.Element {
 					<SettingRow
 						title="后台任务"
 						description="开启后，agent 可将耗时命令（构建、测试等）转入后台执行并在完成时收到通知继续处理。切换后对新打开的会话生效。"
-						border={false}
 					>
 						<Switch checked={backgroundTasksEnabled} onCheckedChange={handleToggleBackgroundTasks} />
+					</SettingRow>
+					<SettingRow
+						title="输入预测"
+						description="开启后，每轮回答结束会预测你接下来可能输入的问题，显示为输入框上方的建议气泡（每轮额外一次轻量模型调用）。批量任务与流转会话不适用。"
+						border={false}
+					>
+						<Switch checked={promptPredictionEnabled} onCheckedChange={handleTogglePromptPrediction} />
 					</SettingRow>
 				</SettingSection>
 			</div>

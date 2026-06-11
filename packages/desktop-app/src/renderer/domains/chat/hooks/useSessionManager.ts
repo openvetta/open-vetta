@@ -18,6 +18,8 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
+	promptPredictingAtom,
+	promptSuggestionsAtom,
 	type SessionExecutionMode,
 	selectedModelAtom,
 	selectedSkillAtom,
@@ -53,7 +55,8 @@ import {
 
 interface SessionManagerResult {
 	openSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
-	sendMessage: () => Promise<void>;
+	/** overrideText：以指定文本作为独立 prompt 直发（输入预测建议用），省略则按输入框内容发送。 */
+	sendMessage: (overrideText?: string) => Promise<void>;
 	abortMessage: () => Promise<void>;
 	openSessionRef: React.MutableRefObject<
 		((cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>) | undefined
@@ -107,6 +110,28 @@ export function useSessionManager(): SessionManagerResult {
 	// Sessions for which auto-title has already been attempted (or skipped because
 	// the session was opened with prior history / already had a name).
 	const autoTitledSessionsRef = useRef<Set<string>>(new Set());
+	const setPromptSuggestions = useSetAtom(promptSuggestionsAtom);
+	const setPromptPredicting = useSetAtom(promptPredictingAtom);
+	const markPredicting = useCallback(
+		(rid: string, predicting: boolean) => {
+			setPromptPredicting((prev) => {
+				if (predicting) return { ...prev, [rid]: true };
+				if (!(rid in prev)) return prev;
+				const next = { ...prev };
+				delete next[rid];
+				return next;
+			});
+		},
+		[setPromptPredicting],
+	);
+	// 输入预测的「过期判定」令牌：按 runtimeId 计数，每次该会话开新一轮
+	// （agent_start）或用户发新 prompt（sendMessage）时 +1。生成在 agent_end
+	// 触发时捕获当时的令牌，异步回填时若令牌已变则丢弃过期结果。
+	const suggestionTokenRef = useRef<Map<string, number>>(new Map());
+	const bumpSuggestionToken = useCallback((rid: string) => {
+		const map = suggestionTokenRef.current;
+		map.set(rid, (map.get(rid) ?? 0) + 1);
+	}, []);
 
 	// ── Delta batching: accumulate text/thinking deltas per rAF frame ──
 	const pendingTextDeltaRef = useRef("");
@@ -316,6 +341,8 @@ export function useSessionManager(): SessionManagerResult {
 				// ── Lifecycle ──
 				if (event.type === "session.lifecycle") {
 					if (event.phase === "agent_start") {
+						// 新一轮开始：让上一轮的输入预测生成（若仍在飞）回填时作废。
+						bumpSuggestionToken(sessionId);
 						resetStreamState();
 						// 无用户消息介入的唤醒（如后台任务 <task-notification> 触发的新
 						// turn）延续上一个 assistant 气泡，而不是新开一条——与重载时
@@ -422,6 +449,44 @@ export function useSessionManager(): SessionManagerResult {
 									} catch (err) {
 										console.warn("[useSessionManager] auto-title failed", err);
 										autoTitledSessionsRef.current.delete(sp);
+									}
+								})();
+							}
+
+							// 输入预测：仅交互式会话（排除批量 / 流转），且开关开启时。每轮
+							// 正常完成后基于最近几轮对话异步生成 0-3 条建议，回填时校验过期。
+							if (rid && projectType !== "batch" && projectType !== "flowing") {
+								let predictSnapshot: ChatMessage[] = [];
+								setChatMessages((prev) => {
+									predictSnapshot = prev;
+									return prev;
+								});
+								const token = suggestionTokenRef.current.get(rid) ?? 0;
+								void (async () => {
+									try {
+										const cfg = await window.vetta.config.get();
+										if (cfg.experimental?.promptPrediction !== true) return;
+										const conversation = buildRecentConversation(predictSnapshot);
+										if (!conversation) return;
+										// 进入「生成中」：末条 assistant 操作栏显示闪光提示。
+										markPredicting(rid, true);
+										const suggestions = await window.vetta.session.nextPromptSuggestions(rid, conversation);
+										// 过期判定：该会话期间已开新轮 / 发新 prompt 则丢弃。
+										if ((suggestionTokenRef.current.get(rid) ?? 0) !== token) return;
+										setPromptSuggestions((prev) => {
+											if (suggestions.length === 0) {
+												if (!(rid in prev)) return prev;
+												const next = { ...prev };
+												delete next[rid];
+												return next;
+											}
+											return { ...prev, [rid]: suggestions };
+										});
+									} catch (err) {
+										console.warn("[useSessionManager] prompt prediction failed", err);
+									} finally {
+										// 退出「生成中」（成功 / 过期 / 失败均收尾）。
+										markPredicting(rid, false);
 									}
 								})();
 							}
@@ -612,6 +677,9 @@ export function useSessionManager(): SessionManagerResult {
 			scheduleDeltaFlush,
 			applyLocalRename,
 			setInlineFilePreview,
+			setPromptSuggestions,
+			bumpSuggestionToken,
+			markPredicting,
 		],
 	);
 
@@ -621,134 +689,159 @@ export function useSessionManager(): SessionManagerResult {
 	// Expose openSession globally via ref for other pages (e.g. AutomationPage)
 	openSessionFnRef.current = openSession;
 
-	const sendMessage = useCallback(async () => {
-		// 读 ref 而非 state：允许在同一 tick 内先 openSession 再立即 sendMessage
-		// （例如 NewSessionPage 的"创建会话+发送"组合调用），避免 React 闭包拿到旧 null。
-		const session = activeSessionRef.current ?? activeSession;
-		if (!session?.runtimeId || (!inputValue.trim() && attachedImages.length === 0)) return;
-		const rawText = inputValue.trim();
-		const images = attachedImages.length > 0 ? attachedImages : undefined;
-		// Build prefix lines
-		const skillPrefix = selectedSkill
-			? selectedSkill.type === "scene"
-				? `/scene:${selectedSkill.name}\n`
-				: `/skill:${selectedSkill.name}\n`
-			: "";
-		const filesPrefix = mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
-		const text = `${skillPrefix}${filesPrefix}${rawText}`;
-		setInputValue("");
-		setAttachedImages([]);
-		setSelectedSkill(null);
-		setMentionedFiles([]);
-		const userMsg: ChatMessage = { id: nextId("user"), role: "user", text, timestamp: Date.now() };
-		if (images) {
-			userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
-		}
-		setChatMessages((prev) => [...prev, userMsg]);
-		// 新一轮开始：立刻清空上一轮的产物列表，不要等 agent_start 事件 IPC
-		// 往返回来才清——那个窗口里上一轮的卡片会挂在新 user 气泡下方一闪而散。
-		setTurnModifiedFiles([]);
-
-		// Optimistically expose this session in the sidebar before the disk file
-		// has been flushed (SessionManager only writes after the assistant's
-		// first message). Use the user's prompt prefix as a temporary label;
-		// auto-title or the next loadSessions will overwrite as appropriate.
-		const sp = activeSessionRef.current?.sessionPath;
-		if (sp) {
-			ensureLocalSession(session.cwd, {
-				id: session.runtimeId,
-				path: sp,
-				cwd: session.cwd,
-				firstMessage: rawText.slice(0, 80) || "(image)",
-				modifiedAt: Date.now(),
+	const sendMessage = useCallback(
+		async (overrideText?: string) => {
+			// 读 ref 而非 state：允许在同一 tick 内先 openSession 再立即 sendMessage
+			// （例如 NewSessionPage 的"创建会话+发送"组合调用），避免 React 闭包拿到旧 null。
+			const session = activeSessionRef.current ?? activeSession;
+			// overrideText：来自输入预测建议（点击 bubble / 空输入回车按 placeholder 发送），
+			// 作为独立 prompt 直发，不带技能 / @文件前缀，也不消费当前草稿与附图。
+			const override = typeof overrideText === "string" ? overrideText.trim() : "";
+			const hasOverride = override.length > 0;
+			if (!session?.runtimeId || (!hasOverride && !inputValue.trim() && attachedImages.length === 0)) return;
+			// 发出新 prompt：清空该会话的输入预测，并作废仍在飞的生成（过期判定）。
+			bumpSuggestionToken(session.runtimeId);
+			setPromptSuggestions((prev) => {
+				if (!(session.runtimeId in prev)) return prev;
+				const next = { ...prev };
+				delete next[session.runtimeId];
+				return next;
 			});
-		}
-
-		// 检查当前 session 是否归属一个 paused 的 batch-task 子任务。命中则改走
-		// resume 路径（入队首，由调度器按并发数放行），跳过 session.prompt。
-		let pausedBatch: { projectId: string; taskId: string } | undefined;
-		for (const p of batchProjectsRef.current) {
-			const matched = p.tasks.find((t) => t.sessionId === session.runtimeId && t.status === "paused");
-			if (matched) {
-				pausedBatch = { projectId: p.id, taskId: matched.id };
-				break;
+			const rawText = hasOverride ? override : inputValue.trim();
+			const images = !hasOverride && attachedImages.length > 0 ? attachedImages : undefined;
+			// Build prefix lines（override 直发不带前缀）
+			const skillPrefix =
+				!hasOverride && selectedSkill
+					? selectedSkill.type === "scene"
+						? `/scene:${selectedSkill.name}\n`
+						: `/skill:${selectedSkill.name}\n`
+					: "";
+			const filesPrefix =
+				!hasOverride && mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
+			const text = `${skillPrefix}${filesPrefix}${rawText}`;
+			if (!hasOverride) {
+				setInputValue("");
+				setAttachedImages([]);
+				setSelectedSkill(null);
+				setMentionedFiles([]);
 			}
-		}
-
-		if (pausedBatch) {
-			try {
-				await window.vetta.batchTasks.resumeTaskWithText(pausedBatch.projectId, pausedBatch.taskId, text);
-			} catch (err) {
-				const message = err instanceof Error ? err.message : String(err);
-				console.error("[useSessionManager.sendMessage] resumeTaskWithText rejected:", err);
-				setChatMessages((prev) => appendError(prev, message));
+			const userMsg: ChatMessage = { id: nextId("user"), role: "user", text, timestamp: Date.now() };
+			if (images) {
+				userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 			}
-			await loadSessions(session.cwd);
-			return;
-		}
+			setChatMessages((prev) => [...prev, userMsg]);
+			// 新一轮开始：立刻清空上一轮的产物列表，不要等 agent_start 事件 IPC
+			// 往返回来才清——那个窗口里上一轮的卡片会挂在新 user 气泡下方一闪而散。
+			setTurnModifiedFiles([]);
 
-		// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
-		// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
-		// 批量任务依赖严格 todo 机制，不在此清空；scene 等 lock 状态后端会自行拒绝。
-		{
-			const projectType = projectsRef.current.find((p) => p.cwd === session.cwd)?.type;
-			if (projectType !== "batch") {
-				const items = todoItemsMapRef.current.get(session.runtimeId) ?? [];
-				if (items.length > 0 && items.every((i) => i.status === "done")) {
-					try {
-						await window.vetta.session.clearTodos(session.runtimeId);
-					} catch (err) {
-						console.error("[useSessionManager.sendMessage] clearTodos failed:", err);
+			// Optimistically expose this session in the sidebar before the disk file
+			// has been flushed (SessionManager only writes after the assistant's
+			// first message). Use the user's prompt prefix as a temporary label;
+			// auto-title or the next loadSessions will overwrite as appropriate.
+			const sp = activeSessionRef.current?.sessionPath;
+			if (sp) {
+				ensureLocalSession(session.cwd, {
+					id: session.runtimeId,
+					path: sp,
+					cwd: session.cwd,
+					firstMessage: rawText.slice(0, 80) || "(image)",
+					modifiedAt: Date.now(),
+				});
+			}
+
+			// 检查当前 session 是否归属一个 paused 的 batch-task 子任务。命中则改走
+			// resume 路径（入队首，由调度器按并发数放行），跳过 session.prompt。
+			let pausedBatch: { projectId: string; taskId: string } | undefined;
+			for (const p of batchProjectsRef.current) {
+				const matched = p.tasks.find((t) => t.sessionId === session.runtimeId && t.status === "paused");
+				if (matched) {
+					pausedBatch = { projectId: p.id, taskId: matched.id };
+					break;
+				}
+			}
+
+			if (pausedBatch) {
+				try {
+					await window.vetta.batchTasks.resumeTaskWithText(pausedBatch.projectId, pausedBatch.taskId, text);
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					console.error("[useSessionManager.sendMessage] resumeTaskWithText rejected:", err);
+					setChatMessages((prev) => appendError(prev, message));
+				}
+				await loadSessions(session.cwd);
+				return;
+			}
+
+			// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
+			// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
+			// 批量任务依赖严格 todo 机制，不在此清空；scene 等 lock 状态后端会自行拒绝。
+			{
+				const projectType = projectsRef.current.find((p) => p.cwd === session.cwd)?.type;
+				if (projectType !== "batch") {
+					const items = todoItemsMapRef.current.get(session.runtimeId) ?? [];
+					if (items.length > 0 && items.every((i) => i.status === "done")) {
+						try {
+							await window.vetta.session.clearTodos(session.runtimeId);
+						} catch (err) {
+							console.error("[useSessionManager.sendMessage] clearTodos failed:", err);
+						}
 					}
 				}
 			}
-		}
 
-		const promptReq: {
-			text: string;
-			images?: Array<{ type: "image"; data: string; mimeType: string }>;
-			modelKey?: string;
-		} = {
-			text: text || "(see attached images)",
-		};
-		if (images) {
-			promptReq.images = images.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
-		}
-		if (selectedModel) {
-			promptReq.modelKey = selectedModel;
-		}
-		try {
-			await window.vetta.session.prompt(session.runtimeId, promptReq);
-		} catch (err) {
-			// RuntimeHost.prompt 现在会先把 prompt 期同步抛错（"No model
-			// selected" / "No API key found" / "Agent is already processing"
-			// 等）转换成 error 事件广播给所有订阅者，再把异常向上抛——所以
-			// 正常情况下这里 catch 到的时候 chat 里已经多了一条 error block。
-			// 但保留这层兜底是因为：(1) 旧版 RuntimeHost 或其它 host 实现未
-			// 必有合成事件机制；(2) IPC 链路自身（preload / electron）出错
-			// 时不会经过 RuntimeHost。任何 reject 在这里直接落成一条 error
-			// 气泡，杜绝「按了发送但屏幕完全没反应」的死寂体验。
-			const message = err instanceof Error ? err.message : String(err);
-			console.error("[useSessionManager.sendMessage] prompt rejected:", err);
-			setChatMessages((prev) => appendError(prev, message));
-		}
-		await loadSessions(session.cwd);
-	}, [
-		activeSession,
-		inputValue,
-		attachedImages,
-		selectedSkill,
-		mentionedFiles,
-		selectedModel,
-		setInputValue,
-		setAttachedImages,
-		setSelectedSkill,
-		setMentionedFiles,
-		setChatMessages,
-		setTurnModifiedFiles,
-		loadSessions,
-		ensureLocalSession,
-	]);
+			const promptReq: {
+				text: string;
+				images?: Array<{ type: "image"; data: string; mimeType: string }>;
+				modelKey?: string;
+			} = {
+				text: text || "(see attached images)",
+			};
+			if (images) {
+				promptReq.images = images.map((img) => ({
+					type: "image" as const,
+					data: img.data,
+					mimeType: img.mimeType,
+				}));
+			}
+			if (selectedModel) {
+				promptReq.modelKey = selectedModel;
+			}
+			try {
+				await window.vetta.session.prompt(session.runtimeId, promptReq);
+			} catch (err) {
+				// RuntimeHost.prompt 现在会先把 prompt 期同步抛错（"No model
+				// selected" / "No API key found" / "Agent is already processing"
+				// 等）转换成 error 事件广播给所有订阅者，再把异常向上抛——所以
+				// 正常情况下这里 catch 到的时候 chat 里已经多了一条 error block。
+				// 但保留这层兜底是因为：(1) 旧版 RuntimeHost 或其它 host 实现未
+				// 必有合成事件机制；(2) IPC 链路自身（preload / electron）出错
+				// 时不会经过 RuntimeHost。任何 reject 在这里直接落成一条 error
+				// 气泡，杜绝「按了发送但屏幕完全没反应」的死寂体验。
+				const message = err instanceof Error ? err.message : String(err);
+				console.error("[useSessionManager.sendMessage] prompt rejected:", err);
+				setChatMessages((prev) => appendError(prev, message));
+			}
+			await loadSessions(session.cwd);
+		},
+		[
+			activeSession,
+			inputValue,
+			attachedImages,
+			selectedSkill,
+			mentionedFiles,
+			selectedModel,
+			setInputValue,
+			setAttachedImages,
+			setSelectedSkill,
+			setMentionedFiles,
+			setChatMessages,
+			setTurnModifiedFiles,
+			loadSessions,
+			ensureLocalSession,
+			setPromptSuggestions,
+			bumpSuggestionToken,
+		],
+	);
 
 	const abortMessage = useCallback(async () => {
 		if (!activeSession?.runtimeId) return;
@@ -756,4 +849,28 @@ export function useSessionManager(): SessionManagerResult {
 	}, [activeSession]);
 
 	return { openSession, sendMessage, abortMessage, openSessionRef };
+}
+
+/**
+ * 取最近最多 3 轮（以 user 消息为界）对话文本，用作输入预测的上下文。
+ * 过滤 compaction 与空文本（纯工具轮），逐条截断，整体封顶 4000 字。
+ */
+function buildRecentConversation(messages: ChatMessage[]): string {
+	const relevant = messages.filter((m) => m.role === "user" || m.role === "assistant");
+	let startIdx = relevant.length;
+	let userCount = 0;
+	for (let i = relevant.length - 1; i >= 0; i--) {
+		if (relevant[i].role === "user") {
+			userCount++;
+			startIdx = i;
+			if (userCount >= 3) break;
+		}
+	}
+	const lines: string[] = [];
+	for (const m of relevant.slice(startIdx)) {
+		const text = (m.text ?? "").trim();
+		if (!text) continue;
+		lines.push(`${m.role === "user" ? "用户" : "助手"}: ${text.slice(0, 600)}`);
+	}
+	return lines.join("\n\n").slice(0, 4000);
 }
