@@ -461,6 +461,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 					onClose={handleSlashClose}
 					onSelect={handleSlashSelect}
 					filter={inputValue.startsWith("/") ? inputValue : ""}
+					cwd={effectiveCwd || undefined}
 				/>
 
 				<AtPanel

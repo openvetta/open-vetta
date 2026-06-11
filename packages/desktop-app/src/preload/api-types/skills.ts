@@ -40,7 +40,8 @@ export interface InstalledCustomSkill {
 export type InstalledSkill = InstalledMarketSkill | InstalledCustomSkill;
 
 export interface DesktopSkillsApi {
-	list(): Promise<SkillInfo[]>;
+	/** @param cwd 当前会话/项目 cwd，用于发现项目级 `<cwd>/.agents/skills` 与 `<cwd>/.vetta/skills`；省略则仅列全局来源。 */
+	list(cwd?: string): Promise<SkillInfo[]>;
 	installFromMarket(
 		name: string,
 		archiveBuffer: ArrayBuffer,

@@ -107,16 +107,17 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						<span className="icon-[solar--check-circle-linear] text-[14px]" />
 						<span>完成</span>
 					</Button>
-				) : (
-					<Button
-						size="icon-xs"
-						variant="ghost"
-						title="文件转发"
-						onClick={() => setFlowingSendOpen(true)}
-					>
-						<span className="icon-[solar--transfer-horizontal-linear] text-[14px]" />
-					</Button>
-				)}
+				) : null}
+				{/* 流转/文件转发入口暂时隐藏
+				<Button
+					size="icon-xs"
+					variant="ghost"
+					title="文件转发"
+					onClick={() => setFlowingSendOpen(true)}
+				>
+					<span className="icon-[solar--transfer-horizontal-linear] text-[14px]" />
+				</Button>
+				*/}
 				<Button
 					size="icon-xs"
 					variant="ghost"

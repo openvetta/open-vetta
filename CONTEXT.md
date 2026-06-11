@@ -440,3 +440,16 @@ Skill/Scene 的分类，**独立受管实体**（id + 名称 + `scope` 区分 sk
 
 Skill 的热度计数，**后端 `DownloadArchive` 每成功一次 +1，不按用户去重**（含重装/更新）。admin 表格与 desktop 市场页都展示，市场页可按热度排序。
 _Avoid_: 当成「装机量/独立安装数」——它是原始下载次数，不减卸载、不去重。
+
+### 通用 Agent Skill 作用域（generic agent skill scope）
+
+Vetta 之外的、跨 Agent 通用的 Skill 存放约定：全局 `~/.agents/skills/` 与项目级 `<cwd>/.agents/skills/`。与 Vetta **专属作用域**（全局 `~/.vetta/agent/skills/`、项目级 `<cwd>/.vetta/skills/`）并列，是「适配通用 Agent Skill」能力把别的 Agent 写好的 skill 原样纳入 Vetta 发现范围的入口。
+
+发现规则刻意**只认子目录 `SKILL.md`**（不认根目录散装 `.md`），严格对齐业界 Agent Skill 约定——这正是「通用」的含义；根目录散装 `.md` 是 Vetta 专属作用域的特例，不带进通用目录。
+
+来源标记上与专属作用域区分：从此处加载的 skill 打 `source = "agents-user"`（全局）或 `"agents-project"`（项目级），区别于专属的 `"user"`/`"project"`，使 [[skills-manifest]] / desktop 列表能识别其为「通用、无平台托管」从而**只读呈现**（不可在[[技能市场]]卸载/启停/版本管理）。
+
+同名碰撞时 **Vetta 专属优先于通用**：通用 Agent Skill 目录在所有 Vetta 原生来源（`user`/`project`/`scene`）之后加载，先加载者胜，故加载顺序为 `user → project → scene → agents-user → agents-project`——通用 Agent Skill 是补充而非覆盖内置（含 scene）。两处目录均纳入 agent 路径保护（只读、禁止 agent 新增/修改），与 Vetta 自家 skill 目录同等对待。
+
+作用域支持是 coding-agent 核心**默认开**（CLI 也享受），desktop 侧由「Agent配置 → 扩展功能 → 适配通用 Agent Skill」开关控制（默认开、可关），关闭时向会话传入禁用标志。desktop 聊天侧技能选择器（`/` SlashPanel）经 `vetta:skills:list(cwd)` **按当前会话 cwd 列出**：既有全局 `~/.agents/skills`，也有该项目的 `<cwd>/.agents/skills`（不传 cwd 则只列全局来源）。技能**市场页**（技能广场）以独立的「通用 Agent Skill」**只读分区**展示全局 `~/.agents/skills`（按当前 tab 的 skill/scene 类型分流，可预览 SKILL.md，但不可安装/卸载/启停——这些是纯文件、无平台托管）。
+_Avoid_: 把 `agents-*` 来源当成可在市场管理的条目——它们无 manifest、无平台托管，纯文件、纯展示。

@@ -132,6 +132,8 @@ export interface DefaultResourceLoaderOptions {
 	noSkills?: boolean;
 	noPromptTemplates?: boolean;
 	noThemes?: boolean;
+	/** Discover generic Agent Skill dirs (`~/.agents/skills`, `<cwd>/.agents/skills`). Default: true. */
+	includeAgentSkills?: boolean;
 	systemPrompt?: string;
 	appendSystemPrompt?: string;
 	extensionsOverride?: (base: LoadExtensionsResult) => LoadExtensionsResult;
@@ -169,6 +171,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 	private noSkills: boolean;
 	private noPromptTemplates: boolean;
 	private noThemes: boolean;
+	private includeAgentSkills: boolean;
 	private systemPromptSource?: string;
 	private appendSystemPromptSource?: string;
 	private extensionsOverride?: (base: LoadExtensionsResult) => LoadExtensionsResult;
@@ -225,6 +228,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 		this.noSkills = options.noSkills ?? false;
 		this.noPromptTemplates = options.noPromptTemplates ?? false;
 		this.noThemes = options.noThemes ?? false;
+		this.includeAgentSkills = options.includeAgentSkills ?? true;
 		this.systemPromptSource = options.systemPrompt;
 		this.appendSystemPromptSource = options.appendSystemPrompt;
 		this.extensionsOverride = options.extensionsOverride;
@@ -501,6 +505,12 @@ export class DefaultResourceLoader implements ResourceLoader {
 		for (const p of this.lastSkillPaths) {
 			walk(p);
 		}
+		// Generic Agent Skill dirs are scanned inside loadSkills (not via lastSkillPaths),
+		// so fingerprint them here too — otherwise edits there wouldn't trigger a reload.
+		if (this.includeAgentSkills) {
+			walk(join(homedir(), ".agents", "skills"));
+			walk(join(this.cwd, ".agents", "skills"));
+		}
 		// Market-skills manifest toggles which skills are active even when files
 		// don't change, so include it in the fingerprint.
 		const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
@@ -535,6 +545,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 				agentDir: this.agentDir,
 				skillPaths,
 				includeDefaults: false,
+				includeAgentSkills: this.includeAgentSkills,
 			});
 		}
 		// Mark skills loaded from scene directory as type='scene'

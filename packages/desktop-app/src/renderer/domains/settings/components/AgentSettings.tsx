@@ -40,6 +40,8 @@ export function AgentSettings(): JSX.Element {
 	const [backgroundTasksEnabled, setBackgroundTasksEnabled] = useState(true);
 	// 输入预测：缺省关（区别于本组其他键的缺省开）。
 	const [promptPredictionEnabled, setPromptPredictionEnabled] = useState(false);
+	// 适配通用 Agent Skill：缺省开。
+	const [agentSkillsEnabled, setAgentSkillsEnabled] = useState(true);
 
 	useEffect(() => {
 		void window.vetta.session.getMaxRecentImages().then((v) => setMaxRecentImages(clampImages(v)));
@@ -54,6 +56,7 @@ export function AgentSettings(): JSX.Element {
 			setVettaCliEnabled(cfg.experimental?.vettaCli === true);
 			setBackgroundTasksEnabled(cfg.experimental?.backgroundTasks === true);
 			setPromptPredictionEnabled(cfg.experimental?.promptPrediction === true);
+			setAgentSkillsEnabled(cfg.experimental?.agentSkills !== false);
 		});
 	}, []);
 
@@ -79,6 +82,12 @@ export function AgentSettings(): JSX.Element {
 	const handleTogglePromptPrediction = useCallback((checked: boolean) => {
 		setPromptPredictionEnabled(checked);
 		void window.vetta.config.set({ experimental: { promptPrediction: checked } });
+	}, []);
+
+	// 开关落盘即可：session 创建时读取 agentSkills 决定是否发现 .agents/skills，新建/切换会话生效。
+	const handleToggleAgentSkills = useCallback((checked: boolean) => {
+		setAgentSkillsEnabled(checked);
+		void window.vetta.config.set({ experimental: { agentSkills: checked } });
 	}, []);
 
 	const dirty = personaId !== applied.personaId || customPrompt !== applied.customPrompt;
@@ -292,9 +301,15 @@ export function AgentSettings(): JSX.Element {
 					<SettingRow
 						title="输入预测"
 						description="开启后，每轮回答结束会预测你接下来可能输入的问题，显示为输入框上方的建议气泡（每轮额外一次轻量模型调用）。批量任务与流转会话不适用。"
-						border={false}
 					>
 						<Switch checked={promptPredictionEnabled} onCheckedChange={handleTogglePromptPrediction} />
+					</SettingRow>
+					<SettingRow
+						title="适配通用 Agent Skill"
+						description="开启后，自动发现 ~/.agents/skills 与项目 .agents/skills 下符合通用约定的 Agent Skill（仅子目录 SKILL.md），与 Vetta 自带技能并存、同名时以 Vetta 自带优先。切换后对新建/打开的会话生效。"
+						border={false}
+					>
+						<Switch checked={agentSkillsEnabled} onCheckedChange={handleToggleAgentSkills} />
 					</SettingRow>
 				</SettingSection>
 			</div>

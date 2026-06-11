@@ -13,6 +13,8 @@ interface SlashPanelProps {
 	 * （如 Dialog 顶部的 prompt 区）。
 	 */
 	placement?: "top" | "bottom";
+	/** 当前会话/项目 cwd，用于列出项目级 `<cwd>/.agents/skills` 与 `<cwd>/.vetta/skills`。 */
+	cwd?: string;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -20,18 +22,20 @@ const SOURCE_LABELS: Record<string, string> = {
 	project: "项目",
 	path: "自定义",
 	scene: "场景",
+	"agents-user": "通用",
+	"agents-project": "通用·项目",
 };
 
-export function SlashPanel({ open, onClose, onSelect, filter, placement = "top" }: SlashPanelProps): JSX.Element {
+export function SlashPanel({ open, onClose, onSelect, filter, placement = "top", cwd }: SlashPanelProps): JSX.Element {
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const panelRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		if (open) {
-			void window.vetta.skills.list().then(setSkills);
+			void window.vetta.skills.list(cwd).then(setSkills);
 		}
-	}, [open]);
+	}, [open, cwd]);
 
 	// Filter skills by name
 	const normalizedFilter = filter.startsWith("/") ? filter.slice(1) : filter;

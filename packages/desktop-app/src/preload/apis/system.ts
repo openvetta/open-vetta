@@ -114,7 +114,7 @@ export function createSystemApi(
 			pathForFile: (file) => webUtils.getPathForFile(file),
 		},
 		skills: {
-			list: () => ipc.invoke("vetta:skills:list"),
+			list: (cwd) => ipc.invoke("vetta:skills:list", cwd),
 			installFromMarket: (name, archiveBuffer, type, meta) =>
 				ipc.invoke("vetta:skills:install-from-market", name, archiveBuffer, type, meta),
 			importCustom: (archiveBuffer) => ipc.invoke("vetta:skills:import-custom", archiveBuffer),

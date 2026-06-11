@@ -327,6 +327,7 @@ export function SchedulerTaskFields({
 				onSkillChange={(skill) => set("skill", skill)}
 				placeholder="输入提示词...使用 / 唤出技能/场景"
 				minHeight={promptMinHeight}
+				cwd={value.cwd}
 			/>
 
 			<div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/40 bg-background/30 p-3">
