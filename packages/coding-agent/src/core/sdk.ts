@@ -93,6 +93,12 @@ export interface CreateAgentSessionOptions {
 	appendSystemPrompt?: string;
 
 	/**
+	 * 是否发现通用 Agent Skill 目录（`~/.agents/skills`、`<cwd>/.agents/skills`）。默认 true。
+	 * 仅在未显式传入 resourceLoader 时生效（由 DefaultResourceLoader 消费）。
+	 */
+	includeAgentSkills?: boolean;
+
+	/**
 	 * 注入到 bash/shell 工具子进程的环境变量覆盖层。仅对该 session 内的命令执行生效；
 	 * 不传则行为等同旧版。常用于将 TMPDIR/TEMP/TMP 重定向到 session 私有目录。
 	 */
@@ -290,6 +296,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 			agentDir,
 			settingsManager,
 			appendSystemPrompt: options.appendSystemPrompt,
+			includeAgentSkills: options.includeAgentSkills,
 		});
 		await resourceLoader.reload();
 		time("resourceLoader.reload");

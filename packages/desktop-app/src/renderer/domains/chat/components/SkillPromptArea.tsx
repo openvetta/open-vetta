@@ -14,6 +14,8 @@ interface SkillPromptAreaProps {
 	minHeight?: number;
 	className?: string;
 	autoFocus?: boolean;
+	/** 目标会话/项目 cwd，用于列出项目级 `<cwd>/.agents/skills` 与 `<cwd>/.vetta/skills`。 */
+	cwd?: string;
 }
 
 /**
@@ -34,6 +36,7 @@ export function SkillPromptArea({
 	minHeight = 120,
 	className,
 	autoFocus,
+	cwd,
 }: SkillPromptAreaProps): JSX.Element {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
@@ -61,8 +64,8 @@ export function SkillPromptArea({
 
 	// 拉一次已安装列表，用于胶囊上"未安装"标记。
 	useEffect(() => {
-		void window.vetta.skills.list().then(setInstalledSkills);
-	}, []);
+		void window.vetta.skills.list(cwd).then(setInstalledSkills);
+	}, [cwd]);
 
 	const skillMissing = useMemo(() => {
 		if (!skill || installedSkills === null) return false;
@@ -143,6 +146,7 @@ export function SkillPromptArea({
 								onSelect={handleSlashSelect}
 								filter={prompt.startsWith("/") ? prompt : ""}
 								placement="bottom"
+								cwd={cwd}
 							/>
 						</div>
 					</div>,

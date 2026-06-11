@@ -278,6 +278,8 @@ export function resolveReadPath(filePath: string, cwd: string): string {
  * - ~/.vetta/skills/
  * - ~/.vetta/scene/
  * - <cwd>/.vetta/skills/
+ * - ~/.agents/skills/        (generic Agent Skill convention)
+ * - <cwd>/.agents/skills/    (generic Agent Skill convention)
  */
 export function isProtectedSkillOrScenePath(absolutePath: string, cwd: string): boolean {
 	const resolved = resolvePath(absolutePath);
@@ -286,6 +288,8 @@ export function isProtectedSkillOrScenePath(absolutePath: string, cwd: string): 
 		resolvePath(join(os.homedir(), CONFIG_DIR_NAME, "skills")),
 		resolvePath(getSceneDir()),
 		resolvePath(cwd, CONFIG_DIR_NAME, "skills"),
+		resolvePath(join(os.homedir(), ".agents", "skills")),
+		resolvePath(cwd, ".agents", "skills"),
 	];
 
 	for (const dir of protectedDirs) {
