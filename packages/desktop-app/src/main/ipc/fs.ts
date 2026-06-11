@@ -1,10 +1,10 @@
-import type { FSWatcher, Stats } from "node:fs";
+import type { Dirent, FSWatcher, Stats } from "node:fs";
 import { readFileSync, watch } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
-import type { FsEntry } from "../../preload/fs-types.js";
+import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
@@ -281,6 +281,7 @@ const CHANNELS = {
 	MOVE: "vetta:fs:move",
 	CREATE_DIRECTORY: "vetta:fs:create-directory",
 	LIST_SUB_DIRS: "vetta:fs:list-sub-dirs",
+	LIST_FILES_RECURSIVE: "vetta:fs:list-files-recursive",
 	WATCH_DIR: "vetta:fs:watch-dir",
 	UNWATCH_DIR: "vetta:fs:unwatch-dir",
 	DIR_CHANGED: "vetta:fs:dir-changed",
@@ -296,6 +297,22 @@ const BINARY_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const HIDDEN_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
+
+/** 递归列文件时跳过的重型/无关目录。 */
+const RECURSIVE_IGNORED_DIRS = new Set([
+	"node_modules",
+	".git",
+	"dist",
+	"build",
+	"out",
+	"target",
+	"coverage",
+	".next",
+	".turbo",
+	".cache",
+]);
+/** 递归列文件的上限，避免超大仓库一次性返回过多条目卡住 UI。 */
+const MAX_RECURSIVE_FILES = 10000;
 
 /** Set of project CWDs that are allowed for file operations */
 const allowedRoots = new Set<string>();
@@ -469,6 +486,38 @@ export function registerFsIpc(): () => void {
 		await mkdir(resolve(expandTilde(dirPath)), { recursive: true });
 	});
 
+	ipcMain.handle(CHANNELS.LIST_FILES_RECURSIVE, async (_event, rootPath: unknown): Promise<FsFileRef[]> => {
+		assertNonEmptyString(rootPath, "rootPath");
+		assertPathWithinProject(rootPath);
+
+		const root = resolve(rootPath);
+		const results: FsFileRef[] = [];
+
+		async function walk(dir: string): Promise<void> {
+			if (results.length >= MAX_RECURSIVE_FILES) return;
+			let entries: Dirent[];
+			try {
+				entries = await readdir(dir, { withFileTypes: true });
+			} catch {
+				return; // 跳过无权限/已删除目录
+			}
+			for (const entry of entries) {
+				if (results.length >= MAX_RECURSIVE_FILES) return;
+				if (entry.name.startsWith(".") || HIDDEN_FILES.has(entry.name)) continue;
+				const fullPath = join(dir, entry.name);
+				if (entry.isDirectory()) {
+					if (RECURSIVE_IGNORED_DIRS.has(entry.name)) continue;
+					await walk(fullPath);
+				} else if (entry.isFile()) {
+					results.push({ name: entry.name, path: fullPath, relPath: relative(root, fullPath) });
+				}
+			}
+		}
+
+		await walk(root);
+		return results;
+	});
+
 	ipcMain.handle(CHANNELS.LIST_SUB_DIRS, async (_event, dirPath: unknown): Promise<FsEntry[]> => {
 		assertNonEmptyString(dirPath, "dirPath");
 		const resolved = resolve(expandTilde(dirPath));
@@ -638,6 +687,7 @@ export function registerFsIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.READ_DIR);
 		ipcMain.removeHandler(CHANNELS.CREATE_DIRECTORY);
 		ipcMain.removeHandler(CHANNELS.LIST_SUB_DIRS);
+		ipcMain.removeHandler(CHANNELS.LIST_FILES_RECURSIVE);
 		ipcMain.removeHandler(CHANNELS.WATCH_DIR);
 		ipcMain.removeHandler(CHANNELS.UNWATCH_DIR);
 		ipcMain.removeHandler(CHANNELS.CONFIG_GET);
