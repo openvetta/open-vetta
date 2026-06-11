@@ -322,6 +322,22 @@ ask_user_question 待答时，desktop-app 聊天页**输入栏被完全接管**�
 
 desktop-app 设置页「Agent配置」下的一个分类，首个成员是 [[ask_user_question]] 的开关。配置存储预留分组结构 `experimental.askUserQuestion`，将来加实验项只是加一个键、UI 同区域追加一行。**默认关、用户手动开**——「实验性」只是标签，不代表工具不可用或有额外使用成本，开关只控制是否把工具加载给 agent（经 [[user question handler]] 的注入/清除生效）。
 
+### 输入预测（prompt prediction）
+
+desktop-app 的一项[[实验性功能]]（`experimental.promptPrediction`，**缺省关**，区别于该分组其他键的缺省开）：agent 一轮回答**正常完成**（`agent_end`，aborted / error / 待答 [[ask_user_question]] 均不触发）后，预测用户下一个可能输入的 prompt。
+
+生成走 auto-title 同款模式：独立的轻量 LLM 调用（`completeSimple`，会话当前模型），取最近 2-3 轮对话文本（截断）为上下文，**不**进主对话历史、不由主回答顺带输出。条数由 LLM 自行决定 **0-3 条**——语境无明显走向时返回 0、即不出任何 UI；失败同样静默降级。
+
+呈现为两处：MessageList 下方垂直排列的[[建议 bubble]]；首条建议同时作为 InputBar placeholder——输入框为空时回车即按该建议发送。placeholder 加可识别前缀（↵ 图标 / 提示词）以区别于默认提示文本「向 Vetta 提问…」，让用户明白回车即发这条。生成期间（1-3 秒）**静默等待**：不显示加载骨架，bubble 就绪后才淡入；未就绪时 placeholder 保持默认提示。
+
+生命周期：**内存态、按会话（runtimeId）隔离**，仿 `pendingQuestionsAtom` 的 Record 形态。该会话发出下一个 prompt 即清空；切会话保留、切回仍显示；用户打字不隐藏 bubble；不持久化，重启即失。**丢弃过期结果**：异步生成回填时校验「触发时所属会话仍未发新 prompt / 未开新轮」，否则丢弃，避免上一轮建议错落到新轮下面（不引入 abort 信号，仅在回填点判定）。
+
+适用范围：仅[[交互式 session]]（普通对话 + 项目编码会话）；批量任务 / 自动化会话不启用。
+
+### 建议 bubble
+
+[[输入预测]]的列表呈现单元：MessageList 下方、InputBar 上方垂直排列的 0-3 个可点击气泡，每个承载一条预测 prompt（0 条即整块不渲染）。**点击即直接发送**该 prompt（与「placeholder 态空输入回车直发」语义一致），不是填入输入框待编辑。
+
 ### Vetta Go / Token Plan
 
 新增的订阅式计费方式，仿主流 token plan。用户开通某 [[档位]] 后，在该档位的[[窗口配额]]内使用其[[模型分组 tag]]覆盖的模型，**不走积分钱包扣减**。desktop 中作为独立服务商「Vetta Go」呈现；开通后有特殊标记与卡片。

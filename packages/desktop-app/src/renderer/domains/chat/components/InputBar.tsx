@@ -17,6 +17,7 @@ import {
 	activityPanelTabByProjectAtom,
 	sandboxPermissionDrawerAtom,
 	pendingQuestionsAtom,
+	promptSuggestionsAtom,
 } from "@shared/store/atoms";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { TodoCard } from "@shared/components/TodoCard";
@@ -33,7 +34,7 @@ import type { SkillInfo } from "@preload/api";
 import "./InputBar.css";
 
 interface InputBarProps {
-	onSend: () => Promise<void>;
+	onSend: (overrideText?: string) => Promise<void>;
 	onAbort: () => Promise<void>;
 	/**
 	 * 当无 activeSession 但仍希望放行输入与发送时（例如 NewSessionPage），
@@ -92,6 +93,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const activeSession = useAtomValue(activeSessionAtom);
 	const pendingQuestions = useAtomValue(pendingQuestionsAtom);
 	const pendingQuestion = activeSession?.runtimeId ? pendingQuestions[activeSession.runtimeId] : undefined;
+	const promptSuggestions = useAtomValue(promptSuggestionsAtom);
+	// 首条输入预测建议：用作 placeholder + 空输入回车直发。
+	const firstSuggestion = activeSession?.runtimeId ? promptSuggestions[activeSession.runtimeId]?.[0] : undefined;
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
@@ -175,6 +179,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
 			e.preventDefault();
 			if (canSend) void onSend();
+			// 空输入回车：若有输入预测建议，按首条建议直发（placeholder 即该建议）。
+			else if (hasSession && !isStreaming && isEmpty && firstSuggestion) void onSend(firstSuggestion);
 		}
 		// Backspace at start removes the rightmost capsule for fluid editing
 		if (e.key === "Backspace" && inputValue === "" && hasCapsules) {
@@ -414,7 +420,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		? "选择或创建会话以开始"
 		: isStreaming
 			? "Vetta 正在思考…"
-			: "向 Vetta 提问，使用 / 唤出技能，@ 引用文件";
+			: isEmpty && firstSuggestion
+				? `↵ ${firstSuggestion}`
+				: "向 Vetta 提问，使用 / 唤出技能，@ 引用文件";
 
 	// Card visual class composition
 	const cardClass = [

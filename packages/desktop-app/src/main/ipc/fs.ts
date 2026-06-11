@@ -23,6 +23,8 @@ export interface ExperimentalConfig {
 	vettaCli?: boolean;
 	/** 后台 bash 任务（run_in_background）：agent 可将耗时命令转入后台并在完成时被通知唤醒。缺省开；批量任务始终禁用。 */
 	backgroundTasks?: boolean;
+	/** 输入预测：每轮正常回答后预测用户下一个可能输入的 prompt。**缺省关**（区别于本组其他键的缺省开）；批量/流转会话不适用。 */
+	promptPrediction?: boolean;
 }
 
 export interface DesktopConfig {
@@ -99,13 +101,15 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 }
 
 function normalizeExperimental(value: unknown): ExperimentalConfig {
+	// promptPrediction 缺省 false（区别于其他键缺省 true）。
 	if (typeof value !== "object" || value === null)
-		return { askUserQuestion: true, vettaCli: true, backgroundTasks: true };
+		return { askUserQuestion: true, vettaCli: true, backgroundTasks: true, promptPrediction: false };
 	const v = value as Record<string, unknown>;
 	return {
 		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : true,
 		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : true,
 		backgroundTasks: typeof v.backgroundTasks === "boolean" ? v.backgroundTasks : true,
+		promptPrediction: typeof v.promptPrediction === "boolean" ? v.promptPrediction : false,
 	};
 }
 

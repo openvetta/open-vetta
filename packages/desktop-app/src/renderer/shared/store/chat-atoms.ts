@@ -257,6 +257,19 @@ export const isReloadingMcpAtom = atom<boolean>(false);
  */
 export const pendingQuestionsAtom = atom<Record<string, PendingQuestion>>({});
 
+/**
+ * 输入预测建议，按发起会话的 runtimeId 索引（仿 pendingQuestionsAtom 的 Record 形态）。
+ * agent 一轮正常完成后异步生成 0-3 条；该会话发出下一个 prompt 即清空。切会话只是
+ * 隐藏、切回恢复；纯内存态，不持久化。首条同时作为 InputBar placeholder。
+ */
+export const promptSuggestionsAtom = atom<Record<string, string[]>>({});
+
+/**
+ * 输入预测「生成中」状态，按会话 runtimeId 索引。生成调用在飞时为 true，
+ * 用于在该会话末条 assistant 消息的操作栏右侧显示「Vetta 正在预测…」闪光提示。
+ */
+export const promptPredictingAtom = atom<Record<string, boolean>>({});
+
 /** Selected model identifier: "provider/modelId" */
 export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));
 
