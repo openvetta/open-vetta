@@ -71,10 +71,24 @@ export function useSessionManager(): SessionManagerResult {
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
+	// 镜像输入相关 atom 到 ref：sendMessage 调用时读 ref.current，避免把这些高频变化
+	// 的值放进它的 useCallback 依赖。否则每打一个字 inputValue 一变，sendMessage 就换
+	// 身份 → 作为 onSend 一路传到 MessageList 的 Virtuoso footer，触发整块重挂载，产物
+	// 列表（ArtifactCard）入场动画反复重放，表现为打字时产物列表闪烁。
+	const inputValueRef = useRef(inputValue);
+	inputValueRef.current = inputValue;
+	const attachedImagesRef = useRef(attachedImages);
+	attachedImagesRef.current = attachedImages;
+	const selectedSkillRef = useRef(selectedSkill);
+	selectedSkillRef.current = selectedSkill;
+	const mentionedFilesRef = useRef(mentionedFiles);
+	mentionedFilesRef.current = mentionedFiles;
 	const navigate = useNavigate();
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
+	const selectedModelRef = useRef(selectedModel);
+	selectedModelRef.current = selectedModel;
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
@@ -694,6 +708,12 @@ export function useSessionManager(): SessionManagerResult {
 			// 读 ref 而非 state：允许在同一 tick 内先 openSession 再立即 sendMessage
 			// （例如 NewSessionPage 的"创建会话+发送"组合调用），避免 React 闭包拿到旧 null。
 			const session = activeSessionRef.current ?? activeSession;
+			// 读 ref 快照而非订阅值，使 sendMessage 身份在打字时保持稳定（见上方 ref 注释）。
+			const inputValue = inputValueRef.current;
+			const attachedImages = attachedImagesRef.current;
+			const selectedSkill = selectedSkillRef.current;
+			const mentionedFiles = mentionedFilesRef.current;
+			const selectedModel = selectedModelRef.current;
 			// overrideText：来自输入预测建议（点击 bubble / 空输入回车按 placeholder 发送），
 			// 作为独立 prompt 直发，不带技能 / @文件前缀，也不消费当前草稿与附图。
 			const override = typeof overrideText === "string" ? overrideText.trim() : "";
@@ -824,12 +844,10 @@ export function useSessionManager(): SessionManagerResult {
 			await loadSessions(session.cwd);
 		},
 		[
+			// 输入相关值改为读 ref（inputValue/attachedImages/selectedSkill/mentionedFiles/
+			// selectedModel），不再入依赖，保证 sendMessage 身份在打字时稳定，避免下游
+			// Virtuoso footer 重挂载导致产物列表闪烁。
 			activeSession,
-			inputValue,
-			attachedImages,
-			selectedSkill,
-			mentionedFiles,
-			selectedModel,
 			setInputValue,
 			setAttachedImages,
 			setSelectedSkill,
