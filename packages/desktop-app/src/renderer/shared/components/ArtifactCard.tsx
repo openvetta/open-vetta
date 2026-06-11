@@ -6,9 +6,11 @@ import {
 	activeSessionAtom,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
+	filePreviewAtom,
 	inlineFilePreviewAtom,
 	type FilePreviewItem,
 } from "@shared/store/atoms";
+import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 
 function isAbsolutePath(p: string): boolean {
 	return p.startsWith("/") || p.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(p);
@@ -30,6 +32,8 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 
 	const [expanded, setExpanded] = useState(false);
 	const setPreview = useSetAtom(inlineFilePreviewAtom);
+	const setGlobalPreview = useSetAtom(filePreviewAtom);
+	const narrow = useNarrowScreen();
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
@@ -45,7 +49,14 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 				path: resolveAgainstCwd(p, cwd),
 			}));
 			const index = files.indexOf(path);
-			// Make sure the activity panel is visible and switched to the file tab
+			const ctx = { items, index: index >= 0 ? index : 0 };
+			// 窄屏：活动面板是底部 sheet，内嵌分屏预览会把内容挤窄，
+			// 改走全局预览 Dialog（覆盖整屏），跟 FilesPanel 的行为对齐。
+			if (narrow) {
+				setGlobalPreview(ctx);
+				return;
+			}
+			// 宽屏：打开活动面板、切到 file 标签，走内嵌侧边预览
 			setActivityPanelOpen(true);
 			if (cwd) {
 				setTabByProject((prev) => {
@@ -54,9 +65,9 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 					return map;
 				});
 			}
-			setPreview({ items, index: index >= 0 ? index : 0 });
+			setPreview(ctx);
 		},
-		[files, cwd, setPreview, setActivityPanelOpen, setTabByProject],
+		[files, cwd, narrow, setPreview, setGlobalPreview, setActivityPanelOpen, setTabByProject],
 	);
 
 	return (
