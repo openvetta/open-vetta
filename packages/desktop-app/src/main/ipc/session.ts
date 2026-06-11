@@ -424,6 +424,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		// 实验性开关：后台 bash 任务（run_in_background）。批量任务不走本通道
 		// （batch-task-executor 直接 runtime.createSession 且强制 false）。
 		const enableBackgroundTasks = desktopConfig.experimental?.backgroundTasks === true;
+		// 适配通用 Agent Skill：默认开（缺省视为开），仅当用户显式关闭时禁用 .agents/skills 发现。
+		const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
 		const appendSystemPrompt =
 			isConversation && desktopConfig.experimental?.vettaCli === true
 				? config?.appendSystemPrompt
@@ -435,7 +437,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			injectedSessionDir !== config?.sessionDir ||
 			appendSystemPrompt !== config?.appendSystemPrompt ||
 			askUserQuestion !== config?.askUserQuestion ||
-			enableBackgroundTasks !== config?.enableBackgroundTasks;
+			enableBackgroundTasks !== config?.enableBackgroundTasks ||
+			includeAgentSkills !== config?.includeAgentSkills;
 		const effectiveConfig: SessionConfig | undefined = needPatch
 			? {
 					...(config ?? {}),
@@ -444,6 +447,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					appendSystemPrompt,
 					askUserQuestion,
 					enableBackgroundTasks,
+					includeAgentSkills,
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);

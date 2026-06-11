@@ -348,6 +348,7 @@ export class RuntimeHost implements SessionFacade {
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,
 			enableBackgroundTasks: config.enableBackgroundTasks,
+			includeAgentSkills: config.includeAgentSkills,
 			// 「向用户提问」能力：只有宿主显式允许的 session 才会注册工具；
 			// isEnabled / ask 仍实时读取 this.userQuestionHandler，保留动态开关能力。
 			askUserQuestion:

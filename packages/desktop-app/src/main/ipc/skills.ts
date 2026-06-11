@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { DefaultResourceLoader } from "@vetta/coding-agent";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
-import { allowProjectRoot } from "./fs.js";
+import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -196,9 +196,17 @@ export function registerSkillsIpc(): () => void {
 	// 允许通用 fs IPC 读取技能 / 场景目录下的文件（用于 SKILL.md 预览等）
 	allowProjectRoot(skillsBaseDir);
 	allowProjectRoot(sceneBaseDir);
+	// 通用 Agent Skill（只读）预览：放行全局 ~/.agents/skills。
+	allowProjectRoot(join(homedir(), ".agents", "skills"));
 
-	ipcMain.handle("vetta:skills:list", async () => {
-		const loader = new DefaultResourceLoader({});
+	ipcMain.handle("vetta:skills:list", async (_event, cwd: unknown) => {
+		// 适配通用 Agent Skill：跟随「Agent配置 → 扩展功能」开关，关闭时不发现 .agents/skills。
+		const desktopConfig = await readDesktopConfig();
+		const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
+		// 传入当前会话/项目 cwd，才能发现项目级 <cwd>/.agents/skills 与 <cwd>/.vetta/skills；
+		// 不传则只列全局来源（主进程自身 cwd 下通常无项目目录）。
+		const resolvedCwd = typeof cwd === "string" && cwd.trim().length > 0 ? cwd : undefined;
+		const loader = new DefaultResourceLoader({ includeAgentSkills, cwd: resolvedCwd });
 		await loader.reload();
 		const { skills } = loader.getSkills();
 		const manifest = readManifest();
@@ -209,7 +217,7 @@ export function registerSkillsIpc(): () => void {
 				if (s.source === "market" || s.source === "scene") {
 					return entry?.enabled ?? false;
 				}
-				// 其余来源（user/project/path）默认显示
+				// 其余来源（user/project/path/agents-*）默认显示
 				return !entry || entry.enabled;
 			})
 			.map((s) => {
@@ -327,10 +335,15 @@ export function registerSkillsIpc(): () => void {
 		assertNonEmptyString(name, "name");
 		const itemType: "skill" | "scene" = type === "scene" ? "scene" : "skill";
 		const skillMd = join(getBaseDir(itemType), name, "SKILL.md");
-		if (!existsSync(skillMd)) {
-			throw new Error(`SKILL.md 不存在：${skillMd}`);
+		if (existsSync(skillMd)) {
+			return skillMd;
 		}
-		return skillMd;
+		// 通用 Agent Skill（只读）预览：回退到全局 ~/.agents/skills/<name>/SKILL.md。
+		const agentSkillMd = join(homedir(), ".agents", "skills", name, "SKILL.md");
+		if (existsSync(agentSkillMd)) {
+			return agentSkillMd;
+		}
+		throw new Error(`SKILL.md 不存在：${skillMd}`);
 	});
 
 	ipcMain.handle("vetta:skills:import-custom", async (_event, archiveBuffer: unknown) => {

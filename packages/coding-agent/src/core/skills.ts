@@ -364,6 +364,12 @@ export interface LoadSkillsOptions {
 	skillPaths?: string[];
 	/** Include default skills directories. Default: true */
 	includeDefaults?: boolean;
+	/**
+	 * Include generic Agent Skill directories (`~/.agents/skills` and `<cwd>/.agents/skills`).
+	 * These follow the cross-agent convention (subdirectory `SKILL.md` only) and are tagged
+	 * `source = "agents-user"` / `"agents-project"`. Default: true.
+	 */
+	includeAgentSkills?: boolean;
 }
 
 function normalizePath(input: string): string {
@@ -384,7 +390,14 @@ function resolveSkillPath(p: string, cwd: string): string {
  * Returns skills and any validation diagnostics.
  */
 export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
-	const { cwd = process.cwd(), agentDir, sceneDir, skillPaths = [], includeDefaults = true } = options;
+	const {
+		cwd = process.cwd(),
+		agentDir,
+		sceneDir,
+		skillPaths = [],
+		includeDefaults = true,
+		includeAgentSkills = true,
+	} = options;
 
 	// Resolve agentDir - if not provided, use default from config
 	const resolvedAgentDir = agentDir ?? getAgentDir();
@@ -484,6 +497,14 @@ export function loadSkills(options: LoadSkillsOptions = {}): LoadSkillsResult {
 			const message = error instanceof Error ? error.message : "failed to read skill path";
 			allDiagnostics.push({ type: "warning", message, path: resolvedPath });
 		}
+	}
+
+	// Generic Agent Skill directories, loaded LAST so Vetta-native skills (user / project / scene)
+	// always win name collisions. Discovery follows the cross-agent convention: subdirectory
+	// SKILL.md only (no loose root .md), so skills authored for other agents drop in unchanged.
+	if (includeAgentSkills) {
+		addSkills(loadSkillsFromDirInternal(join(homedir(), ".agents", "skills"), "agents-user", false));
+		addSkills(loadSkillsFromDirInternal(resolve(cwd, ".agents", "skills"), "agents-project", false));
 	}
 
 	return {

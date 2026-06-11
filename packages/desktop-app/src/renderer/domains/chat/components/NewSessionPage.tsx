@@ -136,7 +136,7 @@ export function NewSessionPage(): JSX.Element {
 	// 拉取本地已启用技能/场景 + 市场场景目录 + 安装清单。
 	// 市场拉取失败 / 未登录 / 离线时静默降级为仅本地，绝不阻断首屏。
 	const loadResources = useCallback(async () => {
-		const localList = await window.vetta.skills.list();
+		const localList = await window.vetta.skills.list(decodedCwd);
 		setSkills(localList);
 		if (!token) {
 			setMarketScenes([]);
@@ -154,7 +154,7 @@ export function NewSessionPage(): JSX.Element {
 			setMarketScenes([]);
 			setManifest({});
 		}
-	}, [token]);
+	}, [token, decodedCwd]);
 
 	useEffect(() => {
 		return scheduleIdle(() => {

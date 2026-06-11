@@ -312,6 +312,11 @@ export interface SessionConfig {
 	 * 避免 agent 提前结束而进程仍在跑、完成通知凭空唤醒新 turn 干扰队列判定。
 	 */
 	enableBackgroundTasks?: boolean;
+	/**
+	 * 是否发现通用 Agent Skill 目录（`~/.agents/skills`、`<cwd>/.agents/skills`）。默认 true。
+	 * desktop「适配通用 Agent Skill」开关关闭时置 false。
+	 */
+	includeAgentSkills?: boolean;
 }
 
 export interface PromptRequest {
