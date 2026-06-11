@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { resolvedThemeAtom } from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
+import { isExternalLink, openExternalLink } from "@shared/lib/open-external-link";
 
 interface MarkdownPreviewProps {
 	content: string;
@@ -140,9 +141,10 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): JSX.Element 
 		a: ({ href, children }) => (
 			<a
 				href={href}
-				className="text-chart-2 underline decoration-chart-2/30 hover:decoration-chart-2"
-				target="_blank"
-				rel="noopener noreferrer"
+				className="text-primary underline decoration-primary/30 hover:decoration-primary"
+				target={isExternalLink(href) ? "_blank" : undefined}
+				rel={isExternalLink(href) ? "noopener noreferrer" : undefined}
+				onClick={(event) => openExternalLink(event, href)}
 			>
 				{children}
 			</a>

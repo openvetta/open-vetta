@@ -3,6 +3,7 @@ import type { RuntimeStatus, RuntimesStatus, RuntimeType } from "../../main/runt
 export interface DesktopShellApi {
 	showInFolder(fullPath: string): Promise<void>;
 	showItemInFolder(fullPath: string): Promise<void>;
+	openExternal(url: string): Promise<void>;
 }
 
 export interface DesktopWindowApi {
