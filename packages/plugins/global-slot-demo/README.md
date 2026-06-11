@@ -40,7 +40,8 @@ The settings page can also install and enable the generated zip from the plugin 
 
 - The plugin is built as a Module Federation remote and exposes `./plugin`.
 - `@vetta/plugin-vite` supplies the default Vite Module Federation and Rollup configuration for Vetta plugins.
+- Tailwind CSS is compiled inside the plugin through `@tailwindcss/vite`; only utilities are imported, so the plugin does not inject Tailwind Preflight into the host.
 - React is shared by the desktop host through Module Federation, so it is a plugin development dependency only.
 - `@vetta/plugin-sdk` is provided by the host and remains external.
 - The plugin declares `ui.slot.global`; without this grant, `ctx.ui.registerGlobalSlot()` will fail.
-- CSS is scoped under `.vetta-plugin-global-slot-demo` and uses Vetta theme variables.
+- Tailwind classes reference Vetta CSS variables such as `--primary` and `--popover`, so the plugin follows the active host theme.
