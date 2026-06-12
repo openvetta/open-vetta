@@ -13,6 +13,7 @@ export function WindowControls({ className }: WindowControlsProps): JSX.Element 
 		if (isMac) return;
 
 		void window.vetta.window.isMaximized().then(setIsMaximized);
+		return window.vetta.window.onMaximizedChanged(setIsMaximized);
 	}, []);
 
 	const handleMinimize = useCallback(() => {
