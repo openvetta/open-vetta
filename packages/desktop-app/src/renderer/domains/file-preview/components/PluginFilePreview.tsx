@@ -73,6 +73,22 @@ export function PluginFilePreview({
 			},
 			getUrl: () =>
 				item.url ?? (item.path ? `vetta-media://local/stream?path=${encodeURIComponent(item.path)}` : ""),
+			watch: (listener) => {
+				const path = item.path;
+				if (!path) return { dispose() {} };
+				const slash = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+				const dir = slash > 0 ? path.slice(0, slash) : path;
+				void window.vetta.fs.watchDir(dir);
+				const unsub = window.vetta.fs.onDirChanged((changed) => {
+					if (changed === dir) listener();
+				});
+				return {
+					dispose() {
+						unsub();
+						void window.vetta.fs.unwatchDir(dir);
+					},
+				};
+			},
 		};
 	}, [item, ext]);
 

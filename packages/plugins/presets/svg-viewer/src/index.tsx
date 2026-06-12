@@ -29,17 +29,26 @@ function SvgPreview({ file }: PluginFilePreviewProps) {
 
 	useEffect(() => {
 		let cancelled = false;
-		setState({ status: "loading" });
-		file
-			.readText()
-			.then((text) => {
-				if (!cancelled) setState({ status: "loaded", text });
-			})
-			.catch(() => {
-				if (!cancelled) setState({ status: "error", message: "无法读取此 SVG 文件" });
-			});
+
+		const load = (initial: boolean) => {
+			if (initial) setState({ status: "loading" });
+			file
+				.readText()
+				.then((text) => {
+					if (!cancelled) setState({ status: "loaded", text });
+				})
+				.catch(() => {
+					if (!cancelled) setState({ status: "error", message: "无法读取此 SVG 文件" });
+				});
+		};
+
+		load(true);
+		// Live-update: re-read whenever the file changes on disk.
+		const watcher = file.watch(() => load(false));
+
 		return () => {
 			cancelled = true;
+			watcher.dispose();
 		};
 	}, [file]);
 
