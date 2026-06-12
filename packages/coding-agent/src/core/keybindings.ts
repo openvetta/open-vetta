@@ -1,15 +1,107 @@
-import {
-	DEFAULT_EDITOR_KEYBINDINGS,
-	type EditorAction,
-	type EditorKeybindingsConfig,
-	EditorKeybindingsManager,
-	type KeyId,
-	matchesKey,
-	setEditorKeybindings,
-} from "@mariozechner/pi-tui";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { getAgentDir } from "../config.js";
+
+/**
+ * A key combination identifier (e.g. "ctrl+c", "shift+tab").
+ *
+ * Previously imported from @mariozechner/pi-tui as a precise template-literal
+ * union. The TUI product was removed; we keep the looser `string` alias so the
+ * (still-shipping) extension shortcut API and keybindings config keep working
+ * without the deleted package.
+ */
+export type KeyId = string;
+
+/**
+ * Editor-level actions. Internalized from the former pi-tui keybindings module —
+ * still referenced by the extension keybindings contract even though the
+ * built-in terminal editor is gone.
+ */
+export type EditorAction =
+	| "cursorUp"
+	| "cursorDown"
+	| "cursorLeft"
+	| "cursorRight"
+	| "cursorWordLeft"
+	| "cursorWordRight"
+	| "cursorLineStart"
+	| "cursorLineEnd"
+	| "jumpForward"
+	| "jumpBackward"
+	| "pageUp"
+	| "pageDown"
+	| "deleteCharBackward"
+	| "deleteCharForward"
+	| "deleteWordBackward"
+	| "deleteWordForward"
+	| "deleteToLineStart"
+	| "deleteToLineEnd"
+	| "newLine"
+	| "submit"
+	| "tab"
+	| "selectUp"
+	| "selectDown"
+	| "selectPageUp"
+	| "selectPageDown"
+	| "selectConfirm"
+	| "selectCancel"
+	| "copy"
+	| "yank"
+	| "yankPop"
+	| "undo"
+	| "expandTools"
+	| "toggleSessionPath"
+	| "toggleSessionSort"
+	| "renameSession"
+	| "deleteSession"
+	| "deleteSessionNoninvasive";
+
+export type EditorKeybindingsConfig = {
+	[K in EditorAction]?: KeyId | KeyId[];
+};
+
+/**
+ * Default editor keybindings (internalized from pi-tui).
+ */
+export const DEFAULT_EDITOR_KEYBINDINGS: Required<EditorKeybindingsConfig> = {
+	cursorUp: "up",
+	cursorDown: "down",
+	cursorLeft: ["left", "ctrl+b"],
+	cursorRight: ["right", "ctrl+f"],
+	cursorWordLeft: ["alt+left", "ctrl+left", "alt+b"],
+	cursorWordRight: ["alt+right", "ctrl+right", "alt+f"],
+	cursorLineStart: ["home", "ctrl+a"],
+	cursorLineEnd: ["end", "ctrl+e"],
+	jumpForward: "ctrl+]",
+	jumpBackward: "ctrl+alt+]",
+	pageUp: "pageUp",
+	pageDown: "pageDown",
+	deleteCharBackward: "backspace",
+	deleteCharForward: ["delete", "ctrl+d"],
+	deleteWordBackward: ["ctrl+w", "alt+backspace"],
+	deleteWordForward: ["alt+d", "alt+delete"],
+	deleteToLineStart: "ctrl+u",
+	deleteToLineEnd: "ctrl+k",
+	newLine: "shift+enter",
+	submit: "enter",
+	tab: "tab",
+	selectUp: "up",
+	selectDown: "down",
+	selectPageUp: "pageUp",
+	selectPageDown: "pageDown",
+	selectConfirm: "enter",
+	selectCancel: ["escape", "ctrl+c"],
+	copy: "ctrl+c",
+	yank: "ctrl+y",
+	yankPop: "alt+y",
+	undo: "ctrl+-",
+	expandTools: "ctrl+o",
+	toggleSessionPath: "ctrl+p",
+	toggleSessionSort: "ctrl+s",
+	renameSession: "ctrl+r",
+	deleteSession: "ctrl+d",
+	deleteSessionNoninvasive: "ctrl+backspace",
+};
 
 /**
  * Application-level actions (coding agent specific).
@@ -126,19 +218,7 @@ export class KeybindingsManager {
 	static create(agentDir: string = getAgentDir()): KeybindingsManager {
 		const configPath = join(agentDir, "keybindings.json");
 		const config = KeybindingsManager.loadFromFile(configPath);
-		const manager = new KeybindingsManager(config);
-
-		// Set up editor keybindings globally
-		// Include both editor actions and expandTools (shared between app and editor)
-		const editorConfig: EditorKeybindingsConfig = {};
-		for (const [action, keys] of Object.entries(config)) {
-			if (!isAppAction(action) || action === "expandTools") {
-				editorConfig[action as EditorAction] = keys;
-			}
-		}
-		setEditorKeybindings(new EditorKeybindingsManager(editorConfig));
-
-		return manager;
+		return new KeybindingsManager(config);
 	}
 
 	/**
@@ -175,18 +255,6 @@ export class KeybindingsManager {
 	}
 
 	/**
-	 * Check if input matches an app action.
-	 */
-	matches(data: string, action: AppAction): boolean {
-		const keys = this.appActionToKeys.get(action);
-		if (!keys) return false;
-		for (const key of keys) {
-			if (matchesKey(data, key)) return true;
-		}
-		return false;
-	}
-
-	/**
 	 * Get keys bound to an app action.
 	 */
 	getKeys(action: AppAction): KeyId[] {
@@ -206,6 +274,3 @@ export class KeybindingsManager {
 		return result;
 	}
 }
-
-// Re-export for convenience
-export type { EditorAction, KeyId };

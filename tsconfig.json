@@ -15,8 +15,6 @@
 			"@mariozechner/pi-coding-agent/hooks": ["./packages/coding-agent/src/core/hooks/index.ts"],
 			"@mariozechner/pi-coding-agent/*": ["./packages/coding-agent/src/*"],
 			"@sinclair/typebox": ["./node_modules/@sinclair/typebox"],
-			"@mariozechner/pi-tui": ["./packages/tui/src/index.ts"],
-			"@mariozechner/pi-tui/*": ["./packages/tui/src/*"],
 			"@mariozechner/pi-web-ui": ["./packages/web-ui/src/index.ts"],
 			"@mariozechner/pi-web-ui/*": ["./packages/web-ui/src/*"],
 			"@vetta/runtime-core": ["./packages/runtime-core/src/index.ts"],
@@ -58,8 +56,6 @@
 		"packages/runtime-storage/src/**/*",
 		"packages/runtime-telemetry/src/**/*",
 		"packages/cli-app/src/**/*",
-		"packages/tui/src/**/*",
-		"packages/tui/test/**/*",
 		"packages/web-ui/src/**/*",
 		"packages/coding-agent/examples/**/*"
 	],

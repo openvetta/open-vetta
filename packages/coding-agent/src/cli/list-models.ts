@@ -3,8 +3,22 @@
  */
 
 import type { Api, Model } from "@mariozechner/pi-ai";
-import { fuzzyFilter } from "@mariozechner/pi-tui";
 import type { ModelRegistry } from "../core/model-registry.js";
+
+/**
+ * Case-insensitive subsequence match: every character of `pattern` must appear
+ * in `text` in order (not necessarily contiguous). Mirrors the loose matching
+ * previously provided by pi-tui's fuzzyFilter, scoped to what list-models needs.
+ */
+function fuzzyMatches(text: string, pattern: string): boolean {
+	const haystack = text.toLowerCase();
+	const needle = pattern.toLowerCase();
+	let i = 0;
+	for (let j = 0; j < haystack.length && i < needle.length; j++) {
+		if (haystack[j] === needle[i]) i++;
+	}
+	return i === needle.length;
+}
 
 /**
  * Format a number as human-readable (e.g., 200000 -> "200K", 1000000 -> "1M")
@@ -35,7 +49,7 @@ export async function listModels(modelRegistry: ModelRegistry, searchPattern?: s
 	// Apply fuzzy filter if search pattern provided
 	let filteredModels: Model<Api>[] = models;
 	if (searchPattern) {
-		filteredModels = fuzzyFilter(models, searchPattern, (m) => `${m.provider} ${m.id}`);
+		filteredModels = models.filter((m) => fuzzyMatches(`${m.provider} ${m.id}`, searchPattern));
 	}
 
 	if (filteredModels.length === 0) {
