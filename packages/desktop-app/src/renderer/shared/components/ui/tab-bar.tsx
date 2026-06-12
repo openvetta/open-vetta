@@ -20,9 +20,10 @@ interface TabBarProps<T extends string> {
 }
 
 /**
- * 浏览器/文件夹式选项卡：页签悬浮在内容卡片上方，激活页签为圆角凸起、
- * 底色与卡片一致并向下延伸 1px 盖住卡片描边，与卡片无缝融合；
- * 非激活页签为半透明灰色圆角块。
+ * 浏览器/文件夹式选项卡：页签悬浮在内容卡片上方。相邻页签以负边距互相重叠、靠
+ * z-index 分层，形成卡片堆叠的层次感（越靠近激活页签层级越高，向激活页签汇聚叠
+ * 压）。激活页签层级最高、圆角凸起、底色与卡片一致并向下延伸 1px 盖住卡片描边，
+ * 与卡片无缝融合并带顶部投影抬升；非激活页签为下沉的半透明圆角块、带细描边。
  *
  * 须与带 1px `border-border` 边框的内容卡片紧贴配套使用（见 ActivityPanel），
  * 激活页签的左/右/上边框会与卡片边框接成一条连续轮廓。
@@ -41,19 +42,14 @@ export function TabBar<T extends string>({
 		<div className={cn("relative z-10 flex shrink-0 items-end px-3", className)}>
 			{items.map(({ key, label, icon, badge }, index) => {
 				const active = value === key;
-				// 紧贴激活页签的两侧邻居去掉靠近激活侧的顶部圆角，避免与凸起的激活页签之间出现缺口
-				const cornerClass = active
-					? "rounded-t-lg"
-					: index === activeIndex - 1
-						? "rounded-tl-lg"
-						: index === activeIndex + 1
-							? "rounded-tr-lg"
-							: "rounded-t-lg";
+				// 激活页签置顶；非激活页签越靠近激活页签层级越高，向激活页签方向叠压
+				const zIndex = active ? items.length + 1 : items.length - Math.abs(index - activeIndex);
 				return (
 					<motion.button
 						key={key}
 						type="button"
 						layout
+						style={{ zIndex }}
 						transition={
 							suppressLayoutAnimation
 								? { duration: 0 }
@@ -61,17 +57,17 @@ export function TabBar<T extends string>({
 						}
 						onClick={() => onChange(key)}
 						className={cn(
-							"relative flex select-none items-center gap-1.5 whitespace-nowrap text-[11px] font-medium leading-none transition-[color,background-color,border-radius] duration-150",
-							cornerClass,
+							"relative flex select-none items-center gap-1.5 whitespace-nowrap rounded-t-lg text-[11px] font-medium leading-none transition-[color,background-color] duration-150",
+							index > 0 && "-ml-2",
 							active
-								? "h-[28px] px-4 text-foreground"
-								: "h-[24px] bg-black/[0.045] px-3.5 text-muted-foreground hover:bg-black/[0.07] hover:text-foreground/80 dark:bg-white/[0.05] dark:hover:bg-white/[0.08]",
+								? "h-[29px] px-4 text-foreground"
+								: "h-[23px] border border-b-0 border-border/70 bg-muted px-4 text-muted-foreground hover:brightness-110 hover:text-foreground/80 dark:bg-[#22242e]",
 						)}
 					>
 						{active && (
 							<motion.span
 								layoutId={`tabbar-active-${layoutId}`}
-								className="absolute inset-x-0 top-0 -bottom-px rounded-t-lg border border-b-0 border-border bg-muted"
+								className="absolute inset-x-0 top-0 -bottom-px rounded-t-lg border border-b-0 border-border bg-muted shadow-[0_-2px_6px_rgba(0,0,0,0.08)]"
 								transition={
 									suppressLayoutAnimation
 										? { duration: 0 }
