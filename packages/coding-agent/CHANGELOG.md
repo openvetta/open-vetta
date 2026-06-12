@@ -6,6 +6,7 @@
 
 ### Changed
 
+- 系统提示词新增「产物输出位置」规则（`OUTPUT_LOCATION_GUIDANCE`，注入到 `buildSystemPrompt` 两条分支的 cwd 页脚之后）：用户未显式指定保存位置时，新文件/产物/导出默认落在当前工作目录，禁止默认写到桌面、家目录、`/tmp` 或工作目录之外；只给裸文件名时按当前工作目录解析。修复 agent 在未指明位置时大概率把产物丢到桌面的问题。
 - Langfuse tracing 不再通过 `VETTA_TRACING_DETAIL` / `VETTA_TRACING_CAPTURE_CONTENT` 区分采集粒度和正文开关；启用 `VETTA_TRACING=langfuse` 后固定使用 `standard` 粒度并上传 prompt、completion、tool input/output 正文。
 - todo 工具区分严格/宽松两档：来自 scene `tasks.json` 的 locked 列表保持严格（顺序锁定、禁止 create/clear、未完成强制续跑）；常规临时（unlocked）列表放宽——允许乱序更新、新增 `action="clear"` 主动放弃重建，未完成时仅软提醒一次并提示在用户转向时调用 `clear`，避免被打断后被旧计划绑架。
 - Vetta CLI guidance is no longer injected into every command-capable agent session; desktop hosts now opt in by appending `VETTA_CLI_GUIDANCE` only for eligible conversation sessions.
