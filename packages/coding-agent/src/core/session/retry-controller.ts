@@ -5,8 +5,8 @@
  * and the promise that prompt() awaits so a turn doesn't resolve mid-retry.
  */
 
-import type { AssistantMessage } from "@mariozechner/pi-ai";
-import { isContextOverflow } from "@mariozechner/pi-ai";
+import type { AssistantMessage } from "@vetta/ai";
+import { isContextOverflow } from "@vetta/ai";
 import { sleep } from "../../utils/sleep.js";
 import type { SessionContext } from "./session-context.js";
 

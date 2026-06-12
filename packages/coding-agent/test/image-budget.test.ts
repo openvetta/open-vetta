@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { ImageContent, TextContent } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { ImageContent, TextContent } from "@vetta/ai";
 import { describe, expect, it } from "vitest";
 import { applyImageBudget } from "../src/core/image-budget.js";
 

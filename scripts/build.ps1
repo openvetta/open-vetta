@@ -35,7 +35,6 @@ function Build-Pkg {
 }
 
 function Build-Layer0 {
-	Build-Pkg "packages/tui"
 	Build-Pkg "packages/ai"
 	Build-Pkg "packages/runtime-telemetry"
 	Build-Pkg "packages/agent"
@@ -52,7 +51,6 @@ function Build-Layer2 {
 	Build-Pkg "packages/runtime-tools"
 	Build-Pkg "packages/runtime-storage"
 	Build-Pkg "packages/runtime-mcp"
-	Build-Pkg "packages/web-ui"
 }
 
 function Build-Apps {

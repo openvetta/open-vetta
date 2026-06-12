@@ -2,8 +2,8 @@ import { randomBytes } from "node:crypto";
 import { createWriteStream, existsSync, readdirSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
 import { spawn } from "child_process";
 import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../../config.js";
 import {

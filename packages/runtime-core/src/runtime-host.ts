@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import { completeSimple, type Message, type TextContent, type Tool, type ToolCall, Type } from "@mariozechner/pi-ai";
+import type { ThinkingLevel } from "@vetta/agent-core";
+import { completeSimple, type Message, type TextContent, type Tool, type ToolCall, Type } from "@vetta/ai";
 import {
 	type AgentSession,
 	type AgentSessionEvent,

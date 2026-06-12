@@ -2,7 +2,7 @@
  * Hello Tool - Minimal custom tool example
  */
 
-import { Type } from "@mariozechner/pi-ai";
+import { Type } from "@vetta/ai";
 import type { ExtensionAPI } from "@vetta/coding-agent";
 
 export default function (pi: ExtensionAPI) {

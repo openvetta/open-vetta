@@ -14,8 +14,8 @@
  */
 
 import { join } from "node:path";
-import type { Agent, AgentMessage, AgentState, ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { ImageContent, Model, TextContent } from "@mariozechner/pi-ai";
+import type { Agent, AgentMessage, AgentState, ThinkingLevel } from "@vetta/agent-core";
+import type { ImageContent, Model, TextContent } from "@vetta/ai";
 import { theme } from "../modes/interactive/theme/theme.js";
 import { BackgroundTaskManager, buildTaskNotification } from "./background-tasks/index.js";
 import type { BashResult } from "./bash-executor.js";

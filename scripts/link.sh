@@ -26,8 +26,8 @@ if ! "$BUN_BIN" install; then
 	exit 1
 fi
 
-echo "Building workspace dependencies (tui, ai, agent)..."
-for dep_pkg in tui ai agent; do
+echo "Building workspace dependencies (ai, agent)..."
+for dep_pkg in ai agent; do
 	echo "  - $dep_pkg"
 	cd "$ROOT_DIR/packages/$dep_pkg"
 	if [[ "$dep_pkg" == "ai" ]]; then

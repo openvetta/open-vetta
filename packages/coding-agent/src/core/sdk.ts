@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { Agent, type AgentMessage, type ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { Message, Model } from "@mariozechner/pi-ai";
+import { Agent, type AgentMessage, type ThinkingLevel } from "@vetta/agent-core";
+import type { Message, Model } from "@vetta/ai";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 import { createLangfuseRuntimeTracerFromEnv } from "@vetta/runtime-telemetry/langfuse";
 import { DEFAULT_SERVER_URL, ENV_SERVER_URL, getAgentDir, getDocsPath } from "../config.js";
@@ -227,7 +227,7 @@ function getDefaultAgentDir(): string {
  * const { session } = await createAgentSession();
  *
  * // With explicit model
- * import { getModel } from '@mariozechner/pi-ai';
+ * import { getModel } from '@vetta/ai';
  * const { session } = await createAgentSession({
  *   model: getModel('anthropic', 'claude-opus-4-5'),
  *   thinkingLevel: 'high',

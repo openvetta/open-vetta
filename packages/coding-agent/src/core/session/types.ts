@@ -5,8 +5,8 @@
  * existing import paths for external consumers.
  */
 
-import type { Agent, AgentEvent, AgentTool, ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { ImageContent, Model } from "@mariozechner/pi-ai";
+import type { Agent, AgentEvent, AgentTool, ThinkingLevel } from "@vetta/agent-core";
+import type { ImageContent, Model } from "@vetta/ai";
 import type { BackgroundTaskSnapshot } from "../background-tasks/index.js";
 import type { CompactionResult } from "../compaction/index.js";
 import type {

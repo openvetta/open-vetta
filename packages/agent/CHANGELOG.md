@@ -6,7 +6,7 @@
 
 - 修复 `tracing.detail="agent"` 且 `tracing.captureContent=true` 时 root `agent.run` 仍只上报摘要，导致 Langfuse trace input/output 看不到用户消息、最终 assistant 输出、system prompt 与工具定义正文。
 - 修复 `proxy.ts` 的 `streamProxy` 在 abort listener 上未传 `{ once: true }`：abort 触发后 listener 仍残留到 finally 才被移除，并发 finally 路径异常下可能漏清理。补齐 `{ once: true }` 作为防御。
-- 主进程长跑时主流 `AbortSignal` 因外部库累积 abort listener 触发 `MaxListenersExceededWarning`（10 默认上限被多 turn / 多重试场景秒爆）：在 `Agent._runLoop` 创建 per-prompt `AbortController` 时调用 `events.setMaxListeners(0, signal)` 关闭单 signal 的告警阈值。Node 环境通过条件动态加载 `node:events`，浏览器 (web-ui) 自动跳过。配合 `@mariozechner/pi-ai` 中三处 sleep 的成对 listener 清理，彻底解决 listener 泄漏告警与潜在 GC 压力。
+- 主进程长跑时主流 `AbortSignal` 因外部库累积 abort listener 触发 `MaxListenersExceededWarning`（10 默认上限被多 turn / 多重试场景秒爆）：在 `Agent._runLoop` 创建 per-prompt `AbortController` 时调用 `events.setMaxListeners(0, signal)` 关闭单 signal 的告警阈值。Node 环境通过条件动态加载 `node:events`，浏览器 (web-ui) 自动跳过。配合 `@vetta/ai` 中三处 sleep 的成对 listener 清理，彻底解决 listener 泄漏告警与潜在 GC 压力。
 
 ### Added
 
@@ -244,7 +244,7 @@
 
 - **`UserMessageWithAttachments` and `Attachment` types removed**: Attachment handling is now the responsibility of the `convertToLlm` function.
 
-- **Agent loop moved from `@mariozechner/pi-ai`**: The `agentLoop`, `agentLoopContinue`, and related types have moved to this package. Import from `@mariozechner/pi-agent-core` instead.
+- **Agent loop moved from `@vetta/ai`**: The `agentLoop`, `agentLoopContinue`, and related types have moved to this package. Import from `@vetta/agent-core` instead.
 
 ### Added
 
