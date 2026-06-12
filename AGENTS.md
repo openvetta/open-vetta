@@ -10,7 +10,6 @@ read README.md, then ask which module(s) to work on. Based on the answer, read t
 - packages/coding-agent/README.md
 - packages/mom/README.md
 - packages/pods/README.md
-- packages/web-ui/README.md
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 

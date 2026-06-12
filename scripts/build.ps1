@@ -50,7 +50,6 @@ function Build-Layer2 {
 	Build-Pkg "packages/runtime-tools"
 	Build-Pkg "packages/runtime-storage"
 	Build-Pkg "packages/runtime-mcp"
-	Build-Pkg "packages/web-ui"
 }
 
 function Build-Apps {
