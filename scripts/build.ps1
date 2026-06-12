@@ -40,6 +40,7 @@ function Build-Layer0 {
 	Build-Pkg "packages/runtime-telemetry"
 	Build-Pkg "packages/agent"
 	Build-Pkg "packages/action-rpc"
+	Build-Pkg "packages/plugin-sdk"
 }
 
 function Build-Layer1 {
