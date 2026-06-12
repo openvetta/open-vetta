@@ -8,8 +8,9 @@ import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { Button } from "@shared/components/ui/button";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { PluginsPanel, type PluginsPanelHandle } from "./PluginsPanel";
 
-type TypeTab = "skill" | "scene";
+type TypeTab = "skill" | "scene" | "plugin";
 type ActionState = "idle" | "loading" | "done";
 
 const UNCATEGORIZED = "未分类";
@@ -609,6 +610,7 @@ export function SkillsPage(): JSX.Element {
 	const [actionStates, setActionStates] = useState<Record<string, ActionState>>({});
 	const [importing, setImporting] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const pluginsPanelRef = useRef<PluginsPanelHandle>(null);
 
 	const token = useAtomValue(authTokenAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
@@ -821,6 +823,7 @@ export function SkillsPage(): JSX.Element {
 								[
 									{ key: "scene" as TypeTab, label: "场景" },
 									{ key: "skill" as TypeTab, label: "技能" },
+									{ key: "plugin" as TypeTab, label: "插件" },
 								] as const
 							).map(({ key, label }) => (
 								<button
@@ -848,16 +851,18 @@ export function SkillsPage(): JSX.Element {
 						transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
 						className={`flex items-center gap-2 ${narrow ? "w-full" : ""}`}
 					>
-						<div className={`relative ${narrow ? "flex-1" : ""}`}>
-							<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-							<input
-								type="text"
-								placeholder={`搜索${typeTab === "scene" ? "场景" : "技能"}...`}
-								value={searchQuery}
-								onChange={(e) => setSearchQuery(e.target.value)}
-								className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
-							/>
-						</div>
+						{typeTab !== "plugin" && (
+							<div className={`relative ${narrow ? "flex-1" : ""}`}>
+								<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
+								<input
+									type="text"
+									placeholder={`搜索${typeTab === "scene" ? "场景" : "技能"}...`}
+									value={searchQuery}
+									onChange={(e) => setSearchQuery(e.target.value)}
+									className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
+								/>
+							</div>
+						)}
 						{typeTab === "skill" && (
 							<>
 								<input
@@ -882,13 +887,25 @@ export function SkillsPage(): JSX.Element {
 								</Button>
 							</>
 						)}
+						{typeTab === "plugin" && (
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => pluginsPanelRef.current?.triggerImport()}
+							>
+								<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
+								<span>导入插件</span>
+							</Button>
+						)}
 					</motion.div>
 				</div>
 			</div>
 
 			{/* Content */}
 			<div className="flex-1 overflow-y-auto px-8 pt-5 pb-8">
-				{loading ? (
+				{typeTab === "plugin" ? (
+					<PluginsPanel ref={pluginsPanelRef} />
+				) : loading ? (
 					<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
 						<motion.span
 							className="icon-[mdi--loading] h-8 w-8 text-primary/60"
