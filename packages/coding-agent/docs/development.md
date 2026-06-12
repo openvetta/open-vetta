@@ -14,7 +14,7 @@ npm run build
 Run from source:
 
 ```bash
-./pi-test.sh
+./vetta-test.sh
 ```
 
 ## Forking / Rebranding
