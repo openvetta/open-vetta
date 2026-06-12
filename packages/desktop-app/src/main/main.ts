@@ -451,6 +451,11 @@ if (!gotSingleLock) {
 		}
 
 		const mainWindow = createWindow();
+		const sendWindowMaximizedChanged = () => {
+			mainWindow.webContents.send("vetta:window:maximized-changed", mainWindow.isMaximized());
+		};
+		mainWindow.on("maximize", sendWindowMaximizedChanged);
+		mainWindow.on("unmaximize", sendWindowMaximizedChanged);
 		const actionApprovalBroker = new ActionApprovalBroker(mainWindow.webContents);
 		const batchTaskService = new BatchTaskService(getSharedRuntime);
 		const schedulerService = new SchedulerService({

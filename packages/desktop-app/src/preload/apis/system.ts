@@ -169,6 +169,7 @@ export function createSystemApi(
 			maximize: () => ipc.invoke("vetta:window:maximize"),
 			close: () => ipc.invoke("vetta:window:close"),
 			isMaximized: () => ipc.invoke("vetta:window:is-maximized"),
+			onMaximizedChanged: (handler) => onIpcEvent(ipc, "vetta:window:maximized-changed", handler),
 			toggleAlwaysOnTop: () => ipc.invoke("vetta:window:toggle-always-on-top"),
 			isAlwaysOnTop: () => ipc.invoke("vetta:window:is-always-on-top"),
 		},

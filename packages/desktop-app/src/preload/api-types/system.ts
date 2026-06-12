@@ -11,6 +11,7 @@ export interface DesktopWindowApi {
 	maximize(): Promise<void>;
 	close(): Promise<void>;
 	isMaximized(): Promise<boolean>;
+	onMaximizedChanged(handler: (isMaximized: boolean) => void): () => void;
 	/** 切换窗口置顶，返回切换后的状态。 */
 	toggleAlwaysOnTop(): Promise<boolean>;
 	isAlwaysOnTop(): Promise<boolean>;
