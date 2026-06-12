@@ -11,7 +11,7 @@ import {
 	type Tool,
 	type ToolResultMessage,
 	validateToolArguments,
-} from "@mariozechner/pi-ai";
+} from "@vetta/ai";
 import type { RuntimeObservation, RuntimeObservationUpdate } from "@vetta/runtime-telemetry";
 import type {
 	AgentContext,

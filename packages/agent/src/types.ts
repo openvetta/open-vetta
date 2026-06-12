@@ -1,3 +1,4 @@
+import type { Static, TSchema } from "@sinclair/typebox";
 import type {
 	AssistantMessageEvent,
 	ImageContent,
@@ -8,8 +9,7 @@ import type {
 	TextContent,
 	Tool,
 	ToolResultMessage,
-} from "@mariozechner/pi-ai";
-import type { Static, TSchema } from "@sinclair/typebox";
+} from "@vetta/ai";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 
 /** Stream function - can return sync or Promise for async config lookup */

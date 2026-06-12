@@ -6,7 +6,7 @@
  * controllers for model restore and queue resets.
  */
 
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
+import type { ThinkingLevel } from "@vetta/agent-core";
 import { collectEntriesForBranchSummary, generateBranchSummary } from "../compaction/index.js";
 import { DEFAULT_THINKING_LEVEL } from "../defaults.js";
 import type {

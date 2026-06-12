@@ -8,13 +8,14 @@
  * - Interact with the user via UI primitives
  */
 
+import type { Static, TSchema } from "@sinclair/typebox";
 import type {
 	AgentMessage,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ThinkingLevel,
 	ToolPhase,
-} from "@mariozechner/pi-agent-core";
+} from "@vetta/agent-core";
 import type {
 	Api,
 	AssistantMessageEvent,
@@ -27,8 +28,7 @@ import type {
 	SimpleStreamOptions,
 	TextContent,
 	ToolResultMessage,
-} from "@mariozechner/pi-ai";
-import type { Static, TSchema } from "@sinclair/typebox";
+} from "@vetta/ai";
 import type { Theme } from "../../modes/interactive/theme/theme.js";
 import type { BashResult } from "../bash-executor.js";
 import type { CompactionPreparation, CompactionResult } from "../compaction/index.js";

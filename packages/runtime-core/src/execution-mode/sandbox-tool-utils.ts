@@ -1,4 +1,4 @@
-import type { AgentTool, AgentToolUpdateCallback } from "@mariozechner/pi-agent-core";
+import type { AgentTool, AgentToolUpdateCallback } from "@vetta/agent-core";
 import type { ToolDefinition } from "@vetta/coding-agent";
 import {
 	addSessionGrant,

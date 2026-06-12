@@ -1,6 +1,6 @@
 {
-	"name": "@mariozechner/pi-ai",
-	"version": "0.55.3",
+	"name": "@vetta/ai",
+	"version": "0.0.1",
 	"description": "Unified LLM API with automatic model discovery and provider configuration",
 	"type": "module",
 	"main": "./dist/index.js",

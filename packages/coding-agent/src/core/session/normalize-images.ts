@@ -4,7 +4,7 @@
  * Extracted from AgentSession. Pure function: the autoResize toggle is passed in.
  */
 
-import type { ImageContent } from "@mariozechner/pi-ai";
+import type { ImageContent } from "@vetta/ai";
 import { formatImageResizeFailureNote, isImageResizeFailure, resizeImage } from "../../utils/image-resize.js";
 
 /**

@@ -6,14 +6,11 @@
 			"*": ["./*"],
 			"@vetta/coding-agent": ["./packages/coding-agent/src/index.ts"],
 			"@vetta/coding-agent/*": ["./packages/coding-agent/src/*"],
-			"@mariozechner/pi-ai": ["./packages/ai/src/index.ts"],
-			"@mariozechner/pi-ai/*": ["./packages/ai/src/*"],
-			"@mariozechner/pi-ai/dist/*": ["./packages/ai/src/*"],
-			"@mariozechner/pi-agent-core": ["./packages/agent/src/index.ts"],
-			"@mariozechner/pi-agent-core/*": ["./packages/agent/src/*"],
-			"@mariozechner/pi-coding-agent": ["./packages/coding-agent/src/index.ts"],
-			"@mariozechner/pi-coding-agent/hooks": ["./packages/coding-agent/src/core/hooks/index.ts"],
-			"@mariozechner/pi-coding-agent/*": ["./packages/coding-agent/src/*"],
+			"@vetta/ai": ["./packages/ai/src/index.ts"],
+			"@vetta/ai/*": ["./packages/ai/src/*"],
+			"@vetta/ai/dist/*": ["./packages/ai/src/*"],
+			"@vetta/agent-core": ["./packages/agent/src/index.ts"],
+			"@vetta/agent-core/*": ["./packages/agent/src/*"],
 			"@sinclair/typebox": ["./node_modules/@sinclair/typebox"],
 			"@vetta/runtime-core": ["./packages/runtime-core/src/index.ts"],
 			"@vetta/runtime-core/*": ["./packages/runtime-core/src/*"],
@@ -33,9 +30,7 @@
 			"@vetta/runtime-telemetry/langfuse": ["./packages/runtime-telemetry/src/langfuse.ts"],
 			"@vetta/runtime-telemetry/*": ["./packages/runtime-telemetry/src/*"],
 			"@vetta/cli-app": ["./packages/cli-app/src/index.ts"],
-			"@vetta/cli-app/*": ["./packages/cli-app/src/*"],
-			"@mariozechner/pi-agent-old": ["./packages/agent-old/src/index.ts"],
-			"@mariozechner/pi-agent-old/*": ["./packages/agent-old/src/*"]
+			"@vetta/cli-app/*": ["./packages/cli-app/src/*"]
 		}
 	},
 	"include": [

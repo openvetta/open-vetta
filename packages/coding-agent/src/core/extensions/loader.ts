@@ -10,12 +10,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "@mariozechner/jiti";
-import * as _bundledPiAgentCore from "@mariozechner/pi-agent-core";
-import * as _bundledPiAi from "@mariozechner/pi-ai";
 // Static imports of packages that extensions may use.
 // These MUST be static so Bun bundles them into the compiled binary.
 // The virtualModules option then makes them available to extensions.
 import * as _bundledTypebox from "@sinclair/typebox";
+import * as _bundledPiAgentCore from "@vetta/agent-core";
+import * as _bundledPiAi from "@vetta/ai";
 import { CONFIG_DIR_NAME, getAgentDir, isBunBinary } from "../../config.js";
 // NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
 // avoiding a circular dependency. Extensions can import from @vetta/coding-agent.
@@ -39,8 +39,8 @@ import type {
 /** Modules available to extensions via virtualModules (for compiled Bun binary) */
 const VIRTUAL_MODULES: Record<string, unknown> = {
 	"@sinclair/typebox": _bundledTypebox,
-	"@mariozechner/pi-agent-core": _bundledPiAgentCore,
-	"@mariozechner/pi-ai": _bundledPiAi,
+	"@vetta/agent-core": _bundledPiAgentCore,
+	"@vetta/ai": _bundledPiAi,
 	"@vetta/coding-agent": _bundledVettaCodingAgent,
 };
 
@@ -62,8 +62,8 @@ function getAliases(): Record<string, string> {
 
 	_aliases = {
 		"@vetta/coding-agent": packageIndex,
-		"@mariozechner/pi-agent-core": require.resolve("@mariozechner/pi-agent-core"),
-		"@mariozechner/pi-ai": require.resolve("@mariozechner/pi-ai"),
+		"@vetta/agent-core": require.resolve("@vetta/agent-core"),
+		"@vetta/ai": require.resolve("@vetta/ai"),
 		"@sinclair/typebox": typeboxRoot,
 	};
 

@@ -11,7 +11,7 @@
 
 import { appendFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import type { AssistantMessage } from "@mariozechner/pi-ai";
+import type { AssistantMessage } from "@vetta/ai";
 
 const MAX_LINE_TEXT = 200;
 const MAX_SECTION_CHARS = 2000;

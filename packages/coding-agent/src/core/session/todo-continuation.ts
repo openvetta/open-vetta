@@ -5,7 +5,7 @@
  * passed in and the next one returned, so the facade owns the mutable state.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { AgentMessage } from "@vetta/agent-core";
 import type { CustomEntry, SessionManager } from "../session-manager.js";
 import { TODO_SNAPSHOT_TYPE, type TodoSnapshot, type TodoStore } from "../todo-store.js";
 

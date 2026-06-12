@@ -42,7 +42,7 @@ import {
 	type Tool,
 	type ToolCall,
 	type ToolResultMessage,
-} from "@mariozechner/pi-ai";
+} from "@vetta/ai";
 import type { ExtensionAPI } from "@vetta/coding-agent";
 
 // =============================================================================

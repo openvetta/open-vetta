@@ -4,8 +4,8 @@ import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import nodePath from "node:path";
 import { promisify } from "node:util";
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
 
