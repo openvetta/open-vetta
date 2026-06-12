@@ -53,6 +53,15 @@ export const VETTA_CLI_GUIDANCE = [
 	"Do not ask for authorization before running the command, and do not automatically retry an action after the user rejects it.",
 ].join(" ");
 
+/**
+ * 产物输出位置规则：用户未显式指定输出位置时，新文件/产物默认落在当前工作目录，
+ * 严禁默认写到桌面、家目录或工作目录之外的任意路径。
+ */
+export const OUTPUT_LOCATION_GUIDANCE =
+	"\n\n**Output location**: Unless the user explicitly specifies where to save output, create any new files, generated artifacts, exports, or downloads INSIDE the current working directory shown above (use a sensible subdirectory of it when grouping helps). " +
+	"NEVER default to the Desktop, the home directory, /tmp, or any path outside the current working directory. " +
+	"If the user gives only a bare filename with no directory, resolve it relative to the current working directory, not the Desktop.";
+
 export interface McpToolInfo {
 	name: string;
 	description: string;
@@ -175,6 +184,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		// Add date/time and working directory last
 		prompt += `\nCurrent date and time: ${dateTime}`;
 		prompt += `\nCurrent working directory: ${resolvedCwd}`;
+		prompt += OUTPUT_LOCATION_GUIDANCE;
 
 		return prompt;
 	}
@@ -324,6 +334,7 @@ ${guidelines}
 	// Add date/time and working directory last
 	prompt += `\nCurrent date and time: ${dateTime}`;
 	prompt += `\nCurrent working directory: ${resolvedCwd}`;
+	prompt += OUTPUT_LOCATION_GUIDANCE;
 
 	return prompt;
 }
