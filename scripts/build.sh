@@ -57,7 +57,6 @@ build_layer2() {
   build_pkg packages/runtime-tools
   build_pkg packages/runtime-storage
   build_pkg packages/runtime-mcp
-  build_pkg packages/web-ui
 }
 
 # ── Layer 3: apps (depends on runtime-core) ──
