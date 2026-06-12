@@ -1,6 +1,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
+import { Virtuoso } from "react-virtuoso";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
 import { activeSessionAtom, confirmDialogAtom, defaultConversationFilterAtom, defaultImConversationCwdAtom, inlineFilePreviewAtom, isImSession, projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, scheduledSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel, batchProjectsAtom, expandedBatchProjectsAtom } from "@shared/store/atoms";
@@ -17,6 +18,9 @@ interface ProjectsPanelProps {
 }
 
 const EMPTY_SESSIONS: SessionInfo[] = [];
+const VIRTUAL_DEFAULT_SESSION_ROW_HEIGHT = 34;
+const VIRTUAL_DEFAULT_SESSION_MAX_HEIGHT = 360;
+const VIRTUAL_DEFAULT_SESSION_OVERSCAN = 120;
 
 export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JSX.Element {
 	const {
@@ -626,78 +630,96 @@ const DefaultSessionList = memo(function DefaultSessionList({
 		? sorted
 		: sorted.slice(0, DEFAULT_VISIBLE_DEFAULT_SESSIONS);
 	const hiddenCount = sorted.length - DEFAULT_VISIBLE_DEFAULT_SESSIONS;
+	const virtualSessionListHeight = Math.min(
+		sorted.length * VIRTUAL_DEFAULT_SESSION_ROW_HEIGHT,
+		VIRTUAL_DEFAULT_SESSION_MAX_HEIGHT,
+	);
+
+	const renderSession = (session: SessionInfo): JSX.Element => {
+		const isActive = activeSessionPath === session.path;
+		const isRenaming = renamingSessionPath === session.path;
+		const isRunning = runningSessionPaths.has(session.path);
+		const isSchedule =
+			scheduledSessionPaths.has(session.path) ||
+			scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
+		const label = sessionDisplayLabel(session);
+		return (
+			<button
+				key={session.path}
+				type="button"
+				onClick={() => {
+					if (!isRenaming) onSelectSession(cwd, session.path);
+				}}
+				onContextMenu={(e) => {
+					e.preventDefault();
+					// Claw 会话 (filter === "claw") 在 GUI 是只读，不允许重命名/删除
+					// 等写入式元操作；批量清理走「清空 Claw 记录」菜单。
+					if (filter === "claw") return;
+					setContextMenu({ x: e.clientX, y: e.clientY, session });
+				}}
+				className={cn(
+					"flex w-full items-center gap-2 rounded-md px-2.5 py-[6px] text-left transition-colors duration-100",
+					isActive ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
+				)}
+				title={isRenaming ? undefined : label}
+			>
+				{isRenaming ? (
+					<InlineDefaultRenameInput
+						session={session}
+						onRename={(name) => onRenameSession(cwd, session.path, name)}
+						onDone={() => setRenamingSessionPath(null)}
+					/>
+				) : (
+					<>
+						{isRunning ? (
+							<span
+								className={cn(
+									"project-running-icon icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin",
+									isActive ? "text-primary" : "text-muted-foreground",
+								)}
+							/>
+						) : isSchedule ? (
+							<span className="icon-[solar--clock-circle-linear] h-3.5 w-3.5 shrink-0 text-primary/80" />
+						) : (
+							<span
+								className={cn(
+									"icon-[solar--chat-round-line-linear] h-3.5 w-3.5 shrink-0",
+									isActive ? "text-foreground/70" : "text-muted-foreground/50",
+								)}
+							/>
+						)}
+						<span
+							className={cn(
+								"min-w-0 flex-1 truncate text-[13px]",
+								isActive ? "font-semibold text-foreground" : "text-foreground",
+							)}
+						>
+							{label}
+						</span>
+						<span className="shrink-0 text-[11px] text-muted-foreground">
+							{relativeTime(session.modifiedAt)}
+						</span>
+					</>
+				)}
+			</button>
+		);
+	};
 
 	return (
 		<div className="space-y-px">
-			{visible.map((session) => {
-				const isActive = activeSessionPath === session.path;
-				const isRenaming = renamingSessionPath === session.path;
-				const isRunning = runningSessionPaths.has(session.path);
-				const isSchedule =
-					scheduledSessionPaths.has(session.path) ||
-					scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
-				const label = sessionDisplayLabel(session);
-				return (
-					<button
-						key={session.path}
-						type="button"
-						onClick={() => {
-							if (!isRenaming) onSelectSession(cwd, session.path);
-						}}
-						onContextMenu={(e) => {
-							e.preventDefault();
-							// Claw 会话 (filter === "claw") 在 GUI 是只读，不允许重命名/删除
-							// 等写入式元操作；批量清理走「清空 Claw 记录」菜单。
-							if (filter === "claw") return;
-							setContextMenu({ x: e.clientX, y: e.clientY, session });
-						}}
-						className={cn(
-							"flex w-full items-center gap-2 rounded-md px-2.5 py-[6px] text-left transition-colors duration-100",
-							isActive ? "bg-primary/15 text-foreground" : "hover:bg-accent/50",
-						)}
-						title={isRenaming ? undefined : label}
-					>
-						{isRenaming ? (
-							<InlineDefaultRenameInput
-								session={session}
-								onRename={(name) => onRenameSession(cwd, session.path, name)}
-								onDone={() => setRenamingSessionPath(null)}
-							/>
-						) : (
-							<>
-								{isRunning ? (
-									<span
-										className={cn(
-											"project-running-icon icon-[solar--refresh-linear] h-3.5 w-3.5 shrink-0 animate-spin",
-											isActive ? "text-primary" : "text-muted-foreground",
-										)}
-									/>
-								) : isSchedule ? (
-									<span className="icon-[solar--clock-circle-linear] h-3.5 w-3.5 shrink-0 text-primary/80" />
-								) : (
-									<span
-										className={cn(
-											"icon-[solar--chat-round-line-linear] h-3.5 w-3.5 shrink-0",
-											isActive ? "text-foreground/70" : "text-muted-foreground/50",
-										)}
-									/>
-								)}
-								<span
-									className={cn(
-										"min-w-0 flex-1 truncate text-[13px]",
-										isActive ? "font-semibold text-foreground" : "text-foreground",
-									)}
-								>
-									{label}
-								</span>
-								<span className="shrink-0 text-[11px] text-muted-foreground">
-									{relativeTime(session.modifiedAt)}
-								</span>
-							</>
-						)}
-					</button>
-				);
-			})}
+			{showAll ? (
+				<Virtuoso
+					data={sorted}
+					style={{ height: virtualSessionListHeight, overflowX: "hidden" }}
+					overscan={VIRTUAL_DEFAULT_SESSION_OVERSCAN}
+					defaultItemHeight={VIRTUAL_DEFAULT_SESSION_ROW_HEIGHT}
+					itemContent={(_, session) => (
+						<div className="pb-px">{renderSession(session)}</div>
+					)}
+				/>
+			) : (
+				visible.map(renderSession)
+			)}
 			{hasMore && (
 				<button
 					type="button"
