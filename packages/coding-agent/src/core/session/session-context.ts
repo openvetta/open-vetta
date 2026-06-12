@@ -10,8 +10,8 @@
  * (model switching, runtime rebuilds) — implementers must read them live.
  */
 
-import type { Agent } from "@mariozechner/pi-agent-core";
-import type { Model } from "@mariozechner/pi-ai";
+import type { Agent } from "@vetta/agent-core";
+import type { Model } from "@vetta/ai";
 import type { AgentSessionEvent } from "../agent-session.js";
 import type { ExtensionRunner } from "../extensions/index.js";
 import type { ModelRegistry } from "../model-registry.js";

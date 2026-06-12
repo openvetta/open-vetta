@@ -38,7 +38,6 @@ build_pkg() {
 
 # ── Layer 0: no workspace deps ──
 build_layer0() {
-  build_pkg packages/tui
   build_pkg packages/ai
   build_pkg packages/runtime-telemetry
   build_pkg packages/agent
@@ -58,7 +57,6 @@ build_layer2() {
   build_pkg packages/runtime-tools
   build_pkg packages/runtime-storage
   build_pkg packages/runtime-mcp
-  build_pkg packages/web-ui
 }
 
 # ── Layer 3: apps (depends on runtime-core) ──

@@ -7,8 +7,8 @@
  * listeners and drives auto-retry + auto-compaction on agent_end.
  */
 
-import type { AgentEvent, AgentMessage } from "@mariozechner/pi-agent-core";
-import type { AssistantMessage, Message, TextContent } from "@mariozechner/pi-ai";
+import type { AgentEvent, AgentMessage } from "@vetta/agent-core";
+import type { AssistantMessage, Message, TextContent } from "@vetta/ai";
 import type {
 	MessageEndEvent,
 	MessageStartEvent,

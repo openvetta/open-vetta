@@ -6,9 +6,9 @@
  * level live from the agent via SessionContext.
  */
 
-import type { ThinkingLevel } from "@mariozechner/pi-agent-core";
-import type { Model } from "@mariozechner/pi-ai";
-import { modelsAreEqual, supportsXhigh } from "@mariozechner/pi-ai";
+import type { ThinkingLevel } from "@vetta/agent-core";
+import type { Model } from "@vetta/ai";
+import { modelsAreEqual, supportsXhigh } from "@vetta/ai";
 import type { SessionContext } from "./session-context.js";
 
 /** Standard thinking levels */

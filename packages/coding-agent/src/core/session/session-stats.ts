@@ -4,8 +4,8 @@
  * Extracted from AgentSession. Pure functions over explicitly-passed state.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { AssistantMessage, Model } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { AssistantMessage, Model } from "@vetta/ai";
 import { calculateContextTokens, estimateContextTokens } from "../compaction/index.js";
 import type { ContextUsage } from "../extensions/index.js";
 import { getLatestCompactionEntry, type SessionManager } from "../session-manager.js";

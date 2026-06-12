@@ -161,7 +161,7 @@ Both `steer()` and `followUp()` expand file-based prompt templates but error on 
 
 ### Agent and AgentState
 
-The `Agent` class (from `@mariozechner/pi-agent-core`) handles the core LLM interaction. Access it via `session.agent`.
+The `Agent` class (from `@vetta/agent-core`) handles the core LLM interaction. Access it via `session.agent`.
 
 ```typescript
 // Access current state
@@ -282,7 +282,7 @@ When you pass a custom `ResourceLoader`, `cwd` and `agentDir` no longer control 
 ### Model
 
 ```typescript
-import { getModel } from "@mariozechner/pi-ai";
+import { getModel } from "@vetta/ai";
 import { AuthStorage, ModelRegistry } from "@vetta/coding-agent";
 
 const authStorage = AuthStorage.create();
@@ -762,7 +762,7 @@ interface LoadExtensionsResult {
 ## Complete Example
 
 ```typescript
-import { getModel } from "@mariozechner/pi-ai";
+import { getModel } from "@vetta/ai";
 import { Type } from "@sinclair/typebox";
 import {
   AuthStorage,

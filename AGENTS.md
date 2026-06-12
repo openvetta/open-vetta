@@ -6,12 +6,10 @@
 If the user did not give you a concrete task in their first message,
 read README.md, then ask which module(s) to work on. Based on the answer, read the relevant README.md files in parallel.
 - packages/ai/README.md
-- packages/tui/README.md
 - packages/agent/README.md
 - packages/coding-agent/README.md
 - packages/mom/README.md
 - packages/pods/README.md
-- packages/web-ui/README.md
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
@@ -95,28 +93,6 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Run tests from the package root, not the repo root.
 - When writing tests, run them, identify issues in either the test or implementation, and iterate until fixed.
 - NEVER commit unless user asks
-
-## Testing pi Interactive Mode with tmux
-
-To test pi's TUI in a controlled terminal environment:
-
-```bash
-# Create tmux session with specific dimensions
-tmux new-session -d -s pi-test -x 80 -y 24
-
-# Wait for startup, then capture output
-sleep 3 && tmux capture-pane -t pi-test -p
-
-# Send input
-tmux send-keys -t pi-test "your prompt here" Enter
-
-# Send special keys
-tmux send-keys -t pi-test Escape
-tmux send-keys -t pi-test C-o  # ctrl+o
-
-# Cleanup
-tmux kill-session -t pi-test
-```
 
 ## Style
 - Keep answers short and concise

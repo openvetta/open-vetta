@@ -1,5 +1,5 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
 import { loadToolDescription } from "../description.js";
 
 /** Max length of a question's short `header` chip label. */

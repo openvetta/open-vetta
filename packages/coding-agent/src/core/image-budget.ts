@@ -1,5 +1,5 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { ImageContent, TextContent, ToolResultMessage, UserMessage } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { ImageContent, TextContent, ToolResultMessage, UserMessage } from "@vetta/ai";
 
 const IMAGE_OMITTED_PLACEHOLDER = "[earlier image omitted to conserve memory]";
 

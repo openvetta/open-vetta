@@ -5,7 +5,7 @@
  * lifecycle management, tool registration, and state management.
  */
 
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@vetta/agent-core";
 import { createMcpClient } from "./mcp-client.js";
 import { McpConfigLoader } from "./mcp-config.js";
 import { adaptMcpTools } from "./mcp-tool-adapter.js";

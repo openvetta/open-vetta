@@ -1,5 +1,5 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
 import { existsSync, readFileSync, statSync } from "fs";
 import { glob } from "glob";
 import ignore from "ignore";

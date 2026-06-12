@@ -8,13 +8,14 @@
  * - Interact with the user via UI primitives
  */
 
+import type { Static, TSchema } from "@sinclair/typebox";
 import type {
 	AgentMessage,
 	AgentToolResult,
 	AgentToolUpdateCallback,
 	ThinkingLevel,
 	ToolPhase,
-} from "@mariozechner/pi-agent-core";
+} from "@vetta/agent-core";
 import type {
 	Api,
 	AssistantMessageEvent,
@@ -27,25 +28,14 @@ import type {
 	SimpleStreamOptions,
 	TextContent,
 	ToolResultMessage,
-} from "@mariozechner/pi-ai";
-import type {
-	AutocompleteItem,
-	Component,
-	EditorComponent,
-	EditorTheme,
-	KeyId,
-	OverlayHandle,
-	OverlayOptions,
-	TUI,
-} from "@mariozechner/pi-tui";
-import type { Static, TSchema } from "@sinclair/typebox";
+} from "@vetta/ai";
 import type { Theme } from "../../modes/interactive/theme/theme.js";
 import type { BashResult } from "../bash-executor.js";
 import type { CompactionPreparation, CompactionResult } from "../compaction/index.js";
 import type { EventBus } from "../event-bus.js";
 import type { ExecOptions, ExecResult } from "../exec.js";
 import type { ReadonlyFooterDataProvider } from "../footer-data-provider.js";
-import type { KeybindingsManager } from "../keybindings.js";
+import type { KeybindingsManager, KeyId } from "../keybindings.js";
 import type { CustomMessage } from "../messages.js";
 import type { ModelRegistry } from "../model-registry.js";
 import type {
@@ -76,6 +66,15 @@ import type {
 	TreeToolInput,
 	WriteToolInput,
 } from "../tools/index.js";
+import type {
+	AutocompleteItem,
+	Component,
+	EditorComponent,
+	EditorTheme,
+	OverlayHandle,
+	OverlayOptions,
+	TUI,
+} from "./ui-types.js";
 
 export type { ExecOptions, ExecResult } from "../exec.js";
 export type { AppAction, KeybindingsManager } from "../keybindings.js";

@@ -1,11 +1,8 @@
 {
 	"folders": [
 		{
-			"name": "pi-mono",
+			"name": "vetta-mono",
 			"path": "."
-		},
-		{
-			"path": "../../moms"
 		}
 	],
 	"settings": {}

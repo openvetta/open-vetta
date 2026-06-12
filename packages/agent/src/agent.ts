@@ -12,10 +12,10 @@ import {
 	type TextContent,
 	type ThinkingBudgets,
 	type Transport,
-} from "@mariozechner/pi-ai";
+} from "@vetta/ai";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 
-// NEVER convert to top-level import — agent 包也被 web-ui (Vite/browser) 引用，
+// NEVER convert to top-level import — agent 包可能被浏览器/Vite 消费者引用，
 // node:events 不存在于浏览器。和 openai-codex-responses.ts 处理 node:os 一致。
 type SetMaxListenersFn = (n: number, target: EventTarget) => void;
 let _setMaxListeners: SetMaxListenersFn | null = null;
