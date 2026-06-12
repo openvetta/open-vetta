@@ -209,6 +209,34 @@ await ctx.conversation.abort();                           // 中断当前轮
 
 `PluginPermission` 联合里其余的值（`agent.command.run`、`fs.read`、`fs.write`、`network.fetch`、`settings.read`、`settings.write`）目前是**声明了但还没有对应 API** 的占位符。
 
+## 系统插件（随 App 发布，用户不可删改）
+
+除用户自行安装的插件外，还有**系统插件**——随 App 一起发、用户不可删除/修改（ADR-0024）。
+
+源码放在 monorepo 的 `packages/plugins/presets/<id>/`，结构与普通插件包一致（`plugin.json` + `src/` + `vite.config.ts`）。放进该目录即自动作为系统插件集成：
+
+```text
+packages/plugins/presets/
+  svg-viewer/
+    plugin.json
+    vite.config.ts
+    src/index.tsx
+```
+
+- **构建**：`bun run build:presets` 逐个就地构建出 `dist/`。`dev` / `start` / 打包都会先跑它。
+- **dev**：主进程直接就地读 `packages/plugins/presets/<id>/{plugin.json, dist/}`。
+- **打包**：`prepare-pack.js` 把每个 preset 的 `plugin.json + dist` 暂存进 `Resources/system-plugins/<id>/` 随包，运行时从 `process.resourcesPath/system-plugins` 只读直服。
+
+运行时语义：
+
+- `source: "system"`，`listPlugins()` 运行时发现并与用户插件合并。
+- **id 冲突**：系统插件优先、id 保留——用户安装同 id 被拒，已存在的同 id 用户插件被遮蔽。
+- **权限**：`plugin.json` 声明的权限自动全量授予，用户不可撤。
+- **停用**：默认启用，用户可在设置里关闭（偏好存进 `~/.vetta/system-plugin-prefs.json`），但不可卸载、不可改文件/权限。
+- **更新**：版本随 App，不走用户插件的更新流。
+
+不进 `~/.vetta/plugins`、不写 `plugins-manifest.json`——系统插件本体不落用户态目录，每次启动从只读位置重新发现。
+
 ## 样式
 
 插件应使用 Vetta 的 CSS 变量，避免全局选择器：

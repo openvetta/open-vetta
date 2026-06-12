@@ -490,6 +490,14 @@ Vetta 桌面插件的信任定位：**一方/可信 + 策展分发**——插件
 
 **「活动会话」是环境量**：API 默认作用于当前活动 session（desktop 同时只看一个），不让插件枚举/持有任意 session 句柄。
 
+### 系统插件（system plugin）
+
+随 App 一起发布、**用户不可删除/修改**的[[可信插件]]，与用户自行安装的插件（`source: "archive" | "remote"`）相对，来源标记 `source: "system"`。物理上从**只读位置直服**——打包后在 `process.resourcesPath/system-plugins/<id>/`，dev 下在 `packages/plugins/presets/<id>/`——`vetta-plugin://` 解析按 source 选 base 目录，**不**拷进 `~/.vetta`、**不**写进 `plugins-manifest.json`（该文件只存用户态：用户插件记录 + 用户对系统插件的偏好覆盖）。`listPlugins()` 时由运行时发现并与用户插件合并呈现。因随 App 发布，版本跟随 App，不走用户插件的 `availableVersion / pendingVersion` 更新流。
+
+### 预置插件（preset plugin）
+
+`packages/plugins/presets/<name>/` 下的插件**源码**，在 monorepo 内授权、维护——是[[系统插件]]的「源」面。构建期逐个 build 产出**解压态** `dist/ + plugin.json`（非 zip）：打包时拷进 desktop-app 的 `resources/system-plugins/<id>/` 随包发布，dev 下直接就地读 `packages/plugins/presets/<id>/{plugin.json, dist/}`。运行时零解压、零拷贝。「放进 `packages/plugins/presets/` 即成系统插件」是该目录的约定语义。
+
 ### 媒体流协议（media streaming protocol）
 
 desktop-app 主进程注册的自定义 protocol（`vetta-media://`），把校验过的本地媒体路径映射为支持 Range 的流式 URL，供 `<audio>`（未来含 `<video>`）直接作 `src`。与既有预览的 `readFile` IPC + base64 全量加载**并存**：图片/pdf/docx 等小文件维持旧路径，只有音视频走本协议。见 ADR-0021。
