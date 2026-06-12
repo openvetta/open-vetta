@@ -29,6 +29,7 @@
 		"build:desktop": "./scripts/build.sh desktop",
 		"build:cli": "./scripts/build.sh cli",
 		"build:admin": "./scripts/build.sh admin",
+		"build:preset": "./scripts/build.sh preset",
 		"dev": "concurrently --names \"ai,agent,coding-agent\" --prefix-colors \"cyan,yellow,red\" \"cd packages/ai && bun run dev\" \"cd packages/agent && bun run dev\" \"cd packages/coding-agent && bun run dev\"",
 		"dev:tsc": "concurrently --names \"ai\" --prefix-colors \"cyan\" \"cd packages/ai && bun run dev:tsc\"",
 		"check": "bunx @biomejs/biome check --write --error-on-warnings . && tsgo --noEmit",

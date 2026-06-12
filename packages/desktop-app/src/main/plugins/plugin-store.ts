@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, normalize, resolve } from "node:path";
 import AdmZip from "adm-zip";
+import { app } from "electron";
 import type {
 	InstalledPlugin,
 	PluginInstallOptions,
@@ -14,8 +15,11 @@ const PLUGIN_API_VERSION = "1.0.0";
 const pluginsBaseDir = join(homedir(), ".vetta", "plugins");
 const manifestPath = join(homedir(), ".vetta", "plugins-manifest.json");
 const tmpBaseDir = join(homedir(), ".vetta", "tmp", "plugins");
+// 系统插件的用户态偏好（目前仅停用开关），与用户插件注册表分离（ADR-0024）。
+const systemPrefsPath = join(homedir(), ".vetta", "system-plugin-prefs.json");
 
 type PluginManifestFile = Record<string, InstalledPlugin>;
+type SystemPluginPrefs = Record<string, { enabled: boolean }>;
 
 function ensureDir(dir: string): void {
 	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -240,12 +244,110 @@ async function copyExtractedPlugin(sourceDir: string, pluginId: string, version:
 	await cp(sourceDir, targetDir, { recursive: true });
 }
 
+// =============================================================================
+// 系统插件（ADR-0024）—— 随 App 发布、用户不可删改，源在 packages/plugins/presets
+// =============================================================================
+
+/** 系统插件只读根目录：打包后在 Resources/system-plugins，dev 下读 monorepo presets。 */
+function systemPluginsBaseDir(): string {
+	return app.isPackaged
+		? join(process.resourcesPath, "system-plugins")
+		: join(process.cwd(), "..", "plugins", "presets");
+}
+
+function readSystemPrefs(): SystemPluginPrefs {
+	if (!existsSync(systemPrefsPath)) return {};
+	try {
+		return JSON.parse(readFileSync(systemPrefsPath, "utf-8")) as SystemPluginPrefs;
+	} catch {
+		return {};
+	}
+}
+
+function writeSystemPrefs(prefs: SystemPluginPrefs): void {
+	ensureDir(dirname(systemPrefsPath));
+	writeFileSync(systemPrefsPath, JSON.stringify(prefs, null, 2), "utf-8");
+}
+
+/** 系统插件资源 URL：无 versions/ 段（版本随 App，文件直接在 <base>/<id>/ 下）。 */
+function toSystemPluginUrl(pluginId: string, relativePath: string, version: string): string {
+	const normalized = validateRelativePath(relativePath, "path");
+	return `vetta-plugin://${pluginId}/${normalized}?v=${encodeURIComponent(version)}`;
+}
+
+function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean): InstalledPlugin {
+	const now = new Date().toISOString();
+	return {
+		id: manifest.id,
+		name: manifest.name,
+		version: manifest.version,
+		activeVersion: manifest.version,
+		pluginApiVersion: manifest.pluginApiVersion,
+		runtime: manifest.runtime ?? "esm",
+		entryUrl: toSystemPluginUrl(manifest.id, manifest.entry, manifest.version),
+		moduleFederation: manifest.moduleFederation,
+		styleUrls: (manifest.styles ?? []).map((style) => toSystemPluginUrl(manifest.id, style, manifest.version)),
+		permissions: manifest.permissions ?? [],
+		// 系统插件随包发的可信代码：声明权限全部自动授予，用户不可撤（ADR-0024）。
+		grantedPermissions: manifest.permissions ?? [],
+		description: manifest.description,
+		author: manifest.author,
+		enabled,
+		installedAt: now,
+		updatedAt: now,
+		source: "system",
+	};
+}
+
+let systemPluginsCache: InstalledPlugin[] | null = null;
+const systemPluginIds = new Set<string>();
+
+/** 扫描系统插件根目录，合成只读记录并缓存 id 集合（供解析器与冲突门控用）。 */
+export function discoverSystemPlugins(force = false): InstalledPlugin[] {
+	if (systemPluginsCache && !force) return systemPluginsCache;
+	const baseDir = systemPluginsBaseDir();
+	const result: InstalledPlugin[] = [];
+	systemPluginIds.clear();
+	if (existsSync(baseDir)) {
+		const prefs = readSystemPrefs();
+		for (const entry of readdirSync(baseDir)) {
+			const dir = join(baseDir, entry);
+			try {
+				if (!statSync(dir).isDirectory()) continue;
+				const manifestFile = join(dir, "plugin.json");
+				if (!existsSync(manifestFile)) continue;
+				const manifest = parseManifest(JSON.parse(readFileSync(manifestFile, "utf-8")));
+				// 未构建的 preset（无 dist 入口）跳过并告警，不阻断启动。
+				if (!existsSync(join(dir, manifest.entry))) {
+					console.warn(`[system-plugins] 跳过 ${manifest.id}：入口未构建 (${manifest.entry})，请先 build:presets`);
+					continue;
+				}
+				result.push(systemInstalledFromManifest(manifest, prefs[manifest.id]?.enabled ?? true));
+				systemPluginIds.add(manifest.id);
+			} catch (err) {
+				console.warn(`[system-plugins] 跳过 ${entry}：`, err);
+			}
+		}
+	}
+	systemPluginsCache = result;
+	return result;
+}
+
+export function isSystemPluginId(id: string): boolean {
+	if (!systemPluginsCache) discoverSystemPlugins();
+	return systemPluginIds.has(id);
+}
+
 export function getPluginsBaseDir(): string {
 	return pluginsBaseDir;
 }
 
 export function listPlugins(): InstalledPlugin[] {
-	return Object.values(readRegistry()).sort((a, b) => a.name.localeCompare(b.name));
+	const system = discoverSystemPlugins();
+	const reserved = new Set(system.map((plugin) => plugin.id));
+	// id 冲突时系统插件遮蔽用户插件（ADR-0024）。
+	const userPlugins = Object.values(readRegistry()).filter((plugin) => !reserved.has(plugin.id));
+	return [...system, ...userPlugins].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function installPluginFromArchive(
@@ -258,6 +360,9 @@ export async function installPluginFromArchive(
 	await extractArchive(buffer, extractDir);
 	try {
 		const { manifest, sourceDir } = await getManifestFromDir(extractDir);
+		if (isSystemPluginId(manifest.id)) {
+			throw new Error(`Cannot install over a system plugin: ${manifest.id}`);
+		}
 		const registry = readRegistry();
 		const previous = registry[manifest.id];
 		await copyExtractedPlugin(sourceDir, manifest.id, manifest.version);
@@ -285,6 +390,7 @@ export async function installPluginFromUrl(url: string, options?: PluginInstallO
 
 export function uninstallPlugin(id: string): void {
 	validatePluginId(id);
+	if (isSystemPluginId(id)) throw new Error(`Cannot uninstall a system plugin: ${id}`);
 	const registry = readRegistry();
 	delete registry[id];
 	writeRegistry(registry);
@@ -293,6 +399,15 @@ export function uninstallPlugin(id: string): void {
 
 export function setPluginEnabled(id: string, enabled: boolean): InstalledPlugin {
 	validatePluginId(id);
+	// 系统插件可停用但不可删改：偏好写进独立的 prefs 文件，本体不入注册表（ADR-0024）。
+	if (isSystemPluginId(id)) {
+		const prefs = readSystemPrefs();
+		prefs[id] = { enabled };
+		writeSystemPrefs(prefs);
+		const refreshed = discoverSystemPlugins(true).find((plugin) => plugin.id === id);
+		if (!refreshed) throw new Error(`Plugin not found: ${id}`);
+		return refreshed;
+	}
 	const registry = readRegistry();
 	const plugin = registry[id];
 	if (!plugin) throw new Error(`Plugin not found: ${id}`);
@@ -304,6 +419,7 @@ export function setPluginEnabled(id: string, enabled: boolean): InstalledPlugin 
 
 export function grantPluginPermissions(id: string, permissions: PluginPermission[]): InstalledPlugin {
 	validatePluginId(id);
+	if (isSystemPluginId(id)) throw new Error(`System plugin permissions are managed automatically: ${id}`);
 	const registry = readRegistry();
 	const plugin = registry[id];
 	if (!plugin) throw new Error(`Plugin not found: ${id}`);
@@ -318,6 +434,7 @@ export function grantPluginPermissions(id: string, permissions: PluginPermission
 
 export function revokePluginPermissions(id: string, permissions: PluginPermission[]): InstalledPlugin {
 	validatePluginId(id);
+	if (isSystemPluginId(id)) throw new Error(`System plugin permissions are managed automatically: ${id}`);
 	const registry = readRegistry();
 	const plugin = registry[id];
 	if (!plugin) throw new Error(`Plugin not found: ${id}`);
@@ -330,6 +447,12 @@ export function revokePluginPermissions(id: string, permissions: PluginPermissio
 
 export function reloadPlugin(id: string): InstalledPlugin {
 	validatePluginId(id);
+	// 系统插件版本随 App，无 pending 更新流（ADR-0024）。
+	if (isSystemPluginId(id)) {
+		const refreshed = discoverSystemPlugins(true).find((plugin) => plugin.id === id);
+		if (!refreshed) throw new Error(`Plugin not found: ${id}`);
+		return refreshed;
+	}
 	const registry = readRegistry();
 	const plugin = registry[id];
 	if (!plugin) throw new Error(`Plugin not found: ${id}`);
@@ -349,7 +472,8 @@ export function reloadPlugin(id: string): InstalledPlugin {
 
 export function resolvePluginFilePath(pluginId: string, relativePath: string): string {
 	validatePluginId(pluginId);
-	const root = resolve(pluginsBaseDir, pluginId);
+	const baseDir = isSystemPluginId(pluginId) ? systemPluginsBaseDir() : pluginsBaseDir;
+	const root = resolve(baseDir, pluginId);
 	const target = resolve(root, relativePath);
 	if (target !== root && !target.startsWith(`${root}\\`) && !target.startsWith(`${root}/`)) {
 		throw new Error("Plugin file path escapes plugin directory");

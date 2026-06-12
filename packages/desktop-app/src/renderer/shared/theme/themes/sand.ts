@@ -12,7 +12,8 @@ export const sandTheme: ThemeDef = {
 		...defaultTheme.dark,
 		background: "oklch(0.2679 0.0036 106.6427)",
 		foreground: "oklch(0.8074 0.0142 93.0137)",
-		card: "oklch(0.2679 0.0036 106.6427)",
+		// 比 background 略亮一档的悬浮面：输入栏、卡片等用 bg-card 的元素需要从背景中浮起。
+		card: "oklch(0.3085 0.0035 106.6039)",
 		cardForeground: "oklch(0.9818 0.0054 95.0986)",
 		popover: "oklch(0.3085 0.0035 106.6039)",
 		popoverForeground: "oklch(0.9211 0.0040 106.4781)",
@@ -24,7 +25,9 @@ export const sandTheme: ThemeDef = {
 		secondaryForeground: "oklch(0.8074 0.0142 93.0137)",
 		muted: "oklch(0.2213 0.0038 106.7070)",
 		mutedForeground: "oklch(0.7713 0.0169 99.0657)",
-		accent: "oklch(0.2130 0.0078 95.4245)",
+		// 悬浮态强调面：原值比 background 更暗，导致侧边栏 hover 几乎看不出来。
+		// 改成明显高于 background 的暖灰，hover 才有可见反馈。
+		accent: "oklch(0.3700 0.0060 106.6039)",
 		accentForeground: "oklch(0.9663 0.0080 98.8792)",
 		destructive: "oklch(0.6368 0.2078 25.3313)",
 		destructiveForeground: "oklch(1.0000 0 0)",
@@ -42,7 +45,8 @@ export const sandTheme: ThemeDef = {
 		...defaultTheme.light,
 		background: "oklch(0.9818 0.0054 95.0986)",
 		foreground: "oklch(0.3438 0.0269 95.7226)",
-		card: "oklch(0.9818 0.0054 95.0986)",
+		// 纯白悬浮面，从暖纸背景中浮起，让输入栏/卡片更明显。
+		card: "oklch(1.0000 0 0)",
 		cardForeground: "oklch(0.1908 0.0020 106.5859)",
 		popover: "oklch(1.0000 0 0)",
 		popoverForeground: "oklch(0.2671 0.0196 98.9390)",

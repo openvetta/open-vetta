@@ -1,3 +1,4 @@
+import { pluginSendMessageRef } from "@domains/plugins/runtime/plugin-host-bridge";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import {
 	activeSessionAtom,
@@ -865,6 +866,9 @@ export function useSessionManager(): SessionManagerResult {
 		if (!activeSession?.runtimeId) return;
 		await window.vetta.session.abort(activeSession.runtimeId);
 	}, [activeSession]);
+
+	// Expose the full send path to the plugin conversation bridge (ctx.conversation.sendPrompt).
+	pluginSendMessageRef.current = sendMessage;
 
 	return { openSession, sendMessage, abortMessage, openSessionRef };
 }
