@@ -68,7 +68,7 @@ export const oceanTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(225, 240, 246)",
 		secondaryForeground: "rgb(8, 24, 36)",
-		muted: "rgb(235, 245, 250)",
+		muted: "rgb(224, 238, 246)",
 		mutedForeground: "rgb(71, 96, 112)",
 		accent: "rgb(217, 236, 244)",
 		accentForeground: "rgb(8, 24, 36)",

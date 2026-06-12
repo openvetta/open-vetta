@@ -46,7 +46,7 @@ export const scarletTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(240, 240, 240)",
 		secondaryForeground: "rgb(10, 10, 10)",
-		muted: "rgb(245, 245, 245)",
+		muted: "rgb(243, 233, 233)",
 		mutedForeground: "rgb(90, 90, 90)",
 		accent: "rgb(228, 228, 228)",
 		accentForeground: "rgb(10, 10, 10)",
