@@ -426,9 +426,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 
 	// Card visual class composition
 	const cardClass = [
-		"input-card relative rounded-[20px] bg-card border transition-[border-color,box-shadow,transform] duration-200",
-		// 浅色下 card 与主背景同为近白色，加柔和阴影让输入框浮起来；深色保持现状
-		"shadow-[0_2px_14px_-6px_rgba(0,0,0,0.18)] dark:shadow-none",
+		// 浅色下 card(白) 与主背景(近白)几乎相同，改用略深的实心 secondary 填充；
+		// 深色下 card 本就比主背景亮一档，保持 card。边框统一用细 border。
+		"input-card relative rounded-[20px] bg-secondary dark:bg-card border transition-[border-color,box-shadow,transform] duration-200",
 		isFocused ? "border-primary/20" : "border-border",
 		switchPulseVariant ? `input-switch-bump-${switchPulseVariant}` : "",
 	].join(" ");
