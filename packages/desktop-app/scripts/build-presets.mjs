@@ -6,6 +6,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const presetsDir = join(import.meta.dirname, "..", "..", "plugins", "presets");
+const repoDir = join(import.meta.dirname, "..", "..", "..");
 
 if (!existsSync(presetsDir)) {
 	console.log(`[build-presets] 无 presets 目录，跳过：${presetsDir}`);
@@ -26,7 +27,10 @@ for (const name of entries) {
 	const dir = join(presetsDir, name);
 	console.log(`[build-presets] 构建 ${name} …`);
 	if (!existsSync(join(dir, "node_modules"))) {
-		execFileSync("bun", ["install"], { cwd: dir, stdio: "inherit" });
+		execFileSync("bun", ["install", "--frozen-lockfile", "--filter", `./packages/plugins/presets/${name}`], {
+			cwd: repoDir,
+			stdio: "inherit",
+		});
 	}
 	execFileSync("bun", ["run", "build"], { cwd: dir, stdio: "inherit" });
 }
