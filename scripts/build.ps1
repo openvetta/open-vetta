@@ -40,6 +40,7 @@ function Build-Layer0 {
 	Build-Pkg "packages/agent"
 	Build-Pkg "packages/action-rpc"
 	Build-Pkg "packages/plugin-sdk"
+	Build-Pkg "packages/plugin-vite"
 }
 
 function Build-Layer1 {

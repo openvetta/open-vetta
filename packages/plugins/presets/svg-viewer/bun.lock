@@ -9,8 +9,8 @@
         "@types/node": "^22.10.5",
         "@types/react": "19.1.1",
         "@types/react-dom": "19.1.1",
-        "@vetta/plugin-sdk": "file:../../plugin-sdk",
-        "@vetta/plugin-vite": "file:../../plugin-vite",
+        "@vetta/plugin-sdk": "file:../../../plugin-sdk",
+        "@vetta/plugin-vite": "file:../../../plugin-vite",
         "react": "19.1.1",
         "react-dom": "19.1.1",
         "tailwindcss": "^4.1.12",
@@ -186,9 +186,9 @@
 
     "@types/react-dom": ["@types/react-dom@19.1.1", "", { "peerDependencies": { "@types/react": "^19.0.0" } }, "sha512-jFf/woGTVTjUJsl2O7hcopJ1r0upqoq/vIOoCj0yLh3RIXxWcljlpuZ+vEBRXsymD1jhfeJrlyTy/S1UW+4y1w=="],
 
-    "@vetta/plugin-sdk": ["@vetta/plugin-sdk@file:../../plugin-sdk", { "devDependencies": { "@types/react": "^19.1.1", "typescript": "^5.9.2" }, "peerDependencies": { "react": "^19.0.0" }, "optionalPeers": ["react"] }],
+    "@vetta/plugin-sdk": ["@vetta/plugin-sdk@file:../../../plugin-sdk", { "devDependencies": { "@types/react": "^19.1.1", "typescript": "^5.9.2" }, "peerDependencies": { "react": "^19.0.0" }, "optionalPeers": ["react"] }],
 
-    "@vetta/plugin-vite": ["@vetta/plugin-vite@file:../../plugin-vite", { "dependencies": { "@module-federation/vite": "^1.16.6" }, "devDependencies": { "typescript": "^5.9.2", "vite": "^7.1.7" }, "peerDependencies": { "vite": "^7.0.0" } }],
+    "@vetta/plugin-vite": ["@vetta/plugin-vite@file:../../../plugin-vite", { "dependencies": { "@module-federation/vite": "^1.16.6" }, "devDependencies": { "typescript": "^5.9.2", "vite": "^7.1.7" }, "peerDependencies": { "vite": "^7.0.0" } }],
 
     "adm-zip": ["adm-zip@0.5.10", "", {}, "sha512-x0HvcHqVJNTPk/Bw8JbLWlWoo6Wwnsug0fnYYro1HBrjxZ3G7/AZk7Ahv8JwDe1uIcz8eBqvu86FuF1POiG7vQ=="],
 
