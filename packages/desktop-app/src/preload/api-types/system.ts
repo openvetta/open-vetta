@@ -15,6 +15,14 @@ export interface DesktopWindowApi {
 	/** 切换窗口置顶，返回切换后的状态。 */
 	toggleAlwaysOnTop(): Promise<boolean>;
 	isAlwaysOnTop(): Promise<boolean>;
+	/**
+	 * 截取本窗口指定区域（DIP 坐标，如 getBoundingClientRect 所得）为 PNG，
+	 * 经保存对话框落盘。返回保存路径，用户取消返回 null。
+	 */
+	captureRegion(
+		rect: { x: number; y: number; width: number; height: number },
+		defaultFileName: string,
+	): Promise<string | null>;
 }
 
 export interface DesktopSettingsApi {

@@ -1,4 +1,9 @@
-import { pluginFilePreviewsAtom, type RegisteredFilePreview } from "@shared/store/atoms";
+import {
+	pluginActivityTabsAtom,
+	pluginFilePreviewsAtom,
+	type RegisteredActivityTab,
+	type RegisteredFilePreview,
+} from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
@@ -33,6 +38,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const [revision, forceUpdate] = useReducer((value: number) => value + 1, 0);
 	const [reloadRevision, reloadPlugins] = useReducer((value: number) => value + 1, 0);
 	const setFilePreviews = useSetAtom(pluginFilePreviewsAtom);
+	const setActivityTabs = useSetAtom(pluginActivityTabsAtom);
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
@@ -93,6 +99,23 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		setFilePreviews(previews);
 		return () => setFilePreviews([]);
 	}, [plugins, revision, setFilePreviews]);
+
+	// Publish activity-tab contributions (the addable pool) so ActivityPanel
+	// can render attached tabs and the "+" picker.
+	useEffect(() => {
+		const tabs: RegisteredActivityTab[] = plugins.flatMap((plugin) =>
+			plugin.activityTabs.map((tab) => ({
+				pluginId: plugin.id,
+				pluginName: plugin.name,
+				tabId: tab.id,
+				label: tab.label,
+				icon: tab.icon,
+				component: tab.component,
+			})),
+		);
+		setActivityTabs(tabs);
+		return () => setActivityTabs([]);
+	}, [plugins, revision, setActivityTabs]);
 
 	if (slots.length === 0) return null;
 

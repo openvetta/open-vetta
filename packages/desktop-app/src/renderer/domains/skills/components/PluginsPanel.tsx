@@ -21,6 +21,7 @@ const easeOut = [0.22, 1, 0.36, 1] as const;
 const PERMISSION_LABELS: Record<PluginPermission, string> = {
 	"ui.slot.global": "全局 UI Slot",
 	"ui.slot.file-preview": "文件预览 Slot",
+	"ui.slot.activity-tab": "活动面板 Tab",
 	"agent.session.read": "读取 Agent 会话",
 	"agent.session.write": "修改 Agent 会话",
 	"agent.command.run": "执行 Agent 命令",

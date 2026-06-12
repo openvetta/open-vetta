@@ -2,7 +2,8 @@ import type { ProjectType } from "@shared/store/project-atoms";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * 项目活动面板 tab 配置
+ * 项目活动面板 tab 配置。
+ * `plugin:<pluginId>:<tabId>` 为用户 attach 的插件 tab（见 ActivityPanel）。
  */
 export type ActivityTabKey =
 	| "file"
@@ -12,7 +13,8 @@ export type ActivityTabKey =
 	| "schedule-records"
 	| "todo"
 	| "background-tasks"
-	| "debug";
+	| "debug"
+	| `plugin:${string}`;
 
 export interface ActivityTabConfig {
 	key: ActivityTabKey;

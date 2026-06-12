@@ -1,9 +1,9 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
-import { app, ipcMain, nativeImage, nativeTheme, protocol, shell } from "electron";
+import { app, dialog, ipcMain, nativeImage, nativeTheme, protocol, shell } from "electron";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
@@ -22,6 +22,7 @@ import {
 	installMainDiagnostics,
 	registerLocalNetworkAccess,
 } from "./diagnostics.js";
+import { FILE_PROTOCOL_PRIVILEGE, registerFileProtocolHandler } from "./file-protocol.js";
 import { fixPath } from "./fix-path.js";
 import { getImHost } from "./im-host/index.js";
 import { persistVettaCliPaths } from "./ipc/fs.js";
@@ -59,7 +60,11 @@ fixPath();
 const PROTOCOL = "vetta";
 // registerSchemesAsPrivileged 整个进程只能调用一次且须在 ready 前：
 // 所有自定义 scheme（插件、媒体流）的特权声明在此合并注册。
-protocol.registerSchemesAsPrivileged([...PLUGIN_PROTOCOL_PRIVILEGES, MEDIA_PROTOCOL_PRIVILEGE]);
+protocol.registerSchemesAsPrivileged([
+	...PLUGIN_PROTOCOL_PRIVILEGES,
+	MEDIA_PROTOCOL_PRIVILEGE,
+	FILE_PROTOCOL_PRIVILEGE,
+]);
 const isMac = process.platform === "darwin";
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const buildDir = join(appRoot, "build");
@@ -287,6 +292,8 @@ if (!gotSingleLock) {
 
 		// 媒体流协议 handler（scheme 已在 ready 前声明特权）
 		registerMediaProtocolHandler();
+		// 静态文件协议 handler（ADR-0027）
+		registerFileProtocolHandler();
 
 		if (process.platform === "linux" || process.platform === "darwin" || process.platform === "win32") {
 			const capability = await initializeSandboxCapability();
@@ -376,6 +383,34 @@ if (!gotSingleLock) {
 		ipcMain.handle("vetta:window:is-always-on-top", () => {
 			return getMainWindow()?.isAlwaysOnTop() ?? false;
 		});
+
+		// 截取窗口内指定区域（DIP 坐标）为 PNG 并经保存对话框落盘。
+		// 供「移动UI预览」插件导出渲染图：iframe 内容跨源，渲染端画不出来，
+		// 只能由 Chromium 合成器整体截屏。返回保存路径，取消返回 null。
+		ipcMain.handle(
+			"vetta:window:capture-region",
+			async (
+				event,
+				rect: { x: number; y: number; width: number; height: number },
+				defaultFileName: string,
+			): Promise<string | null> => {
+				const win = getMainWindow();
+				if (!win) return null;
+				const image = await event.sender.capturePage({
+					x: Math.max(0, Math.round(rect.x)),
+					y: Math.max(0, Math.round(rect.y)),
+					width: Math.max(1, Math.round(rect.width)),
+					height: Math.max(1, Math.round(rect.height)),
+				});
+				const { canceled, filePath } = await dialog.showSaveDialog(win, {
+					defaultPath: join(app.getPath("downloads"), defaultFileName),
+					filters: [{ name: "PNG", extensions: ["png"] }],
+				});
+				if (canceled || !filePath) return null;
+				await writeFile(filePath, image.toPNG());
+				return filePath;
+			},
+		);
 
 		ipcMain.handle("vetta:tray:set-quit-behavior", (_event, hideToTray: boolean) => {
 			setHideToTrayOnClose(hideToTray);
