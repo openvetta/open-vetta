@@ -1,8 +1,10 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
+import { createContext, useContext } from "react";
 
 export type PluginPermission =
 	| "ui.slot.global"
 	| "ui.slot.file-preview"
+	| "ui.slot.activity-tab"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
@@ -59,6 +61,19 @@ export interface PluginFilePreviewContribution {
 	component: ComponentType<PluginFilePreviewProps>;
 }
 
+/**
+ * An activity-panel tab contributed by a plugin. Registering only adds the
+ * tab to the "addable pool" — it renders only after the user attaches it in
+ * the activity panel (scoped by session cwd).
+ */
+export interface PluginActivityTabContribution {
+	id: string;
+	label: string;
+	/** Tab icon as a React node (not an iconify class string). */
+	icon?: ReactNode;
+	component: ComponentType;
+}
+
 export interface PluginUiApi {
 	registerGlobalSlot(contribution: PluginGlobalSlotContribution): Disposable;
 	/**
@@ -67,6 +82,12 @@ export interface PluginUiApi {
 	 * first registrant wins on conflict.
 	 */
 	registerFilePreview(contribution: PluginFilePreviewContribution): Disposable;
+	/**
+	 * Register an activity-panel tab into the addable pool. The user attaches
+	 * it manually via the panel's "+" picker; attach records are keyed by the
+	 * session cwd.
+	 */
+	registerActivityTab(contribution: PluginActivityTabContribution): Disposable;
 }
 
 // ─── Conversation ───
@@ -158,6 +179,30 @@ function requireBridge(): PluginHostBridge {
 		throw new Error("Vetta plugin host bridge is not installed");
 	}
 	return hostBridge;
+}
+
+// ─── Activity tab context ───
+
+export interface ActivityTabContextValue {
+	/**
+	 * The cwd scope of the activity panel this tab is rendered in — the same
+	 * key the attach record uses. Do NOT substitute useActiveConversation().cwd:
+	 * on the project detail page the panel cwd is the project's, while the
+	 * active conversation may belong to another project (or be null).
+	 */
+	cwd: string | null;
+}
+
+/**
+ * Internal: the host wraps attached activity-tab components in this context's
+ * Provider. Module Federation shares this single SDK instance, so the value
+ * the host provides is visible to plugin components.
+ */
+export const __ActivityTabContext = createContext<ActivityTabContextValue>({ cwd: null });
+
+/** The panel scope of the activity tab this component is rendered in. */
+export function useActivityTab(): ActivityTabContextValue {
+	return useContext(__ActivityTabContext);
 }
 
 /** Reactive: the currently-active conversation's state. */
