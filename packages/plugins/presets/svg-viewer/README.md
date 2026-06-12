@@ -20,9 +20,11 @@ system plugin (auto-enabled, permissions auto-granted, users cannot delete or
 modify it). It is built by `bun run build:presets` from `packages/desktop-app`
 (run automatically by `dev` / `start` / packaging); no manual install needed.
 
-To iterate standalone:
+Install dependencies from the monorepo root, then build from this directory:
 
 ```bash
+cd ../../../..
 bun install
+cd packages/plugins/presets/svg-viewer
 bun run build   # writes dist/ (read in-place in dev)
 ```
