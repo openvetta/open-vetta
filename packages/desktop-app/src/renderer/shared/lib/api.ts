@@ -374,6 +374,41 @@ export async function fetchSkillInfo(token: string, name: string): Promise<Marke
 	});
 }
 
+// ─── Market Plugins ───
+
+export interface MarketPluginInfo {
+	plugin_id: string;
+	name: string;
+	version: string;
+	description: string;
+	author: string;
+	plugin_api_version: string;
+	permissions: string[];
+	tags: string[];
+	download_count: number;
+}
+
+export async function fetchMarketPlugins(token: string): Promise<MarketPluginInfo[]> {
+	return request<MarketPluginInfo[]>("/plugins/market", {
+		headers: authHeaders(token),
+	});
+}
+
+export async function downloadPlugin(token: string, id: string): Promise<ArrayBuffer> {
+	const serverUrl = await window.vetta.settings.getServerUrl();
+	const resp = await fetch(`${serverUrl}/plugins/${id}/download`, {
+		headers: authHeaders(token),
+	});
+	if (!resp.ok) throw new Error(`下载失败: ${resp.status}`);
+	return resp.arrayBuffer();
+}
+
+export async function fetchPluginInfo(token: string, id: string): Promise<MarketPluginInfo> {
+	return request<MarketPluginInfo>(`/plugins/${id}/info`, {
+		headers: authHeaders(token),
+	});
+}
+
 // ─── Remote MCP Servers ───
 
 export interface MarketMcpServer {
