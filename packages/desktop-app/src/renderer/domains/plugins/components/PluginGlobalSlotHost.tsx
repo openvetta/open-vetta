@@ -1,7 +1,10 @@
+import { pluginFilePreviewsAtom, type RegisteredFilePreview } from "@shared/store/atoms";
+import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import type { PluginGlobalSlotContribution } from "@vetta/plugin-sdk";
 import { PLUGINS_CHANGED_EVENT } from "../runtime/plugin-events";
+import { installPluginHostBridge } from "../runtime/plugin-host-bridge";
 import { installPluginHostShim } from "../runtime/plugin-host-shim";
 import { loadPlugin, type LoadedPlugin } from "../runtime/plugin-loader";
 
@@ -29,6 +32,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const [plugins, setPlugins] = useState<LoadedPlugin[]>([]);
 	const [revision, forceUpdate] = useReducer((value: number) => value + 1, 0);
 	const [reloadRevision, reloadPlugins] = useReducer((value: number) => value + 1, 0);
+	const setFilePreviews = useSetAtom(pluginFilePreviewsAtom);
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
@@ -39,6 +43,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		let disposed = false;
 		const loaded: LoadedPlugin[] = [];
 		installPluginHostShim();
+		installPluginHostBridge();
 		setPlugins([]);
 
 		void window.vetta.plugins
@@ -74,6 +79,20 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		() => plugins.flatMap((plugin) => plugin.slots),
 		[plugins, revision],
 	);
+
+	// Publish file-preview registrations so FilePreviewView (a separate subtree)
+	// can dispatch by extension. Republished on every plugin/slot revision.
+	useEffect(() => {
+		const previews: RegisteredFilePreview[] = plugins.flatMap((plugin) =>
+			plugin.filePreviews.map((preview) => ({
+				pluginId: plugin.id,
+				extensions: preview.extensions,
+				component: preview.component,
+			})),
+		);
+		setFilePreviews(previews);
+		return () => setFilePreviews([]);
+	}, [plugins, revision, setFilePreviews]);
 
 	if (slots.length === 0) return null;
 

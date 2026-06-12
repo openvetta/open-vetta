@@ -1,5 +1,6 @@
 export type PluginPermission =
 	| "ui.slot.global"
+	| "ui.slot.file-preview"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
@@ -46,7 +47,7 @@ export interface InstalledPlugin {
 	enabled: boolean;
 	installedAt: string;
 	updatedAt: string;
-	source: "archive" | "remote";
+	source: "archive" | "remote" | "system";
 	availableVersion?: string;
 	pendingVersion?: string;
 }
