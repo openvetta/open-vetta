@@ -1,6 +1,7 @@
 export type PluginPermission =
 	| "ui.slot.global"
 	| "ui.slot.file-preview"
+	| "ui.slot.activity-tab"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"

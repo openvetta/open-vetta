@@ -424,6 +424,32 @@ Vetta 桌面插件的信任定位：**一方/可信 + 策展分发**——插件
 
 **权限**：注册需新权限位 `ui.slot.file-preview`（与 `ui.slot.global` 对称）。但内容访问器（readText/readBytes/getUrl）**不**额外要 `fs.read`——读的是用户主动点开、宿主中介交付的那一个文件，非任意文件系统访问，边界止于此。
 
+### 活动面板插件 tab（plugin activity tab）
+
+[[可信插件]] 的第三类 UI 扩展点（前两类是全局 slot 与[[文件预览插槽]]）：插件经 `ctx.ui.registerActivityTab({ id, label, icon?, component })` 命令式注册（与 `registerGlobalSlot` 同构，一个插件可注册多个），注册仅进入「可添加池」，**不直接渲染**——由用户在活动面板手动 attach 后才出现为一个 tab。权限位 `ui.slot.activity-tab`。
+
+**attach 单位是 contribution 而非插件**：一条 attach 记录指向 `pluginId:tabId`。**作用域 key = 当前会话的 cwd**：普通项目所有 session 共享项目 cwd → attach 天然项目级同步；默认「对话」项目每个 session 有独立子目录 cwd（ADR-0007）→ attach 天然 per-session 隔离，**不靠任何对「对话项目」的特判**（见 ADR-0026）。attach 记录（cwd → contribution 列表）持久化在 renderer localStorage，与 sidebar width 等 UI 偏好同一套路。
+
+**增删同一入口**：hover tab 栏右侧浮现"+"按钮，弹出勾选列表（勾=attach、取消勾=remove），不给 tab 本身加右键/关闭交互。插件 tab 追加在所有内置 tab（含动态 todo/后台任务/调试）之后、按 attach 顺序排列，无拖拽。**渲染 = attach 记录 ∩ 当前已注册 contribution**：插件禁用 tab 即隐、重新启用即回，记录不随插件状态联动删除。组件契约与全局 slot 同构（零 props，会话上下文走 [[对话插件 API]] hooks），icon 传 React 节点而非 iconify class 字符串（后者依赖宿主 CSS 扫描、静默失败）。
+
+IM 会话查看器（SessionViewerPage）**首期不支持**——其 cwd 是单一固定目录，无法满足 per-session 隔离语义。
+
+**面板作用域出口**：插件 tab 组件经 SDK hook `useActivityTab()` → `{ cwd }` 拿到「自己被渲染在哪个 cwd 的面板里」（plugin-sdk 定义 React Context、宿主渲染时 Provider 注入）。不要用 `useActiveConversation().cwd` 代替——项目详情页的 ActivityPanel 是显式项目 cwd，活动会话可能属于别的项目，两者会错位。
+
+_Avoid_: 把它当成第三个"自动渲染"插槽——全局 slot 与文件预览插槽注册即生效，本插槽注册只是入池，attach 才生效。
+
+### 移动UI预览（mobile UI preview）
+
+首个[[活动面板插件 tab]]形态的[[预置插件]]（id `mobile-ui-preview`）：在仿真移动设备边框（react-device-mockup，命名机型预设表映射形态+逻辑分辨率，含 iPhone 三形态 / Android / iPad，自绘 iOS/Android 两套仿真状态栏，支持横竖屏）内预览当前作用域的 HTML 页面。html/htm 候选按面板 cwd 递归列出（复用平台递归排除规则），iframe src 走 [[静态文件协议]]故相对资源可用；所选 html 变更自动刷新 + 手动刷新兜底。机型/横竖屏偏好全局记忆，所选 html 按 cwd 记忆。
+
+_Avoid_: 把设备边框当像素级真机渲染——逻辑分辨率 + 整体 scale 适配面板宽度，是 UI 形态仿真不是真机仿真。
+
+### 静态文件协议（vetta-file://）
+
+desktop-app 主进程注册的通用静态文件协议：`vetta-file://local/<绝对路径>`，**pathname 承载路径**（区别于 [[媒体流协议]] 的 query 参数形态），故 HTML 内的相对资源（css/js/图片）能按目录正确解析；mime 按扩展名映射常见 web 资源，路径校验复用预览沙箱（项目根/主目录内可读）。动机：iframe `srcDoc` 无法加载相对资源，凡需「整页带资源地预览项目内 HTML」走本协议。见 ADR-0027。
+
+_Avoid_: 与 [[媒体流协议]] 混用——vetta-media 专责音视频 Range 流，vetta-file 专责静态整文件，不合并。
+
 ### 对话插件 API（conversation plugin API）
 
 [[可信插件]] 在 agent 对话场景可用的能力出口，首期三类（斜杠命令明确**不**做、steer 缓）：

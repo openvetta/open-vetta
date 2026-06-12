@@ -6,6 +6,7 @@ import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	activeSessionAtom,
+	attachedPluginTabsAtom,
 	backgroundTasksBySessionAtom,
 	flowingChatUnreadAtom,
 	getBackgroundTasksForSession,
@@ -14,7 +15,9 @@ import {
 	debugModeAtom,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
+	pluginActivityTabsAtom,
 	sidebarCollapsedAtom,
+	type RegisteredActivityTab,
 } from "@shared/store/atoms";
 import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components/FilePreviewView";
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
@@ -26,6 +29,8 @@ import { BackgroundTasksTabPanel } from "./BackgroundTasksTabPanel";
 import { ScheduleExecutionTabPanel } from "./ScheduleExecutionTabPanel";
 import { TodoTabPanel } from "./TodoTabPanel";
 import { DebugTabPanel } from "./DebugTabPanel";
+import { DEFAULT_PLUGIN_TAB_ICON, PluginTabPicker } from "./PluginTabPicker";
+import { PluginActivityTabPanel } from "@domains/plugins/components/PluginActivityTabPanel";
 import { TabBar, type TabBarItem } from "@shared/components/ui/tab-bar";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
@@ -36,9 +41,14 @@ const MAX_WIDTH = 600;
 interface ActivityPanelProps {
 	/** 显式指定 cwd（项目详情页用），不传则回退到当前活动 session */
 	cwd?: string | null;
+	/**
+	 * 是否启用插件 tab（attach 池 + "+"选择器）。IM 会话查看器传 false——
+	 * 其 cwd 是单一固定目录，无法满足 per-session 隔离语义（见 ADR-0026）。
+	 */
+	enablePluginTabs?: boolean;
 }
 
-export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.Element {
+export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: ActivityPanelProps = {}): JSX.Element {
 	const [isOpen, setOpen] = useAtom(activityPanelOpenAtom);
 	const narrow = useNarrowScreen();
 	const activeSession = useAtomValue(activeSessionAtom);
@@ -88,6 +98,22 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	const hasBackgroundTasks = backgroundTasks.length > 0;
 	const debugMode = useAtomValue(debugModeAtom);
 
+	// 插件 tab：可添加池（已加载插件注册的 contribution）∩ 当前 cwd 的 attach 记录才渲染
+	const registeredPluginTabs = useAtomValue(pluginActivityTabsAtom);
+	const [attachedPluginTabs, setAttachedPluginTabs] = useAtom(attachedPluginTabsAtom);
+	const attachedKeys = useMemo(
+		() => (enablePluginTabs && cwd ? (attachedPluginTabs.get(cwd) ?? []) : []),
+		[enablePluginTabs, cwd, attachedPluginTabs],
+	);
+	const attachedPluginTabContribs = useMemo(
+		() =>
+			attachedKeys
+				.map((key) => registeredPluginTabs.find((tab) => `${tab.pluginId}:${tab.tabId}` === key))
+				.filter((tab): tab is RegisteredActivityTab => tab != null),
+		[attachedKeys, registeredPluginTabs],
+	);
+	const showPluginPicker = enablePluginTabs && cwd != null && registeredPluginTabs.length > 0;
+
 	const onResize = useCallback(
 		(delta: number) => {
 			setIsResizing(true);
@@ -133,8 +159,16 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 				icon: "icon-[mdi--bug-outline]",
 			});
 		}
+		// 用户 attach 的插件 tab 追加在所有内置 tab 之后，按 attach 顺序排列
+		for (const tab of attachedPluginTabContribs) {
+			base.push({
+				key: `plugin:${tab.pluginId}:${tab.tabId}` as ActivityTabKey,
+				label: tab.label,
+				icon: tab.icon ?? DEFAULT_PLUGIN_TAB_ICON,
+			});
+		}
 		return base;
-	}, [profile, chatUnread, hasTodo, todoItems, hasBackgroundTasks, backgroundTasks, debugMode]);
+	}, [profile, chatUnread, hasTodo, todoItems, hasBackgroundTasks, backgroundTasks, debugMode, attachedPluginTabContribs]);
 
 	// 当前 active tab：优先取项目记忆，否则用 profile 默认；profile 未就绪时退回 "file"
 	const activeTab: ActivityTabKey = useMemo(() => {
@@ -159,6 +193,44 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 		[cwd, setTabByProject],
 	);
 
+	// 当前激活的插件 tab（activeTab 形如 plugin:<pluginId>:<tabId>）
+	const activePluginTab = useMemo(() => {
+		if (!activeTab.startsWith("plugin:")) return null;
+		return (
+			attachedPluginTabContribs.find((tab) => `plugin:${tab.pluginId}:${tab.tabId}` === activeTab) ?? null
+		);
+	}, [activeTab, attachedPluginTabContribs]);
+
+	// attach 即切到该 tab；remove 当前激活的插件 tab 时回退到 profile 默认 tab
+	const onAttachPluginTab = useCallback(
+		(key: string) => {
+			if (!cwd) return;
+			const next = new Map(attachedPluginTabs);
+			const current = next.get(cwd) ?? [];
+			if (!current.includes(key)) next.set(cwd, [...current, key]);
+			setAttachedPluginTabs(next);
+			onTabChange(`plugin:${key}` as ActivityTabKey);
+		},
+		[cwd, attachedPluginTabs, setAttachedPluginTabs, onTabChange],
+	);
+
+	const onDetachPluginTab = useCallback(
+		(key: string) => {
+			if (!cwd) return;
+			const next = new Map(attachedPluginTabs);
+			const current = next.get(cwd) ?? [];
+			next.set(
+				cwd,
+				current.filter((k) => k !== key),
+			);
+			setAttachedPluginTabs(next);
+			if (activeTab === `plugin:${key}`) {
+				onTabChange(profile?.defaultActivityTab ?? "file");
+			}
+		},
+		[cwd, attachedPluginTabs, setAttachedPluginTabs, activeTab, profile, onTabChange],
+	);
+
 	// 窄屏：活动面板不再挤压内容，改为从底部升起的全宽 bottom sheet。
 	// 内联预览（接管整块内容区）保持原样，不走 sheet。
 	// narrowSheet 时完全不渲染 in-flow 的 <aside>，否则父级 flex 的 gap 会在
@@ -169,14 +241,26 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 	const panelBody = (
 		<>
 			{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab）。浏览器式页签悬浮在卡片上方，
-			    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。 */}
-			{tabItems.length > 0 && (
-				<TabBar
-					items={tabItems}
-					value={activeTab}
-					onChange={onTabChange}
-					suppressLayoutAnimation={isResizing}
-				/>
+			    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。
+			    hover 时右侧浮现"+"按钮，弹出勾选列表管理插件 tab 的 attach/remove。 */}
+			{(tabItems.length > 0 || showPluginPicker) && (
+				<div className="group/activity-tabs flex shrink-0 items-end">
+					<TabBar
+						className="min-w-0 flex-1"
+						items={tabItems}
+						value={activeTab}
+						onChange={onTabChange}
+						suppressLayoutAnimation={isResizing}
+					/>
+					{showPluginPicker && (
+						<PluginTabPicker
+							contributions={registeredPluginTabs}
+							attachedKeys={attachedKeys}
+							onAttach={onAttachPluginTab}
+							onDetach={onDetachPluginTab}
+						/>
+					)}
+				</div>
 			)}
 			<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
 				{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
@@ -190,6 +274,7 @@ export function ActivityPanel({ cwd: cwdProp }: ActivityPanelProps = {}): JSX.El
 					{activeTab === "todo" && cwd && <TodoTabPanel />}
 					{activeTab === "background-tasks" && cwd && <BackgroundTasksTabPanel />}
 					{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
+					{activePluginTab && cwd && <PluginActivityTabPanel tab={activePluginTab} cwd={cwd} />}
 				</div>
 			</div>
 		</>

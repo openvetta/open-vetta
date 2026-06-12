@@ -83,6 +83,8 @@ export default defineConfig({
 
 其它依赖可打进插件本体；`@vetta/plugin-sdk` 由宿主提供，保持 external。
 
+**模块顶层不要使用共享依赖（含 JSX）**：MF 共享模块（react / jsx-runtime）是异步填充的，bootstrap 完成前为 undefined——模块顶层的 JSX 字面量（如 `const ICON = <svg/>`）会在求值时抛 `TypeError: ... is not a function` 导致整个插件加载失败。把这类构造放进 `activate()` 或组件函数体内。
+
 旧版 `runtime: "esm"` 插件仍受支持，可继续把 `react`、`react/jsx-runtime`、`react/jsx-dev-runtime`、`@vetta/plugin-sdk` 映射到 `vetta-host://` 模块。
 
 ## API 总览
@@ -95,10 +97,10 @@ export default defineConfig({
 | --- | --- |
 | `ctx.plugin` | `{ id, version }` |
 | `ctx.permissions` | `has(p)` / `require(p)` |
-| `ctx.ui` | `registerGlobalSlot`、`registerFilePreview` |
+| `ctx.ui` | `registerGlobalSlot`、`registerFilePreview`、`registerActivityTab` |
 | `ctx.conversation` | `sendPrompt`、`insertText`、`abort`、`on` |
 
-React hook（直接从 `@vetta/plugin-sdk` import，在 slot 组件里调用）：`useActiveConversation()`、`useConversationMessages()`。
+React hook（直接从 `@vetta/plugin-sdk` import，在 slot 组件里调用）：`useActiveConversation()`、`useConversationMessages()`、`useActivityTab()`（仅活动面板 tab 组件内有值）。
 
 ### `ctx.ui.registerGlobalSlot(contribution)`
 
@@ -146,6 +148,36 @@ export default definePlugin({
 ```
 
 完整示例见 `packages/plugins/svg-viewer`。
+
+### `ctx.ui.registerActivityTab(contribution)`
+
+向活动面板的「可添加池」注册一个 tab。需要 `ui.slot.activity-tab` 权限，返回 `Disposable`。一个插件可注册多个 tab。
+
+与前两个插槽不同，注册**不直接渲染**——用户在活动面板 tab 栏 hover 时点右侧的"+"按钮，从勾选列表中手动 attach 后才出现为一个 tab（再次点击取消勾选即 remove）。attach 记录以**会话 cwd** 为 key（ADR-0026）：普通项目所有 session 共享、「对话」项目按 session 隔离。插件被禁用时 tab 隐藏，重新启用自动回来。
+
+```tsx
+ctx.ui.registerActivityTab({
+  id: "stats",                // 插件内唯一
+  label: "统计",
+  icon: <StatsIcon />,        // 可选，React 节点（不是 iconify class 字符串）
+  component: StatsPanel,      // 零 props，自包含
+});
+```
+
+组件不接收任何 props。**面板作用域用 `useActivityTab()` 获取**：
+
+```tsx
+import { useActivityTab } from "@vetta/plugin-sdk";
+
+function StatsPanel() {
+  const { cwd } = useActivityTab(); // 本 tab 所在面板的作用域 cwd（与 attach 记录同 key）
+  // ...
+}
+```
+
+不要用 `useActiveConversation().cwd` 代替——项目详情页的面板 cwd 是项目的，而活动会话可能属于别的项目（或为 null）。会话相关上下文仍走对话 hook。
+
+完整示例见 `packages/plugins/presets/mobile-ui-preview`（设备边框内预览作用域内的 HTML）。
 
 ### 对话：读状态
 
@@ -204,6 +236,7 @@ await ctx.conversation.abort();                           // 中断当前轮
 | --- | --- |
 | `ui.slot.global` | `ctx.ui.registerGlobalSlot()` |
 | `ui.slot.file-preview` | `ctx.ui.registerFilePreview()` |
+| `ui.slot.activity-tab` | `ctx.ui.registerActivityTab()` |
 | `agent.session.read` | `ctx.conversation.on()` + 对话 hook |
 | `agent.session.write` | `ctx.conversation.sendPrompt/insertText/abort` |
 

@@ -1,11 +1,13 @@
 import { motion } from "motion/react";
 import { useId } from "react";
+import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
 export interface TabBarItem<T extends string> {
 	key: T;
 	label: string;
-	icon?: string;
+	/** string 视为 iconify class；其余按 React 节点渲染（插件 tab 自带 icon） */
+	icon?: ReactNode;
 	/** 可选未读小红点（>0 显示） */
 	badge?: number;
 }
@@ -76,11 +78,21 @@ export function TabBar<T extends string>({
 							/>
 						)}
 						<span className="relative z-10 flex items-center gap-1.5">
-							{icon && (
-								<span
-									className={cn(icon, "h-3.5 w-3.5 shrink-0", active ? "text-primary" : "opacity-70")}
-								/>
-							)}
+							{icon != null &&
+								(typeof icon === "string" ? (
+									<span
+										className={cn(icon, "h-3.5 w-3.5 shrink-0", active ? "text-primary" : "opacity-70")}
+									/>
+								) : (
+									<span
+										className={cn(
+											"flex h-3.5 w-3.5 shrink-0 items-center justify-center [&>svg]:h-full [&>svg]:w-full",
+											active ? "text-primary" : "opacity-70",
+										)}
+									>
+										{icon}
+									</span>
+								))}
 							{label}
 							{badge && badge > 0 ? (
 								<span className="inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold leading-none text-white">

@@ -139,7 +139,7 @@ export function SessionViewerPage(): JSX.Element {
 				>
 					<MessageList messages={messages} isStreaming={false} sessionId={null} />
 				</div>
-				<ActivityPanel cwd={imCwd || null} />
+				<ActivityPanel cwd={imCwd || null} enablePluginTabs={false} />
 			</div>
 		</div>
 	);

@@ -2,6 +2,7 @@ import { createInstance, type ModuleFederation } from "@module-federation/enhanc
 import type { InstalledPlugin } from "@preload/api";
 import type {
 	Disposable,
+	PluginActivityTabContribution,
 	PluginContext,
 	PluginConversationApi,
 	PluginDefinition,
@@ -22,6 +23,7 @@ export interface LoadedPlugin {
 	version: string;
 	slots: PluginGlobalSlotContribution[];
 	filePreviews: PluginFilePreviewContribution[];
+	activityTabs: PluginActivityTabContribution[];
 	dispose(): Promise<void>;
 }
 
@@ -151,6 +153,7 @@ function createContext(
 	plugin: InstalledPlugin,
 	slots: PluginGlobalSlotContribution[],
 	filePreviews: PluginFilePreviewContribution[],
+	activityTabs: PluginActivityTabContribution[],
 	onChanged: () => void,
 ): PluginContext {
 	const registerGlobalSlot = (contribution: PluginGlobalSlotContribution): Disposable => {
@@ -199,6 +202,33 @@ function createContext(
 			},
 		};
 	};
+	const registerActivityTab = (contribution: PluginActivityTabContribution): Disposable => {
+		createPermissionApi(plugin).require("ui.slot.activity-tab");
+		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
+			throw new Error("Activity tab id is required");
+		}
+		if (typeof contribution.label !== "string" || contribution.label.trim().length === 0) {
+			throw new Error("Activity tab label is required");
+		}
+		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
+			throw new Error("Activity tab component is invalid");
+		}
+		const normalized: PluginActivityTabContribution = {
+			id: contribution.id,
+			label: contribution.label,
+			icon: contribution.icon,
+			component: contribution.component,
+		};
+		activityTabs.push(normalized);
+		onChanged();
+		return {
+			dispose: () => {
+				const index = activityTabs.indexOf(normalized);
+				if (index >= 0) activityTabs.splice(index, 1);
+				onChanged();
+			},
+		};
+	};
 	return {
 		plugin: {
 			id: plugin.id,
@@ -208,6 +238,7 @@ function createContext(
 		ui: {
 			registerGlobalSlot,
 			registerFilePreview,
+			registerActivityTab,
 		},
 		conversation: createConversationApi(plugin),
 	};
@@ -260,11 +291,12 @@ async function loadPluginModule(plugin: InstalledPlugin): Promise<PluginModule> 
 export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void): Promise<LoadedPlugin> {
 	const slots: PluginGlobalSlotContribution[] = [];
 	const filePreviews: PluginFilePreviewContribution[] = [];
+	const activityTabs: PluginActivityTabContribution[] = [];
 	const styleHandle = loadPluginStyles(plugin);
 	await assertPluginEntryFetchable(plugin);
 	const module = await loadPluginModule(plugin);
 	const definition = normalizePluginDefinition(module);
-	const context = createContext(plugin, slots, filePreviews, onChanged);
+	const context = createContext(plugin, slots, filePreviews, activityTabs, onChanged);
 	await definition.activate(context);
 	return {
 		id: plugin.id,
@@ -272,11 +304,13 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		version: plugin.activeVersion,
 		slots,
 		filePreviews,
+		activityTabs,
 		dispose: async () => {
 			await definition.deactivate?.();
 			styleHandle.dispose();
 			slots.splice(0, slots.length);
 			filePreviews.splice(0, filePreviews.length);
+			activityTabs.splice(0, activityTabs.length);
 			onChanged();
 		},
 	};
