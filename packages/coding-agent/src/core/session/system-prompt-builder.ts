@@ -5,7 +5,7 @@
  * state; the facade keeps thin wrappers and the lazy-rebuild signature logic.
  */
 
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@vetta/agent-core";
 import type { McpManager } from "../mcp/index.js";
 import { renderMemoryForPrompt } from "../memory/memory-store.js";
 import { getPersonaPrompt } from "../personas.js";

@@ -5,9 +5,9 @@
  * allowing MCP tools to be used in the agent system.
  */
 
-import type { AgentTool } from "@mariozechner/pi-agent-core";
-import type { ImageContent, TextContent } from "@mariozechner/pi-ai";
 import { type TSchema, Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
+import type { ImageContent, TextContent } from "@vetta/ai";
 import type { IMcpClient, McpContent, McpTool } from "./types.js";
 
 /**

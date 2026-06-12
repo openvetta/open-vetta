@@ -8,8 +8,8 @@
  */
 
 import { basename, dirname } from "node:path";
-import type { AgentTool } from "@mariozechner/pi-agent-core";
-import { resetApiProviders } from "@mariozechner/pi-ai";
+import type { AgentTool } from "@vetta/agent-core";
+import { resetApiProviders } from "@vetta/ai";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
 import type { BackgroundTaskManager } from "../background-tasks/index.js";
 import {

@@ -163,7 +163,7 @@ export {
 	writeTool,
 } from "./write/index.js";
 
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@vetta/agent-core";
 import { type BashToolOptions, bashTool, createBashTool } from "./bash/index.js";
 import { createCurrentTimeTool, currentTimeTool } from "./current-time/index.js";
 import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./doc-to-pdf/index.js";

@@ -12,7 +12,7 @@ import {
 	type TextContent,
 	type ThinkingBudgets,
 	type Transport,
-} from "@mariozechner/pi-ai";
+} from "@vetta/ai";
 import type { RuntimeTracer } from "@vetta/runtime-telemetry";
 
 // NEVER convert to top-level import — agent 包可能被浏览器/Vite 消费者引用，

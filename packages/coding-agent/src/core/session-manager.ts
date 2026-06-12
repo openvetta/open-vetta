@@ -1,5 +1,5 @@
-import type { AgentMessage, ToolPhase } from "@mariozechner/pi-agent-core";
-import type { ImageContent, Message, TextContent } from "@mariozechner/pi-ai";
+import type { AgentMessage, ToolPhase } from "@vetta/agent-core";
+import type { ImageContent, Message, TextContent } from "@vetta/ai";
 import { randomUUID } from "crypto";
 import {
 	appendFileSync,

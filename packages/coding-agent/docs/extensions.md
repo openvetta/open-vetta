@@ -139,7 +139,7 @@ To share extensions via npm or git as pi packages, see [packages.md](packages.md
 |---------|---------|
 | `@vetta/coding-agent` | Extension types (`ExtensionAPI`, `ExtensionContext`, events) |
 | `@sinclair/typebox` | Schema definitions for tool parameters |
-| `@mariozechner/pi-ai` | AI utilities (`StringEnum` for Google-compatible enums) |
+| `@vetta/ai` | AI utilities (`StringEnum` for Google-compatible enums) |
 | `@mariozechner/pi-tui` | TUI components for custom rendering |
 
 npm dependencies work too. Add a `package.json` next to your extension (or in a parent directory), run `npm install`, and imports from `node_modules/` are resolved automatically.
@@ -882,7 +882,7 @@ Register a custom tool callable by the LLM. See [Custom Tools](#custom-tools) fo
 
 ```typescript
 import { Type } from "@sinclair/typebox";
-import { StringEnum } from "@mariozechner/pi-ai";
+import { StringEnum } from "@vetta/ai";
 
 pi.registerTool({
   name: "my_tool",
@@ -1265,7 +1265,7 @@ Note: Some models are idiots and include the @ prefix in tool path arguments. Bu
 
 ```typescript
 import { Type } from "@sinclair/typebox";
-import { StringEnum } from "@mariozechner/pi-ai";
+import { StringEnum } from "@vetta/ai";
 import { Text } from "@mariozechner/pi-tui";
 
 pi.registerTool({
@@ -1305,7 +1305,7 @@ pi.registerTool({
 });
 ```
 
-**Important:** Use `StringEnum` from `@mariozechner/pi-ai` for string enums. `Type.Union`/`Type.Literal` doesn't work with Google's API.
+**Important:** Use `StringEnum` from `@vetta/ai` for string enums. `Type.Union`/`Type.Literal` doesn't work with Google's API.
 
 ### Overriding Built-in Tools
 

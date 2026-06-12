@@ -1,5 +1,5 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
 import type { TodoStore } from "../../todo-store.js";
 import { loadToolDescription } from "../description.js";
 

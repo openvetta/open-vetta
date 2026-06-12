@@ -9,8 +9,8 @@
  */
 
 import { join } from "node:path";
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { AssistantMessage, ImageContent, TextContent } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { AssistantMessage, ImageContent, TextContent } from "@vetta/ai";
 import { getDocsPath } from "../../config.js";
 import type { PromptOptions } from "../agent-session.js";
 import type { CustomMessage } from "../messages.js";

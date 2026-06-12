@@ -12,8 +12,8 @@
  * snapshot stays frozen and picks the new entries up on the next session.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import { completeSimple, type Model } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import { completeSimple, type Model } from "@vetta/ai";
 import { applyMemoryOperation, parseMemoryEntries, readMemoryContent } from "./memory-store.js";
 
 const FLUSH_SYSTEM_PROMPT =

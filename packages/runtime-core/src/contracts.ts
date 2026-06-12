@@ -1,5 +1,5 @@
-import type { ThinkingLevel, ToolPhase } from "@mariozechner/pi-agent-core";
-import type { Message, Model } from "@mariozechner/pi-ai";
+import type { ThinkingLevel, ToolPhase } from "@vetta/agent-core";
+import type { Message, Model } from "@vetta/ai";
 
 export type RuntimeEventSource = "runtime-core" | "agent" | "tool" | "mcp";
 

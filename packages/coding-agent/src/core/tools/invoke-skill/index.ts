@@ -1,5 +1,5 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { type Static, Type } from "@sinclair/typebox";
+import type { AgentTool } from "@vetta/agent-core";
 import { readFileSync } from "fs";
 import { stripFrontmatter } from "../../../utils/frontmatter.js";
 import type { Skill } from "../../skills.js";

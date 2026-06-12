@@ -4,7 +4,7 @@
  * Shows how to select a specific model and thinking level.
  */
 
-import { getModel } from "@mariozechner/pi-ai";
+import { getModel } from "@vetta/ai";
 import { AuthStorage, createAgentSession, ModelRegistry } from "@vetta/coding-agent";
 
 // Set up auth storage and model registry

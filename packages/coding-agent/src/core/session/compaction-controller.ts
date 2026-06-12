@@ -9,9 +9,9 @@
  * - Threshold: context over the configured threshold → compact, no auto-retry.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { AssistantMessage } from "@mariozechner/pi-ai";
-import { isContextOverflow } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { AssistantMessage } from "@vetta/ai";
+import { isContextOverflow } from "@vetta/ai";
 import {
 	CompactionCircuitBreaker,
 	type CompactionResult,

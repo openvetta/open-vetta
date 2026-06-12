@@ -6,8 +6,8 @@
  * checks / skill+template expansion / image normalization before enqueuing.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { ImageContent, TextContent } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@vetta/agent-core";
+import type { ImageContent, TextContent } from "@vetta/ai";
 import type { CustomMessage } from "../messages.js";
 import type { SessionContext } from "./session-context.js";
 

@@ -52,7 +52,7 @@
 		"@dagrejs/dagre": "^3.0.0",
 		"@fontsource-variable/geist": "^5.2.8",
 		"@iconify-json/solar": "^1.2.5",
-		"@mariozechner/pi-ai": "workspace:*",
+		"@vetta/ai": "workspace:*",
 		"@module-federation/enhanced": "^2.5.1",
 		"@ocr-web/core": "^0.2.1",
 		"@ocr-web/models-ppocrv5": "^0.1.1",
