@@ -46,7 +46,7 @@ export const neonTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(240, 232, 252)",
 		secondaryForeground: "rgb(30, 20, 50)",
-		muted: "rgb(234, 224, 247)",
+		muted: "rgb(224, 211, 244)",
 		mutedForeground: "rgb(110, 95, 140)",
 		accent: "rgb(237, 228, 252)",
 		accentForeground: "rgb(30, 20, 50)",

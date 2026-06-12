@@ -46,7 +46,7 @@ export const emeraldTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(238, 250, 242)",
 		secondaryForeground: "rgb(10, 10, 10)",
-		muted: "rgb(228, 243, 234)",
+		muted: "rgb(215, 236, 224)",
 		mutedForeground: "rgb(90, 100, 92)",
 		accent: "rgb(220, 240, 228)",
 		accentForeground: "rgb(10, 10, 10)",
