@@ -409,6 +409,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 	const [message, setMessage] = useState<string | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
+	const [systemExpanded, setSystemExpanded] = useState(false);
 
 	useImperativeHandle(ref, () => ({ triggerImport: () => fileInputRef.current?.click() }), []);
 
@@ -534,7 +535,20 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 	);
 
 	const rows = useMemo(() => mergePlugins(plugins, marketPlugins), [plugins, marketPlugins]);
+	// 系统插件单独沉底；其余（市场 + 已装用户插件）走主网格。
+	const mainRows = useMemo(() => rows.filter((r) => r.installed?.source !== "system"), [rows]);
+	const systemRows = useMemo(() => rows.filter((r) => r.installed?.source === "system"), [rows]);
 	const selected = rows.find((r) => r.id === selectedId && r.installed) ?? null;
+
+	const renderCard = (row: PluginRow): JSX.Element => (
+		<PluginCard
+			key={row.id}
+			row={row}
+			installing={busy === `install:${row.id}`}
+			onSelect={(r) => setSelectedId(r.id)}
+			onInstall={handleInstallFromMarket}
+		/>
+	);
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -567,7 +581,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 					/>
 					<p className="text-[13px] text-muted-foreground/60">加载中...</p>
 				</div>
-			) : rows.length === 0 ? (
+			) : mainRows.length === 0 && systemRows.length === 0 ? (
 				<motion.div
 					className="flex flex-col items-center justify-center gap-5 py-16 text-center"
 					initial={{ opacity: 0, y: 12 }}
@@ -586,22 +600,49 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 					</div>
 				</motion.div>
 			) : (
-				<motion.div
-					className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5"
-					initial="hidden"
-					animate="show"
-					variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
-				>
-					{rows.map((row) => (
-						<PluginCard
-							key={row.id}
-							row={row}
-							installing={busy === `install:${row.id}`}
-							onSelect={(r) => setSelectedId(r.id)}
-							onInstall={handleInstallFromMarket}
-						/>
-					))}
-				</motion.div>
+				<>
+					{mainRows.length > 0 && (
+						<motion.div
+							className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5"
+							initial="hidden"
+							animate="show"
+							variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
+						>
+							{mainRows.map(renderCard)}
+						</motion.div>
+					)}
+
+					{/* 系统插件：单独沉底、默认折叠，展开后与主网格同样式。 */}
+					{systemRows.length > 0 && (
+						<div className="flex flex-col gap-2.5">
+							<button
+								type="button"
+								onClick={() => setSystemExpanded((v) => !v)}
+								className="flex items-center gap-2 rounded-lg px-1 py-1 text-left text-[12px] font-medium text-muted-foreground/70 transition-colors hover:text-foreground"
+							>
+								<span
+									className={`icon-[mdi--chevron-right] h-4 w-4 transition-transform ${
+										systemExpanded ? "rotate-90" : ""
+									}`}
+								/>
+								<span>系统插件</span>
+								<span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground/60">
+									{systemRows.length}
+								</span>
+							</button>
+							{systemExpanded && (
+								<motion.div
+									className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5"
+									initial="hidden"
+									animate="show"
+									variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
+								>
+									{systemRows.map(renderCard)}
+								</motion.div>
+							)}
+						</div>
+					)}
+				</>
 			)}
 
 			{/* Detail sheet */}
