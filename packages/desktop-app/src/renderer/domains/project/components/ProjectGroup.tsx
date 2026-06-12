@@ -1,6 +1,7 @@
 import { useAtom, useAtomValue } from "jotai";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { Virtuoso } from "react-virtuoso";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { Project, ProjectType, SessionInfo } from "@shared/store/atoms";
 import { projectContextMenuAtom, renamingSessionPathAtom, runningSessionPathsAtom, scheduledSessionPathsAtom, sessionContextMenuAtom, sessionDisplayLabel } from "@shared/store/atoms";
@@ -20,6 +21,9 @@ interface ProjectGroupProps {
 }
 
 const DEFAULT_VISIBLE_SESSIONS = 5;
+const VIRTUAL_SESSION_ROW_HEIGHT = 34;
+const VIRTUAL_SESSION_MAX_HEIGHT = 360;
+const VIRTUAL_SESSION_OVERSCAN = 120;
 
 const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
 	normal: "icon-[solar--folder-linear]",
@@ -152,10 +156,87 @@ export const ProjectGroup = memo(function ProjectGroup({
 		? sortedSessions
 		: sortedSessions.slice(0, DEFAULT_VISIBLE_SESSIONS);
 	const hiddenCount = sortedSessions.length - DEFAULT_VISIBLE_SESSIONS;
+	const virtualSessionListHeight = Math.min(
+		sortedSessions.length * VIRTUAL_SESSION_ROW_HEIGHT,
+		VIRTUAL_SESSION_MAX_HEIGHT,
+	);
 
 	const displayName = project.name ?? pathBasename(project.cwd);
 	const projectType = project.type;
 	const hasBadge = projectType !== "normal";
+
+	const renderSession = (session: SessionInfo): JSX.Element => {
+		const isActive = activeSessionPath === session.path;
+		const isRenaming = renamingSessionPath === session.path;
+		const isRunning = runningSessionPaths.has(session.path);
+		const label = sessionDisplayLabel(session);
+		const isSchedule =
+			scheduledSessionPaths.has(session.path) ||
+			scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
+		return (
+			<button
+				key={session.path}
+				type="button"
+				onClick={() => {
+					if (!isRenaming) onSelectSession(project.cwd, session.path);
+				}}
+				onContextMenu={(e) => {
+					e.preventDefault();
+					setContextMenu({ x: e.clientX, y: e.clientY, session });
+				}}
+				className={cn(
+					"relative flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
+					isActive
+						? "bg-primary/15 text-foreground"
+						: "hover:bg-accent/50",
+				)}
+				title={isRenaming ? undefined : label}
+			>
+				{isRenaming ? (
+					<InlineRenameInput
+						session={session}
+						cwd={project.cwd}
+						onRename={onRenameSession}
+						onDone={() => setRenamingSessionPath(null)}
+					/>
+				) : (
+					<>
+						{isRunning ? (
+							<span
+								className={cn(
+									"project-running-icon icon-[solar--refresh-linear] ml-[20px] h-3.5 w-3.5 shrink-0 animate-spin",
+									isActive ? "text-primary" : "text-muted-foreground",
+								)}
+							/>
+						) : isSchedule ? (
+							<span className="icon-[solar--clock-circle-linear] ml-[20px] h-3.5 w-3.5 shrink-0 text-primary/80" />
+						) : (
+							<span
+								className={cn(
+									"icon-[solar--chat-round-line-linear] ml-[20px] h-3.5 w-3.5 shrink-0",
+									isActive ? "text-foreground/70" : "text-muted-foreground/50",
+								)}
+							/>
+						)}
+						<span
+							className={cn(
+								"min-w-0 flex-1 truncate text-[13px]",
+								isRunning && "pl-1",
+								isActive
+									? "font-semibold text-foreground"
+									: "text-foreground",
+							)}
+						>
+							{label}
+						</span>
+					</>
+				)}
+				<span className="shrink-0 text-[11px] text-muted-foreground">
+					{relativeTime(session.modifiedAt)}
+				</span>
+			</button>
+		);
+	};
 
 	return (
 		<div className="project-group-contain mb-1">
@@ -265,79 +346,18 @@ export const ProjectGroup = memo(function ProjectGroup({
 						<p className="px-2.5 py-1.5 pl-[36px] text-[12px] text-muted-foreground">
 							暂无会话
 						</p>
+					) : showAllSessions ? (
+						<Virtuoso
+							data={sortedSessions}
+							style={{ height: virtualSessionListHeight, overflowX: "hidden" }}
+							overscan={VIRTUAL_SESSION_OVERSCAN}
+							defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
+							itemContent={(_, session) => (
+								<div className="pb-px">{renderSession(session)}</div>
+							)}
+						/>
 					) : (
-						visibleSessions.map((session) => {
-							const isActive = activeSessionPath === session.path;
-							const isRenaming = renamingSessionPath === session.path;
-							const isRunning = runningSessionPaths.has(session.path);
-							const label = sessionDisplayLabel(session);
-							const isSchedule =
-								scheduledSessionPaths.has(session.path) ||
-								scheduledBasenames.has(session.path.slice(session.path.lastIndexOf("/") + 1));
-							return (
-								<button
-									key={session.path}
-									type="button"
-									onClick={() => {
-										if (!isRenaming) onSelectSession(project.cwd, session.path);
-									}}
-									onContextMenu={(e) => {
-										e.preventDefault();
-										setContextMenu({ x: e.clientX, y: e.clientY, session });
-									}}
-									className={cn(
-										"relative flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-left transition-colors duration-100",
-										isActive
-											? "bg-primary/15 text-foreground"
-											: "hover:bg-accent/50",
-									)}
-									title={isRenaming ? undefined : label}
-								>
-									{isRenaming ? (
-										<InlineRenameInput
-											session={session}
-											cwd={project.cwd}
-											onRename={onRenameSession}
-											onDone={() => setRenamingSessionPath(null)}
-										/>
-									) : (
-										<>
-											{isRunning ? (
-												<span
-													className={cn(
-														"project-running-icon icon-[solar--refresh-linear] ml-[20px] h-3.5 w-3.5 shrink-0 animate-spin",
-														isActive ? "text-primary" : "text-muted-foreground",
-													)}
-												/>
-											) : isSchedule ? (
-												<span className="icon-[solar--clock-circle-linear] ml-[20px] h-3.5 w-3.5 shrink-0 text-primary/80" />
-											) : (
-												<span
-													className={cn(
-														"icon-[solar--chat-round-line-linear] ml-[20px] h-3.5 w-3.5 shrink-0",
-														isActive ? "text-foreground/70" : "text-muted-foreground/50",
-													)}
-												/>
-											)}
-											<span
-												className={cn(
-													"min-w-0 flex-1 truncate text-[13px]",
-													isRunning && "pl-1",
-													isActive
-														? "font-semibold text-foreground"
-														: "text-foreground",
-												)}
-											>
-												{label}
-											</span>
-										</>
-									)}
-									<span className="shrink-0 text-[11px] text-muted-foreground">
-										{relativeTime(session.modifiedAt)}
-									</span>
-								</button>
-							);
-						})
+						visibleSessions.map(renderSession)
 					)}
 					{hasMoreSessions && (
 						<button
