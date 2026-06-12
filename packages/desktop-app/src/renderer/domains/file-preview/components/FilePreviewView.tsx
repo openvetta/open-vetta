@@ -2,10 +2,12 @@ import { cn } from "@shared/lib/utils";
 import {
 	type FilePreviewContext,
 	type FilePreviewItem,
+	pluginFilePreviewsAtom,
 	resolvedThemeAtom,
 } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PluginFilePreview } from "./PluginFilePreview";
 import { PreviewErrorBoundary } from "./PreviewErrorBoundary";
 import { AudioPreview } from "../../activity-panel/components/previews/AudioPreview";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
@@ -15,7 +17,8 @@ import { ImagePreview } from "../../activity-panel/components/previews/ImagePrev
 import { MarkdownPreview } from "../../activity-panel/components/previews/MarkdownPreview";
 import { PdfPreview } from "../../activity-panel/components/previews/PdfPreview";
 
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"]);
+// svg 刻意不在内置集：交给 svg-viewer 插件接管（「仅补空白」下插件只能拿内置不认的扩展名）
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "ico"]);
 // Chromium 原生可解码的音频格式（ADR-0021）；wma/ape 等维持「不支持 + 下载」
 const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus", "webm"]);
 const MARKDOWN_EXTENSIONS = new Set(["md", "mdx"]);
@@ -212,6 +215,13 @@ function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
 	const isAudio = AUDIO_EXTENSIONS.has(ext);
 	const theme = useAtomValue(resolvedThemeAtom);
 
+	// 插件预览「仅补空白」：仅当内置不支持该扩展名时才查插件注册表，首个匹配胜。
+	const pluginPreviews = useAtomValue(pluginFilePreviewsAtom);
+	const pluginPreview = useMemo(
+		() => (supported ? undefined : pluginPreviews.find((p) => p.extensions.includes(ext))),
+		[supported, pluginPreviews, ext],
+	);
+
 	const [state, setState] = useState<LoadState>({ status: "loading" });
 
 	useEffect(() => {
@@ -237,7 +247,12 @@ function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
 		};
 	}, [item, ext, supported, isAudio]);
 
-	if (!supported) return <UnsupportedDetail item={item} />;
+	if (!supported) {
+		if (pluginPreview) {
+			return <PluginFilePreview item={item} ext={ext} component={pluginPreview.component} />;
+		}
+		return <UnsupportedDetail item={item} />;
+	}
 
 	if (isAudio) {
 		// key 保证切换文件时整组件重挂载，停掉上一首的播放与动画

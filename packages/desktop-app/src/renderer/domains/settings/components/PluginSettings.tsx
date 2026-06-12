@@ -10,6 +10,7 @@ import { SettingRow, SettingSection } from "./shared";
 
 const PERMISSION_LABELS: Record<PluginPermission, string> = {
 	"ui.slot.global": "全局 UI Slot",
+	"ui.slot.file-preview": "文件预览 Slot",
 	"agent.session.read": "读取 Agent 会话",
 	"agent.session.write": "修改 Agent 会话",
 	"agent.command.run": "执行 Agent 命令",
