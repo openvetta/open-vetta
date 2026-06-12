@@ -498,6 +498,20 @@ Vetta 桌面插件的信任定位：**一方/可信 + 策展分发**——插件
 
 `packages/plugins/presets/<name>/` 下的插件**源码**，在 monorepo 内授权、维护——是[[系统插件]]的「源」面。构建期逐个 build 产出**解压态** `dist/ + plugin.json`（非 zip）：打包时拷进 desktop-app 的 `resources/system-plugins/<id>/` 随包发布，dev 下直接就地读 `packages/plugins/presets/<id>/{plugin.json, dist/}`。运行时零解压、零拷贝。「放进 `packages/plugins/presets/` 即成系统插件」是该目录的约定语义。
 
+### 插件市场（plugin marketplace）
+
+服务端分发 [[可信插件]] zip 包的目录，与 [[技能市场]] 同构：admin 上传 zip，后端解压读取包内 `plugin.json` 自动入库（id / name / version / description / author / permissions），消费接口需登录 token（不限平台，照 [[技能市场]] 鉴权）。**真相源是平台数据库**——`plugin.json` 仅上传那一刻作为元数据来源，入库后 admin 可改展示字段。与技能市场刻意保留三处差异：
+
+- **不设分类受管实体**：技能有 [[skill category]] 独立实体，插件**只保留自由 `tags`**（jsonb，未来做 taglist 筛选，当前不消费），不引入分类 CRUD。
+- **下载原样返回上传的 zip**：[[技能市场]] 下载是从 S3 散文件**重打包成 tar.gz**；插件本质是 zip、且要被 desktop 的 `installPluginFromUrl` 直接消费，故插件**整包作单个 S3 对象存、下载原样吐 zip**，不解包不重打包。
+- **单表扁平、不留版本历史**：以 manifest `id` 为唯一键，重传同 id **原地覆盖**（更新 version + 覆盖 zip + 保留 download_count 与创建时间），市场侧只暴露「当前版本」。详见 [[插件版本口径]]。
+
+### 插件版本口径（plugin version semantics）
+
+[[插件市场]]里一个插件的 version 以**服务端 DB 当前行为唯一真相**，来源是上传 zip 内 `plugin.json` 的 `version`。单表扁平、**不保留版本历史**：同 id 重传即原地覆盖旧版本，无回滚、无旧版查询。
+
+这与 desktop 端 [[系统插件]]/用户插件自带的 `availableVersion / pendingVersion` 更新流**刻意不对称**——更新流是客户端「装了旧版、市场出了新版」的比对机制，市场侧只需提供「这个 id 当前是哪个版本的 zip」即可驱动它，不需要自己存版本历史。一期采纳与 [[技能市场]] 同构的扁平模型而非 Plugin + PluginVersion 双表，是为最小化首期实现面；代价是市场无法回滚或并存多版本。
+
 ### 媒体流协议（media streaming protocol）
 
 desktop-app 主进程注册的自定义 protocol（`vetta-media://`），把校验过的本地媒体路径映射为支持 Range 的流式 URL，供 `<audio>`（未来含 `<video>`）直接作 `src`。与既有预览的 `readFile` IPC + base64 全量加载**并存**：图片/pdf/docx 等小文件维持旧路径，只有音视频走本协议。见 ADR-0021。
