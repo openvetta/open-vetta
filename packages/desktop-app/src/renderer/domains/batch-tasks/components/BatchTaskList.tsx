@@ -600,7 +600,7 @@ const TaskCard = memo(function TaskCard({
 		<div
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
-			className="relative flex flex-col gap-1 overflow-hidden rounded-lg bg-accent/50 px-2.5 py-2 transition-colors duration-300 ease-out hover:bg-accent/80"
+			className="relative flex flex-col gap-1 overflow-hidden rounded-lg bg-muted px-2.5 py-2 transition-colors duration-300 ease-out hover:bg-accent"
 		>
 			{/* 顶部：状态点 + 名称 + 状态 pill */}
 			<div className="flex items-center gap-1.5">
