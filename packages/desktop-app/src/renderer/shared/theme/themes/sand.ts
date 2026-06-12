@@ -60,7 +60,7 @@ export const sandTheme: ThemeDef = {
 		accentForeground: "oklch(0.2671 0.0196 98.9390)",
 		destructive: "oklch(0.1908 0.0020 106.5859)",
 		destructiveForeground: "oklch(1.0000 0 0)",
-		border: "oklch(0.8847 0.0069 97.3627)",
+		border: "oklch(0.8300 0.0080 97.3627)",
 		input: "oklch(0.7621 0.0156 98.3528)",
 		ring: "oklch(0.6171 0.1375 39.0427)",
 		chart1: "oklch(0.5583 0.1276 42.9956)",
