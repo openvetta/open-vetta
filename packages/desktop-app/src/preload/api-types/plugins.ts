@@ -47,7 +47,7 @@ export interface InstalledPlugin {
 	enabled: boolean;
 	installedAt: string;
 	updatedAt: string;
-	source: "archive" | "remote";
+	source: "archive" | "remote" | "system";
 	availableVersion?: string;
 	pendingVersion?: string;
 }

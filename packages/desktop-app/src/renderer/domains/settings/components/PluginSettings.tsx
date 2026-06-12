@@ -22,7 +22,9 @@ const PERMISSION_LABELS: Record<PluginPermission, string> = {
 };
 
 function formatPluginSource(source: InstalledPlugin["source"]): string {
-	return source === "remote" ? "远程安装" : "本地 zip";
+	if (source === "remote") return "远程安装";
+	if (source === "system") return "系统内置";
+	return "本地 zip";
 }
 
 function getErrorMessage(error: unknown): string {
@@ -68,6 +70,7 @@ function PluginCard({
 	onReload: (pluginId: string) => void;
 	onUninstall: (plugin: InstalledPlugin) => void;
 }): JSX.Element {
+	const isSystem = plugin.source === "system";
 	const hasPendingVersion = Boolean(plugin.pendingVersion);
 	const permissionList = plugin.permissions.length > 0 ? plugin.permissions : [];
 
@@ -80,6 +83,9 @@ function PluginCard({
 						<span className="rounded-full bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
 							{plugin.id}
 						</span>
+						{isSystem && (
+							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">系统</span>
+						)}
 						{hasPendingVersion && (
 							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
 								可重载到 {plugin.pendingVersion}
@@ -109,44 +115,59 @@ function PluginCard({
 			</div>
 
 			<div className="mt-4">
-				<div className="mb-2 text-[12px] font-medium text-foreground">权限</div>
+				<div className="mb-2 text-[12px] font-medium text-foreground">
+					权限
+					{isSystem && <span className="ml-2 text-[11px] text-muted-foreground">系统插件自动授予，不可更改</span>}
+				</div>
 				{permissionList.length > 0 ? (
 					<div className="flex flex-wrap gap-2">
-						{permissionList.map((permission) => (
-							<PluginPermissionToggle
-								key={permission}
-								plugin={plugin}
-								permission={permission}
-								busy={busy}
-								onToggle={onTogglePermission}
-							/>
-						))}
+						{permissionList.map((permission) =>
+							isSystem ? (
+								<span
+									key={permission}
+									className="flex items-center gap-1.5 rounded-lg border border-border bg-background/50 px-2.5 py-1.5 text-[12px] text-muted-foreground"
+								>
+									<span className="icon-[mdi--lock-outline] h-3.5 w-3.5" />
+									{PERMISSION_LABELS[permission]}
+								</span>
+							) : (
+								<PluginPermissionToggle
+									key={permission}
+									plugin={plugin}
+									permission={permission}
+									busy={busy}
+									onToggle={onTogglePermission}
+								/>
+							),
+						)}
 					</div>
 				) : (
 					<div className="text-[12px] text-muted-foreground">该插件没有声明权限。</div>
 				)}
 			</div>
 
-			<div className="mt-4 flex flex-wrap gap-2">
-				<button
-					type="button"
-					disabled={busy}
-					onClick={() => onReload(plugin.id)}
-					className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-				>
-					<span className="icon-[mdi--reload] h-3.5 w-3.5 text-muted-foreground" />
-					重载
-				</button>
-				<button
-					type="button"
-					disabled={busy}
-					onClick={() => onUninstall(plugin)}
-					className="flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive transition-colors hover:bg-destructive/15 disabled:opacity-50"
-				>
-					<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-					卸载
-				</button>
-			</div>
+			{!isSystem && (
+				<div className="mt-4 flex flex-wrap gap-2">
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() => onReload(plugin.id)}
+						className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+					>
+						<span className="icon-[mdi--reload] h-3.5 w-3.5 text-muted-foreground" />
+						重载
+					</button>
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() => onUninstall(plugin)}
+						className="flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive transition-colors hover:bg-destructive/15 disabled:opacity-50"
+					>
+						<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
+						卸载
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }

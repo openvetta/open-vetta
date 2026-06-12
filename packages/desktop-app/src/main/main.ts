@@ -36,6 +36,7 @@ import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-protocol.js";
 import { openExternalUrl } from "./open-external.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
+import { discoverSystemPlugins } from "./plugins/plugin-store.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
@@ -281,6 +282,8 @@ if (!gotSingleLock) {
 		// 必须在 ready 之后调用（net.fetch 依赖 session）。
 		installChromiumFetchForMain();
 		registerPluginProtocols();
+		// 提前发现系统插件（ADR-0024）：填充 id 集合供协议解析，未构建的 preset 早告警。
+		discoverSystemPlugins();
 
 		// 媒体流协议 handler（scheme 已在 ready 前声明特权）
 		registerMediaProtocolHandler();
