@@ -9,10 +9,8 @@ import { type ImageContent, modelsAreEqual, supportsXhigh } from "@mariozechner/
 import chalk from "chalk";
 import { createInterface } from "readline";
 import { type Args, parseArgs, printHelp } from "./cli/args.js";
-import { selectConfig } from "./cli/config-selector.js";
 import { processFileArguments } from "./cli/file-processor.js";
 import { listModels } from "./cli/list-models.js";
-import { selectSession } from "./cli/session-picker.js";
 import {
 	APP_NAME,
 	CONFIG_DIR_NAME,
@@ -26,7 +24,6 @@ import { AuthStorage } from "./core/auth-storage.js";
 import { DEFAULT_THINKING_LEVEL } from "./core/defaults.js";
 import { exportFromFile } from "./core/export-html/index.js";
 import type { LoadExtensionsResult } from "./core/extensions/index.js";
-import { KeybindingsManager } from "./core/keybindings.js";
 import { ModelRegistry } from "./core/model-registry.js";
 import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.js";
 import { DefaultPackageManager } from "./core/package-manager.js";
@@ -34,11 +31,10 @@ import { DefaultResourceLoader } from "./core/resource-loader.js";
 import { type CreateAgentSessionOptions, createAgentSession } from "./core/sdk.js";
 import { SessionLockError, SessionManager } from "./core/session-manager.js";
 import { SettingsManager } from "./core/settings-manager.js";
-import { printTimings, time } from "./core/timings.js";
+import { time } from "./core/timings.js";
 import { allTools } from "./core/tools/index.js";
-import { runMigrations, showDeprecationWarnings } from "./migrations.js";
-import { InteractiveMode, runPrintMode, runRpcMode } from "./modes/index.js";
-import { initTheme, stopThemeWatcher } from "./modes/interactive/theme/theme.js";
+import { runMigrations } from "./migrations.js";
+import { runPrintMode, runRpcMode } from "./modes/index.js";
 
 /**
  * Read all content from piped stdin.
@@ -524,29 +520,6 @@ function buildSessionOptions(
 	return { options, cliThinkingFromModel };
 }
 
-async function handleConfigCommand(args: string[]): Promise<boolean> {
-	if (args[0] !== "config") {
-		return false;
-	}
-
-	const cwd = process.cwd();
-	const agentDir = getAgentDir();
-	const settingsManager = SettingsManager.create(cwd, agentDir);
-	reportSettingsErrors(settingsManager, "config command");
-	const packageManager = new DefaultPackageManager({ cwd, agentDir, settingsManager });
-
-	const resolvedPaths = await packageManager.resolve();
-
-	await selectConfig({
-		resolvedPaths,
-		settingsManager,
-		cwd,
-		agentDir,
-	});
-
-	process.exit(0);
-}
-
 export async function main(args: string[]) {
 	const offlineMode = args.includes("--offline") || isTruthyEnvFlag(process.env.PI_OFFLINE);
 	if (offlineMode) {
@@ -558,12 +531,8 @@ export async function main(args: string[]) {
 		return;
 	}
 
-	if (await handleConfigCommand(args)) {
-		return;
-	}
-
 	// Run migrations (pass cwd for project-local migrations)
-	const { migratedAuthProviders: migratedProviders, deprecationWarnings } = runMigrations(process.cwd());
+	runMigrations(process.cwd());
 
 	// First pass: parse args to get --extension paths
 	const firstPass = parseArgs(args);
@@ -688,11 +657,11 @@ export async function main(args: string[]) {
 	const { initialMessage, initialImages } = await prepareInitialMessage(parsed, settingsManager.getImageAutoResize());
 	const isInteractive = !parsed.print && parsed.mode === undefined;
 	const mode = parsed.mode || "text";
-	initTheme(settingsManager.getTheme(), isInteractive);
 
-	// Show deprecation warnings in interactive mode
-	if (isInteractive && deprecationWarnings.length > 0) {
-		await showDeprecationWarnings(deprecationWarnings);
+	// 交互式终端模式已移除（不再随包发布 TUI 产品）。仅保留 print / rpc。
+	if (isInteractive) {
+		console.error(chalk.red("交互式终端模式已移除。请使用 --print 进行单次执行，或使用 Vetta 桌面应用。"));
+		process.exit(1);
 	}
 
 	let scopedModels: ScopedModel[] = [];
@@ -731,25 +700,12 @@ export async function main(args: string[]) {
 		failRpcStartupOnLock(err);
 	}
 
-	// Handle --resume: show session picker
+	// Handle --resume: 交互式会话选择器已随 TUI 移除。
 	if (parsed.resume) {
-		// Initialize keybindings so session picker respects user config
-		KeybindingsManager.create();
-
-		const selectedPath = await selectSession(
-			(onProgress) => SessionManager.list(cwd, parsed.sessionDir, onProgress),
-			SessionManager.listAll,
+		console.error(
+			chalk.red("--resume 的交互式会话选择已移除。请用 --continue 继续最近会话，或用 --session-dir 指定目录。"),
 		);
-		if (!selectedPath) {
-			console.log(chalk.dim("No session selected"));
-			stopThemeWatcher();
-			process.exit(0);
-		}
-		try {
-			sessionManager = SessionManager.open(selectedPath);
-		} catch (err) {
-			failRpcStartupOnLock(err);
-		}
+		process.exit(1);
 	}
 
 	const { options: sessionOptions, cliThinkingFromModel } = buildSessionOptions(
@@ -785,9 +741,8 @@ export async function main(args: string[]) {
 	}
 
 	let session: Awaited<ReturnType<typeof createAgentSession>>["session"];
-	let modelFallbackMessage: Awaited<ReturnType<typeof createAgentSession>>["modelFallbackMessage"];
 	try {
-		({ session, modelFallbackMessage } = await createAgentSession(sessionOptions));
+		({ session } = await createAgentSession(sessionOptions));
 	} catch (err) {
 		failRpcStartupOnLock(err);
 		throw err; // unreachable: failRpcStartupOnLock either throws or exits
@@ -818,27 +773,6 @@ export async function main(args: string[]) {
 
 	if (mode === "rpc") {
 		await runRpcMode(session, { enableHostBridge: parsed.enableHostBridge });
-	} else if (isInteractive) {
-		if (scopedModels.length > 0 && (parsed.verbose || !settingsManager.getQuietStartup())) {
-			const modelList = scopedModels
-				.map((sm) => {
-					const thinkingStr = sm.thinkingLevel ? `:${sm.thinkingLevel}` : "";
-					return `${sm.model.id}${thinkingStr}`;
-				})
-				.join(", ");
-			console.log(chalk.dim(`Model scope: ${modelList} ${chalk.gray("(Ctrl+P to cycle)")}`));
-		}
-
-		printTimings();
-		const mode = new InteractiveMode(session, {
-			migratedProviders,
-			modelFallbackMessage,
-			initialMessage,
-			initialImages,
-			initialMessages: parsed.messages,
-			verbose: parsed.verbose,
-		});
-		await mode.run();
 	} else {
 		await runPrintMode(session, {
 			mode,
@@ -846,7 +780,6 @@ export async function main(args: string[]) {
 			initialMessage,
 			initialImages,
 		});
-		stopThemeWatcher();
 		if (process.stdout.writableLength > 0) {
 			await new Promise<void>((resolve) => process.stdout.once("drain", resolve));
 		}

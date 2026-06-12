@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 移除未使用的 `@mariozechner/pi-tui` 依赖声明（源码从未引用；`packages/tui` 已随 TUI 产品线整体删除）。
+
 ## [0.55.3] - 2026-03-06
 
 ## [0.55.2] - 2026-03-06

@@ -38,7 +38,6 @@ build_pkg() {
 
 # ── Layer 0: no workspace deps ──
 build_layer0() {
-  build_pkg packages/tui
   build_pkg packages/ai
   build_pkg packages/runtime-telemetry
   build_pkg packages/agent

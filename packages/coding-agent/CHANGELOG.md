@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Removed
+
+- **移除交互式终端（TUI）产品线（ADR-0022）**：删除 `src/modes/interactive/`（交互宿主 + 全部终端 UI 组件）、`packages/tui`（`@mariozechner/pi-tui`）整包，以及 `pi config` / `--resume` 的交互式选择器。`coding-agent` 现仅保留 print / RPC / SDK 三种模式——desktop-app 经 `--agent-rpc` 驱动的 RPC 模式与所有 runtime-\* 消费者不受影响。`main()` 在无 `--print`、无 `--mode` 时不再进入 REPL，而是打印提示并退出。SDK 入口（`src/index.ts`）不再导出 `InteractiveMode` 及交互组件（`CustomEditor`、`BorderedLoader`、`*Component`、`*Selector` 等）和终端渲染主题函数（`getMarkdownTheme` / `getSelectListTheme` / `getSettingsListTheme`）。扩展 API 的 UI 表面（`setWidget` / `setHeader` / `setFooter` / `custom` / `setEditorComponent` 等）签名保留但 `@mariozechner/pi-tui` 类型改由 `src/core/extensions/ui-types.ts` 的本地结构化替身承接；`KeyId` 与编辑器键位默认值内化进 `src/core/keybindings.ts`——RPC→desktop 的 widget 转发与 HTML 导出的 `Component.render` 契约保持不变。
+
 ### Changed
 
 - Langfuse tracing 不再通过 `VETTA_TRACING_DETAIL` / `VETTA_TRACING_CAPTURE_CONTENT` 区分采集粒度和正文开关；启用 `VETTA_TRACING=langfuse` 后固定使用 `standard` 粒度并上传 prompt、completion、tool input/output 正文。
