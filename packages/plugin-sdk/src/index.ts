@@ -40,6 +40,13 @@ export interface PluginPreviewFile {
 	readBytes(): Promise<ArrayBuffer>;
 	/** A fetchable streaming URL for the file (Range-capable). */
 	getUrl(): string;
+	/**
+	 * Subscribe to on-disk changes of this file. The listener fires (debounced
+	 * by the host) whenever the file's contents change, letting previews update
+	 * live. Returns a Disposable; call dispose() to stop watching. A no-op for
+	 * files without a real path (url-only sources).
+	 */
+	watch(listener: () => void): Disposable;
 }
 
 export interface PluginFilePreviewProps {

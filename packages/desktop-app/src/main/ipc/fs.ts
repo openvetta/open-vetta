@@ -581,7 +581,9 @@ export function registerFsIpc(): () => void {
 	// ─── Directory watchers ───
 
 	const DEBOUNCE_MS = 300;
-	const watchers = new Map<string, FSWatcher>();
+	// Ref-counted: multiple consumers (file tree, plugin previews) may watch the
+	// same directory. Only close the underlying watcher when the last releases it.
+	const watchers = new Map<string, { watcher: FSWatcher; count: number }>();
 	const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 	function broadcastDirChanged(dirPath: string): void {
@@ -593,7 +595,11 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.WATCH_DIR, async (_event, dirPath: unknown) => {
 		assertNonEmptyString(dirPath, "dirPath");
 		const resolved = resolve(dirPath);
-		if (watchers.has(resolved)) return;
+		const existing = watchers.get(resolved);
+		if (existing) {
+			existing.count++;
+			return;
+		}
 		try {
 			const watcher = watch(resolved, (_eventType) => {
 				// Debounce to avoid flooding on rapid changes
@@ -612,7 +618,7 @@ export function registerFsIpc(): () => void {
 				watchers.delete(resolved);
 				watcher.close();
 			});
-			watchers.set(resolved, watcher);
+			watchers.set(resolved, { watcher, count: 1 });
 		} catch {
 			// Ignore errors (directory may not exist or no permission)
 		}
@@ -621,15 +627,18 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.UNWATCH_DIR, async (_event, dirPath: unknown) => {
 		assertNonEmptyString(dirPath, "dirPath");
 		const resolved = resolve(dirPath);
-		const watcher = watchers.get(resolved);
-		if (watcher) {
-			watcher.close();
-			watchers.delete(resolved);
-		}
-		const timer = debounceTimers.get(resolved);
-		if (timer) {
-			clearTimeout(timer);
-			debounceTimers.delete(resolved);
+		const entry = watchers.get(resolved);
+		if (entry) {
+			entry.count--;
+			if (entry.count <= 0) {
+				entry.watcher.close();
+				watchers.delete(resolved);
+				const timer = debounceTimers.get(resolved);
+				if (timer) {
+					clearTimeout(timer);
+					debounceTimers.delete(resolved);
+				}
+			}
 		}
 	});
 
@@ -701,7 +710,7 @@ export function registerFsIpc(): () => void {
 
 	return () => {
 		// Close all directory watchers
-		for (const watcher of watchers.values()) watcher.close();
+		for (const entry of watchers.values()) entry.watcher.close();
 		watchers.clear();
 		for (const timer of debounceTimers.values()) clearTimeout(timer);
 		debounceTimers.clear();
