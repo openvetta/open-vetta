@@ -68,7 +68,7 @@ export const defaultTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(235, 235, 235)",
 		secondaryForeground: "rgb(0, 0, 0)",
-		muted: "rgb(245, 245, 245)",
+		muted: "rgb(236, 236, 238)",
 		mutedForeground: "rgb(82, 82, 82)",
 		accent: "rgb(235, 235, 235)",
 		accentForeground: "rgb(0, 0, 0)",
