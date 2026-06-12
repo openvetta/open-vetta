@@ -6,7 +6,7 @@ import {
 	resolvedThemeAtom,
 } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PluginFilePreview } from "./PluginFilePreview";
 import { PreviewErrorBoundary } from "./PreviewErrorBoundary";
 import { AudioPreview } from "../../activity-panel/components/previews/AudioPreview";
@@ -76,6 +76,9 @@ export function FilePreviewView({
 	const total = ctx.items.length;
 	const index = ctx.index;
 	const item = ctx.items[index] ?? null;
+	// 手动刷新计数：递增即触发预览重读 / 重挂载
+	const [refreshNonce, setRefreshNonce] = useState(0);
+	const refresh = useCallback(() => setRefreshNonce((n) => n + 1), []);
 
 	useEffect(() => {
 		if (!enableKeyboard) return;
@@ -106,6 +109,7 @@ export function FilePreviewView({
 			<Header
 				item={item}
 				onClose={onClose}
+				onRefresh={refresh}
 				onPrev={canNavigate ? onPrev : undefined}
 				onNext={canNavigate ? onNext : undefined}
 				position={canNavigate ? `${index + 1} / ${total}` : undefined}
@@ -115,7 +119,7 @@ export function FilePreviewView({
 				sidebarCollapsed={sidebarCollapsed}
 			/>
 			<PreviewErrorBoundary resetKey={item}>
-				<PreviewBody item={item} />
+				<PreviewBody item={item} refreshNonce={refreshNonce} />
 			</PreviewErrorBoundary>
 		</div>
 	);
@@ -124,6 +128,7 @@ export function FilePreviewView({
 function Header({
 	item,
 	onClose,
+	onRefresh,
 	onPrev,
 	onNext,
 	position,
@@ -134,6 +139,7 @@ function Header({
 }: {
 	item: FilePreviewItem;
 	onClose: () => void;
+	onRefresh: () => void;
 	onPrev?: () => void;
 	onNext?: () => void;
 	position?: string;
@@ -169,6 +175,7 @@ function Header({
 			{downloadable && (
 				<HeaderButton icon="icon-[mdi--download]" title="下载" onClick={() => downloadItem(item)} />
 			)}
+			<HeaderButton icon="icon-[mdi--refresh]" title="刷新" onClick={onRefresh} />
 			<HeaderButton icon="icon-[mdi--close]" title="关闭" onClick={onClose} />
 		</div>
 	);
@@ -208,7 +215,7 @@ type LoadState =
 	| { status: "error"; message: string }
 	| { status: "loaded"; content: string; encoding: "utf8" | "base64" };
 
-function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
+function PreviewBody({ item, refreshNonce }: { item: FilePreviewItem; refreshNonce: number }): JSX.Element {
 	const ext = useMemo(() => getExtension(item.name), [item.name]);
 	const supported = isPreviewSupported(item.name);
 	// 音频不走 readFile/fetch 全量加载：本地经媒体流协议、远程直接作 src（ADR-0021）
@@ -223,11 +230,19 @@ function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
 	);
 
 	const [state, setState] = useState<LoadState>({ status: "loading" });
+	// 磁盘文件变化计数：递增触发静默重读，实现实时刷新
+	const [watchTick, setWatchTick] = useState(0);
+
+	const itemKey = item.path ?? item.url ?? item.name;
+	const prevKeyRef = useRef<string | null>(null);
 
 	useEffect(() => {
 		if (!supported || isAudio) return;
 		let cancelled = false;
-		setState({ status: "loading" });
+		// 仅在切换到新文件时显示 loading；刷新 / 实时更新时保留旧内容，避免闪烁
+		const isNewItem = prevKeyRef.current !== itemKey;
+		prevKeyRef.current = itemKey;
+		if (isNewItem) setState({ status: "loading" });
 
 		void loadItem(item, ext)
 			.then((result) => {
@@ -245,18 +260,42 @@ function PreviewBody({ item }: { item: FilePreviewItem }): JSX.Element {
 		return () => {
 			cancelled = true;
 		};
-	}, [item, ext, supported, isAudio]);
+	}, [item, ext, supported, isAudio, itemKey, watchTick, refreshNonce]);
+
+	// 实时刷新：监听文件所在目录，磁盘变化时重读内容（与插件预览同一套机制）
+	useEffect(() => {
+		const path = item.path;
+		if (!path || !supported || isAudio) return;
+		const slash = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+		const dir = slash > 0 ? path.slice(0, slash) : path;
+		void window.vetta.fs.watchDir(dir);
+		const unsub = window.vetta.fs.onDirChanged((changed) => {
+			if (changed === dir) setWatchTick((t) => t + 1);
+		});
+		return () => {
+			unsub();
+			void window.vetta.fs.unwatchDir(dir);
+		};
+	}, [item.path, supported, isAudio]);
 
 	if (!supported) {
 		if (pluginPreview) {
-			return <PluginFilePreview item={item} ext={ext} component={pluginPreview.component} />;
+			// refreshNonce 入 key：手动刷新时重挂载插件预览，触发其重新读取
+			return (
+				<PluginFilePreview
+					key={`${itemKey}-${refreshNonce}`}
+					item={item}
+					ext={ext}
+					component={pluginPreview.component}
+				/>
+			);
 		}
 		return <UnsupportedDetail item={item} />;
 	}
 
 	if (isAudio) {
-		// key 保证切换文件时整组件重挂载，停掉上一首的播放与动画
-		return <AudioPreview key={item.path ?? item.url ?? item.name} item={item} />;
+		// key 保证切换文件 / 手动刷新时整组件重挂载，停掉上一首的播放与动画
+		return <AudioPreview key={`${itemKey}-${refreshNonce}`} item={item} />;
 	}
 
 	if (state.status === "loading") {
