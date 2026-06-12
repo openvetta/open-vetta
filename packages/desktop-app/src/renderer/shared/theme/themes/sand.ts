@@ -54,7 +54,7 @@ export const sandTheme: ThemeDef = {
 		primaryForeground: "oklch(1.0000 0 0)",
 		secondary: "oklch(0.9245 0.0138 92.9892)",
 		secondaryForeground: "oklch(0.4334 0.0177 98.6048)",
-		muted: "oklch(0.9341 0.0153 90.2390)",
+		muted: "oklch(0.9341 0.0055 90.2390)",
 		mutedForeground: "oklch(0.6059 0.0075 97.4233)",
 		accent: "oklch(0.9245 0.0138 92.9892)",
 		accentForeground: "oklch(0.2671 0.0196 98.9390)",
