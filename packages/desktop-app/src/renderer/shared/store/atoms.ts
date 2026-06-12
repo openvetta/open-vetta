@@ -14,6 +14,7 @@ export * from "./file-preview-atoms";
 export * from "./flowing-atoms";
 export * from "./flowing-chat-atoms";
 export * from "./notification-atoms";
+export * from "./plugin-atoms";
 export * from "./project-atoms";
 export * from "./running-sessions-atoms";
 export * from "./scheduler-atoms";

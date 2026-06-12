@@ -3,7 +3,9 @@ import type { InstalledPlugin } from "@preload/api";
 import type {
 	Disposable,
 	PluginContext,
+	PluginConversationApi,
 	PluginDefinition,
+	PluginFilePreviewContribution,
 	PluginGlobalSlotContribution,
 	PluginPermission,
 } from "@vetta/plugin-sdk";
@@ -12,12 +14,14 @@ import type { ComponentType } from "react";
 import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as ReactDom from "react-dom";
+import { pluginHostBridge } from "./plugin-host-bridge";
 
 export interface LoadedPlugin {
 	id: string;
 	name: string;
 	version: string;
 	slots: PluginGlobalSlotContribution[];
+	filePreviews: PluginFilePreviewContribution[];
 	dispose(): Promise<void>;
 }
 
@@ -121,9 +125,32 @@ function loadPluginStyles(plugin: InstalledPlugin): Disposable {
 	};
 }
 
+function createConversationApi(plugin: InstalledPlugin): PluginConversationApi {
+	const permissions = createPermissionApi(plugin);
+	return {
+		sendPrompt: async (text) => {
+			permissions.require("agent.session.write");
+			await pluginHostBridge.conversation.sendPrompt(text);
+		},
+		insertText: (text) => {
+			permissions.require("agent.session.write");
+			pluginHostBridge.conversation.insertText(text);
+		},
+		abort: async () => {
+			permissions.require("agent.session.write");
+			await pluginHostBridge.conversation.abort();
+		},
+		on: (listener) => {
+			permissions.require("agent.session.read");
+			return pluginHostBridge.conversation.on(listener);
+		},
+	};
+}
+
 function createContext(
 	plugin: InstalledPlugin,
 	slots: PluginGlobalSlotContribution[],
+	filePreviews: PluginFilePreviewContribution[],
 	onChanged: () => void,
 ): PluginContext {
 	const registerGlobalSlot = (contribution: PluginGlobalSlotContribution): Disposable => {
@@ -150,6 +177,28 @@ function createContext(
 		};
 		return disposable;
 	};
+	const registerFilePreview = (contribution: PluginFilePreviewContribution): Disposable => {
+		createPermissionApi(plugin).require("ui.slot.file-preview");
+		const extensions = Array.isArray(contribution.extensions)
+			? contribution.extensions.map((ext) => ext.trim().toLowerCase()).filter(Boolean)
+			: [];
+		if (extensions.length === 0) {
+			throw new Error("File preview must declare at least one extension");
+		}
+		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
+			throw new Error("File preview component is invalid");
+		}
+		const normalized: PluginFilePreviewContribution = { extensions, component: contribution.component };
+		filePreviews.push(normalized);
+		onChanged();
+		return {
+			dispose: () => {
+				const index = filePreviews.indexOf(normalized);
+				if (index >= 0) filePreviews.splice(index, 1);
+				onChanged();
+			},
+		};
+	};
 	return {
 		plugin: {
 			id: plugin.id,
@@ -158,7 +207,9 @@ function createContext(
 		permissions: createPermissionApi(plugin),
 		ui: {
 			registerGlobalSlot,
+			registerFilePreview,
 		},
+		conversation: createConversationApi(plugin),
 	};
 }
 
@@ -208,21 +259,24 @@ async function loadPluginModule(plugin: InstalledPlugin): Promise<PluginModule> 
 
 export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void): Promise<LoadedPlugin> {
 	const slots: PluginGlobalSlotContribution[] = [];
+	const filePreviews: PluginFilePreviewContribution[] = [];
 	const styleHandle = loadPluginStyles(plugin);
 	await assertPluginEntryFetchable(plugin);
 	const module = await loadPluginModule(plugin);
 	const definition = normalizePluginDefinition(module);
-	const context = createContext(plugin, slots, onChanged);
+	const context = createContext(plugin, slots, filePreviews, onChanged);
 	await definition.activate(context);
 	return {
 		id: plugin.id,
 		name: plugin.name,
 		version: plugin.activeVersion,
 		slots,
+		filePreviews,
 		dispose: async () => {
 			await definition.deactivate?.();
 			styleHandle.dispose();
 			slots.splice(0, slots.length);
+			filePreviews.splice(0, filePreviews.length);
 			onChanged();
 		},
 	};
