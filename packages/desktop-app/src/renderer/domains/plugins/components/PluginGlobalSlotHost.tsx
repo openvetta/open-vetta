@@ -47,37 +47,39 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 
 	useEffect(() => {
 		let disposed = false;
-		const loaded: LoadedPlugin[] = [];
 		installPluginHostShim();
 		installPluginHostBridge();
 		setPlugins([]);
 
-		void window.vetta.plugins
+		const loadPromise = window.vetta.plugins
 			.list()
-			.then((installedPlugins) =>
-				Promise.all(
+			.then(async (installedPlugins) => {
+				const loadedPlugins = await Promise.all(
 					installedPlugins
 						.filter((plugin) => plugin.enabled)
 						.map(async (plugin) => {
 							try {
-								const loadedPlugin = await loadPlugin(plugin, forceUpdate);
-								loaded.push(loadedPlugin);
+								return await loadPlugin(plugin, forceUpdate);
 							} catch (error) {
 								console.error(`Failed to load plugin: ${plugin.id}`, error);
+								return undefined;
 							}
 						}),
-				),
-			)
-			.then(() => {
-				if (!disposed) setPlugins([...loaded]);
+				);
+				return loadedPlugins.filter((plugin): plugin is LoadedPlugin => plugin !== undefined);
 			})
 			.catch((error: Error) => {
 				console.error("Failed to initialize plugins", error);
+				return [];
 			});
+
+		void loadPromise.then((loadedPlugins) => {
+			if (!disposed) setPlugins(loadedPlugins);
+		});
 
 		return () => {
 			disposed = true;
-			void Promise.all(loaded.map((plugin) => plugin.dispose()));
+			void loadPromise.then((loadedPlugins) => Promise.all(loadedPlugins.map((plugin) => plugin.dispose())));
 		};
 	}, [reloadRevision]);
 

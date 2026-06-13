@@ -96,6 +96,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **开发启动时系统插件重复初始化异常**：React StrictMode 会在开发环境重复执行插件宿主初始化，原加载器每次都以 `force` 覆盖 Module Federation remote，触发覆盖告警并清除已加载缓存；首次异步加载若在清理后才完成，也不会释放插件贡献。现在仅在插件别名或入口实际变化时强制重注册，同一制品直接复用既有 remote，并在异步加载完成后正确清理已失效初始化产生的插件实例。
+
 - **Windows 开发启动构建系统插件时报 EPERM**：预置插件改由 `packages/plugins` 独立 Bun workspace 统一管理；构建脚本按该 workspace 的锁文件执行 frozen install，并通过 `workspace:*` 直接链接插件 SDK/构建包源码，不再从嵌套项目复制根 workspace 的 Junction。
 
 - **实验性「提问用户面板」现在仅对话会话生效**：`ask_user_question` 不再因全局 handler 开启而出现在 Claw、批量任务、定时任务等非对话 session 的工具列表中；desktop 创建对话 session 时显式允许该工具，其它 session 不注册，设置页说明同步更新。

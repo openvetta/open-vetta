@@ -34,6 +34,7 @@ interface PluginModule {
 }
 
 let moduleFederationHost: ModuleFederation | undefined;
+const registeredRemotes = new Map<string, { alias: string; entry: string }>();
 
 function getModuleFederationHost(): ModuleFederation {
 	moduleFederationHost ??= createInstance({
@@ -270,16 +271,19 @@ async function loadPluginModule(plugin: InstalledPlugin): Promise<PluginModule> 
 		throw new Error("Module Federation plugin is missing moduleFederation metadata");
 	}
 	const host = getModuleFederationHost();
-	host.registerRemotes(
-		[
-			{
-				name: moduleFederation.remoteName,
-				alias: plugin.id,
-				entry: plugin.entryUrl,
-			},
-		],
-		{ force: true },
-	);
+	const remote = {
+		name: moduleFederation.remoteName,
+		alias: plugin.id,
+		entry: plugin.entryUrl,
+	};
+	const registeredRemote = registeredRemotes.get(remote.name);
+	if (!registeredRemote || registeredRemote.alias !== remote.alias || registeredRemote.entry !== remote.entry) {
+		host.registerRemotes([remote], registeredRemote ? { force: true } : undefined);
+		registeredRemotes.set(remote.name, {
+			alias: remote.alias,
+			entry: remote.entry,
+		});
+	}
 	const expose = moduleFederation.expose.replace(/^\.\//, "");
 	const loaded = await host.loadRemote<unknown>(`${moduleFederation.remoteName}/${expose}`, { from: "runtime" });
 	if (loaded == null) {
