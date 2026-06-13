@@ -22,22 +22,22 @@ element via `GraphViewer.processElements()`.
 
 ## This is NOT a system plugin
 
-It lives directly under `packages/plugins/` (not `presets/`), so it ships as a
+It lives under `packages/plugins/externals/` (not `presets/`), so it ships as a
 **user-installable** plugin: the user installs the zip, grants
 `ui.slot.file-preview`, and can disable or remove it.
 
 ## Build
 
 ```bash
-cd packages/plugins/drawio-viewer
-bun install
+cd packages/plugins/externals/drawio-viewer
+bun install --cwd ../..
 bun run build
 ```
 
 The installable archive is written to:
 
 ```text
-packages/plugins/drawio-viewer/release/drawio-viewer-0.1.0.zip
+packages/plugins/externals/drawio-viewer/release/drawio-viewer-0.2.0.zip
 ```
 
 `@vetta/plugin-vite` creates the archive automatically after `vite build`; no

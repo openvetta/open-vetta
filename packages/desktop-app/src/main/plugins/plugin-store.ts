@@ -248,11 +248,11 @@ async function copyExtractedPlugin(sourceDir: string, pluginId: string, version:
 // 系统插件（ADR-0024）—— 随 App 发布、用户不可删改，源在 packages/plugins/presets
 // =============================================================================
 
-/** 系统插件只读根目录：打包后在 Resources/system-plugins，dev 下读 monorepo presets。 */
+/** 系统插件只读根目录：打包后在 Resources，dev 下读取 zip 解压后的 staging。 */
 function systemPluginsBaseDir(): string {
 	return app.isPackaged
 		? join(process.resourcesPath, "system-plugins")
-		: join(process.cwd(), "..", "plugins", "presets");
+		: join(process.cwd(), ".artifacts", "system-plugins");
 }
 
 function readSystemPrefs(): SystemPluginPrefs {
@@ -317,9 +317,9 @@ export function discoverSystemPlugins(force = false): InstalledPlugin[] {
 				const manifestFile = join(dir, "plugin.json");
 				if (!existsSync(manifestFile)) continue;
 				const manifest = parseManifest(JSON.parse(readFileSync(manifestFile, "utf-8")));
-				// 未构建的 preset（无 dist 入口）跳过并告警，不阻断启动。
+				// staging 不完整时跳过并告警，不阻断启动。
 				if (!existsSync(join(dir, manifest.entry))) {
-					console.warn(`[system-plugins] 跳过 ${manifest.id}：入口未构建 (${manifest.entry})，请先 build:presets`);
+					console.warn(`[system-plugins] 跳过 ${manifest.id}：staging 缺少入口 (${manifest.entry})`);
 					continue;
 				}
 				result.push(systemInstalledFromManifest(manifest, prefs[manifest.id]?.enabled ?? true));

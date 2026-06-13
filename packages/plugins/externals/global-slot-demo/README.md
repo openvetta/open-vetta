@@ -5,15 +5,15 @@ This example demonstrates a trusted desktop UI plugin that renders through Vetta
 ## Build
 
 ```bash
-cd packages/plugins/global-slot-demo
-bun install
-bun run pack
+cd packages/plugins/externals/global-slot-demo
+bun install --cwd ../..
+bun run build
 ```
 
 The installable archive is written to:
 
 ```text
-packages/plugins/global-slot-demo/release/global-slot-demo-0.1.0.zip
+packages/plugins/externals/global-slot-demo/release/global-slot-demo-0.1.0.zip
 ```
 
 The archive contains only runtime files required by the desktop host. Module Federation build metadata remains in `dist/` for diagnostics, but is not included in the zip.

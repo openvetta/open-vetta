@@ -256,9 +256,11 @@ packages/plugins/presets/
     src/index.tsx
 ```
 
-- **构建**：`bun run build:presets` 逐个就地构建出 `dist/`。`dev` / `start` / 打包都会先跑它。
-- **dev**：主进程直接就地读 `packages/plugins/presets/<id>/{plugin.json, dist/}`。
-- **打包**：`prepare-pack.js` 把每个 preset 的 `plugin.json + dist` 暂存进 `Resources/system-plugins/<id>/` 随包，运行时从 `process.resourcesPath/system-plugins` 只读直服。
+- **构建制品**：`bun run build:presets` 先构建插件 workspace 的 SDK/构建包，再逐个构建 `release/<id>-<version>.zip`。`dev` / `start` / 打包都会先跑它。
+- **依赖隔离**：presets 属于 `packages/plugins` 的独立 workspace，使用单独的 `bun.lock`；`@vetta/plugin-sdk` 和 `@vetta/plugin-vite` 通过 `workspace:*` 直接链接仓库源码，不进入根 workspace 的 preset 依赖图。
+- **校验**：Desktop 按 preset 的 `plugin.json` 精确定位 zip，拒绝路径穿越、id/version 不一致、入口或样式缺失的归档。
+- **dev**：zip 解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/`，主进程只读取该 staging，不直接读取 preset 源码和 `dist/`。
+- **打包**：`prepare-pack.js` 从 zip 解压到打包 staging 的 `system-plugins/<id>/`，再随 `extraResources` 进入 `Resources/system-plugins/<id>/`。
 
 运行时语义：
 
@@ -268,7 +270,7 @@ packages/plugins/presets/
 - **停用**：默认启用，用户可在设置里关闭（偏好存进 `~/.vetta/system-plugin-prefs.json`），但不可卸载、不可改文件/权限。
 - **更新**：版本随 App，不走用户插件的更新流。
 
-不进 `~/.vetta/plugins`、不写 `plugins-manifest.json`——系统插件本体不落用户态目录，每次启动从只读位置重新发现。
+不进 `~/.vetta/plugins`、不写 `plugins-manifest.json`——系统插件本体不落用户态目录，每次启动从开发或安装包内的只读 staging 重新发现。zip 是统一构建制品，不在应用启动时直接读取。
 
 ## 样式
 
