@@ -287,7 +287,7 @@ if (!gotSingleLock) {
 		// 必须在 ready 之后调用（net.fetch 依赖 session）。
 		installChromiumFetchForMain();
 		registerPluginProtocols();
-		// 提前发现系统插件（ADR-0024）：填充 id 集合供协议解析，未构建的 preset 早告警。
+		// 提前发现系统插件（ADR-0024）：填充 id 集合供协议解析，staging 不完整时早告警。
 		discoverSystemPlugins();
 
 		// 媒体流协议 handler（scheme 已在 ready 前声明特权）

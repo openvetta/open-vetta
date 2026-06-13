@@ -1,0 +1,10 @@
+{
+	"name": "@vetta/plugin-workspace",
+	"private": true,
+	"workspaces": [
+		"plugin-sdk",
+		"plugin-vite",
+		"presets/*",
+		"externals/*"
+	]
+}

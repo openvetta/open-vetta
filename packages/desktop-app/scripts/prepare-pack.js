@@ -3,6 +3,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rm
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stageSystemPluginsFromArchives } from "./stage-system-plugins.mjs";
 
 const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
@@ -432,37 +433,9 @@ await stageVendorRuntimes();
 // 系统插件（extraResources）—— ADR-0024
 // =============================================================================
 //
-// packages/plugins/presets/* 的源码已由 build:presets 就地构建出 dist。这里把每个
-// preset 的 plugin.json + dist 暂存到 Resources/system-plugins/<id>/ 随包发布；
-// 运行时 main 进程从 process.resourcesPath/system-plugins 只读直服，不拷进 ~/.vetta。
-function stageSystemPlugins() {
-	const presetsDir = join(projectRoot, "..", "plugins", "presets");
-	const stagedDir = join(buildStageDir, "system-plugins");
-	rmSync(stagedDir, { recursive: true, force: true });
-	if (!existsSync(presetsDir)) {
-		console.warn(`[prepare-pack] 无 presets 目录，跳过系统插件：${presetsDir}`);
-		return;
-	}
-	mkdirSync(stagedDir, { recursive: true });
-	let count = 0;
-	for (const name of readdirSync(presetsDir)) {
-		const dir = join(presetsDir, name);
-		if (!existsSync(join(dir, "plugin.json"))) continue;
-		const distDir = join(dir, "dist");
-		if (!existsSync(distDir)) {
-			throw new Error(`[prepare-pack] 预置插件 ${name} 未构建（缺 dist）；请确认 build:presets 已运行`);
-		}
-		const target = join(stagedDir, name);
-		mkdirSync(target, { recursive: true });
-		cpSync(join(dir, "plugin.json"), join(target, "plugin.json"));
-		cpSync(distDir, join(target, "dist"), { recursive: true });
-		count += 1;
-		console.log(`[prepare-pack] system-plugin staged -> ${name}`);
-	}
-	console.log(`[prepare-pack] 系统插件共 ${count} 个`);
-}
-
-stageSystemPlugins();
+// build:presets 已为每个 preset 生成 release/<id>-<version>.zip。打包阶段只消费
+// zip 制品，校验后解压到 Resources/system-plugins/<id>/，不读取源码 dist。
+stageSystemPluginsFromArchives(join(buildStageDir, "system-plugins"), "prepare-pack");
 
 // Write electron-builder config
 const builderConfig = {

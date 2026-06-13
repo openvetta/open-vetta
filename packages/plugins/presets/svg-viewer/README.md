@@ -26,5 +26,9 @@ Install dependencies from the monorepo root, then build from this directory:
 cd ../../../..
 bun install
 cd packages/plugins/presets/svg-viewer
-bun run build   # writes dist/ (read in-place in dev)
+bun run build   # writes dist/ and release/svg-viewer-<version>.zip
 ```
+
+Desktop development and packaging consume the generated zip. Run
+`bun run build:presets` from `packages/desktop-app` to validate and extract it
+to the development system-plugin staging directory.
