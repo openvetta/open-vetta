@@ -477,8 +477,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 
 				<ActionButtonBar />
 
-				<InputActionBar />
-
 				<DrawerCard
 					tabs={drawerTabs}
 					activeTabId={drawerActiveTab}
@@ -641,6 +639,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 					</div>
 				</div>
 			</div>
+
+			<InputActionBar />
 		</div>
 	);
 }

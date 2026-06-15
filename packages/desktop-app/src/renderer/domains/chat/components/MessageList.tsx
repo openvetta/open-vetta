@@ -730,11 +730,9 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 				</div>
 			)}
 
-			{!isCurrentlyStreaming && (
-				<div className="mt-2">
-					<PluginMessageSlotsHost message={message} />
-				</div>
-			)}
+			<div className="mt-2">
+				<PluginMessageSlotsHost message={message} />
+			</div>
 		</div>
 	);
 });

@@ -128,6 +128,12 @@ export interface PluginInputActionContribution {
  */
 export interface PluginMessageSlotMessage extends ConversationMessage {
 	imageRefs?: PluginImageRef[];
+	/**
+	 * True while this message's turn is still producing images (a generating
+	 * tool call is in-flight). Lets a slot render a skeleton placeholder before
+	 * `imageRefs` arrives. Host-bound.
+	 */
+	imageGenerating?: boolean;
 }
 
 export interface PluginMessageSlotProps {
