@@ -1,4 +1,4 @@
-import type { IpcRenderer } from "electron";
+import type { IpcRenderer, IpcRendererEvent } from "electron";
 import type { DesktopApi } from "../api.js";
 
 export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> {
@@ -13,6 +13,19 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			grantPermissions: (id, permissions) => ipc.invoke("vetta:plugins:grant-permissions", id, permissions),
 			revokePermissions: (id, permissions) => ipc.invoke("vetta:plugins:revoke-permissions", id, permissions),
 			reload: (id) => ipc.invoke("vetta:plugins:reload", id),
+			getSettings: (id) => ipc.invoke("vetta:plugins:get-settings", id),
+			setSettings: (id, values) => ipc.invoke("vetta:plugins:set-settings", id, values),
+			generateImage: (pluginId, input) => ipc.invoke("vetta:plugins:images:generate", pluginId, input),
+			editImage: (pluginId, input) => ipc.invoke("vetta:plugins:images:edit", pluginId, input),
+			imageLineage: (pluginId, imageId) => ipc.invoke("vetta:plugins:images:lineage", pluginId, imageId),
+			onSettingsChanged: (listener) => {
+				const handler = (
+					_event: IpcRendererEvent,
+					payload: { pluginId: string; values: Record<string, unknown> },
+				) => listener(payload);
+				ipc.on("vetta:plugins:settings-changed", handler);
+				return () => ipc.removeListener("vetta:plugins:settings-changed", handler);
+			},
 		},
 	};
 }

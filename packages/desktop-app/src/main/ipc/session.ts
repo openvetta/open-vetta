@@ -216,6 +216,12 @@ function assertPromptRequest(value: unknown): asserts value is PromptRequest {
 			}
 		}
 	}
+	if (
+		request.metadata !== undefined &&
+		(typeof request.metadata !== "object" || request.metadata === null || Array.isArray(request.metadata))
+	) {
+		throw new Error("Invalid prompt request metadata");
+	}
 }
 
 function assertExecutionMode(value: unknown): void {

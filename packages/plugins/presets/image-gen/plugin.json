@@ -1,0 +1,48 @@
+{
+	"id": "image-gen",
+	"name": "图像生成",
+	"version": "0.1.0",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "image_gen",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.input-action", "ui.slot.message", "ui.slot.activity-tab", "images.generate"],
+	"contributes": {
+		"settings": [
+			{
+				"key": "provider",
+				"type": "enum",
+				"title": "服务商",
+				"description": "openai = 标准 OpenAI 图像 API（文生图 /images/generations、图改图 /images/edits）；agnes-ai = Agnes AI（文生图/图改图同走 /images/generations）。",
+				"enum": ["openai", "agnes-ai"],
+				"default": "openai"
+			},
+			{
+				"key": "baseUrl",
+				"type": "string",
+				"title": "API Base URL",
+				"description": "可留空用服务商默认值（openai: https://api.openai.com/v1；agnes-ai: https://apihub.agnes-ai.com/v1）。自建网关可填自定义基址（不含 /images）。"
+			},
+			{ "key": "apiKey", "type": "secret", "title": "API Key", "description": "图像服务的 API Key" },
+			{
+				"key": "model",
+				"type": "string",
+				"title": "图像模型",
+				"description": "可留空用服务商默认值（openai: gpt-image-1；agnes-ai: agnes-image-2.1-flash）。"
+			},
+			{
+				"key": "size",
+				"type": "enum",
+				"title": "尺寸",
+				"enum": ["1024x1024", "1024x768", "1024x1536", "1536x1024"],
+				"default": "1024x1024"
+			}
+		]
+	},
+	"description": "文生图 / 图改图，类 Grok 的图像生成。开启输入栏「图像生成」开关后，下一条提示词会生成图像。",
+	"author": "Vetta"
+}

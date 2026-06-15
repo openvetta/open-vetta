@@ -543,3 +543,35 @@ _Avoid_: 与 [[媒体流协议]] 混用——vetta-media 专责音视频 Range �
 desktop-app 主进程注册的自定义 protocol（`vetta-media://`），把校验过的本地媒体路径映射为支持 Range 的流式 URL，供 `<audio>`（未来含 `<video>`）直接作 `src`。与既有预览的 `readFile` IPC + base64 全量加载**并存**：图片/pdf/docx 等小文件维持旧路径，只有音视频走本协议。见 ADR-0021。
 
 _Avoid_: 把音频也塞进 readFile base64 路径——无损音频可达百 MB，全量 IPC 会阻塞且内存翻倍。
+
+### 图像生成插件（Image Generation Plugin）
+
+桌面端插件，提供三处 UI：AI 输入栏的[[图像模式]]开关、每条消息下的图像预览、活动面板的图像编辑选项卡。图像的**实际生成**由 coding-agent 的**内置 tool**（`generate_image` / `edit_image`，薄包装）完成，tool 内部转调[[主进程图像服务]]；插件只负责 UI 与交互，二者通过 tool-call / tool-result 事件对接。这是「内置 tool 出能力 + plugin 出界面」的刻意拆分。
+
+> 历史备注：曾考虑用 coding-agent extension 注册该 tool，但 desktop-app 当前不加载 extension（`ExtensionUIContext` 全 no-op、扫描目录未启用），建整套 extension 加载子系统比内置 tool 的 6+ 注册点更重，故改为内置 tool。
+
+### 图像模式（Image Mode）
+
+AI 输入栏下方一个可开关的输入动作（input action）。开启后用户发出的**下一轮** prompt 触发图像生成而非普通对话回答，再次点击关闭。是一个**每轮意图标记**，不是持久设置：插件通过输入插槽的 prompt 装饰器给本轮 `PromptRequest` 注入 metadata（如 `imageMode`），agent 据此先优化 prompt 再调 image tool（并非硬拦截发送）。
+
+### 文生图 / 图改图（Text-to-Image / Image-to-Image）
+
+文生图：仅凭文本 prompt 生成图像，对应 `/v1/images/generations`。图改图（亦称「编辑」）：以一张已有图像 + prompt 生成新图像，对应 `/v1/images/edits`。
+
+### 生成轮次（Generation Turn）
+
+一次「用户 prompt → image tool 调用 → 产出基准图像」的完整轮次。一个生成轮次可能一次产出多张候选图（OpenAI `n` 参数），但它们属于同一轮次。
+
+### 编辑谱系（Edit Lineage）
+
+一张基准图像 + 它后续所有[[图改图]]编辑版本（v1 → v2 → v3 …）构成的链。活动面板里「该轮历史图像」指**某张被点击图像的编辑谱系**，而非整个会话的图库，也不是一次生成的并列候选。
+
+> 「轮」在口语里被同时用于[[生成轮次]]和[[编辑谱系]]。本文档刻意区分二者，后续讨论与代码命名以这两个术语为准。
+
+### 插件设置（Plugin Settings）
+
+类似 VSCode `settings.json` + 设置视图的通用机制：每个插件可声明自己想要的设置项，desktop-app 提供统一的「插件配置」入口渲染它们，值持久化后由插件（renderer）与相关主进程服务共同读取。[[图像生成插件]]用它来配置图像 endpoint / 图像模型 / api key——即[[主进程图像服务]]读取的就是该插件的设置值，而非独立配置文件，也非复用对话模型的 models 配置。
+
+### 主进程图像服务（Image Service）
+
+desktop-app 主进程的图像 IPC 服务：读[[插件设置]]拿 endpoint/模型/key，调用 OpenAI `/v1/images`（生成 / 编辑），把图像字节按 session 落盘，返回引用 id + `vetta-media://` URL。两条入口共用它：生成走 coding-agent 内置 image tool（薄包装转调，tool 通过 host 注入拿到该服务句柄，因 coding-agent 不能依赖 desktop-app）；[[图改图]]面板编辑走插件经 SDK 直调。是「一份实现、两条入口」的单一真相源。

@@ -27,6 +27,7 @@ import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
 import { ActionButtonBar } from "./ActionButtonBar";
+import { InputActionBar } from "./InputActionBar";
 import { SendButton } from "./SendButton";
 import { QuestionPanel } from "./QuestionPanel";
 import { pathBasename } from "@shared/lib/utils";
@@ -475,6 +476,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 				/>
 
 				<ActionButtonBar />
+
+				<InputActionBar />
 
 				<DrawerCard
 					tabs={drawerTabs}
