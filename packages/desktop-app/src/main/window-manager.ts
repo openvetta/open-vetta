@@ -108,18 +108,16 @@ export function createWindow(): BrowserWindow {
 		return { action: "deny" };
 	});
 
-	if (devServerUrl) {
-		void mainWindow.loadURL(devServerUrl).catch((error: unknown) => {
-			windowLog.error("loadURL failed", error);
+	const loadPromise = devServerUrl ? mainWindow.loadURL(devServerUrl) : mainWindow.loadFile(rendererPath);
+	void loadPromise
+		.then(() => {
+			if (app.isPackaged || !mainWindow || mainWindow.isDestroyed()) return;
+			mainWindow.webContents.openDevTools({ mode: "detach", activate: true });
+			windowLog.info("open-devtools", { opened: mainWindow.webContents.isDevToolsOpened() });
+		})
+		.catch((error: unknown) => {
+			windowLog.error(devServerUrl ? "loadURL failed" : "loadFile failed", error);
 		});
-	} else {
-		void mainWindow.loadFile(rendererPath).catch((error: unknown) => {
-			windowLog.error("loadFile failed", error);
-		});
-	}
-	if (!app.isPackaged) {
-		mainWindow.webContents.openDevTools({ mode: "detach" });
-	}
 
 	return mainWindow;
 }
