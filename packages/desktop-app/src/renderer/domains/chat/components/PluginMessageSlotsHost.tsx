@@ -22,6 +22,11 @@ class MessageSlotErrorBoundary extends Component<{ children: ReactNode }, { fail
 	}
 }
 
+/** True while a generate_image tool call in this message is still running. */
+function isGeneratingImage(blocks: ContentBlock[] | undefined): boolean {
+	return blocks?.some((b) => b.type === "tool_call" && b.toolName === "generate_image" && b.status === "pending") ?? false;
+}
+
 /** Parse image refs embedded by the generate_image tool out of a message's blocks. */
 function extractImageRefs(blocks: ContentBlock[] | undefined): PluginImageRef[] {
 	if (!blocks) return [];
@@ -58,6 +63,7 @@ export function PluginMessageSlotsHost({ message }: { message: ChatMessage }): J
 			text: message.text,
 			timestamp: message.timestamp,
 			imageRefs: imageRefs.length > 0 ? imageRefs : undefined,
+			imageGenerating: isGeneratingImage(message.blocks),
 		};
 	}, [message]);
 

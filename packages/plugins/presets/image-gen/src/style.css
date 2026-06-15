@@ -1,1 +1,59 @@
 @import "tailwindcss/utilities.css";
+
+/* 流式渐变骨架：一条高光带在矩形上来回荡漾 */
+@keyframes imagegen-shimmer {
+	0% {
+		background-position: 180% 0;
+	}
+	100% {
+		background-position: -80% 0;
+	}
+}
+
+.imagegen-skeleton {
+	background-color: color-mix(in srgb, var(--foreground) 6%, var(--background));
+	background-image: linear-gradient(
+		100deg,
+		transparent 20%,
+		color-mix(in srgb, var(--primary) 22%, transparent) 45%,
+		color-mix(in srgb, var(--primary) 30%, transparent) 50%,
+		color-mix(in srgb, var(--primary) 22%, transparent) 55%,
+		transparent 80%
+	);
+	background-size: 220% 100%;
+	background-repeat: no-repeat;
+	animation: imagegen-shimmer 1.8s ease-in-out infinite;
+}
+
+/* 骨架中心图标的呼吸 */
+@keyframes imagegen-pulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: scale(0.94);
+	}
+	50% {
+		opacity: 0.7;
+		transform: scale(1.04);
+	}
+}
+
+.imagegen-pulse {
+	animation: imagegen-pulse 1.8s ease-in-out infinite;
+}
+
+/* 缩略图/卡片入场 */
+@keyframes imagegen-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.imagegen-fade-in {
+	animation: imagegen-fade-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
