@@ -45,8 +45,9 @@ packages/plugins/<presets|externals>/<id>/
     index.tsx
 ```
 
-Preset 可参考 `presets/svg-viewer` 和 `presets/mobile-ui-preview`；外置插件可
-参考 `externals/drawio-viewer` 和 `externals/global-slot-demo`。
+Preset 可参考 `presets/svg-viewer`；外置插件可
+参考 `externals/drawio-viewer`、`externals/global-slot-demo` 和
+`externals/mobile-ui-preview`。
 
 ### package.json
 

@@ -440,7 +440,7 @@ _Avoid_: 把它当成第三个"自动渲染"插槽——全局 slot 与文件预
 
 ### 移动UI预览（mobile UI preview）
 
-首个[[活动面板插件 tab]]形态的[[预置插件]]（id `mobile-ui-preview`）：在仿真移动设备边框（react-device-mockup，命名机型预设表映射形态+逻辑分辨率，含 iPhone 三形态 / Android / iPad，自绘 iOS/Android 两套仿真状态栏，支持横竖屏）内预览当前作用域的 HTML 页面。html/htm 候选按面板 cwd 递归列出（复用平台递归排除规则），iframe src 走 [[静态文件协议]]故相对资源可用；所选 html 变更自动刷新 + 手动刷新兜底。机型/横竖屏偏好全局记忆，所选 html 按 cwd 记忆。
+[[活动面板插件 tab]]形态的外置示例插件（id `mobile-ui-preview`，位于 `packages/plugins/externals/`，需用户自行安装）：在仿真移动设备边框（react-device-mockup，命名机型预设表映射形态+逻辑分辨率，含 iPhone 三形态 / Android / iPad，自绘 iOS/Android 两套仿真状态栏，支持横竖屏）内预览当前作用域的 HTML 页面。html/htm 候选按面板 cwd 递归列出（复用平台递归排除规则），iframe src 走 [[静态文件协议]]故相对资源可用；所选 html 变更自动刷新 + 手动刷新兜底。机型/横竖屏偏好全局记忆，所选 html 按 cwd 记忆。
 
 _Avoid_: 把设备边框当像素级真机渲染——逻辑分辨率 + 整体 scale 适配面板宽度，是 UI 形态仿真不是真机仿真。
 

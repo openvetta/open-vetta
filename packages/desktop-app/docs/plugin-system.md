@@ -177,7 +177,7 @@ function StatsPanel() {
 
 不要用 `useActiveConversation().cwd` 代替——项目详情页的面板 cwd 是项目的，而活动会话可能属于别的项目（或为 null）。会话相关上下文仍走对话 hook。
 
-完整示例见 `packages/plugins/presets/mobile-ui-preview`（设备边框内预览作用域内的 HTML）。
+完整示例见 `packages/plugins/externals/mobile-ui-preview`（设备边框内预览作用域内的 HTML）。
 
 ### 对话：读状态
 
