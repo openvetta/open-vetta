@@ -25,6 +25,7 @@ import {
 } from "../extensions/index.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
+import type { AgentPluginRuntimeConfig } from "../system-prompt.js";
 import type { TodoStore } from "../todo-store.js";
 import {
 	type AskUserQuestionCapability,
@@ -55,6 +56,8 @@ export interface RuntimeManagerOptions {
 	backgroundTasks: BackgroundTaskManager;
 	/** false 时 bash/shell 禁用 run_in_background，且不注册 task_output/task_stop */
 	enableBackgroundTasks: boolean;
+	/** Runtime plugin contributions applied while building agent resources. */
+	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
 export class RuntimeManager {
@@ -68,6 +71,7 @@ export class RuntimeManager {
 	private readonly _askUserQuestion?: AskUserQuestionCapability;
 	private readonly _backgroundTasks: BackgroundTaskManager;
 	private readonly _enableBackgroundTasks: boolean;
+	private readonly _agentPlugins?: AgentPluginRuntimeConfig;
 
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -104,6 +108,7 @@ export class RuntimeManager {
 		this._askUserQuestion = opts.askUserQuestion;
 		this._backgroundTasks = opts.backgroundTasks;
 		this._enableBackgroundTasks = opts.enableBackgroundTasks;
+		this._agentPlugins = opts.agentPlugins;
 	}
 
 	get extensionRunner(): ExtensionRunner | undefined {
@@ -216,7 +221,21 @@ export class RuntimeManager {
 			memoryFile: this.ctx.memoryFile,
 			memorySnapshot: this.ctx.memorySnapshot,
 			memoryCharLimit: this.ctx.memoryCharLimit,
+			agentPlugins: this._agentPlugins,
 		});
+	}
+
+	private applyPluginToolPolicies(activeToolNameSet: Set<string>, availableToolNames: Set<string>): void {
+		for (const policy of this._agentPlugins?.toolPolicyContributions ?? []) {
+			for (const name of policy.allow ?? []) {
+				if (availableToolNames.has(name)) {
+					activeToolNameSet.add(name);
+				}
+			}
+			for (const name of policy.deny ?? []) {
+				activeToolNameSet.delete(name);
+			}
+		}
 	}
 
 	/**
@@ -621,20 +640,21 @@ export class RuntimeManager {
 			}
 		}
 
-		const extensionToolNames = new Set(wrappedExtensionTools.map((tool) => tool.name));
-		const activeBaseTools = Array.from(activeToolNameSet)
-			.filter((name) => this._baseToolRegistry.has(name) && !extensionToolNames.has(name))
-			.map((name) => this._baseToolRegistry.get(name) as AgentTool);
-		const activeExtensionTools = wrappedExtensionTools.filter((tool) => activeToolNameSet.has(tool.name));
-
 		// Get MCP tools if MCP is enabled
 		const mcpTools = this._mcpManager?.getTools() ?? [];
 		for (const mcpTool of mcpTools) {
 			toolRegistry.set(mcpTool.name, mcpTool);
 			activeToolNameSet.add(mcpTool.name);
 		}
+		this.applyPluginToolPolicies(activeToolNameSet, new Set(toolRegistry.keys()));
 
-		const activeToolsArray: AgentTool[] = [...activeBaseTools, ...activeExtensionTools, ...mcpTools];
+		const extensionToolNames = new Set(wrappedExtensionTools.map((tool) => tool.name));
+		const activeBaseTools = Array.from(activeToolNameSet)
+			.filter((name) => this._baseToolRegistry.has(name) && !extensionToolNames.has(name))
+			.map((name) => this._baseToolRegistry.get(name) as AgentTool);
+		const activeExtensionTools = wrappedExtensionTools.filter((tool) => activeToolNameSet.has(tool.name));
+		const activeMcpTools = mcpTools.filter((tool) => activeToolNameSet.has(tool.name));
+		const activeToolsArray: AgentTool[] = [...activeBaseTools, ...activeExtensionTools, ...activeMcpTools];
 
 		if (this._extensionRunner) {
 			const wrappedActiveTools = wrapToolsWithExtensions(activeToolsArray, this._extensionRunner);
@@ -647,7 +667,7 @@ export class RuntimeManager {
 			this._toolRegistry = toolRegistry;
 		}
 
-		const systemPromptToolNames = Array.from(activeToolNameSet).filter((name) => this._baseToolRegistry.has(name));
+		const systemPromptToolNames = Array.from(activeToolNameSet);
 		this._baseSystemPrompt = this.rebuildSystemPrompt(systemPromptToolNames);
 		this.ctx.agent.setSystemPrompt(this._baseSystemPrompt);
 	}

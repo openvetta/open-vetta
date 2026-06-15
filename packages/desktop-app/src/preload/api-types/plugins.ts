@@ -5,11 +5,34 @@ export type PluginPermission =
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
+	| "agent.systemPrompt.read"
+	| "agent.systemPrompt.write"
+	| "agent.systemPrompt.fullControl"
+	| "agent.skills.control"
+	| "agent.tools.control"
+	| "agent.runtime.configure"
 	| "fs.read"
 	| "fs.write"
 	| "network.fetch"
 	| "settings.read"
 	| "settings.write";
+
+export interface PluginAgentManifest {
+	systemPrompt?: {
+		/**
+		 * Plugin-packaged prompt contribution file paths. Main-process aggregation
+		 * resolves these relative to the installed plugin root.
+		 */
+		promptPaths?: string[];
+	};
+	/** Plugin-packaged skill files or directories to add to the agent resource graph. */
+	skillPaths?: string[];
+	/** Declarative tool visibility policy. Names are tool ids after registration. */
+	toolPolicy?: {
+		allow?: string[];
+		deny?: string[];
+	};
+}
 
 export interface PluginManifest {
 	id: string;
@@ -22,6 +45,7 @@ export interface PluginManifest {
 		remoteName: string;
 		expose: string;
 	};
+	agent?: PluginAgentManifest;
 	styles?: string[];
 	permissions?: PluginPermission[];
 	description?: string;
@@ -40,6 +64,7 @@ export interface InstalledPlugin {
 		remoteName: string;
 		expose: string;
 	};
+	agent?: PluginAgentManifest;
 	styleUrls: string[];
 	permissions: PluginPermission[];
 	grantedPermissions: PluginPermission[];

@@ -1,6 +1,7 @@
 # Global Slot Demo Plugin
 
 This example demonstrates a trusted desktop UI plugin that renders through Vetta's global slot.
+It also shows the current agent contribution manifest shape for prompt blocks, skill paths, and tool policies.
 
 ## Build
 
@@ -29,7 +30,12 @@ const file = await window.showOpenFilePicker({
 });
 const buffer = await (await file[0].getFile()).arrayBuffer();
 await window.vetta.plugins.installFromArchive(buffer, {
-  grantedPermissions: ["ui.slot.global"]
+  grantedPermissions: [
+    "ui.slot.global",
+    "agent.systemPrompt.write",
+    "agent.skills.control",
+    "agent.tools.control"
+  ]
 });
 await window.vetta.plugins.setEnabled("global-slot-demo", true);
 ```
@@ -40,8 +46,12 @@ The settings page can also install and enable the generated zip from the plugin 
 
 - The plugin is built as a Module Federation remote and exposes `./plugin`.
 - `@vetta/plugin-vite` supplies the default Vite Module Federation and Rollup configuration for Vetta plugins.
+- `plugin.json` declares an `agent` section:
+  - `agent.systemPrompt.promptPaths` injects `agent/prompts/fiction-system.md` as a separate system prompt block.
+  - `agent.skillPaths` contributes `agent/skills/fiction-outline/SKILL.md` to the skill loader.
+  - `agent.toolPolicy.deny` hides `doc_to_pdf` from the active tool set as a low-risk example.
 - Tailwind CSS is compiled inside the plugin through `@tailwindcss/vite`; only utilities are imported, so the plugin does not inject Tailwind Preflight into the host.
 - React is shared by the desktop host through Module Federation, so it is a plugin development dependency only.
 - `@vetta/plugin-sdk` is provided by the host and remains external.
-- The plugin declares `ui.slot.global`; without this grant, `ctx.ui.registerGlobalSlot()` will fail.
+- The plugin declares `ui.slot.global`, `agent.systemPrompt.write`, `agent.skills.control`, and `agent.tools.control`; without these grants, the corresponding UI or agent contribution is ignored.
 - Tailwind classes reference Vetta CSS variables such as `--primary` and `--popover`, so the plugin follows the active host theme.

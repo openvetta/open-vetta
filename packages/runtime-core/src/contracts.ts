@@ -3,6 +3,63 @@ import type { Message, Model } from "@vetta/ai";
 
 export type RuntimeEventSource = "runtime-core" | "agent" | "tool" | "mcp";
 
+export type SystemPromptBlockType =
+	| "subconscious"
+	| "base"
+	| "tools"
+	| "mcp"
+	| "guidelines"
+	| "append"
+	| "context"
+	| "memory"
+	| "skills"
+	| "personalization"
+	| "footer"
+	| "plugin";
+
+export interface SystemPromptBlock {
+	id: string;
+	type: SystemPromptBlockType;
+	source: {
+		kind: "core" | "plugin";
+		pluginId?: string;
+	};
+	content: string;
+	priority: number;
+	enabled: boolean;
+}
+
+export type SystemPromptBlockPatch = Partial<Omit<SystemPromptBlock, "id">>;
+
+export type SystemPromptOperation =
+	| { type: "addBlock"; block: SystemPromptBlock }
+	| { type: "replaceBlock"; blockId: string; block: SystemPromptBlock }
+	| { type: "updateBlock"; blockId: string; patch: SystemPromptBlockPatch }
+	| { type: "removeBlock"; blockId: string }
+	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
+
+export interface SystemPromptContribution {
+	pluginId: string;
+	operations: SystemPromptOperation[];
+}
+
+export interface SkillPathContribution {
+	pluginId: string;
+	paths: string[];
+}
+
+export interface ToolPolicyContribution {
+	pluginId: string;
+	allow?: string[];
+	deny?: string[];
+}
+
+export interface AgentPluginRuntimeConfig {
+	systemPromptContributions?: SystemPromptContribution[];
+	skillPathContributions?: SkillPathContribution[];
+	toolPolicyContributions?: ToolPolicyContribution[];
+}
+
 export interface SessionEventBase {
 	schemaVersion: 1;
 	sessionId: string;
@@ -317,6 +374,8 @@ export interface SessionConfig {
 	 * desktop「适配通用 Agent Skill」开关关闭时置 false。
 	 */
 	includeAgentSkills?: boolean;
+	/** Runtime plugin contributions applied while building agent prompts/resources. */
+	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
 export interface PromptRequest {

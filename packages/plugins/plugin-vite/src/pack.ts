@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
 export interface VettaPluginPackageFile {
@@ -23,6 +23,12 @@ interface PluginManifest {
 	version: string;
 	entry: string;
 	styles?: string[];
+	agent?: {
+		systemPrompt?: {
+			promptPaths?: string[];
+		};
+		skillPaths?: string[];
+	};
 }
 
 const crcTable = new Uint32Array(256);
@@ -52,6 +58,22 @@ function readStringArray(record: Record<string, unknown>, key: string): string[]
 	return strings.length === value.length ? strings : undefined;
 }
 
+function readAgentManifest(record: Record<string, unknown>): PluginManifest["agent"] {
+	const agent = record.agent;
+	if (!isRecord(agent)) {
+		return undefined;
+	}
+	const systemPrompt = isRecord(agent.systemPrompt)
+		? {
+				promptPaths: readStringArray(agent.systemPrompt, "promptPaths"),
+			}
+		: undefined;
+	return {
+		systemPrompt,
+		skillPaths: readStringArray(agent, "skillPaths"),
+	};
+}
+
 function parsePluginManifest(value: unknown): PluginManifest {
 	if (!isRecord(value)) {
 		throw new Error("plugin.json must contain an object.");
@@ -68,6 +90,7 @@ function parsePluginManifest(value: unknown): PluginManifest {
 		id,
 		version,
 		entry,
+		agent: readAgentManifest(value),
 		styles: readStringArray(value, "styles"),
 	};
 }
@@ -120,6 +143,17 @@ async function collectFiles(dir: string): Promise<VettaPluginPackageFile[]> {
 		}
 	}
 	return files;
+}
+
+async function collectPath(path: string): Promise<VettaPluginPackageFile[]> {
+	const info = await stat(path);
+	if (info.isDirectory()) {
+		return collectFiles(path);
+	}
+	if (info.isFile()) {
+		return [{ fullPath: path, archivePath: "" }];
+	}
+	return [];
 }
 
 async function createZip(files: VettaPluginPackageFile[]): Promise<Buffer> {
@@ -235,6 +269,18 @@ async function collectRuntimeFiles(
 
 	for (const style of pluginManifest.styles ?? []) {
 		addFile(resolve(rootDir, style));
+	}
+
+	for (const promptPath of pluginManifest.agent?.systemPrompt?.promptPaths ?? []) {
+		for (const file of await collectPath(resolve(rootDir, promptPath))) {
+			addFile(file.fullPath);
+		}
+	}
+
+	for (const skillPath of pluginManifest.agent?.skillPaths ?? []) {
+		for (const file of await collectPath(resolve(rootDir, skillPath))) {
+			addFile(file.fullPath);
+		}
 	}
 
 	return [...packageFiles.values()].sort((a, b) => a.archivePath.localeCompare(b.archivePath));
