@@ -364,7 +364,10 @@ export default definePlugin({
 		});
 	},
 	deactivate() {
-		pluginCtx = null;
+		// NOTE: do NOT null pluginCtx here. Under React StrictMode the host
+		// double-invokes load/dispose; a racing deactivate() could run after the
+		// re-activate() and permanently null the ctx the live components read,
+		// breaking 编辑/生成 (which rely on pluginCtx). The next activate() re-sets it.
 		setEditTarget(null);
 	},
 });
