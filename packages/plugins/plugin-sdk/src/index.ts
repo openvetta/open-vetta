@@ -5,12 +5,15 @@ export type PluginPermission =
 	| "ui.slot.global"
 	| "ui.slot.file-preview"
 	| "ui.slot.activity-tab"
+	| "ui.slot.input-action"
+	| "ui.slot.message"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
 	| "fs.read"
 	| "fs.write"
 	| "network.fetch"
+	| "images.generate"
 	| "settings.read"
 	| "settings.write";
 
@@ -74,6 +77,73 @@ export interface PluginActivityTabContribution {
 	component: ComponentType;
 }
 
+/**
+ * A reference to an image produced out-of-band by the host (e.g. an image
+ * tool's result). The bytes are NOT carried inline — `url` is a host media
+ * URL (Range-capable, usable directly as an `<img src>`).
+ */
+export interface PluginImageRef {
+	id: string;
+	url: string;
+	mimeType?: string;
+}
+
+/**
+ * Decoration a plugin contributes to the next outgoing prompt while its input
+ * action is active. `metadata` is shallow-merged into the prompt request's
+ * `metadata` bag, which the agent turn can read (e.g. `{ imageMode: true }`).
+ */
+export interface PluginPromptDecoration {
+	metadata?: Record<string, unknown>;
+}
+
+/**
+ * An action button shown in a row beneath the AI input bar. Rendered as a
+ * toggle: clicking activates, clicking again deactivates. While active, the
+ * host calls `decoratePrompt()` before each send and merges the returned
+ * metadata into the outgoing prompt request. The plugin owns any side state
+ * (it is the same Module Federation instance as its other slots).
+ */
+export interface PluginInputActionContribution {
+	id: string;
+	label: string;
+	/** Button icon as a React node (not an iconify class string). */
+	icon?: ReactNode;
+	/** Whether the action begins in the active state. Defaults to false. */
+	defaultActive?: boolean;
+	/** Fired when the user toggles the action; `active` is the new state. */
+	onToggle?(active: boolean): void;
+	/**
+	 * Called by the host before sending while the action is active. The
+	 * returned metadata is merged into the outgoing prompt request.
+	 */
+	decoratePrompt?(): PluginPromptDecoration | void;
+}
+
+/**
+ * The message handed to a per-message slot component. Extends the plain
+ * conversation message with host-bound `imageRefs` — images whose generating
+ * tool ran in this message's turn. Stored out-of-band, bound host-side; the
+ * plugin renders from them and returns null when there are none.
+ */
+export interface PluginMessageSlotMessage extends ConversationMessage {
+	imageRefs?: PluginImageRef[];
+}
+
+export interface PluginMessageSlotProps {
+	message: PluginMessageSlotMessage;
+}
+
+/**
+ * A component mounted beneath each (assistant) message in the message list.
+ * Multiple plugins stack in registration order. The component should return
+ * null for messages it has nothing to render for.
+ */
+export interface PluginMessageSlotContribution {
+	id: string;
+	component: ComponentType<PluginMessageSlotProps>;
+}
+
 export interface PluginUiApi {
 	registerGlobalSlot(contribution: PluginGlobalSlotContribution): Disposable;
 	/**
@@ -88,6 +158,23 @@ export interface PluginUiApi {
 	 * session cwd.
 	 */
 	registerActivityTab(contribution: PluginActivityTabContribution): Disposable;
+	/**
+	 * Register a toggle action shown beneath the AI input bar. While active,
+	 * its `decoratePrompt()` annotates the next outgoing prompt.
+	 */
+	registerInputAction(contribution: PluginInputActionContribution): Disposable;
+	/**
+	 * Register a component mounted beneath each message in the message list.
+	 * The component receives the message (with host-bound `imageRefs`).
+	 */
+	registerMessageSlot(contribution: PluginMessageSlotContribution): Disposable;
+	/**
+	 * Programmatically attach (if needed) and activate one of this plugin's
+	 * own activity tabs in the current conversation's activity panel. `tabId`
+	 * is the contribution id passed to registerActivityTab. Any payload (e.g.
+	 * which image to edit) is passed via the plugin's own in-memory state.
+	 */
+	openActivityTab(tabId: string): void;
 }
 
 // ─── Conversation ───
@@ -135,6 +222,52 @@ export interface PluginPermissionApi {
 	require(permission: PluginPermission): void;
 }
 
+// ─── Images ───
+
+export interface PluginGenerateImageInput {
+	prompt: string;
+	/** Optional reference id for grouping (e.g. the conversation/session). */
+	sessionId?: string;
+}
+
+export interface PluginEditImageInput {
+	prompt: string;
+	/**
+	 * Source image to edit. Either an existing host image id (continue a
+	 * lineage) or raw base64 bytes (e.g. a user upload).
+	 */
+	source: { imageId: string } | { data: string; mimeType: string };
+	sessionId?: string;
+}
+
+/**
+ * Image generation, routed to the host's main-process image service (single
+ * implementation shared with the agent's built-in image tool). Bytes are
+ * stored out-of-band; results are returned as host media references.
+ */
+export interface PluginImagesApi {
+	/** Text-to-image. Resolves to the produced image reference(s). */
+	generate(input: PluginGenerateImageInput): Promise<PluginImageRef[]>;
+	/** Image-to-image edit, producing the next version in a lineage. */
+	edit(input: PluginEditImageInput): Promise<PluginImageRef[]>;
+	/** The edit lineage (base image + its edits, oldest first) for an image. */
+	lineage(imageId: string): Promise<PluginImageRef[]>;
+}
+
+// ─── Settings ───
+
+/**
+ * Read-side access to this plugin's settings (the values configured against
+ * the `contributes.settings` schema declared in plugin.json, namespaced by
+ * plugin id). Writes go through the host's settings UI, not the plugin.
+ */
+export interface PluginSettingsApi {
+	get<T = unknown>(key: string): T | undefined;
+	getAll(): Record<string, unknown>;
+	/** Fired when any of this plugin's setting values change. */
+	onChange(listener: (values: Record<string, unknown>) => void): Disposable;
+}
+
 export interface PluginContext {
 	plugin: {
 		id: string;
@@ -143,6 +276,8 @@ export interface PluginContext {
 	permissions: PluginPermissionApi;
 	ui: PluginUiApi;
 	conversation: PluginConversationApi;
+	images: PluginImagesApi;
+	settings: PluginSettingsApi;
 }
 
 export interface PluginDefinition {

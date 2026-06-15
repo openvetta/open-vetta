@@ -1,8 +1,12 @@
 import {
 	pluginActivityTabsAtom,
 	pluginFilePreviewsAtom,
+	pluginInputActionsAtom,
+	pluginMessageSlotsAtom,
 	type RegisteredActivityTab,
 	type RegisteredFilePreview,
+	type RegisteredInputAction,
+	type RegisteredMessageSlot,
 } from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
@@ -39,6 +43,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const [reloadRevision, reloadPlugins] = useReducer((value: number) => value + 1, 0);
 	const setFilePreviews = useSetAtom(pluginFilePreviewsAtom);
 	const setActivityTabs = useSetAtom(pluginActivityTabsAtom);
+	const setInputActions = useSetAtom(pluginInputActionsAtom);
+	const setMessageSlots = useSetAtom(pluginMessageSlotsAtom);
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
@@ -118,6 +124,36 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		setActivityTabs(tabs);
 		return () => setActivityTabs([]);
 	}, [plugins, revision, setActivityTabs]);
+
+	// Publish input-action toggles (rendered beneath the AI input bar).
+	useEffect(() => {
+		const actions: RegisteredInputAction[] = plugins.flatMap((plugin) =>
+			plugin.inputActions.map((action) => ({
+				pluginId: plugin.id,
+				actionId: action.id,
+				label: action.label,
+				icon: action.icon,
+				defaultActive: action.defaultActive,
+				onToggle: action.onToggle,
+				decoratePrompt: action.decoratePrompt,
+			})),
+		);
+		setInputActions(actions);
+		return () => setInputActions([]);
+	}, [plugins, revision, setInputActions]);
+
+	// Publish per-message slot components (stacked beneath each assistant message).
+	useEffect(() => {
+		const messageSlots: RegisteredMessageSlot[] = plugins.flatMap((plugin) =>
+			plugin.messageSlots.map((slot) => ({
+				pluginId: plugin.id,
+				slotId: slot.id,
+				component: slot.component,
+			})),
+		);
+		setMessageSlots(messageSlots);
+		return () => setMessageSlots([]);
+	}, [plugins, revision, setMessageSlots]);
 
 	if (slots.length === 0) return null;
 

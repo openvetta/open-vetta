@@ -325,6 +325,13 @@ export interface PromptRequest {
 	streamingBehavior?: "steer" | "followUp";
 	/** Model key in "provider/modelId" format — ensures the prompt uses exactly this model */
 	modelKey?: string;
+	/**
+	 * Per-turn metadata bag carried alongside the prompt. Not sent to the model
+	 * as content; consumed host-side / by tools to gate turn behavior (e.g.
+	 * `{ imageMode: true }` set by a plugin input action to route this turn to
+	 * image generation). Opaque to the runtime — pass-through only.
+	 */
+	metadata?: Record<string, unknown>;
 }
 
 export interface SettingsPatch {

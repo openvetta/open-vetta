@@ -17,6 +17,7 @@ import {
 import { ArtifactCard } from "@shared/components/ArtifactCard";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { cn, pathBasename } from "@shared/lib/utils";
+import { PluginMessageSlotsHost } from "./PluginMessageSlotsHost";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
@@ -726,6 +727,12 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 					{isPredicting && (
 						<span className="processing-shimmer text-[11px] font-medium">Vetta 正在预测…</span>
 					)}
+				</div>
+			)}
+
+			{!isCurrentlyStreaming && (
+				<div className="mt-2">
+					<PluginMessageSlotsHost message={message} />
 				</div>
 			)}
 		</div>

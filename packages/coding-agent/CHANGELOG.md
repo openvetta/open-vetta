@@ -15,6 +15,7 @@
 
 ### Added
 
+- **内置 `generate_image` 工具（图像生成，ADR-0028）**：新增 `createGenerateImageTool(backend)` 工厂（`src/core/tools/generate-image/`）+ `ImageToolBackend` / `ImageToolRef` 契约，由宿主经 `customTools` 注入（desktop 接到主进程图像服务，coding-agent 不依赖宿主实现）。工具是薄包装：调用宿主后端生成图像，返回轻量引用（图像字节不进 LLM context）。`PromptOptions` 新增 `metadata`；input-pipeline 读 `metadata.imageMode` 时注入隐藏指令，引导 agent 优化 prompt 并调用该工具。
 - **适配通用 Agent Skill 作用域（ADR-0020）**：`loadSkills` 新增发现通用 Agent Skill 目录 `~/.agents/skills`（`source="agents-user"`）与 `<cwd>/.agents/skills`（`source="agents-project"`），对齐跨 Agent 约定——**仅认子目录 `SKILL.md`**（不认根目录散装 `.md`），别的 Agent 写好的 skill 原样可用。这两处在所有 Vetta 原生来源（`user`/`project`/`scene`）之后加载，先加载者胜，故同名碰撞时 Vetta 专属 skill 胜出、通用 Agent Skill 仅作补充。新增 `LoadSkillsOptions.includeAgentSkills`、`DefaultResourceLoaderOptions.includeAgentSkills` 与 `CreateAgentSessionOptions.includeAgentSkills`（均**缺省 true**，CLI/独立调用默认开；宿主可置 false 关闭），并贯穿 runtime-core `SessionConfig.includeAgentSkills`。`refreshSkillsIfChanged` 的指纹纳入这两目录以支持热重载。两处目录一并加入 `isProtectedSkillOrScenePath` 写保护（只读、禁止 agent 新增/修改），与 Vetta 自家 skill 目录同等。
 - 新增 Langfuse tracing 启用路径：设置 `VETTA_TRACING=langfuse` 后，`createAgentSession` 自动创建 Langfuse exporter，并固定上传 agent/LLM/tool 明细及 prompt、completion、tool input/output 正文。宿主也可通过 `CreateAgentSessionOptions.tracer` 注入其它平台的 `RuntimeTracer`。
 - 新增 `VETTA_TRACING_TRACE_NAME` / `tracingTraceName` 填充 Langfuse Trace Name。

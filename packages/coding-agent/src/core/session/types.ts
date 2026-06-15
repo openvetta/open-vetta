@@ -119,4 +119,10 @@ export interface PromptOptions {
 	streamingBehavior?: "steer" | "followUp";
 	/** Source of input for extension input event handlers. Defaults to "interactive". */
 	source?: InputSource;
+	/**
+	 * Per-turn metadata carried from the host's PromptRequest. Not sent to the
+	 * model as content; consumed in the input pipeline to gate turn behavior
+	 * (e.g. `{ imageMode: true }` routes this turn to image generation).
+	 */
+	metadata?: Record<string, unknown>;
 }

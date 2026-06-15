@@ -2,14 +2,33 @@ export type PluginPermission =
 	| "ui.slot.global"
 	| "ui.slot.file-preview"
 	| "ui.slot.activity-tab"
+	| "ui.slot.input-action"
+	| "ui.slot.message"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
 	| "fs.read"
 	| "fs.write"
 	| "network.fetch"
+	| "images.generate"
 	| "settings.read"
 	| "settings.write";
+
+/**
+ * A single declarative setting a plugin contributes via plugin.json's
+ * `contributes.settings`. The host renders a form field from it (VSCode-style)
+ * and persists the value namespaced by plugin id. `secret` masks the input but
+ * stores plaintext, consistent with how models config stores apiKey.
+ */
+export interface PluginSettingSchema {
+	key: string;
+	type: "string" | "number" | "boolean" | "enum" | "secret";
+	title: string;
+	description?: string;
+	default?: string | number | boolean;
+	/** Allowed values when type is "enum". */
+	enum?: string[];
+}
 
 export interface PluginManifest {
 	id: string;
@@ -24,6 +43,9 @@ export interface PluginManifest {
 	};
 	styles?: string[];
 	permissions?: PluginPermission[];
+	contributes?: {
+		settings?: PluginSettingSchema[];
+	};
 	description?: string;
 	author?: string;
 }
@@ -43,6 +65,7 @@ export interface InstalledPlugin {
 	styleUrls: string[];
 	permissions: PluginPermission[];
 	grantedPermissions: PluginPermission[];
+	settingsSchema?: PluginSettingSchema[];
 	description?: string;
 	author?: string;
 	enabled: boolean;
@@ -67,4 +90,33 @@ export interface DesktopPluginsApi {
 	grantPermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	revokePermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	reload(id: string): Promise<InstalledPlugin>;
+	/** Effective setting values for a plugin (schema defaults merged with stored). */
+	getSettings(id: string): Promise<Record<string, unknown>>;
+	/** Persist setting values for a plugin (merged over existing). */
+	setSettings(id: string, values: Record<string, unknown>): Promise<void>;
+	/** Subscribe to setting changes for any plugin. Returns an unsubscribe fn. */
+	onSettingsChanged(listener: (payload: { pluginId: string; values: Record<string, unknown> }) => void): () => void;
+	/** Text-to-image via the main-process image service (out-of-band stored). */
+	generateImage(pluginId: string, input: PluginGenerateImageInput): Promise<PluginImageResult[]>;
+	/** Image-to-image edit, producing the next version in a lineage. */
+	editImage(pluginId: string, input: PluginEditImageInput): Promise<PluginImageResult[]>;
+	/** The edit lineage (base image + its edits, oldest first) for an image. */
+	imageLineage(pluginId: string, imageId: string): Promise<PluginImageResult[]>;
+}
+
+export interface PluginImageResult {
+	id: string;
+	url: string;
+	mimeType: string;
+}
+
+export interface PluginGenerateImageInput {
+	prompt: string;
+	sessionId?: string;
+}
+
+export interface PluginEditImageInput {
+	prompt: string;
+	source: { imageId: string } | { data: string; mimeType: string };
+	sessionId?: string;
 }
