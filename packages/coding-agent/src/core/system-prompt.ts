@@ -1,5 +1,5 @@
 /**
- * System prompt construction and project context loading
+ * System prompt construction and project context loading.
  */
 
 import { formatSkillsForPrompt, type Skill } from "./skills.js";
@@ -67,8 +67,73 @@ export interface McpToolInfo {
 	description: string;
 }
 
+export type SystemPromptBlockType =
+	| "subconscious"
+	| "base"
+	| "tools"
+	| "mcp"
+	| "guidelines"
+	| "append"
+	| "context"
+	| "memory"
+	| "skills"
+	| "personalization"
+	| "footer"
+	| "plugin";
+
+export interface SystemPromptBlock {
+	id: string;
+	type: SystemPromptBlockType;
+	source: {
+		kind: "core" | "plugin";
+		pluginId?: string;
+	};
+	content: string;
+	priority: number;
+	enabled: boolean;
+}
+
+export interface SystemPromptDraft {
+	blocks: SystemPromptBlock[];
+	metadata: {
+		cwd: string;
+		dateTime: string;
+	};
+}
+
+export type SystemPromptBlockPatch = Partial<Omit<SystemPromptBlock, "id">>;
+
+export type SystemPromptOperation =
+	| { type: "addBlock"; block: SystemPromptBlock }
+	| { type: "replaceBlock"; blockId: string; block: SystemPromptBlock }
+	| { type: "updateBlock"; blockId: string; patch: SystemPromptBlockPatch }
+	| { type: "removeBlock"; blockId: string }
+	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
+
+export interface SystemPromptContribution {
+	pluginId: string;
+	operations: SystemPromptOperation[];
+}
+
+export interface SkillPathContribution {
+	pluginId: string;
+	paths: string[];
+}
+
+export interface ToolPolicyContribution {
+	pluginId: string;
+	allow?: string[];
+	deny?: string[];
+}
+
+export interface AgentPluginRuntimeConfig {
+	systemPromptContributions?: SystemPromptContribution[];
+	skillPathContributions?: SkillPathContribution[];
+	toolPolicyContributions?: ToolPolicyContribution[];
+}
+
 export interface BuildSystemPromptOptions {
-	/** Custom system prompt (replaces default). */
+	/** Custom system prompt (replaces default body in the legacy flow). */
 	customPrompt?: string;
 	/** Tools to include in prompt. Default: [read, command-tool, edit, write, dir_tree] */
 	selectedTools?: string[];
@@ -89,25 +154,136 @@ export interface BuildSystemPromptOptions {
 	 * 拼在系统提示词末尾（date/cwd 页脚之前），recency 最高。
 	 */
 	personalization?: string;
+	/** Runtime plugin contributions applied to the structured prompt draft before rendering. */
+	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
-/** Build the system prompt with tools, guidelines, and context */
-export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): string {
-	const {
-		customPrompt,
-		selectedTools,
-		appendSystemPrompt,
-		cwd,
-		contextFiles: providedContextFiles,
-		skills: providedSkills,
-		mcpTools: providedMcpTools,
-		memory,
-		personalization,
-	} = options;
-	const resolvedCwd = cwd ?? process.cwd();
+function coreBlock(id: string, type: SystemPromptBlockType, content: string, priority: number): SystemPromptBlock {
+	return {
+		id,
+		type,
+		source: { kind: "core" },
+		content,
+		priority,
+		enabled: content.length > 0,
+	};
+}
 
+function renderMcpToolsSection(mcpTools: McpToolInfo[], markdownTools: boolean): string {
+	if (mcpTools.length === 0) {
+		return "";
+	}
+	const toolsList = mcpTools
+		.map((tool) =>
+			markdownTools ? `- **${tool.name}**: ${tool.description}` : `- ${tool.name}: ${tool.description}`,
+		)
+		.join("\n");
+
+	if (markdownTools) {
+		return `# MCP (Model Context Protocol) Tools
+
+The following MCP tools are available from external servers:
+
+${toolsList}
+
+**IMPORTANT - MCP Tool Usage:**
+- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool
+- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)
+- MCP tools may provide specialized functionality not available in built-in tools
+- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
+	}
+
+	return `MCP (Model Context Protocol) tools:
+${toolsList}
+
+**IMPORTANT - MCP Tool Usage:**
+- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool
+- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)
+- MCP tools may provide specialized functionality not available in built-in tools
+- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
+}
+
+function renderContextFilesSection(contextFiles: Array<{ path: string; content: string }>): string {
+	if (contextFiles.length === 0) {
+		return "";
+	}
+	let content = "# Project Context\n\nProject-specific instructions and guidelines:\n\n";
+	for (const { path: filePath, content: fileContent } of contextFiles) {
+		content += `## ${filePath}\n\n${fileContent}\n\n`;
+	}
+	return content.trimEnd();
+}
+
+function renderFooter(dateTime: string, cwd: string): string {
+	return `Current date and time: ${dateTime}
+Current working directory: ${cwd}${OUTPUT_LOCATION_GUIDANCE}`;
+}
+
+function applySystemPromptOperation(
+	draft: SystemPromptDraft,
+	pluginId: string,
+	operation: SystemPromptOperation,
+): void {
+	switch (operation.type) {
+		case "addBlock":
+			draft.blocks.push({
+				...operation.block,
+				source: { kind: "plugin", pluginId },
+			});
+			return;
+		case "replaceBlock": {
+			const index = draft.blocks.findIndex((block) => block.id === operation.blockId);
+			const nextBlock: SystemPromptBlock = {
+				...operation.block,
+				id: operation.blockId,
+				source: { kind: "plugin", pluginId },
+			};
+			if (index >= 0) {
+				draft.blocks[index] = nextBlock;
+			} else {
+				draft.blocks.push(nextBlock);
+			}
+			return;
+		}
+		case "updateBlock": {
+			const block = draft.blocks.find((candidate) => candidate.id === operation.blockId);
+			if (block) {
+				Object.assign(block, operation.patch);
+			}
+			return;
+		}
+		case "removeBlock":
+			draft.blocks = draft.blocks.filter((block) => block.id !== operation.blockId);
+			return;
+		case "setBlockEnabled": {
+			const block = draft.blocks.find((candidate) => candidate.id === operation.blockId);
+			if (block) {
+				block.enabled = operation.enabled;
+			}
+			return;
+		}
+	}
+}
+
+function applySystemPromptContributions(draft: SystemPromptDraft, config: AgentPluginRuntimeConfig | undefined): void {
+	for (const contribution of config?.systemPromptContributions ?? []) {
+		for (const operation of contribution.operations) {
+			applySystemPromptOperation(draft, contribution.pluginId, operation);
+		}
+	}
+}
+
+export function renderSystemPromptDraft(draft: SystemPromptDraft): string {
+	return draft.blocks
+		.filter((block) => block.enabled && block.content.length > 0)
+		.sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id))
+		.map((block) => block.content)
+		.join("\n\n");
+}
+
+function buildDateTime(): string {
 	const now = new Date();
-	const dateTime = now.toLocaleString("en-US", {
+	return now.toLocaleString("en-US", {
 		weekday: "long",
 		year: "numeric",
 		month: "long",
@@ -117,87 +293,10 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		second: "2-digit",
 		timeZoneName: "short",
 	});
+}
 
-	const appendSection = appendSystemPrompt ? `\n\n${appendSystemPrompt}` : "";
-	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
-
-	const contextFiles = providedContextFiles ?? [];
-	const skills = providedSkills ?? [];
-	const mcpTools = providedMcpTools ?? [];
-
-	if (customPrompt) {
-		// 即使用户传入 customPrompt，也始终保留出厂潜意识，防止身份被绕过
-		let prompt = `${SUBCONSCIOUS}\n\n${customPrompt}`;
-
-		if (appendSection) {
-			prompt += appendSection;
-		}
-
-		// Append MCP tools section
-		if (mcpTools.length > 0) {
-			prompt += "\n\n# MCP (Model Context Protocol) Tools\n\n";
-			prompt += "The following MCP tools are available from external servers:\n\n";
-			for (const tool of mcpTools) {
-				prompt += `- **${tool.name}**: ${tool.description}\n`;
-			}
-			prompt += "\n**IMPORTANT - MCP Tool Usage:**\n";
-			prompt +=
-				'- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool\n';
-			prompt += '- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)\n';
-			prompt += "- MCP tools may provide specialized functionality not available in built-in tools\n";
-			prompt +=
-				'- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls\n';
-		}
-
-		// Append project context files
-		if (contextFiles.length > 0) {
-			prompt += "\n\n# Project Context\n\n";
-			prompt += "Project-specific instructions and guidelines:\n\n";
-			for (const { path: filePath, content } of contextFiles) {
-				prompt += `## ${filePath}\n\n${content}\n\n`;
-			}
-		}
-
-		// Persistent memory (memory-mode only, frozen snapshot)
-		if (memory) {
-			prompt += `\n\n${memory}`;
-		}
-
-		// Append skills section (if invoke_skill or read tool is available)
-		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
-		if (canUseSkills && skills.length > 0) {
-			prompt += formatSkillsForPrompt(skills);
-		}
-
-		// Filename fidelity rule (applies to all prompts)
-		prompt += "\n\n**CRITICAL — File name fidelity**: ";
-		prompt +=
-			"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. ";
-		prompt += "NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. ";
-		prompt += "When in doubt, run ls or find first to get the exact name, then copy it verbatim.";
-
-		// 个性化（人设 + 自定义指令）：拼在末尾，recency 最高
-		if (personalization) {
-			prompt += `\n\n${personalization}`;
-		}
-
-		// Add date/time and working directory last
-		prompt += `\nCurrent date and time: ${dateTime}`;
-		prompt += `\nCurrent working directory: ${resolvedCwd}`;
-		prompt += OUTPUT_LOCATION_GUIDANCE;
-
-		return prompt;
-	}
-
-	// Build tools list based on selected tools (only built-in tools with known descriptions)
-	const tools = (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
-		(t) => t in toolDescriptions,
-	);
-	const toolsList = tools.length > 0 ? tools.map((t) => `- ${t}: ${toolDescriptions[t]}`).join("\n") : "(none)";
-
-	// Build guidelines based on which tools are actually available
+function buildGuidelines(tools: string[]): string {
 	const guidelinesList: string[] = [];
-
 	const hasSelectedCommandTool = tools.includes("bash") || tools.includes("shell");
 	const hasEdit = tools.includes("edit");
 	const hasWrite = tools.includes("write");
@@ -208,7 +307,6 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 	const hasDirTree = tools.includes("dir_tree");
 	const hasRead = tools.includes("read");
 
-	// File exploration guidelines
 	if (hasSelectedCommandTool && !hasGrep && !hasGlob && !hasFind && !hasLs && !hasDirTree) {
 		guidelinesList.push("Use the shell tool for file operations like ls, rg, find");
 	} else if (hasSelectedCommandTool && (hasGrep || hasGlob || hasFind || hasLs || hasDirTree)) {
@@ -223,44 +321,32 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		);
 	}
 
-	// current_time guideline
-	const hasCurrentTime = tools.includes("current_time");
-	if (hasCurrentTime) {
+	if (tools.includes("current_time")) {
 		guidelinesList.push(
 			'ALWAYS use current_time tool (not bash "date", "timedatectl", or other shell commands) when you need to know the current date or time. Only fall back to bash if current_time cannot fulfill the specific requirement (e.g., timezone conversion, date arithmetic)',
 		);
 	}
 
-	// Read before edit guideline
 	if (hasRead && hasEdit) {
 		guidelinesList.push("Use read to examine files before editing. You must use this tool instead of cat or sed.");
 	}
-
-	// Edit guideline
 	if (hasEdit) {
 		guidelinesList.push("Use edit for precise changes (old text must match exactly)");
 	}
-
-	// Write guideline
 	if (hasWrite) {
 		guidelinesList.push("Use write only for new files or complete rewrites");
 	}
-
-	// Output guideline (only when actually writing or executing)
 	if (hasEdit || hasWrite) {
 		guidelinesList.push(
 			"When summarizing your actions, output plain text directly - do NOT use cat or shell commands to display what you did",
 		);
 	}
 
-	// Filename fidelity — LLMs tend to "prettify" filenames by inserting/removing spaces around punctuation
 	guidelinesList.push(
 		"CRITICAL: File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools (ls, find, dir_tree) or provided by the user. " +
 			"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
 			"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
 	);
-
-	// Always include these
 	guidelinesList.push("Be concise in your responses");
 	guidelinesList.push(
 		"MANDATORY file-link format: EVERY time you mention a file you created, edited, read, or otherwise point the user at — anywhere in your prose, including headings, list items, tables, and 'saved to' / 'output' lines — you MUST write it as a markdown link whose target is the file's ABSOLUTE path: [filename.ext](/abs/path/filename.ext). The UI turns these into clickable preview badges, so this is not optional styling. " +
@@ -277,64 +363,94 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): strin
 		"When the user sends images inline in their message, analyze them directly using your vision capabilities. Do NOT try to locate or read them from disk - the image data is already embedded in the message",
 	);
 
-	const guidelines = guidelinesList.map((g) => `- ${g}`).join("\n");
+	return guidelinesList.map((guideline) => `- ${guideline}`).join("\n");
+}
 
-	// Build MCP tools list if any are available
-	let mcpToolsSection = "";
-	if (mcpTools.length > 0) {
-		const mcpToolsList = mcpTools.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n");
-		mcpToolsSection = `\n\nMCP (Model Context Protocol) tools:
-${mcpToolsList}
+/** Build the structured prompt draft with tools, guidelines, and context. */
+export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): SystemPromptDraft {
+	const {
+		customPrompt,
+		selectedTools,
+		appendSystemPrompt,
+		cwd,
+		contextFiles: providedContextFiles,
+		skills: providedSkills,
+		mcpTools: providedMcpTools,
+		memory,
+		personalization,
+		agentPlugins,
+	} = options;
+	const resolvedCwd = cwd ?? process.cwd();
+	const dateTime = buildDateTime();
+	const defaultCommandTool = process.platform === "win32" ? "shell" : "bash";
+	const contextFiles = providedContextFiles ?? [];
+	const skills = providedSkills ?? [];
+	const mcpTools = providedMcpTools ?? [];
+	const blocks: SystemPromptBlock[] = [];
 
-**IMPORTANT - MCP Tool Usage:**
-- When the user explicitly mentions "use [server-name] MCP" or "using [tool-name]", you MUST use the corresponding MCP tool
-- MCP tools are prefixed with "mcp_[servername]_" (e.g., mcp_filesystem_list_directory)
-- MCP tools may provide specialized functionality not available in built-in tools
-- Example: If user says "use filesystem MCP to list files", use mcp_filesystem_list_directory instead of bash ls`;
-	}
-
-	let prompt = `${SUBCONSCIOUS}
-
-Available tools:
-${toolsList}${mcpToolsSection}
-
-Guidelines:
-${guidelines}
-`;
-
-	if (appendSection) {
-		prompt += appendSection;
-	}
-
-	// Append project context files
-	if (contextFiles.length > 0) {
-		prompt += "\n\n# Project Context\n\n";
-		prompt += "Project-specific instructions and guidelines:\n\n";
-		for (const { path: filePath, content } of contextFiles) {
-			prompt += `## ${filePath}\n\n${content}\n\n`;
+	if (customPrompt) {
+		blocks.push(coreBlock("core.subconscious", "subconscious", SUBCONSCIOUS, 100));
+		blocks.push(coreBlock("core.base", "base", customPrompt, 200));
+		blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 300));
+		blocks.push(coreBlock("core.mcp", "mcp", renderMcpToolsSection(mcpTools, true), 400));
+		blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 500));
+		blocks.push(coreBlock("core.memory", "memory", memory ?? "", 600));
+		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
+		if (canUseSkills && skills.length > 0) {
+			blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 700));
 		}
+		blocks.push(
+			coreBlock(
+				"core.filename-fidelity",
+				"guidelines",
+				"**CRITICAL — File name fidelity**: " +
+					"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. " +
+					"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
+					"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
+				800,
+			),
+		);
+		blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 900));
+		blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1000));
+		const draft: SystemPromptDraft = { blocks, metadata: { cwd: resolvedCwd, dateTime } };
+		applySystemPromptContributions(draft, agentPlugins);
+		return draft;
 	}
 
-	// Persistent memory (memory-mode only, frozen snapshot)
-	if (memory) {
-		prompt += `\n\n${memory}`;
-	}
-
-	// Append skills section (if invoke_skill or read tool is available)
+	const tools = (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
+		(tool) => tool in toolDescriptions,
+	);
+	const toolsList =
+		tools.length > 0 ? tools.map((tool) => `- ${tool}: ${toolDescriptions[tool]}`).join("\n") : "(none)";
+	const mcpToolsSection = renderMcpToolsSection(mcpTools, false);
 	const hasInvokeSkill = tools.includes("invoke_skill");
+	const hasRead = tools.includes("read");
+
+	blocks.push(coreBlock("core.subconscious", "subconscious", SUBCONSCIOUS, 100));
+	blocks.push(
+		coreBlock(
+			"core.tools",
+			"tools",
+			`Available tools:\n${toolsList}${mcpToolsSection ? `\n\n${mcpToolsSection}` : ""}`,
+			200,
+		),
+	);
+	blocks.push(coreBlock("core.guidelines", "guidelines", `Guidelines:\n${buildGuidelines(tools)}\n`, 300));
+	blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 400));
+	blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 500));
+	blocks.push(coreBlock("core.memory", "memory", memory ?? "", 600));
 	if ((hasRead || hasInvokeSkill) && skills.length > 0) {
-		prompt += formatSkillsForPrompt(skills);
+		blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 700));
 	}
+	blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 900));
+	blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1000));
 
-	// 个性化（人设 + 自定义指令）：拼在末尾，recency 最高
-	if (personalization) {
-		prompt += `\n\n${personalization}`;
-	}
+	const draft: SystemPromptDraft = { blocks, metadata: { cwd: resolvedCwd, dateTime } };
+	applySystemPromptContributions(draft, agentPlugins);
+	return draft;
+}
 
-	// Add date/time and working directory last
-	prompt += `\nCurrent date and time: ${dateTime}`;
-	prompt += `\nCurrent working directory: ${resolvedCwd}`;
-	prompt += OUTPUT_LOCATION_GUIDANCE;
-
-	return prompt;
+/** Build the system prompt with tools, guidelines, and context. */
+export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): string {
+	return renderSystemPromptDraft(buildSystemPromptDraft(options));
 }

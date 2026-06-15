@@ -11,7 +11,7 @@ import { renderMemoryForPrompt } from "../memory/memory-store.js";
 import { getPersonaPrompt } from "../personas.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SettingsManager } from "../settings-manager.js";
-import { buildSystemPrompt } from "../system-prompt.js";
+import { type AgentPluginRuntimeConfig, buildSystemPrompt } from "../system-prompt.js";
 
 /**
  * Build the personalization (persona + custom instructions) append block.
@@ -45,6 +45,7 @@ export interface SystemPromptDeps {
 	memoryFile: string | undefined;
 	memorySnapshot: string;
 	memoryCharLimit: number;
+	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
 /** Rebuild the base system prompt from current session state. */
@@ -58,10 +59,13 @@ export function rebuildSystemPrompt(deps: SystemPromptDeps): string {
 
 	// Collect MCP tool information for system prompt
 	const mcpTools =
-		deps.mcpManager?.getTools().map((tool) => ({
-			name: tool.name,
-			description: tool.description || `Tool from MCP server`,
-		})) ?? [];
+		deps.mcpManager
+			?.getTools()
+			.filter((tool) => deps.toolNames.includes(tool.name))
+			.map((tool) => ({
+				name: tool.name,
+				description: tool.description || `Tool from MCP server`,
+			})) ?? [];
 
 	const memory =
 		deps.memoryMode && deps.memoryFile
@@ -80,5 +84,6 @@ export function rebuildSystemPrompt(deps: SystemPromptDeps): string {
 		mcpTools,
 		memory,
 		personalization,
+		agentPlugins: deps.agentPlugins,
 	});
 }

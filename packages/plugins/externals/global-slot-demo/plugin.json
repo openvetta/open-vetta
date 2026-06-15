@@ -10,7 +10,16 @@
 		"expose": "./plugin"
 	},
 	"styles": ["dist/style.css"],
-	"permissions": ["ui.slot.global"],
-	"description": "Demonstrates a trusted Vetta desktop UI plugin rendered through the global slot.",
+	"permissions": ["ui.slot.global", "agent.systemPrompt.write", "agent.skills.control", "agent.tools.control"],
+	"agent": {
+		"systemPrompt": {
+			"promptPaths": ["agent/prompts/fiction-system.md"]
+		},
+		"skillPaths": ["agent/skills/fiction-outline"],
+		"toolPolicy": {
+			"deny": ["doc_to_pdf"]
+		}
+	},
+	"description": "Demonstrates UI slots plus agent prompt, skill, and tool policy contributions.",
 	"author": "Vetta"
 }

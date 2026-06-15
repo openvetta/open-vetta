@@ -22,6 +22,7 @@ import type { ModelRegistry } from "../model-registry.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SessionManager } from "../session-manager.js";
 import type { SettingsManager } from "../settings-manager.js";
+import type { AgentPluginRuntimeConfig } from "../system-prompt.js";
 import type { TodoItem } from "../todo-store.js";
 import type { AskUserQuestionCapability } from "../tools/index.js";
 
@@ -100,6 +101,8 @@ export interface AgentSessionConfig {
 	 * 完成通知又会凭空唤醒新 turn，干扰队列对「任务完成」的判定。
 	 */
 	enableBackgroundTasks?: boolean;
+	/** Runtime plugin contributions applied while building agent prompts/resources. */
+	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
 export interface ExtensionBindings {
