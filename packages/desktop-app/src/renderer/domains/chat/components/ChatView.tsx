@@ -17,6 +17,9 @@ import {
 	getProjectDisplayName,
 	sessionDisplayLabel,
 	sessionsMapAtom,
+	activeInputActionIdsAtom,
+	editImageAttachmentAtom,
+	pendingEditImageIdAtom,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { MessageList } from "./MessageList";
@@ -46,6 +49,19 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const setInlinePreview = useSetAtom(inlineFilePreviewAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const sessionsMap = useAtomValue(sessionsMapAtom);
+	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
+	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
+	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
+
+	// 切换会话时释放一次性的图像编辑 attach，避免在 A 会话选中的编辑目标串到 B 会话
+	// （图像服务按全局 id 解析源图，stale id 会被照常注入并编辑错图）。
+	// 同时清空所有 active 的 input-action（如「图像生成」），让每个会话都从默认输入
+	// 态开始——否则在 A 会话点过编辑/开过开关，切到 B 会话仍是 active。
+	useEffect(() => {
+		setEditImageAttachment(null);
+		setPendingEditImageId(null);
+		setActiveInputActionIds(new Set());
+	}, [activeSession?.runtimeId, setEditImageAttachment, setPendingEditImageId, setActiveInputActionIds]);
 
 	// 窗口置顶（钉在屏幕上）状态，初始与主进程真实状态同步
 	const [pinned, setPinned] = useState(false);

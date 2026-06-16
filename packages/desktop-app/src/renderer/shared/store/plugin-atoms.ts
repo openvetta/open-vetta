@@ -1,6 +1,7 @@
 import type {
 	PluginActivityTabContribution,
 	PluginFilePreviewContribution,
+	PluginImageRef,
 	PluginInputActionContribution,
 	PluginMessageSlotContribution,
 } from "@vetta/plugin-sdk";
@@ -66,3 +67,20 @@ export interface RegisteredMessageSlot {
 
 /** Per-message slot components, stacked beneath each assistant message in order. */
 export const pluginMessageSlotsAtom = atom<RegisteredMessageSlot[]>([]);
+
+/**
+ * The image a plugin (image-gen) bound as the "edit target" via
+ * `ui.setEditImageAttachment`. Rendered as a thumbnail capsule in the AI input
+ * bar's top capsule strip; consumed at send time → `metadata.editImageId`, then
+ * cleared (one-shot). `null` when nothing is attached.
+ */
+export const editImageAttachmentAtom = atom<PluginImageRef | null>(null);
+
+/**
+ * The source image id of the current in-flight edit turn (set at send when an
+ * edit attachment was present, reset on each send). Lets PluginMessageSlotsHost
+ * mark the generating message as editing that image's lineage — so its preview
+ * card shows the full version swiper with a leading "generating" skeleton, and
+ * the prior message's duplicate card self-hides.
+ */
+export const pendingEditImageIdAtom = atom<string | null>(null);

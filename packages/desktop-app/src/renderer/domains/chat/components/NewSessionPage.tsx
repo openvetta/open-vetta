@@ -7,11 +7,14 @@ import {
 	activeSessionAtom,
 	attachedImagesAtom,
 	authTokenAtom,
+	activeInputActionIdsAtom,
 	authUserAtom,
 	contextUsageAtom,
+	editImageAttachmentAtom,
 	inputValueAtom,
 	mentionedFilesAtom,
 	pageHeaderTitleAtom,
+	pendingEditImageIdAtom,
 	projectsAtom,
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
@@ -83,6 +86,9 @@ export function NewSessionPage(): JSX.Element {
 	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
+	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
+	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
+	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
 	const authUser = useAtomValue(authUserAtom);
 	const token = useAtomValue(authTokenAtom);
 	const projects = useAtomValue(projectsAtom);
@@ -98,11 +104,27 @@ export function NewSessionPage(): JSX.Element {
 		setSelectedSkill(null);
 		setMentionedFiles([]);
 		setAttachedImages([]);
+		// 释放一次性的图像编辑 attach，避免别处选中的编辑目标带进新会话。
+		setEditImageAttachment(null);
+		setPendingEditImageId(null);
+		// 清空所有 active 的 input-action（如「图像生成」），回到默认输入态。
+		setActiveInputActionIds(new Set());
 		// 清掉上一个会话残留的上下文用量，避免 ContextRing 显示旧会话的百分比。
 		setContextUsage(null);
 		// 清掉 activeSession，避免 InputBar 的 todo 抽屉等仍读取旧会话状态。
 		setActiveSession(null);
-	}, [decodedCwd, setInputValue, setSelectedSkill, setMentionedFiles, setAttachedImages, setContextUsage, setActiveSession]);
+	}, [
+		decodedCwd,
+		setInputValue,
+		setSelectedSkill,
+		setMentionedFiles,
+		setAttachedImages,
+		setEditImageAttachment,
+		setPendingEditImageId,
+		setActiveInputActionIds,
+		setContextUsage,
+		setActiveSession,
+	]);
 
 	// 顶栏标题：项目名 · 新会话
 	useEffect(() => {

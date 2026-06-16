@@ -114,6 +114,12 @@ export interface PluginImageRef {
 	id: string;
 	url: string;
 	mimeType?: string;
+	/**
+	 * The edit-lineage root id this image belongs to (base image + all its edits
+	 * share one rootId). Lets the host dedup per-message previews — only the
+	 * latest message producing a given rootId renders the version swiper.
+	 */
+	rootId?: string;
 }
 
 /**
@@ -162,6 +168,13 @@ export interface PluginMessageSlotMessage extends ConversationMessage {
 	 * `imageRefs` arrives. Host-bound.
 	 */
 	imageGenerating?: boolean;
+	/**
+	 * When this in-flight turn is editing an existing image (the user picked an
+	 * edit target), the source image's id. Lets the slot render that image's
+	 * full version lineage with a leading "generating" skeleton, instead of a
+	 * bare placeholder. Host-bound; only set while `imageGenerating` is true.
+	 */
+	editingImageId?: string;
 }
 
 export interface PluginMessageSlotProps {
@@ -209,6 +222,20 @@ export interface PluginUiApi {
 	 * which image to edit) is passed via the plugin's own in-memory state.
 	 */
 	openActivityTab(tabId: string): void;
+	/**
+	 * Bind (or clear, with `null`) an image as the "edit target" for the next
+	 * outgoing prompt. The host renders it as a thumbnail capsule in the AI input
+	 * bar's top capsule strip and, at send time, injects `metadata.editImageId`
+	 * (the ref's id) so this turn edits that image. One-shot: cleared after the
+	 * prompt is sent (or when the user closes the capsule). Only the image
+	 * reference (id/url) crosses over — bytes stay out-of-band.
+	 */
+	setEditImageAttachment(ref: PluginImageRef | null): void;
+	/**
+	 * Open the host's global full-screen image previewer for the given image.
+	 * Only the image reference (id/url) crosses over — bytes stay out-of-band.
+	 */
+	previewImage(ref: PluginImageRef): void;
 }
 
 // ─── Conversation ───
@@ -355,6 +382,13 @@ export interface PluginImagesApi {
 	edit(input: PluginEditImageInput): Promise<PluginImageRef[]>;
 	/** The edit lineage (base image + its edits, oldest first) for an image. */
 	lineage(imageId: string): Promise<PluginImageRef[]>;
+	/**
+	 * Every edit lineage the given session touched (generated or edited a version
+	 * in), newest lineage first; each lineage's versions oldest → newest. The
+	 * sessionId is the agent session id — derive it from the active conversation's
+	 * `sessionPath` (the UUID embedded in the session file name).
+	 */
+	sessionLineages(sessionId: string): Promise<PluginImageRef[][]>;
 }
 
 // ─── Settings ───
@@ -405,6 +439,7 @@ export function definePlugin(plugin: PluginDefinition): PluginDefinition {
 export interface PluginHostBridge {
 	useActiveConversation(): ConversationState;
 	useConversationMessages(): ConversationMessage[];
+	useEditImageAttachment(): PluginImageRef | null;
 	conversation: PluginConversationApi;
 }
 
@@ -453,4 +488,14 @@ export function useActiveConversation(): ConversationState {
 /** Reactive: the active conversation's messages. */
 export function useConversationMessages(): ConversationMessage[] {
 	return requireBridge().useConversationMessages();
+}
+
+/**
+ * Reactive: the image currently bound as the edit target via
+ * `ui.setEditImageAttachment` (or null). Single source of truth for the
+ * "selected for edit" highlight — clears automatically when the host drops the
+ * attachment (send, capsule close, or session switch).
+ */
+export function useEditImageAttachment(): PluginImageRef | null {
+	return requireBridge().useEditImageAttachment();
 }

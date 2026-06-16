@@ -46,7 +46,7 @@ export const jadeTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(232, 244, 240)",
 		secondaryForeground: "rgb(15, 30, 28)",
-		muted: "rgb(226, 232, 230)",
+		muted: "rgb(241, 246, 244)",
 		mutedForeground: "rgb(82, 105, 100)",
 		accent: "rgb(218, 236, 230)",
 		accentForeground: "rgb(15, 30, 28)",
