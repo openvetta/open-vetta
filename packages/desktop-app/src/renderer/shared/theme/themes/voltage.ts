@@ -49,7 +49,7 @@ export const voltageTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(240, 240, 240)",
 		secondaryForeground: "rgb(10, 10, 10)",
-		muted: "rgb(231, 230, 226)",
+		muted: "rgb(244, 243, 239)",
 		mutedForeground: "rgb(90, 90, 90)",
 		accent: "rgb(228, 228, 228)",
 		accentForeground: "rgb(10, 10, 10)",

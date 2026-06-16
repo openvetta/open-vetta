@@ -7,7 +7,7 @@ import { defaultTheme } from "./default";
 
 export const sandTheme: ThemeDef = {
 	id: "sand",
-	label: "Claude",
+	label: "默认",
 	dark: {
 		...defaultTheme.dark,
 		background: "oklch(0.2679 0.0036 106.6427)",
