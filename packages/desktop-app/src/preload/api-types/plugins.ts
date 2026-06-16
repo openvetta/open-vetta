@@ -10,6 +10,11 @@ export type PluginPermission =
 	| "agent.systemPrompt.fullControl"
 	| "agent.skills.control"
 	| "agent.tools.control"
+	| "agent.tools.register"
+	| "agent.toolHandler.execute"
+	| "agent.state.read"
+	| "agent.state.write"
+	| "agent.followUp.write"
 	| "agent.runtime.configure"
 	| "fs.read"
 	| "fs.write"
@@ -83,6 +88,27 @@ export interface PluginInstallOptions {
 	grantedPermissions?: PluginPermission[];
 }
 
+export interface PluginAgentToolRegistration {
+	id: string;
+	name: string;
+	label?: string;
+	description: string;
+	parameters: Record<string, unknown>;
+	handlerId: string;
+	timeoutMs?: number;
+}
+
+export interface PluginAgentToolInvocationRequest {
+	requestId: string;
+	sessionId: string;
+	cwd: string;
+	pluginId: string;
+	toolId: string;
+	toolName: string;
+	handlerId: string;
+	input: unknown;
+}
+
 export interface DesktopPluginsApi {
 	list(): Promise<InstalledPlugin[]>;
 	installFromArchive(archiveBuffer: ArrayBuffer, options?: PluginInstallOptions): Promise<InstalledPlugin>;
@@ -92,4 +118,9 @@ export interface DesktopPluginsApi {
 	grantPermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	revokePermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	reload(id: string): Promise<InstalledPlugin>;
+	registerAgentTool(pluginId: string, registration: PluginAgentToolRegistration): Promise<void>;
+	unregisterAgentTool(pluginId: string, toolId: string): Promise<void>;
+	clearAgentTools(pluginId: string): Promise<void>;
+	onAgentToolRequest(handler: (request: PluginAgentToolInvocationRequest) => void): () => void;
+	respondAgentTool(requestId: string, result: unknown): Promise<void>;
 }

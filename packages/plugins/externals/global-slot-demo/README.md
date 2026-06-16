@@ -1,7 +1,7 @@
 # Global Slot Demo Plugin
 
 This example demonstrates a trusted desktop UI plugin that renders through Vetta's global slot.
-It also shows the current agent contribution manifest shape for prompt blocks, skill paths, and tool policies.
+It also shows the current agent contribution manifest shape for prompt blocks, skill paths, tool policies, and a JS-registered agent tool.
 
 ## Build
 
@@ -34,7 +34,11 @@ await window.vetta.plugins.installFromArchive(buffer, {
     "ui.slot.global",
     "agent.systemPrompt.write",
     "agent.skills.control",
-    "agent.tools.control"
+    "agent.tools.control",
+    "agent.tools.register",
+    "agent.toolHandler.execute",
+    "fs.read",
+    "fs.write"
   ]
 });
 await window.vetta.plugins.setEnabled("global-slot-demo", true);
@@ -50,8 +54,9 @@ The settings page can also install and enable the generated zip from the plugin 
   - `agent.systemPrompt.promptPaths` injects `agent/prompts/fiction-system.md` as a separate system prompt block.
   - `agent.skillPaths` contributes `agent/skills/fiction-outline/SKILL.md` to the skill loader.
   - `agent.toolPolicy.deny` hides `doc_to_pdf` from the active tool set as a low-risk example.
+- `src/index.tsx` registers `novel_write_chapter_file` at activation time. The tool schema is authored with `@sinclair/typebox`, and the handler writes through the host-controlled `api.fs.writeFile(...)` bridge.
 - Tailwind CSS is compiled inside the plugin through `@tailwindcss/vite`; only utilities are imported, so the plugin does not inject Tailwind Preflight into the host.
 - React is shared by the desktop host through Module Federation, so it is a plugin development dependency only.
 - `@vetta/plugin-sdk` is provided by the host and remains external.
-- The plugin declares `ui.slot.global`, `agent.systemPrompt.write`, `agent.skills.control`, and `agent.tools.control`; without these grants, the corresponding UI or agent contribution is ignored.
+- The plugin declares `ui.slot.global`, `agent.systemPrompt.write`, `agent.skills.control`, `agent.tools.control`, `agent.tools.register`, `agent.toolHandler.execute`, `fs.read`, and `fs.write`; without these grants, the corresponding UI, agent contribution, tool registration, or file operation is ignored.
 - Tailwind classes reference Vetta CSS variables such as `--primary` and `--popover`, so the plugin follows the active host theme.

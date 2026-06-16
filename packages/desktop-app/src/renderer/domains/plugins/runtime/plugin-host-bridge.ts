@@ -11,6 +11,8 @@ import type {
 	ConversationMessage,
 	ConversationState,
 	Disposable,
+	PluginAgentToolApi,
+	PluginAgentToolHandler,
 	PluginConversationApi,
 	PluginHostBridge,
 } from "@vetta/plugin-sdk";
@@ -20,6 +22,17 @@ import { getDefaultStore, useAtomValue } from "jotai";
 import { useMemo } from "react";
 
 const store = getDefaultStore();
+
+interface PluginAgentToolHandlerEntry {
+	handler: PluginAgentToolHandler;
+	api: PluginAgentToolApi;
+}
+
+const agentToolHandlers = new Map<string, PluginAgentToolHandlerEntry>();
+
+function handlerKey(pluginId: string, handlerId: string): string {
+	return `${pluginId}:${handlerId}`;
+}
 
 // ─── Conversation event bus ───
 //
@@ -135,6 +148,48 @@ function startTranslator(): void {
 	sync();
 }
 
+let toolRequestListenerStarted = false;
+
+function startToolRequestListener(): void {
+	if (toolRequestListenerStarted) return;
+	toolRequestListenerStarted = true;
+	window.vetta.plugins.onAgentToolRequest((request) => {
+		const entry = agentToolHandlers.get(handlerKey(request.pluginId, request.handlerId));
+		if (!entry) {
+			void window.vetta.plugins.respondAgentTool(request.requestId, {
+				error: `Plugin tool handler not found: ${request.pluginId}/${request.handlerId}`,
+			});
+			return;
+		}
+		void Promise.resolve(entry.handler(request.input, entry.api)).then(
+			(value) => window.vetta.plugins.respondAgentTool(request.requestId, { value }),
+			(error: unknown) =>
+				window.vetta.plugins.respondAgentTool(request.requestId, {
+					error: error instanceof Error ? error.message : String(error),
+				}),
+		);
+	});
+}
+
+export function registerPluginAgentToolHandler(options: {
+	pluginId: string;
+	toolId: string;
+	handlerId: string;
+	handler: PluginAgentToolHandler;
+	api: PluginAgentToolApi;
+}): Disposable {
+	const key = handlerKey(options.pluginId, options.handlerId);
+	agentToolHandlers.set(key, { handler: options.handler, api: options.api });
+	return {
+		dispose: () => {
+			const entry = agentToolHandlers.get(key);
+			if (entry?.handler === options.handler) {
+				agentToolHandlers.delete(key);
+			}
+		},
+	};
+}
+
 // ─── Conversation actions ───
 
 /** Set by useSessionManager so sendPrompt reuses the full send path. */
@@ -199,6 +254,7 @@ let installed = false;
 /** Inject the bridge into the shared plugin-sdk and start the event translator. */
 export function installPluginHostBridge(): void {
 	startTranslator();
+	startToolRequestListener();
 	if (installed) return;
 	installed = true;
 	__setPluginHostBridge(pluginHostBridge);

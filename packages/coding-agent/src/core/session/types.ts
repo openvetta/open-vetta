@@ -22,7 +22,7 @@ import type { ModelRegistry } from "../model-registry.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SessionManager } from "../session-manager.js";
 import type { SettingsManager } from "../settings-manager.js";
-import type { AgentPluginRuntimeConfig } from "../system-prompt.js";
+import type { AgentPluginRuntimeConfig, AgentPluginToolInvoker } from "../system-prompt.js";
 import type { TodoItem } from "../todo-store.js";
 import type { AskUserQuestionCapability } from "../tools/index.js";
 
@@ -103,6 +103,8 @@ export interface AgentSessionConfig {
 	enableBackgroundTasks?: boolean;
 	/** Runtime plugin contributions applied while building agent prompts/resources. */
 	agentPlugins?: AgentPluginRuntimeConfig;
+	/** Host bridge used by plugin-contributed tools. */
+	invokePluginTool?: AgentPluginToolInvoker;
 }
 
 export interface ExtensionBindings {

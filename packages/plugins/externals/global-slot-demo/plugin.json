@@ -10,7 +10,16 @@
 		"expose": "./plugin"
 	},
 	"styles": ["dist/style.css"],
-	"permissions": ["ui.slot.global", "agent.systemPrompt.write", "agent.skills.control", "agent.tools.control"],
+	"permissions": [
+		"ui.slot.global",
+		"agent.systemPrompt.write",
+		"agent.skills.control",
+		"agent.tools.control",
+		"agent.tools.register",
+		"agent.toolHandler.execute",
+		"fs.read",
+		"fs.write"
+	],
 	"agent": {
 		"systemPrompt": {
 			"promptPaths": ["agent/prompts/fiction-system.md"]

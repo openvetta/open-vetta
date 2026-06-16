@@ -6,6 +6,7 @@ import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
 import { ipcMain, type WebContents } from "electron";
 import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-prompt.js";
 import type {
+	AgentPluginToolInvocation,
 	PromptRequest,
 	RuntimeSandboxGrantDecision,
 	RuntimeSandboxGrantRequest,
@@ -181,6 +182,8 @@ const CHANNELS = {
 	VIEWER_SUBSCRIBE: "vetta:session:viewer-subscribe",
 	VIEWER_UNSUBSCRIBE: "vetta:session:viewer-unsubscribe",
 	VIEWER_EVENT: "vetta:session:viewer-event",
+	PLUGIN_TOOL_REQUEST: "vetta:plugins:agent-tool-request",
+	PLUGIN_TOOL_RESPONSE: "vetta:plugins:agent-tool-response",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -257,6 +260,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const confirmationMap = new Map<string, (confirmed: boolean) => void>();
 	const questionMap = new Map<string, (result: RuntimeUserQuestionResult) => void>();
 	const sandboxGrantMap = new Map<string, (decision: RuntimeSandboxGrantDecision) => void>();
+	const pluginToolMap = new Map<string, (result: unknown) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
 	/** Track debug request sequence per session */
@@ -395,6 +399,35 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			sandboxGrantMap.set(request.requestId, finish);
 			webContents.send(CHANNELS.SANDBOX_GRANT_REQUEST, request);
+		});
+	});
+
+	runtime.setPluginToolInvoker((request: AgentPluginToolInvocation, signal?: AbortSignal) => {
+		if (webContents.isDestroyed()) {
+			return Promise.reject(new Error("Plugin host renderer is unavailable"));
+		}
+		return new Promise<unknown>((resolve, reject) => {
+			const requestId = randomUUID();
+			const finish = (result: unknown): void => {
+				pluginToolMap.delete(requestId);
+				if (signal) signal.removeEventListener("abort", onAbort);
+				if (typeof result === "object" && result !== null && "error" in result) {
+					reject(new Error(String((result as { error?: unknown }).error ?? "Plugin tool failed")));
+					return;
+				}
+				resolve((result as { value?: unknown })?.value);
+			};
+			const onAbort = (): void => {
+				pluginToolMap.delete(requestId);
+				reject(new Error("Plugin tool invocation was aborted"));
+			};
+			if (signal?.aborted) {
+				reject(new Error("Plugin tool invocation was aborted"));
+				return;
+			}
+			if (signal) signal.addEventListener("abort", onAbort, { once: true });
+			pluginToolMap.set(requestId, finish);
+			webContents.send(CHANNELS.PLUGIN_TOOL_REQUEST, { ...request, requestId });
 		});
 	});
 
@@ -771,6 +804,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		resolve(value);
 	});
 
+	ipcMain.handle(CHANNELS.PLUGIN_TOOL_RESPONSE, (_event, requestId: unknown, result: unknown) => {
+		assertNonEmptyString(requestId, "requestId");
+		const resolve = pluginToolMap.get(requestId);
+		if (!resolve) return;
+		resolve(result);
+	});
+
 	ipcMain.handle(CHANNELS.SANDBOX_GRANTS_LIST, (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.listSandboxGrants(sessionId);
@@ -888,6 +928,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve("deny");
 		}
 		sandboxGrantMap.clear();
+		for (const resolve of pluginToolMap.values()) {
+			resolve({ error: "Plugin host renderer is unavailable" });
+		}
+		pluginToolMap.clear();
 	};
 	webContents.on("render-process-gone", onRenderGone);
 
@@ -977,9 +1021,14 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve("deny");
 		}
 		sandboxGrantMap.clear();
+		for (const resolve of pluginToolMap.values()) {
+			resolve({ error: "Plugin host renderer disposed" });
+		}
+		pluginToolMap.clear();
 		runtime.setUserConfirmationHandler(undefined);
 		runtime.setUserQuestionHandler(undefined);
 		runtime.setUserSandboxGrantHandler(undefined);
+		runtime.setPluginToolInvoker(undefined);
 		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
 		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts
 		// 的 before-quit 负责（见 disposeSharedRuntime）。

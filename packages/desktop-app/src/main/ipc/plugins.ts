@@ -1,14 +1,17 @@
 import { ipcMain } from "electron";
 import type { PluginInstallOptions, PluginPermission } from "../../preload/api-types/plugins.js";
 import {
+	clearDynamicAgentTools,
 	grantPluginPermissions,
 	installPluginFromArchive,
 	installPluginFromUrl,
 	listPlugins,
+	registerDynamicAgentTool,
 	reloadPlugin,
 	revokePluginPermissions,
 	setPluginEnabled,
 	uninstallPlugin,
+	unregisterDynamicAgentTool,
 } from "../plugins/plugin-store.js";
 
 function asArchiveBuffer(value: unknown): ArrayBuffer | Buffer {
@@ -42,6 +45,48 @@ function asPermissions(value: unknown): PluginPermission[] {
 	return value as PluginPermission[];
 }
 
+function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new Error(`Invalid ${fieldName}`);
+	}
+	return value as Record<string, unknown>;
+}
+
+function asOptionalString(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function asAgentToolRegistration(value: unknown): {
+	id: string;
+	name: string;
+	label?: string;
+	description: string;
+	parameters: Record<string, unknown>;
+	handlerId: string;
+	timeoutMs?: number;
+} {
+	const input = asRecord(value, "agent tool registration");
+	const id = asPluginId(input.id);
+	const name = asPluginId(input.name ?? id);
+	const description = asOptionalString(input.description);
+	const handlerId = asPluginId(input.handlerId);
+	if (!description) throw new Error("Invalid agent tool description");
+	const parameters = asRecord(input.parameters, "agent tool parameters");
+	const timeoutMs =
+		typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
+			? Math.min(Math.floor(input.timeoutMs), 120_000)
+			: undefined;
+	return {
+		id,
+		name,
+		label: asOptionalString(input.label),
+		description,
+		parameters,
+		handlerId,
+		timeoutMs,
+	};
+}
+
 export function registerPluginsIpc(): () => void {
 	ipcMain.handle("vetta:plugins:list", () => listPlugins());
 	ipcMain.handle("vetta:plugins:install-from-archive", (_event, archiveBuffer: unknown, options: unknown) =>
@@ -66,6 +111,15 @@ export function registerPluginsIpc(): () => void {
 		revokePluginPermissions(asPluginId(id), asPermissions(permissions)),
 	);
 	ipcMain.handle("vetta:plugins:reload", (_event, id: unknown) => reloadPlugin(asPluginId(id)));
+	ipcMain.handle("vetta:plugins:agent-tool-register", (_event, pluginId: unknown, registration: unknown) => {
+		registerDynamicAgentTool(asPluginId(pluginId), asAgentToolRegistration(registration));
+	});
+	ipcMain.handle("vetta:plugins:agent-tool-unregister", (_event, pluginId: unknown, toolId: unknown) => {
+		unregisterDynamicAgentTool(asPluginId(pluginId), asPluginId(toolId));
+	});
+	ipcMain.handle("vetta:plugins:agent-tools-clear", (_event, pluginId: unknown) => {
+		clearDynamicAgentTools(asPluginId(pluginId));
+	});
 
 	return () => {
 		ipcMain.removeHandler("vetta:plugins:list");
@@ -76,5 +130,8 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:grant-permissions");
 		ipcMain.removeHandler("vetta:plugins:revoke-permissions");
 		ipcMain.removeHandler("vetta:plugins:reload");
+		ipcMain.removeHandler("vetta:plugins:agent-tool-register");
+		ipcMain.removeHandler("vetta:plugins:agent-tool-unregister");
+		ipcMain.removeHandler("vetta:plugins:agent-tools-clear");
 	};
 }

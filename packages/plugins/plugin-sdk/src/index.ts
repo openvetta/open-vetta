@@ -13,6 +13,11 @@ export type PluginPermission =
 	| "agent.systemPrompt.fullControl"
 	| "agent.skills.control"
 	| "agent.tools.control"
+	| "agent.tools.register"
+	| "agent.toolHandler.execute"
+	| "agent.state.read"
+	| "agent.state.write"
+	| "agent.followUp.write"
 	| "agent.runtime.configure"
 	| "fs.read"
 	| "fs.write"
@@ -151,6 +156,73 @@ export interface PluginConversationApi {
 	on(listener: (event: ConversationEvent) => void): Disposable;
 }
 
+// ─── Agent runtime ───
+
+export type PluginJsonSchema = object;
+
+export interface PluginAgentToolApi {
+	fs: PluginFsApi;
+	conversation: PluginConversationApi;
+}
+
+export type PluginAgentToolHandler<TInput = unknown> = (
+	input: TInput,
+	api: PluginAgentToolApi,
+) => unknown | Promise<unknown>;
+
+export interface PluginAgentToolRegistration<TInput = unknown> {
+	id: string;
+	name?: string;
+	label?: string;
+	description: string;
+	parameters: PluginJsonSchema;
+	timeoutMs?: number;
+	handler: PluginAgentToolHandler<TInput>;
+}
+
+export interface PluginAgentApi {
+	registerTool<TInput = unknown>(registration: PluginAgentToolRegistration<TInput>): Disposable;
+}
+
+// ─── Files ───
+
+export interface PluginFsEntry {
+	name: string;
+	path: string;
+	isDirectory: boolean;
+	size: number;
+	modifiedAt: number;
+}
+
+export interface PluginFsFileRef {
+	name: string;
+	path: string;
+	relPath: string;
+}
+
+export interface PluginFsStatResult {
+	size: number;
+	modifiedAt: number;
+	createdAt: number;
+}
+
+export interface PluginFsReadResult {
+	content: string;
+	encoding: "utf8" | "base64";
+}
+
+export interface PluginFsApi {
+	readDir(dirPath: string): Promise<PluginFsEntry[]>;
+	readFile(filePath: string): Promise<PluginFsReadResult>;
+	writeFile(filePath: string, content: string): Promise<void>;
+	stat(filePath: string): Promise<PluginFsStatResult | null>;
+	rename(oldPath: string, newPath: string): Promise<void>;
+	delete(targetPath: string): Promise<void>;
+	move(sourcePath: string, destDir: string): Promise<void>;
+	createDirectory(dirPath: string): Promise<void>;
+	listFilesRecursive(rootPath: string): Promise<PluginFsFileRef[]>;
+}
+
 // ─── Context & definition ───
 
 export interface PluginPermissionApi {
@@ -166,6 +238,8 @@ export interface PluginContext {
 	permissions: PluginPermissionApi;
 	ui: PluginUiApi;
 	conversation: PluginConversationApi;
+	agent: PluginAgentApi;
+	fs: PluginFsApi;
 }
 
 export interface PluginDefinition {

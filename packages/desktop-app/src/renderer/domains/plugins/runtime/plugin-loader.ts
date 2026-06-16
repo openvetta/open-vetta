@@ -7,6 +7,7 @@ import type {
 	PluginConversationApi,
 	PluginDefinition,
 	PluginFilePreviewContribution,
+	PluginFsApi,
 	PluginGlobalSlotContribution,
 	PluginPermission,
 } from "@vetta/plugin-sdk";
@@ -15,7 +16,7 @@ import type { ComponentType } from "react";
 import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as ReactDom from "react-dom";
-import { pluginHostBridge } from "./plugin-host-bridge";
+import { pluginHostBridge, registerPluginAgentToolHandler } from "./plugin-host-bridge";
 
 export interface LoadedPlugin {
 	id: string;
@@ -150,6 +151,48 @@ function createConversationApi(plugin: InstalledPlugin): PluginConversationApi {
 	};
 }
 
+function createFsApi(plugin: InstalledPlugin): PluginFsApi {
+	const permissions = createPermissionApi(plugin);
+	return {
+		readDir: (dirPath) => {
+			permissions.require("fs.read");
+			return window.vetta.fs.readDir(dirPath);
+		},
+		readFile: (filePath) => {
+			permissions.require("fs.read");
+			return window.vetta.fs.readFile(filePath);
+		},
+		writeFile: (filePath, content) => {
+			permissions.require("fs.write");
+			return window.vetta.fs.writeFile(filePath, content);
+		},
+		stat: (filePath) => {
+			permissions.require("fs.read");
+			return window.vetta.fs.stat(filePath);
+		},
+		rename: (oldPath, newPath) => {
+			permissions.require("fs.write");
+			return window.vetta.fs.rename(oldPath, newPath);
+		},
+		delete: (targetPath) => {
+			permissions.require("fs.write");
+			return window.vetta.fs.delete(targetPath);
+		},
+		move: (sourcePath, destDir) => {
+			permissions.require("fs.write");
+			return window.vetta.fs.move(sourcePath, destDir);
+		},
+		createDirectory: (dirPath) => {
+			permissions.require("fs.write");
+			return window.vetta.fs.createDirectory(dirPath);
+		},
+		listFilesRecursive: (rootPath) => {
+			permissions.require("fs.read");
+			return window.vetta.fs.listFilesRecursive(rootPath);
+		},
+	};
+}
+
 function createContext(
 	plugin: InstalledPlugin,
 	slots: PluginGlobalSlotContribution[],
@@ -230,6 +273,8 @@ function createContext(
 			},
 		};
 	};
+	const fs = createFsApi(plugin);
+	const conversation = createConversationApi(plugin);
 	return {
 		plugin: {
 			id: plugin.id,
@@ -241,7 +286,53 @@ function createContext(
 			registerFilePreview,
 			registerActivityTab,
 		},
-		conversation: createConversationApi(plugin),
+		conversation,
+		fs,
+		agent: {
+			registerTool: (registration) => {
+				const permissions = createPermissionApi(plugin);
+				permissions.require("agent.tools.register");
+				permissions.require("agent.toolHandler.execute");
+				if (typeof registration.id !== "string" || registration.id.trim().length === 0) {
+					throw new Error("Agent tool id is required");
+				}
+				if (typeof registration.description !== "string" || registration.description.trim().length === 0) {
+					throw new Error("Agent tool description is required");
+				}
+				if (typeof registration.parameters !== "object" || registration.parameters === null) {
+					throw new Error("Agent tool parameters must be a JSON schema object");
+				}
+				const toolId = registration.id.trim();
+				const handlerId = `${toolId}:${crypto.randomUUID()}`;
+				const handlerHandle = registerPluginAgentToolHandler({
+					pluginId: plugin.id,
+					toolId,
+					handlerId,
+					handler: (input, api) => registration.handler(input as never, api),
+					api: { fs, conversation },
+				});
+				void window.vetta.plugins
+					.registerAgentTool(plugin.id, {
+						id: toolId,
+						name: registration.name?.trim() || toolId,
+						label: registration.label,
+						description: registration.description,
+						parameters: registration.parameters as Record<string, unknown>,
+						handlerId,
+						timeoutMs: registration.timeoutMs,
+					})
+					.catch((error: Error) => {
+						handlerHandle.dispose();
+						console.error(`Plugin ${plugin.id} failed to register agent tool ${toolId}`, error);
+					});
+				return {
+					dispose: () => {
+						handlerHandle.dispose();
+						void window.vetta.plugins.unregisterAgentTool(plugin.id, toolId);
+					},
+				};
+			},
+		},
 	};
 }
 
@@ -297,6 +388,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	const filePreviews: PluginFilePreviewContribution[] = [];
 	const activityTabs: PluginActivityTabContribution[] = [];
 	const styleHandle = loadPluginStyles(plugin);
+	await window.vetta.plugins.clearAgentTools(plugin.id);
 	await assertPluginEntryFetchable(plugin);
 	const module = await loadPluginModule(plugin);
 	const definition = normalizePluginDefinition(module);
@@ -311,6 +403,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		activityTabs,
 		dispose: async () => {
 			await definition.deactivate?.();
+			await window.vetta.plugins.clearAgentTools(plugin.id);
 			styleHandle.dispose();
 			slots.splice(0, slots.length);
 			filePreviews.splice(0, filePreviews.length);
