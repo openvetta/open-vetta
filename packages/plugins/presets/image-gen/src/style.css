@@ -1,4 +1,13 @@
-@import "tailwindcss/utilities.css";
+/* 导入 theme 层 + utilities 层（不要 preflight，避免 reset 污染宿主全局）。
+   只 @import utilities 会漏掉所有依赖 theme 变量的工具类（spacing/radius/blur：
+   h-7 / gap-1.5 / rounded-lg / right-1.5 / backdrop-blur-md …全部生成不出来）。
+   theme.css 抛的是 Tailwind 默认变量，与宿主默认一致；宿主的定制走 @theme inline
+   （内联进工具类、不读 :root），故不会被覆盖。 */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+/* 图标库：与宿主一致，用 iconify 的 `icon-[solar--*]` 工具类，不再手画 SVG。 */
+@plugin "@iconify/tailwind4";
 
 /* 生成中骨架：实色 blob 漂移缩放 + 旋转层，叠加重模糊呈现混沌涟漪流转感
    （对齐 desktop-app active 主题色卡的背景效果）。 */
@@ -40,20 +49,6 @@
 	will-change: transform;
 }
 
-/* 大图版本切换时的淡入淡出（配合 key 重挂载） */
-@keyframes imagegen-img-swap {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
-.imagegen-img-swap {
-	animation: imagegen-img-swap 0.32s ease both;
-}
-
 /* 骨架中心图标的呼吸 */
 @keyframes imagegen-pulse {
 	0%,
@@ -85,6 +80,15 @@
 
 .imagegen-fade-in {
 	animation: imagegen-fade-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 横向版本 swiper：隐藏滚动条，靠左右箭头/滚动翻看 */
+.imagegen-swiper {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+.imagegen-swiper::-webkit-scrollbar {
+	display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

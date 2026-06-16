@@ -492,13 +492,23 @@ _Avoid_: 把音频也塞进 readFile base64 路径——无损音频可达百 MB
 
 ### 图像生成插件（Image Generation Plugin）
 
-桌面端插件，提供三处 UI：AI 输入栏的[[图像模式]]开关、每条消息下的图像预览、活动面板的图像编辑选项卡。图像的**实际生成**由 coding-agent 的**内置 tool**（`generate_image` / `edit_image`，薄包装）完成，tool 内部转调[[主进程图像服务]]；插件只负责 UI 与交互，二者通过 tool-call / tool-result 事件对接。这是「内置 tool 出能力 + plugin 出界面」的刻意拆分。
+桌面端插件，提供两处 UI：AI 输入栏的[[图像模式]]开关、每条消息下的[[图像预览 swiper]]。图像的**实际生成与编辑**都由 coding-agent 的**内置 tool**（`generate_image` / `edit_image`，薄包装）完成，tool 内部转调[[主进程图像服务]]；插件只负责 UI 与交互，二者通过 tool-call / tool-result 事件对接。这是「内置 tool 出能力 + plugin 出界面」的刻意拆分。
+
+> 历史备注：曾有第三处 UI——活动面板「图像编辑」选项卡，编辑在面板内直调 IPC、不经 agent、不写会话历史（见 ADR-0028 原方案）。后废弃：编辑统一收敛到 AI 输入栏，改走 agent `edit_image` tool、成为正式[[生成轮次]]（见 ADR-0029）。
 
 > 历史备注：曾考虑用 coding-agent extension 注册该 tool，但 desktop-app 当前不加载 extension（`ExtensionUIContext` 全 no-op、扫描目录未启用），建整套 extension 加载子系统比内置 tool 的 6+ 注册点更重，故改为内置 tool。
 
 ### 图像模式（Image Mode）
 
-AI 输入栏下方一个可开关的输入动作（input action）。开启后用户发出的**下一轮** prompt 触发图像生成而非普通对话回答，再次点击关闭。是一个**每轮意图标记**，不是持久设置：插件通过输入插槽的 prompt 装饰器给本轮 `PromptRequest` 注入 metadata（如 `imageMode`），agent 据此先优化 prompt 再调 image tool（并非硬拦截发送）。
+权限选择器右侧一个可开关的输入动作（input action）chip。开启后用户发出的 prompt 进入**图像轮次**而非普通对话，再次点击关闭。是一个**意图标记**：插件通过输入插槽的 prompt 装饰器给 `PromptRequest` 注入 `imageMode`。开启且**无**[[图像编辑 attach]] 时，agent 自感知——按 prompt 语义自行决定调 `generate_image`（全新主题）还是 `edit_image`（在最近一张图基础上改）。
+
+### 图像编辑 attach（Image Edit Attach）
+
+[[图像预览 swiper]] 里点某张图右上角「编辑」icon 后进入的状态：该图浓边框高亮，AI 输入栏顶部胶囊区（与文件 / skill 同排）出现一枚「编辑选中图片」缩略图胶囊。语义是**强制把该图作为本轮 `edit_image` 的 source**——发送时注入 `metadata.editImageId`（**只传 id 引用，图像字节不进 LLM 上下文**，承袭 ADR-0028），agent 无生成/编辑选择权。是**一次性**：编辑轮次发出后自动释放（回到[[图像模式]]自感知）。关闭胶囊亦可手动取消。与[[图像模式]] toggle 相互独立、各占一处 UI。
+
+### 图像预览 swiper（Image Preview Swiper）
+
+每条产出图像的消息下方、横向一直向右排列的版本条（超出屏幕可左右箭头翻页）。展示该图所属[[编辑谱系]]的全部版本；**同一谱系只在最新一条消息下渲染**，旧消息的卡自隐，避免多条消息重复堆叠同一 swiper。编辑/生成进行中时，最前面插入一张「正在生成」骨架卡并把 swiper 滚到最前。
 
 ### 文生图 / 图改图（Text-to-Image / Image-to-Image）
 
@@ -510,7 +520,7 @@ AI 输入栏下方一个可开关的输入动作（input action）。开启后�
 
 ### 编辑谱系（Edit Lineage）
 
-一张基准图像 + 它后续所有[[图改图]]编辑版本（v1 → v2 → v3 …）构成的链。活动面板里「该轮历史图像」指**某张被点击图像的编辑谱系**，而非整个会话的图库，也不是一次生成的并列候选。
+一张基准图像 + 它后续所有[[图改图]]编辑版本（v1 → v2 → v3 …）构成的链，按 `createdAt` 线性追加、同 `rootId` 归组。编辑是**追加**而非替换：在 v2 上编辑产出 v5（谱系变 v1..v5），v2 保留。谱系在[[图像预览 swiper]] 里平铺呈现，而非整个会话的图库，也不是一次生成的并列候选。
 
 > 「轮」在口语里被同时用于[[生成轮次]]和[[编辑谱系]]。本文档刻意区分二者，后续讨论与代码命名以这两个术语为准。
 

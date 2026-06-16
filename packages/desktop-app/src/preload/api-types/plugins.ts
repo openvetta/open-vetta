@@ -170,12 +170,16 @@ export interface DesktopPluginsApi {
 	editImage(pluginId: string, input: PluginEditImageInput): Promise<PluginImageResult[]>;
 	/** The edit lineage (base image + its edits, oldest first) for an image. */
 	imageLineage(pluginId: string, imageId: string): Promise<PluginImageResult[]>;
+	/** Every edit lineage this session touched, newest first; each lineage oldest→newest. */
+	sessionLineages(pluginId: string, sessionId: string): Promise<PluginImageResult[][]>;
 }
 
 export interface PluginImageResult {
 	id: string;
 	url: string;
 	mimeType: string;
+	/** Edit-lineage root id (base image + all its edits share one rootId). */
+	rootId: string;
 }
 
 export interface PluginGenerateImageInput {
@@ -188,5 +192,7 @@ export interface PluginGenerateImageInput {
 export interface PluginEditImageInput {
 	prompt: string;
 	source: { imageId: string } | { data: string; mimeType: string };
+	/** Output size (e.g. "1024x1024"); defaults to the service default when omitted. */
+	size?: string;
 	sessionId?: string;
 }

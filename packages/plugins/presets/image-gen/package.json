@@ -1,6 +1,6 @@
 {
 	"name": "@vetta/plugin-image-gen",
-	"version": "0.1.0",
+	"version": "0.1.7",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -8,6 +8,8 @@
 		"check": "bunx tsc --noEmit"
 	},
 	"devDependencies": {
+		"@iconify-json/solar": "^1.2.5",
+		"@iconify/tailwind4": "^1.0.6",
 		"@tailwindcss/vite": "^4.1.12",
 		"@types/node": "^22.10.5",
 		"@types/react": "^19.1.1",

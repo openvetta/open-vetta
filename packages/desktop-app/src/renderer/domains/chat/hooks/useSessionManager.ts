@@ -12,6 +12,7 @@ import {
 	chatMessagesAtom,
 	contextUsageAtom,
 	defaultConversationCwdAtom,
+	editImageAttachmentAtom,
 	inlineFilePreviewAtom,
 	inputValueAtom,
 	isCompactingAtom,
@@ -20,6 +21,7 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
+	pendingEditImageIdAtom,
 	pluginInputActionsAtom,
 	promptPredictingAtom,
 	promptSuggestionsAtom,
@@ -331,7 +333,21 @@ export function useSessionManager(): SessionManagerResult {
 					setChatMessages((prev) =>
 						prev.map((message) =>
 							message.id === adoptedId
-								? { ...message, startedAt, timestamp: message.timestamp ?? startedAt }
+								? {
+										...message,
+										startedAt,
+										timestamp: message.timestamp ?? startedAt,
+										// History rebuild (messageToBlocks) defaults tool_call status to
+										// "success". For the still-streaming turn, calls without a result
+										// are actually in-flight — restore "pending" so in-progress UI (e.g.
+										// the image-gen 处理中 skeleton) survives a session switch instead of
+										// vanishing while the tool keeps running in the background.
+										blocks: message.blocks?.map((b) =>
+											b.type === "tool_call" && b.result === undefined
+												? { ...b, status: "pending" as const }
+												: b,
+										),
+									}
 								: message,
 						),
 					);
@@ -842,6 +858,15 @@ export function useSessionManager(): SessionManagerResult {
 						promptReq.metadata = { ...promptReq.metadata, ...decoration.metadata };
 					}
 				}
+			}
+			// Image edit attachment (image-gen preview card → ui.setEditImageAttachment):
+			// inject the source image id so this turn edits that exact image, mark the
+			// in-flight turn for the preview swiper, then clear the attachment (one-shot).
+			const editAttachment = pluginStore.get(editImageAttachmentAtom);
+			pluginStore.set(pendingEditImageIdAtom, editAttachment?.id ?? null);
+			if (editAttachment) {
+				promptReq.metadata = { ...promptReq.metadata, editImageId: editAttachment.id };
+				pluginStore.set(editImageAttachmentAtom, null);
 			}
 			try {
 				await window.vetta.session.prompt(session.runtimeId, promptReq);

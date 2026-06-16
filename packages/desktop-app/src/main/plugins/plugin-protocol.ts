@@ -32,6 +32,10 @@ function moduleResponse(source: string): Response {
 		headers: {
 			"content-type": "text/javascript; charset=utf-8",
 			"access-control-allow-origin": "*",
+			// Never cache: the host shim / plugin assets are served from fixed URLs
+			// (e.g. remoteEntry.js?v=<version>), so a cached copy would pin stale code
+			// across rebuilds/restarts even though the on-disk bundle changed.
+			"cache-control": "no-store",
 		},
 	});
 }
@@ -101,6 +105,7 @@ const sdk = globalThis.__VETTA_PLUGIN_HOST__.pluginSdk;
 export const definePlugin = sdk.definePlugin;
 export const useActiveConversation = sdk.useActiveConversation;
 export const useConversationMessages = sdk.useConversationMessages;
+export const useEditImageAttachment = sdk.useEditImageAttachment;
 export const useActivityTab = sdk.useActivityTab;
 export const __ActivityTabContext = sdk.__ActivityTabContext;
 export const __setPluginHostBridge = sdk.__setPluginHostBridge;
@@ -146,6 +151,9 @@ export function registerPluginProtocols(): void {
 			headers: {
 				"content-type": contentTypeForPath(filePath),
 				"access-control-allow-origin": "*",
+				// Never cache plugin assets — remoteEntry.js has a fixed name, so a
+				// cached copy would pin stale code across rebuilds/restarts.
+				"cache-control": "no-store",
 			},
 		});
 	});

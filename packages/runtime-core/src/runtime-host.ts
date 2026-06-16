@@ -10,6 +10,7 @@ import {
 	type CreateAgentSessionOptions,
 	type CustomEntry,
 	createAgentSession,
+	createEditImageTool,
 	createGenerateImageTool,
 	type ExtensionUIContext,
 	type FileEntry,
@@ -151,9 +152,10 @@ export interface RuntimeHostOptions {
 	 */
 	modelRegistry?: ModelRegistry;
 	/**
-	 * 宿主图像后端。注入后，每个 session 会拿到一个 generate_image 内置工具
-	 * （customTools），agent 在图像模式轮次调用它生成图像。coding-agent 不依赖
-	 * 宿主实现，desktop 把它接到主进程图像服务。
+	 * 宿主图像后端。注入后，每个 session 会拿到 generate_image / edit_image 两个
+	 * 内置工具（customTools）：图像模式轮次 agent 自感知调 generate_image（文生图）
+	 * 或 edit_image（图改图）。coding-agent 不依赖宿主实现，desktop 把它接到主进程
+	 * 图像服务。
 	 */
 	imageBackend?: ImageToolBackend;
 }
@@ -368,9 +370,7 @@ export class RuntimeHost implements SessionFacade {
 		const effectiveCwd = config.cwd ?? process.cwd();
 		const sessionIdRef: { current?: string } = {};
 		const baseCustomTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
-		const customTools = this.imageBackend
-			? [...(baseCustomTools ?? []), createGenerateImageTool(this.imageBackend) as unknown as ToolDefinition]
-			: baseCustomTools;
+		const customTools = this.withImageTools(baseCustomTools);
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
@@ -512,7 +512,7 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		const cwd = handle.session.sessionManager.getCwd() ?? process.cwd();
-		const customTools = this.resolveExecutionModeTools(mode, cwd, () => sessionId);
+		const customTools = this.withImageTools(this.resolveExecutionModeTools(mode, cwd, () => sessionId));
 		sessionAny.reconfigureCustomTools(customTools);
 		handle.executionMode = mode;
 	}
@@ -1179,6 +1179,22 @@ export class RuntimeHost implements SessionFacade {
 				true,
 			);
 		}
+	}
+
+	/**
+	 * Append the host image tools (generate_image / edit_image) onto a base
+	 * custom-tool list. MUST be used by every path that (re)builds a session's
+	 * customTools — both createSession and setExecutionMode — because
+	 * reconfigureCustomTools replaces (not merges) the tool list, so a mode
+	 * switch would otherwise permanently drop the image tools mid-session.
+	 */
+	private withImageTools(base: CreateAgentSessionOptions["customTools"]): CreateAgentSessionOptions["customTools"] {
+		if (!this.imageBackend) return base;
+		return [
+			...(base ?? []),
+			createGenerateImageTool(this.imageBackend) as unknown as ToolDefinition,
+			createEditImageTool(this.imageBackend) as unknown as ToolDefinition,
+		];
 	}
 
 	private resolveExecutionModeTools(

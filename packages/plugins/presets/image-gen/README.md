@@ -4,9 +4,9 @@
 
 ## 能力
 
-- **输入栏「图像生成」开关**：开启后，下一条提示词会触发图像生成（给本轮 `PromptRequest.metadata` 注入 `imageMode`，agent 优化 prompt 后调用内置 `generate_image` 工具）。
-- **消息下方预览卡**：streaming 结束后，在生成图像的那条消息下渲染预览，带「编辑」「导出」。
-- **活动面板「图像生成」选项卡**：点预览卡「编辑」后打开，可对图像做图改图（image-to-image），并查看该图的编辑谱系（历史版本）。
+- **输入栏「图像生成」开关**：开启后，本轮提示词进入图像模式（给 `PromptRequest.metadata` 注入 `imageMode`）。无显式编辑目标时，agent **自感知**——按 prompt 语义自行决定调用内置 `generate_image`（全新画面）还是 `edit_image`（在最近一张图上修改）。
+- **消息下方版本 swiper**：在生成图像的那条消息下横向排列该图编辑谱系的全部版本（超出可左右翻看），每张 hover 出「编辑」「导出」。同一谱系只在最新一条消息下渲染，生成中时最前面插入「生成中」骨架卡。
+- **图改图统一从输入栏触发**：点某张图的「编辑」icon → 该图作为编辑目标 attach 到输入栏顶部胶囊（`ui.setEditImageAttachment`），发送时注入 `metadata.editImageId`，agent 强制调用 `edit_image` 以该图为 source。一次性，发送后释放。
 
 ## 配置（插件设置）
 
@@ -30,4 +30,4 @@
 
 ## 架构
 
-实际的 `/v1/images` 调用与落盘由 desktop 主进程图像服务完成（读本插件设置），插件只负责 UI。详见仓库 `docs/adr/0028`。插件 id 必须为 `image-gen`（与 agent 图像后端绑定一致）。
+实际的 `/v1/images` 调用与落盘由 desktop 主进程图像服务完成（读本插件设置），插件只负责 UI。生成与编辑都走 coding-agent 内置 tool（`generate_image` / `edit_image`）→ 主进程服务，成为正式会话轮次。详见仓库 `docs/adr/0028`、`docs/adr/0029`。插件 id 必须为 `image-gen`（与 agent 图像后端绑定一致）。
