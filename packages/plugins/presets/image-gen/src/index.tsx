@@ -6,7 +6,7 @@ import {
 	useActiveConversation,
 	useEditImageAttachment,
 } from "@vetta/plugin-sdk";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "./style.css";
 
 // ─── Plugin-internal shared state ───
@@ -301,8 +301,14 @@ function ImageSwiper({
 		scrollRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
 	};
 
+	// 左右箭头绝对定位压在首/末图边缘、略探入两侧 gutter（图片行与正文左右对齐），仅 hover 时淡入。
+	const [hover, setHover] = useState(false);
 	return (
-		<div className="relative">
+		<div
+			className="relative"
+			onPointerEnter={() => setHover(true)}
+			onPointerLeave={() => setHover(false)}
+		>
 			<div ref={scrollRef} className="imagegen-swiper flex gap-2 overflow-x-auto scroll-smooth">
 				{leadingSkeleton && <GenerationSkeleton className={`aspect-square ${SWIPER_ITEM}`} />}
 				{ordered.map((ref) => (
@@ -317,22 +323,26 @@ function ImageSwiper({
 			</div>
 			{overflow && (
 				<>
-					<ArrowButton dir="left" onClick={() => scrollBy(-1)} />
-					<ArrowButton dir="right" onClick={() => scrollBy(1)} />
+					<ArrowButton dir="left" visible={hover} onClick={() => scrollBy(-1)} />
+					<ArrowButton dir="right" visible={hover} onClick={() => scrollBy(1)} />
 				</>
 			)}
 		</div>
 	);
 }
 
-function ArrowButton({ dir, onClick }: { dir: "left" | "right"; onClick: () => void }) {
+function ArrowButton({ dir, visible, onClick }: { dir: "left" | "right"; visible: boolean; onClick: () => void }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			title={dir === "left" ? "上一张" : "下一张"}
-			className={`absolute top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-white/90 backdrop-blur-md transition-colors hover:text-white ${dir === "left" ? "left-1" : "right-1"}`}
-			style={{ background: "color-mix(in srgb, black 48%, transparent)" }}
+			className={`absolute top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-white/90 backdrop-blur-md transition-all hover:text-white ${dir === "left" ? "left-0" : "right-0"}`}
+			style={{
+				background: "color-mix(in srgb, black 48%, transparent)",
+				opacity: visible ? 1 : 0,
+				pointerEvents: visible ? "auto" : "none",
+			}}
 		>
 			<IconChevron dir={dir} className="h-4 w-4" />
 		</button>
@@ -401,6 +411,192 @@ function sessionIdFromPath(sessionPath: string | null): string | undefined {
 	return sessionPath?.match(UUID_RE)?.[0];
 }
 
+// ─── Stacked group + expandable grid (生图历史 内的紧凑展示) ───
+
+const STACK_VISIBLE = 4; // 最多铺 4 张，超出第 5 个位置显示「+n」
+const ITEM_MAX = 96; // 单个 item 的最大宽度（px）；超过即增列
+const GRID_GAP = 8; // item 间距（px）
+const MIN_COLS = 4; // 每行最少 4 个 item 宽度
+
+/**
+ * 测量容器宽度，算出「列数 + 单 item 宽度」。规则：列数至少 MIN_COLS，
+ * 容器变宽到 item 会超过 ITEM_MAX 时再加列。堆叠/网格共用同一 item 宽度，视觉一致。
+ */
+function useGridMetrics(): { ref: React.RefObject<HTMLDivElement | null>; cols: number; item: number } {
+	const ref = useRef<HTMLDivElement>(null);
+	const [m, setM] = useState({ cols: MIN_COLS, item: ITEM_MAX });
+	useEffect(() => {
+		const el = ref.current;
+		if (!el) return;
+		const compute = (): void => {
+			const w = el.clientWidth;
+			if (!w) return;
+			const cols = Math.max(MIN_COLS, Math.floor((w + GRID_GAP) / (ITEM_MAX + GRID_GAP)));
+			const item = (w - GRID_GAP * (cols - 1)) / cols;
+			setM((prev) => (prev.cols === cols && Math.abs(prev.item - item) < 0.5 ? prev : { cols, item }));
+		};
+		compute();
+		const ro = new ResizeObserver(compute);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, []);
+	return { ref, ...m };
+}
+
+/** 堆叠中的一张缩略图：方形（尺寸由容器算出）、点击预览，命中编辑目标时高亮描边。 */
+function StackThumb({
+	imageRef,
+	size,
+	overlap,
+	offset,
+	attached,
+}: {
+	imageRef: PluginImageRef;
+	size: number;
+	overlap: number;
+	offset: number;
+	attached: boolean;
+}) {
+	return (
+		<button
+			type="button"
+			title="预览"
+			onClick={() => pluginCtx?.ui.previewImage(imageRef)}
+			className="imagegen-fade-in relative shrink-0 cursor-zoom-in overflow-hidden rounded-lg border transition-transform hover:-translate-y-0.5"
+			style={{
+				height: size,
+				width: size,
+				marginLeft: offset > 0 ? -overlap : 0,
+				zIndex: 10 - offset,
+				borderColor: attached ? "var(--primary)" : subtleBorder,
+				boxShadow: attached
+					? "0 0 0 2px color-mix(in srgb, var(--primary) 32%, transparent)"
+					: "0 1px 4px color-mix(in srgb, black 22%, transparent)",
+				background: "var(--background)",
+			}}
+		>
+			<img src={imageRef.url} alt="生成的图像" className="h-full w-full object-cover" />
+		</button>
+	);
+}
+
+/** 「+n」磁贴：以下一张图为底、压暗叠加，点击把整组展开成网格。 */
+function PlusTile({
+	imageRef,
+	n,
+	size,
+	overlap,
+	onClick,
+}: {
+	imageRef: PluginImageRef;
+	n: number;
+	size: number;
+	overlap: number;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			title="展开全部"
+			onClick={onClick}
+			className="imagegen-fade-in relative shrink-0 overflow-hidden rounded-lg border transition-transform hover:-translate-y-0.5"
+			style={{
+				height: size,
+				width: size,
+				marginLeft: -overlap,
+				zIndex: 1,
+				borderColor: subtleBorder,
+				boxShadow: "0 1px 4px color-mix(in srgb, black 22%, transparent)",
+				background: "var(--background)",
+			}}
+		>
+			<img src={imageRef.url} alt="" className="h-full w-full object-cover" />
+			<span
+				className="absolute inset-0 flex items-center justify-center text-[13px] font-semibold text-white backdrop-blur-[1px]"
+				style={{ background: "color-mix(in srgb, black 52%, transparent)" }}
+			>
+				+{n}
+			</span>
+		</button>
+	);
+}
+
+/** 展开后的网格单元：方形、宽度跟随网格列（1fr），点击预览，命中编辑目标时高亮描边。 */
+function GridItem({ imageRef, attached }: { imageRef: PluginImageRef; attached: boolean }) {
+	return (
+		<button
+			type="button"
+			title="预览"
+			onClick={() => pluginCtx?.ui.previewImage(imageRef)}
+			className={`imagegen-fade-in relative aspect-square cursor-zoom-in overflow-hidden rounded-lg ${attached ? "border-2" : "border"}`}
+			style={{
+				borderColor: attached ? "var(--primary)" : subtleBorder,
+				boxShadow: attached ? "0 0 0 2px color-mix(in srgb, var(--primary) 28%, transparent)" : undefined,
+				background: "var(--background)",
+			}}
+		>
+			<img src={imageRef.url} alt="生成的图像" className="h-full w-full object-cover" />
+		</button>
+	);
+}
+
+/**
+ * 历史里的一组（一条 lineage）：默认堆叠展示（newest first，最多 4 张 + 「+n」），
+ * 点击「+n」或标题右侧的张数把整组展开成响应式网格，可再收起。item 宽度随容器走
+ * （封顶 ITEM_MAX，至少 MIN_COLS 列），堆叠与网格共用同一宽度。
+ */
+function StackedGroup({
+	versions,
+	label,
+	attachedId,
+}: {
+	versions: PluginImageRef[];
+	label: string;
+	attachedId: string | null;
+}) {
+	const [expanded, setExpanded] = useState(false);
+	const ordered = useMemo(() => [...versions].reverse(), [versions]); // newest first
+	const hasMore = ordered.length > STACK_VISIBLE;
+	const visible = hasMore ? ordered.slice(0, STACK_VISIBLE) : ordered;
+	const extra = ordered.length - STACK_VISIBLE;
+	const { ref, cols, item } = useGridMetrics();
+	const overlap = hasMore ? Math.round(item * 0.34) : 0;
+
+	return (
+		<div ref={ref} className="flex flex-col gap-1.5">
+			<div className="flex items-center justify-between px-0.5">
+				<span className="text-[11px] font-medium" style={{ color: "var(--muted-foreground)" }}>
+					{label}
+				</span>
+				<button
+					type="button"
+					onClick={() => setExpanded((e) => !e)}
+					className="text-[11px] transition-colors hover:text-foreground"
+					style={{ color: "var(--muted-foreground)" }}
+				>
+					{expanded ? "收起" : `${ordered.length} 张`}
+				</button>
+			</div>
+			{expanded ? (
+				<div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: GRID_GAP }}>
+					{ordered.map((ref) => (
+						<GridItem key={ref.id} imageRef={ref} attached={ref.id === attachedId} />
+					))}
+				</div>
+			) : (
+				<div className="flex items-center pt-0.5" style={{ gap: hasMore ? 0 : GRID_GAP }}>
+					{visible.map((ref, i) => (
+						<StackThumb key={ref.id} imageRef={ref} size={item} overlap={overlap} offset={i} attached={ref.id === attachedId} />
+					))}
+					{hasMore && (
+						<PlusTile imageRef={ordered[STACK_VISIBLE]!} n={extra} size={item} overlap={overlap} onClick={() => setExpanded(true)} />
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 function GenHistoryPanel() {
 	const { sessionPath, isStreaming } = useActiveConversation();
 	const sessionId = useMemo(() => sessionIdFromPath(sessionPath), [sessionPath]);
@@ -435,10 +631,6 @@ function GenHistoryPanel() {
 		wasStreaming.current = isStreaming;
 	}, [isStreaming, refetch]);
 
-	const onEdit = (ref: PluginImageRef): void => {
-		pluginCtx?.ui.setEditImageAttachment(ref.id === attachedId ? null : ref);
-	};
-
 	return (
 		<div className="flex h-full flex-col overflow-hidden">
 			<div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: subtleBorder }}>
@@ -469,20 +661,98 @@ function GenHistoryPanel() {
 			) : (
 				<div className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
 					{lineages.map((versions, i) => (
-						<div key={versions[0]?.id ?? i} className="flex flex-col gap-1.5">
-							<div className="flex items-center justify-between px-0.5">
-								<span className="text-[11px] font-medium" style={{ color: "var(--muted-foreground)" }}>
-									图片组 {lineages.length - i}
-								</span>
-								<span className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-									{versions.length} 张
-								</span>
-							</div>
-							<ImageSwiper versions={versions} leadingSkeleton={false} attachedId={attachedId} onEdit={onEdit} />
-						</div>
+						<StackedGroup
+							key={versions[0]?.id ?? i}
+							versions={versions}
+							label={`图片组 ${lineages.length - i}`}
+							attachedId={attachedId}
+						/>
 					))}
 				</div>
 			)}
+		</div>
+	);
+}
+
+// ─── Settings guard: 「图像生成」开关在缺配置时弹窗引导去设置 ───
+// 配置检测、弹窗 UI 全在插件内；主系统只提供 ui.openPluginSettings 跳转能力。
+
+let guardOpen = false;
+const guardListeners = new Set<() => void>();
+function setGuardOpen(open: boolean): void {
+	if (guardOpen === open) return;
+	guardOpen = open;
+	for (const listener of guardListeners) listener();
+}
+function useGuardOpen(): boolean {
+	return useSyncExternalStore(
+		(cb) => {
+			guardListeners.add(cb);
+			return () => guardListeners.delete(cb);
+		},
+		() => guardOpen,
+	);
+}
+
+/** True when the active provider is missing its required API key (+ custom 的 baseUrl/model)。 */
+function imageGenUnconfigured(): boolean {
+	const s = pluginCtx?.settings;
+	if (!s) return true;
+	const has = (key: string): boolean => {
+		const v = s.get<string>(key);
+		return typeof v === "string" && v.trim().length > 0;
+	};
+	const provider = s.get<string>("provider") ?? "openai";
+	if (provider === "agnes-ai") return !has("agnesApiKey");
+	if (provider === "custom") return !has("customApiKey") || !has("baseUrl") || !has("model");
+	return !has("openaiApiKey"); // openai（默认）；模型 enum 自带默认值，无需校验
+}
+
+/** App-level dialog (mounted via a global slot) shown when 图像生成 缺配置。 */
+function SettingsGuardDialog(): ReactNode {
+	const open = useGuardOpen();
+	if (!open) return null;
+	const close = (): void => setGuardOpen(false);
+	return (
+		<div
+			className="imagegen-fade-in fixed inset-0 z-[9999] flex items-center justify-center p-6"
+			style={{ background: "color-mix(in srgb, black 50%, transparent)" }}
+			onClick={close}
+		>
+			<div
+				className="w-[340px] rounded-2xl border p-5 shadow-2xl"
+				style={{ borderColor: subtleBorder, background: "var(--background)" }}
+				onClick={(e) => e.stopPropagation()}
+			>
+				<div className="mb-2.5 flex items-center gap-2">
+					<span className="icon-[solar--settings-bold] h-5 w-5" style={{ color: "var(--primary)" }} />
+					<span className="text-[14px] font-semibold text-foreground">图像生成尚未配置</span>
+				</div>
+				<p className="mb-4 text-[13px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+					还没有填写图像服务的 API Key / 模型。请前往设置完成配置后再开启「图像生成」。
+				</p>
+				<div className="flex justify-end gap-2">
+					<button
+						type="button"
+						onClick={close}
+						className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity hover:opacity-80"
+						style={{ color: "var(--muted-foreground)", background: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+					>
+						取消
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							close();
+							pluginCtx?.ui.openPluginSettings();
+						}}
+						className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity hover:opacity-90"
+						style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+					>
+						前往设置
+					</button>
+				</div>
+			</div>
 		</div>
 	);
 }
@@ -498,8 +768,17 @@ export default definePlugin({
 			id: "image-mode",
 			label: "图像生成",
 			icon: <IconImage className="h-3.5 w-3.5" />,
+			// 手动开启图像生成时若缺配置：弹窗引导去设置，并返回 false 否决本次激活
+			// （toggle 不会被点亮，避免「未配置却显示已开启」）。
+			onToggle: (active) => {
+				if (active && imageGenUnconfigured()) {
+					setGuardOpen(true);
+					return false;
+				}
+			},
 			decoratePrompt: () => ({ metadata: { imageMode: true } }),
 		});
+		ctx.ui.registerGlobalSlot({ id: "settings-guard", component: SettingsGuardDialog });
 		ctx.ui.registerMessageSlot({ id: "preview", component: ImagePreviewCard });
 		ctx.ui.registerActivityTab({
 			id: "history",
