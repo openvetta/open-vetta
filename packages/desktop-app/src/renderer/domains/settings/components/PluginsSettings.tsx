@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { InstalledPlugin, PluginSettingSchema } from "@preload/api";
 import { Input } from "@shared/components/ui/input";
 import { Switch } from "@shared/components/ui/switch";
@@ -9,13 +9,18 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@shared/components/ui/select";
+import { cn } from "@shared/lib/utils";
+import { openExternalLink } from "@shared/lib/open-external-link";
+import type { SettingsSectionRegistration } from "../registry";
+import { SettingRow, SettingSection } from "./shared";
 
 type ValuesByPlugin = Record<string, Record<string, unknown>>;
 
 /**
  * Renders a settings form for every installed plugin that declares
- * `contributes.settings`. Fields are generated from the schema (VSCode-style);
- * values persist via window.vetta.plugins.setSettings, namespaced by plugin id.
+ * `contributes.settings`. Each plugin gets its own SettingSection; fields are
+ * generated from the schema (VSCode-style) and rendered as standard SettingRows.
+ * Values persist via window.vetta.plugins.setSettings, namespaced by plugin id.
  */
 export function PluginsSettings(): JSX.Element {
 	const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
@@ -48,37 +53,96 @@ export function PluginsSettings(): JSX.Element {
 		void window.vetta.plugins.setSettings(pluginId, { [key]: value });
 	};
 
-	if (plugins.length === 0) {
-		return (
-			<div className="p-6 text-sm text-muted-foreground">暂无可配置的插件。安装声明了设置项的插件后会显示在这里。</div>
-		);
-	}
-
 	return (
-		<div className="flex flex-col gap-8 p-6">
-			{plugins.map((plugin) => (
-				<section key={plugin.id} className="flex flex-col gap-4">
-					<header className="flex flex-col gap-0.5">
-						<h3 className="text-sm font-medium text-foreground">{plugin.name}</h3>
-						{plugin.description && <p className="text-xs text-muted-foreground">{plugin.description}</p>}
-					</header>
-					<div className="flex flex-col gap-4">
-						{(plugin.settingsSchema ?? []).map((setting) => (
-							<SettingField
-								key={setting.key}
-								setting={setting}
-								value={values[plugin.id]?.[setting.key]}
-								onChange={(value) => update(plugin.id, setting.key, value)}
-							/>
-						))}
-					</div>
-				</section>
-			))}
+		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">插件设置</h1>
+
+			{plugins.length === 0 ? (
+				<div className="rounded-xl border border-border bg-muted px-5 py-4 text-[12px] text-muted-foreground">
+					暂无可配置的插件。安装声明了设置项的插件后会显示在这里。
+				</div>
+			) : (
+				plugins.map((plugin) => {
+					const pluginValues = values[plugin.id] ?? {};
+					const visible = (plugin.settingsSchema ?? []).filter((setting) =>
+						isSettingVisible(setting, pluginValues),
+					);
+					const section: SettingsSectionRegistration = {
+						id: `plugin-${plugin.id}`,
+						tab: "plugins",
+						title: plugin.name,
+					};
+					return (
+						<SettingSection key={plugin.id} section={section} description={plugin.description}>
+							{visible.map((setting, index) => {
+								const border = index < visible.length - 1;
+								if (setting.type === "desc") {
+									return <DescRow key={setting.key} setting={setting} border={border} />;
+								}
+								return (
+									<SettingRow
+										key={setting.key}
+										title={setting.title ?? ""}
+										description={setting.description}
+										border={border}
+									>
+										<SettingControl
+											setting={setting}
+											value={pluginValues[setting.key]}
+											onChange={(value) => update(plugin.id, setting.key, value)}
+										/>
+									</SettingRow>
+								);
+							})}
+						</SettingSection>
+					);
+				})
+			)}
 		</div>
 	);
 }
 
-function SettingField({
+// Split text into plain segments and http(s) URLs so URLs can render as links.
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+
+/** Render a `desc` item: read-only note text with any URLs as clickable external links. */
+function DescRow({ setting, border }: { setting: PluginSettingSchema; border: boolean }): JSX.Element {
+	const text = setting.description ?? "";
+	const parts = text.split(URL_PATTERN);
+	return (
+		<div className={cn("px-5 py-4", border && "border-b border-border")}>
+			{setting.title && <div className="mb-0.5 text-[13px] font-medium text-foreground">{setting.title}</div>}
+			<div className="text-[12px] leading-relaxed text-muted-foreground">
+				{parts.map((part, index) =>
+					/^https?:\/\//.test(part) ? (
+						<a
+							// biome-ignore lint/suspicious/noArrayIndexKey: split segments are positional and stable
+							key={index}
+							href={part}
+							onClick={(event) => openExternalLink(event, part)}
+							className="text-primary underline underline-offset-2 hover:opacity-80"
+						>
+							{part}
+						</a>
+					) : (
+						// biome-ignore lint/suspicious/noArrayIndexKey: split segments are positional and stable
+						<span key={index}>{part}</span>
+					),
+				)}
+			</div>
+		</div>
+	);
+}
+
+/** A field is hidden when its `visibleWhen` condition does not match the current values. */
+function isSettingVisible(setting: PluginSettingSchema, values: Record<string, unknown>): boolean {
+	const condition = setting.visibleWhen;
+	if (!condition) return true;
+	const current = values[condition.key];
+	return typeof current === "string" && condition.in.includes(current);
+}
+
+function SettingControl({
 	setting,
 	value,
 	onChange,
@@ -87,24 +151,6 @@ function SettingField({
 	value: unknown;
 	onChange: (value: unknown) => void;
 }): JSX.Element {
-	const control = useMemo(() => renderControl(setting, value, onChange), [setting, value, onChange]);
-	const inline = setting.type === "boolean";
-	return (
-		<div className={inline ? "flex items-center justify-between gap-4" : "flex flex-col gap-1.5"}>
-			<div className="flex flex-col gap-0.5">
-				<label className="text-sm text-foreground">{setting.title}</label>
-				{setting.description && <span className="text-xs text-muted-foreground">{setting.description}</span>}
-			</div>
-			{control}
-		</div>
-	);
-}
-
-function renderControl(
-	setting: PluginSettingSchema,
-	value: unknown,
-	onChange: (value: unknown) => void,
-): JSX.Element {
 	switch (setting.type) {
 		case "boolean":
 			return <Switch checked={value === true} onCheckedChange={(checked) => onChange(checked)} />;
@@ -112,6 +158,7 @@ function renderControl(
 			return (
 				<Input
 					type="number"
+					className="h-8 w-[200px] text-[12px] @max-xl:w-full"
 					value={value === undefined || value === null ? "" : String(value)}
 					onChange={(event) => {
 						const raw = event.target.value;
@@ -124,6 +171,7 @@ function renderControl(
 				<Input
 					type="password"
 					autoComplete="off"
+					className="h-8 w-[240px] text-[12px] @max-xl:w-full"
 					value={typeof value === "string" ? value : ""}
 					onChange={(event) => onChange(event.target.value)}
 				/>
@@ -131,12 +179,12 @@ function renderControl(
 		case "enum":
 			return (
 				<Select value={typeof value === "string" ? value : ""} onValueChange={(next) => onChange(next)}>
-					<SelectTrigger className="w-full">
+					<SelectTrigger size="sm" className="h-8 min-w-[160px] text-[12px] @max-xl:w-full">
 						<SelectValue placeholder="请选择" />
 					</SelectTrigger>
 					<SelectContent>
 						{(setting.enum ?? []).map((option) => (
-							<SelectItem key={option} value={option}>
+							<SelectItem key={option} value={option} className="text-[12px]">
 								{option}
 							</SelectItem>
 						))}
@@ -147,6 +195,7 @@ function renderControl(
 			return (
 				<Input
 					type="text"
+					className="h-8 w-[240px] text-[12px] @max-xl:w-full"
 					value={typeof value === "string" ? value : ""}
 					onChange={(event) => onChange(event.target.value)}
 				/>

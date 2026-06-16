@@ -232,6 +232,8 @@ export interface PluginPermissionApi {
 
 export interface PluginGenerateImageInput {
 	prompt: string;
+	/** Output size (e.g. "1024x1024"), decided by the agent and forwarded to the model. */
+	size?: string;
 	/** Optional reference id for grouping (e.g. the conversation/session). */
 	sessionId?: string;
 }

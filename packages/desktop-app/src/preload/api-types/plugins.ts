@@ -22,12 +22,24 @@ export type PluginPermission =
  */
 export interface PluginSettingSchema {
 	key: string;
-	type: "string" | "number" | "boolean" | "enum" | "secret";
-	title: string;
+	/**
+	 * `desc` is a read-only informational item: it stores no value and renders
+	 * its `description` as a note (URLs become clickable external links). Useful
+	 * with `visibleWhen` to show provider-specific guidance.
+	 */
+	type: "string" | "number" | "boolean" | "enum" | "secret" | "desc";
+	/** Required for input types; optional for `desc` (which is text-only). */
+	title?: string;
 	description?: string;
 	default?: string | number | boolean;
 	/** Allowed values when type is "enum". */
 	enum?: string[];
+	/**
+	 * Conditional visibility: only render this field when the setting named
+	 * `key` currently holds one of the values in `in`. Lets a plugin show
+	 * different fields per selected provider/mode.
+	 */
+	visibleWhen?: { key: string; in: string[] };
 }
 
 export interface PluginManifest {
@@ -112,6 +124,8 @@ export interface PluginImageResult {
 
 export interface PluginGenerateImageInput {
 	prompt: string;
+	/** Output size (e.g. "1024x1024"), decided by the agent and forwarded to the model. */
+	size?: string;
 	sessionId?: string;
 }
 
