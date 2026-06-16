@@ -2,10 +2,12 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, normalize, resolve } from "node:path";
+import type { AgentPluginRuntimeConfig, SystemPromptBlock } from "@vetta/runtime-core";
 import AdmZip from "adm-zip";
 import { app } from "electron";
 import type {
 	InstalledPlugin,
+	PluginAgentManifest,
 	PluginInstallOptions,
 	PluginManifest,
 	PluginPermission,
@@ -164,6 +166,7 @@ function parseManifest(raw: unknown): PluginManifest {
 	}
 	const moduleFederation =
 		runtime === "module-federation" ? parseModuleFederationManifest(input.moduleFederation) : undefined;
+	const agent = parseAgentManifest(input.agent);
 	const styles = assertStringArray(input.styles, "styles").map((style) => validateRelativePath(style, "styles"));
 	const permissions = assertPermissionArray(input.permissions);
 	const settings = parseSettingsSchema(input.contributes);
@@ -175,6 +178,7 @@ function parseManifest(raw: unknown): PluginManifest {
 		entry,
 		runtime: runtime ?? "esm",
 		moduleFederation,
+		agent,
 		styles,
 		permissions,
 		contributes: settings ? { settings } : undefined,
@@ -199,6 +203,51 @@ function parseModuleFederationManifest(raw: unknown): PluginManifest["moduleFede
 	return {
 		remoteName,
 		expose,
+	};
+}
+
+function parseToolPolicy(raw: unknown): PluginAgentManifest["toolPolicy"] {
+	if (raw === undefined) return undefined;
+	if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+		throw new Error("Invalid plugin agent.toolPolicy");
+	}
+	const input = raw as Record<string, unknown>;
+	return {
+		allow: assertStringArray(input.allow, "agent.toolPolicy.allow"),
+		deny: assertStringArray(input.deny, "agent.toolPolicy.deny"),
+	};
+}
+
+function parseAgentManifest(raw: unknown): PluginAgentManifest | undefined {
+	if (raw === undefined) return undefined;
+	if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+		throw new Error("Invalid plugin agent");
+	}
+	const input = raw as Record<string, unknown>;
+	const systemPrompt =
+		input.systemPrompt === undefined
+			? undefined
+			: (() => {
+					if (
+						input.systemPrompt == null ||
+						typeof input.systemPrompt !== "object" ||
+						Array.isArray(input.systemPrompt)
+					) {
+						throw new Error("Invalid plugin agent.systemPrompt");
+					}
+					const promptInput = input.systemPrompt as Record<string, unknown>;
+					return {
+						promptPaths: assertStringArray(promptInput.promptPaths, "agent.systemPrompt.promptPaths").map(
+							(path) => validateRelativePath(path, "agent.systemPrompt.promptPaths"),
+						),
+					};
+				})();
+	return {
+		systemPrompt,
+		skillPaths: assertStringArray(input.skillPaths, "agent.skillPaths").map((path) =>
+			validateRelativePath(path, "agent.skillPaths"),
+		),
+		toolPolicy: parseToolPolicy(input.toolPolicy),
 	};
 }
 
@@ -248,6 +297,7 @@ function installedFromManifest(
 		runtime: previous?.runtime ?? manifest.runtime ?? "esm",
 		entryUrl,
 		moduleFederation: previous?.moduleFederation ?? manifest.moduleFederation,
+		agent: previous?.agent ?? manifest.agent,
 		styleUrls,
 		permissions: manifest.permissions ?? [],
 		grantedPermissions,
@@ -333,6 +383,78 @@ function toSystemPluginUrl(pluginId: string, relativePath: string, version: stri
 	return `vetta-plugin://${pluginId}/${normalized}?v=${encodeURIComponent(version)}`;
 }
 
+function hasGrantedPermission(plugin: InstalledPlugin, permission: PluginPermission): boolean {
+	return plugin.permissions.includes(permission) && plugin.grantedPermissions.includes(permission);
+}
+
+function pluginResourceRelativePath(plugin: InstalledPlugin, relativePath: string): string {
+	return plugin.source === "system" ? relativePath : versionedPath(plugin.activeVersion, relativePath);
+}
+
+function resolveInstalledPluginResource(plugin: InstalledPlugin, relativePath: string): string {
+	return resolvePluginFilePath(plugin.id, pluginResourceRelativePath(plugin, relativePath));
+}
+
+function readPromptBlock(plugin: InstalledPlugin, relativePath: string, index: number): SystemPromptBlock {
+	const content = readFileSync(resolveInstalledPluginResource(plugin, relativePath), "utf-8");
+	return {
+		id: `plugin.${plugin.id}.systemPrompt.${index + 1}`,
+		type: "plugin",
+		source: { kind: "plugin", pluginId: plugin.id },
+		content,
+		priority: 850,
+		enabled: content.trim().length > 0,
+	};
+}
+
+export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | undefined {
+	const enabledPlugins = listPlugins().filter((plugin) => plugin.enabled && plugin.agent);
+	const systemPromptContributions: NonNullable<AgentPluginRuntimeConfig["systemPromptContributions"]> = [];
+	const skillPathContributions: NonNullable<AgentPluginRuntimeConfig["skillPathContributions"]> = [];
+	const toolPolicyContributions: NonNullable<AgentPluginRuntimeConfig["toolPolicyContributions"]> = [];
+
+	for (const plugin of enabledPlugins) {
+		try {
+			const agent = plugin.agent;
+			if (!agent) continue;
+			if (
+				agent.systemPrompt?.promptPaths &&
+				(hasGrantedPermission(plugin, "agent.systemPrompt.write") ||
+					hasGrantedPermission(plugin, "agent.systemPrompt.fullControl"))
+			) {
+				systemPromptContributions.push({
+					pluginId: plugin.id,
+					operations: agent.systemPrompt.promptPaths.map((path, index) => ({
+						type: "addBlock",
+						block: readPromptBlock(plugin, path, index),
+					})),
+				});
+			}
+			if (agent.skillPaths && hasGrantedPermission(plugin, "agent.skills.control")) {
+				skillPathContributions.push({
+					pluginId: plugin.id,
+					paths: agent.skillPaths.map((path) => resolveInstalledPluginResource(plugin, path)),
+				});
+			}
+			if (agent.toolPolicy && hasGrantedPermission(plugin, "agent.tools.control")) {
+				toolPolicyContributions.push({
+					pluginId: plugin.id,
+					allow: agent.toolPolicy.allow,
+					deny: agent.toolPolicy.deny,
+				});
+			}
+		} catch (error) {
+			console.warn(`[plugins] Skipping agent contribution for ${plugin.id}:`, error);
+		}
+	}
+
+	const config: AgentPluginRuntimeConfig = {};
+	if (systemPromptContributions.length > 0) config.systemPromptContributions = systemPromptContributions;
+	if (skillPathContributions.length > 0) config.skillPathContributions = skillPathContributions;
+	if (toolPolicyContributions.length > 0) config.toolPolicyContributions = toolPolicyContributions;
+	return Object.keys(config).length > 0 ? config : undefined;
+}
+
 function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean): InstalledPlugin {
 	const now = new Date().toISOString();
 	return {
@@ -344,6 +466,7 @@ function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean)
 		runtime: manifest.runtime ?? "esm",
 		entryUrl: toSystemPluginUrl(manifest.id, manifest.entry, manifest.version),
 		moduleFederation: manifest.moduleFederation,
+		agent: manifest.agent,
 		styleUrls: (manifest.styles ?? []).map((style) => toSystemPluginUrl(manifest.id, style, manifest.version)),
 		permissions: manifest.permissions ?? [],
 		// 系统插件随包发的可信代码：声明权限全部自动授予，用户不可撤（ADR-0024）。
@@ -569,6 +692,7 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.runtime = manifest.runtime ?? "esm";
 	plugin.entryUrl = toPluginUrl(plugin.id, plugin.activeVersion, manifest.entry);
 	plugin.moduleFederation = manifest.moduleFederation;
+	plugin.agent = manifest.agent;
 	plugin.styleUrls = (manifest.styles ?? []).map((style) => toPluginUrl(plugin.id, plugin.activeVersion, style));
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);

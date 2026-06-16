@@ -229,6 +229,7 @@ export class AgentSession {
 			enableMcp: config.enableMcp !== undefined ? config.enableMcp : true,
 			mcpDebug: config.mcpDebug || false,
 			askUserQuestion: config.askUserQuestion,
+			agentPlugins: config.agentPlugins,
 		});
 
 		this._input = new InputPipeline(this._ctx, {

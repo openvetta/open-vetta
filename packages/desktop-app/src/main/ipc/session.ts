@@ -19,6 +19,7 @@ import type {
 } from "../../../../runtime-core/src/index.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { notify } from "../notifications/index.js";
+import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import {
@@ -438,13 +439,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					? `${config.appendSystemPrompt}\n\n${VETTA_CLI_GUIDANCE}`
 					: VETTA_CLI_GUIDANCE
 				: config?.appendSystemPrompt;
+		const agentPlugins = isConversation ? buildAgentPluginRuntimeConfig() : undefined;
 		const needPatch =
 			effectiveCwd !== config?.cwd ||
 			injectedSessionDir !== config?.sessionDir ||
 			appendSystemPrompt !== config?.appendSystemPrompt ||
 			askUserQuestion !== config?.askUserQuestion ||
 			enableBackgroundTasks !== config?.enableBackgroundTasks ||
-			includeAgentSkills !== config?.includeAgentSkills;
+			includeAgentSkills !== config?.includeAgentSkills ||
+			agentPlugins !== config?.agentPlugins;
 		const effectiveConfig: SessionConfig | undefined = needPatch
 			? {
 					...(config ?? {}),
@@ -454,6 +457,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					askUserQuestion,
 					enableBackgroundTasks,
 					includeAgentSkills,
+					agentPlugins,
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
