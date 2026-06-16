@@ -145,8 +145,12 @@ export interface PluginInputActionContribution {
 	icon?: ReactNode;
 	/** Whether the action begins in the active state. Defaults to false. */
 	defaultActive?: boolean;
-	/** Fired when the user toggles the action; `active` is the new state. */
-	onToggle?(active: boolean): void;
+	/**
+	 * Fired when the user toggles the action; `active` is the new state. Return
+	 * `false` when `active` is true to VETO the activation (e.g. the plugin needs
+	 * configuration first) — the toggle stays off. Deactivation can't be vetoed.
+	 */
+	onToggle?(active: boolean): boolean | void;
 	/**
 	 * Called by the host before sending while the action is active. The
 	 * returned metadata is merged into the outgoing prompt request.
@@ -236,6 +240,12 @@ export interface PluginUiApi {
 	 * Only the image reference (id/url) crosses over — bytes stay out-of-band.
 	 */
 	previewImage(ref: PluginImageRef): void;
+	/**
+	 * Open the app settings, scrolled to and highlighting THIS plugin's own
+	 * settings section (e.g. so the user can fill in a required API key/model).
+	 * The host owns the navigation; the plugin only asks to jump there.
+	 */
+	openPluginSettings(): void;
 }
 
 // ─── Conversation ───
