@@ -72,6 +72,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 	const currentPath = lastMatch?.pathname ?? "/";
 	const activeSession = useAtomValue(activeSessionAtom);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
+	const setDefaultConversationCwd = useSetAtom(defaultConversationCwdAtom);
 	const navItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 	const [navIndicatorBounds, setNavIndicatorBounds] = useState<NavIndicatorBounds | null>(null);
 
@@ -92,12 +93,24 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 		return defaultConversationCwd || "";
 	})();
 	const onNewChat = useCallback(() => {
-		if (!newChatCwd) return;
-		void navigate({
-			to: "/new-session/$cwd",
-			params: { cwd: encodeURIComponent(newChatCwd) },
-		});
-	}, [navigate, newChatCwd]);
+		void (async () => {
+			let targetCwd = newChatCwd;
+			if (!targetCwd) {
+				try {
+					const config = await window.vetta.config.get();
+					targetCwd = config.defaultConversationCwd ?? "";
+					if (targetCwd) setDefaultConversationCwd(targetCwd);
+				} catch (error) {
+					console.error("[Sidebar] failed to resolve default conversation cwd", error);
+				}
+			}
+			if (!targetCwd) return;
+			void navigate({
+				to: "/new-session/$cwd",
+				params: { cwd: encodeURIComponent(targetCwd) },
+			});
+		})();
+	}, [navigate, newChatCwd, setDefaultConversationCwd]);
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 	const widthRef = useRef(width);
 	widthRef.current = width;
@@ -255,7 +268,6 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 				)}
 				{NAV_ITEMS.map((item, index) => {
 					const active = item.type === "route" && currentPath === item.path;
-					const disabled = item.type === "new-session" && !newChatCwd;
 					return (
 						<button
 							key={item.type === "route" ? item.path : item.type}
@@ -264,20 +276,17 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 							}}
 							type="button"
 							onClick={() => {
-								if (disabled) return;
 								if (item.type === "new-session") {
 									onNewChat();
 									return;
 								}
 								void navigate({ to: item.path });
 							}}
-							aria-disabled={disabled}
-							tabIndex={disabled ? -1 : undefined}
 							title={item.type === "new-session" ? item.title : undefined}
 							className={`no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 								active
 									? "font-semibold text-foreground"
-									: `text-foreground ${disabled ? "cursor-not-allowed opacity-50" : "hover:bg-accent/50"}`
+									: "text-foreground hover:bg-accent/50"
 							}`}
 						>
 							<span className={`${item.icon} relative z-10 h-4 w-4 shrink-0`} />
