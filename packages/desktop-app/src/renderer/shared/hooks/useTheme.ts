@@ -10,7 +10,7 @@ import {
 	type ThemeTransitionOptions,
 	withThemeTransition,
 } from "../theme/apply";
-import { THEMES } from "../theme/themes";
+import { DEFAULT_THEME_ID, THEMES } from "../theme/themes";
 
 export function useTheme() {
 	const [mode, setModeAtom] = useAtom(themeModeAtom);
@@ -24,7 +24,7 @@ export function useTheme() {
 		const resolvedMode = root.getAttribute("data-mode");
 		return {
 			mode: storedMode === "light" || storedMode === "dark" || storedMode === "auto" ? storedMode : "dark",
-			themeId: storedThemeId && storedThemeId.length > 0 ? storedThemeId : "default",
+			themeId: storedThemeId && storedThemeId.length > 0 ? storedThemeId : DEFAULT_THEME_ID,
 			resolved: resolvedMode === "light" || resolvedMode === "dark" ? resolvedMode : null,
 			appliedThemeId: root.getAttribute("data-theme"),
 		};
@@ -50,7 +50,7 @@ export function useTheme() {
 				await window.vetta.theme.set(mode).catch(() => {});
 			}
 			const r: ResolvedMode = isDark ? "dark" : "light";
-			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? "default";
+			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID;
 			setResolved(r);
 			applyTheme(r, currentTheme);
 		}
@@ -63,7 +63,7 @@ export function useTheme() {
 			const current = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode | null) ?? "dark";
 			if (current !== "auto") return;
 			const r: ResolvedMode = info.shouldUseDarkColors ? "dark" : "light";
-			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? "default";
+			const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID;
 			setResolved(r);
 			applyTheme(r, currentTheme);
 		});
