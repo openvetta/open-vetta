@@ -15,7 +15,7 @@
 
 ### Added
 
-- 新增插件工具 shell 基座：`CreateAgentSessionOptions.agentPlugins.toolContributions` 可把宿主聚合的插件工具注册成 LLM 可见工具，执行时通过 `invokePluginTool` 回调委托给宿主，不直接加载插件 JS。
+- 新增插件工具 shell 基座：`CreateAgentSessionOptions.agentPlugins.toolContributions` 可把宿主聚合的插件工具注册成 LLM 可见工具，执行时通过 `invokePluginTool` 回调委托给宿主，不直接加载插件 JS。插件工具 description 现在也会进入系统提示词的 `Available tools`，避免工具实际注册但模型看不到说明。
 - **适配通用 Agent Skill 作用域（ADR-0020）**：`loadSkills` 新增发现通用 Agent Skill 目录 `~/.agents/skills`（`source="agents-user"`）与 `<cwd>/.agents/skills`（`source="agents-project"`），对齐跨 Agent 约定——**仅认子目录 `SKILL.md`**（不认根目录散装 `.md`），别的 Agent 写好的 skill 原样可用。这两处在所有 Vetta 原生来源（`user`/`project`/`scene`）之后加载，先加载者胜，故同名碰撞时 Vetta 专属 skill 胜出、通用 Agent Skill 仅作补充。新增 `LoadSkillsOptions.includeAgentSkills`、`DefaultResourceLoaderOptions.includeAgentSkills` 与 `CreateAgentSessionOptions.includeAgentSkills`（均**缺省 true**，CLI/独立调用默认开；宿主可置 false 关闭），并贯穿 runtime-core `SessionConfig.includeAgentSkills`。`refreshSkillsIfChanged` 的指纹纳入这两目录以支持热重载。两处目录一并加入 `isProtectedSkillOrScenePath` 写保护（只读、禁止 agent 新增/修改），与 Vetta 自家 skill 目录同等。
 - 新增 Langfuse tracing 启用路径：设置 `VETTA_TRACING=langfuse` 后，`createAgentSession` 自动创建 Langfuse exporter，并固定上传 agent/LLM/tool 明细及 prompt、completion、tool input/output 正文。宿主也可通过 `CreateAgentSessionOptions.tracer` 注入其它平台的 `RuntimeTracer`。
 - 新增 `VETTA_TRACING_TRACE_NAME` / `tracingTraceName` 填充 Langfuse Trace Name。

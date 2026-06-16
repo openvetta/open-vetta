@@ -56,6 +56,7 @@ import type {
 } from "./session/types.js";
 import type { BranchSummaryEntry, SessionManager } from "./session-manager.js";
 import type { SettingsManager } from "./settings-manager.js";
+import type { AgentPluginRuntimeConfig } from "./system-prompt.js";
 import { TODO_SNAPSHOT_TYPE, TodoStore } from "./todo-store.js";
 import type { BashOperations } from "./tools/bash/index.js";
 
@@ -413,6 +414,11 @@ export class AgentSession {
 	/** Reconfigure SDK custom tools and rebuild runtime. */
 	reconfigureCustomTools(customTools: ToolDefinition[] | undefined): void {
 		this._runtime.reconfigureCustomTools(customTools);
+	}
+
+	/** Reconfigure plugin-provided runtime resources and rebuild tools/system prompt. */
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
+		this._runtime.reconfigureAgentPlugins(agentPlugins);
 	}
 
 	/** Whether auto-compaction is currently running */

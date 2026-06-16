@@ -416,6 +416,8 @@ export interface SessionConfig {
 	 * desktop「适配通用 Agent Skill」开关关闭时置 false。
 	 */
 	includeAgentSkills?: boolean;
+	/** Whether this session should receive Desktop plugin agent contributions on live plugin changes. */
+	enableAgentPlugins?: boolean;
 	/** Runtime plugin contributions applied while building agent prompts/resources. */
 	agentPlugins?: AgentPluginRuntimeConfig;
 }
@@ -475,6 +477,7 @@ export interface SessionFacade {
 			| undefined,
 	): void;
 	setPluginToolInvoker(handler: AgentPluginToolInvoker | undefined): void;
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void;
 	listSandboxGrants(sessionId: string): RuntimeSandboxGrantInfo[];
 	revokeSandboxGrant(sessionId: string, grantId: string): boolean;
 	revokeAllSandboxGrants(sessionId: string): number;

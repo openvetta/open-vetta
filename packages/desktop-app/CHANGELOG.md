@@ -12,7 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
-- **插件 Agent 工具执行通道**：插件可在 JS 中通过 `ctx.agent.registerTool()` 注册 TypeBox/JSON-Schema 工具 schema 和 handler；主进程按插件启用状态与 `agent.tools.register` / `agent.toolHandler.execute` 权限把工具注入会话，coding-agent 仅看到 tool shell，实际执行经 IPC 回到 renderer 插件 handler。同步暴露受权限门控的 `ctx.fs` 文件 API（`fs.read` / `fs.write`），供插件 UI 与插件工具 handler 读写项目文件。
+- **插件 Agent 工具执行通道**：插件可在 JS 中通过 `ctx.agent.registerTool()` 注册 TypeBox/JSON-Schema 工具 schema 和 handler；主进程按插件启用状态与 `agent.tools.register` / `agent.toolHandler.execute` 权限把工具注入会话，coding-agent 仅看到 tool shell，实际执行经 IPC 回到 renderer 插件 handler。插件激活会等待工具 schema 注册完成，注册/注销/权限或启停变化会刷新空闲的对话 session；未授权的插件贡献注册会被独立跳过，避免一个缺失权限拖垮插件的其他已授权能力。同步暴露受权限门控的 `ctx.fs` 文件 API（`fs.read` / `fs.write`），供插件 UI 与插件工具 handler 读写项目文件。
 - **可信 UI 插件运行时**：新增桌面端插件系统基础设施，支持从本地 zip 或远程 zip 安装外部插件，读取 `plugin.json` 记录插件版本、`pluginApiVersion`、入口、样式和权限声明；主进程注册 `vetta-plugin://` 加载插件文件、`vetta-host://` 共享宿主 React / JSX runtime / plugin SDK，renderer 启动时加载已启用插件并渲染全局 slot。新增 `window.vetta.plugins` 管理 API（安装、卸载、启用、授权、撤权、手动 reload），插件更新只记录 pending 版本，不自动切换到新 UI。
 - **设置页插件管理**：新增「插件」设置页，支持选择本地 zip 或填写远程 zip URL 安装插件，查看已安装插件，管理启用状态、权限授权、重载和卸载；设置页操作后会通知 renderer 插件宿主即时重新加载已启用插件。
 - **插件 Module Federation 加载模式**：可信 UI 插件新增 `runtime: "module-federation"` manifest 格式，宿主通过 `@module-federation/enhanced/runtime` 动态注册 zip 插件 remote 并加载 expose，React / React DOM 由宿主作为 shared singleton 提供；原 `runtime: "esm"` 加载模式保留兼容。

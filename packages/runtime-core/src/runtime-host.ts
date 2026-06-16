@@ -18,6 +18,7 @@ import {
 	SessionManager,
 } from "@vetta/coding-agent";
 import type {
+	AgentPluginRuntimeConfig,
 	AgentPluginToolInvoker,
 	AssistantTurnTiming,
 	BackgroundTaskInfo,
@@ -52,6 +53,7 @@ import { buildSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
 interface SessionHandle {
 	session: AgentSession;
 	executionMode: SessionExecutionMode;
+	agentPluginsEnabled: boolean;
 }
 
 /**
@@ -227,6 +229,14 @@ export class RuntimeHost implements SessionFacade {
 		this.pluginToolInvoker = handler;
 	}
 
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
+		for (const handle of this.sessions.values()) {
+			if (!handle.agentPluginsEnabled) continue;
+			if (handle.session.isStreaming || handle.session.isBashRunning) continue;
+			handle.session.reconfigureAgentPlugins(agentPlugins);
+		}
+	}
+
 	listSandboxGrants(sessionId: string): RuntimeSandboxGrantInfo[] {
 		return listSessionGrants(sessionId).map((entry) => ({
 			id: entry.id,
@@ -324,6 +334,9 @@ export class RuntimeHost implements SessionFacade {
 				if (config.executionMode !== undefined && config.executionMode !== existing.handle.executionMode) {
 					await this.setExecutionMode(existing.sessionId, config.executionMode);
 				}
+				if (config.enableAgentPlugins === true) {
+					existing.handle.agentPluginsEnabled = true;
+				}
 				await existing.handle.session.bindExtensions({
 					uiContext: this.createExtensionUIContext({ current: existing.sessionId }),
 				});
@@ -394,7 +407,7 @@ export class RuntimeHost implements SessionFacade {
 		const sessionId = session.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
-		this.sessions.set(sessionId, { session, executionMode });
+		this.sessions.set(sessionId, { session, executionMode, agentPluginsEnabled: config.enableAgentPlugins === true });
 		this.attachInFlightBuffer(sessionId, session);
 
 		// Stale-while-revalidate：当前的远程 model 数据已就绪可用（来自启动预热

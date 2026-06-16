@@ -408,6 +408,14 @@ function buildGuidelines(tools: string[]): string {
 	return guidelinesList.map((guideline) => `- ${guideline}`).join("\n");
 }
 
+function buildToolDescriptions(agentPlugins: AgentPluginRuntimeConfig | undefined): Record<string, string> {
+	const descriptions = { ...toolDescriptions };
+	for (const tool of agentPlugins?.toolContributions ?? []) {
+		descriptions[tool.name] = tool.description;
+	}
+	return descriptions;
+}
+
 /** Build the structured prompt draft with tools, guidelines, and context. */
 export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): SystemPromptDraft {
 	const {
@@ -428,6 +436,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 	const contextFiles = providedContextFiles ?? [];
 	const skills = providedSkills ?? [];
 	const mcpTools = providedMcpTools ?? [];
+	const resolvedToolDescriptions = buildToolDescriptions(agentPlugins);
 	const blocks: SystemPromptBlock[] = [];
 
 	if (customPrompt) {
@@ -460,10 +469,10 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 	}
 
 	const tools = (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
-		(tool) => tool in toolDescriptions,
+		(tool) => tool in resolvedToolDescriptions,
 	);
 	const toolsList =
-		tools.length > 0 ? tools.map((tool) => `- ${tool}: ${toolDescriptions[tool]}`).join("\n") : "(none)";
+		tools.length > 0 ? tools.map((tool) => `- ${tool}: ${resolvedToolDescriptions[tool]}`).join("\n") : "(none)";
 	const mcpToolsSection = renderMcpToolsSection(mcpTools, false);
 	const hasInvokeSkill = tools.includes("invoke_skill");
 	const hasRead = tools.includes("read");
