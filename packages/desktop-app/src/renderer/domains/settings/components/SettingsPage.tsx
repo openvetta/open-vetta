@@ -15,6 +15,7 @@ import { ImBridgeSettings } from "./ImBridgeSettings";
 import { ModelsSettings } from "./ModelsSettings";
 import { McpSettings } from "./McpSettings";
 import { PermissionsSettings } from "./PermissionsSettings";
+import { PluginsSettings } from "./PluginsSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
@@ -36,6 +37,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	archive: ArchivedProjectsSettings,
 	team: TeamSettings,
 	context: AgentSettings,
+	plugins: PluginsSettings,
 };
 
 export function SettingsPage(): JSX.Element {

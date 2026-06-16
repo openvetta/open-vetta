@@ -11,6 +11,7 @@ import type {
 	PluginInstallOptions,
 	PluginManifest,
 	PluginPermission,
+	PluginSettingSchema,
 } from "../../preload/api-types/plugins.js";
 
 const PLUGIN_API_VERSION = "1.0.0";
@@ -75,6 +76,60 @@ function assertPermissionArray(value: unknown): PluginPermission[] {
 	return Array.from(new Set(value.map((item) => item.trim() as PluginPermission)));
 }
 
+const SETTING_TYPES = new Set(["string", "number", "boolean", "enum", "secret", "desc"]);
+
+function parseVisibleWhen(raw: unknown, key: string): PluginSettingSchema["visibleWhen"] {
+	if (raw === undefined) return undefined;
+	if (raw == null || typeof raw !== "object") {
+		throw new Error(`Invalid plugin setting visibleWhen for ${key}`);
+	}
+	const condition = raw as Record<string, unknown>;
+	return {
+		key: assertString(condition.key, "setting.visibleWhen.key"),
+		in: assertStringArray(condition.in, "setting.visibleWhen.in"),
+	};
+}
+
+function parseSettingsSchema(raw: unknown): PluginSettingSchema[] | undefined {
+	if (raw == null || typeof raw !== "object") return undefined;
+	const settings = (raw as Record<string, unknown>).settings;
+	if (settings === undefined) return undefined;
+	if (!Array.isArray(settings)) {
+		throw new Error("Invalid plugin contributes.settings");
+	}
+	const parsed = settings.map((item): PluginSettingSchema => {
+		if (item == null || typeof item !== "object") {
+			throw new Error("Invalid plugin setting entry");
+		}
+		const setting = item as Record<string, unknown>;
+		const key = assertString(setting.key, "setting.key");
+		if (typeof setting.type !== "string" || !SETTING_TYPES.has(setting.type)) {
+			throw new Error(`Invalid plugin setting type for ${key}`);
+		}
+		const def = setting.default;
+		if (def !== undefined && typeof def !== "string" && typeof def !== "number" && typeof def !== "boolean") {
+			throw new Error(`Invalid plugin setting default for ${key}`);
+		}
+		// `desc` is text-only: title is optional (the note lives in description).
+		const title =
+			setting.type === "desc"
+				? typeof setting.title === "string"
+					? setting.title
+					: undefined
+				: assertString(setting.title, "setting.title");
+		return {
+			key,
+			type: setting.type as PluginSettingSchema["type"],
+			title,
+			description: typeof setting.description === "string" ? setting.description : undefined,
+			default: def,
+			enum: setting.enum === undefined ? undefined : assertStringArray(setting.enum, "setting.enum"),
+			visibleWhen: parseVisibleWhen(setting.visibleWhen, key),
+		};
+	});
+	return parsed.length > 0 ? parsed : undefined;
+}
+
 function validatePluginId(id: string): void {
 	if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(id)) {
 		throw new Error("Plugin id must be 1-64 chars: lowercase letters, numbers, dot, underscore, or dash");
@@ -117,6 +172,7 @@ function parseManifest(raw: unknown): PluginManifest {
 	const agent = parseAgentManifest(input.agent);
 	const styles = assertStringArray(input.styles, "styles").map((style) => validateRelativePath(style, "styles"));
 	const permissions = assertPermissionArray(input.permissions);
+	const settings = parseSettingsSchema(input.contributes);
 	return {
 		id,
 		name: assertString(input.name, "name"),
@@ -128,6 +184,7 @@ function parseManifest(raw: unknown): PluginManifest {
 		agent,
 		styles,
 		permissions,
+		contributes: settings ? { settings } : undefined,
 		description: typeof input.description === "string" ? input.description : undefined,
 		author: typeof input.author === "string" ? input.author : undefined,
 	};
@@ -247,6 +304,7 @@ function installedFromManifest(
 		styleUrls,
 		permissions: manifest.permissions ?? [],
 		grantedPermissions,
+		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
 		enabled: previous?.enabled ?? false,
@@ -457,6 +515,7 @@ function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean)
 		permissions: manifest.permissions ?? [],
 		// 系统插件随包发的可信代码：声明权限全部自动授予，用户不可撤（ADR-0024）。
 		grantedPermissions: manifest.permissions ?? [],
+		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
 		enabled,
@@ -507,6 +566,52 @@ export function isSystemPluginId(id: string): boolean {
 
 export function getPluginsBaseDir(): string {
 	return pluginsBaseDir;
+}
+
+// =============================================================================
+// 插件设置（VSCode 式）—— 按 plugin id 命名空间存值，与声明 schema 分离。
+// =============================================================================
+
+const pluginSettingsPath = join(homedir(), ".vetta", "plugin-settings.json");
+type PluginSettingsStore = Record<string, Record<string, unknown>>;
+
+function readPluginSettingsStore(): PluginSettingsStore {
+	if (!existsSync(pluginSettingsPath)) return {};
+	try {
+		const parsed = JSON.parse(readFileSync(pluginSettingsPath, "utf-8")) as PluginSettingsStore;
+		return parsed && typeof parsed === "object" ? parsed : {};
+	} catch {
+		return {};
+	}
+}
+
+function writePluginSettingsStore(store: PluginSettingsStore): void {
+	ensureDir(dirname(pluginSettingsPath));
+	writeFileSync(pluginSettingsPath, JSON.stringify(store, null, 2), "utf-8");
+}
+
+/** Effective values: schema defaults merged with stored values (stored wins). */
+export function getPluginSettings(pluginId: string): Record<string, unknown> {
+	validatePluginId(pluginId);
+	const stored = readPluginSettingsStore()[pluginId] ?? {};
+	const schema = listPlugins().find((plugin) => plugin.id === pluginId)?.settingsSchema ?? [];
+	const defaults: Record<string, unknown> = {};
+	for (const setting of schema) {
+		if (setting.default !== undefined) defaults[setting.key] = setting.default;
+	}
+	return { ...defaults, ...stored };
+}
+
+/** Merge values over the stored namespace; returns the new effective values. */
+export function setPluginSettings(pluginId: string, values: Record<string, unknown>): Record<string, unknown> {
+	validatePluginId(pluginId);
+	if (values == null || typeof values !== "object" || Array.isArray(values)) {
+		throw new Error("Invalid plugin settings values");
+	}
+	const store = readPluginSettingsStore();
+	store[pluginId] = { ...(store[pluginId] ?? {}), ...values };
+	writePluginSettingsStore(store);
+	return getPluginSettings(pluginId);
 }
 
 export function listPlugins(): InstalledPlugin[] {

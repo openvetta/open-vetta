@@ -16,7 +16,7 @@ import { assertPathReadableForPreview } from "./ipc/fs.js";
  */
 export const MEDIA_PROTOCOL_SCHEME = "vetta-media";
 
-const AUDIO_MIME: Record<string, string> = {
+const MEDIA_MIME: Record<string, string> = {
 	mp3: "audio/mpeg",
 	wav: "audio/wav",
 	ogg: "audio/ogg",
@@ -25,6 +25,11 @@ const AUDIO_MIME: Record<string, string> = {
 	m4a: "audio/mp4",
 	aac: "audio/aac",
 	webm: "audio/webm",
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	webp: "image/webp",
+	gif: "image/gif",
 };
 
 /**
@@ -82,7 +87,7 @@ export function registerMediaProtocolHandler(): void {
 
 		const ext = extname(filePath).slice(1).toLowerCase();
 		const baseHeaders: Record<string, string> = {
-			"Content-Type": AUDIO_MIME[ext] ?? "application/octet-stream",
+			"Content-Type": MEDIA_MIME[ext] ?? "application/octet-stream",
 			"Accept-Ranges": "bytes",
 			"Access-Control-Allow-Origin": "*",
 		};
