@@ -142,16 +142,82 @@ function GhostButton({
 	);
 }
 
-/** Animated streaming-gradient skeleton with a pulsing center icon. */
+/** Icon-only action button, designed to overlay an image (translucent dark pill). */
+function IconButton({
+	icon,
+	title,
+	onClick,
+}: {
+	icon: ReactNode;
+	title: string;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			title={title}
+			onClick={onClick}
+			className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-lg text-white/90 backdrop-blur-md transition-colors hover:text-white"
+			style={{ background: "color-mix(in srgb, black 42%, transparent)" }}
+			onMouseEnter={(e) => {
+				e.currentTarget.style.background = "color-mix(in srgb, black 58%, transparent)";
+			}}
+			onMouseLeave={(e) => {
+				e.currentTarget.style.background = "color-mix(in srgb, black 42%, transparent)";
+			}}
+		>
+			<span className="h-3.5 w-3.5">{icon}</span>
+		</button>
+	);
+}
+
+// Solid color blobs that, once heavily blurred by the container, melt into a
+// chaotic flowing ripple — mirrors the desktop-app active theme card background.
+const SKELETON_BLOBS: { left: string; top: string; w: string; h: string; rotate: number; color: string }[] = [
+	{ left: "-15%", top: "-20%", w: "75%", h: "75%", rotate: -8, color: "var(--primary)" },
+	{ left: "55%", top: "-15%", w: "70%", h: "70%", rotate: 12, color: "var(--accent)" },
+	{ left: "-10%", top: "55%", w: "70%", h: "75%", rotate: 18, color: "var(--ring)" },
+	{ left: "45%", top: "50%", w: "75%", h: "70%", rotate: -14, color: "var(--chart-2)" },
+	{ left: "25%", top: "20%", w: "55%", h: "60%", rotate: 6, color: "var(--chart-4)" },
+];
+
+/** Flowing color-blob skeleton with a pulsing center icon. */
 function GenerationSkeleton() {
 	return (
 		<div
-			className="imagegen-skeleton imagegen-fade-in relative flex aspect-square w-full max-w-[300px] items-center justify-center overflow-hidden rounded-2xl border"
-			style={{ borderColor: subtleBorder }}
+			className="imagegen-fade-in relative aspect-square w-full max-w-[300px] overflow-hidden rounded-2xl border"
+			style={{ borderColor: subtleBorder, background: "var(--background)" }}
 		>
-			<div className="imagegen-pulse flex flex-col items-center gap-2" style={{ color: "var(--primary)" }}>
-				<IconImage className="h-8 w-8" />
-				<span className="text-[11px] font-medium tracking-wide opacity-80">生成中…</span>
+			{/* blob 层：居中的大正方形旋转层 + 重度模糊。正方形 180% 宽，任意旋转角内切圆都盖满卡片 */}
+			<div className="absolute inset-0 flex items-center justify-center">
+				<div className="imagegen-blob-spin relative aspect-square w-[180%]" style={{ filter: "blur(26px) saturate(120%)" }}>
+					{SKELETON_BLOBS.map((b, i) => (
+						<div
+							key={i}
+							className="absolute"
+							style={{ left: b.left, top: b.top, width: b.w, height: b.h, transform: `rotate(${b.rotate}deg)` }}
+						>
+							<div
+								className="imagegen-blob-ripple h-full w-full rounded-full"
+								style={{
+									background: b.color,
+									// 时长/相位各自错开，叠加后形成无规律混沌涟漪
+									animationDuration: `${5 + i * 1.3}s`,
+									animationDelay: `${i * -1.7}s`,
+								}}
+							/>
+						</div>
+					))}
+				</div>
+			</div>
+			{/* 中心呼吸图标 */}
+			<div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+				<div className="imagegen-pulse text-white" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.35))" }}>
+					<IconImage className="h-9 w-9" />
+				</div>
+				<span className="text-[11px] font-medium tracking-wide text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}>
+					生成中…
+				</span>
 			</div>
 		</div>
 	);
@@ -165,11 +231,14 @@ function VersionGallery({
 	versions,
 	activeId,
 	onSelect,
+	overlay,
 	bigClassName = "max-h-[300px] max-w-full",
 }: {
 	versions: PluginImageRef[];
 	activeId?: string;
 	onSelect?: (ref: PluginImageRef) => void;
+	/** Hover-revealed actions rendered over the big image's bottom-left corner. */
+	overlay?: (active: PluginImageRef) => ReactNode;
 	bigClassName?: string;
 }) {
 	// newest first; the big one defaults to the newest
@@ -181,10 +250,21 @@ function VersionGallery({
 	return (
 		<div className="imagegen-fade-in flex items-start gap-2.5">
 			<div
-				className="overflow-hidden rounded-2xl border"
+				className="group/big relative overflow-hidden rounded-2xl border"
 				style={{ borderColor: subtleBorder, background: "color-mix(in srgb, var(--foreground) 4%, transparent)" }}
 			>
-				<img src={active.url} alt="生成的图像" className={`block object-contain ${bigClassName}`} />
+				{/* key 切换触发重挂载 → 走 imagegen-img-swap 淡入，实现版本切换的淡入淡出 */}
+				<img
+					key={active.id}
+					src={active.url}
+					alt="生成的图像"
+					className={`imagegen-img-swap block object-contain ${bigClassName}`}
+				/>
+				{overlay && (
+					<div className="pointer-events-none absolute inset-x-0 bottom-0 hidden items-end justify-start p-2 group-hover/big:flex">
+						<div className="flex items-center gap-1.5">{overlay(active)}</div>
+					</div>
+				)}
 			</div>
 			{rest.length > 0 && (
 				<div className="flex max-h-[300px] flex-col gap-2 overflow-y-auto pr-0.5">
@@ -233,24 +313,28 @@ function ImagePreviewCard({ message }: PluginMessageSlotProps) {
 
 	return (
 		<div className="flex flex-col gap-2 py-1">
-			<VersionGallery versions={versions} activeId={active?.id} onSelect={(r) => setActiveId(r.id)} />
-			<div className="flex items-center gap-1.5">
-				<GhostButton
-					icon={<IconEdit className="h-3.5 w-3.5" />}
-					label="编辑"
-					onClick={() => {
-						if (active) setEditTarget(active);
-						pluginCtx?.ui.openActivityTab("editor");
-					}}
-				/>
-				<GhostButton
-					icon={<IconDownload className="h-3.5 w-3.5" />}
-					label="导出"
-					onClick={() => {
-						if (active) void downloadImage(active);
-					}}
-				/>
-			</div>
+			<VersionGallery
+				versions={versions}
+				activeId={active?.id}
+				onSelect={(r) => setActiveId(r.id)}
+				overlay={(a) => (
+					<>
+						<IconButton
+							icon={<IconEdit className="h-3.5 w-3.5" />}
+							title="编辑"
+							onClick={() => {
+								setEditTarget(a);
+								pluginCtx?.ui.openActivityTab("editor");
+							}}
+						/>
+						<IconButton
+							icon={<IconDownload className="h-3.5 w-3.5" />}
+							title="导出"
+							onClick={() => void downloadImage(a)}
+						/>
+					</>
+				)}
+			/>
 		</div>
 	);
 }
