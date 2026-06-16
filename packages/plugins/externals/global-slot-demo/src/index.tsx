@@ -6,6 +6,11 @@ function DemoGlobalSlot() {
 	const [open, setOpen] = useState(true);
 	const [count, setCount] = useState(0);
 	const timestamp = useMemo(() => new Date().toLocaleTimeString(), []);
+	const agentExamples = [
+		"Prompt block: agent/prompts/fiction-system.md",
+		"Skill path: agent/skills/fiction-outline",
+		"Tool policy: deny doc_to_pdf",
+	];
 
 	if (!open) {
 		return (
@@ -41,8 +46,20 @@ function DemoGlobalSlot() {
 				</button>
 			</div>
 			<p className="mt-[10px] mb-[12px] text-[13px] leading-[1.5] text-[var(--muted-foreground)]">
-				Rendered by an external plugin at {timestamp}. It uses the host React singleton and Vetta theme tokens.
+				Rendered by an external plugin at {timestamp}. This demo also declares agent prompt, skill, and tool
+				policy contributions in plugin.json.
 			</p>
+			<div className="mb-[12px] rounded-[8px] border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[color-mix(in_srgb,var(--muted)_55%,transparent)] px-[9px] py-[8px]">
+				<p className="mb-[6px] text-[12px] font-semibold text-[var(--foreground)]">Agent contribution demo</p>
+				<ul className="m-0 list-none space-y-[4px] p-0 text-[12px] leading-[1.35] text-[var(--muted-foreground)]">
+					{agentExamples.map((item) => (
+						<li key={item} className="flex gap-[6px]">
+							<span className="text-[var(--primary)]">-</span>
+							<span>{item}</span>
+						</li>
+					))}
+				</ul>
+			</div>
 			<div className="flex items-center justify-between gap-[10px]">
 				<span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_75%,transparent)] px-[8px] py-[3px] text-[12px] text-[var(--muted-foreground)]">
 					Clicks: {count}

@@ -16,6 +16,7 @@ import type { ResourceLoader } from "./resource-loader.js";
 import { DefaultResourceLoader } from "./resource-loader.js";
 import { SessionManager } from "./session-manager.js";
 import { SettingsManager } from "./settings-manager.js";
+import type { AgentPluginRuntimeConfig } from "./system-prompt.js";
 import { time } from "./timings.js";
 import {
 	type AskUserQuestionCapability,
@@ -146,6 +147,9 @@ export interface CreateAgentSessionOptions {
 
 	/** Extra metadata propagated to tracing observations. */
 	tracingMetadata?: Record<string, unknown>;
+
+	/** Runtime plugin contributions applied while building agent prompts/resources. */
+	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
 /** Result from createAgentSession */
@@ -291,12 +295,15 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 	const tracer = options.tracer ?? createLangfuseRuntimeTracerFromEnv();
 
 	if (!resourceLoader) {
+		const pluginSkillPaths =
+			options.agentPlugins?.skillPathContributions?.flatMap((contribution) => contribution.paths) ?? [];
 		resourceLoader = new DefaultResourceLoader({
 			cwd,
 			agentDir,
 			settingsManager,
 			appendSystemPrompt: options.appendSystemPrompt,
 			includeAgentSkills: options.includeAgentSkills,
+			additionalSkillPaths: pluginSkillPaths,
 		});
 		await resourceLoader.reload();
 		time("resourceLoader.reload");
@@ -502,6 +509,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		memoryCharLimit: options.memoryCharLimit,
 		askUserQuestion: options.askUserQuestion,
 		enableBackgroundTasks: options.enableBackgroundTasks,
+		agentPlugins: options.agentPlugins,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();
