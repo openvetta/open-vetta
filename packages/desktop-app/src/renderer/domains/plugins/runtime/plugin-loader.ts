@@ -33,6 +33,7 @@ import type { ComponentType } from "react";
 import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as ReactDom from "react-dom";
+import { router } from "../../../router";
 import { pluginHostBridge, registerPluginAgentToolHandler } from "./plugin-host-bridge";
 
 export interface LoadedPlugin {
@@ -478,6 +479,15 @@ function createContext(
 			mime: ref.mimeType,
 		});
 	};
+	const openPluginSettings = (): void => {
+		// Host owns navigation; jump to the settings tab + this plugin's section
+		// (existing `?section=plugin-<id>` deep-link scrolls + highlights it).
+		void router.navigate({
+			to: "/settings/$tab",
+			params: { tab: "plugins" },
+			search: { section: `plugin-${plugin.id}` },
+		});
+	};
 	return {
 		plugin: {
 			id: plugin.id,
@@ -493,6 +503,7 @@ function createContext(
 			openActivityTab,
 			setEditImageAttachment,
 			previewImage,
+			openPluginSettings,
 		},
 		conversation,
 		fs,

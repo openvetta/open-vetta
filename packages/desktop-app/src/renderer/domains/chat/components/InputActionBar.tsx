@@ -16,17 +16,20 @@ export function InputActionBar(): JSX.Element | null {
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 
 	const toggle = useCallback(
-		(actionId: string, onToggle: ((active: boolean) => void) | undefined) => {
+		(actionId: string, onToggle: ((active: boolean) => boolean | void) | undefined) => {
+			const willActivate = !activeIds.has(actionId);
+			// Let the action veto its own activation (e.g. a plugin that requires
+			// configuration first) by returning false. Deactivation can't be vetoed.
+			if (willActivate && onToggle?.(true) === false) return;
+			if (!willActivate) onToggle?.(false);
 			setActiveIds((prev) => {
 				const next = new Set(prev);
-				const active = !next.has(actionId);
-				if (active) next.add(actionId);
+				if (willActivate) next.add(actionId);
 				else next.delete(actionId);
-				onToggle?.(active);
 				return next;
 			});
 		},
-		[setActiveIds],
+		[activeIds, setActiveIds],
 	);
 
 	if (actions.length === 0) return null;
