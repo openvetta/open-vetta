@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import {
 	activeSessionAtom,
@@ -57,7 +57,18 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	// （图像服务按全局 id 解析源图，stale id 会被照常注入并编辑错图）。
 	// 同时清空所有 active 的 input-action（如「图像生成」），让每个会话都从默认输入
 	// 态开始——否则在 A 会话点过编辑/开过开关，切到 B 会话仍是 active。
+	//
+	// 仅在「已有会话 → 另一个已有会话」时清空：用 ref 记录上一个 runtimeId，跳过首次
+	// 挂载 / 从无会话（null）进入会话的场景。否则从 NewSessionPage 开「图像生成」开关
+	// 发送时，openSession 会先 setActiveSession+navigate 让本组件全新挂载，本 effect
+	// 抢在 sendMessage 读取 activeInputActionIds 之前就把它清空，导致开关失效、且该轮
+	// 拿不到 imageMode（生图工具不可用）。
+	const prevRuntimeIdRef = useRef<string | undefined>(undefined);
 	useEffect(() => {
+		const prev = prevRuntimeIdRef.current;
+		const curr = activeSession?.runtimeId;
+		prevRuntimeIdRef.current = curr;
+		if (prev == null || prev === curr) return;
 		setEditImageAttachment(null);
 		setPendingEditImageId(null);
 		setActiveInputActionIds(new Set());
