@@ -78,7 +78,7 @@ export class RuntimeManager {
 	private readonly _askUserQuestion?: AskUserQuestionCapability;
 	private readonly _backgroundTasks: BackgroundTaskManager;
 	private readonly _enableBackgroundTasks: boolean;
-	private readonly _agentPlugins?: AgentPluginRuntimeConfig;
+	private _agentPlugins?: AgentPluginRuntimeConfig;
 	private readonly _invokePluginTool?: AgentPluginToolInvoker;
 
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
@@ -204,6 +204,14 @@ export class RuntimeManager {
 
 	reconfigureCustomTools(customTools: ToolDefinition[] | undefined): void {
 		this._customTools = customTools ?? [];
+		this.buildRuntime({
+			activeToolNames: this.getActiveToolNames(),
+			includeAllExtensionTools: true,
+		});
+	}
+
+	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
+		this._agentPlugins = agentPlugins;
 		this.buildRuntime({
 			activeToolNames: this.getActiveToolNames(),
 			includeAllExtensionTools: true,

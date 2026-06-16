@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import type { PluginInstallOptions, PluginPermission } from "../../preload/api-types/plugins.js";
 import {
+	buildAgentPluginRuntimeConfig,
 	clearDynamicAgentTools,
 	grantPluginPermissions,
 	installPluginFromArchive,
@@ -13,6 +14,7 @@ import {
 	uninstallPlugin,
 	unregisterDynamicAgentTool,
 } from "../plugins/plugin-store.js";
+import { getSharedRuntime } from "../runtime.js";
 
 function asArchiveBuffer(value: unknown): ArrayBuffer | Buffer {
 	if (value instanceof ArrayBuffer || Buffer.isBuffer(value)) return value;
@@ -87,6 +89,10 @@ function asAgentToolRegistration(value: unknown): {
 	};
 }
 
+function refreshAgentPlugins(): void {
+	getSharedRuntime().reconfigureAgentPlugins(buildAgentPluginRuntimeConfig());
+}
+
 export function registerPluginsIpc(): () => void {
 	ipcMain.handle("vetta:plugins:list", () => listPlugins());
 	ipcMain.handle("vetta:plugins:install-from-archive", (_event, archiveBuffer: unknown, options: unknown) =>
@@ -100,25 +106,39 @@ export function registerPluginsIpc(): () => void {
 	});
 	ipcMain.handle("vetta:plugins:uninstall", (_event, id: unknown) => {
 		uninstallPlugin(asPluginId(id));
+		refreshAgentPlugins();
 	});
-	ipcMain.handle("vetta:plugins:set-enabled", (_event, id: unknown, enabled: unknown) =>
-		setPluginEnabled(asPluginId(id), enabled === true),
-	);
-	ipcMain.handle("vetta:plugins:grant-permissions", (_event, id: unknown, permissions: unknown) =>
-		grantPluginPermissions(asPluginId(id), asPermissions(permissions)),
-	);
-	ipcMain.handle("vetta:plugins:revoke-permissions", (_event, id: unknown, permissions: unknown) =>
-		revokePluginPermissions(asPluginId(id), asPermissions(permissions)),
-	);
-	ipcMain.handle("vetta:plugins:reload", (_event, id: unknown) => reloadPlugin(asPluginId(id)));
+	ipcMain.handle("vetta:plugins:set-enabled", (_event, id: unknown, enabled: unknown) => {
+		const plugin = setPluginEnabled(asPluginId(id), enabled === true);
+		refreshAgentPlugins();
+		return plugin;
+	});
+	ipcMain.handle("vetta:plugins:grant-permissions", (_event, id: unknown, permissions: unknown) => {
+		const plugin = grantPluginPermissions(asPluginId(id), asPermissions(permissions));
+		refreshAgentPlugins();
+		return plugin;
+	});
+	ipcMain.handle("vetta:plugins:revoke-permissions", (_event, id: unknown, permissions: unknown) => {
+		const plugin = revokePluginPermissions(asPluginId(id), asPermissions(permissions));
+		refreshAgentPlugins();
+		return plugin;
+	});
+	ipcMain.handle("vetta:plugins:reload", (_event, id: unknown) => {
+		const plugin = reloadPlugin(asPluginId(id));
+		refreshAgentPlugins();
+		return plugin;
+	});
 	ipcMain.handle("vetta:plugins:agent-tool-register", (_event, pluginId: unknown, registration: unknown) => {
 		registerDynamicAgentTool(asPluginId(pluginId), asAgentToolRegistration(registration));
+		refreshAgentPlugins();
 	});
 	ipcMain.handle("vetta:plugins:agent-tool-unregister", (_event, pluginId: unknown, toolId: unknown) => {
 		unregisterDynamicAgentTool(asPluginId(pluginId), asPluginId(toolId));
+		refreshAgentPlugins();
 	});
 	ipcMain.handle("vetta:plugins:agent-tools-clear", (_event, pluginId: unknown) => {
 		clearDynamicAgentTools(asPluginId(pluginId));
+		refreshAgentPlugins();
 	});
 
 	return () => {

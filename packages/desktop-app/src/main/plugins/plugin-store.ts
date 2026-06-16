@@ -420,9 +420,6 @@ export function registerDynamicAgentTool(pluginId: string, tool: RegisteredAgent
 	if (!hasGrantedPermission(plugin, "agent.tools.register")) {
 		throw new Error(`Plugin permission denied: agent.tools.register`);
 	}
-	if (!hasGrantedPermission(plugin, "agent.toolHandler.execute")) {
-		throw new Error(`Plugin permission denied: agent.toolHandler.execute`);
-	}
 	let tools = dynamicAgentTools.get(pluginId);
 	if (!tools) {
 		tools = new Map();

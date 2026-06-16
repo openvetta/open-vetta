@@ -474,6 +474,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			askUserQuestion !== config?.askUserQuestion ||
 			enableBackgroundTasks !== config?.enableBackgroundTasks ||
 			includeAgentSkills !== config?.includeAgentSkills ||
+			isConversation !== config?.enableAgentPlugins ||
 			agentPlugins !== config?.agentPlugins;
 		const effectiveConfig: SessionConfig | undefined = needPatch
 			? {
@@ -484,6 +485,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					askUserQuestion,
 					enableBackgroundTasks,
 					includeAgentSkills,
+					enableAgentPlugins: isConversation,
 					agentPlugins,
 				}
 			: config;

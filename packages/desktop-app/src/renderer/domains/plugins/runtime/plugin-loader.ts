@@ -113,6 +113,12 @@ function createPermissionApi(plugin: InstalledPlugin): PluginContext["permission
 	};
 }
 
+const noopDisposable: Disposable = { dispose: () => {} };
+
+function warnSkippedContribution(plugin: InstalledPlugin, permission: PluginPermission, contribution: string): void {
+	console.warn(`Plugin ${plugin.id} skipped ${contribution}: missing permission ${permission}`);
+}
+
 function loadPluginStyles(plugin: InstalledPlugin): Disposable {
 	const links = plugin.styleUrls.map((href) => {
 		const link = document.createElement("link");
@@ -199,9 +205,13 @@ function createContext(
 	filePreviews: PluginFilePreviewContribution[],
 	activityTabs: PluginActivityTabContribution[],
 	onChanged: () => void,
+	pendingAgentToolRegistrations: Promise<void>[],
 ): PluginContext {
 	const registerGlobalSlot = (contribution: PluginGlobalSlotContribution): Disposable => {
-		createPermissionApi(plugin).require("ui.slot.global");
+		if (!hasPermission(plugin, "ui.slot.global")) {
+			warnSkippedContribution(plugin, "ui.slot.global", "global slot");
+			return noopDisposable;
+		}
 		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
 			throw new Error("Global slot id is required");
 		}
@@ -225,7 +235,10 @@ function createContext(
 		return disposable;
 	};
 	const registerFilePreview = (contribution: PluginFilePreviewContribution): Disposable => {
-		createPermissionApi(plugin).require("ui.slot.file-preview");
+		if (!hasPermission(plugin, "ui.slot.file-preview")) {
+			warnSkippedContribution(plugin, "ui.slot.file-preview", "file preview");
+			return noopDisposable;
+		}
 		const extensions = Array.isArray(contribution.extensions)
 			? contribution.extensions.map((ext) => ext.trim().toLowerCase()).filter(Boolean)
 			: [];
@@ -247,7 +260,10 @@ function createContext(
 		};
 	};
 	const registerActivityTab = (contribution: PluginActivityTabContribution): Disposable => {
-		createPermissionApi(plugin).require("ui.slot.activity-tab");
+		if (!hasPermission(plugin, "ui.slot.activity-tab")) {
+			warnSkippedContribution(plugin, "ui.slot.activity-tab", "activity tab");
+			return noopDisposable;
+		}
 		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
 			throw new Error("Activity tab id is required");
 		}
@@ -290,9 +306,10 @@ function createContext(
 		fs,
 		agent: {
 			registerTool: (registration) => {
-				const permissions = createPermissionApi(plugin);
-				permissions.require("agent.tools.register");
-				permissions.require("agent.toolHandler.execute");
+				if (!hasPermission(plugin, "agent.tools.register")) {
+					warnSkippedContribution(plugin, "agent.tools.register", "agent tool");
+					return noopDisposable;
+				}
 				if (typeof registration.id !== "string" || registration.id.trim().length === 0) {
 					throw new Error("Agent tool id is required");
 				}
@@ -311,7 +328,7 @@ function createContext(
 					handler: (input, api) => registration.handler(input as never, api),
 					api: { fs, conversation },
 				});
-				void window.vetta.plugins
+				const registrationPromise = window.vetta.plugins
 					.registerAgentTool(plugin.id, {
 						id: toolId,
 						name: registration.name?.trim() || toolId,
@@ -324,7 +341,9 @@ function createContext(
 					.catch((error: Error) => {
 						handlerHandle.dispose();
 						console.error(`Plugin ${plugin.id} failed to register agent tool ${toolId}`, error);
+						throw error;
 					});
+				pendingAgentToolRegistrations.push(registrationPromise);
 				return {
 					dispose: () => {
 						handlerHandle.dispose();
@@ -392,8 +411,10 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	await assertPluginEntryFetchable(plugin);
 	const module = await loadPluginModule(plugin);
 	const definition = normalizePluginDefinition(module);
-	const context = createContext(plugin, slots, filePreviews, activityTabs, onChanged);
+	const pendingAgentToolRegistrations: Promise<void>[] = [];
+	const context = createContext(plugin, slots, filePreviews, activityTabs, onChanged, pendingAgentToolRegistrations);
 	await definition.activate(context);
+	await Promise.all(pendingAgentToolRegistrations);
 	return {
 		id: plugin.id,
 		name: plugin.name,
