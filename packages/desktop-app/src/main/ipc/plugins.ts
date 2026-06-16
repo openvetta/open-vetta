@@ -5,7 +5,7 @@ import type {
 	PluginInstallOptions,
 	PluginPermission,
 } from "../../preload/api-types/plugins.js";
-import { editImage, generateImage, imageLineage } from "../plugins/image-service.js";
+import { editImage, generateImage, imageLineage, sessionLineages } from "../plugins/image-service.js";
 import {
 	buildAgentPluginRuntimeConfig,
 	clearDynamicAgentTools,
@@ -172,6 +172,12 @@ export function registerPluginsIpc(): () => void {
 		}
 		return imageLineage(asPluginId(id), imageId.trim());
 	});
+	ipcMain.handle("vetta:plugins:images:session-lineages", (_event, id: unknown, sessionId: unknown) => {
+		if (typeof sessionId !== "string" || sessionId.trim().length === 0) {
+			throw new Error("Invalid session id");
+		}
+		return sessionLineages(asPluginId(id), sessionId.trim());
+	});
 
 	return () => {
 		ipcMain.removeHandler("vetta:plugins:list");
@@ -190,5 +196,6 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:images:generate");
 		ipcMain.removeHandler("vetta:plugins:images:edit");
 		ipcMain.removeHandler("vetta:plugins:images:lineage");
+		ipcMain.removeHandler("vetta:plugins:images:session-lineages");
 	};
 }

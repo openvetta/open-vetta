@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
-import { app, dialog, ipcMain, nativeImage, nativeTheme, protocol, shell } from "electron";
+import { app, dialog, ipcMain, nativeImage, nativeTheme, protocol, session, shell } from "electron";
 import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
@@ -287,6 +287,13 @@ if (!gotSingleLock) {
 		// 必须在 ready 之后调用（net.fetch 依赖 session）。
 		installChromiumFetchForMain();
 		registerPluginProtocols();
+		// 开发模式：每次启动清空 HTTP 缓存。插件资源走 vetta-plugin://，remoteEntry.js
+		// 是固定文件名，Chromium 会启发式缓存它——重编译后旧缓存仍 pin 着旧 chunk，
+		// 重启也不清（持久化在 userData）。dev 下清缓存代价是重新拉一次本地资源，可忽略；
+		// 打包版不清（versioned 资源该缓存）。配合协议响应的 no-store 双保险。
+		if (!app.isPackaged) {
+			await session.defaultSession.clearCache();
+		}
 		// 提前发现系统插件（ADR-0024）：填充 id 集合供协议解析，staging 不完整时早告警。
 		discoverSystemPlugins();
 

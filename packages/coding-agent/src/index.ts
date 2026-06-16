@@ -240,6 +240,7 @@ export {
 	type SkillFrontmatter,
 } from "./core/skills.js";
 export {
+	createEditImageTool,
 	createGenerateImageTool,
 	type GenerateImageToolDetails,
 	type ImageToolBackend,

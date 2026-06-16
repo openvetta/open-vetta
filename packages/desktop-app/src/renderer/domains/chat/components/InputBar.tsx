@@ -9,6 +9,7 @@ import {
 	modelSupportsImagesAtom,
 	selectedSkillAtom,
 	mentionedFilesAtom,
+	editImageAttachmentAtom,
 	type AttachedImage,
 	type MentionedFile,
 	todoItemsBySessionAtom,
@@ -100,6 +101,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
+	const [editImageAttachment, setEditImageAttachment] = useAtom(editImageAttachmentAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
@@ -123,7 +125,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const hasSession = Boolean(activeSession) || Boolean(cwdOverride);
 	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
-	const hasCapsules = Boolean(selectedSkill) || mentionedFiles.length > 0;
+	const hasCapsules = Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment);
 
 	useEffect(() => {
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
@@ -480,6 +482,15 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 							>
 								<div className="flex flex-wrap items-center gap-1.5 px-3 pt-3">
 									<AnimatePresence initial={false}>
+										{editImageAttachment && (
+											<Capsule
+												key="edit-image-capsule"
+												icon="icon-[solar--gallery-linear]"
+												label="编辑选中图片"
+												tone="primary"
+												onRemove={() => setEditImageAttachment(null)}
+											/>
+										)}
 										{selectedSkill && (
 											<Capsule
 												key="skill-capsule"

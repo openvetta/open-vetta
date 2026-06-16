@@ -18,7 +18,7 @@ const SHADOW_2XL = "0px 1px 2px 0px hsl(0 0% 0% / 0.45)";
 
 export const defaultTheme: ThemeDef = {
 	id: "default",
-	label: "默认",
+	label: "经典",
 	dark: {
 		background: "rgb(20, 22, 30)",
 		foreground: "rgb(240, 242, 248)",
@@ -68,7 +68,7 @@ export const defaultTheme: ThemeDef = {
 		primaryForeground: "rgb(255, 255, 255)",
 		secondary: "rgb(235, 235, 235)",
 		secondaryForeground: "rgb(0, 0, 0)",
-		muted: "rgb(228, 228, 231)",
+		muted: "rgb(242, 242, 245)",
 		mutedForeground: "rgb(82, 82, 82)",
 		accent: "rgb(235, 235, 235)",
 		accentForeground: "rgb(0, 0, 0)",
