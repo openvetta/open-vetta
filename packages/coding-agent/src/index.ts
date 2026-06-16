@@ -239,6 +239,12 @@ export {
 	type Skill,
 	type SkillFrontmatter,
 } from "./core/skills.js";
+export {
+	createGenerateImageTool,
+	type GenerateImageToolDetails,
+	type ImageToolBackend,
+	type ImageToolRef,
+} from "./core/tools/generate-image/index.js";
 // Tools
 export {
 	type AskUserQuestionAnswer,

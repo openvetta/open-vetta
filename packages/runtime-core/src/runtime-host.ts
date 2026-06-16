@@ -10,12 +10,15 @@ import {
 	type CreateAgentSessionOptions,
 	type CustomEntry,
 	createAgentSession,
+	createGenerateImageTool,
 	type ExtensionUIContext,
 	type FileEntry,
+	type ImageToolBackend,
 	loadEntriesFromFile,
 	type ModelRegistry,
 	type SessionInfo,
 	SessionManager,
+	type ToolDefinition,
 } from "@vetta/coding-agent";
 import type {
 	AgentPluginRuntimeConfig,
@@ -147,6 +150,12 @@ export interface RuntimeHostOptions {
 	 * 后台刷新，以及 `reloadServerAuth` 在登录/登出时的同步刷新。
 	 */
 	modelRegistry?: ModelRegistry;
+	/**
+	 * 宿主图像后端。注入后，每个 session 会拿到一个 generate_image 内置工具
+	 * （customTools），agent 在图像模式轮次调用它生成图像。coding-agent 不依赖
+	 * 宿主实现，desktop 把它接到主进程图像服务。
+	 */
+	imageBackend?: ImageToolBackend;
 }
 
 export class RuntimeHost implements SessionFacade {
@@ -180,6 +189,7 @@ export class RuntimeHost implements SessionFacade {
 	private readonly macosSandboxExecPath: string | undefined;
 	private readonly serverUrl: string | undefined;
 	private readonly modelRegistry: ModelRegistry | undefined;
+	private readonly imageBackend: ImageToolBackend | undefined;
 	private userConfirmationHandler:
 		| ((request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>)
 		| undefined;
@@ -198,6 +208,7 @@ export class RuntimeHost implements SessionFacade {
 		this.macosSandboxExecPath = options.macosSandboxExecPath;
 		this.serverUrl = options.serverUrl;
 		this.modelRegistry = options.modelRegistry;
+		this.imageBackend = options.imageBackend;
 		this.userConfirmationHandler = options.userConfirmationHandler;
 		this.userQuestionHandler = options.userQuestionHandler;
 		this.userSandboxGrantHandler = options.userSandboxGrantHandler;
@@ -356,7 +367,10 @@ export class RuntimeHost implements SessionFacade {
 		const executionMode = requestedMode ?? defaultMode;
 		const effectiveCwd = config.cwd ?? process.cwd();
 		const sessionIdRef: { current?: string } = {};
-		const customTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
+		const baseCustomTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
+		const customTools = this.imageBackend
+			? [...(baseCustomTools ?? []), createGenerateImageTool(this.imageBackend) as unknown as ToolDefinition]
+			: baseCustomTools;
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
@@ -567,6 +581,7 @@ export class RuntimeHost implements SessionFacade {
 				images,
 				streamingBehavior: request.streamingBehavior,
 				source: "extension",
+				metadata: request.metadata,
 			});
 		} catch (err) {
 			// session.prompt 在进入 agent.start 之前会做同步校验（"No model

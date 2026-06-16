@@ -22,7 +22,8 @@ export type SettingsTab =
 	| "shortcuts"
 	| "archive"
 	| "team"
-	| "context";
+	| "context"
+	| "plugins";
 
 // ─── Theme ───
 

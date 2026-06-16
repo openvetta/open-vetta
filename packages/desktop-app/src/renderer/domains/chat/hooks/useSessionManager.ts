@@ -1,6 +1,7 @@
 import { pluginSendMessageRef } from "@domains/plugins/runtime/plugin-host-bridge";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import {
+	activeInputActionIdsAtom,
 	activeSessionAtom,
 	activeSessionStreamingAtom,
 	attachedImagesAtom,
@@ -19,6 +20,7 @@ import {
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
 	openSessionFnRef,
+	pluginInputActionsAtom,
 	promptPredictingAtom,
 	promptSuggestionsAtom,
 	type SessionExecutionMode,
@@ -30,7 +32,7 @@ import {
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import {
 	adoptDraftId,
@@ -814,6 +816,7 @@ export function useSessionManager(): SessionManagerResult {
 				text: string;
 				images?: Array<{ type: "image"; data: string; mimeType: string }>;
 				modelKey?: string;
+				metadata?: Record<string, unknown>;
 			} = {
 				text: text || "(see attached images)",
 			};
@@ -826,6 +829,19 @@ export function useSessionManager(): SessionManagerResult {
 			}
 			if (selectedModel) {
 				promptReq.modelKey = selectedModel;
+			}
+			// Merge metadata contributed by active plugin input actions (e.g. the
+			// image-generation toggle sets { imageMode: true } for this turn).
+			const pluginStore = getDefaultStore();
+			const activeActionIds = pluginStore.get(activeInputActionIdsAtom);
+			if (activeActionIds.size > 0) {
+				for (const action of pluginStore.get(pluginInputActionsAtom)) {
+					if (!activeActionIds.has(action.actionId)) continue;
+					const decoration = action.decoratePrompt?.();
+					if (decoration?.metadata) {
+						promptReq.metadata = { ...promptReq.metadata, ...decoration.metadata };
+					}
+				}
 			}
 			try {
 				await window.vetta.session.prompt(session.runtimeId, promptReq);

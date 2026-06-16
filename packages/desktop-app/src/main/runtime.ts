@@ -4,6 +4,7 @@ import { AuthStorage, getAgentDir, ModelRegistry } from "@vetta/coding-agent";
 import { RuntimeHost } from "../../../runtime-core/src/index.js";
 import { DEFAULT_SERVER_URL } from "./constants.js";
 import { readDesktopConfig } from "./ipc/fs.js";
+import { generateImage, IMAGE_GEN_PLUGIN_ID } from "./plugins/image-service.js";
 import { getAvailableLinuxBubblewrapPath, getAvailableMacosSandboxExecPath } from "./sandbox/capability.js";
 import { resolveWindowsSandboxHostBinary } from "./sandbox/windows-binary-resolver.js";
 
@@ -81,6 +82,9 @@ export function getSharedRuntime(): RuntimeHost {
 			serverUrl: DEFAULT_SERVER_URL,
 			// 共享 ModelRegistry：去掉 createSession 的 5s 远程 fetch 阻塞。
 			modelRegistry: getOrCreateSharedModelRegistry(),
+			imageBackend: {
+				generate: (input) => generateImage(IMAGE_GEN_PLUGIN_ID, input),
+			},
 		});
 	}
 	return sharedRuntime;

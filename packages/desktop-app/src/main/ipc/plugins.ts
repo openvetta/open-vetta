@@ -1,8 +1,15 @@
-import { ipcMain } from "electron";
-import type { PluginInstallOptions, PluginPermission } from "../../preload/api-types/plugins.js";
+import { ipcMain, webContents } from "electron";
+import type {
+	PluginEditImageInput,
+	PluginGenerateImageInput,
+	PluginInstallOptions,
+	PluginPermission,
+} from "../../preload/api-types/plugins.js";
+import { editImage, generateImage, imageLineage } from "../plugins/image-service.js";
 import {
 	buildAgentPluginRuntimeConfig,
 	clearDynamicAgentTools,
+	getPluginSettings,
 	grantPluginPermissions,
 	installPluginFromArchive,
 	installPluginFromUrl,
@@ -11,6 +18,7 @@ import {
 	reloadPlugin,
 	revokePluginPermissions,
 	setPluginEnabled,
+	setPluginSettings,
 	uninstallPlugin,
 	unregisterDynamicAgentTool,
 } from "../plugins/plugin-store.js";
@@ -140,6 +148,30 @@ export function registerPluginsIpc(): () => void {
 		clearDynamicAgentTools(asPluginId(pluginId));
 		refreshAgentPlugins();
 	});
+	ipcMain.handle("vetta:plugins:get-settings", (_event, id: unknown) => getPluginSettings(asPluginId(id)));
+	ipcMain.handle("vetta:plugins:set-settings", (_event, id: unknown, values: unknown) => {
+		const pluginId = asPluginId(id);
+		if (values == null || typeof values !== "object" || Array.isArray(values)) {
+			throw new Error("Invalid plugin settings values");
+		}
+		const effective = setPluginSettings(pluginId, values as Record<string, unknown>);
+		// Broadcast so the plugin host (and any open settings view) can react live.
+		for (const contents of webContents.getAllWebContents()) {
+			contents.send("vetta:plugins:settings-changed", { pluginId, values: effective });
+		}
+	});
+	ipcMain.handle("vetta:plugins:images:generate", (_event, id: unknown, input: unknown) =>
+		generateImage(asPluginId(id), input as PluginGenerateImageInput),
+	);
+	ipcMain.handle("vetta:plugins:images:edit", (_event, id: unknown, input: unknown) =>
+		editImage(asPluginId(id), input as PluginEditImageInput),
+	);
+	ipcMain.handle("vetta:plugins:images:lineage", (_event, id: unknown, imageId: unknown) => {
+		if (typeof imageId !== "string" || imageId.trim().length === 0) {
+			throw new Error("Invalid image id");
+		}
+		return imageLineage(asPluginId(id), imageId.trim());
+	});
 
 	return () => {
 		ipcMain.removeHandler("vetta:plugins:list");
@@ -153,5 +185,10 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:agent-tool-register");
 		ipcMain.removeHandler("vetta:plugins:agent-tool-unregister");
 		ipcMain.removeHandler("vetta:plugins:agent-tools-clear");
+		ipcMain.removeHandler("vetta:plugins:get-settings");
+		ipcMain.removeHandler("vetta:plugins:set-settings");
+		ipcMain.removeHandler("vetta:plugins:images:generate");
+		ipcMain.removeHandler("vetta:plugins:images:edit");
+		ipcMain.removeHandler("vetta:plugins:images:lineage");
 	};
 }

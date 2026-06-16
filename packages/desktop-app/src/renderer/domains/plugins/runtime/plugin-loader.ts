@@ -1,5 +1,12 @@
 import { createInstance, type ModuleFederation } from "@module-federation/enhanced/runtime";
 import type { InstalledPlugin } from "@preload/api";
+import type { ActivityTabKey } from "@shared/lib/project-profile";
+import {
+	activeSessionAtom,
+	activityPanelOpenAtom,
+	activityPanelTabByProjectAtom,
+	attachedPluginTabsAtom,
+} from "@shared/store/atoms";
 import type {
 	Disposable,
 	PluginActivityTabContribution,
@@ -9,9 +16,14 @@ import type {
 	PluginFilePreviewContribution,
 	PluginFsApi,
 	PluginGlobalSlotContribution,
+	PluginImagesApi,
+	PluginInputActionContribution,
+	PluginMessageSlotContribution,
 	PluginPermission,
+	PluginSettingsApi,
 } from "@vetta/plugin-sdk";
 import * as pluginSdk from "@vetta/plugin-sdk";
+import { getDefaultStore } from "jotai";
 import type { ComponentType } from "react";
 import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
@@ -25,7 +37,36 @@ export interface LoadedPlugin {
 	slots: PluginGlobalSlotContribution[];
 	filePreviews: PluginFilePreviewContribution[];
 	activityTabs: PluginActivityTabContribution[];
+	inputActions: PluginInputActionContribution[];
+	messageSlots: PluginMessageSlotContribution[];
 	dispose(): Promise<void>;
+}
+
+/**
+ * Attach + activate a plugin's own activity tab and open the panel, driven
+ * directly off the jotai store so it works regardless of whether the activity
+ * panel component is currently mounted/expanded. Keyed by the active
+ * conversation's cwd (same key the attach records use, see ADR-0026).
+ */
+function openPluginActivityTab(pluginId: string, tabId: string): void {
+	const store = getDefaultStore();
+	const cwd = store.get(activeSessionAtom)?.cwd ?? null;
+	if (!cwd) {
+		console.warn("[plugin] openActivityTab: no active conversation cwd");
+		return;
+	}
+	const key = `${pluginId}:${tabId}`;
+	const attached = store.get(attachedPluginTabsAtom);
+	const list = attached.get(cwd) ?? [];
+	if (!list.includes(key)) {
+		const next = new Map(attached);
+		next.set(cwd, [...list, key]);
+		store.set(attachedPluginTabsAtom, next);
+	}
+	const active = new Map(store.get(activityPanelTabByProjectAtom));
+	active.set(cwd, `plugin:${key}` as ActivityTabKey);
+	store.set(activityPanelTabByProjectAtom, active);
+	store.set(activityPanelOpenAtom, true);
 }
 
 interface PluginModule {
@@ -199,11 +240,62 @@ function createFsApi(plugin: InstalledPlugin): PluginFsApi {
 	};
 }
 
+function createSettingsApi(
+	plugin: InstalledPlugin,
+	initial: Record<string, unknown>,
+	disposers: Array<() => void>,
+): PluginSettingsApi {
+	let values = initial;
+	const listeners = new Set<(values: Record<string, unknown>) => void>();
+	const unsub = window.vetta.plugins.onSettingsChanged((payload) => {
+		if (payload.pluginId !== plugin.id) return;
+		values = payload.values;
+		for (const listener of listeners) listener(values);
+	});
+	disposers.push(() => {
+		unsub();
+		listeners.clear();
+	});
+	return {
+		get<T = unknown>(key: string): T | undefined {
+			return values[key] as T | undefined;
+		},
+		getAll(): Record<string, unknown> {
+			return { ...values };
+		},
+		onChange(listener: (values: Record<string, unknown>) => void): Disposable {
+			listeners.add(listener);
+			return { dispose: () => listeners.delete(listener) };
+		},
+	};
+}
+
+function createImagesApi(plugin: InstalledPlugin): PluginImagesApi {
+	const guard = (): void => createPermissionApi(plugin).require("images.generate");
+	return {
+		generate: (input) => {
+			guard();
+			return window.vetta.plugins.generateImage(plugin.id, input);
+		},
+		edit: (input) => {
+			guard();
+			return window.vetta.plugins.editImage(plugin.id, input);
+		},
+		lineage: (imageId) => {
+			guard();
+			return window.vetta.plugins.imageLineage(plugin.id, imageId);
+		},
+	};
+}
+
 function createContext(
 	plugin: InstalledPlugin,
 	slots: PluginGlobalSlotContribution[],
 	filePreviews: PluginFilePreviewContribution[],
 	activityTabs: PluginActivityTabContribution[],
+	inputActions: PluginInputActionContribution[],
+	messageSlots: PluginMessageSlotContribution[],
+	settingsApi: PluginSettingsApi,
 	onChanged: () => void,
 	pendingAgentToolRegistrations: Promise<void>[],
 ): PluginContext {
@@ -291,6 +383,61 @@ function createContext(
 	};
 	const fs = createFsApi(plugin);
 	const conversation = createConversationApi(plugin);
+	const registerInputAction = (contribution: PluginInputActionContribution): Disposable => {
+		createPermissionApi(plugin).require("ui.slot.input-action");
+		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
+			throw new Error("Input action id is required");
+		}
+		if (typeof contribution.label !== "string" || contribution.label.trim().length === 0) {
+			throw new Error("Input action label is required");
+		}
+		const normalized: PluginInputActionContribution = {
+			id: `${plugin.id}:${contribution.id}`,
+			label: contribution.label,
+			icon: contribution.icon,
+			defaultActive: contribution.defaultActive,
+			onToggle: contribution.onToggle,
+			decoratePrompt: contribution.decoratePrompt,
+		};
+		inputActions.push(normalized);
+		onChanged();
+		return {
+			dispose: () => {
+				const index = inputActions.findIndex((action) => action.id === normalized.id);
+				if (index >= 0) inputActions.splice(index, 1);
+				onChanged();
+			},
+		};
+	};
+	const registerMessageSlot = (contribution: PluginMessageSlotContribution): Disposable => {
+		createPermissionApi(plugin).require("ui.slot.message");
+		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
+			throw new Error("Message slot id is required");
+		}
+		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
+			throw new Error("Message slot component is invalid");
+		}
+		const normalized: PluginMessageSlotContribution = {
+			id: `${plugin.id}:${contribution.id}`,
+			component: contribution.component,
+		};
+		messageSlots.push(normalized);
+		onChanged();
+		return {
+			dispose: () => {
+				const index = messageSlots.findIndex((slot) => slot.id === normalized.id);
+				if (index >= 0) messageSlots.splice(index, 1);
+				onChanged();
+			},
+		};
+	};
+	const openActivityTab = (tabId: string): void => {
+		createPermissionApi(plugin).require("ui.slot.activity-tab");
+		if (typeof tabId !== "string" || tabId.trim().length === 0) {
+			throw new Error("Activity tab id is required");
+		}
+		openPluginActivityTab(plugin.id, tabId);
+	};
 	return {
 		plugin: {
 			id: plugin.id,
@@ -301,6 +448,9 @@ function createContext(
 			registerGlobalSlot,
 			registerFilePreview,
 			registerActivityTab,
+			registerInputAction,
+			registerMessageSlot,
+			openActivityTab,
 		},
 		conversation,
 		fs,
@@ -352,6 +502,8 @@ function createContext(
 				};
 			},
 		},
+		images: createImagesApi(plugin),
+		settings: settingsApi,
 	};
 }
 
@@ -406,13 +558,30 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	const slots: PluginGlobalSlotContribution[] = [];
 	const filePreviews: PluginFilePreviewContribution[] = [];
 	const activityTabs: PluginActivityTabContribution[] = [];
+	const inputActions: PluginInputActionContribution[] = [];
+	const messageSlots: PluginMessageSlotContribution[] = [];
+	const disposers: Array<() => void> = [];
 	const styleHandle = loadPluginStyles(plugin);
 	await window.vetta.plugins.clearAgentTools(plugin.id);
 	await assertPluginEntryFetchable(plugin);
 	const module = await loadPluginModule(plugin);
 	const definition = normalizePluginDefinition(module);
+	const initialSettings = plugin.settingsSchema?.length
+		? await window.vetta.plugins.getSettings(plugin.id).catch(() => ({}))
+		: {};
+	const settingsApi = createSettingsApi(plugin, initialSettings, disposers);
 	const pendingAgentToolRegistrations: Promise<void>[] = [];
-	const context = createContext(plugin, slots, filePreviews, activityTabs, onChanged, pendingAgentToolRegistrations);
+	const context = createContext(
+		plugin,
+		slots,
+		filePreviews,
+		activityTabs,
+		inputActions,
+		messageSlots,
+		settingsApi,
+		onChanged,
+		pendingAgentToolRegistrations,
+	);
 	await definition.activate(context);
 	await Promise.all(pendingAgentToolRegistrations);
 	return {
@@ -422,13 +591,18 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		slots,
 		filePreviews,
 		activityTabs,
+		inputActions,
+		messageSlots,
 		dispose: async () => {
 			await definition.deactivate?.();
 			await window.vetta.plugins.clearAgentTools(plugin.id);
 			styleHandle.dispose();
+			for (const dispose of disposers) dispose();
 			slots.splice(0, slots.length);
 			filePreviews.splice(0, filePreviews.length);
 			activityTabs.splice(0, activityTabs.length);
+			inputActions.splice(0, inputActions.length);
+			messageSlots.splice(0, messageSlots.length);
 			onChanged();
 		},
 	};

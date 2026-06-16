@@ -28,6 +28,7 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	{ key: "archive", label: "已归档", icon: "icon-[mdi--archive-outline]" },
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
 	{ key: "environment", label: "应用环境", icon: "icon-[mdi--package-variant-closed]" },
+	{ key: "plugins", label: "插件设置", icon: "icon-[mdi--puzzle-outline]" },
 	{ key: "permissions", label: "权限管理", icon: "icon-[mdi--shield-lock-outline]", macOnly: true },
 ] as const;
 

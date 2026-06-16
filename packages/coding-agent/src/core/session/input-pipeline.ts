@@ -199,6 +199,20 @@ export class InputPipeline {
 		// Build messages array (custom message if any, then user message)
 		const messages: AgentMessage[] = [];
 
+		// Image mode: a plugin input action set metadata.imageMode for this turn.
+		// Inject a hidden instruction so the agent optimizes the prompt and calls
+		// generate_image (the host injects that tool via customTools).
+		if (options?.metadata?.imageMode === true) {
+			messages.push({
+				role: "custom",
+				customType: "image_mode_instruction",
+				content:
+					"图像生成模式已开启。请把用户的请求理解并优化成一个具体、生动的绘图 prompt，然后调用 generate_image 工具生成图像。不要只用文字描述图像。",
+				display: false,
+				timestamp: Date.now(),
+			});
+		}
+
 		// Inject skill/scene content as hidden custom messages (before user message so model sees it first).
 		// Skill goes first so the model parses its `<skill>` block before any scene context.
 		if (skillInjection) {

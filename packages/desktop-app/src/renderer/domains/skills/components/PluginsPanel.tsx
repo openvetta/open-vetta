@@ -22,6 +22,8 @@ const PERMISSION_LABELS: Record<PluginPermission, string> = {
 	"ui.slot.global": "全局 UI Slot",
 	"ui.slot.file-preview": "文件预览 Slot",
 	"ui.slot.activity-tab": "活动面板 Tab",
+	"ui.slot.input-action": "输入栏动作 Slot",
+	"ui.slot.message": "消息下方 Slot",
 	"agent.session.read": "读取 Agent 会话",
 	"agent.session.write": "修改 Agent 会话",
 	"agent.command.run": "执行 Agent 命令",
@@ -39,6 +41,7 @@ const PERMISSION_LABELS: Record<PluginPermission, string> = {
 	"fs.read": "读取文件",
 	"fs.write": "写入文件",
 	"network.fetch": "访问网络",
+	"images.generate": "生成图像",
 	"settings.read": "读取设置",
 	"settings.write": "修改设置",
 };

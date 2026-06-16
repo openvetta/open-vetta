@@ -1,0 +1,95 @@
+@import "tailwindcss/utilities.css";
+
+/* 生成中骨架：实色 blob 漂移缩放 + 旋转层，叠加重模糊呈现混沌涟漪流转感
+   （对齐 desktop-app active 主题色卡的背景效果）。 */
+@keyframes imagegen-blob-drift {
+	0% {
+		transform: translate(0%, 0%) scale(1);
+	}
+	25% {
+		transform: translate(22%, -16%) scale(1.22);
+	}
+	50% {
+		transform: translate(-14%, 20%) scale(0.82);
+	}
+	75% {
+		transform: translate(16%, 14%) scale(1.12);
+	}
+	100% {
+		transform: translate(-20%, -10%) scale(0.94);
+	}
+}
+
+.imagegen-blob-ripple {
+	animation-name: imagegen-blob-drift;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+	animation-direction: alternate;
+	will-change: transform;
+}
+
+/* blob 层绕中心缓慢 360° 无限旋转，让背景颜色不停绕圈流转。 */
+@keyframes imagegen-blob-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.imagegen-blob-spin {
+	animation: imagegen-blob-spin 36s linear infinite;
+	will-change: transform;
+}
+
+/* 大图版本切换时的淡入淡出（配合 key 重挂载） */
+@keyframes imagegen-img-swap {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.imagegen-img-swap {
+	animation: imagegen-img-swap 0.32s ease both;
+}
+
+/* 骨架中心图标的呼吸 */
+@keyframes imagegen-pulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: scale(0.94);
+	}
+	50% {
+		opacity: 0.7;
+		transform: scale(1.04);
+	}
+}
+
+.imagegen-pulse {
+	animation: imagegen-pulse 1.8s ease-in-out infinite;
+}
+
+/* 缩略图/卡片入场 */
+@keyframes imagegen-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.imagegen-fade-in {
+	animation: imagegen-fade-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.imagegen-blob-ripple,
+	.imagegen-blob-spin {
+		animation: none;
+	}
+}
