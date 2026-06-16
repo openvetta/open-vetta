@@ -126,11 +126,53 @@ export interface ToolPolicyContribution {
 	deny?: string[];
 }
 
+export type JsonSchema = Record<string, unknown>;
+
+export interface AgentPluginToolContribution {
+	pluginId: string;
+	id: string;
+	name: string;
+	label?: string;
+	description: string;
+	parameters: JsonSchema;
+	handlerId: string;
+	timeoutMs?: number;
+}
+
+export interface AgentPluginStateContribution {
+	pluginId: string;
+	id: string;
+	schema?: JsonSchema;
+	initialValue?: unknown;
+	persist?: boolean;
+}
+
+export interface AgentPluginFollowUpContribution {
+	pluginId: string;
+	id: string;
+	handlerId: string;
+}
+
 export interface AgentPluginRuntimeConfig {
 	systemPromptContributions?: SystemPromptContribution[];
 	skillPathContributions?: SkillPathContribution[];
 	toolPolicyContributions?: ToolPolicyContribution[];
+	toolContributions?: AgentPluginToolContribution[];
+	stateContributions?: AgentPluginStateContribution[];
+	followUpContributions?: AgentPluginFollowUpContribution[];
 }
+
+export interface AgentPluginToolInvocation {
+	sessionId: string;
+	cwd: string;
+	pluginId: string;
+	toolId: string;
+	toolName: string;
+	handlerId: string;
+	input: unknown;
+}
+
+export type AgentPluginToolInvoker = (invocation: AgentPluginToolInvocation, signal?: AbortSignal) => Promise<unknown>;
 
 export interface BuildSystemPromptOptions {
 	/** Custom system prompt (replaces default body in the legacy flow). */

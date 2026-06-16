@@ -8,6 +8,7 @@
  */
 
 import { basename, dirname } from "node:path";
+import type { TSchema } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
 import { resetApiProviders } from "@vetta/ai";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
@@ -25,7 +26,11 @@ import {
 } from "../extensions/index.js";
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
-import type { AgentPluginRuntimeConfig } from "../system-prompt.js";
+import type {
+	AgentPluginRuntimeConfig,
+	AgentPluginToolContribution,
+	AgentPluginToolInvoker,
+} from "../system-prompt.js";
 import type { TodoStore } from "../todo-store.js";
 import {
 	type AskUserQuestionCapability,
@@ -58,6 +63,8 @@ export interface RuntimeManagerOptions {
 	enableBackgroundTasks: boolean;
 	/** Runtime plugin contributions applied while building agent resources. */
 	agentPlugins?: AgentPluginRuntimeConfig;
+	/** Host bridge used by plugin-contributed tools. */
+	invokePluginTool?: AgentPluginToolInvoker;
 }
 
 export class RuntimeManager {
@@ -72,6 +79,7 @@ export class RuntimeManager {
 	private readonly _backgroundTasks: BackgroundTaskManager;
 	private readonly _enableBackgroundTasks: boolean;
 	private readonly _agentPlugins?: AgentPluginRuntimeConfig;
+	private readonly _invokePluginTool?: AgentPluginToolInvoker;
 
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -109,6 +117,7 @@ export class RuntimeManager {
 		this._backgroundTasks = opts.backgroundTasks;
 		this._enableBackgroundTasks = opts.enableBackgroundTasks;
 		this._agentPlugins = opts.agentPlugins;
+		this._invokePluginTool = opts.invokePluginTool;
 	}
 
 	get extensionRunner(): ExtensionRunner | undefined {
@@ -565,6 +574,15 @@ export class RuntimeManager {
 			});
 		}
 
+		for (const tool of createPluginTools({
+			contributions: this._agentPlugins?.toolContributions ?? [],
+			cwd: this.ctx.cwd,
+			sessionId: this.host.sessionId,
+			invoke: this._invokePluginTool,
+		})) {
+			baseTools[tool.name] = tool;
+		}
+
 		this._baseToolRegistry = new Map(Object.entries(baseTools).map(([name, tool]) => [name, tool as AgentTool]));
 
 		const extensionsResult = this.resourceLoader.getExtensions();
@@ -634,6 +652,11 @@ export class RuntimeManager {
 				activeToolNameSet.add(name);
 			}
 		}
+		for (const tool of this._agentPlugins?.toolContributions ?? []) {
+			if (this._baseToolRegistry.has(tool.name)) {
+				activeToolNameSet.add(tool.name);
+			}
+		}
 		if (options.includeAllExtensionTools) {
 			for (const tool of wrappedExtensionTools as AgentTool[]) {
 				activeToolNameSet.add(tool.name);
@@ -671,4 +694,95 @@ export class RuntimeManager {
 		this._baseSystemPrompt = this.rebuildSystemPrompt(systemPromptToolNames);
 		this.ctx.agent.setSystemPrompt(this._baseSystemPrompt);
 	}
+}
+
+function createPluginTools(options: {
+	contributions: AgentPluginToolContribution[];
+	cwd: string;
+	sessionId: string;
+	invoke?: AgentPluginToolInvoker;
+}): AgentTool[] {
+	if (!options.invoke) return [];
+	return options.contributions.map((contribution) => createPluginTool(contribution, options));
+}
+
+function createPluginTool(
+	contribution: AgentPluginToolContribution,
+	options: { cwd: string; sessionId: string; invoke?: AgentPluginToolInvoker },
+): AgentTool {
+	return {
+		name: contribution.name,
+		label: contribution.label ?? contribution.name,
+		description: contribution.description,
+		parameters: contribution.parameters as TSchema,
+		execute: async (_toolCallId, params: unknown, signal?: AbortSignal) => {
+			if (!options.invoke) {
+				return {
+					content: [{ type: "text", text: "Plugin tool is unavailable because no host bridge is registered." }],
+					details: { pluginId: contribution.pluginId, toolId: contribution.id, unavailable: true },
+				};
+			}
+			const result = await invokeWithTimeout(
+				(signalForCall) =>
+					options.invoke?.(
+						{
+							sessionId: options.sessionId,
+							cwd: options.cwd,
+							pluginId: contribution.pluginId,
+							toolId: contribution.id,
+							toolName: contribution.name,
+							handlerId: contribution.handlerId,
+							input: params,
+						},
+						signalForCall,
+					) ?? Promise.resolve(undefined),
+				signal,
+				contribution.timeoutMs,
+			);
+			return {
+				content: [{ type: "text", text: formatPluginToolResult(result) }],
+				details: { pluginId: contribution.pluginId, toolId: contribution.id, result },
+			};
+		},
+	};
+}
+
+async function invokeWithTimeout<T>(
+	invoke: (signal?: AbortSignal) => Promise<T>,
+	signal: AbortSignal | undefined,
+	timeoutMs: number | undefined,
+): Promise<T> {
+	if (!timeoutMs || timeoutMs <= 0) {
+		return invoke(signal);
+	}
+	const controller = new AbortController();
+	const onAbort = (): void => controller.abort(signal?.reason);
+	if (signal) {
+		if (signal.aborted) controller.abort(signal.reason);
+		else signal.addEventListener("abort", onAbort, { once: true });
+	}
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	try {
+		const timeoutPromise = new Promise<never>((_resolve, reject) => {
+			timeout = setTimeout(() => {
+				controller.abort();
+				reject(new Error(`Plugin tool timed out after ${timeoutMs}ms`));
+			}, timeoutMs);
+		});
+		return await Promise.race([invoke(controller.signal), timeoutPromise]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+		if (signal) signal.removeEventListener("abort", onAbort);
+	}
+}
+
+function formatPluginToolResult(result: unknown): string {
+	if (result === undefined) return "Plugin tool completed without a return value.";
+	if (typeof result === "string") return result;
+	if (typeof result === "object" && result !== null) {
+		const record = result as Record<string, unknown>;
+		if (typeof record.text === "string") return record.text;
+		if (typeof record.content === "string") return record.content;
+	}
+	return JSON.stringify(result, null, 2);
 }

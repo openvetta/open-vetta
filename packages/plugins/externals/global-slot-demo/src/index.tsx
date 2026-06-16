@@ -1,6 +1,21 @@
 import { useMemo, useState } from "react";
+import { Type, type Static } from "@sinclair/typebox";
 import { definePlugin } from "@vetta/plugin-sdk";
 import "./style.css";
+
+const writeChapterSchema = Type.Object({
+	path: Type.String({
+		description: "Target file path for the chapter draft. Use an absolute path or a path inside the current project.",
+	}),
+	title: Type.String({
+		description: "Chapter title to write at the top of the file.",
+	}),
+	content: Type.String({
+		description: "Chapter prose or outline content.",
+	}),
+});
+
+type WriteChapterInput = Static<typeof writeChapterSchema>;
 
 function DemoGlobalSlot() {
 	const [open, setOpen] = useState(true);
@@ -10,6 +25,8 @@ function DemoGlobalSlot() {
 		"Prompt block: agent/prompts/fiction-system.md",
 		"Skill path: agent/skills/fiction-outline",
 		"Tool policy: deny doc_to_pdf",
+		"JS tool: novel_write_chapter_file",
+		"File API: api.fs.writeFile(...)",
 	];
 
 	if (!open) {
@@ -81,6 +98,24 @@ export default definePlugin({
 		ctx.ui.registerGlobalSlot({
 			id: "demo-panel",
 			component: DemoGlobalSlot,
+		});
+		ctx.agent.registerTool<WriteChapterInput>({
+			id: "write-chapter-file",
+			name: "novel_write_chapter_file",
+			label: "Write Chapter",
+			description:
+				"Write a novel chapter draft to a file through the host-controlled plugin file API. Use this when the user asks to save generated fiction content.",
+			parameters: writeChapterSchema,
+			timeoutMs: 30_000,
+			handler: async (input, api) => {
+				const body = `# ${input.title}\n\n${input.content.trim()}\n`;
+				await api.fs.writeFile(input.path, body);
+				return {
+					text: `Wrote chapter "${input.title}" to ${input.path}.`,
+					path: input.path,
+					title: input.title,
+				};
+			},
 		});
 	},
 });

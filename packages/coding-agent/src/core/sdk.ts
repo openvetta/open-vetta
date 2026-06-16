@@ -16,7 +16,7 @@ import type { ResourceLoader } from "./resource-loader.js";
 import { DefaultResourceLoader } from "./resource-loader.js";
 import { SessionManager } from "./session-manager.js";
 import { SettingsManager } from "./settings-manager.js";
-import type { AgentPluginRuntimeConfig } from "./system-prompt.js";
+import type { AgentPluginRuntimeConfig, AgentPluginToolInvoker } from "./system-prompt.js";
 import { time } from "./timings.js";
 import {
 	type AskUserQuestionCapability,
@@ -150,6 +150,8 @@ export interface CreateAgentSessionOptions {
 
 	/** Runtime plugin contributions applied while building agent prompts/resources. */
 	agentPlugins?: AgentPluginRuntimeConfig;
+	/** Host bridge used by plugin-contributed tools. */
+	invokePluginTool?: AgentPluginToolInvoker;
 }
 
 /** Result from createAgentSession */
@@ -510,6 +512,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		askUserQuestion: options.askUserQuestion,
 		enableBackgroundTasks: options.enableBackgroundTasks,
 		agentPlugins: options.agentPlugins,
+		invokePluginTool: options.invokePluginTool,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();

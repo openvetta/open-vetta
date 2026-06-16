@@ -18,6 +18,7 @@ import {
 	SessionManager,
 } from "@vetta/coding-agent";
 import type {
+	AgentPluginToolInvoker,
 	AssistantTurnTiming,
 	BackgroundTaskInfo,
 	HistoryEntry,
@@ -186,6 +187,7 @@ export class RuntimeHost implements SessionFacade {
 	private userSandboxGrantHandler:
 		| ((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => Promise<RuntimeSandboxGrantDecision>)
 		| undefined;
+	private pluginToolInvoker: AgentPluginToolInvoker | undefined;
 
 	constructor(options: RuntimeHostOptions = {}) {
 		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
@@ -219,6 +221,10 @@ export class RuntimeHost implements SessionFacade {
 			| undefined,
 	): void {
 		this.userSandboxGrantHandler = handler;
+	}
+
+	setPluginToolInvoker(handler: AgentPluginToolInvoker | undefined): void {
+		this.pluginToolInvoker = handler;
 	}
 
 	listSandboxGrants(sessionId: string): RuntimeSandboxGrantInfo[] {
@@ -350,6 +356,9 @@ export class RuntimeHost implements SessionFacade {
 			enableBackgroundTasks: config.enableBackgroundTasks,
 			includeAgentSkills: config.includeAgentSkills,
 			agentPlugins: config.agentPlugins,
+			invokePluginTool: this.pluginToolInvoker
+				? (invocation, signal) => this.pluginToolInvoker?.(invocation, signal) ?? Promise.resolve(undefined)
+				: undefined,
 			// 「向用户提问」能力：只有宿主显式允许的 session 才会注册工具；
 			// isEnabled / ask 仍实时读取 this.userQuestionHandler，保留动态开关能力。
 			askUserQuestion:

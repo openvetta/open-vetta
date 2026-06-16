@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, normalize, resolve } from "node:path";
-import type { AgentPluginRuntimeConfig, SystemPromptBlock } from "@vetta/runtime-core";
+import type { AgentPluginRuntimeConfig, AgentPluginToolContribution, SystemPromptBlock } from "@vetta/runtime-core";
 import AdmZip from "adm-zip";
 import { app } from "electron";
 import type {
@@ -22,6 +22,9 @@ const systemPrefsPath = join(homedir(), ".vetta", "system-plugin-prefs.json");
 
 type PluginManifestFile = Record<string, InstalledPlugin>;
 type SystemPluginPrefs = Record<string, { enabled: boolean }>;
+type RegisteredAgentTool = Omit<AgentPluginToolContribution, "pluginId">;
+
+const dynamicAgentTools = new Map<string, Map<string, RegisteredAgentTool>>();
 
 function ensureDir(dir: string): void {
 	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -351,9 +354,11 @@ function readPromptBlock(plugin: InstalledPlugin, relativePath: string, index: n
 
 export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | undefined {
 	const enabledPlugins = listPlugins().filter((plugin) => plugin.enabled && plugin.agent);
+	const enabledToolPlugins = listPlugins().filter((plugin) => plugin.enabled);
 	const systemPromptContributions: NonNullable<AgentPluginRuntimeConfig["systemPromptContributions"]> = [];
 	const skillPathContributions: NonNullable<AgentPluginRuntimeConfig["skillPathContributions"]> = [];
 	const toolPolicyContributions: NonNullable<AgentPluginRuntimeConfig["toolPolicyContributions"]> = [];
+	const toolContributions: NonNullable<AgentPluginRuntimeConfig["toolContributions"]> = [];
 
 	for (const plugin of enabledPlugins) {
 		try {
@@ -390,11 +395,53 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 		}
 	}
 
+	for (const plugin of enabledToolPlugins) {
+		if (!hasGrantedPermission(plugin, "agent.tools.register")) continue;
+		if (!hasGrantedPermission(plugin, "agent.toolHandler.execute")) continue;
+		const registeredTools = dynamicAgentTools.get(plugin.id);
+		if (!registeredTools) continue;
+		for (const tool of registeredTools.values()) {
+			toolContributions.push({ ...tool, pluginId: plugin.id });
+		}
+	}
+
 	const config: AgentPluginRuntimeConfig = {};
 	if (systemPromptContributions.length > 0) config.systemPromptContributions = systemPromptContributions;
 	if (skillPathContributions.length > 0) config.skillPathContributions = skillPathContributions;
 	if (toolPolicyContributions.length > 0) config.toolPolicyContributions = toolPolicyContributions;
+	if (toolContributions.length > 0) config.toolContributions = toolContributions;
 	return Object.keys(config).length > 0 ? config : undefined;
+}
+
+export function registerDynamicAgentTool(pluginId: string, tool: RegisteredAgentTool): void {
+	validatePluginId(pluginId);
+	const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+	if (!plugin) throw new Error(`Plugin not found: ${pluginId}`);
+	if (!hasGrantedPermission(plugin, "agent.tools.register")) {
+		throw new Error(`Plugin permission denied: agent.tools.register`);
+	}
+	if (!hasGrantedPermission(plugin, "agent.toolHandler.execute")) {
+		throw new Error(`Plugin permission denied: agent.toolHandler.execute`);
+	}
+	let tools = dynamicAgentTools.get(pluginId);
+	if (!tools) {
+		tools = new Map();
+		dynamicAgentTools.set(pluginId, tools);
+	}
+	tools.set(tool.id, tool);
+}
+
+export function unregisterDynamicAgentTool(pluginId: string, toolId: string): void {
+	validatePluginId(pluginId);
+	const tools = dynamicAgentTools.get(pluginId);
+	if (!tools) return;
+	tools.delete(toolId);
+	if (tools.size === 0) dynamicAgentTools.delete(pluginId);
+}
+
+export function clearDynamicAgentTools(pluginId: string): void {
+	validatePluginId(pluginId);
+	dynamicAgentTools.delete(pluginId);
 }
 
 function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean): InstalledPlugin {

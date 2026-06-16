@@ -230,6 +230,7 @@ export class AgentSession {
 			mcpDebug: config.mcpDebug || false,
 			askUserQuestion: config.askUserQuestion,
 			agentPlugins: config.agentPlugins,
+			invokePluginTool: config.invokePluginTool,
 		});
 
 		this._input = new InputPipeline(this._ctx, {
