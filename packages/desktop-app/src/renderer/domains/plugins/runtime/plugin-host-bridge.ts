@@ -1,6 +1,7 @@
 import {
 	activeSessionAtom,
 	chatMessagesAtom,
+	editImageAttachmentAtom,
 	inputValueAtom,
 	isStreamingAtom,
 	selectedModelAtom,
@@ -15,6 +16,7 @@ import type {
 	PluginAgentToolHandler,
 	PluginConversationApi,
 	PluginHostBridge,
+	PluginImageRef,
 } from "@vetta/plugin-sdk";
 import { __setPluginHostBridge } from "@vetta/plugin-sdk";
 import type { SessionEvent } from "@vetta/runtime-core";
@@ -242,10 +244,15 @@ function useConversationMessages(): ConversationMessage[] {
 	);
 }
 
+function useEditImageAttachment(): PluginImageRef | null {
+	return useAtomValue(editImageAttachmentAtom);
+}
+
 /** The bridge the loader uses to build ctx.conversation (gated per plugin). */
 export const pluginHostBridge: PluginHostBridge = {
 	useActiveConversation,
 	useConversationMessages,
+	useEditImageAttachment,
 	conversation,
 };
 

@@ -1056,6 +1056,13 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 
 	const scrollerRefCallback = useCallback((el: HTMLElement | Window | null) => {
 		scrollerRef.current = el instanceof HTMLElement ? el : null;
+		// Disable native CSS scroll-anchoring. When a variable-height item above the
+		// viewport is re-measured (e.g. an image card's row settles its width/overflow),
+		// the browser's overflow-anchor silently shifts scrollTop to "keep position" —
+		// fighting Virtuoso's own JS scroll management and producing a one-shot jump as
+		// the item's top edge crosses the viewport. The list owns scroll; opt out of the
+		// browser's. (This adjustment is native, so it never showed up in JS scrollTop probes.)
+		if (scrollerRef.current) scrollerRef.current.style.overflowAnchor = "none";
 	}, []);
 
 	useEffect(() => {

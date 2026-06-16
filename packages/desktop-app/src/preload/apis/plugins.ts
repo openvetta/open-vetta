@@ -25,6 +25,8 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			generateImage: (pluginId, input) => ipc.invoke("vetta:plugins:images:generate", pluginId, input),
 			editImage: (pluginId, input) => ipc.invoke("vetta:plugins:images:edit", pluginId, input),
 			imageLineage: (pluginId, imageId) => ipc.invoke("vetta:plugins:images:lineage", pluginId, imageId),
+			sessionLineages: (pluginId, sessionId) =>
+				ipc.invoke("vetta:plugins:images:session-lineages", pluginId, sessionId),
 			onSettingsChanged: (listener) => {
 				const handler = (
 					_event: IpcRendererEvent,

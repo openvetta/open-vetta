@@ -2,10 +2,14 @@ import { createInstance, type ModuleFederation } from "@module-federation/enhanc
 import type { InstalledPlugin } from "@preload/api";
 import type { ActivityTabKey } from "@shared/lib/project-profile";
 import {
+	activeInputActionIdsAtom,
 	activeSessionAtom,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	attachedPluginTabsAtom,
+	editImageAttachmentAtom,
+	filePreviewAtom,
+	pluginInputActionsAtom,
 } from "@shared/store/atoms";
 import type {
 	Disposable,
@@ -16,6 +20,7 @@ import type {
 	PluginFilePreviewContribution,
 	PluginFsApi,
 	PluginGlobalSlotContribution,
+	PluginImageRef,
 	PluginImagesApi,
 	PluginInputActionContribution,
 	PluginMessageSlotContribution,
@@ -285,6 +290,10 @@ function createImagesApi(plugin: InstalledPlugin): PluginImagesApi {
 			guard();
 			return window.vetta.plugins.imageLineage(plugin.id, imageId);
 		},
+		sessionLineages: (sessionId) => {
+			guard();
+			return window.vetta.plugins.sessionLineages(plugin.id, sessionId);
+		},
 	};
 }
 
@@ -438,6 +447,37 @@ function createContext(
 		}
 		openPluginActivityTab(plugin.id, tabId);
 	};
+	const setEditImageAttachment = (ref: PluginImageRef | null): void => {
+		createPermissionApi(plugin).require("ui.slot.input-action");
+		const store = getDefaultStore();
+		store.set(editImageAttachmentAtom, ref ?? null);
+		// Attaching an image to edit implies image mode is on: activate this plugin's
+		// input action(s) so the 图像生成 toggle reflects active and the turn carries
+		// imageMode (gen/edit is only allowed while image mode is active).
+		if (ref) {
+			const myActionIds = store
+				.get(pluginInputActionsAtom)
+				.filter((action) => action.pluginId === plugin.id)
+				.map((action) => action.actionId);
+			if (myActionIds.length > 0) {
+				store.set(activeInputActionIdsAtom, (prev) => {
+					const next = new Set(prev);
+					for (const id of myActionIds) next.add(id);
+					return next;
+				});
+			}
+		}
+	};
+	const previewImage = (ref: PluginImageRef): void => {
+		createPermissionApi(plugin).require("ui.slot.message");
+		const ext = (ref.mimeType ?? "image/png").split("/")[1] ?? "png";
+		getDefaultStore().set(filePreviewAtom, {
+			name: `${ref.id}.${ext}`,
+			url: ref.url,
+			kind: "image",
+			mime: ref.mimeType,
+		});
+	};
 	return {
 		plugin: {
 			id: plugin.id,
@@ -451,6 +491,8 @@ function createContext(
 			registerInputAction,
 			registerMessageSlot,
 			openActivityTab,
+			setEditImageAttachment,
+			previewImage,
 		},
 		conversation,
 		fs,

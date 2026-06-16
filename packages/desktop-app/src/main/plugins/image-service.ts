@@ -85,7 +85,12 @@ function imagePath(pluginId: string, id: string, ext: string): string {
 }
 
 function toResult(pluginId: string, id: string, record: ImageRecord): ImageResult {
-	return { id, url: toMediaUrl(imagePath(pluginId, id, record.ext)), mimeType: record.mimeType };
+	return {
+		id,
+		url: toMediaUrl(imagePath(pluginId, id, record.ext)),
+		mimeType: record.mimeType,
+		rootId: record.rootId,
+	};
 }
 
 type ImageProvider = "openai" | "agnes-ai" | "custom";
@@ -295,9 +300,10 @@ async function resolveSourceBytes(
 export async function editImage(pluginId: string, input: EditImageInput): Promise<ImageResult[]> {
 	const config = resolveConfig(pluginId);
 	const src = await resolveSourceBytes(pluginId, input.source);
+	const size = input.size?.trim() || DEFAULT_SIZE;
 	let item: ImageItem;
 	try {
-		item = await requestEdit(config, input.prompt, src, DEFAULT_SIZE);
+		item = await requestEdit(config, input.prompt, src, size);
 	} catch (err) {
 		throw new Error(`图像编辑失败: ${err instanceof Error ? err.message : String(err)}`);
 	}
@@ -314,4 +320,29 @@ export async function imageLineage(pluginId: string, imageId: string): Promise<I
 		.filter(([, value]) => value.rootId === record.rootId)
 		.sort(([, a], [, b]) => a.createdAt.localeCompare(b.createdAt))
 		.map(([id, value]) => toResult(pluginId, id, value));
+}
+
+/**
+ * Every edit lineage that this session touched (generated or edited at least one
+ * version in), newest lineage first; each lineage's versions oldest → newest.
+ * Powers the plugin's "生图历史" activity panel.
+ */
+export async function sessionLineages(pluginId: string, sessionId: string): Promise<ImageResult[][]> {
+	const index = readIndex(pluginId);
+	const roots = new Set<string>();
+	for (const value of Object.values(index)) {
+		if (value.sessionId === sessionId) roots.add(value.rootId);
+	}
+	const lineages: { latest: string; versions: ImageResult[] }[] = [];
+	for (const root of roots) {
+		const members = Object.entries(index)
+			.filter(([, value]) => value.rootId === root)
+			.sort(([, a], [, b]) => a.createdAt.localeCompare(b.createdAt));
+		if (members.length === 0) continue;
+		lineages.push({
+			latest: members[members.length - 1][1].createdAt,
+			versions: members.map(([id, value]) => toResult(pluginId, id, value)),
+		});
+	}
+	return lineages.sort((a, b) => b.latest.localeCompare(a.latest)).map((l) => l.versions);
 }
