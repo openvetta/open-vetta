@@ -11,10 +11,16 @@ import type {
 import { getPluginSettings } from "./plugin-store.js";
 
 /**
- * Main-process image service (single source of truth for `/v1/images`).
- * Both entry points route here: the agent's built-in image tool (host-injected)
- * and the plugin panel via IPC. Bytes are stored out-of-band under ~/.vetta and
- * served through the vetta-media:// protocol; results carry only references.
+ * Main-process backend for the `image-gen` system plugin (ADR-0028). NOT a
+ * generic image service: it hardcodes that plugin's providers (openai / agnes-ai
+ * / custom) and their request formats. It lives in main rather than the plugin
+ * because both entry points need it in main — the agent's built-in generate_image
+ * tool (host-injected, runs with no plugin UI loaded) and the plugin panel via
+ * IPC — and because HTTP + fs + the vetta-media:// protocol aren't available in
+ * the renderer. Coupling host↔plugin here is tolerated: image-gen is a first-party
+ * system plugin that ships and versions in lockstep with the app, so this is not
+ * a trust or release boundary. Bytes are stored out-of-band under ~/.vetta and
+ * served through vetta-media://; results carry only references.
  */
 
 type ImageResult = PluginImageResult;
@@ -82,33 +88,52 @@ function toResult(pluginId: string, id: string, record: ImageRecord): ImageResul
 	return { id, url: toMediaUrl(imagePath(pluginId, id, record.ext)), mimeType: record.mimeType };
 }
 
-type ImageProvider = "openai" | "agnes-ai";
+type ImageProvider = "openai" | "agnes-ai" | "custom";
 
 interface ImageConfig {
 	provider: ImageProvider;
 	baseUrl: string;
 	apiKey: string;
 	model: string;
-	size: string;
 }
 
-const PROVIDER_DEFAULTS: Record<ImageProvider, { baseUrl: string; model: string }> = {
-	openai: { baseUrl: "https://api.openai.com/v1", model: "gpt-image-1" },
-	"agnes-ai": { baseUrl: "https://apihub.agnes-ai.com/v1", model: "agnes-image-2.1-flash" },
+/** Default output size when the agent doesn't specify one. */
+const DEFAULT_SIZE = "1024x1024";
+
+// Built-in providers: only the endpoint is fixed here. The model list and the
+// apiKey live in the plugin's plugin.json as per-provider settings (each shown
+// via visibleWhen, so switching provider doesn't clobber another's key/model).
+// `modelKey` / `apiKeyKey` name the settings holding the user's selection; the
+// model value already carries the schema default.
+const PROVIDER_PRESETS: Record<"openai" | "agnes-ai", { baseUrl: string; modelKey: string; apiKeyKey: string }> = {
+	openai: { baseUrl: "https://api.openai.com/v1", modelKey: "openaiModel", apiKeyKey: "openaiApiKey" },
+	"agnes-ai": { baseUrl: "https://apihub.agnes-ai.com/v1", modelKey: "agnesModel", apiKeyKey: "agnesApiKey" },
 };
+
+function readSetting(settings: Record<string, unknown>, key: string): string {
+	const value = settings[key];
+	return typeof value === "string" ? value.trim() : "";
+}
 
 function resolveConfig(pluginId: string): ImageConfig {
 	const settings = getPluginSettings(pluginId);
-	const provider: ImageProvider = settings.provider === "agnes-ai" ? "agnes-ai" : "openai";
-	const defaults = PROVIDER_DEFAULTS[provider];
-	const baseUrl = (
-		typeof settings.baseUrl === "string" && settings.baseUrl.trim() ? settings.baseUrl.trim() : defaults.baseUrl
-	).replace(/\/+$/, "");
-	const apiKey = typeof settings.apiKey === "string" ? settings.apiKey.trim() : "";
-	const model = typeof settings.model === "string" && settings.model.trim() ? settings.model.trim() : defaults.model;
-	const size = typeof settings.size === "string" && settings.size.trim() ? settings.size.trim() : "1024x1024";
-	if (!apiKey) throw new Error("图像服务未配置 apiKey（请在插件设置中填写）");
-	return { provider, baseUrl, apiKey, model, size };
+	const provider: ImageProvider =
+		settings.provider === "agnes-ai" ? "agnes-ai" : settings.provider === "custom" ? "custom" : "openai";
+	if (provider === "custom") {
+		const apiKey = readSetting(settings, "customApiKey");
+		const baseUrl = readSetting(settings, "baseUrl").replace(/\/+$/, "");
+		const model = readSetting(settings, "model");
+		if (!apiKey) throw new Error("自定义服务商需要填写 API Key（请在插件设置中填写）");
+		if (!baseUrl) throw new Error("自定义服务商需要填写 API Base URL（请在插件设置中填写）");
+		if (!model) throw new Error("自定义服务商需要填写图像模型（请在插件设置中填写）");
+		return { provider, baseUrl, apiKey, model };
+	}
+	const preset = PROVIDER_PRESETS[provider];
+	const apiKey = readSetting(settings, preset.apiKeyKey);
+	const model = readSetting(settings, preset.modelKey);
+	if (!apiKey) throw new Error("图像服务未配置 API Key（请在插件设置中填写）");
+	if (!model) throw new Error("图像服务未选择模型（请在插件设置中选择）");
+	return { provider, baseUrl: preset.baseUrl.replace(/\/+$/, ""), apiKey, model };
 }
 
 function extFromMime(mimeType: string): string {
@@ -188,24 +213,26 @@ function jsonInit(config: ImageConfig, body: Record<string, unknown>): RequestIn
 }
 
 /** Text-to-image. */
-function requestGeneration(config: ImageConfig, prompt: string): Promise<ImageItem> {
+function requestGeneration(config: ImageConfig, prompt: string, size: string): Promise<ImageItem> {
 	if (config.provider === "agnes-ai") {
 		// Agnes: same /images/generations endpoint; top-level return_base64 for b64 output.
 		return requestImage(
 			config,
 			"images/generations",
-			jsonInit(config, { model: config.model, prompt, size: config.size, return_base64: true }),
+			jsonInit(config, { model: config.model, prompt, size, return_base64: true }),
 		);
 	}
-	return requestImage(
-		config,
-		"images/generations",
-		jsonInit(config, { model: config.model, prompt, n: 1, size: config.size }),
-	);
+	// openai / custom: standard OpenAI v1 image generation format.
+	return requestImage(config, "images/generations", jsonInit(config, { model: config.model, prompt, n: 1, size }));
 }
 
 /** Image-to-image. */
-function requestEdit(config: ImageConfig, prompt: string, src: { data: Buffer; mimeType: string }): Promise<ImageItem> {
+function requestEdit(
+	config: ImageConfig,
+	prompt: string,
+	src: { data: Buffer; mimeType: string },
+	size: string,
+): Promise<ImageItem> {
 	if (config.provider === "agnes-ai") {
 		// Agnes img2img: same endpoint; source image as Data URI inside extra_body.image,
 		// b64 output via extra_body.response_format (NOT at top level).
@@ -216,17 +243,17 @@ function requestEdit(config: ImageConfig, prompt: string, src: { data: Buffer; m
 			jsonInit(config, {
 				model: config.model,
 				prompt,
-				size: config.size,
+				size,
 				extra_body: { image: [dataUri], response_format: "b64_json" },
 			}),
 		);
 	}
-	// OpenAI standard multipart edits.
+	// openai / custom: standard OpenAI v1 multipart edits.
 	const form = new FormData();
 	form.set("model", config.model);
 	form.set("prompt", prompt);
 	form.set("n", "1");
-	form.set("size", config.size);
+	form.set("size", size);
 	form.set(
 		"image",
 		new Blob([new Uint8Array(src.data)], { type: src.mimeType }),
@@ -241,9 +268,10 @@ function requestEdit(config: ImageConfig, prompt: string, src: { data: Buffer; m
 
 export async function generateImage(pluginId: string, input: GenerateImageInput): Promise<ImageResult[]> {
 	const config = resolveConfig(pluginId);
+	const size = input.size?.trim() || DEFAULT_SIZE;
 	let item: ImageItem;
 	try {
-		item = await requestGeneration(config, input.prompt);
+		item = await requestGeneration(config, input.prompt, size);
 	} catch (err) {
 		throw new Error(`图像生成失败: ${err instanceof Error ? err.message : String(err)}`);
 	}
@@ -269,7 +297,7 @@ export async function editImage(pluginId: string, input: EditImageInput): Promis
 	const src = await resolveSourceBytes(pluginId, input.source);
 	let item: ImageItem;
 	try {
-		item = await requestEdit(config, input.prompt, src);
+		item = await requestEdit(config, input.prompt, src, DEFAULT_SIZE);
 	} catch (err) {
 		throw new Error(`图像编辑失败: ${err instanceof Error ? err.message : String(err)}`);
 	}

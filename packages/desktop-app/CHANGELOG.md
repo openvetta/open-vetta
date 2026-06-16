@@ -12,6 +12,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **插件设置项条件显隐 + 标准化渲染 + `desc` 说明项**：`PluginSettingSchema` 新增 `visibleWhen`（`{ key, in }`，按另一设置项的当前值决定本项是否显示）与 `desc` 类型（只读说明项，不存值，渲染 `description` 文本并把其中的 http(s) 链接变为可点外链；`title` 对 `desc` 可选）；plugin-store 解析并透传。插件设置页改用通用 `SettingSection` / `SettingRow` 渲染——每个插件一个独立 Section，每个设置项与其它设置页样式一致，并按 `visibleWhen` 过滤。
+- **图像生成插件按服务商配置**：image-gen 服务商扩展为 `openai` / `agnes-ai` / `custom`。`openai`（`https://api.openai.com/v1`）与 `agnes-ai`（`https://apihub.agnes-ai.com/v1`）的接口地址内置固定，仅需填 API Key 并从模型下拉中选择（`openaiModel` / `agnesModel`，目前各一个选项，后续可扩充）；`custom` 显示并要求填写 `baseUrl` / `model`（标准 OpenAI v1 图像生成格式）。API Key 按服务商独立存储（`openaiApiKey` / `agnesApiKey` / `customApiKey`，各自 `visibleWhen`），切换服务商互不覆盖。移除 `size` 设置项——输出尺寸改由 agent 经 `generate_image` 工具的 `size` 参数（自由格式，缺省 `1024x1024`）决定并透传给主进程图像服务。
 - **可信 UI 插件运行时**：新增桌面端插件系统基础设施，支持从本地 zip 或远程 zip 安装外部插件，读取 `plugin.json` 记录插件版本、`pluginApiVersion`、入口、样式和权限声明；主进程注册 `vetta-plugin://` 加载插件文件、`vetta-host://` 共享宿主 React / JSX runtime / plugin SDK，renderer 启动时加载已启用插件并渲染全局 slot。新增 `window.vetta.plugins` 管理 API（安装、卸载、启用、授权、撤权、手动 reload），插件更新只记录 pending 版本，不自动切换到新 UI。
 - **设置页插件管理**：新增「插件」设置页，支持选择本地 zip 或填写远程 zip URL 安装插件，查看已安装插件，管理启用状态、权限授权、重载和卸载；设置页操作后会通知 renderer 插件宿主即时重新加载已启用插件。
 - **插件 Module Federation 加载模式**：可信 UI 插件新增 `runtime: "module-federation"` manifest 格式，宿主通过 `@module-federation/enhanced/runtime` 动态注册 zip 插件 remote 并加载 expose，React / React DOM 由宿主作为 shared singleton 提供；原 `runtime: "esm"` 加载模式保留兼容。

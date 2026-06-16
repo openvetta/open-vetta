@@ -14,7 +14,7 @@ export interface ImageToolRef {
  * image service. coding-agent never depends on the host implementation.
  */
 export interface ImageToolBackend {
-	generate(input: { prompt: string; sessionId?: string }): Promise<ImageToolRef[]>;
+	generate(input: { prompt: string; size?: string; sessionId?: string }): Promise<ImageToolRef[]>;
 }
 
 export interface GenerateImageToolDetails {
@@ -30,6 +30,12 @@ const generateImageSchema = Type.Object({
 		description:
 			"A detailed, vivid English prompt describing the image to generate. Optimize the user's request into a concrete prompt (subject, style, lighting, composition).",
 	}),
+	size: Type.Optional(
+		Type.String({
+			description:
+				"Output image dimensions as 'WIDTHxHEIGHT' (e.g. '1024x1024', '1024x1536', '1536x1024', or any other ratio/resolution the user wants). Choose to match the desired aspect ratio. Defaults to '1024x1024' if omitted.",
+		}),
+	),
 });
 
 /**
@@ -51,7 +57,7 @@ export function createGenerateImageTool(
 		parameters: generateImageSchema,
 		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
 			const sessionId = ctx.sessionManager.getSessionId();
-			const images = await backend.generate({ prompt: params.prompt, sessionId });
+			const images = await backend.generate({ prompt: params.prompt, size: params.size, sessionId });
 			// The host (desktop) drops tool `details` before the result reaches the
 			// renderer, so the image references (id + vetta-media URL) ride in the
 			// result text inside a machine-readable marker. The renderer parses it

@@ -10,12 +10,23 @@
 
 ## 配置（插件设置）
 
-在「设置 → 插件设置」中配置：
+在「设置 → 插件设置」中按服务商配置：
 
-- `baseUrl`：OpenAI 兼容图像 API 基址（不含 `/images`），默认 `https://api.openai.com/v1`
-- `apiKey`：API Key（secret）
-- `model`：图像模型，默认 `gpt-image-1`
-- `size`：输出尺寸
+- `provider`：服务商，`openai` / `agnes-ai` / `custom`
+- `apiKey`：API Key（secret），三个服务商都需要
+- `openaiModel` / `agnesModel`：内置服务商的模型下拉选择（目前各一个选项，后续可扩充）
+- `baseUrl`、`model`：仅 `custom` 时显示并需要填写（标准 OpenAI v1 图像生成格式）
+
+选中 `agnes-ai` 时，设置页会显示一条 `desc` 说明项，附带申请 API Key 的链接（可点击跳转外部浏览器）。
+
+内置服务商的接口地址已固定，用户只需填 `apiKey` 并选择模型：
+
+| provider | baseUrl | 可选模型（默认） |
+| --- | --- | --- |
+| `openai` | `https://api.openai.com/v1` | `gpt-image-2` |
+| `agnes-ai` | `https://apihub.agnes-ai.com/v1` | `agnes-image-2.1-flash` |
+
+输出尺寸不在设置中选择：由 agent 通过 `generate_image` 工具的 `size` 参数决定并传给模型（缺省 `1024x1024`）。
 
 ## 架构
 

@@ -71,7 +71,19 @@ function assertPermissionArray(value: unknown): PluginPermission[] {
 	return Array.from(new Set(value.map((item) => item.trim() as PluginPermission)));
 }
 
-const SETTING_TYPES = new Set(["string", "number", "boolean", "enum", "secret"]);
+const SETTING_TYPES = new Set(["string", "number", "boolean", "enum", "secret", "desc"]);
+
+function parseVisibleWhen(raw: unknown, key: string): PluginSettingSchema["visibleWhen"] {
+	if (raw === undefined) return undefined;
+	if (raw == null || typeof raw !== "object") {
+		throw new Error(`Invalid plugin setting visibleWhen for ${key}`);
+	}
+	const condition = raw as Record<string, unknown>;
+	return {
+		key: assertString(condition.key, "setting.visibleWhen.key"),
+		in: assertStringArray(condition.in, "setting.visibleWhen.in"),
+	};
+}
 
 function parseSettingsSchema(raw: unknown): PluginSettingSchema[] | undefined {
 	if (raw == null || typeof raw !== "object") return undefined;
@@ -93,13 +105,21 @@ function parseSettingsSchema(raw: unknown): PluginSettingSchema[] | undefined {
 		if (def !== undefined && typeof def !== "string" && typeof def !== "number" && typeof def !== "boolean") {
 			throw new Error(`Invalid plugin setting default for ${key}`);
 		}
+		// `desc` is text-only: title is optional (the note lives in description).
+		const title =
+			setting.type === "desc"
+				? typeof setting.title === "string"
+					? setting.title
+					: undefined
+				: assertString(setting.title, "setting.title");
 		return {
 			key,
 			type: setting.type as PluginSettingSchema["type"],
-			title: assertString(setting.title, "setting.title"),
+			title,
 			description: typeof setting.description === "string" ? setting.description : undefined,
 			default: def,
 			enum: setting.enum === undefined ? undefined : assertStringArray(setting.enum, "setting.enum"),
+			visibleWhen: parseVisibleWhen(setting.visibleWhen, key),
 		};
 	});
 	return parsed.length > 0 ? parsed : undefined;
