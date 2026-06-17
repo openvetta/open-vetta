@@ -15,14 +15,15 @@ import { useBatchTasks } from "../../batch-tasks/hooks/useBatchTasks";
 interface ProjectsPanelProps {
 	filter: SidebarFilter;
 	onOpenSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
+	// 侧边栏项目列表的滚动容器，传给「对话」虚拟列表复用，避免独立滚动条。
+	scrollParent: HTMLElement | null;
 }
 
 const EMPTY_SESSIONS: SessionInfo[] = [];
 const VIRTUAL_DEFAULT_SESSION_ROW_HEIGHT = 34;
-const VIRTUAL_DEFAULT_SESSION_MAX_HEIGHT = 360;
 const VIRTUAL_DEFAULT_SESSION_OVERSCAN = 120;
 
-export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JSX.Element {
+export function ProjectsPanel({ filter, onOpenSession, scrollParent }: ProjectsPanelProps): JSX.Element {
 	const {
 		projects,
 		sessionsMap,
@@ -523,6 +524,7 @@ export function ProjectsPanel({ filter, onOpenSession }: ProjectsPanelProps): JS
 						activeSessionPath={activeSessionPath}
 						onSelectSession={handleDefaultSelectSession}
 						onRenameSession={handleRenameSession}
+						scrollParent={scrollParent}
 					/>
 				</div>
 			)}
@@ -589,6 +591,7 @@ interface DefaultSessionListProps {
 	activeSessionPath: string;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
+	scrollParent: HTMLElement | null;
 }
 
 const DefaultSessionList = memo(function DefaultSessionList({
@@ -598,6 +601,7 @@ const DefaultSessionList = memo(function DefaultSessionList({
 	activeSessionPath,
 	onSelectSession,
 	onRenameSession,
+	scrollParent,
 }: DefaultSessionListProps): JSX.Element {
 	const sorted = useMemo(
 		() => [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt),
@@ -630,10 +634,6 @@ const DefaultSessionList = memo(function DefaultSessionList({
 		? sorted
 		: sorted.slice(0, DEFAULT_VISIBLE_DEFAULT_SESSIONS);
 	const hiddenCount = sorted.length - DEFAULT_VISIBLE_DEFAULT_SESSIONS;
-	const virtualSessionListHeight = Math.min(
-		sorted.length * VIRTUAL_DEFAULT_SESSION_ROW_HEIGHT,
-		VIRTUAL_DEFAULT_SESSION_MAX_HEIGHT,
-	);
 
 	const renderSession = (session: SessionInfo): JSX.Element => {
 		const isActive = activeSessionPath === session.path;
@@ -707,10 +707,12 @@ const DefaultSessionList = memo(function DefaultSessionList({
 
 	return (
 		<div className="space-y-px">
-			{showAll ? (
+			{showAll && scrollParent ? (
+				// 复用侧边栏滚动容器（customScrollParent），列表完整撑开、不自建滚动条，
+				// 与项目列表共用同一个滚动条。
 				<Virtuoso
 					data={sorted}
-					style={{ height: virtualSessionListHeight, overflowX: "hidden" }}
+					customScrollParent={scrollParent}
 					overscan={VIRTUAL_DEFAULT_SESSION_OVERSCAN}
 					defaultItemHeight={VIRTUAL_DEFAULT_SESSION_ROW_HEIGHT}
 					itemContent={(_, session) => (
