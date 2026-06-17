@@ -13,6 +13,7 @@ import { useTheme } from "./shared/hooks/useTheme";
 import { useAuth } from "./domains/auth/hooks/useAuth";
 import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useUpdaterInit } from "./shared/hooks/useUpdaterInit";
+import { useRunningSessionsSync } from "./shared/hooks/useRunningSessionsSync";
 import { useNarrowScreen } from "./shared/hooks/useNarrowScreen";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
@@ -193,6 +194,9 @@ export function RootLayout(): JSX.Element {
 	useFlowingChatInit();
 	useDownloadsInit();
 	useUpdaterInit();
+	// 全局 running-sessions 订阅必须挂在始终挂载的 App 上：它是 streaming 状态真值
+	// 来源之一，挂在会被卸载的 Sidebar 上会在卸载期间丢 RUNNING_CHANGED 事件。
+	useRunningSessionsSync();
 	const { openSession } = useSessionManager();
 
 	// 上报「聊天页当前所在 session」给主进程：仅在聊天路由 "/" 且有 activeSession

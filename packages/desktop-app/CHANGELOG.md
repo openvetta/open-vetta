@@ -104,6 +104,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **streaming 期间展开右侧文件预览后，模型结束输出但打字指示器仍卡住**：内联文件预览展开会自动收起左侧 Sidebar 腾出空间，而 Sidebar 被条件渲染时是真正卸载。维护 `runningSessionPathsAtom`（streaming 状态真值来源之一）的 `RUNNING_CHANGED` IPC 订阅原先挂在 Sidebar 的 effect 上，Sidebar 卸载期间该事件被静默丢弃，导致 `isStreamingAtom` 一直为真，直到关闭预览、Sidebar 重新挂载靠 `listRunning` 快照纠偏。现把该订阅抽成 `useRunningSessionsSync` hook 上提到始终挂载的 App 根级，Sidebar 折叠/窄屏/内联预览均不再丢事件。
+
 - **开发启动时系统插件重复初始化异常**：React StrictMode 会在开发环境重复执行插件宿主初始化，原加载器每次都以 `force` 覆盖 Module Federation remote，触发覆盖告警并清除已加载缓存；首次异步加载若在清理后才完成，也不会释放插件贡献。现在仅在插件别名或入口实际变化时强制重注册，同一制品直接复用既有 remote，并在异步加载完成后正确清理已失效初始化产生的插件实例。
 
 - **Windows 开发启动构建系统插件时报 EPERM**：预置插件改由 `packages/plugins` 独立 Bun workspace 统一管理；构建脚本按该 workspace 的锁文件执行 frozen install，并通过 `workspace:*` 直接链接插件 SDK/构建包源码，不再从嵌套项目复制根 workspace 的 Junction。
