@@ -53,11 +53,13 @@ interface GuidingGroup {
 	name: string;
 	words: string[];
 }
-// 展示限额（非数据截断）：同时最多 3 组、每组最多 4 词；超出则轮播。
-const GUIDING_GROUP_PAGE = 3;
-const GUIDING_WORD_PAGE = 4;
-const GUIDING_GROUP_INTERVAL = 12000;
-const GUIDING_WORD_INTERVAL = 3000;
+// 展示限额（非数据截断）：同时最多 2 组、每组最多 3 词；超出则轮播。
+const GUIDING_GROUP_PAGE = 2;
+const GUIDING_WORD_PAGE = 3;
+const GUIDING_GROUP_INTERVAL = 24000;
+const GUIDING_WORD_INTERVAL = 6000;
+// 引导词轮播缓动：柔和线性收尾，避免生硬切换。
+const guidingEase = [0.22, 1, 0.36, 1] as const;
 
 function scheduleIdle(callback: () => void, timeout: number): () => void {
 	let cancelled = false;
@@ -370,7 +372,7 @@ export function NewSessionPage(): JSX.Element {
 						initial={{ opacity: 0, y: 12 }}
 						animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 12 }}
 						transition={{ duration: 0.5, ease: easeOut }}
-						className="my-auto flex w-full max-w-3xl flex-col items-center"
+						className="my-auto flex w-full max-w-4xl flex-col items-center"
 					>
 						<BotAvatar size="lg" autoplay={avatarAutoplay} />
 						<motion.h1
@@ -628,7 +630,8 @@ interface GuidingWordsProps {
 }
 
 // 引导词分组区：按插件分组，组标题=插件 name。展示限额靠轮播实现（非数据截断）：
-// 组数 >3 时组级 12s 轮播切批；某组词数 >4 时该组词级 3s 轮播切页；未超出则静态。
+// 组数 >2 时组级 24s 轮播切批；某组词数 >3 时该组词级 6s 轮播切页；未超出则静态。
+// 每组恒显示 min(词数, 3) 行（超出轮播、绝不撑高列）；单个词过长则换行完整展示，不省略。
 function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Element {
 	const [groupTick, setGroupTick] = useState(0);
 	const [wordTick, setWordTick] = useState(0);
@@ -656,29 +659,31 @@ function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Eleme
 			initial={{ opacity: 0, y: 8 }}
 			animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
 			transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
-			className="mt-5 grid w-full grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3"
+			className="mt-5 grid w-full grid-cols-[repeat(2,minmax(0,320px))] items-start justify-center gap-x-10 gap-y-5"
 		>
 			{visibleGroups.map((group) => {
 				const wordPages = Math.max(1, Math.ceil(group.words.length / GUIDING_WORD_PAGE));
 				const wp = wordTick % wordPages;
-				// 本页真实引导词（1..GUIDING_WORD_PAGE 条），按固定行高渲染。
-				const pageWords = group.words.slice(wp * GUIDING_WORD_PAGE, wp * GUIDING_WORD_PAGE + GUIDING_WORD_PAGE);
-				// 该组任一页的最大行数；不足的页用等高空行补齐，使该组高度在轮播时恒定、页面不跳动。
+				// 滑动窗口分页：每屏恒为 slotCount 条（满屏），末屏起点对齐到末尾，
+				// 不足整屏时从上一屏借词补全（如 5 词 max 4：第二屏 [1..4] 借 3 个，而非只剩 [4]）。
 				const slotCount = Math.min(group.words.length, GUIDING_WORD_PAGE);
+				const start = Math.min(wp * GUIDING_WORD_PAGE, group.words.length - slotCount);
+				const pageWords = group.words.slice(start, start + slotCount);
 				const padRows = slotCount - pageWords.length;
 				return (
-					<div key={group.id} className="flex min-w-0 flex-col gap-1.5">
-						<div className="truncate px-0.5 text-[11px] font-semibold text-foreground/80" title={group.name}>
+					<div key={group.id} className="flex w-full min-w-0 flex-col gap-1.5">
+						<div className="truncate px-0.5 text-[14px] font-semibold text-foreground/80" title={group.name}>
 							{group.name}
 						</div>
 						{/* 不用 AnimatePresence mode="wait"：那会先卸载旧页留一帧空容器导致塌高。
-						    行高固定 + slotCount 恒定 + key 切换让 React 同一次提交内替换，无空帧、不跳动。 */}
+						    slotCount 恒定 + key 切换让 React 同一次提交内替换，无空帧。
+						    pl-2.5 让整条树状引导线相对顶部 name 缩进；切页时子项逐行级联淡入，灵动丝滑。 */}
 						<motion.div
 							key={wp}
-							initial={{ opacity: 0, y: 4 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.2, ease: easeOut }}
-							className="flex flex-col"
+							initial="initial"
+							animate="animate"
+							variants={{ animate: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } } }}
+							className="flex flex-col pl-2.5"
 						>
 							{pageWords.map((word, idx) => {
 								// 树状引导线：竖脊 + 每行横向支线；最后一行竖脊收口为圆角拐弯（elbow）。
@@ -688,20 +693,25 @@ function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Eleme
 										key={`${wp}-${idx}-${word}`}
 										type="button"
 										onClick={() => onPick(word)}
+										variants={{
+											initial: { opacity: 0, x: -6 },
+											animate: { opacity: 1, x: 0 },
+										}}
+										transition={{ duration: 0.55, ease: guidingEase }}
 										whileTap={{ scale: 0.98 }}
 										title={word}
-										className={`relative flex h-7 items-center pl-[18px] text-left text-[11px] text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
+										className={`relative flex min-h-8 items-start py-1.5 pl-[18px] text-left text-[14px] leading-relaxed text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
 											isLast
-												? "before:top-0 before:h-1/2 before:w-[12px] before:rounded-bl-[7px] before:border-b"
-												: "before:inset-y-0 before:w-0 after:absolute after:left-0 after:top-1/2 after:w-[12px] after:border-t after:border-muted-foreground/30 after:content-['']"
+												? "before:top-0 before:h-4 before:w-[12px] before:rounded-bl-[7px] before:border-b"
+												: "before:inset-y-0 before:w-0 after:absolute after:left-0 after:top-4 after:w-[12px] after:border-t after:border-muted-foreground/30 after:content-['']"
 										}`}
 									>
-										<span className="truncate">{word}</span>
+										<span className="break-words">{word}</span>
 									</motion.button>
 								);
 							})}
 							{Array.from({ length: padRows }, (_, i) => (
-								<div key={`${wp}-ph-${i}`} aria-hidden className="h-7" />
+								<div key={`${wp}-ph-${i}`} aria-hidden className="h-8" />
 							))}
 						</motion.div>
 					</div>
