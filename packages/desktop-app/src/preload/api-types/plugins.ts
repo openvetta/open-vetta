@@ -89,6 +89,11 @@ export interface PluginManifest {
 	};
 	description?: string;
 	author?: string;
+	/**
+	 * 声明式引导词：开新会话欢迎页主动建议的提示语。点击即以该文本立即发起一轮。
+	 * 与命令式 `ctx.ui.register*` 不同——纯静态清单数据、无权限位、无运行时注册（ADR-0003）。
+	 */
+	guidingWords?: string[];
 }
 
 export interface InstalledPlugin {
@@ -110,6 +115,8 @@ export interface InstalledPlugin {
 	settingsSchema?: PluginSettingSchema[];
 	description?: string;
 	author?: string;
+	/** 见 PluginManifest.guidingWords —— NewSessionPage 欢迎页消费。 */
+	guidingWords?: string[];
 	enabled: boolean;
 	installedAt: string;
 	updatedAt: string;

@@ -54,7 +54,8 @@ export const sandTheme: ThemeDef = {
 		primaryForeground: "oklch(1.0000 0 0)",
 		secondary: "oklch(0.9245 0.0138 92.9892)",
 		secondaryForeground: "oklch(0.4334 0.0177 98.6048)",
-		muted: "oklch(0.9341 0.0022 90.2390)",
+		// 侧边栏用 bg-muted。贴近背景色（同色相、L 仅略偏移），只在背景基础上加一点点饱和。
+		muted: "oklch(0.9580 0.0110 95.0986)",
 		mutedForeground: "oklch(0.6059 0.0075 97.4233)",
 		accent: "oklch(0.9245 0.0138 92.9892)",
 		accentForeground: "oklch(0.2671 0.0196 98.9390)",

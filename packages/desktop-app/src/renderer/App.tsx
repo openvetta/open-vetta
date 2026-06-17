@@ -13,6 +13,7 @@ import { useTheme } from "./shared/hooks/useTheme";
 import { useAuth } from "./domains/auth/hooks/useAuth";
 import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useUpdaterInit } from "./shared/hooks/useUpdaterInit";
+import { useRunningSessionsSync } from "./shared/hooks/useRunningSessionsSync";
 import { useNarrowScreen } from "./shared/hooks/useNarrowScreen";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
@@ -45,6 +46,7 @@ import {
 	scheduledSessionPathsAtom,
 	sidebarCollapsedAtom,
 	pageHeaderTitleAtom,
+	pageHeaderTitleHiddenAtom,
 	pageHeaderRightSlotAtom,
 } from "./shared/store/atoms";
 import { isMac } from "./shared/lib/platform";
@@ -76,6 +78,7 @@ function PageHeader({
 	const matches = useMatches();
 	const path = matches[matches.length - 1]?.pathname ?? "/";
 	const titleOverride = useAtomValue(pageHeaderTitleAtom);
+	const titleHidden = useAtomValue(pageHeaderTitleHiddenAtom);
 	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
 	const fallbackTitle = ROUTE_TITLES.find((r) => r.match.test(path))?.title ?? "Vetta";
 	const title = titleOverride && titleOverride.length > 0 ? titleOverride : fallbackTitle;
@@ -113,15 +116,17 @@ function PageHeader({
 						</motion.button>
 					)}
 				</AnimatePresence>
-				<motion.h1
-					key={title}
-					initial={{ opacity: 0, y: 2 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.18 }}
-					className="drag-region min-w-0 select-none truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
-				>
-					{title}
-				</motion.h1>
+				{!titleHidden && (
+					<motion.h1
+						key={title}
+						initial={{ opacity: 0, y: 2 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.18 }}
+						className="drag-region min-w-0 select-none truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
+					>
+						{title}
+					</motion.h1>
+				)}
 			</div>
 			<div className="no-drag flex shrink-0 items-center gap-1">
 				{rightSlot}
@@ -193,6 +198,9 @@ export function RootLayout(): JSX.Element {
 	useFlowingChatInit();
 	useDownloadsInit();
 	useUpdaterInit();
+	// 全局 running-sessions 订阅必须挂在始终挂载的 App 上：它是 streaming 状态真值
+	// 来源之一，挂在会被卸载的 Sidebar 上会在卸载期间丢 RUNNING_CHANGED 事件。
+	useRunningSessionsSync();
 	const { openSession } = useSessionManager();
 
 	// 上报「聊天页当前所在 session」给主进程：仅在聊天路由 "/" 且有 activeSession

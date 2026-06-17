@@ -22,8 +22,19 @@ export interface ImageToolRef {
  */
 export interface ImageToolBackend {
 	generate(input: { prompt: string; size?: string; sessionId?: string }): Promise<ImageToolRef[]>;
-	/** Image-to-image: edit an existing host image (by id), appending a new lineage version. */
-	edit(input: { prompt: string; sourceImageId: string; size?: string; sessionId?: string }): Promise<ImageToolRef[]>;
+	/**
+	 * Image-to-image. The source is either an existing host image (`sourceImageId`,
+	 * for an image Vetta previously generated) or a local image file on disk
+	 * (`sourceImagePath`, e.g. an image the user uploaded/attached). Exactly one is
+	 * provided. The result is appended as a new lineage version.
+	 */
+	edit(input: {
+		prompt: string;
+		sourceImageId?: string;
+		sourceImagePath?: string;
+		size?: string;
+		sessionId?: string;
+	}): Promise<ImageToolRef[]>;
 }
 
 export interface GenerateImageToolDetails {
@@ -59,12 +70,22 @@ const editImageSchema = Type.Object({
 		description:
 			"A clear English instruction describing the modification to apply to the source image (e.g. 'replace the background with a night city skyline, keep the subject unchanged'). Describe only the change, the source image is supplied separately.",
 	}),
-	sourceImageId: Type.String({
-		description:
-			"The id of the existing image to edit. Use the id from the most recent " +
-			`${IMAGE_REFS_OPEN}...${IMAGE_REFS_CLOSE} marker in the conversation, ` +
-			"or the id the user explicitly selected for editing.",
-	}),
+	sourceImageId: Type.Optional(
+		Type.String({
+			description:
+				"The id of an image Vetta previously generated, to edit. Use the id from the most recent " +
+				`${IMAGE_REFS_OPEN}...${IMAGE_REFS_CLOSE} marker in the conversation, ` +
+				"or the id the user explicitly selected for editing. Omit when editing a local image file (use sourceImagePath instead).",
+		}),
+	),
+	sourceImagePath: Type.Optional(
+		Type.String({
+			description:
+				"Absolute path to a local image file to edit — e.g. an image the user uploaded/attached, " +
+				"referenced in the conversation by @path. Use this for any image that is a file on disk rather " +
+				"than a previously generated image. Provide exactly one of sourceImageId or sourceImagePath.",
+		}),
+	),
 	size: sizeSchema,
 });
 
@@ -121,16 +142,31 @@ export function createEditImageTool(
 		name: "edit_image",
 		label: "Edit Image",
 		description:
-			"Edit an existing image (image-to-image). Use when the user wants to modify a previously generated " +
-			"image rather than create a new one — pass the source image's id in `sourceImageId` and describe the " +
-			"change in `prompt`. The result is appended as a new version of that image's lineage and shown to the " +
-			"user automatically; you only receive a short confirmation, not the image bytes.",
+			"Edit an existing image (image-to-image) rather than create a new one. The source can be either an " +
+			"image Vetta previously generated (pass its id in `sourceImageId`) or any local image file on disk — " +
+			"e.g. an image the user uploaded/attached, referenced by @path — (pass its absolute path in " +
+			"`sourceImagePath`). Provide exactly one of the two and describe the change in `prompt`. Prefer this " +
+			"over generate_image whenever the user wants to modify a specific existing image: it preserves the " +
+			"original content instead of redrawing from scratch. The result is shown to the user automatically; " +
+			"you only receive a short confirmation, not the image bytes.",
 		parameters: editImageSchema,
 		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
+			if (!params.sourceImageId && !params.sourceImagePath) {
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: "edit_image 需要提供 sourceImageId（Vetta 已生成的图像）或 sourceImagePath（本地图片文件的绝对路径）其中之一。",
+						},
+					],
+					details: { images: [] },
+				};
+			}
 			const sessionId = ctx.sessionManager.getSessionId();
 			const images = await backend.edit({
 				prompt: params.prompt,
 				sourceImageId: params.sourceImageId,
+				sourceImagePath: params.sourceImagePath,
 				size: params.size,
 				sessionId,
 			});

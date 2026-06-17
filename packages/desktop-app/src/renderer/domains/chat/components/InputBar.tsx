@@ -6,7 +6,6 @@ import {
 	isStreamingAtom,
 	activeSessionAtom,
 	attachedImagesAtom,
-	modelSupportsImagesAtom,
 	selectedSkillAtom,
 	mentionedFilesAtom,
 	editImageAttachmentAtom,
@@ -46,7 +45,7 @@ interface InputBarProps {
 }
 
 const MIN_HEIGHT = 24;
-const MAX_HEIGHT = 200;
+const MAX_HEIGHT = 140;
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32, mass: 0.9 };
 const SOFT = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
@@ -98,7 +97,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	// 首条输入预测建议：用作 placeholder + 空输入回车直发。
 	const firstSuggestion = activeSession?.runtimeId ? promptSuggestions[activeSession.runtimeId]?.[0] : undefined;
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
-	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const [editImageAttachment, setEditImageAttachment] = useAtom(editImageAttachmentAtom);
@@ -131,10 +129,21 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
 	}, [sandboxPermission]);
 
+	// 记录上一次内容长度，用于判断本次编辑是否「可能变短」。
+	const prevValueLenRef = useRef(inputValue.length);
 	const resize = useCallback(() => {
 		const el = textareaRef.current;
 		if (!el) return;
-		el.style.height = "0";
+		// 仅在内容可能变短（删除 / 替换为更短文本）时才把高度归零重测。
+		// 归零会让 textarea 瞬间塌陷，放大下方消息列表滚动容器的 clientHeight，
+		// 浏览器随即把其 scrollTop 上限夹小（原生 clamp，JS 探针抓不到）；还原高度后
+		// 列表便「掉离底部」再被跟随动画拉回，表现为每次按键抖一下。
+		// 增长 / 行数不变时直接按当前高度量 scrollHeight：内容溢出则自然增高，
+		// 行数不变则量得与现高相等、不改动布局，下方列表纹丝不动。
+		if (el.value.length < prevValueLenRef.current) {
+			el.style.height = "0";
+		}
+		prevValueLenRef.current = el.value.length;
 		el.style.height = `${Math.max(MIN_HEIGHT, Math.min(el.scrollHeight, MAX_HEIGHT))}px`;
 	}, []);
 
@@ -378,7 +387,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 
 	const handlePaste = useCallback(
 		async (e: React.ClipboardEvent) => {
-			if (!modelSupportsImages) return;
 			const items = Array.from(e.clipboardData.items);
 			const imageFiles = items
 				.filter((item) => item.kind === "file" && item.type.startsWith("image/"))
@@ -389,7 +397,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 			const images = await Promise.all(imageFiles.map(readFileAsImage));
 			addImages(images);
 		},
-		[addImages, modelSupportsImages],
+		[addImages],
 	);
 
 	const handleSend = useCallback(() => {
@@ -583,15 +591,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 								active={slashOpen}
 							/>
 							<ToolbarButton
-								icon={
-									modelSupportsImages
-										? "icon-[solar--gallery-linear]"
-										: "icon-[solar--gallery-remove-linear]"
-								}
-								title={
-									modelSupportsImages ? "添加图片" : "当前模型不支持图片输入"
-								}
-								disabled={!hasSession || !modelSupportsImages}
+								icon="icon-[solar--gallery-linear]"
+								title="添加图片"
+								disabled={!hasSession}
 								onClick={handleSelectImages}
 							/>
 							<ToolbarButton

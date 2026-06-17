@@ -238,8 +238,11 @@ export interface PluginUiApi {
 	/**
 	 * Open the host's global full-screen image previewer for the given image.
 	 * Only the image reference (id/url) crosses over — bytes stay out-of-band.
+	 *
+	 * Pass `group` (e.g. all images of the message) to open as an image group:
+	 * the previewer shows a thumbnail strip + arrows and starts at `ref`.
 	 */
-	previewImage(ref: PluginImageRef): void;
+	previewImage(ref: PluginImageRef, group?: PluginImageRef[]): void;
 	/**
 	 * Open the app settings, scrolled to and highlighting THIS plugin's own
 	 * settings section (e.g. so the user can fill in a required API key/model).
