@@ -5,7 +5,6 @@ import { motion } from "motion/react";
 import {
 	activeSessionAtom,
 	defaultConversationCwdAtom,
-	runningSessionPathsAtom,
 	SIDEBAR_WIDTH_STORAGE_KEY,
 	sidebarFilterAtom,
 	sidebarWidthAtom,
@@ -114,7 +113,6 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 	const widthRef = useRef(width);
 	widthRef.current = width;
-	const setRunningSessionPaths = useSetAtom(runningSessionPathsAtom);
 	const activeNavIndex = NAV_ITEMS.findIndex(
 		(item) => item.type === "route" && item.path === currentPath,
 	);
@@ -161,29 +159,6 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 	const onOpenClawSettings = useCallback(() => {
 		void navigate({ to: "/settings/$tab", params: { tab: "im" } });
 	}, [navigate]);
-
-	useEffect(() => {
-		let cancelled = false;
-		void window.vetta.session.listRunning().then((paths) => {
-			if (cancelled) return;
-			setRunningSessionPaths(new Set(paths));
-		});
-		const unsubscribe = window.vetta.session.onRunningChanged(({ sessionPath, running }) => {
-			setRunningSessionPaths((prev: Set<string>) => {
-				const had = prev.has(sessionPath);
-				if (running && had) return prev;
-				if (!running && !had) return prev;
-				const next = new Set(prev);
-				if (running) next.add(sessionPath);
-				else next.delete(sessionPath);
-				return next;
-			});
-		});
-		return () => {
-			cancelled = true;
-			unsubscribe();
-		};
-	}, [setRunningSessionPaths]);
 
 	const onResize = useCallback(
 		(delta: number) => {
