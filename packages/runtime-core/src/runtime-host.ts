@@ -556,9 +556,6 @@ export class RuntimeHost implements SessionFacade {
 
 		let images = request.images;
 		let text = request.text;
-		console.log(
-			`[RuntimeHost.prompt] session=${sessionId} model=${handle.session.model?.provider ?? "unknown"}/${handle.session.model?.id ?? "unknown"} textLength=${text.length} images=${images?.length ?? 0} streamingBehavior=${request.streamingBehavior ?? "default"}`,
-		);
 		if (images && images.length > 0) {
 			const model = handle.session.model;
 			if (!model?.input?.includes("image")) {
@@ -570,10 +567,6 @@ export class RuntimeHost implements SessionFacade {
 					text =
 						"(User attempted to send images, but the current model does not support image input. Please inform the user that this model cannot process images.)";
 				}
-			} else {
-				console.log(
-					`[RuntimeHost.prompt] passing ${images.length} images to session.prompt, model=${model?.id}, model.input=${JSON.stringify(model?.input)}`,
-				);
 			}
 		}
 		try {
@@ -601,7 +594,6 @@ export class RuntimeHost implements SessionFacade {
 			});
 			throw err;
 		}
-		console.log(`[RuntimeHost.prompt] session=${sessionId} prompt handed to agent`);
 	}
 
 	async continue(sessionId: string): Promise<void> {
@@ -1352,11 +1344,6 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		if (event.type === "message_end" && event.message.role === "assistant") {
-			const textLength = this.extractAssistantText(event.message.content).length;
-			const toolCallCount = event.message.content.filter((item) => item.type === "toolCall").length;
-			console.log(
-				`[RuntimeHost.event] session=${sessionId} type=message_end stopReason=${event.message.stopReason} textLength=${textLength} toolCalls=${toolCallCount} input=${event.message.usage.input} output=${event.message.usage.output}`,
-			);
 			events.push({
 				...this.baseEvent(sessionId, "agent"),
 				type: "message.final",
@@ -1364,9 +1351,6 @@ export class RuntimeHost implements SessionFacade {
 			});
 
 			const contextUsage = session.getContextUsage();
-			console.log(
-				`[RuntimeHost.event] session=${sessionId} type=usage_update input=${event.message.usage.input} output=${event.message.usage.output} contextPercent=${contextUsage?.percent ?? null} contextWindow=${contextUsage?.contextWindow ?? 0}`,
-			);
 			events.push({
 				...this.baseEvent(sessionId, "agent"),
 				type: "usage.update",
@@ -1402,9 +1386,6 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		if (event.type === "tool_execution_start") {
-			console.log(
-				`[RuntimeHost.event] session=${sessionId} type=tool_start toolCallId=${event.toolCallId} toolName=${event.toolName}`,
-			);
 			events.push({
 				...this.baseEvent(sessionId, "tool"),
 				type: "tool.start",
@@ -1440,9 +1421,6 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		if (event.type === "tool_execution_end") {
-			console.log(
-				`[RuntimeHost.event] session=${sessionId} type=tool_end toolCallId=${event.toolCallId} toolName=${event.toolName} isError=${event.isError} durationMs=${event.durationMs}`,
-			);
 			events.push({
 				...this.baseEvent(sessionId, "tool"),
 				type: "tool.end",
@@ -1470,7 +1448,6 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		if (event.type === "todo_update") {
-			console.log(`[RuntimeHost.event] session=${sessionId} type=todo_update items=${event.items.length}`);
 			events.push({
 				...this.baseEvent(sessionId, "agent"),
 				type: "todo_update",
@@ -1489,7 +1466,6 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		if (event.type === "auto_compaction_start") {
-			console.log(`[RuntimeHost.event] session=${sessionId} type=compaction_start reason=${event.reason}`);
 			events.push({
 				...this.baseEvent(sessionId, "agent"),
 				type: "compaction.start",
@@ -1517,9 +1493,6 @@ export class RuntimeHost implements SessionFacade {
 		}
 
 		if (event.type === "auto_compaction_end") {
-			console.log(
-				`[RuntimeHost.event] session=${sessionId} type=compaction_end success=${!!event.result && !event.aborted} aborted=${event.aborted} error=${event.errorMessage ?? ""}`,
-			);
 			events.push({
 				...this.baseEvent(sessionId, "agent"),
 				type: "compaction.end",
