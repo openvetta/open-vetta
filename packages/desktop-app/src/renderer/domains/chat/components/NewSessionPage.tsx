@@ -13,16 +13,14 @@ import {
 	editImageAttachmentAtom,
 	inputValueAtom,
 	mentionedFilesAtom,
-	pageHeaderTitleAtom,
+	pageHeaderTitleHiddenAtom,
 	pendingEditImageIdAtom,
-	projectsAtom,
 	selectedSkillAtom,
 	sessionExecutionModeAtom,
 } from "@shared/store/atoms";
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { BotAvatar } from "@shared/components/BotAvatar";
-import { pathBasename } from "@shared/lib/utils";
 import { InputBar } from "./InputBar";
 import { SessionDropZone } from "./SessionDropZone";
 import { useSessionManager } from "../hooks/useSessionManager";
@@ -111,7 +109,7 @@ export function NewSessionPage(): JSX.Element {
 	const setInputValue = useSetAtom(inputValueAtom);
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
-	const setHeaderTitle = useSetAtom(pageHeaderTitleAtom);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
 	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
@@ -119,13 +117,9 @@ export function NewSessionPage(): JSX.Element {
 	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
 	const authUser = useAtomValue(authUserAtom);
 	const token = useAtomValue(authTokenAtom);
-	const projects = useAtomValue(projectsAtom);
 	const executionMode = useAtomValue(sessionExecutionModeAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
 	const isShort = useShortViewport();
-
-	const project = projects.find((p) => p.cwd === decodedCwd);
-	const displayName = project?.name ?? pathBasename(decodedCwd);
 
 	// 进入页面时清空上下文输入态，避免从别处带过来未发的内容。
 	useEffect(() => {
@@ -155,11 +149,11 @@ export function NewSessionPage(): JSX.Element {
 		setActiveSession,
 	]);
 
-	// 顶栏标题：项目名 · 新会话
+	// 本页隐藏顶栏标题（左上角 label）。
 	useEffect(() => {
-		setHeaderTitle(`${displayName} · 新会话`);
-		return () => setHeaderTitle(null);
-	}, [displayName, setHeaderTitle]);
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
 
 	useEffect(() => {
 		setRenderHero(false);
@@ -377,15 +371,11 @@ export function NewSessionPage(): JSX.Element {
 				/>
 			</div>
 
-			{/* 整页从底部开始布局：单一滚动容器内 min-h-full + justify-end，内容贴底向上堆叠
-			    （hero → 技能胶囊 → 输入框 → 引导词）。InputBar 变高时整列随之变高、底部不动，
-			    直接把上方 hero 顶起；内容超出视口则向上滚动。整列与输入框同宽（max-w-2xl）。 */}
+			{/* 整页垂直居中：单一滚动容器内 min-h-full + justify-center，内容始终居中
+			    （hero → 技能胶囊 → 输入框 → 引导词），无论窗口多大都在中间。
+			    InputBar 变高时整列变高、保持居中；内容超出视口则可滚动。整列与输入框同宽（max-w-2xl）。 */}
 			<div className="no-drag relative z-[1] flex flex-1 flex-col overflow-y-auto">
-				<div
-					className={`flex min-h-full w-full flex-col items-center justify-end px-6 pt-6 ${
-						isShort ? "pb-6" : "pb-20"
-					}`}
-				>
+				<div className="flex min-h-full w-full flex-col items-center justify-center px-6 py-6">
 					{renderHero && (
 						<motion.div
 							initial={{ opacity: 0, y: 12 }}
@@ -432,7 +422,6 @@ export function NewSessionPage(): JSX.Element {
 							<SkillBadgeRow
 								skills={skillBadges}
 								selected={selectedSkill}
-								mounted={mounted}
 								onSelect={handleSelectSkill}
 							/>
 						</div>
@@ -609,12 +598,12 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 interface SkillBadgeRowProps {
 	skills: SkillInfo[];
 	selected: { name: string; type: "skill" | "scene" } | null;
-	mounted: boolean;
 	onSelect: (s: SkillInfo) => void;
 }
 
 // 技能胶囊单行展示：横向滚动，超出时两端浮出箭头手动翻动（每次滚动约 80% 视宽）。
-function SkillBadgeRow({ skills, selected, mounted, onSelect }: SkillBadgeRowProps): JSX.Element {
+// 不加入场动画：该行固定在输入框上方，逐个弹入会干扰输入体验。
+function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps): JSX.Element {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
 	const [canNext, setCanNext] = useState(false);
@@ -642,32 +631,19 @@ function SkillBadgeRow({ skills, selected, mounted, onSelect }: SkillBadgeRowPro
 	}, []);
 
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: 8 }}
-			animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
-			transition={{ duration: 0.5, delay: 0.3, ease: easeOut }}
-			className="group relative mt-4 w-full"
-		>
+		<div className="group relative mt-4 w-full">
 			<div
 				ref={scrollRef}
 				onScroll={updateEdges}
 				className="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-1 py-1"
 			>
-				{skills.map((s, idx) => {
+				{skills.map((s) => {
 					const active = selected?.name === s.name && selected?.type === "skill";
 					return (
 						<motion.button
 							key={s.name}
 							type="button"
 							onClick={() => onSelect(s)}
-							initial={{ opacity: 0, y: 6, scale: 0.95 }}
-							animate={{ opacity: 1, y: 0, scale: 1 }}
-							transition={{
-								type: "spring",
-								stiffness: 360,
-								damping: 26,
-								delay: 0.32 + idx * 0.03,
-							}}
 							whileHover={{ y: -2, scale: 1.04 }}
 							whileTap={{ scale: 0.96 }}
 							// 背景必须不透明：胶囊行固定悬浮在输入框上方、压住可滚动内容，
@@ -717,7 +693,7 @@ function SkillBadgeRow({ skills, selected, mounted, onSelect }: SkillBadgeRowPro
 					</motion.button>
 				</>
 			)}
-		</motion.div>
+		</div>
 	);
 }
 
