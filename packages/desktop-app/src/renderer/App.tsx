@@ -46,6 +46,7 @@ import {
 	scheduledSessionPathsAtom,
 	sidebarCollapsedAtom,
 	pageHeaderTitleAtom,
+	pageHeaderTitleHiddenAtom,
 	pageHeaderRightSlotAtom,
 } from "./shared/store/atoms";
 import { isMac } from "./shared/lib/platform";
@@ -77,6 +78,7 @@ function PageHeader({
 	const matches = useMatches();
 	const path = matches[matches.length - 1]?.pathname ?? "/";
 	const titleOverride = useAtomValue(pageHeaderTitleAtom);
+	const titleHidden = useAtomValue(pageHeaderTitleHiddenAtom);
 	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
 	const fallbackTitle = ROUTE_TITLES.find((r) => r.match.test(path))?.title ?? "Vetta";
 	const title = titleOverride && titleOverride.length > 0 ? titleOverride : fallbackTitle;
@@ -114,15 +116,17 @@ function PageHeader({
 						</motion.button>
 					)}
 				</AnimatePresence>
-				<motion.h1
-					key={title}
-					initial={{ opacity: 0, y: 2 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.18 }}
-					className="drag-region min-w-0 select-none truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
-				>
-					{title}
-				</motion.h1>
+				{!titleHidden && (
+					<motion.h1
+						key={title}
+						initial={{ opacity: 0, y: 2 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.18 }}
+						className="drag-region min-w-0 select-none truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
+					>
+						{title}
+					</motion.h1>
+				)}
 			</div>
 			<div className="no-drag flex shrink-0 items-center gap-1">
 				{rightSlot}
