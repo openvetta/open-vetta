@@ -496,6 +496,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
+		if (isConversation) {
+			runtime.reconfigureAgentPlugins(buildAgentPluginRuntimeConfig());
+		}
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);
 		}

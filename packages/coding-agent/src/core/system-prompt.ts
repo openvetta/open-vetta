@@ -416,6 +416,20 @@ function buildToolDescriptions(agentPlugins: AgentPluginRuntimeConfig | undefine
 	return descriptions;
 }
 
+function resolvePromptTools(
+	selectedTools: string[] | undefined,
+	defaultCommandTool: string,
+	toolDescriptionsByName: Record<string, string>,
+): string[] {
+	return (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
+		(tool) => tool in toolDescriptionsByName,
+	);
+}
+
+function renderToolsList(tools: string[], toolDescriptionsByName: Record<string, string>): string {
+	return tools.length > 0 ? tools.map((tool) => `- ${tool}: ${toolDescriptionsByName[tool]}`).join("\n") : "(none)";
+}
+
 /** Build the structured prompt draft with tools, guidelines, and context. */
 export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): SystemPromptDraft {
 	const {
@@ -437,18 +451,21 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 	const skills = providedSkills ?? [];
 	const mcpTools = providedMcpTools ?? [];
 	const resolvedToolDescriptions = buildToolDescriptions(agentPlugins);
+	const tools = resolvePromptTools(selectedTools, defaultCommandTool, resolvedToolDescriptions);
+	const toolsList = renderToolsList(tools, resolvedToolDescriptions);
 	const blocks: SystemPromptBlock[] = [];
 
 	if (customPrompt) {
 		blocks.push(coreBlock("core.subconscious", "subconscious", SUBCONSCIOUS, 100));
 		blocks.push(coreBlock("core.base", "base", customPrompt, 200));
-		blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 300));
-		blocks.push(coreBlock("core.mcp", "mcp", renderMcpToolsSection(mcpTools, true), 400));
-		blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 500));
-		blocks.push(coreBlock("core.memory", "memory", memory ?? "", 600));
+		blocks.push(coreBlock("core.tools", "tools", `Available tools:\n${toolsList}`, 300));
+		blocks.push(coreBlock("core.append", "append", appendSystemPrompt ?? "", 400));
+		blocks.push(coreBlock("core.mcp", "mcp", renderMcpToolsSection(mcpTools, true), 500));
+		blocks.push(coreBlock("core.context", "context", renderContextFilesSection(contextFiles), 600));
+		blocks.push(coreBlock("core.memory", "memory", memory ?? "", 700));
 		const canUseSkills = !selectedTools || selectedTools.includes("invoke_skill") || selectedTools.includes("read");
 		if (canUseSkills && skills.length > 0) {
-			blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 700));
+			blocks.push(coreBlock("core.skills", "skills", formatSkillsForPrompt(skills), 800));
 		}
 		blocks.push(
 			coreBlock(
@@ -458,21 +475,16 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 					"File names and paths are opaque byte strings — reproduce them EXACTLY as returned by tools or provided by the user. " +
 					"NEVER add, remove, or change any characters including spaces, dashes, underscores, or punctuation. " +
 					"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
-				800,
+				900,
 			),
 		);
-		blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 900));
-		blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1000));
+		blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 1000));
+		blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1100));
 		const draft: SystemPromptDraft = { blocks, metadata: { cwd: resolvedCwd, dateTime } };
 		applySystemPromptContributions(draft, agentPlugins);
 		return draft;
 	}
 
-	const tools = (selectedTools || ["read", defaultCommandTool, "edit", "write", "dir_tree"]).filter(
-		(tool) => tool in resolvedToolDescriptions,
-	);
-	const toolsList =
-		tools.length > 0 ? tools.map((tool) => `- ${tool}: ${resolvedToolDescriptions[tool]}`).join("\n") : "(none)";
 	const mcpToolsSection = renderMcpToolsSection(mcpTools, false);
 	const hasInvokeSkill = tools.includes("invoke_skill");
 	const hasRead = tools.includes("read");

@@ -28,7 +28,7 @@ describe("buildSystemPrompt", () => {
 				skills: [],
 			});
 
-			expect(prompt).toContain("Show file paths clearly");
+			expect(prompt).toContain("MANDATORY file-link format");
 		});
 	});
 
@@ -43,6 +43,45 @@ describe("buildSystemPrompt", () => {
 			expect(prompt).toContain("- bash:");
 			expect(prompt).toContain("- edit:");
 			expect(prompt).toContain("- write:");
+		});
+	});
+
+	describe("plugin tools", () => {
+		const agentPlugins = {
+			toolContributions: [
+				{
+					pluginId: "fiction",
+					id: "write-chapter-file",
+					name: "novel_write_chapter_file",
+					description: "Write a generated novel chapter to a project file",
+					parameters: {},
+					handlerId: "writeChapterFile",
+				},
+			],
+		};
+
+		test("includes plugin tool descriptions in the default prompt", () => {
+			const prompt = buildSystemPrompt({
+				selectedTools: ["novel_write_chapter_file"],
+				contextFiles: [],
+				skills: [],
+				agentPlugins,
+			});
+
+			expect(prompt).toContain("- novel_write_chapter_file: Write a generated novel chapter to a project file");
+		});
+
+		test("keeps plugin tool descriptions when a custom system prompt is used", () => {
+			const prompt = buildSystemPrompt({
+				customPrompt: "You are a fiction writing assistant.",
+				selectedTools: ["novel_write_chapter_file"],
+				contextFiles: [],
+				skills: [],
+				agentPlugins,
+			});
+
+			expect(prompt).toContain("You are a fiction writing assistant.");
+			expect(prompt).toContain("Available tools:\n- novel_write_chapter_file:");
 		});
 	});
 });
