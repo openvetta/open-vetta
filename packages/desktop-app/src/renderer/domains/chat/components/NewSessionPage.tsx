@@ -47,6 +47,18 @@ interface SceneItem {
 
 const SCENE_STATE_RANK: Record<SceneState, number> = { active: 0, disabled: 1, uninstalled: 2 };
 
+// 引导词分组：一组对应一个启用且声明了非空 guidingWords 的插件，组标题取插件 name。
+interface GuidingGroup {
+	id: string;
+	name: string;
+	words: string[];
+}
+// 展示限额（非数据截断）：同时最多 3 组、每组最多 4 词；超出则轮播。
+const GUIDING_GROUP_PAGE = 3;
+const GUIDING_WORD_PAGE = 4;
+const GUIDING_GROUP_INTERVAL = 12000;
+const GUIDING_WORD_INTERVAL = 3000;
+
 function scheduleIdle(callback: () => void, timeout: number): () => void {
 	let cancelled = false;
 	const run = () => {
@@ -77,6 +89,7 @@ export function NewSessionPage(): JSX.Element {
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
 	const [marketScenes, setMarketScenes] = useState<MarketSkillInfo[]>([]);
 	const [manifest, setManifest] = useState<Record<string, InstalledSkill>>({});
+	const [guidingGroups, setGuidingGroups] = useState<GuidingGroup[]>([]);
 	const [sceneActions, setSceneActions] = useState<Record<string, SceneActionState>>({});
 	// 记录最近一次安装/启用的 Promise，发送时 await 它，保证落盘先于 session.create。
 	const installRef = useRef<Promise<void> | null>(null);
@@ -160,6 +173,17 @@ export function NewSessionPage(): JSX.Element {
 	const loadResources = useCallback(async () => {
 		const localList = await window.vetta.skills.list(decodedCwd);
 		setSkills(localList);
+		// 引导词来自插件（plugin.json），与 skills/scenes 是两套数据源，且不依赖登录态。
+		try {
+			const plugins = await window.vetta.plugins.list();
+			setGuidingGroups(
+				plugins
+					.filter((p) => p.enabled && (p.guidingWords?.length ?? 0) > 0)
+					.map((p) => ({ id: p.id, name: p.name, words: p.guidingWords ?? [] })),
+			);
+		} catch {
+			setGuidingGroups([]);
+		}
 		if (!token) {
 			setMarketScenes([]);
 			setManifest({});
@@ -285,6 +309,23 @@ export function NewSessionPage(): JSX.Element {
 		await sendMessage();
 	}, [decodedCwd, executionMode, openSession, sendMessage]);
 
+	// 点击引导词 = 以该文本为 overrideText 立即发起一轮：openSession → sendMessage(word)。
+	// 用 override 传值而非先 setInputValue，避开 atom 异步更新导致 sendMessage 读到旧值。
+	const handleGuidingWord = useCallback(
+		async (word: string) => {
+			if (installRef.current) {
+				try {
+					await installRef.current;
+				} catch {
+					// 安装失败已在点击处处理，照常发送。
+				}
+			}
+			await openSession(decodedCwd, undefined, executionMode);
+			await sendMessage(word);
+		},
+		[decodedCwd, executionMode, openSession, sendMessage],
+	);
+
 	const greetingTitle = authUser?.nickname
 		? `你好，${authUser.nickname}`
 		: "今天怎么样？";
@@ -398,6 +439,10 @@ export function NewSessionPage(): JSX.Element {
 									})}
 								</div>
 							</motion.div>
+						)}
+
+						{guidingGroups.length > 0 && (
+							<GuidingWords groups={guidingGroups} mounted={mounted} onPick={handleGuidingWord} />
 						)}
 					</motion.div>
 				)}
@@ -572,6 +617,96 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 					</motion.button>
 				)}
 			</div>
+		</motion.div>
+	);
+}
+
+interface GuidingWordsProps {
+	groups: GuidingGroup[];
+	mounted: boolean;
+	onPick: (word: string) => void;
+}
+
+// 引导词分组区：按插件分组，组标题=插件 name。展示限额靠轮播实现（非数据截断）：
+// 组数 >3 时组级 12s 轮播切批；某组词数 >4 时该组词级 3s 轮播切页；未超出则静态。
+function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Element {
+	const [groupTick, setGroupTick] = useState(0);
+	const [wordTick, setWordTick] = useState(0);
+	const needGroupRotate = groups.length > GUIDING_GROUP_PAGE;
+	const needWordRotate = groups.some((g) => g.words.length > GUIDING_WORD_PAGE);
+
+	useEffect(() => {
+		if (!needGroupRotate) return;
+		const id = window.setInterval(() => setGroupTick((t) => t + 1), GUIDING_GROUP_INTERVAL);
+		return () => window.clearInterval(id);
+	}, [needGroupRotate]);
+
+	useEffect(() => {
+		if (!needWordRotate) return;
+		const id = window.setInterval(() => setWordTick((t) => t + 1), GUIDING_WORD_INTERVAL);
+		return () => window.clearInterval(id);
+	}, [needWordRotate]);
+
+	const groupPages = Math.max(1, Math.ceil(groups.length / GUIDING_GROUP_PAGE));
+	const gp = groupTick % groupPages;
+	const visibleGroups = groups.slice(gp * GUIDING_GROUP_PAGE, gp * GUIDING_GROUP_PAGE + GUIDING_GROUP_PAGE);
+
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
+			transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
+			className="mt-5 grid w-full grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3"
+		>
+			{visibleGroups.map((group) => {
+				const wordPages = Math.max(1, Math.ceil(group.words.length / GUIDING_WORD_PAGE));
+				const wp = wordTick % wordPages;
+				// 本页真实引导词（1..GUIDING_WORD_PAGE 条），按固定行高渲染。
+				const pageWords = group.words.slice(wp * GUIDING_WORD_PAGE, wp * GUIDING_WORD_PAGE + GUIDING_WORD_PAGE);
+				// 该组任一页的最大行数；不足的页用等高空行补齐，使该组高度在轮播时恒定、页面不跳动。
+				const slotCount = Math.min(group.words.length, GUIDING_WORD_PAGE);
+				const padRows = slotCount - pageWords.length;
+				return (
+					<div key={group.id} className="flex min-w-0 flex-col gap-1.5">
+						<div className="truncate px-0.5 text-[11px] font-semibold text-foreground/80" title={group.name}>
+							{group.name}
+						</div>
+						{/* 不用 AnimatePresence mode="wait"：那会先卸载旧页留一帧空容器导致塌高。
+						    行高固定 + slotCount 恒定 + key 切换让 React 同一次提交内替换，无空帧、不跳动。 */}
+						<motion.div
+							key={wp}
+							initial={{ opacity: 0, y: 4 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.2, ease: easeOut }}
+							className="flex flex-col"
+						>
+							{pageWords.map((word, idx) => {
+								// 树状引导线：竖脊 + 每行横向支线；最后一行竖脊收口为圆角拐弯（elbow）。
+								const isLast = idx === pageWords.length - 1;
+								return (
+									<motion.button
+										key={`${wp}-${idx}-${word}`}
+										type="button"
+										onClick={() => onPick(word)}
+										whileTap={{ scale: 0.98 }}
+										title={word}
+										className={`relative flex h-7 items-center pl-[18px] text-left text-[11px] text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
+											isLast
+												? "before:top-0 before:h-1/2 before:w-[12px] before:rounded-bl-[7px] before:border-b"
+												: "before:inset-y-0 before:w-0 after:absolute after:left-0 after:top-1/2 after:w-[12px] after:border-t after:border-muted-foreground/30 after:content-['']"
+										}`}
+									>
+										<span className="truncate">{word}</span>
+									</motion.button>
+								);
+							})}
+							{Array.from({ length: padRows }, (_, i) => (
+								<div key={`${wp}-ph-${i}`} aria-hidden className="h-7" />
+							))}
+						</motion.div>
+					</div>
+				);
+			})}
 		</motion.div>
 	);
 }
