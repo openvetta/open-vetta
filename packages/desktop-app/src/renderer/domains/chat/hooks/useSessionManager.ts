@@ -1,3 +1,4 @@
+import { waitForPluginHostReady } from "@domains/plugins/runtime/plugin-events";
 import { pluginSendMessageRef } from "@domains/plugins/runtime/plugin-host-bridge";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import {
@@ -869,6 +870,7 @@ export function useSessionManager(): SessionManagerResult {
 				pluginStore.set(editImageAttachmentAtom, null);
 			}
 			try {
+				await waitForPluginHostReady();
 				await window.vetta.session.prompt(session.runtimeId, promptReq);
 			} catch (err) {
 				// RuntimeHost.prompt 现在会先把 prompt 期同步抛错（"No model

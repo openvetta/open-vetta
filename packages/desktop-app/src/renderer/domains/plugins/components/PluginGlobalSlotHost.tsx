@@ -12,7 +12,7 @@ import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import type { PluginGlobalSlotContribution } from "@vetta/plugin-sdk";
-import { PLUGINS_CHANGED_EVENT } from "../runtime/plugin-events";
+import { markPluginHostLoading, markPluginHostReady, PLUGINS_CHANGED_EVENT } from "../runtime/plugin-events";
 import { installPluginHostBridge } from "../runtime/plugin-host-bridge";
 import { installPluginHostShim } from "../runtime/plugin-host-shim";
 import { loadPlugin, type LoadedPlugin } from "../runtime/plugin-loader";
@@ -56,6 +56,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		installPluginHostShim();
 		installPluginHostBridge();
 		setPlugins([]);
+		markPluginHostLoading();
 
 		const loadPromise = window.vetta.plugins
 			.list()
@@ -77,7 +78,8 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 			.catch((error: Error) => {
 				console.error("Failed to initialize plugins", error);
 				return [];
-			});
+			})
+			.finally(markPluginHostReady);
 
 		void loadPromise.then((loadedPlugins) => {
 			if (!disposed) setPlugins(loadedPlugins);
