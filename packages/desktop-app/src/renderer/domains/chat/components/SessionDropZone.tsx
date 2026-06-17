@@ -5,7 +5,6 @@ import {
 	activeSessionAtom,
 	attachedImagesAtom,
 	mentionedFilesAtom,
-	modelSupportsImagesAtom,
 	type AttachedImage,
 	type MentionedFile,
 } from "@shared/store/atoms";
@@ -61,7 +60,6 @@ interface SessionDropZoneProps {
  */
 export function SessionDropZone({ cwdOverride, className, children }: SessionDropZoneProps): JSX.Element {
 	const activeSession = useAtomValue(activeSessionAtom);
-	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
 	const [dragKind, setDragKind] = useState<DragKind | null>(null);
@@ -177,7 +175,7 @@ export function SessionDropZone({ cwdOverride, className, children }: SessionDro
 				otherEntries.push({ path, name: file.name || pathBasename(path), isDirectory });
 			}
 
-			if (imageFiles.length > 0 && modelSupportsImages) {
+			if (imageFiles.length > 0) {
 				try {
 					const images = await Promise.all(imageFiles.map(readImageAsAttached));
 					setAttachedImages((prev) => [...prev, ...images]);
@@ -187,7 +185,7 @@ export function SessionDropZone({ cwdOverride, className, children }: SessionDro
 			}
 			pushMentioned(otherEntries);
 		},
-		[enabled, modelSupportsImages, pushMentioned, resetDrag, setAttachedImages],
+		[enabled, pushMentioned, resetDrag, setAttachedImages],
 	);
 
 	return (
@@ -217,11 +215,7 @@ export function SessionDropZone({ cwdOverride, className, children }: SessionDro
 						<span className="icon-[mdi--file-arrow-up-down-outline] h-9 w-9 text-primary" />
 						<div className="text-[14px] font-medium text-primary">松开以引用文件</div>
 						<div className="text-[12px] text-primary/70">
-							{dragKind === "internal"
-								? "来自项目内的引用"
-								: modelSupportsImages
-									? "图片自动作为附件，其他文件作为引用"
-									: "文件将作为引用插入，图片附件需切换支持图片的模型"}
+							{dragKind === "internal" ? "来自项目内的引用" : "图片自动作为附件，其他文件作为引用"}
 						</div>
 					</motion.div>
 				)}

@@ -36,6 +36,7 @@ export function createSystemApi(
 			selectFolders: () => ipc.invoke("vetta:dialog:select-folders"),
 			selectImages: () => ipc.invoke("vetta:dialog:select-images"),
 			selectFiles: (defaultPath) => ipc.invoke("vetta:dialog:select-files", defaultPath),
+			persistImages: (sessionId, images) => ipc.invoke("vetta:dialog:persist-images", sessionId, images),
 		},
 		theme: {
 			set: (mode) => ipc.invoke("vetta:theme:set", mode),
