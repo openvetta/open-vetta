@@ -122,6 +122,15 @@ export interface PluginImageRef {
 	rootId?: string;
 }
 
+export interface PluginMessageSlotToolCall {
+	toolCallId: string;
+	toolName: string;
+	args: Record<string, unknown>;
+	status: "pending" | "success" | "error";
+	result?: string;
+	isError?: boolean;
+}
+
 /**
  * Decoration a plugin contributes to the next outgoing prompt while its input
  * action is active. `metadata` is shallow-merged into the prompt request's
@@ -160,11 +169,16 @@ export interface PluginInputActionContribution {
 
 /**
  * The message handed to a per-message slot component. Extends the plain
- * conversation message with host-bound `imageRefs` — images whose generating
- * tool ran in this message's turn. Stored out-of-band, bound host-side; the
- * plugin renders from them and returns null when there are none.
+ * conversation message with host-bound message artifacts. The plugin renders
+ * from them and returns null when there is nothing to show.
  */
 export interface PluginMessageSlotMessage extends ConversationMessage {
+	/** Tool calls that belong to this assistant message. */
+	toolCalls?: PluginMessageSlotToolCall[];
+	/**
+	 * Host image refs extracted from image tool results. Stored out-of-band,
+	 * bound host-side.
+	 */
 	imageRefs?: PluginImageRef[];
 	/**
 	 * True while this message's turn is still producing images (a generating
