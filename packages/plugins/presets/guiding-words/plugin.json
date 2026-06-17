@@ -1,6 +1,6 @@
 {
 	"id": "guiding-words",
-	"name": "推荐引导词",
+	"name": "我能帮你",
 	"version": "0.1.0",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
