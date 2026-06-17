@@ -131,10 +131,21 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
 	}, [sandboxPermission]);
 
+	// 记录上一次内容长度，用于判断本次编辑是否「可能变短」。
+	const prevValueLenRef = useRef(inputValue.length);
 	const resize = useCallback(() => {
 		const el = textareaRef.current;
 		if (!el) return;
-		el.style.height = "0";
+		// 仅在内容可能变短（删除 / 替换为更短文本）时才把高度归零重测。
+		// 归零会让 textarea 瞬间塌陷，放大下方消息列表滚动容器的 clientHeight，
+		// 浏览器随即把其 scrollTop 上限夹小（原生 clamp，JS 探针抓不到）；还原高度后
+		// 列表便「掉离底部」再被跟随动画拉回，表现为每次按键抖一下。
+		// 增长 / 行数不变时直接按当前高度量 scrollHeight：内容溢出则自然增高，
+		// 行数不变则量得与现高相等、不改动布局，下方列表纹丝不动。
+		if (el.value.length < prevValueLenRef.current) {
+			el.style.height = "0";
+		}
+		prevValueLenRef.current = el.value.length;
 		el.style.height = `${Math.max(MIN_HEIGHT, Math.min(el.scrollHeight, MAX_HEIGHT))}px`;
 	}, []);
 
