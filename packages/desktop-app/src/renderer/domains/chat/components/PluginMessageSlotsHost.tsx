@@ -1,4 +1,4 @@
-import type { PluginImageRef, PluginMessageSlotMessage } from "@vetta/plugin-sdk";
+import type { PluginImageRef, PluginMessageSlotMessage, PluginMessageSlotToolCall } from "@vetta/plugin-sdk";
 import { useAtomValue } from "jotai";
 import { Component, type ErrorInfo, type ReactNode, useMemo } from "react";
 import { chatMessagesAtom, pendingEditImageIdAtom, pluginMessageSlotsAtom } from "@shared/store/atoms";
@@ -70,6 +70,21 @@ function extractImageRefs(blocks: ContentBlock[] | undefined): PluginImageRef[] 
 	return refs;
 }
 
+function extractToolCalls(blocks: ContentBlock[] | undefined): PluginMessageSlotToolCall[] | undefined {
+	if (!blocks) return undefined;
+	const calls = blocks
+		.filter((block) => block.type === "tool_call")
+		.map((block) => ({
+			toolCallId: block.toolCallId,
+			toolName: block.toolName,
+			args: block.args,
+			status: block.status,
+			result: block.result,
+			isError: block.isError,
+		}));
+	return calls.length > 0 ? calls : undefined;
+}
+
 /**
  * Mounts plugin per-message slot components beneath a single message, stacked in
  * registration order. Host-side binds image fields onto the message handed to
@@ -134,6 +149,7 @@ export function PluginMessageSlotsHost({ message }: { message: ChatMessage }): J
 			role: message.role,
 			text: message.text,
 			timestamp: message.timestamp,
+			toolCalls: extractToolCalls(message.blocks),
 			imageRefs: visibleRefs.length > 0 ? visibleRefs : undefined,
 			imageGenerating: generating,
 			editingImageId: editSourceId ?? (isEditOwner ? (pendingEditId ?? undefined) : undefined),
