@@ -26,6 +26,7 @@ import type {
 	PluginMessageSlotContribution,
 	PluginPermission,
 	PluginSettingsApi,
+	PluginToolCallSlotContribution,
 } from "@vetta/plugin-sdk";
 import * as pluginSdk from "@vetta/plugin-sdk";
 import { getDefaultStore } from "jotai";
@@ -45,6 +46,7 @@ export interface LoadedPlugin {
 	activityTabs: PluginActivityTabContribution[];
 	inputActions: PluginInputActionContribution[];
 	messageSlots: PluginMessageSlotContribution[];
+	toolCallSlots: PluginToolCallSlotContribution[];
 	dispose(): Promise<void>;
 }
 
@@ -309,6 +311,7 @@ function createContext(
 	activityTabs: PluginActivityTabContribution[],
 	inputActions: PluginInputActionContribution[],
 	messageSlots: PluginMessageSlotContribution[],
+	toolCallSlots: PluginToolCallSlotContribution[],
 	settingsApi: PluginSettingsApi,
 	onChanged: () => void,
 	pendingAgentToolRegistrations: Promise<void>[],
@@ -446,6 +449,32 @@ function createContext(
 			},
 		};
 	};
+	const registerToolCallSlot = (contribution: PluginToolCallSlotContribution): Disposable => {
+		createPermissionApi(plugin).require("ui.slot.tool-call");
+		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
+			throw new Error("Tool-call slot id is required");
+		}
+		if (typeof contribution.toolName !== "string" || contribution.toolName.trim().length === 0) {
+			throw new Error("Tool-call slot toolName is required");
+		}
+		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
+			throw new Error("Tool-call slot component is invalid");
+		}
+		const normalized: PluginToolCallSlotContribution = {
+			id: `${plugin.id}:${contribution.id}`,
+			toolName: contribution.toolName.trim(),
+			component: contribution.component,
+		};
+		toolCallSlots.push(normalized);
+		onChanged();
+		return {
+			dispose: () => {
+				const index = toolCallSlots.findIndex((slot) => slot.id === normalized.id);
+				if (index >= 0) toolCallSlots.splice(index, 1);
+				onChanged();
+			},
+		};
+	};
 	const openActivityTab = (tabId: string): void => {
 		createPermissionApi(plugin).require("ui.slot.activity-tab");
 		if (typeof tabId !== "string" || tabId.trim().length === 0) {
@@ -513,6 +542,7 @@ function createContext(
 			registerActivityTab,
 			registerInputAction,
 			registerMessageSlot,
+			registerToolCallSlot,
 			openActivityTab,
 			setEditImageAttachment,
 			previewImage,
@@ -652,6 +682,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	const activityTabs: PluginActivityTabContribution[] = [];
 	const inputActions: PluginInputActionContribution[] = [];
 	const messageSlots: PluginMessageSlotContribution[] = [];
+	const toolCallSlots: PluginToolCallSlotContribution[] = [];
 	const disposers: Array<() => void> = [];
 	const styleHandle = loadPluginStyles(plugin);
 	await window.vetta.plugins.beginAgentToolsLoad(plugin.id, activationId);
@@ -671,6 +702,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		activityTabs,
 		inputActions,
 		messageSlots,
+		toolCallSlots,
 		settingsApi,
 		onChanged,
 		pendingAgentToolRegistrations,
@@ -689,6 +721,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		globalSlots: slots.length,
 		activityTabs: activityTabs.length,
 		messageSlots: messageSlots.length,
+		toolCallSlots: toolCallSlots.length,
 		activationId,
 	});
 	return {
@@ -700,6 +733,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		activityTabs,
 		inputActions,
 		messageSlots,
+		toolCallSlots,
 		dispose: async () => {
 			debugPluginAgent("dispose start", { pluginId: plugin.id, activationId });
 			await definition.deactivate?.();
@@ -712,6 +746,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 			activityTabs.splice(0, activityTabs.length);
 			inputActions.splice(0, inputActions.length);
 			messageSlots.splice(0, messageSlots.length);
+			toolCallSlots.splice(0, toolCallSlots.length);
 			onChanged();
 		},
 	};

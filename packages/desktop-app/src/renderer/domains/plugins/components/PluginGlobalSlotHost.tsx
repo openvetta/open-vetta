@@ -3,10 +3,12 @@ import {
 	pluginFilePreviewsAtom,
 	pluginInputActionsAtom,
 	pluginMessageSlotsAtom,
+	pluginToolCallSlotsAtom,
 	type RegisteredActivityTab,
 	type RegisteredFilePreview,
 	type RegisteredInputAction,
 	type RegisteredMessageSlot,
+	type RegisteredToolCallSlot,
 } from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
@@ -45,6 +47,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const setActivityTabs = useSetAtom(pluginActivityTabsAtom);
 	const setInputActions = useSetAtom(pluginInputActionsAtom);
 	const setMessageSlots = useSetAtom(pluginMessageSlotsAtom);
+	const setToolCallSlots = useSetAtom(pluginToolCallSlotsAtom);
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
@@ -156,6 +159,20 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		setMessageSlots(messageSlots);
 		return () => setMessageSlots([]);
 	}, [plugins, revision, setMessageSlots]);
+
+	// Publish tool-call renderers so transcript tool blocks can be replaced by plugins.
+	useEffect(() => {
+		const toolCallSlots: RegisteredToolCallSlot[] = plugins.flatMap((plugin) =>
+			plugin.toolCallSlots.map((slot) => ({
+				pluginId: plugin.id,
+				slotId: slot.id,
+				toolName: slot.toolName,
+				component: slot.component,
+			})),
+		);
+		setToolCallSlots(toolCallSlots);
+		return () => setToolCallSlots([]);
+	}, [plugins, revision, setToolCallSlots]);
 
 	if (slots.length === 0) return null;
 
