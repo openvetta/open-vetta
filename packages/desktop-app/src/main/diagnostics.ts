@@ -11,6 +11,7 @@ import {
 } from "./logger.js";
 
 let diagnosticsInstalled = false;
+const diagnosticsLog = getAppLogger("diagnostics");
 
 export function writeDiagnosticLog(level: AppLogLevel, ...args: unknown[]): void {
 	try {
@@ -60,21 +61,21 @@ function probeUnicastLocalNetwork(): void {
 				}
 			};
 			socket.once("connect", () => {
-				console.log("[local-network-probe] unicast connected", target);
+				diagnosticsLog.debug("unicast connected", target);
 				cleanup();
 			});
 			socket.once("error", (err: NodeJS.ErrnoException) => {
 				// 期望大概率失败 —— ECONNREFUSED / EHOSTUNREACH / ETIMEDOUT 都算
 				// 成功触发了内核记录，只看 syscall 是否发出。
-				console.log("[local-network-probe] unicast attempt", target, err.code ?? err.message);
+				diagnosticsLog.debug("unicast attempt", target, err.code ?? err.message);
 				cleanup();
 			});
 			socket.once("timeout", () => {
-				console.log("[local-network-probe] unicast timeout", target);
+				diagnosticsLog.debug("unicast timeout", target);
 				cleanup();
 			});
 		} catch (err) {
-			console.warn("[local-network-probe] unicast probe threw", target, err);
+			diagnosticsLog.warn("unicast probe threw", target, err);
 		}
 	}
 }
@@ -83,7 +84,7 @@ function probeMulticastLocalNetwork(): void {
 	try {
 		const socket = createSocket({ type: "udp4", reuseAddr: true });
 		socket.on("error", (err) => {
-			console.warn("[local-network-probe] mDNS probe socket error", err);
+			diagnosticsLog.warn("mDNS probe socket error", err);
 			try {
 				socket.close();
 			} catch {
@@ -100,9 +101,9 @@ function probeMulticastLocalNetwork(): void {
 			const probe = Buffer.alloc(12, 0);
 			socket.send(probe, 5353, "224.0.0.251", (err) => {
 				if (err) {
-					console.warn("[local-network-probe] mDNS probe send failed", err);
+					diagnosticsLog.warn("mDNS probe send failed", err);
 				} else {
-					console.log("[local-network-probe] mDNS probe sent");
+					diagnosticsLog.debug("mDNS probe sent");
 				}
 				setTimeout(() => {
 					try {
@@ -114,7 +115,7 @@ function probeMulticastLocalNetwork(): void {
 			});
 		});
 	} catch (err) {
-		console.warn("[local-network-probe] failed to send mDNS probe", err);
+		diagnosticsLog.warn("failed to send mDNS probe", err);
 	}
 }
 
@@ -137,7 +138,7 @@ export function registerLocalNetworkAccess(): void {
 // 因为 net.fetch 依赖 session 初始化。
 export function installChromiumFetchForMain(): void {
 	if (typeof net?.fetch !== "function") {
-		console.warn("[main] electron.net.fetch unavailable; keeping default fetch");
+		diagnosticsLog.warn("electron.net.fetch unavailable; keeping default fetch");
 		return;
 	}
 	const chromiumFetch = net.fetch.bind(net);
@@ -146,11 +147,20 @@ export function installChromiumFetchForMain(): void {
 			return await chromiumFetch(input as Parameters<typeof net.fetch>[0], init);
 		} catch (err) {
 			const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
-			console.error("[fetch] failed", { url, via: "chromium" }, err);
+			try {
+				const parsed = new URL(url);
+				diagnosticsLog.error(
+					"fetch failed",
+					{ hostname: parsed.hostname, pathname: parsed.pathname, via: "chromium" },
+					err,
+				);
+			} catch {
+				diagnosticsLog.error("fetch failed (invalid url)", { url, via: "chromium" }, err);
+			}
 			throw err;
 		}
 	}) as typeof fetch;
-	console.log("[main] swapped globalThis.fetch to electron.net.fetch (Chromium network stack)");
+	diagnosticsLog.info("swapped globalThis.fetch to electron.net.fetch (Chromium network stack)");
 }
 
 // 包裹 globalThis.fetch：fetch 失败时把请求 URL 和完整 cause 链记下来。诊断
@@ -165,7 +175,12 @@ function patchFetch(): void {
 			return await orig(input, init);
 		} catch (err) {
 			const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
-			console.error("[fetch] failed", { url }, err);
+			try {
+				const parsed = new URL(url);
+				diagnosticsLog.error("fetch failed", { hostname: parsed.hostname, pathname: parsed.pathname }, err);
+			} catch {
+				diagnosticsLog.error("fetch failed (invalid url)", { url }, err);
+			}
 			throw err;
 		}
 	}) as typeof fetch;
@@ -177,22 +192,21 @@ export function installMainDiagnostics(): void {
 
 	configureAppLogging();
 	patchConsoleToAppLogger();
-	const diagnosticsLog = getAppLogger("diagnostics");
 
 	process.on("uncaughtException", (error) => {
-		console.error("[main] uncaughtException", error);
+		diagnosticsLog.error("uncaughtException", error);
 	});
 
 	process.on("unhandledRejection", (reason) => {
-		console.error("[main] unhandledRejection", reason);
+		diagnosticsLog.error("unhandledRejection", reason);
 	});
 
 	process.on("warning", (warning) => {
-		diagnosticsLog.warn("[process] warning", warning);
+		diagnosticsLog.warn("process warning", warning);
 	});
 
 	app.on("render-process-gone", (_event, webContents, details) => {
-		console.error("[electron] render-process-gone", {
+		diagnosticsLog.error("render-process-gone", {
 			id: webContents.id,
 			url: webContents.getURL(),
 			details,
@@ -200,15 +214,15 @@ export function installMainDiagnostics(): void {
 	});
 
 	app.on("child-process-gone", (_event, details) => {
-		console.error("[electron] child-process-gone", details);
+		diagnosticsLog.error("child-process-gone", details);
 	});
 
 	app.on("will-quit", (_event) => {
-		console.log("[app] will-quit");
+		diagnosticsLog.info("will-quit");
 	});
 
 	app.on("quit", (_event, exitCode) => {
-		writeDiagnosticLog("log", "[app] quit", { exitCode });
+		writeDiagnosticLog("log", "quit", { exitCode });
 	});
 
 	patchFetch();
@@ -216,7 +230,7 @@ export function installMainDiagnostics(): void {
 	// 启动时打印关键 env —— 排查 "终端启动 OK / Finder 启动异常" 这类
 	// launchd vs shell 环境差异问题（PATH / proxy / VETTA_SERVER_URL 等）的
 	// 第一手依据。
-	console.log("[startup]", {
+	diagnosticsLog.info("startup", {
 		version: app.getVersion(),
 		platform: process.platform,
 		arch: process.arch,
@@ -230,10 +244,10 @@ export function installMainDiagnostics(): void {
 			SHELL: process.env.SHELL,
 			HOME: process.env.HOME,
 			LANG: process.env.LANG,
-			HTTP_PROXY: process.env.HTTP_PROXY ?? process.env.http_proxy,
-			HTTPS_PROXY: process.env.HTTPS_PROXY ?? process.env.https_proxy,
+			hasHTTPProxy: !!(process.env.HTTP_PROXY ?? process.env.http_proxy),
+			hasHTTPSProxy: !!(process.env.HTTPS_PROXY ?? process.env.https_proxy),
+			hasAllProxy: !!(process.env.ALL_PROXY ?? process.env.all_proxy),
 			NO_PROXY: process.env.NO_PROXY ?? process.env.no_proxy,
-			ALL_PROXY: process.env.ALL_PROXY ?? process.env.all_proxy,
 			VETTA_SERVER_URL: process.env.VETTA_SERVER_URL,
 		},
 	});

@@ -130,6 +130,7 @@ export interface PluginAgentToolRegistration {
 	description: string;
 	parameters: Record<string, unknown>;
 	handlerId: string;
+	activationId?: string;
 	timeoutMs?: number;
 }
 
@@ -153,9 +154,10 @@ export interface DesktopPluginsApi {
 	grantPermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	revokePermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	reload(id: string): Promise<InstalledPlugin>;
+	beginAgentToolsLoad(pluginId: string, activationId: string): Promise<void>;
 	registerAgentTool(pluginId: string, registration: PluginAgentToolRegistration): Promise<void>;
-	unregisterAgentTool(pluginId: string, toolId: string): Promise<void>;
-	clearAgentTools(pluginId: string): Promise<void>;
+	unregisterAgentTool(pluginId: string, toolId: string, activationId?: string): Promise<void>;
+	clearAgentTools(pluginId: string, activationId?: string): Promise<void>;
 	onAgentToolRequest(handler: (request: PluginAgentToolInvocationRequest) => void): () => void;
 	respondAgentTool(requestId: string, result: unknown): Promise<void>;
 	/** Effective setting values for a plugin (schema defaults merged with stored). */

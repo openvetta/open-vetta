@@ -1,8 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { dialog, ipcMain } from "electron";
+import { getAppLogger } from "../logger.js";
 import { allowProjectRoot } from "./fs.js";
 import { selectFoldersWithLinuxPortal } from "./linux-portal-dialog.js";
+
+const log = getAppLogger("dialog");
 
 const IMAGE_MIME: Record<string, string> = {
 	".png": "image/png",
@@ -63,7 +66,7 @@ export function registerDialogIpc(): () => void {
 				}
 				return selected;
 			} catch (error) {
-				console.warn("Linux portal folder picker failed, falling back to Electron dialog:", error);
+				log.warn("Linux portal folder picker failed, falling back to Electron dialog:", error);
 			}
 		}
 

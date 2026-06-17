@@ -3,7 +3,10 @@ import { mkdir, rm } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 import AdmZip from "adm-zip";
 import { dialog, ipcMain } from "electron";
+import { getAppLogger } from "../logger.js";
 import { allowProjectRoot, readDesktopConfig, writeDesktopConfig } from "./fs.js";
+
+const log = getAppLogger("project-export");
 
 // ─── Channels ───
 
@@ -229,7 +232,7 @@ function rewriteJsonFile(path: string, oldRoot: string, newRoot: string): void {
 	try {
 		parsed = JSON.parse(readFileSync(path, "utf-8"));
 	} catch (error) {
-		console.warn(`[ProjectExport] skipped JSON rewrite for ${path}: ${(error as Error).message}`);
+		log.warn(`skipped JSON rewrite for ${path}: ${(error as Error).message}`);
 		return;
 	}
 	const rewritten = rewritePathsInValue(parsed, oldRoot, newRoot);
@@ -339,7 +342,7 @@ async function handleExport(projectDir: string): Promise<ExportProjectResult> {
 	addDirectoryToZip(zip, projectDir, projectName);
 	zip.writeZip(saveResult.filePath);
 
-	console.log(`[ProjectExport] exported ${type} project ${projectName} → ${saveResult.filePath}`);
+	log.info(`exported ${type} project ${projectName} → ${saveResult.filePath}`);
 	return { saved: true, zipPath: saveResult.filePath };
 }
 
@@ -426,8 +429,8 @@ async function handleImport(): Promise<ImportProjectResult | null> {
 
 	const missingSources = manifest.type === "batch" ? collectMissingBatchSources(projectDir) : undefined;
 
-	console.log(
-		`[ProjectExport] imported ${manifest.type} project from ${zipPath} → ${projectDir} (missing-sources=${missingSources?.length ?? 0})`,
+	log.info(
+		`imported ${manifest.type} project from ${zipPath} → ${projectDir} (missing-sources=${missingSources?.length ?? 0})`,
 	);
 	return {
 		path: projectDir,

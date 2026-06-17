@@ -162,6 +162,10 @@ function createPermissionApi(plugin: InstalledPlugin): PluginContext["permission
 
 const noopDisposable: Disposable = { dispose: () => {} };
 
+function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
+	console.info(`[plugin-agent] ${message}`, data ?? {});
+}
+
 function warnSkippedContribution(plugin: InstalledPlugin, permission: PluginPermission, contribution: string): void {
 	console.warn(`Plugin ${plugin.id} skipped ${contribution}: missing permission ${permission}`);
 }
@@ -308,6 +312,7 @@ function createContext(
 	settingsApi: PluginSettingsApi,
 	onChanged: () => void,
 	pendingAgentToolRegistrations: Promise<void>[],
+	activationId: string,
 ): PluginContext {
 	const registerGlobalSlot = (contribution: PluginGlobalSlotContribution): Disposable => {
 		if (!hasPermission(plugin, "ui.slot.global")) {
@@ -509,6 +514,13 @@ function createContext(
 		fs,
 		agent: {
 			registerTool: (registration) => {
+				debugPluginAgent("renderer registerTool requested", {
+					pluginId: plugin.id,
+					toolId: typeof registration.id === "string" ? registration.id.trim() : "(invalid)",
+					hasRegisterPermission: hasPermission(plugin, "agent.tools.register"),
+					hasExecutePermission: hasPermission(plugin, "agent.toolHandler.execute"),
+					activationId,
+				});
 				if (!hasPermission(plugin, "agent.tools.register")) {
 					warnSkippedContribution(plugin, "agent.tools.register", "agent tool");
 					return noopDisposable;
@@ -523,6 +535,7 @@ function createContext(
 					throw new Error("Agent tool parameters must be a JSON schema object");
 				}
 				const toolId = registration.id.trim();
+				const toolName = registration.name?.trim() || toolId;
 				const handlerId = `${toolId}:${crypto.randomUUID()}`;
 				const handlerHandle = registerPluginAgentToolHandler({
 					pluginId: plugin.id,
@@ -534,12 +547,22 @@ function createContext(
 				const registrationPromise = window.vetta.plugins
 					.registerAgentTool(plugin.id, {
 						id: toolId,
-						name: registration.name?.trim() || toolId,
+						name: toolName,
 						label: registration.label,
 						description: registration.description,
 						parameters: registration.parameters as Record<string, unknown>,
 						handlerId,
+						activationId,
 						timeoutMs: registration.timeoutMs,
+					})
+					.then(() => {
+						debugPluginAgent("renderer registerTool completed", {
+							pluginId: plugin.id,
+							toolId,
+							toolName,
+							handlerId,
+							activationId,
+						});
 					})
 					.catch((error: Error) => {
 						handlerHandle.dispose();
@@ -550,7 +573,7 @@ function createContext(
 				return {
 					dispose: () => {
 						handlerHandle.dispose();
-						void window.vetta.plugins.unregisterAgentTool(plugin.id, toolId);
+						void window.vetta.plugins.unregisterAgentTool(plugin.id, toolId, activationId);
 					},
 				};
 			},
@@ -608,6 +631,14 @@ async function loadPluginModule(plugin: InstalledPlugin): Promise<PluginModule> 
 }
 
 export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void): Promise<LoadedPlugin> {
+	const activationId = crypto.randomUUID();
+	debugPluginAgent("load start", {
+		pluginId: plugin.id,
+		version: plugin.activeVersion,
+		runtime: plugin.runtime,
+		source: plugin.source,
+		activationId,
+	});
 	const slots: PluginGlobalSlotContribution[] = [];
 	const filePreviews: PluginFilePreviewContribution[] = [];
 	const activityTabs: PluginActivityTabContribution[] = [];
@@ -615,7 +646,8 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	const messageSlots: PluginMessageSlotContribution[] = [];
 	const disposers: Array<() => void> = [];
 	const styleHandle = loadPluginStyles(plugin);
-	await window.vetta.plugins.clearAgentTools(plugin.id);
+	await window.vetta.plugins.beginAgentToolsLoad(plugin.id, activationId);
+	debugPluginAgent("began dynamic tool activation", { pluginId: plugin.id, activationId });
 	await assertPluginEntryFetchable(plugin);
 	const module = await loadPluginModule(plugin);
 	const definition = normalizePluginDefinition(module);
@@ -634,9 +666,23 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		settingsApi,
 		onChanged,
 		pendingAgentToolRegistrations,
+		activationId,
 	);
 	await definition.activate(context);
+	debugPluginAgent("activate resolved", {
+		pluginId: plugin.id,
+		pendingAgentToolRegistrations: pendingAgentToolRegistrations.length,
+		activationId,
+	});
 	await Promise.all(pendingAgentToolRegistrations);
+	debugPluginAgent("load complete", {
+		pluginId: plugin.id,
+		toolsRegistered: pendingAgentToolRegistrations.length,
+		globalSlots: slots.length,
+		activityTabs: activityTabs.length,
+		messageSlots: messageSlots.length,
+		activationId,
+	});
 	return {
 		id: plugin.id,
 		name: plugin.name,
@@ -647,8 +693,10 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		inputActions,
 		messageSlots,
 		dispose: async () => {
+			debugPluginAgent("dispose start", { pluginId: plugin.id, activationId });
 			await definition.deactivate?.();
-			await window.vetta.plugins.clearAgentTools(plugin.id);
+			await window.vetta.plugins.clearAgentTools(plugin.id, activationId);
+			debugPluginAgent("cleared dynamic tools on dispose", { pluginId: plugin.id, activationId });
 			styleHandle.dispose();
 			for (const dispose of disposers) dispose();
 			slots.splice(0, slots.length);

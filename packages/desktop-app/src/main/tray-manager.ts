@@ -1,5 +1,8 @@
 import { app, Menu, nativeImage, Tray } from "electron";
+import { getAppLogger } from "./logger.js";
 import { getMainWindow, iconPath, macTrayIconPath, showMainWindow } from "./window-manager.js";
+
+const log = getAppLogger("tray");
 
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
@@ -88,14 +91,14 @@ export function createTray(): void {
 	if (tray) return;
 
 	const trayIcon = loadTrayIcon();
-	console.log(`[tray] Icon loaded: platform=${process.platform}, isEmpty=${trayIcon.isEmpty()}`);
+	log.debug(`Icon loaded: platform=${process.platform}, isEmpty=${trayIcon.isEmpty()}`);
 	if (trayIcon.isEmpty()) {
-		console.warn("[tray] Icon not found, skipping tray creation");
+		log.warn("Icon not found, skipping tray creation");
 		return;
 	}
 
 	tray = new Tray(trayIcon);
-	console.log("[tray] Created successfully");
+	log.info("Created successfully");
 	tray.setToolTip("Vetta");
 	tray.setContextMenu(buildTrayMenu());
 

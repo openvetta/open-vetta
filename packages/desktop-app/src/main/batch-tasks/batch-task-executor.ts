@@ -4,6 +4,7 @@ import type { AssistantMessage, Message, StopReason } from "@vetta/ai";
 import type { RuntimeHost, SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
+import { getAppLogger } from "../logger.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import { getWebhookManager } from "../webhook/index.js";
 import { verifyArtifacts } from "./artifact-validator";
@@ -18,6 +19,7 @@ import {
 } from "./notification-templates.js";
 
 const TASK_TMP_SUBDIR = ".tmp";
+const log = getAppLogger("batch-executor");
 
 const DEFAULT_TASK_TIMEOUT_MS = DEFAULT_BATCH_TIMEOUT_MINUTES * 60 * 1000;
 
@@ -147,7 +149,7 @@ function enqueueJob(job: PendingJob, options?: { priority?: boolean }): void {
 	const queue = getPendingQueue(projectId);
 
 	if (running.has(job.task.id)) {
-		console.warn(`[BatchTask] enqueueJob: task ${job.task.id} already running, skip`);
+		log.warn(`enqueueJob: task ${job.task.id} already running, skip`);
 		return;
 	}
 	const existingIdx = queue.findIndex((j) => j.task.id === job.task.id);
@@ -157,9 +159,9 @@ function enqueueJob(job: PendingJob, options?: { priority?: boolean }): void {
 		if (options?.priority) {
 			queue.splice(existingIdx, 1);
 			queue.unshift(job);
-			console.log(`[BatchTask] task ${job.task.id} re-prioritized to head of queue`);
+			log.debug(`task ${job.task.id} re-prioritized to head of queue`);
 		} else {
-			console.warn(`[BatchTask] enqueueJob: task ${job.task.id} already queued, skip`);
+			log.warn(`enqueueJob: task ${job.task.id} already queued, skip`);
 		}
 		return;
 	}
@@ -180,8 +182,8 @@ function enqueueJob(job: PendingJob, options?: { priority?: boolean }): void {
 		} else {
 			queue.push(job);
 		}
-		console.log(
-			`[BatchTask] task ${job.task.id} queued${options?.priority ? " (priority)" : ""} (project ${projectId}, running=${running.size}/${concurrency})`,
+		log.debug(
+			`task ${job.task.id} queued${options?.priority ? " (priority)" : ""} (project ${projectId}, running=${running.size}/${concurrency})`,
 		);
 		emitBatchTaskEvent({ type: "task.queued", projectId, taskId: job.task.id });
 	}
@@ -243,7 +245,7 @@ export function removeFromPending(projectId: string, taskId: string): boolean {
 	if (idx < 0) return false;
 	queue.splice(idx, 1);
 	emitBatchTaskEvent({ type: "task.dequeued", projectId, taskId });
-	console.log(`[BatchTask] task ${taskId} removed from pending queue`);
+	log.debug(`task ${taskId} removed from pending queue`);
 	return true;
 }
 
@@ -285,17 +287,17 @@ async function maybeNotifyTaskFinished(
 			modelKey,
 		});
 		void manager.broadcast(taskMessage).catch((err: unknown) => {
-			console.warn(`[BatchTask] notify task-finished broadcast failed: ${(err as Error).message}`);
+			log.warn(`notify task-finished broadcast failed: ${(err as Error).message}`);
 		});
 
 		if (isProjectFinished(project.tasks)) {
 			const summary = buildProjectSummaryMessage({ project, finishedAt });
 			void manager.broadcast(summary).catch((err: unknown) => {
-				console.warn(`[BatchTask] notify project-summary broadcast failed: ${(err as Error).message}`);
+				log.warn(`notify project-summary broadcast failed: ${(err as Error).message}`);
 			});
 		}
 	} catch (err) {
-		console.warn(`[BatchTask] maybeNotifyTaskFinished failed: ${(err as Error).message}`);
+		log.warn(`maybeNotifyTaskFinished failed: ${(err as Error).message}`);
 	}
 }
 
@@ -336,10 +338,10 @@ function scheduleTimeout(taskId: string, runtime: RuntimeHost, timeoutMs: number
 	return setTimeout(() => {
 		const executing = executingTasks.get(taskId);
 		if (!executing) return;
-		console.warn(`[BatchTask] Task ${taskId} timed out after ${timeoutMs}ms, aborting`);
+		log.warn(`Task ${taskId} timed out after ${timeoutMs}ms, aborting`);
 		executing.timedOut = true;
 		runtime.abort(executing.sessionId).catch((err) => {
-			console.warn(`[BatchTask] abort on timeout failed for ${taskId}: ${err}`);
+			log.warn(`abort on timeout failed for ${taskId}: ${err}`);
 		});
 	}, timeoutMs);
 }
@@ -359,7 +361,7 @@ async function finalizeTask(projectId: string, taskId: string, runtime: RuntimeH
 	try {
 		last = findLastAssistant(runtime.getMessages(executing.sessionId));
 	} catch (err) {
-		console.warn(`[BatchTask] finalizeTask: failed to read messages for ${taskId}: ${err}`);
+		log.warn(`finalizeTask: failed to read messages for ${taskId}: ${err}`);
 	}
 
 	const stopReason: StopReason | undefined = last?.stopReason;
@@ -438,8 +440,8 @@ async function runTaskInner(
 ): Promise<void> {
 	const abortController = new AbortController();
 	const isResume = resumeText !== undefined;
-	console.log(
-		`[BatchTask] runTask${isResume ? " (resume)" : ""}: project=${project.id}(${project.name}), task=${task.id}(${task.name}), cwd=${task.cwd}`,
+	log.info(
+		`runTask${isResume ? " (resume)" : ""}: project=${project.id}(${project.name}), task=${task.id}(${task.name}), cwd=${task.cwd}`,
 	);
 
 	let sessionId: string | undefined;
@@ -508,7 +510,7 @@ async function runTaskInner(
 			startedAt,
 			modelKey: project.modelKey,
 		});
-		console.log(`[BatchTask] Session ${isResume ? "resumed" : "created"}: ${sessionId}, path=${sessionPath}`);
+		log.info(`Session ${isResume ? "resumed" : "created"}: ${sessionId}, path=${sessionPath}`);
 
 		if (!isResume) {
 			runtime.renameSessionById(sessionId, `${project.name}: ${task.name}`);
@@ -533,7 +535,7 @@ async function runTaskInner(
 			sessionPath,
 			executionMode: mode,
 		});
-		console.log(`[BatchTask] task.started emitted: ${task.id}`);
+		log.info(`task.started emitted: ${task.id}`);
 
 		// 模型选择透传给 prompt — 跟 chat 走完全一致的路径（useSessionManager 也是
 		// 把 modelKey 放进 PromptRequest）。原来这里走的是 updateSettings + getState
@@ -541,19 +543,19 @@ async function runTaskInner(
 		// getAvailable() 过滤，而本地 provider 的 hasAuth 在某些时序下不为 true，
 		// 模型会被静默忽略；prompt 路径已加 find() 回退，可以兜住这种情况。
 		const promptText = isResume ? (resumeText as string) : applySkillPrefix(project.prompt, project.skill);
-		console.log(
-			`[BatchTask] Sending prompt for session ${sessionId}, model=${project.modelKey ?? "(session default)"}, resume=${isResume}`,
+		log.info(
+			`Sending prompt for session ${sessionId}, model=${project.modelKey ?? "(session default)"}, resume=${isResume}`,
 		);
 		await runtime.prompt(sessionId, {
 			text: promptText,
 			...(project.modelKey ? { modelKey: project.modelKey } : {}),
 		});
-		console.log(`[BatchTask] prompt returned, finalizing task ${task.id}`);
+		log.info(`prompt returned, finalizing task ${task.id}`);
 
 		await finalizeTask(project.id, task.id, runtime);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error(`[BatchTask] runTask failed for task ${task.id}: ${errorMessage}`);
+		log.error(`runTask failed for task ${task.id}: ${errorMessage}`);
 		const executing = executingTasks.get(task.id);
 		if (executing) clearTimeout(executing.timeoutHandle);
 		const failedAt = Date.now();
@@ -589,11 +591,11 @@ async function runTaskInner(
  * session、task-state 和工作目录产物。
  */
 export async function abortTask(projectId: string, taskId: string, runtime: RuntimeHost): Promise<void> {
-	console.log(`[BatchTask] abortTask: project=${projectId}, task=${taskId}`);
+	log.info(`abortTask: project=${projectId}, task=${taskId}`);
 	if (removeFromPending(projectId, taskId)) return;
 	const executing = executingTasks.get(taskId);
 	if (!executing) {
-		console.warn(`[BatchTask] abortTask: task ${taskId} not found in executingTasks`);
+		log.warn(`abortTask: task ${taskId} not found in executingTasks`);
 		return;
 	}
 
@@ -602,7 +604,7 @@ export async function abortTask(projectId: string, taskId: string, runtime: Runt
 	clearTimeout(executing.timeoutHandle);
 	await runtime.abort(executing.sessionId);
 	executing.abortController.abort();
-	console.log(`[BatchTask] Abort called for session ${executing.sessionId}`);
+	log.debug(`Abort called for session ${executing.sessionId}`);
 }
 
 export function isTaskRunning(taskId: string): boolean {

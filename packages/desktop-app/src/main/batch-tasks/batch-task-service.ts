@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
 import type { ExecutionModeOverride } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
+import { getAppLogger } from "../logger.js";
 import {
 	abortTask as abortTaskExecutor,
 	emitBatchTaskEvent,
@@ -72,6 +73,8 @@ export class BatchTaskServiceError extends Error {
 	}
 }
 
+const log = getAppLogger("batch-service");
+
 export class BatchTaskService {
 	constructor(private readonly getRuntime: () => RuntimeHost) {}
 
@@ -79,9 +82,7 @@ export class BatchTaskService {
 		try {
 			await recoverRunningTasks();
 		} catch (error) {
-			console.error(
-				`[BatchTaskService] Failed to recover running tasks: ${error instanceof Error ? error.message : String(error)}`,
-			);
+			log.error(`Failed to recover running tasks: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 

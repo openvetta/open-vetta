@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { type ExecutionModeOverride, normalizeExecutionModeOverride } from "../execution-mode.js";
 import { type DesktopConfig, type ProjectEntry, readDesktopConfig, writeDesktopConfig } from "../ipc/fs.js";
+import { getAppLogger } from "../logger.js";
 import { type BatchTaskState, type BatchTaskStatus, loadProjectTaskStates } from "./batch-task-state";
 
 export type { BatchTaskStatus } from "./batch-task-state";
@@ -72,6 +73,8 @@ export interface BatchProject {
 }
 
 export const DEFAULT_BATCH_TIMEOUT_MINUTES = 60;
+
+const log = getAppLogger("batch-storage");
 
 // ─── Internal helpers ───
 
@@ -210,7 +213,7 @@ async function autoRegisterLooseBatchProjects(config: DesktopConfig): Promise<De
 	}
 	if (additions.length === 0) return config;
 
-	console.log(`[BatchTaskStorage] auto-registering ${additions.length} loose batch project(s) into config`);
+	log.info(`auto-registering ${additions.length} loose batch project(s) into config`);
 	const next: DesktopConfig = {
 		...config,
 		projects: [...config.projects, ...additions],
@@ -245,9 +248,7 @@ export async function loadProjects(): Promise<BatchProject[]> {
 		}
 		return projects;
 	} catch (error) {
-		console.error(
-			`[BatchTaskStorage] loadProjects failed: ${error instanceof Error ? error.message : String(error)}`,
-		);
+		log.error(`loadProjects failed: ${error instanceof Error ? error.message : String(error)}`);
 		return [];
 	}
 }
@@ -312,14 +313,12 @@ export async function createProject(
 	try {
 		await registerProjectInConfig(projectDir, name);
 	} catch (error) {
-		console.warn(
-			`[BatchTaskStorage] createProject: failed to register ${projectDir} in config (will auto-recover): ${error instanceof Error ? error.message : String(error)}`,
+		log.warn(
+			`createProject: failed to register ${projectDir} in config (will auto-recover): ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 
-	console.log(
-		`[BatchTaskStorage] createProject: ${projectDir}(${name}), tasks=${items.length}, concurrency=${concurrency}`,
-	);
+	log.info(`createProject: ${projectDir}(${name}), tasks=${items.length}, concurrency=${concurrency}`);
 
 	return assembleProject(projectDir, meta, {});
 }
@@ -385,14 +384,14 @@ export async function updateProject(
 }
 
 export async function deleteProject(projectDir: string): Promise<void> {
-	console.log(`[BatchTaskStorage] deleteProject: ${projectDir}`);
+	log.info(`deleteProject: ${projectDir}`);
 	// Unregister first so the sidebar drops it even if disk removal fails
 	// (e.g. external file lock). On a partial failure, the user can retry.
 	try {
 		await unregisterProjectFromConfig(projectDir);
 	} catch (error) {
-		console.warn(
-			`[BatchTaskStorage] deleteProject: failed to unregister ${projectDir} from config: ${error instanceof Error ? error.message : String(error)}`,
+		log.warn(
+			`deleteProject: failed to unregister ${projectDir} from config: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
 	await rm(projectDir, { recursive: true, force: true });

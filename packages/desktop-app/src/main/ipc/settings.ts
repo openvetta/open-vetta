@@ -5,9 +5,12 @@ import { app, BrowserWindow, ipcMain, powerMonitor } from "electron";
 
 import type { RefreshOutcome } from "../../preload/api.js";
 import { DEFAULT_SERVER_URL } from "../constants.js";
+import { getAppLogger } from "../logger.js";
 import { peekSharedRuntime } from "../runtime.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 import { type ModelsConfig, type ProviderConfig, readModelsConfig, writeModelsConfig } from "./fs.js";
+
+const settingsLog = getAppLogger("settings");
 
 function getSettingsPath(): string {
 	return join(getAgentDir(), "settings.json");
@@ -75,7 +78,7 @@ function persistTokens(access: string, refresh: string): void {
 	const runtime = peekSharedRuntime();
 	if (runtime) {
 		void runtime.reloadServerAuth(access).catch((err) => {
-			console.warn("[settings ipc] reloadServerAuth after refresh failed:", err);
+			settingsLog.warn("reloadServerAuth after refresh failed:", err);
 		});
 	}
 }
@@ -330,7 +333,7 @@ export async function syncProviderTemplates(): Promise<ProviderTemplatesResult> 
 				await writeModelsConfig(config);
 			}
 		} catch (err) {
-			console.warn("[settings ipc] mergeAdoptedTemplates failed:", err);
+			settingsLog.warn("mergeAdoptedTemplates failed:", err);
 		}
 	}
 	return result;
@@ -419,7 +422,7 @@ function maybeRefreshOnWake(reason: string): void {
 	if (remaining > WAKE_REFRESH_THRESHOLD_MS) return;
 	// tryRefreshAccessToken 内部有 single-flight，重复触发安全
 	void tryRefreshAccessToken().catch((err) => {
-		console.warn(`[auth] wake refresh (${reason}) failed:`, err);
+		settingsLog.warn(`wake refresh (${reason}) failed:`, err);
 	});
 }
 
@@ -467,7 +470,7 @@ export function registerSettingsIpc(): () => void {
 			try {
 				await runtime.reloadServerAuth(nextToken);
 			} catch (err) {
-				console.warn("[settings ipc] reloadServerAuth failed:", err);
+				settingsLog.warn("reloadServerAuth failed:", err);
 			}
 		}
 	});

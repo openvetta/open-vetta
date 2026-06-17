@@ -47,6 +47,14 @@ import { bindExtensionCore } from "./extension-binding.js";
 import type { SessionContext } from "./session-context.js";
 import { personalizationSig, rebuildSystemPrompt } from "./system-prompt-builder.js";
 
+function summarizePluginToolContributions(agentPlugins: AgentPluginRuntimeConfig | undefined): string[] {
+	return agentPlugins?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [];
+}
+
+function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
+	console.info(`[plugin-agent] ${message}`, data ?? {});
+}
+
 export interface RuntimeManagerOptions {
 	resourceLoader: ResourceLoader;
 	todoStore: TodoStore;
@@ -212,6 +220,10 @@ export class RuntimeManager {
 
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
 		this._agentPlugins = agentPlugins;
+		debugPluginAgent("coding-agent reconfigureAgentPlugins", {
+			sessionId: this.host.sessionId,
+			toolContributions: summarizePluginToolContributions(agentPlugins),
+		});
 		this.buildRuntime({
 			activeToolNames: this.getActiveToolNames(),
 			includeAllExtensionTools: true,
@@ -582,12 +594,20 @@ export class RuntimeManager {
 			});
 		}
 
-		for (const tool of createPluginTools({
-			contributions: this._agentPlugins?.toolContributions ?? [],
+		const pluginToolContributions = this._agentPlugins?.toolContributions ?? [];
+		const pluginTools = createPluginTools({
+			contributions: pluginToolContributions,
 			cwd: this.ctx.cwd,
 			sessionId: this.host.sessionId,
 			invoke: this._invokePluginTool,
-		})) {
+		});
+		debugPluginAgent("coding-agent plugin tools built", {
+			sessionId: this.host.sessionId,
+			hasInvoker: this._invokePluginTool != null,
+			contributions: pluginToolContributions.map((tool) => `${tool.pluginId}:${tool.name}`),
+			pluginTools: pluginTools.map((tool) => tool.name),
+		});
+		for (const tool of pluginTools) {
 			baseTools[tool.name] = tool;
 		}
 
@@ -686,6 +706,11 @@ export class RuntimeManager {
 		const activeExtensionTools = wrappedExtensionTools.filter((tool) => activeToolNameSet.has(tool.name));
 		const activeMcpTools = mcpTools.filter((tool) => activeToolNameSet.has(tool.name));
 		const activeToolsArray: AgentTool[] = [...activeBaseTools, ...activeExtensionTools, ...activeMcpTools];
+		debugPluginAgent("coding-agent active plugin tools", {
+			sessionId: this.host.sessionId,
+			activePluginTools: pluginTools.filter((tool) => activeToolNameSet.has(tool.name)).map((tool) => tool.name),
+			activeToolCount: activeToolsArray.length,
+		});
 
 		if (this._extensionRunner) {
 			const wrappedActiveTools = wrapToolsWithExtensions(activeToolsArray, this._extensionRunner);
@@ -710,7 +735,14 @@ function createPluginTools(options: {
 	sessionId: string;
 	invoke?: AgentPluginToolInvoker;
 }): AgentTool[] {
-	if (!options.invoke) return [];
+	if (!options.invoke) {
+		if (options.contributions.length > 0) {
+			console.warn("[plugin-agent] coding-agent plugin tools unavailable: missing invoke bridge", {
+				contributions: options.contributions.map((tool) => `${tool.pluginId}:${tool.name}`),
+			});
+		}
+		return [];
+	}
 	return options.contributions.map((contribution) => createPluginTool(contribution, options));
 }
 

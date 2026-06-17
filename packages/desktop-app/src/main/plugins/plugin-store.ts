@@ -13,6 +13,7 @@ import type {
 	PluginPermission,
 	PluginSettingSchema,
 } from "../../preload/api-types/plugins.js";
+import { getAppLogger } from "../logger.js";
 
 const PLUGIN_API_VERSION = "1.0.0";
 const pluginsBaseDir = join(homedir(), ".vetta", "plugins");
@@ -23,9 +24,30 @@ const systemPrefsPath = join(homedir(), ".vetta", "system-plugin-prefs.json");
 
 type PluginManifestFile = Record<string, InstalledPlugin>;
 type SystemPluginPrefs = Record<string, { enabled: boolean }>;
-type RegisteredAgentTool = Omit<AgentPluginToolContribution, "pluginId">;
+type RegisteredAgentTool = Omit<AgentPluginToolContribution, "pluginId"> & { activationId?: string };
 
+const pluginLog = getAppLogger("plugin");
 const dynamicAgentTools = new Map<string, Map<string, RegisteredAgentTool>>();
+const dynamicAgentToolActivations = new Map<string, string>();
+
+function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
+	pluginLog.debug(message, data ?? {});
+}
+
+function summarizeRuntimeConfig(config: AgentPluginRuntimeConfig | undefined): Record<string, unknown> {
+	return {
+		systemPromptPlugins: config?.systemPromptContributions?.map((item) => item.pluginId) ?? [],
+		skillPlugins: config?.skillPathContributions?.map((item) => item.pluginId) ?? [],
+		toolPolicyPlugins: config?.toolPolicyContributions?.map((item) => item.pluginId) ?? [],
+		toolContributions: config?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [],
+	};
+}
+
+export function summarizeAgentPluginRuntimeConfig(
+	config: AgentPluginRuntimeConfig | undefined,
+): Record<string, unknown> {
+	return summarizeRuntimeConfig(config);
+}
 
 function ensureDir(dir: string): void {
 	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -413,6 +435,14 @@ function readPromptBlock(plugin: InstalledPlugin, relativePath: string, index: n
 export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | undefined {
 	const enabledPlugins = listPlugins().filter((plugin) => plugin.enabled && plugin.agent);
 	const enabledToolPlugins = listPlugins().filter((plugin) => plugin.enabled);
+	debugPluginAgent("build runtime config start", {
+		agentPlugins: enabledPlugins.map((plugin) => plugin.id),
+		enabledPlugins: enabledToolPlugins.map((plugin) => plugin.id),
+		dynamicToolPlugins: Array.from(dynamicAgentTools.entries()).map(([pluginId, tools]) => ({
+			pluginId,
+			tools: Array.from(tools.values()).map((tool) => tool.name),
+		})),
+	});
 	const systemPromptContributions: NonNullable<AgentPluginRuntimeConfig["systemPromptContributions"]> = [];
 	const skillPathContributions: NonNullable<AgentPluginRuntimeConfig["skillPathContributions"]> = [];
 	const toolPolicyContributions: NonNullable<AgentPluginRuntimeConfig["toolPolicyContributions"]> = [];
@@ -449,17 +479,27 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 				});
 			}
 		} catch (error) {
-			console.warn(`[plugins] Skipping agent contribution for ${plugin.id}:`, error);
+			pluginLog.warn(`Skipping agent contribution for ${plugin.id}:`, error);
 		}
 	}
 
 	for (const plugin of enabledToolPlugins) {
-		if (!hasGrantedPermission(plugin, "agent.tools.register")) continue;
-		if (!hasGrantedPermission(plugin, "agent.toolHandler.execute")) continue;
+		if (!hasGrantedPermission(plugin, "agent.tools.register")) {
+			debugPluginAgent("skip tool contributions: missing register permission", { pluginId: plugin.id });
+			continue;
+		}
+		if (!hasGrantedPermission(plugin, "agent.toolHandler.execute")) {
+			debugPluginAgent("skip tool contributions: missing execute permission", { pluginId: plugin.id });
+			continue;
+		}
 		const registeredTools = dynamicAgentTools.get(plugin.id);
-		if (!registeredTools) continue;
+		if (!registeredTools) {
+			debugPluginAgent("skip tool contributions: no dynamic tools registered", { pluginId: plugin.id });
+			continue;
+		}
 		for (const tool of registeredTools.values()) {
-			toolContributions.push({ ...tool, pluginId: plugin.id });
+			const { activationId: _activationId, ...contribution } = tool;
+			toolContributions.push({ ...contribution, pluginId: plugin.id });
 		}
 	}
 
@@ -468,7 +508,19 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 	if (skillPathContributions.length > 0) config.skillPathContributions = skillPathContributions;
 	if (toolPolicyContributions.length > 0) config.toolPolicyContributions = toolPolicyContributions;
 	if (toolContributions.length > 0) config.toolContributions = toolContributions;
-	return Object.keys(config).length > 0 ? config : undefined;
+	const result = Object.keys(config).length > 0 ? config : undefined;
+	debugPluginAgent("build runtime config done", summarizeRuntimeConfig(result));
+	return result;
+}
+
+export function beginDynamicAgentToolLoad(pluginId: string, activationId: string): void {
+	validatePluginId(pluginId);
+	const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+	if (!plugin) throw new Error(`Plugin not found: ${pluginId}`);
+	dynamicAgentToolActivations.set(pluginId, activationId);
+	const previousCount = dynamicAgentTools.get(pluginId)?.size ?? 0;
+	dynamicAgentTools.delete(pluginId);
+	debugPluginAgent("dynamic tool activation began", { pluginId, activationId, previousCount });
 }
 
 export function registerDynamicAgentTool(pluginId: string, tool: RegisteredAgentTool): void {
@@ -478,25 +530,83 @@ export function registerDynamicAgentTool(pluginId: string, tool: RegisteredAgent
 	if (!hasGrantedPermission(plugin, "agent.tools.register")) {
 		throw new Error(`Plugin permission denied: agent.tools.register`);
 	}
+	const currentActivationId = dynamicAgentToolActivations.get(pluginId);
+	if (tool.activationId && currentActivationId && tool.activationId !== currentActivationId) {
+		debugPluginAgent("ignore stale dynamic tool register", {
+			pluginId,
+			toolId: tool.id,
+			toolName: tool.name,
+			activationId: tool.activationId,
+			currentActivationId,
+		});
+		return;
+	}
 	let tools = dynamicAgentTools.get(pluginId);
 	if (!tools) {
 		tools = new Map();
 		dynamicAgentTools.set(pluginId, tools);
 	}
 	tools.set(tool.id, tool);
+	debugPluginAgent("dynamic tool registered", {
+		pluginId,
+		toolId: tool.id,
+		toolName: tool.name,
+		handlerId: tool.handlerId,
+		activationId: tool.activationId,
+		pluginToolCount: tools.size,
+	});
 }
 
-export function unregisterDynamicAgentTool(pluginId: string, toolId: string): void {
+export function unregisterDynamicAgentTool(pluginId: string, toolId: string, activationId?: string): void {
 	validatePluginId(pluginId);
+	const currentActivationId = dynamicAgentToolActivations.get(pluginId);
+	if (activationId && currentActivationId && activationId !== currentActivationId) {
+		debugPluginAgent("ignore stale dynamic tool unregister", {
+			pluginId,
+			toolId,
+			activationId,
+			currentActivationId,
+		});
+		return;
+	}
 	const tools = dynamicAgentTools.get(pluginId);
 	if (!tools) return;
+	const tool = tools.get(toolId);
+	if (activationId && tool?.activationId && tool.activationId !== activationId) {
+		debugPluginAgent("ignore mismatched dynamic tool unregister", {
+			pluginId,
+			toolId,
+			activationId,
+			toolActivationId: tool.activationId,
+		});
+		return;
+	}
 	tools.delete(toolId);
 	if (tools.size === 0) dynamicAgentTools.delete(pluginId);
+	debugPluginAgent("dynamic tool unregistered", {
+		pluginId,
+		toolId,
+		remainingPluginToolCount: dynamicAgentTools.get(pluginId)?.size ?? 0,
+	});
 }
 
-export function clearDynamicAgentTools(pluginId: string): void {
+export function clearDynamicAgentTools(pluginId: string, activationId?: string): void {
 	validatePluginId(pluginId);
+	const currentActivationId = dynamicAgentToolActivations.get(pluginId);
+	if (activationId && currentActivationId && activationId !== currentActivationId) {
+		debugPluginAgent("ignore stale dynamic tools clear", {
+			pluginId,
+			activationId,
+			currentActivationId,
+		});
+		return;
+	}
+	const previousCount = dynamicAgentTools.get(pluginId)?.size ?? 0;
 	dynamicAgentTools.delete(pluginId);
+	if (!activationId || currentActivationId === activationId) {
+		dynamicAgentToolActivations.delete(pluginId);
+	}
+	debugPluginAgent("dynamic tools cleared", { pluginId, activationId, previousCount });
 }
 
 function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean): InstalledPlugin {
@@ -545,13 +655,13 @@ export function discoverSystemPlugins(force = false): InstalledPlugin[] {
 				const manifest = parseManifest(JSON.parse(readFileSync(manifestFile, "utf-8")));
 				// staging 不完整时跳过并告警，不阻断启动。
 				if (!existsSync(join(dir, manifest.entry))) {
-					console.warn(`[system-plugins] 跳过 ${manifest.id}：staging 缺少入口 (${manifest.entry})`);
+					pluginLog.warn(`discover: 跳过 ${manifest.id}：staging 缺少入口 (${manifest.entry})`);
 					continue;
 				}
 				result.push(systemInstalledFromManifest(manifest, prefs[manifest.id]?.enabled ?? true));
 				systemPluginIds.add(manifest.id);
 			} catch (err) {
-				console.warn(`[system-plugins] 跳过 ${entry}：`, err);
+				pluginLog.warn(`discover: 跳过 ${entry}：`, err);
 			}
 		}
 	}

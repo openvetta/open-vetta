@@ -14,10 +14,14 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			grantPermissions: (id, permissions) => ipc.invoke("vetta:plugins:grant-permissions", id, permissions),
 			revokePermissions: (id, permissions) => ipc.invoke("vetta:plugins:revoke-permissions", id, permissions),
 			reload: (id) => ipc.invoke("vetta:plugins:reload", id),
+			beginAgentToolsLoad: (pluginId, activationId) =>
+				ipc.invoke("vetta:plugins:agent-tools-begin-load", pluginId, activationId),
 			registerAgentTool: (pluginId, registration) =>
 				ipc.invoke("vetta:plugins:agent-tool-register", pluginId, registration),
-			unregisterAgentTool: (pluginId, toolId) => ipc.invoke("vetta:plugins:agent-tool-unregister", pluginId, toolId),
-			clearAgentTools: (pluginId) => ipc.invoke("vetta:plugins:agent-tools-clear", pluginId),
+			unregisterAgentTool: (pluginId, toolId, activationId) =>
+				ipc.invoke("vetta:plugins:agent-tool-unregister", pluginId, toolId, activationId),
+			clearAgentTools: (pluginId, activationId) =>
+				ipc.invoke("vetta:plugins:agent-tools-clear", pluginId, activationId),
 			onAgentToolRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:agent-tool-request", handler),
 			respondAgentTool: (requestId, result) => ipc.invoke("vetta:plugins:agent-tool-response", requestId, result),
 			getSettings: (id) => ipc.invoke("vetta:plugins:get-settings", id),

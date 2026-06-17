@@ -1,5 +1,8 @@
 import { readdir } from "node:fs/promises";
 import { minimatch } from "minimatch";
+import { getAppLogger } from "../logger.js";
+
+const log = getAppLogger("batch-validator");
 
 export interface ArtifactCheckResult {
 	ok: boolean;
@@ -18,7 +21,7 @@ export async function verifyArtifacts(cwd: string, patterns: string[] | undefine
 		const entries = await readdir(cwd, { withFileTypes: true });
 		topLevelFiles = entries.filter((e) => e.isFile()).map((e) => e.name);
 	} catch (err) {
-		console.warn(`[ArtifactValidator] readdir(${cwd}) failed: ${err}`);
+		log.warn(`readdir(${cwd}) failed: ${err}`);
 		return { ok: false, missingPatterns: [...patterns] };
 	}
 
