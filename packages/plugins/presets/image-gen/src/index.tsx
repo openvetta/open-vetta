@@ -278,11 +278,15 @@ function ImageSwiper({
 }) {
 	const ordered = useMemo(() => [...versions].reverse(), [versions]); // newest first
 	const scrollRef = useRef<HTMLDivElement>(null);
-	const [overflow, setOverflow] = useState(false);
+	// 分别跟踪两端是否还能继续滚动：决定左右「渐隐遮罩 + 箭头」各自的出现。
+	const [canPrev, setCanPrev] = useState(false);
+	const [canNext, setCanNext] = useState(false);
 
 	const measure = (): void => {
 		const el = scrollRef.current;
-		if (el) setOverflow(el.scrollWidth - el.clientWidth > 2);
+		if (!el) return;
+		setCanPrev(el.scrollLeft > 1);
+		setCanNext(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
 	};
 
 	// Re-measure when the version set changes; keep the newest (front) in view.
@@ -297,8 +301,10 @@ function ImageSwiper({
 		return () => window.removeEventListener("resize", onResize);
 	}, []);
 
-	const scrollBy = (dir: -1 | 1): void => {
-		scrollRef.current?.scrollBy({ left: dir * 220, behavior: "smooth" });
+	// 点击箭头翻动一整屏（可视宽度），与场景卡片 swiper 的「切屏」手感一致。
+	const scrollByView = (dir: -1 | 1): void => {
+		const el = scrollRef.current;
+		if (el) el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
 	};
 
 	// 左右箭头绝对定位压在首/末图边缘、略探入两侧 gutter（图片行与正文左右对齐），仅 hover 时淡入。
@@ -309,7 +315,11 @@ function ImageSwiper({
 			onPointerEnter={() => setHover(true)}
 			onPointerLeave={() => setHover(false)}
 		>
-			<div ref={scrollRef} className="imagegen-swiper flex gap-2 overflow-x-auto scroll-smooth">
+			<div
+				ref={scrollRef}
+				onScroll={measure}
+				className="imagegen-swiper flex gap-2 overflow-x-auto scroll-smooth"
+			>
 				{leadingSkeleton && <GenerationSkeleton className={`aspect-square ${SWIPER_ITEM}`} />}
 				{ordered.map((ref) => (
 					<SwiperItem
@@ -321,13 +331,32 @@ function ImageSwiper({
 					/>
 				))}
 			</div>
-			{overflow && (
+			{canPrev && (
 				<>
-					<ArrowButton dir="left" visible={hover} onClick={() => scrollBy(-1)} />
-					<ArrowButton dir="right" visible={hover} onClick={() => scrollBy(1)} />
+					<EdgeFade dir="left" />
+					<ArrowButton dir="left" visible={hover} onClick={() => scrollByView(-1)} />
+				</>
+			)}
+			{canNext && (
+				<>
+					<EdgeFade dir="right" />
+					<ArrowButton dir="right" visible={hover} onClick={() => scrollByView(1)} />
 				</>
 			)}
 		</div>
+	);
+}
+
+/** 两端渐隐遮罩：从背景色淡出到透明，提示该侧还有更多图片可滚动。 */
+function EdgeFade({ dir }: { dir: "left" | "right" }) {
+	return (
+		<div
+			aria-hidden
+			className={`pointer-events-none absolute inset-y-0 z-[5] w-12 ${dir === "left" ? "left-0" : "right-0"}`}
+			style={{
+				background: `linear-gradient(to ${dir === "left" ? "right" : "left"}, var(--background), transparent)`,
+			}}
+		/>
 	);
 }
 
