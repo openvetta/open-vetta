@@ -1,6 +1,6 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { useParams } from "@tanstack/react-router";
 import type { InstalledSkill, SkillInfo } from "@preload/api";
 import {
@@ -28,7 +28,6 @@ import { SessionDropZone } from "./SessionDropZone";
 import { useSessionManager } from "../hooks/useSessionManager";
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32 };
-const SCENE_PAGE_SIZE = 6;
 const easeOut = [0.16, 1, 0.3, 1] as const;
 
 // 场景三态：active=已安装并启用（可直接 attach）；disabled=已安装但被禁用（点击仅启用）；
@@ -80,6 +79,20 @@ function scheduleIdle(callback: () => void, timeout: number): () => void {
 	};
 }
 
+// 矮窗口阈值：低于此高度时隐藏底部引导词区，并把整体下移（减小底部留白）。
+const SHORT_VIEWPORT = 720;
+
+function useShortViewport(threshold = SHORT_VIEWPORT): boolean {
+	const [short, setShort] = useState(() => window.innerHeight < threshold);
+	useEffect(() => {
+		const onResize = (): void => setShort(window.innerHeight < threshold);
+		onResize();
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, [threshold]);
+	return short;
+}
+
 export function NewSessionPage(): JSX.Element {
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
@@ -109,6 +122,7 @@ export function NewSessionPage(): JSX.Element {
 	const projects = useAtomValue(projectsAtom);
 	const executionMode = useAtomValue(sessionExecutionModeAtom);
 	const { openSession, sendMessage, abortMessage } = useSessionManager();
+	const isShort = useShortViewport();
 
 	const project = projects.find((p) => p.cwd === decodedCwd);
 	const displayName = project?.name ?? pathBasename(decodedCwd);
@@ -363,101 +377,81 @@ export function NewSessionPage(): JSX.Element {
 				/>
 			</div>
 
-			{/* Scrollable upper area: hero + scenes + skill badges.
-			    用 absolute 填满整个容器，使 hero 的居中点固定为视口中心，
-			    InputBar 长高时不会再"顶起" hero。 */}
-			<div className="no-drag absolute inset-0 flex flex-col items-center overflow-y-auto px-6 pb-48 pt-6">
-				{renderHero && (
-					<motion.div
-						initial={{ opacity: 0, y: 12 }}
-						animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 12 }}
-						transition={{ duration: 0.5, ease: easeOut }}
-						className="my-auto flex w-full max-w-4xl flex-col items-center"
-					>
-						<BotAvatar size="lg" autoplay={avatarAutoplay} />
-						<motion.h1
-							initial={{ opacity: 0, y: 8 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
-							className="mt-4 bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent"
+			{/* 整页从底部开始布局：单一滚动容器内 min-h-full + justify-end，内容贴底向上堆叠
+			    （hero → 技能胶囊 → 输入框 → 引导词）。InputBar 变高时整列随之变高、底部不动，
+			    直接把上方 hero 顶起；内容超出视口则向上滚动。整列与输入框同宽（max-w-2xl）。 */}
+			<div className="no-drag relative z-[1] flex flex-1 flex-col overflow-y-auto">
+				<div
+					className={`flex min-h-full w-full flex-col items-center justify-end px-6 pt-6 ${
+						isShort ? "pb-6" : "pb-20"
+					}`}
+				>
+					{renderHero && (
+						<motion.div
+							initial={{ opacity: 0, y: 12 }}
+							animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 12 }}
+							transition={{ duration: 0.5, ease: easeOut }}
+							className="mb-3 flex w-full max-w-2xl flex-col items-start"
 						>
-							{greetingTitle}
-						</motion.h1>
-						<motion.p
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							transition={{ duration: 0.5, delay: 0.2 }}
-							className="mt-1 text-[12px] text-muted-foreground/70"
-						>
-							我可以帮助你处理工作，有什么我可以帮你的吗？
-						</motion.p>
-
-						{scenes.length > 0 && (
-							<SceneCarousel
-								scenes={scenes}
-								selected={selectedSkill}
-								actions={sceneActions}
-								onSceneClick={handleSceneClick}
-							/>
-						)}
-
-						{skillBadges.length > 0 && (
-							<motion.div
-								initial={{ opacity: 0, y: 8 }}
-								animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
-								transition={{ duration: 0.5, delay: 0.3, ease: easeOut }}
-								className="mt-4 flex w-full flex-col items-center"
-							>
-								<div className="flex flex-wrap items-center justify-center gap-1.5">
-									{skillBadges.map((s, idx) => {
-										const active =
-											selectedSkill?.name === s.name && selectedSkill?.type === "skill";
-										return (
-											<motion.button
-												key={s.name}
-												type="button"
-												onClick={() => handleSelectSkill(s)}
-												initial={{ opacity: 0, y: 6, scale: 0.95 }}
-												animate={{ opacity: 1, y: 0, scale: 1 }}
-												transition={{
-													type: "spring",
-													stiffness: 360,
-													damping: 26,
-													delay: 0.32 + idx * 0.03,
-												}}
-												whileHover={{ y: -2, scale: 1.04 }}
-												whileTap={{ scale: 0.96 }}
-												className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
-													active
-														? "border-primary/50 bg-primary/15 text-primary"
-														: "border-border/60 bg-card/40 text-muted-foreground hover:border-primary/30 hover:bg-primary/8 hover:text-primary"
-												}`}
-												title={s.description || s.name}
-											>
-												<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
-												{s.alias || s.name}
-											</motion.button>
-										);
-									})}
+							{/* 标题/副标题在左、BotAvatar 在最右，同一行左右对齐 */}
+							<div className="flex w-full items-center justify-between gap-4">
+								<div className="flex min-w-0 flex-col">
+									<motion.h1
+										initial={{ opacity: 0, y: 8 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={{ duration: 0.5, delay: 0.1, ease: easeOut }}
+										className="bg-gradient-to-br from-primary via-primary to-primary/30 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent"
+									>
+										{greetingTitle}
+									</motion.h1>
+									<motion.p
+										initial={{ opacity: 0 }}
+										animate={{ opacity: 1 }}
+										transition={{ duration: 0.5, delay: 0.2 }}
+										className="mt-1 text-[12px] text-muted-foreground/70"
+									>
+										我可以帮助你处理工作，有什么我可以帮你的吗？
+									</motion.p>
 								</div>
-							</motion.div>
-						)}
+								<BotAvatar size="lg" autoplay={avatarAutoplay} />
+							</div>
 
-						{guidingGroups.length > 0 && (
+							{scenes.length > 0 && (
+								<SceneCarousel
+									scenes={scenes}
+									selected={selectedSkill}
+									actions={sceneActions}
+									onSceneClick={handleSceneClick}
+								/>
+							)}
+						</motion.div>
+					)}
+
+					{skillBadges.length > 0 && (
+						<div className="mx-auto w-full max-w-2xl px-2 sm:px-4">
+							<SkillBadgeRow
+								skills={skillBadges}
+								selected={selectedSkill}
+								mounted={mounted}
+								onSelect={handleSelectSkill}
+							/>
+						</div>
+					)}
+
+					<div className="w-full">
+						<InputBar
+							onSend={handleSend}
+							onAbort={abortMessage}
+							cwdOverride={decodedCwd}
+						/>
+					</div>
+
+					{!isShort && guidingGroups.length > 0 && (
+						<div className="mx-auto w-full max-w-2xl px-2 sm:px-4">
 							<GuidingWords groups={guidingGroups} mounted={mounted} onPick={handleGuidingWord} />
-						)}
-					</motion.div>
-				)}
-			</div>
-
-			{/* Global InputBar — 与 ChatView 共用同一个组件。
-			    绝对定位浮在底部，避免长高时把上方 hero 顶起。 */}
-			<div className="absolute inset-x-0 bottom-0 z-10">
-				<InputBar
-					onSend={handleSend}
-					onAbort={abortMessage}
-					cwdOverride={decodedCwd}
-				/>
+						</div>
+					)}
+				</div>
 			</div>
 		</SessionDropZone>
 	);
@@ -470,16 +464,35 @@ interface SceneCarouselProps {
 	onSceneClick: (s: SceneItem) => void;
 }
 
+// 场景卡片：横向滚动单行，每屏 3 张（宽度 = (100%-2*gap)/3），超出靠滚动 + 悬浮箭头手动翻动。
+// 宽度跟随外层左对齐列（max-w-2xl），不再单独居中。
 function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouselProps): JSX.Element {
-	const [page, setPage] = useState(0);
-	const totalPages = Math.max(1, Math.ceil(scenes.length / SCENE_PAGE_SIZE));
-	const safePage = Math.min(page, totalPages - 1);
-	const visible = scenes.slice(
-		safePage * SCENE_PAGE_SIZE,
-		safePage * SCENE_PAGE_SIZE + SCENE_PAGE_SIZE,
-	);
-	const canPrev = safePage > 0;
-	const canNext = safePage < totalPages - 1;
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const [canPrev, setCanPrev] = useState(false);
+	const [canNext, setCanNext] = useState(false);
+
+	const updateEdges = useCallback(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		setCanPrev(el.scrollLeft > 1);
+		setCanNext(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+	}, []);
+
+	useEffect(() => {
+		updateEdges();
+		const el = scrollRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver(updateEdges);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, [updateEdges, scenes.length]);
+
+	// 翻动一屏（3 张卡 + 间隙），与可视宽度对齐。
+	const scrollByView = useCallback((dir: -1 | 1) => {
+		const el = scrollRef.current;
+		if (!el) return;
+		el.scrollBy({ left: dir * el.clientWidth, behavior: "smooth" });
+	}, []);
 
 	return (
 		<motion.div
@@ -488,137 +501,222 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 			transition={{ duration: 0.5, delay: 0.25, ease: easeOut }}
 			className="group relative mt-6 w-full"
 		>
-			{totalPages > 1 && (
-				<div className="mb-3 flex items-center justify-end gap-1">
-					{Array.from({ length: totalPages }).map((_, i) => (
-						<button
-							key={i}
+			<div
+				ref={scrollRef}
+				onScroll={updateEdges}
+				className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto py-1"
+			>
+				{scenes.map((s) => {
+					const action = actions[s.name] ?? "idle";
+					const isMuted = s.state !== "active";
+					const selectedActive =
+						s.state === "active" && selected?.name === s.name && selected?.type === "scene";
+					return (
+						<motion.button
+							key={s.name}
 							type="button"
-							onClick={() => setPage(i)}
-							className={`h-1 rounded-full transition-all ${
-								i === safePage ? "w-4 bg-primary" : "w-1 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+							disabled={action === "loading"}
+							onClick={() => onSceneClick(s)}
+							whileHover={{ y: -2 }}
+							whileTap={{ scale: 0.98 }}
+							transition={SPRING}
+							title={s.state === "uninstalled" ? "点击安装并使用" : s.description || s.name}
+							className={`relative flex w-[calc((100%-1rem)/3)] shrink-0 snap-start items-start gap-2.5 overflow-hidden rounded-xl border p-3 text-left transition-colors disabled:cursor-wait ${
+								selectedActive
+									? "border-primary/60 bg-card shadow-[0_10px_24px_-18px_var(--primary)]"
+									: isMuted
+										? "border-dashed border-border/50 bg-card/60 hover:border-primary/40"
+										: "border-border/60 bg-card hover:border-primary/40"
 							}`}
-							aria-label={`第 ${i + 1} 页`}
-						/>
-					))}
-				</div>
-			)}
-
-			<div className="relative">
-				<AnimatePresence mode="wait" initial={false}>
-					<motion.div
-						key={safePage}
-						initial={{ opacity: 0, x: 16 }}
-						animate={{ opacity: 1, x: 0 }}
-						exit={{ opacity: 0, x: -16 }}
-						transition={{ duration: 0.25, ease: easeOut }}
-						className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-					>
-						{visible.map((s) => {
-							const action = actions[s.name] ?? "idle";
-							const isMuted = s.state !== "active";
-							const selectedActive =
-								s.state === "active" && selected?.name === s.name && selected?.type === "scene";
-							return (
-								<motion.button
-									key={s.name}
-									type="button"
-									disabled={action === "loading"}
-									onClick={() => onSceneClick(s)}
-									whileHover={{ y: -2 }}
-									whileTap={{ scale: 0.98 }}
-									transition={SPRING}
-									title={s.state === "uninstalled" ? "点击安装并使用" : s.description || s.name}
-									className={`relative flex items-start gap-2 overflow-hidden rounded-xl border p-2.5 text-left transition-colors disabled:cursor-wait ${
-										selectedActive
-											? "border-primary/60 bg-card shadow-[0_10px_24px_-18px_var(--primary)]"
-											: isMuted
-												? "border-dashed border-border/50 bg-card/60 hover:border-primary/40"
-												: "border-border/60 bg-card hover:border-primary/40"
+						>
+							<div className="min-w-0 flex-1">
+								<div
+									className={`truncate text-[13px] font-semibold ${
+										isMuted ? "text-muted-foreground" : "text-foreground"
 									}`}
 								>
-									<div
-										className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-											selectedActive
-												? "bg-primary text-primary-foreground"
-												: isMuted
-													? "bg-accent/50 text-muted-foreground/70"
-													: "bg-primary/10 text-primary"
-										}`}
-									>
-										<span className="icon-[mdi--movie-open-outline] h-3.5 w-3.5" />
+									{s.alias || s.name}
+								</div>
+								{s.description && (
+									<div className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/70">
+										{s.description}
 									</div>
-									<div className="min-w-0 flex-1">
-										<div
-											className={`truncate text-[12px] font-semibold ${
-												isMuted ? "text-muted-foreground" : "text-foreground"
-											}`}
-										>
-											{s.alias || s.name}
-										</div>
-										{s.description && (
-											<div className="mt-0.5 line-clamp-1 text-[10px] leading-relaxed text-muted-foreground/70">
-												{s.description}
-											</div>
+								)}
+								{(s.version || (s.downloadCount ?? 0) > 0) && (
+									<div className="mt-1.5 flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground/60">
+										{s.version && (
+											<span className="inline-flex h-4 items-center rounded-full bg-accent/50 px-1.5 font-medium">
+												v{s.version}
+											</span>
 										)}
-										{(s.version || (s.downloadCount ?? 0) > 0) && (
-											<div className="mt-1 flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground/60">
-												{s.version && (
-													<span className="inline-flex h-4 items-center rounded-full bg-accent/50 px-1.5 font-medium">
-														v{s.version}
-													</span>
-												)}
-												{(s.downloadCount ?? 0) > 0 && (
-													<span className="inline-flex h-4 items-center gap-0.5 rounded-full bg-accent/50 px-1.5 font-medium">
-														<span className="icon-[mdi--download] h-2.5 w-2.5" />
-														{s.downloadCount}
-													</span>
-												)}
-											</div>
+										{(s.downloadCount ?? 0) > 0 && (
+											<span className="inline-flex h-4 items-center gap-0.5 rounded-full bg-accent/50 px-1.5 font-medium">
+												<span className="icon-[mdi--download] h-2.5 w-2.5" />
+												{s.downloadCount}
+											</span>
 										)}
 									</div>
-									{action === "loading" ? (
-										<span className="icon-[mdi--loading] absolute right-2 top-2 h-3.5 w-3.5 animate-spin text-primary" />
-									) : action === "error" ? (
-										<span className="icon-[mdi--alert-circle] absolute right-2 top-2 h-3.5 w-3.5 text-destructive" />
-									) : isMuted ? (
-										<span className="icon-[mdi--download] absolute right-2 top-2 h-3.5 w-3.5 text-muted-foreground/60" />
-									) : selectedActive ? (
-										<span className="icon-[mdi--check-circle] absolute right-2 top-2 h-3.5 w-3.5 text-primary" />
-									) : null}
-								</motion.button>
-							);
-						})}
-					</motion.div>
-				</AnimatePresence>
+								)}
+							</div>
+							{action === "loading" ? (
+								<span className="icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+							) : action === "error" ? (
+								<span className="icon-[mdi--alert-circle] h-3.5 w-3.5 shrink-0 text-destructive" />
+							) : isMuted ? (
+								<span className="icon-[mdi--download] h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+							) : selectedActive ? (
+								<span className="icon-[mdi--check-circle] h-3.5 w-3.5 shrink-0 text-primary" />
+							) : null}
+						</motion.button>
+					);
+				})}
+			</div>
 
-				{canPrev && (
+			{canPrev && (
+				<>
+					<div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-background to-transparent" />
 					<motion.button
 						type="button"
-						onClick={() => setPage((p) => Math.max(0, p - 1))}
-						initial={{ opacity: 0, x: 4 }}
+						onClick={() => scrollByView(-1)}
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -left-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title="上一页"
+						title="上一组"
 					>
 						<span className="icon-[mdi--chevron-left] h-4 w-4" />
 					</motion.button>
-				)}
-				{canNext && (
+				</>
+			)}
+			{canNext && (
+				<>
+					<div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent" />
 					<motion.button
 						type="button"
-						onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-						initial={{ opacity: 0, x: -4 }}
+						onClick={() => scrollByView(1)}
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title="下一页"
+						title="下一组"
 					>
 						<span className="icon-[mdi--chevron-right] h-4 w-4" />
 					</motion.button>
-				)}
+				</>
+			)}
+		</motion.div>
+	);
+}
+
+interface SkillBadgeRowProps {
+	skills: SkillInfo[];
+	selected: { name: string; type: "skill" | "scene" } | null;
+	mounted: boolean;
+	onSelect: (s: SkillInfo) => void;
+}
+
+// 技能胶囊单行展示：横向滚动，超出时两端浮出箭头手动翻动（每次滚动约 80% 视宽）。
+function SkillBadgeRow({ skills, selected, mounted, onSelect }: SkillBadgeRowProps): JSX.Element {
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const [canPrev, setCanPrev] = useState(false);
+	const [canNext, setCanNext] = useState(false);
+
+	const updateEdges = useCallback(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		setCanPrev(el.scrollLeft > 1);
+		setCanNext(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+	}, []);
+
+	useEffect(() => {
+		updateEdges();
+		const el = scrollRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver(updateEdges);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, [updateEdges, skills.length]);
+
+	const scrollBy = useCallback((dir: -1 | 1) => {
+		const el = scrollRef.current;
+		if (!el) return;
+		el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+	}, []);
+
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
+			transition={{ duration: 0.5, delay: 0.3, ease: easeOut }}
+			className="group relative mt-4 w-full"
+		>
+			<div
+				ref={scrollRef}
+				onScroll={updateEdges}
+				className="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-1 py-1"
+			>
+				{skills.map((s, idx) => {
+					const active = selected?.name === s.name && selected?.type === "skill";
+					return (
+						<motion.button
+							key={s.name}
+							type="button"
+							onClick={() => onSelect(s)}
+							initial={{ opacity: 0, y: 6, scale: 0.95 }}
+							animate={{ opacity: 1, y: 0, scale: 1 }}
+							transition={{
+								type: "spring",
+								stiffness: 360,
+								damping: 26,
+								delay: 0.32 + idx * 0.03,
+							}}
+							whileHover={{ y: -2, scale: 1.04 }}
+							whileTap={{ scale: 0.96 }}
+							// 背景必须不透明：胶囊行固定悬浮在输入框上方、压住可滚动内容，
+							// 半透明会让背后内容穿透。用 color-mix 把主色调入 --card（不透明底），保留原有色调。
+							className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+								active
+									? "border-primary/50 bg-[color-mix(in_srgb,var(--primary)_15%,var(--card))] text-primary"
+									: "border-border/60 bg-card text-muted-foreground hover:border-primary/30 hover:bg-[color-mix(in_srgb,var(--primary)_8%,var(--card))] hover:text-primary"
+							}`}
+							title={s.description || s.name}
+						>
+							<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
+							{s.alias || s.name}
+						</motion.button>
+					);
+				})}
 			</div>
+
+			{/* 两端渐隐 + 浮出箭头，提示可横向翻动 */}
+			{canPrev && (
+				<>
+					<div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-background to-transparent" />
+					<motion.button
+						type="button"
+						onClick={() => scrollBy(-1)}
+						whileHover={{ scale: 1.08 }}
+						whileTap={{ scale: 0.92 }}
+						className="absolute -left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
+						title="向左"
+					>
+						<span className="icon-[mdi--chevron-left] h-4 w-4" />
+					</motion.button>
+				</>
+			)}
+			{canNext && (
+				<>
+					<div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent" />
+					<motion.button
+						type="button"
+						onClick={() => scrollBy(1)}
+						whileHover={{ scale: 1.08 }}
+						whileTap={{ scale: 0.92 }}
+						className="absolute -right-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
+						title="向右"
+					>
+						<span className="icon-[mdi--chevron-right] h-4 w-4" />
+					</motion.button>
+				</>
+			)}
 		</motion.div>
 	);
 }
@@ -659,7 +757,8 @@ function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Eleme
 			initial={{ opacity: 0, y: 8 }}
 			animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 8 }}
 			transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
-			className="mt-5 grid w-full grid-cols-[repeat(2,minmax(0,320px))] items-start justify-center gap-x-10 gap-y-5"
+			// 跟随外层左对齐列（max-w-2xl）；单组占左半、双组左右等分，整体左对齐。
+			className="mt-5 grid w-full grid-cols-2 items-start gap-x-10"
 		>
 			{visibleGroups.map((group) => {
 				const wordPages = Math.max(1, Math.ceil(group.words.length / GUIDING_WORD_PAGE));
@@ -672,7 +771,7 @@ function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Eleme
 				const padRows = slotCount - pageWords.length;
 				return (
 					<div key={group.id} className="flex w-full min-w-0 flex-col gap-1.5">
-						<div className="truncate px-0.5 text-[14px] font-semibold text-foreground/80" title={group.name}>
+						<div className="truncate px-0.5 text-[12px] font-semibold text-foreground/80" title={group.name}>
 							{group.name}
 						</div>
 						{/* 不用 AnimatePresence mode="wait"：那会先卸载旧页留一帧空容器导致塌高。
@@ -700,7 +799,7 @@ function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Eleme
 										transition={{ duration: 0.55, ease: guidingEase }}
 										whileTap={{ scale: 0.98 }}
 										title={word}
-										className={`relative flex min-h-8 items-start py-1.5 pl-[18px] text-left text-[14px] leading-relaxed text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
+										className={`relative flex min-h-8 items-start py-1.5 pl-[18px] text-left text-[12px] leading-relaxed text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
 											isLast
 												? "before:top-0 before:h-4 before:w-[12px] before:rounded-bl-[7px] before:border-b"
 												: "before:inset-y-0 before:w-0 after:absolute after:left-0 after:top-4 after:w-[12px] after:border-t after:border-muted-foreground/30 after:content-['']"

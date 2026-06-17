@@ -45,7 +45,7 @@ interface InputBarProps {
 }
 
 const MIN_HEIGHT = 24;
-const MAX_HEIGHT = 200;
+const MAX_HEIGHT = 140;
 
 const SPRING = { type: "spring" as const, stiffness: 460, damping: 32, mass: 0.9 };
 const SOFT = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
