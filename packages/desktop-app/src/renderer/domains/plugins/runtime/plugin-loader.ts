@@ -469,15 +469,23 @@ function createContext(
 			}
 		}
 	};
-	const previewImage = (ref: PluginImageRef): void => {
+	const previewImage = (ref: PluginImageRef, group?: PluginImageRef[]): void => {
 		createPermissionApi(plugin).require("ui.slot.message");
-		const ext = (ref.mimeType ?? "image/png").split("/")[1] ?? "png";
-		getDefaultStore().set(filePreviewAtom, {
-			name: `${ref.id}.${ext}`,
-			url: ref.url,
-			kind: "image",
-			mime: ref.mimeType,
-		});
+		const toItem = (r: PluginImageRef) => {
+			const ext = (r.mimeType ?? "image/png").split("/")[1] ?? "png";
+			return { name: `${r.id}.${ext}`, url: r.url, kind: "image" as const, mime: r.mimeType };
+		};
+		// 提供图片组（且多于一张）时以图片组形态打开，起始定位到 ref；否则单图
+		const images = (group ?? []).filter((r) => r.url);
+		if (images.length > 1) {
+			const index = Math.max(
+				0,
+				images.findIndex((r) => r.id === ref.id),
+			);
+			getDefaultStore().set(filePreviewAtom, { items: images.map(toItem), index });
+		} else {
+			getDefaultStore().set(filePreviewAtom, toItem(ref));
+		}
 	};
 	const openPluginSettings = (): void => {
 		// Host owns navigation; jump to the settings tab + this plugin's section
