@@ -748,6 +748,19 @@ export function useSessionManager(): SessionManagerResult {
 			});
 			const rawText = hasOverride ? override : inputValue.trim();
 			const images = !hasOverride && attachedImages.length > 0 ? attachedImages : undefined;
+			// 把附图落盘到会话图片缓存，改用 @路径 引用而非把 base64 塞进上下文：
+			// 视觉模型经 Read 工具即可看到图，不支持视觉的模型也能用工具对图做 OCR/改图等。
+			let imagePaths: string[] = [];
+			if (images) {
+				try {
+					imagePaths = await window.vetta.dialog.persistImages(
+						session.runtimeId,
+						images.map((img) => ({ id: img.id, data: img.data, mimeType: img.mimeType })),
+					);
+				} catch (err) {
+					console.error("[useSessionManager.sendMessage] persistImages failed:", err);
+				}
+			}
 			// Build prefix lines（override 直发不带前缀）
 			const skillPrefix =
 				!hasOverride && selectedSkill
@@ -757,7 +770,8 @@ export function useSessionManager(): SessionManagerResult {
 					: "";
 			const filesPrefix =
 				!hasOverride && mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
-			const text = `${skillPrefix}${filesPrefix}${rawText}`;
+			const imagesPrefix = imagePaths.length > 0 ? `${imagePaths.map((p) => `@${p}`).join("\n")}\n` : "";
+			const text = `${skillPrefix}${filesPrefix}${imagesPrefix}${rawText}`;
 			if (!hasOverride) {
 				setInputValue("");
 				setAttachedImages([]);
@@ -830,19 +844,11 @@ export function useSessionManager(): SessionManagerResult {
 
 			const promptReq: {
 				text: string;
-				images?: Array<{ type: "image"; data: string; mimeType: string }>;
 				modelKey?: string;
 				metadata?: Record<string, unknown>;
 			} = {
 				text: text || "(see attached images)",
 			};
-			if (images) {
-				promptReq.images = images.map((img) => ({
-					type: "image" as const,
-					data: img.data,
-					mimeType: img.mimeType,
-				}));
-			}
 			if (selectedModel) {
 				promptReq.modelKey = selectedModel;
 			}

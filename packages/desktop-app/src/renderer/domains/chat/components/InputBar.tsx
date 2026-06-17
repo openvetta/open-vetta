@@ -6,7 +6,6 @@ import {
 	isStreamingAtom,
 	activeSessionAtom,
 	attachedImagesAtom,
-	modelSupportsImagesAtom,
 	selectedSkillAtom,
 	mentionedFilesAtom,
 	editImageAttachmentAtom,
@@ -98,7 +97,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	// 首条输入预测建议：用作 placeholder + 空输入回车直发。
 	const firstSuggestion = activeSession?.runtimeId ? promptSuggestions[activeSession.runtimeId]?.[0] : undefined;
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
-	const modelSupportsImages = useAtomValue(modelSupportsImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const [editImageAttachment, setEditImageAttachment] = useAtom(editImageAttachmentAtom);
@@ -389,7 +387,6 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 
 	const handlePaste = useCallback(
 		async (e: React.ClipboardEvent) => {
-			if (!modelSupportsImages) return;
 			const items = Array.from(e.clipboardData.items);
 			const imageFiles = items
 				.filter((item) => item.kind === "file" && item.type.startsWith("image/"))
@@ -400,7 +397,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 			const images = await Promise.all(imageFiles.map(readFileAsImage));
 			addImages(images);
 		},
-		[addImages, modelSupportsImages],
+		[addImages],
 	);
 
 	const handleSend = useCallback(() => {
@@ -594,15 +591,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 								active={slashOpen}
 							/>
 							<ToolbarButton
-								icon={
-									modelSupportsImages
-										? "icon-[solar--gallery-linear]"
-										: "icon-[solar--gallery-remove-linear]"
-								}
-								title={
-									modelSupportsImages ? "添加图片" : "当前模型不支持图片输入"
-								}
-								disabled={!hasSession || !modelSupportsImages}
+								icon="icon-[solar--gallery-linear]"
+								title="添加图片"
+								disabled={!hasSession}
 								onClick={handleSelectImages}
 							/>
 							<ToolbarButton
