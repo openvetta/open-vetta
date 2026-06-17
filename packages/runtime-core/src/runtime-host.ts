@@ -122,6 +122,19 @@ interface InFlightBuffer {
 
 const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
 
+function summarizeAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Record<string, unknown> {
+	return {
+		systemPromptPlugins: agentPlugins?.systemPromptContributions?.map((item) => item.pluginId) ?? [],
+		skillPlugins: agentPlugins?.skillPathContributions?.map((item) => item.pluginId) ?? [],
+		toolPolicyPlugins: agentPlugins?.toolPolicyContributions?.map((item) => item.pluginId) ?? [],
+		toolContributions: agentPlugins?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [],
+	};
+}
+
+function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
+	console.info(`[plugin-agent] ${message}`, data ?? {});
+}
+
 export interface RuntimeHostOptions {
 	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	sandboxHostPath?: string;
@@ -243,9 +256,24 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
-		for (const handle of this.sessions.values()) {
-			if (!handle.agentPluginsEnabled) continue;
-			if (handle.session.isStreaming || handle.session.isBashRunning) continue;
+		debugPluginAgent("runtime reconfigure requested", {
+			sessionCount: this.sessions.size,
+			...summarizeAgentPlugins(agentPlugins),
+		});
+		for (const [sessionId, handle] of this.sessions) {
+			if (!handle.agentPluginsEnabled) {
+				debugPluginAgent("runtime reconfigure skip: plugins disabled", { sessionId });
+				continue;
+			}
+			if (handle.session.isStreaming || handle.session.isBashRunning) {
+				debugPluginAgent("runtime reconfigure skip: session busy", {
+					sessionId,
+					isStreaming: handle.session.isStreaming,
+					isBashRunning: handle.session.isBashRunning,
+				});
+				continue;
+			}
+			debugPluginAgent("runtime reconfigure apply", { sessionId });
 			handle.session.reconfigureAgentPlugins(agentPlugins);
 		}
 	}
@@ -371,6 +399,11 @@ export class RuntimeHost implements SessionFacade {
 		const sessionIdRef: { current?: string } = {};
 		const baseCustomTools = this.resolveExecutionModeTools(executionMode, effectiveCwd, () => sessionIdRef.current);
 		const customTools = this.withImageTools(baseCustomTools);
+		debugPluginAgent("runtime createSession start", {
+			enableAgentPlugins: config.enableAgentPlugins === true,
+			hasPluginToolInvoker: this.pluginToolInvoker != null,
+			...summarizeAgentPlugins(config.agentPlugins),
+		});
 		const options: CreateAgentSessionOptions = {
 			cwd: config.cwd,
 			agentDir: config.agentDir,
@@ -422,6 +455,10 @@ export class RuntimeHost implements SessionFacade {
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
 		this.sessions.set(sessionId, { session, executionMode, agentPluginsEnabled: config.enableAgentPlugins === true });
+		debugPluginAgent("runtime createSession registered", {
+			sessionId,
+			agentPluginsEnabled: config.enableAgentPlugins === true,
+		});
 		this.attachInFlightBuffer(sessionId, session);
 
 		// Stale-while-revalidate：当前的远程 model 数据已就绪可用（来自启动预热

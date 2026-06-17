@@ -19,8 +19,9 @@ import type {
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
+import { getAppLogger } from "../logger.js";
 import { notify } from "../notifications/index.js";
-import { buildAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
+import { buildAgentPluginRuntimeConfig, summarizeAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import {
@@ -129,6 +130,9 @@ async function rmExceptPreserved(dir: string, preserve: Set<string>): Promise<bo
 	);
 	return kept;
 }
+
+const sessionLog = getAppLogger("session");
+const pluginLog = getAppLogger("plugin");
 
 const CHANNELS = {
 	CREATE: "vetta:session:create",
@@ -473,6 +477,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					: VETTA_CLI_GUIDANCE
 				: config?.appendSystemPrompt;
 		const agentPlugins = isConversation ? buildAgentPluginRuntimeConfig() : undefined;
+		pluginLog.debug("session create plugin snapshot", {
+			kind,
+			isConversation,
+			...summarizeAgentPluginRuntimeConfig(agentPlugins),
+		});
 		const needPatch =
 			effectiveCwd !== config?.cwd ||
 			injectedSessionDir !== config?.sessionDir ||
@@ -497,7 +506,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
 		if (isConversation) {
-			runtime.reconfigureAgentPlugins(buildAgentPluginRuntimeConfig());
+			const refreshedAgentPlugins = buildAgentPluginRuntimeConfig();
+			pluginLog.debug("session create post-reconfigure", {
+				sessionId: result.sessionId,
+				...summarizeAgentPluginRuntimeConfig(refreshedAgentPlugins),
+			});
+			runtime.reconfigureAgentPlugins(refreshedAgentPlugins);
 		}
 		if (effectiveCwd) {
 			sessionCwdMap.set(result.sessionId, effectiveCwd);
@@ -527,16 +541,13 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertNonEmptyString(sessionId, "sessionId");
 		assertPromptRequest(request);
 		const req = request as PromptRequest;
-		console.log(
-			`[session ipc] prompt session=${sessionId} textLength=${req.text.length} images=${req.images?.length ?? 0} streamingBehavior=${req.streamingBehavior ?? "default"}`,
+		sessionLog.info(
+			`prompt session=${sessionId} textLength=${req.text.length} images=${req.images?.length ?? 0} streamingBehavior=${req.streamingBehavior ?? "default"}`,
 		);
-		if (req.images && req.images.length > 0) {
-			console.log(
-				`[IPC PROMPT] images: ${req.images.length}, first type=${req.images[0].type}, mimeType=${req.images[0].mimeType}, data.length=${req.images[0].data.length}`,
-			);
-		} else {
-			console.log(`[IPC PROMPT] no images in request`);
-		}
+		pluginLog.debug("session prompt plugin snapshot", {
+			sessionId,
+			...summarizeAgentPluginRuntimeConfig(buildAgentPluginRuntimeConfig()),
+		});
 		await runtime.prompt(sessionId, request);
 	});
 
@@ -665,7 +676,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		await runtime.deleteSession(sessionPath);
 		if (cwdFromHeader && isConversationSubCwd(cwdFromHeader)) {
 			await rm(resolve(cwdFromHeader), { recursive: true, force: true }).catch((err) => {
-				console.error("[session ipc] failed to remove conversation sub cwd", cwdFromHeader, err);
+				sessionLog.error("failed to remove conversation sub cwd", cwdFromHeader, err);
 			});
 		}
 	});
@@ -748,7 +759,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				try {
 					await runtime.disposeSession(sessionId);
 				} catch (err) {
-					console.error("[clear-default-conversation] dispose failed", sessionId, err);
+					sessionLog.error("clear-default-conversation dispose failed", sessionId, err);
 				}
 				sessionCwdMap.delete(sessionId);
 			}),
@@ -757,7 +768,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		try {
 			await rmExceptPreserved(targetSessionDir, new Set());
 		} catch (err) {
-			console.error("[clear-default-conversation] failed to clear session dir", err);
+			sessionLog.error("clear-default-conversation failed to clear session dir", err);
 			throw err;
 		}
 		await mkdir(targetSessionDir, { recursive: true });
@@ -909,7 +920,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 
 	ipcMain.handle(CHANNELS.UNSUBSCRIBE, async (_event, subscriptionId: unknown) => {
 		assertNonEmptyString(subscriptionId, "subscriptionId");
-		console.log(`[session ipc] unsubscribe subscription=${subscriptionId}`);
+		sessionLog.debug(`unsubscribe subscription=${subscriptionId}`);
 		const unsubscribe = subscriptionMap.get(subscriptionId);
 		if (unsubscribe) {
 			unsubscribe();
@@ -922,7 +933,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	// frame 上 send（哪怕有 isDestroyed 守卫，事件流仍在 runtime 端继续）。
 	// 这里集中清理一次：渲染端恢复后会重新 SUBSCRIBE，生成新的 subscriptionId。
 	const onRenderGone = (): void => {
-		console.warn(`[session ipc] render-process-gone; clearing ${subscriptionMap.size} subscription(s)`);
+		sessionLog.warn(`render-process-gone; clearing ${subscriptionMap.size} subscription(s)`);
 		for (const unsubscribe of subscriptionMap.values()) {
 			unsubscribe();
 		}
