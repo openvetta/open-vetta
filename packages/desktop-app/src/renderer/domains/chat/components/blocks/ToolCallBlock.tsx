@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { Component, type ErrorInfo, type ReactNode, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue } from "jotai";
 import {
 	activeSessionAtom,
 	backgroundTasksBySessionAtom,
 	getBackgroundTasksForSession,
+	pluginToolCallSlotsAtom,
 	type ToolCallBlock,
 } from "@shared/store/atoms";
 import { AskUserQuestionView } from "./tool-views/AskUserQuestionView";
@@ -32,8 +33,29 @@ interface ToolCallBlockProps {
  */
 const CONSPICUOUS_DURATION_MS = 1000;
 
+class PluginToolCallErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+	state = { failed: false };
+
+	static getDerivedStateFromError(): { failed: boolean } {
+		return { failed: true };
+	}
+
+	componentDidCatch(error: Error, info: ErrorInfo): void {
+		console.error("Plugin tool-call slot failed", error, info.componentStack);
+	}
+
+	render(): ReactNode {
+		return this.state.failed ? null : this.props.children;
+	}
+}
+
 export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
+	const toolCallSlots = useAtomValue(pluginToolCallSlotsAtom);
+	const pluginRenderer = useMemo(
+		() => toolCallSlots.find((slot) => slot.toolName === block.toolName),
+		[toolCallSlots, block.toolName],
+	);
 	const hasResult = block.result !== undefined;
 	const hasMeta = block.startedAt !== undefined;
 	const hasToolSpecificResult =
@@ -73,6 +95,24 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 	// CONSPICUOUS_DURATION_MS so quick tools stay visually unobtrusive.
 	const badgeMs = isPending ? liveElapsedMs : (block.durationMs ?? null);
 	const showBadge = badgeMs !== null && badgeMs >= CONSPICUOUS_DURATION_MS;
+
+	if (pluginRenderer) {
+		const SlotComponent = pluginRenderer.component;
+		return (
+			<PluginToolCallErrorBoundary>
+				<SlotComponent
+					toolCall={{
+						toolCallId: block.toolCallId,
+						toolName: block.toolName,
+						args: block.args,
+						status: block.status,
+						result: block.result,
+						isError: block.isError,
+					}}
+				/>
+			</PluginToolCallErrorBoundary>
+		);
+	}
 
 	return (
 		<div className="group min-w-0">

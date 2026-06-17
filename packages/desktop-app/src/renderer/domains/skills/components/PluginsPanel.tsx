@@ -24,6 +24,7 @@ const PERMISSION_LABELS: Record<PluginPermission, string> = {
 	"ui.slot.activity-tab": "活动面板 Tab",
 	"ui.slot.input-action": "输入栏动作 Slot",
 	"ui.slot.message": "消息下方 Slot",
+	"ui.slot.tool-call": "工具调用渲染 Slot",
 	"agent.session.read": "读取 Agent 会话",
 	"agent.session.write": "修改 Agent 会话",
 	"agent.command.run": "执行 Agent 命令",

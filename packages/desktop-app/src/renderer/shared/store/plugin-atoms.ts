@@ -4,6 +4,7 @@ import type {
 	PluginImageRef,
 	PluginInputActionContribution,
 	PluginMessageSlotContribution,
+	PluginToolCallSlotContribution,
 } from "@vetta/plugin-sdk";
 import { atom } from "jotai";
 
@@ -67,6 +68,18 @@ export interface RegisteredMessageSlot {
 
 /** Per-message slot components, stacked beneath each assistant message in order. */
 export const pluginMessageSlotsAtom = atom<RegisteredMessageSlot[]>([]);
+
+/** A plugin renderer that replaces the default transcript UI for a specific tool. */
+export interface RegisteredToolCallSlot {
+	pluginId: string;
+	/** Namespaced id (`${pluginId}:${contributionId}`). */
+	slotId: string;
+	toolName: string;
+	component: PluginToolCallSlotContribution["component"];
+}
+
+/** Tool-call renderers keyed by `toolName`. First registered renderer wins. */
+export const pluginToolCallSlotsAtom = atom<RegisteredToolCallSlot[]>([]);
 
 /**
  * The image a plugin (image-gen) bound as the "edit target" via

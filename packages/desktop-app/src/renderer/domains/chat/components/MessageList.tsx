@@ -11,6 +11,7 @@ import {
 	type ToolCallBlock,
 	activeSessionAtom,
 	isCompactingAtom,
+	pluginToolCallSlotsAtom,
 	promptPredictingAtom,
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
@@ -88,8 +89,12 @@ function segmentKey(segment: BlockSegment): string {
 	return `group-${blockKey(segment.blocks[0])}`;
 }
 
+function isCustomToolUiBlock(block: ContentBlock, customToolNames: Set<string>): boolean {
+	return block.type === "tool_call" && customToolNames.has(block.toolName);
+}
+
 /** Group consecutive tool_call and thinking blocks into collapsible groups. */
-function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
+function groupBlocks(blocks: ContentBlock[], customToolNames: Set<string>): BlockSegment[] {
 	const segments: BlockSegment[] = [];
 	let batch: (ToolCallBlock | ThinkingBlock)[] = [];
 
@@ -104,7 +109,10 @@ function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 	}
 
 	for (const block of blocks) {
-		if (block.type === "tool_call" || block.type === "thinking") {
+		if (isCustomToolUiBlock(block, customToolNames)) {
+			flushBatch();
+			segments.push({ type: "single", block });
+		} else if (block.type === "tool_call" || block.type === "thinking") {
 			batch.push(block);
 		} else if (block.type === "tool_result") {
 			// skip — results are rendered inside tool_call blocks
@@ -119,9 +127,10 @@ function groupBlocks(blocks: ContentBlock[]): BlockSegment[] {
 	return segments;
 }
 
-function findLastProcessBlockIndex(blocks: ContentBlock[]): number {
+function findLastProcessBlockIndex(blocks: ContentBlock[], customToolNames: Set<string> = new Set()): number {
 	for (let i = blocks.length - 1; i >= 0; i--) {
 		const block = blocks[i];
+		if (isCustomToolUiBlock(block, customToolNames)) continue;
 		if (block.type === "tool_call" || block.type === "thinking") return i;
 	}
 	return -1;
@@ -132,8 +141,8 @@ interface AssistantFoldData {
 	hiddenCount: number;
 }
 
-function getAssistantFoldData(blocks: ContentBlock[]): AssistantFoldData | null {
-	const lastProcessIndex = findLastProcessBlockIndex(blocks);
+function getAssistantFoldData(blocks: ContentBlock[], customToolNames: Set<string>): AssistantFoldData | null {
+	const lastProcessIndex = findLastProcessBlockIndex(blocks, customToolNames);
 	if (lastProcessIndex === -1) return null;
 	const outputBlocks = blocks
 		.slice(lastProcessIndex + 1)
@@ -427,10 +436,10 @@ function getUserCopyText(message: ChatMessage): string {
  * 提取 assistant 消息的结论文本：取最后一个 tool_call/thinking 之后的所有 text block。
  * 无 tool/thinking 时整段都是结论；纯工具轮 / 仅 error 时返回空字符串。
  */
-function getAssistantConclusionText(message: ChatMessage): string {
+function getAssistantConclusionText(message: ChatMessage, customToolNames: Set<string>): string {
 	const blocks = message.blocks ?? [];
 	if (blocks.length === 0) return (message.text ?? "").trim();
-	const lastProcessIndex = findLastProcessBlockIndex(blocks);
+	const lastProcessIndex = findLastProcessBlockIndex(blocks, customToolNames);
 	const texts = blocks
 		.slice(lastProcessIndex + 1)
 		.filter((b): b is TextBlock => b.type === "text")
@@ -613,14 +622,22 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 	const [expanded, setExpanded] = useState(false);
 	// 输入预测「生成中」：仅末条 assistant 消息、且当前会话正在预测时展示闪光提示。
 	const activeRid = useAtomValue(activeSessionAtom)?.runtimeId;
+	const toolCallSlots = useAtomValue(pluginToolCallSlotsAtom);
+	const customToolNames = useMemo(
+		() => new Set(toolCallSlots.map((slot) => slot.toolName)),
+		[toolCallSlots],
+	);
 	const predictingMap = useAtomValue(promptPredictingAtom);
 	const isPredicting = isTailMessage && !isCurrentlyStreaming && !!activeRid && predictingMap[activeRid] === true;
-	const foldData = useMemo(() => getAssistantFoldData(message.blocks ?? []), [message.blocks]);
+	const foldData = useMemo(
+		() => getAssistantFoldData(message.blocks ?? [], customToolNames),
+		[message.blocks, customToolNames],
+	);
 	const visibleBlocks = useMemo(() => {
 		if (!foldData || expanded || isCurrentlyStreaming) return message.blocks ?? [];
 		return foldData.outputBlocks;
 	}, [expanded, foldData, isCurrentlyStreaming, message.blocks]);
-	const segments = useMemo(() => groupBlocks(visibleBlocks), [visibleBlocks]);
+	const segments = useMemo(() => groupBlocks(visibleBlocks, customToolNames), [visibleBlocks, customToolNames]);
 	// streaming 时给最后一个非空 text segment 标记 streaming tail，
 	// 由 TextBlockView 控制展示节奏，避免高速 token 直接整块刷出。
 	const streamingTailIndex = useMemo(() => {
@@ -636,8 +653,8 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 		return -1;
 	}, [segments, isCurrentlyStreaming]);
 	const conclusionText = useMemo(
-		() => getAssistantConclusionText(message),
-		[message],
+		() => getAssistantConclusionText(message, customToolNames),
+		[message, customToolNames],
 	);
 	const showActions = !isCurrentlyStreaming && conclusionText.length > 0;
 

@@ -7,6 +7,7 @@ export type PluginPermission =
 	| "ui.slot.activity-tab"
 	| "ui.slot.input-action"
 	| "ui.slot.message"
+	| "ui.slot.tool-call"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
@@ -209,6 +210,29 @@ export interface PluginMessageSlotContribution {
 	component: ComponentType<PluginMessageSlotProps>;
 }
 
+export interface PluginToolCallSlotToolCall {
+	toolCallId: string;
+	toolName: string;
+	args: Record<string, unknown>;
+	status: "pending" | "success" | "error";
+	result?: string;
+	isError?: boolean;
+}
+
+export interface PluginToolCallSlotProps {
+	toolCall: PluginToolCallSlotToolCall;
+}
+
+/**
+ * A component that replaces the host's default rendering for a specific tool.
+ * First registered renderer wins for a given `toolName`.
+ */
+export interface PluginToolCallSlotContribution {
+	id: string;
+	toolName: string;
+	component: ComponentType<PluginToolCallSlotProps>;
+}
+
 export interface PluginUiApi {
 	registerGlobalSlot(contribution: PluginGlobalSlotContribution): Disposable;
 	/**
@@ -233,6 +257,10 @@ export interface PluginUiApi {
 	 * The component receives the message (with host-bound `imageRefs`).
 	 */
 	registerMessageSlot(contribution: PluginMessageSlotContribution): Disposable;
+	/**
+	 * Register a renderer that replaces the default transcript UI for a tool call.
+	 */
+	registerToolCallSlot(contribution: PluginToolCallSlotContribution): Disposable;
 	/**
 	 * Programmatically attach (if needed) and activate one of this plugin's
 	 * own activity tabs in the current conversation's activity panel. `tabId`

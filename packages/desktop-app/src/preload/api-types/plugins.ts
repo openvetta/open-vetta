@@ -4,6 +4,7 @@ export type PluginPermission =
 	| "ui.slot.activity-tab"
 	| "ui.slot.input-action"
 	| "ui.slot.message"
+	| "ui.slot.tool-call"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
