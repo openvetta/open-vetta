@@ -1,7 +1,7 @@
 {
 	"id": "image-gen",
 	"name": "图像生成",
-	"version": "0.1.11",
+	"version": "0.1.12",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
@@ -141,10 +141,5 @@
 	"description": "图像生成插件",
 	"author": "Vetta",
 	"guidingWords": [
-		"画一只在星空下奔跑的霓虹色狐狸",
-		"生成一张赛博朋克风格的雨夜城市街景",
-		"帮我设计一个简约的咖啡品牌 logo",
-		"画一幅水彩风格的江南古镇清晨",
-		"生成一只戴宇航头盔的柴犬，卡通风格"
 	]
 }
