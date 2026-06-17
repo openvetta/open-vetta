@@ -219,11 +219,13 @@ const SWIPER_ITEM = "h-64"; // 256px tall items; width auto by aspect ratio
  */
 function SwiperItem({
 	ref,
+	group,
 	attached,
 	onEdit,
 	onLoad,
 }: {
 	ref: PluginImageRef;
+	group: PluginImageRef[];
 	attached: boolean;
 	onEdit: (ref: PluginImageRef) => void;
 	onLoad: () => void;
@@ -245,7 +247,7 @@ function SwiperItem({
 				src={ref.url}
 				alt="生成的图像"
 				onLoad={onLoad}
-				onClick={() => pluginCtx?.ui.previewImage(ref)}
+				onClick={() => pluginCtx?.ui.previewImage(ref, group)}
 				className={`block w-auto cursor-zoom-in object-cover ${SWIPER_ITEM}`}
 			/>
 			<div
@@ -325,6 +327,7 @@ function ImageSwiper({
 					<SwiperItem
 						key={ref.id}
 						ref={ref}
+						group={ordered}
 						attached={ref.id === attachedId}
 						onEdit={onEdit}
 						onLoad={measure}
