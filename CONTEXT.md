@@ -484,6 +484,15 @@ _Avoid_: 与 [[媒体流协议]] 混用——vetta-media 专责音视频 Range �
 
 这与 desktop 端 [[系统插件]]/用户插件自带的 `availableVersion / pendingVersion` 更新流**刻意不对称**——更新流是客户端「装了旧版、市场出了新版」的比对机制，市场侧只需提供「这个 id 当前是哪个版本的 zip」即可驱动它，不需要自己存版本历史。一期采纳与 [[技能市场]] 同构的扁平模型而非 Plugin + PluginVersion 双表，是为最小化首期实现面；代价是市场无法回滚或并存多版本。
 
+### 引导词（guidingWords）
+
+[[可信插件]] 在 `plugin.json` 顶层声明的 `guidingWords?: string[]`：一组该插件想在用户开新会话时主动建议的提示语。是插件**第一个声明式 UI 贡献**——与全局 slot / [[文件预览插槽]] / [[活动面板插件 tab]] 等**命令式** `ctx.ui.register*`（需 `activate` 运行、走权限位）刻意不同：纯静态清单数据，随 [[description]] 同路径从 manifest 流到 `InstalledPlugin`，**无 `PluginPermission`、无运行时注册**。
+
+**唯一消费者是 NewSessionPage**：欢迎页在[[技能管理字段|技能徽章]]下方按插件**分组**展示——每组组标题取插件 `name`，下挂其引导词。入选条件 = 插件 `enabled` 且 `guidingWords` 非空。点击一条引导词＝以其文本为 `overrideText` 走 `openSession → sendMessage(text)` **立即发送**（不填入输入框、不经 atom 异步，规避 stale read）。
+
+**展示用轮播限额**（非数据截断）：同时最多 3 组、每组最多 4 词；组数超 3 则组级 12 秒轮播、某组词超 4 则该组词级 3 秒轮播；未超出则静态。与 [[对话插件 API]] 的运行时 `insertText`(填而不发) / `sendPrompt`(发一轮) 是**两条独立通道**——引导词是会话**开始前**的声明式建议，对话 API 是会话**进行中**的命令式驱动。
+_Avoid_: 把引导词与 NewSessionPage 的[[技能管理字段|场景/技能]]混为一谈——后者来自 `skills.list()`（SKILL.md 体系），引导词来自 `plugins.list()`（plugin.json 体系），是两套数据源。
+
 ### 媒体流协议（media streaming protocol）
 
 desktop-app 主进程注册的自定义 protocol（`vetta-media://`），把校验过的本地媒体路径映射为支持 Range 的流式 URL，供 `<audio>`（未来含 `<video>`）直接作 `src`。与既有预览的 `readFile` IPC + base64 全量加载**并存**：图片/pdf/docx 等小文件维持旧路径，只有音视频走本协议。见 ADR-0021。
