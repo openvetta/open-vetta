@@ -12,6 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **插件引导词（guidingWords，ADR-0003）**：`plugin.json` 新增顶层声明式字段 `guidingWords?: string[]`，是插件第一个**声明式** UI 贡献——与命令式 `ctx.ui.register*` 不同，纯静态清单数据、无权限位、无运行时注册，随 `description` 同路径从 manifest 经 `parseManifest` 流入 `InstalledPlugin`（用户插件与系统插件两条安装路径均透传）。NewSessionPage 欢迎页新增读 `plugins.list()`，在技能徽章下方按插件**分组**展示已启用且声明了非空 `guidingWords` 的插件引导词（组标题取插件 `name`）。点击一条引导词即以其文本为 `overrideText` 走 `openSession → sendMessage` 立即发起一轮（不填入输入框、规避 atom 异步 stale read）。展示限额靠轮播：同时最多 3 组、每组最多 4 词；组超 3 则组级 12s 轮播、某组词超 4 则该组词级 3s 轮播，未超出则静态。
 - **插件 Agent 工具执行通道**：插件可在 JS 中通过 `ctx.agent.registerTool()` 注册 TypeBox/JSON-Schema 工具 schema 和 handler；主进程按插件启用状态与 `agent.tools.register` / `agent.toolHandler.execute` 权限把工具注入会话，coding-agent 仅看到 tool shell，实际执行经 IPC 回到 renderer 插件 handler。插件激活会等待工具 schema 注册完成，注册/注销/权限或启停变化会刷新空闲的对话 session；新建对话 session 完成后会再同步一次插件配置，避免冷启动时插件注册刷新早于 session 入表导致首个会话漏掉插件工具；首次发送 prompt 前会等待插件宿主完成首次加载，避免冷启动时第一轮 agent 上下文缺少插件工具；未授权的插件贡献注册会被独立跳过，避免一个缺失权限拖垮插件的其他已授权能力。同步暴露受权限门控的 `ctx.fs` 文件 API（`fs.read` / `fs.write`），供插件 UI 与插件工具 handler 读写项目文件。
 - 新增 `[plugin-agent]` 调试日志，覆盖插件宿主加载、动态工具注册、主进程权限过滤、runtime 同步、session 创建/发送 prompt 时的插件工具快照，便于定位插件工具偶发未进入 agent 上下文的问题。
 - 插件动态 Agent 工具注册新增加载代次隔离：每次插件加载都会分配 `activationId`，main 进程会忽略过期加载实例的注册、注销和清理请求，避免旧实例 dispose 晚到时把新实例刚注册的 tool 从 agent 上下文中清掉。
@@ -86,7 +87,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
-- **活动面板 tab 栏改为浏览器式选项卡**：右侧活动面板顶部 tab 从胶囊式 SegmentedControl 改为浏览器/文件夹式页签——页签悬浮在内容卡片上方，激活页签圆角凸起、底色与卡片一致并与卡片描边接成连续轮廓（切换时滑动过渡），非激活页签为半透明灰色圆角块、hover 提亮，页签之间紧贴无间隙，保留图标与未读 badge；面板容器底色同步从 bg-muted 改为 bg-card 并加柔和投影，保留 1px 边框。新增通用组件 `shared/components/ui/tab-bar.tsx`（SegmentedControl 其他使用处不受影响）。
+- **附加图片改为路径引用、不再受模型视觉能力限制**：输入栏「添加图片」按钮、粘贴、拖拽不再判断当前模型是否支持图像输入——所有模型一律允许附加图片（移除按钮置灰与 paste/drop 的 `modelSupportsImages` 门控）。发送时附图不再以 base64 直接塞进上下文，改为经新 IPC `vetta:dialog:persist-images`（preload `dialog.persistImages`）落盘到 `~/.vetta/image-cache/<sessionId>/<id>.<ext>`，并以 `@绝对路径` 文本前缀（与 `@文件` 引用同机制）随 prompt 传给 agent，由 Read 工具按需读取：视觉模型 Read 后即可看到图，不支持视觉的模型也能用工具对图做 OCR / 改图等。`PromptRequest.images` 不再由桌面端填充（聊天气泡缩略图仍用本地 base64 渲染，不受影响）。图片缓存在启动时按 7 天 mtime 过期清理旧会话目录。配套把 `imageBackend.edit` 接线扩展为支持 `sourceImagePath`：agent 对用户上传的图片调 `edit_image` 时，主进程读取该本地文件字节走 image-gen 后端的 base64 图改图分支，不再因没有生成记录 id 而退回 `generate_image` 凭空重画。：右侧活动面板顶部 tab 从胶囊式 SegmentedControl 改为浏览器/文件夹式页签——页签悬浮在内容卡片上方，激活页签圆角凸起、底色与卡片一致并与卡片描边接成连续轮廓（切换时滑动过渡），非激活页签为半透明灰色圆角块、hover 提亮，页签之间紧贴无间隙，保留图标与未读 badge；面板容器底色同步从 bg-muted 改为 bg-card 并加柔和投影，保留 1px 边框。新增通用组件 `shared/components/ui/tab-bar.tsx`（SegmentedControl 其他使用处不受影响）。
 - **「自动化」界面交互重构 + 侧栏 session 图标**：执行历史从网格底部堆叠改为右侧滑出抽屉（背景色与 app 页面一致），点哪张卡片历史就贴着右侧出现，任务多也不用滚动；抽屉头部带任务名/调度描述 + 立即执行/暂停启用/编辑/关闭。定时任务 session 名改为干净的「任务名 · 时间」（去掉 `[定时]` 文字占位），侧栏据调度执行记录里的 sessionPath（含 basename 兜底）识别定时 session 并挂时钟图标，普通会话挂消息图标，运行中挂 spinner；默认「对话」项目的独立 session 列表（`DefaultSessionList`）同步加图标。新增 `src/shared/scheduled-session.ts`、`scheduledSessionPathsAtom`、`HistoryDrawer`，新增 `scheduler.getScheduledSessionPaths` IPC。
 - **消息中心弹窗重构（motion 动效 + 主题色）**：从居中 Radix 弹窗改为锚定右上角铃铛、spring 弹出/退场的下拉面板；Tab 栏引入主题色（active 用 `primary`，带 `layoutId` 滑动指示块），Tab 内容切换、列表增删、空态均加 motion 过渡；面板视觉重做（图标徽章头部、主题色高亮未读条目）。
 
@@ -105,6 +106,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **对话消息中 bash 工具调用展开 UI 改造为终端卡片**：原先 bash/shell 工具的展开内容只是一个灰底 `<pre>` 命令块加另一个 `<pre>` 输出块。重做为带边框的终端卡片：标题栏（状态点 + 中文文案「执行命令 / 正在执行 / 命令失败：{首行≤40 字符}」+ hover 出现的复制命令按钮）、命令行区（amber 色 `$` 提示符 + 完整命令，`max-h-[180px]` 独立滚动，pending 时末尾 1s 闪烁方块光标）、输出区（`max-h-[300px]` 独立滚动）、底部脚注（pending 时显示「正在执行···」+ 旋转 loader，结束后显示原 meta 行）。配色全用 `bg-muted/*`、`text-foreground/*` 等主题 token，深浅色主题自适应。新增 `bash-cursor-blink` keyframe。同时按工具拆分 `ToolCallBlock.tsx`（原 ~700 行）：新建 `blocks/tool-views/` 目录，bash/edit/read-image/write 各一个 view 文件，公共 utils（format/parse-tool/parse-diff/use-elapsed/StatusIndicator/CopyIconButton/TextPreview）归到 `tool-views/shared/`，容器只负责 header + expand + 按 toolName dispatch（~180 行）。外部 `ToolCallBlockView` 导出保持不变。
 
 ### Fixed
+
+- **streaming 期间展开右侧文件预览后，模型结束输出但打字指示器仍卡住**：内联文件预览展开会自动收起左侧 Sidebar 腾出空间，而 Sidebar 被条件渲染时是真正卸载。维护 `runningSessionPathsAtom`（streaming 状态真值来源之一）的 `RUNNING_CHANGED` IPC 订阅原先挂在 Sidebar 的 effect 上，Sidebar 卸载期间该事件被静默丢弃，导致 `isStreamingAtom` 一直为真，直到关闭预览、Sidebar 重新挂载靠 `listRunning` 快照纠偏。现把该订阅抽成 `useRunningSessionsSync` hook 上提到始终挂载的 App 根级，Sidebar 折叠/窄屏/内联预览均不再丢事件。
 
 - **开发启动时系统插件重复初始化异常**：React StrictMode 会在开发环境重复执行插件宿主初始化，原加载器每次都以 `force` 覆盖 Module Federation remote，触发覆盖告警并清除已加载缓存；首次异步加载若在清理后才完成，也不会释放插件贡献。现在仅在插件别名或入口实际变化时强制重注册，同一制品直接复用既有 remote，并在异步加载完成后正确清理已失效初始化产生的插件实例。
 

@@ -209,6 +209,8 @@ function parseManifest(raw: unknown): PluginManifest {
 		contributes: settings ? { settings } : undefined,
 		description: typeof input.description === "string" ? input.description : undefined,
 		author: typeof input.author === "string" ? input.author : undefined,
+		guidingWords:
+			input.guidingWords === undefined ? undefined : assertStringArray(input.guidingWords, "guidingWords"),
 	};
 }
 
@@ -329,6 +331,7 @@ function installedFromManifest(
 		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
+		guidingWords: manifest.guidingWords,
 		enabled: previous?.enabled ?? false,
 		installedAt: previous?.installedAt ?? now,
 		updatedAt: now,
@@ -628,6 +631,7 @@ function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean)
 		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
+		guidingWords: manifest.guidingWords,
 		enabled,
 		installedAt: now,
 		updatedAt: now,
