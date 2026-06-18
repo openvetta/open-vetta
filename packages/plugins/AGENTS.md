@@ -125,8 +125,7 @@ Preset 和 external 插件不纳入根 workspace，而是纳入
 - `id` 必须与目录名一致，并且不能与其他插件重复。
 - `remoteName` 使用合法的 JavaScript 标识符风格，例如下划线形式。
 - 只声明实际使用的权限。
-- 权限列表和 API 说明见
-  `packages/desktop-app/docs/plugin-system.md`。
+- 权限列表和 API 说明见 `docs/plugin/`（开发手册：清单 `manifest.md`、权限 `permissions.md`、各扩展点 `ui-slots.md` / `message-cards.md` / `conversation-and-agent.md`）。
 
 ### Vite 配置
 
