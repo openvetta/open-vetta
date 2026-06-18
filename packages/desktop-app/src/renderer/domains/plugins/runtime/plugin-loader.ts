@@ -14,6 +14,7 @@ import {
 import type {
 	Disposable,
 	PluginActivityTabContribution,
+	PluginCardRendererContribution,
 	PluginContext,
 	PluginConversationApi,
 	PluginDefinition,
@@ -23,7 +24,6 @@ import type {
 	PluginImageRef,
 	PluginImagesApi,
 	PluginInputActionContribution,
-	PluginMessageSlotContribution,
 	PluginPermission,
 	PluginSettingsApi,
 } from "@vetta/plugin-sdk";
@@ -44,7 +44,7 @@ export interface LoadedPlugin {
 	filePreviews: PluginFilePreviewContribution[];
 	activityTabs: PluginActivityTabContribution[];
 	inputActions: PluginInputActionContribution[];
-	messageSlots: PluginMessageSlotContribution[];
+	cardRenderers: PluginCardRendererContribution[];
 	dispose(): Promise<void>;
 }
 
@@ -304,7 +304,7 @@ function createContext(
 	filePreviews: PluginFilePreviewContribution[],
 	activityTabs: PluginActivityTabContribution[],
 	inputActions: PluginInputActionContribution[],
-	messageSlots: PluginMessageSlotContribution[],
+	cardRenderers: PluginCardRendererContribution[],
 	settingsApi: PluginSettingsApi,
 	onChanged: () => void,
 	pendingAgentToolRegistrations: Promise<void>[],
@@ -419,24 +419,30 @@ function createContext(
 			},
 		};
 	};
-	const registerMessageSlot = (contribution: PluginMessageSlotContribution): Disposable => {
+	const registerCardRenderer = (contribution: PluginCardRendererContribution): Disposable => {
 		createPermissionApi(plugin).require("ui.slot.message");
-		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
-			throw new Error("Message slot id is required");
+		if (typeof contribution.type !== "string" || contribution.type.trim().length === 0) {
+			throw new Error("Card renderer type is required");
 		}
 		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
-			throw new Error("Message slot component is invalid");
+			throw new Error("Card renderer component is invalid");
 		}
-		const normalized: PluginMessageSlotContribution = {
-			id: `${plugin.id}:${contribution.id}`,
+		// The `type` is the plugin-owned, globally-unique key both the renderer and
+		// the descriptor (from a tool's details.cards) agree on — NOT namespaced by
+		// the host, unlike slot ids. The plugin is responsible for uniqueness.
+		const normalized: PluginCardRendererContribution = {
+			type: contribution.type,
 			component: contribution.component,
+			title: contribution.title,
+			icon: contribution.icon,
+			pendingFor: contribution.pendingFor,
 		};
-		messageSlots.push(normalized);
+		cardRenderers.push(normalized);
 		onChanged();
 		return {
 			dispose: () => {
-				const index = messageSlots.findIndex((slot) => slot.id === normalized.id);
-				if (index >= 0) messageSlots.splice(index, 1);
+				const index = cardRenderers.findIndex((renderer) => renderer.type === normalized.type);
+				if (index >= 0) cardRenderers.splice(index, 1);
 				onChanged();
 			},
 		};
@@ -507,7 +513,7 @@ function createContext(
 			registerFilePreview,
 			registerActivityTab,
 			registerInputAction,
-			registerMessageSlot,
+			registerCardRenderer,
 			openActivityTab,
 			setEditImageAttachment,
 			previewImage,
@@ -620,7 +626,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	const filePreviews: PluginFilePreviewContribution[] = [];
 	const activityTabs: PluginActivityTabContribution[] = [];
 	const inputActions: PluginInputActionContribution[] = [];
-	const messageSlots: PluginMessageSlotContribution[] = [];
+	const cardRenderers: PluginCardRendererContribution[] = [];
 	const disposers: Array<() => void> = [];
 	const styleHandle = loadPluginStyles(plugin);
 	await window.vetta.plugins.clearAgentTools(plugin.id);
@@ -638,7 +644,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		filePreviews,
 		activityTabs,
 		inputActions,
-		messageSlots,
+		cardRenderers,
 		settingsApi,
 		onChanged,
 		pendingAgentToolRegistrations,
@@ -653,7 +659,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		filePreviews,
 		activityTabs,
 		inputActions,
-		messageSlots,
+		cardRenderers,
 		dispose: async () => {
 			await definition.deactivate?.();
 			await window.vetta.plugins.clearAgentTools(plugin.id);
@@ -663,7 +669,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 			filePreviews.splice(0, filePreviews.length);
 			activityTabs.splice(0, activityTabs.length);
 			inputActions.splice(0, inputActions.length);
-			messageSlots.splice(0, messageSlots.length);
+			cardRenderers.splice(0, cardRenderers.length);
 			onChanged();
 		},
 	};

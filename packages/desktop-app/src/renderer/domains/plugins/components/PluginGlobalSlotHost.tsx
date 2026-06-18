@@ -1,12 +1,12 @@
 import {
 	pluginActivityTabsAtom,
+	pluginCardRenderersAtom,
 	pluginFilePreviewsAtom,
 	pluginInputActionsAtom,
-	pluginMessageSlotsAtom,
 	type RegisteredActivityTab,
+	type RegisteredCardRenderer,
 	type RegisteredFilePreview,
 	type RegisteredInputAction,
-	type RegisteredMessageSlot,
 } from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
@@ -44,7 +44,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const setFilePreviews = useSetAtom(pluginFilePreviewsAtom);
 	const setActivityTabs = useSetAtom(pluginActivityTabsAtom);
 	const setInputActions = useSetAtom(pluginInputActionsAtom);
-	const setMessageSlots = useSetAtom(pluginMessageSlotsAtom);
+	const setCardRenderers = useSetAtom(pluginCardRenderersAtom);
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
@@ -142,18 +142,22 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		return () => setInputActions([]);
 	}, [plugins, revision, setInputActions]);
 
-	// Publish per-message slot components (stacked beneath each assistant message).
+	// Publish card renderers (keyed by type). The per-message card host resolves
+	// each card descriptor's `type` to one of these.
 	useEffect(() => {
-		const messageSlots: RegisteredMessageSlot[] = plugins.flatMap((plugin) =>
-			plugin.messageSlots.map((slot) => ({
+		const cardRenderers: RegisteredCardRenderer[] = plugins.flatMap((plugin) =>
+			plugin.cardRenderers.map((renderer) => ({
 				pluginId: plugin.id,
-				slotId: slot.id,
-				component: slot.component,
+				type: renderer.type,
+				component: renderer.component,
+				title: renderer.title,
+				icon: renderer.icon,
+				pendingFor: renderer.pendingFor,
 			})),
 		);
-		setMessageSlots(messageSlots);
-		return () => setMessageSlots([]);
-	}, [plugins, revision, setMessageSlots]);
+		setCardRenderers(cardRenderers);
+		return () => setCardRenderers([]);
+	}, [plugins, revision, setCardRenderers]);
 
 	if (slots.length === 0) return null;
 
