@@ -6,6 +6,7 @@
 
 ### Changed
 
+- 插件工具（`agent-plugins.toolContributions`）的 handler 返回值若含 `cards` 数组，`createPluginTool` 会把它**提升**到工具结果的 `details.cards`（消息卡片 settled 数据源，模型不可见），并从模型可见的结果文本中**剔除**——使插件无需协同内置工具即可在消息下方渲染卡片（见 ADR-0030）。无 `cards` 的返回值行为不变。
 - `generate_image` / `edit_image` 工具的结果 `details` 新增 `cards`（卡片描述符 `{ type:"image-gen:preview", key:rootId, payload:{images} }`，模型永不可见），作为桌面端「消息卡片」体系（ADR-0030）的卡片数据源；`GenerateImageToolDetails` 随之新增 `cards` 字段。原 `<vetta-images>` 结果文本 marker 保留，但仅作模型引用图像 id 的通道，不再是卡片数据源。
 - `edit_image` 工具支持以本地图片文件作源图：`sourceImageId`（Vetta 已生成图像）改为可选，新增可选 `sourceImagePath`（本地图片文件绝对路径，如用户上传/附加并以 @路径 引用的图片），二者择一。`ImageToolBackend.edit` 入参同步放宽。修复用户上传图片要求「改图」时因没有生成记录 id 而退回 `generate_image` 凭空重画、丢失原图的问题（描述里也明确：要修改某张已有图片时优先用 edit_image 而非 generate_image）。
 - 系统提示词新增「产物输出位置」规则（`OUTPUT_LOCATION_GUIDANCE`，注入到 `buildSystemPrompt` 两条分支的 cwd 页脚之后）：用户未显式指定保存位置时，新文件/产物/导出默认落在当前工作目录，禁止默认写到桌面、家目录、`/tmp` 或工作目录之外；只给裸文件名时按当前工作目录解析。修复 agent 在未指明位置时大概率把产物丢到桌面的问题。

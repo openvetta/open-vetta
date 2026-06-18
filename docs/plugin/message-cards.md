@@ -140,11 +140,28 @@ function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
 }
 ```
 
-## 第三方插件如何拿到卡片数据（重要边界）
+## 第三方插件如何拿到卡片数据
 
-卡片的 **settled 数据源是工具结果的 `details.cards`**。当前两条现实路径：
+卡片的 **settled 数据源是工具结果的 `details.cards`**。三条路径：
 
-1. **协同设计的内置工具**（推荐、且是 image-gen 的做法）：在 coding-agent 内置工具的 `execute` 返回里带 `details.cards`，`type` 用与插件渲染器约定一致的字符串。内置工具与插件渲染器**成对维护**（「内置 tool 出能力 + plugin 出界面」）。
+1. **插件自注册工具返回 `cards`（推荐给插件作者）**：`ctx.agent.registerTool` 的 handler 在返回值里带一个 `cards: CardDescriptor[]` 字段，宿主自动把它**提升**到 `details.cards`，并从模型可见的结果文本里**剔除**（不污染 LLM 上下文）。这样插件**用自己的工具**就能产出消息下方卡片。
+
+   ```ts
+   ctx.agent.registerTool({
+     id: "show-regions",
+     description: "...",
+     parameters: { /* JSON schema */ },
+     handler: async (input) => ({
+       count: matches.length,
+       results: matches.map(summarize),                 // 模型可见（结果摘要）
+       cards: [{ type: "my-plugin:regions", payload: { ids } }], // 被提升到 details.cards，模型不可见
+     }),
+   });
+   ```
+
+   `internal-map` 即用此法：`internal-map_focus` / `internal-map_present_regions` 返回 `cards`，渲染在当前 turn 消息下方。
+
+2. **协同设计的内置工具**：coding-agent 内置工具的 `execute` 直接在 `details.cards` 放描述符（image-gen 的 `generate_image` / `edit_image` 即如此）。内置工具与插件渲染器**成对维护**（「内置 tool 出能力 + plugin 出界面」）。
 
    ```ts
    // coding-agent 内置工具 execute 返回
@@ -154,10 +171,11 @@ function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
    };
    ```
 
-2. **`pendingFor` 合成的骨架卡**：对**任意**在途 tool_call,你的渲染器都能合成 pending 卡（它只看 `toolName` / `args`）。所以即便没有 settled 数据源,插件也能为某些工具的执行过程提供骨架反馈。
+3. **`pendingFor` 合成的骨架卡**：对**任意**在途 tool_call，你的渲染器都能合成 pending 卡（它只看 `toolName` / `args`），为执行过程提供骨架反馈。
 
-> **当前限制**：插件经 `ctx.agent.registerTool` 注册的工具，其结果 `details` 被宿主**固定**为 `{ pluginId, toolId, result }`，**无法**自带 `details.cards`。也就是说，纯插件自注册工具目前**不能**产出 settled 卡片的数据——settled 卡片需要协同设计的内置工具。`pendingFor` 路径不受此限。
+> 三条路径产出的描述符进入**同一个** `details.cards` 通道，由 host 按 `type` 查渲染器、按 `key` 去重、渲染在消息下方（≥2 张走收纳 UI）。`details.cards` 始终模型不可见。
 
 ## 完整参考实现
 
-`packages/plugins/presets/image-gen`：`registerCardRenderer` + `pendingFor`，配合 coding-agent 的 `generate_image` / `edit_image`（`packages/coding-agent/src/core/tools/generate-image/`）在 `details.cards` 产出描述符。是端到端的范例。
+- `packages/plugins/presets/internal-map`：插件自注册工具返回 `cards` + `registerCardRenderer` 渲染——**插件全自包含**的端到端范例。
+- `packages/plugins/presets/image-gen`：`registerCardRenderer` + `pendingFor`，配合 coding-agent 内置 `generate_image` / `edit_image` 在 `details.cards` 产出描述符。

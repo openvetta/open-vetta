@@ -93,8 +93,8 @@ ctx.agent.registerTool({
 });
 ```
 
-- handler 的**返回值**会被宿主格式化成工具结果文本回给模型；该工具结果的 `details` 由宿主固定为 `{ pluginId, toolId, result }`。
-- 因此插件自注册工具**不能**自带 `details.cards`（消息卡片的 settled 数据源）——见 [message-cards.md 的边界说明](./message-cards.md#第三方插件如何拿到卡片数据重要边界)。
+- handler 的**返回值**会被宿主格式化成工具结果文本回给模型；该工具结果的 `details` 为 `{ pluginId, toolId, result }`（`result` = 你的返回值）。
+- **返回 `cards` 即可产消息卡片**：若返回值含 `cards: CardDescriptor[]`，宿主会把它**提升**到 `details.cards`（消息卡片的 settled 数据源）并从模型可见文本里**剔除**。配合 `ctx.ui.registerCardRenderer` 即可让插件**用自己的工具**在消息下方渲染卡片——见 [message-cards.md](./message-cards.md#第三方插件如何拿到卡片数据)。
 - 插件激活会等待工具 schema 注册完成；注册 / 注销 / 权限或启停变化会刷新空闲的对话 session。
 
 ## 文件 API
