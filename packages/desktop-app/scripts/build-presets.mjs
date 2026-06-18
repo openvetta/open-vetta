@@ -9,6 +9,7 @@ import {
 	devSystemPluginsDir,
 	isSystemPluginStaged,
 	presetsDir,
+	resolveTenant,
 	stageSystemPluginsFromArchives,
 } from "./stage-system-plugins.mjs";
 
@@ -88,13 +89,25 @@ function run(command, args, cwd, label) {
 	});
 }
 
-const entries = (await readdir(presetsDir, { withFileTypes: true }))
+const allEntries = (await readdir(presetsDir, { withFileTypes: true }))
 	.filter((entry) => entry.isDirectory() && existsSync(join(presetsDir, entry.name, "package.json")))
 	.map((entry) => entry.name)
 	.sort();
 
-if (entries.length === 0) {
+if (allEntries.length === 0) {
 	console.log("[build-presets] presets 目录为空，跳过");
+	process.exit(0);
+}
+
+// 按租户筛选要构建/staging 的插件（VETTA_TENANT，缺省取 tenants.json 的 default）。
+const tenant = resolveTenant();
+const entries = tenant.pluginIds ? allEntries.filter((name) => tenant.pluginIds.has(name)) : allEntries;
+console.log(
+	`[build-presets] 租户=${tenant.name ?? "(未配置)"}，构建 ${entries.length}/${allEntries.length} 个插件：${entries.join(", ") || "(无)"}`,
+);
+
+if (entries.length === 0) {
+	console.log("[build-presets] 当前租户无匹配插件，跳过");
 	process.exit(0);
 }
 
@@ -159,8 +172,10 @@ for (const name of entries) {
 
 stageSystemPluginsFromArchives(devSystemPluginsDir, "build-presets", {
 	pluginIds: pluginsToStage,
+	keepPluginIds: entries,
 	preserveTarget: true,
 });
 
-cache.presets = nextPresetHashes;
+// 仅更新本租户插件的缓存哈希，保留其他租户已缓存的条目，避免切换租户时全量重建。
+cache.presets = { ...cache.presets, ...nextPresetHashes };
 await writeCache(cache);

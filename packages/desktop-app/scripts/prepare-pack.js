@@ -3,7 +3,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rm
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { stageSystemPluginsFromArchives } from "./stage-system-plugins.mjs";
+import { resolveTenant, stageSystemPluginsFromArchives } from "./stage-system-plugins.mjs";
 
 const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
@@ -435,7 +435,16 @@ await stageVendorRuntimes();
 //
 // build:presets 已为每个 preset 生成 release/<id>-<version>.zip。打包阶段只消费
 // zip 制品，校验后解压到 Resources/system-plugins/<id>/，不读取源码 dist。
-stageSystemPluginsFromArchives(join(buildStageDir, "system-plugins"), "prepare-pack");
+// 按租户（VETTA_TENANT，缺省取 tenants.json 的 default）筛选打包进 App 的系统插件。
+const packTenant = resolveTenant();
+console.log(
+	`[prepare-pack] 系统插件租户=${packTenant.name ?? "(未配置)"}：${
+		packTenant.pluginIds ? [...packTenant.pluginIds].join(", ") : "(全部 preset)"
+	}`,
+);
+stageSystemPluginsFromArchives(join(buildStageDir, "system-plugins"), "prepare-pack", {
+	pluginIds: packTenant.pluginIds ?? undefined,
+});
 
 // Write electron-builder config
 const builderConfig = {
