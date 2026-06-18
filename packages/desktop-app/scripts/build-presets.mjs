@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, readlink, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
+import { loadBuildEnv } from "./load-build-env.mjs";
 import {
 	devSystemPluginsDir,
 	isSystemPluginStaged,
@@ -12,6 +13,9 @@ import {
 	resolveTenant,
 	stageSystemPluginsFromArchives,
 } from "./stage-system-plugins.mjs";
+
+// 在读取 VETTA_TENANT 等构建期变量前，从 .env.<mode>/.env 注入（命令行内联优先）。
+loadBuildEnv();
 
 const desktopAppDir = join(import.meta.dirname, "..");
 const pluginWorkspaceDir = dirname(presetsDir);

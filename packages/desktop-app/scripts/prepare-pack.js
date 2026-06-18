@@ -3,7 +3,11 @@ import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rm
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { loadBuildEnv } from "./load-build-env.mjs";
 import { resolveTenant, stageSystemPluginsFromArchives } from "./stage-system-plugins.mjs";
+
+// 从 .env.<mode>/.env 注入构建期变量（如 VETTA_TENANT），命令行内联优先。
+loadBuildEnv();
 
 const projectRoot = join(import.meta.dirname, "..");
 const buildStageDir = join(tmpdir(), "vetta-desktop-build");
