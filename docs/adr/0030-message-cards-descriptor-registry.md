@@ -27,3 +27,4 @@
 - 插件 SDK：新增 `registerCardRenderer({ type, component, title?, icon? })`，`PluginMessageSlotContribution` 路径被其取代；新增顶层运行时导出需同步 plugin-protocol.ts 的 `vetta-host://plugin-sdk` shim。
 - image-gen 需从 `<vetta-images>` 标记迁移到 `details.cards`，生成中骨架改走预备描述符。
 - 收纳 UI（≥2 张卡片才出操作 area；tab 收纳为基本形态、列表平铺为不持久化的临时形态）建立在 host 已知卡片列表之上。
+- 插件自注册工具（`ctx.agent.registerTool`）也可产卡片：handler 返回值里的 `cards` 字段由宿主 `createPluginTool` **提升**到 `details.cards` 并从模型可见文本剔除，故插件无需协同内置工具即可在消息下方渲染卡片（demo-map 的 `demo_map_focus` / `demo_map_present_regions` 即如此）。`registerToolCallSlot`（按 toolName 内联替换工具渲染）作为另一可选 UI 出口保留。

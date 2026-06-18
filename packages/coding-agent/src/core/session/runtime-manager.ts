@@ -779,12 +779,35 @@ function createPluginTool(
 				signal,
 				contribution.timeoutMs,
 			);
+			// Lift a `cards` array off the handler's return onto the out-of-band
+			// `details.cards` (the uniform message-card channel) and strip it from
+			// the model-visible content — so plugin tools can render below-message
+			// cards without leaking the descriptors into the LLM context.
+			const { cards, rest } = liftPluginToolCards(result);
 			return {
-				content: [{ type: "text", text: formatPluginToolResult(result) }],
-				details: { pluginId: contribution.pluginId, toolId: contribution.id, result },
+				content: [{ type: "text", text: formatPluginToolResult(rest) }],
+				details: {
+					pluginId: contribution.pluginId,
+					toolId: contribution.id,
+					result: rest,
+					...(cards ? { cards } : {}),
+				},
 			};
 		},
 	};
+}
+
+/**
+ * Pull a top-level `cards` array off a plugin tool's return value. Cards ride
+ * the model-invisible `details.cards`; everything else stays as the (stringified)
+ * model-visible result. Non-object / card-less returns pass through unchanged.
+ */
+function liftPluginToolCards(result: unknown): { cards?: unknown[]; rest: unknown } {
+	if (!result || typeof result !== "object" || Array.isArray(result)) return { rest: result };
+	const record = result as Record<string, unknown>;
+	if (!Array.isArray(record.cards)) return { rest: result };
+	const { cards, ...rest } = record;
+	return { cards: cards as unknown[], rest };
 }
 
 async function invokeWithTimeout<T>(
