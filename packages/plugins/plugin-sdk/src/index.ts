@@ -106,6 +106,16 @@ export interface PluginActivityTabContribution {
 	component: ComponentType;
 }
 
+/** Options for {@link PluginUiApi.openActivityTab}. */
+export interface PluginOpenActivityTabOptions {
+	/**
+	 * Desired panel width as it opens: a pixel number, or `"max"` for the widest
+	 * the current window allows. The host clamps to its min/max bounds. Omit to
+	 * keep the user's current width.
+	 */
+	width?: number | "max";
+}
+
 /**
  * A reference to an image produced out-of-band by the host (e.g. an image
  * tool's result). The bytes are NOT carried inline — `url` is a host media
@@ -277,8 +287,13 @@ export interface PluginUiApi {
 	 * own activity tabs in the current conversation's activity panel. `tabId`
 	 * is the contribution id passed to registerActivityTab. Any payload (e.g.
 	 * which image to edit) is passed via the plugin's own in-memory state.
+	 *
+	 * Pass `options.width` to size the panel as it opens — a pixel number, or
+	 * `"max"` to expand it to the widest the current window allows (the host
+	 * still clamps to its min/max and auto-hides the sidebar when needed). Omit
+	 * to leave the user's current width untouched.
 	 */
-	openActivityTab(tabId: string): void;
+	openActivityTab(tabId: string, options?: PluginOpenActivityTabOptions): void;
 	/**
 	 * Bind (or clear, with `null`) an image as the "edit target" for the next
 	 * outgoing prompt. The host renders it as a thumbnail capsule in the AI input

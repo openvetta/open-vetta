@@ -3,6 +3,9 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	activityPanelWidthAtom,
+	activityPanelMaxWidth,
+	ACTIVITY_PANEL_MIN_WIDTH,
+	ACTIVITY_PANEL_MIN_CHAT_AREA,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	activeSessionAtom,
@@ -17,6 +20,7 @@ import {
 	inlineFilePreviewContextReadonlyAtom,
 	pluginActivityTabsAtom,
 	sidebarCollapsedAtom,
+	sidebarWidthAtom,
 	type RegisteredActivityTab,
 } from "@shared/store/atoms";
 import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components/FilePreviewView";
@@ -33,10 +37,10 @@ import { DEFAULT_PLUGIN_TAB_ICON, PluginTabPicker } from "./PluginTabPicker";
 import { PluginActivityTabPanel } from "@domains/plugins/components/PluginActivityTabPanel";
 import { TabBar, type TabBarItem } from "@shared/components/ui/tab-bar";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
-import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { useNarrowScreen, useWindowWidth } from "@shared/hooks/useNarrowScreen";
 
-const MIN_WIDTH = 260;
-const MAX_WIDTH = 600;
+const MIN_WIDTH = ACTIVITY_PANEL_MIN_WIDTH;
+const MIN_CHAT_AREA = ACTIVITY_PANEL_MIN_CHAT_AREA;
 
 interface ActivityPanelProps {
 	/** 显式指定 cwd（项目详情页用），不传则回退到当前活动 session */
@@ -56,10 +60,17 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 	const [isResizing, setIsResizing] = useState(false);
 	const [tabByProject, setTabByProject] = useAtom(activityPanelTabByProjectAtom);
 
+	const windowWidth = useWindowWidth();
+	const sidebarWidth = useAtomValue(sidebarWidthAtom);
+	// 动态上限：占满到只给主聊天区保留 MIN_CHAT_AREA。隐藏侧边栏后聊天区仍能保有此宽度。
+	const maxWidth = activityPanelMaxWidth(windowWidth);
+
 	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const inlinePreviewActive = inlinePreviewCtx !== null;
 	const setSidebarCollapsed = useSetAtom(sidebarCollapsedAtom);
 	const previousSidebarStateRef = useRef<boolean | null>(null);
+	// 因面板过宽而自动折叠侧边栏时，记住折叠前的状态以便回拉时恢复。
+	const widthCollapsedSidebarRef = useRef<boolean | null>(null);
 
 	// When inline preview opens, auto-collapse sidebar and remember previous state.
 	// When it closes, restore the previous state.
@@ -117,12 +128,39 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 	const onResize = useCallback(
 		(delta: number) => {
 			setIsResizing(true);
-			setWidth((w) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w + delta)));
+			setWidth((w) => Math.min(maxWidth, Math.max(MIN_WIDTH, w + delta)));
 		},
-		[setWidth],
+		[setWidth, maxWidth],
 	);
 
 	const onResizeEnd = useCallback(() => setIsResizing(false), []);
+
+	// 窗口缩小后，把已存宽度夹回新上限内。
+	useEffect(() => {
+		setWidth((w) => Math.min(maxWidth, Math.max(MIN_WIDTH, w)));
+	}, [maxWidth, setWidth]);
+
+	// 面板过宽（聊天区将被压到 MIN_CHAT_AREA 以下）时自动折叠侧边栏，回拉到阈值内自动恢复。
+	// inline 预览态由上方独立逻辑接管侧边栏，这里跳过避免互相打架。
+	useEffect(() => {
+		if (inlinePreviewActive) return;
+		const collapseThreshold = windowWidth - sidebarWidth - MIN_CHAT_AREA;
+		const shouldCollapse = isOpen && width > collapseThreshold;
+		if (shouldCollapse) {
+			if (widthCollapsedSidebarRef.current === null) {
+				let prev = false;
+				setSidebarCollapsed((current) => {
+					prev = current;
+					return true;
+				});
+				widthCollapsedSidebarRef.current = prev;
+			}
+		} else if (widthCollapsedSidebarRef.current !== null) {
+			const restore = widthCollapsedSidebarRef.current;
+			widthCollapsedSidebarRef.current = null;
+			setSidebarCollapsed(restore);
+		}
+	}, [width, windowWidth, sidebarWidth, isOpen, inlinePreviewActive, setSidebarCollapsed]);
 
 	const tabItems: TabBarItem<ActivityTabKey>[] = useMemo(() => {
 		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({

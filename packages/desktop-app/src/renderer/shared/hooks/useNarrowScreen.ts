@@ -15,3 +15,15 @@ export function useNarrowScreen(breakpoint: number = SIDEBAR_NARROW_BREAKPOINT):
 	}, [breakpoint]);
 	return narrow;
 }
+
+/** 监听窗口宽度，返回当前 `window.innerWidth`（像素）。 */
+export function useWindowWidth(): number {
+	const [width, setWidth] = useState(() => window.innerWidth);
+	useEffect(() => {
+		const onResize = (): void => setWidth(window.innerWidth);
+		onResize();
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, []);
+	return width;
+}
