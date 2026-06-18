@@ -6,6 +6,7 @@ import {
 	activityPanelMaxWidth,
 	ACTIVITY_PANEL_MIN_WIDTH,
 	ACTIVITY_PANEL_MIN_CHAT_AREA,
+	ACTIVITY_PANEL_PREVIEW_MIN_WIDTH,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	activeSessionAtom,
@@ -16,6 +17,7 @@ import {
 	todoItemsBySessionAtom,
 	getTodoItemsForSession,
 	debugModeAtom,
+	closeInlineFilePreviewAtom,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
 	pluginActivityTabsAtom,
@@ -65,31 +67,9 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 	// 动态上限：占满到只给主聊天区保留 MIN_CHAT_AREA。隐藏侧边栏后聊天区仍能保有此宽度。
 	const maxWidth = activityPanelMaxWidth(windowWidth);
 
-	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
-	const inlinePreviewActive = inlinePreviewCtx !== null;
 	const setSidebarCollapsed = useSetAtom(sidebarCollapsedAtom);
-	const previousSidebarStateRef = useRef<boolean | null>(null);
 	// 因面板过宽而自动折叠侧边栏时，记住折叠前的状态以便回拉时恢复。
 	const widthCollapsedSidebarRef = useRef<boolean | null>(null);
-
-	// When inline preview opens, auto-collapse sidebar and remember previous state.
-	// When it closes, restore the previous state.
-	useEffect(() => {
-		if (inlinePreviewActive) {
-			if (previousSidebarStateRef.current === null) {
-				let prev = false;
-				setSidebarCollapsed((current) => {
-					prev = current;
-					return true;
-				});
-				previousSidebarStateRef.current = prev;
-			}
-		} else if (previousSidebarStateRef.current !== null) {
-			const restore = previousSidebarStateRef.current;
-			previousSidebarStateRef.current = null;
-			setSidebarCollapsed(restore);
-		}
-	}, [inlinePreviewActive, setSidebarCollapsed]);
 
 	const cwd = cwdProp ?? activeSession?.cwd ?? null;
 	const { profile } = useProjectProfile(cwd);
@@ -141,9 +121,8 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 	}, [maxWidth, setWidth]);
 
 	// 面板过宽（聊天区将被压到 MIN_CHAT_AREA 以下）时自动折叠侧边栏，回拉到阈值内自动恢复。
-	// inline 预览态由上方独立逻辑接管侧边栏，这里跳过避免互相打架。
+	// 文件预览把面板拉到 max 时也会触发这里，无需单独处理，侧边栏纯随宽度联动。
 	useEffect(() => {
-		if (inlinePreviewActive) return;
 		const collapseThreshold = windowWidth - sidebarWidth - MIN_CHAT_AREA;
 		const shouldCollapse = isOpen && width > collapseThreshold;
 		if (shouldCollapse) {
@@ -160,7 +139,7 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 			widthCollapsedSidebarRef.current = null;
 			setSidebarCollapsed(restore);
 		}
-	}, [width, windowWidth, sidebarWidth, isOpen, inlinePreviewActive, setSidebarCollapsed]);
+	}, [width, windowWidth, sidebarWidth, isOpen, setSidebarCollapsed]);
 
 	const tabItems: TabBarItem<ActivityTabKey>[] = useMemo(() => {
 		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
@@ -270,10 +249,10 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 	);
 
 	// 窄屏：活动面板不再挤压内容，改为从底部升起的全宽 bottom sheet。
-	// 内联预览（接管整块内容区）保持原样，不走 sheet。
+	// 窄屏不走内嵌预览（FilesPanel/ArtifactCard 等改用全屏 Dialog），故无需特殊处理。
 	// narrowSheet 时完全不渲染 in-flow 的 <aside>，否则父级 flex 的 gap 会在
 	// 右侧多留一道间距，导致输入栏左右边距不一致。
-	const narrowSheet = narrow && !inlinePreviewActive;
+	const narrowSheet = narrow;
 	const bottomSheet = narrowSheet && isOpen;
 
 	const panelBody = (
@@ -322,29 +301,16 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 		<>
 			{!narrowSheet && (
 				<aside
-					style={
-						inlinePreviewActive
-							? undefined
-							: {
-									width: isOpen ? width : 0,
-									transition: isResizing ? "none" : "width 0.2s ease-in-out",
-								}
-					}
-					className={
-						inlinePreviewActive
-							? "relative flex-1 min-w-0 overflow-hidden"
-							: "relative shrink-0 overflow-hidden"
-					}
+					style={{
+						width: isOpen ? width : 0,
+						transition: isResizing ? "none" : "width 0.2s ease-in-out",
+					}}
+					className="relative shrink-0 overflow-hidden"
 				>
-					<div
-						className="flex h-full flex-col"
-						style={inlinePreviewActive ? undefined : { width }}
-					>
+					<div className="flex h-full flex-col" style={{ width }}>
 						{panelBody}
 					</div>
-					{isOpen && !inlinePreviewActive && (
-						<ResizeHandle side="left" onResize={onResize} onResizeEnd={onResizeEnd} />
-					)}
+					{isOpen && <ResizeHandle side="left" onResize={onResize} onResizeEnd={onResizeEnd} />}
 				</aside>
 			)}
 			{/* 窄屏 bottom sheet：从底部升起、宽度站满，点击空白区域（遮罩）关闭 */}
@@ -377,14 +343,16 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 	);
 }
 
-const TREE_DEFAULT_WIDTH = 200;
-const TREE_MIN_WIDTH = 140;
-const TREE_MAX_WIDTH = 320;
+const TREE_DEFAULT_WIDTH = 220;
+const TREE_MIN_WIDTH = 160;
+const TREE_MAX_WIDTH = 360;
 
 function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 	const [previewCtx, setPreviewCtx] = useAtom(inlineFilePreviewContextReadonlyAtom);
 	const setPreview = useSetAtom(inlineFilePreviewAtom);
-	const { goPrev, goNext, close } = usePreviewNav((updater) => {
+	const closePreview = useSetAtom(closeInlineFilePreviewAtom);
+	const width = useAtomValue(activityPanelWidthAtom);
+	const { goPrev, goNext } = usePreviewNav((updater) => {
 		if (typeof updater === "function") {
 			setPreviewCtx(updater(previewCtx));
 		} else {
@@ -392,47 +360,48 @@ function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 		}
 	});
 
-	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
-	const [treeCollapsed, setTreeCollapsed] = useState(false);
+	// 预览显隐纯由面板宽度驱动：选中文件且面板够宽才展示右侧预览，否则只剩目录树。
+	// 拖窄到阈值以下自动收起、拖宽回来自动恢复（见 ACTIVITY_PANEL_PREVIEW_MIN_WIDTH）。
+	const showPreview = previewCtx !== null && width >= ACTIVITY_PANEL_PREVIEW_MIN_WIDTH;
 
+	// 文件树列宽，预览展开时可拖拽分隔调整。
+	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
 	const onTreeResize = useCallback((delta: number) => {
 		setTreeWidth((w) => Math.max(TREE_MIN_WIDTH, Math.min(TREE_MAX_WIDTH, w + delta)));
 	}, []);
 
-	if (previewCtx) {
-		return (
-			<div className="flex min-h-0 flex-1 overflow-hidden">
-				{!treeCollapsed && (
-					<div
-						className="relative flex shrink-0 flex-col overflow-hidden border-r border-border/50"
-						style={{ width: treeWidth }}
-					>
-						<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-							<FilesPanel cwd={cwd} />
-						</div>
-						<ResizeHandle side="right" onResize={onTreeResize} />
-					</div>
-				)}
+	// 切走文件 tab / 切换 session 时卸载：清空预览并回拉面板宽度，避免「拉宽」残留到别的 tab。
+	useEffect(() => () => closePreview(), [closePreview]);
+
+	// 目录树：无预览时铺满；有预览时固定在 treeWidth（可拖拽分隔），多出的宽度让给右侧预览。
+	return (
+		<div className="flex min-h-0 flex-1 overflow-hidden">
+			<div
+				className={
+					showPreview
+						? "relative flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-border/50"
+						: "flex min-h-0 flex-1 flex-col overflow-hidden"
+				}
+				style={showPreview ? { width: treeWidth } : undefined}
+			>
+				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+					<FilesPanel cwd={cwd} />
+				</div>
+				{showPreview && <ResizeHandle side="right" onResize={onTreeResize} />}
+			</div>
+			{showPreview && previewCtx && (
 				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 					<FilePreviewView
 						ctx={previewCtx}
 						onPrev={goPrev}
 						onNext={goNext}
-						onClose={close}
+						onClose={closePreview}
 						canPrev={previewCtx.index > 0}
 						canNext={previewCtx.index < previewCtx.items.length - 1}
 						enableKeyboard
-						onToggleSidebar={() => setTreeCollapsed((v) => !v)}
-						sidebarCollapsed={treeCollapsed}
 					/>
 				</div>
-			</div>
-		);
-	}
-
-	return (
-		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-			<FilesPanel cwd={cwd} />
+			)}
 		</div>
 	);
 }

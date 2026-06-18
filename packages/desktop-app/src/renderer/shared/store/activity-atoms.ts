@@ -2,12 +2,21 @@ import type { ActivityTabKey } from "@shared/lib/project-profile";
 import { atom } from "jotai";
 
 export const activityPanelOpenAtom = atom<boolean>(false);
-export const activityPanelWidthAtom = atom<number>(360);
+
+/** 活动面板默认宽度，也是关闭内嵌预览时回拉的兜底值。 */
+export const ACTIVITY_PANEL_DEFAULT_WIDTH = 360;
+export const activityPanelWidthAtom = atom<number>(ACTIVITY_PANEL_DEFAULT_WIDTH);
 
 /** 活动面板可拖拽的最小宽度。 */
 export const ACTIVITY_PANEL_MIN_WIDTH = 260;
 /** 拉到最大时给主聊天区保留的最小宽度；面板上限 = 窗口宽度 - 此值。 */
 export const ACTIVITY_PANEL_MIN_CHAT_AREA = 360;
+
+/**
+ * 文件 tab 内嵌预览的「显示阈值」：面板宽度 ≥ 此值才展示右侧预览框，否则只剩目录树。
+ * 拖窄到阈值以下自动收起预览，拖宽回来自动恢复；无选中文件时跨过阈值默认选第一个文件。
+ */
+export const ACTIVITY_PANEL_PREVIEW_MIN_WIDTH = 520;
 
 /** 当前窗口宽度下，活动面板的最大宽度。 */
 export function activityPanelMaxWidth(windowWidth: number): number {
