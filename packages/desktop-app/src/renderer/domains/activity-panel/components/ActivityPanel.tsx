@@ -370,25 +370,37 @@ function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 		setTreeWidth((w) => Math.max(TREE_MIN_WIDTH, Math.min(TREE_MAX_WIDTH, w + delta)));
 	}, []);
 
+	// 预览展开时可手动收起左侧文件树，把空间全部让给预览。
+	const [treeCollapsed, setTreeCollapsed] = useState(false);
+	const toggleTree = useCallback(() => setTreeCollapsed((c) => !c), []);
+	// 预览收起时一并恢复文件树，避免下次展开预览时残留隐藏态。
+	useEffect(() => {
+		if (!showPreview) setTreeCollapsed(false);
+	}, [showPreview]);
+
 	// 切走文件 tab / 切换 session 时卸载：清空预览并回拉面板宽度，避免「拉宽」残留到别的 tab。
 	useEffect(() => () => closePreview(), [closePreview]);
 
 	// 目录树：无预览时铺满；有预览时固定在 treeWidth（可拖拽分隔），多出的宽度让给右侧预览。
+	// 预览展开且手动收起文件树时，整列隐藏，由预览头部按钮重新展开。
+	const showTree = !showPreview || !treeCollapsed;
 	return (
 		<div className="flex min-h-0 flex-1 overflow-hidden">
-			<div
-				className={
-					showPreview
-						? "relative flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-border/50"
-						: "flex min-h-0 flex-1 flex-col overflow-hidden"
-				}
-				style={showPreview ? { width: treeWidth } : undefined}
-			>
-				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-					<FilesPanel cwd={cwd} />
+			{showTree && (
+				<div
+					className={
+						showPreview
+							? "relative flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-border/50"
+							: "flex min-h-0 flex-1 flex-col overflow-hidden"
+					}
+					style={showPreview ? { width: treeWidth } : undefined}
+				>
+					<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+						<FilesPanel cwd={cwd} />
+					</div>
+					{showPreview && <ResizeHandle side="right" onResize={onTreeResize} />}
 				</div>
-				{showPreview && <ResizeHandle side="right" onResize={onTreeResize} />}
-			</div>
+			)}
 			{showPreview && previewCtx && (
 				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
 					<FilePreviewView
@@ -399,6 +411,8 @@ function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 						canPrev={previewCtx.index > 0}
 						canNext={previewCtx.index < previewCtx.items.length - 1}
 						enableKeyboard
+						onToggleSidebar={toggleTree}
+						sidebarCollapsed={treeCollapsed}
 					/>
 				</div>
 			)}
