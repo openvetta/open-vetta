@@ -1,0 +1,6 @@
+{
+	"default": "common",
+	"tenants": {
+		"common": ["guiding-words", "image-gen", "svg-viewer"]
+	}
+}
