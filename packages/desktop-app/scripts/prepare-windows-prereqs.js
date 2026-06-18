@@ -4,6 +4,7 @@ import { join } from "node:path";
 const projectRoot = join(import.meta.dirname, "..");
 const repoRoot = join(projectRoot, "..", "..");
 const buildScriptPath = join(repoRoot, "scripts", "build.ps1");
+const incrementalBuildScriptPath = join(import.meta.dirname, "build-workspace-prereqs.mjs");
 
 function resolvePowerShellExecutable() {
 	for (const candidate of ["pwsh.exe"]) {
@@ -20,6 +21,18 @@ function resolvePowerShellExecutable() {
 function main() {
 	if (process.platform !== "win32") {
 		console.log(`[prepare-windows-prereqs] skipped on non-Windows host: ${process.platform}`);
+		return;
+	}
+
+	if (process.argv.includes("--incremental")) {
+		console.log(`[prepare-windows-prereqs] running incremental workspace build`);
+		const result = spawnSync(process.execPath, [incrementalBuildScriptPath], {
+			cwd: repoRoot,
+			stdio: "inherit",
+		});
+		if (result.status !== 0) {
+			process.exitCode = result.status ?? 1;
+		}
 		return;
 	}
 

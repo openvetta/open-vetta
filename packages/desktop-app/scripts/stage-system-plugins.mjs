@@ -40,8 +40,50 @@ function assertPathInside(root, relativePath, fieldName) {
 	return target;
 }
 
-export function stageSystemPluginsFromArchives(targetDir, logPrefix = "system-plugins") {
-	rmSync(targetDir, { recursive: true, force: true });
+function validateStagedPlugin(target, sourceManifest, archivePath) {
+	const stagedManifestPath = join(target, "plugin.json");
+	if (!existsSync(stagedManifestPath)) {
+		throw new Error(`插件归档根目录缺少 plugin.json：${archivePath}`);
+	}
+	const stagedManifest = readManifest(stagedManifestPath);
+	if (stagedManifest.id !== sourceManifest.id || stagedManifest.version !== sourceManifest.version) {
+		throw new Error(`插件归档 manifest 与源码不一致：${archivePath}`);
+	}
+
+	const entryPath = assertPathInside(target, stagedManifest.entry, "entry");
+	if (!existsSync(entryPath)) {
+		throw new Error(`插件归档缺少入口 ${stagedManifest.entry}：${archivePath}`);
+	}
+	for (const style of Array.isArray(stagedManifest.styles) ? stagedManifest.styles : []) {
+		if (typeof style !== "string" || !existsSync(assertPathInside(target, style, "styles"))) {
+			throw new Error(`插件归档缺少样式 ${String(style)}：${archivePath}`);
+		}
+	}
+}
+
+export function isSystemPluginStaged(targetDir, pluginId) {
+	const pluginDir = join(presetsDir, pluginId);
+	const sourceManifestPath = join(pluginDir, "plugin.json");
+	const target = join(targetDir, pluginId);
+	if (!existsSync(sourceManifestPath) || !existsSync(target)) return false;
+
+	try {
+		const sourceManifest = readManifest(sourceManifestPath);
+		validateStagedPlugin(target, sourceManifest, target);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+export function stageSystemPluginsFromArchives(targetDir, logPrefix = "system-plugins", options = {}) {
+	const selectedPluginIds =
+		options.pluginIds === undefined ? undefined : new Set(options.pluginIds);
+	const preserveTarget = options.preserveTarget === true;
+
+	if (!preserveTarget) {
+		rmSync(targetDir, { recursive: true, force: true });
+	}
 	mkdirSync(targetDir, { recursive: true });
 
 	if (!existsSync(presetsDir)) {
@@ -49,11 +91,28 @@ export function stageSystemPluginsFromArchives(targetDir, logPrefix = "system-pl
 		return 0;
 	}
 
+	const presetNames = new Set(
+		readdirSync(presetsDir).filter((name) => {
+			const pluginDir = join(presetsDir, name);
+			return statSync(pluginDir).isDirectory() && existsSync(join(pluginDir, "plugin.json"));
+		}),
+	);
+	if (preserveTarget) {
+		for (const name of readdirSync(targetDir)) {
+			const target = join(targetDir, name);
+			if (statSync(target).isDirectory() && !presetNames.has(name)) {
+				rmSync(target, { recursive: true, force: true });
+				console.log(`[${logPrefix}] removed stale ${name}`);
+			}
+		}
+	}
+
 	let count = 0;
-	for (const name of readdirSync(presetsDir)) {
+	for (const name of presetNames) {
+		if (selectedPluginIds && !selectedPluginIds.has(name)) continue;
+
 		const pluginDir = join(presetsDir, name);
 		const sourceManifestPath = join(pluginDir, "plugin.json");
-		if (!statSync(pluginDir).isDirectory() || !existsSync(sourceManifestPath)) continue;
 
 		const sourceManifest = readManifest(sourceManifestPath);
 		if (sourceManifest.id !== name) {
@@ -71,32 +130,16 @@ export function stageSystemPluginsFromArchives(targetDir, logPrefix = "system-pl
 		}
 
 		const target = join(targetDir, sourceManifest.id);
+		rmSync(target, { recursive: true, force: true });
 		mkdirSync(target, { recursive: true });
 		zip.extractAllTo(target, true);
 
-		const stagedManifestPath = join(target, "plugin.json");
-		if (!existsSync(stagedManifestPath)) {
-			throw new Error(`[${logPrefix}] 插件归档根目录缺少 plugin.json：${archivePath}`);
-		}
-		const stagedManifest = readManifest(stagedManifestPath);
-		if (stagedManifest.id !== sourceManifest.id || stagedManifest.version !== sourceManifest.version) {
-			throw new Error(`[${logPrefix}] 插件归档 manifest 与源码不一致：${archivePath}`);
-		}
-
-		const entryPath = assertPathInside(target, stagedManifest.entry, "entry");
-		if (!existsSync(entryPath)) {
-			throw new Error(`[${logPrefix}] 插件归档缺少入口 ${stagedManifest.entry}：${archivePath}`);
-		}
-		for (const style of Array.isArray(stagedManifest.styles) ? stagedManifest.styles : []) {
-			if (typeof style !== "string" || !existsSync(assertPathInside(target, style, "styles"))) {
-				throw new Error(`[${logPrefix}] 插件归档缺少样式 ${String(style)}：${archivePath}`);
-			}
-		}
+		validateStagedPlugin(target, sourceManifest, archivePath);
 
 		count += 1;
 		console.log(`[${logPrefix}] staged ${sourceManifest.id}@${sourceManifest.version} <- ${archivePath}`);
 	}
 
-	console.log(`[${logPrefix}] 完成，共 ${count} 个系统插件`);
+	console.log(`[${logPrefix}] 完成，本次 staging ${count} 个系统插件`);
 	return count;
 }
