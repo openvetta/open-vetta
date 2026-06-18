@@ -1,0 +1,189 @@
+# Plugin Workspace Development Rules
+
+本目录是 Vetta 插件独立 workspace。创建或修改以下内容时，必须遵守本文件：
+
+- `plugin-sdk/`：插件运行时 API 和类型契约。
+- `plugin-vite/`：插件 Vite、Module Federation 和 zip 打包工具。
+- `presets/<id>/`：随 Vetta Desktop 发布的系统插件。
+- `externals/<id>/`：不随 App 打包、供用户安装的外置插件。
+
+修改子目录文件前仍需继续读取更具体的同级或下级说明文件（如存在）。
+
+## Preset 与外置插件的区别
+
+| 项目 | Preset 系统插件 | 外置插件 |
+| --- | --- | --- |
+| 源码位置 | `packages/plugins/presets/<id>/` | `packages/plugins/externals/<id>/` |
+| 仓库内依赖管理 | `packages/plugins` 独立 workspace 和 `bun.lock` | 当前仓库示例也属于同一插件 workspace |
+| Vetta 开发包依赖 | 可使用 `workspace:*` 或与本地包匹配的 semver | 仓库内同左；移出仓库后必须使用已发布版本 |
+| 安装方式 | 随 Desktop 发布，不需要用户安装 | 构建 zip 后由用户安装 |
+| 开发加载 | 构建 zip 后解压到 Desktop `.artifacts/system-plugins` | 从 `~/.vetta/plugins` 读取已安装版本 |
+| App 打包 | 从 `release/<id>-<version>.zip` 解压到 `Resources/system-plugins` | 不随 App 打包 |
+| 插件制品 | `@vetta/plugin-vite` 在构建后生成 zip | `@vetta/plugin-vite` 在构建后生成安装 zip |
+| 权限 | manifest 中声明的权限自动授予，不可撤销 | 安装后由用户授权 |
+| 生命周期 | 默认启用，可停用，不可卸载，版本随 App | 可安装、更新、重载和卸载 |
+
+Preset 不进入 `~/.vetta/plugins`，也不写 `plugins-manifest.json`。
+
+`plugin-sdk` 和 `plugin-vite` 同时列在根 workspace 与
+`packages/plugins` workspace 中：Desktop 可直接依赖它们，插件 workspace
+也可独立安装和构建。`presets/*` 与 `externals/*` 只属于插件 workspace，
+不进入根 workspace。
+
+## 创建插件
+
+目录至少包含：
+
+```text
+packages/plugins/<presets|externals>/<id>/
+  .gitignore
+  package.json
+  plugin.json
+  tsconfig.json
+  vite.config.ts
+  src/
+    index.tsx
+```
+
+Preset 可参考 `presets/svg-viewer`；外置插件可
+参考 `externals/drawio-viewer`、`externals/global-slot-demo` 和
+`externals/mobile-ui-preview`。
+
+### package.json
+
+Preset 和 external 插件不纳入根 workspace，而是纳入
+`packages/plugins/package.json` 定义的独立插件 workspace。仓库内需要持续
+跟随 SDK 和构建包源码时，使用
+`workspace:*`：
+
+```json
+{
+  "name": "@vetta/plugin-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bunx vite build",
+    "check": "bunx tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.1",
+    "@types/react-dom": "^19.1.1",
+    "@vetta/plugin-sdk": "workspace:*",
+    "@vetta/plugin-vite": "workspace:*",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  }
+}
+```
+
+强制规则：
+
+- 使用 `workspace:*` 时，两个开发包修改后无需发布，下一次 preset 构建直接
+  使用本地源码。
+- 也可使用与本地包版本匹配的 semver，例如当前版本可写
+  `^0.0.1`。在插件 workspace 内安装时，Bun 会链接满足该版本范围的本地
+  workspace 包；插件移出本仓库后，同一声明会从 registry 安装已发布版本。
+- 使用 semver 前必须确认 `plugin-sdk`、`plugin-vite` 的本地版本满足范围；
+  独立构建或发布外置插件前，还必须确认对应版本已经发布到可访问的 registry。
+- 不要使用 `file:`、相对路径或手工复制开发包，避免插件与仓库目录结构绑定。
+- 修改插件依赖后重新生成插件 workspace 锁文件。
+- React、React DOM 及其类型版本应与当前插件 workspace 保持兼容。
+- 第三方运行时依赖放在 `dependencies`，构建工具放在
+  `devDependencies`。
+
+### 锁文件
+
+- 插件 workspace 提交统一的 `packages/plugins/bun.lock`。
+- 修改插件依赖后，在 `packages/plugins` 目录执行 `bun install`。
+- preset 和 external 插件不提交自己的 `bun.lock`。
+- 根 `bun.lock` 可以包含 `plugin-sdk`、`plugin-vite` 及其依赖，但不应包含
+  preset、external 示例插件或它们专属的第三方依赖。
+
+### plugin.json
+
+使用 Module Federation：
+
+```json
+{
+  "id": "example",
+  "name": "Example",
+  "version": "0.1.0",
+  "pluginApiVersion": "^1.0.0",
+  "runtime": "module-federation",
+  "entry": "dist/mf-manifest.json",
+  "moduleFederation": {
+    "remoteName": "example",
+    "expose": "./plugin"
+  },
+  "styles": ["dist/style.css"],
+  "permissions": ["ui.slot.global"],
+  "author": "Vetta"
+}
+```
+
+- `id` 必须与目录名一致，并且不能与其他插件重复。
+- `remoteName` 使用合法的 JavaScript 标识符风格，例如下划线形式。
+- 只声明实际使用的权限。
+- 权限列表和 API 说明见 `docs/plugin/`（开发手册：清单 `manifest.md`、权限 `permissions.md`、各扩展点 `ui-slots.md` / `message-cards.md` / `conversation-and-agent.md`）。
+
+### Vite 配置
+
+```ts
+import { vettaPluginFederation } from "@vetta/plugin-vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [
+    vettaPluginFederation({
+      name: "example",
+      entry: "./src/index.tsx",
+    }),
+  ],
+});
+```
+
+React、React DOM 和 `@vetta/plugin-sdk` 由宿主共享。模块顶层禁止创建
+依赖共享模块的 JSX；将 JSX 放在组件或 `activate()` 内。
+
+## 安装、构建与验证
+
+在插件 workspace 安装依赖，再进入目标插件目录构建：
+
+```bash
+cd packages/plugins
+bun install
+
+cd <presets|externals>/<id>
+bun run build
+```
+
+验证所有 Preset 和仓库：
+
+```bash
+cd packages/desktop-app
+bun run build:presets
+bunx tsc --noEmit
+
+cd ../..
+bun run check
+```
+
+`build:presets` 会先按 `packages/plugins/bun.lock` 为插件 workspace
+执行一次 `bun install --frozen-lockfile`，构建 workspace 根下的 SDK/构建包，
+再遍历 `presets/` 构建。每个插件构建会生成 `dist/` 和
+`release/<id>-<version>.zip`，随后 zip 会经过路径、manifest 和入口校验，
+解压到 `packages/desktop-app/.artifacts/system-plugins/<id>/` 供开发加载。
+
+## 提交前检查
+
+- 系统插件位于 `packages/plugins/presets/<id>/`，外置插件位于
+  `packages/plugins/externals/<id>/`。
+- 根 workspace 不包含 preset 或 external 插件。
+- `packages/plugins/bun.lock` 已更新。
+- `@vetta/plugin-sdk` 和 `@vetta/plugin-vite` 使用 `workspace:*`，或使用
+  可由当前本地包满足且已按发布场景验证的 semver。
+- `dist/`、`release/`、`node_modules/` 已加入 `.gitignore`，没有提交。
+- `plugin.json` 的入口与实际构建产物一致。
+- `release/<id>-<version>.zip` 根目录包含 `plugin.json` 和完整运行时文件。
+- `bun run build:presets`、`bun run check` 和 Desktop TypeScript 检查通过。

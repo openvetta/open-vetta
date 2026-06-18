@@ -37,15 +37,43 @@ export interface ImageToolBackend {
 	}): Promise<ImageToolRef[]>;
 }
 
+/**
+ * A message-card descriptor carried out-of-band on the tool result's `details`
+ * (model-invisible). The desktop host resolves `type` to a plugin card renderer
+ * (here, the image-gen plugin's preview). `key` = lineage rootId so the host
+ * shows a lineage only under its latest-producing turn (cross-turn dedup).
+ */
+interface ImagePreviewCardDescriptor {
+	type: string;
+	key?: string;
+	payload: { images: ImageToolRef[] };
+}
+
 export interface GenerateImageToolDetails {
 	images: ImageToolRef[];
+	/** Preview card descriptor(s) for the desktop card host. */
+	cards: ImagePreviewCardDescriptor[];
+}
+
+/** Card type — must match the image-gen plugin's registerCardRenderer type. */
+const PREVIEW_CARD_TYPE = "image-gen:preview";
+
+/** Build the preview card descriptor for produced refs (empty when none). */
+function previewCards(images: ImageToolRef[]): ImagePreviewCardDescriptor[] {
+	if (images.length === 0) return [];
+	return [{ type: PREVIEW_CARD_TYPE, key: images[0]!.rootId, payload: { images } }];
 }
 
 /** Markers wrapping the JSON image refs embedded in the tool result text. */
 export const IMAGE_REFS_OPEN = "<vetta-images>";
 export const IMAGE_REFS_CLOSE = "</vetta-images>";
 
-/** Wrap produced refs in the machine-readable marker the host parses (or "" when none). */
+/**
+ * Wrap produced refs in the machine-readable marker (or "" when none). This
+ * stays in the model-visible result text purely so the MODEL can reference an
+ * image id when the user asks to edit "the last image" without an explicit
+ * attachment — it is NOT the card data source (cards ride `details.cards`).
+ */
 function imageRefsMarker(images: ImageToolRef[]): string {
 	return images.length > 0 ? `\n${IMAGE_REFS_OPEN}${JSON.stringify(images)}${IMAGE_REFS_CLOSE}` : "";
 }
@@ -109,10 +137,9 @@ export function createGenerateImageTool(
 		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
 			const sessionId = ctx.sessionManager.getSessionId();
 			const images = await backend.generate({ prompt: params.prompt, size: params.size, sessionId });
-			// The host (desktop) drops tool `details` before the result reaches the
-			// renderer, so the image references (id + vetta-media URL + rootId) ride
-			// in the result text inside a machine-readable marker. The renderer parses
-			// it to bind imageRefs onto the message for the preview slot.
+			// Image refs ride out-of-band on `details.cards` (model-invisible) — the
+			// desktop card host renders them via the image-gen plugin. The text marker
+			// stays only as the model's id-reference channel (see imageRefsMarker).
 			return {
 				content: [
 					{
@@ -123,7 +150,7 @@ export function createGenerateImageTool(
 								: "图像生成未返回结果。",
 					},
 				],
-				details: { images },
+				details: { images, cards: previewCards(images) },
 			};
 		},
 	};
@@ -159,7 +186,7 @@ export function createEditImageTool(
 							text: "edit_image 需要提供 sourceImageId（Vetta 已生成的图像）或 sourceImagePath（本地图片文件的绝对路径）其中之一。",
 						},
 					],
-					details: { images: [] },
+					details: { images: [], cards: [] },
 				};
 			}
 			const sessionId = ctx.sessionManager.getSessionId();
@@ -180,7 +207,7 @@ export function createEditImageTool(
 								: "图像编辑未返回结果。",
 					},
 				],
-				details: { images },
+				details: { images, cards: previewCards(images) },
 			};
 		},
 	};
