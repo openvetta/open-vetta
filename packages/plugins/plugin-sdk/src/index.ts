@@ -159,40 +159,56 @@ export interface PluginInputActionContribution {
 }
 
 /**
- * The message handed to a per-message slot component. Extends the plain
- * conversation message with host-bound `imageRefs` — images whose generating
- * tool ran in this message's turn. Stored out-of-band, bound host-side; the
- * plugin renders from them and returns null when there are none.
+ * A declarative, serializable descriptor for one card rendered beneath a
+ * message. `type` selects a registered card renderer; `key` drives cross-turn
+ * dedup (same key across turns = one logical card, shown only under its latest
+ * anchor); `payload` carries STABLE REFERENCES (e.g. image ids), not a content
+ * snapshot — the renderer resolves live state from it. `title`/`icon` label the
+ * card's tab (override the renderer's registration defaults). Rides a tool
+ * result's out-of-band `details.cards`; crosses the agent→host boundary, so
+ * `icon` is an icon-symbol string, not a node.
  */
-export interface PluginMessageSlotMessage extends ConversationMessage {
-	imageRefs?: PluginImageRef[];
-	/**
-	 * True while this message's turn is still producing images (a generating
-	 * tool call is in-flight). Lets a slot render a skeleton placeholder before
-	 * `imageRefs` arrives. Host-bound.
-	 */
-	imageGenerating?: boolean;
-	/**
-	 * When this in-flight turn is editing an existing image (the user picked an
-	 * edit target), the source image's id. Lets the slot render that image's
-	 * full version lineage with a leading "generating" skeleton, instead of a
-	 * bare placeholder. Host-bound; only set while `imageGenerating` is true.
-	 */
-	editingImageId?: string;
+export interface CardDescriptor {
+	type: string;
+	key?: string;
+	payload?: unknown;
+	title?: string;
+	icon?: string;
 }
 
-export interface PluginMessageSlotProps {
-	message: PluginMessageSlotMessage;
+/** A pending (in-flight) tool call handed to a renderer's `pendingFor`. */
+export interface PluginPendingToolCall {
+	toolName: string;
+	args: Record<string, unknown>;
 }
 
 /**
- * A component mounted beneath each (assistant) message in the message list.
- * Multiple plugins stack in registration order. The component should return
- * null for messages it has nothing to render for.
+ * Props for a card renderer. `descriptor` is the card's data; `pending` is true
+ * while it was synthesized from an in-flight tool (render a skeleton); `message`
+ * is the anchoring conversation message.
  */
-export interface PluginMessageSlotContribution {
-	id: string;
-	component: ComponentType<PluginMessageSlotProps>;
+export interface PluginCardProps {
+	descriptor: CardDescriptor;
+	pending: boolean;
+	message: ConversationMessage;
+}
+
+/**
+ * A card renderer registered by a plugin, keyed by `type`. A descriptor whose
+ * `type` matches is rendered by `component`. `title`/`icon` are the default tab
+ * label/icon (a descriptor may override `title`). `pendingFor`, given an
+ * in-flight tool call, returns a provisional descriptor so a skeleton card
+ * appears (and claims a tab) before the tool's result lands — or null when this
+ * renderer doesn't handle that tool. The `type` must be globally unique across
+ * plugins (convention: prefix with the plugin id, e.g. "image-gen:preview").
+ */
+export interface PluginCardRendererContribution {
+	type: string;
+	component: ComponentType<PluginCardProps>;
+	title?: string;
+	/** Default tab icon as a React node (not an iconify class string). */
+	icon?: ReactNode;
+	pendingFor?: (toolCall: PluginPendingToolCall) => CardDescriptor | null;
 }
 
 export interface PluginUiApi {
@@ -215,10 +231,13 @@ export interface PluginUiApi {
 	 */
 	registerInputAction(contribution: PluginInputActionContribution): Disposable;
 	/**
-	 * Register a component mounted beneath each message in the message list.
-	 * The component receives the message (with host-bound `imageRefs`).
+	 * Register a card renderer keyed by `type`. Cards rendered beneath a message
+	 * come from tool results' out-of-band `details.cards` (or `pendingFor` for
+	 * in-flight tools); the host resolves each card's `type` to a registered
+	 * renderer. Multiple cards under one message are shown as a tab-switcher
+	 * ("收纳") or a flat list.
 	 */
-	registerMessageSlot(contribution: PluginMessageSlotContribution): Disposable;
+	registerCardRenderer(contribution: PluginCardRendererContribution): Disposable;
 	/**
 	 * Programmatically attach (if needed) and activate one of this plugin's
 	 * own activity tabs in the current conversation's activity panel. `tabId`

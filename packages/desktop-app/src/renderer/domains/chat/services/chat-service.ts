@@ -7,6 +7,7 @@ import type {
 	ToolCallUiDetails,
 	ToolImagePreview,
 } from "@shared/store/atoms";
+import type { CardDescriptor } from "@vetta/plugin-sdk";
 import type { HistoryEntry } from "../../../../../../runtime-core/src/index.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -91,6 +92,31 @@ export function extractToolUiDetails(result: unknown, details: unknown): ToolCal
 		...(firstChangedLine !== undefined ? { firstChangedLine } : {}),
 		...(askUserQuestion !== undefined ? { askUserQuestion } : {}),
 	};
+}
+
+/**
+ * Parse card descriptors a tool emitted on its out-of-band `details.cards`.
+ * Each is `{ type, key?, payload?, title?, icon? }`; `type` selects a plugin
+ * card renderer host-side. Model-invisible — `details` never reaches the LLM.
+ */
+export function extractToolCards(result: unknown, details: unknown): CardDescriptor[] | undefined {
+	const resultRecord = asRecord(result);
+	const detailsRecord = asRecord(details) ?? asRecord(resultRecord?.details);
+	const raw = detailsRecord?.cards;
+	if (!Array.isArray(raw)) return undefined;
+	const cards: CardDescriptor[] = [];
+	for (const entry of raw) {
+		const record = asRecord(entry);
+		if (!record || typeof record.type !== "string" || record.type.length === 0) continue;
+		cards.push({
+			type: record.type,
+			...(typeof record.key === "string" ? { key: record.key } : {}),
+			...("payload" in record ? { payload: record.payload } : {}),
+			...(typeof record.title === "string" ? { title: record.title } : {}),
+			...(typeof record.icon === "string" ? { icon: record.icon } : {}),
+		});
+	}
+	return cards.length > 0 ? cards : undefined;
 }
 
 /** ask_user_question 的 details（{cancelled, answers}）→ transcript 富视图用的 resolution。 */
@@ -200,6 +226,7 @@ export function historyToChat(
 				block.result = extractText(m.content);
 				block.imagePreview = extractToolImagePreview(m.content, m.details);
 				block.uiDetails = extractToolUiDetails(m.content, m.details);
+				block.cards = extractToolCards(m.content, m.details);
 				block.isError = m.isError === true;
 				block.status = m.isError ? "error" : "success";
 			}
@@ -312,6 +339,7 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				block.result = extractText(m.content);
 				block.imagePreview = extractToolImagePreview(m.content, m.details);
 				block.uiDetails = extractToolUiDetails(m.content, m.details);
+				block.cards = extractToolCards(m.content, m.details);
 				block.isError = m.isError === true;
 				block.status = m.isError ? "error" : "success";
 			}
@@ -636,6 +664,7 @@ export function handleToolEnd(
 	const resultText = extractResultText(result);
 	const imagePreview = extractToolImagePreview(result, undefined);
 	const uiDetails = extractToolUiDetails(result, undefined);
+	const cards = extractToolCards(result, undefined);
 
 	// Search backwards for the matching tool_call block
 	for (let i = prev.length - 1; i >= 0; i--) {
@@ -654,6 +683,7 @@ export function handleToolEnd(
 			result: resultText,
 			imagePreview,
 			uiDetails,
+			cards,
 			isError,
 			startedAt: timing?.startedAt ?? block.startedAt,
 			durationMs: timing?.durationMs ?? block.durationMs,
