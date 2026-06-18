@@ -10,6 +10,7 @@ import {
 	editImageAttachmentAtom,
 	filePreviewAtom,
 	pluginInputActionsAtom,
+	setActivityPanelWidthAtom,
 } from "@shared/store/atoms";
 import type {
 	Disposable,
@@ -24,6 +25,7 @@ import type {
 	PluginImageRef,
 	PluginImagesApi,
 	PluginInputActionContribution,
+	PluginOpenActivityTabOptions,
 	PluginPermission,
 	PluginSettingsApi,
 	PluginToolCallSlotContribution,
@@ -56,7 +58,7 @@ export interface LoadedPlugin {
  * panel component is currently mounted/expanded. Keyed by the active
  * conversation's cwd (same key the attach records use, see ADR-0026).
  */
-function openPluginActivityTab(pluginId: string, tabId: string): void {
+function openPluginActivityTab(pluginId: string, tabId: string, width?: number | "max"): void {
 	const store = getDefaultStore();
 	const cwd = store.get(activeSessionAtom)?.cwd ?? null;
 	if (!cwd) {
@@ -75,6 +77,7 @@ function openPluginActivityTab(pluginId: string, tabId: string): void {
 	active.set(cwd, `plugin:${key}` as ActivityTabKey);
 	store.set(activityPanelTabByProjectAtom, active);
 	store.set(activityPanelOpenAtom, true);
+	if (width != null) store.set(setActivityPanelWidthAtom, width);
 }
 
 interface PluginModule {
@@ -481,12 +484,12 @@ function createContext(
 			},
 		};
 	};
-	const openActivityTab = (tabId: string): void => {
+	const openActivityTab = (tabId: string, options?: PluginOpenActivityTabOptions): void => {
 		createPermissionApi(plugin).require("ui.slot.activity-tab");
 		if (typeof tabId !== "string" || tabId.trim().length === 0) {
 			throw new Error("Activity tab id is required");
 		}
-		openPluginActivityTab(plugin.id, tabId);
+		openPluginActivityTab(plugin.id, tabId, options?.width);
 	};
 	const setEditImageAttachment = (ref: PluginImageRef | null): void => {
 		createPermissionApi(plugin).require("ui.slot.input-action");
