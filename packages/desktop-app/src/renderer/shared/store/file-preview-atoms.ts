@@ -117,9 +117,13 @@ export const openInlineFilePreviewAtom = atom(null, (get, set, value: FilePrevie
  * 关闭按钮、切走文件 tab、切换 session 都走这里，保证不残留「拉宽」形态。
  */
 export const closeInlineFilePreviewAtom = atom(null, (get, set) => {
+	const hadPreview = get(inlineFilePreviewContextAtom) !== null;
 	set(inlineFilePreviewAtom, null);
 	const restore = get(inlinePreviewRestoreWidthAtom);
 	set(inlinePreviewRestoreWidthAtom, null);
+	// 从未打开过内嵌预览（既无主动点开记录、当前也无预览上下文）时不碰宽度——否则切走文件
+	// tab 的卸载清理会把其它来源（如插件 openActivityTab 拉到 max）刚设的宽度误重置为默认。
+	if (!hadPreview && restore === null) return;
 	// 关闭后必须把面板收到阈值以下，否则「宽度驱动」会立刻又自动选中第一个文件。
 	// 主动点开的回拉到点开前宽度；纯靠拖宽触发的（无记录）回拉到默认宽度。
 	const target =
