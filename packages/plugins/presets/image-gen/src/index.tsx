@@ -1,13 +1,30 @@
 import {
+	type CardDescriptor,
 	definePlugin,
+	type PluginCardProps,
 	type PluginContext,
 	type PluginImageRef,
-	type PluginMessageSlotProps,
+	type PluginPendingToolCall,
 	useActiveConversation,
 	useEditImageAttachment,
 } from "@vetta/plugin-sdk";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "./style.css";
+
+/**
+ * Card type this plugin renders. Both this renderer registration and the
+ * coding-agent image tools' `details.cards` descriptors agree on this exact
+ * string (globally unique, plugin-namespaced).
+ */
+const PREVIEW_CARD_TYPE = "image-gen:preview";
+
+/** Payload carried by an image preview card descriptor. */
+interface ImageCardPayload {
+	/** Settled refs produced by the tool (text-to-image / image-to-image result). */
+	images?: PluginImageRef[];
+	/** Source image id while an edit is in-flight (anchors the lineage + skeleton). */
+	editingImageId?: string;
+}
 
 // ─── Plugin-internal shared state ───
 // The preview swiper lives in the same Module Federation instance across all
@@ -381,20 +398,26 @@ function ArrowButton({ dir, visible, onClick }: { dir: "left" | "right"; visible
 	);
 }
 
-// ─── Message slot: per-message preview card ───
+// ─── Card renderer: per-message preview card ───
+//
+// Purely descriptor-driven: settled cards carry their refs in payload.images;
+// the host synthesizes a `pending` card (payload.editingImageId for edits) for
+// the in-flight skeleton. Cross-turn dedup (one lineage shows only under its
+// latest turn) is the HOST's job now (by descriptor key = rootId) — this
+// component no longer self-hides superseded turns.
 
-function ImagePreviewCard({ message }: PluginMessageSlotProps) {
-	const refs = message.imageRefs;
-	const editingImageId = message.editingImageId;
+function ImagePreviewCard({ descriptor, pending }: PluginCardProps) {
+	const payload = (descriptor.payload ?? {}) as ImageCardPayload;
+	const refs = payload.images;
+	const editingImageId = payload.editingImageId;
 	// While editing, the lineage anchors on the source image even before the new
-	// version lands; otherwise on this message's own image.
+	// version lands; otherwise on this card's own image.
 	const baseId = editingImageId ?? refs?.[0]?.id;
 	const lineage = useLineage(baseId);
 	// Single source of truth for the highlight — the host edit-attachment atom.
 	const attachedId = useEditImageAttachment()?.id ?? null;
 
 	const versions = lineage.length > 0 ? lineage : (refs ?? []);
-	const generating = Boolean(message.imageGenerating);
 
 	// Toggle: clicking 编辑 on the already-attached image clears it; otherwise attach.
 	const onEdit = (ref: PluginImageRef): void => {
@@ -403,7 +426,7 @@ function ImagePreviewCard({ message }: PluginMessageSlotProps) {
 
 	// In-flight edit: this turn is producing the next version — show the lineage
 	// (the source's versions) with a leading "generating" skeleton at the front.
-	if (generating && editingImageId) {
+	if (pending && editingImageId) {
 		return (
 			<div className="flex flex-col gap-2 py-1">
 				<ImageSwiper versions={versions} leadingSkeleton attachedId={attachedId} onEdit={onEdit} />
@@ -411,7 +434,7 @@ function ImagePreviewCard({ message }: PluginMessageSlotProps) {
 		);
 	}
 	// Fresh generation (no edit target, nothing produced yet): standalone skeleton.
-	if (generating && versions.length === 0) {
+	if (pending) {
 		return (
 			<div className="py-1">
 				<GenerationSkeleton />
@@ -420,18 +443,34 @@ function ImagePreviewCard({ message }: PluginMessageSlotProps) {
 	}
 	if (versions.length === 0) return null;
 
-	// Lineage dedup (works regardless of marker rootId — uses the backend lineage):
-	// a lineage renders ONLY under the message that produced its LATEST version, so
-	// earlier turns that were superseded by a later edit self-hide.
-	const latestId = versions[versions.length - 1]?.id;
-	const holdsLatest = (refs ?? []).some((r) => r.id === latestId);
-	if (!generating && !holdsLatest) return null;
-
 	return (
 		<div className="flex flex-col gap-2 py-1">
-			<ImageSwiper versions={versions} leadingSkeleton={generating} attachedId={attachedId} onEdit={onEdit} />
+			<ImageSwiper versions={versions} leadingSkeleton={false} attachedId={attachedId} onEdit={onEdit} />
 		</div>
 	);
+}
+
+/** Resolve a source image's lineage rootId from the module cache (sync, best-effort). */
+function cachedRootId(sourceImageId: string): string | undefined {
+	const lineage = lineageCache.get(sourceImageId);
+	return lineage?.[0]?.rootId ?? undefined;
+}
+
+/**
+ * Host calls this for each in-flight tool_call to synthesize a skeleton card.
+ * For edits we carry the source id (lineage anchor) and, when known, the
+ * lineage rootId as the descriptor key so the prior settled card (same key)
+ * hides while editing — exactly the old behaviour, now via host dedup.
+ */
+function pendingPreviewCard(toolCall: PluginPendingToolCall): CardDescriptor | null {
+	if (toolCall.toolName !== "generate_image" && toolCall.toolName !== "edit_image") return null;
+	if (toolCall.toolName === "edit_image") {
+		const sourceId = typeof toolCall.args.sourceImageId === "string" ? toolCall.args.sourceImageId : undefined;
+		const key = sourceId ? cachedRootId(sourceId) : undefined;
+		return { type: PREVIEW_CARD_TYPE, ...(key ? { key } : {}), payload: { editingImageId: sourceId } };
+	}
+	// Fresh generation: a new lineage, no key yet — standalone skeleton.
+	return { type: PREVIEW_CARD_TYPE, payload: {} };
 }
 
 // ─── Activity tab: 生图历史 (all edit lineages in the current session) ───
@@ -811,7 +850,13 @@ export default definePlugin({
 			decoratePrompt: () => ({ metadata: { imageMode: true } }),
 		});
 		ctx.ui.registerGlobalSlot({ id: "settings-guard", component: SettingsGuardDialog });
-		ctx.ui.registerMessageSlot({ id: "preview", component: ImagePreviewCard });
+		ctx.ui.registerCardRenderer({
+			type: PREVIEW_CARD_TYPE,
+			component: ImagePreviewCard,
+			title: "图像",
+			icon: <IconImage className="h-3.5 w-3.5" />,
+			pendingFor: pendingPreviewCard,
+		});
 		ctx.ui.registerActivityTab({
 			id: "history",
 			label: "生图历史",

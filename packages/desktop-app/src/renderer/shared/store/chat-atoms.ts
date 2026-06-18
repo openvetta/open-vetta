@@ -1,3 +1,4 @@
+import type { CardDescriptor } from "@vetta/plugin-sdk";
 import { atom } from "jotai";
 import { runningSessionPathsAtom } from "./running-sessions-atoms";
 
@@ -89,6 +90,12 @@ export interface ToolCallBlock {
 	result?: string;
 	imagePreview?: ToolImagePreview;
 	uiDetails?: ToolCallUiDetails;
+	/**
+	 * Settled card descriptors this tool produced (from the result's out-of-band
+	 * `details.cards`). The per-message card host resolves each by `type` to a
+	 * plugin card renderer. Never sent to the LLM.
+	 */
+	cards?: CardDescriptor[];
 	isError?: boolean;
 	/**
 	 * Out-of-band timing metadata. Never sent to LLMs.

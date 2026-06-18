@@ -1,7 +1,7 @@
 {
 	"id": "image-gen",
 	"name": "图像生成",
-	"version": "0.1.12",
+	"version": "0.1.13",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",

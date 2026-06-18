@@ -1,9 +1,9 @@
 import type {
 	PluginActivityTabContribution,
+	PluginCardRendererContribution,
 	PluginFilePreviewContribution,
 	PluginImageRef,
 	PluginInputActionContribution,
-	PluginMessageSlotContribution,
 	PluginToolCallSlotContribution,
 } from "@vetta/plugin-sdk";
 import { atom } from "jotai";
@@ -58,16 +58,25 @@ export const pluginInputActionsAtom = atom<RegisteredInputAction[]>([]);
 /** The set of currently-active (toggled-on) input action ids. */
 export const activeInputActionIdsAtom = atom<Set<string>>(new Set<string>());
 
-/** A per-message slot contribution registered by a loaded plugin. */
-export interface RegisteredMessageSlot {
+/** A card renderer registered by a loaded plugin, keyed by `type`. */
+export interface RegisteredCardRenderer {
 	pluginId: string;
-	/** Namespaced id (`${pluginId}:${contributionId}`). */
-	slotId: string;
-	component: PluginMessageSlotContribution["component"];
+	/** Plugin-owned, globally-unique card type (matches a descriptor's `type`). */
+	type: string;
+	component: PluginCardRendererContribution["component"];
+	/** Default tab label (a descriptor's `title` overrides this). */
+	title?: string;
+	/** Default tab icon (React node). */
+	icon?: PluginCardRendererContribution["icon"];
+	/** Synthesizes a provisional descriptor for an in-flight tool call. */
+	pendingFor?: PluginCardRendererContribution["pendingFor"];
 }
 
-/** Per-message slot components, stacked beneath each assistant message in order. */
-export const pluginMessageSlotsAtom = atom<RegisteredMessageSlot[]>([]);
+/**
+ * Card renderers published by PluginGlobalSlotHost, consumed by the per-message
+ * card host. The host resolves each card descriptor's `type` to one of these.
+ */
+export const pluginCardRenderersAtom = atom<RegisteredCardRenderer[]>([]);
 
 /** A plugin renderer that replaces the default transcript UI for a specific tool. */
 export interface RegisteredToolCallSlot {
@@ -91,7 +100,7 @@ export const editImageAttachmentAtom = atom<PluginImageRef | null>(null);
 
 /**
  * The source image id of the current in-flight edit turn (set at send when an
- * edit attachment was present, reset on each send). Lets PluginMessageSlotsHost
+ * edit attachment was present, reset on each send). Lets the card host
  * mark the generating message as editing that image's lineage — so its preview
  * card shows the full version swiper with a leading "generating" skeleton, and
  * the prior message's duplicate card self-hides.
