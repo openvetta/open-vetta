@@ -5,6 +5,8 @@ import { FileContextMenu } from "./FileContextMenu";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
+	activityPanelWidthAtom,
+	ACTIVITY_PANEL_PREVIEW_MIN_WIDTH,
 	confirmDialogAtom,
 	defaultConversationCwdAtom,
 	defaultImConversationCwdAtom,
@@ -13,6 +15,7 @@ import {
 	getProjectDisplayName,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
+	openInlineFilePreviewAtom,
 	type FilePreviewItem,
 	type FsEntry,
 } from "@shared/store/atoms";
@@ -41,9 +44,11 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 
 	const [contextMenu, setContextMenu] = useAtom(fileContextMenuAtom);
 	const setPreview = useSetAtom(inlineFilePreviewAtom);
+	const openInlinePreview = useSetAtom(openInlineFilePreviewAtom);
 	const setGlobalPreview = useSetAtom(filePreviewAtom);
 	const narrow = useNarrowScreen();
 	const previewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
+	const panelWidth = useAtomValue(activityPanelWidthAtom);
 	const [deleteTarget, setDeleteTarget] = useState<FsEntry | null>(null);
 	const [errorToast, setErrorToast] = useState<string | null>(null);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
@@ -111,14 +116,25 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 			if (narrow) {
 				setGlobalPreview(ctx);
 			} else {
-				setPreview(ctx);
+				// 显式点击：经 host API 把面板拉到 max 再展示预览（宽度回拉由关闭逻辑接管）。
+				openInlinePreview(ctx);
 			}
 		},
-		[cache, narrow, setPreview, setGlobalPreview],
+		[cache, narrow, openInlinePreview, setGlobalPreview],
 	);
 
 	// 当前选中的文件路径（来自全局预览上下文，仅当预览来源为本地路径时高亮）
 	const selectedPath = previewCtx?.items[previewCtx.index]?.path ?? null;
+
+	// 面板被拖宽到阈值、但还没选中文件时，默认选中根目录下第一个文件（不主动改宽度）。
+	useEffect(() => {
+		if (narrow || previewCtx != null || !rootDir) return;
+		if (panelWidth < ACTIVITY_PANEL_PREVIEW_MIN_WIDTH) return;
+		const files = (cache.get(rootDir) ?? []).filter((e) => !e.isDirectory);
+		if (files.length === 0) return;
+		const items: FilePreviewItem[] = files.map((e) => ({ name: e.name, path: e.path, size: e.size }));
+		setPreview({ items, index: 0 });
+	}, [narrow, previewCtx, rootDir, panelWidth, cache, setPreview]);
 
 	// Listen for drag-drop move events
 	useEffect(() => {

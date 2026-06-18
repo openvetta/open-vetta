@@ -9,7 +9,7 @@ import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	filePreviewAtom,
-	inlineFilePreviewAtom,
+	openInlineFilePreviewAtom,
 	resolvedThemeAtom,
 } from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
@@ -268,7 +268,7 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 	const theme = useAtomValue(resolvedThemeAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
-	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
+	const openInlineFilePreview = useSetAtom(openInlineFilePreviewAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setActivityTabByProject = useSetAtom(activityPanelTabByProjectAtom);
 	const narrow = useNarrowScreen();
@@ -282,11 +282,11 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 		if (!narrow && cwd && isPathWithinDir(cwd, path)) {
 			setActivityPanelOpen(true);
 			setActivityTabByProject((prev) => new Map(prev).set(cwd, "file"));
-			setInlineFilePreview({ name, path });
+			openInlineFilePreview({ name, path });
 			return;
 		}
 		setFilePreview({ name, path });
-	}, [narrow, cwd, setFilePreview, setInlineFilePreview, setActivityPanelOpen, setActivityTabByProject]);
+	}, [narrow, cwd, setFilePreview, openInlineFilePreview, setActivityPanelOpen, setActivityTabByProject]);
 
 	const components = useMemo<Components>(() => ({
 		// Headings

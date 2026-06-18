@@ -12,7 +12,7 @@ import {
 	pageHeaderTitleAtom,
 	pageHeaderRightSlotAtom,
 	inlineFilePreviewContextReadonlyAtom,
-	inlineFilePreviewAtom,
+	closeInlineFilePreviewAtom,
 	defaultConversationCwdAtom,
 	getProjectDisplayName,
 	sessionDisplayLabel,
@@ -46,7 +46,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
 	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const inlinePreviewActive = inlinePreviewCtx !== null;
-	const setInlinePreview = useSetAtom(inlineFilePreviewAtom);
+	const closeInlinePreview = useSetAtom(closeInlineFilePreviewAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const sessionsMap = useAtomValue(sessionsMapAtom);
 	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
@@ -88,12 +88,12 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 		// When in inline preview mode, the "hide panel" button should also close
 		// the inline preview, otherwise the panel would still render via flex-1.
 		if (inlinePreviewActive) {
-			setInlinePreview(null);
+			closeInlinePreview();
 			setPanelOpen(false);
 			return;
 		}
 		setPanelOpen((o) => !o);
-	}, [inlinePreviewActive, setInlinePreview, setPanelOpen]);
+	}, [inlinePreviewActive, closeInlinePreview, setPanelOpen]);
 
 	// 判断是否在最后环节且当前用户是该环节成员
 	const isLastStage =
@@ -185,14 +185,8 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
 			<div className="flex flex-1 gap-2 overflow-hidden">
-				{/* Chat messages + input — narrows to mobile width when inline preview is open */}
-				<div
-					className={
-						inlinePreviewActive
-							? "flex w-[360px] shrink-0 flex-col transition-[width] duration-200"
-							: "flex min-w-0 flex-1 flex-col"
-					}
-				>
+				{/* Chat messages + input — 始终 flex-1，文件预览只是把活动面板拉宽来挤压它 */}
+				<div className="flex min-w-0 flex-1 flex-col">
 					{/* 不再渲染空态占位：Welcome→Chat 的过渡瞬间 messages 可能短暂为空，
 					    占位图会"一闪而过"，体验比直接留白更差。空 list 由 MessageList 自身处理。 */}
 					<MessageList

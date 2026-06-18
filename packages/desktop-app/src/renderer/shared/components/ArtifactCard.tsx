@@ -7,7 +7,7 @@ import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	filePreviewAtom,
-	inlineFilePreviewAtom,
+	openInlineFilePreviewAtom,
 	type FilePreviewItem,
 } from "@shared/store/atoms";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
@@ -31,7 +31,7 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 	if (files.length === 0) return null;
 
 	const [expanded, setExpanded] = useState(false);
-	const setPreview = useSetAtom(inlineFilePreviewAtom);
+	const openInlinePreview = useSetAtom(openInlineFilePreviewAtom);
 	const setGlobalPreview = useSetAtom(filePreviewAtom);
 	const narrow = useNarrowScreen();
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
@@ -65,9 +65,9 @@ export function ArtifactCard({ files }: ArtifactCardProps): JSX.Element | null {
 					return map;
 				});
 			}
-			setPreview(ctx);
+			openInlinePreview(ctx);
 		},
-		[files, cwd, narrow, setPreview, setGlobalPreview, setActivityPanelOpen, setTabByProject],
+		[files, cwd, narrow, openInlinePreview, setGlobalPreview, setActivityPanelOpen, setTabByProject],
 	);
 
 	return (

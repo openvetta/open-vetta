@@ -6,7 +6,7 @@ import { Button } from "@shared/components/ui/button";
 import {
 	activityPanelOpenAtom,
 	defaultImConversationCwdAtom,
-	inlineFilePreviewAtom,
+	closeInlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
 	pageHeaderRightSlotAtom,
 } from "@shared/store/atoms";
@@ -44,7 +44,7 @@ export function SessionViewerPage(): JSX.Element {
 	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
 	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const inlinePreviewActive = inlinePreviewCtx !== null;
-	const setInlinePreview = useSetAtom(inlineFilePreviewAtom);
+	const closeInlinePreview = useSetAtom(closeInlineFilePreviewAtom);
 	const isIm = useMemo(() => {
 		if (!path || !imCwd) return false;
 		const prefix = imCwd.endsWith("/") ? imCwd : `${imCwd}/`;
@@ -55,12 +55,12 @@ export function SessionViewerPage(): JSX.Element {
 		// 跟 ChatView 对齐：inline preview 打开时，关面板按钮也要顺手关掉 preview，
 		// 否则它仍然以 flex-1 占着主区域。
 		if (inlinePreviewActive) {
-			setInlinePreview(null);
+			closeInlinePreview();
 			setPanelOpen(false);
 			return;
 		}
 		setPanelOpen((o) => !o);
-	}, [inlinePreviewActive, setInlinePreview, setPanelOpen]);
+	}, [inlinePreviewActive, closeInlinePreview, setPanelOpen]);
 
 	useEffect(() => {
 		const badgeLabel = isIm ? "实时更新" : "只读视图";
@@ -130,13 +130,7 @@ export function SessionViewerPage(): JSX.Element {
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
 			<div className="flex flex-1 gap-2 overflow-hidden">
-				<div
-					className={
-						inlinePreviewActive
-							? "flex w-[360px] shrink-0 flex-col transition-[width] duration-200"
-							: "flex min-w-0 flex-1 flex-col"
-					}
-				>
+				<div className="flex min-w-0 flex-1 flex-col">
 					<MessageList messages={messages} isStreaming={false} sessionId={null} />
 				</div>
 				<ActivityPanel cwd={imCwd || null} enablePluginTabs={false} />
