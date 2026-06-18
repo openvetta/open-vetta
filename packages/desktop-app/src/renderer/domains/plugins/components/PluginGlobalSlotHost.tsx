@@ -19,6 +19,9 @@ import { installPluginHostBridge } from "../runtime/plugin-host-bridge";
 import { installPluginHostShim } from "../runtime/plugin-host-shim";
 import { loadPlugin, type LoadedPlugin } from "../runtime/plugin-loader";
 
+// React effect 重启时，必须先停用上一轮插件，再激活下一轮；插件定义本身可能被模块缓存复用。
+let pluginHostLifecycle = Promise.resolve();
+
 class PluginSlotErrorBoundary extends Component<
 	{ pluginSlotId: string; children: ReactNode },
 	{ failed: boolean }
@@ -56,41 +59,54 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 
 	useEffect(() => {
 		let disposed = false;
-		installPluginHostShim();
-		installPluginHostBridge();
-		setPlugins([]);
-		markPluginHostLoading();
+		let requestCleanup = (): void => {};
+		const cleanupRequested = new Promise<void>((resolve) => {
+			requestCleanup = resolve;
+		});
 
-		const loadPromise = window.vetta.plugins
-			.list()
-			.then(async (installedPlugins) => {
-				const loadedPlugins = await Promise.all(
-					installedPlugins
-						.filter((plugin) => plugin.enabled)
-						.map(async (plugin) => {
-							try {
-								return await loadPlugin(plugin, forceUpdate);
-							} catch (error) {
-								console.error(`Failed to load plugin: ${plugin.id}`, error);
-								return undefined;
-							}
-						}),
-				);
-				return loadedPlugins.filter((plugin): plugin is LoadedPlugin => plugin !== undefined);
-			})
-			.catch((error: Error) => {
-				console.error("Failed to initialize plugins", error);
-				return [];
-			})
-			.finally(markPluginHostReady);
+		const lifecycle = pluginHostLifecycle.then(async () => {
+			if (disposed) return;
 
-		void loadPromise.then((loadedPlugins) => {
+			installPluginHostShim();
+			installPluginHostBridge();
+			setPlugins([]);
+			markPluginHostLoading();
+
+			const loadedPlugins = await window.vetta.plugins
+				.list()
+				.then(async (installedPlugins) => {
+					const loaded = await Promise.all(
+						installedPlugins
+							.filter((plugin) => plugin.enabled)
+							.map(async (plugin) => {
+								try {
+									return await loadPlugin(plugin, forceUpdate);
+								} catch (error) {
+									console.error(`Failed to load plugin: ${plugin.id}`, error);
+									return undefined;
+								}
+							}),
+					);
+					return loaded.filter((plugin): plugin is LoadedPlugin => plugin !== undefined);
+				})
+				.catch((error: Error) => {
+					console.error("Failed to initialize plugins", error);
+					return [];
+				})
+				.finally(markPluginHostReady);
+
 			if (!disposed) setPlugins(loadedPlugins);
+
+			await cleanupRequested;
+			await Promise.all(loadedPlugins.map((plugin) => plugin.dispose()));
+		});
+		pluginHostLifecycle = lifecycle.catch((error: unknown) => {
+			console.error("Failed to dispose plugins", error);
 		});
 
 		return () => {
 			disposed = true;
-			void loadPromise.then((loadedPlugins) => Promise.all(loadedPlugins.map((plugin) => plugin.dispose())));
+			requestCleanup();
 		};
 	}, [reloadRevision]);
 
