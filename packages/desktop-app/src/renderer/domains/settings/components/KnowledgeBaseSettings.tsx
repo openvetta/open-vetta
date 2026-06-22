@@ -31,7 +31,6 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [interval, setIntervalMinutes] = useState(5);
 	const [modelKey, setModelKey] = useState<string>("");
 	const [models, setModels] = useState<ModelOption[]>([]);
-	const [processingCwd, setProcessingCwd] = useState<string>("");
 	const [busy, setBusy] = useState<"scan" | "rebuild" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 
@@ -41,7 +40,6 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			setEnabled(kb?.enabled !== false);
 			setIntervalMinutes(kb?.pollIntervalMinutes ?? 5);
 			setModelKey(kb?.processingModelKey ?? "");
-			setProcessingCwd(config.knowledgeProcessingCwd ?? "");
 		});
 		void window.vetta.models.get().then((cfg) => {
 			const opts: ModelOption[] = [];
@@ -120,9 +118,8 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	}, []);
 
 	const handleOpenRecords = useCallback(() => {
-		if (!processingCwd) return;
-		void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(processingCwd) } });
-	}, [navigate, processingCwd]);
+		void navigate({ to: "/knowledge-records" });
+	}, [navigate]);
 
 	const grouped = new Map<string, ModelOption[]>();
 	for (const m of models) {
@@ -194,7 +191,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					</button>
 				</SettingRow>
 				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。">
-					<button type="button" onClick={handleOpenRecords} disabled={!processingCwd} className={btnClass}>
+					<button type="button" onClick={handleOpenRecords} className={btnClass}>
 						<span>查看记录</span>
 					</button>
 				</SettingRow>

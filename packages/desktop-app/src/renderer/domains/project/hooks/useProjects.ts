@@ -97,8 +97,7 @@ export function useProjects() {
 
 		// 虚拟注入默认「对话」项目，置于最前，且过滤掉用户误手动加入的同名条目。
 		const defaultCwd = config.defaultConversationCwd ?? "";
-		const kbCwd = config.knowledgeProcessingCwd ?? "";
-		const filtered = metaResults.filter((p) => p.cwd !== defaultCwd && p.cwd !== kbCwd);
+		const filtered = defaultCwd ? metaResults.filter((p) => p.cwd !== defaultCwd) : metaResults;
 		const all: Project[] = defaultCwd
 			? [
 					{
@@ -111,10 +110,6 @@ export function useProjects() {
 					...filtered,
 				]
 			: filtered;
-		// 虚拟注入「知识库加工」项目，置于末尾，供回看每轮加工会话。
-		if (kbCwd) {
-			all.push({ cwd: kbCwd, name: "知识库加工", sessionCount: 0, type: "normal" as const });
-		}
 		setProjects(all);
 
 		// Load sessions for each project (含默认项目)
