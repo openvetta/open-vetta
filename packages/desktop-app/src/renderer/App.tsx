@@ -41,6 +41,7 @@ import { TooltipProvider } from "./shared/components/ui/tooltip";
 import {
 	activeSessionAtom,
 	defaultConversationCwdAtom,
+	lastActiveSessionAtom,
 	pendingQuestionsAtom,
 	sandboxPermissionDrawerAtom,
 	scheduledSessionPathsAtom,
@@ -142,19 +143,13 @@ export function RootLayout(): JSX.Element {
 	const setSandboxPermissionDrawer = useSetAtom(sandboxPermissionDrawerAtom);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
+	const setActiveSession = useSetAtom(activeSessionAtom);
+	const [lastActiveSession, setLastActiveSession] = useAtom(lastActiveSessionAtom);
 	const matchesForGuard = useMatches();
 	const currentPath = matchesForGuard[matchesForGuard.length - 1]?.pathname ?? "/";
 	const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom);
-
-	// 路由守卫：当在根路径但没有 active session 时，直接跳到默认「对话」项目的 NewSession 页。
-	// 等价于"首次启动也落到 NewSession"。
-	useEffect(() => {
-		if (currentPath !== "/" || activeSession || !defaultConversationCwd) return;
-		void navigate({
-			to: "/new-session/$cwd",
-			params: { cwd: encodeURIComponent(defaultConversationCwd) },
-		});
-	}, [currentPath, activeSession, defaultConversationCwd, navigate]);
+	const [sessionRestoreState, setSessionRestoreState] = useState<"pending" | "restoring" | "complete">("pending");
+	const sessionRestoreAttemptedRef = useRef(false);
 	const toggleSidebar = useCallback(() => {
 		setSidebarCollapsed((v) => !v);
 	}, [setSidebarCollapsed]);
@@ -202,6 +197,55 @@ export function RootLayout(): JSX.Element {
 	// 来源之一，挂在会被卸载的 Sidebar 上会在卸载期间丢 RUNNING_CHANGED 事件。
 	useRunningSessionsSync();
 	const { openSession } = useSessionManager();
+
+	// 刷新根路由时先用持久化的 cwd + sessionPath 重建 runtime session。
+	// runtimeId 不能跨 renderer 生命周期复用，必须重新走 openSession/session.create。
+	useEffect(() => {
+		if (
+			currentPath !== "/" ||
+			!defaultConversationCwd ||
+			sessionRestoreAttemptedRef.current
+		) {
+			return;
+		}
+		sessionRestoreAttemptedRef.current = true;
+		if (activeSession || !lastActiveSession) {
+			setSessionRestoreState("complete");
+			return;
+		}
+		setSessionRestoreState("restoring");
+		void openSession(lastActiveSession.cwd, lastActiveSession.sessionPath)
+			.catch((error: unknown) => {
+				console.warn("[RootLayout] restore active session failed", error);
+				setActiveSession(null);
+				setLastActiveSession(null);
+			})
+			.finally(() => setSessionRestoreState("complete"));
+	}, [
+		currentPath,
+		defaultConversationCwd,
+		activeSession,
+		lastActiveSession,
+		openSession,
+		setActiveSession,
+		setLastActiveSession,
+	]);
+
+	// 路由守卫：仅在确认没有可恢复会话后，才跳到默认「对话」项目的 NewSession 页。
+	useEffect(() => {
+		if (
+			currentPath !== "/" ||
+			activeSession ||
+			!defaultConversationCwd ||
+			sessionRestoreState !== "complete"
+		) {
+			return;
+		}
+		void navigate({
+			to: "/new-session/$cwd",
+			params: { cwd: encodeURIComponent(defaultConversationCwd) },
+		});
+	}, [currentPath, activeSession, defaultConversationCwd, sessionRestoreState, navigate]);
 
 	// 上报「聊天页当前所在 session」给主进程：仅在聊天路由 "/" 且有 activeSession
 	// 时报其 sessionPath，否则 null。主进程据此 + 窗口聚焦态做系统通知抑制判定。
