@@ -182,7 +182,8 @@ const BUILTIN_TOOLS = new Set([
 	"dir_tree",
 	"tree",
 	"kb_write_page",
-	"filter_by_tags",
+	"kb_filter_by_tags",
+	"kb_list_available_tags",
 ]);
 
 /**

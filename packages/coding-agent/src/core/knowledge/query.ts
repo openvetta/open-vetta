@@ -36,3 +36,23 @@ export async function queryByTags(root: string, query: TagQuery): Promise<Filter
 			tags: p.frontmatter.tags,
 		}));
 }
+
+export interface TagCount {
+	tag: string;
+	count: number;
+}
+
+/** 列出知识库里所有出现过的标签及各自页数（排除孤儿页），按页数降序、同数按名升序。 */
+export async function listAvailableTags(root: string): Promise<TagCount[]> {
+	const { pages } = await scanWikiPages(root);
+	const counts = new Map<string, number>();
+	for (const p of pages) {
+		if (p.frontmatter.orphaned_at != null) continue;
+		for (const tag of p.frontmatter.tags) {
+			counts.set(tag, (counts.get(tag) ?? 0) + 1);
+		}
+	}
+	return [...counts.entries()]
+		.map(([tag, count]) => ({ tag, count }))
+		.sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}

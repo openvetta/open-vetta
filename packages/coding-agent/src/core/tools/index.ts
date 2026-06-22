@@ -53,12 +53,6 @@ export {
 	extractTextFromPdfTool,
 } from "./extract-text-from-pdf/index.js";
 export {
-	createFilterByTagsTool,
-	type FilterByTagsDetails,
-	type FilterByTagsInput,
-	filterByTagsTool,
-} from "./filter-by-tags/index.js";
-export {
 	createFindTool,
 	type FindOperations,
 	type FindToolDetails,
@@ -98,6 +92,18 @@ export {
 	type InvokeSkillToolInput,
 	type InvokeSkillToolOptions,
 } from "./invoke-skill/index.js";
+export {
+	createKbFilterByTagsTool,
+	type KbFilterByTagsDetails,
+	type KbFilterByTagsInput,
+	kbFilterByTagsTool,
+} from "./kb-filter-by-tags/index.js";
+export {
+	createKbListTagsTool,
+	type KbListTagsDetails,
+	type KbListTagsInput,
+	kbListTagsTool,
+} from "./kb-list-tags/index.js";
 export {
 	createKbWritePageTool,
 	type KbWritePageDetails,
@@ -182,11 +188,12 @@ import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./do
 import { createEditTool, editTool } from "./edit/index.js";
 import { createExtractTextFromImgTool, extractTextFromImgTool } from "./extract-text-from-img/index.js";
 import { createExtractTextFromPdfTool, extractTextFromPdfTool } from "./extract-text-from-pdf/index.js";
-import { createFilterByTagsTool, filterByTagsTool } from "./filter-by-tags/index.js";
 import { createFindTool, findTool } from "./find/index.js";
 import { createGlobTool, type GlobToolOptions, globTool } from "./glob/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
 import { createHtmlToPdfTool, htmlToPdfTool } from "./html-to-pdf/index.js";
+import { createKbFilterByTagsTool, kbFilterByTagsTool } from "./kb-filter-by-tags/index.js";
+import { createKbListTagsTool, kbListTagsTool } from "./kb-list-tags/index.js";
 import { createKbWritePageTool, kbWritePageTool } from "./kb-write-page/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
@@ -248,7 +255,8 @@ export const allTools = {
 	render_pdf_page: renderPdfPageTool,
 	current_time: currentTimeTool,
 	kb_write_page: kbWritePageTool,
-	filter_by_tags: filterByTagsTool,
+	kb_filter_by_tags: kbFilterByTagsTool,
+	kb_list_available_tags: kbListTagsTool,
 };
 
 export type ToolName = keyof typeof allTools;
@@ -327,6 +335,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		render_pdf_page: createRenderPdfPageTool(cwd),
 		current_time: createCurrentTimeTool(),
 		kb_write_page: createKbWritePageTool(),
-		filter_by_tags: createFilterByTagsTool(),
+		kb_filter_by_tags: createKbFilterByTagsTool(),
+		kb_list_available_tags: createKbListTagsTool(),
 	};
 }

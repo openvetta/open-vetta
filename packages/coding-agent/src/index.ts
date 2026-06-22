@@ -241,13 +241,6 @@ export {
 	type Skill,
 	type SkillFrontmatter,
 } from "./core/skills.js";
-// Knowledge base tools
-export {
-	createFilterByTagsTool,
-	type FilterByTagsDetails,
-	type FilterByTagsInput,
-	filterByTagsTool,
-} from "./core/tools/filter-by-tags/index.js";
 export {
 	createEditImageTool,
 	createGenerateImageTool,
@@ -351,6 +344,19 @@ export {
 	type WriteToolOptions,
 	writeTool,
 } from "./core/tools/index.js";
+// Knowledge base tools
+export {
+	createKbFilterByTagsTool,
+	type KbFilterByTagsDetails,
+	type KbFilterByTagsInput,
+	kbFilterByTagsTool,
+} from "./core/tools/kb-filter-by-tags/index.js";
+export {
+	createKbListTagsTool,
+	type KbListTagsDetails,
+	type KbListTagsInput,
+	kbListTagsTool,
+} from "./core/tools/kb-list-tags/index.js";
 export {
 	createKbWritePageTool,
 	type KbWritePageDetails,

@@ -44,7 +44,19 @@ export interface ToolCallUiDetails {
 	firstChangedLine?: number;
 	/** ask_user_question 的用户作答结果，供 transcript 富视图回显（不回传模型）。 */
 	askUserQuestion?: AskUserQuestionResolution;
+	/** 知识库工具（kb_*）的结构化结果，供富视图渲染（不回传模型）。 */
+	knowledge?: KnowledgeToolUiDetails;
 }
+
+/** 知识库工具结果的 UI 结构（来自工具的 details）。 */
+export type KnowledgeToolUiDetails =
+	| {
+			kind: "filter";
+			count: number;
+			pages: Array<{ id: string; absolutePath: string; title: string; summary: string; tags: string[] }>;
+	  }
+	| { kind: "tags"; tags: Array<{ tag: string; count: number }> }
+	| { kind: "write"; action: string; id: string; absolutePath: string; movedFrom?: string };
 
 /** ask_user_question：单个选项。 */
 export interface QuestionOption {
