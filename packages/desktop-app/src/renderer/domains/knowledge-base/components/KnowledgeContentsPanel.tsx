@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useSetAtom } from "jotai";
+import { AnimatePresence, motion } from "motion/react";
 import type { FilePreviewContext, FilePreviewItem } from "@shared/store/atoms";
 import { filePreviewAtom } from "@shared/store/atoms";
 import type { KnowledgeBase, KnowledgeNode } from "@shared/types/knowledge-base";
@@ -15,6 +16,7 @@ import { countKnowledgeNodes } from "../lib/knowledge-base";
 const TREE_DEFAULT_WIDTH = 300;
 const TREE_MIN_WIDTH = 220;
 const TREE_MAX_WIDTH = 420;
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 interface KnowledgeContentsPanelProps {
 	knowledgeBases: KnowledgeBase[];
@@ -124,15 +126,22 @@ export function KnowledgeContentsPanel({
 				</div>
 			</div>
 
-			<div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-muted/30">
+			<motion.div
+				initial={{ opacity: 0, scale: 0.995 }}
+				animate={{ opacity: 1, scale: 1 }}
+				transition={{ duration: 0.32, delay: 0.04, ease: EASE_OUT }}
+				className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-muted/30"
+			>
 				{showTree && (
-					<section
+					<motion.section
+						layout
 						className={
 							previewContext
 								? "relative flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-border/60"
 								: "flex min-h-0 flex-1 flex-col overflow-hidden"
 						}
 						style={previewContext ? { width: treeWidth } : undefined}
+						transition={{ layout: { duration: 0.22, ease: EASE_OUT } }}
 					>
 						<div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-2.5 text-[11px] text-muted-foreground">
 							<span>{stats.directories} 个目录</span>
@@ -167,24 +176,33 @@ export function KnowledgeContentsPanel({
 							)}
 						</div>
 						{previewContext && <ResizeHandle side="right" onResize={resizeTree} />}
-					</section>
+					</motion.section>
 				)}
-				{previewContext && (
-					<div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background/60">
-						<FilePreviewView
-							ctx={previewContext}
-							onPrev={goPrev}
-							onNext={goNext}
-							onClose={closePreview}
-							canPrev={previewContext.index > 0}
-							canNext={previewContext.index < previewContext.items.length - 1}
-							enableKeyboard
-							onToggleSidebar={() => setTreeCollapsed((collapsed) => !collapsed)}
-							sidebarCollapsed={treeCollapsed}
-						/>
-					</div>
-				)}
-			</div>
+				<AnimatePresence initial={false}>
+					{previewContext && (
+						<motion.div
+							key="knowledge-preview"
+							initial={{ opacity: 0, x: 10 }}
+							animate={{ opacity: 1, x: 0 }}
+							exit={{ opacity: 0, x: 8 }}
+							transition={{ duration: 0.22, ease: EASE_OUT }}
+							className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background/60"
+						>
+							<FilePreviewView
+								ctx={previewContext}
+								onPrev={goPrev}
+								onNext={goNext}
+								onClose={closePreview}
+								canPrev={previewContext.index > 0}
+								canNext={previewContext.index < previewContext.items.length - 1}
+								enableKeyboard
+								onToggleSidebar={() => setTreeCollapsed((collapsed) => !collapsed)}
+								sidebarCollapsed={treeCollapsed}
+							/>
+						</motion.div>
+					)}
+				</AnimatePresence>
+			</motion.div>
 		</div>
 	);
 }
