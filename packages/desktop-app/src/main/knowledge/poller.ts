@@ -105,7 +105,10 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 			});
 			try {
 				await applyProcessingModel(session, modelKey);
-				await waitForCompletion(session, knowledge.buildProcessingPrompt(prepared.diff, prepared.toReap, tmpDir));
+				await waitForCompletion(
+					session,
+					knowledge.buildProcessingPrompt(prepared.diff, prepared.toReap, root, tmpDir),
+				);
 			} finally {
 				session.dispose();
 			}

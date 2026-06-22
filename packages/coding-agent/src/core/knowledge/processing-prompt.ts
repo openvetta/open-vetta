@@ -7,7 +7,9 @@
  *   - toReap：上一轮孤儿，复判是否抢救/合并到别的页，之后工程侧会物理删除
  */
 
+import { join } from "node:path";
 import type { RawsDiff } from "./differ.js";
+import { knowledgeRoot, rawsDir, wikiDir } from "./store.js";
 import type { ManifestEntry } from "./types.js";
 
 /** 知识库加工的静态约定，作为 appendSystemPrompt 注入。 */
@@ -16,7 +18,7 @@ export const KB_PROCESSING_GUIDE = `你是知识库加工 agent。把 ~/.vetta/k
 核心约定：
 - raw ↔ wiki 为 1:1：一个原始文件对应恰好一个 wiki 页。
 - raws/ 是**只读**原始来源：绝不要写入、修改或在其中创建任何临时/中间文件。一切临时产物（解压、OCR 中间结果、格式转换等）一律写到任务中给出的「临时工作目录」（系统 tmp），完成后无需手动清理。也不要把临时文件写进 wiki/、indexes/ 或知识库根目录。
-- 用 read / extract_text_from_pdf / extract_text_from_img / render_pdf_page 读取原始文件内容（按 raws/<source_path> 定位，相对知识库根的 raws/ 目录）。
+- 用 read / extract_text_from_pdf / extract_text_from_img / render_pdf_page 读取原始文件内容（任务里给出每个文件的**绝对路径**，直接用，勿自行拼相对路径）。
 - 用且仅用 kb_write_page 写 wiki 页：它守封闭 frontmatter schema、分配稳定 id、按 id/source_hash upsert、自动刷新缓存。绝不要用通用 write 工具手写 wiki 的 .md。
 - wiki 树由你按主题/语义自由组织（path 参数），不要镜像 raws 的目录结构。
 - 跨页引用写在正文里，形如 [[page-id]]，不要放进 frontmatter。
@@ -27,18 +29,25 @@ export const KB_PROCESSING_GUIDE = `你是知识库加工 agent。把 ~/.vetta/k
 const formatRaws = (label: string, items: string[]): string =>
 	items.length === 0 ? "" : `\n## ${label}\n${items.map((s) => `- ${s}`).join("\n")}`;
 
-/** 渲染本轮任务 prompt。 */
-export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[], tmpDir?: string): string {
+/**
+ * 渲染本轮任务 prompt。给出每个文件的绝对路径，避免 agent 因 cwd 非知识库根而拼错相对路径。
+ * @param root 知识库根目录（默认 ~/.vetta/knowledges）。
+ */
+export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[], root?: string, tmpDir?: string): string {
+	const resolvedRoot = knowledgeRoot(root);
+	const rawsBase = rawsDir(resolvedRoot);
+	const wikiBase = wikiDir(resolvedRoot);
 	const added = diff.added.map(
-		(a) => `raws/${a.raw.source_path}（source=${a.raw.source}，source_hash=${a.raw.source_hash}）→ 新建 wiki 页`,
+		(a) =>
+			`${join(rawsBase, a.raw.source_path)}（source=${a.raw.source}，source_path=${a.raw.source_path}，source_hash=${a.raw.source_hash}）→ 读它 → kb_write_page 新建`,
 	);
 	const changed = diff.changed.map(
 		(c) =>
-			`raws/${c.source_path}（source=${c.source}，新 source_hash=${c.newHash}）→ kb_write_page 传 id="${c.id}" 就地更新`,
+			`${join(rawsBase, c.source_path)}（source=${c.source}，source_path=${c.source_path}，新 source_hash=${c.newHash}）→ 读它 → kb_write_page 传 id="${c.id}" 就地更新`,
 	);
 	const orphans = toReap.map(
 		(o) =>
-			`wiki/${o.path}（id=${o.id}，原 source_path=${o.source_path}）→ 复判：可把有价值内容/被引用关系合并迁移到别的页；处理完它会被物理删除`,
+			`${join(wikiBase, o.path)}（id=${o.id}，原 source_path=${o.source_path}）→ 复判：可把有价值内容/被引用关系合并迁移到别的页；处理完它会被物理删除`,
 	);
 
 	const sections = [

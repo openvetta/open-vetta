@@ -1,6 +1,7 @@
+import { join } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
-import { knowledgeRoot } from "../../knowledge/store.js";
+import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
 import { writeKnowledgePage } from "../../knowledge/writer.js";
 import { loadToolDescription } from "../description.js";
 
@@ -39,7 +40,10 @@ export type KbWritePageInput = Static<typeof kbWritePageSchema>;
 export interface KbWritePageDetails {
 	action: "create" | "update";
 	id: string;
+	/** wiki 页相对 wiki/ 的路径。 */
 	path: string;
+	/** wiki 页的绝对路径，可直接交给 read 工具。 */
+	absolutePath: string;
 	movedFrom?: string;
 }
 
@@ -63,10 +67,12 @@ export function createKbWritePageTool(root?: string): AgentTool<typeof kbWritePa
 			const resolvedRoot = knowledgeRoot(root);
 			const now = new Date().toISOString();
 			const result = await writeKnowledgePage(resolvedRoot, params, now);
+			const absolutePath = join(wikiDir(resolvedRoot), result.path);
 			const details: KbWritePageDetails = {
 				action: result.action,
 				id: result.id,
 				path: result.path,
+				absolutePath,
 				movedFrom: result.movedFrom,
 			};
 			const moved = result.movedFrom ? ` (moved from ${result.movedFrom})` : "";
@@ -74,7 +80,7 @@ export function createKbWritePageTool(root?: string): AgentTool<typeof kbWritePa
 				content: [
 					{
 						type: "text",
-						text: `kb_write_page ${result.action} ok — id=${result.id}, path=wiki/${result.path}${moved}`,
+						text: `kb_write_page ${result.action} ok — id=${result.id}, path=${absolutePath}${moved}`,
 					},
 				],
 				details,
