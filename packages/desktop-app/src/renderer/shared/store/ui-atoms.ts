@@ -26,7 +26,8 @@ export type SettingsTab =
 	| "archive"
 	| "team"
 	| "context"
-	| "plugins";
+	| "plugins"
+	| "knowledge";
 
 // ─── Theme ───
 
