@@ -18,6 +18,7 @@
 
 ### Added
 
+- **LLM Wiki 知识库核心（`src/core/knowledge/`）**：在 `~/.vetta/knowledges/` 下以约定式布局把 `raws/<source>/` 原始文件加工成带封闭 frontmatter 的 `wiki/**/*.md`（raw↔wiki 1:1，wiki 树由 LLM 按语义自由组织），frontmatter 为唯一真相源、`tags.json`/`manifest.json` 为可重建缓存。提供纯逻辑深模块 `diffRaws`（增/删/移动/内容变更四态判定，移动靠内容 hash、变更靠路径解析旧 id）、`planOrphans`（孤儿 n+1 回收规划）、`filterByTags`（交/并/补集合运算）、`resolveUpsert`（按 id/source_hash upsert，保留稳定 id 与 created_at）、`rebuildManifest`/`rebuildTagsIndex`（据 frontmatter 重建缓存），以及 IO 层 `store`、写入编排 `writeKnowledgePage`、检索 `queryByTags`、摄入编排 `prepareRound`/`finalizeRound`。新增两个内置工具：`kb_write_page`（唯一写页入口，守封闭 10 字段 schema、分配稳定 id、自动刷新缓存）与 `filter_by_tags`（标签检索捷径，已加入常驻激活工具）。`getKnowledgeDir()` 解析 `~/.vetta/knowledges`。配套 42 个单测/集成测试。
 - 新增插件工具 shell 基座：`CreateAgentSessionOptions.agentPlugins.toolContributions` 可把宿主聚合的插件工具注册成 LLM 可见工具，执行时通过 `invokePluginTool` 回调委托给宿主，不直接加载插件 JS。插件工具 description 现在也会进入系统提示词的 `Available tools`，避免工具实际注册但模型看不到说明。
 - 新增 `[plugin-agent]` 调试日志，记录插件工具贡献进入 coding-agent 后是否成功构建为 tool shell、是否缺少宿主 invoke bridge，以及最终激活的插件工具列表。
 - **内置 `generate_image` 工具（图像生成，ADR-0028）**：新增 `createGenerateImageTool(backend)` 工厂（`src/core/tools/generate-image/`）+ `ImageToolBackend` / `ImageToolRef` 契约，由宿主经 `customTools` 注入（desktop 接到主进程图像服务，coding-agent 不依赖宿主实现）。工具是薄包装：调用宿主后端生成图像，返回轻量引用（图像字节不进 LLM context）。`PromptOptions` 新增 `metadata`；input-pipeline 读 `metadata.imageMode` 时注入隐藏指令，引导 agent 优化 prompt 并调用该工具。工具新增可选 `size` 参数（自由格式 `WIDTHxHEIGHT`，缺省 `1024x1024`），由 agent 按目标比例决定并透传给后端；`ImageToolBackend.generate` 入参随之新增 `size?`。
