@@ -58,6 +58,13 @@ export const pluginInputActionsAtom = atom<RegisteredInputAction[]>([]);
 /** The set of currently-active (toggled-on) input action ids. */
 export const activeInputActionIdsAtom = atom<Set<string>>(new Set<string>());
 
+/**
+ * 原生「知识检索」开关（非插件输入动作）。开启后下一次发送携带
+ * `metadata.knowledgeMode`，向 agent 注入一段仅模型可见的「优先查询知识库」提示。
+ * 未开启时 agent 仍可按需调用知识库工具，开启只是明示。切换会话时重置。
+ */
+export const knowledgeRetrievalActiveAtom = atom<boolean>(false);
+
 /** A card renderer registered by a loaded plugin, keyed by `type`. */
 export interface RegisteredCardRenderer {
 	pluginId: string;

@@ -236,6 +236,25 @@ export class InputPipeline {
 			});
 		}
 
+		// Knowledge retrieval mode: user toggled 知识检索 for this turn. Inject a
+		// hidden (model-only) instruction telling the agent to consult the knowledge
+		// base before answering. Tools are always available regardless; this just
+		// makes the intent explicit for this turn.
+		if (options?.metadata?.knowledgeMode === true) {
+			messages.push({
+				role: "custom",
+				customType: "knowledge_mode_instruction",
+				content:
+					"用户已开启「知识检索」：本轮请优先查询本地知识库来回答。" +
+					"先用 filter_by_tags 按相关标签筛页（all/any/none 交并补），" +
+					"或读 indexes/ 下的导航地图定位，再用 read 打开命中的 wiki 页（用工具返回的绝对路径）、" +
+					"顺正文里的 [[page-id]] 链接深入；必要时用 grep 全文检索。" +
+					"基于知识库内容作答并说明依据；若知识库确无相关内容，再如实告知并退回常规回答。",
+				display: false,
+				timestamp: Date.now(),
+			});
+		}
+
 		// Inject skill/scene content as hidden custom messages (before user message so model sees it first).
 		// Skill goes first so the model parses its `<skill>` block before any scene context.
 		if (skillInjection) {
