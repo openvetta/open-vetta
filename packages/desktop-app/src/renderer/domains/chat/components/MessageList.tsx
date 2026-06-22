@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Transition } from "motion/react";
 import { useAtomValue } from "jotai";
@@ -137,6 +137,8 @@ function findLastProcessBlockIndex(blocks: ContentBlock[], customToolNames: Set<
 }
 
 interface AssistantFoldData {
+	processBlocks: ContentBlock[];
+	trailingBlocks: ContentBlock[];
 	outputBlocks: TextBlock[];
 	hiddenCount: number;
 }
@@ -149,14 +151,24 @@ function getAssistantFoldData(blocks: ContentBlock[], customToolNames: Set<strin
 		.filter((block): block is TextBlock => block.type === "text" && block.text.trim().length > 0);
 	if (outputBlocks.length === 0) return null;
 	return {
+		processBlocks: blocks.slice(0, lastProcessIndex + 1),
+		trailingBlocks: blocks.slice(lastProcessIndex + 1),
 		outputBlocks,
 		hiddenCount: blocks.length - outputBlocks.length,
 	};
 }
 
 /** Collapsed group of multiple tool calls and/or thinking blocks. */
-const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCallBlock | ThinkingBlock)[] }) {
+const ToolCallGroup = memo(function ToolCallGroup({
+	blocks,
+	exportMode = false,
+}: {
+	blocks: (ToolCallBlock | ThinkingBlock)[];
+	exportMode?: boolean;
+}) {
 	const [expanded, setExpanded] = useState(false);
+	const generatedId = useId();
+	const panelId = exportMode ? `export-tool-group-${generatedId}` : undefined;
 	const toolBlocks = blocks.filter((b): b is ToolCallBlock => b.type === "tool_call");
 	const thinkingCount = blocks.filter((b) => b.type === "thinking").length;
 	const completedCount = toolBlocks.filter((b) => b.status !== "pending").length;
@@ -183,6 +195,8 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 				<button
 					type="button"
 					onClick={() => setExpanded(!expanded)}
+					data-export-toggle={panelId}
+					aria-expanded={expanded}
 					className="inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors hover:bg-muted/60"
 				>
 					<span
@@ -197,8 +211,11 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 				</button>
 			</div>
 			<AnimatePresence initial={false}>
-				{expanded && (
+				{(expanded || exportMode) && (
 					<motion.div
+						id={panelId}
+						data-export-collapse-panel={exportMode ? "" : undefined}
+						hidden={exportMode && !expanded}
 						initial={COLLAPSE_INITIAL}
 						animate={COLLAPSE_ANIMATE}
 						exit={COLLAPSE_EXIT}
@@ -208,9 +225,9 @@ const ToolCallGroup = memo(function ToolCallGroup({ blocks }: { blocks: (ToolCal
 						<div className="flex flex-col gap-0.5 pl-2 pr-1 pb-1">
 							{blocks.map((block) =>
 								block.type === "tool_call" ? (
-									<ToolCallBlockView key={block.toolCallId} block={block} />
+									<ToolCallBlockView key={block.toolCallId} block={block} exportMode={exportMode} />
 								) : (
-									<ThinkingBlockView key={`thinking-${block.id}`} text={block.text} />
+									<ThinkingBlockView key={`thinking-${block.id}`} text={block.text} exportMode={exportMode} />
 								),
 							)}
 						</div>
@@ -225,6 +242,7 @@ interface SegmentRendererProps {
 	segment: BlockSegment;
 	isStreamingTail?: boolean;
 	animateIn?: boolean;
+	exportMode?: boolean;
 }
 
 function areSegmentsEqual(prev: BlockSegment, next: BlockSegment): boolean {
@@ -238,6 +256,7 @@ function areSegmentRendererPropsEqual(prev: SegmentRendererProps, next: SegmentR
 	return (
 		prev.isStreamingTail === next.isStreamingTail &&
 		prev.animateIn === next.animateIn &&
+		prev.exportMode === next.exportMode &&
 		areSegmentsEqual(prev.segment, next.segment)
 	);
 }
@@ -246,10 +265,11 @@ const SegmentRenderer = memo(function SegmentRenderer({
 	segment,
 	isStreamingTail = false,
 	animateIn = false,
+	exportMode = false,
 }: SegmentRendererProps) {
 	let content: JSX.Element | null;
 	if (segment.type === "tool_group") {
-		content = <ToolCallGroup blocks={segment.blocks} />;
+		content = <ToolCallGroup blocks={segment.blocks} exportMode={exportMode} />;
 	} else {
 		const { block } = segment;
 		switch (block.type) {
@@ -257,10 +277,10 @@ const SegmentRenderer = memo(function SegmentRenderer({
 				content = <TextBlockView text={block.text} isStreamingTail={isStreamingTail} />;
 				break;
 			case "thinking":
-				content = <ThinkingBlockView text={block.text} />;
+				content = <ThinkingBlockView text={block.text} exportMode={exportMode} />;
 				break;
 			case "tool_call":
-				content = <ToolCallBlockView block={block} />;
+				content = <ToolCallBlockView block={block} exportMode={exportMode} />;
 				break;
 			case "error":
 				content = (
@@ -359,9 +379,17 @@ interface AssistantFoldTipProps {
 	expanded: boolean;
 	startedAt?: number;
 	onToggle: () => void;
+	exportPanelId?: string;
 }
 
-function AssistantFoldTip({ state, count, expanded, startedAt, onToggle }: AssistantFoldTipProps): JSX.Element {
+function AssistantFoldTip({
+	state,
+	count,
+	expanded,
+	startedAt,
+	onToggle,
+	exportPanelId,
+}: AssistantFoldTipProps): JSX.Element {
 	const elapsedSeconds = useElapsedSeconds(startedAt, state === "streaming");
 
 	if (state === "streaming") {
@@ -382,6 +410,10 @@ function AssistantFoldTip({ state, count, expanded, startedAt, onToggle }: Assis
 			<button
 				type="button"
 				onClick={onToggle}
+				data-export-toggle={exportPanelId}
+				data-export-label-collapsed={`展开${count}条内容`}
+				data-export-label-expanded={`收起${count}条内容`}
+				aria-expanded={expanded}
 				className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-lg py-1 pr-1.5 text-[12px] font-medium text-muted-foreground/55 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
 			>
 				<span
@@ -390,7 +422,7 @@ function AssistantFoldTip({ state, count, expanded, startedAt, onToggle }: Assis
 						expanded && "rotate-90",
 					)}
 				/>
-				<span>{expanded ? "收起" : "展开"}{count}条内容</span>
+				<span data-export-toggle-label="">{expanded ? "收起" : "展开"}{count}条内容</span>
 			</button>
 			<div className="h-px w-full rounded-full bg-border/80" />
 		</div>
@@ -611,15 +643,18 @@ const UserMessage = memo(function UserMessage({
 });
 
 /** Assistant message — full-width, no bubble, with header */
-const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage, isStreaming }: {
+const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage, isStreaming, exportMode = false }: {
 	message: ChatMessage;
 	isTailMessage: boolean;
 	isStreaming: boolean;
+	exportMode?: boolean;
 }) {
 	const hasBlocks = message.blocks && message.blocks.length > 0;
 	const isCurrentlyStreaming = isTailMessage && isStreaming;
 	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !isCurrentlyStreaming;
 	const [expanded, setExpanded] = useState(false);
+	const generatedId = useId();
+	const exportFoldPanelId = exportMode ? `export-assistant-fold-${generatedId}` : undefined;
 	// 输入预测「生成中」：仅末条 assistant 消息、且当前会话正在预测时展示闪光提示。
 	const activeRid = useAtomValue(activeSessionAtom)?.runtimeId;
 	const toolCallSlots = useAtomValue(pluginToolCallSlotsAtom);
@@ -634,10 +669,15 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 		[message.blocks, customToolNames],
 	);
 	const visibleBlocks = useMemo(() => {
+		if (exportMode && foldData) return foldData.trailingBlocks;
 		if (!foldData || expanded || isCurrentlyStreaming) return message.blocks ?? [];
 		return foldData.outputBlocks;
-	}, [expanded, foldData, isCurrentlyStreaming, message.blocks]);
+	}, [expanded, exportMode, foldData, isCurrentlyStreaming, message.blocks]);
 	const segments = useMemo(() => groupBlocks(visibleBlocks, customToolNames), [visibleBlocks, customToolNames]);
+	const exportProcessSegments = useMemo(
+		() => exportMode && foldData ? groupBlocks(foldData.processBlocks, customToolNames) : [],
+		[customToolNames, exportMode, foldData],
+	);
 	// streaming 时给最后一个非空 text segment 标记 streaming tail，
 	// 由 TextBlockView 控制展示节奏，避免高速 token 直接整块刷出。
 	const streamingTailIndex = useMemo(() => {
@@ -705,6 +745,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 					expanded={expanded}
 					startedAt={message.startedAt}
 					onToggle={() => setExpanded((value) => !value)}
+					exportPanelId={exportFoldPanelId}
 				/>
 			) : null}
 
@@ -712,12 +753,29 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 			<div>
 				{hasBlocks ? (
 					<div className="flex flex-col gap-0.5">
+						{exportProcessSegments.length > 0 && (
+							<div
+								id={exportFoldPanelId}
+								data-export-collapse-panel=""
+								hidden
+								className="flex flex-col gap-0.5"
+							>
+								{exportProcessSegments.map((segment) => (
+									<SegmentRenderer
+										key={`export-${segmentKey(segment)}`}
+										segment={segment}
+										exportMode
+									/>
+								))}
+							</div>
+						)}
 						{segments.map((segment, i) => (
 							<SegmentRenderer
 								key={segmentKey(segment)}
 								segment={segment}
 								isStreamingTail={i === streamingTailIndex}
 								animateIn={isCurrentlyStreaming && i === segments.length - 1}
+								exportMode={exportMode}
 							/>
 						))}
 					</div>
@@ -754,12 +812,13 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 	);
 });
 
-const Message = memo(function Message({ message, isTailMessage, isStreaming, userMessageEntryState, onUserMessageEntryComplete }: {
+const Message = memo(function Message({ message, isTailMessage, isStreaming, userMessageEntryState, onUserMessageEntryComplete, exportMode = false }: {
 	message: ChatMessage;
 	isTailMessage: boolean;
 	isStreaming: boolean;
 	userMessageEntryState: UserMessageEntryState;
 	onUserMessageEntryComplete?: () => void;
+	exportMode?: boolean;
 }) {
 	if (message.role === "compaction") {
 		return <CompactionBoundary />;
@@ -773,8 +832,29 @@ const Message = memo(function Message({ message, isTailMessage, isStreaming, use
 			/>
 		);
 	}
-	return <AssistantMessage message={message} isTailMessage={isTailMessage} isStreaming={isStreaming} />;
+	return <AssistantMessage message={message} isTailMessage={isTailMessage} isStreaming={isStreaming} exportMode={exportMode} />;
 });
+
+export const ExportMessageList = forwardRef<HTMLDivElement, { messages: ChatMessage[] }>(
+	function ExportMessageList({ messages }, ref) {
+		const tailMessageId = messages.at(-1)?.id ?? null;
+		return (
+			<div ref={ref} className="chat-export-document mx-auto flex w-full max-w-3xl flex-col px-5 py-5">
+				{messages.map((message) => (
+					<div key={message.id} className="pb-5">
+						<Message
+							message={message}
+							isTailMessage={message.id === tailMessageId}
+							isStreaming={false}
+							userMessageEntryState="static"
+							exportMode
+						/>
+					</div>
+				))}
+			</div>
+		);
+	},
+);
 
 /** Compaction boundary marker — shows where context was compressed. */
 const CompactionBoundary = memo(function CompactionBoundary() {
@@ -1151,9 +1231,6 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 		</>
 	);
 }
-
-/** Container for Virtuoso list items — centered with max width */
-import { forwardRef } from "react";
 
 const VirtuosoListContainer = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
 	function VirtuosoListContainer(props, ref) {

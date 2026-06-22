@@ -22,6 +22,7 @@ import {
 	pendingEditImageIdAtom,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
+import { ChatExportHost } from "./ChatExportHost";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
 import { BackgroundTasksBadge } from "./BackgroundTasksBadge";
@@ -76,6 +77,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 
 	// 窗口置顶（钉在屏幕上）状态，初始与主进程真实状态同步
 	const [pinned, setPinned] = useState(false);
+	const [exporting, setExporting] = useState(false);
 	useEffect(() => {
 		void window.vetta.window.isAlwaysOnTop().then(setPinned);
 	}, []);
@@ -83,6 +85,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 		const next = await window.vetta.window.toggleAlwaysOnTop();
 		setPinned(next);
 	}, []);
+	const handleExportFinished = useCallback(() => setExporting(false), []);
 
 	const handleTogglePanel = useCallback(() => {
 		// When in inline preview mode, the "hide panel" button should also close
@@ -125,6 +128,21 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 			<>
 				<BackgroundTasksBadge />
 				<SandboxGrantsBadge />
+				<Button
+					size="icon-xs"
+					variant="ghost"
+					title="导出完整会话 HTML"
+					disabled={messages.length === 0 || isStreaming || exporting}
+					onClick={() => setExporting(true)}
+				>
+					<span
+						className={
+							exporting
+								? "icon-[mdi--loading] animate-spin text-[14px]"
+								: "icon-[mdi--language-html5] text-[14px]"
+						}
+					/>
+				</Button>
 				{isLastStage ? (
 					<Button
 						size="sm"
@@ -169,8 +187,11 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 		),
 		[
 			isLastStage,
+			isStreaming,
+			messages.length,
 			panelOpen,
 			pinned,
+			exporting,
 			setFlowingSendOpen,
 			setWorkflowCompleteOpen,
 			handleTogglePanel,
@@ -184,6 +205,13 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
+			{exporting && (
+				<ChatExportHost
+					messages={messages}
+					title={sessionTitle ?? "Vetta 会话"}
+					onFinished={handleExportFinished}
+				/>
+			)}
 			<div className="flex flex-1 gap-2 overflow-hidden">
 				{/* Chat messages + input — 始终 flex-1，文件预览只是把活动面板拉宽来挤压它 */}
 				<div className="flex min-w-0 flex-1 flex-col">
