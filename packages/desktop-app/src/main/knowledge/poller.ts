@@ -146,8 +146,10 @@ export async function reloadKnowledgePoller(): Promise<void> {
 	await unlockRaws().catch(() => {});
 	const config = await readDesktopConfig();
 	const kb = config.knowledgeBase;
+	// 总开关：关闭时置 env 标志，coding-agent 据此对 agent 屏蔽知识库检索工具。
+	process.env.VETTA_KNOWLEDGE_DISABLED = kb?.enabled === false ? "1" : "";
 	if (!kb?.enabled) {
-		log.info("knowledge base processing disabled");
+		log.info("knowledge base disabled");
 		return;
 	}
 	const minutes = kb.pollIntervalMinutes ?? 5;
