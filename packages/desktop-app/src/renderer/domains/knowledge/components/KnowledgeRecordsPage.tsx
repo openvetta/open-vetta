@@ -72,14 +72,10 @@ export function KnowledgeRecordsPage(): JSX.Element {
 								key={s.path}
 								type="button"
 								onClick={() => openSession(s.path)}
-								className="flex flex-col items-start gap-0.5 rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-input hover:bg-accent/50"
+								className="flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-input hover:bg-accent/50"
 							>
-								<span className="text-[13px] font-medium text-foreground">
-									{s.name || s.firstMessage || "未命名整理"}
-								</span>
-								<span className="text-[11px] text-muted-foreground/60">
-									{new Date(s.modifiedAt).toLocaleString()}
-								</span>
+								<span className="icon-[mdi--history] h-4 w-4 shrink-0 text-muted-foreground/50" />
+								<span className="text-[13px] text-foreground">{new Date(s.modifiedAt).toLocaleString()}</span>
 							</button>
 						))}
 					</div>

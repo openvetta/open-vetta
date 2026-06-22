@@ -6,6 +6,7 @@ import {
 	defaultImConversationCwdAtom,
 	deployModeAtom,
 	knowledgeBaseEnabledAtom,
+	knowledgeProcessingCwdAtom,
 	selectedModelAtom,
 	sessionExecutionModeAtom,
 	workspacePathAtom,
@@ -21,6 +22,7 @@ export function useAppInit(): void {
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setDeployMode = useSetAtom(deployModeAtom);
 	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
+	const setKnowledgeProcessingCwd = useSetAtom(knowledgeProcessingCwdAtom);
 	const { refreshProjects } = useProjects();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 
@@ -45,6 +47,9 @@ export function useAppInit(): void {
 			setSessionExecutionMode(executionMode);
 			localStorage.setItem("vetta-session-execution-mode", executionMode);
 			setKnowledgeBaseEnabled(config.knowledgeBase?.enabled !== false);
+			if (config.knowledgeProcessingCwd) {
+				setKnowledgeProcessingCwd(config.knowledgeProcessingCwd);
+			}
 		});
 		// Load default model if no model selected
 		void window.vetta.models.get().then((modelsConfig) => {
@@ -70,5 +75,6 @@ export function useAppInit(): void {
 		refreshBatchProjects,
 		setDefaultImConversationCwd,
 		setKnowledgeBaseEnabled,
+		setKnowledgeProcessingCwd,
 	]);
 }
