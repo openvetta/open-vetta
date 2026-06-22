@@ -1,4 +1,4 @@
-import { pathBasename } from "@shared/lib/utils";
+import { isSubPath, pathBasename } from "@shared/lib/utils";
 import { atom } from "jotai";
 import { SCHEDULE_SESSION_MARKER } from "../../../shared/scheduled-session";
 
@@ -47,7 +47,7 @@ export function getProjectDisplayName(cwd: string, defaultCwd: string): string {
  * 非默认项目的 cwd 原样返回（它们没有 per-session 子目录）。
  */
 export function conversationBucketCwd(cwd: string, defaultCwd: string): string {
-	if (defaultCwd && cwd !== defaultCwd && cwd.startsWith(`${defaultCwd}/`)) return defaultCwd;
+	if (defaultCwd && cwd !== defaultCwd && isSubPath(cwd, defaultCwd)) return defaultCwd;
 	return cwd;
 }
 
