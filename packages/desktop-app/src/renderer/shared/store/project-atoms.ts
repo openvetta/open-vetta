@@ -31,6 +31,12 @@ export const defaultConversationCwdAtom = atom<string>("");
 export const defaultImConversationCwdAtom = atom<string>("");
 
 /**
+ * 知识库加工特殊项目 cwd（~/.vetta/knowledges/processing_records）。
+ * 用于判定一条 session 是否是知识库加工 session：session.path 落在该 cwd 的 sessions 目录下。
+ */
+export const knowledgeProcessingCwdAtom = atom<string>("");
+
+/**
  * 根据 cwd 获取项目展示名：默认「对话」项目返回中文名，其它项目使用 cwd basename。
  * 传入 defaultCwd 来识别默认项目（避免对 atom 的隐式依赖，便于在非 React 环境调用）。
  */
