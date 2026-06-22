@@ -51,12 +51,28 @@ export function createKbFilterByTagsTool(root?: string): AgentTool<typeof kbFilt
 			const pages = await queryByTags(resolvedRoot, params);
 			const enriched = pages.map((p) => ({ ...p, absolutePath: join(base, p.path) }));
 			const details: KbFilterByTagsDetails = { count: enriched.length, pages: enriched };
-			const listing =
-				enriched.length === 0
-					? "(no matches)"
-					: enriched.map((p) => `- [${p.id}] ${p.absolutePath} — ${p.title}: ${p.summary}`).join("\n");
+			if (enriched.length === 0) {
+				const emptyHint =
+					" Tags are only a shortcut — do NOT conclude the knowledge base lacks the answer yet. Keep exploring: " +
+					"call kb_list_available_tags to see the real tag vocabulary and retry with different tags; read the curated " +
+					"maps under indexes/; grep the full text of wiki/; browse the wiki/ tree and follow [[page-id]] links. " +
+					"Only give up after these avenues come up empty.";
+				return {
+					content: [{ type: "text", text: `kb_filter_by_tags matched 0 pages.${emptyHint}` }],
+					details,
+				};
+			}
+			const listing = enriched.map((p) => `- [${p.id}] ${p.absolutePath} — ${p.title}: ${p.summary}`).join("\n");
+			const matchedHint =
+				"\n\nIf these pages don't actually answer the question, keep exploring rather than settling: read indexes/, " +
+				"grep wiki/ full text, retry with other tags (kb_list_available_tags), or follow [[page-id]] links from the pages above.";
 			return {
-				content: [{ type: "text", text: `kb_filter_by_tags matched ${enriched.length} page(s):\n${listing}` }],
+				content: [
+					{
+						type: "text",
+						text: `kb_filter_by_tags matched ${enriched.length} page(s):\n${listing}${matchedHint}`,
+					},
+				],
 				details,
 			};
 		},
