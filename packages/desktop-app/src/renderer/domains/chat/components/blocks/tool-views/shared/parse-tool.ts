@@ -42,6 +42,12 @@ export function toolIcon(name: string): string {
 			return "icon-[mdi--comment-question-outline]";
 		case "easy_use_vettaApp":
 			return "icon-[mdi--application-cog-outline]";
+		case "kb_write_page":
+			return "icon-[mdi--book-edit-outline]";
+		case "kb_filter_by_tags":
+			return "icon-[mdi--tag-search-outline]";
+		case "kb_list_available_tags":
+			return "icon-[mdi--tag-multiple-outline]";
 		default:
 			return "icon-[mdi--wrench-outline]";
 	}
@@ -61,6 +67,7 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 	}
 
 	const name = block.toolName;
+	let displayName = name;
 	let detail = "";
 
 	if (name === "read" || name === "write" || name === "edit") {
@@ -102,6 +109,23 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 	} else if (name === "easy_use_vettaApp") {
 		const actionId = args.actionId;
 		if (typeof actionId === "string") detail = actionId;
+	} else if (name === "kb_write_page") {
+		displayName = "知识库·写页";
+		const title = args.title ?? args.path;
+		if (typeof title === "string") detail = title;
+	} else if (name === "kb_filter_by_tags") {
+		displayName = "知识库·标签筛选";
+		const parts: string[] = [];
+		for (const key of ["all", "any", "none"] as const) {
+			const tags = args[key];
+			if (Array.isArray(tags) && tags.length > 0) {
+				const op = key === "all" ? "且" : key === "any" ? "或" : "非";
+				parts.push(`${op} ${tags.filter((t) => typeof t === "string").join("/")}`);
+			}
+		}
+		detail = parts.join("，");
+	} else if (name === "kb_list_available_tags") {
+		displayName = "知识库·标签列表";
 	} else if (name === "todo") {
 		const action = args.action;
 		if (typeof action === "string") {
@@ -115,7 +139,7 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 		}
 	}
 
-	return { name, detail };
+	return { name: displayName, detail };
 }
 
 export function truncateFirstLine(cmd: string, maxLen = 40): string {

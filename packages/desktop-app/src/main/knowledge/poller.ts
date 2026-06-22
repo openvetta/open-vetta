@@ -17,7 +17,8 @@ import {
 	type AgentSessionEvent,
 	createAgentSession,
 	createCodingTools,
-	createFilterByTagsTool,
+	createKbFilterByTagsTool,
+	createKbListTagsTool,
 	createKbWritePageTool,
 	knowledge,
 	SessionManager,
@@ -94,7 +95,12 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 		// 加工期间把 raws/ 整树锁成只读（OS 强制），绝对杜绝 agent 往 raws 写入。
 		await lockRaws(root);
 		try {
-			const tools = [...createCodingTools(KB_PROCESSING_CWD), createKbWritePageTool(), createFilterByTagsTool()];
+			const tools = [
+				...createCodingTools(KB_PROCESSING_CWD),
+				createKbWritePageTool(),
+				createKbFilterByTagsTool(),
+				createKbListTagsTool(),
+			];
 			const { session } = await createAgentSession({
 				cwd: KB_PROCESSING_CWD,
 				sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),

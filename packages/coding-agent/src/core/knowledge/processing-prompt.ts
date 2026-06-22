@@ -24,7 +24,7 @@ export const KB_PROCESSING_GUIDE = `你是知识库加工 agent。把 ~/.vetta/k
 - 跨页引用写在正文里，形如 [[page-id]]，不要放进 frontmatter。
 - 给每页打扁平字符串标签（tags），并写好简洁的一句话 summary（会进 indexes 导读）。
 - 维护 indexes/ 下的语义导航地图（用 write/edit）：按主题聚合、带摘要、指向 page id。
-- summary/标签要利于后续 filter_by_tags 与渐进式探索检索。`;
+- summary/标签要利于后续 kb_filter_by_tags 与渐进式探索检索。`;
 
 const formatRaws = (label: string, items: string[]): string =>
 	items.length === 0 ? "" : `\n## ${label}\n${items.map((s) => `- ${s}`).join("\n")}`;

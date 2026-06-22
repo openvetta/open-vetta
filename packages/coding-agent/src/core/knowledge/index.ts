@@ -33,7 +33,7 @@ export {
 	rebuildAllCaches,
 } from "./ingest.js";
 export { buildProcessingPrompt, KB_PROCESSING_GUIDE } from "./processing-prompt.js";
-export { type FilteredPage, queryByTags } from "./query.js";
+export { type FilteredPage, listAvailableTags, queryByTags, type TagCount } from "./query.js";
 export {
 	deleteWikiPage,
 	ensureKnowledgeDirs,

@@ -678,7 +678,7 @@ export class RuntimeManager {
 		// 知识库总开关关闭时（宿主置 VETTA_KNOWLEDGE_DISABLED=1），不默认激活
 		// 知识库检索工具，对 agent 屏蔽。
 		if (process.env.VETTA_KNOWLEDGE_DISABLED !== "1") {
-			alwaysActive.push("filter_by_tags");
+			alwaysActive.push("kb_filter_by_tags", "kb_list_available_tags");
 		}
 		for (const name of alwaysActive) {
 			if (this._baseToolRegistry.has(name)) {

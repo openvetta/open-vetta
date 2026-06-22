@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { queryByTags } from "../src/core/knowledge/query.js";
+import { listAvailableTags, queryByTags } from "../src/core/knowledge/query.js";
 import { readManifest, readTagsIndex, scanWikiPages } from "../src/core/knowledge/store.js";
 import { writeKnowledgePage } from "../src/core/knowledge/writer.js";
 
@@ -104,6 +104,14 @@ describe("writeKnowledgePage (integration)", () => {
 		expect(apiPages.map((p) => p.title)).toEqual(["API"]);
 		const notBilling = await queryByTags(root, { none: ["billing"] });
 		expect(notBilling.map((p) => p.title)).toEqual(["API"]);
+
+		// listAvailableTags：聚合标签与页数，按页数降序
+		const tags = await listAvailableTags(root);
+		expect(tags).toEqual([
+			{ tag: "api", count: 1 },
+			{ tag: "billing", count: 1 },
+			{ tag: "manual", count: 1 },
+		]);
 
 		// 内容里的 frontmatter body 含 [[id]] 不影响解析
 		const doc = await readFile(join(root, "wiki", "产品", "api.md"), "utf-8");
