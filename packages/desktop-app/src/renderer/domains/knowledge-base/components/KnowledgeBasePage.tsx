@@ -162,7 +162,6 @@ export function KnowledgeBasePage(): JSX.Element {
 			{draft && (
 				<KnowledgeImportDialog
 					draft={draft}
-					knowledgeBases={knowledgeBases}
 					activeKnowledgeBaseId={activeBase?.id ?? null}
 					onClose={() => setDraft(null)}
 					onConfirm={confirmImport}
