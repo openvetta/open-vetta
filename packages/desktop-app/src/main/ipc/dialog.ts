@@ -130,6 +130,23 @@ export function registerDialogIpc(): () => void {
 		return result.filePaths;
 	});
 
+	ipcMain.handle("vetta:dialog:save-html", async (_event, defaultFileName: unknown, content: unknown) => {
+		if (typeof defaultFileName !== "string" || !defaultFileName.trim()) {
+			throw new Error("Invalid HTML export file name");
+		}
+		if (typeof content !== "string") {
+			throw new Error("Invalid HTML export content");
+		}
+		const result = await dialog.showSaveDialog({
+			title: "导出会话 HTML",
+			defaultPath: defaultFileName,
+			filters: [{ name: "HTML", extensions: ["html"] }],
+		});
+		if (result.canceled || !result.filePath) return null;
+		await writeFile(result.filePath, content, "utf8");
+		return result.filePath;
+	});
+
 	ipcMain.handle("vetta:dialog:select-folders", async () => {
 		if (process.platform === "linux") {
 			try {
@@ -159,6 +176,7 @@ export function registerDialogIpc(): () => void {
 		ipcMain.removeHandler("vetta:dialog:select-images");
 		ipcMain.removeHandler("vetta:dialog:select-folder");
 		ipcMain.removeHandler("vetta:dialog:select-files");
+		ipcMain.removeHandler("vetta:dialog:save-html");
 		ipcMain.removeHandler("vetta:dialog:select-folders");
 	};
 }
