@@ -65,6 +65,13 @@ export const activeInputActionIdsAtom = atom<Set<string>>(new Set<string>());
  */
 export const knowledgeRetrievalActiveAtom = atom<boolean>(false);
 
+/**
+ * 知识库总开关（镜像 desktop config 的 knowledgeBase.enabled，缺省开）。
+ * 关闭后：隐藏「知识检索」按钮、agent 屏蔽知识库工具、停后台加工。
+ * 由 useAppInit 启动同步、设置页保存时更新。
+ */
+export const knowledgeBaseEnabledAtom = atom<boolean>(true);
+
 /** A card renderer registered by a loaded plugin, keyed by `type`. */
 export interface RegisteredCardRenderer {
 	pluginId: string;

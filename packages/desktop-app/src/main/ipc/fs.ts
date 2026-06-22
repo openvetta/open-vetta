@@ -124,12 +124,15 @@ function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 
 const KB_POLL_INTERVALS = [3, 5, 10, 30];
 
-function normalizeKnowledgeBase(value: unknown): KnowledgeBaseConfig | undefined {
-	if (typeof value !== "object" || value === null) return undefined;
+function normalizeKnowledgeBase(value: unknown): KnowledgeBaseConfig {
+	// 总开关缺省视为开启（保持「自发检索」现状）；后台加工跟随总开关。
+	if (typeof value !== "object" || value === null) {
+		return { enabled: true, pollIntervalMinutes: 5 };
+	}
 	const v = value as Record<string, unknown>;
 	const interval = typeof v.pollIntervalMinutes === "number" ? v.pollIntervalMinutes : 5;
 	return {
-		enabled: v.enabled === true,
+		enabled: v.enabled !== false,
 		pollIntervalMinutes: KB_POLL_INTERVALS.includes(interval) ? interval : 5,
 		processingModelKey: typeof v.processingModelKey === "string" ? v.processingModelKey : undefined,
 	};

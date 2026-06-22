@@ -8,6 +8,9 @@ import {
 	SelectValue,
 } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
+import { knowledgeBaseEnabledAtom, knowledgeRetrievalActiveAtom } from "@shared/store/atoms";
+import { useNavigate } from "@tanstack/react-router";
+import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
@@ -21,19 +24,24 @@ interface ModelOption {
 }
 
 export function KnowledgeBaseSettings(): JSX.Element {
-	const [enabled, setEnabled] = useState(false);
+	const navigate = useNavigate();
+	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
+	const setKnowledgeRetrievalActive = useSetAtom(knowledgeRetrievalActiveAtom);
+	const [enabled, setEnabled] = useState(true);
 	const [interval, setIntervalMinutes] = useState(5);
 	const [modelKey, setModelKey] = useState<string>("");
 	const [models, setModels] = useState<ModelOption[]>([]);
+	const [processingCwd, setProcessingCwd] = useState<string>("");
 	const [busy, setBusy] = useState<"scan" | "rebuild" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
 			const kb = config.knowledgeBase;
-			setEnabled(kb?.enabled === true);
+			setEnabled(kb?.enabled !== false);
 			setIntervalMinutes(kb?.pollIntervalMinutes ?? 5);
 			setModelKey(kb?.processingModelKey ?? "");
+			setProcessingCwd(config.knowledgeProcessingCwd ?? "");
 		});
 		void window.vetta.models.get().then((cfg) => {
 			const opts: ModelOption[] = [];
@@ -61,9 +69,11 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const handleToggle = useCallback(
 		(checked: boolean) => {
 			setEnabled(checked);
+			setKnowledgeBaseEnabled(checked);
+			if (!checked) setKnowledgeRetrievalActive(false);
 			void persist({ enabled: checked });
 		},
-		[persist],
+		[persist, setKnowledgeBaseEnabled, setKnowledgeRetrievalActive],
 	);
 
 	const handleInterval = useCallback(
@@ -88,9 +98,9 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		setStatus(null);
 		try {
 			const res = await window.vetta.knowledge.scanNow();
-			setStatus(res.skipped ? "没有检测到 raws 变更" : "已触发一轮加工");
+			setStatus(res.skipped ? "文件没有变化，这次不用整理" : "已经开始整理了，整理记录里能看到进度");
 		} catch (err) {
-			setStatus(`加工失败：${err instanceof Error ? err.message : String(err)}`);
+			setStatus(`没整理成功：${err instanceof Error ? err.message : String(err)}`);
 		} finally {
 			setBusy(null);
 		}
@@ -101,13 +111,18 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		setStatus(null);
 		try {
 			await window.vetta.knowledge.rebuildIndex();
-			setStatus("已重建 tags.json / manifest.json");
+			setStatus("目录已经重新整理好了");
 		} catch (err) {
-			setStatus(`重建失败：${err instanceof Error ? err.message : String(err)}`);
+			setStatus(`整理目录没成功：${err instanceof Error ? err.message : String(err)}`);
 		} finally {
 			setBusy(null);
 		}
 	}, []);
+
+	const handleOpenRecords = useCallback(() => {
+		if (!processingCwd) return;
+		void navigate({ to: "/project/$cwd", params: { cwd: encodeURIComponent(processingCwd) } });
+	}, [navigate, processingCwd]);
 
 	const grouped = new Map<string, ModelOption[]>();
 	for (const m of models) {
@@ -116,18 +131,21 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		grouped.set(m.provider, list);
 	}
 
+	const btnClass =
+		"inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50";
+
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<h1 className="mb-6 text-[20px] font-bold text-foreground">知识库设置</h1>
 
 			<SettingSection
 				section={SETTINGS_SECTION["knowledge-processing"]}
-				description="把 ~/.vetta/knowledges/raws/ 下的原始文件惰性加工成结构化 wiki。每轮加工是一次可在侧边栏回看的会话。"
+				description="把你放进知识库的资料，自动整理成方便 AI 查阅的笔记。聊天时 AI 会自动参考这些资料来回答。"
 			>
-				<SettingRow title="后台自动加工" description="开启后定期检测 raws 变化并攒批加工。">
+				<SettingRow title="开启知识库" description="关闭后 AI 不再使用知识库，也会停止整理资料。">
 					<Switch checked={enabled} onCheckedChange={handleToggle} />
 				</SettingRow>
-				<SettingRow title="轮询间隔" description="多久检测一次 raws 变化。">
+				<SettingRow title="多久整理一次" description="放进去的新资料，隔多久自动整理一次。">
 					<Select value={String(interval)} onValueChange={handleInterval} disabled={!enabled}>
 						<SelectTrigger className="h-7 min-w-[120px] px-2 py-1 text-[12px]">
 							<SelectValue />
@@ -135,20 +153,20 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						<SelectContent>
 							{POLL_INTERVALS.map((m) => (
 								<SelectItem key={m} value={String(m)} className="text-[12px]">
-									{m} 分钟
+									每 {m} 分钟
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
 				</SettingRow>
 				<SettingRow
-					title="加工模型"
-					description="后台加工会话使用的模型，缺省跟随默认模型。"
+					title="整理用哪个模型"
+					description="整理资料时用的 AI 模型，不选就用默认的。"
 					border={false}
 				>
-					<Select value={modelKey} onValueChange={handleModel}>
+					<Select value={modelKey} onValueChange={handleModel} disabled={!enabled}>
 						<SelectTrigger className="h-7 min-w-[220px] px-2 py-1 text-[12px]">
-							<SelectValue placeholder="跟随默认模型" />
+							<SelectValue placeholder="用默认模型" />
 						</SelectTrigger>
 						<SelectContent>
 							{[...grouped.entries()].map(([provider, items]) => (
@@ -169,29 +187,25 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			</SettingSection>
 
 			<SettingSection section={SETTINGS_SECTION["knowledge-actions"]} description={status ?? undefined}>
-				<SettingRow title="立即扫描并加工" description="不等轮询周期，立刻跑一轮加工。">
-					<button
-						type="button"
-						onClick={() => void handleScan()}
-						disabled={busy !== null}
-						className="inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-					>
-						<span>立即扫描</span>
+				<SettingRow title="马上整理" description="不想等，现在就把新资料整理一遍。">
+					<button type="button" onClick={() => void handleScan()} disabled={!enabled || busy !== null} className={btnClass}>
+						<span>马上整理</span>
 						{busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
-				<SettingRow
-					title="重建索引"
-					description="从 wiki frontmatter 重建 tags.json / manifest.json 缓存。"
-					border={false}
-				>
+				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。">
+					<button type="button" onClick={handleOpenRecords} disabled={!processingCwd} className={btnClass}>
+						<span>查看记录</span>
+					</button>
+				</SettingRow>
+				<SettingRow title="重建目录" description="知识库目录乱了或对不上时，点这里重新生成。" border={false}>
 					<button
 						type="button"
 						onClick={() => void handleRebuild()}
-						disabled={busy !== null}
-						className="inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+						disabled={!enabled || busy !== null}
+						className={btnClass}
 					>
-						<span>重建索引</span>
+						<span>重建目录</span>
 						{busy === "rebuild" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>

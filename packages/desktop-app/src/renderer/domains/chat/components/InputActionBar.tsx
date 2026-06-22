@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback } from "react";
 import {
 	activeInputActionIdsAtom,
+	knowledgeBaseEnabledAtom,
 	knowledgeRetrievalActiveAtom,
 	pluginInputActionsAtom,
 } from "@shared/store/atoms";
@@ -19,6 +20,7 @@ export function InputActionBar(): JSX.Element | null {
 	const actions = useAtomValue(pluginInputActionsAtom);
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
+	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
 
 	const toggle = useCallback(
 		(actionId: string, onToggle: ((active: boolean) => boolean | void) | undefined) => {
@@ -37,6 +39,8 @@ export function InputActionBar(): JSX.Element | null {
 		[activeIds, setActiveIds],
 	);
 
+	if (!knowledgeBaseEnabled && actions.length === 0) return null;
+
 	return (
 		<motion.div
 			// 从卡片背后向下滑出：初始整体上移并被 z-10 的输入卡遮住，再滑落露出下沿，
@@ -47,6 +51,7 @@ export function InputActionBar(): JSX.Element | null {
 			className="input-ledge relative z-0 -mt-[18px] mx-3 flex flex-wrap gap-0.5 rounded-b-[14px] px-3 pb-1 pt-[22px]"
 		>
 			<AnimatePresence initial={false}>
+				{knowledgeBaseEnabled && (
 				<motion.button
 					key="__builtin_knowledge_retrieval__"
 					type="button"
@@ -72,6 +77,7 @@ export function InputActionBar(): JSX.Element | null {
 					/>
 					<span>知识检索</span>
 				</motion.button>
+				)}
 				{actions.map((action, idx) => {
 					const active = activeIds.has(action.actionId);
 					return (
@@ -119,6 +125,7 @@ export function ActiveInputActionChips(): JSX.Element | null {
 	const actions = useAtomValue(pluginInputActionsAtom);
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
+	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
 
 	const deactivate = useCallback(
 		(actionId: string, onToggle: ((active: boolean) => void) | undefined) => {
@@ -136,7 +143,7 @@ export function ActiveInputActionChips(): JSX.Element | null {
 
 	return (
 		<AnimatePresence initial={false}>
-			{knowledgeActive && (
+			{knowledgeActive && knowledgeBaseEnabled && (
 				<motion.button
 					key="__builtin_knowledge_retrieval__"
 					type="button"
