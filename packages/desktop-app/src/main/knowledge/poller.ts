@@ -8,6 +8,10 @@
  * 攒批：不追求实时，整批变更交给一个会话；同一时刻只跑一轮。
  */
 
+import { randomUUID } from "node:crypto";
+import { mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	type AgentSession,
 	type AgentSessionEvent,
@@ -81,6 +85,11 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 				`moved=${prepared.diff.moved.length} del=${prepared.diff.deleted.length} reap=${prepared.toReap.length}`,
 		);
 
+		// 每轮一个 OS tmp 私有目录：注入 TMPDIR/TEMP/TMP 让工具子进程的临时文件
+		// 落到这里，并在 prompt 中指引 agent 把中间产物写进来，避免污染 raws/。
+		const tmpDir = join(tmpdir(), `vetta-kb-${randomUUID()}`);
+		await mkdir(tmpDir, { recursive: true });
+
 		const tools = [...createCodingTools(KB_PROCESSING_CWD), createKbWritePageTool(), createFilterByTagsTool()];
 		const { session } = await createAgentSession({
 			cwd: KB_PROCESSING_CWD,
@@ -88,12 +97,14 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 			tools,
 			appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
 			enableBackgroundTasks: false,
+			env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
 		});
 		try {
 			await applyProcessingModel(session, modelKey);
-			await waitForCompletion(session, knowledge.buildProcessingPrompt(prepared.diff, prepared.toReap));
+			await waitForCompletion(session, knowledge.buildProcessingPrompt(prepared.diff, prepared.toReap, tmpDir));
 		} finally {
 			session.dispose();
+			await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 		}
 
 		await knowledge.finalizeRound(root, prepared.toReap);
