@@ -1,7 +1,8 @@
+import { join } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
 import { queryByTags } from "../../knowledge/query.js";
-import { knowledgeRoot } from "../../knowledge/store.js";
+import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
 import { loadToolDescription } from "../description.js";
 
 const filterByTagsSchema = Type.Object({
@@ -26,7 +27,7 @@ export type FilterByTagsInput = Static<typeof filterByTagsSchema>;
 
 export interface FilterByTagsDetails {
 	count: number;
-	pages: Array<{ id: string; path: string; title: string; summary: string; tags: string[] }>;
+	pages: Array<{ id: string; path: string; absolutePath: string; title: string; summary: string; tags: string[] }>;
 }
 
 /**
@@ -46,14 +47,16 @@ export function createFilterByTagsTool(root?: string): AgentTool<typeof filterBy
 		parameters: filterByTagsSchema,
 		execute: async (_toolCallId, params) => {
 			const resolvedRoot = knowledgeRoot(root);
+			const base = wikiDir(resolvedRoot);
 			const pages = await queryByTags(resolvedRoot, params);
-			const details: FilterByTagsDetails = { count: pages.length, pages };
+			const enriched = pages.map((p) => ({ ...p, absolutePath: join(base, p.path) }));
+			const details: FilterByTagsDetails = { count: enriched.length, pages: enriched };
 			const listing =
-				pages.length === 0
+				enriched.length === 0
 					? "(no matches)"
-					: pages.map((p) => `- [${p.id}] wiki/${p.path} — ${p.title}: ${p.summary}`).join("\n");
+					: enriched.map((p) => `- [${p.id}] ${p.absolutePath} — ${p.title}: ${p.summary}`).join("\n");
 			return {
-				content: [{ type: "text", text: `filter_by_tags matched ${pages.length} page(s):\n${listing}` }],
+				content: [{ type: "text", text: `filter_by_tags matched ${enriched.length} page(s):\n${listing}` }],
 				details,
 			};
 		},
