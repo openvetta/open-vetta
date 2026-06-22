@@ -52,10 +52,12 @@ import {
 } from "./shared/store/atoms";
 import { isMac } from "./shared/lib/platform";
 import { cn } from "./shared/lib/utils";
+import { KnowledgeDropOverlay } from "./domains/knowledge-base/components/KnowledgeDropOverlay";
 
 const ROUTE_TITLES: Array<{ match: RegExp; title: string }> = [
 	{ match: /^\/automation$/, title: "自动化" },
 	{ match: /^\/batch-tasks$/, title: "批量任务" },
+	{ match: /^\/knowledge$/, title: "知识库" },
 	{ match: /^\/skills$/, title: "技能广场" },
 	{ match: /^\/settings\b/, title: "设置" },
 	{ match: /^\/project\b/, title: "项目详情" },
@@ -494,6 +496,7 @@ export function RootLayout(): JSX.Element {
 					<SchedulerToggleApproval />
 					<SchedulerExecutionApproval />
 					<PluginGlobalSlotHost />
+					<KnowledgeDropOverlay />
 				</div>
 			</div>
 		</TooltipProvider>
