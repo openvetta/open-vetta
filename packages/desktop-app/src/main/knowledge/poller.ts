@@ -25,6 +25,7 @@ import {
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
+import { lockRaws, unlockRaws } from "./raws-lock.js";
 
 const log = getAppLogger("kb-poller");
 const scheduler = new ToadScheduler();
@@ -90,20 +91,26 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 		const tmpDir = join(tmpdir(), `vetta-kb-${randomUUID()}`);
 		await mkdir(tmpDir, { recursive: true });
 
-		const tools = [...createCodingTools(KB_PROCESSING_CWD), createKbWritePageTool(), createFilterByTagsTool()];
-		const { session } = await createAgentSession({
-			cwd: KB_PROCESSING_CWD,
-			sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
-			tools,
-			appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
-			enableBackgroundTasks: false,
-			env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
-		});
+		// 加工期间把 raws/ 整树锁成只读（OS 强制），绝对杜绝 agent 往 raws 写入。
+		await lockRaws(root);
 		try {
-			await applyProcessingModel(session, modelKey);
-			await waitForCompletion(session, knowledge.buildProcessingPrompt(prepared.diff, prepared.toReap, tmpDir));
+			const tools = [...createCodingTools(KB_PROCESSING_CWD), createKbWritePageTool(), createFilterByTagsTool()];
+			const { session } = await createAgentSession({
+				cwd: KB_PROCESSING_CWD,
+				sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
+				tools,
+				appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
+				enableBackgroundTasks: false,
+				env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
+			});
+			try {
+				await applyProcessingModel(session, modelKey);
+				await waitForCompletion(session, knowledge.buildProcessingPrompt(prepared.diff, prepared.toReap, tmpDir));
+			} finally {
+				session.dispose();
+			}
 		} finally {
-			session.dispose();
+			await unlockRaws(root);
 			await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 		}
 
@@ -132,6 +139,8 @@ function unschedule(): void {
 /** 据当前配置（重新）调度轮询器。配置变化或启动时调用。 */
 export async function reloadKnowledgePoller(): Promise<void> {
 	unschedule();
+	// 自愈：清除上次进程崩溃可能残留的 raws 只读锁。
+	await unlockRaws().catch(() => {});
 	const config = await readDesktopConfig();
 	const kb = config.knowledgeBase;
 	if (!kb?.enabled) {
