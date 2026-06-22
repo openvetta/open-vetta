@@ -6,6 +6,7 @@ import type { KnowledgeBase, KnowledgeNode } from "@shared/types/knowledge-base"
 import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components/FilePreviewView";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { Input } from "@shared/components/ui/input";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
 import { KnowledgeTree } from "./KnowledgeTree";
 import { KnowledgeBasePicker } from "./KnowledgeBasePicker";
@@ -20,6 +21,7 @@ interface KnowledgeContentsPanelProps {
 	knowledgeBase: KnowledgeBase;
 	onSelectKnowledgeBase: (id: string) => void;
 	onCreateKnowledgeBase: () => void;
+	onViewAllKnowledgeBases: () => void;
 	onPickFiles: () => void;
 	onPickFolders: () => void;
 }
@@ -50,6 +52,7 @@ export function KnowledgeContentsPanel({
 	knowledgeBase,
 	onSelectKnowledgeBase,
 	onCreateKnowledgeBase,
+	onViewAllKnowledgeBases,
 	onPickFiles,
 	onPickFolders,
 }: KnowledgeContentsPanelProps): JSX.Element {
@@ -108,14 +111,15 @@ export function KnowledgeContentsPanel({
 					activeBase={knowledgeBase}
 					onSelect={onSelectKnowledgeBase}
 					onCreate={onCreateKnowledgeBase}
+					onViewAll={onViewAllKnowledgeBases}
 				/>
 				<div className="relative w-56">
 					<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-					<input
+					<Input
 						value={search}
 						onChange={(event) => setSearch(event.target.value)}
 						placeholder="搜索当前知识库"
-						className="h-8 w-full rounded-lg border border-border/60 bg-muted/40 pl-8 pr-3 text-[12px] outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/30 focus:bg-background"
+						className="h-8 border-transparent bg-muted/55 pl-8 pr-3 text-[12px] shadow-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
 					/>
 				</div>
 			</div>

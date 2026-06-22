@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useAtom } from "jotai";
+import { useNavigate } from "@tanstack/react-router";
 import {
 	activeKnowledgeBaseIdAtom,
 	knowledgeBasesAtom,
@@ -7,6 +8,7 @@ import {
 } from "@shared/store/atoms";
 import type { KnowledgeBase } from "@shared/types/knowledge-base";
 import { Button } from "@shared/components/ui/button";
+import { Input } from "@shared/components/ui/input";
 import { useKnowledgeImportSources } from "../hooks/useKnowledgeImportSources";
 import { createKnowledgeId } from "../lib/knowledge-base";
 import { KnowledgeBaseEmptyState } from "./KnowledgeBaseEmptyState";
@@ -21,6 +23,7 @@ export function KnowledgeBasePage(): JSX.Element {
 	const [knowledgeBases, setKnowledgeBases] = useAtom(knowledgeBasesAtom);
 	const [activeId, setActiveId] = useAtom(activeKnowledgeBaseIdAtom);
 	const [draft, setDraft] = useAtom(knowledgeImportDraftAtom);
+	const navigate = useNavigate();
 	const { fileInputRef, openFilePicker, openFolderPicker, onFilesPicked } =
 		useKnowledgeImportSources();
 
@@ -69,7 +72,7 @@ export function KnowledgeBasePage(): JSX.Element {
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
-			<input ref={fileInputRef} type="file" multiple className="hidden" onChange={onFilesPicked} />
+			<Input ref={fileInputRef} type="file" multiple className="hidden" onChange={onFilesPicked} />
 
 			<header className="flex shrink-0 items-center justify-between gap-4 px-8 pb-4 pt-7">
 				<div className="min-w-0">
@@ -106,6 +109,7 @@ export function KnowledgeBasePage(): JSX.Element {
 					knowledgeBase={activeBase}
 					onSelectKnowledgeBase={selectKnowledgeBase}
 					onCreateKnowledgeBase={openCreateDialog}
+					onViewAllKnowledgeBases={() => void navigate({ to: "/knowledge/all" })}
 					onPickFiles={pickFilesForActiveBase}
 					onPickFolders={pickFoldersForActiveBase}
 				/>

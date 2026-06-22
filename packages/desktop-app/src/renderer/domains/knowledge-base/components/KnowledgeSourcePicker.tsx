@@ -29,24 +29,25 @@ export function KnowledgeSourcePicker({
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-44 gap-1 p-1">
-				<button
+				<Button
 					type="button"
+					variant="ghost"
 					onClick={() => runAndClose(onPickFiles)}
-					className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[12px] text-foreground transition-colors hover:bg-accent"
+					className="h-8 w-full justify-start px-2.5 text-[12px] text-foreground"
 				>
 					<span className="icon-[mdi--file-multiple-outline] h-4 w-4 text-muted-foreground" />
 					选择文件
-				</button>
-				<button
+				</Button>
+				<Button
 					type="button"
+					variant="ghost"
 					onClick={() => runAndClose(onPickFolders)}
-					className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[12px] text-foreground transition-colors hover:bg-accent"
+					className="h-8 w-full justify-start px-2.5 text-[12px] text-foreground"
 				>
 					<span className="icon-[mdi--folder-multiple-outline] h-4 w-4 text-muted-foreground" />
 					选择文件夹
-				</button>
+				</Button>
 			</PopoverContent>
 		</Popover>
 	);
 }
-

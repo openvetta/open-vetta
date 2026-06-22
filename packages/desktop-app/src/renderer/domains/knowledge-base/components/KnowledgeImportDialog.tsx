@@ -5,6 +5,14 @@ import type {
 	KnowledgeNode,
 } from "@shared/types/knowledge-base";
 import { Button } from "@shared/components/ui/button";
+import { Input } from "@shared/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@shared/components/ui/select";
 import {
 	Dialog,
 	DialogContent,
@@ -16,6 +24,8 @@ import {
 import { getFileIcon } from "@domains/file-explorer/components/fileIcons";
 import { cn } from "@shared/lib/utils";
 import { buildSuggestedTree } from "../lib/knowledge-base";
+
+const NEW_KNOWLEDGE_BASE_VALUE = "__new__";
 
 export interface KnowledgeImportConfirmation {
 	targetId: string | null;
@@ -79,39 +89,60 @@ export function KnowledgeImportDialog({
 				<div className="min-h-0 overflow-y-auto px-5 pb-4">
 					{knowledgeBases.length > 0 && (
 						<div className="mb-4">
-							<label className="mb-1.5 block text-[11px] font-medium text-foreground">保存到</label>
-							<select
-								value={targetId ?? "__new__"}
-								onChange={(event) => setTargetId(event.target.value === "__new__" ? null : event.target.value)}
-								className="h-9 w-full rounded-lg border border-border bg-background px-3 text-[12px] text-foreground outline-none focus:border-primary/40"
+							<label
+								htmlFor="knowledge-import-target"
+								className="mb-1.5 block text-[11px] font-medium text-foreground"
 							>
-								<option value="__new__">创建新知识库</option>
-								{knowledgeBases.map((base) => (
-									<option key={base.id} value={base.id}>
-										添加到「{base.name}」
-									</option>
-								))}
-							</select>
+								保存到
+							</label>
+							<Select
+								value={targetId ?? NEW_KNOWLEDGE_BASE_VALUE}
+								onValueChange={(value) =>
+									setTargetId(value === NEW_KNOWLEDGE_BASE_VALUE ? null : value)
+								}
+							>
+								<SelectTrigger id="knowledge-import-target" className="h-9 w-full text-[12px]">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent position="popper">
+									<SelectItem value={NEW_KNOWLEDGE_BASE_VALUE} className="text-[12px]">
+										创建新知识库
+									</SelectItem>
+									{knowledgeBases.map((base) => (
+										<SelectItem key={base.id} value={base.id} className="text-[12px]">
+											添加到「{base.name}」
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 					)}
 
 					{creatingNewBase && (
 						<div className="mb-4 grid grid-cols-2 gap-3">
-							<label className="text-[11px] font-medium text-foreground">
+							<label
+								htmlFor="knowledge-base-name"
+								className="text-[11px] font-medium text-foreground"
+							>
 								知识库名称
-								<input
+								<Input
+									id="knowledge-base-name"
 									value={name}
 									onChange={(event) => setName(event.target.value)}
-									className="mt-1.5 h-9 w-full rounded-lg border border-border bg-background px-3 text-[12px] font-normal outline-none focus:border-primary/40"
+									className="mt-1.5 h-9 bg-background text-[12px] font-normal"
 								/>
 							</label>
-							<label className="text-[11px] font-medium text-foreground">
+							<label
+								htmlFor="knowledge-base-description"
+								className="text-[11px] font-medium text-foreground"
+							>
 								描述
-								<input
+								<Input
+									id="knowledge-base-description"
 									value={description}
 									onChange={(event) => setDescription(event.target.value)}
 									placeholder="例如：产品与客户资料"
-									className="mt-1.5 h-9 w-full rounded-lg border border-border bg-background px-3 text-[12px] font-normal outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
+									className="mt-1.5 h-9 bg-background text-[12px] font-normal placeholder:text-muted-foreground/40"
 								/>
 							</label>
 						</div>

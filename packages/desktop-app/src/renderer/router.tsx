@@ -10,6 +10,7 @@ import { SettingsPage } from "./domains/settings/components/SettingsPage";
 import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
 import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
 import { KnowledgeBasePage } from "./domains/knowledge-base/components/KnowledgeBasePage";
+import { KnowledgeBaseListPage } from "./domains/knowledge-base/components/KnowledgeBaseListPage";
 import { RouteErrorPage } from "./shared/components/RouteErrorPage";
 
 const rootRoute = createRootRoute({
@@ -44,6 +45,12 @@ const knowledgeRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/knowledge",
 	component: KnowledgeBasePage,
+});
+
+const knowledgeListRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/knowledge/all",
+	component: KnowledgeBaseListPage,
 });
 
 const settingsTabRoute = createRoute({
@@ -91,6 +98,7 @@ const routeTree = rootRoute.addChildren([
 	automationRoute,
 	batchTasksRoute,
 	knowledgeRoute,
+	knowledgeListRoute,
 	skillsRoute,
 	settingsTabRoute,
 	projectDetailRoute,

@@ -70,6 +70,13 @@ function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
 	};
 }
 
+function isRouteActive(path: string, currentPath: string): boolean {
+	if (path === "/knowledge") {
+		return currentPath === path || currentPath.startsWith(`${path}/`);
+	}
+	return currentPath === path;
+}
+
 export function Sidebar({ onOpenSession, onCollapse, floating = false }: SidebarProps): JSX.Element {
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
@@ -126,7 +133,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 	const widthRef = useRef(width);
 	widthRef.current = width;
 	const activeNavIndex = NAV_ITEMS.findIndex(
-		(item) => item.type === "route" && item.path === currentPath,
+		(item) => item.type === "route" && isRouteActive(item.path, currentPath),
 	);
 
 	useLayoutEffect(() => {
@@ -257,7 +264,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 					/>
 				)}
 				{NAV_ITEMS.map((item, index) => {
-					const active = item.type === "route" && currentPath === item.path;
+					const active = item.type === "route" && isRouteActive(item.path, currentPath);
 					return (
 						<button
 							key={item.type === "route" ? item.path : item.type}
