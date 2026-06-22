@@ -249,7 +249,10 @@ export class InputPipeline {
 					"先用 kb_list_available_tags 看有哪些标签，再用 kb_filter_by_tags 按相关标签筛页（all/any/none 交并补），" +
 					"或读 indexes/ 下的导航地图定位，再用 read 打开命中的 wiki 页（用工具返回的绝对路径）、" +
 					"顺正文里的 [[page-id]] 链接深入；必要时用 grep 全文检索。" +
-					"基于知识库内容作答并说明依据；若知识库确无相关内容，再如实告知并退回常规回答。",
+					"标签只是捷径：若 kb_filter_by_tags 没命中、或命中的页其实答不上问题，不要就此打住——" +
+					"换用别的标签重试、改走 indexes/ 地图、grep 全文、浏览 wiki/ 树并顺 [[page-id]] 链接深挖，" +
+					"多条线索交叉印证后再下结论。" +
+					"基于知识库内容作答并说明依据；只有在这些途径都查空后，才如实告知知识库无相关内容并退回常规回答。",
 				display: false,
 				timestamp: Date.now(),
 			});
