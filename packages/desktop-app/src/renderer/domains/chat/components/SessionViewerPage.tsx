@@ -12,6 +12,7 @@ import {
 } from "@shared/store/atoms";
 import { fullHistoryToChat } from "../services/chat-service";
 import type { ChatMessage } from "@shared/store/atoms";
+import { ChatExportHost } from "./ChatExportHost";
 import { MessageList } from "./MessageList";
 
 /**
@@ -39,6 +40,7 @@ export function SessionViewerPage(): JSX.Element {
 
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	const [exporting, setExporting] = useState(false);
 	const setHeaderRight = useSetAtom(pageHeaderRightSlotAtom);
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
 	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
@@ -50,6 +52,11 @@ export function SessionViewerPage(): JSX.Element {
 		const prefix = imCwd.endsWith("/") ? imCwd : `${imCwd}/`;
 		return path.startsWith(prefix);
 	}, [path, imCwd]);
+	const exportTitle = useMemo(() => {
+		const fileName = path.split(/[\\/]/).at(-1) ?? "Vetta 会话";
+		return fileName.replace(/\.jsonl$/i, "");
+	}, [path]);
+	const handleExportFinished = useCallback(() => setExporting(false), []);
 
 	const handleTogglePanel = useCallback(() => {
 		// 跟 ChatView 对齐：inline preview 打开时，关面板按钮也要顺手关掉 preview，
@@ -74,6 +81,21 @@ export function SessionViewerPage(): JSX.Element {
 				<Button
 					size="icon-xs"
 					variant="ghost"
+					title="导出完整会话 HTML"
+					disabled={messages.length === 0 || exporting}
+					onClick={() => setExporting(true)}
+				>
+					<span
+						className={
+							exporting
+								? "icon-[mdi--loading] animate-spin text-[14px]"
+								: "icon-[mdi--language-html5] text-[14px]"
+						}
+					/>
+				</Button>
+				<Button
+					size="icon-xs"
+					variant="ghost"
 					title={panelOpen ? "关闭活动面板" : "打开活动面板"}
 					onClick={handleTogglePanel}
 					className={panelOpen ? "bg-accent text-foreground" : ""}
@@ -83,7 +105,7 @@ export function SessionViewerPage(): JSX.Element {
 			</div>,
 		);
 		return () => setHeaderRight(null);
-	}, [isIm, panelOpen, handleTogglePanel, setHeaderRight]);
+	}, [isIm, panelOpen, handleTogglePanel, setHeaderRight, messages.length, exporting]);
 
 	useEffect(() => {
 		if (!path) return;
@@ -129,6 +151,13 @@ export function SessionViewerPage(): JSX.Element {
 
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
+			{exporting && (
+				<ChatExportHost
+					messages={messages}
+					title={exportTitle}
+					onFinished={handleExportFinished}
+				/>
+			)}
 			<div className="flex flex-1 gap-2 overflow-hidden">
 				<div className="flex min-w-0 flex-1 flex-col">
 					<MessageList messages={messages} isStreaming={false} sessionId={null} />

@@ -17,6 +17,8 @@ export interface DesktopDialogApi {
 	selectFolders(): Promise<string[]>;
 	selectImages(): Promise<SelectedImageFile[]>;
 	selectFiles(defaultPath?: string): Promise<string[]>;
+	/** 使用原生保存对话框写出单文件 HTML；取消时返回 null。 */
+	saveHtml(defaultFileName: string, content: string): Promise<string | null>;
 	/**
 	 * 把附加图片落盘到 ~/.vetta/image-cache/<sessionId>/，返回绝对路径。
 	 * 用于以 @路径 方式引用图片，避免把 base64 直接塞进上下文。

@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode, useMemo, useState } from "react";
+import { Component, type ErrorInfo, type ReactNode, useId, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue } from "jotai";
 import {
@@ -24,6 +24,7 @@ import { getShellCommand, getStringArg, parseMcpTool, toolIcon, toolLabel } from
 
 interface ToolCallBlockProps {
 	block: ToolCallBlock;
+	exportMode?: boolean;
 }
 
 /**
@@ -49,8 +50,10 @@ class PluginToolCallErrorBoundary extends Component<{ children: ReactNode }, { f
 	}
 }
 
-export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
+export function ToolCallBlockView({ block, exportMode = false }: ToolCallBlockProps): JSX.Element {
 	const [expanded, setExpanded] = useState(false);
+	const generatedId = useId();
+	const panelId = exportMode ? `export-tool-${generatedId}` : undefined;
 	const toolCallSlots = useAtomValue(pluginToolCallSlotsAtom);
 	const pluginRenderer = useMemo(
 		() => toolCallSlots.find((slot) => slot.toolName === block.toolName),
@@ -119,6 +122,8 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 			<button
 				type="button"
 				onClick={() => canExpand && setExpanded(!expanded)}
+				data-export-toggle={canExpand ? panelId : undefined}
+				aria-expanded={expanded}
 				className={`inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors ${canExpand ? "hover:bg-muted/60 cursor-pointer" : "cursor-default"}`}
 			>
 				{/* Tool name and detail */}
@@ -163,8 +168,11 @@ export function ToolCallBlockView({ block }: ToolCallBlockProps): JSX.Element {
 
 			{/* Expandable result */}
 			<AnimatePresence initial={false}>
-				{expanded && canExpand && (
+				{(expanded || exportMode) && canExpand && (
 					<motion.div
+						id={panelId}
+						data-export-collapse-panel={exportMode ? "" : undefined}
+						hidden={exportMode && !expanded}
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: "auto", opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
