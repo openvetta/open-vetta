@@ -838,9 +838,17 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAIComple
 
 	const isMistral = provider === "mistral" || baseUrl.includes("mistral.ai");
 
+	// The `developer` role is OpenAI-specific (official reasoning models / Copilot proxy).
+	// Most OpenAI-compatible backends (vLLM, SGLang, Qwen, llama.cpp, …) only know
+	// system/user/assistant/tool and reject `developer` with "400 Unexpected message role".
+	// Default it on ONLY for endpoints known to support it; everything else falls back to
+	// the universally-accepted `system` role.
+	const supportsDeveloperRole =
+		provider === "openai" || provider === "github-copilot" || baseUrl.includes("api.openai.com");
+
 	return {
 		supportsStore: !isNonStandard,
-		supportsDeveloperRole: !isNonStandard,
+		supportsDeveloperRole,
 		supportsReasoningEffort: !isGrok && !isZai,
 		supportsUsageInStreaming: true,
 		maxTokensField: useMaxTokens ? "max_tokens" : "max_completion_tokens",
