@@ -171,7 +171,19 @@ function generateHtml(sessionData: SessionData, themeName?: string): string {
 }
 
 /** Built-in tool names that have custom rendering in template.js */
-const BUILTIN_TOOLS = new Set(["bash", "read", "write", "edit", "ls", "find", "grep", "dir_tree", "tree"]);
+const BUILTIN_TOOLS = new Set([
+	"bash",
+	"read",
+	"write",
+	"edit",
+	"ls",
+	"find",
+	"grep",
+	"dir_tree",
+	"tree",
+	"kb_write_page",
+	"filter_by_tags",
+]);
 
 /**
  * Pre-render custom tools to HTML using their TUI renderers.

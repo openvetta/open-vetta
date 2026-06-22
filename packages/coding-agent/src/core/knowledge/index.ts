@@ -26,6 +26,7 @@ export {
 	validateWikiFrontmatter,
 	WikiFrontmatterError,
 } from "./frontmatter.js";
+export { type FilteredPage, queryByTags } from "./query.js";
 export {
 	deleteWikiPage,
 	ensureKnowledgeDirs,
@@ -57,3 +58,8 @@ export {
 	type UpsertInput,
 	type UpsertLookup,
 } from "./upsert.js";
+export {
+	type WritePageRequest,
+	type WritePageResult,
+	writeKnowledgePage,
+} from "./writer.js";

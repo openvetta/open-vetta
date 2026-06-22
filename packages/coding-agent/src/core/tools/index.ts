@@ -53,6 +53,12 @@ export {
 	extractTextFromPdfTool,
 } from "./extract-text-from-pdf/index.js";
 export {
+	createFilterByTagsTool,
+	type FilterByTagsDetails,
+	type FilterByTagsInput,
+	filterByTagsTool,
+} from "./filter-by-tags/index.js";
+export {
 	createFindTool,
 	type FindOperations,
 	type FindToolDetails,
@@ -92,6 +98,12 @@ export {
 	type InvokeSkillToolInput,
 	type InvokeSkillToolOptions,
 } from "./invoke-skill/index.js";
+export {
+	createKbWritePageTool,
+	type KbWritePageDetails,
+	type KbWritePageInput,
+	kbWritePageTool,
+} from "./kb-write-page/index.js";
 export {
 	createLsTool,
 	type LsOperations,
@@ -170,10 +182,12 @@ import { createDocToPdfTool, type DocToPdfToolOptions, docToPdfTool } from "./do
 import { createEditTool, editTool } from "./edit/index.js";
 import { createExtractTextFromImgTool, extractTextFromImgTool } from "./extract-text-from-img/index.js";
 import { createExtractTextFromPdfTool, extractTextFromPdfTool } from "./extract-text-from-pdf/index.js";
+import { createFilterByTagsTool, filterByTagsTool } from "./filter-by-tags/index.js";
 import { createFindTool, findTool } from "./find/index.js";
 import { createGlobTool, type GlobToolOptions, globTool } from "./glob/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
 import { createHtmlToPdfTool, htmlToPdfTool } from "./html-to-pdf/index.js";
+import { createKbWritePageTool, kbWritePageTool } from "./kb-write-page/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
 import { createRenderPdfPageTool, renderPdfPageTool } from "./render-pdf-page/index.js";
@@ -233,6 +247,8 @@ export const allTools = {
 	extract_text_from_img: extractTextFromImgTool,
 	render_pdf_page: renderPdfPageTool,
 	current_time: currentTimeTool,
+	kb_write_page: kbWritePageTool,
+	filter_by_tags: filterByTagsTool,
 };
 
 export type ToolName = keyof typeof allTools;
@@ -310,5 +326,7 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		extract_text_from_img: createExtractTextFromImgTool(cwd),
 		render_pdf_page: createRenderPdfPageTool(cwd),
 		current_time: createCurrentTimeTool(),
+		kb_write_page: createKbWritePageTool(),
+		filter_by_tags: createFilterByTagsTool(),
 	};
 }

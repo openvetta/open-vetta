@@ -28,10 +28,12 @@ import {
 	createEditTool,
 	createExtractTextFromImgTool,
 	createExtractTextFromPdfTool,
+	createFilterByTagsTool,
 	createFindTool,
 	createGlobTool,
 	createGrepTool,
 	createHtmlToPdfTool,
+	createKbWritePageTool,
 	createLsTool,
 	createReadOnlyTools,
 	createReadTool,
@@ -42,11 +44,13 @@ import {
 	editTool,
 	extractTextFromImgTool,
 	extractTextFromPdfTool,
+	filterByTagsTool,
 	findTool,
 	getDefaultCodingToolNames,
 	globTool,
 	grepTool,
 	htmlToPdfTool,
+	kbWritePageTool,
 	lsTool,
 	readOnlyTools,
 	readTool,
@@ -202,6 +206,9 @@ export {
 	createRenderPdfPageTool,
 	createTreeTool,
 	createWriteTool,
+	// Knowledge base tool factories
+	createKbWritePageTool,
+	createFilterByTagsTool,
 	editTool,
 	extractTextFromImgTool,
 	extractTextFromPdfTool,
@@ -216,6 +223,9 @@ export {
 	renderPdfPageTool,
 	treeTool,
 	writeTool,
+	// Knowledge base pre-built tools
+	kbWritePageTool,
+	filterByTagsTool,
 };
 
 // Helper Functions

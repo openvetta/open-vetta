@@ -156,6 +156,8 @@ export {
 } from "./core/extensions/index.js";
 // Footer data provider (git branch + extension statuses - data not otherwise available to extensions)
 export type { ReadonlyFooterDataProvider } from "./core/footer-data-provider.js";
+// Knowledge base core modules
+export * as knowledge from "./core/knowledge/index.js";
 export { convertToLlm } from "./core/messages.js";
 export { ModelRegistry } from "./core/model-registry.js";
 export type {
@@ -239,6 +241,13 @@ export {
 	type Skill,
 	type SkillFrontmatter,
 } from "./core/skills.js";
+// Knowledge base tools
+export {
+	createFilterByTagsTool,
+	type FilterByTagsDetails,
+	type FilterByTagsInput,
+	filterByTagsTool,
+} from "./core/tools/filter-by-tags/index.js";
 export {
 	createEditImageTool,
 	createGenerateImageTool,
@@ -342,6 +351,12 @@ export {
 	type WriteToolOptions,
 	writeTool,
 } from "./core/tools/index.js";
+export {
+	createKbWritePageTool,
+	type KbWritePageDetails,
+	type KbWritePageInput,
+	kbWritePageTool,
+} from "./core/tools/kb-write-page/index.js";
 // Main entry point
 export { main } from "./main.js";
 // Run modes for programmatic SDK usage
