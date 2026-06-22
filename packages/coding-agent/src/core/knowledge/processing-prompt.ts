@@ -15,6 +15,7 @@ export const KB_PROCESSING_GUIDE = `你是知识库加工 agent。把 ~/.vetta/k
 
 核心约定：
 - raw ↔ wiki 为 1:1：一个原始文件对应恰好一个 wiki 页。
+- raws/ 是**只读**原始来源：绝不要写入、修改或在其中创建任何临时/中间文件。一切临时产物（解压、OCR 中间结果、格式转换等）一律写到任务中给出的「临时工作目录」（系统 tmp），完成后无需手动清理。也不要把临时文件写进 wiki/、indexes/ 或知识库根目录。
 - 用 read / extract_text_from_pdf / extract_text_from_img / render_pdf_page 读取原始文件内容（按 raws/<source_path> 定位，相对知识库根的 raws/ 目录）。
 - 用且仅用 kb_write_page 写 wiki 页：它守封闭 frontmatter schema、分配稳定 id、按 id/source_hash upsert、自动刷新缓存。绝不要用通用 write 工具手写 wiki 的 .md。
 - wiki 树由你按主题/语义自由组织（path 参数），不要镜像 raws 的目录结构。
@@ -27,7 +28,7 @@ const formatRaws = (label: string, items: string[]): string =>
 	items.length === 0 ? "" : `\n## ${label}\n${items.map((s) => `- ${s}`).join("\n")}`;
 
 /** 渲染本轮任务 prompt。 */
-export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[]): string {
+export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[], tmpDir?: string): string {
 	const added = diff.added.map(
 		(a) => `raws/${a.raw.source_path}（source=${a.raw.source}，source_hash=${a.raw.source_hash}）→ 新建 wiki 页`,
 	);
@@ -48,5 +49,6 @@ export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[]): 
 		.filter(Boolean)
 		.join("\n");
 
-	return `# 本轮知识库加工任务\n${sections}\n\n完成后请同步更新 indexes/ 导航。`;
+	const tmpNote = tmpDir ? `\n\n临时工作目录（所有中间/临时文件写这里，勿污染 raws/）：${tmpDir}` : "";
+	return `# 本轮知识库加工任务\n${sections}${tmpNote}\n\n完成后请同步更新 indexes/ 导航。`;
 }
