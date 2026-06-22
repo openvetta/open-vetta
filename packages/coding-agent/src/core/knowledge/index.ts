@@ -26,6 +26,13 @@ export {
 	validateWikiFrontmatter,
 	WikiFrontmatterError,
 } from "./frontmatter.js";
+export {
+	finalizeRound,
+	type PreparedRound,
+	prepareRound,
+	rebuildAllCaches,
+} from "./ingest.js";
+export { buildProcessingPrompt, KB_PROCESSING_GUIDE } from "./processing-prompt.js";
 export { type FilteredPage, queryByTags } from "./query.js";
 export {
 	deleteWikiPage,
