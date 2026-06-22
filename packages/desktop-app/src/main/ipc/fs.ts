@@ -41,6 +41,17 @@ export interface DesktopConfig {
 	notificationsEnabled?: boolean;
 	/** 实验性功能开关分组。缺省视为全部开启。 */
 	experimental?: ExperimentalConfig;
+	/** 知识库加工设置。 */
+	knowledgeBase?: KnowledgeBaseConfig;
+}
+
+export interface KnowledgeBaseConfig {
+	/** 是否启用后台惰性加工。缺省关。 */
+	enabled?: boolean;
+	/** 轮询间隔（分钟）：3 / 5 / 10 / 30。缺省 5。 */
+	pollIntervalMinutes?: number;
+	/** 加工会话使用的模型 key（provider/modelId）。缺省跟随默认模型。 */
+	processingModelKey?: string;
 }
 
 export interface LinuxSandboxConfigState {
@@ -58,6 +69,8 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	defaultConversationCwd: string;
 	/** im-gateway 自己的 cwd（~/.vetta/im-gateway/conversation）。Claw tab 据此判定一条 session 是否来自 IM。 */
 	defaultImConversationCwd: string;
+	/** 知识库加工特殊项目的绝对路径（~/.vetta/knowledges/processing_records）。 */
+	knowledgeProcessingCwd: string;
 }
 
 export const DEFAULT_CONVERSATION_CWD = join(homedir(), ".vetta", "conversation");
@@ -74,6 +87,13 @@ export const DEFAULT_CONVERSATION_SESSION_DIR = join(DEFAULT_CONVERSATION_CWD, "
  */
 export const DEFAULT_IM_CONVERSATION_CWD = join(homedir(), ".vetta", "im-gateway", "conversation");
 export const DEFAULT_IM_CONVERSATION_SESSION_DIR = join(DEFAULT_IM_CONVERSATION_CWD, ".vetta", "sessions");
+
+/**
+ * 知识库加工特殊项目（仿「对话」项目）：cwd 是 ~/.vetta/knowledges/processing_records，
+ * 每轮加工的 session jsonl 落在其本地 .vetta/sessions，自包含、可在 sidebar 回看。
+ */
+export const KB_PROCESSING_CWD = join(homedir(), ".vetta", "knowledges", "processing_records");
+export const KB_PROCESSING_SESSION_DIR = join(KB_PROCESSING_CWD, ".vetta", "sessions");
 
 const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
 const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
@@ -100,6 +120,19 @@ function migrateProjectEntries(entries: unknown): ProjectEntry[] {
 
 function normalizeExecutionMode(value: unknown): "sandbox" | "full-access" {
 	return value === "sandbox" ? "sandbox" : "full-access";
+}
+
+const KB_POLL_INTERVALS = [3, 5, 10, 30];
+
+function normalizeKnowledgeBase(value: unknown): KnowledgeBaseConfig | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const v = value as Record<string, unknown>;
+	const interval = typeof v.pollIntervalMinutes === "number" ? v.pollIntervalMinutes : 5;
+	return {
+		enabled: v.enabled === true,
+		pollIntervalMinutes: KB_POLL_INTERVALS.includes(interval) ? interval : 5,
+		processingModelKey: typeof v.processingModelKey === "string" ? v.processingModelKey : undefined,
+	};
 }
 
 function normalizeExperimental(value: unknown): ExperimentalConfig {
@@ -137,6 +170,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 			experimental: normalizeExperimental(parsed.experimental),
+			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -159,6 +193,7 @@ export function readConfigSync(): DesktopConfig {
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 			experimental: normalizeExperimental(parsed.experimental),
+			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -650,12 +685,14 @@ export function registerFsIpc(): () => void {
 		if (config.workspacePath) allowProjectRoot(config.workspacePath);
 		allowProjectRoot(DEFAULT_CONVERSATION_CWD);
 		allowProjectRoot(DEFAULT_IM_CONVERSATION_CWD);
+		allowProjectRoot(KB_PROCESSING_CWD);
 		return {
 			...config,
 			sandbox: getSandboxCapability(),
 			linuxSandbox: getLinuxSandboxCapability(),
 			defaultConversationCwd: DEFAULT_CONVERSATION_CWD,
 			defaultImConversationCwd: DEFAULT_IM_CONVERSATION_CWD,
+			knowledgeProcessingCwd: KB_PROCESSING_CWD,
 		};
 	});
 
@@ -679,6 +716,10 @@ export function registerFsIpc(): () => void {
 				patch.experimental !== undefined
 					? normalizeExperimental({ ...current.experimental, ...patch.experimental })
 					: current.experimental,
+			knowledgeBase:
+				patch.knowledgeBase !== undefined
+					? normalizeKnowledgeBase({ ...current.knowledgeBase, ...patch.knowledgeBase })
+					: current.knowledgeBase,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

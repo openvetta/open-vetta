@@ -13,6 +13,7 @@ export function createSystemApi(
 	| "fs"
 	| "skills"
 	| "config"
+	| "knowledge"
 	| "models"
 	| "mcp"
 	| "media"
@@ -129,6 +130,11 @@ export function createSystemApi(
 		config: {
 			get: () => ipc.invoke("vetta:config:get"),
 			set: (config) => ipc.invoke("vetta:config:set", config),
+		},
+		knowledge: {
+			scanNow: () => ipc.invoke("vetta:kb:scan-now"),
+			rebuildIndex: () => ipc.invoke("vetta:kb:rebuild-index"),
+			reload: () => ipc.invoke("vetta:kb:reload"),
 		},
 		models: {
 			get: () => ipc.invoke("vetta:models:get"),

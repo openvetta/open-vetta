@@ -674,6 +674,7 @@ export class RuntimeManager {
 			"easy_use_vettaApp",
 			"task_output",
 			"task_stop",
+			"filter_by_tags",
 		];
 		for (const name of alwaysActive) {
 			if (this._baseToolRegistry.has(name)) {
