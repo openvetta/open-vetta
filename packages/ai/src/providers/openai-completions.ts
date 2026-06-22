@@ -473,8 +473,15 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
 		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };
 	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
-		// OpenAI-style reasoning_effort
-		params.reasoning_effort = options.reasoningEffort;
+		// OpenAI-style reasoning_effort. "minimal" is OpenAI gpt-5 / Responses-API
+		// specific; most chat-completions backends (DeepSeek, aggregating gateways,
+		// vLLM, …) only accept low/medium/high/max/xhigh and return a 400 for
+		// "minimal". Clamp it up to "low" except on genuine OpenAI endpoints, so the
+		// lightest-thinking callers (auto-title, prompt suggestions) degrade instead
+		// of failing.
+		const isOpenAIOfficial = model.baseUrl.includes("api.openai.com");
+		params.reasoning_effort =
+			options.reasoningEffort === "minimal" && !isOpenAIOfficial ? "low" : options.reasoningEffort;
 	}
 
 	// OpenRouter provider routing preferences

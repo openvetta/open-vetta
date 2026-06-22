@@ -39,6 +39,18 @@ export function getProjectDisplayName(cwd: string, defaultCwd: string): string {
 	return pathBasename(cwd);
 }
 
+/**
+ * ADR-0007：默认「对话」session 的运行 cwd 是项目根（`defaultCwd`）下的 per-session 子目录，
+ * 但侧边栏 sessionsMap / 默认会话列表都以项目根为 bucket key。任何要落到侧边栏 bucket 的
+ * 操作（ensureLocalSession / applyLocalRename / loadSessions / 顶部新会话目标 cwd）都必须先把
+ * 子目录 cwd 归一回项目根，否则会出现「乐观行进错桶、改名落空、列表要刷新才更新」等问题。
+ * 非默认项目的 cwd 原样返回（它们没有 per-session 子目录）。
+ */
+export function conversationBucketCwd(cwd: string, defaultCwd: string): string {
+	if (defaultCwd && cwd !== defaultCwd && cwd.startsWith(`${defaultCwd}/`)) return defaultCwd;
+	return cwd;
+}
+
 export interface SessionInfo {
 	id: string;
 	path: string;

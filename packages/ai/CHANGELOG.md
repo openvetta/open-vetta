@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- 修复 `openai-completions` provider 把 `reasoning_effort: "minimal"` 原样下发给不支持该档位的后端（DeepSeek、聚合网关、vLLM 等，仅接受 low/medium/high/max/xhigh）导致 400 的问题。`minimal` 是 OpenAI gpt-5 / Responses API 专有档位，现仅在 `api.openai.com` 官方端点保留，其余端点降级为 `low`，使请求最轻量思考的调用方（自动标题、输入预测）优雅降级而非失败。
 - 修复 `google-gemini-cli` / `openai-codex-responses` / `github-copilot` OAuth 三处 `sleep` / `abortableSleep` 在 timeout 正常完成时不移除 abort listener 的缺陷。长生命周期（per-prompt）的 `AbortSignal` 在每次 retry 重试都会累计一个永久挂着的 abort listener，多轮工具调用 + 多次重试后即触发 `MaxListenersExceededWarning: 11 abort listeners added to [AbortSignal]`，并造成 closure 持有 reader/response/partial 等对象的隐性内存泄漏，长跑会拖垮主进程内存。修复：两个路径（abort 与正常 timeout 完成）都成对移除 listener，并把 `addEventListener` 加上 `{ once: true }` 作为防御。
 - 修复 `openai-completions` provider 在流式 tool_calls 拼装上的解析缺陷：原实现用 `currentBlock.type !== "toolCall"` + id 不一致来判断要不要建新块，对于 Qwen / 通义系等"在 tool_call 之间夹 text delta 或先发空占位帧 `tool_calls: [{index: N}]` 再补 id/name/arguments"的发包风格，会在最终 assistant message 里留下幽灵 `{id:"", name:"", arguments:{}}` 块；UI 历史回放时这些块会显示成无名工具。改为按 OpenAI 协议规定的 `tool_calls[].index` 作为身份标识：用 `Map<index, block>` 锁定，跨 text/thinking 切换也能把同一 index 的 delta 累积到同一个块；空占位帧（无 id 无 name 无 arguments）直接跳过不建块。同时把 `finishCurrentBlock` 的 `contentIndex` 改为 `blocks.indexOf(block)`，避免 toolCall 被中途切走后再回来时 emit 出错误的 contentIndex。
 - 修复"思考关闭"对自定义端点不生效的问题：

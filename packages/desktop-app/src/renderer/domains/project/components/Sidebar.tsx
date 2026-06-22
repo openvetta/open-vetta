@@ -4,6 +4,7 @@ import { useNavigate, useMatches } from "@tanstack/react-router";
 import { motion } from "motion/react";
 import {
 	activeSessionAtom,
+	conversationBucketCwd,
 	defaultConversationCwdAtom,
 	SIDEBAR_WIDTH_STORAGE_KEY,
 	sidebarFilterAtom,
@@ -77,8 +78,9 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 
 	// 「新会话」按钮目标 cwd 解析顺序：
 	//   1. 当前路由参数 cwd（/project/$cwd 或 /new-session/$cwd）—— 项目详情聚焦
-	//   2. 仅在聊天页（/）时，跟随 activeSession 的 cwd —— 聚焦的是「某项目的会话」时落到该项目；
-	//      若是默认「会话」分组的会话，其 cwd 即默认 cwd，结果一致。
+	//   2. 仅在聊天页（/）时，跟随 activeSession 的 cwd —— 聚焦的是「某项目的会话」时落到该项目。
+	//      ADR-0007：默认「对话」session 的运行 cwd 是默认项目根下的 per-session 子目录，
+	//      必须归一回项目根，否则新会话会挂到子目录 bucket、不在「会话」列表出现。
 	//   3. 其余一切场景（自动化/批量任务/Claw 查看器/设置等）落到默认「会话」项目，
 	//      不能沿用残留的 activeSession.cwd，否则会把新会话建到上一个项目里。
 	const newChatCwd = (() => {
@@ -90,7 +92,9 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 				return params.cwd;
 			}
 		}
-		if (currentPath === "/" && activeSession?.cwd) return activeSession.cwd;
+		if (currentPath === "/" && activeSession?.cwd) {
+			return conversationBucketCwd(activeSession.cwd, defaultConversationCwd);
+		}
 		return defaultConversationCwd || "";
 	})();
 	const onNewChat = useCallback(() => {
