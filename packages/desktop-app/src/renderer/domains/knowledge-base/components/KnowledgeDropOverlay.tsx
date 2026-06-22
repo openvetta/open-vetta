@@ -29,12 +29,12 @@ function toImportItems(dataTransfer: DataTransfer): KnowledgeImportItem[] {
 
 /**
  * 知识库页的全窗口拖拽接收层。挂在 RootLayout，避免被页面内部滚动容器裁切。
- * 仅在 /knowledge 生效，不抢占聊天页现有的附件拖拽语义。
+ * 仅在知识库相关路由生效，不抢占聊天页现有的附件拖拽语义。
  */
 export function KnowledgeDropOverlay(): JSX.Element {
 	const matches = useMatches();
 	const path = matches[matches.length - 1]?.pathname ?? "/";
-	const enabled = path === "/knowledge";
+	const enabled = path.startsWith("/knowledge");
 	const navigate = useNavigate();
 	const setDraft = useSetAtom(knowledgeImportDraftAtom);
 	const dragDepth = useRef(0);

@@ -57,6 +57,7 @@ import { KnowledgeDropOverlay } from "./domains/knowledge-base/components/Knowle
 const ROUTE_TITLES: Array<{ match: RegExp; title: string }> = [
 	{ match: /^\/automation$/, title: "自动化" },
 	{ match: /^\/batch-tasks$/, title: "批量任务" },
+	{ match: /^\/knowledge\/all$/, title: "全部知识库" },
 	{ match: /^\/knowledge$/, title: "知识库" },
 	{ match: /^\/skills$/, title: "技能广场" },
 	{ match: /^\/settings\b/, title: "设置" },
