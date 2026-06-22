@@ -76,9 +76,11 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 	const [navIndicatorBounds, setNavIndicatorBounds] = useState<NavIndicatorBounds | null>(null);
 
 	// 「新会话」按钮目标 cwd 解析顺序：
-	//   1. 当前路由参数 cwd（/project/$cwd 或 /new-session/$cwd）
-	//   2. 当前 activeSession 的 cwd（在 / 路径上时）
-	//   3. 默认「对话」项目的 cwd
+	//   1. 当前路由参数 cwd（/project/$cwd 或 /new-session/$cwd）—— 项目详情聚焦
+	//   2. 仅在聊天页（/）时，跟随 activeSession 的 cwd —— 聚焦的是「某项目的会话」时落到该项目；
+	//      若是默认「会话」分组的会话，其 cwd 即默认 cwd，结果一致。
+	//   3. 其余一切场景（自动化/批量任务/Claw 查看器/设置等）落到默认「会话」项目，
+	//      不能沿用残留的 activeSession.cwd，否则会把新会话建到上一个项目里。
 	const newChatCwd = (() => {
 		const params = lastMatch?.params as { cwd?: string } | undefined;
 		if (params?.cwd) {
@@ -88,7 +90,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 				return params.cwd;
 			}
 		}
-		if (activeSession?.cwd) return activeSession.cwd;
+		if (currentPath === "/" && activeSession?.cwd) return activeSession.cwd;
 		return defaultConversationCwd || "";
 	})();
 	const onNewChat = useCallback(() => {
