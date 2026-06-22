@@ -12,6 +12,7 @@ import {
 	type ChatMessage,
 	chatMessagesAtom,
 	contextUsageAtom,
+	conversationBucketCwd,
 	defaultConversationCwdAtom,
 	editImageAttachmentAtom,
 	inlineFilePreviewAtom,
@@ -471,8 +472,7 @@ export function useSessionManager(): SessionManagerResult {
 										if (name) {
 											// 归一到侧边栏 bucket 的 cwd：「对话」session 的 cwd 是项目根下的
 											// per-session 子目录（ADR-0007），但 sessionsMap / 侧边栏挂在根上。
-											const root = defaultConversationCwdRef.current;
-											const bucketCwd = root && cwd !== root && cwd.startsWith(`${root}/`) ? root : cwd;
+											const bucketCwd = conversationBucketCwd(cwd, defaultConversationCwdRef.current);
 											// Optimistic local update for sessions already present in the map.
 											applyLocalRename(bucketCwd, sp, name);
 											// Re-read from disk: handles brand-new sessions whose JSONL only
@@ -800,7 +800,12 @@ export function useSessionManager(): SessionManagerResult {
 			// auto-title or the next loadSessions will overwrite as appropriate.
 			const sp = activeSessionRef.current?.sessionPath;
 			if (sp) {
-				ensureLocalSession(session.cwd, {
+				// ADR-0007：「对话」session 的 cwd 是默认项目根下的 per-session 子目录，
+				// 但侧边栏 sessionsMap / 默认列表都挂在项目根 bucket 上。乐观行必须落到根
+				// bucket，否则既不在「会话」列表显示，auto-title 的 applyLocalRename(root,…)
+				// 也会因 bucket 不匹配而落空，导致改名要等下一次磁盘刷新才生效。
+				const bucketCwd = conversationBucketCwd(session.cwd, defaultConversationCwdRef.current);
+				ensureLocalSession(bucketCwd, {
 					id: session.runtimeId,
 					path: sp,
 					cwd: session.cwd,
@@ -897,7 +902,9 @@ export function useSessionManager(): SessionManagerResult {
 				console.error("[useSessionManager.sendMessage] prompt rejected:", err);
 				setChatMessages((prev) => appendError(prev, message));
 			}
-			await loadSessions(session.cwd);
+			// ADR-0007：归一回项目根 bucket，否则「对话」session 刷的是没用的子目录桶，
+			// 侧边栏默认列表（挂在根 bucket）拿不到这一轮的对账更新。
+			await loadSessions(conversationBucketCwd(session.cwd, defaultConversationCwdRef.current));
 		},
 		[
 			// 输入相关值改为读 ref（inputValue/attachedImages/selectedSkill/mentionedFiles/
