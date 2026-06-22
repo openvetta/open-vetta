@@ -154,6 +154,11 @@ export interface ActiveSession {
 	runtimeId: string;
 }
 
+export interface LastActiveSession {
+	cwd: string;
+	sessionPath: string;
+}
+
 export type SessionExecutionMode = "sandbox" | "full-access";
 export type ExecutionModeOverride = "inherit" | SessionExecutionMode;
 
@@ -211,6 +216,42 @@ export const turnModifiedFilesAtom = atom<string[]>([]);
 export const inputValueAtom = atom<string>("");
 export const attachedImagesAtom = atom<AttachedImage[]>([]);
 export const activeSessionAtom = atom<ActiveSession | null>(null);
+
+const LAST_ACTIVE_SESSION_STORAGE_KEY = "vetta-last-active-session";
+
+function readLastActiveSession(): LastActiveSession | null {
+	try {
+		const raw = localStorage.getItem(LAST_ACTIVE_SESSION_STORAGE_KEY);
+		if (!raw) return null;
+		const value = JSON.parse(raw) as Partial<LastActiveSession>;
+		if (typeof value.cwd !== "string" || !value.cwd || typeof value.sessionPath !== "string" || !value.sessionPath) {
+			localStorage.removeItem(LAST_ACTIVE_SESSION_STORAGE_KEY);
+			return null;
+		}
+		return { cwd: value.cwd, sessionPath: value.sessionPath };
+	} catch {
+		localStorage.removeItem(LAST_ACTIVE_SESSION_STORAGE_KEY);
+		return null;
+	}
+}
+
+const lastActiveSessionStorageAtom = atom<LastActiveSession | null>(readLastActiveSession());
+
+/**
+ * 可跨 renderer 刷新恢复的会话定位信息。
+ * runtimeId 仅在当前进程有效，因此这里只持久化可交给 session.create 重新打开的 cwd + sessionPath。
+ */
+export const lastActiveSessionAtom = atom(
+	(get) => get(lastActiveSessionStorageAtom),
+	(_get, set, value: LastActiveSession | null) => {
+		set(lastActiveSessionStorageAtom, value);
+		if (value) {
+			localStorage.setItem(LAST_ACTIVE_SESSION_STORAGE_KEY, JSON.stringify(value));
+		} else {
+			localStorage.removeItem(LAST_ACTIVE_SESSION_STORAGE_KEY);
+		}
+	},
+);
 
 /**
  * 「当前 active session 正在 streaming」的本地直读信号。

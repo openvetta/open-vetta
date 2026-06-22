@@ -12,6 +12,7 @@ import {
 	contextUsageAtom,
 	editImageAttachmentAtom,
 	inputValueAtom,
+	lastActiveSessionAtom,
 	mentionedFilesAtom,
 	pageHeaderTitleHiddenAtom,
 	pendingEditImageIdAtom,
@@ -112,6 +113,7 @@ export function NewSessionPage(): JSX.Element {
 	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const setActiveSession = useSetAtom(activeSessionAtom);
+	const setLastActiveSession = useSetAtom(lastActiveSessionAtom);
 	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
 	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
 	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
@@ -136,6 +138,8 @@ export function NewSessionPage(): JSX.Element {
 		setContextUsage(null);
 		// 清掉 activeSession，避免 InputBar 的 todo 抽屉等仍读取旧会话状态。
 		setActiveSession(null);
+		// 用户主动进入新会话页后，不应在后续刷新/回到根路由时恢复旧会话。
+		setLastActiveSession(null);
 	}, [
 		decodedCwd,
 		setInputValue,
@@ -147,6 +151,7 @@ export function NewSessionPage(): JSX.Element {
 		setActiveInputActionIds,
 		setContextUsage,
 		setActiveSession,
+		setLastActiveSession,
 	]);
 
 	// 本页隐藏顶栏标题（左上角 label）。

@@ -18,6 +18,7 @@ import {
 	inputValueAtom,
 	isCompactingAtom,
 	isReloadingMcpAtom,
+	lastActiveSessionAtom,
 	lastTurnUsageAtom,
 	mentionedFilesAtom,
 	modelSupportsImagesAtom,
@@ -91,6 +92,7 @@ export function useSessionManager(): SessionManagerResult {
 	mentionedFilesRef.current = mentionedFiles;
 	const navigate = useNavigate();
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
+	const setLastActiveSession = useSetAtom(lastActiveSessionAtom);
 	const setContextUsage = useSetAtom(contextUsageAtom);
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const selectedModelRef = useRef(selectedModel);
@@ -687,6 +689,9 @@ export function useSessionManager(): SessionManagerResult {
 				return;
 			}
 			setCurrentUnsubscribe(unsubscribeFn);
+			if (cachedKey) {
+				setLastActiveSession({ cwd, sessionPath: cachedKey });
+			}
 
 			await loadSessions(cwd);
 		},
@@ -699,6 +704,7 @@ export function useSessionManager(): SessionManagerResult {
 			navigate,
 			loadSessions,
 			setLastTurnUsage,
+			setLastActiveSession,
 			setContextUsage,
 			setModelSupportsImages,
 			setSessionExecutionMode,
