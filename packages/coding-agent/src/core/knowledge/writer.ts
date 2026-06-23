@@ -6,10 +6,12 @@
  */
 
 import { rebuildManifest, rebuildTagsIndex, type WikiPageRef } from "./cache.js";
+import { buildIndexMap } from "./index-map.js";
 import {
 	deleteWikiPage,
 	generatePageId,
 	scanWikiPages,
+	writeIndexMap,
 	writeManifest,
 	writeTagsIndex,
 	writeWikiPage,
@@ -81,7 +83,11 @@ export async function writeKnowledgePage(root: string, req: WritePageRequest, no
 		.map((p) => ({ frontmatter: p.frontmatter, path: p.path }));
 	refs.push({ frontmatter: fm, path: targetPath });
 
-	await Promise.all([writeManifest(root, rebuildManifest(refs)), writeTagsIndex(root, rebuildTagsIndex(refs))]);
+	await Promise.all([
+		writeManifest(root, rebuildManifest(refs)),
+		writeTagsIndex(root, rebuildTagsIndex(refs)),
+		writeIndexMap(root, buildIndexMap(refs)),
+	]);
 
 	return { action: decision.action, id: fm.id, path: targetPath, movedFrom };
 }

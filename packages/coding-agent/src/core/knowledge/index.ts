@@ -26,6 +26,7 @@ export {
 	validateWikiFrontmatter,
 	WikiFrontmatterError,
 } from "./frontmatter.js";
+export { buildIndexMap } from "./index-map.js";
 export {
 	finalizeRound,
 	type PreparedRound,
@@ -40,6 +41,7 @@ export {
 	generatePageId,
 	hashContent,
 	indexesDir,
+	indexMapPath,
 	knowledgeRoot,
 	manifestPath,
 	processingRecordsCwd,
@@ -53,6 +55,7 @@ export {
 	tagsPath,
 	type WikiScanResult,
 	wikiDir,
+	writeIndexMap,
 	writeManifest,
 	writeTagsIndex,
 	writeWikiPage,
