@@ -11,6 +11,8 @@ export const KB_DIR_NAME = "knowledges";
 export const RAWS_DIR = "raws";
 export const WIKI_DIR = "wiki";
 export const INDEXES_DIR = "indexes";
+/** indexes/ 下自动生成的目录文件（镜像 wiki 树的渐进式披露入口）。 */
+export const INDEX_MAP_FILE = "INDEX.md";
 export const TAGS_FILE = "tags.json";
 export const MANIFEST_FILE = "manifest.json";
 export const PROCESSING_RECORDS_DIR = "processing_records";

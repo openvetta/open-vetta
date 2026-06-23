@@ -11,11 +11,13 @@
 
 import { rebuildManifest, rebuildTagsIndex, type WikiPageRef } from "./cache.js";
 import { diffRaws, planOrphans, type RawsDiff } from "./differ.js";
+import { buildIndexMap } from "./index-map.js";
 import {
 	deleteWikiPage,
 	readManifest,
 	scanRaws,
 	scanWikiPages,
+	writeIndexMap,
 	writeManifest,
 	writeTagsIndex,
 	writeWikiPage,
@@ -26,7 +28,11 @@ import type { ManifestEntry } from "./types.js";
 export async function rebuildAllCaches(root: string): Promise<void> {
 	const { pages } = await scanWikiPages(root);
 	const refs: WikiPageRef[] = pages.map((p) => ({ frontmatter: p.frontmatter, path: p.path }));
-	await Promise.all([writeManifest(root, rebuildManifest(refs)), writeTagsIndex(root, rebuildTagsIndex(refs))]);
+	await Promise.all([
+		writeManifest(root, rebuildManifest(refs)),
+		writeTagsIndex(root, rebuildTagsIndex(refs)),
+		writeIndexMap(root, buildIndexMap(refs)),
+	]);
 }
 
 export interface PreparedRound {

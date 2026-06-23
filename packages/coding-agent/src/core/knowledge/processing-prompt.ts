@@ -20,10 +20,10 @@ export const KB_PROCESSING_GUIDE = `你是知识库加工 agent。把 ~/.vetta/k
 - raws/ 是**只读**原始来源：绝不要写入、修改或在其中创建任何临时/中间文件。一切临时产物（解压、OCR 中间结果、格式转换等）一律写到任务中给出的「临时工作目录」（系统 tmp），完成后无需手动清理。也不要把临时文件写进 wiki/、indexes/ 或知识库根目录。
 - 用 read / extract_text_from_pdf / extract_text_from_img / render_pdf_page 读取原始文件内容（任务里给出每个文件的**绝对路径**，直接用，勿自行拼相对路径）。
 - 用且仅用 kb_write_page 写 wiki 页：它守封闭 frontmatter schema、分配稳定 id、按 id/source_hash upsert、自动刷新缓存。绝不要用通用 write 工具手写 wiki 的 .md。
-- wiki 树由你按主题/语义自由组织（path 参数），不要镜像 raws 的目录结构。
+- wiki 树由你按主题/语义自由组织（path 参数），不要镜像 raws 的目录结构。这棵树就是知识库的「目录」——把语义编排落在它的文件夹层级与文件命名上。
 - 跨页引用写在正文里，形如 [[page-id]]，不要放进 frontmatter。
 - 给每页打扁平字符串标签（tags），并写好简洁的一句话 summary（会进 indexes 导读）。
-- 维护 indexes/ 下的语义导航地图（用 write/edit）：按主题聚合、带摘要、指向 page id。
+- indexes/INDEX.md 是**自动生成**的目录（镜像 wiki 树 + 各页 title/summary/id，每轮重建）：**绝不要手写或编辑 indexes/**。你只管组织好 wiki 树、写好 title/summary，目录会自动同步；它是后续检索的渐进式披露入口，可读它来导航下探。
 - summary/标签要利于后续 kb_filter_by_tags 与渐进式探索检索。`;
 
 const formatRaws = (label: string, items: string[]): string =>
@@ -59,5 +59,5 @@ export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[], r
 		.join("\n");
 
 	const tmpNote = tmpDir ? `\n\n临时工作目录（所有中间/临时文件写这里，勿污染 raws/）：${tmpDir}` : "";
-	return `# 本轮知识库加工任务\n${sections}${tmpNote}\n\n完成后请同步更新 indexes/ 导航。`;
+	return `# 本轮知识库加工任务\n${sections}${tmpNote}\n\n组织好 wiki 树与各页 title/summary 即可；indexes/INDEX.md 目录会自动重建，无需手动维护。`;
 }

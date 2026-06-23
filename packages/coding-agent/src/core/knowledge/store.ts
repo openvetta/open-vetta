@@ -14,6 +14,7 @@ import { parseWikiPage, serializeWikiPage } from "./frontmatter.js";
 import {
 	EMPTY_MANIFEST,
 	EMPTY_TAGS_INDEX,
+	INDEX_MAP_FILE,
 	INDEXES_DIR,
 	MANIFEST_FILE,
 	type Manifest,
@@ -36,6 +37,7 @@ export function knowledgeRoot(root?: string): string {
 export const rawsDir = (root: string): string => join(root, RAWS_DIR);
 export const wikiDir = (root: string): string => join(root, WIKI_DIR);
 export const indexesDir = (root: string): string => join(root, INDEXES_DIR);
+export const indexMapPath = (root: string): string => join(indexesDir(root), INDEX_MAP_FILE);
 export const tagsPath = (root: string): string => join(root, TAGS_FILE);
 export const manifestPath = (root: string): string => join(root, MANIFEST_FILE);
 export const processingRecordsCwd = (root: string): string => join(root, PROCESSING_RECORDS_DIR);
@@ -166,6 +168,13 @@ export const writeManifest = (root: string, manifest: Manifest): Promise<void> =
 	writeJsonFile(manifestPath(root), manifest);
 export const readTagsIndex = (root: string): Promise<TagsIndex> => readJsonFile(tagsPath(root), EMPTY_TAGS_INDEX);
 export const writeTagsIndex = (root: string, index: TagsIndex): Promise<void> => writeJsonFile(tagsPath(root), index);
+
+/** 写入自动生成的目录 indexes/INDEX.md（镜像 wiki 树的导航入口）。 */
+export async function writeIndexMap(root: string, content: string): Promise<void> {
+	const path = indexMapPath(root);
+	await mkdir(dirname(path), { recursive: true });
+	await writeFile(path, content, "utf-8");
+}
 
 /** 确保知识库的基本目录结构存在。 */
 export async function ensureKnowledgeDirs(root: string): Promise<void> {
