@@ -1,7 +1,7 @@
 {
 	"id": "office-viewer",
 	"name": "Office Viewer",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
