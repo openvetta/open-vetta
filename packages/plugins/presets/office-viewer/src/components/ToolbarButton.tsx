@@ -12,7 +12,7 @@ export function ToolbarButton({ label, onClick, disabled }: ToolbarButtonProps):
 			type="button"
 			onClick={onClick}
 			disabled={disabled}
-			className="rounded-md border border-[var(--border)] bg-[var(--background)] px-2.5 py-1 text-[12px] text-[var(--foreground)] hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+			className="rounded-md px-2.5 py-1 text-[12px] text-[var(--foreground)] hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
 		>
 			{label}
 		</button>
