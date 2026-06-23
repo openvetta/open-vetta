@@ -3,8 +3,13 @@
  *
  * 一轮加工的工程侧职责：
  *   prepareRound  —— 算 diff；moved 纯元数据更新；本轮 deleted 标 orphaned_at；
- *                    重建缓存；返回 added/changed 给 agent，以及 toReap（上一轮孤儿）供 agent 复判。
- *   finalizeRound —— agent 复判/抢救完成后，物理删除仍为孤儿的上一轮孤儿；重建缓存。
+ *                    返回 added/changed 给 agent，以及 toReap（上一轮孤儿）供 agent 复判。
+ *   finalizeRound —— agent 复判/抢救完成后，物理删除仍为孤儿的上一轮孤儿；并重建缓存。
+ *
+ * 缓存（tags.json / manifest.json / indexes/INDEX.md）是 frontmatter 的派生产物，
+ * 一轮只在 finalizeRound 收尾时重建一次（不在 prepareRound、也不在每次 kb_write_page）。
+ * diff 基线直接据当前 wiki frontmatter 现算，不依赖 manifest.json——即便它损坏/过期，
+ * 也不会把整库误判为新增而触发整库重加工。
  *
  * moved/markOrphans 只动 frontmatter（真相源），不重加工、不耗 token。
  */
@@ -14,7 +19,6 @@ import { diffRaws, planOrphans, type RawsDiff } from "./differ.js";
 import { buildIndexMap } from "./index-map.js";
 import {
 	deleteWikiPage,
-	readManifest,
 	scanRaws,
 	scanWikiPages,
 	writeIndexMap,
@@ -46,12 +50,15 @@ export interface PreparedRound {
  * @param now 本轮开始时间（ISO）。
  */
 export async function prepareRound(root: string, now: string): Promise<PreparedRound> {
-	const manifest = await readManifest(root);
+	// diff 基线据当前 wiki frontmatter 现算（不读 manifest.json，避免缓存损坏导致误判）。
+	const { pages } = await scanWikiPages(root);
+	const refs: WikiPageRef[] = pages.map((p) => ({ frontmatter: p.frontmatter, path: p.path }));
+	const manifest = rebuildManifest(refs);
+
 	const raws = await scanRaws(root);
 	const diff = diffRaws(manifest.pages, raws);
 	const plan = planOrphans(manifest, diff, now);
 
-	const { pages } = await scanWikiPages(root);
 	const byId = new Map(pages.map((p) => [p.frontmatter.id, p]));
 
 	// moved：纯元数据更新（source / source_path），内容与 hash 不变。
@@ -73,23 +80,24 @@ export async function prepareRound(root: string, now: string): Promise<PreparedR
 		await writeWikiPage(root, page.path, page.frontmatter, page.body);
 	}
 
-	await rebuildAllCaches(root);
 	return { diff, toReap: plan.toReap };
 }
 
 /**
- * 一轮加工的工程侧收尾：物理删除仍为孤儿的上一轮孤儿。
- * agent 复判（合并/重指引用）应已在此之前完成。
+ * 一轮加工的工程侧收尾：物理删除仍为孤儿的上一轮孤儿，并重建缓存。
+ * agent 复判（合并/重指引用）应已在此之前完成。重建无条件执行——它是本轮唯一一次
+ * 缓存重建（kb_write_page 与 prepareRound 都不再重建），无孤儿可回收时也要刷新缓存。
  */
 export async function finalizeRound(root: string, toReap: ManifestEntry[]): Promise<void> {
-	if (toReap.length === 0) return;
-	const { pages } = await scanWikiPages(root);
-	const stillOrphan = new Map(
-		pages.filter((p) => p.frontmatter.orphaned_at != null).map((p) => [p.frontmatter.id, p.path]),
-	);
-	for (const entry of toReap) {
-		const path = stillOrphan.get(entry.id);
-		if (path) await deleteWikiPage(root, path);
+	if (toReap.length > 0) {
+		const { pages } = await scanWikiPages(root);
+		const stillOrphan = new Map(
+			pages.filter((p) => p.frontmatter.orphaned_at != null).map((p) => [p.frontmatter.id, p.path]),
+		);
+		for (const entry of toReap) {
+			const path = stillOrphan.get(entry.id);
+			if (path) await deleteWikiPage(root, path);
+		}
 	}
 	await rebuildAllCaches(root);
 }

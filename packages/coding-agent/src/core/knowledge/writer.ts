@@ -1,21 +1,13 @@
 /**
- * 知识库写入编排：把 upsert 解析 + 写盘 + 缓存维护串成一个原子操作。
+ * 知识库写入编排：把 upsert 解析 + 写盘串成一个操作。
  *
- * frontmatter 是唯一真相源，本模块在每次写入后据真相源重建 tags.json /
- * manifest.json 缓存。被 kb_write_page 工具与桌面轮询器复用。
+ * frontmatter 是唯一真相源。本模块只负责写出页这一份真相，不重建缓存——
+ * tags.json / manifest.json / indexes/INDEX.md 由 ingest 在每轮收尾时统一重建一次
+ * （见 finalizeRound / rebuildAllCaches），避免一轮内每写一页就全量重建。
+ * 被 kb_write_page 工具复用（该工具仅在加工轮内调用）。
  */
 
-import { rebuildManifest, rebuildTagsIndex, type WikiPageRef } from "./cache.js";
-import { buildIndexMap } from "./index-map.js";
-import {
-	deleteWikiPage,
-	generatePageId,
-	scanWikiPages,
-	writeIndexMap,
-	writeManifest,
-	writeTagsIndex,
-	writeWikiPage,
-} from "./store.js";
+import { deleteWikiPage, generatePageId, scanWikiPages, writeWikiPage } from "./store.js";
 import { resolveUpsert, type UpsertInput } from "./upsert.js";
 
 export interface WritePageRequest extends UpsertInput {
@@ -76,18 +68,6 @@ export async function writeKnowledgePage(root: string, req: WritePageRequest, no
 		await deleteWikiPage(root, oldPath);
 		movedFrom = oldPath;
 	}
-
-	// 据真相源重建缓存：用内存中的页集合替换/插入当前页，避免二次扫盘。
-	const refs: WikiPageRef[] = pages
-		.filter((p) => p.frontmatter.id !== fm.id && p.path !== targetPath)
-		.map((p) => ({ frontmatter: p.frontmatter, path: p.path }));
-	refs.push({ frontmatter: fm, path: targetPath });
-
-	await Promise.all([
-		writeManifest(root, rebuildManifest(refs)),
-		writeTagsIndex(root, rebuildTagsIndex(refs)),
-		writeIndexMap(root, buildIndexMap(refs)),
-	]);
 
 	return { action: decision.action, id: fm.id, path: targetPath, movedFrom };
 }

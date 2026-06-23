@@ -7,7 +7,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, posix, relative, sep } from "node:path";
 import { getKnowledgeDir } from "../../config.js";
 import { parseWikiPage, serializeWikiPage } from "./frontmatter.js";
@@ -158,9 +158,19 @@ async function readJsonFile<T>(path: string, fallback: T): Promise<T> {
 	}
 }
 
-async function writeJsonFile(path: string, value: unknown): Promise<void> {
+/**
+ * 原子写：先写临时文件再 rename 覆盖（同盘 rename 原子），杜绝进程中途崩溃留下
+ * 截断的缓存文件（读 JSON 会静默回退空对象 → 数据假性丢失）。
+ */
+async function atomicWrite(path: string, content: string): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
-	await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
+	const tmp = `${path}.${randomUUID()}.tmp`;
+	await writeFile(tmp, content, "utf-8");
+	await rename(tmp, path);
+}
+
+async function writeJsonFile(path: string, value: unknown): Promise<void> {
+	await atomicWrite(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 export const readManifest = (root: string): Promise<Manifest> => readJsonFile(manifestPath(root), EMPTY_MANIFEST);
@@ -171,9 +181,7 @@ export const writeTagsIndex = (root: string, index: TagsIndex): Promise<void> =>
 
 /** 写入自动生成的目录 indexes/INDEX.md（镜像 wiki 树的导航入口）。 */
 export async function writeIndexMap(root: string, content: string): Promise<void> {
-	const path = indexMapPath(root);
-	await mkdir(dirname(path), { recursive: true });
-	await writeFile(path, content, "utf-8");
+	await atomicWrite(indexMapPath(root), content);
 }
 
 /** 确保知识库的基本目录结构存在。 */

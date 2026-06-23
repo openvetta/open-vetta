@@ -31,7 +31,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [interval, setIntervalMinutes] = useState(5);
 	const [modelKey, setModelKey] = useState<string>("");
 	const [models, setModels] = useState<ModelOption[]>([]);
-	const [busy, setBusy] = useState<"scan" | "rebuild" | null>(null);
+	const [busy, setBusy] = useState<"scan" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -99,19 +99,6 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			setStatus(res.skipped ? "文件没有变化，这次不用整理" : "已经开始整理了，整理记录里能看到进度");
 		} catch (err) {
 			setStatus(`没整理成功：${err instanceof Error ? err.message : String(err)}`);
-		} finally {
-			setBusy(null);
-		}
-	}, []);
-
-	const handleRebuild = useCallback(async () => {
-		setBusy("rebuild");
-		setStatus(null);
-		try {
-			await window.vetta.knowledge.rebuildIndex();
-			setStatus("目录已经重新整理好了");
-		} catch (err) {
-			setStatus(`整理目录没成功：${err instanceof Error ? err.message : String(err)}`);
 		} finally {
 			setBusy(null);
 		}
@@ -190,20 +177,9 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						{busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
-				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。">
+				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。" border={false}>
 					<button type="button" onClick={handleOpenRecords} className={btnClass}>
 						<span>查看记录</span>
-					</button>
-				</SettingRow>
-				<SettingRow title="重建目录" description="知识库目录乱了或对不上时，点这里重新生成。" border={false}>
-					<button
-						type="button"
-						onClick={() => void handleRebuild()}
-						disabled={!enabled || busy !== null}
-						className={btnClass}
-					>
-						<span>重建目录</span>
-						{busy === "rebuild" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
 			</SettingSection>

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { rebuildAllCaches } from "../src/core/knowledge/ingest.js";
 import { listAvailableTags, queryByTags } from "../src/core/knowledge/query.js";
 import { readManifest, readTagsIndex, scanWikiPages } from "../src/core/knowledge/store.js";
 import { writeKnowledgePage } from "../src/core/knowledge/writer.js";
@@ -27,7 +28,7 @@ describe("writeKnowledgePage (integration)", () => {
 		body: "# API\n\n内容",
 	};
 
-	it("新建页：分配 id，写盘，刷新缓存", async () => {
+	it("新建页：分配 id，写盘；缓存由 rebuildAllCaches 统一重建", async () => {
 		const res = await writeKnowledgePage(root, baseReq, "2026-06-22T00:00:00.000Z");
 		expect(res.action).toBe("create");
 		expect(res.id).toBeTruthy();
@@ -36,6 +37,11 @@ describe("writeKnowledgePage (integration)", () => {
 		expect(pages).toHaveLength(1);
 		expect(pages[0].frontmatter.title).toBe("API");
 
+		// 写页本身不再顺带重建缓存（避免一轮内每写一页就全量重建）。
+		expect((await readManifest(root)).pages).toHaveLength(0);
+
+		// 重建后缓存据真相源（frontmatter）反映该页。
+		await rebuildAllCaches(root);
 		const manifest = await readManifest(root);
 		expect(manifest.pages).toHaveLength(1);
 		expect(manifest.pages[0].path).toBe("产品/api.md");
