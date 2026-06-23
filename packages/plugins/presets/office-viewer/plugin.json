@@ -1,0 +1,16 @@
+{
+	"id": "office-viewer",
+	"name": "Office Viewer",
+	"version": "0.1.0",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "office_viewer",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.file-preview"],
+	"description": "Offline preview for PDF, DOCX and spreadsheet files, with explicit compatibility guidance for PowerPoint.",
+	"author": "Vetta"
+}

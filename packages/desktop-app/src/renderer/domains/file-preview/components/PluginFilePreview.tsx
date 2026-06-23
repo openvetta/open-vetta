@@ -7,6 +7,15 @@ const MIME_BY_EXTENSION: Record<string, string> = {
 	drawio: "application/xml",
 	xml: "application/xml",
 	json: "application/json",
+	pdf: "application/pdf",
+	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	xls: "application/vnd.ms-excel",
+	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12",
+	xlsb: "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+	ods: "application/vnd.oasis.opendocument.spreadsheet",
+	ppt: "application/vnd.ms-powerpoint",
+	pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
 function mimeForExtension(ext: string, fallback?: string): string {

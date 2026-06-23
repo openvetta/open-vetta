@@ -30,6 +30,15 @@ const MEDIA_MIME: Record<string, string> = {
 	jpeg: "image/jpeg",
 	webp: "image/webp",
 	gif: "image/gif",
+	pdf: "application/pdf",
+	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	xls: "application/vnd.ms-excel",
+	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12",
+	xlsb: "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+	ods: "application/vnd.oasis.opendocument.spreadsheet",
+	ppt: "application/vnd.ms-powerpoint",
+	pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
 /**

@@ -302,7 +302,24 @@ const CHANNELS = {
 	MCP_SET: "vetta:mcp:set",
 } as const;
 
-const BINARY_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico", "pdf", "docx"]);
+const BINARY_EXTENSIONS = new Set([
+	"png",
+	"jpg",
+	"jpeg",
+	"gif",
+	"webp",
+	"svg",
+	"ico",
+	"pdf",
+	"docx",
+	"xls",
+	"xlsx",
+	"xlsm",
+	"xlsb",
+	"ods",
+	"ppt",
+	"pptx",
+]);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 const HIDDEN_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);

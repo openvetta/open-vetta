@@ -83,6 +83,21 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Always ask before removing functionality or code that appears to be intentional
 - Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
 
+## Component and Module Design
+
+**Single responsibility first. Prefer readable composition over large files.**
+
+- Do not put multiple unrelated responsibilities into one component or one file.
+- Keep entry files thin: registration, routing, and wiring only. Move rendering, parsing, stateful behavior, constants, and utility functions into dedicated modules.
+- Split large UI features by domain role, for example: container/state component, presentational components, shared UI primitives, parsing/adapters, constants, and types.
+- If a component grows enough that a reader must understand several independent concerns at once, split it before adding more behavior.
+- Avoid "god components" that own data loading, parsing, virtualization, rendering, toolbar actions, and error states together.
+- Keep reusable UI states such as loading, empty, error, and toolbar controls in small shared components when used by more than one preview/view.
+- Keep format-specific adapters isolated. A PDF renderer, DOCX renderer, spreadsheet parser, and presentation fallback should not depend on each other's internals.
+- Prefer explicit file names that describe responsibility (`PdfPreview.tsx`, `parseWorkbook.ts`, `SheetTabs.tsx`) over generic names (`utils.ts`, `helpers.ts`, `Component.tsx`) unless the module is truly generic.
+- Do not create abstractions only to satisfy style. Split when it improves local reasoning, testing, or future changes.
+- When adding a new complex feature, design the file/module layout before implementation and state it briefly in the plan.
+
 ## Commands
 - Use Bun for package management and scripts (`bun`/`bunx`) unless the user explicitly asks for npm.
 - After code changes (not documentation changes): `bun run check` (get full output, no tail). Fix all errors, warnings, and infos before committing.
@@ -238,4 +253,3 @@ git pull --rebase && git push
 - Resolve conflicts in YOUR files only
 - If conflict is in a file you didn't modify, abort and ask the user
 - NEVER force push
-

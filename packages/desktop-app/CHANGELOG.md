@@ -12,6 +12,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **内置 Office 文件预览插件**：新增轻量、离线的 `office-viewer` 系统插件。PDF 使用 Mozilla PDF.js 按页渲染，DOCX 使用长期维护的 docx-preview，XLS/XLSX/XLSM/XLSB/ODS 使用 SheetJS CE 解析并交由自研虚拟表格渲染；文件内容通过 Range-capable URL 读取，不再经 renderer IPC Base64 全量复制。PPT/PPTX 因暂无符合长期维护要求的轻量纯本地渲染器，插件内明确展示兼容性说明，不引入短期项目做近似渲染。
 - **插件 Agent 自动续跑策略**：Plugin SDK 新增 `ctx.agent.registerContinuationProvider()` 与 `agent.continuation.register` 权限；Desktop 打通 renderer handler、preload/IPC、主进程贡献聚合和 RuntimeHost 调用链。插件可在 Agent 自然停止点返回后续指令继续当前循环，宿主提供超时、幂等去重、异常隔离和循环次数上限。
 - **完整会话导出为桌面同款交互 HTML**：聊天页标题栏新增 HTML 导出入口，使用非虚拟化离屏列表复用桌面端用户消息、Markdown、思考过程、工具调用、工具结果与插件消息卡片组件，避免 Virtuoso 只序列化可视区。导出文件内嵌当前主题 CSS 和可读取图片，回答过程、工具组、思考及工具结果保持默认折叠，并由文件内轻量脚本提供离线展开/收起交互。
 - **消息卡片改为「声明式描述符 + 按 type 动态渲染器注册表」（ADR-0030）**：插件 message slot 体系反转——旧的「每条消息 mount 全部 slot、各自 `null` 自隐」改为「host 持有每条消息的卡片描述符列表、按 `type` 查渲染器注册表渲染」。`registerMessageSlot`/`pluginMessageSlotsAtom`/`PluginMessageSlotsHost` 下线，代之以 `registerCardRenderer`/`pluginCardRenderersAtom`/`MessageCardsHost`。卡片描述符走工具结果的 out-of-band `details.cards`（`chat-service` 新增 `extractToolCards`，接进 `handleToolEnd` 与两条历史加载路径；`ToolCallBlock` 新增 `cards` 字段，模型永不可见）；in-flight 骨架由渲染器的 `pendingFor` 对 pending tool_call 合成；host 按描述符 `key` 跨轮去重（一条 lineage 只在最新一轮出卡，复用原 `latestOwnerByRoot`）。新增 `MessageCards` 收纳 UI：同一条消息 ≥2 张卡片时上方出操作 area（左侧 tab 切卡、右侧「列表/收纳」切布局），收纳（tab）为基本形态、列表（平铺）为不持久化的临时形态；<2 张裸渲染。
