@@ -62,7 +62,7 @@ export function WindowControls({ className }: WindowControlsProps): JSX.Element 
 				type="button"
 				onClick={handleClose}
 				title="关闭"
-				className="flex h-8 w-11 items-center justify-center rounded-md bg-[#e81123] text-white hover:bg-[#f1707a] active:opacity-70"
+				className="flex h-8 w-11 items-center justify-center rounded-md text-foreground hover:bg-[#e81123] hover:text-white active:opacity-70"
 				aria-label="关闭"
 			>
 				<span className="icon-[mdi--close] h-4 w-4" />
