@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
+import { probeModelProvider } from "../models/probe.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
@@ -336,6 +337,7 @@ const CHANNELS = {
 	CONFIG_SET: "vetta:config:set",
 	MODELS_GET: "vetta:models:get",
 	MODELS_SET: "vetta:models:set",
+	MODELS_PROBE: "vetta:models:probe",
 	MCP_GET: "vetta:mcp:get",
 	MCP_SET: "vetta:mcp:set",
 } as const;
@@ -738,6 +740,10 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.MODELS_SET, async (_event, config: unknown) => {
 		if (typeof config !== "object" || config === null) throw new Error("Invalid models config");
 		await writeModelsConfig(config as ModelsConfig);
+	});
+
+	ipcMain.handle(CHANNELS.MODELS_PROBE, async (_event, ref: { provider: string; model: string }) => {
+		return probeModelProvider(ref);
 	});
 
 	ipcMain.handle(CHANNELS.MCP_GET, async (): Promise<McpConfig> => {

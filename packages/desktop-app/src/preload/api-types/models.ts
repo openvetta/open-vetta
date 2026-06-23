@@ -70,4 +70,6 @@ export interface DesktopModelsApi {
 	fetchRemote(): Promise<RemoteProvidersResult>;
 	/** 拉取服务端[[预设模板]]目录(公开免登录),并就地在线合并已采纳条目的元数据。 */
 	fetchTemplates(): Promise<ProviderTemplatesResult>;
+	/** 探测某 (provider, model) 的 baseUrl 是否可达(本地 models.json 优先,回退云端目录)。仅判可达性,任何 HTTP 响应都算通。 */
+	probe(ref: { provider: string; model: string }): Promise<{ ok: boolean; message?: string; error?: string }>;
 }

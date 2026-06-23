@@ -12,11 +12,12 @@ import {
 	activityPanelOpenAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeRetrievalActiveAtom,
+	remoteProvidersAtom,
 	type SessionInfo,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
-import { useSetAtom } from "jotai";
-import { useCallback, useEffect, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
 
@@ -26,6 +27,7 @@ interface ModelOption {
 	key: string;
 	provider: string;
 	displayName: string;
+	remote: boolean;
 }
 
 export function KnowledgeBaseSettings(): JSX.Element {
@@ -36,9 +38,14 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [enabled, setEnabled] = useState(true);
 	const [interval, setIntervalMinutes] = useState(5);
 	const [modelKey, setModelKey] = useState<string>("");
-	const [models, setModels] = useState<ModelOption[]>([]);
+	const [localModels, setLocalModels] = useState<ModelOption[]>([]);
 	const [busy, setBusy] = useState<"scan" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
+	const [probing, setProbing] = useState(false);
+	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+	// 云端模型目录(由 useAuth 在登录后流式写入)。与本地 models.json 合并,本地同 key 优先。
+	const remoteProviders = useAtomValue(remoteProvidersAtom);
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
@@ -55,12 +62,33 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						key: `${provider}/${model.id}`,
 						provider: pc.displayName || provider,
 						displayName: model.name || model.id,
+						remote: false,
 					});
 				}
 			}
-			setModels(opts);
+			setLocalModels(opts);
 		});
 	}, []);
+
+	const models = useMemo<ModelOption[]>(() => {
+		type ProviderShape = { displayName?: string; models?: Array<{ id: string; name?: string }> };
+		const localKeys = new Set(localModels.map((m) => m.key));
+		const remote: ModelOption[] = [];
+		for (const [provider, pc] of Object.entries(remoteProviders as Record<string, ProviderShape>)) {
+			for (const model of pc?.models ?? []) {
+				if (!model.id) continue;
+				const key = `${provider}/${model.id}`;
+				if (localKeys.has(key)) continue;
+				remote.push({
+					key,
+					provider: pc.displayName || provider,
+					displayName: model.name || model.id,
+					remote: true,
+				});
+			}
+		}
+		return [...localModels, ...remote];
+	}, [localModels, remoteProviders]);
 
 	const persist = useCallback(
 		async (patch: { enabled?: boolean; pollIntervalMinutes?: number; processingModelKey?: string }) => {
@@ -92,10 +120,31 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const handleModel = useCallback(
 		(value: string) => {
 			setModelKey(value);
+			setProbeResult(null);
 			void persist({ processingModelKey: value });
 		},
 		[persist],
 	);
+
+	const handleProbe = useCallback(async () => {
+		const slash = modelKey.indexOf("/");
+		if (slash <= 0) {
+			setProbeResult({ ok: false, msg: "请先选择模型" });
+			return;
+		}
+		setProbing(true);
+		setProbeResult(null);
+		try {
+			const ref = { provider: modelKey.slice(0, slash), model: modelKey.slice(slash + 1) };
+			const result = await window.vetta.models.probe(ref);
+			setProbeResult({
+				ok: result.ok,
+				msg: result.ok ? (result.message ?? "可连通") : (result.error ?? "未知错误"),
+			});
+		} finally {
+			setProbing(false);
+		}
+	}, [modelKey]);
 
 	const handleScan = useCallback(async () => {
 		setBusy("scan");
@@ -164,25 +213,54 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					description="整理资料时用的 AI 模型，不选就用默认的。"
 					border={false}
 				>
-					<Select value={modelKey} onValueChange={handleModel} disabled={!enabled}>
-						<SelectTrigger className="h-7 min-w-[220px] px-2 py-1 text-[12px]">
-							<SelectValue placeholder="用默认模型" />
-						</SelectTrigger>
-						<SelectContent>
-							{[...grouped.entries()].map(([provider, items]) => (
-								<SelectGroup key={provider}>
-									<SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
-										{provider}
-									</SelectLabel>
-									{items.map((o) => (
-										<SelectItem key={o.key} value={o.key} className="text-[12px]">
-											{o.displayName}
-										</SelectItem>
-									))}
-								</SelectGroup>
-							))}
-						</SelectContent>
-					</Select>
+					<div className="flex flex-wrap items-center gap-2">
+						<Select value={modelKey} onValueChange={handleModel} disabled={!enabled}>
+							<SelectTrigger className="h-7 min-w-[220px] px-2 py-1 text-[12px]">
+								<SelectValue placeholder="用默认模型" />
+							</SelectTrigger>
+							<SelectContent>
+								{[...grouped.entries()].map(([provider, items]) => (
+									<SelectGroup key={provider}>
+										<SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+											{provider}
+											{items[0]?.remote && (
+												<span className="ml-1.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
+													云端
+												</span>
+											)}
+										</SelectLabel>
+										{items.map((o) => (
+											<SelectItem key={o.key} value={o.key} className="text-[12px]">
+												{o.displayName}
+											</SelectItem>
+										))}
+									</SelectGroup>
+								))}
+							</SelectContent>
+						</Select>
+						<button
+							type="button"
+							onClick={() => void handleProbe()}
+							disabled={!enabled || probing || !modelKey}
+							className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+						>
+							<span>测试连通</span>
+							{probing ? (
+								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+							) : probeResult?.ok ? (
+								<span className="icon-[mdi--check] h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+							) : probeResult && !probeResult.ok ? (
+								<span className="icon-[mdi--close] h-3.5 w-3.5 text-red-500" />
+							) : null}
+						</button>
+						{probeResult && (
+							<span
+								className={`text-[11px] ${probeResult.ok ? "text-green-600 dark:text-green-400" : "text-red-500"}`}
+							>
+								{probeResult.msg}
+							</span>
+						)}
+					</div>
 				</SettingRow>
 			</SettingSection>
 
