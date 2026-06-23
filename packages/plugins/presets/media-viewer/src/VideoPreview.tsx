@@ -28,12 +28,12 @@ export function VideoPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 	}
 
 	return (
-		<div className="flex min-h-0 flex-1 items-center justify-center bg-black p-4">
+		<div className="flex min-h-0 flex-1 items-center justify-center bg-black">
 			<video
 				src={src}
 				controls
 				preload="metadata"
-				className="max-h-full max-w-full rounded-md"
+				className="h-full w-full object-cover"
 				onError={() => setFailed(true)}
 			/>
 		</div>
