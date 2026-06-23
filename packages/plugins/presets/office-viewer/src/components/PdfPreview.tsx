@@ -1,11 +1,13 @@
 import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
 import * as pdfjsLib from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import workerSource from "pdfjs-dist/build/pdf.worker.min.mjs?raw";
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { ErrorState, LoadingState, type LoadState } from "./PreviewState";
 import { ToolbarButton } from "./ToolbarButton";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+	new Blob([workerSource], { type: "text/javascript" }),
+);
 
 export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
