@@ -29,6 +29,7 @@ import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
 import { FilesPanel } from "@domains/file-explorer/components/FilesPanel";
 import { JourneyPanel } from "./JourneyPanel";
+import { KnowledgeHistoryPanel } from "./KnowledgeHistoryPanel";
 import { ChatTabPanel } from "./ChatTabPanel";
 import { BatchProgressTabPanel } from "./BatchProgressTabPanel";
 import { BackgroundTasksTabPanel } from "./BackgroundTasksTabPanel";
@@ -52,9 +53,18 @@ interface ActivityPanelProps {
 	 * 其 cwd 是单一固定目录，无法满足 per-session 隔离语义（见 ADR-0026）。
 	 */
 	enablePluginTabs?: boolean;
+	/**
+	 * 知识库加工历史模式：只显示唯一的「知识库加工历史」tab（列出 cwd 下加工 session、点击跳转），
+	 * 不显示文件/旅程等其它 tab。查看加工 session 时启用。
+	 */
+	knowledgeHistory?: boolean;
 }
 
-export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: ActivityPanelProps = {}): JSX.Element {
+export function ActivityPanel({
+	cwd: cwdProp,
+	enablePluginTabs = true,
+	knowledgeHistory = false,
+}: ActivityPanelProps = {}): JSX.Element {
 	const [isOpen, setOpen] = useAtom(activityPanelOpenAtom);
 	const narrow = useNarrowScreen();
 	const activeSession = useAtomValue(activeSessionAtom);
@@ -142,6 +152,9 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 	}, [width, windowWidth, sidebarWidth, isOpen, setSidebarCollapsed]);
 
 	const tabItems: TabBarItem<ActivityTabKey>[] = useMemo(() => {
+		if (knowledgeHistory) {
+			return [{ key: "knowledge-history" as ActivityTabKey, label: "知识库加工历史", icon: "icon-[mdi--history]" }];
+		}
 		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
 			key: t.key,
 			label: t.label,
@@ -185,10 +198,21 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 			});
 		}
 		return base;
-	}, [profile, chatUnread, hasTodo, todoItems, hasBackgroundTasks, backgroundTasks, debugMode, attachedPluginTabContribs]);
+	}, [
+		knowledgeHistory,
+		profile,
+		chatUnread,
+		hasTodo,
+		todoItems,
+		hasBackgroundTasks,
+		backgroundTasks,
+		debugMode,
+		attachedPluginTabContribs,
+	]);
 
 	// 当前 active tab：优先取项目记忆，否则用 profile 默认；profile 未就绪时退回 "file"
 	const activeTab: ActivityTabKey = useMemo(() => {
+		if (knowledgeHistory) return "knowledge-history";
 		if (cwd) {
 			const remembered = tabByProject.get(cwd);
 			if (remembered && tabItems.some((t) => t.key === remembered)) {
@@ -196,7 +220,7 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 			}
 		}
 		return profile?.defaultActivityTab ?? "file";
-	}, [cwd, tabByProject, profile, tabItems]);
+	}, [knowledgeHistory, cwd, tabByProject, profile, tabItems]);
 
 	const onTabChange = useCallback(
 		(next: ActivityTabKey) => {
@@ -291,6 +315,7 @@ export function ActivityPanel({ cwd: cwdProp, enablePluginTabs = true }: Activit
 					{activeTab === "todo" && cwd && <TodoTabPanel />}
 					{activeTab === "background-tasks" && cwd && <BackgroundTasksTabPanel />}
 					{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
+					{activeTab === "knowledge-history" && <KnowledgeHistoryPanel cwd={cwd} />}
 					{activePluginTab && cwd && <PluginActivityTabPanel tab={activePluginTab} cwd={cwd} />}
 				</div>
 			</div>
