@@ -146,13 +146,8 @@ export function KnowledgeGrid({
 									>
 										<span className={cn(getColoredFileIcon(node.name, isDir), "h-14 w-14 shrink-0")} />
 									</span>
-									{/* Mac 风格：选中时每行文字各带贴合宽度的圆角块（box-decoration clone 形成阶梯形） */}
-									<span
-										className={cn(
-											"w-full text-center text-[12px] leading-[1.55]",
-											selected ? "block" : "line-clamp-2",
-										)}
-									>
+									{/* Mac 风格：选中时每行文字各带贴合宽度的圆角块（box-decoration clone 形成阶梯形）；始终限制两行，避免选中时撑开导致宫格跳动 */}
+									<span className="line-clamp-2 w-full text-center text-[12px] leading-[1.55]">
 										<span
 											className={cn(
 												"break-all [-webkit-box-decoration-break:clone] [box-decoration-break:clone]",
