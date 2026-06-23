@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { finalizeRound, prepareRound } from "../src/core/knowledge/ingest.js";
-import { hashContent, rawsDir, readManifest, scanWikiPages } from "../src/core/knowledge/store.js";
+import { hashContent, rawsDir, readManifest, scanWikiPages, wikiDir } from "../src/core/knowledge/store.js";
 import { writeKnowledgePage } from "../src/core/knowledge/writer.js";
 
 describe("ingest round lifecycle (integration)", () => {
@@ -99,6 +99,37 @@ describe("ingest round lifecycle (integration)", () => {
 
 		const manifest = await readManifest(root);
 		expect(manifest.pages).toHaveLength(0);
+	});
+
+	it("孤儿物理删除后清理 wiki 空目录（保留 wiki 根）", async () => {
+		const hash = writeRaw("g/a.md", "hello");
+		await writeKnowledgePage(
+			root,
+			{
+				path: "主题/子/a.md",
+				source: "g",
+				source_path: "g/a.md",
+				source_hash: hash,
+				tags: ["t"],
+				title: "A",
+				summary: "s",
+				body: "body",
+			},
+			"2026-06-22T00:00:00.000Z",
+		);
+		expect(existsSync(join(wikiDir(root), "主题", "子"))).toBe(true);
+
+		// 删原始文件，走 n+1 回收
+		rmSync(join(rawsDir(root), "g"), { recursive: true, force: true });
+		const r1 = await prepareRound(root, "2026-06-22T01:00:00.000Z");
+		await finalizeRound(root, r1.toReap); // 标记轮，未删
+		const r2 = await prepareRound(root, "2026-06-22T02:00:00.000Z");
+		await finalizeRound(root, r2.toReap); // 物理删除页 + 清空目录
+
+		expect((await scanWikiPages(root)).pages).toHaveLength(0);
+		expect(existsSync(join(wikiDir(root), "主题", "子"))).toBe(false);
+		expect(existsSync(join(wikiDir(root), "主题"))).toBe(false);
+		expect(existsSync(wikiDir(root))).toBe(true); // wiki 根始终保留
 	});
 
 	it("added/changed 在 diff 中暴露给 agent", async () => {

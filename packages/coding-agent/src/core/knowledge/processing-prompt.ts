@@ -1,16 +1,14 @@
 /**
  * 构造一轮加工的 agent 任务 prompt。
  *
- * 工程侧已处理 moved（纯元数据）与孤儿标记；交给 agent 的是：
+ * 工程侧已处理 moved（纯元数据）、孤儿标记与孤儿物理删除（不经 agent）；交给 agent 的只有：
  *   - added：读原始文件，新建 wiki 页（kb_write_page，不传 id）
  *   - changed：读原始文件，按 id 就地更新（kb_write_page 传 id）
- *   - toReap：上一轮孤儿，复判是否抢救/合并到别的页，之后工程侧会物理删除
  */
 
 import { join } from "node:path";
 import type { RawsDiff } from "./differ.js";
-import { knowledgeRoot, rawsDir, wikiDir } from "./store.js";
-import type { ManifestEntry } from "./types.js";
+import { knowledgeRoot, rawsDir } from "./store.js";
 
 /** 知识库加工的静态约定，作为 appendSystemPrompt 注入。 */
 export const KB_PROCESSING_GUIDE = `你是知识库加工 agent。把 ~/.vetta/knowledges/raws/ 下的原始文件加工成结构化的 wiki 页。
@@ -33,10 +31,9 @@ const formatRaws = (label: string, items: string[]): string =>
  * 渲染本轮任务 prompt。给出每个文件的绝对路径，避免 agent 因 cwd 非知识库根而拼错相对路径。
  * @param root 知识库根目录（默认 ~/.vetta/knowledges）。
  */
-export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[], root?: string, tmpDir?: string): string {
+export function buildProcessingPrompt(diff: RawsDiff, root?: string, tmpDir?: string): string {
 	const resolvedRoot = knowledgeRoot(root);
 	const rawsBase = rawsDir(resolvedRoot);
-	const wikiBase = wikiDir(resolvedRoot);
 	const added = diff.added.map(
 		(a) =>
 			`${join(rawsBase, a.raw.source_path)}（source=${a.raw.source}，source_path=${a.raw.source_path}，source_hash=${a.raw.source_hash}）→ 读它 → kb_write_page 新建`,
@@ -45,15 +42,10 @@ export function buildProcessingPrompt(diff: RawsDiff, toReap: ManifestEntry[], r
 		(c) =>
 			`${join(rawsBase, c.source_path)}（source=${c.source}，source_path=${c.source_path}，新 source_hash=${c.newHash}）→ 读它 → kb_write_page 传 id="${c.id}" 就地更新`,
 	);
-	const orphans = toReap.map(
-		(o) =>
-			`${join(wikiBase, o.path)}（id=${o.id}，原 source_path=${o.source_path}）→ 复判：可把有价值内容/被引用关系合并迁移到别的页；处理完它会被物理删除`,
-	);
 
 	const sections = [
 		formatRaws("新增文件（读原文 → kb_write_page 新建）", added),
 		formatRaws("内容变更文件（读原文 → kb_write_page 按 id 更新）", changed),
-		formatRaws("待回收孤儿（复判抢救，随后删除）", orphans),
 	]
 		.filter(Boolean)
 		.join("\n");

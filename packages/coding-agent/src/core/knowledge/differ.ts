@@ -52,9 +52,18 @@ export interface RawsDiff {
 	deleted: DeletedChange[];
 }
 
-/** diff 是否完全为空（无需起加工会话）。 */
+/** diff 是否完全为空（无任何变更）。 */
 export function isEmptyDiff(diff: RawsDiff): boolean {
 	return diff.added.length === 0 && diff.moved.length === 0 && diff.changed.length === 0 && diff.deleted.length === 0;
+}
+
+/**
+ * 本轮是否需要起 LLM 加工会话。
+ * 只有 added/changed 需要读原文 → 写 wiki 页（LLM）。
+ * moved（纯元数据）、deleted（标孤儿）、孤儿回收均为工程侧动作，不需要 LLM。
+ */
+export function diffNeedsProcessing(diff: RawsDiff): boolean {
+	return diff.added.length > 0 || diff.changed.length > 0;
 }
 
 /**

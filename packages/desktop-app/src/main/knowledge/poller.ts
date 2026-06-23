@@ -23,10 +23,27 @@ import {
 	knowledge,
 	SessionManager,
 } from "@vetta/coding-agent";
+import { BrowserWindow } from "electron";
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
-import { lockRaws, unlockRaws } from "./raws-lock.js";
+import { beginRound, endRound, unlockRaws } from "./raws-lock.js";
+
+/** 加工中状态：广播给渲染层（顶栏「正在建立索引…」徽标）。 */
+export const KB_PROCESSING_CHANGED_CHANNEL = "vetta:kb:processing-changed";
+let processing = false;
+
+export function isKnowledgeProcessing(): boolean {
+	return processing;
+}
+
+function setProcessing(next: boolean): void {
+	if (processing === next) return;
+	processing = next;
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (!win.isDestroyed()) win.webContents.send(KB_PROCESSING_CHANGED_CHANNEL, next);
+	}
+}
 
 const log = getAppLogger("kb-poller");
 const scheduler = new ToadScheduler();
@@ -82,51 +99,59 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 			log.info("no raws changes, nothing to process");
 			return { skipped: true };
 		}
+		// 确有工程/LLM 工作 → 广播「加工中」，渲染层顶栏出「正在建立索引…」徽标。
+		setProcessing(true);
 		log.info(
 			`processing round: +${prepared.diff.added.length} ~${prepared.diff.changed.length} ` +
 				`moved=${prepared.diff.moved.length} del=${prepared.diff.deleted.length} reap=${prepared.toReap.length}`,
 		);
 
-		// 每轮一个 OS tmp 私有目录：注入 TMPDIR/TEMP/TMP 让工具子进程的临时文件
-		// 落到这里，并在 prompt 中指引 agent 把中间产物写进来，避免污染 raws/。
-		const tmpDir = join(tmpdir(), `vetta-kb-${randomUUID()}`);
-		await mkdir(tmpDir, { recursive: true });
+		// 只有 added/changed 需要 LLM 读原文写 wiki 页。moved（纯元数据）、deleted（标孤儿）、
+		// 孤儿回收都是工程侧动作（prepareRound/finalizeRound 处理），不起 LLM、不耗 token。
+		if (knowledge.diffNeedsProcessing(prepared.diff)) {
+			// 每轮一个 OS tmp 私有目录：注入 TMPDIR/TEMP/TMP 让工具子进程的临时文件
+			// 落到这里，并在 prompt 中指引 agent 把中间产物写进来，避免污染 raws/。
+			const tmpDir = join(tmpdir(), `vetta-kb-${randomUUID()}`);
+			await mkdir(tmpDir, { recursive: true });
 
-		// 加工期间把 raws/ 整树锁成只读（OS 强制），绝对杜绝 agent 往 raws 写入。
-		await lockRaws(root);
-		try {
-			const tools = [
-				...createCodingTools(KB_PROCESSING_CWD),
-				createKbWritePageTool(),
-				createKbFilterByTagsTool(),
-				createKbListTagsTool(),
-			];
-			const { session } = await createAgentSession({
-				cwd: KB_PROCESSING_CWD,
-				sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
-				tools,
-				appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
-				enableBackgroundTasks: false,
-				env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
-			});
+			// 加工期间把 raws/ 整树锁成只读（OS 强制），绝对杜绝 agent 往 raws 写入。
+			// 走 beginRound/endRound（互斥），与 UI 特权写串行，UI 写仍可在轮次中穿插。
+			await beginRound(root);
 			try {
-				await applyProcessingModel(session, modelKey);
-				await waitForCompletion(
-					session,
-					knowledge.buildProcessingPrompt(prepared.diff, prepared.toReap, root, tmpDir),
-				);
+				const tools = [
+					...createCodingTools(KB_PROCESSING_CWD),
+					createKbWritePageTool(),
+					createKbFilterByTagsTool(),
+					createKbListTagsTool(),
+				];
+				const { session } = await createAgentSession({
+					cwd: KB_PROCESSING_CWD,
+					sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
+					tools,
+					appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
+					enableBackgroundTasks: false,
+					env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
+				});
+				try {
+					await applyProcessingModel(session, modelKey);
+					await waitForCompletion(session, knowledge.buildProcessingPrompt(prepared.diff, root, tmpDir));
+				} finally {
+					session.dispose();
+				}
 			} finally {
-				session.dispose();
+				await endRound(root);
+				await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 			}
-		} finally {
-			await unlockRaws(root);
-			await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+		} else {
+			log.info("engineering-only round (moved/deleted/orphan reap), skipping LLM");
 		}
 
+		// 工程侧收尾：物理删除上一轮孤儿（不经 agent）+ 据 frontmatter 重建缓存。
 		await knowledge.finalizeRound(root, prepared.toReap);
 		log.info("processing round complete");
 		return { skipped: false };
 	} finally {
+		setProcessing(false);
 		running = false;
 	}
 }
@@ -142,7 +167,9 @@ function unschedule(): void {
 export async function reloadKnowledgePoller(): Promise<void> {
 	unschedule();
 	// 自愈：清除上次进程崩溃可能残留的 raws 只读锁。
-	await unlockRaws().catch(() => {});
+	// 仅当无加工轮进行时才清——进行中那一轮的锁是「活动锁」不是残留，
+	// 误清会丢掉防 agent 污染 raws 的 OS 兜底（如用户正加工时保存了知识库设置）。
+	if (!running) await unlockRaws().catch(() => {});
 	const config = await readDesktopConfig();
 	const kb = config.knowledgeBase;
 	// 总开关：关闭时置 env 标志，coding-agent 据此对 agent 屏蔽知识库检索工具。

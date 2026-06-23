@@ -7,7 +7,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join, posix, relative, sep } from "node:path";
 import { getKnowledgeDir } from "../../config.js";
 import { parseWikiPage, serializeWikiPage } from "./frontmatter.js";
@@ -145,6 +145,47 @@ export async function writeWikiPage(
 export async function deleteWikiPage(root: string, relPath: string): Promise<void> {
 	const full = join(wikiDir(root), relPath);
 	await rm(full, { force: true });
+}
+
+/**
+ * 删除 wiki/ 下所有空目录（自底向上递归），不删 wiki/ 根本身。
+ * 孤儿页被物理删除后常留下空的主题目录，需一并清理。
+ * @returns 删除的空目录数。
+ */
+export async function pruneEmptyWikiDirs(root: string): Promise<number> {
+	let removed = 0;
+	// 返回 dir 在清理过子空目录后是否为空（无任何条目）。
+	const visit = async (dir: string): Promise<boolean> => {
+		let entries: Dirent[];
+		try {
+			entries = await readdir(dir, { withFileTypes: true });
+		} catch {
+			return false;
+		}
+		let remaining = 0;
+		for (const entry of entries) {
+			if (!entry.isDirectory()) {
+				remaining += 1;
+				continue;
+			}
+			const full = join(dir, entry.name);
+			if (await visit(full)) {
+				await rmdir(full).then(
+					() => {
+						removed += 1;
+					},
+					() => {
+						remaining += 1; // 删除失败则视作仍占用
+					},
+				);
+			} else {
+				remaining += 1;
+			}
+		}
+		return remaining === 0;
+	};
+	await visit(wikiDir(root)); // 仅清理子目录，根目录始终保留
+	return removed;
 }
 
 // ---------- manifest / tags 缓存读写 ----------
