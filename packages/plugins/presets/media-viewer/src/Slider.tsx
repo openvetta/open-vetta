@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { cn } from "./utils";
 
 interface SliderProps {
@@ -24,6 +24,7 @@ export function Slider({
 }: SliderProps): JSX.Element {
 	const [internalValue, setInternalValue] = useState(() => defaultValue?.[0] ?? value?.[0] ?? min);
 	const [dragging, setDragging] = useState(false);
+	const draggingRef = useRef(false);
 	const current = value?.[0] ?? internalValue;
 	const percent = useMemo(() => {
 		if (max <= min) return 0;
@@ -35,32 +36,65 @@ export function Slider({
 		onValueChange?.([next]);
 	};
 
+	const updateFromPointer = (element: HTMLDivElement, clientX: number): void => {
+		const rect = element.getBoundingClientRect();
+		if (rect.width <= 0) return;
+		const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+		const raw = min + ratio * (max - min);
+		const stepped = min + Math.round((raw - min) / step) * step;
+		const decimals = step.toString().split(".")[1]?.length ?? 0;
+		changeValue(Number(Math.min(max, Math.max(min, stepped)).toFixed(decimals)));
+	};
+
 	return (
 		<div
 			data-slot="slider"
 			data-disabled={disabled ? "" : undefined}
+			onPointerDown={(event) => {
+				if (disabled || event.button !== 0) return;
+				event.preventDefault();
+				draggingRef.current = true;
+				setDragging(true);
+				event.currentTarget.setPointerCapture(event.pointerId);
+				updateFromPointer(event.currentTarget, event.clientX);
+			}}
+			onPointerMove={(event) => {
+				if (!draggingRef.current) return;
+				updateFromPointer(event.currentTarget, event.clientX);
+			}}
+			onPointerUp={(event) => {
+				if (!draggingRef.current) return;
+				draggingRef.current = false;
+				setDragging(false);
+				event.currentTarget.releasePointerCapture(event.pointerId);
+			}}
+			onPointerCancel={() => {
+				draggingRef.current = false;
+				setDragging(false);
+			}}
 			className={cn(
-				"relative flex w-full cursor-pointer touch-none select-none items-center data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+				"relative flex h-5 w-full cursor-pointer touch-none select-none items-center data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
 				className,
 			)}
 		>
 			<div
 				data-slot="slider-track"
-				className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-[var(--muted)]"
+				className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full"
+				style={{ backgroundColor: "color-mix(in srgb, var(--muted-foreground) 22%, transparent)" }}
 			>
 				<div
 					data-slot="slider-range"
-					className="absolute h-full bg-[var(--primary)]"
-					style={{ left: 0, width: `${percent}%` }}
+					className="absolute h-full"
+					style={{ left: 0, width: `${percent}%`, backgroundColor: "var(--primary)" }}
 				/>
 			</div>
 			<div
 				data-slot="slider-thumb"
 				className={cn(
-					"pointer-events-none absolute block w-1 shrink-0 rounded-full bg-[var(--primary)] outline-none ring-2 ring-[var(--background)] transition-[box-shadow,height] before:absolute before:-inset-x-2 before:inset-y-0 before:content-['']",
+					"pointer-events-none absolute top-1/2 block w-1 shrink-0 rounded-full outline-none ring-2 ring-[var(--background)] transition-[box-shadow,height] before:absolute before:-inset-x-2 before:inset-y-0 before:content-['']",
 					dragging ? "h-5 ring-4" : "h-4",
 				)}
-				style={{ left: `${percent}%`, transform: "translateX(-50%)" }}
+				style={{ left: `${percent}%`, transform: "translate(-50%, -50%)", backgroundColor: "var(--primary)" }}
 			/>
 			<input
 				type="range"
@@ -70,11 +104,7 @@ export function Slider({
 				step={step}
 				disabled={disabled}
 				onChange={(event) => changeValue(Number(event.currentTarget.value))}
-				onPointerDown={() => setDragging(true)}
-				onPointerUp={() => setDragging(false)}
-				onPointerCancel={() => setDragging(false)}
-				onBlur={() => setDragging(false)}
-				className="absolute inset-x-0 h-5 w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+				className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
 			/>
 		</div>
 	);
