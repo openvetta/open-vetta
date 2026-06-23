@@ -124,7 +124,7 @@ export function ToolCallBlockView({ block, exportMode = false }: ToolCallBlockPr
 				onClick={() => canExpand && setExpanded(!expanded)}
 				data-export-toggle={canExpand ? panelId : undefined}
 				aria-expanded={expanded}
-				className={`inline-flex max-w-full items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors ${canExpand ? "hover:bg-muted/60 cursor-pointer" : "cursor-default"}`}
+				className={`inline-flex max-w-full items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors ${canExpand ? "hover:bg-muted/60 cursor-pointer" : "cursor-default"}`}
 			>
 				{/* Tool name and detail */}
 				<div className="flex min-w-0 flex-1 items-center gap-1.5 text-[12px]">
