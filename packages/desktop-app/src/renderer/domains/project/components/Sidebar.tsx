@@ -42,6 +42,7 @@ const NAV_ITEMS = [
 		path: "/knowledge" as const,
 		label: "知识库",
 		icon: "icon-[solar--library-linear]",
+		badge: "BETA",
 	},
 	{ type: "route", path: "/skills" as const, label: "扩展", icon: "icon-[solar--widget-5-linear]" },
 ] as const;
@@ -288,6 +289,11 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 						>
 							<span className={`${item.icon} relative z-10 h-4 w-4 shrink-0`} />
 							<span className="relative z-10">{item.label}</span>
+							{"badge" in item && item.badge && (
+								<span className="relative z-10 rounded-full border border-primary/40 px-1.5 py-px text-[9px] font-semibold uppercase leading-tight tracking-wide text-primary">
+									{item.badge}
+								</span>
+							)}
 						</button>
 					);
 				})}
