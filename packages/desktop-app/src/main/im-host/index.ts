@@ -1,10 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { net } from "electron";
 import { DEFAULT_IM_CONVERSATION_CWD } from "../ipc/fs.js";
-import { fetchRemoteProviders } from "../ipc/settings.js";
 import { getAppLogger } from "../logger.js";
+import { probeModelProvider } from "../models/probe.js";
 import { resolveImGatewayBinary } from "./binary-resolver.js";
 import { buildCodingAgentSpec } from "./coding-agent-spec.js";
 import {
@@ -563,80 +559,7 @@ export class ImHost {
 		provider: string;
 		model: string;
 	}): Promise<{ ok: boolean; message?: string; error?: string }> {
-		// 1) Try local models.json first — the usual case for LAN model
-		//    servers (Ollama, qwen-local, vLLM, …).
-		let provider: { baseUrl?: string } | undefined;
-		try {
-			const raw = await readFile(join(homedir(), ".vetta", "agent", "models.json"), "utf8");
-			const parsed = JSON.parse(raw) as {
-				providers?: Record<string, { baseUrl?: string }>;
-			};
-			provider = parsed.providers?.[ref.provider];
-		} catch {
-			// File missing/unreadable is fine — fall through to remote.
-		}
-
-		// 2) Fall back to the auth-server's remote provider catalogue
-		//    (Vetta Zen et al.). The renderer's atom may be stale or empty
-		//    if the user never opened the chat page, so we re-fetch here
-		//    instead of trusting it.
-		let source: "local" | "remote" = "local";
-		if (!provider) {
-			const remote = await fetchRemoteProviders();
-			const r = remote.providers[ref.provider] as { baseUrl?: string } | undefined;
-			if (r) {
-				provider = r;
-				source = "remote";
-			} else if (remote.error && Object.keys(remote.providers).length === 0) {
-				return {
-					ok: false,
-					error: `provider "${ref.provider}" 既不在本地 models.json 也无法查询云端 provider 列表（${remote.error}）`,
-				};
-			}
-		}
-
-		if (!provider) {
-			return {
-				ok: false,
-				error: `provider "${ref.provider}" 既不在本地 models.json 也不在云端 provider 列表`,
-			};
-		}
-		if (!provider.baseUrl) {
-			return { ok: false, error: `provider "${ref.provider}" 缺 baseUrl` };
-		}
-
-		// Reachability check only — we deliberately do NOT probe any
-		// specific endpoint (like /models). Different providers expose
-		// different health paths (OpenAI: /v1/models, Anthropic: none,
-		// custom gateways: anything), so testing a path gives misleading
-		// results (404 because the path is wrong vs because the host is
-		// down). Hit the bare origin and treat any HTTP response — including
-		// 4xx / 5xx / 404 — as "host reachable". Only network / DNS / TLS
-		// failures fail the probe.
-		let origin: string;
-		try {
-			const u = new URL(provider.baseUrl);
-			origin = `${u.protocol}//${u.host}`;
-		} catch {
-			return { ok: false, error: `provider "${ref.provider}" 的 baseUrl 解析失败：${provider.baseUrl}` };
-		}
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), 5_000);
-		try {
-			await net.fetch(origin, { method: "GET", signal: controller.signal });
-			return {
-				ok: true,
-				message: `provider 可达（${source === "remote" ? "云端" : "本地"}）`,
-			};
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			const sanitized = msg
-				.replace(/https?:\/\/[^\s]+/gi, "目标地址")
-				.replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, "目标地址");
-			return { ok: false, error: `provider 不可达：${sanitized}` };
-		} finally {
-			clearTimeout(timer);
-		}
+		return probeModelProvider(ref);
 	}
 
 	private hasRequiredCredentials(): boolean {

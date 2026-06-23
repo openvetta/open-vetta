@@ -9,6 +9,8 @@ import { SkillsPage } from "./domains/skills/components/SkillsPage";
 import { SettingsPage } from "./domains/settings/components/SettingsPage";
 import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPage";
 import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
+import { KnowledgeBasePage } from "./domains/knowledge-base/components/KnowledgeBasePage";
+import { KnowledgeBaseListPage } from "./domains/knowledge-base/components/KnowledgeBaseListPage";
 import { RouteErrorPage } from "./shared/components/RouteErrorPage";
 
 const rootRoute = createRootRoute({
@@ -37,6 +39,18 @@ const skillsRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/skills",
 	component: SkillsPage,
+});
+
+const knowledgeRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/knowledge",
+	component: KnowledgeBasePage,
+});
+
+const knowledgeListRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/knowledge/all",
+	component: KnowledgeBaseListPage,
 });
 
 const settingsTabRoute = createRoute({
@@ -83,6 +97,8 @@ const routeTree = rootRoute.addChildren([
 	indexRoute,
 	automationRoute,
 	batchTasksRoute,
+	knowledgeRoute,
+	knowledgeListRoute,
 	skillsRoute,
 	settingsTabRoute,
 	projectDetailRoute,

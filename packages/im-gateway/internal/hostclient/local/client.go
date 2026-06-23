@@ -222,6 +222,14 @@ func (s *session) handshake(ctx context.Context, timeout time.Duration) error {
 		default:
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
+			// The subprocess is still alive (otherwise the s.exited branch
+			// above would have fired) but never answered get_state in time.
+			// Its stderr is the only window into why — surface it instead of
+			// swallowing it, so a child that hangs in startup (e.g. Electron
+			// sandbox/GPU init on Linux) is diagnosable without re-spawning.
+			if tail := s.tailStderr(); tail != "" {
+				return fmt.Errorf("hostclient/local: handshake timed out after %v; subprocess stderr: %s", timeout, tail)
+			}
 			return fmt.Errorf("hostclient/local: handshake timed out after %v", timeout)
 		}
 		return fmt.Errorf("hostclient/local: handshake failed: %w", err)

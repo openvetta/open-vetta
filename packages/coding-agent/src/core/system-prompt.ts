@@ -32,6 +32,11 @@ const toolDescriptions: Record<string, string> = {
 		"Extract text from a single image (PNG/JPG/WebP/BMP/GIF) via Vetta Desktop's local PP-OCRv5 OCR",
 	render_pdf_page:
 		"Render a single PDF page to a PNG (via pdftoppm) for VISUAL inspection — seals/stamps (盖章), signatures, handwriting, layout, logos, figures. Follow up with `read` on the returned PNG path. Use this instead of `extract_text_from_pdf` when the task needs a visual judgment OCR cannot make.",
+	kb_write_page:
+		"Create or update a knowledge base wiki page (closed frontmatter schema, stable id, upsert by id/source_hash, auto-refreshes tag/manifest caches)",
+	kb_filter_by_tags:
+		"Filter knowledge base wiki pages by tags using set algebra (all=AND, any=OR, none=NOT); a retrieval shortcut",
+	kb_list_available_tags: "List all tags in the knowledge base with page counts; call before kb_filter_by_tags",
 };
 
 export const VETTA_CLI_GUIDANCE = [

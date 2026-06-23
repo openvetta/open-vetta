@@ -14,6 +14,7 @@ export type ActivityTabKey =
 	| "todo"
 	| "background-tasks"
 	| "debug"
+	| "knowledge-history"
 	| `plugin:${string}`;
 
 export interface ActivityTabConfig {

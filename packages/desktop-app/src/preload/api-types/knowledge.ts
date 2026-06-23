@@ -1,0 +1,47 @@
+/** 知识库 raws ↔ UI 的读写契约。磁盘（~/.vetta/knowledges/raws/）是唯一真相源。 */
+
+export interface KnowledgeNodeDto {
+	/** 相对 raws/<kb>/ 的 posix 路径，稳定。 */
+	id: string;
+	name: string;
+	type: "file" | "directory";
+	children?: KnowledgeNodeDto[];
+	size?: number;
+	/** 本地绝对路径（文件）。 */
+	sourcePath?: string;
+}
+
+export interface KnowledgeBaseDto {
+	/** = 顶层目录名。 */
+	id: string;
+	name: string;
+	updatedAt: number;
+	/** 默认「个人知识库」：不可删除 / 重命名。 */
+	isDefault: boolean;
+	nodes: KnowledgeNodeDto[];
+}
+
+export interface DesktopKnowledgeApi {
+	/** 立即跑一轮加工（手动触发，不等轮询周期）。返回是否因无变更跳过。 */
+	scanNow(): Promise<{ skipped: boolean }>;
+	/** 据当前设置重新调度后台轮询器（保存知识库设置后调用）。 */
+	reload(): Promise<void>;
+	/** 从磁盘 raws/ 读出全部知识库（含文件树）。反向重建即调此刷新。 */
+	list(): Promise<KnowledgeBaseDto[]>;
+	/** 把磁盘上的文件/目录放进某库顶层。move=true 移走源，false 复制留源。同名自动改名共存。 */
+	addFiles(kbId: string, sourcePaths: string[], move: boolean): Promise<void>;
+	/** 删除库内某文件/子目录。 */
+	deleteEntry(kbId: string, relPath: string): Promise<void>;
+	/** 重命名库内某文件/子目录（newName 为纯文件名）。 */
+	renameEntry(kbId: string, relPath: string, newName: string): Promise<void>;
+	/** 新建知识库（顶层目录）。 */
+	create(name: string): Promise<void>;
+	/** 删除整个知识库。 */
+	delete(name: string): Promise<void>;
+	/** 重命名知识库。 */
+	rename(oldName: string, newName: string): Promise<void>;
+	/** 当前是否正在加工（建立索引）。 */
+	isProcessing(): Promise<boolean>;
+	/** 订阅加工状态变化（顶栏「正在建立索引…」徽标）。返回取消订阅函数。 */
+	onProcessingChanged(handler: (processing: boolean) => void): () => void;
+}

@@ -256,3 +256,8 @@ export function getSceneDir(): string {
 export function getUserSkillsDir(): string {
 	return join(homedir(), CONFIG_DIR_NAME, "skills");
 }
+
+/** Get the knowledge base root directory (e.g., ~/.vetta/knowledges/) */
+export function getKnowledgeDir(): string {
+	return join(homedir(), CONFIG_DIR_NAME, "knowledges");
+}

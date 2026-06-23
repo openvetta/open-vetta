@@ -11,6 +11,7 @@ import {
 import { AskUserQuestionView } from "./tool-views/AskUserQuestionView";
 import { BashTerminalCard } from "./tool-views/BashTerminalCard";
 import { EditDiffView } from "./tool-views/EditDiffView";
+import { KbFilterByTagsView, KbListTagsView, KbWritePageView } from "./tool-views/KnowledgeToolViews";
 import { ReadImageView } from "./tool-views/ReadImageView";
 import { WriteContentView } from "./tool-views/WriteContentView";
 import { useElapsedWhilePending } from "./tool-views/shared/use-elapsed";
@@ -237,6 +238,12 @@ export function ToolCallBlockView({ block, exportMode = false }: ToolCallBlockPr
 										</>
 									) : block.toolName === "ask_user_question" ? (
 										<AskUserQuestionView block={block} />
+									) : block.toolName === "kb_filter_by_tags" ? (
+										<KbFilterByTagsView block={block} />
+									) : block.toolName === "kb_list_available_tags" ? (
+										<KbListTagsView block={block} />
+									) : block.toolName === "kb_write_page" ? (
+										<KbWritePageView block={block} />
 									) : hasResult ? (
 										<pre className="max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[11px] leading-[1.5] text-muted-foreground/60">
 											{block.result}

@@ -33,6 +33,8 @@ import {
 	registerSchedulerIpc,
 	teardownAllIpc,
 } from "./ipc/index.js";
+import { registerKnowledgeIpc } from "./knowledge/ipc.js";
+import { reloadKnowledgePoller } from "./knowledge/poller.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-protocol.js";
 import { openExternalUrl } from "./open-external.js";
@@ -156,6 +158,20 @@ if (isCliMode) {
 	app.commandLine.appendSwitch("disable-gpu");
 	app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
 	app.commandLine.appendSwitch("disk-cache-size", "0");
+	// Linux: the CLI/agent-rpc child is a headless Electron spawned from
+	// within the parent Electron (im-gateway → coding-agent-spec bin =
+	// process.execPath + --agent-rpc). Chromium's setuid/namespace sandbox
+	// frequently fails to initialize for such a nested spawn (no suid
+	// chrome-sandbox, restricted unprivileged user namespaces), and
+	// `app.whenReady()` then never resolves — the IM host sees a 10s
+	// "handshake timed out" with no child stderr because runAgentRpcCommand
+	// runs inside whenReady(). The child renders no untrusted web content,
+	// so disabling the sandbox here is safe. `disable-dev-shm-usage` avoids
+	// the related /dev/shm-too-small hang on minimal Linux setups.
+	if (process.platform === "linux") {
+		app.commandLine.appendSwitch("no-sandbox");
+		app.commandLine.appendSwitch("disable-dev-shm-usage");
+	}
 	// CLI mode is agent-driven: keep stderr clean of Electron's dev-time
 	// security advisories so callers can rely on stderr being structured
 	// NDJSON progress + errors only.
@@ -582,6 +598,12 @@ if (!gotSingleLock) {
 			if (win) {
 				teardownSchedulerIpc = registerSchedulerIpc(win.webContents, schedulerService);
 			}
+		});
+
+		// 知识库后台加工：注册手动操作 IPC，并据设置调度惰性轮询器。
+		registerKnowledgeIpc();
+		void reloadKnowledgePoller().catch((err) => {
+			mainLog.error("failed to start knowledge poller:", err);
 		});
 
 		// Bootstrap IM bridge subsystem (im-gateway sidecar). Errors during

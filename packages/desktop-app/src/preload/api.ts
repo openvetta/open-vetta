@@ -7,6 +7,7 @@ import type { DesktopDialogApi } from "./api-types/dialog.js";
 import type { DesktopDownloadsApi } from "./api-types/downloads.js";
 import type { DesktopFlowingApi } from "./api-types/flowing.js";
 import type { DesktopImApi } from "./api-types/im.js";
+import type { DesktopKnowledgeApi } from "./api-types/knowledge.js";
 import type { DesktopMcpApi } from "./api-types/mcp.js";
 import type { DesktopMediaApi } from "./api-types/media.js";
 import type { DesktopModelsApi } from "./api-types/models.js";
@@ -63,6 +64,7 @@ export interface DesktopApi {
 	fs: DesktopFsApi;
 	skills: DesktopSkillsApi;
 	config: DesktopConfigApi;
+	knowledge: DesktopKnowledgeApi;
 	models: DesktopModelsApi;
 	mcp: DesktopMcpApi;
 	media: DesktopMediaApi;

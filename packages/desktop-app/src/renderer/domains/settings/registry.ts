@@ -29,6 +29,7 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	{ key: "shortcuts", label: "快捷键", icon: "icon-[mdi--keyboard-outline]" },
 	{ key: "environment", label: "应用环境", icon: "icon-[mdi--package-variant-closed]" },
 	{ key: "plugins", label: "插件设置", icon: "icon-[mdi--puzzle-outline]" },
+	{ key: "knowledge", label: "知识库设置", icon: "icon-[mdi--database-outline]" },
 	{ key: "permissions", label: "权限管理", icon: "icon-[mdi--shield-lock-outline]", macOnly: true },
 ] as const;
 
@@ -69,6 +70,8 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "context", id: "agent-personalization", title: "个性化" },
 	{ tab: "context", id: "agent-images", title: "图片" },
 	{ tab: "context", id: "agent-experimental", title: "扩展功能" },
+	{ tab: "knowledge", id: "knowledge-processing", title: "后台加工" },
+	{ tab: "knowledge", id: "knowledge-actions", title: "手动操作" },
 ] as const satisfies readonly SettingsSectionRegistration[];
 
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]["id"];

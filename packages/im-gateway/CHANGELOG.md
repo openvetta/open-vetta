@@ -38,6 +38,7 @@ All notable changes to `@vetta/im-gateway` are documented in this file.
 
 ### Fixed
 
+- `hostclient/local` 的握手超时错误现在会附带子进程 stderr（`handshake timed out after 10s; subprocess stderr: ...`）。此前只有「subprocess exited during handshake」路径会带 stderr，纯超时（子进程仍存活但不回 get_state，例如 Linux 上子 Electron 卡在 sandbox/GPU 初始化）则把 stderr 整个吞掉，导致无法定位真因。
 - Windows desktop-app host mode now supports `InitFrame.codingAgent.runAsNode`; when set, `hostclient/local` spawns the configured Electron executable with `ELECTRON_RUN_AS_NODE=1`. This lets Windows packaged desktop builds run coding-agent RPC over reliable Node stdio instead of GUI Electron stdio, fixing WeChat/Claw messages failing at `subprocess exited during handshake`.
 
 - 生产环境 IM 发消息报 `exec: "vetta": executable file not found in $PATH`：sidecar 默认从 PATH 找 `vetta`，但打包好的 Vetta.app 没有把 CLI 软链到系统 PATH，所以每条 IM 消息都拉不起 coding-agent。配合 desktop-app 新增的 `--agent-rpc` CLI mode + 新增的 `InitFrame.codingAgent` 字段，sidecar 会在 IM session 启动时用 desktop-app 指定的可执行文件，根治。

@@ -1,4 +1,6 @@
 import type { ChatMessage } from "@shared/store/atoms";
+import { authUserAtom } from "@shared/store/auth-atoms";
+import { useAtomValue } from "jotai";
 import { useEffect, useRef } from "react";
 import { buildChatHtmlDocument } from "../services/chat-html-export";
 import { ExportMessageList } from "./MessageList";
@@ -22,6 +24,7 @@ function safeFileName(value: string): string {
 
 export function ChatExportHost({ messages, title, onFinished }: ChatExportHostProps): JSX.Element {
 	const rootRef = useRef<HTMLDivElement>(null);
+	const authUser = useAtomValue(authUserAtom);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -31,7 +34,7 @@ export function ChatExportHost({ messages, title, onFinished }: ChatExportHostPr
 				await nextPaint();
 				const root = rootRef.current;
 				if (!root || cancelled) return;
-				const html = await buildChatHtmlDocument(root, title);
+				const html = await buildChatHtmlDocument(root, title, authUser?.nickname);
 				if (cancelled) return;
 				await window.vetta.dialog.saveHtml(safeFileName(title), html);
 			} catch (error) {
@@ -46,7 +49,7 @@ export function ChatExportHost({ messages, title, onFinished }: ChatExportHostPr
 		return () => {
 			cancelled = true;
 		};
-	}, [onFinished, title]);
+	}, [onFinished, title, authUser?.nickname]);
 
 	return (
 		<div aria-hidden="true" className="fixed left-[-100000px] top-0 w-[768px] bg-background">
