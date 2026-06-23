@@ -114,6 +114,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Linux 下 IM（微信/Claw）桥接发消息报 `acquire session: hostclient/local: handshake timed out after 10s`**：im-gateway 在 dev/生产都用 `process.execPath + --agent-rpc` spawn 一个 headless Electron 子进程跑 coding-agent RPC，而该子进程的逻辑挂在 `app.whenReady()` 之后。Linux 上嵌套 spawn 的 Electron 的 Chromium setuid/namespace sandbox 经常初始化失败，`whenReady()` 永不 resolve，宿主只看到 10s 握手超时且无子进程 stderr（macOS 不受影响）。现在 CLI/agent-rpc 模式在 Linux 上启动时追加 `--no-sandbox` 与 `--disable-dev-shm-usage`（该子进程不渲染任何不可信网页，关 sandbox 安全）。
 - **streaming 期间展开右侧文件预览后，模型结束输出但打字指示器仍卡住**：内联文件预览展开会自动收起左侧 Sidebar 腾出空间，而 Sidebar 被条件渲染时是真正卸载。维护 `runningSessionPathsAtom`（streaming 状态真值来源之一）的 `RUNNING_CHANGED` IPC 订阅原先挂在 Sidebar 的 effect 上，Sidebar 卸载期间该事件被静默丢弃，导致 `isStreamingAtom` 一直为真，直到关闭预览、Sidebar 重新挂载靠 `listRunning` 快照纠偏。现把该订阅抽成 `useRunningSessionsSync` hook 上提到始终挂载的 App 根级，Sidebar 折叠/窄屏/内联预览均不再丢事件。
 
 - **开发启动时系统插件重复初始化异常**：React StrictMode 会在开发环境重复执行插件宿主初始化，原加载器每次都以 `force` 覆盖 Module Federation remote，触发覆盖告警并清除已加载缓存；首次异步加载若在清理后才完成，也不会释放插件贡献。现在仅在插件别名或入口实际变化时强制重注册，同一制品直接复用既有 remote，并在异步加载完成后正确清理已失效初始化产生的插件实例。
