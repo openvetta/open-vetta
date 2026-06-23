@@ -253,12 +253,8 @@ export function KnowledgeBaseSettings(): JSX.Element {
 								<span className="icon-[mdi--close] h-3.5 w-3.5 text-red-500" />
 							) : null}
 						</button>
-						{probeResult && (
-							<span
-								className={`text-[11px] ${probeResult.ok ? "text-green-600 dark:text-green-400" : "text-red-500"}`}
-							>
-								{probeResult.msg}
-							</span>
+						{probeResult && !probeResult.ok && (
+							<span className="text-[11px] text-red-500">{probeResult.msg}</span>
 						)}
 					</div>
 				</SettingRow>
