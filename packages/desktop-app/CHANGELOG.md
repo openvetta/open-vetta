@@ -115,6 +115,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **Linux AppImage 下 IM（微信/Claw）发消息报 `subprocess exited during handshake: FATAL:setuid_sandbox_host.cc(163)`**：上一版用子进程内 `app.commandLine.appendSwitch("no-sandbox")` 关沙箱，但对 AppImage 太晚——`chrome-sandbox` 挂在只读的 `/tmp/.mount_xxx` 且非 setuid root，Chromium 在 ContentMain 早期的 SUID 沙箱检查就 FATAL abort，早于 JS main 执行，appendSwitch 根本没机会生效。现在 Linux 打包路径把 `--no-sandbox` 作为真实 argv 传给子进程，且置于 `--agent-rpc` 之前——既让 Chromium 在最早期解析到、又因 `parseAgentRpcCommand` 只转发 `--agent-rpc` 之后的参数而不会污染 coding-agent 的参数解析（macOS 不受影响）。
 - **Linux 下 IM（微信/Claw）桥接发消息报 `acquire session: hostclient/local: handshake timed out after 10s`**：im-gateway 在 dev/生产都用 `process.execPath + --agent-rpc` spawn 一个 headless Electron 子进程跑 coding-agent RPC，而该子进程的逻辑挂在 `app.whenReady()` 之后。Linux 上嵌套 spawn 的 Electron 的 Chromium setuid/namespace sandbox 经常初始化失败，`whenReady()` 永不 resolve，宿主只看到 10s 握手超时且无子进程 stderr（macOS 不受影响）。现在 CLI/agent-rpc 模式在 Linux 上启动时追加 `--no-sandbox` 与 `--disable-dev-shm-usage`（该子进程不渲染任何不可信网页，关 sandbox 安全）。
 - **streaming 期间展开右侧文件预览后，模型结束输出但打字指示器仍卡住**：内联文件预览展开会自动收起左侧 Sidebar 腾出空间，而 Sidebar 被条件渲染时是真正卸载。维护 `runningSessionPathsAtom`（streaming 状态真值来源之一）的 `RUNNING_CHANGED` IPC 订阅原先挂在 Sidebar 的 effect 上，Sidebar 卸载期间该事件被静默丢弃，导致 `isStreamingAtom` 一直为真，直到关闭预览、Sidebar 重新挂载靠 `listRunning` 快照纠偏。现把该订阅抽成 `useRunningSessionsSync` hook 上提到始终挂载的 App 根级，Sidebar 折叠/窄屏/内联预览均不再丢事件。
 
