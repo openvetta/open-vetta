@@ -8,7 +8,12 @@ import {
 	SelectValue,
 } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
-import { knowledgeBaseEnabledAtom, knowledgeRetrievalActiveAtom } from "@shared/store/atoms";
+import {
+	activityPanelOpenAtom,
+	knowledgeBaseEnabledAtom,
+	knowledgeRetrievalActiveAtom,
+	type SessionInfo,
+} from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
@@ -27,6 +32,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const navigate = useNavigate();
 	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
 	const setKnowledgeRetrievalActive = useSetAtom(knowledgeRetrievalActiveAtom);
+	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const [enabled, setEnabled] = useState(true);
 	const [interval, setIntervalMinutes] = useState(5);
 	const [modelKey, setModelKey] = useState<string>("");
@@ -104,9 +110,19 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		}
 	}, []);
 
-	const handleOpenRecords = useCallback(() => {
-		void navigate({ to: "/knowledge-records" });
-	}, [navigate]);
+	// 直接定位到最新一轮加工 session 的只读视图并展开活动面板；无记录则行内提示。
+	const handleOpenRecords = useCallback(async () => {
+		setStatus(null);
+		const config = await window.vetta.config.get();
+		const cwd = config.knowledgeProcessingCwd;
+		const list = cwd ? ((await window.vetta.session.listSessions(cwd)) as SessionInfo[]) : [];
+		if (list.length === 0) {
+			setStatus("暂无加工记录");
+			return;
+		}
+		setActivityPanelOpen(true);
+		void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(list[0].path) } });
+	}, [navigate, setActivityPanelOpen]);
 
 	const grouped = new Map<string, ModelOption[]>();
 	for (const m of models) {
@@ -178,7 +194,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					</button>
 				</SettingRow>
 				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。" border={false}>
-					<button type="button" onClick={handleOpenRecords} className={btnClass}>
+					<button type="button" onClick={() => void handleOpenRecords()} className={btnClass}>
 						<span>查看记录</span>
 					</button>
 				</SettingRow>

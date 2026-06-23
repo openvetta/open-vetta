@@ -11,7 +11,6 @@ import { ProjectDetailPage } from "./domains/project/components/ProjectDetailPag
 import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
 import { KnowledgeBasePage } from "./domains/knowledge-base/components/KnowledgeBasePage";
 import { KnowledgeBaseListPage } from "./domains/knowledge-base/components/KnowledgeBaseListPage";
-import { KnowledgeRecordsPage } from "./domains/knowledge/components/KnowledgeRecordsPage";
 import { RouteErrorPage } from "./shared/components/RouteErrorPage";
 
 const rootRoute = createRootRoute({
@@ -94,12 +93,6 @@ const sessionViewerRoute = createRoute({
 	component: SessionViewerPage,
 });
 
-const knowledgeRecordsRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: "/knowledge-records",
-	component: KnowledgeRecordsPage,
-});
-
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	automationRoute,
@@ -112,7 +105,6 @@ const routeTree = rootRoute.addChildren([
 	downloadsRoute,
 	newSessionRoute,
 	sessionViewerRoute,
-	knowledgeRecordsRoute,
 ]);
 
 export const router = createRouter({
