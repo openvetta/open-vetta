@@ -25,11 +25,16 @@ const MEDIA_MIME: Record<string, string> = {
 	m4a: "audio/mp4",
 	aac: "audio/aac",
 	webm: "audio/webm",
+	mp4: "video/mp4",
+	m4v: "video/x-m4v",
+	mov: "video/quicktime",
+	ogv: "video/ogg",
 	png: "image/png",
 	jpg: "image/jpeg",
 	jpeg: "image/jpeg",
 	webp: "image/webp",
 	gif: "image/gif",
+	ico: "image/x-icon",
 	pdf: "application/pdf",
 	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 	xls: "application/vnd.ms-excel",
@@ -74,10 +79,12 @@ function parseRange(header: string | null, size: number): { start: number; end: 
 export function registerMediaProtocolHandler(): void {
 	protocol.handle(MEDIA_PROTOCOL_SCHEME, async (request) => {
 		let filePath: string;
+		let mediaKind: string | null = null;
 		try {
 			const url = new URL(request.url);
 			const rawPath = url.searchParams.get("path");
 			if (!rawPath) return new Response("Missing path", { status: 400 });
+			mediaKind = url.searchParams.get("kind");
 			filePath = resolve(rawPath);
 			// 与 fs IPC 预览读取同一道沙箱边界：防止渲染进程借本协议任意读取磁盘文件
 			assertPathReadableForPreview(filePath);
@@ -95,8 +102,10 @@ export function registerMediaProtocolHandler(): void {
 		}
 
 		const ext = extname(filePath).slice(1).toLowerCase();
+		const contentType =
+			ext === "webm" && mediaKind === "video" ? "video/webm" : (MEDIA_MIME[ext] ?? "application/octet-stream");
 		const baseHeaders: Record<string, string> = {
-			"Content-Type": MEDIA_MIME[ext] ?? "application/octet-stream",
+			"Content-Type": contentType,
 			"Accept-Ranges": "bytes",
 			"Access-Control-Allow-Origin": "*",
 		};

@@ -57,6 +57,19 @@ export interface PluginGlobalSlotContribution {
 	component: ComponentType;
 }
 
+export interface PluginAudioMetadata {
+	/** Embedded title; preview renderers should fall back to file.name. */
+	title?: string;
+	artist?: string;
+	/** Embedded cover art as a Data URL when available. */
+	coverDataUrl?: string;
+}
+
+export interface PluginPreviewUrlOptions {
+	/** Optional media hint for ambiguous containers such as webm. */
+	mediaKind?: "audio" | "video";
+}
+
 /**
  * The file handed to a file-preview plugin component. The host does NOT
  * pre-read or guess encoding — the plugin decides whether to read text or
@@ -73,7 +86,7 @@ export interface PluginPreviewFile {
 	/** Read the raw file bytes. */
 	readBytes(): Promise<ArrayBuffer>;
 	/** A fetchable streaming URL for the file (Range-capable). */
-	getUrl(): string;
+	getUrl(options?: PluginPreviewUrlOptions): string;
 	/**
 	 * Subscribe to on-disk changes of this file. The listener fires (debounced
 	 * by the host) whenever the file's contents change, letting previews update
@@ -81,6 +94,11 @@ export interface PluginPreviewFile {
 	 * files without a real path (url-only sources).
 	 */
 	watch(listener: () => void): Disposable;
+	/**
+	 * Host-provided audio metadata for local media files. Returns null when the
+	 * host cannot provide metadata, e.g. url-only sources or unsupported files.
+	 */
+	getAudioMetadata?(): Promise<PluginAudioMetadata | null>;
 }
 
 export interface PluginFilePreviewProps {
@@ -252,9 +270,9 @@ export interface PluginToolCallSlotContribution {
 export interface PluginUiApi {
 	registerGlobalSlot(contribution: PluginGlobalSlotContribution): Disposable;
 	/**
-	 * Register a preview component keyed by file extension. Honoured only for
-	 * extensions the host has no built-in preview for ("fill the blanks");
-	 * first registrant wins on conflict.
+	 * Register a preview component keyed by file extension. The host dispatches
+	 * registered extensions before its built-in fallback renderers; first
+	 * registrant wins on conflict.
 	 */
 	registerFilePreview(contribution: PluginFilePreviewContribution): Disposable;
 	/**

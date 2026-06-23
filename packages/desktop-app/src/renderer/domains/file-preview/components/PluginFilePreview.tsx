@@ -3,7 +3,25 @@ import type { PluginFilePreviewContribution, PluginPreviewFile } from "@vetta/pl
 import { useMemo } from "react";
 
 const MIME_BY_EXTENSION: Record<string, string> = {
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	gif: "image/gif",
+	webp: "image/webp",
+	ico: "image/x-icon",
 	svg: "image/svg+xml",
+	mp3: "audio/mpeg",
+	wav: "audio/wav",
+	ogg: "audio/ogg",
+	flac: "audio/flac",
+	m4a: "audio/mp4",
+	aac: "audio/aac",
+	opus: "audio/ogg",
+	webm: "audio/webm",
+	mp4: "video/mp4",
+	m4v: "video/x-m4v",
+	mov: "video/quicktime",
+	ogv: "video/ogg",
 	drawio: "application/xml",
 	xml: "application/xml",
 	json: "application/json",
@@ -80,8 +98,13 @@ export function PluginFilePreview({
 				if (encoding === "base64") return base64ToArrayBuffer(content);
 				return new TextEncoder().encode(content).buffer;
 			},
-			getUrl: () =>
-				item.url ?? (item.path ? `vetta-media://local/stream?path=${encodeURIComponent(item.path)}` : ""),
+			getUrl: (options) => {
+				if (item.url) return item.url;
+				if (!item.path) return "";
+				const params = new URLSearchParams({ path: item.path });
+				if (options?.mediaKind) params.set("kind", options.mediaKind);
+				return `vetta-media://local/stream?${params.toString()}`;
+			},
 			watch: (listener) => {
 				const path = item.path;
 				if (!path) return { dispose() {} };
@@ -97,6 +120,10 @@ export function PluginFilePreview({
 						void window.vetta.fs.unwatchDir(dir);
 					},
 				};
+			},
+			getAudioMetadata: async () => {
+				if (!item.path) return null;
+				return await window.vetta.media.getAudioMetadata(item.path);
 			},
 		};
 	}, [item, ext]);

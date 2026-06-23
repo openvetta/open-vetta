@@ -3,16 +3,15 @@ import { pluginFilePreviewsAtom, resolvedThemeAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PluginFilePreview } from "./PluginFilePreview";
-import { AudioPreview } from "../../activity-panel/components/previews/AudioPreview";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
 import { HtmlPreview } from "../../activity-panel/components/previews/HtmlPreview";
-import { ImagePreview } from "../../activity-panel/components/previews/ImagePreview";
 import { MarkdownPreview } from "../../activity-panel/components/previews/MarkdownPreview";
 
-// svg 刻意不在内置集：交给 svg-viewer 插件接管（「仅补空白」下插件只能拿内置不认的扩展名）
+// 图片组灯箱仍由宿主外壳识别；实际图片内容预览由 media-viewer 系统插件接管。
 export const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "ico"]);
-// Chromium 原生可解码的音频格式（ADR-0021）；wma/ape 等维持「不支持 + 下载」
+// Chromium 原生可解码的音频格式（ADR-0021）；实际渲染由 media-viewer 系统插件接管。
 export const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus", "webm"]);
+export const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "mov", "m4v"]);
 const MARKDOWN_EXTENSIONS = new Set(["md", "mdx"]);
 
 const TEXT_EXTENSIONS = new Set([
@@ -26,8 +25,6 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 const SUPPORTED_EXTENSIONS = new Set<string>([
-	...IMAGE_EXTENSIONS,
-	...AUDIO_EXTENSIONS,
 	...TEXT_EXTENSIONS,
 ]);
 
@@ -67,15 +64,13 @@ export function PreviewBody({
 }): JSX.Element {
 	const ext = useMemo(() => getExtension(item.name), [item.name]);
 	const supported = isPreviewSupported(item.name);
-	// 音频不走 readFile/fetch 全量加载：本地经媒体流协议、远程直接作 src（ADR-0021）
-	const isAudio = AUDIO_EXTENSIONS.has(ext);
 	const theme = useAtomValue(resolvedThemeAtom);
 
-	// 插件预览「仅补空白」：仅当内置不支持该扩展名时才查插件注册表，首个匹配胜。
+	// 插件预览可接管注册扩展名；宿主只继续内置文本类兜底。
 	const pluginPreviews = useAtomValue(pluginFilePreviewsAtom);
 	const pluginPreview = useMemo(
-		() => (supported ? undefined : pluginPreviews.find((p) => p.extensions.includes(ext))),
-		[supported, pluginPreviews, ext],
+		() => pluginPreviews.find((p) => p.extensions.includes(ext)),
+		[pluginPreviews, ext],
 	);
 
 	const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -86,7 +81,7 @@ export function PreviewBody({
 	const prevKeyRef = useRef<string | null>(null);
 
 	useEffect(() => {
-		if (!supported || isAudio) return;
+		if (pluginPreview || !supported) return;
 		let cancelled = false;
 		// 仅在切换到新文件时显示 loading；刷新 / 实时更新时保留旧内容，避免闪烁
 		const isNewItem = prevKeyRef.current !== itemKey;
@@ -109,12 +104,12 @@ export function PreviewBody({
 		return () => {
 			cancelled = true;
 		};
-	}, [item, ext, supported, isAudio, itemKey, watchTick, refreshNonce]);
+	}, [item, ext, supported, pluginPreview, itemKey, watchTick, refreshNonce]);
 
-	// 实时刷新：监听文件所在目录，磁盘变化时重读内容（与插件预览同一套机制）
+	// 实时刷新：宿主内置文本预览监听文件所在目录；插件预览使用 PluginPreviewFile.watch。
 	useEffect(() => {
 		const path = item.path;
-		if (!path || !supported || isAudio) return;
+		if (!path || pluginPreview || !supported) return;
 		const slash = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
 		const dir = slash > 0 ? path.slice(0, slash) : path;
 		void window.vetta.fs.watchDir(dir);
@@ -125,26 +120,22 @@ export function PreviewBody({
 			unsub();
 			void window.vetta.fs.unwatchDir(dir);
 		};
-	}, [item.path, supported, isAudio]);
+	}, [item.path, supported, pluginPreview]);
 
-	if (!supported) {
-		if (pluginPreview) {
-			// refreshNonce 入 key：手动刷新时重挂载插件预览，触发其重新读取
-			return (
-				<PluginFilePreview
-					key={`${itemKey}-${refreshNonce}`}
-					item={item}
-					ext={ext}
-					component={pluginPreview.component}
-				/>
-			);
-		}
-		return <UnsupportedDetail item={item} />;
+	if (pluginPreview) {
+		// refreshNonce 入 key：手动刷新时重挂载插件预览，触发其重新读取
+		return (
+			<PluginFilePreview
+				key={`${itemKey}-${refreshNonce}`}
+				item={item}
+				ext={ext}
+				component={pluginPreview.component}
+			/>
+		);
 	}
 
-	if (isAudio) {
-		// key 保证切换文件 / 手动刷新时整组件重挂载，停掉上一首的播放与动画
-		return <AudioPreview key={`${itemKey}-${refreshNonce}`} item={item} />;
+	if (!supported) {
+		return <UnsupportedDetail item={item} />;
 	}
 
 	if (state.status === "loading") {
@@ -164,13 +155,6 @@ export function PreviewBody({
 		);
 	}
 
-	if (IMAGE_EXTENSIONS.has(ext)) {
-		return (
-			<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-				<ImagePreview content={state.content} extension={ext} />
-			</div>
-		);
-	}
 	if ((ext === "html" || ext === "htm") && state.encoding === "utf8") {
 		return <HtmlPreview content={state.content} extension={ext} theme={theme} />;
 	}
