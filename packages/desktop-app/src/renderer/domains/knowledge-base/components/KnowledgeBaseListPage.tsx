@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
@@ -6,6 +6,7 @@ import {
 	activeKnowledgeBaseIdAtom,
 	knowledgeBasesAtom,
 	knowledgeImportDraftAtom,
+	refreshKnowledgeBasesAtom,
 } from "@shared/store/atoms";
 import type { KnowledgeBase } from "@shared/types/knowledge-base";
 import { Button } from "@shared/components/ui/button";
@@ -21,9 +22,14 @@ export function KnowledgeBaseListPage(): JSX.Element {
 	const activeId = useAtomValue(activeKnowledgeBaseIdAtom);
 	const setActiveId = useSetAtom(activeKnowledgeBaseIdAtom);
 	const setDraft = useSetAtom(knowledgeImportDraftAtom);
+	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
 	const navigate = useNavigate();
 	const [search, setSearch] = useState("");
 	const narrow = useNarrowScreen();
+
+	useEffect(() => {
+		void refresh();
+	}, [refresh]);
 
 	const filteredBases = useMemo(() => {
 		const query = search.trim().toLocaleLowerCase();
@@ -31,10 +37,7 @@ export function KnowledgeBaseListPage(): JSX.Element {
 			.sort((a, b) => b.updatedAt - a.updatedAt)
 			.filter((base) => {
 				if (!query) return true;
-				return (
-					base.name.toLocaleLowerCase().includes(query) ||
-					base.description.toLocaleLowerCase().includes(query)
-				);
+				return base.name.toLocaleLowerCase().includes(query);
 			});
 	}, [knowledgeBases, search]);
 
@@ -44,7 +47,7 @@ export function KnowledgeBaseListPage(): JSX.Element {
 	};
 
 	const createKnowledgeBase = () => {
-		setDraft({ items: [], targetKnowledgeBaseId: null, source: "create" });
+		setDraft({ sourcePaths: [], defaultTargetId: null, createOnly: true });
 		void navigate({ to: "/knowledge" });
 	};
 
@@ -175,9 +178,6 @@ export function KnowledgeBaseListPage(): JSX.Element {
 													<h2 className="mt-3 truncate text-[13px] font-semibold text-foreground">
 														{base.name}
 													</h2>
-													<p className="mt-1 line-clamp-2 min-h-8 text-[11px] leading-4 text-muted-foreground/60">
-														{base.description || "暂无描述"}
-													</p>
 													<div className="mt-auto flex items-center gap-2 pt-3 text-[10px] text-muted-foreground/50">
 														<span>{stats.directories} 个目录</span>
 														<span>·</span>

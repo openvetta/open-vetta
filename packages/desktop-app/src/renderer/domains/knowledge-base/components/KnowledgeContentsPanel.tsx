@@ -1,208 +1,312 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSetAtom } from "jotai";
-import { AnimatePresence, motion } from "motion/react";
-import type { FilePreviewContext, FilePreviewItem } from "@shared/store/atoms";
-import { filePreviewAtom } from "@shared/store/atoms";
+import { motion } from "motion/react";
+import { confirmDialogAtom, refreshKnowledgeBasesAtom } from "@shared/store/atoms";
+import type { FilePreviewContext } from "@shared/store/atoms";
 import type { KnowledgeBase, KnowledgeNode } from "@shared/types/knowledge-base";
+import { cn } from "@shared/lib/utils";
 import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components/FilePreviewView";
-import { ResizeHandle } from "@shared/components/ResizeHandle";
-import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
-import { Input } from "@shared/components/ui/input";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
-import { KnowledgeTree } from "./KnowledgeTree";
-import { KnowledgeBasePicker } from "./KnowledgeBasePicker";
-import { countKnowledgeNodes } from "../lib/knowledge-base";
-
-const TREE_DEFAULT_WIDTH = 300;
-const TREE_MIN_WIDTH = 220;
-const TREE_MAX_WIDTH = 420;
-const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+import { KnowledgeGrid } from "./KnowledgeGrid";
+import { KnowledgeRenameDialog } from "./KnowledgeRenameDialog";
+import { type ContextMenuItem, KnowledgeContextMenu } from "./KnowledgeContextMenu";
+import { knowledgeNodeMatches, nodesAtPath } from "../lib/knowledge-base";
 
 interface KnowledgeContentsPanelProps {
-	knowledgeBases: KnowledgeBase[];
 	knowledgeBase: KnowledgeBase;
-	onSelectKnowledgeBase: (id: string) => void;
-	onCreateKnowledgeBase: () => void;
-	onViewAllKnowledgeBases: () => void;
+	/** 搜索词（在页面顶部右上角输入，过滤当前目录）。 */
+	search: string;
 	onPickFiles: () => void;
 	onPickFolders: () => void;
 }
 
-interface PreviewEntry {
-	nodeId: string;
-	item: FilePreviewItem;
-}
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
-function collectPreviewEntries(nodes: KnowledgeNode[]): PreviewEntry[] {
-	const entries: PreviewEntry[] = [];
-	for (const node of nodes) {
-		if (node.type === "directory") {
-			entries.push(...collectPreviewEntries(node.children ?? []));
-			continue;
-		}
-		if (!node.sourcePath) continue;
-		entries.push({
-			nodeId: node.id,
-			item: { name: node.name, path: node.sourcePath, size: node.size },
-		});
-	}
-	return entries;
-}
+type MenuState = { x: number; y: number; node: KnowledgeNode };
 
 export function KnowledgeContentsPanel({
-	knowledgeBases,
 	knowledgeBase,
-	onSelectKnowledgeBase,
-	onCreateKnowledgeBase,
-	onViewAllKnowledgeBases,
+	search,
 	onPickFiles,
 	onPickFolders,
 }: KnowledgeContentsPanelProps): JSX.Element {
-	const [expanded, setExpanded] = useState<Set<string>>(new Set());
-	const [search, setSearch] = useState("");
-	const [previewContext, setPreviewContext] = useState<FilePreviewContext | null>(null);
-	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
-	const [treeCollapsed, setTreeCollapsed] = useState(false);
-	const setGlobalPreview = useSetAtom(filePreviewAtom);
-	const narrow = useNarrowScreen();
-	const stats = useMemo(() => countKnowledgeNodes(knowledgeBase.nodes), [knowledgeBase.nodes]);
-	const previewEntries = useMemo(() => collectPreviewEntries(knowledgeBase.nodes), [knowledgeBase.nodes]);
-	const selectedNodeId = previewContext ? (previewEntries[previewContext.index]?.nodeId ?? null) : null;
-	const { goPrev, goNext } = usePreviewNav(setPreviewContext);
+	const [path, setPath] = useState<string[]>([]);
+	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+	const [anchorId, setAnchorId] = useState<string | null>(null);
+	const [menu, setMenu] = useState<MenuState | null>(null);
+	const [renameNode, setRenameNode] = useState<KnowledgeNode | null>(null);
+	const [previewCtx, setPreviewCtx] = useState<FilePreviewContext | null>(null);
+	const confirm = useSetAtom(confirmDialogAtom);
+	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
+	const previewNav = usePreviewNav(setPreviewCtx);
 
-	const toggleDirectory = useCallback((id: string) => {
-		setExpanded((current) => {
-			const next = new Set(current);
-			if (next.has(id)) next.delete(id);
-			else next.add(id);
-			return next;
-		});
+	const clearSelection = useCallback(() => {
+		setSelectedIds(new Set());
+		setAnchorId(null);
 	}, []);
 
-	const selectNode = useCallback(
-		(node: KnowledgeNode) => {
-			if (node.type === "directory" || !node.sourcePath) return;
-			const index = previewEntries.findIndex((entry) => entry.nodeId === node.id);
-			if (index < 0) return;
-			const context = { items: previewEntries.map((entry) => entry.item), index };
-			if (narrow) {
-				setGlobalPreview(context);
-				return;
-			}
-			setPreviewContext(context);
-		},
-		[narrow, previewEntries, setGlobalPreview],
+	// 切库回根目录。
+	// biome-ignore lint/correctness/useExhaustiveDependencies: 仅在切库时重置
+	useEffect(() => setPath([]), [knowledgeBase.id]);
+	// 切目录/库后清空选中，并关闭右侧内嵌预览。
+	useEffect(() => {
+		clearSelection();
+		setPreviewCtx(null);
+	}, [path, knowledgeBase.id, clearSelection]);
+
+	const currentNodes = useMemo(
+		() => nodesAtPath(knowledgeBase.nodes, path),
+		[knowledgeBase.nodes, path],
+	);
+	const query = search.trim().toLocaleLowerCase();
+	const visibleNodes = useMemo(
+		() => (query ? currentNodes.filter((node) => knowledgeNodeMatches(node, query)) : currentNodes),
+		[currentNodes, query],
+	);
+	const filesAtLevel = useMemo(
+		() => currentNodes.filter((node) => node.type === "file"),
+		[currentNodes],
 	);
 
-	const closePreview = useCallback(() => {
-		setPreviewContext(null);
-		setTreeCollapsed(false);
-	}, []);
+	const openNode = useCallback(
+		(node: KnowledgeNode) => {
+			if (node.type === "directory") {
+				setPath((prev) => [...prev, node.name]);
+				return;
+			}
+			if (!node.sourcePath) return;
+			const index = filesAtLevel.findIndex((item) => item.id === node.id);
+			if (index < 0) return;
+			setPreviewCtx({
+				items: filesAtLevel.map((item) => ({
+					name: item.name,
+					path: item.sourcePath,
+					size: item.size,
+				})),
+				index,
+			});
+		},
+		[filesAtLevel],
+	);
 
-	const resizeTree = useCallback((delta: number) => {
-		setTreeWidth((width) => Math.max(TREE_MIN_WIDTH, Math.min(TREE_MAX_WIDTH, width + delta)));
-	}, []);
+	const onItemClick = useCallback(
+		(node: KnowledgeNode, event: React.MouseEvent) => {
+			if (event.shiftKey && anchorId) {
+				const a = visibleNodes.findIndex((n) => n.id === anchorId);
+				const b = visibleNodes.findIndex((n) => n.id === node.id);
+				if (a >= 0 && b >= 0) {
+					const [lo, hi] = a < b ? [a, b] : [b, a];
+					setSelectedIds(new Set(visibleNodes.slice(lo, hi + 1).map((n) => n.id)));
+				}
+				return;
+			}
+			if (event.metaKey || event.ctrlKey) {
+				setSelectedIds((prev) => {
+					const next = new Set(prev);
+					if (next.has(node.id)) next.delete(node.id);
+					else next.add(node.id);
+					return next;
+				});
+				setAnchorId(node.id);
+				return;
+			}
+			setSelectedIds(new Set([node.id]));
+			setAnchorId(node.id);
+		},
+		[anchorId, visibleNodes],
+	);
 
-	const showTree = !previewContext || !treeCollapsed;
+	const onContextMenu = useCallback(
+		(node: KnowledgeNode, event: React.MouseEvent) => {
+			// 右键未选中项时，先把它设为唯一选中（已选中则保留当前多选）。
+			if (!selectedIds.has(node.id)) {
+				setSelectedIds(new Set([node.id]));
+				setAnchorId(node.id);
+			}
+			setMenu({ x: event.clientX, y: event.clientY, node });
+		},
+		[selectedIds],
+	);
+
+	const deleteIds = useCallback(
+		(ids: string[], label: string) => {
+			confirm({
+				title: "删除",
+				message: `确定从「${knowledgeBase.name}」删除${label}吗？该操作不可撤销。`,
+				variant: "danger",
+				confirmLabel: "删除",
+				onConfirm: () => {
+					void (async () => {
+						for (const id of ids) {
+							await window.vetta.knowledge.deleteEntry(knowledgeBase.id, id).catch(() => {});
+						}
+						clearSelection();
+						await refresh();
+					})();
+				},
+			});
+		},
+		[confirm, knowledgeBase.id, knowledgeBase.name, refresh, clearSelection],
+	);
+
+	const submitRename = useCallback(
+		(newName: string) => {
+			const node = renameNode;
+			setRenameNode(null);
+			if (!node) return;
+			void window.vetta.knowledge.renameEntry(knowledgeBase.id, node.id, newName).then(() => refresh());
+		},
+		[renameNode, knowledgeBase.id, refresh],
+	);
+
+	const menuItems = useMemo((): ContextMenuItem[] => {
+		if (!menu) return [];
+		const ids = [...selectedIds];
+		if (ids.length > 1) {
+			return [
+				{
+					label: `删除选中的 ${ids.length} 项`,
+					icon: "icon-[mdi--trash-can-outline]",
+					danger: true,
+					onClick: () => deleteIds(ids, `选中的 ${ids.length} 项`),
+				},
+			];
+		}
+		const node = menu.node;
+		return [
+			{
+				label: "重命名",
+				icon: "icon-[mdi--rename-outline]",
+				onClick: () => setRenameNode(node),
+			},
+			{
+				label: "删除",
+				icon: "icon-[mdi--trash-can-outline]",
+				danger: true,
+				onClick: () => deleteIds([node.id], `「${node.name}」`),
+			},
+		];
+	}, [menu, selectedIds, deleteIds]);
+
+	const onBackgroundClick = useCallback(
+		(event: React.MouseEvent) => {
+			if (!(event.target as HTMLElement).closest("[data-knode]")) clearSelection();
+		},
+		[clearSelection],
+	);
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col px-8 pb-8">
-			<div className="mb-3 flex items-center justify-between gap-3">
-				<KnowledgeBasePicker
-					bases={knowledgeBases}
-					activeBase={knowledgeBase}
-					onSelect={onSelectKnowledgeBase}
-					onCreate={onCreateKnowledgeBase}
-					onViewAll={onViewAllKnowledgeBases}
-				/>
-				<div className="relative w-56">
-					<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-					<Input
-						value={search}
-						onChange={(event) => setSearch(event.target.value)}
-						placeholder="搜索当前知识库"
-						className="h-8 border-transparent bg-muted/55 pl-8 pr-3 text-[12px] shadow-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
-					/>
-				</div>
-			</div>
-
+		<div className="flex min-h-0 flex-1 gap-4 px-8 pb-8">
 			<motion.div
 				initial={{ opacity: 0, scale: 0.995 }}
 				animate={{ opacity: 1, scale: 1 }}
 				transition={{ duration: 0.32, delay: 0.04, ease: EASE_OUT }}
-				className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-muted/30"
+				className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
 			>
-				{showTree && (
-					<motion.section
-						layout
-						className={
-							previewContext
-								? "relative flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-border/60"
-								: "flex min-h-0 flex-1 flex-col overflow-hidden"
-						}
-						style={previewContext ? { width: treeWidth } : undefined}
-						transition={{ layout: { duration: 0.22, ease: EASE_OUT } }}
-					>
-						<div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-2.5 text-[11px] text-muted-foreground">
-							<span>{stats.directories} 个目录</span>
-							<span className="text-muted-foreground/30">·</span>
-							<span>{stats.files} 个文件</span>
-						</div>
-						<div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-							{knowledgeBase.nodes.length > 0 ? (
-								<KnowledgeTree
-									nodes={knowledgeBase.nodes}
-									search={search}
-									expanded={expanded}
-									selectedNodeId={selectedNodeId}
-									onToggle={toggleDirectory}
-									onSelect={selectNode}
-								/>
-							) : (
-								<div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-									<span className="icon-[mdi--folder-open-outline] h-9 w-9 text-muted-foreground/35" />
-									<div>
-										<p className="text-[13px] font-medium text-foreground">这个知识库还是空的</p>
-										<p className="mt-1 text-[11px] text-muted-foreground/55">
-											拖入文件或文件夹，系统会自动整理
-										</p>
-									</div>
-									<KnowledgeSourcePicker
-										size="sm"
-										onPickFiles={onPickFiles}
-										onPickFolders={onPickFolders}
-									/>
-								</div>
-							)}
-						</div>
-						{previewContext && <ResizeHandle side="right" onResize={resizeTree} />}
-					</motion.section>
-				)}
-				<AnimatePresence initial={false}>
-					{previewContext && (
-						<motion.div
-							key="knowledge-preview"
-							initial={{ opacity: 0, x: 10 }}
-							animate={{ opacity: 1, x: 0 }}
-							exit={{ opacity: 0, x: 8 }}
-							transition={{ duration: 0.22, ease: EASE_OUT }}
-							className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background/60"
+				{/* 仅进入子目录时显示面包屑（根目录无栏）；选中后批量操作走右键菜单 */}
+				{path.length > 0 ? (
+					<div className="flex shrink-0 items-center gap-1 py-1.5 text-[12px]">
+						<button
+							type="button"
+							onClick={() => setPath([])}
+							className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent/60"
 						>
-							<FilePreviewView
-								ctx={previewContext}
-								onPrev={goPrev}
-								onNext={goNext}
-								onClose={closePreview}
-								canPrev={previewContext.index > 0}
-								canNext={previewContext.index < previewContext.items.length - 1}
-								enableKeyboard
-								onToggleSidebar={() => setTreeCollapsed((collapsed) => !collapsed)}
-								sidebarCollapsed={treeCollapsed}
-							/>
+							<span className="icon-[mdi--folder-home-outline] h-3.5 w-3.5" />
+							{knowledgeBase.name}
+						</button>
+						{path.map((segment, index) => (
+							<span key={`${segment}-${index}`} className="flex items-center gap-1">
+								<span className="icon-[mdi--chevron-right] h-3.5 w-3.5 text-muted-foreground/40" />
+								<button
+									type="button"
+									onClick={() => setPath(path.slice(0, index + 1))}
+									className={cn(
+										"rounded px-1.5 py-0.5 transition-colors hover:bg-accent/60",
+										index === path.length - 1 ? "text-foreground" : "text-muted-foreground",
+									)}
+								>
+									{segment}
+								</button>
+							</span>
+						))}
+					</div>
+				) : null}
+
+				{knowledgeBase.nodes.length === 0 ? (
+					// biome-ignore lint/a11y/useKeyWithClickEvents: 背景点击仅用于取消选择，键盘可用 Esc
+					<div className="min-h-0 flex-1 overflow-y-auto py-3" onClick={onBackgroundClick}>
+						<motion.div
+							initial={{ opacity: 0, y: 10 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.45, ease: EASE_OUT }}
+							className="flex h-full min-h-[260px] items-center justify-center"
+						>
+							<div className="flex max-w-sm flex-col items-center px-8 text-center">
+								<div className="relative mb-5 flex h-20 w-20 items-center justify-center">
+									<span className="absolute inset-0 rounded-[1.75rem] bg-primary/10" />
+									<span className="absolute inset-2 rounded-3xl bg-background/60 ring-1 ring-inset ring-primary/15" />
+									<span className="icon-[mdi--folder-open-outline] relative h-9 w-9 text-primary/70" />
+								</div>
+								<h2 className="text-[15px] font-semibold text-foreground">这个知识库还是空的</h2>
+								<p className="mt-1.5 text-[12px] leading-5 text-muted-foreground/60">
+									拖入文件或文件夹，Vetta 会自动分析内容并整理归类
+								</p>
+								<div className="mt-5">
+									<KnowledgeSourcePicker onPickFiles={onPickFiles} onPickFolders={onPickFolders} />
+								</div>
+							</div>
 						</motion.div>
-					)}
-				</AnimatePresence>
+					</div>
+				) : (
+					<KnowledgeGrid
+						nodes={visibleNodes}
+						searching={query.length > 0}
+						selectedIds={selectedIds}
+						onItemClick={onItemClick}
+						onOpen={openNode}
+						onContextMenu={onContextMenu}
+						onSelectIds={setSelectedIds}
+						onClearSelection={clearSelection}
+					/>
+				)}
 			</motion.div>
+
+			{previewCtx && (
+				<motion.div
+					initial={{ opacity: 0, x: 12 }}
+					animate={{ opacity: 1, x: 0 }}
+					transition={{ duration: 0.24, ease: EASE_OUT }}
+					className="flex min-h-0 w-2/5 min-w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border border-border/50 bg-card/40"
+				>
+					<FilePreviewView
+						ctx={previewCtx}
+						onPrev={previewNav.goPrev}
+						onNext={previewNav.goNext}
+						onClose={previewNav.close}
+						canPrev={previewCtx.index > 0}
+						canNext={previewCtx.index < previewCtx.items.length - 1}
+						enableKeyboard
+					/>
+				</motion.div>
+			)}
+
+			{menu && (
+				<KnowledgeContextMenu
+					x={menu.x}
+					y={menu.y}
+					items={menuItems}
+					onClose={() => setMenu(null)}
+				/>
+			)}
+
+			{renameNode && (
+				<KnowledgeRenameDialog
+					title="重命名"
+					initialName={renameNode.name}
+					onClose={() => setRenameNode(null)}
+					onSubmit={submitRename}
+				/>
+			)}
 		</div>
 	);
 }

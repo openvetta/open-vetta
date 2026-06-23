@@ -48,6 +48,7 @@ import {
 	sidebarCollapsedAtom,
 	pageHeaderTitleAtom,
 	pageHeaderTitleHiddenAtom,
+	pageHeaderTitleBadgeAtom,
 	pageHeaderRightSlotAtom,
 } from "./shared/store/atoms";
 import { isMac } from "./shared/lib/platform";
@@ -83,6 +84,7 @@ function PageHeader({
 	const path = matches[matches.length - 1]?.pathname ?? "/";
 	const titleOverride = useAtomValue(pageHeaderTitleAtom);
 	const titleHidden = useAtomValue(pageHeaderTitleHiddenAtom);
+	const titleBadge = useAtomValue(pageHeaderTitleBadgeAtom);
 	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
 	const fallbackTitle = ROUTE_TITLES.find((r) => r.match.test(path))?.title ?? "Vetta";
 	const title = titleOverride && titleOverride.length > 0 ? titleOverride : fallbackTitle;
@@ -131,6 +133,7 @@ function PageHeader({
 						{title}
 					</motion.h1>
 				)}
+				{titleBadge}
 			</div>
 			<div className="no-drag flex shrink-0 items-center gap-1">
 				{rightSlot}

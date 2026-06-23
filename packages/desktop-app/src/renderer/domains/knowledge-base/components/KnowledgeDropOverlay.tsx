@@ -3,28 +3,15 @@ import { useSetAtom } from "jotai";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { knowledgeImportDraftAtom } from "@shared/store/atoms";
-import type { KnowledgeImportItem } from "@shared/types/knowledge-base";
 
 function hasExternalFiles(event: DragEvent): boolean {
 	return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 }
 
-function toImportItems(dataTransfer: DataTransfer): KnowledgeImportItem[] {
-	return Array.from(dataTransfer.files).map((file, index) => {
-		const transferItem = dataTransfer.items[index];
-		const entry =
-			transferItem && typeof transferItem.webkitGetAsEntry === "function"
-				? transferItem.webkitGetAsEntry()
-				: null;
-		const path = window.vetta.fs.pathForFile(file);
-		return {
-			name: file.name,
-			path,
-			relativePath: file.webkitRelativePath || file.name,
-			isDirectory: entry?.isDirectory ?? (file.type === "" && file.size === 0),
-			size: file.size,
-		};
-	});
+function toSourcePaths(dataTransfer: DataTransfer): string[] {
+	return Array.from(dataTransfer.files)
+		.map((file) => window.vetta.fs.pathForFile(file))
+		.filter(Boolean);
 }
 
 /**
@@ -70,10 +57,10 @@ export function KnowledgeDropOverlay(): JSX.Element {
 		const onDrop = (event: DragEvent) => {
 			if (!hasExternalFiles(event) || !event.dataTransfer) return;
 			event.preventDefault();
-			const items = toImportItems(event.dataTransfer);
+			const sourcePaths = toSourcePaths(event.dataTransfer);
 			reset();
-			if (items.length === 0) return;
-			setDraft({ items, targetKnowledgeBaseId: null, source: "drop" });
+			if (sourcePaths.length === 0) return;
+			setDraft({ sourcePaths, defaultTargetId: null });
 			void navigate({ to: "/knowledge" });
 		};
 

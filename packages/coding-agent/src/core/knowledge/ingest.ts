@@ -19,6 +19,7 @@ import { diffRaws, planOrphans, type RawsDiff } from "./differ.js";
 import { buildIndexMap } from "./index-map.js";
 import {
 	deleteWikiPage,
+	pruneEmptyWikiDirs,
 	scanRaws,
 	scanWikiPages,
 	writeIndexMap,
@@ -84,8 +85,8 @@ export async function prepareRound(root: string, now: string): Promise<PreparedR
 }
 
 /**
- * 一轮加工的工程侧收尾：物理删除仍为孤儿的上一轮孤儿，并重建缓存。
- * agent 复判（合并/重指引用）应已在此之前完成。重建无条件执行——它是本轮唯一一次
+ * 一轮加工的工程侧收尾：物理删除仍为孤儿的上一轮孤儿、清理 wiki 空目录，并重建缓存。
+ * 删除与空目录清理均为确定性工程动作（不经 agent）。重建无条件执行——它是本轮唯一一次
  * 缓存重建（kb_write_page 与 prepareRound 都不再重建），无孤儿可回收时也要刷新缓存。
  */
 export async function finalizeRound(root: string, toReap: ManifestEntry[]): Promise<void> {
@@ -94,10 +95,16 @@ export async function finalizeRound(root: string, toReap: ManifestEntry[]): Prom
 		const stillOrphan = new Map(
 			pages.filter((p) => p.frontmatter.orphaned_at != null).map((p) => [p.frontmatter.id, p.path]),
 		);
+		let deleted = 0;
 		for (const entry of toReap) {
 			const path = stillOrphan.get(entry.id);
-			if (path) await deleteWikiPage(root, path);
+			if (path) {
+				await deleteWikiPage(root, path);
+				deleted += 1;
+			}
 		}
+		// 删页可能留下空主题目录，自底向上清理（不删 wiki 根）。
+		if (deleted > 0) await pruneEmptyWikiDirs(root);
 	}
 	await rebuildAllCaches(root);
 }

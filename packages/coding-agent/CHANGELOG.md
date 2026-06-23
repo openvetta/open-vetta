@@ -15,6 +15,7 @@
 - Vetta CLI guidance is no longer injected into every command-capable agent session; desktop hosts now opt in by appending `VETTA_CLI_GUIDANCE` only for eligible conversation sessions.
 - **`models.json` ProviderConfig schema 容忍预设模板字段（ADR-0015）**：`ProviderConfigSchema` 新增可选 `source` / `templateId` / `icon` 三个字段。这些由 desktop-app 的「预设服务商」(BYOK 模板) 采纳流程写入共享的 `~/.vetta/agent/models.json`；coding-agent 不感知模板、不做拉取/合并，仅需校验时容忍这些字段不报错，照常把采纳后的条目当普通 provider 加载使用。
 - Changed `glob` tool implementation from ripgrep-backed file matching to Node glob matching so it can return both files and directories while keeping relative path output and `.gitignore` filtering.
+- **知识库孤儿删除改为纯工程动作、加工轮按需起 LLM**：`buildProcessingPrompt` 移除「待回收孤儿（复判抢救）」段与 `toReap` 入参——孤儿 wiki 页的物理删除一直由工程侧 `finalizeRound` 完成，不再把孤儿塞进 agent 任务让其复判/合并（删除是确定性动作，不该耗 token，也不该由 LLM 决策）。新增 `diffNeedsProcessing(diff)`（仅 `added>0 || changed>0` 为真）：moved（纯元数据）、deleted（标孤儿）、孤儿回收均为工程侧动作，调用方据此跳过 LLM 加工会话。
 
 ### Added
 

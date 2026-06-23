@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 // custom right-side action buttons into the global PageHeader.
 export const pageHeaderTitleAtom = atom<string | null>(null);
 export const pageHeaderRightSlotAtom = atom<ReactNode | null>(null);
+/** 紧贴顶栏标题 label 右侧的徽标插槽（如知识库「正在建立索引…」）。 */
+export const pageHeaderTitleBadgeAtom = atom<ReactNode | null>(null);
 // 设为 true 时彻底隐藏顶栏标题（连路由兜底标题也不显示），用于 NewSessionPage 等。
 export const pageHeaderTitleHiddenAtom = atom<boolean>(false);
 
