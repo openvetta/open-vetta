@@ -11,7 +11,6 @@ interface ZoomableViewProps {
 
 export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const contentRef = useRef<HTMLDivElement>(null);
 	const [scale, setScale] = useState(1);
 	const [offset, setOffset] = useState({ x: 0, y: 0 });
 	const [isPanning, setIsPanning] = useState(false);
@@ -19,7 +18,6 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 	const spaceDownRef = useRef(false);
 	const panStartRef = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
 
-	// ─── Space key tracking ───
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
@@ -34,9 +32,7 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 		const onKeyUp = (e: KeyboardEvent) => {
 			if (e.code === "Space") {
 				spaceDownRef.current = false;
-				if (!isPanning) {
-					container.style.cursor = "";
-				}
+				if (!isPanning) container.style.cursor = "";
 			}
 		};
 
@@ -48,7 +44,6 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 		};
 	}, [isPanning]);
 
-	// ─── Wheel handling: Cmd/Ctrl + wheel → zoom, plain wheel → pan ───
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
@@ -57,7 +52,6 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 			e.preventDefault();
 
 			if (e.metaKey || e.ctrlKey) {
-				// Zoom centered on cursor
 				const rect = container.getBoundingClientRect();
 				const cursorX = e.clientX - rect.left;
 				const cursorY = e.clientY - rect.top;
@@ -67,18 +61,17 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 					const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, prev + delta * prev));
 					const ratio = next / prev;
 
-					setOffset((o) => ({
-						x: cursorX - ratio * (cursorX - o.x),
-						y: cursorY - ratio * (cursorY - o.y),
+					setOffset((current) => ({
+						x: cursorX - ratio * (cursorX - current.x),
+						y: cursorY - ratio * (cursorY - current.y),
 					}));
 
 					return next;
 				});
 			} else {
-				// Pan (scroll) content
-				setOffset((o) => ({
-					x: o.x - e.deltaX,
-					y: o.y - e.deltaY,
+				setOffset((current) => ({
+					x: current.x - e.deltaX,
+					y: current.y - e.deltaY,
 				}));
 			}
 		};
@@ -87,7 +80,6 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 		return () => container.removeEventListener("wheel", onWheel);
 	}, []);
 
-	// ─── Space + drag → pan ───
 	const onPointerDown = useCallback(
 		(e: React.PointerEvent) => {
 			if (!spaceDownRef.current) return;
@@ -115,25 +107,14 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 		[offset],
 	);
 
-	// ─── Toolbar actions ───
-	const zoomIn = useCallback(() => {
-		setScale((s) => Math.min(MAX_SCALE, s + ZOOM_STEP));
-	}, []);
-
-	const zoomOut = useCallback(() => {
-		setScale((s) => Math.max(MIN_SCALE, s - ZOOM_STEP));
-	}, []);
-
+	const zoomIn = useCallback(() => setScale((value) => Math.min(MAX_SCALE, value + ZOOM_STEP)), []);
+	const zoomOut = useCallback(() => setScale((value) => Math.max(MIN_SCALE, value - ZOOM_STEP)), []);
 	const resetView = useCallback(() => {
 		setScale(1);
 		setOffset({ x: 0, y: 0 });
 	}, []);
+	const toggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
 
-	const toggleFullscreen = useCallback(() => {
-		setIsFullscreen((prev) => !prev);
-	}, []);
-
-	// Exit CSS fullscreen on Escape key
 	useEffect(() => {
 		if (!isFullscreen) return;
 		const onKeyDown = (e: KeyboardEvent) => {
@@ -156,15 +137,13 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 			tabIndex={0}
 			className={
 				isFullscreen
-					? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-background outline-none"
-					: "relative flex flex-1 flex-col overflow-hidden bg-background outline-none"
+					? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--background)] outline-none"
+					: "relative flex flex-1 flex-col overflow-hidden bg-[var(--background)] outline-none"
 			}
 			onPointerDown={onPointerDown}
 		>
-			{/* Zoomable / pannable content */}
 			<div className="flex-1 overflow-hidden">
 				<div
-					ref={contentRef}
 					style={{
 						transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
 						transformOrigin: "0 0",
@@ -174,63 +153,53 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 				</div>
 			</div>
 
-			{/* ─── Bottom zoom toolbar ─── */}
-			<div className="sticky bottom-0 z-10 flex items-center justify-center gap-1 border-t border-border bg-background px-2 py-1.5">
-				<button
-					type="button"
-					onClick={zoomOut}
-					title="缩小"
-					className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground"
-				>
-					<span className="icon-[mdi--minus] text-[14px]" />
-				</button>
-
+			<div className="sticky bottom-0 z-10 flex items-center justify-center gap-1 border-t border-[var(--border)] bg-[var(--background)] px-2 py-1.5">
+				<ToolButton label="-" title="缩小" onClick={zoomOut} />
 				<button
 					type="button"
 					onClick={resetView}
 					title="重置缩放"
-					className="min-w-[44px] rounded px-1.5 py-0.5 text-center text-[11px] tabular-nums text-muted-foreground hover:bg-accent hover:text-foreground"
+					className="min-w-[44px] rounded px-1.5 py-0.5 text-center text-[11px] tabular-nums text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
 				>
 					{pct}%
 				</button>
-
-				<button
-					type="button"
-					onClick={zoomIn}
-					title="放大"
-					className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground"
-				>
-					<span className="icon-[mdi--plus] text-[14px]" />
-				</button>
-
-				<div className="mx-1 h-3.5 w-px bg-border" />
-
-				<button
-					type="button"
-					onClick={toggleFullscreen}
-					title={isFullscreen ? "退出全屏" : "全屏"}
-					className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground/50 hover:bg-accent hover:text-foreground"
-				>
-					<span
-						className={`${isFullscreen ? "icon-[mdi--fullscreen-exit]" : "icon-[mdi--fullscreen]"} text-[14px]`}
-					/>
-				</button>
-
+				<ToolButton label="+" title="放大" onClick={zoomIn} />
+				<div className="mx-1 h-3.5 w-px bg-[var(--border)]" />
+				<ToolButton label={isFullscreen ? "Exit" : "Full"} title={isFullscreen ? "退出全屏" : "全屏"} onClick={toggleFullscreen} wide />
 				{isViewModified && (
 					<>
-						<div className="mx-1 h-3.5 w-px bg-border" />
-						<button
-							type="button"
-							onClick={resetView}
-							title="重置视图"
-							className="flex h-6 items-center gap-1 rounded px-1.5 text-muted-foreground/50 hover:bg-accent hover:text-foreground"
-						>
-							<span className="icon-[mdi--fit-to-screen-outline] text-[14px]" />
-							<span className="text-[11px]">重置</span>
-						</button>
+						<div className="mx-1 h-3.5 w-px bg-[var(--border)]" />
+						<ToolButton label="重置" title="重置视图" onClick={resetView} wide />
 					</>
 				)}
 			</div>
 		</div>
+	);
+}
+
+function ToolButton({
+	label,
+	title,
+	onClick,
+	wide,
+}: {
+	label: string;
+	title: string;
+	onClick: () => void;
+	wide?: boolean;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			title={title}
+			className={
+				wide
+					? "flex h-6 items-center justify-center rounded px-1.5 text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+					: "flex h-6 w-6 items-center justify-center rounded text-[14px] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+			}
+		>
+			{label}
+		</button>
 	);
 }
