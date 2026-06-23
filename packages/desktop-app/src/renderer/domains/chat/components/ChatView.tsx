@@ -148,7 +148,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						className={
 							exporting
 								? "icon-[mdi--loading] animate-spin text-[14px]"
-								: "icon-[mdi--language-html5] text-[14px]"
+								: "icon-[solar--square-share-line-linear] text-[14px]"
 						}
 					/>
 				</Button>
