@@ -33,6 +33,8 @@ import {
 	registerSchedulerIpc,
 	teardownAllIpc,
 } from "./ipc/index.js";
+import { registerKnowledgeIpc } from "./knowledge/ipc.js";
+import { reloadKnowledgePoller } from "./knowledge/poller.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-protocol.js";
 import { openExternalUrl } from "./open-external.js";
@@ -582,6 +584,12 @@ if (!gotSingleLock) {
 			if (win) {
 				teardownSchedulerIpc = registerSchedulerIpc(win.webContents, schedulerService);
 			}
+		});
+
+		// 知识库后台加工：注册手动操作 IPC，并据设置调度惰性轮询器。
+		registerKnowledgeIpc();
+		void reloadKnowledgePoller().catch((err) => {
+			mainLog.error("failed to start knowledge poller:", err);
 		});
 
 		// Bootstrap IM bridge subsystem (im-gateway sidecar). Errors during

@@ -8,6 +8,7 @@ import {
 	defaultImConversationCwdAtom,
 	closeInlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
+	knowledgeProcessingCwdAtom,
 	pageHeaderRightSlotAtom,
 } from "@shared/store/atoms";
 import { fullHistoryToChat } from "../services/chat-service";
@@ -43,6 +44,7 @@ export function SessionViewerPage(): JSX.Element {
 	const [exporting, setExporting] = useState(false);
 	const setHeaderRight = useSetAtom(pageHeaderRightSlotAtom);
 	const imCwd = useAtomValue(defaultImConversationCwdAtom);
+	const kbCwd = useAtomValue(knowledgeProcessingCwdAtom);
 	const [panelOpen, setPanelOpen] = useAtom(activityPanelOpenAtom);
 	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const inlinePreviewActive = inlinePreviewCtx !== null;
@@ -57,6 +59,11 @@ export function SessionViewerPage(): JSX.Element {
 		return fileName.replace(/\.jsonl$/i, "");
 	}, [path]);
 	const handleExportFinished = useCallback(() => setExporting(false), []);
+	const isKnowledge = useMemo(() => {
+		if (!path || !kbCwd) return false;
+		const prefix = kbCwd.endsWith("/") ? kbCwd : `${kbCwd}/`;
+		return path.startsWith(prefix);
+	}, [path, kbCwd]);
 
 	const handleTogglePanel = useCallback(() => {
 		// 跟 ChatView 对齐：inline preview 打开时，关面板按钮也要顺手关掉 preview，
@@ -162,7 +169,11 @@ export function SessionViewerPage(): JSX.Element {
 				<div className="flex min-w-0 flex-1 flex-col">
 					<MessageList messages={messages} isStreaming={false} sessionId={null} />
 				</div>
-				<ActivityPanel cwd={imCwd || null} enablePluginTabs={false} />
+				{isKnowledge ? (
+					<ActivityPanel cwd={kbCwd || null} enablePluginTabs={false} knowledgeHistory />
+				) : (
+					<ActivityPanel cwd={imCwd || null} enablePluginTabs={false} />
+				)}
 			</div>
 		</div>
 	);

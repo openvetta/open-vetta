@@ -37,6 +37,13 @@ const NAV_ITEMS = [
 		label: "批量任务",
 		icon: "icon-[solar--clipboard-check-outline]",
 	},
+	{
+		type: "route",
+		path: "/knowledge" as const,
+		label: "知识库",
+		icon: "icon-[solar--library-linear]",
+		badge: "BETA",
+	},
 	{ type: "route", path: "/skills" as const, label: "扩展", icon: "icon-[solar--widget-5-linear]" },
 ] as const;
 
@@ -62,6 +69,13 @@ function getNavIndicatorBounds(element: HTMLButtonElement): NavIndicatorBounds {
 		width: element.offsetWidth,
 		height: element.offsetHeight,
 	};
+}
+
+function isRouteActive(path: string, currentPath: string): boolean {
+	if (path === "/knowledge") {
+		return currentPath === path || currentPath.startsWith(`${path}/`);
+	}
+	return currentPath === path;
 }
 
 export function Sidebar({ onOpenSession, onCollapse, floating = false }: SidebarProps): JSX.Element {
@@ -120,7 +134,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 	const widthRef = useRef(width);
 	widthRef.current = width;
 	const activeNavIndex = NAV_ITEMS.findIndex(
-		(item) => item.type === "route" && item.path === currentPath,
+		(item) => item.type === "route" && isRouteActive(item.path, currentPath),
 	);
 
 	useLayoutEffect(() => {
@@ -251,7 +265,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 					/>
 				)}
 				{NAV_ITEMS.map((item, index) => {
-					const active = item.type === "route" && currentPath === item.path;
+					const active = item.type === "route" && isRouteActive(item.path, currentPath);
 					return (
 						<button
 							key={item.type === "route" ? item.path : item.type}
@@ -275,6 +289,11 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 						>
 							<span className={`${item.icon} relative z-10 h-4 w-4 shrink-0`} />
 							<span className="relative z-10">{item.label}</span>
+							{"badge" in item && item.badge && (
+								<span className="relative z-10 rounded-full border border-primary/40 px-1.5 py-px text-[9px] font-semibold uppercase leading-tight tracking-wide text-primary">
+									{item.badge}
+								</span>
+							)}
 						</button>
 					);
 				})}

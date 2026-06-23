@@ -19,6 +19,7 @@ import {
 	inputValueAtom,
 	isCompactingAtom,
 	isReloadingMcpAtom,
+	knowledgeRetrievalActiveAtom,
 	lastActiveSessionAtom,
 	lastTurnUsageAtom,
 	mentionedFilesAtom,
@@ -876,6 +877,11 @@ export function useSessionManager(): SessionManagerResult {
 						promptReq.metadata = { ...promptReq.metadata, ...decoration.metadata };
 					}
 				}
+			}
+			// 原生「知识检索」开关：开启后本轮携带 knowledgeMode，input-pipeline 注入
+			// 一段仅模型可见的「优先查询知识库」提示。
+			if (pluginStore.get(knowledgeRetrievalActiveAtom)) {
+				promptReq.metadata = { ...promptReq.metadata, knowledgeMode: true };
 			}
 			// Image edit attachment (image-gen preview card → ui.setEditImageAttachment):
 			// inject the source image id so this turn edits that exact image, mark the

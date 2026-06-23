@@ -93,6 +93,24 @@ export {
 	type InvokeSkillToolOptions,
 } from "./invoke-skill/index.js";
 export {
+	createKbFilterByTagsTool,
+	type KbFilterByTagsDetails,
+	type KbFilterByTagsInput,
+	kbFilterByTagsTool,
+} from "./kb-filter-by-tags/index.js";
+export {
+	createKbListTagsTool,
+	type KbListTagsDetails,
+	type KbListTagsInput,
+	kbListTagsTool,
+} from "./kb-list-tags/index.js";
+export {
+	createKbWritePageTool,
+	type KbWritePageDetails,
+	type KbWritePageInput,
+	kbWritePageTool,
+} from "./kb-write-page/index.js";
+export {
 	createLsTool,
 	type LsOperations,
 	type LsToolDetails,
@@ -174,6 +192,9 @@ import { createFindTool, findTool } from "./find/index.js";
 import { createGlobTool, type GlobToolOptions, globTool } from "./glob/index.js";
 import { createGrepTool, grepTool } from "./grep/index.js";
 import { createHtmlToPdfTool, htmlToPdfTool } from "./html-to-pdf/index.js";
+import { createKbFilterByTagsTool, kbFilterByTagsTool } from "./kb-filter-by-tags/index.js";
+import { createKbListTagsTool, kbListTagsTool } from "./kb-list-tags/index.js";
+import { createKbWritePageTool, kbWritePageTool } from "./kb-write-page/index.js";
 import { createLsTool, lsTool } from "./ls/index.js";
 import { createReadTool, type ReadToolOptions, readTool } from "./read/index.js";
 import { createRenderPdfPageTool, renderPdfPageTool } from "./render-pdf-page/index.js";
@@ -233,6 +254,9 @@ export const allTools = {
 	extract_text_from_img: extractTextFromImgTool,
 	render_pdf_page: renderPdfPageTool,
 	current_time: currentTimeTool,
+	kb_write_page: kbWritePageTool,
+	kb_filter_by_tags: kbFilterByTagsTool,
+	kb_list_available_tags: kbListTagsTool,
 };
 
 export type ToolName = keyof typeof allTools;
@@ -310,5 +334,8 @@ export function createAllTools(cwd: string, options?: ToolsOptions): Record<Tool
 		extract_text_from_img: createExtractTextFromImgTool(cwd),
 		render_pdf_page: createRenderPdfPageTool(cwd),
 		current_time: createCurrentTimeTool(),
+		kb_write_page: createKbWritePageTool(),
+		kb_filter_by_tags: createKbFilterByTagsTool(),
+		kb_list_available_tags: createKbListTagsTool(),
 	};
 }
