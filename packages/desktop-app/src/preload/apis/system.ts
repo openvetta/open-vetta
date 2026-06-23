@@ -13,6 +13,7 @@ export function createSystemApi(
 	| "fs"
 	| "skills"
 	| "config"
+	| "knowledge"
 	| "models"
 	| "mcp"
 	| "media"
@@ -130,11 +131,25 @@ export function createSystemApi(
 			get: () => ipc.invoke("vetta:config:get"),
 			set: (config) => ipc.invoke("vetta:config:set", config),
 		},
+		knowledge: {
+			scanNow: () => ipc.invoke("vetta:kb:scan-now"),
+			reload: () => ipc.invoke("vetta:kb:reload"),
+			list: () => ipc.invoke("vetta:kb:list"),
+			addFiles: (kbId, sourcePaths, move) => ipc.invoke("vetta:kb:add-files", kbId, sourcePaths, move),
+			deleteEntry: (kbId, relPath) => ipc.invoke("vetta:kb:delete-entry", kbId, relPath),
+			renameEntry: (kbId, relPath, newName) => ipc.invoke("vetta:kb:rename-entry", kbId, relPath, newName),
+			create: (name) => ipc.invoke("vetta:kb:create", name),
+			delete: (name) => ipc.invoke("vetta:kb:delete", name),
+			rename: (oldName, newName) => ipc.invoke("vetta:kb:rename", oldName, newName),
+			isProcessing: () => ipc.invoke("vetta:kb:is-processing"),
+			onProcessingChanged: (handler) => onIpcEvent(ipc, "vetta:kb:processing-changed", handler),
+		},
 		models: {
 			get: () => ipc.invoke("vetta:models:get"),
 			set: (config) => ipc.invoke("vetta:models:set", config),
 			fetchRemote: () => ipc.invoke("vetta:models:fetch-remote"),
 			fetchTemplates: () => ipc.invoke("vetta:models:fetch-templates"),
+			probe: (ref) => ipc.invoke("vetta:models:probe", ref),
 		},
 		mcp: {
 			get: () => ipc.invoke("vetta:mcp:get"),

@@ -19,6 +19,7 @@ import {
 	sessionsMapAtom,
 	activeInputActionIdsAtom,
 	editImageAttachmentAtom,
+	knowledgeRetrievalActiveAtom,
 	pendingEditImageIdAtom,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
@@ -53,6 +54,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
 	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
 	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
+	const setKnowledgeRetrievalActive = useSetAtom(knowledgeRetrievalActiveAtom);
 
 	// 切换会话时释放一次性的图像编辑 attach，避免在 A 会话选中的编辑目标串到 B 会话
 	// （图像服务按全局 id 解析源图，stale id 会被照常注入并编辑错图）。
@@ -73,7 +75,14 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 		setEditImageAttachment(null);
 		setPendingEditImageId(null);
 		setActiveInputActionIds(new Set());
-	}, [activeSession?.runtimeId, setEditImageAttachment, setPendingEditImageId, setActiveInputActionIds]);
+		setKnowledgeRetrievalActive(false);
+	}, [
+		activeSession?.runtimeId,
+		setEditImageAttachment,
+		setPendingEditImageId,
+		setActiveInputActionIds,
+		setKnowledgeRetrievalActive,
+	]);
 
 	// 窗口置顶（钉在屏幕上）状态，初始与主进程真实状态同步
 	const [pinned, setPinned] = useState(false);
@@ -139,7 +148,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						className={
 							exporting
 								? "icon-[mdi--loading] animate-spin text-[14px]"
-								: "icon-[mdi--language-html5] text-[14px]"
+								: "icon-[solar--square-share-line-linear] text-[14px]"
 						}
 					/>
 				</Button>

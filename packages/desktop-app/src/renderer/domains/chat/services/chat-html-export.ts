@@ -69,7 +69,39 @@ function sanitizeSerializedTree(root: HTMLElement): void {
 	}
 }
 
+async function loadAppIconDataUrl(): Promise<string> {
+	try {
+		const response = await fetch("/icon.png");
+		if (!response.ok) return "";
+		return await blobToDataUrl(await response.blob());
+	} catch {
+		return "";
+	}
+}
+
+function buildShareNav(iconDataUrl: string, nickname?: string): string {
+	const desc = nickname ? `${escapeHtml(nickname)} 分享了一个会话` : "分享了一个会话";
+	const icon = iconDataUrl ? `<img class="vetta-share-nav__icon" src="${iconDataUrl}" alt="Vetta" />` : "";
+	return `<nav class="vetta-share-nav" data-share-nav>
+		<div class="vetta-share-nav__inner">
+			${icon}
+			<div class="vetta-share-nav__meta">
+				<span class="vetta-share-nav__brand">Vetta</span>
+				<span class="vetta-share-nav__desc">${desc}</span>
+			</div>
+		</div>
+	</nav>`;
+}
+
 const EXPORT_SCRIPT = `
+(function () {
+	var nav = document.querySelector("[data-share-nav]");
+	if (nav) {
+		var update = function () { nav.classList.toggle("is-scrolled", window.scrollY > 4); };
+		update();
+		window.addEventListener("scroll", update, { passive: true });
+	}
+})();
 document.addEventListener("click", function (event) {
 	const button = event.target instanceof Element ? event.target.closest("[data-export-toggle]") : null;
 	if (!(button instanceof HTMLElement)) return;
@@ -91,13 +123,15 @@ document.addEventListener("click", function (event) {
 });
 `;
 
-export async function buildChatHtmlDocument(root: HTMLElement, title: string): Promise<string> {
+export async function buildChatHtmlDocument(root: HTMLElement, title: string, nickname?: string): Promise<string> {
 	const clone = root.cloneNode(true) as HTMLElement;
 	await inlineImages(root, clone);
 	sanitizeSerializedTree(clone);
 
 	const styleText = collectStyleSheetText().replaceAll("</style", "<\\/style");
 	const colorScheme = getComputedStyle(document.documentElement).colorScheme;
+	const iconDataUrl = await loadAppIconDataUrl();
+	const shareNav = buildShareNav(iconDataUrl, nickname);
 
 	return `<!doctype html>
 <html lang="zh-CN" class="${escapeHtml(document.documentElement.className)}" style="${escapeHtml(document.documentElement.getAttribute("style") ?? "")}">
@@ -113,9 +147,40 @@ export async function buildChatHtmlDocument(root: HTMLElement, title: string): P
 		body { margin: 0; background: var(--background); color: var(--foreground); }
 		[data-export-collapse-panel][hidden] { display: none !important; }
 		.chat-export-document { min-height: 100vh; }
+		.vetta-share-nav {
+			position: sticky;
+			top: 0;
+			z-index: 50;
+			padding: 10px 0;
+			background: transparent;
+			border-bottom: 1px solid transparent;
+			transition: background .25s ease, backdrop-filter .25s ease, border-color .25s ease, box-shadow .25s ease;
+		}
+		.vetta-share-nav.is-scrolled {
+			background: color-mix(in srgb, var(--background) 70%, transparent);
+			backdrop-filter: saturate(180%) blur(16px);
+			-webkit-backdrop-filter: saturate(180%) blur(16px);
+			border-bottom-color: var(--border);
+			box-shadow: 0 1px 14px -8px rgba(0, 0, 0, .35);
+		}
+		.vetta-share-nav__inner {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			width: 100%;
+			max-width: 48rem;
+			margin: 0 auto;
+			padding: 0 20px;
+			box-sizing: border-box;
+		}
+		.vetta-share-nav__icon { width: 30px; height: 30px; border-radius: 8px; flex: none; }
+		.vetta-share-nav__meta { display: flex; flex-direction: column; line-height: 1.25; }
+		.vetta-share-nav__brand { font-weight: 600; font-size: 14px; color: var(--foreground); }
+		.vetta-share-nav__desc { font-size: 12px; color: var(--muted-foreground); }
 	</style>
 </head>
 <body class="${escapeHtml(document.body.className)}" style="${escapeHtml(document.body.getAttribute("style") ?? "")}">
+	${shareNav}
 	${clone.outerHTML}
 	<script>${EXPORT_SCRIPT}</script>
 </body>

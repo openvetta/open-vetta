@@ -32,6 +32,8 @@ import {
 	DEFAULT_CONVERSATION_SESSION_DIR,
 	DEFAULT_IM_CONVERSATION_CWD,
 	DEFAULT_IM_CONVERSATION_SESSION_DIR,
+	KB_PROCESSING_CWD,
+	KB_PROCESSING_SESSION_DIR,
 	readConfigSync,
 	readDesktopConfig,
 	writeDesktopConfig,
@@ -50,6 +52,9 @@ export function resolveSessionDirForCwd(cwd: string | undefined): string | undef
 	}
 	if (abs === resolve(DEFAULT_IM_CONVERSATION_CWD)) {
 		return DEFAULT_IM_CONVERSATION_SESSION_DIR;
+	}
+	if (abs === resolve(KB_PROCESSING_CWD)) {
+		return KB_PROCESSING_SESSION_DIR;
 	}
 	return undefined;
 }

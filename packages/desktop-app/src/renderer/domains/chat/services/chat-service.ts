@@ -3,6 +3,7 @@ import type {
 	AskUserQuestionResolution,
 	ChatMessage,
 	ContentBlock,
+	KnowledgeToolUiDetails,
 	ToolCallBlock,
 	ToolCallUiDetails,
 	ToolImagePreview,
@@ -85,13 +86,54 @@ export function extractToolUiDetails(result: unknown, details: unknown): ToolCal
 	const diff = typeof detailsRecord.diff === "string" ? detailsRecord.diff : undefined;
 	const firstChangedLine = asFiniteNumber(detailsRecord.firstChangedLine);
 	const askUserQuestion = extractAskUserQuestion(detailsRecord);
-	if (diff === undefined && firstChangedLine === undefined && askUserQuestion === undefined) return undefined;
+	const knowledge = extractKnowledge(detailsRecord);
+	if (diff === undefined && firstChangedLine === undefined && askUserQuestion === undefined && knowledge === undefined)
+		return undefined;
 
 	return {
 		...(diff !== undefined ? { diff } : {}),
 		...(firstChangedLine !== undefined ? { firstChangedLine } : {}),
 		...(askUserQuestion !== undefined ? { askUserQuestion } : {}),
+		...(knowledge !== undefined ? { knowledge } : {}),
 	};
+}
+
+/** 从知识库工具的 details 里识别结构（按字段形状判别工具种类）。 */
+function extractKnowledge(details: Record<string, unknown>): KnowledgeToolUiDetails | undefined {
+	if (Array.isArray(details.pages)) {
+		const pages = details.pages
+			.map((p) => asRecord(p))
+			.filter((p): p is Record<string, unknown> => p !== undefined)
+			.map((p) => ({
+				id: typeof p.id === "string" ? p.id : "",
+				absolutePath: typeof p.absolutePath === "string" ? p.absolutePath : "",
+				title: typeof p.title === "string" ? p.title : "",
+				summary: typeof p.summary === "string" ? p.summary : "",
+				tags: Array.isArray(p.tags) ? p.tags.filter((t): t is string => typeof t === "string") : [],
+			}));
+		const count = asFiniteNumber(details.count) ?? pages.length;
+		return { kind: "filter", count, pages };
+	}
+	if (Array.isArray(details.tags)) {
+		const tags = details.tags
+			.map((t) => asRecord(t))
+			.filter((t): t is Record<string, unknown> => t !== undefined)
+			.map((t) => ({
+				tag: typeof t.tag === "string" ? t.tag : "",
+				count: asFiniteNumber(t.count) ?? 0,
+			}));
+		return { kind: "tags", tags };
+	}
+	if (typeof details.action === "string" && typeof details.id === "string") {
+		return {
+			kind: "write",
+			action: details.action,
+			id: details.id,
+			absolutePath: typeof details.absolutePath === "string" ? details.absolutePath : "",
+			...(typeof details.movedFrom === "string" ? { movedFrom: details.movedFrom } : {}),
+		};
+	}
+	return undefined;
 }
 
 /**
