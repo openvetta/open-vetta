@@ -82,9 +82,21 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 				serverUrl,
 			};
 		}
+		// Linux: pass `--no-sandbox` as a REAL argv entry, placed BEFORE
+		// `--agent-rpc` so (a) Chromium parses it during ContentMain init and
+		// (b) main.ts's parseAgentRpcCommand only forwards args AFTER
+		// `--agent-rpc` to coding-agent, keeping `--no-sandbox` out of the
+		// agent's own arg parser. The child's in-process
+		// `app.commandLine.appendSwitch("no-sandbox")` runs too late for
+		// AppImage: chrome-sandbox lives in the /tmp mount without setuid
+		// root, so the SUID sandbox host FATALs in early browser init before
+		// the JS main executes. The child renders no untrusted web content,
+		// so disabling the sandbox is safe. macOS keeps the plain argv.
+		const prefixArgs =
+			process.platform === "linux" ? ["--no-sandbox", "--agent-rpc", ...modelArgs] : ["--agent-rpc", ...modelArgs];
 		return {
 			bin: process.execPath,
-			prefixArgs: ["--agent-rpc", ...modelArgs],
+			prefixArgs,
 			packageDir,
 			serverUrl,
 		};
