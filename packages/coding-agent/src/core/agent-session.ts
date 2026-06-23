@@ -232,6 +232,7 @@ export class AgentSession {
 			askUserQuestion: config.askUserQuestion,
 			agentPlugins: config.agentPlugins,
 			invokePluginTool: config.invokePluginTool,
+			invokePluginContinuation: config.invokePluginContinuation,
 		});
 
 		this._input = new InputPipeline(this._ctx, {
@@ -249,7 +250,12 @@ export class AgentSession {
 
 		// Always subscribe to agent events for internal handling
 		// (session persistence, extensions, auto-compaction, retry logic)
-		this._unsubscribeAgent = this.agent.subscribe(this._events.handle);
+		this._unsubscribeAgent = this.agent.subscribe((event) => {
+			if (event.type === "agent_start") {
+				this._runtime.resetPluginContinuationRun();
+			}
+			this._events.handle(event);
+		});
 
 		// Build runtime initially (will be rebuilt after MCP initialization if MCP is enabled)
 		this._runtime.buildRuntime({
@@ -257,10 +263,14 @@ export class AgentSession {
 			includeAllExtensionTools: true,
 		});
 
-		// Register follow-up provider for todo continuation.
+		// Register the continuation policy for todo continuation.
 		// This runs INSIDE the agent loop (before follow-up queue is consumed),
 		// ensuring the agent cannot exit the loop while todo items remain.
-		this.agent.followUpProvider = () => this._input.buildTodoContinuationMessages();
+		this.agent.continuationProvider = async (signal) => {
+			const todoMessages = this._input.buildTodoContinuationMessages();
+			if (todoMessages.length > 0) return todoMessages;
+			return this._runtime.collectPluginContinuationMessages(signal);
+		};
 
 		// Background task wiring: forward state changes to session listeners (UI),
 		// and inject a <task-notification> back into the agent loop on completion.
@@ -338,7 +348,12 @@ export class AgentSession {
 	 */
 	private _reconnectToAgent(): void {
 		if (this._unsubscribeAgent) return; // Already connected
-		this._unsubscribeAgent = this.agent.subscribe(this._events.handle);
+		this._unsubscribeAgent = this.agent.subscribe((event) => {
+			if (event.type === "agent_start") {
+				this._runtime.resetPluginContinuationRun();
+			}
+			this._events.handle(event);
+		});
 	}
 
 	/**

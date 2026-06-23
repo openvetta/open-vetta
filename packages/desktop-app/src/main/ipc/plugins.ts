@@ -8,15 +8,16 @@ import type {
 import { getAppLogger } from "../logger.js";
 import { editImage, generateImage, imageLineage, sessionLineages } from "../plugins/image-service.js";
 import {
-	beginDynamicAgentToolLoad,
+	beginDynamicAgentContributionLoad,
 	buildAgentPluginRuntimeConfig,
-	clearDynamicAgentTools,
+	clearDynamicAgentContributions,
 	getPluginSettings,
 	grantPluginPermissions,
 	installPluginFromArchive,
 	installPluginFromUrl,
 	listPlugins,
 	registerDynamicAgentTool,
+	registerDynamicContinuationProvider,
 	reloadPlugin,
 	revokePluginPermissions,
 	setPluginEnabled,
@@ -24,6 +25,7 @@ import {
 	summarizeAgentPluginRuntimeConfig,
 	uninstallPlugin,
 	unregisterDynamicAgentTool,
+	unregisterDynamicContinuationProvider,
 } from "../plugins/plugin-store.js";
 import { getSharedRuntime } from "../runtime.js";
 
@@ -111,6 +113,24 @@ function asAgentToolRegistration(value: unknown): {
 	};
 }
 
+function asContinuationRegistration(value: unknown): {
+	id: string;
+	handlerId: string;
+	activationId?: string;
+	timeoutMs?: number;
+} {
+	const input = asRecord(value, "continuation registration");
+	return {
+		id: asPluginId(input.id),
+		handlerId: asPluginId(input.handlerId),
+		activationId: asOptionalStringId(input.activationId, "continuation activation id"),
+		timeoutMs:
+			typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
+				? Math.min(Math.floor(input.timeoutMs), 30_000)
+				: undefined,
+	};
+}
+
 const pluginLog = getAppLogger("plugin");
 
 function refreshAgentPlugins(): void {
@@ -154,16 +174,34 @@ export function registerPluginsIpc(): () => void {
 		refreshAgentPlugins();
 		return plugin;
 	});
-	ipcMain.handle("vetta:plugins:agent-tools-begin-load", (_event, pluginId: unknown, activationId: unknown) => {
-		const normalizedPluginId = asPluginId(pluginId);
-		const normalizedActivationId = asPluginId(activationId);
-		pluginLog.debug("ipc agent-tools-begin-load", {
-			pluginId: normalizedPluginId,
-			activationId: normalizedActivationId,
-		});
-		beginDynamicAgentToolLoad(normalizedPluginId, normalizedActivationId);
+	ipcMain.handle(
+		"vetta:plugins:agent-contributions-begin-load",
+		(_event, pluginId: unknown, activationId: unknown) => {
+			const normalizedPluginId = asPluginId(pluginId);
+			const normalizedActivationId = asPluginId(activationId);
+			pluginLog.debug("ipc agent-tools-begin-load", {
+				pluginId: normalizedPluginId,
+				activationId: normalizedActivationId,
+			});
+			beginDynamicAgentContributionLoad(normalizedPluginId, normalizedActivationId);
+			refreshAgentPlugins();
+		},
+	);
+	ipcMain.handle("vetta:plugins:continuation-register", (_event, pluginId: unknown, registration: unknown) => {
+		registerDynamicContinuationProvider(asPluginId(pluginId), asContinuationRegistration(registration));
 		refreshAgentPlugins();
 	});
+	ipcMain.handle(
+		"vetta:plugins:continuation-unregister",
+		(_event, pluginId: unknown, providerId: unknown, activationId: unknown) => {
+			unregisterDynamicContinuationProvider(
+				asPluginId(pluginId),
+				asPluginId(providerId),
+				asOptionalStringId(activationId, "continuation activation id"),
+			);
+			refreshAgentPlugins();
+		},
+	);
 	ipcMain.handle("vetta:plugins:agent-tool-register", (_event, pluginId: unknown, registration: unknown) => {
 		const normalizedPluginId = asPluginId(pluginId);
 		const normalizedRegistration = asAgentToolRegistration(registration);
@@ -192,14 +230,14 @@ export function registerPluginsIpc(): () => void {
 			refreshAgentPlugins();
 		},
 	);
-	ipcMain.handle("vetta:plugins:agent-tools-clear", (_event, pluginId: unknown, activationId: unknown) => {
+	ipcMain.handle("vetta:plugins:agent-contributions-clear", (_event, pluginId: unknown, activationId: unknown) => {
 		const normalizedPluginId = asPluginId(pluginId);
 		const normalizedActivationId = asOptionalStringId(activationId, "agent tool activation id");
 		pluginLog.debug("ipc agent-tools-clear", {
 			pluginId: normalizedPluginId,
 			activationId: normalizedActivationId,
 		});
-		clearDynamicAgentTools(normalizedPluginId, normalizedActivationId);
+		clearDynamicAgentContributions(normalizedPluginId, normalizedActivationId);
 		refreshAgentPlugins();
 	});
 	ipcMain.handle("vetta:plugins:get-settings", (_event, id: unknown) => getPluginSettings(asPluginId(id)));
@@ -242,10 +280,12 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:grant-permissions");
 		ipcMain.removeHandler("vetta:plugins:revoke-permissions");
 		ipcMain.removeHandler("vetta:plugins:reload");
-		ipcMain.removeHandler("vetta:plugins:agent-tools-begin-load");
+		ipcMain.removeHandler("vetta:plugins:agent-contributions-begin-load");
 		ipcMain.removeHandler("vetta:plugins:agent-tool-register");
 		ipcMain.removeHandler("vetta:plugins:agent-tool-unregister");
-		ipcMain.removeHandler("vetta:plugins:agent-tools-clear");
+		ipcMain.removeHandler("vetta:plugins:agent-contributions-clear");
+		ipcMain.removeHandler("vetta:plugins:continuation-register");
+		ipcMain.removeHandler("vetta:plugins:continuation-unregister");
 		ipcMain.removeHandler("vetta:plugins:get-settings");
 		ipcMain.removeHandler("vetta:plugins:set-settings");
 		ipcMain.removeHandler("vetta:plugins:images:generate");

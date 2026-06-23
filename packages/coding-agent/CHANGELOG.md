@@ -18,6 +18,7 @@
 
 ### Added
 
+- 新增插件 continuation provider 运行时：Todo 自动续跑优先，随后按稳定顺序调用插件策略；支持超时、会话级幂等键去重、异常隔离和单次 Agent run 最多 8 次续跑保护。
 - 新增插件工具 shell 基座：`CreateAgentSessionOptions.agentPlugins.toolContributions` 可把宿主聚合的插件工具注册成 LLM 可见工具，执行时通过 `invokePluginTool` 回调委托给宿主，不直接加载插件 JS。插件工具 description 现在也会进入系统提示词的 `Available tools`，避免工具实际注册但模型看不到说明。
 - 新增 `[plugin-agent]` 调试日志，记录插件工具贡献进入 coding-agent 后是否成功构建为 tool shell、是否缺少宿主 invoke bridge，以及最终激活的插件工具列表。
 - **内置 `generate_image` 工具（图像生成，ADR-0028）**：新增 `createGenerateImageTool(backend)` 工厂（`src/core/tools/generate-image/`）+ `ImageToolBackend` / `ImageToolRef` 契约，由宿主经 `customTools` 注入（desktop 接到主进程图像服务，coding-agent 不依赖宿主实现）。工具是薄包装：调用宿主后端生成图像，返回轻量引用（图像字节不进 LLM context）。`PromptOptions` 新增 `metadata`；input-pipeline 读 `metadata.imageMode` 时注入隐藏指令，引导 agent 优化 prompt 并调用该工具。工具新增可选 `size` 参数（自由格式 `WIDTHxHEIGHT`，缺省 `1024x1024`），由 agent 按目标比例决定并透传给后端；`ImageToolBackend.generate` 入参随之新增 `size?`。

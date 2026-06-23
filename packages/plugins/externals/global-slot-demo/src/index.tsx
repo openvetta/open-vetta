@@ -26,6 +26,7 @@ function DemoGlobalSlot() {
 		"Skill path: agent/skills/fiction-outline",
 		"Tool policy: deny doc_to_pdf",
 		"JS tool: novel_write_chapter_file",
+		"Continuation: one fiction next-step prompt per session",
 		"File API: api.fs.writeFile(...)",
 	];
 
@@ -114,6 +115,20 @@ export default definePlugin({
 					text: `Wrote chapter "${input.title}" to ${input.path}.`,
 					path: input.path,
 					title: input.title,
+				};
+			},
+		});
+		ctx.agent.registerContinuationProvider({
+			id: "fiction-next-step",
+			timeoutMs: 3000,
+			handler: ({ sessionId }) => {
+				if (ctx.settings.get<boolean>("continuationDemoEnabled") !== true) {
+					return null;
+				}
+				return {
+					text:
+						"Before stopping, briefly suggest the single most useful next fiction-writing step based on the current conversation. Do not perform the step unless the user asks.",
+					idempotencyKey: `fiction-next-step:${sessionId}`,
 				};
 			},
 		});

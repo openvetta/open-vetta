@@ -14,6 +14,7 @@ import type {
 	Disposable,
 	PluginAgentToolApi,
 	PluginAgentToolHandler,
+	PluginContinuationHandler,
 	PluginConversationApi,
 	PluginHostBridge,
 	PluginImageRef,
@@ -31,6 +32,7 @@ interface PluginAgentToolHandlerEntry {
 }
 
 const agentToolHandlers = new Map<string, PluginAgentToolHandlerEntry>();
+const continuationHandlers = new Map<string, PluginContinuationHandler>();
 
 function handlerKey(pluginId: string, handlerId: string): string {
 	return `${pluginId}:${handlerId}`;
@@ -173,6 +175,29 @@ function startToolRequestListener(): void {
 	});
 }
 
+let continuationRequestListenerStarted = false;
+
+function startContinuationRequestListener(): void {
+	if (continuationRequestListenerStarted) return;
+	continuationRequestListenerStarted = true;
+	window.vetta.plugins.onContinuationRequest((request) => {
+		const handler = continuationHandlers.get(handlerKey(request.pluginId, request.handlerId));
+		if (!handler) {
+			void window.vetta.plugins.respondContinuation(request.requestId, {
+				error: `Plugin continuation handler not found: ${request.pluginId}/${request.handlerId}`,
+			});
+			return;
+		}
+		void Promise.resolve(handler({ sessionId: request.sessionId, cwd: request.cwd })).then(
+			(value) => window.vetta.plugins.respondContinuation(request.requestId, { value }),
+			(error: unknown) =>
+				window.vetta.plugins.respondContinuation(request.requestId, {
+					error: error instanceof Error ? error.message : String(error),
+				}),
+		);
+	});
+}
+
 export function registerPluginAgentToolHandler(options: {
 	pluginId: string;
 	toolId: string;
@@ -187,6 +212,22 @@ export function registerPluginAgentToolHandler(options: {
 			const entry = agentToolHandlers.get(key);
 			if (entry?.handler === options.handler) {
 				agentToolHandlers.delete(key);
+			}
+		},
+	};
+}
+
+export function registerPluginContinuationHandler(options: {
+	pluginId: string;
+	handlerId: string;
+	handler: PluginContinuationHandler;
+}): Disposable {
+	const key = handlerKey(options.pluginId, options.handlerId);
+	continuationHandlers.set(key, options.handler);
+	return {
+		dispose: () => {
+			if (continuationHandlers.get(key) === options.handler) {
+				continuationHandlers.delete(key);
 			}
 		},
 	};
@@ -262,6 +303,7 @@ let installed = false;
 export function installPluginHostBridge(): void {
 	startTranslator();
 	startToolRequestListener();
+	startContinuationRequestListener();
 	if (installed) return;
 	installed = true;
 	__setPluginHostBridge(pluginHostBridge);

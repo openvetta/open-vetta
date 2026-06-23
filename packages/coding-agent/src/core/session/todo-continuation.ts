@@ -36,7 +36,7 @@ export interface TodoContinuationResult {
 
 /**
  * Build follow-up messages for uncompleted todo items.
- * Called by the agent core's followUpProvider INSIDE the loop, before the agent
+ * Called by the agent core's continuationProvider INSIDE the loop, before the agent
  * decides whether to exit.
  */
 export function buildTodoContinuationMessages(

@@ -17,6 +17,7 @@
 		"agent.tools.control",
 		"agent.tools.register",
 		"agent.toolHandler.execute",
+		"agent.continuation.register",
 		"fs.read",
 		"fs.write"
 	],
@@ -29,6 +30,17 @@
 			"deny": ["doc_to_pdf"]
 		}
 	},
-	"description": "Demonstrates UI slots plus agent prompt, skill, and tool policy contributions.",
+	"contributes": {
+		"settings": [
+			{
+				"key": "continuationDemoEnabled",
+				"type": "boolean",
+				"title": "Enable continuation demo",
+				"description": "When enabled, each conversation gets one automatic fiction next-step prompt before the agent stops.",
+				"default": false
+			}
+		]
+	},
+	"description": "Demonstrates UI slots plus agent prompt, skill, tool policy, tool registration, and continuation contributions.",
 	"author": "Vetta"
 }

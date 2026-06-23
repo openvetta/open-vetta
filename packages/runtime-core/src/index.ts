@@ -1,5 +1,8 @@
 export type {
-	AgentPluginFollowUpContribution,
+	AgentPluginContinuationContribution,
+	AgentPluginContinuationInvocation,
+	AgentPluginContinuationInvoker,
+	AgentPluginContinuationResult,
 	AgentPluginRuntimeConfig,
 	AgentPluginStateContribution,
 	AgentPluginToolContribution,

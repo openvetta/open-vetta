@@ -89,15 +89,16 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	getSteeringMessages?: () => Promise<AgentMessage[]>;
 
 	/**
-	 * Returns follow-up messages to process after the agent would otherwise stop.
+	 * Returns continuation messages when the agent reaches a natural stopping point.
 	 *
 	 * Called when the agent has no more tool calls and no steering messages.
 	 * If messages are returned, they're added to the context and the agent
 	 * continues with another turn.
 	 *
-	 * Use this for follow-up messages that should wait until the agent finishes.
+	 * Use this for automatic continuation policies. User-queued follow-up messages
+	 * are managed separately by Agent.followUp().
 	 */
-	getFollowUpMessages?: () => Promise<AgentMessage[]>;
+	getContinuationMessages?: () => Promise<AgentMessage[]>;
 }
 
 export interface AgentTracingOptions {

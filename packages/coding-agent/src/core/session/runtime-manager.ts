@@ -9,7 +9,7 @@
 
 import { basename, dirname } from "node:path";
 import type { TSchema } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { AgentMessage, AgentTool } from "@vetta/agent-core";
 import { resetApiProviders } from "@vetta/ai";
 import type { AgentSession, ExtensionBindings } from "../agent-session.js";
 import type { BackgroundTaskManager } from "../background-tasks/index.js";
@@ -27,6 +27,7 @@ import {
 import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
 import type {
+	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
 	AgentPluginToolContribution,
 	AgentPluginToolInvoker,
@@ -73,7 +74,12 @@ export interface RuntimeManagerOptions {
 	agentPlugins?: AgentPluginRuntimeConfig;
 	/** Host bridge used by plugin-contributed tools. */
 	invokePluginTool?: AgentPluginToolInvoker;
+	/** Host bridge used by plugin continuation providers. */
+	invokePluginContinuation?: AgentPluginContinuationInvoker;
 }
+
+const MAX_PLUGIN_CONTINUATIONS_PER_RUN = 8;
+const DEFAULT_PLUGIN_CONTINUATION_TIMEOUT_MS = 3000;
 
 export class RuntimeManager {
 	private readonly resourceLoader: ResourceLoader;
@@ -88,6 +94,9 @@ export class RuntimeManager {
 	private readonly _enableBackgroundTasks: boolean;
 	private _agentPlugins?: AgentPluginRuntimeConfig;
 	private readonly _invokePluginTool?: AgentPluginToolInvoker;
+	private readonly _invokePluginContinuation?: AgentPluginContinuationInvoker;
+	private _pluginContinuationRunCount = 0;
+	private readonly _seenPluginContinuationKeys = new Set<string>();
 
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -126,6 +135,7 @@ export class RuntimeManager {
 		this._enableBackgroundTasks = opts.enableBackgroundTasks;
 		this._agentPlugins = opts.agentPlugins;
 		this._invokePluginTool = opts.invokePluginTool;
+		this._invokePluginContinuation = opts.invokePluginContinuation;
 	}
 
 	get extensionRunner(): ExtensionRunner | undefined {
@@ -228,6 +238,61 @@ export class RuntimeManager {
 			activeToolNames: this.getActiveToolNames(),
 			includeAllExtensionTools: true,
 		});
+	}
+
+	resetPluginContinuationRun(): void {
+		this._pluginContinuationRunCount = 0;
+	}
+
+	async collectPluginContinuationMessages(signal?: AbortSignal): Promise<AgentMessage[]> {
+		if (!this._invokePluginContinuation || this._pluginContinuationRunCount >= MAX_PLUGIN_CONTINUATIONS_PER_RUN) {
+			return [];
+		}
+		const contributions = [...(this._agentPlugins?.continuationContributions ?? [])].sort(
+			(a, b) => a.pluginId.localeCompare(b.pluginId) || a.id.localeCompare(b.id),
+		);
+		for (const contribution of contributions) {
+			if (signal?.aborted) return [];
+			try {
+				const result = await invokeWithTimeout(
+					(signalForCall) =>
+						this._invokePluginContinuation?.(
+							{
+								sessionId: this.host.sessionId,
+								cwd: this.ctx.cwd,
+								pluginId: contribution.pluginId,
+								providerId: contribution.id,
+								handlerId: contribution.handlerId,
+							},
+							signalForCall,
+						) ?? Promise.resolve(null),
+					signal,
+					contribution.timeoutMs ?? DEFAULT_PLUGIN_CONTINUATION_TIMEOUT_MS,
+				);
+				const text = result?.text.trim();
+				if (!text) continue;
+				const idempotencyKey = result?.idempotencyKey;
+				if (idempotencyKey) {
+					const key = `${contribution.pluginId}:${contribution.id}:${idempotencyKey}`;
+					if (this._seenPluginContinuationKeys.has(key)) continue;
+					this._seenPluginContinuationKeys.add(key);
+				}
+				this._pluginContinuationRunCount++;
+				return [
+					{
+						role: "user",
+						content: [{ type: "text", text }],
+						timestamp: Date.now(),
+					},
+				];
+			} catch (error) {
+				console.warn(
+					`[plugin-agent] continuation provider failed: ${contribution.pluginId}/${contribution.id}`,
+					error,
+				);
+			}
+		}
+		return [];
 	}
 
 	/** Refresh skills from disk and rebuild the system prompt if any changed (prompt entry). */

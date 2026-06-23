@@ -141,8 +141,8 @@ export class Agent {
 	public streamFn: StreamFn;
 	private _sessionId?: string;
 	public getApiKey?: (provider: string) => Promise<string | undefined> | string | undefined;
-	/** Optional callback invoked before follow-up queue is consumed. Return messages to inject. */
-	public followUpProvider?: () => AgentMessage[];
+	/** Called at a natural stopping point to decide whether the agent should continue. */
+	public continuationProvider?: (signal?: AbortSignal) => AgentMessage[] | Promise<AgentMessage[]>;
 	private runningPrompt?: Promise<void>;
 	private resolveRunningPrompt?: () => void;
 	private _thinkingBudgets?: ThinkingBudgets;
@@ -323,10 +323,10 @@ export class Agent {
 		return steering;
 	}
 
-	private dequeueFollowUpMessages(): AgentMessage[] {
-		// Allow external code to inject follow-up messages (e.g., todo continuation)
-		if (this.followUpProvider) {
-			const injected = this.followUpProvider();
+	private async collectContinuationMessages(signal?: AbortSignal): Promise<AgentMessage[]> {
+		// Allow external policies to keep the agent running (e.g., todo continuation).
+		if (this.continuationProvider) {
+			const injected = await this.continuationProvider(signal);
 			if (injected.length > 0) {
 				this.followUpQueue.push(...injected);
 			}
@@ -423,7 +423,7 @@ export class Agent {
 				return;
 			}
 
-			const queuedFollowUp = this.dequeueFollowUpMessages();
+			const queuedFollowUp = await this.collectContinuationMessages();
 			if (queuedFollowUp.length > 0) {
 				await this._runLoop(queuedFollowUp);
 				return;
@@ -493,7 +493,7 @@ export class Agent {
 				}
 				return this.dequeueSteeringMessages();
 			},
-			getFollowUpMessages: async () => this.dequeueFollowUpMessages(),
+			getContinuationMessages: () => this.collectContinuationMessages(this.abortController?.signal),
 		};
 
 		let partial: AgentMessage | null = null;

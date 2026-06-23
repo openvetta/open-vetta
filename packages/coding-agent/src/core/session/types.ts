@@ -22,7 +22,11 @@ import type { ModelRegistry } from "../model-registry.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SessionManager } from "../session-manager.js";
 import type { SettingsManager } from "../settings-manager.js";
-import type { AgentPluginRuntimeConfig, AgentPluginToolInvoker } from "../system-prompt.js";
+import type {
+	AgentPluginContinuationInvoker,
+	AgentPluginRuntimeConfig,
+	AgentPluginToolInvoker,
+} from "../system-prompt.js";
 import type { TodoItem } from "../todo-store.js";
 import type { AskUserQuestionCapability } from "../tools/index.js";
 
@@ -105,6 +109,8 @@ export interface AgentSessionConfig {
 	agentPlugins?: AgentPluginRuntimeConfig;
 	/** Host bridge used by plugin-contributed tools. */
 	invokePluginTool?: AgentPluginToolInvoker;
+	/** Host bridge used by plugin continuation providers. */
+	invokePluginContinuation?: AgentPluginContinuationInvoker;
 }
 
 export interface ExtensionBindings {

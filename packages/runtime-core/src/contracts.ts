@@ -75,10 +75,11 @@ export interface AgentPluginStateContribution {
 	persist?: boolean;
 }
 
-export interface AgentPluginFollowUpContribution {
+export interface AgentPluginContinuationContribution {
 	pluginId: string;
 	id: string;
 	handlerId: string;
+	timeoutMs?: number;
 }
 
 export interface AgentPluginRuntimeConfig {
@@ -87,7 +88,7 @@ export interface AgentPluginRuntimeConfig {
 	toolPolicyContributions?: ToolPolicyContribution[];
 	toolContributions?: AgentPluginToolContribution[];
 	stateContributions?: AgentPluginStateContribution[];
-	followUpContributions?: AgentPluginFollowUpContribution[];
+	continuationContributions?: AgentPluginContinuationContribution[];
 }
 
 export interface AgentPluginToolInvocation {
@@ -101,6 +102,24 @@ export interface AgentPluginToolInvocation {
 }
 
 export type AgentPluginToolInvoker = (invocation: AgentPluginToolInvocation, signal?: AbortSignal) => Promise<unknown>;
+
+export interface AgentPluginContinuationInvocation {
+	sessionId: string;
+	cwd: string;
+	pluginId: string;
+	providerId: string;
+	handlerId: string;
+}
+
+export interface AgentPluginContinuationResult {
+	text: string;
+	idempotencyKey?: string;
+}
+
+export type AgentPluginContinuationInvoker = (
+	invocation: AgentPluginContinuationInvocation,
+	signal?: AbortSignal,
+) => Promise<AgentPluginContinuationResult | null>;
 
 export interface SessionEventBase {
 	schemaVersion: 1;
@@ -484,6 +503,7 @@ export interface SessionFacade {
 			| undefined,
 	): void;
 	setPluginToolInvoker(handler: AgentPluginToolInvoker | undefined): void;
+	setPluginContinuationInvoker(handler: AgentPluginContinuationInvoker | undefined): void;
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void;
 	listSandboxGrants(sessionId: string): RuntimeSandboxGrantInfo[];
 	revokeSandboxGrant(sessionId: string, grantId: string): boolean;

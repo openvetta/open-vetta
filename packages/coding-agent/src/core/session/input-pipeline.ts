@@ -5,7 +5,7 @@
  * per-prompt lazy reloads, expands skills/templates, normalizes images, validates
  * model/API key, builds the message array (with skill/scene/extension injections),
  * and drives the agent. It also owns the ad-hoc todo-nudge signature and provides
- * the agent's followUpProvider (todo continuation).
+ * the agent's continuationProvider (todo continuation).
  */
 
 import { join } from "node:path";
@@ -67,7 +67,7 @@ export class InputPipeline {
 
 	/**
 	 * Build follow-up messages for uncompleted todo items.
-	 * Called by the agent core's followUpProvider INSIDE the loop, before the
+	 * Called by the agent core's continuationProvider INSIDE the loop, before the
 	 * agent decides whether to exit.
 	 */
 	buildTodoContinuationMessages(): AgentMessage[] {

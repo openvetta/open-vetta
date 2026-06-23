@@ -219,11 +219,12 @@ async function runLoop(
 				}
 			}
 
-			// Agent would stop here. Check for follow-up messages.
-			const followUpMessages = (await config.getFollowUpMessages?.()) || [];
-			if (followUpMessages.length > 0) {
+			// The agent reached a natural stopping point. Check whether queued
+			// follow-ups or an automatic continuation policy require another turn.
+			const continuationMessages = (await config.getContinuationMessages?.()) || [];
+			if (continuationMessages.length > 0) {
 				// Set as pending so inner loop processes them
-				pendingMessages = followUpMessages;
+				pendingMessages = continuationMessages;
 				continue;
 			}
 

@@ -22,6 +22,7 @@ import {
 	type ToolDefinition,
 } from "@vetta/coding-agent";
 import type {
+	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
 	AgentPluginToolInvoker,
 	AssistantTurnTiming,
@@ -128,6 +129,8 @@ function summarizeAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefine
 		skillPlugins: agentPlugins?.skillPathContributions?.map((item) => item.pluginId) ?? [],
 		toolPolicyPlugins: agentPlugins?.toolPolicyContributions?.map((item) => item.pluginId) ?? [],
 		toolContributions: agentPlugins?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [],
+		continuationContributions:
+			agentPlugins?.continuationContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
 	};
 }
 
@@ -215,6 +218,7 @@ export class RuntimeHost implements SessionFacade {
 		| ((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => Promise<RuntimeSandboxGrantDecision>)
 		| undefined;
 	private pluginToolInvoker: AgentPluginToolInvoker | undefined;
+	private pluginContinuationInvoker: AgentPluginContinuationInvoker | undefined;
 
 	constructor(options: RuntimeHostOptions = {}) {
 		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
@@ -253,6 +257,10 @@ export class RuntimeHost implements SessionFacade {
 
 	setPluginToolInvoker(handler: AgentPluginToolInvoker | undefined): void {
 		this.pluginToolInvoker = handler;
+	}
+
+	setPluginContinuationInvoker(handler: AgentPluginContinuationInvoker | undefined): void {
+		this.pluginContinuationInvoker = handler;
 	}
 
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
@@ -418,6 +426,9 @@ export class RuntimeHost implements SessionFacade {
 			agentPlugins: config.agentPlugins,
 			invokePluginTool: this.pluginToolInvoker
 				? (invocation, signal) => this.pluginToolInvoker?.(invocation, signal) ?? Promise.resolve(undefined)
+				: undefined,
+			invokePluginContinuation: this.pluginContinuationInvoker
+				? (invocation, signal) => this.pluginContinuationInvoker?.(invocation, signal) ?? Promise.resolve(null)
 				: undefined,
 			// 「向用户提问」能力：只有宿主显式允许的 session 才会注册工具；
 			// isEnabled / ask 仍实时读取 this.userQuestionHandler，保留动态开关能力。

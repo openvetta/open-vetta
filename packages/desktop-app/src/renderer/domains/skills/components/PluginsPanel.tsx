@@ -37,7 +37,7 @@ const PERMISSION_LABELS: Record<PluginPermission, string> = {
 	"agent.toolHandler.execute": "执行插件工具处理器",
 	"agent.state.read": "读取插件 Agent 状态",
 	"agent.state.write": "写入插件 Agent 状态",
-	"agent.followUp.write": "注入 Agent 后续消息",
+	"agent.continuation.register": "注册 Agent 自动续跑策略",
 	"agent.runtime.configure": "配置 Agent 运行时",
 	"fs.read": "读取文件",
 	"fs.write": "写入文件",
