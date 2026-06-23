@@ -2,6 +2,7 @@ import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
 import { renderAsync } from "docx-preview";
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { fetchFileBytes } from "../utils/file";
+import { PreviewToolbar } from "./PreviewToolbar";
 import { ErrorState, LoadingState, type LoadState } from "./PreviewState";
 import { ToolbarButton } from "./ToolbarButton";
 
@@ -91,8 +92,8 @@ export function DocxPreview({ file }: PluginFilePreviewProps): JSX.Element {
 	}, [computeFitZoom]);
 
 	return (
-		<div className="flex h-full min-h-0 flex-1 flex-col bg-[var(--background)]">
-			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto bg-[var(--background)] px-8 py-6">
+		<div className="relative flex h-full min-h-0 flex-1 flex-col bg-[var(--background)]">
+			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto bg-[var(--background)] px-8 pt-6 pb-16">
 				<div ref={containerRef} style={{ zoom }} className="docx-host min-h-full" />
 				{status === "loading" && (
 					<div className="absolute inset-0 bg-[var(--background)]">
@@ -105,7 +106,7 @@ export function DocxPreview({ file }: PluginFilePreviewProps): JSX.Element {
 					</div>
 				)}
 			</div>
-			<div className="flex shrink-0 items-center justify-center gap-2 border-t border-[var(--border)] px-3 py-2">
+			<PreviewToolbar>
 				<ToolbarButton label="−" disabled={zoom <= MIN_ZOOM} onClick={() => adjustZoom(-ZOOM_STEP)} />
 				<button
 					type="button"
@@ -117,7 +118,7 @@ export function DocxPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				<ToolbarButton label="+" disabled={zoom >= MAX_ZOOM} onClick={() => adjustZoom(ZOOM_STEP)} />
 				<div className="mx-1 h-4 w-px bg-[var(--border)]" />
 				<ToolbarButton label="适应宽度" onClick={fitToWidth} />
-			</div>
+			</PreviewToolbar>
 		</div>
 	);
 }
