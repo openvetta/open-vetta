@@ -6,6 +6,8 @@ import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
 import { ipcMain, type WebContents } from "electron";
 import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-prompt.js";
 import type {
+	AgentPluginContinuationInvocation,
+	AgentPluginContinuationResult,
 	AgentPluginToolInvocation,
 	PromptRequest,
 	RuntimeSandboxGrantDecision,
@@ -188,6 +190,8 @@ const CHANNELS = {
 	VIEWER_EVENT: "vetta:session:viewer-event",
 	PLUGIN_TOOL_REQUEST: "vetta:plugins:agent-tool-request",
 	PLUGIN_TOOL_RESPONSE: "vetta:plugins:agent-tool-response",
+	PLUGIN_CONTINUATION_REQUEST: "vetta:plugins:continuation-request",
+	PLUGIN_CONTINUATION_RESPONSE: "vetta:plugins:continuation-response",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -271,6 +275,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const questionMap = new Map<string, (result: RuntimeUserQuestionResult) => void>();
 	const sandboxGrantMap = new Map<string, (decision: RuntimeSandboxGrantDecision) => void>();
 	const pluginToolMap = new Map<string, (result: unknown) => void>();
+	const pluginContinuationMap = new Map<string, (result: unknown) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
 	/** Track debug request sequence per session */
@@ -438,6 +443,46 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			pluginToolMap.set(requestId, finish);
 			webContents.send(CHANNELS.PLUGIN_TOOL_REQUEST, { ...request, requestId });
+		});
+	});
+
+	runtime.setPluginContinuationInvoker((request: AgentPluginContinuationInvocation, signal?: AbortSignal) => {
+		if (webContents.isDestroyed()) return Promise.resolve(null);
+		return new Promise<AgentPluginContinuationResult | null>((resolve, reject) => {
+			const requestId = randomUUID();
+			const finish = (result: unknown): void => {
+				pluginContinuationMap.delete(requestId);
+				if (signal) signal.removeEventListener("abort", onAbort);
+				if (typeof result === "object" && result !== null && "error" in result) {
+					reject(new Error(String((result as { error?: unknown }).error ?? "Plugin continuation failed")));
+					return;
+				}
+				const value = (result as { value?: unknown })?.value;
+				if (value === null || value === undefined) {
+					resolve(null);
+					return;
+				}
+				if (typeof value !== "object" || typeof (value as { text?: unknown }).text !== "string") {
+					reject(new Error("Plugin continuation returned an invalid result"));
+					return;
+				}
+				const candidate = value as { text: string; idempotencyKey?: unknown };
+				resolve({
+					text: candidate.text,
+					idempotencyKey: typeof candidate.idempotencyKey === "string" ? candidate.idempotencyKey : undefined,
+				});
+			};
+			const onAbort = (): void => {
+				pluginContinuationMap.delete(requestId);
+				resolve(null);
+			};
+			if (signal?.aborted) {
+				resolve(null);
+				return;
+			}
+			if (signal) signal.addEventListener("abort", onAbort, { once: true });
+			pluginContinuationMap.set(requestId, finish);
+			webContents.send(CHANNELS.PLUGIN_CONTINUATION_REQUEST, { ...request, requestId });
 		});
 	});
 
@@ -833,6 +878,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		resolve(result);
 	});
 
+	ipcMain.handle(CHANNELS.PLUGIN_CONTINUATION_RESPONSE, (_event, requestId: unknown, result: unknown) => {
+		assertNonEmptyString(requestId, "requestId");
+		const resolve = pluginContinuationMap.get(requestId);
+		if (resolve) resolve(result);
+	});
+
 	ipcMain.handle(CHANNELS.SANDBOX_GRANTS_LIST, (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
 		return runtime.listSandboxGrants(sessionId);
@@ -954,6 +1005,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve({ error: "Plugin host renderer is unavailable" });
 		}
 		pluginToolMap.clear();
+		for (const resolve of pluginContinuationMap.values()) {
+			resolve({ value: null });
+		}
+		pluginContinuationMap.clear();
 	};
 	webContents.on("render-process-gone", onRenderGone);
 
@@ -1047,10 +1102,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve({ error: "Plugin host renderer disposed" });
 		}
 		pluginToolMap.clear();
+		for (const resolve of pluginContinuationMap.values()) {
+			resolve({ value: null });
+		}
+		pluginContinuationMap.clear();
 		runtime.setUserConfirmationHandler(undefined);
 		runtime.setUserQuestionHandler(undefined);
 		runtime.setUserSandboxGrantHandler(undefined);
 		runtime.setPluginToolInvoker(undefined);
+		runtime.setPluginContinuationInvoker(undefined);
 		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
 		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts
 		// 的 before-quit 负责（见 disposeSharedRuntime）。

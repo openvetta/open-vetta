@@ -97,6 +97,35 @@ ctx.agent.registerTool({
 - **返回 `cards` 即可产消息卡片**：若返回值含 `cards: CardDescriptor[]`，宿主会把它**提升**到 `details.cards`（消息卡片的 settled 数据源）并从模型可见文本里**剔除**。配合 `ctx.ui.registerCardRenderer` 即可让插件**用自己的工具**在消息下方渲染卡片——见 [message-cards.md](./message-cards.md#第三方插件如何拿到卡片数据)。
 - 插件激活会等待工具 schema 注册完成；注册 / 注销 / 权限或启停变化会刷新空闲的对话 session。
 
+## 注册 Agent 自动续跑策略
+
+`ctx.agent.registerContinuationProvider()` 注册一个在 Agent 到达自然停止点时执行的策略。它与
+`conversation.sendPrompt()` 不同：不会立即发起新对话，而是在当前 Agent Loop 没有更多工具、
+steering 或 Todo continuation 后，决定是否注入一条用户消息继续下一轮。需要
+`agent.continuation.register`。
+
+```ts
+ctx.agent.registerContinuationProvider({
+  id: "workflow-next-step",
+  timeoutMs: 3000,
+  async handler({ sessionId, cwd }) {
+    const task = findPendingTask(sessionId);
+    if (!task) return null; // 允许 Agent 正常结束
+    return {
+      text: `继续处理工作流任务：${task.description}`,
+      idempotencyKey: task.id,
+    };
+  },
+});
+```
+
+- Todo continuation 优先；只有 Todo 不要求继续时才检查插件策略。
+- 多个策略按插件 id 和 provider id 稳定排序，每个停止点最多采用一个结果。
+- `idempotencyKey` 在会话内去重，避免同一任务被重复注入。
+- handler 默认 3 秒超时；异常、超时、空文本都按“无需继续”处理，不阻止 Agent 正常结束。
+- 单次 Agent run 最多接受 8 次插件 continuation，防止插件造成无限循环。
+- 返回的 `Disposable`、插件停用、重载或卸载都会注销该策略。
+
 ## 文件 API
 
 `ctx.fs` 受权限门控读写文件（`fs.read` / `fs.write`，缺权限**抛错**）。

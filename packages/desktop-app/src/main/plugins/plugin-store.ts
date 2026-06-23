@@ -2,7 +2,12 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, normalize, resolve } from "node:path";
-import type { AgentPluginRuntimeConfig, AgentPluginToolContribution, SystemPromptBlock } from "@vetta/runtime-core";
+import type {
+	AgentPluginContinuationContribution,
+	AgentPluginRuntimeConfig,
+	AgentPluginToolContribution,
+	SystemPromptBlock,
+} from "@vetta/runtime-core";
 import AdmZip from "adm-zip";
 import { app } from "electron";
 import type {
@@ -25,10 +30,14 @@ const systemPrefsPath = join(homedir(), ".vetta", "system-plugin-prefs.json");
 type PluginManifestFile = Record<string, InstalledPlugin>;
 type SystemPluginPrefs = Record<string, { enabled: boolean }>;
 type RegisteredAgentTool = Omit<AgentPluginToolContribution, "pluginId"> & { activationId?: string };
+type RegisteredContinuationProvider = Omit<AgentPluginContinuationContribution, "pluginId"> & {
+	activationId?: string;
+};
 
 const pluginLog = getAppLogger("plugin");
 const dynamicAgentTools = new Map<string, Map<string, RegisteredAgentTool>>();
-const dynamicAgentToolActivations = new Map<string, string>();
+const dynamicContinuationProviders = new Map<string, Map<string, RegisteredContinuationProvider>>();
+const dynamicAgentActivations = new Map<string, string>();
 
 function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
 	pluginLog.debug(message, data ?? {});
@@ -40,6 +49,8 @@ function summarizeRuntimeConfig(config: AgentPluginRuntimeConfig | undefined): R
 		skillPlugins: config?.skillPathContributions?.map((item) => item.pluginId) ?? [],
 		toolPolicyPlugins: config?.toolPolicyContributions?.map((item) => item.pluginId) ?? [],
 		toolContributions: config?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [],
+		continuationContributions:
+			config?.continuationContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
 	};
 }
 
@@ -450,6 +461,7 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 	const skillPathContributions: NonNullable<AgentPluginRuntimeConfig["skillPathContributions"]> = [];
 	const toolPolicyContributions: NonNullable<AgentPluginRuntimeConfig["toolPolicyContributions"]> = [];
 	const toolContributions: NonNullable<AgentPluginRuntimeConfig["toolContributions"]> = [];
+	const continuationContributions: NonNullable<AgentPluginRuntimeConfig["continuationContributions"]> = [];
 
 	for (const plugin of enabledPlugins) {
 		try {
@@ -506,24 +518,42 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 		}
 	}
 
+	for (const plugin of enabledToolPlugins) {
+		if (!hasGrantedPermission(plugin, "agent.continuation.register")) continue;
+		const registeredProviders = dynamicContinuationProviders.get(plugin.id);
+		if (!registeredProviders) continue;
+		for (const provider of registeredProviders.values()) {
+			const { activationId: _activationId, ...contribution } = provider;
+			continuationContributions.push({ ...contribution, pluginId: plugin.id });
+		}
+	}
+
 	const config: AgentPluginRuntimeConfig = {};
 	if (systemPromptContributions.length > 0) config.systemPromptContributions = systemPromptContributions;
 	if (skillPathContributions.length > 0) config.skillPathContributions = skillPathContributions;
 	if (toolPolicyContributions.length > 0) config.toolPolicyContributions = toolPolicyContributions;
 	if (toolContributions.length > 0) config.toolContributions = toolContributions;
+	if (continuationContributions.length > 0) config.continuationContributions = continuationContributions;
 	const result = Object.keys(config).length > 0 ? config : undefined;
 	debugPluginAgent("build runtime config done", summarizeRuntimeConfig(result));
 	return result;
 }
 
-export function beginDynamicAgentToolLoad(pluginId: string, activationId: string): void {
+export function beginDynamicAgentContributionLoad(pluginId: string, activationId: string): void {
 	validatePluginId(pluginId);
 	const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
 	if (!plugin) throw new Error(`Plugin not found: ${pluginId}`);
-	dynamicAgentToolActivations.set(pluginId, activationId);
-	const previousCount = dynamicAgentTools.get(pluginId)?.size ?? 0;
+	dynamicAgentActivations.set(pluginId, activationId);
+	const previousToolCount = dynamicAgentTools.get(pluginId)?.size ?? 0;
+	const previousContinuationCount = dynamicContinuationProviders.get(pluginId)?.size ?? 0;
 	dynamicAgentTools.delete(pluginId);
-	debugPluginAgent("dynamic tool activation began", { pluginId, activationId, previousCount });
+	dynamicContinuationProviders.delete(pluginId);
+	debugPluginAgent("dynamic agent contribution activation began", {
+		pluginId,
+		activationId,
+		previousToolCount,
+		previousContinuationCount,
+	});
 }
 
 export function registerDynamicAgentTool(pluginId: string, tool: RegisteredAgentTool): void {
@@ -533,7 +563,7 @@ export function registerDynamicAgentTool(pluginId: string, tool: RegisteredAgent
 	if (!hasGrantedPermission(plugin, "agent.tools.register")) {
 		throw new Error(`Plugin permission denied: agent.tools.register`);
 	}
-	const currentActivationId = dynamicAgentToolActivations.get(pluginId);
+	const currentActivationId = dynamicAgentActivations.get(pluginId);
 	if (tool.activationId && currentActivationId && tool.activationId !== currentActivationId) {
 		debugPluginAgent("ignore stale dynamic tool register", {
 			pluginId,
@@ -562,7 +592,7 @@ export function registerDynamicAgentTool(pluginId: string, tool: RegisteredAgent
 
 export function unregisterDynamicAgentTool(pluginId: string, toolId: string, activationId?: string): void {
 	validatePluginId(pluginId);
-	const currentActivationId = dynamicAgentToolActivations.get(pluginId);
+	const currentActivationId = dynamicAgentActivations.get(pluginId);
 	if (activationId && currentActivationId && activationId !== currentActivationId) {
 		debugPluginAgent("ignore stale dynamic tool unregister", {
 			pluginId,
@@ -593,9 +623,42 @@ export function unregisterDynamicAgentTool(pluginId: string, toolId: string, act
 	});
 }
 
-export function clearDynamicAgentTools(pluginId: string, activationId?: string): void {
+export function registerDynamicContinuationProvider(pluginId: string, provider: RegisteredContinuationProvider): void {
 	validatePluginId(pluginId);
-	const currentActivationId = dynamicAgentToolActivations.get(pluginId);
+	const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+	if (!plugin) throw new Error(`Plugin not found: ${pluginId}`);
+	if (!hasGrantedPermission(plugin, "agent.continuation.register")) {
+		throw new Error("Plugin permission denied: agent.continuation.register");
+	}
+	const currentActivationId = dynamicAgentActivations.get(pluginId);
+	if (provider.activationId && currentActivationId && provider.activationId !== currentActivationId) return;
+	let providers = dynamicContinuationProviders.get(pluginId);
+	if (!providers) {
+		providers = new Map();
+		dynamicContinuationProviders.set(pluginId, providers);
+	}
+	providers.set(provider.id, provider);
+}
+
+export function unregisterDynamicContinuationProvider(
+	pluginId: string,
+	providerId: string,
+	activationId?: string,
+): void {
+	validatePluginId(pluginId);
+	const currentActivationId = dynamicAgentActivations.get(pluginId);
+	if (activationId && currentActivationId && activationId !== currentActivationId) return;
+	const providers = dynamicContinuationProviders.get(pluginId);
+	if (!providers) return;
+	const provider = providers.get(providerId);
+	if (activationId && provider?.activationId && provider.activationId !== activationId) return;
+	providers.delete(providerId);
+	if (providers.size === 0) dynamicContinuationProviders.delete(pluginId);
+}
+
+export function clearDynamicAgentContributions(pluginId: string, activationId?: string): void {
+	validatePluginId(pluginId);
+	const currentActivationId = dynamicAgentActivations.get(pluginId);
 	if (activationId && currentActivationId && activationId !== currentActivationId) {
 		debugPluginAgent("ignore stale dynamic tools clear", {
 			pluginId,
@@ -604,12 +667,19 @@ export function clearDynamicAgentTools(pluginId: string, activationId?: string):
 		});
 		return;
 	}
-	const previousCount = dynamicAgentTools.get(pluginId)?.size ?? 0;
+	const previousToolCount = dynamicAgentTools.get(pluginId)?.size ?? 0;
+	const previousContinuationCount = dynamicContinuationProviders.get(pluginId)?.size ?? 0;
 	dynamicAgentTools.delete(pluginId);
+	dynamicContinuationProviders.delete(pluginId);
 	if (!activationId || currentActivationId === activationId) {
-		dynamicAgentToolActivations.delete(pluginId);
+		dynamicAgentActivations.delete(pluginId);
 	}
-	debugPluginAgent("dynamic tools cleared", { pluginId, activationId, previousCount });
+	debugPluginAgent("dynamic agent contributions cleared", {
+		pluginId,
+		activationId,
+		previousToolCount,
+		previousContinuationCount,
+	});
 }
 
 function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean): InstalledPlugin {

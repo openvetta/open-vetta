@@ -14,16 +14,23 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			grantPermissions: (id, permissions) => ipc.invoke("vetta:plugins:grant-permissions", id, permissions),
 			revokePermissions: (id, permissions) => ipc.invoke("vetta:plugins:revoke-permissions", id, permissions),
 			reload: (id) => ipc.invoke("vetta:plugins:reload", id),
-			beginAgentToolsLoad: (pluginId, activationId) =>
-				ipc.invoke("vetta:plugins:agent-tools-begin-load", pluginId, activationId),
+			beginAgentContributionsLoad: (pluginId, activationId) =>
+				ipc.invoke("vetta:plugins:agent-contributions-begin-load", pluginId, activationId),
 			registerAgentTool: (pluginId, registration) =>
 				ipc.invoke("vetta:plugins:agent-tool-register", pluginId, registration),
 			unregisterAgentTool: (pluginId, toolId, activationId) =>
 				ipc.invoke("vetta:plugins:agent-tool-unregister", pluginId, toolId, activationId),
-			clearAgentTools: (pluginId, activationId) =>
-				ipc.invoke("vetta:plugins:agent-tools-clear", pluginId, activationId),
+			clearAgentContributions: (pluginId, activationId) =>
+				ipc.invoke("vetta:plugins:agent-contributions-clear", pluginId, activationId),
 			onAgentToolRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:agent-tool-request", handler),
 			respondAgentTool: (requestId, result) => ipc.invoke("vetta:plugins:agent-tool-response", requestId, result),
+			registerContinuationProvider: (pluginId, registration) =>
+				ipc.invoke("vetta:plugins:continuation-register", pluginId, registration),
+			unregisterContinuationProvider: (pluginId, providerId, activationId) =>
+				ipc.invoke("vetta:plugins:continuation-unregister", pluginId, providerId, activationId),
+			onContinuationRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:continuation-request", handler),
+			respondContinuation: (requestId, result) =>
+				ipc.invoke("vetta:plugins:continuation-response", requestId, result),
 			getSettings: (id) => ipc.invoke("vetta:plugins:get-settings", id),
 			setSettings: (id, values) => ipc.invoke("vetta:plugins:set-settings", id, values),
 			generateImage: (pluginId, input) => ipc.invoke("vetta:plugins:images:generate", pluginId, input),

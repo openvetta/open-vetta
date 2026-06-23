@@ -17,7 +17,7 @@ export type PluginPermission =
 	| "agent.toolHandler.execute"
 	| "agent.state.read"
 	| "agent.state.write"
-	| "agent.followUp.write"
+	| "agent.continuation.register"
 	| "agent.runtime.configure"
 	| "fs.read"
 	| "fs.write"
@@ -153,6 +153,27 @@ export interface PluginAgentToolInvocationRequest {
 	input: unknown;
 }
 
+export interface PluginContinuationRegistration {
+	id: string;
+	handlerId: string;
+	activationId?: string;
+	timeoutMs?: number;
+}
+
+export interface PluginContinuationInvocationRequest {
+	requestId: string;
+	sessionId: string;
+	cwd: string;
+	pluginId: string;
+	providerId: string;
+	handlerId: string;
+}
+
+export interface PluginContinuationInvocationResult {
+	text: string;
+	idempotencyKey?: string;
+}
+
 export interface DesktopPluginsApi {
 	list(): Promise<InstalledPlugin[]>;
 	installFromArchive(archiveBuffer: ArrayBuffer, options?: PluginInstallOptions): Promise<InstalledPlugin>;
@@ -162,12 +183,19 @@ export interface DesktopPluginsApi {
 	grantPermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	revokePermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	reload(id: string): Promise<InstalledPlugin>;
-	beginAgentToolsLoad(pluginId: string, activationId: string): Promise<void>;
+	beginAgentContributionsLoad(pluginId: string, activationId: string): Promise<void>;
 	registerAgentTool(pluginId: string, registration: PluginAgentToolRegistration): Promise<void>;
 	unregisterAgentTool(pluginId: string, toolId: string, activationId?: string): Promise<void>;
-	clearAgentTools(pluginId: string, activationId?: string): Promise<void>;
+	clearAgentContributions(pluginId: string, activationId?: string): Promise<void>;
 	onAgentToolRequest(handler: (request: PluginAgentToolInvocationRequest) => void): () => void;
 	respondAgentTool(requestId: string, result: unknown): Promise<void>;
+	registerContinuationProvider(pluginId: string, registration: PluginContinuationRegistration): Promise<void>;
+	unregisterContinuationProvider(pluginId: string, providerId: string, activationId?: string): Promise<void>;
+	onContinuationRequest(handler: (request: PluginContinuationInvocationRequest) => void): () => void;
+	respondContinuation(
+		requestId: string,
+		result: { value: PluginContinuationInvocationResult | null } | { error: string },
+	): Promise<void>;
 	/** Effective setting values for a plugin (schema defaults merged with stored). */
 	getSettings(id: string): Promise<Record<string, unknown>>;
 	/** Persist setting values for a plugin (merged over existing). */

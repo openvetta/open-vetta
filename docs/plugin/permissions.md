@@ -18,7 +18,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 
 不同注册点对「声明了但未授权」的处理不同：
 
-- **抛错（require）**：`registerInputAction`、`registerCardRenderer`、`openActivityTab`、`setEditImageAttachment`、`conversation.*`、`fs.*`、`images.*`。缺权限直接抛 `Plugin permission denied: <permission>`，中断该次调用。
+- **抛错（require）**：`registerInputAction`、`registerCardRenderer`、`openActivityTab`、`setEditImageAttachment`、`agent.registerContinuationProvider`、`conversation.*`、`fs.*`、`images.*`。缺权限直接抛 `Plugin permission denied: <permission>`，中断该次调用。
 - **跳过 + 警告（warn+noop）**：`registerGlobalSlot`、`registerFilePreview`、`registerActivityTab`、`agent.registerTool`。缺权限时静默跳过该贡献并打 `console.warn`，**不影响**插件其它已授权能力。
 
 > 设计上一个缺失权限不应拖垮插件的其它能力——`activate()` 里建议把可选能力的注册各自独立，避免一处 throw 掉整段。
@@ -36,6 +36,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 | `agent.session.write` | `ctx.conversation.sendPrompt/insertText/abort` | [conversation-and-agent](./conversation-and-agent.md#对话驾驶) |
 | `agent.tools.register` | `ctx.agent.registerTool()`（注册工具 shell） | [conversation-and-agent](./conversation-and-agent.md#注册-agent-工具) |
 | `agent.toolHandler.execute` | 工具 handler 被 agent 调用时执行 | 同上 |
+| `agent.continuation.register` | `ctx.agent.registerContinuationProvider()` | [conversation-and-agent](./conversation-and-agent.md#注册-agent-自动续跑策略) |
 | `fs.read` | `ctx.fs.readDir/readFile/stat/listFilesRecursive` | [conversation-and-agent](./conversation-and-agent.md#文件-api) |
 | `fs.write` | `ctx.fs.writeFile/rename/delete/move/createDirectory` | 同上 |
 | `images.generate` | `ctx.images.generate/edit/lineage/sessionLineages` | [conversation-and-agent](./conversation-and-agent.md#图像-api) |
@@ -46,7 +47,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 
 `PluginPermission` 联合里还包含以下值，目前是**声明了但还没对应能力 API** 的占位符，列出仅为未来扩展预留，现在声明它们不会解锁任何功能：
 
-`agent.command.run`、`agent.systemPrompt.read`、`agent.systemPrompt.write`、`agent.systemPrompt.fullControl`、`agent.skills.control`、`agent.tools.control`、`agent.state.read`、`agent.state.write`、`agent.followUp.write`、`agent.runtime.configure`、`network.fetch`、`settings.read`、`settings.write`。
+`agent.command.run`、`agent.systemPrompt.read`、`agent.systemPrompt.write`、`agent.systemPrompt.fullControl`、`agent.skills.control`、`agent.tools.control`、`agent.state.read`、`agent.state.write`、`agent.runtime.configure`、`network.fetch`、`settings.read`、`settings.write`。
 
 ## 最小授权原则
 

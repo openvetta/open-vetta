@@ -1,0 +1,46 @@
+{
+	"id": "global-slot-demo",
+	"name": "Global Slot Demo",
+	"version": "0.1.0",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "global_slot_demo",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": [
+		"ui.slot.global",
+		"agent.systemPrompt.write",
+		"agent.skills.control",
+		"agent.tools.control",
+		"agent.tools.register",
+		"agent.toolHandler.execute",
+		"agent.continuation.register",
+		"fs.read",
+		"fs.write"
+	],
+	"agent": {
+		"systemPrompt": {
+			"promptPaths": ["agent/prompts/fiction-system.md"]
+		},
+		"skillPaths": ["agent/skills/fiction-outline"],
+		"toolPolicy": {
+			"deny": ["doc_to_pdf"]
+		}
+	},
+	"contributes": {
+		"settings": [
+			{
+				"key": "continuationDemoEnabled",
+				"type": "boolean",
+				"title": "Enable continuation demo",
+				"description": "When enabled, each conversation gets one automatic fiction next-step prompt before the agent stops.",
+				"default": false
+			}
+		]
+	},
+	"description": "Demonstrates UI slots plus agent prompt, skill, tool policy, tool registration, and continuation contributions.",
+	"author": "Vetta"
+}

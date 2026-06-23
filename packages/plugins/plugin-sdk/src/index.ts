@@ -20,7 +20,7 @@ export type PluginPermission =
 	| "agent.toolHandler.execute"
 	| "agent.state.read"
 	| "agent.state.write"
-	| "agent.followUp.write"
+	| "agent.continuation.register"
 	| "agent.runtime.configure"
 	| "fs.read"
 	| "fs.write"
@@ -383,6 +383,32 @@ export interface PluginAgentToolRegistration<TInput = unknown> {
 
 export interface PluginAgentApi {
 	registerTool<TInput = unknown>(registration: PluginAgentToolRegistration<TInput>): Disposable;
+	/**
+	 * Register a policy consulted when the agent reaches a natural stopping point.
+	 * Return null to allow the agent to stop, or a message to continue with another turn.
+	 */
+	registerContinuationProvider(registration: PluginContinuationRegistration): Disposable;
+}
+
+export interface PluginContinuationContext {
+	sessionId: string;
+	cwd: string;
+}
+
+export interface PluginContinuationResult {
+	text: string;
+	/** Stable key used by the host to suppress duplicate continuations in a session. */
+	idempotencyKey?: string;
+}
+
+export type PluginContinuationHandler = (
+	context: PluginContinuationContext,
+) => PluginContinuationResult | null | Promise<PluginContinuationResult | null>;
+
+export interface PluginContinuationRegistration {
+	id: string;
+	timeoutMs?: number;
+	handler: PluginContinuationHandler;
 }
 
 // ─── Files ───
