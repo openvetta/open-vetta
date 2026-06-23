@@ -131,13 +131,6 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 	}
 }
 
-/** 手动重建 tags.json / manifest.json 缓存。 */
-export async function rebuildKnowledgeIndex(): Promise<void> {
-	const root = knowledge.knowledgeRoot();
-	await knowledge.ensureKnowledgeDirs(root);
-	await knowledge.rebuildAllCaches(root);
-}
-
 function unschedule(): void {
 	if (scheduled) {
 		scheduler.removeById(JOB_ID);
@@ -157,6 +150,15 @@ export async function reloadKnowledgePoller(): Promise<void> {
 	if (!kb?.enabled) {
 		log.info("knowledge base disabled");
 		return;
+	}
+	// 启动/改设置时自愈一次：据 frontmatter 重建缓存，覆盖缓存缺失/损坏/手改场景，
+	// 用户无需任何手动「重建」操作。无 LLM、O(N)、隐形。加工轮进行中则跳过避免竞态。
+	if (!running) {
+		const root = knowledge.knowledgeRoot();
+		await knowledge.ensureKnowledgeDirs(root);
+		await knowledge
+			.rebuildAllCaches(root)
+			.catch((err) => log.warn(`self-heal rebuild failed: ${err instanceof Error ? err.message : String(err)}`));
 	}
 	const minutes = kb.pollIntervalMinutes ?? 5;
 	const modelKey = kb.processingModelKey;

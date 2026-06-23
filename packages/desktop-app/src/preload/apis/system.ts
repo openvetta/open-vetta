@@ -133,7 +133,6 @@ export function createSystemApi(
 		},
 		knowledge: {
 			scanNow: () => ipc.invoke("vetta:kb:scan-now"),
-			rebuildIndex: () => ipc.invoke("vetta:kb:rebuild-index"),
 			reload: () => ipc.invoke("vetta:kb:reload"),
 		},
 		models: {
