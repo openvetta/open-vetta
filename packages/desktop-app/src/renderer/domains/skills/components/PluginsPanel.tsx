@@ -669,7 +669,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 					if (!open) setSelectedId(null);
 				}}
 			>
-				<DrawerContent className="sm:max-w-md">
+				<DrawerContent className="border-l-0 sm:max-w-md">
 					{selected && (
 						<>
 							<DrawerHeader className="border-b border-border">
