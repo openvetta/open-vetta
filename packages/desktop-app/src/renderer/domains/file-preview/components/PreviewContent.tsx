@@ -5,11 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PluginFilePreview } from "./PluginFilePreview";
 import { AudioPreview } from "../../activity-panel/components/previews/AudioPreview";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
-import { DocxPreview } from "../../activity-panel/components/previews/DocxPreview";
 import { HtmlPreview } from "../../activity-panel/components/previews/HtmlPreview";
 import { ImagePreview } from "../../activity-panel/components/previews/ImagePreview";
 import { MarkdownPreview } from "../../activity-panel/components/previews/MarkdownPreview";
-import { PdfPreview } from "../../activity-panel/components/previews/PdfPreview";
 
 // svg 刻意不在内置集：交给 svg-viewer 插件接管（「仅补空白」下插件只能拿内置不认的扩展名）
 export const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "ico"]);
@@ -30,7 +28,6 @@ const TEXT_EXTENSIONS = new Set([
 const SUPPORTED_EXTENSIONS = new Set<string>([
 	...IMAGE_EXTENSIONS,
 	...AUDIO_EXTENSIONS,
-	"pdf", "docx",
 	...TEXT_EXTENSIONS,
 ]);
 
@@ -174,25 +171,11 @@ export function PreviewBody({
 			</div>
 		);
 	}
-	if (ext === "pdf") {
-		return (
-			<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-				<PdfPreview content={state.content} />
-			</div>
-		);
-	}
 	if ((ext === "html" || ext === "htm") && state.encoding === "utf8") {
 		return <HtmlPreview content={state.content} extension={ext} theme={theme} />;
 	}
 
 	const scrollWrap = "min-h-0 flex-1 overflow-y-auto";
-	if (ext === "docx") {
-		return (
-			<div className={scrollWrap}>
-				<DocxPreview content={state.content} />
-			</div>
-		);
-	}
 	if (MARKDOWN_EXTENSIONS.has(ext)) {
 		return (
 			<div className={scrollWrap}>
