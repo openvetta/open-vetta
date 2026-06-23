@@ -1,5 +1,6 @@
 import type { PluginAudioMetadata, PluginPreviewFile } from "@vetta/plugin-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Slider } from "./Slider";
 import { cn, formatTime, versionedUrl } from "./utils";
 
 const DISC_SPEED = 45;
@@ -281,14 +282,16 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 
 			<div className="flex w-full max-w-md items-center gap-3">
 				<span className="shrink-0 text-[11px] tabular-nums text-[var(--muted-foreground)]">{formatTime(currentTime)}</span>
-				<RangeInput
-					value={Math.min(currentTime, duration || currentTime)}
+				<Slider
+					value={[Math.min(currentTime, duration || currentTime)]}
 					min={0}
 					max={duration > 0 ? duration : 1}
 					step={0.1}
 					disabled={duration <= 0}
-					onChange={handleSeek}
-					className="flex-1"
+					onValueChange={(values) => {
+						const next = values[0];
+						if (next !== undefined) handleSeek(next);
+					}}
 				/>
 				<span className="shrink-0 text-[11px] tabular-nums text-[var(--muted-foreground)]">{formatTime(duration)}</span>
 			</div>
@@ -318,41 +321,20 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 				</button>
 				<div className="flex items-center gap-1.5">
 					<ControlButton label={muted || volume === 0 ? "Mute" : "Vol"} title={muted ? "取消静音" : "静音"} onClick={toggleMute} wide />
-					<RangeInput value={muted ? 0 : volume} min={0} max={1} step={0.01} onChange={handleVolume} className="w-20" />
+					<Slider
+						value={[muted ? 0 : volume]}
+						min={0}
+						max={1}
+						step={0.01}
+						onValueChange={(values) => {
+							const next = values[0];
+							if (next !== undefined) handleVolume(next);
+						}}
+						className="w-20"
+					/>
 				</div>
 			</div>
 		</div>
-	);
-}
-
-function RangeInput({
-	value,
-	min,
-	max,
-	step,
-	disabled,
-	onChange,
-	className,
-}: {
-	value: number;
-	min: number;
-	max: number;
-	step: number;
-	disabled?: boolean;
-	onChange: (value: number) => void;
-	className?: string;
-}): JSX.Element {
-	return (
-		<input
-			type="range"
-			value={value}
-			min={min}
-			max={max}
-			step={step}
-			disabled={disabled}
-			onChange={(event) => onChange(Number(event.currentTarget.value))}
-			className={cn("h-1.5 accent-[var(--primary)] disabled:opacity-50", className)}
-		/>
 	);
 }
 
