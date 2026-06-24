@@ -184,7 +184,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		confirm({
 			title: "清空 wiki",
 			message:
-				"将删除所有知识库已整理出的 wiki 笔记（原始资料保留）。清空后下次整理会把全部资料重新整理一遍，可能消耗较多模型额度。确定继续？",
+				"将删除所有知识库已整理出的 wiki 笔记和整理记录（原始资料保留）。清空后下次整理会把全部资料重新整理一遍，可能消耗较多模型额度。确定继续？",
 			variant: "danger",
 			confirmLabel: "清空",
 			onConfirm: () => {
@@ -336,7 +336,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 				</SettingRow>
 				<SettingRow
 					title="清空 wiki"
-					description="删除所有已整理的 wiki 笔记（原始资料保留），下次整理会把全部资料重新整理一遍。"
+					description="删除所有已整理的 wiki 笔记和整理记录（原始资料保留），下次整理会把全部资料重新整理一遍。"
 					border={false}
 				>
 					<button
