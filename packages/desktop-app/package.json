@@ -68,6 +68,7 @@
 		"@vetta/action-rpc": "workspace:*",
 		"@vetta/plugin-sdk": "workspace:*",
 		"@vetta/runtime-core": "workspace:*",
+		"@vetta/ui": "workspace:*",
 		"@xyflow/react": "^12.10.2",
 		"adm-zip": "^0.5.16",
 		"class-variance-authority": "^0.7.1",
