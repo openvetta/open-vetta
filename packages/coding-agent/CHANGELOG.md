@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Fixed
+
+- **知识库同名不同目录原始文件互相覆盖致无限重复加工**：`createKbWriteSession` 写盘前新增 wiki 物理路径占用检测——`kb_write_page` 的目标路径由 LLM 按语义自由决定，两个内容不同（`source_hash` 不同 → 不同页 id）但同名不同目录的原始文件常被分到同一 wiki path，旧逻辑直接 `writeFile` 后写覆盖前写，收尾 `scanWikiPages` 只剩一页 → manifest 丢一条 source_hash → 下一轮 `diffRaws` 把丢失的那个再判为 `added` 重新加工、再覆盖，周而复始无限循环（用户反馈后台对固定几个文件反复加工）。现会话内维护 `pathToId` 反查表，目标路径被「别的页」占用时自动消歧到基于该页 id 的稳定后缀路径（如 `产品/说明-ab12cd34.md`），同一页跨轮恒定落回自己那份、不再抢占；upsert 的新建/更新判定（按 id / source_hash）不变。
+
 ### Removed
 
 - **移除交互式终端（TUI）产品线（ADR-0022）**：删除 `src/modes/interactive/`（交互宿主 + 全部终端 UI 组件）、`packages/tui`（`@mariozechner/pi-tui`）整包，以及 `pi config` / `--resume` 的交互式选择器。`coding-agent` 现仅保留 print / RPC / SDK 三种模式——desktop-app 经 `--agent-rpc` 驱动的 RPC 模式与所有 runtime-\* 消费者不受影响。`main()` 在无 `--print`、无 `--mode` 时不再进入 REPL，而是打印提示并退出。SDK 入口（`src/index.ts`）不再导出 `InteractiveMode` 及交互组件（`CustomEditor`、`BorderedLoader`、`*Component`、`*Selector` 等）和终端渲染主题函数（`getMarkdownTheme` / `getSelectListTheme` / `getSettingsListTheme`）。扩展 API 的 UI 表面（`setWidget` / `setHeader` / `setFooter` / `custom` / `setEditorComponent` 等）签名保留但 `@mariozechner/pi-tui` 类型改由 `src/core/extensions/ui-types.ts` 的本地结构化替身承接；`KeyId` 与编辑器键位默认值内化进 `src/core/keybindings.ts`——RPC→desktop 的 widget 转发与 HTML 导出的 `Component.render` 契约保持不变。

@@ -45,6 +45,9 @@ const normalizeWikiPath = (p: string): string => {
 	return s;
 };
 
+/** 在 ".md" 前插入后缀，如 "产品/计费.md" + "ab12cd34" → "产品/计费-ab12cd34.md"。 */
+const withSuffix = (p: string, suffix: string): string => `${p.slice(0, -3)}-${suffix}.md`;
+
 /**
  * 建一个轮级写页会话：先扫一次 wiki/ 建内存索引，之后 write 只对内存决策 + 增量更新，
  * 并以串行互斥保护读-改-写。多个并发会话各持自己的 session，但加工轮应共享同一个，
@@ -55,11 +58,32 @@ export async function createKbWriteSession(root: string): Promise<KbWriteSession
 	const byId = new Map<string, WikiFrontmatter>();
 	const byHash = new Map<string, WikiFrontmatter>();
 	const idToPath = new Map<string, string>();
+	const pathToId = new Map<string, string>();
 	for (const p of pages) {
 		byId.set(p.frontmatter.id, p.frontmatter);
 		byHash.set(p.frontmatter.source_hash, p.frontmatter);
 		idToPath.set(p.frontmatter.id, p.path);
+		pathToId.set(p.path, p.frontmatter.id);
 	}
+
+	// 该路径未被占用，或正被本页自己占用（更新就地写）→ 可用。
+	const isFree = (p: string, id: string): boolean => {
+		const owner = pathToId.get(p);
+		return owner == null || owner === id;
+	};
+
+	// 为 id 挑一个不与「别的页」冲突的物理路径：优先用 LLM 给的语义路径；
+	// 被别的页占用时退到稳定的 id 后缀路径（同一页跨轮恒定，不再抢同一路径）。
+	// 这是同名不同目录原始文件互相覆盖、manifest 丢条目、进而无限重复加工的根因防线。
+	const resolveFreePath = (desired: string, id: string): string => {
+		if (isFree(desired, id)) return desired;
+		const base = withSuffix(desired, id.slice(0, 8));
+		if (isFree(base, id)) return base;
+		for (let n = 2; ; n++) {
+			const cand = withSuffix(desired, `${id.slice(0, 8)}-${n}`);
+			if (isFree(cand, id)) return cand;
+		}
+	};
 
 	const commit = createLimiter(1);
 
@@ -82,15 +106,16 @@ export async function createKbWriteSession(root: string): Promise<KbWriteSession
 				);
 
 				const fm = decision.frontmatter;
-				const targetPath = normalizeWikiPath(req.path);
 				const prev = byId.get(fm.id);
 				const oldPath = decision.action === "update" ? idToPath.get(fm.id) : undefined;
+				const targetPath = resolveFreePath(normalizeWikiPath(req.path), fm.id);
 
 				await writeWikiPage(root, targetPath, fm, req.body);
 
 				let movedFrom: string | undefined;
 				if (oldPath && oldPath !== targetPath) {
 					await deleteWikiPage(root, oldPath);
+					pathToId.delete(oldPath);
 					movedFrom = oldPath;
 				}
 
@@ -99,6 +124,7 @@ export async function createKbWriteSession(root: string): Promise<KbWriteSession
 				byId.set(fm.id, fm);
 				byHash.set(fm.source_hash, fm);
 				idToPath.set(fm.id, targetPath);
+				pathToId.set(targetPath, fm.id);
 
 				return { action: decision.action, id: fm.id, path: targetPath, movedFrom };
 			});

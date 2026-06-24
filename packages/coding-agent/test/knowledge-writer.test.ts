@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { rebuildAllCaches } from "../src/core/knowledge/ingest.js";
 import { listAvailableTags, queryByTags } from "../src/core/knowledge/query.js";
 import { readManifest, readTagsIndex, scanWikiPages } from "../src/core/knowledge/store.js";
-import { writeKnowledgePage } from "../src/core/knowledge/writer.js";
+import { createKbWriteSession, writeKnowledgePage } from "../src/core/knowledge/writer.js";
 
 describe("writeKnowledgePage (integration)", () => {
 	let root: string;
@@ -90,6 +90,45 @@ describe("writeKnowledgePage (integration)", () => {
 		expect(again.id).toBe(created.id);
 		const { pages } = await scanWikiPages(root);
 		expect(pages).toHaveLength(1);
+	});
+
+	it("同名不同目录两份原始文件抢同一 wiki path → 自动消歧，不互相覆盖", async () => {
+		// 复现 bug：两个 source_hash 不同的原始文件（同名不同目录），LLM 给了相同的语义 path。
+		// 修复前：后写覆盖前写，磁盘只剩一页 → manifest 丢一条 → 下轮重新判定 added → 无限重加工。
+		const session = await createKbWriteSession(root);
+		const a = await session.write(
+			{ ...baseReq, source_path: "手册/a/readme.md", source_hash: "ha", title: "A" },
+			"2026-06-22T00:00:00.000Z",
+		);
+		const b = await session.write(
+			{ ...baseReq, source_path: "手册/b/readme.md", source_hash: "hb", title: "B" },
+			"2026-06-22T00:00:00.000Z",
+		);
+
+		// 两个不同的页 id，落到两个不同的物理路径。
+		expect(a.id).not.toBe(b.id);
+		expect(a.path).toBe("产品/api.md");
+		expect(b.path).not.toBe(a.path);
+
+		const { pages } = await scanWikiPages(root);
+		expect(pages).toHaveLength(2);
+
+		// 重建后两条 source_hash 都在 manifest 里 → 下一轮 diff 不会把任何一个再判为 added。
+		await rebuildAllCaches(root);
+		const manifest = await readManifest(root);
+		expect(manifest.pages).toHaveLength(2);
+		expect(manifest.pages.map((p) => p.source_hash).sort()).toEqual(["ha", "hb"]);
+
+		// 同一页跨轮重写同一语义 path → 稳定落回自己那份，不再新增、不抢占。
+		const session2 = await createKbWriteSession(root);
+		const bAgain = await session2.write(
+			{ ...baseReq, id: b.id, source_path: "手册/b/readme.md", source_hash: "hb2", title: "B2" },
+			"2026-06-23T00:00:00.000Z",
+		);
+		expect(bAgain.action).toBe("update");
+		expect(bAgain.id).toBe(b.id);
+		expect(bAgain.path).toBe(b.path);
+		expect((await scanWikiPages(root)).pages).toHaveLength(2);
 	});
 
 	it("queryByTags 读到写入的页", async () => {
