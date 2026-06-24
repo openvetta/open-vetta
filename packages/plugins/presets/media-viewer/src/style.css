@@ -2,6 +2,7 @@
 @plugin "@iconify/tailwind4";
 
 @source "./**/*.{ts,tsx}";
+@source "../../../../ui/src/**/*.{ts,tsx}";
 
 @custom-variant dark (&:is([data-mode="dark"] *));
 
