@@ -119,6 +119,7 @@ interface PluginInputActionContribution {
   label: string;
   icon?: ReactNode;                       // React 节点
   defaultActive?: boolean;                // 初始是否激活，默认 false
+  requiresActiveTool?: string;            // 依赖的 agent 工具名；仅当该工具在当前会话激活时才显示这个 badge
   onToggle?(active: boolean): boolean | void;  // active=true 时返回 false 可“否决”激活（如未配置）
   decoratePrompt?(): { metadata?: Record<string, unknown> } | void; // 激活时每次发送前调用
 }
@@ -129,6 +130,7 @@ ctx.ui.registerInputAction({
   id: "image-mode",
   label: "图像生成",
   icon: <IconImage />,
+  requiresActiveTool: "generate_image", // 工具被场景屏蔽（如批量任务）时不显示这个 badge
   onToggle: (active) => {
     if (active && notConfigured()) {
       showSettingsGuard();
@@ -140,5 +142,7 @@ ctx.ui.registerInputAction({
 ```
 
 `decoratePrompt` 返回的 `metadata` 浅合并进外发 `PromptRequest.metadata`，agent 一侧可读（如内置图像工具读 `metadata.imageMode`）。插件自持任何 toggle 副作用状态（同一 MF 实例，与其它 slot 共享）。
+
+**`requiresActiveTool`：让 badge 跟随工具 scope。** 输入栏开关通常对应某个 agent 工具（badge 注入 metadata，引导 agent 调那个工具）。设置 `requiresActiveTool` 为该工具名后，**仅当该工具在当前会话激活**（按工具的 `scope_use` 解析，见 [conversation-and-agent.md](./conversation-and-agent.md#scope_use按对话场景限定工具出现范围)）时才显示这个 badge——避免在工具被场景屏蔽（如批量任务里 `generate_image` 不可用）时仍显示一个点了也无效的开关。不设则始终显示。`image-gen` 插件即为「图像生成」设了 `requiresActiveTool: "generate_image"`。
 
 `image-gen` 插件用它实现「图像生成」开关，并配合 `setEditImageAttachment` 实现「编辑选中图」（见 [message-cards.md](./message-cards.md) 与 [conversation-and-agent.md](./conversation-and-agent.md#图像-api)）。

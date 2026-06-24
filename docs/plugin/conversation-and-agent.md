@@ -75,6 +75,8 @@ interface PluginAgentToolRegistration<TInput = unknown> {
   label?: string;
   description: string;        // 进系统提示词的 Available tools，写清楚何时用
   parameters: object;         // JSON Schema（可用 TypeBox 产出）
+  scope_use?: string[];       // 允许出现的对话场景（见下）。fail-closed：缺省/空 = 任何场景都不出现
+  requires?: string[];        // 需要的会话能力（如 "knowledge"），一般插件无需设置
   timeoutMs?: number;
   handler: (input: TInput, api: { fs: PluginFsApi; conversation: PluginConversationApi }) => unknown | Promise<unknown>;
 }
@@ -89,6 +91,7 @@ ctx.agent.registerTool({
     properties: { text: { type: "string" } },
     required: ["text"],
   },
+  scope_use: ["conversation", "project"], // 仅在普通对话 / 普通项目里出现
   handler: async ({ text }: { text: string }) => ({ count: text.length }),
 });
 ```
@@ -96,6 +99,29 @@ ctx.agent.registerTool({
 - handler 的**返回值**会被宿主格式化成工具结果文本回给模型；该工具结果的 `details` 为 `{ pluginId, toolId, result }`（`result` = 你的返回值）。
 - **返回 `cards` 即可产消息卡片**：若返回值含 `cards: CardDescriptor[]`，宿主会把它**提升**到 `details.cards`（消息卡片的 settled 数据源）并从模型可见文本里**剔除**。配合 `ctx.ui.registerCardRenderer` 即可让插件**用自己的工具**在消息下方渲染卡片——见 [message-cards.md](./message-cards.md#第三方插件如何拿到卡片数据)。
 - 插件激活会等待工具 schema 注册完成；注册 / 注销 / 权限或启停变化会刷新空闲的对话 session。
+
+### `scope_use`：按对话场景限定工具出现范围
+
+工具是否暴露给 agent 由 `scope_use` 决定——它和内置工具完全同一套机制。**fail-closed**：不声明 `scope_use`（或给空数组）= 该工具在**任何场景都不出现**。所以注册 agent 工具时**务必显式声明** `scope_use`。
+
+会话场景 slug（7 个）：
+
+| slug | 场景 |
+|---|---|
+| `conversation` | 普通对话（`~/.vetta/conversation`） |
+| `project` | 普通项目中对话 |
+| `im-claw` | Claw IM 对话（飞书/微信网关） |
+| `batch` | 批量任务 |
+| `automation` | 自动化/定时任务 |
+| `kb-processing` | 知识库加工 |
+| `cli` | 裸 CLI / SDK（fallback） |
+
+要点：
+
+- 只声明工具**真正适用**的场景。例如业务查询工具一般给 `["conversation", "project"]`；批量/加工是非交互后台场景，通常不该出现。
+- `scope_use` 只能“减”——它从“宿主已注入的工具”里过滤，不能让工具凭空出现在未注入插件的场景。
+- 输入栏的开关 badge 也会跟随对应工具的 scope：工具在当前场景不出现时，对应 badge 自动隐藏（见 [ui-slots.md](./ui-slots.md#输入栏动作-registerinputaction) 的 `requiresActiveTool`）。
+- `requires` 是另一条正交轴（会话能力，如 `"knowledge"`）；与 `scope_use` 取交集才激活。一般插件无需设置。
 
 ## 注册 Agent 自动续跑策略
 
