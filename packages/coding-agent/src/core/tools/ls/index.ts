@@ -52,6 +52,8 @@ export function createLsTool(cwd: string, options?: LsToolOptions): AgentTool<ty
 	return {
 		name: "ls",
 		label: "ls",
+		scope_use: [],
+		category: "core",
 		description,
 		parameters: lsSchema,
 		execute: async (

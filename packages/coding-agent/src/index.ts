@@ -201,6 +201,14 @@ export {
 	// Pre-built tools (use process.cwd())
 	readOnlyTools,
 } from "./core/sdk.js";
+// 对话场景与工具 scope（隔离的唯一轴）
+export {
+	ALL_SCENARIOS,
+	type ConversationScenario,
+	DEFAULT_SCENARIO,
+	type ToolCapability,
+	type ToolCategory,
+} from "./core/session/tool-scope.js";
 export {
 	type BranchSummaryEntry,
 	buildSessionContext,

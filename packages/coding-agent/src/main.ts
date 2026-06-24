@@ -517,6 +517,12 @@ function buildSessionOptions(
 		options.tools = parsed.tools.map((name) => allTools[name]);
 	}
 
+	// 对话场景（决定按 scope_use 激活哪些工具）。im-gateway 子进程传 --scenario im-claw；
+	// 不传则 SDK 用 DEFAULT_SCENARIO("cli")。
+	if (parsed.scenario) {
+		options.scenario = parsed.scenario;
+	}
+
 	return { options, cliThinkingFromModel };
 }
 

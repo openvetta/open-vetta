@@ -36,9 +36,17 @@ export const KB_PROCESSING_GUIDE = `你是知识库加工 agent。把 ~/.vetta/k
 - 用且仅用 kb_write_page 写 wiki 页：它守封闭 frontmatter schema、分配稳定 id、按 id/source_hash upsert、自动刷新缓存。绝不要用通用 write 工具手写 wiki 的 .md。
 - wiki 树由你按主题/语义自由组织（path 参数），不要镜像 raws 的目录结构。这棵树就是知识库的「目录」——把语义编排落在它的文件夹层级与文件命名上。
 - 跨页引用写在正文里，形如 [[page-id]]，不要放进 frontmatter。
-- 给每页打扁平字符串标签（tags），并写好简洁的一句话 summary（会进 indexes 导读）。
 - indexes/INDEX.md 是**自动生成**的目录（镜像 wiki 树 + 各页 title/summary/id，每轮重建）：**绝不要手写或编辑 indexes/**。你只管组织好 wiki 树、写好 title/summary，目录会自动同步；它是后续检索的渐进式披露入口，可读它来导航下探。
-- summary/标签要利于后续 kb_filter_by_tags 与渐进式探索检索。`;
+- 写好简洁的一句话 summary（会进 indexes 导读）。summary 要利于后续渐进式探索检索。
+
+# 标签纪律（tags）：宁缺毋滥，优先复用
+标签用于 kb_filter_by_tags 检索归类，**词表越收敛越好用**。务必遵守：
+- **复用优先**：开始处理待办**前**，先调一次 kb_list_available_tags 拉取现有词表快照。整批打标签优先从快照里选；语义相近的**必须沿用现有写法**，确实无任何匹配才新建，且尽量少新建。
+- **数量 ≤5**：每页最多 5 个，只留最能代表该页的（超过会被 kb_write_page 拒绝）。
+- **语言：中文为主**。概念/领域/主题一律中文（写「接口」不写 api、写「计费」不写 billing）；仅无通用中文译法的专有名词/技术栈保留原文（kubernetes、oauth、react）。
+- **粒度：只打粗粒度、多份文档会共享的维度**——领域 / 主题 / 文档类型。**禁止**版本号、函数名、一次性专名、以及已写在 title/summary 里的信息。
+  - good：计费、鉴权、部署手册
+  - bad：v2.3.1、getUserById、2024Q3会议纪要`;
 
 const formatRaws = (label: string, items: string[]): string =>
 	items.length === 0 ? "" : `\n## ${label}\n${items.map((s) => `- ${s}`).join("\n")}`;

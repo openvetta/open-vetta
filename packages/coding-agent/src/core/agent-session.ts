@@ -225,6 +225,7 @@ export class AgentSession {
 			customTools: config.customTools ?? [],
 			baseToolsOverride: config.baseToolsOverride,
 			envOverlay: config.envOverlay,
+			scenario: config.scenario,
 			initialActiveToolNames: config.initialActiveToolNames,
 			extensionRunnerRef: config.extensionRunnerRef,
 			enableMcp: config.enableMcp !== undefined ? config.enableMcp : true,

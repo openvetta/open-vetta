@@ -44,6 +44,8 @@ export function createMemoryTool(
 	return {
 		name: "memory",
 		label: "Memory",
+		scope_use: ["im-claw"],
+		category: "memory",
 		description,
 		parameters: memorySchema,
 		execute: async (_toolCallId, params) => {

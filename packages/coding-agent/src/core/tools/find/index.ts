@@ -58,6 +58,8 @@ export function createFindTool(cwd: string, options?: FindToolOptions): AgentToo
 	return {
 		name: "find",
 		label: "find",
+		scope_use: [],
+		category: "core",
 		description,
 		parameters: findSchema,
 		execute: async (

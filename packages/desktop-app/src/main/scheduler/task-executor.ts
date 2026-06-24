@@ -68,6 +68,7 @@ export async function executeTask(
 		record.cwd = runCwd;
 		const result = await runtime.createSession({
 			cwd: runCwd,
+			scenario: "automation",
 			executionMode,
 			sessionDir: DEFAULT_CONVERSATION_SESSION_DIR,
 		});

@@ -476,6 +476,7 @@ async function runTaskInner(
 			const result = await runtime.createSession({
 				cwd: task.cwd,
 				sessionDir,
+				scenario: "batch",
 				appendSystemPrompt: taskSystemPrompt,
 				executionMode: mode,
 				env: {

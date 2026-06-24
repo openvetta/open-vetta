@@ -69,6 +69,8 @@ export function createGrepTool(cwd: string, options?: GrepToolOptions): AgentToo
 	return {
 		name: "grep",
 		label: "grep",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: grepSchema,
 		execute: async (

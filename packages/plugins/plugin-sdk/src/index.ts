@@ -396,6 +396,14 @@ export interface PluginAgentToolRegistration<TInput = unknown> {
 	description: string;
 	parameters: PluginJsonSchema;
 	timeoutMs?: number;
+	/**
+	 * 允许该工具出现的对话场景 slug 列表（如 "conversation" / "project" / "im-claw" /
+	 * "batch" / "automation" / "kb-processing" / "cli"）。**fail-closed**：未声明/空数组 =
+	 * 所有场景都不激活。插件须显式声明。
+	 */
+	scope_use?: string[];
+	/** 需要的会话能力 slug（如 "knowledge"）；全满足才激活。一般插件无需设置。 */
+	requires?: string[];
 	handler: PluginAgentToolHandler<TInput>;
 }
 

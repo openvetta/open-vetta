@@ -1,5 +1,6 @@
 import type { ThinkingLevel, ToolPhase } from "@vetta/agent-core";
 import type { Message, Model } from "@vetta/ai";
+import type { ConversationScenario } from "@vetta/coding-agent";
 
 export type RuntimeEventSource = "runtime-core" | "agent" | "tool" | "mcp";
 
@@ -65,6 +66,10 @@ export interface AgentPluginToolContribution {
 	parameters: JsonSchema;
 	handlerId: string;
 	timeoutMs?: number;
+	/** 允许出现的对话场景 slug（fail-closed：缺省/空 = 所有场景都不激活）。由插件 registerTool 声明。 */
+	scope_use?: string[];
+	/** 需要的会话能力 slug（如 "knowledge"）。 */
+	requires?: string[];
 }
 
 export interface AgentPluginStateContribution {
@@ -412,6 +417,11 @@ export interface SessionConfig {
 	model?: Model<any>;
 	thinkingLevel?: ThinkingLevel;
 	executionMode?: SessionExecutionMode;
+	/**
+	 * 对话场景：决定按 scope_use 激活哪些工具（隔离的唯一轴）。不传则用 coding-agent 的
+	 * DEFAULT_SCENARIO("cli")。desktop 各入口（普通对话/项目/批量/自动化）显式传入。
+	 */
+	scenario?: ConversationScenario;
 	/** 追加到 system prompt 末尾的文本，不会被上下文压缩 */
 	appendSystemPrompt?: string;
 	/**

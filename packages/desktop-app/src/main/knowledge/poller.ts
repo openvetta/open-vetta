@@ -16,13 +16,11 @@ import {
 	type AgentSession,
 	type AgentSessionEvent,
 	createAgentSession,
-	createCodingTools,
-	createKbFilterByTagsTool,
-	createKbListTagsTool,
 	createKbWritePageTool,
 	createLimiter,
 	knowledge,
 	SessionManager,
+	type ToolDefinition,
 } from "@vetta/coding-agent";
 import { BrowserWindow } from "electron";
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
@@ -130,16 +128,13 @@ async function runProcessingBatch(
 	writeSession: knowledge.KbWriteSession,
 	modelKey: string | undefined,
 ): Promise<void> {
-	const tools = [
-		...createCodingTools(KB_PROCESSING_CWD),
-		createKbWritePageTool(undefined, writeSession),
-		createKbFilterByTagsTool(),
-		createKbListTagsTool(),
-	];
 	const { session } = await createAgentSession({
 		cwd: KB_PROCESSING_CWD,
 		sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
-		tools,
+		// 场景驱动激活：core/doc/kb-read 等由 kb-processing 场景的 scope_use 自动激活。
+		scenario: "kb-processing",
+		// 仅 kb_write_page 需注入轮级共享写页会话（覆盖注册表里无 session 的默认版本）。
+		customTools: [createKbWritePageTool(undefined, writeSession) as unknown as ToolDefinition],
 		appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
 		enableBackgroundTasks: false,
 		env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },

@@ -14,7 +14,6 @@ export {
 export { type BashExecutorOptions, type BashResult, executeBash, executeBashWithOperations } from "./bash-executor.js";
 export type { CompactionResult } from "./compaction/index.js";
 export { createEventBus, type EventBus, type EventBusController } from "./event-bus.js";
-
 // Extensions system
 export {
 	type AgentEndEvent,
@@ -59,3 +58,10 @@ export {
 	type TurnStartEvent,
 	wrapToolsWithExtensions,
 } from "./extensions/index.js";
+export {
+	ALL_SCENARIOS,
+	type ConversationScenario,
+	DEFAULT_SCENARIO,
+	type ToolCapability,
+	type ToolCategory,
+} from "./session/tool-scope.js";

@@ -277,6 +277,8 @@ export function createTreeTool(cwd: string, options?: TreeToolOptions): AgentToo
 	return {
 		name: "dir_tree",
 		label: "dir_tree",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: treeSchema,
 		execute: async (_toolCallId: string, input: TreeToolInput, signal?: AbortSignal) => {

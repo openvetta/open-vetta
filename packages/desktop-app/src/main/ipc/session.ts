@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type Dirent, type FSWatcher, watch } from "node:fs";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
-import { DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
+import { type ConversationScenario, DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
 import { ipcMain, type WebContents } from "electron";
 import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-prompt.js";
 import type {
@@ -513,8 +513,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			allowProjectRoot(effectiveCwd);
 		}
 		const isConversation = kind === "conversation";
+		// 对话场景：conversation 与 project（kind="other"）均为交互式桌面会话，工具差异交给
+		// 各工具的 scope_use 表达，而非在入口写死。
+		const scenario: ConversationScenario = isConversation ? "conversation" : "project";
 		const desktopConfig = await readDesktopConfig();
-		const askUserQuestion = isConversation;
+		// project 也开 ask（决策）：conversation/project 对称，ask_user_question 的 scope_use 含两者。
+		const askUserQuestion = true;
 		// 实验性开关：后台 bash 任务（run_in_background）。批量任务不走本通道
 		// （batch-task-executor 直接 runtime.createSession 且强制 false）。
 		const enableBackgroundTasks = desktopConfig.experimental?.backgroundTasks === true;
@@ -526,7 +530,8 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					? `${config.appendSystemPrompt}\n\n${VETTA_CLI_GUIDANCE}`
 					: VETTA_CLI_GUIDANCE
 				: config?.appendSystemPrompt;
-		const agentPlugins = isConversation ? buildAgentPluginRuntimeConfig() : undefined;
+		// conversation/project 均注入插件运行时；具体哪些插件工具出现由其 scope_use 过滤。
+		const agentPlugins = buildAgentPluginRuntimeConfig();
 		pluginLog.debug("session create plugin snapshot", {
 			kind,
 			isConversation,
@@ -536,21 +541,23 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			effectiveCwd !== config?.cwd ||
 			injectedSessionDir !== config?.sessionDir ||
 			appendSystemPrompt !== config?.appendSystemPrompt ||
+			scenario !== config?.scenario ||
 			askUserQuestion !== config?.askUserQuestion ||
 			enableBackgroundTasks !== config?.enableBackgroundTasks ||
 			includeAgentSkills !== config?.includeAgentSkills ||
-			isConversation !== config?.enableAgentPlugins ||
+			config?.enableAgentPlugins !== true ||
 			agentPlugins !== config?.agentPlugins;
 		const effectiveConfig: SessionConfig | undefined = needPatch
 			? {
 					...(config ?? {}),
 					cwd: effectiveCwd,
 					sessionDir: injectedSessionDir ?? config?.sessionDir,
+					scenario,
 					appendSystemPrompt,
 					askUserQuestion,
 					enableBackgroundTasks,
 					includeAgentSkills,
-					enableAgentPlugins: isConversation,
+					enableAgentPlugins: true,
 					agentPlugins,
 				}
 			: config;

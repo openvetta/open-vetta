@@ -235,6 +235,8 @@ export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): 
 	return {
 		name: "doc_to_pdf",
 		label: "doc_to_pdf",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "doc",
 		description,
 		parameters: docToPdfSchema,
 		execute: async (_toolCallId, { path, output }, signal, _onUpdate, ctx) => {

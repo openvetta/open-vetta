@@ -26,6 +26,8 @@ export function createShellTool(cwd: string, options?: ShellToolOptions): Return
 		...base,
 		name: "shell",
 		label: "shell",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 	};
 }

@@ -367,6 +367,14 @@ export interface ToolDefinition<TParams extends TSchema = TSchema, TDetails = un
 	/** Parameter schema (TypeBox) */
 	parameters: TParams;
 
+	/**
+	 * 工具可用性元数据（见 AgentTool 同名字段）。host-custom / plugin / extension 工具
+	 * 经此声明可见场景；fail-closed：缺省/空 = 所有场景都不激活。透传到 wrapRegisteredTool。
+	 */
+	scope_use?: string[];
+	requires?: string[];
+	category?: string;
+
 	/** Execute the tool. */
 	execute(
 		toolCallId: string,

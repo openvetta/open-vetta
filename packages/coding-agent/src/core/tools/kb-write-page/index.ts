@@ -20,7 +20,12 @@ const kbWritePageSchema = Type.Object({
 		description: "Content hash of the source raw file (the page's primary identity).",
 	}),
 	tags: Type.Array(Type.String(), {
-		description: "Flat string tags for this page.",
+		maxItems: 5,
+		description:
+			"Flat string tags, at most 5. Reuse existing tags from kb_list_available_tags when semantically close; " +
+			"Chinese for concepts/domains/topics, keep only proper nouns/tech stack in their original form (kubernetes, oauth). " +
+			"Coarse, reusable dimensions only (domain/topic/doc-type); no version numbers, function names, one-off proper nouns, " +
+			"or info already in title/summary.",
 	}),
 	title: Type.String({ description: "Page title." }),
 	summary: Type.String({ description: "One-line summary, surfaced in indexes navigation." }),
@@ -64,6 +69,9 @@ export function createKbWritePageTool(root?: string, session?: KbWriteSession): 
 	return {
 		name: "kb_write_page",
 		label: "KB Write Page",
+		scope_use: ["kb-processing"],
+		requires: ["knowledge"],
+		category: "kb-write",
 		description,
 		parameters: kbWritePageSchema,
 		execute: async (_toolCallId, params) => {

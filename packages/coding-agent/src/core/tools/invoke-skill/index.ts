@@ -36,6 +36,8 @@ export function createInvokeSkillTool(options: InvokeSkillToolOptions): AgentToo
 	return {
 		name: "invoke_skill",
 		label: "invoke_skill",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "agent-control",
 		description,
 		parameters: invokeSkillSchema,
 		execute: async (_toolCallId: string, { name, args }: { name: string; args?: string }) => {

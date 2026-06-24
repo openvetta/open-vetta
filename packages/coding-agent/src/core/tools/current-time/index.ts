@@ -27,6 +27,8 @@ export function createCurrentTimeTool(): AgentTool<typeof currentTimeSchema, Cur
 	return {
 		name: "current_time",
 		label: "Current Time",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: currentTimeSchema,
 		execute: async (_toolCallId: string) => {

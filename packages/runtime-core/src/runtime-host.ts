@@ -418,6 +418,7 @@ export class RuntimeHost implements SessionFacade {
 			sessionManager,
 			model: config.model,
 			thinkingLevel: config.thinkingLevel,
+			scenario: config.scenario,
 			customTools,
 			appendSystemPrompt: config.appendSystemPrompt,
 			env: config.env,

@@ -142,6 +142,10 @@ export interface AgentPluginToolContribution {
 	parameters: JsonSchema;
 	handlerId: string;
 	timeoutMs?: number;
+	/** 允许出现的对话场景 slug（fail-closed：缺省/空 = 所有场景都不激活）。由插件 registerTool 声明。 */
+	scope_use?: string[];
+	/** 需要的会话能力 slug（如 "knowledge"）。 */
+	requires?: string[];
 }
 
 export interface AgentPluginStateContribution {

@@ -35,6 +35,9 @@ export function createTaskOutputTool(options: TaskOutputToolOptions): AgentTool<
 	return {
 		name: "task_output",
 		label: "task_output",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		requires: ["bg-tasks"],
+		category: "agent-control",
 		description,
 		parameters: taskOutputSchema,
 		execute: async (_toolCallId: string, { task_id, from_start }: TaskOutputToolInput) => {

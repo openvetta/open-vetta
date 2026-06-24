@@ -129,6 +129,8 @@ export function createGenerateImageTool(
 	return {
 		name: "generate_image",
 		label: "Generate Image",
+		scope_use: ["im-claw", "conversation", "project", "cli"],
+		category: "media",
 		description:
 			"Generate an image from a text prompt (text-to-image). Use when the user wants a brand-new image. " +
 			"Optimize the user's request into a detailed prompt, then call this tool. The generated image is shown " +
@@ -168,6 +170,8 @@ export function createEditImageTool(
 	return {
 		name: "edit_image",
 		label: "Edit Image",
+		scope_use: ["im-claw", "conversation", "project", "cli"],
+		category: "media",
 		description:
 			"Edit an existing image (image-to-image) rather than create a new one. The source can be either an " +
 			"image Vetta previously generated (pass its id in `sourceImageId`) or any local image file on disk — " +

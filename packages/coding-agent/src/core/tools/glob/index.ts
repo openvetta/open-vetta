@@ -193,6 +193,8 @@ export function createGlobTool(cwd: string, options?: GlobToolOptions): AgentToo
 	return {
 		name: "glob",
 		label: "glob",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: globSchema,
 		execute: async (

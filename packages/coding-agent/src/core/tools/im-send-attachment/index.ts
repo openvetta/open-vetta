@@ -44,6 +44,8 @@ export function createImSendAttachmentTool(
 	return {
 		name: "im_send_attachment",
 		label: "Send IM Attachment",
+		scope_use: ["im-claw"],
+		category: "im",
 		description,
 		parameters: imSendAttachmentSchema,
 		execute: async (_toolCallId, params) => {

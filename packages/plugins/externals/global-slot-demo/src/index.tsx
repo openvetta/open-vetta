@@ -108,6 +108,7 @@ export default definePlugin({
 				"Write a novel chapter draft to a file through the host-controlled plugin file API. Use this when the user asks to save generated fiction content.",
 			parameters: writeChapterSchema,
 			timeoutMs: 30_000,
+			scope_use: ["conversation", "cli"],
 			handler: async (input, api) => {
 				const body = `# ${input.title}\n\n${input.content.trim()}\n`;
 				await api.fs.writeFile(input.path, body);

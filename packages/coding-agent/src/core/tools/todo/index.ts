@@ -59,6 +59,8 @@ export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoS
 	return {
 		name: "todo",
 		label: "todo",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "agent-control",
 		description,
 		parameters: todoSchema,
 		execute: async (

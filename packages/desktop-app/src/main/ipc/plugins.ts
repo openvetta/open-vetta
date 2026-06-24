@@ -79,6 +79,13 @@ function asOptionalString(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function asOptionalStringArray(value: unknown): string[] | undefined {
+	if (value == null) return undefined;
+	if (!Array.isArray(value)) return undefined;
+	const out = value.filter((v): v is string => typeof v === "string" && v.length > 0);
+	return out.length > 0 ? out : [];
+}
+
 function asAgentToolRegistration(value: unknown): {
 	id: string;
 	name: string;
@@ -88,6 +95,8 @@ function asAgentToolRegistration(value: unknown): {
 	handlerId: string;
 	activationId?: string;
 	timeoutMs?: number;
+	scope_use?: string[];
+	requires?: string[];
 } {
 	const input = asRecord(value, "agent tool registration");
 	const id = asPluginId(input.id);
@@ -110,6 +119,8 @@ function asAgentToolRegistration(value: unknown): {
 		handlerId,
 		activationId,
 		timeoutMs,
+		scope_use: asOptionalStringArray(input.scope_use),
+		requires: asOptionalStringArray(input.requires),
 	};
 }
 

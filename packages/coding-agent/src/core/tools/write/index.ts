@@ -44,6 +44,8 @@ export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentT
 	return {
 		name: "write",
 		label: "write",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: writeSchema,
 		execute: async (

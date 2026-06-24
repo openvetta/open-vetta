@@ -29,6 +29,7 @@ import type {
 } from "../system-prompt.js";
 import type { TodoItem } from "../todo-store.js";
 import type { AskUserQuestionCapability } from "../tools/index.js";
+import type { ConversationScenario } from "./tool-scope.js";
 
 /** Session-specific events that extend the core AgentEvent */
 export type AgentSessionEvent =
@@ -67,6 +68,8 @@ export interface AgentSessionConfig {
 	customTools?: ToolDefinition[];
 	/** Model registry for API key resolution and model discovery */
 	modelRegistry: ModelRegistry;
+	/** 对话场景：决定按 scope_use 激活哪些工具。默认 DEFAULT_SCENARIO("cli")。 */
+	scenario?: ConversationScenario;
 	/** Initial active built-in tool names. Default: [read, command-tool, edit, write] */
 	initialActiveToolNames?: string[];
 	/** Override base tools (useful for custom runtimes). */

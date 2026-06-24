@@ -268,6 +268,8 @@ export function createBashTool(cwd: string, options?: BashToolOptions): AgentToo
 	return {
 		name: "bash",
 		label: "bash",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: bashSchema,
 		execute: async (

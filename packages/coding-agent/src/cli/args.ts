@@ -5,6 +5,7 @@
 import type { ThinkingLevel } from "@vetta/agent-core";
 import chalk from "chalk";
 import { APP_NAME, CONFIG_DIR_NAME, ENV_AGENT_DIR, ENV_PACKAGE_DIR, ENV_SHARE_VIEWER_URL } from "../config.js";
+import type { ConversationScenario } from "../core/session/tool-scope.js";
 import { allTools, type ToolName } from "../core/tools/index.js";
 
 export type Mode = "text" | "json" | "rpc";
@@ -56,6 +57,11 @@ export interface Args {
 	memoryMode?: boolean;
 	/** Absolute path to MEMORY.md (run-cwd-independent). Defaults to <cwd>/MEMORY.md. */
 	memoryFile?: string;
+	/**
+	 * 对话场景 slug（决定按 scope_use 激活哪些工具）。im-gateway 子进程传 "im-claw"；
+	 * 不传则 SDK 用 DEFAULT_SCENARIO("cli")。
+	 */
+	scenario?: ConversationScenario;
 	messages: string[];
 	fileArgs: string[];
 	/** Unknown flags (potentially extension flags) - map of flag name to value */
@@ -174,6 +180,8 @@ export function parseArgs(args: string[], extensionFlags?: Map<string, { type: "
 			result.memoryMode = true;
 		} else if (arg === "--memory-file" && i + 1 < args.length) {
 			result.memoryFile = args[++i];
+		} else if (arg === "--scenario" && i + 1 < args.length) {
+			result.scenario = args[++i] as ConversationScenario;
 		} else if (arg === "--offline") {
 			result.offline = true;
 		} else if (arg.startsWith("@")) {

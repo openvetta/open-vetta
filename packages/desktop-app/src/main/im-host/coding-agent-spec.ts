@@ -76,7 +76,7 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 		if (process.platform === "win32") {
 			return {
 				bin: process.execPath,
-				prefixArgs: [join(packageDir, "dist", "agent-rpc-cli.mjs"), ...modelArgs],
+				prefixArgs: [join(packageDir, "dist", "agent-rpc-cli.mjs"), ...modelArgs, "--scenario", "im-claw"],
 				runAsNode: true,
 				packageDir,
 				serverUrl,
@@ -93,7 +93,9 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 		// the JS main executes. The child renders no untrusted web content,
 		// so disabling the sandbox is safe. macOS keeps the plain argv.
 		const prefixArgs =
-			process.platform === "linux" ? ["--no-sandbox", "--agent-rpc", ...modelArgs] : ["--agent-rpc", ...modelArgs];
+			process.platform === "linux"
+				? ["--no-sandbox", "--agent-rpc", ...modelArgs, "--scenario", "im-claw"]
+				: ["--agent-rpc", ...modelArgs, "--scenario", "im-claw"];
 		return {
 			bin: process.execPath,
 			prefixArgs,
@@ -104,7 +106,7 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 	const appRoot = process.cwd();
 	return {
 		bin: process.execPath,
-		prefixArgs: [join(appRoot, "dist/main/index.js"), "--agent-rpc", ...modelArgs],
+		prefixArgs: [join(appRoot, "dist/main/index.js"), "--agent-rpc", ...modelArgs, "--scenario", "im-claw"],
 		packageDir,
 		serverUrl,
 	};

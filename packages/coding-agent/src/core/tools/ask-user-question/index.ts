@@ -140,6 +140,9 @@ export function createAskUserQuestionTool(
 	return {
 		name: "ask_user_question",
 		label: "Ask User",
+		scope_use: ["conversation", "project"],
+		requires: ["host:ask"],
+		category: "agent-control",
 		description,
 		parameters: askUserQuestionSchema,
 		execute: async (_toolCallId: string, params: AskUserQuestionToolInput, signal?: AbortSignal) => {

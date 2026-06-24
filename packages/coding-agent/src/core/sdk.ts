@@ -14,6 +14,7 @@ import { ModelRegistry } from "./model-registry.js";
 import { findInitialModel } from "./model-resolver.js";
 import type { ResourceLoader } from "./resource-loader.js";
 import { DefaultResourceLoader } from "./resource-loader.js";
+import type { ConversationScenario } from "./session/tool-scope.js";
 import { SessionManager } from "./session-manager.js";
 import { SettingsManager } from "./settings-manager.js";
 import type {
@@ -50,7 +51,6 @@ import {
 	extractTextFromImgTool,
 	extractTextFromPdfTool,
 	findTool,
-	getDefaultCodingToolNames,
 	globTool,
 	grepTool,
 	htmlToPdfTool,
@@ -88,6 +88,11 @@ export interface CreateAgentSessionOptions {
 
 	/** Built-in tools to use. Default: codingTools [read, command-tool, edit, write, dir_tree, doc_to_pdf, html_to_pdf, extract_text_from_pdf, extract_text_from_img, render_pdf_page] */
 	tools?: Tool[];
+	/**
+	 * 对话场景：决定按 scope_use 激活哪些工具（隔离的唯一轴）。不传则用 DEFAULT_SCENARIO("cli")，
+	 * 即裸 CLI/SDK fallback（≈全开）。desktop 各入口按场景显式传入。
+	 */
+	scenario?: ConversationScenario;
 	/** Custom tools to register (in addition to built-in tools). */
 	customTools?: ToolDefinition[];
 
@@ -386,10 +391,11 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		thinkingLevel = "off";
 	}
 
-	const platformDefaultToolNames = getDefaultCodingToolNames();
-	const initialActiveToolNames: ToolName[] = options.tools
+	// 显式传 tools（含 --no-tools 的空数组）→ 走「调用方指定工具」模式（RuntimeManager 据此
+	// 直接用这份名单，不做场景解析）；不传则留 undefined → 走 scenario 驱动的 scope_use 解析。
+	const initialActiveToolNames: ToolName[] | undefined = options.tools
 		? options.tools.map((t) => t.name).filter((n): n is ToolName => n in allTools)
-		: (platformDefaultToolNames as ToolName[]);
+		: undefined;
 
 	let agent: Agent;
 
@@ -523,6 +529,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		resourceLoader,
 		customTools: options.customTools,
 		modelRegistry,
+		scenario: options.scenario,
 		initialActiveToolNames,
 		extensionRunnerRef,
 		envOverlay: options.env,

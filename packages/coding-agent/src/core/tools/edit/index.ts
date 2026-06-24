@@ -64,6 +64,8 @@ export function createEditTool(cwd: string, options?: EditToolOptions): AgentToo
 	return {
 		name: "edit",
 		label: "edit",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "core",
 		description,
 		parameters: editSchema,
 		execute: async (

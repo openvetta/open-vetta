@@ -43,6 +43,9 @@ export function createKbFilterByTagsTool(root?: string): AgentTool<typeof kbFilt
 	return {
 		name: "kb_filter_by_tags",
 		label: "KB Filter by Tags",
+		scope_use: ["im-claw", "conversation", "project", "automation", "kb-processing", "cli"],
+		requires: ["knowledge"],
+		category: "kb-read",
 		description,
 		parameters: kbFilterByTagsSchema,
 		execute: async (_toolCallId, params) => {

@@ -189,6 +189,16 @@ export interface ToolExecutionContext {
 export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any> extends Tool<TParameters> {
 	// A human-readable label for the tool to be displayed in UI
 	label: string;
+	/**
+	 * 工具可用性元数据（由上层消费者解释，agent 库本身不解读）。
+	 * - scope_use：允许出现的对话场景 slug 列表。**fail-closed**：缺省/空 = 所有场景都不可用
+	 *   （注册但不自动激活，仍可被显式 toggle 开启）。每个工具须显式声明。
+	 * - requires：需要的会话能力 slug（如 "knowledge"/"bg-tasks"/"host:ask"）；全满足才激活。
+	 * - category：功能域分类，仅供分组/UI，不影响激活。
+	 */
+	scope_use?: string[];
+	requires?: string[];
+	category?: string;
 	execute: (
 		toolCallId: string,
 		params: Static<TParameters>,

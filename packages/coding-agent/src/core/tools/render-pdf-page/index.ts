@@ -55,6 +55,8 @@ export function createRenderPdfPageTool(cwd: string): AgentTool<typeof renderPdf
 	return {
 		name: "render_pdf_page",
 		label: "render_pdf_page",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "doc",
 		description,
 		parameters: renderPdfPageSchema,
 		execute: async (_toolCallId, { input, page, output, dpi }, signal, _onUpdate, ctx) => {

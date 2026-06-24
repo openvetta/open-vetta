@@ -569,6 +569,8 @@ function createContext(
 						handlerId,
 						activationId,
 						timeoutMs: registration.timeoutMs,
+						scope_use: registration.scope_use,
+						requires: registration.requires,
 					})
 					.then(() => {
 						debugPluginAgent("renderer registerTool completed", {
