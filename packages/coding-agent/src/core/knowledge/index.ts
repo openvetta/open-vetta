@@ -4,6 +4,10 @@
  */
 
 export {
+	type BatchPlanOptions,
+	planProcessingBatches,
+} from "./batch-planner.js";
+export {
 	rebuildManifest,
 	rebuildTagsIndex,
 	type WikiPageRef,
@@ -71,6 +75,8 @@ export {
 	type UpsertLookup,
 } from "./upsert.js";
 export {
+	createKbWriteSession,
+	type KbWriteSession,
 	type WritePageRequest,
 	type WritePageResult,
 	writeKnowledgePage,

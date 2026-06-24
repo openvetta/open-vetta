@@ -15,6 +15,7 @@ const raw = (over: Partial<RawFile>): RawFile => ({
 	source: "g",
 	source_path: "g/a.md",
 	source_hash: "h1",
+	size: 0,
 	...over,
 });
 

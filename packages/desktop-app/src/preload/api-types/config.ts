@@ -61,6 +61,10 @@ export interface DesktopConfigData {
 		pollIntervalMinutes?: number;
 		/** 加工会话使用的模型 key（provider/modelId）。缺省跟随默认模型。 */
 		processingModelKey?: string;
+		/** 并发加工会话数（网络/LLM 限流）。缺省 3。 */
+		agentConcurrency?: number;
+		/** 并发本地 OCR 子进程数（CPU 限流）。缺省 1。 */
+		ocrConcurrency?: number;
 	};
 	/** 知识库加工特殊项目的绝对路径（~/.vetta/knowledges/processing_records）。 */
 	knowledgeProcessingCwd?: string;

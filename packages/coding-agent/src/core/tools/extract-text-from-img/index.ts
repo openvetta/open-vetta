@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
 import { loadToolDescription } from "../description.js";
+import { runWithOcrLimit } from "../ocr-concurrency.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
 
 const execFileAsync = promisify(execFile);
@@ -194,55 +195,53 @@ export function createExtractTextFromImgTool(cwd: string): AgentTool<typeof extr
 			const args = ["--ocr-img", inputPath, "--output", outputPath];
 
 			ctx?.phase("ocr");
-			const child = execFileAsync(vetta.path, args, {
-				encoding: "utf8",
-				timeout: OCR_TIMEOUT_MS,
-				maxBuffer: 32 * 1024 * 1024,
-				windowsHide: true,
-			});
-
-			const onAbort = (): void => {
-				// execFileAsync hides the child handle; rely on timeout for cleanup.
-			};
-			signal?.addEventListener("abort", onAbort, { once: true });
-			try {
-				let stdout: string;
-				let stderr: string;
+			// 全局 OCR 并发闸：限制同时存在的本地 Vetta OCR 子进程数，保护 CPU。
+			const { stdout, stderr } = await runWithOcrLimit(async () => {
+				// 已拿到并发额度后再 spawn；若此刻已 abort 则立即短路，不占额度空跑 OCR。
+				if (signal?.aborted) throw new Error("Operation aborted");
+				const child = execFileAsync(vetta.path, args, {
+					encoding: "utf8",
+					timeout: OCR_TIMEOUT_MS,
+					maxBuffer: 32 * 1024 * 1024,
+					windowsHide: true,
+				});
+				const onAbort = (): void => {
+					// execFileAsync hides the child handle; rely on timeout for cleanup.
+				};
+				signal?.addEventListener("abort", onAbort, { once: true });
 				try {
 					const result = await child;
-					stdout = result.stdout;
-					stderr = result.stderr;
+					return { stdout: result.stdout, stderr: result.stderr };
 				} catch (error) {
 					const execError = error as ExecFileError;
-					stdout = execError.stdout ?? "";
-					stderr = execError.stderr ?? execError.message;
+					return { stdout: execError.stdout ?? "", stderr: execError.stderr ?? execError.message };
+				} finally {
+					signal?.removeEventListener("abort", onAbort);
 				}
-				if (signal?.aborted) throw new Error("Operation aborted");
+			});
+			if (signal?.aborted) throw new Error("Operation aborted");
 
-				const response = parseDesktopResponse(stdout);
-				if (!response.ok) {
-					const message = response.error?.message ?? (stderr.trim() || "Unknown OCR error");
-					throw new Error(`Vetta Desktop OCR failed: ${message}`);
-				}
-				if (!response.output) {
-					throw new Error("Vetta Desktop did not return an output path");
-				}
-
-				ctx?.phase("read");
-				const docRaw = await readFile(response.output, "utf8");
-				const doc = JSON.parse(docRaw) as OcrJsonDocument;
-				const cap = maxChars ?? DEFAULT_MAX_CHARS;
-				const text = buildAgentText(doc, cap, response.output);
-				const staleNote = vetta.staleConfiguredPath
-					? `\nNote: configured vettaAppPath was stale and a fallback path was used: ${vetta.staleConfiguredPath}`
-					: "";
-				return {
-					content: [{ type: "text", text: `${text}${staleNote}` }],
-					details: undefined,
-				};
-			} finally {
-				signal?.removeEventListener("abort", onAbort);
+			const response = parseDesktopResponse(stdout);
+			if (!response.ok) {
+				const message = response.error?.message ?? (stderr.trim() || "Unknown OCR error");
+				throw new Error(`Vetta Desktop OCR failed: ${message}`);
 			}
+			if (!response.output) {
+				throw new Error("Vetta Desktop did not return an output path");
+			}
+
+			ctx?.phase("read");
+			const docRaw = await readFile(response.output, "utf8");
+			const doc = JSON.parse(docRaw) as OcrJsonDocument;
+			const cap = maxChars ?? DEFAULT_MAX_CHARS;
+			const text = buildAgentText(doc, cap, response.output);
+			const staleNote = vetta.staleConfiguredPath
+				? `\nNote: configured vettaAppPath was stale and a fallback path was used: ${vetta.staleConfiguredPath}`
+				: "";
+			return {
+				content: [{ type: "text", text: `${text}${staleNote}` }],
+				details: undefined,
+			};
 		},
 	};
 }

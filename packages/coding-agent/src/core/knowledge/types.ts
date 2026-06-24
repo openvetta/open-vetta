@@ -66,6 +66,8 @@ export interface RawFile {
 	source_path: string;
 	/** 内容 hash。 */
 	source_hash: string;
+	/** 文件字节大小（分批装箱用，扫描算 hash 时顺手取得）。 */
+	size: number;
 }
 
 /** manifest.json：每页一行的反查缓存。 */

@@ -88,7 +88,7 @@ export async function scanRaws(root: string): Promise<RawFile[]> {
 		const rel = toPosix(relative(base, file));
 		const source = rel.split(posix.sep)[0] ?? "";
 		const content = await readFile(file);
-		result.push({ source, source_path: rel, source_hash: hashContent(content) });
+		result.push({ source, source_path: rel, source_hash: hashContent(content), size: content.length });
 	}
 	result.sort((a, b) => a.source_path.localeCompare(b.source_path));
 	return result;

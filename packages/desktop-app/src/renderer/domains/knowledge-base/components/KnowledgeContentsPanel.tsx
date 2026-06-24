@@ -84,6 +84,9 @@ export function KnowledgeContentsPanel({
 		clearSelection();
 	}, [path, knowledgeBase.id, clearSelection]);
 
+	// 后台加工每批完成重建索引后会广播；据此重取文件加工态，让侧边栏状态与索引同步推进。
+	useEffect(() => window.vetta.knowledge.onStatusesChanged(() => void refresh()), [refresh]);
+
 	const currentNodes = useMemo(
 		() => nodesAtPath(knowledgeBase.nodes, path),
 		[knowledgeBase.nodes, path],
