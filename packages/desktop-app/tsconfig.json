@@ -27,6 +27,8 @@
 			"@vetta/runtime-core/*": ["../runtime-core/src/*"],
 			"@vetta/plugin-sdk": ["../plugins/plugin-sdk/src/index.ts"],
 			"@vetta/plugin-sdk/*": ["../plugins/plugin-sdk/src/*"],
+			"@vetta/ui": ["../ui/src/index.ts"],
+			"@vetta/ui/*": ["../ui/src/*"],
 			"@vetta/runtime-telemetry": ["../runtime-telemetry/src/index.ts"],
 			"@vetta/runtime-telemetry/langfuse": ["../runtime-telemetry/src/langfuse.ts"],
 			"@vetta/runtime-telemetry/*": ["../runtime-telemetry/src/*"],

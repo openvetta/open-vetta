@@ -1,6 +1,7 @@
 import type { PluginAudioMetadata, PluginPreviewFile } from "@vetta/plugin-sdk";
+import { Slider } from "@vetta/ui";
+import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Slider } from "./Slider";
 import { cn, formatTime, versionedUrl } from "./utils";
 
 const DISC_SPEED = 45;
@@ -31,7 +32,7 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 	const rafRef = useRef(0);
 	const audioCtxRef = useRef<AudioContext | null>(null);
 	const analyserRef = useRef<AnalyserNode | null>(null);
-	const freqDataRef = useRef<Uint8Array | null>(null);
+	const freqDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
 
 	useEffect(() => {
 		setVersion(0);

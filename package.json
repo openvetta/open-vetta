@@ -9,6 +9,7 @@
 		"packages/coding-agent",
 		"packages/plugins/plugin-sdk",
 		"packages/plugins/plugin-vite",
+		"packages/ui",
 		"packages/runtime-core",
 		"packages/action-rpc",
 		"packages/runtime-tools",

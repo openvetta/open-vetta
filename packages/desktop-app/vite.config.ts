@@ -11,6 +11,7 @@ export default defineConfig({
 		alias: {
 			"@shared": path.resolve(__dirname, "./src/renderer/shared"),
 			"@domains": path.resolve(__dirname, "./src/renderer/domains"),
+			"@vetta/ui": path.resolve(__dirname, "../ui/src/index.ts"),
 			"@": path.resolve(__dirname, "./src"),
 		}
 	},

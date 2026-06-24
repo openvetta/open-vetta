@@ -20,6 +20,8 @@
 			"@vetta/plugin-sdk/*": ["./packages/plugins/plugin-sdk/src/*"],
 			"@vetta/plugin-vite": ["./packages/plugins/plugin-vite/src/index.ts"],
 			"@vetta/plugin-vite/*": ["./packages/plugins/plugin-vite/src/*"],
+			"@vetta/ui": ["./packages/ui/src/index.ts"],
+			"@vetta/ui/*": ["./packages/ui/src/*"],
 			"@vetta/runtime-tools": ["./packages/runtime-tools/src/index.ts"],
 			"@vetta/runtime-tools/*": ["./packages/runtime-tools/src/*"],
 			"@vetta/runtime-mcp": ["./packages/runtime-mcp/src/index.ts"],

@@ -1,4 +1,5 @@
 import type { PluginPreviewFile } from "@vetta/plugin-sdk";
+import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import { versionedUrl } from "./utils";
 

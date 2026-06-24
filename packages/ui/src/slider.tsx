@@ -1,7 +1,8 @@
+import type { JSX } from "react";
 import { useMemo, useRef, useState } from "react";
 import { cn } from "./utils";
 
-interface SliderProps {
+export interface SliderProps {
 	className?: string;
 	value?: number[];
 	defaultValue?: number[];
@@ -9,7 +10,9 @@ interface SliderProps {
 	max?: number;
 	step?: number;
 	disabled?: boolean;
+	"aria-label"?: string;
 	onValueChange?: (value: number[]) => void;
+	onValueCommit?: (value: number[]) => void;
 }
 
 export function Slider({
@@ -20,7 +23,9 @@ export function Slider({
 	max = 100,
 	step = 1,
 	disabled,
+	"aria-label": ariaLabel,
 	onValueChange,
+	onValueCommit,
 }: SliderProps): JSX.Element {
 	const [internalValue, setInternalValue] = useState(() => defaultValue?.[0] ?? value?.[0] ?? min);
 	const [dragging, setDragging] = useState(false);
@@ -31,19 +36,21 @@ export function Slider({
 		return Math.min(100, Math.max(0, ((current - min) / (max - min)) * 100));
 	}, [current, min, max]);
 
-	const changeValue = (next: number): void => {
-		setInternalValue(next);
-		onValueChange?.([next]);
+	const changeValue = (next: number): number => {
+		const clamped = Math.min(max, Math.max(min, next));
+		setInternalValue(clamped);
+		onValueChange?.([clamped]);
+		return clamped;
 	};
 
-	const updateFromPointer = (element: HTMLDivElement, clientX: number): void => {
+	const updateFromPointer = (element: HTMLDivElement, clientX: number): number | undefined => {
 		const rect = element.getBoundingClientRect();
-		if (rect.width <= 0) return;
+		if (rect.width <= 0) return undefined;
 		const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
 		const raw = min + ratio * (max - min);
 		const stepped = min + Math.round((raw - min) / step) * step;
 		const decimals = step.toString().split(".")[1]?.length ?? 0;
-		changeValue(Number(Math.min(max, Math.max(min, stepped)).toFixed(decimals)));
+		return changeValue(Number(stepped.toFixed(decimals)));
 	};
 
 	return (
@@ -64,9 +71,11 @@ export function Slider({
 			}}
 			onPointerUp={(event) => {
 				if (!draggingRef.current) return;
+				const next = updateFromPointer(event.currentTarget, event.clientX);
 				draggingRef.current = false;
 				setDragging(false);
 				event.currentTarget.releasePointerCapture(event.pointerId);
+				onValueCommit?.([next ?? current]);
 			}}
 			onPointerCancel={() => {
 				draggingRef.current = false;
@@ -103,7 +112,9 @@ export function Slider({
 				max={max}
 				step={step}
 				disabled={disabled}
+				aria-label={ariaLabel}
 				onChange={(event) => changeValue(Number(event.currentTarget.value))}
+				onPointerUp={(event) => onValueCommit?.([Number(event.currentTarget.value)])}
 				className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
 			/>
 		</div>

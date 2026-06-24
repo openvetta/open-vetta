@@ -1,3 +1,4 @@
+import type { JSX, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const MIN_SCALE = 0.1;
@@ -6,7 +7,7 @@ const ZOOM_STEP = 0.1;
 const ZOOM_WHEEL_FACTOR = 0.002;
 
 interface ZoomableViewProps {
-	children: React.ReactNode;
+	children: ReactNode;
 }
 
 export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
@@ -81,7 +82,7 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 	}, []);
 
 	const onPointerDown = useCallback(
-		(e: React.PointerEvent) => {
+		(e: ReactPointerEvent) => {
 			if (!spaceDownRef.current) return;
 			e.preventDefault();
 			setIsPanning(true);
