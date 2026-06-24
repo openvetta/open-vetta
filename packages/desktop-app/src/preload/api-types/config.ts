@@ -38,12 +38,8 @@ export interface DesktopConfigData {
 	notificationsEnabled?: boolean;
 	/** 实验性功能开关分组（「Agent配置 → 扩展功能」）。缺省视为全部开启。 */
 	experimental?: {
-		/** ask_user_question 工具开关。仅对话会话生效，缺省开。 */
-		askUserQuestion?: boolean;
 		/** Vetta CLI 提示词开关。仅对桌面端对话会话生效，缺省开。 */
 		vettaCli?: boolean;
-		/** 后台 bash 任务（run_in_background）开关。缺省开；批量任务始终禁用。 */
-		backgroundTasks?: boolean;
 		/** 输入预测开关。缺省关；批量/流转会话不适用。 */
 		promptPrediction?: boolean;
 		/** 适配通用 Agent Skill 开关。发现 ~/.agents/skills 与 <cwd>/.agents/skills，缺省开。 */

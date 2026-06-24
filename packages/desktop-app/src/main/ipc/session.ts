@@ -175,7 +175,6 @@ const CHANNELS = {
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
 	QUESTION_REQUEST: "vetta:session:question-request",
 	QUESTION_RESPONSE: "vetta:session:question-response",
-	QUESTION_SET_ENABLED: "vetta:session:question-set-enabled",
 	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
 	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
@@ -386,22 +385,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		});
 	};
 
-	// 「能力=注册」：实验性开关开 → 注入 handler（agent 下一轮 prompt 即看到工具）；
-	// 关 → 清除 handler 并取消所有在途提问。开关变化经 QUESTION_SET_ENABLED 即时生效。
-	const applyAskUserQuestion = (enabled: boolean): void => {
-		if (enabled) {
-			runtime.setUserQuestionHandler(questionHandler);
-		} else {
-			runtime.setUserQuestionHandler(undefined);
-			for (const resolve of questionMap.values()) resolve(CANCELLED_QUESTION);
-			questionMap.clear();
-		}
-	};
-
-	// 启动时按盘上配置决定初始态（默认开）。
-	void readDesktopConfig().then((config) => {
-		applyAskUserQuestion(config.experimental?.askUserQuestion === true);
-	});
+	// 提问用户面板不再是用户开关：问答 handler 恒注入（能力始终在）。是否向 agent 暴露
+	// ask_user_question 改由该工具的 scope_use（仅 conversation/project 场景）决定。
+	runtime.setUserQuestionHandler(questionHandler);
 
 	runtime.setUserSandboxGrantHandler((request: RuntimeSandboxGrantRequest, signal?: AbortSignal) => {
 		if (webContents.isDestroyed()) return Promise.resolve<RuntimeSandboxGrantDecision>("deny");
@@ -519,9 +505,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		const desktopConfig = await readDesktopConfig();
 		// project 也开 ask（决策）：conversation/project 对称，ask_user_question 的 scope_use 含两者。
 		const askUserQuestion = true;
-		// 实验性开关：后台 bash 任务（run_in_background）。批量任务不走本通道
-		// （batch-task-executor 直接 runtime.createSession 且强制 false）。
-		const enableBackgroundTasks = desktopConfig.experimental?.backgroundTasks === true;
+		// 后台任务不再是用户开关：交互式会话恒开（task_output/task_stop 由 scope_use + 该会话
+		// 的 enableBackgroundTasks 决定）。批量/加工走各自入口并强制 false。
+		const enableBackgroundTasks = true;
 		// 适配通用 Agent Skill：默认开（缺省视为开），仅当用户显式关闭时禁用 .agents/skills 发现。
 		const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
 		const appendSystemPrompt =
@@ -868,10 +854,6 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		const resolve = questionMap.get(requestId);
 		if (!resolve) return;
 		resolve(normalizeQuestionResult(result));
-	});
-
-	ipcMain.handle(CHANNELS.QUESTION_SET_ENABLED, (_event, enabled: unknown) => {
-		applyAskUserQuestion(enabled === true);
 	});
 
 	ipcMain.handle(CHANNELS.SANDBOX_GRANT_RESPONSE, (_event, requestId: unknown, decision: unknown) => {

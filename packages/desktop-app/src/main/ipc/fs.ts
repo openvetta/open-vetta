@@ -18,12 +18,8 @@ export interface ProjectEntry {
 
 /** 实验性功能开关分组（设置页「Agent配置 → 扩展功能」）。新增实验项只加一个键。 */
 export interface ExperimentalConfig {
-	/** ask_user_question 工具：开启后仅对话会话可在执行途中向用户提多选题。缺省开。 */
-	askUserQuestion?: boolean;
 	/** Vetta CLI 提示词：开启后仅注入桌面端对话会话。缺省开。 */
 	vettaCli?: boolean;
-	/** 后台 bash 任务（run_in_background）：agent 可将耗时命令转入后台并在完成时被通知唤醒。缺省开；批量任务始终禁用。 */
-	backgroundTasks?: boolean;
 	/** 输入预测：每轮正常回答后预测用户下一个可能输入的 prompt。**缺省关**（区别于本组其他键的缺省开）；批量/流转会话不适用。 */
 	promptPrediction?: boolean;
 	/** 适配通用 Agent Skill：发现 `~/.agents/skills`、`<cwd>/.agents/skills` 下的通用 Agent Skill。缺省开。 */
@@ -110,7 +106,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,
-	experimental: { askUserQuestion: true, vettaCli: true, backgroundTasks: true, agentSkills: true },
+	experimental: { vettaCli: true, agentSkills: true },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -152,17 +148,13 @@ function normalizeExperimental(value: unknown): ExperimentalConfig {
 	// promptPrediction 缺省 false（区别于其他键缺省 true）。
 	if (typeof value !== "object" || value === null)
 		return {
-			askUserQuestion: true,
 			vettaCli: true,
-			backgroundTasks: true,
 			promptPrediction: false,
 			agentSkills: true,
 		};
 	const v = value as Record<string, unknown>;
 	return {
-		askUserQuestion: typeof v.askUserQuestion === "boolean" ? v.askUserQuestion : true,
 		vettaCli: typeof v.vettaCli === "boolean" ? v.vettaCli : true,
-		backgroundTasks: typeof v.backgroundTasks === "boolean" ? v.backgroundTasks : true,
 		promptPrediction: typeof v.promptPrediction === "boolean" ? v.promptPrediction : false,
 		agentSkills: typeof v.agentSkills === "boolean" ? v.agentSkills : true,
 	};

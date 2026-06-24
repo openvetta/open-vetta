@@ -22,7 +22,6 @@ const CHANNELS = {
 	CONFIRM_RESPONSE: "vetta:session:confirm-response",
 	QUESTION_REQUEST: "vetta:session:question-request",
 	QUESTION_RESPONSE: "vetta:session:question-response",
-	QUESTION_SET_ENABLED: "vetta:session:question-set-enabled",
 	SANDBOX_GRANT_REQUEST: "vetta:session:sandbox-grant-request",
 	SANDBOX_GRANT_RESPONSE: "vetta:session:sandbox-grant-response",
 	SANDBOX_GRANTS_LIST: "vetta:session:sandbox-grants-list",
@@ -68,7 +67,6 @@ export function createSessionApi(ipc: IpcRenderer): Pick<DesktopApi, "session"> 
 			respondToConfirmation: (requestId, confirmed) => ipc.invoke(CHANNELS.CONFIRM_RESPONSE, requestId, confirmed),
 			onQuestionRequest: (handler) => onIpcEvent(ipc, CHANNELS.QUESTION_REQUEST, handler),
 			respondToQuestion: (requestId, result) => ipc.invoke(CHANNELS.QUESTION_RESPONSE, requestId, result),
-			setQuestionEnabled: (enabled) => ipc.invoke(CHANNELS.QUESTION_SET_ENABLED, enabled),
 			onSandboxGrantRequest: (handler) => onIpcEvent(ipc, CHANNELS.SANDBOX_GRANT_REQUEST, handler),
 			respondToSandboxGrant: (requestId, decision) =>
 				ipc.invoke(CHANNELS.SANDBOX_GRANT_RESPONSE, requestId, decision),

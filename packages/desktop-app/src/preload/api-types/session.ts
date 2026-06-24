@@ -48,8 +48,6 @@ export interface DesktopSessionApi {
 	onQuestionRequest(handler: (request: RuntimeUserQuestionRequest) => void): () => void;
 	/** 回传用户对某次提问的答案 / 取消。 */
 	respondToQuestion(requestId: string, result: RuntimeUserQuestionResult): Promise<void>;
-	/** 实验性开关切换：开 → 注入问答 handler（能力=注册），关 → 清除。 */
-	setQuestionEnabled(enabled: boolean): Promise<void>;
 	onSandboxGrantRequest(handler: (request: RuntimeSandboxGrantRequest) => void): () => void;
 	respondToSandboxGrant(requestId: string, decision: RuntimeSandboxGrantDecision): Promise<void>;
 	listSandboxGrants(sessionId: string): Promise<RuntimeSandboxGrantInfo[]>;

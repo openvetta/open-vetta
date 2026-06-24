@@ -35,9 +35,7 @@ export function AgentSettings(): JSX.Element {
 	const [personaOpen, setPersonaOpen] = useState(false);
 
 	// 实验性功能：缺省开启；用户显式关闭后按配置覆盖。
-	const [askUserQuestionEnabled, setAskUserQuestionEnabled] = useState(true);
 	const [vettaCliEnabled, setVettaCliEnabled] = useState(true);
-	const [backgroundTasksEnabled, setBackgroundTasksEnabled] = useState(true);
 	// 输入预测：缺省关（区别于本组其他键的缺省开）。
 	const [promptPredictionEnabled, setPromptPredictionEnabled] = useState(false);
 	// 适配通用 Agent Skill：缺省开。
@@ -52,30 +50,15 @@ export function AgentSettings(): JSX.Element {
 			setApplied(cfg);
 		});
 		void window.vetta.config.get().then((cfg) => {
-			setAskUserQuestionEnabled(cfg.experimental?.askUserQuestion === true);
 			setVettaCliEnabled(cfg.experimental?.vettaCli === true);
-			setBackgroundTasksEnabled(cfg.experimental?.backgroundTasks === true);
 			setPromptPredictionEnabled(cfg.experimental?.promptPrediction === true);
 			setAgentSkillsEnabled(cfg.experimental?.agentSkills !== false);
 		});
 	}, []);
 
-	// 开关切换：落盘 + 即时注入/清除问答 handler（能力=注册）。下一条消息生效，无需重启。
-	const handleToggleAskUserQuestion = useCallback((checked: boolean) => {
-		setAskUserQuestionEnabled(checked);
-		void window.vetta.config.set({ experimental: { askUserQuestion: checked } });
-		void window.vetta.session.setQuestionEnabled(checked);
-	}, []);
-
 	const handleToggleVettaCli = useCallback((checked: boolean) => {
 		setVettaCliEnabled(checked);
 		void window.vetta.config.set({ experimental: { vettaCli: checked } });
-	}, []);
-
-	// 开关落盘即可：enableBackgroundTasks 在 session 创建时读取，切换/新建会话生效。
-	const handleToggleBackgroundTasks = useCallback((checked: boolean) => {
-		setBackgroundTasksEnabled(checked);
-		void window.vetta.config.set({ experimental: { backgroundTasks: checked } });
 	}, []);
 
 	// 开关落盘即可：渲染端在每轮 agent_end 时读取配置决定是否生成预测。
@@ -285,18 +268,6 @@ export function AgentSettings(): JSX.Element {
 						description="开启后，在新建的对话会话中让 agent 使用 Vetta 应用操作能力。"
 					>
 						<Switch checked={vettaCliEnabled} onCheckedChange={handleToggleVettaCli} />
-					</SettingRow>
-					<SettingRow
-						title="提问用户面板"
-						description="开启后，仅在对话会话中允许 agent 执行途中向你提多选题，输入栏会临时变为问答选择界面。"
-					>
-						<Switch checked={askUserQuestionEnabled} onCheckedChange={handleToggleAskUserQuestion} />
-					</SettingRow>
-					<SettingRow
-						title="后台任务"
-						description="开启后，agent 可将耗时命令（构建、测试等）转入后台执行并在完成时收到通知继续处理。切换后对新打开的会话生效。"
-					>
-						<Switch checked={backgroundTasksEnabled} onCheckedChange={handleToggleBackgroundTasks} />
 					</SettingRow>
 					<SettingRow
 						title="输入预测"
