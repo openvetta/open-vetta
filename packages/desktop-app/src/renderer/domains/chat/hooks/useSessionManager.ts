@@ -5,6 +5,7 @@ import {
 	activeInputActionIdsAtom,
 	activeSessionAtom,
 	activeSessionStreamingAtom,
+	activeToolNamesAtom,
 	attachedImagesAtom,
 	type BackgroundTask,
 	backgroundTasksBySessionAtom,
@@ -101,6 +102,7 @@ export function useSessionManager(): SessionManagerResult {
 	selectedModelRef.current = selectedModel;
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
+	const setActiveToolNames = useSetAtom(activeToolNamesAtom);
 	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
 	const setBackgroundTasks = useSetAtom(backgroundTasksBySessionAtom);
 	// sendMessage 需要读「当前 session 的 todo 状态」决定是否在下一个 prompt 前清空。
@@ -242,6 +244,8 @@ export function useSessionManager(): SessionManagerResult {
 			// Clear messages immediately so the user sees the switch take effect
 			// instead of staring at the old session while history loads.
 			setChatMessages([]);
+			// 切会话先把激活工具集置未知（null）→ badge 回退显示，等 getState 回填真实集合。
+			setActiveToolNames(null);
 
 			const isBatchSession =
 				sessionPath !== undefined &&
@@ -252,7 +256,14 @@ export function useSessionManager(): SessionManagerResult {
 				isBatchSession || isBatchProject || projectType === "batch" || projectType === "flowing"
 					? "other"
 					: "conversation";
-			const createResult = await window.vetta.session.create({ cwd, sessionPath, executionMode }, sessionKind);
+			// 批量任务 session 显式用 batch 场景（与 batch-task-executor 一致），否则重开时
+			// 会退化成 project 场景，重新拿到知识/图像工具——既不一致，输入栏 badge 也会复活。
+			const scenario: "batch" | undefined =
+				isBatchSession || isBatchProject || projectType === "batch" ? "batch" : undefined;
+			const createResult = await window.vetta.session.create(
+				{ cwd, sessionPath, executionMode, scenario },
+				sessionKind,
+			);
 			const { sessionId } = createResult;
 			// ADR-0007: 「对话」项目下 main 会把 cwd 改写成 per-session 子目录，
 			// 这里以 main 返回的 effective cwd 为准，保证 FilesPanel/调试 cwd 都指向子目录。
@@ -291,6 +302,8 @@ export function useSessionManager(): SessionManagerResult {
 			});
 			setModelSupportsImages(state.model?.input?.includes("image") ?? false);
 			setSessionExecutionMode(state.executionMode);
+			// 激活工具集 → 输入栏 badge 按工具 scope 跟随显示（单一真相源）。
+			setActiveToolNames(new Set(state.activeToolNames));
 
 			// Sync model between frontend and backend:
 			// - If frontend has a selected model, push it to the backend session
@@ -709,6 +722,7 @@ export function useSessionManager(): SessionManagerResult {
 			setContextUsage,
 			setModelSupportsImages,
 			setSessionExecutionMode,
+			setActiveToolNames,
 			selectedModel,
 			setSelectedModel,
 			setTodoItems,

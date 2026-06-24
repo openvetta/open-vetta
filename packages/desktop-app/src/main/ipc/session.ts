@@ -499,15 +499,16 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			allowProjectRoot(effectiveCwd);
 		}
 		const isConversation = kind === "conversation";
-		// 对话场景：conversation 与 project（kind="other"）均为交互式桌面会话，工具差异交给
-		// 各工具的 scope_use 表达，而非在入口写死。
-		const scenario: ConversationScenario = isConversation ? "conversation" : "project";
+		// 对话场景：调用方显式传入则尊重（如批量任务 viewer 传 "batch"，与 executor 一致）；
+		// 否则按 kind 推导——conversation 与 project（kind="other"）均为交互式桌面会话，工具
+		// 差异交给各工具的 scope_use 表达，而非在入口写死。
+		const scenario: ConversationScenario = config?.scenario ?? (isConversation ? "conversation" : "project");
 		const desktopConfig = await readDesktopConfig();
 		// project 也开 ask（决策）：conversation/project 对称，ask_user_question 的 scope_use 含两者。
 		const askUserQuestion = true;
 		// 后台任务不再是用户开关：交互式会话恒开（task_output/task_stop 由 scope_use + 该会话
-		// 的 enableBackgroundTasks 决定）。批量/加工走各自入口并强制 false。
-		const enableBackgroundTasks = true;
+		// 的 enableBackgroundTasks 决定）。批量场景与 executor 一致强制关，避免后台任务干扰队列判定。
+		const enableBackgroundTasks = scenario !== "batch";
 		// 适配通用 Agent Skill：默认开（缺省视为开），仅当用户显式关闭时禁用 .agents/skills 发现。
 		const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
 		const appendSystemPrompt =

@@ -391,6 +391,8 @@ export interface SessionStateSnapshot {
 	contextPercent: number | null;
 	/** Total context window size in tokens */
 	contextWindow: number;
+	/** 当前激活（模型可见）的工具名集合。renderer 据此让输入栏 badge 跟随工具 scope。 */
+	activeToolNames: string[];
 }
 
 export interface ProjectInfo {

@@ -839,6 +839,8 @@ export default definePlugin({
 			id: "image-mode",
 			label: "图像生成",
 			icon: <IconImage className="h-3.5 w-3.5" />,
+			// 跟随 generate_image 工具的 scope：批量任务等屏蔽生图的场景里不显示这个 badge。
+			requiresActiveTool: "generate_image",
 			// 手动开启图像生成时若缺配置：弹窗引导去设置，并返回 false 否决本次激活
 			// （toggle 不会被点亮，避免「未配置却显示已开启」）。
 			onToggle: (active) => {
