@@ -103,7 +103,14 @@ function workspaceDependencyNames(packageJson) {
 	for (const section of sections) {
 		if (section === null || typeof section !== "object") continue;
 		for (const [dependencyName, specifier] of Object.entries(section)) {
-			if (typeof specifier === "string" && specifier.startsWith("workspace:")) {
+			if (typeof specifier !== "string") continue;
+			// workspace:* 解析受 workspace globs 限制，无法指向工作区外的 monorepo 兄弟包
+			// （如 packages/ui）。这类跨工作区共享依赖改用 link:/file: 指定，同样纳入缓存哈希。
+			if (
+				specifier.startsWith("workspace:") ||
+				specifier.startsWith("link:") ||
+				specifier.startsWith("file:")
+			) {
 				names.push(dependencyName);
 			}
 		}
