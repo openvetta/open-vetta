@@ -8,13 +8,19 @@
 
 import { rm } from "node:fs/promises";
 import { knowledge } from "@vetta/coding-agent";
+import { KB_PROCESSING_CWD } from "../ipc/fs.js";
 import { runKnowledgeMaintenance } from "./poller.js";
 
-/** 清空整个 wiki 目录并重建空缓存（manifest/tags/indexes）。影响全部知识库。 */
+/**
+ * 清空整个 wiki 目录并重建空缓存（manifest/tags/indexes），并清空加工记录
+ * （processing_records 下的加工 session）。影响全部知识库。
+ */
 export function clearAllWiki(): Promise<void> {
 	return runKnowledgeMaintenance(async (root) => {
 		await rm(knowledge.wikiDir(root), { recursive: true, force: true });
-		await knowledge.ensureKnowledgeDirs(root); // 重建空 wiki/ 目录
+		// 加工记录（每轮加工的 agent session jsonl）随 wiki 一并清空，下次加工重新生成。
+		await rm(KB_PROCESSING_CWD, { recursive: true, force: true });
+		await knowledge.ensureKnowledgeDirs(root); // 重建空 wiki/ 与 processing_records 目录
 		await knowledge.rebuildAllCaches(root); // 空 manifest/tags/INDEX.md
 	});
 }
