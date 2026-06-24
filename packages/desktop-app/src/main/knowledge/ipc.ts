@@ -6,6 +6,7 @@
  */
 
 import { ipcMain } from "electron";
+import { readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
 import { isKnowledgeProcessing, reloadKnowledgePoller, runKnowledgeRound } from "./poller.js";
 import {
@@ -17,6 +18,7 @@ import {
 	renameKnowledgeBase,
 	renameKnowledgeEntry,
 } from "./raws-fs.js";
+import { getKnowledgeFileStatuses } from "./status.js";
 
 const log = getAppLogger("kb-ipc");
 
@@ -25,6 +27,7 @@ const CHANNELS = {
 	RELOAD: "vetta:kb:reload",
 	IS_PROCESSING: "vetta:kb:is-processing",
 	LIST: "vetta:kb:list",
+	STATUSES: "vetta:kb:statuses",
 	ADD_FILES: "vetta:kb:add-files",
 	DELETE_ENTRY: "vetta:kb:delete-entry",
 	RENAME_ENTRY: "vetta:kb:rename-entry",
@@ -36,7 +39,9 @@ const CHANNELS = {
 export function registerKnowledgeIpc(): void {
 	ipcMain.handle(CHANNELS.SCAN_NOW, async () => {
 		log.info("manual scan triggered");
-		return runKnowledgeRound();
+		// 手动整理与定时一致：用配置的加工模型与并发数（即使「永不自动加工」也能手动跑）。
+		const kb = (await readDesktopConfig()).knowledgeBase;
+		return runKnowledgeRound(kb?.processingModelKey, kb?.agentConcurrency ?? 3);
 	});
 	ipcMain.handle(CHANNELS.RELOAD, async () => {
 		await reloadKnowledgePoller();
@@ -44,6 +49,7 @@ export function registerKnowledgeIpc(): void {
 
 	ipcMain.handle(CHANNELS.IS_PROCESSING, async () => isKnowledgeProcessing());
 	ipcMain.handle(CHANNELS.LIST, async () => listKnowledgeBases());
+	ipcMain.handle(CHANNELS.STATUSES, async () => getKnowledgeFileStatuses());
 	ipcMain.handle(CHANNELS.ADD_FILES, async (_e, kbId: string, sourcePaths: string[], move: boolean) => {
 		await addFilesToKnowledgeBase(kbId, sourcePaths, move);
 	});

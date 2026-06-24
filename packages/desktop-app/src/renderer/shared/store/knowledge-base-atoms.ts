@@ -1,10 +1,12 @@
-import type { KnowledgeBase, KnowledgeImportDraft } from "@shared/types/knowledge-base";
+import type { KnowledgeBase, KnowledgeFileStatus, KnowledgeImportDraft } from "@shared/types/knowledge-base";
 import { atom } from "jotai";
 
 export type {
 	KnowledgeBase,
+	KnowledgeFileStatus,
 	KnowledgeImportDraft,
 	KnowledgeNode,
+	KnowledgeProcessStatus,
 } from "@shared/types/knowledge-base";
 
 const ACTIVE_KNOWLEDGE_BASE_STORAGE_KEY = "vetta-active-knowledge-base";
@@ -15,10 +17,20 @@ const ACTIVE_KNOWLEDGE_BASE_STORAGE_KEY = "vetta-active-knowledge-base";
  */
 export const knowledgeBasesAtom = atom<KnowledgeBase[]>([]);
 
-/** 反向重建入口：从磁盘重读全部知识库并刷新 UI。 */
+/**
+ * 文件加工态：按 source_path（`${kbId}/${node.id}`）索引，由 manifest + raws hash 推导。
+ * 与知识库列表同源刷新。
+ */
+export const knowledgeFileStatusesAtom = atom<Record<string, KnowledgeFileStatus>>({});
+
+/** 反向重建入口：从磁盘重读全部知识库与加工态并刷新 UI。 */
 export const refreshKnowledgeBasesAtom = atom(null, async (_get, set) => {
-	const bases = await window.vetta.knowledge.list();
+	const [bases, statuses] = await Promise.all([
+		window.vetta.knowledge.list(),
+		window.vetta.knowledge.fileStatuses().catch(() => ({}) as Record<string, KnowledgeFileStatus>),
+	]);
 	set(knowledgeBasesAtom, bases);
+	set(knowledgeFileStatusesAtom, statuses);
 });
 
 const activeKnowledgeBaseIdBaseAtom = atom<string | null>(localStorage.getItem(ACTIVE_KNOWLEDGE_BASE_STORAGE_KEY));

@@ -135,6 +135,7 @@ export function createSystemApi(
 			scanNow: () => ipc.invoke("vetta:kb:scan-now"),
 			reload: () => ipc.invoke("vetta:kb:reload"),
 			list: () => ipc.invoke("vetta:kb:list"),
+			fileStatuses: () => ipc.invoke("vetta:kb:statuses"),
 			addFiles: (kbId, sourcePaths, move) => ipc.invoke("vetta:kb:add-files", kbId, sourcePaths, move),
 			deleteEntry: (kbId, relPath) => ipc.invoke("vetta:kb:delete-entry", kbId, relPath),
 			renameEntry: (kbId, relPath, newName) => ipc.invoke("vetta:kb:rename-entry", kbId, relPath, newName),

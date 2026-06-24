@@ -21,6 +21,15 @@ export interface KnowledgeBaseDto {
 	nodes: KnowledgeNodeDto[];
 }
 
+/** 文件加工态：已加工 / 待更新（源已改待重加工）/ 未加工。 */
+export type KnowledgeProcessStatus = "processed" | "stale" | "unprocessed";
+
+export interface KnowledgeFileStatus {
+	status: KnowledgeProcessStatus;
+	/** 加工产物 wiki md 的本地绝对路径（processed / stale 有，供「查看 wiki」预览）。 */
+	wikiPath?: string;
+}
+
 export interface DesktopKnowledgeApi {
 	/** 立即跑一轮加工（手动触发，不等轮询周期）。返回是否因无变更跳过。 */
 	scanNow(): Promise<{ skipped: boolean }>;
@@ -28,6 +37,8 @@ export interface DesktopKnowledgeApi {
 	reload(): Promise<void>;
 	/** 从磁盘 raws/ 读出全部知识库（含文件树）。反向重建即调此刷新。 */
 	list(): Promise<KnowledgeBaseDto[]>;
+	/** 推导全部 raws 文件的加工态，按 source_path（`${kbId}/${relPath}`）索引。 */
+	fileStatuses(): Promise<Record<string, KnowledgeFileStatus>>;
 	/** 把磁盘上的文件/目录放进某库顶层。move=true 移走源，false 复制留源。同名自动改名共存。 */
 	addFiles(kbId: string, sourcePaths: string[], move: boolean): Promise<void>;
 	/** 删除库内某文件/子目录。 */
