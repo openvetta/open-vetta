@@ -2,6 +2,7 @@ import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
 import * as pdfjsLib from "pdfjs-dist";
 import workerSource from "pdfjs-dist/build/pdf.worker.min.mjs?raw";
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { PreviewToolbar } from "./PreviewToolbar";
 import { ErrorState, LoadingState, type LoadState } from "./PreviewState";
 import { ToolbarButton } from "./ToolbarButton";
 
@@ -142,16 +143,16 @@ export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
 	}, [computeFitScale]);
 
 	return (
-		<div className="flex h-full min-h-0 flex-1 flex-col bg-[var(--background)]">
+		<div className="relative flex h-full min-h-0 flex-1 flex-col bg-[var(--background)]">
 			<div
 				ref={scrollRef}
-				className="relative flex min-h-0 flex-1 flex-col items-center gap-4 overflow-auto bg-[var(--muted)] p-5"
+				className="relative flex min-h-0 flex-1 flex-col items-center gap-4 overflow-auto bg-[var(--muted)] px-5 pt-5 pb-16"
 			>
 				{status === "loading" && <LoadingState />}
 				{status === "error" && <ErrorState message="无法渲染 PDF 文件" />}
 				<div ref={containerRef} className={status === "ready" ? "flex flex-col items-center gap-4" : "hidden"} />
 			</div>
-			<div className="flex shrink-0 items-center justify-center gap-2 border-t border-[var(--border)] px-3 py-2">
+			<PreviewToolbar>
 				<ToolbarButton label="−" disabled={scale <= MIN_SCALE} onClick={() => adjustScale(-SCALE_STEP)} />
 				<button
 					type="button"
@@ -163,7 +164,7 @@ export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				<ToolbarButton label="+" disabled={scale >= MAX_SCALE} onClick={() => adjustScale(SCALE_STEP)} />
 				<div className="mx-1 h-4 w-px bg-[var(--border)]" />
 				<ToolbarButton label="适应宽度" onClick={fitToWidth} />
-			</div>
+			</PreviewToolbar>
 		</div>
 	);
 }

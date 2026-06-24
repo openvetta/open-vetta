@@ -1,5 +1,7 @@
 import type { JSX, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PreviewToolbar } from "./PreviewToolbar";
+import { ToolbarButton } from "./ToolbarButton";
 
 const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
@@ -154,53 +156,30 @@ export function ZoomableView({ children }: ZoomableViewProps): JSX.Element {
 				</div>
 			</div>
 
-			<div className="sticky bottom-0 z-10 flex items-center justify-center gap-1 border-t border-[var(--border)] bg-[var(--background)] px-2 py-1.5">
-				<ToolButton label="-" title="缩小" onClick={zoomOut} />
+			<PreviewToolbar>
+				<ToolbarButton label="−" title="缩小" onClick={zoomOut} />
 				<button
 					type="button"
 					onClick={resetView}
 					title="重置缩放"
-					className="min-w-[44px] rounded px-1.5 py-0.5 text-center text-[11px] tabular-nums text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+					className="min-w-14 text-center text-[12px] tabular-nums text-[var(--muted-foreground)]"
 				>
 					{pct}%
 				</button>
-				<ToolButton label="+" title="放大" onClick={zoomIn} />
-				<div className="mx-1 h-3.5 w-px bg-[var(--border)]" />
-				<ToolButton label={isFullscreen ? "Exit" : "Full"} title={isFullscreen ? "退出全屏" : "全屏"} onClick={toggleFullscreen} wide />
+				<ToolbarButton label="+" title="放大" onClick={zoomIn} />
+				<div className="mx-1 h-4 w-px bg-[var(--border)]" />
+				<ToolbarButton
+					label={isFullscreen ? "退出全屏" : "全屏"}
+					title={isFullscreen ? "退出全屏" : "全屏"}
+					onClick={toggleFullscreen}
+				/>
 				{isViewModified && (
 					<>
-						<div className="mx-1 h-3.5 w-px bg-[var(--border)]" />
-						<ToolButton label="重置" title="重置视图" onClick={resetView} wide />
+						<div className="mx-1 h-4 w-px bg-[var(--border)]" />
+						<ToolbarButton label="重置" title="重置视图" onClick={resetView} />
 					</>
 				)}
-			</div>
+			</PreviewToolbar>
 		</div>
-	);
-}
-
-function ToolButton({
-	label,
-	title,
-	onClick,
-	wide,
-}: {
-	label: string;
-	title: string;
-	onClick: () => void;
-	wide?: boolean;
-}): JSX.Element {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			title={title}
-			className={
-				wide
-					? "flex h-6 items-center justify-center rounded px-1.5 text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-					: "flex h-6 w-6 items-center justify-center rounded text-[14px] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-			}
-		>
-			{label}
-		</button>
 	);
 }
