@@ -9,8 +9,9 @@ import {
 	ACTIVITY_PANEL_PREVIEW_MIN_WIDTH,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
+	activityTabOrderAtom,
+	hiddenActivityTabsAtom,
 	activeSessionAtom,
-	attachedPluginTabsAtom,
 	backgroundTasksBySessionAtom,
 	flowingChatUnreadAtom,
 	getBackgroundTasksForSession,
@@ -23,7 +24,6 @@ import {
 	pluginActivityTabsAtom,
 	sidebarCollapsedAtom,
 	sidebarWidthAtom,
-	type RegisteredActivityTab,
 } from "@shared/store/atoms";
 import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components/FilePreviewView";
 import { useProjectProfile, type ActivityTabKey } from "@shared/lib/project-profile";
@@ -44,6 +44,25 @@ import { useNarrowScreen, useWindowWidth } from "@shared/hooks/useNarrowScreen";
 
 const MIN_WIDTH = ACTIVITY_PANEL_MIN_WIDTH;
 const MIN_CHAT_AREA = ACTIVITY_PANEL_MIN_CHAT_AREA;
+
+/** 永远禁止手动隐藏的 tab：文件、知识库加工历史。 */
+const NON_HIDEABLE_TABS = new Set<ActivityTabKey>(["file", "knowledge-history"]);
+
+/**
+ * 按用户拖拽排序 `order` 重排 `items`：出现在 order 中的按其顺序，未出现的（新 tab）
+ * 保持原相对顺序追加在后面。
+ */
+function applyTabOrder<T extends { key: ActivityTabKey }>(items: T[], order: string[]): T[] {
+	if (order.length === 0) return items;
+	const rank = (key: string): number => {
+		const i = order.indexOf(key);
+		return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+	};
+	return items
+		.map((item, index) => ({ item, index }))
+		.sort((a, b) => rank(a.item.key) - rank(b.item.key) || a.index - b.index)
+		.map((x) => x.item);
+}
 
 interface ActivityPanelProps {
 	/** 显式指定 cwd（项目详情页用），不传则回退到当前活动 session */
@@ -70,6 +89,8 @@ export function ActivityPanel({
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [width, setWidth] = useAtom(activityPanelWidthAtom);
 	const [isResizing, setIsResizing] = useState(false);
+	// 因宽度不足被 TabBar 响应式收纳的页签 key（由 TabBar 上报），用于"下拉"菜单展示
+	const [overflowKeys, setOverflowKeys] = useState<ActivityTabKey[]>([]);
 	const [tabByProject, setTabByProject] = useAtom(activityPanelTabByProjectAtom);
 
 	const windowWidth = useWindowWidth();
@@ -101,21 +122,21 @@ export function ActivityPanel({
 	const hasBackgroundTasks = backgroundTasks.length > 0;
 	const debugMode = useAtomValue(debugModeAtom);
 
-	// 插件 tab：可添加池（已加载插件注册的 contribution）∩ 当前 cwd 的 attach 记录才渲染
+	// 外部插件面板：已加载插件注册的全部 contribution 都作为常驻标签随响应式拉伸显示，
+	// 不再用 attach 勾选挑选；不需要的用减号隐藏（进"已隐藏面板"恢复）。
 	const registeredPluginTabs = useAtomValue(pluginActivityTabsAtom);
-	const [attachedPluginTabs, setAttachedPluginTabs] = useAtom(attachedPluginTabsAtom);
-	const attachedKeys = useMemo(
-		() => (enablePluginTabs && cwd ? (attachedPluginTabs.get(cwd) ?? []) : []),
-		[enablePluginTabs, cwd, attachedPluginTabs],
+	const pluginTabContribs = useMemo(
+		() => (enablePluginTabs ? registeredPluginTabs : []),
+		[enablePluginTabs, registeredPluginTabs],
 	);
-	const attachedPluginTabContribs = useMemo(
-		() =>
-			attachedKeys
-				.map((key) => registeredPluginTabs.find((tab) => `${tab.pluginId}:${tab.tabId}` === key))
-				.filter((tab): tab is RegisteredActivityTab => tab != null),
-		[attachedKeys, registeredPluginTabs],
+	// 用户手动隐藏的内置/动态 tab（per-cwd）+ 拖拽排序（per-cwd）
+	const [hiddenTabsMap, setHiddenTabsMap] = useAtom(hiddenActivityTabsAtom);
+	const [tabOrderMap, setTabOrderMap] = useAtom(activityTabOrderAtom);
+	const hiddenKeys = useMemo(
+		() => (cwd ? (hiddenTabsMap.get(cwd) ?? []) : []),
+		[cwd, hiddenTabsMap],
 	);
-	const showPluginPicker = enablePluginTabs && cwd != null && registeredPluginTabs.length > 0;
+	const tabOrder = useMemo(() => (cwd ? (tabOrderMap.get(cwd) ?? []) : []), [cwd, tabOrderMap]);
 
 	const onResize = useCallback(
 		(delta: number) => {
@@ -162,15 +183,23 @@ export function ActivityPanel({
 		}
 	}, [width, windowWidth, sidebarWidth, isOpen, sidebarCollapsed, setSidebarCollapsed, setWidth]);
 
-	const tabItems: TabBarItem<ActivityTabKey>[] = useMemo(() => {
+	// 全量 tab（未过滤隐藏、未排序）：内置 + 动态 + 已 attach 插件。removable 标记可隐藏性。
+	const allTabItems: TabBarItem<ActivityTabKey>[] = useMemo(() => {
 		if (knowledgeHistory) {
-			return [{ key: "knowledge-history" as ActivityTabKey, label: "知识库加工历史", icon: "icon-[mdi--history]" }];
+			return [
+				{
+					key: "knowledge-history" as ActivityTabKey,
+					label: "知识库加工历史",
+					icon: "icon-[mdi--history]",
+				},
+			];
 		}
 		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
 			key: t.key,
 			label: t.label,
 			icon: t.icon,
 			badge: t.key === "chat" ? chatUnread : undefined,
+			removable: !NON_HIDEABLE_TABS.has(t.key),
 		}));
 		// Dynamically inject todo tab when items exist
 		if (hasTodo) {
@@ -180,6 +209,7 @@ export function ActivityPanel({
 				label: "待办",
 				icon: "icon-[mdi--checkbox-marked-circle-outline]",
 				badge: todoItems.length - todoDone > 0 ? todoItems.length - todoDone : undefined,
+				removable: true,
 			});
 		}
 		// Dynamically inject background-tasks tab when the session has background tasks
@@ -190,6 +220,7 @@ export function ActivityPanel({
 				label: "后台任务",
 				icon: "icon-[mdi--console-line]",
 				badge: running > 0 ? running : undefined,
+				removable: true,
 			});
 		}
 		// Dynamically inject debug tab when debug mode is enabled
@@ -198,14 +229,16 @@ export function ActivityPanel({
 				key: "debug" as ActivityTabKey,
 				label: "调试",
 				icon: "icon-[mdi--bug-outline]",
+				removable: true,
 			});
 		}
-		// 用户 attach 的插件 tab 追加在所有内置 tab 之后，按 attach 顺序排列
-		for (const tab of attachedPluginTabContribs) {
+		// 外部插件面板追加在所有内置 tab 之后，全部常驻
+		for (const tab of pluginTabContribs) {
 			base.push({
 				key: `plugin:${tab.pluginId}:${tab.tabId}` as ActivityTabKey,
 				label: tab.label,
 				icon: tab.icon ?? DEFAULT_PLUGIN_TAB_ICON,
+				removable: true,
 			});
 		}
 		return base;
@@ -218,10 +251,26 @@ export function ActivityPanel({
 		hasBackgroundTasks,
 		backgroundTasks,
 		debugMode,
-		attachedPluginTabContribs,
+		pluginTabContribs,
 	]);
 
-	// 当前 active tab：优先取项目记忆，否则用 profile 默认；profile 未就绪时退回 "file"
+	// 可见 tab：剔除被隐藏的 tab（内置/动态/插件统一进隐藏集），再按用户拖拽顺序重排
+	const tabItems = useMemo(
+		() => applyTabOrder(allTabItems.filter((t) => !hiddenKeys.includes(t.key)), tabOrder),
+		[allTabItems, hiddenKeys, tabOrder],
+	);
+
+	// "+"下拉里「已隐藏面板」区：当前适用但被隐藏的内置/动态 tab，可点击恢复
+	const restorableTabs = useMemo(
+		() =>
+			allTabItems
+				.filter((t) => hiddenKeys.includes(t.key))
+				.map((t) => ({ key: t.key as string, label: t.label, icon: t.icon })),
+		[allTabItems, hiddenKeys],
+	);
+
+	// 当前 active tab：优先取项目记忆，否则 profile 默认；二者都不在可见 tab 中
+	// （如默认 tab 被隐藏）时退回第一个可见 tab，避免激活到已隐藏 tab 导致内容残留无高亮。
 	const activeTab: ActivityTabKey = useMemo(() => {
 		if (knowledgeHistory) return "knowledge-history";
 		if (cwd) {
@@ -230,8 +279,26 @@ export function ActivityPanel({
 				return remembered;
 			}
 		}
-		return profile?.defaultActivityTab ?? "file";
+		const fallback = profile?.defaultActivityTab ?? "file";
+		if (tabItems.some((t) => t.key === fallback)) return fallback;
+		return tabItems[0]?.key ?? fallback;
 	}, [knowledgeHistory, cwd, tabByProject, profile, tabItems]);
+
+	// 动态唤起：任何地方程序化打开某 tab（写入 activityPanelTabByProjectAtom）时，
+	// 若该 tab 当前被隐藏在"+"里且仍是有效候选，则自动移出隐藏集抬回标签栏并激活。
+	// 集中在此监听，免去每个触发点（InputBar/TextBlock/插件等）各自处理。
+	useEffect(() => {
+		if (!cwd) return;
+		const remembered = tabByProject.get(cwd);
+		if (!remembered || !hiddenKeys.includes(remembered)) return;
+		if (!allTabItems.some((t) => t.key === remembered)) return;
+		const next = new Map(hiddenTabsMap);
+		next.set(
+			cwd,
+			(next.get(cwd) ?? []).filter((k) => k !== remembered),
+		);
+		setHiddenTabsMap(next);
+	}, [cwd, tabByProject, hiddenKeys, allTabItems, hiddenTabsMap, setHiddenTabsMap]);
 
 	const onTabChange = useCallback(
 		(next: ActivityTabKey) => {
@@ -249,39 +316,66 @@ export function ActivityPanel({
 	const activePluginTab = useMemo(() => {
 		if (!activeTab.startsWith("plugin:")) return null;
 		return (
-			attachedPluginTabContribs.find((tab) => `plugin:${tab.pluginId}:${tab.tabId}` === activeTab) ?? null
+			pluginTabContribs.find((tab) => `plugin:${tab.pluginId}:${tab.tabId}` === activeTab) ?? null
 		);
-	}, [activeTab, attachedPluginTabContribs]);
+	}, [activeTab, pluginTabContribs]);
 
-	// attach 即切到该 tab；remove 当前激活的插件 tab 时回退到 profile 默认 tab
-	const onAttachPluginTab = useCallback(
-		(key: string) => {
-			if (!cwd) return;
-			const next = new Map(attachedPluginTabs);
+	// 隐藏（收回到下拉）某个 tab：内置/动态/插件统一写入隐藏集。
+	// 隐藏当前激活 tab 时切到隐藏后仍可见的第一个 tab（file 永不可隐藏，必然存在）。
+	const onRemoveTab = useCallback(
+		(key: ActivityTabKey) => {
+			if (!cwd || NON_HIDEABLE_TABS.has(key)) return;
+			const next = new Map(hiddenTabsMap);
 			const current = next.get(cwd) ?? [];
 			if (!current.includes(key)) next.set(cwd, [...current, key]);
-			setAttachedPluginTabs(next);
-			onTabChange(`plugin:${key}` as ActivityTabKey);
+			setHiddenTabsMap(next);
+			if (activeTab === key) {
+				const fallback = tabItems.find((t) => t.key !== key)?.key ?? "file";
+				onTabChange(fallback);
+			}
 		},
-		[cwd, attachedPluginTabs, setAttachedPluginTabs, onTabChange],
+		[cwd, hiddenTabsMap, setHiddenTabsMap, activeTab, tabItems, onTabChange],
 	);
 
-	const onDetachPluginTab = useCallback(
+	// 从"+"下拉恢复某个被隐藏的内置/动态 tab，并切换到它
+	const onRestoreTab = useCallback(
 		(key: string) => {
 			if (!cwd) return;
-			const next = new Map(attachedPluginTabs);
+			const next = new Map(hiddenTabsMap);
 			const current = next.get(cwd) ?? [];
 			next.set(
 				cwd,
 				current.filter((k) => k !== key),
 			);
-			setAttachedPluginTabs(next);
-			if (activeTab === `plugin:${key}`) {
-				onTabChange(profile?.defaultActivityTab ?? "file");
-			}
+			setHiddenTabsMap(next);
+			onTabChange(key as ActivityTabKey);
 		},
-		[cwd, attachedPluginTabs, setAttachedPluginTabs, activeTab, profile, onTabChange],
+		[cwd, hiddenTabsMap, setHiddenTabsMap, onTabChange],
 	);
+
+	// 拖拽排序：持久化该 cwd 的完整 tab 顺序
+	const onReorderTabs = useCallback(
+		(keys: ActivityTabKey[]) => {
+			if (!cwd) return;
+			const next = new Map(tabOrderMap);
+			next.set(cwd, keys);
+			setTabOrderMap(next);
+		},
+		[cwd, tabOrderMap, setTabOrderMap],
+	);
+
+	// 被响应式收纳的页签（按当前可见顺序），喂给"下拉"菜单
+	const overflowTabs = useMemo(
+		() =>
+			tabItems
+				.filter((t) => overflowKeys.includes(t.key))
+				.map((t) => ({ key: t.key as string, label: t.label, icon: t.icon })),
+		[tabItems, overflowKeys],
+	);
+
+	// 下拉按钮：有可恢复的隐藏 tab、或被响应式收纳的页签时才显示
+	const showTabPicker =
+		cwd != null && !knowledgeHistory && (restorableTabs.length > 0 || overflowTabs.length > 0);
 
 	// 窄屏：活动面板不再挤压内容，改为从底部升起的全宽 bottom sheet。
 	// 窄屏不走内嵌预览（FilesPanel/ArtifactCard 等改用全屏 Dialog），故无需特殊处理。
@@ -293,9 +387,9 @@ export function ActivityPanel({
 	const panelBody = (
 		<>
 			{/* Tab list 顶栏 — 始终渲染（即便只有一个 tab）。浏览器式页签悬浮在卡片上方，
-			    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。
-			    hover 时右侧浮现"+"按钮，弹出勾选列表管理插件 tab 的 attach/remove。 */}
-			{(tabItems.length > 0 || showPluginPicker) && (
+			    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。页签按宽度
+			    响应式收纳，放不下的收进右侧下拉；下拉同时可恢复被减号隐藏的页签。 */}
+			{(tabItems.length > 0 || showTabPicker) && (
 				<div className="group/activity-tabs flex shrink-0 items-end">
 					<TabBar
 						className="min-w-0 flex-1"
@@ -303,13 +397,16 @@ export function ActivityPanel({
 						value={activeTab}
 						onChange={onTabChange}
 						suppressLayoutAnimation={isResizing}
+						onRemove={knowledgeHistory ? undefined : onRemoveTab}
+						onReorder={knowledgeHistory ? undefined : onReorderTabs}
+						onOverflowChange={knowledgeHistory ? undefined : setOverflowKeys}
 					/>
-					{showPluginPicker && (
+					{showTabPicker && (
 						<PluginTabPicker
-							contributions={registeredPluginTabs}
-							attachedKeys={attachedKeys}
-							onAttach={onAttachPluginTab}
-							onDetach={onDetachPluginTab}
+							hiddenTabs={restorableTabs}
+							onRestore={onRestoreTab}
+							overflowTabs={overflowTabs}
+							onSelectOverflow={(k) => onTabChange(k as ActivityTabKey)}
 						/>
 					)}
 				</div>

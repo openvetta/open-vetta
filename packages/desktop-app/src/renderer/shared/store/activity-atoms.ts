@@ -39,11 +39,10 @@ export const setActivityPanelWidthAtom = atom(null, (_get, set, width: number | 
  */
 export const activityPanelTabByProjectAtom = atom<Map<string, ActivityTabKey>>(new Map<string, ActivityTabKey>());
 
-export const ATTACHED_PLUGIN_TABS_STORAGE_KEY = "vetta-activity-plugin-tabs";
-
-function readAttachedPluginTabs(): Map<string, string[]> {
+/** 从 localStorage 读取 cwd → string[] 形态的持久化记录，解析失败返回空 Map。 */
+function readCwdStringListMap(storageKey: string): Map<string, string[]> {
 	try {
-		const raw = localStorage.getItem(ATTACHED_PLUGIN_TABS_STORAGE_KEY);
+		const raw = localStorage.getItem(storageKey);
 		if (!raw) return new Map();
 		const parsed: unknown = JSON.parse(raw);
 		if (parsed == null || typeof parsed !== "object") return new Map();
@@ -62,17 +61,40 @@ function readAttachedPluginTabs(): Map<string, string[]> {
 	}
 }
 
-const attachedPluginTabsBaseAtom = atom<Map<string, string[]>>(readAttachedPluginTabs());
+/** 构造一个「读取 base / 写入时同步 localStorage」的 cwd → string[] 持久化 atom。 */
+function createPersistedCwdStringListAtom(storageKey: string) {
+	const base = atom<Map<string, string[]>>(readCwdStringListMap(storageKey));
+	return atom(
+		(get) => get(base),
+		(_get, set, next: Map<string, string[]>) => {
+			set(base, next);
+			localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(next)));
+		},
+	);
+}
+
+export const ATTACHED_PLUGIN_TABS_STORAGE_KEY = "vetta-activity-plugin-tabs";
 
 /**
  * 活动面板插件 tab 的 attach 记录：会话 cwd → ["pluginId:tabId"]（见 ADR-0026）。
  * 普通项目所有 session 共享项目 cwd → 项目级同步；「对话」项目 per-session 子目录
  * cwd → 天然按 session 隔离。写入时同步持久化到 localStorage。
  */
-export const attachedPluginTabsAtom = atom(
-	(get) => get(attachedPluginTabsBaseAtom),
-	(_get, set, next: Map<string, string[]>) => {
-		set(attachedPluginTabsBaseAtom, next);
-		localStorage.setItem(ATTACHED_PLUGIN_TABS_STORAGE_KEY, JSON.stringify(Object.fromEntries(next)));
-	},
-);
+export const attachedPluginTabsAtom = createPersistedCwdStringListAtom(ATTACHED_PLUGIN_TABS_STORAGE_KEY);
+
+export const HIDDEN_ACTIVITY_TABS_STORAGE_KEY = "vetta-activity-hidden-tabs";
+
+/**
+ * 用户手动隐藏（收回到"+"下拉）的活动面板 tab：会话 cwd → [tabKey]。
+ * 仅记录内置/动态 tab 的 key；插件 tab 的隐藏复用 detach（见 attachedPluginTabsAtom）。
+ * 文件、知识库加工历史两个 tab 禁止隐藏，永不写入此集合。
+ */
+export const hiddenActivityTabsAtom = createPersistedCwdStringListAtom(HIDDEN_ACTIVITY_TABS_STORAGE_KEY);
+
+export const ACTIVITY_TAB_ORDER_STORAGE_KEY = "vetta-activity-tab-order";
+
+/**
+ * 活动面板 tab 的用户拖拽排序：会话 cwd → [tabKey...]。
+ * 未出现在此列表中的 tab（如新出现的动态/插件 tab）按自然顺序追加到末尾。
+ */
+export const activityTabOrderAtom = createPersistedCwdStringListAtom(ACTIVITY_TAB_ORDER_STORAGE_KEY);
