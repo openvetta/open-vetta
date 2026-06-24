@@ -235,6 +235,24 @@ export async function runKnowledgeRound(modelKey?: string, agentConcurrency = 3)
 	}
 }
 
+/**
+ * 在「同一时刻只跑一轮」互斥锁下执行一段知识库维护（清空 wiki / 删除指定 wiki 页等）。
+ * 复用 `running`：维护期间任何定时 tick 自动跳过；若正有一轮在跑则拒绝（让用户稍后再试），
+ * 杜绝与加工轮的写 wiki / 重建缓存竞态。收尾广播一次状态变更，让侧边栏文件态与索引重新对账。
+ */
+export async function runKnowledgeMaintenance<T>(fn: (root: string) => Promise<T>): Promise<T> {
+	if (running) throw new Error("知识库正在整理中，请稍后再试");
+	running = true;
+	try {
+		const root = knowledge.knowledgeRoot();
+		await knowledge.ensureKnowledgeDirs(root);
+		return await fn(root);
+	} finally {
+		running = false;
+		broadcast(KB_STATUSES_CHANGED_CHANNEL);
+	}
+}
+
 function unschedule(): void {
 	if (scheduled) {
 		scheduler.removeById(JOB_ID);

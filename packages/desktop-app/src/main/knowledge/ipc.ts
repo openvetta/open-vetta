@@ -19,6 +19,7 @@ import {
 	renameKnowledgeEntry,
 } from "./raws-fs.js";
 import { getKnowledgeFileStatuses } from "./status.js";
+import { clearAllWiki, deleteWikiForEntries } from "./wiki-ops.js";
 
 const log = getAppLogger("kb-ipc");
 
@@ -34,6 +35,8 @@ const CHANNELS = {
 	CREATE: "vetta:kb:create",
 	DELETE: "vetta:kb:delete",
 	RENAME: "vetta:kb:rename",
+	CLEAR_WIKI: "vetta:kb:clear-wiki",
+	DELETE_WIKI: "vetta:kb:delete-wiki",
 } as const;
 
 export function registerKnowledgeIpc(): void {
@@ -67,6 +70,13 @@ export function registerKnowledgeIpc(): void {
 	});
 	ipcMain.handle(CHANNELS.RENAME, async (_e, oldName: string, newName: string) => {
 		await renameKnowledgeBase(oldName, newName);
+	});
+	ipcMain.handle(CHANNELS.CLEAR_WIKI, async () => {
+		log.info("clear all wiki triggered");
+		await clearAllWiki();
+	});
+	ipcMain.handle(CHANNELS.DELETE_WIKI, async (_e, kbId: string, relPaths: string[]) => {
+		await deleteWikiForEntries(kbId, relPaths);
 	});
 }
 

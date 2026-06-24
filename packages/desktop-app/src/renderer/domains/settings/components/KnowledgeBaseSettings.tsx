@@ -10,6 +10,7 @@ import {
 import { Switch } from "@shared/components/ui/switch";
 import {
 	activityPanelOpenAtom,
+	confirmDialogAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeRetrievalActiveAtom,
 	remoteProvidersAtom,
@@ -38,12 +39,13 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
 	const setKnowledgeRetrievalActive = useSetAtom(knowledgeRetrievalActiveAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
+	const confirm = useSetAtom(confirmDialogAtom);
 	const [enabled, setEnabled] = useState(true);
 	const [interval, setIntervalMinutes] = useState(5);
 	const [agentConcurrency, setAgentConcurrency] = useState(3);
 	const [modelKey, setModelKey] = useState<string>("");
 	const [localModels, setLocalModels] = useState<ModelOption[]>([]);
-	const [busy, setBusy] = useState<"scan" | null>(null);
+	const [busy, setBusy] = useState<"scan" | "clear" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const [probing, setProbing] = useState(false);
 	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -178,6 +180,30 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		}
 	}, []);
 
+	const handleClearWiki = useCallback(() => {
+		confirm({
+			title: "清空 wiki",
+			message:
+				"将删除所有知识库已整理出的 wiki 笔记（原始资料保留）。清空后下次整理会把全部资料重新整理一遍，可能消耗较多模型额度。确定继续？",
+			variant: "danger",
+			confirmLabel: "清空",
+			onConfirm: () => {
+				void (async () => {
+					setBusy("clear");
+					setStatus(null);
+					try {
+						await window.vetta.knowledge.clearWiki();
+						setStatus("已清空 wiki，下次整理会把全部资料重新整理一遍");
+					} catch (err) {
+						setStatus(`清空失败：${err instanceof Error ? err.message : String(err)}`);
+					} finally {
+						setBusy(null);
+					}
+				})();
+			},
+		});
+	}, [confirm]);
+
 	// 直接定位到最新一轮加工 session 的只读视图并展开活动面板；无记录则行内提示。
 	const handleOpenRecords = useCallback(async () => {
 		setStatus(null);
@@ -303,9 +329,25 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						{busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
-				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。" border={false}>
+				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。">
 					<button type="button" onClick={() => void handleOpenRecords()} className={btnClass}>
 						<span>查看记录</span>
+					</button>
+				</SettingRow>
+				<SettingRow
+					title="清空 wiki"
+					description="删除所有已整理的 wiki 笔记（原始资料保留），下次整理会把全部资料重新整理一遍。"
+					border={false}
+				>
+					<button
+						type="button"
+						onClick={handleClearWiki}
+						disabled={busy !== null}
+						className="inline-flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[12px] text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+					>
+						<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
+						<span>清空 wiki</span>
+						{busy === "clear" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
 			</SettingSection>

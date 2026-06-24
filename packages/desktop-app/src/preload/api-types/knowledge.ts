@@ -51,6 +51,10 @@ export interface DesktopKnowledgeApi {
 	delete(name: string): Promise<void>;
 	/** 重命名知识库。 */
 	rename(oldName: string, newName: string): Promise<void>;
+	/** 清空全部已整理的 wiki 产物（影响所有知识库）并重建空索引；原始资料保留，下一轮会重新整理。 */
+	clearWiki(): Promise<void>;
+	/** 删除指定原始文件（relPaths，相对 raws/<kbId>/）已整理出的 wiki 页并重建索引；删后下一轮重整理。 */
+	deleteWiki(kbId: string, relPaths: string[]): Promise<void>;
 	/** 当前是否正在加工（建立索引）。 */
 	isProcessing(): Promise<boolean>;
 	/** 订阅加工状态变化（顶栏「正在建立索引…」徽标）。返回取消订阅函数。 */

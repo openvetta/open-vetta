@@ -182,6 +182,25 @@ export function KnowledgeContentsPanel({
 		[confirm, knowledgeBase.id, knowledgeBase.name, refresh, clearSelection],
 	);
 
+	const deleteWiki = useCallback(
+		(ids: string[], label: string) => {
+			confirm({
+				title: "删除 wiki",
+				message: `确定删除${label}已整理出的 wiki 笔记吗？原始文件保留，下次整理会重新整理。`,
+				variant: "danger",
+				confirmLabel: "删除 wiki",
+				onConfirm: () => {
+					void (async () => {
+						await window.vetta.knowledge.deleteWiki(knowledgeBase.id, ids).catch(() => {});
+						clearSelection();
+						await refresh();
+					})();
+				},
+			});
+		},
+		[confirm, knowledgeBase.id, refresh, clearSelection],
+	);
+
 	const submitRename = useCallback(
 		(newName: string) => {
 			const node = renameNode;
@@ -197,6 +216,11 @@ export function KnowledgeContentsPanel({
 		const ids = [...selectedIds];
 		if (ids.length > 1) {
 			return [
+				{
+					label: `删除选中 ${ids.length} 项的 wiki`,
+					icon: "icon-[mdi--file-document-remove-outline]",
+					onClick: () => deleteWiki(ids, `选中的 ${ids.length} 项`),
+				},
 				{
 					label: `删除选中的 ${ids.length} 项`,
 					icon: "icon-[mdi--trash-can-outline]",
@@ -215,6 +239,11 @@ export function KnowledgeContentsPanel({
 							icon: "icon-[mdi--text-box-search-outline]",
 							onClick: () => openWiki(wikiPath),
 						},
+						{
+							label: "删除 wiki",
+							icon: "icon-[mdi--file-document-remove-outline]",
+							onClick: () => deleteWiki([node.id], `「${node.name}」`),
+						},
 					]
 				: []),
 			{
@@ -229,7 +258,7 @@ export function KnowledgeContentsPanel({
 				onClick: () => deleteIds([node.id], `「${node.name}」`),
 			},
 		];
-	}, [menu, selectedIds, deleteIds, wikiPathFor, openWiki]);
+	}, [menu, selectedIds, deleteIds, deleteWiki, wikiPathFor, openWiki]);
 
 	const onBackgroundClick = useCallback(
 		(event: React.MouseEvent) => {
