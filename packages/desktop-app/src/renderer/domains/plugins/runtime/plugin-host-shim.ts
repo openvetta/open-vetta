@@ -1,24 +1,37 @@
-import * as pluginSdk from "@vetta/plugin-sdk";
-import * as React from "react";
-import * as jsxDevRuntime from "react/jsx-dev-runtime";
-import * as jsxRuntime from "react/jsx-runtime";
+import { installViteFederationSharedCache, pluginHostShimModules } from "./plugin-shared-modules";
+
+interface ModuleFederationModuleCache {
+	share: Record<string, unknown>;
+	remote: Record<string, unknown>;
+}
 
 declare global {
 	var __VETTA_PLUGIN_HOST__:
 		| {
-				React: typeof React;
-				jsxRuntime: typeof jsxRuntime;
-				jsxDevRuntime: typeof jsxDevRuntime;
-				pluginSdk: typeof pluginSdk;
+				React: typeof pluginHostShimModules.React;
+				ReactDom: typeof pluginHostShimModules.ReactDom;
+				jsxRuntime: typeof pluginHostShimModules.jsxRuntime;
+				jsxDevRuntime: typeof pluginHostShimModules.jsxDevRuntime;
+				pluginSdk: typeof pluginHostShimModules.pluginSdk;
 		  }
 		| undefined;
+	var __mf_module_cache__: ModuleFederationModuleCache | undefined;
 }
 
 export function installPluginHostShim(): void {
 	globalThis.__VETTA_PLUGIN_HOST__ = {
-		React,
-		jsxRuntime,
-		jsxDevRuntime,
-		pluginSdk,
+		React: pluginHostShimModules.React,
+		ReactDom: pluginHostShimModules.ReactDom,
+		jsxRuntime: pluginHostShimModules.jsxRuntime,
+		jsxDevRuntime: pluginHostShimModules.jsxDevRuntime,
+		pluginSdk: pluginHostShimModules.pluginSdk,
 	};
+
+	if (!globalThis.__mf_module_cache__) {
+		globalThis.__mf_module_cache__ = { share: {}, remote: {} };
+	}
+	const moduleCache = globalThis.__mf_module_cache__;
+	moduleCache.share ??= {};
+	moduleCache.remote ??= {};
+	installViteFederationSharedCache(moduleCache.share);
 }

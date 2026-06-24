@@ -1,5 +1,6 @@
 import type { PluginAudioMetadata, PluginPreviewFile } from "@vetta/plugin-sdk";
 import { Slider } from "@vetta/ui";
+import { motion } from "motion/react";
 import type { JSX } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn, formatTime, versionedUrl } from "./utils";
@@ -158,16 +159,18 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 		}
 	}, [ensureAnalyser]);
 
-	const handleSeek = useCallback((next: number) => {
+	const handleSeek = useCallback((values: number[]) => {
 		const audio = audioRef.current;
-		if (!audio) return;
+		const next = values[0];
+		if (!audio || next === undefined) return;
 		audio.currentTime = next;
 		setCurrentTime(next);
 	}, []);
 
-	const handleVolume = useCallback((next: number) => {
+	const handleVolume = useCallback((values: number[]) => {
 		const audio = audioRef.current;
-		if (!audio) return;
+		const next = values[0];
+		if (!audio || next === undefined) return;
 		audio.volume = next;
 		audio.muted = false;
 		setVolume(next);
@@ -203,8 +206,8 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 
 	if (failed || !src) {
 		return (
-			<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-[var(--muted-foreground)]">
-				<div className="text-[40px]">♪</div>
+			<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground/50">
+				<span className="icon-[mdi--music-note-off] text-[40px]" />
 				<span className="text-[13px]">无法播放此音频</span>
 			</div>
 		);
@@ -253,8 +256,8 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 							className="h-24 w-24 rounded-full object-cover ring-2 ring-black/70"
 						/>
 					) : (
-						<div className="flex h-24 w-24 items-center justify-center rounded-full bg-[var(--primary)] px-3 ring-2 ring-black/70">
-							<span className="line-clamp-2 break-all text-center text-[10px] font-medium leading-tight text-[var(--primary-foreground)]">
+						<div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/90 px-3 ring-2 ring-black/70">
+							<span className="line-clamp-2 break-all text-center text-[10px] font-medium leading-tight text-primary-foreground/90">
 								{file.name}
 							</span>
 						</div>
@@ -262,50 +265,54 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 					<div className="absolute h-2.5 w-2.5 rounded-full bg-neutral-300 shadow-inner ring-1 ring-black/50" />
 				</div>
 
-				<div
-					className="pointer-events-none absolute -right-3 -top-1 origin-[50%_10px] transition-transform duration-500"
-					style={{ transform: `rotate(${playing ? 28 : 0}deg)` }}
+				<motion.div
+					className="pointer-events-none absolute -right-3 -top-1 origin-[50%_10px]"
+					initial={false}
+					animate={{ rotate: playing ? 28 : 0 }}
+					transition={{ type: "spring", stiffness: 90, damping: 14 }}
 				>
 					<div className="mx-auto h-5 w-5 rounded-full bg-neutral-400 shadow ring-1 ring-black/30 dark:bg-neutral-600" />
 					<div className="mx-auto h-20 w-1 rounded-full bg-neutral-400 dark:bg-neutral-600" />
 					<div className="mx-auto h-6 w-2 rounded-sm bg-neutral-500 shadow dark:bg-neutral-500" />
-				</div>
+				</motion.div>
 			</div>
 
 			<div className="w-full max-w-md text-center">
-				<p className="truncate text-[14px] font-semibold text-[var(--foreground)]" title={title}>
+				<p className="truncate text-[14px] font-semibold text-foreground" title={title}>
 					{title}
 				</p>
-				{meta.artist && <p className="mt-0.5 truncate text-[12px] text-[var(--muted-foreground)]">{meta.artist}</p>}
+				{meta.artist && <p className="mt-0.5 truncate text-[12px] text-muted-foreground">{meta.artist}</p>}
 			</div>
 
-			{isLocal && <canvas ref={canvasRef} className="h-9 w-full max-w-md text-[var(--primary)]" />}
+			{isLocal && <canvas ref={canvasRef} className="h-9 w-full max-w-md text-primary" />}
 
 			<div className="flex w-full max-w-md items-center gap-3">
-				<span className="shrink-0 text-[11px] tabular-nums text-[var(--muted-foreground)]">{formatTime(currentTime)}</span>
+				<span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{formatTime(currentTime)}</span>
 				<Slider
 					value={[Math.min(currentTime, duration || currentTime)]}
 					min={0}
 					max={duration > 0 ? duration : 1}
 					step={0.1}
 					disabled={duration <= 0}
-					onValueChange={(values) => {
-						const next = values[0];
-						if (next !== undefined) handleSeek(next);
-					}}
+					onValueChange={handleSeek}
 				/>
-				<span className="shrink-0 text-[11px] tabular-nums text-[var(--muted-foreground)]">{formatTime(duration)}</span>
+				<span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{formatTime(duration)}</span>
 			</div>
 
 			<div className="flex w-full max-w-md flex-wrap items-center justify-center gap-2">
-				<ControlButton label="↻" title={loop ? "关闭循环" : "循环播放"} active={loop} onClick={toggleLoop} />
+				<ControlButton
+					icon="icon-[mdi--repeat]"
+					title={loop ? "关闭循环" : "循环播放"}
+					active={loop}
+					onClick={toggleLoop}
+				/>
 				<button
 					type="button"
 					onClick={togglePlay}
 					title={playing ? "暂停" : "播放"}
-					className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-md transition-transform hover:scale-105"
+					className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105"
 				>
-					<span className="text-[18px] font-semibold">{playing ? "Ⅱ" : "▶"}</span>
+					<span className={cn(playing ? "icon-[mdi--pause]" : "icon-[mdi--play]", "h-6 w-6")} />
 				</button>
 				<button
 					type="button"
@@ -314,23 +321,24 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 					className={cn(
 						"flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums transition-colors",
 						rate !== 1
-							? "bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)]"
-							: "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+							? "bg-primary/15 text-primary"
+							: "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
 					)}
 				>
 					{rate}x
 				</button>
 				<div className="flex items-center gap-1.5">
-					<ControlButton label={muted || volume === 0 ? "Mute" : "Vol"} title={muted ? "取消静音" : "静音"} onClick={toggleMute} wide />
+					<ControlButton
+						icon={muted || volume === 0 ? "icon-[mdi--volume-off]" : "icon-[mdi--volume-high]"}
+						title={muted ? "取消静音" : "静音"}
+						onClick={toggleMute}
+					/>
 					<Slider
 						value={[muted ? 0 : volume]}
 						min={0}
 						max={1}
 						step={0.01}
-						onValueChange={(values) => {
-							const next = values[0];
-							if (next !== undefined) handleVolume(next);
-						}}
+						onValueChange={handleVolume}
 						className="w-20"
 					/>
 				</div>
@@ -340,17 +348,15 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 }
 
 function ControlButton({
-	label,
+	icon,
 	title,
 	onClick,
 	active,
-	wide,
 }: {
-	label: string;
+	icon: string;
 	title: string;
 	onClick: () => void;
 	active?: boolean;
-	wide?: boolean;
 }): JSX.Element {
 	return (
 		<button
@@ -358,14 +364,11 @@ function ControlButton({
 			onClick={onClick}
 			title={title}
 			className={cn(
-				"flex h-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors",
-				wide ? "min-w-8 px-1.5" : "w-8",
-				active
-					? "bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] text-[var(--primary)]"
-					: "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+				"flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
+				active ? "bg-primary/15 text-primary" : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
 			)}
 		>
-			{label}
+			<span className={cn(icon, "h-4.5 w-4.5")} />
 		</button>
 	);
 }
