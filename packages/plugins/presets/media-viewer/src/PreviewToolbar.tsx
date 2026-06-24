@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 
 // 底部居中浮动的胶囊控制栏：半透明 + 毛玻璃，宽度自适应内容，固定不可拖拽
 export function PreviewToolbar({ children }: { children: ReactNode }): JSX.Element {

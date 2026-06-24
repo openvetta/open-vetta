@@ -29,6 +29,7 @@ export function Slider({
 }: SliderProps): JSX.Element {
 	const [internalValue, setInternalValue] = useState(() => defaultValue?.[0] ?? value?.[0] ?? min);
 	const [dragging, setDragging] = useState(false);
+	const [focused, setFocused] = useState(false);
 	const draggingRef = useRef(false);
 	const current = value?.[0] ?? internalValue;
 	const percent = useMemo(() => {
@@ -88,22 +89,22 @@ export function Slider({
 		>
 			<div
 				data-slot="slider-track"
-				className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full"
-				style={{ backgroundColor: "color-mix(in srgb, var(--muted-foreground) 22%, transparent)" }}
+				className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-muted"
 			>
 				<div
 					data-slot="slider-range"
-					className="absolute h-full"
-					style={{ left: 0, width: `${percent}%`, backgroundColor: "var(--primary)" }}
+					className="absolute h-full bg-primary"
+					style={{ left: 0, width: `${percent}%` }}
 				/>
 			</div>
 			<div
 				data-slot="slider-thumb"
 				className={cn(
-					"pointer-events-none absolute top-1/2 block w-1 shrink-0 rounded-full outline-none ring-2 ring-[var(--background)] transition-[box-shadow,height] before:absolute before:-inset-x-2 before:inset-y-0 before:content-['']",
+					"pointer-events-none absolute top-1/2 block w-1 shrink-0 rounded-full bg-primary outline-none ring-2 ring-background transition-[box-shadow,height] before:absolute before:-inset-x-2 before:inset-y-0 before:content-['']",
 					dragging ? "h-5 ring-4" : "h-4",
+					focused && !dragging ? "ring-[3px]" : undefined,
 				)}
-				style={{ left: `${percent}%`, transform: "translate(-50%, -50%)", backgroundColor: "var(--primary)" }}
+				style={{ left: `${percent}%`, transform: "translate(-50%, -50%)" }}
 			/>
 			<input
 				type="range"
@@ -115,7 +116,9 @@ export function Slider({
 				aria-label={ariaLabel}
 				onChange={(event) => changeValue(Number(event.currentTarget.value))}
 				onPointerUp={(event) => onValueCommit?.([Number(event.currentTarget.value)])}
-				className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+				onFocus={() => setFocused(true)}
+				onBlur={() => setFocused(false)}
+				className="absolute inset-0 h-full w-full cursor-grab opacity-0 active:cursor-grabbing disabled:cursor-not-allowed"
 			/>
 		</div>
 	);

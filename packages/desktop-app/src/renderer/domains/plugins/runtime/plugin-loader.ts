@@ -30,18 +30,15 @@ import type {
 	PluginSettingsApi,
 	PluginToolCallSlotContribution,
 } from "@vetta/plugin-sdk";
-import * as pluginSdk from "@vetta/plugin-sdk";
 import { getDefaultStore } from "jotai";
 import type { ComponentType } from "react";
-import * as React from "react";
-import * as jsxRuntime from "react/jsx-runtime";
-import * as ReactDom from "react-dom";
 import { router } from "../../../router";
 import {
 	pluginHostBridge,
 	registerPluginAgentToolHandler,
 	registerPluginContinuationHandler,
 } from "./plugin-host-bridge";
+import { createPluginRuntimeShared } from "./plugin-shared-modules";
 
 export interface LoadedPlugin {
 	id: string;
@@ -97,40 +94,7 @@ function getModuleFederationHost(): ModuleFederation {
 	moduleFederationHost ??= createInstance({
 		name: "vetta_plugin_host",
 		remotes: [],
-		shared: {
-			"@vetta/plugin-sdk": {
-				version: "1.0.0",
-				lib: () => pluginSdk,
-				shareConfig: {
-					singleton: true,
-					requiredVersion: false,
-				},
-			},
-			react: {
-				version: React.version,
-				lib: () => React,
-				shareConfig: {
-					singleton: true,
-					requiredVersion: false,
-				},
-			},
-			"react-dom": {
-				version: ReactDom.version,
-				lib: () => ReactDom,
-				shareConfig: {
-					singleton: true,
-					requiredVersion: false,
-				},
-			},
-			"react/jsx-runtime": {
-				version: React.version,
-				lib: () => jsxRuntime,
-				shareConfig: {
-					singleton: true,
-					requiredVersion: false,
-				},
-			},
-		},
+		shared: createPluginRuntimeShared(),
 		shareStrategy: "loaded-first",
 	});
 	return moduleFederationHost;
