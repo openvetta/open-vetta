@@ -18,6 +18,7 @@ import {
 loadBuildEnv();
 
 const desktopAppDir = join(import.meta.dirname, "..");
+const monorepoPackagesDir = join(desktopAppDir, "..");
 const pluginWorkspaceDir = dirname(presetsDir);
 const cachePath = join(desktopAppDir, ".desktop-dev", "preset-build-cache.json");
 const ignoredDirectoryNames = new Set(["dist", "node_modules", "release"]);
@@ -71,10 +72,57 @@ async function hashFiles(paths) {
 	return hash.digest("hex");
 }
 
-async function hashPlugin(name, toolingHash) {
+async function readJson(path) {
+	return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function discoverSiblingWorkspacePackages() {
+	const packages = new Map();
+	const entries = await readdir(monorepoPackagesDir, { withFileTypes: true });
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+		const packageDir = join(monorepoPackagesDir, entry.name);
+		const packageJsonPath = join(packageDir, "package.json");
+		if (!existsSync(packageJsonPath)) continue;
+		const packageJson = await readJson(packageJsonPath);
+		if (typeof packageJson.name === "string") {
+			packages.set(packageJson.name, packageDir);
+		}
+	}
+	return packages;
+}
+
+function workspaceDependencyNames(packageJson) {
+	const sections = [
+		packageJson.dependencies,
+		packageJson.devDependencies,
+		packageJson.peerDependencies,
+		packageJson.optionalDependencies,
+	];
+	const names = [];
+	for (const section of sections) {
+		if (section === null || typeof section !== "object") continue;
+		for (const [dependencyName, specifier] of Object.entries(section)) {
+			if (typeof specifier === "string" && specifier.startsWith("workspace:")) {
+				names.push(dependencyName);
+			}
+		}
+	}
+	return names;
+}
+
+async function hashPlugin(name, toolingHash, siblingWorkspacePackages) {
+	const pluginDir = join(presetsDir, name);
+	const packageJson = await readJson(join(pluginDir, "package.json"));
 	const hash = createHash("sha256");
 	hash.update(toolingHash);
-	await hashDirectory(hash, join(presetsDir, name));
+	await hashDirectory(hash, pluginDir);
+	for (const dependencyName of workspaceDependencyNames(packageJson).sort()) {
+		const packageDir = siblingWorkspacePackages.get(dependencyName);
+		if (!packageDir) continue;
+		hash.update(dependencyName);
+		await hashDirectory(hash, packageDir);
+	}
 	return hash.digest("hex");
 }
 
@@ -146,11 +194,12 @@ for (const name of ["plugin-sdk", "plugin-vite"]) {
 	await hashDirectory(toolingHash, join(pluginWorkspaceDir, name, "dist"));
 }
 const sharedBuildHash = toolingHash.digest("hex");
+const siblingWorkspacePackages = await discoverSiblingWorkspacePackages();
 const nextPresetHashes = {};
 const changedEntries = [];
 
 for (const name of entries) {
-	const hash = await hashPlugin(name, sharedBuildHash);
+	const hash = await hashPlugin(name, sharedBuildHash, siblingWorkspacePackages);
 	nextPresetHashes[name] = hash;
 	const manifest = JSON.parse(await readFile(join(presetsDir, name, "plugin.json"), "utf8"));
 	const archivePath = join(presetsDir, name, "release", `${manifest.id}-${manifest.version}.zip`);

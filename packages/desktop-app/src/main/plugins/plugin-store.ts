@@ -419,7 +419,17 @@ function writeSystemPrefs(prefs: SystemPluginPrefs): void {
 /** 系统插件资源 URL：无 versions/ 段（版本随 App，文件直接在 <base>/<id>/ 下）。 */
 function toSystemPluginUrl(pluginId: string, relativePath: string, version: string): string {
 	const normalized = validateRelativePath(relativePath, "path");
-	return `vetta-plugin://${pluginId}/${normalized}?v=${encodeURIComponent(version)}`;
+	const cacheVersion = app.isPackaged ? version : getSystemPluginResourceCacheVersion(pluginId, normalized, version);
+	return `vetta-plugin://${pluginId}/${normalized}?v=${encodeURIComponent(cacheVersion)}`;
+}
+
+function getSystemPluginResourceCacheVersion(pluginId: string, relativePath: string, version: string): string {
+	try {
+		const resourcePath = join(systemPluginsBaseDir(), pluginId, relativePath);
+		return `${version}-${Math.floor(statSync(resourcePath).mtimeMs)}`;
+	} catch {
+		return version;
+	}
 }
 
 function hasGrantedPermission(plugin: InstalledPlugin, permission: PluginPermission): boolean {

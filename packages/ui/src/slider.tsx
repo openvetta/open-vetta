@@ -89,7 +89,7 @@ export function Slider({
 		>
 			<div
 				data-slot="slider-track"
-				className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-muted"
+				className="absolute left-0 right-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-muted-foreground/20"
 			>
 				<div
 					data-slot="slider-range"
