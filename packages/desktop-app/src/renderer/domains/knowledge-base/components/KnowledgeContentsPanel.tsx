@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSetAtom } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
-import { confirmDialogAtom, filePreviewAtom, refreshKnowledgeBasesAtom } from "@shared/store/atoms";
-import type { KnowledgeBase, KnowledgeNode } from "@shared/types/knowledge-base";
+import {
+	confirmDialogAtom,
+	filePreviewAtom,
+	knowledgeFileStatusesAtom,
+	refreshKnowledgeBasesAtom,
+} from "@shared/store/atoms";
+import type {
+	KnowledgeBase,
+	KnowledgeNode,
+	KnowledgeProcessStatus,
+} from "@shared/types/knowledge-base";
 import { cn } from "@shared/lib/utils";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
 import { KnowledgeGrid } from "./KnowledgeGrid";
@@ -36,6 +45,31 @@ export function KnowledgeContentsPanel({
 	const confirm = useSetAtom(confirmDialogAtom);
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
 	const openPreview = useSetAtom(filePreviewAtom);
+	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
+
+	// 文件加工态：key 为 source_path（`${kbId}/${node.id}`）。目录无加工态返回 null。
+	const statusFor = useCallback(
+		(node: KnowledgeNode): KnowledgeProcessStatus | null => {
+			if (node.type !== "file") return null;
+			return fileStatuses[`${knowledgeBase.id}/${node.id}`]?.status ?? "unprocessed";
+		},
+		[fileStatuses, knowledgeBase.id],
+	);
+
+	// 加工产物 wiki md 的绝对路径（无则未加工，不提供「查看 wiki」）。
+	const wikiPathFor = useCallback(
+		(node: KnowledgeNode): string | undefined =>
+			node.type === "file" ? fileStatuses[`${knowledgeBase.id}/${node.id}`]?.wikiPath : undefined,
+		[fileStatuses, knowledgeBase.id],
+	);
+
+	const openWiki = useCallback(
+		(wikiPath: string) => {
+			const name = wikiPath.split(/[/\\]/).pop() ?? "wiki.md";
+			openPreview({ items: [{ name, path: wikiPath }], index: 0 });
+		},
+		[openPreview],
+	);
 
 	const clearSelection = useCallback(() => {
 		setSelectedIds(new Set());
@@ -169,7 +203,17 @@ export function KnowledgeContentsPanel({
 			];
 		}
 		const node = menu.node;
+		const wikiPath = wikiPathFor(node);
 		return [
+			...(wikiPath
+				? [
+						{
+							label: "查看 wiki",
+							icon: "icon-[mdi--text-box-search-outline]",
+							onClick: () => openWiki(wikiPath),
+						},
+					]
+				: []),
 			{
 				label: "重命名",
 				icon: "icon-[mdi--rename-outline]",
@@ -182,7 +226,7 @@ export function KnowledgeContentsPanel({
 				onClick: () => deleteIds([node.id], `「${node.name}」`),
 			},
 		];
-	}, [menu, selectedIds, deleteIds]);
+	}, [menu, selectedIds, deleteIds, wikiPathFor, openWiki]);
 
 	const onBackgroundClick = useCallback(
 		(event: React.MouseEvent) => {
@@ -258,6 +302,7 @@ export function KnowledgeContentsPanel({
 						nodes={visibleNodes}
 						searching={query.length > 0}
 						selectedIds={selectedIds}
+						statusFor={statusFor}
 						onItemClick={onItemClick}
 						onOpen={openNode}
 						onContextMenu={onContextMenu}

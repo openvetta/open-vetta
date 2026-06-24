@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { motion } from "motion/react";
-import type { KnowledgeNode } from "@shared/types/knowledge-base";
+import type { KnowledgeNode, KnowledgeProcessStatus } from "@shared/types/knowledge-base";
 import { getColoredFileIcon } from "@domains/file-explorer/components/fileIcons";
 import { cn } from "@shared/lib/utils";
 
@@ -9,6 +9,8 @@ interface KnowledgeGridProps {
 	nodes: KnowledgeNode[];
 	searching: boolean;
 	selectedIds: Set<string>;
+	/** 文件加工态（目录返回 null，不标记）。用于灰显与角标。 */
+	statusFor: (node: KnowledgeNode) => KnowledgeProcessStatus | null;
 	/** 单击：按修饰键做单选 / cmd 切换 / shift 区间选。 */
 	onItemClick: (node: KnowledgeNode, event: React.MouseEvent) => void;
 	/** 双击：打开（目录进入 / 文件走右侧内嵌预览）。 */
@@ -39,6 +41,7 @@ export function KnowledgeGrid({
 	nodes,
 	searching,
 	selectedIds,
+	statusFor,
 	onItemClick,
 	onOpen,
 	onContextMenu,
@@ -123,6 +126,8 @@ export function KnowledgeGrid({
 						{nodes.map((node) => {
 							const isDir = node.type === "directory";
 							const selected = selectedIds.has(node.id);
+							const status = statusFor(node);
+							const unprocessed = status === "unprocessed";
 							return (
 								<button
 									key={node.id}
@@ -140,11 +145,19 @@ export function KnowledgeGrid({
 									{/* 多色品牌图标，配色内置，勿加 text-* 颜色类 */}
 									<span
 										className={cn(
-											"flex h-[72px] w-[72px] items-center justify-center rounded-2xl transition-colors",
+											"relative flex h-[72px] w-[72px] items-center justify-center rounded-2xl transition-colors",
 											selected ? "bg-foreground/10" : "group-hover/cell:bg-foreground/[0.04]",
 										)}
 									>
-										<span className={cn(getColoredFileIcon(node.name, isDir), "h-14 w-14 shrink-0")} />
+										{/* 未加工：图标去色淡化，提示尚未被索引 */}
+										<span
+											className={cn(
+												getColoredFileIcon(node.name, isDir),
+												"h-14 w-14 shrink-0",
+												unprocessed && "opacity-40 grayscale",
+											)}
+										/>
+										{status && status !== "processed" && <StatusBadge status={status} />}
 									</span>
 									{/* Mac 风格：选中时每行文字各带贴合宽度的圆角块（box-decoration clone 形成阶梯形）；始终限制两行，避免选中时撑开导致宫格跳动 */}
 									<span className="line-clamp-2 w-full text-center text-[12px] leading-[1.55]">
@@ -182,6 +195,25 @@ export function KnowledgeGrid({
 				</div>
 			)}
 		</div>
+	);
+}
+
+/** 文件加工态角标：未加工（待处理）/ 待更新（源已改）。已加工不显示。 */
+function StatusBadge({ status }: { status: KnowledgeProcessStatus }): JSX.Element {
+	const config =
+		status === "stale"
+			? { icon: "icon-[mdi--sync-alert]", title: "源文件已更新，待重新加工", tone: "bg-amber-500 text-white" }
+			: { icon: "icon-[mdi--timer-sand]", title: "未加工", tone: "bg-muted-foreground/70 text-white" };
+	return (
+		<span
+			title={config.title}
+			className={cn(
+				"absolute right-0 bottom-0 flex h-4 w-4 items-center justify-center rounded-full shadow-sm ring-2 ring-background",
+				config.tone,
+			)}
+		>
+			<span className={cn(config.icon, "h-2.5 w-2.5")} />
+		</span>
 	);
 }
 

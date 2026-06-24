@@ -19,6 +19,15 @@ export interface KnowledgeBase {
 	nodes: KnowledgeNode[];
 }
 
+/** 文件加工态：已加工 / 待更新（源已改待重加工）/ 未加工。 */
+export type KnowledgeProcessStatus = "processed" | "stale" | "unprocessed";
+
+export interface KnowledgeFileStatus {
+	status: KnowledgeProcessStatus;
+	/** 加工产物 wiki md 的本地绝对路径（processed / stale 有，供「查看 wiki」预览）。 */
+	wikiPath?: string;
+}
+
 /** 待导入草稿：选中/拖入的磁盘路径，确认后平铺复制进目标库。 */
 export interface KnowledgeImportDraft {
 	/** 待导入的磁盘绝对路径。createOnly 时为空。 */
