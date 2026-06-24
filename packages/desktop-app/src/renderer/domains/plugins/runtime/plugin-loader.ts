@@ -385,6 +385,7 @@ function createContext(
 			label: contribution.label,
 			icon: contribution.icon,
 			defaultActive: contribution.defaultActive,
+			requiresActiveTool: contribution.requiresActiveTool,
 			onToggle: contribution.onToggle,
 			decoratePrompt: contribution.decoratePrompt,
 		};

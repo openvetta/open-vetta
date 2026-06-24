@@ -3,11 +3,27 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback } from "react";
 import {
 	activeInputActionIdsAtom,
+	activeToolNamesAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeRetrievalActiveAtom,
 	pluginInputActionsAtom,
 } from "@shared/store/atoms";
+import type { RegisteredInputAction } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
+
+/** 知识检索 badge 对应的工具：任一激活即视为知识库可用。 */
+const KNOWLEDGE_TOOLS = ["kb_filter_by_tags", "kb_list_available_tags"];
+
+/**
+ * badge 是否随其对应工具的 scope 显示。activeTools 为 null（未知：新建会话页 / 尚未加载）时
+ * 回退显示；已知则按工具是否在激活集内决定。单一真相源，避免「显示了但工具被场景屏蔽」。
+ */
+function knowledgeVisible(activeTools: Set<string> | null): boolean {
+	return activeTools === null || KNOWLEDGE_TOOLS.some((t) => activeTools.has(t));
+}
+function actionVisible(action: RegisteredInputAction, activeTools: Set<string> | null): boolean {
+	return activeTools === null || !action.requiresActiveTool || activeTools.has(action.requiresActiveTool);
+}
 
 /**
  * Plugin input-action toggles, shown as a borderless row seated on the recessed
@@ -17,10 +33,14 @@ import { cn } from "@shared/lib/utils";
  * from ActionButtonBar.
  */
 export function InputActionBar(): JSX.Element | null {
-	const actions = useAtomValue(pluginInputActionsAtom);
+	const allActions = useAtomValue(pluginInputActionsAtom);
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
 	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
+	const activeTools = useAtomValue(activeToolNamesAtom);
+	// badge 跟随工具 scope：仅显示其对应工具在本会话激活的 badge。
+	const showKnowledge = knowledgeBaseEnabled && knowledgeVisible(activeTools);
+	const actions = allActions.filter((a) => actionVisible(a, activeTools));
 
 	const toggle = useCallback(
 		(actionId: string, onToggle: ((active: boolean) => boolean | void) | undefined) => {
@@ -39,7 +59,7 @@ export function InputActionBar(): JSX.Element | null {
 		[activeIds, setActiveIds],
 	);
 
-	if (!knowledgeBaseEnabled && actions.length === 0) return null;
+	if (!showKnowledge && actions.length === 0) return null;
 
 	return (
 		<motion.div
@@ -51,7 +71,7 @@ export function InputActionBar(): JSX.Element | null {
 			className="input-ledge relative z-0 -mt-[18px] mx-3 flex flex-wrap gap-0.5 rounded-b-[14px] px-3 pb-1 pt-[22px]"
 		>
 			<AnimatePresence initial={false}>
-				{knowledgeBaseEnabled && (
+				{showKnowledge && (
 				<motion.button
 					key="__builtin_knowledge_retrieval__"
 					type="button"
@@ -126,6 +146,8 @@ export function ActiveInputActionChips(): JSX.Element | null {
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
 	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
+	const activeTools = useAtomValue(activeToolNamesAtom);
+	const showKnowledge = knowledgeBaseEnabled && knowledgeVisible(activeTools);
 
 	const deactivate = useCallback(
 		(actionId: string, onToggle: ((active: boolean) => void) | undefined) => {
@@ -139,11 +161,11 @@ export function ActiveInputActionChips(): JSX.Element | null {
 		[setActiveIds],
 	);
 
-	const activeActions = actions.filter((a) => activeIds.has(a.actionId));
+	const activeActions = actions.filter((a) => activeIds.has(a.actionId) && actionVisible(a, activeTools));
 
 	return (
 		<AnimatePresence initial={false}>
-			{knowledgeActive && knowledgeBaseEnabled && (
+			{knowledgeActive && showKnowledge && (
 				<motion.button
 					key="__builtin_knowledge_retrieval__"
 					type="button"

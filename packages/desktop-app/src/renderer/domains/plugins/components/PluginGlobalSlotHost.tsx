@@ -155,6 +155,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				label: action.label,
 				icon: action.icon,
 				defaultActive: action.defaultActive,
+				requiresActiveTool: action.requiresActiveTool,
 				onToggle: action.onToggle,
 				decoratePrompt: action.decoratePrompt,
 			})),

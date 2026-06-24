@@ -175,6 +175,12 @@ export interface PluginInputActionContribution {
 	/** Whether the action begins in the active state. Defaults to false. */
 	defaultActive?: boolean;
 	/**
+	 * 该输入动作所依赖的 agent 工具名。设置后，仅当该工具在当前会话处于激活（按工具的
+	 * scope_use 解析）时才显示这个 badge——避免在工具被场景屏蔽（如批量任务）时仍显示一个
+	 * 点了也无效的开关。不设则始终显示。例如「图像生成」设为 "generate_image"。
+	 */
+	requiresActiveTool?: string;
+	/**
 	 * Fired when the user toggles the action; `active` is the new state. Return
 	 * `false` when `active` is true to VETO the activation (e.g. the plugin needs
 	 * configuration first) — the toggle stays off. Deactivation can't be vetoed.

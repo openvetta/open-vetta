@@ -820,6 +820,7 @@ export class RuntimeHost implements SessionFacade {
 			messageCount: handle.session.messages.length,
 			contextPercent: contextUsage?.percent ?? null,
 			contextWindow: contextUsage?.contextWindow ?? 0,
+			activeToolNames: handle.session.getActiveToolNames(),
 		};
 	}
 

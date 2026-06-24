@@ -48,6 +48,8 @@ export interface RegisteredInputAction {
 	label: string;
 	icon?: PluginInputActionContribution["icon"];
 	defaultActive?: boolean;
+	/** 依赖的 agent 工具名；仅当其在当前会话激活时显示该 badge（见契约）。 */
+	requiresActiveTool?: PluginInputActionContribution["requiresActiveTool"];
 	onToggle?: PluginInputActionContribution["onToggle"];
 	decoratePrompt?: PluginInputActionContribution["decoratePrompt"];
 }
@@ -71,6 +73,13 @@ export const knowledgeRetrievalActiveAtom = atom<boolean>(false);
  * 由 useAppInit 启动同步、设置页保存时更新。
  */
 export const knowledgeBaseEnabledAtom = atom<boolean>(true);
+
+/**
+ * 当前会话「激活（模型可见）的工具名集合」，由 useSessionManager 在打开会话时从
+ * getState 的快照写入。`null` = 未知（新建会话页 / 尚未加载）→ 输入栏 badge 回退显示。
+ * 非 null 时 badge 按其对应工具是否在集合内决定显示，跟随工具的 scope_use，消除双真相源漂移。
+ */
+export const activeToolNamesAtom = atom<Set<string> | null>(null);
 
 /** A card renderer registered by a loaded plugin, keyed by `type`. */
 export interface RegisteredCardRenderer {
