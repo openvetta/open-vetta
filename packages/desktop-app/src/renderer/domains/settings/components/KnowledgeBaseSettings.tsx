@@ -22,6 +22,9 @@ import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
 
 const POLL_INTERVALS = [3, 5, 10, 30];
+/** 0 = 永不自动加工（仅停后台轮询，仍可手动整理）。 */
+const NEVER_INTERVAL = 0;
+const AGENT_CONCURRENCY_OPTIONS = [1, 2, 3, 4, 6, 8];
 
 interface ModelOption {
 	key: string;
@@ -37,6 +40,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const [enabled, setEnabled] = useState(true);
 	const [interval, setIntervalMinutes] = useState(5);
+	const [agentConcurrency, setAgentConcurrency] = useState(3);
 	const [modelKey, setModelKey] = useState<string>("");
 	const [localModels, setLocalModels] = useState<ModelOption[]>([]);
 	const [busy, setBusy] = useState<"scan" | null>(null);
@@ -52,6 +56,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			const kb = config.knowledgeBase;
 			setEnabled(kb?.enabled !== false);
 			setIntervalMinutes(kb?.pollIntervalMinutes ?? 5);
+			setAgentConcurrency(kb?.agentConcurrency ?? 3);
 			setModelKey(kb?.processingModelKey ?? "");
 		});
 		void window.vetta.models.get().then((cfg) => {
@@ -91,7 +96,12 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	}, [localModels, remoteProviders]);
 
 	const persist = useCallback(
-		async (patch: { enabled?: boolean; pollIntervalMinutes?: number; processingModelKey?: string }) => {
+		async (patch: {
+			enabled?: boolean;
+			pollIntervalMinutes?: number;
+			processingModelKey?: string;
+			agentConcurrency?: number;
+		}) => {
 			await window.vetta.config.set({ knowledgeBase: patch });
 			await window.vetta.knowledge.reload();
 		},
@@ -113,6 +123,15 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			const minutes = Number(value);
 			setIntervalMinutes(minutes);
 			void persist({ pollIntervalMinutes: minutes });
+		},
+		[persist],
+	);
+
+	const handleAgentConcurrency = useCallback(
+		(value: string) => {
+			const n = Number(value);
+			setAgentConcurrency(n);
+			void persist({ agentConcurrency: n });
 		},
 		[persist],
 	);
@@ -194,7 +213,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 				<SettingRow title="开启知识库" description="关闭后 AI 不再使用知识库，也会停止整理资料。">
 					<Switch checked={enabled} onCheckedChange={handleToggle} />
 				</SettingRow>
-				<SettingRow title="多久整理一次" description="放进去的新资料，隔多久自动整理一次。">
+				<SettingRow title="多久整理一次" description="放进去的新资料，隔多久自动整理一次。选「永不自动整理」则只在你点「马上整理」时整理。">
 					<Select value={String(interval)} onValueChange={handleInterval} disabled={!enabled}>
 						<SelectTrigger className="h-7 min-w-[120px] px-2 py-1 text-[12px]">
 							<SelectValue />
@@ -203,6 +222,23 @@ export function KnowledgeBaseSettings(): JSX.Element {
 							{POLL_INTERVALS.map((m) => (
 								<SelectItem key={m} value={String(m)} className="text-[12px]">
 									每 {m} 分钟
+								</SelectItem>
+							))}
+							<SelectItem value={String(NEVER_INTERVAL)} className="text-[12px]">
+								永不自动整理
+							</SelectItem>
+						</SelectContent>
+					</Select>
+				</SettingRow>
+				<SettingRow title="同时整理几批" description="文件多时同时开几个 AI 会话并行整理，越大越快但越占用模型额度。">
+					<Select value={String(agentConcurrency)} onValueChange={handleAgentConcurrency} disabled={!enabled}>
+						<SelectTrigger className="h-7 min-w-[120px] px-2 py-1 text-[12px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{AGENT_CONCURRENCY_OPTIONS.map((n) => (
+								<SelectItem key={n} value={String(n)} className="text-[12px]">
+									{n} 个
 								</SelectItem>
 							))}
 						</SelectContent>

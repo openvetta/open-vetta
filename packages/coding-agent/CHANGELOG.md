@@ -6,6 +6,8 @@
 
 ### Changed
 
+- **本地 OCR 全局并发闸**：`extract_text_from_pdf` / `extract_text_from_img` 的 Vetta OCR 子进程调用统一经模块级共享限制器（`src/core/tools/ocr-concurrency.ts`）限流，避免多并发 agent 会话各起独立 OCR 进程争抢 CPU。并发上限读环境变量 `VETTA_KB_OCR_CONCURRENCY`（缺省 1，惰性初始化）。`render_pdf_page`（poppler `pdftoppm`，非 Vetta OCR）不在闸内。拿到额度后 spawn 前再查一次 abort，不空占额度。
+- **`KB_PROCESSING_GUIDE` 重写（忠实转写铁律 + 锁定待办工作流）**：① 头号铁律——wiki 正文必须是原文的**完整忠实转写**，明确禁止精简/摘要/省略/改写实质内容，只允许形式转换（格式→规整 markdown、补层级、清 OCR 噪声、还原表格），信息量不得减少；唯一允许的摘要是 frontmatter 的 `summary`（一句话导航）。修复 agent 把原文「总结/精简」成 wiki 导致信息丢失的问题。② 锁定待办工作流——指导 agent 先 `todo(list)` 看预填待办，严格按序 `in_progress → 加工 → done` 逐个处理、不跳不乱不新建、全部完成才结束。③ 保留「对任何文件尽力解析、绝不静默跳过」一条。GUIDE 经 `appendSystemPrompt` 注入，仅知识库加工 session 生效，且在系统提示词中不受上下文压缩影响。
 - 插件工具（`agent-plugins.toolContributions`）的 handler 返回值若含 `cards` 数组，`createPluginTool` 会把它**提升**到工具结果的 `details.cards`（消息卡片 settled 数据源，模型不可见），并从模型可见的结果文本中**剔除**——使插件无需协同内置工具即可在消息下方渲染卡片（见 ADR-0030）。无 `cards` 的返回值行为不变。
 - `generate_image` / `edit_image` 工具的结果 `details` 新增 `cards`（卡片描述符 `{ type:"image-gen:preview", key:rootId, payload:{images} }`，模型永不可见），作为桌面端「消息卡片」体系（ADR-0030）的卡片数据源；`GenerateImageToolDetails` 随之新增 `cards` 字段。原 `<vetta-images>` 结果文本 marker 保留，但仅作模型引用图像 id 的通道，不再是卡片数据源。
 - `edit_image` 工具支持以本地图片文件作源图：`sourceImageId`（Vetta 已生成图像）改为可选，新增可选 `sourceImagePath`（本地图片文件绝对路径，如用户上传/附加并以 @路径 引用的图片），二者择一。`ImageToolBackend.edit` 入参同步放宽。修复用户上传图片要求「改图」时因没有生成记录 id 而退回 `generate_image` 凭空重画、丢失原图的问题（描述里也明确：要修改某张已有图片时优先用 edit_image 而非 generate_image）。
@@ -19,6 +21,7 @@
 
 ### Added
 
+- **知识库分批加工基础设施**：新增 `createLimiter`（最小并发信号量，无依赖，`src/core/concurrency-limit.ts`，经包根导出）；`knowledge.createKbWriteSession`（轮级共享写页会话——轮始扫一次 `wiki/` 建内存 PageIndex，之后每次写页只对内存决策 + 增量更新，并用 max=1 限制器把「决策→写盘→更新索引」串成原子段，消除「每写一页全量 `scanWikiPages`」的 O(N²) 并保证多并发会话写页互斥安全）；`knowledge.planProcessingBatches`（把一轮 added/changed 按 `source_path` 聚簇 + 文件数/字节双预算切成多个子 `RawsDiff`，纯上下文边界，续跑靠 hash-diff 无需游标）。`createKbWritePageTool(root?, session?)` 新增可选 `session` 参数：传入则走共享会话，省略保持原「每次现扫」行为（加工轮外通用 session / UI 用）。`RawFile` 新增 `size` 字段（扫描算 hash 时顺手取得）。
 - 新增插件 continuation provider 运行时：Todo 自动续跑优先，随后按稳定顺序调用插件策略；支持超时、会话级幂等键去重、异常隔离和单次 Agent run 最多 8 次续跑保护。
 - **LLM Wiki 知识库核心（`src/core/knowledge/`）**：在 `~/.vetta/knowledges/` 下以约定式布局把 `raws/<source>/` 原始文件加工成带封闭 frontmatter 的 `wiki/**/*.md`（raw↔wiki 1:1，wiki 树由 LLM 按语义自由组织），frontmatter 为唯一真相源、`tags.json`/`manifest.json` 为可重建缓存。提供纯逻辑深模块 `diffRaws`（增/删/移动/内容变更四态判定，移动靠内容 hash、变更靠路径解析旧 id）、`planOrphans`（孤儿 n+1 回收规划）、`filterByTags`（交/并/补集合运算）、`resolveUpsert`（按 id/source_hash upsert，保留稳定 id 与 created_at）、`rebuildManifest`/`rebuildTagsIndex`（据 frontmatter 重建缓存），以及 IO 层 `store`、写入编排 `writeKnowledgePage`、检索 `queryByTags`、摄入编排 `prepareRound`/`finalizeRound`。新增两个内置工具：`kb_write_page`（唯一写页入口，守封闭 10 字段 schema、分配稳定 id、自动刷新缓存）与 `filter_by_tags`（标签检索捷径，已加入常驻激活工具）。`getKnowledgeDir()` 解析 `~/.vetta/knowledges`。配套 42 个单测/集成测试。
 - 新增插件工具 shell 基座：`CreateAgentSessionOptions.agentPlugins.toolContributions` 可把宿主聚合的插件工具注册成 LLM 可见工具，执行时通过 `invokePluginTool` 回调委托给宿主，不直接加载插件 JS。插件工具 description 现在也会进入系统提示词的 `Available tools`，避免工具实际注册但模型看不到说明。

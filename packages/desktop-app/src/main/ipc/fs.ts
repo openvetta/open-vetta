@@ -53,6 +53,10 @@ export interface KnowledgeBaseConfig {
 	pollIntervalMinutes?: number;
 	/** 加工会话使用的模型 key（provider/modelId）。缺省跟随默认模型。 */
 	processingModelKey?: string;
+	/** 并发加工会话数（网络/LLM 限流）。缺省 3。 */
+	agentConcurrency?: number;
+	/** 并发本地 OCR 子进程数（CPU 限流）。缺省 1（受 desktop 共享 OCR profile 制约）。 */
+	ocrConcurrency?: number;
 }
 
 export interface LinuxSandboxConfigState {
@@ -132,10 +136,15 @@ function normalizeKnowledgeBase(value: unknown): KnowledgeBaseConfig {
 	}
 	const v = value as Record<string, unknown>;
 	const interval = typeof v.pollIntervalMinutes === "number" ? v.pollIntervalMinutes : 5;
+	const clampInt = (x: unknown, fallback: number, min: number): number =>
+		typeof x === "number" && Number.isFinite(x) && x >= min ? Math.floor(x) : fallback;
 	return {
 		enabled: v.enabled !== false,
-		pollIntervalMinutes: KB_POLL_INTERVALS.includes(interval) ? interval : 5,
+		// 0 = 永不自动加工（仅停后台轮询，知识库本身仍启用、可手动整理）。
+		pollIntervalMinutes: interval === 0 || KB_POLL_INTERVALS.includes(interval) ? interval : 5,
 		processingModelKey: typeof v.processingModelKey === "string" ? v.processingModelKey : undefined,
+		agentConcurrency: clampInt(v.agentConcurrency, 3, 1),
+		ocrConcurrency: clampInt(v.ocrConcurrency, 1, 1),
 	};
 }
 

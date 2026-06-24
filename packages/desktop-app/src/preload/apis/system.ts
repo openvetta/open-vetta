@@ -144,6 +144,7 @@ export function createSystemApi(
 			rename: (oldName, newName) => ipc.invoke("vetta:kb:rename", oldName, newName),
 			isProcessing: () => ipc.invoke("vetta:kb:is-processing"),
 			onProcessingChanged: (handler) => onIpcEvent(ipc, "vetta:kb:processing-changed", handler),
+			onStatusesChanged: (handler) => onIpcEvent(ipc, "vetta:kb:statuses-changed", handler),
 		},
 		models: {
 			get: () => ipc.invoke("vetta:models:get"),

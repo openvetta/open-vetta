@@ -55,4 +55,6 @@ export interface DesktopKnowledgeApi {
 	isProcessing(): Promise<boolean>;
 	/** 订阅加工状态变化（顶栏「正在建立索引…」徽标）。返回取消订阅函数。 */
 	onProcessingChanged(handler: (processing: boolean) => void): () => void;
+	/** 订阅文件加工态变化（每批加工完重建索引后触发）。渲染层据此重取文件列表状态。返回取消订阅函数。 */
+	onStatusesChanged(handler: () => void): () => void;
 }

@@ -12,7 +12,7 @@ const emptyDiff = (): RawsDiff => ({ added: [], moved: [], changed: [], deleted:
 
 const added = (over: Partial<RawFile> = {}): AddedChange => ({
 	type: "added",
-	raw: { source: "g", source_path: "g/a.md", source_hash: "h1", ...over },
+	raw: { source: "g", source_path: "g/a.md", source_hash: "h1", size: 0, ...over },
 });
 
 const changed = (id: string): ChangedChange => ({

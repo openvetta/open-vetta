@@ -55,6 +55,8 @@ export {
 	serializeConversation,
 	shouldCompact,
 } from "./core/compaction/index.js";
+// Concurrency limiter (shared by OCR throttle, kb write mutex, KB processing session pool)
+export { createLimiter, type Limiter } from "./core/concurrency-limit.js";
 export { createEventBus, type EventBus, type EventBusController } from "./core/event-bus.js";
 // Extension system
 export type {

@@ -20,6 +20,7 @@ import {
 	createKbFilterByTagsTool,
 	createKbListTagsTool,
 	createKbWritePageTool,
+	createLimiter,
 	knowledge,
 	SessionManager,
 } from "@vetta/coding-agent";
@@ -31,17 +32,48 @@ import { beginRound, endRound, unlockRaws } from "./raws-lock.js";
 
 /** 加工中状态：广播给渲染层（顶栏「正在建立索引…」徽标）。 */
 export const KB_PROCESSING_CHANGED_CHANNEL = "vetta:kb:processing-changed";
+/** 文件加工态可能已变（每批加工完缓存重建后）：渲染层据此重取文件列表状态。 */
+export const KB_STATUSES_CHANGED_CHANNEL = "vetta:kb:statuses-changed";
 let processing = false;
 
 export function isKnowledgeProcessing(): boolean {
 	return processing;
 }
 
+function broadcast(channel: string, payload?: unknown): void {
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (!win.isDestroyed()) win.webContents.send(channel, payload);
+	}
+}
+
 function setProcessing(next: boolean): void {
 	if (processing === next) return;
 	processing = next;
-	for (const win of BrowserWindow.getAllWindows()) {
-		if (!win.isDestroyed()) win.webContents.send(KB_PROCESSING_CHANGED_CHANNEL, next);
+	broadcast(KB_PROCESSING_CHANGED_CHANNEL, next);
+}
+
+// 每批加工完触发的「重建索引 + 广播状态变更」。合并去重：重建进行中再来的请求只置标志，
+// 当前重建结束后若有挂起再补跑一次——把同时完成的多个批的请求收敛成最多一次额外重建，
+// 串行执行避免并发批同时写 manifest.json 竞态。仅在加工轮内调用（同一时刻只跑一轮）。
+let cacheRebuildRunning = false;
+let cacheRebuildPending = false;
+
+async function refreshCachesAndNotify(root: string): Promise<void> {
+	if (cacheRebuildRunning) {
+		cacheRebuildPending = true;
+		return;
+	}
+	cacheRebuildRunning = true;
+	try {
+		do {
+			cacheRebuildPending = false;
+			await knowledge.rebuildAllCaches(root);
+			broadcast(KB_STATUSES_CHANGED_CHANNEL);
+		} while (cacheRebuildPending);
+	} catch (err) {
+		log.warn(`interim cache rebuild failed: ${err instanceof Error ? err.message : String(err)}`);
+	} finally {
+		cacheRebuildRunning = false;
 	}
 }
 
@@ -50,6 +82,11 @@ const scheduler = new ToadScheduler();
 const JOB_ID = "kb-poller";
 let scheduled = false;
 let running = false;
+
+/** 单批最多文件数（纯上下文边界）。 */
+const KB_MAX_FILES_PER_BATCH = 20;
+/** 单批最多字节数：约束一批里 OCR/大文件的总量；超此值的单文件独占一批。 */
+const KB_MAX_BYTES_PER_BATCH = 8 * 1024 * 1024;
 
 async function applyProcessingModel(session: AgentSession, modelKey: string | undefined): Promise<void> {
 	if (!modelKey) return;
@@ -82,8 +119,53 @@ function waitForCompletion(session: AgentSession, prompt: string): Promise<void>
 	});
 }
 
+/**
+ * 跑一个加工批：起一个 agent 会话处理子 diff（只含本批的 added/changed）。
+ * kb_write_page 注入轮级共享写页会话（共享 PageIndex + 串行提交），保证并发批写页安全。
+ */
+async function runProcessingBatch(
+	batch: knowledge.RawsDiff,
+	root: string,
+	tmpDir: string,
+	writeSession: knowledge.KbWriteSession,
+	modelKey: string | undefined,
+): Promise<void> {
+	const tools = [
+		...createCodingTools(KB_PROCESSING_CWD),
+		createKbWritePageTool(undefined, writeSession),
+		createKbFilterByTagsTool(),
+		createKbListTagsTool(),
+	];
+	const { session } = await createAgentSession({
+		cwd: KB_PROCESSING_CWD,
+		sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
+		tools,
+		appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
+		enableBackgroundTasks: false,
+		env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
+	});
+	// 把本批文件预填为锁定待办（一文件一项），强制 agent 逐个有序处理、逐个标记完成：
+	// 锁定后不可新建/跳过/乱序，且未全部完成不允许结束（continuation 强制）；待办作为
+	// session 快照持久化，不受上下文压缩影响——杜绝长任务里漏处理或重复处理同一文件。
+	const rawsBase = knowledge.rawsDir(root);
+	const todoItems = [
+		...batch.added.map((a) => `新建 wiki 页：${join(rawsBase, a.raw.source_path)}`),
+		...batch.changed.map((c) => `更新 wiki 页（id=${c.id}）：${join(rawsBase, c.source_path)}`),
+	];
+	if (todoItems.length > 0) {
+		session.todoStore.createMany(todoItems);
+		session.todoStore.lock("scene");
+	}
+	try {
+		await applyProcessingModel(session, modelKey);
+		await waitForCompletion(session, knowledge.buildProcessingPrompt(batch, root, tmpDir));
+	} finally {
+		session.dispose();
+	}
+}
+
 /** 跑一轮加工。返回是否因无变更而跳过。 */
-export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: boolean }> {
+export async function runKnowledgeRound(modelKey?: string, agentConcurrency = 3): Promise<{ skipped: boolean }> {
 	if (running) {
 		log.info("previous round still running, skipping this tick");
 		return { skipped: true };
@@ -118,26 +200,26 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 			// 走 beginRound/endRound（互斥），与 UI 特权写串行，UI 写仍可在轮次中穿插。
 			await beginRound(root);
 			try {
-				const tools = [
-					...createCodingTools(KB_PROCESSING_CWD),
-					createKbWritePageTool(),
-					createKbFilterByTagsTool(),
-					createKbListTagsTool(),
-				];
-				const { session } = await createAgentSession({
-					cwd: KB_PROCESSING_CWD,
-					sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
-					tools,
-					appendSystemPrompt: knowledge.KB_PROCESSING_GUIDE,
-					enableBackgroundTasks: false,
-					env: { TMPDIR: tmpDir, TEMP: tmpDir, TMP: tmpDir },
+				// 轮级共享写页会话：扫一次 wiki/ 建内存 PageIndex + 串行提交，供所有并发批共享，
+				// 既消除「每写一页全量 scan」的 O(N²)，又保证并发批写页互斥安全。
+				const writeSession = await knowledge.createKbWriteSession(root);
+				// 切批：纯上下文边界，按 source_path 聚簇 + 文件数/字节双预算。续跑靠 hash-diff，无需游标。
+				const batches = await knowledge.planProcessingBatches(prepared.diff, root, {
+					maxFilesPerBatch: KB_MAX_FILES_PER_BATCH,
+					maxBytesPerBatch: KB_MAX_BYTES_PER_BATCH,
 				});
-				try {
-					await applyProcessingModel(session, modelKey);
-					await waitForCompletion(session, knowledge.buildProcessingPrompt(prepared.diff, root, tmpDir));
-				} finally {
-					session.dispose();
-				}
+				log.info(`processing in ${batches.length} batch(es), agent concurrency=${agentConcurrency}`);
+				const limit = createLimiter(agentConcurrency);
+				await Promise.all(
+					batches.map((batch) =>
+						limit.run(async () => {
+							await runProcessingBatch(batch, root, tmpDir, writeSession, modelKey);
+							// 本批加工完即重建索引 + 广播：让侧边栏文件状态与 indexes 同步推进（每批 ~20 文件
+							// 粒度），避免「UI 显示已就绪但索引还没建」的不一致。
+							await refreshCachesAndNotify(root);
+						}),
+					),
+				);
 			} finally {
 				await endRound(root);
 				await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
@@ -146,8 +228,10 @@ export async function runKnowledgeRound(modelKey?: string): Promise<{ skipped: b
 			log.info("engineering-only round (moved/deleted/orphan reap), skipping LLM");
 		}
 
-		// 工程侧收尾：物理删除上一轮孤儿（不经 agent）+ 据 frontmatter 重建缓存。
+		// 工程侧收尾：物理删除上一轮孤儿（不经 agent）+ 据 frontmatter 重建缓存（本轮权威重建）。
 		await knowledge.finalizeRound(root, prepared.toReap);
+		// 收尾后再广播一次：反映孤儿回收/moved 等工程侧变更，让 UI 做最终对账。
+		broadcast(KB_STATUSES_CHANGED_CHANNEL);
 		log.info("processing round complete");
 		return { skipped: false };
 	} finally {
@@ -187,12 +271,21 @@ export async function reloadKnowledgePoller(): Promise<void> {
 			.rebuildAllCaches(root)
 			.catch((err) => log.warn(`self-heal rebuild failed: ${err instanceof Error ? err.message : String(err)}`));
 	}
+	// OCR 并发经环境变量传给 coding-agent 的全局 OCR 闸（惰性初始化，首次 OCR 调用时读取）。
+	// 改 ocrConcurrency 后需重启 app 才生效。手动「马上整理」也读它，故不论是否自动都先设好。
+	process.env.VETTA_KB_OCR_CONCURRENCY = String(kb.ocrConcurrency ?? 1);
 	const minutes = kb.pollIntervalMinutes ?? 5;
+	// 0/未设视作「永不自动加工」：保持知识库启用（检索工具、手动整理仍可用），仅不调度后台轮询。
+	if (minutes <= 0) {
+		log.info("knowledge auto-processing disabled (manual scan only)");
+		return;
+	}
 	const modelKey = kb.processingModelKey;
+	const agentConcurrency = kb.agentConcurrency ?? 3;
 	const task = new AsyncTask(
 		JOB_ID,
 		async () => {
-			await runKnowledgeRound(modelKey);
+			await runKnowledgeRound(modelKey, agentConcurrency);
 		},
 		(err: Error) => log.error(`knowledge round failed: ${err.message}`),
 	);

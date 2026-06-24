@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
 import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
-import { writeKnowledgePage } from "../../knowledge/writer.js";
+import { type KbWriteSession, writeKnowledgePage } from "../../knowledge/writer.js";
 import { loadToolDescription } from "../description.js";
 
 const kbWritePageSchema = Type.Object({
@@ -51,8 +51,11 @@ export interface KbWritePageDetails {
  * 知识库唯一写页入口。守封闭 frontmatter schema、分配稳定 id、按 source_hash/id
  * upsert，并刷新 tags.json / manifest.json 缓存。
  * @param root 知识库根目录，默认 ~/.vetta/knowledges。
+ * @param session 加工轮的共享写页会话。传入则走轮级共享 PageIndex + 串行提交
+ *   （避免每写一页全量 scan 的 O(N²)，并保证多并发批之间写页互斥安全）；
+ *   省略则每次现扫一次（加工轮外的通用 session / UI 用）。
  */
-export function createKbWritePageTool(root?: string): AgentTool<typeof kbWritePageSchema> {
+export function createKbWritePageTool(root?: string, session?: KbWriteSession): AgentTool<typeof kbWritePageSchema> {
 	const fallbackDescription =
 		"Write (create or update) a wiki page in the knowledge base. Enforces the closed frontmatter schema, " +
 		"assigns a stable id, upserts by id or source_hash, and refreshes the tags/manifest caches.";
@@ -66,7 +69,9 @@ export function createKbWritePageTool(root?: string): AgentTool<typeof kbWritePa
 		execute: async (_toolCallId, params) => {
 			const resolvedRoot = knowledgeRoot(root);
 			const now = new Date().toISOString();
-			const result = await writeKnowledgePage(resolvedRoot, params, now);
+			const result = session
+				? await session.write(params, now)
+				: await writeKnowledgePage(resolvedRoot, params, now);
 			const absolutePath = join(wikiDir(resolvedRoot), result.path);
 			const details: KbWritePageDetails = {
 				action: result.action,
