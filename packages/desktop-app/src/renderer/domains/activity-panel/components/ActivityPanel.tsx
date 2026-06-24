@@ -77,9 +77,11 @@ export function ActivityPanel({
 	// 动态上限：占满到只给主聊天区保留 MIN_CHAT_AREA。隐藏侧边栏后聊天区仍能保有此宽度。
 	const maxWidth = activityPanelMaxWidth(windowWidth);
 
-	const setSidebarCollapsed = useSetAtom(sidebarCollapsedAtom);
+	const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom);
 	// 因面板过宽而自动折叠侧边栏时，记住折叠前的状态以便回拉时恢复。
 	const widthCollapsedSidebarRef = useRef<boolean | null>(null);
+	// 跟踪 sidebarCollapsed 上一次的值，用于识别「用户手动展开侧边栏」这一跳变。
+	const prevSidebarCollapsedRef = useRef(sidebarCollapsed);
 
 	const cwd = cwdProp ?? activeSession?.cwd ?? null;
 	const { profile } = useProjectProfile(cwd);
@@ -130,26 +132,35 @@ export function ActivityPanel({
 		setWidth((w) => Math.min(maxWidth, Math.max(MIN_WIDTH, w)));
 	}, [maxWidth, setWidth]);
 
-	// 面板过宽（聊天区将被压到 MIN_CHAT_AREA 以下）时自动折叠侧边栏，回拉到阈值内自动恢复。
-	// 文件预览把面板拉到 max 时也会触发这里，无需单独处理，侧边栏纯随宽度联动。
+	// 侧边栏 ↔ 活动面板联动，保证聊天区不被压到 MIN_CHAT_AREA 以下。两个互斥的旋钮，
+	// 以「用户最后操作的那个」为准：
+	//  - 拖宽面板越过阈值 → 自动折叠侧边栏（记住原状态，回拉到阈值内自动恢复）；
+	//  - 手动展开侧边栏而面板过宽 → 收窄面板让出空间（而不是挤压聊天区）。
+	// 文件预览把面板拉到 max 时走前一条，无需单独处理。
 	useEffect(() => {
-		const collapseThreshold = windowWidth - sidebarWidth - MIN_CHAT_AREA;
-		const shouldCollapse = isOpen && width > collapseThreshold;
+		const openLimit = Math.max(MIN_WIDTH, windowWidth - sidebarWidth - MIN_CHAT_AREA);
+		const collapsedChanged = prevSidebarCollapsedRef.current !== sidebarCollapsed;
+		prevSidebarCollapsedRef.current = sidebarCollapsed;
+
+		// 用户手动展开侧边栏，而面板过宽 → 收窄面板到阈值内（显式操作解除宽度联动）。
+		if (collapsedChanged && !sidebarCollapsed && isOpen && width > openLimit) {
+			widthCollapsedSidebarRef.current = null;
+			setWidth(openLimit);
+			return;
+		}
+
+		const shouldCollapse = isOpen && width > openLimit;
 		if (shouldCollapse) {
 			if (widthCollapsedSidebarRef.current === null) {
-				let prev = false;
-				setSidebarCollapsed((current) => {
-					prev = current;
-					return true;
-				});
-				widthCollapsedSidebarRef.current = prev;
+				widthCollapsedSidebarRef.current = sidebarCollapsed;
+				setSidebarCollapsed(true);
 			}
 		} else if (widthCollapsedSidebarRef.current !== null) {
 			const restore = widthCollapsedSidebarRef.current;
 			widthCollapsedSidebarRef.current = null;
 			setSidebarCollapsed(restore);
 		}
-	}, [width, windowWidth, sidebarWidth, isOpen, setSidebarCollapsed]);
+	}, [width, windowWidth, sidebarWidth, isOpen, sidebarCollapsed, setSidebarCollapsed, setWidth]);
 
 	const tabItems: TabBarItem<ActivityTabKey>[] = useMemo(() => {
 		if (knowledgeHistory) {

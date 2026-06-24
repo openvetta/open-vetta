@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSetAtom } from "jotai";
 import { motion } from "motion/react";
-import { confirmDialogAtom, refreshKnowledgeBasesAtom } from "@shared/store/atoms";
-import type { FilePreviewContext } from "@shared/store/atoms";
+import { confirmDialogAtom, filePreviewAtom, refreshKnowledgeBasesAtom } from "@shared/store/atoms";
 import type { KnowledgeBase, KnowledgeNode } from "@shared/types/knowledge-base";
 import { cn } from "@shared/lib/utils";
-import { FilePreviewView, usePreviewNav } from "@domains/file-preview/components/FilePreviewView";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
 import { KnowledgeGrid } from "./KnowledgeGrid";
 import { KnowledgeRenameDialog } from "./KnowledgeRenameDialog";
@@ -35,10 +33,9 @@ export function KnowledgeContentsPanel({
 	const [anchorId, setAnchorId] = useState<string | null>(null);
 	const [menu, setMenu] = useState<MenuState | null>(null);
 	const [renameNode, setRenameNode] = useState<KnowledgeNode | null>(null);
-	const [previewCtx, setPreviewCtx] = useState<FilePreviewContext | null>(null);
 	const confirm = useSetAtom(confirmDialogAtom);
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
-	const previewNav = usePreviewNav(setPreviewCtx);
+	const openPreview = useSetAtom(filePreviewAtom);
 
 	const clearSelection = useCallback(() => {
 		setSelectedIds(new Set());
@@ -48,10 +45,9 @@ export function KnowledgeContentsPanel({
 	// 切库回根目录。
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 仅在切库时重置
 	useEffect(() => setPath([]), [knowledgeBase.id]);
-	// 切目录/库后清空选中，并关闭右侧内嵌预览。
+	// 切目录/库后清空选中。
 	useEffect(() => {
 		clearSelection();
-		setPreviewCtx(null);
 	}, [path, knowledgeBase.id, clearSelection]);
 
 	const currentNodes = useMemo(
@@ -77,7 +73,7 @@ export function KnowledgeContentsPanel({
 			if (!node.sourcePath) return;
 			const index = filesAtLevel.findIndex((item) => item.id === node.id);
 			if (index < 0) return;
-			setPreviewCtx({
+			openPreview({
 				items: filesAtLevel.map((item) => ({
 					name: item.name,
 					path: item.sourcePath,
@@ -86,7 +82,7 @@ export function KnowledgeContentsPanel({
 				index,
 			});
 		},
-		[filesAtLevel],
+		[filesAtLevel, openPreview],
 	);
 
 	const onItemClick = useCallback(
@@ -270,25 +266,6 @@ export function KnowledgeContentsPanel({
 					/>
 				)}
 			</motion.div>
-
-			{previewCtx && (
-				<motion.div
-					initial={{ opacity: 0, x: 12 }}
-					animate={{ opacity: 1, x: 0 }}
-					transition={{ duration: 0.24, ease: EASE_OUT }}
-					className="flex min-h-0 w-2/5 min-w-[320px] shrink-0 flex-col overflow-hidden rounded-xl border border-border/50 bg-card/40"
-				>
-					<FilePreviewView
-						ctx={previewCtx}
-						onPrev={previewNav.goPrev}
-						onNext={previewNav.goNext}
-						onClose={previewNav.close}
-						canPrev={previewCtx.index > 0}
-						canNext={previewCtx.index < previewCtx.items.length - 1}
-						enableKeyboard
-					/>
-				</motion.div>
-			)}
 
 			{menu && (
 				<KnowledgeContextMenu
