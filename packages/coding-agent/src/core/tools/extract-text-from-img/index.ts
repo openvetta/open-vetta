@@ -176,6 +176,8 @@ export function createExtractTextFromImgTool(cwd: string): AgentTool<typeof extr
 	return {
 		name: "extract_text_from_img",
 		label: "extract_text_from_img",
+		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
+		category: "doc",
 		description,
 		parameters: extractTextFromImgSchema,
 		execute: async (_toolCallId, { input, output, maxChars }, signal, _onUpdate, ctx) => {

@@ -25,6 +25,9 @@ export function createKbListTagsTool(root?: string): AgentTool<typeof kbListTags
 	return {
 		name: "kb_list_available_tags",
 		label: "KB List Tags",
+		scope_use: ["im-claw", "conversation", "project", "automation", "kb-processing", "cli"],
+		requires: ["knowledge"],
+		category: "kb-read",
 		description,
 		parameters: kbListTagsSchema,
 		execute: async () => {

@@ -38,7 +38,6 @@ import {
 	type BashSpawnHook,
 	createAllTools,
 	createAskUserQuestionTool,
-	getDefaultCodingToolNames,
 } from "../tools/index.js";
 import { createInvokeSkillTool } from "../tools/invoke-skill/index.js";
 import { createTaskOutputTool } from "../tools/task-output/index.js";
@@ -47,6 +46,7 @@ import { createTodoTool } from "../tools/todo/index.js";
 import { bindExtensionCore } from "./extension-binding.js";
 import type { SessionContext } from "./session-context.js";
 import { personalizationSig, rebuildSystemPrompt } from "./system-prompt-builder.js";
+import { ALL_SCENARIOS, type ConversationScenario, DEFAULT_SCENARIO, resolveActiveToolNames } from "./tool-scope.js";
 
 function summarizePluginToolContributions(agentPlugins: AgentPluginRuntimeConfig | undefined): string[] {
 	return agentPlugins?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [];
@@ -62,6 +62,8 @@ export interface RuntimeManagerOptions {
 	customTools: ToolDefinition[];
 	baseToolsOverride?: Record<string, AgentTool>;
 	envOverlay?: Record<string, string>;
+	/** 对话场景：决定按 scope_use 激活哪些工具。默认 DEFAULT_SCENARIO("cli")。 */
+	scenario?: ConversationScenario;
 	initialActiveToolNames?: string[];
 	extensionRunnerRef?: { current?: ExtensionRunner };
 	enableMcp: boolean;
@@ -87,7 +89,10 @@ export class RuntimeManager {
 	private _customTools: ToolDefinition[];
 	private readonly _baseToolsOverride?: Record<string, AgentTool>;
 	private readonly _envOverlay?: Record<string, string>;
+	private readonly _scenario: ConversationScenario;
 	private readonly _initialActiveToolNames?: string[];
+	/** 调用方是否显式传了 tools（含 --no-tools 的空数组）。true 时用其名单，跳过 scenario 解析。 */
+	private readonly _hasExplicitTools: boolean;
 	private readonly _extensionRunnerRef?: { current?: ExtensionRunner };
 	private readonly _askUserQuestion?: AskUserQuestionCapability;
 	private readonly _backgroundTasks: BackgroundTaskManager;
@@ -126,7 +131,9 @@ export class RuntimeManager {
 		this._customTools = opts.customTools;
 		this._baseToolsOverride = opts.baseToolsOverride;
 		this._envOverlay = opts.envOverlay;
+		this._scenario = opts.scenario ?? DEFAULT_SCENARIO;
 		this._initialActiveToolNames = opts.initialActiveToolNames;
+		this._hasExplicitTools = opts.initialActiveToolNames !== undefined;
 		this._extensionRunnerRef = opts.extensionRunnerRef;
 		this._enableMcp = opts.enableMcp;
 		this._mcpDebug = opts.mcpDebug;
@@ -716,57 +723,37 @@ export class RuntimeManager {
 
 		const toolRegistry = new Map(this._baseToolRegistry);
 		for (const tool of wrappedExtensionTools as AgentTool[]) {
+			// extension 工具未声明 scope_use 时默认全场景（本地可信代码）。
+			if (!tool.scope_use) tool.scope_use = [...ALL_SCENARIOS];
 			toolRegistry.set(tool.name, tool);
 		}
 
-		const defaultActiveToolNames = this._baseToolsOverride
-			? Object.keys(this._baseToolsOverride)
-			: getDefaultCodingToolNames();
-		const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
-		const activeToolNameSet = new Set<string>(baseActiveToolNames);
-
-		// Always activate invoke_skill and todo when available in base tools
-		const alwaysActive = [
-			"invoke_skill",
-			"todo",
-			"doc_to_pdf",
-			"html_to_pdf",
-			"extract_text_from_pdf",
-			"extract_text_from_img",
-			"render_pdf_page",
-			"current_time",
-			"ask_user_question",
-			"easy_use_vettaApp",
-			"task_output",
-			"task_stop",
-		];
-		// 知识库总开关关闭时（宿主置 VETTA_KNOWLEDGE_DISABLED=1），不默认激活
-		// 知识库检索工具，对 agent 屏蔽。
-		if (process.env.VETTA_KNOWLEDGE_DISABLED !== "1") {
-			alwaysActive.push("kb_filter_by_tags", "kb_list_available_tags");
-		}
-		for (const name of alwaysActive) {
-			if (this._baseToolRegistry.has(name)) {
-				activeToolNameSet.add(name);
-			}
-		}
-		for (const tool of this._agentPlugins?.toolContributions ?? []) {
-			if (this._baseToolRegistry.has(tool.name)) {
-				activeToolNameSet.add(tool.name);
-			}
-		}
-		if (options.includeAllExtensionTools) {
-			for (const tool of wrappedExtensionTools as AgentTool[]) {
-				activeToolNameSet.add(tool.name);
-			}
-		}
-
-		// Get MCP tools if MCP is enabled
+		// MCP 工具：全场景可用（约定），并入注册表前盖章 scope_use 让 scope 解析放行。
 		const mcpTools = this._mcpManager?.getTools() ?? [];
 		for (const mcpTool of mcpTools) {
+			if (!mcpTool.scope_use) mcpTool.scope_use = [...ALL_SCENARIOS];
 			toolRegistry.set(mcpTool.name, mcpTool);
-			activeToolNameSet.add(mcpTool.name);
 		}
+
+		// 激活集三种来源：
+		//  1. baseToolsOverride（自定义运行时）→ 全量激活；
+		//  2. 调用方显式传 tools（含 --no-tools/--tools，SDK 直接消费）→ 用其名单，跳过场景解析；
+		//  3. 否则 → 按当前对话场景的 scope_use + requires 解析（取代旧 alwaysActive + 散落 gate）。
+		let activeToolNameSet: Set<string>;
+		if (this._baseToolsOverride) {
+			activeToolNameSet = new Set(Object.keys(this._baseToolsOverride));
+		} else if (this._hasExplicitTools) {
+			activeToolNameSet = new Set(options.activeToolNames ?? this._initialActiveToolNames ?? []);
+		} else {
+			const capabilities = new Set<string>();
+			if (process.env.VETTA_KNOWLEDGE_DISABLED !== "1") capabilities.add("knowledge");
+			if (this._enableBackgroundTasks) capabilities.add("bg-tasks");
+			if (askEnabled) capabilities.add("host:ask");
+			activeToolNameSet = new Set(
+				resolveActiveToolNames(this._scenario, Array.from(toolRegistry.values()), capabilities),
+			);
+		}
+		// 插件 allow/deny 策略覆盖（plugin toolPolicyContributions）。
 		this.applyPluginToolPolicies(activeToolNameSet, new Set(toolRegistry.keys()));
 
 		const extensionToolNames = new Set(wrappedExtensionTools.map((tool) => tool.name));
@@ -825,6 +812,10 @@ function createPluginTool(
 		label: contribution.label ?? contribution.name,
 		description: contribution.description,
 		parameters: contribution.parameters as TSchema,
+		// 插件工具按其声明的 scope_use 过滤（fail-closed：未声明 = 所有场景都不激活）。
+		scope_use: contribution.scope_use,
+		requires: contribution.requires,
+		category: "external",
 		execute: async (_toolCallId, params: unknown, signal?: AbortSignal) => {
 			if (!options.invoke) {
 				return {
