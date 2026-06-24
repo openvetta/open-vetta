@@ -16,7 +16,7 @@
 		"@types/react-dom": "^19.1.1",
 		"@vetta/plugin-sdk": "workspace:*",
 		"@vetta/plugin-vite": "workspace:*",
-		"@vetta/ui": "workspace:*",
+		"@vetta/ui": "file:../../../ui",
 		"motion": "^12.23.12",
 		"react": "19.1.1",
 		"react-dom": "19.1.1",
