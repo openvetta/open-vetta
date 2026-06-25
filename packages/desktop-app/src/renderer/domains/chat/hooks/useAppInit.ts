@@ -46,7 +46,7 @@ export function useAppInit(): void {
 			const executionMode = config.defaultExecutionMode ?? "full-access";
 			setSessionExecutionMode(executionMode);
 			localStorage.setItem("vetta-session-execution-mode", executionMode);
-			setKnowledgeBaseEnabled(config.knowledgeBase?.enabled !== false);
+			setKnowledgeBaseEnabled(config.knowledgeBase?.enabled === true);
 			if (config.knowledgeProcessingCwd) {
 				setKnowledgeProcessingCwd(config.knowledgeProcessingCwd);
 			}

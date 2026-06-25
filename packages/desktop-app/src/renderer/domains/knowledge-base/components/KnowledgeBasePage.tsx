@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	activeKnowledgeBaseIdAtom,
+	activityPanelOpenAtom,
 	confirmDialogAtom,
 	knowledgeBasesAtom,
 	knowledgeImportDraftAtom,
+	pageHeaderRightSlotAtom,
 	pageHeaderTitleBadgeAtom,
 	refreshKnowledgeBasesAtom,
+	type SessionInfo,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
@@ -20,6 +23,8 @@ import { KnowledgeContentsPanel } from "./KnowledgeContentsPanel";
 import { KnowledgeProcessingBadge } from "./KnowledgeProcessingBadge";
 import { KnowledgeImportDialog, type KnowledgeImportConfirmation } from "./KnowledgeImportDialog";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
+import { KnowledgeHowItWorksDialog } from "@shared/components/KnowledgeHowItWorksDialog";
+import { knowledgeBaseEnabledAtom } from "@shared/store/plugin-atoms";
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
@@ -30,9 +35,46 @@ export function KnowledgeBasePage(): JSX.Element {
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
 	const confirm = useSetAtom(confirmDialogAtom);
 	const setTitleBadge = useSetAtom(pageHeaderTitleBadgeAtom);
+	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
+	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
+	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
+	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
 	const narrow = useNarrowScreen();
 	const navigate = useNavigate();
 	const [search, setSearch] = useState("");
+	const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+
+	const enableKnowledgeBase = useCallback(() => {
+		void (async () => {
+			await window.vetta.config.set({ knowledgeBase: { enabled: true } });
+			await window.vetta.knowledge.reload();
+			setKnowledgeBaseEnabled(true);
+		})();
+	}, [setKnowledgeBaseEnabled]);
+
+	// 定位最新一轮加工 session 的只读视图并展开活动面板；无记录则弹信息框。
+	const openProcessingRecords = useCallback(() => {
+		void (async () => {
+			const config = await window.vetta.config.get();
+			const cwd = config.knowledgeProcessingCwd;
+			const list = cwd ? ((await window.vetta.session.listSessions(cwd)) as SessionInfo[]) : [];
+			if (list.length === 0) {
+				confirm({
+					title: "整理记录",
+					message: "暂无加工记录。开启知识库并整理资料后，这里会显示每一轮的整理过程。",
+					confirmLabel: "知道了",
+					onConfirm: () => {},
+				});
+				return;
+			}
+			setActivityPanelOpen(true);
+			void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(list[0].path) } });
+		})();
+	}, [confirm, navigate, setActivityPanelOpen]);
+
+	const openKnowledgeSettings = useCallback(() => {
+		void navigate({ to: "/settings/$tab", params: { tab: "knowledge" } });
+	}, [navigate]);
 	const { fileInputRef, openFilePicker, openFolderPicker, onFilesPicked } =
 		useKnowledgeImportSources();
 
@@ -48,6 +90,23 @@ export function KnowledgeBasePage(): JSX.Element {
 		setTitleBadge(<KnowledgeProcessingBadge />);
 		return () => setTitleBadge(null);
 	}, [setTitleBadge]);
+
+	// 顶栏右侧插槽：整理记录 / 设置 两个入口，离开即清除。
+	useEffect(() => {
+		setHeaderRightSlot(
+			<>
+				<Button variant="ghost" size="sm" onClick={openProcessingRecords}>
+					<span className="icon-[mdi--history] h-4 w-4" />
+					整理记录
+				</Button>
+				<Button variant="ghost" size="sm" onClick={openKnowledgeSettings}>
+					<span className="icon-[mdi--cog-outline] h-4 w-4" />
+					设置
+				</Button>
+			</>,
+		);
+		return () => setHeaderRightSlot(null);
+	}, [setHeaderRightSlot, openProcessingRecords, openKnowledgeSettings]);
 
 	const showError = useCallback(
 		(err: unknown) => {
@@ -115,6 +174,58 @@ export function KnowledgeBasePage(): JSX.Element {
 	const pickFilesForActiveBase = () => openFilePicker(activeBase?.id ?? null);
 	const pickFoldersForActiveBase = () => void openFolderPicker(activeBase?.id ?? null);
 
+	if (!knowledgeBaseEnabled) {
+		return (
+			<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
+				<div className="flex flex-1 items-center justify-center px-8 py-10">
+					<motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.4, ease: EASE_OUT }}
+						className="flex w-full max-w-[420px] flex-col items-center text-center"
+					>
+						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+							<span className="icon-[solar--library-linear] h-8 w-8" />
+						</div>
+						<h1 className="mt-5 text-[20px] font-bold tracking-tight text-foreground">
+							知识库尚未开启
+						</h1>
+						<p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+							开启后，放入的资料会自动整理成 AI 能查阅的知识，聊天时自动参考。知识库会消耗较多
+							Token，请按需开启。
+						</p>
+						<div className="mt-6 flex items-center gap-2.5">
+							<Button variant="primary" onClick={enableKnowledgeBase}>
+								<span className="icon-[mdi--power] h-4 w-4" />
+								开启知识库
+							</Button>
+							<Button
+								variant="ghost"
+								onClick={() =>
+									void navigate({ to: "/settings/$tab", params: { tab: "knowledge" } })
+								}
+							>
+								前往知识库设置
+							</Button>
+						</div>
+						<button
+							type="button"
+							onClick={() => setHowItWorksOpen(true)}
+							className="mt-4 text-[12px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+						>
+							了解它如何工作
+						</button>
+					</motion.div>
+				</div>
+
+				<KnowledgeHowItWorksDialog
+					open={howItWorksOpen}
+					onClose={() => setHowItWorksOpen(false)}
+				/>
+			</div>
+		);
+	}
+
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			<Input ref={fileInputRef} type="file" multiple className="hidden" onChange={onFilesPicked} />
@@ -148,6 +259,16 @@ export function KnowledgeBasePage(): JSX.Element {
 					)}
 					<p className="mt-1 text-[12px] text-muted-foreground/60">
 						以熟悉的文件与目录结构管理资料，新增内容会自动完成整理
+					</p>
+					<p className="mt-0.5 text-[12px] text-muted-foreground/60">
+						使用知识库会消耗大量的 Token。
+						<button
+							type="button"
+							onClick={() => setHowItWorksOpen(true)}
+							className="font-medium text-primary underline-offset-2 hover:underline"
+						>
+							查看详情
+						</button>
 					</p>
 				</motion.div>
 				{activeBase && (
@@ -209,6 +330,11 @@ export function KnowledgeBasePage(): JSX.Element {
 					onConfirm={confirmImport}
 				/>
 			)}
+
+			<KnowledgeHowItWorksDialog
+				open={howItWorksOpen}
+				onClose={() => setHowItWorksOpen(false)}
+			/>
 		</div>
 	);
 }

@@ -1,0 +1,626 @@
+@import "tailwindcss";
+@plugin "@iconify/tailwind4";
+
+@custom-variant dark (&:is([data-mode="dark"] *));
+
+/* ─── Dark mode (default) ─── */
+:root,
+[data-mode="dark"] {
+	color-scheme: dark;
+
+	--background: rgb(20, 22, 30);
+	--foreground: rgb(240, 242, 248);
+	--card: rgb(26, 28, 36);
+	--card-foreground: rgb(240, 242, 248);
+	--popover: rgb(50, 53, 67);
+	--popover-foreground: rgb(240, 242, 248);
+	--primary: rgb(99, 102, 241);
+	--primary-foreground: rgb(255, 255, 255);
+	--secondary: rgb(36, 38, 48);
+	--secondary-foreground: rgb(240, 242, 248);
+	--muted: rgb(28, 30, 38);
+	--muted-foreground: rgb(155, 161, 178);
+	--accent: rgb(38, 41, 52);
+	--accent-foreground: rgb(240, 242, 248);
+	--destructive: rgb(255, 91, 91);
+	--destructive-foreground: rgb(0, 0, 0);
+	--border: rgb(42, 45, 56);
+	--input: rgb(48, 51, 64);
+	--ring: rgb(129, 132, 248);
+	--chart-1: rgb(255, 174, 4);
+	--chart-2: rgb(38, 113, 244);
+	--chart-3: rgb(116, 116, 116);
+	--chart-4: rgb(82, 82, 82);
+	--chart-5: rgb(228, 228, 228);
+
+	--font-sans: -apple-system, "SF Pro Text", "SF Pro Display", "Helvetica Neue",
+		sans-serif;
+	--font-serif: Georgia, serif;
+	--font-mono: "SF Mono", "Fira Code", monospace;
+	--radius: 0.5rem;
+
+	--shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+	--shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+	--shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 1px 2px -1px hsl(0 0% 0% / 0.18);
+	--shadow: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 1px 2px -1px hsl(0 0% 0% / 0.18);
+	--shadow-md: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 2px 4px -1px hsl(0 0% 0% / 0.18);
+	--shadow-lg: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 4px 6px -1px hsl(0 0% 0% / 0.18);
+	--shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 8px 10px -1px hsl(0 0% 0% / 0.18);
+	--shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
+
+	--tool-call-shimmer-base: rgb(255 255 255 / 0.45);
+	--tool-call-shimmer-peak: rgb(255 255 255 / 0.95);
+}
+
+/* ─── Light mode ─── */
+[data-mode="light"] {
+	color-scheme: light;
+
+	--background: rgb(252, 252, 252);
+	--foreground: rgb(0, 0, 0);
+	--card: rgb(255, 255, 255);
+	--card-foreground: rgb(0, 0, 0);
+	--popover: rgb(255, 255, 255);
+	--popover-foreground: rgb(0, 0, 0);
+	--primary: rgb(79, 70, 229);
+	--primary-foreground: rgb(255, 255, 255);
+	--secondary: rgb(235, 235, 235);
+	--secondary-foreground: rgb(0, 0, 0);
+	--muted: rgb(245, 245, 245);
+	--muted-foreground: rgb(82, 82, 82);
+	--accent: rgb(235, 235, 235);
+	--accent-foreground: rgb(0, 0, 0);
+	--destructive: rgb(229, 75, 79);
+	--destructive-foreground: rgb(255, 255, 255);
+	--border: rgb(213, 213, 216);
+	--input: rgb(213, 213, 216);
+	--ring: rgb(79, 70, 229);
+	--chart-1: rgb(255, 174, 4);
+	--chart-2: rgb(45, 98, 239);
+	--chart-3: rgb(164, 164, 164);
+	--chart-4: rgb(228, 228, 228);
+	--chart-5: rgb(116, 116, 116);
+
+	--shadow-2xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+	--shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.09);
+	--shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 1px 2px -1px hsl(0 0% 0% / 0.18);
+	--shadow: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 1px 2px -1px hsl(0 0% 0% / 0.18);
+	--shadow-md: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 2px 4px -1px hsl(0 0% 0% / 0.18);
+	--shadow-lg: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 4px 6px -1px hsl(0 0% 0% / 0.18);
+	--shadow-xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.18),
+		0px 8px 10px -1px hsl(0 0% 0% / 0.18);
+	--shadow-2xl: 0px 1px 2px 0px hsl(0 0% 0% / 0.45);
+
+	--tool-call-shimmer-base: rgb(255 255 255 / 0.55);
+	--tool-call-shimmer-peak: rgb(255 255 255 / 0.9);
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+
+	--font-sans: var(--font-sans);
+	--font-mono: var(--font-mono);
+	--font-serif: var(--font-serif);
+
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+
+	--shadow-2xs: var(--shadow-2xs);
+	--shadow-xs: var(--shadow-xs);
+	--shadow-sm: var(--shadow-sm);
+	--shadow: var(--shadow);
+	--shadow-md: var(--shadow-md);
+	--shadow-lg: var(--shadow-lg);
+	--shadow-xl: var(--shadow-xl);
+	--shadow-2xl: var(--shadow-2xl);
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+}
+
+/* 切换主题/模式时短暂启用过渡。由 shared/theme/apply.ts 的
+   withThemeTransition() 添加/移除根节点 class。仅作用于颜色/边框/阴影，
+   不影响 transform、opacity 等交互反馈相关的属性。 */
+[data-theme].theme-transitioning,
+[data-theme].theme-transitioning *,
+[data-theme].theme-transitioning *::before,
+[data-theme].theme-transitioning *::after {
+	transition:
+		background-color 180ms ease,
+		color 180ms ease,
+		border-color 180ms ease,
+		fill 180ms ease,
+		stroke 180ms ease,
+		box-shadow 180ms ease !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation: none;
+	mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+	animation: theme-reveal 620ms ease-in-out both;
+	z-index: 1;
+}
+
+@keyframes theme-reveal {
+	from {
+		clip-path: circle(
+			0 at var(--theme-transition-x, 50%) var(--theme-transition-y, 50%)
+		);
+	}
+	to {
+		clip-path: circle(
+			var(--theme-transition-radius, 150vmax) at var(--theme-transition-x, 50%)
+				var(--theme-transition-y, 50%)
+		);
+	}
+}
+
+:root {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	min-height: 100vh;
+	background: transparent;
+	color: var(--foreground);
+}
+
+#root {
+	min-height: 100vh;
+}
+
+/* macOS-style overlay scrollbars: hidden by default, fade in on hover.
+   Width/height stays reserved so layout doesn't shift; only thumb opacity changes. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: transparent transparent;
+}
+*:hover,
+*:focus-within {
+	scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent)
+		transparent;
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: transparent;
+	border-radius: 4px;
+	border: 2px solid transparent;
+	background-clip: padding-box;
+	transition: background-color 0.2s ease;
+}
+::-webkit-scrollbar-corner {
+	background: transparent;
+}
+/* Show thumb only when the scrollable container is hovered or focused. */
+*:hover::-webkit-scrollbar-thumb,
+*:focus-within::-webkit-scrollbar-thumb {
+	background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+	background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+	background-clip: padding-box;
+}
+
+/* Fully hide scrollbar (still scrollable). Unlayered so it overrides the
+   global overlay-scrollbar rules above, which Tailwind utilities cannot. */
+.no-scrollbar {
+	scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
+/* macOS window drag region */
+.drag-region {
+	-webkit-app-region: drag;
+}
+.no-drag {
+	-webkit-app-region: no-drag;
+}
+
+/* Sidebar: transparent for native macOS vibrancy */
+.sidebar-vibrancy {
+	background: transparent;
+}
+
+/* Sidebar surface: pin children to z:1 so inline z-index overrides
+   (e.g. filter dropdown) can float above the project list below. */
+.sidebar-surface > *:not(.absolute) {
+	position: relative;
+	z-index: 1;
+}
+
+.project-list-containment {
+	contain: layout paint style;
+}
+
+.project-group-contain {
+	contain: layout style;
+}
+
+.project-running-icon,
+.project-running-ping {
+	contain: layout paint style;
+	will-change: transform;
+}
+
+/* Selection highlight */
+::selection {
+	background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+/* Focus ring — only on interactive elements, not textareas */
+:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--ring) 50%, transparent);
+	outline-offset: -2px;
+}
+textarea:focus-visible,
+textarea:focus {
+	outline: none;
+	box-shadow: none;
+}
+
+/* Markdown body: remove margin on first/last children */
+.markdown-body > :first-child {
+	margin-top: 0 !important;
+}
+.markdown-body > :last-child {
+	margin-bottom: 0 !important;
+}
+
+/* Streaming tail: 分块淡入。rehype 插件把流式末尾消息的文字按稳定片段包成 .streaming-chunk，
+   只在「该 span 首次 mount」时跑一次动画 —— 依赖 React reconciliation 复用旧 span 的 DOM，
+   旧片段的动画自然停留在终态（opacity 1），只有新追加的 span 触发新动画。
+   不使用 blur，避免大段消息持续追加时产生额外绘制压力。 */
+.markdown-streaming-tail .streaming-chunk {
+	display: inline-block;
+	vertical-align: baseline;
+	animation: streaming-chunk-fade 360ms ease-out both;
+	will-change: opacity, transform;
+}
+@keyframes streaming-chunk-fade {
+	from {
+		opacity: 0.12;
+		transform: translate3d(0, 6px, 0);
+	}
+	to {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+}
+
+/* Markdown bullet list: indigo themed dot marker */
+.md-bullet-list {
+	list-style: none;
+	padding-left: 0;
+}
+.md-bullet-list > li {
+	position: relative;
+	padding-left: 1rem;
+}
+.md-bullet-list > li::before {
+	content: "";
+	position: absolute;
+	left: 0.15rem;
+	top: 0.65em;
+	width: 0.4rem;
+	height: 0.4rem;
+	border-radius: 9999px;
+	background: var(--primary);
+}
+/* Nested lists: keep the same indigo dot but slightly smaller */
+.md-bullet-list .md-bullet-list > li::before {
+	width: 0.3rem;
+	height: 0.3rem;
+	background: color-mix(in srgb, var(--primary) 70%, transparent);
+}
+
+/* Smooth transitions globally */
+button,
+a {
+	transition:
+		color 0.15s ease,
+		background-color 0.15s ease,
+		border-color 0.15s ease;
+}
+
+/* ─── InputBar visual effects ─── */
+
+@keyframes input-shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+@keyframes input-focus-pulse {
+	0%,
+	100% {
+		opacity: 0.3;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+@keyframes context-ring-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes message-bell-swing {
+	0%,
+	28%,
+	100% {
+		transform: rotate(0deg);
+	}
+	3% {
+		transform: rotate(-22deg);
+	}
+	6% {
+		transform: rotate(20deg);
+	}
+	9% {
+		transform: rotate(-16deg);
+	}
+	13% {
+		transform: rotate(12deg);
+	}
+	17% {
+		transform: rotate(-7deg);
+	}
+	22% {
+		transform: rotate(3deg);
+	}
+}
+
+.message-bell-swing {
+	transform-origin: top center;
+	animation: message-bell-swing 3.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+	will-change: transform;
+}
+
+@keyframes bash-cursor-blink {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	51%,
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes tool-call-text-shimmer {
+	0%,
+	100% {
+		opacity: 0.62;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+.tool-call-shimmer-text {
+	background: linear-gradient(
+		90deg,
+		var(--tool-call-shimmer-base) 0%,
+		var(--tool-call-shimmer-base) 42%,
+		var(--tool-call-shimmer-peak) 50%,
+		var(--tool-call-shimmer-base) 58%,
+		var(--tool-call-shimmer-base) 100%
+	);
+	background-size: 220% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: tool-call-text-shimmer 2.4s ease-in-out infinite;
+	will-change: opacity;
+}
+
+/* Soft halo behind the card on focus. */
+.input-halo::after {
+	content: "";
+	position: absolute;
+	inset: -4px;
+	border-radius: inherit;
+	background: radial-gradient(
+		60% 80% at 50% 100%,
+		color-mix(in srgb, var(--primary) 14%, transparent),
+		transparent 70%
+	);
+	filter: blur(10px);
+	pointer-events: none;
+	z-index: -1;
+	animation: input-focus-pulse 4s ease-in-out infinite;
+}
+
+/* Shimmer text used as the streaming placeholder. */
+.input-shimmer-text {
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--muted-foreground) 50%, transparent) 0%,
+		var(--primary) 50%,
+		color-mix(in srgb, var(--muted-foreground) 50%, transparent) 100%
+	);
+	background-size: 200% 100%;
+	-webkit-background-clip: text;
+	background-clip: text;
+	-webkit-text-fill-color: transparent;
+	animation: input-shimmer 2s linear infinite;
+}
+
+/* 主题色卡（active）blob 漂移缩放，叠加容器重模糊后呈现混沌涟漪流转感。
+   旋转交给外层 wrapper，这里只动 translate/scale，避免与内联 transform 冲突。 */
+.theme-blob-ripple {
+	animation-name: theme-blob-drift;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+	animation-direction: alternate;
+	will-change: transform;
+}
+
+@keyframes theme-blob-drift {
+	0% {
+		transform: translate(0%, 0%) scale(1);
+	}
+	25% {
+		transform: translate(22%, -16%) scale(1.22);
+	}
+	50% {
+		transform: translate(-14%, 20%) scale(0.82);
+	}
+	75% {
+		transform: translate(16%, 14%) scale(1.12);
+	}
+	100% {
+		transform: translate(-20%, -10%) scale(0.94);
+	}
+}
+
+/* 整个 blob 层绕中心缓慢 360° 无限旋转，让背景颜色不停绕圈流转。 */
+.theme-blob-spin {
+	animation: theme-blob-spin 36s linear infinite;
+	will-change: transform;
+}
+
+@keyframes theme-blob-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.theme-blob-ripple,
+	.theme-blob-spin {
+		animation: none;
+	}
+}
+
+/* ─── Dialog 入场/出场动画 ───
+   radix 在 overlay/content 上写 data-state="open"|"closed"，关闭时 Presence
+   会等动画结束再卸载，因此出场动画也能完整播放。content 的 to 态保持
+   translate(-50%,-50%) 与 Tailwind 的居中类一致，动画结束后无跳动。 */
+@keyframes vetta-dialog-overlay-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes vetta-dialog-overlay-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes vetta-dialog-content-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+}
+
+@keyframes vetta-dialog-content-out {
+	from {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.96);
+	}
+}
+
+[data-slot="dialog-overlay"][data-state="open"] {
+	animation: vetta-dialog-overlay-in 200ms ease-out;
+}
+
+[data-slot="dialog-overlay"][data-state="closed"] {
+	animation: vetta-dialog-overlay-out 150ms ease-in;
+}
+
+[data-slot="dialog-content"][data-state="open"] {
+	animation: vetta-dialog-content-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-slot="dialog-content"][data-state="closed"] {
+	animation: vetta-dialog-content-out 150ms ease-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-slot="dialog-overlay"][data-state="open"],
+	[data-slot="dialog-overlay"][data-state="closed"],
+	[data-slot="dialog-content"][data-state="open"],
+	[data-slot="dialog-content"][data-state="closed"] {
+		animation: none;
+	}
+}
