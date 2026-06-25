@@ -1,10 +1,10 @@
 import { createInterface } from "node:readline";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { spawn } from "child_process";
 import { readFileSync, statSync } from "fs";
 import path from "path";
 import { ensureTool } from "../../../utils/tools-manager.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
 import {
@@ -61,7 +61,7 @@ export interface GrepToolOptions {
 	operations?: GrepOperations;
 }
 
-export function createGrepTool(cwd: string, options?: GrepToolOptions): AgentTool<typeof grepSchema> {
+export function createGrepTool(cwd: string, options?: GrepToolOptions): CodingAgentTool<typeof grepSchema> {
 	const customOps = options?.operations;
 	const fallbackDescription = `Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} matches or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Long lines are truncated to ${GREP_MAX_LINE_LENGTH} chars.`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);

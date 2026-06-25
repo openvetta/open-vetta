@@ -393,6 +393,12 @@ export interface SessionStateSnapshot {
 	contextWindow: number;
 	/** 当前激活（模型可见）的工具名集合。renderer 据此让输入栏 badge 跟随工具 scope。 */
 	activeToolNames: string[];
+	/**
+	 * 本会话的对话场景。renderer 据此让会话页插槽（活动面板插件标签卡 / 输入栏插件 toggle）
+	 * 按对话类型显隐——与工具 scope_use 同一套场景轴。缺省（未显式传入）时为
+	 * coding-agent 的 DEFAULT_SCENARIO（"cli"）。
+	 */
+	scenario: ConversationScenario;
 }
 
 export interface ProjectInfo {

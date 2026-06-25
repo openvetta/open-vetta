@@ -140,6 +140,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				label: tab.label,
 				icon: tab.icon,
 				component: tab.component,
+				scope_use: tab.scope_use,
 			})),
 		);
 		setActivityTabs(tabs);
@@ -156,6 +157,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 				icon: action.icon,
 				defaultActive: action.defaultActive,
 				requiresActiveTool: action.requiresActiveTool,
+				scope_use: action.scope_use,
 				onToggle: action.onToggle,
 				decoratePrompt: action.decoratePrompt,
 			})),

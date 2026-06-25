@@ -839,6 +839,9 @@ export default definePlugin({
 			id: "image-mode",
 			label: "图像生成",
 			icon: <IconImage className="h-3.5 w-3.5" />,
+			// 仅交互式对话场景出现（批量/自动化/知识加工不放生图开关）；再叠加
+			// requiresActiveTool 跟随 generate_image 工具是否激活。
+			scope_use: ["conversation", "project", "im-claw", "cli"],
 			// 跟随 generate_image 工具的 scope：批量任务等屏蔽生图的场景里不显示这个 badge。
 			requiresActiveTool: "generate_image",
 			// 手动开启图像生成时若缺配置：弹窗引导去设置，并返回 false 否决本次激活
@@ -864,6 +867,7 @@ export default definePlugin({
 			label: "生图历史",
 			icon: <IconImage className="h-4 w-4" />,
 			component: GenHistoryPanel,
+			scope_use: ["conversation", "project", "im-claw", "cli"],
 		});
 	},
 });

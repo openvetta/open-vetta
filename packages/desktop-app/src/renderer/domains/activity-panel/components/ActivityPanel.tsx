@@ -21,6 +21,7 @@ import {
 	closeInlineFilePreviewAtom,
 	inlineFilePreviewAtom,
 	inlineFilePreviewContextReadonlyAtom,
+	currentScenarioAtom,
 	pluginActivityTabsAtom,
 	sidebarCollapsedAtom,
 	sidebarWidthAtom,
@@ -125,9 +126,15 @@ export function ActivityPanel({
 	// 外部插件面板：已加载插件注册的全部 contribution 都作为常驻标签随响应式拉伸显示，
 	// 不再用 attach 勾选挑选；不需要的用减号隐藏（进"已隐藏面板"恢复）。
 	const registeredPluginTabs = useAtomValue(pluginActivityTabsAtom);
+	// 会话页插槽按对话类型显隐：fail-closed——仅当场景已知且在该标签卡的 scope_use 内才显示。
+	// 未声明 scope_use / 场景未知（新建会话页、尚未加载）一律不显示。
+	const currentScenario = useAtomValue(currentScenarioAtom);
 	const pluginTabContribs = useMemo(
-		() => (enablePluginTabs ? registeredPluginTabs : []),
-		[enablePluginTabs, registeredPluginTabs],
+		() =>
+			enablePluginTabs && currentScenario !== null
+				? registeredPluginTabs.filter((tab) => tab.scope_use?.includes(currentScenario))
+				: [],
+		[enablePluginTabs, registeredPluginTabs, currentScenario],
 	);
 	// 用户手动隐藏的内置/动态 tab（per-cwd）+ 拖拽排序（per-cwd）
 	const [hiddenTabsMap, setHiddenTabsMap] = useAtom(hiddenActivityTabsAtom);

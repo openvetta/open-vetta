@@ -3,7 +3,7 @@ import { mkdir, stat, unlink } from "node:fs/promises";
 import nodePath from "node:path";
 import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
 
@@ -47,7 +47,7 @@ function stripPngExt(p: string): string {
 	return p.toLowerCase().endsWith(".png") ? p.slice(0, -4) : p;
 }
 
-export function createRenderPdfPageTool(cwd: string): AgentTool<typeof renderPdfPageSchema> {
+export function createRenderPdfPageTool(cwd: string): CodingAgentTool<typeof renderPdfPageSchema> {
 	const fallback =
 		"Render a single PDF page to a PNG image for visual inspection. Follow up with `read` on the returned path.";
 	const description = loadToolDescription(import.meta.url, fallback);

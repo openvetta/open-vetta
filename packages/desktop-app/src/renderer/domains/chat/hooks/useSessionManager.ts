@@ -14,6 +14,7 @@ import {
 	chatMessagesAtom,
 	contextUsageAtom,
 	conversationBucketCwd,
+	currentScenarioAtom,
 	defaultConversationCwdAtom,
 	editImageAttachmentAtom,
 	inlineFilePreviewAtom,
@@ -103,6 +104,7 @@ export function useSessionManager(): SessionManagerResult {
 	const setModelSupportsImages = useSetAtom(modelSupportsImagesAtom);
 	const setSessionExecutionMode = useSetAtom(sessionExecutionModeAtom);
 	const setActiveToolNames = useSetAtom(activeToolNamesAtom);
+	const setCurrentScenario = useSetAtom(currentScenarioAtom);
 	const setTodoItems = useSetAtom(todoItemsBySessionAtom);
 	const setBackgroundTasks = useSetAtom(backgroundTasksBySessionAtom);
 	// sendMessage 需要读「当前 session 的 todo 状态」决定是否在下一个 prompt 前清空。
@@ -246,6 +248,8 @@ export function useSessionManager(): SessionManagerResult {
 			setChatMessages([]);
 			// 切会话先把激活工具集置未知（null）→ badge 回退显示，等 getState 回填真实集合。
 			setActiveToolNames(null);
+			// 场景同样置未知（null）→ 插件插槽 fail-closed 暂不显示，等 getState 回填后按场景显隐。
+			setCurrentScenario(null);
 
 			const isBatchSession =
 				sessionPath !== undefined &&
@@ -304,6 +308,8 @@ export function useSessionManager(): SessionManagerResult {
 			setSessionExecutionMode(state.executionMode);
 			// 激活工具集 → 输入栏 badge 按工具 scope 跟随显示（单一真相源）。
 			setActiveToolNames(new Set(state.activeToolNames));
+			// 对话场景 → 会话页插件插槽按对话类型 fail-closed 显隐。
+			setCurrentScenario(state.scenario);
 
 			// Sync model between frontend and backend:
 			// - If frontend has a selected model, push it to the backend session
@@ -723,6 +729,7 @@ export function useSessionManager(): SessionManagerResult {
 			setModelSupportsImages,
 			setSessionExecutionMode,
 			setActiveToolNames,
+			setCurrentScenario,
 			selectedModel,
 			setSelectedModel,
 			setTodoItems,

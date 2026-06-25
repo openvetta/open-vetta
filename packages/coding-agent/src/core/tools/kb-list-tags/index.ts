@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { listAvailableTags } from "../../knowledge/query.js";
 import { knowledgeRoot } from "../../knowledge/store.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 
 const kbListTagsSchema = Type.Object({});
@@ -16,7 +16,7 @@ export interface KbListTagsDetails {
  * 列出知识库里所有可用标签及各自页数。供 agent 在 kb_filter_by_tags 之前了解有哪些标签。
  * @param root 知识库根目录，默认 ~/.vetta/knowledges。
  */
-export function createKbListTagsTool(root?: string): AgentTool<typeof kbListTagsSchema> {
+export function createKbListTagsTool(root?: string): CodingAgentTool<typeof kbListTagsSchema> {
 	const fallbackDescription =
 		"List all tags available in the knowledge base, with the page count for each. " +
 		"Call this before kb_filter_by_tags when you don't know which tags exist.";

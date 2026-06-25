@@ -1,10 +1,10 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { spawnSync } from "child_process";
 import { existsSync } from "fs";
 import { globSync } from "glob";
 import path from "path";
 import { ensureTool } from "../../../utils/tools-manager.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
@@ -50,7 +50,7 @@ export interface FindToolOptions {
 	operations?: FindOperations;
 }
 
-export function createFindTool(cwd: string, options?: FindToolOptions): AgentTool<typeof findSchema> {
+export function createFindTool(cwd: string, options?: FindToolOptions): CodingAgentTool<typeof findSchema> {
 	const customOps = options?.operations;
 	const fallbackDescription = `Search for files by glob pattern. Returns matching file paths relative to the search directory. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} results or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);

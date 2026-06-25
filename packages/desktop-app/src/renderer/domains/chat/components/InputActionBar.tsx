@@ -1,9 +1,11 @@
 import { useAtom, useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback } from "react";
+import type { ConversationScenario } from "@vetta/plugin-sdk";
 import {
 	activeInputActionIdsAtom,
 	activeToolNamesAtom,
+	currentScenarioAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeRetrievalActiveAtom,
 	pluginInputActionsAtom,
@@ -21,7 +23,18 @@ const KNOWLEDGE_TOOLS = ["kb_filter_by_tags", "kb_list_available_tags"];
 function knowledgeVisible(activeTools: Set<string> | null): boolean {
 	return activeTools === null || KNOWLEDGE_TOOLS.some((t) => activeTools.has(t));
 }
-function actionVisible(action: RegisteredInputAction, activeTools: Set<string> | null): boolean {
+/**
+ * toggle 是否显示。两道闸：
+ * 1) scope_use（按对话类型）——**fail-closed**：场景未知或未声明/不含当前场景 → 不显示。
+ * 2) requiresActiveTool（按工具激活）——保持原语义：activeTools 未知时回退显示。
+ * 两者取「与」。
+ */
+function actionVisible(
+	action: RegisteredInputAction,
+	activeTools: Set<string> | null,
+	scenario: ConversationScenario | null,
+): boolean {
+	if (scenario === null || !action.scope_use?.includes(scenario)) return false;
 	return activeTools === null || !action.requiresActiveTool || activeTools.has(action.requiresActiveTool);
 }
 
@@ -38,9 +51,11 @@ export function InputActionBar(): JSX.Element | null {
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
 	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
 	const activeTools = useAtomValue(activeToolNamesAtom);
+	const currentScenario = useAtomValue(currentScenarioAtom);
 	// badge 跟随工具 scope：仅显示其对应工具在本会话激活的 badge。
 	const showKnowledge = knowledgeBaseEnabled && knowledgeVisible(activeTools);
-	const actions = allActions.filter((a) => actionVisible(a, activeTools));
+	// 插件 toggle 先按对话类型 fail-closed 过滤，再按其依赖工具是否激活过滤。
+	const actions = allActions.filter((a) => actionVisible(a, activeTools, currentScenario));
 
 	const toggle = useCallback(
 		(actionId: string, onToggle: ((active: boolean) => boolean | void) | undefined) => {
@@ -147,6 +162,7 @@ export function ActiveInputActionChips(): JSX.Element | null {
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
 	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
 	const activeTools = useAtomValue(activeToolNamesAtom);
+	const currentScenario = useAtomValue(currentScenarioAtom);
 	const showKnowledge = knowledgeBaseEnabled && knowledgeVisible(activeTools);
 
 	const deactivate = useCallback(
@@ -161,7 +177,9 @@ export function ActiveInputActionChips(): JSX.Element | null {
 		[setActiveIds],
 	);
 
-	const activeActions = actions.filter((a) => activeIds.has(a.actionId) && actionVisible(a, activeTools));
+	const activeActions = actions.filter(
+		(a) => activeIds.has(a.actionId) && actionVisible(a, activeTools, currentScenario),
+	);
 
 	return (
 		<AnimatePresence initial={false}>

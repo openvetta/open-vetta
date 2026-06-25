@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { mkdir as fsMkdir, writeFile as fsWriteFile } from "fs/promises";
 import { dirname } from "path";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { isProtectedSkillOrScenePath, resolveToCwd, resolveWritablePath } from "../path-utils.js";
 
@@ -35,7 +35,7 @@ export interface WriteToolOptions {
 	operations?: WriteOperations;
 }
 
-export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentTool<typeof writeSchema> {
+export function createWriteTool(cwd: string, options?: WriteToolOptions): CodingAgentTool<typeof writeSchema> {
 	const ops = options?.operations ?? defaultWriteOperations;
 	const fallbackDescription =
 		"Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.";
