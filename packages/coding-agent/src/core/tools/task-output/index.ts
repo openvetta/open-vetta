@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import type { BackgroundTaskManager, BackgroundTaskStatus } from "../../background-tasks/index.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { truncateTail } from "../truncate.js";
 
@@ -27,7 +27,7 @@ export interface TaskOutputToolOptions {
 	getManager: () => BackgroundTaskManager;
 }
 
-export function createTaskOutputTool(options: TaskOutputToolOptions): AgentTool<typeof taskOutputSchema> {
+export function createTaskOutputTool(options: TaskOutputToolOptions): CodingAgentTool<typeof taskOutputSchema> {
 	const fallbackDescription =
 		"Read output of a background task started via bash with run_in_background. Returns new output since the last read (incremental). Set from_start to re-read everything.";
 	const description = loadToolDescription(import.meta.url, fallbackDescription);

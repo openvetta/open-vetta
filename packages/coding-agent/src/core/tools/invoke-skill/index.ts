@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { readFileSync } from "fs";
 import { stripFrontmatter } from "../../../utils/frontmatter.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import type { Skill } from "../../skills.js";
 import { loadToolDescription } from "../description.js";
 
@@ -28,7 +28,7 @@ export interface InvokeSkillToolOptions {
 	getSkills: () => Skill[];
 }
 
-export function createInvokeSkillTool(options: InvokeSkillToolOptions): AgentTool<typeof invokeSkillSchema> {
+export function createInvokeSkillTool(options: InvokeSkillToolOptions): CodingAgentTool<typeof invokeSkillSchema> {
 	const fallbackDescription =
 		"Invoke a skill by name. Use this tool when the user's request matches a skill in <available_skills>.";
 	const description = loadToolDescription(import.meta.url, fallbackDescription);

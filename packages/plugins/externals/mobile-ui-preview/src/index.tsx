@@ -18,6 +18,8 @@ export default definePlugin({
 				</svg>
 			),
 			component: MobilePreviewPanel,
+			// 仅交互式对话场景出现。
+			scope_use: ["conversation", "project", "cli"],
 		});
 	},
 });

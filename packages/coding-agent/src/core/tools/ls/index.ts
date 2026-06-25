@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { existsSync, readdirSync, statSync } from "fs";
 import nodePath from "path";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
@@ -44,7 +44,7 @@ export interface LsToolOptions {
 	operations?: LsOperations;
 }
 
-export function createLsTool(cwd: string, options?: LsToolOptions): AgentTool<typeof lsSchema> {
+export function createLsTool(cwd: string, options?: LsToolOptions): CodingAgentTool<typeof lsSchema> {
 	const ops = options?.operations ?? defaultLsOperations;
 	const fallbackDescription = `List directory contents. Returns entries sorted alphabetically, with '/' suffix for directories. Includes dotfiles. Output is truncated to ${DEFAULT_LIMIT} entries or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);

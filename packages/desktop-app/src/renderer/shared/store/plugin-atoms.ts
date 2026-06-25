@@ -1,4 +1,5 @@
 import type {
+	ConversationScenario,
 	PluginActivityTabContribution,
 	PluginCardRendererContribution,
 	PluginFilePreviewContribution,
@@ -32,6 +33,8 @@ export interface RegisteredActivityTab {
 	label: string;
 	icon?: PluginActivityTabContribution["icon"];
 	component: PluginActivityTabContribution["component"];
+	/** 允许出现的对话场景（fail-closed：缺省/空 = 任何会话都不显示）。见契约。 */
+	scope_use?: PluginActivityTabContribution["scope_use"];
 }
 
 /**
@@ -50,6 +53,8 @@ export interface RegisteredInputAction {
 	defaultActive?: boolean;
 	/** 依赖的 agent 工具名；仅当其在当前会话激活时显示该 badge（见契约）。 */
 	requiresActiveTool?: PluginInputActionContribution["requiresActiveTool"];
+	/** 允许出现的对话场景（fail-closed：缺省/空 = 任何会话都不显示）。见契约。 */
+	scope_use?: PluginInputActionContribution["scope_use"];
 	onToggle?: PluginInputActionContribution["onToggle"];
 	decoratePrompt?: PluginInputActionContribution["decoratePrompt"];
 }
@@ -68,11 +73,11 @@ export const activeInputActionIdsAtom = atom<Set<string>>(new Set<string>());
 export const knowledgeRetrievalActiveAtom = atom<boolean>(false);
 
 /**
- * 知识库总开关（镜像 desktop config 的 knowledgeBase.enabled，缺省开）。
+ * 知识库总开关（镜像 desktop config 的 knowledgeBase.enabled，缺省关）。
  * 关闭后：隐藏「知识检索」按钮、agent 屏蔽知识库工具、停后台加工。
  * 由 useAppInit 启动同步、设置页保存时更新。
  */
-export const knowledgeBaseEnabledAtom = atom<boolean>(true);
+export const knowledgeBaseEnabledAtom = atom<boolean>(false);
 
 /**
  * 当前会话「激活（模型可见）的工具名集合」，由 useSessionManager 在打开会话时从
@@ -80,6 +85,13 @@ export const knowledgeBaseEnabledAtom = atom<boolean>(true);
  * 非 null 时 badge 按其对应工具是否在集合内决定显示，跟随工具的 scope_use，消除双真相源漂移。
  */
 export const activeToolNamesAtom = atom<Set<string> | null>(null);
+
+/**
+ * 当前会话的对话场景，由 useSessionManager 在打开会话时从 getState 快照写入。
+ * `null` = 未知（新建会话页 / 尚未加载）。会话页插件插槽（活动面板标签卡 / 输入栏 toggle）
+ * 据此按对话类型 **fail-closed** 显隐：仅当 scenario 已知且在该插槽的 scope_use 内才显示。
+ */
+export const currentScenarioAtom = atom<ConversationScenario | null>(null);
 
 /** A card renderer registered by a loaded plugin, keyed by `type`. */
 export interface RegisteredCardRenderer {

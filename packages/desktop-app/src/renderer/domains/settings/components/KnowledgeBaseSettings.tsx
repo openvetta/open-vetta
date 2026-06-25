@@ -19,6 +19,8 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { KnowledgeHowItWorksDialog } from "@shared/components/KnowledgeHowItWorksDialog";
+import { cn } from "@shared/lib/utils";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
 
@@ -49,6 +51,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [status, setStatus] = useState<string | null>(null);
 	const [probing, setProbing] = useState(false);
 	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
+	const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
 	// 云端模型目录(由 useAuth 在登录后流式写入)。与本地 models.json 合并,本地同 key 优先。
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
@@ -56,7 +59,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
 			const kb = config.knowledgeBase;
-			setEnabled(kb?.enabled !== false);
+			setEnabled(kb?.enabled === true);
 			setIntervalMinutes(kb?.pollIntervalMinutes ?? 5);
 			setAgentConcurrency(kb?.agentConcurrency ?? 3);
 			setModelKey(kb?.processingModelKey ?? "");
@@ -172,7 +175,13 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		setStatus(null);
 		try {
 			const res = await window.vetta.knowledge.scanNow();
-			setStatus(res.skipped ? "文件没有变化，这次不用整理" : "已经开始整理了，整理记录里能看到进度");
+			setStatus(
+				res.reason === "no-model"
+					? "未选择整理模型，无法整理"
+					: res.skipped
+						? "文件没有变化，这次不用整理"
+						: "已经开始整理了，整理记录里能看到进度",
+			);
 		} catch (err) {
 			setStatus(`没整理成功：${err instanceof Error ? err.message : String(err)}`);
 		} finally {
@@ -230,7 +239,17 @@ export function KnowledgeBaseSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">知识库设置</h1>
+			<div className="mb-6 flex items-center justify-between gap-3">
+				<h1 className="text-[20px] font-bold text-foreground">知识库设置</h1>
+				<button
+					type="button"
+					onClick={() => setHowItWorksOpen(true)}
+					className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+				>
+					<span className="icon-[mdi--lightbulb-on-outline] h-4 w-4" />
+					<span>它如何工作</span>
+				</button>
+			</div>
 
 			<SettingSection
 				section={SETTINGS_SECTION["knowledge-processing"]}
@@ -272,13 +291,18 @@ export function KnowledgeBaseSettings(): JSX.Element {
 				</SettingRow>
 				<SettingRow
 					title="整理用哪个模型"
-					description="整理资料时用的 AI 模型，不选就用默认的。"
+					description="整理资料必须指定模型"
 					border={false}
 				>
 					<div className="flex flex-wrap items-center gap-2">
 						<Select value={modelKey} onValueChange={handleModel} disabled={!enabled}>
-							<SelectTrigger className="h-7 min-w-[220px] px-2 py-1 text-[12px]">
-								<SelectValue placeholder="用默认模型" />
+							<SelectTrigger
+								className={cn(
+									"h-7 min-w-[220px] px-2 py-1 text-[12px]",
+									enabled && !modelKey && "border-amber-500/50",
+								)}
+							>
+								<SelectValue placeholder="请选择模型（必选）" />
 							</SelectTrigger>
 							<SelectContent>
 								{[...grouped.entries()].map(([provider, items]) => (
@@ -318,13 +342,19 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						{probeResult && !probeResult.ok && (
 							<span className="text-[11px] text-red-500">{probeResult.msg}</span>
 						)}
+						{enabled && !modelKey && (
+							<span className="flex basis-full items-center gap-1 text-[11px] text-amber-500">
+								<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />
+								未选择整理模型，自动整理不会运行
+							</span>
+						)}
 					</div>
 				</SettingRow>
 			</SettingSection>
 
 			<SettingSection section={SETTINGS_SECTION["knowledge-actions"]} description={status ?? undefined}>
-				<SettingRow title="马上整理" description="不想等，现在就把新资料整理一遍。">
-					<button type="button" onClick={() => void handleScan()} disabled={!enabled || busy !== null} className={btnClass}>
+				<SettingRow title="马上整理" description="不想等，现在就把新资料整理一遍。需先选择整理模型。">
+					<button type="button" onClick={() => void handleScan()} disabled={!enabled || !modelKey || busy !== null} className={btnClass}>
 						<span>马上整理</span>
 						{busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
@@ -351,6 +381,11 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					</button>
 				</SettingRow>
 			</SettingSection>
+
+			<KnowledgeHowItWorksDialog
+				open={howItWorksOpen}
+				onClose={() => setHowItWorksOpen(false)}
+			/>
 		</div>
 	);
 }

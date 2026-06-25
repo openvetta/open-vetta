@@ -1,9 +1,9 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { existsSync, readFileSync, statSync } from "fs";
 import { glob } from "glob";
 import ignore from "ignore";
 import path from "path";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
@@ -185,7 +185,7 @@ async function runNodeGlob(
 	return results;
 }
 
-export function createGlobTool(cwd: string, options?: GlobToolOptions): AgentTool<typeof globSchema> {
+export function createGlobTool(cwd: string, options?: GlobToolOptions): CodingAgentTool<typeof globSchema> {
 	const customOps = options?.operations;
 	const fallbackDescription = `Fast file and directory pattern matching by glob pattern. Returns matching paths relative to the search directory. Respects .gitignore. Output is truncated to ${DEFAULT_LIMIT} results or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first).`;
 	const description = loadToolDescription(import.meta.url, fallbackDescription);

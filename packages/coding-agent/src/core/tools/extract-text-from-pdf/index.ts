@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import nodePath from "node:path";
 import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { runWithOcrLimit } from "../ocr-concurrency.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
@@ -285,7 +285,7 @@ function buildAgentText(doc: OcrJsonDocument, maxChars: number, outputPath: stri
 	return `${body}\n${footer}`;
 }
 
-export function createExtractTextFromPdfTool(cwd: string): AgentTool<typeof extractTextFromPdfSchema> {
+export function createExtractTextFromPdfTool(cwd: string): CodingAgentTool<typeof extractTextFromPdfSchema> {
 	const fallback = "Extract text from a PDF (scanned or born-digital) via Vetta Desktop's local OCR runner.";
 	const description = loadToolDescription(import.meta.url, fallback);
 

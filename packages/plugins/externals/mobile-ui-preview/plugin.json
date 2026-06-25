@@ -1,7 +1,7 @@
 {
 	"id": "mobile-ui-preview",
 	"name": "移动UI预览",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",

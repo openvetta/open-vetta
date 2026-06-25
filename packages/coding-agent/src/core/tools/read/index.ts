@@ -1,5 +1,4 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import type { ImageContent, TextContent } from "@vetta/ai";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile } from "fs/promises";
@@ -12,6 +11,7 @@ import {
 } from "../../../utils/image-resize.js";
 import { detectSupportedImageMimeTypeFromFile } from "../../../utils/mime.js";
 import { decodeTextBuffer } from "../../../utils/shell.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveReadPath } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
@@ -136,7 +136,7 @@ export interface ReadToolOptions {
 	operations?: ReadOperations;
 }
 
-export function createReadTool(cwd: string, options?: ReadToolOptions): AgentTool<typeof readSchema> {
+export function createReadTool(cwd: string, options?: ReadToolOptions): CodingAgentTool<typeof readSchema> {
 	const autoResizeImages = options?.autoResizeImages ?? true;
 	const ops = options?.operations ?? defaultReadOperations;
 	const fallbackDescription = `Read the contents of a file. Supports text files and images (jpg, png, gif, webp). Images are sent as attachments. For text files, output is truncated to ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.`;

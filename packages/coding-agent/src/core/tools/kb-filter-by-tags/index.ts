@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { queryByTags } from "../../knowledge/query.js";
 import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 
 const kbFilterByTagsSchema = Type.Object({
@@ -34,7 +34,7 @@ export interface KbFilterByTagsDetails {
  * 按标签交/并/补过滤知识库 wiki 页。检索捷径，非必经路（也可走 indexes 或渐进探索）。
  * @param root 知识库根目录，默认 ~/.vetta/knowledges。
  */
-export function createKbFilterByTagsTool(root?: string): AgentTool<typeof kbFilterByTagsSchema> {
+export function createKbFilterByTagsTool(root?: string): CodingAgentTool<typeof kbFilterByTagsSchema> {
 	const fallbackDescription =
 		"Filter knowledge base wiki pages by tags using set algebra (all=AND, any=OR, none=NOT). " +
 		"A retrieval shortcut. Call kb_list_available_tags first if unsure which tags exist.";

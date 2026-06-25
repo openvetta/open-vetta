@@ -141,7 +141,7 @@ export interface PluginAgentToolRegistration {
 	activationId?: string;
 	timeoutMs?: number;
 	/** 允许出现的对话场景 slug（fail-closed：缺省/空 = 所有场景都不激活）。 */
-	scope_use?: string[];
+	scope_use?: readonly string[];
 	/** 需要的会话能力 slug。 */
 	requires?: string[];
 }

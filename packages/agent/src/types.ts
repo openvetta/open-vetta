@@ -186,17 +186,20 @@ export interface ToolExecutionContext {
 }
 
 // AgentTool extends Tool but adds the execute function
-export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any> extends Tool<TParameters> {
+export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any, TScenario extends string = string>
+	extends Tool<TParameters> {
 	// A human-readable label for the tool to be displayed in UI
 	label: string;
 	/**
 	 * 工具可用性元数据（由上层消费者解释，agent 库本身不解读）。
 	 * - scope_use：允许出现的对话场景 slug 列表。**fail-closed**：缺省/空 = 所有场景都不可用
 	 *   （注册但不自动激活，仍可被显式 toggle 开启）。每个工具须显式声明。
+	 *   类型默认 `string`（agent-core 不绑定任何场景词汇）；上层消费者可通过 `TScenario`
+	 *   传入具体的场景联合（如 coding-agent 的 `ConversationScenario`）拿到补全/防拼写。
 	 * - requires：需要的会话能力 slug（如 "knowledge"/"bg-tasks"/"host:ask"）；全满足才激活。
 	 * - category：功能域分类，仅供分组/UI，不影响激活。
 	 */
-	scope_use?: string[];
+	scope_use?: readonly TScenario[];
 	requires?: string[];
 	category?: string;
 	execute: (

@@ -7,11 +7,13 @@ import {
 	type AgentSession,
 	type AgentSessionEvent,
 	type SessionEntry as CodingSessionEntry,
+	type ConversationScenario,
 	type CreateAgentSessionOptions,
 	type CustomEntry,
 	createAgentSession,
 	createEditImageTool,
 	createGenerateImageTool,
+	DEFAULT_SCENARIO,
 	type ExtensionUIContext,
 	type FileEntry,
 	type ImageToolBackend,
@@ -59,6 +61,8 @@ interface SessionHandle {
 	session: AgentSession;
 	executionMode: SessionExecutionMode;
 	agentPluginsEnabled: boolean;
+	/** 本会话解析后的对话场景（缺省回落 DEFAULT_SCENARIO），getState 回传给 renderer。 */
+	scenario: ConversationScenario;
 }
 
 /**
@@ -466,7 +470,12 @@ export class RuntimeHost implements SessionFacade {
 		const sessionId = session.sessionId;
 		sessionIdRef.current = sessionId;
 		await session.bindExtensions({ uiContext: this.createExtensionUIContext(sessionIdRef) });
-		this.sessions.set(sessionId, { session, executionMode, agentPluginsEnabled: config.enableAgentPlugins === true });
+		this.sessions.set(sessionId, {
+			session,
+			executionMode,
+			agentPluginsEnabled: config.enableAgentPlugins === true,
+			scenario: config.scenario ?? DEFAULT_SCENARIO,
+		});
 		debugPluginAgent("runtime createSession registered", {
 			sessionId,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
@@ -821,6 +830,7 @@ export class RuntimeHost implements SessionFacade {
 			contextPercent: contextUsage?.percent ?? null,
 			contextWindow: contextUsage?.contextWindow ?? 0,
 			activeToolNames: handle.session.getActiveToolNames(),
+			scenario: handle.scenario,
 		};
 	}
 

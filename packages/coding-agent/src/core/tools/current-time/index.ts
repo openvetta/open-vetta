@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 
 const currentTimeSchema = Type.Object({});
@@ -20,7 +20,7 @@ function formatDateTime(date: Date): string {
 	return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-export function createCurrentTimeTool(): AgentTool<typeof currentTimeSchema, CurrentTimeToolDetails> {
+export function createCurrentTimeTool(): CodingAgentTool<typeof currentTimeSchema, CurrentTimeToolDetails> {
 	const fallbackDescription = "Get the current system time. Returns the time in YYYY-MM-DD HH:mm:ss format.";
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 

@@ -204,6 +204,7 @@ export {
 // 对话场景与工具 scope（隔离的唯一轴）
 export {
 	ALL_SCENARIOS,
+	type CodingAgentTool,
 	type ConversationScenario,
 	DEFAULT_SCENARIO,
 	type ToolCapability,

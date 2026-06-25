@@ -160,7 +160,15 @@ async function runProcessingBatch(
 }
 
 /** 跑一轮加工。返回是否因无变更而跳过。 */
-export async function runKnowledgeRound(modelKey?: string, agentConcurrency = 3): Promise<{ skipped: boolean }> {
+export async function runKnowledgeRound(
+	modelKey?: string,
+	agentConcurrency = 3,
+): Promise<{ skipped: boolean; reason?: "no-model" }> {
+	// 必须显式配置加工模型，绝不回退默认模型：未选模型时整轮跳过。
+	if (!modelKey || modelKey.indexOf("/") <= 0) {
+		log.info("no processing model configured, skipping round");
+		return { skipped: true, reason: "no-model" };
+	}
 	if (running) {
 		log.info("previous round still running, skipping this tick");
 		return { skipped: true };
@@ -294,6 +302,11 @@ export async function reloadKnowledgePoller(): Promise<void> {
 		return;
 	}
 	const modelKey = kb.processingModelKey;
+	// 未配置加工模型则不调度自动整理（绝不回退默认模型）。检索/手动操作不受影响。
+	if (!modelKey || modelKey.indexOf("/") <= 0) {
+		log.info("knowledge auto-processing disabled (no processing model configured)");
+		return;
+	}
 	const agentConcurrency = kb.agentConcurrency ?? 3;
 	const task = new AsyncTask(
 		JOB_ID,
