@@ -68,29 +68,25 @@ async function buildTree(absDir: string, relBase: string): Promise<KnowledgeNode
 	} catch {
 		return [];
 	}
-	const nodes: KnowledgeNodeDto[] = [];
-	for (const entry of entries) {
-		if (entry.name.startsWith(".")) continue; // 隐藏文件不入 UI
-		const full = join(absDir, entry.name);
-		const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
-		if (entry.isDirectory()) {
-			nodes.push({
-				id: rel,
-				name: entry.name,
-				type: "directory",
-				children: await buildTree(full, rel),
-			});
-		} else if (entry.isFile()) {
-			const info = await stat(full).catch(() => null);
-			nodes.push({
-				id: rel,
-				name: entry.name,
-				type: "file",
-				size: info?.size,
-				sourcePath: full,
-			});
-		}
-	}
+	// 同层子目录递归与文件 stat 并行展开：避免逐项串行 await 在深树/大目录下空屏。
+	// fs 操作走 libuv 线程池（默认并发受限并排队），不会因此耗尽文件句柄。
+	const built = await Promise.all(
+		entries
+			.filter((entry) => !entry.name.startsWith(".")) // 隐藏文件不入 UI
+			.map(async (entry): Promise<KnowledgeNodeDto | null> => {
+				const full = join(absDir, entry.name);
+				const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
+				if (entry.isDirectory()) {
+					return { id: rel, name: entry.name, type: "directory", children: await buildTree(full, rel) };
+				}
+				if (entry.isFile()) {
+					const info = await stat(full).catch(() => null);
+					return { id: rel, name: entry.name, type: "file", size: info?.size, sourcePath: full };
+				}
+				return null;
+			}),
+	);
+	const nodes = built.filter((node): node is KnowledgeNodeDto => node !== null);
 	// 目录在前、同类按名排序，贴近 Finder。
 	nodes.sort((a, b) => {
 		if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
@@ -119,19 +115,22 @@ export async function listKnowledgeBases(): Promise<KnowledgeBaseDto[]> {
 	} catch {
 		return [];
 	}
-	const bases: KnowledgeBaseDto[] = [];
-	for (const entry of entries) {
-		if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-		const full = join(root, entry.name);
-		const info = await stat(full).catch(() => null);
-		bases.push({
-			id: entry.name,
-			name: entry.name,
-			updatedAt: info?.mtimeMs ?? 0,
-			isDefault: entry.name === DEFAULT_KNOWLEDGE_BASE,
-			nodes: await buildTree(full, ""),
-		});
-	}
+	// 各知识库的树并行构建，互不阻塞。
+	const bases = await Promise.all(
+		entries
+			.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+			.map(async (entry): Promise<KnowledgeBaseDto> => {
+				const full = join(root, entry.name);
+				const info = await stat(full).catch(() => null);
+				return {
+					id: entry.name,
+					name: entry.name,
+					updatedAt: info?.mtimeMs ?? 0,
+					isDefault: entry.name === DEFAULT_KNOWLEDGE_BASE,
+					nodes: await buildTree(full, ""),
+				};
+			}),
+	);
 	// 默认库置顶，其余按更新时间倒序。
 	bases.sort((a, b) => {
 		if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;

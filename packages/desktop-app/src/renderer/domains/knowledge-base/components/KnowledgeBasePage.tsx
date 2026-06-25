@@ -8,6 +8,7 @@ import {
 	confirmDialogAtom,
 	knowledgeBasesAtom,
 	knowledgeImportDraftAtom,
+	knowledgeLoadingAtom,
 	knowledgeViewModeAtom,
 	pageHeaderRightSlotAtom,
 	pageHeaderTitleBadgeAtom,
@@ -21,6 +22,7 @@ import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useKnowledgeImportSources } from "../hooks/useKnowledgeImportSources";
 import { KnowledgeBaseSwitcher } from "./KnowledgeBaseSwitcher";
 import { KnowledgeContentsPanel } from "./KnowledgeContentsPanel";
+import { KnowledgeFilesSkeleton } from "./KnowledgeFilesSkeleton";
 import { KnowledgeProcessingBadge } from "./KnowledgeProcessingBadge";
 import { KnowledgeImportDialog, type KnowledgeImportConfirmation } from "./KnowledgeImportDialog";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
@@ -31,6 +33,7 @@ const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 export function KnowledgeBasePage(): JSX.Element {
 	const [knowledgeBases] = useAtom(knowledgeBasesAtom);
+	const loading = useAtomValue(knowledgeLoadingAtom);
 	const [activeId, setActiveId] = useAtom(activeKnowledgeBaseIdAtom);
 	const [draft, setDraft] = useAtom(knowledgeImportDraftAtom);
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
@@ -327,6 +330,9 @@ export function KnowledgeBasePage(): JSX.Element {
 					</motion.div>
 				)}
 			</header>
+
+			{/* 首次进页磁盘列表未回时显示骨架，替代空屏；刷新已有数据时保持旧内容不闪。 */}
+			{loading && knowledgeBases.length === 0 && <KnowledgeFilesSkeleton />}
 
 			<AnimatePresence mode="popLayout" initial={false}>
 				{activeBase && (
