@@ -555,3 +555,72 @@ a {
 		animation: none;
 	}
 }
+
+/* ─── Dialog 入场/出场动画 ───
+   radix 在 overlay/content 上写 data-state="open"|"closed"，关闭时 Presence
+   会等动画结束再卸载，因此出场动画也能完整播放。content 的 to 态保持
+   translate(-50%,-50%) 与 Tailwind 的居中类一致，动画结束后无跳动。 */
+@keyframes vetta-dialog-overlay-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes vetta-dialog-overlay-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+
+@keyframes vetta-dialog-content-in {
+	from {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+}
+
+@keyframes vetta-dialog-content-out {
+	from {
+		opacity: 1;
+		transform: translate(-50%, -50%) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.96);
+	}
+}
+
+[data-slot="dialog-overlay"][data-state="open"] {
+	animation: vetta-dialog-overlay-in 200ms ease-out;
+}
+
+[data-slot="dialog-overlay"][data-state="closed"] {
+	animation: vetta-dialog-overlay-out 150ms ease-in;
+}
+
+[data-slot="dialog-content"][data-state="open"] {
+	animation: vetta-dialog-content-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-slot="dialog-content"][data-state="closed"] {
+	animation: vetta-dialog-content-out 150ms ease-in;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-slot="dialog-overlay"][data-state="open"],
+	[data-slot="dialog-overlay"][data-state="closed"],
+	[data-slot="dialog-content"][data-state="open"],
+	[data-slot="dialog-content"][data-state="closed"] {
+		animation: none;
+	}
+}

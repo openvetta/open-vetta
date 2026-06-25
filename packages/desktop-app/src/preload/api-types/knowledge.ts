@@ -31,8 +31,8 @@ export interface KnowledgeFileStatus {
 }
 
 export interface DesktopKnowledgeApi {
-	/** 立即跑一轮加工（手动触发，不等轮询周期）。返回是否因无变更跳过。 */
-	scanNow(): Promise<{ skipped: boolean }>;
+	/** 立即跑一轮加工（手动触发，不等轮询周期）。skipped 时 reason 指明原因（无变更/未配置模型）。 */
+	scanNow(): Promise<{ skipped: boolean; reason?: "no-model" }>;
 	/** 据当前设置重新调度后台轮询器（保存知识库设置后调用）。 */
 	reload(): Promise<void>;
 	/** 从磁盘 raws/ 读出全部知识库（含文件树）。反向重建即调此刷新。 */
