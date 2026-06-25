@@ -9,9 +9,13 @@ import {
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions";
 import {
 	DEFAULT_PET_VIDEO_SIZE,
+	DEFAULT_PET_VIDEO_SCALE,
 	normalizePetSize,
+	normalizePetVideoSize,
 	normalizePetVideoSizeForWindow,
-	type PetVideoSizeByAction,
+	normalizePetVideoScale,
+	PET_VIDEO_SIZE_STEP,
+	type PetVideoBaseSizeByAction,
 } from "../../../../shared/pet-config";
 import type { PetBridge, PetResizeCorner } from "../../../../shared/pet-ipc";
 
@@ -59,12 +63,17 @@ function getInitialDebugFrame(): boolean {
 	return new URLSearchParams(window.location.search).get("debugFrame") === "true";
 }
 
-function getInitialVideoSizeByAction(): PetVideoSizeByAction {
+function getInitialVideoScale(): number {
+	const scale = Number(new URLSearchParams(window.location.search).get("videoScale"));
+	return normalizePetVideoScale(Number.isFinite(scale) ? scale : DEFAULT_PET_VIDEO_SCALE);
+}
+
+function getInitialVideoBaseSizeByAction(): PetVideoBaseSizeByAction {
 	const params = new URLSearchParams(window.location.search);
-	const sizes = {} as PetVideoSizeByAction;
+	const sizes = {} as PetVideoBaseSizeByAction;
 	for (const action of PET_ACTIONS) {
-		const size = Number(params.get(`${action.id}VideoSize`));
-		sizes[action.id] = Number.isFinite(size) ? size : DEFAULT_PET_VIDEO_SIZE;
+		const baseSize = Number(params.get(`${action.id}VideoBaseSize`) ?? params.get(`${action.id}VideoSize`));
+		sizes[action.id] = Number.isFinite(baseSize) ? normalizePetVideoSize(baseSize) : action.videoBaseSize;
 	}
 	return sizes;
 }
@@ -262,12 +271,14 @@ function WindowResizeHandles({
 
 function VideoResizeHandles({
 	actionId,
-	size,
+	baseSize,
+	videoScale,
 	windowSize,
 	onSizeChange,
 }: {
 	actionId: PetActionId;
-	size: number;
+	baseSize: number;
+	videoScale: number;
 	windowSize: number;
 	onSizeChange: (size: number) => void;
 }): JSX.Element {
@@ -277,7 +288,7 @@ function VideoResizeHandles({
 		event.currentTarget.setPointerCapture(event.pointerId);
 		const startX = event.clientX;
 		const startY = event.clientY;
-		const startSize = size;
+		const startSize = baseSize;
 		const xDirection = corner.endsWith("right") ? 1 : -1;
 		const yDirection = corner.startsWith("bottom") ? 1 : -1;
 		let lastSize = startSize;
@@ -286,7 +297,8 @@ function VideoResizeHandles({
 		const handlePointerMove = (moveEvent: PointerEvent) => {
 			const deltaX = (moveEvent.clientX - startX) * xDirection;
 			const deltaY = (moveEvent.clientY - startY) * yDirection;
-			const nextSize = normalizePetVideoSizeForWindow(startSize + Math.max(deltaX, deltaY), windowSize);
+			const maxBaseSize = windowSize / videoScale;
+			const nextSize = normalizePetVideoSizeForWindow(startSize + Math.max(deltaX, deltaY), maxBaseSize);
 			if (nextSize === lastSize) return;
 			lastSize = nextSize;
 			changed = true;
@@ -296,7 +308,7 @@ function VideoResizeHandles({
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
 			if (changed) {
-				void window.vettaPet?.setVideoSize(actionId, lastSize);
+				void window.vettaPet?.setVideoBaseSize(actionId, lastSize);
 			}
 		};
 
@@ -352,7 +364,8 @@ export function PetApp(): JSX.Element {
 	const [actionId, setActionId] = useState<PetActionId | undefined>(() => getInitialAction(videos));
 	const [autoMode, setAutoMode] = useState(getInitialAutoMode);
 	const [debugFrame, setDebugFrame] = useState(getInitialDebugFrame);
-	const [videoSizeByAction, setVideoSizeByAction] = useState(getInitialVideoSizeByAction);
+	const [videoScale, setVideoScale] = useState(getInitialVideoScale);
+	const [videoBaseSizeByAction, setVideoBaseSizeByAction] = useState(getInitialVideoBaseSizeByAction);
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
 	const [windowSize, setWindowSize] = useState(getWindowSize);
 	const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | undefined>();
@@ -361,9 +374,11 @@ export function PetApp(): JSX.Element {
 	const action = PET_ACTIONS.find((item) => item.id === actionId);
 	const videoSrc = actionId ? videos[actionId] : undefined;
 	const shouldShowVideo = videoSrc != null && videoSrc !== failedVideoSrc;
-	const selectedVideoSize = actionId ? videoSizeByAction[actionId] : DEFAULT_PET_VIDEO_SIZE;
+	const selectedVideoBaseSize = actionId ? videoBaseSizeByAction[actionId] : DEFAULT_PET_VIDEO_SIZE;
+	const selectedVideoSize = normalizePetVideoSize(selectedVideoBaseSize * videoScale);
 	const maxVideoSize = Math.min(windowSize.width, windowSize.height);
-	const effectiveVideoSize = normalizePetVideoSizeForWindow(selectedVideoSize, maxVideoSize);
+	const targetVideoSize = debugFrame ? selectedVideoBaseSize : selectedVideoSize;
+	const effectiveVideoSize = normalizePetVideoSizeForWindow(targetVideoSize, maxVideoSize);
 	const videoSize = getVideoDisplaySize(videoNaturalSize, effectiveVideoSize);
 	const isPointOverVideo = (clientX: number, clientY: number): boolean => {
 		const videoBounds = videoRef.current?.getBoundingClientRect();
@@ -387,7 +402,16 @@ export function PetApp(): JSX.Element {
 		event.stopPropagation();
 		if (debugFrame) {
 			if (isPointOverVideo(event.clientX, event.clientY) && actionId) {
-				void window.vettaPet?.resizeVideoByWheel(actionId, event.deltaY);
+				const direction = event.deltaY < 0 ? 1 : -1;
+				const nextBaseSize = normalizePetVideoSizeForWindow(
+					selectedVideoBaseSize + direction * PET_VIDEO_SIZE_STEP,
+					maxVideoSize,
+				);
+				setVideoBaseSizeByAction((current) => ({
+					...current,
+					[actionId]: nextBaseSize,
+				}));
+				void window.vettaPet?.setVideoBaseSize(actionId, nextBaseSize);
 				return;
 			}
 			void window.vettaPet?.resizeByWheel(event.deltaY);
@@ -424,10 +448,10 @@ export function PetApp(): JSX.Element {
 	};
 	const handleVideoSizeChange = (size: number) => {
 		if (!actionId) return;
-		const nextSize = normalizePetVideoSizeForWindow(size, maxVideoSize);
-		setVideoSizeByAction((current) => ({
+		const nextBaseSize = normalizePetVideoSizeForWindow(size, maxVideoSize);
+		setVideoBaseSizeByAction((current) => ({
 			...current,
-			[actionId]: nextSize,
+			[actionId]: nextBaseSize,
 		}));
 	};
 
@@ -443,6 +467,38 @@ export function PetApp(): JSX.Element {
 			void window.vettaPet?.setMousePassthrough(false);
 		};
 	}, [debugFrame]);
+
+	useEffect(() => {
+		if (debugFrame || !shouldShowVideo) {
+			void window.vettaPet?.setVideoHitbox(undefined);
+			return;
+		}
+
+		const reportHitbox = () => {
+			const bounds = videoRef.current?.getBoundingClientRect();
+			if (!bounds) {
+				void window.vettaPet?.setVideoHitbox(undefined);
+				return;
+			}
+			void window.vettaPet?.setVideoHitbox({
+				x: bounds.left,
+				y: bounds.top,
+				width: bounds.width,
+				height: bounds.height,
+			});
+		};
+		const observer = new ResizeObserver(reportHitbox);
+		if (videoRef.current) {
+			observer.observe(videoRef.current);
+		}
+		reportHitbox();
+		window.addEventListener("resize", reportHitbox);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener("resize", reportHitbox);
+			void window.vettaPet?.setVideoHitbox(undefined);
+		};
+	}, [debugFrame, shouldShowVideo, videoSize.width, videoSize.height]);
 
 	useEffect(() => {
 		if (!autoMode || !actionId) return;
@@ -463,10 +519,14 @@ export function PetApp(): JSX.Element {
 				setDebugFrame(command.enabled);
 				return;
 			}
-			if (command.type === "set-video-size") {
-				setVideoSizeByAction((current) => ({
+			if (command.type === "set-video-scale") {
+				setVideoScale(command.scale);
+				return;
+			}
+			if (command.type === "set-video-base-size") {
+				setVideoBaseSizeByAction((current) => ({
 					...current,
-					[command.actionId]: command.size,
+					[command.actionId]: command.baseSize,
 				}));
 				return;
 			}
@@ -520,8 +580,9 @@ export function PetApp(): JSX.Element {
 					{debugFrame && actionId ? (
 						<VideoResizeHandles
 							actionId={actionId}
+							baseSize={selectedVideoBaseSize}
 							onSizeChange={handleVideoSizeChange}
-							size={effectiveVideoSize}
+							videoScale={1}
 							windowSize={maxVideoSize}
 						/>
 					) : null}
