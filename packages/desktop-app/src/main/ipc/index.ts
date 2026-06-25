@@ -10,6 +10,7 @@ import { registerFsIpc } from "./fs.js";
 import { registerImIpc } from "./im.js";
 import { registerMediaIpc } from "./media.js";
 import { registerPermissionsIpc } from "./permissions.js";
+import { registerPetIpc } from "./pet.js";
 import { registerPluginsIpc } from "./plugins.js";
 import { registerProjectExportIpc } from "./project-export.js";
 import { registerRuntimesIpc } from "./runtimes.js";
@@ -39,6 +40,7 @@ interface IpcTeardown {
 	teardownPermissions: () => void;
 	teardownPlugins: () => void;
 	teardownNotifications: () => void;
+	teardownPet: () => void;
 }
 
 export function registerAllIpc(
@@ -65,6 +67,7 @@ export function registerAllIpc(
 		teardownPermissions: registerPermissionsIpc(),
 		teardownPlugins: registerPluginsIpc(),
 		teardownNotifications: registerNotificationIpc(webContents),
+		teardownPet: registerPetIpc(),
 	};
 }
 
@@ -88,6 +91,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownPermissions();
 	teardown.teardownPlugins();
 	teardown.teardownNotifications();
+	teardown.teardownPet();
 }
 
 export { registerBatchTasksIpc } from "./batch-tasks.js";

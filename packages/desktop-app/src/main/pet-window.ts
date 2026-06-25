@@ -3,8 +3,9 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Menu, screen } from "electron";
 import { PET_ACTIONS } from "../shared/pet-actions.js";
+import { DEFAULT_PET_CONFIG, normalizePetConfig, type PetConfig } from "../shared/pet-config.js";
 import { PET_COMMAND_CHANNEL, type PetCommand } from "../shared/pet-ipc.js";
-import { allowProjectRoot } from "./ipc/fs.js";
+import { allowProjectRoot, readConfigSync } from "./ipc/fs.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_SCHEME } from "./media-protocol.js";
 import { iconPath } from "./window-manager.js";
@@ -14,11 +15,10 @@ const resDir = app.isPackaged ? appRoot : join(appRoot, "dist");
 const buildDir = app.isPackaged ? join(process.resourcesPath, "build") : join(appRoot, "build");
 const petMediaDir = join(buildDir, "pet");
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
-const petSize = 220;
 const petPreloadPath = join(resDir, "preload/pet.js");
 
 let petWindow: BrowserWindow | null = null;
-let autoMode = true;
+let petConfig: PetConfig = DEFAULT_PET_CONFIG;
 
 type PetVideoResolution = {
 	id: string;
@@ -47,23 +47,31 @@ function resolvePetVideo(action: (typeof PET_ACTIONS)[number]): PetVideoResoluti
 	};
 }
 
-function getInitialBounds(): Electron.Rectangle {
+function getStoredPetConfig(): PetConfig {
+	return normalizePetConfig(readConfigSync().pet);
+}
+
+function getInitialBounds(size: number): Electron.Rectangle {
 	const { workArea } = screen.getPrimaryDisplay();
 	return {
-		width: petSize,
-		height: petSize,
-		x: workArea.x + workArea.width - petSize - 24,
-		y: workArea.y + workArea.height - petSize - 24,
+		width: size,
+		height: size,
+		x: workArea.x + workArea.width - size - 24,
+		y: workArea.y + workArea.height - size - 24,
 	};
 }
 
-function buildPetQuery(): string {
+function buildPetQuery(config: PetConfig): string {
 	const params = new URLSearchParams();
 	for (const action of PET_ACTIONS) {
 		const video = resolvePetVideo(action);
 		if (video.url) {
 			params.set(action.id, video.url);
 		}
+	}
+	params.set("autoMode", String(config.autoMode));
+	if (config.defaultActionId) {
+		params.set("initialAction", config.defaultActionId);
 	}
 	return params.toString();
 }
@@ -78,7 +86,7 @@ function getPetEntryUrl(query: string): string {
 }
 
 function loadPetEntry(win: BrowserWindow, log = getAppLogger("pet-window")): void {
-	const query = buildPetQuery();
+	const query = buildPetQuery(petConfig);
 	const url = getPetEntryUrl(query);
 	log.info("load entry", {
 		mode: devServerUrl ? "dev-server" : "file",
@@ -106,7 +114,7 @@ function showContextMenu(win: BrowserWindow): void {
 				...PET_ACTIONS.map((action) => ({
 					label: action.label,
 					click: () => {
-						autoMode = false;
+						petConfig = { ...petConfig, autoMode: false, defaultActionId: action.id };
 						sendPetCommand(win, { type: "set-action", actionId: action.id });
 					},
 				})),
@@ -114,7 +122,7 @@ function showContextMenu(win: BrowserWindow): void {
 				{
 					label: "随机动作",
 					click: () => {
-						autoMode = false;
+						petConfig = { ...petConfig, autoMode: false };
 						sendPetCommand(win, { type: "random-action" });
 					},
 				},
@@ -123,10 +131,10 @@ function showContextMenu(win: BrowserWindow): void {
 		{
 			label: "自动切换",
 			type: "checkbox",
-			checked: autoMode,
+			checked: petConfig.autoMode,
 			click: (menuItem) => {
-				autoMode = menuItem.checked;
-				sendPetCommand(win, { type: "set-auto-mode", enabled: autoMode });
+				petConfig = { ...petConfig, autoMode: menuItem.checked };
+				sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
 			},
 		},
 		{ type: "separator" },
@@ -152,8 +160,22 @@ export function getPetWindow(): BrowserWindow | null {
 	return petWindow;
 }
 
+export function getPetConfig(): PetConfig {
+	return petConfig;
+}
+
+export function initializePetWindow(): BrowserWindow | null {
+	petConfig = getStoredPetConfig();
+	if (!petConfig.enabled) {
+		getAppLogger("pet-window").info("startup skipped", petConfig);
+		return null;
+	}
+	return createPetWindow();
+}
+
 export function createPetWindow(): BrowserWindow {
 	const log = getAppLogger("pet-window");
+	petConfig = getStoredPetConfig();
 	if (petWindow && !petWindow.isDestroyed()) {
 		log.info("reuse existing window", {
 			isVisible: petWindow.isVisible(),
@@ -162,7 +184,7 @@ export function createPetWindow(): BrowserWindow {
 		return petWindow;
 	}
 
-	const initialBounds = getInitialBounds();
+	const initialBounds = getInitialBounds(petConfig.size);
 	allowProjectRoot(petMediaDir);
 	const videos = PET_ACTIONS.map(resolvePetVideo);
 	const foundVideos = videos.filter((video) => video.found);
@@ -176,6 +198,7 @@ export function createPetWindow(): BrowserWindow {
 		initialBounds,
 		foundVideos: foundVideos.map((video) => video.fileName),
 		missingVideos: videos.filter((video) => !video.found).map((video) => video.fileName),
+		petConfig,
 	});
 
 	petWindow = new BrowserWindow({
@@ -187,7 +210,7 @@ export function createPetWindow(): BrowserWindow {
 		skipTaskbar: true,
 		transparent: true,
 		hasShadow: false,
-		alwaysOnTop: true,
+		alwaysOnTop: petConfig.alwaysOnTop,
 		backgroundColor: "#00000000",
 		icon: iconPath[process.platform],
 		webPreferences: {
@@ -197,7 +220,7 @@ export function createPetWindow(): BrowserWindow {
 		},
 	});
 
-	petWindow.setAlwaysOnTop(true, "screen-saver");
+	petWindow.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
 	petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 	petWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 	petWindow.webContents.on("preload-error", (_event, preloadPathForError, error) => {
@@ -257,4 +280,41 @@ export function showPetWindow(): BrowserWindow {
 		bounds: win.getBounds(),
 	});
 	return win;
+}
+
+export function applyPetConfig(config: PetConfig): void {
+	petConfig = normalizePetConfig(config);
+	const log = getAppLogger("pet-window");
+
+	if (!petConfig.enabled) {
+		if (petWindow && !petWindow.isDestroyed()) {
+			petWindow.hide();
+		}
+		log.info("config applied hidden", petConfig);
+		return;
+	}
+
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	win.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
+	const bounds = win.getBounds();
+	if (bounds.width !== petConfig.size || bounds.height !== petConfig.size) {
+		win.setBounds({
+			x: bounds.x + bounds.width - petConfig.size,
+			y: bounds.y + bounds.height - petConfig.size,
+			width: petConfig.size,
+			height: petConfig.size,
+		});
+	}
+	if (!win.isVisible()) {
+		win.showInactive();
+	}
+	sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
+	if (!petConfig.autoMode && petConfig.defaultActionId) {
+		sendPetCommand(win, { type: "set-action", actionId: petConfig.defaultActionId });
+	}
+	log.info("config applied", {
+		petConfig,
+		isVisible: win.isVisible(),
+		bounds: win.getBounds(),
+	});
 }

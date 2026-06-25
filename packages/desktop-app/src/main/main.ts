@@ -38,7 +38,7 @@ import { reloadKnowledgePoller } from "./knowledge/poller.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-protocol.js";
 import { openExternalUrl } from "./open-external.js";
-import { createPetWindow } from "./pet-window.js";
+import { initializePetWindow } from "./pet-window.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { discoverSystemPlugins } from "./plugins/plugin-store.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
@@ -530,7 +530,7 @@ if (!gotSingleLock) {
 		// Register IPC handlers
 		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker });
 		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService);
-		createPetWindow();
+		initializePetWindow();
 
 		try {
 			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService, schedulerService);
