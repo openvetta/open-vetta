@@ -5,11 +5,13 @@ import { useParams } from "@tanstack/react-router";
 import type { InstalledSkill, SkillInfo } from "@preload/api";
 import {
 	activeSessionAtom,
+	activeToolNamesAtom,
 	attachedImagesAtom,
 	authTokenAtom,
 	activeInputActionIdsAtom,
 	authUserAtom,
 	contextUsageAtom,
+	currentScenarioAtom,
 	editImageAttachmentAtom,
 	inputValueAtom,
 	lastActiveSessionAtom,
@@ -118,6 +120,8 @@ export function NewSessionPage(): JSX.Element {
 	const setEditImageAttachment = useSetAtom(editImageAttachmentAtom);
 	const setPendingEditImageId = useSetAtom(pendingEditImageIdAtom);
 	const setActiveInputActionIds = useSetAtom(activeInputActionIdsAtom);
+	const setCurrentScenario = useSetAtom(currentScenarioAtom);
+	const setActiveToolNames = useSetAtom(activeToolNamesAtom);
 	const authUser = useAtomValue(authUserAtom);
 	const token = useAtomValue(authTokenAtom);
 	const executionMode = useAtomValue(sessionExecutionModeAtom);
@@ -135,6 +139,13 @@ export function NewSessionPage(): JSX.Element {
 		setPendingEditImageId(null);
 		// 清空所有 active 的 input-action（如「图像生成」），回到默认输入态。
 		setActiveInputActionIds(new Set());
+		// 重置输入栏 action 的两道可见性闸门，避免继承上个会话（如批量任务）的隐藏态：
+		// 1) 对话场景置为新建普通对话的默认 "conversation"（与 session.create 落库一致），
+		//    否则残留 "batch" 会让 fail-closed 过滤把默认 action 全部隐藏。
+		// 2) 激活工具集置 null（未知 → 按 scope 默认显示），否则残留批量会话的工具集
+		//    不含 generate_image，会让 requiresActiveTool 闸门继续隐藏「图像生成」。
+		setCurrentScenario("conversation");
+		setActiveToolNames(null);
 		// 清掉上一个会话残留的上下文用量，避免 ContextRing 显示旧会话的百分比。
 		setContextUsage(null);
 		// 清掉 activeSession，避免 InputBar 的 todo 抽屉等仍读取旧会话状态。
@@ -150,6 +161,8 @@ export function NewSessionPage(): JSX.Element {
 		setEditImageAttachment,
 		setPendingEditImageId,
 		setActiveInputActionIds,
+		setCurrentScenario,
+		setActiveToolNames,
 		setContextUsage,
 		setActiveSession,
 		setLastActiveSession,
