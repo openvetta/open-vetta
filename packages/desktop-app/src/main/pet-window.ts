@@ -500,7 +500,7 @@ export function applyPetConfig(config: PetConfig): void {
 		if (petWindow && !petWindow.isDestroyed()) {
 			petWindow.hide();
 		}
-		log.info("config applied hidden", petConfig);
+		log.debug("config applied hidden", petConfig);
 		return;
 	}
 
@@ -535,7 +535,7 @@ export function applyPetConfig(config: PetConfig): void {
 	if (!petConfig.autoMode && petConfig.defaultActionId) {
 		sendPetCommand(win, { type: "set-action", actionId: petConfig.defaultActionId });
 	}
-	log.info("config applied", {
+	log.debug("config applied", {
 		petConfig,
 		isVisible: win.isVisible(),
 		bounds: win.getBounds(),
