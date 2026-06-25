@@ -379,6 +379,12 @@ export function createPetWindow(): BrowserWindow {
 
 	petWindow.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
 	petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+	// macOS: `visibleOnFullScreen` 让 Electron 把进程 activation policy 转成
+	// accessory（transformProcessType），副作用是整个 app 被移出 Dock。桌宠需要浮在
+	// 全屏应用之上，又不能丢主窗口的 Dock 图标，因此显式 dock.show() 把策略转回 regular。
+	if (process.platform === "darwin") {
+		void app.dock.show();
+	}
 	petWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 	petWindow.webContents.on("preload-error", (_event, preloadPathForError, error) => {
 		log.error("preload-error", { preloadPath: preloadPathForError, error });
