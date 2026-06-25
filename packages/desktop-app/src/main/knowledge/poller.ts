@@ -81,6 +81,37 @@ const JOB_ID = "kb-poller";
 let scheduled = false;
 let running = false;
 
+/**
+ * 当前正在跑的加工轮的可中止句柄。aborted 一旦置位：已起的批立即中止当前 session、
+ * 队列里还没起的批直接跳过、不再重建索引。sessions 是本轮所有活动加工会话（并发批）。
+ */
+interface RoundToken {
+	aborted: boolean;
+	sessions: Set<AgentSession>;
+}
+let currentRound: RoundToken | undefined;
+let roundDone: Promise<void> | undefined;
+
+/**
+ * 立即中止正在进行的加工轮（若有）：对所有活动会话调 abort()，并等待该轮真正收尾
+ * （running 归位、缓存对账完成）。无轮在跑则立即返回。用于关闭知识库开关、清空 wiki 等
+ * 需要「马上停下后台加工」的场景。
+ */
+export async function abortKnowledgeRound(): Promise<void> {
+	const round = currentRound;
+	if (!round) return;
+	round.aborted = true;
+	log.info("aborting in-flight knowledge round");
+	for (const session of round.sessions) {
+		try {
+			await session.abort();
+		} catch (err) {
+			log.warn(`abort kb session failed: ${err instanceof Error ? err.message : String(err)}`);
+		}
+	}
+	await roundDone?.catch(() => {});
+}
+
 /** 单批最多文件数（纯上下文边界）。 */
 const KB_MAX_FILES_PER_BATCH = 20;
 /** 单批最多字节数：约束一批里 OCR/大文件的总量；超此值的单文件独占一批。 */
@@ -113,7 +144,12 @@ function waitForCompletion(session: AgentSession, prompt: string): Promise<void>
 		const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
 			if (event.type === "agent_end") finish(resolve);
 		});
-		session.prompt(prompt).catch((err) => finish(() => reject(err)));
+		// prompt() 在本轮（含被 abort() 中止）收尾时 settle：也据此 resolve，兜底 abort
+		// 路径下 agent_end 可能不触发的情况，避免 waitForCompletion 永久挂起。
+		session.prompt(prompt).then(
+			() => finish(resolve),
+			(err) => finish(() => reject(err)),
+		);
 	});
 }
 
@@ -127,7 +163,9 @@ async function runProcessingBatch(
 	tmpDir: string,
 	writeSession: knowledge.KbWriteSession,
 	modelKey: string | undefined,
+	round: RoundToken,
 ): Promise<void> {
+	if (round.aborted) return;
 	const { session } = await createAgentSession({
 		cwd: KB_PROCESSING_CWD,
 		sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
@@ -151,10 +189,14 @@ async function runProcessingBatch(
 		session.todoStore.createMany(todoItems);
 		session.todoStore.lock("scene");
 	}
+	// 注册为本轮活动会话，使 abortKnowledgeRound() 能即时中止它。
+	round.sessions.add(session);
 	try {
+		if (round.aborted) return;
 		await applyProcessingModel(session, modelKey);
 		await waitForCompletion(session, knowledge.buildProcessingPrompt(batch, root, tmpDir));
 	} finally {
+		round.sessions.delete(session);
 		session.dispose();
 	}
 }
@@ -174,6 +216,12 @@ export async function runKnowledgeRound(
 		return { skipped: true };
 	}
 	running = true;
+	const round: RoundToken = { aborted: false, sessions: new Set() };
+	currentRound = round;
+	let markRoundDone!: () => void;
+	roundDone = new Promise<void>((resolve) => {
+		markRoundDone = resolve;
+	});
 	try {
 		const root = knowledge.knowledgeRoot();
 		await knowledge.ensureKnowledgeDirs(root);
@@ -216,9 +264,11 @@ export async function runKnowledgeRound(
 				await Promise.all(
 					batches.map((batch) =>
 						limit.run(async () => {
-							await runProcessingBatch(batch, root, tmpDir, writeSession, modelKey);
+							if (round.aborted) return;
+							await runProcessingBatch(batch, root, tmpDir, writeSession, modelKey, round);
 							// 本批加工完即重建索引 + 广播：让侧边栏文件状态与 indexes 同步推进（每批 ~20 文件
-							// 粒度），避免「UI 显示已就绪但索引还没建」的不一致。
+							// 粒度），避免「UI 显示已就绪但索引还没建」的不一致。被中止则不再重建（维护操作会自己重建）。
+							if (round.aborted) return;
 							await refreshCachesAndNotify(root);
 						}),
 					),
@@ -240,6 +290,9 @@ export async function runKnowledgeRound(
 	} finally {
 		setProcessing(false);
 		running = false;
+		currentRound = undefined;
+		markRoundDone();
+		roundDone = undefined;
 	}
 }
 
@@ -249,6 +302,8 @@ export async function runKnowledgeRound(
  * 杜绝与加工轮的写 wiki / 重建缓存竞态。收尾广播一次状态变更，让侧边栏文件态与索引重新对账。
  */
 export async function runKnowledgeMaintenance<T>(fn: (root: string) => Promise<T>): Promise<T> {
+	// 维护操作（清空 wiki / 删除指定页）优先：若有加工轮在跑，立即中止并等它收尾，再独占执行。
+	await abortKnowledgeRound();
 	if (running) throw new Error("知识库正在整理中，请稍后再试");
 	running = true;
 	try {
@@ -280,6 +335,9 @@ export async function reloadKnowledgePoller(): Promise<void> {
 	// 总开关：关闭时置 env 标志，coding-agent 据此对 agent 屏蔽知识库检索工具。
 	process.env.VETTA_KNOWLEDGE_DISABLED = kb?.enabled === false ? "1" : "";
 	if (!kb?.enabled) {
+		// 关闭知识库总开关：立即中止正在进行的加工轮，杜绝后台继续读原文/写 wiki。
+		await abortKnowledgeRound();
+		await unlockRaws().catch(() => {});
 		log.info("knowledge base disabled");
 		return;
 	}
