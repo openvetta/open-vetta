@@ -28,7 +28,7 @@ export const PET_VIDEO_SIZE_STEP = 10;
 export const DEFAULT_PET_VIDEO_SIZE = 220;
 export const PET_VIDEO_SCALE_MIN = 0.4;
 export const PET_VIDEO_SCALE_MAX = 2.5;
-export const PET_VIDEO_SCALE_STEP = 0.05;
+export const PET_VIDEO_SCALE_STEP = 0.01;
 export const DEFAULT_PET_VIDEO_SCALE = 1;
 
 export const DEFAULT_PET_CONFIG: PetConfig = {
@@ -116,7 +116,6 @@ export function normalizePetConfig(value: unknown): PetConfig {
 	}
 
 	const config = value as Record<string, unknown>;
-	const legacyVideoSizeByAction = config.videoSizeByAction;
 
 	return {
 		enabled: typeof config.enabled === "boolean" ? config.enabled : DEFAULT_PET_CONFIG.enabled,
@@ -128,6 +127,6 @@ export function normalizePetConfig(value: unknown): PetConfig {
 		defaultActionId: isPetActionId(config.defaultActionId)
 			? config.defaultActionId
 			: DEFAULT_PET_CONFIG.defaultActionId,
-		videoBaseSizeByAction: normalizeVideoBaseSizeByAction(config.videoBaseSizeByAction ?? legacyVideoSizeByAction),
+		videoBaseSizeByAction: normalizeVideoBaseSizeByAction(config.videoBaseSizeByAction),
 	};
 }

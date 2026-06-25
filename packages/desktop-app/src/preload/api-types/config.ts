@@ -1,4 +1,3 @@
-import type { PetConfig } from "../../shared/pet-config.js";
 import type { ProjectEntry } from "./shared.js";
 
 export interface DesktopConfigData {
@@ -63,8 +62,6 @@ export interface DesktopConfigData {
 		/** 并发本地 OCR 子进程数（CPU 限流）。缺省 1。 */
 		ocrConcurrency?: number;
 	};
-	/** 桌宠设置。 */
-	pet?: PetConfig;
 	/** 知识库加工特殊项目的绝对路径（~/.vetta/knowledges/processing_records）。 */
 	knowledgeProcessingCwd?: string;
 }
