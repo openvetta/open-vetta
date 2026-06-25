@@ -20,9 +20,10 @@ import {
 	type PetConfig,
 } from "../shared/pet-config.js";
 import { PET_COMMAND_CHANNEL, type PetCommand, type PetResizeCorner, type PetVideoHitbox } from "../shared/pet-ipc.js";
-import { allowProjectRoot, readConfigSync, readDesktopConfig, writeDesktopConfig } from "./ipc/fs.js";
+import { allowProjectRoot } from "./ipc/fs.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_SCHEME } from "./media-protocol.js";
+import { readPetConfigSync, writePetConfig } from "./pet-config-store.js";
 import { iconPath } from "./window-manager.js";
 
 const log = getAppLogger("pet-window");
@@ -77,7 +78,7 @@ function resolvePetVideo(action: (typeof PET_ACTIONS)[number]): PetVideoResoluti
 }
 
 function getStoredPetConfig(): PetConfig {
-	return normalizePetConfig(readConfigSync().pet);
+	return readPetConfigSync();
 }
 
 function getInitialBounds(size: number): Electron.Rectangle {
@@ -193,11 +194,7 @@ async function persistPetWindowSize(size: number): Promise<void> {
 	const nextSize = normalizePetSize(size);
 	if (petConfig.size === nextSize) return;
 	petConfig = { ...petConfig, size: nextSize };
-	const current = await readDesktopConfig();
-	await writeDesktopConfig({
-		...current,
-		pet: normalizePetConfig({ ...current.pet, size: nextSize }),
-	});
+	await writePetConfig(petConfig);
 }
 
 function schedulePersistPetWindowSize(size: number): void {
@@ -214,11 +211,7 @@ async function persistPetVideoScale(scale: number): Promise<void> {
 	const nextScale = normalizePetVideoScale(scale);
 	if (petConfig.videoScale === nextScale) return;
 	petConfig = { ...petConfig, videoScale: nextScale };
-	const current = await readDesktopConfig();
-	await writeDesktopConfig({
-		...current,
-		pet: normalizePetConfig({ ...current.pet, videoScale: nextScale }),
-	});
+	await writePetConfig(petConfig);
 }
 
 async function persistPetVideoBaseSize(actionId: (typeof PET_ACTIONS)[number]["id"], baseSize: number): Promise<void> {
@@ -232,17 +225,7 @@ async function persistPetVideoBaseSize(actionId: (typeof PET_ACTIONS)[number]["i
 			[actionId]: nextBaseSize,
 		},
 	};
-	const current = await readDesktopConfig();
-	await writeDesktopConfig({
-		...current,
-		pet: normalizePetConfig({
-			...current.pet,
-			videoBaseSizeByAction: {
-				...current.pet?.videoBaseSizeByAction,
-				[actionId]: nextBaseSize,
-			},
-		}),
-	});
+	await writePetConfig(petConfig);
 }
 
 function getPetEntryUrl(query: string): string {

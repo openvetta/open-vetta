@@ -13,6 +13,7 @@ import {
 	type PetResizeCorner,
 	type PetVideoHitbox,
 } from "../../shared/pet-ipc.js";
+import { readPetConfig, writePetConfig } from "../pet-config-store.js";
 import {
 	applyPetConfig,
 	beginPetWindowResize,
@@ -26,7 +27,6 @@ import {
 	setPetWindowSize,
 	showPetWindow,
 } from "../pet-window.js";
-import { readDesktopConfig, writeDesktopConfig } from "./fs.js";
 
 const CHANNELS = {
 	GET_CONFIG: "vetta:pet:get-config",
@@ -57,17 +57,16 @@ function isPetVideoHitbox(value: unknown): value is PetVideoHitbox {
 }
 
 async function persistPetConfig(patch: Partial<PetConfig>): Promise<PetConfig> {
-	const current = await readDesktopConfig();
-	const nextPet = normalizePetConfig({ ...current.pet, ...patch });
-	await writeDesktopConfig({ ...current, pet: nextPet });
+	const current = await readPetConfig();
+	const nextPet = normalizePetConfig({ ...current, ...patch });
+	await writePetConfig(nextPet);
 	applyPetConfig(nextPet);
 	return nextPet;
 }
 
 export function registerPetIpc(): () => void {
 	ipcMain.handle(CHANNELS.GET_CONFIG, async (): Promise<PetConfig> => {
-		const config = await readDesktopConfig();
-		return normalizePetConfig(config.pet);
+		return readPetConfig();
 	});
 
 	ipcMain.handle(CHANNELS.SET_CONFIG, async (_event, patch: unknown): Promise<PetConfig> => {
