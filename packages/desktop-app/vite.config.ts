@@ -18,6 +18,12 @@ export default defineConfig({
 	build: {
 		outDir: resolve(process.cwd(), "dist/renderer"),
 		emptyOutDir: false,
+		rollupOptions: {
+			input: {
+				main: resolve(__dirname, "src/renderer/index.html"),
+				pet: resolve(__dirname, "src/renderer/pet.html"),
+			},
+		},
 	},
 	server: {
 		host: '127.0.0.1',
