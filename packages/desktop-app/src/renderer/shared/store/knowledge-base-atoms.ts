@@ -27,14 +27,28 @@ export const knowledgeBasesAtom = atom<KnowledgeBase[]>([]);
  */
 export const knowledgeFileStatusesAtom = atom<Record<string, KnowledgeFileStatus>>({});
 
-/** 反向重建入口：从磁盘重读全部知识库与加工态并刷新 UI。 */
+/**
+ * 首次加载中：仅当尚无任何缓存（首次进页）时用于骨架屏。
+ * 刷新已有数据时保持旧快照、不显示骨架，避免闪烁。
+ */
+export const knowledgeLoadingAtom = atom(false);
+
+/**
+ * 反向重建入口：从磁盘重读全部知识库与加工态并刷新 UI。
+ * 文件列表先出（list 返回即渲染），加工态角标随后填充——加工态扫描较慢，
+ * 不阻塞列表渲染，避免「空屏等两个请求都回来」。
+ */
 export const refreshKnowledgeBasesAtom = atom(null, async (_get, set) => {
-	const [bases, statuses] = await Promise.all([
-		window.vetta.knowledge.list(),
-		window.vetta.knowledge.fileStatuses().catch(() => ({}) as Record<string, KnowledgeFileStatus>),
-	]);
-	set(knowledgeBasesAtom, bases);
-	set(knowledgeFileStatusesAtom, statuses);
+	set(knowledgeLoadingAtom, true);
+	try {
+		set(knowledgeBasesAtom, await window.vetta.knowledge.list());
+	} finally {
+		set(knowledgeLoadingAtom, false);
+	}
+	void window.vetta.knowledge
+		.fileStatuses()
+		.then((statuses) => set(knowledgeFileStatusesAtom, statuses))
+		.catch(() => {});
 });
 
 const activeKnowledgeBaseIdBaseAtom = atom<string | null>(localStorage.getItem(ACTIVE_KNOWLEDGE_BASE_STORAGE_KEY));
