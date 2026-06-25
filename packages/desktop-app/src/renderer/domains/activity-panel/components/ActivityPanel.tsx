@@ -486,6 +486,8 @@ export function ActivityPanel({
 const TREE_DEFAULT_WIDTH = 220;
 const TREE_MIN_WIDTH = 160;
 const TREE_MAX_WIDTH = 360;
+// 面板宽度动画时长（aside transition: width 0.2s）+ 缓冲：动画跑完再挂载预览重内容，避免抢主线程导致划出卡顿
+const PREVIEW_MOUNT_DELAY_MS = 240;
 
 function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 	const [previewCtx, setPreviewCtx] = useAtom(inlineFilePreviewContextReadonlyAtom);
@@ -503,6 +505,19 @@ function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 	// 预览显隐纯由面板宽度驱动：选中文件且面板够宽才展示右侧预览，否则只剩目录树。
 	// 拖窄到阈值以下自动收起、拖宽回来自动恢复（见 ACTIVITY_PANEL_PREVIEW_MIN_WIDTH）。
 	const showPreview = previewCtx !== null && width >= ACTIVITY_PANEL_PREVIEW_MIN_WIDTH;
+
+	// width state 在点击文件时即刻跳到目标值，showPreview 随之 true，但 aside 仍在做
+	// width 动画。若此刻挂载预览（含插件首次加载/解码等重活）会抢主线程导致划出卡顿。
+	// 故 showPreview 从无到有后延迟挂载，等动画跑完再渲染预览内容；已展开时切文件不延迟。
+	const [previewMounted, setPreviewMounted] = useState(false);
+	useEffect(() => {
+		if (!showPreview) {
+			setPreviewMounted(false);
+			return;
+		}
+		const t = setTimeout(() => setPreviewMounted(true), PREVIEW_MOUNT_DELAY_MS);
+		return () => clearTimeout(t);
+	}, [showPreview]);
 
 	// 文件树列宽，预览展开时可拖拽分隔调整。
 	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
@@ -543,17 +558,22 @@ function FileTabContent({ cwd }: { cwd: string | null }): JSX.Element {
 			)}
 			{showPreview && previewCtx && (
 				<div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-					<FilePreviewView
-						ctx={previewCtx}
-						onPrev={goPrev}
-						onNext={goNext}
-						onClose={closePreview}
-						canPrev={previewCtx.index > 0}
-						canNext={previewCtx.index < previewCtx.items.length - 1}
-						enableKeyboard
-						onToggleSidebar={toggleTree}
-						sidebarCollapsed={treeCollapsed}
-					/>
+					{/* 动画期间静态占位（不挂载重内容），动画结束后再渲染预览 */}
+					{previewMounted ? (
+						<FilePreviewView
+							ctx={previewCtx}
+							onPrev={goPrev}
+							onNext={goNext}
+							onClose={closePreview}
+							canPrev={previewCtx.index > 0}
+							canNext={previewCtx.index < previewCtx.items.length - 1}
+							enableKeyboard
+							onToggleSidebar={toggleTree}
+							sidebarCollapsed={treeCollapsed}
+						/>
+					) : (
+						<div className="flex min-h-0 flex-1" />
+					)}
 				</div>
 			)}
 		</div>
