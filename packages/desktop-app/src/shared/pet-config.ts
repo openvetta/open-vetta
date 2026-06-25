@@ -32,7 +32,7 @@ export const PET_VIDEO_SCALE_STEP = 0.01;
 export const DEFAULT_PET_VIDEO_SCALE = 1;
 
 export const DEFAULT_PET_CONFIG: PetConfig = {
-	enabled: true,
+	enabled: false,
 	autoMode: true,
 	alwaysOnTop: true,
 	size: 220,
