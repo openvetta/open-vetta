@@ -22,6 +22,7 @@ import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_SCHEME } from "./media-protocol.js";
 import { iconPath } from "./window-manager.js";
 
+const log = getAppLogger("pet-window");
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const resDir = app.isPackaged ? appRoot : join(appRoot, "dist");
 const buildDir = app.isPackaged ? join(process.resourcesPath, "build") : join(appRoot, "build");
@@ -151,7 +152,6 @@ function hasUnacceptablePetSizeChange(bounds: Electron.Rectangle, expectedSize: 
 }
 
 function setPetBounds(win: BrowserWindow, bounds: Electron.Rectangle, reason: string): void {
-	const log = getAppLogger("pet-window");
 	const before = win.getBounds();
 	const size = normalizePetSize(Math.max(bounds.width, bounds.height));
 	try {
@@ -240,7 +240,7 @@ function getPetEntryUrl(query: string): string {
 	return petEntryUrl.toString();
 }
 
-function loadPetEntry(win: BrowserWindow, log = getAppLogger("pet-window")): void {
+function loadPetEntry(win: BrowserWindow): void {
 	const query = buildPetQuery(petConfig);
 	const url = getPetEntryUrl(query);
 	log.info("load entry", {
@@ -321,14 +321,13 @@ export function getPetConfig(): PetConfig {
 export function initializePetWindow(): BrowserWindow | null {
 	petConfig = getStoredPetConfig();
 	if (!petConfig.enabled) {
-		getAppLogger("pet-window").info("startup skipped", petConfig);
+		log.info("startup skipped", petConfig);
 		return null;
 	}
 	return createPetWindow();
 }
 
 export function createPetWindow(): BrowserWindow {
-	const log = getAppLogger("pet-window");
 	petConfig = getStoredPetConfig();
 	if (petWindow && !petWindow.isDestroyed()) {
 		log.info("reuse existing window", {
@@ -439,7 +438,7 @@ export function createPetWindow(): BrowserWindow {
 		});
 	});
 
-	loadPetEntry(petWindow, log);
+	loadPetEntry(petWindow);
 	return petWindow;
 }
 
@@ -448,7 +447,7 @@ export function showPetWindow(): BrowserWindow {
 	if (!win.isVisible()) {
 		win.showInactive();
 	}
-	getAppLogger("pet-window").info("show requested", {
+	log.info("show requested", {
 		isVisible: win.isVisible(),
 		bounds: win.getBounds(),
 	});
@@ -457,7 +456,6 @@ export function showPetWindow(): BrowserWindow {
 
 export function applyPetConfig(config: PetConfig): void {
 	petConfig = normalizePetConfig(config);
-	const log = getAppLogger("pet-window");
 
 	if (!petConfig.enabled) {
 		if (petWindow && !petWindow.isDestroyed()) {
@@ -539,7 +537,7 @@ export function movePetWindowBy(deltaX: number, deltaY: number): void {
 	win.setPosition(x, y, false);
 	const after = win.getBounds();
 	if (hasUnacceptablePetSizeChange(after, normalizedSize)) {
-		getAppLogger("pet-window").warn("move size changed unexpectedly", {
+		log.warn("move size changed unexpectedly", {
 			delta: { x: deltaX, y: deltaY },
 			before: bounds,
 			after,
