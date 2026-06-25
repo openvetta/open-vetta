@@ -7,10 +7,11 @@ export interface PetConfig {
 	size: number;
 	debugFrame: boolean;
 	defaultActionId?: PetActionId;
-	videoSizeByAction: PetVideoSizeByAction;
+	videoScale: number;
+	videoBaseSizeByAction: PetVideoBaseSizeByAction;
 }
 
-export type PetVideoSizeByAction = Record<PetActionId, number>;
+export type PetVideoBaseSizeByAction = Record<PetActionId, number>;
 
 export const PET_SIZE_OPTIONS = [
 	{ value: 180, label: "小" },
@@ -25,6 +26,10 @@ export const PET_VIDEO_SIZE_MIN = 40;
 export const PET_VIDEO_SIZE_MAX = 600;
 export const PET_VIDEO_SIZE_STEP = 10;
 export const DEFAULT_PET_VIDEO_SIZE = 220;
+export const PET_VIDEO_SCALE_MIN = 0.4;
+export const PET_VIDEO_SCALE_MAX = 2.5;
+export const PET_VIDEO_SCALE_STEP = 0.05;
+export const DEFAULT_PET_VIDEO_SCALE = 1;
 
 export const DEFAULT_PET_CONFIG: PetConfig = {
 	enabled: true,
@@ -33,15 +38,16 @@ export const DEFAULT_PET_CONFIG: PetConfig = {
 	size: 220,
 	debugFrame: false,
 	defaultActionId: "typing",
-	videoSizeByAction: createDefaultVideoSizeByAction(),
+	videoScale: DEFAULT_PET_VIDEO_SCALE,
+	videoBaseSizeByAction: createDefaultVideoBaseSizeByAction(),
 };
 
 const PET_ACTION_IDS = new Set<string>(PET_ACTIONS.map((action) => action.id));
 
-function createDefaultVideoSizeByAction(): PetVideoSizeByAction {
-	const sizes = {} as PetVideoSizeByAction;
+function createDefaultVideoBaseSizeByAction(): PetVideoBaseSizeByAction {
+	const sizes = {} as PetVideoBaseSizeByAction;
 	for (const action of PET_ACTIONS) {
-		sizes[action.id] = DEFAULT_PET_VIDEO_SIZE;
+		sizes[action.id] = normalizePetVideoSize(action.videoBaseSize);
 	}
 	return sizes;
 }
@@ -66,12 +72,31 @@ export function normalizePetVideoSizeForWindow(value: unknown, windowSize: numbe
 	return Math.min(normalizePetVideoSize(value), maxSize);
 }
 
-export function getPetVideoSize(config: PetConfig, actionId: PetActionId): number {
-	return config.videoSizeByAction[actionId] ?? DEFAULT_PET_VIDEO_SIZE;
+export function normalizePetVideoScale(value: unknown): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_PET_VIDEO_SCALE;
+	const stepped = Math.round(value / PET_VIDEO_SCALE_STEP) * PET_VIDEO_SCALE_STEP;
+	return Math.min(Math.max(stepped, PET_VIDEO_SCALE_MIN), PET_VIDEO_SCALE_MAX);
 }
 
-function normalizeVideoSizeByAction(value: unknown): PetVideoSizeByAction {
-	const sizes = createDefaultVideoSizeByAction();
+export function getPetVideoBaseSize(config: PetConfig, actionId: PetActionId): number {
+	return config.videoBaseSizeByAction[actionId] ?? DEFAULT_PET_VIDEO_SIZE;
+}
+
+export function getPetScaledVideoSize(config: PetConfig, actionId: PetActionId): number {
+	return normalizePetVideoSize(getPetVideoBaseSize(config, actionId) * config.videoScale);
+}
+
+export function getPetScaledVideoSizeForWindow(config: PetConfig, actionId: PetActionId, windowSize: number): number {
+	return normalizePetVideoSizeForWindow(getPetScaledVideoSize(config, actionId), windowSize);
+}
+
+export function getPetVideoScaleForSize(config: PetConfig, actionId: PetActionId, size: number): number {
+	const baseSize = getPetVideoBaseSize(config, actionId);
+	return normalizePetVideoScale(normalizePetVideoSize(size) / baseSize);
+}
+
+function normalizeVideoBaseSizeByAction(value: unknown): PetVideoBaseSizeByAction {
+	const sizes = createDefaultVideoBaseSizeByAction();
 	if (typeof value !== "object" || value === null) return sizes;
 
 	const rawSizes = value as Record<string, unknown>;
@@ -91,6 +116,7 @@ export function normalizePetConfig(value: unknown): PetConfig {
 	}
 
 	const config = value as Record<string, unknown>;
+	const legacyVideoSizeByAction = config.videoSizeByAction;
 
 	return {
 		enabled: typeof config.enabled === "boolean" ? config.enabled : DEFAULT_PET_CONFIG.enabled,
@@ -98,9 +124,10 @@ export function normalizePetConfig(value: unknown): PetConfig {
 		alwaysOnTop: typeof config.alwaysOnTop === "boolean" ? config.alwaysOnTop : DEFAULT_PET_CONFIG.alwaysOnTop,
 		debugFrame: typeof config.debugFrame === "boolean" ? config.debugFrame : DEFAULT_PET_CONFIG.debugFrame,
 		size: normalizePetSize(config.size),
+		videoScale: normalizePetVideoScale(config.videoScale),
 		defaultActionId: isPetActionId(config.defaultActionId)
 			? config.defaultActionId
 			: DEFAULT_PET_CONFIG.defaultActionId,
-		videoSizeByAction: normalizeVideoSizeByAction(config.videoSizeByAction),
+		videoBaseSizeByAction: normalizeVideoBaseSizeByAction(config.videoBaseSizeByAction ?? legacyVideoSizeByAction),
 	};
 }

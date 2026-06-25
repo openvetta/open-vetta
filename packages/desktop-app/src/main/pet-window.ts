@@ -5,9 +5,12 @@ import { app, BrowserWindow, Menu, screen } from "electron";
 import { PET_ACTIONS } from "../shared/pet-actions.js";
 import {
 	DEFAULT_PET_CONFIG,
-	getPetVideoSize,
+	getPetScaledVideoSize,
+	getPetVideoBaseSize,
+	getPetVideoScaleForSize,
 	normalizePetConfig,
 	normalizePetSize,
+	normalizePetVideoScale,
 	normalizePetVideoSize,
 	normalizePetVideoSizeForWindow,
 	PET_SIZE_MAX,
@@ -16,7 +19,7 @@ import {
 	PET_VIDEO_SIZE_STEP,
 	type PetConfig,
 } from "../shared/pet-config.js";
-import { PET_COMMAND_CHANNEL, type PetCommand, type PetResizeCorner } from "../shared/pet-ipc.js";
+import { PET_COMMAND_CHANNEL, type PetCommand, type PetResizeCorner, type PetVideoHitbox } from "../shared/pet-ipc.js";
 import { allowProjectRoot, readConfigSync, readDesktopConfig, writeDesktopConfig } from "./ipc/fs.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_SCHEME } from "./media-protocol.js";
@@ -37,6 +40,8 @@ let persistSizeTimer: ReturnType<typeof setTimeout> | undefined;
 let isApplyingPetBounds = false;
 let windowResizeSession: PetWindowResizeSession | undefined;
 let isMousePassthroughEnabled = false;
+let petVideoHitbox: PetVideoHitbox | undefined;
+let mousePassthroughPollTimer: ReturnType<typeof setInterval> | undefined;
 
 type PetWindowResizeSession = {
 	startBounds: Electron.Rectangle;
@@ -92,11 +97,9 @@ function buildPetQuery(config: PetConfig): string {
 		if (video.url) {
 			params.set(action.id, video.url);
 		}
-		params.set(
-			`${action.id}VideoSize`,
-			String(normalizePetVideoSizeForWindow(getPetVideoSize(config, action.id), config.size)),
-		);
+		params.set(`${action.id}VideoBaseSize`, String(getPetVideoBaseSize(config, action.id)));
 	}
+	params.set("videoScale", String(config.videoScale));
 	params.set("autoMode", String(config.autoMode));
 	params.set("debugFrame", String(config.debugFrame));
 	if (config.defaultActionId) {
@@ -207,15 +210,26 @@ function schedulePersistPetWindowSize(size: number): void {
 	}, 300);
 }
 
-async function persistPetVideoSize(actionId: (typeof PET_ACTIONS)[number]["id"], size: number): Promise<void> {
+async function persistPetVideoScale(scale: number): Promise<void> {
+	const nextScale = normalizePetVideoScale(scale);
+	if (petConfig.videoScale === nextScale) return;
+	petConfig = { ...petConfig, videoScale: nextScale };
+	const current = await readDesktopConfig();
+	await writeDesktopConfig({
+		...current,
+		pet: normalizePetConfig({ ...current.pet, videoScale: nextScale }),
+	});
+}
+
+async function persistPetVideoBaseSize(actionId: (typeof PET_ACTIONS)[number]["id"], baseSize: number): Promise<void> {
 	const windowSize = petWindow && !petWindow.isDestroyed() ? petWindow.getBounds().width : petConfig.size;
-	const nextSize = normalizePetVideoSizeForWindow(size, windowSize);
-	if (getPetVideoSize(petConfig, actionId) === nextSize) return;
+	const nextBaseSize = normalizePetVideoSizeForWindow(baseSize, windowSize);
+	if (getPetVideoBaseSize(petConfig, actionId) === nextBaseSize) return;
 	petConfig = {
 		...petConfig,
-		videoSizeByAction: {
-			...petConfig.videoSizeByAction,
-			[actionId]: nextSize,
+		videoBaseSizeByAction: {
+			...petConfig.videoBaseSizeByAction,
+			[actionId]: nextBaseSize,
 		},
 	};
 	const current = await readDesktopConfig();
@@ -223,9 +237,9 @@ async function persistPetVideoSize(actionId: (typeof PET_ACTIONS)[number]["id"],
 		...current,
 		pet: normalizePetConfig({
 			...current.pet,
-			videoSizeByAction: {
-				...current.pet?.videoSizeByAction,
-				[actionId]: nextSize,
+			videoBaseSizeByAction: {
+				...current.pet?.videoBaseSizeByAction,
+				[actionId]: nextBaseSize,
 			},
 		}),
 	});
@@ -257,6 +271,40 @@ function loadPetEntry(win: BrowserWindow): void {
 
 function sendPetCommand(win: BrowserWindow, command: PetCommand): void {
 	win.webContents.send(PET_COMMAND_CHANNEL, command);
+}
+
+function isCursorOverPetVideo(win: BrowserWindow): boolean {
+	if (!petVideoHitbox) return false;
+	const cursor = screen.getCursorScreenPoint();
+	const bounds = win.getBounds();
+	const x = cursor.x - bounds.x;
+	const y = cursor.y - bounds.y;
+	return (
+		x >= petVideoHitbox.x &&
+		x <= petVideoHitbox.x + petVideoHitbox.width &&
+		y >= petVideoHitbox.y &&
+		y <= petVideoHitbox.y + petVideoHitbox.height
+	);
+}
+
+function syncPetMousePassthroughForCursor(): void {
+	if (!petWindow || petWindow.isDestroyed()) return;
+	if (petConfig.debugFrame) {
+		setPetMousePassthrough(false);
+		return;
+	}
+	setPetMousePassthrough(!isCursorOverPetVideo(petWindow));
+}
+
+function startMousePassthroughPolling(): void {
+	if (mousePassthroughPollTimer) return;
+	mousePassthroughPollTimer = setInterval(syncPetMousePassthroughForCursor, 50);
+}
+
+function stopMousePassthroughPolling(): void {
+	if (!mousePassthroughPollTimer) return;
+	clearInterval(mousePassthroughPollTimer);
+	mousePassthroughPollTimer = undefined;
 }
 
 function showContextMenu(win: BrowserWindow): void {
@@ -426,6 +474,8 @@ export function createPetWindow(): BrowserWindow {
 		});
 	});
 	petWindow.on("closed", () => {
+		stopMousePassthroughPolling();
+		petVideoHitbox = undefined;
 		petWindow = null;
 		log.info("closed");
 	});
@@ -485,11 +535,12 @@ export function applyPetConfig(config: PetConfig): void {
 	}
 	sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
 	sendPetCommand(win, { type: "set-debug-frame", enabled: petConfig.debugFrame });
+	sendPetCommand(win, { type: "set-video-scale", scale: petConfig.videoScale });
 	for (const action of PET_ACTIONS) {
 		sendPetCommand(win, {
-			type: "set-video-size",
+			type: "set-video-base-size",
 			actionId: action.id,
-			size: normalizePetVideoSizeForWindow(getPetVideoSize(petConfig, action.id), win.getBounds().width),
+			baseSize: getPetVideoBaseSize(petConfig, action.id),
 		});
 	}
 	if (!petConfig.autoMode && petConfig.defaultActionId) {
@@ -616,33 +667,57 @@ export async function resizePetVideoByWheel(
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	const direction = deltaY < 0 ? 1 : -1;
 	const bounds = win.getBounds();
-	const nextSize = normalizePetVideoSize(getPetVideoSize(petConfig, actionId) + direction * PET_VIDEO_SIZE_STEP);
+	const currentSize = getPetScaledVideoSize(petConfig, actionId);
+	const nextSize = normalizePetVideoSize(currentSize + direction * PET_VIDEO_SIZE_STEP);
+	const nextScale = getPetVideoScaleForSize(petConfig, actionId, nextSize);
 	if (nextSize > bounds.width) {
 		setPetBounds(win, getCenteredBounds(bounds, normalizePetSize(nextSize)), "expand-window-for-video");
 		await persistPetWindowSize(normalizePetSize(nextSize));
 	}
-	await persistPetVideoSize(actionId, nextSize);
+	await persistPetVideoScale(nextScale);
 	sendPetCommand(win, {
-		type: "set-video-size",
-		actionId,
-		size: nextSize,
+		type: "set-video-scale",
+		scale: nextScale,
 	});
 }
 
 export function setPetMousePassthrough(enabled: boolean): void {
-	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : undefined;
+	if (!win) return;
 	if (isMousePassthroughEnabled === enabled) return;
 	isMousePassthroughEnabled = enabled;
 	win.setIgnoreMouseEvents(enabled, { forward: true });
 }
 
-export async function setPetVideoSize(actionId: (typeof PET_ACTIONS)[number]["id"], size: number): Promise<void> {
+export function setPetVideoHitbox(hitbox: PetVideoHitbox | undefined): void {
+	petVideoHitbox =
+		hitbox && hitbox.width > 0 && hitbox.height > 0
+			? {
+					x: Math.round(hitbox.x),
+					y: Math.round(hitbox.y),
+					width: Math.round(hitbox.width),
+					height: Math.round(hitbox.height),
+				}
+			: undefined;
+	if (petVideoHitbox) {
+		startMousePassthroughPolling();
+		syncPetMousePassthroughForCursor();
+		return;
+	}
+	stopMousePassthroughPolling();
+	setPetMousePassthrough(false);
+}
+
+export async function setPetVideoBaseSize(
+	actionId: (typeof PET_ACTIONS)[number]["id"],
+	baseSize: number,
+): Promise<void> {
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
-	const nextSize = normalizePetVideoSizeForWindow(size, win.getBounds().width);
-	await persistPetVideoSize(actionId, nextSize);
+	const nextBaseSize = normalizePetVideoSizeForWindow(baseSize, win.getBounds().width);
+	await persistPetVideoBaseSize(actionId, nextBaseSize);
 	sendPetCommand(win, {
-		type: "set-video-size",
+		type: "set-video-base-size",
 		actionId,
-		size: nextSize,
+		baseSize: nextBaseSize,
 	});
 }

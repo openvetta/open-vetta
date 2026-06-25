@@ -7,7 +7,8 @@ import {
 	PET_RESIZE_BY_WHEEL_CHANNEL,
 	PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL,
 	PET_SET_MOUSE_PASSTHROUGH_CHANNEL,
-	PET_SET_VIDEO_SIZE_CHANNEL,
+	PET_SET_VIDEO_BASE_SIZE_CHANNEL,
+	PET_SET_VIDEO_HITBOX_CHANNEL,
 	PET_SET_WINDOW_SIZE_CHANNEL,
 	type PetBridge,
 	type PetCommand,
@@ -39,11 +40,14 @@ const api: PetBridge = {
 	endWindowResize(size) {
 		return ipcRenderer.invoke(PET_END_WINDOW_RESIZE_CHANNEL, size);
 	},
-	setVideoSize(actionId, size) {
-		return ipcRenderer.invoke(PET_SET_VIDEO_SIZE_CHANNEL, actionId, size);
+	setVideoBaseSize(actionId, baseSize) {
+		return ipcRenderer.invoke(PET_SET_VIDEO_BASE_SIZE_CHANNEL, actionId, baseSize);
 	},
 	setMousePassthrough(enabled) {
 		return ipcRenderer.invoke(PET_SET_MOUSE_PASSTHROUGH_CHANNEL, enabled);
+	},
+	setVideoHitbox(hitbox) {
+		return ipcRenderer.invoke(PET_SET_VIDEO_HITBOX_CHANNEL, hitbox);
 	},
 };
 

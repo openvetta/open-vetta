@@ -7,9 +7,11 @@ import {
 	PET_RESIZE_BY_WHEEL_CHANNEL,
 	PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL,
 	PET_SET_MOUSE_PASSTHROUGH_CHANNEL,
-	PET_SET_VIDEO_SIZE_CHANNEL,
+	PET_SET_VIDEO_BASE_SIZE_CHANNEL,
+	PET_SET_VIDEO_HITBOX_CHANNEL,
 	PET_SET_WINDOW_SIZE_CHANNEL,
 	type PetResizeCorner,
+	type PetVideoHitbox,
 } from "../../shared/pet-ipc.js";
 import {
 	applyPetConfig,
@@ -19,7 +21,8 @@ import {
 	resizePetVideoByWheel,
 	resizePetWindowByWheel,
 	setPetMousePassthrough,
-	setPetVideoSize,
+	setPetVideoBaseSize,
+	setPetVideoHitbox,
 	setPetWindowSize,
 	showPetWindow,
 } from "../pet-window.js";
@@ -36,6 +39,21 @@ const PET_RESIZE_CORNERS = new Set<PetResizeCorner>(["top-left", "top-right", "b
 
 function isPetResizeCorner(value: unknown): value is PetResizeCorner {
 	return typeof value === "string" && PET_RESIZE_CORNERS.has(value as PetResizeCorner);
+}
+
+function isPetVideoHitbox(value: unknown): value is PetVideoHitbox {
+	if (typeof value !== "object" || value === null) return false;
+	const hitbox = value as Record<string, unknown>;
+	return (
+		typeof hitbox.x === "number" &&
+		Number.isFinite(hitbox.x) &&
+		typeof hitbox.y === "number" &&
+		Number.isFinite(hitbox.y) &&
+		typeof hitbox.width === "number" &&
+		Number.isFinite(hitbox.width) &&
+		typeof hitbox.height === "number" &&
+		Number.isFinite(hitbox.height)
+	);
 }
 
 async function persistPetConfig(patch: Partial<PetConfig>): Promise<PetConfig> {
@@ -102,14 +120,21 @@ export function registerPetIpc(): () => void {
 		await endPetWindowResize(size);
 	});
 
-	ipcMain.handle(PET_SET_VIDEO_SIZE_CHANNEL, async (_event, actionId: unknown, size: unknown): Promise<void> => {
-		if (!isPetActionId(actionId) || typeof size !== "number") return;
-		await setPetVideoSize(actionId, size);
-	});
+	ipcMain.handle(
+		PET_SET_VIDEO_BASE_SIZE_CHANNEL,
+		async (_event, actionId: unknown, baseSize: unknown): Promise<void> => {
+			if (!isPetActionId(actionId) || typeof baseSize !== "number") return;
+			await setPetVideoBaseSize(actionId, baseSize);
+		},
+	);
 
 	ipcMain.handle(PET_SET_MOUSE_PASSTHROUGH_CHANNEL, (_event, enabled: unknown): void => {
 		if (typeof enabled !== "boolean") return;
 		setPetMousePassthrough(enabled);
+	});
+
+	ipcMain.handle(PET_SET_VIDEO_HITBOX_CHANNEL, (_event, hitbox: unknown): void => {
+		setPetVideoHitbox(isPetVideoHitbox(hitbox) ? hitbox : undefined);
 	});
 
 	return () => {
@@ -123,7 +148,8 @@ export function registerPetIpc(): () => void {
 		ipcMain.removeHandler(PET_BEGIN_WINDOW_RESIZE_CHANNEL);
 		ipcMain.removeHandler(PET_SET_WINDOW_SIZE_CHANNEL);
 		ipcMain.removeHandler(PET_END_WINDOW_RESIZE_CHANNEL);
-		ipcMain.removeHandler(PET_SET_VIDEO_SIZE_CHANNEL);
+		ipcMain.removeHandler(PET_SET_VIDEO_BASE_SIZE_CHANNEL);
 		ipcMain.removeHandler(PET_SET_MOUSE_PASSTHROUGH_CHANNEL);
+		ipcMain.removeHandler(PET_SET_VIDEO_HITBOX_CHANNEL);
 	};
 }

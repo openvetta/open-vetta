@@ -7,10 +7,18 @@ export const PET_MOVE_WINDOW_BY_CHANNEL = "vetta:pet:move-window-by";
 export const PET_BEGIN_WINDOW_RESIZE_CHANNEL = "vetta:pet:begin-window-resize";
 export const PET_SET_WINDOW_SIZE_CHANNEL = "vetta:pet:set-window-size";
 export const PET_END_WINDOW_RESIZE_CHANNEL = "vetta:pet:end-window-resize";
-export const PET_SET_VIDEO_SIZE_CHANNEL = "vetta:pet:set-video-size";
+export const PET_SET_VIDEO_BASE_SIZE_CHANNEL = "vetta:pet:set-video-base-size";
 export const PET_SET_MOUSE_PASSTHROUGH_CHANNEL = "vetta:pet:set-mouse-passthrough";
+export const PET_SET_VIDEO_HITBOX_CHANNEL = "vetta:pet:set-video-hitbox";
 
 export type PetResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+
+export type PetVideoHitbox = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+};
 
 export type PetCommand =
 	| {
@@ -29,9 +37,13 @@ export type PetCommand =
 			enabled: boolean;
 	  }
 	| {
-			type: "set-video-size";
+			type: "set-video-scale";
+			scale: number;
+	  }
+	| {
+			type: "set-video-base-size";
 			actionId: PetActionId;
-			size: number;
+			baseSize: number;
 	  };
 
 export type PetCommandListener = (command: PetCommand) => void;
@@ -44,6 +56,7 @@ export type PetBridge = {
 	beginWindowResize(corner: PetResizeCorner): Promise<void>;
 	setWindowSize(size: number, corner?: PetResizeCorner): Promise<void>;
 	endWindowResize(size: number): Promise<void>;
-	setVideoSize(actionId: PetActionId, size: number): Promise<void>;
+	setVideoBaseSize(actionId: PetActionId, baseSize: number): Promise<void>;
 	setMousePassthrough(enabled: boolean): Promise<void>;
+	setVideoHitbox(hitbox: PetVideoHitbox | undefined): Promise<void>;
 };
