@@ -4,9 +4,12 @@ import { defineConfig } from "vite";
 export default defineConfig({
 	build: {
 		lib: {
-			entry: resolve(process.cwd(), "src/preload/index.ts"),
+			entry: {
+				index: resolve(process.cwd(), "src/preload/index.ts"),
+				pet: resolve(process.cwd(), "src/preload/pet.ts"),
+			},
 			formats: ["cjs"],
-			fileName: () => "index.js",
+			fileName: (_format, entryName) => `${entryName}.js`,
 		},
 		outDir: resolve(process.cwd(), "dist/preload"),
 		emptyOutDir: true,

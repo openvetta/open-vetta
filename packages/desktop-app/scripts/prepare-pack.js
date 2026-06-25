@@ -554,7 +554,7 @@ const builderConfig = {
 		{
 			from: "build",
 			to: "build",
-			filter: ["icon*"],
+			filter: ["icon*", "pet/**/*"],
 		},
 	],
 	nsis: {
