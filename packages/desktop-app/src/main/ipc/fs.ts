@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
+import { DEFAULT_PET_CONFIG, normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
 import { probeModelProvider } from "../models/probe.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
@@ -40,6 +41,8 @@ export interface DesktopConfig {
 	experimental?: ExperimentalConfig;
 	/** 知识库加工设置。 */
 	knowledgeBase?: KnowledgeBaseConfig;
+	/** 桌宠设置。 */
+	pet?: PetConfig;
 }
 
 export interface KnowledgeBaseConfig {
@@ -107,6 +110,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	debugMode: false,
 	notificationsEnabled: true,
 	experimental: { vettaCli: true, agentSkills: true },
+	pet: DEFAULT_PET_CONFIG,
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -176,6 +180,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
+			pet: normalizePetConfig(parsed.pet),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -199,6 +204,7 @@ export function readConfigSync(): DesktopConfig {
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
+			pet: normalizePetConfig(parsed.pet),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -743,6 +749,7 @@ export function registerFsIpc(): () => void {
 				patch.knowledgeBase !== undefined
 					? normalizeKnowledgeBase({ ...current.knowledgeBase, ...patch.knowledgeBase })
 					: current.knowledgeBase,
+			pet: patch.pet !== undefined ? normalizePetConfig({ ...current.pet, ...patch.pet }) : current.pet,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

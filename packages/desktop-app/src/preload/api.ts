@@ -12,6 +12,7 @@ import type { DesktopMcpApi } from "./api-types/mcp.js";
 import type { DesktopMediaApi } from "./api-types/media.js";
 import type { DesktopModelsApi } from "./api-types/models.js";
 import type { DesktopNotificationApi } from "./api-types/notification.js";
+import type { DesktopPetApi } from "./api-types/pet.js";
 import type { DesktopPluginsApi } from "./api-types/plugins.js";
 import type { DesktopProjectApi } from "./api-types/project.js";
 import type { DesktopSchedulerApi } from "./api-types/scheduler.js";
@@ -45,6 +46,7 @@ export type * from "./api-types/mcp.js";
 export type * from "./api-types/media.js";
 export type * from "./api-types/models.js";
 export type * from "./api-types/notification.js";
+export type * from "./api-types/pet.js";
 export type * from "./api-types/plugins.js";
 export type * from "./api-types/project.js";
 export type * from "./api-types/scheduler.js";
@@ -88,6 +90,7 @@ export interface DesktopApi {
 	permissions: DesktopPermissionsApi;
 	notification: DesktopNotificationApi;
 	plugins: DesktopPluginsApi;
+	pet: DesktopPetApi;
 }
 
 declare global {

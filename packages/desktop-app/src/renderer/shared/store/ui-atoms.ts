@@ -29,7 +29,8 @@ export type SettingsTab =
 	| "team"
 	| "context"
 	| "plugins"
-	| "knowledge";
+	| "knowledge"
+	| "pet";
 
 // ─── Theme ───
 

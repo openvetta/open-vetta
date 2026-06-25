@@ -38,6 +38,18 @@ function getVideoMap(): PetVideoMap {
 	return videos;
 }
 
+function getInitialAutoMode(): boolean {
+	return new URLSearchParams(window.location.search).get("autoMode") !== "false";
+}
+
+function getInitialAction(videos: PetVideoMap): PetActionId | undefined {
+	const initialAction = new URLSearchParams(window.location.search).get("initialAction");
+	if (initialAction && PET_ACTIONS.some((action) => action.id === initialAction) && videos[initialAction as PetActionId]) {
+		return initialAction as PetActionId;
+	}
+	return pickNextAction(videos);
+}
+
 function randomInt(min: number, max: number): number {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -83,8 +95,8 @@ function getActionDuration(actionId: PetActionId): number {
 
 export function PetApp(): JSX.Element {
 	const videos = useMemo(() => getVideoMap(), []);
-	const [actionId, setActionId] = useState<PetActionId | undefined>(() => pickNextAction(videos));
-	const [autoMode, setAutoMode] = useState(true);
+	const [actionId, setActionId] = useState<PetActionId | undefined>(() => getInitialAction(videos));
+	const [autoMode, setAutoMode] = useState(getInitialAutoMode);
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
 	const action = PET_ACTIONS.find((item) => item.id === actionId);
 	const videoSrc = actionId ? videos[actionId] : undefined;
