@@ -1,0 +1,16 @@
+{
+	"id": "mobile-ui-preview",
+	"name": "移动UI预览",
+	"version": "0.2.0",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "mobile_ui_preview",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.activity-tab", "agent.session.write"],
+	"description": "在仿真移动设备边框（iPhone / Android / iPad，含状态栏与横竖屏）内预览当前作用域的 HTML 页面。",
+	"author": "Vetta"
+}

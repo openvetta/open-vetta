@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `AgentTool` 新增第三个泛型参数 `TScenario extends string = string`，`scope_use` 由 `string[]` 改为 `readonly TScenario[]`。向后兼容（默认 `string`，旧的 `AgentTool<P>` / `AgentTool<P, D>` 不受影响）；上层消费者可绑定具体的场景联合（如 coding-agent 的 `ConversationScenario`）以在声明 `scope_use` 时获得补全/拼写校验。agent-core 自身仍不绑定任何场景词汇、不解读该字段。
+
 ### Fixed
 
 - 修复 `tracing.detail="agent"` 且 `tracing.captureContent=true` 时 root `agent.run` 仍只上报摘要，导致 Langfuse trace input/output 看不到用户消息、最终 assistant 输出、system prompt 与工具定义正文。

@@ -1,7 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import {
 	detectLineEnding,
@@ -55,7 +55,7 @@ export interface EditToolOptions {
 	operations?: EditOperations;
 }
 
-export function createEditTool(cwd: string, options?: EditToolOptions): AgentTool<typeof editSchema> {
+export function createEditTool(cwd: string, options?: EditToolOptions): CodingAgentTool<typeof editSchema> {
 	const ops = options?.operations ?? defaultEditOperations;
 	const fallbackDescription =
 		"Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.";

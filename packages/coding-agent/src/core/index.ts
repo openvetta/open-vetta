@@ -60,6 +60,7 @@ export {
 } from "./extensions/index.js";
 export {
 	ALL_SCENARIOS,
+	type CodingAgentTool,
 	type ConversationScenario,
 	DEFAULT_SCENARIO,
 	type ToolCapability,

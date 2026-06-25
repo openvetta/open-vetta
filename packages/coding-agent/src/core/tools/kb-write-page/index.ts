@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
 import { type KbWriteSession, writeKnowledgePage } from "../../knowledge/writer.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 
 const kbWritePageSchema = Type.Object({
@@ -60,7 +60,10 @@ export interface KbWritePageDetails {
  *   （避免每写一页全量 scan 的 O(N²)，并保证多并发批之间写页互斥安全）；
  *   省略则每次现扫一次（加工轮外的通用 session / UI 用）。
  */
-export function createKbWritePageTool(root?: string, session?: KbWriteSession): AgentTool<typeof kbWritePageSchema> {
+export function createKbWritePageTool(
+	root?: string,
+	session?: KbWriteSession,
+): CodingAgentTool<typeof kbWritePageSchema> {
 	const fallbackDescription =
 		"Write (create or update) a wiki page in the knowledge base. Enforces the closed frontmatter schema, " +
 		"assigns a stable id, upserts by id or source_hash, and refreshes the tags/manifest caches.";

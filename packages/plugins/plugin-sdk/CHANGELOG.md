@@ -4,8 +4,14 @@ All notable changes to `@vetta/plugin-sdk` are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- 会话页插槽（活动面板插件标签卡、AI 输入栏插件 toggle）现按 `scope_use` 随对话类型显隐，与工具 `scope_use` 同一套场景轴，**fail-closed**：未声明 / 空数组 = 任何会话都不显示。**行为破坏性变更**——既有不声明 `scope_use` 的活动面板标签卡 / 输入栏 toggle 将不再出现，需显式声明（如 `scope_use: ["project", "conversation"]`）。
+- `PluginAgentToolRegistration.scope_use` 类型由 `string[]` 收紧为 `readonly ConversationScenario[]`，声明工具可见场景时获得补全与拼写校验。
+
 ### Added
 
+- 新增 `ConversationScenario` 联合类型（`"im-claw" | "conversation" | "project" | "batch" | "automation" | "kb-processing" | "cli"`），并给 `PluginActivityTabContribution` 与 `PluginInputActionContribution` 新增 `scope_use?: readonly ConversationScenario[]`：插件可把会话页活动面板标签卡 / 输入栏 toggle 限定到特定对话类型（镜像 agent 工具的 `scope_use`）。输入栏 toggle 的 `scope_use` 与 `requiresActiveTool` 取「与」。
 - Added `PluginContext.agent.registerContinuationProvider()` and the `agent.continuation.register` permission so plugins can request another turn when the agent reaches a natural stopping point.
 - Added the initial trusted plugin SDK contract with plugin lifecycle, permissions, global UI slot types, and `definePlugin()`.
 - Added plugin agent tool and file API contracts: `PluginContext.agent.registerTool()`, TypeBox/JSON-Schema-friendly tool registration types, `PluginContext.fs`, and the `agent.tools.register`, `agent.toolHandler.execute`, `fs.read`, and `fs.write` permissions.
