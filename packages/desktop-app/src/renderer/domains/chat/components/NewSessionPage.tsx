@@ -22,6 +22,7 @@ import {
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { BotAvatar } from "@shared/components/BotAvatar";
+import { GuideBadgeSwiper } from "./GuideBadgeSwiper";
 import { InputBar } from "./InputBar";
 import { SessionDropZone } from "./SessionDropZone";
 import { useSessionManager } from "../hooks/useSessionManager";
@@ -388,6 +389,9 @@ export function NewSessionPage(): JSX.Element {
 							transition={{ duration: 0.5, ease: easeOut }}
 							className="mb-3 flex w-full max-w-2xl flex-col items-start"
 						>
+							{/* 欢迎语上方的引导 badge 轮播 */}
+							<GuideBadgeSwiper mounted={mounted} />
+
 							{/* 标题/副标题在左、BotAvatar 在最右，同一行左右对齐 */}
 							<div className="flex w-full items-center justify-between gap-4">
 								<div className="flex min-w-0 flex-col">

@@ -409,13 +409,15 @@ export function createPetWindow(): BrowserWindow {
 	});
 
 	petWindow.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
-	petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-	// macOS: `visibleOnFullScreen` 让 Electron 把进程 activation policy 转成
-	// accessory（transformProcessType），副作用是整个 app 被移出 Dock。桌宠需要浮在
-	// 全屏应用之上，又不能丢主窗口的 Dock 图标，因此显式 dock.show() 把策略转回 regular。
-	if (process.platform === "darwin") {
-		void app.dock.show();
-	}
+	// macOS: 默认情况下 setVisibleOnAllWorkspaces 会在 UIElementApplication 与
+	// ForegroundApplication 之间切换进程类型（transformProcessType），每次调用都会短暂
+	// 隐藏窗口和 Dock —— 这正是桌宠开启时的卡顿/闪烁、Dock 图标消失，以及 dev 下 devtools
+	// 打不开（进程重新向窗口服务器注册、焦点被打断）的根因。`screen-saver` 层级已能浮在全屏
+	// 应用之上，故用 skipTransformProcessType 跳过这次转换，既保留全屏浮层又不丢 Dock、不卡顿。
+	petWindow.setVisibleOnAllWorkspaces(true, {
+		visibleOnFullScreen: true,
+		skipTransformProcessType: true,
+	});
 	petWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 	petWindow.webContents.on("preload-error", (_event, preloadPathForError, error) => {
 		log.error("preload-error", { preloadPath: preloadPathForError, error });
