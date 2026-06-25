@@ -1,9 +1,9 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { exec as execCb } from "child_process";
 import { constants, access as fsAccess } from "fs";
 import nodePath from "path";
 import { promisify } from "util";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
 
@@ -226,7 +226,7 @@ export interface DocToPdfToolOptions {
 
 // ── Tool factory ──
 
-export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): AgentTool<typeof docToPdfSchema> {
+export function createDocToPdfTool(cwd: string, options?: DocToPdfToolOptions): CodingAgentTool<typeof docToPdfSchema> {
 	const ops = options?.operations ?? defaultOperations;
 	const fallbackDescription =
 		"Convert a .doc or .docx file to PDF using Microsoft Office or WPS Office installed on the system.";

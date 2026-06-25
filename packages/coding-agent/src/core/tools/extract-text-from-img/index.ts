@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import nodePath from "node:path";
 import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { runWithOcrLimit } from "../ocr-concurrency.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
@@ -169,7 +169,7 @@ function buildAgentText(doc: OcrJsonDocument, maxChars: number, outputPath: stri
 	return `${body}\n${footer}`;
 }
 
-export function createExtractTextFromImgTool(cwd: string): AgentTool<typeof extractTextFromImgSchema> {
+export function createExtractTextFromImgTool(cwd: string): CodingAgentTool<typeof extractTextFromImgSchema> {
 	const fallback = "Extract text from a single image via Vetta Desktop's local PP-OCRv5 runner.";
 	const description = loadToolDescription(import.meta.url, fallback);
 

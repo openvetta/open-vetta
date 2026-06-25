@@ -3,7 +3,6 @@ import { createWriteStream, existsSync, readdirSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import { spawn } from "child_process";
 import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../../config.js";
 import {
@@ -15,6 +14,7 @@ import {
 	prependCommandPrefixes,
 } from "../../../utils/shell.js";
 import type { BackgroundTaskManager } from "../../background-tasks/index.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { type PathLiteralCorrection, rewriteQuotedPathLiterals } from "../path-utils.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "../truncate.js";
@@ -257,7 +257,7 @@ export interface BashToolOptions {
 	backgroundTasks?: BackgroundTaskManager;
 }
 
-export function createBashTool(cwd: string, options?: BashToolOptions): AgentTool<typeof bashSchema> {
+export function createBashTool(cwd: string, options?: BashToolOptions): CodingAgentTool<typeof bashSchema> {
 	const ops = options?.operations ?? defaultBashOperations;
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;

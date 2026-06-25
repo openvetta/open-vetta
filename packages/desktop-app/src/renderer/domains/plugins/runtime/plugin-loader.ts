@@ -359,6 +359,7 @@ function createContext(
 			label: contribution.label,
 			icon: contribution.icon,
 			component: contribution.component,
+			scope_use: contribution.scope_use,
 		};
 		activityTabs.push(normalized);
 		onChanged();
@@ -386,6 +387,7 @@ function createContext(
 			icon: contribution.icon,
 			defaultActive: contribution.defaultActive,
 			requiresActiveTool: contribution.requiresActiveTool,
+			scope_use: contribution.scope_use,
 			onToggle: contribution.onToggle,
 			decoratePrompt: contribution.decoratePrompt,
 		};

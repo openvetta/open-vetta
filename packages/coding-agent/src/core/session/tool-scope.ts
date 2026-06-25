@@ -13,6 +13,7 @@
  *   ask 能力等）计算后传入。
  */
 
+import type { TSchema } from "@sinclair/typebox";
 import type { AgentTool } from "@vetta/agent-core";
 
 /** 对话场景 slug。隔离的唯一轴。 */
@@ -37,6 +38,17 @@ export const ALL_SCENARIOS: readonly ConversationScenario[] = [
 
 /** 无 scenario 传入时的默认场景（CLI / SDK 独立调用）。 */
 export const DEFAULT_SCENARIO: ConversationScenario = "cli";
+
+/**
+ * coding-agent 内置工具用的 AgentTool 别名：把第三个泛型钉成本包的 `ConversationScenario`。
+ * 工具用 `CodingAgentTool<typeof xSchema>` 作返回类型即可在声明 `scope_use` 时拿到场景补全/
+ * 防拼写，而 agent-core 仍保持场景词汇无关（默认 `string`）。
+ */
+export type CodingAgentTool<TParameters extends TSchema = TSchema, TDetails = any> = AgentTool<
+	TParameters,
+	TDetails,
+	ConversationScenario
+>;
 
 /** 会话能力 slug。requires 与之取交集。 */
 export type ToolCapability =

@@ -1,6 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
 import type { BackgroundTaskManager, BackgroundTaskStatus } from "../../background-tasks/index.js";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 
 const taskStopSchema = Type.Object({
@@ -18,7 +18,7 @@ export interface TaskStopToolOptions {
 	getManager: () => BackgroundTaskManager;
 }
 
-export function createTaskStopTool(options: TaskStopToolOptions): AgentTool<typeof taskStopSchema> {
+export function createTaskStopTool(options: TaskStopToolOptions): CodingAgentTool<typeof taskStopSchema> {
 	const fallbackDescription = "Terminate a running background task started via bash with run_in_background.";
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 

@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 
 /** Max length of a question's short `header` chip label. */
@@ -135,7 +135,7 @@ function formatResultText(result: AskUserQuestionResult): string {
  */
 export function createAskUserQuestionTool(
 	options: AskUserQuestionToolOptions,
-): AgentTool<typeof askUserQuestionSchema, AskUserQuestionToolDetails> {
+): CodingAgentTool<typeof askUserQuestionSchema, AskUserQuestionToolDetails> {
 	const description = loadToolDescription(import.meta.url, FALLBACK_DESCRIPTION);
 	return {
 		name: "ask_user_question",

@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import type { TodoStore } from "../../todo-store.js";
 import { loadToolDescription } from "../description.js";
 
@@ -52,7 +52,7 @@ function formatItems(store: TodoStore): string {
 	return lines.join("\n");
 }
 
-export function createTodoTool(options: TodoToolOptions): AgentTool<typeof todoSchema> {
+export function createTodoTool(options: TodoToolOptions): CodingAgentTool<typeof todoSchema> {
 	const fallbackDescription = "Manage a todo list to plan and track progress on multi-step tasks.";
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 

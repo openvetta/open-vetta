@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import nodePath from "node:path";
 import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentTool } from "@vetta/agent-core";
+import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
 
@@ -124,7 +124,7 @@ function parseDesktopResponse(stdout: string): DesktopPdfResponse {
 	return parsed;
 }
 
-export function createHtmlToPdfTool(cwd: string): AgentTool<typeof htmlToPdfSchema> {
+export function createHtmlToPdfTool(cwd: string): CodingAgentTool<typeof htmlToPdfSchema> {
 	const fallbackDescription = "Convert an HTML file to PDF by calling Vetta Desktop command-line PDF mode.";
 	const description = loadToolDescription(import.meta.url, fallbackDescription);
 
