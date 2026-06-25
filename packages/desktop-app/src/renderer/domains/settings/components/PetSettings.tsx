@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions";
-import { DEFAULT_PET_CONFIG, PET_SIZE_OPTIONS, type PetConfig } from "../../../../shared/pet-config";
+import { DEFAULT_PET_CONFIG, type PetConfig } from "../../../../shared/pet-config";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
 
@@ -10,7 +10,9 @@ export function PetSettings(): JSX.Element {
 	const [config, setConfig] = useState<PetConfig>(DEFAULT_PET_CONFIG);
 
 	useEffect(() => {
-		void window.vetta.pet.getConfig().then(setConfig);
+		void window.vetta.pet.getConfig().then((next) => {
+			setConfig(next);
+		});
 	}, []);
 
 	const persist = useCallback(async (patch: Partial<PetConfig>) => {
@@ -39,16 +41,16 @@ export function PetSettings(): JSX.Element {
 		[persist],
 	);
 
-	const handleSize = useCallback(
-		(value: string) => {
-			void persist({ size: Number(value) });
+	const handleAlwaysOnTop = useCallback(
+		(checked: boolean) => {
+			void persist({ alwaysOnTop: checked });
 		},
 		[persist],
 	);
 
-	const handleAlwaysOnTop = useCallback(
+	const handleDebugFrame = useCallback(
 		(checked: boolean) => {
-			void persist({ alwaysOnTop: checked });
+			void persist({ debugFrame: checked });
 		},
 		[persist],
 	);
@@ -104,27 +106,6 @@ export function PetSettings(): JSX.Element {
 
 			<SettingSection section={SETTINGS_SECTION["pet-window"]}>
 				<SettingRow
-					title="窗口大小"
-					description="调整桌宠在屏幕上的显示尺寸，不会改动视频素材。"
-				>
-					<Select
-						value={String(config.size)}
-						onValueChange={handleSize}
-						disabled={!config.enabled}
-					>
-						<SelectTrigger className="h-7 min-w-[112px] px-2 py-1 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{PET_SIZE_OPTIONS.map((option) => (
-								<SelectItem key={option.value} value={String(option.value)} className="text-[12px]">
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</SettingRow>
-				<SettingRow
 					title="保持在最前"
 					description="开启后桌宠会浮在其他窗口上方；关闭后它会像普通窗口一样被遮挡。"
 					border={false}
@@ -132,6 +113,23 @@ export function PetSettings(): JSX.Element {
 					<Switch
 						checked={config.alwaysOnTop}
 						onCheckedChange={handleAlwaysOnTop}
+						disabled={!config.enabled}
+					/>
+				</SettingRow>
+			</SettingSection>
+
+			<SettingSection
+				section={SETTINGS_SECTION["pet-developer"]}
+				description="用于分辨桌宠窗口边界和视频实际显示区域。"
+			>
+				<SettingRow
+					title="调试边框"
+					description="显示窗口边界、视频区域边界，并在桌宠窗口内实时展示窗口大小和视频大小。"
+					border={false}
+				>
+					<Switch
+						checked={config.debugFrame}
+						onCheckedChange={handleDebugFrame}
 						disabled={!config.enabled}
 					/>
 				</SettingRow>

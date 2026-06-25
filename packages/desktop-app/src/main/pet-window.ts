@@ -3,9 +3,21 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Menu, screen } from "electron";
 import { PET_ACTIONS } from "../shared/pet-actions.js";
-import { DEFAULT_PET_CONFIG, normalizePetConfig, type PetConfig } from "../shared/pet-config.js";
-import { PET_COMMAND_CHANNEL, type PetCommand } from "../shared/pet-ipc.js";
-import { allowProjectRoot, readConfigSync } from "./ipc/fs.js";
+import {
+	DEFAULT_PET_CONFIG,
+	getPetVideoSize,
+	normalizePetConfig,
+	normalizePetSize,
+	normalizePetVideoSize,
+	normalizePetVideoSizeForWindow,
+	PET_SIZE_MAX,
+	PET_SIZE_MIN,
+	PET_SIZE_STEP,
+	PET_VIDEO_SIZE_STEP,
+	type PetConfig,
+} from "../shared/pet-config.js";
+import { PET_COMMAND_CHANNEL, type PetCommand, type PetResizeCorner } from "../shared/pet-ipc.js";
+import { allowProjectRoot, readConfigSync, readDesktopConfig, writeDesktopConfig } from "./ipc/fs.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_SCHEME } from "./media-protocol.js";
 import { iconPath } from "./window-manager.js";
@@ -19,6 +31,16 @@ const petPreloadPath = join(resDir, "preload/pet.js");
 
 let petWindow: BrowserWindow | null = null;
 let petConfig: PetConfig = DEFAULT_PET_CONFIG;
+let persistSizeTimer: ReturnType<typeof setTimeout> | undefined;
+let isApplyingPetBounds = false;
+let windowResizeSession: PetWindowResizeSession | undefined;
+let isMousePassthroughEnabled = false;
+
+type PetWindowResizeSession = {
+	startBounds: Electron.Rectangle;
+	corner: PetResizeCorner;
+	lastSize: number;
+};
 
 type PetVideoResolution = {
 	id: string;
@@ -68,12 +90,138 @@ function buildPetQuery(config: PetConfig): string {
 		if (video.url) {
 			params.set(action.id, video.url);
 		}
+		params.set(
+			`${action.id}VideoSize`,
+			String(normalizePetVideoSizeForWindow(getPetVideoSize(config, action.id), config.size)),
+		);
 	}
 	params.set("autoMode", String(config.autoMode));
+	params.set("debugFrame", String(config.debugFrame));
 	if (config.defaultActionId) {
 		params.set("initialAction", config.defaultActionId);
 	}
 	return params.toString();
+}
+
+function getCenteredBounds(current: Electron.Rectangle, size: number): Electron.Rectangle {
+	return {
+		width: size,
+		height: size,
+		x: Math.round(current.x + current.width / 2 - size / 2),
+		y: Math.round(current.y + current.height / 2 - size / 2),
+	};
+}
+
+function getCornerAnchoredBounds(
+	current: Electron.Rectangle,
+	size: number,
+	corner: PetResizeCorner | undefined,
+): Electron.Rectangle {
+	if (!corner) {
+		return getCenteredBounds(current, size);
+	}
+
+	const right = current.x + current.width;
+	const bottom = current.y + current.height;
+	return {
+		width: size,
+		height: size,
+		x: corner.endsWith("left") ? right - size : current.x,
+		y: corner.startsWith("top") ? bottom - size : current.y,
+	};
+}
+
+function isInvalidPetBounds(bounds: Electron.Rectangle): boolean {
+	return (
+		bounds.width !== bounds.height ||
+		bounds.width < PET_SIZE_MIN ||
+		bounds.height < PET_SIZE_MIN ||
+		bounds.width > PET_SIZE_MAX ||
+		bounds.height > PET_SIZE_MAX
+	);
+}
+
+function setPetBounds(win: BrowserWindow, bounds: Electron.Rectangle, reason: string): void {
+	const log = getAppLogger("pet-window");
+	const before = win.getBounds();
+	const size = normalizePetSize(Math.max(bounds.width, bounds.height));
+	try {
+		isApplyingPetBounds = true;
+		win.setBounds({
+			x: bounds.x,
+			y: bounds.y,
+			width: size,
+			height: size,
+		});
+	} finally {
+		isApplyingPetBounds = false;
+	}
+	const after = win.getBounds();
+	if (isInvalidPetBounds(after)) {
+		log.warn("set bounds produced invalid size", {
+			reason,
+			before,
+			requested: bounds,
+			after,
+			limits: { min: PET_SIZE_MIN, max: PET_SIZE_MAX },
+		});
+	}
+}
+
+function normalizeCurrentPetBounds(win: BrowserWindow): number {
+	const bounds = win.getBounds();
+	const size = normalizePetSize(Math.max(bounds.width, bounds.height));
+	if (bounds.width !== size || bounds.height !== size) {
+		setPetBounds(win, getCenteredBounds(bounds, size), "normalize-current-bounds");
+	}
+	return size;
+}
+
+async function persistPetWindowSize(size: number): Promise<void> {
+	const nextSize = normalizePetSize(size);
+	if (petConfig.size === nextSize) return;
+	petConfig = { ...petConfig, size: nextSize };
+	const current = await readDesktopConfig();
+	await writeDesktopConfig({
+		...current,
+		pet: normalizePetConfig({ ...current.pet, size: nextSize }),
+	});
+	getAppLogger("pet-window").info("size persisted", { size: nextSize });
+}
+
+function schedulePersistPetWindowSize(size: number): void {
+	if (persistSizeTimer) {
+		clearTimeout(persistSizeTimer);
+	}
+	persistSizeTimer = setTimeout(() => {
+		persistSizeTimer = undefined;
+		void persistPetWindowSize(size);
+	}, 300);
+}
+
+async function persistPetVideoSize(actionId: (typeof PET_ACTIONS)[number]["id"], size: number): Promise<void> {
+	const windowSize = petWindow && !petWindow.isDestroyed() ? petWindow.getBounds().width : petConfig.size;
+	const nextSize = normalizePetVideoSizeForWindow(size, windowSize);
+	if (getPetVideoSize(petConfig, actionId) === nextSize) return;
+	petConfig = {
+		...petConfig,
+		videoSizeByAction: {
+			...petConfig.videoSizeByAction,
+			[actionId]: nextSize,
+		},
+	};
+	const current = await readDesktopConfig();
+	await writeDesktopConfig({
+		...current,
+		pet: normalizePetConfig({
+			...current.pet,
+			videoSizeByAction: {
+				...current.pet?.videoSizeByAction,
+				[actionId]: nextSize,
+			},
+		}),
+	});
+	getAppLogger("pet-window").info("video size persisted", { actionId, size: nextSize });
 }
 
 function getPetEntryUrl(query: string): string {
@@ -206,6 +354,10 @@ export function createPetWindow(): BrowserWindow {
 		frame: false,
 		resizable: false,
 		movable: true,
+		minWidth: PET_SIZE_MIN,
+		minHeight: PET_SIZE_MIN,
+		maxWidth: PET_SIZE_MAX,
+		maxHeight: PET_SIZE_MAX,
 		show: false,
 		skipTaskbar: true,
 		transparent: true,
@@ -235,6 +387,19 @@ export function createPetWindow(): BrowserWindow {
 		event.preventDefault();
 		if (!petWindow || petWindow.isDestroyed()) return;
 		showContextMenu(petWindow);
+	});
+	petWindow.on("resize", () => {
+		if (!petWindow || petWindow.isDestroyed()) return;
+		if (isApplyingPetBounds) return;
+		if (windowResizeSession) return;
+		const bounds = petWindow.getBounds();
+		if (isInvalidPetBounds(bounds)) {
+			log.warn("resize event produced invalid size", {
+				bounds,
+				limits: { min: PET_SIZE_MIN, max: PET_SIZE_MAX },
+			});
+		}
+		schedulePersistPetWindowSize(normalizeCurrentPetBounds(petWindow));
 	});
 	petWindow.on("ready-to-show", () => {
 		if (!petWindow || petWindow.isDestroyed()) return;
@@ -298,17 +463,29 @@ export function applyPetConfig(config: PetConfig): void {
 	win.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
 	const bounds = win.getBounds();
 	if (bounds.width !== petConfig.size || bounds.height !== petConfig.size) {
-		win.setBounds({
-			x: bounds.x + bounds.width - petConfig.size,
-			y: bounds.y + bounds.height - petConfig.size,
-			width: petConfig.size,
-			height: petConfig.size,
-		});
+		setPetBounds(
+			win,
+			{
+				x: bounds.x + bounds.width - petConfig.size,
+				y: bounds.y + bounds.height - petConfig.size,
+				width: petConfig.size,
+				height: petConfig.size,
+			},
+			"apply-config",
+		);
 	}
 	if (!win.isVisible()) {
 		win.showInactive();
 	}
 	sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
+	sendPetCommand(win, { type: "set-debug-frame", enabled: petConfig.debugFrame });
+	for (const action of PET_ACTIONS) {
+		sendPetCommand(win, {
+			type: "set-video-size",
+			actionId: action.id,
+			size: normalizePetVideoSizeForWindow(getPetVideoSize(petConfig, action.id), win.getBounds().width),
+		});
+	}
 	if (!petConfig.autoMode && petConfig.defaultActionId) {
 		sendPetCommand(win, { type: "set-action", actionId: petConfig.defaultActionId });
 	}
@@ -316,5 +493,151 @@ export function applyPetConfig(config: PetConfig): void {
 		petConfig,
 		isVisible: win.isVisible(),
 		bounds: win.getBounds(),
+	});
+}
+
+export async function resizePetWindowByWheel(deltaY: number): Promise<void> {
+	if (typeof deltaY !== "number" || !Number.isFinite(deltaY) || deltaY === 0) return;
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const bounds = win.getBounds();
+	const direction = deltaY < 0 ? 1 : -1;
+	const nextSize = normalizePetSize(bounds.width + direction * PET_SIZE_STEP);
+	if (nextSize === bounds.width) return;
+	setPetBounds(win, getCenteredBounds(bounds, nextSize), "wheel-resize-window");
+	await persistPetWindowSize(nextSize);
+}
+
+export function movePetWindowBy(deltaX: number, deltaY: number): void {
+	if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const bounds = win.getBounds();
+	const x = Math.round(bounds.x + deltaX);
+	const y = Math.round(bounds.y + deltaY);
+	const normalizedSize = normalizePetSize(Math.max(bounds.width, bounds.height));
+	if (bounds.width !== normalizedSize || bounds.height !== normalizedSize) {
+		setPetBounds(
+			win,
+			{
+				x,
+				y,
+				width: normalizedSize,
+				height: normalizedSize,
+			},
+			"move-normalize-before-position",
+		);
+		schedulePersistPetWindowSize(normalizedSize);
+		return;
+	}
+	win.setPosition(x, y, false);
+	const after = win.getBounds();
+	const sizeChanged = after.width !== normalizedSize || after.height !== normalizedSize;
+	if (sizeChanged || isInvalidPetBounds(after)) {
+		getAppLogger("pet-window").warn("move size changed unexpectedly", {
+			delta: { x: deltaX, y: deltaY },
+			before: bounds,
+			after,
+			restoredSize: normalizedSize,
+			limits: { min: PET_SIZE_MIN, max: PET_SIZE_MAX },
+		});
+		setPetBounds(
+			win,
+			{
+				x: after.x,
+				y: after.y,
+				width: normalizedSize,
+				height: normalizedSize,
+			},
+			"restore-size-after-move",
+		);
+	}
+}
+
+export function beginPetWindowResize(corner: PetResizeCorner): void {
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const bounds = win.getBounds();
+	const size = normalizePetSize(Math.max(bounds.width, bounds.height));
+	const startBounds =
+		bounds.width === size && bounds.height === size
+			? bounds
+			: {
+					...bounds,
+					width: size,
+					height: size,
+				};
+	windowResizeSession = {
+		startBounds,
+		corner,
+		lastSize: size,
+	};
+}
+
+export async function setPetWindowSize(size: number, corner?: PetResizeCorner): Promise<void> {
+	if (!Number.isFinite(size)) return;
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const bounds = win.getBounds();
+	const nextSize = normalizePetSize(size);
+	if (nextSize === bounds.width) return;
+	const session = windowResizeSession && windowResizeSession.corner === corner ? windowResizeSession : undefined;
+	const baseBounds = session?.startBounds ?? bounds;
+	setPetBounds(win, getCornerAnchoredBounds(baseBounds, nextSize, corner), "corner-resize-window");
+	if (session) {
+		windowResizeSession = { ...session, lastSize: nextSize };
+		return;
+	}
+	schedulePersistPetWindowSize(nextSize);
+}
+
+export async function endPetWindowResize(size: number): Promise<void> {
+	const session = windowResizeSession;
+	windowResizeSession = undefined;
+	if (!Number.isFinite(size)) return;
+	const nextSize = normalizePetSize(size);
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	if (session) {
+		setPetBounds(
+			win,
+			getCornerAnchoredBounds(session.startBounds, nextSize, session.corner),
+			"end-corner-resize-window",
+		);
+	}
+	await persistPetWindowSize(nextSize);
+}
+
+export async function resizePetVideoByWheel(
+	actionId: (typeof PET_ACTIONS)[number]["id"],
+	deltaY: number,
+): Promise<void> {
+	if (typeof deltaY !== "number" || !Number.isFinite(deltaY) || deltaY === 0) return;
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const direction = deltaY < 0 ? 1 : -1;
+	const bounds = win.getBounds();
+	const nextSize = normalizePetVideoSize(getPetVideoSize(petConfig, actionId) + direction * PET_VIDEO_SIZE_STEP);
+	if (nextSize > bounds.width) {
+		setPetBounds(win, getCenteredBounds(bounds, normalizePetSize(nextSize)), "expand-window-for-video");
+		await persistPetWindowSize(normalizePetSize(nextSize));
+	}
+	await persistPetVideoSize(actionId, nextSize);
+	sendPetCommand(win, {
+		type: "set-video-size",
+		actionId,
+		size: nextSize,
+	});
+}
+
+export function setPetMousePassthrough(enabled: boolean): void {
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	if (isMousePassthroughEnabled === enabled) return;
+	isMousePassthroughEnabled = enabled;
+	win.setIgnoreMouseEvents(enabled, { forward: true });
+}
+
+export async function setPetVideoSize(actionId: (typeof PET_ACTIONS)[number]["id"], size: number): Promise<void> {
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const nextSize = normalizePetVideoSizeForWindow(size, win.getBounds().width);
+	await persistPetVideoSize(actionId, nextSize);
+	sendPetCommand(win, {
+		type: "set-video-size",
+		actionId,
+		size: nextSize,
 	});
 }
