@@ -10,6 +10,10 @@ export type {
 } from "@shared/types/knowledge-base";
 
 const ACTIVE_KNOWLEDGE_BASE_STORAGE_KEY = "vetta-active-knowledge-base";
+const KNOWLEDGE_VIEW_MODE_STORAGE_KEY = "vetta-knowledge-view-mode";
+
+/** 文件区视图：宫格 / 列表。 */
+export type KnowledgeViewMode = "grid" | "list";
 
 /**
  * 知识库列表：磁盘 ~/.vetta/knowledges/raws/ 是唯一真相源。
@@ -52,3 +56,16 @@ export const activeKnowledgeBaseIdAtom = atom(
 
 /** 待导入草稿（拖入/选择文件或仅创建库）。 */
 export const knowledgeImportDraftAtom = atom<KnowledgeImportDraft | null>(null);
+
+const knowledgeViewModeBaseAtom = atom<KnowledgeViewMode>(
+	localStorage.getItem(KNOWLEDGE_VIEW_MODE_STORAGE_KEY) === "list" ? "list" : "grid",
+);
+
+/** 文件区视图偏好（纯 UI 偏好，存 localStorage）。 */
+export const knowledgeViewModeAtom = atom(
+	(get) => get(knowledgeViewModeBaseAtom),
+	(_get, set, mode: KnowledgeViewMode) => {
+		set(knowledgeViewModeBaseAtom, mode);
+		localStorage.setItem(KNOWLEDGE_VIEW_MODE_STORAGE_KEY, mode);
+	},
+);

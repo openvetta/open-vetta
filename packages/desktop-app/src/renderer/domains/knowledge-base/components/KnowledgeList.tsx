@@ -1,14 +1,18 @@
 import { getColoredFileIcon } from "@domains/file-explorer/components/fileIcons";
 import { cn } from "@shared/lib/utils";
 import { useMarqueeSelection } from "../hooks/useMarqueeSelection";
-import { KnowledgeEmptyState, type KnowledgeViewProps, StatusBadge } from "./KnowledgeViewShared";
+import {
+	formatFileSize,
+	KnowledgeEmptyState,
+	type KnowledgeViewProps,
+	StatusBadge,
+} from "./KnowledgeViewShared";
 
 /**
- * Mac Finder 风格文件宫格：当前层级平铺，左右两端与页头对齐（容器无横向内边距）。
- * 单击选中（支持 cmd/ctrl、shift 多选），拖拽空白处框选，双击打开，右键弹菜单。
- * 选中态：图标区淡色底 + 文件名按行贴合宽度的蓝色圆角块（阶梯形）。
+ * Mac Finder 风格文件列表：单行展示小图标 + 名称，右侧对齐大小列（目录显示「N 项」）。
+ * 交互与宫格一致：单击选中（cmd/ctrl、shift 多选），拖拽空白处框选，双击打开，右键弹菜单。
  */
-export function KnowledgeGrid({
+export function KnowledgeList({
 	nodes,
 	searching,
 	selectedIds,
@@ -36,7 +40,7 @@ export function KnowledgeGrid({
 				<KnowledgeEmptyState searching={searching} />
 			) : (
 				<div className="relative min-h-full">
-					<div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-1 py-3">
+					<div className="flex flex-col py-2">
 						{nodes.map((node) => {
 							const isDir = node.type === "directory";
 							const selected = selectedIds.has(node.id);
@@ -54,43 +58,33 @@ export function KnowledgeGrid({
 										e.preventDefault();
 										onContextMenu(node, e);
 									}}
-									className="group/cell flex w-full flex-col items-center gap-1.5 rounded-lg px-2 py-3"
+									className={cn(
+										"group/row flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors",
+										selected ? "bg-primary/10" : "hover:bg-foreground/[0.04]",
+									)}
 								>
 									{/* 多色品牌图标，配色内置，勿加 text-* 颜色类 */}
-									<span
-										className={cn(
-											"relative flex h-[72px] w-[72px] items-center justify-center rounded-2xl transition-colors",
-											selected ? "bg-foreground/10" : "group-hover/cell:bg-foreground/[0.04]",
-										)}
-									>
-										{/* 未加工：图标去色淡化，提示尚未被索引 */}
+									<span className="relative flex h-9 w-9 shrink-0 items-center justify-center">
 										<span
 											className={cn(
 												getColoredFileIcon(node.name, isDir),
-												"h-14 w-14 shrink-0",
+												"h-6 w-6 shrink-0",
 												unprocessed && "opacity-40 grayscale",
 											)}
 										/>
 										{status && status !== "processed" && <StatusBadge status={status} />}
 									</span>
-									{/* Mac 风格：选中时每行文字各带贴合宽度的圆角块（box-decoration clone 形成阶梯形）；始终限制两行，避免选中时撑开导致宫格跳动 */}
-									<span className="line-clamp-2 w-full text-center text-[12px] leading-[1.55]">
-										<span
-											className={cn(
-												"break-all [-webkit-box-decoration-break:clone] [box-decoration-break:clone]",
-												selected
-													? "rounded bg-primary px-1.5 py-0.5 text-primary-foreground"
-													: "text-foreground",
-											)}
-										>
-											{node.name}
-										</span>
+									<span
+										className={cn(
+											"min-w-0 flex-1 truncate text-[13px] leading-5",
+											selected ? "text-foreground" : "text-foreground/90",
+										)}
+									>
+										{node.name}
 									</span>
-									{isDir && (
-										<span className="text-[10px] tabular-nums text-muted-foreground/45">
-											{node.children?.length ?? 0} 项
-										</span>
-									)}
+									<span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/55">
+										{isDir ? `${node.children?.length ?? 0} 项` : formatFileSize(node.size)}
+									</span>
 								</button>
 							);
 						})}

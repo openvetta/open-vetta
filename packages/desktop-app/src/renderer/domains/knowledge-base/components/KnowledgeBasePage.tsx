@@ -8,6 +8,7 @@ import {
 	confirmDialogAtom,
 	knowledgeBasesAtom,
 	knowledgeImportDraftAtom,
+	knowledgeViewModeAtom,
 	pageHeaderRightSlotAtom,
 	pageHeaderTitleBadgeAtom,
 	refreshKnowledgeBasesAtom,
@@ -39,6 +40,7 @@ export function KnowledgeBasePage(): JSX.Element {
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
 	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
+	const [viewMode, setViewMode] = useAtom(knowledgeViewModeAtom);
 	const narrow = useNarrowScreen();
 	const navigate = useNavigate();
 	const [search, setSearch] = useState("");
@@ -284,6 +286,31 @@ export function KnowledgeBasePage(): JSX.Element {
 						<Button variant="ghost" size="icon-sm" title="刷新" onClick={() => void refresh()}>
 							<span className="icon-[mdi--refresh] h-4 w-4" />
 						</Button>
+						{/* 视图切换：宫格 / 列表，偏好持久化 */}
+						<div className="flex items-center rounded-lg bg-muted/55 p-0.5">
+							{(
+								[
+									{ mode: "grid", icon: "icon-[mdi--view-grid-outline]", title: "宫格视图" },
+									{ mode: "list", icon: "icon-[mdi--view-list-outline]", title: "列表视图" },
+								] as const
+							).map(({ mode, icon, title }) => (
+								<button
+									key={mode}
+									type="button"
+									title={title}
+									aria-pressed={viewMode === mode}
+									onClick={() => setViewMode(mode)}
+									className={cn(
+										"flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+										viewMode === mode
+											? "bg-background text-foreground shadow-sm"
+											: "text-muted-foreground/60 hover:text-foreground",
+									)}
+								>
+									<span className={cn(icon, "h-4 w-4")} />
+								</button>
+							))}
+						</div>
 						<KnowledgeSourcePicker
 							onPickFiles={pickFilesForActiveBase}
 							onPickFolders={pickFoldersForActiveBase}
