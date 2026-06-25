@@ -13,6 +13,8 @@ function contentTypeForPath(path: string): string {
 			return "text/css; charset=utf-8";
 		case ".json":
 			return "application/json; charset=utf-8";
+		case ".wasm":
+			return "application/wasm";
 		case ".svg":
 			return "image/svg+xml";
 		case ".png":
