@@ -5,6 +5,7 @@ import {
 	confirmDialogAtom,
 	filePreviewAtom,
 	knowledgeFileStatusesAtom,
+	knowledgeViewModeAtom,
 	refreshKnowledgeBasesAtom,
 } from "@shared/store/atoms";
 import type {
@@ -15,6 +16,7 @@ import type {
 import { cn } from "@shared/lib/utils";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
 import { KnowledgeGrid } from "./KnowledgeGrid";
+import { KnowledgeList } from "./KnowledgeList";
 import { KnowledgeRenameDialog } from "./KnowledgeRenameDialog";
 import { type ContextMenuItem, KnowledgeContextMenu } from "./KnowledgeContextMenu";
 import { knowledgeNodeMatches, nodesAtPath } from "../lib/knowledge-base";
@@ -46,6 +48,7 @@ export function KnowledgeContentsPanel({
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
 	const openPreview = useSetAtom(filePreviewAtom);
 	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
+	const viewMode = useAtomValue(knowledgeViewModeAtom);
 
 	// 文件加工态：key 为 source_path（`${kbId}/${node.id}`）。目录无加工态返回 null。
 	const statusFor = useCallback(
@@ -330,17 +333,22 @@ export function KnowledgeContentsPanel({
 						</motion.div>
 					</div>
 				) : (
-					<KnowledgeGrid
-						nodes={visibleNodes}
-						searching={query.length > 0}
-						selectedIds={selectedIds}
-						statusFor={statusFor}
-						onItemClick={onItemClick}
-						onOpen={openNode}
-						onContextMenu={onContextMenu}
-						onSelectIds={setSelectedIds}
-						onClearSelection={clearSelection}
-					/>
+					(() => {
+						const View = viewMode === "list" ? KnowledgeList : KnowledgeGrid;
+						return (
+							<View
+								nodes={visibleNodes}
+								searching={query.length > 0}
+								selectedIds={selectedIds}
+								statusFor={statusFor}
+								onItemClick={onItemClick}
+								onOpen={openNode}
+								onContextMenu={onContextMenu}
+								onSelectIds={setSelectedIds}
+								onClearSelection={clearSelection}
+							/>
+						);
+					})()
 				)}
 			</motion.div>
 
