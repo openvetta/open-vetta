@@ -35,6 +35,7 @@ const actionDurations: Record<PetActionId, { minMs: number; maxMs: number }> = {
 	hula: { minMs: 35_000, maxMs: 70_000 },
 	"jump-rope": { minMs: 30_000, maxMs: 60_000 },
 	tea: { minMs: 60_000, maxMs: 120_000 },
+	stoat_wave_backflip_smoke_fade_exit: { minMs: 20_000, maxMs: 40_000 },
 };
 
 function getVideoMap(): PetVideoMap {
@@ -100,12 +101,23 @@ function getWeightedActionsForNow(): PetActionId[] {
 		return ["sleep", "sleep", "sleep", "sleep", "music", "tea"];
 	}
 	if (hour >= 9 && hour < 18) {
-		return ["typing", "typing", "typing", "typing", "tea", "tea", "workout", "jump-rope", "hula"];
+		return [
+			"typing",
+			"typing",
+			"typing",
+			"typing",
+			"tea",
+			"tea",
+			"workout",
+			"jump-rope",
+			"hula",
+			"stoat_wave_backflip_smoke_fade_exit",
+		];
 	}
 	if (hour >= 18 && hour < 23) {
-		return ["music", "music", "tea", "tea", "hula", "workout", "typing"];
+		return ["music", "music", "tea", "tea", "hula", "workout", "typing", "stoat_wave_backflip_smoke_fade_exit"];
 	}
-	return ["sleep", "sleep", "music", "tea", "tea"];
+	return ["sleep", "sleep", "music", "tea", "tea", "stoat_wave_backflip_smoke_fade_exit"];
 }
 
 function pickNextAction(videos: PetVideoMap, previous?: PetActionId): PetActionId | undefined {

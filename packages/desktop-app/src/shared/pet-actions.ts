@@ -48,6 +48,13 @@ export const PET_ACTIONS = [
 		description: "休息、等待模型响应或低强度待机",
 		videoBaseSize: 220,
 	},
+	{
+		id: "stoat_wave_backflip_smoke_fade_exit",
+		fileName: "stoat_wave_backflip_smoke_fade_exit.webm",
+		label: "挥手翻身",
+		description: "普通待机中的短动作反馈",
+		videoBaseSize: 220,
+	},
 ] as const;
 
 export type PetActionId = (typeof PET_ACTIONS)[number]["id"];
