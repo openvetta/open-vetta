@@ -12,6 +12,26 @@
 				"pink": {
 					"label": "Pink bubble",
 					"description": "Fixed pink background with heart corner decorations."
+				},
+				"springFestival": {
+					"label": "Spring Festival bubble",
+					"description": "Warm red background with Spring Festival corner decorations."
+				},
+				"dragonBoat": {
+					"label": "Dragon Boat bubble",
+					"description": "Green background with Dragon Boat Festival corner decorations."
+				},
+				"midAutumn": {
+					"label": "Mid-Autumn bubble",
+					"description": "Moonlit yellow background with Mid-Autumn corner decorations."
+				},
+				"qingming": {
+					"label": "Qingming bubble",
+					"description": "Light green background with Qingming corner decorations."
+				},
+				"winterSolstice": {
+					"label": "Winter Solstice bubble",
+					"description": "Ice blue background with Winter Solstice corner decorations."
 				}
 			}
 		}

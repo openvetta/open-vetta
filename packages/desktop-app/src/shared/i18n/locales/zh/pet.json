@@ -12,6 +12,26 @@
 				"pink": {
 					"label": "粉色气泡",
 					"description": "固定粉色背景，使用爱心四角装饰。"
+				},
+				"springFestival": {
+					"label": "春节气泡",
+					"description": "暖红背景，使用春节四角装饰。"
+				},
+				"dragonBoat": {
+					"label": "端午气泡",
+					"description": "青绿色背景，使用端午四角装饰。"
+				},
+				"midAutumn": {
+					"label": "中秋气泡",
+					"description": "月黄色背景，使用中秋四角装饰。"
+				},
+				"qingming": {
+					"label": "清明气泡",
+					"description": "浅绿色背景，使用清明四角装饰。"
+				},
+				"winterSolstice": {
+					"label": "冬至气泡",
+					"description": "冰蓝色背景，使用冬至四角装饰。"
 				}
 			}
 		}
