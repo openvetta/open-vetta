@@ -122,6 +122,11 @@ function formatLogArg(arg: unknown): string {
 
 function configureLogger(logger: ElectronLogger, type: AppLogType): void {
 	logger.scope.labelPadding = 18;
+	// 禁用 ipc transport：main 日志无需回传渲染进程。dev 下它默认开启，每条日志都会
+	// webContents.send，而帧销毁竞态会让 Electron 抛 "Render frame was disposed" 并以
+	// console.error 打印——console.error 已被 patch 成 logger.error，再次触发 ipc transport，
+	// 形成自反馈死循环，瞬间写满数个 5MB 日志文件。关掉它即断环。
+	logger.transports.ipc.level = false;
 	logger.transports.file.setAppName("Vetta");
 	logger.transports.file.fileName = `${type}.log`;
 	logger.transports.file.resolvePathFn = (_variables, message) =>
