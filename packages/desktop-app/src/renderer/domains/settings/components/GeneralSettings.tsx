@@ -2,6 +2,7 @@ import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { workspacePathAtom, debugModeAtom, confirmDialogAtom, sessionExecutionModeAtom, type SessionExecutionMode } from "@shared/store/atoms";
 import { UpdateChecker } from "@shared/components/UpdateChecker";
+import { Button } from "@shared/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
 import { SettingRow, SettingSection } from "./shared";
@@ -14,6 +15,7 @@ export function GeneralSettings(): JSX.Element {
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
 	const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+	const [exportingDiagnostics, setExportingDiagnostics] = useState(false);
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
@@ -71,6 +73,24 @@ export function GeneralSettings(): JSX.Element {
 		},
 		[setDebugMode, setConfirmDialog],
 	);
+
+	const handleExportDiagnostics = useCallback(async () => {
+		if (exportingDiagnostics) return;
+		setExportingDiagnostics(true);
+		try {
+			await window.vetta.diagnostics.exportDiagnosticsPackage();
+		} catch (error) {
+			console.error("[GeneralSettings] failed to export diagnostics:", error);
+			setConfirmDialog({
+				title: "导出诊断包失败",
+				message: error instanceof Error ? error.message : String(error),
+				confirmLabel: "知道了",
+				onConfirm: () => {},
+			});
+		} finally {
+			setExportingDiagnostics(false);
+		}
+	}, [exportingDiagnostics, setConfirmDialog]);
 
 	const handleToggleNotifications = useCallback((checked: boolean) => {
 		setNotificationsEnabled(checked);
@@ -172,9 +192,22 @@ export function GeneralSettings(): JSX.Element {
 				<SettingRow
 					title="调试模式"
 					description="打开调试模式，可以协助开发者定位问题"
-					border={false}
 				>
 					<Switch checked={debugMode} onCheckedChange={handleToggleDebug} />
+				</SettingRow>
+				<SettingRow
+					title="导出诊断包"
+					description="打包最近日志、内存日志缓冲与系统信息，便于反馈问题时排查"
+					border={false}
+				>
+					<Button
+						size="sm"
+						variant="outline"
+						disabled={exportingDiagnostics}
+						onClick={() => void handleExportDiagnostics()}
+					>
+						{exportingDiagnostics ? "导出中…" : "导出"}
+					</Button>
 				</SettingRow>
 			</SettingSection>
 		</div>
