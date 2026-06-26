@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PersonaOption } from "@preload/api.js";
+import { useTranslation } from "react-i18next";
 import { Button } from "@shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { Slider } from "@shared/components/ui/slider";
@@ -23,6 +24,7 @@ function clampImages(value: number): number {
 }
 
 export function AgentSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [maxRecentImages, setMaxRecentImages] = useState(2);
 
 	// 个性化：人设清单 + 当前配置（已落盘基线）+ 本地缓冲。
@@ -108,16 +110,16 @@ export function AgentSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">Agent配置</h1>
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("agentSettings.title")}</h1>
 
 			<div className="mb-6 p-1.5">
-				<SettingHeading section={SETTINGS_SECTION["agent-personalization"]} className="mb-1" />
+				<SettingHeading t={t as any} section={SETTINGS_SECTION["agent-personalization"]} className="mb-1" />
 				<p className="mb-4 text-[12px] text-muted-foreground">
-					为 agent 选择一个预设人设，并可在其之上追加自定义指令。应用后在每个 session 的下一条消息生效，无需重启。
+					{t("agentDescription")}
 				</p>
 
 				<div>
-					<div className="text-[13px] font-medium text-foreground">人设</div>
+					<div className="text-[13px] font-medium text-foreground">{t("agentSettings.persona")}</div>
 					<Popover open={personaOpen} onOpenChange={setPersonaOpen}>
 						<PopoverTrigger asChild>
 							<button
@@ -127,7 +129,7 @@ export function AgentSettings(): JSX.Element {
 									personaOpen ? "bg-accent" : "bg-muted hover:bg-accent",
 								)}
 							>
-								<span className="truncate text-foreground">{selectedPersona?.label ?? "默认"}</span>
+								<span className="truncate text-foreground">{selectedPersona?.label ?? t("agentSettings.default")}</span>
 								<span className="icon-[mdi--chevron-down] ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
 							</button>
 						</PopoverTrigger>
@@ -187,14 +189,14 @@ export function AgentSettings(): JSX.Element {
 				</div>
 
 				<div className="mt-5">
-					<div className="text-[13px] font-medium text-foreground">自定义指令</div>
+					<div className="text-[13px] font-medium text-foreground">{t("agentSettings.customInstructions")}</div>
 					<p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-						在所选人设之上追加的个人化指令，会拼接到系统提示词末尾。留空表示不追加。
+						{t("agentSettings.customInstructionsDesc")}
 					</p>
 					<textarea
 						value={customPrompt}
 						onChange={(e) => setCustomPrompt(e.target.value)}
-						placeholder="例如：默认用中文回答；代码注释保持简洁……"
+						placeholder={t("agentSettings.customInstructionsPlaceholder")}
 						className="mt-3 w-full resize-y rounded-lg bg-muted px-3 py-2 text-[13px] leading-relaxed text-foreground outline-none transition-colors focus:bg-accent focus:ring-1 focus:ring-primary/30"
 						style={{ minHeight: "120px" }}
 					/>
@@ -208,22 +210,22 @@ export function AgentSettings(): JSX.Element {
 						disabled={!dirty || saving}
 						onClick={() => void handleApply()}
 					>
-						{saving ? "应用中…" : justSaved && !dirty ? "已应用" : "应用"}
+						{saving ? t("agentSettings.saving") : justSaved && !dirty ? t("agentSettings.applied") : t("agentSettings.apply")}
 					</Button>
 				</div>
 			</div>
 
 			<div>
-				<SettingSection section={SETTINGS_SECTION["agent-images"]}>
+				<SettingSection t={t as any} section={SETTINGS_SECTION["agent-images"]}>
 					<div className="px-5 py-4">
 						<div className="flex items-baseline justify-between gap-4">
-							<div className="text-[13px] font-medium text-foreground">上下文保留图片数</div>
+							<div className="text-[13px] font-medium text-foreground">{t("agentSettings.maxRecentImages")}</div>
 							<div className="shrink-0 text-[13px] font-semibold tabular-nums text-primary">
-								{maxRecentImages} 张
+								{maxRecentImages} {t("agentSettings.images")}
 							</div>
 						</div>
 						<p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-							上下文中最多保留最近几张图片，更早的图片会被替换为文字占位以节省显存 / token。算力较低的机器（如本地小显存 GPU）建议调低，否则多图并存容易撑爆显存；算力充足或使用云端模型时可适当调高以保留更多视觉上下文。
+							{t("agentSettings.maxRecentImagesDesc")}
 						</p>
 
 						<div className="mt-7 px-2.5">
@@ -234,7 +236,7 @@ export function AgentSettings(): JSX.Element {
 								step={1}
 								onValueChange={(vals) => handlePreview(vals[0])}
 								onValueCommit={(vals) => handleCommit(vals[0])}
-								aria-label="上下文保留图片数"
+								aria-label={t("agentSettings.maxRecentImages")}
 							/>
 							<div className="mt-3 flex w-full items-center justify-between gap-1 px-0.5 text-[11px] font-medium text-muted-foreground">
 								{Array.from({ length: MAX_IMAGES }, (_, i) => {
@@ -245,7 +247,7 @@ export function AgentSettings(): JSX.Element {
 											type="button"
 											key={pos}
 											onClick={() => handleCommit(pos)}
-											aria-label={`保留 ${pos} 张`}
+											aria-label={t("agentSettings.maxRecentImages") + ": " + pos}
 											className="flex w-0 cursor-pointer flex-col items-center gap-1.5 outline-none"
 										>
 											<span className="h-1 w-px bg-muted-foreground/50" />
@@ -262,22 +264,22 @@ export function AgentSettings(): JSX.Element {
 			</div>
 
 			<div className="mt-2">
-				<SettingSection section={SETTINGS_SECTION["agent-experimental"]}>
+				<SettingSection t={t as any} section={SETTINGS_SECTION["agent-experimental"]}>
 					<SettingRow
-						title="Vetta 应用操作"
-						description="开启后，在新建的对话会话中让 agent 使用 Vetta 应用操作能力。"
+						title={t("agentSettings.appOp")}
+						description={t("agentSettings.appOpDesc")}
 					>
 						<Switch checked={vettaCliEnabled} onCheckedChange={handleToggleVettaCli} />
 					</SettingRow>
 					<SettingRow
-						title="输入预测"
-						description="开启后，每轮回答结束会预测你接下来可能输入的问题，显示为输入框上方的建议气泡（每轮额外一次轻量模型调用）。批量任务与流转会话不适用。"
+						title={t("agentSettings.inputPrediction")}
+						description={t("agentSettings.inputPredictionDesc")}
 					>
 						<Switch checked={promptPredictionEnabled} onCheckedChange={handleTogglePromptPrediction} />
 					</SettingRow>
 					<SettingRow
-						title="适配通用 Agent Skill"
-						description="开启后，自动发现 ~/.agents/skills 与项目 .agents/skills 下符合通用约定的 Agent Skill（仅子目录 SKILL.md），与 Vetta 自带技能并存、同名时以 Vetta 自带优先。切换后对新建/打开的会话生效。"
+						title={t("agentSettings.agentSkill")}
+						description={t("agentSettings.agentSkillDesc")}
 						border={false}
 					>
 						<Switch checked={agentSkillsEnabled} onCheckedChange={handleToggleAgentSkills} />

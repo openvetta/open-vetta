@@ -38,13 +38,15 @@ export function SettingSection({
 	title,
 	description,
 	children,
+	t,
 }: {
 	section: SettingsSectionRegistration;
 	title?: React.ReactNode;
 	description?: string;
 	children: React.ReactNode;
+	t?: (key: string) => string;
 }): JSX.Element {
-	const renderedTitle = title ?? section.title;
+	const renderedTitle = title ?? (t && section.titleKey ? t(section.titleKey) : section.title);
 	return (
 		<div
 			className="mb-6 p-1.5"
@@ -70,12 +72,14 @@ export function SettingHeading({
 	section,
 	title,
 	className,
+	t,
 }: {
 	section: SettingsSectionRegistration;
 	title?: React.ReactNode;
 	className?: string;
+	t?: (key: string) => string;
 }): JSX.Element {
-	const renderedTitle = title ?? section.title;
+	const renderedTitle = title ?? (t && section.titleKey ? t(section.titleKey) : section.title);
 	return (
 		<h2
 			id={section.id}

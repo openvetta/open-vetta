@@ -24,5 +24,9 @@
 		"ready": "更新 {{version}} 已就绪，点击重启",
 		"checkFailed": "更新检查失败，点击重试",
 		"downloadProgress": "下载进度"
+	},
+	"tabPicker": {
+		"moreTabs": "更多标签页",
+		"hiddenPanels": "已隐藏面板"
 	}
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PermissionKind, PermissionStatus, PermissionsSnapshot } from "@preload/api";
+import { useTranslation } from "react-i18next";
 import { cn } from "@shared/lib/utils";
 import { SettingRow, SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
@@ -8,7 +9,9 @@ interface ItemMeta {
 	kind: PermissionKind;
 	field: keyof PermissionsSnapshot;
 	title: string;
+	titleKey: string;
 	description: string;
+	descKey: string;
 	icon: string;
 	/** macOS 未开放查询接口的权限项，隐藏状态徽章、按钮恒为「在系统设置中查看」 */
 	hideStatus?: boolean;
@@ -18,31 +21,37 @@ const ITEMS: ItemMeta[] = [
 	{
 		kind: "full-disk-access",
 		field: "fullDiskAccess",
-		title: "完全磁盘访问",
-		description: "允许 Vetta 读写项目目录之外的文件，未授权时 macOS 会静默拦截。",
+		title: "",
+		titleKey: "permFullDiskAccess",
+		description: "",
+		descKey: "permFullDiskAccessDesc",
 		icon: "icon-[mdi--harddisk]",
 	},
 	{
 		kind: "accessibility",
 		field: "accessibility",
-		title: "辅助功能",
-		description: "用于注册全局快捷键、读取前台 App 上下文。",
+		title: "",
+		titleKey: "permAccessibility",
+		description: "",
+		descKey: "permAccessibilityDesc",
 		icon: "icon-[mdi--gesture-tap]",
 	},
 	{
 		kind: "notifications",
 		field: "notifications",
-		title: "通知",
-		description: "任务完成、错误等以 macOS 系统通知形式提醒你。",
+		title: "",
+		titleKey: "permNotifications",
+		description: "",
+		descKey: "permNotificationsDesc",
 		icon: "icon-[mdi--bell-outline]",
 		hideStatus: true,
 	},
 ];
 
 const STATUS_TEXT: Record<PermissionStatus, string> = {
-	granted: "已授权",
-	denied: "未授权",
-	unknown: "未知",
+	granted: "granted",
+	denied: "denied",
+	unknown: "unknown",
 };
 
 const STATUS_DOT: Record<PermissionStatus, string> = {
@@ -57,11 +66,11 @@ const STATUS_TEXT_CLASS: Record<PermissionStatus, string> = {
 	unknown: "text-muted-foreground",
 };
 
-function StatusBadge({ status }: { status: PermissionStatus }): JSX.Element {
+function StatusBadge({ status, t }: { status: PermissionStatus; t: (key: string) => string }): JSX.Element {
 	return (
 		<span className={cn("inline-flex items-center gap-1.5 text-[12px]", STATUS_TEXT_CLASS[status])}>
 			<span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[status])} />
-			{STATUS_TEXT[status]}
+			{t(STATUS_TEXT[status])}
 		</span>
 	);
 }
@@ -71,29 +80,31 @@ function PermissionItem({
 	status,
 	last,
 	onOpen,
+	t,
 }: {
 	meta: ItemMeta;
 	status: PermissionStatus;
 	last: boolean;
 	onOpen: () => void;
+	t: (key: string) => string;
 }): JSX.Element {
 	const isGranted = status === "granted";
-	const buttonLabel = meta.hideStatus || isGranted ? "在系统设置中查看" : "去授权";
+	const buttonLabel = meta.hideStatus || isGranted ? t("checkInSystemSettings") : t("goToAuthorize");
 	return (
 		<SettingRow
-			title={meta.title}
-			description={meta.description}
+			title={t(meta.titleKey)}
+			description={t(meta.descKey)}
 			border={!last}
 		>
 			<div className="flex items-center gap-3">
-				{!meta.hideStatus && <StatusBadge status={status} />}
+				{!meta.hideStatus && <StatusBadge status={status} t={t} />}
 				<button
 					type="button"
 					onClick={onOpen}
 					className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--open-in-new] h-3.5 w-3.5 text-muted-foreground" />
-					{buttonLabel}
+					{meta.hideStatus || isGranted ? t("checkInSystemSettings") : t("goToAuthorize")}
 				</button>
 			</div>
 		</SettingRow>
@@ -101,6 +112,7 @@ function PermissionItem({
 }
 
 export function PermissionsSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [snapshot, setSnapshot] = useState<PermissionsSnapshot | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
@@ -133,9 +145,9 @@ export function PermissionsSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">权限管理</h1>
+			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">{t("permissions")}</h1>
 			<p className="mb-6 text-[13px] text-muted-foreground">
-				Vetta 在 macOS 上需要以下系统权限才能完整工作
+				{t("permissionsDescription")}
 			</p>
 
 			{error && (
@@ -144,7 +156,7 @@ export function PermissionsSettings(): JSX.Element {
 				</div>
 			)}
 
-			<SettingSection section={SETTINGS_SECTION["permissions-system"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["permissions-system"]}>
 				{ITEMS.map((item, idx) => (
 					<PermissionItem
 						key={item.kind}
@@ -152,6 +164,7 @@ export function PermissionsSettings(): JSX.Element {
 						status={snapshot ? snapshot[item.field] : "unknown"}
 						last={idx === ITEMS.length - 1}
 						onOpen={() => void handleOpen(item.kind)}
+						t={t as any}
 					/>
 				))}
 			</SettingSection>

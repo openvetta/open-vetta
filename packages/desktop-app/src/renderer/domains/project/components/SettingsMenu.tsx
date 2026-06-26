@@ -10,12 +10,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@shared/components/ui/p
 import { UserAvatar } from "@shared/components/UserAvatar";
 import { cn } from "@shared/lib/utils";
 import { formatResetCountdown } from "@shared/lib/subscription-format";
-
-const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
-	{ value: "light", label: "浅色", icon: "icon-[solar--sun-linear]" },
-	{ value: "dark", label: "深色", icon: "icon-[solar--moon-linear]" },
-	{ value: "auto", label: "跟随系统", icon: "icon-[solar--laptop-linear]" },
-];
+import { useTranslation } from "react-i18next";
 
 const itemVariants = {
 	hidden: { opacity: 0, x: -12 },
@@ -28,6 +23,7 @@ const dividerVariants = {
 };
 
 export function SettingsMenu(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [open, setOpen] = useState(false);
 	const mode = useAtomValue(themeModeAtom);
 	const activeDownloads = useAtomValue(downloadsActiveCountAtom);
@@ -107,7 +103,7 @@ export function SettingsMenu(): JSX.Element {
 					) : (
 						<>
 							<span className="icon-[solar--settings-linear] h-3.5 w-3.5" />
-							设置
+							{t("sidebar.settings")}
 						</>
 					)}
 				</button>
@@ -142,10 +138,14 @@ export function SettingsMenu(): JSX.Element {
 							<div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-1.5">
 								<div className="flex items-center gap-2 text-[12px] font-medium text-foreground">
 									<span className="icon-[solar--palette-linear] h-3.5 w-3.5" />
-									<span>主题</span>
+									<span>{t("theme.title")}</span>
 								</div>
 								<div className="flex items-center gap-0.5 rounded-md bg-accent/60 p-0.5">
-									{THEME_OPTIONS.map((opt) => (
+									{[
+										{ value: "light" as ThemeMode, label: t("theme.light"), icon: "icon-[solar--sun-linear]" },
+										{ value: "dark" as ThemeMode, label: t("theme.dark"), icon: "icon-[solar--moon-linear]" },
+										{ value: "system" as ThemeMode, label: t("theme.system"), icon: "icon-[solar--laptop-linear]" },
+									].map((opt) => (
 										<button
 											key={opt.value}
 											type="button"
@@ -172,18 +172,18 @@ export function SettingsMenu(): JSX.Element {
 							</div>
 						</motion.div>
 
-						{/* Credits balance：积分是 Vetta Zen 计费体系，后台关闭 Zen 时不展示 */}
+						{/* Credits balance: credits are Vetta Zen billing, hidden when Zen is disabled */}
 						{user && subscription.zen_enabled && (creditsBalance !== null || creditsUnlimited) && (
 							<motion.div key="credits" variants={itemVariants}>
 								<div className="mx-1 my-1 border-t border-border" />
 								<div className="mx-2 my-1.5 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1.5">
 									<div className="flex items-center gap-1.5">
 										<span className="icon-[solar--wallet-linear] h-3.5 w-3.5 text-muted-foreground" />
-										<span className="text-[11px] text-muted-foreground">剩余积分</span>
+										<span className="text-[11px] text-muted-foreground">{t("sidebar.creditsRemaining")}</span>
 									</div>
 									{creditsUnlimited ? (
 										<span className="text-[12px] font-semibold text-primary">
-											无限制
+											{t("sidebar.creditsUnlimited")}
 										</span>
 									) : (
 										<span className={cn(
@@ -205,7 +205,7 @@ export function SettingsMenu(): JSX.Element {
 									<div className="flex items-center justify-between">
 										<div className="flex items-center gap-1.5">
 											<span className="icon-[solar--hourglass-linear] h-3.5 w-3.5 text-muted-foreground" />
-											<span className="text-[11px] text-muted-foreground">5 小时额度</span>
+											<span className="text-[11px] text-muted-foreground">{t("sidebar.fiveHourQuota")}</span>
 										</div>
 										<span className={cn(
 											"text-[11px] font-semibold tabular-nums",
@@ -244,7 +244,7 @@ export function SettingsMenu(): JSX.Element {
 									className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 								>
 									<span className="icon-[solar--logout-2-linear] h-3.5 w-3.5" />
-									退出登录
+									{t("sidebar.logout")}
 								</button>
 							) : (
 								<button
@@ -256,7 +256,7 @@ export function SettingsMenu(): JSX.Element {
 									className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 								>
 									<span className="icon-[solar--login-2-linear] h-3.5 w-3.5" />
-									登录
+									{t("sidebar.login")}
 								</button>
 							)}
 						</motion.div>
@@ -277,7 +277,7 @@ export function SettingsMenu(): JSX.Element {
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
 								<span className="icon-[solar--download-linear] h-3.5 w-3.5" />
-								下载管理
+								{t("sidebar.downloadManagement")}
 								{activeDownloads > 0 && (
 									<span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
 										{activeDownloads}
@@ -297,7 +297,7 @@ export function SettingsMenu(): JSX.Element {
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
 								<span className="icon-[solar--settings-linear] h-3.5 w-3.5" />
-								设置
+								{t("sidebar.settings")}
 							</button>
 						</motion.div>
 					</motion.div>

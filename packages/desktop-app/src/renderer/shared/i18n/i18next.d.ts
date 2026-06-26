@@ -5,6 +5,7 @@ import type common from "@/shared/i18n/locales/zh/common.json";
 import type main from "@/shared/i18n/locales/zh/main.json";
 import type pet from "@/shared/i18n/locales/zh/pet.json";
 import type project from "@/shared/i18n/locales/zh/project.json";
+import type settings from "@/shared/i18n/locales/zh/settings.json";
 
 declare module "i18next" {
 	interface CustomTypeOptions {
@@ -15,6 +16,7 @@ declare module "i18next" {
 			chat: typeof chat;
 			project: typeof project;
 			pet: typeof pet;
+			settings: typeof settings;
 		};
 	}
 }

@@ -1,4 +1,5 @@
 import { useAtom } from "jotai";
+import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
 import type { ModelsConfigData } from "@preload/api.js";
 import { cn } from "@shared/lib/utils";
@@ -159,11 +160,12 @@ function ProviderForm({
 	saving: boolean;
 	saveLabel: string;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	return (
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">服务商名称 *</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("providerName")}</label>
 					<InputField
 						value={form.name}
 						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -171,7 +173,7 @@ function ProviderForm({
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">API 类型</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("apiType")}</label>
 					<SelectField
 						value={form.api}
 						onChange={(v) => setForm((f) => ({ ...f, api: v }))}
@@ -191,12 +193,12 @@ function ProviderForm({
 					<InputField
 						value={form.apiKey}
 						onChange={(v) => setForm((f) => ({ ...f, apiKey: v }))}
-						placeholder="sk-... 或 env:MY_API_KEY 或 cmd:xxx"
+						placeholder={t("apiKeyPlaceholder")}
 						type="password"
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-muted-foreground">自定义 Headers (每行一个 Key: Value)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("customHeaders")}</label>
 					<textarea
 						value={form.headers}
 						onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))}
@@ -209,13 +211,13 @@ function ProviderForm({
 					<CheckboxField
 						checked={form.authHeader}
 						onChange={(v) => setForm((f) => ({ ...f, authHeader: v }))}
-						label="使用 Authorization Header 发送 API Key"
+						label={t("useAuthHeader")}
 					/>
 				</div>
 			</div>
 			<div className="mt-3 flex justify-end gap-2">
 				<Button variant="ghost" size="sm" onClick={onCancel}>
-					取消
+					{t("cancel")}
 				</Button>
 				<Button
 					variant="primary"
@@ -245,6 +247,7 @@ function ModelForm({
 	saving: boolean;
 	saveLabel: string;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	const toggleInput = (val: string) => {
 		setForm((f) => {
 			const has = f.input.includes(val);
@@ -256,31 +259,31 @@ function ModelForm({
 		<>
 			<div className="grid grid-cols-2 gap-3">
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">模型 ID *</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("modelId")}</label>
 					<InputField
 						value={form.id}
 						onChange={(v) => setForm((f) => ({ ...f, id: v }))}
-						placeholder="e.g. llama3, qwen-vl"
+						placeholder={t("modelIdPlaceholder")}
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">显示名称</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("displayName")}</label>
 					<InputField
 						value={form.name}
 						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-						placeholder="可选"
+						placeholder={t("optional")}
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">API 类型</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("apiType")}</label>
 					<InputField
 						value={form.api}
 						onChange={(v) => setForm((f) => ({ ...f, api: v }))}
-						placeholder="继承服务商"
+						placeholder={t("inheritedFromProvider")}
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">输入能力</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("inputCapability")}</label>
 					<div className="flex items-center gap-3 h-8">
 						{INPUT_OPTIONS.map((opt) => (
 							<label key={opt.value} className="flex items-center gap-1.5 cursor-pointer select-none">
@@ -304,32 +307,32 @@ function ModelForm({
 					</div>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">上下文窗口</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("contextWindow")}</label>
 					<InputField
 						value={form.contextWindow}
 						onChange={(v) => setForm((f) => ({ ...f, contextWindow: v }))}
-						placeholder="e.g. 131072"
+						placeholder={t("contextWindowPlaceholder")}
 					/>
 				</div>
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">最大输出 Tokens</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("maxOutputTokens")}</label>
 					<InputField
 						value={form.maxTokens}
 						onChange={(v) => setForm((f) => ({ ...f, maxTokens: v }))}
-						placeholder="e.g. 8192"
+						placeholder={t("maxOutputTokensPlaceholder")}
 					/>
 				</div>
 				<div className="col-span-2">
 					<CheckboxField
 						checked={form.reasoning}
 						onChange={(v) => setForm((f) => ({ ...f, reasoning: v }))}
-						label="支持推理/思考 (Reasoning)"
+						label={t("supportsReasoning")}
 					/>
 				</div>
 			</div>
 			<div className="mt-3 flex justify-end gap-2">
 				<Button variant="ghost" size="sm" onClick={onCancel}>
-					取消
+					{t("cancel")}
 				</Button>
 				<Button
 					variant="primary"
@@ -345,6 +348,7 @@ function ModelForm({
 }
 
 export function ModelsSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
 	const [mode, setMode] = useState<ModelsEditMode>("visual");
 	const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
@@ -414,7 +418,7 @@ export function ModelsSettings(): JSX.Element {
 			}
 			setRemoteProviders(result.providers);
 		} catch {
-			setRemoteError("请求失败");
+			setRemoteError(t("requestFailed"));
 		} finally {
 			setRefreshing(false);
 		}
@@ -612,13 +616,13 @@ export function ModelsSettings(): JSX.Element {
 		try {
 			const parsed = JSON.parse(jsonText) as ModelsConfigData;
 			if (!parsed.providers || typeof parsed.providers !== "object") {
-				setJsonError("JSON 必须包含 providers 对象");
+				setJsonError(t("jsonErrorProviders"));
 				return;
 			}
 			setJsonError(null);
 			await saveConfig(parsed);
 		} catch (e) {
-			setJsonError(`JSON 解析错误: ${(e as Error).message}`);
+			setJsonError(t("jsonErrorParse") + ": " + (e as Error).message);
 		}
 	}, [jsonText, saveConfig]);
 
@@ -639,9 +643,9 @@ export function ModelsSettings(): JSX.Element {
 	if (!config) {
 		return (
 			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-				<h1 className="mb-6 text-[20px] font-bold text-foreground">模型配置</h1>
+				<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("modelsTitle")}</h1>
 				<div className="flex items-center justify-center py-16">
-					<span className="text-[13px] text-muted-foreground">加载中…</span>
+					<span className="text-[13px] text-muted-foreground">{t("loading")}</span>
 				</div>
 			</div>
 		);
@@ -653,10 +657,10 @@ export function ModelsSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-[20px] font-bold text-foreground">模型配置</h1>
+				<h1 className="text-[20px] font-bold text-foreground">{t("modelSettings.title")}</h1>
 				<SegmentedControl
 					items={[
-						{ key: "visual" as ModelsEditMode, label: "视图", icon: "icon-[mdi--view-list-outline]" },
+						{ key: "visual" as ModelsEditMode, label: t("view"), icon: "icon-[mdi--view-list-outline]" },
 						{ key: "json" as ModelsEditMode, label: "JSON", icon: "icon-[mdi--code-json]" },
 					]}
 					value={mode}
@@ -665,21 +669,21 @@ export function ModelsSettings(): JSX.Element {
 			</div>
 
 			{/* Thinking level global control */}
-			<SettingSection section={SETTINGS_SECTION["models-thinking"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["models-thinking"]}>
 				<div className="px-5 py-3.5">
 					<SegmentedControl
 						items={[
-							{ key: "off" as ThinkingLevelValue, label: "关闭" },
-							{ key: "minimal" as ThinkingLevelValue, label: "极低" },
-							{ key: "low" as ThinkingLevelValue, label: "低" },
-							{ key: "medium" as ThinkingLevelValue, label: "中" },
-							{ key: "high" as ThinkingLevelValue, label: "高" },
+							{ key: "off" as ThinkingLevelValue, label: t("thinkingOff") },
+							{ key: "minimal" as ThinkingLevelValue, label: t("thinkingMinimal") },
+							{ key: "low" as ThinkingLevelValue, label: t("thinkingLow") },
+							{ key: "medium" as ThinkingLevelValue, label: t("thinkingMedium") },
+							{ key: "high" as ThinkingLevelValue, label: t("thinkingHigh") },
 						]}
 						value={thinkingLevel === "xhigh" ? "high" : thinkingLevel}
 						onChange={handleThinkingLevelChange}
 					/>
 					<p className="mt-2 text-[11px] text-muted-foreground">
-						全局设置，所有会话立即生效。模型不支持时自动降级。
+						{t("modelsThinkingGlobal")}
 					</p>
 				</div>
 			</SettingSection>
@@ -690,10 +694,10 @@ export function ModelsSettings(): JSX.Element {
 					<PresetProvidersSection config={config} saveConfig={saveConfig} />
 
 					{/* Provider list */}
-					<SettingSection section={SETTINGS_SECTION["models-providers"]} title="本地服务商">
+					<SettingSection t={t as any} section={SETTINGS_SECTION["models-providers"]} title={t("localProviders")}>
 						{providerNames.length === 0 && !addingProvider && (
 							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
-								尚未配置任何服务商，点击下方按钮添加
+								{t("noProvidersAdded")}
 							</div>
 						)}
 
@@ -724,7 +728,7 @@ export function ModelsSettings(): JSX.Element {
 											<div className="min-w-0 flex-1">
 												<div className="text-[13px] font-medium text-foreground">{name}</div>
 												<div className="mt-0.5 text-[11px] text-muted-foreground">
-													{provider.api || "openai-completions"} · {models.length} 个模型
+													{provider.api || "openai-completions"} · {models.length} {t("models")}
 													{provider.baseUrl && ` · ${provider.baseUrl}`}
 												</div>
 											</div>
@@ -738,7 +742,7 @@ export function ModelsSettings(): JSX.Element {
 													setExpandedProvider(name);
 												}}
 												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-												title="编辑"
+												title={t("edit")}
 											>
 												<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
 											</button>
@@ -749,7 +753,7 @@ export function ModelsSettings(): JSX.Element {
 													void handleDeleteProvider(name);
 												}}
 												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
-												title="删除"
+												title={t("delete")}
 											>
 												<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 											</button>
@@ -768,7 +772,7 @@ export function ModelsSettings(): JSX.Element {
 													setProviderForm({ ...emptyProvider });
 												}}
 												saving={saving}
-												saveLabel="保存"
+												saveLabel={t("save")}
 											/>
 										</div>
 									)}
@@ -778,7 +782,7 @@ export function ModelsSettings(): JSX.Element {
 										<div className="border-t border-border bg-secondary/30">
 											{models.length === 0 && addingModelFor !== name && (
 												<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-													暂无自定义模型
+													{t("noCustomModels")}
 												</div>
 											)}
 
@@ -799,7 +803,7 @@ export function ModelsSettings(): JSX.Element {
 																	setModelForm({ ...emptyModel });
 																}}
 																saving={saving}
-																saveLabel="保存"
+																saveLabel={t("save")}
 															/>
 														</div>
 													);
@@ -815,7 +819,7 @@ export function ModelsSettings(): JSX.Element {
 																{model.name || model.id}
 																{isDefault && (
 																	<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-																		默认
+																		{t("default")}
 																	</span>
 																)}
 															</div>
@@ -850,7 +854,7 @@ export function ModelsSettings(): JSX.Element {
 																		? "text-primary"
 																		: "text-muted-foreground hover:bg-accent hover:text-primary",
 																)}
-																title={isDefault ? "取消默认" : "设为默认模型"}
+																title={isDefault ? t("unsetDefault") : t("setDefault")}
 															>
 																<span className={`${isDefault ? "icon-[mdi--star]" : "icon-[mdi--star-outline]"} h-3.5 w-3.5`} />
 															</button>
@@ -858,7 +862,7 @@ export function ModelsSettings(): JSX.Element {
 																type="button"
 																onClick={() => startEditModel(name, model.id)}
 																className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-																title="编辑模型"
+																title={t("editModel")}
 															>
 																<span className="icon-[mdi--pencil-outline] h-3 w-3" />
 															</button>
@@ -866,7 +870,7 @@ export function ModelsSettings(): JSX.Element {
 																type="button"
 																onClick={() => void handleDeleteModel(name, model.id)}
 																className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
-																title="删除模型"
+																title={t("deleteModel")}
 															>
 																<span className="icon-[mdi--close] h-3 w-3" />
 															</button>
@@ -887,7 +891,7 @@ export function ModelsSettings(): JSX.Element {
 															setModelForm({ ...emptyModel });
 														}}
 														saving={saving}
-														saveLabel="添加"
+														saveLabel={t("add")}
 													/>
 												</div>
 											) : (
@@ -902,7 +906,7 @@ export function ModelsSettings(): JSX.Element {
 														className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] text-primary transition-colors hover:bg-primary/10"
 													>
 														<span className="icon-[mdi--plus] h-3.5 w-3.5" />
-														添加模型
+														{t("addModel")}
 													</button>
 												</div>
 											)}
@@ -924,7 +928,7 @@ export function ModelsSettings(): JSX.Element {
 										setProviderForm({ ...emptyProvider });
 									}}
 									saving={saving}
-									saveLabel="添加"
+									saveLabel={t("add")}
 								/>
 							</div>
 						)}
@@ -942,7 +946,7 @@ export function ModelsSettings(): JSX.Element {
 							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
 						>
 							<span className="icon-[mdi--plus] h-4 w-4" />
-							添加服务商
+							{t("addProvider")}
 						</button>
 					)}
 
@@ -952,7 +956,7 @@ export function ModelsSettings(): JSX.Element {
 							section={SETTINGS_SECTION["models-remote-providers"]}
 							title={
 								<div className="flex items-center justify-between">
-									<span>远程服务商</span>
+									<span>{t("remoteProviders")}</span>
 									<button
 										type="button"
 										onClick={() => void handleRefreshRemote()}
@@ -960,7 +964,7 @@ export function ModelsSettings(): JSX.Element {
 										className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
 									>
 										<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
-										{refreshing ? "刷新中…" : "刷新"}
+										{refreshing ? t("refreshing") : t("refresh")}
 									</button>
 								</div>
 							}
@@ -968,12 +972,12 @@ export function ModelsSettings(): JSX.Element {
 							{remoteError && (
 								<div className="flex items-center gap-2 px-5 py-3 text-[12px] text-amber-400">
 									<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
-									{remoteError === "unauthorized" ? "未授权，请先登录" : remoteError}
+									{remoteError === "unauthorized" ? t("unauthorized") : remoteError}
 								</div>
 							)}
 							{Object.keys(remoteProviders).length === 0 && !remoteError && (
 								<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-									暂无远程服务商，点击刷新获取
+									{t("noRemoteProviders")}
 								</div>
 							)}
 							{Object.entries(remoteProviders as Record<string, { api?: string; baseUrl?: string; icon?: string; models?: Array<{ id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number }> }>).map(([name, provider]) => {
@@ -1002,7 +1006,7 @@ export function ModelsSettings(): JSX.Element {
 														</span>
 													</div>
 													<div className="mt-0.5 text-[11px] text-muted-foreground">
-														{models.length} 个模型
+														{models.length} 
 													</div>
 												</div>
 											</button>
@@ -1012,7 +1016,7 @@ export function ModelsSettings(): JSX.Element {
 											<div className="border-t border-border bg-secondary/30">
 												{models.length === 0 && (
 													<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-														暂无模型
+														{t("noModels")}
 													</div>
 												)}
 												{models.map((model) => (
@@ -1057,14 +1061,14 @@ export function ModelsSettings(): JSX.Element {
 				/* JSON mode */
 				<div className="mb-6">
 					<div className="mb-3 flex items-center justify-between">
-						<SettingHeading section={SETTINGS_SECTION["models-json"]} />
+						<SettingHeading t={t as any} section={SETTINGS_SECTION["models-json"]} />
 						<Button
 							variant="primary"
 							size="sm"
 							onClick={() => void handleJsonSave()}
 							disabled={saving}
 						>
-							{saving ? "保存中…" : "保存"}
+							{saving ? t("saving") : t("save")}
 						</Button>
 					</div>
 					<div className="overflow-hidden rounded-xl border border-border bg-muted">
@@ -1091,7 +1095,7 @@ export function ModelsSettings(): JSX.Element {
 
 			{/* Config file path hint */}
 			<div className="mt-6 text-center text-[11px] text-muted-foreground/60">
-				配置文件路径: ~/.vetta/agent/models.json
+				{t("configFilePath")}: ~/.vetta/agent/models.json
 			</div>
 		</div>
 	);

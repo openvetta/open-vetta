@@ -1,6 +1,7 @@
 import type { ProjectEntry } from "@preload/api";
 import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { confirmDialogAtom } from "@shared/store/atoms";
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { Button } from "@shared/components/ui/button";
@@ -13,6 +14,7 @@ function projectName(entry: ProjectEntry): string {
 }
 
 export function ArchivedProjectsSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [archivedList, setArchivedList] = useState<ProjectEntry[]>([]);
 	const { unarchiveProject, deleteArchivedProject } = useProjects();
 	const setConfirm = useSetAtom(confirmDialogAtom);
@@ -34,9 +36,9 @@ export function ArchivedProjectsSettings(): JSX.Element {
 	const handleDelete = useCallback(
 		(entry: ProjectEntry) => {
 			setConfirm({
-				title: "删除归档项目",
-				message: `确定要永久移除「${projectName(entry)}」吗？此操作不会删除磁盘上的文件，仅从归档列表中移除。`,
-				confirmLabel: "删除",
+				title: t("deleteArchiveConfirm"),
+				message: t("deleteArchiveMessage", { name: projectName(entry) }),
+				confirmLabel: t("archiveDelete"),
 				variant: "danger",
 				onConfirm: () => {
 					void deleteArchivedProject(entry.path).then(() => {
@@ -50,15 +52,15 @@ export function ArchivedProjectsSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">已归档项目</h1>
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("archivedProjects")}</h1>
 
 			{archivedList.length === 0 ? (
 				<div className="flex flex-col items-center gap-2.5 py-16 text-center">
 					<span className="icon-[mdi--archive-off-outline] h-8 w-8 text-muted-foreground" />
-					<p className="text-[13px] text-muted-foreground">暂无归档项目</p>
+					<p className="text-[13px] text-muted-foreground">{t("noArchivedProjects")}</p>
 				</div>
 			) : (
-				<SettingSection section={SETTINGS_SECTION["archived-list"]}>
+				<SettingSection t={t as any} section={SETTINGS_SECTION["archived-list"]}>
 					{archivedList.map((entry) => (
 						<div
 							key={entry.path}
@@ -74,16 +76,16 @@ export function ArchivedProjectsSettings(): JSX.Element {
 									variant="ghost"
 									size="xs"
 									onClick={() => void handleUnarchive(entry)}
-									title="取消归档"
+									title={t("unarchive")}
 								>
 									<span className="icon-[mdi--archive-arrow-up-outline] h-3.5 w-3.5" />
-									取消归档
+									{t("unarchive")}
 								</Button>
 								<Button
 									variant="ghost"
 									size="icon-xs"
 									onClick={() => handleDelete(entry)}
-									title="删除"
+									title={t("deleteProject")}
 									className="text-muted-foreground hover:text-red-400"
 								>
 									<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />

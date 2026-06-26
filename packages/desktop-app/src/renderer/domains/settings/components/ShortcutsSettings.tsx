@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@shared/lib/utils";
 import { eventToShortcut, formatShortcut } from "@shared/lib/platform";
 import {
@@ -16,11 +17,13 @@ function ShortcutRecorder({
 	onChange,
 	onReset,
 	isDefault,
+	t,
 }: {
 	value: string;
 	onChange: (shortcut: string) => void;
 	onReset: () => void;
 	isDefault: boolean;
+	t: (key: any) => string;
 }): JSX.Element {
 	const [recording, setRecording] = useState(false);
 	const [pendingKeys, setPendingKeys] = useState<string | null>(null);
@@ -76,14 +79,14 @@ function ShortcutRecorder({
 						: "border-input bg-muted text-foreground hover:bg-secondary",
 				)}
 			>
-				{recording ? "请按下快捷键…" : displayValue}
+				{recording ? t("shortcutPlaceholder") : displayValue}
 			</button>
 			{!isDefault && (
 				<button
 					type="button"
 					onClick={onReset}
 					className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
-					title="恢复默认"
+					title={t("reset")}
 				>
 					<span className="icon-[mdi--restore] h-3.5 w-3.5" />
 				</button>
@@ -93,6 +96,7 @@ function ShortcutRecorder({
 }
 
 export function ShortcutsSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [customShortcuts, setCustomShortcuts] = useState<ShortcutMap>(loadShortcuts);
 
 	const handleChange = useCallback((actionId: string, shortcut: string) => {
@@ -120,18 +124,18 @@ export function ShortcutsSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-[20px] font-bold text-foreground">快捷键</h1>
+				<h1 className="text-[20px] font-bold text-foreground">{t("shortcuts")}</h1>
 				<button
 					type="button"
 					onClick={handleResetAll}
 					className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
 					<span className="icon-[mdi--restore] h-3.5 w-3.5" />
-					全部恢复默认
+					{t("resetAllShortcuts")}
 				</button>
 			</div>
 
-			<SettingSection section={SETTINGS_SECTION["shortcuts-global"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["shortcuts-global"]}>
 				{SHORTCUT_ACTIONS.map((action, idx) => {
 					const effective = getEffectiveShortcut(action.id, customShortcuts);
 					const isDefault = !customShortcuts[action.id];
@@ -148,6 +152,7 @@ export function ShortcutsSettings(): JSX.Element {
 								onChange={(s) => handleChange(action.id, s)}
 								onReset={() => handleReset(action.id)}
 								isDefault={isDefault}
+								t={t as any}
 							/>
 						</SettingRow>
 					);
@@ -155,7 +160,7 @@ export function ShortcutsSettings(): JSX.Element {
 			</SettingSection>
 
 			<p className="mt-4 text-[12px] leading-relaxed text-muted-foreground/50">
-				点击快捷键区域后按下新的组合键即可录制。修改后立即生效，无需重启。
+				{t("shortcutHint")}
 			</p>
 		</div>
 	);

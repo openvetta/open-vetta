@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ModelsConfigData, ProviderTemplate } from "@preload/api.js";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
@@ -26,15 +27,15 @@ type ModelCost = { input: number; output: number; cacheRead: number; cacheWrite:
  * 价格摘要(元/百万 tokens):只展示模型实际配置了的价格项——
  * 输入(未命中) / 命中(缓存读) / 写入(缓存写,没有就不展示) / 输出。全 0 或无价返回 null。
  */
-function formatPrice(cost: ModelCost | undefined): string | null {
+function formatPrice(cost: ModelCost | undefined, t: (key: string) => string): string | null {
 	if (!cost) return null;
 	// 保留有效小数、去尾零:0.0029 不能被 toFixed(2) 抹成 0.00(与服务端对不上)。
 	const num = (n: number) => (Number.isInteger(n) ? String(n) : parseFloat(n.toFixed(6)).toString());
 	const parts: string[] = [];
-	if (cost.input) parts.push(`输入 ¥${num(cost.input)}`);
-	if (cost.cacheRead) parts.push(`命中 ¥${num(cost.cacheRead)}`);
-	if (cost.cacheWrite) parts.push(`写入 ¥${num(cost.cacheWrite)}`);
-	if (cost.output) parts.push(`输出 ¥${num(cost.output)}`);
+	if (cost.input) parts.push(`${t("costInput")} ¥${num(cost.input)}`);
+	if (cost.cacheRead) parts.push(`${t("costCacheRead")} ¥${num(cost.cacheRead)}`);
+	if (cost.cacheWrite) parts.push(`${t("costCacheWrite")} ¥${num(cost.cacheWrite)}`);
+	if (cost.output) parts.push(`${t("costOutput")} ¥${num(cost.output)}`);
 	if (parts.length === 0) return null;
 	return parts.join(" · ");
 }
@@ -46,6 +47,7 @@ export function PresetProvidersSection({
 	config: ModelsConfigData;
 	saveConfig: (config: ModelsConfigData) => Promise<void>;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [templates, setTemplates] = useState<ProviderTemplate[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function PresetProvidersSection({
 			setTemplates(result.templates);
 			if (result.error) setError(result.error);
 		} catch {
-			setError("拉取失败");
+			setError(t("fetchFailed"));
 		} finally {
 			setLoading(false);
 		}
@@ -151,7 +153,7 @@ export function PresetProvidersSection({
 				section={SETTINGS_SECTION["models-preset-providers"]}
 				title={
 					<div className="flex items-center justify-between">
-						<span>预设服务商</span>
+						<span>{t("presetProviders")}</span>
 						<button
 							type="button"
 							onClick={() => void load()}
@@ -159,7 +161,7 @@ export function PresetProvidersSection({
 							className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
 						>
 							<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", loading && "animate-spin")} />
-							{loading ? "刷新中…" : "刷新"}
+							{loading ? t("refreshing") : t("refresh")}
 						</button>
 					</div>
 				}
@@ -167,12 +169,12 @@ export function PresetProvidersSection({
 				{error && rows.length === 0 && (
 					<div className="flex items-center gap-2 px-5 py-3 text-[12px] text-amber-400">
 						<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
-						{error}，点击刷新重试
+						{error}，{t("clickRetry")}
 					</div>
 				)}
 				{rows.length === 0 && !error && (
 					<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-						{loading ? "加载中…" : "暂无预设服务商，点击刷新获取"}
+						{loading ? t("loading") : t("noPresetProviders")}
 					</div>
 				)}
 
@@ -187,7 +189,7 @@ export function PresetProvidersSection({
 									type="button"
 									onClick={() => setExpandedId(isExpanded ? null : row.id)}
 									className="flex min-w-0 flex-1 items-center gap-3 text-left"
-									title={isExpanded ? "收起模型" : "查看模型与价格"}
+									title={isExpanded ? t("collapseModels") : t("viewModels")}
 								>
 									<span
 										className={cn(
@@ -201,17 +203,17 @@ export function PresetProvidersSection({
 											<span className="truncate">{row.displayName}</span>
 											{adopted && (
 												<span className="shrink-0 whitespace-nowrap rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-													已启用
+										{t("enabled")}
 												</span>
 											)}
 											{row.offline && (
 												<span className="shrink-0 whitespace-nowrap rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
-													服务端已下线
+										{t("deprecated")}
 												</span>
 											)}
 										</div>
 										<div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-											{row.api || "—"} · {row.models.length} 个模型
+											{t("modelsCount", { count: row.models.length })}
 										</div>
 									</div>
 								</button>
@@ -223,13 +225,13 @@ export function PresetProvidersSection({
 												onClick={() => (isOpen ? setOpenId(null) : startEdit(row))}
 												className="flex h-7 items-center rounded-lg px-2.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 											>
-												{isOpen ? "收起" : "改 Key"}
+									{isOpen ? t("collapse") : t("changeKey")}
 											</button>
 											<button
 												type="button"
 												onClick={() => void remove(row)}
 												className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
-												title="移除"
+												title={t("remove")}
 											>
 												<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 											</button>
@@ -241,7 +243,7 @@ export function PresetProvidersSection({
 											onClick={() => (isOpen ? setOpenId(null) : startEdit(row))}
 											disabled={row.offline}
 										>
-											{isOpen ? "收起" : "启用"}
+								{isOpen ? t("collapse") : t("enable")}
 										</Button>
 									)}
 								</div>
@@ -250,7 +252,7 @@ export function PresetProvidersSection({
 							{isOpen && (
 								<div className="border-t border-border bg-secondary/40 px-5 py-3">
 									<label className="mb-1 block text-[11px] text-muted-foreground">
-										API Key（直连 {row.displayName}，仅存本地）
+								{t("apiKeyDirect", { provider: row.displayName })}
 									</label>
 									<div className="flex items-center gap-2">
 										<div className="flex-1">
@@ -267,7 +269,7 @@ export function PresetProvidersSection({
 											onClick={() => void adopt(row)}
 											disabled={!draftKey.trim() || saving}
 										>
-											{adopted ? "保存" : "启用"}
+											{adopted ? t("save") : t("enable")}
 										</Button>
 									</div>
 								</div>
@@ -276,10 +278,10 @@ export function PresetProvidersSection({
 							{isExpanded && (
 								<div className="border-t border-border bg-secondary/30">
 									{row.models.length === 0 && (
-										<div className="px-5 py-4 text-center text-[12px] text-muted-foreground">暂无模型</div>
+										<div className="px-5 py-4 text-center text-[12px] text-muted-foreground">{t("noModels")}</div>
 									)}
 									{row.models.map((m) => {
-										const price = formatPrice(m.cost);
+										const price = formatPrice(m.cost, t as any);
 										return (
 											<div
 												key={m.id}
@@ -292,14 +294,14 @@ export function PresetProvidersSection({
 														<span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] text-blue-400">vision</span>
 													)}
 													{m.reasoning && (
-														<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">思考</span>
+														<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">{t("thinking")}</span>
 													)}
 												</div>
 												{price && (
 													<div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/80">
 														<span>{price}</span>
 														<span className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">
-															/百万Tokens
+															{t("perMillionTokens")}
 														</span>
 													</div>
 												)}
