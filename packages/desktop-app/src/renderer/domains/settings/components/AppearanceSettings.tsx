@@ -13,24 +13,24 @@ import { type MouseEvent, useState } from "react";
 import { SettingHeading } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
-const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] = [
+const MODES: { value: ThemeMode; labelKey: string; icon: string; hintKey: string }[] = [
 	{
 		value: "light",
-		label: "浅色",
+		labelKey: "themeLight",
 		icon: "icon-[mdi--white-balance-sunny]",
-		hint: "始终使用浅色界面",
+		hintKey: "appearanceLightHint",
 	},
 	{
 		value: "dark",
-		label: "深色",
+		labelKey: "themeDark",
 		icon: "icon-[mdi--moon-waning-crescent]",
-		hint: "始终使用深色界面",
+		hintKey: "appearanceDarkHint",
 	},
 	{
 		value: "auto",
-		label: "跟随系统",
+		labelKey: "themeSystem",
 		icon: "icon-[mdi--theme-light-dark]",
-		hint: "随系统外观自动切换",
+		hintKey: "appearanceAutoHint",
 	},
 ];
 
@@ -299,14 +299,15 @@ function ThemeCard({
 export function AppearanceSettings(): JSX.Element {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
 	const { language, setLanguage } = useLanguage();
-	const { t } = useTranslation("common");
+	const { t: tCommon } = useTranslation("common");
+	const { t } = useTranslation("settings");
 	const narrow = useNarrowScreen();
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-4 flex items-start justify-between gap-4">
 				<div>
-					<h1 className="text-[20px] font-bold text-foreground">外观</h1>
+					<h1 className="text-[20px] font-bold text-foreground">{t("appearanceTitle")}</h1>
 				</div>
 				{/* 窄屏隐藏装饰性头像，避免占用本就紧张的横向空间 */}
 				{!narrow && (
@@ -317,21 +318,21 @@ export function AppearanceSettings(): JSX.Element {
 			</div>
 
 			<div className="mb-6">
-				<SettingHeading section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
-				<p className="mb-3 text-[12px] text-muted-foreground">{t("appearance.languageHint")}</p>
+				<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
+				<p className="mb-3 text-[12px] text-muted-foreground">{t("languageHint")}</p>
 				<LanguageSelect language={language} onSelect={(l) => void setLanguage(l)} />
 			</div>
 
 			<div className="mb-6">
-				<SettingHeading section={SETTINGS_SECTION["appearance-mode"]} className="mb-3" />
+				<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-mode"]} className="mb-3" />
 				<div className={cn("grid gap-3", narrow ? "grid-cols-1" : "grid-cols-3")}>
 					{MODES.map((m) => (
 						<ModeCard
 							key={m.value}
 							mode={m.value}
-							label={m.label}
+							label={t(m.labelKey as any)}
 							icon={m.icon}
-							hint={m.hint}
+							hint={t(m.hintKey as any)}
 							active={mode === m.value}
 							onSelect={(value, event) =>
 								void setMode(value, { x: event.clientX, y: event.clientY })
@@ -342,7 +343,7 @@ export function AppearanceSettings(): JSX.Element {
 			</div>
 
 			<div className="mb-6">
-				<SettingHeading section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
+				<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
 				<div className={cn("grid gap-x-4 gap-y-4", narrow ? "grid-cols-1" : "grid-cols-3")}>
 					{THEMES.map((theme) => (
 						<ThemeCard

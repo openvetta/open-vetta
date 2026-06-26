@@ -1,4 +1,5 @@
 import { useAtom, useSetAtom } from "jotai";
+import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
 import { workspacePathAtom, debugModeAtom, confirmDialogAtom, sessionExecutionModeAtom, type SessionExecutionMode } from "@shared/store/atoms";
 import { UpdateChecker } from "@shared/components/UpdateChecker";
@@ -9,6 +10,7 @@ import { SettingRow, SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
 export function GeneralSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [workspacePath, setWorkspacePath] = useAtom(workspacePathAtom);
 	const [debugMode, setDebugMode] = useAtom(debugModeAtom);
 	const [executionMode, setExecutionMode] = useAtom(sessionExecutionModeAtom);
@@ -27,12 +29,12 @@ export function GeneralSettings(): JSX.Element {
 			if (capability?.status === "unavailable") {
 				const reason = capability.reason ?? "unknown_error";
 				const platform = "platform" in capability ? capability.platform : "linux";
-				setSandboxUnavailableReason(`${platform} 沙盒不可用：${reason}`);
+				setSandboxUnavailableReason(`${t("sandboxUnavailable", { platform, reason })}`);
 				return;
 			}
 			setSandboxUnavailableReason(null);
 		});
-	}, [setExecutionMode]);
+	}, [setExecutionMode, t]);
 
 	const handleSelectWorkspace = useCallback(async () => {
 		const selected = await window.vetta.dialog.selectFolder();
@@ -54,9 +56,9 @@ export function GeneralSettings(): JSX.Element {
 		(checked: boolean) => {
 			if (!checked) {
 				setConfirmDialog({
-					title: "关闭调试模式",
-					message: "关闭后将清空所有调试数据（请求历史记录），确定继续？",
-					confirmLabel: "确定关闭",
+					title: t("closeDebugTitle"),
+					message: t("closeDebugMessage"),
+					confirmLabel: t("closeDebugConfirm"),
 					variant: "danger",
 					onConfirm: () => {
 						void window.vetta.debug.clearDebugDir();
@@ -82,9 +84,9 @@ export function GeneralSettings(): JSX.Element {
 		} catch (error) {
 			console.error("[GeneralSettings] failed to export diagnostics:", error);
 			setConfirmDialog({
-				title: "导出诊断包失败",
+				title: t("exportDiagnosticsFailed"),
 				message: error instanceof Error ? error.message : String(error),
-				confirmLabel: "知道了",
+				confirmLabel: t("gotIt"),
 				onConfirm: () => {},
 			});
 		} finally {
@@ -117,12 +119,12 @@ export function GeneralSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">常规</h1>
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("general")}</h1>
 
-			<SettingSection section={SETTINGS_SECTION["general-workspace"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["general-workspace"]}>
 				<SettingRow
-					title="工作目录"
-					description="新建项目时将在此目录下创建对应的项目文件夹"
+					title={t("workspace.title")}
+					description={t("workspaceDescription")}
 					border={false}
 				>
 					<div className="flex items-center gap-2">
@@ -139,7 +141,7 @@ export function GeneralSettings(): JSX.Element {
 							type="button"
 							onClick={() => void handleResetWorkspace()}
 							className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-							title="恢复默认"
+							title={t("reset")}
 						>
 							<span className="icon-[mdi--restore] h-3.5 w-3.5" />
 						</button>
@@ -147,16 +149,16 @@ export function GeneralSettings(): JSX.Element {
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["general-updates"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["general-updates"]}>
 				<div className="px-5 py-4">
 					<UpdateChecker />
 				</div>
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["general-sandbox"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["general-sandbox"]}>
 				<SettingRow
-					title="默认沙盒状态"
-					description="新建会话未单独设置时使用的工具访问范围；不会改变已打开会话"
+					title={t("sandbox.title")}
+					description={t("sandboxDescription")}
 					border={false}
 				>
 					<Select value={executionMode} onValueChange={(value) => void handleExecutionModeChange(value as SessionExecutionMode)}>
@@ -168,36 +170,36 @@ export function GeneralSettings(): JSX.Element {
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="full-access" className="text-[12px]">
-								完全访问
+								{t("fullAccess")}
 							</SelectItem>
 							<SelectItem value="sandbox" className="text-[12px]" disabled={Boolean(sandboxUnavailableReason)} title={sandboxUnavailableReason ?? undefined}>
-								使用沙盒
+								{t("useSandbox")}
 							</SelectItem>
 						</SelectContent>
 					</Select>
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["general-notifications"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["general-notifications"]}>
 				<SettingRow
-					title="系统通知"
-					description="agent 完成一轮回答时发系统通知；你正在前台查看该会话时不打扰"
+					title={t("systemNotifications")}
+					description={t("systemNotificationsDescription")}
 					border={false}
 				>
 					<Switch checked={notificationsEnabled} onCheckedChange={handleToggleNotifications} />
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["general-developer"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["general-developer"]}>
 				<SettingRow
-					title="调试模式"
-					description="打开调试模式，可以协助开发者定位问题"
+					title={t("debugMode")}
+					description={t("debugModeDescription")}
 				>
 					<Switch checked={debugMode} onCheckedChange={handleToggleDebug} />
 				</SettingRow>
 				<SettingRow
-					title="导出诊断包"
-					description="打包最近日志、内存日志缓冲与系统信息，便于反馈问题时排查"
+					title={t("exportDiagnostics")}
+					description={t("exportDiagnosticsDescription")}
 					border={false}
 				>
 					<Button
@@ -206,7 +208,7 @@ export function GeneralSettings(): JSX.Element {
 						disabled={exportingDiagnostics}
 						onClick={() => void handleExportDiagnostics()}
 					>
-						{exportingDiagnostics ? "导出中…" : "导出"}
+						{exportingDiagnostics ? t("exporting") : t("export")}
 					</Button>
 				</SettingRow>
 			</SettingSection>
