@@ -5,9 +5,11 @@ import type { PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
 import { readPetConfig, writePetConfig } from "../pet-config-store.js";
 import {
 	applyPetConfig,
+	beginPetWindowMove,
 	beginPetWindowResize,
+	endPetWindowMove,
 	endPetWindowResize,
-	movePetWindowBy,
+	movePetWindow,
 	resizePetVideoByWheel,
 	resizePetWindowByWheel,
 	sendPetCommandToWindow,
@@ -68,8 +70,16 @@ export async function resizeDesktopPetVideoByWheel(actionId: PetActionId, deltaY
 	await resizePetVideoByWheel(actionId, deltaY);
 }
 
-export function moveDesktopPetWindowBy(deltaX: number, deltaY: number): void {
-	movePetWindowBy(deltaX, deltaY);
+export function beginDesktopPetWindowMove(): void {
+	beginPetWindowMove();
+}
+
+export function moveDesktopPetWindow(): void {
+	movePetWindow();
+}
+
+export function endDesktopPetWindowMove(): void {
+	endPetWindowMove();
 }
 
 export function beginDesktopPetWindowResize(corner: PetResizeCorner): void {

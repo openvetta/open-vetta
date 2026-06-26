@@ -68,24 +68,23 @@ export function usePetWindowInteractions({
 		event.currentTarget.setPointerCapture(event.pointerId);
 		isDraggingRef.current = true;
 		void window.vettaPet?.setMousePassthrough(false);
-		let lastX = event.screenX;
-		let lastY = event.screenY;
+		const moveSessionReady = window.vettaPet?.beginWindowMove() ?? Promise.resolve();
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
-			const deltaX = moveEvent.screenX - lastX;
-			const deltaY = moveEvent.screenY - lastY;
-			lastX = moveEvent.screenX;
-			lastY = moveEvent.screenY;
-			void window.vettaPet?.moveWindowBy(deltaX, deltaY);
+			moveEvent.preventDefault();
+			void moveSessionReady.then(() => window.vettaPet?.moveWindow());
 		};
 		const handlePointerUp = () => {
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
+			window.removeEventListener("pointercancel", handlePointerUp);
 			isDraggingRef.current = false;
+			void moveSessionReady.then(() => window.vettaPet?.endWindowMove());
 		};
 
 		window.addEventListener("pointermove", handlePointerMove);
 		window.addEventListener("pointerup", handlePointerUp);
+		window.addEventListener("pointercancel", handlePointerUp);
 	};
 
 	return {

@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **桌宠窗口拖动在 Windows/DPI 缩放下出现鼠标与窗口漂移**：拖动窗口不再把 renderer `PointerEvent.screenX/screenY` 增量直接传给主进程，而是在主进程记录拖动起点并用 Electron `screen.getCursorScreenPoint()` 计算窗口位置，避免 renderer 坐标与 `BrowserWindow.setPosition()` 坐标系比例不一致。
 - **普通项目会话被误标成 `conversation` 场景，导致 `scope_use: ["project"]` 永不命中**：`useSessionManager` 创建/重开会话时按 `sessionKind` 推导场景，普通项目走 `sessionKind = "conversation"` → 主进程 `isConversation` 为真 → 场景被标成 `"conversation"`。改为在渲染端显式下发场景（不改 `kind`，避免牵动 VETTA_CLI/子目录行为）：默认「对话」项目（cwd 归一到 `defaultConversationCwd`）→ `"conversation"`，批量 → `"batch"`，其余交互式项目 → `"project"`。影响面安全：所有含 `"conversation"` 的内置工具均同时含 `"project"`，翻转不会让任何工具从项目里消失。修复后仅声明 `["project"]` 的插件活动面板标签卡（如内置 Git 插件）才会在普通项目里出现。
 
 ### Breaking Changes
