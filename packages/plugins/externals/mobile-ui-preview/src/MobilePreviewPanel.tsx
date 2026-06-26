@@ -46,8 +46,8 @@ function DeviceFrame({
 		frameColor: FRAME_COLOR,
 		// 状态栏区域并入屏幕，由我们在 children 顶部自绘仿真状态栏
 		hideStatusBar: true,
-		// 导航条（home indicator / 手势条）悬浮在内容上，与真机一致
-		transparentNavBar: true,
+		// 隐藏导航条（home indicator / 手势条），不渲染手势条，区域并入屏幕
+		hideNavBar: true,
 		// muip-mockup：给 frame 补黑底，消除 transform scale 下边框与内容间的亚像素接缝
 		className: "muip-mockup",
 	} as const;
