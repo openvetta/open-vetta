@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
 	WebhookCreateInput,
 	WebhookEndpointPublic,
@@ -73,6 +74,7 @@ function parseMobiles(raw: string): string[] {
 // =============================================================================
 
 export function WebhookSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [endpoints, setEndpoints] = useState<WebhookEndpointPublic[]>([]);
 	const [providers, setProviders] = useState<WebhookProviderDescriptor[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export function WebhookSettings(): JSX.Element {
 		async (ep: WebhookEndpointPublic, next: boolean) => {
 			const res = await window.vetta.webhook.toggle(ep.id, next);
 			if (!res.ok) {
-				setRowMessage((prev) => ({ ...prev, [ep.id]: { ok: false, text: res.error ?? "切换失败" } }));
+				setRowMessage((prev) => ({ ...prev, [ep.id]: { ok: false, text: res.error ?? t("whSwitchFailed") } }));
 				return;
 			}
 			await refresh();
@@ -135,7 +137,7 @@ export function WebhookSettings(): JSX.Element {
 
 	const handleDelete = useCallback(
 		async (ep: WebhookEndpointPublic) => {
-			if (!window.confirm(`删除 Webhook「${ep.name}」？此操作不可撤销。`)) return;
+			if (!window.confirm(t("whDeleteConfirm", { name: ep.name }))) return;
 			await window.vetta.webhook.delete(ep.id);
 			await refresh();
 		},
@@ -144,12 +146,12 @@ export function WebhookSettings(): JSX.Element {
 
 	const handleTest = useCallback(async (ep: WebhookEndpointPublic) => {
 		setTestingId(ep.id);
-		setRowMessage((prev) => ({ ...prev, [ep.id]: { ok: true, text: "发送中..." } }));
+		setRowMessage((prev) => ({ ...prev, [ep.id]: { ok: true, text: t("whSending") } }));
 		try {
 			const res = await window.vetta.webhook.test(ep.id);
 			setRowMessage((prev) => ({
 				...prev,
-				[ep.id]: { ok: res.ok, text: res.ok ? "测试消息已发送" : (res.error ?? "发送失败") },
+				[ep.id]: { ok: res.ok, text: res.ok ? t("whTestSent") : (res.error ?? t("whSendFailed")) },
 			}));
 		} finally {
 			setTestingId(null);
@@ -158,10 +160,10 @@ export function WebhookSettings(): JSX.Element {
 
 	const handleSubmit = useCallback(async () => {
 		const url = form.webhookUrl.trim();
-		const name = form.name.trim() || providerByKind.get(form.kind)?.displayName || "未命名";
+		const name = form.name.trim() || providerByKind.get(form.kind)?.displayName || t("whName");
 
 		if (!editingId && !url) {
-			setEditorError("Webhook URL 不能为空");
+			setEditorError(t("whUrlRequired"));
 			return;
 		}
 
@@ -189,7 +191,7 @@ export function WebhookSettings(): JSX.Element {
 				if (form.signSecret !== "") patch.signSecret = form.signSecret;
 				const res = await window.vetta.webhook.update(editingId, patch);
 				if (!res.ok) {
-					setEditorError(res.error ?? "保存失败");
+					setEditorError(res.error ?? t("whSaveFailed"));
 					return;
 				}
 			} else {
@@ -203,7 +205,7 @@ export function WebhookSettings(): JSX.Element {
 				};
 				const res = await window.vetta.webhook.create(input);
 				if (!res.ok) {
-					setEditorError(res.error ?? "创建失败");
+					setEditorError(res.error ?? t("whCreateFailed"));
 					return;
 				}
 			}
@@ -217,38 +219,38 @@ export function WebhookSettings(): JSX.Element {
 	if (loading) {
 		return (
 			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-				<h1 className="mb-6 text-[20px] font-bold text-foreground">消息推送</h1>
-				<div className="text-[13px] text-muted-foreground">加载中...</div>
+				<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("whTitle")}</h1>
+				<div className="text-[13px] text-muted-foreground">{t("whLoading")}</div>
 			</div>
 		);
 	}
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-2 text-[20px] font-bold text-foreground">消息推送</h1>
+			<h1 className="mb-2 text-[20px] font-bold text-foreground">{t("whTitle")}</h1>
 			<p className="mb-6 text-[12px] text-muted-foreground">
-				通过 Webhook 把 Vetta 的事件推送到飞书 / 钉钉群机器人。支持多通道并发推送、Markdown 渲染、加签校验。
+				{t("whDesc")}
 			</p>
 
 			<SettingSection
 				section={SETTINGS_SECTION["webhook-channels"]}
 				title={
 					<div className="flex items-center justify-between">
-						<span>渠道列表</span>
+						<span>{t("whChannels")}</span>
 						<button
 							type="button"
 							onClick={openCreate}
 							className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 						>
 							<span className="icon-[mdi--plus] h-4 w-4" />
-							新增 Webhook
+							{t("whAdd")}
 						</button>
 					</div>
 				}
 			>
 				{endpoints.length === 0 ? (
 					<div className="px-5 py-10 text-center text-[12px] text-muted-foreground">
-						暂无 Webhook，点击右上角「新增 Webhook」开始配置。
+						{t("whEmpty")}
 					</div>
 				) : (
 					<div className="divide-y divide-border">
@@ -266,15 +268,15 @@ export function WebhookSettings(): JSX.Element {
 										onClick={() => void handleTest(ep)}
 										disabled={testingId === ep.id}
 										className="whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-										title="发送测试消息"
+										title={t("whTest")}
 									>
-										{testingId === ep.id ? "测试中..." : "测试"}
+										{testingId === ep.id ? t("whTesting") : t("whTest")}
 									</button>
 									<button
 										type="button"
 										onClick={() => openEdit(ep)}
 										className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-										title="编辑"
+										title={t("whEdit")}
 									>
 										<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
 									</button>
@@ -282,7 +284,7 @@ export function WebhookSettings(): JSX.Element {
 										type="button"
 										onClick={() => void handleDelete(ep)}
 										className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
-										title="删除"
+										title={t("whDelete")}
 									>
 										<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
 									</button>
@@ -307,7 +309,7 @@ export function WebhookSettings(): JSX.Element {
 												</span>
 												{ep.hasSignSecret && (
 													<span className="shrink-0 whitespace-nowrap rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
-														加签
+														{t("whSign")}
 													</span>
 												)}
 											</div>
@@ -317,7 +319,7 @@ export function WebhookSettings(): JSX.Element {
 										</div>
 										{!narrow && controls}
 									</div>
-									{/* 极窄：控件挪到第二行右对齐，避免与名称/badge 互相挤压 */}
+									{/* 极窄：控件挪到第二行右对齐，避免与{t("whName")}/badge 互相挤压 */}
 									{narrow && <div className="flex justify-end">{controls}</div>}
 									{message && (
 										<div
@@ -376,6 +378,7 @@ function WebhookEditorDialog({
 	saving: boolean;
 	onSubmit: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	const isEdit = editingId !== null;
 	const [showSecret, setShowSecret] = useState(false);
 
@@ -390,17 +393,17 @@ function WebhookEditorDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[480px]">
 				<DialogHeader>
-					<DialogTitle>{isEdit ? "编辑 Webhook" : "新增 Webhook"}</DialogTitle>
+					<DialogTitle>{isEdit ? t("whEditTitle") : t("whAddTitle")}</DialogTitle>
 					<DialogDescription>
 						{isEdit
-							? "URL 与签名 Secret 留空表示不修改；其它字段会按当前内容覆盖保存。"
-							: "凭据将本地存储于 ~/.vetta/desktop-app/webhook-credentials.json (chmod 0600)。"}
+							? t("whEditHint")
+							: t("whAddHint")}
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-3 py-2">
 					<div>
-						<label className="mb-1 block text-[12px] font-medium text-foreground">渠道类型</label>
+						<label className="mb-1 block text-[12px] font-medium text-foreground">{t("whChannelType")}</label>
 						<div className="flex gap-2">
 							{providers.map((p) => (
 								<button
@@ -422,24 +425,24 @@ function WebhookEditorDialog({
 							))}
 						</div>
 						{isEdit && (
-							<div className="mt-1 text-[11px] text-muted-foreground">编辑模式下不可切换渠道类型</div>
+							<div className="mt-1 text-[11px] text-muted-foreground">{t("whChannelLocked")} {t("whChannelType")}</div>
 						)}
 					</div>
 
 					<div>
-						<label className="mb-1 block text-[12px] font-medium text-foreground">名称</label>
+						<label className="mb-1 block text-[12px] font-medium text-foreground">{t("whName")}</label>
 						<input
 							type="text"
 							value={form.name}
 							onChange={(e) => setField("name", e.target.value)}
-							placeholder="例：研发告警群"
+							placeholder={t("whNamePlaceholder")}
 							className="w-full rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
 						/>
 					</div>
 
 					<div>
 						<label className="mb-1 block text-[12px] font-medium text-foreground">
-							Webhook URL{isEdit && <span className="ml-1 text-muted-foreground">（留空不修改）</span>}
+							{t("whUrl")}{isEdit && <span className="ml-1 text-muted-foreground">{t("whUrlEditHint")}</span>}
 						</label>
 						<input
 							type="text"
@@ -456,9 +459,9 @@ function WebhookEditorDialog({
 
 					<div>
 						<label className="mb-1 block text-[12px] font-medium text-foreground">
-							签名 Secret{" "}
+							{t("whSecret")}{" "}
 							<span className="text-muted-foreground">
-								（可选；启用了加签校验时填写{isEdit ? "；留空不修改，填空格清除" : ""}）
+								{t("whSecretHint")}{isEdit ? "" : ""}
 							</span>
 						</label>
 						<div className="flex items-center gap-1.5">
@@ -473,7 +476,7 @@ function WebhookEditorDialog({
 								type="button"
 								onClick={() => setShowSecret((v) => !v)}
 								className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-								aria-label={showSecret ? "隐藏" : "显示"}
+								aria-label={showSecret ? t("whHide") : t("whShow")}
 							>
 								<span
 									className={cn(
@@ -488,8 +491,8 @@ function WebhookEditorDialog({
 					{form.kind === "feishu" && (
 						<div className="flex items-center justify-between rounded-md border border-input bg-secondary px-3 py-2">
 							<div className="text-[12px] text-foreground">
-								@所有人
-								<div className="text-[11px] text-muted-foreground">在每条消息开头插入 @all 标签</div>
+								{t("whAtAll")}
+								<div className="text-[11px] text-muted-foreground">{t("whAtAllDesc")}</div>
 							</div>
 							<Switch
 								checked={form.feishuMentionAll}
@@ -502,8 +505,8 @@ function WebhookEditorDialog({
 						<>
 							<div className="flex items-center justify-between rounded-md border border-input bg-secondary px-3 py-2">
 								<div className="text-[12px] text-foreground">
-									@所有人
-									<div className="text-[11px] text-muted-foreground">需机器人开启 @所有人权限</div>
+									{t("whAtAll")}
+									<div className="text-[11px] text-muted-foreground">{t("whAtAllPerm")}</div>
 								</div>
 								<Switch
 									checked={form.dingtalkMentionAll}
@@ -512,7 +515,7 @@ function WebhookEditorDialog({
 							</div>
 							<div>
 								<label className="mb-1 block text-[12px] font-medium text-foreground">
-									@手机号 <span className="text-muted-foreground">（多个用逗号分隔）</span>
+									{t("whAtPhone")} <span className="text-muted-foreground">{t("whAtPhoneSuffix")}</span>
 								</label>
 								<input
 									type="text"
@@ -524,16 +527,16 @@ function WebhookEditorDialog({
 							</div>
 							<div>
 								<label className="mb-1 block text-[12px] font-medium text-foreground">
-									关键词{" "}
+									{t("whKeyword")}{" "}
 									<span className="text-muted-foreground">
-										（机器人安全设置选「自定义关键词」时必填，将自动拼到消息标题前）
+										{t("whKeywordDesc")}
 									</span>
 								</label>
 								<input
 									type="text"
 									value={form.dingtalkKeyword}
 									onChange={(e) => setField("dingtalkKeyword", e.target.value)}
-									placeholder="例：Vetta"
+									placeholder={t("whKeywordPlaceholder")}
 									className="w-full rounded-md border border-input bg-secondary px-2.5 py-1.5 text-[12px] text-foreground"
 								/>
 							</div>
@@ -552,7 +555,7 @@ function WebhookEditorDialog({
 						disabled={saving}
 						className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 					>
-						取消
+						{t("whCancel")}
 					</button>
 					<button
 						type="button"
@@ -560,7 +563,7 @@ function WebhookEditorDialog({
 						disabled={saving}
 						className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 					>
-						{saving ? "保存中..." : "保存"}
+						{saving ? t("whSaving") : t("whSave")}
 					</button>
 				</DialogFooter>
 			</DialogContent>

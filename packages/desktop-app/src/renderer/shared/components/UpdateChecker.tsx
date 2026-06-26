@@ -1,9 +1,11 @@
 import { updaterRestartDialogOpenAtom, updaterStateAtom } from "@shared/store/atoms";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 
 export function UpdateChecker(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const state = useAtomValue(updaterStateAtom);
 	const openRestartDialog = useSetAtom(updaterRestartDialogOpenAtom);
 	const [busy, setBusy] = useState(false);
@@ -33,9 +35,9 @@ export function UpdateChecker(): JSX.Element {
 		state.phase === "idle" || state.phase === "error" || state.phase === "checking";
 
 	const statusText = (() => {
-		if (state.phase === "checking") return "正在检查...";
+		if (state.phase === "checking") return t("updaterChecking");
 		if (state.phase === "error") return state.error;
-		if (state.phase === "idle") return `当前已是最新版本（${state.currentVersion}）`;
+		if (state.phase === "idle") return t("updaterIdle", { version: state.currentVersion });
 		return "";
 	})();
 	const statusColor = state.phase === "error" ? "text-red-500" : "text-muted-foreground";
@@ -57,7 +59,7 @@ export function UpdateChecker(): JSX.Element {
 					<span
 						className={`icon-[mdi--refresh] h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`}
 					/>
-					{checking ? "检查中..." : "检查更新"}
+					{checking ? t("updaterCheckingBtn") : t("updaterCheck")}
 				</Button>
 			</div>
 
@@ -66,10 +68,10 @@ export function UpdateChecker(): JSX.Element {
 					<div className="flex items-center justify-between gap-3">
 						<div className="min-w-0">
 							<span className="text-[13px] font-medium text-foreground">
-								新版本 {state.latestVersion}
+								{t("updaterNewVersion", { version: state.latestVersion })}
 							</span>
 							<span className="ml-2 text-[12px] text-muted-foreground">
-								(当前 {state.currentVersion})
+								{t("updaterCurrentVersion", { version: state.currentVersion })}
 							</span>
 						</div>
 						{state.phase === "available" && (
@@ -78,12 +80,12 @@ export function UpdateChecker(): JSX.Element {
 								onClick={() => void handlePrimary()}
 								className="h-7 rounded-lg px-3 text-[12px]"
 							>
-								下载更新
+								{t("updaterDownload")}
 							</Button>
 						)}
 						{state.phase === "downloading" && (
 							<span className="shrink-0 text-[12px] text-muted-foreground">
-								下载中 {Math.round((state.progress ?? 0) * 100)}%
+								{t("updaterDownloading", { progress: Math.round((state.progress ?? 0) * 100) })}
 							</span>
 						)}
 						{state.phase === "ready" && (
@@ -92,7 +94,7 @@ export function UpdateChecker(): JSX.Element {
 								onClick={() => void handlePrimary()}
 								className="h-7 rounded-lg px-3 text-[12px]"
 							>
-								立即重启
+								{t("updaterRestart")}
 							</Button>
 						)}
 					</div>

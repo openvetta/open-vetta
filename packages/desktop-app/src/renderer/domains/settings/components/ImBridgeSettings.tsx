@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAtomValue } from "jotai";
 import QRCode from "qrcode";
 import { cn } from "@shared/lib/utils";
@@ -84,11 +85,11 @@ function feishuFormToPayload(
 // =============================================================================
 
 const STATUS_LABEL: Record<ImTransportStatus, string> = {
-	offline: "未启用",
-	connecting: "连接中",
-	online: "在线",
-	error: "错误",
-	awaiting_bind: "等待扫码",
+	offline: "imbStatusOffline",
+	connecting: "imbStatusConnecting",
+	online: "imbStatusOnline",
+	error: "imbStatusError",
+	awaiting_bind: "imbStatusAwaitingBind",
 };
 
 const STATUS_CLASS: Record<ImTransportStatus, string> = {
@@ -100,6 +101,7 @@ const STATUS_CLASS: Record<ImTransportStatus, string> = {
 };
 
 function StatusBadge({ status }: { status: ImTransportStatus }): JSX.Element {
+	const { t } = useTranslation("settings");
 	return (
 		<span
 			className={cn(
@@ -108,7 +110,7 @@ function StatusBadge({ status }: { status: ImTransportStatus }): JSX.Element {
 			)}
 		>
 			<span className="h-1.5 w-1.5 rounded-full bg-current" />
-			{STATUS_LABEL[status]}
+			{t(STATUS_LABEL[status] as any)}
 		</span>
 	);
 }
@@ -118,6 +120,7 @@ function StatusBadge({ status }: { status: ImTransportStatus }): JSX.Element {
 // =============================================================================
 
 export function ImBridgeSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [config, setConfig] = useState<ImBridgeConfig | null>(null);
 	const [feishuForm, setFeishuForm] = useState<FeishuFormState>(emptyFeishuForm);
 	const [feishuDialogOpen, setFeishuDialogOpen] = useState(false);
@@ -191,9 +194,9 @@ export function ImBridgeSettings(): JSX.Element {
 				setConfig(refreshed);
 				setFeishuForm(feishuFormFromConfig(refreshed));
 				setLegacy(null);
-				setSaveOk("已导入旧版凭据，原文件已重命名为 .bak");
+				setSaveOk(t("imbImportOk"));
 			} else {
-				setSaveError(result.error ?? "导入失败");
+				setSaveError(result.error ?? t("imbImportFail"));
 			}
 		} finally {
 			setImporting(false);
@@ -207,8 +210,8 @@ export function ImBridgeSettings(): JSX.Element {
 	// 字段级校验。
 	const feishuValidation = useMemo(() => {
 		const errors: Partial<Record<keyof FeishuFormState, string>> = {};
-		if (!feishuForm.appId.trim()) errors.appId = "App ID 不能为空";
-		if (!feishuForm.appSecret) errors.appSecret = "App Secret 不能为空";
+		if (!feishuForm.appId.trim()) errors.appId = t("imbFeishuAppIdRequired");
+		if (!feishuForm.appSecret) errors.appSecret = t("appSecretRequired");
 		return { errors, valid: Object.keys(errors).length === 0 };
 	}, [feishuForm]);
 
@@ -288,12 +291,12 @@ export function ImBridgeSettings(): JSX.Element {
 					agentModel: next, // null → clear
 				});
 				if (!result.ok) {
-					setSaveError(result.error ?? "保存模型失败");
+					setSaveError(result.error ?? t("saveModelFailed"));
 					return;
 				}
 				const refreshed = await window.vetta.im.getConfig();
 				setConfig(refreshed);
-				setSaveOk(next ? `已设为 ${next.provider} / ${next.model}` : "已清除模型设定");
+				setSaveOk(next ? t("setModelOk", { provider: next.provider, model: next.model }) : t("clearedModel"));
 			} finally {
 				setSaving(false);
 			}
@@ -303,7 +306,7 @@ export function ImBridgeSettings(): JSX.Element {
 
 	const handleProbeModel = useCallback(async () => {
 		if (!config?.agentModel) {
-			setProbeResult({ ok: false, msg: "请先选择模型" });
+			setProbeResult({ ok: false, msg: t("pleaseSelectModel") });
 			return;
 		}
 		setProbing(true);
@@ -312,7 +315,7 @@ export function ImBridgeSettings(): JSX.Element {
 			const result = await window.vetta.im.probeAgentModel(config.agentModel);
 			setProbeResult({
 				ok: result.ok,
-				msg: result.ok ? (result.message ?? "可连通") : (result.error ?? "未知错误"),
+				msg: result.ok ? (result.message ?? t("testOk")) : (result.error ?? t("testUnknown")),
 			});
 		} finally {
 			setProbing(false);
@@ -325,16 +328,16 @@ export function ImBridgeSettings(): JSX.Element {
 			// Validate per-transport before allowing the switch on.
 			if (enabled) {
 				if (!config.agentModel) {
-					setSaveError("请先在「对话模型」里选择 IM 桥接使用的模型");
+					setSaveError(t("pleaseChooseModel"));
 					return;
 				}
 				if (config.transport === "feishu" && !feishuValidation.valid) {
-					setSaveError("请先填写飞书 App ID 与 App Secret");
+					setSaveError(t("pleaseFillFeishu"));
 					setFeishuDialogOpen(true);
 					return;
 				}
 				if (config.transport === "wechat" && !config.wechat.bound) {
-					setSaveError("请先扫码绑定微信账号");
+					setSaveError(t("pleaseBindWechat"));
 					setWechatDialogOpen(true);
 					return;
 				}
@@ -353,12 +356,12 @@ export function ImBridgeSettings(): JSX.Element {
 				};
 				const result = await window.vetta.im.setConfig(payload);
 				if (!result.ok) {
-					setSaveError(result.error ?? "保存失败");
+					setSaveError(result.error ?? t("saveFailed"));
 				} else {
 					const refreshed = await window.vetta.im.getConfig();
 					setConfig(refreshed);
 					setFeishuForm(feishuFormFromConfig(refreshed));
-					setSaveOk(enabled ? "已启用" : "已停用");
+					setSaveOk(enabled ? t("saveOk") : t("disableOk"));
 				}
 			} finally {
 				setSaving(false);
@@ -368,7 +371,7 @@ export function ImBridgeSettings(): JSX.Element {
 	);
 
 	// Switch the active transport without changing enabled. Used by clicking
-	// "激活" on a configured channel card.
+	// "{t("activateChannel")}" on a configured channel card.
 	const handleSwitchTransport = useCallback(
 		async (next: ImTransportSelector) => {
 			if (!config || config.transport === next) return;
@@ -381,12 +384,12 @@ export function ImBridgeSettings(): JSX.Element {
 					transport: next,
 				});
 				if (!result.ok) {
-					setSaveError(result.error ?? "切换失败");
+					setSaveError(result.error ?? t("switchFailed"));
 					return;
 				}
 				const refreshed = await window.vetta.im.getConfig();
 				setConfig(refreshed);
-				setSaveOk(`已切换到 ${next === "feishu" ? "飞书" : "微信"}`);
+				setSaveOk(t("switchTo", { channel: next === "feishu" ? t("feishuChannel") : t("wechatChannel") }));
 			} finally {
 				setSaving(false);
 			}
@@ -396,18 +399,18 @@ export function ImBridgeSettings(): JSX.Element {
 
 	const handleWechatLogout = useCallback(async () => {
 		if (!config) return;
-		const ok = window.confirm("确认解绑当前 WeChat 账号吗？解绑后需要重新扫码。");
+		const ok = window.confirm(t("unbindConfirm"));
 		if (!ok) return;
 		setSaving(true);
 		try {
 			const result = await window.vetta.im.wechat.logout();
 			if (!result.ok) {
-				setSaveError(result.error ?? "解绑失败");
+				setSaveError(result.error ?? t("unbindError"));
 				return;
 			}
 			const refreshed = await window.vetta.im.getConfig();
 			setConfig(refreshed);
-			setSaveOk("已解绑");
+			setSaveOk(t("unbindSuccess"));
 		} finally {
 			setSaving(false);
 		}
@@ -422,14 +425,14 @@ export function ImBridgeSettings(): JSX.Element {
 			const payload = feishuFormToPayload(config, feishuForm, config.enabled);
 			const result = await window.vetta.im.setConfig(payload);
 			if (!result.ok) {
-				setSaveError(result.error ?? "保存失败");
+				setSaveError(result.error ?? t("saveFailed"));
 				return;
 			}
 			const refreshed = await window.vetta.im.getConfig();
 			setConfig(refreshed);
 			setFeishuForm(feishuFormFromConfig(refreshed));
 			setSaveOk(
-				result.mode === "plaintext" ? "已保存（明文存储，建议安装系统密钥服务）" : "已加密保存",
+				result.mode === "plaintext" ? t("saveOkPlaintext") : t("saveOkEncrypted"),
 			);
 		} catch (err) {
 			setSaveError((err as Error).message);
@@ -450,7 +453,7 @@ export function ImBridgeSettings(): JSX.Element {
 				encryptKey: config.feishu.encryptKey || undefined,
 				baseUrl: config.feishu.baseUrl || undefined,
 			});
-			setTestResult(result.ok ? (result.message ?? "测试通过") : (result.error ?? "测试失败"));
+			setTestResult(result.ok ? (result.message ?? t("testPass")) : (result.error ?? t("testFail")));
 		} finally {
 			setTesting(false);
 		}
@@ -470,7 +473,7 @@ export function ImBridgeSettings(): JSX.Element {
 		return (
 			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 				<h1 className="mb-6 text-[20px] font-bold text-foreground">Vetta Claw</h1>
-				<div className="text-[13px] text-muted-foreground">加载中...</div>
+				<div className="text-[13px] text-muted-foreground">{t("loadFailed")}</div>
 			</div>
 		);
 	}
@@ -484,9 +487,9 @@ export function ImBridgeSettings(): JSX.Element {
 
 			{legacy?.hasLegacyData && (
 				<div className="mb-4 rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-[12px] text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-200">
-					<div className="mb-2 font-medium">检测到旧版 im-gateway 配置</div>
+					<div className="mb-2 font-medium">{t("legacyTitle")}</div>
 					<div className="mb-3">
-						旧路径：{legacy.credentialsPath ?? legacy.configPath ?? legacy.statePath}
+						{t("legacyPath", { path: legacy.credentialsPath ?? legacy.configPath ?? legacy.statePath })}
 						{legacy.parsed?.feishu?.appId && (
 							<span className="ml-2 text-blue-700 dark:text-blue-300">
 								（App ID: {legacy.parsed.feishu.appId}）
@@ -500,24 +503,24 @@ export function ImBridgeSettings(): JSX.Element {
 							disabled={importing || !legacy.parsed?.feishu?.appId}
 							className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
 						>
-							{importing ? "导入中..." : "导入到新设置"}
+							{importing ? t("importing") : t("importToNew")}
 						</button>
 						<button
 							type="button"
 							onClick={handleSkipLegacy}
 							className="rounded-md border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground hover:bg-accent"
 						>
-							跳过
+							{t("skip")}
 						</button>
 					</div>
 				</div>
 			)}
 
 			{/* ─────────────────────────────────────────────────────────────── */}
-			<SettingSection section={SETTINGS_SECTION["imbridge-toggle"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["imbridge-toggle"]}>
 				<SettingRow
-					title="启用 IM 桥接"
-					description="开启后，桥接进程随 Vetta 一起运行；完全退出 Vetta 后立即停止接收消息。"
+					title={t("enableImBridge")}
+					description={t("enableImBridgeDesc")}
 					border={false}
 				>
 					<button
@@ -544,10 +547,10 @@ export function ImBridgeSettings(): JSX.Element {
 			{/* ─────────────────────────────────────────────────────────────── */}
 			<SettingSection
 				section={SETTINGS_SECTION["imbridge-model"]}
-				title="对话模型"
-				description="IM 桥接拉起的 coding-agent 子进程会用这个模型回复消息；未设置时跟随 Vetta 全局默认模型。"
+				title={t("dialogModel")}
+				description={t("dialogModelDesc")}
 			>
-				<SettingRow title="模型" description="可以用模型配置中的模型">
+				<SettingRow title={t("modelSetting")} description={t("modelSettingDesc")}>
 					<div className="flex flex-wrap items-center gap-2">
 						<Select
 							value={
@@ -565,12 +568,12 @@ export function ImBridgeSettings(): JSX.Element {
 							disabled={saving}
 						>
 							<SelectTrigger className="h-7 min-w-[220px] px-2 py-1 text-[12px]">
-								<SelectValue placeholder="— 未设置 —" />
+								<SelectValue placeholder={t("notSet")} />
 							</SelectTrigger>
 							<SelectContent>
 								<SelectGroup>
 									<SelectItem value={MODEL_NONE} className="text-[12px]">
-										— 未设置（用 Vetta 全局默认模型）—
+										{t("notSetGlobal")}
 									</SelectItem>
 								</SelectGroup>
 								{groupedModelOptions.map(([provider, items]) => (
@@ -579,7 +582,7 @@ export function ImBridgeSettings(): JSX.Element {
 											{provider}
 											{items[0]?.remote && (
 												<span className="ml-1.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-													云端
+													{t("cloudOnly")}
 												</span>
 											)}
 										</SelectLabel>
@@ -603,7 +606,7 @@ export function ImBridgeSettings(): JSX.Element {
 							disabled={probing || !config.agentModel}
 							className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 						>
-							<span>测试连通</span>
+							<span>{t("testConnect")}</span>
 							{probing ? (
 								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
 							) : probeResult?.ok ? (
@@ -620,19 +623,19 @@ export function ImBridgeSettings(): JSX.Element {
 			{/* 消息渠道：卡片网格，未来新增的渠道直接追加新的 ChannelCard 即可。 */}
 			<div className="@container mb-6">
 				<div className="mb-3 flex items-baseline gap-2">
-					<SettingHeading section={SETTINGS_SECTION["imbridge-channels"]} />
-					<span className="text-[12px] text-muted-foreground">2 个渠道</span>
+					<SettingHeading t={t as any} section={SETTINGS_SECTION["imbridge-channels"]} />
+					<span className="text-[12px] text-muted-foreground">{t("channelsCount")}</span>
 				</div>
 				{/* 容器宽度足够时才双列，窄时单列，避免渠道卡逐字挤压 */}
 				<div className="grid grid-cols-1 gap-3 @xl:grid-cols-2">
 					<ChannelCard
-						name="飞书"
-						subtitle="飞书机器人"
+						name={t("feishuName")}
+						subtitle={t("feishuSubtitle")}
 						iconClass="icon-[mdi--message-text] text-[#00D6B9]"
 						configured={Boolean(config.feishu.appId)}
 						isActive={config.transport === "feishu"}
 						transportStatus={transportStatus}
-						actionLabel="设置机器人"
+						actionLabel={t("feishuSetting")}
 						onAction={() => {
 							setSaveError(null);
 							setSaveOk(null);
@@ -646,17 +649,17 @@ export function ImBridgeSettings(): JSX.Element {
 						}
 					/>
 					<ChannelCard
-						name="微信"
+						name={t("wechatName")}
 						subtitle={
 							config.wechat.bound
-								? `已绑定 (${config.wechat.ilinkBotId ?? "iLink"})`
-								: "微信个人号 (iLink)"
+								? `${t("bound")} (${config.wechat.ilinkBotId ?? "iLink"})`
+								: t("wechatSubtitle")
 						}
 						iconClass="icon-[mdi--wechat] text-[#07C160]"
 						configured={config.wechat.bound}
 						isActive={config.transport === "wechat"}
 						transportStatus={transportStatus}
-						actionLabel={config.wechat.bound ? "管理 / 解绑" : "扫码绑定"}
+						actionLabel={config.wechat.bound ? t("wechatManage") : t("wechatBind")}
 						onAction={() => {
 							setSaveError(null);
 							setSaveOk(null);
@@ -683,9 +686,9 @@ export function ImBridgeSettings(): JSX.Element {
 			<Dialog open={feishuDialogOpen} onOpenChange={setFeishuDialogOpen}>
 				<DialogContent className="sm:max-w-[460px]">
 					<DialogHeader>
-						<DialogTitle>设置飞书机器人</DialogTitle>
+						<DialogTitle>{t("feishuSettingsTitle")}</DialogTitle>
 						<DialogDescription>
-							填写自建应用的 App ID 与 App Secret，凭据将本地存储于 ~/.vetta/desktop-app/im-credentials.json (chmod 0600)。
+							{t("feishuDesc")}
 						</DialogDescription>
 					</DialogHeader>
 
@@ -720,7 +723,7 @@ export function ImBridgeSettings(): JSX.Element {
 									type="button"
 									onClick={() => setShowSecret((v) => !v)}
 									className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-									aria-label={showSecret ? "隐藏" : "显示"}
+									aria-label={showSecret ? t("hide") : t("show")}
 								>
 									<span
 										className={cn(
@@ -750,7 +753,7 @@ export function ImBridgeSettings(): JSX.Element {
 							disabled={testing || !feishuValidation.valid}
 							className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 						>
-							{testing ? "测试中..." : "测试连接"}
+							{testing ? t("testing") : t("testConnection")}
 						</button>
 						<button
 							type="button"
@@ -758,7 +761,7 @@ export function ImBridgeSettings(): JSX.Element {
 							disabled={!feishuValidation.valid || saving}
 							className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 						>
-							{saving ? "保存中..." : "保存"}
+							{saving ? t("savingLabel") : t("saveLabel")}
 						</button>
 					</DialogFooter>
 				</DialogContent>
@@ -783,16 +786,16 @@ export function ImBridgeSettings(): JSX.Element {
 				section={SETTINGS_SECTION["imbridge-status"]}
 				title={
 					<div className="flex items-center justify-between">
-						<span>状态与日志</span>
+						<span>{t("statusLog")}</span>
 						<StatusBadge status={transportStatus} />
 					</div>
 				}
 			>
-				<SettingRow title="桥接进程 PID" description="im-gateway 子进程的 PID">
+				<SettingRow title={t("bridgePid")} description={t("bridgePidDesc")}>
 					<span className="text-[13px] tabular-nums text-muted-foreground">{status?.sidecarPid ?? "—"}</span>
 				</SettingRow>
 				{status?.lastError && (
-					<SettingRow title="最近错误" description={status.lastErrorAt ?? ""}>
+					<SettingRow title={t("lastError")} description={status.lastErrorAt ?? ""}>
 						<span className="text-[12px] text-red-500">{status.lastError}</span>
 					</SettingRow>
 				)}
@@ -802,7 +805,7 @@ export function ImBridgeSettings(): JSX.Element {
 						onClick={() => void handleOpenLogs()}
 						className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
 					>
-						查看实时日志
+						{t("viewLogs")}
 					</button>
 					<button
 						type="button"
@@ -810,7 +813,7 @@ export function ImBridgeSettings(): JSX.Element {
 						disabled={!config.enabled}
 						className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 					>
-						重启桥接
+						{t("restartBridgeBtn")}
 					</button>
 				</div>
 			</SettingSection>
@@ -846,6 +849,7 @@ function ChannelCard({
 	/** When undefined the channel is already active and the badge is shown. */
 	onActivate?: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	// The status badge only makes sense for the active channel — the
 	// inactive one is always implicitly offline regardless of transportStatus.
 	const effectiveStatus: ImTransportStatus = isActive ? transportStatus : "offline";
@@ -867,7 +871,7 @@ function ChannelCard({
 						<div className="text-[15px] font-semibold text-foreground">{name}</div>
 						{isActive && (
 							<span className="inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-								活动
+								{t("channelActive")}
 							</span>
 						)}
 					</div>
@@ -877,7 +881,7 @@ function ChannelCard({
 					<StatusBadge status={effectiveStatus} />
 				) : (
 					<span className="inline-flex items-center rounded-full bg-muted-foreground/15 px-2 py-0.5 text-[11px] text-muted-foreground">
-						未关联
+						{t("channelNotAssociated")}
 					</span>
 				)}
 			</div>
@@ -889,10 +893,10 @@ function ChannelCard({
 						type="button"
 						onClick={onActivate}
 						className="flex shrink-0 items-center gap-1 rounded-lg border border-input bg-secondary px-3 py-2.5 text-[12px] text-foreground transition-colors hover:bg-accent"
-						title="切换为活动渠道"
+						title={t("activateChannelTitle")}
 					>
 						<span className="icon-[mdi--swap-horizontal] h-4 w-4" />
-						激活
+						{t("activateChannel")}
 					</button>
 				)}
 				<button
@@ -952,6 +956,7 @@ function WechatBindDialog({
 	onLogout: () => void;
 	onConfirmedRefresh: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [state, setState] = useState<WechatDialogState>(initialWechatDialogState);
 	const subUnsubRef = useRef<(() => void) | null>(null);
 
@@ -987,7 +992,7 @@ function WechatBindDialog({
 			})
 			.catch(() => {
 				if (!cancelled) {
-					setState((prev) => ({ ...prev, error: "二维码渲染失败" }));
+					setState((prev) => ({ ...prev, error: t("qrRenderError") }));
 				}
 			});
 		return () => {
@@ -1023,9 +1028,9 @@ function WechatBindDialog({
 							case "confirmed":
 								return { ...prev, phase: "confirmed" };
 							case "failed":
-								return { ...prev, phase: "failed", error: event.error ?? "绑定失败" };
+								return { ...prev, phase: "failed", error: event.error ?? t("bindFailedGeneric") };
 							case "cancelled":
-								return { ...prev, phase: "failed", error: "绑定已取消" };
+								return { ...prev, phase: "failed", error: t("bindCanceled") };
 							default:
 								return prev;
 						}
@@ -1052,7 +1057,7 @@ function WechatBindDialog({
 			setState({
 				phase: "failed",
 				qrAttempt: 0,
-				error: result.error ?? "启动绑定失败",
+				error: result.error ?? t("bindStartFailed"),
 			});
 		}
 	}, [onConfirmedRefresh, onOpenChange]);
@@ -1068,11 +1073,11 @@ function WechatBindDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[460px]">
 				<DialogHeader>
-					<DialogTitle>{bound ? "微信账号" : "扫码绑定微信"}</DialogTitle>
+					<DialogTitle>{bound ? t("wechatTitle") : t("wechatBindTitle")}</DialogTitle>
 					<DialogDescription>
 						{bound
-							? "已绑定的 iLink 机器人。Vetta 与微信服务器之间通过长轮询交换消息。"
-							: "打开微信扫一扫，扫描下方二维码完成授权。"}
+							? t("wechatBoundDesc")
+							: t("wechatBindDesc")}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -1099,14 +1104,14 @@ function WechatBindDialog({
 								onClick={onLogout}
 								className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-[12px] text-red-700 transition-colors hover:bg-red-100 dark:border-red-700/50 dark:bg-red-900/20 dark:text-red-300"
 							>
-								解绑账号
+								{t("unbindAccount")}
 							</button>
 							<button
 								type="button"
 								onClick={() => onOpenChange(false)}
 								className="rounded-lg bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 							>
-								完成
+								{t("bindDone")}
 							</button>
 						</>
 					) : (
@@ -1115,7 +1120,7 @@ function WechatBindDialog({
 							onClick={() => onOpenChange(false)}
 							className="rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent"
 						>
-							取消
+							{t("cancel")}
 						</button>
 					)}
 				</DialogFooter>
@@ -1131,12 +1136,13 @@ function WechatBindBody({
 	state: WechatDialogState;
 	onStart: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	// idle 阶段由父组件自动触发 startBind，渲染同 starting 的 loading，避免按钮闪现。
 	if (state.phase === "idle" || state.phase === "starting") {
 		return (
 			<div className="flex flex-col items-center gap-3 py-10 text-center text-[12px] text-muted-foreground">
 				<span className="icon-[mdi--loading] h-6 w-6 animate-spin" />
-				<div>正在生成二维码…</div>
+				<div>{t("bindGenerating")}</div>
 			</div>
 		);
 	}
@@ -1145,13 +1151,13 @@ function WechatBindBody({
 		return (
 			<div className="flex flex-col items-center gap-3 py-6 text-center">
 				<span className="icon-[mdi--close-circle] h-10 w-10 text-red-500" />
-				<div className="text-[12px] text-red-600 dark:text-red-400">{state.error ?? "绑定失败"}</div>
+				<div className="text-[12px] text-red-600 dark:text-red-400">{state.error ?? t("bindFailed")}</div>
 				<button
 					type="button"
 					onClick={onStart}
 					className="rounded-lg bg-primary px-4 py-1.5 text-[12px] font-medium text-primary-foreground hover:bg-primary/90"
 				>
-					重试
+					{t("retry")}
 				</button>
 			</div>
 		);
@@ -1161,8 +1167,8 @@ function WechatBindBody({
 		return (
 			<div className="flex flex-col items-center gap-3 py-8 text-center">
 				<span className="icon-[mdi--check-circle] h-12 w-12 text-green-500" />
-				<div className="text-[13px] font-medium text-foreground">绑定成功</div>
-				<div className="text-[11px] text-muted-foreground">即将自动关闭…</div>
+				<div className="text-[13px] font-medium text-foreground">{t("bindSuccessTitle")}</div>
+				<div className="text-[11px] text-muted-foreground">{t("bindSuccessDesc")}</div>
 			</div>
 		);
 	}
@@ -1170,15 +1176,15 @@ function WechatBindBody({
 	const progressLabel = (() => {
 		switch (state.phase) {
 			case "scanned":
-				return "已扫码，请在微信中确认…";
+				return t("scanWechatConfirm");
 			case "expired_refreshing":
-				return "二维码已过期，正在刷新…";
+				return t("qrExpired");
 			case "redirected":
-				return "服务器路由切换中…";
+				return t("switchingRoute");
 			default:
 				return state.qrAttempt > 1
-					? `请用微信扫一扫扫描二维码 (第 ${state.qrAttempt} 次)`
-					: "请用微信扫一扫扫描二维码";
+					? t("scanQrHintN", { n: state.qrAttempt })
+					: t("scanQrHint");
 		}
 	})();
 
@@ -1194,7 +1200,7 @@ function WechatBindBody({
 			</div>
 			<div className="text-center text-[12px] text-muted-foreground">{progressLabel}</div>
 			<div className="text-center text-[11px] text-muted-foreground">
-				打开微信扫一扫，扫描下方二维码完成授权
+				{t("scanToAuthorize")}
 			</div>
 		</div>
 	);
@@ -1205,6 +1211,7 @@ function WechatBindBody({
 // =============================================================================
 
 function LogDrawer({ logs, onClose }: { logs: ImLogEvent[]; onClose: () => void }): JSX.Element {
+	const { t } = useTranslation("settings");
 	return (
 		<div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose}>
 			<div
@@ -1212,19 +1219,19 @@ function LogDrawer({ logs, onClose }: { logs: ImLogEvent[]; onClose: () => void 
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="flex items-center justify-between border-b border-border px-5 py-3">
-					<SettingHeading section={SETTINGS_SECTION["imbridge-logs"]} title="实时日志（最近 500 条）" className="text-[14px]" />
+					<SettingHeading t={t as any} section={SETTINGS_SECTION["imbridge-logs"]} title={t("logTitle")} className="text-[14px]" />
 					<button
 						type="button"
 						onClick={onClose}
 						className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
-						aria-label="关闭"
+						aria-label={t("close")}
 					>
 						<span className="icon-[mdi--close] h-4 w-4" />
 					</button>
 				</div>
 				<div className="flex-1 overflow-y-auto px-5 py-3 font-mono text-[11px]">
 					{logs.length === 0 ? (
-						<div className="text-muted-foreground">暂无日志</div>
+						<div className="text-muted-foreground">{t("noLogs")}</div>
 					) : (
 						logs.map((log, idx) => (
 							<div

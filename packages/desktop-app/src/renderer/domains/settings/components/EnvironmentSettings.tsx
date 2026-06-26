@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SettingRow, SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
@@ -6,15 +7,15 @@ type RuntimesStatus = Awaited<ReturnType<typeof window.vetta.runtimes.getStatus>
 type RuntimeStatus = RuntimesStatus["node"];
 type RuntimeKind = "node" | "python";
 
-const LABELS: Record<RuntimeKind, { name: string; desc: string; icon: string }> = {
+const LABELS: Record<RuntimeKind, { name: string; descKey: string; icon: string }> = {
 	node: {
 		name: "Node.js",
-		desc: "运行 JavaScript / TypeScript 工具与 npm 包",
+		descKey: "environmentNodeDesc",
 		icon: "icon-[mdi--nodejs]",
 	},
 	python: {
 		name: "Python",
-		desc: "运行 Python 脚本与 pip 包",
+		descKey: "environmentPythonDesc",
 		icon: "icon-[mdi--language-python]",
 	},
 };
@@ -30,18 +31,19 @@ function RuntimeCard({
 	busy: boolean;
 	onReinstall: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	const meta = LABELS[kind];
 	const stateText = !status.supported
-		? "当前平台不支持"
+		? t("platformNotSupported")
 		: status.ready
-			? `已就绪 · ${status.managedVersion}`
+			? `${t("ready")} · ${status.managedVersion}`
 			: busy
-				? "获取中…"
-				: "未就绪";
+				? t("fetching")
+				: t("notReady");
 	const stateClass = status.ready ? "text-emerald-500" : status.supported ? "text-amber-500" : "text-muted-foreground";
 
 	return (
-		<SettingRow title={meta.name} description={meta.desc} border={kind === "node"}>
+		<SettingRow title={meta.name} description={t(meta.descKey as any)} border={kind === "node"}>
 			<div className="flex items-center gap-3">
 				<div className="flex items-center gap-1.5">
 					<span
@@ -65,7 +67,7 @@ function RuntimeCard({
 						) : (
 							<span className="icon-[mdi--download-outline] h-3.5 w-3.5 text-muted-foreground" />
 						)}
-						{status.ready ? "重新获取" : "获取"}
+						{status.ready ? t("fetchAgain") : t("fetch")}
 					</button>
 				)}
 			</div>
@@ -74,6 +76,7 @@ function RuntimeCard({
 }
 
 export function EnvironmentSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [status, setStatus] = useState<RuntimesStatus | null>(null);
 	const [busy, setBusy] = useState<RuntimeKind | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -108,9 +111,9 @@ export function EnvironmentSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">应用环境</h1>
+			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">{t("environment")}</h1>
 			<p className="mb-6 text-[13px] text-muted-foreground">
-				Vetta 自带 Node.js 与 Python 运行时，来协助你完成更多任务
+				{t("environmentDescription")}
 			</p>
 
 			{error && (
@@ -119,7 +122,7 @@ export function EnvironmentSettings(): JSX.Element {
 				</div>
 			)}
 
-			<SettingSection section={SETTINGS_SECTION["environment-runtime"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["environment-runtime"]}>
 				{status ? (
 					<>
 						<RuntimeCard
@@ -136,15 +139,15 @@ export function EnvironmentSettings(): JSX.Element {
 						/>
 					</>
 				) : (
-					<div className="px-5 py-4 text-[12px] text-muted-foreground">加载中…</div>
+					<div className="px-5 py-4 text-[12px] text-muted-foreground">{t("loading")}</div>
 				)}
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["environment-mirrors"]}>
-				<SettingRow title="npm 仓库" description="安装 npm 包时使用的镜像，自动注入" border>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["environment-mirrors"]}>
+				<SettingRow title={t("npmRegistry")} description={t("npmRegistryDesc")} border>
 					<span className="text-[12px] text-muted-foreground">{status?.mirrors.npmRegistry ?? "—"}</span>
 				</SettingRow>
-				<SettingRow title="pip 索引" description="安装 Python 包时使用的镜像，自动注入" border={false}>
+				<SettingRow title={t("pipIndex")} description={t("pipIndexDesc")} border={false}>
 					<span className="text-[12px] text-muted-foreground">{status?.mirrors.pipIndexUrl ?? "—"}</span>
 				</SettingRow>
 			</SettingSection>

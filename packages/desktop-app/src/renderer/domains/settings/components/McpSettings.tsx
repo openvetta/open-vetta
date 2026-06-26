@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue } from "jotai";
+import { useTranslation } from "react-i18next";
 import type {
 	McpConfigData,
 	McpHttpServerConfigData,
@@ -205,6 +206,7 @@ function McpServerForm({
 	onCancel,
 	saving,
 	saveLabel,
+	t,
 }: {
 	form: McpServerFormState;
 	setForm: React.Dispatch<React.SetStateAction<McpServerFormState>>;
@@ -212,14 +214,15 @@ function McpServerForm({
 	onCancel: () => void;
 	saving: boolean;
 	saveLabel: string;
+	t: (key: string) => string;
 }): JSX.Element {
 	return (
 		<>
 			<div className="mb-3">
-				<label className="mb-1 block text-[11px] text-muted-foreground">传输类型</label>
+				<label className="mb-1 block text-[11px] text-muted-foreground">{t("transportType")}</label>
 				<SegmentedControl
 					items={[
-						{ key: "stdio" as McpTransportType, label: "stdio (本地命令)" },
+						{ key: "stdio" as McpTransportType, label: t("stdio") },
 						{ key: "http" as McpTransportType, label: "HTTP" },
 					]}
 					value={form.transport}
@@ -228,7 +231,7 @@ function McpServerForm({
 			</div>
 			<div className="grid grid-cols-2 gap-3">
 				<div className={form.transport === "http" ? "" : "col-span-1"}>
-					<label className="mb-1 block text-[11px] text-muted-foreground">服务器名称 *</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("serverName")} *</label>
 					<InputField
 						value={form.name}
 						onChange={(v) => setForm((f) => ({ ...f, name: v }))}
@@ -238,7 +241,7 @@ function McpServerForm({
 				{form.transport === "stdio" ? (
 					<>
 						<div>
-							<label className="mb-1 block text-[11px] text-muted-foreground">命令 *</label>
+							<label className="mb-1 block text-[11px] text-muted-foreground">{t("command")} *</label>
 							<InputField
 								value={form.command}
 								onChange={(v) => setForm((f) => ({ ...f, command: v }))}
@@ -246,7 +249,7 @@ function McpServerForm({
 							/>
 						</div>
 						<div className="col-span-2">
-							<label className="mb-1 block text-[11px] text-muted-foreground">参数 (逗号分隔)</label>
+							<label className="mb-1 block text-[11px] text-muted-foreground">{t("arguments")}</label>
 							<InputField
 								value={form.args}
 								onChange={(v) => setForm((f) => ({ ...f, args: v }))}
@@ -254,7 +257,7 @@ function McpServerForm({
 							/>
 						</div>
 						<div className="col-span-2">
-							<label className="mb-1 block text-[11px] text-muted-foreground">环境变量 (每行一个 KEY=VALUE，支持 ${"{"}VAR{"}"} 引用)</label>
+							<label className="mb-1 block text-[11px] text-muted-foreground">{t("envVariables")}</label>
 							<TextareaField
 								value={form.env}
 								onChange={(v) => setForm((f) => ({ ...f, env: v }))}
@@ -263,7 +266,7 @@ function McpServerForm({
 							/>
 						</div>
 						<div>
-							<label className="mb-1 block text-[11px] text-muted-foreground">工作目录</label>
+							<label className="mb-1 block text-[11px] text-muted-foreground">{t("workDirectory")}</label>
 							<InputField
 								value={form.cwd}
 								onChange={(v) => setForm((f) => ({ ...f, cwd: v }))}
@@ -274,7 +277,7 @@ function McpServerForm({
 				) : (
 					<>
 						<div className="col-span-2">
-							<label className="mb-1 block text-[11px] text-muted-foreground">URL *</label>
+							<label className="mb-1 block text-[11px] text-muted-foreground">{t("sseUrl")} *</label>
 							<InputField
 								value={form.url}
 								onChange={(v) => setForm((f) => ({ ...f, url: v }))}
@@ -282,7 +285,7 @@ function McpServerForm({
 							/>
 						</div>
 						<div className="col-span-2">
-							<label className="mb-1 block text-[11px] text-muted-foreground">请求头 (每行一个 KEY=VALUE，支持 ${"{"}VAR{"}"} 引用)</label>
+							<label className="mb-1 block text-[11px] text-muted-foreground">{t("requestHeaders")}</label>
 							<TextareaField
 								value={form.headers}
 								onChange={(v) => setForm((f) => ({ ...f, headers: v }))}
@@ -293,15 +296,15 @@ function McpServerForm({
 					</>
 				)}
 				<div>
-					<label className="mb-1 block text-[11px] text-muted-foreground">启动超时 (ms)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("startupTimeout")}</label>
 					<InputField
 						value={form.startupTimeout}
 						onChange={(v) => setForm((f) => ({ ...f, startupTimeout: v }))}
-						placeholder="默认 10000"
+						placeholder={t("default10000")}
 					/>
 				</div>
 				<div className="col-span-2">
-					<label className="mb-1 block text-[11px] text-muted-foreground">自动批准工具 (逗号分隔)</label>
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("autoApproveTools")}</label>
 					<InputField
 						value={form.autoApprove}
 						onChange={(v) => setForm((f) => ({ ...f, autoApprove: v }))}
@@ -312,18 +315,18 @@ function McpServerForm({
 					<CheckboxField
 						checked={form.disabled}
 						onChange={(v) => setForm((f) => ({ ...f, disabled: v }))}
-						label="禁用此服务器"
+						label={t("disableServer")}
 					/>
 					<CheckboxField
 						checked={form.debug}
 						onChange={(v) => setForm((f) => ({ ...f, debug: v }))}
-						label="调试模式"
+						label={t("debugMode")}
 					/>
 				</div>
 			</div>
 			<div className="mt-3 flex justify-end gap-2">
 				<Button variant="ghost" size="sm" onClick={onCancel}>
-					取消
+					{t("cancel")}
 				</Button>
 				<Button
 					variant="primary"
@@ -371,10 +374,12 @@ function RemoteMcpSection({
 	addedNames,
 	onAdd,
 	onRemove,
+	t,
 }: {
 	addedNames: Set<string>;
 	onAdd: (m: MarketMcpServer) => Promise<void> | void;
 	onRemove: (name: string) => Promise<void> | void;
+	t: (key: string) => string;
 }): JSX.Element {
 	const token = useAtomValue(authTokenAtom);
 	const [items, setItems] = useState<MarketMcpServer[] | null>(null);
@@ -384,7 +389,7 @@ function RemoteMcpSection({
 
 	const load = useCallback(() => {
 		if (!token) {
-			setError("请先登录后再查看远程 MCP 列表");
+			setError(t("loginRequired"));
 			setItems([]);
 			return;
 		}
@@ -396,7 +401,7 @@ function RemoteMcpSection({
 				setError(null);
 			})
 			.catch((err: Error) => {
-				setError(err.message || "加载失败");
+				setError(err.message || t("loadFailed"));
 				setItems([]);
 			})
 			.finally(() => setLoading(false));
@@ -426,9 +431,9 @@ function RemoteMcpSection({
 		<div className="mt-8">
 			<div className="mb-3 flex items-center justify-between">
 				<div>
-					<SettingHeading section={SETTINGS_SECTION["mcp-remote-list"]} />
+					<SettingHeading t={t as any} section={SETTINGS_SECTION["mcp-remote-list"]} />
 					<p className="mt-0.5 text-[11px] text-muted-foreground">
-						Vetta 支持远程 MCP 服务器
+						{t("remoteMcpSupport")}
 					</p>
 				</div>
 				<Button variant="ghost" size="sm" onClick={load} disabled={loading}>
@@ -438,14 +443,14 @@ function RemoteMcpSection({
 							loading && "animate-spin",
 						)}
 					/>
-					刷新
+					{t("refresh")}
 				</Button>
 			</div>
 
-			<SettingSection section={SETTINGS_SECTION["mcp-remote-available"]}>
+			<SettingSection t={t as any} section={SETTINGS_SECTION["mcp-remote-available"]}>
 				{loading && (
 					<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-						加载中…
+						{t("loading")}
 					</div>
 				)}
 
@@ -455,7 +460,7 @@ function RemoteMcpSection({
 
 				{!loading && !error && items && items.length === 0 && (
 					<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-						暂无远程 MCP 服务器
+						{t("noRemoteMcp")}
 					</div>
 				)}
 
@@ -480,7 +485,7 @@ function RemoteMcpSection({
 										</span>
 										{added && (
 											<span className="rounded-full bg-green-500/10 px-1.5 py-0.5 text-[9px] font-medium text-green-400">
-												已添加
+												{t("added")}
 											</span>
 										)}
 									</div>
@@ -500,7 +505,7 @@ function RemoteMcpSection({
 										disabled={isBusy}
 										onClick={() => void handleAction(m, "remove")}
 									>
-										{isBusy ? "处理中…" : "移除"}
+										{isBusy ? t("processing") : t("remove")}
 									</Button>
 								) : (
 									<Button
@@ -509,7 +514,7 @@ function RemoteMcpSection({
 										disabled={isBusy}
 										onClick={() => void handleAction(m, "add")}
 									>
-										{isBusy ? "处理中…" : "添加"}
+										{isBusy ? t("processing") : t("add")}
 									</Button>
 								)}
 							</div>
@@ -521,6 +526,7 @@ function RemoteMcpSection({
 }
 
 export function McpSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [config, setConfig] = useState<McpConfigData | null>(null);
 	const [mode, setMode] = useState<McpEditMode>("visual");
 	const [saving, setSaving] = useState(false);
@@ -641,26 +647,26 @@ export function McpSettings(): JSX.Element {
 		try {
 			const parsed = JSON.parse(jsonText) as McpConfigData;
 			if (!parsed.mcpServers || typeof parsed.mcpServers !== "object") {
-				setJsonError("JSON 必须包含 mcpServers 对象");
+				setJsonError(t("jsonMustHaveMcpServers"));
 				return;
 			}
 			// Validate each server config based on transport type
 			for (const [name, srv] of Object.entries(parsed.mcpServers)) {
 				const type = (srv as { type?: string }).type ?? "stdio";
 				if (type !== "stdio" && type !== "http") {
-					setJsonError(`服务器 "${name}" 的 type 必须是 "stdio" 或 "http"`);
+					setJsonError(t("jsonTypeMustBeStdioOrHttp", { name }));
 					return;
 				}
 				if (type === "http") {
 					const httpSrv = srv as { url?: unknown };
 					if (!httpSrv.url || typeof httpSrv.url !== "string") {
-						setJsonError(`服务器 "${name}" 缺少 url 字段`);
+						setJsonError(t("jsonMissingUrl", { name }));
 						return;
 					}
 				} else {
 					const stdioSrv = srv as { command?: unknown };
 					if (!stdioSrv.command || typeof stdioSrv.command !== "string") {
-						setJsonError(`服务器 "${name}" 缺少 command 字段`);
+						setJsonError(t("jsonMissingCommand", { name }));
 						return;
 					}
 				}
@@ -668,7 +674,7 @@ export function McpSettings(): JSX.Element {
 			setJsonError(null);
 			await saveConfig(parsed);
 		} catch (e) {
-			setJsonError(`JSON 解析错误: ${(e as Error).message}`);
+			setJsonError(t("jsonParseError", { msg: (e as Error).message }));
 		}
 	}, [jsonText, saveConfig]);
 
@@ -688,9 +694,9 @@ export function McpSettings(): JSX.Element {
 	if (!config) {
 		return (
 			<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-				<h1 className="mb-6 text-[20px] font-bold text-foreground">MCP 服务器</h1>
+				<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("title")}</h1>
 				<div className="flex items-center justify-center py-16">
-					<span className="text-[13px] text-muted-foreground">加载中…</span>
+					<span className="text-[13px] text-muted-foreground">{t("loading")}</span>
 				</div>
 			</div>
 		);
@@ -702,10 +708,10 @@ export function McpSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between">
-				<h1 className="text-[20px] font-bold text-foreground">MCP 服务器</h1>
+				<h1 className="text-[20px] font-bold text-foreground">{t("title")}</h1>
 				<SegmentedControl
 					items={[
-						{ key: "visual" as McpEditMode, label: "视图", icon: "icon-[mdi--view-list-outline]" },
+						{ key: "visual" as McpEditMode, label: t("viewMode"), icon: "icon-[mdi--view-list-outline]" },
 						{ key: "json" as McpEditMode, label: "JSON", icon: "icon-[mdi--code-json]" },
 					]}
 					value={mode}
@@ -716,10 +722,10 @@ export function McpSettings(): JSX.Element {
 			{mode === "visual" ? (
 				<>
 					{/* Server list */}
-					<SettingSection section={SETTINGS_SECTION["mcp-server-list"]}>
+					<SettingSection t={t as any} section={SETTINGS_SECTION["mcp-server-list"]}>
 						{serverNames.length === 0 && !addingServer && (
 							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
-								尚未配置任何 MCP 服务器，点击下方按钮添加
+								{t("noServers")}
 							</div>
 						)}
 
@@ -744,7 +750,7 @@ export function McpSettings(): JSX.Element {
 												? "text-muted-foreground hover:bg-accent hover:text-foreground"
 												: "text-green-400 hover:bg-green-500/10",
 										)}
-										title={isDisabled ? "启用" : "禁用"}
+										title={isDisabled ? t("enable") : t("disable")}
 									>
 										<span className={`${isDisabled ? "icon-[mdi--toggle-switch-off-outline]" : "icon-[mdi--toggle-switch-outline]"} h-4 w-4`} />
 									</button>
@@ -756,7 +762,7 @@ export function McpSettings(): JSX.Element {
 											setExpandedServer(name);
 										}}
 										className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-										title="编辑"
+										title={t("edit")}
 									>
 										<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
 									</button>
@@ -767,7 +773,7 @@ export function McpSettings(): JSX.Element {
 											void handleDeleteServer(name);
 										}}
 										className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400"
-										title="删除"
+										title={t("delete")}
 									>
 										<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
 									</button>
@@ -802,7 +808,7 @@ export function McpSettings(): JSX.Element {
 													{server.displayName || name}
 													{isDisabled && (
 														<span className="ml-2 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-															已禁用
+															{t("disabledStatus")}
 														</span>
 													)}
 												</div>
@@ -831,7 +837,8 @@ export function McpSettings(): JSX.Element {
 													setServerForm({ ...emptyMcpServer });
 												}}
 												saving={saving}
-												saveLabel="保存"
+												saveLabel={t("save")}
+												t={t as any}
 											/>
 										</div>
 									)}
@@ -842,32 +849,32 @@ export function McpSettings(): JSX.Element {
 											{(server.displayName || server.description) && (
 												<div className="mb-3 grid grid-cols-1 gap-y-2 text-[12px]">
 													{server.displayName && (
-														<DetailItem label="显示名" value={server.displayName} />
+														<DetailItem label={t("displayName")} value={server.displayName} />
 													)}
-													<DetailItem label="名称 (key)" value={name} />
+													<DetailItem label={t("serverName")} value={name} />
 													{server.description && (
-														<DetailItem label="描述" value={server.description} />
+														<DetailItem label={t("description")} value={server.description} />
 													)}
 												</div>
 											)}
 											<div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12px]">
-												<DetailItem label="类型" value={isHttpMcpServerConfigData(server) ? "HTTP" : "stdio"} />
+												<DetailItem label={t("transportType")} value={isHttpMcpServerConfigData(server) ? "HTTP" : t("stdio")} />
 												{isHttpMcpServerConfigData(server) ? (
-													<DetailItem label="URL" value={server.url} />
+													<DetailItem label={t("sseUrl")} value={server.url} />
 												) : (
 													<>
-														<DetailItem label="命令" value={server.command} />
-														<DetailItem label="参数" value={server.args?.join(", ") || "—"} />
-														<DetailItem label="工作目录" value={server.cwd || "—"} />
+														<DetailItem label={t("command")} value={server.command} />
+														<DetailItem label={t("arguments")} value={server.args?.join(", ") || "—"} />
+														<DetailItem label={t("workDirectory")} value={server.cwd || "—"} />
 													</>
 												)}
-												<DetailItem label="启动超时" value={server.startupTimeout != null ? `${server.startupTimeout}ms` : "默认 (10s)"} />
-												<DetailItem label="调试模式" value={server.debug ? "开启" : "关闭"} />
-												<DetailItem label="自动批准" value={server.autoApprove?.join(", ") || "—"} />
+												<DetailItem label={t("startupTimeout")} value={server.startupTimeout != null ? `${server.startupTimeout}ms` : t("default10s")} />
+												<DetailItem label={t("debugMode")} value={server.debug ? t("statusEnabled") : t("statusDisabled")} />
+												<DetailItem label={t("autoApproveTools")} value={server.autoApprove?.join(", ") || "—"} />
 											</div>
 											{!isHttpMcpServerConfigData(server) && server.env && Object.keys(server.env).length > 0 && (
 												<div className="mt-3">
-													<div className="mb-1 text-[11px] text-muted-foreground">环境变量</div>
+													<div className="mb-1 text-[11px] text-muted-foreground">{t("envVariables")}</div>
 													<div className="rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
 														{Object.entries(server.env).map(([k, v]) => (
 															<div key={k}>{k}={v}</div>
@@ -877,7 +884,7 @@ export function McpSettings(): JSX.Element {
 											)}
 											{isHttpMcpServerConfigData(server) && server.headers && Object.keys(server.headers).length > 0 && (
 												<div className="mt-3">
-													<div className="mb-1 text-[11px] text-muted-foreground">请求头</div>
+													<div className="mb-1 text-[11px] text-muted-foreground">{t("requestHeaders")}</div>
 													<div className="rounded-lg bg-muted px-3 py-2 font-mono text-[11px] text-foreground">
 														{Object.entries(server.headers).map(([k, v]) => (
 															<div key={k}>{k}={v}</div>
@@ -903,7 +910,8 @@ export function McpSettings(): JSX.Element {
 										setServerForm({ ...emptyMcpServer });
 									}}
 									saving={saving}
-									saveLabel="添加"
+									saveLabel={t("addServer")}
+									t={t as any}
 								/>
 							</div>
 						)}
@@ -921,7 +929,7 @@ export function McpSettings(): JSX.Element {
 							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
 						>
 							<span className="icon-[mdi--plus] h-4 w-4" />
-							添加 MCP 服务器
+							{t("addMcpServer")}
 						</button>
 					)}
 				</>
@@ -929,14 +937,14 @@ export function McpSettings(): JSX.Element {
 				/* JSON mode */
 				<div className="mb-6">
 					<div className="mb-3 flex items-center justify-between">
-						<SettingHeading section={SETTINGS_SECTION["mcp-json"]} />
+						<SettingHeading t={t as any} section={SETTINGS_SECTION["mcp-json"]} />
 						<Button
 							variant="primary"
 							size="sm"
 							onClick={() => void handleJsonSave()}
 							disabled={saving}
 						>
-							{saving ? "保存中…" : "保存"}
+							{saving ? t("saving") : t("save")}
 						</Button>
 					</div>
 					<div className="overflow-hidden rounded-xl border border-border bg-muted">
@@ -968,12 +976,13 @@ export function McpSettings(): JSX.Element {
 					addedNames={addedServerNames}
 					onAdd={addRemoteServer}
 					onRemove={removeRemoteServer}
+					t={t as any}
 				/>
 			)}
 
 			{/* Config file path hint */}
 			<div className="mt-6 text-center text-[11px] text-muted-foreground/60">
-				配置文件路径: ~/.vetta/agent/mcp.json
+				{t("configFilePath")}: ~/.vetta/agent/mcp.json
 			</div>
 		</div>
 	);

@@ -7,6 +7,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@shared/components/ui/select";
+import { useTranslation } from "react-i18next";
 import { Switch } from "@shared/components/ui/switch";
 import {
 	activityPanelOpenAtom,
@@ -37,6 +38,7 @@ interface ModelOption {
 }
 
 export function KnowledgeBaseSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const navigate = useNavigate();
 	const setKnowledgeBaseEnabled = useSetAtom(knowledgeBaseEnabledAtom);
 	const setKnowledgeRetrievalActive = useSetAtom(knowledgeRetrievalActiveAtom);
@@ -53,7 +55,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
 	const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
-	// 云端模型目录(由 useAuth 在登录后流式写入)。与本地 models.json 合并,本地同 key 优先。
+	// {t("kbCloudOnly")}模型目录(由 useAuth 在登录后流式写入)。与本地 models.json 合并,本地同 key 优先。
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
 
 	useEffect(() => {
@@ -153,7 +155,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const handleProbe = useCallback(async () => {
 		const slash = modelKey.indexOf("/");
 		if (slash <= 0) {
-			setProbeResult({ ok: false, msg: "请先选择模型" });
+			setProbeResult({ ok: false, msg: t("kbSelectModelFirst") });
 			return;
 		}
 		setProbing(true);
@@ -163,7 +165,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			const result = await window.vetta.models.probe(ref);
 			setProbeResult({
 				ok: result.ok,
-				msg: result.ok ? (result.message ?? "可连通") : (result.error ?? "未知错误"),
+				msg: result.ok ? (result.message ?? t("kbTestOk")) : (result.error ?? t("kbTestUnknown")),
 			});
 		} finally {
 			setProbing(false);
@@ -177,13 +179,13 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			const res = await window.vetta.knowledge.scanNow();
 			setStatus(
 				res.reason === "no-model"
-					? "未选择整理模型，无法整理"
+					? t("kbNoModelForProcess")
 					: res.skipped
-						? "文件没有变化，这次不用整理"
-						: "已经开始整理了，整理记录里能看到进度",
+						? t("kbNoChanges")
+						: t("kbProcessing"),
 			);
 		} catch (err) {
-			setStatus(`没整理成功：${err instanceof Error ? err.message : String(err)}`);
+			setStatus(t("kbProcessFailed", { msg: err instanceof Error ? err.message : String(err) }));
 		} finally {
 			setBusy(null);
 		}
@@ -191,20 +193,20 @@ export function KnowledgeBaseSettings(): JSX.Element {
 
 	const handleClearWiki = useCallback(() => {
 		confirm({
-			title: "清空 wiki",
+			title: t("kbClearWikiTitle"),
 			message:
-				"将删除所有知识库已整理出的 wiki 笔记和整理记录（原始资料保留）。清空后下次整理会把全部资料重新整理一遍，可能消耗较多模型额度。确定继续？",
+				t("kbClearWikiMsg"),
 			variant: "danger",
-			confirmLabel: "清空",
+			confirmLabel: t("kbClearConfirm"),
 			onConfirm: () => {
 				void (async () => {
 					setBusy("clear");
 					setStatus(null);
 					try {
 						await window.vetta.knowledge.clearWiki();
-						setStatus("已清空 wiki，下次整理会把全部资料重新整理一遍");
+						setStatus(t("kbCleared"));
 					} catch (err) {
-						setStatus(`清空失败：${err instanceof Error ? err.message : String(err)}`);
+						setStatus(t("kbClearFailed", { msg: err instanceof Error ? err.message : String(err) }));
 					} finally {
 						setBusy(null);
 					}
@@ -220,7 +222,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		const cwd = config.knowledgeProcessingCwd;
 		const list = cwd ? ((await window.vetta.session.listSessions(cwd)) as SessionInfo[]) : [];
 		if (list.length === 0) {
-			setStatus("暂无加工记录");
+			setStatus(t("kbNoRecords"));
 			return;
 		}
 		setActivityPanelOpen(true);
@@ -240,25 +242,25 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-6 flex items-center justify-between gap-3">
-				<h1 className="text-[20px] font-bold text-foreground">知识库设置</h1>
+				<h1 className="text-[20px] font-bold text-foreground">{t("kbTitle")}</h1>
 				<button
 					type="button"
 					onClick={() => setHowItWorksOpen(true)}
 					className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
 					<span className="icon-[mdi--lightbulb-on-outline] h-4 w-4" />
-					<span>它如何工作</span>
+					<span>{t("kbHowItWorks")}</span>
 				</button>
 			</div>
 
 			<SettingSection
 				section={SETTINGS_SECTION["knowledge-processing"]}
-				description="把你放进知识库的资料，自动整理成方便 AI 查阅的笔记。聊天时 AI 会自动参考这些资料来回答。"
+				description={t("kbHowItWorksDesc")}
 			>
-				<SettingRow title="开启知识库" description="关闭后 AI 不再使用知识库，也会停止整理资料。">
+				<SettingRow title={t("kbEnable")} description={t("kbEnableDesc")}>
 					<Switch checked={enabled} onCheckedChange={handleToggle} />
 				</SettingRow>
-				<SettingRow title="多久整理一次" description="放进去的新资料，隔多久自动整理一次。选「永不自动整理」则只在你点「马上整理」时整理。">
+				<SettingRow title={t("kbInterval")} description={t("kbIntervalDesc")}>
 					<Select value={String(interval)} onValueChange={handleInterval} disabled={!enabled}>
 						<SelectTrigger className="h-7 min-w-[120px] px-2 py-1 text-[12px]">
 							<SelectValue />
@@ -266,16 +268,16 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						<SelectContent>
 							{POLL_INTERVALS.map((m) => (
 								<SelectItem key={m} value={String(m)} className="text-[12px]">
-									每 {m} 分钟
+									{t("kbEveryNMinutes", { m })}
 								</SelectItem>
 							))}
 							<SelectItem value={String(NEVER_INTERVAL)} className="text-[12px]">
-								永不自动整理
+								{t("kbNever")}
 							</SelectItem>
 						</SelectContent>
 					</Select>
 				</SettingRow>
-				<SettingRow title="同时整理几批" description="文件多时同时开几个 AI 会话并行整理，越大越快但越占用模型额度。">
+				<SettingRow title={t("kbParallel")} description={t("kbParallelDesc")}>
 					<Select value={String(agentConcurrency)} onValueChange={handleAgentConcurrency} disabled={!enabled}>
 						<SelectTrigger className="h-7 min-w-[120px] px-2 py-1 text-[12px]">
 							<SelectValue />
@@ -283,15 +285,15 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						<SelectContent>
 							{AGENT_CONCURRENCY_OPTIONS.map((n) => (
 								<SelectItem key={n} value={String(n)} className="text-[12px]">
-									{n} 个
+									{t("kbParallelN", { n })}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
 				</SettingRow>
 				<SettingRow
-					title="整理用哪个模型"
-					description="整理资料必须指定模型"
+					title={t("kbModel")}
+					description={t("kbModelDesc")}
 					border={false}
 				>
 					<div className="flex flex-wrap items-center gap-2">
@@ -302,7 +304,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 									enabled && !modelKey && "border-amber-500/50",
 								)}
 							>
-								<SelectValue placeholder="请选择模型（必选）" />
+								<SelectValue placeholder={t("kbSelectModel")} />
 							</SelectTrigger>
 							<SelectContent>
 								{[...grouped.entries()].map(([provider, items]) => (
@@ -311,7 +313,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 											{provider}
 											{items[0]?.remote && (
 												<span className="ml-1.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-													云端
+													{t("kbCloudOnly")}
 												</span>
 											)}
 										</SelectLabel>
@@ -330,7 +332,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 							disabled={!enabled || probing || !modelKey}
 							className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 						>
-							<span>测试连通</span>
+							<span>{t("kbTestConnect")}</span>
 							{probing ? (
 								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
 							) : probeResult?.ok ? (
@@ -345,28 +347,28 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						{enabled && !modelKey && (
 							<span className="flex basis-full items-center gap-1 text-[11px] text-amber-500">
 								<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />
-								未选择整理模型，自动整理不会运行
+								{t("kbNoModelSelected")}
 							</span>
 						)}
 					</div>
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["knowledge-actions"]} description={status ?? undefined}>
-				<SettingRow title="马上整理" description="不想等，现在就把新资料整理一遍。需先选择整理模型。">
+			<SettingSection t={t as any} section={SETTINGS_SECTION["knowledge-actions"]} description={status ?? undefined}>
+				<SettingRow title={t("kbProcessNow")} description={t("kbProcessNowDesc")}>
 					<button type="button" onClick={() => void handleScan()} disabled={!enabled || !modelKey || busy !== null} className={btnClass}>
-						<span>马上整理</span>
+						<span>{t("kbProcessNowBtn")}</span>
 						{busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
-				<SettingRow title="整理记录" description="看看 AI 每次都整理了哪些资料。">
+				<SettingRow title={t("kbRecords")} description={t("kbRecordsDesc")}>
 					<button type="button" onClick={() => void handleOpenRecords()} className={btnClass}>
-						<span>查看记录</span>
+						<span>{t("kbViewRecords")}</span>
 					</button>
 				</SettingRow>
 				<SettingRow
-					title="清空 wiki"
-					description="删除所有已整理的 wiki 笔记和整理记录（原始资料保留），下次整理会把全部资料重新整理一遍。"
+					title={t("kbClearWiki")}
+					description={t("kbClearWikiDesc")}
 					border={false}
 				>
 					<button
@@ -376,7 +378,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 						className="inline-flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[12px] text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-50"
 					>
 						<span className="icon-[mdi--trash-can-outline] h-3.5 w-3.5" />
-						<span>清空 wiki</span>
+						<span>{t("kbClearWikiBtn")}</span>
 						{busy === "clear" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>

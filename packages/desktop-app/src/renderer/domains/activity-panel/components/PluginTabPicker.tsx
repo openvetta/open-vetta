@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { cn } from "@shared/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export const DEFAULT_PLUGIN_TAB_ICON = "icon-[mdi--puzzle-outline]";
 
@@ -51,6 +52,7 @@ export function PluginTabPicker({
 }: PluginTabPickerProps): JSX.Element {
 	const [open, setOpen] = useState(false);
 	const hasOverflow = overflowTabs.length > 0;
+	const { t } = useTranslation("project");
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -76,7 +78,7 @@ export function PluginTabPicker({
 				{overflowTabs.length > 0 && (
 					<>
 						<div className="px-2 pb-1.5 pt-1 text-[11px] font-medium text-muted-foreground">
-							更多标签页
+							{t("tabPicker.moreTabs")}
 						</div>
 						{overflowTabs.map((tab) => (
 							<button
@@ -102,7 +104,7 @@ export function PluginTabPicker({
 				{hiddenTabs.length > 0 && (
 					<>
 						<div className="px-2 pb-1.5 pt-1 text-[11px] font-medium text-muted-foreground">
-							已隐藏面板
+							{t("tabPicker.hiddenPanels")}
 						</div>
 						{hiddenTabs.map((tab) => (
 							<button

@@ -1,5 +1,6 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useAtomValue } from "jotai";
+import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef } from "react";
 import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
 import { authUserAtom } from "@shared/store/auth-atoms";
@@ -45,6 +46,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 };
 
 export function SettingsPage(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const { tab: rawTab } = useParams({ strict: false }) as { tab?: string };
 	const navigate = useNavigate();
 	const isPersonal = useAtomValue(isPersonalModeAtom);
@@ -135,16 +137,16 @@ export function SettingsPage(): JSX.Element {
 				<div className={cn("drag-region", narrow ? "h-12" : "px-5 pb-4 pt-5")}>
 					{!narrow && (
 						<h1 className="text-[20px] font-bold tracking-[-0.02em] text-foreground">
-							设置
+							{t("title")}
 						</h1>
 					)}
 				</div>
 				<nav className={cn("flex flex-col gap-0.5", narrow ? "px-2" : "px-2.5")}>
-					{visibleTabs.map(({ key, label, icon }) => (
+					{visibleTabs.map(({ key, label, labelKey, icon }) => (
 						<button
 							key={key}
 							type="button"
-							title={narrow ? label : undefined}
+							title={narrow ? t(labelKey as any) : undefined}
 							onClick={() => void navigate({ to: "/settings/$tab", params: { tab: key } })}
 							className={cn(
 								"flex items-center rounded-lg text-[13px] font-medium transition-colors",
@@ -155,7 +157,7 @@ export function SettingsPage(): JSX.Element {
 							)}
 						>
 							<span className={cn(icon, "h-4 w-4 shrink-0")} />
-							{!narrow && label}
+							{!narrow && t(labelKey as any)}
 						</button>
 					))}
 				</nav>
