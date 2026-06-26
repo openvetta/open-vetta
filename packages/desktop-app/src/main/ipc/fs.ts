@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
+import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
 import { probeModelProvider } from "../models/probe.js";
 import { getLinuxSandboxCapability, getSandboxCapability, type SandboxCapability } from "../sandbox/capability.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
@@ -36,6 +37,8 @@ export interface DesktopConfig {
 	vettaCliAppPath?: string;
 	/** 系统通知总开关（「通用设置」）。缺省视为开启。 */
 	notificationsEnabled?: boolean;
+	/** 界面语言（见 ADR-0031）。缺省（undefined）= 首启跟随系统 locale。 */
+	language?: AppLanguage;
 	/** 实验性功能开关分组。缺省视为全部开启。 */
 	experimental?: ExperimentalConfig;
 	/** 知识库加工设置。 */
@@ -174,6 +177,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
+			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 		};
@@ -197,6 +201,7 @@ export function readConfigSync(): DesktopConfig {
 			vettaAppPath: typeof parsed.vettaAppPath === "string" ? parsed.vettaAppPath : undefined,
 			vettaCliAppPath: typeof parsed.vettaCliAppPath === "string" ? parsed.vettaCliAppPath : undefined,
 			notificationsEnabled: typeof parsed.notificationsEnabled === "boolean" ? parsed.notificationsEnabled : true,
+			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 		};
@@ -735,6 +740,7 @@ export function registerFsIpc(): () => void {
 			vettaAppPath: patch.vettaAppPath ?? current.vettaAppPath,
 			vettaCliAppPath: patch.vettaCliAppPath ?? current.vettaCliAppPath,
 			notificationsEnabled: patch.notificationsEnabled ?? current.notificationsEnabled,
+			language: patch.language ?? current.language,
 			experimental:
 				patch.experimental !== undefined
 					? normalizeExperimental({ ...current.experimental, ...patch.experimental })

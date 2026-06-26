@@ -1,6 +1,16 @@
 import { DEFAULT_THEME_ID } from "@shared/theme/themes";
 import { atom } from "jotai";
 import type { ReactNode } from "react";
+import { type AppLanguage, FALLBACK_LANGUAGE, isSupportedLanguage } from "@/shared/i18n/config";
+
+// ─── i18n ───
+// 初值取主进程同步暴露的当前语言（真相源 = desktop-config.language）。
+// 经 isSupportedLanguage 守卫，preload 未就绪/异常值时回落 FALLBACK_LANGUAGE。
+// 切换写主进程，见 useLanguage。
+const initialLanguage = typeof window !== "undefined" ? window.vetta?.i18n?.initialLanguage : undefined;
+export const languageAtom = atom<AppLanguage>(
+	isSupportedLanguage(initialLanguage) ? initialLanguage : FALLBACK_LANGUAGE,
+);
 
 // ─── Page header overrides ───
 // Pages can set these to override the default route-based title and inject

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useNavigate, useMatches } from "@tanstack/react-router";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import {
 	activeSessionAtom,
 	conversationBucketCwd,
@@ -23,28 +24,28 @@ import { ResizeHandle } from "@shared/components/ResizeHandle";
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 400;
 
+// label 在渲染期由 t(labelKey) 解析（模块级常量不存中文，见 AGENTS.md i18n 规范）。
 const NAV_ITEMS = [
 	{
 		type: "new-session",
-		label: "新会话",
+		labelKey: "sidebar.nav.newSession",
 		icon: "icon-[solar--pen-new-square-linear]",
-		title: "新会话",
 	},
-	{ type: "route", path: "/automation" as const, label: "自动化", icon: "icon-[solar--magic-stick-3-linear]" },
+	{ type: "route", path: "/automation" as const, labelKey: "sidebar.nav.automation", icon: "icon-[solar--magic-stick-3-linear]" },
 	{
 		type: "route",
 		path: "/batch-tasks" as const,
-		label: "批量任务",
+		labelKey: "sidebar.nav.batchTasks",
 		icon: "icon-[solar--clipboard-check-outline]",
 	},
 	{
 		type: "route",
 		path: "/knowledge" as const,
-		label: "知识库",
+		labelKey: "sidebar.nav.knowledge",
 		icon: "icon-[solar--library-linear]",
 		badge: "BETA",
 	},
-	{ type: "route", path: "/skills" as const, label: "扩展", icon: "icon-[solar--widget-5-linear]" },
+	{ type: "route", path: "/skills" as const, labelKey: "sidebar.nav.skills", icon: "icon-[solar--widget-5-linear]" },
 ] as const;
 
 interface SidebarProps {
@@ -79,6 +80,7 @@ function isRouteActive(path: string, currentPath: string): boolean {
 }
 
 export function Sidebar({ onOpenSession, onCollapse, floating = false }: SidebarProps): JSX.Element {
+	const { t } = useTranslation("project");
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
@@ -226,7 +228,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 						<button
 							type="button"
 							onClick={onOpenClawSettings}
-							title="Claw 已连接 · 点击打开设置"
+							title={t("sidebar.clawConnected")}
 							className="no-drag relative flex h-5 items-center gap-1 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/25"
 						>
 							<span className="relative flex h-1 w-1">
@@ -240,7 +242,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 						<button
 							type="button"
 							onClick={onCollapse}
-							title="隐藏侧边栏"
+							title={t("sidebar.hide")}
 							className="no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 						>
 							<span className="icon-[solar--sidebar-minimalistic-linear] h-4 w-4" />
@@ -280,7 +282,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 								}
 								void navigate({ to: item.path });
 							}}
-							title={item.type === "new-session" ? item.title : undefined}
+							title={item.type === "new-session" ? t(item.labelKey) : undefined}
 							className={`no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors ${
 								active
 									? "font-semibold text-foreground"
@@ -288,7 +290,7 @@ export function Sidebar({ onOpenSession, onCollapse, floating = false }: Sidebar
 							}`}
 						>
 							<span className={`${item.icon} relative z-10 h-4 w-4 shrink-0`} />
-							<span className="relative z-10">{item.label}</span>
+							<span className="relative z-10">{t(item.labelKey)}</span>
 							{"badge" in item && item.badge && (
 								<span className="relative z-10 rounded-full border border-primary/40 px-1.5 py-px text-[9px] font-semibold uppercase leading-tight tracking-wide text-primary">
 									{item.badge}
