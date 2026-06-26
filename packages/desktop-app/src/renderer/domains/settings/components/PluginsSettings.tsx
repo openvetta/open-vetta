@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { InstalledPlugin, PluginSettingSchema } from "@preload/api";
 import { Input } from "@shared/components/ui/input";
 import { Switch } from "@shared/components/ui/switch";
@@ -24,6 +25,7 @@ type ValuesByPlugin = Record<string, Record<string, unknown>>;
  * Values persist via window.vetta.plugins.setSettings, namespaced by plugin id.
  */
 export function PluginsSettings(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
 	const [values, setValues] = useState<ValuesByPlugin>({});
 	const tr = usePluginI18n();
@@ -57,11 +59,11 @@ export function PluginsSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">插件设置</h1>
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("pluginSettings.title")}</h1>
 
 			{plugins.length === 0 ? (
 				<div className="rounded-xl border border-border bg-muted px-5 py-4 text-[12px] text-muted-foreground">
-					暂无可配置的插件。安装声明了设置项的插件后会显示在这里。
+					{t("pluginSettings.noPlugin")}
 				</div>
 			) : (
 				plugins.map((plugin) => {
@@ -73,6 +75,7 @@ export function PluginsSettings(): JSX.Element {
 						id: `plugin-${plugin.id}`,
 						tab: "plugins",
 						title: tr(plugin, plugin.name),
+						titleKey: `plugin-${plugin.id}`,
 					};
 					return (
 						<SettingSection
@@ -171,6 +174,7 @@ function SettingControl({
 	value: unknown;
 	onChange: (value: unknown) => void;
 }): JSX.Element {
+	const { t } = useTranslation("settings");
 	switch (setting.type) {
 		case "boolean":
 			return <Switch checked={value === true} onCheckedChange={(checked) => onChange(checked)} />;
@@ -200,7 +204,7 @@ function SettingControl({
 			return (
 				<Select value={typeof value === "string" ? value : ""} onValueChange={(next) => onChange(next)}>
 					<SelectTrigger size="sm" className="h-8 min-w-[160px] text-[12px] @max-xl:w-full">
-						<SelectValue placeholder="请选择" />
+						<SelectValue placeholder={t("pleaseSelect")} />
 					</SelectTrigger>
 					<SelectContent>
 						{(setting.enum ?? []).map((option) => (
