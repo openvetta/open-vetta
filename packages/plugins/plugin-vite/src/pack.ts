@@ -283,6 +283,16 @@ async function collectRuntimeFiles(
 		}
 	}
 
+	// Plugin i18n catalogs (ADR-0033): bundle locales/<lang>.json so the host can
+	// load them alongside the manifest. Optional — absent for single-language plugins.
+	try {
+		for (const file of await collectFiles(resolve(rootDir, "locales"))) {
+			addFile(file.fullPath);
+		}
+	} catch {
+		// no locales/ directory — nothing to bundle
+	}
+
 	return [...packageFiles.values()].sort((a, b) => a.archivePath.localeCompare(b.archivePath));
 }
 

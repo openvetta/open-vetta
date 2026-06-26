@@ -1,4 +1,4 @@
-import { definePlugin, type PluginFilePreviewProps } from "@vetta/plugin-sdk";
+import { definePlugin, type PluginFilePreviewProps, useTranslation } from "@vetta/plugin-sdk";
 import { useEffect, useMemo, useState } from "react";
 import "./style.css";
 
@@ -23,6 +23,7 @@ function formatBytes(bytes: number): string {
 }
 
 function SvgPreview({ file }: PluginFilePreviewProps) {
+	const { t } = useTranslation();
 	const [state, setState] = useState<LoadState>({ status: "loading" });
 	const [mode, setMode] = useState<"preview" | "source">("preview");
 	const [zoom, setZoom] = useState(1);
@@ -38,7 +39,7 @@ function SvgPreview({ file }: PluginFilePreviewProps) {
 					if (!cancelled) setState({ status: "loaded", text });
 				})
 				.catch(() => {
-					if (!cancelled) setState({ status: "error", message: "无法读取此 SVG 文件" });
+					if (!cancelled) setState({ status: "error", message: t("error.read") });
 				});
 		};
 
@@ -73,14 +74,14 @@ function SvgPreview({ file }: PluginFilePreviewProps) {
 						className={`${tab} ${mode === "preview" ? tabActive : tabIdle}`}
 						onClick={() => setMode("preview")}
 					>
-						渲染
+						{t("tab.rendered")}
 					</button>
 					<button
 						type="button"
 						className={`${tab} ${mode === "source" ? tabActive : tabIdle}`}
 						onClick={() => setMode("source")}
 					>
-						源码
+						{t("tab.source")}
 					</button>
 				</div>
 
@@ -89,7 +90,7 @@ function SvgPreview({ file }: PluginFilePreviewProps) {
 						<button
 							type="button"
 							className={iconBtn}
-							title="缩小"
+							title={t("action.zoomOut")}
 							onClick={() => setZoom((z) => Math.max(0.1, +(z - 0.25).toFixed(2)))}
 						>
 							−
@@ -97,7 +98,7 @@ function SvgPreview({ file }: PluginFilePreviewProps) {
 						<button
 							type="button"
 							className="min-w-[44px] rounded-[7px] px-[4px] text-center text-[12px] tabular-nums text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-							title="重置缩放"
+							title={t("action.resetZoom")}
 							onClick={() => setZoom(1)}
 						>
 							{Math.round(zoom * 100)}%
@@ -105,7 +106,7 @@ function SvgPreview({ file }: PluginFilePreviewProps) {
 						<button
 							type="button"
 							className={iconBtn}
-							title="放大"
+							title={t("action.zoomIn")}
 							onClick={() => setZoom((z) => Math.min(8, +(z + 0.25).toFixed(2)))}
 						>
 							+
@@ -124,7 +125,7 @@ function SvgPreview({ file }: PluginFilePreviewProps) {
 			<div className="min-h-0 flex-1 overflow-hidden">
 				{state.status === "loading" && (
 					<div className="flex h-full items-center justify-center text-[13px] text-[var(--muted-foreground)]">
-						加载中…
+						{t("state.loading")}
 					</div>
 				)}
 				{state.status === "error" && (

@@ -101,7 +101,18 @@ export interface PluginManifest {
 	 * 与命令式 `ctx.ui.register*` 不同——纯静态清单数据、无权限位、无运行时注册（ADR-0003）。
 	 */
 	guidingWords?: string[];
+	/**
+	 * 缺译时的回退 locale（fallback 链：当前 locale → defaultLocale → 裸 key）。
+	 * 省略默认 "zh"（与宿主一致，见 ADR-0033）。译文文件本身在 `locales/<lang>.json`，
+	 * 由宿主加载、不在 manifest 内联。
+	 */
+	defaultLocale?: string;
 }
+
+/** 一份扁平 catalog：翻译 key → 本地化字符串。 */
+export type PluginLocaleCatalog = Record<string, string>;
+/** 插件随包发的全部 catalog，按 locale code 归集（如 "zh"、"en"）。 */
+export type PluginLocales = Record<string, PluginLocaleCatalog>;
 
 export interface InstalledPlugin {
 	id: string;
@@ -128,6 +139,13 @@ export interface InstalledPlugin {
 	author?: string;
 	/** 见 PluginManifest.guidingWords —— NewSessionPage 欢迎页消费。 */
 	guidingWords?: string[];
+	/** 缺译回退 locale（见 PluginManifest.defaultLocale）。 */
+	defaultLocale: string;
+	/**
+	 * 宿主加载的全部语言 catalog（main 读 `locales/<lang>.json`，随本对象一次性下发）。
+	 * 同时服务 manifest 占位符解析与运行期组件 `t()`（ADR-0033）。
+	 */
+	locales: PluginLocales;
 	enabled: boolean;
 	installedAt: string;
 	updatedAt: string;

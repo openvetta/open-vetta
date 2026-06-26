@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext } from "react";
 
 /**
  * 对话场景 slug——决定一个工具 / 会话页插槽在哪些类型的会话里激活或可见。
@@ -600,6 +600,72 @@ export interface PluginSettingsApi {
 	onChange(listener: (values: Record<string, unknown>) => void): Disposable;
 }
 
+// ─── i18n ───
+
+/** A flat catalog: translation key → localized string. */
+export type PluginLocaleCatalog = Record<string, string>;
+/** Every catalog a plugin ships, keyed by locale code (e.g. "zh", "en"). */
+export type PluginLocales = Record<string, PluginLocaleCatalog>;
+
+/** Replace `{{name}}` placeholders in a resolved string with `params`. */
+export function interpolatePluginText(text: string, params?: Record<string, string | number>): string {
+	if (!params) return text;
+	return text.replace(/\{\{(\w+)\}\}/g, (match, name: string) => (name in params ? String(params[name]) : match));
+}
+
+/**
+ * Resolve a bare catalog key against a plugin's catalogs. Fallback chain:
+ * current-locale catalog → the plugin's `defaultLocale` catalog → the bare key
+ * itself (a dev signal for a missing translation). Then interpolate `{{params}}`.
+ */
+export function resolveCatalogKey(
+	key: string,
+	locales: PluginLocales,
+	currentLocale: string,
+	defaultLocale: string,
+	params?: Record<string, string | number>,
+): string {
+	const fromCurrent = locales[currentLocale]?.[key];
+	const fromDefault = locales[defaultLocale]?.[key];
+	return interpolatePluginText(fromCurrent ?? fromDefault ?? key, params);
+}
+
+const I18N_KEY_PATTERN = /^%([^%]+)%$/;
+
+/**
+ * Resolve a host-rendered plugin string. A value of the exact form `%key%` is a
+ * catalog key (resolved via {@link resolveCatalogKey}); any other string is a
+ * literal and returned unchanged — backwards compatible with bare strings.
+ */
+export function resolvePluginText(
+	raw: string,
+	locales: PluginLocales,
+	currentLocale: string,
+	defaultLocale: string,
+	params?: Record<string, string | number>,
+): string {
+	const match = I18N_KEY_PATTERN.exec(raw);
+	if (!match) return raw;
+	return resolveCatalogKey(match[1], locales, currentLocale, defaultLocale, params);
+}
+
+export type PluginTranslate = (key: string, params?: Record<string, string | number>) => string;
+
+/**
+ * This plugin's i18n surface on the context. `locale` always equals the host's
+ * current language; `t` resolves a BARE catalog key (no `%...%` wrapper) against
+ * this plugin's catalogs at the current locale. Imperative — for plugin React
+ * components prefer the reactive {@link useTranslation} hook.
+ */
+export interface PluginI18nApi {
+	/** The host's current locale code (e.g. "zh"). */
+	readonly locale: string;
+	/** Resolve a bare catalog key at the current locale, with optional `{{params}}`. */
+	t: PluginTranslate;
+	/** Fired when the host language changes. */
+	onChange(listener: (locale: string) => void): Disposable;
+}
+
 export interface PluginContext {
 	plugin: {
 		id: string;
@@ -613,6 +679,7 @@ export interface PluginContext {
 	command: PluginCommandApi;
 	images: PluginImagesApi;
 	settings: PluginSettingsApi;
+	i18n: PluginI18nApi;
 }
 
 export interface PluginDefinition {
@@ -636,6 +703,8 @@ export interface PluginHostBridge {
 	useActiveConversation(): ConversationState;
 	useConversationMessages(): ConversationMessage[];
 	useEditImageAttachment(): PluginImageRef | null;
+	/** Reactive: the host's current locale code (e.g. "zh"). */
+	useLocale(): string;
 	conversation: PluginConversationApi;
 }
 
@@ -674,6 +743,47 @@ export const __ActivityTabContext = createContext<ActivityTabContextValue>({ cwd
 /** The panel scope of the activity tab this component is rendered in. */
 export function useActivityTab(): ActivityTabContextValue {
 	return useContext(__ActivityTabContext);
+}
+
+// ─── i18n context (host-provided, per plugin) ───
+
+export interface PluginI18nContextValue {
+	/** This plugin's catalogs, keyed by locale code. */
+	locales: PluginLocales;
+	/** Fallback locale when a key is missing in the current locale. */
+	defaultLocale: string;
+}
+
+/**
+ * Internal: the host wraps plugin-rendered components in this context's Provider,
+ * carrying THIS plugin's catalogs. Module Federation shares this single SDK
+ * instance, so the value the host provides is visible to {@link useTranslation}.
+ */
+export const __PluginI18nContext = createContext<PluginI18nContextValue>({
+	locales: {},
+	defaultLocale: "zh",
+});
+
+export interface PluginTranslation {
+	/** The host's current locale code (e.g. "zh"). */
+	locale: string;
+	/** Resolve a bare catalog key at the current locale, with optional `{{params}}`. */
+	t: PluginTranslate;
+}
+
+/**
+ * Reactive translation for plugin React components — re-renders when the host
+ * language changes. `t` resolves a BARE catalog key (no `%...%` wrapper) against
+ * THIS plugin's catalogs; the host provides them via __PluginI18nContext.
+ */
+export function useTranslation(): PluginTranslation {
+	const locale = requireBridge().useLocale();
+	const { locales, defaultLocale } = useContext(__PluginI18nContext);
+	const t = useCallback<PluginTranslate>(
+		(key, params) => resolveCatalogKey(key, locales, locale, defaultLocale, params),
+		[locales, locale, defaultLocale],
+	);
+	return { locale, t };
 }
 
 /** Reactive: the currently-active conversation's state. */

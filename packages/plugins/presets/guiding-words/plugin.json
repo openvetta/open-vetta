@@ -1,7 +1,7 @@
 {
 	"id": "guiding-words",
-	"name": "我能帮你",
-	"version": "0.1.0",
+	"name": "%plugin.name%",
+	"version": "0.1.1",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
@@ -10,14 +10,15 @@
 		"expose": "./plugin"
 	},
 	"permissions": [],
-	"description": "提供一组常用引导词，在新会话欢迎页一键开始对话。",
+	"description": "%plugin.description%",
 	"author": "Vetta",
+	"defaultLocale": "zh",
 	"guidingWords": [
-		"帮我写一篇500字的记叙文",
-		"帮我将Word转换为PDF",
-		"分析我的电脑缓存，并且帮我清理掉",
-		"帮我列一个本周的工作计划",
-		"帮我起草一份会议纪要",
-		"给我的桌面文件进行一次分类"
+		"%guidingWords.narrative%",
+		"%guidingWords.wordToPdf%",
+		"%guidingWords.cleanCache%",
+		"%guidingWords.weekPlan%",
+		"%guidingWords.meetingMinutes%",
+		"%guidingWords.classifyDesktop%"
 	]
 }
