@@ -1,6 +1,13 @@
 {
-	"default": "common",
-	"tenants": {
-		"common": ["guiding-words", "image-gen", "media-viewer", "office-viewer", "svg-viewer"]
-	}
+  "default": "common",
+  "tenants": {
+    "common": [
+      "guiding-words",
+      "image-gen",
+      "media-viewer",
+      "office-viewer",
+      "svg-viewer",
+      "git"
+    ]
+  }
 }
