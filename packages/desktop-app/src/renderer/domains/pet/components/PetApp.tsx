@@ -7,6 +7,7 @@ import {
 } from "../../../../shared/pet-config";
 import type { PetBridge } from "../../../../shared/pet-ipc";
 import { PetDebugOverlay } from "./PetDebugOverlay";
+import { PetSpeechBubble } from "./PetSpeechBubble";
 import { PetVideoSurface } from "./PetVideoSurface";
 import { getActionDuration, pickNextAction } from "../services/pet-action-picker";
 import {
@@ -18,6 +19,7 @@ import {
 	getVideoMap,
 } from "../services/pet-url-options";
 import { getVideoDisplaySize } from "../services/pet-video-size";
+import { usePetBubble } from "../hooks/usePetBubble";
 import { usePetHitbox } from "../hooks/usePetHitbox";
 import { usePetWindowInteractions } from "../hooks/usePetWindowInteractions";
 import { useWindowSize } from "../hooks/useWindowSize";
@@ -45,6 +47,7 @@ export function PetApp(): JSX.Element {
 	const appActionIdRef = useRef<PetActionId | undefined>(undefined);
 	const userOverrideUntilRef = useRef(0);
 	const userOverrideTimerRef = useRef<number | undefined>(undefined);
+	const { bubble, hideBubble, showBubble } = usePetBubble();
 
 	const action = PET_ACTIONS.find((item) => item.id === actionId);
 	const videoSrc = actionId ? videos[actionId] : undefined;
@@ -132,6 +135,19 @@ export function PetApp(): JSX.Element {
 
 	useEffect(() => {
 		return window.vettaPet?.onCommand((command) => {
+			if (command.type === "show-bubble") {
+				showBubble({
+					text: command.text,
+					...(command.source === undefined ? {} : { source: command.source }),
+					...(command.ttlMs === undefined ? {} : { ttlMs: command.ttlMs }),
+					...(command.priority === undefined ? {} : { priority: command.priority }),
+				});
+				return;
+			}
+			if (command.type === "hide-bubble") {
+				hideBubble(command.source);
+				return;
+			}
 			if (command.type === "set-debug-frame") {
 				setDebugFrame(command.enabled);
 				return;
@@ -183,7 +199,7 @@ export function PetApp(): JSX.Element {
 			setActionId((current) => pickNextAction(videos, current));
 			scheduleUserActionRelease(command.holdMs);
 		});
-	}, [videos]);
+	}, [hideBubble, showBubble, videos]);
 
 	const handleDebugVideoSizeChange = (size: number) => {
 		if (!actionId) return;
@@ -208,21 +224,30 @@ export function PetApp(): JSX.Element {
 				windowSize={windowSize}
 				onWindowSizeChange={(size) => setWindowSize({ width: size, height: size })}
 			/>
-			<PetVideoSurface
-				actionDescription={action?.description}
-				actionId={actionId}
-				baseSize={selectedVideoBaseSize}
-				debugFrame={debugFrame}
-				maxVideoSize={maxVideoSize}
-				shouldShowVideo={shouldShowVideo}
-				videoRef={videoRef}
-				videoSize={videoSize}
-				videoSrc={videoSrc}
-				hasNaturalSize={videoNaturalSize != null}
-				onError={() => setFailedVideoSrc(videoSrc)}
-				onLoadedMetadata={(size) => setVideoNaturalSize(size)}
-				onVideoSizeChange={handleDebugVideoSizeChange}
-			/>
+			<div
+				className="relative flex items-center justify-center"
+				style={{
+					width: videoNaturalSize ? `${videoSize.width}px` : "100%",
+					height: videoNaturalSize ? `${videoSize.height}px` : "100%",
+				}}
+			>
+				<PetSpeechBubble message={bubble} />
+				<PetVideoSurface
+					actionDescription={action?.description}
+					actionId={actionId}
+					baseSize={selectedVideoBaseSize}
+					debugFrame={debugFrame}
+					maxVideoSize={maxVideoSize}
+					shouldShowVideo={shouldShowVideo}
+					videoRef={videoRef}
+					videoSize={videoSize}
+					videoSrc={videoSrc}
+					hasNaturalSize={videoNaturalSize != null}
+					onError={() => setFailedVideoSrc(videoSrc)}
+					onLoadedMetadata={(size) => setVideoNaturalSize(size)}
+					onVideoSizeChange={handleDebugVideoSizeChange}
+				/>
+			</div>
 		</div>
 	);
 }

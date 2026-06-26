@@ -23,18 +23,23 @@ export function applyTheme(mode: ResolvedMode, themeId: string): void {
 	writeTokens(tokens);
 }
 
+function getStoredResolvedMode(mode: ThemeMode): ResolvedMode {
+	if (mode === "auto") {
+		return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+	}
+	return mode;
+}
+
+export function applyStoredTheme(): void {
+	const mode = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode | null) ?? "dark";
+	const themeId = localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID;
+	applyTheme(getStoredResolvedMode(mode), themeId);
+}
+
 // 启动时同步调用：在 React 挂载前把主题写入 inline style，避免冷启动闪烁。
 // mode = "auto" 时优先用 window.matchMedia 推测（同步、不依赖 IPC）。
 export function applyInitialTheme(): void {
-	const mode = (localStorage.getItem(MODE_STORAGE_KEY) as ThemeMode | null) ?? "dark";
-	const themeId = localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_THEME_ID;
-	let resolved: ResolvedMode;
-	if (mode === "auto") {
-		resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-	} else {
-		resolved = mode;
-	}
-	applyTheme(resolved, themeId);
+	applyStoredTheme();
 }
 
 const TRANSITION_CLASS = "theme-transitioning";

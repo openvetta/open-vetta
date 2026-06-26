@@ -13,6 +13,7 @@ export const PET_SET_VIDEO_HITBOX_CHANNEL = "vetta:pet:set-video-hitbox";
 
 export type PetResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type PetCommandSource = "app" | "user" | "config";
+export type PetBubblePriority = "normal" | "high";
 
 export type PetVideoHitbox = {
 	x: number;
@@ -49,6 +50,17 @@ export type PetCommand =
 			type: "set-video-base-size";
 			actionId: PetActionId;
 			baseSize: number;
+	  }
+	| {
+			type: "show-bubble";
+			text: string;
+			source?: PetCommandSource;
+			ttlMs?: number;
+			priority?: PetBubblePriority;
+	  }
+	| {
+			type: "hide-bubble";
+			source?: PetCommandSource;
 	  };
 
 export type PetCommandListener = (command: PetCommand) => void;
