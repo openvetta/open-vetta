@@ -1,30 +1,29 @@
-import { readFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { normalizePetConfig, type PetConfig } from "../shared/pet-config.js";
-import { atomicWriteJSON } from "./utils/atomic-write.js";
+import { createVersionedJsonConfigStore } from "./config/config-store.js";
+import { migratePetConfig } from "./config/pet/migrate-config.js";
+import { getAppLogger } from "./logger.js";
 
 const PET_CONFIG_PATH = join(homedir(), ".vetta", "pet-config.json");
+const log = getAppLogger("pet-config");
+
+const petConfigStore = createVersionedJsonConfigStore<PetConfig>({
+	path: PET_CONFIG_PATH,
+	name: "pet",
+	normalize: normalizePetConfig,
+	migrate: migratePetConfig,
+	logger: log,
+});
 
 export async function readPetConfig(): Promise<PetConfig> {
-	try {
-		const raw = await readFile(PET_CONFIG_PATH, "utf8");
-		return normalizePetConfig(JSON.parse(raw));
-	} catch {
-		return normalizePetConfig(undefined);
-	}
+	return petConfigStore.read();
 }
 
 export function readPetConfigSync(): PetConfig {
-	try {
-		const raw = readFileSync(PET_CONFIG_PATH, "utf8");
-		return normalizePetConfig(JSON.parse(raw));
-	} catch {
-		return normalizePetConfig(undefined);
-	}
+	return petConfigStore.readSync();
 }
 
 export async function writePetConfig(config: PetConfig): Promise<void> {
-	atomicWriteJSON(PET_CONFIG_PATH, normalizePetConfig(config));
+	return petConfigStore.write(config);
 }
