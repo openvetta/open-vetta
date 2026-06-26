@@ -1,6 +1,8 @@
-# Lottie Studio（系统插件）
+# Lottie Studio（外部插件）
 
 用 AI 生成 Lottie（Bodymovin）动画，并在侧边活动面板用 Skia / Skottie 实时预览与编辑可调属性（slot）。迁移自 [diffusionstudio/lottie](https://github.com/diffusionstudio/lottie) 的 text-to-lottie 技能。
+
+普通（外部）插件：不随 App 发布，需手动 `bun run build` 产出 zip，由用户在 App 内安装；声明的权限需用户手动授予。
 
 ## 能力
 
@@ -25,4 +27,4 @@ bun run build   # bunx vite build → dist/ + release/lottie-studio-<version>.zi
 bun run check   # bunx tsc --noEmit
 ```
 
-随 App 的 `build:presets` 自动构建并 staging（需在 `packages/plugins/tenants.json` 的对应租户列表中列出 `lottie-studio`）。
+构建出的 `release/lottie-studio-<version>.zip` 通过 App 的插件安装入口安装。安装后需授予插件声明的权限（agent 工具注册/执行、fs 读写、各 UI slot）。

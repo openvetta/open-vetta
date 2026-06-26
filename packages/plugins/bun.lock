@@ -40,6 +40,28 @@
         "vite": "^7.1.7",
       },
     },
+    "externals/lottie-studio": {
+      "name": "@vetta/plugin-lottie-studio",
+      "version": "0.1.0",
+      "dependencies": {
+        "canvaskit-wasm": "0.40.0",
+      },
+      "devDependencies": {
+        "@iconify-json/solar": "^1.2.5",
+        "@iconify/tailwind4": "^1.0.6",
+        "@tailwindcss/vite": "^4.1.12",
+        "@types/node": "^22.10.5",
+        "@types/react": "^19.1.1",
+        "@types/react-dom": "^19.1.1",
+        "@vetta/plugin-sdk": "workspace:*",
+        "@vetta/plugin-vite": "workspace:*",
+        "react": "19.1.1",
+        "react-dom": "19.1.1",
+        "tailwindcss": "^4.1.12",
+        "typescript": "^5.9.2",
+        "vite": "^7.1.7",
+      },
+    },
     "externals/mobile-ui-preview": {
       "name": "@vetta/plugin-mobile-ui-preview",
       "version": "0.1.0",
@@ -134,29 +156,6 @@
         "@tailwindcss/vite": "^4.1.12",
         "@types/geojson": "^7946.0.16",
         "@types/leaflet": "^1.9.21",
-        "@types/node": "^22.10.5",
-        "@types/react": "^19.1.1",
-        "@types/react-dom": "^19.1.1",
-        "@vetta/plugin-sdk": "workspace:*",
-        "@vetta/plugin-vite": "workspace:*",
-        "react": "19.1.1",
-        "react-dom": "19.1.1",
-        "tailwindcss": "^4.1.12",
-        "typescript": "^5.9.2",
-        "vite": "^7.1.7",
-      },
-    },
-    "presets/lottie-studio": {
-      "name": "@vetta/plugin-lottie-studio",
-      "version": "0.1.0",
-      "dependencies": {
-        "canvaskit-wasm": "0.40.0",
-        "fflate": "^0.8.2",
-      },
-      "devDependencies": {
-        "@iconify-json/solar": "^1.2.5",
-        "@iconify/tailwind4": "^1.0.6",
-        "@tailwindcss/vite": "^4.1.12",
         "@types/node": "^22.10.5",
         "@types/react": "^19.1.1",
         "@types/react-dom": "^19.1.1",
@@ -453,7 +452,7 @@
 
     "@vetta/plugin-demo-map": ["@vetta/plugin-demo-map@workspace:presets/demo-map"],
 
-    "@vetta/plugin-lottie-studio": ["@vetta/plugin-lottie-studio@workspace:presets/lottie-studio"],
+    "@vetta/plugin-lottie-studio": ["@vetta/plugin-lottie-studio@workspace:externals/lottie-studio"],
 
     "@vetta/plugin-media-viewer": ["@vetta/plugin-media-viewer@workspace:presets/media-viewer"],
 
