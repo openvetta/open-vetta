@@ -1,7 +1,10 @@
+import { DEFAULT_CONFIG_DIR_NAME, getVettaHomePath } from "@vetta/action-rpc";
 import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
+
+export { getVettaHomePath } from "@vetta/action-rpc";
 
 // =============================================================================
 // Package Detection
@@ -166,7 +169,9 @@ const pkg = JSON.parse(readFileSync(getPackageJsonPath(), "utf-8"));
 
 export const PACKAGE_NAME: string = pkg.name || "@vetta/coding-agent";
 export const APP_NAME: string = pkg.piConfig?.name || "vetta";
-export const CONFIG_DIR_NAME: string = pkg.piConfig?.configDir || ".vetta";
+// 项目内配置目录名（cwd/<name>），用品牌默认名，不随 VETTA_CONFIG_DIR 变化。
+// home 根目录名才受 VETTA_CONFIG_DIR 覆盖（见 action-rpc 的 getVettaHomePath）。
+export const CONFIG_DIR_NAME: string = DEFAULT_CONFIG_DIR_NAME;
 export const VERSION: string = pkg.version;
 
 // e.g., PI_CODING_AGENT_DIR or TAU_CODING_AGENT_DIR
@@ -199,7 +204,7 @@ export function getAgentDir(): string {
 		if (envDir.startsWith("~/")) return homedir() + envDir.slice(1);
 		return envDir;
 	}
-	return join(homedir(), CONFIG_DIR_NAME, "agent");
+	return join(getVettaHomePath(), "agent");
 }
 
 /** Get path to user's custom themes directory */
@@ -249,15 +254,15 @@ export function getDebugLogPath(): string {
 
 /** Get the scene directory (e.g., ~/.vetta/scene/) */
 export function getSceneDir(): string {
-	return join(homedir(), CONFIG_DIR_NAME, "scene");
+	return join(getVettaHomePath(), "scene");
 }
 
 /** Get the user-level skills directory (e.g., ~/.vetta/skills/) */
 export function getUserSkillsDir(): string {
-	return join(homedir(), CONFIG_DIR_NAME, "skills");
+	return join(getVettaHomePath(), "skills");
 }
 
 /** Get the knowledge base root directory (e.g., ~/.vetta/knowledges/) */
 export function getKnowledgeDir(): string {
-	return join(homedir(), CONFIG_DIR_NAME, "knowledges");
+	return join(getVettaHomePath(), "knowledges");
 }

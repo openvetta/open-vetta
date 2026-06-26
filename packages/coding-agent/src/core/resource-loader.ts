@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import chalk from "chalk";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../config.js";
 import { loadThemeFromPath, type Theme } from "../modes/interactive/theme/theme.js";
 import type { ResourceDiagnostic } from "./diagnostics.js";
 
@@ -513,7 +513,7 @@ export class DefaultResourceLoader implements ResourceLoader {
 		}
 		// Market-skills manifest toggles which skills are active even when files
 		// don't change, so include it in the fingerprint.
-		const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
+		const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
 		try {
 			const stats = statSync(manifestPath);
 			parts.push(`M:${manifestPath}:${stats.mtimeMs}:${stats.size}`);
@@ -558,8 +558,8 @@ export class DefaultResourceLoader implements ResourceLoader {
 			}
 		}
 		// Filter out disabled market skills/scenes based on manifest
-		const marketSkillsDir = resolve(join(homedir(), ".vetta", "skills"));
-		const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
+		const marketSkillsDir = resolve(join(getVettaHomePath(), "skills"));
+		const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
 		let disabledNames: Set<string> | undefined;
 		if (existsSync(manifestPath)) {
 			try {

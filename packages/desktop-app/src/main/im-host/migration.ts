@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, renameSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 
 /**
  * Detect and import legacy im-gateway configuration written by older
@@ -19,7 +19,7 @@ import { join } from "node:path";
  * so the prompt does not re-fire.
  */
 
-const LEGACY_DIR = join(homedir(), ".vetta", "im-gateway");
+const LEGACY_DIR = join(getVettaHomePath(), "im-gateway");
 const LEGACY_CONFIG = join(LEGACY_DIR, "config.yaml");
 const LEGACY_CREDENTIALS = join(LEGACY_DIR, "credentials.yaml");
 const LEGACY_STATE = join(LEGACY_DIR, "state.json");

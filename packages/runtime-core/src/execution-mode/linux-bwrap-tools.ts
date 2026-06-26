@@ -1,7 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve as resolvePath } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import {
 	createBashTool,
 	createEditTool,
@@ -191,7 +192,7 @@ function readConfiguredVettaPaths(env: NodeJS.ProcessEnv | undefined): {
 	vettaAppPath?: string;
 	vettaCliAppPath?: string;
 } {
-	const vettaHome = env?.VETTA_HOME ?? process.env.VETTA_HOME ?? join(homedir(), ".vetta");
+	const vettaHome = env?.VETTA_HOME ?? getVettaHomePath();
 	const configPath = join(vettaHome, "desktop-config.json");
 	try {
 		const parsed = JSON.parse(readFileSync(configPath, "utf-8")) as {

@@ -1,11 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import type { SessionExecutionMode } from "../../../../runtime-core/src/index.js";
 import { type ExecutionModeOverride, normalizeExecutionModeOverride } from "../execution-mode.js";
 
-const CONFIG_DIR = join(homedir(), ".vetta");
+const CONFIG_DIR = getVettaHomePath();
 const TASKS_FILE = join(CONFIG_DIR, "scheduled-tasks.json");
 const RECORDS_DIR = join(CONFIG_DIR, "task-records");
 
@@ -63,7 +63,7 @@ function backfillTasks(tasks: ScheduledTask[]): ScheduledTask[] {
 			(task as ScheduledTask).isOnce = false;
 		}
 		if (!("cwd" in task)) {
-			(task as ScheduledTask).cwd = `${homedir()}/.vetta/workspace`;
+			(task as ScheduledTask).cwd = join(getVettaHomePath(), "workspace");
 		}
 		task.executionMode = normalizeExecutionModeOverride(task.executionMode, "full-access");
 	}

@@ -1,7 +1,7 @@
 import { accessSync, constants, readdirSync } from "node:fs";
 import * as os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../../config.js";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const NARROW_NO_BREAK_SPACE = "\u202F";
@@ -285,7 +285,7 @@ export function isProtectedSkillOrScenePath(absolutePath: string, cwd: string): 
 	const resolved = resolvePath(absolutePath);
 	const protectedDirs = [
 		resolvePath(join(getAgentDir(), "skills")),
-		resolvePath(join(os.homedir(), CONFIG_DIR_NAME, "skills")),
+		resolvePath(join(getVettaHomePath(), "skills")),
 		resolvePath(getSceneDir()),
 		resolvePath(cwd, CONFIG_DIR_NAME, "skills"),
 		resolvePath(join(os.homedir(), ".agents", "skills")),

@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
 	PluginEditImageInput,
 	PluginGenerateImageInput,
@@ -45,7 +45,7 @@ interface ImageRecord {
 
 type ImageIndex = Record<string, ImageRecord>;
 
-const baseDirRoot = join(homedir(), ".vetta", "plugin-images");
+const baseDirRoot = join(getVettaHomePath(), "plugin-images");
 
 function pluginDir(pluginId: string): string {
 	return join(baseDirRoot, pluginId);
