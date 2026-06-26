@@ -3,6 +3,7 @@ import type { ActionApprovalBroker } from "../app-actions/approval-broker.js";
 import { registerNotificationIpc } from "../notifications/index.js";
 import { registerActionApprovalIpc } from "./action-approval.js";
 import { registerDebugIpc } from "./debug.js";
+import { registerDiagnosticsIpc } from "./diagnostics.js";
 import { registerDialogIpc } from "./dialog.js";
 import { registerDownloadsIpc } from "./downloads.js";
 import { registerFlowingIpc } from "./flowing.js";
@@ -41,6 +42,7 @@ interface IpcTeardown {
 	teardownPlugins: () => void;
 	teardownNotifications: () => void;
 	teardownPet: () => void;
+	teardownDiagnostics: () => void;
 }
 
 export function registerAllIpc(
@@ -68,6 +70,7 @@ export function registerAllIpc(
 		teardownPlugins: registerPluginsIpc(),
 		teardownNotifications: registerNotificationIpc(webContents),
 		teardownPet: registerPetIpc(),
+		teardownDiagnostics: registerDiagnosticsIpc(),
 	};
 }
 
@@ -92,6 +95,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownPlugins();
 	teardown.teardownNotifications();
 	teardown.teardownPet();
+	teardown.teardownDiagnostics();
 }
 
 export { registerBatchTasksIpc } from "./batch-tasks.js";
