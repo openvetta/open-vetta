@@ -199,6 +199,21 @@
 :root {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+
+	--cursor-default: url("/cursors/default.png") 3 3, default;
+	--cursor-click: url("/cursors/click.png") 3 3, pointer;
+	--cursor-help: url("/cursors/help.png") 3 2, help;
+	--cursor-hover: url("/cursors/hover.png") 3 3, pointer;
+	--cursor-horizontal-resize: url("/cursors/horizontal_resize.png") 15 13,
+		ew-resize;
+	--cursor-loading: url("/cursors/loading.png") 14 15, wait;
+	--cursor-move: url("/cursors/move.png") 15 14, move;
+	--cursor-not-allowed: url("/cursors/not_allowed.png") 15 15, not-allowed;
+	--cursor-pointer: url("/cursors/pointer.png") 3 2, pointer;
+	--cursor-text: url("/cursors/text.png") 13 15, text;
+	--cursor-vertical-resize: url("/cursors/vertical_resize.png") 12 15, ns-resize;
+	--cursor-diagonal-resize: url("/cursors/diagonal_resize.png") 14 15,
+		nwse-resize;
 }
 
 * {
@@ -215,6 +230,92 @@ body {
 
 #root {
 	min-height: 100vh;
+}
+
+html,
+body,
+#root {
+	cursor: var(--cursor-default);
+}
+
+button,
+a,
+label,
+summary,
+select,
+[role="button"],
+.cursor-pointer {
+	cursor: var(--cursor-pointer);
+}
+
+button:hover,
+a:hover,
+label:hover,
+summary:hover,
+select:hover,
+[role="button"]:hover,
+.cursor-pointer:hover {
+	cursor: var(--cursor-hover);
+}
+
+button:active,
+a:active,
+label:active,
+summary:active,
+select:active,
+[role="button"]:active,
+.cursor-pointer:active {
+	cursor: var(--cursor-click);
+}
+
+input,
+textarea,
+[contenteditable="true"],
+.cursor-text {
+	cursor: var(--cursor-text);
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"],
+.cursor-not-allowed {
+	cursor: var(--cursor-not-allowed);
+}
+
+.cursor-default {
+	cursor: var(--cursor-default);
+}
+
+.cursor-help {
+	cursor: var(--cursor-help);
+}
+
+.cursor-wait,
+.cursor-progress {
+	cursor: var(--cursor-loading);
+}
+
+.cursor-move,
+.cursor-grab,
+.cursor-grabbing {
+	cursor: var(--cursor-move);
+}
+
+.cursor-col-resize,
+.cursor-ew-resize {
+	cursor: var(--cursor-horizontal-resize);
+}
+
+.cursor-row-resize,
+.cursor-ns-resize {
+	cursor: var(--cursor-vertical-resize);
+}
+
+.cursor-nwse-resize,
+.cursor-nesw-resize {
+	cursor: var(--cursor-diagonal-resize);
 }
 
 /* macOS-style overlay scrollbars: hidden by default, fade in on hover.
