@@ -32,6 +32,38 @@
 				"winterSolstice": {
 					"label": "Winter Solstice bubble",
 					"description": "Ice blue background with Winter Solstice corner decorations."
+				},
+				"aprilFools": {
+					"label": "April Fools' bubble",
+					"description": "Light purple background with April Fools' corner decorations."
+				},
+				"childrenDay": {
+					"label": "Children's Day bubble",
+					"description": "Bright yellow background with Children's Day corner decorations."
+				},
+				"christmas": {
+					"label": "Christmas bubble",
+					"description": "Light green background with Christmas corner decorations."
+				},
+				"halloween": {
+					"label": "Halloween bubble",
+					"description": "Warm orange background with Halloween corner decorations."
+				},
+				"laborDay": {
+					"label": "Labor Day bubble",
+					"description": "Warm orange background with Labor Day corner decorations."
+				},
+				"nationalDay": {
+					"label": "National Day bubble",
+					"description": "Warm red background with National Day corner decorations."
+				},
+				"songkran": {
+					"label": "Songkran bubble",
+					"description": "Light blue background with Songkran corner decorations."
+				},
+				"valentineDay": {
+					"label": "Valentine's Day bubble",
+					"description": "Light pink background with Valentine's Day corner decorations."
 				}
 			}
 		}
