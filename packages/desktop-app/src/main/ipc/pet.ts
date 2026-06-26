@@ -1,4 +1,7 @@
-import { ipcMain } from "electron";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { app, ipcMain } from "electron";
+import type { PetDecoration } from "../../preload/api-types/pet.js";
 import { isPetActionId, normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
 import {
 	PET_BEGIN_WINDOW_RESIZE_CHANNEL,
@@ -13,6 +16,7 @@ import {
 	type PetResizeCorner,
 	type PetVideoHitbox,
 } from "../../shared/pet-ipc.js";
+import { MEDIA_PROTOCOL_SCHEME } from "../media-protocol.js";
 import { readPetConfig, writePetConfig } from "../pet-config-store.js";
 import {
 	applyPetConfig,
@@ -27,15 +31,40 @@ import {
 	setPetWindowSize,
 	showPetWindow,
 } from "../pet-window.js";
+import { allowProjectRoot } from "./fs.js";
 
 const CHANNELS = {
 	GET_CONFIG: "vetta:pet:get-config",
 	SET_CONFIG: "vetta:pet:set-config",
 	SHOW: "vetta:pet:show",
 	HIDE: "vetta:pet:hide",
+	GET_DECORATIONS: "vetta:pet:get-decorations",
 } as const;
 
 const PET_RESIZE_CORNERS = new Set<PetResizeCorner>(["top-left", "top-right", "bottom-left", "bottom-right"]);
+const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
+const buildDir = app.isPackaged ? join(process.resourcesPath, "build") : join(appRoot, "build");
+const petMediaDir = join(buildDir, "pet");
+const PET_DECORATIONS = [
+	{ id: "monitor", fileName: "blank_black_computer_monitor.png", label: "显示器" },
+	{ id: "santa", fileName: "stoat_christmas_santa_outfit.png", label: "圣诞装" },
+	{ id: "business", fileName: "stoat_business_suit_lawyer.png", label: "商务装" },
+	{ id: "office", fileName: "stoat_pray_microsoft_office.png", label: "办公祈祷" },
+	{ id: "peeking-monitor", fileName: "stoat_peeking_from_monitor.png", label: "探出显示器" },
+	{ id: "dragon-boat", fileName: "stoat_dragon_boat_festival.png", label: "端午装饰" },
+] as const;
+
+function getPetDecorations(): PetDecoration[] {
+	allowProjectRoot(petMediaDir);
+	return PET_DECORATIONS.map((decoration) => {
+		const path = join(petMediaDir, decoration.fileName);
+		return {
+			...decoration,
+			found: existsSync(path),
+			url: `${MEDIA_PROTOCOL_SCHEME}://local/stream?path=${encodeURIComponent(path)}`,
+		};
+	});
+}
 
 function isPetResizeCorner(value: unknown): value is PetResizeCorner {
 	return typeof value === "string" && PET_RESIZE_CORNERS.has(value as PetResizeCorner);
@@ -84,6 +113,10 @@ export function registerPetIpc(): () => void {
 
 	ipcMain.handle(CHANNELS.HIDE, async (): Promise<PetConfig> => {
 		return persistPetConfig({ enabled: false });
+	});
+
+	ipcMain.handle(CHANNELS.GET_DECORATIONS, (): PetDecoration[] => {
+		return getPetDecorations();
 	});
 
 	ipcMain.handle(PET_RESIZE_BY_WHEEL_CHANNEL, async (_event, deltaY: unknown): Promise<void> => {
@@ -141,6 +174,7 @@ export function registerPetIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.SET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.SHOW);
 		ipcMain.removeHandler(CHANNELS.HIDE);
+		ipcMain.removeHandler(CHANNELS.GET_DECORATIONS);
 		ipcMain.removeHandler(PET_RESIZE_BY_WHEEL_CHANNEL);
 		ipcMain.removeHandler(PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL);
 		ipcMain.removeHandler(PET_MOVE_WINDOW_BY_CHANNEL);
