@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { createWriteStream, existsSync, readdirSync, statSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { type Static, Type } from "@sinclair/typebox";
 import { spawn } from "child_process";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir } from "../../../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../../../config.js";
 import {
 	decodeTextBuffer,
 	getDefaultShellCommandPrefix,
@@ -37,7 +37,7 @@ type DirSnapshot = Map<string, number>;
 function getProtectedDirs(cwd: string): string[] {
 	return [
 		resolve(join(getAgentDir(), "skills")),
-		resolve(join(homedir(), CONFIG_DIR_NAME, "skills")),
+		resolve(join(getVettaHomePath(), "skills")),
 		resolve(getSceneDir()),
 		resolve(cwd, CONFIG_DIR_NAME, "skills"),
 	].filter((dir) => existsSync(dir));

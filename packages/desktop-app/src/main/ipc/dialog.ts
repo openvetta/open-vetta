@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import { basename, join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import { dialog, ipcMain } from "electron";
 import { getAppLogger } from "../logger.js";
 import { allowProjectRoot } from "./fs.js";
@@ -29,7 +29,7 @@ const EXT_BY_MIME: Record<string, string> = {
 
 /** 用户附加图片的临时缓存根目录：~/.vetta/image-cache/<sessionId>/ */
 function imageCacheDir(): string {
-	return join(homedir(), ".vetta", "image-cache");
+	return join(getVettaHomePath(), "image-cache");
 }
 
 /** 文件名/目录名安全化：runtimeId 通常是 uuid，但仍兜底剔除非法字符。 */

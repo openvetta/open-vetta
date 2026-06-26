@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL } from "node:url";
 import { getVettaHomePath, VETTA_HOME_ENV } from "@vetta/action-rpc";
@@ -470,7 +470,7 @@ if (!gotSingleLock) {
 		// 顺带把 in-tree session 目录（<cwd>/.vetta/sessions）也建好，
 		// 让默认项目走与批量项目一致的会话布局，避免设备相关的编码路径。
 		try {
-			await mkdir(join(homedir(), ".vetta", "conversation", ".vetta", "sessions"), { recursive: true });
+			await mkdir(join(getVettaHomePath(), "conversation", ".vetta", "sessions"), { recursive: true });
 		} catch (err) {
 			mainLog.error("failed to ensure default conversation dir", err);
 		}
@@ -478,7 +478,7 @@ if (!gotSingleLock) {
 		// im-gateway 独立 cwd（ADR-0005）：跟桌面「对话」物理分家。先把空目录建好，
 		// 这样 sidecar 启动前 desktop 的 Claw tab 也能正常 listSessions（拿到空列表）。
 		try {
-			await mkdir(join(homedir(), ".vetta", "im-gateway", "conversation", ".vetta", "sessions"), {
+			await mkdir(join(getVettaHomePath(), "im-gateway", "conversation", ".vetta", "sessions"), {
 				recursive: true,
 			});
 		} catch (err) {

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join, normalize, resolve } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
 	AgentPluginContinuationContribution,
 	AgentPluginRuntimeConfig,
@@ -23,11 +23,11 @@ import type {
 import { getAppLogger } from "../logger.js";
 
 const PLUGIN_API_VERSION = "1.0.0";
-const pluginsBaseDir = join(homedir(), ".vetta", "plugins");
-const manifestPath = join(homedir(), ".vetta", "plugins-manifest.json");
-const tmpBaseDir = join(homedir(), ".vetta", "tmp", "plugins");
+const pluginsBaseDir = join(getVettaHomePath(), "plugins");
+const manifestPath = join(getVettaHomePath(), "plugins-manifest.json");
+const tmpBaseDir = join(getVettaHomePath(), "tmp", "plugins");
 // 系统插件的用户态偏好（目前仅停用开关），与用户插件注册表分离（ADR-0024）。
-const systemPrefsPath = join(homedir(), ".vetta", "system-plugin-prefs.json");
+const systemPrefsPath = join(getVettaHomePath(), "system-plugin-prefs.json");
 
 type PluginManifestFile = Record<string, InstalledPlugin>;
 type SystemPluginPrefs = Record<string, { enabled: boolean; disabledCommands?: string[] }>;
@@ -858,7 +858,7 @@ export function getPluginsBaseDir(): string {
 // 插件设置（VSCode 式）—— 按 plugin id 命名空间存值，与声明 schema 分离。
 // =============================================================================
 
-const pluginSettingsPath = join(homedir(), ".vetta", "plugin-settings.json");
+const pluginSettingsPath = join(getVettaHomePath(), "plugin-settings.json");
 type PluginSettingsStore = Record<string, Record<string, unknown>>;
 
 function readPluginSettingsStore(): PluginSettingsStore {
