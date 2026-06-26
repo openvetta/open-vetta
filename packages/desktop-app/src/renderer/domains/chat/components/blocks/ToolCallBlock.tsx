@@ -9,6 +9,7 @@ import {
 	pluginToolCallSlotsAtom,
 	type ToolCallBlock,
 } from "@shared/store/atoms";
+import { PluginI18nBoundary } from "../../../plugins/runtime/plugin-i18n";
 import { AskUserQuestionView } from "./tool-views/AskUserQuestionView";
 import { BashTerminalCard } from "./tool-views/BashTerminalCard";
 import { EditDiffView } from "./tool-views/EditDiffView";
@@ -106,16 +107,18 @@ export function ToolCallBlockView({ block, exportMode = false }: ToolCallBlockPr
 		const SlotComponent = pluginRenderer.component;
 		return (
 			<PluginToolCallErrorBoundary>
-				<SlotComponent
-					toolCall={{
-						toolCallId: block.toolCallId,
-						toolName: block.toolName,
-						args: block.args,
-						status: block.status,
-						result: block.result,
-						isError: block.isError,
-					}}
-				/>
+				<PluginI18nBoundary pluginId={pluginRenderer.pluginId}>
+					<SlotComponent
+						toolCall={{
+							toolCallId: block.toolCallId,
+							toolName: block.toolName,
+							args: block.args,
+							status: block.status,
+							result: block.result,
+							isError: block.isError,
+						}}
+					/>
+				</PluginI18nBoundary>
 			</PluginToolCallErrorBoundary>
 		);
 	}

@@ -4,6 +4,7 @@ import {
 	editImageAttachmentAtom,
 	inputValueAtom,
 	isStreamingAtom,
+	languageAtom,
 	selectedModelAtom,
 } from "@shared/store/atoms";
 import type { Message } from "@vetta/ai";
@@ -289,11 +290,16 @@ function useEditImageAttachment(): PluginImageRef | null {
 	return useAtomValue(editImageAttachmentAtom);
 }
 
+function useLocale(): string {
+	return useAtomValue(languageAtom);
+}
+
 /** The bridge the loader uses to build ctx.conversation (gated per plugin). */
 export const pluginHostBridge: PluginHostBridge = {
 	useActiveConversation,
 	useConversationMessages,
 	useEditImageAttachment,
+	useLocale,
 	conversation,
 };
 

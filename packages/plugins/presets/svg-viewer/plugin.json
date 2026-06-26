@@ -1,7 +1,8 @@
 {
 	"id": "svg-viewer",
-	"name": "SVG Viewer",
-	"version": "0.1.0",
+	"name": "%plugin.name%",
+	"version": "0.1.1",
+	"defaultLocale": "zh",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
@@ -11,6 +12,6 @@
 	},
 	"styles": ["dist/style.css"],
 	"permissions": ["ui.slot.file-preview"],
-	"description": "Preview .svg files with a rendered/source toggle, zoom and a checkerboard backdrop.",
+	"description": "%plugin.description%",
 	"author": "Vetta"
 }

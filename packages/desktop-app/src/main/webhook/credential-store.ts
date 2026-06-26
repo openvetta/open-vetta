@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import type { WebhookEndpointSecret } from "./types.js";
 
 /**
@@ -14,7 +14,7 @@ import type { WebhookEndpointSecret } from "./types.js";
 
 export type WebhookCredentialsMap = Record<string, WebhookEndpointSecret>;
 
-const DEFAULT_DIR = join(homedir(), ".vetta", "desktop-app");
+const DEFAULT_DIR = join(getVettaHomePath(), "desktop-app");
 const DEFAULT_FILE = join(DEFAULT_DIR, "webhook-credentials.json");
 
 function ensureDir(dir: string): void {

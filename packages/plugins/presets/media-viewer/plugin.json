@@ -1,7 +1,8 @@
 {
 	"id": "media-viewer",
-	"name": "Media Viewer",
-	"version": "0.1.2",
+	"name": "%plugin.name%",
+	"version": "0.1.3",
+	"defaultLocale": "zh",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
@@ -11,6 +12,6 @@
 	},
 	"styles": ["dist/style.css"],
 	"permissions": ["ui.slot.file-preview"],
-	"description": "Built-in preview for common image, audio and video files.",
+	"description": "%plugin.description%",
 	"author": "Vetta"
 }

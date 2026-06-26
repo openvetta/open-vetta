@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from "react";
 import { useMemo } from "react";
 import { chatMessagesAtom, pluginCardRenderersAtom, type RegisteredCardRenderer } from "@shared/store/atoms";
 import type { ChatMessage, ContentBlock } from "@shared/store/chat-atoms";
+import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
 import { MessageCards, type ResolvedCard } from "./MessageCards";
 
 /** A card descriptor with its anchoring message and in-flight flag. */
@@ -54,6 +55,7 @@ function cardsForMessage(message: ChatMessage, renderers: RegisteredCardRenderer
 export function MessageCardsHost({ message }: { message: ChatMessage }): JSX.Element | null {
 	const renderers = useAtomValue(pluginCardRenderersAtom);
 	const messages = useAtomValue(chatMessagesAtom);
+	const trPlugin = usePluginTextResolver();
 
 	const rendererByType = useMemo<Map<string, RegisteredCardRenderer>>(() => {
 		const map = new Map<string, RegisteredCardRenderer>();
@@ -88,17 +90,19 @@ export function MessageCardsHost({ message }: { message: ChatMessage }): JSX.Ele
 			if (c.descriptor.key && lastIndexByKey.get(c.descriptor.key) !== i) return;
 			const renderer = rendererByType.get(c.descriptor.type);
 			if (!renderer) return; // no renderer registered (plugin missing/disabled) — skip
+			const rawTitle = c.descriptor.title ?? renderer.title;
 			resolved.push({
 				id: `${c.anchorId}:${c.descriptor.type}:${c.descriptor.key ?? i}`,
+				pluginId: renderer.pluginId,
 				descriptor: c.descriptor,
 				pending: c.pending,
 				Component: renderer.component as ComponentType<PluginCardProps>,
-				title: c.descriptor.title ?? renderer.title ?? renderer.pluginId,
+				title: rawTitle ? trPlugin(renderer.pluginId, rawTitle) : renderer.pluginId,
 				icon: renderer.icon as ReactNode,
 			});
 		});
 		return resolved;
-	}, [message, renderers, rendererByType, latestOwnerByKey]);
+	}, [message, renderers, rendererByType, latestOwnerByKey, trPlugin]);
 
 	if (cards.length === 0) return null;
 

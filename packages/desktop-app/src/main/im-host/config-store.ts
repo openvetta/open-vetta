@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 
 /**
@@ -55,7 +55,7 @@ export interface ImConfig {
 	agentModel?: ImAgentModelRef;
 }
 
-const DEFAULT_PATH = join(homedir(), ".vetta", "desktop-app", "im-config.json");
+const DEFAULT_PATH = join(getVettaHomePath(), "desktop-app", "im-config.json");
 
 export function defaultImConfigPath(): string {
 	return DEFAULT_PATH;
@@ -113,5 +113,5 @@ export function saveImConfig(config: ImConfig, filePath = DEFAULT_PATH): void {
  * directory and survives reinstalls in the usual place.
  */
 export function defaultWechatStatePath(): string {
-	return join(homedir(), ".vetta", "desktop-app", "im-wechat.json");
+	return join(getVettaHomePath(), "desktop-app", "im-wechat.json");
 }

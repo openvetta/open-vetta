@@ -1,4 +1,4 @@
-import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
+import { type PluginFilePreviewProps, useTranslation } from "@vetta/plugin-sdk";
 import * as pdfjsLib from "pdfjs-dist";
 import workerSource from "pdfjs-dist/build/pdf.worker.min.mjs?raw";
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
@@ -17,6 +17,7 @@ const SCALE_STEP = 0.25;
 const HORIZONTAL_PADDING = 40;
 
 export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
+	const { t } = useTranslation();
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const documentRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -60,7 +61,7 @@ export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				canvas.style.width = `${viewport.width}px`;
 				canvas.style.height = `${viewport.height}px`;
 				canvas.className = "bg-white shadow-lg";
-				canvas.setAttribute("aria-label", `${file.name} 第 ${pageNumber} 页`);
+				canvas.setAttribute("aria-label", t("pdf.pageLabel", { name: file.name, page: pageNumber }));
 				const context = canvas.getContext("2d");
 				if (!context) throw new Error("Canvas unavailable");
 				container.appendChild(canvas);
@@ -75,7 +76,7 @@ export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				if (renderTokenRef.current !== token) return;
 			}
 		},
-		[file.name],
+		[file.name, t],
 	);
 
 	useEffect(() => {
@@ -149,7 +150,7 @@ export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				className="relative flex min-h-0 flex-1 flex-col items-center gap-4 overflow-auto bg-[var(--muted)] px-5 pt-5 pb-16"
 			>
 				{status === "loading" && <LoadingState />}
-				{status === "error" && <ErrorState message="无法渲染 PDF 文件" />}
+				{status === "error" && <ErrorState message={t("pdf.error")} />}
 				<div ref={containerRef} className={status === "ready" ? "flex flex-col items-center gap-4" : "hidden"} />
 			</div>
 			<PreviewToolbar>
@@ -163,7 +164,7 @@ export function PdfPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				</button>
 				<ToolbarButton label="+" disabled={scale >= MAX_SCALE} onClick={() => adjustScale(SCALE_STEP)} />
 				<div className="mx-1 h-4 w-px bg-[var(--border)]" />
-				<ToolbarButton label="适应宽度" onClick={fitToWidth} />
+				<ToolbarButton label={t("toolbar.fitWidth")} onClick={fitToWidth} />
 			</PreviewToolbar>
 		</div>
 	);

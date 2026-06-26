@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
 import { WEBHOOK_KINDS, type WebhookEndpointPublic, type WebhookKind } from "./types.js";
 
@@ -18,7 +18,7 @@ interface WebhookConfigFile {
 	endpoints: WebhookEndpointPublic[];
 }
 
-const DEFAULT_PATH = join(homedir(), ".vetta", "desktop-app", "webhook-config.json");
+const DEFAULT_PATH = join(getVettaHomePath(), "desktop-app", "webhook-config.json");
 
 export function defaultWebhookConfigPath(): string {
 	return DEFAULT_PATH;

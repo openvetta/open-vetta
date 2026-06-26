@@ -9,6 +9,7 @@ import {
 	attachedPluginTabsAtom,
 	editImageAttachmentAtom,
 	filePreviewAtom,
+	languageAtom,
 	pluginInputActionsAtom,
 	setActivityPanelWidthAtom,
 } from "@shared/store/atoms";
@@ -24,14 +25,17 @@ import type {
 	PluginFilePreviewContribution,
 	PluginFsApi,
 	PluginGlobalSlotContribution,
+	PluginI18nApi,
 	PluginImageRef,
 	PluginImagesApi,
 	PluginInputActionContribution,
+	PluginLocales,
 	PluginOpenActivityTabOptions,
 	PluginPermission,
 	PluginSettingsApi,
 	PluginToolCallSlotContribution,
 } from "@vetta/plugin-sdk";
+import { resolveCatalogKey } from "@vetta/plugin-sdk";
 import { getDefaultStore } from "jotai";
 import type { ComponentType } from "react";
 import { router } from "../../../router";
@@ -46,6 +50,10 @@ export interface LoadedPlugin {
 	id: string;
 	name: string;
 	version: string;
+	/** Fallback locale for `%key%` resolution (ADR-0033). */
+	defaultLocale: string;
+	/** This plugin's catalogs, keyed by locale code. */
+	locales: PluginLocales;
 	slots: PluginGlobalSlotContribution[];
 	filePreviews: PluginFilePreviewContribution[];
 	activityTabs: PluginActivityTabContribution[];
@@ -273,6 +281,20 @@ function createImagesApi(plugin: InstalledPlugin): PluginImagesApi {
 		sessionLineages: (sessionId) => {
 			guard();
 			return window.vetta.plugins.sessionLineages(plugin.id, sessionId);
+		},
+	};
+}
+
+function createI18nApi(plugin: InstalledPlugin): PluginI18nApi {
+	const store = getDefaultStore();
+	return {
+		get locale(): string {
+			return store.get(languageAtom);
+		},
+		t: (key, params) => resolveCatalogKey(key, plugin.locales, store.get(languageAtom), plugin.defaultLocale, params),
+		onChange: (listener) => {
+			const unsub = store.sub(languageAtom, () => listener(store.get(languageAtom)));
+			return { dispose: unsub };
 		},
 	};
 }
@@ -672,6 +694,7 @@ function createContext(
 		},
 		images: createImagesApi(plugin),
 		settings: settingsApi,
+		i18n: createI18nApi(plugin),
 	};
 }
 
@@ -782,6 +805,8 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		id: plugin.id,
 		name: plugin.name,
 		version: plugin.activeVersion,
+		defaultLocale: plugin.defaultLocale,
+		locales: plugin.locales,
 		slots,
 		filePreviews,
 		activityTabs,

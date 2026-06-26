@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve as resolvePath } from "node:path";
+import { getVettaConfigDirName } from "@vetta/action-rpc";
 import type { ExtensionContext } from "@vetta/coding-agent";
 
 export type SandboxPermissionCapability = "file.read" | "file.write" | "network";
@@ -176,7 +177,7 @@ export function getSandboxDenyRoots(): string[] {
 		join(homeDir, ".gnupg"),
 		join(homeDir, ".kube"),
 		join(homeDir, ".docker"),
-		join(homeDir, ".vetta", "agent"),
+		join(homeDir, getVettaConfigDirName(), "agent"),
 		join(homeDir, ".pi"),
 	];
 	if (process.platform === "darwin") {

@@ -1,11 +1,15 @@
 {
 	"name": "@vetta/plugin-git",
-	"version": "0.1.0",
+	"version": "0.2.3",
 	"private": true,
 	"type": "module",
 	"scripts": {
 		"build": "bunx vite build",
 		"check": "bunx tsc --noEmit"
+	},
+	"dependencies": {
+		"@pierre/diffs": "^1.2.11",
+		"@pierre/trees": "1.0.0-beta.4"
 	},
 	"devDependencies": {
 		"@tailwindcss/vite": "^4.1.12",

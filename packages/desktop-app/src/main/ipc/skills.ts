@@ -3,6 +3,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, st
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import { DefaultResourceLoader } from "@vetta/coding-agent";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
@@ -14,10 +15,10 @@ function assertNonEmptyString(value: unknown, fieldName: string): asserts value 
 	}
 }
 
-const skillsBaseDir = join(homedir(), ".vetta", "skills");
-const sceneBaseDir = join(homedir(), ".vetta", "scene");
-const manifestPath = join(homedir(), ".vetta", "skills-manifest.json");
-const tmpBaseDir = join(homedir(), ".vetta", "tmp");
+const skillsBaseDir = join(getVettaHomePath(), "skills");
+const sceneBaseDir = join(getVettaHomePath(), "scene");
+const manifestPath = join(getVettaHomePath(), "skills-manifest.json");
+const tmpBaseDir = join(getVettaHomePath(), "tmp");
 
 function getBaseDir(type: "skill" | "scene"): string {
 	return type === "scene" ? sceneBaseDir : skillsBaseDir;

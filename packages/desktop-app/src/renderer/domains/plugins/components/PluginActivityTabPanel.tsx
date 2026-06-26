@@ -2,6 +2,7 @@ import { Component, useMemo } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { __ActivityTabContext } from "@vetta/plugin-sdk";
 import type { RegisteredActivityTab } from "@shared/store/atoms";
+import { PluginI18nBoundary } from "../runtime/plugin-i18n";
 
 class PluginActivityTabErrorBoundary extends Component<
 	{ tabKey: string; children: ReactNode },
@@ -46,9 +47,11 @@ export function PluginActivityTabPanel({
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-vetta-plugin-activity-tab={tabKey}>
 			<PluginActivityTabErrorBoundary tabKey={tabKey}>
-				<__ActivityTabContext.Provider value={contextValue}>
-					<TabComponent />
-				</__ActivityTabContext.Provider>
+				<PluginI18nBoundary pluginId={tab.pluginId}>
+					<__ActivityTabContext.Provider value={contextValue}>
+						<TabComponent />
+					</__ActivityTabContext.Provider>
+				</PluginI18nBoundary>
 			</PluginActivityTabErrorBoundary>
 		</div>
 	);

@@ -2,6 +2,8 @@ import {
 	pluginActivityTabsAtom,
 	pluginCardRenderersAtom,
 	pluginFilePreviewsAtom,
+	type PluginI18nEntry,
+	pluginI18nByIdAtom,
 	pluginInputActionsAtom,
 	pluginToolCallSlotsAtom,
 	type RegisteredActivityTab,
@@ -17,6 +19,7 @@ import type { PluginGlobalSlotContribution } from "@vetta/plugin-sdk";
 import { markPluginHostLoading, markPluginHostReady, PLUGINS_CHANGED_EVENT } from "../runtime/plugin-events";
 import { installPluginHostBridge } from "../runtime/plugin-host-bridge";
 import { installPluginHostShim } from "../runtime/plugin-host-shim";
+import { PluginI18nBoundary } from "../runtime/plugin-i18n";
 import { loadPlugin, type LoadedPlugin } from "../runtime/plugin-loader";
 
 // React effect 重启时，必须先停用上一轮插件，再激活下一轮；插件定义本身可能被模块缓存复用。
@@ -51,6 +54,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const setInputActions = useSetAtom(pluginInputActionsAtom);
 	const setCardRenderers = useSetAtom(pluginCardRenderersAtom);
 	const setToolCallSlots = useSetAtom(pluginToolCallSlotsAtom);
+	const setPluginI18n = useSetAtom(pluginI18nByIdAtom);
 
 	useEffect(() => {
 		window.addEventListener(PLUGINS_CHANGED_EVENT, reloadPlugins);
@@ -183,6 +187,17 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		return () => setCardRenderers([]);
 	}, [plugins, revision, setCardRenderers]);
 
+	// Publish per-plugin i18n catalogs so contribution labels and plugin
+	// components (useTranslation) resolve `%key%` against the right catalog.
+	useEffect(() => {
+		const registry: Record<string, PluginI18nEntry> = {};
+		for (const plugin of plugins) {
+			registry[plugin.id] = { locales: plugin.locales, defaultLocale: plugin.defaultLocale };
+		}
+		setPluginI18n(registry);
+		return () => setPluginI18n({});
+	}, [plugins, setPluginI18n]);
+
 	// Publish tool-call renderers so transcript tool blocks can be replaced by plugins.
 	useEffect(() => {
 		const toolCallSlots: RegisteredToolCallSlot[] = plugins.flatMap((plugin) =>
@@ -203,10 +218,13 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		<div className="contents vetta-plugin-host">
 			{slots.map((slot) => {
 				const SlotComponent = slot.component;
+				const pluginId = slot.id.slice(0, slot.id.indexOf(":"));
 				return (
 					<PluginSlotErrorBoundary key={slot.id} pluginSlotId={slot.id}>
 						<div className="contents vetta-plugin" data-vetta-plugin-slot={slot.id}>
-							<SlotComponent />
+							<PluginI18nBoundary pluginId={pluginId}>
+								<SlotComponent />
+							</PluginI18nBoundary>
 						</div>
 					</PluginSlotErrorBoundary>
 				);

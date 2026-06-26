@@ -15,6 +15,7 @@ import {
 	DrawerTitle,
 } from "@shared/components/ui/drawer";
 import { notifyPluginsChanged } from "../../plugins/runtime/plugin-events";
+import { usePluginI18n } from "../../plugins/runtime/plugin-i18n";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
@@ -129,6 +130,9 @@ function PluginCard({
 	const isInstalled = row.installed !== null;
 	const isSystem = row.installed?.source === "system";
 	const enabled = row.installed?.enabled ?? false;
+	const tr = usePluginI18n();
+	const name = tr(row.installed ?? undefined, row.name);
+	const description = tr(row.installed ?? undefined, row.description);
 
 	return (
 		<motion.div
@@ -155,14 +159,14 @@ function PluginCard({
 					<div className="min-w-0 flex-1">
 						<div className="flex items-baseline gap-2">
 							<h4 className="truncate text-[13px] font-semibold tracking-tight text-foreground">
-								{row.name}
+								{name}
 							</h4>
 							<span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/45">
 								v{row.version}
 							</span>
 						</div>
 						<p className="mt-0.5 line-clamp-2 text-[12px] leading-[1.5] text-muted-foreground/65">
-							{row.description || "暂无描述"}
+							{description || "暂无描述"}
 						</p>
 					</div>
 				</div>
@@ -258,9 +262,12 @@ function PluginDetailSheet({
 	onUninstall: (plugin: InstalledPlugin) => void;
 }): JSX.Element {
 	const plugin = row.installed;
+	const tr = usePluginI18n();
 	if (!plugin) return <div />;
 	const isSystem = plugin.source === "system";
 	const hasPendingVersion = Boolean(plugin.pendingVersion);
+	const name = tr(plugin, plugin.name);
+	const description = tr(plugin, plugin.description);
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
@@ -271,7 +278,7 @@ function PluginDetailSheet({
 				</div>
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-2">
-						<h2 className="text-[15px] font-semibold text-foreground">{plugin.name}</h2>
+						<h2 className="text-[15px] font-semibold text-foreground">{name}</h2>
 						{isSystem && (
 							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">系统</span>
 						)}
@@ -287,8 +294,8 @@ function PluginDetailSheet({
 				</div>
 			</div>
 
-			{plugin.description && (
-				<p className="mt-4 text-[12px] leading-[1.6] text-muted-foreground">{plugin.description}</p>
+			{description && (
+				<p className="mt-4 text-[12px] leading-[1.6] text-muted-foreground">{description}</p>
 			)}
 
 			{/* Update banner */}
@@ -599,6 +606,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 	const mainRows = useMemo(() => rows.filter((r) => r.installed?.source !== "system"), [rows]);
 	const systemRows = useMemo(() => rows.filter((r) => r.installed?.source === "system"), [rows]);
 	const selected = rows.find((r) => r.id === selectedId && r.installed) ?? null;
+	const tr = usePluginI18n();
 
 	const renderCard = (row: PluginRow): JSX.Element => (
 		<PluginCard
@@ -718,7 +726,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 						<>
 							<DrawerHeader className="border-b border-border">
 								<DrawerTitle>插件详情</DrawerTitle>
-								<DrawerDescription>查看并配置「{selected.name}」</DrawerDescription>
+								<DrawerDescription>查看并配置「{tr(selected.installed ?? undefined, selected.name)}」</DrawerDescription>
 							</DrawerHeader>
 							<PluginDetailSheet
 								row={selected}

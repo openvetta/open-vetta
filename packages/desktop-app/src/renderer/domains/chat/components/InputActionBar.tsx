@@ -13,6 +13,7 @@ import {
 } from "@shared/store/atoms";
 import type { RegisteredInputAction } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
+import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
 
 /** 知识检索 badge 对应的工具：任一激活即视为知识库可用。 */
 const KNOWLEDGE_TOOLS = ["kb_filter_by_tags", "kb_list_available_tags"];
@@ -48,6 +49,7 @@ function actionVisible(
  */
 export function InputActionBar(): JSX.Element | null {
 	const { t } = useTranslation("chat");
+	const trPlugin = usePluginTextResolver();
 	const allActions = useAtomValue(pluginInputActionsAtom);
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
@@ -144,7 +146,7 @@ export function InputActionBar(): JSX.Element | null {
 									{action.icon}
 								</motion.span>
 							)}
-							<span>{action.label}</span>
+							<span>{trPlugin(action.pluginId, action.label)}</span>
 						</motion.button>
 					);
 				})}
@@ -160,6 +162,7 @@ export function InputActionBar(): JSX.Element | null {
  */
 export function ActiveInputActionChips(): JSX.Element | null {
 	const { t } = useTranslation("chat");
+	const trPlugin = usePluginTextResolver();
 	const actions = useAtomValue(pluginInputActionsAtom);
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
@@ -220,7 +223,7 @@ export function ActiveInputActionChips(): JSX.Element | null {
 					className="group flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/15"
 				>
 					{action.icon && <span className="flex h-3 w-3 items-center justify-center">{action.icon}</span>}
-					<span className="max-w-[120px] truncate">{action.label}</span>
+					<span className="max-w-[120px] truncate">{trPlugin(action.pluginId, action.label)}</span>
 					<span className="icon-[solar--close-circle-linear] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
 				</motion.button>
 			))}

@@ -7,6 +7,7 @@ import {
 	type PluginPendingToolCall,
 	useActiveConversation,
 	useEditImageAttachment,
+	useTranslation,
 } from "@vetta/plugin-sdk";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "./style.css";
@@ -186,6 +187,7 @@ const SKELETON_BLOBS: { left: string; top: string; w: string; h: string; rotate:
 
 /** Flowing color-blob skeleton with a pulsing center icon. `className` sizes it. */
 function GenerationSkeleton({ className = "aspect-square w-full max-w-[300px]" }: { className?: string }) {
+	const { t } = useTranslation();
 	return (
 		<div
 			className={`imagegen-fade-in relative shrink-0 overflow-hidden rounded-2xl border ${className}`}
@@ -219,7 +221,7 @@ function GenerationSkeleton({ className = "aspect-square w-full max-w-[300px]" }
 					<span className="icon-[solar--gallery-bold] block h-9 w-9" />
 				</div>
 				<span className="text-[11px] font-medium tracking-wide text-white" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}>
-					图像处理中
+					{t("ui.skeleton.processing")}
 				</span>
 			</div>
 		</div>
@@ -250,6 +252,7 @@ function SwiperItem({
 	// Hover-only reveal via explicit pointer state (not Tailwind group-hover —
 	// it's unreliable in this MF-remote CSS build). Icons hidden at rest.
 	const [hover, setHover] = useState(false);
+	const { t } = useTranslation();
 	return (
 		<div
 			onPointerEnter={() => setHover(true)}
@@ -262,7 +265,7 @@ function SwiperItem({
 		>
 			<img
 				src={ref.url}
-				alt="生成的图像"
+				alt={t("ui.alt.generatedImage")}
 				onLoad={onLoad}
 				onClick={() => pluginCtx?.ui.previewImage(ref, group)}
 				className={`block w-auto cursor-zoom-in object-cover ${SWIPER_ITEM}`}
@@ -271,8 +274,8 @@ function SwiperItem({
 				className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1.5"
 				style={{ opacity: hover ? 1 : 0, pointerEvents: hover ? "auto" : "none", transition: "opacity 150ms" }}
 			>
-				<IconButton icon={<IconEdit className="h-3.5 w-3.5" />} title="编辑" onClick={() => onEdit(ref)} />
-				<IconButton icon={<IconDownload className="h-3.5 w-3.5" />} title="导出" onClick={() => void downloadImage(ref)} />
+				<IconButton icon={<IconEdit className="h-3.5 w-3.5" />} title={t("ui.action.edit")} onClick={() => onEdit(ref)} />
+				<IconButton icon={<IconDownload className="h-3.5 w-3.5" />} title={t("ui.action.download")} onClick={() => void downloadImage(ref)} />
 			</div>
 		</div>
 	);
@@ -381,11 +384,12 @@ function EdgeFade({ dir }: { dir: "left" | "right" }) {
 }
 
 function ArrowButton({ dir, visible, onClick }: { dir: "left" | "right"; visible: boolean; onClick: () => void }) {
+	const { t } = useTranslation();
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			title={dir === "left" ? "上一张" : "下一张"}
+			title={dir === "left" ? t("ui.swiper.prev") : t("ui.swiper.next")}
 			className={`absolute top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-white/90 backdrop-blur-md transition-all hover:text-white ${dir === "left" ? "left-0" : "right-0"}`}
 			style={{
 				background: "color-mix(in srgb, black 48%, transparent)",
@@ -528,10 +532,11 @@ function StackThumb({
 	offset: number;
 	attached: boolean;
 }) {
+	const { t } = useTranslation();
 	return (
 		<button
 			type="button"
-			title="预览"
+			title={t("ui.action.preview")}
 			onClick={() => pluginCtx?.ui.previewImage(imageRef)}
 			className="imagegen-fade-in relative shrink-0 cursor-zoom-in overflow-hidden rounded-lg border transition-transform hover:-translate-y-0.5"
 			style={{
@@ -546,7 +551,7 @@ function StackThumb({
 				background: "var(--background)",
 			}}
 		>
-			<img src={imageRef.url} alt="生成的图像" className="h-full w-full object-cover" />
+			<img src={imageRef.url} alt={t("ui.alt.generatedImage")} className="h-full w-full object-cover" />
 		</button>
 	);
 }
@@ -565,10 +570,11 @@ function PlusTile({
 	overlap: number;
 	onClick: () => void;
 }) {
+	const { t } = useTranslation();
 	return (
 		<button
 			type="button"
-			title="展开全部"
+			title={t("ui.action.expandAll")}
 			onClick={onClick}
 			className="imagegen-fade-in relative shrink-0 overflow-hidden rounded-lg border transition-transform hover:-translate-y-0.5"
 			style={{
@@ -594,10 +600,11 @@ function PlusTile({
 
 /** 展开后的网格单元：方形、宽度跟随网格列（1fr），点击预览，命中编辑目标时高亮描边。 */
 function GridItem({ imageRef, attached }: { imageRef: PluginImageRef; attached: boolean }) {
+	const { t } = useTranslation();
 	return (
 		<button
 			type="button"
-			title="预览"
+			title={t("ui.action.preview")}
 			onClick={() => pluginCtx?.ui.previewImage(imageRef)}
 			className={`imagegen-fade-in relative aspect-square cursor-zoom-in overflow-hidden rounded-lg ${attached ? "border-2" : "border"}`}
 			style={{
@@ -606,7 +613,7 @@ function GridItem({ imageRef, attached }: { imageRef: PluginImageRef; attached: 
 				background: "var(--background)",
 			}}
 		>
-			<img src={imageRef.url} alt="生成的图像" className="h-full w-full object-cover" />
+			<img src={imageRef.url} alt={t("ui.alt.generatedImage")} className="h-full w-full object-cover" />
 		</button>
 	);
 }
@@ -625,6 +632,7 @@ function StackedGroup({
 	label: string;
 	attachedId: string | null;
 }) {
+	const { t } = useTranslation();
 	const [expanded, setExpanded] = useState(false);
 	const ordered = useMemo(() => [...versions].reverse(), [versions]); // newest first
 	const hasMore = ordered.length > STACK_VISIBLE;
@@ -645,7 +653,7 @@ function StackedGroup({
 					className="text-[11px] transition-colors hover:text-foreground"
 					style={{ color: "var(--muted-foreground)" }}
 				>
-					{expanded ? "收起" : `${ordered.length} 张`}
+					{expanded ? t("ui.stack.collapse") : t("ui.stack.count", { count: ordered.length })}
 				</button>
 			</div>
 			{expanded ? (
@@ -669,6 +677,7 @@ function StackedGroup({
 }
 
 function GenHistoryPanel() {
+	const { t } = useTranslation();
 	const { sessionPath, isStreaming } = useActiveConversation();
 	const sessionId = useMemo(() => sessionIdFromPath(sessionPath), [sessionPath]);
 	const attachedId = useEditImageAttachment()?.id ?? null;
@@ -706,12 +715,13 @@ function GenHistoryPanel() {
 		<div className="flex h-full flex-col overflow-hidden">
 			<div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: subtleBorder }}>
 				<span className="text-[12px] font-semibold text-foreground/80">
-					生图历史{lineages.length > 0 ? ` · ${lineages.length} 组` : ""}
+					{t("history.title")}
+					{lineages.length > 0 ? t("history.groupCount", { count: lineages.length }) : ""}
 				</span>
 				<button
 					type="button"
 					onClick={() => refetch()}
-					title="刷新"
+					title={t("ui.action.refresh")}
 					className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/55 transition-colors hover:text-foreground"
 					style={{ background: "color-mix(in srgb, var(--foreground) 6%, transparent)" }}
 				>
@@ -724,9 +734,7 @@ function GenHistoryPanel() {
 						<IconImage className="h-10 w-10" />
 					</div>
 					<p className="text-[13px]" style={{ color: "var(--muted-foreground)" }}>
-						{sessionId
-							? "本会话还没有生成图像。开启输入栏「图像生成」后发一条提示词试试。"
-							: "未检测到当前会话，先打开一个对话。"}
+						{sessionId ? t("history.empty.hasSession") : t("history.empty.noSession")}
 					</p>
 				</div>
 			) : (
@@ -735,7 +743,7 @@ function GenHistoryPanel() {
 						<StackedGroup
 							key={versions[0]?.id ?? i}
 							versions={versions}
-							label={`图片组 ${lineages.length - i}`}
+							label={t("history.groupLabel", { index: lineages.length - i })}
 							attachedId={attachedId}
 						/>
 					))}
@@ -781,6 +789,7 @@ function imageGenUnconfigured(): boolean {
 
 /** App-level dialog (mounted via a global slot) shown when 图像生成 缺配置。 */
 function SettingsGuardDialog(): ReactNode {
+	const { t } = useTranslation();
 	const open = useGuardOpen();
 	if (!open) return null;
 	const close = (): void => setGuardOpen(false);
@@ -797,10 +806,10 @@ function SettingsGuardDialog(): ReactNode {
 			>
 				<div className="mb-2.5 flex items-center gap-2">
 					<span className="icon-[solar--settings-bold] h-5 w-5" style={{ color: "var(--primary)" }} />
-					<span className="text-[14px] font-semibold text-foreground">图像生成尚未配置</span>
+					<span className="text-[14px] font-semibold text-foreground">{t("guard.title")}</span>
 				</div>
 				<p className="mb-4 text-[13px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-					还没有填写图像服务的 API Key / 模型。请前往设置完成配置后再开启「图像生成」。
+					{t("guard.body")}
 				</p>
 				<div className="flex justify-end gap-2">
 					<button
@@ -809,7 +818,7 @@ function SettingsGuardDialog(): ReactNode {
 						className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity hover:opacity-80"
 						style={{ color: "var(--muted-foreground)", background: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
 					>
-						取消
+						{t("guard.cancel")}
 					</button>
 					<button
 						type="button"
@@ -820,7 +829,7 @@ function SettingsGuardDialog(): ReactNode {
 						className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-opacity hover:opacity-90"
 						style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
 					>
-						前往设置
+						{t("guard.goSettings")}
 					</button>
 				</div>
 			</div>
@@ -837,7 +846,7 @@ export default definePlugin({
 		pluginCtx = ctx;
 		ctx.ui.registerInputAction({
 			id: "image-mode",
-			label: "图像生成",
+			label: "%action.imageMode.label%",
 			icon: <IconImage className="h-3.5 w-3.5" />,
 			// 仅交互式对话场景出现（批量/自动化/知识加工不放生图开关）；再叠加
 			// requiresActiveTool 跟随 generate_image 工具是否激活。
@@ -858,13 +867,13 @@ export default definePlugin({
 		ctx.ui.registerCardRenderer({
 			type: PREVIEW_CARD_TYPE,
 			component: ImagePreviewCard,
-			title: "图像",
+			title: "%card.preview.title%",
 			icon: <IconImage className="h-3.5 w-3.5" />,
 			pendingFor: pendingPreviewCard,
 		});
 		ctx.ui.registerActivityTab({
 			id: "history",
-			label: "生图历史",
+			label: "%tab.history.label%",
 			icon: <IconImage className="h-4 w-4" />,
 			component: GenHistoryPanel,
 			scope_use: ["conversation", "project", "im-claw", "cli"],

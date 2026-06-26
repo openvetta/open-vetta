@@ -12,6 +12,7 @@ import {
 import { cn } from "@shared/lib/utils";
 import { openExternalLink } from "@shared/lib/open-external-link";
 import type { SettingsSectionRegistration } from "../registry";
+import { usePluginI18n } from "../../plugins/runtime/plugin-i18n";
 import { SettingRow, SettingSection } from "./shared";
 
 type ValuesByPlugin = Record<string, Record<string, unknown>>;
@@ -25,6 +26,7 @@ type ValuesByPlugin = Record<string, Record<string, unknown>>;
 export function PluginsSettings(): JSX.Element {
 	const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
 	const [values, setValues] = useState<ValuesByPlugin>({});
+	const tr = usePluginI18n();
 
 	useEffect(() => {
 		let cancelled = false;
@@ -70,20 +72,31 @@ export function PluginsSettings(): JSX.Element {
 					const section: SettingsSectionRegistration = {
 						id: `plugin-${plugin.id}`,
 						tab: "plugins",
-						title: plugin.name,
+						title: tr(plugin, plugin.name),
 					};
 					return (
-						<SettingSection key={plugin.id} section={section} description={plugin.description}>
+						<SettingSection
+							key={plugin.id}
+							section={section}
+							description={plugin.description ? tr(plugin, plugin.description) : undefined}
+						>
 							{visible.map((setting, index) => {
 								const border = index < visible.length - 1;
 								if (setting.type === "desc") {
-									return <DescRow key={setting.key} setting={setting} border={border} />;
+									return (
+										<DescRow
+											key={setting.key}
+											title={setting.title ? tr(plugin, setting.title) : undefined}
+											description={setting.description ? tr(plugin, setting.description) : ""}
+											border={border}
+										/>
+									);
 								}
 								return (
 									<SettingRow
 										key={setting.key}
-										title={setting.title ?? ""}
-										description={setting.description}
+										title={tr(plugin, setting.title)}
+										description={setting.description ? tr(plugin, setting.description) : undefined}
 										border={border}
 									>
 										<SettingControl
@@ -106,12 +119,19 @@ export function PluginsSettings(): JSX.Element {
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
 /** Render a `desc` item: read-only note text with any URLs as clickable external links. */
-function DescRow({ setting, border }: { setting: PluginSettingSchema; border: boolean }): JSX.Element {
-	const text = setting.description ?? "";
-	const parts = text.split(URL_PATTERN);
+function DescRow({
+	title,
+	description,
+	border,
+}: {
+	title: string | undefined;
+	description: string;
+	border: boolean;
+}): JSX.Element {
+	const parts = description.split(URL_PATTERN);
 	return (
 		<div className={cn("px-5 py-4", border && "border-b border-border")}>
-			{setting.title && <div className="mb-0.5 text-[13px] font-medium text-foreground">{setting.title}</div>}
+			{title && <div className="mb-0.5 text-[13px] font-medium text-foreground">{title}</div>}
 			<div className="text-[12px] leading-relaxed text-muted-foreground">
 				{parts.map((part, index) =>
 					/^https?:\/\//.test(part) ? (

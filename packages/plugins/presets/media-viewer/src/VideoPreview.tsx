@@ -1,9 +1,10 @@
-import type { PluginPreviewFile } from "@vetta/plugin-sdk";
+import { type PluginPreviewFile, useTranslation } from "@vetta/plugin-sdk";
 import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import { versionedUrl } from "./utils";
 
 export function VideoPreview({ file }: { file: PluginPreviewFile }): JSX.Element {
+	const { t } = useTranslation();
 	const [version, setVersion] = useState(0);
 	const [failed, setFailed] = useState(false);
 
@@ -23,7 +24,7 @@ export function VideoPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 		return (
 			<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-[var(--muted-foreground)]">
 				<div className="text-[40px]">□</div>
-				<span className="text-[13px]">无法播放此视频</span>
+				<span className="text-[13px]">{t("video.error")}</span>
 			</div>
 		);
 	}

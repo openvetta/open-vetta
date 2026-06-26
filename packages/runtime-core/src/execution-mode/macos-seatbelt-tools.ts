@@ -3,6 +3,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, isAbsolute, join } from "node:path";
+import { getVettaConfigDirName } from "@vetta/action-rpc";
 import {
 	createBashTool,
 	createEditTool,
@@ -99,7 +100,7 @@ function buildMacosSandboxProfile(cwd: string, tempRoot: string, grant: SandboxS
 		join(homeDir, ".docker"),
 		join(homeDir, ".config", "gcloud"),
 		join(homeDir, "Library", "Keychains"),
-		join(homeDir, ".vetta"),
+		join(homeDir, getVettaConfigDirName()),
 		join(homeDir, ".pi"),
 	].filter((path) => path !== realCwd && !realCwd.startsWith(`${path}/`));
 	const grantWriteRoots = (grant?.allowWriteRoots ?? [])

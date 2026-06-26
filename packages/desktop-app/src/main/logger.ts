@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join, parse } from "node:path";
 import { inspect } from "node:util";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import electronLog from "electron-log/main";
 import { formatErrorChain, formatErrorChainJSON } from "./logger/format-error-chain.js";
 import { enforceRetention } from "./logger/log-retention.js";
@@ -19,7 +19,7 @@ const APP_LOG_MAX_TOTAL_BYTES = 200 * 1024 * 1024;
 const APP_LOG_ROTATION_FALLBACK_SIZE = 256 * 1024;
 const APP_LOG_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 const APP_LOG_TIME_ZONE = "Asia/Shanghai";
-const APP_LOG_DIR = join(homedir(), ".vetta", "desktop-app", "logs");
+const APP_LOG_DIR = join(getVettaHomePath(), "desktop-app", "logs");
 const APP_LOG_TYPES: readonly AppLogType[] = ["main", "render", "im"];
 const FILE_SUFFIX = roleFileSuffix(detectProcessRole());
 // agent-rpc 子进程的 stdout 跑 coding-agent 的 RPC NDJSON 协议，绝不能镜像日志到

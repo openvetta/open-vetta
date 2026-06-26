@@ -1,0 +1,14 @@
+{
+	"plugin.name": "Office Viewer",
+	"plugin.description": "Offline preview for PDF, DOCX and spreadsheet files, with explicit compatibility guidance for PowerPoint.",
+	"error.unsupportedFormat": "This Office file format is not supported yet",
+	"pptx.unsupported.title": "Inline PowerPoint rendering is not available",
+	"pptx.unsupported.body": "There is currently no lightweight, fully local PPT/PPTX rendering engine that meets long-term maintenance requirements. To avoid broken layouts and high-risk dependencies, this format is not rendered approximately for now.",
+	"docx.error": "Failed to render the DOCX file",
+	"pdf.error": "Failed to render the PDF file",
+	"pdf.pageLabel": "{{name}} page {{page}}",
+	"spreadsheet.error": "Failed to read the spreadsheet file",
+	"toolbar.fitWidth": "Fit width",
+	"state.loading": "Loading…",
+	"state.errorHint": "The file may be corrupted, password-protected, or contain unsupported content"
+}

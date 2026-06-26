@@ -3,6 +3,7 @@ import { readFileSync, watch } from "node:fs";
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import { BrowserWindow, ipcMain } from "electron";
 import type { FsEntry, FsFileRef } from "../../preload/fs-types.js";
 import { type AppLanguage, isSupportedLanguage } from "../../shared/i18n/config.js";
@@ -77,7 +78,7 @@ export interface DesktopConfigSnapshot extends DesktopConfig {
 	knowledgeProcessingCwd: string;
 }
 
-export const DEFAULT_CONVERSATION_CWD = join(homedir(), ".vetta", "conversation");
+export const DEFAULT_CONVERSATION_CWD = join(getVettaHomePath(), "conversation");
 
 /**
  * 默认「对话」项目的会话目录：仿照批量项目，把 session jsonl 放到 cwd 内部，
@@ -89,23 +90,23 @@ export const DEFAULT_CONVERSATION_SESSION_DIR = join(DEFAULT_CONVERSATION_CWD, "
  * im-gateway 自己的 cwd，跟桌面「对话」物理分离（ADR-0005）。Claw tab 只读
  * 列出此目录下的 session；im-gateway sidecar 启动时也注入此路径。
  */
-export const DEFAULT_IM_CONVERSATION_CWD = join(homedir(), ".vetta", "im-gateway", "conversation");
+export const DEFAULT_IM_CONVERSATION_CWD = join(getVettaHomePath(), "im-gateway", "conversation");
 export const DEFAULT_IM_CONVERSATION_SESSION_DIR = join(DEFAULT_IM_CONVERSATION_CWD, ".vetta", "sessions");
 
 /**
  * 知识库加工特殊项目（仿「对话」项目）：cwd 是 ~/.vetta/knowledges/processing_records，
  * 每轮加工的 session jsonl 落在其本地 .vetta/sessions，自包含、可在 sidebar 回看。
  */
-export const KB_PROCESSING_CWD = join(homedir(), ".vetta", "knowledges", "processing_records");
+export const KB_PROCESSING_CWD = join(getVettaHomePath(), "knowledges", "processing_records");
 export const KB_PROCESSING_SESSION_DIR = join(KB_PROCESSING_CWD, ".vetta", "sessions");
 
-const CONFIG_PATH = join(homedir(), ".vetta", "desktop-config.json");
-const MODELS_CONFIG_PATH = join(homedir(), ".vetta", "agent", "models.json");
-const MCP_CONFIG_PATH = join(homedir(), ".vetta", "agent", "mcp.json");
+const CONFIG_PATH = join(getVettaHomePath(), "desktop-config.json");
+const MODELS_CONFIG_PATH = join(getVettaHomePath(), "agent", "models.json");
+const MCP_CONFIG_PATH = join(getVettaHomePath(), "agent", "mcp.json");
 const DEFAULT_CONFIG: DesktopConfig = {
 	projects: [],
 	archivedProjects: [],
-	workspacePath: join(homedir(), ".vetta", "workspace"),
+	workspacePath: join(getVettaHomePath(), "workspace"),
 	defaultExecutionMode: "full-access",
 	debugMode: false,
 	notificationsEnabled: true,

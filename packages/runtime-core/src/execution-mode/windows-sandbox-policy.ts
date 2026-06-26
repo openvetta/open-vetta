@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { dirname, join, resolve as resolvePath } from "node:path";
+import { getVettaConfigDirName } from "@vetta/action-rpc";
 import type { SandboxShellGrant } from "./sandbox-permissions.js";
 
 export interface SandboxPolicyConfig {
@@ -48,7 +49,7 @@ export function getWindowsSensitiveDenyRoots(env: NodeJS.ProcessEnv | undefined 
 		join(homeDir, ".docker"),
 		appData ? join(appData, "gcloud") : undefined,
 		appData ? join(appData, "Vetta") : undefined,
-		join(homeDir, ".vetta", "agent"),
+		join(homeDir, getVettaConfigDirName(), "agent"),
 		join(homeDir, ".pi"),
 	].filter((path): path is string => typeof path === "string" && path.trim().length > 0);
 
