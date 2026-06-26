@@ -1,7 +1,9 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 import {
+	PET_BEGIN_WINDOW_MOVE_CHANNEL,
 	PET_BEGIN_WINDOW_RESIZE_CHANNEL,
 	PET_COMMAND_CHANNEL,
+	PET_END_WINDOW_MOVE_CHANNEL,
 	PET_END_WINDOW_RESIZE_CHANNEL,
 	PET_MOVE_WINDOW_BY_CHANNEL,
 	PET_RESIZE_BY_WHEEL_CHANNEL,
@@ -28,8 +30,14 @@ const api: PetBridge = {
 	resizeVideoByWheel(actionId, deltaY) {
 		return ipcRenderer.invoke(PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL, actionId, deltaY);
 	},
-	moveWindowBy(deltaX, deltaY) {
-		return ipcRenderer.invoke(PET_MOVE_WINDOW_BY_CHANNEL, deltaX, deltaY);
+	beginWindowMove() {
+		return ipcRenderer.invoke(PET_BEGIN_WINDOW_MOVE_CHANNEL);
+	},
+	moveWindow() {
+		return ipcRenderer.invoke(PET_MOVE_WINDOW_BY_CHANNEL);
+	},
+	endWindowMove() {
+		return ipcRenderer.invoke(PET_END_WINDOW_MOVE_CHANNEL);
 	},
 	beginWindowResize(corner) {
 		return ipcRenderer.invoke(PET_BEGIN_WINDOW_RESIZE_CHANNEL, corner);

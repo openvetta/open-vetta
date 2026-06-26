@@ -2,7 +2,9 @@ import { ipcMain } from "electron";
 import type { PetBubbleStyleAsset, PetDecoration } from "../../preload/api-types/pet.js";
 import { isPetActionId, type PetConfig } from "../../shared/pet-config.js";
 import {
+	PET_BEGIN_WINDOW_MOVE_CHANNEL,
 	PET_BEGIN_WINDOW_RESIZE_CHANNEL,
+	PET_END_WINDOW_MOVE_CHANNEL,
 	PET_END_WINDOW_RESIZE_CHANNEL,
 	PET_MOVE_WINDOW_BY_CHANNEL,
 	PET_RESIZE_BY_WHEEL_CHANNEL,
@@ -15,12 +17,14 @@ import {
 	type PetVideoHitbox,
 } from "../../shared/pet-ipc.js";
 import {
+	beginDesktopPetWindowMove,
 	beginDesktopPetWindowResize,
+	endDesktopPetWindowMove,
 	endDesktopPetWindowResize,
 	hideDesktopPet,
 	listPetBubbleStyleAssets,
 	listPetDecorations,
-	moveDesktopPetWindowBy,
+	moveDesktopPetWindow,
 	readCurrentPetConfig,
 	resizeDesktopPetVideoByWheel,
 	resizeDesktopPetWindowByWheel,
@@ -110,9 +114,16 @@ export function registerPetIpc(): () => void {
 		},
 	);
 
-	ipcMain.handle(PET_MOVE_WINDOW_BY_CHANNEL, (_event, deltaX: unknown, deltaY: unknown): void => {
-		if (typeof deltaX !== "number" || typeof deltaY !== "number") return;
-		moveDesktopPetWindowBy(deltaX, deltaY);
+	ipcMain.handle(PET_BEGIN_WINDOW_MOVE_CHANNEL, (): void => {
+		beginDesktopPetWindowMove();
+	});
+
+	ipcMain.handle(PET_MOVE_WINDOW_BY_CHANNEL, (): void => {
+		moveDesktopPetWindow();
+	});
+
+	ipcMain.handle(PET_END_WINDOW_MOVE_CHANNEL, (): void => {
+		endDesktopPetWindowMove();
 	});
 
 	ipcMain.handle(PET_BEGIN_WINDOW_RESIZE_CHANNEL, (_event, corner: unknown): void => {
@@ -157,7 +168,9 @@ export function registerPetIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.GET_BUBBLE_STYLE_ASSETS);
 		ipcMain.removeHandler(PET_RESIZE_BY_WHEEL_CHANNEL);
 		ipcMain.removeHandler(PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL);
+		ipcMain.removeHandler(PET_BEGIN_WINDOW_MOVE_CHANNEL);
 		ipcMain.removeHandler(PET_MOVE_WINDOW_BY_CHANNEL);
+		ipcMain.removeHandler(PET_END_WINDOW_MOVE_CHANNEL);
 		ipcMain.removeHandler(PET_BEGIN_WINDOW_RESIZE_CHANNEL);
 		ipcMain.removeHandler(PET_SET_WINDOW_SIZE_CHANNEL);
 		ipcMain.removeHandler(PET_END_WINDOW_RESIZE_CHANNEL);
