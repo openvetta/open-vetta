@@ -6,6 +6,11 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	type WheelEvent,
 } from "react";
+import {
+	getIdlePetActionIds,
+	getPetActionDurationRange,
+	getWeightedPetActionIdsForNow,
+} from "../../../../shared/pet-action-selection";
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions";
 import {
 	DEFAULT_PET_VIDEO_SIZE,
@@ -21,28 +26,12 @@ import type { PetBridge, PetResizeCorner } from "../../../../shared/pet-ipc";
 
 type PetVideoMap = Partial<Record<PetActionId, string>>;
 const USER_ACTION_HOLD_MS = 10_000;
-const IDLE_ACTION_CANDIDATES: PetActionId[] = [
-	"stoat_spin_color_hula_hoop",
-	"stoat_sit_cushion_drink_tea_slow",
-	"stoat_listen_music_headphones_nod",
-];
 
 declare global {
 	interface Window {
 		vettaPet?: PetBridge;
 	}
 }
-
-const actionDurations: Record<PetActionId, { minMs: number; maxMs: number }> = {
-	stoat_sleep_lie_on_cushion: { minMs: 180_000, maxMs: 300_000 },
-	stoat_stand_lift_barbell_one_hand_fast: { minMs: 35_000, maxMs: 70_000 },
-	stoat_work_laptop_typing_desk_cushion: { minMs: 90_000, maxMs: 180_000 },
-	stoat_listen_music_headphones_nod: { minMs: 80_000, maxMs: 160_000 },
-	stoat_spin_color_hula_hoop: { minMs: 35_000, maxMs: 70_000 },
-	stoat_skip_rope_jump: { minMs: 30_000, maxMs: 60_000 },
-	stoat_sit_cushion_drink_tea_slow: { minMs: 60_000, maxMs: 120_000 },
-	stoat_wave_backflip_smoke_fade_exit: { minMs: 20_000, maxMs: 40_000 },
-};
 
 function getVideoMap(): PetVideoMap {
 	const params = new URLSearchParams(window.location.search);
@@ -102,65 +91,17 @@ function getAvailableActionIds(videos: PetVideoMap): PetActionId[] {
 }
 
 function pickIdleAction(videos: PetVideoMap): PetActionId | undefined {
-	for (const actionId of IDLE_ACTION_CANDIDATES) {
+	for (const actionId of getIdlePetActionIds()) {
 		if (videos[actionId] != null) return actionId;
 	}
 	return getAvailableActionIds(videos)[0];
-}
-
-function getWeightedActionsForNow(): PetActionId[] {
-	const hour = new Date().getHours();
-	if (hour < 7) {
-		return [
-			"stoat_sleep_lie_on_cushion",
-			"stoat_sleep_lie_on_cushion",
-			"stoat_sleep_lie_on_cushion",
-			"stoat_sleep_lie_on_cushion",
-			"stoat_listen_music_headphones_nod",
-			"stoat_sit_cushion_drink_tea_slow",
-		];
-	}
-	if (hour >= 9 && hour < 18) {
-		return [
-			"stoat_work_laptop_typing_desk_cushion",
-			"stoat_work_laptop_typing_desk_cushion",
-			"stoat_work_laptop_typing_desk_cushion",
-			"stoat_work_laptop_typing_desk_cushion",
-			"stoat_sit_cushion_drink_tea_slow",
-			"stoat_sit_cushion_drink_tea_slow",
-			"stoat_stand_lift_barbell_one_hand_fast",
-			"stoat_skip_rope_jump",
-			"stoat_spin_color_hula_hoop",
-			"stoat_wave_backflip_smoke_fade_exit",
-		];
-	}
-	if (hour >= 18 && hour < 23) {
-		return [
-			"stoat_listen_music_headphones_nod",
-			"stoat_listen_music_headphones_nod",
-			"stoat_sit_cushion_drink_tea_slow",
-			"stoat_sit_cushion_drink_tea_slow",
-			"stoat_spin_color_hula_hoop",
-			"stoat_stand_lift_barbell_one_hand_fast",
-			"stoat_work_laptop_typing_desk_cushion",
-			"stoat_wave_backflip_smoke_fade_exit",
-		];
-	}
-	return [
-		"stoat_sleep_lie_on_cushion",
-		"stoat_sleep_lie_on_cushion",
-		"stoat_listen_music_headphones_nod",
-		"stoat_sit_cushion_drink_tea_slow",
-		"stoat_sit_cushion_drink_tea_slow",
-		"stoat_wave_backflip_smoke_fade_exit",
-	];
 }
 
 function pickNextAction(videos: PetVideoMap, previous?: PetActionId): PetActionId | undefined {
 	const available = getAvailableActionIds(videos);
 	if (available.length === 0) return undefined;
 
-	const preferred = getWeightedActionsForNow().filter((id) => videos[id] != null);
+	const preferred = getWeightedPetActionIdsForNow().filter((id) => videos[id] != null);
 	const pool = preferred.length > 0 ? preferred : available;
 	let selected = pool[randomInt(0, pool.length - 1)];
 	if (available.length > 1 && selected === previous) {
@@ -173,7 +114,7 @@ function pickNextAction(videos: PetVideoMap, previous?: PetActionId): PetActionI
 }
 
 function getActionDuration(actionId: PetActionId): number {
-	const duration = actionDurations[actionId];
+	const duration = getPetActionDurationRange(actionId);
 	return randomInt(duration.minMs, duration.maxMs);
 }
 

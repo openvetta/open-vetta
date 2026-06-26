@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
 import type { PetDecoration } from "../../../../preload/api-types/pet";
-import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions";
+import { getPetActionsByGroup, PET_ACTION_GROUPS, type PetActionId } from "../../../../shared/pet-actions";
 import { DEFAULT_PET_CONFIG, type PetConfig } from "../../../../shared/pet-config";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
@@ -102,10 +110,19 @@ export function PetSettings(): JSX.Element {
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{PET_ACTIONS.map((action) => (
-								<SelectItem key={action.id} value={action.id} className="text-[12px]">
-									{action.label}
-								</SelectItem>
+							{PET_ACTION_GROUPS.map((group) => (
+								<SelectGroup key={group.id}>
+									<SelectLabel className="text-[10px] text-muted-foreground/70">{group.label}</SelectLabel>
+									{getPetActionsByGroup(group.id).map((action) => (
+										<SelectItem
+											key={action.id}
+											value={action.id}
+											className="text-[12px]"
+										>
+											{action.label}
+										</SelectItem>
+									))}
+								</SelectGroup>
 							))}
 						</SelectContent>
 					</Select>

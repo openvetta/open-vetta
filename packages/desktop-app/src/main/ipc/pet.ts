@@ -1,8 +1,6 @@
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { app, ipcMain } from "electron";
+import { ipcMain } from "electron";
 import type { PetDecoration } from "../../preload/api-types/pet.js";
-import { isPetActionId, normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
+import { isPetActionId, type PetConfig } from "../../shared/pet-config.js";
 import {
 	PET_BEGIN_WINDOW_RESIZE_CHANNEL,
 	PET_END_WINDOW_RESIZE_CHANNEL,
@@ -16,23 +14,23 @@ import {
 	type PetResizeCorner,
 	type PetVideoHitbox,
 } from "../../shared/pet-ipc.js";
-import { MEDIA_PROTOCOL_SCHEME } from "../media-protocol.js";
-import { readPetConfig, writePetConfig } from "../pet-config-store.js";
 import {
-	applyPetConfig,
-	beginPetWindowResize,
-	endPetWindowResize,
-	movePetWindowBy,
-	resizePetVideoByWheel,
-	resizePetWindowByWheel,
-	sendPetCommandToWindow,
-	setPetMousePassthrough,
-	setPetVideoBaseSize,
-	setPetVideoHitbox,
-	setPetWindowSize,
-	showPetWindow,
-} from "../pet-window.js";
-import { allowProjectRoot } from "./fs.js";
+	beginDesktopPetWindowResize,
+	endDesktopPetWindowResize,
+	hideDesktopPet,
+	listPetDecorations,
+	moveDesktopPetWindowBy,
+	readCurrentPetConfig,
+	resizeDesktopPetVideoByWheel,
+	resizeDesktopPetWindowByWheel,
+	setDesktopPetActionFromUser,
+	setDesktopPetMousePassthrough,
+	setDesktopPetVideoBaseSize,
+	setDesktopPetVideoHitbox,
+	setDesktopPetWindowSize,
+	showDesktopPet,
+	updatePetConfig,
+} from "../pet/pet-service.js";
 
 const CHANNELS = {
 	GET_CONFIG: "vetta:pet:get-config",
@@ -44,29 +42,6 @@ const CHANNELS = {
 } as const;
 
 const PET_RESIZE_CORNERS = new Set<PetResizeCorner>(["top-left", "top-right", "bottom-left", "bottom-right"]);
-const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
-const buildDir = app.isPackaged ? join(process.resourcesPath, "build") : join(appRoot, "build");
-const petMediaDir = join(buildDir, "pet");
-const PET_DECORATIONS = [
-	{ id: "monitor", fileName: "blank_black_computer_monitor.png", label: "显示器" },
-	{ id: "santa", fileName: "stoat_christmas_santa_outfit.png", label: "圣诞装" },
-	{ id: "business", fileName: "stoat_business_suit_lawyer.png", label: "商务装" },
-	{ id: "office", fileName: "stoat_pray_microsoft_office.png", label: "办公祈祷" },
-	{ id: "peeking-monitor", fileName: "stoat_peeking_from_monitor.png", label: "探出显示器" },
-	{ id: "dragon-boat", fileName: "stoat_dragon_boat_festival.png", label: "端午装饰" },
-] as const;
-
-function getPetDecorations(): PetDecoration[] {
-	allowProjectRoot(petMediaDir);
-	return PET_DECORATIONS.map((decoration) => {
-		const path = join(petMediaDir, decoration.fileName);
-		return {
-			...decoration,
-			found: existsSync(path),
-			url: `${MEDIA_PROTOCOL_SCHEME}://local/stream?path=${encodeURIComponent(path)}`,
-		};
-	});
-}
 
 function isPetResizeCorner(value: unknown): value is PetResizeCorner {
 	return typeof value === "string" && PET_RESIZE_CORNERS.has(value as PetResizeCorner);
@@ -87,93 +62,83 @@ function isPetVideoHitbox(value: unknown): value is PetVideoHitbox {
 	);
 }
 
-async function persistPetConfig(patch: Partial<PetConfig>): Promise<PetConfig> {
-	const current = await readPetConfig();
-	const nextPet = normalizePetConfig({ ...current, ...patch });
-	await writePetConfig(nextPet);
-	applyPetConfig(nextPet);
-	return nextPet;
-}
-
 export function registerPetIpc(): () => void {
 	ipcMain.handle(CHANNELS.GET_CONFIG, async (): Promise<PetConfig> => {
-		return readPetConfig();
+		return readCurrentPetConfig();
 	});
 
 	ipcMain.handle(CHANNELS.SET_CONFIG, async (_event, patch: unknown): Promise<PetConfig> => {
 		if (typeof patch !== "object" || patch === null) {
 			throw new Error("Invalid pet config");
 		}
-		return persistPetConfig(patch as Partial<PetConfig>);
+		return updatePetConfig(patch as Partial<PetConfig>);
 	});
 
 	ipcMain.handle(CHANNELS.SHOW, async (): Promise<PetConfig> => {
-		const next = await persistPetConfig({ enabled: true });
-		showPetWindow();
-		return next;
+		return showDesktopPet();
 	});
 
 	ipcMain.handle(CHANNELS.HIDE, async (): Promise<PetConfig> => {
-		return persistPetConfig({ enabled: false });
+		return hideDesktopPet();
 	});
 
 	ipcMain.handle(CHANNELS.SET_ACTION, (_event, actionId: unknown): void => {
 		if (!isPetActionId(actionId)) return;
-		sendPetCommandToWindow({ type: "set-action", actionId, source: "user", holdMs: 10_000 });
+		setDesktopPetActionFromUser(actionId);
 	});
 
 	ipcMain.handle(CHANNELS.GET_DECORATIONS, (): PetDecoration[] => {
-		return getPetDecorations();
+		return listPetDecorations();
 	});
 
 	ipcMain.handle(PET_RESIZE_BY_WHEEL_CHANNEL, async (_event, deltaY: unknown): Promise<void> => {
 		if (typeof deltaY !== "number") return;
-		await resizePetWindowByWheel(deltaY);
+		await resizeDesktopPetWindowByWheel(deltaY);
 	});
 
 	ipcMain.handle(
 		PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL,
 		async (_event, actionId: unknown, deltaY: unknown): Promise<void> => {
 			if (!isPetActionId(actionId) || typeof deltaY !== "number") return;
-			await resizePetVideoByWheel(actionId, deltaY);
+			await resizeDesktopPetVideoByWheel(actionId, deltaY);
 		},
 	);
 
 	ipcMain.handle(PET_MOVE_WINDOW_BY_CHANNEL, (_event, deltaX: unknown, deltaY: unknown): void => {
 		if (typeof deltaX !== "number" || typeof deltaY !== "number") return;
-		movePetWindowBy(deltaX, deltaY);
+		moveDesktopPetWindowBy(deltaX, deltaY);
 	});
 
 	ipcMain.handle(PET_BEGIN_WINDOW_RESIZE_CHANNEL, (_event, corner: unknown): void => {
 		if (!isPetResizeCorner(corner)) return;
-		beginPetWindowResize(corner);
+		beginDesktopPetWindowResize(corner);
 	});
 
 	ipcMain.handle(PET_SET_WINDOW_SIZE_CHANNEL, async (_event, size: unknown, corner: unknown): Promise<void> => {
 		if (typeof size !== "number") return;
-		await setPetWindowSize(size, isPetResizeCorner(corner) ? corner : undefined);
+		await setDesktopPetWindowSize(size, isPetResizeCorner(corner) ? corner : undefined);
 	});
 
 	ipcMain.handle(PET_END_WINDOW_RESIZE_CHANNEL, async (_event, size: unknown): Promise<void> => {
 		if (typeof size !== "number") return;
-		await endPetWindowResize(size);
+		await endDesktopPetWindowResize(size);
 	});
 
 	ipcMain.handle(
 		PET_SET_VIDEO_BASE_SIZE_CHANNEL,
 		async (_event, actionId: unknown, baseSize: unknown): Promise<void> => {
 			if (!isPetActionId(actionId) || typeof baseSize !== "number") return;
-			await setPetVideoBaseSize(actionId, baseSize);
+			await setDesktopPetVideoBaseSize(actionId, baseSize);
 		},
 	);
 
 	ipcMain.handle(PET_SET_MOUSE_PASSTHROUGH_CHANNEL, (_event, enabled: unknown): void => {
 		if (typeof enabled !== "boolean") return;
-		setPetMousePassthrough(enabled);
+		setDesktopPetMousePassthrough(enabled);
 	});
 
 	ipcMain.handle(PET_SET_VIDEO_HITBOX_CHANNEL, (_event, hitbox: unknown): void => {
-		setPetVideoHitbox(isPetVideoHitbox(hitbox) ? hitbox : undefined);
+		setDesktopPetVideoHitbox(isPetVideoHitbox(hitbox) ? hitbox : undefined);
 	});
 
 	return () => {
