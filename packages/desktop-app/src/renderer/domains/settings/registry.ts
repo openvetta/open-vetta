@@ -83,7 +83,6 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "knowledge", id: "knowledge-processing", title: "后台加工", titleKey: "section_knowledge-processing" },
 	{ tab: "knowledge", id: "knowledge-actions", title: "手动操作", titleKey: "section_knowledge-actions" },
 	{ tab: "pet", id: "pet-status", title: "显示状态", titleKey: "section_pet-status" },
-	{ tab: "pet", id: "pet-behavior", title: "行为", titleKey: "section_pet-behavior" },
 	{ tab: "pet", id: "pet-window", title: "窗口", titleKey: "section_pet-window" },
 	{ tab: "pet", id: "pet-decoration", title: "桌宠装饰", titleKey: "section_pet-decoration" },
 	{ tab: "pet", id: "pet-developer", title: "开发调试", titleKey: "section_pet-developer" },

@@ -64,13 +64,5 @@ export function getInitialVideoBaseSizeByAction(): PetVideoBaseSizeByAction {
 }
 
 export function getInitialAction(videos: PetVideoMap): PetActionId | undefined {
-	const initialAction = getSearchParams().get("initialAction");
-	if (
-		initialAction &&
-		PET_ACTIONS.some((action) => action.id === initialAction) &&
-		videos[initialAction as PetActionId]
-	) {
-		return initialAction as PetActionId;
-	}
 	return pickIdleAction(videos);
 }

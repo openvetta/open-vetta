@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectTrigger,
-	SelectValue,
-} from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
 import type { PetBubbleStyleAsset } from "../../../../preload/api-types/pet";
-import { getPetActionsByGroup, PET_ACTION_GROUPS, type PetActionId } from "../../../../shared/pet-actions";
 import { PET_BUBBLE_STYLES, type PetBubbleStyleId } from "../../../../shared/pet-bubbles";
 import { DEFAULT_PET_CONFIG, type PetConfig } from "../../../../shared/pet-config";
 import { SETTINGS_SECTION } from "../registry";
@@ -21,16 +11,10 @@ import { SettingRow, SettingSection } from "./shared";
 export function PetSettings(): JSX.Element {
 	const { t } = useTranslation("pet");
 	const [config, setConfig] = useState<PetConfig>(DEFAULT_PET_CONFIG);
-	const [currentActionId, setCurrentActionId] = useState<PetActionId>(
-		DEFAULT_PET_CONFIG.defaultActionId ?? "stoat_spin_color_hula_hoop",
-	);
 	const [bubbleStyleAssets, setBubbleStyleAssets] = useState<PetBubbleStyleAsset[]>([]);
 
 	useEffect(() => {
-		void window.vetta.pet.getConfig().then((next) => {
-			setConfig(next);
-			setCurrentActionId(next.defaultActionId ?? DEFAULT_PET_CONFIG.defaultActionId ?? "stoat_spin_color_hula_hoop");
-		});
+		void window.vetta.pet.getConfig().then(setConfig);
 		void window.vetta.pet.getBubbleStyleAssets().then((next) => {
 			setBubbleStyleAssets(next);
 		});
@@ -46,19 +30,6 @@ export function PetSettings(): JSX.Element {
 		setConfig((current) => ({ ...current, enabled: checked }));
 		const request = checked ? window.vetta.pet.show() : window.vetta.pet.hide();
 		void request.then(setConfig);
-	}, []);
-
-	const handleAutoMode = useCallback(
-		(checked: boolean) => {
-			void persist({ autoMode: checked });
-		},
-		[persist],
-	);
-
-	const handleAction = useCallback((value: string) => {
-		const actionId = value as PetActionId;
-		setCurrentActionId(actionId);
-		void window.vetta.pet.setAction(actionId);
 	}, []);
 
 	const handleAlwaysOnTop = useCallback(
@@ -103,50 +74,6 @@ export function PetSettings(): JSX.Element {
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["pet-behavior"]}>
-				<SettingRow
-					title="自动切换动作"
-					description="开启后会按时间段和应用工作状态倾向自动轮换动作；手动选择动作会临时优先。"
-				>
-					<Switch
-						checked={config.autoMode}
-						onCheckedChange={handleAutoMode}
-						disabled={!config.enabled}
-					/>
-				</SettingRow>
-				<SettingRow
-					title="切换动作"
-					description="选择后立即切换为该动作，约 10 秒后继续交由应用状态和自动轮换接管。"
-					border={false}
-				>
-					<Select
-						value={currentActionId}
-						onValueChange={handleAction}
-						disabled={!config.enabled}
-					>
-						<SelectTrigger className="h-7 min-w-[144px] px-2 py-1 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{PET_ACTION_GROUPS.map((group) => (
-								<SelectGroup key={group.id}>
-									<SelectLabel className="text-[10px] text-muted-foreground/70">{group.label}</SelectLabel>
-									{getPetActionsByGroup(group.id).map((action) => (
-										<SelectItem
-											key={action.id}
-											value={action.id}
-											className="text-[12px]"
-										>
-											{action.label}
-										</SelectItem>
-									))}
-								</SelectGroup>
-							))}
-						</SelectContent>
-					</Select>
-				</SettingRow>
-			</SettingSection>
-
 			<SettingSection section={SETTINGS_SECTION["pet-window"]}>
 				<SettingRow
 					title="保持在最前"
@@ -165,38 +92,15 @@ export function PetSettings(): JSX.Element {
 				section={SETTINGS_SECTION["pet-decoration"]}
 				description={t("settings.bubble.sectionDescription")}
 			>
-				<SettingRow
-					title={t("settings.bubble.styleTitle")}
-					description={t("settings.bubble.styleDescription")}
-				>
-					<Select
-						value={config.bubbleStyleId}
-						onValueChange={handleBubbleStyle}
-						disabled={!config.enabled}
-					>
-						<SelectTrigger className="h-7 min-w-[144px] px-2 py-1 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{PET_BUBBLE_STYLES.map((style) => (
-								<SelectItem
-									key={style.id}
-									value={style.id}
-									className="text-[12px]"
-								>
-									{t(style.labelKey)}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</SettingRow>
 				<div className="grid grid-cols-2 gap-3 p-4 @max-xl:grid-cols-1">
 					{PET_BUBBLE_STYLES.map((style) => (
 						<PetBubbleStylePreview
 							key={style.id}
 							decorUrl={getBubbleStyleAssetUrl(style.id)}
 							description={t(style.descriptionKey)}
+							disabled={!config.enabled}
 							label={t(style.labelKey)}
+							onSelect={handleBubbleStyle}
 							selected={config.bubbleStyleId === style.id}
 							styleId={style.id}
 						/>
