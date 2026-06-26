@@ -8,7 +8,6 @@ export interface PetConfig {
 	alwaysOnTop: boolean;
 	size: number;
 	debugFrame: boolean;
-	defaultActionId?: PetActionId;
 	bubbleStyleId: PetBubbleStyleId;
 	videoScale: number;
 	videoBaseSizeByAction: PetVideoBaseSizeByAction;
@@ -33,7 +32,7 @@ export const PET_VIDEO_SCALE_MIN = 0.4;
 export const PET_VIDEO_SCALE_MAX = 2.5;
 export const PET_VIDEO_SCALE_STEP = 0.01;
 export const DEFAULT_PET_VIDEO_SCALE = 1;
-export const PET_CONFIG_SCHEMA_VERSION = 3;
+export const PET_CONFIG_SCHEMA_VERSION = 4;
 
 export const DEFAULT_PET_CONFIG: PetConfig = {
 	schemaVersion: PET_CONFIG_SCHEMA_VERSION,
@@ -42,7 +41,6 @@ export const DEFAULT_PET_CONFIG: PetConfig = {
 	alwaysOnTop: true,
 	size: 220,
 	debugFrame: false,
-	defaultActionId: "stoat_spin_color_hula_hoop",
 	bubbleStyleId: DEFAULT_PET_BUBBLE_STYLE_ID,
 	videoScale: DEFAULT_PET_VIDEO_SCALE,
 	videoBaseSizeByAction: createDefaultVideoBaseSizeByAction(),
@@ -116,11 +114,6 @@ export function isPetActionId(value: unknown): value is PetActionId {
 	return typeof value === "string" && PET_ACTION_IDS.has(value);
 }
 
-function normalizePetActionId(value: unknown): PetActionId | undefined {
-	if (isPetActionId(value)) return value;
-	return undefined;
-}
-
 export function normalizePetConfig(value: unknown): PetConfig {
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		return { ...DEFAULT_PET_CONFIG };
@@ -135,7 +128,6 @@ export function normalizePetConfig(value: unknown): PetConfig {
 		debugFrame: typeof config.debugFrame === "boolean" ? config.debugFrame : DEFAULT_PET_CONFIG.debugFrame,
 		size: normalizePetSize(config.size),
 		videoScale: normalizePetVideoScale(config.videoScale),
-		defaultActionId: normalizePetActionId(config.defaultActionId) ?? DEFAULT_PET_CONFIG.defaultActionId,
 		bubbleStyleId: normalizePetBubbleStyleId(config.bubbleStyleId),
 		videoBaseSizeByAction: normalizeVideoBaseSizeByAction(config.videoBaseSizeByAction),
 	};

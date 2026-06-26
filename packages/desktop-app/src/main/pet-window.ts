@@ -117,9 +117,6 @@ function buildPetQuery(config: PetConfig): string {
 	params.set("videoScale", String(config.videoScale));
 	params.set("autoMode", String(config.autoMode));
 	params.set("debugFrame", String(config.debugFrame));
-	if (!config.autoMode && config.defaultActionId) {
-		params.set("initialAction", config.defaultActionId);
-	}
 	return params.toString();
 }
 
@@ -572,9 +569,6 @@ export function applyPetConfig(config: PetConfig): void {
 			actionId: action.id,
 			baseSize: getPetVideoBaseSize(petConfig, action.id),
 		});
-	}
-	if (!petConfig.autoMode && petConfig.defaultActionId) {
-		sendPetCommand(win, { type: "set-action", actionId: petConfig.defaultActionId, source: "config" });
 	}
 	log.debug("config applied", {
 		petConfig,
