@@ -1,4 +1,4 @@
-import type { PetDecoration } from "../../preload/api-types/pet.js";
+import type { PetBubbleStyleAsset, PetDecoration } from "../../preload/api-types/pet.js";
 import type { PetActionId } from "../../shared/pet-actions.js";
 import { normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
 import type { PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
@@ -17,6 +17,7 @@ import {
 	setPetWindowSize,
 	showPetWindow,
 } from "../pet-window.js";
+import { getPetBubbleStyleAssets } from "./pet-bubble-style-assets.js";
 import { getPetDecorations } from "./pet-decorations.js";
 
 const USER_ACTION_HOLD_MS = 10_000;
@@ -53,6 +54,10 @@ export function setDesktopPetActionFromUser(actionId: PetActionId): void {
 
 export function listPetDecorations(): PetDecoration[] {
 	return getPetDecorations();
+}
+
+export function listPetBubbleStyleAssets(): PetBubbleStyleAsset[] {
+	return getPetBubbleStyleAssets();
 }
 
 export async function resizeDesktopPetWindowByWheel(deltaY: number): Promise<void> {

@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { app, BrowserWindow, Menu, screen } from "electron";
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, screen } from "electron";
 import { PET_ACTIONS } from "../shared/pet-actions.js";
+import { getPetBubbleStyle, type PetBubbleStyleId } from "../shared/pet-bubbles.js";
 import {
 	DEFAULT_PET_CONFIG,
 	getPetScaledVideoSize,
@@ -20,6 +21,7 @@ import {
 	type PetConfig,
 } from "../shared/pet-config.js";
 import { PET_COMMAND_CHANNEL, type PetCommand, type PetResizeCorner, type PetVideoHitbox } from "../shared/pet-ipc.js";
+import { mainT } from "./i18n/index.js";
 import { allowProjectRoot } from "./ipc/fs.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_SCHEME } from "./media-protocol.js";
@@ -77,6 +79,15 @@ function resolvePetVideo(action: (typeof PET_ACTIONS)[number]): PetVideoResoluti
 	};
 }
 
+function resolvePetBubbleDecorUrl(styleId: PetBubbleStyleId): string | undefined {
+	const decor = getPetBubbleStyle(styleId).decor;
+	if (!decor) return undefined;
+
+	const decorPath = join(petMediaDir, decor.fileName);
+	if (!existsSync(decorPath)) return undefined;
+	return `${MEDIA_PROTOCOL_SCHEME}://local/stream?path=${encodeURIComponent(decorPath)}`;
+}
+
 function getStoredPetConfig(): PetConfig {
 	return readPetConfigSync();
 }
@@ -93,6 +104,9 @@ function getInitialBounds(size: number): Electron.Rectangle {
 
 function buildPetQuery(config: PetConfig): string {
 	const params = new URLSearchParams();
+	const bubbleDecorUrl = resolvePetBubbleDecorUrl(config.bubbleStyleId);
+	params.set("bubbleStyle", config.bubbleStyleId);
+	if (bubbleDecorUrl) params.set("bubbleDecor", bubbleDecorUrl);
 	for (const action of PET_ACTIONS) {
 		const video = resolvePetVideo(action);
 		if (video.url) {
@@ -295,9 +309,13 @@ function stopMousePassthroughPolling(): void {
 	mousePassthroughPollTimer = undefined;
 }
 
+function shouldShowPetDevToolsMenuItem(): boolean {
+	return !app.isPackaged || process.env.VETTA_PET_DEVTOOLS === "1";
+}
+
 function showContextMenu(win: BrowserWindow): void {
 	const alwaysOnTop = win.isAlwaysOnTop();
-	Menu.buildFromTemplate([
+	const template: MenuItemConstructorOptions[] = [
 		{
 			label: "动作",
 			submenu: [
@@ -336,12 +354,24 @@ function showContextMenu(win: BrowserWindow): void {
 				win.setAlwaysOnTop(!alwaysOnTop, "screen-saver");
 			},
 		},
+		...(shouldShowPetDevToolsMenuItem()
+			? [
+					{ type: "separator" as const },
+					{
+						label: mainT("pet.openDevTools"),
+						click: () => {
+							win.webContents.openDevTools({ mode: "detach" });
+						},
+					},
+				]
+			: []),
 		{ type: "separator" },
 		{
 			label: "关闭桌宠",
 			click: () => win.close(),
 		},
-	]).popup({ window: win });
+	];
+	Menu.buildFromTemplate(template).popup({ window: win });
 }
 
 export function getPetWindow(): BrowserWindow | null {
@@ -530,6 +560,12 @@ export function applyPetConfig(config: PetConfig): void {
 	sendPetCommand(win, { type: "set-auto-mode", enabled: petConfig.autoMode });
 	sendPetCommand(win, { type: "set-debug-frame", enabled: petConfig.debugFrame });
 	sendPetCommand(win, { type: "set-video-scale", scale: petConfig.videoScale });
+	const bubbleDecorUrl = resolvePetBubbleDecorUrl(petConfig.bubbleStyleId);
+	sendPetCommand(win, {
+		type: "set-bubble-style",
+		styleId: petConfig.bubbleStyleId,
+		...(bubbleDecorUrl ? { decorUrl: bubbleDecorUrl } : {}),
+	});
 	for (const action of PET_ACTIONS) {
 		sendPetCommand(win, {
 			type: "set-video-base-size",

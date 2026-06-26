@@ -13,6 +13,7 @@ import { getActionDuration, pickNextAction } from "../services/pet-action-picker
 import {
 	getInitialAction,
 	getInitialAutoMode,
+	getInitialBubbleStyle,
 	getInitialDebugFrame,
 	getInitialVideoBaseSizeByAction,
 	getInitialVideoScale,
@@ -35,6 +36,7 @@ declare global {
 export function PetApp(): JSX.Element {
 	const videos = useMemo(() => getVideoMap(), []);
 	const [actionId, setActionId] = useState<PetActionId | undefined>(() => getInitialAction(videos));
+	const [bubbleStyle, setBubbleStyle] = useState(getInitialBubbleStyle);
 	const [autoMode, setAutoMode] = useState(getInitialAutoMode);
 	const [debugFrame, setDebugFrame] = useState(getInitialDebugFrame);
 	const [videoScale, setVideoScale] = useState(getInitialVideoScale);
@@ -163,6 +165,13 @@ export function PetApp(): JSX.Element {
 				}));
 				return;
 			}
+			if (command.type === "set-bubble-style") {
+				setBubbleStyle({
+					styleId: command.styleId,
+					...(command.decorUrl === undefined ? {} : { decorUrl: command.decorUrl }),
+				});
+				return;
+			}
 			if (command.type === "set-auto-mode") {
 				setAutoMode(command.enabled);
 				autoModeRef.current = command.enabled;
@@ -231,7 +240,11 @@ export function PetApp(): JSX.Element {
 					height: videoNaturalSize ? `${videoSize.height}px` : "100%",
 				}}
 			>
-				<PetSpeechBubble message={bubble} />
+				<PetSpeechBubble
+					decorUrl={bubbleStyle.decorUrl}
+					message={bubble}
+					styleId={bubbleStyle.styleId}
+				/>
 				<PetVideoSurface
 					actionDescription={action?.description}
 					actionId={actionId}

@@ -11,5 +11,8 @@
 		"turnError": "Response failed",
 		"questionPending": "A question needs your confirmation. Click to view.",
 		"sessionFallback": "New Session"
+	},
+	"pet": {
+		"openDevTools": "Open Pet DevTools"
 	}
 }

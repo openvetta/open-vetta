@@ -11,5 +11,8 @@
 		"turnError": "本轮回答出错",
 		"questionPending": "有问题待确认，点击查看",
 		"sessionFallback": "新会话"
+	},
+	"pet": {
+		"openDevTools": "打开桌宠开发者工具"
 	}
 }

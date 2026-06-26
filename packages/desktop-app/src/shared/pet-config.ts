@@ -1,4 +1,5 @@
 import { PET_ACTIONS, type PetActionId } from "./pet-actions.js";
+import { DEFAULT_PET_BUBBLE_STYLE_ID, normalizePetBubbleStyleId, type PetBubbleStyleId } from "./pet-bubbles.js";
 
 export interface PetConfig {
 	schemaVersion: typeof PET_CONFIG_SCHEMA_VERSION;
@@ -8,6 +9,7 @@ export interface PetConfig {
 	size: number;
 	debugFrame: boolean;
 	defaultActionId?: PetActionId;
+	bubbleStyleId: PetBubbleStyleId;
 	videoScale: number;
 	videoBaseSizeByAction: PetVideoBaseSizeByAction;
 }
@@ -31,7 +33,7 @@ export const PET_VIDEO_SCALE_MIN = 0.4;
 export const PET_VIDEO_SCALE_MAX = 2.5;
 export const PET_VIDEO_SCALE_STEP = 0.01;
 export const DEFAULT_PET_VIDEO_SCALE = 1;
-export const PET_CONFIG_SCHEMA_VERSION = 2;
+export const PET_CONFIG_SCHEMA_VERSION = 3;
 
 export const DEFAULT_PET_CONFIG: PetConfig = {
 	schemaVersion: PET_CONFIG_SCHEMA_VERSION,
@@ -41,6 +43,7 @@ export const DEFAULT_PET_CONFIG: PetConfig = {
 	size: 220,
 	debugFrame: false,
 	defaultActionId: "stoat_spin_color_hula_hoop",
+	bubbleStyleId: DEFAULT_PET_BUBBLE_STYLE_ID,
 	videoScale: DEFAULT_PET_VIDEO_SCALE,
 	videoBaseSizeByAction: createDefaultVideoBaseSizeByAction(),
 };
@@ -133,6 +136,7 @@ export function normalizePetConfig(value: unknown): PetConfig {
 		size: normalizePetSize(config.size),
 		videoScale: normalizePetVideoScale(config.videoScale),
 		defaultActionId: normalizePetActionId(config.defaultActionId) ?? DEFAULT_PET_CONFIG.defaultActionId,
+		bubbleStyleId: normalizePetBubbleStyleId(config.bubbleStyleId),
 		videoBaseSizeByAction: normalizeVideoBaseSizeByAction(config.videoBaseSizeByAction),
 	};
 }
