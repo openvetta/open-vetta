@@ -1,32 +1,37 @@
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	renameSync,
-	statSync,
-	unlinkSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, parse } from "node:path";
 import { inspect } from "node:util";
 import electronLog from "electron-log/main";
+import { formatErrorChain, formatErrorChainJSON } from "./logger/format-error-chain.js";
+import { enforceRetention } from "./logger/log-retention.js";
+import { logRingBuffer, type RingEntry } from "./logger/log-ring-buffer.js";
+import { detectProcessRole, roleFileSuffix } from "./logger/process-role.js";
 
 export type AppLogLevel = "log" | "info" | "warn" | "error";
 export type AppLogType = "main" | "render" | "im";
 
 const APP_LOG_MAX_SIZE = 5 * 1024 * 1024;
 const APP_LOG_RETENTION_DAYS = 10;
+// 单 type 目录的硬上限：失控写入时按"归档数 + 总字节"双上限封顶，防止单天写爆磁盘。
+const APP_LOG_MAX_ARCHIVE_COUNT = 50;
+const APP_LOG_MAX_TOTAL_BYTES = 200 * 1024 * 1024;
 const APP_LOG_ROTATION_FALLBACK_SIZE = 256 * 1024;
 const APP_LOG_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 const APP_LOG_TIME_ZONE = "Asia/Shanghai";
 const APP_LOG_DIR = join(homedir(), ".vetta", "desktop-app", "logs");
 const APP_LOG_TYPES: readonly AppLogType[] = ["main", "render", "im"];
-const SHOULD_MIRROR_LOGS_TO_CONSOLE = process.env.VETTA_DESKTOP_DEV_URL !== undefined;
+const FILE_SUFFIX = roleFileSuffix(detectProcessRole());
+// agent-rpc 子进程的 stdout 跑 coding-agent 的 RPC NDJSON 协议，绝不能镜像日志到
+// console——electron-log 的 node console transport 在 require 时就快照了原始
+// console.*（→ 真实 stdout），main.ts 把 console 改写为 stderr 对它无效，dev 下
+// agent-rpc 继承 VETTA_DESKTOP_DEV_URL 会让镜像打开并污染协议。故与角色解耦。
+const SHOULD_MIRROR_LOGS_TO_CONSOLE =
+	process.env.VETTA_DESKTOP_DEV_URL !== undefined && detectProcessRole() !== "agent-rpc";
 
 let appLoggingConfigured = false;
 let consolePatched = false;
+let inLoggerWrite = false;
 let logCleanupTimer: NodeJS.Timeout | undefined;
 
 type AppLogger = ReturnType<typeof electronLog.scope>;
@@ -61,15 +66,50 @@ export function getAppLogPath(type: AppLogType = "main"): string {
 	return getLogger(type).transports.file.getFile().path;
 }
 
+// 日志根目录（含 main/render/im 子目录），供诊断包打包遍历。
+export function getAppLogBaseDir(): string {
+	return APP_LOG_DIR;
+}
+
+export const APP_LOG_TYPE_LIST = APP_LOG_TYPES;
+
 export function patchConsoleToAppLogger(): void {
 	if (consolePatched) return;
 	consolePatched = true;
 
 	const logger = getAppLogger("console");
-	console.log = (...args: unknown[]) => logger.info(...formatLogArgs(args));
-	console.info = (...args: unknown[]) => logger.info(...formatLogArgs(args));
-	console.warn = (...args: unknown[]) => logger.warn(...formatLogArgs(args));
-	console.error = (...args: unknown[]) => logger.error(...formatLogArgs(args));
+	// 重入护栏：patch 后的 console.* 指向 logger，而 logger 管线内部（transport、
+	// 序列化、归档失败处理）若再触发 console.* 会回灌 logger，形成自反馈死循环
+	// （这正是 "Render frame was disposed" 刷屏写爆磁盘的根因之一类）。同步标志保证
+	// 内部再触发的 console.* 直接走原生 stderr，绝不回灌。file transport 是 sync 写，
+	// 写盘同步完成、标志归位前的任何内部 console 都被拦——正是目标。
+	const guard =
+		(write: (...formatted: string[]) => void) =>
+		(...args: unknown[]): void => {
+			if (inLoggerWrite) {
+				process.stderr.write(`[console-reentry] ${args.map(safeConsoleArg).join(" ")}\n`);
+				return;
+			}
+			inLoggerWrite = true;
+			try {
+				write(...formatLogArgs(args));
+			} finally {
+				inLoggerWrite = false;
+			}
+		};
+	console.log = guard((...a) => logger.info(...a));
+	console.info = guard((...a) => logger.info(...a));
+	console.warn = guard((...a) => logger.warn(...a));
+	console.error = guard((...a) => logger.error(...a));
+}
+
+function safeConsoleArg(arg: unknown): string {
+	if (typeof arg === "string") return arg;
+	try {
+		return inspect(arg, { depth: 2, breakLength: 160 });
+	} catch {
+		return "[unserializable]";
+	}
 }
 
 export function writeAppLog(level: AppLogLevel, scope: string, ...args: unknown[]): void {
@@ -88,32 +128,6 @@ function formatLogArgs(args: unknown[]): string[] {
 	return args.map(formatLogArg);
 }
 
-// 递归打印 error.cause 链，并附带 code/errno/address/port —— 这是诊断 fetch
-// 失败（如 ECONNREFUSED / EHOSTUNREACH / undici "fetch failed"）的关键信息。
-function formatErrorChain(err: Error): string {
-	const parts: string[] = [err.stack ?? `${err.name}: ${err.message}`];
-	const seen = new Set<unknown>([err]);
-	let cur: unknown = (err as { cause?: unknown }).cause;
-	while (cur && !seen.has(cur)) {
-		seen.add(cur);
-		if (cur instanceof Error) {
-			const meta: string[] = [];
-			const anyCur = cur as Error & { code?: string; errno?: number | string; address?: string; port?: number };
-			if (anyCur.code) meta.push(`code=${anyCur.code}`);
-			if (anyCur.errno !== undefined) meta.push(`errno=${anyCur.errno}`);
-			if (anyCur.address) meta.push(`address=${anyCur.address}`);
-			if (anyCur.port !== undefined) meta.push(`port=${anyCur.port}`);
-			parts.push(
-				`  Caused by: ${cur.stack ?? `${cur.name}: ${cur.message}`}${meta.length ? `  [${meta.join(", ")}]` : ""}`,
-			);
-		} else {
-			parts.push(`  Caused by: ${String(cur)}`);
-		}
-		cur = (cur as { cause?: unknown }).cause;
-	}
-	return parts.join("\n");
-}
-
 function formatLogArg(arg: unknown): string {
 	if (typeof arg === "string") return arg;
 	if (arg instanceof Error) return formatErrorChain(arg);
@@ -128,9 +142,11 @@ function configureLogger(logger: ElectronLogger, type: AppLogType): void {
 	// 形成自反馈死循环，瞬间写满数个 5MB 日志文件。关掉它即断环。
 	logger.transports.ipc.level = false;
 	logger.transports.file.setAppName("Vetta");
-	logger.transports.file.fileName = `${type}.log`;
+	// 角色化文件名：GUI 不带后缀（保持 `<日期>.log`），sidecar/CLI 带 role+pid，
+	// 不再与主进程共写同一文件，消除并发追加与归档 rename 的竞态。
+	logger.transports.file.fileName = `${type}${FILE_SUFFIX}.log`;
 	logger.transports.file.resolvePathFn = (_variables, message) =>
-		join(APP_LOG_DIR, type, `${formatChinaDateKey(message?.date ?? new Date())}.log`);
+		join(APP_LOG_DIR, type, `${formatChinaDateKey(message?.date ?? new Date())}${FILE_SUFFIX}.log`);
 	logger.transports.file.level = type === "im" ? "debug" : "info";
 	logger.transports.file.maxSize = APP_LOG_MAX_SIZE;
 	logger.transports.file.format = ({ data, level, message }) => [
@@ -147,6 +163,56 @@ function configureLogger(logger: ElectronLogger, type: AppLogType): void {
 			...data,
 		];
 	}
+	mountRingBufferTransport(logger);
+}
+
+type LogTransport = ElectronLogger["transports"]["ipc"];
+type LogMessage = Parameters<LogTransport>[0];
+
+// 结构化采集 transport：把每条消息转成 RingEntry 推进内存 ring buffer，供导出诊断
+// 包时序列化为 NDJSON。只写内存、绝不写盘/写 stdout（agent-rpc 的 stdout 协议安全），
+// 也绝不抛错。与 file transport 同级别过滤。
+function mountRingBufferTransport(logger: ElectronLogger): void {
+	const transport: LogTransport = Object.assign(
+		(message: LogMessage) => {
+			try {
+				logRingBuffer.push(buildRingEntry(message));
+			} catch {
+				// Ring buffer must never break the log pipeline.
+			}
+		},
+		{ level: logger.transports.file.level, transforms: [] as LogTransport["transforms"] },
+	);
+	logger.transports.ringbuffer = transport;
+}
+
+function buildRingEntry(message: LogMessage): RingEntry {
+	const msgParts: string[] = [];
+	let fields: Record<string, unknown> | undefined;
+	let error: RingEntry["error"];
+	for (const arg of message.data) {
+		if (typeof arg === "string") {
+			msgParts.push(arg);
+		} else if (arg instanceof Error) {
+			if (error === undefined) error = formatErrorChainJSON(arg);
+			else msgParts.push(formatErrorChain(arg));
+		} else if (Array.isArray(arg)) {
+			// 数组不是结构化字段：展开成 {0:..,1:..} 会污染 fields，按可读串入 msg。
+			msgParts.push(inspect(arg, { depth: 8, breakLength: 160 }));
+		} else if (arg !== null && typeof arg === "object") {
+			fields = { ...fields, ...(arg as Record<string, unknown>) };
+		} else {
+			msgParts.push(String(arg));
+		}
+	}
+	return {
+		ts: formatChinaLogTimestamp(message.date),
+		level: String(message.level),
+		scope: message.scope ?? "",
+		msg: msgParts.join(" "),
+		...(fields ? { fields } : {}),
+		...(error ? { error } : {}),
+	};
 }
 
 function getLogger(type: AppLogType): ElectronLogger {
@@ -165,8 +231,18 @@ function startLogCleanupTimer(): void {
 
 function cleanupAllLogDirectories(): void {
 	for (const type of APP_LOG_TYPES) {
-		deleteExpiredLogs(join(APP_LOG_DIR, type));
+		enforceLogRetention(join(APP_LOG_DIR, type));
 	}
+}
+
+// 保留策略入口：当日活跃文件（本进程后缀）永不删，归档由日期 + 数量 + 字节三重上限回收。
+function enforceLogRetention(dir: string): void {
+	enforceRetention(dir, {
+		retentionDays: APP_LOG_RETENTION_DAYS,
+		maxTotalBytes: APP_LOG_MAX_TOTAL_BYTES,
+		maxArchiveCount: APP_LOG_MAX_ARCHIVE_COUNT,
+		currentDateKey: formatChinaDateKey(new Date()),
+	});
 }
 
 function archiveLegacyMainLog(): void {
@@ -189,7 +265,7 @@ function archiveLogFile(file: LogFile): void {
 		const pathParts = parse(file.path);
 		const archivePath = getAvailableArchivePath(pathParts.dir, pathParts.name, pathParts.ext, "size");
 		renameSync(file.path, archivePath);
-		deleteExpiredLogs(pathParts.dir);
+		enforceLogRetention(pathParts.dir);
 	} catch {
 		// Preserve the newest part of the file instead of clearing all logs
 		// when a platform temporarily prevents rename.
@@ -215,31 +291,6 @@ function getAvailableArchivePath(dir: string, name: string, ext: string, reason:
 		if (!existsSync(candidate)) return candidate;
 	}
 	return base;
-}
-
-function deleteExpiredLogs(dir: string): void {
-	try {
-		const datedLogs = readdirSync(dir)
-			.filter((filename) => filename.endsWith(".log"))
-			.map((filename) => {
-				const date = /^(\d{4}-\d{2}-\d{2})(?:\.|$)/.exec(filename)?.[1];
-				const path = join(dir, filename);
-				return date ? { date, path } : undefined;
-			})
-			.filter((file): file is { date: string; path: string } => file !== undefined);
-		const retainedDates = new Set(
-			[...new Set(datedLogs.map((file) => file.date))]
-				.sort((left, right) => right.localeCompare(left))
-				.slice(0, APP_LOG_RETENTION_DAYS),
-		);
-		for (const log of datedLogs) {
-			if (!retainedDates.has(log.date)) {
-				unlinkSync(log.path);
-			}
-		}
-	} catch {
-		// Best effort cleanup only.
-	}
 }
 
 function formatChinaLogTimestamp(date: Date): string {
