@@ -1,3 +1,4 @@
+import { useTranslation } from "@vetta/plugin-sdk";
 import { useMemo } from "react";
 import { parseDiff } from "../git/parseDiff";
 
@@ -16,13 +17,14 @@ const SIGN: Record<string, string> = { add: "+", del: "-", context: " ", hunk: "
  * touching the tree/panel.
  */
 export function DiffView({ patch }: { patch: string }): JSX.Element {
+	const { t } = useTranslation();
 	const parsed = useMemo(() => parseDiff(patch), [patch]);
 
 	if (parsed.binary) {
-		return <div className="px-3 py-2 text-[12px] text-muted-foreground">二进制文件，diff 不可显示。</div>;
+		return <div className="px-3 py-2 text-[12px] text-muted-foreground">{t("diff.binary")}</div>;
 	}
 	if (parsed.lines.length === 0) {
-		return <div className="px-3 py-2 text-[12px] text-muted-foreground">无差异内容。</div>;
+		return <div className="px-3 py-2 text-[12px] text-muted-foreground">{t("diff.empty")}</div>;
 	}
 
 	return (

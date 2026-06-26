@@ -1,7 +1,7 @@
 {
 	"id": "image-gen",
-	"name": "图像生成",
-	"version": "0.1.13",
+	"name": "%plugin.name%",
+	"version": "0.1.14",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",
@@ -24,8 +24,8 @@
 			{
 				"key": "provider",
 				"type": "enum",
-				"title": "服务商",
-				"description": "选择一个图像生成模型服务商",
+				"title": "%settings.provider.title%",
+				"description": "%settings.provider.description%",
 				"enum": [
 					"openai",
 					"agnes-ai",
@@ -36,8 +36,8 @@
 			{
 				"key": "openaiApiKey",
 				"type": "secret",
-				"title": "API Key",
-				"description": "OpenAI 图像服务的 API Key",
+				"title": "%settings.openaiApiKey.title%",
+				"description": "%settings.openaiApiKey.description%",
 				"visibleWhen": {
 					"key": "provider",
 					"in": [
@@ -48,8 +48,8 @@
 			{
 				"key": "agnesApiKey",
 				"type": "secret",
-				"title": "API Key",
-				"description": "Agnes Ai 图像服务的 API Key",
+				"title": "%settings.agnesApiKey.title%",
+				"description": "%settings.agnesApiKey.description%",
 				"visibleWhen": {
 					"key": "provider",
 					"in": [
@@ -60,8 +60,8 @@
 			{
 				"key": "customApiKey",
 				"type": "secret",
-				"title": "API Key",
-				"description": "自定义图像服务的 API Key",
+				"title": "%settings.customApiKey.title%",
+				"description": "%settings.customApiKey.description%",
 				"visibleWhen": {
 					"key": "provider",
 					"in": [
@@ -72,8 +72,8 @@
 			{
 				"key": "openaiModel",
 				"type": "enum",
-				"title": "图像模型",
-				"description": "选择 OpenAI 图像生成模型",
+				"title": "%settings.openaiModel.title%",
+				"description": "%settings.openaiModel.description%",
 				"enum": [
 					"gpt-image-2"
 				],
@@ -88,8 +88,8 @@
 			{
 				"key": "agnesModel",
 				"type": "enum",
-				"title": "图像模型",
-				"description": "选择 Agnes Ai 图像生成模型",
+				"title": "%settings.agnesModel.title%",
+				"description": "%settings.agnesModel.description%",
 				"enum": [
 					"agnes-image-2.1-flash"
 				],
@@ -104,7 +104,7 @@
 			{
 				"key": "agnesNote",
 				"type": "desc",
-				"description": "本服务商为 Agnes Ai，请前往 https://platform.agnes-ai.com/settings/apiKeys 申请 API Key。",
+				"description": "%settings.agnesNote.description%",
 				"visibleWhen": {
 					"key": "provider",
 					"in": [
@@ -115,8 +115,8 @@
 			{
 				"key": "baseUrl",
 				"type": "string",
-				"title": "API Base URL",
-				"description": "图像生成接口地址（标准 OpenAI v1 图像生成格式）",
+				"title": "%settings.baseUrl.title%",
+				"description": "%settings.baseUrl.description%",
 				"visibleWhen": {
 					"key": "provider",
 					"in": [
@@ -127,8 +127,8 @@
 			{
 				"key": "model",
 				"type": "string",
-				"title": "图像模型",
-				"description": "图像生成模型名称",
+				"title": "%settings.model.title%",
+				"description": "%settings.model.description%",
 				"visibleWhen": {
 					"key": "provider",
 					"in": [
@@ -138,8 +138,9 @@
 			}
 		]
 	},
-	"description": "图像生成插件",
+	"description": "%plugin.description%",
 	"author": "Vetta",
+	"defaultLocale": "zh",
 	"guidingWords": [
 	]
 }

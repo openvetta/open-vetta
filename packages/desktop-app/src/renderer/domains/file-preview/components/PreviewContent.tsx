@@ -2,6 +2,7 @@ import type { FilePreviewItem } from "@shared/store/atoms";
 import { pluginFilePreviewsAtom, resolvedThemeAtom } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PluginI18nBoundary } from "../../plugins/runtime/plugin-i18n";
 import { PluginFilePreview } from "./PluginFilePreview";
 import { CodePreview } from "../../activity-panel/components/previews/CodePreview";
 import { HtmlPreview } from "../../activity-panel/components/previews/HtmlPreview";
@@ -125,12 +126,14 @@ export function PreviewBody({
 	if (pluginPreview) {
 		// refreshNonce 入 key：手动刷新时重挂载插件预览，触发其重新读取
 		return (
-			<PluginFilePreview
-				key={`${itemKey}-${refreshNonce}`}
-				item={item}
-				ext={ext}
-				component={pluginPreview.component}
-			/>
+			<PluginI18nBoundary pluginId={pluginPreview.pluginId}>
+				<PluginFilePreview
+					key={`${itemKey}-${refreshNonce}`}
+					item={item}
+					ext={ext}
+					component={pluginPreview.component}
+				/>
+			</PluginI18nBoundary>
 		);
 	}
 

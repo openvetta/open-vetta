@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import nodePath from "node:path";
 import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
@@ -52,7 +52,7 @@ interface ExecFileError extends Error {
 }
 
 function configPath(): string {
-	return nodePath.join(homedir(), ".vetta", "desktop-config.json");
+	return nodePath.join(getVettaHomePath(), "desktop-config.json");
 }
 
 async function fileExists(filePath: string): Promise<boolean> {

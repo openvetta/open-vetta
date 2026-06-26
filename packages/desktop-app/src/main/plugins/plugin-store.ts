@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, join, normalize, resolve } from "node:path";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
 	AgentPluginContinuationContribution,
 	AgentPluginRuntimeConfig,
@@ -14,6 +14,8 @@ import type {
 	InstalledPlugin,
 	PluginAgentManifest,
 	PluginInstallOptions,
+	PluginLocaleCatalog,
+	PluginLocales,
 	PluginManifest,
 	PluginPermission,
 	PluginSettingSchema,
@@ -21,11 +23,11 @@ import type {
 import { getAppLogger } from "../logger.js";
 
 const PLUGIN_API_VERSION = "1.0.0";
-const pluginsBaseDir = join(homedir(), ".vetta", "plugins");
-const manifestPath = join(homedir(), ".vetta", "plugins-manifest.json");
-const tmpBaseDir = join(homedir(), ".vetta", "tmp", "plugins");
+const pluginsBaseDir = join(getVettaHomePath(), "plugins");
+const manifestPath = join(getVettaHomePath(), "plugins-manifest.json");
+const tmpBaseDir = join(getVettaHomePath(), "tmp", "plugins");
 // 系统插件的用户态偏好（目前仅停用开关），与用户插件注册表分离（ADR-0024）。
-const systemPrefsPath = join(homedir(), ".vetta", "system-plugin-prefs.json");
+const systemPrefsPath = join(getVettaHomePath(), "system-plugin-prefs.json");
 
 type PluginManifestFile = Record<string, InstalledPlugin>;
 type SystemPluginPrefs = Record<string, { enabled: boolean; disabledCommands?: string[] }>;
@@ -76,6 +78,8 @@ function readRegistry(): PluginManifestFile {
 			plugin.grantedCommandNames ??= [];
 			plugin.styleUrls ??= [];
 			plugin.activeVersion ??= plugin.version;
+			plugin.defaultLocale ??= "zh";
+			plugin.locales ??= {};
 		}
 		return registry;
 	} catch {
@@ -241,7 +245,45 @@ function parseManifest(raw: unknown): PluginManifest {
 		author: typeof input.author === "string" ? input.author : undefined,
 		guidingWords:
 			input.guidingWords === undefined ? undefined : assertStringArray(input.guidingWords, "guidingWords"),
+		defaultLocale: parseDefaultLocale(input.defaultLocale),
 	};
+}
+
+/** Locale code: 2-16 chars, letters/digits/dash (e.g. "zh", "en", "zh-Hans"). Defaults to "zh". */
+function parseDefaultLocale(value: unknown): string {
+	if (value === undefined) return "zh";
+	if (typeof value !== "string" || !/^[a-zA-Z][a-zA-Z0-9-]{1,15}$/.test(value)) {
+		throw new Error("Invalid plugin defaultLocale");
+	}
+	return value;
+}
+
+/**
+ * Load a plugin's sidecar catalogs from `<dir>/locales/<lang>.json` (flat
+ * key→string maps). All languages are read at once so the renderer can switch
+ * locale locally without re-IPC (ADR-0033). Malformed files are skipped+warned,
+ * never fatal.
+ */
+function loadPluginLocales(dir: string): PluginLocales {
+	const localesDir = join(dir, "locales");
+	if (!existsSync(localesDir)) return {};
+	const result: PluginLocales = {};
+	for (const file of readdirSync(localesDir)) {
+		if (!file.endsWith(".json")) continue;
+		const lang = file.slice(0, -".json".length);
+		try {
+			const parsed: unknown = JSON.parse(readFileSync(join(localesDir, file), "utf-8"));
+			if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) continue;
+			const catalog: PluginLocaleCatalog = {};
+			for (const [key, value] of Object.entries(parsed)) {
+				if (typeof value === "string") catalog[key] = value;
+			}
+			result[lang] = catalog;
+		} catch (err) {
+			pluginLog.warn(`locales: 跳过 ${file}（${dir}）：`, err);
+		}
+	}
+	return result;
 }
 
 function parseModuleFederationManifest(raw: unknown): PluginManifest["moduleFederation"] {
@@ -329,6 +371,7 @@ function installedFromManifest(
 	manifest: PluginManifest,
 	options: PluginInstallOptions | undefined,
 	previous: InstalledPlugin | undefined,
+	locales: PluginLocales,
 ): InstalledPlugin {
 	if (!supportsPluginApi(manifest.pluginApiVersion)) {
 		throw new Error(`Unsupported plugin API version: ${manifest.pluginApiVersion}`);
@@ -370,6 +413,8 @@ function installedFromManifest(
 		description: manifest.description,
 		author: manifest.author,
 		guidingWords: manifest.guidingWords,
+		defaultLocale: manifest.defaultLocale ?? "zh",
+		locales,
 		enabled: previous?.enabled ?? false,
 		installedAt: previous?.installedAt ?? now,
 		updatedAt: now,
@@ -722,6 +767,7 @@ export function clearDynamicAgentContributions(pluginId: string, activationId?: 
 function systemInstalledFromManifest(
 	manifest: PluginManifest,
 	enabled: boolean,
+	locales: PluginLocales,
 	disabledCommands: string[] = [],
 ): InstalledPlugin {
 	const now = new Date().toISOString();
@@ -749,6 +795,8 @@ function systemInstalledFromManifest(
 		description: manifest.description,
 		author: manifest.author,
 		guidingWords: manifest.guidingWords,
+		defaultLocale: manifest.defaultLocale ?? "zh",
+		locales,
 		enabled,
 		installedAt: now,
 		updatedAt: now,
@@ -783,6 +831,7 @@ export function discoverSystemPlugins(force = false): InstalledPlugin[] {
 					systemInstalledFromManifest(
 						manifest,
 						prefs[manifest.id]?.enabled ?? true,
+						loadPluginLocales(dir),
 						prefs[manifest.id]?.disabledCommands ?? [],
 					),
 				);
@@ -809,7 +858,7 @@ export function getPluginsBaseDir(): string {
 // 插件设置（VSCode 式）—— 按 plugin id 命名空间存值，与声明 schema 分离。
 // =============================================================================
 
-const pluginSettingsPath = join(homedir(), ".vetta", "plugin-settings.json");
+const pluginSettingsPath = join(getVettaHomePath(), "plugin-settings.json");
 type PluginSettingsStore = Record<string, Record<string, unknown>>;
 
 function readPluginSettingsStore(): PluginSettingsStore {
@@ -875,7 +924,7 @@ export async function installPluginFromArchive(
 		const registry = readRegistry();
 		const previous = registry[manifest.id];
 		await copyExtractedPlugin(sourceDir, manifest.id, manifest.version);
-		const installed = installedFromManifest(manifest, options, previous);
+		const installed = installedFromManifest(manifest, options, previous, loadPluginLocales(sourceDir));
 		registry[manifest.id] = installed;
 		writeRegistry(registry);
 		return installed;
@@ -1028,8 +1077,11 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.activeVersion = plugin.pendingVersion ?? plugin.version;
 	plugin.pendingVersion = undefined;
 	plugin.availableVersion = undefined;
-	const manifestFile = join(pluginsBaseDir, plugin.id, "versions", plugin.activeVersion, "plugin.json");
+	const versionDir = join(pluginsBaseDir, plugin.id, "versions", plugin.activeVersion);
+	const manifestFile = join(versionDir, "plugin.json");
 	const manifest = parseManifest(JSON.parse(readFileSync(manifestFile, "utf-8")));
+	plugin.defaultLocale = manifest.defaultLocale ?? "zh";
+	plugin.locales = loadPluginLocales(versionDir);
 	plugin.runtime = manifest.runtime ?? "esm";
 	plugin.entryUrl = toPluginUrl(plugin.id, plugin.activeVersion, manifest.entry);
 	plugin.moduleFederation = manifest.moduleFederation;

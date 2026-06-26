@@ -1,11 +1,14 @@
 import type { CardDescriptor, ConversationMessage, PluginCardProps } from "@vetta/plugin-sdk";
 import { Component, type ComponentType, type ErrorInfo, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PluginI18nBoundary } from "../../plugins/runtime/plugin-i18n";
 
 /** A card descriptor resolved to its renderer + display metadata. */
 export interface ResolvedCard {
 	/** Stable React key. */
 	id: string;
+	/** Owning plugin id (drives the i18n boundary for the rendered component). */
+	pluginId: string;
 	descriptor: CardDescriptor;
 	/** True while synthesized from an in-flight tool (renderer shows a skeleton). */
 	pending: boolean;
@@ -33,7 +36,9 @@ function CardBody({ card, message }: { card: ResolvedCard; message: Conversation
 	const { Component: Renderer } = card;
 	return (
 		<CardErrorBoundary>
-			<Renderer descriptor={card.descriptor} pending={card.pending} message={message} />
+			<PluginI18nBoundary pluginId={card.pluginId}>
+				<Renderer descriptor={card.descriptor} pending={card.pending} message={message} />
+			</PluginI18nBoundary>
 		</CardErrorBoundary>
 	);
 }

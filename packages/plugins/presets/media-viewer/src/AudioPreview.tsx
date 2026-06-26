@@ -1,4 +1,4 @@
-import type { PluginAudioMetadata, PluginPreviewFile } from "@vetta/plugin-sdk";
+import { type PluginAudioMetadata, type PluginPreviewFile, useTranslation } from "@vetta/plugin-sdk";
 import { Slider } from "@vetta/ui";
 import { motion } from "motion/react";
 import type { JSX } from "react";
@@ -10,6 +10,7 @@ const PLAYBACK_RATES = [1, 1.25, 1.5, 2, 0.5, 0.75];
 const VISUALIZER_BARS = 48;
 
 export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element {
+	const { t } = useTranslation();
 	const isLocal = !!file.path;
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const discRef = useRef<HTMLDivElement | null>(null);
@@ -208,7 +209,7 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 		return (
 			<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground/50">
 				<span className="icon-[mdi--music-note-off] text-[40px]" />
-				<span className="text-[13px]">无法播放此音频</span>
+				<span className="text-[13px]">{t("audio.error")}</span>
 			</div>
 		);
 	}
@@ -251,7 +252,7 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 					{meta.coverDataUrl ? (
 						<img
 							src={meta.coverDataUrl}
-							alt="专辑封面"
+							alt={t("audio.coverAlt")}
 							draggable={false}
 							className="h-24 w-24 rounded-full object-cover ring-2 ring-black/70"
 						/>
@@ -302,14 +303,14 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 			<div className="flex w-full max-w-md flex-wrap items-center justify-center gap-2">
 				<ControlButton
 					icon="icon-[mdi--repeat]"
-					title={loop ? "关闭循环" : "循环播放"}
+					title={loop ? t("audio.loopOff") : t("audio.loopOn")}
 					active={loop}
 					onClick={toggleLoop}
 				/>
 				<button
 					type="button"
 					onClick={togglePlay}
-					title={playing ? "暂停" : "播放"}
+					title={playing ? t("audio.pause") : t("audio.play")}
 					className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105"
 				>
 					<span className={cn(playing ? "icon-[mdi--pause]" : "icon-[mdi--play]", "h-6 w-6")} />
@@ -317,7 +318,7 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 				<button
 					type="button"
 					onClick={cycleRate}
-					title="播放速度"
+					title={t("audio.speed")}
 					className={cn(
 						"flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums transition-colors",
 						rate !== 1
@@ -330,7 +331,7 @@ export function AudioPreview({ file }: { file: PluginPreviewFile }): JSX.Element
 				<div className="flex items-center gap-1.5">
 					<ControlButton
 						icon={muted || volume === 0 ? "icon-[mdi--volume-off]" : "icon-[mdi--volume-high]"}
-						title={muted ? "取消静音" : "静音"}
+						title={muted ? t("audio.unmute") : t("audio.mute")}
 						onClick={toggleMute}
 					/>
 					<Slider

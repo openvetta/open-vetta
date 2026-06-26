@@ -1,0 +1,315 @@
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
+
+export interface VettaPluginPackageFile {
+	fullPath: string;
+	archivePath: string;
+}
+
+export interface VettaPluginPackageResult {
+	outputPath: string;
+	files: VettaPluginPackageFile[];
+}
+
+export interface CreateVettaPluginPackageOptions {
+	rootDir?: string;
+	manifestPath?: string;
+	releaseDir?: string;
+	distDir?: string;
+}
+
+interface PluginManifest {
+	id: string;
+	version: string;
+	entry: string;
+	styles?: string[];
+	agent?: {
+		systemPrompt?: {
+			promptPaths?: string[];
+		};
+		skillPaths?: string[];
+	};
+}
+
+const crcTable = new Uint32Array(256);
+for (let i = 0; i < 256; i += 1) {
+	let value = i;
+	for (let bit = 0; bit < 8; bit += 1) {
+		value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+	}
+	crcTable[i] = value >>> 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readString(record: Record<string, unknown>, key: string): string | undefined {
+	const value = record[key];
+	return typeof value === "string" ? value : undefined;
+}
+
+function readStringArray(record: Record<string, unknown>, key: string): string[] | undefined {
+	const value = record[key];
+	if (!Array.isArray(value)) {
+		return undefined;
+	}
+	const strings = value.filter((entry): entry is string => typeof entry === "string");
+	return strings.length === value.length ? strings : undefined;
+}
+
+function readAgentManifest(record: Record<string, unknown>): PluginManifest["agent"] {
+	const agent = record.agent;
+	if (!isRecord(agent)) {
+		return undefined;
+	}
+	const systemPrompt = isRecord(agent.systemPrompt)
+		? {
+				promptPaths: readStringArray(agent.systemPrompt, "promptPaths"),
+			}
+		: undefined;
+	return {
+		systemPrompt,
+		skillPaths: readStringArray(agent, "skillPaths"),
+	};
+}
+
+function parsePluginManifest(value: unknown): PluginManifest {
+	if (!isRecord(value)) {
+		throw new Error("plugin.json must contain an object.");
+	}
+
+	const id = readString(value, "id");
+	const version = readString(value, "version");
+	const entry = readString(value, "entry");
+	if (!id || !version || !entry) {
+		throw new Error("plugin.json must define string id, version, and entry fields.");
+	}
+
+	return {
+		id,
+		version,
+		entry,
+		agent: readAgentManifest(value),
+		styles: readStringArray(value, "styles"),
+	};
+}
+
+function parseJsonObject(buffer: Buffer, fileName: string): Record<string, unknown> {
+	const parsed = JSON.parse(buffer.toString("utf-8")) as unknown;
+	if (!isRecord(parsed)) {
+		throw new Error(`${fileName} must contain an object.`);
+	}
+	return parsed;
+}
+
+function crc32(buffer: Buffer): number {
+	let value = 0xffffffff;
+	for (const byte of buffer) {
+		value = crcTable[(value ^ byte) & 0xff] ^ (value >>> 8);
+	}
+	return (value ^ 0xffffffff) >>> 0;
+}
+
+function writeUInt16(value: number): Buffer {
+	const buffer = Buffer.allocUnsafe(2);
+	buffer.writeUInt16LE(value, 0);
+	return buffer;
+}
+
+function writeUInt32(value: number): Buffer {
+	const buffer = Buffer.allocUnsafe(4);
+	buffer.writeUInt32LE(value >>> 0, 0);
+	return buffer;
+}
+
+function archivePathFromRoot(rootDir: string, fullPath: string): string {
+	const archivePath = relative(rootDir, fullPath).replace(/\\/g, "/");
+	if (!archivePath || archivePath.startsWith("..") || archivePath.includes(`${sep}..${sep}`)) {
+		throw new Error(`File is outside plugin root: ${fullPath}`);
+	}
+	return archivePath;
+}
+
+async function collectFiles(dir: string): Promise<VettaPluginPackageFile[]> {
+	const entries = await readdir(dir, { withFileTypes: true });
+	const files: VettaPluginPackageFile[] = [];
+	for (const entry of entries) {
+		const fullPath = join(dir, entry.name);
+		if (entry.isDirectory()) {
+			files.push(...(await collectFiles(fullPath)));
+		} else if (entry.isFile()) {
+			files.push({ fullPath, archivePath: "" });
+		}
+	}
+	return files;
+}
+
+async function collectPath(path: string): Promise<VettaPluginPackageFile[]> {
+	const info = await stat(path);
+	if (info.isDirectory()) {
+		return collectFiles(path);
+	}
+	if (info.isFile()) {
+		return [{ fullPath: path, archivePath: "" }];
+	}
+	return [];
+}
+
+async function createZip(files: VettaPluginPackageFile[]): Promise<Buffer> {
+	const localParts: Buffer[] = [];
+	const centralParts: Buffer[] = [];
+	let offset = 0;
+
+	for (const file of files) {
+		const data = await readFile(file.fullPath);
+		const name = Buffer.from(file.archivePath.replace(/\\/g, "/"));
+		const checksum = crc32(data);
+		const localHeader = Buffer.concat([
+			writeUInt32(0x04034b50),
+			writeUInt16(20),
+			writeUInt16(0),
+			writeUInt16(0),
+			writeUInt16(0),
+			writeUInt16(0),
+			writeUInt32(checksum),
+			writeUInt32(data.length),
+			writeUInt32(data.length),
+			writeUInt16(name.length),
+			writeUInt16(0),
+			name,
+		]);
+		localParts.push(localHeader, data);
+
+		centralParts.push(
+			Buffer.concat([
+				writeUInt32(0x02014b50),
+				writeUInt16(20),
+				writeUInt16(20),
+				writeUInt16(0),
+				writeUInt16(0),
+				writeUInt16(0),
+				writeUInt16(0),
+				writeUInt32(checksum),
+				writeUInt32(data.length),
+				writeUInt32(data.length),
+				writeUInt16(name.length),
+				writeUInt16(0),
+				writeUInt16(0),
+				writeUInt16(0),
+				writeUInt16(0),
+				writeUInt32(0),
+				writeUInt32(offset),
+				name,
+			]),
+		);
+		offset += localHeader.length + data.length;
+	}
+
+	const centralDirectory = Buffer.concat(centralParts);
+	const endOfCentralDirectory = Buffer.concat([
+		writeUInt32(0x06054b50),
+		writeUInt16(0),
+		writeUInt16(0),
+		writeUInt16(files.length),
+		writeUInt16(files.length),
+		writeUInt32(centralDirectory.length),
+		writeUInt32(offset),
+		writeUInt16(0),
+	]);
+
+	return Buffer.concat([...localParts, centralDirectory, endOfCentralDirectory]);
+}
+
+function readManifestRemoteEntry(manifest: Record<string, unknown>): string | undefined {
+	const metaData = manifest.metaData;
+	if (!isRecord(metaData)) {
+		return undefined;
+	}
+	const remoteEntry = metaData.remoteEntry;
+	if (!isRecord(remoteEntry)) {
+		return undefined;
+	}
+	const name = readString(remoteEntry, "name");
+	if (!name) {
+		return undefined;
+	}
+	const path = readString(remoteEntry, "path") ?? "";
+	return path ? `${path.replace(/\/$/, "")}/${name}` : name;
+}
+
+async function collectRuntimeFiles(
+	rootDir: string,
+	manifestPath: string,
+	distDir: string,
+): Promise<VettaPluginPackageFile[]> {
+	const pluginManifest = parsePluginManifest(parseJsonObject(await readFile(manifestPath), basename(manifestPath)));
+	const packageFiles = new Map<string, VettaPluginPackageFile>();
+	const addFile = (fullPath: string) => {
+		const resolved = resolve(fullPath);
+		const archivePath = archivePathFromRoot(rootDir, resolved);
+		packageFiles.set(archivePath, { fullPath: resolved, archivePath });
+	};
+
+	addFile(manifestPath);
+
+	const federationManifestPath = resolve(rootDir, pluginManifest.entry);
+	addFile(federationManifestPath);
+
+	const federationManifest = parseJsonObject(await readFile(federationManifestPath), basename(federationManifestPath));
+	const remoteEntry = readManifestRemoteEntry(federationManifest);
+	if (remoteEntry) {
+		addFile(resolve(dirname(federationManifestPath), remoteEntry));
+	}
+
+	const assetsDir = join(distDir, "assets");
+	for (const file of await collectFiles(assetsDir)) {
+		addFile(file.fullPath);
+	}
+
+	for (const style of pluginManifest.styles ?? []) {
+		addFile(resolve(rootDir, style));
+	}
+
+	for (const promptPath of pluginManifest.agent?.systemPrompt?.promptPaths ?? []) {
+		for (const file of await collectPath(resolve(rootDir, promptPath))) {
+			addFile(file.fullPath);
+		}
+	}
+
+	for (const skillPath of pluginManifest.agent?.skillPaths ?? []) {
+		for (const file of await collectPath(resolve(rootDir, skillPath))) {
+			addFile(file.fullPath);
+		}
+	}
+
+	// Plugin i18n catalogs (ADR-0033): bundle locales/<lang>.json so the host can
+	// load them alongside the manifest. Optional — absent for single-language plugins.
+	try {
+		for (const file of await collectFiles(resolve(rootDir, "locales"))) {
+			addFile(file.fullPath);
+		}
+	} catch {
+		// no locales/ directory — nothing to bundle
+	}
+
+	return [...packageFiles.values()].sort((a, b) => a.archivePath.localeCompare(b.archivePath));
+}
+
+export async function createVettaPluginPackage(
+	options: CreateVettaPluginPackageOptions = {},
+): Promise<VettaPluginPackageResult> {
+	const rootDir = resolve(options.rootDir ?? process.cwd());
+	const manifestPath = resolve(rootDir, options.manifestPath ?? "plugin.json");
+	const releaseDir = resolve(rootDir, options.releaseDir ?? "release");
+	const distDir = resolve(rootDir, options.distDir ?? "dist");
+	const pluginManifest = parsePluginManifest(parseJsonObject(await readFile(manifestPath), basename(manifestPath)));
+	const outputPath = join(releaseDir, `${pluginManifest.id}-${pluginManifest.version}.zip`);
+	const files = await collectRuntimeFiles(rootDir, manifestPath, distDir);
+
+	await rm(releaseDir, { recursive: true, force: true });
+	await mkdir(releaseDir, { recursive: true });
+	await writeFile(outputPath, await createZip(files));
+
+	return { outputPath, files };
+}

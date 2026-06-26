@@ -111,6 +111,11 @@ export const useEditImageAttachment = sdk.useEditImageAttachment;
 export const useActivityTab = sdk.useActivityTab;
 export const __ActivityTabContext = sdk.__ActivityTabContext;
 export const __setPluginHostBridge = sdk.__setPluginHostBridge;
+export const useTranslation = sdk.useTranslation;
+export const __PluginI18nContext = sdk.__PluginI18nContext;
+export const interpolatePluginText = sdk.interpolatePluginText;
+export const resolveCatalogKey = sdk.resolveCatalogKey;
+export const resolvePluginText = sdk.resolvePluginText;
 `);
 	}
 	return new Response("Not found", { status: 404 });

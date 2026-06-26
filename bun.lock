@@ -108,6 +108,7 @@
         "@modelcontextprotocol/sdk": "^1.29.0",
         "@silvia-odwyer/photon-node": "^0.3.4",
         "@sinclair/typebox": "^0.34.41",
+        "@vetta/action-rpc": "workspace:*",
         "@vetta/agent-core": "workspace:*",
         "@vetta/ai": "workspace:*",
         "@vetta/runtime-telemetry": "workspace:*",
@@ -273,6 +274,7 @@
       "name": "@vetta/runtime-core",
       "version": "0.0.1",
       "dependencies": {
+        "@vetta/action-rpc": "workspace:*",
         "@vetta/agent-core": "workspace:*",
         "@vetta/ai": "workspace:*",
         "@vetta/coding-agent": "workspace:*",

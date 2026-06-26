@@ -1,8 +1,10 @@
+import { useTranslation } from "@vetta/plugin-sdk";
 import { useState } from "react";
 import { GitIcon } from "./icons";
 
 /** Shown when the panel's cwd is not a Git repository. */
 export function InitRepoCta({ onInit }: { onInit: () => Promise<void> }): JSX.Element {
+	const { t } = useTranslation();
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -20,8 +22,8 @@ export function InitRepoCta({ onInit }: { onInit: () => Promise<void> }): JSX.El
 				<GitIcon className="h-6 w-6" />
 			</div>
 			<div className="space-y-1">
-				<p className="text-[14px] font-semibold text-foreground">当前目录还不是 Git 仓库</p>
-				<p className="text-[12px] text-muted-foreground">初始化后即可在此查看变更与 diff。</p>
+				<p className="text-[14px] font-semibold text-foreground">{t("init.title")}</p>
+				<p className="text-[12px] text-muted-foreground">{t("init.subtitle")}</p>
 			</div>
 			<button
 				type="button"
@@ -30,7 +32,7 @@ export function InitRepoCta({ onInit }: { onInit: () => Promise<void> }): JSX.El
 				className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 			>
 				<GitIcon className="h-4 w-4" />
-				{busy ? "初始化中…" : "初始化仓库"}
+				{busy ? t("init.busy") : t("init.cta")}
 			</button>
 			{error && <p className="text-[12px] text-rose-500">{error}</p>}
 		</div>

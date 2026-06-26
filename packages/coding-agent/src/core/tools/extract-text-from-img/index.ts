@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, readFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import nodePath from "node:path";
 import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
+import { getVettaHomePath } from "@vetta/action-rpc";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { runWithOcrLimit } from "../ocr-concurrency.js";
@@ -74,7 +74,7 @@ const OCR_TIMEOUT_MS = 5 * 60 * 1000;
 const SUPPORTED_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]);
 
 function configPath(): string {
-	return nodePath.join(homedir(), ".vetta", "desktop-config.json");
+	return nodePath.join(getVettaHomePath(), "desktop-config.json");
 }
 
 async function fileExists(filePath: string): Promise<boolean> {

@@ -1,4 +1,4 @@
-import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
+import { type PluginFilePreviewProps, useTranslation } from "@vetta/plugin-sdk";
 import { useEffect, useState, type JSX } from "react";
 import { fetchFileBytes } from "../../utils/file";
 import { ErrorState, LoadingState, type LoadState } from "../PreviewState";
@@ -8,6 +8,7 @@ import type { SheetModel } from "./types";
 import { VirtualSheet } from "./VirtualSheet";
 
 export function SpreadsheetPreview({ file }: PluginFilePreviewProps): JSX.Element {
+	const { t } = useTranslation();
 	const [status, setStatus] = useState<LoadState>("loading");
 	const [sheets, setSheets] = useState<SheetModel[]>([]);
 	const [activeSheet, setActiveSheet] = useState(0);
@@ -45,7 +46,7 @@ export function SpreadsheetPreview({ file }: PluginFilePreviewProps): JSX.Elemen
 			)}
 			{status === "error" && (
 				<div className="absolute inset-0 bg-[var(--background)]">
-					<ErrorState message="无法读取电子表格文件" />
+					<ErrorState message={t("spreadsheet.error")} />
 				</div>
 			)}
 		</div>
