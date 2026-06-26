@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode, useId, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue } from "jotai";
+import { useTranslation } from "react-i18next";
 import {
 	activeSessionAtom,
 	backgroundTasksBySessionAtom,
@@ -52,6 +53,7 @@ class PluginToolCallErrorBoundary extends Component<{ children: ReactNode }, { f
 }
 
 export function ToolCallBlockView({ block, exportMode = false }: ToolCallBlockProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [expanded, setExpanded] = useState(false);
 	const generatedId = useId();
 	const panelId = exportMode ? `export-tool-${generatedId}` : undefined;
@@ -198,9 +200,9 @@ export function ToolCallBlockView({ block, exportMode = false }: ToolCallBlockPr
 									{hasMeta && block.startedAt !== undefined && (
 										<div
 											className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/50"
-											title="本地元数据，仅 UI 展示，不发送给大模型"
+											title={t("toolCall.metaLabel")}
 										>
-											<span className="font-medium text-muted-foreground/60">meta</span>
+											<span className="font-medium text-muted-foreground/60">{t("toolCall.meta")}</span>
 											<span className="tabular-nums">{formatStartedAt(block.startedAt)}</span>
 											{block.durationMs !== undefined && (
 												<>
@@ -249,7 +251,9 @@ export function ToolCallBlockView({ block, exportMode = false }: ToolCallBlockPr
 											{block.result}
 										</pre>
 									) : null}
-									{block.isError && <div className="mt-1 text-[11px] font-medium text-destructive/70">Error</div>}
+									{block.isError && (
+										<div className="mt-1 text-[11px] font-medium text-destructive/70">{t("toolCall.error")}</div>
+									)}
 								</>
 							)}
 						</div>

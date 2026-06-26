@@ -1,0 +1,304 @@
+{
+	"askUserQuestion": {
+		"cancelledMessage": "Cancelled by user, not answered",
+		"defaultQuestionLabel": "Question {{number}}"
+	},
+	"atPanel": {
+		"emptyDirectory": "Empty directory",
+		"enterDirectory": "Tab to enter",
+		"goUp": "..",
+		"header": "Reference file",
+		"loading": "Loading...",
+		"noResults": "No matches found",
+		"searchResults": "{{count}} results"
+	},
+	"backgroundTasksBadge": {
+		"runningTasksTooltip": "{{count}} background tasks running"
+	},
+	"bashHeader": {
+		"statusError": "Command failed: {{short}}",
+		"statusPending": "Running: {{short}}",
+		"statusSuccess": "Ran command: {{short}}"
+	},
+	"bashTerminalCard": {
+		"copyCommand": "Copy command",
+		"metaDescription": "Local metadata, UI only, not sent to the model"
+	},
+	"capability": {
+		"network": "Network",
+		"read": "Read",
+		"write": "Write"
+	},
+	"chatExport": {
+		"defaultSessionName": "Vetta Session"
+	},
+	"chatView": {
+		"completeButton": {
+			"label": "Done"
+		},
+		"defaultSessionTitle": "Vetta Session",
+		"exportButton": {
+			"title": "Export full session as HTML"
+		},
+		"panelButton": {
+			"closed": "Open activity panel",
+			"open": "Close activity panel"
+		},
+		"pinButton": {
+			"pinned": "Unpin window",
+			"unpinned": "Pin window (keep on top)"
+		}
+	},
+	"contextRing": {
+		"tooltip": {
+			"compacting": "Compacting context...",
+			"unknown": "Context window {{window}} (usage unknown)",
+			"usage": "Context {{percent}}% used ({{window}} window)"
+		}
+	},
+	"copyButton": {
+		"copied": "Copied",
+		"label": "Copy"
+	},
+	"dropZone": {
+		"externalRef": "Images are attached automatically; other files are referenced",
+		"internalRef": "Reference from within the project",
+		"releaseToRef": "Release to reference file"
+	},
+	"editDiff": {
+		"netChangeLabel": "Net {{net}}",
+		"newTextEmpty": "Empty replacement text",
+		"oldTextEmpty": "Empty match text"
+	},
+	"executionModeSelector": {
+		"fullAccess": {
+			"label": "Full access",
+			"title": "Allow full access to the current system"
+		},
+		"sandbox": {
+			"label": "Sandboxed",
+			"title": "Allow restricted access within the workspace only"
+		}
+	},
+	"export": {
+		"shareNavDescription": "shared a session",
+		"shareNavDescriptionWithNickname": "{{nickname}} shared a session"
+	},
+	"filterByTags": {
+		"hitCount": "{{count}} pages matched",
+		"noResults": "No pages matched",
+		"noTitle": "(untitled)"
+	},
+	"guideBadgeSwiper": {
+		"dismissTooltip": "Don't show again",
+		"petFeatureText": "New desktop pet feature — click to enable in settings"
+	},
+	"imagePreview": {
+		"altText": "Loaded image",
+		"imageLabel": "Image",
+		"originalLabel": "Original",
+		"processedLabel": "Model input",
+		"showInFolderButton": "Show original in file manager"
+	},
+	"inputActionBar": {
+		"chip": {
+			"removeTooltip": "Click to remove"
+		},
+		"knowledgeRetrieval": {
+			"label": "Knowledge search",
+			"tooltip": "When enabled, this question lets the AI search your knowledge base for answers first"
+		}
+	},
+	"inputBar": {
+		"capsule": {
+			"editImage": "Edit selected image",
+			"removeDefault": "Click to remove",
+			"removeImage": "Remove image",
+			"removeTooltip": "{{path}}\nClick to remove"
+		},
+		"drawer": {
+			"permissionDesc": "Awaiting confirmation",
+			"permissionLabel": "Permission request",
+			"todoDesc": "{{done}}/{{total}} {{content}}",
+			"todoDescSimple": "{{done}}/{{total}}",
+			"todoLabel": "To-do"
+		},
+		"hint": {
+			"newline": "⇧⏎ Newline",
+			"send": "⏎ Send"
+		},
+		"permission": {
+			"allow": "Allow once",
+			"allowSession": "Don't ask again this session",
+			"deny": "Deny"
+		},
+		"placeholder": {
+			"default": "Ask Vetta, use / for skills, @ to reference files",
+			"noSession": "Select or create a session to start",
+			"suggestion": "↵ {{suggestion}}",
+			"thinking": "Vetta is thinking…"
+		},
+		"toolbar": {
+			"addImage": "Add image",
+			"attachFile": "Attach file reference",
+			"skills": "Skills / Scenes"
+		}
+	},
+	"knowledgeTools": {
+		"empty": "No results"
+	},
+	"listTags": {
+		"empty": "The knowledge base has no tags yet",
+		"tagCount": "{{count}} tags total"
+	},
+	"messageCards": {
+		"layoutList": "List",
+		"layoutStacked": "Stacked"
+	},
+	"messageList": {
+		"assistantFoldTip": {
+			"collapse": "Collapse {{count}} items",
+			"collapseLabel": "Collapse",
+			"expand": "Expand {{count}} items",
+			"expandLabel": "Expand",
+			"streaming": "Processing {{elapsed}}s"
+		},
+		"assistantMessage": {
+			"predicting": "Vetta is predicting…",
+			"processing": "Processing..."
+		},
+		"compactionBoundary": "Context compacted",
+		"compactionIndicator": "Compacting context...",
+		"copyButton": {
+			"copied": "Copied",
+			"copy": "Copy"
+		},
+		"toolCallGroup": {
+			"completed": "{{count}} tool calls completed",
+			"inProgress": "{{completed}}/{{total}} tool calls",
+			"thinking": "{{count}} thinking steps"
+		}
+	},
+	"modelSelector": {
+		"defaultBadge": "Default",
+		"selectModel": "Select model",
+		"visionBadge": "vision"
+	},
+	"newSession": {
+		"greetingDefault": "How's it going today?",
+		"greetingTitle": "Hi, {{nickname}}",
+		"sceneCarouselNext": "Next",
+		"sceneCarouselPrev": "Previous",
+		"sceneInstallPrompt": "Click to install and use",
+		"skillScrollLeft": "Scroll left",
+		"skillScrollRight": "Scroll right",
+		"subtitle": "I can help you get work done. What can I do for you?"
+	},
+	"questionPanel": {
+		"keyboardHint": "↑↓ Navigate · Space select · ←→ Switch · Enter next",
+		"multiSelectHint": "Multiple choice",
+		"otherOption": "Other (custom input)",
+		"otherPlaceholder": "Type your answer…",
+		"questionTabLabel": "Question {{number}}",
+		"submitButton": "Submit",
+		"title": "Vetta needs your choice"
+	},
+	"sandboxGrantsBadge": {
+		"revoke": "Revoke",
+		"revokeAll": "Revoke all",
+		"title": "Sandbox grants for this session",
+		"tooltip": "Sandbox grants for this session"
+	},
+	"sendButton": {
+		"sendMessage": "Send message",
+		"stopGenerating": "Stop generating"
+	},
+	"session": {
+		"emptyMessageLabel": "(image)"
+	},
+	"sessionViewer": {
+		"badge": {
+			"liveUpdate": "Live update",
+			"readOnly": "Read-only view"
+		},
+		"emptyState": {
+			"noPath": "No session path specified"
+		},
+		"export": {
+			"defaultTitle": "Vetta Session"
+		},
+		"exportButton": {
+			"title": "Export full session as HTML"
+		},
+		"header": {
+			"subtitle": "This session was written by another client; the desktop app only displays it"
+		},
+		"panelToggleButton": {
+			"titleClose": "Close activity panel",
+			"titleOpen": "Open activity panel"
+		}
+	},
+	"skillPromptArea": {
+		"missingBadge": "Not installed",
+		"placeholder": "Type a prompt… use / for skills/scenes",
+		"removeSkill": "Click to remove",
+		"removeSkillMissing": "Skill not installed, click to remove",
+		"skillButtonLabel": "Skills / Scenes",
+		"skillButtonTitle": "Skills / Scenes"
+	},
+	"slashPanel": {
+		"emptyNoMatch": "No matches found",
+		"emptyNoSkills": "No skills or scenes available",
+		"header": "Select a scene or skill",
+		"resultCount": "{{count}} results",
+		"scenesSection": "Scenes",
+		"skillsSection": "Skills",
+		"sourceLabels": {
+			"agentsProject": "Generic · Project",
+			"agentsUser": "Generic",
+			"path": "Custom",
+			"project": "Project",
+			"scene": "Scene",
+			"user": "User"
+		}
+	},
+	"suggestionBubbles": {
+		"sendTooltip": "Click to send this suggestion"
+	},
+	"textPreview": {
+		"characterUnit": "chars",
+		"emptyLabel": "Empty",
+		"lineUnit": "lines"
+	},
+	"thinkingBlock": {
+		"lineCount": "{{count}} lines",
+		"title": "Thinking"
+	},
+	"toolCall": {
+		"error": "Error",
+		"meta": "meta",
+		"metaLabel": "Local metadata, UI only, not sent to the model"
+	},
+	"toolFormat": {
+		"unknown": "Unknown"
+	},
+	"toolLabel": {
+		"knowledgeBase": {
+			"filterByTags": "Knowledge · Filter by tags",
+			"listTags": "Knowledge · List tags",
+			"writePage": "Knowledge · Write page"
+		}
+	},
+	"usageBar": {
+		"durationLabel": "Took {{duration}}",
+		"speedLabel": "Speed {{speed}} tok/s"
+	},
+	"writeContent": {
+		"label": "Write content"
+	},
+	"writePage": {
+		"actionCreate": "Create page",
+		"actionUpdate": "Update page",
+		"originalLocation": "Original: {{path}}"
+	}
+}

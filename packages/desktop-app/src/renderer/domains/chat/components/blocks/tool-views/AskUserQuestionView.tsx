@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { QuestionItem, ToolCallBlock } from "@shared/store/atoms";
 
 interface AskUserQuestionViewProps {
@@ -32,6 +33,7 @@ const SWITCH = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
  * 单问题直接平铺；多问题用可切换的 tab（滑动下划线 + 内容淡入淡出）逐个查看。
  */
 export function AskUserQuestionView({ block }: AskUserQuestionViewProps): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const questions = parseQuestions(block.args);
 	const resolution = block.uiDetails?.askUserQuestion;
 	const cancelled = resolution?.cancelled === true;
@@ -64,7 +66,9 @@ export function AskUserQuestionView({ block }: AskUserQuestionViewProps): JSX.El
 									isActive ? "text-foreground" : "text-muted-foreground/70 hover:text-foreground/80"
 								}`}
 							>
-								<span className="max-w-[120px] truncate">{q.header || `问题 ${i + 1}`}</span>
+								<span className="max-w-[120px] truncate">
+								{q.header || t("askUserQuestion.defaultQuestionLabel", { number: i + 1 })}
+							</span>
 								{answered && <span className="icon-[mdi--check-circle] size-3 shrink-0 text-primary" />}
 								{isActive && (
 									<motion.span
@@ -104,10 +108,11 @@ export function AskUserQuestionView({ block }: AskUserQuestionViewProps): JSX.El
 }
 
 function CancelledBanner(): JSX.Element {
+	const { t } = useTranslation("chat");
 	return (
 		<div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/70">
 			<span className="icon-[mdi--close-circle-outline] size-3.5" />
-			用户已取消，未作答
+			{t("askUserQuestion.cancelledMessage")}
 		</div>
 	);
 }

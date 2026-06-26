@@ -144,6 +144,27 @@ src/
 - 在 `main/ipc/index.ts` 中注册
 - preload 层定义类型契约
 
+### 7. i18n 国际化（**面向用户的文案一律不硬编码**）
+
+本应用已接入 i18next + react-i18next（背景与架构见 [`docs/adr/0031`](../../docs/adr/0031-desktop-i18n-i18next-semantic-keys-main-owned-language.md)）。**所有面向用户的文案必须走 i18n，禁止硬编码中文字符串**——包括新写的代码和你改到的旧代码里新增的文案。
+
+**catalog 与命名空间**
+- 文案存 `src/shared/i18n/locales/{zh,en}/<ns>.json`，**zh 为准、en 后填**，缺译自动回退 zh（`fallbackLng=zh`，绝不暴露原始 key）。
+- 按 domain 分 ns：`common`（按钮等基础件）、`main`（主进程原生 UI）、`chat` / `settings` / … 各 domain 一个 ns。
+- key 用**语义点路径**，按组件/特性分组：`t("inputBar.placeholder.default")`、`t("newSession.subtitle")`。
+
+**怎么取文案**
+- React 组件：`const { t } = useTranslation("<ns>")`，用**裸 key**：`t("group.leaf")`。带插值：catalog 里写 `{{var}}`，调用 `t("k", { var })`。内嵌 JSX（含 `<b>`/`<a>` 等）用 `<Trans i18nKey="<ns>:k">…</Trans>`。跨 ns 取词用前缀并把该 ns 绑进 hook：`useTranslation(["chat","common"])` 后 `t("common:actions.cancel")`。
+- 非组件（`.ts` hook / service）：**不要用 `useTranslation`**，改 `import { i18n } from "@shared/i18n"` 然后 `i18n.t("<ns>:key")`（**带 ns 前缀**）。
+- 主进程（托盘菜单 / 系统通知 / 原生 dialog）：`import { mainT } from "../i18n/index.js"`，`mainT("tray.showWindow")`，文案进 `main` ns。
+
+**铁律**
+- **模块级常量不准存中文。** 形如 `const MODE_OPTIONS = [{ label: "沙盒受限" }]` 一律禁止——改成存 i18n key（或只留 `mode`/`icon`），渲染期用 `t()` 解析；或把常量挪进组件内。
+- key 写错 / 不存在会被 **tsc 拦下**（`i18next.d.ts` 基于 zh 资源做了类型增强，有自动补全）。
+- **新增 ns** 要在三处注册：`src/shared/i18n/config.ts` 的 `NAMESPACES`、`src/shared/i18n/resources.ts`、`src/renderer/shared/i18n/i18next.d.ts`。
+- **不抽**：代码注释、日志（`*.warn`/`console`）、发给 LLM 或协议/IPC channel 的串——保持原样。
+- 增量推进：尚未抽离的 domain 仍是硬编码中文，**改到这些 domain 时，新增文案必须走 i18n**，并尽量顺手把所在文件抽干净（流程：发现文案 → 给语义 key → 包 `t()`/`<Trans>` → 文案进对应 ns 的 zh.json）。
+
 ## 日志规范
 
 desktop-app 的文本日志统一由 `src/main/logger.ts` 管理。新增或修改日志时，优先使用这里的入口，不要直接手写 `appendFileSync`、`console.log` 文件重定向，或重新实现独立轮转逻辑。

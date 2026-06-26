@@ -1,10 +1,12 @@
 import type { ToolCallBlock } from "@shared/store/atoms";
+import { useTranslation } from "react-i18next";
 import { formatSignedCount } from "./shared/format";
 import { parseDiff } from "./shared/parse-diff";
 import { getStringArg } from "./shared/parse-tool";
 import { TextPreview } from "./shared/TextPreview";
 
 function DiffPreview({ diff }: { diff: string }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const { lines, stats } = parseDiff(diff);
 	const net = stats.added - stats.removed;
 
@@ -18,7 +20,7 @@ function DiffPreview({ diff }: { diff: string }): JSX.Element {
 				<span className="rounded bg-red-500/10 px-1.5 py-0.5 font-medium text-red-600 dark:text-red-400">
 					-{stats.removed}
 				</span>
-				<span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground/60">净 {formatSignedCount(net)}</span>
+				<span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground/60">{t("editDiff.netChangeLabel", { net: formatSignedCount(net) })}</span>
 			</div>
 			<div className="max-h-[420px] overflow-auto rounded-md bg-muted/25 py-2 font-mono text-[11px] leading-[1.5]">
 				{lines.map((line, index) => {
@@ -51,14 +53,15 @@ function DiffPreview({ diff }: { diff: string }): JSX.Element {
 }
 
 function EditTextFallback({ block }: { block: ToolCallBlock }): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const oldText = getStringArg(block.args, "oldText");
 	const newText = getStringArg(block.args, "newText");
 	if (oldText === null && newText === null) return null;
 
 	return (
 		<div className="space-y-3">
-			{oldText !== null && <TextPreview label="oldText" text={oldText} emptyLabel="空匹配文本" />}
-			{newText !== null && <TextPreview label="newText" text={newText} emptyLabel="空替换文本" />}
+			{oldText !== null && <TextPreview label="oldText" text={oldText} emptyLabel={t("editDiff.oldTextEmpty")} />}
+			{newText !== null && <TextPreview label="newText" text={newText} emptyLabel={t("editDiff.newTextEmpty")} />}
 		</div>
 	);
 }

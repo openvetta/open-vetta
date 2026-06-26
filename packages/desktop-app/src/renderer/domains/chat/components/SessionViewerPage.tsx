@@ -1,6 +1,7 @@
 import { useParams } from "@tanstack/react-router";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
 import { Button } from "@shared/components/ui/button";
 import {
@@ -34,6 +35,7 @@ import { MessageList } from "./MessageList";
  * Route param `path` is URI-encoded absolute session-file path.
  */
 export function SessionViewerPage(): JSX.Element {
+	const { t } = useTranslation("chat");
 	// biome-ignore lint/suspicious/noExplicitAny: route params typing
 	const params = useParams({ strict: false }) as any;
 	const encodedPath = params.path as string | undefined;
@@ -55,9 +57,9 @@ export function SessionViewerPage(): JSX.Element {
 		return path.startsWith(prefix);
 	}, [path, imCwd]);
 	const exportTitle = useMemo(() => {
-		const fileName = path.split(/[\\/]/).at(-1) ?? "Vetta 会话";
+		const fileName = path.split(/[\\/]/).at(-1) ?? t("sessionViewer.export.defaultTitle");
 		return fileName.replace(/\.jsonl$/i, "");
-	}, [path]);
+	}, [path, t]);
 	const handleExportFinished = useCallback(() => setExporting(false), []);
 	const isKnowledge = useMemo(() => {
 		if (!path || !kbCwd) return false;
@@ -77,18 +79,18 @@ export function SessionViewerPage(): JSX.Element {
 	}, [inlinePreviewActive, closeInlinePreview, setPanelOpen]);
 
 	useEffect(() => {
-		const badgeLabel = isIm ? "实时更新" : "只读视图";
+		const badgeLabel = isIm ? t("sessionViewer.badge.liveUpdate") : t("sessionViewer.badge.readOnly");
 		const badgeClass = isIm
 			? "rounded bg-primary/15 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-primary"
 			: "rounded bg-muted/60 px-1.5 py-[1px] text-[10px] font-semibold uppercase tracking-wide text-muted-foreground";
 		setHeaderRight(
 			<div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-				<span className="hidden truncate sm:inline">该会话由其他端写入，桌面端仅展示</span>
+				<span className="hidden truncate sm:inline">{t("sessionViewer.header.subtitle")}</span>
 				<span className={badgeClass}>{badgeLabel}</span>
 				<Button
 					size="icon-xs"
 					variant="ghost"
-					title="导出完整会话 HTML"
+					title={t("sessionViewer.exportButton.title")}
 					disabled={messages.length === 0 || exporting}
 					onClick={() => setExporting(true)}
 				>
@@ -103,7 +105,7 @@ export function SessionViewerPage(): JSX.Element {
 				<Button
 					size="icon-xs"
 					variant="ghost"
-					title={panelOpen ? "关闭活动面板" : "打开活动面板"}
+					title={panelOpen ? t("sessionViewer.panelToggleButton.titleClose") : t("sessionViewer.panelToggleButton.titleOpen")}
 					onClick={handleTogglePanel}
 					className={panelOpen ? "bg-accent text-foreground" : ""}
 				>
@@ -143,7 +145,7 @@ export function SessionViewerPage(): JSX.Element {
 	if (!path) {
 		return (
 			<div className="flex h-full min-h-0 flex-1 items-center justify-center text-[13px] text-muted-foreground">
-				未指定会话路径
+				{t("sessionViewer.emptyState.noPath")}
 			</div>
 		);
 	}

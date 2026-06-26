@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import type { FsEntry, FsFileRef } from "@preload/fs-types";
 
 export interface SelectedFile {
@@ -103,6 +104,7 @@ function fileIcon(name: string, isDir: boolean): string {
 const HIDDEN = new Set(["node_modules", ".git", ".DS_Store", "Thumbs.db"]);
 
 export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [currentDir, setCurrentDir] = useState(cwd);
 	const [entries, setEntries] = useState<FsEntry[]>([]);
 	const [allFiles, setAllFiles] = useState<FsFileRef[]>([]);
@@ -276,11 +278,11 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 					{/* Header */}
 					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
 						<span className="icon-[solar--mention-circle-linear] h-4 w-4 text-muted-foreground/50" />
-						<span className="text-[12px] font-medium text-muted-foreground/50">
-							引用文件
+						<span className="text-[12px] font-medium text-muted-foreground/50" title={t("atPanel.header")}>
+							{t("atPanel.header")}
 						</span>
 						<span className="ml-auto font-mono text-[11px] text-muted-foreground/50">
-							{isSearching ? `${allItems.length} 个结果` : relDir}
+							{isSearching ? t("atPanel.searchResults", { count: allItems.length }) : relDir}
 						</span>
 					</div>
 
@@ -288,11 +290,11 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 					<div className="overflow-y-auto" style={{ maxHeight: 280 }}>
 						{loading ? (
 							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
-								加载中...
+								{t("atPanel.loading")}
 							</div>
 						) : allItems.length === 0 && !canGoUp ? (
 							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
-								{normalizedFilter ? "未找到匹配项" : "空目录"}
+								{normalizedFilter ? t("atPanel.noResults") : t("atPanel.emptyDirectory")}
 							</div>
 						) : (
 							<div className="py-1">
@@ -322,7 +324,7 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 											/>
 										)}
 										<span className="icon-[solar--arrow-left-up-linear] h-4 w-4 text-muted-foreground/50" />
-										<span className="text-[12px] text-muted-foreground/50">..</span>
+										<span className="text-[12px] text-muted-foreground/50" title={t("atPanel.goUp")}>{t("atPanel.goUp")}</span>
 									</button>
 								)}
 
@@ -366,8 +368,8 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 												</span>
 											)}
 											{entry.isDirectory && (
-												<span className="ml-auto text-[10px] text-muted-foreground/50">
-													Tab 进入
+												<span className="ml-auto text-[10px] text-muted-foreground/50" title={t("atPanel.enterDirectory")}>
+													{t("atPanel.enterDirectory")}
 												</span>
 											)}
 										</button>

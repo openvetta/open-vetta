@@ -82,6 +82,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - NEVER remove or downgrade code to fix type errors from outdated dependencies; upgrade the dependency instead
 - Always ask before removing functionality or code that appears to be intentional
 - Never hardcode key checks with, eg. `matchesKey(keyData, "ctrl+x")`. All keybindings must be configurable. Add default to matching object (`DEFAULT_EDITOR_KEYBINDINGS` or `DEFAULT_APP_KEYBINDINGS`)
+- **不要写死用户可见的语言文案。** 对已接入 i18n 的包（目前 `packages/desktop-app`）所有面向用户的文案（label/按钮/placeholder/菜单/通知/title/aria-label…）必须走 i18n，不得硬编码中文字符串；新增文案也一样。具体约定见该包 `AGENTS.md` 的「i18n 国际化」一节与 `docs/adr/0031`。模块级常量同样不能存中文——改存 i18n key、渲染期再解析。（不含代码注释、日志、发给 LLM/协议串——这些保持原样。）
 
 ## Component and Module Design
 

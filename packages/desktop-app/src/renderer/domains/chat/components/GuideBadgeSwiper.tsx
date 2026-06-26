@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 // 引导 badge：常驻(persistent)无法关闭；首次(once)关闭后本地持久化，以后不再展示。
 // 两种类型点击主体都会触发 onClick 回调。
@@ -44,6 +45,7 @@ interface GuideBadgeSwiperProps {
 }
 
 export function GuideBadgeSwiper({ mounted }: GuideBadgeSwiperProps): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const navigate = useNavigate();
 	const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed);
 	const [index, setIndex] = useState(0);
@@ -56,7 +58,7 @@ export function GuideBadgeSwiper({ mounted }: GuideBadgeSwiperProps): JSX.Elemen
 				id: "pet-feature",
 				type: "once",
 				icon: "icon-[mdi--paw-outline]",
-				text: "新增桌宠功能，点击前往设置开启",
+				text: t("guideBadgeSwiper.petFeatureText"),
 				onClick: () => void navigate({ to: "/settings/$tab", params: { tab: "pet" } }),
 			},
 		],
@@ -119,8 +121,8 @@ export function GuideBadgeSwiper({ mounted }: GuideBadgeSwiperProps): JSX.Elemen
 							<span
 								role="button"
 								tabIndex={-1}
-								aria-label="不再提示"
-								title="不再提示"
+								aria-label={t("guideBadgeSwiper.dismissTooltip")}
+								title={t("guideBadgeSwiper.dismissTooltip")}
 								onClick={(e) => {
 									e.stopPropagation();
 									handleDismiss(current.id);

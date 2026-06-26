@@ -1,5 +1,6 @@
 import { useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { activeSessionAtom, promptSuggestionsAtom } from "@shared/store/atoms";
 
 interface SuggestionBubblesProps {
@@ -17,6 +18,7 @@ const SOFT = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
  * 点击即把该建议作为独立 prompt 直发。建议为空时整块不渲染。
  */
 export function SuggestionBubbles({ onSend }: SuggestionBubblesProps): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const suggestionsMap = useAtomValue(promptSuggestionsAtom);
 	const suggestions = activeSession?.runtimeId ? suggestionsMap[activeSession.runtimeId] : undefined;
@@ -43,7 +45,7 @@ export function SuggestionBubbles({ onSend }: SuggestionBubblesProps): JSX.Eleme
 									exit={BUBBLE_EXIT}
 									transition={{ ...SOFT, delay: i * 0.03 }}
 									onClick={() => void onSend(s)}
-									title="点击发送此建议"
+									title={t("suggestionBubbles.sendTooltip")}
 									className="group flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-1.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-accent/60 hover:text-foreground"
 								>
 									<span className="icon-[solar--magic-stick-3-linear] h-3.5 w-3.5 shrink-0 text-primary/70" />

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import type { SkillInfo } from "@preload/api";
 import type { SelectedSkill } from "@shared/store/atoms";
@@ -38,6 +39,7 @@ export function SkillPromptArea({
 	autoFocus,
 	cwd,
 }: SkillPromptAreaProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
 	const [slashOpen, setSlashOpen] = useState(false);
@@ -173,7 +175,7 @@ export function SkillPromptArea({
 								<button
 									type="button"
 									onClick={handleRemoveSkill}
-									title={skillMissing ? "技能未安装，点击移除" : "点击移除"}
+									title={skillMissing ? t("skillPromptArea.removeSkillMissing") : t("skillPromptArea.removeSkill")}
 									className={`group flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
 										skillMissing
 											? "border-amber-500/40 bg-amber-500/10 text-amber-500"
@@ -186,7 +188,7 @@ export function SkillPromptArea({
 									<span className="max-w-[160px] truncate">{skill.alias || skill.name}</span>
 									{skillMissing && (
 										<span className="shrink-0 rounded-sm bg-amber-500/20 px-1 py-px text-[9px] font-medium">
-											未安装
+											{t("skillPromptArea.missingBadge")}
 										</span>
 									)}
 									<span className="icon-[mdi--close] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
@@ -201,7 +203,7 @@ export function SkillPromptArea({
 					value={prompt}
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
-					placeholder={placeholder ?? "输入提示词…使用 / 唤出技能/场景"}
+					placeholder={placeholder ?? t("skillPromptArea.placeholder")}
 					autoFocus={autoFocus}
 					className="block w-full resize-y border-none bg-transparent px-3 pt-2.5 pb-1 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
 					style={{ minHeight }}
@@ -211,7 +213,7 @@ export function SkillPromptArea({
 					<button
 						type="button"
 						onClick={handlePlusClick}
-						title="技能/场景"
+						title={t("skillPromptArea.skillButtonTitle")}
 						className={`flex h-7 items-center gap-1 rounded-md px-2 text-[12px] transition-colors ${
 							slashOpen
 								? "bg-primary/10 text-primary"
@@ -219,7 +221,7 @@ export function SkillPromptArea({
 						}`}
 					>
 						<span className="icon-[mdi--plus] h-3.5 w-3.5" />
-						<span>技能/场景</span>
+						<span>{t("skillPromptArea.skillButtonLabel")}</span>
 					</button>
 				</div>
 			</div>

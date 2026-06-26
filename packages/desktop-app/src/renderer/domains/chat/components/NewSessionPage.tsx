@@ -2,6 +2,7 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
 import { useParams } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import type { InstalledSkill, SkillInfo } from "@preload/api";
 import {
 	activeSessionAtom,
@@ -96,6 +97,7 @@ function useShortViewport(threshold = SHORT_VIEWPORT): boolean {
 }
 
 export function NewSessionPage(): JSX.Element {
+	const { t } = useTranslation("chat");
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
 
@@ -356,8 +358,8 @@ export function NewSessionPage(): JSX.Element {
 	);
 
 	const greetingTitle = authUser?.nickname
-		? `你好，${authUser.nickname}`
-		: "今天怎么样？";
+		? t("newSession.greetingTitle", { nickname: authUser.nickname })
+		: t("newSession.greetingDefault");
 
 	return (
 		<SessionDropZone
@@ -422,7 +424,7 @@ export function NewSessionPage(): JSX.Element {
 										transition={{ duration: 0.5, delay: 0.2 }}
 										className="mt-1 text-[12px] text-muted-foreground/70"
 									>
-										我可以帮助你处理工作，有什么我可以帮你的吗？
+										{t("newSession.subtitle")}
 									</motion.p>
 								</div>
 								<BotAvatar size="lg" autoplay={avatarAutoplay} />
@@ -478,6 +480,7 @@ interface SceneCarouselProps {
 // 场景卡片：横向滚动单行，每屏 3 张（宽度 = (100%-2*gap)/3），超出靠滚动 + 悬浮箭头手动翻动。
 // 宽度跟随外层左对齐列（max-w-2xl），不再单独居中。
 function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouselProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
 	const [canNext, setCanNext] = useState(false);
@@ -531,7 +534,7 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 							whileHover={{ y: -2 }}
 							whileTap={{ scale: 0.98 }}
 							transition={SPRING}
-							title={s.state === "uninstalled" ? "点击安装并使用" : s.description || s.name}
+							title={s.state === "uninstalled" ? t("newSession.sceneInstallPrompt") : s.description || s.name}
 							className={`relative flex w-[calc((100%-1rem)/3)] shrink-0 snap-start items-start gap-2.5 overflow-hidden rounded-xl border p-3 text-left transition-colors disabled:cursor-wait ${
 								selectedActive
 									? "border-primary/60 bg-card shadow-[0_10px_24px_-18px_var(--primary)]"
@@ -592,7 +595,7 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -left-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title="上一组"
+						title={t("newSession.sceneCarouselPrev")}
 					>
 						<span className="icon-[mdi--chevron-left] h-4 w-4" />
 					</motion.button>
@@ -607,7 +610,7 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title="下一组"
+						title={t("newSession.sceneCarouselNext")}
 					>
 						<span className="icon-[mdi--chevron-right] h-4 w-4" />
 					</motion.button>
@@ -626,6 +629,7 @@ interface SkillBadgeRowProps {
 // 技能胶囊单行展示：横向滚动，超出时两端浮出箭头手动翻动（每次滚动约 80% 视宽）。
 // 不加入场动画：该行固定在输入框上方，逐个弹入会干扰输入体验。
 function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
 	const [canNext, setCanNext] = useState(false);
@@ -694,7 +698,7 @@ function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps): JSX.
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title="向左"
+						title={t("newSession.skillScrollLeft")}
 					>
 						<span className="icon-[mdi--chevron-left] h-4 w-4" />
 					</motion.button>
@@ -709,7 +713,7 @@ function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps): JSX.
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -right-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title="向右"
+						title={t("newSession.skillScrollRight")}
 					>
 						<span className="icon-[mdi--chevron-right] h-4 w-4" />
 					</motion.button>

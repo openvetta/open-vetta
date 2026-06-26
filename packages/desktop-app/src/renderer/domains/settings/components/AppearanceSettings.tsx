@@ -1,11 +1,15 @@
+import type { AppLanguage } from "@/shared/i18n/config";
 import { cn } from "@shared/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { useLanguage } from "@shared/hooks/useLanguage";
 import { useTheme } from "@shared/hooks/useTheme";
 import type { ThemeMode } from "@shared/store/atoms";
+import { useTranslation } from "react-i18next";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useState } from "react";
 import { SettingHeading } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
@@ -29,6 +33,74 @@ const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] =
 		hint: "随系统外观自动切换",
 	},
 ];
+
+// 语言名按惯例用其本身书写体展示（不翻译）。新增语言时在此追加一项。
+// 双语言展示：native = 该语言本身的写法（本国人识别），alt = 另一种语言里的称呼，
+// 让任一语言的用户在任何界面语言下都能认出自己的语言。
+const LANGUAGES: { value: AppLanguage; native: string; alt: string }[] = [
+	{ value: "zh", native: "中文", alt: "Chinese" },
+	{ value: "en", native: "English", alt: "英文" },
+];
+
+function LanguageSelect({
+	language,
+	onSelect,
+}: {
+	language: AppLanguage;
+	onSelect: (lang: AppLanguage) => void;
+}): JSX.Element {
+	const [open, setOpen] = useState(false);
+	const current = LANGUAGES.find((l) => l.value === language) ?? LANGUAGES[0];
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					className={cn(
+						"flex h-9 w-[220px] items-center gap-2 rounded-lg border px-3 text-[13px] transition-colors",
+						open ? "border-primary/70 bg-accent/40" : "border-border hover:border-primary/40 hover:bg-accent/30",
+					)}
+				>
+					<span className="icon-[mdi--translate] h-4 w-4 shrink-0 text-muted-foreground" />
+					<span className="flex-1 truncate text-left">
+						<span className="font-medium text-foreground">{current.native}</span>
+						<span className="ml-1.5 text-[11px] text-muted-foreground">{current.alt}</span>
+					</span>
+					<span
+						className={cn(
+							"icon-[mdi--chevron-down] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+							open && "rotate-180",
+						)}
+					/>
+				</button>
+			</PopoverTrigger>
+			<PopoverContent align="start" sideOffset={6} className="w-[220px] rounded-lg border border-border p-1">
+				{LANGUAGES.map((l) => (
+					<button
+						key={l.value}
+						type="button"
+						onClick={() => {
+							setOpen(false);
+							onSelect(l.value);
+						}}
+						className={cn(
+							"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+							language === l.value ? "bg-accent text-foreground" : "text-foreground hover:bg-accent/60",
+						)}
+					>
+						<span className="flex-1 truncate text-left">
+							<span className="font-medium">{l.native}</span>
+							<span className="ml-1.5 text-[11px] text-muted-foreground">{l.alt}</span>
+						</span>
+						{language === l.value && (
+							<span className="icon-[mdi--check] h-4 w-4 shrink-0 text-primary" />
+						)}
+					</button>
+				))}
+			</PopoverContent>
+		</Popover>
+	);
+}
 
 function ModeCard({
 	mode,
@@ -226,6 +298,8 @@ function ThemeCard({
 
 export function AppearanceSettings(): JSX.Element {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
+	const { language, setLanguage } = useLanguage();
+	const { t } = useTranslation("common");
 	const narrow = useNarrowScreen();
 
 	return (
@@ -233,7 +307,6 @@ export function AppearanceSettings(): JSX.Element {
 			<div className="mb-4 flex items-start justify-between gap-4">
 				<div>
 					<h1 className="text-[20px] font-bold text-foreground">外观</h1>
-					<SettingHeading section={SETTINGS_SECTION["appearance-mode"]} className="mt-3" />
 				</div>
 				{/* 窄屏隐藏装饰性头像，避免占用本就紧张的横向空间 */}
 				{!narrow && (
@@ -244,6 +317,13 @@ export function AppearanceSettings(): JSX.Element {
 			</div>
 
 			<div className="mb-6">
+				<SettingHeading section={SETTINGS_SECTION["appearance-language"]} className="mb-1" />
+				<p className="mb-3 text-[12px] text-muted-foreground">{t("appearance.languageHint")}</p>
+				<LanguageSelect language={language} onSelect={(l) => void setLanguage(l)} />
+			</div>
+
+			<div className="mb-6">
+				<SettingHeading section={SETTINGS_SECTION["appearance-mode"]} className="mb-3" />
 				<div className={cn("grid gap-3", narrow ? "grid-cols-1" : "grid-cols-3")}>
 					{MODES.map((m) => (
 						<ModeCard
@@ -264,11 +344,11 @@ export function AppearanceSettings(): JSX.Element {
 			<div className="mb-6">
 				<SettingHeading section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
 				<div className={cn("grid gap-x-4 gap-y-4", narrow ? "grid-cols-1" : "grid-cols-3")}>
-					{THEMES.map((t) => (
+					{THEMES.map((theme) => (
 						<ThemeCard
-							key={t.id}
-							theme={t}
-							active={themeName === t.id}
+							key={theme.id}
+							theme={theme}
+							active={themeName === theme.id}
 							onSelect={(id, event) =>
 								setThemeName(id, { x: event.clientX, y: event.clientY })
 							}

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { Notification, type WebContents } from "electron";
+import { mainT } from "../i18n/index.js";
 import { readConfigSync } from "../ipc/fs.js";
 import { getMainWindow, iconPath, showMainWindow } from "../window-manager.js";
 
@@ -85,7 +86,7 @@ async function buildDescriptor(n: AppNotification): Promise<NotificationDescript
 		case "agent-turn-complete": {
 			return {
 				title: await resolveSessionTitle(n.sessionPath),
-				body: n.outcome === "error" ? "本轮回答出错" : "已完成回答",
+				body: n.outcome === "error" ? mainT("notification.turnError") : mainT("notification.turnComplete"),
 				coalesceKey: n.sessionPath,
 				navigate: { type: "agent-turn-complete", sessionPath: n.sessionPath, cwd: n.cwd },
 			};
@@ -93,7 +94,7 @@ async function buildDescriptor(n: AppNotification): Promise<NotificationDescript
 		case "agent-question-pending": {
 			return {
 				title: await resolveSessionTitle(n.sessionPath),
-				body: "有问题待确认，点击查看",
+				body: mainT("notification.questionPending"),
 				// 与完成通知用不同 key，避免两类事件互相覆盖。
 				coalesceKey: `question:${n.sessionPath}`,
 				navigate: { type: "agent-question-pending", sessionPath: n.sessionPath, cwd: n.cwd },
@@ -165,7 +166,7 @@ function stripPrefixLines(text: string): string {
  * 否则回退首条用户消息截断；都没有则「新会话」。
  */
 async function resolveSessionTitle(sessionPath: string): Promise<string> {
-	const fallback = "新会话";
+	const fallback = mainT("notification.sessionFallback");
 	if (!sessionPath) return fallback;
 	try {
 		const text = await readFile(sessionPath, "utf8");

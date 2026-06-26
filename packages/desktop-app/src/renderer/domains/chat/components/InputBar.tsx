@@ -1,5 +1,6 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useRef, useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	inputValueAtom,
@@ -88,6 +89,7 @@ function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; 
 }
 
 export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
@@ -318,9 +320,9 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		if (sandboxPermission) {
 			tabs.push({
 				id: "sandbox-permission",
-				label: "权限请求",
+				label: t("inputBar.drawer.permissionLabel"),
 				color: "bg-amber-400",
-				desc: "等待确认",
+				desc: t("inputBar.drawer.permissionDesc"),
 				pulsing: true,
 				content: <SandboxPermissionCard request={sandboxPermission} />,
 			});
@@ -329,18 +331,22 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		const inProgressItem = todoItems.find((i) => i.status === "in_progress");
 		const doneCount = todoItems.filter((i) => i.status === "done").length;
 		const todoDesc = inProgressItem
-			? `${doneCount}/${todoItems.length} ${inProgressItem.content}`
-			: `${doneCount}/${todoItems.length}`;
+			? t("inputBar.drawer.todoDesc", {
+					done: doneCount,
+					total: todoItems.length,
+					content: inProgressItem.content,
+				})
+			: t("inputBar.drawer.todoDescSimple", { done: doneCount, total: todoItems.length });
 		tabs.push({
 			id: "todo",
-			label: "代办",
+			label: t("inputBar.drawer.todoLabel"),
 			color: "bg-emerald-400",
 			desc: todoDesc,
 			pulsing: !!inProgressItem,
 			content: <TodoCard items={todoItems} compact onViewMore={handleTodoViewMore} />,
 		});
 		return tabs;
-	}, [todoItems, handleTodoViewMore, sandboxPermission]);
+	}, [todoItems, handleTodoViewMore, sandboxPermission, t]);
 
 	const addImages = useCallback(
 		(newImages: Array<{ data: string; mimeType: string; name: string }>) => {
@@ -409,12 +415,12 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	}, [onAbort]);
 
 	const placeholder = !hasSession
-		? "选择或创建会话以开始"
+		? t("inputBar.placeholder.noSession")
 		: isStreaming
-			? "Vetta 正在思考…"
+			? t("inputBar.placeholder.thinking")
 			: isEmpty && firstSuggestion
-				? `↵ ${firstSuggestion}`
-				: "向 Vetta 提问，使用 / 唤出技能，@ 引用文件";
+				? t("inputBar.placeholder.suggestion", { suggestion: firstSuggestion })
+				: t("inputBar.placeholder.default");
 
 	// Card visual class composition
 	const cardClass = [
@@ -494,7 +500,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 											<Capsule
 												key="edit-image-capsule"
 												icon="icon-[solar--gallery-linear]"
-												label="编辑选中图片"
+												label={t("inputBar.capsule.editImage")}
 												tone="primary"
 												onRemove={() => setEditImageAttachment(null)}
 											/>
@@ -546,7 +552,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 														type="button"
 														onClick={() => removeImage(img.id)}
 														className="absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all duration-150 group-hover:opacity-100 hover:scale-110 hover:text-destructive"
-														title="移除图片"
+														title={t("inputBar.capsule.removeImage")}
 														style={{ height: 18, width: 18 }}
 													>
 														<span className="icon-[solar--close-circle-linear] h-3 w-3" />
@@ -585,20 +591,20 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 						<div className="flex min-w-0 flex-shrink items-center gap-0.5">
 							<ToolbarButton
 								icon="icon-[solar--add-circle-linear]"
-								title="技能/场景"
+								title={t("inputBar.toolbar.skills")}
 								disabled={!hasSession}
 								onClick={handlePlusClick}
 								active={slashOpen}
 							/>
 							<ToolbarButton
 								icon="icon-[solar--gallery-linear]"
-								title="添加图片"
+								title={t("inputBar.toolbar.addImage")}
 								disabled={!hasSession}
 								onClick={handleSelectImages}
 							/>
 							<ToolbarButton
 								icon="icon-[solar--paperclip-linear]"
-								title="附加文件引用"
+								title={t("inputBar.toolbar.attachFile")}
 								disabled={!hasSession}
 								onClick={handleSelectFiles}
 							/>
@@ -621,7 +627,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 								transition={SOFT}
 								className="mx-1 hidden text-[10.5px] text-muted-foreground/50 select-none md:inline"
 							>
-								{isStreaming ? "" : isEmpty ? "⏎ 发送" : "⇧⏎ 换行"}
+								{isStreaming ? "" : isEmpty ? t("inputBar.hint.send") : t("inputBar.hint.newline")}
 							</motion.span>
 							<SendButton
 								canSend={canSend}
@@ -652,6 +658,7 @@ const Capsule = memo(function Capsule({
 	tone: "primary" | "muted";
 	onRemove: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const toneClass =
 		tone === "primary"
 			? "bg-primary/10 text-primary border-primary/20"
@@ -667,7 +674,7 @@ const Capsule = memo(function Capsule({
 			whileHover={CAPSULE_HOVER}
 			whileTap={CAPSULE_TAP}
 			onClick={onRemove}
-			title={title ? `${title}\n点击移除` : "点击移除"}
+			title={title ? t("inputBar.capsule.removeTooltip", { path: title }) : t("inputBar.capsule.removeDefault")}
 			className={`group flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${toneClass}`}
 		>
 			<span className={`${icon} h-3 w-3 shrink-0`} />
@@ -689,6 +696,7 @@ function SandboxPermissionCard({
 		onAllowSession?: () => void;
 	};
 }): JSX.Element {
+	const { t } = useTranslation("chat");
 	return (
 		<div className="space-y-3">
 			<div className="flex items-start gap-2">
@@ -708,14 +716,14 @@ function SandboxPermissionCard({
 					onClick={request.onCancel}
 					className="h-7 rounded-lg px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 				>
-					拒绝
+					{t("inputBar.permission.deny")}
 				</button>
 				<button
 					type="button"
 					onClick={request.onConfirm}
 					className="h-7 rounded-lg bg-amber-500 px-3 text-[12px] font-medium text-white transition-colors hover:bg-amber-600"
 				>
-					允许本次
+					{t("inputBar.permission.allow")}
 				</button>
 				{!request.sensitive && request.onAllowSession ? (
 					<button
@@ -723,7 +731,7 @@ function SandboxPermissionCard({
 						onClick={request.onAllowSession}
 						className="h-7 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 text-[12px] font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
 					>
-						本会话不再询问
+						{t("inputBar.permission.allowSession")}
 					</button>
 				) : null}
 			</div>
