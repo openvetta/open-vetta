@@ -32,6 +32,38 @@
 				"winterSolstice": {
 					"label": "冬至气泡",
 					"description": "冰蓝色背景，使用冬至四角装饰。"
+				},
+				"aprilFools": {
+					"label": "愚人节气泡",
+					"description": "浅紫色背景，使用愚人节四角装饰。"
+				},
+				"childrenDay": {
+					"label": "儿童节气泡",
+					"description": "明黄色背景，使用儿童节四角装饰。"
+				},
+				"christmas": {
+					"label": "圣诞气泡",
+					"description": "浅绿色背景，使用圣诞四角装饰。"
+				},
+				"halloween": {
+					"label": "万圣节气泡",
+					"description": "暖橙色背景，使用万圣节四角装饰。"
+				},
+				"laborDay": {
+					"label": "劳动节气泡",
+					"description": "暖橘色背景，使用劳动节四角装饰。"
+				},
+				"nationalDay": {
+					"label": "国庆气泡",
+					"description": "暖红色背景，使用国庆四角装饰。"
+				},
+				"songkran": {
+					"label": "宋干节气泡",
+					"description": "浅蓝色背景，使用宋干节四角装饰。"
+				},
+				"valentineDay": {
+					"label": "情人节气泡",
+					"description": "浅粉色背景，使用情人节四角装饰。"
 				}
 			}
 		}
