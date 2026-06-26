@@ -76,6 +76,7 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "pet", id: "pet-status", title: "显示状态" },
 	{ tab: "pet", id: "pet-behavior", title: "行为" },
 	{ tab: "pet", id: "pet-window", title: "窗口" },
+	{ tab: "pet", id: "pet-decoration", title: "桌宠装饰" },
 	{ tab: "pet", id: "pet-developer", title: "开发调试" },
 ] as const satisfies readonly SettingsSectionRegistration[];
 

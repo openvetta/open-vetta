@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
+import type { PetDecoration } from "../../../../preload/api-types/pet";
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions";
 import { DEFAULT_PET_CONFIG, type PetConfig } from "../../../../shared/pet-config";
 import { SETTINGS_SECTION } from "../registry";
@@ -8,10 +9,14 @@ import { SettingRow, SettingSection } from "./shared";
 
 export function PetSettings(): JSX.Element {
 	const [config, setConfig] = useState<PetConfig>(DEFAULT_PET_CONFIG);
+	const [decorations, setDecorations] = useState<PetDecoration[]>([]);
 
 	useEffect(() => {
 		void window.vetta.pet.getConfig().then((next) => {
 			setConfig(next);
+		});
+		void window.vetta.pet.getDecorations().then((next) => {
+			setDecorations(next);
 		});
 	}, []);
 
@@ -116,6 +121,41 @@ export function PetSettings(): JSX.Element {
 						disabled={!config.enabled}
 					/>
 				</SettingRow>
+			</SettingSection>
+
+			<SettingSection
+				section={SETTINGS_SECTION["pet-decoration"]}
+				description="当前仅展示可用的装饰素材，后续可接入实际装饰逻辑。"
+			>
+				<div className="grid grid-cols-2 gap-3 p-4 @max-xl:grid-cols-1">
+					{decorations.map((decoration) => (
+						<div
+							key={decoration.id}
+							className="overflow-hidden rounded-lg border border-border bg-background"
+						>
+							<div className="flex h-28 items-center justify-center bg-muted">
+								{decoration.found ? (
+									<img
+										src={decoration.url}
+										alt={decoration.label}
+										className="max-h-full max-w-full object-contain"
+										draggable={false}
+									/>
+								) : (
+									<div className="px-3 text-center text-[12px] text-muted-foreground">素材缺失</div>
+								)}
+							</div>
+							<div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+								<div className="min-w-0 truncate text-[12px] font-medium text-foreground">
+									{decoration.label}
+								</div>
+								<div className="shrink-0 text-[11px] text-muted-foreground">
+									{decoration.found ? "可用" : "缺失"}
+								</div>
+							</div>
+						</div>
+					))}
+				</div>
 			</SettingSection>
 
 			<SettingSection
