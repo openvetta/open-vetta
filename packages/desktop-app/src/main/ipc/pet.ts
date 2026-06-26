@@ -25,6 +25,7 @@ import {
 	movePetWindowBy,
 	resizePetVideoByWheel,
 	resizePetWindowByWheel,
+	sendPetCommandToWindow,
 	setPetMousePassthrough,
 	setPetVideoBaseSize,
 	setPetVideoHitbox,
@@ -38,6 +39,7 @@ const CHANNELS = {
 	SET_CONFIG: "vetta:pet:set-config",
 	SHOW: "vetta:pet:show",
 	HIDE: "vetta:pet:hide",
+	SET_ACTION: "vetta:pet:set-action",
 	GET_DECORATIONS: "vetta:pet:get-decorations",
 } as const;
 
@@ -115,6 +117,11 @@ export function registerPetIpc(): () => void {
 		return persistPetConfig({ enabled: false });
 	});
 
+	ipcMain.handle(CHANNELS.SET_ACTION, (_event, actionId: unknown): void => {
+		if (!isPetActionId(actionId)) return;
+		sendPetCommandToWindow({ type: "set-action", actionId, source: "user", holdMs: 10_000 });
+	});
+
 	ipcMain.handle(CHANNELS.GET_DECORATIONS, (): PetDecoration[] => {
 		return getPetDecorations();
 	});
@@ -174,6 +181,7 @@ export function registerPetIpc(): () => void {
 		ipcMain.removeHandler(CHANNELS.SET_CONFIG);
 		ipcMain.removeHandler(CHANNELS.SHOW);
 		ipcMain.removeHandler(CHANNELS.HIDE);
+		ipcMain.removeHandler(CHANNELS.SET_ACTION);
 		ipcMain.removeHandler(CHANNELS.GET_DECORATIONS);
 		ipcMain.removeHandler(PET_RESIZE_BY_WHEEL_CHANNEL);
 		ipcMain.removeHandler(PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL);

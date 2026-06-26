@@ -9,11 +9,15 @@ import { SettingRow, SettingSection } from "./shared";
 
 export function PetSettings(): JSX.Element {
 	const [config, setConfig] = useState<PetConfig>(DEFAULT_PET_CONFIG);
+	const [currentActionId, setCurrentActionId] = useState<PetActionId>(
+		DEFAULT_PET_CONFIG.defaultActionId ?? "stoat_spin_color_hula_hoop",
+	);
 	const [decorations, setDecorations] = useState<PetDecoration[]>([]);
 
 	useEffect(() => {
 		void window.vetta.pet.getConfig().then((next) => {
 			setConfig(next);
+			setCurrentActionId(next.defaultActionId ?? DEFAULT_PET_CONFIG.defaultActionId ?? "stoat_spin_color_hula_hoop");
 		});
 		void window.vetta.pet.getDecorations().then((next) => {
 			setDecorations(next);
@@ -39,12 +43,11 @@ export function PetSettings(): JSX.Element {
 		[persist],
 	);
 
-	const handleAction = useCallback(
-		(value: string) => {
-			void persist({ autoMode: false, defaultActionId: value as PetActionId });
-		},
-		[persist],
-	);
+	const handleAction = useCallback((value: string) => {
+		const actionId = value as PetActionId;
+		setCurrentActionId(actionId);
+		void window.vetta.pet.setAction(actionId);
+	}, []);
 
 	const handleAlwaysOnTop = useCallback(
 		(checked: boolean) => {
@@ -77,7 +80,7 @@ export function PetSettings(): JSX.Element {
 			<SettingSection section={SETTINGS_SECTION["pet-behavior"]}>
 				<SettingRow
 					title="自动切换动作"
-					description="开启后会按时间段和工作状态倾向自动轮换动作；手动选择动作会暂停自动切换。"
+					description="开启后会按时间段和应用工作状态倾向自动轮换动作；手动选择动作会临时优先。"
 				>
 					<Switch
 						checked={config.autoMode}
@@ -86,12 +89,12 @@ export function PetSettings(): JSX.Element {
 					/>
 				</SettingRow>
 				<SettingRow
-					title="当前动作"
-					description="选择后立即固定为该动作，适合想让桌宠保持安静、工作或休息状态。"
+					title="切换动作"
+					description="选择后立即切换为该动作，约 10 秒后继续交由应用状态和自动轮换接管。"
 					border={false}
 				>
 					<Select
-						value={config.defaultActionId ?? DEFAULT_PET_CONFIG.defaultActionId}
+						value={currentActionId}
 						onValueChange={handleAction}
 						disabled={!config.enabled}
 					>

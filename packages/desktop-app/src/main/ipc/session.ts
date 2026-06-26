@@ -23,6 +23,7 @@ import type {
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getAppLogger } from "../logger.js";
 import { notify } from "../notifications/index.js";
+import { sendPetCommandToWindow } from "../pet-window.js";
 import { buildAgentPluginRuntimeConfig, summarizeAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
@@ -38,6 +39,7 @@ import {
 	readDesktopConfig,
 	writeDesktopConfig,
 } from "./fs.js";
+import { mapSessionEventToPetAction } from "./pet-event-mapper.js";
 import { readSettings, writeSettings } from "./settings.js";
 
 /**
@@ -300,7 +302,14 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		// lifecycle 各自独立。agent_end 时按累积状态判定该不该通知。
 		let lastStopReason: string | undefined;
 		let aborted = false;
+		let lastPetActionId: string | undefined;
 		const unsubscribe = runtime.subscribe(sessionId, (ev: SessionEvent) => {
+			const petActionId = mapSessionEventToPetAction(ev);
+			if (petActionId && petActionId !== lastPetActionId) {
+				lastPetActionId = petActionId;
+				sendPetCommandToWindow({ type: "set-action", actionId: petActionId, source: "app" });
+			}
+
 			if (ev.type === "message.final") {
 				const sr = (ev.message as unknown as { stopReason?: unknown }).stopReason;
 				if (typeof sr === "string") lastStopReason = sr;

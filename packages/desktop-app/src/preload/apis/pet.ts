@@ -6,6 +6,7 @@ const CHANNELS = {
 	SET_CONFIG: "vetta:pet:set-config",
 	SHOW: "vetta:pet:show",
 	HIDE: "vetta:pet:hide",
+	SET_ACTION: "vetta:pet:set-action",
 	GET_DECORATIONS: "vetta:pet:get-decorations",
 } as const;
 
@@ -16,6 +17,7 @@ export function createPetApi(ipc: IpcRenderer): Pick<DesktopApi, "pet"> {
 			setConfig: (patch) => ipc.invoke(CHANNELS.SET_CONFIG, patch),
 			show: () => ipc.invoke(CHANNELS.SHOW),
 			hide: () => ipc.invoke(CHANNELS.HIDE),
+			setAction: (actionId) => ipc.invoke(CHANNELS.SET_ACTION, actionId),
 			getDecorations: () => ipc.invoke(CHANNELS.GET_DECORATIONS),
 		},
 	};

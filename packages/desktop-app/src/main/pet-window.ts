@@ -103,7 +103,7 @@ function buildPetQuery(config: PetConfig): string {
 	params.set("videoScale", String(config.videoScale));
 	params.set("autoMode", String(config.autoMode));
 	params.set("debugFrame", String(config.debugFrame));
-	if (config.defaultActionId) {
+	if (!config.autoMode && config.defaultActionId) {
 		params.set("initialAction", config.defaultActionId);
 	}
 	return params.toString();
@@ -256,6 +256,11 @@ function sendPetCommand(win: BrowserWindow, command: PetCommand): void {
 	win.webContents.send(PET_COMMAND_CHANNEL, command);
 }
 
+export function sendPetCommandToWindow(command: PetCommand): void {
+	if (!petWindow || petWindow.isDestroyed()) return;
+	sendPetCommand(petWindow, command);
+}
+
 function isCursorOverPetVideo(win: BrowserWindow): boolean {
 	if (!petVideoHitbox) return false;
 	const cursor = screen.getCursorScreenPoint();
@@ -299,16 +304,14 @@ function showContextMenu(win: BrowserWindow): void {
 				...PET_ACTIONS.map((action) => ({
 					label: action.label,
 					click: () => {
-						petConfig = { ...petConfig, autoMode: false, defaultActionId: action.id };
-						sendPetCommand(win, { type: "set-action", actionId: action.id });
+						sendPetCommand(win, { type: "set-action", actionId: action.id, source: "user", holdMs: 10_000 });
 					},
 				})),
 				{ type: "separator" as const },
 				{
 					label: "随机动作",
 					click: () => {
-						petConfig = { ...petConfig, autoMode: false };
-						sendPetCommand(win, { type: "random-action" });
+						sendPetCommand(win, { type: "random-action", source: "user", holdMs: 10_000 });
 					},
 				},
 			],
@@ -535,7 +538,7 @@ export function applyPetConfig(config: PetConfig): void {
 		});
 	}
 	if (!petConfig.autoMode && petConfig.defaultActionId) {
-		sendPetCommand(win, { type: "set-action", actionId: petConfig.defaultActionId });
+		sendPetCommand(win, { type: "set-action", actionId: petConfig.defaultActionId, source: "config" });
 	}
 	log.debug("config applied", {
 		petConfig,

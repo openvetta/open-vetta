@@ -13,5 +13,6 @@ export interface DesktopPetApi {
 	setConfig(patch: Partial<PetConfig>): Promise<PetConfig>;
 	show(): Promise<PetConfig>;
 	hide(): Promise<PetConfig>;
+	setAction(actionId: string): Promise<void>;
 	getDecorations(): Promise<PetDecoration[]>;
 }

@@ -20,6 +20,12 @@ import {
 import type { PetBridge, PetResizeCorner } from "../../../../shared/pet-ipc";
 
 type PetVideoMap = Partial<Record<PetActionId, string>>;
+const USER_ACTION_HOLD_MS = 10_000;
+const IDLE_ACTION_CANDIDATES: PetActionId[] = [
+	"stoat_spin_color_hula_hoop",
+	"stoat_sit_cushion_drink_tea_slow",
+	"stoat_listen_music_headphones_nod",
+];
 
 declare global {
 	interface Window {
@@ -28,13 +34,13 @@ declare global {
 }
 
 const actionDurations: Record<PetActionId, { minMs: number; maxMs: number }> = {
-	sleep: { minMs: 180_000, maxMs: 300_000 },
-	workout: { minMs: 35_000, maxMs: 70_000 },
-	typing: { minMs: 90_000, maxMs: 180_000 },
-	music: { minMs: 80_000, maxMs: 160_000 },
-	hula: { minMs: 35_000, maxMs: 70_000 },
-	"jump-rope": { minMs: 30_000, maxMs: 60_000 },
-	tea: { minMs: 60_000, maxMs: 120_000 },
+	stoat_sleep_lie_on_cushion: { minMs: 180_000, maxMs: 300_000 },
+	stoat_stand_lift_barbell_one_hand_fast: { minMs: 35_000, maxMs: 70_000 },
+	stoat_work_laptop_typing_desk_cushion: { minMs: 90_000, maxMs: 180_000 },
+	stoat_listen_music_headphones_nod: { minMs: 80_000, maxMs: 160_000 },
+	stoat_spin_color_hula_hoop: { minMs: 35_000, maxMs: 70_000 },
+	stoat_skip_rope_jump: { minMs: 30_000, maxMs: 60_000 },
+	stoat_sit_cushion_drink_tea_slow: { minMs: 60_000, maxMs: 120_000 },
 	stoat_wave_backflip_smoke_fade_exit: { minMs: 20_000, maxMs: 40_000 },
 };
 
@@ -50,7 +56,7 @@ function getVideoMap(): PetVideoMap {
 
 	const legacyVideo = params.get("video");
 	if (legacyVideo && legacyVideo.length > 0) {
-		videos.typing = legacyVideo;
+		videos.stoat_work_laptop_typing_desk_cushion = legacyVideo;
 	}
 
 	return videos;
@@ -84,7 +90,7 @@ function getInitialAction(videos: PetVideoMap): PetActionId | undefined {
 	if (initialAction && PET_ACTIONS.some((action) => action.id === initialAction) && videos[initialAction as PetActionId]) {
 		return initialAction as PetActionId;
 	}
-	return pickNextAction(videos);
+	return pickIdleAction(videos);
 }
 
 function randomInt(min: number, max: number): number {
@@ -95,29 +101,59 @@ function getAvailableActionIds(videos: PetVideoMap): PetActionId[] {
 	return PET_ACTIONS.map((action) => action.id).filter((id) => videos[id] != null);
 }
 
+function pickIdleAction(videos: PetVideoMap): PetActionId | undefined {
+	for (const actionId of IDLE_ACTION_CANDIDATES) {
+		if (videos[actionId] != null) return actionId;
+	}
+	return getAvailableActionIds(videos)[0];
+}
+
 function getWeightedActionsForNow(): PetActionId[] {
 	const hour = new Date().getHours();
 	if (hour < 7) {
-		return ["sleep", "sleep", "sleep", "sleep", "music", "tea"];
+		return [
+			"stoat_sleep_lie_on_cushion",
+			"stoat_sleep_lie_on_cushion",
+			"stoat_sleep_lie_on_cushion",
+			"stoat_sleep_lie_on_cushion",
+			"stoat_listen_music_headphones_nod",
+			"stoat_sit_cushion_drink_tea_slow",
+		];
 	}
 	if (hour >= 9 && hour < 18) {
 		return [
-			"typing",
-			"typing",
-			"typing",
-			"typing",
-			"tea",
-			"tea",
-			"workout",
-			"jump-rope",
-			"hula",
+			"stoat_work_laptop_typing_desk_cushion",
+			"stoat_work_laptop_typing_desk_cushion",
+			"stoat_work_laptop_typing_desk_cushion",
+			"stoat_work_laptop_typing_desk_cushion",
+			"stoat_sit_cushion_drink_tea_slow",
+			"stoat_sit_cushion_drink_tea_slow",
+			"stoat_stand_lift_barbell_one_hand_fast",
+			"stoat_skip_rope_jump",
+			"stoat_spin_color_hula_hoop",
 			"stoat_wave_backflip_smoke_fade_exit",
 		];
 	}
 	if (hour >= 18 && hour < 23) {
-		return ["music", "music", "tea", "tea", "hula", "workout", "typing", "stoat_wave_backflip_smoke_fade_exit"];
+		return [
+			"stoat_listen_music_headphones_nod",
+			"stoat_listen_music_headphones_nod",
+			"stoat_sit_cushion_drink_tea_slow",
+			"stoat_sit_cushion_drink_tea_slow",
+			"stoat_spin_color_hula_hoop",
+			"stoat_stand_lift_barbell_one_hand_fast",
+			"stoat_work_laptop_typing_desk_cushion",
+			"stoat_wave_backflip_smoke_fade_exit",
+		];
 	}
-	return ["sleep", "sleep", "music", "tea", "tea", "stoat_wave_backflip_smoke_fade_exit"];
+	return [
+		"stoat_sleep_lie_on_cushion",
+		"stoat_sleep_lie_on_cushion",
+		"stoat_listen_music_headphones_nod",
+		"stoat_sit_cushion_drink_tea_slow",
+		"stoat_sit_cushion_drink_tea_slow",
+		"stoat_wave_backflip_smoke_fade_exit",
+	];
 }
 
 function pickNextAction(videos: PetVideoMap, previous?: PetActionId): PetActionId | undefined {
@@ -383,6 +419,10 @@ export function PetApp(): JSX.Element {
 	const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | undefined>();
 	const videoRef = useRef<HTMLDivElement>(null);
 	const isDraggingRef = useRef(false);
+	const autoModeRef = useRef(autoMode);
+	const appActionIdRef = useRef<PetActionId | undefined>(undefined);
+	const userOverrideUntilRef = useRef(0);
+	const userOverrideTimerRef = useRef<number | undefined>(undefined);
 	const action = PET_ACTIONS.find((item) => item.id === actionId);
 	const videoSrc = actionId ? videos[actionId] : undefined;
 	const shouldShowVideo = videoSrc != null && videoSrc !== failedVideoSrc;
@@ -466,11 +506,39 @@ export function PetApp(): JSX.Element {
 			[actionId]: nextBaseSize,
 		}));
 	};
+	const clearUserOverrideTimer = () => {
+		if (userOverrideTimerRef.current == null) return;
+		window.clearTimeout(userOverrideTimerRef.current);
+		userOverrideTimerRef.current = undefined;
+	};
+	const isUserOverrideActive = () => Date.now() < userOverrideUntilRef.current;
+	const applyAutomaticAction = () => {
+		if (!autoModeRef.current) return;
+		setActionId((current) => appActionIdRef.current ?? pickNextAction(videos, current));
+	};
+	const scheduleUserActionRelease = (holdMs: number | undefined) => {
+		clearUserOverrideTimer();
+		const duration = typeof holdMs === "number" && Number.isFinite(holdMs) && holdMs > 0 ? holdMs : USER_ACTION_HOLD_MS;
+		userOverrideUntilRef.current = Date.now() + duration;
+		userOverrideTimerRef.current = window.setTimeout(() => {
+			userOverrideTimerRef.current = undefined;
+			userOverrideUntilRef.current = 0;
+			applyAutomaticAction();
+		}, duration);
+	};
 
 	useEffect(() => {
 		const handleResize = () => setWindowSize(getWindowSize());
 		window.addEventListener("resize", handleResize);
 		return () => window.removeEventListener("resize", handleResize);
+	}, []);
+
+	useEffect(() => {
+		autoModeRef.current = autoMode;
+	}, [autoMode]);
+
+	useEffect(() => {
+		return clearUserOverrideTimer;
 	}, []);
 
 	useEffect(() => {
@@ -515,7 +583,11 @@ export function PetApp(): JSX.Element {
 	useEffect(() => {
 		if (!autoMode || !actionId) return;
 		const timer = window.setTimeout(() => {
-			setActionId((current) => pickNextAction(videos, current));
+			if (isUserOverrideActive()) return;
+			if (appActionIdRef.current === actionId) {
+				appActionIdRef.current = undefined;
+			}
+			applyAutomaticAction();
 		}, getActionDuration(actionId));
 		return () => window.clearTimeout(timer);
 	}, [actionId, autoMode, videos]);
@@ -544,14 +616,39 @@ export function PetApp(): JSX.Element {
 			}
 			if (command.type === "set-auto-mode") {
 				setAutoMode(command.enabled);
+				autoModeRef.current = command.enabled;
+				if (command.enabled && !isUserOverrideActive()) {
+					applyAutomaticAction();
+				}
 				return;
 			}
-			setAutoMode(false);
 			if (command.type === "set-action") {
+				const source = command.source ?? "user";
+				if (source === "app") {
+					appActionIdRef.current = command.actionId;
+					if (autoModeRef.current && !isUserOverrideActive()) {
+						setActionId(command.actionId);
+					}
+					return;
+				}
+				if (source === "config") {
+					if (!autoModeRef.current) {
+						setActionId(command.actionId);
+					}
+					return;
+				}
 				setActionId(command.actionId);
+				scheduleUserActionRelease(command.holdMs);
+				return;
+			}
+			if (command.source === "app") {
+				if (autoModeRef.current && !isUserOverrideActive()) {
+					applyAutomaticAction();
+				}
 				return;
 			}
 			setActionId((current) => pickNextAction(videos, current));
+			scheduleUserActionRelease(command.holdMs);
 		});
 	}, [videos]);
 
