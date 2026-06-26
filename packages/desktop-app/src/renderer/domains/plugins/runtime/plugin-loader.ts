@@ -12,10 +12,12 @@ import {
 	pluginInputActionsAtom,
 	setActivityPanelWidthAtom,
 } from "@shared/store/atoms";
+import { showToast } from "@shared/store/toast-atoms";
 import type {
 	Disposable,
 	PluginActivityTabContribution,
 	PluginCardRendererContribution,
+	PluginCommandApi,
 	PluginContext,
 	PluginConversationApi,
 	PluginDefinition,
@@ -275,6 +277,41 @@ function createImagesApi(plugin: InstalledPlugin): PluginImagesApi {
 	};
 }
 
+function createCommandApi(plugin: InstalledPlugin): PluginCommandApi {
+	const permissions = createPermissionApi(plugin);
+	return {
+		run: (file, args, options) => {
+			permissions.require("agent.command.run");
+			if (typeof file !== "string" || file.trim().length === 0) {
+				throw new Error("Command file is required");
+			}
+			if (!plugin.declaredCommands.includes(file)) {
+				throw new Error(`Plugin ${plugin.id} command not declared: ${file}`);
+			}
+			if (!plugin.grantedCommandNames.includes(file)) {
+				// User disabled this command — intercept and notify (with a jump to settings).
+				showToast({
+					variant: "warning",
+					title: "命令已禁用",
+					message: `「${plugin.name}」尝试执行 ${file}，但你已在插件设置里关闭它。`,
+					action: {
+						label: "前往设置",
+						onClick: () => {
+							void router.navigate({
+								to: "/settings/$tab",
+								params: { tab: "plugins" },
+								search: { section: `plugin-${plugin.id}` },
+							});
+						},
+					},
+				});
+				throw new Error(`Plugin ${plugin.id} command disabled by user: ${file}`);
+			}
+			return window.vetta.plugins.runCommand(plugin.id, file, args ?? [], options);
+		},
+	};
+}
+
 function createContext(
 	plugin: InstalledPlugin,
 	slots: PluginGlobalSlotContribution[],
@@ -530,6 +567,7 @@ function createContext(
 		},
 		conversation,
 		fs,
+		command: createCommandApi(plugin),
 		agent: {
 			registerTool: (registration) => {
 				debugPluginAgent("renderer registerTool requested", {

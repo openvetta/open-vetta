@@ -28,7 +28,7 @@ const tmpBaseDir = join(homedir(), ".vetta", "tmp", "plugins");
 const systemPrefsPath = join(homedir(), ".vetta", "system-plugin-prefs.json");
 
 type PluginManifestFile = Record<string, InstalledPlugin>;
-type SystemPluginPrefs = Record<string, { enabled: boolean }>;
+type SystemPluginPrefs = Record<string, { enabled: boolean; disabledCommands?: string[] }>;
 type RegisteredAgentTool = Omit<AgentPluginToolContribution, "pluginId"> & { activationId?: string };
 type RegisteredContinuationProvider = Omit<AgentPluginContinuationContribution, "pluginId"> & {
 	activationId?: string;
@@ -72,6 +72,8 @@ function readRegistry(): PluginManifestFile {
 			plugin.runtime ??= "esm";
 			plugin.permissions ??= [];
 			plugin.grantedPermissions ??= [];
+			plugin.declaredCommands ??= [];
+			plugin.grantedCommandNames ??= [];
 			plugin.styleUrls ??= [];
 			plugin.activeVersion ??= plugin.version;
 		}
@@ -169,6 +171,21 @@ function validatePluginId(id: string): void {
 	}
 }
 
+/** Command declarations are bare executable names — no path separators, no shell metacharacters. */
+function parseCommands(value: unknown): string[] {
+	if (value === undefined) return [];
+	if (!Array.isArray(value)) {
+		throw new Error("Invalid plugin commands");
+	}
+	const names = value.map((item) => {
+		if (typeof item !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,63}$/.test(item)) {
+			throw new Error("Invalid plugin command name (must be a bare executable name)");
+		}
+		return item;
+	});
+	return Array.from(new Set(names));
+}
+
 function validatePluginVersion(version: string): void {
 	if (!/^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,63}$/.test(version)) {
 		throw new Error("Plugin version must be 1-64 chars and cannot contain path separators");
@@ -205,6 +222,7 @@ function parseManifest(raw: unknown): PluginManifest {
 	const agent = parseAgentManifest(input.agent);
 	const styles = assertStringArray(input.styles, "styles").map((style) => validateRelativePath(style, "styles"));
 	const permissions = assertPermissionArray(input.permissions);
+	const commands = parseCommands(input.commands);
 	const settings = parseSettingsSchema(input.contributes);
 	return {
 		id,
@@ -217,6 +235,7 @@ function parseManifest(raw: unknown): PluginManifest {
 		agent,
 		styles,
 		permissions,
+		commands: commands.length > 0 ? commands : undefined,
 		contributes: settings ? { settings } : undefined,
 		description: typeof input.description === "string" ? input.description : undefined,
 		author: typeof input.author === "string" ? input.author : undefined,
@@ -326,6 +345,12 @@ function installedFromManifest(
 			),
 		),
 	);
+	const declaredCommands = manifest.commands ?? [];
+	// Fresh install enables all declared commands by default; the user can toggle
+	// any of them off later. A reinstall preserves the prior allow set.
+	const grantedCommandNames = Array.from(
+		new Set((previous?.grantedCommandNames ?? declaredCommands).filter((name) => declaredCommands.includes(name))),
+	);
 	return {
 		id: manifest.id,
 		name: manifest.name,
@@ -339,6 +364,8 @@ function installedFromManifest(
 		styleUrls,
 		permissions: manifest.permissions ?? [],
 		grantedPermissions,
+		declaredCommands,
+		grantedCommandNames,
 		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
@@ -692,8 +719,16 @@ export function clearDynamicAgentContributions(pluginId: string, activationId?: 
 	});
 }
 
-function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean): InstalledPlugin {
+function systemInstalledFromManifest(
+	manifest: PluginManifest,
+	enabled: boolean,
+	disabledCommands: string[] = [],
+): InstalledPlugin {
 	const now = new Date().toISOString();
+	const declaredCommands = manifest.commands ?? [];
+	// System plugins auto-grant declared commands; the user may still disable any
+	// of them (persisted in system-plugin-prefs.json, not the user registry).
+	const grantedCommandNames = declaredCommands.filter((name) => !disabledCommands.includes(name));
 	return {
 		id: manifest.id,
 		name: manifest.name,
@@ -708,6 +743,8 @@ function systemInstalledFromManifest(manifest: PluginManifest, enabled: boolean)
 		permissions: manifest.permissions ?? [],
 		// 系统插件随包发的可信代码：声明权限全部自动授予，用户不可撤（ADR-0024）。
 		grantedPermissions: manifest.permissions ?? [],
+		declaredCommands,
+		grantedCommandNames,
 		settingsSchema: manifest.contributes?.settings,
 		description: manifest.description,
 		author: manifest.author,
@@ -742,7 +779,13 @@ export function discoverSystemPlugins(force = false): InstalledPlugin[] {
 					pluginLog.warn(`discover: 跳过 ${manifest.id}：staging 缺少入口 (${manifest.entry})`);
 					continue;
 				}
-				result.push(systemInstalledFromManifest(manifest, prefs[manifest.id]?.enabled ?? true));
+				result.push(
+					systemInstalledFromManifest(
+						manifest,
+						prefs[manifest.id]?.enabled ?? true,
+						prefs[manifest.id]?.disabledCommands ?? [],
+					),
+				);
 				systemPluginIds.add(manifest.id);
 			} catch (err) {
 				pluginLog.warn(`discover: 跳过 ${entry}：`, err);
@@ -868,7 +911,7 @@ export function setPluginEnabled(id: string, enabled: boolean): InstalledPlugin 
 	// 系统插件可停用但不可删改：偏好写进独立的 prefs 文件，本体不入注册表（ADR-0024）。
 	if (isSystemPluginId(id)) {
 		const prefs = readSystemPrefs();
-		prefs[id] = { enabled };
+		prefs[id] = { ...prefs[id], enabled };
 		writeSystemPrefs(prefs);
 		const refreshed = discoverSystemPlugins(true).find((plugin) => plugin.id === id);
 		if (!refreshed) throw new Error(`Plugin not found: ${id}`);
@@ -911,6 +954,66 @@ export function revokePluginPermissions(id: string, permissions: PluginPermissio
 	return plugin;
 }
 
+/**
+ * Enable declared command names. User plugins update the registry's
+ * grantedCommandNames; system plugins clear those names from the prefs'
+ * disabledCommands list (declared commands are auto-granted).
+ */
+export function grantPluginCommands(id: string, names: string[]): InstalledPlugin {
+	validatePluginId(id);
+	const requested = parseCommands(names);
+	if (isSystemPluginId(id)) {
+		const current = discoverSystemPlugins().find((plugin) => plugin.id === id);
+		if (!current) throw new Error(`Plugin not found: ${id}`);
+		const declared = new Set(current.declaredCommands);
+		const prefs = readSystemPrefs();
+		const prev = prefs[id]?.disabledCommands ?? [];
+		const next = prev.filter((name) => !requested.includes(name) && declared.has(name));
+		prefs[id] = { enabled: prefs[id]?.enabled ?? current.enabled, disabledCommands: next };
+		writeSystemPrefs(prefs);
+		const refreshed = discoverSystemPlugins(true).find((plugin) => plugin.id === id);
+		if (!refreshed) throw new Error(`Plugin not found: ${id}`);
+		return refreshed;
+	}
+	const registry = readRegistry();
+	const plugin = registry[id];
+	if (!plugin) throw new Error(`Plugin not found: ${id}`);
+	const declared = new Set(plugin.declaredCommands);
+	plugin.grantedCommandNames = Array.from(
+		new Set([...plugin.grantedCommandNames, ...requested.filter((name) => declared.has(name))]),
+	);
+	plugin.updatedAt = new Date().toISOString();
+	writeRegistry(registry);
+	return plugin;
+}
+
+/** Disable declared command names. Inverse of {@link grantPluginCommands}. */
+export function revokePluginCommands(id: string, names: string[]): InstalledPlugin {
+	validatePluginId(id);
+	const requested = parseCommands(names);
+	if (isSystemPluginId(id)) {
+		const current = discoverSystemPlugins().find((plugin) => plugin.id === id);
+		if (!current) throw new Error(`Plugin not found: ${id}`);
+		const declared = new Set(current.declaredCommands);
+		const prefs = readSystemPrefs();
+		const prev = prefs[id]?.disabledCommands ?? [];
+		const next = Array.from(new Set([...prev, ...requested.filter((name) => declared.has(name))]));
+		prefs[id] = { enabled: prefs[id]?.enabled ?? current.enabled, disabledCommands: next };
+		writeSystemPrefs(prefs);
+		const refreshed = discoverSystemPlugins(true).find((plugin) => plugin.id === id);
+		if (!refreshed) throw new Error(`Plugin not found: ${id}`);
+		return refreshed;
+	}
+	const registry = readRegistry();
+	const plugin = registry[id];
+	if (!plugin) throw new Error(`Plugin not found: ${id}`);
+	const revoked = new Set(requested);
+	plugin.grantedCommandNames = plugin.grantedCommandNames.filter((name) => !revoked.has(name));
+	plugin.updatedAt = new Date().toISOString();
+	writeRegistry(registry);
+	return plugin;
+}
+
 export function reloadPlugin(id: string): InstalledPlugin {
 	validatePluginId(id);
 	// 系统插件版本随 App，无 pending 更新流（ADR-0024）。
@@ -932,6 +1035,12 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.moduleFederation = manifest.moduleFederation;
 	plugin.agent = manifest.agent;
 	plugin.styleUrls = (manifest.styles ?? []).map((style) => toPluginUrl(plugin.id, plugin.activeVersion, style));
+	// 重载到新版本时同步命令声明，并把用户授权裁剪到新声明集合内（避免授权指向已移除的命令、
+	// 或新增命令因 declaredCommands 陈旧而永远无法授权）。
+	plugin.declaredCommands = manifest.commands ?? [];
+	plugin.grantedCommandNames = (plugin.grantedCommandNames ?? []).filter((name) =>
+		plugin.declaredCommands.includes(name),
+	);
 	plugin.updatedAt = new Date().toISOString();
 	writeRegistry(registry);
 	return plugin;

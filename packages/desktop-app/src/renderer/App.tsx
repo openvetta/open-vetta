@@ -38,6 +38,7 @@ import { SchedulerDeleteApproval } from "./shared/action-approval/scheduler/Sche
 import { SchedulerToggleApproval } from "./shared/action-approval/scheduler/SchedulerToggleApproval";
 import { SchedulerExecutionApproval } from "./shared/action-approval/scheduler/SchedulerExecutionApproval";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
+import { Toaster } from "./shared/components/ui/Toaster";
 import {
 	activeSessionAtom,
 	defaultConversationCwdAtom,
@@ -501,6 +502,7 @@ export function RootLayout(): JSX.Element {
 					<SchedulerExecutionApproval />
 					<PluginGlobalSlotHost />
 					<KnowledgeDropOverlay />
+					<Toaster />
 				</div>
 			</div>
 		</TooltipProvider>
