@@ -85,6 +85,12 @@ export interface PluginManifest {
 	agent?: PluginAgentManifest;
 	styles?: string[];
 	permissions?: PluginPermission[];
+	/**
+	 * Executable names this plugin may run via `ctx.command.run` (granularity =
+	 * binary name, e.g. `["git"]`). Anything not declared is hard-rejected. The
+	 * user toggles each declared command on/off in plugin settings.
+	 */
+	commands?: string[];
 	contributes?: {
 		settings?: PluginSettingSchema[];
 	};
@@ -113,6 +119,10 @@ export interface InstalledPlugin {
 	styleUrls: string[];
 	permissions: PluginPermission[];
 	grantedPermissions: PluginPermission[];
+	/** Executable names declared in plugin.json `commands`. */
+	declaredCommands: string[];
+	/** Subset of declaredCommands the user currently allows (toggleable per command). */
+	grantedCommandNames: string[];
 	settingsSchema?: PluginSettingSchema[];
 	description?: string;
 	author?: string;
@@ -186,6 +196,17 @@ export interface DesktopPluginsApi {
 	setEnabled(id: string, enabled: boolean): Promise<void>;
 	grantPermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
 	revokePermissions(id: string, permissions: PluginPermission[]): Promise<InstalledPlugin>;
+	/** Enable declared command names for a plugin (intersected with declaredCommands). */
+	grantCommands(id: string, names: string[]): Promise<InstalledPlugin>;
+	/** Disable declared command names for a plugin. */
+	revokeCommands(id: string, names: string[]): Promise<InstalledPlugin>;
+	/** Run an allowed command for a plugin via the main process (execFile, no shell). */
+	runCommand(
+		pluginId: string,
+		file: string,
+		args?: string[],
+		options?: PluginCommandRunOptions,
+	): Promise<PluginCommandRunResult>;
 	reload(id: string): Promise<InstalledPlugin>;
 	beginAgentContributionsLoad(pluginId: string, activationId: string): Promise<void>;
 	registerAgentTool(pluginId: string, registration: PluginAgentToolRegistration): Promise<void>;
@@ -222,6 +243,18 @@ export interface PluginImageResult {
 	mimeType: string;
 	/** Edit-lineage root id (base image + all its edits share one rootId). */
 	rootId: string;
+}
+
+export interface PluginCommandRunOptions {
+	cwd?: string;
+	env?: Record<string, string>;
+	timeoutMs?: number;
+}
+
+export interface PluginCommandRunResult {
+	stdout: string;
+	stderr: string;
+	exitCode: number | null;
 }
 
 export interface PluginGenerateImageInput {

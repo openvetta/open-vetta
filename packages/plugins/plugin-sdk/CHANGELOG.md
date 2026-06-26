@@ -11,6 +11,7 @@ All notable changes to `@vetta/plugin-sdk` are documented in this file.
 
 ### Added
 
+- 新增命令执行能力 `PluginContext.command.run(file, args?, opts?)`（execFile 语义、不走 shell、buffered 返回 `{ stdout, stderr, exitCode }`），配套 `PluginCommandApi` / `PluginCommandRunOptions` / `PluginCommandRunResult` 类型，门控既有占位权限 `agent.command.run`。插件须在 `plugin.json` 顶层 `commands: string[]`（二进制名）声明可执行的命令，未声明一律拒；用户可在插件设置里逐条开关，被关命令调用时被拦截并通知用户。详见 `docs/adr/0032`。
 - 新增 `ConversationScenario` 联合类型（`"im-claw" | "conversation" | "project" | "batch" | "automation" | "kb-processing" | "cli"`），并给 `PluginActivityTabContribution` 与 `PluginInputActionContribution` 新增 `scope_use?: readonly ConversationScenario[]`：插件可把会话页活动面板标签卡 / 输入栏 toggle 限定到特定对话类型（镜像 agent 工具的 `scope_use`）。输入栏 toggle 的 `scope_use` 与 `requiresActiveTool` 取「与」。
 - Added `PluginContext.agent.registerContinuationProvider()` and the `agent.continuation.register` permission so plugins can request another turn when the agent reaches a natural stopping point.
 - Added the initial trusted plugin SDK contract with plugin lifecycle, permissions, global UI slot types, and `definePlugin()`.

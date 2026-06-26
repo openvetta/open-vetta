@@ -242,6 +242,7 @@ function PluginDetailSheet({
 	updating,
 	onToggleEnabled,
 	onTogglePermission,
+	onToggleCommand,
 	onUpdate,
 	onReload,
 	onUninstall,
@@ -251,6 +252,7 @@ function PluginDetailSheet({
 	updating: boolean;
 	onToggleEnabled: (pluginId: string, enabled: boolean) => void;
 	onTogglePermission: (pluginId: string, permission: PluginPermission, granted: boolean) => void;
+	onToggleCommand: (pluginId: string, command: string, granted: boolean) => void;
 	onUpdate: (row: PluginRow) => void;
 	onReload: (pluginId: string) => void;
 	onUninstall: (plugin: InstalledPlugin) => void;
@@ -381,6 +383,34 @@ function PluginDetailSheet({
 					<div className="text-[12px] text-muted-foreground">该插件没有声明权限。</div>
 				)}
 			</div>
+
+			{/* Declared commands — toggleable even for system plugins */}
+			{plugin.declaredCommands.length > 0 && (
+				<div className="mt-5">
+					<div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-foreground">
+						可执行命令
+						<span className="text-[11px] font-normal text-muted-foreground">关闭后插件调用将被拦截</span>
+					</div>
+					<div className="flex flex-col gap-1.5">
+						{plugin.declaredCommands.map((command) => (
+							<label
+								key={command}
+								className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 px-2.5 py-2"
+							>
+								<span className="flex items-center gap-1.5 text-[12px] text-foreground">
+									<span className="icon-[mdi--console] h-3.5 w-3.5 text-muted-foreground" />
+									<code className="font-mono">{command}</code>
+								</span>
+								<Switch
+									checked={plugin.grantedCommandNames.includes(command)}
+									disabled={busy}
+									onCheckedChange={(checked) => onToggleCommand(plugin.id, command, checked)}
+								/>
+							</label>
+						))}
+					</div>
+				</div>
+			)}
 
 			{/* Actions */}
 			{!isSystem && (
@@ -516,6 +546,20 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 				}
 				await window.vetta.plugins.revokePermissions(pluginId, [permission]);
 				return "权限已撤销。";
+			});
+		},
+		[runOperation],
+	);
+
+	const handleToggleCommand = useCallback(
+		(pluginId: string, command: string, granted: boolean) => {
+			void runOperation(`command:${pluginId}:${command}`, async () => {
+				if (granted) {
+					await window.vetta.plugins.grantCommands(pluginId, [command]);
+					return "命令已启用。";
+				}
+				await window.vetta.plugins.revokeCommands(pluginId, [command]);
+				return "命令已关闭。";
 			});
 		},
 		[runOperation],
@@ -682,6 +726,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 								updating={busy === `install:${selected.id}`}
 								onToggleEnabled={handleToggleEnabled}
 								onTogglePermission={handleTogglePermission}
+								onToggleCommand={handleToggleCommand}
 								onUpdate={handleInstallFromMarket}
 								onReload={handleReload}
 								onUninstall={handleUninstall}

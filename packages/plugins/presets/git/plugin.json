@@ -1,0 +1,17 @@
+{
+	"id": "git",
+	"name": "Git",
+	"version": "0.1.0",
+	"pluginApiVersion": "^1.0.0",
+	"runtime": "module-federation",
+	"entry": "dist/mf-manifest.json",
+	"moduleFederation": {
+		"remoteName": "git",
+		"expose": "./plugin"
+	},
+	"styles": ["dist/style.css"],
+	"permissions": ["ui.slot.activity-tab", "agent.session.read", "agent.command.run"],
+	"commands": ["git"],
+	"description": "在项目活动面板里查看 Git 变更状态树与文件 diff；非 Git 项目可一键初始化仓库。",
+	"author": "Vetta"
+}
