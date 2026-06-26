@@ -1,4 +1,21 @@
 {
+	"settings": {
+		"bubble": {
+			"sectionDescription": "Choose the desktop pet speech bubble style. Each style can define its own background, dimensions, and decoration placement.",
+			"styleTitle": "Bubble style",
+			"styleDescription": "The selected style is applied to the pet window immediately.",
+			"styles": {
+				"plain": {
+					"label": "Plain bubble",
+					"description": "Basic bubble that follows the app theme."
+				},
+				"pink": {
+					"label": "Pink bubble",
+					"description": "Fixed pink background with heart corner decorations."
+				}
+			}
+		}
+	},
 	"video": {
 		"missingTitle": "Pet video",
 		"missingSubtitle": "Not provided"

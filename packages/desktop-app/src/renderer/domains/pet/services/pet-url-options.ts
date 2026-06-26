@@ -1,4 +1,5 @@
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions";
+import { normalizePetBubbleStyleId, type PetBubbleStyleId } from "../../../../shared/pet-bubbles";
 import {
 	DEFAULT_PET_VIDEO_SCALE,
 	normalizePetVideoScale,
@@ -28,6 +29,15 @@ export function getVideoMap(): PetVideoMap {
 	}
 
 	return videos;
+}
+
+export function getInitialBubbleStyle(): { styleId: PetBubbleStyleId; decorUrl?: string } {
+	const params = getSearchParams();
+	const decorUrl = params.get("bubbleDecor");
+	return {
+		styleId: normalizePetBubbleStyleId(params.get("bubbleStyle")),
+		...(decorUrl && decorUrl.length > 0 ? { decorUrl } : {}),
+	};
 }
 
 export function getInitialAutoMode(): boolean {

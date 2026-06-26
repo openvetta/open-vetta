@@ -1,4 +1,21 @@
 {
+	"settings": {
+		"bubble": {
+			"sectionDescription": "选择桌宠对话气泡样式。不同样式可以拥有独立背景、尺寸和装饰位置。",
+			"styleTitle": "气泡样式",
+			"styleDescription": "选择后会立即应用到桌宠窗口。",
+			"styles": {
+				"plain": {
+					"label": "普通气泡",
+					"description": "跟随应用主题变化的基础气泡。"
+				},
+				"pink": {
+					"label": "粉色气泡",
+					"description": "固定粉色背景，使用爱心四角装饰。"
+				}
+			}
+		}
+	},
 	"video": {
 		"missingTitle": "桌宠视频",
 		"missingSubtitle": "未提供"

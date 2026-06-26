@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	Select,
 	SelectContent,
@@ -9,26 +10,29 @@ import {
 	SelectValue,
 } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
-import type { PetDecoration } from "../../../../preload/api-types/pet";
+import type { PetBubbleStyleAsset } from "../../../../preload/api-types/pet";
 import { getPetActionsByGroup, PET_ACTION_GROUPS, type PetActionId } from "../../../../shared/pet-actions";
+import { PET_BUBBLE_STYLES, type PetBubbleStyleId } from "../../../../shared/pet-bubbles";
 import { DEFAULT_PET_CONFIG, type PetConfig } from "../../../../shared/pet-config";
 import { SETTINGS_SECTION } from "../registry";
+import { PetBubbleStylePreview } from "./PetBubbleStylePreview";
 import { SettingRow, SettingSection } from "./shared";
 
 export function PetSettings(): JSX.Element {
+	const { t } = useTranslation("pet");
 	const [config, setConfig] = useState<PetConfig>(DEFAULT_PET_CONFIG);
 	const [currentActionId, setCurrentActionId] = useState<PetActionId>(
 		DEFAULT_PET_CONFIG.defaultActionId ?? "stoat_spin_color_hula_hoop",
 	);
-	const [decorations, setDecorations] = useState<PetDecoration[]>([]);
+	const [bubbleStyleAssets, setBubbleStyleAssets] = useState<PetBubbleStyleAsset[]>([]);
 
 	useEffect(() => {
 		void window.vetta.pet.getConfig().then((next) => {
 			setConfig(next);
 			setCurrentActionId(next.defaultActionId ?? DEFAULT_PET_CONFIG.defaultActionId ?? "stoat_spin_color_hula_hoop");
 		});
-		void window.vetta.pet.getDecorations().then((next) => {
-			setDecorations(next);
+		void window.vetta.pet.getBubbleStyleAssets().then((next) => {
+			setBubbleStyleAssets(next);
 		});
 	}, []);
 
@@ -69,6 +73,20 @@ export function PetSettings(): JSX.Element {
 			void persist({ debugFrame: checked });
 		},
 		[persist],
+	);
+
+	const handleBubbleStyle = useCallback(
+		(value: string) => {
+			void persist({ bubbleStyleId: value as PetBubbleStyleId });
+		},
+		[persist],
+	);
+
+	const getBubbleStyleAssetUrl = useCallback(
+		(styleId: PetBubbleStyleId): string | undefined => {
+			return bubbleStyleAssets.find((asset) => asset.id === styleId)?.url;
+		},
+		[bubbleStyleAssets],
 	);
 
 	return (
@@ -145,35 +163,43 @@ export function PetSettings(): JSX.Element {
 
 			<SettingSection
 				section={SETTINGS_SECTION["pet-decoration"]}
-				description="当前仅展示可用的装饰素材，后续可接入实际装饰逻辑。"
+				description={t("settings.bubble.sectionDescription")}
 			>
+				<SettingRow
+					title={t("settings.bubble.styleTitle")}
+					description={t("settings.bubble.styleDescription")}
+				>
+					<Select
+						value={config.bubbleStyleId}
+						onValueChange={handleBubbleStyle}
+						disabled={!config.enabled}
+					>
+						<SelectTrigger className="h-7 min-w-[144px] px-2 py-1 text-[12px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{PET_BUBBLE_STYLES.map((style) => (
+								<SelectItem
+									key={style.id}
+									value={style.id}
+									className="text-[12px]"
+								>
+									{t(style.labelKey)}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</SettingRow>
 				<div className="grid grid-cols-2 gap-3 p-4 @max-xl:grid-cols-1">
-					{decorations.map((decoration) => (
-						<div
-							key={decoration.id}
-							className="overflow-hidden rounded-lg border border-border bg-background"
-						>
-							<div className="flex h-28 items-center justify-center bg-muted">
-								{decoration.found ? (
-									<img
-										src={decoration.url}
-										alt={decoration.label}
-										className="max-h-full max-w-full object-contain"
-										draggable={false}
-									/>
-								) : (
-									<div className="px-3 text-center text-[12px] text-muted-foreground">素材缺失</div>
-								)}
-							</div>
-							<div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
-								<div className="min-w-0 truncate text-[12px] font-medium text-foreground">
-									{decoration.label}
-								</div>
-								<div className="shrink-0 text-[11px] text-muted-foreground">
-									{decoration.found ? "可用" : "缺失"}
-								</div>
-							</div>
-						</div>
+					{PET_BUBBLE_STYLES.map((style) => (
+						<PetBubbleStylePreview
+							key={style.id}
+							decorUrl={getBubbleStyleAssetUrl(style.id)}
+							description={t(style.descriptionKey)}
+							label={t(style.labelKey)}
+							selected={config.bubbleStyleId === style.id}
+							styleId={style.id}
+						/>
 					))}
 				</div>
 			</SettingSection>
