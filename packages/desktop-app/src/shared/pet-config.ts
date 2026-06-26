@@ -1,6 +1,7 @@
 import { PET_ACTIONS, type PetActionId } from "./pet-actions.js";
 
 export interface PetConfig {
+	schemaVersion: typeof PET_CONFIG_SCHEMA_VERSION;
 	enabled: boolean;
 	autoMode: boolean;
 	alwaysOnTop: boolean;
@@ -30,8 +31,10 @@ export const PET_VIDEO_SCALE_MIN = 0.4;
 export const PET_VIDEO_SCALE_MAX = 2.5;
 export const PET_VIDEO_SCALE_STEP = 0.01;
 export const DEFAULT_PET_VIDEO_SCALE = 1;
+export const PET_CONFIG_SCHEMA_VERSION = 2;
 
 export const DEFAULT_PET_CONFIG: PetConfig = {
+	schemaVersion: PET_CONFIG_SCHEMA_VERSION,
 	enabled: false,
 	autoMode: true,
 	alwaysOnTop: true,
@@ -43,15 +46,6 @@ export const DEFAULT_PET_CONFIG: PetConfig = {
 };
 
 const PET_ACTION_IDS = new Set<string>(PET_ACTIONS.map((action) => action.id));
-const LEGACY_PET_ACTION_ID_MAP: Record<string, PetActionId> = {
-	sleep: "stoat_sleep_lie_on_cushion",
-	workout: "stoat_stand_lift_barbell_one_hand_fast",
-	typing: "stoat_work_laptop_typing_desk_cushion",
-	music: "stoat_listen_music_headphones_nod",
-	hula: "stoat_spin_color_hula_hoop",
-	"jump-rope": "stoat_skip_rope_jump",
-	tea: "stoat_sit_cushion_drink_tea_slow",
-};
 
 function createDefaultVideoBaseSizeByAction(): PetVideoBaseSizeByAction {
 	const sizes = {} as PetVideoBaseSizeByAction;
@@ -110,8 +104,7 @@ function normalizeVideoBaseSizeByAction(value: unknown): PetVideoBaseSizeByActio
 
 	const rawSizes = value as Record<string, unknown>;
 	for (const action of PET_ACTIONS) {
-		const legacyId = Object.entries(LEGACY_PET_ACTION_ID_MAP).find(([, nextId]) => nextId === action.id)?.[0];
-		sizes[action.id] = normalizePetVideoSize(rawSizes[action.id] ?? (legacyId ? rawSizes[legacyId] : undefined));
+		sizes[action.id] = normalizePetVideoSize(rawSizes[action.id]);
 	}
 	return sizes;
 }
@@ -122,18 +115,17 @@ export function isPetActionId(value: unknown): value is PetActionId {
 
 function normalizePetActionId(value: unknown): PetActionId | undefined {
 	if (isPetActionId(value)) return value;
-	if (typeof value !== "string") return undefined;
-	return LEGACY_PET_ACTION_ID_MAP[value];
+	return undefined;
 }
 
 export function normalizePetConfig(value: unknown): PetConfig {
-	if (typeof value !== "object" || value === null) {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		return { ...DEFAULT_PET_CONFIG };
 	}
 
 	const config = value as Record<string, unknown>;
-
 	return {
+		schemaVersion: PET_CONFIG_SCHEMA_VERSION,
 		enabled: typeof config.enabled === "boolean" ? config.enabled : DEFAULT_PET_CONFIG.enabled,
 		autoMode: typeof config.autoMode === "boolean" ? config.autoMode : DEFAULT_PET_CONFIG.autoMode,
 		alwaysOnTop: typeof config.alwaysOnTop === "boolean" ? config.alwaysOnTop : DEFAULT_PET_CONFIG.alwaysOnTop,
