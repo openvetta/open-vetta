@@ -12,6 +12,7 @@ export const PET_SET_MOUSE_PASSTHROUGH_CHANNEL = "vetta:pet:set-mouse-passthroug
 export const PET_SET_VIDEO_HITBOX_CHANNEL = "vetta:pet:set-video-hitbox";
 
 export type PetResizeCorner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+export type PetCommandSource = "app" | "user" | "config";
 
 export type PetVideoHitbox = {
 	x: number;
@@ -24,9 +25,13 @@ export type PetCommand =
 	| {
 			type: "set-action";
 			actionId: PetActionId;
+			source?: PetCommandSource;
+			holdMs?: number;
 	  }
 	| {
 			type: "random-action";
+			source?: PetCommandSource;
+			holdMs?: number;
 	  }
 	| {
 			type: "set-auto-mode";

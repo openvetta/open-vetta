@@ -37,12 +37,21 @@ export const DEFAULT_PET_CONFIG: PetConfig = {
 	alwaysOnTop: true,
 	size: 220,
 	debugFrame: false,
-	defaultActionId: "typing",
+	defaultActionId: "stoat_spin_color_hula_hoop",
 	videoScale: DEFAULT_PET_VIDEO_SCALE,
 	videoBaseSizeByAction: createDefaultVideoBaseSizeByAction(),
 };
 
 const PET_ACTION_IDS = new Set<string>(PET_ACTIONS.map((action) => action.id));
+const LEGACY_PET_ACTION_ID_MAP: Record<string, PetActionId> = {
+	sleep: "stoat_sleep_lie_on_cushion",
+	workout: "stoat_stand_lift_barbell_one_hand_fast",
+	typing: "stoat_work_laptop_typing_desk_cushion",
+	music: "stoat_listen_music_headphones_nod",
+	hula: "stoat_spin_color_hula_hoop",
+	"jump-rope": "stoat_skip_rope_jump",
+	tea: "stoat_sit_cushion_drink_tea_slow",
+};
 
 function createDefaultVideoBaseSizeByAction(): PetVideoBaseSizeByAction {
 	const sizes = {} as PetVideoBaseSizeByAction;
@@ -101,13 +110,20 @@ function normalizeVideoBaseSizeByAction(value: unknown): PetVideoBaseSizeByActio
 
 	const rawSizes = value as Record<string, unknown>;
 	for (const action of PET_ACTIONS) {
-		sizes[action.id] = normalizePetVideoSize(rawSizes[action.id]);
+		const legacyId = Object.entries(LEGACY_PET_ACTION_ID_MAP).find(([, nextId]) => nextId === action.id)?.[0];
+		sizes[action.id] = normalizePetVideoSize(rawSizes[action.id] ?? (legacyId ? rawSizes[legacyId] : undefined));
 	}
 	return sizes;
 }
 
 export function isPetActionId(value: unknown): value is PetActionId {
 	return typeof value === "string" && PET_ACTION_IDS.has(value);
+}
+
+function normalizePetActionId(value: unknown): PetActionId | undefined {
+	if (isPetActionId(value)) return value;
+	if (typeof value !== "string") return undefined;
+	return LEGACY_PET_ACTION_ID_MAP[value];
 }
 
 export function normalizePetConfig(value: unknown): PetConfig {
@@ -124,9 +140,7 @@ export function normalizePetConfig(value: unknown): PetConfig {
 		debugFrame: typeof config.debugFrame === "boolean" ? config.debugFrame : DEFAULT_PET_CONFIG.debugFrame,
 		size: normalizePetSize(config.size),
 		videoScale: normalizePetVideoScale(config.videoScale),
-		defaultActionId: isPetActionId(config.defaultActionId)
-			? config.defaultActionId
-			: DEFAULT_PET_CONFIG.defaultActionId,
+		defaultActionId: normalizePetActionId(config.defaultActionId) ?? DEFAULT_PET_CONFIG.defaultActionId,
 		videoBaseSizeByAction: normalizeVideoBaseSizeByAction(config.videoBaseSizeByAction),
 	};
 }
