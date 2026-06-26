@@ -23,6 +23,7 @@ import type {
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getAppLogger } from "../logger.js";
 import { notify } from "../notifications/index.js";
+import { mapSessionEventToPetAction } from "../pet/session-event-action-policy.js";
 import { sendPetCommandToWindow } from "../pet-window.js";
 import { buildAgentPluginRuntimeConfig, summarizeAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
 import { getSharedRuntime } from "../runtime.js";
@@ -39,7 +40,6 @@ import {
 	readDesktopConfig,
 	writeDesktopConfig,
 } from "./fs.js";
-import { mapSessionEventToPetAction } from "./pet-event-mapper.js";
 import { readSettings, writeSettings } from "./settings.js";
 
 /**
