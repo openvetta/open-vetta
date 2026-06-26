@@ -1,4 +1,5 @@
 import { PatchDiff } from "@pierre/diffs/react";
+import { useTranslation } from "@vetta/plugin-sdk";
 import { Component, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { fileDiff } from "../git/run";
@@ -53,6 +54,7 @@ export function DiffPane({
 	treeCollapsed: boolean;
 }): JSX.Element {
 	const mode = useHostMode();
+	const { t } = useTranslation();
 	const [patch, setPatch] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export function DiffPane({
 	return (
 		<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 			<div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-border px-2">
-				<button type="button" onClick={onToggleTree} className={iconButton} title={treeCollapsed ? "显示文件树" : "隐藏文件树"}>
+				<button type="button" onClick={onToggleTree} className={iconButton} title={treeCollapsed ? t("action.showTree") : t("action.hideTree")}>
 					<SidebarIcon className="h-3.5 w-3.5" />
 				</button>
 				<FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
@@ -108,19 +110,19 @@ export function DiffPane({
 					{basename(entry.path)}
 				</span>
 				<StatusBadge code={entry.code} />
-				<button type="button" onClick={onClose} className={iconButton} title="关闭">
+				<button type="button" onClick={onClose} className={iconButton} title={t("action.close")}>
 					<CloseIcon className="h-3.5 w-3.5" />
 				</button>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-auto">
-				{loading && <div className="px-3 py-2 text-[12px] text-muted-foreground">加载 diff…</div>}
+				{loading && <div className="px-3 py-2 text-[12px] text-muted-foreground">{t("diff.loading")}</div>}
 				{error && <div className="px-3 py-2 text-[12px] text-rose-500">{error}</div>}
 				{!loading &&
 					!error &&
 					patch !== null &&
 					(patch.trim().length === 0 ? (
-						<div className="px-3 py-2 text-[12px] text-muted-foreground">无差异内容。</div>
+						<div className="px-3 py-2 text-[12px] text-muted-foreground">{t("diff.empty")}</div>
 					) : (
 						<DiffErrorBoundary patch={patch}>
 							<PatchDiff patch={patch} options={options} style={diffStyle} disableWorkerPool />
