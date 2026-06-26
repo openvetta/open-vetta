@@ -20,7 +20,7 @@ export default definePlugin({
 
 		ctx.ui.registerActivityTab({
 			id: "changes",
-			label: "Git",
+			label: "%tab.label%",
 			icon: <GitIcon className="h-4 w-4" />,
 			component: GitPanel,
 			// 仅在普通项目对话里出现。
