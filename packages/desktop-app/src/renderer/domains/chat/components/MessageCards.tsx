@@ -1,5 +1,6 @@
 import type { CardDescriptor, ConversationMessage, PluginCardProps } from "@vetta/plugin-sdk";
 import { Component, type ComponentType, type ErrorInfo, type ReactNode, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 /** A card descriptor resolved to its renderer + display metadata. */
 export interface ResolvedCard {
@@ -75,6 +76,7 @@ export function MessageCards({
 	cards: ResolvedCard[];
 	message: ConversationMessage;
 }): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const [layout, setLayout] = useState<Layout>("stacked");
 	const [activeId, setActiveId] = useState<string>(cards[0]?.id ?? "");
 
@@ -123,7 +125,7 @@ export function MessageCards({
 				<div className="flex shrink-0 items-center gap-0.5">
 					<button
 						type="button"
-						title="收纳"
+						title={t("messageCards.layoutStacked")}
 						onClick={() => setLayout("stacked")}
 						className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-muted ${
 							layout === "stacked" ? "text-foreground" : "text-muted-foreground"
@@ -135,7 +137,7 @@ export function MessageCards({
 					</button>
 					<button
 						type="button"
-						title="列表"
+						title={t("messageCards.layoutList")}
 						onClick={() => setLayout("list")}
 						className={`flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-muted ${
 							layout === "list" ? "text-foreground" : "text-muted-foreground"

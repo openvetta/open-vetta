@@ -1,4 +1,5 @@
 import { app, Menu, nativeImage, Tray } from "electron";
+import { mainT } from "./i18n/index.js";
 import { getAppLogger } from "./logger.js";
 import { getMainWindow, iconPath, macTrayIconPath, showMainWindow } from "./window-manager.js";
 
@@ -27,7 +28,7 @@ function buildTrayMenu(): Electron.Menu {
 	const mainWindow = getMainWindow();
 	const isVisible = mainWindow?.isVisible() ?? false;
 	const toggleItem = {
-		label: isVisible ? "隐藏窗口" : "显示窗口",
+		label: isVisible ? mainT("tray.hideWindow") : mainT("tray.showWindow"),
 		click: () => {
 			const win = getMainWindow();
 			if (!win) return;
@@ -47,7 +48,7 @@ function buildTrayMenu(): Electron.Menu {
 			toggleItem,
 			{ type: "separator" },
 			{
-				label: "退出 Vetta",
+				label: mainT("tray.quitVetta"),
 				click: () => {
 					(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
 					if (tray) {
@@ -63,7 +64,7 @@ function buildTrayMenu(): Electron.Menu {
 	return Menu.buildFromTemplate([
 		toggleItem,
 		{
-			label: hideToTrayOnClose ? "退出" : "隐藏到托盘",
+			label: hideToTrayOnClose ? mainT("tray.quit") : mainT("tray.hideToTray"),
 			click: () => {
 				(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
 				if (tray) {

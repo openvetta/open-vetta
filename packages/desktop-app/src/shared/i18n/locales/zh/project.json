@@ -1,0 +1,28 @@
+{
+	"sidebar": {
+		"nav": {
+			"newSession": "新会话",
+			"automation": "自动化",
+			"batchTasks": "批量任务",
+			"knowledge": "知识库",
+			"skills": "扩展"
+		},
+		"clawConnected": "Claw 已连接 · 点击打开设置",
+		"hide": "隐藏侧边栏"
+	},
+	"filterTabs": {
+		"all": "全部",
+		"normal": "普通",
+		"batch": "批量任务",
+		"flowing": "流转",
+		"conversation": "对话",
+		"claw": "Claw"
+	},
+	"update": {
+		"newVersion": "发现新版本 {{version}}，点击后台下载",
+		"downloading": "正在下载 {{version}}（{{pct}}%）",
+		"ready": "更新 {{version}} 已就绪，点击重启",
+		"checkFailed": "更新检查失败，点击重试",
+		"downloadProgress": "下载进度"
+	}
+}

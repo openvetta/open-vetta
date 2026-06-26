@@ -1,6 +1,7 @@
 import { waitForPluginHostReady } from "@domains/plugins/runtime/plugin-events";
 import { pluginSendMessageRef } from "@domains/plugins/runtime/plugin-host-bridge";
 import { useProjects } from "@domains/project/hooks/useProjects";
+import { i18n } from "@shared/i18n";
 import {
 	activeInputActionIdsAtom,
 	activeSessionAtom,
@@ -40,6 +41,7 @@ import {
 	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
+import type { ConversationScenario } from "@vetta/plugin-sdk";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import {
@@ -260,10 +262,19 @@ export function useSessionManager(): SessionManagerResult {
 				isBatchSession || isBatchProject || projectType === "batch" || projectType === "flowing"
 					? "other"
 					: "conversation";
-			// 批量任务 session 显式用 batch 场景（与 batch-task-executor 一致），否则重开时
-			// 会退化成 project 场景，重新拿到知识/图像工具——既不一致，输入栏 badge 也会复活。
-			const scenario: "batch" | undefined =
-				isBatchSession || isBatchProject || projectType === "batch" ? "batch" : undefined;
+			// 对话场景显式下发（不依赖 sessionKind，避免改 kind 牵动 VETTA_CLI/子目录等行为）：
+			// - 批量 → "batch"（与 batch-task-executor 一致，重开不退化成 project，输入栏 badge 不复活）。
+			// - 默认「对话」项目（cwd 归一到 defaultConversationCwd）→ "conversation"。
+			// - 其余交互式项目 → "project"。此前普通项目被 sessionKind="conversation" 误标成
+			//   "conversation"，导致 scope_use:["project"] 的工具/插件插槽永不命中。
+			const defaultCwd = defaultConversationCwdRef.current;
+			const isDefaultConversation = !!defaultCwd && conversationBucketCwd(cwd, defaultCwd) === defaultCwd;
+			const scenario: ConversationScenario =
+				isBatchSession || isBatchProject || projectType === "batch"
+					? "batch"
+					: isDefaultConversation
+						? "conversation"
+						: "project";
 			const createResult = await window.vetta.session.create(
 				{ cwd, sessionPath, executionMode, scenario },
 				sessionKind,
@@ -831,7 +842,7 @@ export function useSessionManager(): SessionManagerResult {
 					id: session.runtimeId,
 					path: sp,
 					cwd: session.cwd,
-					firstMessage: rawText.slice(0, 80) || "(image)",
+					firstMessage: rawText.slice(0, 80) || i18n.t("chat:session.emptyMessageLabel"),
 					modifiedAt: Date.now(),
 				});
 			}

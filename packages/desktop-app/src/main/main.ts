@@ -24,8 +24,10 @@ import {
 } from "./diagnostics.js";
 import { FILE_PROTOCOL_PRIVILEGE, registerFileProtocolHandler } from "./file-protocol.js";
 import { fixPath } from "./fix-path.js";
+import { initAppLanguage } from "./i18n/index.js";
 import { getImHost } from "./im-host/index.js";
 import { persistVettaCliPaths } from "./ipc/fs.js";
+import { registerI18nIpc } from "./ipc/i18n.js";
 import {
 	type IpcTeardown,
 	registerAllIpc,
@@ -294,6 +296,14 @@ if (!gotSingleLock) {
 			execPath: process.execPath,
 			argv: process.argv,
 		});
+
+		// 在创建任何窗口/托盘菜单之前同步定语言：读 desktop-config.language，
+		// 缺省回落系统 locale。托盘菜单（590）与系统通知据此取文案（见 ADR-0031）。
+		initAppLanguage();
+		// 必须在 createWindow 之前注册：renderer preload 一加载就 sendSync 取初值，
+		// 若晚于 createWindow 注册会与异步 page-load 抢跑、读到 undefined 回落错语言（首帧闪）。
+		// i18n IPC 与具体窗口无关（广播给全部窗口），故脱离 registerAllIpc 独立早注册、app 级常驻。
+		registerI18nIpc();
 
 		// 必须放在 whenReady 之后：早于 ready 调用时主进程 bundle identity
 		// 尚未在 launchd/TCC 子系统注册，syscall 关联不到 com.vetta.desktop，

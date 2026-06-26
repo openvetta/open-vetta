@@ -1,5 +1,6 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	activeSessionAtom,
@@ -59,6 +60,7 @@ interface SessionDropZoneProps {
  * 应用内 File Explorer 的拖拽（携带 application/vetta-path）同样进 mentionedFiles。
  */
 export function SessionDropZone({ cwdOverride, className, children }: SessionDropZoneProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
 	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
@@ -213,9 +215,9 @@ export function SessionDropZone({ cwdOverride, className, children }: SessionDro
 						}}
 					>
 						<span className="icon-[mdi--file-arrow-up-down-outline] h-9 w-9 text-primary" />
-						<div className="text-[14px] font-medium text-primary">松开以引用文件</div>
+						<div className="text-[14px] font-medium text-primary">{t("dropZone.releaseToRef")}</div>
 						<div className="text-[12px] text-primary/70">
-							{dragKind === "internal" ? "来自项目内的引用" : "图片自动作为附件，其他文件作为引用"}
+							{dragKind === "internal" ? t("dropZone.internalRef") : t("dropZone.externalRef")}
 						</div>
 					</motion.div>
 				)}

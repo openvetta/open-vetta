@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import type { Transition } from "motion/react";
 import { useAtomValue } from "jotai";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { useTranslation } from "react-i18next";
 import {
 	type ChatMessage,
 	type ContentBlock,
@@ -166,6 +167,7 @@ const ToolCallGroup = memo(function ToolCallGroup({
 	blocks: (ToolCallBlock | ThinkingBlock)[];
 	exportMode?: boolean;
 }) {
+	const { t } = useTranslation("chat");
 	const [expanded, setExpanded] = useState(false);
 	const generatedId = useId();
 	const panelId = exportMode ? `export-tool-group-${generatedId}` : undefined;
@@ -179,12 +181,12 @@ const ToolCallGroup = memo(function ToolCallGroup({
 		if (toolBlocks.length > 0) {
 			parts.push(
 				allDone
-					? `${completedCount} 个工具调用完成`
-					: `${completedCount}/${toolBlocks.length} 个工具调用`,
+					? t("messageList.toolCallGroup.completed", { count: completedCount })
+					: t("messageList.toolCallGroup.inProgress", { completed: completedCount, total: toolBlocks.length }),
 			);
 		}
 		if (thinkingCount > 0) {
-			parts.push(`${thinkingCount} 个思考过程`);
+			parts.push(t("messageList.toolCallGroup.thinking", { count: thinkingCount }));
 		}
 		return parts.join("，");
 	}
@@ -390,6 +392,7 @@ function AssistantFoldTip({
 	onToggle,
 	exportPanelId,
 }: AssistantFoldTipProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const elapsedSeconds = useElapsedSeconds(startedAt, state === "streaming");
 
 	if (state === "streaming") {
@@ -397,7 +400,7 @@ function AssistantFoldTip({
 			<div className="mb-3">
 				<div className="mb-2 flex items-center">
 					<span className="processing-shimmer text-[12px] font-medium">
-						正在处理{elapsedSeconds}s
+						{t("messageList.assistantFoldTip.streaming", { elapsed: elapsedSeconds })}
 					</span>
 				</div>
 				<div className="h-px w-full rounded-full bg-border/80" />
@@ -411,8 +414,8 @@ function AssistantFoldTip({
 				type="button"
 				onClick={onToggle}
 				data-export-toggle={exportPanelId}
-				data-export-label-collapsed={`展开${count}条内容`}
-				data-export-label-expanded={`收起${count}条内容`}
+				data-export-label-collapsed={t("messageList.assistantFoldTip.expand", { count })}
+				data-export-label-expanded={t("messageList.assistantFoldTip.collapse", { count })}
 				aria-expanded={expanded}
 				className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-lg py-1 pr-1.5 text-[12px] font-medium text-muted-foreground/55 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
 			>
@@ -422,7 +425,11 @@ function AssistantFoldTip({
 						expanded && "rotate-90",
 					)}
 				/>
-				<span data-export-toggle-label="">{expanded ? "收起" : "展开"}{count}条内容</span>
+				<span data-export-toggle-label="">
+					{expanded
+						? t("messageList.assistantFoldTip.collapse", { count })
+						: t("messageList.assistantFoldTip.expand", { count })}
+				</span>
 			</button>
 			<div className="h-px w-full rounded-full bg-border/80" />
 		</div>
@@ -482,6 +489,7 @@ function getAssistantConclusionText(message: ChatMessage, customToolNames: Set<s
 
 /** 复制按钮：icon-only + tooltip，点击后原位切到 check 持续 1.5s。 */
 function CopyButton({ getText }: { getText: () => string }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [copied, setCopied] = useState(false);
 	const timerRef = useRef<number | null>(null);
 
@@ -509,7 +517,7 @@ function CopyButton({ getText }: { getText: () => string }): JSX.Element {
 		);
 	}, [getText]);
 
-	const label = copied ? "已复制" : "复制";
+	const label = copied ? t("messageList.copyButton.copied") : t("messageList.copyButton.copy");
 
 	return (
 		<button
@@ -649,6 +657,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 	isStreaming: boolean;
 	exportMode?: boolean;
 }) {
+	const { t } = useTranslation("chat");
 	const hasBlocks = message.blocks && message.blocks.length > 0;
 	const isCurrentlyStreaming = isTailMessage && isStreaming;
 	const showDuration = message.durationSeconds && message.durationSeconds > 0 && !isCurrentlyStreaming;
@@ -725,7 +734,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 							className="h-1.5 w-1.5 rounded-full bg-primary/60"
 							style={{ animation: "pulse 1.5s infinite" }}
 						/>
-						<span className="text-[11px] text-muted-foreground/35">处理中...</span>
+						<span className="text-[11px] text-muted-foreground/35">{t("messageList.assistantMessage.processing")}</span>
 					</div>
 				)}
 			</div>
@@ -800,7 +809,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 						</div>
 					)}
 					{isPredicting && (
-						<span className="processing-shimmer text-[11px] font-medium">Vetta 正在预测…</span>
+						<span className="processing-shimmer text-[11px] font-medium">{t("messageList.assistantMessage.predicting")}</span>
 					)}
 				</div>
 			)}
@@ -858,12 +867,13 @@ export const ExportMessageList = forwardRef<HTMLDivElement, { messages: ChatMess
 
 /** Compaction boundary marker — shows where context was compressed. */
 const CompactionBoundary = memo(function CompactionBoundary() {
+	const { t } = useTranslation("chat");
 	return (
 		<div className="flex items-center gap-3 py-1">
 			<div className="h-px flex-1 bg-muted-foreground/15" />
 			<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/40">
 				<span className="icon-[mdi--compress] h-3 w-3" />
-				上下文已压缩
+				{t("messageList.compactionBoundary")}
 			</span>
 			<div className="h-px flex-1 bg-muted-foreground/15" />
 		</div>
@@ -871,6 +881,7 @@ const CompactionBoundary = memo(function CompactionBoundary() {
 });
 
 function CompactionIndicator(): JSX.Element {
+	const { t } = useTranslation("chat");
 	return (
 		<motion.div
 			initial={INDICATOR_INITIAL}
@@ -887,7 +898,7 @@ function CompactionIndicator(): JSX.Element {
 					strokeLinecap="round"
 				/>
 			</svg>
-			<span className="text-[12px] text-amber-500/80">正在压缩上下文...</span>
+			<span className="text-[12px] text-amber-500/80">{t("messageList.compactionIndicator")}</span>
 		</motion.div>
 	);
 }

@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 
 interface ThinkingBlockProps {
 	text: string;
@@ -7,6 +8,7 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlockView({ text, exportMode = false }: ThinkingBlockProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [expanded, setExpanded] = useState(false);
 	const lines = text.split("\n");
 	const generatedId = useId();
@@ -18,17 +20,17 @@ export function ThinkingBlockView({ text, exportMode = false }: ThinkingBlockPro
 				type="button"
 				onClick={() => setExpanded(!expanded)}
 				data-export-toggle={panelId}
-				data-export-label-collapsed="思考过程"
-				data-export-label-expanded="思考过程"
+				data-export-label-collapsed={t("thinkingBlock.title")}
+				data-export-label-expanded={t("thinkingBlock.title")}
 				aria-expanded={expanded}
 				className="inline-flex items-center gap-2 rounded-lg pr-2 py-1 text-left transition-colors hover:bg-muted/60"
 			>
 				<span className="icon-[mdi--lightbulb-outline] h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
 				<span className="text-[12px] text-muted-foreground/50">
-					思考过程
+					{t("thinkingBlock.title")}
 				</span>
 				<span className="text-[11px] text-muted-foreground/30">
-					{lines.length} 行
+					{t("thinkingBlock.lineCount", { count: lines.length })}
 				</span>
 				<span
 					className={`icon-[mdi--chevron-right] h-3 w-3 shrink-0 text-muted-foreground/30 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}

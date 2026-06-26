@@ -3,6 +3,7 @@ import type { DesktopApi } from "./api.js";
 import { createActionApprovalApi } from "./apis/action-approval.js";
 import { createBatchTasksApi } from "./apis/batch-tasks.js";
 import { createDownloadsApi } from "./apis/downloads.js";
+import { createI18nApi } from "./apis/i18n.js";
 import { createImApi } from "./apis/im.js";
 import { createNotificationApi } from "./apis/notification.js";
 import { createPetApi } from "./apis/pet.js";
@@ -23,6 +24,7 @@ const api: DesktopApi = {
 	...createNotificationApi(ipcRenderer),
 	...createPluginsApi(ipcRenderer),
 	...createPetApi(ipcRenderer),
+	...createI18nApi(ipcRenderer),
 	...createSystemApi(ipcRenderer, webUtils),
 };
 

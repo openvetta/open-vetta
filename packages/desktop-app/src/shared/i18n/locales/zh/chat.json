@@ -1,0 +1,304 @@
+{
+	"askUserQuestion": {
+		"cancelledMessage": "用户已取消，未作答",
+		"defaultQuestionLabel": "问题 {{number}}"
+	},
+	"atPanel": {
+		"emptyDirectory": "空目录",
+		"enterDirectory": "Tab 进入",
+		"goUp": "..",
+		"header": "引用文件",
+		"loading": "加载中...",
+		"noResults": "未找到匹配项",
+		"searchResults": "{{count}} 个结果"
+	},
+	"backgroundTasksBadge": {
+		"runningTasksTooltip": "{{count}} 个后台任务运行中"
+	},
+	"bashHeader": {
+		"statusError": "命令失败：{{short}}",
+		"statusPending": "正在执行：{{short}}",
+		"statusSuccess": "执行命令：{{short}}"
+	},
+	"bashTerminalCard": {
+		"copyCommand": "复制命令",
+		"metaDescription": "本地元数据，仅 UI 展示，不发送给大模型"
+	},
+	"capability": {
+		"network": "网络",
+		"read": "读",
+		"write": "写"
+	},
+	"chatExport": {
+		"defaultSessionName": "Vetta 会话"
+	},
+	"chatView": {
+		"completeButton": {
+			"label": "完成"
+		},
+		"defaultSessionTitle": "Vetta 会话",
+		"exportButton": {
+			"title": "导出完整会话 HTML"
+		},
+		"panelButton": {
+			"closed": "打开活动面板",
+			"open": "关闭活动面板"
+		},
+		"pinButton": {
+			"pinned": "取消窗口置顶",
+			"unpinned": "窗口置顶（钉在屏幕上）"
+		}
+	},
+	"contextRing": {
+		"tooltip": {
+			"compacting": "正在压缩上下文...",
+			"unknown": "上下文窗口 {{window}}（使用量未知）",
+			"usage": "上下文已使用 {{percent}}%（{{window}} 窗口）"
+		}
+	},
+	"copyButton": {
+		"copied": "已复制",
+		"label": "复制"
+	},
+	"dropZone": {
+		"externalRef": "图片自动作为附件，其他文件作为引用",
+		"internalRef": "来自项目内的引用",
+		"releaseToRef": "松开以引用文件"
+	},
+	"editDiff": {
+		"netChangeLabel": "净 {{net}}",
+		"newTextEmpty": "空替换文本",
+		"oldTextEmpty": "空匹配文本"
+	},
+	"executionModeSelector": {
+		"fullAccess": {
+			"label": "完全访问",
+			"title": "允许完全访问当前系统"
+		},
+		"sandbox": {
+			"label": "沙盒受限",
+			"title": "仅允许工作区受限访问"
+		}
+	},
+	"export": {
+		"shareNavDescription": "分享了一个会话",
+		"shareNavDescriptionWithNickname": "{{nickname}} 分享了一个会话"
+	},
+	"filterByTags": {
+		"hitCount": "命中 {{count}} 个页面",
+		"noResults": "没有命中任何页面",
+		"noTitle": "(无标题)"
+	},
+	"guideBadgeSwiper": {
+		"dismissTooltip": "不再提示",
+		"petFeatureText": "新增桌宠功能，点击前往设置开启"
+	},
+	"imagePreview": {
+		"altText": "读取的图片",
+		"imageLabel": "图片",
+		"originalLabel": "原图",
+		"processedLabel": "模型使用图",
+		"showInFolderButton": "在文件管理器中显示原图"
+	},
+	"inputActionBar": {
+		"chip": {
+			"removeTooltip": "点击取消"
+		},
+		"knowledgeRetrieval": {
+			"label": "知识检索",
+			"tooltip": "开启后，这次提问会让 AI 优先去你的知识库里找答案"
+		}
+	},
+	"inputBar": {
+		"capsule": {
+			"editImage": "编辑选中图片",
+			"removeDefault": "点击移除",
+			"removeImage": "移除图片",
+			"removeTooltip": "{{path}}\n点击移除"
+		},
+		"drawer": {
+			"permissionDesc": "等待确认",
+			"permissionLabel": "权限请求",
+			"todoDesc": "{{done}}/{{total}} {{content}}",
+			"todoDescSimple": "{{done}}/{{total}}",
+			"todoLabel": "代办"
+		},
+		"hint": {
+			"newline": "⇧⏎ 换行",
+			"send": "⏎ 发送"
+		},
+		"permission": {
+			"allow": "允许本次",
+			"allowSession": "本会话不再询问",
+			"deny": "拒绝"
+		},
+		"placeholder": {
+			"default": "向 Vetta 提问，使用 / 唤出技能，@ 引用文件",
+			"noSession": "选择或创建会话以开始",
+			"suggestion": "↵ {{suggestion}}",
+			"thinking": "Vetta 正在思考…"
+		},
+		"toolbar": {
+			"addImage": "添加图片",
+			"attachFile": "附加文件引用",
+			"skills": "技能/场景"
+		}
+	},
+	"knowledgeTools": {
+		"empty": "没有结果"
+	},
+	"listTags": {
+		"empty": "知识库还没有标签",
+		"tagCount": "共 {{count}} 个标签"
+	},
+	"messageCards": {
+		"layoutList": "列表",
+		"layoutStacked": "收纳"
+	},
+	"messageList": {
+		"assistantFoldTip": {
+			"collapse": "收起{{count}}条内容",
+			"collapseLabel": "收起",
+			"expand": "展开{{count}}条内容",
+			"expandLabel": "展开",
+			"streaming": "正在处理{{elapsed}}s"
+		},
+		"assistantMessage": {
+			"predicting": "Vetta 正在预测…",
+			"processing": "处理中..."
+		},
+		"compactionBoundary": "上下文已压缩",
+		"compactionIndicator": "正在压缩上下文...",
+		"copyButton": {
+			"copied": "已复制",
+			"copy": "复制"
+		},
+		"toolCallGroup": {
+			"completed": "{{count}} 个工具调用完成",
+			"inProgress": "{{completed}}/{{total}} 个工具调用",
+			"thinking": "{{count}} 个思考过程"
+		}
+	},
+	"modelSelector": {
+		"defaultBadge": "默认",
+		"selectModel": "选择模型",
+		"visionBadge": "vision"
+	},
+	"newSession": {
+		"greetingDefault": "今天怎么样？",
+		"greetingTitle": "你好，{{nickname}}",
+		"sceneCarouselNext": "下一组",
+		"sceneCarouselPrev": "上一组",
+		"sceneInstallPrompt": "点击安装并使用",
+		"skillScrollLeft": "向左",
+		"skillScrollRight": "向右",
+		"subtitle": "我可以帮助你处理工作，有什么我可以帮你的吗？"
+	},
+	"questionPanel": {
+		"keyboardHint": "↑↓ 选择 · 空格选中 · ←→ 切换 · Enter 下一题",
+		"multiSelectHint": "可多选",
+		"otherOption": "其它（自定义输入）",
+		"otherPlaceholder": "输入你的答案…",
+		"questionTabLabel": "问题 {{number}}",
+		"submitButton": "提交",
+		"title": "Vetta 需要你的选择"
+	},
+	"sandboxGrantsBadge": {
+		"revoke": "撤销",
+		"revokeAll": "全部撤销",
+		"title": "本会话沙箱授权",
+		"tooltip": "本会话沙箱授权"
+	},
+	"sendButton": {
+		"sendMessage": "发送消息",
+		"stopGenerating": "停止生成"
+	},
+	"session": {
+		"emptyMessageLabel": "(图片)"
+	},
+	"sessionViewer": {
+		"badge": {
+			"liveUpdate": "实时更新",
+			"readOnly": "只读视图"
+		},
+		"emptyState": {
+			"noPath": "未指定会话路径"
+		},
+		"export": {
+			"defaultTitle": "Vetta 会话"
+		},
+		"exportButton": {
+			"title": "导出完整会话 HTML"
+		},
+		"header": {
+			"subtitle": "该会话由其他端写入，桌面端仅展示"
+		},
+		"panelToggleButton": {
+			"titleClose": "关闭活动面板",
+			"titleOpen": "打开活动面板"
+		}
+	},
+	"skillPromptArea": {
+		"missingBadge": "未安装",
+		"placeholder": "输入提示词…使用 / 唤出技能/场景",
+		"removeSkill": "点击移除",
+		"removeSkillMissing": "技能未安装，点击移除",
+		"skillButtonLabel": "技能/场景",
+		"skillButtonTitle": "技能/场景"
+	},
+	"slashPanel": {
+		"emptyNoMatch": "未找到匹配项",
+		"emptyNoSkills": "暂无可用的技能或场景",
+		"header": "选择场景或技能",
+		"resultCount": "{{count}} 个结果",
+		"scenesSection": "场景",
+		"skillsSection": "技能",
+		"sourceLabels": {
+			"agentsProject": "通用·项目",
+			"agentsUser": "通用",
+			"path": "自定义",
+			"project": "项目",
+			"scene": "场景",
+			"user": "用户"
+		}
+	},
+	"suggestionBubbles": {
+		"sendTooltip": "点击发送此建议"
+	},
+	"textPreview": {
+		"characterUnit": "字符",
+		"emptyLabel": "空内容",
+		"lineUnit": "行"
+	},
+	"thinkingBlock": {
+		"lineCount": "{{count}} 行",
+		"title": "思考过程"
+	},
+	"toolCall": {
+		"error": "Error",
+		"meta": "meta",
+		"metaLabel": "本地元数据，仅 UI 展示，不发送给大模型"
+	},
+	"toolFormat": {
+		"unknown": "未知"
+	},
+	"toolLabel": {
+		"knowledgeBase": {
+			"filterByTags": "知识库·标签筛选",
+			"listTags": "知识库·标签列表",
+			"writePage": "知识库·写页"
+		}
+	},
+	"usageBar": {
+		"durationLabel": "耗时 {{duration}}",
+		"speedLabel": "速度 {{speed}} tok/s"
+	},
+	"writeContent": {
+		"label": "写入内容"
+	},
+	"writePage": {
+		"actionCreate": "新建页面",
+		"actionUpdate": "更新页面",
+		"originalLocation": "原位置：{{path}}"
+	}
+}
