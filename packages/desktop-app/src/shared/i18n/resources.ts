@@ -5,15 +5,17 @@
 import enChat from "./locales/en/chat.json";
 import enCommon from "./locales/en/common.json";
 import enMain from "./locales/en/main.json";
+import enPet from "./locales/en/pet.json";
 import enProject from "./locales/en/project.json";
 import zhChat from "./locales/zh/chat.json";
 import zhCommon from "./locales/zh/common.json";
 import zhMain from "./locales/zh/main.json";
+import zhPet from "./locales/zh/pet.json";
 import zhProject from "./locales/zh/project.json";
 
 export const resources = {
-	zh: { common: zhCommon, main: zhMain, chat: zhChat, project: zhProject },
-	en: { common: enCommon, main: enMain, chat: enChat, project: enProject },
+	zh: { common: zhCommon, main: zhMain, chat: zhChat, project: zhProject, pet: zhPet },
+	en: { common: enCommon, main: enMain, chat: enChat, project: enProject, pet: enPet },
 } as const;
 
 export * from "./config.js";
