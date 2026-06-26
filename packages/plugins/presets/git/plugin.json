@@ -1,7 +1,7 @@
 {
 	"id": "git",
 	"name": "Git",
-	"version": "0.1.0",
+	"version": "0.2.1",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
 	"entry": "dist/mf-manifest.json",

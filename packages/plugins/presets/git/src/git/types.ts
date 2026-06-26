@@ -10,15 +10,3 @@ export interface ChangeEntry {
 	/** True when the change is (at least partly) staged in the index. */
 	staged: boolean;
 }
-
-export interface TreeNode {
-	name: string;
-	/** Repo-root-relative path of this node. */
-	path: string;
-	isDir: boolean;
-	/** File leaf: its change. Dir: undefined. */
-	entry?: ChangeEntry;
-	/** Dir only: true when it contains changed descendants. */
-	hasChangedDescendants?: boolean;
-	children: TreeNode[];
-}

@@ -16,12 +16,3 @@ export function StatusBadge({ code }: { code: ChangeCode }): JSX.Element {
 		</span>
 	);
 }
-
-/** The "●" indicator for a folder whose descendants contain changes. */
-export function DescendantDot(): JSX.Element {
-	return (
-		<span className="w-3 shrink-0 text-center text-[10px] text-muted-foreground" title="contains changes">
-			●
-		</span>
-	);
-}
