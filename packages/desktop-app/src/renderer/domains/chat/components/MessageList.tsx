@@ -892,42 +892,17 @@ function CompactionIndicator(): JSX.Element {
 	);
 }
 
-function TypingIndicator(): JSX.Element {
-	return (
-		<motion.div
-			initial={INDICATOR_INITIAL}
-			animate={INDICATOR_ANIMATE}
-			exit={INDICATOR_EXIT}
-			transition={INDICATOR_TRANSITION}
-			className="flex items-center gap-2"
-		>
-			<div className="flex gap-[3px] py-2">
-				{[0, 1, 2].map((i) => (
-					<span
-						key={i}
-						className="h-[5px] w-[5px] rounded-full bg-muted-foreground/30"
-						style={{ animation: `bounce 1.2s ${i * 0.15}s infinite` }}
-					/>
-				))}
-			</div>
-		</motion.div>
-	);
-}
-
-/** Footer component rendered below the virtualized list — contains typing indicator, compaction, artifacts */
+/** Footer component rendered below the virtualized list — contains compaction indicator, artifacts */
 const ListFooter = memo(function ListFooter({
-	showTyping,
 	isCompacting,
 }: {
-	showTyping: boolean;
 	isCompacting: boolean;
 }) {
 	const files = useAtomValue(turnModifiedFilesAtom);
-	if (!showTyping && !isCompacting && files.length === 0) return <div style={{ height: 64 }} />;
+	if (!isCompacting && files.length === 0) return <div style={{ height: 64 }} />;
 	return (
 		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-1 pb-16">
 			<AnimatePresence initial={false}>
-				{showTyping && <TypingIndicator key="typing" />}
 				{isCompacting && <CompactionIndicator key="compacting" />}
 			</AnimatePresence>
 			<ArtifactCard files={files} />
@@ -939,9 +914,6 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
-	// streaming 期间始终显示底部三点跳动动画 —— 哪怕 assistant 已开始吐字也保留，
-	// 作为「agent 仍在工作」的持续视觉信号；agent_end 后随 isStreaming 一起隐藏。
-	const showTyping = isStreaming;
 
 	// 末尾消息 id：仅当末尾是 assistant 时才用它判断「正在吐字」。
 	// 不能用「最后一条 assistant 的 id」——用户追加新消息后，旧 assistant 仍会被
@@ -1178,9 +1150,9 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 	const footer = useCallback(() => (
 		<>
 			{onSend && <SuggestionBubbles onSend={onSend} />}
-			<ListFooter showTyping={showTyping} isCompacting={isCompacting} />
+			<ListFooter isCompacting={isCompacting} />
 		</>
-	), [showTyping, isCompacting, onSend]);
+	), [isCompacting, onSend]);
 
 	const virtuosoComponents = useMemo(() => ({
 		List: VirtuosoListContainer,
@@ -1190,10 +1162,6 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 	return (
 		<>
 			<style>{`
-				@keyframes bounce {
-					0%, 80%, 100% { transform: translateY(0); }
-					40% { transform: translateY(-4px); }
-				}
 				@keyframes pulse {
 					0%, 100% { opacity: 1; }
 					50% { opacity: 0.4; }
