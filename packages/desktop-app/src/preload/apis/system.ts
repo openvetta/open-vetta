@@ -28,6 +28,7 @@ export function createSystemApi(
 	| "tray"
 	| "flowing"
 	| "debug"
+	| "diagnostics"
 	| "project"
 	| "permissions"
 > {
@@ -230,6 +231,10 @@ export function createSystemApi(
 			listRequestFiles: (projectName, sessionId) =>
 				ipc.invoke("vetta:debug:list-request-files", projectName, sessionId),
 			clearDebugDir: () => ipc.invoke("vetta:debug:clear-debug-dir"),
+		},
+		diagnostics: {
+			exportDiagnosticsPackage: () => ipc.invoke("vetta:diagnostics:export"),
+			getLogDir: () => ipc.invoke("vetta:diagnostics:get-log-dir"),
 		},
 		project: {
 			export: (projectDir) => ipc.invoke("vetta:project:export", projectDir),
