@@ -18,7 +18,7 @@ function formatTokens(count: number): string {
 	return `${(count / 1000000).toFixed(1)}M`;
 }
 
-export function ContextRing(): JSX.Element | null {
+export function ContextRing({ className }: { className?: string } = {}): JSX.Element | null {
 	const ctx = useAtomValue(contextUsageAtom);
 	const isCompacting = useAtomValue(isCompactingAtom);
 	const [hovered, setHovered] = useState(false);
@@ -45,7 +45,7 @@ export function ContextRing(): JSX.Element | null {
 
 	return (
 		<div
-			className="relative flex items-center cursor-default"
+			className={`relative flex items-center cursor-default${className ? ` ${className}` : ""}`}
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
 		>

@@ -613,7 +613,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 							<div className="min-w-0 flex-shrink">
 								<ModelSelector />
 							</div>
-							<ContextRing />
+							<ContextRing className="mr-1" />
 							<motion.span
 								key={isStreaming ? "s" : isEmpty ? "e" : "n"}
 								initial={SEND_HINT_INITIAL}
