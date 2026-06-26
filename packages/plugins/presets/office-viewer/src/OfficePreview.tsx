@@ -1,4 +1,4 @@
-import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
+import { type PluginFilePreviewProps, useTranslation } from "@vetta/plugin-sdk";
 import { useEffect, useState, type JSX } from "react";
 import { DocxPreview } from "./components/DocxPreview";
 import { ErrorState } from "./components/PreviewState";
@@ -8,6 +8,7 @@ import { SpreadsheetPreview } from "./components/spreadsheet/SpreadsheetPreview"
 import { isSpreadsheetExtension } from "./office-formats";
 
 export function OfficePreview(props: PluginFilePreviewProps): JSX.Element {
+	const { t } = useTranslation();
 	const [revision, setRevision] = useState(0);
 
 	useEffect(() => {
@@ -27,5 +28,5 @@ export function OfficePreview(props: PluginFilePreviewProps): JSX.Element {
 	if (props.file.extension === "ppt" || props.file.extension === "pptx") {
 		return <PowerPointCompatibility />;
 	}
-	return <ErrorState message="暂不支持此 Office 文件格式" />;
+	return <ErrorState message={t("error.unsupportedFormat")} />;
 }

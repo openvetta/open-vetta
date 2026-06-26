@@ -39,6 +39,7 @@ import { TodoTabPanel } from "./TodoTabPanel";
 import { DebugTabPanel } from "./DebugTabPanel";
 import { DEFAULT_PLUGIN_TAB_ICON, PluginTabPicker } from "./PluginTabPicker";
 import { PluginActivityTabPanel } from "@domains/plugins/components/PluginActivityTabPanel";
+import { usePluginTextResolver } from "@domains/plugins/runtime/plugin-i18n";
 import { TabBar, type TabBarItem } from "@shared/components/ui/tab-bar";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 import { useNarrowScreen, useWindowWidth } from "@shared/hooks/useNarrowScreen";
@@ -126,6 +127,7 @@ export function ActivityPanel({
 	// 外部插件面板：已加载插件注册的全部 contribution 都作为常驻标签随响应式拉伸显示，
 	// 不再用 attach 勾选挑选；不需要的用减号隐藏（进"已隐藏面板"恢复）。
 	const registeredPluginTabs = useAtomValue(pluginActivityTabsAtom);
+	const trPlugin = usePluginTextResolver();
 	// 会话页插槽按对话类型显隐：fail-closed——仅当场景已知且在该标签卡的 scope_use 内才显示。
 	// 未声明 scope_use / 场景未知（新建会话页、尚未加载）一律不显示。
 	const currentScenario = useAtomValue(currentScenarioAtom);
@@ -243,7 +245,7 @@ export function ActivityPanel({
 		for (const tab of pluginTabContribs) {
 			base.push({
 				key: `plugin:${tab.pluginId}:${tab.tabId}` as ActivityTabKey,
-				label: tab.label,
+				label: trPlugin(tab.pluginId, tab.label),
 				icon: tab.icon ?? DEFAULT_PLUGIN_TAB_ICON,
 				removable: true,
 			});
@@ -259,6 +261,7 @@ export function ActivityPanel({
 		backgroundTasks,
 		debugMode,
 		pluginTabContribs,
+		trPlugin,
 	]);
 
 	// 可见 tab：剔除被隐藏的 tab（内置/动态/插件统一进隐藏集），再按用户拖拽顺序重排

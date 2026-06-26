@@ -5,9 +5,24 @@ import type {
 	PluginFilePreviewContribution,
 	PluginImageRef,
 	PluginInputActionContribution,
+	PluginLocales,
 	PluginToolCallSlotContribution,
 } from "@vetta/plugin-sdk";
 import { atom } from "jotai";
+
+/** A loaded plugin's i18n catalogs + fallback locale, keyed by plugin id. */
+export interface PluginI18nEntry {
+	locales: PluginLocales;
+	defaultLocale: string;
+}
+
+/**
+ * Per-plugin i18n registry, published by PluginGlobalSlotHost from loaded
+ * plugins. Drives `%key%` resolution for host-rendered contribution strings
+ * (activity-tab/input-action labels) and the __PluginI18nContext that backs
+ * `useTranslation` in plugin components (ADR-0033).
+ */
+export const pluginI18nByIdAtom = atom<Record<string, PluginI18nEntry>>({});
 
 /** A file-preview contribution registered by a loaded plugin. */
 export interface RegisteredFilePreview {

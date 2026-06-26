@@ -4,6 +4,8 @@ import { motion } from "motion/react";
 import { useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import type { InstalledSkill, SkillInfo } from "@preload/api";
+import type { PluginLocales } from "@vetta/plugin-sdk";
+import { usePluginI18n } from "../../plugins/runtime/plugin-i18n";
 import {
 	activeSessionAtom,
 	activeToolNamesAtom,
@@ -54,6 +56,8 @@ interface GuidingGroup {
 	id: string;
 	name: string;
 	words: string[];
+	defaultLocale: string;
+	locales: PluginLocales;
 }
 // 展示限额（非数据截断）：同时最多 2 组、每组最多 3 词；超出则轮播。
 const GUIDING_GROUP_PAGE = 2;
@@ -210,7 +214,13 @@ export function NewSessionPage(): JSX.Element {
 			setGuidingGroups(
 				plugins
 					.filter((p) => p.enabled && (p.guidingWords?.length ?? 0) > 0)
-					.map((p) => ({ id: p.id, name: p.name, words: p.guidingWords ?? [] })),
+					.map((p) => ({
+						id: p.id,
+						name: p.name,
+						words: p.guidingWords ?? [],
+						defaultLocale: p.defaultLocale,
+						locales: p.locales,
+					})),
 			);
 		} catch {
 			setGuidingGroups([]);
@@ -735,6 +745,7 @@ interface GuidingWordsProps {
 function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Element {
 	const [groupTick, setGroupTick] = useState(0);
 	const [wordTick, setWordTick] = useState(0);
+	const tr = usePluginI18n();
 	const needGroupRotate = groups.length > GUIDING_GROUP_PAGE;
 	const needWordRotate = groups.some((g) => g.words.length > GUIDING_WORD_PAGE);
 
@@ -771,10 +782,11 @@ function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Eleme
 				const start = Math.min(wp * GUIDING_WORD_PAGE, group.words.length - slotCount);
 				const pageWords = group.words.slice(start, start + slotCount);
 				const padRows = slotCount - pageWords.length;
+				const groupName = tr(group, group.name);
 				return (
 					<div key={group.id} className="flex w-full min-w-0 flex-col gap-1.5">
-						<div className="truncate px-0.5 text-[12px] font-semibold text-foreground/80" title={group.name}>
-							{group.name}
+						<div className="truncate px-0.5 text-[12px] font-semibold text-foreground/80" title={groupName}>
+							{groupName}
 						</div>
 						{/* 不用 AnimatePresence mode="wait"：那会先卸载旧页留一帧空容器导致塌高。
 						    slotCount 恒定 + key 切换让 React 同一次提交内替换，无空帧。
@@ -789,25 +801,26 @@ function GuidingWords({ groups, mounted, onPick }: GuidingWordsProps): JSX.Eleme
 							{pageWords.map((word, idx) => {
 								// 树状引导线：竖脊 + 每行横向支线；最后一行竖脊收口为圆角拐弯（elbow）。
 								const isLast = idx === pageWords.length - 1;
+								const wordText = tr(group, word);
 								return (
 									<motion.button
 										key={`${wp}-${idx}-${word}`}
 										type="button"
-										onClick={() => onPick(word)}
+										onClick={() => onPick(wordText)}
 										variants={{
 											initial: { opacity: 0, x: -6 },
 											animate: { opacity: 1, x: 0 },
 										}}
 										transition={{ duration: 0.55, ease: guidingEase }}
 										whileTap={{ scale: 0.98 }}
-										title={word}
+										title={wordText}
 										className={`relative flex min-h-8 items-start py-1.5 pl-[18px] text-left text-[12px] leading-relaxed text-muted-foreground transition-colors hover:text-primary before:absolute before:left-0 before:border-l before:border-muted-foreground/30 before:content-[''] ${
 											isLast
 												? "before:top-0 before:h-4 before:w-[12px] before:rounded-bl-[7px] before:border-b"
 												: "before:inset-y-0 before:w-0 after:absolute after:left-0 after:top-4 after:w-[12px] after:border-t after:border-muted-foreground/30 after:content-['']"
 										}`}
 									>
-										<span className="break-words">{word}</span>
+										<span className="break-words">{wordText}</span>
 									</motion.button>
 								);
 							})}

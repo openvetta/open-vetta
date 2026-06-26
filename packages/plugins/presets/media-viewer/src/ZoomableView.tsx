@@ -1,3 +1,4 @@
+import { useTranslation } from "@vetta/plugin-sdk";
 import type { JSX, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PreviewToolbar } from "./PreviewToolbar";
@@ -34,6 +35,7 @@ function computeFit(vw: number, vh: number, iw: number, ih: number): { scale: nu
 }
 
 export function ZoomableView({ naturalSize, children }: ZoomableViewProps): JSX.Element {
+	const { t } = useTranslation();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const viewportRef = useRef<HTMLDivElement>(null);
 	const [scale, setScale] = useState(1);
@@ -239,26 +241,26 @@ export function ZoomableView({ naturalSize, children }: ZoomableViewProps): JSX.
 			</div>
 
 			<PreviewToolbar>
-				<ToolbarButton label="−" title="缩小" onClick={zoomOut} />
+				<ToolbarButton label="−" title={t("zoom.out")} onClick={zoomOut} />
 				<button
 					type="button"
 					onClick={resetView}
-					title="重置缩放"
+					title={t("zoom.reset")}
 					className="min-w-14 text-center text-[12px] tabular-nums text-[var(--muted-foreground)]"
 				>
 					{pct}%
 				</button>
-				<ToolbarButton label="+" title="放大" onClick={zoomIn} />
+				<ToolbarButton label="+" title={t("zoom.in")} onClick={zoomIn} />
 				<div className="mx-1 h-4 w-px bg-[var(--border)]" />
 				<ToolbarButton
-					label={isFullscreen ? "退出全屏" : "全屏"}
-					title={isFullscreen ? "退出全屏" : "全屏"}
+					label={isFullscreen ? t("fullscreen.exit") : t("fullscreen.enter")}
+					title={isFullscreen ? t("fullscreen.exit") : t("fullscreen.enter")}
 					onClick={toggleFullscreen}
 				/>
 				{!autoFit && (
 					<>
 						<div className="mx-1 h-4 w-px bg-[var(--border)]" />
-						<ToolbarButton label="重置" title="重置视图" onClick={resetView} />
+						<ToolbarButton label={t("view.reset")} title={t("view.resetTitle")} onClick={resetView} />
 					</>
 				)}
 			</PreviewToolbar>

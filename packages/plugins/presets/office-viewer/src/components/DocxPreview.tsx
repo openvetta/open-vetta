@@ -1,4 +1,4 @@
-import type { PluginFilePreviewProps } from "@vetta/plugin-sdk";
+import { type PluginFilePreviewProps, useTranslation } from "@vetta/plugin-sdk";
 import { renderAsync } from "docx-preview";
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { fetchFileBytes } from "../utils/file";
@@ -13,6 +13,7 @@ const ZOOM_STEP = 0.25;
 const HORIZONTAL_PADDING = 64;
 
 export function DocxPreview({ file }: PluginFilePreviewProps): JSX.Element {
+	const { t } = useTranslation();
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const autoFitRef = useRef(true);
@@ -102,7 +103,7 @@ export function DocxPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				)}
 				{status === "error" && (
 					<div className="absolute inset-0 bg-[var(--background)]">
-						<ErrorState message="无法渲染 DOCX 文件" />
+						<ErrorState message={t("docx.error")} />
 					</div>
 				)}
 			</div>
@@ -117,7 +118,7 @@ export function DocxPreview({ file }: PluginFilePreviewProps): JSX.Element {
 				</button>
 				<ToolbarButton label="+" disabled={zoom >= MAX_ZOOM} onClick={() => adjustZoom(ZOOM_STEP)} />
 				<div className="mx-1 h-4 w-px bg-[var(--border)]" />
-				<ToolbarButton label="适应宽度" onClick={fitToWidth} />
+				<ToolbarButton label={t("toolbar.fitWidth")} onClick={fitToWidth} />
 			</PreviewToolbar>
 		</div>
 	);
