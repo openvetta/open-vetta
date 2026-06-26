@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import type { SkillInfo } from "@preload/api";
 
@@ -17,16 +18,18 @@ interface SlashPanelProps {
 	cwd?: string;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-	user: "用户",
-	project: "项目",
-	path: "自定义",
-	scene: "场景",
-	"agents-user": "通用",
-	"agents-project": "通用·项目",
-};
+// 模块级只存 source → i18n key 的映射（无中文），文案在 SlashItem 内由 t() 解析。
+const SOURCE_LABEL_KEYS = {
+	user: "slashPanel.sourceLabels.user",
+	project: "slashPanel.sourceLabels.project",
+	path: "slashPanel.sourceLabels.path",
+	scene: "slashPanel.sourceLabels.scene",
+	"agents-user": "slashPanel.sourceLabels.agentsUser",
+	"agents-project": "slashPanel.sourceLabels.agentsProject",
+} as const;
 
 export function SlashPanel({ open, onClose, onSelect, filter, placement = "top", cwd }: SlashPanelProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [skills, setSkills] = useState<SkillInfo[]>([]);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -132,11 +135,11 @@ export function SlashPanel({ open, onClose, onSelect, filter, placement = "top",
 					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
 						<span className="icon-[solar--slash-circle-linear] h-4 w-4 text-muted-foreground/50" />
 						<span className="text-[12px] font-medium text-muted-foreground/50">
-							选择场景或技能
+							{t("slashPanel.header")}
 						</span>
 						{normalizedFilter && (
 							<span className="ml-auto text-[11px] text-muted-foreground/50">
-								{allItems.length} 个结果
+								{t("slashPanel.resultCount", { count: allItems.length })}
 							</span>
 						)}
 					</div>
@@ -145,7 +148,7 @@ export function SlashPanel({ open, onClose, onSelect, filter, placement = "top",
 					<div className="overflow-y-auto" style={{ maxHeight: 280 }}>
 						{allItems.length === 0 ? (
 							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
-								{normalizedFilter ? "未找到匹配项" : "暂无可用的技能或场景"}
+								{normalizedFilter ? t("slashPanel.emptyNoMatch") : t("slashPanel.emptyNoSkills")}
 							</div>
 						) : (
 							<div className="py-1.5">
@@ -153,7 +156,7 @@ export function SlashPanel({ open, onClose, onSelect, filter, placement = "top",
 								{scenes.length > 0 && (
 									<>
 										<div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-											场景
+											{t("slashPanel.scenesSection")}
 										</div>
 										{scenes.map((skill) => {
 											const idx = allItems.indexOf(skill);
@@ -175,7 +178,7 @@ export function SlashPanel({ open, onClose, onSelect, filter, placement = "top",
 								{standardSkills.length > 0 && (
 									<>
 										<div className="px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-											技能
+											{t("slashPanel.skillsSection")}
 										</div>
 										{standardSkills.map((skill) => {
 											const idx = allItems.indexOf(skill);
@@ -214,7 +217,9 @@ function SlashItem({
 	onHover: () => void;
 	onClick: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const isScene = skill.type === "scene";
+	const sourceKey = SOURCE_LABEL_KEYS[skill.source as keyof typeof SOURCE_LABEL_KEYS];
 	return (
 		<button
 			type="button"
@@ -246,7 +251,7 @@ function SlashItem({
 						{skill.alias || skill.name}
 					</span>
 					<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground/50">
-						{SOURCE_LABELS[skill.source] ?? skill.source}
+						{sourceKey ? t(sourceKey) : skill.source}
 					</span>
 				</div>
 				{skill.description && (

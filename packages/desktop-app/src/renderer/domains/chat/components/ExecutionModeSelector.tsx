@@ -4,25 +4,15 @@ import { cn } from "@shared/lib/utils";
 import { useAtom, useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
+// label/title 由组件内 t() 在渲染期解析（模块级常量无法用 hook）。
 const MODE_OPTIONS: Array<{
 	mode: SessionExecutionMode;
-	label: string;
-	title: string;
 	icon: string;
 }> = [
-	{
-		mode: "sandbox",
-		label: "沙盒受限",
-		title: "仅允许工作区受限访问",
-		icon: "icon-[solar--shield-linear]",
-	},
-	{
-		mode: "full-access",
-		label: "完全访问",
-		title: "允许完全访问当前系统",
-		icon: "icon-[solar--shield-cross-linear]",
-	},
+	{ mode: "sandbox", icon: "icon-[solar--shield-linear]" },
+	{ mode: "full-access", icon: "icon-[solar--shield-cross-linear]" },
 ];
 
 const itemVariants = {
@@ -31,6 +21,7 @@ const itemVariants = {
 };
 
 export function ExecutionModeSelector(): JSX.Element {
+	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
 	const [mode, setMode] = useAtom(sessionExecutionModeAtom);
@@ -54,21 +45,27 @@ export function ExecutionModeSelector(): JSX.Element {
 		});
 	}, []);
 
+	const labelFor = useCallback(
+		(m: SessionExecutionMode): string =>
+			m === "sandbox" ? t("executionModeSelector.sandbox.label") : t("executionModeSelector.fullAccess.label"),
+		[t],
+	);
+	const titleFor = useCallback(
+		(m: SessionExecutionMode): string =>
+			m === "sandbox" ? t("executionModeSelector.sandbox.title") : t("executionModeSelector.fullAccess.title"),
+		[t],
+	);
+
 	const modeOptions = useMemo(
 		() =>
-			MODE_OPTIONS.map((option) =>
-				option.mode === "sandbox" && sandboxUnavailableReason
-					? {
-							...option,
-							title: sandboxUnavailableReason,
-							disabled: true,
-						}
-					: {
-							...option,
-							disabled: false,
-						},
-			),
-		[sandboxUnavailableReason],
+			MODE_OPTIONS.map((option) => ({
+				...option,
+				label: labelFor(option.mode),
+				title:
+					option.mode === "sandbox" && sandboxUnavailableReason ? sandboxUnavailableReason : titleFor(option.mode),
+				disabled: option.mode === "sandbox" && !!sandboxUnavailableReason,
+			})),
+		[sandboxUnavailableReason, labelFor, titleFor],
 	);
 
 	const selectedOption = modeOptions.find((option) => option.mode === mode) ?? modeOptions[0];

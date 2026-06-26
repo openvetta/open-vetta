@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { contextUsageAtom, isCompactingAtom } from "@shared/store/atoms";
@@ -19,6 +20,7 @@ function formatTokens(count: number): string {
 }
 
 export function ContextRing({ className }: { className?: string } = {}): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const ctx = useAtomValue(contextUsageAtom);
 	const isCompacting = useAtomValue(isCompactingAtom);
 	const [hovered, setHovered] = useState(false);
@@ -38,10 +40,10 @@ export function ContextRing({ className }: { className?: string } = {}): JSX.Ele
 				: "var(--primary)";
 
 	const tooltip = isCompacting
-		? "正在压缩上下文..."
+		? t("contextRing.tooltip.compacting")
 		: ctx.percent !== null
-			? `上下文已使用 ${percent.toFixed(1)}%（${formatTokens(ctx.contextWindow)} 窗口）`
-			: `上下文窗口 ${formatTokens(ctx.contextWindow)}（使用量未知）`;
+			? t("contextRing.tooltip.usage", { percent: percent.toFixed(1), window: formatTokens(ctx.contextWindow) })
+			: t("contextRing.tooltip.unknown", { window: formatTokens(ctx.contextWindow) });
 
 	return (
 		<div

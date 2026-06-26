@@ -1,5 +1,6 @@
 import { useAtomValue } from "jotai";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { lastTurnUsageAtom } from "@shared/store/atoms";
 
 function formatDuration(seconds: number): string {
@@ -10,16 +11,17 @@ function formatDuration(seconds: number): string {
 }
 
 export function UsageBar(): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const turnUsage = useAtomValue(lastTurnUsageAtom);
 
 	if (!turnUsage || (!turnUsage.outputSpeed && !turnUsage.durationSeconds)) return null;
 
 	const parts: string[] = [];
 	if (turnUsage.outputSpeed > 0) {
-		parts.push(`速度 ${turnUsage.outputSpeed.toFixed(1)} tok/s`);
+		parts.push(t("usageBar.speedLabel", { speed: turnUsage.outputSpeed.toFixed(1) }));
 	}
 	if (turnUsage.durationSeconds > 0) {
-		parts.push(`耗时 ${formatDuration(turnUsage.durationSeconds)}`);
+		parts.push(t("usageBar.durationLabel", { duration: formatDuration(turnUsage.durationSeconds) }));
 	}
 
 	return (

@@ -1,6 +1,7 @@
 import { useAtom, useAtomValue } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import type { ConversationScenario } from "@vetta/plugin-sdk";
 import {
 	activeInputActionIdsAtom,
@@ -46,6 +47,7 @@ function actionVisible(
  * from ActionButtonBar.
  */
 export function InputActionBar(): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const allActions = useAtomValue(pluginInputActionsAtom);
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
@@ -97,7 +99,7 @@ export function InputActionBar(): JSX.Element | null {
 					transition={{ type: "spring", stiffness: 520, damping: 30 }}
 					whileTap={{ scale: 0.95 }}
 					onClick={() => setKnowledgeActive((v) => !v)}
-					title="开启后，这次提问会让 AI 优先去你的知识库里找答案"
+					title={t("inputActionBar.knowledgeRetrieval.tooltip")}
 					className={cn(
 						"flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[12px] font-medium transition-colors",
 						knowledgeActive
@@ -110,7 +112,7 @@ export function InputActionBar(): JSX.Element | null {
 						animate={knowledgeActive ? { rotate: [0, -8, 8, 0] } : { rotate: 0 }}
 						transition={{ duration: 0.4 }}
 					/>
-					<span>知识检索</span>
+					<span>{t("inputActionBar.knowledgeRetrieval.label")}</span>
 				</motion.button>
 				)}
 				{actions.map((action, idx) => {
@@ -157,6 +159,7 @@ export function InputActionBar(): JSX.Element | null {
  * deactivates that action (mirrors the toggle in InputActionBar).
  */
 export function ActiveInputActionChips(): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const actions = useAtomValue(pluginInputActionsAtom);
 	const [activeIds, setActiveIds] = useAtom(activeInputActionIdsAtom);
 	const [knowledgeActive, setKnowledgeActive] = useAtom(knowledgeRetrievalActiveAtom);
@@ -194,11 +197,11 @@ export function ActiveInputActionChips(): JSX.Element | null {
 					transition={{ type: "spring", stiffness: 520, damping: 30 }}
 					whileTap={{ scale: 0.95 }}
 					onClick={() => setKnowledgeActive(false)}
-					title="点击取消"
+					title={t("inputActionBar.chip.removeTooltip")}
 					className="group flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/15"
 				>
 					<span className="icon-[mdi--book-search-outline] flex h-3 w-3 items-center justify-center" />
-					<span className="max-w-[120px] truncate">知识检索</span>
+					<span className="max-w-[120px] truncate">{t("inputActionBar.knowledgeRetrieval.label")}</span>
 					<span className="icon-[solar--close-circle-linear] h-3 w-3 opacity-50 transition-opacity group-hover:opacity-100" />
 				</motion.button>
 			)}
@@ -213,7 +216,7 @@ export function ActiveInputActionChips(): JSX.Element | null {
 					transition={{ type: "spring", stiffness: 520, damping: 30 }}
 					whileTap={{ scale: 0.95 }}
 					onClick={() => deactivate(action.actionId, action.onToggle)}
-					title="点击取消"
+					title={t("inputActionBar.chip.removeTooltip")}
 					className="group flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/15"
 				>
 					{action.icon && <span className="flex h-3 w-3 items-center justify-center">{action.icon}</span>}

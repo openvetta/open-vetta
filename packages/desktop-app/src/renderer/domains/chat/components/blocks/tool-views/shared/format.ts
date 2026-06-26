@@ -1,3 +1,4 @@
+import { i18n } from "@shared/i18n";
 import type { ToolPhaseInfo } from "@shared/store/atoms";
 
 export function shortenPath(path: string): string {
@@ -6,7 +7,7 @@ export function shortenPath(path: string): string {
 }
 
 export function formatBytes(bytes: number | undefined): string {
-	if (bytes === undefined) return "未知";
+	if (bytes === undefined) return i18n.t("chat:toolFormat.unknown");
 	if (bytes < 1024) return `${bytes} B`;
 	const units = ["KB", "MB", "GB"];
 	let value = bytes / 1024;
@@ -19,7 +20,8 @@ export function formatBytes(bytes: number | undefined): string {
 }
 
 export function formatDimensions(width: number | undefined, height: number | undefined): string {
-	if (width === undefined || height === undefined || width <= 0 || height <= 0) return "未知";
+	if (width === undefined || height === undefined || width <= 0 || height <= 0)
+		return i18n.t("chat:toolFormat.unknown");
 	return `${width} x ${height}`;
 }
 

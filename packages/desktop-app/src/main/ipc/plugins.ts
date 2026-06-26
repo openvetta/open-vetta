@@ -1,17 +1,20 @@
 import { ipcMain, webContents } from "electron";
 import type {
+	PluginCommandRunOptions,
 	PluginEditImageInput,
 	PluginGenerateImageInput,
 	PluginInstallOptions,
 	PluginPermission,
 } from "../../preload/api-types/plugins.js";
 import { getAppLogger } from "../logger.js";
+import { runPluginCommand } from "../plugins/command-runner.js";
 import { editImage, generateImage, imageLineage, sessionLineages } from "../plugins/image-service.js";
 import {
 	beginDynamicAgentContributionLoad,
 	buildAgentPluginRuntimeConfig,
 	clearDynamicAgentContributions,
 	getPluginSettings,
+	grantPluginCommands,
 	grantPluginPermissions,
 	installPluginFromArchive,
 	installPluginFromUrl,
@@ -19,6 +22,7 @@ import {
 	registerDynamicAgentTool,
 	registerDynamicContinuationProvider,
 	reloadPlugin,
+	revokePluginCommands,
 	revokePluginPermissions,
 	setPluginEnabled,
 	setPluginSettings,
@@ -66,6 +70,13 @@ function asPermissions(value: unknown): PluginPermission[] {
 		throw new Error("Invalid plugin permissions");
 	}
 	return value as PluginPermission[];
+}
+
+function asCommandNames(value: unknown): string[] {
+	if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.trim().length === 0)) {
+		throw new Error("Invalid plugin command names");
+	}
+	return value as string[];
 }
 
 function asRecord(value: unknown, fieldName: string): Record<string, unknown> {
@@ -180,6 +191,22 @@ export function registerPluginsIpc(): () => void {
 		refreshAgentPlugins();
 		return plugin;
 	});
+	ipcMain.handle("vetta:plugins:grant-commands", (_event, id: unknown, names: unknown) =>
+		grantPluginCommands(asPluginId(id), asCommandNames(names)),
+	);
+	ipcMain.handle("vetta:plugins:revoke-commands", (_event, id: unknown, names: unknown) =>
+		revokePluginCommands(asPluginId(id), asCommandNames(names)),
+	);
+	ipcMain.handle(
+		"vetta:plugins:command-run",
+		(_event, pluginId: unknown, file: unknown, args: unknown, options: unknown) =>
+			runPluginCommand(
+				asPluginId(pluginId),
+				typeof file === "string" ? file : "",
+				args,
+				(options ?? undefined) as PluginCommandRunOptions | undefined,
+			),
+	);
 	ipcMain.handle("vetta:plugins:reload", (_event, id: unknown) => {
 		const plugin = reloadPlugin(asPluginId(id));
 		refreshAgentPlugins();
@@ -290,6 +317,9 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:set-enabled");
 		ipcMain.removeHandler("vetta:plugins:grant-permissions");
 		ipcMain.removeHandler("vetta:plugins:revoke-permissions");
+		ipcMain.removeHandler("vetta:plugins:grant-commands");
+		ipcMain.removeHandler("vetta:plugins:revoke-commands");
+		ipcMain.removeHandler("vetta:plugins:command-run");
 		ipcMain.removeHandler("vetta:plugins:reload");
 		ipcMain.removeHandler("vetta:plugins:agent-contributions-begin-load");
 		ipcMain.removeHandler("vetta:plugins:agent-tool-register");

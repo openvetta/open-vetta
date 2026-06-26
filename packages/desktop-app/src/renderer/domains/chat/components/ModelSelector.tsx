@@ -1,6 +1,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import type { ModelsConfigData } from "@preload/api";
 import { selectedModelAtom, activeSessionAtom, remoteProvidersAtom, modelSupportsImagesAtom } from "@shared/store/atoms";
 import { ProviderIcon } from "@shared/components/provider-icon";
@@ -39,6 +40,7 @@ function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[
 }
 
 export function ModelSelector(): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
@@ -150,7 +152,7 @@ export function ModelSelector(): JSX.Element {
 			>
 				{selectedOption && <ProviderIcon symbol={iconFor(selectedOption.provider)} className="h-3.5 w-3.5" />}
 				<span className="min-w-0 max-w-[80px] truncate sm:max-w-[120px] md:max-w-[160px]">
-					{selectedOption?.displayName ?? "选择模型"}
+					{selectedOption?.displayName ?? t("modelSelector.selectModel")}
 				</span>
 				<motion.span
 					className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0"
@@ -204,7 +206,7 @@ export function ModelSelector(): JSX.Element {
 												</span>
 												{m.supportsImage && (
 													<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-														vision
+														{t("modelSelector.visionBadge")}
 													</span>
 												)}
 												{m.tags?.map((tag) => (
@@ -214,7 +216,7 @@ export function ModelSelector(): JSX.Element {
 												))}
 												{isDefault && (
 													<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-														默认
+														{t("modelSelector.defaultBadge")}
 													</span>
 												)}
 												{isSelected && (

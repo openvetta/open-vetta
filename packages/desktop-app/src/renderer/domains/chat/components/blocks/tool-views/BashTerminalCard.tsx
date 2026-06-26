@@ -1,5 +1,6 @@
 import type { BackgroundTask, ToolCallBlock, ToolPhaseInfo } from "@shared/store/atoms";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { formatPhases, formatStartedAt, formatDurationPrecise } from "./shared/format";
 import { bashHeaderLabel } from "./shared/parse-tool";
 import { CopyIconButton } from "./shared/CopyIconButton";
@@ -74,6 +75,7 @@ export function BashTerminalCard({
 	/** 该工具调用对应的后台任务（run_in_background 时存在），用于实时尾部输出 */
 	backgroundTask?: BackgroundTask;
 }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const headerLabel = bashHeaderLabel(status, command);
 	const isPending = status === "pending";
 	const isFailed = status === "error" || isError === true;
@@ -92,7 +94,7 @@ export function BashTerminalCard({
 					{headerLabel}
 				</span>
 				<div className="opacity-0 transition-opacity group-hover/term:opacity-100">
-					<CopyIconButton getText={() => command} label="复制命令" />
+					<CopyIconButton getText={() => command} label={t("bashTerminalCard.copyCommand")} />
 				</div>
 			</div>
 
@@ -127,7 +129,7 @@ export function BashTerminalCard({
 			) : startedAt !== undefined ? (
 				<div
 					className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-muted-foreground/10 px-3 py-1.5 text-[10px] text-muted-foreground/50"
-					title="本地元数据，仅 UI 展示，不发送给大模型"
+					title={t("bashTerminalCard.metaDescription")}
 				>
 					<span className="font-medium text-muted-foreground/60">meta</span>
 					<span className="tabular-nums">{formatStartedAt(startedAt)}</span>

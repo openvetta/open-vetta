@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function CopyIconButton({
 	getText,
-	label = "复制",
+	label,
 }: {
 	getText: () => string;
 	label?: string;
 }): JSX.Element {
+	const { t } = useTranslation("chat");
+	const resolvedLabel = label ?? t("copyButton.label");
 	const [copied, setCopied] = useState(false);
 	const timerRef = useRef<number | null>(null);
 
@@ -38,7 +41,7 @@ export function CopyIconButton({
 		[getText],
 	);
 
-	const aria = copied ? "已复制" : label;
+	const aria = copied ? t("copyButton.copied") : resolvedLabel;
 
 	return (
 		<button

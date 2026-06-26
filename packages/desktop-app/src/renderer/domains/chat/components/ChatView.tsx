@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import {
 	activeSessionAtom,
@@ -36,6 +37,7 @@ interface ChatViewProps {
 }
 
 export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const messages = useAtomValue(chatMessagesAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
@@ -140,7 +142,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				<Button
 					size="icon-xs"
 					variant="ghost"
-					title="导出完整会话 HTML"
+					title={t("chatView.exportButton.title")}
 					disabled={messages.length === 0 || isStreaming || exporting}
 					onClick={() => setExporting(true)}
 				>
@@ -159,7 +161,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						onClick={() => setWorkflowCompleteOpen(true)}
 					>
 						<span className="icon-[solar--check-circle-linear] text-[14px]" />
-						<span>完成</span>
+						<span>{t("chatView.completeButton.label")}</span>
 					</Button>
 				) : null}
 				{/* 流转/文件转发入口暂时隐藏
@@ -175,7 +177,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				<Button
 					size="icon-xs"
 					variant="ghost"
-					title={pinned ? "取消窗口置顶" : "窗口置顶（钉在屏幕上）"}
+					title={pinned ? t("chatView.pinButton.pinned") : t("chatView.pinButton.unpinned")}
 					onClick={handleTogglePin}
 					className={pinned ? "bg-accent text-foreground" : ""}
 				>
@@ -186,7 +188,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 				<Button
 					size="icon-xs"
 					variant="ghost"
-					title={panelOpen ? "关闭活动面板" : "打开活动面板"}
+					title={panelOpen ? t("chatView.panelButton.open") : t("chatView.panelButton.closed")}
 					onClick={handleTogglePanel}
 					className={panelOpen ? "bg-accent text-foreground" : ""}
 				>
@@ -217,7 +219,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 			{exporting && (
 				<ChatExportHost
 					messages={messages}
-					title={sessionTitle ?? "Vetta 会话"}
+					title={sessionTitle ?? t("chatView.defaultSessionTitle")}
 					onFinished={handleExportFinished}
 				/>
 			)}

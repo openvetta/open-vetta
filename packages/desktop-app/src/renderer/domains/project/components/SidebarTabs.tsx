@@ -8,15 +8,18 @@ import {
 } from "@shared/store/atoms";
 import { Popover, PopoverTrigger, PopoverContent } from "@shared/components/ui/popover";
 import { cn } from "@shared/lib/utils";
+import { useTranslation } from "react-i18next";
 
-const FILTER_OPTIONS: { value: SidebarFilter; label: string }[] = [
-	{ value: "all", label: "全部" },
-	{ value: "normal", label: "普通" },
-	{ value: "batch", label: "批量任务" },
-	{ value: "flowing", label: "流转" },
-];
+// label 在渲染期由 t(labelKey) 解析（模块级常量不存中文）。
+const FILTER_OPTIONS = [
+	{ value: "all", labelKey: "filterTabs.all" },
+	{ value: "normal", labelKey: "filterTabs.normal" },
+	{ value: "batch", labelKey: "filterTabs.batch" },
+	{ value: "flowing", labelKey: "filterTabs.flowing" },
+] as const satisfies readonly { value: SidebarFilter; labelKey: string }[];
 
 export function SidebarFilterSelect(): JSX.Element {
+	const { t } = useTranslation("project");
 	const [filter, setFilter] = useAtom(sidebarFilterAtom);
 	const [open, setOpen] = useState(false);
 	const current = FILTER_OPTIONS.find((o) => o.value === filter) ?? FILTER_OPTIONS[0];
@@ -34,7 +37,7 @@ export function SidebarFilterSelect(): JSX.Element {
 					)}
 				>
 					<span className="icon-[mdi--view-grid-outline] h-3.5 w-3.5 shrink-0" />
-					<span>{current.label}</span>
+					<span>{t(current.labelKey)}</span>
 					<span className="icon-[mdi--chevron-down] h-3 w-3" />
 				</button>
 			</PopoverTrigger>
@@ -59,7 +62,7 @@ export function SidebarFilterSelect(): JSX.Element {
 								: "text-foreground hover:bg-accent",
 						)}
 					>
-						<span>{opt.label}</span>
+						<span>{t(opt.labelKey)}</span>
 						{filter === opt.value && (
 							<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5" />
 						)}
@@ -70,12 +73,13 @@ export function SidebarFilterSelect(): JSX.Element {
 	);
 }
 
-const DEFAULT_CONVERSATION_FILTER_OPTIONS: { value: DefaultConversationFilter; label: string }[] = [
-	{ value: "conversation", label: "对话" },
-	{ value: "claw", label: "Claw" },
-];
+const DEFAULT_CONVERSATION_FILTER_OPTIONS = [
+	{ value: "conversation", labelKey: "filterTabs.conversation" },
+	{ value: "claw", labelKey: "filterTabs.claw" },
+] as const satisfies readonly { value: DefaultConversationFilter; labelKey: string }[];
 
 export function DefaultConversationFilterSelect(): JSX.Element {
+	const { t } = useTranslation("project");
 	const [filter, setFilter] = useAtom(defaultConversationFilterAtom);
 	const [open, setOpen] = useState(false);
 	const current =
@@ -94,7 +98,7 @@ export function DefaultConversationFilterSelect(): JSX.Element {
 							: "text-muted-foreground/80 hover:bg-accent hover:text-foreground",
 					)}
 				>
-					<span>{current.label}</span>
+					<span>{t(current.labelKey)}</span>
 					<span className="icon-[mdi--chevron-down] h-3 w-3" />
 				</button>
 			</PopoverTrigger>
@@ -119,7 +123,7 @@ export function DefaultConversationFilterSelect(): JSX.Element {
 								: "text-foreground hover:bg-accent",
 						)}
 					>
-						<span>{opt.label}</span>
+						<span>{t(opt.labelKey)}</span>
 						{filter === opt.value && (
 							<span className="icon-[mdi--check] ml-auto h-3.5 w-3.5" />
 						)}

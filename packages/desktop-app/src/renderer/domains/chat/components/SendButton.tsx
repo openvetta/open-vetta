@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import "./SendButton.css";
 
 interface SendButtonProps {
@@ -11,6 +12,7 @@ interface SendButtonProps {
 type IconState = "send" | "to-stop" | "stop" | "to-send";
 
 export const SendButton = memo(function SendButton({ canSend, isStreaming, onSend, onAbort }: SendButtonProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const isActive = isStreaming || canSend;
 	const wasStreamingRef = useRef(isStreaming);
 	const [iconState, setIconState] = useState<IconState>(isStreaming ? "stop" : "send");
@@ -59,7 +61,7 @@ export const SendButton = memo(function SendButton({ canSend, isStreaming, onSen
 				className="send-button relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full transition-shadow disabled:cursor-not-allowed"
 				data-icon-state={iconState}
 				style={buttonStyle}
-				title={isStreaming ? "停止生成" : "发送消息"}
+				title={isStreaming ? t("sendButton.stopGenerating") : t("sendButton.sendMessage")}
 			>
 			{showOutgoingArrow ? (
 				<span

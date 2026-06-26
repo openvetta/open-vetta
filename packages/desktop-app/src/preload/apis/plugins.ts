@@ -13,6 +13,10 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			setEnabled: (id, enabled) => ipc.invoke("vetta:plugins:set-enabled", id, enabled),
 			grantPermissions: (id, permissions) => ipc.invoke("vetta:plugins:grant-permissions", id, permissions),
 			revokePermissions: (id, permissions) => ipc.invoke("vetta:plugins:revoke-permissions", id, permissions),
+			grantCommands: (id, names) => ipc.invoke("vetta:plugins:grant-commands", id, names),
+			revokeCommands: (id, names) => ipc.invoke("vetta:plugins:revoke-commands", id, names),
+			runCommand: (pluginId, file, args, options) =>
+				ipc.invoke("vetta:plugins:command-run", pluginId, file, args, options),
 			reload: (id) => ipc.invoke("vetta:plugins:reload", id),
 			beginAgentContributionsLoad: (pluginId, activationId) =>
 				ipc.invoke("vetta:plugins:agent-contributions-begin-load", pluginId, activationId),

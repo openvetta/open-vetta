@@ -1,3 +1,4 @@
+import { i18n } from "@shared/i18n";
 import type { ToolCallBlock } from "@shared/store/atoms";
 import { shortenPath } from "./format";
 
@@ -110,11 +111,11 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 		const actionId = args.actionId;
 		if (typeof actionId === "string") detail = actionId;
 	} else if (name === "kb_write_page") {
-		displayName = "知识库·写页";
+		displayName = i18n.t("chat:toolLabel.knowledgeBase.writePage");
 		const title = args.title ?? args.path;
 		if (typeof title === "string") detail = title;
 	} else if (name === "kb_filter_by_tags") {
-		displayName = "知识库·标签筛选";
+		displayName = i18n.t("chat:toolLabel.knowledgeBase.filterByTags");
 		const parts: string[] = [];
 		for (const key of ["all", "any", "none"] as const) {
 			const tags = args[key];
@@ -125,7 +126,7 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 		}
 		detail = parts.join("，");
 	} else if (name === "kb_list_available_tags") {
-		displayName = "知识库·标签列表";
+		displayName = i18n.t("chat:toolLabel.knowledgeBase.listTags");
 	} else if (name === "todo") {
 		const action = args.action;
 		if (typeof action === "string") {
@@ -149,7 +150,7 @@ export function truncateFirstLine(cmd: string, maxLen = 40): string {
 
 export function bashHeaderLabel(status: ToolCallBlock["status"], cmd: string): string {
 	const short = truncateFirstLine(cmd);
-	if (status === "pending") return `正在执行：${short}`;
-	if (status === "error") return `命令失败：${short}`;
-	return `执行命令：${short}`;
+	if (status === "pending") return i18n.t("chat:bashHeader.statusPending", { short });
+	if (status === "error") return i18n.t("chat:bashHeader.statusError", { short });
+	return i18n.t("chat:bashHeader.statusSuccess", { short });
 }

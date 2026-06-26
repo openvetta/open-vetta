@@ -1,6 +1,7 @@
 import { useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { type PendingQuestion, pendingQuestionsAtom, type QuestionItem } from "@shared/store/atoms";
@@ -48,6 +49,7 @@ const SWITCH = { duration: 0.18, ease: [0.22, 0.61, 0.36, 1] as const };
  * Enter 提交当前题并自动跳到下一个 tab（末题则整体提交）。
  */
 export function QuestionPanel({ pending }: QuestionPanelProps): JSX.Element {
+	const { t } = useTranslation(["chat", "common"]);
 	const setPendingQuestions = useSetAtom(pendingQuestionsAtom);
 	const questions = pending.questions;
 	const [states, setStates] = useState<QState[]>(() => questions.map(() => emptyState()));
@@ -207,7 +209,7 @@ export function QuestionPanel({ pending }: QuestionPanelProps): JSX.Element {
 			>
 				<div className="mb-2 flex items-center gap-2 px-1">
 					<span className="icon-[solar--question-circle-linear] size-4 text-primary" />
-					<span className="text-sm font-medium text-foreground">Vetta 需要你的选择</span>
+					<span className="text-sm font-medium text-foreground">{t("questionPanel.title")}</span>
 					{!single && (
 						<span className="text-xs text-muted-foreground">
 							{states.filter(isAnswered).length}/{questions.length}
@@ -230,7 +232,9 @@ export function QuestionPanel({ pending }: QuestionPanelProps): JSX.Element {
 										isActive ? "text-foreground" : "text-muted-foreground/70 hover:text-foreground/80"
 									}`}
 								>
-									<span className="max-w-[120px] truncate">{q.header || `问题 ${i + 1}`}</span>
+									<span className="max-w-[120px] truncate">
+										{q.header || t("questionPanel.questionTabLabel", { number: i + 1 })}
+									</span>
 									{answered && <span className="icon-[solar--check-circle-bold] size-3 shrink-0 text-primary" />}
 									{isActive && (
 										<motion.span
@@ -272,14 +276,14 @@ export function QuestionPanel({ pending }: QuestionPanelProps): JSX.Element {
 
 				<div className="mt-3 flex items-center justify-between gap-2">
 					<span className="hidden px-1 text-[11px] text-muted-foreground/70 sm:inline">
-						↑↓ 选择 · 空格选中 · ←→ 切换 · Enter 下一题
+							{t("questionPanel.keyboardHint")}
 					</span>
 					<div className="flex items-center gap-2">
 						<Button variant="ghost" size="sm" onClick={cancel} disabled={submitting}>
-							取消
+							{t("common:actions.cancel")}
 						</Button>
 						<Button size="sm" onClick={submit} disabled={!allAnswered || submitting}>
-							提交
+							{t("questionPanel.submitButton")}
 						</Button>
 					</div>
 				</div>
@@ -311,6 +315,7 @@ function QuestionBody({
 	onActivateOther,
 	onOtherText,
 }: QuestionBodyProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const multiSelect = question.multiSelect ?? false;
 	const otherIndex = question.options.length;
 
@@ -324,7 +329,7 @@ function QuestionBody({
 				)}
 				<span className="min-w-0 flex-1 text-sm leading-5 text-foreground">{question.question}</span>
 			</div>
-			{multiSelect && <p className="mb-1 px-1 text-xs text-muted-foreground">可多选</p>}
+			{multiSelect && <p className="mb-1 px-1 text-xs text-muted-foreground">{t("questionPanel.multiSelectHint")}</p>}
 
 			<div className="flex flex-col gap-1.5">
 				{question.options.map((opt, i) => {
@@ -390,14 +395,14 @@ function QuestionBody({
 						className="flex items-center gap-2 text-left text-sm text-muted-foreground"
 					>
 						<span className="icon-[solar--pen-2-linear] size-3.5 shrink-0" />
-						其它（自定义输入）
+						{t("questionPanel.otherOption")}
 					</button>
 					{state.otherActive && (
 						<Input
 							autoFocus
 							value={state.otherText}
 							onChange={(e) => onOtherText(e.target.value)}
-							placeholder="输入你的答案…"
+							placeholder={t("questionPanel.otherPlaceholder")}
 							className="h-8"
 						/>
 					)}

@@ -1,0 +1,15 @@
+{
+	"appName": "Vetta",
+	"actions": {
+		"cancel": "Cancel",
+		"confirm": "Confirm",
+		"save": "Save",
+		"delete": "Delete",
+		"close": "Close",
+		"apply": "Apply"
+	},
+	"appearance": {
+		"languageTitle": "Language",
+		"languageHint": "Choose the display language"
+	}
+}

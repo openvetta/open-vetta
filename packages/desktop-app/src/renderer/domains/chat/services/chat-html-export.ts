@@ -1,3 +1,5 @@
+import { i18n } from "@shared/i18n";
+
 function escapeHtml(value: string): string {
 	return value
 		.replaceAll("&", "&amp;")
@@ -80,7 +82,9 @@ async function loadAppIconDataUrl(): Promise<string> {
 }
 
 function buildShareNav(iconDataUrl: string, nickname?: string): string {
-	const desc = nickname ? `${escapeHtml(nickname)} 分享了一个会话` : "分享了一个会话";
+	const desc = nickname
+		? i18n.t("chat:export.shareNavDescriptionWithNickname", { nickname: escapeHtml(nickname) })
+		: i18n.t("chat:export.shareNavDescription");
 	const icon = iconDataUrl ? `<img class="vetta-share-nav__icon" src="${iconDataUrl}" alt="Vetta" />` : "";
 	return `<nav class="vetta-share-nav" data-share-nav>
 		<div class="vetta-share-nav__inner">

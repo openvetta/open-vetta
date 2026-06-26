@@ -1,5 +1,7 @@
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { activeSessionAtom } from "@shared/store/atoms";
 import type { RuntimeSandboxGrantInfo } from "../../../../../../runtime-core/src/index.js";
 
@@ -20,20 +22,21 @@ function formatAbsolute(timestamp: number): string {
 	return new Date(timestamp).toLocaleString();
 }
 
-function capabilityLabel(cap: RuntimeSandboxGrantInfo["capability"]): string {
+function capabilityLabel(cap: RuntimeSandboxGrantInfo["capability"], t: TFunction<"chat">): string {
 	switch (cap) {
 		case "file.read":
-			return "读";
+			return t("capability.read");
 		case "file.write":
-			return "写";
+			return t("capability.write");
 		case "network":
-			return "网络";
+			return t("capability.network");
 		default:
 			return cap;
 	}
 }
 
 export function SandboxGrantsBadge(): JSX.Element | null {
+	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const sessionId = activeSession?.runtimeId;
 	const [grants, setGrants] = useState<RuntimeSandboxGrantInfo[]>([]);
@@ -99,7 +102,7 @@ export function SandboxGrantsBadge(): JSX.Element | null {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				title="本会话沙箱授权"
+				title={t("sandboxGrantsBadge.tooltip")}
 				className={`flex h-7 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 text-[11px] font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400 ${
 					open ? "ring-1 ring-amber-500/40" : ""
 				}`}
@@ -110,13 +113,13 @@ export function SandboxGrantsBadge(): JSX.Element | null {
 			{open ? (
 				<div className="absolute right-0 top-9 z-50 w-[360px] rounded-lg border border-border bg-popover p-2 shadow-lg">
 					<div className="flex items-center justify-between px-1 pb-1.5">
-						<div className="text-[12px] font-medium text-foreground">本会话沙箱授权</div>
+						<div className="text-[12px] font-medium text-foreground">{t("sandboxGrantsBadge.title")}</div>
 						<button
 							type="button"
 							onClick={handleRevokeAll}
 							className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
 						>
-							全部撤销
+							{t("sandboxGrantsBadge.revokeAll")}
 						</button>
 					</div>
 					<div className="max-h-[320px] space-y-1 overflow-auto">
@@ -128,7 +131,7 @@ export function SandboxGrantsBadge(): JSX.Element | null {
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-1.5">
 										<span className="rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-											{grant.toolName}·{capabilityLabel(grant.capability)}
+											{grant.toolName}·{capabilityLabel(grant.capability, t)}
 										</span>
 										<span title={formatAbsolute(grant.createdAt)} className="text-[10px] text-muted-foreground/70">
 											{formatRelative(grant.createdAt, now)}
@@ -143,7 +146,7 @@ export function SandboxGrantsBadge(): JSX.Element | null {
 									onClick={() => void handleRevoke(grant.id)}
 									className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 								>
-									撤销
+									{t("sandboxGrantsBadge.revoke")}
 								</button>
 							</div>
 						))}

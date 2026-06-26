@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ToolImagePreview } from "@shared/store/atoms";
 import { formatBytes, formatDimensions } from "./shared/format";
 
 export function ReadImageView({ image }: { image: ToolImagePreview }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
 	const processedWidth = image.processedWidth && image.processedWidth > 0 ? image.processedWidth : naturalSize?.width;
 	const processedHeight =
@@ -21,7 +23,7 @@ export function ReadImageView({ image }: { image: ToolImagePreview }): JSX.Eleme
 			<div className="overflow-hidden rounded-md border border-muted-foreground/10 bg-muted/20">
 				<img
 					src={`data:${image.mimeType};base64,${image.data}`}
-					alt="读取的图片"
+					alt={t("imagePreview.altText")}
 					className="max-h-[420px] max-w-full object-contain"
 					onLoad={(event) => {
 						const img = event.currentTarget;
@@ -31,12 +33,14 @@ export function ReadImageView({ image }: { image: ToolImagePreview }): JSX.Eleme
 			</div>
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground/55">
 				<span>
-					{wasProcessed ? "模型使用图" : "图片"} {formatDimensions(processedWidth, processedHeight)} ·{" "}
+					{wasProcessed ? t("imagePreview.processedLabel") : t("imagePreview.imageLabel")}{" "}
+					{formatDimensions(processedWidth, processedHeight)} ·{" "}
 					{formatBytes(image.processedSizeBytes)}
 				</span>
 				{wasProcessed && (originalWidth !== undefined || image.originalSizeBytes !== undefined) && (
 					<span>
-						原图 {formatDimensions(originalWidth, originalHeight)} · {formatBytes(image.originalSizeBytes)}
+						{t("imagePreview.originalLabel")} {formatDimensions(originalWidth, originalHeight)} ·{" "}
+							{formatBytes(image.originalSizeBytes)}
 					</span>
 				)}
 				{image.originalPath && (
@@ -47,7 +51,7 @@ export function ReadImageView({ image }: { image: ToolImagePreview }): JSX.Eleme
 						title={image.originalPath}
 					>
 						<span className="icon-[mdi--folder-eye-outline] h-3 w-3" />
-						<span>在文件管理器中显示原图</span>
+						<span>{t("imagePreview.showInFolderButton")}</span>
 					</button>
 				)}
 			</div>

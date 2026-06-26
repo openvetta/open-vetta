@@ -1,6 +1,7 @@
 import { updaterRestartDialogOpenAtom, updaterStateAtom } from "@shared/store/atoms";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * 出现在 Sidebar 顶栏（traffic-light 旁）：
@@ -11,6 +12,7 @@ import { useCallback } from "react";
  * - error：警示色，点击重试 check
  */
 export function SidebarUpdateButton(): JSX.Element | null {
+	const { t } = useTranslation("project");
 	const state = useAtomValue(updaterStateAtom);
 	const openRestartDialog = useSetAtom(updaterRestartDialogOpenAtom);
 
@@ -36,13 +38,13 @@ export function SidebarUpdateButton(): JSX.Element | null {
 
 	const title = (() => {
 		if (state.phase === "available")
-			return `发现新版本 ${state.latestVersion ?? ""}，点击后台下载`;
+			return t("update.newVersion", { version: state.latestVersion ?? "" });
 		if (state.phase === "downloading") {
 			const pct = state.progress ? Math.round(state.progress * 100) : 0;
-			return `正在下载 ${state.latestVersion ?? ""}（${pct}%）`;
+			return t("update.downloading", { version: state.latestVersion ?? "", pct });
 		}
-		if (state.phase === "ready") return `更新 ${state.latestVersion ?? ""} 已就绪，点击重启`;
-		if (state.phase === "error") return state.error ?? "更新检查失败，点击重试";
+		if (state.phase === "ready") return t("update.ready", { version: state.latestVersion ?? "" });
+		if (state.phase === "error") return state.error ?? t("update.checkFailed");
 		return "";
 	})();
 
@@ -63,7 +65,7 @@ export function SidebarUpdateButton(): JSX.Element | null {
 		>
 			{state.phase === "downloading" ? (
 				<svg width="22" height="22" viewBox="0 0 22 22" className="rotate-[-90deg]">
-					<title>下载进度</title>
+					<title>{t("update.downloadProgress")}</title>
 					<circle
 						cx="11"
 						cy="11"

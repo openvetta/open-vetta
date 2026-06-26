@@ -1,0 +1,28 @@
+{
+	"sidebar": {
+		"nav": {
+			"newSession": "New Session",
+			"automation": "Automation",
+			"batchTasks": "Batch Tasks",
+			"knowledge": "Knowledge",
+			"skills": "Extensions"
+		},
+		"clawConnected": "Claw connected · click to open settings",
+		"hide": "Hide sidebar"
+	},
+	"filterTabs": {
+		"all": "All",
+		"normal": "Normal",
+		"batch": "Batch",
+		"flowing": "Flowing",
+		"conversation": "Chat",
+		"claw": "Claw"
+	},
+	"update": {
+		"newVersion": "New version {{version}} available — click to download in the background",
+		"downloading": "Downloading {{version}} ({{pct}}%)",
+		"ready": "Update {{version}} is ready — click to restart",
+		"checkFailed": "Update check failed, click to retry",
+		"downloadProgress": "Download progress"
+	}
+}
