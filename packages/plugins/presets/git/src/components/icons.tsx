@@ -39,6 +39,31 @@ export function CloseIcon({ className }: IconProps): JSX.Element {
 	);
 }
 
+export function ListViewIcon({ className }: IconProps): JSX.Element {
+	return (
+		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+			<path d="M8 6h13" />
+			<path d="M8 12h13" />
+			<path d="M8 18h13" />
+			<path d="M3 6h.01" />
+			<path d="M3 12h.01" />
+			<path d="M3 18h.01" />
+		</svg>
+	);
+}
+
+export function TreeViewIcon({ className }: IconProps): JSX.Element {
+	return (
+		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+			<path d="M4 4h7" />
+			<path d="M9 10h7" />
+			<path d="M9 16h7" />
+			<path d="M4 4v12a2 2 0 0 0 2 2h1" />
+			<path d="M6 10h1" />
+		</svg>
+	);
+}
+
 export function SidebarIcon({ className }: IconProps): JSX.Element {
 	return (
 		<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

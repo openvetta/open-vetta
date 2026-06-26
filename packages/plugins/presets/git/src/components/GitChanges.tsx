@@ -1,11 +1,16 @@
+import { useTranslation } from "@vetta/plugin-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { findEntry } from "../git/gitStatus";
 import { resizePanel } from "../git/runtime";
 import type { ChangeEntry } from "../git/types";
 import { DiffPane } from "./DiffPane";
 import { GitFileTree } from "./GitFileTree";
-import { FileIcon } from "./icons";
+import { GitFlatList } from "./GitFlatList";
+import { FileIcon, ListViewIcon, TreeViewIcon } from "./icons";
 import { SplitHandle } from "./SplitHandle";
+
+type ViewMode = "tree" | "flat";
+const VIEW_MODE_KEY = "vetta-git-view-mode";
 
 // 容器宽于此值时显示右侧 diff 区；窄于此值只显示文件树（拖窄自动收起 diff）。
 const DIFF_MIN_WIDTH = 460;
@@ -18,11 +23,25 @@ const DIFF_RESERVED_WIDTH = 260;
 
 /** Ready-state body: file tree on the left, width-gated diff pane on the right. */
 export function GitChanges({ root, entries }: { root: string; entries: ChangeEntry[] }): JSX.Element {
+	const { t } = useTranslation();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [containerWidth, setContainerWidth] = useState(0);
 	const [selectedPath, setSelectedPath] = useState<string | null>(null);
 	const [treeWidth, setTreeWidth] = useState(TREE_DEFAULT_WIDTH);
 	const [treeCollapsed, setTreeCollapsed] = useState(false);
+	const [viewMode, setViewMode] = useState<ViewMode>(() =>
+		typeof localStorage !== "undefined" && localStorage.getItem(VIEW_MODE_KEY) === "flat" ? "flat" : "tree",
+	);
+
+	const toggleView = useCallback(() => {
+		setViewMode((m) => {
+			const next: ViewMode = m === "tree" ? "flat" : "tree";
+			try {
+				localStorage.setItem(VIEW_MODE_KEY, next);
+			} catch {}
+			return next;
+		});
+	}, []);
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -86,7 +105,27 @@ export function GitChanges({ root, entries }: { root: string; entries: ChangeEnt
 					}
 					style={wide ? { width: treeWidth } : undefined}
 				>
-					<GitFileTree entries={entries} selectedPath={selectedPath} onSelect={handleSelect} />
+					<div className="flex h-7 shrink-0 items-center justify-end border-b border-border px-1.5">
+						<button
+							type="button"
+							onClick={toggleView}
+							title={viewMode === "tree" ? t("view.switchToFlat") : t("view.switchToTree")}
+							className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						>
+							{viewMode === "tree" ? (
+								<ListViewIcon className="h-3.5 w-3.5" />
+							) : (
+								<TreeViewIcon className="h-3.5 w-3.5" />
+							)}
+						</button>
+					</div>
+					<div className="flex min-h-0 flex-1 flex-col">
+						{viewMode === "tree" ? (
+							<GitFileTree entries={entries} selectedPath={selectedPath} onSelect={handleSelect} />
+						) : (
+							<GitFlatList entries={entries} selectedPath={selectedPath} onSelect={handleSelect} />
+						)}
+					</div>
 					{wide && <SplitHandle onDrag={onSplitDrag} />}
 				</div>
 			)}
@@ -102,7 +141,7 @@ export function GitChanges({ root, entries }: { root: string; entries: ChangeEnt
 				) : (
 					<div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
 						<FileIcon className="h-6 w-6 opacity-50" />
-						<span className="text-[12px]">选择左侧文件查看差异</span>
+						<span className="text-[12px]">{t("diff.selectPrompt")}</span>
 					</div>
 				))}
 		</div>
