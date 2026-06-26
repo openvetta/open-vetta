@@ -3,6 +3,7 @@ import type { DesktopAuthApi } from "./api-types/auth.js";
 import type { DesktopBatchTasksApi } from "./api-types/batch-tasks.js";
 import type { DesktopConfigApi } from "./api-types/config.js";
 import type { DesktopDebugApi } from "./api-types/debug.js";
+import type { DesktopDiagnosticsApi } from "./api-types/diagnostics.js";
 import type { DesktopDialogApi } from "./api-types/dialog.js";
 import type { DesktopDownloadsApi } from "./api-types/downloads.js";
 import type { DesktopFlowingApi } from "./api-types/flowing.js";
@@ -84,6 +85,7 @@ export interface DesktopApi {
 	downloads: DesktopDownloadsApi;
 	im: DesktopImApi;
 	debug: DesktopDebugApi;
+	diagnostics: DesktopDiagnosticsApi;
 	project: DesktopProjectApi;
 	webhook: DesktopWebhookApi;
 	runtimes: DesktopRuntimesApi;
