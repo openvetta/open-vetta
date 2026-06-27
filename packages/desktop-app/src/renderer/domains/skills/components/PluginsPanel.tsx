@@ -14,44 +14,47 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "@shared/components/ui/drawer";
+import { useTranslation } from "react-i18next";
 import { notifyPluginsChanged } from "../../plugins/runtime/plugin-events";
 import { usePluginI18n } from "../../plugins/runtime/plugin-i18n";
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
-const PERMISSION_LABELS: Record<PluginPermission, string> = {
-	"ui.slot.global": "全局 UI Slot",
-	"ui.slot.file-preview": "文件预览 Slot",
-	"ui.slot.activity-tab": "活动面板 Tab",
-	"ui.slot.input-action": "输入栏动作 Slot",
-	"ui.slot.message": "消息下方 Slot",
-	"ui.slot.tool-call": "工具调用渲染 Slot",
-	"agent.session.read": "读取 Agent 会话",
-	"agent.session.write": "修改 Agent 会话",
-	"agent.command.run": "执行 Agent 命令",
-	"agent.systemPrompt.read": "读取 Agent 系统提示词",
-	"agent.systemPrompt.write": "修改 Agent 系统提示词",
-	"agent.systemPrompt.fullControl": "完全控制 Agent 系统提示词",
-	"agent.skills.control": "控制 Agent 技能加载",
-	"agent.tools.control": "控制 Agent 工具加载",
-	"agent.tools.register": "注册 Agent 工具",
-	"agent.toolHandler.execute": "执行插件工具处理器",
-	"agent.state.read": "读取插件 Agent 状态",
-	"agent.state.write": "写入插件 Agent 状态",
-	"agent.continuation.register": "注册 Agent 自动续跑策略",
-	"agent.runtime.configure": "配置 Agent 运行时",
-	"fs.read": "读取文件",
-	"fs.write": "写入文件",
-	"network.fetch": "访问网络",
-	"images.generate": "生成图像",
-	"settings.read": "读取设置",
-	"settings.write": "修改设置",
-};
+// 模块级常量不存中文：映射到 skills ns 的 i18n key，渲染期用 t() 解析。
+const PERMISSION_LABEL_KEYS = {
+	"ui.slot.global": "plugin.permission.uiSlotGlobal",
+	"ui.slot.file-preview": "plugin.permission.uiSlotFilePreview",
+	"ui.slot.activity-tab": "plugin.permission.uiSlotActivityTab",
+	"ui.slot.input-action": "plugin.permission.uiSlotInputAction",
+	"ui.slot.message": "plugin.permission.uiSlotMessage",
+	"ui.slot.tool-call": "plugin.permission.uiSlotToolCall",
+	"agent.session.read": "plugin.permission.agentSessionRead",
+	"agent.session.write": "plugin.permission.agentSessionWrite",
+	"agent.command.run": "plugin.permission.agentCommandRun",
+	"agent.systemPrompt.read": "plugin.permission.agentSystemPromptRead",
+	"agent.systemPrompt.write": "plugin.permission.agentSystemPromptWrite",
+	"agent.systemPrompt.fullControl": "plugin.permission.agentSystemPromptFullControl",
+	"agent.skills.control": "plugin.permission.agentSkillsControl",
+	"agent.tools.control": "plugin.permission.agentToolsControl",
+	"agent.tools.register": "plugin.permission.agentToolsRegister",
+	"agent.toolHandler.execute": "plugin.permission.agentToolHandlerExecute",
+	"agent.state.read": "plugin.permission.agentStateRead",
+	"agent.state.write": "plugin.permission.agentStateWrite",
+	"agent.continuation.register": "plugin.permission.agentContinuationRegister",
+	"agent.runtime.configure": "plugin.permission.agentRuntimeConfigure",
+	"fs.read": "plugin.permission.fsRead",
+	"fs.write": "plugin.permission.fsWrite",
+	"network.fetch": "plugin.permission.networkFetch",
+	"images.generate": "plugin.permission.imagesGenerate",
+	"settings.read": "plugin.permission.settingsRead",
+	"settings.write": "plugin.permission.settingsWrite",
+} as const satisfies Record<PluginPermission, string>;
 
-function formatPluginSource(source: InstalledPlugin["source"]): string {
-	if (source === "remote") return "远程安装";
-	if (source === "system") return "系统内置";
-	return "本地 zip";
+// 同样返回 i18n key，渲染期用 t() 解析。
+function pluginSourceKey(source: InstalledPlugin["source"]) {
+	if (source === "remote") return "plugin.source.remote";
+	if (source === "system") return "plugin.source.system";
+	return "plugin.source.local";
 }
 
 function getErrorMessage(error: unknown): string {
@@ -131,6 +134,7 @@ function PluginCard({
 	const isSystem = row.installed?.source === "system";
 	const enabled = row.installed?.enabled ?? false;
 	const tr = usePluginI18n();
+	const { t } = useTranslation("skills");
 	const name = tr(row.installed ?? undefined, row.name);
 	const description = tr(row.installed ?? undefined, row.description);
 
@@ -166,7 +170,7 @@ function PluginCard({
 							</span>
 						</div>
 						<p className="mt-0.5 line-clamp-2 text-[12px] leading-[1.5] text-muted-foreground/65">
-							{description || "暂无描述"}
+							{description || t("card.noDescription")}
 						</p>
 					</div>
 				</div>
@@ -186,21 +190,21 @@ function PluginCard({
 										enabled ? "bg-emerald-400" : "bg-muted-foreground/60"
 									}`}
 								/>
-								{enabled ? "已启用" : "已停用"}
+								{enabled ? t("plugin.status.enabled") : t("plugin.status.disabled")}
 							</span>
 						) : (
 							<span className="inline-flex h-5 shrink-0 items-center rounded-full bg-accent/60 px-2 text-[10px] font-semibold text-muted-foreground">
-								未安装
+								{t("plugin.status.notInstalled")}
 							</span>
 						)}
 						{isSystem && (
 							<span className="inline-flex h-5 shrink-0 items-center rounded-full bg-primary/10 px-2 text-[10px] font-semibold text-primary">
-								系统
+								{t("plugin.badge.system")}
 							</span>
 						)}
 						{row.needsUpdate && (
 							<span className="inline-flex h-5 shrink-0 items-center rounded-full bg-amber-500/15 px-2 text-[10px] font-semibold text-amber-500">
-								可更新 v{row.market?.version}
+								{t("plugin.badge.updatable", { version: row.market?.version })}
 							</span>
 						)}
 						{!isInstalled && row.downloadCount !== undefined && (
@@ -230,7 +234,7 @@ function PluginCard({
 							) : (
 								<span className="icon-[mdi--download] h-3.5 w-3.5" />
 							)}
-							安装
+							{t("actions.install")}
 						</button>
 					)}
 				</div>
@@ -263,6 +267,7 @@ function PluginDetailSheet({
 }): JSX.Element {
 	const plugin = row.installed;
 	const tr = usePluginI18n();
+	const { t } = useTranslation("skills");
 	if (!plugin) return <div />;
 	const isSystem = plugin.source === "system";
 	const hasPendingVersion = Boolean(plugin.pendingVersion);
@@ -280,11 +285,11 @@ function PluginDetailSheet({
 					<div className="flex flex-wrap items-center gap-2">
 						<h2 className="text-[15px] font-semibold text-foreground">{name}</h2>
 						{isSystem && (
-							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">系统</span>
+							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{t("plugin.badge.system")}</span>
 						)}
 						{hasPendingVersion && (
 							<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-								可重载到 {plugin.pendingVersion}
+								{t("plugin.detail.reloadable", { version: plugin.pendingVersion })}
 							</span>
 						)}
 					</div>
@@ -302,8 +307,8 @@ function PluginDetailSheet({
 			{row.needsUpdate && (
 				<div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
 					<div className="min-w-0">
-						<div className="text-[12px] font-medium text-amber-500">市场有新版本 v{row.market?.version}</div>
-						<div className="text-[11px] text-muted-foreground">当前 v{plugin.activeVersion}</div>
+						<div className="text-[12px] font-medium text-amber-500">{t("plugin.detail.newVersion", { version: row.market?.version })}</div>
+						<div className="text-[11px] text-muted-foreground">{t("plugin.detail.current", { version: plugin.activeVersion })}</div>
 					</div>
 					<button
 						type="button"
@@ -316,7 +321,7 @@ function PluginDetailSheet({
 						) : (
 							<span className="icon-[mdi--download] h-3.5 w-3.5" />
 						)}
-						更新
+						{t("actions.update")}
 					</button>
 				</div>
 			)}
@@ -324,16 +329,16 @@ function PluginDetailSheet({
 			{/* Meta */}
 			<div className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
 				<div className="rounded-lg bg-muted px-3 py-2">
-					<div className="text-muted-foreground/60">当前版本</div>
+					<div className="text-muted-foreground/60">{t("plugin.detail.currentVersion")}</div>
 					<div className="mt-0.5 font-medium tabular-nums text-foreground">{plugin.activeVersion}</div>
 				</div>
 				<div className="rounded-lg bg-muted px-3 py-2">
-					<div className="text-muted-foreground/60">来源</div>
-					<div className="mt-0.5 font-medium text-foreground">{formatPluginSource(plugin.source)}</div>
+					<div className="text-muted-foreground/60">{t("plugin.detail.source")}</div>
+					<div className="mt-0.5 font-medium text-foreground">{t(pluginSourceKey(plugin.source))}</div>
 				</div>
 				{plugin.author && (
 					<div className="rounded-lg bg-muted px-3 py-2">
-						<div className="text-muted-foreground/60">作者</div>
+						<div className="text-muted-foreground/60">{t("plugin.detail.author")}</div>
 						<div className="mt-0.5 truncate font-medium text-foreground">{plugin.author}</div>
 					</div>
 				)}
@@ -342,8 +347,8 @@ function PluginDetailSheet({
 			{/* Enable */}
 			<div className="mt-5 flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
 				<div>
-					<div className="text-[13px] font-medium text-foreground">启用插件</div>
-					<div className="text-[11px] text-muted-foreground">{plugin.enabled ? "已启用" : "已停用"}</div>
+					<div className="text-[13px] font-medium text-foreground">{t("plugin.detail.enablePlugin")}</div>
+					<div className="text-[11px] text-muted-foreground">{plugin.enabled ? t("plugin.status.enabled") : t("plugin.status.disabled")}</div>
 				</div>
 				<Switch
 					checked={plugin.enabled}
@@ -355,9 +360,9 @@ function PluginDetailSheet({
 			{/* Permissions */}
 			<div className="mt-5">
 				<div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-foreground">
-					权限
+					{t("plugin.detail.permissions")}
 					{isSystem && (
-						<span className="text-[11px] font-normal text-muted-foreground">系统插件自动授予，不可更改</span>
+						<span className="text-[11px] font-normal text-muted-foreground">{t("plugin.detail.permissionsSystemHint")}</span>
 					)}
 				</div>
 				{plugin.permissions.length > 0 ? (
@@ -369,14 +374,14 @@ function PluginDetailSheet({
 									className="flex items-center gap-1.5 rounded-lg border border-border bg-background/50 px-2.5 py-2 text-[12px] text-muted-foreground"
 								>
 									<span className="icon-[mdi--lock-outline] h-3.5 w-3.5" />
-									{PERMISSION_LABELS[permission]}
+									{t(PERMISSION_LABEL_KEYS[permission])}
 								</span>
 							) : (
 								<label
 									key={permission}
 									className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background/50 px-2.5 py-2"
 								>
-									<span className="text-[12px] text-foreground">{PERMISSION_LABELS[permission]}</span>
+									<span className="text-[12px] text-foreground">{t(PERMISSION_LABEL_KEYS[permission])}</span>
 									<Switch
 										checked={plugin.grantedPermissions.includes(permission)}
 										disabled={busy}
@@ -387,7 +392,7 @@ function PluginDetailSheet({
 						)}
 					</div>
 				) : (
-					<div className="text-[12px] text-muted-foreground">该插件没有声明权限。</div>
+					<div className="text-[12px] text-muted-foreground">{t("plugin.detail.noPermissions")}</div>
 				)}
 			</div>
 
@@ -395,8 +400,8 @@ function PluginDetailSheet({
 			{plugin.declaredCommands.length > 0 && (
 				<div className="mt-5">
 					<div className="mb-2 flex items-center gap-2 text-[13px] font-medium text-foreground">
-						可执行命令
-						<span className="text-[11px] font-normal text-muted-foreground">关闭后插件调用将被拦截</span>
+						{t("plugin.detail.commands")}
+						<span className="text-[11px] font-normal text-muted-foreground">{t("plugin.detail.commandsHint")}</span>
 					</div>
 					<div className="flex flex-col gap-1.5">
 						{plugin.declaredCommands.map((command) => (
@@ -429,7 +434,7 @@ function PluginDetailSheet({
 						className="flex items-center gap-1.5 rounded-lg border border-input bg-secondary px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 					>
 						<span className="icon-[mdi--reload] h-3.5 w-3.5 text-muted-foreground" />
-						重载
+						{t("actions.reload")}
 					</button>
 					<button
 						type="button"
@@ -438,7 +443,7 @@ function PluginDetailSheet({
 						className="flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive transition-colors hover:bg-destructive/15 disabled:opacity-50"
 					>
 						<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-						卸载
+						{t("actions.uninstall")}
 					</button>
 				</div>
 			)}
@@ -453,6 +458,8 @@ export interface PluginsPanelHandle {
 
 export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel(_props, ref): JSX.Element {
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
+	const tr = usePluginI18n();
+	const { t } = useTranslation("skills");
 	const token = useAtomValue(authTokenAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
 	const [plugins, setPlugins] = useState<InstalledPlugin[]>([]);
@@ -515,7 +522,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 			if (!file) return;
 			void runOperation("install-archive", async () => {
 				const plugin = await window.vetta.plugins.installFromArchive(await file.arrayBuffer());
-				return `已安装 ${plugin.name} ${plugin.version}`;
+				return t("plugin.message.installed", { name: plugin.name, version: plugin.version });
 			});
 		},
 		[runOperation],
@@ -525,10 +532,10 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 		(row: PluginRow) => {
 			if (busy !== null) return;
 			void runOperation(`install:${row.id}`, async () => {
-				if (!token) throw new Error("未登录，无法安装插件");
+				if (!token) throw new Error(t("error.notLoggedIn"));
 				const buffer = await downloadPlugin(token, row.id);
 				const plugin = await window.vetta.plugins.installFromArchive(buffer, { source: "remote" });
-				return `已安装 ${plugin.name} ${plugin.version}`;
+				return t("plugin.message.installed", { name: plugin.name, version: plugin.version });
 			});
 		},
 		[busy, token, runOperation],
@@ -538,7 +545,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 		(pluginId: string, enabled: boolean) => {
 			void runOperation(`enable:${pluginId}`, async () => {
 				await window.vetta.plugins.setEnabled(pluginId, enabled);
-				return enabled ? "插件已启用。" : "插件已停用。";
+				return enabled ? t("plugin.message.enabled") : t("plugin.message.disabled");
 			});
 		},
 		[runOperation],
@@ -549,10 +556,10 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 			void runOperation(`permission:${pluginId}:${permission}`, async () => {
 				if (granted) {
 					await window.vetta.plugins.grantPermissions(pluginId, [permission]);
-					return "权限已授予。";
+					return t("plugin.message.permissionGranted");
 				}
 				await window.vetta.plugins.revokePermissions(pluginId, [permission]);
-				return "权限已撤销。";
+				return t("plugin.message.permissionRevoked");
 			});
 		},
 		[runOperation],
@@ -563,10 +570,10 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 			void runOperation(`command:${pluginId}:${command}`, async () => {
 				if (granted) {
 					await window.vetta.plugins.grantCommands(pluginId, [command]);
-					return "命令已启用。";
+					return t("plugin.message.commandEnabled");
 				}
 				await window.vetta.plugins.revokeCommands(pluginId, [command]);
-				return "命令已关闭。";
+				return t("plugin.message.commandDisabled");
 			});
 		},
 		[runOperation],
@@ -576,7 +583,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 		(pluginId: string) => {
 			void runOperation(`reload:${pluginId}`, async () => {
 				const plugin = await window.vetta.plugins.reload(pluginId);
-				return `已重载 ${plugin.name} ${plugin.activeVersion}`;
+				return t("plugin.message.reloaded", { name: plugin.name, version: plugin.activeVersion });
 			});
 		},
 		[runOperation],
@@ -585,15 +592,15 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 	const handleUninstall = useCallback(
 		(plugin: InstalledPlugin) => {
 			setConfirmDialog({
-				title: "卸载插件",
-				message: `确定卸载插件「${plugin.name}」吗？该插件的 UI 会立即移除。`,
-				confirmLabel: "卸载",
+				title: t("plugin.confirm.uninstallTitle"),
+				message: t("plugin.confirm.uninstallMessage", { name: plugin.name }),
+				confirmLabel: t("actions.uninstall"),
 				variant: "danger",
 				onConfirm: () => {
 					setSelectedId(null);
 					void runOperation(`uninstall:${plugin.id}`, async () => {
 						await window.vetta.plugins.uninstall(plugin.id);
-						return "插件已卸载。";
+						return t("plugin.message.uninstalled");
 					});
 				},
 			});
@@ -606,7 +613,6 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 	const mainRows = useMemo(() => rows.filter((r) => r.installed?.source !== "system"), [rows]);
 	const systemRows = useMemo(() => rows.filter((r) => r.installed?.source === "system"), [rows]);
 	const selected = rows.find((r) => r.id === selectedId && r.installed) ?? null;
-	const tr = usePluginI18n();
 
 	const renderCard = (row: PluginRow): JSX.Element => (
 		<PluginCard
@@ -647,7 +653,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 						animate={{ rotate: 360 }}
 						transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
 					/>
-					<p className="text-[13px] text-muted-foreground/60">加载中...</p>
+					<p className="text-[13px] text-muted-foreground/60">{t("loading")}</p>
 				</div>
 			) : mainRows.length === 0 && systemRows.length === 0 ? (
 				<motion.div
@@ -661,9 +667,9 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 						<span className="icon-[mdi--puzzle-outline] relative text-4xl text-primary/80" />
 					</div>
 					<div className="space-y-1.5">
-						<p className="text-[15px] font-semibold text-foreground">还没有可用插件</p>
+						<p className="text-[15px] font-semibold text-foreground">{t("empty.noPlugins")}</p>
 						<p className="text-[12px] text-muted-foreground/60">
-							{token ? "从本地 zip 安装，或稍后再来看看市场" : "登录后可浏览插件市场"}
+							{token ? t("empty.pluginsHint") : t("empty.pluginsHintGuest")}
 						</p>
 					</div>
 				</motion.div>
@@ -693,7 +699,7 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 										systemExpanded ? "rotate-90" : ""
 									}`}
 								/>
-								<span>系统插件</span>
+								<span>{t("group.systemPlugins")}</span>
 								<span className="rounded-full bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground/60">
 									{systemRows.length}
 								</span>
@@ -725,8 +731,8 @@ export const PluginsPanel = forwardRef<PluginsPanelHandle>(function PluginsPanel
 					{selected && (
 						<>
 							<DrawerHeader className="border-b border-border">
-								<DrawerTitle>插件详情</DrawerTitle>
-								<DrawerDescription>查看并配置「{tr(selected.installed ?? undefined, selected.name)}」</DrawerDescription>
+								<DrawerTitle>{t("plugin.detail.title")}</DrawerTitle>
+								<DrawerDescription>{t("plugin.detail.subtitle", { name: tr(selected.installed ?? undefined, selected.name) })}</DrawerDescription>
 							</DrawerHeader>
 							<PluginDetailSheet
 								row={selected}

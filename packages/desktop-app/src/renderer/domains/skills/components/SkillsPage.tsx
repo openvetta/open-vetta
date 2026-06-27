@@ -1,10 +1,11 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { InstalledSkill, SkillInfo } from "@preload/api";
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
-import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
+import { authTokenAtom, filePreviewAtom, pageHeaderTitleHiddenAtom } from "@shared/store/atoms";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { Button } from "@shared/components/ui/button";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
@@ -13,7 +14,8 @@ import { PluginsPanel, type PluginsPanelHandle } from "./PluginsPanel";
 type TypeTab = "skill" | "scene" | "plugin";
 type ActionState = "idle" | "loading" | "done";
 
-const UNCATEGORIZED = "未分类";
+// 渲染期解析为 t("group.uncategorized")（模块级常量不存中文）。
+const UNCATEGORIZED = "__uncategorized__";
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 interface MergedSkill {
@@ -187,6 +189,7 @@ function SkillCard({
 	onPreview?: (skill: MergedSkill) => void;
 	actionState: ActionState;
 }): JSX.Element {
+	const { t } = useTranslation("skills");
 	const isLoading = actionState === "loading";
 	const previewable = !!onPreview && (skill.installed || !!skill.isAgent);
 
@@ -236,24 +239,24 @@ function SkillCard({
 					)}
 					{skill.isCustom && (
 						<span className="inline-flex h-4 shrink-0 items-center rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
-							自定义
+							{t("card.custom")}
 						</span>
 					)}
 					{skill.isAgent && (
 						<span className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded-full bg-accent/60 px-1.5 text-[10px] font-medium text-muted-foreground/80">
 							<span className="icon-[mdi--earth] h-2.5 w-2.5" />
-							通用
+							{t("card.general")}
 						</span>
 					)}
 					{skill.needsUpdate && (
 						<span className="inline-flex h-4 shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 text-[10px] font-medium text-amber-400">
 							<span className="icon-[mdi--arrow-up-bold] h-2.5 w-2.5" />
-							可更新
+							{t("card.updatable")}
 						</span>
 					)}
 				</div>
 				<p className="mt-0.5 line-clamp-1 text-[12px] leading-[1.5] text-muted-foreground/60">
-					{skill.description || "暂无描述"}
+					{skill.description || t("card.noDescription")}
 				</p>
 			</div>
 
@@ -261,7 +264,7 @@ function SkillCard({
 				{skill.isAgent ? (
 					<span className="flex h-7 items-center gap-1 px-1.5 text-[11px] text-muted-foreground/50">
 						<span className="icon-[mdi--lock-outline] h-3.5 w-3.5" />
-						只读
+						{t("card.readonly")}
 					</span>
 				) : skill.installed ? (
 					<>
@@ -287,7 +290,7 @@ function SkillCard({
 										className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 									>
 										<span className="icon-[mdi--update] h-4 w-4 text-primary" />
-										更新
+										{t("actions.update")}
 									</button>
 								)}
 								<button
@@ -300,7 +303,7 @@ function SkillCard({
 									className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
 								>
 									<span className="icon-[mdi--delete-outline] h-4 w-4" />
-									卸载
+									{t("actions.uninstall")}
 								</button>
 							</PopoverContent>
 						</Popover>
@@ -326,7 +329,7 @@ function SkillCard({
 						) : (
 							<span className="icon-[mdi--plus] h-3.5 w-3.5" />
 						)}
-						<span>安装</span>
+						<span>{t("actions.install")}</span>
 					</Button>
 				)}
 			</div>
@@ -350,6 +353,7 @@ function SceneCard({
 	onPreview?: (scene: MergedSkill) => void;
 	actionState: ActionState;
 }): JSX.Element {
+	const { t } = useTranslation("skills");
 	const isLoading = actionState === "loading";
 	const previewable = !!onPreview && (scene.installed || !!scene.isAgent);
 
@@ -390,7 +394,7 @@ function SceneCard({
 							)}
 						</div>
 						<p className="mt-0.5 line-clamp-2 text-[12px] leading-[1.5] text-muted-foreground/65">
-							{scene.description || "暂无描述"}
+							{scene.description || t("card.noDescription")}
 						</p>
 					</div>
 				</div>
@@ -401,7 +405,7 @@ function SceneCard({
 						{scene.isAgent ? (
 							<span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-accent/60 px-2 text-[10px] font-semibold text-muted-foreground/80">
 								<span className="icon-[mdi--earth] h-2.5 w-2.5" />
-								通用·只读
+								{t("scene.generalReadonly")}
 							</span>
 						) : (
 							scene.installed && (
@@ -417,14 +421,14 @@ function SceneCard({
 											scene.enabled ? "bg-emerald-400" : "bg-muted-foreground/60"
 										}`}
 									/>
-									{scene.enabled ? "运行中" : "已安装"}
+									{scene.enabled ? t("scene.running") : t("scene.installed")}
 								</span>
 							)
 						)}
 						{scene.needsUpdate && (
 							<span className="inline-flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold text-amber-400">
 								<span className="icon-[mdi--arrow-up-bold] h-2.5 w-2.5" />
-								可更新
+								{t("card.updatable")}
 							</span>
 						)}
 						{scene.tags.slice(0, 2).map((t) => (
@@ -440,7 +444,7 @@ function SceneCard({
 						{scene.isAgent ? (
 							<span className="flex h-7 items-center gap-1 px-1.5 text-[11px] text-muted-foreground/50">
 								<span className="icon-[mdi--lock-outline] h-3.5 w-3.5" />
-								只读
+								{t("card.readonly")}
 							</span>
 						) : scene.installed ? (
 							<>
@@ -466,7 +470,7 @@ function SceneCard({
 												className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
 											>
 												<span className="icon-[mdi--update] h-4 w-4 text-primary" />
-												更新
+												{t("actions.update")}
 											</button>
 										)}
 										<button
@@ -479,7 +483,7 @@ function SceneCard({
 											className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
 										>
 											<span className="icon-[mdi--delete-outline] h-4 w-4" />
-											卸载
+											{t("actions.uninstall")}
 										</button>
 									</PopoverContent>
 								</Popover>
@@ -505,7 +509,7 @@ function SceneCard({
 								) : (
 									<span className="icon-[mdi--play] h-3.5 w-3.5" />
 								)}
-								<span>使用</span>
+								<span>{t("actions.use")}</span>
 							</Button>
 						)}
 					</div>
@@ -533,6 +537,7 @@ function TagGroup({
 	onPreview?: (skill: MergedSkill) => void;
 	actionStates: Record<string, ActionState>;
 }): JSX.Element {
+	const { t } = useTranslation("skills");
 	const enabledInGroup = skills.filter((s) => s.enabled).length;
 	const isScene = skills[0]?.type === "scene";
 
@@ -552,7 +557,7 @@ function TagGroup({
 				{enabledInGroup > 0 && (
 					<>
 						<span className="text-muted-foreground/25">·</span>
-						<span className="text-[11px] text-emerald-400/80">{enabledInGroup} 已启用</span>
+						<span className="text-[11px] text-emerald-400/80">{t("group.enabledCount", { n: enabledInGroup })}</span>
 					</>
 				)}
 			</div>
@@ -599,6 +604,9 @@ function TagGroup({
 
 // ─── Main page ───
 export function SkillsPage(): JSX.Element {
+	const { t } = useTranslation("skills");
+	const typeNoun = (tab: TypeTab) =>
+		tab === "scene" ? t("typeNoun.scene") : tab === "skill" ? t("typeNoun.skill") : t("typeNoun.plugin");
 	const [typeTab, setTypeTab] = useState<TypeTab>("scene");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [marketSkills, setMarketSkills] = useState<MarketSkillInfo[]>([]);
@@ -614,6 +622,7 @@ export function SkillsPage(): JSX.Element {
 
 	const token = useAtomValue(authTokenAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const narrow = useNarrowScreen();
 
 	const refresh = useCallback(() => {
@@ -640,7 +649,7 @@ export function SkillsPage(): JSX.Element {
 				setError(null);
 			})
 			.catch((err: Error) => {
-				setError(err.message || "加载失败");
+				setError(err.message || t("error.loadFailed"));
 			})
 			.finally(() => setLoading(false));
 	}, [token]);
@@ -649,6 +658,12 @@ export function SkillsPage(): JSX.Element {
 		refresh();
 		loadMarket();
 	}, [refresh, loadMarket]);
+
+	// 扩展页不显示顶栏左上角标题（页面内已有大号场景/技能/插件切换器）。
+	useEffect(() => {
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
 
 	const setActionState = useCallback((name: string, state: ActionState) => {
 		setActionStates((prev) => ({ ...prev, [name]: state }));
@@ -741,7 +756,7 @@ export function SkillsPage(): JSX.Element {
 					refresh();
 				})
 				.catch((err: Error) => {
-					alert(`导入失败：${err.message || "未知错误"}`);
+					alert(t("import.failed", { error: err.message || t("import.unknownError") }));
 				})
 				.finally(() => setImporting(false));
 		},
@@ -806,7 +821,7 @@ export function SkillsPage(): JSX.Element {
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
-			<div className="drag-region h-12 shrink-0" />
+			<div className="drag-region h-6 shrink-0" />
 
 			{/* Header */}
 			<div className="relative shrink-0 px-8 pb-4">
@@ -821,9 +836,9 @@ export function SkillsPage(): JSX.Element {
 						<div className="flex items-baseline gap-3">
 							{(
 								[
-									{ key: "scene" as TypeTab, label: "场景" },
-									{ key: "skill" as TypeTab, label: "技能" },
-									{ key: "plugin" as TypeTab, label: "插件" },
+									{ key: "scene" as TypeTab, label: t("tabs.scene") },
+									{ key: "skill" as TypeTab, label: t("tabs.skill") },
+									{ key: "plugin" as TypeTab, label: t("tabs.plugin") },
 								] as const
 							).map(({ key, label }) => (
 								<button
@@ -841,7 +856,7 @@ export function SkillsPage(): JSX.Element {
 							))}
 						</div>
 						<p className="mt-1 text-[12px] text-muted-foreground/60">
-							安装并启用你需要的能力，让 Vetta 拥有更多专业技能
+							{t("subtitle")}
 						</p>
 					</motion.div>
 
@@ -856,7 +871,7 @@ export function SkillsPage(): JSX.Element {
 								<span className="icon-[mdi--magnify] absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
 								<input
 									type="text"
-									placeholder={`搜索${typeTab === "scene" ? "场景" : "技能"}...`}
+									placeholder={t("search.placeholder", { noun: typeNoun(typeTab) })}
 									value={searchQuery}
 									onChange={(e) => setSearchQuery(e.target.value)}
 									className={`h-8 ${narrow ? "w-full" : "w-56"} rounded-full bg-muted pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/40 transition-colors hover:bg-accent focus:bg-accent focus:outline-none focus:ring-1 focus:ring-primary/30`}
@@ -883,7 +898,7 @@ export function SkillsPage(): JSX.Element {
 									) : (
 										<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
 									)}
-									<span>导入技能</span>
+									<span>{t("actions.importSkill")}</span>
 								</Button>
 							</>
 						)}
@@ -894,7 +909,7 @@ export function SkillsPage(): JSX.Element {
 								onClick={() => pluginsPanelRef.current?.triggerImport()}
 							>
 								<span className="icon-[mdi--tray-arrow-up] h-3.5 w-3.5" />
-								<span>导入插件</span>
+								<span>{t("actions.importPlugin")}</span>
 							</Button>
 						)}
 					</motion.div>
@@ -912,7 +927,7 @@ export function SkillsPage(): JSX.Element {
 							animate={{ rotate: 360 }}
 							transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
 						/>
-						<p className="text-[13px] text-muted-foreground/60">加载中...</p>
+						<p className="text-[13px] text-muted-foreground/60">{t("loading")}</p>
 					</div>
 				) : error && !hasContent ? (
 					<div className="flex h-full flex-col items-center justify-center gap-3 opacity-60">
@@ -942,10 +957,10 @@ export function SkillsPage(): JSX.Element {
 						</motion.div>
 						<div className="space-y-1.5">
 							<p className="text-[15px] font-semibold text-foreground">
-								{searchQuery ? "没有匹配的结果" : `暂无可用${typeTab === "scene" ? "场景" : "技能"}`}
+								{searchQuery ? t("empty.noMatch") : t("empty.none", { noun: typeNoun(typeTab) })}
 							</p>
 							<p className="text-[12px] text-muted-foreground/60">
-								{searchQuery ? "试试换个关键词" : "稍后再来看看吧"}
+								{searchQuery ? t("empty.noMatchHint") : t("empty.noneHint")}
 							</p>
 						</div>
 					</motion.div>
@@ -959,12 +974,12 @@ export function SkillsPage(): JSX.Element {
 						{error && (
 							<div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-[12px] text-muted-foreground/70">
 								<span className="icon-[mdi--alert-circle-outline] h-4 w-4 shrink-0 text-muted-foreground/50" />
-								<span>{error}，当前仅显示已安装的{typeTab === "scene" ? "场景" : "技能"}</span>
+								<span>{t("error.partialFallback", { error, noun: typeNoun(typeTab) })}</span>
 							</div>
 						)}
 						{agentForTab.length > 0 && (
 							<TagGroup
-								tag="通用 Agent Skill"
+								tag={t("group.agentSkill")}
 								skills={agentForTab}
 								onInstall={handleInstall}
 								onToggle={handleToggle}
@@ -975,7 +990,7 @@ export function SkillsPage(): JSX.Element {
 						)}
 						{customSkills.length > 0 && (
 							<TagGroup
-								tag="自定义"
+								tag={t("group.custom")}
 								skills={customSkills}
 								onInstall={handleInstall}
 								onToggle={handleToggle}
@@ -987,7 +1002,7 @@ export function SkillsPage(): JSX.Element {
 						{Array.from(groups.entries()).map(([tag, skills]) => (
 							<TagGroup
 								key={tag}
-								tag={tag}
+								tag={tag === UNCATEGORIZED ? t("group.uncategorized") : tag}
 								skills={skills}
 								onInstall={handleInstall}
 								onToggle={handleToggle}
