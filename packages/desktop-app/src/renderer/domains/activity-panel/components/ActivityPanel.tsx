@@ -400,7 +400,7 @@ export function ActivityPanel({
 			    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。页签按宽度
 			    响应式收纳，放不下的收进右侧下拉；下拉同时可恢复被减号隐藏的页签。 */}
 			{(tabItems.length > 0 || showTabPicker) && (
-				<div className="group/activity-tabs flex shrink-0 items-end">
+				<div className="group/activity-tabs flex shrink-0 items-end pt-1">
 					<TabBar
 						className="min-w-0 flex-1"
 						items={tabItems}
