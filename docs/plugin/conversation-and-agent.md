@@ -78,7 +78,15 @@ interface PluginAgentToolRegistration<TInput = unknown> {
   scope_use?: string[];       // 允许出现的对话场景（见下）。fail-closed：缺省/空 = 任何场景都不出现
   requires?: string[];        // 需要的会话能力（如 "knowledge"），一般插件无需设置
   timeoutMs?: number;
-  handler: (input: TInput, api: { fs: PluginFsApi; conversation: PluginConversationApi }) => unknown | Promise<unknown>;
+  context?: { conversation?: "summary" | "messages" }; // 大上下文 opt-in，缺省只传消息数
+  handler: (context: PluginAgentHandlerContext<{
+    kind: "tool-call";
+    timestamp: number;
+    toolCallId: string;
+    toolId: string;
+    toolName: string;
+    input: TInput;
+  }>) => unknown | Promise<unknown>;
 }
 ```
 
@@ -91,8 +99,10 @@ ctx.agent.registerTool({
     properties: { text: { type: "string" } },
     required: ["text"],
   },
-  scope_use: ["conversation", "project"], // 仅在普通对话 / 普通项目里出现
-  handler: async ({ text }: { text: string }) => ({ count: text.length }),
+  scope_use: ["conversation", "project"],
+  handler: async ({ trigger: { input } }: { trigger: { input: { text: string } } }) => {
+    return { count: input.text.length };
+  },
 });
 ```
 
@@ -131,8 +141,9 @@ ctx.agent.registerTool({
 ctx.agent.registerSystemPromptProvider({
   id: "domain-guidance",
   timeoutMs: 3000,
+  context: { systemPrompt: "full", conversation: "messages" }, // 大上下文 opt-in
   handler(context) {
-    const { plugin, session, model, conversation, runtime, trigger } = context;
+    const { plugin, session, model, conversation, runtime, trigger, systemPrompt, actions, host } = context;
     return [{
       type: "addBlock",
       block: {
@@ -157,11 +168,39 @@ handler 上下文按稳定职责分组：
 - `plugin`：插件 id、provider id、主进程读取的最新插件设置快照。
 - `session`：session id、cwd、对话场景。
 - `model`：provider、model id、API、输入能力、context window、最大输出 token。
-- `conversation`：本次调用实际使用的消息快照和消息数。
+- `conversation`：本次调用实际使用的消息快照和消息数（通过 `registration.context.conversation` 控制传 summary 还是 messages）。
 - `runtime`：当前激活/可用工具名、当前 session 的 Agent run 序号。
 - `trigger`：触发类型和时间戳。
+- `systemPrompt`：**可选**。当前 system prompt 快照（base/current 的 blocks 和 rendered 文本）。通过 `registration.context.systemPrompt` 控制传入粒度：`"none"`（缺省，无此字段）、`"blocks"`、`"rendered"`、`"full"`。
+- `actions`：**副作用操作集**，调用后累积到 handler 返回值一并提交，见下表。
+- `host`：宿主简化版 API（`{ fs, conversation }`）。
 
-返回 operation 按数组顺序执行，支持 `addBlock`、`replaceBlock`、`updateBlock`、`removeBlock`、`setBlockEnabled`。`write` 权限只能操作 `plugin.<本插件 id>.*`；宿主会校验所有返回值并补齐可信的 block source。handler 异常或超时只跳过该 provider，不阻止模型调用。
+`registration.context` 控制宿主以什么粒度序列化上下文发过来：
+
+```ts
+{
+  systemPrompt?: "none" | "blocks" | "rendered" | "full"; // 缺省 "none"
+  conversation?: "summary" | "messages";                    // 缺省 "summary"
+}
+```
+
+### 副作用操作集（`actions`）
+
+所有 handler 均可调用，操作暂存到 effects 数组，handler 返回后宿主统一处理：
+
+| 方法 | 效果 |
+|------|------|
+| `actions.systemPrompt.addBlock(block)` | 新增 system prompt 块 |
+| `actions.systemPrompt.replaceBlock(id, block)` | 替换块内容 |
+| `actions.systemPrompt.updateBlock(id, patch)` | 更新块的部分字段 |
+| `actions.systemPrompt.removeBlock(id)` | 删除块 |
+| `actions.systemPrompt.setBlockEnabled(id, enabled)` | 开关块 |
+| `actions.tools.setEnabled(name, enabled)` | 开关工具 |
+| `actions.tools.enable(name)` | 启用工具 |
+| `actions.tools.disable(name)` | 禁用工具 |
+| `actions.continuation.request(result)` | 请求续跑（下一轮注入用户消息） |
+
+返回 operation 按数组顺序执行，支持 `addBlock`、`replaceBlock`、`updateBlock`、`removeBlock`、`setBlockEnabled`、`setToolEnabled`、`requestContinuation`。`write` 权限只能操作 `plugin.<本插件 id>.*`；宿主会校验所有返回值并补齐可信的 block source。handler 异常或超时只跳过该 provider，不阻止模型调用。
 
 ## 注册 Agent 自动续跑策略
 
@@ -174,8 +213,9 @@ steering 或 Todo continuation 后，决定是否注入一条用户消息继续�
 ctx.agent.registerContinuationProvider({
   id: "workflow-next-step",
   timeoutMs: 3000,
-  async handler({ sessionId, cwd }) {
-    const task = findPendingTask(sessionId);
+  context?: { conversation?: "summary" | "messages" }; // 大上下文 opt-in
+  async handler({ session, plugin, actions }) {
+    const task = findPendingTask(session.id);
     if (!task) return null; // 允许 Agent 正常结束
     return {
       text: `继续处理工作流任务：${task.description}`,
@@ -211,7 +251,7 @@ interface PluginFsApi {
 // PluginFsEntry: { name, path, isDirectory, size, modifiedAt }
 ```
 
-同一份 `fs` API 也通过工具 handler 的 `api.fs` 暴露给 agent 工具 handler。
+同一份 `fs` API 也通过工具 handler 的 `host.fs` 暴露给 agent 工具 handler。
 
 ## 图像 API
 
