@@ -948,6 +948,8 @@
   "permAccessibilityDesc": "Used for global keyboard shortcuts and reading foreground app context.",
   "permNotifications": "Notifications",
   "permNotificationsDesc": "Notifies you via macOS system notifications for task completion, errors, etc.",
+  "checkInSystemSettings": "View in System Settings",
+  "goToAuthorize": "Authorize",
   "whChannels": "Channels",
   "whEmpty": "No webhooks yet. Click \"Add Webhook\" to get started.",
   "whAdd": "Add Webhook",

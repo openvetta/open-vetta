@@ -948,6 +948,8 @@
   "permAccessibilityDesc": "用于注册全局快捷键、读取前台 App 上下文。",
   "permNotifications": "通知",
   "permNotificationsDesc": "任务完成、错误等以 macOS 系统通知形式提醒你。",
+  "checkInSystemSettings": "在系统设置中查看",
+  "goToAuthorize": "前往授权",
   "whChannels": "渠道列表",
   "whEmpty": "暂无 Webhook，点击右上角「新增 Webhook」开始配置。",
   "whAdd": "新增 Webhook",

@@ -1,5 +1,13 @@
 {
 	"settings": {
+		"pageTitle": "Desktop Pet",
+		"showPet": "Show Pet",
+		"showPetDesc": "When off, the pet window is hidden and stays hidden on next launch.",
+		"alwaysOnTop": "Always on Top",
+		"alwaysOnTopDesc": "When on, the pet floats above other windows; when off, it can be covered like a normal window.",
+		"developerDesc": "Used to distinguish the pet window bounds from the actual video display area.",
+		"debugFrame": "Debug Frame",
+		"debugFrameDesc": "Show the window bounds and video area bounds, and display the live window and video sizes inside the pet window.",
 		"bubble": {
 			"sectionDescription": "Choose the desktop pet speech bubble style. Each style can define its own background, dimensions, and decoration placement.",
 			"styleTitle": "Bubble style",

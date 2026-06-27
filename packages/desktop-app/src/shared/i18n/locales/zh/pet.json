@@ -1,5 +1,13 @@
 {
 	"settings": {
+		"pageTitle": "桌宠",
+		"showPet": "显示桌宠",
+		"showPetDesc": "关闭后隐藏桌宠窗口，并在下次启动时保持隐藏。",
+		"alwaysOnTop": "保持在最前",
+		"alwaysOnTopDesc": "开启后桌宠会浮在其他窗口上方；关闭后它会像普通窗口一样被遮挡。",
+		"developerDesc": "用于分辨桌宠窗口边界和视频实际显示区域。",
+		"debugFrame": "调试边框",
+		"debugFrameDesc": "显示窗口边界、视频区域边界，并在桌宠窗口内实时展示窗口大小和视频大小。",
 		"bubble": {
 			"sectionDescription": "选择桌宠对话气泡样式。不同样式可以拥有独立背景、尺寸和装饰位置。",
 			"styleTitle": "气泡样式",
