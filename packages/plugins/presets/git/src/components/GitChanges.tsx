@@ -1,3 +1,4 @@
+import { preloadHighlighter } from "@pierre/diffs";
 import { useTranslation } from "@vetta/plugin-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { findEntry } from "../git/gitStatus";
@@ -41,6 +42,13 @@ export function GitChanges({ root, entries }: { root: string; entries: ChangeEnt
 			} catch {}
 			return next;
 		});
+	}, []);
+
+	// 预热 diff 高亮器：共享高亮器是会话级单例，首个 diff 渲染时若主题尚未挂载，
+	// 渲染器会跳过同步渲染返回空白，须切换文件才恢复。文件列表出现即提前挂载明暗
+	// 两套主题，让首个 diff 直接同步渲染（重复调用因单例守卫而无副作用）。
+	useEffect(() => {
+		void preloadHighlighter({ themes: ["github-dark-default", "github-light-default"], langs: ["text"] });
 	}, []);
 
 	useEffect(() => {
