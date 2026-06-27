@@ -1,8 +1,8 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef } from "react";
-import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
+import { isPersonalModeAtom, pageHeaderTitleHiddenAtom, type SettingsTab } from "@shared/store/atoms";
 import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
 import { isMac } from "@shared/lib/platform";
@@ -51,6 +51,13 @@ export function SettingsPage(): JSX.Element {
 	const navigate = useNavigate();
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const authUser = useAtomValue(authUserAtom);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
+
+	// 设置页不显示顶栏左上角的「设置」标题。
+	useEffect(() => {
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
 	// 设置页内容是「左侧导航 + 右侧详情」双栏，宽度小于 1000 时就把左侧收成 icon-only。
 	const narrow = useNarrowScreen(1000);
 
@@ -134,7 +141,7 @@ export function SettingsPage(): JSX.Element {
 			/>
 			{/* Settings sidebar — 窄屏收成 icon-only 竖排，避免挤压右侧主内容 */}
 			<div className={cn("flex shrink-0 flex-col", narrow ? "w-14" : "w-[200px]")}>
-				<div className={cn("drag-region", narrow ? "h-12" : "px-5 pb-4 pt-5")}>
+				<div className={cn("drag-region", narrow ? "h-12" : "px-5 pb-2 pt-2")}>
 					{!narrow && (
 						<h1 className="text-[20px] font-bold tracking-[-0.02em] text-foreground">
 							{t("title")}
