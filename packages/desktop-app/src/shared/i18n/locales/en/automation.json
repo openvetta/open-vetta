@@ -1,0 +1,98 @@
+{
+	"page": {
+		"title": "Automation",
+		"subtitle": "Let AI run tasks on schedule and free your hands",
+		"newTask": "New Task",
+		"newTaskTitle": "New scheduled task"
+	},
+	"empty": {
+		"title": "No scheduled tasks yet",
+		"desc": "Create a scheduled task and let AI run it automatically on schedule",
+		"action": "Create your first task"
+	},
+	"dialog": {
+		"namePlaceholderEdit": "Task name",
+		"namePlaceholderNew": "New task",
+		"cancel": "Cancel",
+		"save": "Save",
+		"create": "Create"
+	},
+	"form": {
+		"namePlaceholder": "Task name",
+		"promptPlaceholder": "Enter a prompt... type / to invoke skills/scenes",
+		"selectWorkDir": "Select working directory",
+		"conversation": "Conversation",
+		"modelEmpty": "No models",
+		"modelSelect": "Select model",
+		"defaultTag": "Default",
+		"enabled": "Enabled",
+		"disabled": "Disabled",
+		"fullAccess": "Full access",
+		"useSandbox": "Use sandbox",
+		"inherit": "Follow default ({{mode}})",
+		"sandbox": "sandbox",
+		"sandboxUnavailable": "{{platform}} sandbox unavailable: {{reason}}",
+		"every": "Every",
+		"unitHours": "hours",
+		"unitDays": "days"
+	},
+	"scheduleMode": {
+		"once": "Once",
+		"daily": "Daily",
+		"interval": "Interval"
+	},
+	"schedule": {
+		"once": "{{month}}/{{day}}/{{year}} {{time}}, once",
+		"daily": "Daily at {{time}}",
+		"weekly": "Weekly on {{days}} at {{time}}",
+		"intervalOne": "Every hour",
+		"interval": "Every {{hours}} hours",
+		"weekdayJoin": ", ",
+		"weekdayNames": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+	},
+	"list": {
+		"running": "Running",
+		"pending": "Pending",
+		"disabled": "Disabled",
+		"once": "One-time",
+		"runNow": "Run now",
+		"run": "Run",
+		"sectionTitle": "Automation tasks",
+		"pause": "Pause",
+		"enable": "Enable",
+		"edit": "Edit",
+		"delete": "Delete",
+		"success": "Success",
+		"failed": "Failed",
+		"neverRun": "Never run",
+		"justNow": "just now",
+		"minutesAgo": "{{n}} min ago",
+		"hoursAgo": "{{n}} hr ago",
+		"daysAgo": "{{n}} d ago",
+		"fullAccess": "Full access",
+		"useSandbox": "Use sandbox",
+		"inheritDefault": "Follow default"
+	},
+	"confirm": {
+		"deleteTitle": "Delete task \"{{name}}\"?",
+		"deleteMsg": "This cannot be undone. Please confirm to continue.",
+		"delete": "Delete",
+		"cancel": "Cancel"
+	},
+	"drawer": {
+		"close": "Close",
+		"runNow": "Run now",
+		"pause": "Pause",
+		"enable": "Enable",
+		"edit": "Edit"
+	},
+	"history": {
+		"title": "Execution history",
+		"refresh": "Refresh",
+		"empty": "No execution records",
+		"success": "Success",
+		"failed": "Failed",
+		"running": "Running",
+		"aborted": "Aborted"
+	}
+}
