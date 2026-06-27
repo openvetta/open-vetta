@@ -70,6 +70,7 @@ export interface AgentPluginToolContribution {
 	scope_use?: string[];
 	/** 需要的会话能力 slug（如 "knowledge"）。 */
 	requires?: string[];
+	context?: { conversation?: "summary" | "messages" };
 }
 
 export interface AgentPluginStateContribution {
@@ -85,6 +86,7 @@ export interface AgentPluginContinuationContribution {
 	id: string;
 	handlerId: string;
 	timeoutMs?: number;
+	context?: { conversation?: "summary" | "messages" };
 }
 
 export interface AgentPluginSystemPromptProviderContribution {
@@ -92,6 +94,10 @@ export interface AgentPluginSystemPromptProviderContribution {
 	id: string;
 	handlerId: string;
 	timeoutMs?: number;
+	context?: {
+		systemPrompt?: "none" | "blocks" | "rendered" | "full";
+		conversation?: "summary" | "messages";
+	};
 }
 
 export interface AgentPluginSystemPromptMessage {
@@ -117,12 +123,26 @@ export interface AgentPluginSystemPromptInvocation {
 	conversation: { messages: AgentPluginSystemPromptMessage[]; messageCount: number };
 	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
 	trigger: { kind: "agent-run"; timestamp: number };
+	systemPrompt?: {
+		base: { blocks?: SystemPromptBlock[]; rendered?: string };
+		current: { blocks?: SystemPromptBlock[]; rendered?: string };
+	};
+}
+
+export type AgentPluginRuntimeEffect =
+	| SystemPromptOperation
+	| { type: "setToolEnabled"; toolName: string; enabled: boolean }
+	| { type: "requestContinuation"; result: AgentPluginContinuationResult };
+
+export interface AgentPluginHandlerResult<T> {
+	value: T;
+	effects: AgentPluginRuntimeEffect[];
 }
 
 export type AgentPluginSystemPromptInvoker = (
 	invocation: AgentPluginSystemPromptInvocation,
 	signal?: AbortSignal,
-) => Promise<SystemPromptOperation[]>;
+) => Promise<AgentPluginRuntimeEffect[]>;
 
 export interface AgentPluginRuntimeConfig {
 	systemPromptContributions?: SystemPromptContribution[];
@@ -135,23 +155,32 @@ export interface AgentPluginRuntimeConfig {
 }
 
 export interface AgentPluginToolInvocation {
-	sessionId: string;
-	cwd: string;
 	pluginId: string;
 	toolId: string;
 	toolName: string;
 	handlerId: string;
 	input: unknown;
+	session: AgentPluginSystemPromptInvocation["session"];
+	model: AgentPluginSystemPromptInvocation["model"];
+	conversation: AgentPluginSystemPromptInvocation["conversation"];
+	runtime: AgentPluginSystemPromptInvocation["runtime"];
+	trigger: { kind: "tool-call"; timestamp: number; toolCallId: string };
 }
 
-export type AgentPluginToolInvoker = (invocation: AgentPluginToolInvocation, signal?: AbortSignal) => Promise<unknown>;
+export type AgentPluginToolInvoker = (
+	invocation: AgentPluginToolInvocation,
+	signal?: AbortSignal,
+) => Promise<AgentPluginHandlerResult<unknown>>;
 
 export interface AgentPluginContinuationInvocation {
-	sessionId: string;
-	cwd: string;
 	pluginId: string;
 	providerId: string;
 	handlerId: string;
+	session: AgentPluginSystemPromptInvocation["session"];
+	model: AgentPluginSystemPromptInvocation["model"];
+	conversation: AgentPluginSystemPromptInvocation["conversation"];
+	runtime: AgentPluginSystemPromptInvocation["runtime"];
+	trigger: { kind: "continuation"; timestamp: number };
 }
 
 export interface AgentPluginContinuationResult {
@@ -162,7 +191,7 @@ export interface AgentPluginContinuationResult {
 export type AgentPluginContinuationInvoker = (
 	invocation: AgentPluginContinuationInvocation,
 	signal?: AbortSignal,
-) => Promise<AgentPluginContinuationResult | null>;
+) => Promise<AgentPluginHandlerResult<AgentPluginContinuationResult | null>>;
 
 export interface SessionEventBase {
 	schemaVersion: 1;

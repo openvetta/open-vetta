@@ -113,9 +113,20 @@ export default definePlugin({
 			parameters: writeChapterSchema,
 			timeoutMs: 30_000,
 			scope_use: ["conversation", "cli"],
-			handler: async (input, api) => {
+			handler: async ({ trigger, host, actions, plugin }) => {
+				const input = trigger.input;
 				const body = `# ${input.title}\n\n${input.content.trim()}\n`;
-				await api.fs.writeFile(input.path, body);
+				await host.fs.writeFile(input.path, body);
+				actions.systemPrompt.replaceBlock("plugin.global-slot-demo.last-written-chapter", {
+					priority: 860,
+					content: `The plugin most recently wrote the chapter "${input.title}" to ${input.path}.`,
+				});
+				if (plugin.settings.continuationDemoEnabled === true) {
+					actions.continuation.request({
+						text: `Verify that the chapter "${input.title}" was written successfully, then summarize the saved artifact.`,
+						idempotencyKey: `written-chapter:${input.path}:${input.title}`,
+					});
+				}
 				return {
 					text: `Wrote chapter "${input.title}" to ${input.path}.`,
 					path: input.path,
@@ -126,7 +137,8 @@ export default definePlugin({
 		ctx.agent.registerSystemPromptProvider({
 			id: "fiction-system-prompt",
 			timeoutMs: 3000,
-			handler: ({ plugin, session, model, conversation, runtime }) => {
+			context: { systemPrompt: "full", conversation: "messages" },
+			handler: ({ plugin, session, model, conversation, runtime, systemPrompt, actions }) => {
 				const operations = [];
 				const blockId = "plugin.global-slot-demo.fiction";
 				const style =
@@ -146,6 +158,8 @@ export default definePlugin({
 								`Current model: ${model.provider}/${model.id}.`,
 								`Conversation messages available to this provider: ${conversation.messageCount}.`,
 								`Active tools: ${runtime.activeToolNames.join(", ") || "none"}.`,
+								`Current prompt blocks: ${systemPrompt?.current.blocks?.length ?? 0}.`,
+								`Current rendered prompt length: ${systemPrompt?.current.rendered?.length ?? 0}.`,
 							].join("\n\n"),
 						},
 					});
@@ -176,20 +190,27 @@ export default definePlugin({
 				if (settingEnabled(plugin.settings, "promptRemoveEnabled")) {
 					operations.push({ type: "removeBlock" as const, blockId });
 				}
+				if (settingEnabled(plugin.settings, "disableWriteChapterTool")) {
+					actions.tools.disable("novel_write_chapter_file");
+				}
 				return operations;
 			},
 		});
 		ctx.agent.registerContinuationProvider({
 			id: "fiction-next-step",
 			timeoutMs: 3000,
-			handler: ({ sessionId }) => {
-				if (ctx.settings.get<boolean>("continuationDemoEnabled") !== true) {
+			handler: ({ session, plugin, actions }) => {
+				if (plugin.settings.continuationDemoEnabled !== true) {
 					return null;
 				}
+				actions.systemPrompt.replaceBlock("plugin.global-slot-demo.continuation", {
+					priority: 870,
+					content: "The current run was requested by the demo continuation provider.",
+				});
 				return {
 					text:
 						"Before stopping, briefly suggest the single most useful next fiction-writing step based on the current conversation. Do not perform the step unless the user asks.",
-					idempotencyKey: `fiction-next-step:${sessionId}`,
+					idempotencyKey: `fiction-next-step:${session.id}`,
 				};
 			},
 		});

@@ -146,6 +146,7 @@ export interface AgentPluginToolContribution {
 	scope_use?: string[];
 	/** 需要的会话能力 slug（如 "knowledge"）。 */
 	requires?: string[];
+	context?: { conversation?: "summary" | "messages" };
 }
 
 export interface AgentPluginStateContribution {
@@ -161,6 +162,7 @@ export interface AgentPluginContinuationContribution {
 	id: string;
 	handlerId: string;
 	timeoutMs?: number;
+	context?: { conversation?: "summary" | "messages" };
 }
 
 export interface AgentPluginSystemPromptProviderContribution {
@@ -168,6 +170,10 @@ export interface AgentPluginSystemPromptProviderContribution {
 	id: string;
 	handlerId: string;
 	timeoutMs?: number;
+	context?: {
+		systemPrompt?: "none" | "blocks" | "rendered" | "full";
+		conversation?: "summary" | "messages";
+	};
 }
 
 export interface AgentPluginSystemPromptMessage {
@@ -193,12 +199,26 @@ export interface AgentPluginSystemPromptInvocation {
 	conversation: { messages: AgentPluginSystemPromptMessage[]; messageCount: number };
 	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
 	trigger: { kind: "agent-run"; timestamp: number };
+	systemPrompt?: {
+		base: { blocks?: SystemPromptBlock[]; rendered?: string };
+		current: { blocks?: SystemPromptBlock[]; rendered?: string };
+	};
+}
+
+export type AgentPluginRuntimeEffect =
+	| SystemPromptOperation
+	| { type: "setToolEnabled"; toolName: string; enabled: boolean }
+	| { type: "requestContinuation"; result: AgentPluginContinuationResult };
+
+export interface AgentPluginHandlerResult<T> {
+	value: T;
+	effects: AgentPluginRuntimeEffect[];
 }
 
 export type AgentPluginSystemPromptInvoker = (
 	invocation: AgentPluginSystemPromptInvocation,
 	signal?: AbortSignal,
-) => Promise<SystemPromptOperation[]>;
+) => Promise<AgentPluginRuntimeEffect[]>;
 
 export interface AgentPluginRuntimeConfig {
 	systemPromptContributions?: SystemPromptContribution[];
@@ -211,23 +231,32 @@ export interface AgentPluginRuntimeConfig {
 }
 
 export interface AgentPluginToolInvocation {
-	sessionId: string;
-	cwd: string;
 	pluginId: string;
 	toolId: string;
 	toolName: string;
 	handlerId: string;
 	input: unknown;
+	session: AgentPluginSystemPromptInvocation["session"];
+	model: AgentPluginSystemPromptInvocation["model"];
+	conversation: AgentPluginSystemPromptInvocation["conversation"];
+	runtime: AgentPluginSystemPromptInvocation["runtime"];
+	trigger: { kind: "tool-call"; timestamp: number; toolCallId: string };
 }
 
-export type AgentPluginToolInvoker = (invocation: AgentPluginToolInvocation, signal?: AbortSignal) => Promise<unknown>;
+export type AgentPluginToolInvoker = (
+	invocation: AgentPluginToolInvocation,
+	signal?: AbortSignal,
+) => Promise<AgentPluginHandlerResult<unknown>>;
 
 export interface AgentPluginContinuationInvocation {
-	sessionId: string;
-	cwd: string;
 	pluginId: string;
 	providerId: string;
 	handlerId: string;
+	session: AgentPluginSystemPromptInvocation["session"];
+	model: AgentPluginSystemPromptInvocation["model"];
+	conversation: AgentPluginSystemPromptInvocation["conversation"];
+	runtime: AgentPluginSystemPromptInvocation["runtime"];
+	trigger: { kind: "continuation"; timestamp: number };
 }
 
 export interface AgentPluginContinuationResult {
@@ -238,7 +267,7 @@ export interface AgentPluginContinuationResult {
 export type AgentPluginContinuationInvoker = (
 	invocation: AgentPluginContinuationInvocation,
 	signal?: AbortSignal,
-) => Promise<AgentPluginContinuationResult | null>;
+) => Promise<AgentPluginHandlerResult<AgentPluginContinuationResult | null>>;
 
 export interface BuildSystemPromptOptions {
 	/** Custom system prompt (replaces default body in the legacy flow). */
@@ -327,7 +356,7 @@ function renderFooter(dateTime: string, cwd: string): string {
 Current working directory: ${cwd}${OUTPUT_LOCATION_GUIDANCE}`;
 }
 
-function applySystemPromptOperation(
+export function applySystemPromptOperation(
 	draft: SystemPromptDraft,
 	pluginId: string,
 	operation: SystemPromptOperation,
@@ -373,11 +402,25 @@ function applySystemPromptOperation(
 	}
 }
 
+export function applySystemPromptOperations(
+	draft: SystemPromptDraft,
+	pluginId: string,
+	operations: readonly SystemPromptOperation[],
+): SystemPromptDraft {
+	const nextDraft: SystemPromptDraft = {
+		blocks: draft.blocks.map((block) => ({ ...block, source: { ...block.source } })),
+		metadata: { ...draft.metadata },
+	};
+	for (const operation of operations) {
+		applySystemPromptOperation(nextDraft, pluginId, operation);
+	}
+	return nextDraft;
+}
+
 function applySystemPromptContributions(draft: SystemPromptDraft, config: AgentPluginRuntimeConfig | undefined): void {
 	for (const contribution of config?.systemPromptContributions ?? []) {
-		for (const operation of contribution.operations) {
-			applySystemPromptOperation(draft, contribution.pluginId, operation);
-		}
+		const nextDraft = applySystemPromptOperations(draft, contribution.pluginId, contribution.operations);
+		draft.blocks = nextDraft.blocks;
 	}
 }
 

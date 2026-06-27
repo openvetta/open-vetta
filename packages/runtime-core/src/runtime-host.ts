@@ -445,10 +445,12 @@ export class RuntimeHost implements SessionFacade {
 			includeAgentSkills: config.includeAgentSkills,
 			agentPlugins: config.agentPlugins,
 			invokePluginTool: this.pluginToolInvoker
-				? (invocation, signal) => this.pluginToolInvoker?.(invocation, signal) ?? Promise.resolve(undefined)
+				? (invocation, signal) =>
+						this.pluginToolInvoker?.(invocation, signal) ?? Promise.resolve({ value: undefined, effects: [] })
 				: undefined,
 			invokePluginContinuation: this.pluginContinuationInvoker
-				? (invocation, signal) => this.pluginContinuationInvoker?.(invocation, signal) ?? Promise.resolve(null)
+				? (invocation, signal) =>
+						this.pluginContinuationInvoker?.(invocation, signal) ?? Promise.resolve({ value: null, effects: [] })
 				: undefined,
 			invokePluginSystemPrompt: this.pluginSystemPromptInvoker
 				? (invocation, signal) => this.pluginSystemPromptInvoker?.(invocation, signal) ?? Promise.resolve([])

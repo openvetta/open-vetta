@@ -13,10 +13,12 @@ import type {
 	ConversationMessage,
 	ConversationState,
 	Disposable,
+	PluginAgentActions,
 	PluginAgentToolApi,
 	PluginAgentToolHandler,
 	PluginContinuationHandler,
 	PluginConversationApi,
+	PluginDynamicSystemPromptOperation,
 	PluginHostBridge,
 	PluginImageRef,
 	PluginSystemPromptProviderHandler,
@@ -34,11 +36,38 @@ interface PluginAgentToolHandlerEntry {
 }
 
 const agentToolHandlers = new Map<string, PluginAgentToolHandlerEntry>();
-const continuationHandlers = new Map<string, PluginContinuationHandler>();
-const systemPromptHandlers = new Map<string, PluginSystemPromptProviderHandler>();
+const continuationHandlers = new Map<string, { handler: PluginContinuationHandler; api: PluginAgentToolApi }>();
+const systemPromptHandlers = new Map<string, { handler: PluginSystemPromptProviderHandler; api: PluginAgentToolApi }>();
 
 function handlerKey(pluginId: string, handlerId: string): string {
 	return `${pluginId}:${handlerId}`;
+}
+
+function createAgentActions(): {
+	actions: PluginAgentActions;
+	effects: PluginDynamicSystemPromptOperation[];
+} {
+	const effects: PluginDynamicSystemPromptOperation[] = [];
+	return {
+		effects,
+		actions: {
+			systemPrompt: {
+				addBlock: (block) => effects.push({ type: "addBlock", block }),
+				replaceBlock: (blockId, block) => effects.push({ type: "replaceBlock", blockId, block }),
+				updateBlock: (blockId, patch) => effects.push({ type: "updateBlock", blockId, patch }),
+				removeBlock: (blockId) => effects.push({ type: "removeBlock", blockId }),
+				setBlockEnabled: (blockId, enabled) => effects.push({ type: "setBlockEnabled", blockId, enabled }),
+			},
+			tools: {
+				setEnabled: (toolName, enabled) => effects.push({ type: "setToolEnabled", toolName, enabled }),
+				enable: (toolName) => effects.push({ type: "setToolEnabled", toolName, enabled: true }),
+				disable: (toolName) => effects.push({ type: "setToolEnabled", toolName, enabled: false }),
+			},
+			continuation: {
+				request: (result) => effects.push({ type: "requestContinuation", result }),
+			},
+		},
+	};
 }
 
 // ─── Conversation event bus ───
@@ -168,8 +197,37 @@ function startToolRequestListener(): void {
 			});
 			return;
 		}
-		void Promise.resolve(entry.handler(request.input, entry.api)).then(
-			(value) => window.vetta.plugins.respondAgentTool(request.requestId, { value }),
+		const execution = createAgentActions();
+		void Promise.resolve(
+			entry.handler({
+				invocationId: request.requestId,
+				plugin: {
+					id: request.pluginId,
+					contributionId: request.toolId,
+					settings: request.settings,
+				},
+				session: {
+					...request.session,
+					scenario: request.session.scenario as Parameters<PluginAgentToolHandler>[0]["session"]["scenario"],
+				},
+				model: request.model,
+				conversation: request.conversation,
+				runtime: request.runtime,
+				trigger: {
+					...request.trigger,
+					toolId: request.toolId,
+					toolName: request.toolName,
+					input: request.input,
+				},
+				actions: execution.actions,
+				host: entry.api,
+			}),
+		).then(
+			(value) =>
+				window.vetta.plugins.respondAgentTool(request.requestId, {
+					value,
+					effects: execution.effects,
+				}),
 			(error: unknown) =>
 				window.vetta.plugins.respondAgentTool(request.requestId, {
 					error: error instanceof Error ? error.message : String(error),
@@ -184,15 +242,39 @@ function startContinuationRequestListener(): void {
 	if (continuationRequestListenerStarted) return;
 	continuationRequestListenerStarted = true;
 	window.vetta.plugins.onContinuationRequest((request) => {
-		const handler = continuationHandlers.get(handlerKey(request.pluginId, request.handlerId));
-		if (!handler) {
+		const entry = continuationHandlers.get(handlerKey(request.pluginId, request.handlerId));
+		if (!entry) {
 			void window.vetta.plugins.respondContinuation(request.requestId, {
 				error: `Plugin continuation handler not found: ${request.pluginId}/${request.handlerId}`,
 			});
 			return;
 		}
-		void Promise.resolve(handler({ sessionId: request.sessionId, cwd: request.cwd })).then(
-			(value) => window.vetta.plugins.respondContinuation(request.requestId, { value }),
+		const execution = createAgentActions();
+		void Promise.resolve(
+			entry.handler({
+				invocationId: request.requestId,
+				plugin: {
+					id: request.pluginId,
+					contributionId: request.providerId,
+					settings: request.settings,
+				},
+				session: {
+					...request.session,
+					scenario: request.session.scenario as Parameters<PluginContinuationHandler>[0]["session"]["scenario"],
+				},
+				model: request.model,
+				conversation: request.conversation,
+				runtime: request.runtime,
+				trigger: request.trigger,
+				actions: execution.actions,
+				host: entry.api,
+			}),
+		).then(
+			(value) =>
+				window.vetta.plugins.respondContinuation(request.requestId, {
+					value,
+					effects: execution.effects,
+				}),
 			(error: unknown) =>
 				window.vetta.plugins.respondContinuation(request.requestId, {
 					error: error instanceof Error ? error.message : String(error),
@@ -207,16 +289,22 @@ function startSystemPromptRequestListener(): void {
 	if (systemPromptRequestListenerStarted) return;
 	systemPromptRequestListenerStarted = true;
 	window.vetta.plugins.onSystemPromptRequest((request) => {
-		const handler = systemPromptHandlers.get(handlerKey(request.pluginId, request.handlerId));
-		if (!handler) {
+		const entry = systemPromptHandlers.get(handlerKey(request.pluginId, request.handlerId));
+		if (!entry) {
 			void window.vetta.plugins.respondSystemPrompt(request.requestId, {
 				error: `Plugin system prompt handler not found: ${request.pluginId}/${request.handlerId}`,
 			});
 			return;
 		}
+		const execution = createAgentActions();
 		void Promise.resolve(
-			handler({
-				plugin: { id: request.pluginId, providerId: request.providerId, settings: request.settings },
+			entry.handler({
+				invocationId: request.requestId,
+				plugin: {
+					id: request.pluginId,
+					contributionId: request.providerId,
+					settings: request.settings,
+				},
 				session: {
 					id: request.session.id,
 					cwd: request.session.cwd,
@@ -227,9 +315,18 @@ function startSystemPromptRequestListener(): void {
 				conversation: request.conversation,
 				runtime: request.runtime,
 				trigger: request.trigger,
+				systemPrompt: request.systemPrompt,
+				actions: execution.actions,
+				host: entry.api,
 			}),
 		).then(
-			(value) => window.vetta.plugins.respondSystemPrompt(request.requestId, { value }),
+			(value) => {
+				if (Array.isArray(value)) execution.effects.push(...value);
+				return window.vetta.plugins.respondSystemPrompt(request.requestId, {
+					value: execution.effects,
+					effects: [],
+				});
+			},
 			(error: unknown) =>
 				window.vetta.plugins.respondSystemPrompt(request.requestId, {
 					error: error instanceof Error ? error.message : String(error),
@@ -261,12 +358,13 @@ export function registerPluginContinuationHandler(options: {
 	pluginId: string;
 	handlerId: string;
 	handler: PluginContinuationHandler;
+	api: PluginAgentToolApi;
 }): Disposable {
 	const key = handlerKey(options.pluginId, options.handlerId);
-	continuationHandlers.set(key, options.handler);
+	continuationHandlers.set(key, { handler: options.handler, api: options.api });
 	return {
 		dispose: () => {
-			if (continuationHandlers.get(key) === options.handler) {
+			if (continuationHandlers.get(key)?.handler === options.handler) {
 				continuationHandlers.delete(key);
 			}
 		},
@@ -277,12 +375,13 @@ export function registerPluginSystemPromptHandler(options: {
 	pluginId: string;
 	handlerId: string;
 	handler: PluginSystemPromptProviderHandler;
+	api: PluginAgentToolApi;
 }): Disposable {
 	const key = handlerKey(options.pluginId, options.handlerId);
-	systemPromptHandlers.set(key, options.handler);
+	systemPromptHandlers.set(key, { handler: options.handler, api: options.api });
 	return {
 		dispose: () => {
-			if (systemPromptHandlers.get(key) === options.handler) {
+			if (systemPromptHandlers.get(key)?.handler === options.handler) {
 				systemPromptHandlers.delete(key);
 			}
 		},

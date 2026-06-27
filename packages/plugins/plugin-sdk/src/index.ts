@@ -418,11 +418,6 @@ export interface PluginAgentToolApi {
 	conversation: PluginConversationApi;
 }
 
-export type PluginAgentToolHandler<TInput = unknown> = (
-	input: TInput,
-	api: PluginAgentToolApi,
-) => unknown | Promise<unknown>;
-
 export interface PluginAgentToolRegistration<TInput = unknown> {
 	id: string;
 	name?: string;
@@ -437,6 +432,7 @@ export interface PluginAgentToolRegistration<TInput = unknown> {
 	scope_use?: readonly ConversationScenario[];
 	/** 需要的会话能力 slug（如 "knowledge"）；全满足才激活。一般插件无需设置。 */
 	requires?: string[];
+	context?: { conversation?: "summary" | "messages" };
 	handler: PluginAgentToolHandler<TInput>;
 }
 
@@ -456,7 +452,9 @@ export type PluginDynamicSystemPromptOperation =
 			patch: Partial<Pick<PluginSystemPromptBlock, "content" | "priority" | "enabled">>;
 	  }
 	| { type: "removeBlock"; blockId: string }
-	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
+	| { type: "setBlockEnabled"; blockId: string; enabled: boolean }
+	| { type: "setToolEnabled"; toolName: string; enabled: boolean }
+	| { type: "requestContinuation"; result: PluginContinuationResult };
 
 export interface PluginSystemPromptMessage {
 	role: string;
@@ -497,15 +495,92 @@ export interface PluginSystemPromptProviderContext {
 		kind: "agent-run";
 		timestamp: number;
 	};
+	systemPrompt?: {
+		base: {
+			blocks?: readonly PluginSystemPromptBlockView[];
+			rendered?: string;
+		};
+		current: {
+			blocks?: readonly PluginSystemPromptBlockView[];
+			rendered?: string;
+		};
+	};
 }
 
+export interface PluginSystemPromptBlockView extends PluginSystemPromptBlock {
+	type: string;
+	source: {
+		kind: "core" | "plugin";
+		pluginId?: string;
+	};
+	priority: number;
+	enabled: boolean;
+}
+
+export interface PluginAgentActions {
+	systemPrompt: {
+		addBlock(block: PluginSystemPromptBlock): void;
+		replaceBlock(blockId: string, block: Omit<PluginSystemPromptBlock, "id">): void;
+		updateBlock(
+			blockId: string,
+			patch: Partial<Pick<PluginSystemPromptBlock, "content" | "priority" | "enabled">>,
+		): void;
+		removeBlock(blockId: string): void;
+		setBlockEnabled(blockId: string, enabled: boolean): void;
+	};
+	tools: {
+		setEnabled(toolName: string, enabled: boolean): void;
+		enable(toolName: string): void;
+		disable(toolName: string): void;
+	};
+	continuation: {
+		request(result: PluginContinuationResult): void;
+	};
+}
+
+export interface PluginAgentHandlerContext<TTrigger> {
+	invocationId: string;
+	plugin: {
+		id: string;
+		contributionId: string;
+		settings: Readonly<Record<string, unknown>>;
+	};
+	session: PluginSystemPromptProviderContext["session"];
+	model: PluginSystemPromptProviderContext["model"];
+	conversation: PluginSystemPromptProviderContext["conversation"];
+	runtime: PluginSystemPromptProviderContext["runtime"];
+	trigger: TTrigger;
+	systemPrompt?: PluginSystemPromptProviderContext["systemPrompt"];
+	actions: PluginAgentActions;
+	host: PluginAgentToolApi;
+}
+
+export type PluginAgentToolHandler<TInput = unknown> = (
+	context: PluginAgentHandlerContext<{
+		kind: "tool-call";
+		timestamp: number;
+		toolCallId: string;
+		toolId: string;
+		toolName: string;
+		input: TInput;
+	}>,
+) => unknown | Promise<unknown>;
+
 export type PluginSystemPromptProviderHandler = (
-	context: PluginSystemPromptProviderContext,
-) => PluginDynamicSystemPromptOperation[] | Promise<PluginDynamicSystemPromptOperation[]>;
+	context: PluginAgentHandlerContext<{ kind: "agent-run"; timestamp: number }>,
+) => void | PluginDynamicSystemPromptOperation[] | Promise<void | PluginDynamicSystemPromptOperation[]>;
 
 export interface PluginSystemPromptProviderRegistration {
 	id: string;
 	timeoutMs?: number;
+	/**
+	 * Large context is opt-in. Omitted fields are not serialized across the
+	 * host/renderer boundary.
+	 */
+	context?: {
+		systemPrompt?: "none" | "blocks" | "rendered" | "full";
+		conversation?: "summary" | "messages";
+	};
 	handler: PluginSystemPromptProviderHandler;
 }
 
@@ -520,11 +595,6 @@ export interface PluginAgentApi {
 	registerContinuationProvider(registration: PluginContinuationRegistration): Disposable;
 }
 
-export interface PluginContinuationContext {
-	sessionId: string;
-	cwd: string;
-}
-
 export interface PluginContinuationResult {
 	text: string;
 	/** Stable key used by the host to suppress duplicate continuations in a session. */
@@ -532,12 +602,13 @@ export interface PluginContinuationResult {
 }
 
 export type PluginContinuationHandler = (
-	context: PluginContinuationContext,
+	context: PluginAgentHandlerContext<{ kind: "continuation"; timestamp: number }>,
 ) => PluginContinuationResult | null | Promise<PluginContinuationResult | null>;
 
 export interface PluginContinuationRegistration {
 	id: string;
 	timeoutMs?: number;
+	context?: { conversation?: "summary" | "messages" };
 	handler: PluginContinuationHandler;
 }
 

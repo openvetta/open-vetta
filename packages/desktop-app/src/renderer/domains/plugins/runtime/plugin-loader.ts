@@ -17,6 +17,7 @@ import { showToast } from "@shared/store/toast-atoms";
 import type {
 	Disposable,
 	PluginActivityTabContribution,
+	PluginAgentToolHandler,
 	PluginCardRendererContribution,
 	PluginCommandApi,
 	PluginContext,
@@ -620,7 +621,7 @@ function createContext(
 					pluginId: plugin.id,
 					toolId,
 					handlerId,
-					handler: (input, api) => registration.handler(input as never, api),
+					handler: registration.handler as PluginAgentToolHandler,
 					api: { fs, conversation },
 				});
 				const registrationPromise = window.vetta.plugins
@@ -635,6 +636,7 @@ function createContext(
 						timeoutMs: registration.timeoutMs,
 						scope_use: registration.scope_use,
 						requires: registration.requires,
+						context: registration.context,
 					})
 					.then(() => {
 						debugPluginAgent("renderer registerTool completed", {
@@ -672,6 +674,7 @@ function createContext(
 					pluginId: plugin.id,
 					handlerId,
 					handler: registration.handler,
+					api: { fs, conversation },
 				});
 				const registrationPromise = window.vetta.plugins
 					.registerContinuationProvider(plugin.id, {
@@ -679,6 +682,7 @@ function createContext(
 						handlerId,
 						activationId,
 						timeoutMs: registration.timeoutMs,
+						context: registration.context,
 					})
 					.catch((error: Error) => {
 						handlerHandle.dispose();
@@ -711,6 +715,7 @@ function createContext(
 					pluginId: plugin.id,
 					handlerId,
 					handler: registration.handler,
+					api: { fs, conversation },
 				});
 				const registrationPromise = window.vetta.plugins
 					.registerSystemPromptProvider(plugin.id, {
@@ -718,6 +723,7 @@ function createContext(
 						handlerId,
 						activationId,
 						timeoutMs: registration.timeoutMs,
+						context: registration.context,
 					})
 					.catch((error: Error) => {
 						handlerHandle.dispose();

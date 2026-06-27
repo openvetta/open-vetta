@@ -109,11 +109,11 @@ export default definePlugin({
 				},
 				required: ["sourcePath"],
 			},
-			handler: async (input, api): Promise<SaveResult> => {
+			handler: async ({ trigger: { input }, host }): Promise<SaveResult> => {
 				if (!input?.sourcePath) return { ok: false, error: "缺少 sourcePath。" };
 				let raw: string;
 				try {
-					raw = (await api.fs.readFile(input.sourcePath)).content;
+					raw = (await host.fs.readFile(input.sourcePath)).content;
 				} catch (err) {
 					return { ok: false, error: `读取草稿失败：${(err as Error).message}` };
 				}
@@ -129,13 +129,13 @@ export default definePlugin({
 
 				const outputPath = resolveOutputPath(input);
 				try {
-					await api.fs.writeFile(outputPath, JSON.stringify(doc));
+					await host.fs.writeFile(outputPath, JSON.stringify(doc));
 				} catch (err) {
 					return { ok: false, error: `写入失败：${(err as Error).message}` };
 				}
 				if (outputPath !== input.sourcePath) {
 					try {
-						await api.fs.delete(input.sourcePath);
+						await host.fs.delete(input.sourcePath);
 					} catch {
 						/* draft cleanup is best-effort */
 					}
