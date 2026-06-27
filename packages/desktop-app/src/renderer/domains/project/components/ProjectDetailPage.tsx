@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	activityPanelOpenAtom,
@@ -8,6 +9,7 @@ import {
 	batchProjectsAtom,
 	confirmDialogAtom,
 	isPersonalModeAtom,
+	pageHeaderTitleHiddenAtom,
 	projectsAtom,
 	sessionsMapAtom,
 	workflowInstanceAtom,
@@ -48,16 +50,18 @@ function useFlowingMeta(cwd: string) {
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-function formatDate(ts: number): string {
+function formatDate(ts: number, locale: string): string {
 	const d = new Date(ts);
-	return d.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+	return d.toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
 }
 
-function getProjectTypeLabel(project: { type: "normal" | "flowing" | "batch"; workflowInstanceId?: number } | undefined): string | null {
+function getProjectTypeKey(
+	project: { type: "normal" | "flowing" | "batch"; workflowInstanceId?: number } | undefined,
+): "detail.typeBatch" | "detail.typeWorkflow" | "detail.typeFlowing" | null {
 	if (!project) return null;
-	if (project.type === "batch") return "批量任务";
+	if (project.type === "batch") return "detail.typeBatch";
 	if (project.type === "flowing") {
-		return typeof project.workflowInstanceId === "number" ? "工作流" : "流转";
+		return typeof project.workflowInstanceId === "number" ? "detail.typeWorkflow" : "detail.typeFlowing";
 	}
 	return null;
 }
@@ -144,6 +148,8 @@ function useCreatedAt(cwd: string) {
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export function ProjectDetailPage(): JSX.Element {
+	const { t, i18n } = useTranslation("project");
+	const dateLocale = i18n.language === "zh" ? "zh-CN" : "en-US";
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
 
@@ -159,8 +165,15 @@ export function ProjectDetailPage(): JSX.Element {
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const [activityOpen, setActivityOpen] = useAtom(activityPanelOpenAtom);
 	const setConfirm = useSetAtom(confirmDialogAtom);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const [editorFocused, setEditorFocused] = useState(false);
 	const navigate = useNavigate();
+
+	// 项目详情页不显示顶栏左上角的「项目详情」标题。
+	useEffect(() => {
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
 
 	// 监听工作流 SSE 事件
 	useWorkflowSSE();
@@ -179,7 +192,8 @@ export function ProjectDetailPage(): JSX.Element {
 	const displayName = project?.name ?? pathBasename(decodedCwd);
 	const isBatch = !!batchProject;
 
-	const projectTypeLabel = getProjectTypeLabel(project);
+	const projectTypeKey = getProjectTypeKey(project);
+	const projectTypeLabel = projectTypeKey ? t(projectTypeKey) : null;
 
 	// New session handler — 跳转到 NewSession 页面，由用户在该页发起首条消息再创建会话
 	const handleNewSession = () => {
@@ -190,17 +204,17 @@ export function ProjectDetailPage(): JSX.Element {
 	const exportable = project?.type === "normal" || project?.type === "batch" || isBatch;
 	const handleExportProject = useCallback(() => {
 		setConfirm({
-			title: "导出项目",
-			message: `确定要导出项目「${displayName}」吗？\n\n将打包当前项目目录下的所有文件，包括 .vetta/sessions 历史、batch 任务工作目录与状态。文件锁（*.lock）会被排除。`,
-			confirmLabel: "导出",
+			title: t("exportDialog.title"),
+			message: t("exportDialog.message", { name: displayName }),
+			confirmLabel: t("exportDialog.confirm"),
 			variant: "default",
 			onConfirm: async () => {
 				const result = await window.vetta.project.export(decodedCwd);
 				if (result && "error" in result) {
 					setConfirm({
-						title: "导出失败",
+						title: t("exportDialog.failedTitle"),
 						message: result.error.message,
-						confirmLabel: "好的",
+						confirmLabel: t("exportDialog.failedConfirm"),
 						variant: "danger",
 						onConfirm: () => {},
 					});
@@ -208,7 +222,7 @@ export function ProjectDetailPage(): JSX.Element {
 				// Success path: native save dialog already gave feedback.
 			},
 		});
-	}, [decodedCwd, displayName, setConfirm]);
+	}, [decodedCwd, displayName, setConfirm, t]);
 
 	// Keyboard shortcut: Cmd/Ctrl+S to save
 	useEffect(() => {
@@ -269,7 +283,7 @@ export function ProjectDetailPage(): JSX.Element {
 											onClick={() => setBindDialogOpen(true)}
 										>
 											<span className="icon-[mdi--sitemap-outline] text-xs" />
-											<span className="text-[10px]">绑定工作流</span>
+											<span className="text-[10px]">{t("detail.bindWorkflow")}</span>
 										</Button>
 									</motion.div>
 								)}
@@ -286,19 +300,19 @@ export function ProjectDetailPage(): JSX.Element {
 								<ActionButton
 									variant="outline"
 									onClick={() => void window.vetta.shell.showInFolder(decodedCwd)}
-									title={isMac ? "在 Finder 中显示" : "在资源管理器中显示"}
+									title={isMac ? t("detail.showInFinder") : t("detail.showInExplorer")}
 								>
 									<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
-									<span className="text-[12px]">{isMac ? "Finder" : "资源管理器"}</span>
+									<span className="text-[12px]">{isMac ? t("detail.finder") : t("detail.explorer")}</span>
 								</ActionButton>
 								{exportable && (
 									<ActionButton
 										variant="outline"
 										onClick={handleExportProject}
-										title="导出项目（含会话历史）"
+										title={t("detail.exportTitle")}
 									>
 										<span className="icon-[solar--export-linear] h-3.5 w-3.5" />
-										<span className="text-[12px]">导出</span>
+										<span className="text-[12px]">{t("detail.export")}</span>
 									</ActionButton>
 								)}
 								<motion.div
@@ -316,7 +330,7 @@ export function ProjectDetailPage(): JSX.Element {
 										onClick={handleNewSession}
 									>
 										<span className="icon-[solar--add-circle-linear] h-4 w-4" />
-										<span className="text-[12px] font-medium">新会话</span>
+										<span className="text-[12px] font-medium">{t("detail.newSession")}</span>
 									</Button>
 								</motion.div>
 								<motion.div
@@ -331,7 +345,7 @@ export function ProjectDetailPage(): JSX.Element {
 									<Button
 										size="icon-xs"
 										variant={activityOpen ? "secondary" : "ghost"}
-										title={activityOpen ? "关闭活动面板" : "打开活动面板"}
+										title={activityOpen ? t("detail.closeActivityPanel") : t("detail.openActivityPanel")}
 										onClick={() => setActivityOpen((o) => !o)}
 									>
 										<span className="icon-[solar--sidebar-minimalistic-linear] -scale-x-100 text-[14px]" />
@@ -369,12 +383,12 @@ export function ProjectDetailPage(): JSX.Element {
 								show: { transition: { staggerChildren: 0.07, delayChildren: 0.3 } },
 							}}
 						>
-							<StatPill icon="icon-[mdi--chat-outline]" value={`${sessionCount} 个会话`} />
-							{createdAt && <StatPill icon="icon-[mdi--calendar-outline]" value={formatDate(createdAt)} />}
+							<StatPill icon="icon-[mdi--chat-outline]" value={t("detail.sessionCount", { count: sessionCount })} />
+							{createdAt && <StatPill icon="icon-[mdi--calendar-outline]" value={formatDate(createdAt, dateLocale)} />}
 							{isBatch && (
 								<StatPill
 									icon="icon-[mdi--layers-outline]"
-									value={`${batchProject.tasks.length} 个任务`}
+									value={t("detail.taskCount", { count: batchProject.tasks.length })}
 								/>
 							)}
 						</motion.div>
@@ -438,7 +452,7 @@ export function ProjectDetailPage(): JSX.Element {
 										<span className="icon-[mdi--file-document-edit-outline] h-3.5 w-3.5 text-primary" />
 									</motion.div>
 									<h2 className="text-[13px] font-semibold tracking-tight text-foreground">
-										项目人设
+										{t("detail.persona")}
 									</h2>
 									<AnimatePresence>
 										{isDirty && (
@@ -448,7 +462,7 @@ export function ProjectDetailPage(): JSX.Element {
 												animate={{ opacity: 1, scale: 1 }}
 												exit={{ opacity: 0, scale: 0 }}
 												className="relative flex h-1.5 w-1.5"
-												title="未保存的更改"
+												title={t("detail.unsavedChanges")}
 											>
 												<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-70" />
 												<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
@@ -467,7 +481,7 @@ export function ProjectDetailPage(): JSX.Element {
 												className="flex items-center gap-1 text-[12px] font-medium text-emerald-400/90"
 											>
 												<span className="icon-[mdi--check-circle] h-3.5 w-3.5" />
-												已保存
+												{t("detail.saved")}
 											</motion.span>
 										)}
 										{saveStatus === "error" && (
@@ -479,7 +493,7 @@ export function ProjectDetailPage(): JSX.Element {
 												className="flex items-center gap-1 text-[12px] font-medium text-destructive"
 											>
 												<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />
-												保存失败
+												{t("detail.saveFailed")}
 											</motion.span>
 										)}
 									</AnimatePresence>
@@ -496,7 +510,7 @@ export function ProjectDetailPage(): JSX.Element {
 											) : (
 												<span className="icon-[mdi--content-save-outline] h-3.5 w-3.5" />
 											)}
-											保存
+											{t("detail.save")}
 										</Button>
 									</motion.div>
 								</div>
@@ -536,7 +550,7 @@ export function ProjectDetailPage(): JSX.Element {
 										onChange={(e) => setContent(e.target.value)}
 										onFocus={() => setEditorFocused(true)}
 										onBlur={() => setEditorFocused(false)}
-										placeholder="在此编写 AGENTS.md 项目指令..."
+										placeholder={t("detail.editorPlaceholder")}
 										spellCheck={false}
 										className="min-h-0 flex-1 resize-none bg-transparent px-6 py-5 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/30 focus:outline-none"
 									/>
@@ -545,11 +559,11 @@ export function ProjectDetailPage(): JSX.Element {
 
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
 								<span className="icon-[mdi--information-outline] h-3 w-3 opacity-60" />
-								AGENTS.md 用于定义项目级别的 AI 指令，所有会话都会自动加载此文件。
+								{t("detail.agentsMdHint")}
 								<kbd className="ml-1 rounded-md border border-border/40 bg-accent/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground/70 shadow-sm">
 									{isMac ? "⌘" : "Ctrl"}+S
 								</kbd>
-								<span>快速保存</span>
+								<span>{t("detail.quickSave")}</span>
 							</p>
 						</motion.div>
 					</div>
