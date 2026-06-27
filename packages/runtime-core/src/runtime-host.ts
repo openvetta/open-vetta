@@ -26,6 +26,7 @@ import {
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
+	AgentPluginSystemPromptInvoker,
 	AgentPluginToolInvoker,
 	AssistantTurnTiming,
 	BackgroundTaskInfo,
@@ -61,6 +62,8 @@ interface SessionHandle {
 	session: AgentSession;
 	executionMode: SessionExecutionMode;
 	agentPluginsEnabled: boolean;
+	pendingAgentPlugins: AgentPluginRuntimeConfig | undefined;
+	hasPendingAgentPlugins: boolean;
 	/** 本会话解析后的对话场景（缺省回落 DEFAULT_SCENARIO），getState 回传给 renderer。 */
 	scenario: ConversationScenario;
 }
@@ -135,6 +138,9 @@ function summarizeAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefine
 		toolContributions: agentPlugins?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [],
 		continuationContributions:
 			agentPlugins?.continuationContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
+		systemPromptProviders:
+			agentPlugins?.systemPromptProviderContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ??
+			[],
 	};
 }
 
@@ -223,6 +229,7 @@ export class RuntimeHost implements SessionFacade {
 		| undefined;
 	private pluginToolInvoker: AgentPluginToolInvoker | undefined;
 	private pluginContinuationInvoker: AgentPluginContinuationInvoker | undefined;
+	private pluginSystemPromptInvoker: AgentPluginSystemPromptInvoker | undefined;
 
 	constructor(options: RuntimeHostOptions = {}) {
 		this.getDefaultExecutionMode = options.getDefaultExecutionMode ?? (() => "sandbox");
@@ -267,6 +274,10 @@ export class RuntimeHost implements SessionFacade {
 		this.pluginContinuationInvoker = handler;
 	}
 
+	setPluginSystemPromptInvoker(handler: AgentPluginSystemPromptInvoker | undefined): void {
+		this.pluginSystemPromptInvoker = handler;
+	}
+
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
 		debugPluginAgent("runtime reconfigure requested", {
 			sessionCount: this.sessions.size,
@@ -278,7 +289,9 @@ export class RuntimeHost implements SessionFacade {
 				continue;
 			}
 			if (handle.session.isStreaming || handle.session.isBashRunning) {
-				debugPluginAgent("runtime reconfigure skip: session busy", {
+				handle.pendingAgentPlugins = agentPlugins;
+				handle.hasPendingAgentPlugins = true;
+				debugPluginAgent("runtime reconfigure deferred: session busy", {
 					sessionId,
 					isStreaming: handle.session.isStreaming,
 					isBashRunning: handle.session.isBashRunning,
@@ -287,6 +300,8 @@ export class RuntimeHost implements SessionFacade {
 			}
 			debugPluginAgent("runtime reconfigure apply", { sessionId });
 			handle.session.reconfigureAgentPlugins(agentPlugins);
+			handle.pendingAgentPlugins = undefined;
+			handle.hasPendingAgentPlugins = false;
 		}
 	}
 
@@ -435,6 +450,9 @@ export class RuntimeHost implements SessionFacade {
 			invokePluginContinuation: this.pluginContinuationInvoker
 				? (invocation, signal) => this.pluginContinuationInvoker?.(invocation, signal) ?? Promise.resolve(null)
 				: undefined,
+			invokePluginSystemPrompt: this.pluginSystemPromptInvoker
+				? (invocation, signal) => this.pluginSystemPromptInvoker?.(invocation, signal) ?? Promise.resolve([])
+				: undefined,
 			// 「向用户提问」能力：只有宿主显式允许的 session 才会注册工具；
 			// isEnabled / ask 仍实时读取 this.userQuestionHandler，保留动态开关能力。
 			askUserQuestion:
@@ -474,6 +492,8 @@ export class RuntimeHost implements SessionFacade {
 			session,
 			executionMode,
 			agentPluginsEnabled: config.enableAgentPlugins === true,
+			pendingAgentPlugins: undefined,
+			hasPendingAgentPlugins: false,
 			scenario: config.scenario ?? DEFAULT_SCENARIO,
 		});
 		debugPluginAgent("runtime createSession registered", {
@@ -587,6 +607,7 @@ export class RuntimeHost implements SessionFacade {
 
 	async prompt(sessionId: string, request: PromptRequest): Promise<void> {
 		const handle = this.requireSession(sessionId);
+		this.applyPendingAgentPlugins(sessionId, handle);
 
 		// Ensure the session model matches the requested model BEFORE prompting,
 		// so the model actually used is always the one the UI displays.
@@ -656,6 +677,7 @@ export class RuntimeHost implements SessionFacade {
 
 	async continue(sessionId: string): Promise<void> {
 		const handle = this.requireSession(sessionId);
+		this.applyPendingAgentPlugins(sessionId, handle);
 		await handle.session.agent.continue();
 	}
 
@@ -1221,6 +1243,15 @@ export class RuntimeHost implements SessionFacade {
 			throw runtimeError("SESSION_NOT_FOUND", `Session not found: ${sessionId}`, false);
 		}
 		return handle;
+	}
+
+	private applyPendingAgentPlugins(sessionId: string, handle: SessionHandle): void {
+		if (!handle.agentPluginsEnabled || !handle.hasPendingAgentPlugins) return;
+		if (handle.session.isStreaming || handle.session.isBashRunning) return;
+		debugPluginAgent("runtime deferred reconfigure apply", { sessionId });
+		handle.session.reconfigureAgentPlugins(handle.pendingAgentPlugins);
+		handle.pendingAgentPlugins = undefined;
+		handle.hasPendingAgentPlugins = false;
 	}
 
 	private assertCanSwitchExecutionMode(handle: SessionHandle): void {

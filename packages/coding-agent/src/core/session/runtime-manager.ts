@@ -29,6 +29,7 @@ import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
+	AgentPluginSystemPromptInvoker,
 	AgentPluginToolContribution,
 	AgentPluginToolInvoker,
 } from "../system-prompt.js";
@@ -78,6 +79,7 @@ export interface RuntimeManagerOptions {
 	invokePluginTool?: AgentPluginToolInvoker;
 	/** Host bridge used by plugin continuation providers. */
 	invokePluginContinuation?: AgentPluginContinuationInvoker;
+	invokePluginSystemPrompt?: AgentPluginSystemPromptInvoker;
 }
 
 const MAX_PLUGIN_CONTINUATIONS_PER_RUN = 8;
@@ -100,6 +102,8 @@ export class RuntimeManager {
 	private _agentPlugins?: AgentPluginRuntimeConfig;
 	private readonly _invokePluginTool?: AgentPluginToolInvoker;
 	private readonly _invokePluginContinuation?: AgentPluginContinuationInvoker;
+	private readonly _invokePluginSystemPrompt?: AgentPluginSystemPromptInvoker;
+	private _pluginSystemPromptRunIndex = 0;
 	private _pluginContinuationRunCount = 0;
 	private readonly _seenPluginContinuationKeys = new Set<string>();
 
@@ -143,6 +147,7 @@ export class RuntimeManager {
 		this._agentPlugins = opts.agentPlugins;
 		this._invokePluginTool = opts.invokePluginTool;
 		this._invokePluginContinuation = opts.invokePluginContinuation;
+		this._invokePluginSystemPrompt = opts.invokePluginSystemPrompt;
 	}
 
 	get extensionRunner(): ExtensionRunner | undefined {
@@ -247,6 +252,74 @@ export class RuntimeManager {
 		});
 	}
 
+	async prepareSystemPromptForAgentRun(messages: AgentMessage[], signal?: AbortSignal): Promise<string> {
+		const providers = [...(this._agentPlugins?.systemPromptProviderContributions ?? [])].sort(
+			(a, b) => a.pluginId.localeCompare(b.pluginId) || a.id.localeCompare(b.id),
+		);
+		if (!this._invokePluginSystemPrompt || providers.length === 0) return this._baseSystemPrompt;
+		const model = this.ctx.agent.state.model;
+		const runIndex = this._pluginSystemPromptRunIndex++;
+		const invocationBase = {
+			session: { id: this.host.sessionId, cwd: this.ctx.cwd, scenario: this._scenario },
+			model: {
+				provider: model.provider,
+				id: model.id,
+				api: model.api,
+				input: [...(model.input ?? [])],
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
+			},
+			conversation: {
+				messages: messages.map((message) => ({
+					role: message.role,
+					text: extractPluginPromptMessageText(message),
+					timestamp:
+						"timestamp" in message && typeof message.timestamp === "number" ? message.timestamp : undefined,
+					toolName: "toolName" in message && typeof message.toolName === "string" ? message.toolName : undefined,
+				})),
+				messageCount: messages.length,
+			},
+			runtime: {
+				activeToolNames: this.getActiveToolNames(),
+				availableToolNames: Array.from(this._toolRegistry.keys()),
+				runIndex,
+			},
+			trigger: { kind: "agent-run" as const, timestamp: Date.now() },
+		};
+		const dynamicContributions = await Promise.all(
+			providers.map(async (provider) => {
+				try {
+					const operations = await invokeWithTimeout(
+						(providerSignal) =>
+							this._invokePluginSystemPrompt?.(
+								{
+									pluginId: provider.pluginId,
+									providerId: provider.id,
+									handlerId: provider.handlerId,
+									...invocationBase,
+								},
+								providerSignal,
+							) ?? Promise.resolve([]),
+						signal,
+						provider.timeoutMs ?? DEFAULT_PLUGIN_CONTINUATION_TIMEOUT_MS,
+					);
+					return { pluginId: provider.pluginId, operations };
+				} catch (error) {
+					console.warn(`[plugin-agent] system prompt provider failed: ${provider.pluginId}/${provider.id}`, error);
+					return { pluginId: provider.pluginId, operations: [] };
+				}
+			}),
+		);
+		const config: AgentPluginRuntimeConfig = {
+			...this._agentPlugins,
+			systemPromptContributions: [
+				...(this._agentPlugins?.systemPromptContributions ?? []),
+				...dynamicContributions.filter((item) => item.operations.length > 0),
+			],
+		};
+		return this.rebuildSystemPrompt(this.getActiveToolNames(), config);
+	}
+
 	resetPluginContinuationRun(): void {
 		this._pluginContinuationRunCount = 0;
 	}
@@ -310,7 +383,7 @@ export class RuntimeManager {
 		}
 	}
 
-	private rebuildSystemPrompt(toolNames: string[]): string {
+	private rebuildSystemPrompt(toolNames: string[], agentPlugins = this._agentPlugins): string {
 		return rebuildSystemPrompt({
 			toolNames,
 			baseToolRegistry: this._baseToolRegistry,
@@ -322,7 +395,7 @@ export class RuntimeManager {
 			memoryFile: this.ctx.memoryFile,
 			memorySnapshot: this.ctx.memorySnapshot,
 			memoryCharLimit: this.ctx.memoryCharLimit,
-			agentPlugins: this._agentPlugins,
+			agentPlugins,
 		});
 	}
 
@@ -801,6 +874,22 @@ function createPluginTools(options: {
 		return [];
 	}
 	return options.contributions.map((contribution) => createPluginTool(contribution, options));
+}
+
+function extractPluginPromptMessageText(message: AgentMessage): string {
+	if (!("content" in message)) return "";
+	const content = message.content;
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.map((item) => {
+			if (!item || typeof item !== "object") return "";
+			if ("text" in item && typeof item.text === "string") return item.text;
+			if ("thinking" in item && typeof item.thinking === "string") return item.thinking;
+			return "";
+		})
+		.filter(Boolean)
+		.join("\n");
 }
 
 function createPluginTool(

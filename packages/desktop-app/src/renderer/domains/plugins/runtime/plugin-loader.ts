@@ -43,6 +43,7 @@ import {
 	pluginHostBridge,
 	registerPluginAgentToolHandler,
 	registerPluginContinuationHandler,
+	registerPluginSystemPromptHandler,
 } from "./plugin-host-bridge";
 import { createPluginRuntimeShared } from "./plugin-shared-modules";
 
@@ -688,6 +689,45 @@ function createContext(
 					dispose: () => {
 						handlerHandle.dispose();
 						void window.vetta.plugins.unregisterContinuationProvider(plugin.id, providerId, activationId);
+					},
+				};
+			},
+			registerSystemPromptProvider: (registration) => {
+				if (
+					!hasPermission(plugin, "agent.systemPrompt.write") &&
+					!hasPermission(plugin, "agent.systemPrompt.fullControl")
+				) {
+					throw new Error(`Plugin permission denied: agent.systemPrompt.write`);
+				}
+				if (typeof registration.id !== "string" || registration.id.trim().length === 0) {
+					throw new Error("System prompt provider id is required");
+				}
+				if (typeof registration.handler !== "function") {
+					throw new Error("System prompt provider handler is required");
+				}
+				const providerId = registration.id.trim();
+				const handlerId = `${providerId}:${crypto.randomUUID()}`;
+				const handlerHandle = registerPluginSystemPromptHandler({
+					pluginId: plugin.id,
+					handlerId,
+					handler: registration.handler,
+				});
+				const registrationPromise = window.vetta.plugins
+					.registerSystemPromptProvider(plugin.id, {
+						id: providerId,
+						handlerId,
+						activationId,
+						timeoutMs: registration.timeoutMs,
+					})
+					.catch((error: Error) => {
+						handlerHandle.dispose();
+						throw error;
+					});
+				pendingAgentRegistrations.push(registrationPromise);
+				return {
+					dispose: () => {
+						handlerHandle.dispose();
+						void window.vetta.plugins.unregisterSystemPromptProvider(plugin.id, providerId, activationId);
 					},
 				};
 			},

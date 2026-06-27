@@ -1,7 +1,7 @@
 # Global Slot Demo Plugin
 
 This example demonstrates a trusted desktop UI plugin that renders through Vetta's global slot.
-It also shows the current agent contribution manifest shape for prompt blocks, skill paths, tool policies,
+It also shows a TypeScript system prompt provider, skill paths, tool policies,
 a JS-registered agent tool, and an opt-in continuation provider.
 
 ## Build
@@ -52,8 +52,11 @@ The settings page can also install and enable the generated zip from the plugin 
 
 - The plugin is built as a Module Federation remote and exposes `./plugin`.
 - `@vetta/plugin-vite` supplies the default Vite Module Federation and Rollup configuration for Vetta plugins.
-- `plugin.json` declares an `agent` section:
-  - `agent.systemPrompt.promptPaths` injects `agent/prompts/fiction-system.md` as a separate system prompt block.
+- `src/index.tsx` registers `fiction-system-prompt` with `ctx.agent.registerSystemPromptProvider(...)`.
+  - The provider runs before every Agent run and receives current plugin settings, session, model, conversation, runtime tool, and trigger snapshots.
+  - It demonstrates all five prompt operations: add, replace, update, disable, and remove.
+  - Operations run in returned order. Replace can create the target when add is off, update only changes an existing target, and remove runs last.
+- `plugin.json` declares the static agent resources:
   - `agent.skillPaths` contributes `agent/skills/fiction-outline/SKILL.md` to the skill loader.
   - `agent.toolPolicy.deny` hides `doc_to_pdf` from the active tool set as a low-risk example.
 - `src/index.tsx` registers `novel_write_chapter_file` at activation time. The tool schema is authored with `@sinclair/typebox`, and the handler writes through the host-controlled `api.fs.writeFile(...)` bridge.

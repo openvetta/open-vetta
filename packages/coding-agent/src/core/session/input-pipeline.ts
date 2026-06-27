@@ -294,13 +294,11 @@ export class InputPipeline {
 		messages.push(...this.queue.takeNextTurn());
 
 		// Emit before_agent_start extension event
+		const pluginSystemPrompt = await this.runtime.prepareSystemPromptForAgentRun(messages);
+		this.ctx.agent.setSystemPrompt(pluginSystemPrompt);
 		const beforeStartRunner = this.runtime.extensionRunner;
 		if (beforeStartRunner) {
-			const result = await beforeStartRunner.emitBeforeAgentStart(
-				expandedText,
-				currentImages,
-				this.runtime.baseSystemPrompt,
-			);
+			const result = await beforeStartRunner.emitBeforeAgentStart(expandedText, currentImages, pluginSystemPrompt);
 			// Add all custom messages from extensions
 			if (result?.messages) {
 				for (const msg of result.messages) {
@@ -319,7 +317,7 @@ export class InputPipeline {
 				this.ctx.agent.setSystemPrompt(result.systemPrompt);
 			} else {
 				// Ensure we're using the base prompt (in case previous turn had modifications)
-				this.ctx.agent.setSystemPrompt(this.runtime.baseSystemPrompt);
+				this.ctx.agent.setSystemPrompt(pluginSystemPrompt);
 			}
 		}
 

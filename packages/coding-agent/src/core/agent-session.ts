@@ -234,6 +234,7 @@ export class AgentSession {
 			agentPlugins: config.agentPlugins,
 			invokePluginTool: config.invokePluginTool,
 			invokePluginContinuation: config.invokePluginContinuation,
+			invokePluginSystemPrompt: config.invokePluginSystemPrompt,
 		});
 
 		this._input = new InputPipeline(this._ctx, {
@@ -435,6 +436,10 @@ export class AgentSession {
 	/** Reconfigure plugin-provided runtime resources and rebuild tools/system prompt. */
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void {
 		this._runtime.reconfigureAgentPlugins(agentPlugins);
+	}
+
+	async prepareSystemPromptForAgentRun(messages: AgentMessage[], signal?: AbortSignal): Promise<string> {
+		return this._runtime.prepareSystemPromptForAgentRun(messages, signal);
 	}
 
 	/** Whether auto-compaction is currently running */

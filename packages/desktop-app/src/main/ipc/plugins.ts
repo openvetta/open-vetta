@@ -21,6 +21,7 @@ import {
 	listPlugins,
 	registerDynamicAgentTool,
 	registerDynamicContinuationProvider,
+	registerDynamicSystemPromptProvider,
 	reloadPlugin,
 	revokePluginCommands,
 	revokePluginPermissions,
@@ -30,6 +31,7 @@ import {
 	uninstallPlugin,
 	unregisterDynamicAgentTool,
 	unregisterDynamicContinuationProvider,
+	unregisterDynamicSystemPromptProvider,
 } from "../plugins/plugin-store.js";
 import { getSharedRuntime } from "../runtime.js";
 
@@ -153,6 +155,24 @@ function asContinuationRegistration(value: unknown): {
 	};
 }
 
+function asSystemPromptProviderRegistration(value: unknown): {
+	id: string;
+	handlerId: string;
+	activationId?: string;
+	timeoutMs?: number;
+} {
+	const input = asRecord(value, "system prompt provider registration");
+	return {
+		id: asPluginId(input.id),
+		handlerId: asPluginId(input.handlerId),
+		activationId: asOptionalStringId(input.activationId, "system prompt provider activation id"),
+		timeoutMs:
+			typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
+				? Math.min(Math.floor(input.timeoutMs), 30_000)
+				: undefined,
+	};
+}
+
 const pluginLog = getAppLogger("plugin");
 
 function refreshAgentPlugins(): void {
@@ -230,6 +250,24 @@ export function registerPluginsIpc(): () => void {
 		refreshAgentPlugins();
 	});
 	ipcMain.handle(
+		"vetta:plugins:system-prompt-provider-register",
+		(_event, pluginId: unknown, registration: unknown) => {
+			registerDynamicSystemPromptProvider(asPluginId(pluginId), asSystemPromptProviderRegistration(registration));
+			refreshAgentPlugins();
+		},
+	);
+	ipcMain.handle(
+		"vetta:plugins:system-prompt-provider-unregister",
+		(_event, pluginId: unknown, providerId: unknown, activationId: unknown) => {
+			unregisterDynamicSystemPromptProvider(
+				asPluginId(pluginId),
+				asPluginId(providerId),
+				asOptionalStringId(activationId, "system prompt provider activation id"),
+			);
+			refreshAgentPlugins();
+		},
+	);
+	ipcMain.handle(
 		"vetta:plugins:continuation-unregister",
 		(_event, pluginId: unknown, providerId: unknown, activationId: unknown) => {
 			unregisterDynamicContinuationProvider(
@@ -285,6 +323,7 @@ export function registerPluginsIpc(): () => void {
 			throw new Error("Invalid plugin settings values");
 		}
 		const effective = setPluginSettings(pluginId, values as Record<string, unknown>);
+		refreshAgentPlugins();
 		// Broadcast so the plugin host (and any open settings view) can react live.
 		for (const contents of webContents.getAllWebContents()) {
 			contents.send("vetta:plugins:settings-changed", { pluginId, values: effective });
@@ -327,6 +366,8 @@ export function registerPluginsIpc(): () => void {
 		ipcMain.removeHandler("vetta:plugins:agent-contributions-clear");
 		ipcMain.removeHandler("vetta:plugins:continuation-register");
 		ipcMain.removeHandler("vetta:plugins:continuation-unregister");
+		ipcMain.removeHandler("vetta:plugins:system-prompt-provider-register");
+		ipcMain.removeHandler("vetta:plugins:system-prompt-provider-unregister");
 		ipcMain.removeHandler("vetta:plugins:get-settings");
 		ipcMain.removeHandler("vetta:plugins:set-settings");
 		ipcMain.removeHandler("vetta:plugins:images:generate");

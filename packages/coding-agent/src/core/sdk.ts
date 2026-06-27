@@ -20,6 +20,7 @@ import { SettingsManager } from "./settings-manager.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
+	AgentPluginSystemPromptInvoker,
 	AgentPluginToolInvoker,
 } from "./system-prompt.js";
 import { time } from "./timings.js";
@@ -169,6 +170,8 @@ export interface CreateAgentSessionOptions {
 	invokePluginTool?: AgentPluginToolInvoker;
 	/** Host bridge used by plugin continuation providers. */
 	invokePluginContinuation?: AgentPluginContinuationInvoker;
+	/** Host bridge used by dynamic system prompt providers. */
+	invokePluginSystemPrompt?: AgentPluginSystemPromptInvoker;
 }
 
 /** Result from createAgentSession */
@@ -541,6 +544,7 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 		agentPlugins: options.agentPlugins,
 		invokePluginTool: options.invokePluginTool,
 		invokePluginContinuation: options.invokePluginContinuation,
+		invokePluginSystemPrompt: options.invokePluginSystemPrompt,
 	});
 	agentSessionRef.current = session;
 	const extensionsResult = resourceLoader.getExtensions();
