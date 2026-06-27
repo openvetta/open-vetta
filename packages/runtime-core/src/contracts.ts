@@ -87,6 +87,43 @@ export interface AgentPluginContinuationContribution {
 	timeoutMs?: number;
 }
 
+export interface AgentPluginSystemPromptProviderContribution {
+	pluginId: string;
+	id: string;
+	handlerId: string;
+	timeoutMs?: number;
+}
+
+export interface AgentPluginSystemPromptMessage {
+	role: string;
+	text: string;
+	timestamp?: number;
+	toolName?: string;
+}
+
+export interface AgentPluginSystemPromptInvocation {
+	pluginId: string;
+	providerId: string;
+	handlerId: string;
+	session: { id: string; cwd: string; scenario: string };
+	model: {
+		provider: string;
+		id: string;
+		api: string;
+		input: string[];
+		contextWindow?: number;
+		maxTokens?: number;
+	};
+	conversation: { messages: AgentPluginSystemPromptMessage[]; messageCount: number };
+	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
+	trigger: { kind: "agent-run"; timestamp: number };
+}
+
+export type AgentPluginSystemPromptInvoker = (
+	invocation: AgentPluginSystemPromptInvocation,
+	signal?: AbortSignal,
+) => Promise<SystemPromptOperation[]>;
+
 export interface AgentPluginRuntimeConfig {
 	systemPromptContributions?: SystemPromptContribution[];
 	skillPathContributions?: SkillPathContribution[];
@@ -94,6 +131,7 @@ export interface AgentPluginRuntimeConfig {
 	toolContributions?: AgentPluginToolContribution[];
 	stateContributions?: AgentPluginStateContribution[];
 	continuationContributions?: AgentPluginContinuationContribution[];
+	systemPromptProviderContributions?: AgentPluginSystemPromptProviderContribution[];
 }
 
 export interface AgentPluginToolInvocation {
@@ -522,6 +560,7 @@ export interface SessionFacade {
 	): void;
 	setPluginToolInvoker(handler: AgentPluginToolInvoker | undefined): void;
 	setPluginContinuationInvoker(handler: AgentPluginContinuationInvoker | undefined): void;
+	setPluginSystemPromptInvoker(handler: AgentPluginSystemPromptInvoker | undefined): void;
 	reconfigureAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): void;
 	listSandboxGrants(sessionId: string): RuntimeSandboxGrantInfo[];
 	revokeSandboxGrant(sessionId: string, grantId: string): boolean;

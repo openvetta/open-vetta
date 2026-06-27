@@ -25,6 +25,7 @@ import type { SettingsManager } from "../settings-manager.js";
 import type {
 	AgentPluginContinuationInvoker,
 	AgentPluginRuntimeConfig,
+	AgentPluginSystemPromptInvoker,
 	AgentPluginToolInvoker,
 } from "../system-prompt.js";
 import type { TodoItem } from "../todo-store.js";
@@ -114,6 +115,7 @@ export interface AgentSessionConfig {
 	invokePluginTool?: AgentPluginToolInvoker;
 	/** Host bridge used by plugin continuation providers. */
 	invokePluginContinuation?: AgentPluginContinuationInvoker;
+	invokePluginSystemPrompt?: AgentPluginSystemPromptInvoker;
 }
 
 export interface ExtensionBindings {

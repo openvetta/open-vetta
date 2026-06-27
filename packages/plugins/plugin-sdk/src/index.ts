@@ -440,8 +440,79 @@ export interface PluginAgentToolRegistration<TInput = unknown> {
 	handler: PluginAgentToolHandler<TInput>;
 }
 
+export interface PluginSystemPromptBlock {
+	id: string;
+	content: string;
+	priority?: number;
+	enabled?: boolean;
+}
+
+export type PluginDynamicSystemPromptOperation =
+	| { type: "addBlock"; block: PluginSystemPromptBlock }
+	| { type: "replaceBlock"; blockId: string; block: Omit<PluginSystemPromptBlock, "id"> }
+	| {
+			type: "updateBlock";
+			blockId: string;
+			patch: Partial<Pick<PluginSystemPromptBlock, "content" | "priority" | "enabled">>;
+	  }
+	| { type: "removeBlock"; blockId: string }
+	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
+
+export interface PluginSystemPromptMessage {
+	role: string;
+	text: string;
+	timestamp?: number;
+	toolName?: string;
+}
+
+export interface PluginSystemPromptProviderContext {
+	plugin: {
+		id: string;
+		providerId: string;
+		settings: Readonly<Record<string, unknown>>;
+	};
+	session: {
+		id: string;
+		cwd: string;
+		scenario: ConversationScenario;
+	};
+	model: {
+		provider: string;
+		id: string;
+		api: string;
+		input: readonly string[];
+		contextWindow?: number;
+		maxTokens?: number;
+	};
+	conversation: {
+		messages: readonly PluginSystemPromptMessage[];
+		messageCount: number;
+	};
+	runtime: {
+		activeToolNames: readonly string[];
+		availableToolNames: readonly string[];
+		runIndex: number;
+	};
+	trigger: {
+		kind: "agent-run";
+		timestamp: number;
+	};
+}
+
+export type PluginSystemPromptProviderHandler = (
+	context: PluginSystemPromptProviderContext,
+) => PluginDynamicSystemPromptOperation[] | Promise<PluginDynamicSystemPromptOperation[]>;
+
+export interface PluginSystemPromptProviderRegistration {
+	id: string;
+	timeoutMs?: number;
+	handler: PluginSystemPromptProviderHandler;
+}
+
 export interface PluginAgentApi {
 	registerTool<TInput = unknown>(registration: PluginAgentToolRegistration<TInput>): Disposable;
+	/** Register a provider evaluated before every Agent run. */
+	registerSystemPromptProvider(registration: PluginSystemPromptProviderRegistration): Disposable;
 	/**
 	 * Register a policy consulted when the agent reaches a natural stopping point.
 	 * Return null to allow the agent to stop, or a message to continue with another turn.

@@ -206,6 +206,54 @@ export interface PluginContinuationInvocationResult {
 	idempotencyKey?: string;
 }
 
+export interface PluginSystemPromptProviderRegistration {
+	id: string;
+	handlerId: string;
+	activationId?: string;
+	timeoutMs?: number;
+}
+
+export interface SystemPromptBlockInput {
+	id: string;
+	content: string;
+	priority?: number;
+	enabled?: boolean;
+}
+
+export type PluginDynamicSystemPromptOperation =
+	| { type: "addBlock"; block: SystemPromptBlockInput }
+	| { type: "replaceBlock"; blockId: string; block: Omit<SystemPromptBlockInput, "id"> }
+	| {
+			type: "updateBlock";
+			blockId: string;
+			patch: Partial<Pick<SystemPromptBlockInput, "content" | "priority" | "enabled">>;
+	  }
+	| { type: "removeBlock"; blockId: string }
+	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
+
+export interface PluginSystemPromptInvocationRequest {
+	requestId: string;
+	pluginId: string;
+	providerId: string;
+	handlerId: string;
+	settings: Record<string, unknown>;
+	session: { id: string; cwd: string; scenario: string };
+	model: {
+		provider: string;
+		id: string;
+		api: string;
+		input: string[];
+		contextWindow?: number;
+		maxTokens?: number;
+	};
+	conversation: {
+		messages: Array<{ role: string; text: string; timestamp?: number; toolName?: string }>;
+		messageCount: number;
+	};
+	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
+	trigger: { kind: "agent-run"; timestamp: number };
+}
+
 export interface DesktopPluginsApi {
 	list(): Promise<InstalledPlugin[]>;
 	installFromArchive(archiveBuffer: ArrayBuffer, options?: PluginInstallOptions): Promise<InstalledPlugin>;
@@ -238,6 +286,13 @@ export interface DesktopPluginsApi {
 	respondContinuation(
 		requestId: string,
 		result: { value: PluginContinuationInvocationResult | null } | { error: string },
+	): Promise<void>;
+	registerSystemPromptProvider(pluginId: string, registration: PluginSystemPromptProviderRegistration): Promise<void>;
+	unregisterSystemPromptProvider(pluginId: string, providerId: string, activationId?: string): Promise<void>;
+	onSystemPromptRequest(handler: (request: PluginSystemPromptInvocationRequest) => void): () => void;
+	respondSystemPrompt(
+		requestId: string,
+		result: { value: PluginDynamicSystemPromptOperation[] } | { error: string },
 	): Promise<void>;
 	/** Effective setting values for a plugin (schema defaults merged with stored). */
 	getSettings(id: string): Promise<Record<string, unknown>>;

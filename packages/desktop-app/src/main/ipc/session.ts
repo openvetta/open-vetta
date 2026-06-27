@@ -8,6 +8,7 @@ import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-pro
 import type {
 	AgentPluginContinuationInvocation,
 	AgentPluginContinuationResult,
+	AgentPluginSystemPromptInvocation,
 	AgentPluginToolInvocation,
 	PromptRequest,
 	RuntimeSandboxGrantDecision,
@@ -25,7 +26,13 @@ import { getAppLogger } from "../logger.js";
 import { notify } from "../notifications/index.js";
 import { mapSessionEventToPetPresentation } from "../pet/session-event-action-policy.js";
 import { sendPetCommandToWindow } from "../pet-window.js";
-import { buildAgentPluginRuntimeConfig, summarizeAgentPluginRuntimeConfig } from "../plugins/plugin-store.js";
+import {
+	buildAgentPluginRuntimeConfig,
+	getPluginSettings,
+	listPlugins,
+	summarizeAgentPluginRuntimeConfig,
+} from "../plugins/plugin-store.js";
+import { normalizeDynamicSystemPromptOperations } from "../plugins/system-prompt-operations.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import {
@@ -198,6 +205,8 @@ const CHANNELS = {
 	PLUGIN_TOOL_RESPONSE: "vetta:plugins:agent-tool-response",
 	PLUGIN_CONTINUATION_REQUEST: "vetta:plugins:continuation-request",
 	PLUGIN_CONTINUATION_RESPONSE: "vetta:plugins:continuation-response",
+	PLUGIN_SYSTEM_PROMPT_REQUEST: "vetta:plugins:system-prompt-request",
+	PLUGIN_SYSTEM_PROMPT_RESPONSE: "vetta:plugins:system-prompt-response",
 } as const;
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -282,6 +291,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	const sandboxGrantMap = new Map<string, (decision: RuntimeSandboxGrantDecision) => void>();
 	const pluginToolMap = new Map<string, (result: unknown) => void>();
 	const pluginContinuationMap = new Map<string, (result: unknown) => void>();
+	const pluginSystemPromptMap = new Map<string, (result: unknown) => void>();
 	/** Track session cwd for debug file writing */
 	const sessionCwdMap = new Map<string, string>();
 	/** Track debug request sequence per session */
@@ -501,6 +511,42 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			pluginContinuationMap.set(requestId, finish);
 			webContents.send(CHANNELS.PLUGIN_CONTINUATION_REQUEST, { ...request, requestId });
+		});
+	});
+
+	runtime.setPluginSystemPromptInvoker((request: AgentPluginSystemPromptInvocation, signal?: AbortSignal) => {
+		if (webContents.isDestroyed()) return Promise.resolve([]);
+		return new Promise((resolve, reject) => {
+			const requestId = randomUUID();
+			const finish = (result: unknown): void => {
+				pluginSystemPromptMap.delete(requestId);
+				if (signal) signal.removeEventListener("abort", onAbort);
+				if (typeof result === "object" && result !== null && "error" in result) {
+					reject(new Error(String((result as { error?: unknown }).error ?? "Plugin system prompt failed")));
+					return;
+				}
+				const plugin = listPlugins().find((candidate) => candidate.id === request.pluginId);
+				if (!plugin || !plugin.enabled) {
+					reject(new Error(`Plugin not found or disabled: ${request.pluginId}`));
+					return;
+				}
+				resolve(normalizeDynamicSystemPromptOperations(plugin, (result as { value?: unknown })?.value));
+			};
+			const onAbort = (): void => {
+				pluginSystemPromptMap.delete(requestId);
+				reject(new Error("Plugin system prompt invocation was aborted"));
+			};
+			if (signal?.aborted) {
+				reject(new Error("Plugin system prompt invocation was aborted"));
+				return;
+			}
+			if (signal) signal.addEventListener("abort", onAbort, { once: true });
+			pluginSystemPromptMap.set(requestId, finish);
+			webContents.send(CHANNELS.PLUGIN_SYSTEM_PROMPT_REQUEST, {
+				...request,
+				requestId,
+				settings: getPluginSettings(request.pluginId),
+			});
 		});
 	});
 
@@ -905,6 +951,11 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		const resolve = pluginContinuationMap.get(requestId);
 		if (resolve) resolve(result);
 	});
+	ipcMain.handle(CHANNELS.PLUGIN_SYSTEM_PROMPT_RESPONSE, (_event, requestId: unknown, result: unknown) => {
+		assertNonEmptyString(requestId, "plugin system prompt request id");
+		const resolve = pluginSystemPromptMap.get(requestId);
+		if (resolve) resolve(result);
+	});
 
 	ipcMain.handle(CHANNELS.SANDBOX_GRANTS_LIST, (_event, sessionId: unknown) => {
 		assertNonEmptyString(sessionId, "sessionId");
@@ -1031,6 +1082,10 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			resolve({ value: null });
 		}
 		pluginContinuationMap.clear();
+		for (const resolve of pluginSystemPromptMap.values()) {
+			resolve({ error: "Plugin host renderer disposed" });
+		}
+		pluginSystemPromptMap.clear();
 	};
 	webContents.on("render-process-gone", onRenderGone);
 
@@ -1133,6 +1188,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		runtime.setUserSandboxGrantHandler(undefined);
 		runtime.setPluginToolInvoker(undefined);
 		runtime.setPluginContinuationInvoker(undefined);
+		runtime.setPluginSystemPromptInvoker(undefined);
 		// 不在此处 disposeAllSessions：共享 runtime 的 session 可能正被
 		// scheduler/batch-tasks 在后台使用。全进程 session 释放由 main.ts
 		// 的 before-quit 负责（见 disposeSharedRuntime）。

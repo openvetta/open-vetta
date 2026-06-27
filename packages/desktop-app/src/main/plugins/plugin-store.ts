@@ -5,8 +5,10 @@ import { getVettaHomePath } from "@vetta/action-rpc";
 import type {
 	AgentPluginContinuationContribution,
 	AgentPluginRuntimeConfig,
+	AgentPluginSystemPromptProviderContribution,
 	AgentPluginToolContribution,
 	SystemPromptBlock,
+	SystemPromptOperation,
 } from "@vetta/runtime-core";
 import AdmZip from "adm-zip";
 import { app } from "electron";
@@ -35,10 +37,14 @@ type RegisteredAgentTool = Omit<AgentPluginToolContribution, "pluginId"> & { act
 type RegisteredContinuationProvider = Omit<AgentPluginContinuationContribution, "pluginId"> & {
 	activationId?: string;
 };
+type RegisteredSystemPromptProvider = Omit<AgentPluginSystemPromptProviderContribution, "pluginId"> & {
+	activationId?: string;
+};
 
 const pluginLog = getAppLogger("plugin");
 const dynamicAgentTools = new Map<string, Map<string, RegisteredAgentTool>>();
 const dynamicContinuationProviders = new Map<string, Map<string, RegisteredContinuationProvider>>();
+const dynamicSystemPromptProviders = new Map<string, Map<string, RegisteredSystemPromptProvider>>();
 const dynamicAgentActivations = new Map<string, string>();
 
 function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
@@ -53,6 +59,8 @@ function summarizeRuntimeConfig(config: AgentPluginRuntimeConfig | undefined): R
 		toolContributions: config?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [],
 		continuationContributions:
 			config?.continuationContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
+		systemPromptProviders:
+			config?.systemPromptProviderContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
 	};
 }
 
@@ -516,15 +524,20 @@ function resolveInstalledPluginResource(plugin: InstalledPlugin, relativePath: s
 	return resolvePluginFilePath(plugin.id, pluginResourceRelativePath(plugin, relativePath));
 }
 
-function readPromptBlock(plugin: InstalledPlugin, relativePath: string, index: number): SystemPromptBlock {
+function readPromptBlock(
+	plugin: InstalledPlugin,
+	relativePath: string,
+	index: number,
+	options?: { id?: string; priority?: number; enabled?: boolean },
+): SystemPromptBlock {
 	const content = readFileSync(resolveInstalledPluginResource(plugin, relativePath), "utf-8");
 	return {
-		id: `plugin.${plugin.id}.systemPrompt.${index + 1}`,
+		id: options?.id ?? `plugin.${plugin.id}.systemPrompt.${index + 1}`,
 		type: "plugin",
 		source: { kind: "plugin", pluginId: plugin.id },
 		content,
-		priority: 850,
-		enabled: content.trim().length > 0,
+		priority: options?.priority ?? 850,
+		enabled: options?.enabled ?? content.trim().length > 0,
 	};
 }
 
@@ -544,23 +557,28 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 	const toolPolicyContributions: NonNullable<AgentPluginRuntimeConfig["toolPolicyContributions"]> = [];
 	const toolContributions: NonNullable<AgentPluginRuntimeConfig["toolContributions"]> = [];
 	const continuationContributions: NonNullable<AgentPluginRuntimeConfig["continuationContributions"]> = [];
+	const systemPromptProviderContributions: NonNullable<AgentPluginRuntimeConfig["systemPromptProviderContributions"]> =
+		[];
 
 	for (const plugin of enabledPlugins) {
 		try {
 			const agent = plugin.agent;
 			if (!agent) continue;
 			if (
-				agent.systemPrompt?.promptPaths &&
+				agent.systemPrompt &&
 				(hasGrantedPermission(plugin, "agent.systemPrompt.write") ||
 					hasGrantedPermission(plugin, "agent.systemPrompt.fullControl"))
 			) {
-				systemPromptContributions.push({
-					pluginId: plugin.id,
-					operations: agent.systemPrompt.promptPaths.map((path, index) => ({
-						type: "addBlock",
-						block: readPromptBlock(plugin, path, index),
-					})),
-				});
+				const operations: SystemPromptOperation[] = (agent.systemPrompt.promptPaths ?? []).map((path, index) => ({
+					type: "addBlock",
+					block: readPromptBlock(plugin, path, index),
+				}));
+				if (operations.length > 0) {
+					systemPromptContributions.push({
+						pluginId: plugin.id,
+						operations,
+					});
+				}
 			}
 			if (agent.skillPaths && hasGrantedPermission(plugin, "agent.skills.control")) {
 				skillPathContributions.push({
@@ -601,6 +619,19 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 	}
 
 	for (const plugin of enabledToolPlugins) {
+		if (
+			!hasGrantedPermission(plugin, "agent.systemPrompt.write") &&
+			!hasGrantedPermission(plugin, "agent.systemPrompt.fullControl")
+		) {
+			continue;
+		}
+		for (const provider of dynamicSystemPromptProviders.get(plugin.id)?.values() ?? []) {
+			const { activationId: _activationId, ...contribution } = provider;
+			systemPromptProviderContributions.push({ ...contribution, pluginId: plugin.id });
+		}
+	}
+
+	for (const plugin of enabledToolPlugins) {
 		if (!hasGrantedPermission(plugin, "agent.continuation.register")) continue;
 		const registeredProviders = dynamicContinuationProviders.get(plugin.id);
 		if (!registeredProviders) continue;
@@ -616,6 +647,9 @@ export function buildAgentPluginRuntimeConfig(): AgentPluginRuntimeConfig | unde
 	if (toolPolicyContributions.length > 0) config.toolPolicyContributions = toolPolicyContributions;
 	if (toolContributions.length > 0) config.toolContributions = toolContributions;
 	if (continuationContributions.length > 0) config.continuationContributions = continuationContributions;
+	if (systemPromptProviderContributions.length > 0) {
+		config.systemPromptProviderContributions = systemPromptProviderContributions;
+	}
 	const result = Object.keys(config).length > 0 ? config : undefined;
 	debugPluginAgent("build runtime config done", summarizeRuntimeConfig(result));
 	return result;
@@ -630,6 +664,7 @@ export function beginDynamicAgentContributionLoad(pluginId: string, activationId
 	const previousContinuationCount = dynamicContinuationProviders.get(pluginId)?.size ?? 0;
 	dynamicAgentTools.delete(pluginId);
 	dynamicContinuationProviders.delete(pluginId);
+	dynamicSystemPromptProviders.delete(pluginId);
 	debugPluginAgent("dynamic agent contribution activation began", {
 		pluginId,
 		activationId,
@@ -722,6 +757,42 @@ export function registerDynamicContinuationProvider(pluginId: string, provider: 
 	providers.set(provider.id, provider);
 }
 
+export function registerDynamicSystemPromptProvider(pluginId: string, provider: RegisteredSystemPromptProvider): void {
+	validatePluginId(pluginId);
+	const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+	if (!plugin) throw new Error(`Plugin not found: ${pluginId}`);
+	if (
+		!hasGrantedPermission(plugin, "agent.systemPrompt.write") &&
+		!hasGrantedPermission(plugin, "agent.systemPrompt.fullControl")
+	) {
+		throw new Error("Plugin permission denied: agent.systemPrompt.write");
+	}
+	const currentActivationId = dynamicAgentActivations.get(pluginId);
+	if (provider.activationId && currentActivationId && provider.activationId !== currentActivationId) return;
+	let providers = dynamicSystemPromptProviders.get(pluginId);
+	if (!providers) {
+		providers = new Map();
+		dynamicSystemPromptProviders.set(pluginId, providers);
+	}
+	providers.set(provider.id, provider);
+}
+
+export function unregisterDynamicSystemPromptProvider(
+	pluginId: string,
+	providerId: string,
+	activationId?: string,
+): void {
+	validatePluginId(pluginId);
+	const currentActivationId = dynamicAgentActivations.get(pluginId);
+	if (activationId && currentActivationId && activationId !== currentActivationId) return;
+	const providers = dynamicSystemPromptProviders.get(pluginId);
+	if (!providers) return;
+	const provider = providers.get(providerId);
+	if (activationId && provider?.activationId && provider.activationId !== activationId) return;
+	providers.delete(providerId);
+	if (providers.size === 0) dynamicSystemPromptProviders.delete(pluginId);
+}
+
 export function unregisterDynamicContinuationProvider(
 	pluginId: string,
 	providerId: string,
@@ -753,6 +824,7 @@ export function clearDynamicAgentContributions(pluginId: string, activationId?: 
 	const previousContinuationCount = dynamicContinuationProviders.get(pluginId)?.size ?? 0;
 	dynamicAgentTools.delete(pluginId);
 	dynamicContinuationProviders.delete(pluginId);
+	dynamicSystemPromptProviders.delete(pluginId);
 	if (!activationId || currentActivationId === activationId) {
 		dynamicAgentActivations.delete(pluginId);
 	}

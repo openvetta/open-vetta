@@ -36,6 +36,8 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 | `agent.session.write` | `ctx.conversation.sendPrompt/insertText/abort` | [conversation-and-agent](./conversation-and-agent.md#对话驾驶) |
 | `agent.tools.register` | `ctx.agent.registerTool()`（注册工具 shell） | [conversation-and-agent](./conversation-and-agent.md#注册-agent-工具) |
 | `agent.toolHandler.execute` | 工具 handler 被 agent 调用时执行 | 同上 |
+| `agent.systemPrompt.write` | `ctx.agent.registerSystemPromptProvider()`；仅操作插件自己的 block | [conversation-and-agent](./conversation-and-agent.md#注册动态系统提示词-provider) |
+| `agent.systemPrompt.fullControl` | 动态 provider 操作非本插件 block | 同上 |
 | `agent.continuation.register` | `ctx.agent.registerContinuationProvider()` | [conversation-and-agent](./conversation-and-agent.md#注册-agent-自动续跑策略) |
 | `fs.read` | `ctx.fs.readDir/readFile/stat/listFilesRecursive` | [conversation-and-agent](./conversation-and-agent.md#文件-api) |
 | `fs.write` | `ctx.fs.writeFile/rename/delete/move/createDirectory` | 同上 |
@@ -47,7 +49,7 @@ ctx.permissions.require("fs.read");  // 缺则抛 Plugin permission denied: fs.r
 
 `PluginPermission` 联合里还包含以下值，目前是**声明了但还没对应能力 API** 的占位符，列出仅为未来扩展预留，现在声明它们不会解锁任何功能：
 
-`agent.command.run`、`agent.systemPrompt.read`、`agent.systemPrompt.write`、`agent.systemPrompt.fullControl`、`agent.skills.control`、`agent.tools.control`、`agent.state.read`、`agent.state.write`、`agent.runtime.configure`、`network.fetch`、`settings.read`、`settings.write`。
+`agent.command.run`、`agent.systemPrompt.read`、`agent.skills.control`、`agent.tools.control`、`agent.state.read`、`agent.state.write`、`agent.runtime.configure`、`network.fetch`、`settings.read`、`settings.write`。
 
 ## 最小授权原则
 

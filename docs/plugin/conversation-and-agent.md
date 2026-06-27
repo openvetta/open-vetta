@@ -123,6 +123,46 @@ ctx.agent.registerTool({
 - 输入栏的开关 badge 也会跟随对应工具的 scope：工具在当前场景不出现时，对应 badge 自动隐藏（见 [ui-slots.md](./ui-slots.md#输入栏动作-registerinputaction) 的 `requiresActiveTool`）。
 - `requires` 是另一条正交轴（会话能力，如 `"knowledge"`）；与 `scope_use` 取交集才激活。一般插件无需设置。
 
+## 注册动态系统提示词 Provider
+
+`ctx.agent.registerSystemPromptProvider()` 注册一个 TypeScript handler，在每次 **Agent run 开始、`before_agent_start` 扩展执行前**求值。它适合按插件设置、模型、会话场景、当前消息或工具状态动态生成和修改提示词。需要 `agent.systemPrompt.write`；修改非本插件 block 还需要 `agent.systemPrompt.fullControl`。
+
+```ts
+ctx.agent.registerSystemPromptProvider({
+  id: "domain-guidance",
+  timeoutMs: 3000,
+  handler(context) {
+    const { plugin, session, model, conversation, runtime, trigger } = context;
+    return [{
+      type: "addBlock",
+      block: {
+        id: `plugin.${plugin.id}.domain-guidance`,
+        content: [
+          String(plugin.settings.instructions ?? ""),
+          `scenario=${session.scenario}`,
+          `model=${model.provider}/${model.id}`,
+          `messages=${conversation.messageCount}`,
+          `tools=${runtime.activeToolNames.join(",")}`,
+          `run=${runtime.runIndex}@${trigger.timestamp}`,
+        ].join("\n"),
+        priority: 850,
+      },
+    }];
+  },
+});
+```
+
+handler 上下文按稳定职责分组：
+
+- `plugin`：插件 id、provider id、主进程读取的最新插件设置快照。
+- `session`：session id、cwd、对话场景。
+- `model`：provider、model id、API、输入能力、context window、最大输出 token。
+- `conversation`：本次调用实际使用的消息快照和消息数。
+- `runtime`：当前激活/可用工具名、当前 session 的 Agent run 序号。
+- `trigger`：触发类型和时间戳。
+
+返回 operation 按数组顺序执行，支持 `addBlock`、`replaceBlock`、`updateBlock`、`removeBlock`、`setBlockEnabled`。`write` 权限只能操作 `plugin.<本插件 id>.*`；宿主会校验所有返回值并补齐可信的 block source。handler 异常或超时只跳过该 provider，不阻止模型调用。
+
 ## 注册 Agent 自动续跑策略
 
 `ctx.agent.registerContinuationProvider()` 注册一个在 Agent 到达自然停止点时执行的策略。它与

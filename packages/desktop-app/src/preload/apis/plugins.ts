@@ -35,6 +35,13 @@ export function createPluginsApi(ipc: IpcRenderer): Pick<DesktopApi, "plugins"> 
 			onContinuationRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:continuation-request", handler),
 			respondContinuation: (requestId, result) =>
 				ipc.invoke("vetta:plugins:continuation-response", requestId, result),
+			registerSystemPromptProvider: (pluginId, registration) =>
+				ipc.invoke("vetta:plugins:system-prompt-provider-register", pluginId, registration),
+			unregisterSystemPromptProvider: (pluginId, providerId, activationId) =>
+				ipc.invoke("vetta:plugins:system-prompt-provider-unregister", pluginId, providerId, activationId),
+			onSystemPromptRequest: (handler) => onIpcEvent(ipc, "vetta:plugins:system-prompt-request", handler),
+			respondSystemPrompt: (requestId, result) =>
+				ipc.invoke("vetta:plugins:system-prompt-response", requestId, result),
 			getSettings: (id) => ipc.invoke("vetta:plugins:get-settings", id),
 			setSettings: (id, values) => ipc.invoke("vetta:plugins:set-settings", id, values),
 			generateImage: (pluginId, input) => ipc.invoke("vetta:plugins:images:generate", pluginId, input),

@@ -19,6 +19,7 @@ import type {
 	PluginConversationApi,
 	PluginHostBridge,
 	PluginImageRef,
+	PluginSystemPromptProviderHandler,
 } from "@vetta/plugin-sdk";
 import { __setPluginHostBridge } from "@vetta/plugin-sdk";
 import type { SessionEvent } from "@vetta/runtime-core";
@@ -34,6 +35,7 @@ interface PluginAgentToolHandlerEntry {
 
 const agentToolHandlers = new Map<string, PluginAgentToolHandlerEntry>();
 const continuationHandlers = new Map<string, PluginContinuationHandler>();
+const systemPromptHandlers = new Map<string, PluginSystemPromptProviderHandler>();
 
 function handlerKey(pluginId: string, handlerId: string): string {
 	return `${pluginId}:${handlerId}`;
@@ -199,6 +201,43 @@ function startContinuationRequestListener(): void {
 	});
 }
 
+let systemPromptRequestListenerStarted = false;
+
+function startSystemPromptRequestListener(): void {
+	if (systemPromptRequestListenerStarted) return;
+	systemPromptRequestListenerStarted = true;
+	window.vetta.plugins.onSystemPromptRequest((request) => {
+		const handler = systemPromptHandlers.get(handlerKey(request.pluginId, request.handlerId));
+		if (!handler) {
+			void window.vetta.plugins.respondSystemPrompt(request.requestId, {
+				error: `Plugin system prompt handler not found: ${request.pluginId}/${request.handlerId}`,
+			});
+			return;
+		}
+		void Promise.resolve(
+			handler({
+				plugin: { id: request.pluginId, providerId: request.providerId, settings: request.settings },
+				session: {
+					id: request.session.id,
+					cwd: request.session.cwd,
+					scenario: request.session
+						.scenario as Parameters<PluginSystemPromptProviderHandler>[0]["session"]["scenario"],
+				},
+				model: request.model,
+				conversation: request.conversation,
+				runtime: request.runtime,
+				trigger: request.trigger,
+			}),
+		).then(
+			(value) => window.vetta.plugins.respondSystemPrompt(request.requestId, { value }),
+			(error: unknown) =>
+				window.vetta.plugins.respondSystemPrompt(request.requestId, {
+					error: error instanceof Error ? error.message : String(error),
+				}),
+		);
+	});
+}
+
 export function registerPluginAgentToolHandler(options: {
 	pluginId: string;
 	toolId: string;
@@ -229,6 +268,22 @@ export function registerPluginContinuationHandler(options: {
 		dispose: () => {
 			if (continuationHandlers.get(key) === options.handler) {
 				continuationHandlers.delete(key);
+			}
+		},
+	};
+}
+
+export function registerPluginSystemPromptHandler(options: {
+	pluginId: string;
+	handlerId: string;
+	handler: PluginSystemPromptProviderHandler;
+}): Disposable {
+	const key = handlerKey(options.pluginId, options.handlerId);
+	systemPromptHandlers.set(key, options.handler);
+	return {
+		dispose: () => {
+			if (systemPromptHandlers.get(key) === options.handler) {
+				systemPromptHandlers.delete(key);
 			}
 		},
 	};
@@ -310,6 +365,7 @@ export function installPluginHostBridge(): void {
 	startTranslator();
 	startToolRequestListener();
 	startContinuationRequestListener();
+	startSystemPromptRequestListener();
 	if (installed) return;
 	installed = true;
 	__setPluginHostBridge(pluginHostBridge);

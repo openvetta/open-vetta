@@ -17,12 +17,16 @@ const writeChapterSchema = Type.Object({
 
 type WriteChapterInput = Static<typeof writeChapterSchema>;
 
+function settingEnabled(settings: Readonly<Record<string, unknown>>, key: string): boolean {
+	return settings[key] === true;
+}
+
 function DemoGlobalSlot() {
 	const [open, setOpen] = useState(true);
 	const [count, setCount] = useState(0);
 	const timestamp = useMemo(() => new Date().toLocaleTimeString(), []);
 	const agentExamples = [
-		"Prompt block: agent/prompts/fiction-system.md",
+		"Dynamic prompt provider: fiction-system-prompt",
 		"Skill path: agent/skills/fiction-outline",
 		"Tool policy: deny doc_to_pdf",
 		"JS tool: novel_write_chapter_file",
@@ -117,6 +121,62 @@ export default definePlugin({
 					path: input.path,
 					title: input.title,
 				};
+			},
+		});
+		ctx.agent.registerSystemPromptProvider({
+			id: "fiction-system-prompt",
+			timeoutMs: 3000,
+			handler: ({ plugin, session, model, conversation, runtime }) => {
+				const operations = [];
+				const blockId = "plugin.global-slot-demo.fiction";
+				const style =
+					typeof plugin.settings.fictionStyle === "string" && plugin.settings.fictionStyle.trim()
+						? plugin.settings.fictionStyle.trim()
+						: "Follow the user's requested genre and tone.";
+				if (settingEnabled(plugin.settings, "promptAddEnabled")) {
+					operations.push({
+						type: "addBlock" as const,
+						block: {
+							id: blockId,
+							priority: 850,
+							content: [
+								"# Dynamic Fiction Guidance",
+								style,
+								`Current scenario: ${session.scenario}.`,
+								`Current model: ${model.provider}/${model.id}.`,
+								`Conversation messages available to this provider: ${conversation.messageCount}.`,
+								`Active tools: ${runtime.activeToolNames.join(", ") || "none"}.`,
+							].join("\n\n"),
+						},
+					});
+				}
+				if (settingEnabled(plugin.settings, "promptReplaceEnabled")) {
+					operations.push({
+						type: "replaceBlock" as const,
+						blockId,
+						block: {
+							priority: 840,
+							content: `# Concise Fiction Guidance\n\n${style}\n\nProduce one concrete story artifact at a time.`,
+						},
+					});
+				}
+				if (settingEnabled(plugin.settings, "promptUpdateEnabled")) {
+					operations.push({
+						type: "updateBlock" as const,
+						blockId,
+						patch: {
+							priority: 830,
+							content: `# Continuity-First Fiction Guidance\n\n${style}\n\nPreserve names, chronology, setting rules, and unresolved hooks.`,
+						},
+					});
+				}
+				if (settingEnabled(plugin.settings, "promptDisableEnabled")) {
+					operations.push({ type: "setBlockEnabled" as const, blockId, enabled: false });
+				}
+				if (settingEnabled(plugin.settings, "promptRemoveEnabled")) {
+					operations.push({ type: "removeBlock" as const, blockId });
+				}
+				return operations;
 			},
 		});
 		ctx.agent.registerContinuationProvider({
