@@ -48,6 +48,7 @@ export type ThemeMode = "light" | "dark" | "auto";
 export const themeModeAtom = atom<ThemeMode>((localStorage.getItem("vetta-theme") as ThemeMode) || "dark");
 export const resolvedThemeAtom = atom<"light" | "dark">("dark");
 export const themeNameAtom = atom<string>(localStorage.getItem("vetta-color-theme") || DEFAULT_THEME_ID);
+export const customCursorAtom = atom<boolean>(localStorage.getItem("vetta-custom-cursor") === "true");
 
 // ─── Confirm dialog ───
 

@@ -2,11 +2,17 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { PetApp } from "./domains/pet/components/PetApp";
 import { applyInitialTheme, applyStoredTheme, MODE_STORAGE_KEY, THEME_STORAGE_KEY } from "./shared/theme/apply";
+import { applyStoredCustomCursor, CURSOR_STORAGE_KEY } from "./shared/theme/cursor";
 import "./styles.css";
 
 applyInitialTheme();
+applyStoredCustomCursor();
 
 window.addEventListener("storage", (event) => {
+	if (event.key === CURSOR_STORAGE_KEY) {
+		applyStoredCustomCursor();
+		return;
+	}
 	if (event.key !== MODE_STORAGE_KEY && event.key !== THEME_STORAGE_KEY) return;
 	applyStoredTheme();
 });
