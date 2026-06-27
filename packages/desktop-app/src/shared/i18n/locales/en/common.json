@@ -6,7 +6,8 @@
 		"save": "Save",
 		"delete": "Delete",
 		"close": "Close",
-		"apply": "Apply"
+		"apply": "Apply",
+		"back": "Back"
 	},
 	"appearance": {
 		"languageTitle": "Language",
