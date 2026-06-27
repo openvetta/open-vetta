@@ -515,13 +515,27 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	});
 
 	runtime.setPluginSystemPromptInvoker((request: AgentPluginSystemPromptInvocation, signal?: AbortSignal) => {
-		if (webContents.isDestroyed()) return Promise.resolve([]);
+		if (webContents.isDestroyed()) {
+			pluginLog.warn("[plugin-system-prompt] invocation skipped: renderer destroyed", {
+				pluginId: request.pluginId,
+				providerId: request.providerId,
+				sessionId: request.session.id,
+				runIndex: request.runtime.runIndex,
+			});
+			return Promise.resolve([]);
+		}
 		return new Promise((resolve, reject) => {
 			const requestId = randomUUID();
 			const finish = (result: unknown): void => {
 				pluginSystemPromptMap.delete(requestId);
 				if (signal) signal.removeEventListener("abort", onAbort);
 				if (typeof result === "object" && result !== null && "error" in result) {
+					pluginLog.warn("[plugin-system-prompt] renderer handler failed", {
+						requestId,
+						pluginId: request.pluginId,
+						providerId: request.providerId,
+						error: String((result as { error?: unknown }).error ?? "Plugin system prompt failed"),
+					});
 					reject(new Error(String((result as { error?: unknown }).error ?? "Plugin system prompt failed")));
 					return;
 				}
@@ -530,7 +544,14 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					reject(new Error(`Plugin not found or disabled: ${request.pluginId}`));
 					return;
 				}
-				resolve(normalizeDynamicSystemPromptOperations(plugin, (result as { value?: unknown })?.value));
+				const operations = normalizeDynamicSystemPromptOperations(plugin, (result as { value?: unknown })?.value);
+				pluginLog.debug("[plugin-system-prompt] operations normalized", {
+					requestId,
+					pluginId: request.pluginId,
+					providerId: request.providerId,
+					operationTypes: operations.map((operation) => operation.type),
+				});
+				resolve(operations);
 			};
 			const onAbort = (): void => {
 				pluginSystemPromptMap.delete(requestId);
@@ -542,6 +563,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			}
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			pluginSystemPromptMap.set(requestId, finish);
+			pluginLog.debug("[plugin-system-prompt] sending renderer request", {
+				requestId,
+				pluginId: request.pluginId,
+				providerId: request.providerId,
+				handlerId: request.handlerId,
+				sessionId: request.session.id,
+				runIndex: request.runtime.runIndex,
+				messageCount: request.conversation.messageCount,
+			});
 			webContents.send(CHANNELS.PLUGIN_SYSTEM_PROMPT_REQUEST, {
 				...request,
 				requestId,
@@ -954,6 +984,17 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	ipcMain.handle(CHANNELS.PLUGIN_SYSTEM_PROMPT_RESPONSE, (_event, requestId: unknown, result: unknown) => {
 		assertNonEmptyString(requestId, "plugin system prompt request id");
 		const resolve = pluginSystemPromptMap.get(requestId);
+		pluginLog.debug("[plugin-system-prompt] renderer response received", {
+			requestId,
+			hasPendingRequest: Boolean(resolve),
+			operationCount:
+				typeof result === "object" &&
+				result !== null &&
+				"value" in result &&
+				Array.isArray((result as { value?: unknown }).value)
+					? (result as { value: unknown[] }).value.length
+					: undefined,
+		});
 		if (resolve) resolve(result);
 	});
 
