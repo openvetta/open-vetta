@@ -1,8 +1,10 @@
 import type { AppLanguage } from "@/shared/i18n/config";
 import { cn } from "@shared/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { useCustomCursor } from "@shared/hooks/useCustomCursor";
 import { useLanguage } from "@shared/hooks/useLanguage";
 import { useTheme } from "@shared/hooks/useTheme";
+import { Switch } from "@shared/components/ui/switch";
 import type { ThemeMode } from "@shared/store/atoms";
 import { useTranslation } from "react-i18next";
 import { THEMES } from "@shared/theme/themes";
@@ -10,7 +12,7 @@ import type { ThemeDef } from "@shared/theme/tokens";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { type MouseEvent, useState } from "react";
-import { SettingHeading } from "./shared";
+import { SettingHeading, SettingRow } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
 const MODES: { value: ThemeMode; labelKey: string; icon: string; hintKey: string }[] = [
@@ -299,6 +301,7 @@ function ThemeCard({
 export function AppearanceSettings(): JSX.Element {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
 	const { language, setLanguage } = useLanguage();
+	const { enabled: customCursor, setEnabled: setCustomCursor } = useCustomCursor();
 	const { t: tCommon } = useTranslation("common");
 	const { t } = useTranslation("settings");
 	const narrow = useNarrowScreen();
@@ -355,6 +358,15 @@ export function AppearanceSettings(): JSX.Element {
 							}
 						/>
 					))}
+				</div>
+			</div>
+
+			<div className="mb-6">
+				<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
+				<div className="@container overflow-hidden rounded-xl border border-border bg-muted">
+					<SettingRow title={t("cursorCustomTitle")} description={t("cursorCustomHint")} border={false}>
+						<Switch checked={customCursor} onCheckedChange={setCustomCursor} />
+					</SettingRow>
 				</div>
 			</div>
 		</div>

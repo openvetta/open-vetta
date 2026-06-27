@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import type { KnowledgeNode, KnowledgeProcessStatus } from "@shared/types/knowledge-base";
 import { cn } from "@shared/lib/utils";
 
@@ -38,10 +39,11 @@ export function formatFileSize(bytes: number | undefined): string {
 
 /** 文件加工态角标：未加工（待处理）/ 待更新（源已改）。已加工不显示。 */
 export function StatusBadge({ status }: { status: KnowledgeProcessStatus }): JSX.Element {
+	const { t } = useTranslation("settings");
 	const config =
 		status === "stale"
-			? { icon: "icon-[mdi--sync-alert]", title: "源文件已更新，待重新加工", tone: "bg-amber-500 text-white" }
-			: { icon: "icon-[mdi--timer-sand]", title: "未加工", tone: "bg-muted-foreground/70 text-white" };
+			? { icon: "icon-[mdi--sync-alert]", title: t("kbBadgeStale"), tone: "bg-amber-500 text-white" }
+			: { icon: "icon-[mdi--timer-sand]", title: t("kbBadgeUnprocessed"), tone: "bg-muted-foreground/70 text-white" };
 	return (
 		<span
 			title={config.title}
@@ -59,6 +61,7 @@ const EMPTY_EASE = [0.22, 1, 0.36, 1] as const;
 
 /** 目录为空 / 搜索无结果时的占位态：柔和图标圆盘 + 文案。 */
 export function KnowledgeEmptyState({ searching }: { searching: boolean }): JSX.Element {
+	const { t } = useTranslation("settings");
 	return (
 		<div className="flex h-full items-center justify-center px-8 py-10">
 			<motion.div
@@ -78,10 +81,10 @@ export function KnowledgeEmptyState({ searching }: { searching: boolean }): JSX.
 					/>
 				</div>
 				<p className="text-[13px] font-medium text-foreground/80">
-					{searching ? "没有匹配的文件" : "这个目录是空的"}
+					{searching ? t("kbEmptySearchTitle") : t("kbEmptyDirTitle")}
 				</p>
 				<p className="mt-1.5 text-[11px] leading-5 text-muted-foreground/50">
-					{searching ? "换个关键词，或清空搜索查看全部内容" : "拖入文件或文件夹，新增内容会自动整理归类"}
+					{searching ? t("kbEmptySearchDesc") : t("kbEmptyDirDesc")}
 				</p>
 			</motion.div>
 		</div>

@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { KnowledgeBase, KnowledgeImportDraft } from "@shared/types/knowledge-base";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
+import { knowledgeBaseDisplayName } from "../lib/knowledge-base";
 import {
 	Dialog,
 	DialogContent,
@@ -36,12 +38,13 @@ export function KnowledgeImportDialog({
 	onClose,
 	onConfirm,
 }: KnowledgeImportDialogProps): JSX.Element {
+	const { t } = useTranslation(["settings", "common"]);
 	const createOnly = draft.createOnly ?? false;
 	const initialTarget = createOnly
 		? NEW_BASE
 		: (draft.defaultTargetId ?? activeKnowledgeBaseId ?? knowledgeBases[0]?.id ?? NEW_BASE);
 	const [target, setTarget] = useState(initialTarget);
-	const [name, setName] = useState("新知识库");
+	const [name, setName] = useState(() => t("kbImportNewBaseName"));
 
 	const creatingNew = target === NEW_BASE;
 	const validName = name.trim().length > 0 && !/[\\/]/.test(name.trim());
@@ -64,11 +67,11 @@ export function KnowledgeImportDialog({
 							<span className="icon-[mdi--folder-plus-outline] h-5 w-5" />
 						</div>
 						<div>
-							<DialogTitle>{createOnly ? "创建知识库" : "添加资料"}</DialogTitle>
+							<DialogTitle>{createOnly ? t("kbImportCreateTitle") : t("kbImportAddTitle")}</DialogTitle>
 							<DialogDescription className="mt-1">
 								{createOnly
-									? "填写名称即可创建，之后可随时拖入文件。"
-									: `已选择 ${draft.sourcePaths.length} 个项目，确认后平铺加入所选知识库。`}
+									? t("kbImportCreateDesc")
+									: t("kbImportAddDesc", { n: draft.sourcePaths.length })}
 							</DialogDescription>
 						</div>
 					</div>
@@ -76,7 +79,7 @@ export function KnowledgeImportDialog({
 
 				{!createOnly && knowledgeBases.length > 0 && (
 					<div className="grid gap-1.5">
-						<span className="text-[11px] font-medium text-foreground">加入到</span>
+						<span className="text-[11px] font-medium text-foreground">{t("kbImportAddTo")}</span>
 						<div className="max-h-44 overflow-y-auto rounded-lg border border-border/60 p-1">
 							{knowledgeBases.map((base) => (
 								<button
@@ -89,7 +92,7 @@ export function KnowledgeImportDialog({
 									)}
 								>
 									<span className="icon-[mdi--book-outline] h-4 w-4 text-muted-foreground" />
-									<span className="min-w-0 flex-1 truncate">{base.name}</span>
+									<span className="min-w-0 flex-1 truncate">{knowledgeBaseDisplayName(base)}</span>
 									{target === base.id && <span className="icon-[mdi--check] h-4 w-4 text-primary" />}
 								</button>
 							))}
@@ -102,7 +105,7 @@ export function KnowledgeImportDialog({
 								)}
 							>
 								<span className="icon-[mdi--plus] h-4 w-4" />
-								新建知识库
+								{t("kbCreateBase")}
 							</button>
 						</div>
 					</div>
@@ -110,7 +113,7 @@ export function KnowledgeImportDialog({
 
 				{creatingNew && (
 					<label htmlFor="knowledge-base-name" className="text-[11px] font-medium text-foreground">
-						知识库名称
+						{t("kbImportNameLabel")}
 						<Input
 							id="knowledge-base-name"
 							value={name}
@@ -123,11 +126,11 @@ export function KnowledgeImportDialog({
 
 				<DialogFooter>
 					<Button variant="ghost" onClick={onClose}>
-						取消
+						{t("common:actions.cancel")}
 					</Button>
 					<Button variant="primary" disabled={!canSubmit} onClick={confirm}>
 						<span className="icon-[mdi--folder-check-outline] h-4 w-4" />
-						{createOnly ? "创建" : "开始导入"}
+						{createOnly ? t("kbImportCreateBtn") : t("kbImportStartBtn")}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

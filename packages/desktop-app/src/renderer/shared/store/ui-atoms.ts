@@ -17,6 +17,8 @@ export const languageAtom = atom<AppLanguage>(
 // custom right-side action buttons into the global PageHeader.
 export const pageHeaderTitleAtom = atom<string | null>(null);
 export const pageHeaderRightSlotAtom = atom<ReactNode | null>(null);
+/** 顶栏左侧（侧边栏触发按钮之后、标题之前）的自定义插槽，如设置页的返回按钮。 */
+export const pageHeaderLeftSlotAtom = atom<ReactNode | null>(null);
 /** 紧贴顶栏标题 label 右侧的徽标插槽（如知识库「正在建立索引…」）。 */
 export const pageHeaderTitleBadgeAtom = atom<ReactNode | null>(null);
 // 设为 true 时彻底隐藏顶栏标题（连路由兜底标题也不显示），用于 NewSessionPage 等。
@@ -48,6 +50,7 @@ export type ThemeMode = "light" | "dark" | "auto";
 export const themeModeAtom = atom<ThemeMode>((localStorage.getItem("vetta-theme") as ThemeMode) || "dark");
 export const resolvedThemeAtom = atom<"light" | "dark">("dark");
 export const themeNameAtom = atom<string>(localStorage.getItem("vetta-color-theme") || DEFAULT_THEME_ID);
+export const customCursorAtom = atom<boolean>(localStorage.getItem("vetta-custom-cursor") === "true");
 
 // ─── Confirm dialog ───
 

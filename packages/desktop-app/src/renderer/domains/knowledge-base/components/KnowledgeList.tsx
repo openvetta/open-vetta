@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { getColoredFileIcon } from "@domains/file-explorer/components/fileIcons";
 import { cn } from "@shared/lib/utils";
 import { useMarqueeSelection } from "../hooks/useMarqueeSelection";
@@ -23,6 +24,7 @@ export function KnowledgeList({
 	onSelectIds,
 	onClearSelection,
 }: KnowledgeViewProps): JSX.Element {
+	const { t } = useTranslation("settings");
 	const { scrollRef, marquee, onMouseDown } = useMarqueeSelection({
 		selectedIds,
 		onSelectIds,
@@ -83,7 +85,7 @@ export function KnowledgeList({
 										{node.name}
 									</span>
 									<span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/55">
-										{isDir ? `${node.children?.length ?? 0} 项` : formatFileSize(node.size)}
+										{isDir ? t("kbItemCount", { n: node.children?.length ?? 0 }) : formatFileSize(node.size)}
 									</span>
 								</button>
 							);

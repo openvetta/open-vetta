@@ -6,7 +6,8 @@
 		"save": "保存",
 		"delete": "删除",
 		"close": "关闭",
-		"apply": "应用"
+		"apply": "应用",
+		"back": "返回"
 	},
 	"appearance": {
 		"languageTitle": "语言",
