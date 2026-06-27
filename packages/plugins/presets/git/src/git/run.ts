@@ -55,3 +55,87 @@ export async function fileDiff(root: string, entry: ChangeEntry): Promise<string
 	const unstaged = await git(root, ["diff", "--", entry.path]);
 	return unstaged.stdout;
 }
+
+/** Commits the upstream is ahead/behind by, or null when there is no upstream. */
+export async function aheadBehind(root: string): Promise<{ ahead: number; behind: number } | null> {
+	const res = await git(root, ["rev-list", "--left-right", "--count", "@{upstream}...HEAD"]);
+	if (res.exitCode !== 0) return null;
+	const [behind, ahead] = res.stdout.trim().split(/\s+/).map(Number);
+	if (!Number.isFinite(ahead) || !Number.isFinite(behind)) return null;
+	return { ahead, behind };
+}
+
+/** Sum the +/- columns of `--numstat` output (binary rows show "-" and are skipped). */
+function sumNumstat(out: string, addsOnly = false): { a: number; d: number } {
+	let a = 0;
+	let d = 0;
+	for (const line of out.split("\n")) {
+		if (!line.trim()) continue;
+		const parts = line.split("\t");
+		if (parts.length < 2) continue;
+		const na = Number(parts[0]);
+		const nd = Number(parts[1]);
+		if (Number.isFinite(na)) a += na;
+		if (!addsOnly && Number.isFinite(nd)) d += nd;
+	}
+	return { a, d };
+}
+
+/** Added/deleted line totals across all uncommitted changes, including untracked files. */
+export async function diffStat(root: string): Promise<{ additions: number; deletions: number }> {
+	let additions = 0;
+	let deletions = 0;
+
+	const head = await git(root, ["diff", "HEAD", "--numstat"]);
+	if (head.exitCode === 0) {
+		const s = sumNumstat(head.stdout);
+		additions += s.a;
+		deletions += s.d;
+	} else {
+		// No HEAD yet: combine staged + unstaged.
+		const cached = sumNumstat((await git(root, ["diff", "--cached", "--numstat"])).stdout);
+		const unstaged = sumNumstat((await git(root, ["diff", "--numstat"])).stdout);
+		additions += cached.a + unstaged.a;
+		deletions += cached.d + unstaged.d;
+	}
+
+	// Untracked files: every line counts as an addition (one --no-index diff each).
+	const others = await git(root, ["ls-files", "--others", "--exclude-standard", "-z"]);
+	const files = others.stdout.split("\0").filter(Boolean);
+	const adds = await Promise.all(
+		files.map((f) =>
+			git(root, ["diff", "--no-index", "--numstat", "--", "/dev/null", f])
+				.then((r) => sumNumstat(r.stdout, true).a)
+				.catch(() => 0),
+		),
+	);
+	additions += adds.reduce((sum, n) => sum + n, 0);
+
+	return { additions, deletions };
+}
+
+async function runGit(root: string, args: string[]): Promise<void> {
+	const res = await getGitCommand().run("git", args, { cwd: root, timeoutMs: 60_000 });
+	if (res.exitCode !== 0) throw new Error(res.stderr.trim() || `git ${args[0]} failed (exit ${res.exitCode})`);
+}
+
+/** Fetch from all remotes. */
+export function gitFetch(root: string): Promise<void> {
+	return runGit(root, ["fetch", "--all"]);
+}
+
+/** Pull the current branch (honors the user's pull config). */
+export function gitPull(root: string): Promise<void> {
+	return runGit(root, ["pull"]);
+}
+
+/** Push the current branch. */
+export function gitPush(root: string): Promise<void> {
+	return runGit(root, ["push"]);
+}
+
+/** Sync = pull then push (push only if the pull succeeds). */
+export async function gitSync(root: string): Promise<void> {
+	await runGit(root, ["pull"]);
+	await runGit(root, ["push"]);
+}
