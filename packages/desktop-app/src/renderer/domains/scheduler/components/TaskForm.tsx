@@ -8,6 +8,7 @@ import { defaultConversationCwdAtom, projectsAtom } from "@shared/store/atoms";
 import type { ExecutionModeOverride, ScheduledTask } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	SchedulerTaskFields,
 	type SchedulerTaskDraft,
@@ -24,6 +25,7 @@ interface TaskFormDialogProps {
 }
 
 export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JSX.Element {
+	const { t } = useTranslation("automation");
 	const { createTask, updateTask } = useScheduledTasks();
 	const projects = useAtomValue(projectsAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
@@ -81,7 +83,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 					<SchedulerTaskFields
 						value={data}
 						onChange={setData}
-						namePlaceholder={task ? "任务名称" : "新建任务"}
+						namePlaceholder={task ? t("dialog.namePlaceholderEdit") : t("dialog.namePlaceholderNew")}
 						showWorkDirSelector={false}
 					/>
 				</div>
@@ -94,7 +96,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 						className="h-9 rounded-lg px-3 text-[13px] text-muted-foreground hover:text-foreground"
 					>
 						<span className="icon-[mdi--close] h-4 w-4" />
-						<span>取消</span>
+						<span>{t("dialog.cancel")}</span>
 					</Button>
 					<Button
 						onClick={handleSubmit}
@@ -102,7 +104,7 @@ export function TaskFormDialog({ open, task, onClose }: TaskFormDialogProps): JS
 						className="h-9 rounded-lg bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/90"
 					>
 						<span className="icon-[mdi--check] h-4 w-4" />
-						<span>{task ? "保存" : "创建"}</span>
+						<span>{task ? t("dialog.save") : t("dialog.create")}</span>
 					</Button>
 				</div>
 			</DialogContent>

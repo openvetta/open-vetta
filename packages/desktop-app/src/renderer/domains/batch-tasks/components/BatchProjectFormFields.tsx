@@ -12,6 +12,7 @@ import {
 } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ModelOption {
 	provider: string;
@@ -112,13 +113,17 @@ export function normalizeTimeout(value: number | undefined): number {
 export function BatchProjectFormFields({
 	value,
 	onChange,
-	namePlaceholder = "项目名称",
+	namePlaceholder,
 	promptMinHeight = 120,
 	folderField = "folders",
-	folderLabel = "文件夹列表",
-	folderEmptyText = "暂无文件夹",
+	folderLabel,
+	folderEmptyText,
 	showFolders = true,
 }: BatchProjectFormFieldsProps): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
+	const namePlaceholderText = namePlaceholder ?? t("form.namePlaceholder");
+	const folderLabelText = folderLabel ?? t("form.folderLabel");
+	const folderEmptyTextValue = folderEmptyText ?? t("form.folderEmpty");
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const [defaultExecutionMode, setDefaultExecutionMode] = useState<SessionExecutionMode>("full-access");
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
@@ -145,13 +150,13 @@ export function BatchProjectFormFields({
 			if (capability?.status === "unavailable") {
 				const reason = capability.reason ?? "unknown_error";
 				const platform = "platform" in capability ? capability.platform : "linux";
-				setSandboxUnavailableReason(`${platform} 沙盒不可用：${reason}`);
+				setSandboxUnavailableReason(t("form.sandboxUnavailable", { platform, reason }));
 				return;
 			}
 			setSandboxUnavailableReason(null);
 		});
 		void window.vetta.models.get().then(setConfig);
-	}, []);
+	}, [t]);
 
 	useEffect(() => {
 		if (!modelDropdownOpen) return;
@@ -218,7 +223,7 @@ export function BatchProjectFormFields({
 					value={value.name ?? ""}
 					onChange={(event) => set("name", event.target.value)}
 					className="h-8 w-full border-none bg-transparent text-[15px] font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none! focus-visible:outline-none!"
-					placeholder={namePlaceholder}
+					placeholder={namePlaceholderText}
 					autoFocus
 				/>
 			</div>
@@ -228,13 +233,13 @@ export function BatchProjectFormFields({
 				onPromptChange={(prompt) => set("prompt", prompt)}
 				skill={value.skill ?? null}
 				onSkillChange={(skill) => set("skill", skill)}
-				placeholder="输入提示词...使用 / 唤出技能/场景"
+				placeholder={t("form.promptPlaceholder")}
 				minHeight={promptMinHeight}
 			/>
 
 			<div>
 				<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
-					<span>模型</span>
+					<span>{t("form.model")}</span>
 				</label>
 				<div ref={modelDropdownRef} className="relative">
 					<button
@@ -244,7 +249,7 @@ export function BatchProjectFormFields({
 					>
 						<span className="icon-[mdi--brain] h-4 w-4 shrink-0 text-muted-foreground" />
 						<span className="min-w-0 flex-1 truncate">
-							{selectedOption?.displayName ?? (models.length === 0 ? "暂无可用模型" : "选择模型")}
+							{selectedOption?.displayName ?? (models.length === 0 ? t("form.modelEmpty") : t("form.modelSelect"))}
 						</span>
 						{selectedOption?.remote && (
 							<span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
@@ -300,7 +305,7 @@ export function BatchProjectFormFields({
 													)}
 													{isDefault && (
 														<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-															默认
+															{t("form.defaultTag")}
 														</span>
 													)}
 													{isSelected && <span className="icon-[mdi--check] h-3.5 w-3.5 shrink-0" />}
@@ -318,7 +323,7 @@ export function BatchProjectFormFields({
 			<div className="flex items-end gap-6">
 				<div>
 					<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
-						<span>并发数</span>
+						<span>{t("form.concurrency")}</span>
 					</label>
 					<Select
 						value={String(normalizeConcurrency(value.concurrency))}
@@ -338,7 +343,7 @@ export function BatchProjectFormFields({
 				</div>
 				<div>
 					<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
-						<span>超时（分钟）</span>
+						<span>{t("form.timeout")}</span>
 					</label>
 					<Input
 						type="number"
@@ -354,12 +359,12 @@ export function BatchProjectFormFields({
 				</div>
 			</div>
 			<p className="text-xs text-muted-foreground/60">
-				子任务单次运行的硬超时。暂停后恢复会重新计时。
+				{t("form.timeoutHint")}
 			</p>
 
 			<div>
 				<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
-					<span>沙盒状态</span>
+					<span>{t("form.sandbox")}</span>
 				</label>
 				<Select
 					value={value.executionMode ?? "full-access"}
@@ -370,15 +375,17 @@ export function BatchProjectFormFields({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="inherit">
-							跟随全局默认（{defaultExecutionMode === "sandbox" ? "使用沙盒" : "完全访问"}）
+							{t("form.sandboxInherit", {
+								mode: defaultExecutionMode === "sandbox" ? t("form.useSandbox") : t("form.fullAccess"),
+							})}
 						</SelectItem>
-						<SelectItem value="full-access">完全访问</SelectItem>
+						<SelectItem value="full-access">{t("form.fullAccess")}</SelectItem>
 						<SelectItem
 							value="sandbox"
 							disabled={Boolean(sandboxUnavailableReason)}
 							title={sandboxUnavailableReason ?? undefined}
 						>
-							使用沙盒
+							{t("form.useSandbox")}
 						</SelectItem>
 					</SelectContent>
 				</Select>
@@ -386,9 +393,9 @@ export function BatchProjectFormFields({
 
 			<div className="flex items-start justify-between gap-4 rounded-md border border-border bg-muted/30 px-3 py-2.5">
 				<div className="min-w-0">
-					<div className="text-sm font-medium text-foreground">启用消息推送</div>
+					<div className="text-sm font-medium text-foreground">{t("form.notifyTitle")}</div>
 					<div className="mt-0.5 text-xs text-muted-foreground/80">
-						每个子任务完成后向已配置的 Webhook 推送一次，并在项目全部完成时推送汇总（可在 设置 → 消息推送 管理 Webhook）。
+						{t("form.notifyDesc")}
 					</div>
 				</div>
 				<Switch checked={value.notifyEnabled ?? false} onCheckedChange={(checked) => set("notifyEnabled", checked)} />
@@ -396,24 +403,24 @@ export function BatchProjectFormFields({
 
 			<div>
 				<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
-					<span>产物校验</span>
-					<span className="text-xs font-normal text-muted-foreground/60">可选</span>
+					<span>{t("form.artifact")}</span>
+					<span className="text-xs font-normal text-muted-foreground/60">{t("form.optional")}</span>
 				</label>
 				<Textarea
 					value={artifactPatternsText}
 					onChange={(event) => set("artifactPatterns", compactLines(event.target.value.split(/\r?\n/)))}
 					className="min-h-[72px] text-sm"
-					placeholder="每行一个文件名或通配符；为空则跳过校验"
+					placeholder={t("form.artifactPlaceholder")}
 				/>
 				<p className="mt-2 text-xs text-muted-foreground/60">
-					子任务目录顶层必须全部匹配才算成功。支持 glob：* 匹配任意字符、? 匹配单个字符。
+					{t("form.artifactHint")}
 				</p>
 			</div>
 
 			{showFolders && (
 				<div>
 					<div className="mb-2 flex items-center justify-between gap-3">
-						<p className="text-sm font-medium text-foreground">{folderLabel}</p>
+						<p className="text-sm font-medium text-foreground">{folderLabelText}</p>
 						<div className="inline-flex rounded-lg border border-border p-0.5">
 							<button
 								type="button"
@@ -424,7 +431,7 @@ export function BatchProjectFormFields({
 										: "text-muted-foreground hover:text-foreground"
 								}`}
 							>
-								选择添加
+								{t("form.folderModePicker")}
 							</button>
 							<button
 								type="button"
@@ -435,7 +442,7 @@ export function BatchProjectFormFields({
 										: "text-muted-foreground hover:text-foreground"
 								}`}
 							>
-								文本添加
+								{t("form.folderModeText")}
 							</button>
 						</div>
 					</div>
@@ -445,7 +452,7 @@ export function BatchProjectFormFields({
 							onClick={handleSelectFolders}
 							className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
 						>
-							选择文件夹
+							{t("form.selectFolder")}
 						</button>
 					) : (
 						<>
@@ -456,7 +463,7 @@ export function BatchProjectFormFields({
 								placeholder={"/path/to/project-a\n/path/to/project-b"}
 							/>
 							<p className="mt-2 text-xs text-muted-foreground/60">
-								Linux 目录多选不稳定时，可直接粘贴路径，每行一个文件夹。
+								{t("form.folderTextHint")}
 							</p>
 						</>
 					)}
@@ -479,7 +486,7 @@ export function BatchProjectFormFields({
 							))}
 						</div>
 					) : (
-						<p className="mt-3 text-xs text-muted-foreground/50">{folderEmptyText}</p>
+						<p className="mt-3 text-xs text-muted-foreground/50">{folderEmptyTextValue}</p>
 					)}
 				</div>
 			)}

@@ -12,6 +12,7 @@ import {
 } from "@shared/components/ui/dialog";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	BatchProjectFormFields,
 	type BatchProjectEditableData,
@@ -56,6 +57,7 @@ function flattenModelKeys(config: ModelsConfigData, remoteProviders: ModelsConfi
 }
 
 export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialogProps): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	const { createProject, updateProject } = useBatchTasks();
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const [data, setData] = useState<BatchProjectEditableData>(() => getProjectData(project));
@@ -129,14 +131,14 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 				showCloseButton={false}
 			>
 				<DialogHeader className="sr-only">
-					<DialogTitle>{project ? "编辑项目" : "新建批量项目"}</DialogTitle>
+					<DialogTitle>{project ? t("dialog.editTitle") : t("dialog.newTitle")}</DialogTitle>
 				</DialogHeader>
 
 				<div className="flex-1 overflow-y-auto px-7 pt-6 pb-4">
 					<BatchProjectFormFields
 						value={data}
 						onChange={setData}
-						namePlaceholder={project ? "项目名称" : "新建批量项目"}
+						namePlaceholder={project ? t("dialog.namePlaceholderEdit") : t("dialog.namePlaceholderNew")}
 					/>
 				</div>
 
@@ -147,7 +149,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 						className="h-9 rounded-lg px-3 text-[13px] text-muted-foreground hover:text-foreground"
 					>
 						<span className="icon-[mdi--close] h-4 w-4" />
-						<span>取消</span>
+						<span>{t("dialog.cancel")}</span>
 					</Button>
 					<Button
 						onClick={handleSubmit}
@@ -155,7 +157,7 @@ export function BatchProjectDialog({ open, project, onClose }: BatchProjectDialo
 						className="h-9 rounded-lg bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/90"
 					>
 						<span className="icon-[mdi--check] h-4 w-4" />
-						<span>{project ? "保存" : "创建"}</span>
+						<span>{project ? t("dialog.save") : t("dialog.create")}</span>
 					</Button>
 				</div>
 			</DialogContent>

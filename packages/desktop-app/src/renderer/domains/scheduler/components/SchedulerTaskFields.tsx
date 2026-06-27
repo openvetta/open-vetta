@@ -14,6 +14,7 @@ import type {
 import type { ModelsConfigData } from "@preload/api";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	describeSchedule,
 	getDefaultDailySchedule,
@@ -49,12 +50,6 @@ interface SchedulerTaskFieldsProps {
 }
 
 type CompactScheduleMode = "once" | "daily" | "interval";
-
-const SCHEDULE_MODES: { key: CompactScheduleMode; label: string }[] = [
-	{ key: "once", label: "单次" },
-	{ key: "daily", label: "每天" },
-	{ key: "interval", label: "间隔" },
-];
 
 interface ModelOption {
 	provider: string;
@@ -155,6 +150,7 @@ function IntervalEditor({
 	schedule: IntervalSchedule;
 	onChange: (schedule: IntervalSchedule) => void;
 }): JSX.Element {
+	const { t } = useTranslation("automation");
 	const [unit, setUnit] = useState<"hours" | "days">(() =>
 		schedule.intervalHours >= 24 && schedule.intervalHours % 24 === 0 ? "days" : "hours",
 	);
@@ -162,7 +158,7 @@ function IntervalEditor({
 
 	return (
 		<div className="flex items-center gap-2">
-			<span className="text-sm text-muted-foreground">每隔</span>
+			<span className="text-sm text-muted-foreground">{t("form.every")}</span>
 			<input
 				type="number"
 				value={displayValue}
@@ -188,8 +184,8 @@ function IntervalEditor({
 				}}
 				className="h-9 rounded-lg border-none bg-muted px-2 pr-6 text-sm text-foreground focus:outline-none"
 			>
-				<option value="hours">小时</option>
-				<option value="days">天</option>
+				<option value="hours">{t("form.unitHours")}</option>
+				<option value="days">{t("form.unitDays")}</option>
 			</select>
 		</div>
 	);
@@ -198,11 +194,18 @@ function IntervalEditor({
 export function SchedulerTaskFields({
 	value,
 	onChange,
-	namePlaceholder = "任务名称",
+	namePlaceholder,
 	showEnabled = false,
 	showWorkDirSelector = true,
 	promptMinHeight = 140,
 }: SchedulerTaskFieldsProps): JSX.Element {
+	const { t } = useTranslation("automation");
+	const namePlaceholderText = namePlaceholder ?? t("form.namePlaceholder");
+	const scheduleModes: { key: CompactScheduleMode; label: string }[] = [
+		{ key: "once", label: t("scheduleMode.once") },
+		{ key: "daily", label: t("scheduleMode.daily") },
+		{ key: "interval", label: t("scheduleMode.interval") },
+	];
 	const projects = useAtomValue(projectsAtom);
 	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
@@ -237,14 +240,14 @@ export function SchedulerTaskFields({
 			if (capability?.status === "unavailable") {
 				const reason = capability.reason ?? "unknown_error";
 				const platform = "platform" in capability ? capability.platform : "linux";
-				setSandboxUnavailableReason(`${platform} 沙盒不可用：${reason}`);
+				setSandboxUnavailableReason(t("form.sandboxUnavailable", { platform, reason }));
 				return;
 			}
 			setSandboxUnavailableReason(null);
 		});
 
 		void window.vetta.models.get().then(setModelsConfig);
-	}, []);
+	}, [t]);
 
 	const models = useMemo(() => {
 		const localModels = modelsConfig ? flattenModels(modelsConfig) : [];
@@ -263,11 +266,11 @@ export function SchedulerTaskFields({
 			seen.add(cwd);
 			options.push({ cwd, name: name ?? projectName(cwd) });
 		};
-		add(defaultCwd, "对话");
+		add(defaultCwd, t("form.conversation"));
 		add(value.cwd);
 		for (const project of projects) add(project.cwd, project.name);
 		return options;
-	}, [defaultCwd, projects, projectName, value.cwd]);
+	}, [defaultCwd, projects, projectName, value.cwd, t]);
 
 	const groupedModels = useMemo(() => {
 		const map = new Map<string, ModelOption[]>();
@@ -281,14 +284,16 @@ export function SchedulerTaskFields({
 
 	const mode = schedule.mode === "weekly" ? "daily" : schedule.mode as CompactScheduleMode;
 	const selectedModel = models.find((model) => model.key === value.modelKey);
-	const scheduleLabel = describeSchedule(schedule);
+	const scheduleLabel = describeSchedule(schedule, t);
 	const executionMode = value.executionMode ?? "inherit";
 	const executionLabel =
 		executionMode === "sandbox"
-			? "使用沙盒"
+			? t("form.useSandbox")
 			: executionMode === "full-access"
-				? "完全访问"
-				: `跟随默认（${defaultExecutionMode === "sandbox" ? "沙盒" : "完全访问"}）`;
+				? t("form.fullAccess")
+				: t("form.inherit", {
+						mode: defaultExecutionMode === "sandbox" ? t("form.sandbox") : t("form.fullAccess"),
+					});
 	const executionIcon =
 		executionMode === "sandbox"
 			? "icon-[mdi--shield-lock-outline]"
@@ -316,7 +321,7 @@ export function SchedulerTaskFields({
 					value={value.name ?? ""}
 					onChange={(event) => set("name", event.target.value)}
 					className="w-full border-none bg-transparent text-[15px] font-semibold text-foreground placeholder:text-muted-foreground/40 focus:outline-none! focus-visible:outline-none! focus:shadow-none! focus-visible:shadow-none!"
-					placeholder={namePlaceholder}
+					placeholder={namePlaceholderText}
 				/>
 			</div>
 
@@ -325,7 +330,7 @@ export function SchedulerTaskFields({
 				onPromptChange={(prompt) => set("prompt", prompt)}
 				skill={value.skill ?? null}
 				onSkillChange={(skill) => set("skill", skill)}
-				placeholder="输入提示词...使用 / 唤出技能/场景"
+				placeholder={t("form.promptPlaceholder")}
 				minHeight={promptMinHeight}
 				cwd={value.cwd}
 			/>
@@ -339,7 +344,7 @@ export function SchedulerTaskFields({
 								className="flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card/70 hover:text-foreground"
 							>
 								<span className="icon-[mdi--folder-outline] h-3.5 w-3.5" />
-								<span className="max-w-[140px] truncate">{value.cwd ? projectName(value.cwd) : "选择工作目录"}</span>
+								<span className="max-w-[140px] truncate">{value.cwd ? projectName(value.cwd) : t("form.selectWorkDir")}</span>
 								<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 opacity-60" />
 							</button>
 						</PopoverTrigger>
@@ -379,7 +384,7 @@ export function SchedulerTaskFields({
 					</PopoverTrigger>
 					<PopoverContent align="start" className="w-72 p-3">
 						<div className="mb-2.5 flex gap-1">
-							{SCHEDULE_MODES.map((scheduleMode) => (
+							{scheduleModes.map((scheduleMode) => (
 								<button
 									key={scheduleMode.key}
 									type="button"
@@ -419,9 +424,9 @@ export function SchedulerTaskFields({
 					</PopoverTrigger>
 					<PopoverContent align="start" className="w-56 p-1">
 						{[
-							{ value: "inherit" as const, label: `跟随默认（${defaultExecutionMode === "sandbox" ? "沙盒" : "完全访问"}）`, icon: "icon-[mdi--shield-outline]" },
-							{ value: "full-access" as const, label: "完全访问", icon: "icon-[mdi--shield-check-outline]" },
-							{ value: "sandbox" as const, label: "使用沙盒", icon: "icon-[mdi--shield-lock-outline]", disabled: Boolean(sandboxUnavailableReason) },
+							{ value: "inherit" as const, label: t("form.inherit", { mode: defaultExecutionMode === "sandbox" ? t("form.sandbox") : t("form.fullAccess") }), icon: "icon-[mdi--shield-outline]" },
+							{ value: "full-access" as const, label: t("form.fullAccess"), icon: "icon-[mdi--shield-check-outline]" },
+							{ value: "sandbox" as const, label: t("form.useSandbox"), icon: "icon-[mdi--shield-lock-outline]", disabled: Boolean(sandboxUnavailableReason) },
 						].map((option) => {
 							const isSelected = executionMode === option.value;
 							return (
@@ -457,7 +462,7 @@ export function SchedulerTaskFields({
 						>
 							<span className="icon-[mdi--brain] h-3.5 w-3.5" />
 							<span className="max-w-[160px] truncate">
-								{selectedModel?.displayName ?? (models.length === 0 ? "暂无模型" : "选择模型")}
+								{selectedModel?.displayName ?? (models.length === 0 ? t("form.modelEmpty") : t("form.modelSelect"))}
 							</span>
 							<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 opacity-60" />
 						</button>
@@ -505,7 +510,7 @@ export function SchedulerTaskFields({
 													)}
 													{isDefault && (
 														<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-															默认
+															{t("form.defaultTag")}
 														</span>
 													)}
 													{isSelected && <span className="icon-[mdi--check] h-3.5 w-3.5 shrink-0" />}
@@ -530,7 +535,7 @@ export function SchedulerTaskFields({
 						}`}
 					>
 						<span className={`${value.enabled ?? true ? "icon-[mdi--toggle-switch]" : "icon-[mdi--toggle-switch-off-outline]"} h-3.5 w-3.5`} />
-						<span>{value.enabled ?? true ? "已启用" : "已停用"}</span>
+						<span>{value.enabled ?? true ? t("form.enabled") : t("form.disabled")}</span>
 					</button>
 				)}
 			</div>

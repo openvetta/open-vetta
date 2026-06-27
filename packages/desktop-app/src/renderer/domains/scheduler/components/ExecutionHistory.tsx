@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAtomValue } from "jotai";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { TaskExecutionRecord } from "@shared/store/atoms";
 import { openSessionFnRef, scheduledRecordsVersionAtom } from "@shared/store/atoms";
 
@@ -13,6 +15,8 @@ interface ExecutionHistoryProps {
 }
 
 export function ExecutionHistory({ taskId, embedded = false }: ExecutionHistoryProps): JSX.Element {
+	const { t, i18n } = useTranslation("automation");
+	const locale = i18n.language === "en" ? "en-US" : "zh-CN";
 	const [records, setRecords] = useState<TaskExecutionRecord[]>([]);
 	const [loading, setLoading] = useState(true);
 	// 删除定时 session 会删掉对应执行记录并 +1，这里据此重新拉取。
@@ -59,7 +63,7 @@ export function ExecutionHistory({ taskId, embedded = false }: ExecutionHistoryP
 				) : records.length === 0 ? (
 					<div className="flex flex-col items-center justify-center gap-1 py-10 text-muted-foreground/50">
 						<span className="icon-[mdi--inbox-outline] text-2xl" />
-						<p className="text-xs">暂无执行记录</p>
+						<p className="text-xs">{t("history.empty")}</p>
 					</div>
 				) : (
 					<div>
@@ -78,9 +82,9 @@ export function ExecutionHistory({ taskId, embedded = false }: ExecutionHistoryP
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-2">
 										<span className="text-sm text-foreground">
-											{formatTime(record.startedAt)}
+											{formatTime(record.startedAt, locale)}
 										</span>
-										<StatusBadge status={record.status} />
+										<StatusBadge status={record.status} t={t} />
 										{record.durationMs != null && record.durationMs > 0 && (
 											<span className="text-xs text-muted-foreground/50">
 												{formatDuration(record.durationMs)}
@@ -110,13 +114,13 @@ export function ExecutionHistory({ taskId, embedded = false }: ExecutionHistoryP
 			<div className="flex min-h-0 flex-1 flex-col">
 				<div className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
 					<span className="icon-[mdi--history] text-sm text-muted-foreground/50" />
-					<span className="text-[13px] font-medium text-foreground">执行历史</span>
+					<span className="text-[13px] font-medium text-foreground">{t("history.title")}</span>
 					<span className="text-[11px] text-muted-foreground/40">{records.length}</span>
 					<div className="flex-1" />
 					<button
 						type="button"
 						onClick={loadRecords}
-						title="刷新"
+						title={t("history.refresh")}
 						className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-all duration-150 hover:bg-accent hover:text-muted-foreground active:scale-90"
 					>
 						<span className="icon-[mdi--refresh] text-sm" />
@@ -132,12 +136,12 @@ export function ExecutionHistory({ taskId, embedded = false }: ExecutionHistoryP
 			{/* ─── Header ─── */}
 			<div className="flex items-center gap-2 border-b border-border px-4 py-3">
 				<span className="icon-[mdi--history] text-sm text-muted-foreground/50" />
-				<span className="text-sm font-medium text-foreground">执行历史</span>
+				<span className="text-sm font-medium text-foreground">{t("history.title")}</span>
 				<div className="flex-1" />
 				<button
 					type="button"
 					onClick={loadRecords}
-					title="刷新"
+					title={t("history.refresh")}
 					className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-all duration-150 hover:bg-accent hover:text-muted-foreground active:scale-90"
 				>
 					<span className="icon-[mdi--refresh] text-sm" />
@@ -169,7 +173,13 @@ function StatusDot({ status }: { status: TaskExecutionRecord["status"] }): JSX.E
 	);
 }
 
-function StatusBadge({ status }: { status: TaskExecutionRecord["status"] }): JSX.Element {
+function StatusBadge({
+	status,
+	t,
+}: {
+	status: TaskExecutionRecord["status"];
+	t: TFunction<"automation">;
+}): JSX.Element {
 	const styles: Record<TaskExecutionRecord["status"], string> = {
 		success: "text-green-500 bg-green-500/8",
 		failed: "text-red-400 bg-red-400/8",
@@ -177,10 +187,10 @@ function StatusBadge({ status }: { status: TaskExecutionRecord["status"] }): JSX
 		aborted: "text-yellow-500 bg-yellow-500/8",
 	};
 	const labels: Record<TaskExecutionRecord["status"], string> = {
-		success: "成功",
-		failed: "失败",
-		running: "执行中",
-		aborted: "已中止",
+		success: t("history.success"),
+		failed: t("history.failed"),
+		running: t("history.running"),
+		aborted: t("history.aborted"),
 	};
 	return (
 		<span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${styles[status]}`}>
@@ -189,8 +199,8 @@ function StatusBadge({ status }: { status: TaskExecutionRecord["status"] }): JSX
 	);
 }
 
-function formatTime(timestamp: number): string {
-	return new Date(timestamp).toLocaleString("zh-CN", {
+function formatTime(timestamp: number, locale: string): string {
+	return new Date(timestamp).toLocaleString(locale, {
 		month: "2-digit",
 		day: "2-digit",
 		hour: "2-digit",

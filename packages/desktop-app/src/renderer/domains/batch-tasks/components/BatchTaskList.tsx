@@ -1,4 +1,6 @@
 import { memo, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import type { BatchProject, BatchTask } from "@shared/store/atoms";
@@ -44,28 +46,28 @@ interface BatchTaskListProps {
 	onEditProject: (project: BatchProject) => void;
 }
 
-function relativeTime(timestamp: number): string {
+function relativeTime(timestamp: number, t: TFunction<"batch-tasks">): string {
 	const now = Date.now();
 	const diff = now - timestamp;
 	const minutes = Math.floor(diff / 60_000);
-	if (minutes < 1) return "刚刚";
-	if (minutes < 60) return `${minutes} 分钟`;
+	if (minutes < 1) return t("time.justNow");
+	if (minutes < 60) return t("time.minutes", { n: minutes });
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours} 小时`;
+	if (hours < 24) return t("time.hours", { n: hours });
 	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days} 天`;
-	return `${Math.floor(days / 7)} 周`;
+	if (days < 7) return t("time.days", { n: days });
+	return t("time.weeks", { n: Math.floor(days / 7) });
 }
 
-function statusLabel(status: BatchTask["status"], hasSession: boolean): string {
+function statusLabel(status: BatchTask["status"], hasSession: boolean, t: TFunction<"batch-tasks">): string {
 	if (status === "pending") {
-		return hasSession ? "等待中" : "未执行";
+		return hasSession ? t("status.waiting") : t("status.notRun");
 	}
 	const labels: Record<Exclude<BatchTask["status"], "pending">, string> = {
-		running: "运行中",
-		completed: "已完成",
-		failed: "失败",
-		paused: "已暂停",
+		running: t("status.running"),
+		completed: t("status.completed"),
+		failed: t("status.failed"),
+		paused: t("status.paused"),
 	};
 	return labels[status];
 }
@@ -177,6 +179,7 @@ interface TaskCallbacks {
 // ─── BatchTaskList ─────────────────────────────────────────────────────────
 
 export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	const setConfirm = useSetAtom(confirmDialogAtom);
 	const queuedTaskIds = useAtomValue(batchQueuedTaskIdsAtom);
 	const {
@@ -196,18 +199,18 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		const runningCount = project.tasks.filter((t) => t.status === "running").length;
 		if (runningCount > 0) {
 			setConfirm({
-				title: "无法删除项目",
-				message: "请先点停止。",
-				confirmLabel: "确定",
+				title: t("confirm.cannotDeleteTitle"),
+				message: t("confirm.cannotDeleteMsg"),
+				confirmLabel: t("confirm.ok"),
 				onConfirm: () => {},
 			});
 			return;
 		}
 		setConfirm({
-			title: `确认删除项目「${project.name}」`,
-			message: "删除后无法撤回，请确认是否继续。",
-			confirmLabel: "删除",
-			cancelLabel: "取消",
+			title: t("confirm.deleteProjectTitle", { name: project.name }),
+			message: t("confirm.deleteProjectMsg"),
+			confirmLabel: t("confirm.delete"),
+			cancelLabel: t("confirm.cancel"),
 			variant: "danger",
 			onConfirm: async () => {
 				await deleteProject(project.id);
@@ -218,12 +221,12 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 	const handleBatchStart = (project: BatchProject, counts: ProjectCounts) => {
 		if (counts.neverExecuted === 0 && counts.paused === 0) return;
 		const parts: string[] = [];
-		if (counts.neverExecuted > 0) parts.push(`${counts.neverExecuted} 个「未执行」`);
-		if (counts.paused > 0) parts.push(`${counts.paused} 个「已暂停」`);
+		if (counts.neverExecuted > 0) parts.push(t("confirm.partNeverExecuted", { n: counts.neverExecuted }));
+		if (counts.paused > 0) parts.push(t("confirm.partPaused", { n: counts.paused }));
 		setConfirm({
-			title: "确认开始执行",
-			message: `将按并发数依次执行 ${parts.join(" 和 ")} 任务（其余状态不受影响），是否继续？`,
-			confirmLabel: "开始",
+			title: t("confirm.startTitle"),
+			message: t("confirm.startMsg", { parts: parts.join(t("confirm.partJoin")) }),
+			confirmLabel: t("confirm.start"),
 			onConfirm: async () => {
 				await batchStart(project.id);
 			},
@@ -234,15 +237,10 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 		const targetCount = counts.total - counts.completed;
 		if (targetCount === 0) return;
 		setConfirm({
-			title: "确认停止",
-			message: [
-				`将中断所有运行中的任务（${counts.running} 个），并清空除「已完成」之外的所有任务（${targetCount} 个）的会话、产物和状态，重置为「未执行」。`,
-				"",
-				"保留：已完成任务的会话、产物和状态。",
-				"已完成任务保留，此操作不可撤回。",
-			].join("\n"),
-			confirmLabel: "停止",
-			cancelLabel: "取消",
+			title: t("confirm.stopTitle"),
+			message: t("confirm.stopMsg", { running: counts.running, target: targetCount }),
+			confirmLabel: t("confirm.stop"),
+			cancelLabel: t("confirm.cancel"),
 			variant: "danger",
 			onConfirm: async () => {
 				await batchStop(project.id);
@@ -259,13 +257,13 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 			(t) => t.status === "running" || queuedTaskIds.has(t.id),
 		);
 		const message = queueActive
-			? `将清空 ${failedIds.length} 个失败任务的会话、产物和状态，并加入队尾继续执行。此操作不可撤回，是否继续？`
-			: `将清空 ${failedIds.length} 个失败任务的会话、产物和状态，重置为「未执行」。可随后点击「开始」继续。此操作不可撤回，是否继续？`;
+			? t("confirm.resetFailedQueueActive", { n: failedIds.length })
+			: t("confirm.resetFailedIdle", { n: failedIds.length });
 		setConfirm({
-			title: "确认重置失败任务",
+			title: t("confirm.resetFailedTitle"),
 			message,
-			confirmLabel: "重置",
-			cancelLabel: "取消",
+			confirmLabel: t("confirm.reset"),
+			cancelLabel: t("confirm.cancel"),
 			variant: "danger",
 			onConfirm: async () => {
 				await batchResetFailed(project.id, failedIds);
@@ -275,10 +273,10 @@ export function BatchTaskList({ projects, onEditProject }: BatchTaskListProps): 
 
 	const handleBatchReset = (project: BatchProject) => {
 		setConfirm({
-			title: "确认重置",
-			message: `将删除所有任务的会话和文件（包含已完成），然后重新执行全部 ${project.tasks.length} 个任务。此操作不可撤回，是否继续？`,
-			confirmLabel: "重置",
-			cancelLabel: "取消",
+			title: t("confirm.resetTitle"),
+			message: t("confirm.resetMsg", { n: project.tasks.length }),
+			confirmLabel: t("confirm.reset"),
+			cancelLabel: t("confirm.cancel"),
 			variant: "danger",
 			onConfirm: async () => {
 				await batchReset(project.id);
@@ -350,6 +348,7 @@ function ProjectBlock({
 	deleteTask,
 	setConfirm,
 }: ProjectBlockProps): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	const counts = useMemo(() => computeCounts(project.tasks), [project.tasks]);
 	const narrow = useNarrowScreen();
 	const progress = counts.total > 0 ? (counts.completed / counts.total) * 100 : 0;
@@ -381,12 +380,12 @@ function ProjectBlock({
 			retry: (task) => {
 				const isCompleted = task.status === "completed";
 				setConfirm({
-					title: isCompleted ? `确认重新运行任务「${task.name}」` : `确认重试任务「${task.name}」`,
-					message: isCompleted
-						? "将删除该任务现有的会话和产物，并重新执行。此操作不可撤回，是否继续？"
-						: "将删除该任务的会话和文件，然后重新执行。此操作不可撤回，是否继续？",
-					confirmLabel: isCompleted ? "重新运行" : "重试",
-					cancelLabel: "取消",
+					title: isCompleted
+						? t("confirm.rerunTitle", { name: task.name })
+						: t("confirm.retryTitle", { name: task.name }),
+					message: isCompleted ? t("confirm.rerunMsg") : t("confirm.retryMsg"),
+					confirmLabel: isCompleted ? t("confirm.rerun") : t("confirm.retry"),
+					cancelLabel: t("confirm.cancel"),
 					variant: isCompleted ? undefined : "danger",
 					onConfirm: async () => {
 						await retryTask(project.id, task.id);
@@ -402,10 +401,10 @@ function ProjectBlock({
 			delete: (task) => {
 				if (task.status === "running") return;
 				setConfirm({
-					title: "确认删除任务",
-					message: "删除后无法撤回，请确认是否继续。",
-					confirmLabel: "删除",
-					cancelLabel: "取消",
+					title: t("confirm.deleteTaskTitle"),
+					message: t("confirm.deleteTaskMsg"),
+					confirmLabel: t("confirm.delete"),
+					cancelLabel: t("confirm.cancel"),
 					variant: "danger",
 					onConfirm: async () => {
 						await deleteTask(project.id, task.id);
@@ -413,7 +412,7 @@ function ProjectBlock({
 				});
 			},
 		}),
-		[project.id, runTask, retryTask, stopTask, resumeTask, deleteTask, setConfirm],
+		[project.id, runTask, retryTask, stopTask, resumeTask, deleteTask, setConfirm, t],
 	);
 
 	return (
@@ -431,15 +430,17 @@ function ProjectBlock({
 						{/* 窄屏隐藏数量 badge，避免与标题/操作按钮互相挤压导致换行 */}
 						{!narrow && (
 							<span className="inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full bg-accent/50 px-2 text-[10px] text-muted-foreground/70">
-								{normalizedQuery ? `${filteredTotal}/${counts.total} 匹配` : `${counts.total} 个任务`}
+								{normalizedQuery
+									? t("list.matchCount", { filtered: filteredTotal, total: counts.total })
+									: t("list.taskCount", { n: counts.total })}
 							</span>
 						)}
 					</div>
 					<p className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground/60">
 						<span>
-							{counts.completed}/{counts.total} 已完成
-							{counts.running > 0 && ` · ${counts.running} 运行中`}
-							{counts.paused > 0 && ` · ${counts.paused} 暂停`}
+							{t("list.completedOf", { completed: counts.completed, total: counts.total })}
+							{counts.running > 0 && t("list.runningSuffix", { n: counts.running })}
+							{counts.paused > 0 && t("list.pausedSuffix", { n: counts.paused })}
 						</span>
 						{counts.failed > 0 && (
 							<>
@@ -447,10 +448,10 @@ function ProjectBlock({
 								<button
 									type="button"
 									onClick={() => onResetFailed(project, counts)}
-									title={`点击重置 ${counts.failed} 个失败任务`}
+									title={t("list.resetFailedHint", { n: counts.failed })}
 									className="inline-flex h-4 items-center rounded-full bg-red-500/10 px-1.5 text-[10px] font-medium leading-none text-red-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
 								>
-									{counts.failed} 失败 · 重置
+									{t("list.failedReset", { n: counts.failed })}
 								</button>
 							</>
 						)}
@@ -466,7 +467,7 @@ function ProjectBlock({
 						return isActive ? (
 							<ActionButton
 								icon="icon-[mdi--stop]"
-								title="停止"
+								title={t("actions.stop")}
 								variant="danger"
 								onClick={() => onBatchStop(project, counts)}
 							/>
@@ -476,9 +477,9 @@ function ProjectBlock({
 								title={
 									counts.neverExecuted === 0 && counts.paused === 0
 										? counts.failed > 0
-											? `所有任务已完成或失败，点击「${counts.failed} 失败 · 重置」徽章可重置后重试`
-											: "所有任务已完成"
-										: "开始"
+											? t("actions.allDoneOrFailed", { n: counts.failed })
+											: t("actions.allDone")
+										: t("actions.start")
 								}
 								onClick={() => onBatchStart(project, counts)}
 								disabled={counts.neverExecuted === 0 && counts.paused === 0}
@@ -487,7 +488,7 @@ function ProjectBlock({
 					})()}
 					<ActionButton
 						icon="icon-[mdi--refresh]"
-						title="重置"
+						title={t("actions.reset")}
 						variant="danger"
 						onClick={() => onBatchReset(project)}
 						disabled={counts.total === 0}
@@ -495,12 +496,12 @@ function ProjectBlock({
 					<div className="mx-1 h-4 w-px bg-border/60" />
 					<ActionButton
 						icon="icon-[mdi--pencil-outline]"
-						title="编辑项目"
+						title={t("actions.editProject")}
 						onClick={() => onEditProject(project)}
 					/>
 					<ActionButton
 						icon="icon-[mdi--delete-outline]"
-						title="删除项目"
+						title={t("actions.deleteProject")}
 						variant="danger"
 						onClick={() => onDeleteProject(project)}
 						disabled={counts.running > 0}
@@ -527,14 +528,14 @@ function ProjectBlock({
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="搜索任务标题…"
+							placeholder={t("list.searchPlaceholder")}
 							className="h-8 w-full rounded-lg border border-border/40 bg-card/30 pl-8 pr-8 text-[12px] text-foreground placeholder:text-muted-foreground/40 outline-none transition-colors focus:border-primary/40 focus:bg-card/50"
 						/>
 						{searchQuery && (
 							<button
 								type="button"
 								onClick={() => setSearchQuery("")}
-								title="清除"
+								title={t("list.clear")}
 								className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-accent hover:text-foreground"
 							>
 								<span className="icon-[mdi--close] h-3 w-3" />
@@ -546,7 +547,7 @@ function ProjectBlock({
 					<div className="flex flex-col items-center gap-1.5 py-6 text-center">
 						<span className="icon-[mdi--magnify-close] h-5 w-5 text-muted-foreground/50" />
 						<p className="text-[12px] text-muted-foreground/60">
-							{normalizedQuery ? `没有匹配「${searchQuery}」的任务` : "暂无任务"}
+							{normalizedQuery ? t("list.noMatch", { query: searchQuery }) : t("list.noTasks")}
 						</p>
 					</div>
 				) : (
@@ -573,7 +574,7 @@ function ProjectBlock({
 									collapsed ? "icon-[mdi--chevron-down] h-3.5 w-3.5" : "icon-[mdi--chevron-up] h-3.5 w-3.5"
 								}
 							/>
-							{collapsed ? `展开更多（${hiddenCount}）` : "折叠任务"}
+							{collapsed ? t("list.expandMore", { n: hiddenCount }) : t("list.collapse")}
 						</button>
 					</div>
 				)}
@@ -593,8 +594,9 @@ const TaskCard = memo(function TaskCard({
 	callbacks: TaskCallbacks;
 	isQueued: boolean;
 }): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	const tone = isQueued ? QUEUED_TONE : STATUS_TONE[task.status];
-	const label = isQueued ? "等待中" : statusLabel(task.status, !!task.sessionId);
+	const label = isQueued ? t("status.waiting") : statusLabel(task.status, !!task.sessionId, t);
 	const [hovered, setHovered] = useState(false);
 	return (
 		<div
@@ -623,10 +625,10 @@ const TaskCard = memo(function TaskCard({
 				{task.sessionId ? (
 					<span className="flex items-center gap-0.5">
 						<span className="icon-[mdi--clock-outline] h-2.5 w-2.5" />
-						{relativeTime(task.updatedAt)}
+						{relativeTime(task.updatedAt, t)}
 					</span>
 				) : (
-					<span className="text-muted-foreground/40">未执行</span>
+					<span className="text-muted-foreground/40">{t("status.notRun")}</span>
 				)}
 				{task.status === "failed" && task.error && (
 					<span
@@ -653,7 +655,7 @@ const TaskCard = memo(function TaskCard({
 						{task.sessionPath && (
 							<OverlayActionButton
 								icon="icon-[mdi--open-in-new]"
-								title="跳转到会话"
+								title={t("actions.goToSession")}
 								delay={0}
 								onClick={(e) => {
 									e.stopPropagation();
@@ -664,7 +666,7 @@ const TaskCard = memo(function TaskCard({
 						{isQueued ? (
 							<OverlayActionButton
 								icon="icon-[mdi--close]"
-								title="取消等待"
+								title={t("actions.cancelWait")}
 								variant="danger"
 								delay={0.05}
 								onClick={(e) => {
@@ -675,7 +677,7 @@ const TaskCard = memo(function TaskCard({
 						) : task.status === "pending" ? (
 							<OverlayActionButton
 								icon="icon-[mdi--play]"
-								title="执行"
+								title={t("actions.run")}
 								delay={0.05}
 								onClick={(e) => {
 									e.stopPropagation();
@@ -685,7 +687,7 @@ const TaskCard = memo(function TaskCard({
 						) : task.status === "paused" ? (
 							<OverlayActionButton
 								icon="icon-[mdi--play]"
-								title="继续"
+								title={t("actions.resume")}
 								delay={0.05}
 								onClick={(e) => {
 									e.stopPropagation();
@@ -695,7 +697,7 @@ const TaskCard = memo(function TaskCard({
 						) : task.status === "failed" ? (
 							<OverlayActionButton
 								icon="icon-[mdi--restart]"
-								title="重试"
+								title={t("actions.retry")}
 								variant="danger"
 								delay={0.05}
 								onClick={(e) => {
@@ -706,7 +708,7 @@ const TaskCard = memo(function TaskCard({
 						) : task.status === "completed" ? (
 							<OverlayActionButton
 								icon="icon-[mdi--restart]"
-								title="重新运行"
+								title={t("actions.rerun")}
 								delay={0.05}
 								onClick={(e) => {
 									e.stopPropagation();
@@ -717,7 +719,7 @@ const TaskCard = memo(function TaskCard({
 						{task.status !== "running" && (
 							<OverlayActionButton
 								icon="icon-[mdi--delete-outline]"
-								title="删除"
+								title={t("actions.delete")}
 								variant="danger"
 								delay={0.1}
 								onClick={(e) => {

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAtomValue, useAtom, useSetAtom } from "jotai";
+import { scheduledTasksAtom, selectedTaskIdAtom, formOpenAtom, runningTaskIdsAtom, pageHeaderTitleHiddenAtom } from "@shared/store/atoms";
 import { motion } from "motion/react";
-import { scheduledTasksAtom, selectedTaskIdAtom, formOpenAtom, runningTaskIdsAtom } from "@shared/store/atoms";
 import type { ScheduledTask } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
@@ -12,18 +13,26 @@ import { TaskFormDialog } from "./TaskForm";
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export function AutomationPage(): JSX.Element {
+	const { t } = useTranslation("automation");
 	const tasks = useAtomValue(scheduledTasksAtom);
 	const [selectedTaskId, setSelectedTaskId] = useAtom(selectedTaskIdAtom);
 	const [formEditingTask, setFormEditingTask] = useAtom(formOpenAtom);
 	const { refreshTasks } = useScheduledTasks();
 	const setRunningTaskIds = useSetAtom(runningTaskIdsAtom);
-	const selectedTask = tasks.find((t) => t.id === selectedTaskId);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
+	const selectedTask = tasks.find((task) => task.id === selectedTaskId);
 
 	const [dialogOpen, setDialogOpen] = useState(false);
 
 	useEffect(() => {
 		refreshTasks();
 	}, [refreshTasks]);
+
+	// 自动化页不显示顶栏左上角标题（页面内已有大号标题）。
+	useEffect(() => {
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
 
 	// 运行态：进入时拉取快照，再订阅事件增量维护。task.started 标记为运行中，
 	// 完成/中止/失败时移除，让卡片在「运行中」与「待运行」之间正确切换。
@@ -67,7 +76,7 @@ export function AutomationPage(): JSX.Element {
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			{/* Drag region */}
-			<div className="drag-region h-12 shrink-0" />
+			<div className="drag-region h-6 shrink-0" />
 
 			{/* ─── Header ─── */}
 			<div className="relative shrink-0 px-8 pb-4">
@@ -78,10 +87,10 @@ export function AutomationPage(): JSX.Element {
 						transition={{ duration: 0.5, ease: easeOut }}
 					>
 						<h1 className="bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[26px] font-bold leading-tight tracking-tight text-transparent">
-							自动化
+							{t("page.title")}
 						</h1>
 						<p className="mt-1 text-[12px] text-muted-foreground/60">
-							让 AI 按计划自动执行任务，解放双手
+							{t("page.subtitle")}
 						</p>
 					</motion.div>
 
@@ -89,10 +98,10 @@ export function AutomationPage(): JSX.Element {
 						type="button"
 						variant="primary"
 						onClick={handleNewTask}
-						title="新建定时任务"
+						title={t("page.newTaskTitle")}
 					>
 						<span className="icon-[mdi--plus] text-[15px]" />
-						新建任务
+						{t("page.newTask")}
 					</Button>
 				</div>
 			</div>
@@ -129,6 +138,7 @@ export function AutomationPage(): JSX.Element {
 }
 
 function EmptyState({ onNew }: { onNew: () => void }): JSX.Element {
+	const { t } = useTranslation("automation");
 	return (
 		<motion.div
 			className="flex flex-1 flex-col items-center justify-center gap-5 text-center"
@@ -146,15 +156,15 @@ function EmptyState({ onNew }: { onNew: () => void }): JSX.Element {
 			</motion.div>
 			<div className="space-y-1.5">
 				<p className="text-[15px] font-semibold text-foreground">
-					暂无定时任务
+					{t("empty.title")}
 				</p>
 				<p className="max-w-xs text-[12px] text-muted-foreground/60">
-					创建定时任务，让 AI 按计划自动执行
+					{t("empty.desc")}
 				</p>
 			</div>
 			<Button type="button" variant="primary" onClick={onNew} className="mt-2">
 				<span className="icon-[mdi--plus] text-[15px]" />
-				创建第一个任务
+				{t("empty.action")}
 			</Button>
 		</motion.div>
 	);

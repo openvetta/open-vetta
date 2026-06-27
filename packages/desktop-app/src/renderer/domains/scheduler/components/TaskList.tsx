@@ -1,5 +1,7 @@
 import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { confirmDialogAtom, scheduledTasksAtom, runningTaskIdsAtom, defaultConversationCwdAtom, getProjectDisplayName } from "@shared/store/atoms";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
 import type { ScheduledTask } from "@shared/store/atoms";
@@ -11,30 +13,31 @@ interface TaskListProps {
 	onEditTask: (task: ScheduledTask) => void;
 }
 
-function formatLastRun(timestamp: number | null): string {
-	if (!timestamp) return "从未执行";
+function formatLastRun(timestamp: number | null, t: TFunction<"automation">): string {
+	if (!timestamp) return t("list.neverRun");
 	const diff = Date.now() - timestamp;
-	if (diff < 60000) return "刚刚";
-	if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
-	if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
-	return `${Math.floor(diff / 86400000)}天前`;
+	if (diff < 60000) return t("list.justNow");
+	if (diff < 3600000) return t("list.minutesAgo", { n: Math.floor(diff / 60000) });
+	if (diff < 86400000) return t("list.hoursAgo", { n: Math.floor(diff / 3600000) });
+	return t("list.daysAgo", { n: Math.floor(diff / 86400000) });
 }
 
-function scheduleLabel(task: ScheduledTask): string {
+function scheduleLabel(task: ScheduledTask, t: TFunction<"automation">): string {
 	const parsed = parseCronExpression(task.cron, task.isOnce);
-	if (parsed) return describeSchedule(parsed);
+	if (parsed) return describeSchedule(parsed, t);
 	return task.cron;
 }
 
-function executionModeLabel(task: ScheduledTask): string {
-	if (task.executionMode === "sandbox") return "使用沙盒";
-	if (task.executionMode === "full-access") return "完全访问";
-	return "跟随默认";
+function executionModeLabel(task: ScheduledTask, t: TFunction<"automation">): string {
+	if (task.executionMode === "sandbox") return t("list.useSandbox");
+	if (task.executionMode === "full-access") return t("list.fullAccess");
+	return t("list.inheritDefault");
 }
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListProps): JSX.Element {
+	const { t } = useTranslation("automation");
 	const tasks = useAtomValue(scheduledTasksAtom);
 	const runningTaskIds = useAtomValue(runningTaskIdsAtom);
 	const setConfirmDialog = useSetAtom(confirmDialogAtom);
@@ -54,7 +57,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 			{tasks.map((task) => {
 				const isSelected = selectedTaskId === task.id;
 				const isRunning = runningTaskIds.has(task.id);
-				const statusLabel = isRunning ? "运行中" : task.enabled ? "待运行" : "已停用";
+				const statusLabel = isRunning ? t("list.running") : task.enabled ? t("list.pending") : t("list.disabled");
 				return (
 					<motion.div
 						key={task.id}
@@ -96,7 +99,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 								</h3>
 								<p className="mt-0.5 truncate text-[11px] text-muted-foreground/50">
 									{statusLabel}
-									{task.isOnce && " · 一次性"}
+									{task.isOnce && ` · ${t("list.once")}`}
 								</p>
 							</div>
 
@@ -107,7 +110,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 							>
 								<ActionButton
 									icon="icon-[mdi--play]"
-									title="立即执行"
+									title={t("list.runNow")}
 									onClick={(e) => {
 										e.stopPropagation();
 										runNow(task.id);
@@ -115,7 +118,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 								/>
 								<ActionButton
 									icon={task.enabled ? "icon-[mdi--pause]" : "icon-[mdi--play-outline]"}
-									title={task.enabled ? "暂停" : "启用"}
+									title={task.enabled ? t("list.pause") : t("list.enable")}
 									onClick={(e) => {
 										e.stopPropagation();
 										toggleTask(task.id);
@@ -123,7 +126,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 								/>
 								<ActionButton
 									icon="icon-[mdi--pencil-outline]"
-									title="编辑"
+									title={t("list.edit")}
 									onClick={(e) => {
 										e.stopPropagation();
 										onEditTask(task);
@@ -131,15 +134,15 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 								/>
 								<ActionButton
 									icon="icon-[mdi--delete-outline]"
-									title="删除"
+									title={t("list.delete")}
 									variant="danger"
 									onClick={(e) => {
 										e.stopPropagation();
 										setConfirmDialog({
-											title: `确认删除任务「${task.name}」`,
-											message: "删除后无法撤回，请确认是否继续。",
-											confirmLabel: "删除",
-											cancelLabel: "取消",
+											title: t("confirm.deleteTitle", { name: task.name }),
+											message: t("confirm.deleteMsg"),
+											confirmLabel: t("confirm.delete"),
+											cancelLabel: t("confirm.cancel"),
 											variant: "danger",
 											onConfirm: () => deleteTask(task.id),
 										});
@@ -155,7 +158,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 							</div>
 							<div className="min-w-0 flex-1">
 								<p className="truncate text-[12px] font-medium text-foreground">
-									{scheduleLabel(task)}
+									{scheduleLabel(task, t)}
 								</p>
 								<p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground/50">
 									{task.cron}
@@ -181,7 +184,7 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 							)} */}
 							<MetaPill
 								icon="icon-[mdi--shield-outline]"
-								text={executionModeLabel(task)}
+								text={executionModeLabel(task, t)}
 								tone="default"
 							/>
 							<div className="ml-auto flex items-center gap-1.5">
@@ -200,12 +203,12 @@ export function TaskList({ selectedTaskId, onSelectTask, onEditTask }: TaskListP
 													: "icon-[mdi--alert-circle]"
 											}`}
 										/>
-										{task.lastRunStatus === "success" ? "成功" : "失败"}
+										{task.lastRunStatus === "success" ? t("list.success") : t("list.failed")}
 									</span>
 								)}
 								<span className="flex items-center gap-1 text-muted-foreground/50">
 									<span className="icon-[mdi--history] h-3 w-3" />
-									{formatLastRun(task.lastRunAt)}
+									{formatLastRun(task.lastRunAt, t)}
 								</span>
 							</div>
 						</div>

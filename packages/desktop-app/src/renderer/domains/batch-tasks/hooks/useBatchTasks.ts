@@ -9,8 +9,10 @@ import {
 } from "@shared/store/atoms";
 import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 export function useBatchTasks() {
+	const { t } = useTranslation("batch-tasks");
 	const [projects, setProjects] = useAtom(batchProjectsAtom);
 	const [expandedProjects, setExpandedProjects] = useAtom(expandedBatchProjectsAtom);
 	const setQueuedTaskIds = useSetAtom(batchQueuedTaskIdsAtom);
@@ -101,14 +103,14 @@ export function useBatchTasks() {
 	const deleteProject = useCallback(
 		async (projectId: string) => {
 			const project = projects.find((p) => p.id === projectId);
-			if (project?.tasks.some((t) => t.status === "running")) {
-				throw new Error("请先点停止");
+			if (project?.tasks.some((task) => task.status === "running")) {
+				throw new Error(t("error.stopFirst"));
 			}
 			await window.vetta.batchTasks.deleteProject(projectId);
 			setProjects((prev) => prev.filter((p) => p.id !== projectId));
 			await refreshConfigProjects();
 		},
-		[projects, setProjects, refreshConfigProjects],
+		[projects, setProjects, refreshConfigProjects, t],
 	);
 
 	const toggleProject = useCallback(

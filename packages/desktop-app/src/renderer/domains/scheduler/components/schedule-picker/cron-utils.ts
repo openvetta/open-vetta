@@ -10,6 +10,8 @@
  *   day-of-week (0-6, 0=Sunday)
  */
 
+import type { TFunction } from "i18next";
+
 export type ScheduleMode = "once" | "daily" | "weekly" | "interval";
 
 export interface OnceSchedule {
@@ -53,33 +55,34 @@ export interface IntervalSchedule {
 export type Schedule = OnceSchedule | DailySchedule | WeeklySchedule | IntervalSchedule;
 
 /** Human-readable description of a schedule */
-export function describeSchedule(schedule: Schedule): string {
+export function describeSchedule(schedule: Schedule, t: TFunction<"automation">): string {
 	switch (schedule.mode) {
 		case "once": {
-			const date = new Date(schedule.year, schedule.month - 1, schedule.day);
-			const dateStr = date.toLocaleDateString("zh-CN", {
-				year: "numeric",
-				month: "long",
-				day: "numeric",
-			});
 			const timeStr = `${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}`;
-			return `${dateStr} ${timeStr} 执行一次`;
+			return t("schedule.once", {
+				year: schedule.year,
+				month: schedule.month,
+				day: schedule.day,
+				time: timeStr,
+			});
 		}
 		case "daily": {
 			const timeStr = `${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}`;
-			return `每天 ${timeStr} 执行`;
+			return t("schedule.daily", { time: timeStr });
 		}
 		case "weekly": {
-			const weekdayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+			const weekdayNames = t("schedule.weekdayNames", { returnObjects: true }) as string[];
 			const sortedDays = [...schedule.weekdays].sort((a, b) => a - b);
 			const dayStr =
-				sortedDays.length === 1 ? weekdayNames[sortedDays[0]] : sortedDays.map((d) => weekdayNames[d]).join("、");
+				sortedDays.length === 1
+					? weekdayNames[sortedDays[0]]
+					: sortedDays.map((d) => weekdayNames[d]).join(t("schedule.weekdayJoin"));
 			const timeStr = `${String(schedule.hour).padStart(2, "0")}:${String(schedule.minute).padStart(2, "0")}`;
-			return `每${dayStr} ${timeStr} 执行`;
+			return t("schedule.weekly", { days: dayStr, time: timeStr });
 		}
 		case "interval": {
-			if (schedule.intervalHours === 1) return "每隔 1 小时执行";
-			return `每隔 ${schedule.intervalHours} 小时执行`;
+			if (schedule.intervalHours === 1) return t("schedule.intervalOne");
+			return t("schedule.interval", { hours: schedule.intervalHours });
 		}
 	}
 }

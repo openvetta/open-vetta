@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAtomValue, useAtom } from "jotai";
+import { useTranslation } from "react-i18next";
+import { useAtomValue, useAtom, useSetAtom } from "jotai";
 import { motion } from "motion/react";
 import {
 	batchProjectsAtom,
 	batchProjectDialogOpenAtom,
+	pageHeaderTitleHiddenAtom,
 	type BatchProject,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
@@ -14,8 +16,10 @@ import { BatchProjectDialog } from "./BatchProjectDialog";
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
 export function BatchTasksPage(): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	const projects = useAtomValue(batchProjectsAtom);
 	const [dialogProject, setDialogProject] = useAtom(batchProjectDialogOpenAtom);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const { refreshProjects } = useBatchTasks();
 
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -23,6 +27,12 @@ export function BatchTasksPage(): JSX.Element {
 	useEffect(() => {
 		refreshProjects();
 	}, [refreshProjects]);
+
+	// 批量任务页不显示顶栏左上角标题（页面内已有大号标题）。
+	useEffect(() => {
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
 
 	useEffect(() => {
 		if (dialogProject !== undefined) {
@@ -59,7 +69,7 @@ export function BatchTasksPage(): JSX.Element {
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
 			{/* Drag region */}
-			<div className="drag-region h-12 shrink-0" />
+			<div className="drag-region h-6 shrink-0" />
 
 			{/* ─── Header ─── */}
 			<div className="relative shrink-0 px-8 pb-4">
@@ -70,10 +80,10 @@ export function BatchTasksPage(): JSX.Element {
 						transition={{ duration: 0.5, ease: easeOut }}
 					>
 						<h1 className="bg-gradient-to-br from-foreground via-foreground to-foreground/70 bg-clip-text text-[26px] font-bold leading-tight tracking-tight text-transparent">
-							批量任务
+							{t("page.title")}
 						</h1>
 						<p className="mt-1 text-[12px] text-muted-foreground/60">
-							一次配置，让 AI 自动处理多个文件夹
+							{t("page.subtitle")}
 						</p>
 					</motion.div>
 
@@ -81,7 +91,7 @@ export function BatchTasksPage(): JSX.Element {
 						{stats.total > 0 && <CompactStats stats={stats} />}
 						<Button type="button" variant="primary" onClick={handleNewProject}>
 							<span className="icon-[mdi--plus] text-[15px]" />
-							新建项目
+							{t("page.newProject")}
 						</Button>
 					</div>
 				</div>
@@ -120,11 +130,12 @@ interface BatchStats {
 }
 
 function CompactStats({ stats }: { stats: BatchStats }): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	const items: { label: string; value: number; tone: string }[] = [
-		{ label: "总数", value: stats.total, tone: "text-muted-foreground" },
-		{ label: "运行中", value: stats.running, tone: "text-emerald-400" },
-		{ label: "已完成", value: stats.completed, tone: "text-emerald-400" },
-		{ label: "失败", value: stats.failed, tone: "text-red-400" },
+		{ label: t("stats.total"), value: stats.total, tone: "text-muted-foreground" },
+		{ label: t("stats.running"), value: stats.running, tone: "text-emerald-400" },
+		{ label: t("stats.completed"), value: stats.completed, tone: "text-emerald-400" },
+		{ label: t("stats.failed"), value: stats.failed, tone: "text-red-400" },
 	];
 	return (
 		<motion.div
@@ -145,6 +156,7 @@ function CompactStats({ stats }: { stats: BatchStats }): JSX.Element {
 }
 
 function EmptyState({ onNew }: { onNew: () => void }): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	return (
 		<motion.div
 			className="flex flex-1 flex-col items-center justify-center gap-5 text-center"
@@ -161,14 +173,14 @@ function EmptyState({ onNew }: { onNew: () => void }): JSX.Element {
 				<span className="icon-[mdi--format-list-bulleted] relative text-4xl text-primary/80" />
 			</motion.div>
 			<div className="space-y-1.5">
-				<p className="text-[15px] font-semibold text-foreground">暂无批量任务</p>
+				<p className="text-[15px] font-semibold text-foreground">{t("empty.title")}</p>
 				<p className="max-w-xs text-[12px] text-muted-foreground/60">
-					创建批量任务，让 AI 自动处理多个文件夹
+					{t("empty.desc")}
 				</p>
 			</div>
 			<Button type="button" variant="primary" onClick={onNew} className="mt-2">
 				<span className="icon-[mdi--plus] text-[15px]" />
-				创建第一个项目
+				{t("empty.action")}
 			</Button>
 		</motion.div>
 	);

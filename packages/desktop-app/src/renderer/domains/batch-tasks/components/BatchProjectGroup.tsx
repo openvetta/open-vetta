@@ -1,4 +1,6 @@
 import type { BatchProject, BatchTask, SessionExecutionMode } from "@shared/store/atoms";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 interface BatchProjectGroupProps {
 	project: BatchProject;
@@ -9,23 +11,24 @@ interface BatchProjectGroupProps {
 	onSelectSession: (cwd: string, sessionPath: string, executionMode?: SessionExecutionMode) => void;
 }
 
-function relativeTime(timestamp: number): string {
+function relativeTime(timestamp: number, t: TFunction<"batch-tasks">): string {
 	const now = Date.now();
 	const diff = now - timestamp;
 	const minutes = Math.floor(diff / 60_000);
-	if (minutes < 1) return "刚刚";
-	if (minutes < 60) return `${minutes} 分钟`;
+	if (minutes < 1) return t("time.justNow");
+	if (minutes < 60) return t("time.minutes", { n: minutes });
 	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours} 小时`;
+	if (hours < 24) return t("time.hours", { n: hours });
 	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days} 天`;
-	return `${Math.floor(days / 7)} 周`;
+	if (days < 7) return t("time.days", { n: days });
+	return t("time.weeks", { n: Math.floor(days / 7) });
 }
 
 function BatchProjectBadge(): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	return (
 		<span className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-			批量
+			{t("group.badge")}
 		</span>
 	);
 }
@@ -39,6 +42,7 @@ function BatchTaskRow({
 	isActive: boolean;
 	onSelect: () => void;
 }): JSX.Element {
+	const { t } = useTranslation("batch-tasks");
 	return (
 		<button
 			type="button"
@@ -52,7 +56,7 @@ function BatchTaskRow({
 				{task.name || task.id}
 			</span>
 			<span className="shrink-0 text-[11px] text-muted-foreground">
-				{relativeTime(task.updatedAt)}
+				{relativeTime(task.updatedAt, t)}
 			</span>
 		</button>
 	);

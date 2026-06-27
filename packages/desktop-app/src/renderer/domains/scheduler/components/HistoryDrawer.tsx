@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useAtomValue } from "jotai";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { defaultConversationCwdAtom, getProjectDisplayName } from "@shared/store/atoms";
 import type { ScheduledTask } from "@shared/store/atoms";
 import { useScheduledTasks } from "../hooks/useScheduledTasks";
@@ -16,13 +18,14 @@ interface HistoryDrawerProps {
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
 
-function scheduleLabel(task: ScheduledTask): string {
+function scheduleLabel(task: ScheduledTask, t: TFunction<"automation">): string {
 	const parsed = parseCronExpression(task.cron, task.isOnce);
-	if (parsed) return describeSchedule(parsed);
+	if (parsed) return describeSchedule(parsed, t);
 	return task.cron;
 }
 
 export function HistoryDrawer({ task, onClose, onEdit }: HistoryDrawerProps): JSX.Element {
+	const { t } = useTranslation("automation");
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const { runNow, toggleTask } = useScheduledTasks();
 
@@ -78,14 +81,14 @@ export function HistoryDrawer({ task, onClose, onEdit }: HistoryDrawerProps): JS
 										{task.name}
 									</h2>
 									<p className="mt-0.5 truncate text-[11px] text-muted-foreground/50">
-										{scheduleLabel(task)}
+										{scheduleLabel(task, t)}
 										{task.cwd && ` · ${getProjectDisplayName(task.cwd, defaultCwd)}`}
 									</p>
 								</div>
 								<button
 									type="button"
 									onClick={onClose}
-									title="关闭"
+									title={t("drawer.close")}
 									className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground/60 transition-colors duration-150 hover:bg-accent hover:text-foreground"
 								>
 									<span className="icon-[mdi--close] text-[16px]" />
@@ -96,18 +99,18 @@ export function HistoryDrawer({ task, onClose, onEdit }: HistoryDrawerProps): JS
 							<div className="mt-3.5 flex items-center gap-2">
 								<DrawerAction
 									icon="icon-[mdi--play]"
-									label="立即执行"
+									label={t("drawer.runNow")}
 									primary
 									onClick={() => runNow(task.id)}
 								/>
 								<DrawerAction
 									icon={task.enabled ? "icon-[mdi--pause]" : "icon-[mdi--play-outline]"}
-									label={task.enabled ? "暂停" : "启用"}
+									label={task.enabled ? t("drawer.pause") : t("drawer.enable")}
 									onClick={() => toggleTask(task.id)}
 								/>
 								<DrawerAction
 									icon="icon-[mdi--pencil-outline]"
-									label="编辑"
+									label={t("drawer.edit")}
 									onClick={() => onEdit(task)}
 								/>
 							</div>
