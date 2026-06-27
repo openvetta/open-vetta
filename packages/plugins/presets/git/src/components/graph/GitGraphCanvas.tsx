@@ -1,5 +1,5 @@
 import { useTranslation } from "@vetta/plugin-sdk";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { computeGraphLayout, type GraphLine } from "../../git/graphLayout";
 import type { CommitNode } from "../../git/types";
 import { type HostMode, useHostMode } from "../hostTheme";
@@ -16,7 +16,9 @@ const CURVE_H = ROW_HEIGHT / 3;
 const CURVE_W = LANE_WIDTH / 3;
 // How far a line exits/enters a commit dot horizontally (Zed's column_shift).
 const DOT_SHIFT = CIRCLE_RADIUS + CIRCLE_STROKE;
-const ROW_GAP = 2;
+// Extra rows rendered above/below the viewport, and the bottom trigger distance.
+const OVERSCAN = 8;
+const REACH_END_ROWS = 16;
 
 // One lane color per column; tuned per theme for contrast on the host background.
 const LANE_COLORS: Record<HostMode, string[]> = {
@@ -78,33 +80,81 @@ function linePath(line: GraphLine): string {
  * Graph renderer: a Zed-faithful swimlane layout ({@link computeGraphLayout})
  * drawn as SVG dots + edges, with HTML {@link CommitRow}s laid over it. Every
  * position is computed from row/lane (no DOM measurement), so rows stay glued to
- * their dots. Lanes free and get reused, keeping the graph compact.
+ * their dots. Rows/dots/edges are virtualized to the scroll viewport, and reaching
+ * the bottom calls {@link onReachEnd} to auto-load the next page.
  */
 export function GitGraphCanvas({
 	nodes,
 	selectedHash,
 	onSelect,
+	onReachEnd,
 }: {
 	nodes: readonly CommitNode[];
 	selectedHash: string | null;
 	onSelect: (hash: string) => void;
+	onReachEnd?: () => void;
 }): JSX.Element {
 	const mode = useHostMode();
 	const { locale } = useTranslation();
 	const layout = useMemo(() => computeGraphLayout(nodes, COLORS_COUNT), [nodes]);
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const onReachEndRef = useRef(onReachEnd);
+	onReachEndRef.current = onReachEnd;
+	const [view, setView] = useState({ top: 0, height: 0 });
+
+	// Track the scroll viewport (for virtualization) and fire onReachEnd near the bottom.
+	useEffect(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		const sync = (): void => setView({ top: el.scrollTop, height: el.clientHeight });
+		sync();
+		const ro = new ResizeObserver(sync);
+		ro.observe(el);
+		let raf = 0;
+		const onScroll = (): void => {
+			if (raf) return;
+			raf = requestAnimationFrame(() => {
+				raf = 0;
+				setView({ top: el.scrollTop, height: el.clientHeight });
+				if (el.scrollHeight - el.scrollTop - el.clientHeight < ROW_HEIGHT * REACH_END_ROWS) onReachEndRef.current?.();
+			});
+		};
+		el.addEventListener("scroll", onScroll, { passive: true });
+		return () => {
+			ro.disconnect();
+			el.removeEventListener("scroll", onScroll);
+			if (raf) cancelAnimationFrame(raf);
+		};
+	}, []);
 
 	const colors = LANE_COLORS[mode];
-	const graphWidth = LEFT_PADDING + Math.max(1, layout.maxLanes) * LANE_WIDTH + ROW_GAP;
 	const totalHeight = nodes.length * ROW_HEIGHT;
 
+	const first = Math.max(0, Math.floor(view.top / ROW_HEIGHT) - OVERSCAN);
+	const last = Math.min(nodes.length - 1, Math.ceil((view.top + view.height) / ROW_HEIGHT) + OVERSCAN);
+
+	const visibleLines = layout.lines.filter((l) => l.startRow <= last && l.endRow >= first);
+	const visibleDots = layout.commits.filter((c) => c.row >= first && c.row <= last);
+	const visibleRows: number[] = [];
+	for (let i = first; i <= last; i++) visibleRows.push(i);
+
+	// Size the text gutter to the lanes actually on screen (not the global max), so
+	// the subject text hugs the lanes with one lane-width of breathing room.
+	let visMaxLane = 0;
+	for (const c of visibleDots) if (c.lane > visMaxLane) visMaxLane = c.lane;
+	for (const l of visibleLines) {
+		if (l.childColumn > visMaxLane) visMaxLane = l.childColumn;
+		for (const s of l.segments) if (s.kind === "curve" && s.toColumn > visMaxLane) visMaxLane = s.toColumn;
+	}
+	const graphWidth = laneCenterX(visMaxLane) + LANE_WIDTH;
+
 	return (
-		<div className="git-graph-canvas relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+		<div ref={scrollRef} className="git-graph-canvas relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
 			<svg className="pointer-events-none absolute left-0 top-0" width={graphWidth} height={totalHeight} aria-hidden>
 				<title>git graph</title>
-				{layout.lines.map((line, i) => (
+				{visibleLines.map((line) => (
 					<path
-						// biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and stable per layout
-						key={i}
+						key={`${line.childColumn}_${line.startRow}_${line.endRow}`}
 						d={linePath(line)}
 						fill="none"
 						stroke={colors[line.colorIdx % colors.length]}
@@ -113,7 +163,7 @@ export function GitGraphCanvas({
 						strokeLinejoin="round"
 					/>
 				))}
-				{layout.commits.map((c) => (
+				{visibleDots.map((c) => (
 					<circle
 						key={c.hash}
 						cx={laneCenterX(c.lane)}
@@ -126,18 +176,21 @@ export function GitGraphCanvas({
 				))}
 			</svg>
 			<div className="relative" style={{ height: totalHeight }}>
-				{nodes.map((node, i) => (
-					<CommitRow
-						key={node.hash}
-						node={node}
-						selected={node.hash === selectedHash}
-						graphWidth={graphWidth}
-						top={i * ROW_HEIGHT}
-						height={ROW_HEIGHT}
-						locale={locale}
-						onSelect={onSelect}
-					/>
-				))}
+				{visibleRows.map((i) => {
+					const node = nodes[i];
+					return (
+						<CommitRow
+							key={node.hash}
+							node={node}
+							selected={node.hash === selectedHash}
+							graphWidth={graphWidth}
+							top={i * ROW_HEIGHT}
+							height={ROW_HEIGHT}
+							locale={locale}
+							onSelect={onSelect}
+						/>
+					);
+				})}
 			</div>
 		</div>
 	);
