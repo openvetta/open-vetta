@@ -10,6 +10,8 @@ import { SettingRow, SettingSection } from "./shared";
 
 export function PetSettings(): JSX.Element {
 	const { t } = useTranslation("pet");
+	// 分区标题 key（section_pet-*）存于 settings ns，单独绑定一个 t 供 SettingSection 解析。
+	const { t: tSettings } = useTranslation("settings");
 	const [config, setConfig] = useState<PetConfig>(DEFAULT_PET_CONFIG);
 	const [bubbleStyleAssets, setBubbleStyleAssets] = useState<PetBubbleStyleAsset[]>([]);
 
@@ -62,22 +64,22 @@ export function PetSettings(): JSX.Element {
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">桌宠</h1>
+			<h1 className="mb-6 text-[20px] font-bold text-foreground">{t("settings.pageTitle")}</h1>
 
-			<SettingSection section={SETTINGS_SECTION["pet-status"]}>
+			<SettingSection t={tSettings as any} section={SETTINGS_SECTION["pet-status"]}>
 				<SettingRow
-					title="显示桌宠"
-					description="关闭后隐藏桌宠窗口，并在下次启动时保持隐藏。"
+					title={t("settings.showPet")}
+					description={t("settings.showPetDesc")}
 					border={false}
 				>
 					<Switch checked={config.enabled} onCheckedChange={handleEnabled} />
 				</SettingRow>
 			</SettingSection>
 
-			<SettingSection section={SETTINGS_SECTION["pet-window"]}>
+			<SettingSection t={tSettings as any} section={SETTINGS_SECTION["pet-window"]}>
 				<SettingRow
-					title="保持在最前"
-					description="开启后桌宠会浮在其他窗口上方；关闭后它会像普通窗口一样被遮挡。"
+					title={t("settings.alwaysOnTop")}
+					description={t("settings.alwaysOnTopDesc")}
 					border={false}
 				>
 					<Switch
@@ -89,6 +91,7 @@ export function PetSettings(): JSX.Element {
 			</SettingSection>
 
 			<SettingSection
+				t={tSettings as any}
 				section={SETTINGS_SECTION["pet-decoration"]}
 				description={t("settings.bubble.sectionDescription")}
 			>
@@ -109,12 +112,13 @@ export function PetSettings(): JSX.Element {
 			</SettingSection>
 
 			<SettingSection
+				t={tSettings as any}
 				section={SETTINGS_SECTION["pet-developer"]}
-				description="用于分辨桌宠窗口边界和视频实际显示区域。"
+				description={t("settings.developerDesc")}
 			>
 				<SettingRow
-					title="调试边框"
-					description="显示窗口边界、视频区域边界，并在桌宠窗口内实时展示窗口大小和视频大小。"
+					title={t("settings.debugFrame")}
+					description={t("settings.debugFrameDesc")}
 					border={false}
 				>
 					<Switch
