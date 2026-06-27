@@ -1,4 +1,4 @@
-import type { ChangeCode, ChangeEntry, CommitNode, Git2JsonCommit } from "./types";
+import type { ChangeCode, ChangeEntry, CommitNode } from "./types";
 
 // graphLog's %x1f/%x1e expand to these bytes in git's output: US (0x1f) between
 // fields, RS (0x1e) between records.
@@ -47,24 +47,6 @@ export function parseLog(raw: string): CommitNode[] {
 		});
 	}
 	return out;
-}
-
-/**
- * Map a `git log` graph commit list to git2json records for `@gitgraph/js`.
- * Subject and body are intentionally blanked: `import()` force-enables gitgraph's
- * own SVG message text (it overrides `message.display` with an internal flag), so
- * leaving them set would double up with our HTML rows. We feed only what positions
- * the dots/lanes and decorations; the visible text is rendered by {@link CommitRow}.
- */
-export function toGit2Json(nodes: readonly CommitNode[]): Git2JsonCommit[] {
-	return nodes.map((n) => ({
-		hash: n.hash,
-		parents: n.parents,
-		refs: n.refs,
-		author: { name: n.authorName, email: n.authorEmail, timestamp: n.timestamp },
-		subject: "",
-		body: "",
-	}));
 }
 
 // name-status status letter → our collapsed ChangeCode (commits never have untracked).

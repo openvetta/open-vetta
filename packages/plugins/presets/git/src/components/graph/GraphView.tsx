@@ -33,6 +33,7 @@ export function GraphView({ root, reloadToken }: { root: string; reloadToken: nu
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [selectedHash, setSelectedHash] = useState<string | null>(null);
 	const loadIdRef = useRef(0);
+	const loadingMoreRef = useRef(false);
 
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [containerWidth, setContainerWidth] = useState(0);
@@ -70,8 +71,10 @@ export function GraphView({ root, reloadToken }: { root: string; reloadToken: nu
 			});
 	}, [root, selection, reloadToken]);
 
+	// Auto-pagination: guarded by a ref so rapid scroll events can't double-fire.
 	const loadMore = useCallback(() => {
-		if (loadingMore) return;
+		if (loadingMoreRef.current || !hasMore || status !== "ready") return;
+		loadingMoreRef.current = true;
 		setLoadingMore(true);
 		graphLog(root, selection, PAGE, nodes.length)
 			.then((raw) => {
@@ -80,8 +83,11 @@ export function GraphView({ root, reloadToken }: { root: string; reloadToken: nu
 				setHasMore(more.length === PAGE);
 			})
 			.catch(() => {})
-			.finally(() => setLoadingMore(false));
-	}, [root, selection, nodes.length, loadingMore]);
+			.finally(() => {
+				loadingMoreRef.current = false;
+				setLoadingMore(false);
+			});
+	}, [root, selection, nodes.length, hasMore, status]);
 
 	useEffect(() => {
 		const el = containerRef.current;
@@ -128,16 +134,9 @@ export function GraphView({ root, reloadToken }: { root: string; reloadToken: nu
 					<div className="px-3 py-4 text-[12px] text-muted-foreground">{t("list.empty")}</div>
 				) : (
 					<>
-						<GitGraphCanvas nodes={nodes} selectedHash={selectedHash} onSelect={handleSelect} />
-						{hasMore && (
-							<button
-								type="button"
-								onClick={loadMore}
-								disabled={loadingMore}
-								className="shrink-0 border-t border-border py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-							>
-								{loadingMore ? t("state.loading") : t("list.loadMore")}
-							</button>
+						<GitGraphCanvas nodes={nodes} selectedHash={selectedHash} onSelect={handleSelect} onReachEnd={loadMore} />
+						{loadingMore && (
+							<div className="shrink-0 border-t border-border py-1.5 text-center text-[12px] text-muted-foreground">{t("state.loading")}</div>
 						)}
 					</>
 				))}
