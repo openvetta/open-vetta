@@ -1,8 +1,9 @@
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useAtomValue } from "jotai";
+import { useNavigate, useParams, useRouter, useSearch } from "@tanstack/react-router";
+import { useAtomValue, useSetAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useRef } from "react";
-import { isPersonalModeAtom, type SettingsTab } from "@shared/store/atoms";
+import { Button } from "@shared/components/ui/button";
+import { isPersonalModeAtom, pageHeaderLeftSlotAtom, pageHeaderTitleHiddenAtom, type SettingsTab } from "@shared/store/atoms";
 import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
 import { isMac } from "@shared/lib/platform";
@@ -47,10 +48,37 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 
 export function SettingsPage(): JSX.Element {
 	const { t } = useTranslation("settings");
+	const { t: tCommon } = useTranslation("common");
 	const { tab: rawTab } = useParams({ strict: false }) as { tab?: string };
 	const navigate = useNavigate();
+	const router = useRouter();
 	const isPersonal = useAtomValue(isPersonalModeAtom);
 	const authUser = useAtomValue(authUserAtom);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
+	const setHeaderLeftSlot = useSetAtom(pageHeaderLeftSlotAtom);
+
+	// 设置页不显示顶栏左上角的「设置」标题。
+	useEffect(() => {
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
+
+	// 顶栏左侧插槽放一个返回按钮，回到上一个页面。
+	useEffect(() => {
+		const back = tCommon("actions.back");
+		setHeaderLeftSlot(
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				title={back}
+				aria-label={back}
+				onClick={() => router.history.back()}
+			>
+				<span className="icon-[mdi--arrow-left] h-4 w-4" />
+			</Button>,
+		);
+		return () => setHeaderLeftSlot(null);
+	}, [setHeaderLeftSlot, router, tCommon]);
 	// 设置页内容是「左侧导航 + 右侧详情」双栏，宽度小于 1000 时就把左侧收成 icon-only。
 	const narrow = useNarrowScreen(1000);
 
@@ -134,7 +162,7 @@ export function SettingsPage(): JSX.Element {
 			/>
 			{/* Settings sidebar — 窄屏收成 icon-only 竖排，避免挤压右侧主内容 */}
 			<div className={cn("flex shrink-0 flex-col", narrow ? "w-14" : "w-[200px]")}>
-				<div className={cn("drag-region", narrow ? "h-12" : "px-5 pb-4 pt-5")}>
+				<div className={cn("drag-region", narrow ? "h-12" : "px-5 pb-2 pt-2")}>
 					{!narrow && (
 						<h1 className="text-[20px] font-bold tracking-[-0.02em] text-foreground">
 							{t("title")}

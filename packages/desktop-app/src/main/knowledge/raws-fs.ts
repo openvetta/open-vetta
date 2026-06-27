@@ -35,8 +35,11 @@ export interface KnowledgeBaseDto {
 	nodes: KnowledgeNodeDto[];
 }
 
-/** 默认知识库名：始终存在，用户与磁盘都删不掉（删后自动重建）。 */
-export const DEFAULT_KNOWLEDGE_BASE = "个人知识库";
+/**
+ * 默认知识库的磁盘目录名：始终存在，用户与磁盘都删不掉（删后自动重建）。
+ * 固定为语言无关的 "default_kb"；UI 显示名由 isDefault 标记驱动、走 i18n 映射。
+ */
+export const DEFAULT_KNOWLEDGE_BASE = "default_kb";
 
 function rawsRoot(): string {
 	return knowledge.rawsDir(knowledge.knowledgeRoot());

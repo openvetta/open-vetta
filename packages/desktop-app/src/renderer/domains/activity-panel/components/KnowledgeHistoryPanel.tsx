@@ -1,12 +1,14 @@
 import { type SessionInfo } from "@shared/store/atoms";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * 活动面板里的「知识库加工历史」：列出加工 cwd 下的每一轮加工 session（只显示时间），
  * 点击跳转到对应只读 viewer。仅在查看加工 session 时显示，且是该上下文唯一的 tab。
  */
 export function KnowledgeHistoryPanel({ cwd }: { cwd: string | null }): JSX.Element {
+	const { t } = useTranslation("settings");
 	const navigate = useNavigate();
 	// biome-ignore lint/suspicious/noExplicitAny: route params typing
 	const params = useParams({ strict: false }) as any;
@@ -44,12 +46,14 @@ export function KnowledgeHistoryPanel({ cwd }: { cwd: string | null }): JSX.Elem
 		return (
 			<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
 				<span className="icon-[mdi--loading] mr-1.5 h-3.5 w-3.5 animate-spin" />
-				加载中…
+				{t("kbHistoryLoading")}
 			</div>
 		);
 	}
 	if (sessions.length === 0) {
-		return <div className="py-8 text-center text-[12px] text-muted-foreground/50">还没有整理记录</div>;
+		return (
+			<div className="py-8 text-center text-[12px] text-muted-foreground/50">{t("kbHistoryEmpty")}</div>
+		);
 	}
 	return (
 		<div className="flex flex-col gap-0.5 overflow-y-auto p-2">

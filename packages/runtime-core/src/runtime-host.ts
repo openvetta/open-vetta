@@ -1701,11 +1701,9 @@ function sanitizeAutoTitle(raw: string): string {
 	const lastLine = lines[lines.length - 1];
 	const firstLine = lines[0];
 	const candidate = Array.from(lastLine.trim()).length <= 30 ? lastLine : firstLine;
-	// Strip wrapping quotes/brackets/punctuation that the model commonly adds.
-	const stripped = candidate
-		.replace(/^[\s"'`「『《<[(（【“”‘’]+/, "")
-		.replace(/[\s"'`」』》>\])）】“”‘’。．.!?！？，,、；;：:]+$/, "")
-		.trim();
+	// Strip leading/trailing whitespace and any special characters so both ends
+	// are alphanumeric (letters, including CJK, or digits).
+	const stripped = candidate.replace(/^[^\p{L}\p{N}]+/u, "").replace(/[^\p{L}\p{N}]+$/u, "");
 	if (!stripped) return "";
 	// Hard cap at 14 chars (Array.from to count code points correctly).
 	const chars = Array.from(stripped);
