@@ -172,17 +172,35 @@ export interface PluginAgentToolRegistration {
 	scope_use?: readonly string[];
 	/** 需要的会话能力 slug。 */
 	requires?: string[];
+	context?: { conversation?: "summary" | "messages" };
 }
 
-export interface PluginAgentToolInvocationRequest {
+export interface PluginHandlerInvocationBase {
 	requestId: string;
-	sessionId: string;
-	cwd: string;
 	pluginId: string;
+	handlerId: string;
+	settings: Record<string, unknown>;
+	session: { id: string; cwd: string; scenario: string };
+	model: {
+		provider: string;
+		id: string;
+		api: string;
+		input: string[];
+		contextWindow?: number;
+		maxTokens?: number;
+	};
+	conversation: {
+		messages: Array<{ role: string; text: string; timestamp?: number; toolName?: string }>;
+		messageCount: number;
+	};
+	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
+}
+
+export interface PluginAgentToolInvocationRequest extends PluginHandlerInvocationBase {
 	toolId: string;
 	toolName: string;
-	handlerId: string;
 	input: unknown;
+	trigger: { kind: "tool-call"; timestamp: number; toolCallId: string };
 }
 
 export interface PluginContinuationRegistration {
@@ -190,15 +208,12 @@ export interface PluginContinuationRegistration {
 	handlerId: string;
 	activationId?: string;
 	timeoutMs?: number;
+	context?: { conversation?: "summary" | "messages" };
 }
 
-export interface PluginContinuationInvocationRequest {
-	requestId: string;
-	sessionId: string;
-	cwd: string;
-	pluginId: string;
+export interface PluginContinuationInvocationRequest extends PluginHandlerInvocationBase {
 	providerId: string;
-	handlerId: string;
+	trigger: { kind: "continuation"; timestamp: number };
 }
 
 export interface PluginContinuationInvocationResult {
@@ -211,6 +226,10 @@ export interface PluginSystemPromptProviderRegistration {
 	handlerId: string;
 	activationId?: string;
 	timeoutMs?: number;
+	context?: {
+		systemPrompt?: "none" | "blocks" | "rendered" | "full";
+		conversation?: "summary" | "messages";
+	};
 }
 
 export interface SystemPromptBlockInput {
@@ -229,29 +248,29 @@ export type PluginDynamicSystemPromptOperation =
 			patch: Partial<Pick<SystemPromptBlockInput, "content" | "priority" | "enabled">>;
 	  }
 	| { type: "removeBlock"; blockId: string }
-	| { type: "setBlockEnabled"; blockId: string; enabled: boolean };
+	| { type: "setBlockEnabled"; blockId: string; enabled: boolean }
+	| { type: "setToolEnabled"; toolName: string; enabled: boolean }
+	| { type: "requestContinuation"; result: PluginContinuationInvocationResult };
 
-export interface PluginSystemPromptInvocationRequest {
-	requestId: string;
-	pluginId: string;
+export interface PluginSystemPromptInvocationRequest extends PluginHandlerInvocationBase {
 	providerId: string;
-	handlerId: string;
-	settings: Record<string, unknown>;
-	session: { id: string; cwd: string; scenario: string };
-	model: {
-		provider: string;
-		id: string;
-		api: string;
-		input: string[];
-		contextWindow?: number;
-		maxTokens?: number;
-	};
-	conversation: {
-		messages: Array<{ role: string; text: string; timestamp?: number; toolName?: string }>;
-		messageCount: number;
-	};
-	runtime: { activeToolNames: string[]; availableToolNames: string[]; runIndex: number };
 	trigger: { kind: "agent-run"; timestamp: number };
+	systemPrompt?: {
+		base: { blocks?: SystemPromptBlockView[]; rendered?: string };
+		current: { blocks?: SystemPromptBlockView[]; rendered?: string };
+	};
+}
+
+export interface SystemPromptBlockView extends SystemPromptBlockInput {
+	type: string;
+	source: { kind: "core" | "plugin"; pluginId?: string };
+	priority: number;
+	enabled: boolean;
+}
+
+export interface PluginHandlerInvocationResult<T> {
+	value: T;
+	effects: PluginDynamicSystemPromptOperation[];
 }
 
 export interface DesktopPluginsApi {
@@ -285,14 +304,18 @@ export interface DesktopPluginsApi {
 	onContinuationRequest(handler: (request: PluginContinuationInvocationRequest) => void): () => void;
 	respondContinuation(
 		requestId: string,
-		result: { value: PluginContinuationInvocationResult | null } | { error: string },
+		result:
+			| PluginHandlerInvocationResult<PluginContinuationInvocationResult | null>
+			| {
+					error: string;
+			  },
 	): Promise<void>;
 	registerSystemPromptProvider(pluginId: string, registration: PluginSystemPromptProviderRegistration): Promise<void>;
 	unregisterSystemPromptProvider(pluginId: string, providerId: string, activationId?: string): Promise<void>;
 	onSystemPromptRequest(handler: (request: PluginSystemPromptInvocationRequest) => void): () => void;
 	respondSystemPrompt(
 		requestId: string,
-		result: { value: PluginDynamicSystemPromptOperation[] } | { error: string },
+		result: PluginHandlerInvocationResult<PluginDynamicSystemPromptOperation[]> | { error: string },
 	): Promise<void>;
 	/** Effective setting values for a plugin (schema defaults merged with stored). */
 	getSettings(id: string): Promise<Record<string, unknown>>;

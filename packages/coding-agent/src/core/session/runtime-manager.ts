@@ -28,11 +28,17 @@ import { createMcpManager, type McpManager } from "../mcp/index.js";
 import type { ResourceExtensionPaths, ResourceLoader } from "../resource-loader.js";
 import type {
 	AgentPluginContinuationInvoker,
+	AgentPluginContinuationResult,
 	AgentPluginRuntimeConfig,
+	AgentPluginRuntimeEffect,
+	AgentPluginSystemPromptInvocation,
 	AgentPluginSystemPromptInvoker,
 	AgentPluginToolContribution,
 	AgentPluginToolInvoker,
+	SystemPromptDraft,
+	SystemPromptOperation,
 } from "../system-prompt.js";
+import { applySystemPromptOperations, renderSystemPromptDraft } from "../system-prompt.js";
 import type { TodoStore } from "../todo-store.js";
 import {
 	type AskUserQuestionCapability,
@@ -46,7 +52,7 @@ import { createTaskStopTool } from "../tools/task-stop/index.js";
 import { createTodoTool } from "../tools/todo/index.js";
 import { bindExtensionCore } from "./extension-binding.js";
 import type { SessionContext } from "./session-context.js";
-import { personalizationSig, rebuildSystemPrompt } from "./system-prompt-builder.js";
+import { personalizationSig, rebuildSystemPrompt, rebuildSystemPromptDraft } from "./system-prompt-builder.js";
 import { ALL_SCENARIOS, type ConversationScenario, DEFAULT_SCENARIO, resolveActiveToolNames } from "./tool-scope.js";
 
 function summarizePluginToolContributions(agentPlugins: AgentPluginRuntimeConfig | undefined): string[] {
@@ -109,6 +115,14 @@ export class RuntimeManager {
 
 	private _baseToolRegistry: Map<string, AgentTool> = new Map();
 	private _toolRegistry: Map<string, AgentTool> = new Map();
+	private _configuredActiveToolNames: string[] = [];
+	private _currentRunActiveToolNames: string[] = [];
+	private _currentRunPromptEffects: Array<{ pluginId: string; operations: SystemPromptOperation[] }> = [];
+	private _pendingNextRunEffects: Array<{ pluginId: string; effects: AgentPluginRuntimeEffect[] }> = [];
+	private _requestedContinuations: Array<{
+		pluginId: string;
+		result: AgentPluginContinuationResult;
+	}> = [];
 	private _baseSystemPrompt = "";
 	private _personalizationSignature: string | undefined = undefined;
 	private _askUserQuestionEnabledLastBuilt = false;
@@ -226,6 +240,7 @@ export class RuntimeManager {
 			}
 		}
 		this.ctx.agent.setTools(tools);
+		this._configuredActiveToolNames = validToolNames;
 
 		// Rebuild base system prompt with new tool set
 		this._baseSystemPrompt = this.rebuildSystemPrompt(validToolNames);
@@ -259,6 +274,36 @@ export class RuntimeManager {
 		if (!this._invokePluginSystemPrompt || providers.length === 0) return this._baseSystemPrompt;
 		const model = this.ctx.agent.state.model;
 		const runIndex = this._pluginSystemPromptRunIndex++;
+		const baseToolNames = [...this._configuredActiveToolNames];
+		const baseDraft = this.rebuildSystemPromptDraft(baseToolNames);
+		let currentDraft = baseDraft;
+		const activeToolNames = new Set(baseToolNames);
+		const committedPromptEffects: Array<{ pluginId: string; operations: SystemPromptOperation[] }> = [];
+		for (const pending of this._pendingNextRunEffects.splice(0)) {
+			const promptEffects: SystemPromptOperation[] = [];
+			let toolsChanged = false;
+			for (const effect of pending.effects) {
+				if (effect.type === "setToolEnabled") {
+					if (effect.enabled && this._toolRegistry.has(effect.toolName)) activeToolNames.add(effect.toolName);
+					else if (!effect.enabled) activeToolNames.delete(effect.toolName);
+					toolsChanged = true;
+				} else if (effect.type === "requestContinuation") {
+					this._requestedContinuations.push({ pluginId: pending.pluginId, result: effect.result });
+				} else {
+					promptEffects.push(effect);
+				}
+			}
+			if (toolsChanged) {
+				currentDraft = this.rebuildSystemPromptDraft([...activeToolNames]);
+				for (const contribution of committedPromptEffects) {
+					currentDraft = applySystemPromptOperations(currentDraft, contribution.pluginId, contribution.operations);
+				}
+			}
+			if (promptEffects.length > 0) {
+				currentDraft = applySystemPromptOperations(currentDraft, pending.pluginId, promptEffects);
+				committedPromptEffects.push({ pluginId: pending.pluginId, operations: promptEffects });
+			}
+		}
 		const invocationBase = {
 			session: { id: this.host.sessionId, cwd: this.ctx.cwd, scenario: this._scenario },
 			model: {
@@ -279,45 +324,99 @@ export class RuntimeManager {
 				})),
 				messageCount: messages.length,
 			},
-			runtime: {
-				activeToolNames: this.getActiveToolNames(),
-				availableToolNames: Array.from(this._toolRegistry.keys()),
-				runIndex,
-			},
 			trigger: { kind: "agent-run" as const, timestamp: Date.now() },
 		};
-		const dynamicContributions = await Promise.all(
-			providers.map(async (provider) => {
-				try {
-					const operations = await invokeWithTimeout(
-						(providerSignal) =>
-							this._invokePluginSystemPrompt?.(
-								{
-									pluginId: provider.pluginId,
-									providerId: provider.id,
-									handlerId: provider.handlerId,
-									...invocationBase,
+		for (const provider of providers) {
+			try {
+				const contextMode = provider.context?.systemPrompt ?? "none";
+				const conversationMode = provider.context?.conversation ?? "summary";
+				const effects = await invokeWithTimeout(
+					(providerSignal) =>
+						this._invokePluginSystemPrompt?.(
+							{
+								pluginId: provider.pluginId,
+								providerId: provider.id,
+								handlerId: provider.handlerId,
+								...invocationBase,
+								conversation: {
+									messages: conversationMode === "messages" ? invocationBase.conversation.messages : [],
+									messageCount: invocationBase.conversation.messageCount,
 								},
-								providerSignal,
-							) ?? Promise.resolve([]),
-						signal,
-						provider.timeoutMs ?? DEFAULT_PLUGIN_CONTINUATION_TIMEOUT_MS,
-					);
-					return { pluginId: provider.pluginId, operations };
-				} catch (error) {
-					console.warn(`[plugin-agent] system prompt provider failed: ${provider.pluginId}/${provider.id}`, error);
-					return { pluginId: provider.pluginId, operations: [] };
+								runtime: {
+									activeToolNames: [...activeToolNames],
+									availableToolNames: Array.from(this._toolRegistry.keys()),
+									runIndex,
+								},
+								systemPrompt:
+									contextMode === "none"
+										? undefined
+										: {
+												base: {
+													blocks:
+														contextMode === "blocks" || contextMode === "full"
+															? clonePromptBlocks(baseDraft)
+															: undefined,
+													rendered:
+														contextMode === "rendered" || contextMode === "full"
+															? renderSystemPromptDraft(clonePromptDraft(baseDraft))
+															: undefined,
+												},
+												current: {
+													blocks:
+														contextMode === "blocks" || contextMode === "full"
+															? clonePromptBlocks(currentDraft)
+															: undefined,
+													rendered:
+														contextMode === "rendered" || contextMode === "full"
+															? renderSystemPromptDraft(clonePromptDraft(currentDraft))
+															: undefined,
+												},
+											},
+							},
+							providerSignal,
+						) ?? Promise.resolve([]),
+					signal,
+					provider.timeoutMs ?? DEFAULT_PLUGIN_CONTINUATION_TIMEOUT_MS,
+				);
+				let toolsChanged = false;
+				const promptEffects: SystemPromptOperation[] = [];
+				for (const effect of effects) {
+					if (effect.type === "setToolEnabled") {
+						if (effect.enabled && this._toolRegistry.has(effect.toolName)) activeToolNames.add(effect.toolName);
+						else if (!effect.enabled) activeToolNames.delete(effect.toolName);
+						toolsChanged = true;
+					} else if (effect.type === "requestContinuation") {
+						this._requestedContinuations.push({ pluginId: provider.pluginId, result: effect.result });
+					} else {
+						promptEffects.push(effect);
+					}
 				}
-			}),
+				if (toolsChanged) {
+					currentDraft = this.rebuildSystemPromptDraft([...activeToolNames]);
+					for (const contribution of committedPromptEffects) {
+						currentDraft = applySystemPromptOperations(
+							currentDraft,
+							contribution.pluginId,
+							contribution.operations,
+						);
+					}
+				}
+				if (promptEffects.length > 0) {
+					currentDraft = applySystemPromptOperations(currentDraft, provider.pluginId, promptEffects);
+					committedPromptEffects.push({ pluginId: provider.pluginId, operations: promptEffects });
+				}
+			} catch (error) {
+				console.warn(`[plugin-agent] system prompt provider failed: ${provider.pluginId}/${provider.id}`, error);
+			}
+		}
+		this.ctx.agent.setTools(
+			[...activeToolNames]
+				.map((name) => this._toolRegistry.get(name))
+				.filter((tool): tool is AgentTool => tool !== undefined),
 		);
-		const config: AgentPluginRuntimeConfig = {
-			...this._agentPlugins,
-			systemPromptContributions: [
-				...(this._agentPlugins?.systemPromptContributions ?? []),
-				...dynamicContributions.filter((item) => item.operations.length > 0),
-			],
-		};
-		return this.rebuildSystemPrompt(this.getActiveToolNames(), config);
+		this._currentRunActiveToolNames = [...activeToolNames];
+		this._currentRunPromptEffects = committedPromptEffects;
+		return renderSystemPromptDraft(currentDraft);
 	}
 
 	resetPluginContinuationRun(): void {
@@ -325,37 +424,56 @@ export class RuntimeManager {
 	}
 
 	async collectPluginContinuationMessages(signal?: AbortSignal): Promise<AgentMessage[]> {
-		if (!this._invokePluginContinuation || this._pluginContinuationRunCount >= MAX_PLUGIN_CONTINUATIONS_PER_RUN) {
-			return [];
+		if (this._pluginContinuationRunCount >= MAX_PLUGIN_CONTINUATIONS_PER_RUN) return [];
+		const requested = this.takeRequestedContinuation();
+		if (requested) {
+			this._pluginContinuationRunCount++;
+			return [
+				{
+					role: "user",
+					content: [{ type: "text", text: requested }],
+					timestamp: Date.now(),
+				},
+			];
 		}
+		if (!this._invokePluginContinuation) return [];
 		const contributions = [...(this._agentPlugins?.continuationContributions ?? [])].sort(
 			(a, b) => a.pluginId.localeCompare(b.pluginId) || a.id.localeCompare(b.id),
 		);
 		for (const contribution of contributions) {
 			if (signal?.aborted) return [];
 			try {
+				const context = this.createPluginHandlerContext(contribution.context?.conversation === "messages");
 				const result = await invokeWithTimeout(
 					(signalForCall) =>
 						this._invokePluginContinuation?.(
 							{
-								sessionId: this.host.sessionId,
-								cwd: this.ctx.cwd,
 								pluginId: contribution.pluginId,
 								providerId: contribution.id,
 								handlerId: contribution.handlerId,
+								...context,
+								trigger: { kind: "continuation", timestamp: Date.now() },
 							},
 							signalForCall,
-						) ?? Promise.resolve(null),
+						) ?? Promise.resolve({ value: null, effects: [] }),
 					signal,
 					contribution.timeoutMs ?? DEFAULT_PLUGIN_CONTINUATION_TIMEOUT_MS,
 				);
-				const text = result?.text.trim();
-				if (!text) continue;
-				const idempotencyKey = result?.idempotencyKey;
+				const text = result.value?.text.trim();
+				if (!text) {
+					if (result.effects.length > 0) {
+						this._pendingNextRunEffects.push({ pluginId: contribution.pluginId, effects: result.effects });
+					}
+					continue;
+				}
+				const idempotencyKey = result.value?.idempotencyKey;
 				if (idempotencyKey) {
 					const key = `${contribution.pluginId}:${contribution.id}:${idempotencyKey}`;
 					if (this._seenPluginContinuationKeys.has(key)) continue;
 					this._seenPluginContinuationKeys.add(key);
+				}
+				if (result.effects.length > 0) {
+					this._pendingNextRunEffects.push({ pluginId: contribution.pluginId, effects: result.effects });
 				}
 				this._pluginContinuationRunCount++;
 				return [
@@ -397,6 +515,107 @@ export class RuntimeManager {
 			memoryCharLimit: this.ctx.memoryCharLimit,
 			agentPlugins,
 		});
+	}
+
+	private rebuildSystemPromptDraft(toolNames: string[], agentPlugins = this._agentPlugins): SystemPromptDraft {
+		return rebuildSystemPromptDraft({
+			toolNames,
+			baseToolRegistry: this._baseToolRegistry,
+			resourceLoader: this.resourceLoader,
+			mcpManager: this._mcpManager,
+			cwd: this.ctx.cwd,
+			settingsManager: this.ctx.settingsManager,
+			memoryMode: this.ctx.memoryMode,
+			memoryFile: this.ctx.memoryFile,
+			memorySnapshot: this.ctx.memorySnapshot,
+			memoryCharLimit: this.ctx.memoryCharLimit,
+			agentPlugins,
+		});
+	}
+
+	private createPluginHandlerContext(
+		includeMessages = false,
+	): Pick<AgentPluginSystemPromptInvocation, "session" | "model" | "conversation" | "runtime"> {
+		const model = this.ctx.agent.state.model;
+		const messages = this.ctx.agent.state.messages;
+		return {
+			session: { id: this.host.sessionId, cwd: this.ctx.cwd, scenario: this._scenario },
+			model: {
+				provider: model.provider,
+				id: model.id,
+				api: model.api,
+				input: [...(model.input ?? [])],
+				contextWindow: model.contextWindow,
+				maxTokens: model.maxTokens,
+			},
+			conversation: {
+				messages: includeMessages
+					? messages.map((message) => ({
+							role: message.role,
+							text: extractPluginPromptMessageText(message),
+							timestamp:
+								"timestamp" in message && typeof message.timestamp === "number" ? message.timestamp : undefined,
+							toolName:
+								"toolName" in message && typeof message.toolName === "string" ? message.toolName : undefined,
+						}))
+					: [],
+				messageCount: messages.length,
+			},
+			runtime: {
+				activeToolNames: this.getActiveToolNames(),
+				availableToolNames: Array.from(this._toolRegistry.keys()),
+				runIndex: this._pluginSystemPromptRunIndex,
+			},
+		};
+	}
+
+	private applyPluginRuntimeEffects(pluginId: string, effects: AgentPluginRuntimeEffect[]): void {
+		if (effects.length === 0) return;
+		const activeToolNames = new Set(
+			this._currentRunActiveToolNames.length > 0 ? this._currentRunActiveToolNames : this._configuredActiveToolNames,
+		);
+		const promptOperations: SystemPromptOperation[] = [];
+		for (const effect of effects) {
+			if (effect.type === "setToolEnabled") {
+				if (effect.enabled && this._toolRegistry.has(effect.toolName)) activeToolNames.add(effect.toolName);
+				else if (!effect.enabled) activeToolNames.delete(effect.toolName);
+			} else if (effect.type === "requestContinuation") {
+				this._requestedContinuations.push({ pluginId, result: effect.result });
+			} else {
+				promptOperations.push(effect);
+			}
+		}
+		if (promptOperations.length > 0) {
+			this._currentRunPromptEffects.push({ pluginId, operations: promptOperations });
+		}
+		this._currentRunActiveToolNames = [...activeToolNames];
+		let draft = this.rebuildSystemPromptDraft(this._currentRunActiveToolNames);
+		for (const contribution of this._currentRunPromptEffects) {
+			draft = applySystemPromptOperations(draft, contribution.pluginId, contribution.operations);
+		}
+		this.ctx.agent.setTools(
+			this._currentRunActiveToolNames
+				.map((name) => this._toolRegistry.get(name))
+				.filter((tool): tool is AgentTool => tool !== undefined),
+		);
+		this.ctx.agent.setSystemPrompt(renderSystemPromptDraft(draft));
+	}
+
+	private takeRequestedContinuation(): string | undefined {
+		while (this._requestedContinuations.length > 0) {
+			const requested = this._requestedContinuations.shift();
+			if (!requested) return undefined;
+			const text = requested.result.text.trim();
+			if (!text) continue;
+			const idempotencyKey = requested.result.idempotencyKey;
+			if (idempotencyKey) {
+				const key = `${requested.pluginId}:action:${idempotencyKey}`;
+				if (this._seenPluginContinuationKeys.has(key)) continue;
+				this._seenPluginContinuationKeys.add(key);
+			}
+			return text;
+		}
+		return undefined;
 	}
 
 	private applyPluginToolPolicies(activeToolNameSet: Set<string>, availableToolNames: Set<string>): void {
@@ -742,9 +961,9 @@ export class RuntimeManager {
 		const pluginToolContributions = this._agentPlugins?.toolContributions ?? [];
 		const pluginTools = createPluginTools({
 			contributions: pluginToolContributions,
-			cwd: this.ctx.cwd,
-			sessionId: this.host.sessionId,
 			invoke: this._invokePluginTool,
+			getContext: (includeMessages) => this.createPluginHandlerContext(includeMessages),
+			applyEffects: (pluginId, effects) => this.applyPluginRuntimeEffects(pluginId, effects),
 		});
 		debugPluginAgent("coding-agent plugin tools built", {
 			sessionId: this.host.sessionId,
@@ -854,6 +1073,9 @@ export class RuntimeManager {
 		}
 
 		const systemPromptToolNames = Array.from(activeToolNameSet);
+		this._configuredActiveToolNames = systemPromptToolNames;
+		this._currentRunActiveToolNames = systemPromptToolNames;
+		this._currentRunPromptEffects = [];
 		this._baseSystemPrompt = this.rebuildSystemPrompt(systemPromptToolNames);
 		this.ctx.agent.setSystemPrompt(this._baseSystemPrompt);
 	}
@@ -861,9 +1083,11 @@ export class RuntimeManager {
 
 function createPluginTools(options: {
 	contributions: AgentPluginToolContribution[];
-	cwd: string;
-	sessionId: string;
 	invoke?: AgentPluginToolInvoker;
+	getContext: (
+		includeMessages: boolean,
+	) => Pick<AgentPluginSystemPromptInvocation, "session" | "model" | "conversation" | "runtime">;
+	applyEffects: (pluginId: string, effects: AgentPluginRuntimeEffect[]) => void;
 }): AgentTool[] {
 	if (!options.invoke) {
 		if (options.contributions.length > 0) {
@@ -892,9 +1116,26 @@ function extractPluginPromptMessageText(message: AgentMessage): string {
 		.join("\n");
 }
 
+function clonePromptBlocks(draft: SystemPromptDraft): SystemPromptDraft["blocks"] {
+	return draft.blocks.map((block) => ({ ...block, source: { ...block.source } }));
+}
+
+function clonePromptDraft(draft: SystemPromptDraft): SystemPromptDraft {
+	return {
+		blocks: clonePromptBlocks(draft),
+		metadata: { ...draft.metadata },
+	};
+}
+
 function createPluginTool(
 	contribution: AgentPluginToolContribution,
-	options: { cwd: string; sessionId: string; invoke?: AgentPluginToolInvoker },
+	options: {
+		invoke?: AgentPluginToolInvoker;
+		getContext: (
+			includeMessages: boolean,
+		) => Pick<AgentPluginSystemPromptInvocation, "session" | "model" | "conversation" | "runtime">;
+		applyEffects: (pluginId: string, effects: AgentPluginRuntimeEffect[]) => void;
+	},
 ): AgentTool {
 	return {
 		name: contribution.name,
@@ -905,7 +1146,7 @@ function createPluginTool(
 		scope_use: contribution.scope_use,
 		requires: contribution.requires,
 		category: "external",
-		execute: async (_toolCallId, params: unknown, signal?: AbortSignal) => {
+		execute: async (toolCallId, params: unknown, signal?: AbortSignal) => {
 			if (!options.invoke) {
 				return {
 					content: [{ type: "text", text: "Plugin tool is unavailable because no host bridge is registered." }],
@@ -916,24 +1157,25 @@ function createPluginTool(
 				(signalForCall) =>
 					options.invoke?.(
 						{
-							sessionId: options.sessionId,
-							cwd: options.cwd,
 							pluginId: contribution.pluginId,
 							toolId: contribution.id,
 							toolName: contribution.name,
 							handlerId: contribution.handlerId,
 							input: params,
+							...options.getContext(contribution.context?.conversation === "messages"),
+							trigger: { kind: "tool-call", timestamp: Date.now(), toolCallId },
 						},
 						signalForCall,
-					) ?? Promise.resolve(undefined),
+					) ?? Promise.resolve({ value: undefined, effects: [] }),
 				signal,
 				contribution.timeoutMs,
 			);
+			options.applyEffects(contribution.pluginId, result.effects);
 			// Lift a `cards` array off the handler's return onto the out-of-band
 			// `details.cards` (the uniform message-card channel) and strip it from
 			// the model-visible content — so plugin tools can render below-message
 			// cards without leaking the descriptors into the LLM context.
-			const { cards, rest } = liftPluginToolCards(result);
+			const { cards, rest } = liftPluginToolCards(result.value);
 			return {
 				content: [{ type: "text", text: formatPluginToolResult(rest) }],
 				details: {

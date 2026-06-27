@@ -1,4 +1,4 @@
-import type { SystemPromptOperation } from "@vetta/runtime-core";
+import type { AgentPluginRuntimeEffect, AgentPluginSystemPromptInvocation } from "@vetta/runtime-core";
 import type {
 	InstalledPlugin,
 	PluginDynamicSystemPromptOperation,
@@ -59,6 +59,24 @@ function parseOperation(value: unknown): PluginDynamicSystemPromptOperation {
 	const operation = asRecord(value, "operation");
 	const type = asString(operation.type, "operation.type");
 	if (type === "addBlock") return { type, block: parseBlock(operation.block, true) };
+	if (type === "setToolEnabled") {
+		const enabled = asOptionalBoolean(operation.enabled, "operation.enabled");
+		if (enabled === undefined) throw new Error("Invalid dynamic system prompt operation.enabled");
+		return { type, toolName: asString(operation.toolName, "operation.toolName"), enabled };
+	}
+	if (type === "requestContinuation") {
+		const result = asRecord(operation.result, "operation.result");
+		return {
+			type,
+			result: {
+				text: asString(result.text, "operation.result.text"),
+				idempotencyKey:
+					result.idempotencyKey === undefined
+						? undefined
+						: asString(result.idempotencyKey, "operation.result.idempotencyKey"),
+			},
+		};
+	}
 	const blockId = asString(operation.blockId, "operation.blockId");
 	if (type === "replaceBlock") {
 		const block = parseBlock(operation.block, false);
@@ -92,9 +110,21 @@ function parseOperation(value: unknown): PluginDynamicSystemPromptOperation {
 export function normalizeDynamicSystemPromptOperations(
 	plugin: InstalledPlugin,
 	value: unknown,
-): SystemPromptOperation[] {
+): AgentPluginRuntimeEffect[] {
 	if (!Array.isArray(value)) throw new Error("Invalid dynamic system prompt result");
-	return value.map(parseOperation).map((operation): SystemPromptOperation => {
+	return value.map(parseOperation).map((operation): AgentPluginRuntimeEffect => {
+		if (operation.type === "setToolEnabled") {
+			if (!hasGrantedPermission(plugin, "agent.tools.control")) {
+				throw new Error(`Plugin ${plugin.id} cannot change runtime tool availability`);
+			}
+			return operation;
+		}
+		if (operation.type === "requestContinuation") {
+			if (!hasGrantedPermission(plugin, "agent.continuation.register")) {
+				throw new Error(`Plugin ${plugin.id} cannot request Agent continuation`);
+			}
+			return operation;
+		}
 		if (operation.type === "addBlock") {
 			assertBlockAccess(plugin, operation.block.id);
 			return {
@@ -125,4 +155,29 @@ export function normalizeDynamicSystemPromptOperations(
 		}
 		return operation;
 	});
+}
+
+export function filterSystemPromptInvocationForPlugin(
+	plugin: InstalledPlugin,
+	invocation: AgentPluginSystemPromptInvocation,
+): AgentPluginSystemPromptInvocation {
+	if (!invocation.systemPrompt || hasGrantedPermission(plugin, "agent.systemPrompt.fullControl")) {
+		return invocation;
+	}
+	const filterSnapshot = (
+		snapshot: NonNullable<AgentPluginSystemPromptInvocation["systemPrompt"]>["base"],
+	): NonNullable<AgentPluginSystemPromptInvocation["systemPrompt"]>["base"] => ({
+		...snapshot,
+		rendered: undefined,
+		blocks: snapshot.blocks?.map((block) =>
+			block.source.pluginId === plugin.id ? block : { ...block, content: "" },
+		),
+	});
+	return {
+		...invocation,
+		systemPrompt: {
+			base: filterSnapshot(invocation.systemPrompt.base),
+			current: filterSnapshot(invocation.systemPrompt.current),
+		},
+	};
 }

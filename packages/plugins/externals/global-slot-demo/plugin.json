@@ -13,6 +13,7 @@
 	"permissions": [
 		"ui.slot.global",
 		"agent.systemPrompt.write",
+		"agent.systemPrompt.fullControl",
 		"agent.skills.control",
 		"agent.tools.control",
 		"agent.tools.register",
@@ -69,6 +70,13 @@
 				"type": "boolean",
 				"title": "Remove fiction prompt block",
 				"description": "Removes the block from the prompt draft. This operation runs last.",
+				"default": false
+			},
+			{
+				"key": "disableWriteChapterTool",
+				"type": "boolean",
+				"title": "Disable chapter tool dynamically",
+				"description": "Disables the demo chapter-writing tool in the same handler that changes the system prompt.",
 				"default": false
 			},
 			{

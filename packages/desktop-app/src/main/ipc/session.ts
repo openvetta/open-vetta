@@ -8,6 +8,7 @@ import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-pro
 import type {
 	AgentPluginContinuationInvocation,
 	AgentPluginContinuationResult,
+	AgentPluginHandlerResult,
 	AgentPluginSystemPromptInvocation,
 	AgentPluginToolInvocation,
 	PromptRequest,
@@ -32,7 +33,10 @@ import {
 	listPlugins,
 	summarizeAgentPluginRuntimeConfig,
 } from "../plugins/plugin-store.js";
-import { normalizeDynamicSystemPromptOperations } from "../plugins/system-prompt-operations.js";
+import {
+	filterSystemPromptInvocationForPlugin,
+	normalizeDynamicSystemPromptOperations,
+} from "../plugins/system-prompt-operations.js";
 import { getSharedRuntime } from "../runtime.js";
 import { assertSandboxAvailableForMode } from "../sandbox/capability.js";
 import {
@@ -449,7 +453,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		if (webContents.isDestroyed()) {
 			return Promise.reject(new Error("Plugin host renderer is unavailable"));
 		}
-		return new Promise<unknown>((resolve, reject) => {
+		return new Promise<AgentPluginHandlerResult<unknown>>((resolve, reject) => {
 			const requestId = randomUUID();
 			const finish = (result: unknown): void => {
 				pluginToolMap.delete(requestId);
@@ -458,7 +462,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					reject(new Error(String((result as { error?: unknown }).error ?? "Plugin tool failed")));
 					return;
 				}
-				resolve((result as { value?: unknown })?.value);
+				const plugin = listPlugins().find((candidate) => candidate.id === request.pluginId);
+				if (!plugin || !plugin.enabled) {
+					reject(new Error(`Plugin not found or disabled: ${request.pluginId}`));
+					return;
+				}
+				resolve({
+					value: (result as { value?: unknown })?.value,
+					effects: normalizeDynamicSystemPromptOperations(plugin, (result as { effects?: unknown }).effects ?? []),
+				});
 			};
 			const onAbort = (): void => {
 				pluginToolMap.delete(requestId);
@@ -470,13 +482,17 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			}
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			pluginToolMap.set(requestId, finish);
-			webContents.send(CHANNELS.PLUGIN_TOOL_REQUEST, { ...request, requestId });
+			webContents.send(CHANNELS.PLUGIN_TOOL_REQUEST, {
+				...request,
+				requestId,
+				settings: getPluginSettings(request.pluginId),
+			});
 		});
 	});
 
 	runtime.setPluginContinuationInvoker((request: AgentPluginContinuationInvocation, signal?: AbortSignal) => {
-		if (webContents.isDestroyed()) return Promise.resolve(null);
-		return new Promise<AgentPluginContinuationResult | null>((resolve, reject) => {
+		if (webContents.isDestroyed()) return Promise.resolve({ value: null, effects: [] });
+		return new Promise<AgentPluginHandlerResult<AgentPluginContinuationResult | null>>((resolve, reject) => {
 			const requestId = randomUUID();
 			const finish = (result: unknown): void => {
 				pluginContinuationMap.delete(requestId);
@@ -486,8 +502,17 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 					return;
 				}
 				const value = (result as { value?: unknown })?.value;
+				const plugin = listPlugins().find((item) => item.id === request.pluginId);
+				if (!plugin || !plugin.enabled) {
+					reject(new Error(`Plugin not found or disabled: ${request.pluginId}`));
+					return;
+				}
+				const effects = normalizeDynamicSystemPromptOperations(
+					plugin,
+					(result as { effects?: unknown }).effects ?? [],
+				);
 				if (value === null || value === undefined) {
-					resolve(null);
+					resolve({ value: null, effects });
 					return;
 				}
 				if (typeof value !== "object" || typeof (value as { text?: unknown }).text !== "string") {
@@ -496,21 +521,28 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				}
 				const candidate = value as { text: string; idempotencyKey?: unknown };
 				resolve({
-					text: candidate.text,
-					idempotencyKey: typeof candidate.idempotencyKey === "string" ? candidate.idempotencyKey : undefined,
+					value: {
+						text: candidate.text,
+						idempotencyKey: typeof candidate.idempotencyKey === "string" ? candidate.idempotencyKey : undefined,
+					},
+					effects,
 				});
 			};
 			const onAbort = (): void => {
 				pluginContinuationMap.delete(requestId);
-				resolve(null);
+				resolve({ value: null, effects: [] });
 			};
 			if (signal?.aborted) {
-				resolve(null);
+				resolve({ value: null, effects: [] });
 				return;
 			}
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			pluginContinuationMap.set(requestId, finish);
-			webContents.send(CHANNELS.PLUGIN_CONTINUATION_REQUEST, { ...request, requestId });
+			webContents.send(CHANNELS.PLUGIN_CONTINUATION_REQUEST, {
+				...request,
+				requestId,
+				settings: getPluginSettings(request.pluginId),
+			});
 		});
 	});
 
@@ -572,8 +604,15 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				runIndex: request.runtime.runIndex,
 				messageCount: request.conversation.messageCount,
 			});
+			const plugin = listPlugins().find((candidate) => candidate.id === request.pluginId);
+			if (!plugin || !plugin.enabled) {
+				pluginSystemPromptMap.delete(requestId);
+				reject(new Error(`Plugin not found or disabled: ${request.pluginId}`));
+				return;
+			}
+			const filteredRequest = filterSystemPromptInvocationForPlugin(plugin, request);
 			webContents.send(CHANNELS.PLUGIN_SYSTEM_PROMPT_REQUEST, {
-				...request,
+				...filteredRequest,
 				requestId,
 				settings: getPluginSettings(request.pluginId),
 			});

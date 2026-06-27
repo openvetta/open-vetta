@@ -99,6 +99,12 @@ function asOptionalStringArray(value: unknown): string[] | undefined {
 	return out.length > 0 ? out : [];
 }
 
+function asHandlerContext(value: unknown): { conversation?: "summary" | "messages" } | undefined {
+	if (value === undefined) return undefined;
+	const input = asRecord(value, "handler context");
+	return { conversation: input.conversation === "messages" ? "messages" : "summary" };
+}
+
 function asAgentToolRegistration(value: unknown): {
 	id: string;
 	name: string;
@@ -110,6 +116,7 @@ function asAgentToolRegistration(value: unknown): {
 	timeoutMs?: number;
 	scope_use?: string[];
 	requires?: string[];
+	context?: { conversation?: "summary" | "messages" };
 } {
 	const input = asRecord(value, "agent tool registration");
 	const id = asPluginId(input.id);
@@ -134,6 +141,7 @@ function asAgentToolRegistration(value: unknown): {
 		timeoutMs,
 		scope_use: asOptionalStringArray(input.scope_use),
 		requires: asOptionalStringArray(input.requires),
+		context: asHandlerContext(input.context),
 	};
 }
 
@@ -142,6 +150,7 @@ function asContinuationRegistration(value: unknown): {
 	handlerId: string;
 	activationId?: string;
 	timeoutMs?: number;
+	context?: { conversation?: "summary" | "messages" };
 } {
 	const input = asRecord(value, "continuation registration");
 	return {
@@ -152,6 +161,7 @@ function asContinuationRegistration(value: unknown): {
 			typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
 				? Math.min(Math.floor(input.timeoutMs), 30_000)
 				: undefined,
+		context: asHandlerContext(input.context),
 	};
 }
 
@@ -160,8 +170,21 @@ function asSystemPromptProviderRegistration(value: unknown): {
 	handlerId: string;
 	activationId?: string;
 	timeoutMs?: number;
+	context?: {
+		systemPrompt?: "none" | "blocks" | "rendered" | "full";
+		conversation?: "summary" | "messages";
+	};
 } {
 	const input = asRecord(value, "system prompt provider registration");
+	const contextInput =
+		input.context === undefined ? undefined : asRecord(input.context, "system prompt provider context");
+	const systemPrompt =
+		contextInput?.systemPrompt === "blocks" ||
+		contextInput?.systemPrompt === "rendered" ||
+		contextInput?.systemPrompt === "full"
+			? contextInput.systemPrompt
+			: "none";
+	const conversation = contextInput?.conversation === "messages" ? "messages" : "summary";
 	return {
 		id: asPluginId(input.id),
 		handlerId: asPluginId(input.handlerId),
@@ -170,6 +193,7 @@ function asSystemPromptProviderRegistration(value: unknown): {
 			typeof input.timeoutMs === "number" && Number.isFinite(input.timeoutMs) && input.timeoutMs > 0
 				? Math.min(Math.floor(input.timeoutMs), 30_000)
 				: undefined,
+		context: contextInput ? { systemPrompt, conversation } : undefined,
 	};
 }
 

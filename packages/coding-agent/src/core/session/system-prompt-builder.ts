@@ -11,7 +11,13 @@ import { renderMemoryForPrompt } from "../memory/memory-store.js";
 import { getPersonaPrompt } from "../personas.js";
 import type { ResourceLoader } from "../resource-loader.js";
 import type { SettingsManager } from "../settings-manager.js";
-import { type AgentPluginRuntimeConfig, buildSystemPrompt } from "../system-prompt.js";
+import {
+	type AgentPluginRuntimeConfig,
+	type BuildSystemPromptOptions,
+	buildSystemPrompt,
+	buildSystemPromptDraft,
+	type SystemPromptDraft,
+} from "../system-prompt.js";
 
 /**
  * Build the personalization (persona + custom instructions) append block.
@@ -48,8 +54,7 @@ export interface SystemPromptDeps {
 	agentPlugins?: AgentPluginRuntimeConfig;
 }
 
-/** Rebuild the base system prompt from current session state. */
-export function rebuildSystemPrompt(deps: SystemPromptDeps): string {
+function resolveSystemPromptOptions(deps: SystemPromptDeps): BuildSystemPromptOptions {
 	const validToolNames = deps.toolNames.filter((name) => deps.baseToolRegistry.has(name));
 	const loaderSystemPrompt = deps.resourceLoader.getSystemPrompt();
 	const loaderAppendSystemPrompt = deps.resourceLoader.getAppendSystemPrompt();
@@ -74,7 +79,7 @@ export function rebuildSystemPrompt(deps: SystemPromptDeps): string {
 
 	const personalization = buildPersonalizationBlock(deps.settingsManager);
 
-	return buildSystemPrompt({
+	return {
 		cwd: deps.cwd,
 		skills: loadedSkills,
 		contextFiles: loadedContextFiles,
@@ -85,5 +90,14 @@ export function rebuildSystemPrompt(deps: SystemPromptDeps): string {
 		memory,
 		personalization,
 		agentPlugins: deps.agentPlugins,
-	});
+	};
+}
+
+/** Rebuild the base system prompt from current session state. */
+export function rebuildSystemPrompt(deps: SystemPromptDeps): string {
+	return buildSystemPrompt(resolveSystemPromptOptions(deps));
+}
+
+export function rebuildSystemPromptDraft(deps: SystemPromptDeps): SystemPromptDraft {
+	return buildSystemPromptDraft(resolveSystemPromptOptions(deps));
 }
