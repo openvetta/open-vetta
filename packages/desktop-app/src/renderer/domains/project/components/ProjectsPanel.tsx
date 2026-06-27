@@ -1,6 +1,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useMatches } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { Virtuoso } from "react-virtuoso";
 import { cn, pathBasename } from "@shared/lib/utils";
 import type { DefaultConversationFilter, Project, SessionInfo, SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
@@ -24,6 +25,7 @@ const VIRTUAL_DEFAULT_SESSION_ROW_HEIGHT = 34;
 const VIRTUAL_DEFAULT_SESSION_OVERSCAN = 120;
 
 export function ProjectsPanel({ filter, onOpenSession, scrollParent }: ProjectsPanelProps): JSX.Element {
+	const { t } = useTranslation("project");
 	const {
 		projects,
 		sessionsMap,
@@ -490,7 +492,7 @@ export function ProjectsPanel({ filter, onOpenSession, scrollParent }: ProjectsP
 						<div className="flex items-center">
 							<button
 								type="button"
-								title="更多"
+								title={t("actions.more")}
 								onClick={(e) => {
 									e.stopPropagation();
 									const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -503,7 +505,7 @@ export function ProjectsPanel({ filter, onOpenSession, scrollParent }: ProjectsP
 							{defaultConversationFilter !== "claw" && (
 								<button
 									type="button"
-									title="新会话"
+									title={t("sidebar.nav.newSession")}
 									onClick={() =>
 										void navigate({
 											to: "/new-session/$cwd",

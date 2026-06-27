@@ -18,6 +18,38 @@
 		"conversation": "Chat",
 		"claw": "Claw"
 	},
+	"actions": {
+		"newProject": "New Project",
+		"openProject": "Open Project",
+		"importProject": "Import Project",
+		"more": "More"
+	},
+	"contextMenu": {
+		"openInFinder": "Reveal in Finder",
+		"openInExplorer": "Show in Explorer",
+		"clearConversation": "Clear sessions",
+		"clearConversationDisabled": "Stop the running session first",
+		"clearClaw": "Clear records",
+		"clearClawDisabled": "Stop the running Claw session first",
+		"clawSettings": "Claw settings",
+		"archiveProject": "Archive project",
+		"removeFromList": "Remove from list",
+		"deleteProject": "Delete project",
+		"rename": "Rename",
+		"openArtifactDir": "Open artifact folder",
+		"delete": "Delete"
+	},
+	"importDialog": {
+		"failedTitle": "Import failed",
+		"failedConfirm": "OK",
+		"partialTitle": "Import done (some source paths missing)",
+		"partialMessage": "Project \"{{name}}\" was imported, but {{count}} batch source path(s) don't exist on this machine:\n\n{{list}}\n\nThe metadata for these tasks is preserved; you can re-link or delete them manually after opening the project.",
+		"partialMore": "\n…and {{count}} more",
+		"doneTitle": "Import done",
+		"doneMessage": "Project \"{{name}}\" has been imported into the workspace.",
+		"viewProject": "View project",
+		"gotIt": "Got it"
+	},
 	"update": {
 		"newVersion": "New version {{version}} available — click to download in the background",
 		"downloading": "Downloading {{version}} ({{pct}}%)",
