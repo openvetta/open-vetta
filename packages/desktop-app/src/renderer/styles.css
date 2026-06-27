@@ -200,6 +200,24 @@
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 
+	/* 默认使用系统原生光标。仅当 html.custom-cursor 时才覆盖为自定义素材，
+	   开关入口见「外观设置 → 鼠标指针」，默认关闭。 */
+	--cursor-default: default;
+	--cursor-click: pointer;
+	--cursor-help: help;
+	--cursor-hover: pointer;
+	--cursor-horizontal-resize: ew-resize;
+	--cursor-loading: wait;
+	--cursor-move: move;
+	--cursor-not-allowed: not-allowed;
+	--cursor-pointer: pointer;
+	--cursor-text: text;
+	--cursor-vertical-resize: ns-resize;
+	--cursor-diagonal-resize: nwse-resize;
+	--cursor-diagonal-resize-flipped: nesw-resize;
+}
+
+html.custom-cursor {
 	--cursor-default: url("/cursors/default.png") 3 3, default;
 	--cursor-click: url("/cursors/click.png") 3 3, pointer;
 	--cursor-help: url("/cursors/help.png") 3 2, help;
