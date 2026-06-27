@@ -51,6 +51,7 @@ import {
 	pageHeaderTitleHiddenAtom,
 	pageHeaderTitleBadgeAtom,
 	pageHeaderRightSlotAtom,
+	pageHeaderLeftSlotAtom,
 } from "./shared/store/atoms";
 import { isMac } from "./shared/lib/platform";
 import { cn } from "./shared/lib/utils";
@@ -87,6 +88,7 @@ function PageHeader({
 	const titleHidden = useAtomValue(pageHeaderTitleHiddenAtom);
 	const titleBadge = useAtomValue(pageHeaderTitleBadgeAtom);
 	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
+	const leftSlot = useAtomValue(pageHeaderLeftSlotAtom);
 	const fallbackTitle = ROUTE_TITLES.find((r) => r.match.test(path))?.title ?? "Vetta";
 	const title = titleOverride && titleOverride.length > 0 ? titleOverride : fallbackTitle;
 	// 窄屏始终显示触发按钮（悬浮即唤出浮层）；宽屏仅在手动收起时显示。
@@ -123,6 +125,7 @@ function PageHeader({
 						</motion.button>
 					)}
 				</AnimatePresence>
+				{leftSlot}
 				{!titleHidden && (
 					<motion.h1
 						key={title}
