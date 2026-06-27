@@ -43,17 +43,3 @@ export interface CommitNode {
 	subject: string;
 	body: string;
 }
-
-/**
- * git2json-shaped record consumed by `@gitgraph/js`'s `import()`. The library
- * validates `author` is an object and `refs` is an array, then infers lanes from
- * parents + refs. Reverse-chronological order (newest first), as `git log` emits.
- */
-export interface Git2JsonCommit {
-	hash: string;
-	parents: string[];
-	refs: string[];
-	author: { name: string; email: string; timestamp: number };
-	subject: string;
-	body: string;
-}

@@ -5,6 +5,7 @@ import { findEntry } from "../git/gitStatus";
 import { resizePanel } from "../git/runtime";
 import type { ChangeEntry } from "../git/types";
 import { DiffPane } from "./DiffPane";
+import { GitActions } from "./GitActions";
 import { GitFileTree } from "./GitFileTree";
 import { GitFlatList } from "./GitFlatList";
 import { FileIcon, ListViewIcon, TreeViewIcon } from "./icons";
@@ -103,55 +104,61 @@ export function GitChanges({ root, entries }: { root: string; entries: ChangeEnt
 	);
 
 	return (
-		<div ref={containerRef} className="flex min-h-0 flex-1 overflow-hidden">
-			{showTree && (
-				<div
-					className={
-						wide
-							? "relative flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-border"
-							: "flex min-h-0 flex-1 flex-col overflow-hidden"
-					}
-					style={wide ? { width: treeWidth } : undefined}
-				>
-					<div className="flex h-7 shrink-0 items-center justify-end border-b border-border px-1.5">
-						<button
-							type="button"
-							onClick={toggleView}
-							title={viewMode === "tree" ? t("view.switchToFlat") : t("view.switchToTree")}
-							className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-2">
+				<GitActions root={root} />
+				{entries.length > 0 && (
+					<button
+						type="button"
+						onClick={toggleView}
+						title={viewMode === "tree" ? t("view.switchToFlat") : t("view.switchToTree")}
+						className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					>
+						{viewMode === "tree" ? <ListViewIcon className="h-3.5 w-3.5" /> : <TreeViewIcon className="h-3.5 w-3.5" />}
+					</button>
+				)}
+			</div>
+
+			{entries.length === 0 ? (
+				<div className="flex flex-1 items-center justify-center px-3 py-4 text-[12px] text-muted-foreground">{t("state.clean")}</div>
+			) : (
+				<div ref={containerRef} className="flex min-h-0 flex-1 overflow-hidden">
+					{showTree && (
+						<div
+							className={
+								wide
+									? "relative flex min-h-0 shrink-0 flex-col overflow-hidden border-r border-border"
+									: "flex min-h-0 flex-1 flex-col overflow-hidden"
+							}
+							style={wide ? { width: treeWidth } : undefined}
 						>
-							{viewMode === "tree" ? (
-								<ListViewIcon className="h-3.5 w-3.5" />
-							) : (
-								<TreeViewIcon className="h-3.5 w-3.5" />
-							)}
-						</button>
-					</div>
-					<div className="flex min-h-0 flex-1 flex-col">
-						{viewMode === "tree" ? (
-							<GitFileTree entries={entries} selectedPath={selectedPath} onSelect={handleSelect} />
+							<div className="flex min-h-0 flex-1 flex-col">
+								{viewMode === "tree" ? (
+									<GitFileTree entries={entries} selectedPath={selectedPath} onSelect={handleSelect} />
+								) : (
+									<GitFlatList entries={entries} selectedPath={selectedPath} onSelect={handleSelect} />
+								)}
+							</div>
+							{wide && <SplitHandle onDrag={onSplitDrag} />}
+						</div>
+					)}
+					{wide &&
+						(selectedEntry ? (
+							<DiffPane
+								root={root}
+								entry={selectedEntry}
+								onClose={handleClose}
+								onToggleTree={() => setTreeCollapsed((c) => !c)}
+								treeCollapsed={treeCollapsed}
+							/>
 						) : (
-							<GitFlatList entries={entries} selectedPath={selectedPath} onSelect={handleSelect} />
-						)}
-					</div>
-					{wide && <SplitHandle onDrag={onSplitDrag} />}
+							<div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
+								<FileIcon className="h-6 w-6 opacity-50" />
+								<span className="text-[12px]">{t("diff.selectPrompt")}</span>
+							</div>
+						))}
 				</div>
 			)}
-			{wide &&
-				(selectedEntry ? (
-					<DiffPane
-						root={root}
-						entry={selectedEntry}
-						onClose={handleClose}
-						onToggleTree={() => setTreeCollapsed((c) => !c)}
-						treeCollapsed={treeCollapsed}
-					/>
-				) : (
-					<div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-2 text-muted-foreground">
-						<FileIcon className="h-6 w-6 opacity-50" />
-						<span className="text-[12px]">{t("diff.selectPrompt")}</span>
-					</div>
-				))}
 		</div>
 	);
 }

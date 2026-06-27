@@ -121,8 +121,6 @@ export function GitPanel(): JSX.Element {
 			{state.kind === "ready" &&
 				(view === "graph" ? (
 					<GraphView root={state.root} reloadToken={graphReloadToken} />
-				) : state.entries.length === 0 ? (
-					<div className="px-3 py-4 text-[12px] text-muted-foreground">{t("state.clean")}</div>
 				) : (
 					<GitChanges root={state.root} entries={state.entries} />
 				))}
