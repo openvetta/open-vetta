@@ -13,6 +13,7 @@ import {
 	knowledgeViewModeAtom,
 	pageHeaderRightSlotAtom,
 	pageHeaderTitleBadgeAtom,
+	pageHeaderTitleHiddenAtom,
 	refreshKnowledgeBasesAtom,
 	type SessionInfo,
 } from "@shared/store/atoms";
@@ -41,6 +42,7 @@ export function KnowledgeBasePage(): JSX.Element {
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
 	const confirm = useSetAtom(confirmDialogAtom);
 	const setTitleBadge = useSetAtom(pageHeaderTitleBadgeAtom);
+	const setHeaderTitleHidden = useSetAtom(pageHeaderTitleHiddenAtom);
 	const setHeaderRightSlot = useSetAtom(pageHeaderRightSlotAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const knowledgeBaseEnabled = useAtomValue(knowledgeBaseEnabledAtom);
@@ -91,6 +93,12 @@ export function KnowledgeBasePage(): JSX.Element {
 	useEffect(() => {
 		void refresh();
 	}, [refresh]);
+
+	// 知识库页不显示顶栏左上角的「知识库」标题（页面内已有大号库名切换器）。
+	useEffect(() => {
+		setHeaderTitleHidden(true);
+		return () => setHeaderTitleHidden(false);
+	}, [setHeaderTitleHidden]);
 
 	// 仅本页向顶栏标题右侧插槽注入「正在建立索引…」徽标，离开即清除。
 	useEffect(() => {

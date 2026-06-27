@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
@@ -13,11 +14,16 @@ import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { cn } from "@shared/lib/utils";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
-import { countKnowledgeNodes, formatKnowledgeUpdatedAt } from "../lib/knowledge-base";
+import {
+	countKnowledgeNodes,
+	formatKnowledgeUpdatedAt,
+	knowledgeBaseDisplayName,
+} from "../lib/knowledge-base";
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 export function KnowledgeBaseListPage(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const knowledgeBases = useAtomValue(knowledgeBasesAtom);
 	const activeId = useAtomValue(activeKnowledgeBaseIdAtom);
 	const setActiveId = useSetAtom(activeKnowledgeBaseIdAtom);
@@ -37,7 +43,7 @@ export function KnowledgeBaseListPage(): JSX.Element {
 			.sort((a, b) => b.updatedAt - a.updatedAt)
 			.filter((base) => {
 				if (!query) return true;
-				return base.name.toLocaleLowerCase().includes(query);
+				return knowledgeBaseDisplayName(base).toLocaleLowerCase().includes(query);
 			});
 	}, [knowledgeBases, search]);
 
@@ -68,12 +74,12 @@ export function KnowledgeBaseListPage(): JSX.Element {
 						<Button
 							variant="ghost"
 							size="icon-sm"
-							title="返回知识库"
+							title={t("kbAllBack")}
 							onClick={() => void navigate({ to: "/knowledge" })}
 						>
 							<span className="icon-[mdi--arrow-left] h-4 w-4" />
 						</Button>
-						<h1 className="text-[24px] font-bold tracking-tight text-foreground">全部知识库</h1>
+						<h1 className="text-[24px] font-bold tracking-tight text-foreground">{t("kbAllTitle")}</h1>
 						<motion.span
 							key={knowledgeBases.length}
 							initial={{ opacity: 0, scale: 0.85 }}
@@ -85,7 +91,7 @@ export function KnowledgeBaseListPage(): JSX.Element {
 						</motion.span>
 					</div>
 					<p className="ml-9 mt-1 text-[12px] text-muted-foreground/60">
-						查找并打开已有知识库
+						{t("kbAllSubtitle")}
 					</p>
 				</motion.div>
 				<motion.div
@@ -99,13 +105,13 @@ export function KnowledgeBaseListPage(): JSX.Element {
 						<Input
 							value={search}
 							onChange={(event) => setSearch(event.target.value)}
-							placeholder="搜索知识库"
+							placeholder={t("kbAllSearch")}
 							className="h-8 border-transparent bg-muted/55 pl-8 pr-3 text-[12px] shadow-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
 						/>
 					</div>
 					<Button variant="primary" onClick={createKnowledgeBase}>
 						<span className="icon-[mdi--plus] h-4 w-4" />
-						新建知识库
+						{t("kbCreateBase")}
 					</Button>
 				</motion.div>
 			</header>
@@ -171,17 +177,17 @@ export function KnowledgeBaseListPage(): JSX.Element {
 																animate={{ opacity: 1, scale: 1 }}
 																className="rounded-full bg-primary/10 px-2 py-0.5 text-[9.5px] font-medium text-primary"
 															>
-																当前
+																{t("kbCurrent")}
 															</motion.span>
 														)}
 													</div>
 													<h2 className="mt-3 truncate text-[13px] font-semibold text-foreground">
-														{base.name}
+														{knowledgeBaseDisplayName(base)}
 													</h2>
 													<div className="mt-auto flex items-center gap-2 pt-3 text-[10px] text-muted-foreground/50">
-														<span>{stats.directories} 个目录</span>
+														<span>{t("kbDirCount", { n: stats.directories })}</span>
 														<span>·</span>
-														<span>{stats.files} 个文件</span>
+														<span>{t("kbFileCount", { n: stats.files })}</span>
 														<span className="ml-auto">
 															{formatKnowledgeUpdatedAt(base.updatedAt)}
 														</span>
@@ -209,15 +215,15 @@ export function KnowledgeBaseListPage(): JSX.Element {
 								transition={{ duration: 0.4, ease: EASE_OUT }}
 							/>
 							<p className="mt-3 text-[13px] font-medium text-foreground">
-								{knowledgeBases.length === 0 ? "还没有知识库" : "没有匹配的知识库"}
+								{knowledgeBases.length === 0 ? t("kbAllEmptyNone") : t("kbAllEmptyNoMatch")}
 							</p>
 							<p className="mt-1 text-[11px] text-muted-foreground/55">
-								{knowledgeBases.length === 0 ? "创建一个知识库开始整理资料" : "尝试使用其他关键词"}
+								{knowledgeBases.length === 0 ? t("kbAllEmptyNoneDesc") : t("kbAllEmptyNoMatchDesc")}
 							</p>
 							{knowledgeBases.length === 0 && (
 								<Button variant="primary" className="mt-4" onClick={createKnowledgeBase}>
 									<span className="icon-[mdi--plus] h-4 w-4" />
-									新建知识库
+									{t("kbCreateBase")}
 								</Button>
 							)}
 						</motion.div>

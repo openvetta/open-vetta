@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { getColoredFileIcon } from "@domains/file-explorer/components/fileIcons";
 import { cn } from "@shared/lib/utils";
 import { useMarqueeSelection } from "../hooks/useMarqueeSelection";
@@ -19,6 +20,7 @@ export function KnowledgeGrid({
 	onSelectIds,
 	onClearSelection,
 }: KnowledgeViewProps): JSX.Element {
+	const { t } = useTranslation("settings");
 	const { scrollRef, marquee, onMouseDown } = useMarqueeSelection({
 		selectedIds,
 		onSelectIds,
@@ -88,7 +90,7 @@ export function KnowledgeGrid({
 									</span>
 									{isDir && (
 										<span className="text-[10px] tabular-nums text-muted-foreground/45">
-											{node.children?.length ?? 0} 项
+											{t("kbItemCount", { n: node.children?.length ?? 0 })}
 										</span>
 									)}
 								</button>

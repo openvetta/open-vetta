@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSetAtom } from "jotai";
 import { useMatches, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
@@ -19,6 +20,7 @@ function toSourcePaths(dataTransfer: DataTransfer): string[] {
  * 仅在知识库相关路由生效，不抢占聊天页现有的附件拖拽语义。
  */
 export function KnowledgeDropOverlay(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const matches = useMatches();
 	const path = matches[matches.length - 1]?.pathname ?? "/";
 	const enabled = path.startsWith("/knowledge");
@@ -93,9 +95,9 @@ export function KnowledgeDropOverlay(): JSX.Element {
 						<div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-inset ring-primary/20">
 							<span className="icon-[mdi--folder-arrow-down-outline] h-8 w-8" />
 						</div>
-						<h2 className="text-[18px] font-semibold text-foreground">松开，让 Vetta 先整理</h2>
+						<h2 className="text-[18px] font-semibold text-foreground">{t("kbDropTitle")}</h2>
 						<p className="mt-2 text-[12px] leading-5 text-muted-foreground">
-							文件不会立即写入知识库。你可以先确认目标知识库、目录结构和整理建议。
+							{t("kbDropDesc")}
 						</p>
 					</motion.div>
 				</motion.div>
