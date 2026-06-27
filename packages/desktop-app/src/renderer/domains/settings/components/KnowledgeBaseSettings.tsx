@@ -254,6 +254,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			</div>
 
 			<SettingSection
+				t={t as any}
 				section={SETTINGS_SECTION["knowledge-processing"]}
 				description={t("kbHowItWorksDesc")}
 			>
@@ -341,9 +342,6 @@ export function KnowledgeBaseSettings(): JSX.Element {
 								<span className="icon-[mdi--close] h-3.5 w-3.5 text-red-500" />
 							) : null}
 						</button>
-						{probeResult && !probeResult.ok && (
-							<span className="text-[11px] text-red-500">{probeResult.msg}</span>
-						)}
 						{enabled && !modelKey && (
 							<span className="flex basis-full items-center gap-1 text-[11px] text-amber-500">
 								<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />

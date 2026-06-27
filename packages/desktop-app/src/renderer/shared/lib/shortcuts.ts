@@ -10,32 +10,33 @@
 
 export interface ShortcutAction {
 	id: string;
-	label: string;
-	description: string;
+	/** settings ns i18n key，渲染期解析（模块级常量不存中文）。 */
+	labelKey: string;
+	descriptionKey: string;
 	defaultShortcut: string;
 }
 
-/** All available shortcut actions with defaults */
-export const SHORTCUT_ACTIONS: ShortcutAction[] = [
+/** All available shortcut actions with defaults。as const 保留 labelKey 字面量类型供 t() 校验。 */
+export const SHORTCUT_ACTIONS = [
 	{
 		id: "new-session",
-		label: "新建会话",
-		description: "在当前项目下创建新的对话会话",
+		labelKey: "shortcutNewSessionLabel",
+		descriptionKey: "shortcutNewSessionDesc",
 		defaultShortcut: "mod+n",
 	},
 	{
 		id: "open-project",
-		label: "打开项目",
-		description: "选择并打开一个项目文件夹",
+		labelKey: "shortcutOpenProjectLabel",
+		descriptionKey: "shortcutOpenProjectDesc",
 		defaultShortcut: "mod+o",
 	},
 	{
 		id: "open-settings",
-		label: "打开设置",
-		description: "打开设置页面",
+		labelKey: "shortcutOpenSettingsLabel",
+		descriptionKey: "shortcutOpenSettingsDesc",
 		defaultShortcut: "mod+,",
 	},
-];
+] as const;
 
 const STORAGE_KEY = "vetta-shortcuts";
 
