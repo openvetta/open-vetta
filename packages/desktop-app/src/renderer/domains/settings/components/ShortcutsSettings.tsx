@@ -143,8 +143,8 @@ export function ShortcutsSettings(): JSX.Element {
 					return (
 						<SettingRow
 							key={action.id}
-							title={action.label}
-							description={action.description}
+							title={t(action.labelKey)}
+							description={t(action.descriptionKey)}
 							border={idx < SHORTCUT_ACTIONS.length - 1}
 						>
 							<ShortcutRecorder

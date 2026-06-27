@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
@@ -32,6 +33,7 @@ import { knowledgeBaseEnabledAtom } from "@shared/store/plugin-atoms";
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 export function KnowledgeBasePage(): JSX.Element {
+	const { t } = useTranslation("settings");
 	const [knowledgeBases] = useAtom(knowledgeBasesAtom);
 	const loading = useAtomValue(knowledgeLoadingAtom);
 	const [activeId, setActiveId] = useAtom(activeKnowledgeBaseIdAtom);
@@ -65,9 +67,9 @@ export function KnowledgeBasePage(): JSX.Element {
 			const list = cwd ? ((await window.vetta.session.listSessions(cwd)) as SessionInfo[]) : [];
 			if (list.length === 0) {
 				confirm({
-					title: "整理记录",
-					message: "暂无加工记录。开启知识库并整理资料后，这里会显示每一轮的整理过程。",
-					confirmLabel: "知道了",
+					title: t("kbPageRecordsEmptyTitle"),
+					message: t("kbPageRecordsEmptyMsg"),
+					confirmLabel: t("kbPageGotIt"),
 					onConfirm: () => {},
 				});
 				return;
@@ -75,7 +77,7 @@ export function KnowledgeBasePage(): JSX.Element {
 			setActivityPanelOpen(true);
 			void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(list[0].path) } });
 		})();
-	}, [confirm, navigate, setActivityPanelOpen]);
+	}, [confirm, navigate, setActivityPanelOpen, t]);
 
 	const openKnowledgeSettings = useCallback(() => {
 		void navigate({ to: "/settings/$tab", params: { tab: "knowledge" } });
@@ -102,27 +104,27 @@ export function KnowledgeBasePage(): JSX.Element {
 			<>
 				<Button variant="ghost" size="sm" onClick={openProcessingRecords}>
 					<span className="icon-[mdi--history] h-4 w-4" />
-					整理记录
+					{t("kbPageRecords")}
 				</Button>
 				<Button variant="ghost" size="sm" onClick={openKnowledgeSettings}>
 					<span className="icon-[mdi--cog-outline] h-4 w-4" />
-					设置
+					{t("kbPageSettings")}
 				</Button>
 			</>,
 		);
 		return () => setHeaderRightSlot(null);
-	}, [setHeaderRightSlot, openProcessingRecords, openKnowledgeSettings]);
+	}, [setHeaderRightSlot, openProcessingRecords, openKnowledgeSettings, t]);
 
 	const showError = useCallback(
 		(err: unknown) => {
 			confirm({
-				title: "操作失败",
+				title: t("kbPageOpFailed"),
 				message: err instanceof Error ? err.message : String(err),
-				confirmLabel: "知道了",
+				confirmLabel: t("kbPageGotIt"),
 				onConfirm: () => {},
 			});
 		},
-		[confirm],
+		[confirm, t],
 	);
 
 	const openCreateDialog = useCallback(() => {
@@ -193,16 +195,15 @@ export function KnowledgeBasePage(): JSX.Element {
 							<span className="icon-[solar--library-linear] h-8 w-8" />
 						</div>
 						<h1 className="mt-5 text-[20px] font-bold tracking-tight text-foreground">
-							知识库尚未开启
+							{t("kbPageDisabledTitle")}
 						</h1>
 						<p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-							开启后，放入的资料会自动整理成 AI 能查阅的知识，聊天时自动参考。知识库会消耗较多
-							Token，请按需开启。
+							{t("kbPageDisabledDesc")}
 						</p>
 						<div className="mt-6 flex items-center gap-2.5">
 							<Button variant="primary" onClick={enableKnowledgeBase}>
 								<span className="icon-[mdi--power] h-4 w-4" />
-								开启知识库
+								{t("kbPageEnable")}
 							</Button>
 							<Button
 								variant="ghost"
@@ -210,7 +211,7 @@ export function KnowledgeBasePage(): JSX.Element {
 									void navigate({ to: "/settings/$tab", params: { tab: "knowledge" } })
 								}
 							>
-								前往知识库设置
+								{t("kbPageGotoSettings")}
 							</Button>
 						</div>
 						<button
@@ -218,7 +219,7 @@ export function KnowledgeBasePage(): JSX.Element {
 							onClick={() => setHowItWorksOpen(true)}
 							className="mt-4 text-[12px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
 						>
-							了解它如何工作
+							{t("kbPageLearnHow")}
 						</button>
 					</motion.div>
 				</div>
@@ -259,20 +260,20 @@ export function KnowledgeBasePage(): JSX.Element {
 						/>
 					) : (
 						<h1 className="whitespace-nowrap text-[24px] font-bold tracking-tight text-foreground">
-							知识库
+							{t("kbPageTitle")}
 						</h1>
 					)}
 					<p className="mt-1 text-[12px] text-muted-foreground/60">
-						以熟悉的文件与目录结构管理资料，新增内容会自动完成整理
+						{t("kbPageSubtitle")}
 					</p>
 					<p className="mt-0.5 text-[12px] text-muted-foreground/60">
-						使用知识库会消耗大量的 Token。
+						{t("kbPageTokenNote")}
 						<button
 							type="button"
 							onClick={() => setHowItWorksOpen(true)}
 							className="font-medium text-primary underline-offset-2 hover:underline"
 						>
-							查看详情
+							{t("kbPageViewDetail")}
 						</button>
 					</p>
 				</motion.div>
@@ -286,15 +287,15 @@ export function KnowledgeBasePage(): JSX.Element {
 							narrow ? "flex-wrap justify-end" : "",
 						)}
 					>
-						<Button variant="ghost" size="icon-sm" title="刷新" onClick={() => void refresh()}>
+						<Button variant="ghost" size="icon-sm" title={t("kbPageRefresh")} onClick={() => void refresh()}>
 							<span className="icon-[mdi--refresh] h-4 w-4" />
 						</Button>
 						{/* 视图切换：宫格 / 列表，偏好持久化 */}
 						<div className="flex items-center rounded-lg bg-muted/55 p-0.5">
 							{(
 								[
-									{ mode: "grid", icon: "icon-[mdi--view-grid-outline]", title: "宫格视图" },
-									{ mode: "list", icon: "icon-[mdi--view-list-outline]", title: "列表视图" },
+									{ mode: "grid", icon: "icon-[mdi--view-grid-outline]", title: t("kbPageGridView") },
+									{ mode: "list", icon: "icon-[mdi--view-list-outline]", title: t("kbPageListView") },
 								] as const
 							).map(({ mode, icon, title }) => (
 								<button
@@ -323,7 +324,7 @@ export function KnowledgeBasePage(): JSX.Element {
 							<Input
 								value={search}
 								onChange={(event) => setSearch(event.target.value)}
-								placeholder="搜索"
+								placeholder={t("kbPageSearch")}
 								className="h-8 border-transparent bg-muted/55 pl-7 pr-2.5 text-[12px] shadow-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
 							/>
 						</div>
