@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@shared/components/ui/button";
 import {
 	Dialog,
@@ -23,6 +24,7 @@ export function KnowledgeRenameDialog({
 	onClose,
 	onSubmit,
 }: KnowledgeRenameDialogProps): JSX.Element {
+	const { t } = useTranslation("common");
 	const [name, setName] = useState(initialName);
 	const trimmed = name.trim();
 	const canSubmit = trimmed.length > 0 && trimmed !== initialName && !/[\\/]/.test(trimmed);
@@ -44,10 +46,10 @@ export function KnowledgeRenameDialog({
 				/>
 				<DialogFooter>
 					<Button variant="ghost" onClick={onClose}>
-						取消
+						{t("actions.cancel")}
 					</Button>
 					<Button variant="primary" disabled={!canSubmit} onClick={() => onSubmit(trimmed)}>
-						确定
+						{t("actions.confirm")}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

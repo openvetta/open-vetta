@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
 import {
@@ -19,7 +20,7 @@ import { KnowledgeGrid } from "./KnowledgeGrid";
 import { KnowledgeList } from "./KnowledgeList";
 import { KnowledgeRenameDialog } from "./KnowledgeRenameDialog";
 import { type ContextMenuItem, KnowledgeContextMenu } from "./KnowledgeContextMenu";
-import { knowledgeNodeMatches, nodesAtPath } from "../lib/knowledge-base";
+import { knowledgeBaseDisplayName, knowledgeNodeMatches, nodesAtPath } from "../lib/knowledge-base";
 
 interface KnowledgeContentsPanelProps {
 	knowledgeBase: KnowledgeBase;
@@ -39,6 +40,8 @@ export function KnowledgeContentsPanel({
 	onPickFiles,
 	onPickFolders,
 }: KnowledgeContentsPanelProps): JSX.Element {
+	const { t } = useTranslation(["settings", "common"]);
+	const baseName = knowledgeBaseDisplayName(knowledgeBase);
 	const [path, setPath] = useState<string[]>([]);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [anchorId, setAnchorId] = useState<string | null>(null);
@@ -167,10 +170,10 @@ export function KnowledgeContentsPanel({
 	const deleteIds = useCallback(
 		(ids: string[], label: string) => {
 			confirm({
-				title: "删除",
-				message: `确定从「${knowledgeBase.name}」删除${label}吗？该操作不可撤销。`,
+				title: t("kbEntryDeleteTitle"),
+				message: t("kbEntryDeleteMsg", { base: baseName, label }),
 				variant: "danger",
-				confirmLabel: "删除",
+				confirmLabel: t("common:actions.delete"),
 				onConfirm: () => {
 					void (async () => {
 						for (const id of ids) {
@@ -182,16 +185,16 @@ export function KnowledgeContentsPanel({
 				},
 			});
 		},
-		[confirm, knowledgeBase.id, knowledgeBase.name, refresh, clearSelection],
+		[confirm, knowledgeBase.id, baseName, refresh, clearSelection, t],
 	);
 
 	const deleteWiki = useCallback(
 		(ids: string[], label: string) => {
 			confirm({
-				title: "删除 wiki",
-				message: `确定删除${label}已整理出的 wiki 笔记吗？原始文件保留，下次整理会重新整理。`,
+				title: t("kbWikiDeleteTitle"),
+				message: t("kbWikiDeleteMsg", { label }),
 				variant: "danger",
-				confirmLabel: "删除 wiki",
+				confirmLabel: t("kbWikiDeleteConfirm"),
 				onConfirm: () => {
 					void (async () => {
 						await window.vetta.knowledge.deleteWiki(knowledgeBase.id, ids).catch(() => {});
@@ -201,7 +204,7 @@ export function KnowledgeContentsPanel({
 				},
 			});
 		},
-		[confirm, knowledgeBase.id, refresh, clearSelection],
+		[confirm, knowledgeBase.id, refresh, clearSelection, t],
 	);
 
 	const submitRename = useCallback(
@@ -218,50 +221,52 @@ export function KnowledgeContentsPanel({
 		if (!menu) return [];
 		const ids = [...selectedIds];
 		if (ids.length > 1) {
+			const selectedLabel = t("kbLabelSelectedItems", { n: ids.length });
 			return [
 				{
-					label: `删除选中 ${ids.length} 项的 wiki`,
+					label: t("kbMenuDeleteWikiSelected", { n: ids.length }),
 					icon: "icon-[mdi--file-document-remove-outline]",
-					onClick: () => deleteWiki(ids, `选中的 ${ids.length} 项`),
+					onClick: () => deleteWiki(ids, selectedLabel),
 				},
 				{
-					label: `删除选中的 ${ids.length} 项`,
+					label: t("kbMenuDeleteSelected", { n: ids.length }),
 					icon: "icon-[mdi--trash-can-outline]",
 					danger: true,
-					onClick: () => deleteIds(ids, `选中的 ${ids.length} 项`),
+					onClick: () => deleteIds(ids, selectedLabel),
 				},
 			];
 		}
 		const node = menu.node;
 		const wikiPath = wikiPathFor(node);
+		const nodeLabel = t("kbLabelNode", { name: node.name });
 		return [
 			...(wikiPath
 				? [
 						{
-							label: "查看 wiki",
+							label: t("kbMenuViewWiki"),
 							icon: "icon-[mdi--text-box-search-outline]",
 							onClick: () => openWiki(wikiPath),
 						},
 						{
-							label: "删除 wiki",
+							label: t("kbWikiDeleteTitle"),
 							icon: "icon-[mdi--file-document-remove-outline]",
-							onClick: () => deleteWiki([node.id], `「${node.name}」`),
+							onClick: () => deleteWiki([node.id], nodeLabel),
 						},
 					]
 				: []),
 			{
-				label: "重命名",
+				label: t("kbMenuRename"),
 				icon: "icon-[mdi--rename-outline]",
 				onClick: () => setRenameNode(node),
 			},
 			{
-				label: "删除",
+				label: t("kbEntryDeleteTitle"),
 				icon: "icon-[mdi--trash-can-outline]",
 				danger: true,
-				onClick: () => deleteIds([node.id], `「${node.name}」`),
+				onClick: () => deleteIds([node.id], nodeLabel),
 			},
 		];
-	}, [menu, selectedIds, deleteIds, deleteWiki, wikiPathFor, openWiki]);
+	}, [menu, selectedIds, deleteIds, deleteWiki, wikiPathFor, openWiki, t]);
 
 	const onBackgroundClick = useCallback(
 		(event: React.MouseEvent) => {
@@ -287,7 +292,7 @@ export function KnowledgeContentsPanel({
 							className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent/60"
 						>
 							<span className="icon-[mdi--folder-home-outline] h-3.5 w-3.5" />
-							{knowledgeBase.name}
+							{baseName}
 						</button>
 						{path.map((segment, index) => (
 							<span key={`${segment}-${index}`} className="flex items-center gap-1">
@@ -322,9 +327,9 @@ export function KnowledgeContentsPanel({
 									<span className="absolute inset-2 rounded-3xl bg-background/60 ring-1 ring-inset ring-primary/15" />
 									<span className="icon-[mdi--folder-open-outline] relative h-9 w-9 text-primary/70" />
 								</div>
-								<h2 className="text-[15px] font-semibold text-foreground">这个知识库还是空的</h2>
+								<h2 className="text-[15px] font-semibold text-foreground">{t("kbEmptyBaseTitle")}</h2>
 								<p className="mt-1.5 text-[12px] leading-5 text-muted-foreground/60">
-									拖入文件或文件夹，Vetta 会自动分析内容并整理归类
+									{t("kbEmptyBaseDesc")}
 								</p>
 								<div className="mt-5">
 									<KnowledgeSourcePicker onPickFiles={onPickFiles} onPickFolders={onPickFolders} />
@@ -363,7 +368,7 @@ export function KnowledgeContentsPanel({
 
 			{renameNode && (
 				<KnowledgeRenameDialog
-					title="重命名"
+					title={t("kbMenuRename")}
 					initialName={renameNode.name}
 					onClose={() => setRenameNode(null)}
 					onSubmit={submitRename}
