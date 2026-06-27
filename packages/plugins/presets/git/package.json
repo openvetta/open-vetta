@@ -8,8 +8,11 @@
 		"check": "bunx tsc --noEmit"
 	},
 	"dependencies": {
+		"@gitgraph/js": "^1.4.0",
 		"@pierre/diffs": "^1.2.11",
-		"@pierre/trees": "1.0.0-beta.4"
+		"@pierre/trees": "1.0.0-beta.4",
+		"react-markdown": "^10.1.0",
+		"remark-gfm": "^4.0.0"
 	},
 	"devDependencies": {
 		"@tailwindcss/vite": "^4.1.12",
