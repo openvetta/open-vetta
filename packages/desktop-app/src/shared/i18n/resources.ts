@@ -5,19 +5,41 @@
 import enChat from "./locales/en/chat.json";
 import enCommon from "./locales/en/common.json";
 import enMain from "./locales/en/main.json";
+import enMessage from "./locales/en/message.json";
 import enPet from "./locales/en/pet.json";
 import enProject from "./locales/en/project.json";
 import enSettings from "./locales/en/settings.json";
+import enSkills from "./locales/en/skills.json";
 import zhChat from "./locales/zh/chat.json";
 import zhCommon from "./locales/zh/common.json";
 import zhMain from "./locales/zh/main.json";
+import zhMessage from "./locales/zh/message.json";
 import zhPet from "./locales/zh/pet.json";
 import zhProject from "./locales/zh/project.json";
 import zhSettings from "./locales/zh/settings.json";
+import zhSkills from "./locales/zh/skills.json";
 
 export const resources = {
-	zh: { common: zhCommon, main: zhMain, chat: zhChat, project: zhProject, pet: zhPet, settings: zhSettings },
-	en: { common: enCommon, main: enMain, chat: enChat, project: enProject, pet: enPet, settings: enSettings },
+	zh: {
+		common: zhCommon,
+		main: zhMain,
+		chat: zhChat,
+		project: zhProject,
+		pet: zhPet,
+		settings: zhSettings,
+		message: zhMessage,
+		skills: zhSkills,
+	},
+	en: {
+		common: enCommon,
+		main: enMain,
+		chat: enChat,
+		project: enProject,
+		pet: enPet,
+		settings: enSettings,
+		message: enMessage,
+		skills: enSkills,
+	},
 } as const;
 
 export * from "./config.js";
