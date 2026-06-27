@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import type { Project } from "@shared/store/atoms";
 
@@ -42,6 +43,7 @@ export function ProjectContextMenu({
 	clearConversationDisabled,
 	clearClawDisabled,
 }: ProjectContextMenuProps): JSX.Element {
+	const { t } = useTranslation("project");
 	const menuRef = useRef<HTMLDivElement>(null);
 	const [adjustedPos, setAdjustedPos] = useState({ x, y });
 
@@ -100,7 +102,7 @@ export function ProjectContextMenu({
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
-					{isMac ? "在访达中打开" : "从此电脑打开"}
+					{isMac ? t("contextMenu.openInFinder") : t("contextMenu.openInExplorer")}
 				</button>
 				{isDefault && defaultScope === "conversation" && onClearConversation && (
 					<>
@@ -108,7 +110,7 @@ export function ProjectContextMenu({
 						<button
 							type="button"
 							disabled={clearConversationDisabled}
-							title={clearConversationDisabled ? "请先停止运行中的会话" : undefined}
+							title={clearConversationDisabled ? t("contextMenu.clearConversationDisabled") : undefined}
 							onClick={() => {
 								if (clearConversationDisabled) return;
 								onClearConversation(project.cwd);
@@ -117,7 +119,7 @@ export function ProjectContextMenu({
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
 						>
 							<span className="icon-[solar--broom-linear] h-3.5 w-3.5" />
-							清空会话
+							{t("contextMenu.clearConversation")}
 						</button>
 					</>
 				)}
@@ -129,7 +131,7 @@ export function ProjectContextMenu({
 								<button
 									type="button"
 									disabled={clearClawDisabled}
-									title={clearClawDisabled ? "请先停止运行中的 Claw 会话" : undefined}
+									title={clearClawDisabled ? t("contextMenu.clearClawDisabled") : undefined}
 									onClick={() => {
 										if (clearClawDisabled) return;
 										onClearClaw(project.cwd);
@@ -138,7 +140,7 @@ export function ProjectContextMenu({
 									className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:text-muted-foreground/50 disabled:hover:bg-transparent"
 								>
 									<span className="icon-[solar--broom-linear] h-3.5 w-3.5" />
-									清空记录
+									{t("contextMenu.clearClaw")}
 								</button>
 							</>
 						)}
@@ -152,7 +154,7 @@ export function ProjectContextMenu({
 								className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 							>
 								<span className="icon-[solar--settings-linear] h-3.5 w-3.5" />
-								Claw 设置
+								{t("contextMenu.clawSettings")}
 							</button>
 						)}
 					</>
@@ -167,7 +169,7 @@ export function ProjectContextMenu({
 						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 					>
 						<span className="icon-[solar--archive-minimalistic-linear] h-3.5 w-3.5" />
-						归档项目
+						{t("contextMenu.archiveProject")}
 					</button>
 				)}
 				{!isDefault && (
@@ -180,7 +182,7 @@ export function ProjectContextMenu({
 						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 					>
 						<span className="icon-[solar--list-cross-minimalistic-linear] h-3.5 w-3.5" />
-						从列表中移除
+						{t("contextMenu.removeFromList")}
 					</button>
 				)}
 				{!isDefault && (
@@ -195,7 +197,7 @@ export function ProjectContextMenu({
 							className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
 						>
 							<span className="icon-[solar--trash-bin-trash-linear] h-3.5 w-3.5" />
-							删除项目
+							{t("contextMenu.deleteProject")}
 						</button>
 					</>
 				)}

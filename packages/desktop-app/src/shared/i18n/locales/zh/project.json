@@ -18,6 +18,38 @@
 		"conversation": "对话",
 		"claw": "Claw"
 	},
+	"actions": {
+		"newProject": "新建项目",
+		"openProject": "打开项目",
+		"importProject": "导入项目",
+		"more": "更多"
+	},
+	"contextMenu": {
+		"openInFinder": "在访达中打开",
+		"openInExplorer": "从此电脑打开",
+		"clearConversation": "清空会话",
+		"clearConversationDisabled": "请先停止运行中的会话",
+		"clearClaw": "清空记录",
+		"clearClawDisabled": "请先停止运行中的 Claw 会话",
+		"clawSettings": "Claw 设置",
+		"archiveProject": "归档项目",
+		"removeFromList": "从列表中移除",
+		"deleteProject": "删除项目",
+		"rename": "重命名",
+		"openArtifactDir": "打开产物目录",
+		"delete": "删除"
+	},
+	"importDialog": {
+		"failedTitle": "导入失败",
+		"failedConfirm": "好的",
+		"partialTitle": "导入完成（部分源路径缺失）",
+		"partialMessage": "项目「{{name}}」已导入，但有 {{count}} 个 batch 源路径在本机不存在：\n\n{{list}}\n\n这些任务的元数据已保留，进入项目后可手动重链或删除。",
+		"partialMore": "\n…还有 {{count}} 项",
+		"doneTitle": "导入完成",
+		"doneMessage": "项目「{{name}}」已导入到工作区。",
+		"viewProject": "查看项目",
+		"gotIt": "知道了"
+	},
 	"update": {
 		"newVersion": "发现新版本 {{version}}，点击后台下载",
 		"downloading": "正在下载 {{version}}（{{pct}}%）",

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useSetAtom } from "jotai";
@@ -14,6 +15,7 @@ interface AddProjectMenuProps {
 }
 
 export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuProps): JSX.Element {
+	const { t } = useTranslation("project");
 	const { createProject, openProject, refreshProjects } = useProjects();
 	const { refreshProjects: refreshBatchProjects } = useBatchTasks();
 	const setConfirm = useSetAtom(confirmDialogAtom);
@@ -31,9 +33,9 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 			// `unsupported-zip` — surface the user-friendly message exactly as the
 			// product spec requires.
 			setConfirm({
-				title: "导入失败",
+				title: t("importDialog.failedTitle"),
 				message: result.error.message,
-				confirmLabel: "好的",
+				confirmLabel: t("importDialog.failedConfirm"),
 				variant: "danger",
 				onConfirm: () => {},
 			});
@@ -51,20 +53,27 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 		if (missing && missing.length > 0) {
 			// Batch with stale source paths — let the user see what's missing,
 			// then offer to jump to the project page so they can re-link.
+			const more =
+				missing.length > 8 ? t("importDialog.partialMore", { count: missing.length - 8 }) : "";
+			const list = missing.slice(0, 8).join("\n") + more;
 			setConfirm({
-				title: "导入完成（部分源路径缺失）",
-				message: `项目「${result.name}」已导入，但有 ${missing.length} 个 batch 源路径在本机不存在：\n\n${missing.slice(0, 8).join("\n")}${missing.length > 8 ? `\n…还有 ${missing.length - 8} 项` : ""}\n\n这些任务的元数据已保留，进入项目后可手动重链或删除。`,
-				confirmLabel: "查看项目",
-				cancelLabel: "知道了",
+				title: t("importDialog.partialTitle"),
+				message: t("importDialog.partialMessage", {
+					name: result.name,
+					count: missing.length,
+					list,
+				}),
+				confirmLabel: t("importDialog.viewProject"),
+				cancelLabel: t("importDialog.gotIt"),
 				variant: "default",
 				onConfirm: onJump,
 			});
 		} else {
 			setConfirm({
-				title: "导入完成",
-				message: `项目「${result.name}」已导入到工作区。`,
-				confirmLabel: "查看项目",
-				cancelLabel: "知道了",
+				title: t("importDialog.doneTitle"),
+				message: t("importDialog.doneMessage", { name: result.name }),
+				confirmLabel: t("importDialog.viewProject"),
+				cancelLabel: t("importDialog.gotIt"),
 				variant: "default",
 				onConfirm: onJump,
 			});
@@ -88,7 +97,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 				{variant === "navItem" ? (
 					<button
 						type="button"
-						title="新建项目"
+						title={t("actions.newProject")}
 						onClick={() => setShowAddMenu((v) => !v)}
 						className={cn(
 							"no-drag flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors",
@@ -98,12 +107,12 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 						)}
 					>
 						<span className="icon-[solar--add-circle-linear] h-4 w-4 shrink-0" />
-						新建项目
+						{t("actions.newProject")}
 					</button>
 				) : (
 					<button
 						type="button"
-						title="新建项目"
+						title={t("actions.newProject")}
 						onClick={() => setShowAddMenu((v) => !v)}
 						className={cn(
 							"flex items-center justify-center rounded-md p-1.5 text-foreground transition-opacity hover:bg-accent",
@@ -136,7 +145,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 								className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent/50"
 							>
 								<span className="icon-[solar--add-folder-linear] h-3.5 w-3.5 shrink-0" />
-								新建项目
+								{t("actions.newProject")}
 							</button>
 							<button
 								type="button"
@@ -147,7 +156,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 								className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent/50"
 							>
 								<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5 shrink-0" />
-								打开项目
+								{t("actions.openProject")}
 							</button>
 							<button
 								type="button"
@@ -157,7 +166,7 @@ export function AddProjectMenu({ className, variant = "icon" }: AddProjectMenuPr
 								className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-accent/50"
 							>
 								<span className="icon-[solar--import-linear] h-3.5 w-3.5 shrink-0" />
-								导入项目
+								{t("actions.importProject")}
 							</button>
 						</motion.div>
 					)}

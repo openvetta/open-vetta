@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { defaultConversationCwdAtom, renamingSessionPathAtom, type SessionInfo } from "@shared/store/atoms";
@@ -13,6 +14,7 @@ interface SessionContextMenuProps {
 }
 
 export function SessionContextMenu({ x, y, session, onClose, onDelete }: SessionContextMenuProps): JSX.Element {
+	const { t } = useTranslation("project");
 	const menuRef = useRef<HTMLDivElement>(null);
 	const setRenamingSessionPath = useSetAtom(renamingSessionPathAtom);
 	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
@@ -70,7 +72,7 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
-					重命名
+					{t("contextMenu.rename")}
 				</button>
 				{hasArtifactDir && (
 					<button
@@ -82,7 +84,7 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 					>
 						<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
-						打开产物目录
+						{t("contextMenu.openArtifactDir")}
 					</button>
 				)}
 				<button
@@ -91,7 +93,7 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
 				>
 					<span className="icon-[solar--trash-bin-trash-linear] h-3.5 w-3.5" />
-					删除
+					{t("contextMenu.delete")}
 				</button>
 			</motion.div>
 		</AnimatePresence>,
