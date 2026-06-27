@@ -1,0 +1,40 @@
+{
+	"title": "Message Center",
+	"triggerTitle": "Message Center",
+	"tabs": {
+		"all": "All",
+		"chat": "Chat",
+		"flowing": "Transfers",
+		"notifications": "Notifications"
+	},
+	"empty": {
+		"all": "No messages",
+		"chat": "No unread chats",
+		"flowing": "No pending transfers",
+		"notifications": "No notifications"
+	},
+	"flowing": {
+		"shared": " shared ",
+		"fileCount": "{{count}} files",
+		"reject": "Reject",
+		"accept": "Accept",
+		"processing": "Processing..."
+	},
+	"notification": {
+		"markAllRead": "Mark all read",
+		"clearRead": "Clear read",
+		"delete": "Delete"
+	},
+	"chat": {
+		"notInWorkspace": "Project is not in the current workspace and cannot be opened",
+		"flowingFallback": "Transfer #{{id}}",
+		"senderSuffix": ": ",
+		"newMessage": "New message"
+	},
+	"time": {
+		"justNow": "Just now",
+		"minutesAgo": "{{count}}m ago",
+		"hoursAgo": "{{count}}h ago",
+		"daysAgo": "{{count}}d ago"
+	}
+}

@@ -1,0 +1,40 @@
+{
+	"title": "消息中心",
+	"triggerTitle": "消息中心",
+	"tabs": {
+		"all": "全部",
+		"chat": "聊天",
+		"flowing": "流转",
+		"notifications": "通知"
+	},
+	"empty": {
+		"all": "暂无消息",
+		"chat": "暂无未读聊天",
+		"flowing": "暂无待处理流转",
+		"notifications": "暂无通知"
+	},
+	"flowing": {
+		"shared": " 分享了 ",
+		"fileCount": "{{count}} 个文件",
+		"reject": "拒绝",
+		"accept": "接受",
+		"processing": "处理中..."
+	},
+	"notification": {
+		"markAllRead": "全部已读",
+		"clearRead": "清空已读",
+		"delete": "删除"
+	},
+	"chat": {
+		"notInWorkspace": "项目不在当前工作区，无法打开",
+		"flowingFallback": "流转 #{{id}}",
+		"senderSuffix": "：",
+		"newMessage": "新消息"
+	},
+	"time": {
+		"justNow": "刚刚",
+		"minutesAgo": "{{count}} 分钟前",
+		"hoursAgo": "{{count}} 小时前",
+		"daysAgo": "{{count}} 天前"
+	}
+}

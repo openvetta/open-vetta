@@ -9,7 +9,7 @@ export type AppLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export const FALLBACK_LANGUAGE: AppLanguage = "zh";
 
 /** 命名空间：按 renderer domain 切分 + common（基础件）+ main（主进程原生 UI）。 */
-export const NAMESPACES = ["common", "main", "chat", "project", "pet", "settings"] as const;
+export const NAMESPACES = ["common", "main", "chat", "project", "pet", "settings", "message", "skills"] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
 export function isSupportedLanguage(value: unknown): value is AppLanguage {
