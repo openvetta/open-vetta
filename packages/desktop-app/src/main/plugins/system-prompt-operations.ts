@@ -70,9 +70,13 @@ function parseOperation(value: unknown): PluginDynamicSystemPromptOperation {
 			type,
 			blockId,
 			patch: {
-				content: patch.content === undefined ? undefined : asString(patch.content, "operation.patch.content"),
-				priority: asOptionalNumber(patch.priority, "operation.patch.priority"),
-				enabled: asOptionalBoolean(patch.enabled, "operation.patch.enabled"),
+				...(patch.content === undefined ? {} : { content: asString(patch.content, "operation.patch.content") }),
+				...(patch.priority === undefined
+					? {}
+					: { priority: asOptionalNumber(patch.priority, "operation.patch.priority") }),
+				...(patch.enabled === undefined
+					? {}
+					: { enabled: asOptionalBoolean(patch.enabled, "operation.patch.enabled") }),
 			},
 		};
 	}

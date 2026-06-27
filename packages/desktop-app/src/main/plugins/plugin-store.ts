@@ -775,6 +775,14 @@ export function registerDynamicSystemPromptProvider(pluginId: string, provider: 
 		dynamicSystemPromptProviders.set(pluginId, providers);
 	}
 	providers.set(provider.id, provider);
+	pluginLog.debug("[plugin-system-prompt] provider registered", {
+		pluginId,
+		providerId: provider.id,
+		handlerId: provider.handlerId,
+		activationId: provider.activationId,
+		timeoutMs: provider.timeoutMs,
+		providerCount: providers.size,
+	});
 }
 
 export function unregisterDynamicSystemPromptProvider(
@@ -791,6 +799,12 @@ export function unregisterDynamicSystemPromptProvider(
 	if (activationId && provider?.activationId && provider.activationId !== activationId) return;
 	providers.delete(providerId);
 	if (providers.size === 0) dynamicSystemPromptProviders.delete(pluginId);
+	pluginLog.debug("[plugin-system-prompt] provider unregistered", {
+		pluginId,
+		providerId,
+		activationId,
+		remainingProviderCount: providers.size,
+	});
 }
 
 export function unregisterDynamicContinuationProvider(
@@ -1155,10 +1169,13 @@ export function reloadPlugin(id: string): InstalledPlugin {
 	plugin.defaultLocale = manifest.defaultLocale ?? "zh";
 	plugin.locales = loadPluginLocales(versionDir);
 	plugin.runtime = manifest.runtime ?? "esm";
-	plugin.entryUrl = toPluginUrl(plugin.id, plugin.activeVersion, manifest.entry);
+	const reloadToken = Date.now().toString();
+	plugin.entryUrl = `${toPluginUrl(plugin.id, plugin.activeVersion, manifest.entry)}&reload=${reloadToken}`;
 	plugin.moduleFederation = manifest.moduleFederation;
 	plugin.agent = manifest.agent;
-	plugin.styleUrls = (manifest.styles ?? []).map((style) => toPluginUrl(plugin.id, plugin.activeVersion, style));
+	plugin.styleUrls = (manifest.styles ?? []).map(
+		(style) => `${toPluginUrl(plugin.id, plugin.activeVersion, style)}&reload=${reloadToken}`,
+	);
 	// 重载到新版本时同步命令声明，并把用户授权裁剪到新声明集合内（避免授权指向已移除的命令、
 	// 或新增命令因 declaredCommands 陈旧而永远无法授权）。
 	plugin.declaredCommands = manifest.commands ?? [];
