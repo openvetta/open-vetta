@@ -70,6 +70,7 @@ export class McpProcess extends EventEmitter {
 					},
 					cwd: this.config.cwd,
 					stdio: ["pipe", "pipe", "pipe"],
+					shell: process.platform === "win32",
 				});
 
 				// Handle stdout (JSON-RPC messages)
