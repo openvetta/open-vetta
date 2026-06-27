@@ -50,6 +50,38 @@
 		"viewProject": "查看项目",
 		"gotIt": "知道了"
 	},
+	"detail": {
+		"typeBatch": "批量任务",
+		"typeWorkflow": "工作流",
+		"typeFlowing": "流转",
+		"bindWorkflow": "绑定工作流",
+		"showInFinder": "在 Finder 中显示",
+		"showInExplorer": "在资源管理器中显示",
+		"finder": "Finder",
+		"explorer": "资源管理器",
+		"export": "导出",
+		"exportTitle": "导出项目（含会话历史）",
+		"newSession": "新会话",
+		"closeActivityPanel": "关闭活动面板",
+		"openActivityPanel": "打开活动面板",
+		"sessionCount": "{{count}} 个会话",
+		"taskCount": "{{count}} 个任务",
+		"persona": "项目人设",
+		"unsavedChanges": "未保存的更改",
+		"saved": "已保存",
+		"saveFailed": "保存失败",
+		"save": "保存",
+		"editorPlaceholder": "在此编写 AGENTS.md 项目指令...",
+		"agentsMdHint": "AGENTS.md 用于定义项目级别的 AI 指令，所有会话都会自动加载此文件。",
+		"quickSave": "快速保存"
+	},
+	"exportDialog": {
+		"title": "导出项目",
+		"message": "确定要导出项目「{{name}}」吗？\n\n将打包当前项目目录下的所有文件，包括 .vetta/sessions 历史、batch 任务工作目录与状态。文件锁（*.lock）会被排除。",
+		"confirm": "导出",
+		"failedTitle": "导出失败",
+		"failedConfirm": "好的"
+	},
 	"update": {
 		"newVersion": "发现新版本 {{version}}，点击后台下载",
 		"downloading": "正在下载 {{version}}（{{pct}}%）",

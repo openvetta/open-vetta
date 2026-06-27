@@ -50,6 +50,38 @@
 		"viewProject": "View project",
 		"gotIt": "Got it"
 	},
+	"detail": {
+		"typeBatch": "Batch Task",
+		"typeWorkflow": "Workflow",
+		"typeFlowing": "Flowing",
+		"bindWorkflow": "Bind workflow",
+		"showInFinder": "Reveal in Finder",
+		"showInExplorer": "Show in Explorer",
+		"finder": "Finder",
+		"explorer": "Explorer",
+		"export": "Export",
+		"exportTitle": "Export project (with session history)",
+		"newSession": "New session",
+		"closeActivityPanel": "Close activity panel",
+		"openActivityPanel": "Open activity panel",
+		"sessionCount": "{{count}} sessions",
+		"taskCount": "{{count}} tasks",
+		"persona": "Project persona",
+		"unsavedChanges": "Unsaved changes",
+		"saved": "Saved",
+		"saveFailed": "Save failed",
+		"save": "Save",
+		"editorPlaceholder": "Write AGENTS.md project instructions here...",
+		"agentsMdHint": "AGENTS.md defines project-level AI instructions; every session loads this file automatically.",
+		"quickSave": "Quick save"
+	},
+	"exportDialog": {
+		"title": "Export project",
+		"message": "Export project \"{{name}}\"?\n\nThis will package all files under the current project directory, including .vetta/sessions history and batch task working directories and state. File locks (*.lock) are excluded.",
+		"confirm": "Export",
+		"failedTitle": "Export failed",
+		"failedConfirm": "OK"
+	},
 	"update": {
 		"newVersion": "New version {{version}} available — click to download in the background",
 		"downloading": "Downloading {{version}} ({{pct}}%)",
