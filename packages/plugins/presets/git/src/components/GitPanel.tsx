@@ -5,8 +5,11 @@ import { parseStatus } from "../git/parseStatus";
 import { onRefreshSignal } from "../git/runtime";
 import type { ChangeEntry } from "../git/types";
 import { GitChanges } from "./GitChanges";
-import { GitIcon, RefreshIcon } from "./icons";
+import { GraphView } from "./graph/GraphView";
+import { GitIcon, GraphIcon, RefreshIcon } from "./icons";
 import { InitRepoCta } from "./InitRepoCta";
+
+type ViewTab = "changes" | "graph";
 
 type State =
 	| { kind: "loading" }
@@ -19,6 +22,8 @@ export function GitPanel(): JSX.Element {
 	const { cwd } = useActivityTab();
 	const { t } = useTranslation();
 	const [state, setState] = useState<State>({ kind: "loading" });
+	const [view, setView] = useState<ViewTab>("changes");
+	const [graphReloadToken, setGraphReloadToken] = useState(0);
 	const loadIdRef = useRef(0);
 
 	const load = useCallback(async (): Promise<void> => {
@@ -68,17 +73,40 @@ export function GitPanel(): JSX.Element {
 
 	const count = state.kind === "ready" ? state.entries.length : null;
 
+	const handleRefresh = useCallback(() => {
+		if (view === "graph") setGraphReloadToken((n) => n + 1);
+		else void load();
+	}, [view, load]);
+
+	const seg = (active: boolean): string =>
+		`flex items-center gap-1 rounded px-2 py-0.5 transition-colors ${
+			active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+		}`;
+
 	return (
 		<div className="flex h-full flex-col">
 			<div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
-				<div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
-					<GitIcon className="h-3.5 w-3.5 text-muted-foreground" />
-					{t("panel.title")}
-					{count !== null && <span className="text-muted-foreground">{count}</span>}
-				</div>
+				{state.kind === "ready" ? (
+					<div className="flex items-center rounded-md bg-muted/60 p-0.5 text-[11px] font-medium">
+						<button type="button" onClick={() => setView("changes")} className={seg(view === "changes")}>
+							<GitIcon className="h-3 w-3" />
+							{t("view.tabChanges")}
+							{count !== null && <span className="text-muted-foreground">{count}</span>}
+						</button>
+						<button type="button" onClick={() => setView("graph")} className={seg(view === "graph")}>
+							<GraphIcon className="h-3 w-3" />
+							{t("view.tabGraph")}
+						</button>
+					</div>
+				) : (
+					<div className="flex items-center gap-1.5 text-[12px] font-medium text-foreground">
+						<GitIcon className="h-3.5 w-3.5 text-muted-foreground" />
+						{t("panel.title")}
+					</div>
+				)}
 				<button
 					type="button"
-					onClick={() => void load()}
+					onClick={handleRefresh}
 					className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 					title={t("action.refresh")}
 				>
@@ -91,7 +119,9 @@ export function GitPanel(): JSX.Element {
 			{state.kind === "error" && <div className="px-3 py-4 text-[12px] text-rose-500">{state.message}</div>}
 			{state.kind === "not-repo" && <InitRepoCta onInit={handleInit} />}
 			{state.kind === "ready" &&
-				(state.entries.length === 0 ? (
+				(view === "graph" ? (
+					<GraphView root={state.root} reloadToken={graphReloadToken} />
+				) : state.entries.length === 0 ? (
 					<div className="px-3 py-4 text-[12px] text-muted-foreground">{t("state.clean")}</div>
 				) : (
 					<GitChanges root={state.root} entries={state.entries} />

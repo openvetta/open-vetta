@@ -28,7 +28,7 @@ export function DiffView({ patch }: { patch: string }): JSX.Element {
 	}
 
 	return (
-		<div className="git-mono overflow-x-auto bg-background/40 text-[11.5px] leading-[1.55]">
+		<div className="git-mono overflow-x-auto text-[11.5px] leading-[1.55]">
 			{parsed.lines.map((line, index) => (
 				<div
 					// biome-ignore lint/suspicious/noArrayIndexKey: diff lines are positional and stable per render
