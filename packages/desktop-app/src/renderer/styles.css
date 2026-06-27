@@ -214,6 +214,8 @@
 	--cursor-vertical-resize: url("/cursors/vertical_resize.png") 12 15, ns-resize;
 	--cursor-diagonal-resize: url("/cursors/diagonal_resize.png") 14 15,
 		nwse-resize;
+	--cursor-diagonal-resize-flipped: url("/cursors/diagonal_resize_flipped.png")
+		12 15, nesw-resize;
 }
 
 * {
@@ -313,9 +315,12 @@ textarea:disabled,
 	cursor: var(--cursor-vertical-resize);
 }
 
-.cursor-nwse-resize,
-.cursor-nesw-resize {
+.cursor-nwse-resize {
 	cursor: var(--cursor-diagonal-resize);
+}
+
+.cursor-nesw-resize {
+	cursor: var(--cursor-diagonal-resize-flipped);
 }
 
 /* macOS-style overlay scrollbars: hidden by default, fade in on hover.
