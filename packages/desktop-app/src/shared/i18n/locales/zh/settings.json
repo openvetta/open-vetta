@@ -1249,6 +1249,10 @@
     "completed": "已完成",
     "inProgress": "进行中",
     "targetValue": "目标：{{target}}",
+    "promotion": {
+      "title": "成就晋升",
+      "stageName": "已晋升至「{{name}}」"
+    },
     "metrics": {
       "activeTime": "有效使用时长",
       "sessions": "交互会话",

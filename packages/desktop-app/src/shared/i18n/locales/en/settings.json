@@ -1249,6 +1249,10 @@
     "completed": "Completed",
     "inProgress": "In progress",
     "targetValue": "Target: {{target}}",
+    "promotion": {
+      "title": "Achievement Unlocked",
+      "stageName": "Promoted to “{{name}}”"
+    },
     "metrics": {
       "activeTime": "Active usage",
       "sessions": "Interactive sessions",
