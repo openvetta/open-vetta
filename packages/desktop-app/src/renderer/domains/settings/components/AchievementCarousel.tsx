@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CornerImageFrame } from "@shared/components/CornerImageFrame";
-import { Button } from "@shared/components/ui/button";
 import { cn } from "@shared/lib/utils";
 import type { Achievement } from "../achievements";
+import { ACHIEVEMENT_SCENE_LAYOUT } from "../achievement-scene-layout";
+import { AchievementCurtains } from "./AchievementCurtains";
+import { AchievementDescriptionCard } from "./AchievementDescriptionCard";
+import { AchievementNavigationButton } from "./AchievementNavigationButton";
+import { AchievementTitle } from "./AchievementTitle";
 
 interface DragState {
 	pointerId: number;
@@ -21,10 +24,6 @@ const SNAP_DELAY_MS = 140;
 const MIN_SNAP_DURATION_MS = 420;
 const MAX_SNAP_DURATION_MS = 650;
 const NAVIGATION_DURATION_MS = 240;
-const FRAME_ACCENT_COLOR = "#e0b278";
-const FRAME_FOREGROUND_COLOR = "#f4e7d6";
-const FRAME_MUTED_COLOR = "#cdb79e";
-const FRAME_CURRENT_BACKGROUND = "rgba(224, 178, 120, 0.16)";
 
 type ScrollMode = "instant" | "snap" | "navigation";
 
@@ -193,163 +192,142 @@ export function AchievementCarousel({
 
 	return (
 		<div>
-			<p className="mb-4 text-[12px] text-muted-foreground">{t("achievement.dragHint")}</p>
-
-			<div className="relative">
-				<div
-					ref={trackRef}
-					className={cn(
-						"no-scrollbar flex items-end gap-5 overflow-x-auto px-[calc(50%-96px)] py-4 select-none",
-						dragging ? "cursor-grabbing" : "cursor-grab",
-					)}
-					onPointerDown={handlePointerDown}
-					onPointerMove={handlePointerMove}
-					onPointerUp={finishDrag}
-					onPointerCancel={finishDrag}
-					onScroll={() => {
-						if (animationFrameRef.current !== null) return;
-						const nearestIndex = findNearestIndex();
-						targetIndexRef.current = nearestIndex;
-						setFocusedIndex(nearestIndex);
-						if (dragRef.current) return;
-						if (snapTimeoutRef.current !== null) {
-							window.clearTimeout(snapTimeoutRef.current);
-						}
-						snapTimeoutRef.current = window.setTimeout(() => {
-							snapTimeoutRef.current = null;
-							snapToNearest();
-						}, SNAP_DELAY_MS);
-					}}
-					onLostPointerCapture={() => {
-						dragRef.current = null;
-						setDragging(false);
-					}}
-				>
-					{achievements.map((achievement, index) => {
-						const reached = index <= currentIndex;
-						const current = index === currentIndex;
-						const focused = index === focusedIndex;
-						return (
-							<div
-								key={achievement.id}
-								ref={(element) => {
-									itemRefs.current[index] = element;
-								}}
-								className="flex w-48 shrink-0 flex-col items-center"
-							>
-								<button
-									type="button"
-									className={cn(
-										"flex flex-col items-center rounded-xl p-2 outline-none transition-[background-color,opacity] duration-200 focus-visible:ring-1 focus-visible:ring-ring",
-										focused && "bg-accent/50",
-									)}
-									onClick={() => {
-										if (suppressClickRef.current) return;
-										focusAchievement(index);
-									}}
-									aria-label={t(`achievement.stages.${achievement.id}.name`)}
-								>
-									<img
-										src={achievement.imageUrl}
-										alt=""
-										draggable={false}
-										className={cn(
-											"object-contain transition-[width,height,filter,opacity] duration-300",
-											current ? "h-48 w-48" : "h-36 w-36",
-											reached ? "grayscale-0 opacity-100" : "grayscale opacity-55",
-										)}
-									/>
-									<span
-										className={cn(
-											"mt-2 text-center text-[13px] font-medium",
-											reached ? "text-foreground" : "text-muted-foreground",
-										)}
-									>
-										{t(`achievement.stages.${achievement.id}.name`)}
-									</span>
-								</button>
-							</div>
-						);
-					})}
-				</div>
-
-				<Button
-					variant="outline"
-					disabled={previousDisabled}
-					aria-label={t("achievement.previous")}
-					title={t("achievement.previous")}
-					className="absolute top-1/2 left-2 z-10 h-[120px] w-[60px] rounded-xl bg-background/85 shadow-lg backdrop-blur-sm"
-					style={{
-						transform: "translateY(-50%)",
-						pointerEvents: "auto",
-						cursor: previousDisabled ? "default" : "pointer",
-					}}
-					onClick={() => focusAchievement(
-						Math.max(0, targetIndexRef.current - 1),
-						"navigation",
-					)}
-				>
-					<span className="icon-[solar--alt-arrow-left-linear] h-6 w-6" />
-				</Button>
-				<Button
-					variant="outline"
-					disabled={nextDisabled}
-					aria-label={t("achievement.next")}
-					title={t("achievement.next")}
-					className="absolute top-1/2 right-2 z-10 h-[120px] w-[60px] rounded-xl bg-background/85 shadow-lg backdrop-blur-sm"
-					style={{
-						transform: "translateY(-50%)",
-						pointerEvents: "auto",
-						cursor: nextDisabled ? "default" : "pointer",
-					}}
-					onClick={() => focusAchievement(
-						Math.min(achievements.length - 1, targetIndexRef.current + 1),
-						"navigation",
-					)}
-				>
-					<span className="icon-[solar--alt-arrow-right-linear] h-6 w-6" />
-				</Button>
-			</div>
-
-			<CornerImageFrame
-				imageUrl={focusedAchievement.frameUrl}
-				decoration={focusedAchievement.frameDecoration}
-				className="mt-8 rounded-xl border transition-colors duration-200"
-				contentClassName="px-10 py-4"
-				style={focusedAchievement.surfaceColors}
+			<section
+				className="relative mx-auto"
+				style={{
+					width: `calc(100% - ${ACHIEVEMENT_SCENE_LAYOUT.sceneWidthReduction}px)`,
+				}}
 			>
-				<div className="flex items-center gap-2">
-					<span
-						className="text-[11px] font-medium"
-						style={{ color: FRAME_ACCENT_COLOR }}
+				<div
+					aria-hidden="true"
+					className="absolute inset-0 overflow-hidden rounded-xl border"
+					style={{
+						background: "linear-gradient(180deg, #8f1818 0%, #4a0d0d 48%, #210707 100%)",
+						borderColor: "#b9893f",
+					}}
+				/>
+				<AchievementCurtains />
+				<div className="relative z-10 px-4 pb-6 pt-3">
+					<AchievementTitle title={t("achievement.title")} />
+					<p
+						className="mt-1 text-center text-[12px]"
+						style={{ color: "#d7b7a2" }}
 					>
-						{t("achievement.stage", { current: focusedIndex + 1, total: achievements.length })}
-					</span>
-					{focusedIndex === currentIndex && (
-						<span
-							className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-							style={{
-								backgroundColor: FRAME_CURRENT_BACKGROUND,
-								color: FRAME_ACCENT_COLOR,
+						{t("achievement.subtitle")}
+					</p>
+					<p
+						className="mt-1 text-center text-[11px]"
+						style={{ color: "#b99482" }}
+					>
+						{t("achievement.dragHint")}
+					</p>
+
+					<div className="relative mt-2">
+						<div
+							ref={trackRef}
+							className={cn(
+								"no-scrollbar flex items-end gap-5 overflow-x-auto px-[calc(50%-96px)] py-4 select-none",
+								dragging ? "cursor-grabbing" : "cursor-grab",
+							)}
+							onPointerDown={handlePointerDown}
+							onPointerMove={handlePointerMove}
+							onPointerUp={finishDrag}
+							onPointerCancel={finishDrag}
+							onScroll={() => {
+								if (animationFrameRef.current !== null) return;
+								const nearestIndex = findNearestIndex();
+								targetIndexRef.current = nearestIndex;
+								setFocusedIndex(nearestIndex);
+								if (dragRef.current) return;
+								if (snapTimeoutRef.current !== null) {
+									window.clearTimeout(snapTimeoutRef.current);
+								}
+								snapTimeoutRef.current = window.setTimeout(() => {
+									snapTimeoutRef.current = null;
+									snapToNearest();
+								}, SNAP_DELAY_MS);
+							}}
+							onLostPointerCapture={() => {
+								dragRef.current = null;
+								setDragging(false);
 							}}
 						>
-							{t("achievement.current")}
-						</span>
-					)}
+							{achievements.map((achievement, index) => {
+								const reached = index <= currentIndex;
+								const current = index === currentIndex;
+								const focused = index === focusedIndex;
+								return (
+									<div
+										key={achievement.id}
+										ref={(element) => {
+											itemRefs.current[index] = element;
+										}}
+										className="flex w-48 shrink-0 flex-col items-center"
+									>
+										<button
+											type="button"
+											className="flex flex-col items-center rounded-xl p-2 outline-none transition-[background-color,opacity] duration-200 focus-visible:ring-1 focus-visible:ring-ring"
+											style={{
+												backgroundColor: focused ? "rgba(244, 213, 138, 0.12)" : undefined,
+											}}
+											onClick={() => {
+												if (suppressClickRef.current) return;
+												focusAchievement(index);
+											}}
+											aria-label={t(`achievement.stages.${achievement.id}.name`)}
+										>
+											<img
+												src={achievement.imageUrl}
+												alt=""
+												draggable={false}
+												className={cn(
+													"object-contain transition-[width,height,filter,opacity] duration-300",
+													current ? "h-48 w-48" : "h-36 w-36",
+													reached ? "grayscale-0 opacity-100" : "grayscale opacity-55",
+												)}
+											/>
+											<span
+												className="mt-2 text-center text-[13px] font-medium"
+												style={{ color: reached ? "#f4e7d6" : "#ad8c7b" }}
+											>
+												{t(`achievement.stages.${achievement.id}.name`)}
+											</span>
+										</button>
+									</div>
+								);
+							})}
+						</div>
+
+						<AchievementNavigationButton
+							disabled={previousDisabled}
+							direction="previous"
+							label={t("achievement.previous")}
+							onClick={() => focusAchievement(
+								Math.max(0, targetIndexRef.current - 1),
+								"navigation",
+							)}
+						/>
+						<AchievementNavigationButton
+							disabled={nextDisabled}
+							direction="next"
+							label={t("achievement.next")}
+							onClick={() => focusAchievement(
+								Math.min(achievements.length - 1, targetIndexRef.current + 1),
+								"navigation",
+							)}
+						/>
+					</div>
 				</div>
-				<h2
-					className="mt-2 text-[15px] font-semibold"
-					style={{ color: FRAME_FOREGROUND_COLOR }}
-				>
-					{t(`achievement.stages.${focusedAchievement.id}.name`)}
-				</h2>
-				<p
-					className="mt-1 text-[12px] leading-5"
-					style={{ color: FRAME_MUTED_COLOR }}
-				>
-					{t(`achievement.stages.${focusedAchievement.id}.meaning`)}
-				</p>
-			</CornerImageFrame>
+			</section>
+
+			<div className="mt-8">
+				<AchievementDescriptionCard
+					achievement={focusedAchievement}
+					current={focusedIndex === currentIndex}
+					index={focusedIndex}
+					total={achievements.length}
+				/>
+			</div>
 		</div>
 	);
 }
