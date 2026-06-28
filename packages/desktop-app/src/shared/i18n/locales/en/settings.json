@@ -1244,6 +1244,24 @@
     "next": "View next achievement",
     "current": "Current achievement",
     "stage": "Stage {{current}} / {{total}}",
+    "stageProgress": "Stage progress",
+    "startingPoint": "Starting stage",
+    "completed": "Completed",
+    "inProgress": "In progress",
+    "targetValue": "Target: {{target}}",
+    "metrics": {
+      "activeTime": "Active usage",
+      "sessions": "Interactive sessions",
+      "turns": "Conversation turns",
+      "messages": "Completed messages",
+      "tools": "Completed tool calls",
+      "tokens": "Input/output tokens",
+      "batchRuns": "Batch runs",
+      "automationRuns": "Automation runs"
+    },
+    "durationMinutes": "{{count}} min",
+    "durationHours": "{{count}} hr",
+    "durationHoursMinutes": "{{hours}} hr {{minutes}} min",
     "stages": {
       "awakeningSpark": {
         "name": "Spark of Awakening",

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import type { AchievementUsageStats } from "@preload/api";
 import { cn } from "@shared/lib/utils";
 import type { Achievement } from "../achievements";
 import { ACHIEVEMENT_SCENE_LAYOUT } from "../achievement-scene-layout";
@@ -19,6 +20,7 @@ interface DragState {
 interface AchievementCarouselProps {
 	achievements: readonly Achievement[];
 	currentIndex: number;
+	usageStats: AchievementUsageStats;
 }
 
 const SNAP_DELAY_MS = 140;
@@ -41,6 +43,7 @@ function easeOutCubic(progress: number): number {
 export function AchievementCarousel({
 	achievements,
 	currentIndex,
+	usageStats,
 }: AchievementCarouselProps): JSX.Element {
 	const { t } = useTranslation("settings");
 	const reduceMotion = useReducedMotion();
@@ -347,22 +350,26 @@ export function AchievementCarousel({
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 0.4, delay: 0.28, ease: "easeOut" }}
 			>
-				<AnimatePresence initial={false} mode="popLayout">
-					<motion.div
-						key={focusedAchievement.id}
-						initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-						animate={{ opacity: 1, y: 0 }}
-						exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-						transition={{ duration: 0.24, ease: "easeOut" }}
-					>
-						<AchievementDescriptionCard
-							achievement={focusedAchievement}
-							current={focusedIndex === currentIndex}
-							index={focusedIndex}
-							total={achievements.length}
-						/>
-					</motion.div>
-				</AnimatePresence>
+				<div className="grid">
+					<AnimatePresence initial={false}>
+						<motion.div
+							key={focusedAchievement.id}
+							className="col-start-1 row-start-1"
+							initial={reduceMotion ? false : { opacity: 0 }}
+							animate={{ opacity: 1 }}
+							exit={reduceMotion ? undefined : { opacity: 0 }}
+							transition={{ duration: 0.45, ease: "easeInOut" }}
+						>
+							<AchievementDescriptionCard
+								achievement={focusedAchievement}
+								current={focusedIndex === currentIndex}
+								index={focusedIndex}
+								total={achievements.length}
+								usageStats={usageStats}
+							/>
+						</motion.div>
+					</AnimatePresence>
+				</div>
 			</motion.div>
 		</div>
 	);

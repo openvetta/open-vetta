@@ -75,6 +75,11 @@ class AppMonitorService {
 		});
 	}
 
+	getSnapshot(): AppMonitorData {
+		this.accountDuration(Date.now());
+		return structuredClone(this.data);
+	}
+
 	monitorSession(runtime: RuntimeHost, sessionId: string, kind: MonitoredSessionKind): void {
 		this.mutate((data) => {
 			data.sessions[kind] += 1;
@@ -247,6 +252,10 @@ export function recordAutomationTaskCreated(): void {
 
 export function recordAutomationRunStarted(): void {
 	appMonitor.recordAutomationRunStarted();
+}
+
+export function getAppMonitorSnapshot(): AppMonitorData {
+	return appMonitor.getSnapshot();
 }
 
 export function monitorRuntimeSession(runtime: RuntimeHost, sessionId: string, kind: MonitoredSessionKind): void {

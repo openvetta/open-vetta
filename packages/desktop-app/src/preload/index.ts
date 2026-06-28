@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopApi } from "./api.js";
 import { createActionApprovalApi } from "./apis/action-approval.js";
+import { createAppMonitorApi } from "./apis/app-monitor.js";
 import { createBatchTasksApi } from "./apis/batch-tasks.js";
 import { createDownloadsApi } from "./apis/downloads.js";
 import { createI18nApi } from "./apis/i18n.js";
@@ -30,6 +31,7 @@ for (const eventName of ["keydown", "mousedown", "mousemove", "touchstart", "whe
 
 const api: DesktopApi = {
 	...createActionApprovalApi(ipcRenderer),
+	...createAppMonitorApi(ipcRenderer),
 	...createSessionApi(ipcRenderer),
 	...createImApi(ipcRenderer),
 	...createDownloadsApi(ipcRenderer),
