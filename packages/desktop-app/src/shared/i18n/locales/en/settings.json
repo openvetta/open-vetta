@@ -1234,5 +1234,53 @@
   "noQuotaLimit": "Unlimited",
   "unlimitedQuota2": "Unlimited",
   "creditInOutShort": "In {{in}} · Out {{out}}",
-  "modelsCountShort": "{{count}} models"
+  "modelsCountShort": "{{count}} models",
+  "tabAchievements": "Achievements",
+  "achievement": {
+    "title": "Achievements",
+    "subtitle": "Progress through nine stages and explore badges earned and yet to be unlocked.",
+    "dragHint": "Drag or scroll to view all achievements",
+    "previous": "View previous achievement",
+    "next": "View next achievement",
+    "current": "Current achievement",
+    "stage": "Stage {{current}} / {{total}}",
+    "stages": {
+      "awakeningSpark": {
+        "name": "Spark of Awakening",
+        "meaning": "Commemorates the intellectual awakening of the New Culture and May Fourth movements, honoring those who spread Marxism and symbolizing the spark that broke old thinking and inspired national renewal."
+      },
+      "redBoatVoyage": {
+        "name": "Red Boat Sets Sail",
+        "meaning": "Traces the Red Boat spirit and the founding of the Party, symbolizing the courage to lead, loyalty to the people, and readiness to shoulder a historic mission."
+      },
+      "jinggangFire": {
+        "name": "Jinggang Spark",
+        "meaning": "Carries forward the spirit of August First, Jinggangshan, and the Soviet areas, symbolizing roots among the people, hard struggle, and revolutionary resolve."
+      },
+      "longMarch": {
+        "name": "The Long March",
+        "meaning": "Honors the Long March spirit and the heroic defense of conviction in desperate conditions, symbolizing courage, unity, and unwavering faith."
+      },
+      "yananBeacon": {
+        "name": "Yan'an Beacon",
+        "meaning": "Upholds the Yan'an spirit and the wartime pursuit of truth and people-centered culture, symbolizing realism, service to the people, and self-reliance."
+      },
+      "governanceTest": {
+        "name": "The Governing Test",
+        "meaning": "Recalls the Xibaipo spirit and the call to remain vigilant and modest, symbolizing clear-minded governance, humility, and service to the people."
+      },
+      "constructionGlory": {
+        "name": "Blueprint of Construction",
+        "meaning": "Honors the builders of socialist development and their spirit of self-reliance, dedication to the nation, and achievement through practical work."
+      },
+      "reformTide": {
+        "name": "Tide of Reform",
+        "meaning": "Celebrates the pioneering course of reform and opening up, symbolizing the courage to experiment, openness, inclusion, and determined innovation."
+      },
+      "rejuvenationEpic": {
+        "name": "Epic of Rejuvenation",
+        "meaning": "Builds on cultural confidence and red heritage while looking toward modernization and national rejuvenation, symbolizing principled innovation and purposeful action."
+      }
+    }
+  }
 }
