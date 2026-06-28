@@ -1244,6 +1244,24 @@
     "next": "查看下一个成就",
     "current": "当前成就",
     "stage": "第 {{current}} / {{total}} 阶段",
+    "stageProgress": "阶段进度",
+    "startingPoint": "启程阶段",
+    "completed": "已完成",
+    "inProgress": "进行中",
+    "targetValue": "目标：{{target}}",
+    "metrics": {
+      "activeTime": "有效使用时长",
+      "sessions": "交互会话",
+      "turns": "对话轮次",
+      "messages": "完成消息",
+      "tools": "完成工具调用",
+      "tokens": "输入输出 Token",
+      "batchRuns": "批量任务运行",
+      "automationRuns": "自动化运行"
+    },
+    "durationMinutes": "{{count}} 分钟",
+    "durationHours": "{{count}} 小时",
+    "durationHoursMinutes": "{{hours}} 小时 {{minutes}} 分钟",
     "stages": {
       "awakeningSpark": {
         "name": "觉醒星火",
