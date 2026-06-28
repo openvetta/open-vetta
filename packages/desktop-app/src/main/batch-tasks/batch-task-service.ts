@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import { recordBatchProjectCreated } from "../app-monitor/app-monitor-service.js";
 import type { ExecutionModeOverride } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
@@ -115,7 +116,7 @@ export class BatchTaskService {
 		}
 		await this.assertDirectories(data.folders);
 
-		return await createProjectStorage(
+		const project = await createProjectStorage(
 			name,
 			data.prompt,
 			data.modelKey,
@@ -127,6 +128,8 @@ export class BatchTaskService {
 			data.timeoutMinutes,
 			data.skill,
 		);
+		recordBatchProjectCreated();
+		return project;
 	}
 
 	async updateProject(projectId: string, data: UpdateBatchProjectInput): Promise<BatchProject> {

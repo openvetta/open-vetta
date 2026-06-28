@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { AssistantMessage, Message, StopReason } from "@vetta/ai";
 import type { RuntimeHost, SessionExecutionMode } from "../../../../runtime-core/src/index.js";
+import { monitorRuntimeSession, recordBatchRunStarted } from "../app-monitor/app-monitor-service.js";
 import { resolveExecutionMode } from "../execution-mode.js";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
@@ -491,6 +492,7 @@ async function runTaskInner(
 			});
 			sessionId = result.sessionId;
 			sessionPath = runtime.getSessionPath(sessionId);
+			monitorRuntimeSession(runtime, sessionId, "batch");
 		}
 
 		const startedAt = Date.now();
@@ -536,6 +538,7 @@ async function runTaskInner(
 			sessionPath,
 			executionMode: mode,
 		});
+		recordBatchRunStarted();
 		log.info(`task.started emitted: ${task.id}`);
 
 		// 模型选择透传给 prompt — 跟 chat 走完全一致的路径（useSessionManager 也是

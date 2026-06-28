@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { app, BrowserWindow, nativeTheme } from "electron";
+import { setAppMonitorWindowVisible } from "./app-monitor/app-monitor-service.js";
 import { getAppLogger } from "./logger.js";
 import { openExternalUrl } from "./open-external.js";
 
@@ -61,21 +62,25 @@ export function createWindow(): BrowserWindow {
 			preload: preloadPath,
 		},
 	});
+	setAppMonitorWindowVisible(mainWindow.isVisible());
 
 	mainWindow.on("ready-to-show", () => {
 		windowLog.info("ready-to-show");
 	});
 	mainWindow.on("show", () => {
 		windowLog.info("show");
+		setAppMonitorWindowVisible(true);
 	});
 	mainWindow.on("hide", () => {
 		windowLog.info("hide");
+		setAppMonitorWindowVisible(false);
 	});
 	mainWindow.on("close", () => {
 		windowLog.info("close");
 	});
 	mainWindow.on("closed", () => {
 		windowLog.info("closed");
+		setAppMonitorWindowVisible(false);
 	});
 	mainWindow.webContents.on("did-finish-load", () => {
 		windowLog.info("did-finish-load", mainWindow?.webContents.getURL());

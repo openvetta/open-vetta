@@ -8,6 +8,7 @@ export interface VersionedJsonConfigStoreOptions<TConfig> {
 	readonly name: string;
 	readonly normalize: (value: unknown) => TConfig;
 	readonly migrate?: (value: unknown) => VersionedConfigMigrationResult;
+	readonly writeJson?: (path: string, value: unknown) => Promise<void>;
 	readonly logger?: VersionedJsonConfigStoreLogger;
 }
 
@@ -52,6 +53,21 @@ function persistMigratedConfig<TConfig>(options: VersionedJsonConfigStoreOptions
 	}
 }
 
+async function persistMigratedConfigAsync<TConfig>(
+	options: VersionedJsonConfigStoreOptions<TConfig>,
+	config: TConfig,
+): Promise<void> {
+	if (!options.writeJson) {
+		persistMigratedConfig(options, config);
+		return;
+	}
+	try {
+		await options.writeJson(options.path, config);
+	} catch (error) {
+		options.logger?.warn("config migration write-back failed", { name: options.name, path: options.path }, error);
+	}
+}
+
 export function createVersionedJsonConfigStore<TConfig>(
 	options: VersionedJsonConfigStoreOptions<TConfig>,
 ): VersionedJsonConfigStore<TConfig> {
@@ -60,7 +76,7 @@ export function createVersionedJsonConfigStore<TConfig>(
 			try {
 				const raw = await readFile(options.path, "utf8");
 				const result = parseConfig(raw, options);
-				if (result.migrated) persistMigratedConfig(options, result.config);
+				if (result.migrated) await persistMigratedConfigAsync(options, result.config);
 				return result.config;
 			} catch (error) {
 				warnConfigFallback(options, error);
@@ -82,7 +98,12 @@ export function createVersionedJsonConfigStore<TConfig>(
 
 		async write(config) {
 			try {
-				atomicWriteJSON(options.path, options.normalize(config));
+				const normalized = options.normalize(config);
+				if (options.writeJson) {
+					await options.writeJson(options.path, normalized);
+				} else {
+					atomicWriteJSON(options.path, normalized);
+				}
 			} catch (error) {
 				options.logger?.warn("config write failed", { name: options.name, path: options.path }, error);
 				throw error;

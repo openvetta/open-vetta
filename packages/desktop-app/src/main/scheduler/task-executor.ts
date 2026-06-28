@@ -1,5 +1,6 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
 import { formatScheduleSessionName } from "../../shared/scheduled-session.js";
+import { monitorRuntimeSession, recordAutomationRunStarted } from "../app-monitor/app-monitor-service.js";
 import { resolveExecutionMode } from "../execution-mode.js";
 import { DEFAULT_CONVERSATION_CWD, DEFAULT_CONVERSATION_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { emitTaskEvent, emitTaskStreamEvent } from "../ipc/scheduler.js";
@@ -74,6 +75,8 @@ export async function executeTask(
 		});
 		sessionId = result.sessionId;
 		record.sessionId = sessionId;
+		monitorRuntimeSession(runtime, sessionId, "automation");
+		recordAutomationRunStarted();
 
 		// 会话名 = 任务名 · 执行时间；前缀一个不可见标记，渲染端据此挂定时图标
 		// 并统一剥离标记展示（不再用可见的 "[定时]" 文字占位）。

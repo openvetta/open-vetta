@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises";
 import type { RuntimeHost } from "../../../../runtime-core/src/index.js";
+import { recordAutomationTaskCreated } from "../app-monitor/app-monitor-service.js";
 import { isValidCronExpression } from "./cron.js";
 import { abortTask, executeTask, isTaskRunning } from "./task-executor.js";
 import {
@@ -88,6 +89,7 @@ export class SchedulerService {
 			this.dependencies.scheduleTask(task);
 		}
 		this.emitTasksChanged();
+		recordAutomationTaskCreated();
 		return task;
 	}
 

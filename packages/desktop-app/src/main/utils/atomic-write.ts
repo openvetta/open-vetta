@@ -1,4 +1,5 @@
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, renameSync, writeSync } from "node:fs";
+import { mkdir, open, rename } from "node:fs/promises";
 import { dirname } from "node:path";
 
 /**
@@ -36,4 +37,23 @@ export function atomicWriteFile(path: string, data: string): void {
  */
 export function atomicWriteJSON(path: string, value: unknown): void {
 	atomicWriteFile(path, JSON.stringify(value, null, 2));
+}
+
+export async function atomicWriteFileAsync(path: string, data: string): Promise<void> {
+	const dir = dirname(path);
+	await mkdir(dir, { recursive: true });
+
+	const tmpPath = `${path}.${process.pid}.tmp`;
+	const file = await open(tmpPath, "w");
+	try {
+		await file.writeFile(data);
+		await file.sync();
+	} finally {
+		await file.close();
+	}
+	await rename(tmpPath, path);
+}
+
+export async function atomicWriteJSONAsync(path: string, value: unknown): Promise<void> {
+	await atomicWriteFileAsync(path, JSON.stringify(value, null, 2));
 }

@@ -8,6 +8,7 @@ import { ActionApprovalBroker } from "./app-actions/approval-broker.js";
 import { getActionServerEndpointFilePath } from "./app-actions/endpoint-file.js";
 import { createAppActionRuntime } from "./app-actions/index.js";
 import { type LocalActionServerHandle, startLocalActionServer } from "./app-actions/local-server.js";
+import { initializeAppMonitor, shutdownAppMonitor } from "./app-monitor/app-monitor-service.js";
 import { BatchTaskService } from "./batch-tasks/batch-task-service.js";
 import { parseActionCliCommand, runActionCliCommand } from "./cli/action-command.js";
 import { parseAgentRpcCommand, runAgentRpcCommand } from "./cli/agent-rpc-command.js";
@@ -522,6 +523,7 @@ if (!gotSingleLock) {
 			mainLog.error("failed to install vetta CLI paths", err);
 		}
 
+		await initializeAppMonitor();
 		const mainWindow = createWindow();
 		const sendWindowMaximizedChanged = () => {
 			mainWindow.webContents.send("vetta:window:maximized-changed", mainWindow.isMaximized());
@@ -677,5 +679,6 @@ app.on("before-quit", async (event) => {
 		}
 		localActionServer = undefined;
 	}
+	await shutdownAppMonitor();
 	app.exit(0);
 });

@@ -22,6 +22,7 @@ import type {
 	SessionExecutionMode,
 	SettingsPatch,
 } from "../../../../runtime-core/src/index.js";
+import { monitorRuntimeSession, stopMonitoringRuntimeSession } from "../app-monitor/app-monitor-service.js";
 import { type DebugRequestData, writeDebugRequest } from "../debug-writer.js";
 import { getAppLogger } from "../logger.js";
 import { notify } from "../notifications/index.js";
@@ -691,6 +692,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 				}
 			: config;
 		const result = await runtime.createSession(effectiveConfig);
+		monitorRuntimeSession(runtime, result.sessionId, "interactive");
 		if (isConversation) {
 			const refreshedAgentPlugins = buildAgentPluginRuntimeConfig();
 			pluginLog.debug("session create post-reconfigure", {
@@ -898,6 +900,7 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		assertNonEmptyString(sessionId, "sessionId");
 		detachNotificationSub(sessionId);
 		await runtime.disposeSession(sessionId);
+		stopMonitoringRuntimeSession(sessionId);
 	});
 
 	ipcMain.handle(CHANNELS.GET_SESSION_PATH, (_event, sessionId: unknown) => {

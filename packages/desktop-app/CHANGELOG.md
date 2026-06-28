@@ -17,6 +17,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **本地应用使用统计**：主进程按前台活跃、前台不活跃和后台三类累计使用时长，前台连续两分钟无键盘、鼠标、触摸或滚轮操作后转为不活跃；同步汇总会话、工具调用、批量任务、自动化任务、Token、上下文压缩和错误计数。统计只保存在 `~/.vetta/app-monitor.json`，每两分钟异步原子写入，退出时尽力落盘，采集或写入失败仅记录日志且不影响正常功能。
 - **九阶段成就页面**：设置页新增「成就」入口，以横向吸附轨道展示九枚阶段徽章；支持无惯性拖动、滚动与前后按钮查看，当前成就放大着色、未达成成就缩小灰化，并展示所选成就的名称与意义。
 - **自定义鼠标样式**：renderer 全局接入自定义 cursor 素材，并覆盖常见 Tailwind `cursor-*` 工具类与基础交互元素，保证默认、点击、悬停、加载、文本、移动、禁用和 resize 状态使用统一鼠标样式。
 - **插件系统接入 i18n（ADR-0033）**：插件（系统/外置）面向用户的文案现可跟随宿主语言切换。承载方式为 NLS `%key%` 占位符 + 插件包内 sidecar `locales/<lang>.json`：宿主 main 解析 manifest 时一次读齐全部语言的 catalog，随 `InstalledPlugin`（新增 `defaultLocale` / `locales` 字段）下发到 renderer，manifest 与运行期组件共用同一套。宿主渲染的插件串（插件名/描述/设置项 title·description/guidingWords、`ctx.ui.register*` 的 `label`、卡片 title）经新增的 `usePluginI18n` / `usePluginTextResolver` 响应式解析 `%key%`（非 `%key%` 即字面量、向后兼容）；插件自己 React 组件内文字走 SDK `useTranslation()`，由各渲染点包裹的 `PluginI18nBoundary`（`__PluginI18nContext`）按 plugin id 提供对应 catalog。语言切换全程实时、无需 reload。fallback 链：当前 locale → 插件 `defaultLocale`（缺省 zh）→ 裸 key。`%key%` shim 导出（`useTranslation` / `resolvePluginText` 等）已纳入 `vetta-host://plugin-sdk`；plugin-vite 打包随包带上 `locales/`。内置 preset 插件（git / image-gen / media-viewer / office-viewer / svg-viewer / guiding-words / internal-map）已迁移为 zh/en 双语。**排除** agent 面向串（tool description / systemPrompt / skills，与 ADR-0031 一致）。
