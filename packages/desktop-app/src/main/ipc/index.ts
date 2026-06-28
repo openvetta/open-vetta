@@ -2,6 +2,7 @@ import type { WebContents } from "electron";
 import type { ActionApprovalBroker } from "../app-actions/approval-broker.js";
 import { registerNotificationIpc } from "../notifications/index.js";
 import { registerActionApprovalIpc } from "./action-approval.js";
+import { registerAppMonitorIpc } from "./app-monitor.js";
 import { registerDebugIpc } from "./debug.js";
 import { registerDiagnosticsIpc } from "./diagnostics.js";
 import { registerDialogIpc } from "./dialog.js";
@@ -23,6 +24,7 @@ import { registerWebhookIpc } from "./webhook.js";
 
 interface IpcTeardown {
 	teardownActionApproval: () => void;
+	teardownAppMonitor: () => void;
 	teardownSession: () => void;
 	teardownSettings: () => void;
 	teardownUpdater: () => void;
@@ -51,6 +53,7 @@ export function registerAllIpc(
 ): IpcTeardown {
 	return {
 		teardownActionApproval: registerActionApprovalIpc(options.actionApprovalBroker),
+		teardownAppMonitor: registerAppMonitorIpc(),
 		teardownSession: registerSessionIpc(webContents),
 		teardownSettings: registerSettingsIpc(),
 		teardownUpdater: registerUpdaterIpc(),
@@ -76,6 +79,7 @@ export function registerAllIpc(
 
 export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownActionApproval();
+	teardown.teardownAppMonitor();
 	teardown.teardownSession();
 	teardown.teardownSettings();
 	teardown.teardownUpdater();

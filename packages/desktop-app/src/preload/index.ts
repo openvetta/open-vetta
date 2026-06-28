@@ -13,6 +13,21 @@ import { createSessionApi } from "./apis/session.js";
 import { createSystemApi } from "./apis/system.js";
 import { createWebhookApi } from "./apis/webhook.js";
 
+const USER_ACTIVITY_CHANNEL = "vetta:app-monitor:user-activity";
+const USER_ACTIVITY_THROTTLE_MS = 15_000;
+let lastUserActivitySentAt = 0;
+
+const reportUserActivity = (): void => {
+	const now = Date.now();
+	if (now - lastUserActivitySentAt < USER_ACTIVITY_THROTTLE_MS) return;
+	lastUserActivitySentAt = now;
+	ipcRenderer.send(USER_ACTIVITY_CHANNEL);
+};
+
+for (const eventName of ["keydown", "mousedown", "mousemove", "touchstart", "wheel"] as const) {
+	window.addEventListener(eventName, reportUserActivity, { capture: true, passive: true });
+}
+
 const api: DesktopApi = {
 	...createActionApprovalApi(ipcRenderer),
 	...createSessionApi(ipcRenderer),
