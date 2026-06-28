@@ -16,13 +16,10 @@ const EMPTY_USAGE_STATS: AchievementUsageStats = {
 	turns: 0,
 };
 
-const PROMOTION_PREVIEW_LOOP_ENABLED = true;
-
 export function AchievementSettings(): JSX.Element {
 	const [usageStats, setUsageStats] = useState<AchievementUsageStats>(EMPTY_USAGE_STATS);
 	const [usageStatsLoaded, setUsageStatsLoaded] = useState(false);
 	const [promotedAchievement, setPromotedAchievement] = useState<Achievement | null>(null);
-	const [promotionReplayKey, setPromotionReplayKey] = useState(0);
 	const promotionCheckedRef = useRef(false);
 
 	useEffect(() => {
@@ -44,10 +41,6 @@ export function AchievementSettings(): JSX.Element {
 	useEffect(() => {
 		if (!usageStatsLoaded || promotionCheckedRef.current) return;
 		promotionCheckedRef.current = true;
-		if (PROMOTION_PREVIEW_LOOP_ENABLED) {
-			setPromotedAchievement(ACHIEVEMENTS[currentIndex] ?? null);
-			return;
-		}
 		const promotedId = detectAchievementPromotion(ACHIEVEMENTS, currentIndex);
 		if (!promotedId) return;
 		setPromotedAchievement(
@@ -56,10 +49,6 @@ export function AchievementSettings(): JSX.Element {
 	}, [currentIndex, usageStatsLoaded]);
 
 	const handlePromotionComplete = useCallback(() => {
-		if (PROMOTION_PREVIEW_LOOP_ENABLED) {
-			setPromotionReplayKey((key) => key + 1);
-			return;
-		}
 		setPromotedAchievement(null);
 	}, []);
 
@@ -75,7 +64,6 @@ export function AchievementSettings(): JSX.Element {
 			</div>
 			{promotedAchievement && (
 				<AchievementPromotionDialog
-					key={promotionReplayKey}
 					achievement={promotedAchievement}
 					onComplete={handlePromotionComplete}
 				/>
