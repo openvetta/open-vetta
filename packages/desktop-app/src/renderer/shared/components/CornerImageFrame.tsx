@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { memo, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@shared/lib/utils";
 
 export interface CornerImageFrameCorner {
@@ -28,6 +28,35 @@ interface CornerImageFrameProps {
 	style?: CSSProperties;
 }
 
+const CornerImageDecoration = memo(function CornerImageDecoration({
+	decoration,
+	imageUrl,
+}: {
+	decoration: CornerImageFrameDecoration;
+	imageUrl: string;
+}): JSX.Element {
+	return (
+		<>
+			{decoration.corners.map((corner) => (
+				<span
+					aria-hidden="true"
+					className="pointer-events-none absolute"
+					key={corner.id}
+					style={{
+						width: decoration.cornerWidth,
+						height: decoration.cornerHeight,
+						...corner.position,
+						backgroundImage: `url("${imageUrl}")`,
+						backgroundPosition: corner.backgroundPosition,
+						backgroundRepeat: "no-repeat",
+						backgroundSize: decoration.backgroundSize,
+					}}
+				/>
+			))}
+		</>
+	);
+});
+
 export function CornerImageFrame({
 	children,
 	className,
@@ -42,22 +71,12 @@ export function CornerImageFrame({
 			style={style}
 		>
 			{imageUrl && decoration
-				? decoration.corners.map((corner) => (
-						<span
-							aria-hidden="true"
-							className="pointer-events-none absolute"
-							key={corner.id}
-							style={{
-								width: decoration.cornerWidth,
-								height: decoration.cornerHeight,
-								...corner.position,
-								backgroundImage: `url("${imageUrl}")`,
-								backgroundPosition: corner.backgroundPosition,
-								backgroundRepeat: "no-repeat",
-								backgroundSize: decoration.backgroundSize,
-							}}
+				? (
+						<CornerImageDecoration
+							decoration={decoration}
+							imageUrl={imageUrl}
 						/>
-					))
+					)
 				: null}
 			<div className={cn("relative", contentClassName)}>{children}</div>
 		</div>
