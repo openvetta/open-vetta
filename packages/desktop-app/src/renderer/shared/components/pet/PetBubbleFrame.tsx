@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { getPetBubbleStyle, type PetBubbleStyleId } from "../../../../shared/pet-bubbles";
+import { CornerImageFrame } from "../CornerImageFrame";
 
 export function PetBubbleFrame({
 	children,
@@ -15,29 +16,14 @@ export function PetBubbleFrame({
 	const surfaceStyle = bubbleStyle.surface.style as CSSProperties | undefined;
 
 	return (
-		<div
+		<CornerImageFrame
 			className={bubbleStyle.surface.bodyClassName}
+			contentClassName={bubbleStyle.surface.textClassName}
+			decoration={decor}
+			imageUrl={decorUrl}
 			style={surfaceStyle}
 		>
-			{decorUrl && decor
-				? decor.corners.map((item) => (
-						<span
-							aria-hidden="true"
-							className="absolute"
-							key={item.id}
-							style={{
-								width: decor.cornerWidth,
-								height: decor.cornerHeight,
-								...item.position,
-								backgroundImage: `url("${decorUrl}")`,
-								backgroundPosition: item.backgroundPosition,
-								backgroundRepeat: "no-repeat",
-								backgroundSize: decor.backgroundSize,
-							}}
-						/>
-					))
-				: null}
-			<div className={bubbleStyle.surface.textClassName}>{children}</div>
-		</div>
+			{children}
+		</CornerImageFrame>
 	);
 }
