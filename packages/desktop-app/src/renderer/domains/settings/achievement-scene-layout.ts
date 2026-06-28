@@ -1,4 +1,5 @@
 export const ACHIEVEMENT_SCENE_LAYOUT = {
+	badgeAreaHeight: 270,
 	sceneWidthReduction: 70,
 	curtain: {
 		height: 507,

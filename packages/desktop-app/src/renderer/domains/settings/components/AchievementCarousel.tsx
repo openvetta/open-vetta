@@ -20,6 +20,7 @@ interface DragState {
 interface AchievementCarouselProps {
 	achievements: readonly Achievement[];
 	currentIndex: number;
+	focusSizeEnabled: boolean;
 	usageStats: AchievementUsageStats;
 }
 
@@ -43,6 +44,7 @@ function easeOutCubic(progress: number): number {
 export function AchievementCarousel({
 	achievements,
 	currentIndex,
+	focusSizeEnabled,
 	usageStats,
 }: AchievementCarouselProps): JSX.Element {
 	const { t } = useTranslation("settings");
@@ -236,11 +238,14 @@ export function AchievementCarousel({
 						</p>
 					</motion.div>
 
-					<div className="relative mt-2">
+					<div
+						className="relative mt-2"
+						style={{ height: ACHIEVEMENT_SCENE_LAYOUT.badgeAreaHeight }}
+					>
 						<motion.div
 							ref={trackRef}
 							className={cn(
-								"no-scrollbar flex items-end gap-5 overflow-x-auto px-[calc(50%-96px)] py-4 select-none",
+								"no-scrollbar flex h-full items-end gap-5 overflow-x-auto px-[calc(50%-96px)] py-4 select-none",
 								dragging ? "cursor-grabbing" : "cursor-grab",
 							)}
 							initial={reduceMotion ? false : { opacity: 0, y: 8 }}
@@ -271,8 +276,7 @@ export function AchievementCarousel({
 						>
 							{achievements.map((achievement, index) => {
 								const reached = index <= currentIndex;
-								const current = index === currentIndex;
-								const focused = index === focusedIndex;
+								const focused = focusSizeEnabled && index === focusedIndex;
 								return (
 									<div
 										key={achievement.id}
@@ -299,7 +303,7 @@ export function AchievementCarousel({
 												draggable={false}
 												className={cn(
 													"object-contain transition-[width,height,filter,opacity] duration-300",
-													current ? "h-48 w-48" : "h-36 w-36",
+													focused ? "h-48 w-48" : "h-36 w-36",
 													reached ? "grayscale-0 opacity-100" : "grayscale opacity-55",
 												)}
 											/>

@@ -16,11 +16,15 @@ const EMPTY_USAGE_STATS: AchievementUsageStats = {
 
 export function AchievementSettings(): JSX.Element {
 	const [usageStats, setUsageStats] = useState<AchievementUsageStats>(EMPTY_USAGE_STATS);
+	const [usageStatsLoaded, setUsageStatsLoaded] = useState(false);
 
 	useEffect(() => {
 		void window.vetta.appMonitor
 			.getAchievementUsage()
-			.then(setUsageStats)
+			.then((stats) => {
+				setUsageStats(stats);
+				setUsageStatsLoaded(true);
+			})
 			.catch(() => undefined);
 	}, []);
 
@@ -35,6 +39,7 @@ export function AchievementSettings(): JSX.Element {
 			<AchievementCarousel
 				achievements={ACHIEVEMENTS}
 				currentIndex={currentIndex}
+				focusSizeEnabled={usageStatsLoaded}
 				usageStats={usageStats}
 			/>
 		</div>
