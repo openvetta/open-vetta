@@ -21,6 +21,10 @@ const SNAP_DELAY_MS = 140;
 const MIN_SNAP_DURATION_MS = 420;
 const MAX_SNAP_DURATION_MS = 650;
 const NAVIGATION_DURATION_MS = 240;
+const FRAME_ACCENT_COLOR = "#e0b278";
+const FRAME_FOREGROUND_COLOR = "#f4e7d6";
+const FRAME_MUTED_COLOR = "#cdb79e";
+const FRAME_CURRENT_BACKGROUND = "rgba(224, 178, 120, 0.16)";
 
 type ScrollMode = "instant" | "snap" | "navigation";
 
@@ -48,6 +52,19 @@ export function AchievementCarousel({
 	const targetIndexRef = useRef(currentIndex);
 	const [focusedIndex, setFocusedIndex] = useState(currentIndex);
 	const [dragging, setDragging] = useState(false);
+
+	useEffect(() => {
+		const frameImages = achievements.map((achievement) => {
+			const image = new Image();
+			image.src = achievement.frameUrl;
+			void image.decode().catch(() => undefined);
+			return image;
+		});
+
+		return () => {
+			for (const image of frameImages) image.src = "";
+		};
+	}, [achievements]);
 
 	const stopScrolling = useCallback(() => {
 		if (animationFrameRef.current !== null) {
@@ -297,23 +314,39 @@ export function AchievementCarousel({
 			<CornerImageFrame
 				imageUrl={focusedAchievement.frameUrl}
 				decoration={focusedAchievement.frameDecoration}
-				className="mt-8 rounded-xl border border-border/50 bg-card/40"
+				className="mt-8 rounded-xl border transition-colors duration-200"
 				contentClassName="px-10 py-4"
+				style={focusedAchievement.surfaceColors}
 			>
 				<div className="flex items-center gap-2">
-					<span className="text-[11px] font-medium text-primary">
+					<span
+						className="text-[11px] font-medium"
+						style={{ color: FRAME_ACCENT_COLOR }}
+					>
 						{t("achievement.stage", { current: focusedIndex + 1, total: achievements.length })}
 					</span>
 					{focusedIndex === currentIndex && (
-						<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+						<span
+							className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+							style={{
+								backgroundColor: FRAME_CURRENT_BACKGROUND,
+								color: FRAME_ACCENT_COLOR,
+							}}
+						>
 							{t("achievement.current")}
 						</span>
 					)}
 				</div>
-				<h2 className="mt-2 text-[15px] font-semibold text-foreground">
+				<h2
+					className="mt-2 text-[15px] font-semibold"
+					style={{ color: FRAME_FOREGROUND_COLOR }}
+				>
 					{t(`achievement.stages.${focusedAchievement.id}.name`)}
 				</h2>
-				<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+				<p
+					className="mt-1 text-[12px] leading-5"
+					style={{ color: FRAME_MUTED_COLOR }}
+				>
 					{t(`achievement.stages.${focusedAchievement.id}.meaning`)}
 				</p>
 			</CornerImageFrame>
