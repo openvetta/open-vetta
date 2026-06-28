@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { CornerImageFrame } from "@shared/components/CornerImageFrame";
 import { Button } from "@shared/components/ui/button";
 import { cn } from "@shared/lib/utils";
 import type { Achievement } from "../achievements";
@@ -293,7 +294,12 @@ export function AchievementCarousel({
 				</Button>
 			</div>
 
-			<div className="mt-5 rounded-xl border border-border/50 bg-card/40 p-4">
+			<CornerImageFrame
+				imageUrl={focusedAchievement.frameUrl}
+				decoration={focusedAchievement.frameDecoration}
+				className="mt-8 rounded-xl border border-border/50 bg-card/40"
+				contentClassName="px-10 py-4"
+			>
 				<div className="flex items-center gap-2">
 					<span className="text-[11px] font-medium text-primary">
 						{t("achievement.stage", { current: focusedIndex + 1, total: achievements.length })}
@@ -310,7 +316,7 @@ export function AchievementCarousel({
 				<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
 					{t(`achievement.stages.${focusedAchievement.id}.meaning`)}
 				</p>
-			</div>
+			</CornerImageFrame>
 		</div>
 	);
 }

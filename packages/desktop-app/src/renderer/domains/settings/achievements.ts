@@ -1,4 +1,8 @@
+import type { CornerImageFrameDecoration } from "@shared/components/CornerImageFrame";
+
 export interface Achievement {
+	frameDecoration: CornerImageFrameDecoration;
+	frameUrl: string;
 	id: AchievementId;
 	imageUrl: string;
 }
@@ -15,13 +19,148 @@ export type AchievementId =
 	| "rejuvenationEpic";
 
 export const ACHIEVEMENTS: readonly Achievement[] = [
-	{ id: "awakeningSpark", imageUrl: "./achievements/badge_awakening_spark.png" },
-	{ id: "redBoatVoyage", imageUrl: "./achievements/badge_red_boat_voyage.png" },
-	{ id: "jinggangFire", imageUrl: "./achievements/badge_jinggang_fire.png" },
-	{ id: "longMarch", imageUrl: "./achievements/badge_long_march.png" },
-	{ id: "yananBeacon", imageUrl: "./achievements/badge_yanan_beacon.png" },
-	{ id: "governanceTest", imageUrl: "./achievements/badge_governance_test.png" },
-	{ id: "constructionGlory", imageUrl: "./achievements/badge_construction_glory.png" },
-	{ id: "reformTide", imageUrl: "./achievements/badge_reform_tide.png" },
-	{ id: "rejuvenationEpic", imageUrl: "./achievements/badge_rejuvenation_epic.png" },
+	{
+		id: "awakeningSpark",
+		imageUrl: "./achievements/badge_awakening_spark.png",
+		frameUrl: "./achievements/frame_awakening_spark.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-28px", top: "-26px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-16px", top: "-26px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-34px", left: "-28px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-32px", right: "-16px" } },
+			],
+		},
+	},
+	{
+		id: "redBoatVoyage",
+		imageUrl: "./achievements/badge_red_boat_voyage.png",
+		frameUrl: "./achievements/frame_red_boat_voyage.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-28px", top: "-49px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-26px", top: "-49px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-36px", left: "-27px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-37px", right: "-24px" } },
+			],
+		},
+	},
+	{
+		id: "jinggangFire",
+		imageUrl: "./achievements/badge_jinggang_fire.png",
+		frameUrl: "./achievements/frame_jinggang_fire.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-20px", top: "-19px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-20px", top: "-19px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-22px", left: "-20px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-22px", right: "-19px" } },
+			],
+		},
+	},
+	{
+		id: "longMarch",
+		imageUrl: "./achievements/badge_long_march.png",
+		frameUrl: "./achievements/frame_long_march.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-27px", top: "-28px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-22px", top: "-28px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-31px", left: "-33px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-32px", right: "-21px" } },
+			],
+		},
+	},
+	{
+		id: "yananBeacon",
+		imageUrl: "./achievements/badge_yanan_beacon.png",
+		frameUrl: "./achievements/frame_yanan_beacon.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-19px", top: "-25px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-20px", top: "-25px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-25px", left: "-23px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-35px", right: "-23px" } },
+			],
+		},
+	},
+	{
+		id: "governanceTest",
+		imageUrl: "./achievements/badge_governance_test.png",
+		frameUrl: "./achievements/frame_governance_test.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-28px", top: "-27px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-23px", top: "-27px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-32px", left: "-31px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-32px", right: "-32px" } },
+			],
+		},
+	},
+	{
+		id: "constructionGlory",
+		imageUrl: "./achievements/badge_construction_glory.png",
+		frameUrl: "./achievements/frame_construction_glory.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-29px", top: "-30px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-24px", top: "-31px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-29px", left: "-30px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-30px", right: "-27px" } },
+			],
+		},
+	},
+	{
+		id: "reformTide",
+		imageUrl: "./achievements/badge_reform_tide.png",
+		frameUrl: "./achievements/frame_reform_tide.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-25px", top: "-35px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-20px", top: "-36px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-32px", left: "-24px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-29px", right: "-29px" } },
+			],
+		},
+	},
+	{
+		id: "rejuvenationEpic",
+		imageUrl: "./achievements/badge_rejuvenation_epic.png",
+		frameUrl: "./achievements/frame_rejuvenation_epic.webp",
+		frameDecoration: {
+			cornerWidth: "7rem",
+			cornerHeight: "7rem",
+			backgroundSize: "14rem 14rem",
+			corners: [
+				{ id: "top-left", backgroundPosition: "0% 0%", position: { left: "-21px", top: "-27px" } },
+				{ id: "top-right", backgroundPosition: "100% 0%", position: { right: "-22px", top: "-24px" } },
+				{ id: "bottom-left", backgroundPosition: "0% 100%", position: { bottom: "-28px", left: "-22px" } },
+				{ id: "bottom-right", backgroundPosition: "100% 100%", position: { bottom: "-29px", right: "-30px" } },
+			],
+		},
+	},
 ] as const;
