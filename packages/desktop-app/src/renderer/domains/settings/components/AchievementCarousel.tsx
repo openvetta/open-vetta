@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { cn } from "@shared/lib/utils";
 import type { Achievement } from "../achievements";
 import { ACHIEVEMENT_SCENE_LAYOUT } from "../achievement-scene-layout";
@@ -42,6 +43,7 @@ export function AchievementCarousel({
 	currentIndex,
 }: AchievementCarouselProps): JSX.Element {
 	const { t } = useTranslation("settings");
+	const reduceMotion = useReducedMotion();
 	const trackRef = useRef<HTMLDivElement>(null);
 	const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
 	const dragRef = useRef<DragState | null>(null);
@@ -192,11 +194,14 @@ export function AchievementCarousel({
 
 	return (
 		<div>
-			<section
+			<motion.section
 				className="relative mx-auto"
 				style={{
 					width: `calc(100% - ${ACHIEVEMENT_SCENE_LAYOUT.sceneWidthReduction}px)`,
 				}}
+				initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.97 }}
+				animate={{ opacity: 1, y: 0, scale: 1 }}
+				transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
 			>
 				<div
 					aria-hidden="true"
@@ -208,27 +213,36 @@ export function AchievementCarousel({
 				/>
 				<AchievementCurtains />
 				<div className="relative z-10 px-4 pb-6 pt-3">
-					<AchievementTitle title={t("achievement.title")} />
-					<p
-						className="mt-1 text-center text-[12px]"
-						style={{ color: "#d7b7a2" }}
+					<motion.div
+						initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
 					>
-						{t("achievement.subtitle")}
-					</p>
-					<p
-						className="mt-1 text-center text-[11px]"
-						style={{ color: "#b99482" }}
-					>
-						{t("achievement.dragHint")}
-					</p>
+						<AchievementTitle title={t("achievement.title")} />
+						<p
+							className="mt-1 text-center text-[12px]"
+							style={{ color: "#d7b7a2" }}
+						>
+							{t("achievement.subtitle")}
+						</p>
+						<p
+							className="mt-1 text-center text-[11px]"
+							style={{ color: "#b99482" }}
+						>
+							{t("achievement.dragHint")}
+						</p>
+					</motion.div>
 
 					<div className="relative mt-2">
-						<div
+						<motion.div
 							ref={trackRef}
 							className={cn(
 								"no-scrollbar flex items-end gap-5 overflow-x-auto px-[calc(50%-96px)] py-4 select-none",
 								dragging ? "cursor-grabbing" : "cursor-grab",
 							)}
+							initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.4, delay: 0.14, ease: "easeOut" }}
 							onPointerDown={handlePointerDown}
 							onPointerMove={handlePointerMove}
 							onPointerUp={finishDrag}
@@ -296,38 +310,60 @@ export function AchievementCarousel({
 									</div>
 								);
 							})}
-						</div>
+						</motion.div>
 
-						<AchievementNavigationButton
-							disabled={previousDisabled}
-							direction="previous"
-							label={t("achievement.previous")}
-							onClick={() => focusAchievement(
-								Math.max(0, targetIndexRef.current - 1),
-								"navigation",
-							)}
-						/>
-						<AchievementNavigationButton
-							disabled={nextDisabled}
-							direction="next"
-							label={t("achievement.next")}
-							onClick={() => focusAchievement(
-								Math.min(achievements.length - 1, targetIndexRef.current + 1),
-								"navigation",
-							)}
-						/>
+						<motion.div
+							className="pointer-events-none absolute inset-0"
+							initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
+							animate={{ opacity: 1, scale: 1 }}
+							transition={{ duration: 0.35, delay: 0.22, ease: "easeOut" }}
+						>
+							<AchievementNavigationButton
+								disabled={previousDisabled}
+								direction="previous"
+								label={t("achievement.previous")}
+								onClick={() => focusAchievement(
+									Math.max(0, targetIndexRef.current - 1),
+									"navigation",
+								)}
+							/>
+							<AchievementNavigationButton
+								disabled={nextDisabled}
+								direction="next"
+								label={t("achievement.next")}
+								onClick={() => focusAchievement(
+									Math.min(achievements.length - 1, targetIndexRef.current + 1),
+									"navigation",
+								)}
+							/>
+						</motion.div>
 					</div>
 				</div>
-			</section>
+			</motion.section>
 
-			<div className="mt-8">
-				<AchievementDescriptionCard
-					achievement={focusedAchievement}
-					current={focusedIndex === currentIndex}
-					index={focusedIndex}
-					total={achievements.length}
-				/>
-			</div>
+			<motion.div
+				className="mt-8"
+				initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4, delay: 0.28, ease: "easeOut" }}
+			>
+				<AnimatePresence initial={false} mode="popLayout">
+					<motion.div
+						key={focusedAchievement.id}
+						initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+						transition={{ duration: 0.24, ease: "easeOut" }}
+					>
+						<AchievementDescriptionCard
+							achievement={focusedAchievement}
+							current={focusedIndex === currentIndex}
+							index={focusedIndex}
+							total={achievements.length}
+						/>
+					</motion.div>
+				</AnimatePresence>
+			</motion.div>
 		</div>
 	);
 }
