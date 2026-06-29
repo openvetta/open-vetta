@@ -294,6 +294,10 @@ function isCursorOverPetVideo(win: BrowserWindow): boolean {
 
 function syncPetMousePassthroughForCursor(): void {
 	if (!petWindow || petWindow.isDestroyed()) return;
+	if (windowMoveSession) {
+		setPetMousePassthrough(false);
+		return;
+	}
 	if (petConfig.debugFrame) {
 		setPetMousePassthrough(false);
 		return;
@@ -619,7 +623,17 @@ export function movePetWindow(): void {
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	const cursor = screen.getCursorScreenPoint();
 	const x = Math.round(session.startBounds.x + cursor.x - session.startCursor.x);
-	const y = Math.round(session.startBounds.y + cursor.y - session.startCursor.y);
+	let y = Math.round(session.startBounds.y + cursor.y - session.startCursor.y);
+	if (process.platform === "darwin") {
+		const { workArea } = screen.getDisplayNearestPoint(cursor);
+		if (y < workArea.y) {
+			y = workArea.y;
+			windowMoveSession = {
+				startBounds: { ...session.startBounds, y },
+				startCursor: cursor,
+			};
+		}
+	}
 	const normalizedSize = normalizePetSize(Math.max(session.startBounds.width, session.startBounds.height));
 	win.setPosition(x, y, false);
 	const after = win.getBounds();
