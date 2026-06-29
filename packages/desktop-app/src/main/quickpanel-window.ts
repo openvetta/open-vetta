@@ -157,6 +157,20 @@ export function createQuickPanelWindow(): BrowserWindow {
 		});
 	}
 	quickPanelWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+	// 禁用面板内的刷新/重载（Cmd+R、Shift+Cmd+R 等）。App 用 Electron 默认菜单，
+	// reload/forceReload 是菜单 role（mac 上优先级高于 before-input-event，拦不住），
+	// 故直接把本 webContents 的 reload 方法 no-op。否则重载瞬间 React 以默认
+	// glassMode=none 先渲染不透明卡片，盖住下面仍在的原生玻璃，中间「闪一下实心」。
+	const panelWebContents = quickPanelWindow.webContents;
+	panelWebContents.reload = () => {};
+	panelWebContents.reloadIgnoringCache = () => {};
+	// F5（部分平台）经键盘直达，用 before-input-event 兜底拦下。
+	panelWebContents.on("before-input-event", (event, input) => {
+		const key = input.key.toLowerCase();
+		if (key === "f5" || ((input.meta || input.control) && key === "r")) {
+			event.preventDefault();
+		}
+	});
 	quickPanelWindow.webContents.on("did-finish-load", () => {
 		if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
 			applyQuickPanelGlass(quickPanelWindow);
