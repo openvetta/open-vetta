@@ -8,6 +8,7 @@ import {
 	PET_MOVE_WINDOW_BY_CHANNEL,
 	PET_RESIZE_BY_WHEEL_CHANNEL,
 	PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL,
+	PET_SET_CONTENT_SIZE_CHANNEL,
 	PET_SET_MOUSE_PASSTHROUGH_CHANNEL,
 	PET_SET_VIDEO_BASE_SIZE_CHANNEL,
 	PET_SET_VIDEO_HITBOX_CHANNEL,
@@ -44,6 +45,9 @@ const api: PetBridge = {
 	},
 	setWindowSize(size, corner) {
 		return ipcRenderer.invoke(PET_SET_WINDOW_SIZE_CHANNEL, size, corner);
+	},
+	setContentSize(size) {
+		return ipcRenderer.invoke(PET_SET_CONTENT_SIZE_CHANNEL, size);
 	},
 	endWindowResize(size) {
 		return ipcRenderer.invoke(PET_END_WINDOW_RESIZE_CHANNEL, size);
