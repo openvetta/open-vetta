@@ -43,6 +43,7 @@ export function PetApp(): JSX.Element {
 	const [debugFrame, setDebugFrame] = useState(getInitialDebugFrame);
 	const [videoScale, setVideoScale] = useState(getInitialVideoScale);
 	const [videoBaseSizeByAction, setVideoBaseSizeByAction] = useState(getInitialVideoBaseSizeByAction);
+	const [contentOffset, setContentOffset] = useState({ x: 0, y: 0 });
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
 	const [windowSize, setWindowSize] = useWindowSize();
 	const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | undefined>();
@@ -109,7 +110,9 @@ export function PetApp(): JSX.Element {
 
 	usePetAutoContentSize({
 		contentRef,
+		targetRef: videoRef,
 		debugFrame,
+		observeKey: actionId,
 	});
 
 	useEffect(() => {
@@ -146,6 +149,7 @@ export function PetApp(): JSX.Element {
 
 	useEffect(() => {
 		return window.vettaPet?.onCommand((command) => {
+			console.log("[pet-app] command received", command);
 			if (command.type === "show-bubble") {
 				showBubble({
 					text: command.text,
@@ -179,6 +183,10 @@ export function PetApp(): JSX.Element {
 					styleId: command.styleId,
 					...(command.decorUrl === undefined ? {} : { decorUrl: command.decorUrl }),
 				});
+				return;
+			}
+			if (command.type === "set-content-offset") {
+				setContentOffset({ x: command.x, y: command.y });
 				return;
 			}
 			if (command.type === "set-auto-mode") {
@@ -253,6 +261,10 @@ export function PetApp(): JSX.Element {
 				style={{
 					width: videoNaturalSize ? `${videoSize.width}px` : "100%",
 					height: videoNaturalSize ? `${videoSize.height}px` : "100%",
+					transform:
+						contentOffset.x === 0 && contentOffset.y === 0
+							? undefined
+							: `translate(${contentOffset.x}px, ${contentOffset.y}px)`,
 				}}
 			>
 				<PetSpeechBubble

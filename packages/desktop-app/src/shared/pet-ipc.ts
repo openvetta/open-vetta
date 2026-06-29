@@ -26,6 +26,21 @@ export type PetVideoHitbox = {
 	height: number;
 };
 
+export type PetContentBounds = {
+	bounds: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	};
+	anchor: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	};
+};
+
 export type PetCommand =
 	| {
 			type: "set-action";
@@ -61,6 +76,11 @@ export type PetCommand =
 			decorUrl?: string;
 	  }
 	| {
+			type: "set-content-offset";
+			x: number;
+			y: number;
+	  }
+	| {
 			type: "show-bubble";
 			text: string;
 			source?: PetCommandSource;
@@ -83,7 +103,7 @@ export type PetBridge = {
 	endWindowMove(): Promise<void>;
 	beginWindowResize(corner: PetResizeCorner): Promise<void>;
 	setWindowSize(size: number, corner?: PetResizeCorner): Promise<void>;
-	setContentSize(size: number): Promise<void>;
+	setContentSize(content: number | PetContentBounds): Promise<void>;
 	endWindowResize(size: number): Promise<void>;
 	setVideoBaseSize(actionId: PetActionId, baseSize: number): Promise<void>;
 	setMousePassthrough(enabled: boolean): Promise<void>;

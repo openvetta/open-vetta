@@ -6,6 +6,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **桌宠拖拽、缩放与鼠标穿透异常**：窗口尺寸归一化改为按 `PET_SIZE_STEP` 对齐，避免透明窗口在 Windows 拖拽时漂移到非步进尺寸后反复回正；拖拽期间放宽仅用于 `setPosition` 的轻微尺寸漂移容忍度，减少无意义 warn 风暴；视频滚轮缩放继续使用“动作初始大小 × 全局比例”的模型，并按当前比例下所有动作的最大显示尺寸同步窗口，避免切换动作时窗口被小动作缩小、大动作再溢出；视频 hitbox 上报与主进程接收时都裁剪到窗口范围内，避免负坐标导致穿透误判。
+- **桌宠气泡导致窗口尺寸震荡**：自动内容尺寸同步改为上报内容包围盒与视频锚点，主进程按锚点扩缩窗口并在触及屏幕工作区边界时下发内容偏移补偿，避免气泡 DOM 插入、文字布局和窗口 resize 互相触发造成尺寸震荡，同时保留气泡需要更多空间时自动扩窗、消失后自动收回的能力。
 - **桌宠窗口拖动在 Windows/DPI 缩放下出现鼠标与窗口漂移**：拖动窗口不再把 renderer `PointerEvent.screenX/screenY` 增量直接传给主进程，而是在主进程记录拖动起点并用 Electron `screen.getCursorScreenPoint()` 计算窗口位置，避免 renderer 坐标与 `BrowserWindow.setPosition()` 坐标系比例不一致。
 - **普通项目会话被误标成 `conversation` 场景，导致 `scope_use: ["project"]` 永不命中**：`useSessionManager` 创建/重开会话时按 `sessionKind` 推导场景，普通项目走 `sessionKind = "conversation"` → 主进程 `isConversation` 为真 → 场景被标成 `"conversation"`。改为在渲染端显式下发场景（不改 `kind`，避免牵动 VETTA_CLI/子目录行为）：默认「对话」项目（cwd 归一到 `defaultConversationCwd`）→ `"conversation"`，批量 → `"batch"`，其余交互式项目 → `"project"`。影响面安全：所有含 `"conversation"` 的内置工具均同时含 `"project"`，翻转不会让任何工具从项目里消失。修复后仅声明 `["project"]` 的插件活动面板标签卡（如内置 Git 插件）才会在普通项目里出现。
 
