@@ -31,6 +31,8 @@ interface SessionPetActionRule {
 	resolve(event: SessionEvent): PetPresentationIntent | null;
 }
 
+const MAX_TOOL_BUBBLE_TEXT_LENGTH = 48;
+
 const DEFAULT_ACTION_BY_GROUP = {
 	idle: "stoat_spin_color_hula_hoop",
 	working: "stoat_work_laptop_typing_desk_cushion",
@@ -43,10 +45,6 @@ const LIFECYCLE_INTENTS: Partial<Record<SessionLifecyclePhase, PetPresentationIn
 		action: { groupId: "working" },
 		bubble: { text: "开始处理", ttlMs: 3_000 },
 	},
-	turn_start: {
-		action: { groupId: "working" },
-		bubble: { text: "我开始工作了", ttlMs: 3_000 },
-	},
 	agent_end: {
 		action: { groupId: "feedback", actionId: "stoat_stand_lift_barbell_one_hand_fast" },
 		bubble: { text: "处理完成", ttlMs: 4_000 },
@@ -58,31 +56,31 @@ const LIFECYCLE_INTENTS: Partial<Record<SessionLifecyclePhase, PetPresentationIn
 };
 
 const EVENT_TYPE_INTENTS: Partial<Record<SessionEvent["type"], PetPresentationIntent>> = {
-	"toolcall.start": {
-		action: { groupId: "working" },
-		bubble: { text: "正在调用工具", ttlMs: 3_000 },
-	},
-	"tool.start": {
-		action: { groupId: "working" },
-		bubble: { text: "正在执行工具", ttlMs: 3_000 },
-	},
-	"thinking.delta": {
-		action: { groupId: "resting" },
-		bubble: { text: "我在思考", ttlMs: 3_000 },
-	},
 	"compaction.start": {
 		action: { groupId: "resting" },
 		bubble: { text: "整理上下文", ttlMs: 3_000 },
-	},
-	"mcp.reload.start": {
-		action: { groupId: "resting" },
-		bubble: { text: "刷新工具中", ttlMs: 3_000 },
 	},
 	error: {
 		action: { groupId: "feedback", actionId: "stoat_wave_backflip_smoke_fade_exit" },
 		bubble: { text: "遇到错误", ttlMs: 5_000, priority: "high" },
 	},
 };
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+	return value !== null && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+}
+
+function truncateBubbleText(text: string): string {
+	return text.length <= MAX_TOOL_BUBBLE_TEXT_LENGTH ? text : `${text.slice(0, MAX_TOOL_BUBBLE_TEXT_LENGTH - 1)}…`;
+}
+
+function getToolBubbleText(event: Extract<SessionEvent, { type: "tool.start" }>): string {
+	const args = getRecord(event.args);
+	const description = typeof args?.description === "string" ? args.description.trim() : "";
+	return description ? truncateBubbleText(description) : "正在执行工具";
+}
 
 const BACKGROUND_TASK_INTENTS: readonly {
 	readonly intent: PetPresentationIntent;
@@ -121,6 +119,16 @@ const sessionPetActionRules: readonly SessionPetActionRule[] = [
 		resolve: (event) =>
 			event.type === "background_tasks_update"
 				? (BACKGROUND_TASK_INTENTS.find((rule) => rule.matches(event))?.intent ?? null)
+				: null,
+	},
+	{
+		name: "tool-description",
+		resolve: (event) =>
+			event.type === "tool.start"
+				? {
+						action: { groupId: "working" },
+						bubble: { text: getToolBubbleText(event), ttlMs: 3_000 },
+					}
 				: null,
 	},
 	{
