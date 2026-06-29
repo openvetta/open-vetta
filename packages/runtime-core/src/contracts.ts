@@ -480,6 +480,8 @@ export interface SessionHistoryInfo {
 	name?: string;
 	firstMessage: string;
 	modifiedAt: number;
+	/** Trimmed preview (~120 chars) of the most recent user/assistant message text. */
+	lastMessagePreview?: string;
 }
 
 export type SessionExecutionMode = "sandbox" | "full-access";

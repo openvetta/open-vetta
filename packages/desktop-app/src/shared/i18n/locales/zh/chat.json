@@ -91,7 +91,8 @@
 	},
 	"guideBadgeSwiper": {
 		"dismissTooltip": "不再提示",
-		"petFeatureText": "新增桌宠功能，点击前往设置开启"
+		"petFeatureText": "新增桌宠功能，点击前往设置开启",
+		"quickPanelText": "Vetta 支持快捷面板，点击前往设置开启"
 	},
 	"imagePreview": {
 		"altText": "读取的图片",
@@ -169,6 +170,11 @@
 		},
 		"compactionBoundary": "上下文已压缩",
 		"compactionIndicator": "正在压缩上下文...",
+		"streamingPhrases": [
+			"Vetta 正在回复…",
+			"请耐心等待…",
+			"Vetta 正在努力工作…"
+		],
 		"copyButton": {
 			"copied": "已复制",
 			"copy": "复制"

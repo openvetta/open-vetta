@@ -18,6 +18,7 @@ import type { DesktopNotificationApi } from "./api-types/notification.js";
 import type { DesktopPetApi } from "./api-types/pet.js";
 import type { DesktopPluginsApi } from "./api-types/plugins.js";
 import type { DesktopProjectApi } from "./api-types/project.js";
+import type { DesktopQuickPanelApi } from "./api-types/quick-panel.js";
 import type { DesktopSchedulerApi } from "./api-types/scheduler.js";
 import type { DesktopSessionApi } from "./api-types/session.js";
 import type { DesktopSkillsApi } from "./api-types/skills.js";
@@ -54,6 +55,7 @@ export type * from "./api-types/notification.js";
 export type * from "./api-types/pet.js";
 export type * from "./api-types/plugins.js";
 export type * from "./api-types/project.js";
+export type * from "./api-types/quick-panel.js";
 export type * from "./api-types/scheduler.js";
 export type * from "./api-types/session.js";
 export type * from "./api-types/shared.js";
@@ -99,6 +101,7 @@ export interface DesktopApi {
 	notification: DesktopNotificationApi;
 	plugins: DesktopPluginsApi;
 	pet: DesktopPetApi;
+	quickPanel: DesktopQuickPanelApi;
 }
 
 declare global {

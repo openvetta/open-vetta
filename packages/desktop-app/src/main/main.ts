@@ -36,6 +36,7 @@ import {
 	registerSchedulerIpc,
 	teardownAllIpc,
 } from "./ipc/index.js";
+import { syncQuickPanelTrigger } from "./ipc/quickpanel.js";
 import { registerKnowledgeIpc } from "./knowledge/ipc.js";
 import { reloadKnowledgePoller } from "./knowledge/poller.js";
 import { getAppLogger } from "./logger.js";
@@ -44,6 +45,8 @@ import { openExternalUrl } from "./open-external.js";
 import { initializePetWindow } from "./pet-window.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { discoverSystemPlugins } from "./plugins/plugin-store.js";
+import { stopQuickPanelTrigger } from "./quickpanel-trigger.js";
+import { createQuickPanelWindow } from "./quickpanel-window.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
@@ -543,6 +546,12 @@ if (!gotSingleLock) {
 		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker });
 		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService);
 		initializePetWindow();
+		// 快捷面板：预创建隐藏窗口（按需 show/hide，不每次重建），随后据配置启停双击功能键监听。
+		// registerAllIpc 已注册快捷面板 IPC（含 RELOAD_HOTKEY），这里仅补窗口与初次触发器同步。
+		createQuickPanelWindow();
+		void syncQuickPanelTrigger().catch((err) => {
+			mainLog.error("failed to sync quick panel trigger", err);
+		});
 
 		try {
 			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService, schedulerService);
@@ -655,6 +664,9 @@ app.on("before-quit", async (event) => {
 	quitCleanupStarted = true;
 	(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
 	event.preventDefault();
+
+	// 退出前停止快捷面板的原生双击监听（避免 uiohook 线程残留）。
+	stopQuickPanelTrigger();
 
 	const host = getImHost();
 	if (host.getStatus().sidecarPid) {

@@ -1,25 +1,23 @@
 import {
 	Select,
 	SelectContent,
-	SelectGroup,
 	SelectItem,
-	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from "@shared/components/ui/select";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@shared/components/ui/switch";
+import { ModelSelect } from "@shared/components/ModelSelect";
 import {
 	activityPanelOpenAtom,
 	confirmDialogAtom,
 	knowledgeBaseEnabledAtom,
 	knowledgeRetrievalActiveAtom,
-	remoteProvidersAtom,
 	type SessionInfo,
 } from "@shared/store/atoms";
 import { useNavigate } from "@tanstack/react-router";
-import { useAtomValue, useSetAtom } from "jotai";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSetAtom } from "jotai";
+import { useCallback, useEffect, useState } from "react";
 import { KnowledgeHowItWorksDialog } from "@shared/components/KnowledgeHowItWorksDialog";
 import { cn } from "@shared/lib/utils";
 import { SETTINGS_SECTION } from "../registry";
@@ -29,13 +27,6 @@ const POLL_INTERVALS = [3, 5, 10, 30];
 /** 0 = 永不自动加工（仅停后台轮询，仍可手动整理）。 */
 const NEVER_INTERVAL = 0;
 const AGENT_CONCURRENCY_OPTIONS = [1, 2, 3, 4, 6, 8];
-
-interface ModelOption {
-	key: string;
-	provider: string;
-	displayName: string;
-	remote: boolean;
-}
 
 export function KnowledgeBaseSettings(): JSX.Element {
 	const { t } = useTranslation("settings");
@@ -48,15 +39,11 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [interval, setIntervalMinutes] = useState(5);
 	const [agentConcurrency, setAgentConcurrency] = useState(3);
 	const [modelKey, setModelKey] = useState<string>("");
-	const [localModels, setLocalModels] = useState<ModelOption[]>([]);
-	const [busy, setBusy] = useState<"scan" | "clear" | null>(null);
+	const [busy, setBusy] = useState<"scan" | "clear" | "retry" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const [probing, setProbing] = useState(false);
 	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
 	const [howItWorksOpen, setHowItWorksOpen] = useState(false);
-
-	// {t("kbCloudOnly")}模型目录(由 useAuth 在登录后流式写入)。与本地 models.json 合并,本地同 key 优先。
-	const remoteProviders = useAtomValue(remoteProvidersAtom);
 
 	useEffect(() => {
 		void window.vetta.config.get().then((config) => {
@@ -66,41 +53,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			setAgentConcurrency(kb?.agentConcurrency ?? 3);
 			setModelKey(kb?.processingModelKey ?? "");
 		});
-		void window.vetta.models.get().then((cfg) => {
-			const opts: ModelOption[] = [];
-			for (const [provider, pc] of Object.entries(cfg.providers)) {
-				for (const model of pc.models ?? []) {
-					opts.push({
-						key: `${provider}/${model.id}`,
-						provider: pc.displayName || provider,
-						displayName: model.name || model.id,
-						remote: false,
-					});
-				}
-			}
-			setLocalModels(opts);
-		});
 	}, []);
-
-	const models = useMemo<ModelOption[]>(() => {
-		type ProviderShape = { displayName?: string; models?: Array<{ id: string; name?: string }> };
-		const localKeys = new Set(localModels.map((m) => m.key));
-		const remote: ModelOption[] = [];
-		for (const [provider, pc] of Object.entries(remoteProviders as Record<string, ProviderShape>)) {
-			for (const model of pc?.models ?? []) {
-				if (!model.id) continue;
-				const key = `${provider}/${model.id}`;
-				if (localKeys.has(key)) continue;
-				remote.push({
-					key,
-					provider: pc.displayName || provider,
-					displayName: model.name || model.id,
-					remote: true,
-				});
-			}
-		}
-		return [...localModels, ...remote];
-	}, [localModels, remoteProviders]);
 
 	const persist = useCallback(
 		async (patch: {
@@ -191,6 +144,21 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		}
 	}, []);
 
+	const handleRetryFailed = useCallback(async () => {
+		setBusy("retry");
+		setStatus(null);
+		try {
+			const res = await window.vetta.knowledge.retryFailed();
+			setStatus(
+				res.reason === "no-model" ? t("kbNoModelForProcess") : res.skipped ? t("kbNoChanges") : t("kbProcessing"),
+			);
+		} catch (err) {
+			setStatus(t("kbProcessFailed", { msg: err instanceof Error ? err.message : String(err) }));
+		} finally {
+			setBusy(null);
+		}
+	}, []);
+
 	const handleClearWiki = useCallback(() => {
 		confirm({
 			title: t("kbClearWikiTitle"),
@@ -228,13 +196,6 @@ export function KnowledgeBaseSettings(): JSX.Element {
 		setActivityPanelOpen(true);
 		void navigate({ to: "/viewer/$path", params: { path: encodeURIComponent(list[0].path) } });
 	}, [navigate, setActivityPanelOpen]);
-
-	const grouped = new Map<string, ModelOption[]>();
-	for (const m of models) {
-		const list = grouped.get(m.provider) ?? [];
-		list.push(m);
-		grouped.set(m.provider, list);
-	}
 
 	const btnClass =
 		"inline-flex items-center gap-1.5 rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50";
@@ -298,35 +259,13 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					border={false}
 				>
 					<div className="flex flex-wrap items-center gap-2">
-						<Select value={modelKey} onValueChange={handleModel} disabled={!enabled}>
-							<SelectTrigger
-								className={cn(
-									"h-7 min-w-[220px] px-2 py-1 text-[12px]",
-									enabled && !modelKey && "border-amber-500/50",
-								)}
-							>
-								<SelectValue placeholder={t("kbSelectModel")} />
-							</SelectTrigger>
-							<SelectContent>
-								{[...grouped.entries()].map(([provider, items]) => (
-									<SelectGroup key={provider}>
-										<SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
-											{provider}
-											{items[0]?.remote && (
-												<span className="ml-1.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-													{t("kbCloudOnly")}
-												</span>
-											)}
-										</SelectLabel>
-										{items.map((o) => (
-											<SelectItem key={o.key} value={o.key} className="text-[12px]">
-												{o.displayName}
-											</SelectItem>
-										))}
-									</SelectGroup>
-								))}
-							</SelectContent>
-						</Select>
+						<ModelSelect
+							value={modelKey || null}
+							onChange={(key) => handleModel(key ?? "")}
+							disabled={!enabled}
+							placeholder={t("kbSelectModel")}
+							triggerClassName={cn("min-w-[220px]", enabled && !modelKey && "border-amber-500/50")}
+						/>
 						<button
 							type="button"
 							onClick={() => void handleProbe()}
@@ -357,6 +296,17 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					<button type="button" onClick={() => void handleScan()} disabled={!enabled || !modelKey || busy !== null} className={btnClass}>
 						<span>{t("kbProcessNowBtn")}</span>
 						{busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
+					</button>
+				</SettingRow>
+				<SettingRow title={t("kbRetryFailed")} description={t("kbRetryFailedDesc")}>
+					<button
+						type="button"
+						onClick={() => void handleRetryFailed()}
+						disabled={!enabled || !modelKey || busy !== null}
+						className={btnClass}
+					>
+						<span>{t("kbRetryFailedBtn")}</span>
+						{busy === "retry" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
 				<SettingRow title={t("kbRecords")} description={t("kbRecordsDesc")}>

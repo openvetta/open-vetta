@@ -12,5 +12,12 @@
 	"appearance": {
 		"languageTitle": "Language",
 		"languageHint": "Choose the display language"
+	},
+	"modelSelect": {
+		"placeholder": "Select model",
+		"unset": "Not set",
+		"defaultBadge": "Default",
+		"visionBadge": "vision",
+		"cloudOnly": "Cloud"
 	}
 }

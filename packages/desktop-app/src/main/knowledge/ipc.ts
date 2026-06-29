@@ -8,7 +8,7 @@
 import { ipcMain } from "electron";
 import { readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
-import { isKnowledgeProcessing, reloadKnowledgePoller, runKnowledgeRound } from "./poller.js";
+import { isKnowledgeProcessing, reloadKnowledgePoller, retryFailedKnowledge, runKnowledgeRound } from "./poller.js";
 import {
 	addFilesToKnowledgeBase,
 	createKnowledgeBase,
@@ -25,6 +25,7 @@ const log = getAppLogger("kb-ipc");
 
 const CHANNELS = {
 	SCAN_NOW: "vetta:kb:scan-now",
+	RETRY_FAILED: "vetta:kb:retry-failed",
 	RELOAD: "vetta:kb:reload",
 	IS_PROCESSING: "vetta:kb:is-processing",
 	LIST: "vetta:kb:list",
@@ -45,6 +46,11 @@ export function registerKnowledgeIpc(): void {
 		// 手动整理与定时一致：用配置的加工模型与并发数（即使「永不自动加工」也能手动跑）。
 		const kb = (await readDesktopConfig()).knowledgeBase;
 		return runKnowledgeRound(kb?.processingModelKey, kb?.agentConcurrency ?? 3);
+	});
+	ipcMain.handle(CHANNELS.RETRY_FAILED, async () => {
+		log.info("retry failed knowledge triggered");
+		const kb = (await readDesktopConfig()).knowledgeBase;
+		return retryFailedKnowledge(kb?.processingModelKey, kb?.agentConcurrency ?? 3);
 	});
 	ipcMain.handle(CHANNELS.RELOAD, async () => {
 		await reloadKnowledgePoller();

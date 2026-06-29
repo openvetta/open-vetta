@@ -64,6 +64,13 @@ export interface DesktopConfigData {
 	};
 	/** 知识库加工特殊项目的绝对路径（~/.vetta/knowledges/processing_records）。 */
 	knowledgeProcessingCwd?: string;
+	/** 快捷面板（双击功能键唤出 Spotlight 式面板）设置。缺省不启用。 */
+	quickPanel?: {
+		/** 呼出触发：none=不启用；mod=双击 ⌘/Ctrl；alt=双击 ⌥/Alt；shift=双击 ⇧。缺省 none。 */
+		trigger?: "none" | "mod" | "alt" | "shift";
+		/** 发送后行为：foreground=打开主窗定位新会话；background=后台运行仅关面板。缺省 foreground。 */
+		postSendBehavior?: "foreground" | "background";
+	};
 }
 
 export interface DesktopConfigApi {
