@@ -16,12 +16,15 @@
 
 import { rebuildManifest, rebuildTagsIndex, type WikiPageRef } from "./cache.js";
 import { diffRaws, planOrphans, type RawsDiff } from "./differ.js";
+import { type AttemptedFile, applyQuarantine, quarantinedHashes, reconcileFailures } from "./failures.js";
 import { buildIndexMap } from "./index-map.js";
 import {
 	deleteWikiPage,
 	pruneEmptyWikiDirs,
+	readFailures,
 	scanRaws,
 	scanWikiPages,
+	writeFailures,
 	writeIndexMap,
 	writeManifest,
 	writeTagsIndex,
@@ -60,6 +63,11 @@ export async function prepareRound(root: string, now: string): Promise<PreparedR
 	const diff = diffRaws(manifest.pages, raws);
 	const plan = planOrphans(manifest, diff, now);
 
+	// 止损：剔除已隔离（连续失败达阈值）的 added/changed，不再自动重加工——
+	// 否则永远写不出 wiki 页的硬骨头文件会每轮重入 added，无限加工。
+	const failures = await readFailures(root);
+	const quarantined = quarantinedHashes(failures);
+
 	const byId = new Map(pages.map((p) => [p.frontmatter.id, p]));
 
 	// moved：纯元数据更新（source / source_path），内容与 hash 不变。
@@ -81,7 +89,24 @@ export async function prepareRound(root: string, now: string): Promise<PreparedR
 		await writeWikiPage(root, page.path, page.frontmatter, page.body);
 	}
 
-	return { diff, toReap: plan.toReap };
+	return { diff: applyQuarantine(diff, quarantined), toReap: plan.toReap };
+}
+
+/**
+ * 轮末据本轮结果对账失败记录（仅在加工轮正常完成、非中止时调用）。
+ * 重新扫描 wiki，判定本轮尝试的每个文件是否真写出了页：写出→清除失败记录，
+ * 仍无→失败次数 +1（达阈值则隔离）。被用户中止的轮次不计失败，避免误隔离。
+ * @param attempted 本轮实际尝试加工的文件（取自过滤掉隔离项后的 diff）。
+ */
+export async function reconcileRoundFailures(root: string, attempted: AttemptedFile[], now: string): Promise<void> {
+	if (attempted.length === 0) return;
+	const [{ pages }, raws, failures] = await Promise.all([scanWikiPages(root), scanRaws(root), readFailures(root)]);
+	const presentHashes = new Set(
+		pages.filter((p) => p.frontmatter.orphaned_at == null).map((p) => p.frontmatter.source_hash),
+	);
+	const rawHashes = new Set(raws.map((r) => r.source_hash));
+	const next = reconcileFailures({ failures, attempted, presentHashes, rawHashes, now });
+	await writeFailures(root, next);
 }
 
 /**

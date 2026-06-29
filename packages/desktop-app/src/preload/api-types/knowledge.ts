@@ -21,8 +21,8 @@ export interface KnowledgeBaseDto {
 	nodes: KnowledgeNodeDto[];
 }
 
-/** 文件加工态：已加工 / 待更新（源已改待重加工）/ 未加工。 */
-export type KnowledgeProcessStatus = "processed" | "stale" | "unprocessed";
+/** 文件加工态：已加工 / 待更新（源已改待重加工）/ 加工失败（已隔离）/ 未加工。 */
+export type KnowledgeProcessStatus = "processed" | "stale" | "failed" | "unprocessed";
 
 export interface KnowledgeFileStatus {
 	status: KnowledgeProcessStatus;
@@ -33,6 +33,8 @@ export interface KnowledgeFileStatus {
 export interface DesktopKnowledgeApi {
 	/** 立即跑一轮加工（手动触发，不等轮询周期）。skipped 时 reason 指明原因（无变更/未配置模型）。 */
 	scanNow(): Promise<{ skipped: boolean; reason?: "no-model" }>;
+	/** 解除全部加工失败（隔离）文件的隔离并立即重试加工一轮。 */
+	retryFailed(): Promise<{ skipped: boolean; reason?: "no-model" }>;
 	/** 据当前设置重新调度后台轮询器（保存知识库设置后调用）。 */
 	reload(): Promise<void>;
 	/** 从磁盘 raws/ 读出全部知识库（含文件树）。反向重建即调此刷新。 */

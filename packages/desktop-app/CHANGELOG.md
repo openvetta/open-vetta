@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **知识库无限加工 + 后台进程不释放**：加工轮 `runKnowledgeRound` 收尾新增止损对账——本轮正常完成（非中止）时调 `knowledge.reconcileRoundFailures`，据「wiki 是否真出现该文件 hash」统计成败，连续失败达阈值的文件被隔离，下一轮不再自动重加工，杜绝同样几个文件每 N 分钟反复空转（连带反复 spawn 不可回收的 OCR 子进程累积到数百个拖垮应用）。根因与子进程回收修复见 `@vetta/coding-agent`。
 - **桌宠窗口拖动在 Windows/DPI 缩放下出现鼠标与窗口漂移**：拖动窗口不再把 renderer `PointerEvent.screenX/screenY` 增量直接传给主进程，而是在主进程记录拖动起点并用 Electron `screen.getCursorScreenPoint()` 计算窗口位置，避免 renderer 坐标与 `BrowserWindow.setPosition()` 坐标系比例不一致。
 - **普通项目会话被误标成 `conversation` 场景，导致 `scope_use: ["project"]` 永不命中**：`useSessionManager` 创建/重开会话时按 `sessionKind` 推导场景，普通项目走 `sessionKind = "conversation"` → 主进程 `isConversation` 为真 → 场景被标成 `"conversation"`。改为在渲染端显式下发场景（不改 `kind`，避免牵动 VETTA_CLI/子目录行为）：默认「对话」项目（cwd 归一到 `defaultConversationCwd`）→ `"conversation"`，批量 → `"batch"`，其余交互式项目 → `"project"`。影响面安全：所有含 `"conversation"` 的内置工具均同时含 `"project"`，翻转不会让任何工具从项目里消失。修复后仅声明 `["project"]` 的插件活动面板标签卡（如内置 Git 插件）才会在普通项目里出现。
 
@@ -17,6 +18,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **知识库「加工失败」态 + 「重试失败」**：文件加工态新增第 4 态 `failed`（`getKnowledgeFileStatuses` 据 `failures.json` 的隔离记录推导，文件列表显示红色错误角标 `kbBadgeFailed`），让连续加工失败被隔离的文件不再静默显示成「未加工」。知识库设置页「整理操作」新增「重试失败」按钮：清除全部失败/隔离记录（解除暂停）并立即重新整理一轮——供用户修好文件或想再试时手动触发。新增 `window.vetta.knowledge.retryFailed()` 预载 API 与 `vetta:kb:retry-failed` IPC（主进程 `retryFailedKnowledge` 经 `runKnowledgeMaintenance` 互斥执行）。
 - **本地应用使用统计**：主进程按前台活跃、前台不活跃和后台三类累计使用时长，前台连续两分钟无键盘、鼠标、触摸或滚轮操作后转为不活跃；同步汇总会话、工具调用、批量任务、自动化任务、Token、上下文压缩和错误计数。统计只保存在 `~/.vetta/app-monitor.json`，每两分钟异步原子写入，退出时尽力落盘，采集或写入失败仅记录日志且不影响正常功能。
 - **九阶段成就页面**：设置页新增「成就」入口，以横向吸附轨道展示九枚阶段徽章；支持无惯性拖动、滚动与前后按钮查看，当前成就放大着色、未达成成就缩小灰化，并展示所选成就的名称与意义。
 - **自定义鼠标样式**：renderer 全局接入自定义 cursor 素材，并覆盖常见 Tailwind `cursor-*` 工具类与基础交互元素，保证默认、点击、悬停、加载、文本、移动、禁用和 resize 状态使用统一鼠标样式。

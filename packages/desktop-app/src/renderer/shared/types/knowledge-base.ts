@@ -19,8 +19,8 @@ export interface KnowledgeBase {
 	nodes: KnowledgeNode[];
 }
 
-/** 文件加工态：已加工 / 待更新（源已改待重加工）/ 未加工。 */
-export type KnowledgeProcessStatus = "processed" | "stale" | "unprocessed";
+/** 文件加工态：已加工 / 待更新（源已改待重加工）/ 加工失败（已隔离）/ 未加工。 */
+export type KnowledgeProcessStatus = "processed" | "stale" | "failed" | "unprocessed";
 
 export interface KnowledgeFileStatus {
 	status: KnowledgeProcessStatus;

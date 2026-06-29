@@ -1,13 +1,10 @@
-import { execFile } from "node:child_process";
 import { mkdir, stat, unlink } from "node:fs/promises";
 import nodePath from "node:path";
-import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { runSubprocess, SubprocessAbortError } from "../exec-subprocess.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
-
-const execFileAsync = promisify(execFile);
 
 const renderPdfPageSchema = Type.Object({
 	input: Type.String({ description: "Path to the source PDF file." }),
@@ -30,11 +27,6 @@ const renderPdfPageSchema = Type.Object({
 });
 
 export type RenderPdfPageToolInput = Static<typeof renderPdfPageSchema>;
-
-interface ExecFileError extends Error {
-	stdout?: string;
-	stderr?: string;
-}
 
 const DEFAULT_DPI = 200;
 const RENDER_TIMEOUT_MS = 5 * 60 * 1000;
@@ -75,8 +67,10 @@ export function createRenderPdfPageTool(cwd: string): CodingAgentTool<typeof ren
 
 			ctx?.phase("render");
 			const startedAt = Date.now();
+			// abort/超时会 killProcessTree 整棵树并抛 SubprocessAbortError，不残留 pdftoppm。
+			let render: { code: number | null; stderr: string };
 			try {
-				await execFileAsync(
+				render = await runSubprocess(
 					"pdftoppm",
 					[
 						"-png",
@@ -90,20 +84,22 @@ export function createRenderPdfPageTool(cwd: string): CodingAgentTool<typeof ren
 						inputPath,
 						prefix,
 					],
-					{
-						encoding: "utf8",
-						timeout: RENDER_TIMEOUT_MS,
-						maxBuffer: 4 * 1024 * 1024,
-						windowsHide: true,
-					},
+					{ signal, timeout: RENDER_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 },
 				);
 			} catch (error) {
-				const execError = error as ExecFileError;
-				const stderr = (execError.stderr ?? "").trim();
-				const hint = execError.message.includes("ENOENT")
-					? " (pdftoppm not found — install poppler: `brew install poppler` on macOS)"
-					: "";
-				throw new Error(`pdftoppm failed: ${stderr || execError.message}${hint}`);
+				if (error instanceof SubprocessAbortError) {
+					await unlink(outputPath).catch(() => {});
+					throw new Error("Operation aborted");
+				}
+				const err = error as NodeJS.ErrnoException;
+				const hint =
+					err.code === "ENOENT" || err.message.includes("ENOENT")
+						? " (pdftoppm not found — install poppler: `brew install poppler` on macOS)"
+						: "";
+				throw new Error(`pdftoppm failed: ${err.message}${hint}`);
+			}
+			if (render.code !== 0) {
+				throw new Error(`pdftoppm failed: ${render.stderr.trim() || `exited with code ${render.code}`}`);
 			}
 			if (signal?.aborted) {
 				await unlink(outputPath).catch(() => {});
