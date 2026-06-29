@@ -56,6 +56,9 @@ const INDICATOR_INITIAL = { opacity: 0, y: 6 };
 const INDICATOR_ANIMATE = { opacity: 1, y: 0 };
 const INDICATOR_EXIT = { opacity: 0, y: 6 };
 const INDICATOR_TRANSITION = { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] as const } satisfies Transition;
+const STREAM_CHAR_HIDDEN = { opacity: 0, filter: "blur(6px)" };
+const STREAM_CHAR_SHOWN = { opacity: 1, filter: "blur(0px)" };
+const STREAM_CHAR_TRANSITION = { duration: 0.42, ease: [0.25, 0.1, 0.25, 1] as const } satisfies Transition;
 const STREAMING_OVERSCAN = 80;
 const IDLE_OVERSCAN = 400;
 const STREAMING_INCREASE_VIEWPORT_BY = { top: 0, bottom: 80 };
@@ -650,6 +653,44 @@ const UserMessage = memo(function UserMessage({
 	);
 });
 
+/**
+ * streaming 时的「正在回复」提示：逐字毛玻璃渐显（停在清晰态，不做持续模糊以免发脏），
+ * 一句显现完成并停留后轮换到下一句文案，循环往复。
+ */
+function StreamingIndicator(): JSX.Element {
+	const { t } = useTranslation("chat");
+	const phrases = t("messageList.streamingPhrases", { returnObjects: true });
+	const list = Array.isArray(phrases) ? (phrases as string[]) : [];
+	const [index, setIndex] = useState(0);
+	const text = list[index] ?? "";
+	const chars = Array.from(text);
+
+	useEffect(() => {
+		if (list.length <= 1) return;
+		// 显现耗时（末字 delay + 单字时长）+ 停留，到点切下一句
+		const revealMs = chars.length * 35 + 420;
+		const id = setTimeout(() => setIndex((v) => (v + 1) % list.length), revealMs + 1100);
+		return () => clearTimeout(id);
+	}, [index, list.length, chars.length]);
+
+	return (
+		<span className="inline-flex text-[11px] font-medium text-muted-foreground/55" aria-label={text}>
+			{chars.map((ch, i) => (
+				<motion.span
+					key={`${index}-${i}`}
+					aria-hidden
+					className="inline-block whitespace-pre"
+					initial={STREAM_CHAR_HIDDEN}
+					animate={STREAM_CHAR_SHOWN}
+					transition={{ ...STREAM_CHAR_TRANSITION, delay: i * 0.035 }}
+				>
+					{ch}
+				</motion.span>
+			))}
+		</span>
+	);
+}
+
 /** Assistant message — full-width, no bubble, with header */
 const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage, isStreaming, exportMode = false }: {
 	message: ChatMessage;
@@ -798,6 +839,12 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 				)}
 			</div>
 
+			{isCurrentlyStreaming && (
+				<div className="mt-2 flex items-center">
+					<StreamingIndicator />
+				</div>
+			)}
+
 			{(showActions || isPredicting) && (
 				<div className="mt-2 flex items-center gap-2">
 					{showActions && (
@@ -906,16 +953,24 @@ function CompactionIndicator(): JSX.Element {
 /** Footer component rendered below the virtualized list — contains compaction indicator, artifacts */
 const ListFooter = memo(function ListFooter({
 	isCompacting,
+	showWaiting,
 }: {
 	isCompacting: boolean;
+	/** assistant 消息尚未出现、但已在 streaming 的空档，需要先给出「正在回复」提示。 */
+	showWaiting: boolean;
 }) {
 	const files = useAtomValue(turnModifiedFilesAtom);
-	if (!isCompacting && files.length === 0) return <div style={{ height: 64 }} />;
+	if (!isCompacting && !showWaiting && files.length === 0) return <div style={{ height: 64 }} />;
 	return (
 		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-1 pb-16">
 			<AnimatePresence initial={false}>
 				{isCompacting && <CompactionIndicator key="compacting" />}
 			</AnimatePresence>
+			{showWaiting && !isCompacting && (
+				<div className="flex items-center">
+					<StreamingIndicator />
+				</div>
+			)}
 			<ArtifactCard files={files} />
 		</div>
 	);
@@ -1158,12 +1213,14 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 		};
 	}, [handleWheelIntent, handleTouchStart, handleTouchMove]);
 
+	// assistant 消息出现前的空档（末条仍是 user）也要显示「正在回复」提示，避免看起来卡住。
+	const showWaiting = isStreaming && messages.at(-1)?.role !== "assistant";
 	const footer = useCallback(() => (
 		<>
 			{onSend && <SuggestionBubbles onSend={onSend} />}
-			<ListFooter isCompacting={isCompacting} />
+			<ListFooter isCompacting={isCompacting} showWaiting={showWaiting} />
 		</>
-	), [isCompacting, onSend]);
+	), [isCompacting, showWaiting, onSend]);
 
 	const virtuosoComponents = useMemo(() => ({
 		List: VirtuosoListContainer,

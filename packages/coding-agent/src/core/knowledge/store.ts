@@ -10,10 +10,12 @@ import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join, posix, relative, sep } from "node:path";
 import { getKnowledgeDir } from "../../config.js";
+import { EMPTY_FAILURES, type FailuresRecord } from "./failures.js";
 import { parseWikiPage, serializeWikiPage } from "./frontmatter.js";
 import {
 	EMPTY_MANIFEST,
 	EMPTY_TAGS_INDEX,
+	FAILURES_FILE,
 	INDEX_MAP_FILE,
 	INDEXES_DIR,
 	MANIFEST_FILE,
@@ -40,6 +42,7 @@ export const indexesDir = (root: string): string => join(root, INDEXES_DIR);
 export const indexMapPath = (root: string): string => join(indexesDir(root), INDEX_MAP_FILE);
 export const tagsPath = (root: string): string => join(root, TAGS_FILE);
 export const manifestPath = (root: string): string => join(root, MANIFEST_FILE);
+export const failuresPath = (root: string): string => join(root, FAILURES_FILE);
 export const processingRecordsCwd = (root: string): string => join(root, PROCESSING_RECORDS_DIR);
 
 // ---------- hash / id ----------
@@ -219,6 +222,9 @@ export const writeManifest = (root: string, manifest: Manifest): Promise<void> =
 	writeJsonFile(manifestPath(root), manifest);
 export const readTagsIndex = (root: string): Promise<TagsIndex> => readJsonFile(tagsPath(root), EMPTY_TAGS_INDEX);
 export const writeTagsIndex = (root: string, index: TagsIndex): Promise<void> => writeJsonFile(tagsPath(root), index);
+export const readFailures = (root: string): Promise<FailuresRecord> => readJsonFile(failuresPath(root), EMPTY_FAILURES);
+export const writeFailures = (root: string, failures: FailuresRecord): Promise<void> =>
+	writeJsonFile(failuresPath(root), failures);
 
 /** 写入自动生成的目录 indexes/INDEX.md（镜像 wiki 树的导航入口）。 */
 export async function writeIndexMap(root: string, content: string): Promise<void> {

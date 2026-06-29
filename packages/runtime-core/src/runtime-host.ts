@@ -942,6 +942,7 @@ export class RuntimeHost implements SessionFacade {
 			name: session.name,
 			firstMessage: session.firstMessage,
 			modifiedAt: session.modified.getTime(),
+			lastMessagePreview: session.lastMessagePreview,
 		}));
 	}
 
@@ -1024,24 +1025,34 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
+	 * 解析周边任务(autotitle/输入预测等)使用的「全局模型」。
+	 * 每次调用都 refresh 一次 ModelRegistry，实时读取 models.json 里最新的
+	 * peripheralModel —— 设置页改完无需重启即时生效。未配置全局模型、配置的
+	 * 模型已不存在、或拿不到 apiKey 时返回 null，调用方据此让周边功能失效。
+	 */
+	private async resolvePeripheralModel(handle: SessionHandle) {
+		const registry = handle.session.modelRegistry;
+		registry.refresh();
+		const model = registry.getPeripheralModel();
+		if (!model) return null;
+		const apiKey = await registry.getApiKey(model);
+		if (!apiKey) return null;
+		return { model, apiKey };
+	}
+
+	/**
 	 * Generate a short title from the first round of conversation and persist it
-	 * onto the session. Returns the persisted name, or null when the model/key
-	 * is not available or the LLM produced no usable text.
+	 * onto the session. Returns the persisted name, or null when the global model
+	 * is not configured/available or the LLM produced no usable text.
 	 */
 	async autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null> {
 		const handle = this.requireSession(sessionId);
-		const model = handle.session.model;
-		if (!model) {
-			console.warn(`[autoTitleSession] session=${sessionId} skipped: no model on session`);
+		const resolved = await this.resolvePeripheralModel(handle);
+		if (!resolved) {
+			console.warn(`[autoTitleSession] session=${sessionId} skipped: no global model configured/available`);
 			return null;
 		}
-		const apiKey = await handle.session.modelRegistry.getApiKey(model);
-		if (!apiKey) {
-			console.warn(
-				`[autoTitleSession] session=${sessionId} skipped: no apiKey for model ${model.provider}/${model.id}`,
-			);
-			return null;
-		}
+		const { model, apiKey } = resolved;
 		console.log(
 			`[autoTitleSession] session=${sessionId} model=${model.provider}/${model.id} userLen=${userText.length} assistantLen=${assistantText.length}`,
 		);
@@ -1114,18 +1125,12 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	async nextPromptSuggestions(sessionId: string, conversation: string): Promise<string[]> {
 		const handle = this.requireSession(sessionId);
-		const model = handle.session.model;
-		if (!model) {
-			console.warn(`[nextPromptSuggestions] session=${sessionId} skipped: no model on session`);
+		const resolved = await this.resolvePeripheralModel(handle);
+		if (!resolved) {
+			console.warn(`[nextPromptSuggestions] session=${sessionId} skipped: no global model configured/available`);
 			return [];
 		}
-		const apiKey = await handle.session.modelRegistry.getApiKey(model);
-		if (!apiKey) {
-			console.warn(
-				`[nextPromptSuggestions] session=${sessionId} skipped: no apiKey for model ${model.provider}/${model.id}`,
-			);
-			return [];
-		}
+		const { model, apiKey } = resolved;
 
 		const trimmed = conversation.trim().slice(0, 4000);
 		if (!trimmed) return [];

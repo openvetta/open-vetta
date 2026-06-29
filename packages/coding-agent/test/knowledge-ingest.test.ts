@@ -2,8 +2,16 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { finalizeRound, prepareRound } from "../src/core/knowledge/ingest.js";
-import { hashContent, rawsDir, readManifest, scanWikiPages, wikiDir } from "../src/core/knowledge/store.js";
+import { attemptedFiles, KB_MAX_PROCESSING_ATTEMPTS } from "../src/core/knowledge/failures.js";
+import { finalizeRound, prepareRound, reconcileRoundFailures } from "../src/core/knowledge/ingest.js";
+import {
+	hashContent,
+	rawsDir,
+	readFailures,
+	readManifest,
+	scanWikiPages,
+	wikiDir,
+} from "../src/core/knowledge/store.js";
 import { writeKnowledgePage } from "../src/core/knowledge/writer.js";
 
 describe("ingest round lifecycle (integration)", () => {
@@ -137,5 +145,50 @@ describe("ingest round lifecycle (integration)", () => {
 		const { diff } = await prepareRound(root, "2026-06-22T00:00:00.000Z");
 		expect(diff.added).toHaveLength(1);
 		expect(diff.added[0].raw.source_hash).toBe(h1);
+	});
+
+	// 回归：永远写不出 wiki 页的文件（如 OCR 失败的 PDF），过去每轮都重入 added → 无限加工。
+	// 现在连续失败达阈值后被隔离，prepareRound 不再把它放进 added。
+	it("止损：永久失败的文件连续 N 轮后被隔离，不再无限重入 added", async () => {
+		writeRaw("g/broken.pdf", "cannot be processed");
+
+		// 模拟「加工但永远写不出 wiki 页」的多轮：每轮 prepareRound 仍给出 added，
+		// 但 reconcile 时 wiki 里查不到该 hash → 失败计数累加。
+		for (let i = 1; i <= KB_MAX_PROCESSING_ATTEMPTS; i++) {
+			const now = `2026-06-22T0${i}:00:00.000Z`;
+			const { diff } = await prepareRound(root, now);
+			// 达到阈值前每轮都还会尝试
+			expect(diff.added).toHaveLength(1);
+			// agent 没写出任何 wiki 页 → 对账记为失败
+			await reconcileRoundFailures(root, attemptedFiles(diff), now);
+		}
+
+		const failures = await readFailures(root);
+		const entry = Object.values(failures.entries)[0];
+		expect(entry.attempts).toBe(KB_MAX_PROCESSING_ATTEMPTS);
+		expect(entry.quarantined).toBe(true);
+
+		// 下一轮：已隔离 → 不再出现在 added（无限加工被止损）
+		const after = await prepareRound(root, "2026-06-22T09:00:00.000Z");
+		expect(after.diff.added).toHaveLength(0);
+	});
+
+	it("止损：隔离文件内容变化（hash 变）→ 视为新文件，自动重试", async () => {
+		writeRaw("g/broken.pdf", "v1 broken");
+		for (let i = 1; i <= KB_MAX_PROCESSING_ATTEMPTS; i++) {
+			const now = `2026-06-22T0${i}:00:00.000Z`;
+			const { diff } = await prepareRound(root, now);
+			await reconcileRoundFailures(root, attemptedFiles(diff), now);
+		}
+		expect((await prepareRound(root, "2026-06-22T08:00:00.000Z")).diff.added).toHaveLength(0);
+
+		// 用户修好了文件（内容变 → hash 变）
+		writeRaw("g/broken.pdf", "v2 fixed content");
+		const after = await prepareRound(root, "2026-06-22T09:00:00.000Z");
+		expect(after.diff.added).toHaveLength(1);
+		// 旧 hash 的失败记录被剪枝
+		await reconcileRoundFailures(root, attemptedFiles(after.diff), "2026-06-22T09:00:00.000Z");
+		const failures = await readFailures(root);
+		expect(Object.keys(failures.entries)).toHaveLength(1); // 仅新 hash 的一条（本轮也没写出页）
 	});
 });

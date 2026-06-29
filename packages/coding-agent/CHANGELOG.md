@@ -2,6 +2,8 @@
 
 ### Fixed
 
+- **知识库加工失败的文件被无限重加工（止损：失败计数 + 隔离）**：差异计算是纯 hash、无状态的——「wiki 页存在且 source_hash 匹配」是某原始文件「加工成功」的唯一凭证。任何永远写不出 wiki 页的文件（OCR 失败/超大/agent 中途崩/被中止/上下文溢出），其 `source_hash` 永远匹配不到 wiki 页，于是每一轮 `diffRaws` 都把它重新判为 `added` 重加工，无失败计数、无退避、无上限 → 同样几个文件每 N 分钟反复空转。新增 `core/knowledge/failures.ts`（按 `source_hash` 记录连续失败次数，达阈值 `KB_MAX_PROCESSING_ATTEMPTS=3` 即隔离）+ `failures.json` 持久化（`readFailures`/`writeFailures`）：`prepareRound` 用 `applyQuarantine` 从 diff 剔除已隔离项不再自动重加工；新增 `reconcileRoundFailures` 在轮末（仅非中止时）据「wiki 是否真出现该 hash」对账成败——成功清除记录、失败计数 +1。文件内容变化（hash 变）视为全新文件自动重试，旧记录自动剪枝。
+- **本地工具子进程（OCR/PDF 渲染/HTML 转换）被中止时不回收，长期累积拖垮应用**：`extract_text_from_pdf`/`extract_text_from_img`（Vetta OCR，超时 30/5 分钟）、`render_pdf_page`（pdftoppm）、`html_to_pdf` 过去用 `promisify(execFile)` 派生子进程，abort 时拿不到子进程句柄、只能空等超时——被中止的 OCR/渲染进程（OCR 实为 Electron，带一串 helper 孙进程）残留到超时为止，反复加工同样几个文件时累积成百上千个进程。新增 `core/tools/exec-subprocess.ts`：`detached` spawn + `killProcessTree(-pid)`，abort/超时立即收掉整棵进程树（含 helper 孙进程）；四个工具改用它。
 - **知识库同名不同目录原始文件互相覆盖致无限重复加工**：`createKbWriteSession` 写盘前新增 wiki 物理路径占用检测——`kb_write_page` 的目标路径由 LLM 按语义自由决定，两个内容不同（`source_hash` 不同 → 不同页 id）但同名不同目录的原始文件常被分到同一 wiki path，旧逻辑直接 `writeFile` 后写覆盖前写，收尾 `scanWikiPages` 只剩一页 → manifest 丢一条 source_hash → 下一轮 `diffRaws` 把丢失的那个再判为 `added` 重新加工、再覆盖，周而复始无限循环（用户反馈后台对固定几个文件反复加工）。现会话内维护 `pathToId` 反查表，目标路径被「别的页」占用时自动消歧到基于该页 id 的稳定后缀路径（如 `产品/说明-ab12cd34.md`），同一页跨轮恒定落回自己那份、不再抢占；upsert 的新建/更新判定（按 id / source_hash）不变。
 
 ### Removed
@@ -29,6 +31,7 @@
 
 ### Added
 
+- `SessionManager` 的 `SessionInfo` 新增 `lastMessagePreview` 字段：`buildSessionInfo` 复用已解析的消息数组，取最后一条用户/助手消息正文 trim 后截断到约 120 字符，供宿主（如桌面快捷面板「最近会话」列表）展示会话末条预览，无需二次读文件。
 - 新增 `CodingAgentTool<TParameters, TDetails>` 类型别名（`AgentTool` 第三泛型钉成 `ConversationScenario`），经包根导出，供内置/宿主工具声明 `scope_use` 时拿到对话场景的补全与防拼写。
 - **知识库分批加工基础设施**：新增 `createLimiter`（最小并发信号量，无依赖，`src/core/concurrency-limit.ts`，经包根导出）；`knowledge.createKbWriteSession`（轮级共享写页会话——轮始扫一次 `wiki/` 建内存 PageIndex，之后每次写页只对内存决策 + 增量更新，并用 max=1 限制器把「决策→写盘→更新索引」串成原子段，消除「每写一页全量 `scanWikiPages`」的 O(N²) 并保证多并发会话写页互斥安全）；`knowledge.planProcessingBatches`（把一轮 added/changed 按 `source_path` 聚簇 + 文件数/字节双预算切成多个子 `RawsDiff`，纯上下文边界，续跑靠 hash-diff 无需游标）。`createKbWritePageTool(root?, session?)` 新增可选 `session` 参数：传入则走共享会话，省略保持原「每次现扫」行为（加工轮外通用 session / UI 用）。`RawFile` 新增 `size` 字段（扫描算 hash 时顺手取得）。
 - 新增插件 continuation provider 运行时：Todo 自动续跑优先，随后按稳定顺序调用插件策略；支持超时、会话级幂等键去重、异常隔离和单次 Agent run 最多 8 次续跑保护。

@@ -1,16 +1,13 @@
-import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import nodePath from "node:path";
-import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { runSubprocess, SubprocessAbortError } from "../exec-subprocess.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
-
-const execFileAsync = promisify(execFile);
 
 const htmlToPdfSchema = Type.Object({
 	description: toolCallDescriptionSchema,
@@ -46,11 +43,6 @@ interface DesktopPdfResponse {
 		code: string;
 		message: string;
 	};
-}
-
-interface ExecFileError extends Error {
-	stdout?: string;
-	stderr?: string;
 }
 
 function configPath(): string {
@@ -160,54 +152,41 @@ export function createHtmlToPdfTool(cwd: string): CodingAgentTool<typeof htmlToP
 			if (marginLeft !== undefined) args.push("--margin-left", String(marginLeft));
 
 			ctx?.phase("render");
-			const child = execFileAsync(vetta.path, args, {
-				encoding: "utf8",
-				timeout: 120000,
-				windowsHide: true,
-			});
-
-			const onAbort = (): void => {
-				// execFileAsync does not expose the child process, so rely on timeout for hard cleanup.
-			};
-			signal?.addEventListener("abort", onAbort, { once: true });
+			// 非零退出码也正常返回 stdout（Vetta CLI 把错误 JSON 写在 stdout）；
+			// abort/超时会 killProcessTree 整棵树并抛 SubprocessAbortError，不残留进程。
+			let stdout: string;
+			let stderr: string;
 			try {
-				let stdout: string;
-				let stderr: string;
-				try {
-					const result = await child;
-					stdout = result.stdout;
-					stderr = result.stderr;
-				} catch (error) {
-					const execError = error as ExecFileError;
-					stdout = execError.stdout ?? "";
-					stderr = execError.stderr ?? execError.message;
-				}
-				if (signal?.aborted) {
-					throw new Error("Operation aborted");
-				}
-				const response = parseDesktopResponse(stdout);
-				if (!response.ok) {
-					const message = response.error?.message ?? (stderr.trim() || "Unknown PDF generation error");
-					throw new Error(`Vetta Desktop PDF generation failed: ${message}`);
-				}
-				if (!response.output) {
-					throw new Error("Vetta Desktop did not return an output path");
-				}
-				const staleNote = vetta.staleConfiguredPath
-					? `\nNote: configured vettaAppPath was stale and fallback path was used: ${vetta.staleConfiguredPath}`
-					: "";
-				return {
-					content: [
-						{
-							type: "text",
-							text: `Successfully converted HTML to PDF.\nOutput: ${response.output}\nRenderer: ${response.renderer ?? "electron"}${staleNote}`,
-						},
-					],
-					details: undefined,
-				};
-			} finally {
-				signal?.removeEventListener("abort", onAbort);
+				const result = await runSubprocess(vetta.path, args, { signal, timeout: 120000 });
+				stdout = result.stdout;
+				stderr = result.stderr;
+			} catch (error) {
+				if (error instanceof SubprocessAbortError) throw new Error("Operation aborted");
+				throw error;
 			}
+			if (signal?.aborted) {
+				throw new Error("Operation aborted");
+			}
+			const response = parseDesktopResponse(stdout);
+			if (!response.ok) {
+				const message = response.error?.message ?? (stderr.trim() || "Unknown PDF generation error");
+				throw new Error(`Vetta Desktop PDF generation failed: ${message}`);
+			}
+			if (!response.output) {
+				throw new Error("Vetta Desktop did not return an output path");
+			}
+			const staleNote = vetta.staleConfiguredPath
+				? `\nNote: configured vettaAppPath was stale and fallback path was used: ${vetta.staleConfiguredPath}`
+				: "";
+			return {
+				content: [
+					{
+						type: "text",
+						text: `Successfully converted HTML to PDF.\nOutput: ${response.output}\nRenderer: ${response.renderer ?? "electron"}${staleNote}`,
+					},
+				],
+				details: undefined,
+			};
 		},
 	};
 }

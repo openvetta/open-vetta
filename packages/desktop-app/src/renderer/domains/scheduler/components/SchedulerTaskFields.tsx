@@ -1,17 +1,16 @@
 import { SkillPromptArea } from "@domains/chat/components/SkillPromptArea";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { ModelSelect } from "@shared/components/ModelSelect";
 import {
 	defaultConversationCwdAtom,
 	getProjectDisplayName,
 	projectsAtom,
-	remoteProvidersAtom,
 } from "@shared/store/atoms";
 import type {
 	ExecutionModeOverride,
 	SelectedSkill,
 	SessionExecutionMode,
 } from "@shared/store/atoms";
-import type { ModelsConfigData } from "@preload/api";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -51,16 +50,6 @@ interface SchedulerTaskFieldsProps {
 
 type CompactScheduleMode = "once" | "daily" | "interval";
 
-interface ModelOption {
-	provider: string;
-	modelId: string;
-	displayName: string;
-	key: string;
-	remote?: boolean;
-	tags?: string[];
-	supportsImage?: boolean;
-}
-
 function getDefaultSchedule(mode: CompactScheduleMode): Schedule {
 	switch (mode) {
 		case "once":
@@ -70,25 +59,6 @@ function getDefaultSchedule(mode: CompactScheduleMode): Schedule {
 		case "interval":
 			return getDefaultIntervalSchedule();
 	}
-}
-
-function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
-	const result: ModelOption[] = [];
-	for (const [provider, providerConfig] of Object.entries(config.providers)) {
-		for (const model of providerConfig.models ?? []) {
-			const raw = model as Record<string, unknown>;
-			result.push({
-				provider,
-				modelId: model.id,
-				displayName: model.name || model.id,
-				key: `${provider}/${model.id}`,
-				remote,
-				tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
-				supportsImage: model.input?.includes("image") ?? false,
-			});
-		}
-	}
-	return result;
 }
 
 function OnceEditor({
@@ -207,7 +177,6 @@ export function SchedulerTaskFields({
 		{ key: "interval", label: t("scheduleMode.interval") },
 	];
 	const projects = useAtomValue(projectsAtom);
-	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const defaultCwd = useAtomValue(defaultConversationCwdAtom);
 	const projectName = useCallback((cwd: string) => getProjectDisplayName(cwd, defaultCwd), [defaultCwd]);
 	const [schedule, setSchedule] = useState<Schedule>(() =>
@@ -218,8 +187,6 @@ export function SchedulerTaskFields({
 	const [workDirPopoverOpen, setWorkDirPopoverOpen] = useState(false);
 	const [schedulePopoverOpen, setSchedulePopoverOpen] = useState(false);
 	const [executionPopoverOpen, setExecutionPopoverOpen] = useState(false);
-	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-	const [modelsConfig, setModelsConfig] = useState<ModelsConfigData | null>(null);
 
 	const set = <Key extends keyof SchedulerTaskDraft>(
 		key: Key,
@@ -245,18 +212,7 @@ export function SchedulerTaskFields({
 			}
 			setSandboxUnavailableReason(null);
 		});
-
-		void window.vetta.models.get().then(setModelsConfig);
 	}, [t]);
-
-	const models = useMemo(() => {
-		const localModels = modelsConfig ? flattenModels(modelsConfig) : [];
-		const remoteModels = Object.keys(remoteProviders).length > 0
-			? flattenModels({ providers: remoteProviders as ModelsConfigData["providers"] }, true)
-			: [];
-		const localKeys = new Set(localModels.map((model) => model.key));
-		return [...localModels, ...remoteModels.filter((model) => !localKeys.has(model.key))];
-	}, [modelsConfig, remoteProviders]);
 
 	const workDirOptions = useMemo(() => {
 		const seen = new Set<string>();
@@ -272,18 +228,7 @@ export function SchedulerTaskFields({
 		return options;
 	}, [defaultCwd, projects, projectName, value.cwd, t]);
 
-	const groupedModels = useMemo(() => {
-		const map = new Map<string, ModelOption[]>();
-		for (const model of models) {
-			const list = map.get(model.provider) ?? [];
-			list.push(model);
-			map.set(model.provider, list);
-		}
-		return map;
-	}, [models]);
-
 	const mode = schedule.mode === "weekly" ? "daily" : schedule.mode as CompactScheduleMode;
-	const selectedModel = models.find((model) => model.key === value.modelKey);
 	const scheduleLabel = describeSchedule(schedule, t);
 	const executionMode = value.executionMode ?? "inherit";
 	const executionLabel =
@@ -454,75 +399,12 @@ export function SchedulerTaskFields({
 					</PopoverContent>
 				</Popover>
 
-				<Popover open={modelDropdownOpen} onOpenChange={setModelDropdownOpen}>
-					<PopoverTrigger asChild>
-						<button
-							type="button"
-							className="flex h-8 items-center gap-1.5 rounded-lg border border-border/50 bg-card/40 px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card/70 hover:text-foreground"
-						>
-							<span className="icon-[mdi--brain] h-3.5 w-3.5" />
-							<span className="max-w-[160px] truncate">
-								{selectedModel?.displayName ?? (models.length === 0 ? t("form.modelEmpty") : t("form.modelSelect"))}
-							</span>
-							<span className="icon-[mdi--chevron-down] h-3.5 w-3.5 opacity-60" />
-						</button>
-					</PopoverTrigger>
-					{models.length > 0 && (
-						<PopoverContent align="start" side="top" className="w-72 overflow-hidden rounded-xl p-0">
-							<div className="max-h-[280px] overflow-y-auto py-1">
-								{[...groupedModels.entries()].map(([provider, providerModels]) => (
-									<div key={provider}>
-										<div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-											{provider}
-										</div>
-										{providerModels.map((model) => {
-											const isSelected = model.key === value.modelKey;
-											const isDefault = model.key === modelsConfig?.defaultModel;
-											return (
-												<button
-													key={model.key}
-													type="button"
-													onClick={() => {
-														set("modelKey", model.key);
-														setModelDropdownOpen(false);
-													}}
-													className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${
-														isSelected
-															? "bg-primary/10 text-primary"
-															: "text-foreground hover:bg-accent/50"
-													}`}
-												>
-													<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
-													{model.supportsImage && (
-														<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-															vision
-														</span>
-													)}
-													{model.tags?.map((tag) => (
-														<span key={tag} className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-															{tag.trim()}
-														</span>
-													))}
-													{model.remote && (
-														<span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
-															remote
-														</span>
-													)}
-													{isDefault && (
-														<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-															{t("form.defaultTag")}
-														</span>
-													)}
-													{isSelected && <span className="icon-[mdi--check] h-3.5 w-3.5 shrink-0" />}
-												</button>
-											);
-										})}
-									</div>
-								))}
-							</div>
-						</PopoverContent>
-					)}
-				</Popover>
+				<ModelSelect
+					value={value.modelKey ?? null}
+					onChange={(key) => set("modelKey", key)}
+					placeholder={t("form.modelSelect")}
+					triggerClassName="h-8 rounded-lg border-border/50 bg-card/40 px-2.5 text-muted-foreground hover:border-primary/30 hover:bg-card/70 hover:text-foreground"
+				/>
 
 				{showEnabled && (
 					<button

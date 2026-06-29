@@ -15,6 +15,7 @@ import { registerPermissionsIpc } from "./permissions.js";
 import { registerPetIpc } from "./pet.js";
 import { registerPluginsIpc } from "./plugins.js";
 import { registerProjectExportIpc } from "./project-export.js";
+import { registerQuickPanelIpc } from "./quickpanel.js";
 import { registerRuntimesIpc } from "./runtimes.js";
 import { registerSessionIpc } from "./session.js";
 import { registerSettingsIpc } from "./settings.js";
@@ -44,6 +45,7 @@ interface IpcTeardown {
 	teardownPlugins: () => void;
 	teardownNotifications: () => void;
 	teardownPet: () => void;
+	teardownQuickPanel: () => void;
 	teardownDiagnostics: () => void;
 }
 
@@ -73,6 +75,7 @@ export function registerAllIpc(
 		teardownPlugins: registerPluginsIpc(),
 		teardownNotifications: registerNotificationIpc(webContents),
 		teardownPet: registerPetIpc(),
+		teardownQuickPanel: registerQuickPanelIpc(),
 		teardownDiagnostics: registerDiagnosticsIpc(),
 	};
 }
@@ -99,6 +102,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownPlugins();
 	teardown.teardownNotifications();
 	teardown.teardownPet();
+	teardown.teardownQuickPanel();
 	teardown.teardownDiagnostics();
 }
 
