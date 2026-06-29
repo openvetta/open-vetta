@@ -24,6 +24,20 @@
 		"copyCommand": "复制命令",
 		"metaDescription": "本地元数据，仅 UI 展示，不发送给大模型"
 	},
+	"browser": {
+		"addressPlaceholder": "输入网址并回车",
+		"back": "后退",
+		"empty": "点击会话中的链接，或在地址栏输入网址",
+		"failed": "页面加载失败",
+		"forward": "前进",
+		"loading": "加载中…",
+		"noSession": "暂无活动会话",
+		"openExternal": "用系统浏览器打开",
+		"reload": "刷新",
+		"retry": "重试",
+		"stop": "停止",
+		"tab": "浏览器"
+	},
 	"capability": {
 		"network": "网络",
 		"read": "读",

@@ -24,6 +24,20 @@
 		"copyCommand": "Copy command",
 		"metaDescription": "Local metadata, UI only, not sent to the model"
 	},
+	"browser": {
+		"addressPlaceholder": "Enter a URL and press Enter",
+		"back": "Back",
+		"empty": "Click a link in the conversation, or type a URL above",
+		"failed": "Failed to load page",
+		"forward": "Forward",
+		"loading": "Loading…",
+		"noSession": "No active session",
+		"openExternal": "Open in system browser",
+		"reload": "Reload",
+		"retry": "Retry",
+		"stop": "Stop",
+		"tab": "Browser"
+	},
 	"capability": {
 		"network": "Network",
 		"read": "Read",

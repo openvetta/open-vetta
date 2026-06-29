@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import {
+	browserUrlBySessionAtom,
+	getBrowserUrlForSession,
 	activityPanelWidthAtom,
 	activityPanelMaxWidth,
 	ACTIVITY_PANEL_MIN_WIDTH,
@@ -34,6 +37,7 @@ import { KnowledgeHistoryPanel } from "./KnowledgeHistoryPanel";
 import { ChatTabPanel } from "./ChatTabPanel";
 import { BatchProgressTabPanel } from "./BatchProgressTabPanel";
 import { BackgroundTasksTabPanel } from "./BackgroundTasksTabPanel";
+import { BrowserPanel } from "./BrowserPanel";
 import { ScheduleExecutionTabPanel } from "./ScheduleExecutionTabPanel";
 import { TodoTabPanel } from "./TodoTabPanel";
 import { DebugTabPanel } from "./DebugTabPanel";
@@ -86,9 +90,12 @@ export function ActivityPanel({
 	enablePluginTabs = true,
 	knowledgeHistory = false,
 }: ActivityPanelProps = {}): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [isOpen, setOpen] = useAtom(activityPanelOpenAtom);
 	const narrow = useNarrowScreen();
 	const activeSession = useAtomValue(activeSessionAtom);
+	const browserUrlMap = useAtomValue(browserUrlBySessionAtom);
+	const browserUrl = getBrowserUrlForSession(browserUrlMap, activeSession?.sessionPath ?? null);
 	const [width, setWidth] = useAtom(activityPanelWidthAtom);
 	const [isResizing, setIsResizing] = useState(false);
 	// 因宽度不足被 TabBar 响应式收纳的页签 key（由 TabBar 上报），用于"下拉"菜单展示
@@ -203,13 +210,20 @@ export function ActivityPanel({
 				},
 			];
 		}
-		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((t) => ({
-			key: t.key,
-			label: t.label,
-			icon: t.icon,
-			badge: t.key === "chat" ? chatUnread : undefined,
-			removable: !NON_HIDEABLE_TABS.has(t.key),
+		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((tab) => ({
+			key: tab.key,
+			label: tab.label,
+			icon: tab.icon,
+			badge: tab.key === "chat" ? chatUnread : undefined,
+			removable: !NON_HIDEABLE_TABS.has(tab.key),
 		}));
+		// 常驻内置「浏览器」tab：点会话链接即在此预览（可减号隐藏，点链接会自动恢复）
+		base.push({
+			key: "browser" as ActivityTabKey,
+			label: t("browser.tab"),
+			icon: "icon-[mdi--web]",
+			removable: true,
+		});
 		// Dynamically inject todo tab when items exist
 		if (hasTodo) {
 			const todoDone = todoItems.filter((i) => i.status === "done").length;
@@ -262,6 +276,7 @@ export function ActivityPanel({
 		debugMode,
 		pluginTabContribs,
 		trPlugin,
+		t,
 	]);
 
 	// 可见 tab：剔除被隐藏的 tab（内置/动态/插件统一进隐藏集），再按用户拖拽顺序重排
@@ -435,6 +450,13 @@ export function ActivityPanel({
 					{activeTab === "debug" && cwd && <DebugTabPanel cwd={cwd} />}
 					{activeTab === "knowledge-history" && <KnowledgeHistoryPanel cwd={cwd} />}
 					{activePluginTab && cwd && <PluginActivityTabPanel tab={activePluginTab} cwd={cwd} />}
+					{/* 浏览器：一旦本会话激活过或开过页就常驻挂载，靠 hidden 切显隐，
+					    以跨活动 tab 切换保活 webview（不能用条件卸载，否则页面会重载）。 */}
+					{cwd && (activeTab === "browser" || browserUrl != null) && (
+						<div className={activeTab === "browser" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+							<BrowserPanel />
+						</div>
+					)}
 				</div>
 			</div>
 		</>
