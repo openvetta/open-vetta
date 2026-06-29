@@ -14,6 +14,16 @@ export function ResizeHandle({ side, onResize, onResizeEnd }: ResizeHandleProps)
 			e.preventDefault();
 			startXRef.current = e.clientX;
 
+			// 拖拽期间铺一层全屏遮罩：<webview> 等独立 WebContents 会吞掉划过其上的鼠标事件，
+			// 导致 pointermove/up 到不了 document（拖到面板里的 webview 上会卡顿、松手仍跟随）。
+			// 遮罩挡在最上层接住事件并冒泡到 document，松手即移除。
+			const overlay = document.createElement("div");
+			overlay.style.position = "fixed";
+			overlay.style.inset = "0";
+			overlay.style.zIndex = "9999";
+			overlay.style.cursor = "col-resize";
+			document.body.appendChild(overlay);
+
 			const onPointerMove = (ev: PointerEvent) => {
 				const delta = ev.clientX - startXRef.current;
 				startXRef.current = ev.clientX;
@@ -25,14 +35,13 @@ export function ResizeHandle({ side, onResize, onResizeEnd }: ResizeHandleProps)
 			const onPointerUp = () => {
 				document.removeEventListener("pointermove", onPointerMove);
 				document.removeEventListener("pointerup", onPointerUp);
-				document.body.style.cursor = "";
+				overlay.remove();
 				document.body.style.userSelect = "";
 				onResizeEnd?.();
 			};
 
 			document.addEventListener("pointermove", onPointerMove);
 			document.addEventListener("pointerup", onPointerUp);
-			document.body.style.cursor = "col-resize";
 			document.body.style.userSelect = "none";
 		},
 		[side, onResize, onResizeEnd],
