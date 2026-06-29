@@ -310,7 +310,6 @@ function sendPetCommand(win: BrowserWindow, command: PetCommand): void {
 
 export function sendPetCommandToWindow(command: PetCommand): void {
 	if (!petWindow || petWindow.isDestroyed()) return;
-	log.debug("send command", { command });
 	sendPetCommand(petWindow, command);
 }
 
@@ -338,12 +337,7 @@ function syncPetMousePassthroughForCursor(): void {
 		setPetMousePassthrough(false);
 		return;
 	}
-	const overVideo = isCursorOverPetVideo(petWindow);
-	const target = !overVideo;
-	if (target !== isMousePassthroughEnabled) {
-		log.debug("passthrough poll: cursor over video changed", { overVideo, enabling: target, hitbox: petVideoHitbox });
-	}
-	setPetMousePassthrough(target);
+	setPetMousePassthrough(!isCursorOverPetVideo(petWindow));
 }
 
 function startMousePassthroughPolling(): void {
@@ -624,7 +618,6 @@ export async function resizePetWindowByWheel(deltaY: number): Promise<void> {
 	const direction = deltaY < 0 ? 1 : -1;
 	const nextSize = normalizePetSize(bounds.width + direction * PET_SIZE_STEP);
 	if (nextSize === bounds.width) return;
-	log.info("wheel resize window", { before: bounds.width, after: nextSize, direction });
 	setPetBounds(win, getCenteredBounds(bounds, nextSize), "wheel-resize-window");
 	await persistPetWindowSize(nextSize);
 }
@@ -646,15 +639,10 @@ export function beginPetWindowMove(): void {
 		);
 		schedulePersistPetWindowSize(normalizedSize);
 	}
-	const cursor = screen.getCursorScreenPoint();
 	windowMoveSession = {
 		startBounds: win.getBounds(),
-		startCursor: cursor,
+		startCursor: screen.getCursorScreenPoint(),
 	};
-	log.info("begin move session", {
-		startBounds: windowMoveSession.startBounds,
-		startCursor: cursor,
-	});
 }
 
 export function movePetWindow(): void {
@@ -678,13 +666,6 @@ export function movePetWindow(): void {
 	win.setPosition(x, y, false);
 	const after = win.getBounds();
 	if (hasUnacceptablePetMoveSizeChange(after, normalizedSize)) {
-		log.warn("move session: size changed unexpectedly", {
-			startBounds: session.startBounds,
-			startCursor: session.startCursor,
-			cursor,
-			after,
-			restoredSize: normalizedSize,
-		});
 		setPetBounds(
 			win,
 			{
@@ -703,7 +684,6 @@ export function endPetWindowMove(): void {
 	if (petContentBounds) {
 		setPetWindowContentSize(petContentBounds);
 	}
-	log.info("end move session");
 }
 
 export function beginPetWindowResize(corner: PetResizeCorner): void {
@@ -723,7 +703,6 @@ export function beginPetWindowResize(corner: PetResizeCorner): void {
 		corner,
 		lastSize: size,
 	};
-	log.info("begin resize session", { corner, startBounds, size });
 }
 
 export async function setPetWindowSize(size: number, corner?: PetResizeCorner): Promise<void> {
@@ -734,7 +713,6 @@ export async function setPetWindowSize(size: number, corner?: PetResizeCorner): 
 	if (nextSize === bounds.width) return;
 	const session = windowResizeSession && windowResizeSession.corner === corner ? windowResizeSession : undefined;
 	const baseBounds = session?.startBounds ?? bounds;
-	log.debug("set window size", { from: bounds.width, to: nextSize, corner, hadSession: session != null });
 	setPetBounds(win, getCornerAnchoredBounds(baseBounds, nextSize, corner), "corner-resize-window");
 	if (session) {
 		windowResizeSession = { ...session, lastSize: nextSize };
@@ -816,7 +794,6 @@ export async function endPetWindowResize(size: number): Promise<void> {
 	const nextSize = normalizePetSize(size);
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	if (session) {
-		log.info("end resize session", { corner: session.corner, lastSize: session.lastSize, finalSize: nextSize });
 		setPetBounds(
 			win,
 			getCornerAnchoredBounds(session.startBounds, nextSize, session.corner),
@@ -840,14 +817,6 @@ export async function resizePetVideoByWheel(
 	if (nextScale === petConfig.videoScale) return;
 	const nextConfig = { ...petConfig, videoScale: nextScale };
 	const nextWindowSize = normalizePetSize(getMaxScaledPetVideoSize(nextConfig));
-	log.info("wheel resize video", {
-		actionId,
-		direction,
-		from: currentSize,
-		to: nextSize,
-		scale: nextScale,
-		windowSize: nextWindowSize,
-	});
 	if (nextWindowSize !== bounds.width || nextWindowSize !== bounds.height) {
 		setPetBounds(win, getCenteredBounds(bounds, nextWindowSize), "sync-window-for-video-scale");
 		await persistPetWindowSize(nextWindowSize);
@@ -865,11 +834,6 @@ export function setPetMousePassthrough(enabled: boolean): void {
 	if (isMousePassthroughEnabled === enabled) return;
 	isMousePassthroughEnabled = enabled;
 	win.setIgnoreMouseEvents(enabled, { forward: true });
-	log.info("passthrough changed", {
-		enabled,
-		inMoveSession: windowMoveSession != null,
-		inResizeSession: windowResizeSession != null,
-	});
 }
 
 export function setPetVideoHitbox(hitbox: PetVideoHitbox | undefined): void {
@@ -891,7 +855,6 @@ export function setPetVideoHitbox(hitbox: PetVideoHitbox | undefined): void {
 	} else {
 		petVideoHitbox = undefined;
 	}
-	log.info("video hitbox updated", { hitbox: petVideoHitbox });
 	if (petVideoHitbox) {
 		startMousePassthroughPolling();
 		syncPetMousePassthroughForCursor();

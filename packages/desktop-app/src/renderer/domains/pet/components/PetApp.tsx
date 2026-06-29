@@ -64,6 +64,13 @@ export function PetApp(): JSX.Element {
 	const targetVideoSize = selectedVideoSize;
 	const effectiveVideoSize = normalizePetVideoSizeForWindow(targetVideoSize, maxVideoSize);
 	const videoSize = getVideoDisplaySize(videoNaturalSize, effectiveVideoSize);
+	const bubbleAnchorSize = normalizePetVideoSizeForWindow(
+		PET_ACTIONS.reduce(
+			(total, item) => total + normalizePetVideoSize((videoBaseSizeByAction[item.id] ?? DEFAULT_PET_VIDEO_SIZE) * videoScale),
+			0,
+		) / PET_ACTIONS.length,
+		maxVideoSize,
+	);
 	const bubblePlacement = bubble && contentOffset.y < 0 ? "below" : "above";
 
 	const clearUserOverrideTimer = () => {
@@ -113,7 +120,7 @@ export function PetApp(): JSX.Element {
 		contentRef,
 		targetRef: videoRef,
 		debugFrame,
-		observeKey: `${actionId ?? ""}:${bubblePlacement}`,
+		observeKey: `${actionId ?? ""}:${bubblePlacement}:${bubbleAnchorSize}`,
 	});
 
 	useEffect(() => {
@@ -150,7 +157,6 @@ export function PetApp(): JSX.Element {
 
 	useEffect(() => {
 		return window.vettaPet?.onCommand((command) => {
-			console.log("[pet-app] command received", command);
 			if (command.type === "show-bubble") {
 				showBubble({
 					text: command.text,
@@ -269,6 +275,7 @@ export function PetApp(): JSX.Element {
 				}}
 			>
 				<PetSpeechBubble
+					anchorSize={bubbleAnchorSize}
 					decorUrl={bubbleStyle.decorUrl}
 					message={bubble}
 					placement={bubblePlacement}
