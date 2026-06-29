@@ -1,28 +1,16 @@
-import type { ModelsConfigData } from "@preload/api";
 import { SkillPromptArea } from "@domains/chat/components/SkillPromptArea";
 import { Input } from "@shared/components/ui/input";
+import { ModelSelect } from "@shared/components/ModelSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { Switch } from "@shared/components/ui/switch";
 import { Textarea } from "@shared/components/ui/textarea";
 import {
 	type ExecutionModeOverride,
-	remoteProvidersAtom,
 	type SelectedSkill,
 	type SessionExecutionMode,
 } from "@shared/store/atoms";
-import { useAtomValue } from "jotai";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-
-interface ModelOption {
-	provider: string;
-	modelId: string;
-	displayName: string;
-	key: string;
-	remote?: boolean;
-	tags?: string[];
-	supportsImage?: boolean;
-}
 
 export interface BatchProjectEditableData {
 	name?: string;
@@ -61,25 +49,6 @@ export interface BatchProjectApprovalJsonData {
 	folders?: string[];
 	newFolders?: string[];
 	skill?: SelectedSkill | null;
-}
-
-function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
-	const result: ModelOption[] = [];
-	for (const [provider, providerConfig] of Object.entries(config.providers)) {
-		for (const model of providerConfig.models ?? []) {
-			const raw = model as Record<string, unknown>;
-			result.push({
-				provider,
-				modelId: model.id,
-				displayName: model.name || model.id,
-				key: `${provider}/${model.id}`,
-				remote,
-				tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
-				supportsImage: model.input?.includes("image") ?? false,
-			});
-		}
-	}
-	return result;
 }
 
 function compactLines(lines: string[]): string[] {
@@ -124,13 +93,9 @@ export function BatchProjectFormFields({
 	const namePlaceholderText = namePlaceholder ?? t("form.namePlaceholder");
 	const folderLabelText = folderLabel ?? t("form.folderLabel");
 	const folderEmptyTextValue = folderEmptyText ?? t("form.folderEmpty");
-	const remoteProviders = useAtomValue(remoteProvidersAtom);
 	const [defaultExecutionMode, setDefaultExecutionMode] = useState<SessionExecutionMode>("full-access");
 	const [sandboxUnavailableReason, setSandboxUnavailableReason] = useState<string | null>(null);
-	const [config, setConfig] = useState<ModelsConfigData | null>(null);
-	const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
 	const [folderInputMode, setFolderInputMode] = useState<"picker" | "textarea">("picker");
-	const modelDropdownRef = useRef<HTMLDivElement>(null);
 
 	const set = <Key extends keyof BatchProjectEditableData>(
 		key: Key,
@@ -155,40 +120,7 @@ export function BatchProjectFormFields({
 			}
 			setSandboxUnavailableReason(null);
 		});
-		void window.vetta.models.get().then(setConfig);
 	}, [t]);
-
-	useEffect(() => {
-		if (!modelDropdownOpen) return;
-		function handleClick(event: MouseEvent): void {
-			if (modelDropdownRef.current && !modelDropdownRef.current.contains(event.target as Node)) {
-				setModelDropdownOpen(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClick);
-		return () => document.removeEventListener("mousedown", handleClick);
-	}, [modelDropdownOpen]);
-
-	const models = useMemo(() => {
-		const localModels = config ? flattenModels(config) : [];
-		const remoteModels = Object.keys(remoteProviders).length > 0
-			? flattenModels({ providers: remoteProviders as ModelsConfigData["providers"] }, true)
-			: [];
-		const localKeys = new Set(localModels.map((model) => model.key));
-		return [...localModels, ...remoteModels.filter((model) => !localKeys.has(model.key))];
-	}, [config, remoteProviders]);
-
-	const groupedModels = useMemo(() => {
-		const map = new Map<string, ModelOption[]>();
-		for (const model of models) {
-			const list = map.get(model.provider) ?? [];
-			list.push(model);
-			map.set(model.provider, list);
-		}
-		return map;
-	}, [models]);
-
-	const selectedOption = models.find((model) => model.key === value.modelKey);
 
 	const handleSelectFolders = useCallback(() => {
 		void (async () => {
@@ -241,83 +173,12 @@ export function BatchProjectFormFields({
 				<label className="mb-2 flex items-center justify-between text-sm font-medium text-foreground">
 					<span>{t("form.model")}</span>
 				</label>
-				<div ref={modelDropdownRef} className="relative">
-					<button
-						type="button"
-						onClick={() => setModelDropdownOpen((open) => !open)}
-						className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-sm transition-colors hover:bg-accent/50"
-					>
-						<span className="icon-[mdi--brain] h-4 w-4 shrink-0 text-muted-foreground" />
-						<span className="min-w-0 flex-1 truncate">
-							{selectedOption?.displayName ?? (models.length === 0 ? t("form.modelEmpty") : t("form.modelSelect"))}
-						</span>
-						{selectedOption?.remote && (
-							<span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
-								remote
-							</span>
-						)}
-						<span className="icon-[mdi--chevron-down] h-4 w-4 shrink-0 text-muted-foreground" />
-					</button>
-
-					{modelDropdownOpen && models.length > 0 && (
-						<div
-							className="absolute left-0 z-50 mt-1 w-full overflow-hidden rounded-xl border border-border shadow-lg"
-							style={{ background: "var(--background)" }}
-						>
-							<div className="max-h-[280px] overflow-y-auto py-1">
-								{[...groupedModels.entries()].map(([provider, providerModels]) => (
-									<div key={provider}>
-										<div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-											{provider}
-										</div>
-										{providerModels.map((model) => {
-											const isSelected = model.key === value.modelKey;
-											const isDefault = model.key === config?.defaultModel;
-											return (
-												<button
-													key={model.key}
-													type="button"
-													onClick={() => {
-														set("modelKey", model.key);
-														setModelDropdownOpen(false);
-													}}
-													className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors ${
-														isSelected
-															? "bg-primary/10 text-primary"
-															: "text-foreground hover:bg-accent/50"
-													}`}
-												>
-													<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
-													{model.supportsImage && (
-														<span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-															vision
-														</span>
-													)}
-													{model.tags?.map((tag) => (
-														<span key={tag} className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
-															{tag.trim()}
-														</span>
-													))}
-													{model.remote && (
-														<span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
-															remote
-														</span>
-													)}
-													{isDefault && (
-														<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-															{t("form.defaultTag")}
-														</span>
-													)}
-													{isSelected && <span className="icon-[mdi--check] h-3.5 w-3.5 shrink-0" />}
-												</button>
-											);
-										})}
-									</div>
-								))}
-							</div>
-						</div>
-					)}
-				</div>
+				<ModelSelect
+					value={value.modelKey ?? null}
+					onChange={(key) => set("modelKey", key ?? undefined)}
+					placeholder={t("form.modelSelect")}
+					triggerClassName="w-full rounded-md border-border px-3 py-2 text-sm"
+				/>
 			</div>
 
 			<div className="flex items-end gap-6">

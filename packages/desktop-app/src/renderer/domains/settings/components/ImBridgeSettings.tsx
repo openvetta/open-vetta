@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAtomValue } from "jotai";
 import QRCode from "qrcode";
 import { cn } from "@shared/lib/utils";
-import { remoteProvidersAtom } from "@shared/store/atoms";
+import { ModelSelect } from "@shared/components/ModelSelect";
 import {
 	Dialog,
 	DialogContent,
@@ -12,15 +11,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@shared/components/ui/dialog";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectTrigger,
-	SelectValue,
-} from "@shared/components/ui/select";
 import type {
 	ImAgentModelRef,
 	ImBridgeConfig,
@@ -31,14 +21,9 @@ import type {
 	ImTransportSelector,
 	ImTransportStatus,
 	ImWechatBindEvent,
-	ModelsConfigData,
 } from "@preload/api";
 import { SettingHeading, SettingRow, SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
-
-// shadcn Select treats "" as "no value set" internally and refuses items
-// with an empty value, so we use a magic sentinel for the "未设置" row.
-const MODEL_NONE = "__vetta_im_model_none__";
 
 // =============================================================================
 // Form state
@@ -136,7 +121,6 @@ export function ImBridgeSettings(): JSX.Element {
 	const [logs, setLogs] = useState<ImLogEvent[]>([]);
 	const [legacy, setLegacy] = useState<ImLegacyDetection | null>(null);
 	const [importing, setImporting] = useState(false);
-	const [models, setModels] = useState<ModelsConfigData | null>(null);
 	const [probing, setProbing] = useState(false);
 	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
 	const unsubRef = useRef<(() => void) | null>(null);
@@ -169,12 +153,6 @@ export function ImBridgeSettings(): JSX.Element {
 				// best effort; non-fatal
 			}
 
-			try {
-				const m = await window.vetta.models.get();
-				if (!cancelled) setModels(m);
-			} catch {
-				// non-fatal — UI will just show empty model picker
-			}
 		})();
 
 		return () => {
@@ -223,59 +201,6 @@ export function ImBridgeSettings(): JSX.Element {
 		},
 		[],
 	);
-
-	// Mirror ModelSelector.tsx's source-of-truth: local models from
-	// models.json + remote models from the auth-server (Vetta Zen et al.,
-	// streamed in by useAuth and parked in remoteProvidersAtom). Same
-	// dedup-by-key rule so local overrides win.
-	const remoteProviders = useAtomValue(remoteProvidersAtom);
-	const modelOptions = useMemo<
-		Array<{ provider: string; model: string; displayName: string; remote: boolean; key: string }>
-	>(() => {
-		type ProviderShape = {
-			models?: Array<{ id: string; name?: string }>;
-		};
-		const flatten = (
-			providers: Record<string, ProviderShape | undefined>,
-			remote: boolean,
-		) => {
-			const out: Array<{
-				provider: string;
-				model: string;
-				displayName: string;
-				remote: boolean;
-				key: string;
-			}> = [];
-			for (const [provider, p] of Object.entries(providers)) {
-				for (const m of p?.models ?? []) {
-					if (!m.id) continue;
-					out.push({
-						provider,
-						model: m.id,
-						displayName: m.name || m.id,
-						remote,
-						key: `${provider}/${m.id}`,
-					});
-				}
-			}
-			return out;
-		};
-		const local = models?.providers ? flatten(models.providers, false) : [];
-		const remote = flatten(remoteProviders as Record<string, ProviderShape>, true);
-		const localKeys = new Set(local.map((m) => m.key));
-		return [...local, ...remote.filter((m) => !localKeys.has(m.key))];
-	}, [models, remoteProviders]);
-
-	// Group by provider for SelectGroup rendering.
-	const groupedModelOptions = useMemo(() => {
-		const groups = new Map<string, typeof modelOptions>();
-		for (const m of modelOptions) {
-			const list = groups.get(m.provider) ?? [];
-			list.push(m);
-			groups.set(m.provider, list);
-		}
-		return [...groups.entries()];
-	}, [modelOptions]);
 
 	const handlePickModel = useCallback(
 		async (next: ImAgentModelRef | null) => {
@@ -552,54 +477,22 @@ export function ImBridgeSettings(): JSX.Element {
 			>
 				<SettingRow title={t("modelSetting")} description={t("modelSettingDesc")}>
 					<div className="flex flex-wrap items-center gap-2">
-						<Select
-							value={
-								config.agentModel ? `${config.agentModel.provider}/${config.agentModel.model}` : MODEL_NONE
-							}
-							onValueChange={(v) => {
-								if (v === MODEL_NONE) {
+						<ModelSelect
+							value={config.agentModel ? `${config.agentModel.provider}/${config.agentModel.model}` : null}
+							onChange={(key) => {
+								if (!key) {
 									void handlePickModel(null);
 									return;
 								}
-								const sep = v.indexOf("/");
+								const sep = key.indexOf("/");
 								if (sep < 0) return;
-								void handlePickModel({ provider: v.slice(0, sep), model: v.slice(sep + 1) });
+								void handlePickModel({ provider: key.slice(0, sep), model: key.slice(sep + 1) });
 							}}
+							allowClear
 							disabled={saving}
-						>
-							<SelectTrigger className="h-7 min-w-[220px] px-2 py-1 text-[12px]">
-								<SelectValue placeholder={t("notSet")} />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectGroup>
-									<SelectItem value={MODEL_NONE} className="text-[12px]">
-										{t("notSetGlobal")}
-									</SelectItem>
-								</SelectGroup>
-								{groupedModelOptions.map(([provider, items]) => (
-									<SelectGroup key={provider}>
-										<SelectLabel className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
-											{provider}
-											{items[0]?.remote && (
-												<span className="ml-1.5 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-													{t("cloudOnly")}
-												</span>
-											)}
-										</SelectLabel>
-										{items.map((o) => (
-											<SelectItem
-												key={o.key}
-												value={o.key}
-												className="text-[12px]"
-												title={o.key}
-											>
-												{o.displayName}
-											</SelectItem>
-										))}
-									</SelectGroup>
-								))}
-							</SelectContent>
-						</Select>
+							placeholder={t("notSet")}
+							triggerClassName="min-w-[220px]"
+						/>
 						<button
 							type="button"
 							onClick={() => void handleProbeModel()}

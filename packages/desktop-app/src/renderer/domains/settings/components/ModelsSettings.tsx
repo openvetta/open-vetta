@@ -5,7 +5,8 @@ import type { ModelsConfigData } from "@preload/api.js";
 import { cn } from "@shared/lib/utils";
 import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
-import { SettingHeading, SettingSection } from "./shared";
+import { SettingHeading, SettingRow, SettingSection } from "./shared";
+import { ModelSelect } from "@shared/components/ModelSelect";
 import { CheckboxField } from "./McpSettings";
 import { PresetProvidersSection } from "./PresetProvidersSection";
 import { ProviderIcon } from "@shared/components/provider-icon";
@@ -686,6 +687,26 @@ export function ModelsSettings(): JSX.Element {
 						{t("modelsThinkingGlobal")}
 					</p>
 				</div>
+			</SettingSection>
+
+			{/* 全局模型:周边任务(autotitle/输入预测等)专用,未设置则周边功能失效 */}
+			<SettingSection
+				t={t as any}
+				section={SETTINGS_SECTION["models-peripheral"]}
+				title={t("peripheralModelTitle")}
+				description={t("peripheralModelDesc")}
+			>
+				<SettingRow title={t("peripheralModelTitle")} description={t("peripheralModelHelp")}>
+					<ModelSelect
+						value={config?.peripheralModel ?? null}
+						onChange={(key) => {
+							if (config) void saveConfig({ ...config, peripheralModel: key ?? undefined });
+						}}
+						allowClear
+						disabled={saving || !config}
+						triggerClassName="min-w-[240px]"
+					/>
+				</SettingRow>
 			</SettingSection>
 
 			{mode === "visual" ? (

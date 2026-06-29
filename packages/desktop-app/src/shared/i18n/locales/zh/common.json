@@ -12,5 +12,12 @@
 	"appearance": {
 		"languageTitle": "语言",
 		"languageHint": "选择界面显示语言"
+	},
+	"modelSelect": {
+		"placeholder": "选择模型",
+		"unset": "未设置",
+		"defaultBadge": "默认",
+		"visionBadge": "vision",
+		"cloudOnly": "云端"
 	}
 }
