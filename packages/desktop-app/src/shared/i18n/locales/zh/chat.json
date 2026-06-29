@@ -91,7 +91,8 @@
 	},
 	"guideBadgeSwiper": {
 		"dismissTooltip": "不再提示",
-		"petFeatureText": "新增桌宠功能，点击前往设置开启"
+		"petFeatureText": "新增桌宠功能，点击前往设置开启",
+		"quickPanelText": "Vetta 支持快捷面板，点击前往设置开启"
 	},
 	"imagePreview": {
 		"altText": "读取的图片",

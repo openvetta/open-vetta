@@ -92,15 +92,15 @@ export function QuickPanelApp(): JSX.Element {
 
 	return (
 		// outer 等于整个窗口（= 玻璃真实边缘，rounded-2xl 与原生 cornerRadius:16 对齐）。
-		// 玻璃模式在此画一圈极细高光描边（内缘 1px + 顶部受光高光 + 外缘暗线），
-		// 让玻璃片边缘干净利落、贴合 macOS 启动台质感；boxShadow 不占布局。
+		// 玻璃模式在此画一圈极淡的 1px 边缘描边，让玻璃片边缘干净利落、贴合启动台质感。
+		// 仅单层内缘描边、无外投影、无强顶高光（顶部强高光在浅色下会发脏）；不占布局。
+		// 描边色跟随 --foreground：深色主题≈白色、浅色主题≈深色，始终保持极淡。
 		<div
 			className="flex h-screen w-screen items-stretch justify-center rounded-2xl bg-transparent p-2"
 			style={
 				glass
 					? {
-							boxShadow:
-								"inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.28), 0 0 0 0.5px rgba(0, 0, 0, 0.28)",
+							boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--foreground) 12%, transparent)",
 						}
 					: undefined
 			}
@@ -122,7 +122,7 @@ export function QuickPanelApp(): JSX.Element {
 						placeholder={t("placeholder")}
 						spellCheck={false}
 						autoComplete="off"
-						className="quickpanel-input h-14 min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground/60"
+						className="quickpanel-input h-12 min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground/60"
 					/>
 				</div>
 				<div className="h-px shrink-0 bg-border/60" />
