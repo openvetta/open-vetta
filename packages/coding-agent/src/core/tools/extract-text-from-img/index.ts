@@ -1,16 +1,13 @@
-import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 import nodePath from "node:path";
-import { promisify } from "node:util";
 import { type Static, Type } from "@sinclair/typebox";
 import { getVettaHomePath } from "@vetta/action-rpc";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { runSubprocess } from "../exec-subprocess.js";
 import { runWithOcrLimit } from "../ocr-concurrency.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
-
-const execFileAsync = promisify(execFile);
 
 const extractTextFromImgSchema = Type.Object({
 	input: Type.String({
@@ -59,11 +56,6 @@ interface OcrJsonDocument {
 	version: number;
 	meta: Record<string, unknown>;
 	pages: OcrPageResult[];
-}
-
-interface ExecFileError extends Error {
-	stdout?: string;
-	stderr?: string;
 }
 
 const DEFAULT_MAX_CHARS = 8000;
@@ -201,25 +193,14 @@ export function createExtractTextFromImgTool(cwd: string): CodingAgentTool<typeo
 			const { stdout, stderr } = await runWithOcrLimit(async () => {
 				// 已拿到并发额度后再 spawn；若此刻已 abort 则立即短路，不占额度空跑 OCR。
 				if (signal?.aborted) throw new Error("Operation aborted");
-				const child = execFileAsync(vetta.path, args, {
-					encoding: "utf8",
+				// 非零退出码也正常返回 stdout/stderr（Vetta CLI 把错误 JSON 写在 stdout，
+				// 交给下方 parseDesktopResponse 处理）；abort/超时会 killProcessTree 整棵树并抛错。
+				const result = await runSubprocess(vetta.path, args, {
+					signal,
 					timeout: OCR_TIMEOUT_MS,
 					maxBuffer: 32 * 1024 * 1024,
-					windowsHide: true,
 				});
-				const onAbort = (): void => {
-					// execFileAsync hides the child handle; rely on timeout for cleanup.
-				};
-				signal?.addEventListener("abort", onAbort, { once: true });
-				try {
-					const result = await child;
-					return { stdout: result.stdout, stderr: result.stderr };
-				} catch (error) {
-					const execError = error as ExecFileError;
-					return { stdout: execError.stdout ?? "", stderr: execError.stderr ?? execError.message };
-				} finally {
-					signal?.removeEventListener("abort", onAbort);
-				}
+				return { stdout: result.stdout, stderr: result.stderr };
 			});
 			if (signal?.aborted) throw new Error("Operation aborted");
 

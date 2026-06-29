@@ -3,6 +3,7 @@
  *
  * - processed   ：manifest 有对应活跃页且 source_hash 与当前文件一致。
  * - stale       ：manifest 有对应活跃页，但源文件已改（hash 不一致），等待下一轮重加工。
+ * - failed      ：连续加工失败已达阈值被隔离（不再自动重加工），需用户修文件或手动重试。
  * - unprocessed ：manifest 无对应活跃页（从未加工或已被标为孤儿）。
  *
  * key 为 source_path（相对 raws/ 的 posix 路径，首段即知识库名），
@@ -12,7 +13,7 @@
 import { join } from "node:path";
 import { knowledge } from "@vetta/coding-agent";
 
-export type KnowledgeProcessStatus = "processed" | "stale" | "unprocessed";
+export type KnowledgeProcessStatus = "processed" | "stale" | "failed" | "unprocessed";
 
 export interface KnowledgeFileStatus {
 	status: KnowledgeProcessStatus;
@@ -23,7 +24,11 @@ export interface KnowledgeFileStatus {
 /** 推导全部 raws 文件的加工态，按 source_path 索引。 */
 export async function getKnowledgeFileStatuses(): Promise<Record<string, KnowledgeFileStatus>> {
 	const root = knowledge.knowledgeRoot();
-	const [manifest, raws] = await Promise.all([knowledge.readManifest(root), knowledge.scanRaws(root)]);
+	const [manifest, raws, failures] = await Promise.all([
+		knowledge.readManifest(root),
+		knowledge.scanRaws(root),
+		knowledge.readFailures(root),
+	]);
 
 	// 仅活跃页（非孤儿）参与判定，按 source_path 索引。
 	const live = new Map<string, { hash: string; wikiPath: string }>();
@@ -31,11 +36,16 @@ export async function getKnowledgeFileStatuses(): Promise<Record<string, Knowled
 		if (page.orphaned_at !== null) continue;
 		live.set(page.source_path, { hash: page.source_hash, wikiPath: join(knowledge.wikiDir(root), page.path) });
 	}
+	// 已隔离的 source_hash 集合：当前文件 hash 命中即「失败」（优先于其它态）。
+	const quarantined = knowledge.quarantinedHashes(failures);
 
 	const result: Record<string, KnowledgeFileStatus> = {};
 	for (const raw of raws) {
 		const page = live.get(raw.source_path);
-		if (!page) {
+		if (quarantined.has(raw.source_hash)) {
+			// 失败文件可能仍有旧 wiki 页（stale 后重加工反复失败被隔离），保留 wikiPath 供查看。
+			result[raw.source_path] = { status: "failed", wikiPath: page?.wikiPath };
+		} else if (!page) {
 			result[raw.source_path] = { status: "unprocessed" };
 		} else {
 			result[raw.source_path] = {

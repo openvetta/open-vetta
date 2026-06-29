@@ -49,7 +49,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [agentConcurrency, setAgentConcurrency] = useState(3);
 	const [modelKey, setModelKey] = useState<string>("");
 	const [localModels, setLocalModels] = useState<ModelOption[]>([]);
-	const [busy, setBusy] = useState<"scan" | "clear" | null>(null);
+	const [busy, setBusy] = useState<"scan" | "clear" | "retry" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const [probing, setProbing] = useState(false);
 	const [probeResult, setProbeResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -183,6 +183,21 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					: res.skipped
 						? t("kbNoChanges")
 						: t("kbProcessing"),
+			);
+		} catch (err) {
+			setStatus(t("kbProcessFailed", { msg: err instanceof Error ? err.message : String(err) }));
+		} finally {
+			setBusy(null);
+		}
+	}, []);
+
+	const handleRetryFailed = useCallback(async () => {
+		setBusy("retry");
+		setStatus(null);
+		try {
+			const res = await window.vetta.knowledge.retryFailed();
+			setStatus(
+				res.reason === "no-model" ? t("kbNoModelForProcess") : res.skipped ? t("kbNoChanges") : t("kbProcessing"),
 			);
 		} catch (err) {
 			setStatus(t("kbProcessFailed", { msg: err instanceof Error ? err.message : String(err) }));
@@ -357,6 +372,17 @@ export function KnowledgeBaseSettings(): JSX.Element {
 					<button type="button" onClick={() => void handleScan()} disabled={!enabled || !modelKey || busy !== null} className={btnClass}>
 						<span>{t("kbProcessNowBtn")}</span>
 						{busy === "scan" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
+					</button>
+				</SettingRow>
+				<SettingRow title={t("kbRetryFailed")} description={t("kbRetryFailedDesc")}>
+					<button
+						type="button"
+						onClick={() => void handleRetryFailed()}
+						disabled={!enabled || !modelKey || busy !== null}
+						className={btnClass}
+					>
+						<span>{t("kbRetryFailedBtn")}</span>
+						{busy === "retry" && <span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />}
 					</button>
 				</SettingRow>
 				<SettingRow title={t("kbRecords")} description={t("kbRecordsDesc")}>

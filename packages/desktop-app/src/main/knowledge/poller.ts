@@ -283,6 +283,12 @@ export async function runKnowledgeRound(
 
 		// 工程侧收尾：物理删除上一轮孤儿（不经 agent）+ 据 frontmatter 重建缓存（本轮权威重建）。
 		await knowledge.finalizeRound(root, prepared.toReap);
+		// 止损对账：仅在本轮正常完成（非中止）时统计成败——按「wiki 是否真出现该文件的 hash」
+		// 判定，连续失败达阈值的文件被隔离，下一轮不再自动重加工，杜绝同样几个文件无限重跑。
+		// 被用户中止的轮次不计失败，避免误隔离。
+		if (!round.aborted) {
+			await knowledge.reconcileRoundFailures(root, knowledge.attemptedFiles(prepared.diff), now);
+		}
 		// 收尾后再广播一次：反映孤儿回收/moved 等工程侧变更，让 UI 做最终对账。
 		broadcast(KB_STATUSES_CHANGED_CHANNEL);
 		log.info("processing round complete");
@@ -314,6 +320,21 @@ export async function runKnowledgeMaintenance<T>(fn: (root: string) => Promise<T
 		running = false;
 		broadcast(KB_STATUSES_CHANGED_CHANNEL);
 	}
+}
+
+/**
+ * 重试加工失败（已隔离）的文件：清除全部失败/隔离记录（解除隔离），再立即起一轮加工。
+ * 清除走维护互斥（会中止在跑的轮并独占执行），随后的加工轮按常规调度。
+ */
+export async function retryFailedKnowledge(
+	modelKey?: string,
+	agentConcurrency = 3,
+): Promise<{ skipped: boolean; reason?: "no-model" }> {
+	await runKnowledgeMaintenance(async (root) => {
+		const failures = await knowledge.readFailures(root);
+		await knowledge.writeFailures(root, knowledge.clearFailures(failures));
+	});
+	return runKnowledgeRound(modelKey, agentConcurrency);
 }
 
 function unschedule(): void {

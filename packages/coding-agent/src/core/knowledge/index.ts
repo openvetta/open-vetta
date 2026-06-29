@@ -25,6 +25,18 @@ export {
 	type RawsDiff,
 } from "./differ.js";
 export {
+	type AttemptedFile,
+	applyQuarantine,
+	attemptedFiles,
+	clearFailures,
+	EMPTY_FAILURES,
+	type FailureEntry,
+	type FailuresRecord,
+	KB_MAX_PROCESSING_ATTEMPTS,
+	quarantinedHashes,
+	reconcileFailures,
+} from "./failures.js";
+export {
 	type ParsedWikiPage,
 	parseWikiPage,
 	serializeWikiPage,
@@ -37,12 +49,14 @@ export {
 	type PreparedRound,
 	prepareRound,
 	rebuildAllCaches,
+	reconcileRoundFailures,
 } from "./ingest.js";
 export { buildProcessingPrompt, KB_PROCESSING_GUIDE } from "./processing-prompt.js";
 export { type FilteredPage, listAvailableTags, queryByTags, type TagCount } from "./query.js";
 export {
 	deleteWikiPage,
 	ensureKnowledgeDirs,
+	failuresPath,
 	generatePageId,
 	hashContent,
 	indexesDir,
@@ -53,6 +67,7 @@ export {
 	pruneEmptyWikiDirs,
 	rawsDir,
 	rawsExists,
+	readFailures,
 	readManifest,
 	readTagsIndex,
 	type ScannedWikiPage,
@@ -61,6 +76,7 @@ export {
 	tagsPath,
 	type WikiScanResult,
 	wikiDir,
+	writeFailures,
 	writeIndexMap,
 	writeManifest,
 	writeTagsIndex,

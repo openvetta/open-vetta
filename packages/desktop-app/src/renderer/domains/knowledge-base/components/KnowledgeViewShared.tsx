@@ -37,13 +37,15 @@ export function formatFileSize(bytes: number | undefined): string {
 	return `${value >= 10 ? value.toFixed(1) : value.toFixed(2)} ${unit}`;
 }
 
-/** 文件加工态角标：未加工（待处理）/ 待更新（源已改）。已加工不显示。 */
+/** 文件加工态角标：未加工（待处理）/ 待更新（源已改）/ 加工失败（已隔离）。已加工不显示。 */
 export function StatusBadge({ status }: { status: KnowledgeProcessStatus }): JSX.Element {
 	const { t } = useTranslation("settings");
 	const config =
-		status === "stale"
-			? { icon: "icon-[mdi--sync-alert]", title: t("kbBadgeStale"), tone: "bg-amber-500 text-white" }
-			: { icon: "icon-[mdi--timer-sand]", title: t("kbBadgeUnprocessed"), tone: "bg-muted-foreground/70 text-white" };
+		status === "failed"
+			? { icon: "icon-[mdi--alert-circle-outline]", title: t("kbBadgeFailed"), tone: "bg-red-500 text-white" }
+			: status === "stale"
+				? { icon: "icon-[mdi--sync-alert]", title: t("kbBadgeStale"), tone: "bg-amber-500 text-white" }
+				: { icon: "icon-[mdi--timer-sand]", title: t("kbBadgeUnprocessed"), tone: "bg-muted-foreground/70 text-white" };
 	return (
 		<span
 			title={config.title}

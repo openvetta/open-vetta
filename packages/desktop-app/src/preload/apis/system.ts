@@ -134,6 +134,7 @@ export function createSystemApi(
 		},
 		knowledge: {
 			scanNow: () => ipc.invoke("vetta:kb:scan-now"),
+			retryFailed: () => ipc.invoke("vetta:kb:retry-failed"),
 			reload: () => ipc.invoke("vetta:kb:reload"),
 			list: () => ipc.invoke("vetta:kb:list"),
 			fileStatuses: () => ipc.invoke("vetta:kb:statuses"),
