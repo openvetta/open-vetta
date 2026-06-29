@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { cn } from "@shared/lib/utils";
 import type { QuickPanelGlassMode } from "../../shared/quickpanel-ipc";
-import { useQuickPanelTranslation } from "./i18n";
+import { subscribeQuickPanelLanguage, useQuickPanelTranslation } from "./i18n";
 import { RecentList } from "./RecentList";
 import { useQuickPanelSessions, type QuickPanelItem } from "./useQuickPanelSessions";
 
@@ -38,6 +38,9 @@ export function QuickPanelApp(): JSX.Element {
 		if (!bridge) return;
 		return bridge.onGlass(setGlassMode);
 	}, []);
+
+	// 跟随 App 语言切换实时刷新面板文案。
+	useEffect(() => subscribeQuickPanelLanguage(), []);
 
 	const submitNew = useCallback(() => {
 		const text = input.trim();
