@@ -1,6 +1,8 @@
 export interface ModelsConfigData {
 	/** Default model identifier: "provider/modelId" */
 	defaultModel?: string;
+	/** 全局模型("provider/modelId")：周边任务(autotitle/输入预测等)专用；未设置则周边功能失效。 */
+	peripheralModel?: string;
 	providers: Record<
 		string,
 		{

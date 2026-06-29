@@ -44,6 +44,19 @@ export interface DesktopConfig {
 	experimental?: ExperimentalConfig;
 	/** 知识库加工设置。 */
 	knowledgeBase?: KnowledgeBaseConfig;
+	/** 快捷面板（全局快捷键唤出 Spotlight 式面板）设置。 */
+	quickPanel?: QuickPanelConfig;
+}
+
+/** 快捷面板设置（设置页「快捷键 → 快捷面板」）。缺省关闭、无预设快捷键。 */
+/** 快捷面板呼出触发：双击哪个功能键。none=不启用；mod=双击 ⌘(mac)/Ctrl(win)；alt=双击 ⌥/Alt；shift=双击 ⇧。 */
+export type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
+
+export interface QuickPanelConfig {
+	/** 呼出触发（双击功能键）。缺省 none（不启用）。 */
+	trigger?: QuickPanelTrigger;
+	/** 发送后行为：foreground=打开主窗定位新会话；background=后台运行仅关面板。缺省 foreground。 */
+	postSendBehavior?: "foreground" | "background";
 }
 
 export interface KnowledgeBaseConfig {
@@ -111,6 +124,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	debugMode: false,
 	notificationsEnabled: true,
 	experimental: { vettaCli: true, agentSkills: true },
+	quickPanel: { trigger: "none", postSendBehavior: "foreground" },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -148,6 +162,18 @@ function normalizeKnowledgeBase(value: unknown): KnowledgeBaseConfig {
 	};
 }
 
+function normalizeQuickPanel(value: unknown): QuickPanelConfig {
+	// 锁定缺省：不启用、发送后前台。
+	if (typeof value !== "object" || value === null) return { trigger: "none", postSendBehavior: "foreground" };
+	const v = value as Record<string, unknown>;
+	const trigger: QuickPanelTrigger =
+		v.trigger === "mod" || v.trigger === "alt" || v.trigger === "shift" ? v.trigger : "none";
+	return {
+		trigger,
+		postSendBehavior: v.postSendBehavior === "background" ? "background" : "foreground",
+	};
+}
+
 function normalizeExperimental(value: unknown): ExperimentalConfig {
 	// promptPrediction 缺省 false（区别于其他键缺省 true）。
 	if (typeof value !== "object" || value === null)
@@ -181,6 +207,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
+			quickPanel: normalizeQuickPanel(parsed.quickPanel),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -205,6 +232,7 @@ export function readConfigSync(): DesktopConfig {
 			language: isSupportedLanguage(parsed.language) ? parsed.language : undefined,
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
+			quickPanel: normalizeQuickPanel(parsed.quickPanel),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -232,6 +260,8 @@ function expandTilde(p: string): string {
 
 export interface ModelsConfig {
 	defaultModel?: string;
+	/** 全局模型("provider/modelId")：周边任务(autotitle/输入预测等)专用；未设置则周边功能失效。 */
+	peripheralModel?: string;
 	providers: Record<string, ProviderConfig>;
 }
 
@@ -750,6 +780,10 @@ export function registerFsIpc(): () => void {
 				patch.knowledgeBase !== undefined
 					? normalizeKnowledgeBase({ ...current.knowledgeBase, ...patch.knowledgeBase })
 					: current.knowledgeBase,
+			quickPanel:
+				patch.quickPanel !== undefined
+					? normalizeQuickPanel({ ...current.quickPanel, ...patch.quickPanel })
+					: current.quickPanel,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);
