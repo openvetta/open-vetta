@@ -2,8 +2,10 @@ import { Type } from "@sinclair/typebox";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import type { TodoStore } from "../../todo-store.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const todoSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	action: Type.Union([Type.Literal("create"), Type.Literal("update"), Type.Literal("list"), Type.Literal("clear")], {
 		description:
 			'Action to perform: "create" (add items), "update" (change status), "list" (show all), or "clear" (abandon the current plan — only allowed for ad-hoc, non-locked lists)',

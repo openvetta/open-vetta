@@ -4,8 +4,10 @@ import { stripFrontmatter } from "../../../utils/frontmatter.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import type { Skill } from "../../skills.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const invokeSkillSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	name: Type.String({
 		description: 'The exact skill name from <available_skills> (e.g., "pdf", "docx", "xlsx")',
 	}),

@@ -8,10 +8,12 @@ import { getVettaHomePath } from "@vetta/action-rpc";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const execFileAsync = promisify(execFile);
 
 const htmlToPdfSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	input: Type.String({
 		description: "Path to the source HTML file",
 	}),

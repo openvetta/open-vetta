@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 /** Max length of a question's short `header` chip label. */
 export const ASK_USER_QUESTION_HEADER_MAX = 24;
@@ -45,6 +46,7 @@ const questionSchema = Type.Object({
 });
 
 export const askUserQuestionSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	questions: Type.Array(questionSchema, {
 		minItems: 1,
 		maxItems: 4,

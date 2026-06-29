@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "../../extensions/types.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 /** A reference to an image produced by the host image backend (bytes stored out-of-band). */
 export interface ImageToolRef {
@@ -86,6 +87,7 @@ const sizeSchema = Type.Optional(
 );
 
 const generateImageSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	prompt: Type.String({
 		description:
 			"A detailed, vivid English prompt describing the image to generate. Optimize the user's request into a concrete prompt (subject, style, lighting, composition).",
@@ -94,6 +96,7 @@ const generateImageSchema = Type.Object({
 });
 
 const editImageSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	prompt: Type.String({
 		description:
 			"A clear English instruction describing the modification to apply to the source image (e.g. 'replace the background with a night city skyline, keep the subject unchanged'). Describe only the change, the source image is supplied separately.",

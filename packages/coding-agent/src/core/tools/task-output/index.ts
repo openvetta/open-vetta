@@ -3,9 +3,11 @@ import { type Static, Type } from "@sinclair/typebox";
 import type { BackgroundTaskManager, BackgroundTaskStatus } from "../../background-tasks/index.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { truncateTail } from "../truncate.js";
 
 const taskOutputSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	task_id: Type.String({ description: "Background task ID (e.g. b1) returned by bash with run_in_background" }),
 	from_start: Type.Optional(
 		Type.Boolean({

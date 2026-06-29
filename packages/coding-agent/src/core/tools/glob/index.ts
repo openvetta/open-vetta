@@ -6,9 +6,11 @@ import path from "path";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const globSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	pattern: Type.String({
 		description:
 			"Glob pattern to match files and directories, e.g. '**/*.ts', 'src/**/*.spec.ts', 'src/**', or 'package*.json'",

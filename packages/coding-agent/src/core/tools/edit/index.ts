@@ -13,8 +13,10 @@ import {
 	stripBom,
 } from "../edit-diff.js";
 import { isProtectedSkillOrScenePath, resolveExistingPath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const editSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({
 		description: "Path to the file to edit (relative or absolute)",
 	}),

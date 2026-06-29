@@ -3,8 +3,11 @@ import { listAvailableTags } from "../../knowledge/query.js";
 import { knowledgeRoot } from "../../knowledge/store.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
-const kbListTagsSchema = Type.Object({});
+const kbListTagsSchema = Type.Object({
+	description: toolCallDescriptionSchema,
+});
 
 export type KbListTagsInput = Static<typeof kbListTagsSchema>;
 

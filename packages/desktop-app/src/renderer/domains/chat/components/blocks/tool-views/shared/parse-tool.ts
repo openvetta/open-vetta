@@ -19,6 +19,11 @@ export function getStringArg(args: Record<string, unknown>, key: string): string
 	return typeof value === "string" ? value : null;
 }
 
+function getToolCallDescription(args: Record<string, unknown>): string {
+	const description = args.description;
+	return typeof description === "string" ? description.trim() : "";
+}
+
 /** Get icon for tool */
 export function toolIcon(name: string): string {
 	if (name.startsWith("mcp_")) return "icon-[mdi--cloud-outline]";
@@ -70,6 +75,7 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 	const name = block.toolName;
 	let displayName = name;
 	let detail = "";
+	const description = getToolCallDescription(args);
 
 	if (name === "read" || name === "write" || name === "edit") {
 		const path = args.file_path ?? args.path;
@@ -140,7 +146,7 @@ export function toolLabel(block: ToolCallBlock): { name: string; detail: string 
 		}
 	}
 
-	return { name: displayName, detail };
+	return { name: displayName, detail: description ? [description, detail].filter(Boolean).join(" · ") : detail };
 }
 
 export function truncateFirstLine(cmd: string, maxLen = 40): string {

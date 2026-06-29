@@ -4,8 +4,10 @@ import { queryByTags } from "../../knowledge/query.js";
 import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const kbFilterByTagsSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	all: Type.Optional(
 		Type.Array(Type.String(), {
 			description: "Intersection: page must contain ALL of these tags.",

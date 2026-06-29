@@ -2,8 +2,10 @@ import { type Static, Type } from "@sinclair/typebox";
 import type { BackgroundTaskManager, BackgroundTaskStatus } from "../../background-tasks/index.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const taskStopSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	task_id: Type.String({ description: "Background task ID (e.g. b1) to terminate" }),
 });
 
