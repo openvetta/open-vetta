@@ -91,7 +91,8 @@
 	},
 	"guideBadgeSwiper": {
 		"dismissTooltip": "Don't show again",
-		"petFeatureText": "New desktop pet feature — click to enable in settings"
+		"petFeatureText": "New desktop pet feature — click to enable in settings",
+		"quickPanelText": "Vetta now has a Quick Panel — click to set it up"
 	},
 	"imagePreview": {
 		"altText": "Loaded image",

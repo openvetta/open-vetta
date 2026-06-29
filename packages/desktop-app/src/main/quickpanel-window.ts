@@ -17,7 +17,11 @@ const isMac = process.platform === "darwin";
 interface LiquidGlassApi {
 	addView(handle: Buffer, options?: GlassOptions): number;
 	isGlassSupported(): boolean;
+	// experimental 私有 API：0=regular（默认，浅色下偏实心），1=clear（更通透）。
+	unstable_setVariant(id: number, variant: number): void;
 }
+// 液态玻璃材质：clear 比默认 regular 更通透，避免浅色模式下玻璃显得实心。
+const GLASS_VARIANT_CLEAR = 1;
 const requireNative = createRequire(import.meta.url);
 const liquidGlass: LiquidGlassApi | null = isMac ? (requireNative("electron-liquid-glass") as LiquidGlassApi) : null;
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
@@ -26,9 +30,9 @@ const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
 const quickPanelPreloadPath = join(resDir, "preload/quickpanel.js");
 
 const QUICK_PANEL_WIDTH = 640;
-// 高度贴合内容：输入框(56) + 分隔线(1) + 「最近会话」标题(~28) + 5 个 item 滚动区(250) + 外层 p-2(16)。
+// 高度贴合内容：输入框(48) + 分隔线(1) + 「最近会话」标题(~28) + 5 个 item 滚动区(250) + 外层 p-2(16)。
 // 列表固定 5 项高度、超出滚动（见 RecentList），故窗口高度恒定。
-const QUICK_PANEL_HEIGHT = 352;
+const QUICK_PANEL_HEIGHT = 344;
 // 面板距离工作区顶部约 20%。
 const QUICK_PANEL_TOP_RATIO = 0.2;
 // 原生玻璃圆角，需与渲染层卡片 rounded-2xl(16px) 对齐。
@@ -55,6 +59,14 @@ function applyQuickPanelGlass(win: BrowserWindow): void {
 		if (id < 0) return;
 		glassApplied = true;
 		glassMode = liquidGlass.isGlassSupported() ? "liquid" : "frosted";
+		// 仅液态玻璃（macOS 26+）支持材质变体；切到 clear 让浅色模式更通透。
+		if (glassMode === "liquid") {
+			try {
+				liquidGlass.unstable_setVariant(id, GLASS_VARIANT_CLEAR);
+			} catch (variantError) {
+				log.warn("liquid glass setVariant failed", variantError);
+			}
+		}
 		log.info("glass applied", { glassMode });
 	} catch (error) {
 		log.error("liquid glass addView failed", error);
