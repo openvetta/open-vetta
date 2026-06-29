@@ -61,7 +61,6 @@ export function usePetBubble(): {
 
 			const ttlMs = normalizeBubbleTtl(input.ttlMs);
 			const current = bubbleRef.current;
-			if (current?.text === text && current.source === source && current.priority === priority) return;
 
 			const next: PetBubbleState = { text, source, priority };
 			if (source === "user") {
@@ -69,7 +68,9 @@ export function usePetBubble(): {
 			}
 			clearBubbleTimer();
 			bubbleRef.current = next;
-			setBubble(next);
+			if (current?.text !== text || current.source !== source || current.priority !== priority) {
+				setBubble(next);
+			}
 			timerRef.current = window.setTimeout(() => {
 				timerRef.current = undefined;
 				bubbleRef.current = undefined;
