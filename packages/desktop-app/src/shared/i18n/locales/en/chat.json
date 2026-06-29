@@ -170,6 +170,11 @@
 		},
 		"compactionBoundary": "Context compacted",
 		"compactionIndicator": "Compacting context...",
+		"streamingPhrases": [
+			"Vetta is replying…",
+			"Please hold on…",
+			"Vetta is working hard…"
+		],
 		"copyButton": {
 			"copied": "Copied",
 			"copy": "Copy"
