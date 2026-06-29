@@ -1,6 +1,6 @@
-// 快捷面板独立 i18next 实例。面板窗口的 preload 只暴露 window.vettaQuickPanel，
-// 不含主窗口的 window.vetta.i18n，故无法走主进程语言真相源；这里用 navigator 语言
-// 兜底（zh 优先）并内联面板自己的文案目录，保持与 Group 2 文件范围自洽（见交付说明）。
+// 快捷面板独立 i18next 实例（面板窗口走独立 ns、内联自己的文案目录）。语言真相源
+// = App 配置（desktop-config）：preload 经 sendSync 暴露 window.vettaQuickPanel.initialLanguage，
+// 与主窗口同源；navigator 仅作 bridge 缺失时的兜底。语言切换经 onLanguageChanged 实时跟随。
 
 import i18next from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
@@ -52,9 +52,26 @@ const resources = {
 	},
 } as const;
 
-function detectLanguage(): "zh" | "en" {
-	const lang = navigator.language?.toLowerCase() ?? "zh";
+function normalizeLanguage(value: string | undefined): "zh" | "en" {
+	const lang = value?.toLowerCase() ?? "";
 	return lang.startsWith("en") ? "en" : "zh";
+}
+
+function detectLanguage(): "zh" | "en" {
+	// 真相源：App 配置语言（preload sendSync 暴露）；缺失时回退 navigator。
+	const fromBridge = window.vettaQuickPanel?.initialLanguage;
+	return normalizeLanguage(fromBridge ?? navigator.language);
+}
+
+/** 跟随 App 语言切换实时刷新；返回取消订阅函数。 */
+export function subscribeQuickPanelLanguage(): () => void {
+	const bridge = window.vettaQuickPanel;
+	if (!bridge?.onLanguageChanged) return () => {};
+	return bridge.onLanguageChanged((lang) => {
+		const next = normalizeLanguage(lang);
+		void i18n.changeLanguage(next);
+		document.documentElement.lang = next;
+	});
 }
 
 export const i18n = i18next.createInstance();

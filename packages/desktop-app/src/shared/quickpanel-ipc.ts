@@ -73,6 +73,9 @@ export interface QuickPanelRunPromptPayload {
 
 // panel preload bridge（window.vettaQuickPanel）
 export interface QuickPanelBridge {
+	// App 语言真相源（desktop-config）。preload 在暴露前 sendSync 同步取得，供面板 i18n
+	// 首帧前读取、与主窗口语言一致（不再用 navigator 猜测）。
+	initialLanguage: string;
 	getConfig(): Promise<QuickPanelConfigSnapshot>;
 	createConversation(text: string): Promise<void>;
 	openSession(target: QuickPanelOpenSessionTarget): Promise<void>;
@@ -80,6 +83,8 @@ export interface QuickPanelBridge {
 	hide(): void;
 	onShown(handler: () => void): () => void;
 	onGlass(handler: (mode: QuickPanelGlassMode) => void): () => void;
+	// App 语言切换广播（all windows），面板据此实时 changeLanguage。
+	onLanguageChanged(handler: (lang: string) => void): () => void;
 	onRunningChanged(handler: (event: QuickPanelRunningChangedEvent) => void): () => void;
 	onPendingQuestionChanged(handler: (event: QuickPanelPendingQuestionChangedEvent) => void): () => void;
 }
