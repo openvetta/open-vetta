@@ -18,6 +18,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **快捷面板（Quick Panel）主进程信号与 IPC**：新增 `main/ipc/quickpanel.ts`（`registerQuickPanelIpc` + `GET_CONFIG` / `LIST_RECENT` / `CREATE_CONVERSATION` / `OPEN_SESSION` / `HIDE` / `RELOAD_HOTKEY` 处理器）。呼出方式为**双击功能键**（`quickPanel.trigger`：none/⌘·Ctrl/⌥·Alt/⇧），由新增 `main/quickpanel-trigger.ts` 经 `uiohook-napi` 原生全局键盘监听检测「干净双击」（两次点按 ≤350ms）唤出，默认 `none` 不监听、零开销不申请权限；macOS 需「输入监控」授权（见 ADR-0035，推翻 ADR-0034 的全局组合键方案）。`session.ts` 新增 `vetta:session:pending-question-changed` 通道与模块级「待答 sessionPath 集合」：`ask_user_question` 请求/响应时按 `runtime.getSessionPath` 解析路径并向所有窗口广播 `{ sessionPath, hasPendingQuestion }`；`RUNNING_CHANGED` 在保留主窗口投递的同时并行广播给其它窗口，使独立的快捷面板窗口也能跟随运行态与「待答」态。`LIST_RECENT` 透出会话末条消息预览（`SessionHistoryInfo.lastMessagePreview`）。
 - **知识库「加工失败」态 + 「重试失败」**：文件加工态新增第 4 态 `failed`（`getKnowledgeFileStatuses` 据 `failures.json` 的隔离记录推导，文件列表显示红色错误角标 `kbBadgeFailed`），让连续加工失败被隔离的文件不再静默显示成「未加工」。知识库设置页「整理操作」新增「重试失败」按钮：清除全部失败/隔离记录（解除暂停）并立即重新整理一轮——供用户修好文件或想再试时手动触发。新增 `window.vetta.knowledge.retryFailed()` 预载 API 与 `vetta:kb:retry-failed` IPC（主进程 `retryFailedKnowledge` 经 `runKnowledgeMaintenance` 互斥执行）。
 - **本地应用使用统计**：主进程按前台活跃、前台不活跃和后台三类累计使用时长，前台连续两分钟无键盘、鼠标、触摸或滚轮操作后转为不活跃；同步汇总会话、工具调用、批量任务、自动化任务、Token、上下文压缩和错误计数。统计只保存在 `~/.vetta/app-monitor.json`，每两分钟异步原子写入，退出时尽力落盘，采集或写入失败仅记录日志且不影响正常功能。
 - **九阶段成就页面**：设置页新增「成就」入口，以横向吸附轨道展示九枚阶段徽章；支持无惯性拖动、滚动与前后按钮查看，当前成就放大着色、未达成成就缩小灰化，并展示所选成就的名称与意义。

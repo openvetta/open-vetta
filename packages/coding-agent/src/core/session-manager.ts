@@ -198,6 +198,8 @@ export interface SessionInfo {
 	messageCount: number;
 	firstMessage: string;
 	allMessagesText: string;
+	/** Trimmed preview (~120 chars) of the most recent user/assistant message text. */
+	lastMessagePreview: string;
 }
 
 export type ReadonlySessionManager = Pick<
@@ -616,6 +618,10 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 
 		const modified = getSessionModifiedDate(entries, header as SessionHeader, stats.mtime);
 
+		// 复用已解析的消息数组，取最后一条用户/助手消息正文做预览（约 120 字符）。
+		const lastMessage = allMessages.length > 0 ? allMessages[allMessages.length - 1] : "";
+		const lastMessagePreview = lastMessage.trim().slice(0, 120);
+
 		return {
 			path: filePath,
 			id: (header as SessionHeader).id,
@@ -627,6 +633,7 @@ async function buildSessionInfo(filePath: string): Promise<SessionInfo | null> {
 			messageCount,
 			firstMessage: firstMessage || "(no messages)",
 			allMessagesText: allMessages.join(" "),
+			lastMessagePreview,
 		};
 	} catch {
 		return null;

@@ -49,6 +49,9 @@ export default defineConfig(({ mode }) => {
 					// large images reach the model at original resolution and OOM
 					// local VL backends.
 					"@silvia-odwyer/photon-node",
+					// uiohook-napi 是原生模块（.node + node-gyp-build 定位 prebuild），
+					// 不能打进 bundle，运行时从 node_modules 解析。
+					"uiohook-napi",
 				],
 			},
 			minify: false,

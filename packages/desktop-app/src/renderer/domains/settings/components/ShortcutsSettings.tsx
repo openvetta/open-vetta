@@ -9,8 +9,12 @@ import {
 	saveShortcuts,
 	type ShortcutMap,
 } from "@shared/lib/shortcuts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
 import { SettingRow, SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
+
+type QuickPanelBehavior = "foreground" | "background";
+type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
 
 function ShortcutRecorder({
 	value,
@@ -95,6 +99,101 @@ function ShortcutRecorder({
 	);
 }
 
+function QuickPanelSection(): JSX.Element {
+	const { t } = useTranslation("settings");
+	const [trigger, setTrigger] = useState<QuickPanelTrigger>("none");
+	const [behavior, setBehavior] = useState<QuickPanelBehavior>("foreground");
+
+	const isMac = navigator.platform.toUpperCase().includes("MAC");
+	// 「双击 {{key}}」中的功能键字形：mod 按平台映射，alt/shift 给符号。
+	const modGlyph = isMac ? "⌘" : "Ctrl";
+	const altGlyph = isMac ? "⌥" : "Alt";
+
+	useEffect(() => {
+		void window.vetta.config.get().then((config) => {
+			const qp = config.quickPanel;
+			setTrigger(qp?.trigger === "mod" || qp?.trigger === "alt" || qp?.trigger === "shift" ? qp.trigger : "none");
+			setBehavior(qp?.postSendBehavior === "background" ? "background" : "foreground");
+		});
+	}, []);
+
+	const persist = useCallback(
+		async (patch: { trigger?: QuickPanelTrigger; postSendBehavior?: QuickPanelBehavior }) => {
+			await window.vetta.config.set({ quickPanel: patch });
+			// 让原生双击监听按新配置立即启停/切换。
+			await window.vetta.quickPanel.reloadHotkey();
+		},
+		[],
+	);
+
+	const handleTriggerChange = useCallback(
+		(value: QuickPanelTrigger) => {
+			setTrigger(value);
+			void persist({ trigger: value });
+		},
+		[persist],
+	);
+
+	const handleBehaviorChange = useCallback(
+		(value: QuickPanelBehavior) => {
+			setBehavior(value);
+			void persist({ postSendBehavior: value });
+		},
+		[persist],
+	);
+
+	const dependentDisabled = trigger === "none";
+
+	return (
+		<SettingSection t={t as any} section={SETTINGS_SECTION["shortcuts-quickpanel"]}>
+			<SettingRow
+				title={t("quickPanelTrigger")}
+				description={
+					trigger !== "none" && isMac ? t("quickPanelTriggerHintMac") : t("quickPanelTriggerDescription")
+				}
+			>
+				<Select value={trigger} onValueChange={(value) => handleTriggerChange(value as QuickPanelTrigger)}>
+					<SelectTrigger size="sm" className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="none" className="text-[12px]">
+							{t("quickPanelTriggerNone")}
+						</SelectItem>
+						<SelectItem value="mod" className="text-[12px]">
+							{t("quickPanelTriggerDoubleTap", { key: modGlyph })}
+						</SelectItem>
+						<SelectItem value="alt" className="text-[12px]">
+							{t("quickPanelTriggerDoubleTap", { key: altGlyph })}
+						</SelectItem>
+						<SelectItem value="shift" className="text-[12px]">
+							{t("quickPanelTriggerDoubleTap", { key: "⇧" })}
+						</SelectItem>
+					</SelectContent>
+				</Select>
+			</SettingRow>
+
+			<SettingRow title={t("quickPanelBehavior")} description={t("quickPanelBehaviorDescription")} border={false}>
+				<div className={cn("transition-opacity", dependentDisabled && "pointer-events-none opacity-40")}>
+					<Select value={behavior} onValueChange={(value) => handleBehaviorChange(value as QuickPanelBehavior)}>
+						<SelectTrigger size="sm" className="h-8 min-w-[120px] border-border/70 bg-background/50 text-[12px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="foreground" className="text-[12px]">
+								{t("quickPanelBehaviorForeground")}
+							</SelectItem>
+							<SelectItem value="background" className="text-[12px]">
+								{t("quickPanelBehaviorBackground")}
+							</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+			</SettingRow>
+		</SettingSection>
+	);
+}
+
 export function ShortcutsSettings(): JSX.Element {
 	const { t } = useTranslation("settings");
 	const [customShortcuts, setCustomShortcuts] = useState<ShortcutMap>(loadShortcuts);
@@ -158,6 +257,8 @@ export function ShortcutsSettings(): JSX.Element {
 					);
 				})}
 			</SettingSection>
+
+			<QuickPanelSection />
 
 			<p className="mt-4 text-[12px] leading-relaxed text-muted-foreground/50">
 				{t("shortcutHint")}

@@ -3,7 +3,7 @@ import { type Dirent, type FSWatcher, watch } from "node:fs";
 import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { type ConversationScenario, DEFAULT_PERSONA_ID, PERSONAS } from "@vetta/coding-agent";
-import { ipcMain, type WebContents } from "electron";
+import { BrowserWindow, ipcMain, type WebContents } from "electron";
 import { VETTA_CLI_GUIDANCE } from "../../../../coding-agent/src/core/system-prompt.js";
 import type {
 	AgentPluginContinuationInvocation,
@@ -197,6 +197,8 @@ const CHANNELS = {
 	BACKGROUND_TASKS_CLEAR_FINISHED: "vetta:session:background-tasks-clear-finished",
 	LIST_RUNNING: "vetta:session:list-running",
 	RUNNING_CHANGED: "vetta:session:running-changed",
+	// 某 session 是否有待回答的 ask_user_question；广播给所有窗口（侧栏 + 快捷面板）。
+	PENDING_QUESTION_CHANGED: "vetta:session:pending-question-changed",
 	CLEAR_DEFAULT_CONVERSATION: "vetta:session:clear-default-conversation",
 	CLEAR_DEFAULT_ARTIFACTS: "vetta:session:clear-default-artifacts",
 	// Read-only viewer for sessions we don't want to (or can't) take the
@@ -213,6 +215,34 @@ const CHANNELS = {
 	PLUGIN_SYSTEM_PROMPT_REQUEST: "vetta:plugins:system-prompt-request",
 	PLUGIN_SYSTEM_PROMPT_RESPONSE: "vetta:plugins:system-prompt-response",
 } as const;
+
+/** 向所有存活窗口（含独立的快捷面板窗口）广播一个事件。 */
+function broadcastToAllWindows(channel: string, payload: unknown): void {
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (win.isDestroyed()) continue;
+		const wc = win.webContents;
+		if (wc.isDestroyed()) continue;
+		wc.send(channel, payload);
+	}
+}
+
+/**
+ * 各 session 当前是否有待回答的 ask_user_question。模块级（跨 registerSessionIpc 调用共享），
+ * 状态变化时广播给所有窗口——侧栏与快捷面板据此显示「待答」。
+ */
+const pendingQuestionPaths = new Set<string>();
+
+function setPendingQuestion(sessionPath: string, hasPendingQuestion: boolean): void {
+	const had = pendingQuestionPaths.has(sessionPath);
+	if (hasPendingQuestion) {
+		if (had) return;
+		pendingQuestionPaths.add(sessionPath);
+	} else {
+		if (!had) return;
+		pendingQuestionPaths.delete(sessionPath);
+	}
+	broadcastToAllWindows(CHANNELS.PENDING_QUESTION_CHANGED, { sessionPath, hasPendingQuestion });
+}
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -405,9 +435,12 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	): Promise<RuntimeUserQuestionResult> => {
 		if (webContents.isDestroyed()) return Promise.resolve(CANCELLED_QUESTION);
 		return new Promise<RuntimeUserQuestionResult>((resolve) => {
+			const sessionPath = runtime.getSessionPath(request.sessionId);
 			const finish = (result: RuntimeUserQuestionResult): void => {
 				questionMap.delete(request.requestId);
 				if (signal) signal.removeEventListener("abort", onAbort);
+				// 问答结束（提交/取消/中断）后清掉「待答」标记并广播。
+				if (sessionPath) setPendingQuestion(sessionPath, false);
 				resolve(result);
 			};
 			const onAbort = (): void => finish(CANCELLED_QUESTION);
@@ -418,8 +451,9 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 			if (signal) signal.addEventListener("abort", onAbort, { once: true });
 			questionMap.set(request.requestId, finish);
 			webContents.send(CHANNELS.QUESTION_REQUEST, request);
+			// 广播「待答」给所有窗口（侧栏 + 快捷面板）。
+			if (sessionPath) setPendingQuestion(sessionPath, true);
 			// 同时发系统通知「有问题待确认」（点击跳转该 session）；前台看着该 session 时自动抑制。
-			const sessionPath = runtime.getSessionPath(request.sessionId);
 			const cwd = sessionCwdMap.get(request.sessionId);
 			if (sessionPath && cwd) {
 				void notify({ type: "agent-question-pending", sessionPath, cwd });
@@ -984,8 +1018,17 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 	});
 
 	const unsubscribeRunning = runtime.onRunningChanged((sessionPath, running) => {
-		if (webContents.isDestroyed()) return;
-		webContents.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running });
+		// 主窗口（订阅方）原样投递，保持既有行为。
+		if (!webContents.isDestroyed()) {
+			webContents.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running });
+		}
+		// 并行广播给其它窗口（如独立的快捷面板窗口），让它们也能跟随运行态。
+		for (const win of BrowserWindow.getAllWindows()) {
+			if (win.isDestroyed()) continue;
+			const wc = win.webContents;
+			if (wc === webContents || wc.isDestroyed()) continue;
+			wc.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running });
+		}
 	});
 
 	ipcMain.handle(CHANNELS.CONFIRM_RESPONSE, (_event, requestId: unknown, confirmed: unknown) => {

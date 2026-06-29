@@ -22,6 +22,7 @@ export default defineConfig({
 			input: {
 				main: resolve(__dirname, "src/renderer/index.html"),
 				pet: resolve(__dirname, "src/renderer/pet.html"),
+				quickpanel: resolve(__dirname, "src/renderer/quickpanel.html"),
 			},
 		},
 	},
