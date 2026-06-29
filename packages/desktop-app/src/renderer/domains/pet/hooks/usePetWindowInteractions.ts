@@ -47,11 +47,6 @@ export function usePetWindowInteractions({
 	const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
 		event.preventDefault();
 		event.stopPropagation();
-		console.log("[pet-interact] wheel", {
-			deltaY: event.deltaY,
-			debugFrame,
-			overVideo: isPointOverVideo(event.clientX, event.clientY),
-		});
 		if (debugFrame) {
 			if (isPointOverVideo(event.clientX, event.clientY) && actionId) {
 				const direction = event.deltaY < 0 ? 1 : -1;
@@ -80,11 +75,6 @@ export function usePetWindowInteractions({
 		setIsDraggingWindow(true);
 		void window.vettaPet?.setMousePassthrough(false);
 		const moveSessionReady = window.vettaPet?.beginWindowMove() ?? Promise.resolve();
-		console.log("[pet-interact] drag start", {
-			pointerId: event.pointerId,
-			clientX: event.clientX,
-			clientY: event.clientY,
-		});
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
 			moveEvent.preventDefault();
@@ -96,7 +86,6 @@ export function usePetWindowInteractions({
 			window.removeEventListener("pointercancel", handlePointerUp);
 			isDraggingRef.current = false;
 			setIsDraggingWindow(false);
-			console.log("[pet-interact] drag end");
 			void moveSessionReady.then(() => window.vettaPet?.endWindowMove());
 		};
 

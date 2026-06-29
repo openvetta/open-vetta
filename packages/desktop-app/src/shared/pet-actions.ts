@@ -40,7 +40,7 @@ export const PET_ACTIONS = [
 		groupId: "resting",
 		label: "睡觉",
 		description: "长时间空闲、深夜或低打扰状态",
-		videoBaseSize: 220,
+		videoBaseSize: 200,
 		autoDuration: { minMs: 180_000, maxMs: 300_000 },
 	}),
 	definePetAction({
@@ -48,7 +48,7 @@ export const PET_ACTIONS = [
 		groupId: "feedback",
 		label: "举杠铃",
 		description: "短休、任务完成后的积极反馈",
-		videoBaseSize: 230,
+		videoBaseSize: 200,
 		autoDuration: { minMs: 35_000, maxMs: 70_000 },
 	}),
 	definePetAction({
@@ -64,7 +64,7 @@ export const PET_ACTIONS = [
 		groupId: "resting",
 		label: "听音乐",
 		description: "晚间、放松或非专注状态",
-		videoBaseSize: 210,
+		videoBaseSize: 200,
 		autoDuration: { minMs: 80_000, maxMs: 160_000 },
 	}),
 	definePetAction({
@@ -72,7 +72,7 @@ export const PET_ACTIONS = [
 		groupId: "idle",
 		label: "转呼啦圈",
 		description: "普通待机中的活泼动作",
-		videoBaseSize: 240,
+		videoBaseSize: 200,
 		autoDuration: { minMs: 35_000, maxMs: 70_000 },
 	}),
 	definePetAction({
@@ -80,7 +80,7 @@ export const PET_ACTIONS = [
 		groupId: "idle",
 		label: "跳绳",
 		description: "久坐提醒、短暂活动提示",
-		videoBaseSize: 250,
+		videoBaseSize: 220,
 		autoDuration: { minMs: 30_000, maxMs: 60_000 },
 	}),
 	definePetAction({
@@ -96,7 +96,7 @@ export const PET_ACTIONS = [
 		groupId: "feedback",
 		label: "再见",
 		description: "普通待机中的短动作反馈",
-		videoBaseSize: 220,
+		videoBaseSize: 200,
 		autoDuration: { minMs: 20_000, maxMs: 40_000 },
 	}),
 ] as const;
