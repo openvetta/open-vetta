@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PET_ACTIONS, type PetActionId } from "../../../../shared/pet-actions";
 import {
 	DEFAULT_PET_VIDEO_SIZE,
+	PET_SIZE_MAX,
 	normalizePetVideoSize,
 	normalizePetVideoSizeForWindow,
 } from "../../../../shared/pet-config";
 import type { PetBridge } from "../../../../shared/pet-ipc";
-import { PetDebugOverlay } from "./PetDebugOverlay";
+import { PetDebugOverlay, PetDragWindowBorder } from "./PetDebugOverlay";
 import { PetSpeechBubble } from "./PetSpeechBubble";
 import { PetVideoSurface } from "./PetVideoSurface";
 import { getActionDuration, pickNextAction } from "../services/pet-action-picker";
@@ -20,6 +21,7 @@ import {
 	getVideoMap,
 } from "../services/pet-url-options";
 import { getVideoDisplaySize } from "../services/pet-video-size";
+import { usePetAutoContentSize } from "../hooks/usePetAutoContentSize";
 import { usePetBubble } from "../hooks/usePetBubble";
 import { usePetHitbox } from "../hooks/usePetHitbox";
 import { usePetWindowInteractions } from "../hooks/usePetWindowInteractions";
@@ -44,6 +46,7 @@ export function PetApp(): JSX.Element {
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
 	const [windowSize, setWindowSize] = useWindowSize();
 	const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | undefined>();
+	const contentRef = useRef<HTMLDivElement>(null);
 	const videoRef = useRef<HTMLDivElement>(null);
 	const autoModeRef = useRef(autoMode);
 	const appActionIdRef = useRef<PetActionId | undefined>(undefined);
@@ -56,8 +59,8 @@ export function PetApp(): JSX.Element {
 	const shouldShowVideo = videoSrc != null && videoSrc !== failedVideoSrc;
 	const selectedVideoBaseSize = actionId ? videoBaseSizeByAction[actionId] : DEFAULT_PET_VIDEO_SIZE;
 	const selectedVideoSize = normalizePetVideoSize(selectedVideoBaseSize * videoScale);
-	const maxVideoSize = Math.min(windowSize.width, windowSize.height);
-	const targetVideoSize = debugFrame ? selectedVideoBaseSize : selectedVideoSize;
+	const maxVideoSize = debugFrame ? Math.min(windowSize.width, windowSize.height) : PET_SIZE_MAX;
+	const targetVideoSize = selectedVideoSize;
 	const effectiveVideoSize = normalizePetVideoSizeForWindow(targetVideoSize, maxVideoSize);
 	const videoSize = getVideoDisplaySize(videoNaturalSize, effectiveVideoSize);
 
@@ -82,11 +85,12 @@ export function PetApp(): JSX.Element {
 		}, duration);
 	};
 
-	const { handlePointerDown, handlePointerLeave, handlePointerMove, handleWheel } = usePetWindowInteractions({
+	const { handlePointerDown, handlePointerLeave, handlePointerMove, handleWheel, isDraggingWindow } = usePetWindowInteractions({
 		actionId,
 		debugFrame,
 		maxVideoSize,
-		selectedVideoBaseSize,
+		selectedVideoSize,
+		videoScale,
 		videoRef,
 		onVideoBaseSizeChange: (nextBaseSize) => {
 			if (!actionId) return;
@@ -101,6 +105,11 @@ export function PetApp(): JSX.Element {
 		debugFrame,
 		shouldShowVideo,
 		videoRef,
+	});
+
+	usePetAutoContentSize({
+		contentRef,
+		debugFrame,
 	});
 
 	useEffect(() => {
@@ -173,9 +182,10 @@ export function PetApp(): JSX.Element {
 				return;
 			}
 			if (command.type === "set-auto-mode") {
+				const wasEnabled = autoModeRef.current;
 				setAutoMode(command.enabled);
 				autoModeRef.current = command.enabled;
-				if (command.enabled && !isUserOverrideActive()) {
+				if (command.enabled && !wasEnabled && !isUserOverrideActive()) {
 					applyAutomaticAction();
 				}
 				return;
@@ -212,7 +222,7 @@ export function PetApp(): JSX.Element {
 
 	const handleDebugVideoSizeChange = (size: number) => {
 		if (!actionId) return;
-		const nextBaseSize = normalizePetVideoSizeForWindow(size, maxVideoSize);
+		const nextBaseSize = normalizePetVideoSizeForWindow(size / videoScale, maxVideoSize / videoScale);
 		setVideoBaseSizeByAction((current) => ({
 			...current,
 			[actionId]: nextBaseSize,
@@ -233,7 +243,12 @@ export function PetApp(): JSX.Element {
 				windowSize={windowSize}
 				onWindowSizeChange={(size) => setWindowSize({ width: size, height: size })}
 			/>
+			<PetDragWindowBorder
+				debugFrame={debugFrame}
+				visible={isDraggingWindow}
+			/>
 			<div
+				ref={contentRef}
 				className="relative flex items-center justify-center"
 				style={{
 					width: videoNaturalSize ? `${videoSize.width}px` : "100%",
@@ -248,7 +263,7 @@ export function PetApp(): JSX.Element {
 				<PetVideoSurface
 					actionDescription={action?.description}
 					actionId={actionId}
-					baseSize={selectedVideoBaseSize}
+					baseSize={selectedVideoSize}
 					debugFrame={debugFrame}
 					maxVideoSize={maxVideoSize}
 					shouldShowVideo={shouldShowVideo}

@@ -16,6 +16,7 @@ import {
 	setPetMousePassthrough,
 	setPetVideoBaseSize,
 	setPetVideoHitbox,
+	setPetWindowContentSize,
 	setPetWindowSize,
 	showPetWindow,
 } from "../pet-window.js";
@@ -88,6 +89,10 @@ export function beginDesktopPetWindowResize(corner: PetResizeCorner): void {
 
 export async function setDesktopPetWindowSize(size: number, corner?: PetResizeCorner): Promise<void> {
 	await setPetWindowSize(size, corner);
+}
+
+export function setDesktopPetContentSize(size: number): void {
+	setPetWindowContentSize(size);
 }
 
 export async function endDesktopPetWindowResize(size: number): Promise<void> {

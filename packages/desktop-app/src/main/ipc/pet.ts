@@ -9,6 +9,7 @@ import {
 	PET_MOVE_WINDOW_BY_CHANNEL,
 	PET_RESIZE_BY_WHEEL_CHANNEL,
 	PET_RESIZE_VIDEO_BY_WHEEL_CHANNEL,
+	PET_SET_CONTENT_SIZE_CHANNEL,
 	PET_SET_MOUSE_PASSTHROUGH_CHANNEL,
 	PET_SET_VIDEO_BASE_SIZE_CHANNEL,
 	PET_SET_VIDEO_HITBOX_CHANNEL,
@@ -29,6 +30,7 @@ import {
 	resizeDesktopPetVideoByWheel,
 	resizeDesktopPetWindowByWheel,
 	setDesktopPetActionFromUser,
+	setDesktopPetContentSize,
 	setDesktopPetMousePassthrough,
 	setDesktopPetVideoBaseSize,
 	setDesktopPetVideoHitbox,
@@ -136,6 +138,11 @@ export function registerPetIpc(): () => void {
 		await setDesktopPetWindowSize(size, isPetResizeCorner(corner) ? corner : undefined);
 	});
 
+	ipcMain.handle(PET_SET_CONTENT_SIZE_CHANNEL, (_event, size: unknown): void => {
+		if (typeof size !== "number") return;
+		setDesktopPetContentSize(size);
+	});
+
 	ipcMain.handle(PET_END_WINDOW_RESIZE_CHANNEL, async (_event, size: unknown): Promise<void> => {
 		if (typeof size !== "number") return;
 		await endDesktopPetWindowResize(size);
@@ -173,6 +180,7 @@ export function registerPetIpc(): () => void {
 		ipcMain.removeHandler(PET_END_WINDOW_MOVE_CHANNEL);
 		ipcMain.removeHandler(PET_BEGIN_WINDOW_RESIZE_CHANNEL);
 		ipcMain.removeHandler(PET_SET_WINDOW_SIZE_CHANNEL);
+		ipcMain.removeHandler(PET_SET_CONTENT_SIZE_CHANNEL);
 		ipcMain.removeHandler(PET_END_WINDOW_RESIZE_CHANNEL);
 		ipcMain.removeHandler(PET_SET_VIDEO_BASE_SIZE_CHANNEL);
 		ipcMain.removeHandler(PET_SET_MOUSE_PASSTHROUGH_CHANNEL);

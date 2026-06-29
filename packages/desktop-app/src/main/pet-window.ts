@@ -545,17 +545,8 @@ export function applyPetConfig(config: PetConfig): void {
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	win.setAlwaysOnTop(petConfig.alwaysOnTop, "screen-saver");
 	const bounds = win.getBounds();
-	if (bounds.width !== petConfig.size || bounds.height !== petConfig.size) {
-		setPetBounds(
-			win,
-			{
-				x: bounds.x + bounds.width - petConfig.size,
-				y: bounds.y + bounds.height - petConfig.size,
-				width: petConfig.size,
-				height: petConfig.size,
-			},
-			"apply-config",
-		);
+	if (petConfig.debugFrame && (bounds.width !== petConfig.size || bounds.height !== petConfig.size)) {
+		setPetBounds(win, getCenteredBounds(bounds, petConfig.size), "apply-config");
 	}
 	if (!win.isVisible()) {
 		win.showInactive();
@@ -696,6 +687,16 @@ export async function setPetWindowSize(size: number, corner?: PetResizeCorner): 
 		return;
 	}
 	schedulePersistPetWindowSize(nextSize);
+}
+
+export function setPetWindowContentSize(size: number): void {
+	if (!Number.isFinite(size)) return;
+	if (windowMoveSession || windowResizeSession) return;
+	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
+	const bounds = win.getBounds();
+	const nextSize = normalizePetSize(size);
+	if (nextSize === bounds.width && nextSize === bounds.height) return;
+	setPetBounds(win, getCenteredBounds(bounds, nextSize), "content-size-window");
 }
 
 export async function endPetWindowResize(size: number): Promise<void> {

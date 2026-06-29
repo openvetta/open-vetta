@@ -1,4 +1,4 @@
-import { type PointerEvent as ReactPointerEvent, type RefObject, useRef, type WheelEvent } from "react";
+import { type PointerEvent as ReactPointerEvent, type RefObject, useRef, useState, type WheelEvent } from "react";
 import type { PetActionId } from "../../../../shared/pet-actions";
 import { normalizePetVideoSizeForWindow, PET_VIDEO_SIZE_STEP } from "../../../../shared/pet-config";
 
@@ -13,14 +13,16 @@ export function usePetWindowInteractions({
 	actionId,
 	debugFrame,
 	maxVideoSize,
-	selectedVideoBaseSize,
+	selectedVideoSize,
+	videoScale,
 	videoRef,
 	onVideoBaseSizeChange,
 }: {
 	actionId: PetActionId | undefined;
 	debugFrame: boolean;
 	maxVideoSize: number;
-	selectedVideoBaseSize: number;
+	selectedVideoSize: number;
+	videoScale: number;
 	videoRef: RefObject<HTMLDivElement | null>;
 	onVideoBaseSizeChange: (size: number) => void;
 }): {
@@ -28,8 +30,10 @@ export function usePetWindowInteractions({
 	handlePointerLeave: () => void;
 	handlePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
 	handleWheel: (event: WheelEvent<HTMLDivElement>) => void;
+	isDraggingWindow: boolean;
 } {
 	const isDraggingRef = useRef(false);
+	const [isDraggingWindow, setIsDraggingWindow] = useState(false);
 	const isPointOverVideo = (clientX: number, clientY: number) =>
 		isPointOverElement(videoRef.current, clientX, clientY);
 	const updateMousePassthrough = (clientX: number, clientY: number) => {
@@ -46,10 +50,11 @@ export function usePetWindowInteractions({
 		if (debugFrame) {
 			if (isPointOverVideo(event.clientX, event.clientY) && actionId) {
 				const direction = event.deltaY < 0 ? 1 : -1;
-				const nextBaseSize = normalizePetVideoSizeForWindow(
-					selectedVideoBaseSize + direction * PET_VIDEO_SIZE_STEP,
+				const nextVideoSize = normalizePetVideoSizeForWindow(
+					selectedVideoSize + direction * PET_VIDEO_SIZE_STEP,
 					maxVideoSize,
 				);
+				const nextBaseSize = normalizePetVideoSizeForWindow(nextVideoSize / videoScale, maxVideoSize / videoScale);
 				onVideoBaseSizeChange(nextBaseSize);
 				void window.vettaPet?.setVideoBaseSize(actionId, nextBaseSize);
 				return;
@@ -67,6 +72,7 @@ export function usePetWindowInteractions({
 		event.preventDefault();
 		event.currentTarget.setPointerCapture(event.pointerId);
 		isDraggingRef.current = true;
+		setIsDraggingWindow(true);
 		void window.vettaPet?.setMousePassthrough(false);
 		const moveSessionReady = window.vettaPet?.beginWindowMove() ?? Promise.resolve();
 
@@ -79,6 +85,7 @@ export function usePetWindowInteractions({
 			window.removeEventListener("pointerup", handlePointerUp);
 			window.removeEventListener("pointercancel", handlePointerUp);
 			isDraggingRef.current = false;
+			setIsDraggingWindow(false);
 			void moveSessionReady.then(() => window.vettaPet?.endWindowMove());
 		};
 
@@ -96,5 +103,6 @@ export function usePetWindowInteractions({
 		},
 		handlePointerMove: (event) => updateMousePassthrough(event.clientX, event.clientY),
 		handleWheel,
+		isDraggingWindow,
 	};
 }
