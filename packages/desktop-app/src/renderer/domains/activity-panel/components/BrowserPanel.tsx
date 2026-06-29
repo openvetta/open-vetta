@@ -103,6 +103,8 @@ export function BrowserPanel(): JSX.Element {
 		};
 		const onNavigate = (event: Event): void => {
 			const { url } = event as unknown as { url: string };
+			// about:blank 是为挂载 guest 而设的占位初始页，不当作真实页面回写。
+			if (url === "about:blank") return;
 			setCurrentUrl(url);
 			setAddress(url);
 			syncNav();
@@ -110,7 +112,7 @@ export function BrowserPanel(): JSX.Element {
 		};
 		const onInPage = (event: Event): void => {
 			const ev = event as unknown as { url: string; isMainFrame: boolean };
-			if (!ev.isMainFrame) return;
+			if (!ev.isMainFrame || ev.url === "about:blank") return;
 			setCurrentUrl(ev.url);
 			setAddress(ev.url);
 			syncNav();
@@ -224,7 +226,7 @@ export function BrowserPanel(): JSX.Element {
 						spellCheck={false}
 						placeholder={t("browser.addressPlaceholder")}
 						onChange={(e) => setAddress(e.target.value)}
-						className="h-7 w-full rounded-md border border-border/60 bg-background px-2.5 text-[12px] text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-primary/40"
+						className="h-7 w-full rounded-md border border-transparent bg-transparent px-2.5 text-[12px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 focus:border-primary/40 focus:bg-background"
 					/>
 				</form>
 				<ToolbarButton
@@ -236,9 +238,12 @@ export function BrowserPanel(): JSX.Element {
 			</div>
 
 			<div className="relative flex min-h-0 flex-1">
+				{/* src 用静态 about:blank 让 guest 立即挂载（dom-ready 才会触发），
+				    真实地址由 effect 通过 loadURL 加载；src 不绑 targetUrl 以免页内跳转触发重载。 */}
 				<webview
 					key={sessionPath}
 					ref={webviewRef as React.Ref<HTMLElement>}
+					src="about:blank"
 					partition={BROWSER_PARTITION}
 					allowpopups={true}
 					className="h-full w-full"
