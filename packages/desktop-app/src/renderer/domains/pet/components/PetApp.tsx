@@ -64,6 +64,7 @@ export function PetApp(): JSX.Element {
 	const targetVideoSize = selectedVideoSize;
 	const effectiveVideoSize = normalizePetVideoSizeForWindow(targetVideoSize, maxVideoSize);
 	const videoSize = getVideoDisplaySize(videoNaturalSize, effectiveVideoSize);
+	const bubblePlacement = bubble && contentOffset.y < 0 ? "below" : "above";
 
 	const clearUserOverrideTimer = () => {
 		if (userOverrideTimerRef.current == null) return;
@@ -112,7 +113,7 @@ export function PetApp(): JSX.Element {
 		contentRef,
 		targetRef: videoRef,
 		debugFrame,
-		observeKey: actionId,
+		observeKey: `${actionId ?? ""}:${bubblePlacement}`,
 	});
 
 	useEffect(() => {
@@ -270,6 +271,7 @@ export function PetApp(): JSX.Element {
 				<PetSpeechBubble
 					decorUrl={bubbleStyle.decorUrl}
 					message={bubble}
+					placement={bubblePlacement}
 					styleId={bubbleStyle.styleId}
 				/>
 				<PetVideoSurface
