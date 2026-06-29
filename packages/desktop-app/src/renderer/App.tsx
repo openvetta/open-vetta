@@ -206,7 +206,7 @@ export function RootLayout(): JSX.Element {
 	// 全局 running-sessions 订阅必须挂在始终挂载的 App 上：它是 streaming 状态真值
 	// 来源之一，挂在会被卸载的 Sidebar 上会在卸载期间丢 RUNNING_CHANGED 事件。
 	useRunningSessionsSync();
-	const { openSession } = useSessionManager();
+	const { openSession, sendMessage } = useSessionManager();
 
 	// 刷新根路由时先用持久化的 cwd + sessionPath 重建 runtime session。
 	// runtimeId 不能跨 renderer 生命周期复用，必须重新走 openSession/session.create。
@@ -272,6 +272,23 @@ export function RootLayout(): JSX.Element {
 			}
 		});
 	}, [openSession]);
+
+	// 快捷面板回车 → 主进程已据 postSendBehavior 处理窗口聚焦，这里在默认「对话」目录下
+	// 新建会话并直接发送 prompt（复用通知路由同款 openSession + sendMessage）。
+	useEffect(() => {
+		return window.vetta.quickPanel.onRunPrompt(({ text }) => {
+			const cwd = defaultConversationCwd;
+			if (!cwd || !text.trim()) return;
+			void (async () => {
+				try {
+					await openSession(cwd);
+					await sendMessage(text);
+				} catch (error) {
+					console.warn("[RootLayout] quick panel run prompt failed", error);
+				}
+			})();
+		});
+	}, [openSession, sendMessage, defaultConversationCwd]);
 
 	const confirmationQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]>(
 		[],
