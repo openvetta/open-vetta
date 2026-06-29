@@ -54,6 +54,7 @@ let windowResizeSession: PetWindowResizeSession | undefined;
 let isMousePassthroughEnabled = false;
 let petVideoHitbox: PetVideoHitbox | undefined;
 let petContentOffset = { x: 0, y: 0 };
+let petContentBounds: PetContentBounds | undefined;
 let mousePassthroughPollTimer: ReturnType<typeof setInterval> | undefined;
 
 type PetWindowResizeSession = {
@@ -288,6 +289,7 @@ function getPetEntryUrl(query: string): string {
 
 function loadPetEntry(win: BrowserWindow): void {
 	petContentOffset = { x: 0, y: 0 };
+	petContentBounds = undefined;
 	const query = buildPetQuery(petConfig);
 	const url = getPetEntryUrl(query);
 	log.info("load entry", {
@@ -543,6 +545,7 @@ export function createPetWindow(): BrowserWindow {
 		stopMousePassthroughPolling();
 		petVideoHitbox = undefined;
 		petContentOffset = { x: 0, y: 0 };
+		petContentBounds = undefined;
 		petWindow = null;
 		log.info("closed");
 	});
@@ -697,6 +700,9 @@ export function movePetWindow(): void {
 
 export function endPetWindowMove(): void {
 	windowMoveSession = undefined;
+	if (petContentBounds) {
+		setPetWindowContentSize(petContentBounds);
+	}
 	log.info("end move session");
 }
 
@@ -773,6 +779,7 @@ export function setPetWindowContentSize(content: number | PetContentBounds): voi
 	const win = petWindow && !petWindow.isDestroyed() ? petWindow : createPetWindow();
 	const bounds = win.getBounds();
 	if (typeof content === "number") {
+		petContentBounds = undefined;
 		const nextSize = normalizePetSize(Math.max(content, petConfig.size));
 		if (nextSize === bounds.width && nextSize === bounds.height) {
 			sendPetContentOffset(win, { x: 0, y: 0 });
@@ -783,6 +790,7 @@ export function setPetWindowContentSize(content: number | PetContentBounds): voi
 		return;
 	}
 
+	petContentBounds = content;
 	const nextBounds = getPetWindowBoundsForContent(bounds, content);
 	const anchorScreenX = bounds.x + content.anchor.x + content.anchor.width / 2;
 	const anchorScreenY = bounds.y + content.anchor.y + content.anchor.height / 2;
