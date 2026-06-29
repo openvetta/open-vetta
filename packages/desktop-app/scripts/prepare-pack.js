@@ -87,14 +87,33 @@ function resolveCliAppCompileTargets() {
 const externalDeps = ["@silvia-odwyer/photon-node", "uiohook-napi"];
 const optionalExternalDeps = ["electron-liquid-glass"];
 
-function resolvePackageRoot(dep) {
-	const entry = require.resolve(dep, { paths: [projectRoot] });
+function resolvePackageRoot(dep, fromDir = projectRoot) {
+	const entry = require.resolve(dep, { paths: [fromDir] });
 	const marker = `${join("node_modules", dep)}${process.platform === "win32" ? "\\" : "/"}`;
 	const idx = entry.lastIndexOf(marker);
 	if (idx < 0) {
 		throw new Error(`prepare-pack: cannot locate ${dep} package root in ${entry}`);
 	}
 	return entry.slice(0, idx + marker.length - 1);
+}
+
+// Copy an external dep plus its full production-dependency closure into the
+// staged node_modules. app-builder-lib 26's bun collector walks each package's
+// declared `dependencies` and hard-fails when one is missing from the staged
+// tree (e.g. uiohook-napi → node-gyp-build, electron-liquid-glass → bindings /
+// node-addon-api). Transitive deps are nested under the owner's node_modules so
+// both the collector and runtime require() resolve them; the asarUnpack glob
+// `node_modules/<dep>/**/*` then unpacks them alongside the native module.
+function stageDepTree(dep, sourceDir, destDir, seen = new Set()) {
+	cpSync(sourceDir, destDir, { recursive: true });
+	const pkg = JSON.parse(readFileSync(join(sourceDir, "package.json"), "utf8"));
+	for (const transDep of Object.keys(pkg.dependencies ?? {})) {
+		const key = `${dep}>${transDep}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		const transDir = resolvePackageRoot(transDep, sourceDir);
+		stageDepTree(transDep, transDir, join(destDir, "node_modules", transDep), seen);
+	}
 }
 
 function toExternalDepInfo(dep) {
@@ -163,7 +182,7 @@ if (process.platform === "darwin") {
 }
 
 for (const { dep, dir } of externalDepInfos) {
-	cpSync(dir, join(buildStageDir, "node_modules", dep), { recursive: true });
+	stageDepTree(dep, dir, join(buildStageDir, "node_modules", dep));
 }
 
 // =============================================================================
