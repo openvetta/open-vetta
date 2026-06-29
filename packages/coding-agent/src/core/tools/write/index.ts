@@ -4,8 +4,10 @@ import { dirname } from "path";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { isProtectedSkillOrScenePath, resolveToCwd, resolveWritablePath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const writeSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({
 		description: "Path to the file to write (relative or absolute)",
 	}),

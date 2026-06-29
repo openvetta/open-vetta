@@ -6,10 +6,12 @@ import { promisify } from "util";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const execAsync = promisify(execCb);
 
 const docToPdfSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({
 		description: "Path to the .doc or .docx file to convert (relative/absolute)",
 	}),

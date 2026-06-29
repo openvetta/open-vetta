@@ -14,9 +14,11 @@ import { decodeTextBuffer } from "../../../utils/shell.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveReadPath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const readSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({
 		description: "Path to the file to read (relative or absolute)",
 	}),

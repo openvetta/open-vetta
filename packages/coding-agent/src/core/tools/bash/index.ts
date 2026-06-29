@@ -17,6 +17,7 @@ import type { BackgroundTaskManager } from "../../background-tasks/index.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { type PathLiteralCorrection, rewriteQuotedPathLiterals } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult, truncateTail } from "../truncate.js";
 
 /**
@@ -91,6 +92,7 @@ function detectProtectedChanges(before: DirSnapshot, after: DirSnapshot): string
 }
 
 const bashSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	command: Type.String({
 		description: "Bash command to execute.",
 	}),

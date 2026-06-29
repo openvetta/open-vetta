@@ -6,9 +6,11 @@ import { ensureTool } from "../../../utils/tools-manager.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import { DEFAULT_MAX_BYTES, formatSize, type TruncationResult, truncateHead } from "../truncate.js";
 
 const treeSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.Optional(
 		Type.String({
 			description: "Root directory to inspect (default: current directory)",

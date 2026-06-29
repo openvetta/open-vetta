@@ -9,10 +9,12 @@ import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { runWithOcrLimit } from "../ocr-concurrency.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const execFileAsync = promisify(execFile);
 
 const extractTextFromPdfSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	input: Type.String({ description: "Path to the source PDF file." }),
 	output: Type.Optional(
 		Type.String({

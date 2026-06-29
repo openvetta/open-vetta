@@ -4,8 +4,10 @@ import { knowledgeRoot, wikiDir } from "../../knowledge/store.js";
 import { type KbWriteSession, writeKnowledgePage } from "../../knowledge/writer.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const kbWritePageSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({
 		description:
 			'Target wiki page path relative to wiki/, e.g. "产品/计费.md". Organize the tree by topic/semantics, not by raw source layout. Updating an existing page with a new path moves it.',

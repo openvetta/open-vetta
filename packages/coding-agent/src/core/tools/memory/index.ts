@@ -2,8 +2,10 @@ import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "../../extensions/types.js";
 import { applyMemoryOperation, DEFAULT_MEMORY_CHAR_LIMIT, type MemoryState } from "../../memory/memory-store.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const memorySchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	action: Type.Union([Type.Literal("add"), Type.Literal("replace"), Type.Literal("remove")], {
 		description: "add = append a new memory entry; replace = swap an existing entry; remove = delete an entry.",
 	}),

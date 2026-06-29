@@ -2,8 +2,10 @@ import { existsSync, statSync } from "node:fs";
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition } from "../../extensions/types.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const imSendAttachmentSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	path: Type.String({ description: "Absolute path to the local file to send." }),
 	kind: Type.Union([Type.Literal("image"), Type.Literal("file")], {
 		description: "image = render inline (jpg/png/gif/webp); file = everything else.",

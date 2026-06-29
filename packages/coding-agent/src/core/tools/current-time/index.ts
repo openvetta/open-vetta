@@ -1,10 +1,13 @@
-import { Type } from "@sinclair/typebox";
+import { type Static, Type } from "@sinclair/typebox";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
-const currentTimeSchema = Type.Object({});
+const currentTimeSchema = Type.Object({
+	description: toolCallDescriptionSchema,
+});
 
-export type CurrentTimeToolInput = Record<string, never>;
+export type CurrentTimeToolInput = Static<typeof currentTimeSchema>;
 
 export interface CurrentTimeToolDetails {
 	timestamp: string;

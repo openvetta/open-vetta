@@ -6,10 +6,12 @@ import { type Static, Type } from "@sinclair/typebox";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath, resolveToCwd } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const execFileAsync = promisify(execFile);
 
 const renderPdfPageSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	input: Type.String({ description: "Path to the source PDF file." }),
 	page: Type.Integer({
 		description: "1-based page number to render. Single page only.",

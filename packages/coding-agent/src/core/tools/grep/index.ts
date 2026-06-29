@@ -7,6 +7,7 @@ import { ensureTool } from "../../../utils/tools-manager.js";
 import type { CodingAgentTool } from "../../session/tool-scope.js";
 import { loadToolDescription } from "../description.js";
 import { resolveExistingPath } from "../path-utils.js";
+import { toolCallDescriptionSchema } from "../tool-call-description.js";
 import {
 	DEFAULT_MAX_BYTES,
 	formatSize,
@@ -17,6 +18,7 @@ import {
 } from "../truncate.js";
 
 const grepSchema = Type.Object({
+	description: toolCallDescriptionSchema,
 	pattern: Type.String({ description: "Search pattern (regex or literal string)" }),
 	path: Type.Optional(Type.String({ description: "Directory or file to search (default: current directory)" })),
 	glob: Type.Optional(Type.String({ description: "Filter files by glob pattern, e.g. '*.ts' or '**/*.spec.ts'" })),
