@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import { activityPanelOpenAtom, activityPanelTabByProjectAtom } from "./activity-atoms";
+import { activityPanelOpenAtom, activityPanelTabByProjectAtom, setActivityPanelWidthAtom } from "./activity-atoms";
 import { activeSessionAtom } from "./chat-atoms";
 
 /**
@@ -22,6 +22,8 @@ export const openUrlInBrowserAtom = atom(null, (get, set, url: string) => {
 		return next;
 	});
 	set(activityPanelOpenAtom, true);
+	// 从会话链接展开浏览器时默认拉到最大宽度，给预览页面足够空间。
+	set(setActivityPanelWidthAtom, "max");
 	set(activityPanelTabByProjectAtom, (prev) => new Map(prev).set(session.cwd, "browser"));
 });
 
