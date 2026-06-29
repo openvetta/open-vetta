@@ -21,11 +21,19 @@ export function usePetHitbox({
 				void window.vettaPet?.setVideoHitbox(undefined);
 				return;
 			}
+			const left = Math.max(0, bounds.left);
+			const top = Math.max(0, bounds.top);
+			const right = Math.min(window.innerWidth, bounds.right);
+			const bottom = Math.min(window.innerHeight, bounds.bottom);
+			if (right <= left || bottom <= top) {
+				void window.vettaPet?.setVideoHitbox(undefined);
+				return;
+			}
 			void window.vettaPet?.setVideoHitbox({
-				x: bounds.left,
-				y: bounds.top,
-				width: bounds.width,
-				height: bounds.height,
+				x: left,
+				y: top,
+				width: right - left,
+				height: bottom - top,
 			});
 		};
 		const observer = new ResizeObserver(reportHitbox);

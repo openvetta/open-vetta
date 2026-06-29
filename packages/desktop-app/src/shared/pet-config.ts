@@ -58,8 +58,8 @@ function createDefaultVideoBaseSizeByAction(): PetVideoBaseSizeByAction {
 
 export function normalizePetSize(value: unknown): number {
 	if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_PET_CONFIG.size;
-	const size = Math.round(value);
-	return Math.min(Math.max(size, PET_SIZE_MIN), PET_SIZE_MAX);
+	const stepped = Math.round(value / PET_SIZE_STEP) * PET_SIZE_STEP;
+	return Math.min(Math.max(stepped, PET_SIZE_MIN), PET_SIZE_MAX);
 }
 
 export function normalizePetVideoSize(value: unknown): number {

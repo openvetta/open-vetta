@@ -1,7 +1,7 @@
 import type { PetBubbleStyleAsset, PetDecoration } from "../../preload/api-types/pet.js";
 import type { PetActionId } from "../../shared/pet-actions.js";
 import { normalizePetConfig, type PetConfig } from "../../shared/pet-config.js";
-import type { PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
+import type { PetContentBounds, PetResizeCorner, PetVideoHitbox } from "../../shared/pet-ipc.js";
 import { readPetConfig, writePetConfig } from "../pet-config-store.js";
 import {
 	applyPetConfig,
@@ -91,8 +91,8 @@ export async function setDesktopPetWindowSize(size: number, corner?: PetResizeCo
 	await setPetWindowSize(size, corner);
 }
 
-export function setDesktopPetContentSize(size: number): void {
-	setPetWindowContentSize(size);
+export function setDesktopPetContentSize(content: number | PetContentBounds): void {
+	setPetWindowContentSize(content);
 }
 
 export async function endDesktopPetWindowResize(size: number): Promise<void> {

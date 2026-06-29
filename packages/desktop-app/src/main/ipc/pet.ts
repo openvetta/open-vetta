@@ -14,6 +14,7 @@ import {
 	PET_SET_VIDEO_BASE_SIZE_CHANNEL,
 	PET_SET_VIDEO_HITBOX_CHANNEL,
 	PET_SET_WINDOW_SIZE_CHANNEL,
+	type PetContentBounds,
 	type PetResizeCorner,
 	type PetVideoHitbox,
 } from "../../shared/pet-ipc.js";
@@ -68,6 +69,27 @@ function isPetVideoHitbox(value: unknown): value is PetVideoHitbox {
 		typeof hitbox.height === "number" &&
 		Number.isFinite(hitbox.height)
 	);
+}
+
+function isFiniteRect(value: unknown): value is { x: number; y: number; width: number; height: number } {
+	if (typeof value !== "object" || value === null) return false;
+	const rect = value as Record<string, unknown>;
+	return (
+		typeof rect.x === "number" &&
+		Number.isFinite(rect.x) &&
+		typeof rect.y === "number" &&
+		Number.isFinite(rect.y) &&
+		typeof rect.width === "number" &&
+		Number.isFinite(rect.width) &&
+		typeof rect.height === "number" &&
+		Number.isFinite(rect.height)
+	);
+}
+
+function isPetContentBounds(value: unknown): value is PetContentBounds {
+	if (typeof value !== "object" || value === null) return false;
+	const content = value as Record<string, unknown>;
+	return isFiniteRect(content.bounds) && isFiniteRect(content.anchor);
 }
 
 export function registerPetIpc(): () => void {
@@ -138,9 +160,9 @@ export function registerPetIpc(): () => void {
 		await setDesktopPetWindowSize(size, isPetResizeCorner(corner) ? corner : undefined);
 	});
 
-	ipcMain.handle(PET_SET_CONTENT_SIZE_CHANNEL, (_event, size: unknown): void => {
-		if (typeof size !== "number") return;
-		setDesktopPetContentSize(size);
+	ipcMain.handle(PET_SET_CONTENT_SIZE_CHANNEL, (_event, content: unknown): void => {
+		if (typeof content !== "number" && !isPetContentBounds(content)) return;
+		setDesktopPetContentSize(content);
 	});
 
 	ipcMain.handle(PET_END_WINDOW_RESIZE_CHANNEL, async (_event, size: unknown): Promise<void> => {

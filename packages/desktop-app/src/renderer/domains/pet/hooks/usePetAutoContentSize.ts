@@ -1,55 +1,79 @@
 import { type RefObject, useEffect, useRef } from "react";
-import { normalizePetSize } from "../../../../shared/pet-config";
+import type { PetContentBounds } from "../../../../shared/pet-ipc";
 
-function getContentSize(element: HTMLElement): number {
-	const elements = [element, ...Array.from(element.querySelectorAll("*"))];
-	let left = Number.POSITIVE_INFINITY;
-	let top = Number.POSITIVE_INFINITY;
-	let right = Number.NEGATIVE_INFINITY;
-	let bottom = Number.NEGATIVE_INFINITY;
+function getElementBounds(element: HTMLElement): { x: number; y: number; width: number; height: number } | undefined {
+	const bounds = element.getBoundingClientRect();
+	if (bounds.width <= 0 || bounds.height <= 0) return undefined;
+	return {
+		x: Math.round(bounds.left),
+		y: Math.round(bounds.top),
+		width: Math.round(bounds.width),
+		height: Math.round(bounds.height),
+	};
+}
+
+function getContentBounds(content: HTMLElement, anchor: HTMLElement): PetContentBounds | undefined {
+	const elements = [content, ...Array.from(content.querySelectorAll("*"))];
+	const anchorBounds = getElementBounds(anchor);
+	if (!anchorBounds) return undefined;
+	let left = anchorBounds.x;
+	let top = anchorBounds.y;
+	let right = anchorBounds.x + anchorBounds.width;
+	let bottom = anchorBounds.y + anchorBounds.height;
 
 	for (const item of elements) {
-		const bounds = item.getBoundingClientRect();
-		if (bounds.width <= 0 || bounds.height <= 0) continue;
-		left = Math.min(left, bounds.left);
-		top = Math.min(top, bounds.top);
-		right = Math.max(right, bounds.right);
-		bottom = Math.max(bottom, bounds.bottom);
+		if (!(item instanceof HTMLElement)) continue;
+		const bounds = getElementBounds(item);
+		if (!bounds) continue;
+		left = Math.min(left, bounds.x);
+		top = Math.min(top, bounds.y);
+		right = Math.max(right, bounds.x + bounds.width);
+		bottom = Math.max(bottom, bounds.y + bounds.height);
 	}
 
-	if (!Number.isFinite(left) || !Number.isFinite(top) || !Number.isFinite(right) || !Number.isFinite(bottom)) {
-		const fallbackBounds = element.getBoundingClientRect();
-		return normalizePetSize(Math.max(fallbackBounds.width, fallbackBounds.height));
-	}
-
-	return normalizePetSize(Math.ceil(Math.max(right - left, bottom - top)));
+	return {
+		bounds: {
+			x: left,
+			y: top,
+			width: right - left,
+			height: bottom - top,
+		},
+		anchor: anchorBounds,
+	};
 }
 
 export function usePetAutoContentSize({
 	contentRef,
+	targetRef,
 	debugFrame,
+	observeKey,
 }: {
 	contentRef: RefObject<HTMLElement | null>;
+	targetRef: RefObject<HTMLElement | null>;
 	debugFrame: boolean;
+	observeKey: unknown;
 }): void {
-	const lastSizeRef = useRef<number | undefined>(undefined);
+	const lastBoundsKeyRef = useRef<string | undefined>(undefined);
 
 	useEffect(() => {
-		lastSizeRef.current = undefined;
+		void observeKey;
+		lastBoundsKeyRef.current = undefined;
 		if (debugFrame) return;
 
 		let animationFrame: number | undefined;
 		let resizeObserver: ResizeObserver | undefined;
-		let mutationObserver: MutationObserver | undefined;
 
 		const reportSize = () => {
 			animationFrame = undefined;
 			const content = contentRef.current;
-			if (!content) return;
-			const nextSize = getContentSize(content);
-			if (lastSizeRef.current === nextSize) return;
-			lastSizeRef.current = nextSize;
-			void window.vettaPet?.setContentSize(nextSize);
+			const target = targetRef.current;
+			if (!content || !target) return;
+			const nextBounds = getContentBounds(content, target);
+			if (!nextBounds) return;
+			const nextKey = JSON.stringify(nextBounds);
+			if (lastBoundsKeyRef.current === nextKey) return;
+			lastBoundsKeyRef.current = nextKey;
+			void window.vettaPet?.setContentSize(nextBounds);
 		};
 
 		const scheduleReport = () => {
@@ -57,20 +81,22 @@ export function usePetAutoContentSize({
 			animationFrame = window.requestAnimationFrame(reportSize);
 		};
 
-		const observeContent = () => {
+		const observeTarget = () => {
 			resizeObserver?.disconnect();
 			resizeObserver = new ResizeObserver(scheduleReport);
 			const content = contentRef.current;
-			if (!content) return;
+			const target = targetRef.current;
+			if (!content || !target) return;
 			resizeObserver.observe(content);
+			resizeObserver.observe(target);
 			for (const item of content.querySelectorAll("*")) {
 				resizeObserver.observe(item);
 			}
 		};
 
-		observeContent();
-		mutationObserver = new MutationObserver(() => {
-			observeContent();
+		observeTarget();
+		const mutationObserver = new MutationObserver(() => {
+			observeTarget();
 			scheduleReport();
 		});
 		if (contentRef.current) {
@@ -87,8 +113,8 @@ export function usePetAutoContentSize({
 				window.cancelAnimationFrame(animationFrame);
 			}
 			resizeObserver?.disconnect();
-			mutationObserver?.disconnect();
+			mutationObserver.disconnect();
 			window.removeEventListener("resize", scheduleReport);
 		};
-	}, [contentRef, debugFrame]);
+	}, [contentRef, targetRef, debugFrame, observeKey]);
 }
