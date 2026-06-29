@@ -4,6 +4,7 @@ import {
 	QUICK_PANEL_SESSION_CHANNELS,
 	type QuickPanelBridge,
 	type QuickPanelConfigSnapshot,
+	type QuickPanelGlassMode,
 	type QuickPanelOpenSessionTarget,
 	type QuickPanelPendingQuestionChangedEvent,
 	type QuickPanelRunningChangedEvent,
@@ -32,6 +33,13 @@ const api: QuickPanelBridge = {
 		};
 		ipcRenderer.on(QUICK_PANEL_CHANNELS.ON_SHOWN, listener);
 		return () => ipcRenderer.removeListener(QUICK_PANEL_CHANNELS.ON_SHOWN, listener);
+	},
+	onGlass(handler: (mode: QuickPanelGlassMode) => void): () => void {
+		const listener = (_event: IpcRendererEvent, mode: QuickPanelGlassMode) => {
+			handler(mode);
+		};
+		ipcRenderer.on(QUICK_PANEL_CHANNELS.ON_GLASS, listener);
+		return () => ipcRenderer.removeListener(QUICK_PANEL_CHANNELS.ON_GLASS, listener);
 	},
 	onRunningChanged(handler: (event: QuickPanelRunningChangedEvent) => void): () => void {
 		const listener = (_event: IpcRendererEvent, payload: QuickPanelRunningChangedEvent) => {

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { cn } from "@shared/lib/utils";
+import type { QuickPanelGlassMode } from "../../shared/quickpanel-ipc";
 import { useQuickPanelTranslation } from "./i18n";
 import { RecentList } from "./RecentList";
 import { useQuickPanelSessions, type QuickPanelItem } from "./useQuickPanelSessions";
@@ -9,6 +11,8 @@ export function QuickPanelApp(): JSX.Element {
 	const [input, setInput] = useState("");
 	// 高亮行：0 = 输入行（Raycast row 0），1..N = 列表项。
 	const [highlight, setHighlight] = useState(0);
+	// 背景玻璃模式（主进程下发）：liquid/frosted 时卡片透明、露出原生玻璃；none 时不透明卡片。
+	const [glassMode, setGlassMode] = useState<QuickPanelGlassMode>("none");
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	// 列表项数量变化时夹紧高亮，避免指向已消失的行。
@@ -26,6 +30,13 @@ export function QuickPanelApp(): JSX.Element {
 			setHighlight(0);
 			requestAnimationFrame(() => inputRef.current?.focus());
 		});
+	}, []);
+
+	// 订阅主进程下发的玻璃模式。
+	useEffect(() => {
+		const bridge = window.vettaQuickPanel;
+		if (!bridge) return;
+		return bridge.onGlass(setGlassMode);
 	}, []);
 
 	const submitNew = useCallback(() => {
@@ -76,9 +87,31 @@ export function QuickPanelApp(): JSX.Element {
 		[items, highlight, submitNew, openItem],
 	);
 
+	// 原生玻璃在 web 内容之下绘制，故玻璃模式下卡片须透明、去掉边框与阴影。
+	const glass = glassMode !== "none";
+
 	return (
-		<div className="flex h-screen w-screen items-stretch justify-center bg-transparent p-2" onKeyDown={handleKeyDown}>
-			<div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-popover text-popover-foreground shadow-2xl">
+		// outer 等于整个窗口（= 玻璃真实边缘，rounded-2xl 与原生 cornerRadius:16 对齐）。
+		// 玻璃模式在此画一圈极细高光描边（内缘 1px + 顶部受光高光 + 外缘暗线），
+		// 让玻璃片边缘干净利落、贴合 macOS 启动台质感；boxShadow 不占布局。
+		<div
+			className="flex h-screen w-screen items-stretch justify-center rounded-2xl bg-transparent p-2"
+			style={
+				glass
+					? {
+							boxShadow:
+								"inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 1.5px 0 0 rgba(255, 255, 255, 0.28), 0 0 0 0.5px rgba(0, 0, 0, 0.28)",
+						}
+					: undefined
+			}
+			onKeyDown={handleKeyDown}
+		>
+			<div
+				className={cn(
+					"flex h-full w-full flex-col overflow-hidden rounded-2xl text-popover-foreground",
+					glass ? "bg-transparent" : "border border-border/60 bg-popover shadow-2xl",
+				)}
+			>
 				<div className="flex items-center gap-2.5 px-4">
 					<span className="icon-[solar--magnifer-linear] h-[18px] w-[18px] shrink-0 text-muted-foreground" />
 					<input

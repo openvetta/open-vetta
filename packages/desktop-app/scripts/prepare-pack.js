@@ -78,7 +78,14 @@ function resolveCliAppCompileTargets() {
 // 喂模型，长会话直接吃满主进程内存。把它复制进 staging/node_modules 让
 // createRequire 真能 resolve 到，恢复图片缩放路径。photon-node 是纯 WASM、
 // 无平台二进制差异，可安全跨平台打包。
-const externalDeps = ["@silvia-odwyer/photon-node"];
+//
+// uiohook-napi（快捷面板双击功能键全局监听）与 electron-liquid-glass（macOS
+// 液态/磨砂玻璃）同为被 external 的运行时原生模块，必须一并复制进 staging，
+// 否则 packaged 环境 require 不到。uiohook 各平台都有 prebuild、需全平台带；
+// electron-liquid-glass 是 darwin-only（`os:["darwin"]`），仅 mac 主机/包需要，
+// 非 mac 主机上可能未安装，故标记为 optional：解析不到就跳过、不阻断打包。
+const externalDeps = ["@silvia-odwyer/photon-node", "uiohook-napi"];
+const optionalExternalDeps = ["electron-liquid-glass"];
 
 function resolvePackageRoot(dep) {
 	const entry = require.resolve(dep, { paths: [projectRoot] });
@@ -90,14 +97,23 @@ function resolvePackageRoot(dep) {
 	return entry.slice(0, idx + marker.length - 1);
 }
 
-const externalDepInfos = externalDeps.map((dep) => {
+function toExternalDepInfo(dep) {
 	const dir = resolvePackageRoot(dep);
 	const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
 	if (typeof pkg.version !== "string" || !pkg.version) {
 		throw new Error(`prepare-pack: ${dep} package.json is missing a version`);
 	}
 	return { dep, dir, version: pkg.version };
-});
+}
+
+const externalDepInfos = externalDeps.map(toExternalDepInfo);
+for (const dep of optionalExternalDeps) {
+	try {
+		externalDepInfos.push(toExternalDepInfo(dep));
+	} catch {
+		console.warn(`[prepare-pack] optional external dep ${dep} not resolvable on this host; skipping`);
+	}
+}
 
 // Clean previous build stage
 rmSync(buildStageDir, { recursive: true, force: true });
@@ -571,7 +587,15 @@ const builderConfig = {
 	// 文件系统对 readFileSync 透明，但 wasm 这类二进制在部分 Electron 版本
 	// 上偶尔出问题（photon.ts 已经有 fallback paths 兜底，但能避免就避免）。
 	// 直接 unpack 到 app.asar.unpacked/，让 wasm 落到真实文件系统。
-	asarUnpack: ["node_modules/@silvia-odwyer/photon-node/**/*"],
+	//
+	// uiohook-napi / electron-liquid-glass 通过 node-gyp-build 加载预编译 .node。
+	// dlopen 无法从 asar 虚拟文件系统加载原生模块，必须整包 unpack 到真实磁盘，
+	// 否则 packaged 环境 require 即失败（electron-liquid-glass 仅 mac 包内存在）。
+	asarUnpack: [
+		"node_modules/@silvia-odwyer/photon-node/**/*",
+		"node_modules/uiohook-napi/**/*",
+		"node_modules/electron-liquid-glass/**/*",
+	],
 };
 writeFileSync(join(buildStageDir, "electron-builder.json"), JSON.stringify(builderConfig, null, "\t") + "\n");
 

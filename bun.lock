@@ -193,6 +193,7 @@
         "date-fns": "^4.1.0",
         "dbus-next": "^0.10.2",
         "dotenv": "^17.3.1",
+        "electron-liquid-glass": "^1.1.1",
         "electron-log": "^5.4.4",
         "i18next": "^26.3.2",
         "jotai": "^2.15.1",
@@ -1649,6 +1650,8 @@
 
     "electron-builder-squirrel-windows": ["electron-builder-squirrel-windows@26.15.2", "https://registry.npmmirror.com/electron-builder-squirrel-windows/-/electron-builder-squirrel-windows-26.15.2.tgz", { "dependencies": { "app-builder-lib": "26.15.2", "builder-util": "26.15.0", "electron-winstaller": "5.4.0" } }, "sha512-PNl+SSRoma9mXhxycNGxutZPgvmK19v41mn8F9oecpAU2QNAldpB4HfMuA1LwFC2j8aRzzV5M9HKlKe6dfpvNw=="],
 
+    "electron-liquid-glass": ["electron-liquid-glass@1.1.1", "", { "dependencies": { "bindings": "^1.5.0", "node-addon-api": "^8.4.0" }, "optionalDependencies": { "node-gyp-build": "^4" }, "os": "darwin" }, "sha512-AfPxcu6RJYxlsW2sjgjDEON0rVOjhh5QYM6ur5hsfILQmfY5ewHCWJZJZoDsQxhjeW1DAhbRbvB79IvgW4ansA=="],
+
     "electron-log": ["electron-log@5.4.4", "https://registry.npmmirror.com/electron-log/-/electron-log-5.4.4.tgz", {}, "sha512-istWgaXjBfURBSS8LWVW9C3jsc6+ac+tY1lXrQEOTp0lVj+a4OlO1Tmqb36GgnEUDv92DGC9VI1HNXwJinWpgA=="],
 
     "electron-publish": ["electron-publish@26.15.1", "https://registry.npmmirror.com/electron-publish/-/electron-publish-26.15.1.tgz", { "dependencies": { "@types/fs-extra": "^9.0.11", "aws4": "^1.13.2", "builder-util": "26.15.0", "builder-util-runtime": "9.7.0", "chalk": "^4.1.2", "form-data": "^4.0.5", "fs-extra": "^10.1.0", "lazy-val": "^1.0.5", "mime": "^2.5.2" } }, "sha512-BMgMHOyexWn0UnOC+Afffw0DMrr0yfLp4U8YsLXwoJ3Da7LS7WUnz21teYZqO0gaApE1KgsjREWmbPqvF5JcPg=="],
@@ -3068,6 +3071,8 @@
     "electron/@types/node": ["@types/node@20.19.43", "https://registry.npmmirror.com/@types/node/-/node-20.19.43.tgz", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
 
     "electron-builder/chalk": ["chalk@4.1.2", "https://registry.npmmirror.com/chalk/-/chalk-4.1.2.tgz", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
+
+    "electron-liquid-glass/node-addon-api": ["node-addon-api@8.9.0", "", {}, "sha512-ekZMeaaIzSQTSpr7X2X3iJM7lTzgnx8ahAG9pJfT/7+14mlEM8ZYQ9cgCDvSSRbReFK0oHli3WrZdCiRsgAT9Q=="],
 
     "electron-publish/chalk": ["chalk@4.1.2", "https://registry.npmmirror.com/chalk/-/chalk-4.1.2.tgz", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
 
