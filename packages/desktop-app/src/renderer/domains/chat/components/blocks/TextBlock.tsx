@@ -8,6 +8,7 @@ import {
 	activeSessionAtom,
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
+	openUrlInBrowserAtom,
 	filePreviewAtom,
 	openInlineFilePreviewAtom,
 	resolvedThemeAtom,
@@ -271,6 +272,7 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 	const openInlineFilePreview = useSetAtom(openInlineFilePreviewAtom);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setActivityTabByProject = useSetAtom(activityPanelTabByProjectAtom);
+	const openUrlInBrowser = useSetAtom(openUrlInBrowserAtom);
 	const narrow = useNarrowScreen();
 	const { displayText, animateChunks } = useStreamingDisplayText(text, isStreamingTail);
 
@@ -395,7 +397,7 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 						className={LINK_BADGE_CLASS}
 						onClick={(e) => {
 							e.preventDefault();
-							void window.vetta.auth.openExternal(href);
+							openUrlInBrowser(href);
 						}}
 					>
 						<span className="icon-[mdi--web] h-3.5 w-3.5 shrink-0" />
@@ -413,7 +415,7 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 		// Strong / em
 		strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
 		em: ({ children }) => <em className="italic">{children}</em>,
-	}), [theme, openFilePreview]);
+	}), [theme, openFilePreview, openUrlInBrowser]);
 
 	return (
 		<div className={`markdown-body break-words${animateChunks ? " markdown-streaming-tail" : ""}`}>

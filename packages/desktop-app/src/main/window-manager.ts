@@ -60,7 +60,22 @@ export function createWindow(): BrowserWindow {
 			contextIsolation: true,
 			nodeIntegration: false,
 			preload: preloadPath,
+			// 会话级内置浏览器用 <webview> 标签渲染预览页面。
+			webviewTag: true,
 		},
+	});
+
+	// 内置浏览器（<webview>）单窗预览：页面内的 window.open/target=_blank 不另开窗口，
+	// 重定向到同一 webview 加载，保持单窗体验。
+	mainWindow.webContents.on("did-attach-webview", (_event, webviewContents) => {
+		webviewContents.setWindowOpenHandler(({ url }) => {
+			if (/^https?:\/\//i.test(url)) {
+				void webviewContents.loadURL(url).catch((error: unknown) => {
+					windowLog.error("webview open in-place failed", { url, error });
+				});
+			}
+			return { action: "deny" };
+		});
 	});
 	setAppMonitorWindowVisible(mainWindow.isVisible());
 

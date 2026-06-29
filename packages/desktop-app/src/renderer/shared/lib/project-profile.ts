@@ -15,6 +15,7 @@ export type ActivityTabKey =
 	| "background-tasks"
 	| "debug"
 	| "knowledge-history"
+	| "browser"
 	| `plugin:${string}`;
 
 export interface ActivityTabConfig {
