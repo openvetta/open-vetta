@@ -1,12 +1,25 @@
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, screen } from "electron";
-import { QUICK_PANEL_CHANNELS } from "../shared/quickpanel-ipc.js";
+import type { GlassOptions } from "electron-liquid-glass";
+import { QUICK_PANEL_CHANNELS, type QuickPanelGlassMode } from "../shared/quickpanel-ipc.js";
 import { getAppLogger } from "./logger.js";
 import { iconPath } from "./window-manager.js";
 
 const log = getAppLogger("quickpanel-window");
 const isMac = process.platform === "darwin";
+
+// electron-liquid-glass 是 darwin-only 原生模块（node-gyp-build 仅含 mac prebuild）。
+// 顶层模块 eval 即加载 .node，在 Windows/Linux 上会抛错。主进程 bundle 在 mac 上
+// 一次构建、跨平台打包，同一份 import 语句会在所有平台执行，故只能在 macOS 上按需
+// require，避免非 mac 启动崩溃（见 ADR-0036）。
+interface LiquidGlassApi {
+	addView(handle: Buffer, options?: GlassOptions): number;
+	isGlassSupported(): boolean;
+}
+const requireNative = createRequire(import.meta.url);
+const liquidGlass: LiquidGlassApi | null = isMac ? (requireNative("electron-liquid-glass") as LiquidGlassApi) : null;
 const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
 const resDir = app.isPackaged ? appRoot : join(appRoot, "dist");
 const devServerUrl = process.env.VETTA_DESKTOP_DEV_URL;
@@ -18,8 +31,42 @@ const QUICK_PANEL_WIDTH = 640;
 const QUICK_PANEL_HEIGHT = 352;
 // 面板距离工作区顶部约 20%。
 const QUICK_PANEL_TOP_RATIO = 0.2;
+// 原生玻璃圆角，需与渲染层卡片 rounded-2xl(16px) 对齐。
+const QUICK_PANEL_GLASS_CORNER_RADIUS = 16;
 
 let quickPanelWindow: BrowserWindow | null = null;
+// 当前面板背景玻璃模式；macOS 上由原生层判定（液态/磨砂），非 mac 为 none。
+let glassMode: QuickPanelGlassMode = "none";
+// 每个窗口仅 addView 一次：原生玻璃视图挂在原生窗口上、与 web 内容无关，
+// 重复 addView（如 dev HMR 重载）会层叠多张玻璃。
+let glassApplied = false;
+
+// 在 macOS 上为面板窗口挂载原生玻璃视图（玻璃绘制在 web 内容之下）。
+// macOS 26+ 得到液态玻璃，更低版本由库自动回退为磨砂玻璃；非 mac 为 no-op。
+function applyQuickPanelGlass(win: BrowserWindow): void {
+	if (glassApplied) return;
+	glassMode = "none";
+	if (!liquidGlass) return;
+	try {
+		const id = liquidGlass.addView(win.getNativeWindowHandle(), {
+			cornerRadius: QUICK_PANEL_GLASS_CORNER_RADIUS,
+			opaque: false,
+		});
+		if (id < 0) return;
+		glassApplied = true;
+		glassMode = liquidGlass.isGlassSupported() ? "liquid" : "frosted";
+		log.info("glass applied", { glassMode });
+	} catch (error) {
+		log.error("liquid glass addView failed", error);
+	}
+}
+
+// 把当前玻璃模式下发给面板渲染层，使其据此切换卡片背景（透明/不透明）。
+function sendQuickPanelGlassMode(win: BrowserWindow): void {
+	if (!win.webContents.isDestroyed()) {
+		win.webContents.send(QUICK_PANEL_CHANNELS.ON_GLASS, glassMode);
+	}
+}
 
 function getQuickPanelEntryUrl(): string {
 	if (devServerUrl) {
@@ -58,6 +105,7 @@ export function createQuickPanelWindow(): BrowserWindow {
 		return quickPanelWindow;
 	}
 
+	glassApplied = false;
 	log.info("create requested", {
 		isPackaged: app.isPackaged,
 		appRoot,
@@ -97,6 +145,12 @@ export function createQuickPanelWindow(): BrowserWindow {
 		});
 	}
 	quickPanelWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+	quickPanelWindow.webContents.on("did-finish-load", () => {
+		if (quickPanelWindow && !quickPanelWindow.isDestroyed()) {
+			applyQuickPanelGlass(quickPanelWindow);
+			sendQuickPanelGlassMode(quickPanelWindow);
+		}
+	});
 	quickPanelWindow.webContents.on("preload-error", (_event, preloadPathForError, error) => {
 		log.error("preload-error", { preloadPath: preloadPathForError, error });
 	});
@@ -125,6 +179,8 @@ export function showQuickPanelWindow(): void {
 	win.focus();
 	if (!win.webContents.isDestroyed()) {
 		win.webContents.send(QUICK_PANEL_CHANNELS.ON_SHOWN);
+		// 每次唤出补发玻璃模式，避免渲染层错过首帧 did-finish-load 推送。
+		sendQuickPanelGlassMode(win);
 	}
 	log.info("show requested", { bounds: win.getBounds() });
 }

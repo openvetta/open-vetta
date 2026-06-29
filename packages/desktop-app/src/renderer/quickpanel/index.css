@@ -10,20 +10,13 @@
 	outline: none;
 }
 
+/* 隐藏滚动条：是否可滚动改由列表底部/顶部渐隐遮罩提示（见 RecentList）。 */
 .quickpanel-scroll {
-	scrollbar-width: thin;
-	scrollbar-color: var(--border) transparent;
+	scrollbar-width: none;
 }
 
 .quickpanel-scroll::-webkit-scrollbar {
-	width: 6px;
-}
-
-.quickpanel-scroll::-webkit-scrollbar-thumb {
-	background-color: var(--border);
-	border-radius: 9999px;
-}
-
-.quickpanel-scroll::-webkit-scrollbar-track {
-	background: transparent;
+	width: 0;
+	height: 0;
+	display: none;
 }

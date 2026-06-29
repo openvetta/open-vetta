@@ -52,6 +52,9 @@ export default defineConfig(({ mode }) => {
 					// uiohook-napi 是原生模块（.node + node-gyp-build 定位 prebuild），
 					// 不能打进 bundle，运行时从 node_modules 解析。
 					"uiohook-napi",
+					// electron-liquid-glass 同为原生模块（node-gyp-build + prebuilds），
+					// 提供 macOS 液态玻璃/磨砂玻璃效果，运行时从 node_modules 解析。
+					"electron-liquid-glass",
 				],
 			},
 			minify: false,

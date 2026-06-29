@@ -62,7 +62,8 @@ export function RecentItem({ item, active, onMouseEnter, onClick }: RecentItemPr
 			style={{ height: QUICK_PANEL_ITEM_HEIGHT }}
 			className={cn(
 				"flex w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-colors duration-100",
-				active ? "bg-accent" : "hover:bg-accent/50",
+				// 玻璃背景上用半透明前景叠加，避免实心深色块显脏。
+				active ? "bg-foreground/10" : "hover:bg-foreground/[0.06]",
 			)}
 		>
 			<StatusIcon status={item.status} active={active} />

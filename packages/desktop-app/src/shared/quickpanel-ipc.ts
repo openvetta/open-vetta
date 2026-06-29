@@ -10,6 +10,7 @@ export const QUICK_PANEL_CHANNELS = {
 	HIDE: "vetta:quickpanel:hide",
 	// main -> panel(renderer) (event / webContents.send)
 	ON_SHOWN: "vetta:quickpanel:shown",
+	ON_GLASS: "vetta:quickpanel:glass",
 	// settings(main renderer) -> main (invoke)
 	RELOAD_HOTKEY: "vetta:quickpanel:reload-hotkey",
 	// main -> MAIN renderer (event)
@@ -24,6 +25,15 @@ export const QUICK_PANEL_SESSION_CHANNELS = {
 } as const;
 
 export type QuickPanelPostSendBehavior = "foreground" | "background";
+
+/**
+ * 面板背景的玻璃模式（由主进程依平台/系统版本判定后下发）：
+ * - liquid：macOS 26+ 原生液态玻璃；
+ * - frosted：macOS < 26 原生磨砂玻璃（legacy NSVisualEffectView 模糊）；
+ * - none：非 macOS，无原生效果，渲染层退回不透明卡片。
+ * liquid/frosted 均由原生层在 web 内容之下绘制，故渲染层须把卡片背景设为透明。
+ */
+export type QuickPanelGlassMode = "liquid" | "frosted" | "none";
 
 /** 双击功能键触发：none=不启用；mod=双击 ⌘/Ctrl；alt=双击 ⌥/Alt；shift=双击 ⇧。 */
 export type QuickPanelTriggerKind = "none" | "mod" | "alt" | "shift";
@@ -69,6 +79,7 @@ export interface QuickPanelBridge {
 	listRecent(limit?: number): Promise<QuickPanelSession[]>;
 	hide(): void;
 	onShown(handler: () => void): () => void;
+	onGlass(handler: (mode: QuickPanelGlassMode) => void): () => void;
 	onRunningChanged(handler: (event: QuickPanelRunningChangedEvent) => void): () => void;
 	onPendingQuestionChanged(handler: (event: QuickPanelPendingQuestionChangedEvent) => void): () => void;
 }
