@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { motion } from "motion/react";
 import {
 	confirmDialogAtom,
 	filePreviewAtom,
 	knowledgeFileStatusesAtom,
+	knowledgeNavTargetAtom,
 	knowledgeViewModeAtom,
 	refreshKnowledgeBasesAtom,
 } from "@shared/store/atoms";
@@ -52,6 +53,7 @@ export function KnowledgeContentsPanel({
 	const openPreview = useSetAtom(filePreviewAtom);
 	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
 	const viewMode = useAtomValue(knowledgeViewModeAtom);
+	const [navTarget, setNavTarget] = useAtom(knowledgeNavTargetAtom);
 
 	// 文件加工态：key 为 source_path（`${kbId}/${node.id}`）。目录无加工态返回 null。
 	const statusFor = useCallback(
@@ -89,6 +91,25 @@ export function KnowledgeContentsPanel({
 	useEffect(() => {
 		clearSelection();
 	}, [path, knowledgeBase.id, clearSelection]);
+
+	// 「待加工文件」弹窗点击 → 跳到目标文件所在目录并高亮滚动。两段式：先导航（让上面的清选中
+	// effect 先于本 effect 跑掉），到位（path 已是目标目录）后再选中+滚动+清空目标，避免选中被清掉。
+	// 必须声明在「清选中」effect 之后，保证同一次 path 变更里清选中先执行。
+	useEffect(() => {
+		if (!navTarget) return;
+		const segments = navTarget.fileId.split("/").slice(0, -1);
+		const atTarget = segments.length === path.length && segments.every((seg, i) => seg === path[i]);
+		if (!atTarget) {
+			setPath(segments);
+			return;
+		}
+		setSelectedIds(new Set([navTarget.fileId]));
+		setAnchorId(navTarget.fileId);
+		document
+			.querySelector(`[data-knode-id="${CSS.escape(navTarget.fileId)}"]`)
+			?.scrollIntoView({ block: "center" });
+		setNavTarget(null);
+	}, [navTarget, path, setNavTarget]);
 
 	// 后台加工每批完成重建索引后会广播；据此重取文件加工态，让侧边栏状态与索引同步推进。
 	useEffect(() => window.vetta.knowledge.onStatusesChanged(() => void refresh()), [refresh]);
