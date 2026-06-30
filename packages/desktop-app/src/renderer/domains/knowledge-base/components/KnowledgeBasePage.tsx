@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
@@ -8,8 +8,10 @@ import {
 	activityPanelOpenAtom,
 	confirmDialogAtom,
 	knowledgeBasesAtom,
+	knowledgeFileStatusesAtom,
 	knowledgeImportDraftAtom,
 	knowledgeLoadingAtom,
+	knowledgeNavTargetAtom,
 	knowledgeViewModeAtom,
 	pageHeaderRightSlotAtom,
 	pageHeaderTitleBadgeAtom,
@@ -22,8 +24,10 @@ import { Input } from "@shared/components/ui/input";
 import { cn } from "@shared/lib/utils";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useKnowledgeImportSources } from "../hooks/useKnowledgeImportSources";
+import { collectUnprocessedFiles, knowledgeBaseDisplayName } from "../lib/knowledge-base";
 import { KnowledgeBaseSwitcher } from "./KnowledgeBaseSwitcher";
 import { KnowledgeContentsPanel } from "./KnowledgeContentsPanel";
+import { KnowledgePendingFilesDialog } from "./KnowledgePendingFilesDialog";
 import { KnowledgeFilesSkeleton } from "./KnowledgeFilesSkeleton";
 import { KnowledgeProcessingBadge } from "./KnowledgeProcessingBadge";
 import { KnowledgeImportDialog, type KnowledgeImportConfirmation } from "./KnowledgeImportDialog";
@@ -89,6 +93,30 @@ export function KnowledgeBasePage(): JSX.Element {
 
 	const activeBase = knowledgeBases.find((base) => base.id === activeId) ?? knowledgeBases[0] ?? null;
 
+	// 待加工（未加工）文件：仅当前库，纯 renderer 据加工态推导。仅显式 "unprocessed" 计入——
+	// 加工态首帧未回时 fileStatuses 为空，避免把全部文件误判为待加工导致计数虚高。
+	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
+	const setNavTarget = useSetAtom(knowledgeNavTargetAtom);
+	const [pendingOpen, setPendingOpen] = useState(false);
+	const pendingFiles = useMemo(
+		() =>
+			activeBase
+				? collectUnprocessedFiles(
+						activeBase.nodes,
+						(id) => fileStatuses[`${activeBase.id}/${id}`]?.status === "unprocessed",
+					)
+				: [],
+		[activeBase, fileStatuses],
+	);
+	const pendingCount = pendingFiles.length;
+	const handlePickPending = useCallback(
+		(fileId: string) => {
+			setPendingOpen(false);
+			setNavTarget({ fileId });
+		},
+		[setNavTarget],
+	);
+
 	// 进页从磁盘重读（反向重建）。
 	useEffect(() => {
 		void refresh();
@@ -110,6 +138,17 @@ export function KnowledgeBasePage(): JSX.Element {
 	useEffect(() => {
 		setHeaderRightSlot(
 			<>
+				{activeBase && (
+					<Button variant="ghost" size="sm" onClick={() => setPendingOpen(true)}>
+						<span className="icon-[mdi--clock-alert-outline] h-4 w-4" />
+						{t("kbPendingEntry")}
+						{pendingCount > 0 && (
+							<span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold tabular-nums text-primary">
+								{pendingCount}
+							</span>
+						)}
+					</Button>
+				)}
 				<Button variant="ghost" size="sm" onClick={openProcessingRecords}>
 					<span className="icon-[mdi--history] h-4 w-4" />
 					{t("kbPageRecords")}
@@ -121,7 +160,7 @@ export function KnowledgeBasePage(): JSX.Element {
 			</>,
 		);
 		return () => setHeaderRightSlot(null);
-	}, [setHeaderRightSlot, openProcessingRecords, openKnowledgeSettings, t]);
+	}, [setHeaderRightSlot, openProcessingRecords, openKnowledgeSettings, t, activeBase, pendingCount]);
 
 	const showError = useCallback(
 		(err: unknown) => {
@@ -377,6 +416,15 @@ export function KnowledgeBasePage(): JSX.Element {
 				open={howItWorksOpen}
 				onClose={() => setHowItWorksOpen(false)}
 			/>
+
+			{pendingOpen && activeBase && (
+				<KnowledgePendingFilesDialog
+					baseName={knowledgeBaseDisplayName(activeBase)}
+					files={pendingFiles}
+					onPick={handlePickPending}
+					onClose={() => setPendingOpen(false)}
+				/>
+			)}
 		</div>
 	);
 }
