@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@shared/components/ui/switch";
-import type { PetBubbleStyleAsset } from "../../../../preload/api-types/pet";
+import type { PetBubbleStyleAsset, PetDecoration } from "../../../../preload/api-types/pet";
 import { PET_BUBBLE_STYLES, type PetBubbleStyleId } from "../../../../shared/pet-bubbles";
 import { DEFAULT_PET_CONFIG, type PetConfig } from "../../../../shared/pet-config";
 import { SETTINGS_SECTION } from "../registry";
@@ -13,10 +13,12 @@ export function PetSettings(): JSX.Element {
 	// 分区标题 key（section_pet-*）存于 settings ns，单独绑定一个 t 供 SettingSection 解析。
 	const { t: tSettings } = useTranslation("settings");
 	const [config, setConfig] = useState<PetConfig>(DEFAULT_PET_CONFIG);
+	const [decorations, setDecorations] = useState<PetDecoration[]>([]);
 	const [bubbleStyleAssets, setBubbleStyleAssets] = useState<PetBubbleStyleAsset[]>([]);
 
 	useEffect(() => {
 		void window.vetta.pet.getConfig().then(setConfig);
+		void window.vetta.pet.getDecorations().then(setDecorations);
 		void window.vetta.pet.getBubbleStyleAssets().then((next) => {
 			setBubbleStyleAssets(next);
 		});
@@ -93,6 +95,45 @@ export function PetSettings(): JSX.Element {
 			<SettingSection
 				t={tSettings as any}
 				section={SETTINGS_SECTION["pet-decoration"]}
+				description={t("settings.decoration.sectionDescription")}
+			>
+				<div className="grid grid-cols-2 gap-3 p-4 @max-xl:grid-cols-1">
+					{decorations.map((decoration) => {
+						const label = decoration.label;
+						return (
+							<div
+								key={decoration.id}
+								className="overflow-hidden rounded-lg border border-border bg-background"
+							>
+								<div className="flex h-28 items-center justify-center bg-muted">
+									{decoration.found ? (
+										<img
+											src={decoration.url}
+											alt={label}
+											className="max-h-full max-w-full object-contain"
+											draggable={false}
+										/>
+									) : (
+										<div className="px-3 text-center text-[12px] text-muted-foreground">
+											{t("settings.decoration.materialMissing")}
+										</div>
+									)}
+								</div>
+								<div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+									<div className="min-w-0 truncate text-[12px] font-medium text-foreground">{label}</div>
+									<div className="shrink-0 text-[11px] text-muted-foreground">
+										{decoration.found ? t("settings.decoration.available") : t("settings.decoration.missing")}
+									</div>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			</SettingSection>
+
+			<SettingSection
+				t={tSettings as any}
+				section={SETTINGS_SECTION["pet-bubble"]}
 				description={t("settings.bubble.sectionDescription")}
 			>
 				<div className="grid grid-cols-2 gap-3 p-4 @max-xl:grid-cols-1">

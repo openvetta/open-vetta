@@ -8,6 +8,20 @@
 		"developerDesc": "Used to distinguish the pet window bounds from the actual video display area.",
 		"debugFrame": "Debug Frame",
 		"debugFrameDesc": "Show the window bounds and video area bounds, and display the live window and video sizes inside the pet window.",
+		"decoration": {
+			"sectionDescription": "Currently only shows available decoration materials; actual decoration logic can be connected later.",
+			"materialMissing": "Material missing",
+			"available": "Available",
+			"missing": "Missing",
+			"items": {
+				"monitor": "Monitor",
+				"santa": "Santa outfit",
+				"business": "Business outfit",
+				"office": "Office prayer",
+				"peekingMonitor": "Peeking from monitor",
+				"dragonBoat": "Dragon Boat decoration"
+			}
+		},
 		"bubble": {
 			"sectionDescription": "Choose the desktop pet speech bubble style. Each style can define its own background, dimensions, and decoration placement.",
 			"styleTitle": "Bubble style",
