@@ -21,6 +21,7 @@ interface AchievementCarouselProps {
 	achievements: readonly Achievement[];
 	currentIndex: number;
 	focusSizeEnabled: boolean;
+	subtitleKey: string;
 	usageStats: AchievementUsageStats;
 }
 
@@ -45,6 +46,7 @@ export function AchievementCarousel({
 	achievements,
 	currentIndex,
 	focusSizeEnabled,
+	subtitleKey,
 	usageStats,
 }: AchievementCarouselProps): JSX.Element {
 	const { t } = useTranslation("settings");
@@ -228,7 +230,7 @@ export function AchievementCarousel({
 							className="mt-1 text-center text-[12px]"
 							style={{ color: "#d7b7a2" }}
 						>
-							{t("achievement.subtitle")}
+							{t(subtitleKey, { defaultValue: "" })}
 						</p>
 						<p
 							className="mt-1 text-center text-[11px]"
@@ -295,7 +297,9 @@ export function AchievementCarousel({
 												if (suppressClickRef.current) return;
 												focusAchievement(index);
 											}}
-											aria-label={t(`achievement.stages.${achievement.id}.name`)}
+											aria-label={t(`achievement.stages.${achievement.id}.name`, {
+												defaultValue: achievement.id,
+											})}
 										>
 											<img
 												src={achievement.imageUrl}
@@ -311,7 +315,9 @@ export function AchievementCarousel({
 												className="mt-2 text-center text-[13px] font-medium"
 												style={{ color: reached ? "#f4e7d6" : "#ad8c7b" }}
 											>
-												{t(`achievement.stages.${achievement.id}.name`)}
+												{t(`achievement.stages.${achievement.id}.name`, {
+													defaultValue: achievement.id,
+												})}
 											</span>
 										</button>
 									</div>
@@ -357,7 +363,7 @@ export function AchievementCarousel({
 				<div className="grid">
 					<AnimatePresence initial={false}>
 						<motion.div
-							key={focusedAchievement.id}
+							key={`${subtitleKey}:${focusedAchievement.id}`}
 							className="col-start-1 row-start-1"
 							initial={reduceMotion ? false : { opacity: 0 }}
 							animate={{ opacity: 1 }}

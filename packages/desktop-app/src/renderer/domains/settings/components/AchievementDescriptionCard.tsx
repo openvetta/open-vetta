@@ -73,13 +73,17 @@ export function AchievementDescriptionCard({
 				className="mt-2 text-[15px] font-semibold"
 				style={{ color: FRAME_FOREGROUND_COLOR }}
 			>
-				{t(`achievement.stages.${achievement.id}.name`)}
+				{t(`achievement.stages.${achievement.id}.name`, {
+					defaultValue: achievement.id,
+				})}
 			</h2>
 			<p
 				className="mt-1 text-[12px] leading-5"
 				style={{ color: FRAME_MUTED_COLOR }}
 			>
-				{t(`achievement.stages.${achievement.id}.meaning`)}
+				{t(`achievement.stages.${achievement.id}.meaning`, {
+					defaultValue: "",
+				})}
 			</p>
 			<div className="mt-4">
 				<div
