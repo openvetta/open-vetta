@@ -15,7 +15,7 @@ export const INDEXES_DIR = "indexes";
 export const INDEX_MAP_FILE = "INDEX.md";
 export const TAGS_FILE = "tags.json";
 export const MANIFEST_FILE = "manifest.json";
-/** 加工失败/隔离记录缓存（source_hash → 失败次数与隔离标记）。 */
+/** 加工失败/隔离记录缓存（source_path → 失败次数与隔离标记）。 */
 export const FAILURES_FILE = "failures.json";
 export const PROCESSING_RECORDS_DIR = "processing_records";
 

@@ -4,8 +4,12 @@
  * 键判定顺序：
  *   1. 传入 id 且该页存在 → 就地更新（保留 id + created_at），用于内容变更
  *      由轮询器解析出旧 id 的场景，保住稳定 id。
- *   2. 否则 source_hash 已存在 → 命中更新（同内容重复写入）。
+ *   2. 否则 source_hash + source_path 同时命中 → 命中更新（同一文件同内容重复写入）。
  *   3. 否则 → 新建并分配 id。
+ *
+ * 注意：身份是 source_hash + source_path 复合键，不是单 source_hash。同一份内容被拷贝到
+ * 多个路径（用户备份），每个路径各自建独立页；否则同 hash 不同路径的副本会被 (2) 误并成
+ * 一页，writer 更新时删掉旧路径页 → 该副本下轮被判 added → 无限重加工 / 文件变灰。
  *
  * 更新一律清除 orphaned_at（写入即复活）、刷新 updated_at。
  */
@@ -42,7 +46,8 @@ export interface UpsertInput {
 
 export interface UpsertLookup {
 	byId(id: string): WikiFrontmatter | undefined;
-	bySourceHash(hash: string): WikiFrontmatter | undefined;
+	/** 同 source_hash 且同 source_path 才算命中（复合身份）。 */
+	bySource(hash: string, source_path: string): WikiFrontmatter | undefined;
 }
 
 export type UpsertDecision =
@@ -59,7 +64,8 @@ export function resolveUpsert(
 	now: string,
 	genId: () => string,
 ): UpsertDecision {
-	const existing = (input.id != null ? lookup.byId(input.id) : undefined) ?? lookup.bySourceHash(input.source_hash);
+	const existing =
+		(input.id != null ? lookup.byId(input.id) : undefined) ?? lookup.bySource(input.source_hash, input.source_path);
 
 	if (existing) {
 		const frontmatter: WikiFrontmatter = {
