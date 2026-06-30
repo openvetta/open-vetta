@@ -28,6 +28,7 @@ const PERMISSION_LABEL_KEYS = {
 	"ui.slot.input-action": "plugin.permission.uiSlotInputAction",
 	"ui.slot.message": "plugin.permission.uiSlotMessage",
 	"ui.slot.tool-call": "plugin.permission.uiSlotToolCall",
+	"ui.slot.turn-card": "plugin.permission.uiSlotTurnCard",
 	"agent.session.read": "plugin.permission.agentSessionRead",
 	"agent.session.write": "plugin.permission.agentSessionWrite",
 	"agent.command.run": "plugin.permission.agentCommandRun",

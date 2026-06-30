@@ -113,6 +113,7 @@
 			"uiSlotInputAction": "输入栏动作 Slot",
 			"uiSlotMessage": "消息下方 Slot",
 			"uiSlotToolCall": "工具调用渲染 Slot",
+			"uiSlotTurnCard": "回合卡片 Slot",
 			"agentSessionRead": "读取 Agent 会话",
 			"agentSessionWrite": "修改 Agent 会话",
 			"agentCommandRun": "执行 Agent 命令",
