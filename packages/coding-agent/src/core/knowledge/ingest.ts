@@ -16,7 +16,7 @@
 
 import { rebuildManifest, rebuildTagsIndex, type WikiPageRef } from "./cache.js";
 import { diffRaws, planOrphans, type RawsDiff } from "./differ.js";
-import { type AttemptedFile, applyQuarantine, quarantinedHashes, reconcileFailures } from "./failures.js";
+import { type AttemptedFile, applyQuarantine, quarantinedPaths, reconcileFailures } from "./failures.js";
 import { buildIndexMap } from "./index-map.js";
 import {
 	deleteWikiPage,
@@ -32,15 +32,25 @@ import {
 } from "./store.js";
 import type { ManifestEntry } from "./types.js";
 
-/** 据真相源（wiki frontmatter）重建 tags.json / manifest.json。 */
-export async function rebuildAllCaches(root: string): Promise<void> {
-	const { pages } = await scanWikiPages(root);
+/** rebuildAllCaches 结果：被 scanWikiPages 排除（frontmatter 非法/缺失）的坏页清单。 */
+export interface RebuildResult {
+	/** 解析失败、未进缓存的 wiki 页（相对 wiki/ 路径 + 原因）。空数组表示全部健康。 */
+	damaged: Array<{ path: string; message: string }>;
+}
+
+/**
+ * 据真相源（wiki frontmatter）重建 tags.json / manifest.json / indexes/INDEX.md。
+ * 返回坏页清单供调用方上报——这些页不在缓存里，其源文件会一直显示未加工，须让用户可见。
+ */
+export async function rebuildAllCaches(root: string): Promise<RebuildResult> {
+	const { pages, errors } = await scanWikiPages(root);
 	const refs: WikiPageRef[] = pages.map((p) => ({ frontmatter: p.frontmatter, path: p.path }));
 	await Promise.all([
 		writeManifest(root, rebuildManifest(refs)),
 		writeTagsIndex(root, rebuildTagsIndex(refs)),
 		writeIndexMap(root, buildIndexMap(refs)),
 	]);
+	return { damaged: errors };
 }
 
 export interface PreparedRound {
@@ -65,8 +75,10 @@ export async function prepareRound(root: string, now: string): Promise<PreparedR
 
 	// 止损：剔除已隔离（连续失败达阈值）的 added/changed，不再自动重加工——
 	// 否则永远写不出 wiki 页的硬骨头文件会每轮重入 added，无限加工。
+	// 隔离按 source_path 记账，且仅当该路径内容（hash）未变时生效——内容一变即自动重试。
 	const failures = await readFailures(root);
-	const quarantined = quarantinedHashes(failures);
+	const currentRaws = new Map(raws.map((r) => [r.source_path, r.source_hash]));
+	const quarantined = quarantinedPaths(failures, currentRaws);
 
 	const byId = new Map(pages.map((p) => [p.frontmatter.id, p]));
 
@@ -101,11 +113,14 @@ export async function prepareRound(root: string, now: string): Promise<PreparedR
 export async function reconcileRoundFailures(root: string, attempted: AttemptedFile[], now: string): Promise<void> {
 	if (attempted.length === 0) return;
 	const [{ pages }, raws, failures] = await Promise.all([scanWikiPages(root), scanRaws(root), readFailures(root)]);
-	const presentHashes = new Set(
-		pages.filter((p) => p.frontmatter.orphaned_at == null).map((p) => p.frontmatter.source_hash),
+	// 活跃页按 source_path 索引到其 source_hash：判定某路径是否真写出了页且内容一致。
+	const presentByPath = new Map(
+		pages
+			.filter((p) => p.frontmatter.orphaned_at == null)
+			.map((p) => [p.frontmatter.source_path, p.frontmatter.source_hash]),
 	);
-	const rawHashes = new Set(raws.map((r) => r.source_hash));
-	const next = reconcileFailures({ failures, attempted, presentHashes, rawHashes, now });
+	const currentRaws = new Map(raws.map((r) => [r.source_path, r.source_hash]));
+	const next = reconcileFailures({ failures, attempted, presentByPath, currentRaws, now });
 	await writeFailures(root, next);
 }
 

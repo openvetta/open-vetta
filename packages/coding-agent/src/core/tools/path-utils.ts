@@ -1,7 +1,7 @@
 import { accessSync, constants, readdirSync } from "node:fs";
 import * as os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir, getSceneDir, getVettaHomePath } from "../../config.js";
+import { CONFIG_DIR_NAME, getAgentDir, getKnowledgeDir, getSceneDir, getVettaHomePath } from "../../config.js";
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
 const NARROW_NO_BREAK_SPACE = "\u202F";
@@ -299,4 +299,21 @@ export function isProtectedSkillOrScenePath(absolutePath: string, cwd: string): 
 		}
 	}
 	return false;
+}
+
+// =============================================================================
+// Knowledge base wiki write-protection
+// =============================================================================
+
+/**
+ * 知识库 wiki/ 是 kb_write_page 独占的产物区（守封闭 frontmatter schema、分配稳定 id）。
+ * 通用 write/edit 绝不能往里写——否则会写出无/坏 frontmatter 的页，被 scanWikiPages 静默
+ * 丢弃，其源文件永远显示未加工 + 每轮重加工。跨平台路径前缀判定（不依赖仅 POSIX 的 OS 锁）。
+ * 注意：仅挡 wiki/ 产物区；解析脚本、临时文件、工具输出写到 cwd/tmp 等处不受影响。
+ */
+export function isKnowledgeWikiPath(absolutePath: string): boolean {
+	const resolved = resolvePath(absolutePath);
+	const wikiDir = resolvePath(join(getKnowledgeDir(), "wiki"));
+	const prefix = wikiDir.endsWith(sep) ? wikiDir : `${wikiDir}${sep}`;
+	return resolved === wikiDir || resolved.startsWith(prefix);
 }
