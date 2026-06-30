@@ -18,6 +18,7 @@ const pdfjsBuildDir = resolve(dirname(pdfjsEntryPath), "../build");
 
 const ocrModelsDir = resolve(process.cwd(), "resources/ocr-models");
 const outDir = resolve(process.cwd(), "dist/ocr-runner");
+const requiredOrtFiles = new Set(["ort-wasm-simd-threaded.jsep.mjs", "ort-wasm-simd-threaded.jsep.wasm"]);
 
 // The OCR runner is a standalone hidden-window page loaded via file:// in
 // CLI mode. Three sets of files must be reachable as stable relative URLs:
@@ -31,12 +32,30 @@ function copyOcrRunnerAssets(): Plugin {
 	return {
 		name: "vetta-ocr-runner-copy-assets",
 		apply: "build",
+		generateBundle(_options, bundle) {
+			for (const [fileName, item] of Object.entries(bundle)) {
+				if (
+					item.type === "asset" &&
+					fileName.startsWith("assets/ort-wasm-") &&
+					fileName.endsWith(".wasm")
+				) {
+					delete bundle[fileName];
+				}
+			}
+		},
 		writeBundle() {
 			const ortOut = join(outDir, "ort");
 			mkdirSync(ortOut, { recursive: true });
+			const copiedOrtFiles = new Set<string>();
 			for (const f of readdirSync(ortDistDir)) {
-				if (f.endsWith(".wasm") || f.endsWith(".mjs")) {
+				if (requiredOrtFiles.has(f)) {
 					cpSync(join(ortDistDir, f), join(ortOut, f));
+					copiedOrtFiles.add(f);
+				}
+			}
+			for (const f of requiredOrtFiles) {
+				if (!copiedOrtFiles.has(f)) {
+					throw new Error(`OCR runner missing required onnxruntime-web asset: ${f}`);
 				}
 			}
 
