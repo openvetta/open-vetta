@@ -12,7 +12,7 @@ import {
 	restoreLineEndings,
 	stripBom,
 } from "../edit-diff.js";
-import { isProtectedSkillOrScenePath, resolveExistingPath } from "../path-utils.js";
+import { isKnowledgeWikiPath, isProtectedSkillOrScenePath, resolveExistingPath } from "../path-utils.js";
 import { toolCallDescriptionSchema } from "../tool-call-description.js";
 
 const editSchema = Type.Object({
@@ -66,6 +66,7 @@ export function createEditTool(cwd: string, options?: EditToolOptions): CodingAg
 	return {
 		name: "edit",
 		label: "edit",
+		// 含 kb-processing：见 write 工具同款说明——可改解析脚本/临时文件，但写入 wiki/ 被守卫拦下。
 		scope_use: ["im-claw", "conversation", "project", "batch", "automation", "kb-processing", "cli"],
 		category: "core",
 		description,
@@ -82,6 +83,14 @@ export function createEditTool(cwd: string, options?: EditToolOptions): CodingAg
 					`"${absolutePath}" is inside a skill/scene directory which is read-only. ` +
 						`Skills and scenes are global resources — never modify them. ` +
 						`Write output files to the user's working directory instead.`,
+				);
+			}
+
+			if (isKnowledgeWikiPath(absolutePath)) {
+				throw new Error(
+					`"${absolutePath}" is inside the knowledge base wiki/ directory, which is managed exclusively by kb_write_page. ` +
+						`Never hand-edit wiki pages with edit — use kb_write_page so each page keeps a validated frontmatter schema and stable id. ` +
+						`Scripts and scratch files may be edited elsewhere (e.g. the working directory).`,
 				);
 			}
 
