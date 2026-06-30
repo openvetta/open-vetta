@@ -18,19 +18,19 @@ const codingAgentDir = join(projectRoot, "..", "coding-agent");
 const cliAppDir = join(projectRoot, "..", "cli-app");
 const runtimeCoreWindowsSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "bin");
 const runtimeCoreSandboxDir = join(projectRoot, "..", "runtime-core", "sandbox", "linux");
-const imGatewayCrossTargets = [
-	{ arch: "arm64", os: "darwin" },
-	{ arch: "amd64", os: "darwin" },
-	{ arch: "amd64", os: "linux" },
-	{ arch: "arm64", os: "linux" },
-	{ arch: "amd64", os: "windows" },
-];
 const cliAppCompileTargets = {
 	"darwin-arm64": { platformTag: "darwin-arm64", bunTarget: "bun-darwin-arm64", binaryName: "vetta" },
 	"darwin-x64": { platformTag: "darwin-x64", bunTarget: "bun-darwin-x64", binaryName: "vetta" },
 	"linux-arm64": { platformTag: "linux-arm64", bunTarget: "bun-linux-arm64", binaryName: "vetta" },
 	"linux-x64": { platformTag: "linux-x64", bunTarget: "bun-linux-x64", binaryName: "vetta" },
 	"win32-x64": { platformTag: "win32-x64", bunTarget: "bun-windows-x64", binaryName: "vetta.exe" },
+};
+const imGatewayTargetByPlatformTag = {
+	"darwin-arm64": { arch: "arm64", os: "darwin" },
+	"darwin-x64": { arch: "amd64", os: "darwin" },
+	"linux-arm64": { arch: "arm64", os: "linux" },
+	"linux-x64": { arch: "amd64", os: "linux" },
+	"win32-x64": { arch: "amd64", os: "windows" },
 };
 
 // Resolve electron version from the workspace
@@ -62,6 +62,73 @@ function resolveCliAppCompileTargets() {
 		}
 		return target;
 	});
+}
+
+function resolvePlatformTagsFromEnv() {
+	const rawTargets =
+		process.env.VETTA_IM_GATEWAY_TARGET_PLATFORMS ??
+		process.env.VETTA_CLI_TARGET_PLATFORMS ??
+		process.env.VETTA_VENDOR_PLATFORM;
+	return typeof rawTargets === "string" && rawTargets.trim().length > 0
+		? rawTargets
+				.split(",")
+				.map((value) => value.trim())
+				.filter(Boolean)
+		: [`${process.platform}-${process.arch}`];
+}
+
+function resolveImGatewayTargets() {
+	return resolvePlatformTagsFromEnv().map((platformTag) => {
+		const target = imGatewayTargetByPlatformTag[platformTag];
+		if (!target) {
+			throw new Error(
+				`[prepare-pack] unsupported im-gateway platform ${platformTag}; expected one of ${Object.keys(
+					imGatewayTargetByPlatformTag,
+				).join(", ")}`,
+			);
+		}
+		return target;
+	});
+}
+
+function resolvePlatformFamilies() {
+	const families = new Set();
+	for (const platformTag of resolvePlatformTagsFromEnv()) {
+		if (platformTag.startsWith("darwin-")) families.add("darwin");
+		else if (platformTag.startsWith("linux-")) families.add("linux");
+		else if (platformTag.startsWith("win32-")) families.add("win32");
+		else {
+			throw new Error(
+				`[prepare-pack] unsupported platform ${platformTag}; expected darwin-*, linux-*, or win32-*`,
+			);
+		}
+	}
+	return families;
+}
+
+function resolveBuildResourceFilters() {
+	const filters = new Set(["pet/**/*"]);
+	const families = resolvePlatformFamilies();
+	if (families.has("darwin")) {
+		filters.add("icon.icns");
+		filters.add("icon.png");
+		filters.add("icon-dock.png");
+	}
+	if (families.has("linux")) {
+		filters.add("icon.png");
+	}
+	if (families.has("win32")) {
+		filters.add("icon.ico");
+	}
+	return [...filters];
+}
+
+function resolveSandboxResourceFilters() {
+	const filters = new Set();
+	const families = resolvePlatformFamilies();
+	if (families.has("win32")) filters.add("windows/**/*");
+	if (families.has("linux")) filters.add("linux/**/*");
+	return [...filters];
 }
 
 // Copy externalized dependencies (not bundled by Vite due to ESM compatibility issues).
@@ -189,16 +256,16 @@ for (const { dep, dir } of externalDepInfos) {
 // im-gateway sidecar binaries (extraResources)
 // =============================================================================
 //
-// Build the Go binaries for every supported target, then copy them into the
-// staged Resources/im-gateway/ directory so electron-builder picks them up via
-// extraResources. This intentionally avoids shell-specific Makefile logic so
-// Windows packaging works the same way as POSIX hosts.
+// Build the Go binaries for the requested target platform(s), then copy them
+// into the staged Resources/im-gateway/ directory so electron-builder picks
+// them up via extraResources. This intentionally avoids shell-specific Makefile
+// logic so Windows packaging works the same way as POSIX hosts.
 
 console.log("[prepare-pack] cross-building im-gateway sidecar...");
 rmSync(imGatewayDistDir, { recursive: true, force: true });
 mkdirSync(imGatewayDistDir, { recursive: true });
 
-for (const target of imGatewayCrossTargets) {
+for (const target of resolveImGatewayTargets()) {
 	const extension = target.os === "windows" ? ".exe" : "";
 	const outputPath = join(imGatewayDistDir, `im-gateway-${target.os}-${target.arch}${extension}`);
 	console.log(`  -> ${outputPath}`);
@@ -485,12 +552,57 @@ stageSystemPluginsFromArchives(join(buildStageDir, "system-plugins"), "prepare-p
 	pluginIds: packTenant.pluginIds ?? undefined,
 });
 
+function resolveExtraResources() {
+	const extraResources = [
+		{
+			from: "im-gateway",
+			to: "im-gateway",
+			filter: ["im-gateway-*"],
+		},
+		{
+			from: "coding-agent",
+			to: "coding-agent",
+			filter: ["**/*", "!**/*.map"],
+		},
+		{
+			from: "cli-app",
+			to: "cli-app",
+			filter: ["**/*"],
+		},
+		{
+			from: "vendor",
+			to: "vendor",
+			filter: ["**/*", "!**/*.pdb"],
+		},
+		{
+			from: "system-plugins",
+			to: "system-plugins",
+			filter: ["**/*"],
+		},
+		{
+			from: "build",
+			to: "build",
+			filter: resolveBuildResourceFilters(),
+		},
+	];
+	const sandboxFilters = resolveSandboxResourceFilters();
+	if (sandboxFilters.length > 0) {
+		extraResources.push({
+			from: "sandbox",
+			to: "sandbox",
+			filter: sandboxFilters,
+		});
+	}
+	return extraResources;
+}
+
 // Write electron-builder config
 const builderConfig = {
 	appId: "com.vetta.desktop",
 	productName: "Vetta",
 	executableName: "Vetta",
 	electronVersion,
+	electronLanguages: ["zh-CN", "en-US"],
 	npmRebuild: false,
 	protocols: {
 		name: "Vetta",
@@ -555,43 +667,7 @@ const builderConfig = {
 	},
 	// Sidecar binaries are picked up from the staged ./im-gateway dir
 	// (populated above by the cross-build step).
-	extraResources: [
-		{
-			from: "im-gateway",
-			to: "im-gateway",
-			filter: ["im-gateway-*"],
-		},
-		{
-			from: "coding-agent",
-			to: "coding-agent",
-			filter: ["**/*"],
-		},
-		{
-			from: "cli-app",
-			to: "cli-app",
-			filter: ["**/*"],
-		},
-		{
-			from: "sandbox",
-			to: "sandbox",
-			filter: ["**/*"],
-		},
-		{
-			from: "vendor",
-			to: "vendor",
-			filter: ["**/*"],
-		},
-		{
-			from: "system-plugins",
-			to: "system-plugins",
-			filter: ["**/*"],
-		},
-		{
-			from: "build",
-			to: "build",
-			filter: ["icon*", "pet/**/*"],
-		},
-	],
+	extraResources: resolveExtraResources(),
 	nsis: {
 		oneClick: false,
 		perMachine: false,

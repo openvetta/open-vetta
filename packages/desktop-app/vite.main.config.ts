@@ -58,7 +58,7 @@ export default defineConfig(({ mode }) => {
 				],
 			},
 			minify: false,
-			sourcemap: true,
+			sourcemap: effectiveMode === "development",
 		},
 	};
 });
