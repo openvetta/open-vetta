@@ -11,6 +11,13 @@ export interface ChangeEntry {
 	staged: boolean;
 }
 
+/** A computed "this turn's changes" result for the turn card (persisted per cwd). */
+export interface TurnChangeDelta {
+	entries: ChangeEntry[];
+	additions: number;
+	deletions: number;
+}
+
 /** Which ref namespace the graph draws: local branches or remote-tracking branches. */
 export type GraphScope = "local" | "remote";
 

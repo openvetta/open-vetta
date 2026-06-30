@@ -506,6 +506,13 @@ function buildGuidelines(tools: string[]): string {
 			"Use the exact absolute path returned by tools (do not invent or guess paths); if you genuinely only have a relative path, leave it as plain text rather than fabricating an absolute one. " +
 			"The ONLY exception is file paths that appear inside fenced code blocks or shell command examples — keep those as-is.",
 	);
+	if (hasEdit || hasWrite || hasSelectedCommandTool) {
+		guidelinesList.push(
+			"When you finish a task that produced or changed files, the VERY LAST thing in your final message MUST be a single aggregated deliverables block: a short heading line (e.g. '产物:' / 'Deliverables:') followed by a markdown UNORDERED LIST where each item is a markdown link to the file's ABSOLUTE path (per the file-link rule above) — `- [filename.ext](/abs/path/filename.ext)`. " +
+				"This block goes at the END of the conclusion, not the beginning, and it is the ONLY place you list the outputs — do NOT also scatter the same deliverable links inline earlier in the summary; mention them once, here, gathered together. " +
+				"Include only the user-facing deliverables — the files the user actually wants (e.g. the .pptx/.pdf/.docx/.xlsx/image), NOT intermediate scaffolding like unpacked XML, temp files, or lockfiles, and not files you merely read or inspected. If the task produced no files, omit the block entirely.",
+		);
+	}
 	guidelinesList.push(
 		"When you reference a web URL in your prose, render it as a markdown link with descriptive text, e.g. [Vite docs](https://vitejs.dev), instead of pasting the bare URL. " +
 			"Inside code blocks or shell command examples, keep URLs as-is.",

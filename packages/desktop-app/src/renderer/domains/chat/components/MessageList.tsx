@@ -14,11 +14,10 @@ import {
 	isCompactingAtom,
 	pluginToolCallSlotsAtom,
 	promptPredictingAtom,
-	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
-import { ArtifactCard } from "@shared/components/ArtifactCard";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { cn, pathBasename } from "@shared/lib/utils";
+import { PluginTurnCardHost } from "../../plugins/components/PluginTurnCardHost";
 import { MessageCardsHost } from "./MessageCardsHost";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
@@ -958,7 +957,7 @@ function CompactionIndicator(): JSX.Element {
 	);
 }
 
-/** Footer component rendered below the virtualized list — contains compaction indicator, artifacts */
+/** Footer component rendered below the virtualized list — compaction indicator, streaming, plugin turn cards */
 const ListFooter = memo(function ListFooter({
 	isCompacting,
 	showWaiting,
@@ -967,8 +966,6 @@ const ListFooter = memo(function ListFooter({
 	/** assistant 消息尚未出现、但已在 streaming 的空档，需要先给出「正在回复」提示。 */
 	showWaiting: boolean;
 }) {
-	const files = useAtomValue(turnModifiedFilesAtom);
-	if (!isCompacting && !showWaiting && files.length === 0) return <div style={{ height: 64 }} />;
 	return (
 		<div className="mx-auto flex max-w-3xl flex-col gap-2 px-5 pt-1 pb-16">
 			<AnimatePresence initial={false}>
@@ -979,7 +976,7 @@ const ListFooter = memo(function ListFooter({
 					<StreamingIndicator />
 				</div>
 			)}
-			<ArtifactCard files={files} />
+			<PluginTurnCardHost />
 		</div>
 	);
 });

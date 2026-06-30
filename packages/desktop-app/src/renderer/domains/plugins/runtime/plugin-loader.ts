@@ -35,6 +35,7 @@ import type {
 	PluginPermission,
 	PluginSettingsApi,
 	PluginToolCallSlotContribution,
+	PluginTurnCardContribution,
 } from "@vetta/plugin-sdk";
 import { resolveCatalogKey } from "@vetta/plugin-sdk";
 import { getDefaultStore } from "jotai";
@@ -62,6 +63,7 @@ export interface LoadedPlugin {
 	inputActions: PluginInputActionContribution[];
 	cardRenderers: PluginCardRendererContribution[];
 	toolCallSlots: PluginToolCallSlotContribution[];
+	turnCards: PluginTurnCardContribution[];
 	dispose(): Promise<void>;
 }
 
@@ -344,6 +346,7 @@ function createContext(
 	inputActions: PluginInputActionContribution[],
 	cardRenderers: PluginCardRendererContribution[],
 	toolCallSlots: PluginToolCallSlotContribution[],
+	turnCards: PluginTurnCardContribution[],
 	settingsApi: PluginSettingsApi,
 	onChanged: () => void,
 	pendingAgentRegistrations: Promise<void>[],
@@ -516,6 +519,29 @@ function createContext(
 			},
 		};
 	};
+	const registerTurnCard = (contribution: PluginTurnCardContribution): Disposable => {
+		createPermissionApi(plugin).require("ui.slot.turn-card");
+		if (typeof contribution.id !== "string" || contribution.id.trim().length === 0) {
+			throw new Error("Turn card id is required");
+		}
+		if (typeof contribution.component !== "function" && typeof contribution.component !== "object") {
+			throw new Error("Turn card component is invalid");
+		}
+		const normalized: PluginTurnCardContribution = {
+			id: `${plugin.id}:${contribution.id}`,
+			component: contribution.component,
+			scope_use: contribution.scope_use,
+		};
+		turnCards.push(normalized);
+		onChanged();
+		return {
+			dispose: () => {
+				const index = turnCards.findIndex((card) => card.id === normalized.id);
+				if (index >= 0) turnCards.splice(index, 1);
+				onChanged();
+			},
+		};
+	};
 	const openActivityTab = (tabId: string, options?: PluginOpenActivityTabOptions): void => {
 		createPermissionApi(plugin).require("ui.slot.activity-tab");
 		if (typeof tabId !== "string" || tabId.trim().length === 0) {
@@ -584,6 +610,7 @@ function createContext(
 			registerInputAction,
 			registerCardRenderer,
 			registerToolCallSlot,
+			registerTurnCard,
 			openActivityTab,
 			setEditImageAttachment,
 			previewImage,
@@ -806,6 +833,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 	const inputActions: PluginInputActionContribution[] = [];
 	const cardRenderers: PluginCardRendererContribution[] = [];
 	const toolCallSlots: PluginToolCallSlotContribution[] = [];
+	const turnCards: PluginTurnCardContribution[] = [];
 	const disposers: Array<() => void> = [];
 	const styleHandle = loadPluginStyles(plugin);
 	await window.vetta.plugins.beginAgentContributionsLoad(plugin.id, activationId);
@@ -826,6 +854,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		inputActions,
 		cardRenderers,
 		toolCallSlots,
+		turnCards,
 		settingsApi,
 		onChanged,
 		pendingAgentRegistrations,
@@ -859,6 +888,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 		inputActions,
 		cardRenderers,
 		toolCallSlots,
+		turnCards,
 		dispose: async () => {
 			debugPluginAgent("dispose start", { pluginId: plugin.id, activationId });
 			await definition.deactivate?.();
@@ -872,6 +902,7 @@ export async function loadPlugin(plugin: InstalledPlugin, onChanged: () => void)
 			inputActions.splice(0, inputActions.length);
 			cardRenderers.splice(0, cardRenderers.length);
 			toolCallSlots.splice(0, toolCallSlots.length);
+			turnCards.splice(0, turnCards.length);
 			onChanged();
 		},
 	};

@@ -114,6 +114,40 @@ export async function diffStat(root: string): Promise<{ additions: number; delet
 	return { additions, deletions };
 }
 
+/**
+ * Added/deleted line totals for a specific set of change entries (not the whole
+ * tree) — used by the turn card to stat only THIS turn's files. Untracked
+ * entries count every line as an addition via `--no-index`.
+ */
+export async function diffStatForEntries(
+	root: string,
+	entries: readonly ChangeEntry[],
+): Promise<{ additions: number; deletions: number }> {
+	const per = await Promise.all(
+		entries.map(async (entry) => {
+			if (entry.code === "U") {
+				const r = await git(root, ["diff", "--no-index", "--numstat", "--", "/dev/null", entry.path]).catch(
+					() => null,
+				);
+				return r ? { a: sumNumstat(r.stdout, true).a, d: 0 } : { a: 0, d: 0 };
+			}
+			const head = await git(root, ["diff", "HEAD", "--numstat", "--", entry.path]);
+			if (head.exitCode === 0 || head.exitCode === 1) return sumNumstat(head.stdout);
+			// No HEAD yet: combine staged + unstaged for this path.
+			const cached = sumNumstat((await git(root, ["diff", "--cached", "--numstat", "--", entry.path])).stdout);
+			const unstaged = sumNumstat((await git(root, ["diff", "--numstat", "--", entry.path])).stdout);
+			return { a: cached.a + unstaged.a, d: cached.d + unstaged.d };
+		}),
+	);
+	let additions = 0;
+	let deletions = 0;
+	for (const p of per) {
+		additions += p.a;
+		deletions += p.d;
+	}
+	return { additions, deletions };
+}
+
 async function runGit(root: string, args: string[]): Promise<void> {
 	const res = await getGitCommand().run("git", args, { cwd: root, timeoutMs: 60_000 });
 	if (res.exitCode !== 0) throw new Error(res.stderr.trim() || `git ${args[0]} failed (exit ${res.exitCode})`);

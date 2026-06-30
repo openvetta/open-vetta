@@ -22,6 +22,7 @@ import {
 	inputValueAtom,
 	isCompactingAtom,
 	isReloadingMcpAtom,
+	isStreamingAtom,
 	knowledgeRetrievalActiveAtom,
 	lastActiveSessionAtom,
 	lastTurnUsageAtom,
@@ -38,8 +39,13 @@ import {
 	sessionExecutionModeAtom,
 	type TodoItem,
 	todoItemsBySessionAtom,
-	turnModifiedFilesAtom,
 } from "@shared/store/atoms";
+import {
+	enqueueMessageAtom,
+	getQueueForSession,
+	messageQueueBySessionAtom,
+	removeQueuedMessageAtom,
+} from "@shared/store/message-queue-atoms";
 import { useNavigate } from "@tanstack/react-router";
 import type { ConversationScenario } from "@vetta/plugin-sdk";
 import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
@@ -51,7 +57,6 @@ import {
 	appendThinkingDelta,
 	bumpOpenSessionToken,
 	currentUnsubscribe,
-	extractModifiedFiles,
 	finalizeMessage,
 	fullHistoryToChat,
 	getOpenSessionToken,
@@ -71,6 +76,8 @@ interface SessionManagerResult {
 	/** overrideText：以指定文本作为独立 prompt 直发（输入预测建议用），省略则按输入框内容发送。 */
 	sendMessage: (overrideText?: string) => Promise<void>;
 	abortMessage: () => Promise<void>;
+	/** 立即发送某条排队消息：streaming 时先中止当前流、等 aborted 再发，空闲则直发。 */
+	sendQueuedNow: (runtimeId: string, id: string) => Promise<void>;
 	openSessionRef: React.MutableRefObject<
 		((cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>) | undefined
 	>;
@@ -86,8 +93,8 @@ export function useSessionManager(): SessionManagerResult {
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	// 镜像输入相关 atom 到 ref：sendMessage 调用时读 ref.current，避免把这些高频变化
 	// 的值放进它的 useCallback 依赖。否则每打一个字 inputValue 一变，sendMessage 就换
-	// 身份 → 作为 onSend 一路传到 MessageList 的 Virtuoso footer，触发整块重挂载，产物
-	// 列表（ArtifactCard）入场动画反复重放，表现为打字时产物列表闪烁。
+	// 身份 → 作为 onSend 一路传到 MessageList 的 Virtuoso footer，触发整块重挂载，footer
+	// 内的插件 turn 卡随之闪烁/重查。
 	const inputValueRef = useRef(inputValue);
 	inputValueRef.current = inputValue;
 	const attachedImagesRef = useRef(attachedImages);
@@ -114,7 +121,6 @@ export function useSessionManager(): SessionManagerResult {
 	const todoItemsMap = useAtomValue(todoItemsBySessionAtom);
 	const todoItemsMapRef = useRef(todoItemsMap);
 	todoItemsMapRef.current = todoItemsMap;
-	const setTurnModifiedFiles = useSetAtom(turnModifiedFilesAtom);
 	const setIsCompacting = useSetAtom(isCompactingAtom);
 	const setIsReloadingMcp = useSetAtom(isReloadingMcpAtom);
 	const setInlineFilePreview = useSetAtom(inlineFilePreviewAtom);
@@ -140,6 +146,10 @@ export function useSessionManager(): SessionManagerResult {
 	// Sessions for which auto-title has already been attempted (or skipped because
 	// the session was opened with prior history / already had a name).
 	const autoTitledSessionsRef = useRef<Set<string>>(new Set());
+	// sendQueuedNow 中止当前流后，需等到 aborted 生命周期事件真正落地再发下一条
+	// （abort() 的 promise resolve 时机不保证代表 turn 已结束）。按 runtimeId 暂存
+	// resolver，在下方 subscribe 的 aborted 分支命中时 resolve。
+	const pendingAbortResolversRef = useRef<Map<string, () => void>>(new Map());
 	const setPromptSuggestions = useSetAtom(promptSuggestionsAtom);
 	const setPromptPredicting = useSetAtom(promptPredictingAtom);
 	const markPredicting = useCallback(
@@ -244,7 +254,6 @@ export function useSessionManager(): SessionManagerResult {
 			// 分支 + runningSessionPathsAtom 派生兜底会把 TypingIndicator 重新拉回来。
 			setActiveSessionStreaming(false);
 			setIsCompacting(false);
-			setTurnModifiedFiles([]);
 			// Clear messages immediately so the user sees the switch take effect
 			// instead of staring at the old session while history loads.
 			setChatMessages([]);
@@ -302,7 +311,6 @@ export function useSessionManager(): SessionManagerResult {
 			const history = await historyPromise;
 			const mapped = fullHistoryToChat(history);
 			setChatMessages(mapped);
-			setTurnModifiedFiles(extractModifiedFiles(mapped, effectiveCwd));
 
 			// If this session already has any prior turn (loaded from disk) we never
 			// want to auto-rename — only brand-new sessions on their first round.
@@ -424,7 +432,6 @@ export function useSessionManager(): SessionManagerResult {
 						});
 						setTurnStartTime(event.timestamp);
 						setActiveSessionStreaming(true);
-						setTurnModifiedFiles([]);
 					}
 					if (event.phase === "agent_end" || event.phase === "aborted") {
 						// Flush any pending deltas before finalizing
@@ -436,10 +443,16 @@ export function useSessionManager(): SessionManagerResult {
 						resetStreamState();
 						setActiveSessionStreaming(false);
 						setTurnStartTime(0);
+						// aborted 落地：唤醒等待该会话 aborted 的 sendQueuedNow，使其继续发出该条。
+						if (event.phase === "aborted") {
+							const resolve = pendingAbortResolversRef.current.get(sessionId);
+							if (resolve) {
+								pendingAbortResolversRef.current.delete(sessionId);
+								resolve();
+							}
+						}
 						// Write total duration onto the last assistant message
-						// and extract modified files from this turn
 						setChatMessages((prev) => {
-							setTurnModifiedFiles(extractModifiedFiles(prev, activeSessionRef.current?.cwd));
 							if (elapsed > 0) {
 								for (let i = prev.length - 1; i >= 0; i--) {
 									if (prev[i].role === "assistant") {
@@ -745,7 +758,6 @@ export function useSessionManager(): SessionManagerResult {
 			setSelectedModel,
 			setTodoItems,
 			setBackgroundTasks,
-			setTurnModifiedFiles,
 			flushDeltas,
 			scheduleDeltaFlush,
 			applyLocalRename,
@@ -818,21 +830,24 @@ export function useSessionManager(): SessionManagerResult {
 				setSelectedSkill(null);
 				setMentionedFiles([]);
 			}
-			const userMsg: ChatMessage = { id: nextId("user"), role: "user", text, timestamp: Date.now() };
-			if (images) {
-				userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
+			// streaming 期间发送 = 排队等下一轮：跳过「用户气泡 / 清产物列表 / 乐观侧边栏 /
+			// 清 todo」这些开启新一轮才该有的副作用，仅在下方组装好 promptReq 快照后入队。
+			// （输入框已在上方清空，符合「入队后清空输入框」语义。）
+			const streaming = getDefaultStore().get(isStreamingAtom);
+			if (!streaming) {
+				const userMsg: ChatMessage = { id: nextId("user"), role: "user", text, timestamp: Date.now() };
+				if (images) {
+					userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
+				}
+				setChatMessages((prev) => [...prev, userMsg]);
 			}
-			setChatMessages((prev) => [...prev, userMsg]);
-			// 新一轮开始：立刻清空上一轮的产物列表，不要等 agent_start 事件 IPC
-			// 往返回来才清——那个窗口里上一轮的卡片会挂在新 user 气泡下方一闪而散。
-			setTurnModifiedFiles([]);
 
 			// Optimistically expose this session in the sidebar before the disk file
 			// has been flushed (SessionManager only writes after the assistant's
 			// first message). Use the user's prompt prefix as a temporary label;
 			// auto-title or the next loadSessions will overwrite as appropriate.
 			const sp = activeSessionRef.current?.sessionPath;
-			if (sp) {
+			if (!streaming && sp) {
 				// ADR-0007：「对话」session 的 cwd 是默认项目根下的 per-session 子目录，
 				// 但侧边栏 sessionsMap / 默认列表都挂在项目根 bucket 上。乐观行必须落到根
 				// bucket，否则既不在「会话」列表显示，auto-title 的 applyLocalRename(root,…)
@@ -873,7 +888,8 @@ export function useSessionManager(): SessionManagerResult {
 			// 非批量任务项目：若该 session 已有 todo 且全部 done，在发起下一个
 			// prompt 前先清空 todo 列表，让用户开启新一轮工作时面板回到干净状态。
 			// 批量任务依赖严格 todo 机制，不在此清空；scene 等 lock 状态后端会自行拒绝。
-			{
+			// streaming 入队时不清：当前正在跑的回合仍拥有这些 todo。
+			if (!streaming) {
 				const projectType = projectsRef.current.find((p) => p.cwd === session.cwd)?.type;
 				if (projectType !== "batch") {
 					const items = todoItemsMapRef.current.get(session.runtimeId) ?? [];
@@ -924,6 +940,15 @@ export function useSessionManager(): SessionManagerResult {
 				promptReq.metadata = { ...promptReq.metadata, editImageId: editAttachment.id };
 				pluginStore.set(editImageAttachmentAtom, null);
 			}
+			// streaming 中：把组装好的完整 promptReq 快照入队，等当前回合自然 agent_end 后
+			// 由 subscribe 的出队逻辑作为新一轮 prompt 发出；本次不调用 prompt。
+			if (streaming) {
+				pluginStore.set(enqueueMessageAtom, {
+					runtimeId: session.runtimeId,
+					item: { id: crypto.randomUUID(), request: promptReq, displayText: rawText },
+				});
+				return;
+			}
 			try {
 				await waitForPluginHostReady();
 				await window.vetta.session.prompt(session.runtimeId, promptReq);
@@ -947,14 +972,13 @@ export function useSessionManager(): SessionManagerResult {
 		[
 			// 输入相关值改为读 ref（inputValue/attachedImages/selectedSkill/mentionedFiles/
 			// selectedModel），不再入依赖，保证 sendMessage 身份在打字时稳定，避免下游
-			// Virtuoso footer 重挂载导致产物列表闪烁。
+			// Virtuoso footer 重挂载（footer 内的插件 turn 卡会因此闪烁/重查）。
 			activeSession,
 			setInputValue,
 			setAttachedImages,
 			setSelectedSkill,
 			setMentionedFiles,
 			setChatMessages,
-			setTurnModifiedFiles,
 			loadSessions,
 			ensureLocalSession,
 			setPromptSuggestions,
@@ -967,10 +991,53 @@ export function useSessionManager(): SessionManagerResult {
 		await window.vetta.session.abort(activeSession.runtimeId);
 	}, [activeSession]);
 
+	// 立即发送某条排队消息（队列面板点击 / 拖拽后即时发）：取出即从队列移除；
+	// 若该会话正在 streaming，先中止当前流并等 aborted 真正落地，再作为普通 prompt 发出；
+	// 空闲则直接发。其余排队项保留，待这条自然结束后由出队逻辑继续逐条发。
+	const sendQueuedNow = useCallback(
+		async (runtimeId: string, id: string) => {
+			const store = getDefaultStore();
+			const item = getQueueForSession(store.get(messageQueueBySessionAtom), runtimeId).find((q) => q.id === id);
+			if (!item) return;
+			// 取出即移除，避免后续自然 agent_end 的出队逻辑再次发它。
+			store.set(removeQueuedMessageAtom, { runtimeId, id });
+
+			if (store.get(isStreamingAtom)) {
+				// 注册 aborted 事件驱动的等待，在 subscribe 命中 aborted 时 resolve。
+				const aborted = new Promise<void>((resolve) => {
+					pendingAbortResolversRef.current.set(runtimeId, resolve);
+				});
+				try {
+					await window.vetta.session.abort(runtimeId);
+				} catch (err) {
+					console.error("[useSessionManager.sendQueuedNow] abort failed:", err);
+				}
+				await aborted;
+			}
+
+			const queuedUserMsg: ChatMessage = {
+				id: nextId("user"),
+				role: "user",
+				text: item.request.text,
+				timestamp: Date.now(),
+			};
+			setChatMessages((prev) => [...prev, queuedUserMsg]);
+			try {
+				await waitForPluginHostReady();
+				await window.vetta.session.prompt(runtimeId, item.request);
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				console.error("[useSessionManager.sendQueuedNow] prompt rejected:", err);
+				setChatMessages((prev) => appendError(prev, message));
+			}
+		},
+		[setChatMessages],
+	);
+
 	// Expose the full send path to the plugin conversation bridge (ctx.conversation.sendPrompt).
 	pluginSendMessageRef.current = sendMessage;
 
-	return { openSession, sendMessage, abortMessage, openSessionRef };
+	return { openSession, sendMessage, abortMessage, sendQueuedNow, openSessionRef };
 }
 
 /**

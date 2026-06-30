@@ -403,7 +403,7 @@ export function ActivityPanel({
 		cwd != null && !knowledgeHistory && (restorableTabs.length > 0 || overflowTabs.length > 0);
 
 	// 窄屏：活动面板不再挤压内容，改为从底部升起的全宽 bottom sheet。
-	// 窄屏不走内嵌预览（FilesPanel/ArtifactCard 等改用全屏 Dialog），故无需特殊处理。
+	// 窄屏不走内嵌预览（FilesPanel 等改用全屏 Dialog），故无需特殊处理。
 	// narrowSheet 时完全不渲染 in-flow 的 <aside>，否则父级 flex 的 gap 会在
 	// 右侧多留一道间距，导致输入栏左右边距不一致。
 	const narrowSheet = narrow;

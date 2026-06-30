@@ -1,7 +1,7 @@
 {
 	"id": "git",
 	"name": "%plugin.name%",
-	"version": "0.2.3",
+	"version": "0.2.7",
 	"defaultLocale": "zh",
 	"pluginApiVersion": "^1.0.0",
 	"runtime": "module-federation",
@@ -11,7 +11,7 @@
 		"expose": "./plugin"
 	},
 	"styles": ["dist/style.css"],
-	"permissions": ["ui.slot.activity-tab", "agent.session.read", "agent.command.run"],
+	"permissions": ["ui.slot.activity-tab", "ui.slot.turn-card", "agent.session.read", "agent.command.run"],
 	"commands": ["git"],
 	"description": "%plugin.description%",
 	"author": "Vetta"

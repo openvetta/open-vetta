@@ -7,6 +7,7 @@ import type {
 	PluginInputActionContribution,
 	PluginLocales,
 	PluginToolCallSlotContribution,
+	PluginTurnCardContribution,
 } from "@vetta/plugin-sdk";
 import { atom } from "jotai";
 
@@ -139,6 +140,23 @@ export interface RegisteredToolCallSlot {
 
 /** Tool-call renderers keyed by `toolName`. First registered renderer wins. */
 export const pluginToolCallSlotsAtom = atom<RegisteredToolCallSlot[]>([]);
+
+/** A turn-card contribution registered by a loaded plugin（消息列表底部插槽）. */
+export interface RegisteredTurnCard {
+	pluginId: string;
+	/** Namespaced id (`${pluginId}:${contributionId}`). */
+	cardId: string;
+	component: PluginTurnCardContribution["component"];
+	/** 允许出现的对话场景（fail-closed：缺省/空 = 任何会话都不显示）。见契约。 */
+	scope_use?: PluginTurnCardContribution["scope_use"];
+}
+
+/**
+ * Turn cards published by PluginGlobalSlotHost, consumed by PluginTurnCardHost in
+ * the message-list footer. Not tool-bound — each plugin component owns its own
+ * visibility (renders null when inapplicable).
+ */
+export const pluginTurnCardsAtom = atom<RegisteredTurnCard[]>([]);
 
 /**
  * The image a plugin (image-gen) bound as the "edit target" via

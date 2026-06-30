@@ -6,11 +6,13 @@ import {
 	pluginI18nByIdAtom,
 	pluginInputActionsAtom,
 	pluginToolCallSlotsAtom,
+	pluginTurnCardsAtom,
 	type RegisteredActivityTab,
 	type RegisteredCardRenderer,
 	type RegisteredFilePreview,
 	type RegisteredInputAction,
 	type RegisteredToolCallSlot,
+	type RegisteredTurnCard,
 } from "@shared/store/atoms";
 import { useSetAtom } from "jotai";
 import { Component, useEffect, useMemo, useReducer, useState } from "react";
@@ -54,6 +56,7 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 	const setInputActions = useSetAtom(pluginInputActionsAtom);
 	const setCardRenderers = useSetAtom(pluginCardRenderersAtom);
 	const setToolCallSlots = useSetAtom(pluginToolCallSlotsAtom);
+	const setTurnCards = useSetAtom(pluginTurnCardsAtom);
 	const setPluginI18n = useSetAtom(pluginI18nByIdAtom);
 
 	useEffect(() => {
@@ -211,6 +214,21 @@ export function PluginGlobalSlotHost(): JSX.Element | null {
 		setToolCallSlots(toolCallSlots);
 		return () => setToolCallSlots([]);
 	}, [plugins, revision, setToolCallSlots]);
+
+	// Publish turn cards (message-list footer slot). Not tool-bound — each plugin
+	// component owns its own visibility; PluginTurnCardHost renders them.
+	useEffect(() => {
+		const turnCards: RegisteredTurnCard[] = plugins.flatMap((plugin) =>
+			plugin.turnCards.map((card) => ({
+				pluginId: plugin.id,
+				cardId: card.id,
+				component: card.component,
+				scope_use: card.scope_use,
+			})),
+		);
+		setTurnCards(turnCards);
+		return () => setTurnCards([]);
+	}, [plugins, revision, setTurnCards]);
 
 	if (slots.length === 0) return null;
 
