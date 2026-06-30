@@ -1257,6 +1257,15 @@
   "achievement": {
     "title": "Achievements",
     "subtitle": "Progress through nine stages and explore badges earned and yet to be unlocked.",
+    "setSelector": "Badge series",
+    "sets": {
+      "fanren": "A Record of a Mortal's Journey",
+      "classic": "Classic badges"
+    },
+    "setSubtitles": {
+      "fanren": "Advance through the fifteen canonical cultivation realms and view current and upcoming realm badges.",
+      "classic": "Progress through nine stages and explore badges earned and yet to be unlocked."
+    },
     "dragHint": "Drag or scroll to view all achievements",
     "previous": "View previous achievement",
     "next": "View next achievement",
@@ -1320,6 +1329,66 @@
       "rejuvenationEpic": {
         "name": "Epic of Rejuvenation",
         "meaning": "Builds on cultural confidence and red heritage while looking toward modernization and national rejuvenation, symbolizing principled innovation and purposeful action."
+      },
+      "mortalWarrior": {
+        "name": "Mortal Warrior",
+        "meaning": "A secular martial stage before drawing spiritual energy into the body. There is no orthodox cultivation base yet, and the body remains close to ordinary mortals."
+      },
+      "qiRefiningRealm": {
+        "name": "Qi Refining",
+        "meaning": "The initial entry realm of cultivation, divided into thirteen layers. Cultivators absorb worldly spiritual energy into magic power, with fragile foundations and mortal-like longevity."
+      },
+      "foundationBuildingRealm": {
+        "name": "Foundation Building",
+        "meaning": "The cultivation foundation is stabilized and scattered power becomes condensed. Cultivators can fly on artifacts, cast spells, practice fasting, and gain a longer lifespan."
+      },
+      "goldenCoreRealm": {
+        "name": "Golden Core",
+        "meaning": "Magic power condenses into a golden core, strengthening divine sense, body, and combat ability. A personal bonded treasure can be refined at this stable stage."
+      },
+      "nascentSoulRealm": {
+        "name": "Nascent Soul",
+        "meaning": "The golden core breaks and gives birth to a nascent soul, allowing the spirit to persist independently. Even with the body destroyed, rebirth remains possible."
+      },
+      "spiritTransformationRealm": {
+        "name": "Spirit Transformation",
+        "meaning": "Cultivation breaks personal limits and can sense and borrow worldly vital energy. It is the human realm's peak and qualifies one for ascension."
+      },
+      "voidRefiningRealm": {
+        "name": "Void Refining",
+        "meaning": "The starting point of higher cultivation, where the nascent soul and primordial spirit transform deeply. Rule manipulation, divine abilities, and lifespan rise sharply."
+      },
+      "bodyFusionRealm": {
+        "name": "Body Fusion",
+        "meaning": "Body, primordial spirit, and magic power merge into one complete foundation. Strength far surpasses Void Refining cultivators and can guard a region."
+      },
+      "greatAscensionRealm": {
+        "name": "Great Ascension",
+        "meaning": "The peak realm of lower-world cultivation. Body, divine sense, and law comprehension reach worldly limits, forming the foundation to challenge the immortal world."
+      },
+      "tribulationTranscendRealm": {
+        "name": "Tribulation Transcendence",
+        "meaning": "A transitional ascension trial where cultivators endure heavenly thunder to temper body and soul. Passing it breaks lower-world limits and enters immortal cultivation."
+      },
+      "trueImmortalRealm": {
+        "name": "True Immortal",
+        "meaning": "The orthodox initial immortal realm, where mortal magic power is fully shed and pure immortal essence is refined, granting an immortal status and long lifespan."
+      },
+      "goldenImmortalRealm": {
+        "name": "Golden Immortal",
+        "meaning": "An advanced immortal rank beyond True Immortal, requiring opened immortal apertures and source-law comprehension. Three decline tribulations temper immortal body and soul."
+      },
+      "taiyiJadeImmortalRealm": {
+        "name": "Taiyi Jade Immortal",
+        "meaning": "A top immortal realm beyond Golden Immortal constraints, passing dual decline tribulations. Law comprehension is profound enough to govern an immortal domain."
+      },
+      "daluoGoldenImmortalRealm": {
+        "name": "Daluo Golden Immortal",
+        "meaning": "A high peak immortal realm with deep mastery of great dao laws, able to influence cosmic order. It requires severing the three corpse obsessions."
+      },
+      "daoAncestorRealm": {
+        "name": "Dao Ancestor",
+        "meaning": "The ultimate cultivation realm, severing all three corpse obsessions and fully perceiving the dao's source. It commands complete heavenly laws and stands at the summit."
       }
     }
   }

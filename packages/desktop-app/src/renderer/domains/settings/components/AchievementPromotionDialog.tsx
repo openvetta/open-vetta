@@ -23,7 +23,9 @@ export function AchievementPromotionDialog({
 	const [confettiTriggerToken, setConfettiTriggerToken] = useState(0);
 	const [textVisible, setTextVisible] = useState(false);
 	const textRef = useRef<HTMLDivElement>(null);
-	const name = t(`achievement.stages.${achievement.id}.name`);
+	const name = t(`achievement.stages.${achievement.id}.name`, {
+		defaultValue: achievement.id,
+	});
 	const revealText = useCallback(() => {
 		textRef.current?.animate(
 			[
