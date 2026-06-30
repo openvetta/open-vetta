@@ -24,6 +24,7 @@ export type PluginPermission =
 	| "ui.slot.input-action"
 	| "ui.slot.message"
 	| "ui.slot.tool-call"
+	| "ui.slot.turn-card"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
@@ -301,6 +302,26 @@ export interface PluginToolCallSlotContribution {
 	component: ComponentType<PluginToolCallSlotProps>;
 }
 
+/**
+ * A card rendered at the bottom of the message list for the LATEST turn — NOT
+ * bound to a tool call. The host mounts `component` in the footer slot and
+ * re-mounts it each session/turn; the plugin owns visibility entirely (it reads
+ * live state via SDK hooks — `useActiveConversation`, `useConversationMessages`,
+ * `ctx.conversation.on("turn-end")` — and returns `null` to render nothing,
+ * e.g. git renders only inside a repo that has changes). `scope_use` gates which
+ * conversation scenarios it may appear in (**fail-closed**, mirrors the other
+ * slots). `id` must be unique within the plugin.
+ */
+export interface PluginTurnCardContribution {
+	id: string;
+	component: ComponentType;
+	/**
+	 * 允许该 turn 卡出现的对话场景 slug 列表（镜像其它插槽的 scope_use）。**fail-closed**：
+	 * 未声明/空数组 = 任何会话都不显示；声明后仅在列出的场景里出现（如 `["project"]`）。
+	 */
+	scope_use?: readonly ConversationScenario[];
+}
+
 export interface PluginUiApi {
 	registerGlobalSlot(contribution: PluginGlobalSlotContribution): Disposable;
 	/**
@@ -334,6 +355,14 @@ export interface PluginUiApi {
 	 * use it to render UI for a plugin's own agent tool output.
 	 */
 	registerToolCallSlot(contribution: PluginToolCallSlotContribution): Disposable;
+	/**
+	 * Register a card rendered at the bottom of the message list for the latest
+	 * turn — NOT bound to a tool call. The host mounts the component in the
+	 * footer slot; the plugin owns visibility (return `null` to render nothing,
+	 * e.g. git renders only in a repo with changes). Gated by `scope_use`
+	 * (fail-closed). Needs the `ui.slot.turn-card` permission.
+	 */
+	registerTurnCard(contribution: PluginTurnCardContribution): Disposable;
 	/**
 	 * Programmatically attach (if needed) and activate one of this plugin's
 	 * own activity tabs in the current conversation's activity panel. `tabId`

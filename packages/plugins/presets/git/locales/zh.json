@@ -38,5 +38,8 @@
 	"status.added": "已添加",
 	"status.deleted": "已删除",
 	"status.renamed": "已重命名",
-	"status.untracked": "未跟踪"
+	"status.untracked": "未跟踪",
+	"turnCard.summary": "{{count}} 个文件变更",
+	"turnCard.open": "查看 Git 变更",
+	"turnCard.viewAll": "查看所有变更（还有 {{count}} 项）"
 }

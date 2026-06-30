@@ -38,5 +38,8 @@
 	"status.added": "added",
 	"status.deleted": "deleted",
 	"status.renamed": "renamed",
-	"status.untracked": "untracked"
+	"status.untracked": "untracked",
+	"turnCard.summary": "{{count}} files changed",
+	"turnCard.open": "View Git changes",
+	"turnCard.viewAll": "View all changes ({{count}} more)"
 }

@@ -5,6 +5,7 @@ export type PluginPermission =
 	| "ui.slot.input-action"
 	| "ui.slot.message"
 	| "ui.slot.tool-call"
+	| "ui.slot.turn-card"
 	| "agent.session.read"
 	| "agent.session.write"
 	| "agent.command.run"
