@@ -42,7 +42,6 @@ export type SettingsTab =
 	| "context"
 	| "plugins"
 	| "knowledge"
-	| "achievements"
 	| "pet";
 
 // ─── Theme ───

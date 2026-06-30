@@ -7,7 +7,7 @@ import {
 	normalizePetVideoSizeForWindow,
 } from "../../../../shared/pet-config";
 import type { PetBridge } from "../../../../shared/pet-ipc";
-import { PetDebugOverlay, PetDragWindowBorder } from "./PetDebugOverlay";
+import { PetDebugOverlay } from "./PetDebugOverlay";
 import { PetSpeechBubble } from "./PetSpeechBubble";
 import { PetVideoSurface } from "./PetVideoSurface";
 import { getActionDuration, pickNextAction } from "../services/pet-action-picker";
@@ -137,7 +137,7 @@ export function PetApp(): JSX.Element {
 		}, duration);
 	};
 
-	const { handlePointerDown, handlePointerLeave, handlePointerMove, handleWheel, isDraggingWindow } = usePetWindowInteractions({
+	const { handlePointerDown, handlePointerLeave, handlePointerMove, handleWheel } = usePetWindowInteractions({
 		actionId,
 		debugFrame,
 		maxVideoSize,
@@ -307,10 +307,6 @@ export function PetApp(): JSX.Element {
 				videoSize={videoSize}
 				windowSize={windowSize}
 				onWindowSizeChange={(size) => setWindowSize({ width: size, height: size })}
-			/>
-			<PetDragWindowBorder
-				debugFrame={debugFrame}
-				visible={isDraggingWindow}
 			/>
 			<div
 				ref={contentRef}

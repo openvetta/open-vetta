@@ -98,27 +98,3 @@ export function PetVideoDebugBorder({ debugFrame }: { debugFrame: boolean }): JS
 	if (!debugFrame) return null;
 	return <DebugBorder tone="video" />;
 }
-
-export function PetDragWindowBorder({
-	debugFrame,
-	visible,
-}: {
-	debugFrame: boolean;
-	visible: boolean;
-}): JSX.Element | null {
-	if (debugFrame) return null;
-	return (
-		<div
-			className={`pointer-events-none fixed inset-0 z-30 overflow-hidden transition-opacity duration-200 ease-out ${
-				visible ? "opacity-100" : "opacity-0"
-			}`}
-		>
-			<div
-				className="absolute box-border border border-amber-500"
-				style={{ inset: 1 }}
-			>
-				<DebugCorners tone="video" />
-			</div>
-		</div>
-	);
-}

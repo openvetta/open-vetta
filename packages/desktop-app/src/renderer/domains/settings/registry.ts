@@ -32,7 +32,6 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	{ key: "environment", label: "应用环境", labelKey: "tabEnvironment", icon: "icon-[mdi--package-variant-closed]" },
 	{ key: "plugins", label: "插件设置", labelKey: "tabPlugins", icon: "icon-[mdi--puzzle-outline]" },
 	{ key: "knowledge", label: "知识库设置", labelKey: "tabKnowledge", icon: "icon-[mdi--database-outline]" },
-	{ key: "achievements", label: "成就", labelKey: "tabAchievements", icon: "icon-[solar--cup-star-linear]" },
 	{ key: "pet", label: "桌宠", labelKey: "tabPet", icon: "icon-[mdi--paw-outline]" },
 	{
 		key: "permissions",
