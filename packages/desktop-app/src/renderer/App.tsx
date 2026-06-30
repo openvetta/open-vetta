@@ -14,6 +14,7 @@ import { useAuth } from "./domains/auth/hooks/useAuth";
 import { useGlobalShortcuts } from "./shared/hooks/useShortcuts";
 import { useUpdaterInit } from "./shared/hooks/useUpdaterInit";
 import { useRunningSessionsSync } from "./shared/hooks/useRunningSessionsSync";
+import { useMessageQueueDispatcher } from "./shared/hooks/useMessageQueueDispatcher";
 import { useNarrowScreen } from "./shared/hooks/useNarrowScreen";
 import { useAppInit } from "./domains/chat/hooks/useAppInit";
 import { useSessionManager } from "./domains/chat/hooks/useSessionManager";
@@ -206,6 +207,8 @@ export function RootLayout(): JSX.Element {
 	// 全局 running-sessions 订阅必须挂在始终挂载的 App 上：它是 streaming 状态真值
 	// 来源之一，挂在会被卸载的 Sidebar 上会在卸载期间丢 RUNNING_CHANGED 事件。
 	useRunningSessionsSync();
+	// 全局消息队列调度：覆盖 active + 后台会话，自然结束时统一从队首出队并续发。
+	useMessageQueueDispatcher();
 	const { openSession, sendMessage } = useSessionManager();
 
 	// 刷新根路由时先用持久化的 cwd + sessionPath 重建 runtime session。

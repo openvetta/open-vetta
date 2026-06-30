@@ -136,7 +136,12 @@
 			"permissionLabel": "Permission request",
 			"todoDesc": "{{done}}/{{total}} {{content}}",
 			"todoDescSimple": "{{done}}/{{total}}",
-			"todoLabel": "To-do"
+			"todoLabel": "To-do",
+			"queueDelete": "Remove",
+			"queueDesc": "{{count}} queued",
+			"queueEmpty": "No queued messages",
+			"queueLabel": "Queued",
+			"queueSendNow": "Send now"
 		},
 		"hint": {
 			"newline": "⇧⏎ Newline",

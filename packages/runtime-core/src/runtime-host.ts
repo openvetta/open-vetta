@@ -130,6 +130,13 @@ interface InFlightBuffer {
 
 const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
 
+/**
+ * running-changed 广播的回合结束语义。仅 "agent_end"（自然结束）会触发 renderer
+ * 侧的消息队列出队；"aborted" / "error" 保留队列不出队。session 销毁等非回合结束
+ * 的 markRunning(false) 不带 reason（undefined）。
+ */
+export type RunningChangedReason = "agent_end" | "aborted" | "error";
+
 function summarizeAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Record<string, unknown> {
 	return {
 		systemPromptPlugins: agentPlugins?.systemPromptContributions?.map((item) => item.pluginId) ?? [],
@@ -210,7 +217,9 @@ export class RuntimeHost implements SessionFacade {
 	 * runningChangedHandlers 广播给宿主（main 进程 IPC 层），用于侧边栏渲染 spin。
 	 */
 	private runningSessionPaths = new Set<string>();
-	private runningChangedHandlers = new Set<(sessionPath: string, running: boolean) => void>();
+	private runningChangedHandlers = new Set<
+		(sessionPath: string, running: boolean, sessionId?: string, reason?: RunningChangedReason) => void
+	>();
 	private readonly getDefaultExecutionMode: () => SessionExecutionMode | Promise<SessionExecutionMode>;
 	private readonly sandboxHostPath: string | undefined;
 	private readonly linuxBubblewrapPath: string | undefined;
@@ -537,7 +546,7 @@ export class RuntimeHost implements SessionFacade {
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];
 				buffer.isActive = true;
-				this.markRunning(session.sessionFile, true);
+				this.markRunning(session.sessionFile, true, sessionId);
 				return;
 			}
 			if (event.type === "agent_end") {
@@ -545,7 +554,14 @@ export class RuntimeHost implements SessionFacade {
 				buffer.thinking = "";
 				buffer.toolCallStarts = [];
 				buffer.isActive = false;
-				this.markRunning(session.sessionFile, false);
+				// 区分自然结束 / abort / error：agent-loop 保证 agent_end 的 messages
+				// 末条恒为 assistant，stopReason 即回合结局。仅自然结束（非 aborted/error）
+				// 透传 "agent_end" reason，触发 renderer 侧队列出队。
+				const last = event.messages.at(-1);
+				const stopReason = last?.role === "assistant" ? last.stopReason : undefined;
+				const reason: RunningChangedReason =
+					stopReason === "aborted" ? "aborted" : stopReason === "error" ? "error" : "agent_end";
+				this.markRunning(session.sessionFile, false, sessionId, reason);
 				return;
 			}
 			if (event.type === "message_end") {
@@ -954,7 +970,8 @@ export class RuntimeHost implements SessionFacade {
 			this.inFlightUnsubscribers.get(existing.sessionId)?.();
 			this.inFlightUnsubscribers.delete(existing.sessionId);
 			this.inFlightBuffers.delete(existing.sessionId);
-			this.markRunning(existing.handle.session.sessionFile, false);
+			// session 销毁不是回合结束：传 sessionId 但不带 reason，避免触发出队。
+			this.markRunning(existing.handle.session.sessionFile, false, existing.sessionId);
 			existing.handle.session.dispose();
 			this.sessions.delete(existing.sessionId);
 		}
@@ -988,14 +1005,21 @@ export class RuntimeHost implements SessionFacade {
 	 * Subscribe to running-set changes. Handler receives (sessionPath, running).
 	 * Returns an unsubscribe function.
 	 */
-	onRunningChanged(handler: (sessionPath: string, running: boolean) => void): () => void {
+	onRunningChanged(
+		handler: (sessionPath: string, running: boolean, sessionId?: string, reason?: RunningChangedReason) => void,
+	): () => void {
 		this.runningChangedHandlers.add(handler);
 		return () => {
 			this.runningChangedHandlers.delete(handler);
 		};
 	}
 
-	private markRunning(sessionPath: string | undefined, running: boolean): void {
+	private markRunning(
+		sessionPath: string | undefined,
+		running: boolean,
+		sessionId?: string,
+		reason?: RunningChangedReason,
+	): void {
 		if (!sessionPath) return;
 		const had = this.runningSessionPaths.has(sessionPath);
 		if (running && had) return;
@@ -1004,7 +1028,7 @@ export class RuntimeHost implements SessionFacade {
 		else this.runningSessionPaths.delete(sessionPath);
 		for (const h of this.runningChangedHandlers) {
 			try {
-				h(sessionPath, running);
+				h(sessionPath, running, sessionId, reason);
 			} catch (err) {
 				console.warn("[RuntimeHost.markRunning] handler threw:", err);
 			}
@@ -1204,7 +1228,8 @@ export class RuntimeHost implements SessionFacade {
 		this.inFlightUnsubscribers.delete(sessionId);
 		this.inFlightBuffers.delete(sessionId);
 		this.externalSubscribers.delete(sessionId);
-		this.markRunning(handle.session.sessionFile, false);
+		// session 销毁不是回合结束：传 sessionId 但不带 reason，避免触发出队。
+		this.markRunning(handle.session.sessionFile, false, sessionId);
 		handle.session.dispose();
 		this.sessions.delete(sessionId);
 		this.currentTurnStartedAt.delete(sessionId);

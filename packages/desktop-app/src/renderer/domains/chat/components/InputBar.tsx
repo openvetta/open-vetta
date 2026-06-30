@@ -20,8 +20,13 @@ import {
 	pendingQuestionsAtom,
 	promptSuggestionsAtom,
 } from "@shared/store/atoms";
+import {
+	messageQueueBySessionAtom,
+	getQueueForSession,
+} from "@shared/store/message-queue-atoms";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { TodoCard } from "@shared/components/TodoCard";
+import { QueueCard } from "@shared/components/QueueCard";
 import { ModelSelector } from "./ModelSelector";
 import { ExecutionModeSelector } from "./ExecutionModeSelector";
 import { ContextRing } from "./ContextRing";
@@ -38,6 +43,7 @@ import "./InputBar.css";
 interface InputBarProps {
 	onSend: (overrideText?: string) => Promise<void>;
 	onAbort: () => Promise<void>;
+	onSendQueued?: (runtimeId: string, id: string) => void;
 	/**
 	 * 当无 activeSession 但仍希望放行输入与发送时（例如 NewSessionPage），
 	 * 把该项目的 cwd 传进来：InputBar 把它视为「有会话」、@ 文件面板用它作为根目录。
@@ -88,7 +94,7 @@ function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; 
 	});
 }
 
-export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.Element {
+export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBarProps): JSX.Element {
 	const { t } = useTranslation("chat");
 	const [inputValue, setInputValue] = useAtom(inputValueAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
@@ -116,6 +122,11 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 	const todoItems = useMemo(
 		() => getTodoItemsForSession(todoMap, activeSession?.runtimeId ?? null),
 		[todoMap, activeSession?.runtimeId],
+	);
+	const queueMap = useAtomValue(messageQueueBySessionAtom);
+	const queueItems = useMemo(
+		() => getQueueForSession(queueMap, activeSession?.runtimeId ?? null),
+		[queueMap, activeSession?.runtimeId],
 	);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
@@ -174,6 +185,8 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 		if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
 			e.preventDefault();
 			if (canSend) void onSend();
+			// streaming 中有内容：回车走入队（入队判断在 sendMessage 内部完成），不触发中止。
+			else if (isStreaming && hasSession && !isEmpty) void onSend();
 			// 空输入回车：若有输入预测建议，按首条建议直发（placeholder 即该建议）。
 			else if (hasSession && !isStreaming && isEmpty && firstSuggestion) void onSend(firstSuggestion);
 		}
@@ -327,6 +340,16 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 				content: <SandboxPermissionCard request={sandboxPermission} />,
 			});
 		}
+		if (queueItems.length > 0 && activeSession) {
+			const runtimeId = activeSession.runtimeId;
+			tabs.push({
+				id: "queue",
+				label: t("inputBar.drawer.queueLabel"),
+				color: "bg-sky-400",
+				desc: t("inputBar.drawer.queueDesc", { count: queueItems.length }),
+				content: <QueueCard runtimeId={runtimeId} onSendNow={(id) => onSendQueued?.(runtimeId, id)} />,
+			});
+		}
 		if (todoItems.length === 0) return tabs;
 		const inProgressItem = todoItems.find((i) => i.status === "in_progress");
 		const doneCount = todoItems.filter((i) => i.status === "done").length;
@@ -346,7 +369,7 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 			content: <TodoCard items={todoItems} compact onViewMore={handleTodoViewMore} />,
 		});
 		return tabs;
-	}, [todoItems, handleTodoViewMore, sandboxPermission, t]);
+	}, [todoItems, queueItems, activeSession, onSendQueued, handleTodoViewMore, sandboxPermission, t]);
 
 	const addImages = useCallback(
 		(newImages: Array<{ data: string; mimeType: string; name: string }>) => {
@@ -629,12 +652,26 @@ export function InputBar({ onSend, onAbort, cwdOverride }: InputBarProps): JSX.E
 							>
 								{isStreaming ? "" : isEmpty ? t("inputBar.hint.send") : t("inputBar.hint.newline")}
 							</motion.span>
-							<SendButton
-								canSend={canSend}
-								isStreaming={isStreaming}
-								onSend={handleSend}
-								onAbort={handleAbort}
-							/>
+							{isStreaming && !isEmpty ? (
+								<motion.button
+									type="button"
+									onClick={handleSend}
+									whileHover={TOOLBAR_BUTTON_HOVER}
+									whileTap={TOOLBAR_BUTTON_TAP}
+									transition={SPRING}
+									title={t("inputBar.drawer.queueLabel")}
+									className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
+								>
+									<span className="icon-[solar--add-square-linear] h-[18px] w-[18px]" />
+								</motion.button>
+							) : (
+								<SendButton
+									canSend={canSend}
+									isStreaming={isStreaming}
+									onSend={handleSend}
+									onAbort={handleAbort}
+								/>
+							)}
 						</div>
 					</div>
 				</div>

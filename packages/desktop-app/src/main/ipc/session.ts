@@ -1017,17 +1017,17 @@ export function registerSessionIpc(webContents: WebContents): () => void {
 		);
 	});
 
-	const unsubscribeRunning = runtime.onRunningChanged((sessionPath, running) => {
+	const unsubscribeRunning = runtime.onRunningChanged((sessionPath, running, sessionId, reason) => {
 		// 主窗口（订阅方）原样投递，保持既有行为。
 		if (!webContents.isDestroyed()) {
-			webContents.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running });
+			webContents.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running, sessionId, reason });
 		}
 		// 并行广播给其它窗口（如独立的快捷面板窗口），让它们也能跟随运行态。
 		for (const win of BrowserWindow.getAllWindows()) {
 			if (win.isDestroyed()) continue;
 			const wc = win.webContents;
 			if (wc === webContents || wc.isDestroyed()) continue;
-			wc.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running });
+			wc.send(CHANNELS.RUNNING_CHANGED, { sessionPath, running, sessionId, reason });
 		}
 	});
 

@@ -34,9 +34,10 @@ import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel"
 interface ChatViewProps {
 	onSend: (overrideText?: string) => Promise<void>;
 	onAbort: () => Promise<void>;
+	onSendQueued: (runtimeId: string, id: string) => Promise<void>;
 }
 
-export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
+export function ChatView({ onSend, onAbort, onSendQueued }: ChatViewProps): JSX.Element {
 	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const messages = useAtomValue(chatMessagesAtom);
@@ -234,7 +235,7 @@ export function ChatView({ onSend, onAbort }: ChatViewProps): JSX.Element {
 						sessionId={activeSession?.sessionPath ?? null}
 						onSend={onSend}
 					/>
-					<InputBar onSend={onSend} onAbort={onAbort} />
+					<InputBar onSend={onSend} onAbort={onAbort} onSendQueued={onSendQueued} />
 				</div>
 
 				{/* Activity panel — embedded with bg + rounded corners */}

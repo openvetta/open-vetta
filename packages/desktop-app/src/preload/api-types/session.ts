@@ -81,7 +81,14 @@ export interface DesktopSessionApi {
 	/** Snapshot of session paths currently in the agent loop. */
 	listRunning(): Promise<string[]>;
 	/** Subscribe to running-set changes. Fires for each toggle (running=true|false). */
-	onRunningChanged(handler: (payload: { sessionPath: string; running: boolean }) => void): () => void;
+	onRunningChanged(
+		handler: (payload: {
+			sessionPath: string;
+			running: boolean;
+			sessionId?: string;
+			reason?: "agent_end" | "aborted" | "error";
+		}) => void,
+	): () => void;
 	/**
 	 * 清空默认「对话」或 Claw 项目的全部会话（保留产物），按 scope 分流（物理 cwd 分家，ADR-0005）：
 	 * - "conversation"：清桌面「对话」cwd 的 .vetta/sessions
