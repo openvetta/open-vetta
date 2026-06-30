@@ -8,6 +8,20 @@
 		"developerDesc": "用于分辨桌宠窗口边界和视频实际显示区域。",
 		"debugFrame": "调试边框",
 		"debugFrameDesc": "显示窗口边界、视频区域边界，并在桌宠窗口内实时展示窗口大小和视频大小。",
+		"decoration": {
+			"sectionDescription": "当前仅展示可用的装饰素材，后续可接入实际装饰逻辑。",
+			"materialMissing": "素材缺失",
+			"available": "可用",
+			"missing": "缺失",
+			"items": {
+				"monitor": "显示器",
+				"santa": "圣诞装",
+				"business": "商务装",
+				"office": "办公祈祷",
+				"peekingMonitor": "探出显示器",
+				"dragonBoat": "端午装饰"
+			}
+		},
 		"bubble": {
 			"sectionDescription": "选择桌宠对话气泡样式。不同样式可以拥有独立背景、尺寸和装饰位置。",
 			"styleTitle": "气泡样式",

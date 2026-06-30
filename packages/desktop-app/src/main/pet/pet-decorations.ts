@@ -10,12 +10,42 @@ const buildDir = app.isPackaged ? join(process.resourcesPath, "build") : join(ap
 const petMediaDir = join(buildDir, "pet");
 
 const PET_DECORATIONS = [
-	{ id: "monitor", fileName: "blank_black_computer_monitor.png", label: "显示器" },
-	{ id: "santa", fileName: "stoat_christmas_santa_outfit.png", label: "圣诞装" },
-	{ id: "business", fileName: "stoat_business_suit_lawyer.png", label: "商务装" },
-	{ id: "office", fileName: "stoat_pray_microsoft_office.png", label: "办公祈祷" },
-	{ id: "peeking-monitor", fileName: "stoat_peeking_from_monitor.png", label: "探出显示器" },
-	{ id: "dragon-boat", fileName: "stoat_dragon_boat_festival.png", label: "端午装饰" },
+	{
+		id: "monitor",
+		fileName: "blank_black_computer_monitor.png",
+		label: "显示器",
+		labelKey: "settings.decoration.items.monitor",
+	},
+	{
+		id: "santa",
+		fileName: "stoat_christmas_santa_outfit.png",
+		label: "圣诞装",
+		labelKey: "settings.decoration.items.santa",
+	},
+	{
+		id: "business",
+		fileName: "stoat_business_suit_lawyer.png",
+		label: "商务装",
+		labelKey: "settings.decoration.items.business",
+	},
+	{
+		id: "office",
+		fileName: "stoat_pray_microsoft_office.png",
+		label: "办公祈祷",
+		labelKey: "settings.decoration.items.office",
+	},
+	{
+		id: "peeking-monitor",
+		fileName: "stoat_peeking_from_monitor.png",
+		label: "探出显示器",
+		labelKey: "settings.decoration.items.peekingMonitor",
+	},
+	{
+		id: "dragon-boat",
+		fileName: "stoat_dragon_boat_festival.png",
+		label: "端午装饰",
+		labelKey: "settings.decoration.items.dragonBoat",
+	},
 ] as const;
 
 export function getPetDecorations(): PetDecoration[] {

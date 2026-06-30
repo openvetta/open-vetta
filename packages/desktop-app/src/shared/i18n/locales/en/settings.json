@@ -832,6 +832,7 @@
   "section_pet-behavior": "Behavior",
   "section_pet-window": "Window",
   "section_pet-decoration": "Decorations",
+  "section_pet-bubble": "Bubble Style",
   "section_pet-developer": "Developer",
   "updaterChecking": "Checking...",
   "updaterIdle": "Already on the latest version ({{version}})",

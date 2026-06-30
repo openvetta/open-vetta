@@ -832,6 +832,7 @@
   "section_pet-behavior": "行为",
   "section_pet-window": "窗口",
   "section_pet-decoration": "桌宠装饰",
+  "section_pet-bubble": "气泡样式",
   "section_pet-developer": "开发调试",
   "updaterChecking": "正在检查...",
   "updaterIdle": "当前已是最新版本（{{version}}）",
