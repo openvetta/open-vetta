@@ -65,7 +65,7 @@ async function refreshCachesAndNotify(root: string): Promise<void> {
 	try {
 		do {
 			cacheRebuildPending = false;
-			await knowledge.rebuildAllCaches(root);
+			logDamagedPages(await knowledge.rebuildAllCaches(root));
 			broadcast(KB_STATUSES_CHANGED_CHANNEL);
 		} while (cacheRebuildPending);
 	} catch (err) {
@@ -76,6 +76,16 @@ async function refreshCachesAndNotify(root: string): Promise<void> {
 }
 
 const log = getAppLogger("kb-poller");
+
+/** 上报重建时被排除的坏页（frontmatter 非法/缺失）——否则其源文件永远静默显示未加工。 */
+function logDamagedPages(result: knowledge.RebuildResult): void {
+	if (result.damaged.length === 0) return;
+	log.warn(
+		`知识库有 ${result.damaged.length} 个 wiki 页 frontmatter 非法/缺失，已被排除出缓存（其源文件会显示未加工）：`,
+	);
+	for (const d of result.damaged) log.warn(`  损坏页 ${d.path} — ${d.message}`);
+}
+
 const scheduler = new ToadScheduler();
 const JOB_ID = "kb-poller";
 let scheduled = false;
@@ -369,6 +379,7 @@ export async function reloadKnowledgePoller(): Promise<void> {
 		await knowledge.ensureKnowledgeDirs(root);
 		await knowledge
 			.rebuildAllCaches(root)
+			.then(logDamagedPages)
 			.catch((err) => log.warn(`self-heal rebuild failed: ${err instanceof Error ? err.message : String(err)}`));
 	}
 	// OCR 并发经环境变量传给 coding-agent 的全局 OCR 闸（惰性初始化，首次 OCR 调用时读取）。

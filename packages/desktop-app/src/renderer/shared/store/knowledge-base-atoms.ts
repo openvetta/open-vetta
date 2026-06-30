@@ -71,6 +71,12 @@ export const activeKnowledgeBaseIdAtom = atom(
 /** 待导入草稿（拖入/选择文件或仅创建库）。 */
 export const knowledgeImportDraftAtom = atom<KnowledgeImportDraft | null>(null);
 
+/**
+ * 一次性跳转目标：「待加工文件」弹窗点击某项时写入，KnowledgeContentsPanel 消费后清空。
+ * fileId 为相对 raws/<kb>/ 的 posix 路径（= KnowledgeNode.id），用于定位所在目录并高亮滚动。
+ */
+export const knowledgeNavTargetAtom = atom<{ fileId: string } | null>(null);
+
 const knowledgeViewModeBaseAtom = atom<KnowledgeViewMode>(
 	localStorage.getItem(KNOWLEDGE_VIEW_MODE_STORAGE_KEY) === "list" ? "list" : "grid",
 );

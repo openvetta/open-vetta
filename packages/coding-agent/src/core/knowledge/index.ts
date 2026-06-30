@@ -33,7 +33,7 @@ export {
 	type FailureEntry,
 	type FailuresRecord,
 	KB_MAX_PROCESSING_ATTEMPTS,
-	quarantinedHashes,
+	quarantinedPaths,
 	reconcileFailures,
 } from "./failures.js";
 export {
@@ -48,6 +48,7 @@ export {
 	finalizeRound,
 	type PreparedRound,
 	prepareRound,
+	type RebuildResult,
 	rebuildAllCaches,
 	reconcileRoundFailures,
 } from "./ingest.js";

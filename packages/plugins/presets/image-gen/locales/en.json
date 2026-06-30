@@ -18,7 +18,7 @@
 	"settings.baseUrl.description": "Image generation endpoint URL (standard OpenAI v1 image generation format)",
 	"settings.model.title": "Image Model",
 	"settings.model.description": "Image generation model name",
-	"action.imageMode.label": "Image Generation",
+	"action.imageMode.label": "Image",
 	"card.preview.title": "Image",
 	"tab.history.label": "Generation History",
 	"ui.skeleton.processing": "Processing image",

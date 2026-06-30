@@ -36,13 +36,15 @@ export async function getKnowledgeFileStatuses(): Promise<Record<string, Knowled
 		if (page.orphaned_at !== null) continue;
 		live.set(page.source_path, { hash: page.source_hash, wikiPath: join(knowledge.wikiDir(root), page.path) });
 	}
-	// 已隔离的 source_hash 集合：当前文件 hash 命中即「失败」（优先于其它态）。
-	const quarantined = knowledge.quarantinedHashes(failures);
+	// 已隔离的 source_path 集合：命中即「失败」（优先于其它态）。隔离按 source_path 记账，
+	// 且仅当该路径内容（hash）未变时生效——内容一变即视为可重试，不再算失败。
+	const currentRaws = new Map(raws.map((r) => [r.source_path, r.source_hash]));
+	const quarantined = knowledge.quarantinedPaths(failures, currentRaws);
 
 	const result: Record<string, KnowledgeFileStatus> = {};
 	for (const raw of raws) {
 		const page = live.get(raw.source_path);
-		if (quarantined.has(raw.source_hash)) {
+		if (quarantined.has(raw.source_path)) {
 			// 失败文件可能仍有旧 wiki 页（stale 后重加工反复失败被隔离），保留 wikiPath 供查看。
 			result[raw.source_path] = { status: "failed", wikiPath: page?.wikiPath };
 		} else if (!page) {

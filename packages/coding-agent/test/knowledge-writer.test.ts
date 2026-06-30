@@ -131,6 +131,33 @@ describe("writeKnowledgePage (integration)", () => {
 		expect((await scanWikiPages(root)).pages).toHaveLength(2);
 	});
 
+	it("同内容（同 source_hash）不同 source_path 两份原始文件 → 各自建独立页，不并成一页", async () => {
+		// 复现 bug：用户把同一份内容拷贝到两个不同路径（同 sha256）。
+		// 修复前：第二份按 source_hash 命中第一页 → 更新并删掉第一页旧路径，磁盘只剩一页 →
+		// 被删的那份下轮被判 added → 无限重加工，且 UI 上常驻灰色。
+		const session = await createKbWriteSession(root);
+		const a = await session.write(
+			{ ...baseReq, source_path: "手册/a/批复.pdf", source_hash: "dup", title: "A" },
+			"2026-06-22T00:00:00.000Z",
+		);
+		const b = await session.write(
+			{ ...baseReq, source_path: "手册/b/批复.pdf", source_hash: "dup", title: "B" },
+			"2026-06-22T00:00:00.000Z",
+		);
+
+		expect(b.action).toBe("create");
+		expect(a.id).not.toBe(b.id);
+		expect(b.path).not.toBe(a.path);
+
+		const { pages } = await scanWikiPages(root);
+		expect(pages).toHaveLength(2);
+
+		await rebuildAllCaches(root);
+		const manifest = await readManifest(root);
+		expect(manifest.pages).toHaveLength(2);
+		expect(manifest.pages.map((p) => p.source_path).sort()).toEqual(["手册/a/批复.pdf", "手册/b/批复.pdf"]);
+	});
+
 	it("queryByTags 读到写入的页", async () => {
 		await writeKnowledgePage(root, baseReq, "2026-06-22T00:00:00.000Z");
 		await writeKnowledgePage(

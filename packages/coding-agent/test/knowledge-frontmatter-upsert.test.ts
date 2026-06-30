@@ -70,7 +70,7 @@ describe("resolveUpsert", () => {
 
 	const lookupWith = (pages: WikiFrontmatter[]): UpsertLookup => ({
 		byId: (id) => pages.find((p) => p.id === id),
-		bySourceHash: (h) => pages.find((p) => p.source_hash === h),
+		bySource: (h, sp) => pages.find((p) => p.source_hash === h && p.source_path === sp),
 	});
 
 	const input = (over: Partial<UpsertInput> = {}): UpsertInput => ({
@@ -95,12 +95,32 @@ describe("resolveUpsert", () => {
 		expect(decision.frontmatter.orphaned_at).toBeNull();
 	});
 
-	it("无 id 但 source_hash 命中 → 更新该页", () => {
-		const existing = fm({ id: "page-1", source_hash: "h-new" });
-		const decision = resolveUpsert(input({ source_hash: "h-new" }), lookupWith([existing]), now, genId);
+	it("无 id 但 source_hash + source_path 同时命中 → 更新该页", () => {
+		const existing = fm({ id: "page-1", source_hash: "h-new", source_path: "手册/api.md" });
+		const decision = resolveUpsert(
+			input({ source_hash: "h-new", source_path: "手册/api.md" }),
+			lookupWith([existing]),
+			now,
+			genId,
+		);
 		expect(decision.action).toBe("update");
 		if (decision.action !== "update") throw new Error("unreachable");
 		expect(decision.id).toBe("page-1");
+	});
+
+	it("无 id、同 source_hash 但 source_path 不同（同内容副本）→ 新建独立页，不并入既有页", () => {
+		// 复现 bug：用户把同一份内容拷贝到两个路径，差异化身份须各自建页；
+		// 否则后写并入前页、删旧路径 → 该副本下轮被判 added → 无限重加工 / 文件变灰。
+		const existing = fm({ id: "page-1", source_hash: "dup", source_path: "手册/a/批复.pdf" });
+		const decision = resolveUpsert(
+			input({ source_hash: "dup", source_path: "手册/b/批复.pdf" }),
+			lookupWith([existing]),
+			now,
+			genId,
+		);
+		expect(decision.action).toBe("create");
+		expect(decision.frontmatter.id).toBe("new-generated-id");
+		expect(decision.frontmatter.source_path).toBe("手册/b/批复.pdf");
 	});
 
 	it("无 id 且 source_hash 不存在 → 新建并分配 id", () => {

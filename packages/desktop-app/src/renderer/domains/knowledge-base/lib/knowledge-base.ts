@@ -41,6 +41,39 @@ export function formatKnowledgeUpdatedAt(timestamp: number): string {
 	return i18n.t("settings:kbUpdatedDays", { n: Math.round(hours / 24) });
 }
 
+/** 「待加工文件」平铺项：相对 raws/<kb>/ 的路径 id、文件名、所在相对目录（根为空串）。 */
+export interface UnprocessedFile {
+	id: string;
+	name: string;
+	dir: string;
+}
+
+/**
+ * 递归收集未加工文件（平铺），按 id（≈ source_path）排序，使同目录文件相邻。
+ * @param isUnprocessed 据 node.id 判定是否未加工（仅显式 "unprocessed"，避免加工态未加载时全部误判）。
+ */
+export function collectUnprocessedFiles(
+	nodes: KnowledgeNode[],
+	isUnprocessed: (id: string) => boolean,
+): UnprocessedFile[] {
+	const out: UnprocessedFile[] = [];
+	const walk = (list: KnowledgeNode[]): void => {
+		for (const node of list) {
+			if (node.type === "directory") {
+				walk(node.children ?? []);
+				continue;
+			}
+			if (isUnprocessed(node.id)) {
+				const segments = node.id.split("/");
+				out.push({ id: node.id, name: node.name, dir: segments.slice(0, -1).join("/") });
+			}
+		}
+	};
+	walk(nodes);
+	out.sort((a, b) => a.id.localeCompare(b.id));
+	return out;
+}
+
 /** 按面包屑路径段定位到某层目录的子节点列表；越界返回空。 */
 export function nodesAtPath(rootNodes: KnowledgeNode[], path: string[]): KnowledgeNode[] {
 	let current = rootNodes;
