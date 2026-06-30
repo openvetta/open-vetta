@@ -64,8 +64,10 @@ const IDLE_OVERSCAN = 400;
 const STREAMING_INCREASE_VIEWPORT_BY = { top: 0, bottom: 80 };
 const IDLE_INCREASE_VIEWPORT_BY = { top: 200, bottom: 200 };
 const VIRTUOSO_STYLE = { overflowX: "hidden" as const };
-const STREAMING_SCROLL_LERP_RATIO = 0.35;
-const IDLE_SCROLL_LERP_RATIO = 0.2;
+const MIN_SCROLL_LERP_RATIO = 0.045;
+const IDLE_MAX_SCROLL_LERP_RATIO = 0.18;
+const STREAMING_MAX_SCROLL_LERP_RATIO = 0.28;
+const SCROLL_DISTANCE_FOR_MAX_RATIO = 900;
 
 /**
  * Stable React key for a content block. Used so segments survive reorder when
@@ -91,6 +93,12 @@ function segmentKey(segment: BlockSegment): string {
 	// Tool group: first block's key is stable because tool/thinking blocks are
 	// only appended (never reordered within a batch).
 	return `group-${blockKey(segment.blocks[0])}`;
+}
+
+function getScrollLerpRatio(diff: number, isStreaming: boolean): number {
+	const maxRatio = isStreaming ? STREAMING_MAX_SCROLL_LERP_RATIO : IDLE_MAX_SCROLL_LERP_RATIO;
+	const distanceRatio = Math.min(1, diff / SCROLL_DISTANCE_FOR_MAX_RATIO);
+	return MIN_SCROLL_LERP_RATIO + (maxRatio - MIN_SCROLL_LERP_RATIO) * distanceRatio;
 }
 
 function isCustomToolUiBlock(block: ContentBlock, customToolNames: Set<string>): boolean {
@@ -1021,10 +1029,8 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 		const target = Math.max(0, el.scrollHeight - el.clientHeight);
 		const diff = target - el.scrollTop;
 		if (diff > 0.5) {
-			// 线性 lerp：每帧吃掉差值的一部分，开局快收尾稳，视觉上「持续追着底部」
-			// 而非「跳—停—跳」。streaming 期间系数更高，避免内容生成时明显落后底部。
-			el.scrollTop =
-				el.scrollTop + diff * (isStreamingRef.current ? STREAMING_SCROLL_LERP_RATIO : IDLE_SCROLL_LERP_RATIO);
+			// 跟随速度按剩余距离递增：短距离慢一点，长距离才加速，避免小幅补位看起来像瞬移。
+			el.scrollTop = el.scrollTop + diff * getScrollLerpRatio(diff, isStreamingRef.current);
 			lerpRafRef.current = requestAnimationFrame(tickLerp);
 		} else if (isStreamingRef.current) {
 			releasePendingUserAnimation();
@@ -1122,24 +1128,21 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 		if (shouldFollowBottomRef.current) startLerp();
 	}, [messages, isStreaming, startLerp]);
 
-	// 用户发送新消息：无论之前是否贴底，都强制接管为「跟随」并启动 lerp 滑到底。
+	// 用户发送新消息：先播放入场动画，再由动画完成回调启动 lerp，避免插入消息和滚动同时发生。
 	const prevMsgCountRef = useRef(messages.length);
 	useLayoutEffect(() => {
 		const prevCount = prevMsgCountRef.current;
 		prevMsgCountRef.current = messages.length;
 		const newMsg = messages.at(-1);
 		if (messages.length > prevCount && newMsg?.role === "user") {
-			if (atBottomRef.current) {
-				setActiveUserAnimationId(newMsg.id);
-			} else {
-				pendingUserAnimationIdRef.current = newMsg.id;
-				setPendingUserAnimationId(newMsg.id);
-			}
+			setActiveUserAnimationId(newMsg.id);
+			pendingUserAnimationIdRef.current = null;
+			setPendingUserAnimationId(null);
 			atBottomRef.current = true;
-			shouldFollowBottomRef.current = true;
-			startLerp();
+			shouldFollowBottomRef.current = false;
+			skipNextLerpRef.current = true;
 		}
-	}, [messages, startLerp]);
+	}, [messages]);
 
 	useEffect(() => {
 		previousRenderMsgCountRef.current = messages.length;
@@ -1147,7 +1150,9 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 
 	const handleUserMessageEntryComplete = useCallback(() => {
 		setActiveUserAnimationId(null);
-	}, []);
+		shouldFollowBottomRef.current = true;
+		startLerp();
+	}, [startLerp]);
 
 	// 卸载时停掉跟随循环
 	useEffect(() => {
