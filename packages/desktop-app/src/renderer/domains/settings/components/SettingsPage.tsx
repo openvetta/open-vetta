@@ -22,7 +22,6 @@ import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
 import { PluginsSettings } from "./PluginsSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
-import { AchievementSettings } from "./AchievementSettings";
 import { TeamSettings } from "./TeamSettings";
 import { WebhookSettings } from "./WebhookSettings";
 import { findSettingsSection, SETTINGS_TABS } from "../registry";
@@ -44,7 +43,6 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	context: AgentSettings,
 	plugins: PluginsSettings,
 	knowledge: KnowledgeBaseSettings,
-	achievements: AchievementSettings,
 	pet: PetSettings,
 };
 
