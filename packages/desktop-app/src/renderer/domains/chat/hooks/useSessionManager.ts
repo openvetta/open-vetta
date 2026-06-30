@@ -146,10 +146,6 @@ export function useSessionManager(): SessionManagerResult {
 	// Sessions for which auto-title has already been attempted (or skipped because
 	// the session was opened with prior history / already had a name).
 	const autoTitledSessionsRef = useRef<Set<string>>(new Set());
-	// sendQueuedNow 中止当前流后，需等到 aborted 生命周期事件真正落地再发下一条
-	// （abort() 的 promise resolve 时机不保证代表 turn 已结束）。按 runtimeId 暂存
-	// resolver，在下方 subscribe 的 aborted 分支命中时 resolve。
-	const pendingAbortResolversRef = useRef<Map<string, () => void>>(new Map());
 	const setPromptSuggestions = useSetAtom(promptSuggestionsAtom);
 	const setPromptPredicting = useSetAtom(promptPredictingAtom);
 	const markPredicting = useCallback(
@@ -443,14 +439,6 @@ export function useSessionManager(): SessionManagerResult {
 						resetStreamState();
 						setActiveSessionStreaming(false);
 						setTurnStartTime(0);
-						// aborted 落地：唤醒等待该会话 aborted 的 sendQueuedNow，使其继续发出该条。
-						if (event.phase === "aborted") {
-							const resolve = pendingAbortResolversRef.current.get(sessionId);
-							if (resolve) {
-								pendingAbortResolversRef.current.delete(sessionId);
-								resolve();
-							}
-						}
 						// Write total duration onto the last assistant message
 						setChatMessages((prev) => {
 							if (elapsed > 0) {
@@ -992,8 +980,8 @@ export function useSessionManager(): SessionManagerResult {
 	}, [activeSession]);
 
 	// 立即发送某条排队消息（队列面板点击 / 拖拽后即时发）：取出即从队列移除；
-	// 若该会话正在 streaming，先中止当前流并等 aborted 真正落地，再作为普通 prompt 发出；
-	// 空闲则直接发。其余排队项保留，待这条自然结束后由出队逻辑继续逐条发。
+	// 若该会话正在 streaming，先中止当前流并等其真正停下（running-changed），再作为
+	// 普通 prompt 发出；空闲则直接发。其余排队项保留，待这条自然结束后由出队逻辑继续逐条发。
 	const sendQueuedNow = useCallback(
 		async (runtimeId: string, id: string) => {
 			const store = getDefaultStore();
@@ -1003,16 +991,32 @@ export function useSessionManager(): SessionManagerResult {
 			store.set(removeQueuedMessageAtom, { runtimeId, id });
 
 			if (store.get(isStreamingAtom)) {
-				// 注册 aborted 事件驱动的等待，在 subscribe 命中 aborted 时 resolve。
-				const aborted = new Promise<void>((resolve) => {
-					pendingAbortResolversRef.current.set(runtimeId, resolve);
+				// 中止当前流并等它真正停下再发。注意 runtime 把 abort 也走 agent_end
+				// （lifecycle 从不发 "aborted" phase），所以不能等生命周期事件；但
+				// running-changed 一定会广播 running=false。用一次性监听等它，带超时兜底。
+				await new Promise<void>((resolve) => {
+					let settled = false;
+					let unsubscribe: () => void = () => {};
+					const finish = (): void => {
+						if (settled) return;
+						settled = true;
+						unsubscribe();
+						clearTimeout(timer);
+						resolve();
+					};
+					const timer = setTimeout(finish, 8000);
+					unsubscribe = window.vetta.session.onRunningChanged((p) => {
+						if (p.sessionId === runtimeId && p.running === false) finish();
+					});
+					// 订阅前可能流已停（事件已发过）：补一次检查直接放行。
+					if (!store.get(isStreamingAtom)) {
+						finish();
+						return;
+					}
+					void window.vetta.session.abort(runtimeId).catch((err) => {
+						console.error("[useSessionManager.sendQueuedNow] abort failed:", err);
+					});
 				});
-				try {
-					await window.vetta.session.abort(runtimeId);
-				} catch (err) {
-					console.error("[useSessionManager.sendQueuedNow] abort failed:", err);
-				}
-				await aborted;
 			}
 
 			const queuedUserMsg: ChatMessage = {
