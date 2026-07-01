@@ -464,13 +464,18 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		// Must explicitly disable since z.ai defaults to thinking enabled
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
 	} else if (compat.thinkingFormat === "qwen") {
-		// Qwen uses enable_thinking (boolean) to toggle thinking + reasoning_effort for
-		// effort control. Valid efforts: "minimal" | "low" | "medium" | "high" — Qwen has
-		// NO "none" value (disable thinking via enable_thinking=false). OpenAI's "minimal"
-		// 400s on vLLM/SGLang, so clamp it up to "low" before serialising.
+		// Qwen toggles thinking with a boolean flag, but different backends read it from
+		// different places, so emit BOTH spellings:
+		//   - DashScope (Model Studio) OpenAI-compatible reads a TOP-LEVEL `enable_thinking`.
+		//   - self-hosted vLLM / SGLang ignore the top-level flag and only honor
+		//     `chat_template_kwargs.enable_thinking`; the top-level one is silently dropped,
+		//     so "off" never disables thinking there unless we also send this form.
+		// reasoning_effort ("minimal" clamped up to "low" — Qwen has no "minimal") controls
+		// effort when enabled; omit it entirely when disabled, since Qwen has NO "none" value.
 		const qwenEffort = options?.reasoningEffort === "minimal" ? "low" : options?.reasoningEffort;
-		(params as any).enable_thinking = !!qwenEffort;
-		// Omit reasoning_effort entirely when disabled — sending "none" is invalid for Qwen.
+		const thinkingEnabled = !!qwenEffort;
+		(params as any).enable_thinking = thinkingEnabled;
+		(params as any).chat_template_kwargs = { enable_thinking: thinkingEnabled };
 		if (qwenEffort) {
 			params.reasoning_effort = qwenEffort as any;
 		}
