@@ -72,6 +72,14 @@ import {
 	turnStatsCache,
 } from "../services/chat-service";
 
+/** 把 "provider/id" 形式的 modelKey 解析为 ChatMessage.model 结构 */
+function modelKeyToParts(key: string | null | undefined): { provider: string; id: string } | undefined {
+	if (!key) return undefined;
+	const idx = key.indexOf("/");
+	if (idx <= 0) return undefined;
+	return { provider: key.slice(0, idx), id: key.slice(idx + 1) };
+}
+
 interface SessionManagerResult {
 	openSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
 	/** overrideText：以指定文本作为独立 prompt 直发（输入预测建议用），省略则按输入框内容发送。 */
@@ -327,15 +335,11 @@ export function useSessionManager(): SessionManagerResult {
 			// 对话场景 → 会话页插件插槽按对话类型 fail-closed 显隐。
 			setCurrentScenario(state.scenario);
 
-			// Sync model between frontend and backend:
-			// - If frontend has a selected model, push it to the backend session
-			// - Otherwise, pull the backend's resolved model to the frontend
+			// 真相源为后端会话 settings：打开会话时一律把后端该会话的模型 pull 到前端镜像，
+			// 避免用全局 atom 的旧值 push 覆盖本会话（会污染其它会话已选的模型）。
 			const backendModelKey = state.model ? `${state.model.provider}/${state.model.id}` : null;
-			if (selectedModel && backendModelKey !== selectedModel) {
-				void window.vetta.session.updateSettings(sessionId, { modelKey: selectedModel });
-			} else if (!selectedModel && backendModelKey) {
+			if (backendModelKey) {
 				setSelectedModel(backendModelKey);
-				localStorage.setItem("vetta-selected-model", backendModelKey);
 			}
 
 			// Resolve the on-disk session path so that downstream features (turn
@@ -743,7 +747,6 @@ export function useSessionManager(): SessionManagerResult {
 			setSessionExecutionMode,
 			setActiveToolNames,
 			setCurrentScenario,
-			selectedModel,
 			setSelectedModel,
 			setTodoItems,
 			setBackgroundTasks,
@@ -824,7 +827,13 @@ export function useSessionManager(): SessionManagerResult {
 			// （输入框已在上方清空，符合「入队后清空输入框」语义。）
 			const streaming = getDefaultStore().get(isStreamingAtom);
 			if (!streaming) {
-				const userMsg: ChatMessage = { id: nextId("user"), role: "user", text, timestamp: Date.now() };
+				const userMsg: ChatMessage = {
+					id: nextId("user"),
+					role: "user",
+					text,
+					timestamp: Date.now(),
+					model: modelKeyToParts(selectedModel),
+				};
 				if (images) {
 					userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
 				}
@@ -1029,6 +1038,7 @@ export function useSessionManager(): SessionManagerResult {
 				role: "user",
 				text: item.request.text,
 				timestamp: Date.now(),
+				model: modelKeyToParts(item.request.modelKey),
 			};
 			setChatMessages((prev) => [...prev, queuedUserMsg]);
 			try {

@@ -332,6 +332,7 @@
 			"processing": "处理中..."
 		},
 		"compactionBoundary": "上下文已压缩",
+		"modelSwitched": "切换了模型 {{name}}",
 		"compactionIndicator": "正在压缩上下文...",
 		"streamingPhrases": [
 			"Vetta 正在回复…",

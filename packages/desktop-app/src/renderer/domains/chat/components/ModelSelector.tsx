@@ -82,7 +82,6 @@ export function ModelSelector(): JSX.Element {
 	const handleModelSelect = useCallback(
 		(key: string) => {
 			setSelectedModel(key);
-			localStorage.setItem("vetta-selected-model", key);
 			if (activeSession?.runtimeId) {
 				void window.vetta.session.updateSettings(activeSession.runtimeId, { modelKey: key });
 			}

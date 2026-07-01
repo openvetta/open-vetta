@@ -353,6 +353,8 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			errorMessage?: string;
 			stopReason?: string;
 			details?: unknown;
+			provider?: string;
+			model?: string;
 		};
 
 		if (m.role === "user") {
@@ -373,6 +375,16 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 			if (m.stopReason === "error" && m.errorMessage) {
 				target.blocks!.push({ type: "error", id: nextId("blk"), text: m.errorMessage });
 				if (!target.text) target.text = m.errorMessage;
+			}
+			// 回填本轮 user 消息实际使用的模型：从末尾向前找到第一条尚未标注 model 的 user 消息。
+			if (m.provider && m.model) {
+				for (let i = messages.length - 1; i >= 0; i--) {
+					const message = messages[i];
+					if (message.role === "user" && message.model === undefined) {
+						messages[i] = { ...message, model: { provider: m.provider, id: m.model } };
+						break;
+					}
+				}
 			}
 		} else if (m.role === "toolResult" && m.toolCallId) {
 			const block = toolCallIndex.get(String(m.toolCallId));
