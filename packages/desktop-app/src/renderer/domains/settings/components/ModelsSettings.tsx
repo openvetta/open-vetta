@@ -1,5 +1,4 @@
 import { getReasoningPreset } from "@vetta/ai";
-import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
 import type { ModelsConfigData } from "@preload/api.js";
@@ -10,8 +9,6 @@ import { SettingHeading, SettingRow, SettingSection } from "./shared";
 import { ModelSelect } from "@shared/components/ModelSelect";
 import { CheckboxField } from "./McpSettings";
 import { PresetProvidersSection } from "./PresetProvidersSection";
-import { ProviderIcon } from "@shared/components/provider-icon";
-import { remoteProvidersAtom } from "@shared/store/atoms";
 import { SETTINGS_SECTION } from "../registry";
 
 const API_OPTIONS = [
@@ -491,12 +488,6 @@ export function ModelsSettings(): JSX.Element {
 	const [modelForm, setModelForm] = useState<ModelFormState>({ ...emptyModel });
 	const [saving, setSaving] = useState(false);
 
-	// Remote providers state
-	const [remoteProviders, setRemoteProviders] = useAtom(remoteProvidersAtom);
-	const [refreshing, setRefreshing] = useState(false);
-	const [remoteError, setRemoteError] = useState<string | null>(null);
-	const [expandedRemoteProvider, setExpandedRemoteProvider] = useState<string | null>(null);
-
 	// JSON mode state
 	const [jsonText, setJsonText] = useState("");
 	const [jsonError, setJsonError] = useState<string | null>(null);
@@ -522,23 +513,6 @@ export function ModelsSettings(): JSX.Element {
 		},
 		[],
 	);
-
-	// Remote providers
-	const handleRefreshRemote = useCallback(async () => {
-		setRefreshing(true);
-		setRemoteError(null);
-		try {
-			const result = await window.vetta.models.fetchRemote();
-			if (result.error) {
-				setRemoteError(result.error);
-			}
-			setRemoteProviders(result.providers);
-		} catch {
-			setRemoteError(t("requestFailed"));
-		} finally {
-			setRefreshing(false);
-		}
-	}, [setRemoteProviders]);
 
 	// --- Provider CRUD ---
 
@@ -818,7 +792,29 @@ export function ModelsSettings(): JSX.Element {
 					<PresetProvidersSection config={config} saveConfig={saveConfig} />
 
 					{/* Provider list */}
-					<SettingSection t={t as any} section={SETTINGS_SECTION["models-providers"]} title={t("localProviders")}>
+					<SettingSection
+						t={t as any}
+						section={SETTINGS_SECTION["models-providers"]}
+						title={
+							<div className="flex items-center justify-between">
+								<span>{t("localProviders")}</span>
+								{!addingProvider && (
+									<button
+										type="button"
+										onClick={() => {
+											setAddingProvider(true);
+											setEditingProvider(null);
+											setProviderForm({ ...emptyProvider });
+										}}
+										className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10"
+									>
+										<span className="icon-[mdi--plus] h-3.5 w-3.5" />
+										{t("addProvider")}
+									</button>
+								)}
+							</div>
+						}
+					>
 						{providerNames.length === 0 && !addingProvider && (
 							<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
 								{t("noProvidersAdded")}
@@ -1057,129 +1053,6 @@ export function ModelsSettings(): JSX.Element {
 							</div>
 						)}
 					</SettingSection>
-
-					{/* Add provider button */}
-					{!addingProvider && (
-						<button
-							type="button"
-							onClick={() => {
-								setAddingProvider(true);
-								setEditingProvider(null);
-								setProviderForm({ ...emptyProvider });
-							}}
-							className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3 text-[13px] text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-						>
-							<span className="icon-[mdi--plus] h-4 w-4" />
-							{t("addProvider")}
-						</button>
-					)}
-
-					{/* Remote providers (read-only, from server) */}
-					<div className="mt-6">
-						<SettingSection
-							section={SETTINGS_SECTION["models-remote-providers"]}
-							title={
-								<div className="flex items-center justify-between">
-									<span>{t("remoteProviders")}</span>
-									<button
-										type="button"
-										onClick={() => void handleRefreshRemote()}
-										disabled={refreshing}
-										className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-									>
-										<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
-										{refreshing ? t("refreshing") : t("refresh")}
-									</button>
-								</div>
-							}
-						>
-							{remoteError && (
-								<div className="flex items-center gap-2 px-5 py-3 text-[12px] text-amber-400">
-									<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
-									{remoteError === "unauthorized" ? t("unauthorized") : remoteError}
-								</div>
-							)}
-							{Object.keys(remoteProviders).length === 0 && !remoteError && (
-								<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-									{t("noRemoteProviders")}
-								</div>
-							)}
-							{Object.entries(remoteProviders as Record<string, { api?: string; baseUrl?: string; icon?: string; models?: Array<{ id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number }> }>).map(([name, provider]) => {
-								const models = provider.models ?? [];
-								const isExpanded = expandedRemoteProvider === name;
-								return (
-									<div key={name} className="border-b border-border last:border-b-0">
-										<div className="flex items-center gap-3 px-5 py-3.5">
-											<button
-												type="button"
-												onClick={() => setExpandedRemoteProvider(isExpanded ? null : name)}
-												className="flex flex-1 items-center gap-3 text-left"
-											>
-												<span
-													className={cn(
-														"icon-[mdi--chevron-right] h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-														isExpanded && "rotate-90",
-													)}
-												/>
-												<div className="min-w-0 flex-1">
-													<div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-														<ProviderIcon symbol={provider.icon} className="h-5 w-5" />
-															{name === "vetta-zen" ? "Vetta Zen" : name}
-														<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-															remote
-														</span>
-													</div>
-													<div className="mt-0.5 text-[11px] text-muted-foreground">
-														{models.length} 
-													</div>
-												</div>
-											</button>
-										</div>
-
-										{isExpanded && (
-											<div className="border-t border-border bg-secondary/30">
-												{models.length === 0 && (
-													<div className="px-5 py-6 text-center text-[12px] text-muted-foreground">
-														{t("noModels")}
-													</div>
-												)}
-												{models.map((model) => (
-													<div
-														key={model.id}
-														className="flex items-center justify-between border-b border-border/50 px-5 py-2.5 last:border-b-0"
-													>
-														<div className="min-w-0 flex-1">
-															<div className="text-[12px] font-medium text-foreground">
-																{model.name || model.id}
-															</div>
-															<div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
-																<span>{model.id}</span>
-																{model.input?.includes("image") && (
-																	<span className="rounded bg-blue-500/10 px-1 py-0.5 text-[9px] text-blue-400">vision</span>
-																)}
-																{model.reasoning && (
-																	<span className="rounded bg-purple-500/10 px-1 py-0.5 text-[9px] text-purple-400">reasoning</span>
-																)}
-																{Array.isArray((model as Record<string, unknown>).tags) && ((model as Record<string, unknown>).tags as string[]).map((tag: string) => (
-																	<span key={tag} className="rounded bg-accent px-1 py-0.5 text-[9px] text-muted-foreground">{tag.trim()}</span>
-																))}
-																{model.contextWindow != null && (
-																	<span>· {(model.contextWindow / 1024).toFixed(0)}K ctx</span>
-																)}
-																{model.maxTokens != null && (
-																	<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
-																)}
-															</div>
-														</div>
-													</div>
-												))}
-											</div>
-										)}
-									</div>
-								);
-							})}
-						</SettingSection>
-					</div>
 				</>
 			) : (
 				/* JSON mode */
