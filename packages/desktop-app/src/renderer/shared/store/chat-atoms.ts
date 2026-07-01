@@ -158,6 +158,8 @@ export interface ChatMessage {
 	endedAt?: number;
 	/** Total duration of this assistant turn in seconds (agent_start → agent_end) */
 	durationSeconds?: number;
+	/** 该 user turn 实际使用的模型，用于 MessageList 派生"切换了模型"分隔条 */
+	model?: { provider: string; id: string };
 }
 
 export interface ActiveSession {
@@ -328,8 +330,11 @@ export const promptSuggestionsAtom = atom<Record<string, string[]>>({});
  */
 export const promptPredictingAtom = atom<Record<string, boolean>>({});
 
-/** Selected model identifier: "provider/modelId" */
-export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));
+/**
+ * 当前活跃会话选中模型的镜像，格式 "provider/modelId"。
+ * 真相源为后端会话 settings；打开会话时由后端 pull 驱动填充。
+ */
+export const selectedModelAtom = atom<string | null>(null);
 
 /**
  * Per-model reasoning level memory: maps modelKey ("provider/modelId") → chosen level value.

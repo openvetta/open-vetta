@@ -16,6 +16,7 @@ import {
 	promptPredictingAtom,
 } from "@shared/store/atoms";
 import { BotAvatar } from "@shared/components/BotAvatar";
+import { useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
 import { cn, pathBasename } from "@shared/lib/utils";
 import { PluginTurnCardHost } from "../../plugins/components/PluginTurnCardHost";
 import { MessageCardsHost } from "./MessageCardsHost";
@@ -934,6 +935,21 @@ const CompactionBoundary = memo(function CompactionBoundary() {
 	);
 });
 
+/** Model-switch boundary marker — shows where the user turn switched to a different model. */
+const ModelSwitchBoundary = memo(function ModelSwitchBoundary({ label }: { label: string }) {
+	const { t } = useTranslation("chat");
+	return (
+		<div className="flex items-center gap-3 py-1">
+			<div className="h-px flex-1 bg-muted-foreground/15" />
+			<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/40">
+				<span className="icon-[mdi--swap-horizontal] h-3 w-3" />
+				{t("messageList.modelSwitched", { name: label })}
+			</span>
+			<div className="h-px flex-1 bg-muted-foreground/15" />
+		</div>
+	);
+});
+
 function CompactionIndicator(): JSX.Element {
 	const { t } = useTranslation("chat");
 	return (
@@ -985,6 +1001,24 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
+
+	const { options } = useModelOptions();
+	const modelDisplayName = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const o of options) map.set(o.key, o.displayName);
+		return (key: string) => map.get(key) ?? key;
+	}, [options]);
+	const modelSwitchAt = useMemo(() => {
+		const at = new Map<string, string>();
+		let prevKey: string | null = null;
+		for (const m of messages) {
+			if (m.role !== "user") continue;
+			const key = m.model ? `${m.model.provider}/${m.model.id}` : null;
+			if (key && prevKey && key !== prevKey) at.set(m.id, key);
+			if (key) prevKey = key;
+		}
+		return at;
+	}, [messages]);
 
 	// 末尾消息 id：仅当末尾是 assistant 时才用它判断「正在吐字」。
 	// 不能用「最后一条 assistant 的 id」——用户追加新消息后，旧 assistant 仍会被
@@ -1165,6 +1199,7 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 		// 末条 user 消息：hover 出的 action list 绝对定位在气泡下方，需额外底部留白，
 		// 否则被 List 容器的 overflow-hidden 在底边裁掉一截（agent 回复出现后即非末条，自动还原）。
 		<div className={index === messages.length - 1 && message.role === "user" ? "pb-9" : "pb-5"}>
+			{modelSwitchAt.has(message.id) && <ModelSwitchBoundary label={modelDisplayName(modelSwitchAt.get(message.id)!)} />}
 			<Message
 				message={message}
 				isTailMessage={message.id === tailMessageId}
@@ -1187,6 +1222,8 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 		handleUserMessageEntryComplete,
 		isStreaming,
 		messages.length,
+		modelDisplayName,
+		modelSwitchAt,
 		pendingUserAnimationId,
 		tailMessageId,
 	]);

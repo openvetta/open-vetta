@@ -332,6 +332,7 @@
 			"processing": "Processing..."
 		},
 		"compactionBoundary": "Context compacted",
+		"modelSwitched": "Switched model to {{name}}",
 		"compactionIndicator": "Compacting context...",
 		"streamingPhrases": [
 			"Vetta is replying…",
