@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useProjectProfile } from "@shared/lib/project-profile";
 import { ChatPanel } from "../../flowing-chat/components/ChatPanel";
 
@@ -6,12 +7,13 @@ interface ChatTabPanelProps {
 }
 
 export function ChatTabPanel({ cwd }: ChatTabPanelProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const { profile, loading } = useProjectProfile(cwd);
 
 	if (loading) {
 		return (
 			<div className="flex h-full items-center justify-center text-[12px] text-muted-foreground/50">
-				加载中…
+				{t("activityPanel.chatTab.loading")}
 			</div>
 		);
 	}
@@ -20,7 +22,7 @@ export function ChatTabPanel({ cwd }: ChatTabPanelProps): JSX.Element {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/50">
 				<span className="icon-[mdi--message-text-outline] text-[28px]" />
-				<span className="text-[12px]">该项目不是流转项目，没有聊天室</span>
+				<span className="text-[12px]">{t("activityPanel.chatTab.notFlowing")}</span>
 			</div>
 		);
 	}

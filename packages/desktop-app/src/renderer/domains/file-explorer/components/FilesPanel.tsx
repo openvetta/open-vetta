@@ -20,6 +20,7 @@ import {
 	type FsEntry,
 } from "@shared/store/atoms";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@shared/components/ui/button";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { pathDirname } from "@shared/lib/utils";
@@ -30,6 +31,7 @@ interface FilesPanelProps {
 }
 
 export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
+	const { t } = useTranslation("chat");
 	const {
 		cache,
 		expandedDirs,
@@ -64,23 +66,23 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 
 	const handleClearArtifacts = useCallback(() => {
 		if (!clearArtifactsScope || !rootDir) return;
-		const label = clearArtifactsScope === "claw" ? "Claw" : "「对话」";
+		const label = clearArtifactsScope === "claw" ? "Claw" : t("fileExplorer.conversationLabel");
 		setConfirm({
-			title: "清空产物",
-			message: `将删除 ${label} 项目 cwd 下的全部产物文件（保留会话记录），此操作不可恢复。`,
-			confirmLabel: "清空",
+			title: t("fileExplorer.clearArtifactsTitle"),
+			message: t("fileExplorer.clearArtifactsMessage", { label }),
+			confirmLabel: t("fileExplorer.clearArtifactsConfirm"),
 			variant: "danger",
 			onConfirm: async () => {
 				try {
 					await window.vetta.session.clearDefaultArtifacts(clearArtifactsScope);
 				} catch (err: unknown) {
-					setErrorToast(err instanceof Error ? err.message : "清空产物失败");
+					setErrorToast(err instanceof Error ? err.message : t("fileExplorer.clearArtifactsFailed"));
 					return;
 				}
 				await refreshDir(rootDir);
 			},
 		});
-	}, [clearArtifactsScope, rootDir, setConfirm, refreshDir]);
+	}, [clearArtifactsScope, rootDir, setConfirm, refreshDir, t]);
 
 	const handleSelectFile = useCallback(
 		(entry: FsEntry) => {
@@ -141,12 +143,12 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 		function handleMove(e: Event) {
 			const { srcPath, destDir } = (e as CustomEvent).detail as { srcPath: string; destDir: string };
 			void moveEntry(srcPath, destDir).catch((err: unknown) => {
-				setErrorToast(err instanceof Error ? err.message : "移动失败");
+				setErrorToast(err instanceof Error ? err.message : t("fileExplorer.moveFailed"));
 			});
 		}
 		window.addEventListener("vetta:file-move", handleMove);
 		return () => window.removeEventListener("vetta:file-move", handleMove);
-	}, [moveEntry]);
+	}, [moveEntry, t]);
 
 	// Auto-dismiss error toast
 	useEffect(() => {
@@ -160,17 +162,17 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 		try {
 			await deleteEntry(deleteTarget.path);
 		} catch (err: unknown) {
-			setErrorToast(err instanceof Error ? err.message : "删除失败");
+			setErrorToast(err instanceof Error ? err.message : t("fileExplorer.deleteFailed"));
 		}
 		setDeleteTarget(null);
-	}, [deleteTarget, deleteEntry]);
+	}, [deleteTarget, deleteEntry, t]);
 
 	if (!rootDir) {
 		return (
 			<div className="flex flex-col items-center gap-2.5 px-4 py-10 text-center">
 				<span className="icon-[mdi--folder-search-outline] h-7 w-7 text-muted-foreground" />
 				<p className="text-[11px] text-foreground">
-					选择一个项目以浏览文件
+					{t("fileExplorer.selectProject")}
 				</p>
 			</div>
 		);
@@ -192,20 +194,20 @@ export function FilesPanel({ cwd }: FilesPanelProps = {}): JSX.Element {
 			{/* Header with project name + refresh */}
 			<div className="flex items-center justify-between px-3 py-1.5">
 				<span className="min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-					{isHashedSubCwd ? "文件列表" : projectName}
+					{isHashedSubCwd ? t("fileExplorer.fileList") : projectName}
 				</span>
 				<div className="flex items-center gap-0.5">
 					{clearArtifactsScope && (
 						<Button
 							variant="ghost"
 							size="icon-xs"
-							title="清空产物"
+							title={t("fileExplorer.clearArtifacts")}
 							onClick={handleClearArtifacts}
 						>
 							<span className="icon-[mdi--broom] h-3.5 w-3.5" />
 						</Button>
 					)}
-					<Button variant="ghost" size="icon-xs" title="刷新" onClick={() => void refreshDir(rootDir)}>
+					<Button variant="ghost" size="icon-xs" title={t("fileExplorer.refresh")} onClick={() => void refreshDir(rootDir)}>
 						<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
 					</Button>
 				</div>

@@ -1,4 +1,5 @@
 import { useAtom } from "jotai";
+import { useTranslation } from "react-i18next";
 import { debugSubTabAtom } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import { ToolCallsSubTab } from "./ToolCallsSubTab";
@@ -30,16 +31,17 @@ function SubTabButton({
 }
 
 export function DebugTabPanel({ cwd }: { cwd: string }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const [subTab, setSubTab] = useAtom(debugSubTabAtom);
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1.5">
 				<SubTabButton active={subTab === "tool-calls"} onClick={() => setSubTab("tool-calls")}>
-					工具调用
+					{t("activityPanel.debug.toolCalls")}
 				</SubTabButton>
 				<SubTabButton active={subTab === "request-history"} onClick={() => setSubTab("request-history")}>
-					请求历史
+					{t("activityPanel.debug.requestHistory")}
 				</SubTabButton>
 			</div>
 			<div className="flex min-h-0 flex-1 flex-col overflow-y-auto">

@@ -6,32 +6,54 @@ import {
 } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
-function statusMeta(status: BackgroundTask["status"]): { icon: string; label: string; className: string } {
+function statusMeta(
+	status: BackgroundTask["status"],
+	t: TFunction<"chat">,
+): { icon: string; label: string; className: string } {
 	switch (status) {
 		case "running":
-			return { icon: "icon-[mdi--loading] animate-spin", label: "运行中", className: "text-blue-500" };
+			return {
+				icon: "icon-[mdi--loading] animate-spin",
+				label: t("activityPanel.backgroundTasks.statusRunning"),
+				className: "text-blue-500",
+			};
 		case "completed":
-			return { icon: "icon-[mdi--check-circle-outline]", label: "已完成", className: "text-emerald-600" };
+			return {
+				icon: "icon-[mdi--check-circle-outline]",
+				label: t("activityPanel.backgroundTasks.statusCompleted"),
+				className: "text-emerald-600",
+			};
 		case "failed":
-			return { icon: "icon-[mdi--close-circle-outline]", label: "失败", className: "text-destructive" };
+			return {
+				icon: "icon-[mdi--close-circle-outline]",
+				label: t("activityPanel.backgroundTasks.statusFailed"),
+				className: "text-destructive",
+			};
 		case "killed":
-			return { icon: "icon-[mdi--stop-circle-outline]", label: "已终止", className: "text-muted-foreground" };
+			return {
+				icon: "icon-[mdi--stop-circle-outline]",
+				label: t("activityPanel.backgroundTasks.statusKilled"),
+				className: "text-muted-foreground",
+			};
 	}
 }
 
-function formatDuration(startedAt: number, endedAt: number | undefined, now: number): string {
+function formatDuration(startedAt: number, endedAt: number | undefined, now: number, t: TFunction<"chat">): string {
 	const ms = Math.max(0, (endedAt ?? now) - startedAt);
 	const sec = Math.floor(ms / 1000);
-	if (sec < 60) return `${sec} 秒`;
+	if (sec < 60) return t("activityPanel.backgroundTasks.durationSec", { sec });
 	const min = Math.floor(sec / 60);
-	if (min < 60) return `${min} 分 ${sec % 60} 秒`;
+	if (min < 60) return t("activityPanel.backgroundTasks.durationMin", { min, sec: sec % 60 });
 	const hr = Math.floor(min / 60);
-	return `${hr} 小时 ${min % 60} 分`;
+	return t("activityPanel.backgroundTasks.durationHour", { hr, min: min % 60 });
 }
 
 function TaskCard({ task, now }: { task: BackgroundTask; now: number }): JSX.Element {
-	const meta = statusMeta(task.status);
+	const { t } = useTranslation("chat");
+	const meta = statusMeta(task.status, t);
 	const tailRef = useRef<HTMLPreElement>(null);
 
 	// 输出尾部自动滚动到底部，跟随最新输出
@@ -50,7 +72,7 @@ function TaskCard({ task, now }: { task: BackgroundTask; now: number }): JSX.Ele
 					<span className="text-[10px] text-muted-foreground/70">exit {task.exitCode}</span>
 				)}
 				<span className="ml-auto shrink-0 text-[10px] text-muted-foreground/70">
-					{formatDuration(task.startedAt, task.endedAt, now)}
+					{formatDuration(task.startedAt, task.endedAt, now, t)}
 				</span>
 			</div>
 			<div className="mt-1.5 truncate font-mono text-[11px] text-foreground" title={task.command}>
@@ -69,6 +91,7 @@ function TaskCard({ task, now }: { task: BackgroundTask; now: number }): JSX.Ele
 }
 
 export function BackgroundTasksTabPanel(): JSX.Element {
+	const { t } = useTranslation("chat");
 	const tasksMap = useAtomValue(backgroundTasksBySessionAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const tasks = useMemo(
@@ -95,7 +118,11 @@ export function BackgroundTasksTabPanel(): JSX.Element {
 	}, [sessionId]);
 
 	if (tasks.length === 0) {
-		return <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">暂无后台任务</div>;
+		return (
+			<div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+				{t("activityPanel.backgroundTasks.empty")}
+			</div>
+		);
 	}
 
 	const sorted = tasks.slice().sort((a, b) => b.startedAt - a.startedAt);
@@ -110,7 +137,7 @@ export function BackgroundTasksTabPanel(): JSX.Element {
 						className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					>
 						<span className="icon-[mdi--broom] h-3 w-3" />
-						<span>清除已结束 ({finishedCount})</span>
+						<span>{t("activityPanel.backgroundTasks.clearFinished", { count: finishedCount })}</span>
 					</button>
 				</div>
 			)}

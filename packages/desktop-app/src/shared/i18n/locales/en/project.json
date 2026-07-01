@@ -91,6 +91,7 @@
 	},
 	"tabPicker": {
 		"moreTabs": "More tabs",
-		"hiddenPanels": "Hidden panels"
+		"hiddenPanels": "Hidden panels",
+		"menu": "Tab menu"
 	}
 }

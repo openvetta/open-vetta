@@ -1,4 +1,148 @@
 {
+	"activityPanel": {
+		"tabs": {
+			"file": "文件",
+			"journey": "历程",
+			"chat": "聊天",
+			"batchProgress": "执行进度",
+			"todo": "待办",
+			"backgroundTasks": "后台任务",
+			"debug": "调试",
+			"knowledgeHistory": "知识库加工历史"
+		},
+		"backgroundTasks": {
+			"statusRunning": "运行中",
+			"statusCompleted": "已完成",
+			"statusFailed": "失败",
+			"statusKilled": "已终止",
+			"durationSec": "{{sec}} 秒",
+			"durationMin": "{{min}} 分 {{sec}} 秒",
+			"durationHour": "{{hr}} 小时 {{min}} 分",
+			"empty": "暂无后台任务",
+			"clearFinished": "清除已结束 ({{count}})"
+		},
+		"batchProgress": {
+			"notFound": "未找到批量任务项目"
+		},
+		"chatTab": {
+			"loading": "加载中…",
+			"notFlowing": "该项目不是流转项目，没有聊天室"
+		},
+		"debug": {
+			"toolCalls": "工具调用",
+			"requestHistory": "请求历史"
+		},
+		"todo": {
+			"empty": "暂无待办事项"
+		},
+		"toolCalls": {
+			"filterAll": "全部",
+			"filterSuccess": "成功",
+			"filterError": "失败",
+			"noSession": "无活动会话",
+			"searchPlaceholder": "搜索工具名...",
+			"loading": "加载中...",
+			"recordCount": "{{count}} 条记录",
+			"refresh": "刷新",
+			"empty": "暂无工具调用记录",
+			"noMatch": "无匹配结果",
+			"args": "参数",
+			"result": "结果"
+		},
+		"requestHistory": {
+			"noSession": "无活动会话",
+			"loading": "加载中...",
+			"requestCount": "{{count}} 条请求",
+			"refresh": "刷新",
+			"empty": "调试模式下发送消息后，请求历史将显示在此处",
+			"showInFolder": "在磁盘中打开"
+		},
+		"schedule": {
+			"statusRunning": "执行中",
+			"statusSuccess": "成功",
+			"statusFailed": "失败",
+			"statusAborted": "中止",
+			"unnamedTask": "未命名任务",
+			"noTasks": "该项目暂无自动化任务",
+			"overview": "自动化执行概览",
+			"refresh": "刷新",
+			"totalTasks": "任务总数",
+			"enabled": "启用中",
+			"todayExecutions": "今日执行",
+			"taskControl": "任务控制",
+			"enabledBadge": "已启用",
+			"pausedBadge": "已暂停",
+			"run": "执行",
+			"pause": "暂停",
+			"enable": "启用",
+			"executionRecords": "执行记录",
+			"noRecords": "暂无执行记录"
+		},
+		"journey": {
+			"statusPending": "待处理",
+			"statusInProgress": "进行中",
+			"statusCompleted": "已完成",
+			"statusReturned": "已退回",
+			"transferPending": "待处理",
+			"transferAccepted": "已接受",
+			"transferRejected": "已拒绝",
+			"member": "成员 {{id}}",
+			"loadFailed": "加载历程失败",
+			"notWorkflow": "当前项目不是工作流项目",
+			"empty": "暂无工作流历程",
+			"badge": "历程",
+			"stageCount": "环节 {{completed}}/{{total}}",
+			"transferCount": "流转记录 {{count}}",
+			"noSubtitle": "暂无子标题",
+			"subtitlePrefix": "子标题：{{subtitle}}",
+			"memberLabel": "成员：",
+			"noMembers": "无指定成员",
+			"enteredAt": "进入时间",
+			"completedAt": "完成时间",
+			"stageOutputFiles": "环节产出文件",
+			"transferMessageEmpty": "无",
+			"collapseDetails": "收起详情",
+			"expandDetails": "展开详情",
+			"senderReceiver": "发送者 → 接收者",
+			"sentAt": "发送时间 {{time}}",
+			"subtitle": "子标题",
+			"attachedMessage": "附加消息",
+			"attachedFiles": "附加文件",
+			"none": "无",
+			"noTransfers": "暂无流转记录"
+		},
+		"htmlPreview": {
+			"preview": "预览",
+			"code": "代码",
+			"title": "HTML 预览"
+		}
+	},
+	"fileExplorer": {
+		"clearArtifactsTitle": "清空产物",
+		"clearArtifactsMessage": "将删除 {{label}} 项目 cwd 下的全部产物文件（保留会话记录），此操作不可恢复。",
+		"clearArtifactsConfirm": "清空",
+		"clearArtifactsFailed": "清空产物失败",
+		"conversationLabel": "「对话」",
+		"moveFailed": "移动失败",
+		"deleteFailed": "删除失败",
+		"selectProject": "选择一个项目以浏览文件",
+		"fileList": "文件列表",
+		"clearArtifacts": "清空产物",
+		"refresh": "刷新",
+		"emptyFolder": "此文件夹为空",
+		"openInFinder": "在访达中打开",
+		"openInExplorer": "在资源管理器中打开",
+		"copyName": "复制名称",
+		"rename": "重命名",
+		"delete": "删除",
+		"confirmDeleteTitle": "确认删除",
+		"confirmDeleteFolder": "文件夹",
+		"confirmDeleteFile": "文件",
+		"confirmDeletePrefix": "确定要删除{{type}}",
+		"confirmDeleteSuffix": "吗？{{folderNote}}此操作无法撤销。",
+		"confirmDeleteFolderNote": " 此操作将删除文件夹内的所有内容。",
+		"cancel": "取消"
+	},
 	"askUserQuestion": {
 		"cancelledMessage": "用户已取消，未作答",
 		"defaultQuestionLabel": "问题 {{number}}"

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { authTokenAtom, filePreviewAtom } from "@shared/store/atoms";
 import {
 	fetchColleagues,
@@ -16,16 +18,26 @@ interface JourneyPanelProps {
 	cwd: string;
 }
 
-const STATUS_META: Record<string, { label: string; className: string }> = {
-	pending: { label: "待处理", className: "bg-zinc-500/15 text-zinc-400" },
-	in_progress: { label: "进行中", className: "bg-blue-500/15 text-blue-400" },
-	completed: { label: "已完成", className: "bg-emerald-500/15 text-emerald-400" },
-	returned: { label: "已退回", className: "bg-red-500/15 text-red-400" },
+// labelKey 存 i18n key（chat 命名空间），渲染期解析——模块级常量不放中文。
+type StatusLabelKey =
+	| "activityPanel.journey.statusPending"
+	| "activityPanel.journey.statusInProgress"
+	| "activityPanel.journey.statusCompleted"
+	| "activityPanel.journey.statusReturned";
+type TransferLabelKey =
+	| "activityPanel.journey.transferPending"
+	| "activityPanel.journey.transferAccepted"
+	| "activityPanel.journey.transferRejected";
+const STATUS_META: Record<string, { labelKey: StatusLabelKey; className: string }> = {
+	pending: { labelKey: "activityPanel.journey.statusPending", className: "bg-zinc-500/15 text-zinc-400" },
+	in_progress: { labelKey: "activityPanel.journey.statusInProgress", className: "bg-blue-500/15 text-blue-400" },
+	completed: { labelKey: "activityPanel.journey.statusCompleted", className: "bg-emerald-500/15 text-emerald-400" },
+	returned: { labelKey: "activityPanel.journey.statusReturned", className: "bg-red-500/15 text-red-400" },
 };
-const TRANSFER_STATUS_META: Record<string, { label: string; className: string }> = {
-	pending: { label: "待处理", className: "bg-zinc-500/15 text-zinc-400" },
-	accepted: { label: "已接受", className: "bg-emerald-500/15 text-emerald-400" },
-	rejected: { label: "已拒绝", className: "bg-red-500/15 text-red-400" },
+const TRANSFER_STATUS_META: Record<string, { labelKey: TransferLabelKey; className: string }> = {
+	pending: { labelKey: "activityPanel.journey.transferPending", className: "bg-zinc-500/15 text-zinc-400" },
+	accepted: { labelKey: "activityPanel.journey.transferAccepted", className: "bg-emerald-500/15 text-emerald-400" },
+	rejected: { labelKey: "activityPanel.journey.transferRejected", className: "bg-red-500/15 text-red-400" },
 };
 
 type HistoryNode = FlowingTransferVO & { children?: HistoryNode[] };
@@ -36,12 +48,18 @@ function formatDateTime(value: string | null): string {
 	return new Date(value).toLocaleString("zh-CN");
 }
 
-function getStatusMeta(status: string): { label: string; className: string } {
-	return STATUS_META[status] ?? { label: status, className: "bg-zinc-500/15 text-zinc-400" };
+function getStatusMeta(status: string, t: TFunction<"chat">): { label: string; className: string } {
+	const meta = STATUS_META[status];
+	return meta
+		? { label: t(meta.labelKey), className: meta.className }
+		: { label: status, className: "bg-zinc-500/15 text-zinc-400" };
 }
 
-function getTransferStatusMeta(status: string): { label: string; className: string } {
-	return TRANSFER_STATUS_META[status] ?? { label: status, className: "bg-zinc-500/15 text-zinc-400" };
+function getTransferStatusMeta(status: string, t: TFunction<"chat">): { label: string; className: string } {
+	const meta = TRANSFER_STATUS_META[status];
+	return meta
+		? { label: t(meta.labelKey), className: meta.className }
+		: { label: status, className: "bg-zinc-500/15 text-zinc-400" };
 }
 
 function fileName(path: string): string {
@@ -110,6 +128,7 @@ function resolveUser(
 	userId: number,
 	usersMap: Map<number, ColleagueInfo>,
 	transfers: FlowingTransferVO[],
+	t: TFunction<"chat">,
 ): DisplayUser {
 	const colleague = usersMap.get(userId);
 	if (colleague) {
@@ -123,7 +142,7 @@ function resolveUser(
 	if (receiver) {
 		return { name: receiver.receiver_name, avatar: receiver.receiver_avatar };
 	}
-	return { name: `成员 ${userId}`, avatar: "" };
+	return { name: t("activityPanel.journey.member", { id: userId }), avatar: "" };
 }
 
 function UserIdentity({
@@ -150,6 +169,7 @@ function UserIdentity({
 }
 
 export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const token = useAtomValue(authTokenAtom);
 	const setPreview = useSetAtom(filePreviewAtom);
 	const { profile, loading: profileLoading } = useProjectProfile(cwd);
@@ -243,7 +263,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 				setStageTransfersMap(new Map());
 				setUsersMap(new Map());
 				setExpandedTransferIds(new Set());
-				setError(err instanceof Error ? err.message : "加载历程失败");
+				setError(err instanceof Error ? err.message : t("activityPanel.journey.loadFailed"));
 			})
 			.finally(() => {
 				if (!cancelled) setLoading(false);
@@ -252,7 +272,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 		return () => {
 			cancelled = true;
 		};
-	}, [canLoad, token, profile?.flowingId]);
+	}, [canLoad, token, profile?.flowingId, t]);
 
 	const completedCount = useMemo(() => {
 		if (!instance) return 0;
@@ -283,7 +303,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/50">
 				<span className="icon-[mdi--timeline-outline] text-[28px]" />
-				<span className="text-[12px]">当前项目不是工作流项目</span>
+				<span className="text-[12px]">{t("activityPanel.journey.notWorkflow")}</span>
 			</div>
 		);
 	}
@@ -300,7 +320,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/50">
 				<span className="icon-[mdi--timeline-outline] text-[28px]" />
-				<span className="text-[12px]">暂无工作流历程</span>
+				<span className="text-[12px]">{t("activityPanel.journey.empty")}</span>
 			</div>
 		);
 	}
@@ -312,13 +332,13 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 					<div className="mb-1 flex items-center justify-between">
 						<h3 className="text-[13px] font-semibold text-foreground">{instance.workflow_name}</h3>
 						<span className="rounded-full bg-accent/70 px-2 py-0.5 text-[10px] text-muted-foreground">
-							历程
+							{t("activityPanel.journey.badge")}
 						</span>
 					</div>
 					<div className="flex items-center gap-2 text-[11px] text-muted-foreground/70">
-						<span>环节 {completedCount}/{instance.stages.length}</span>
+						<span>{t("activityPanel.journey.stageCount", { completed: completedCount, total: instance.stages.length })}</span>
 						<span className="text-muted-foreground/40">•</span>
-						<span>流转记录 {historyCount}</span>
+						<span>{t("activityPanel.journey.transferCount", { count: historyCount })}</span>
 					</div>
 				</div>
 			</div>
@@ -326,10 +346,10 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
 				<div className="space-y-3">
 					{instance.stages.map((stage, index) => {
-						const statusMeta = getStatusMeta(stage.status);
+						const statusMeta = getStatusMeta(stage.status, t);
 						const isLast = index === instance.stages.length - 1;
 						const transfers = stageTransfersMap.get(index) ?? [];
-						const stageSubtitle = stage.description?.trim() || "暂无子标题";
+						const stageSubtitle = stage.description?.trim() || t("activityPanel.journey.noSubtitle");
 						const stageResultFiles = stage.file_list ?? [];
 						const stageResultStorageKey = stage.file_storage_key ?? "";
 
@@ -344,7 +364,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 									<div className="mb-2 flex items-start justify-between gap-2">
 										<div className="min-w-0">
 											<div className="truncate text-[13px] font-semibold text-foreground">{stage.name}</div>
-											<div className="mt-0.5 text-[11px] text-muted-foreground/70">子标题：{stageSubtitle}</div>
+											<div className="mt-0.5 text-[11px] text-muted-foreground/70">{t("activityPanel.journey.subtitlePrefix", { subtitle: stageSubtitle })}</div>
 										</div>
 										<span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${statusMeta.className}`}>
 											{statusMeta.label}
@@ -354,10 +374,10 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 									<div className="mb-2 flex flex-wrap gap-1.5">
 										{stage.member_ids.length > 0 ? (
 											stage.member_ids.map((memberId) => {
-												const member = resolveUser(memberId, usersMap, transfers);
+												const member = resolveUser(memberId, usersMap, transfers, t);
 												return (
 													<div className="flex items-center px-2">
-														<div className="text-[11px]">成员：</div>
+														<div className="text-[11px]">{t("activityPanel.journey.memberLabel")}</div>
 													<div
 														key={memberId}
 														className="max-w-full"
@@ -368,20 +388,20 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 												);
 											})
 										) : (
-											<span className="text-[10px] text-muted-foreground/50">无指定成员</span>
+											<span className="text-[10px] text-muted-foreground/50">{t("activityPanel.journey.noMembers")}</span>
 										)}
 									</div>
 
 									<div className="grid grid-cols-1 gap-1.5 text-[11px] text-muted-foreground/70">
 										<div className="rounded-md bg-muted/35 px-2 py-1.5">
 											<div className="mb-px text-[10px] uppercase tracking-wide text-muted-foreground/45">
-												进入时间
+												{t("activityPanel.journey.enteredAt")}
 											</div>
 											<div className="font-medium text-foreground/80">{formatDateTime(stage.entered_at)}</div>
 										</div>
 										<div className="rounded-md bg-muted/35 px-2 py-1.5">
 											<div className="mb-px text-[10px] uppercase tracking-wide text-muted-foreground/45">
-												完成时间
+												{t("activityPanel.journey.completedAt")}
 											</div>
 											<div className="font-medium text-foreground/80">{formatDateTime(stage.completed_at)}</div>
 										</div>
@@ -389,7 +409,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 
 									{stageResultFiles.length > 0 && (
 										<div className="mt-2 rounded-md border border-emerald-500 bg-emerald-500/5 px-2 py-1.5">
-											<div className="mb-1 text-[10px] font-medium text-emerald-400">环节产出文件</div>
+											<div className="mb-1 text-[10px] font-medium text-emerald-400">{t("activityPanel.journey.stageOutputFiles")}</div>
 											<div className="flex flex-wrap gap-1">
 												{stageResultFiles.map((file) => (
 													<button
@@ -412,8 +432,8 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 											<div className="absolute bottom-2 left-[3px] top-2 w-px bg-border" />
 											<div className="space-y-2">
 												{transfers.map((transfer) => {
-													const transferStatusMeta = getTransferStatusMeta(transfer.status);
-													const transferMessage = transfer.message?.trim() || "无";
+													const transferStatusMeta = getTransferStatusMeta(transfer.status, t);
+													const transferMessage = transfer.message?.trim() || t("activityPanel.journey.transferMessageEmpty");
 													const isTransferExpanded = expandedTransferIds.has(transfer.id);
 													return (
 														<div key={transfer.id} className="relative">
@@ -429,11 +449,11 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 																			onClick={() => toggleTransferDetails(transfer.id)}
 																			className="rounded bg-muted/45 px-1.5 py-0.5 text-[9px] text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
 																		>
-																			{isTransferExpanded ? "收起详情" : "展开详情"}
+																			{isTransferExpanded ? t("activityPanel.journey.collapseDetails") : t("activityPanel.journey.expandDetails")}
 																		</button>
 																	</div>
 																</div>
-																<div className="mt-1 text-[10px] text-muted-foreground/55">发送者 → 接收者</div>
+																<div className="mt-1 text-[10px] text-muted-foreground/55">{t("activityPanel.journey.senderReceiver")}</div>
 																<div className="mt-1 flex min-w-0 items-center gap-2">
 																	<UserIdentity
 																		name={transfer.sender_name}
@@ -448,13 +468,13 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 																	/>
 																</div>
 																<div className="mt-1 text-[10px] text-muted-foreground/65">
-																	发送时间 {formatDateTime(transfer.created_at)}
+																	{t("activityPanel.journey.sentAt", { time: formatDateTime(transfer.created_at) })}
 																</div>
 
 																{isTransferExpanded && (
 																	<div className="mt-2 space-y-1">
 																		<div className="rounded bg-muted/30 px-1.5 py-1">
-																			<div className="text-[10px] text-muted-foreground/55">子标题</div>
+																			<div className="text-[10px] text-muted-foreground/55">{t("activityPanel.journey.subtitle")}</div>
 																			<div className="mt-0.5 text-[10px] text-foreground/85">
 																				{stage.name} · {transferStatusMeta.label}
 																			</div>
@@ -462,7 +482,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 																		<div className="rounded bg-muted/30 px-1.5 py-1">
 																			<div className="flex items-center gap-1 text-[10px] text-muted-foreground/55">
 																				<span className="icon-[mdi--message-text-outline] text-[11px]" />
-																				附加消息
+																				{t("activityPanel.journey.attachedMessage")}
 																			</div>
 																			<div className="mt-0.5 text-[10px] text-foreground/85">
 																				{transferMessage}
@@ -471,7 +491,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 																		<div className="rounded bg-muted/30 px-1.5 py-1">
 																			<div className="mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/55">
 																				<span className="icon-[mdi--paperclip] text-[11px]" />
-																				附加文件
+																				{t("activityPanel.journey.attachedFiles")}
 																			</div>
 																			{transfer.file_list.length > 0 ? (
 																				<div className="flex flex-wrap gap-1">
@@ -489,7 +509,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 																					))}
 																				</div>
 																			) : (
-																				<div className="text-[10px] text-muted-foreground/50">无</div>
+																				<div className="text-[10px] text-muted-foreground/50">{t("activityPanel.journey.none")}</div>
 																			)}
 																		</div>
 																	</div>
@@ -502,7 +522,7 @@ export function JourneyPanel({ cwd }: JourneyPanelProps): JSX.Element {
 										</div>
 									) : (
 										<div className="mt-2 rounded bg-muted/20 px-2 py-1.5 text-[10px] text-muted-foreground/55">
-											暂无流转记录
+											{t("activityPanel.journey.noTransfers")}
 										</div>
 									)}
 								</div>

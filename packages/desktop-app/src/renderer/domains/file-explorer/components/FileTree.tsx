@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { FsEntry } from "@shared/store/atoms";
 import { FileTreeNode } from "./FileTreeNode";
 
@@ -49,12 +50,13 @@ export function FileTree({
 	onSelectFile,
 	onRename,
 }: FileTreeProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const flatList = buildFlatList(rootDir, cache, expandedDirs);
 
 	if (flatList.length === 0 && !loadingDirs.has(rootDir)) {
 		return (
 			<div className="px-4 py-6 text-center text-[11px] text-muted-foreground">
-				此文件夹为空
+				{t("fileExplorer.emptyFolder")}
 			</div>
 		);
 	}

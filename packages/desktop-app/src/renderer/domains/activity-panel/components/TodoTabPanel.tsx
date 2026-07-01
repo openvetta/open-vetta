@@ -2,8 +2,10 @@ import { activeSessionAtom, getTodoItemsForSession, todoItemsBySessionAtom } fro
 import { TodoCard } from "@shared/components/TodoCard";
 import { useAtomValue } from "jotai";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 export function TodoTabPanel(): JSX.Element {
+	const { t } = useTranslation("chat");
 	const todoMap = useAtomValue(todoItemsBySessionAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const items = useMemo(
@@ -14,7 +16,7 @@ export function TodoTabPanel(): JSX.Element {
 	if (items.length === 0) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-				暂无待办事项
+				{t("activityPanel.todo.empty")}
 			</div>
 		);
 	}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
+import { useTranslation } from "react-i18next";
 import { activeSessionAtom, filePreviewAtom } from "@shared/store/atoms";
 import { pathBasename } from "@shared/lib/utils";
 import type { RequestFileInfo } from "../../../../preload/api.js";
@@ -19,6 +20,7 @@ function formatTokens(n: number): string {
 }
 
 export function RequestHistorySubTab({ cwd }: { cwd: string }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const setPreview = useSetAtom(filePreviewAtom);
 	const [files, setFiles] = useState<RequestFileInfo[]>([]);
@@ -61,7 +63,7 @@ export function RequestHistorySubTab({ cwd }: { cwd: string }): JSX.Element {
 	if (!sessionId) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4 text-[12px] text-muted-foreground">
-				无活动会话
+				{t("activityPanel.requestHistory.noSession")}
 			</div>
 		);
 	}
@@ -71,13 +73,15 @@ export function RequestHistorySubTab({ cwd }: { cwd: string }): JSX.Element {
 			{/* Header */}
 			<div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1">
 				<span className="text-[11px] text-muted-foreground">
-					{loading ? "加载中..." : `${files.length} 条请求`}
+					{loading
+						? t("activityPanel.requestHistory.loading")
+						: t("activityPanel.requestHistory.requestCount", { count: files.length })}
 				</span>
 				<button
 					type="button"
 					onClick={() => void loadData()}
 					className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-					title="刷新"
+					title={t("activityPanel.requestHistory.refresh")}
 				>
 					<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
 				</button>
@@ -87,7 +91,7 @@ export function RequestHistorySubTab({ cwd }: { cwd: string }): JSX.Element {
 			<div className="flex-1 overflow-y-auto">
 				{files.length === 0 && !loading && (
 					<div className="p-4 text-center text-[12px] text-muted-foreground">
-						调试模式下发送消息后，请求历史将显示在此处
+						{t("activityPanel.requestHistory.empty")}
 					</div>
 				)}
 				{files.map((file) => (
@@ -114,7 +118,7 @@ export function RequestHistorySubTab({ cwd }: { cwd: string }): JSX.Element {
 							type="button"
 							onClick={() => handleShowInFolder(file.path)}
 							className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-							title="在磁盘中打开"
+							title={t("activityPanel.requestHistory.showInFolder")}
 						>
 							<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
 						</button>

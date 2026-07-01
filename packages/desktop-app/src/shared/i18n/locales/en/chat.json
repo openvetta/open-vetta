@@ -1,4 +1,148 @@
 {
+	"activityPanel": {
+		"tabs": {
+			"file": "Files",
+			"journey": "Journey",
+			"chat": "Chat",
+			"batchProgress": "Progress",
+			"todo": "Todo",
+			"backgroundTasks": "Background tasks",
+			"debug": "Debug",
+			"knowledgeHistory": "Processing history"
+		},
+		"backgroundTasks": {
+			"statusRunning": "Running",
+			"statusCompleted": "Completed",
+			"statusFailed": "Failed",
+			"statusKilled": "Killed",
+			"durationSec": "{{sec}}s",
+			"durationMin": "{{min}}m {{sec}}s",
+			"durationHour": "{{hr}}h {{min}}m",
+			"empty": "No background tasks",
+			"clearFinished": "Clear finished ({{count}})"
+		},
+		"batchProgress": {
+			"notFound": "Batch project not found"
+		},
+		"chatTab": {
+			"loading": "Loading…",
+			"notFlowing": "This project is not a flowing project and has no chat room"
+		},
+		"debug": {
+			"toolCalls": "Tool calls",
+			"requestHistory": "Request history"
+		},
+		"todo": {
+			"empty": "No todo items"
+		},
+		"toolCalls": {
+			"filterAll": "All",
+			"filterSuccess": "Success",
+			"filterError": "Failed",
+			"noSession": "No active session",
+			"searchPlaceholder": "Search tool name...",
+			"loading": "Loading...",
+			"recordCount": "{{count}} records",
+			"refresh": "Refresh",
+			"empty": "No tool calls yet",
+			"noMatch": "No matches",
+			"args": "Arguments",
+			"result": "Result"
+		},
+		"requestHistory": {
+			"noSession": "No active session",
+			"loading": "Loading...",
+			"requestCount": "{{count}} requests",
+			"refresh": "Refresh",
+			"empty": "After sending a message in debug mode, request history will appear here",
+			"showInFolder": "Reveal on disk"
+		},
+		"schedule": {
+			"statusRunning": "Running",
+			"statusSuccess": "Success",
+			"statusFailed": "Failed",
+			"statusAborted": "Aborted",
+			"unnamedTask": "Unnamed task",
+			"noTasks": "This project has no automation tasks",
+			"overview": "Automation overview",
+			"refresh": "Refresh",
+			"totalTasks": "Total tasks",
+			"enabled": "Enabled",
+			"todayExecutions": "Today",
+			"taskControl": "Task control",
+			"enabledBadge": "Enabled",
+			"pausedBadge": "Paused",
+			"run": "Run",
+			"pause": "Pause",
+			"enable": "Enable",
+			"executionRecords": "Execution records",
+			"noRecords": "No execution records"
+		},
+		"journey": {
+			"statusPending": "Pending",
+			"statusInProgress": "In progress",
+			"statusCompleted": "Completed",
+			"statusReturned": "Returned",
+			"transferPending": "Pending",
+			"transferAccepted": "Accepted",
+			"transferRejected": "Rejected",
+			"member": "Member {{id}}",
+			"loadFailed": "Failed to load journey",
+			"notWorkflow": "This project is not a workflow project",
+			"empty": "No workflow journey yet",
+			"badge": "Journey",
+			"stageCount": "Stages {{completed}}/{{total}}",
+			"transferCount": "Transfers {{count}}",
+			"noSubtitle": "No subtitle",
+			"subtitlePrefix": "Subtitle: {{subtitle}}",
+			"memberLabel": "Member:",
+			"noMembers": "No assigned members",
+			"enteredAt": "Entered at",
+			"completedAt": "Completed at",
+			"stageOutputFiles": "Stage output files",
+			"transferMessageEmpty": "None",
+			"collapseDetails": "Collapse",
+			"expandDetails": "Expand",
+			"senderReceiver": "Sender → Receiver",
+			"sentAt": "Sent at {{time}}",
+			"subtitle": "Subtitle",
+			"attachedMessage": "Attached message",
+			"attachedFiles": "Attached files",
+			"none": "None",
+			"noTransfers": "No transfer records"
+		},
+		"htmlPreview": {
+			"preview": "Preview",
+			"code": "Code",
+			"title": "HTML preview"
+		}
+	},
+	"fileExplorer": {
+		"clearArtifactsTitle": "Clear artifacts",
+		"clearArtifactsMessage": "This will delete all artifact files under the {{label}} project cwd (session records are kept). This cannot be undone.",
+		"clearArtifactsConfirm": "Clear",
+		"clearArtifactsFailed": "Failed to clear artifacts",
+		"conversationLabel": "\"Conversation\"",
+		"moveFailed": "Move failed",
+		"deleteFailed": "Delete failed",
+		"selectProject": "Select a project to browse files",
+		"fileList": "File list",
+		"clearArtifacts": "Clear artifacts",
+		"refresh": "Refresh",
+		"emptyFolder": "This folder is empty",
+		"openInFinder": "Reveal in Finder",
+		"openInExplorer": "Reveal in Explorer",
+		"copyName": "Copy name",
+		"rename": "Rename",
+		"delete": "Delete",
+		"confirmDeleteTitle": "Confirm delete",
+		"confirmDeleteFolder": "folder",
+		"confirmDeleteFile": "file",
+		"confirmDeletePrefix": "Delete {{type}}",
+		"confirmDeleteSuffix": "?{{folderNote}} This cannot be undone.",
+		"confirmDeleteFolderNote": " All contents inside the folder will be deleted.",
+		"cancel": "Cancel"
+	},
 	"askUserQuestion": {
 		"cancelledMessage": "Cancelled by user, not answered",
 		"defaultQuestionLabel": "Question {{number}}"

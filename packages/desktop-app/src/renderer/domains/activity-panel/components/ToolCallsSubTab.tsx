@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
+import { useTranslation } from "react-i18next";
 import { activeSessionAtom, debugToolSearchAtom, debugToolFilterAtom } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import type { ToolCallRecord } from "../../../../preload/api.js";
 
 type FilterValue = "all" | "success" | "error";
 
-const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
-	{ value: "all", label: "全部" },
-	{ value: "success", label: "成功" },
-	{ value: "error", label: "失败" },
+// labelKey 存 i18n key（chat 命名空间），渲染期解析——模块级常量不放中文。
+type FilterLabelKey =
+	| "activityPanel.toolCalls.filterAll"
+	| "activityPanel.toolCalls.filterSuccess"
+	| "activityPanel.toolCalls.filterError";
+const FILTER_OPTIONS: { value: FilterValue; labelKey: FilterLabelKey }[] = [
+	{ value: "all", labelKey: "activityPanel.toolCalls.filterAll" },
+	{ value: "success", labelKey: "activityPanel.toolCalls.filterSuccess" },
+	{ value: "error", labelKey: "activityPanel.toolCalls.filterError" },
 ];
 
 function formatTime(timestamp: string): string {
@@ -22,6 +28,7 @@ function formatTime(timestamp: string): string {
 }
 
 export function ToolCallsSubTab({ cwd }: { cwd: string }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const [search, setSearch] = useAtom(debugToolSearchAtom);
 	const [filter, setFilter] = useAtom(debugToolFilterAtom);
@@ -69,7 +76,7 @@ export function ToolCallsSubTab({ cwd }: { cwd: string }): JSX.Element {
 	if (!sessionPath) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4 text-[12px] text-muted-foreground">
-				无活动会话
+				{t("activityPanel.toolCalls.noSession")}
 			</div>
 		);
 	}
@@ -84,7 +91,7 @@ export function ToolCallsSubTab({ cwd }: { cwd: string }): JSX.Element {
 						type="text"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
-						placeholder="搜索工具名..."
+						placeholder={t("activityPanel.toolCalls.searchPlaceholder")}
 						className="h-7 w-full rounded-md border border-input bg-background pl-7 pr-2 text-[12px] text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
 					/>
 				</div>
@@ -101,7 +108,7 @@ export function ToolCallsSubTab({ cwd }: { cwd: string }): JSX.Element {
 									: "text-muted-foreground hover:text-foreground",
 							)}
 						>
-							{opt.label}
+							{t(opt.labelKey)}
 						</button>
 					))}
 				</div>
@@ -110,13 +117,15 @@ export function ToolCallsSubTab({ cwd }: { cwd: string }): JSX.Element {
 			{/* Refresh */}
 			<div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1">
 				<span className="text-[11px] text-muted-foreground">
-					{loading ? "加载中..." : `${filtered.length} 条记录`}
+					{loading
+						? t("activityPanel.toolCalls.loading")
+						: t("activityPanel.toolCalls.recordCount", { count: filtered.length })}
 				</span>
 				<button
 					type="button"
 					onClick={() => void loadData()}
 					className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-					title="刷新"
+					title={t("activityPanel.toolCalls.refresh")}
 				>
 					<span className="icon-[mdi--refresh] h-3.5 w-3.5" />
 				</button>
@@ -126,7 +135,9 @@ export function ToolCallsSubTab({ cwd }: { cwd: string }): JSX.Element {
 			<div className="flex-1 overflow-y-auto">
 				{filtered.length === 0 && !loading && (
 					<div className="p-4 text-center text-[12px] text-muted-foreground">
-						{records.length === 0 ? "暂无工具调用记录" : "无匹配结果"}
+						{records.length === 0
+							? t("activityPanel.toolCalls.empty")
+							: t("activityPanel.toolCalls.noMatch")}
 					</div>
 				)}
 				{filtered.map((record) => {
@@ -167,13 +178,17 @@ export function ToolCallsSubTab({ cwd }: { cwd: string }): JSX.Element {
 							</button>
 							{isExpanded && (
 								<div className="border-t border-border bg-muted/30 px-3 py-2">
-									<div className="mb-1 text-[11px] font-medium text-muted-foreground">参数</div>
+									<div className="mb-1 text-[11px] font-medium text-muted-foreground">
+										{t("activityPanel.toolCalls.args")}
+									</div>
 									<pre className="mb-2 max-h-[200px] overflow-auto rounded-md bg-background p-2 text-[11px] text-foreground">
 										{JSON.stringify(record.args, null, 2)}
 									</pre>
 									{record.result !== undefined && (
 										<>
-											<div className="mb-1 text-[11px] font-medium text-muted-foreground">结果</div>
+											<div className="mb-1 text-[11px] font-medium text-muted-foreground">
+												{t("activityPanel.toolCalls.result")}
+											</div>
 											<pre className="max-h-[300px] overflow-auto rounded-md bg-background p-2 text-[11px] text-foreground">
 												{typeof record.result === "string"
 													? record.result

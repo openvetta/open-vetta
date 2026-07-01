@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSetAtom } from "jotai";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 import { renamingPathAtom, type FsEntry } from "@shared/store/atoms";
 import { isMac } from "@shared/lib/platform";
@@ -13,6 +14,7 @@ interface FileContextMenuProps {
 }
 
 export function FileContextMenu({ x, y, entry, onClose, onDelete }: FileContextMenuProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	const menuRef = useRef<HTMLDivElement>(null);
 	const setRenamingPath = useSetAtom(renamingPathAtom);
 
@@ -63,7 +65,7 @@ export function FileContextMenu({ x, y, entry, onClose, onDelete }: FileContextM
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--folder-open-outline] h-3.5 w-3.5" />
-					{isMac ? "在访达中打开" : "在资源管理器中打开"}
+					{isMac ? t("fileExplorer.openInFinder") : t("fileExplorer.openInExplorer")}
 				</button>
 				<button
 					type="button"
@@ -74,7 +76,7 @@ export function FileContextMenu({ x, y, entry, onClose, onDelete }: FileContextM
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--content-copy] h-3.5 w-3.5" />
-					复制名称
+					{t("fileExplorer.copyName")}
 				</button>
 				<div className="mx-1.5 my-1 h-px bg-border" />
 				<button
@@ -86,7 +88,7 @@ export function FileContextMenu({ x, y, entry, onClose, onDelete }: FileContextM
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--pencil-outline] h-3.5 w-3.5" />
-					重命名
+					{t("fileExplorer.rename")}
 				</button>
 				<button
 					type="button"
@@ -94,7 +96,7 @@ export function FileContextMenu({ x, y, entry, onClose, onDelete }: FileContextM
 					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-destructive transition-colors hover:bg-accent"
 				>
 					<span className="icon-[mdi--delete-outline] h-3.5 w-3.5" />
-					删除
+					{t("fileExplorer.delete")}
 				</button>
 			</motion.div>
 		</AnimatePresence>

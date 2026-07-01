@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { motion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import type { FsEntry } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
 
@@ -10,6 +11,7 @@ interface ConfirmDeleteDialogProps {
 }
 
 export function ConfirmDeleteDialog({ entry, onConfirm, onCancel }: ConfirmDeleteDialogProps): JSX.Element {
+	const { t } = useTranslation("chat");
 	// Close on Escape
 	useEffect(() => {
 		function handleKey(e: KeyboardEvent) {
@@ -35,20 +37,25 @@ export function ConfirmDeleteDialog({ entry, onConfirm, onCancel }: ConfirmDelet
 				onClick={(e) => e.stopPropagation()}
 			>
 				<p className="mb-1 text-[13px] font-semibold text-foreground">
-					确认删除
+					{t("fileExplorer.confirmDeleteTitle")}
 				</p>
 				<p className="mb-4 text-[12px] text-muted-foreground">
-					确定要删除{entry.isDirectory ? "文件夹" : "文件"}{" "}
-					<span className="font-medium text-foreground">{entry.name}</span> 吗？
-					{entry.isDirectory && " 此操作将删除文件夹内的所有内容。"}
-					此操作无法撤销。
+					{t("fileExplorer.confirmDeletePrefix", {
+						type: entry.isDirectory
+							? t("fileExplorer.confirmDeleteFolder")
+							: t("fileExplorer.confirmDeleteFile"),
+					})}{" "}
+					<span className="font-medium text-foreground">{entry.name}</span>{" "}
+					{t("fileExplorer.confirmDeleteSuffix", {
+						folderNote: entry.isDirectory ? t("fileExplorer.confirmDeleteFolderNote") : "",
+					})}
 				</p>
 				<div className="flex justify-end gap-2">
 					<Button variant="ghost" size="sm" onClick={onCancel}>
-						取消
+						{t("fileExplorer.cancel")}
 					</Button>
 					<Button variant="destructive" size="sm" onClick={onConfirm}>
-						删除
+						{t("fileExplorer.delete")}
 					</Button>
 				</div>
 			</motion.div>
