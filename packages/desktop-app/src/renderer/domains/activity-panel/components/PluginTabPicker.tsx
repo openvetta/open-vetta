@@ -59,7 +59,7 @@ export function PluginTabPicker({
 			<PopoverTrigger asChild>
 				<button
 					type="button"
-					title="标签页菜单"
+					title={t("tabPicker.menu")}
 					className={cn(
 						"mb-1 mr-3 flex h-5 shrink-0 items-center justify-center gap-0.5 rounded-md px-1 text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100",
 						// 有收纳项时常显（用户需要入口取回）；否则跟随 tab 栏 hover 浮现

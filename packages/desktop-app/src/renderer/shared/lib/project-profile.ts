@@ -18,9 +18,17 @@ export type ActivityTabKey =
 	| "browser"
 	| `plugin:${string}`;
 
+/** 内置 tab 的 i18n key（chat 命名空间）——模块级常量只存 key，渲染期解析。 */
+export type ActivityTabLabelKey =
+	| "activityPanel.tabs.file"
+	| "activityPanel.tabs.journey"
+	| "activityPanel.tabs.chat"
+	| "activityPanel.tabs.batchProgress";
+
 export interface ActivityTabConfig {
 	key: ActivityTabKey;
-	label: string;
+	/** i18n key（chat 命名空间），渲染期解析——不存已翻译文案 */
+	label: ActivityTabLabelKey;
 	icon?: string;
 }
 
@@ -49,12 +57,25 @@ export interface ProjectProfile {
 	defaultActivityTab: ActivityTabKey;
 }
 
-const TAB_FILE: ActivityTabConfig = { key: "file", label: "文件", icon: "icon-[mdi--file-document-outline]" };
-const TAB_JOURNEY: ActivityTabConfig = { key: "journey", label: "历程", icon: "icon-[mdi--timeline-outline]" };
-const TAB_CHAT: ActivityTabConfig = { key: "chat", label: "聊天", icon: "icon-[mdi--message-text-outline]" };
+// label 存 i18n key（chat 命名空间），渲染期由 ActivityPanel 用 t() 解析——模块级常量不放中文。
+const TAB_FILE: ActivityTabConfig = {
+	key: "file",
+	label: "activityPanel.tabs.file",
+	icon: "icon-[mdi--file-document-outline]",
+};
+const TAB_JOURNEY: ActivityTabConfig = {
+	key: "journey",
+	label: "activityPanel.tabs.journey",
+	icon: "icon-[mdi--timeline-outline]",
+};
+const TAB_CHAT: ActivityTabConfig = {
+	key: "chat",
+	label: "activityPanel.tabs.chat",
+	icon: "icon-[mdi--message-text-outline]",
+};
 const TAB_BATCH_PROGRESS: ActivityTabConfig = {
 	key: "batch-progress",
-	label: "执行进度",
+	label: "activityPanel.tabs.batchProgress",
 	icon: "icon-[mdi--progress-clock]",
 };
 /**

@@ -205,14 +205,14 @@ export function ActivityPanel({
 			return [
 				{
 					key: "knowledge-history" as ActivityTabKey,
-					label: "知识库加工历史",
+					label: t("activityPanel.tabs.knowledgeHistory"),
 					icon: "icon-[mdi--history]",
 				},
 			];
 		}
 		const base: TabBarItem<ActivityTabKey>[] = (profile?.activityTabs ?? []).map((tab) => ({
 			key: tab.key,
-			label: tab.label,
+			label: t(tab.label),
 			icon: tab.icon,
 			badge: tab.key === "chat" ? chatUnread : undefined,
 			removable: !NON_HIDEABLE_TABS.has(tab.key),
@@ -229,7 +229,7 @@ export function ActivityPanel({
 			const todoDone = todoItems.filter((i) => i.status === "done").length;
 			base.push({
 				key: "todo" as ActivityTabKey,
-				label: "待办",
+				label: t("activityPanel.tabs.todo"),
 				icon: "icon-[mdi--checkbox-marked-circle-outline]",
 				badge: todoItems.length - todoDone > 0 ? todoItems.length - todoDone : undefined,
 				removable: true,
@@ -240,7 +240,7 @@ export function ActivityPanel({
 			const running = backgroundTasks.filter((t) => t.status === "running").length;
 			base.push({
 				key: "background-tasks" as ActivityTabKey,
-				label: "后台任务",
+				label: t("activityPanel.tabs.backgroundTasks"),
 				icon: "icon-[mdi--console-line]",
 				badge: running > 0 ? running : undefined,
 				removable: true,
@@ -250,7 +250,7 @@ export function ActivityPanel({
 		if (debugMode) {
 			base.push({
 				key: "debug" as ActivityTabKey,
-				label: "调试",
+				label: t("activityPanel.tabs.debug"),
 				icon: "icon-[mdi--bug-outline]",
 				removable: true,
 			});
