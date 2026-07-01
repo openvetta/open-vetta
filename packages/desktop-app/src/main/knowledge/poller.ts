@@ -26,6 +26,7 @@ import { BrowserWindow } from "electron";
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
+import { getOrCreateSharedModelRegistry } from "../runtime.js";
 import { beginRound, endRound, unlockRaws } from "./raws-lock.js";
 
 /** 加工中状态：广播给渲染层（顶栏「正在建立索引…」徽标）。 */
@@ -133,13 +134,18 @@ async function applyProcessingModel(session: AgentSession, modelKey: string | un
 	if (slash <= 0) return;
 	const provider = modelKey.slice(0, slash);
 	const modelId = modelKey.slice(slash + 1);
-	try {
-		const model = session.modelRegistry.find(provider, modelId);
-		if (model) await session.setModel(model);
-		else log.warn(`processing model not found: ${modelKey}`);
-	} catch (err) {
-		log.warn(`failed to set processing model ${modelKey}: ${err instanceof Error ? err.message : String(err)}`);
+	// 复用的共享 registry 是启动时后台预热远程模型的，此处 find 前先确保远程已加载
+	// （幂等 + inflight 去重，已加载时几乎零成本）：否则加工模型若是远程模型（vetta-zen 等），
+	// 预热未完成时会被误判为「未找到」。原先 KB 会话自建 registry 时会 await 一次，这里补回。
+	await session.modelRegistry.loadRemoteModels();
+	// 解析失败必须抛出、不能静默：否则会话会退回默认模型或无模型，用户在设置里切换模型
+	// 「像没切一样」，最终以难懂的 "No model selected" 收场。抛出的错会冒泡到 scan-now，
+	// 在设置页以「整理失败」明示原因（模型未找到 / 无 API key）。
+	const model = session.modelRegistry.find(provider, modelId);
+	if (!model) {
+		throw new Error(`知识库加工模型未找到：${modelKey}（请在知识库设置里重新选择加工模型）`);
 	}
+	await session.setModel(model);
 }
 
 function waitForCompletion(session: AgentSession, prompt: string): Promise<void> {
@@ -179,6 +185,10 @@ async function runProcessingBatch(
 	const { session } = await createAgentSession({
 		cwd: KB_PROCESSING_CWD,
 		sessionManager: SessionManager.create(KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR),
+		// 复用进程级共享 ModelRegistry：它已加载 models.json（自定义 provider/模型）与远程模型，
+		// 与主对话一致。否则加工会话会新建一个不含 modelsPath 的 registry，find() 解析不到
+		// 用户在知识库设置里选的自定义模型 → 静默回退 / "No model selected"。
+		modelRegistry: getOrCreateSharedModelRegistry(),
 		// 场景驱动激活：core/doc/kb-read 等由 kb-processing 场景的 scope_use 自动激活。
 		scenario: "kb-processing",
 		// 仅 kb_write_page 需注入轮级共享写页会话（覆盖注册表里无 session 的默认版本）。
