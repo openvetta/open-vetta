@@ -940,12 +940,12 @@ const ModelSwitchBoundary = memo(function ModelSwitchBoundary({ label }: { label
 	const { t } = useTranslation("chat");
 	return (
 		<div className="flex items-center gap-3 py-1">
-			<div className="h-px flex-1 bg-muted-foreground/15" />
-			<span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/40">
+			<div className="h-px flex-1 bg-muted-foreground/8" />
+			<span className="flex items-center gap-1.5 text-[11px] text-primary/70">
 				<span className="icon-[mdi--swap-horizontal] h-3 w-3" />
 				{t("messageList.modelSwitched", { name: label })}
 			</span>
-			<div className="h-px flex-1 bg-muted-foreground/15" />
+			<div className="h-px flex-1 bg-muted-foreground/8" />
 		</div>
 	);
 });
