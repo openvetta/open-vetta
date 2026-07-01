@@ -2,6 +2,7 @@ import { clearApiProviders, registerApiProvider } from "../api-registry.js";
 import { streamBedrock, streamSimpleBedrock } from "./amazon-bedrock.js";
 import { streamAnthropic, streamSimpleAnthropic } from "./anthropic.js";
 import { streamAzureOpenAIResponses, streamSimpleAzureOpenAIResponses } from "./azure-openai-responses.js";
+import { streamDeepSeek, streamSimpleDeepSeek } from "./deepseek.js";
 import { streamGoogle, streamSimpleGoogle } from "./google.js";
 import { streamGoogleGeminiCli, streamSimpleGoogleGeminiCli } from "./google-gemini-cli.js";
 import { streamGoogleVertex, streamSimpleGoogleVertex } from "./google-vertex.js";
@@ -70,6 +71,12 @@ export function registerBuiltInApiProviders(): void {
 		api: "qwen-openai-completions",
 		stream: streamQwen,
 		streamSimple: streamSimpleQwen,
+	});
+
+	registerApiProvider({
+		api: "openai-completions-deepseek",
+		stream: streamDeepSeek,
+		streamSimple: streamSimpleDeepSeek,
 	});
 
 	registerApiProvider({

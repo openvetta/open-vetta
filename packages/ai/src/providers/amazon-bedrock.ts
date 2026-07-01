@@ -50,7 +50,7 @@ export interface BedrockOptions extends StreamOptions {
 	profile?: string;
 	toolChoice?: "auto" | "any" | "none" | { type: "tool"; name: string };
 	/* See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-reasoning.html for supported models. */
-	reasoning?: ThinkingLevel;
+	reasoning?: ThinkingLevel | (string & {});
 	/* Custom token budgets per thinking level. Overrides default budgets. */
 	thinkingBudgets?: ThinkingBudgets;
 	/* Only supported by Claude 4.x models, see https://docs.aws.amazon.com/bedrock/latest/userguide/claude-messages-extended-thinking.html#claude-messages-extended-thinking-tool-use-interleaved */
@@ -688,8 +688,8 @@ function buildAdditionalModelRequestFields(
 					};
 
 					// Custom budgets override defaults (xhigh not in ThinkingBudgets, use high)
-					const level = options.reasoning === "xhigh" ? "high" : options.reasoning;
-					const budget = options.thinkingBudgets?.[level] ?? defaultBudgets[options.reasoning];
+					const level = (options.reasoning === "xhigh" ? "high" : options.reasoning) as keyof ThinkingBudgets;
+					const budget = options.thinkingBudgets?.[level] ?? defaultBudgets[options.reasoning as ThinkingLevel];
 
 					return {
 						thinking: {

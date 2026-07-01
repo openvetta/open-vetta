@@ -1,0 +1,117 @@
+import { describe, expect, it, vi } from "vitest";
+import { streamSimple } from "../src/stream.js";
+import type { Model, SimpleStreamOptions } from "../src/types.js";
+
+const mockState = vi.hoisted(() => ({ lastParams: undefined as unknown }));
+
+vi.mock("openai", () => {
+	class FakeOpenAI {
+		chat = {
+			completions: {
+				create: async (params: unknown) => {
+					mockState.lastParams = params;
+					return {
+						async *[Symbol.asyncIterator]() {
+							yield {
+								choices: [{ delta: {}, finish_reason: "stop" }],
+								usage: {
+									prompt_tokens: 1,
+									completion_tokens: 1,
+									prompt_tokens_details: { cached_tokens: 0 },
+									completion_tokens_details: { reasoning_tokens: 0 },
+								},
+							};
+						},
+					};
+				},
+			},
+		};
+	}
+
+	return { default: FakeOpenAI };
+});
+
+function deepseekModel(): Model<"openai-completions-deepseek"> {
+	return {
+		id: "deepseek-v4-flash",
+		name: "deepseek-v4-flash",
+		api: "openai-completions-deepseek",
+		provider: "deepseek",
+		baseUrl: "https://api.deepseek.com",
+		reasoning: true,
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 1_000_000,
+		maxTokens: 8192,
+	};
+}
+
+async function capture(model: Model<"openai-completions-deepseek">, reasoning?: string): Promise<any> {
+	let payload: unknown;
+	await streamSimple(model, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }, {
+		apiKey: "test",
+		reasoning,
+		onPayload: (params: unknown) => {
+			payload = params;
+		},
+	} as SimpleStreamOptions).result();
+	return (payload ?? mockState.lastParams) as any;
+}
+
+describe("openai-completions-deepseek thinking", () => {
+	it("enables thinking with reasoning_effort passthrough", async () => {
+		const params = await capture(deepseekModel(), "high");
+		expect(params.thinking).toEqual({ type: "enabled", reasoning_effort: "high" });
+		// DeepSeek uses the thinking object, not the top-level reasoning_effort field.
+		expect(params.reasoning_effort).toBeUndefined();
+	});
+
+	it("passes the configured effort verbatim (no clamping)", async () => {
+		const params = await capture(deepseekModel(), "max");
+		expect(params.thinking).toEqual({ type: "enabled", reasoning_effort: "max" });
+	});
+
+	it("disables thinking when no reasoning is requested", async () => {
+		const params = await capture(deepseekModel(), undefined);
+		expect(params.thinking).toEqual({ type: "disabled" });
+	});
+});
+
+describe("openai-completions reasoning passthrough", () => {
+	function openaiModel(): Model<"openai-completions"> {
+		return {
+			id: "gpt-5.2",
+			name: "gpt-5.2",
+			api: "openai-completions",
+			provider: "openai",
+			baseUrl: "https://api.openai.com/v1",
+			reasoning: true,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 400_000,
+			maxTokens: 8192,
+		};
+	}
+
+	async function captureOpenAI(model: Model<"openai-completions">, reasoning?: string): Promise<any> {
+		let payload: unknown;
+		await streamSimple(model, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }, {
+			apiKey: "test",
+			reasoning,
+			onPayload: (params: unknown) => {
+				payload = params;
+			},
+		} as SimpleStreamOptions).result();
+		return (payload ?? mockState.lastParams) as any;
+	}
+
+	it("passes xhigh through unchanged on official OpenAI endpoints (no clamp)", async () => {
+		const params = await captureOpenAI(openaiModel(), "xhigh");
+		expect(params.reasoning_effort).toBe("xhigh");
+	});
+
+	it("keeps minimal on official OpenAI endpoints", async () => {
+		const params = await captureOpenAI(openaiModel(), "minimal");
+		expect(params.reasoning_effort).toBe("minimal");
+	});
+});

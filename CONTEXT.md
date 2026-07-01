@@ -413,6 +413,20 @@ _Avoid_: 把默认订阅当成一条真实的 `UserSubscription` 授予记录—
 
 **通用概念，不与 Go 强绑定**：分组本身是独立特性，[[档位]]关联若干分组 tag 决定可用模型只是当前**第一个消费者**；未来可能有其他业务按分组处理。建模时保持解耦——分组实体不依赖订阅，订阅单向引用分组。当前仅约束 Go 可用范围，[[Vetta Zen / 按需付费]] 仍暴露所有启用模型、与分组无关。
 
+### 推理档位（reasoning level）
+
+一个模型可选的**思考强度**选项，是**每模型独立**的能力（不是全局、也不是每 provider——同一 provider 下不同模型支持的档位可以不同，如 gpt-5.2 支持 xhigh 而更早的 GPT-5 不支持）。取代原先「全局 [[思考等级]] + 客户端 `supportsXhigh` 硬编码推断」的做法。
+
+形状：模型配置携带 `reasoningLevels: string[]`（**只存 value 字符串**，非 `{label,value}`）+ `defaultReasoningLevel: string`（用户从未选过时的默认档）。`value` **恒为单一字符串**（如 `minimal/low/medium/high/xhigh` 或任意自定义串）；provider 层按模型 `api` 把它放进对应字段（openai-responses→`reasoning.effort`、openai-completions/qwen→`reasoning_effort`…）。上层（档位配置 / [[ai input]] / coding-agent）永远只见字符串，不感知 provider 协议形状差异。
+
+显示：desktop 对**已知 value**（minimal/low/medium/high/xhigh）映射到 i18n key 随语言切换渲染；未知自定义 value 直接展示原文——故档位项不存展示文本，无死文案。
+
+来源分层：每个 `api` 类型在 `@vetta/ai` 内置一份**预设档位列表**作为「新建模型时的预填 + 空列表 fallback」；但**只是预设、非约束**——模型可自由改写自己的档位列表（服务端模型走 admin，本地离线[[预设模板]]/手搓 provider 走 desktop 本地配置）。列表为空时 fallback 到该 api 预设。
+
+记忆与传输：desktop **每模型记忆**上次所选档位（本地 `modelKey→value` 映射，跨会话/重启保留），随 `PromptRequest` 与 `modelKey` 同行下发、应用于本轮。取代原全局 `setGlobalThinkingLevel`（连同设置页全局 SegmentedControl 一并移除）。`reasoning:bool` 降级为**派生值**（`reasoningLevels` 非空即 true），列表为唯一真相源；无全局 `off` 档，关思考与否由档位列表自决。
+
+范围（本期）：仅覆盖 openai-completions / openai-responses 及衍生 v1 第三方适配器（qwen / nvidia / zai …）。[[anthropic-messages]] 原生 provider 本期**不删、也不专门适配**（其 `cache_control` / thinking signature / adaptive thinking 为原生独有、无 v1 等价物），留到后续阶段再单独接入。
+
 ### 技能管理字段（skill management fields）
 
 [[技能市场]]里一个 Skill/Scene 的平台侧可管字段：`type`(skill|scene)、`category`、`tags`、`version`、`author`、`alias`、`description`、`is_enabled`、`download_count`。**真相源是平台数据库，不是 SKILL.md。** SKILL.md 的 `metadata` 块仅在**上传那一刻**作导入兜底（用来预填表单初值），入库后一切以 DB 为准、由 admin 编辑；agent 触发只读包内 SKILL.md 原文。

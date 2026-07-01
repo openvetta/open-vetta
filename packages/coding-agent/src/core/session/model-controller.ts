@@ -181,7 +181,16 @@ export class ModelController {
 	 */
 	setThinkingLevel(level: ThinkingLevel): void {
 		const availableLevels = this.getAvailableThinkingLevels();
-		const effectiveLevel = availableLevels.includes(level) ? level : this.clampThinkingLevel(level, availableLevels);
+		// Custom (non-canonical) levels — e.g. "max", "none" from a model's own configured
+		// reasoning levels — are passed through verbatim: the caller (desktop / model config)
+		// already validated them against the model, so clamping to the canonical set would
+		// wrongly collapse them. Canonical levels keep the existing capability clamp.
+		const isCanonical = THINKING_LEVELS_WITH_XHIGH.includes(level);
+		const effectiveLevel = !isCanonical
+			? level
+			: availableLevels.includes(level)
+				? level
+				: this.clampThinkingLevel(level, availableLevels);
 
 		// Only persist if actually changing
 		const isChanging = effectiveLevel !== this.ctx.agent.state.thinkingLevel;

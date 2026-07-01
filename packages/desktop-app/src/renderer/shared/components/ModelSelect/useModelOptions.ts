@@ -15,6 +15,14 @@ export interface ModelOption {
 	tags?: string[];
 	/** Whether this model supports image input */
 	supportsImage?: boolean;
+	/** API type ("openai-completions" / "openai-responses" / ...), for reasoning preset fallback */
+	api?: string;
+	/** Whether the model is reasoning-capable */
+	reasoning?: boolean;
+	/** Configured reasoning levels; empty/undefined falls back to the api-type preset */
+	reasoningLevels?: string[];
+	/** Default reasoning level when the user has not chosen one */
+	defaultReasoningLevel?: string;
 }
 
 function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
@@ -30,6 +38,10 @@ function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[
 				remote,
 				tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
 				supportsImage: model.input?.includes("image") ?? false,
+				api: model.api ?? providerConfig.api,
+				reasoning: model.reasoning,
+				reasoningLevels: model.reasoningLevels,
+				defaultReasoningLevel: model.defaultReasoningLevel,
 			});
 		}
 	}

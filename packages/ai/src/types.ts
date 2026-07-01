@@ -9,6 +9,7 @@ export type KnownApi =
 	| "openai-codex-responses"
 	| "nvidia-openai-responses"
 	| "qwen-openai-completions"
+	| "openai-completions-deepseek"
 	| "anthropic-messages"
 	| "bedrock-converse-stream"
 	| "google-generative-ai"
@@ -40,7 +41,8 @@ export type KnownProvider =
 	| "huggingface"
 	| "opencode"
 	| "kimi-coding"
-	| "qwen";
+	| "qwen"
+	| "deepseek";
 export type Provider = KnownProvider | string;
 
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -109,7 +111,14 @@ export type ProviderStreamOptions = StreamOptions & Record<string, unknown>;
 
 // Unified options with reasoning passed to streamSimple() and completeSimple()
 export interface SimpleStreamOptions extends StreamOptions {
-	reasoning?: ThinkingLevel;
+	/**
+	 * Reasoning effort for this request. The canonical `ThinkingLevel` values are the
+	 * common ones, but the field accepts any string so a model can declare provider-specific
+	 * levels (e.g. OpenAI's "none", DeepSeek's "max"). In-scope OpenAI-family providers pass
+	 * this value through verbatim to their reasoning field; token-based providers still map it
+	 * to a budget. The caller is responsible for only sending values the target model supports.
+	 */
+	reasoning?: ThinkingLevel | (string & {});
 	/** Custom token budgets for thinking levels (token-based providers only) */
 	thinkingBudgets?: ThinkingBudgets;
 }
@@ -246,7 +255,7 @@ export interface OpenAICompletionsCompat {
 	/** Whether tool call IDs must be normalized to Mistral format (exactly 9 alphanumeric chars). Default: auto-detected from URL. */
 	requiresMistralToolIds?: boolean;
 	/** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "zai" uses thinking: { type: "enabled" }, "qwen" uses enable_thinking: boolean. Default: "openai". */
-	thinkingFormat?: "openai" | "zai" | "qwen" | "nvidia";
+	thinkingFormat?: "openai" | "zai" | "qwen" | "nvidia" | "deepseek";
 	/** OpenRouter-specific routing preferences. Only used when baseUrl points to OpenRouter. */
 	openRouterRouting?: OpenRouterRouting;
 	/** Vercel AI Gateway routing preferences. Only used when baseUrl points to Vercel AI Gateway. */

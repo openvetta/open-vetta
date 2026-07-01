@@ -35,6 +35,7 @@ export const defaultModelPerProvider: Record<KnownProvider, string> = {
 	opencode: "claude-opus-4-6",
 	"kimi-coding": "kimi-k2-thinking",
 	qwen: "qwen3-coder",
+	deepseek: "deepseek-v4-flash",
 };
 
 export interface ScopedModel {

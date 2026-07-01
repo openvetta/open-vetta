@@ -33,6 +33,8 @@ export type ImTransportSelector = "feishu" | "wechat";
 export interface ImAgentModelRef {
 	provider: string;
 	model: string;
+	/** 推理档位；未设置时按模型 api 预设/默认档。"off" 关闭思考。 */
+	reasoningLevel?: string;
 }
 
 export interface ImConfig {

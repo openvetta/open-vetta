@@ -115,6 +115,7 @@ export function getEnvApiKey(provider: any): string | undefined {
 		opencode: "OPENCODE_API_KEY",
 		"kimi-coding": "KIMI_API_KEY",
 		qwen: "DASHSCOPE_API_KEY",
+		deepseek: "DEEPSEEK_API_KEY",
 	};
 
 	const envVar = envMap[provider];

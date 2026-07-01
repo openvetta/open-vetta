@@ -1,3 +1,4 @@
+import { getReasoningPreset } from "@vetta/ai";
 import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
@@ -46,13 +47,18 @@ interface ModelFormState {
 	name: string;
 	api: string;
 	reasoning: boolean;
+	reasoningLevels: string[];
+	defaultReasoningLevel: string;
 	input: string[];
 	contextWindow: string;
 	maxTokens: string;
 }
 
 const emptyProvider: ProviderFormState = { name: "", baseUrl: "", apiKey: "", api: "openai-completions", headers: "", authHeader: false };
-const emptyModel: ModelFormState = { id: "", name: "", api: "", reasoning: false, input: ["text"], contextWindow: "", maxTokens: "" };
+const emptyModel: ModelFormState = { id: "", name: "", api: "", reasoning: false, reasoningLevels: [], defaultReasoningLevel: "", input: ["text"], contextWindow: "", maxTokens: "" };
+
+// 常见档位候选词，点击快速追加；与 api 预设合并去重后展示（已添加的过滤掉）。
+const CANDIDATE_REASONING_LEVELS = ["minimal", "low", "medium", "high", "xhigh", "max", "none"];
 
 type ModelsEditMode = "visual" | "json";
 
@@ -125,6 +131,8 @@ function modelToForm(m: NonNullable<ModelsConfigData["providers"][string]["model
 		name: m.name || "",
 		api: m.api || "",
 		reasoning: m.reasoning ?? false,
+		reasoningLevels: m.reasoningLevels ?? [],
+		defaultReasoningLevel: m.defaultReasoningLevel ?? "",
 		input: m.input ?? ["text"],
 		contextWindow: m.contextWindow != null ? String(m.contextWindow) : "",
 		maxTokens: m.maxTokens != null ? String(m.maxTokens) : "",
@@ -137,7 +145,14 @@ function formToModelDef(form: ModelFormState): NonNullable<ModelsConfigData["pro
 	};
 	if (form.name.trim()) m.name = form.name.trim();
 	if (form.api) m.api = form.api;
-	if (form.reasoning) m.reasoning = true;
+	if (form.reasoning) {
+		m.reasoning = true;
+		// 显式档位覆盖；留空则客户端回退到 api 类型内置预设。
+		if (form.reasoningLevels.length > 0) {
+			m.reasoningLevels = form.reasoningLevels;
+			if (form.defaultReasoningLevel) m.defaultReasoningLevel = form.defaultReasoningLevel;
+		}
+	}
 	if (form.input.length > 0) m.input = form.input;
 	const cw = Number(form.contextWindow.trim());
 	if (cw > 0) m.contextWindow = cw;
@@ -330,6 +345,121 @@ function ModelForm({
 						label={t("supportsReasoning")}
 					/>
 				</div>
+				{form.reasoning && (
+				<div className="col-span-2">
+					<label className="mb-1 block text-[11px] text-muted-foreground">{t("reasoningLevels")}</label>
+					<div className="space-y-1.5">
+						{form.reasoningLevels.length === 0 && (
+							<p className="text-[11px] text-muted-foreground/70">{t("reasoningLevelsEmpty")}</p>
+						)}
+						{form.reasoningLevels.map((lvl, i) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: rows are positional and editable
+							<div key={i} className="flex items-center gap-2">
+								<InputField
+									value={lvl}
+									onChange={(v) =>
+										setForm((f) => {
+											const levels = [...f.reasoningLevels];
+											const prev = levels[i];
+											levels[i] = v;
+											return {
+												...f,
+												reasoningLevels: levels,
+												defaultReasoningLevel: f.defaultReasoningLevel === prev ? v : f.defaultReasoningLevel,
+											};
+										})
+									}
+									placeholder="low / medium / high / max"
+								/>
+								<button
+									type="button"
+									disabled={!lvl.trim()}
+									onClick={() => setForm((f) => ({ ...f, defaultReasoningLevel: lvl }))}
+									className={cn(
+										"shrink-0 rounded-md border px-2 py-1 text-[11px] transition-colors disabled:opacity-40",
+										form.defaultReasoningLevel === lvl && lvl.trim()
+											? "border-primary/40 bg-primary/10 text-primary"
+											: "border-input text-muted-foreground hover:bg-accent/50",
+									)}
+								>
+									{t("reasoningDefault")}
+								</button>
+								<button
+									type="button"
+									onClick={() =>
+										setForm((f) => {
+											const removed = f.reasoningLevels[i];
+											const levels = f.reasoningLevels.filter((_, j) => j !== i);
+											return {
+												...f,
+												reasoningLevels: levels,
+												defaultReasoningLevel:
+													f.defaultReasoningLevel === removed ? (levels[0] ?? "") : f.defaultReasoningLevel,
+											};
+										})
+									}
+									className="shrink-0 rounded-md border border-input px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50"
+								>
+									{t("reasoningRemove")}
+								</button>
+							</div>
+						))}
+						<div className="flex gap-2">
+							<button
+								type="button"
+								onClick={() => setForm((f) => ({ ...f, reasoningLevels: [...f.reasoningLevels, ""] }))}
+								className="rounded-md border border-input px-2 py-1 text-[11px] text-foreground transition-colors hover:bg-accent/50"
+							>
+								{t("reasoningAdd")}
+							</button>
+							{getReasoningPreset(form.api) && (
+								<button
+									type="button"
+									onClick={() => {
+										const preset = getReasoningPreset(form.api);
+										if (preset)
+											setForm((f) => ({
+												...f,
+												reasoningLevels: [...preset.levels],
+												defaultReasoningLevel: preset.default,
+											}));
+									}}
+									className="rounded-md border border-input px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50"
+								>
+									{t("reasoningLoadPreset")}
+								</button>
+							)}
+						</div>
+						{(() => {
+							const candidates = [
+								...new Set([...(getReasoningPreset(form.api)?.levels ?? []), ...CANDIDATE_REASONING_LEVELS]),
+							].filter((c) => !form.reasoningLevels.includes(c));
+							if (candidates.length === 0) return null;
+							return (
+								<div className="flex flex-wrap items-center gap-1.5">
+									<span className="text-[11px] text-muted-foreground">{t("reasoningCandidates")}</span>
+									{candidates.map((c) => (
+										<button
+											key={c}
+											type="button"
+											onClick={() =>
+												setForm((f) =>
+													f.reasoningLevels.includes(c)
+														? f
+														: { ...f, reasoningLevels: [...f.reasoningLevels, c] },
+												)
+											}
+											className="rounded-full border border-input px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50"
+										>
+											+ {c}
+										</button>
+									))}
+								</div>
+							);
+						})()}
+					</div>
+				</div>
+				)}
 			</div>
 			<div className="mt-3 flex justify-end gap-2">
 				<Button variant="ghost" size="sm" onClick={onCancel}>
@@ -370,21 +500,6 @@ export function ModelsSettings(): JSX.Element {
 	// JSON mode state
 	const [jsonText, setJsonText] = useState("");
 	const [jsonError, setJsonError] = useState<string | null>(null);
-
-	// Thinking level
-	type ThinkingLevelValue = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
-	const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelValue>("off");
-
-	useEffect(() => {
-		window.vetta.session.getGlobalThinkingLevel().then((level) => {
-			setThinkingLevel(level as ThinkingLevelValue);
-		});
-	}, []);
-
-	const handleThinkingLevelChange = useCallback((level: ThinkingLevelValue) => {
-		setThinkingLevel(level);
-		void window.vetta.session.setGlobalThinkingLevel(level);
-	}, []);
 
 	// Load config on mount
 	useEffect(() => {
@@ -669,25 +784,7 @@ export function ModelsSettings(): JSX.Element {
 				/>
 			</div>
 
-			{/* Thinking level global control */}
-			<SettingSection t={t as any} section={SETTINGS_SECTION["models-thinking"]}>
-				<div className="px-5 py-3.5">
-					<SegmentedControl
-						items={[
-							{ key: "off" as ThinkingLevelValue, label: t("thinkingOff") },
-							{ key: "minimal" as ThinkingLevelValue, label: t("thinkingMinimal") },
-							{ key: "low" as ThinkingLevelValue, label: t("thinkingLow") },
-							{ key: "medium" as ThinkingLevelValue, label: t("thinkingMedium") },
-							{ key: "high" as ThinkingLevelValue, label: t("thinkingHigh") },
-						]}
-						value={thinkingLevel === "xhigh" ? "high" : thinkingLevel}
-						onChange={handleThinkingLevelChange}
-					/>
-					<p className="mt-2 text-[11px] text-muted-foreground">
-						{t("modelsThinkingGlobal")}
-					</p>
-				</div>
-			</SettingSection>
+			{/* 推理档位改为每模型独立(随输入栏选择、跟 PromptRequest 下发),不再有全局思考等级开关。 */}
 
 			{/* 全局模型:周边任务(autotitle/输入预测等)专用,未设置则周边功能失效 */}
 			<SettingSection
@@ -705,6 +802,12 @@ export function ModelsSettings(): JSX.Element {
 						allowClear
 						disabled={saving || !config}
 						triggerClassName="min-w-[240px]"
+						reasoning={{
+							value: config?.peripheralModelReasoningLevel,
+							onChange: (level) => {
+								if (config) void saveConfig({ ...config, peripheralModelReasoningLevel: level });
+							},
+						}}
 					/>
 				</SettingRow>
 			</SettingSection>

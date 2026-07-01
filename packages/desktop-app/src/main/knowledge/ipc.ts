@@ -45,12 +45,12 @@ export function registerKnowledgeIpc(): void {
 		log.info("manual scan triggered");
 		// 手动整理与定时一致：用配置的加工模型与并发数（即使「永不自动加工」也能手动跑）。
 		const kb = (await readDesktopConfig()).knowledgeBase;
-		return runKnowledgeRound(kb?.processingModelKey, kb?.agentConcurrency ?? 3);
+		return runKnowledgeRound(kb?.processingModelKey, kb?.agentConcurrency ?? 3, kb?.processingModelReasoningLevel);
 	});
 	ipcMain.handle(CHANNELS.RETRY_FAILED, async () => {
 		log.info("retry failed knowledge triggered");
 		const kb = (await readDesktopConfig()).knowledgeBase;
-		return retryFailedKnowledge(kb?.processingModelKey, kb?.agentConcurrency ?? 3);
+		return retryFailedKnowledge(kb?.processingModelKey, kb?.agentConcurrency ?? 3, kb?.processingModelReasoningLevel);
 	});
 	ipcMain.handle(CHANNELS.RELOAD, async () => {
 		await reloadKnowledgePoller();
