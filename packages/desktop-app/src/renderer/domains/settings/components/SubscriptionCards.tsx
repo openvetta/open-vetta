@@ -77,9 +77,6 @@ function VettaGoCard({
 	refreshing: boolean;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
-	const [modelsExpanded, setModelsExpanded] = useState(false);
-	// 展开动画结束后放开 overflow，避免模型卡 hover 放大被裁剪。
-	const [modelsOverflowVisible, setModelsOverflowVisible] = useState(false);
 	const [now, setNow] = useState(() => Date.now());
 	const [showDone, setShowDone] = useState(false);
 	const prevRefreshing = useRef(refreshing);
@@ -110,11 +107,6 @@ function VettaGoCard({
 		window.addEventListener("mousemove", handle);
 		return () => window.removeEventListener("mousemove", handle);
 	}, [rotateX, rotateY]);
-
-	// 折叠时立刻收回 overflow，保证高度动画不漏出内容。
-	useEffect(() => {
-		if (!modelsExpanded) setModelsOverflowVisible(false);
-	}, [modelsExpanded]);
 
 	// 每分钟刷新倒计时显示。
 	useEffect(() => {
@@ -292,56 +284,23 @@ function VettaGoCard({
 					</div>
 				) : null}
 
-				{/* 模型列表 */}
-				<motion.button
-					type="button"
-					onClick={() => setModelsExpanded((v) => !v)}
-					disabled={models.length === 0}
-					whileTap={{ scale: 0.98 }}
-					whileHover={{ backgroundColor: hexToRgba(themeColor, 0.12) }}
-					className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-[12px] font-medium transition-colors disabled:opacity-50"
-					style={{
-						borderColor: hexToRgba(themeColor, 0.22),
-						backgroundColor: hexToRgba(themeColor, 0.06),
-						color: themeColor,
-					}}
-				>
-					<motion.span
-						className="icon-[mdi--chevron-down] h-4 w-4"
-						animate={{ rotate: modelsExpanded ? 180 : 0 }}
-						transition={{ type: "spring", stiffness: 300, damping: 20 }}
-					/>
-					{models.length === 0 ? t("noModelsRefresh") : modelsExpanded ? t("collapseModels") : t("viewModelsCount", { count: models.length })}
-				</motion.button>
-
-				<AnimatePresence initial={false}>
-					{modelsExpanded && models.length > 0 && (
-						<motion.div
-							key="models"
-							initial={{ height: 0, opacity: 0 }}
-							animate={{ height: "auto", opacity: 1 }}
-							exit={{ height: 0, opacity: 0 }}
-							transition={{ duration: 0.3, ease: "easeInOut" }}
-							onAnimationComplete={() => modelsExpanded && setModelsOverflowVisible(true)}
-							className={cn("relative", modelsOverflowVisible ? "overflow-visible" : "overflow-hidden")}
-						>
-							<motion.div
-								className="mt-3 grid grid-cols-2 gap-2"
-								variants={listVariants}
-								initial="hidden"
-								animate="show"
-							>
-								{models.map((model) => (
-									<ModelChip
-										key={model.id}
-										model={model}
-										hoverColor={themeColor}
-									/>
-								))}
-							</motion.div>
-						</motion.div>
-					)}
-				</AnimatePresence>
+				{/* 模型列表：默认完整展示，不可折叠 */}
+				{models.length > 0 && (
+					<motion.div
+						className="relative mt-4 grid grid-cols-2 gap-2"
+						variants={listVariants}
+						initial="hidden"
+						animate="show"
+					>
+						{models.map((model) => (
+							<ModelChip
+								key={model.id}
+								model={model}
+								hoverColor={themeColor}
+							/>
+						))}
+					</motion.div>
+				)}
 			</div>
 		</motion.div>
 	);
@@ -419,16 +378,9 @@ function VettaZenCard({
 	creditsUnlimited: boolean;
 }): JSX.Element {
 	const { t } = useTranslation("settings");
-	const [modelsExpanded, setModelsExpanded] = useState(false);
-	const [modelsOverflowVisible, setModelsOverflowVisible] = useState(false);
 	const [showDone, setShowDone] = useState(false);
 	const prevRefreshing = useRef(refreshing);
 	const models = provider?.models ?? [];
-
-	// 折叠时收回 overflow，保证高度动画不漏出内容。
-	useEffect(() => {
-		if (!modelsExpanded) setModelsOverflowVisible(false);
-	}, [modelsExpanded]);
 
 	// 刷新完成的正反馈：短暂展示「已更新」。
 	useEffect(() => {
@@ -543,50 +495,23 @@ function VettaZenCard({
 					</div>
 				)}
 
-				{/* {t("viewModels")} */}
-				<motion.button
-					type="button"
-					onClick={() => setModelsExpanded((v) => !v)}
-					disabled={models.length === 0}
-					whileTap={{ scale: 0.98 }}
-					className="relative mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-				>
-					<motion.span
-						className="icon-[mdi--chevron-down] h-4 w-4"
-						animate={{ rotate: modelsExpanded ? 180 : 0 }}
-						transition={{ type: "spring", stiffness: 300, damping: 20 }}
-					/>
-					{models.length === 0 ? t("noModelsRefresh") : modelsExpanded ? t("collapseModels") : t("viewModelsCount", { count: models.length })}
-				</motion.button>
-
-				<AnimatePresence initial={false}>
-					{modelsExpanded && models.length > 0 && (
-						<motion.div
-							key="models"
-							initial={{ height: 0, opacity: 0 }}
-							animate={{ height: "auto", opacity: 1 }}
-							exit={{ height: 0, opacity: 0 }}
-							transition={{ duration: 0.3, ease: "easeInOut" }}
-							onAnimationComplete={() => modelsExpanded && setModelsOverflowVisible(true)}
-							className={cn("relative", modelsOverflowVisible ? "overflow-visible" : "overflow-hidden")}
-						>
-							<motion.div
-								className="mt-3 grid grid-cols-2 gap-2"
-								variants={listVariants}
-								initial="hidden"
-								animate="show"
-							>
-								{models.map((model) => (
-									<ModelChip
-										key={model.id}
-										model={model}
-										accentClass="hover:border-primary/40 hover:bg-primary/5"
-									/>
-								))}
-							</motion.div>
-						</motion.div>
-					)}
-				</AnimatePresence>
+				{/* 模型列表：默认完整展示，不可折叠 */}
+				{models.length > 0 && (
+					<motion.div
+						className="relative mt-4 grid grid-cols-2 gap-2"
+						variants={listVariants}
+						initial="hidden"
+						animate="show"
+					>
+						{models.map((model) => (
+							<ModelChip
+								key={model.id}
+								model={model}
+								accentClass="hover:border-primary/40 hover:bg-primary/5"
+							/>
+						))}
+					</motion.div>
+				)}
 			</div>
 		</motion.div>
 	);
