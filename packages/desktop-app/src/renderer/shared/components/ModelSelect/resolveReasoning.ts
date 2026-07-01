@@ -1,4 +1,4 @@
-import { getReasoningPreset } from "@vetta/ai";
+import { getReasoningPreset } from "@vetta/ai/reasoning-presets";
 import type { ModelOption } from "./useModelOptions";
 
 export interface ResolvedReasoning {

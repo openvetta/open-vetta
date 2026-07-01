@@ -1,4 +1,4 @@
-import { getReasoningPreset } from "@vetta/ai";
+import { getReasoningPreset } from "@vetta/ai/reasoning-presets";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
 import type { ModelsConfigData } from "@preload/api.js";

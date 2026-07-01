@@ -5,6 +5,16 @@
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./reasoning-presets": {
+			"types": "./dist/reasoning-presets.d.ts",
+			"default": "./dist/reasoning-presets.js"
+		}
+	},
 	"bin": {
 		"pi-ai": "./dist/cli.js"
 	},
