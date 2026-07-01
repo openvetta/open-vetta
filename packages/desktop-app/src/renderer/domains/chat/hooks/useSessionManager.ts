@@ -33,6 +33,7 @@ import {
 	pluginInputActionsAtom,
 	promptPredictingAtom,
 	promptSuggestionsAtom,
+	reasoningByModelAtom,
 	type SessionExecutionMode,
 	selectedModelAtom,
 	selectedSkillAtom,
@@ -894,12 +895,16 @@ export function useSessionManager(): SessionManagerResult {
 			const promptReq: {
 				text: string;
 				modelKey?: string;
+				reasoning?: string;
 				metadata?: Record<string, unknown>;
 			} = {
 				text: text || "(see attached images)",
 			};
 			if (selectedModel) {
 				promptReq.modelKey = selectedModel;
+				// Per-model reasoning level rides alongside modelKey (see reasoning-level design).
+				const level = getDefaultStore().get(reasoningByModelAtom)[selectedModel];
+				if (level) promptReq.reasoning = level;
 			}
 			// Merge metadata contributed by active plugin input actions (e.g. the
 			// image-generation toggle sets { imageMode: true } for this turn).

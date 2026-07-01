@@ -141,6 +141,8 @@ const ModelsConfigSchema = Type.Object({
 	// 全局模型("provider/modelId")：周边任务(autotitle/输入预测等)专用模型。
 	// desktop 设置页写入，coding-agent 读取；未设置时周边任务失效。
 	peripheralModel: Type.Optional(Type.String()),
+	// 全局模型的推理档位(周边任务用);未设置时按模型 api 预设取最轻的安全档。
+	peripheralModelReasoningLevel: Type.Optional(Type.String()),
 });
 
 type ModelsConfig = Static<typeof ModelsConfigSchema>;
@@ -161,11 +163,20 @@ interface CustomModelsResult {
 	modelOverrides: Map<string, Map<string, ModelOverride>>;
 	/** Global model ("provider/modelId") for peripheral tasks; undefined when unset */
 	peripheralModel: string | undefined;
+	/** Reasoning level for the peripheral model; undefined falls back to the api preset. */
+	peripheralModelReasoningLevel: string | undefined;
 	error: string | undefined;
 }
 
 function emptyCustomModelsResult(error?: string): CustomModelsResult {
-	return { models: [], overrides: new Map(), modelOverrides: new Map(), peripheralModel: undefined, error };
+	return {
+		models: [],
+		overrides: new Map(),
+		modelOverrides: new Map(),
+		peripheralModel: undefined,
+		peripheralModelReasoningLevel: undefined,
+		error,
+	};
 }
 
 function mergeCompat(
@@ -282,6 +293,7 @@ export class ModelRegistry {
 	private loadError: string | undefined = undefined;
 	/** Global model key ("provider/modelId") for peripheral tasks; undefined when unset */
 	private _peripheralModel: string | undefined = undefined;
+	private _peripheralReasoningLevel: string | undefined = undefined;
 	private remoteModels: Model<Api>[] = [];
 	/** Set of "provider/modelId" keys for models loaded from server */
 	private remoteModelKeys: Set<string> = new Set();
@@ -454,10 +466,12 @@ export class ModelRegistry {
 			overrides,
 			modelOverrides,
 			peripheralModel,
+			peripheralModelReasoningLevel,
 			error,
 		} = this.modelsJsonPath ? this.loadCustomModels(this.modelsJsonPath) : emptyCustomModelsResult();
 
 		this._peripheralModel = peripheralModel;
+		this._peripheralReasoningLevel = peripheralModelReasoningLevel;
 
 		if (error) {
 			this.loadError = error;
@@ -621,6 +635,7 @@ export class ModelRegistry {
 				overrides,
 				modelOverrides,
 				peripheralModel: config.peripheralModel,
+				peripheralModelReasoningLevel: config.peripheralModelReasoningLevel,
 				error,
 			};
 		} catch (error) {
@@ -791,6 +806,11 @@ export class ModelRegistry {
 		const provider = key.slice(0, slash);
 		const modelId = key.slice(slash + 1);
 		return this.find(provider, modelId);
+	}
+
+	/** Configured reasoning level for the peripheral model, or undefined to use the api preset. */
+	getPeripheralReasoningLevel(): string | undefined {
+		return this._peripheralReasoningLevel;
 	}
 
 	/**

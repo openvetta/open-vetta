@@ -9,7 +9,7 @@ import type {
 	ChatCompletionToolMessageParam,
 } from "openai/resources/chat/completions.js";
 import { getEnvApiKey } from "../env-api-keys.js";
-import { calculateCost, supportsXhigh } from "../models.js";
+import { calculateCost } from "../models.js";
 import type {
 	AssistantMessage,
 	Context,
@@ -30,7 +30,7 @@ import { AssistantMessageEventStream } from "../utils/event-stream.js";
 import { parseStreamingJson } from "../utils/json-parse.js";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
-import { buildBaseOptions, clampReasoning } from "./simple-options.js";
+import { buildBaseOptions } from "./simple-options.js";
 import { transformMessages } from "./transform-messages.js";
 
 /**
@@ -72,7 +72,8 @@ function hasToolHistory(messages: Message[]): boolean {
 
 export interface OpenAICompletionsOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "required" | { type: "function"; function: { name: string } };
-	reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
+	/** Raw reasoning effort passed through to the provider's reasoning field (e.g. "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | provider-specific). */
+	reasoningEffort?: string;
 }
 
 export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenAICompletionsOptions> = (
@@ -362,7 +363,8 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 	}
 
 	const base = buildBaseOptions(model, options, apiKey);
-	const reasoningEffort = supportsXhigh(model) ? options?.reasoning : clampReasoning(options?.reasoning);
+	// Reasoning is a passthrough value: the model only offers levels it supports, so no clamping.
+	const reasoningEffort = options?.reasoning;
 	const toolChoice = (options as OpenAICompletionsOptions | undefined)?.toolChoice;
 
 	return streamOpenAICompletions(model, context, {
@@ -462,16 +464,29 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		// Must explicitly disable since z.ai defaults to thinking enabled
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
 	} else if (compat.thinkingFormat === "qwen") {
-		// Qwen uses enable_thinking: boolean + reasoning_effort for effort control.
-		// Valid efforts: "none" | "low" | "medium" | "high". OpenAI's "minimal" is
-		// not in Qwen's allow-list and produces a 400 from vLLM/SGLang, so clamp it
-		// up to "low" before serialising.
+		// Qwen uses enable_thinking (boolean) to toggle thinking + reasoning_effort for
+		// effort control. Valid efforts: "minimal" | "low" | "medium" | "high" — Qwen has
+		// NO "none" value (disable thinking via enable_thinking=false). OpenAI's "minimal"
+		// 400s on vLLM/SGLang, so clamp it up to "low" before serialising.
 		const qwenEffort = options?.reasoningEffort === "minimal" ? "low" : options?.reasoningEffort;
 		(params as any).enable_thinking = !!qwenEffort;
-		params.reasoning_effort = (qwenEffort ?? "none") as any;
+		// Omit reasoning_effort entirely when disabled — sending "none" is invalid for Qwen.
+		if (qwenEffort) {
+			params.reasoning_effort = qwenEffort as any;
+		}
 	} else if (compat.thinkingFormat === "nvidia") {
 		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
 		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };
+	} else if (compat.thinkingFormat === "deepseek") {
+		// DeepSeek v4 unified models use a `thinking` object: { type: "enabled" | "disabled",
+		// reasoning_effort }. reasoning_effort only accepts "high" | "max"; the effort is passed
+		// through per the model's configured levels. Absence of an effort disables thinking
+		// (equivalent to a non-thinking request / deepseek-chat).
+		if (options?.reasoningEffort) {
+			(params as any).thinking = { type: "enabled", reasoning_effort: options.reasoningEffort };
+		} else {
+			(params as any).thinking = { type: "disabled" };
+		}
 	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
 		// OpenAI-style reasoning_effort. "minimal" is OpenAI gpt-5 / Responses-API
 		// specific; most chat-completions backends (DeepSeek, aggregating gateways,
@@ -480,8 +495,9 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		// lightest-thinking callers (auto-title, prompt suggestions) degrade instead
 		// of failing.
 		const isOpenAIOfficial = model.baseUrl.includes("api.openai.com");
-		params.reasoning_effort =
-			options.reasoningEffort === "minimal" && !isOpenAIOfficial ? "low" : options.reasoningEffort;
+		params.reasoning_effort = (
+			options.reasoningEffort === "minimal" && !isOpenAIOfficial ? "low" : options.reasoningEffort
+		) as any;
 	}
 
 	// OpenRouter provider routing preferences

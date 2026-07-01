@@ -18,6 +18,18 @@
 		"unset": "未设置",
 		"defaultBadge": "默认",
 		"visionBadge": "vision",
-		"cloudOnly": "云端"
+		"cloudOnly": "云端",
+		"reasoningHeader": "推理",
+		"modelHeader": "模型",
+		"reasoningLevel": {
+			"minimal": "极简",
+			"low": "低",
+			"medium": "中",
+			"high": "高",
+			"xhigh": "超高",
+			"max": "极高",
+			"none": "无",
+			"off": "关"
+		}
 	}
 }

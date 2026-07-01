@@ -39,6 +39,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 	const [interval, setIntervalMinutes] = useState(5);
 	const [agentConcurrency, setAgentConcurrency] = useState(3);
 	const [modelKey, setModelKey] = useState<string>("");
+	const [reasoningLevel, setReasoningLevel] = useState<string>("");
 	const [busy, setBusy] = useState<"scan" | "clear" | "retry" | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 	const [probing, setProbing] = useState(false);
@@ -52,6 +53,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			setIntervalMinutes(kb?.pollIntervalMinutes ?? 5);
 			setAgentConcurrency(kb?.agentConcurrency ?? 3);
 			setModelKey(kb?.processingModelKey ?? "");
+			setReasoningLevel(kb?.processingModelReasoningLevel ?? "");
 		});
 	}, []);
 
@@ -60,6 +62,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			enabled?: boolean;
 			pollIntervalMinutes?: number;
 			processingModelKey?: string;
+			processingModelReasoningLevel?: string;
 			agentConcurrency?: number;
 		}) => {
 			await window.vetta.config.set({ knowledgeBase: patch });
@@ -101,6 +104,14 @@ export function KnowledgeBaseSettings(): JSX.Element {
 			setModelKey(value);
 			setProbeResult(null);
 			void persist({ processingModelKey: value });
+		},
+		[persist],
+	);
+
+	const handleReasoning = useCallback(
+		(level: string) => {
+			setReasoningLevel(level);
+			void persist({ processingModelReasoningLevel: level });
 		},
 		[persist],
 	);
@@ -265,6 +276,7 @@ export function KnowledgeBaseSettings(): JSX.Element {
 							disabled={!enabled}
 							placeholder={t("kbSelectModel")}
 							triggerClassName={cn("min-w-[220px]", enabled && !modelKey && "border-amber-500/50")}
+							reasoning={{ value: reasoningLevel || undefined, onChange: handleReasoning }}
 						/>
 						<button
 							type="button"

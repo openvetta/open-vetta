@@ -535,6 +535,12 @@ export interface PromptRequest {
 	/** Model key in "provider/modelId" format — ensures the prompt uses exactly this model */
 	modelKey?: string;
 	/**
+	 * Per-turn reasoning effort, travelling alongside `modelKey` so the model and its
+	 * chosen level stay consistent. Passed through to the agent's thinking level for this
+	 * turn. Value is one of the selected model's configured reasoning levels (or "off").
+	 */
+	reasoning?: string;
+	/**
 	 * Per-turn metadata bag carried alongside the prompt. Not sent to the model
 	 * as content; consumed host-side / by tools to gate turn behavior (e.g.
 	 * `{ imageMode: true }` set by a plugin input action to route this turn to

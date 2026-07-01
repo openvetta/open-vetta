@@ -18,6 +18,18 @@
 		"unset": "Not set",
 		"defaultBadge": "Default",
 		"visionBadge": "vision",
-		"cloudOnly": "Cloud"
+		"cloudOnly": "Cloud",
+		"reasoningHeader": "Reasoning",
+		"modelHeader": "Model",
+		"reasoningLevel": {
+			"minimal": "Minimal",
+			"low": "Low",
+			"medium": "Medium",
+			"high": "High",
+			"xhigh": "Xhigh",
+			"max": "Max",
+			"none": "None",
+			"off": "Off"
+		}
 	}
 }

@@ -3,6 +3,8 @@ export interface ModelsConfigData {
 	defaultModel?: string;
 	/** 全局模型("provider/modelId")：周边任务(autotitle/输入预测等)专用；未设置则周边功能失效。 */
 	peripheralModel?: string;
+	/** 全局模型的推理档位；未设置时按模型 api 预设取最轻的安全档。 */
+	peripheralModelReasoningLevel?: string;
 	providers: Record<
 		string,
 		{
@@ -24,6 +26,8 @@ export interface ModelsConfigData {
 				name?: string;
 				api?: string;
 				reasoning?: boolean;
+				reasoningLevels?: string[];
+				defaultReasoningLevel?: string;
 				input?: string[];
 				contextWindow?: number;
 				maxTokens?: number;

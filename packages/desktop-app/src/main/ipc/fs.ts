@@ -66,6 +66,8 @@ export interface KnowledgeBaseConfig {
 	pollIntervalMinutes?: number;
 	/** 加工会话使用的模型 key（provider/modelId）。缺省跟随默认模型。 */
 	processingModelKey?: string;
+	/** 加工模型的推理档位；未设置时按模型自身默认档。"off" 关闭思考。 */
+	processingModelReasoningLevel?: string;
 	/** 并发加工会话数（网络/LLM 限流）。缺省 3。 */
 	agentConcurrency?: number;
 	/** 并发本地 OCR 子进程数（CPU 限流）。缺省 1（受 desktop 共享 OCR profile 制约）。 */
@@ -157,6 +159,8 @@ function normalizeKnowledgeBase(value: unknown): KnowledgeBaseConfig {
 		// 0 = 永不自动加工（仅停后台轮询，知识库本身仍启用、可手动整理）。
 		pollIntervalMinutes: interval === 0 || KB_POLL_INTERVALS.includes(interval) ? interval : 5,
 		processingModelKey: typeof v.processingModelKey === "string" ? v.processingModelKey : undefined,
+		processingModelReasoningLevel:
+			typeof v.processingModelReasoningLevel === "string" ? v.processingModelReasoningLevel : undefined,
 		agentConcurrency: clampInt(v.agentConcurrency, 3, 1),
 		ocrConcurrency: clampInt(v.ocrConcurrency, 1, 1),
 	};
@@ -262,6 +266,8 @@ export interface ModelsConfig {
 	defaultModel?: string;
 	/** 全局模型("provider/modelId")：周边任务(autotitle/输入预测等)专用；未设置则周边功能失效。 */
 	peripheralModel?: string;
+	/** 全局模型的推理档位；未设置时按模型 api 预设取最轻的安全档。 */
+	peripheralModelReasoningLevel?: string;
 	providers: Record<string, ProviderConfig>;
 }
 
@@ -288,6 +294,10 @@ export interface ModelDefinition {
 	name?: string;
 	api?: string;
 	reasoning?: boolean;
+	/** 该模型支持的推理档位 value 列表；为空/未设时客户端回退到 api 类型内置预设。 */
+	reasoningLevels?: string[];
+	/** 用户未选过档位时的默认档。 */
+	defaultReasoningLevel?: string;
 	input?: string[];
 	contextWindow?: number;
 	maxTokens?: number;

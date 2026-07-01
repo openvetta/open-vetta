@@ -331,6 +331,32 @@ export const promptPredictingAtom = atom<Record<string, boolean>>({});
 /** Selected model identifier: "provider/modelId" */
 export const selectedModelAtom = atom<string | null>(localStorage.getItem("vetta-selected-model"));
 
+/**
+ * Per-model reasoning level memory: maps modelKey ("provider/modelId") → chosen level value.
+ * Persisted to localStorage so each model remembers its last-chosen level across sessions/restart.
+ */
+const REASONING_BY_MODEL_KEY = "vetta-reasoning-by-model";
+function loadReasoningByModel(): Record<string, string> {
+	try {
+		const raw = localStorage.getItem(REASONING_BY_MODEL_KEY);
+		return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+	} catch {
+		return {};
+	}
+}
+const reasoningByModelBaseAtom = atom<Record<string, string>>(loadReasoningByModel());
+export const reasoningByModelAtom = atom(
+	(get) => get(reasoningByModelBaseAtom),
+	(_get, set, next: Record<string, string>) => {
+		set(reasoningByModelBaseAtom, next);
+		try {
+			localStorage.setItem(REASONING_BY_MODEL_KEY, JSON.stringify(next));
+		} catch {
+			// ignore persistence errors (private mode / quota)
+		}
+	},
+);
+
 /** Whether the current session model supports image input */
 export const modelSupportsImagesAtom = atom<boolean>(true);
 

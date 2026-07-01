@@ -492,6 +492,17 @@ export function ImBridgeSettings(): JSX.Element {
 							disabled={saving}
 							placeholder={t("notSet")}
 							triggerClassName="min-w-[220px]"
+							reasoning={
+								config.agentModel
+									? {
+											value: config.agentModel.reasoningLevel,
+											onChange: (level) => {
+												const am = config.agentModel;
+												if (am) void handlePickModel({ provider: am.provider, model: am.model, reasoningLevel: level });
+											},
+										}
+									: undefined
+							}
 						/>
 						<button
 							type="button"

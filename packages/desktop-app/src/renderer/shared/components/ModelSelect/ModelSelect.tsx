@@ -1,10 +1,28 @@
-import { useEffect, useState } from "react";
-import { motion } from "motion/react";
-import { useTranslation } from "react-i18next";
-import { cn } from "@shared/lib/utils";
 import { ProviderIcon } from "@shared/components/provider-icon";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
-import { useModelOptions, type ModelOption } from "./useModelOptions";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
+	DropdownMenuTrigger,
+} from "@shared/components/ui/dropdown-menu";
+import { cn } from "@shared/lib/utils";
+import { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { resolveReasoning } from "./resolveReasoning";
+import { type ModelOption, useModelOptions } from "./useModelOptions";
+
+/** Optional reasoning-level submenu for a model picker. Controlled by the caller. */
+export interface ModelSelectReasoning {
+	/** Currently chosen level value, or undefined to fall back to the model default */
+	value: string | undefined;
+	/** Fired when the user picks a level */
+	onChange: (level: string) => void;
+}
 
 export interface ModelSelectProps {
 	/** Currently selected key ("provider/modelId"), or null when unset */
@@ -22,16 +40,16 @@ export interface ModelSelectProps {
 	autoSelectDefault?: boolean;
 	/** Fires whenever the resolved selected option changes (load + change) */
 	onSelectedOptionChange?: (option: ModelOption | null) => void;
+	/** When set, adds a hover "推理" submenu to pick the selected model's reasoning level. */
+	reasoning?: ModelSelectReasoning;
 }
 
 /**
- * Shared rich model picker (grouped popover with provider icons + capability
- * badges). Controlled via value/onChange so it can back the chat input,
- * the global peripheral-model setting, Claw and the knowledge base alike.
- *
- * Built on the Radix popover so the dropdown renders in a portal — it escapes
- * any `overflow-hidden` ancestor (e.g. settings cards) and auto-flips to stay
- * on screen.
+ * Shared rich model picker (grouped DropdownMenu with provider icons + capability
+ * badges + right-aligned check). Controlled via value/onChange so it backs the chat
+ * input, the global peripheral-model setting, Claw and the knowledge base alike.
+ * Optionally shows a reasoning-level submenu (per the reasoning-level design).
+ * Renders in a portal so it escapes any `overflow-hidden` ancestor.
  */
 export function ModelSelect({
 	value,
@@ -42,12 +60,24 @@ export function ModelSelect({
 	triggerClassName,
 	autoSelectDefault = false,
 	onSelectedOptionChange,
+	reasoning,
 }: ModelSelectProps): JSX.Element {
 	const { t } = useTranslation("common");
 	const { options, grouped, defaultKey, iconFor, labelFor } = useModelOptions();
-	const [open, setOpen] = useState(false);
 
 	const selectedOption = options.find((m) => m.key === value) ?? null;
+	const resolved = useMemo(() => resolveReasoning(selectedOption), [selectedOption]);
+
+	// "off" (disable thinking) is always offered on top of the model's configured levels.
+	const menuLevels = useMemo(() => (resolved ? ["off", ...resolved.levels] : []), [resolved]);
+	const isValidLevel = (v: string | undefined): v is string =>
+		!!v && (v === "off" || (resolved?.levels.includes(v) ?? false));
+	const currentLevel = resolved
+		? isValidLevel(reasoning?.value)
+			? reasoning?.value
+			: resolved.default
+		: undefined;
+	const levelLabel = (v: string) => t(`modelSelect.reasoningLevel.${v}`, { defaultValue: v });
 
 	// Auto-apply the configured default when nothing is selected yet (chat input).
 	useEffect(() => {
@@ -59,28 +89,19 @@ export function ModelSelect({
 	useEffect(() => {
 		if (options.length === 0) return;
 		onSelectedOptionChange?.(selectedOption);
-	}, [value, selectedOption, options.length, onSelectedOptionChange]);
-
-	const handleSelect = (key: string | null) => {
-		onChange(key);
-		setOpen(false);
-	};
+	}, [selectedOption, options.length, onSelectedOptionChange]);
 
 	if (options.length === 0 && !allowClear) return <></>;
 
+	const showReasoning = !!reasoning && !!resolved;
+
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild disabled={disabled}>
-				<motion.button
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild disabled={disabled}>
+				<button
 					type="button"
-					whileHover={disabled ? undefined : { y: -1 }}
-					whileTap={disabled ? undefined : { scale: 0.96 }}
-					transition={{ type: "spring", stiffness: 480, damping: 28 }}
 					className={cn(
-						"flex min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-						open
-							? "border-primary/30 bg-primary/10 text-primary"
-							: "border-input bg-transparent text-foreground hover:border-border/60 hover:bg-accent/50",
+						"flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-input bg-transparent px-2 py-1 text-[12px] text-foreground transition-colors hover:border-border/60 hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:border-primary/30 data-[state=open]:bg-primary/10 data-[state=open]:text-primary",
 						triggerClassName,
 					)}
 				>
@@ -88,90 +109,82 @@ export function ModelSelect({
 					<span className="min-w-0 flex-1 truncate text-left">
 						{selectedOption?.displayName ?? placeholder ?? t("modelSelect.placeholder")}
 					</span>
-					<motion.span
-						className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0"
-						animate={{ rotate: open ? 180 : 0 }}
-						transition={{ duration: 0.18 }}
-					/>
-				</motion.button>
-			</PopoverTrigger>
-			<PopoverContent
-				align="start"
-				sideOffset={6}
-				className="w-[var(--radix-popover-trigger-width)] min-w-[220px] max-w-[320px] gap-0 overflow-hidden rounded-xl p-0"
-			>
-				<div className="max-h-[280px] overflow-y-auto py-1">
-					{allowClear && (
-						<button
-							type="button"
-							onClick={() => handleSelect(null)}
-							className={cn(
-								"flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors",
-								value == null ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent/50",
-							)}
-						>
-							<span className="min-w-0 flex-1 truncate">{t("modelSelect.unset")}</span>
-							{value == null && <span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />}
-						</button>
+					{showReasoning && currentLevel && (
+						<span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>
 					)}
-					{[...grouped.entries()].map(([provider, providerModels]) => (
-						<div key={provider}>
-							<div className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
-								<ProviderIcon symbol={iconFor(provider)} className="h-3 w-3" />
-								{labelFor(provider)}
-								{providerModels[0]?.remote && (
-									<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-										{t("modelSelect.cloudOnly")}
+					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="max-h-[380px] min-w-[220px] max-w-[320px] overflow-y-auto">
+				{showReasoning && (
+					<>
+						<DropdownMenuSub>
+							<DropdownMenuSubTrigger>
+								<span className="min-w-0 flex-1 truncate">{t("modelSelect.reasoningHeader")}</span>
+								{currentLevel && (
+									<span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>
+								)}
+							</DropdownMenuSubTrigger>
+							<DropdownMenuSubContent className="min-w-[160px]">
+								<DropdownMenuLabel>{t("modelSelect.reasoningHeader")}</DropdownMenuLabel>
+								{menuLevels.map((level) => (
+									<DropdownMenuItem key={level} onSelect={() => reasoning?.onChange(level)}>
+										<span className="min-w-0 flex-1 truncate">{levelLabel(level)}</span>
+										{level === currentLevel && (
+											<span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />
+										)}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuSubContent>
+						</DropdownMenuSub>
+						<DropdownMenuSeparator />
+						<DropdownMenuLabel>{t("modelSelect.modelHeader")}</DropdownMenuLabel>
+					</>
+				)}
+				{allowClear && (
+					<DropdownMenuItem onSelect={() => onChange(null)}>
+						<span className="min-w-0 flex-1 truncate text-muted-foreground">{t("modelSelect.unset")}</span>
+						{value == null && <span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />}
+					</DropdownMenuItem>
+				)}
+				{[...grouped.entries()].map(([provider, providerModels]) => (
+					<div key={provider}>
+						<DropdownMenuLabel className="flex items-center gap-1.5">
+							<ProviderIcon symbol={iconFor(provider)} className="h-3 w-3" />
+							{labelFor(provider)}
+							{providerModels[0]?.remote && (
+								<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
+									{t("modelSelect.cloudOnly")}
+								</span>
+							)}
+						</DropdownMenuLabel>
+						{providerModels.map((m) => (
+							<DropdownMenuItem key={m.key} onSelect={() => onChange(m.key)}>
+								<span className="min-w-0 flex-1 truncate">{m.displayName}</span>
+								{m.supportsImage && (
+									<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
+										{t("modelSelect.visionBadge")}
 									</span>
 								)}
-							</div>
-							{providerModels.map((m) => {
-								const isSelected = m.key === value;
-								const isDefault = m.key === defaultKey;
-								return (
-									<button
-										key={m.key}
-										type="button"
-										onClick={() => handleSelect(m.key)}
-										className={cn(
-											"relative flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors",
-											isSelected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent/50",
-										)}
+								{m.tags?.map((tag) => (
+									<span
+										key={tag}
+										className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
 									>
-										{isSelected && (
-											<motion.span
-												layoutId="model-select-active-marker"
-												className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
-												transition={{ type: "spring", stiffness: 480, damping: 30 }}
-											/>
-										)}
-										<span className="min-w-0 flex-1 truncate">{m.displayName}</span>
-										{m.supportsImage && (
-											<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-												{t("modelSelect.visionBadge")}
-											</span>
-										)}
-										{m.tags?.map((tag) => (
-											<span
-												key={tag}
-												className="shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground"
-											>
-												{tag.trim()}
-											</span>
-										))}
-										{isDefault && (
-											<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-												{t("modelSelect.defaultBadge")}
-											</span>
-										)}
-										{isSelected && <span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />}
-									</button>
-								);
-							})}
-						</div>
-					))}
-				</div>
-			</PopoverContent>
-		</Popover>
+										{tag.trim()}
+									</span>
+								))}
+								{m.key === defaultKey && (
+									<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+										{t("modelSelect.defaultBadge")}
+									</span>
+								)}
+								{m.key === value && <span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />}
+							</DropdownMenuItem>
+						))}
+					</div>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }

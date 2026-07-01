@@ -53,14 +53,23 @@ function resolveCodingAgentPackageDir(): string {
  * bundled agent to find its on-disk assets.
  */
 export interface BuildCodingAgentSpecOptions {
-	/** When set, forwarded to coding-agent as `--provider <p> --model <m>`. */
-	agentModel?: { provider: string; model: string };
+	/**
+	 * When set, forwarded to coding-agent as `--provider <p> --model <m>`
+	 * (+ `--thinking <level>` when reasoningLevel is set).
+	 */
+	agentModel?: { provider: string; model: string; reasoningLevel?: string };
 }
 
 export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): CodingAgentSpec {
 	const packageDir = resolveCodingAgentPackageDir();
 	const modelArgs: string[] = opts.agentModel
-		? ["--provider", opts.agentModel.provider, "--model", opts.agentModel.model]
+		? [
+				"--provider",
+				opts.agentModel.provider,
+				"--model",
+				opts.agentModel.model,
+				...(opts.agentModel.reasoningLevel ? ["--thinking", opts.agentModel.reasoningLevel] : []),
+			]
 		: [];
 
 	// Inject the host's compile-time server URL into the subprocess env.

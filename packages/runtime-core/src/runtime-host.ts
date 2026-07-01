@@ -2,7 +2,15 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@vetta/agent-core";
-import { completeSimple, type Message, type TextContent, type Tool, type ToolCall, Type } from "@vetta/ai";
+import {
+	completeSimple,
+	getReasoningPreset,
+	type Message,
+	type TextContent,
+	type Tool,
+	type ToolCall,
+	Type,
+} from "@vetta/ai";
 import {
 	type AgentSession,
 	type AgentSessionEvent,
@@ -651,6 +659,13 @@ export class RuntimeHost implements SessionFacade {
 			}
 		}
 
+		// Apply the per-turn reasoning level (rides alongside modelKey) BEFORE prompting so
+		// the model and its chosen effort stay consistent. setModel above re-clamps thinking
+		// to the new model, so this must run after it.
+		if (request.reasoning) {
+			handle.session.setThinkingLevel(request.reasoning);
+		}
+
 		let images = request.images;
 		let text = request.text;
 		if (images && images.length > 0) {
@@ -1061,7 +1076,13 @@ export class RuntimeHost implements SessionFacade {
 		if (!model) return null;
 		const apiKey = await registry.getApiKey(model);
 		if (!apiKey) return null;
-		return { model, apiKey };
+		// Reasoning for peripheral tasks: user-configured level, else the api preset's
+		// lightest safe level (avoids sending an effort the model rejects, e.g. "minimal"
+		// to DeepSeek). "off" disables reasoning entirely.
+		const configured = registry.getPeripheralReasoningLevel();
+		const level = configured || getReasoningPreset(model.api)?.levels[0] || "minimal";
+		const reasoning = level === "off" ? undefined : level;
+		return { model, apiKey, reasoning };
 	}
 
 	/**
@@ -1076,7 +1097,7 @@ export class RuntimeHost implements SessionFacade {
 			console.warn(`[autoTitleSession] session=${sessionId} skipped: no global model configured/available`);
 			return null;
 		}
-		const { model, apiKey } = resolved;
+		const { model, apiKey, reasoning } = resolved;
 		console.log(
 			`[autoTitleSession] session=${sessionId} model=${model.provider}/${model.id} userLen=${userText.length} assistantLen=${assistantText.length}`,
 		);
@@ -1102,10 +1123,10 @@ export class RuntimeHost implements SessionFacade {
 						},
 					],
 				},
-				// reasoning: "minimal" — for reasoning-capable models (e.g. gpt-oss)
-				// minimise the thinking budget so the answer comes out as text
-				// instead of being consumed entirely by the thinking channel.
-				{ apiKey, maxTokens: 256, reasoning: "minimal" },
+				// reasoning defaults to the api preset's lightest safe level (see
+				// resolvePeripheralModel) so reasoning-capable models emit the answer as
+				// text instead of burning it in the thinking channel; user-overridable.
+				{ apiKey, maxTokens: 256, reasoning },
 			);
 			if (response.stopReason === "error") {
 				console.warn(
@@ -1154,7 +1175,7 @@ export class RuntimeHost implements SessionFacade {
 			console.warn(`[nextPromptSuggestions] session=${sessionId} skipped: no global model configured/available`);
 			return [];
 		}
-		const { model, apiKey } = resolved;
+		const { model, apiKey, reasoning } = resolved;
 
 		const trimmed = conversation.trim().slice(0, 4000);
 		if (!trimmed) return [];
@@ -1182,7 +1203,7 @@ export class RuntimeHost implements SessionFacade {
 					],
 					tools: [SUGGESTIONS_TOOL],
 				},
-				{ apiKey, maxTokens: 800, reasoning: "minimal" },
+				{ apiKey, maxTokens: 800, reasoning },
 			);
 			if (response.stopReason === "error") {
 				console.warn(

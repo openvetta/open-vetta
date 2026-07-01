@@ -128,7 +128,11 @@ const KB_MAX_FILES_PER_BATCH = 20;
 /** 单批最多字节数：约束一批里 OCR/大文件的总量；超此值的单文件独占一批。 */
 const KB_MAX_BYTES_PER_BATCH = 8 * 1024 * 1024;
 
-async function applyProcessingModel(session: AgentSession, modelKey: string | undefined): Promise<void> {
+async function applyProcessingModel(
+	session: AgentSession,
+	modelKey: string | undefined,
+	reasoningLevel?: string,
+): Promise<void> {
 	if (!modelKey) return;
 	const slash = modelKey.indexOf("/");
 	if (slash <= 0) return;
@@ -146,6 +150,8 @@ async function applyProcessingModel(session: AgentSession, modelKey: string | un
 		throw new Error(`知识库加工模型未找到：${modelKey}（请在知识库设置里重新选择加工模型）`);
 	}
 	await session.setModel(model);
+	// setModel 会按新模型重新夹取思考档位，故档位必须在其后应用。
+	if (reasoningLevel) session.setThinkingLevel(reasoningLevel);
 }
 
 function waitForCompletion(session: AgentSession, prompt: string): Promise<void> {
@@ -179,6 +185,7 @@ async function runProcessingBatch(
 	tmpDir: string,
 	writeSession: knowledge.KbWriteSession,
 	modelKey: string | undefined,
+	reasoningLevel: string | undefined,
 	round: RoundToken,
 ): Promise<void> {
 	if (round.aborted) return;
@@ -213,7 +220,7 @@ async function runProcessingBatch(
 	round.sessions.add(session);
 	try {
 		if (round.aborted) return;
-		await applyProcessingModel(session, modelKey);
+		await applyProcessingModel(session, modelKey, reasoningLevel);
 		await waitForCompletion(session, knowledge.buildProcessingPrompt(batch, root, tmpDir));
 	} finally {
 		round.sessions.delete(session);
@@ -225,6 +232,7 @@ async function runProcessingBatch(
 export async function runKnowledgeRound(
 	modelKey?: string,
 	agentConcurrency = 3,
+	reasoningLevel?: string,
 ): Promise<{ skipped: boolean; reason?: "no-model" }> {
 	// 必须显式配置加工模型，绝不回退默认模型：未选模型时整轮跳过。
 	if (!modelKey || modelKey.indexOf("/") <= 0) {
@@ -285,7 +293,7 @@ export async function runKnowledgeRound(
 					batches.map((batch) =>
 						limit.run(async () => {
 							if (round.aborted) return;
-							await runProcessingBatch(batch, root, tmpDir, writeSession, modelKey, round);
+							await runProcessingBatch(batch, root, tmpDir, writeSession, modelKey, reasoningLevel, round);
 							// 本批加工完即重建索引 + 广播：让侧边栏文件状态与 indexes 同步推进（每批 ~20 文件
 							// 粒度），避免「UI 显示已就绪但索引还没建」的不一致。被中止则不再重建（维护操作会自己重建）。
 							if (round.aborted) return;
@@ -349,12 +357,13 @@ export async function runKnowledgeMaintenance<T>(fn: (root: string) => Promise<T
 export async function retryFailedKnowledge(
 	modelKey?: string,
 	agentConcurrency = 3,
+	reasoningLevel?: string,
 ): Promise<{ skipped: boolean; reason?: "no-model" }> {
 	await runKnowledgeMaintenance(async (root) => {
 		const failures = await knowledge.readFailures(root);
 		await knowledge.writeFailures(root, knowledge.clearFailures(failures));
 	});
-	return runKnowledgeRound(modelKey, agentConcurrency);
+	return runKnowledgeRound(modelKey, agentConcurrency, reasoningLevel);
 }
 
 function unschedule(): void {
@@ -408,10 +417,11 @@ export async function reloadKnowledgePoller(): Promise<void> {
 		return;
 	}
 	const agentConcurrency = kb.agentConcurrency ?? 3;
+	const reasoningLevel = kb.processingModelReasoningLevel;
 	const task = new AsyncTask(
 		JOB_ID,
 		async () => {
-			await runKnowledgeRound(modelKey, agentConcurrency);
+			await runKnowledgeRound(modelKey, agentConcurrency, reasoningLevel);
 		},
 		(err: Error) => log.error(`knowledge round failed: ${err.message}`),
 	);
