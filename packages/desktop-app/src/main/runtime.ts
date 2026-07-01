@@ -61,7 +61,7 @@ function readServerTokenFromDisk(): string | undefined {
  *    `runtime.reloadServerAuth(token)`，命中本 registry 的同步刷新分支。
  *  - tokenGetter 每次从磁盘读 settings.json，保证多窗口/多进程也能拿到最新 token。
  */
-function getOrCreateSharedModelRegistry(): ModelRegistry {
+export function getOrCreateSharedModelRegistry(): ModelRegistry {
 	if (sharedModelRegistry) return sharedModelRegistry;
 	const agentDir = getAgentDir();
 	const authStorage = AuthStorage.create(join(agentDir, "auth.json"));
