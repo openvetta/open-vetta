@@ -21,17 +21,24 @@ export function SidebarPanel({
 	width,
 }: SidebarPanelProps): JSX.Element {
 	return (
-		<ThemeSurface
-			slot="sidebar.panel"
+		<div
 			className={cn(
-				"sidebar-surface relative h-full shrink-0 overflow-hidden rounded-[10px] border border-border bg-muted",
+				"sidebar-surface relative h-full shrink-0 rounded-[10px] border border-border bg-muted",
 				className,
 			)}
-			contentClassName={cn("flex h-full flex-col", contentClassName)}
+			data-theme-surface-root="sidebar.panel"
 			style={{ width }}
 		>
-			{children}
+			<ThemeSurface slot="sidebar.panel" />
+			<div
+				className={cn(
+					"relative z-10 flex h-full flex-col overflow-hidden rounded-[inherit]",
+					contentClassName,
+				)}
+			>
+				{children}
+			</div>
 			<ResizeHandle side="right" onResize={onResize} onResizeEnd={onResizeEnd} />
-		</ThemeSurface>
+		</div>
 	);
 }
