@@ -105,7 +105,7 @@ export function ModelSelector(): JSX.Element {
 				<button
 					type="button"
 					className={cn(
-						"flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-transparent px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-accent/60 data-[state=open]:text-foreground",
+						"flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-transparent px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:outline-none data-[state=open]:bg-accent/60 data-[state=open]:text-foreground",
 					)}
 				>
 					{selectedOption && <ProviderIcon symbol={iconFor(selectedOption.provider)} className="h-3.5 w-3.5" />}
@@ -116,7 +116,11 @@ export function ModelSelector(): JSX.Element {
 					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0" />
 				</button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="max-h-[380px] min-w-[220px] max-w-[320px] overflow-y-auto">
+			<DropdownMenuContent
+				align="start"
+				className="max-h-[300px] min-w-[220px] max-w-[320px]"
+				style={{ overflowX: "hidden", overflowY: "auto" }}
+			>
 				{resolved && (
 					<>
 						<DropdownMenuSub>
