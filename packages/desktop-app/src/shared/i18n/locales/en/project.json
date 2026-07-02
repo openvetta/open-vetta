@@ -8,7 +8,43 @@
 			"skills": "Extensions"
 		},
 		"clawConnected": "Claw connected · click to open settings",
-		"hide": "Hide sidebar"
+		"hide": "Hide sidebar",
+		"empty": {
+			"title": "No projects yet",
+			"description": "Click + above to create a project"
+		},
+		"projects": {
+			"noSessions": "No sessions",
+			"collapseSessions": "Collapse sessions",
+			"expandMore": "Show more ({{count}})"
+		},
+		"defaultConversation": {
+			"noConversations": "No conversations"
+		},
+		"dialogs": {
+			"deleteBatchTitle": "Delete batch project",
+			"deleteBatchMessage": "Delete batch project \"{{name}}\"? This cannot be undone.",
+			"deleteConfirm": "Delete",
+			"removeTitle": "Remove from list",
+			"removeMessage": "Remove \"{{name}}\" from the project list? This will not delete files on disk.",
+			"removeConfirm": "Remove",
+			"deleteProjectTitle": "Delete project",
+			"deleteProjectMessage": "Permanently delete \"{{name}}\"? This will delete the project folder from disk and cannot be undone.",
+			"clearConversationTitle": "Clear sessions",
+			"clearConversationMessage": "This will delete {{count}} conversation session(s) under Chat while keeping artifacts. Claw sessions are not affected. This cannot be undone.",
+			"clearClawTitle": "Clear Claw records",
+			"clearClawMessage": "This will delete {{count}} Claw record(s) while keeping artifacts. This cannot be undone.",
+			"clearConfirm": "Clear"
+		},
+		"time": {
+			"justNow": "Just now",
+			"minutes": "{{count}} min",
+			"hours": "{{count}} hr",
+			"days": "{{count}} d",
+			"weeks": "{{count}} wk",
+			"months": "{{count}} mo",
+			"years": "{{count}} yr"
+		}
 	},
 	"filterTabs": {
 		"all": "All",

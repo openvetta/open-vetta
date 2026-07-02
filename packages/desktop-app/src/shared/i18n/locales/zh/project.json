@@ -8,7 +8,43 @@
 			"skills": "扩展"
 		},
 		"clawConnected": "Claw 已连接 · 点击打开设置",
-		"hide": "隐藏侧边栏"
+		"hide": "隐藏侧边栏",
+		"empty": {
+			"title": "还没有项目",
+			"description": "点击上方 + 新建项目"
+		},
+		"projects": {
+			"noSessions": "暂无会话",
+			"collapseSessions": "折叠会话",
+			"expandMore": "展开更多（{{count}}）"
+		},
+		"defaultConversation": {
+			"noConversations": "暂无对话"
+		},
+		"dialogs": {
+			"deleteBatchTitle": "删除批量项目",
+			"deleteBatchMessage": "确定要删除批量项目「{{name}}」吗？此操作不可撤回。",
+			"deleteConfirm": "删除",
+			"removeTitle": "从列表中移除",
+			"removeMessage": "确定要将「{{name}}」从项目列表中移除吗？此操作不会删除磁盘上的文件。",
+			"removeConfirm": "移除",
+			"deleteProjectTitle": "删除项目",
+			"deleteProjectMessage": "确定要永久删除「{{name}}」吗？此操作将从磁盘上彻底删除该项目文件夹，不可恢复。",
+			"clearConversationTitle": "清空会话",
+			"clearConversationMessage": "将删除「对话」项目下 {{count}} 个会话（保留产物，Claw 会话不受影响），此操作不可恢复。",
+			"clearClawTitle": "清空 Claw 记录",
+			"clearClawMessage": "将删除 {{count}} 条 Claw 会话记录（保留产物），此操作不可恢复。",
+			"clearConfirm": "清空"
+		},
+		"time": {
+			"justNow": "刚刚",
+			"minutes": "{{count}} 分钟",
+			"hours": "{{count}} 小时",
+			"days": "{{count}} 天",
+			"weeks": "{{count}} 周",
+			"months": "{{count}} 个月",
+			"years": "{{count}} 年"
+		}
 	},
 	"filterTabs": {
 		"all": "全部",

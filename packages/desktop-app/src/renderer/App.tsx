@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
-import { Sidebar } from "./domains/project/components/Sidebar";
+import { Sidebar } from "./domains/project/components/sidebar/Sidebar";
 import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
 import { WindowControls } from "./shared/components/TitleBar";
 import { LoginDialog } from "./domains/auth/components/LoginDialog";
