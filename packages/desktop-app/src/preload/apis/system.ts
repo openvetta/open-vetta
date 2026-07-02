@@ -145,6 +145,7 @@ export function createSystemApi(
 			delete: (name) => ipc.invoke("vetta:kb:delete", name),
 			rename: (oldName, newName) => ipc.invoke("vetta:kb:rename", oldName, newName),
 			clearWiki: () => ipc.invoke("vetta:kb:clear-wiki"),
+			clearRecords: () => ipc.invoke("vetta:kb:clear-records"),
 			deleteWiki: (kbId, relPaths) => ipc.invoke("vetta:kb:delete-wiki", kbId, relPaths),
 			isProcessing: () => ipc.invoke("vetta:kb:is-processing"),
 			onProcessingChanged: (handler) => onIpcEvent(ipc, "vetta:kb:processing-changed", handler),
