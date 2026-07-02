@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { PetActionId } from "../../../../shared/pet-actions";
 import { PetVideoDebugBorder } from "./PetDebugOverlay";
@@ -23,6 +23,7 @@ export function PetVideoSurface({
 	debugFrame,
 	hasNaturalSize,
 	maxVideoSize,
+	paused,
 	shouldShowVideo,
 	videoRef,
 	videoSize,
@@ -37,6 +38,7 @@ export function PetVideoSurface({
 	debugFrame: boolean;
 	hasNaturalSize: boolean;
 	maxVideoSize: number;
+	paused: boolean;
 	shouldShowVideo: boolean;
 	videoRef: RefObject<HTMLDivElement | null>;
 	videoSize: { width: number; height: number };
@@ -45,6 +47,19 @@ export function PetVideoSurface({
 	onLoadedMetadata: (size: { width: number; height: number }) => void;
 	onVideoSizeChange: (size: number) => void;
 }): JSX.Element {
+	const videoElRef = useRef<HTMLVideoElement>(null);
+
+	// 系统空闲/锁屏/休眠时暂停视频解码，唤醒后恢复。这是桌宠通宵持续解码累积内存/占 CPU 的兜底。
+	useEffect(() => {
+		const video = videoElRef.current;
+		if (!video) return;
+		if (paused) {
+			video.pause();
+		} else {
+			void video.play().catch(() => undefined);
+		}
+	}, [paused, actionId, videoSrc, shouldShowVideo]);
+
 	if (!shouldShowVideo) {
 		return <MissingPetVideo />;
 	}
@@ -70,6 +85,7 @@ export function PetVideoSurface({
 			) : null}
 			<video
 				key={actionId}
+				ref={videoElRef}
 				src={videoSrc}
 				autoPlay
 				loop
