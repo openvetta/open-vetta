@@ -168,7 +168,45 @@ interface ThemePackageManifest {
 - i18n 资源边界。
 - 权限声明。
 
-## 阶段 7：聊天页主题化
+## 阶段 7：官方默认 UI 组件迁入 theme-ui
+
+目标：
+
+- 把已经稳定的 props-driven view 迁入官方 UI 包。
+- 不迁移 connected container。
+- 不迁移真实 model hook 实现。
+- 保持 `model` / `actions` / `className` / `classNames` contract 稳定。
+
+第一批候选：
+
+- `DefaultPageHeader`
+- `PageHeaderSidebarTrigger`
+- `PageHeaderTitle`
+- `PageHeaderWindowActions`
+- `DefaultWindowControls`
+- `WindowControlButton`
+- `SidebarPanel`
+- `SidebarNavigation`
+- `SidebarNavItemButton`
+
+暂缓迁移：
+
+- `Sidebar`
+- `PageHeader`
+- `WindowControls`
+- `ProjectsPanel`
+- `SettingsMenu`
+- `MessageCenter`
+
+复杂组件应先拆成：
+
+```txt
+useXxxModel   -> desktop-app
+XxxView       -> theme-ui / official UI package
+XxxContainer  -> desktop-app
+```
+
+## 阶段 8：聊天页主题化
 
 侧边栏稳定后，再把同样模式应用到聊天页。
 
@@ -214,9 +252,10 @@ ChatPage
 
 近期建议顺序：
 
-1. 继续拆 `App.tsx` 中的纯 UI 壳层，例如 `SidebarDock`、`SidebarOverlay`、`MainContentFrame`。
-2. 把当前临时 ThemeModule 替换为可选择的本地主题配置入口。
-3. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
-4. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。
-5. 增加主题组件 ErrorBoundary。
-6. 再接远程主题包加载。
+1. 迁移第一批 props-driven app-shell/sidebar 组件到官方 UI 包。
+2. 继续拆 `App.tsx` 中的纯 UI 壳层，例如 `SidebarDock`、`SidebarOverlay`、`MainContentFrame`。
+3. 把当前临时 ThemeModule 替换为可选择的本地主题配置入口。
+4. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
+5. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。
+6. 增加主题组件 ErrorBoundary。
+7. 再接远程主题包加载。

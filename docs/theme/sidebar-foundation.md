@@ -32,9 +32,15 @@ packages/desktop-app/src/renderer/domains/project/components/sidebar/
 ```tsx
 export function Sidebar(props: SidebarProps): JSX.Element {
   const model = useSidebarModel(props);
-  const ThemeSidebar = useThemeRegion<SidebarRegionProps>("sidebar");
+  const ThemeSidebar = useThemeRegion("sidebar");
   if (ThemeSidebar) {
-    return <ThemeSidebar model={model} onOpenSession={props.onOpenSession} />;
+    return (
+      <ThemeSidebar
+        classNames={props.classNames}
+        model={model}
+        onOpenSession={props.onOpenSession}
+      />
+    );
   }
   return (
     <DefaultSidebar
@@ -48,8 +54,10 @@ export function Sidebar(props: SidebarProps): JSX.Element {
 
 这个结构保证：
 
-- 数据和行为在 `useSidebarModel`。
-- 默认 UI 在 `DefaultSidebar` 和子组件。
+- `Sidebar` 是 desktop-app 内部 connected 容器。
+- 主题公开的 `useSidebarModel` 入口来自 `@vetta/theme-sdk/sidebar`。
+- 真实 `useSidebarModel` 实现仍在 desktop-app 内部，并通过 `ThemeHostProvider` 注入。
+- `DefaultSidebar` 是 props 驱动 view，接收 `SidebarModel` 和 actions。
 - 主题可以复用默认 UI，也可以通过 `regions.sidebar` 替换完整侧边栏。
 
 ## Region Override
@@ -68,9 +76,21 @@ regions: {
 - `onOpenSession`：打开会话的公开动作。
 - `classNames`：调用方传入的默认样式扩展。
 
-主题实现完整侧边栏时，可以自由新增组件和调整布局，同时复用 SDK 暴露的默认组件。
+主题实现完整侧边栏时，可以自由新增组件和调整布局，同时复用公开 UI 出口或官方 UI 包中的默认 view 组件。
 
-侧边栏 region 不负责重新取数。它应使用 `SidebarRegionProps.model` 中的状态和 actions，或复用 Theme SDK 暴露的 public model hook。
+侧边栏 region 不负责直接访问内部 store、router 或 IPC。它可以使用 `SidebarRegionProps.model` 中的状态和 actions；如果主题自己组合完整 region，也可以调用 `@vetta/theme-sdk/sidebar` 暴露的 `useSidebarModel` facade，再把 model 作为 props 传给 props 驱动 view。
+
+示意：
+
+```tsx
+import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
+import { DefaultSidebar } from "@vetta/desktop-theme-ui/sidebar";
+
+export function ThemeSidebar(props: SidebarProps) {
+  const model = useSidebarModel(props);
+  return <DefaultSidebar model={model} onOpenSession={props.onOpenSession} />;
+}
+```
 
 ## Component Override
 
@@ -281,6 +301,7 @@ update/
 - content 层默认 `relative z-10`，不要设置不透明背景，只负责布局和必要的 `overflow-hidden`。
 - 行为放进 model hook。
 - UI 组件只通过 props 使用数据和 actions。
+- connected 容器可以调用 SDK hook，但公开给主题复用的 view 必须 props 驱动。
 - 用户可见文案必须走 i18n。
 - 不保留无意义 re-export 兼容壳。
 

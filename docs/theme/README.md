@@ -24,7 +24,7 @@
 
 - 侧边栏默认 UI 已按区域拆分。
 - `MessageCenter`、`SettingsMenu` 等侧边栏子组件已迁入侧边栏结构。
-- 新增 `@vetta/theme-sdk`，提供 `ThemeProvider`、`ThemeModule`、`useThemeRegion`、`useThemeComponent` 和 appearance 协议。
+- 新增 `@vetta/theme-sdk`，提供 `ThemeProvider`、`ThemeHostProvider`、`ThemeModule`、`useThemeRegion`、`useThemeComponent`、appearance 协议和 public model hook facade。
 - 新增 `@vetta/theme-ui`，提供 `ThemeSurface` 和 `CornerImageFrame` 等可选 UI building blocks。
 - `CornerImageFrame` 可作为 `ThemeSurface` 的 `corner-image` frame。
 - 侧边栏区域已接入稳定 surface slot。
@@ -33,6 +33,7 @@
 - 侧边栏组件支持 `className` / `classNames`，便于主题复用默认组件时做局部视觉调整。
 - 新增本地 demo 主题，可分别测试装饰、局部组件覆盖和完整侧边栏接管。
 - `PageHeader` 已从 `App.tsx` 拆出，并接入 `app.pageHeader` region/surface 与 `app.pageHeaderSidebarTrigger` 覆盖点。
+- `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 已作为 SDK facade hook 暴露，真实实现由 desktop-app 通过 `ThemeHostProvider` 注入。
 
 当前仍未实现：
 
@@ -56,3 +57,5 @@ Region override > Component override > Appearance config > Default UI
 完整侧边栏接管使用 `regions.sidebar`。只替换局部组件使用 `components["sidebar.navItem"]`、`components["sidebar.settingsTrigger"]`。只做边框、背景和装饰使用 `appearance.surfaces`。
 
 开放给主题使用的协议必须进入 `@vetta/theme-sdk`。开放给主题复用的 UI 组件不能进入 SDK，应进入 `@vetta/theme-ui`、默认主题包或具体主题包，并按公开 API 维护。组件开放前需要明确 props contract、class API、ref 透传、装饰分层和数据边界，详见 [组件设计要求](./component-guidelines.md)。
+
+公开 UI 组件应优先保持 props 驱动。调用 SDK hook 的 connected 容器可以留在 desktop-app 里作为默认入口，但不应作为主题复用的首选组件。

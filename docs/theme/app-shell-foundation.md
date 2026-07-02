@@ -38,13 +38,21 @@ packages/desktop-app/src/renderer/shared/app-shell/window-controls/
 />
 ```
 
-`PageHeader` 内部负责：
+`PageHeader` 是 desktop-app 内部 connected 容器。它负责：
 
-- 读取当前路由。
-- 解析默认标题。
-- 读取 page header 的 left/right/title/badge atoms。
-- 判断侧边栏触发按钮是否显示。
+- 通过 `@vetta/theme-sdk/app-shell` 的 `usePageHeaderModel` facade 读取页面头部 model。
 - 接入主题 region/component/surface。
+- 在没有 region override 时，把 model 传给 `DefaultPageHeader`。
+
+真实 `usePageHeaderModel` 实现仍在 desktop-app 内部，负责读取当前路由、解析默认标题、读取 page header 的 left/right/title/badge atoms、判断侧边栏触发按钮是否显示。主题不应直接 import 这个内部实现。
+
+`DefaultPageHeader` 是 props 驱动的默认 view。它不自己取数，只消费 `PageHeaderRegionProps.model` 和传入的 actions，适合后续迁入官方 UI 包。
+
+窗口控制同理：
+
+- `WindowControls` 是 desktop-app connected 容器。
+- `useWindowControlsModel` 的主题公开入口来自 `@vetta/theme-sdk/app-shell`。
+- `DefaultWindowControls` 是 props 驱动 view，接收 `WindowControlsComponentProps.model`。
 
 ## Region Override
 
@@ -74,7 +82,7 @@ components: {
   "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger
   "app.pageHeaderTitle"?: typeof PageHeaderTitle
   "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions
-  "app.windowControls"?: typeof WindowControls
+  "app.windowControls"?: ComponentType<WindowControlsComponentProps>
   "app.windowControlButton"?: typeof WindowControlButton
 }
 ```
@@ -89,9 +97,25 @@ components: {
 
 窗口控制按钮组属于 component，不属于 region。它的粒度小于页面头部，但仍然可能被主题整体替换为自定义按钮组。单个按钮继续通过 `app.windowControlButton` 覆盖。
 
-`WindowControls` 不把 `window.vetta.window.*` 暴露给主题。主题只能通过 `WindowControlsModel.controls[].action` 调用公开动作。
+`DefaultWindowControls` 不把 `window.vetta.window.*` 暴露给主题。主题只能通过 `WindowControlsModel.controls[].action` 调用公开动作。
 
 `WindowControlsModel.controls[]` 只包含窗口控制的语义数据和动作，例如 `kind`、`label`、`action`。图标 class 不属于 model，默认图标由 `WindowControlButton` 根据 `kind` 决定。主题如果替换按钮，可以完全改用自己的图标、图片或动画。
+
+## SDK Hook 与 View
+
+主题如果要复用官方 app-shell view，推荐在 region 中调用 SDK hook，再把 model 传入 props 驱动 view：
+
+```tsx
+import { usePageHeaderModel } from "@vetta/theme-sdk/app-shell";
+import { DefaultPageHeader } from "@vetta/desktop-theme-ui/app-shell";
+
+export function ThemePageHeader(props: PageHeaderProps) {
+  const model = usePageHeaderModel(props);
+  return <DefaultPageHeader {...props} model={model} />;
+}
+```
+
+当前 `DefaultPageHeader` / `DefaultWindowControls` 仍位于 desktop-app 公开 UI 出口；后续迁入官方 UI 包时，应保持这个 props 驱动 contract，不迁移 connected 容器。
 
 ## Surface Slot
 
