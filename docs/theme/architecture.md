@@ -15,8 +15,22 @@
 - 替换侧边栏、聊天页、设置页等区域。
 - 替换按钮、列表项、消息气泡等组件。
 - 提供自定义 React UI、DOM 动画、Canvas、视频背景等能力。
+- 在完整 region 中新增主题自己的组件，同时复用应用公开的默认组件。
 
 这两类需求不应混在同一个 API 中。低定制走配置，高定制走组件替换。
+
+实际落地时分三档能力：
+
+```txt
+Appearance config
+  不写组件，只配置 surface 装饰。
+
+Component override
+  不重写父级，只替换默认 UI 中的某个局部组件。
+
+Region override
+  接管完整区域，自由新增组件、重排布局，并复用 Theme SDK。
+```
 
 ## 三层模型
 
@@ -155,6 +169,20 @@ Region 是页面或大布局级替换点，例如：
 
 Region 替换适合高定制主题。它应消费应用提供的 model，而不是自己访问内部 store。
 
+当前已落地的 region：
+
+```ts
+regions: {
+  sidebar?: ComponentType<SidebarRegionProps>
+}
+```
+
+`regions.sidebar` 是完整侧边栏入口。主题提供它时，应用直接渲染主题侧边栏；主题可以在里面自由添加新组件、重排布局，也可以复用默认 `SidebarPanel`、`SidebarNavigation`、`ProjectsPanel`、`SettingsMenu`、`MessageCenter` 等公开组件。
+
+Region 替换不是唯一方式。主题如果只是替换一个按钮，不应该被迫重写整个侧边栏。
+
+Region props 应该只包含稳定 model、公开 actions 和必要样式扩展，不暴露内部 store、router 或 IPC。Region 负责组合，不负责重新实现数据层。
+
 ### Component Override
 
 Component override 用于替换更小的 UI 构件，例如：
@@ -167,6 +195,45 @@ Component override 用于替换更小的 UI 构件，例如：
 
 这类替换必须基于稳定 props。
 
+当前已落地的 component override：
+
+```ts
+components: {
+  "sidebar.navItem"?: typeof SidebarNavItemButton
+  "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger
+}
+```
+
+默认 UI 在渲染这些组件时先查询 registry；未配置时回退默认组件。
+
+Component override 的 props 必须与默认 fallback 组件兼容。需要作为 trigger 或 focus target 的组件必须转发 ref，并透传 DOM props，避免破坏 Popover、Tooltip、虚拟列表测量或键盘交互。
+
+### Theme Module
+
+ThemeModule 是 UI 主题的注册单元：
+
+```ts
+interface ThemeModule {
+  meta: {
+    id: string;
+    name: string;
+    version: string;
+    sdkVersion: string;
+  };
+  appearance?: ThemeAppearance;
+  regions?: Record<string, unknown>;
+  components?: Record<string, unknown>;
+}
+```
+
+渲染优先级：
+
+```txt
+Region override > Component override > Appearance config > Default UI
+```
+
+三者可以组合。自定义 region 可以继续使用 `ThemeSurface`；默认 region 可以继续读取 component override；component override 内部也可以读取 appearance。
+
 ### Class API
 
 很多主题不需要替换组件，只需要调整默认组件的局部样式。因此默认 UI 组件需要支持：
@@ -175,6 +242,36 @@ Component override 用于替换更小的 UI 构件，例如：
 - `classNames`：复合组件内部区域样式。
 
 这不是最终主题系统的全部能力，但它是默认组件可复用的基础。
+
+class API 只适合局部视觉调整。插入新 DOM、改变布局顺序、替换复杂交互时，应使用 component override 或 region override。
+
+### Theme SDK
+
+Theme SDK 是主题和应用之间的唯一公开契约。
+
+当前内部入口：
+
+```txt
+packages/desktop-app/src/renderer/shared/theme/sdk/
+```
+
+SDK 可以导出：
+
+- public primitives。
+- public model hooks。
+- public props/types。
+- `ThemeSurface`。
+- 通用装饰组件和工具函数。
+
+SDK 不应导出：
+
+- Jotai atom。
+- router 实例。
+- `window.vetta.*`。
+- domain 私有 hook。
+- 尚未稳定的内部组件。
+
+默认 UI 组件进入 SDK 后，需要按公开 API 管理。新增可复用组件的具体标准见 [组件设计要求](./component-guidelines.md)。
 
 ## 边界
 
@@ -192,7 +289,18 @@ Component override 用于替换更小的 UI 构件，例如：
 - 调用公开 actions。
 - 配置 surface 装饰。
 - 传入 class/classNames。
-- 在未来通过 registry 替换稳定组件。
+- 通过 registry 替换稳定组件。
+- 通过 region 完整接管某个 UI 区域。
+
+## 选择方式
+
+优先选择最小能力：
+
+- 只改边框、背景、纹理：用 appearance。
+- 只换一个按钮、列表项、trigger：用 component override。
+- 要新增区域、移动布局、改变整体结构：用 region override。
+
+不要为了改一个按钮重写完整 region。也不要为了新增主题自己的区域，把默认布局硬塞进固定 slot。
 
 ## 远程主题包方向
 

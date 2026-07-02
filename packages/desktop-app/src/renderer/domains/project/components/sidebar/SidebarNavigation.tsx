@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import type { RefCallback } from "react";
 import { cn } from "@shared/lib/utils";
+import { useThemeComponent } from "@shared/theme/module";
 import type { NavIndicatorBounds, SidebarNavItem } from "./types";
 import { SidebarNavItemButton } from "./SidebarNavItemButton";
 
@@ -27,6 +28,8 @@ export function SidebarNavigation({
 	onItemClick,
 	setItemRef,
 }: SidebarNavigationProps): JSX.Element {
+	const ThemeNavItemButton = useThemeComponent("sidebar.navItem", SidebarNavItemButton);
+
 	return (
 		<nav className={cn("relative flex flex-col gap-0.5 px-1.5 pb-2 pt-2", className)}>
 			{indicatorBounds && (
@@ -43,7 +46,7 @@ export function SidebarNavigation({
 				/>
 			)}
 			{items.map((item, index) => (
-				<SidebarNavItemButton
+				<ThemeNavItemButton
 					className={classNames?.item}
 					classNames={{
 						badge: classNames?.itemBadge,

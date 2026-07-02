@@ -38,6 +38,12 @@ export interface SidebarProps {
 	floating?: boolean;
 }
 
+export interface SidebarRegionProps {
+	classNames?: SidebarClassNames;
+	model: SidebarModel;
+	onOpenSession: SidebarProps["onOpenSession"];
+}
+
 export interface SidebarNavItem {
 	key: string;
 	type: "new-session" | "route";

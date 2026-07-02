@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@shared/lib/utils";
 import type { SidebarNavItem } from "./types";
 
-interface SidebarNavItemButtonProps extends Omit<ComponentPropsWithoutRef<"button">, "children"> {
+export interface SidebarNavItemButtonProps extends Omit<ComponentPropsWithoutRef<"button">, "children"> {
 	classNames?: {
 		badge?: string;
 		icon?: string;
