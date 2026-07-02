@@ -42,6 +42,7 @@ import { reloadKnowledgePoller } from "./knowledge/poller.js";
 import { getAppLogger } from "./logger.js";
 import { MEDIA_PROTOCOL_PRIVILEGE, registerMediaProtocolHandler } from "./media-protocol.js";
 import { openExternalUrl } from "./open-external.js";
+import { startPetIdleGuard } from "./pet/pet-idle-guard.js";
 import { initializePetWindow } from "./pet-window.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { discoverSystemPlugins } from "./plugins/plugin-store.js";
@@ -546,6 +547,7 @@ if (!gotSingleLock) {
 		ipcTeardown = registerAllIpc(mainWindow.webContents, { actionApprovalBroker });
 		teardownBatchTasksIpc = registerBatchTasksIpc(mainWindow.webContents, batchTaskService);
 		initializePetWindow();
+		startPetIdleGuard();
 		// 快捷面板：预创建隐藏窗口（按需 show/hide，不每次重建），随后据配置启停双击功能键监听。
 		// registerAllIpc 已注册快捷面板 IPC（含 RELOAD_HOTKEY），这里仅补窗口与初次触发器同步。
 		createQuickPanelWindow();
