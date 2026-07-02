@@ -6,9 +6,9 @@
  * 所有操作经 runKnowledgeMaintenance 持「加工轮」互斥锁，杜绝与后台加工轮竞态。
  */
 
-import { rm } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { knowledge } from "@vetta/coding-agent";
-import { KB_PROCESSING_CWD } from "../ipc/fs.js";
+import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR } from "../ipc/fs.js";
 import { runKnowledgeMaintenance } from "./poller.js";
 
 /**
@@ -22,6 +22,17 @@ export function clearAllWiki(): Promise<void> {
 		await rm(KB_PROCESSING_CWD, { recursive: true, force: true });
 		await knowledge.ensureKnowledgeDirs(root); // 重建空 wiki/ 与 processing_records 目录
 		await knowledge.rebuildAllCaches(root); // 空 manifest/tags/INDEX.md
+	});
+}
+
+/**
+ * 只清空加工记录（processing_records 下每轮加工的 agent session jsonl），保留 wiki 产物。
+ * 走「加工轮」互斥锁：会中止在跑的轮并独占执行，避免删到正在写入的 session。
+ */
+export function clearProcessingRecords(): Promise<void> {
+	return runKnowledgeMaintenance(async () => {
+		await rm(KB_PROCESSING_SESSION_DIR, { recursive: true, force: true });
+		await mkdir(KB_PROCESSING_SESSION_DIR, { recursive: true }); // 重建空 sessions 目录，下轮加工照常落盘
 	});
 }
 

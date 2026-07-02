@@ -55,6 +55,8 @@ export interface DesktopKnowledgeApi {
 	rename(oldName: string, newName: string): Promise<void>;
 	/** 清空全部已整理的 wiki 产物（影响所有知识库）并重建空索引；原始资料保留，下一轮会重新整理。 */
 	clearWiki(): Promise<void>;
+	/** 只清空加工历史记录（每轮加工的会话）；已整理的 wiki 产物不受影响。 */
+	clearRecords(): Promise<void>;
 	/** 删除指定原始文件（relPaths，相对 raws/<kbId>/）已整理出的 wiki 页并重建索引；删后下一轮重整理。 */
 	deleteWiki(kbId: string, relPaths: string[]): Promise<void>;
 	/** 当前是否正在加工（建立索引）。 */
