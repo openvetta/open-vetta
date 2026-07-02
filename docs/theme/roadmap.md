@@ -84,6 +84,8 @@ packages/desktop-app/src/renderer/shared/theme/appearance/themes/
 
 ## 阶段 4：Component Override Registry
 
+状态：侧边栏最小闭环已开始。
+
 目标：
 
 - 默认组件通过 registry 解析可替换实现。
@@ -101,15 +103,17 @@ const NavItemButton = resolveThemeComponent(
 
 第一批适合开放的组件：
 
-- `SidebarNavItemButton`
+- `SidebarNavItemButton`：已接入 `sidebar.navItem`
+- `SettingsMenuTrigger`：已接入 `sidebar.settingsTrigger`
 - `ProjectRow`
 - `SessionRow`
-- `SettingsMenuTrigger`
 - `MessageCenterTrigger`
 
 不要一开始开放所有组件。先开放 props 稳定、行为边界清楚的组件。
 
 ## 阶段 5：Region Override
+
+状态：侧边栏最小闭环已开始。
 
 目标：
 
@@ -125,7 +129,7 @@ return <SidebarRenderer model={model} onOpenSession={props.onOpenSession} />;
 
 第一批 region：
 
-- `sidebar`
+- `sidebar`：已接入 `regions.sidebar`
 - `chatPage`
 - `settingsPage`
 
@@ -195,13 +199,14 @@ ChatPage
 - 新增用户可见文案走 i18n。
 - 不让主题直接访问内部 store / IPC。
 - 加载失败能回退默认 UI。
+- 新开放的主题组件符合 [组件设计要求](./component-guidelines.md)。
 
 ## 当前优先级
 
 近期建议顺序：
 
-1. 给 appearance 增加本地静态配置入口。
-2. 用一个 demo 主题验证 `sidebar.panel` 或 `sidebar.projects` 的 `corner-image`。
+1. 把当前临时 ThemeModule 替换为可选择的本地主题配置入口。
+2. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
 3. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。
-4. 给 `ProjectRow`、`SessionRow` 补齐 `className` / `classNames`。
-5. 再设计 component override registry。
+4. 增加主题组件 ErrorBoundary。
+5. 再接远程主题包加载。

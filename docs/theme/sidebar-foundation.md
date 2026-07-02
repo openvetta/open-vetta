@@ -32,6 +32,10 @@ packages/desktop-app/src/renderer/domains/project/components/sidebar/
 ```tsx
 export function Sidebar(props: SidebarProps): JSX.Element {
   const model = useSidebarModel(props);
+  const ThemeSidebar = useThemeRegion<SidebarRegionProps>("sidebar");
+  if (ThemeSidebar) {
+    return <ThemeSidebar model={model} onOpenSession={props.onOpenSession} />;
+  }
   return (
     <DefaultSidebar
       classNames={props.classNames}
@@ -46,7 +50,42 @@ export function Sidebar(props: SidebarProps): JSX.Element {
 
 - 数据和行为在 `useSidebarModel`。
 - 默认 UI 在 `DefaultSidebar` 和子组件。
-- 主题可以复用默认 UI，也可以未来替换 `DefaultSidebar`。
+- 主题可以复用默认 UI，也可以通过 `regions.sidebar` 替换完整侧边栏。
+
+## Region Override
+
+完整侧边栏替换点：
+
+```ts
+regions: {
+  sidebar?: ComponentType<SidebarRegionProps>
+}
+```
+
+`SidebarRegionProps` 提供：
+
+- `model`：侧边栏 view model 和 actions。
+- `onOpenSession`：打开会话的公开动作。
+- `classNames`：调用方传入的默认样式扩展。
+
+主题实现完整侧边栏时，可以自由新增组件和调整布局，同时复用 SDK 暴露的默认组件。
+
+侧边栏 region 不负责重新取数。它应使用 `SidebarRegionProps.model` 中的状态和 actions，或复用 Theme SDK 暴露的 public model hook。
+
+## Component Override
+
+默认侧边栏当前已接入两个细粒度替换点：
+
+```ts
+components: {
+  "sidebar.navItem"?: typeof SidebarNavItemButton
+  "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger
+}
+```
+
+这类替换适合只换一个局部组件，不需要重写完整 `regions.sidebar`。
+
+Override 组件必须兼容默认组件 props。`sidebar.navItem` 要保留 ref、`onClick`、DOM props 和 `classNames`；`sidebar.settingsTrigger` 要保留 ref 和 PopoverTrigger 注入的 props，否则会破坏弹层打开行为。
 
 ## Surface Slot
 
@@ -232,6 +271,10 @@ update/
 
 - 简单组件提供 `className`。
 - 复合组件提供 `classNames`。
+- 需要进入 Theme SDK 的组件必须导出 props 类型。
+- 需要作为 trigger、button、row、focus target 的组件必须 `forwardRef`。
+- props 不暴露 atom、router、IPC 或 domain 私有 hook。
+- actions 用语义回调表达，不把内部实现对象交给主题。
 - 需要被主题装饰的区域由组件提供 root / decoration / content 层，`ThemeSurface` 只放在 decoration 层。
 - root 层承载尺寸、定位、圆角、基础背景和基础边框。
 - decoration 层默认 `absolute inset-0 z-0 pointer-events-none overflow-visible`。
@@ -247,7 +290,6 @@ update/
 
 - 从配置文件加载 appearance。
 - 从远程主题包加载组件。
-- component override registry。
 - 对项目行、会话行、消息气泡等细粒度组件的统一 override contract。
 
 这些能力应在当前 slot 和 classNames 基础上继续演进。
