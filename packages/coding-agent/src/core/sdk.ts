@@ -348,12 +348,21 @@ export async function createAgentSession(options: CreateAgentSessionOptions = {}
 
 	// If session has data, try to restore model from it
 	if (!model && hasExistingSession && existingSession.model) {
-		const restoredModel = modelRegistry.find(existingSession.model.provider, existingSession.model.modelId);
+		const storedProvider = existingSession.model.provider;
+		const storedId = existingSession.model.modelId;
+		// 先按 id(=路由 key) 精确匹配；匹配不到再按上游真名 modelId 兜底(兼容老会话存的旧 modelId)
+		const restoredModel =
+			modelRegistry.find(storedProvider, storedId) ??
+			modelRegistry.getAll().find((m) => m.provider === storedProvider && m.modelId === storedId);
 		if (restoredModel && (await modelRegistry.getApiKey(restoredModel))) {
 			model = restoredModel;
+			// 走 modelId 兜底命中(id !== storedId)：把会话存储里的标识静默升级为精确 key，确保下次请求走精确路由
+			if (restoredModel.id !== storedId) {
+				sessionManager.appendModelChange(restoredModel.provider, restoredModel.id);
+			}
 		}
 		if (!model) {
-			modelFallbackMessage = `Could not restore model ${existingSession.model.provider}/${existingSession.model.modelId}`;
+			modelFallbackMessage = `Could not restore model ${storedProvider}/${storedId}`;
 		}
 	}
 
