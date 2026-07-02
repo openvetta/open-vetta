@@ -51,6 +51,7 @@ export function PetApp(): JSX.Element {
 	const [videoBaseSizeByAction, setVideoBaseSizeByAction] = useState(getInitialVideoBaseSizeByAction);
 	const [contentOffset, setContentOffset] = useState({ x: 0, y: 0 });
 	const [failedVideoSrc, setFailedVideoSrc] = useState<string | undefined>();
+	const [playbackPaused, setPlaybackPaused] = useState(false);
 	const [windowSize, setWindowSize] = useWindowSize();
 	const [videoNaturalSize, setVideoNaturalSize] = useState<{ width: number; height: number } | undefined>();
 	const contentRef = useRef<HTMLDivElement>(null);
@@ -185,7 +186,7 @@ export function PetApp(): JSX.Element {
 	}, [debugFrame]);
 
 	useEffect(() => {
-		if (!autoMode || !actionId) return;
+		if (!autoMode || !actionId || playbackPaused) return;
 		const timer = window.setTimeout(() => {
 			if (isUserOverrideActive()) return;
 			if (appActionIdRef.current === actionId) {
@@ -194,7 +195,7 @@ export function PetApp(): JSX.Element {
 			applyAutomaticAction();
 		}, getActionDuration(actionId));
 		return () => window.clearTimeout(timer);
-	}, [actionId, autoMode, videos]);
+	}, [actionId, autoMode, playbackPaused, videos]);
 
 	useEffect(() => {
 		setFailedVideoSrc(undefined);
@@ -249,6 +250,10 @@ export function PetApp(): JSX.Element {
 			}
 			if (command.type === "set-content-offset") {
 				setContentOffset({ x: command.x, y: command.y });
+				return;
+			}
+			if (command.type === "set-playback") {
+				setPlaybackPaused(!command.playing);
 				return;
 			}
 			if (command.type === "set-auto-mode") {
@@ -333,6 +338,7 @@ export function PetApp(): JSX.Element {
 					baseSize={selectedVideoSize}
 					debugFrame={debugFrame}
 					maxVideoSize={maxVideoSize}
+					paused={playbackPaused}
 					shouldShowVideo={shouldShowVideo}
 					videoRef={videoRef}
 					videoSize={videoSize}

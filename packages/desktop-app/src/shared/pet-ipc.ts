@@ -90,6 +90,11 @@ export type PetCommand =
 	| {
 			type: "hide-bubble";
 			source?: PetCommandSource;
+	  }
+	| {
+			// 系统空闲/锁屏/休眠时暂停桌宠视频解码，避免无人值守时持续解码累积内存与占用 CPU。
+			type: "set-playback";
+			playing: boolean;
 	  };
 
 export type PetCommandListener = (command: PetCommand) => void;
