@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { getAchievementSetById } from "@domains/settings/achievements";
 import { cn } from "@shared/lib/utils";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import {
 	SettingsMenuTrigger,
 	SidebarBottomBar,
@@ -9,12 +10,11 @@ import {
 	SidebarPanel,
 	SidebarProjectsSection,
 	SidebarTopBar,
-	ThemeSurface,
 	type SettingsMenuTriggerProps,
 	type SidebarNavItemButtonProps,
 	type SidebarRegionProps,
-	type ThemeModule,
 } from "@shared/theme/sdk";
+import type { ThemeModule } from "@vetta/theme-sdk";
 
 const sidebarFrameAchievement = getAchievementSetById("classic").achievements[1];
 

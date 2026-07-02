@@ -7,7 +7,7 @@ import { i18n, initI18n } from "./shared/i18n";
 import { applyInitialTheme } from "./shared/theme/apply";
 import { applyStoredCustomCursor } from "./shared/theme/cursor";
 import { sidebarAppearanceDemoTheme } from "./shared/theme/dev-themes/sidebarDemoThemes";
-import { ThemeProvider } from "./shared/theme/module";
+import { ThemeProvider } from "@vetta/theme-sdk";
 import "./styles.css";
 
 // 必须在 React 挂载前同步注入主题变量，避免冷启动闪烁。

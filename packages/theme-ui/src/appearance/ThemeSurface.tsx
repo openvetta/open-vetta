@@ -1,10 +1,9 @@
-import type { ComponentPropsWithoutRef } from "react";
-import { CornerImageDecoration } from "@shared/components/CornerImageFrame";
-import { cn } from "@shared/lib/utils";
-import { useThemeSurface } from "./context";
-import type { ThemeSurfaceSlot } from "./types";
+import type { ComponentPropsWithoutRef, JSX } from "react";
+import { useThemeSurface, type ThemeSurfaceSlot } from "@vetta/theme-sdk/appearance";
+import { cn } from "@vetta/ui";
+import { CornerImageDecoration } from "./CornerImageFrame";
 
-interface ThemeSurfaceProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+export interface ThemeSurfaceProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
 	slot: ThemeSurfaceSlot;
 }
 

@@ -1,5 +1,5 @@
-import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { ThemeAppearanceProvider } from "../appearance";
+import { createContext, type JSX, type ReactNode, useContext, useMemo } from "react";
 import { DEFAULT_THEME_MODULE, type ThemeModule } from "./types";
 
 const ThemeModuleContext = createContext<ThemeModule>(DEFAULT_THEME_MODULE);

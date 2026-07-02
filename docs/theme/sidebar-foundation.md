@@ -117,7 +117,7 @@ type ThemeSurfaceSlot =
 实现位置：
 
 ```txt
-packages/desktop-app/src/renderer/shared/theme/appearance/ThemeSurface.tsx
+packages/theme-ui/src/appearance/ThemeSurface.tsx
 ```
 
 职责：
@@ -164,7 +164,7 @@ content:    relative z-10，默认透明，只负责真实 UI、布局和必要�
 实现位置：
 
 ```txt
-packages/desktop-app/src/renderer/shared/components/CornerImageFrame.tsx
+packages/theme-ui/src/appearance/CornerImageFrame.tsx
 ```
 
 当前已支持：
@@ -271,7 +271,7 @@ update/
 
 - 简单组件提供 `className`。
 - 复合组件提供 `classNames`。
-- 需要进入 Theme SDK 的组件必须导出 props 类型。
+- 需要进入公共 UI 库或桌面端公开 UI 出口的组件必须导出 props 类型。
 - 需要作为 trigger、button、row、focus target 的组件必须 `forwardRef`。
 - props 不暴露 atom、router、IPC 或 domain 私有 hook。
 - actions 用语义回调表达，不把内部实现对象交给主题。

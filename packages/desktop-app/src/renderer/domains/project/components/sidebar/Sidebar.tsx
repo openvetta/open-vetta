@@ -1,4 +1,4 @@
-import { useThemeRegion } from "@shared/theme/module";
+import { useThemeRegion } from "@vetta/theme-sdk";
 import { DefaultSidebar } from "./DefaultSidebar";
 import type { SidebarProps } from "./types";
 import { useSidebarModel } from "./useSidebarModel";

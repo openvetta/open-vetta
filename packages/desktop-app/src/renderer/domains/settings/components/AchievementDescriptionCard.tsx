@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { AchievementUsageStats } from "@preload/api";
-import { CornerImageFrame } from "@shared/components/CornerImageFrame";
+import { CornerImageFrame } from "@vetta/theme-ui/appearance";
 import type { Achievement } from "../achievements";
 
 const FRAME_ACCENT_COLOR = "#e0b278";

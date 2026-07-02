@@ -37,6 +37,8 @@
 
 ## 阶段 2：本地 appearance 配置
 
+状态：基础协议已拆到 `packages/theme-sdk`，装饰 UI 已拆到 `packages/theme-ui`。
+
 目标：
 
 - 定义本地 `ThemeAppearance` 注册入口。
@@ -47,7 +49,7 @@
 建议先做静态配置：
 
 ```txt
-packages/desktop-app/src/renderer/shared/theme/appearance/themes/
+packages/desktop-app/src/renderer/shared/theme/local-themes/
   default.ts
   demo-corner-frame.ts
 ```
@@ -139,6 +141,8 @@ return <SidebarRenderer model={model} onOpenSession={props.onOpenSession} />;
 
 远程主题包应在本地 API 稳定后再接入。
 
+主题包未来不是通过 npm 安装进应用，而是在应用运行时动态加载。主题作者可以在开发期依赖 `@vetta/theme-sdk` 的类型和 `@vetta/theme-ui` 的可选组件；运行时由应用主题加载器提供这些 shared singleton。
+
 主题包需要 manifest：
 
 ```ts
@@ -156,6 +160,8 @@ interface ThemePackageManifest {
 运行时要求：
 
 - React 单例共享。
+- `@vetta/theme-sdk` 单例共享。
+- 可选 `@vetta/theme-ui` 单例共享。
 - SDK 版本检查。
 - ErrorBoundary。
 - 加载失败回退默认 UI。

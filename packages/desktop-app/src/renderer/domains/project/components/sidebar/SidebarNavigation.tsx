@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import type { RefCallback } from "react";
 import { cn } from "@shared/lib/utils";
-import { useThemeComponent } from "@shared/theme/module";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import type { NavIndicatorBounds, SidebarNavItem } from "./types";
 import { SidebarNavItemButton } from "./SidebarNavItemButton";
 
