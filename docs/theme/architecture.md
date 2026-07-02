@@ -77,6 +77,8 @@ model hook 对外提供：
 - 激活态、展开态、运行态。
 - 可传给默认 UI 或主题 UI 的稳定 props。
 
+model hook 不应提供 UI-only 信息。语义文案、aria/title、业务状态和动作属于 model；图标、图片、CSS class、动画和装饰素材属于 UI 实现层。
+
 ### UI 实现层
 
 UI 实现层只负责渲染和组合。默认主题也是 UI 实现层。
@@ -162,6 +164,7 @@ Content layer
 
 Region 是页面或大布局级替换点，例如：
 
+- `app.pageHeader`
 - `sidebar`
 - `chatPage`
 - `settingsPage`
@@ -173,9 +176,12 @@ Region 替换适合高定制主题。它应消费应用提供的 model，而不�
 
 ```ts
 regions: {
+  "app.pageHeader"?: ComponentType<PageHeaderRegionProps>
   sidebar?: ComponentType<SidebarRegionProps>
 }
 ```
+
+`regions["app.pageHeader"]` 是页面头部入口。主题可以替换标题栏区域，但继续使用应用提供的路由标题、侧边栏触发动作和窗口控制边界。
 
 `regions.sidebar` 是完整侧边栏入口。主题提供它时，应用直接渲染主题侧边栏；主题可以在里面自由添加新组件、重排布局，也可以复用默认 `SidebarPanel`、`SidebarNavigation`、`ProjectsPanel`、`SettingsMenu`、`MessageCenter` 等公开组件。
 
@@ -199,6 +205,11 @@ Component override 用于替换更小的 UI 构件，例如：
 
 ```ts
 components: {
+  "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger
+  "app.pageHeaderTitle"?: typeof PageHeaderTitle
+  "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions
+  "app.windowControls"?: typeof WindowControls
+  "app.windowControlButton"?: typeof WindowControlButton
   "sidebar.navItem"?: typeof SidebarNavItemButton
   "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger
 }
@@ -221,10 +232,12 @@ interface ThemeModule {
     sdkVersion: string;
   };
   appearance?: ThemeAppearance;
-  regions?: Record<string, unknown>;
-  components?: Record<string, unknown>;
+  regions?: ThemeRegionRegistry;
+  components?: ThemeComponentRegistry;
 }
 ```
+
+`ThemeRegionRegistry` 和 `ThemeComponentRegistry` 是显式 key map，不是任意 `string` map。新增 region/component 时必须先把 id 和组件类型登记到 registry，否则主题包里拼错 key 或传错组件 props 时，TypeScript 无法提前发现。
 
 渲染优先级：
 

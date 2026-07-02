@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./domains/project/components/sidebar/Sidebar";
 import { ConfirmDialog } from "./shared/components/ui/confirm-dialog";
-import { WindowControls } from "./shared/components/TitleBar";
 import { LoginDialog } from "./domains/auth/components/LoginDialog";
 import { FlowingSendDialog } from "./domains/flowing/components/FlowingSendDialog";
 import { WorkflowCompleteDialog } from "./domains/flowing/components/WorkflowCompleteDialog";
@@ -40,6 +39,7 @@ import { SchedulerToggleApproval } from "./shared/action-approval/scheduler/Sche
 import { SchedulerExecutionApproval } from "./shared/action-approval/scheduler/SchedulerExecutionApproval";
 import { TooltipProvider } from "./shared/components/ui/tooltip";
 import { Toaster } from "./shared/components/ui/Toaster";
+import { PageHeader } from "./shared/app-shell/page-header";
 import {
 	activeSessionAtom,
 	defaultConversationCwdAtom,
@@ -48,105 +48,8 @@ import {
 	sandboxPermissionDrawerAtom,
 	scheduledSessionPathsAtom,
 	sidebarCollapsedAtom,
-	pageHeaderTitleAtom,
-	pageHeaderTitleHiddenAtom,
-	pageHeaderTitleBadgeAtom,
-	pageHeaderRightSlotAtom,
-	pageHeaderLeftSlotAtom,
 } from "./shared/store/atoms";
-import { isMac } from "./shared/lib/platform";
-import { cn } from "./shared/lib/utils";
 import { KnowledgeDropOverlay } from "./domains/knowledge-base/components/KnowledgeDropOverlay";
-
-const ROUTE_TITLES: Array<{ match: RegExp; title: string }> = [
-	{ match: /^\/automation$/, title: "自动化" },
-	{ match: /^\/batch-tasks$/, title: "批量任务" },
-	{ match: /^\/knowledge\/all$/, title: "全部知识库" },
-	{ match: /^\/knowledge$/, title: "知识库" },
-	{ match: /^\/skills$/, title: "技能广场" },
-	{ match: /^\/settings\b/, title: "设置" },
-	{ match: /^\/project\b/, title: "项目详情" },
-	{ match: /^\/downloads$/, title: "下载中心" },
-	{ match: /^\/$/, title: "对话" },
-];
-
-function PageHeader({
-	sidebarCollapsed,
-	narrow,
-	onExpandSidebar,
-	onOverlayOpen,
-	onOverlayClose,
-}: {
-	sidebarCollapsed: boolean;
-	narrow: boolean;
-	onExpandSidebar: () => void;
-	onOverlayOpen: () => void;
-	onOverlayClose: () => void;
-}): JSX.Element {
-	const matches = useMatches();
-	const path = matches[matches.length - 1]?.pathname ?? "/";
-	const titleOverride = useAtomValue(pageHeaderTitleAtom);
-	const titleHidden = useAtomValue(pageHeaderTitleHiddenAtom);
-	const titleBadge = useAtomValue(pageHeaderTitleBadgeAtom);
-	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
-	const leftSlot = useAtomValue(pageHeaderLeftSlotAtom);
-	const fallbackTitle = ROUTE_TITLES.find((r) => r.match.test(path))?.title ?? "Vetta";
-	const title = titleOverride && titleOverride.length > 0 ? titleOverride : fallbackTitle;
-	// 窄屏始终显示触发按钮（悬浮即唤出浮层）；宽屏仅在手动收起时显示。
-	const triggerVisible = narrow || sidebarCollapsed;
-
-	return (
-		<div
-			className={cn("drag-region relative flex h-11 shrink-0 items-center justify-between gap-2",
-				!isMac && "h-8"
-			)}
-			style={{
-				paddingLeft: isMac && triggerVisible ? 78 : 12,
-				paddingRight: isMac ? 12 : 0,
-				marginBottom: isMac ? 0 : 10
-			}}
-		>
-			<div className="no-drag flex min-w-0 items-center gap-2">
-				<AnimatePresence initial={false}>
-					{triggerVisible && (
-						<motion.button
-							key="expand"
-							type="button"
-							onClick={narrow ? onOverlayOpen : onExpandSidebar}
-							onMouseEnter={narrow ? onOverlayOpen : undefined}
-							onMouseLeave={narrow ? onOverlayClose : undefined}
-							initial={{ opacity: 0, scale: 0.85, width: 0 }}
-							animate={{ opacity: 1, scale: 1, width: 28 }}
-							exit={{ opacity: 0, scale: 0.85, width: 0 }}
-							transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
-							title={narrow ? "侧边栏" : "展开侧边栏"}
-							className="flex h-7 shrink-0 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-						>
-							<span className="icon-[solar--sidebar-minimalistic-linear] h-4 w-4" />
-						</motion.button>
-					)}
-				</AnimatePresence>
-				{leftSlot}
-				{!titleHidden && (
-					<motion.h1
-						key={title}
-						initial={{ opacity: 0, y: 2 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.18 }}
-						className="drag-region min-w-0 select-none truncate text-[13px] font-semibold tracking-[-0.01em] text-foreground"
-					>
-						{title}
-					</motion.h1>
-				)}
-				{titleBadge}
-			</div>
-			<div className="no-drag flex shrink-0 items-center gap-1">
-				{rightSlot}
-				{!isMac && <WindowControls />}
-			</div>
-		</div>
-	);
-}
 
 export function RootLayout(): JSX.Element {
 	const { openProject, projects, ensureLocalSession } = useProjects();

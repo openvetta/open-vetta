@@ -1,8 +1,7 @@
-import type { ComponentType } from "react";
 import { useThemeModule } from "./context";
+import type { ThemeRegionId, ThemeRegionRegistry } from "./types";
 
-export function useThemeRegion<TProps>(id: string): ComponentType<TProps> | undefined {
+export function useThemeRegion<TKey extends ThemeRegionId>(id: TKey): ThemeRegionRegistry[TKey] | undefined {
 	const theme = useThemeModule();
-	const region = theme.regions?.[id];
-	return region as ComponentType<TProps> | undefined;
+	return theme.regions?.[id];
 }
