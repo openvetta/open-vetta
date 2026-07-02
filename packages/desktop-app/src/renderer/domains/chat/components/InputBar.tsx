@@ -33,7 +33,7 @@ import { ContextRing } from "./ContextRing";
 import { SlashPanel } from "./SlashPanel";
 import { AtPanel, type SelectedFile } from "./AtPanel";
 import { ActionButtonBar } from "./ActionButtonBar";
-import { ActiveInputActionChips, InputActionBar } from "./InputActionBar";
+import { InputActionBar } from "./InputActionBar";
 import { SendButton } from "./SendButton";
 import { QuestionPanel } from "./QuestionPanel";
 import { pathBasename } from "@shared/lib/utils";
@@ -635,7 +635,6 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 							<div className="min-w-0 flex-shrink">
 								<ExecutionModeSelector />
 							</div>
-							<ActiveInputActionChips />
 						</div>
 
 						<div className="ml-auto flex min-w-0 flex-shrink items-center gap-1">
