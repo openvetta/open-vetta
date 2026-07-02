@@ -335,10 +335,19 @@ export function useSessionManager(): SessionManagerResult {
 			// 对话场景 → 会话页插件插槽按对话类型 fail-closed 显隐。
 			setCurrentScenario(state.scenario);
 
-			// 真相源为后端会话 settings：打开会话时一律把后端该会话的模型 pull 到前端镜像，
-			// 避免用全局 atom 的旧值 push 覆盖本会话（会污染其它会话已选的模型）。
+			// 打开「已有」会话（sessionPath 有值）：真相源为后端会话 settings，把后端模型 pull
+			// 到前端镜像，避免用全局 atom 的旧值 push 覆盖本会话（会污染其它会话已选的模型）。
+			// 「新建」会话（sessionPath 为 undefined，如欢迎页/快捷面板）：后端刚建出的会话用的是
+			// 默认模型，而前端 selectedModel 才是用户刚在欢迎页选好的真相源。此时若 pull 回填会把
+			// 用户的选择覆盖成默认模型（显示与本轮实际发送的模型不一致），所以反过来把前端选择
+			// push 到后端会话 settings，两端保持一致。
 			const backendModelKey = state.model ? `${state.model.provider}/${state.model.id}` : null;
-			if (backendModelKey) {
+			if (sessionPath === undefined) {
+				const desired = selectedModelRef.current;
+				if (desired && desired !== backendModelKey) {
+					void window.vetta.session.updateSettings(sessionId, { modelKey: desired });
+				}
+			} else if (backendModelKey) {
 				setSelectedModel(backendModelKey);
 			}
 
