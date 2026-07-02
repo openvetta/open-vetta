@@ -13,6 +13,29 @@
 		"languageTitle": "语言",
 		"languageHint": "选择界面显示语言"
 	},
+	"appShell": {
+		"routeTitles": {
+			"automation": "自动化",
+			"batchTasks": "批量任务",
+			"knowledgeAll": "全部知识库",
+			"knowledge": "知识库",
+			"skills": "技能广场",
+			"settings": "设置",
+			"project": "项目详情",
+			"downloads": "下载中心",
+			"chat": "对话"
+		},
+		"sidebarTrigger": {
+			"open": "侧边栏",
+			"expand": "展开侧边栏"
+		},
+		"windowControls": {
+			"minimize": "最小化",
+			"maximize": "最大化",
+			"restore": "还原",
+			"close": "关闭"
+		}
+	},
 	"modelSelect": {
 		"placeholder": "选择模型",
 		"unset": "未设置",

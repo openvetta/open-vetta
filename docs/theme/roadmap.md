@@ -16,6 +16,7 @@
 
 已落地点：
 
+- `PageHeader`
 - `Sidebar`
 - `DefaultSidebar`
 - `SidebarPanel`
@@ -129,6 +130,7 @@ return <SidebarRenderer model={model} onOpenSession={props.onOpenSession} />;
 
 第一批 region：
 
+- `app.pageHeader`：已接入 `regions["app.pageHeader"]`
 - `sidebar`：已接入 `regions.sidebar`
 - `chatPage`
 - `settingsPage`
@@ -178,6 +180,7 @@ ChatPage
 
 优先 surface：
 
+- `app.pageHeader`：已接入
 - `chat.page`
 - `chat.messageList`
 - `chat.messageBubble`
@@ -205,8 +208,9 @@ ChatPage
 
 近期建议顺序：
 
-1. 把当前临时 ThemeModule 替换为可选择的本地主题配置入口。
-2. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
-3. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。
-4. 增加主题组件 ErrorBoundary。
-5. 再接远程主题包加载。
+1. 继续拆 `App.tsx` 中的纯 UI 壳层，例如 `SidebarDock`、`SidebarOverlay`、`MainContentFrame`。
+2. 把当前临时 ThemeModule 替换为可选择的本地主题配置入口。
+3. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
+4. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。
+5. 增加主题组件 ErrorBoundary。
+6. 再接远程主题包加载。

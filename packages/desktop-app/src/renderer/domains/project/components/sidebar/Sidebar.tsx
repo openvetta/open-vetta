@@ -1,11 +1,11 @@
 import { useThemeRegion } from "@shared/theme/module";
 import { DefaultSidebar } from "./DefaultSidebar";
-import type { SidebarProps, SidebarRegionProps } from "./types";
+import type { SidebarProps } from "./types";
 import { useSidebarModel } from "./useSidebarModel";
 
 export function Sidebar(props: SidebarProps): JSX.Element {
 	const model = useSidebarModel(props);
-	const ThemeSidebar = useThemeRegion<SidebarRegionProps>("sidebar");
+	const ThemeSidebar = useThemeRegion("sidebar");
 	if (ThemeSidebar) {
 		return (
 			<ThemeSidebar

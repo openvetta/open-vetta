@@ -51,6 +51,8 @@ export interface SidebarNavItemButtonProps
 - 不暴露 `setState`、atom setter、router navigate 等内部对象。
 - action 用语义函数表达，例如 `onOpenSession`、`onItemClick`。
 - 数据对象用 view model 类型表达，例如 `SidebarNavItem`、`SettingsMenuModel`。
+- 数据对象不要携带 UI-only 字段，例如图标 class、图片 URL、布局 class 或动画参数。除非这些字段本身来自业务数据，而不是默认 UI 的表达方式。
+- 用户可见 label、aria-label、title 等语义文案可以由 model 提供，并应在 model hook 或数据层完成 i18n 解析。
 - 回调返回值要明确；异步 action 使用 `Promise<void>`。
 - 可选 props 必须有清晰默认行为。
 
@@ -62,6 +64,8 @@ interface BadProps {
   navigate: NavigateFn;
   ipc: typeof window.vetta;
   rawProject: InternalProjectRecord;
+  icon: "icon-[mdi--close]";
+  rowClassName: "px-2";
 }
 ```
 
@@ -100,6 +104,11 @@ Override component 用于替换默认 UI 中的局部组件。
 
 ```ts
 components: {
+  "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger;
+  "app.pageHeaderTitle"?: typeof PageHeaderTitle;
+  "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;
+  "app.windowControls"?: ComponentType<WindowControlsComponentProps>;
+  "app.windowControlButton"?: typeof WindowControlButton;
   "sidebar.navItem"?: typeof SidebarNavItemButton;
   "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger;
 }
@@ -109,6 +118,7 @@ components: {
 
 - props 必须与 fallback 组件兼容。
 - 需要 trigger 行为时必须转发 ref 和透传 props。
+- 新增 override id 必须登记到 `ThemeComponentRegistry`，不能只在文档或调用点写字符串。
 - 不要吞掉默认组件传入的 `onClick`、`aria-*`、`data-*`。
 - 不要假设父组件 DOM 结构，除非 contract 明确说明。
 - 不要引入会改变列表测量的不可控布局副作用。
@@ -210,6 +220,11 @@ settingsPage
 Component id：
 
 ```txt
+app.pageHeaderSidebarTrigger
+app.pageHeaderTitle
+app.pageHeaderWindowActions
+app.windowControls
+app.windowControlButton
 sidebar.navItem
 sidebar.settingsTrigger
 sidebar.projectRow
@@ -221,6 +236,8 @@ chat.inputAction
 Surface slot：
 
 ```txt
+app.pageHeader
+app.windowControls
 sidebar.panel
 sidebar.projects
 chat.messageList
@@ -232,6 +249,7 @@ chat.inputBar
 - region 使用大区域名。
 - component 使用领域 + 组件语义。
 - surface 使用领域 + 可装饰区域。
+- surface 不是 component id 清单。只有组件提供 root / decoration / content，且确实需要低代码装饰能力时，才登记 surface slot。
 - 不把实现细节写进 id，例如 `leftButtonV2`。
 
 ## 验收清单

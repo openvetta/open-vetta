@@ -11,6 +11,7 @@
 
 - [架构设计](./architecture.md)：主题系统的分层、边界和核心概念。
 - [组件设计要求](./component-guidelines.md)：public primitive、override component、props contract 和 SDK 边界。
+- [App Shell 主题化基座](./app-shell-foundation.md)：应用入口层和 `PageHeader` 的主题化方式。
 - [侧边栏主题化基座](./sidebar-foundation.md)：当前已经落地的侧边栏 slot、`ThemeSurface`、`classNames` API。
 - [主题示例](./examples.md)：当前本地 demo 主题和测试方式。
 - [实施路线](./roadmap.md)：后续从本地配置、组件替换到远程主题包的推进顺序。
@@ -29,6 +30,7 @@
 - 默认侧边栏已接入 `sidebar.navItem` 和 `sidebar.settingsTrigger` 组件覆盖点。
 - 侧边栏组件支持 `className` / `classNames`，便于主题复用默认组件时做局部视觉调整。
 - 新增本地 demo 主题，可分别测试装饰、局部组件覆盖和完整侧边栏接管。
+- `PageHeader` 已从 `App.tsx` 拆出，并接入 `app.pageHeader` region/surface 与 `app.pageHeaderSidebarTrigger` 覆盖点。
 
 当前仍未实现：
 

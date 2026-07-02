@@ -1,6 +1,8 @@
 import type { CornerImageFrameDecoration } from "@shared/components/CornerImageFrame";
 
 export type ThemeSurfaceSlot =
+	| "app.pageHeader"
+	| "app.windowControls"
 	| "sidebar.panel"
 	| "sidebar.topBar"
 	| "sidebar.navigation"

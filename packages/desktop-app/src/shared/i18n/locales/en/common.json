@@ -13,6 +13,29 @@
 		"languageTitle": "Language",
 		"languageHint": "Choose the display language"
 	},
+	"appShell": {
+		"routeTitles": {
+			"automation": "Automation",
+			"batchTasks": "Batch Tasks",
+			"knowledgeAll": "All Knowledge Bases",
+			"knowledge": "Knowledge Base",
+			"skills": "Skills",
+			"settings": "Settings",
+			"project": "Project Details",
+			"downloads": "Downloads",
+			"chat": "Chat"
+		},
+		"sidebarTrigger": {
+			"open": "Sidebar",
+			"expand": "Expand sidebar"
+		},
+		"windowControls": {
+			"minimize": "Minimize",
+			"maximize": "Maximize",
+			"restore": "Restore",
+			"close": "Close"
+		}
+	},
 	"modelSelect": {
 		"placeholder": "Select model",
 		"unset": "Not set",

@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
+import { WindowControls } from "@shared/app-shell/window-controls";
 import { cn } from "../../lib/utils";
 import { isMac } from "../../lib/platform";
-import { WindowControls } from "./WindowControls";
 
 export interface TitleBarProps {
 	className?: string;
