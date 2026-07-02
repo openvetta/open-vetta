@@ -115,7 +115,11 @@ export function ModelSelect({
 					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0" />
 				</button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="max-h-[380px] min-w-[220px] max-w-[320px] overflow-y-auto">
+			<DropdownMenuContent
+				align="start"
+				className="max-h-[380px] min-w-[220px] max-w-[320px]"
+				style={{ overflowX: "hidden", overflowY: "auto" }}
+			>
 				{showReasoning && (
 					<>
 						<DropdownMenuSub>
