@@ -1,25 +1,30 @@
+import { forwardRef, type ComponentPropsWithoutRef } from "react";
 import { useTranslation } from "react-i18next";
 import { UserAvatar } from "@shared/components/UserAvatar";
 import { cn } from "@shared/lib/utils";
 import type { SettingsMenuModel } from "./types";
 
-interface SettingsMenuTriggerProps {
+interface SettingsMenuTriggerProps extends ComponentPropsWithoutRef<"button"> {
 	model: SettingsMenuModel;
 }
 
-export function SettingsMenuTrigger({ model }: SettingsMenuTriggerProps): JSX.Element {
+export const SettingsMenuTrigger = forwardRef<HTMLButtonElement, SettingsMenuTriggerProps>(
+	function SettingsMenuTrigger({ model, className, ...props }, ref): JSX.Element {
 	const { t } = useTranslation("settings");
 	const userLabel = model.user?.nickname || model.user?.username;
 
 	return (
 		<button
+			ref={ref}
 			type="button"
 			className={cn(
 				"no-drag flex w-full items-center gap-2 rounded-lg px-2.5 py-[6px] text-[12px] font-medium transition-colors",
 				model.open
 					? "bg-accent text-foreground"
 					: "text-foreground hover:bg-accent/50",
+				className,
 			)}
+			{...props}
 		>
 			{model.user ? (
 				<>
@@ -49,4 +54,4 @@ export function SettingsMenuTrigger({ model }: SettingsMenuTriggerProps): JSX.El
 			)}
 		</button>
 	);
-}
+});
