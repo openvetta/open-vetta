@@ -8,7 +8,7 @@ export type {
 	PageHeaderWindowActionsProps,
 } from "@shared/app-shell/page-header";
 export {
-	PageHeader,
+	DefaultPageHeader,
 	PageHeaderSidebarTrigger,
 	PageHeaderTitle,
 	PageHeaderWindowActions,
@@ -22,7 +22,7 @@ export type {
 	WindowControlsProps,
 } from "@shared/app-shell/window-controls";
 export {
+	DefaultWindowControls,
 	WindowControlButton,
-	WindowControls,
 } from "@shared/app-shell/window-controls";
 export { usePageHeaderModel, useWindowControlsModel } from "@vetta/theme-sdk/app-shell";

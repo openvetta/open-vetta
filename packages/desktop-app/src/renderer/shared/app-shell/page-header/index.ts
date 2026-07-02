@@ -1,4 +1,4 @@
-export { PageHeader } from "./PageHeader";
+export { DefaultPageHeader, PageHeader } from "./PageHeader";
 export { PageHeaderSidebarTrigger } from "./PageHeaderSidebarTrigger";
 export type { PageHeaderTitleProps } from "./PageHeaderTitle";
 export { PageHeaderTitle } from "./PageHeaderTitle";

@@ -8,4 +8,4 @@ export type {
 } from "./types";
 export { useWindowControlsModel } from "./useWindowControlsModel";
 export { WindowControlButton } from "./WindowControlButton";
-export { WindowControls } from "./WindowControls";
+export { DefaultWindowControls, WindowControls } from "./WindowControls";
