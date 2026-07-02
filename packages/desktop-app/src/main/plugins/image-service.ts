@@ -148,6 +148,19 @@ function extFromMime(mimeType: string): string {
 	return "png";
 }
 
+/** Detect image mime from magic bytes; null if not a recognized image format. */
+function sniffImageMime(data: Buffer): string | null {
+	if (data.length >= 8 && data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) {
+		return "image/png";
+	}
+	if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return "image/jpeg";
+	if (data.length >= 12 && data.toString("ascii", 0, 4) === "RIFF" && data.toString("ascii", 8, 12) === "WEBP") {
+		return "image/webp";
+	}
+	if (data.length >= 4 && data.toString("ascii", 0, 4) === "GIF8") return "image/gif";
+	return null;
+}
+
 /** Pull image bytes out of an OpenAI images response item (b64 or url). */
 async function extractBytes(
 	item: { b64_json?: string; url?: string },
@@ -165,8 +178,14 @@ async function extractBytes(
 		const headers = isAbsolute ? undefined : { Authorization: `Bearer ${config.apiKey}` };
 		const response = await fetch(url, { headers });
 		if (!response.ok) throw new Error(`下载生成图片失败: HTTP ${response.status}`);
-		const mimeType = response.headers.get("content-type") ?? "image/png";
-		return { data: Buffer.from(await response.arrayBuffer()), mimeType };
+		const data = Buffer.from(await response.arrayBuffer());
+		// Some providers serve the download endpoint with a generic content-type
+		// (e.g. application/octet-stream). Trust the header only when it already
+		// names an image; otherwise sniff the bytes so we never persist a
+		// non-image mime (which breaks the message-list preview).
+		const header = response.headers.get("content-type");
+		const mimeType = header?.startsWith("image/") ? header : (sniffImageMime(data) ?? "image/png");
+		return { data, mimeType };
 	}
 	throw new Error("图像响应缺少 b64_json / url");
 }
