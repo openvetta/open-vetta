@@ -12,7 +12,6 @@ export {
 	PageHeaderSidebarTrigger,
 	PageHeaderTitle,
 	PageHeaderWindowActions,
-	usePageHeaderModel,
 } from "@shared/app-shell/page-header";
 export type {
 	WindowControlButtonProps,
@@ -23,7 +22,7 @@ export type {
 	WindowControlsProps,
 } from "@shared/app-shell/window-controls";
 export {
-	useWindowControlsModel,
 	WindowControlButton,
 	WindowControls,
 } from "@shared/app-shell/window-controls";
+export { usePageHeaderModel, useWindowControlsModel } from "@vetta/theme-sdk/app-shell";

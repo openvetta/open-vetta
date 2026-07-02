@@ -15,7 +15,7 @@ interface SidebarNavigationProps {
 		itemLabel?: string;
 	};
 	indicatorBounds: NavIndicatorBounds | null;
-	items: SidebarNavItem[];
+	items: readonly SidebarNavItem[];
 	onItemClick: (item: SidebarNavItem) => void;
 	setItemRef: (index: number) => RefCallback<HTMLButtonElement>;
 }

@@ -13,9 +13,21 @@
 			"types": "./src/appearance/index.ts",
 			"import": "./src/appearance/index.ts"
 		},
+		"./app-shell": {
+			"types": "./src/app-shell/index.ts",
+			"import": "./src/app-shell/index.ts"
+		},
+		"./host": {
+			"types": "./src/host/index.ts",
+			"import": "./src/host/index.ts"
+		},
 		"./module": {
 			"types": "./src/module/index.ts",
 			"import": "./src/module/index.ts"
+		},
+		"./sidebar": {
+			"types": "./src/sidebar/index.ts",
+			"import": "./src/sidebar/index.ts"
 		}
 	},
 	"files": ["src"],

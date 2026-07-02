@@ -1,9 +1,9 @@
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
+import { useWindowControlsModel } from "@vetta/theme-sdk/app-shell";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { WindowControlButton } from "./WindowControlButton";
 import type { WindowControlsComponentProps, WindowControlsProps } from "./types";
-import { useWindowControlsModel } from "./useWindowControlsModel";
 
 function DefaultWindowControls({ className, classNames, model }: WindowControlsComponentProps): JSX.Element {
 	const ThemeWindowControlButton = useThemeComponent("app.windowControlButton", WindowControlButton);

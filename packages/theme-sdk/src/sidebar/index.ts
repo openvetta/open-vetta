@@ -8,4 +8,6 @@ export type {
 	SidebarNavItem,
 	SidebarProps,
 	SidebarRegionProps,
-} from "@vetta/theme-sdk/sidebar";
+	SidebarThemeHost,
+} from "./types";
+export { useSidebarModel } from "./useSidebarModel";
