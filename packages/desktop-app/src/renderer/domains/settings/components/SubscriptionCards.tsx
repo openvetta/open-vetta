@@ -330,24 +330,22 @@ function ModelChip({ model, accentClass, hoverColor }: { model: RemoteModel; acc
 			}
 			className={cn("rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors", accentClass)}
 		>
-			<div className="truncate text-[12px] font-medium text-foreground">{model.name || model.id}</div>
-			<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
-				{model.input?.includes("image") && (
-					<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">{t("vision")}</span>
-				)}
+			<div className="flex items-center gap-1.5">
+				<span className="truncate text-[12px] font-medium text-foreground">{model.name || model.id}</span>
 				{model.reasoning && (
-					<span className="rounded bg-purple-500/10 px-1 py-0.5 text-purple-400">{t("thinking")}</span>
-				)}
-				{model.tags?.map((tag) => (
-					<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
-				))}
-				{model.contextWindow != null && (
-					<span>{(model.contextWindow / 1024).toFixed(0)}K ctx</span>
-				)}
-				{model.maxTokens != null && (
-					<span>· {(model.maxTokens / 1024).toFixed(0)}K max</span>
+					<span className="shrink-0 rounded bg-purple-500/10 px-1 py-0.5 text-[10px] text-purple-400">{t("thinking")}</span>
 				)}
 			</div>
+			{(model.input?.includes("image") || (model.tags?.length ?? 0) > 0) && (
+				<div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+					{model.input?.includes("image") && (
+						<span className="rounded bg-blue-500/10 px-1 py-0.5 text-blue-400">{t("vision")}</span>
+					)}
+					{model.tags?.map((tag) => (
+						<span key={tag} className="rounded bg-accent px-1 py-0.5 text-muted-foreground">{tag.trim()}</span>
+					))}
+				</div>
+			)}
 			{hasPrice && cost && (
 				<div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
 					<span className="icon-[mdi--circle-multiple-outline] h-3 w-3 shrink-0 opacity-70" />
