@@ -131,13 +131,20 @@ export class SessionNavigator {
 		// Restore model if saved
 		if (sessionContext.model) {
 			const previousModel = this.ctx.model;
+			const storedProvider = sessionContext.model.provider;
+			const storedId = sessionContext.model.modelId;
 			const availableModels = await this.ctx.modelRegistry.getAvailable();
-			const match = availableModels.find(
-				(m) => m.provider === sessionContext.model!.provider && m.id === sessionContext.model!.modelId,
-			);
+			// 先按 id(=路由 key) 精确匹配；匹配不到再按上游真名 modelId 兜底(兼容老会话)
+			const match =
+				availableModels.find((m) => m.provider === storedProvider && m.id === storedId) ??
+				availableModels.find((m) => m.provider === storedProvider && m.modelId === storedId);
 			if (match) {
 				this.ctx.agent.setModel(match);
 				await this.model.emitModelSelect(match, previousModel, "restore");
+				// 走 modelId 兜底命中(id !== storedId)：把会话存储里的标识静默升级为精确 key
+				if (match.id !== storedId) {
+					this.ctx.sessionManager.appendModelChange(match.provider, match.id);
+				}
 			}
 		}
 

@@ -23,6 +23,8 @@ export interface ModelsConfigData {
 			icon?: string;
 			models?: Array<{
 				id: string;
+				/** 上游 API 真实模型名。远程渠道下 id=网关路由 key、modelId=上游真名；缺省回退 id。 */
+				modelId?: string;
 				name?: string;
 				api?: string;
 				reasoning?: boolean;
