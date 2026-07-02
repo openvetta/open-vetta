@@ -91,6 +91,20 @@ packages/desktop-app/src/renderer/domains/project/components/sidebar/
 
 拆分原则是按 UI 区域和可组合部件拆，而不是按业务流程堆在单文件里。
 
+UI 实现层需要区分两类组件：
+
+```txt
+Connected container
+  调用 SDK hook 或应用内部 hook，负责取 model 和接入 registry。
+  留在 desktop-app 内部，不作为主题复用的首选组件。
+
+Props-driven view
+  只通过 props 接收 model、actions、className/classNames。
+  可以进入官方 UI 包或主题包，适合远程主题复用。
+```
+
+例如 `Sidebar`、`PageHeader`、`WindowControls` 是 connected container；`DefaultSidebar`、`DefaultPageHeader`、`DefaultWindowControls` 是 props-driven view。
+
 ## 核心概念
 
 ### Token
@@ -208,7 +222,7 @@ components: {
   "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger
   "app.pageHeaderTitle"?: typeof PageHeaderTitle
   "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions
-  "app.windowControls"?: typeof WindowControls
+  "app.windowControls"?: ComponentType<WindowControlsComponentProps>
   "app.windowControlButton"?: typeof WindowControlButton
   "sidebar.navItem"?: typeof SidebarNavItemButton
   "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger
@@ -296,6 +310,8 @@ packages/theme-ui/
 ```
 
 `@vetta/theme-ui` 是可选依赖，主题可以复用它，也可以完全自定义 UI。新增可复用组件的具体标准见 [组件设计要求](./component-guidelines.md)。
+
+进入 `@vetta/theme-ui` 或官方默认 UI 包的组件应优先是 props-driven view。调用 SDK hook 的 connected container 留在 desktop-app，作为应用默认入口和 host adapter 的一部分。
 
 SDK hook 必须是 facade。真实实现由应用通过 `ThemeHostProvider` 注入：
 

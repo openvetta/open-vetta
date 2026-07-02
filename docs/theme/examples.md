@@ -63,6 +63,18 @@ const activeThemeModule = sidebarRegionDemoTheme;
 
 这个示例验证“主题写完整侧边栏，但仍能复用默认组件和 model/actions”的路径。
 
+## 依赖边界
+
+本地 demo 主题目前仍位于 desktop-app 内部，因此可以临时复用桌面端公开 UI 出口。
+
+面向未来远程主题时，依赖应逐步调整为：
+
+- 主题协议、registry、model hook：从 `@vetta/theme-sdk` 导入。
+- 装饰组件：从 `@vetta/theme-ui` 导入。
+- 官方默认 view：从后续独立的官方 UI 包导入。
+
+远程主题不应 import `@shared/*`、`@domains/*` 或 desktop-app 内部 hook。需要数据时调用 SDK facade hook；需要复用 UI 时，把 hook 返回的 model 作为 props 传给官方 view。
+
 ## 当前约束
 
 - demo 主题是开发期示例，还不是设置页可选择主题。
