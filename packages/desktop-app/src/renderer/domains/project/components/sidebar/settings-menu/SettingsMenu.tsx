@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { Popover, PopoverTrigger } from "@shared/components/ui/popover";
-import { useThemeComponent } from "@shared/theme/module";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { SettingsMenuPopover } from "./SettingsMenuPopover";
 import { SettingsMenuTrigger } from "./SettingsMenuTrigger";
 import { useRefreshBillingOnOpen, useSettingsMenuModel } from "./useSettingsMenuModel";

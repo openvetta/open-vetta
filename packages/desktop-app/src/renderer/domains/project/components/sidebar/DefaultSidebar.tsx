@@ -1,5 +1,5 @@
-import { ThemeSurface } from "@shared/theme/appearance";
 import { cn } from "@shared/lib/utils";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { SidebarPanel } from "./SidebarPanel";
 import { SidebarBottomBar } from "./SidebarBottomBar";
 import { SidebarNavigation } from "./SidebarNavigation";

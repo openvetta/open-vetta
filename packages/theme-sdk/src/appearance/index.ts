@@ -1,9 +1,11 @@
 export { ThemeAppearanceProvider, useThemeAppearance, useThemeSurface } from "./context";
-export { ThemeSurface } from "./ThemeSurface";
 export type {
+	CornerImageFrameCorner,
+	CornerImageFrameDecoration,
 	CornerImageSurfaceFrame,
 	ThemeAppearance,
 	ThemeSurfaceConfig,
 	ThemeSurfaceFrame,
+	ThemeSurfaceRegistry,
 	ThemeSurfaceSlot,
 } from "./types";

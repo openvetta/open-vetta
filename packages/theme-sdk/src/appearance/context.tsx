@@ -1,5 +1,10 @@
-import { createContext, type ReactNode, useContext, useMemo } from "react";
-import { DEFAULT_THEME_APPEARANCE, type ThemeAppearance, type ThemeSurfaceSlot } from "./types";
+import { createContext, type JSX, type ReactNode, useContext, useMemo } from "react";
+import {
+	DEFAULT_THEME_APPEARANCE,
+	type ThemeAppearance,
+	type ThemeSurfaceConfig,
+	type ThemeSurfaceSlot,
+} from "./types";
 
 const ThemeAppearanceContext = createContext<ThemeAppearance>(DEFAULT_THEME_APPEARANCE);
 
@@ -23,7 +28,7 @@ export function useThemeAppearance(): ThemeAppearance {
 	return useContext(ThemeAppearanceContext);
 }
 
-export function useThemeSurface(slot: ThemeSurfaceSlot) {
+export function useThemeSurface(slot: ThemeSurfaceSlot): ThemeSurfaceConfig | undefined {
 	const appearance = useThemeAppearance();
 	return appearance.surfaces?.[slot];
 }

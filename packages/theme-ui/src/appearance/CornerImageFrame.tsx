@@ -1,25 +1,8 @@
-import { memo, type ComponentPropsWithoutRef, type ReactNode } from "react";
-import { cn } from "@shared/lib/utils";
+import { memo, type ComponentPropsWithoutRef, type JSX, type ReactNode } from "react";
+import type { CornerImageFrameDecoration } from "@vetta/theme-sdk/appearance";
+import { cn } from "@vetta/ui";
 
-export interface CornerImageFrameCorner {
-	readonly backgroundPosition: string;
-	readonly id: string;
-	readonly position: {
-		readonly bottom?: string;
-		readonly left?: string;
-		readonly right?: string;
-		readonly top?: string;
-	};
-}
-
-export interface CornerImageFrameDecoration {
-	readonly backgroundSize: string;
-	readonly cornerHeight: string;
-	readonly corners: readonly CornerImageFrameCorner[];
-	readonly cornerWidth: string;
-}
-
-interface CornerImageFrameProps extends ComponentPropsWithoutRef<"div"> {
+export interface CornerImageFrameProps extends ComponentPropsWithoutRef<"div"> {
 	children: ReactNode;
 	contentClassName?: string;
 	decoration?: CornerImageFrameDecoration;
@@ -68,14 +51,12 @@ export function CornerImageFrame({
 			className={cn("relative", className)}
 			{...props}
 		>
-			{imageUrl && decoration
-				? (
-						<CornerImageDecoration
-							decoration={decoration}
-							imageUrl={imageUrl}
-						/>
-					)
-				: null}
+			{imageUrl && decoration ? (
+				<CornerImageDecoration
+					decoration={decoration}
+					imageUrl={imageUrl}
+				/>
+			) : null}
 			<div className={cn("relative", contentClassName)}>{children}</div>
 		</div>
 	);

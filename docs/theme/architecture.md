@@ -106,7 +106,7 @@ Surface 是低定制主题的基础能力。它表示“某个 UI 区域可以�
 当前实现：
 
 ```txt
-packages/desktop-app/src/renderer/shared/theme/appearance/ThemeSurface.tsx
+packages/theme-ui/src/appearance/ThemeSurface.tsx
 ```
 
 示意：
@@ -262,29 +262,38 @@ class API 只适合局部视觉调整。插入新 DOM、改变布局顺序、替
 
 Theme SDK 是主题和应用之间的唯一公开契约。
 
-当前内部入口：
+当前包：
 
 ```txt
-packages/desktop-app/src/renderer/shared/theme/sdk/
+packages/theme-sdk/
 ```
 
 SDK 可以导出：
 
-- public primitives。
-- public model hooks。
-- public props/types。
-- `ThemeSurface`。
-- 通用装饰组件和工具函数。
+- `ThemeModule`、`ThemeMeta`、registry 类型。
+- `ThemeProvider`、`useThemeRegion`、`useThemeComponent`。
+- `ThemeAppearance`、surface/frame 配置协议。
+- public model hook 的 facade 类型和 host bridge。
+- region/component props contract。
 
 SDK 不应导出：
 
+- 默认 UI 组件。
+- 具体主题组件。
+- 视觉组件库。
 - Jotai atom。
 - router 实例。
 - `window.vetta.*`。
 - domain 私有 hook。
 - 尚未稳定的内部组件。
 
-默认 UI 组件进入 SDK 后，需要按公开 API 管理。新增可复用组件的具体标准见 [组件设计要求](./component-guidelines.md)。
+UI 组件应进入独立 UI 包或主题包，而不是进入 SDK。当前公共 UI building blocks 位于：
+
+```txt
+packages/theme-ui/
+```
+
+`@vetta/theme-ui` 是可选依赖，主题可以复用它，也可以完全自定义 UI。新增可复用组件的具体标准见 [组件设计要求](./component-guidelines.md)。
 
 ## 边界
 
@@ -317,10 +326,11 @@ SDK 不应导出：
 
 ## 远程主题包方向
 
-远程主题包应依赖公开 SDK：
+远程主题包应基于公开 SDK 编写：
 
 ```ts
-import { useSidebarModel, CornerImageFrame } from "@app/theme-sdk";
+import type { ThemeModule } from "@vetta/theme-sdk";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
 ```
 
 不应依赖：
@@ -333,8 +343,12 @@ import { useProjects } from "@domains/project/hooks/useProjects";
 远程加载需要：
 
 - React / ReactDOM 单例共享。
-- SDK 版本声明。
+- `@vetta/theme-sdk` 单例共享。
+- 可选 `@vetta/theme-ui` 单例共享。
+- SDK 版本声明和能力声明。
 - ErrorBoundary。
 - 加载失败回退默认 UI。
 - 权限声明。
 - i18n 资源边界。
+
+主题包未来不是通过 npm 安装到应用内，而是在运行时由应用根据 manifest 动态加载。npm 包名在这里表示开发期和构建期的公共契约；运行时应由主题加载器把这些依赖映射到应用内置的 shared singleton，避免每个主题携带自己的 React、SDK 或 UI 库副本。

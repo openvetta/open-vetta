@@ -1,16 +1,13 @@
 export type {
-	CornerImageSurfaceFrame,
 	ThemeAppearance,
-	ThemeSurfaceConfig,
-	ThemeSurfaceFrame,
-	ThemeSurfaceSlot,
-} from "@shared/theme/appearance";
-export { ThemeSurface } from "@shared/theme/appearance";
-export type {
 	ThemeComponentRegistry,
 	ThemeMeta,
 	ThemeModule,
 	ThemeRegionRegistry,
-} from "@shared/theme/module";
+	ThemeSurfaceConfig,
+	ThemeSurfaceFrame,
+	ThemeSurfaceSlot,
+} from "@vetta/theme-sdk";
+export { ThemeSurface } from "@vetta/theme-ui/appearance";
 export * from "./app-shell";
 export * from "./sidebar";

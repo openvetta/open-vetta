@@ -1,0 +1,32 @@
+{
+	"name": "@vetta/theme-sdk",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"import": "./src/index.ts"
+		},
+		"./appearance": {
+			"types": "./src/appearance/index.ts",
+			"import": "./src/appearance/index.ts"
+		},
+		"./module": {
+			"types": "./src/module/index.ts",
+			"import": "./src/module/index.ts"
+		}
+	},
+	"files": ["src"],
+	"scripts": {
+		"check": "tsgo --noEmit -p tsconfig.json"
+	},
+	"peerDependencies": {
+		"react": "^19.0.0"
+	},
+	"devDependencies": {
+		"@types/react": "^19.1.1",
+		"typescript": "^5.9.2"
+	}
+}

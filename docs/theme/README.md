@@ -2,14 +2,16 @@
 
 本目录记录 desktop-app 主题系统的设计与实施约定。这里的主题不是单纯的颜色 token，而是面向应用 UI 的装饰、复用和替换机制。
 
-当前主题系统分两条线演进：
+当前主题系统分三条线演进：
 
 - 颜色主题：已有 `packages/desktop-app/src/renderer/shared/theme/`，负责 CSS token。
-- UI 主题：`packages/desktop-app/src/renderer/shared/theme/appearance/` 负责区域装饰，`packages/desktop-app/src/renderer/shared/theme/module/` 负责 region 和 component registry。
+- 主题协议：`packages/theme-sdk/` 负责主题模块、registry、appearance 配置和运行时上下文。
+- 可选 UI 库：`packages/theme-ui/` 负责 `ThemeSurface`、`CornerImageFrame` 等可复用视觉 building blocks。
 
 ## 文档索引
 
 - [架构设计](./architecture.md)：主题系统的分层、边界和核心概念。
+- [包边界与动态加载](./package-boundaries.md)：`theme-sdk`、`theme-ui`、desktop-app 和远程主题包的职责。
 - [组件设计要求](./component-guidelines.md)：public primitive、override component、props contract 和 SDK 边界。
 - [App Shell 主题化基座](./app-shell-foundation.md)：应用入口层和 `PageHeader` 的主题化方式。
 - [侧边栏主题化基座](./sidebar-foundation.md)：当前已经落地的侧边栏 slot、`ThemeSurface`、`classNames` API。
@@ -22,8 +24,8 @@
 
 - 侧边栏默认 UI 已按区域拆分。
 - `MessageCenter`、`SettingsMenu` 等侧边栏子组件已迁入侧边栏结构。
-- 新增 `ThemeAppearanceProvider` 和 `ThemeSurface`。
-- 新增 `ThemeProvider`、`ThemeModule`、`useThemeRegion` 和 `useThemeComponent`。
+- 新增 `@vetta/theme-sdk`，提供 `ThemeProvider`、`ThemeModule`、`useThemeRegion`、`useThemeComponent` 和 appearance 协议。
+- 新增 `@vetta/theme-ui`，提供 `ThemeSurface` 和 `CornerImageFrame` 等可选 UI building blocks。
 - `CornerImageFrame` 可作为 `ThemeSurface` 的 `corner-image` frame。
 - 侧边栏区域已接入稳定 surface slot。
 - 侧边栏入口支持 `regions.sidebar` 完整接管。
@@ -53,4 +55,4 @@ Region override > Component override > Appearance config > Default UI
 
 完整侧边栏接管使用 `regions.sidebar`。只替换局部组件使用 `components["sidebar.navItem"]`、`components["sidebar.settingsTrigger"]`。只做边框、背景和装饰使用 `appearance.surfaces`。
 
-开放给主题使用的组件必须按公开 API 维护。组件进入 Theme SDK 前，需要明确 props contract、class API、ref 透传、装饰分层和数据边界，详见 [组件设计要求](./component-guidelines.md)。
+开放给主题使用的协议必须进入 `@vetta/theme-sdk`。开放给主题复用的 UI 组件不能进入 SDK，应进入 `@vetta/theme-ui`、默认主题包或具体主题包，并按公开 API 维护。组件开放前需要明确 props contract、class API、ref 透传、装饰分层和数据边界，详见 [组件设计要求](./component-guidelines.md)。

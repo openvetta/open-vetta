@@ -5,11 +5,11 @@
 - Public primitive：应用提供给主题复用的默认组件。
 - Override component：主题提供给 registry 的替换组件。
 
-两者必须使用同一份稳定 props contract。默认组件不是内部实现细节，一旦进入 SDK，就需要按公开 API 管理。
+两者必须使用同一份稳定 props contract。默认组件不是内部实现细节，一旦对主题开放，就需要按公开 API 管理。
 
 ## 组件开放标准
 
-一个组件进入 Theme SDK 前，需要满足这些条件：
+一个组件进入公共 UI 库或主题公开导出前，需要满足这些条件：
 
 - 行为边界清楚：组件只负责渲染和局部交互，不直接拥有跨领域业务流程。
 - props 稳定：主题能通过 props 获取渲染所需数据和动作。
@@ -87,7 +87,7 @@ Region 组件可以：
 
 - 自由新增主题自己的 UI。
 - 重排默认组件。
-- 复用 Theme SDK 中的 public primitives。
+- 复用 `@vetta/theme-ui` 或桌面端公开 UI 出口中的 public primitives。
 - 使用 `ThemeSurface` 接入装饰层。
 
 Region 组件不应该：
@@ -184,28 +184,38 @@ root
 - content 不要设置不透明背景，否则会遮挡 decoration。
 - 图片边框和外扩装饰不应参与布局。
 
-## SDK 边界
+## SDK 与 UI 包边界
 
-Theme SDK 是主题唯一应依赖的应用侧 API。
+Theme SDK 是主题唯一应依赖的应用协议 API。它不承载具体 UI 实现。
 
-可以导出：
+`@vetta/theme-sdk` 可以导出：
 
-- public primitives。
-- public model hooks。
-- public props/types。
-- `ThemeSurface`。
-- 通用装饰组件。
-- 通用工具函数，例如 `cn`。
+- 主题模块、registry、appearance 配置类型。
+- provider、resolver hook 和 host bridge。
+- public model hook 的 facade 类型。
+- region/component props contract。
 
-暂时不导出：
+`@vetta/theme-sdk` 不导出：
 
+- 默认 UI 组件。
+- 具体主题组件。
+- `ThemeSurface`、`CornerImageFrame` 这类视觉实现。
 - Jotai atom。
 - router 实例。
 - `window.vetta.*`。
 - domain 私有 hook。
 - 仍在重构中的内部组件。
 
-SDK 导出组件时，要同步导出 props 类型。主题作者不应该通过 `ComponentProps<typeof X>` 猜 props。
+`@vetta/theme-ui` 可以导出：
+
+- `ThemeSurface`。
+- `CornerImageFrame`。
+- 通用装饰组件。
+- 不绑定应用内部数据的布局 primitive。
+
+具体主题组件应放在主题包内。新增主题不应修改 SDK；只有协议、registry、host 能力变化时才修改 SDK。
+
+UI 包导出组件时，要同步导出 props 类型。主题作者不应该通过 `ComponentProps<typeof X>` 猜 props。
 
 ## 命名约定
 

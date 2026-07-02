@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
-import { ThemeSurface } from "@shared/theme/appearance";
 import { cn } from "@shared/lib/utils";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
 
 interface SidebarPanelProps {
 	children: ReactNode;

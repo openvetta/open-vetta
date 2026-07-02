@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from "motion/react";
-import { ThemeSurface } from "@shared/theme/appearance";
-import { useThemeComponent, useThemeRegion } from "@shared/theme/module";
 import { isMac } from "@shared/lib/platform";
 import { cn } from "@shared/lib/utils";
+import { useThemeComponent, useThemeRegion } from "@vetta/theme-sdk";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { PageHeaderSidebarTrigger } from "./PageHeaderSidebarTrigger";
 import { PageHeaderTitle } from "./PageHeaderTitle";
 import { PageHeaderWindowActions } from "./PageHeaderWindowActions";
