@@ -127,7 +127,7 @@ function Header({
 				<HeaderButton icon="icon-[mdi--chevron-right]" title="下一个 (→)" onClick={onNext} disabled={!canNext} />
 			)}
 			{downloadable && (
-				<HeaderButton icon="icon-[mdi--download]" title="下载" onClick={() => downloadItem(item)} />
+				<HeaderButton icon="icon-[mdi--download]" title="下载" onClick={() => void downloadItem(item)} />
 			)}
 			<HeaderButton icon="icon-[mdi--refresh]" title="刷新" onClick={onRefresh} />
 			<HeaderButton icon="icon-[mdi--close]" title="关闭" onClick={onClose} />
