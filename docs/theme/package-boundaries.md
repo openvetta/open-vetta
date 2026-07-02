@@ -60,8 +60,11 @@ import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
 - `CornerImageFrame`。
 - 通用装饰组件。
 - 不依赖 desktop-app 内部 store、router、IPC 的布局 primitive。
+- 接收 `model` / `actions` props 的官方默认 view 组件。
 
 主题可以复用 `@vetta/theme-ui`，也可以完全不用它。`@vetta/theme-ui` 不能成为所有主题实现的集合；具体主题组件应留在具体主题包里。
+
+官方 UI 组件应保持 props 驱动。调用 SDK model hook 的 connected 容器可以存在于 desktop-app 内部，但不应作为主题复用的首选组件导出。
 
 ## Desktop App
 
@@ -118,4 +121,4 @@ desktop-app 不应该要求主题 import 内部路径，例如 `@shared/*`、`@d
 - 默认 sidebar/app-shell 组件。
 - `packages/desktop-app/src/renderer/shared/theme/sdk/` 作为桌面端公开 UI 导出桶。
 
-后续如果要让默认 UI 组件被远程主题稳定复用，应把它们迁入独立默认主题 UI 包或更明确的 desktop theme UI 包，而不是放进 `@vetta/theme-sdk`。
+后续如果要让默认 UI 组件被远程主题稳定复用，应把 props 驱动的 view 迁入独立默认主题 UI 包或更明确的 desktop theme UI 包，而不是放进 `@vetta/theme-sdk`。connected 容器继续留在 desktop-app。

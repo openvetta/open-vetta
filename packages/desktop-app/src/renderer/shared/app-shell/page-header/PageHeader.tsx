@@ -9,7 +9,7 @@ import { PageHeaderTitle } from "./PageHeaderTitle";
 import { PageHeaderWindowActions } from "./PageHeaderWindowActions";
 import type { PageHeaderProps, PageHeaderRegionProps } from "./types";
 
-function DefaultPageHeader({
+export function DefaultPageHeader({
 	className,
 	classNames,
 	model,

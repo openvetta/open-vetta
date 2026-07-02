@@ -5,7 +5,7 @@ import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { WindowControlButton } from "./WindowControlButton";
 import type { WindowControlsComponentProps, WindowControlsProps } from "./types";
 
-function DefaultWindowControls({ className, classNames, model }: WindowControlsComponentProps): JSX.Element {
+export function DefaultWindowControls({ className, classNames, model }: WindowControlsComponentProps): JSX.Element {
 	const ThemeWindowControlButton = useThemeComponent("app.windowControlButton", WindowControlButton);
 
 	if (model.isMac) {

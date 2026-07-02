@@ -213,10 +213,21 @@ Theme SDK 是主题唯一应依赖的应用协议 API。它不承载具体 UI �
 - `CornerImageFrame`。
 - 通用装饰组件。
 - 不绑定应用内部数据的布局 primitive。
+- 接收 `model` / `actions` props 的官方默认 view 组件。
 
 具体主题组件应放在主题包内。新增主题不应修改 SDK；只有协议、registry、host 能力变化时才修改 SDK。
 
 UI 包导出组件时，要同步导出 props 类型。主题作者不应该通过 `ComponentProps<typeof X>` 猜 props。
+
+公开给主题复用的官方 UI 组件应优先使用 props 驱动：
+
+```tsx
+<DefaultSidebar model={model} onOpenSession={onOpenSession} />
+<DefaultPageHeader model={model} {...pageHeaderProps} />
+<DefaultWindowControls model={model} />
+```
+
+不推荐把内部调用 `useSidebarModel()`、`usePageHeaderModel()` 这类 SDK model hook 的 connected 容器作为公共 UI 组件暴露。connected 容器可以留在 desktop-app 内部，用于默认应用入口；主题复用的组件应接收调用方传入的 model。
 
 ### Public Model Hooks
 
@@ -228,6 +239,20 @@ import { usePageHeaderModel } from "@vetta/theme-sdk/app-shell";
 ```
 
 这些 hook 是 facade。它们只读取 `ThemeHostProvider` 中应用注入的能力，并返回稳定 model。真实实现仍留在 desktop-app，可以访问内部 store、router 和 IPC，但这些细节不能穿透到主题包。
+
+主题如果要复用官方 UI，推荐在主题 region 中先调用 SDK hook，再把 model 作为 props 传给官方 view：
+
+```tsx
+import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
+import { DefaultSidebar } from "@vetta/desktop-theme-ui/sidebar";
+
+export function ThemeSidebar(props: SidebarProps) {
+  const model = useSidebarModel(props);
+  return <DefaultSidebar model={model} onOpenSession={props.onOpenSession} />;
+}
+```
+
+这样 hook 入口属于 SDK，UI 组件仍保持 props 驱动。
 
 新增 public model hook 时需要同时定义：
 
