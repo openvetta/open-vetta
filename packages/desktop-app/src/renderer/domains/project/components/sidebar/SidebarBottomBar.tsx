@@ -1,4 +1,4 @@
-import { MessageCenter } from "@domains/message/components/MessageCenter";
+import { MessageCenter } from "./message-center/MessageCenter";
 import { SettingsMenu } from "./settings-menu/SettingsMenu";
 
 export function SidebarBottomBar(): JSX.Element {
