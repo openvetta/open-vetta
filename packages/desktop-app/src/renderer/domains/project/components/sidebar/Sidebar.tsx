@@ -1,7 +1,7 @@
 import { useThemeRegion } from "@vetta/theme-sdk";
+import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
 import { DefaultSidebar } from "./DefaultSidebar";
 import type { SidebarProps } from "./types";
-import { useSidebarModel } from "./useSidebarModel";
 
 export function Sidebar(props: SidebarProps): JSX.Element {
 	const model = useSidebarModel(props);

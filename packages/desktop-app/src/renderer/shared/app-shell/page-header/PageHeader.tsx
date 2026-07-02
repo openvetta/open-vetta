@@ -2,12 +2,12 @@ import { AnimatePresence, motion } from "motion/react";
 import { isMac } from "@shared/lib/platform";
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent, useThemeRegion } from "@vetta/theme-sdk";
+import { usePageHeaderModel } from "@vetta/theme-sdk/app-shell";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { PageHeaderSidebarTrigger } from "./PageHeaderSidebarTrigger";
 import { PageHeaderTitle } from "./PageHeaderTitle";
 import { PageHeaderWindowActions } from "./PageHeaderWindowActions";
 import type { PageHeaderProps, PageHeaderRegionProps } from "./types";
-import { usePageHeaderModel } from "./usePageHeaderModel";
 
 function DefaultPageHeader({
 	className,

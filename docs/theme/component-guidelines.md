@@ -192,7 +192,7 @@ Theme SDK 是主题唯一应依赖的应用协议 API。它不承载具体 UI �
 
 - 主题模块、registry、appearance 配置类型。
 - provider、resolver hook 和 host bridge。
-- public model hook 的 facade 类型。
+- public model hook 的 facade 类型和 hook 入口。
 - region/component props contract。
 
 `@vetta/theme-sdk` 不导出：
@@ -200,6 +200,7 @@ Theme SDK 是主题唯一应依赖的应用协议 API。它不承载具体 UI �
 - 默认 UI 组件。
 - 具体主题组件。
 - `ThemeSurface`、`CornerImageFrame` 这类视觉实现。
+- 访问 Jotai、router、IPC 的真实 hook 实现。
 - Jotai atom。
 - router 实例。
 - `window.vetta.*`。
@@ -216,6 +217,25 @@ Theme SDK 是主题唯一应依赖的应用协议 API。它不承载具体 UI �
 具体主题组件应放在主题包内。新增主题不应修改 SDK；只有协议、registry、host 能力变化时才修改 SDK。
 
 UI 包导出组件时，要同步导出 props 类型。主题作者不应该通过 `ComponentProps<typeof X>` 猜 props。
+
+### Public Model Hooks
+
+主题使用的 hook 应从 SDK 导入：
+
+```ts
+import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
+import { usePageHeaderModel } from "@vetta/theme-sdk/app-shell";
+```
+
+这些 hook 是 facade。它们只读取 `ThemeHostProvider` 中应用注入的能力，并返回稳定 model。真实实现仍留在 desktop-app，可以访问内部 store、router 和 IPC，但这些细节不能穿透到主题包。
+
+新增 public model hook 时需要同时定义：
+
+- hook input 类型。
+- model 返回类型。
+- host capability 类型。
+- desktop-app host adapter。
+- 文档中的数据/UI 边界说明。
 
 ## 命名约定
 

@@ -128,16 +128,15 @@ export function useSidebarModel({
 				titleLabelKey: item.labelKey,
 			};
 		}
-		const navItem: SidebarNavItem = {
+		return {
 			key: item.path,
 			type: item.type,
 			path: item.path,
 			labelKey: item.labelKey,
 			icon: item.icon,
 			active: isRouteActive(item.path, currentPath),
+			...("badge" in item ? { badge: item.badge } : {}),
 		};
-		if ("badge" in item) navItem.badge = item.badge;
-		return navItem;
 	});
 	const activeNavIndex = navItems.findIndex((item) => item.active);
 

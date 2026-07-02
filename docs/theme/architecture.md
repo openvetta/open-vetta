@@ -273,7 +273,8 @@ SDK 可以导出：
 - `ThemeModule`、`ThemeMeta`、registry 类型。
 - `ThemeProvider`、`useThemeRegion`、`useThemeComponent`。
 - `ThemeAppearance`、surface/frame 配置协议。
-- public model hook 的 facade 类型和 host bridge。
+- `ThemeHostProvider`、public model hook facade 和 host bridge。
+- `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 等主题可用 hook 入口。
 - region/component props contract。
 
 SDK 不应导出：
@@ -281,6 +282,7 @@ SDK 不应导出：
 - 默认 UI 组件。
 - 具体主题组件。
 - 视觉组件库。
+- 访问 Jotai、router、IPC 的真实 hook 实现。
 - Jotai atom。
 - router 实例。
 - `window.vetta.*`。
@@ -294,6 +296,24 @@ packages/theme-ui/
 ```
 
 `@vetta/theme-ui` 是可选依赖，主题可以复用它，也可以完全自定义 UI。新增可复用组件的具体标准见 [组件设计要求](./component-guidelines.md)。
+
+SDK hook 必须是 facade。真实实现由应用通过 `ThemeHostProvider` 注入：
+
+```tsx
+<ThemeHostProvider host={desktopThemeHost}>
+  <ThemeProvider theme={activeTheme}>
+    <App />
+  </ThemeProvider>
+</ThemeHostProvider>
+```
+
+主题调用：
+
+```ts
+import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
+```
+
+但 SDK 内部不直接 import desktop-app 的 store、router、IPC 或 domain 私有 hook。
 
 ## 边界
 

@@ -28,7 +28,8 @@ theme package
 - `ThemeRegionRegistry`、`ThemeComponentRegistry`、`ThemeSurfaceRegistry`。
 - `ThemeProvider`、`useThemeRegion`、`useThemeComponent`。
 - `ThemeAppearance` 和 frame 配置协议。
-- host bridge 和 public model hook 的 facade 类型。
+- `ThemeHostProvider`、host bridge 和 public model hook facade。
+- `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 这类主题可用 hook 入口。
 
 不放入 SDK：
 
@@ -36,9 +37,18 @@ theme package
 - 默认标题栏 UI。
 - 具体主题组件。
 - 装饰组件实现。
+- 访问 Jotai、router、IPC 的真实 hook 实现。
 - 图标、图片、动画和 CSS class 方案。
 
 新增主题不应该修改 SDK。只有新增协议能力、公开 model、registry id 或 host capability 时，才修改 SDK。
+
+SDK hook 是 facade，不是数据层实现。例如：
+
+```ts
+import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
+```
+
+这个 hook 从 `ThemeHostProvider` 读取 desktop-app 注入的实现。主题只能看到稳定 model 和 actions，不能接触内部 atom、router 或 `window.vetta`。
 
 ## Theme UI
 
@@ -60,6 +70,7 @@ desktop-app 负责把应用能力接到主题系统。
 职责：
 
 - 提供真实数据和 actions。
+- 通过 `ThemeHostProvider` 注入 SDK hook 的真实实现。
 - 提供默认主题实现。
 - 提供主题加载器。
 - 通过 TypeScript module augmentation 声明本应用支持的 region/component/surface id。
