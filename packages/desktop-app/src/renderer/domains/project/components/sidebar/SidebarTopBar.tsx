@@ -4,6 +4,13 @@ import { cn } from "@shared/lib/utils";
 import { SidebarUpdateButton } from "./update/SidebarUpdateButton";
 
 interface SidebarTopBarProps {
+	className?: string;
+	classNames?: {
+		actions?: string;
+		brand?: string;
+		clawButton?: string;
+		collapseButton?: string;
+	};
 	floating: boolean;
 	imOnline: boolean;
 	onCollapse?: () => void;
@@ -11,6 +18,8 @@ interface SidebarTopBarProps {
 }
 
 export function SidebarTopBar({
+	className,
+	classNames,
 	floating,
 	imOnline,
 	onCollapse,
@@ -23,15 +32,16 @@ export function SidebarTopBar({
 			className={cn(
 				"flex h-11 shrink-0 items-center justify-between",
 				!floating && "drag-region",
+				className,
 			)}
 			style={{ paddingLeft: isMac ? 78 : 12, paddingRight: 6 }}
 		>
 			{isMac ? (
-				<div className="flex min-w-0 items-center">
+				<div className={cn("flex min-w-0 items-center", classNames?.brand)}>
 					<SidebarUpdateButton />
 				</div>
 			) : (
-				<div className="flex min-w-0 items-center gap-2">
+				<div className={cn("flex min-w-0 items-center gap-2", classNames?.brand)}>
 					<img
 						src="./icon.png"
 						alt="Vetta"
@@ -41,13 +51,16 @@ export function SidebarTopBar({
 					<SidebarUpdateButton />
 				</div>
 			)}
-			<div className="flex items-center gap-1">
+			<div className={cn("flex items-center gap-1", classNames?.actions)}>
 				{imOnline && (
 					<button
 						type="button"
 						onClick={onOpenClawSettings}
 						title={t("sidebar.clawConnected")}
-						className="no-drag relative flex h-5 items-center gap-1 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/25"
+						className={cn(
+							"no-drag relative flex h-5 items-center gap-1 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/25",
+							classNames?.clawButton,
+						)}
 					>
 						<span className="relative flex h-1 w-1">
 							<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-70" />
@@ -61,7 +74,10 @@ export function SidebarTopBar({
 						type="button"
 						onClick={onCollapse}
 						title={t("sidebar.hide")}
-						className="no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						className={cn(
+							"no-drag flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+							classNames?.collapseButton,
+						)}
 					>
 						<span className="icon-[solar--sidebar-minimalistic-linear] h-4 w-4" />
 					</button>

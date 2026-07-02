@@ -18,11 +18,11 @@ import { DefaultSessionRow } from "./DefaultSessionRow";
 
 interface DefaultSessionListProps {
 	activeSessionPath: string;
+	className?: string;
 	cwd: string;
 	filter: DefaultConversationFilter;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
-	scrollParent: HTMLElement | null;
 	sessions: SessionInfo[];
 }
 
@@ -30,11 +30,11 @@ const DEFAULT_VISIBLE_DEFAULT_SESSIONS = 5;
 
 export const DefaultSessionList = memo(function DefaultSessionList({
 	activeSessionPath,
+	className,
 	cwd,
 	filter,
 	onRenameSession,
 	onSelectSession,
-	scrollParent,
 	sessions,
 }: DefaultSessionListProps): JSX.Element {
 	const { t } = useTranslation("project");
@@ -59,7 +59,7 @@ export const DefaultSessionList = memo(function DefaultSessionList({
 
 	if (sorted.length === 0) {
 		return (
-			<p className="px-2.5 py-1.5 text-[11px] text-muted-foreground/60">
+			<p className={cn("px-2.5 py-1.5 text-[11px] text-muted-foreground/60", className)}>
 				{t("sidebar.defaultConversation.noConversations")}
 			</p>
 		);
@@ -97,19 +97,21 @@ export const DefaultSessionList = memo(function DefaultSessionList({
 	};
 
 	return (
-		<div className="space-y-px">
-			{showAll && scrollParent ? (
-				<Virtuoso
-					data={sorted}
-					customScrollParent={scrollParent}
-					overscan={VIRTUAL_SESSION_OVERSCAN}
-					defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
-					itemContent={(_, session) => (
-						<div className="pb-px">{renderSession(session)}</div>
-					)}
-				/>
+		<div className={cn("flex min-h-0 flex-col", className)}>
+			{showAll ? (
+				<div className="min-h-0 flex-1">
+					<Virtuoso
+						className="h-full"
+						data={sorted}
+						overscan={VIRTUAL_SESSION_OVERSCAN}
+						defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
+						itemContent={(_, session) => (
+							<div className="pb-px">{renderSession(session)}</div>
+						)}
+					/>
+				</div>
 			) : (
-				visible.map(renderSession)
+				<div className="space-y-px">{visible.map(renderSession)}</div>
 			)}
 			{hasMore && (
 				<button

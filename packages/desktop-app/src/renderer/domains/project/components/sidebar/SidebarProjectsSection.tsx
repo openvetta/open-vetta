@@ -1,42 +1,40 @@
-import type { Dispatch, SetStateAction } from "react";
 import type { SessionExecutionMode, SidebarFilter } from "@shared/store/atoms";
+import { cn } from "@shared/lib/utils";
 import { AddProjectMenu } from "./add-project/AddProjectMenu";
 import { SidebarFilterSelect } from "./filters/SidebarFilterSelect";
 import { ProjectsPanel } from "./projects/panel/ProjectsPanel";
 
 interface SidebarProjectsSectionProps {
+	className?: string;
+	classNames?: {
+		list?: string;
+		toolbar?: string;
+	};
 	filter: SidebarFilter;
-	listScrollParent: HTMLDivElement | null;
 	onOpenSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
-	setListScrollParent: Dispatch<SetStateAction<HTMLDivElement | null>>;
 }
 
 export function SidebarProjectsSection({
+	className,
+	classNames,
 	filter,
-	listScrollParent,
 	onOpenSession,
-	setListScrollParent,
 }: SidebarProjectsSectionProps): JSX.Element {
 	return (
-		<>
+		<div className={cn("flex min-h-0 flex-1 flex-col", className)}>
 			{/* Inline z-index keeps the dropdown above the project list below. */}
 			<div
-				className="group flex items-center justify-between pb-1 pl-2 pr-3 pt-1"
+				className={cn("group flex items-center justify-between pb-1 pl-2 pr-3 pt-1", classNames?.toolbar)}
 				style={{ position: "relative", zIndex: 20 }}
 			>
 				<SidebarFilterSelect />
 				<AddProjectMenu />
 			</div>
-			<div
-				ref={setListScrollParent}
-				className="project-list-containment flex-1 overflow-y-auto px-1.5 py-0.5"
-			>
-				<ProjectsPanel
-					filter={filter}
-					onOpenSession={onOpenSession}
-					scrollParent={listScrollParent}
-				/>
-			</div>
-		</>
+			<ProjectsPanel
+				defaultSessionListClassName={classNames?.list}
+				filter={filter}
+				onOpenSession={onOpenSession}
+			/>
+		</div>
 	);
 }

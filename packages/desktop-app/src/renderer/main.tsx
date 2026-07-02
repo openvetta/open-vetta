@@ -4,6 +4,7 @@ import { RouterProvider } from "@tanstack/react-router";
 import { I18nextProvider } from "react-i18next";
 import { router } from "./router";
 import { i18n, initI18n } from "./shared/i18n";
+import { ThemeAppearanceProvider } from "./shared/theme/appearance";
 import { applyInitialTheme } from "./shared/theme/apply";
 import { applyStoredCustomCursor } from "./shared/theme/cursor";
 import "./styles.css";
@@ -23,7 +24,9 @@ if (!rootElement) {
 createRoot(rootElement).render(
 	<StrictMode>
 		<I18nextProvider i18n={i18n}>
-			<RouterProvider router={router} />
+			<ThemeAppearanceProvider>
+				<RouterProvider router={router} />
+			</ThemeAppearanceProvider>
 		</I18nextProvider>
 	</StrictMode>,
 );
