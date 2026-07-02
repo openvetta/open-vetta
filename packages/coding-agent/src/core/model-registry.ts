@@ -27,6 +27,17 @@ import { clearConfigValueCache, resolveConfigValue, resolveHeaders } from "./res
 
 const Ajv = (AjvModule as any).default || AjvModule;
 
+// @vetta/ai 的 Model 类型归属 ai 泳道；此处按共享契约为其补充 modelId 声明，
+// 使远程渠道下发的「上游真名」在本包内被类型接住（id=网关路由 key、modelId=上游真名）。
+// 本地/内置模型可不设 modelId，匹配时回退到 id。
+declare module "@vetta/ai" {
+	// biome-ignore lint/correctness/noUnusedVariables: 模块增强必须与原声明类型参数名(TApi)一致才能合并，不能改名或加下划线
+	interface Model<TApi extends Api> {
+		/** 上游 API 真实模型名。远程渠道下 id=路由 key、modelId=上游真名；本地/内置模型可不设。 */
+		modelId?: string;
+	}
+}
+
 /**
  * Normalize common API type aliases to their registered names.
  * Users may write "anthropic" or "openai" in configs, but the registry
@@ -263,6 +274,8 @@ interface RemoteModelsConfig {
 			headers?: Record<string, string>;
 			models: Array<{
 				id: string;
+				// 上游 API 真实模型名（远程渠道下 id=网关路由 key、modelId=上游真名）；缺省回退 id
+				modelId?: string;
 				name: string;
 				api?: string;
 				reasoning: boolean;
@@ -436,6 +449,8 @@ export class ModelRegistry {
 
 				models.push({
 					id: modelDef.id,
+					// 保留上游真名；缺省回退 id，供老会话按 modelId 兜底匹配
+					modelId: modelDef.modelId ?? modelDef.id,
 					name: modelDef.name || modelDef.id,
 					api: api as Api,
 					provider: providerName,
