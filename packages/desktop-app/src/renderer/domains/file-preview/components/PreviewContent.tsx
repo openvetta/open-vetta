@@ -213,7 +213,7 @@ function UnsupportedDetail({ item }: { item: FilePreviewItem }): JSX.Element {
 			{downloadable && (
 				<button
 					type="button"
-					onClick={() => downloadItem(item)}
+					onClick={() => void downloadItem(item)}
 					className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-[12.5px] font-medium text-primary-foreground shadow-md transition-all duration-200 hover:scale-105 hover:bg-primary/90"
 				>
 					<span className="icon-[mdi--download] h-4 w-4" />
@@ -255,7 +255,18 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
 	return btoa(binary);
 }
 
-export function downloadItem(item: FilePreviewItem): void {
+export async function downloadItem(item: FilePreviewItem): Promise<void> {
 	if (!item.url) return;
-	void window.vetta.downloads.start({ url: item.url, filename: item.name });
+	// 用 anchor + blob 触发下载：Electron 会拦截并弹出系统保存框让用户选位置，
+	// 与消息卡片的下载按钮行为一致（不走后台下载管理器，避免静默存到默认目录）。
+	const response = await fetch(item.url);
+	const blob = await response.blob();
+	const objectUrl = URL.createObjectURL(blob);
+	const anchor = document.createElement("a");
+	anchor.href = objectUrl;
+	anchor.download = item.name;
+	document.body.append(anchor);
+	anchor.click();
+	anchor.remove();
+	URL.revokeObjectURL(objectUrl);
 }

@@ -105,7 +105,7 @@ export function FilePreviewDialog(): JSX.Element {
 							/>
 						)}
 						{item.url && (
-							<OverlayButton icon="icon-[mdi--download]" title="下载" onClick={() => downloadItem(item)} />
+							<OverlayButton icon="icon-[mdi--download]" title="下载" onClick={() => void downloadItem(item)} />
 						)}
 						<OverlayButton icon="icon-[mdi--close]" title="关闭 (Esc)" onClick={close} />
 					</div>
