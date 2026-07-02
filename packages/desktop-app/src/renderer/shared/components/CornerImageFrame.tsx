@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type ReactNode } from "react";
+import { memo, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cn } from "@shared/lib/utils";
 
 export interface CornerImageFrameCorner {
@@ -19,13 +19,11 @@ export interface CornerImageFrameDecoration {
 	readonly cornerWidth: string;
 }
 
-interface CornerImageFrameProps {
+interface CornerImageFrameProps extends ComponentPropsWithoutRef<"div"> {
 	children: ReactNode;
-	className?: string;
 	contentClassName?: string;
 	decoration?: CornerImageFrameDecoration;
 	imageUrl?: string;
-	style?: CSSProperties;
 }
 
 const CornerImageDecoration = memo(function CornerImageDecoration({
@@ -63,12 +61,12 @@ export function CornerImageFrame({
 	contentClassName,
 	decoration,
 	imageUrl,
-	style,
+	...props
 }: CornerImageFrameProps): JSX.Element {
 	return (
 		<div
 			className={cn("relative", className)}
-			style={style}
+			{...props}
 		>
 			{imageUrl && decoration
 				? (

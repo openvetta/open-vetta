@@ -4,5 +4,11 @@ import { useSidebarModel } from "./useSidebarModel";
 
 export function Sidebar(props: SidebarProps): JSX.Element {
 	const model = useSidebarModel(props);
-	return <DefaultSidebar model={model} onOpenSession={props.onOpenSession} />;
+	return (
+		<DefaultSidebar
+			classNames={props.classNames}
+			model={model}
+			onOpenSession={props.onOpenSession}
+		/>
+	);
 }

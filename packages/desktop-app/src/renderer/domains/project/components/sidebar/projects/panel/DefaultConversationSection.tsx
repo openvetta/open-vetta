@@ -2,37 +2,38 @@ import { useAtom } from "jotai";
 import { useTranslation } from "react-i18next";
 import type { DefaultConversationFilter, Project, SessionInfo } from "@shared/store/atoms";
 import { projectContextMenuAtom } from "@shared/store/atoms";
+import { cn } from "@shared/lib/utils";
 import { DefaultConversationFilterSelect } from "../../filters/SidebarFilterSelect";
 import { DefaultSessionList } from "./DefaultSessionList";
 
 interface DefaultConversationSectionProps {
 	activeSessionPath: string;
 	defaultConversationFilter: DefaultConversationFilter;
+	listClassName?: string;
 	onNewSession: (cwd: string) => void;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
 	project: Project;
-	scrollParent: HTMLElement | null;
 	sessions: SessionInfo[];
 }
 
 export function DefaultConversationSection({
 	activeSessionPath,
 	defaultConversationFilter,
+	listClassName,
 	onNewSession,
 	onRenameSession,
 	onSelectSession,
 	project,
-	scrollParent,
 	sessions,
 }: DefaultConversationSectionProps): JSX.Element {
 	const { t } = useTranslation("project");
 	const [, setProjectMenu] = useAtom(projectContextMenuAtom);
 
 	return (
-		<div className="mt-2">
+		<div className="mt-2 flex min-h-0 flex-1 flex-col">
 			<div
-				className="group -mx-1.5 flex items-center justify-between pb-1 pl-2 pr-1 pt-1"
+				className="group -mx-1.5 flex shrink-0 items-center justify-between pb-1 pl-2 pr-1 pt-1"
 				onContextMenu={(event) => {
 					event.preventDefault();
 					setProjectMenu({ x: event.clientX, y: event.clientY, project });
@@ -68,11 +69,11 @@ export function DefaultConversationSection({
 			</div>
 			<DefaultSessionList
 				activeSessionPath={activeSessionPath}
+				className={cn("project-list-containment -mx-1.5 min-h-0 flex-1 px-1.5", listClassName)}
 				cwd={project.cwd}
 				filter={defaultConversationFilter}
 				onRenameSession={onRenameSession}
 				onSelectSession={onSelectSession}
-				scrollParent={scrollParent}
 				sessions={sessions}
 			/>
 		</div>

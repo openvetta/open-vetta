@@ -1,5 +1,26 @@
 import type { SidebarFilter } from "@shared/store/atoms";
-import type { Dispatch, RefCallback, SetStateAction } from "react";
+import type { RefCallback } from "react";
+
+export interface SidebarClassNames {
+	bottomBar?: string;
+	bottomBarSettings?: string;
+	navigation?: string;
+	navIndicator?: string;
+	navItem?: string;
+	navItemBadge?: string;
+	navItemIcon?: string;
+	navItemLabel?: string;
+	panel?: string;
+	panelContent?: string;
+	projects?: string;
+	projectsList?: string;
+	projectsToolbar?: string;
+	topBar?: string;
+	topBarActions?: string;
+	topBarBrand?: string;
+	topBarClawButton?: string;
+	topBarCollapseButton?: string;
+}
 
 export type SidebarLabelKey =
 	| "sidebar.nav.newSession"
@@ -11,6 +32,7 @@ export type SidebarLabelKey =
 export interface SidebarProps {
 	onOpenSession: (cwd: string, sessionPath?: string) => Promise<void>;
 	onCollapse?: () => void;
+	classNames?: SidebarClassNames;
 	// 窄屏浮层模式：顶部横条不设为窗口拖拽区，否则 -webkit-app-region: drag
 	// 会吞掉鼠标事件，导致悬停顶部时浮层误触 mouseleave 而消失。
 	floating?: boolean;
@@ -41,8 +63,6 @@ export interface SidebarModel {
 	navItems: SidebarNavItem[];
 	navIndicatorBounds: NavIndicatorBounds | null;
 	imOnline: boolean;
-	listScrollParent: HTMLDivElement | null;
-	setListScrollParent: Dispatch<SetStateAction<HTMLDivElement | null>>;
 	setNavItemRef: (index: number) => RefCallback<HTMLButtonElement>;
 	actions: {
 		openNavItem(item: SidebarNavItem): void;

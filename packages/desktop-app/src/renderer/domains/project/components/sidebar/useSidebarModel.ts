@@ -153,9 +153,6 @@ export function useSidebarModel({
 	}, [activeNavIndex, width]);
 
 	const [imOnline, setImOnline] = useState(false);
-	// 项目列表的滚动容器元素，透传给「对话」虚拟列表作为 customScrollParent，
-	// 让其复用此滚动条而非自建独立滚动条（否则展开时侧边栏出现两个滚动条）。
-	const [listScrollParent, setListScrollParent] = useState<HTMLDivElement | null>(null);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -222,8 +219,6 @@ export function useSidebarModel({
 		navItems,
 		navIndicatorBounds,
 		imOnline,
-		listScrollParent,
-		setListScrollParent,
 		setNavItemRef,
 		actions: {
 			openNavItem,

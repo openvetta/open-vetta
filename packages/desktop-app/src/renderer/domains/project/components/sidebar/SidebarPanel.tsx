@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
-import { CornerImageFrame, type CornerImageFrameDecoration } from "@shared/components/CornerImageFrame";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
+import { ThemeSurface } from "@shared/theme/appearance";
+import { cn } from "@shared/lib/utils";
 
 interface SidebarPanelProps {
 	children: ReactNode;
-	decoration?: CornerImageFrameDecoration;
-	imageUrl?: string;
+	className?: string;
+	contentClassName?: string;
 	onResize: (delta: number) => void;
 	onResizeEnd: () => void;
 	width: number;
@@ -13,22 +14,24 @@ interface SidebarPanelProps {
 
 export function SidebarPanel({
 	children,
-	decoration,
-	imageUrl,
+	className,
+	contentClassName,
 	onResize,
 	onResizeEnd,
 	width,
 }: SidebarPanelProps): JSX.Element {
 	return (
-		<CornerImageFrame
-			className="sidebar-surface relative h-full shrink-0 overflow-hidden rounded-[10px] border border-border bg-muted"
-			contentClassName="flex h-full flex-col"
-			decoration={decoration}
-			imageUrl={imageUrl}
+		<ThemeSurface
+			slot="sidebar.panel"
+			className={cn(
+				"sidebar-surface relative h-full shrink-0 overflow-hidden rounded-[10px] border border-border bg-muted",
+				className,
+			)}
+			contentClassName={cn("flex h-full flex-col", contentClassName)}
 			style={{ width }}
 		>
 			{children}
 			<ResizeHandle side="right" onResize={onResize} onResizeEnd={onResizeEnd} />
-		</CornerImageFrame>
+		</ThemeSurface>
 	);
 }

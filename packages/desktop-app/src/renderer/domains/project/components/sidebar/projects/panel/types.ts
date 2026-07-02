@@ -7,9 +7,9 @@ import type {
 } from "@shared/store/atoms";
 
 export interface ProjectsPanelProps {
+	defaultSessionListClassName?: string;
 	filter: SidebarFilter;
 	onOpenSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
-	scrollParent: HTMLElement | null;
 }
 
 export interface BatchProjectEntry {
