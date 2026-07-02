@@ -96,9 +96,12 @@ packages/desktop-app/src/renderer/shared/theme/appearance/ThemeSurface.tsx
 示意：
 
 ```tsx
-<ThemeSurface slot="sidebar.projects">
-  <SidebarProjectsSection />
-</ThemeSurface>
+<div className="relative" data-theme-surface-root="sidebar.projects">
+  <ThemeSurface slot="sidebar.projects" />
+  <div className="relative z-10 overflow-hidden">
+    <SidebarProjectsSection />
+  </div>
+</div>
 ```
 
 主题可以给这个 slot 配置 frame：
@@ -122,7 +125,24 @@ packages/desktop-app/src/renderer/shared/theme/appearance/ThemeSurface.tsx
 }
 ```
 
-如果没有配置，`ThemeSurface` 只渲染普通 DOM，默认视觉不变。
+如果没有配置，`ThemeSurface` 只渲染空的装饰层，默认视觉不变。
+
+`ThemeSurface` 不负责业务内容布局，也不包裹 children。可主题化组件必须自己提供 root / decoration / content 三层：
+
+```txt
+Root layer
+  尺寸、定位、圆角、基础背景、基础边框
+
+Decoration layer
+  ThemeSurface，默认 absolute inset-0 z-0 pointer-events-none
+
+Content layer
+  真实 UI，默认 relative z-10，透明背景，只负责布局和必要的 overflow 裁剪
+```
+
+背景和边框不能随意放到 content layer。content layer 的背景会遮挡 decoration layer，导致图片边框、纹理或背景特效不可见。
+
+装饰层默认不遮挡内容。如主题需要 overlay 类效果，必须显式声明更高层级，并确认不会影响交互。
 
 ### Region
 

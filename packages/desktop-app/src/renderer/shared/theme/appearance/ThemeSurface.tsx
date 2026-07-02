@@ -1,52 +1,41 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
-import { CornerImageFrame } from "@shared/components/CornerImageFrame";
+import type { ComponentPropsWithoutRef } from "react";
+import { CornerImageDecoration } from "@shared/components/CornerImageFrame";
 import { cn } from "@shared/lib/utils";
 import { useThemeSurface } from "./context";
 import type { ThemeSurfaceSlot } from "./types";
 
 interface ThemeSurfaceProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
-	children: ReactNode;
-	contentClassName?: string;
 	slot: ThemeSurfaceSlot;
 }
 
 export function ThemeSurface({
-	children,
 	className,
-	contentClassName,
 	slot,
 	...props
 }: ThemeSurfaceProps): JSX.Element {
 	const surface = useThemeSurface(slot);
-	const surfaceClassName = cn(className, surface?.surfaceClassName);
-	const surfaceContentClassName = cn(contentClassName, surface?.contentClassName);
 
 	if (surface?.frame?.kind === "corner-image") {
 		return (
-			<CornerImageFrame
-				className={surfaceClassName}
-				contentClassName={surfaceContentClassName}
-				decoration={surface.frame.decoration}
+			<div
+				aria-hidden="true"
+				className={cn("pointer-events-none absolute inset-0 z-0 overflow-visible", className, surface.surfaceClassName)}
 				data-theme-surface={slot}
-				imageUrl={surface.frame.imageUrl}
 				{...props}
 			>
-				{children}
-			</CornerImageFrame>
+				<CornerImageDecoration
+					decoration={surface.frame.decoration}
+					imageUrl={surface.frame.imageUrl}
+				/>
+			</div>
 		);
 	}
 
 	return (
 		<div
-			className={surfaceClassName}
+			className={cn("pointer-events-none absolute inset-0 z-0", className, surface?.surfaceClassName)}
 			data-theme-surface={slot}
 			{...props}
-		>
-			{surfaceContentClassName ? (
-				<div className={surfaceContentClassName}>{children}</div>
-			) : (
-				children
-			)}
-		</div>
+		/>
 	);
 }

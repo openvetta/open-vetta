@@ -18,7 +18,6 @@ export interface CornerImageSurfaceFrame {
 export type ThemeSurfaceFrame = CornerImageSurfaceFrame;
 
 export interface ThemeSurfaceConfig {
-	readonly contentClassName?: string;
 	readonly frame?: ThemeSurfaceFrame;
 	readonly surfaceClassName?: string;
 }

@@ -3,8 +3,9 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import { I18nextProvider } from "react-i18next";
 import { router } from "./router";
+import { getAchievementSetById } from "./domains/settings/achievements";
 import { i18n, initI18n } from "./shared/i18n";
-import { ThemeAppearanceProvider } from "./shared/theme/appearance";
+import { ThemeAppearanceProvider, type ThemeAppearance } from "./shared/theme/appearance";
 import { applyInitialTheme } from "./shared/theme/apply";
 import { applyStoredCustomCursor } from "./shared/theme/cursor";
 import "./styles.css";
@@ -21,10 +22,23 @@ if (!rootElement) {
 	throw new Error("Missing root element");
 }
 
+const temporarySidebarFrameAchievement = getAchievementSetById("classic").achievements[1];
+const temporarySidebarAppearance: ThemeAppearance = {
+	surfaces: {
+		"sidebar.panel": {
+			frame: {
+				kind: "corner-image",
+				imageUrl: temporarySidebarFrameAchievement.frameUrl,
+				decoration: temporarySidebarFrameAchievement.frameDecoration,
+			},
+		},
+	},
+};
+
 createRoot(rootElement).render(
 	<StrictMode>
 		<I18nextProvider i18n={i18n}>
-			<ThemeAppearanceProvider>
+			<ThemeAppearanceProvider appearance={temporarySidebarAppearance}>
 				<RouterProvider router={router} />
 			</ThemeAppearanceProvider>
 		</I18nextProvider>

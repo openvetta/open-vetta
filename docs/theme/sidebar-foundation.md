@@ -84,11 +84,41 @@ packages/desktop-app/src/renderer/shared/theme/appearance/ThemeSurface.tsx
 职责：
 
 - 根据 `slot` 读取当前 appearance 配置。
-- 没有配置时渲染普通 `div`。
-- 配置 `corner-image` 时使用 `CornerImageFrame`。
+- 没有配置时渲染空的装饰层。
+- 配置 `corner-image` 时渲染角图装饰。
 - 给 DOM 保留 `data-theme-surface`，便于调试和后续装饰引擎挂载。
 
 低定制主题只需要配置 surface，不需要写组件。
+
+`ThemeSurface` 只负责装饰层，不负责包裹业务内容。可主题化组件本身提供三层结构：
+
+```txt
+Root
+  size / position / radius / base background / base border
+
+  ThemeSurface decoration layer
+
+  Content layer
+    real UI / layout / overflow clipping
+```
+
+这样图片边框、背景和特效不会参与布局，也不会被内容层的 `overflow-hidden` 裁剪。
+
+### 层级与背景约束
+
+侧边栏可主题化区域必须遵守固定层级：
+
+```txt
+root:       relative，承载尺寸、定位、圆角、基础背景、基础边框
+decoration: absolute inset-0 z-0 pointer-events-none overflow-visible
+content:    relative z-10，默认透明，只负责真实 UI、布局和必要裁剪
+```
+
+背景不能默认设置在 content 层。原因是 content 层在 decoration 层之上，如果 content 层有不透明背景，会把装饰层完全盖住。
+
+需要基础面板背景时，放在 root 层。需要裁剪内容时，放在 content 层。需要图片边框、角图、纹理、DOM 特效时，放在 decoration 层。
+
+装饰层默认不能遮挡内容，也不能接收交互事件。只有明确的 overlay 装饰才允许通过主题配置提升层级，但需要单独评估遮挡和可点击区域。
 
 ## CornerImageFrame
 
@@ -202,7 +232,10 @@ update/
 
 - 简单组件提供 `className`。
 - 复合组件提供 `classNames`。
-- 需要被主题装饰的区域用 `ThemeSurface`。
+- 需要被主题装饰的区域由组件提供 root / decoration / content 层，`ThemeSurface` 只放在 decoration 层。
+- root 层承载尺寸、定位、圆角、基础背景和基础边框。
+- decoration 层默认 `absolute inset-0 z-0 pointer-events-none overflow-visible`。
+- content 层默认 `relative z-10`，不要设置不透明背景，只负责布局和必要的 `overflow-hidden`。
 - 行为放进 model hook。
 - UI 组件只通过 props 使用数据和 actions。
 - 用户可见文案必须走 i18n。

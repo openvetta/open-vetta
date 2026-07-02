@@ -26,7 +26,7 @@ interface CornerImageFrameProps extends ComponentPropsWithoutRef<"div"> {
 	imageUrl?: string;
 }
 
-const CornerImageDecoration = memo(function CornerImageDecoration({
+export const CornerImageDecoration = memo(function CornerImageDecoration({
 	decoration,
 	imageUrl,
 }: {
