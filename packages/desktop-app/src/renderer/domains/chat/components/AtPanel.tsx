@@ -1,27 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useThemeComponent } from "@vetta/theme-sdk";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FsEntry, FsFileRef } from "@preload/fs-types";
+import { AtPanelView } from "./at-panel/AtPanelView";
+import type { AtPanelEntryModel, AtPanelProps, SelectedFile } from "./at-panel/types";
 
-export interface SelectedFile {
-	path: string;
-	name: string;
-	isDirectory: boolean;
-}
-
-/** 统一的展示条目：浏览模式来自当前目录，搜索模式来自全局递归文件列表。 */
 interface DisplayItem {
 	path: string;
 	name: string;
 	isDirectory: boolean;
-	/** 相对项目根的路径，仅搜索模式有值，用于二级展示。 */
 	relPath?: string;
 }
 
-/**
- * 子序列模糊匹配打分。query 须已小写。返回 null 表示不匹配，分值越高越靠前。
- * 规则：连续命中、分隔符后命中、文件名整体子串命中都会加分；路径越长轻微减分。
- */
 function fuzzyScore(query: string, path: string, name: string): number | null {
 	const t = path.toLowerCase();
 	let qi = 0;
@@ -42,18 +32,9 @@ function fuzzyScore(query: string, path: string, name: string): number | null {
 	return score;
 }
 
-/** 搜索模式下最多展示的结果数。 */
 const MAX_SEARCH_RESULTS = 100;
+const HIDDEN = new Set(["node_modules", ".git", ".DS_Store", "Thumbs.db"]);
 
-interface AtPanelProps {
-	open: boolean;
-	onClose: () => void;
-	onSelect: (file: SelectedFile) => void;
-	filter: string;
-	cwd: string;
-}
-
-/** Icon class for a given file name. */
 function fileIcon(name: string, isDir: boolean): string {
 	if (isDir) return "icon-[solar--folder-linear]";
 	const ext = name.split(".").pop()?.toLowerCase() ?? "";
@@ -100,10 +81,19 @@ function fileIcon(name: string, isDir: boolean): string {
 	}
 }
 
-/** Hidden entries to never show. */
-const HIDDEN = new Set(["node_modules", ".git", ".DS_Store", "Thumbs.db"]);
+function parentOf(path: string): string {
+	return path.replace(/\/[^/]+\/?$/, "") || "/";
+}
 
-export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps): JSX.Element {
+export function AtPanel({
+	open,
+	onClose,
+	onSelect,
+	filter,
+	cwd,
+	className,
+	classNames,
+}: AtPanelProps): JSX.Element {
 	const { t } = useTranslation("chat");
 	const [currentDir, setCurrentDir] = useState(cwd);
 	const [entries, setEntries] = useState<FsEntry[]>([]);
@@ -111,22 +101,20 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 	const [loading, setLoading] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const panelRef = useRef<HTMLDivElement>(null);
+	const ThemedAtPanelView = useThemeComponent("chat.atPanelView", AtPanelView);
 
-	// Reset to cwd when panel opens
 	useEffect(() => {
 		if (open) {
 			setCurrentDir(cwd);
 		}
 	}, [open, cwd]);
 
-	// Load directory contents
 	useEffect(() => {
 		if (!open) return;
 		let cancelled = false;
 		setLoading(true);
 		void window.vetta.fs.readDir(currentDir).then((result) => {
 			if (cancelled) return;
-			// Sort: directories first, then by name
 			const visible = result.filter((e) => !HIDDEN.has(e.name) && !e.name.startsWith("."));
 			visible.sort((a, b) => {
 				if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
@@ -140,7 +128,6 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 		};
 	}, [open, currentDir]);
 
-	// Load full recursive file list once per open (for global fuzzy search)
 	useEffect(() => {
 		if (!open) return;
 		let cancelled = false;
@@ -152,13 +139,13 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 		};
 	}, [open, cwd]);
 
-	// Filter by text after "@"
 	const normalizedFilter = filter.startsWith("@") ? filter.slice(1) : filter;
 	const isSearching = normalizedFilter.length > 0;
 
-	// 搜索模式：在全局文件列表上做模糊匹配；浏览模式：展示当前目录内容。
-	let allItems: DisplayItem[];
-	if (isSearching) {
+	const allItems = useMemo((): DisplayItem[] => {
+		if (!isSearching) {
+			return entries.map((e) => ({ path: e.path, name: e.name, isDirectory: e.isDirectory }));
+		}
 		const q = normalizedFilter.toLowerCase();
 		const scored: { item: DisplayItem; score: number }[] = [];
 		for (const f of allFiles) {
@@ -168,21 +155,31 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 			}
 		}
 		scored.sort((a, b) => b.score - a.score);
-		allItems = scored.slice(0, MAX_SEARCH_RESULTS).map((s) => s.item);
-	} else {
-		allItems = entries.map((e) => ({ path: e.path, name: e.name, isDirectory: e.isDirectory }));
-	}
+		return scored.slice(0, MAX_SEARCH_RESULTS).map((s) => s.item);
+	}, [allFiles, entries, isSearching, normalizedFilter]);
 
-	// "Go up" item when not at cwd root (browse mode only)
 	const canGoUp = !isSearching && currentDir !== cwd;
 
-	// Reset index on filter/dir change
 	useEffect(() => {
 		setActiveIndex(0);
 	}, [filter, currentDir]);
 
-	// Keyboard navigation
 	const totalCount = (canGoUp ? 1 : 0) + allItems.length;
+
+	const handleEntrySelect = useCallback(
+		(item: DisplayItem) => {
+			if (item.isDirectory) {
+				setCurrentDir(item.path);
+				return;
+			}
+			onSelect({ path: item.path, name: item.name, isDirectory: false });
+		},
+		[onSelect],
+	);
+
+	const handleGoUp = useCallback(() => {
+		setCurrentDir((prev) => parentOf(prev));
+	}, []);
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
@@ -199,17 +196,10 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 				e.preventDefault();
 				e.stopPropagation();
 				if (canGoUp && activeIndex === 0) {
-					const parent = currentDir.replace(/\/[^/]+\/?$/, "") || "/";
-					setCurrentDir(parent);
+					handleGoUp();
 				} else {
 					const item = allItems[canGoUp ? activeIndex - 1 : activeIndex];
-					if (item) {
-						if (item.isDirectory) {
-							setCurrentDir(item.path);
-						} else {
-							onSelect({ path: item.path, name: item.name, isDirectory: false });
-						}
-					}
+					if (item) handleEntrySelect(item);
 				}
 			} else if (e.key === "Escape") {
 				e.preventDefault();
@@ -224,7 +214,7 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 				}
 			}
 		},
-		[open, totalCount, canGoUp, activeIndex, allItems, currentDir, onSelect, onClose],
+		[open, totalCount, canGoUp, activeIndex, allItems, handleEntrySelect, handleGoUp, onClose],
 	);
 
 	useEffect(() => {
@@ -234,7 +224,6 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 		}
 	}, [open, handleKeyDown]);
 
-	// Click outside to close
 	useEffect(() => {
 		if (!open) return;
 		function handleClick(e: MouseEvent) {
@@ -251,135 +240,48 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 		};
 	}, [open, onClose]);
 
-	// Scroll active item into view
 	useEffect(() => {
 		if (!open) return;
 		const el = panelRef.current?.querySelector(`[data-index="${activeIndex}"]`);
 		el?.scrollIntoView({ block: "nearest" });
 	}, [activeIndex, open]);
 
-	// Relative path display for breadcrumb
 	const relDir = currentDir.startsWith(cwd) ? currentDir.slice(cwd.length) || "/" : currentDir;
+	const viewEntries: AtPanelEntryModel[] = allItems.map((entry, i) => {
+		const index = canGoUp ? i + 1 : i;
+		return {
+			...entry,
+			index,
+			active: index === activeIndex,
+			icon: fileIcon(entry.name, entry.isDirectory),
+		};
+	});
 
 	return (
-		<AnimatePresence>
-			{open && (
-				<motion.div
-					ref={panelRef}
-					initial={{ opacity: 0, y: 8, scaleY: 0.96 }}
-					animate={{ opacity: 1, y: 0, scaleY: 1 }}
-					exit={{ opacity: 0, y: 8, scaleY: 0.96 }}
-					transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-					className="absolute inset-x-0 bottom-full mb-1.5 z-50 origin-bottom overflow-hidden rounded-2xl bg-card border border-border"
-					style={{
-						maxHeight: 320,
-					}}
-				>
-					{/* Header */}
-					<div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-						<span className="icon-[solar--mention-circle-linear] h-4 w-4 text-muted-foreground/50" />
-						<span className="text-[12px] font-medium text-muted-foreground/50" title={t("atPanel.header")}>
-							{t("atPanel.header")}
-						</span>
-						<span className="ml-auto font-mono text-[11px] text-muted-foreground/50">
-							{isSearching ? t("atPanel.searchResults", { count: allItems.length }) : relDir}
-						</span>
-					</div>
-
-					{/* Content */}
-					<div className="overflow-y-auto" style={{ maxHeight: 280 }}>
-						{loading ? (
-							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
-								{t("atPanel.loading")}
-							</div>
-						) : allItems.length === 0 && !canGoUp ? (
-							<div className="flex items-center justify-center py-8 text-[12px] text-muted-foreground/50">
-								{normalizedFilter ? t("atPanel.noResults") : t("atPanel.emptyDirectory")}
-							</div>
-						) : (
-							<div className="py-1">
-								{/* Go up entry */}
-								{canGoUp && (
-									<button
-										type="button"
-										data-index={0}
-										onMouseEnter={() => setActiveIndex(0)}
-										onClick={() => {
-											const parent = currentDir.replace(/\/[^/]+\/?$/, "") || "/";
-											setCurrentDir(parent);
-										}}
-										className="relative flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
-										style={{
-											background:
-												activeIndex === 0
-													? "color-mix(in srgb, var(--primary) 9%, transparent)"
-													: "transparent",
-										}}
-									>
-										{activeIndex === 0 && (
-											<motion.span
-												layoutId="at-active-marker"
-												className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
-												transition={{ type: "spring", stiffness: 500, damping: 32 }}
-											/>
-										)}
-										<span className="icon-[solar--arrow-left-up-linear] h-4 w-4 text-muted-foreground/50" />
-										<span className="text-[12px] text-muted-foreground/50" title={t("atPanel.goUp")}>{t("atPanel.goUp")}</span>
-									</button>
-								)}
-
-								{allItems.map((entry, i) => {
-									const idx = canGoUp ? i + 1 : i;
-									return (
-										<button
-											type="button"
-											key={entry.path}
-											data-index={idx}
-											onMouseEnter={() => setActiveIndex(idx)}
-											onClick={() => {
-												if (entry.isDirectory) {
-													setCurrentDir(entry.path);
-												} else {
-													onSelect({ path: entry.path, name: entry.name, isDirectory: false });
-												}
-											}}
-											className="relative flex w-full items-center gap-3 px-4 py-1.5 text-left transition-colors"
-											style={{
-												background:
-													idx === activeIndex
-														? "color-mix(in srgb, var(--primary) 9%, transparent)"
-														: "transparent",
-											}}
-										>
-											{idx === activeIndex && (
-												<motion.span
-													layoutId="at-active-marker"
-													className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary"
-													transition={{ type: "spring", stiffness: 500, damping: 32 }}
-												/>
-											)}
-											<span className={`${fileIcon(entry.name, entry.isDirectory)} h-4 w-4 shrink-0 ${entry.isDirectory ? "text-muted-foreground" : "text-muted-foreground/50"}`} />
-											<span className={`shrink-0 truncate text-[12.5px] ${entry.isDirectory ? "font-medium text-foreground" : "text-foreground"}`}>
-												{entry.name}
-											</span>
-											{entry.relPath && entry.relPath !== entry.name && (
-												<span className="ml-auto truncate text-right font-mono text-[10px] text-muted-foreground/40">
-													{entry.relPath}
-												</span>
-											)}
-											{entry.isDirectory && (
-												<span className="ml-auto text-[10px] text-muted-foreground/50" title={t("atPanel.enterDirectory")}>
-													{t("atPanel.enterDirectory")}
-												</span>
-											)}
-										</button>
-									);
-								})}
-							</div>
-						)}
-					</div>
-				</motion.div>
-			)}
-		</AnimatePresence>
+		<ThemedAtPanelView
+			open={open}
+			loading={loading}
+			normalizedFilter={normalizedFilter}
+			canGoUp={canGoUp}
+			goUpActive={activeIndex === 0}
+			entries={viewEntries}
+			labels={{
+				header: t("atPanel.header"),
+				headingMeta: isSearching ? t("atPanel.searchResults", { count: allItems.length }) : relDir,
+				loading: t("atPanel.loading"),
+				noResults: t("atPanel.noResults"),
+				emptyDirectory: t("atPanel.emptyDirectory"),
+				goUp: t("atPanel.goUp"),
+				enterDirectory: t("atPanel.enterDirectory"),
+			}}
+			panelRef={panelRef}
+			className={className}
+			classNames={classNames}
+			onGoUp={handleGoUp}
+			onHoverIndex={setActiveIndex}
+			onEntryClick={handleEntrySelect}
+		/>
 	);
 }
+
+export type { AtPanelProps, AtPanelViewProps, SelectedFile } from "./at-panel/types";

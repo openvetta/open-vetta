@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { QueueCard } from "@shared/components/QueueCard";
@@ -35,6 +36,7 @@ const SEND_HINT_INITIAL = { opacity: 0, y: 2 };
 const SEND_HINT_ANIMATE = { opacity: 1, y: 0 };
 
 export function InputBarView({ model, className, classNames }: InputBarViewProps): JSX.Element {
+	const ThemedDrawerCard = useThemeComponent("chat.inputDrawer", DrawerCard);
 	const drawerTabs = useMemo(
 		(): DrawerTab[] =>
 			model.drawerItems.map((item) => {
@@ -122,7 +124,7 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 
 				<ActionButtonBar />
 
-				<DrawerCard
+				<ThemedDrawerCard
 					tabs={drawerTabs}
 					activeTabId={model.drawerActiveTab}
 					onActiveTabChange={model.actions.setDrawerActiveTab}

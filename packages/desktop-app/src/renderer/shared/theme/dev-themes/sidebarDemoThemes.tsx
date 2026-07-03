@@ -41,7 +41,19 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			"app.windowControls": {
 				frame: sidebarDemoFrame,
 			},
+			"chat.atPanel": {
+				frame: sidebarDemoFrame,
+			},
 			"chat.inputBar": {
+				frame: sidebarDemoFrame,
+			},
+			"chat.inputDrawer": {
+				frame: sidebarDemoFrame,
+			},
+			"chat.questionPanel": {
+				frame: sidebarDemoFrame,
+			},
+			"chat.slashPanel": {
 				frame: sidebarDemoFrame,
 			},
 			"root.confirmDialog.panel": {
