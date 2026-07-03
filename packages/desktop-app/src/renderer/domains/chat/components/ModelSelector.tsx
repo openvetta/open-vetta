@@ -113,7 +113,6 @@ export function ModelSelector(): JSX.Element {
 					<span className="min-w-0 flex-1 truncate text-left">
 						{selectedOption?.displayName ?? t("modelSelect.placeholder")}
 					</span>
-					{selectedOption && <MultiplierTag multiplier={selectedOption.multiplier} />}
 					{currentLevel && <span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>}
 					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0" />
 				</button>
