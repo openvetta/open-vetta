@@ -38,6 +38,18 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			"sidebar.panel": {
 				frame: sidebarDemoFrame,
 			},
+			"sidebar.navigationIndicator": {
+				frame: {
+					kind: "nine-slice-image",
+					imageUrl: "./theme-demo/button_background.webp",
+					decoration: {
+						borderWidth: "8px",
+						outset: "3px",
+						repeat: "stretch",
+						slice: 90,
+					},
+				},
+			},
 			"app.pageHeader": {
 				frame: sidebarDemoFrame,
 			},

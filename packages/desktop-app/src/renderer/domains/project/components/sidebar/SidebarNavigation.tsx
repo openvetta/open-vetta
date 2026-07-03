@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import type { RefCallback } from "react";
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import type { NavIndicatorBounds, SidebarNavItem } from "./types";
 import { SidebarNavItemButton } from "./SidebarNavItemButton";
 
@@ -34,7 +35,10 @@ export function SidebarNavigation({
 		<nav className={cn("relative flex flex-col gap-0.5 px-1.5 pb-2 pt-2", className)}>
 			{indicatorBounds && (
 				<motion.span
-					className={cn("pointer-events-none absolute z-10 rounded-md bg-primary/15", classNames?.indicator)}
+					className={cn(
+						"pointer-events-none absolute z-10 overflow-visible rounded-md bg-primary/15",
+						classNames?.indicator,
+					)}
 					initial={false}
 					animate={{
 						left: indicatorBounds.left,
@@ -43,7 +47,9 @@ export function SidebarNavigation({
 						height: indicatorBounds.height,
 					}}
 					transition={{ type: "spring", stiffness: 430, damping: 28, mass: 0.75 }}
-				/>
+				>
+					<ThemeSurface slot="sidebar.navigationIndicator" />
+				</motion.span>
 			)}
 			{items.map((item, index) => (
 				<ThemeNavItemButton

@@ -118,6 +118,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "sidebar.panel"?: ThemeSurfaceConfig;
 		readonly "sidebar.topBar"?: ThemeSurfaceConfig;
 		readonly "sidebar.navigation"?: ThemeSurfaceConfig;
+		readonly "sidebar.navigationIndicator"?: ThemeSurfaceConfig;
 		readonly "sidebar.projects"?: ThemeSurfaceConfig;
 		readonly "sidebar.bottomBar"?: ThemeSurfaceConfig;
 		readonly "sidebar.settingsMenu"?: ThemeSurfaceConfig;
