@@ -492,17 +492,20 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		} else {
 			(params as any).thinking = { type: "disabled" };
 		}
-	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
-		// OpenAI-style reasoning_effort. "minimal" is OpenAI gpt-5 / Responses-API
-		// specific; most chat-completions backends (DeepSeek, aggregating gateways,
-		// vLLM, …) only accept low/medium/high/max/xhigh and return a 400 for
-		// "minimal". Clamp it up to "low" except on genuine OpenAI endpoints, so the
-		// lightest-thinking callers (auto-title, prompt suggestions) degrade instead
-		// of failing.
+	} else if (model.reasoning && compat.supportsReasoningEffort) {
+		// OpenAI-style reasoning_effort. "off" is the unified disable-thinking entry point:
+		// the agent maps "off" → undefined reasoning, but some callers may pass the literal
+		// string "off". Normalize both to "none", which newer OpenAI reasoning models (gpt-5
+		// family) accept as the way to turn reasoning off. Previously an absent effort omitted
+		// the field entirely, leaving the model at its default (medium) — i.e. never actually off.
+		const rawEffort =
+			!options?.reasoningEffort || options.reasoningEffort === "off" ? "none" : options.reasoningEffort;
+		// "minimal" is OpenAI gpt-5 / Responses-API specific; most chat-completions backends
+		// (DeepSeek, aggregating gateways, vLLM, …) only accept low/medium/high/max/xhigh and
+		// return a 400 for "minimal". Clamp it up to "low" except on genuine OpenAI endpoints, so
+		// the lightest-thinking callers (auto-title, prompt suggestions) degrade instead of failing.
 		const isOpenAIOfficial = model.baseUrl.includes("api.openai.com");
-		params.reasoning_effort = (
-			options.reasoningEffort === "minimal" && !isOpenAIOfficial ? "low" : options.reasoningEffort
-		) as any;
+		params.reasoning_effort = (rawEffort === "minimal" && !isOpenAIOfficial ? "low" : rawEffort) as any;
 	}
 
 	// OpenRouter provider routing preferences

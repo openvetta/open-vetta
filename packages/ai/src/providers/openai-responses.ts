@@ -212,26 +212,19 @@ function buildParams(model: Model<"openai-responses">, context: Context, options
 	}
 
 	if (model.reasoning) {
-		if (options?.reasoningEffort || options?.reasoningSummary) {
-			params.reasoning = {
-				// Passthrough string; the model only offers effort values it supports.
-				effort: (options?.reasoningEffort || "medium") as any,
-				summary: options?.reasoningSummary || "auto",
-			};
+		// "off" is the unified disable-thinking entry point. The agent maps "off" → undefined
+		// reasoning, but some callers may pass the literal string "off"; normalize both to "none",
+		// which newer OpenAI reasoning models (gpt-5 family) accept as the way to turn reasoning off.
+		// The effort is otherwise a passthrough string; the model only offers levels it supports.
+		const effort = !options?.reasoningEffort || options.reasoningEffort === "off" ? "none" : options.reasoningEffort;
+		params.reasoning = {
+			effort: effort as any,
+			summary: options?.reasoningSummary || "auto",
+		};
+		// No reasoning content is produced when thinking is off, so only request the
+		// encrypted reasoning payload when an actual effort level is in play.
+		if (effort !== "none") {
 			params.include = ["reasoning.encrypted_content"];
-		} else {
-			if (model.name.startsWith("gpt-5")) {
-				// Jesus Christ, see https://community.openai.com/t/need-reasoning-false-option-for-gpt-5/1351588/7
-				messages.push({
-					role: "developer",
-					content: [
-						{
-							type: "input_text",
-							text: "# Juice: 0 !important",
-						},
-					],
-				});
-			}
 		}
 	}
 
