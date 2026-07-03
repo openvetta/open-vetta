@@ -13,6 +13,7 @@ import {
 import { cn } from "@shared/lib/utils";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { MultiplierTag } from "./MultiplierTag";
 import { resolveReasoning } from "./resolveReasoning";
 import { type ModelOption, useModelOptions } from "./useModelOptions";
 
@@ -109,6 +110,7 @@ export function ModelSelect({
 					<span className="min-w-0 flex-1 truncate text-left">
 						{selectedOption?.displayName ?? placeholder ?? t("modelSelect.placeholder")}
 					</span>
+					{selectedOption && <MultiplierTag multiplier={selectedOption.multiplier} />}
 					{showReasoning && currentLevel && (
 						<span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>
 					)}
@@ -165,6 +167,7 @@ export function ModelSelect({
 						{providerModels.map((m) => (
 							<DropdownMenuItem key={m.key} onSelect={() => onChange(m.key)}>
 								<span className="min-w-0 flex-1 truncate">{m.displayName}</span>
+								<MultiplierTag multiplier={m.multiplier} />
 								{m.supportsImage && (
 									<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
 										{t("modelSelect.visionBadge")}

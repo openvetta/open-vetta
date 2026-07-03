@@ -273,6 +273,8 @@
 		"cloudOnly": "Cloud",
 		"reasoningHeader": "Reasoning",
 		"modelHeader": "Model",
+		"multiplier": "{{value}}×",
+		"free": "Free",
 		"reasoningLevel": {
 			"minimal": "Minimal",
 			"low": "Low",

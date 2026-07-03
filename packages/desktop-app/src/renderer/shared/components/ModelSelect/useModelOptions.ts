@@ -23,6 +23,8 @@ export interface ModelOption {
 	reasoningLevels?: string[];
 	/** Default reasoning level when the user has not chosen one */
 	defaultReasoningLevel?: string;
+	/** Per-model billing multipliers relative to the credit base (undefined for local BYOK) */
+	multiplier?: { input: number; output: number; cacheRead: number; cacheWrite: number };
 }
 
 function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[] {
@@ -42,6 +44,7 @@ function flattenModels(config: ModelsConfigData, remote?: boolean): ModelOption[
 				reasoning: model.reasoning,
 				reasoningLevels: model.reasoningLevels,
 				defaultReasoningLevel: model.defaultReasoningLevel,
+				multiplier: (raw.multiplier as ModelOption["multiplier"]) ?? undefined,
 			});
 		}
 	}
@@ -110,7 +113,6 @@ export function useModelOptions(): UseModelOptionsResult {
 		const remote = (remoteProviders as Record<string, { displayName?: string }>)[provider];
 		if (local?.displayName) return local.displayName;
 		if (remote?.displayName) return remote.displayName;
-		if (provider === "vetta-zen") return "Vetta Zen";
 		if (provider === "vetta-go") return "Vetta Go";
 		return provider;
 	};

@@ -1,33 +1,13 @@
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
-import { authTokenAtom, authUserAtom, creditsBalanceAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
-import {
-	fetchCreditsBalance,
-	fetchCreditTransactions,
-	updateProfile,
-	type CreditTransactionVO,
-} from "@shared/lib/api";
+import { authTokenAtom, authUserAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
+import { updateProfile } from "@shared/lib/api";
 import { cn } from "@shared/lib/utils";
 import { Dialog, DialogContent, DialogTitle } from "@shared/components/ui/dialog";
 import { UserAvatar } from "@shared/components/UserAvatar";
 import { SubscriptionCards } from "./SubscriptionCards";
-import { SettingRow, SettingSection } from "./shared";
-import { SETTINGS_SECTION } from "../registry";
-
-const TX_TYPE_LABELS: Record<string, string> = {
-	deduct: "deduct",
-	topup: "topup",
-	admin_adjust: "adminAdjust",
-	initial: "initial",
-};
-
-function formatDate(iso: string): string {
-	const d = new Date(iso);
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export function AccountSettings(): JSX.Element {
 	const { t } = useTranslation("settings");
@@ -52,46 +32,6 @@ export function AccountSettings(): JSX.Element {
 			setError(null);
 		}
 	}, [dialogOpen, user?.nickname]);
-
-	// Credit transactions
-	// Credits balance is only used to fill the shared atom (for Vetta Zen card display), this page no longer renders a separate credits section.
-	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
-	const [transactions, setTransactions] = useState<CreditTransactionVO[]>([]);
-	const [txTotal, setTxTotal] = useState(0);
-	const [txPage, setTxPage] = useState(1);
-	const [txLoading, setTxLoading] = useState(false);
-	const txPageSize = 10;
-
-	// Fetch balance
-	useEffect(() => {
-		if (!token) return;
-		void fetchCreditsBalance(token)
-			.then((r) => setCreditsBalance(r.balance))
-			.catch(() => {});
-	}, [token, setCreditsBalance]);
-
-	// Fetch transactions
-	const loadTransactions = useCallback(
-		(page: number) => {
-			if (!token) return;
-			setTxLoading(true);
-			void fetchCreditTransactions(token, page, txPageSize)
-				.then((r) => {
-					setTransactions(r.list ?? []);
-					setTxTotal(r.total);
-					setTxPage(r.page);
-				})
-				.catch(() => {})
-				.finally(() => setTxLoading(false));
-		},
-		[token],
-	);
-
-	useEffect(() => {
-		loadTransactions(1);
-	}, [loadTransactions]);
-
-	const totalPages = Math.ceil(txTotal / txPageSize);
 
 	const handleSaveNickname = useCallback(async () => {
 		if (!token || !nickname.trim()) return;
@@ -173,7 +113,7 @@ export function AccountSettings(): JSX.Element {
 				</div>
 			</motion.div>
 
-			{/* Subscription cards: Vetta Go / Vetta Zen (credits balance shown in Vetta Zen card) */}
+			{/* Subscription cards: Vetta Go */}
 			<SubscriptionCards />
 
 			{/* Edit nickname dialog */}
@@ -232,80 +172,6 @@ export function AccountSettings(): JSX.Element {
 					</div>
 				</DialogContent>
 			</Dialog>
-
-			{/* Transactions：积分是 Vetta Zen 计费体系，后台关闭 Zen 时隐藏积分记录 */}
-			{subscription.zen_enabled && (
-			<SettingSection t={t as any} section={SETTINGS_SECTION["account-transactions"]}>
-				{txLoading && transactions.length === 0 ? (
-					<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
-						{t("loading")}
-					</div>
-				) : transactions.length === 0 ? (
-					<div className="px-5 py-8 text-center text-[12px] text-muted-foreground">
-						{t("noRecords")}
-					</div>
-				) : (
-					<>
-						<div className="divide-y divide-border">
-							{transactions.map((tx) => (
-								<div key={tx.id} className="flex items-center justify-between px-5 py-3">
-									<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-2">
-											<span className="text-[13px] font-medium text-foreground">
-												{TX_TYPE_LABELS[tx.type] ?? tx.type}
-											</span>
-											{tx.model_id && (
-												<span className="truncate text-[11px] text-muted-foreground">
-													{tx.model_id}
-												</span>
-											)}
-										</div>
-										<div className="mt-0.5 text-[11px] text-muted-foreground">
-											{formatDate(tx.created_at)}
-											{tx.remark && ` - ${tx.remark}`}
-										</div>
-									</div>
-									<div className="ml-4 shrink-0 text-right">
-										<div className={cn(
-											"text-[13px] font-semibold tabular-nums",
-											tx.amount > 0 ? "text-green-600 dark:text-green-400" : "text-red-500",
-										)}>
-											{tx.amount > 0 ? "+" : ""}{tx.amount.toFixed(2)}
-										</div>
-										<div className="text-[11px] tabular-nums text-muted-foreground">
-											{t("balance", { balance: tx.balance.toFixed(2) })}
-										</div>
-									</div>
-								</div>
-							))}
-						</div>
-						{totalPages > 1 && (
-							<div className="flex items-center justify-center gap-2 border-t border-border px-5 py-3">
-								<button
-									type="button"
-									disabled={txPage <= 1}
-									onClick={() => loadTransactions(txPage - 1)}
-									className="rounded px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
-								>
-									{t("prevPage")}
-								</button>
-								<span className="text-[12px] tabular-nums text-muted-foreground">
-									{txPage} / {totalPages}
-								</span>
-								<button
-									type="button"
-									disabled={txPage >= totalPages}
-									onClick={() => loadTransactions(txPage + 1)}
-									className="rounded px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-40"
-								>
-									{t("nextPage")}
-								</button>
-							</div>
-						)}
-					</>
-				)}
-			</SettingSection>
-			)}
 		</div>
 	);
 }

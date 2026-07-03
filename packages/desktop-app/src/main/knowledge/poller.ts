@@ -139,7 +139,7 @@ async function applyProcessingModel(
 	const provider = modelKey.slice(0, slash);
 	const modelId = modelKey.slice(slash + 1);
 	// 复用的共享 registry 是启动时后台预热远程模型的，此处 find 前先确保远程已加载
-	// （幂等 + inflight 去重，已加载时几乎零成本）：否则加工模型若是远程模型（vetta-zen 等），
+	// （幂等 + inflight 去重，已加载时几乎零成本）：否则加工模型若是远程模型（vetta-go 等），
 	// 预热未完成时会被误判为「未找到」。原先 KB 会话自建 registry 时会 await 一次，这里补回。
 	await session.modelRegistry.loadRemoteModels();
 	// 解析失败必须抛出、不能静默：否则会话会退回默认模型或无模型，用户在设置里切换模型
