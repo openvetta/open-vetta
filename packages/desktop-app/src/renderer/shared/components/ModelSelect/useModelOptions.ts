@@ -110,7 +110,6 @@ export function useModelOptions(): UseModelOptionsResult {
 		const remote = (remoteProviders as Record<string, { displayName?: string }>)[provider];
 		if (local?.displayName) return local.displayName;
 		if (remote?.displayName) return remote.displayName;
-		if (provider === "vetta-zen") return "Vetta Zen";
 		if (provider === "vetta-go") return "Vetta Go";
 		return provider;
 	};

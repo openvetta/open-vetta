@@ -23,7 +23,6 @@ import type { DesktopSchedulerApi } from "./api-types/scheduler.js";
 import type { DesktopSessionApi } from "./api-types/session.js";
 import type { DesktopSkillsApi } from "./api-types/skills.js";
 import type {
-	DesktopCreditsApi,
 	DesktopPermissionsApi,
 	DesktopRuntimesApi,
 	DesktopSettingsApi,
@@ -80,7 +79,6 @@ export interface DesktopApi {
 	mcp: DesktopMcpApi;
 	media: DesktopMediaApi;
 	settings: DesktopSettingsApi;
-	credits: DesktopCreditsApi;
 	subscription: DesktopSubscriptionApi;
 	shell: DesktopShellApi;
 	window: DesktopWindowApi;

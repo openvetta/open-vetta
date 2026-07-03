@@ -4,7 +4,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useNavigate } from "@tanstack/react-router";
 import { useTheme } from "@shared/hooks/useTheme";
 import { useAuth } from "@domains/auth/hooks/useAuth";
-import { creditsBalanceAtom, creditsUnlimitedAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
+import { subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { downloadsActiveCountAtom, themeModeAtom, loginDialogOpenAtom, type ThemeMode } from "@shared/store/atoms";
 import { Popover, PopoverTrigger, PopoverContent } from "@shared/components/ui/popover";
 import { UserAvatar } from "@shared/components/UserAvatar";
@@ -31,24 +31,13 @@ export function SettingsMenu(): JSX.Element {
 	const navigate = useNavigate();
 	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
 	const { user, logout } = useAuth();
-	const creditsBalance = useAtomValue(creditsBalanceAtom);
-	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
 	const subscription = useAtomValue(subscriptionStatusAtom);
-	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
-	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
 	const setSubscriptionStatus = useSetAtom(subscriptionStatusAtom);
 
-	// popover 打开时重新拉取额度/订阅，保证展示的是最新消耗值（消息消耗后无主动 invalidate）。
+	// popover 打开时重新拉取订阅，保证展示的是最新消耗值（消息消耗后无主动 invalidate）。
 	const handleOpenChange = (next: boolean): void => {
 		setOpen(next);
 		if (next && user) {
-			void window.vetta.credits
-				.getBalance()
-				.then((result) => {
-					setCreditsBalance(result.balance);
-					setCreditsUnlimited(result.unlimited ?? false);
-				})
-				.catch(console.error);
 			void window.vetta.subscription
 				.getStatus()
 				.then((result) => {
@@ -171,31 +160,6 @@ export function SettingsMenu(): JSX.Element {
 								</div>
 							</div>
 						</motion.div>
-
-						{/* Credits balance: credits are Vetta Zen billing, hidden when Zen is disabled */}
-						{user && subscription.zen_enabled && (creditsBalance !== null || creditsUnlimited) && (
-							<motion.div key="credits" variants={itemVariants}>
-								<div className="mx-1 my-1 border-t border-border" />
-								<div className="mx-2 my-1.5 flex items-center justify-between rounded-md bg-accent/50 px-2 py-1.5">
-									<div className="flex items-center gap-1.5">
-										<span className="icon-[solar--wallet-linear] h-3.5 w-3.5 text-muted-foreground" />
-										<span className="text-[11px] text-muted-foreground">{t("sidebar.creditsRemaining")}</span>
-									</div>
-									{creditsUnlimited ? (
-										<span className="text-[12px] font-semibold text-primary">
-											{t("sidebar.creditsUnlimited")}
-										</span>
-									) : (
-										<span className={cn(
-											"text-[12px] font-semibold tabular-nums",
-											(creditsBalance ?? 0) <= 0 ? "text-destructive" : "text-foreground",
-										)}>
-											{(creditsBalance ?? 0).toFixed(2)}
-										</span>
-									)}
-								</div>
-							</motion.div>
-						)}
 
 						{/* 5 小时额度（仅后台开启 Vetta Go 时展示） */}
 						{fiveHourWindow && (

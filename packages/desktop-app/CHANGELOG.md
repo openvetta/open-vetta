@@ -24,6 +24,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Removed
 
+- **移除 Vetta Zen（按需付费/积分制）会员卡与积分体系**（配合后端 ADR-0038，网关塌缩为单一 Vetta Go Token Plan）：账户设置的会员卡区删除 `VettaZenCard`、积分余额与交易记录展示，只保留 Vetta Go 卡；`SubscriptionStatus.zen_enabled` 下线，模型清单只识别 `vetta-go` provider。连带删除积分 API 链路：渲染层 `fetchCreditsBalance`/`fetchCreditTransactions`/`CreditTransactionVO`、`creditsBalanceAtom`/`creditsUnlimitedAtom`、账户设置的交易记录 section，主/预加载层 `DesktopCreditsApi`、`vetta:credits:balance` IPC handler 及相关 preload wiring。
 - **移除「产物列表」面板（ArtifactCard）**：删除消息列表底部基于启发式推断的产物面板及其全部支撑代码——`ArtifactCard` 组件、`turnModifiedFilesAtom`、`chat-service` 的 `extractModifiedFiles` 及其 shell 重定向 / result 文本扫描等 helper、`useSessionManager` 的相关写入。旧实现靠扫工具调用文本猜测产出文件，既漏掉真实成品（如 node 脚本写的 .pptx）又捞进中间脚手架（解包的 XML、临时文件）和纯文本误命中。改由：git 项目走新的插件 turn 卡（真相来自 `git status`），非 git 项目靠 agent 在完成总结里用 md 链接列出成品（系统提示词约束，见 `@vetta/coding-agent`），点击 md 链接即可预览。
 
 ### Added

@@ -33,10 +33,6 @@ export interface DesktopSettingsApi {
 	setServerRefreshToken(token: string | undefined): Promise<void>;
 }
 
-export interface DesktopCreditsApi {
-	getBalance(): Promise<{ balance: number | null; unlimited?: boolean }>;
-}
-
 /** 套餐配额窗口：5 小时 / 周 / 月三档。 */
 export interface SubscriptionWindow {
 	kind: "5h" | "week" | "month";
@@ -49,7 +45,6 @@ export interface SubscriptionWindow {
 /** GET /subscription/me 的业务数据（已 unwrap data）。 */
 export interface SubscriptionStatus {
 	active: boolean;
-	zen_enabled: boolean;
 	go_enabled: boolean;
 	tier_id?: string;
 	tier_name?: string;

@@ -339,22 +339,6 @@ export async function syncProviderTemplates(): Promise<ProviderTemplatesResult> 
 	return result;
 }
 
-async function fetchCreditsBalance(): Promise<{ balance: number | null; unlimited?: boolean }> {
-	try {
-		const response = await authedGet("/credits/balance");
-		if (!response) return { balance: null };
-		if (!response.ok) return { balance: null };
-
-		const body = (await response.json()) as { code: number; data?: { balance?: number; unlimited?: boolean } };
-		if (body.code !== 0) {
-			return { balance: null };
-		}
-		return { balance: body.data?.balance ?? null, unlimited: body.data?.unlimited };
-	} catch {
-		return { balance: null };
-	}
-}
-
 interface SubscriptionWindow {
 	kind: "5h" | "week" | "month";
 	limit: number;
@@ -364,7 +348,6 @@ interface SubscriptionWindow {
 
 interface SubscriptionStatus {
 	active: boolean;
-	zen_enabled: boolean;
 	go_enabled: boolean;
 	tier_id?: string;
 	tier_name?: string;
@@ -503,10 +486,6 @@ export function registerSettingsIpc(): () => void {
 	// 即便用户从不打开设置页,ModelSelector 也能反映更新。失败静默(离线回退快照)。
 	void syncProviderTemplates().catch(() => {});
 
-	ipcMain.handle("vetta:credits:balance", async () => {
-		return fetchCreditsBalance();
-	});
-
 	ipcMain.handle("vetta:subscription:status", async () => {
 		return fetchSubscriptionStatus();
 	});
@@ -528,7 +507,6 @@ export function registerSettingsIpc(): () => void {
 		ipcMain.removeHandler("vetta:settings:set-server-refresh-token");
 		ipcMain.removeHandler("vetta:models:fetch-remote");
 		ipcMain.removeHandler("vetta:models:fetch-templates");
-		ipcMain.removeHandler("vetta:credits:balance");
 		ipcMain.removeHandler("vetta:subscription:status");
 		ipcMain.removeHandler("vetta:auth:refresh-token");
 	};

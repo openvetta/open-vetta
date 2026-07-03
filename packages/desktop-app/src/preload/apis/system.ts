@@ -19,7 +19,6 @@ export function createSystemApi(
 	| "media"
 	| "runtimes"
 	| "settings"
-	| "credits"
 	| "subscription"
 	| "shell"
 	| "window"
@@ -176,9 +175,6 @@ export function createSystemApi(
 			setServerToken: (token) => ipc.invoke("vetta:settings:set-server-token", token),
 			getServerRefreshToken: () => ipc.invoke("vetta:settings:get-server-refresh-token"),
 			setServerRefreshToken: (token) => ipc.invoke("vetta:settings:set-server-refresh-token", token),
-		},
-		credits: {
-			getBalance: () => ipc.invoke("vetta:credits:balance"),
 		},
 		subscription: {
 			getStatus: () => ipc.invoke("vetta:subscription:status"),
