@@ -340,7 +340,15 @@ desktop-app 的一项[[实验性功能]]（`experimental.promptPrediction`，**�
 
 ### 积分（credit）
 
-计量单位，1 积分 = 1 元真实成本（模型 token 真实价格按元/百万 token 折算，见 ADR-0015）。[[Vetta Zen / 按需付费]] 与 [[Vetta Go / Token Plan]] 共用同一单位语义，区别只在「积分从哪扣、受什么约束」。
+[[Vetta Go / Token Plan]] 唯一的**内部记账单位**，由 [[信用基座（credit base）]] × 每模型的四类 [[倍率（multiplier）]] 换算得来：`积分 = credit_base × Σ_4类( 该类 token / 1e6 × 该类倍率 )`（四类 = input / output / cacheRead / cacheWrite）。**与真实成本彻底解耦**——不再是「1 积分 = 1 元」。系统**不存真实成本**，仅 `credit_base` 一个旋钮；`¥/积分` 换算（心算参考「1 积分 ≈ ¥0.00309」）仅为外部离线校准用途，**不入库、不下发客户端、不参与计费**（见 ADR-0039，取代 ADR-0015/0038 的「1 积分 = 1 元」口径）。消耗只累加进 [[窗口配额]]。
+
+### 信用基座（credit base）
+
+全局单一定价基准（`gateway.credit_base`，默认 1000，语义「1x 倍率 = 1 积分 / 千 token = 1000 积分 / 百万 token」），在[[网关设置]]可改。是 [[积分（credit）]] 计费公式里唯一的全局系数：`积分 = credit_base × Σ_4类( 该类 token / 1e6 × 该类倍率 )`，也是系统内**唯一**的定价旋钮。存在的意义是**一键整体调价**——改这一个值即让全平台所有模型同比涨/降价，无需逐模型改配置。系统**不存真实成本**：无 `gateway.credit_cny_rate` 设置、也不下发派生元单价；`¥/积分` 换算仅为外部离线校准的心算参考（1 积分 ≈ ¥0.00309），不入库、不参与计算。见 ADR-0039。
+
+### 倍率（multiplier）
+
+每个 `ProviderModel` 存的**相对定价系数**，取代旧的「每模型绝对价（Cost 元 + CreditCost 积分 双份）」。复用既有 `ModelCost` 结构的四个 float 字段（input / output / cacheRead / cacheWrite），但语义从「元/百万 token 的价」变为「相对基准的倍率」（基准锚定 DeepSeek V4 Pro 输入真实价 ¥3.09，故倍率 = 旧元价 / 3.09）。每类 token 独立倍率，因各模型的缓存折扣比例不同、无法用单一 scalar 表达。计费时 [[信用基座（credit base）]] × 各类倍率累加即得 [[积分（credit）]]。缓存两类倍率留空（0）时**回退按输入倍率计**（过收不漏，安全侧）；[[档位]] 的按次计费逃生舱（`per_request`）不走倍率。见 ADR-0039。
 
 ### Vetta Zen / 按需付费（pay as you go）
 
