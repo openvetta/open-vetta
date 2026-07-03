@@ -1,4 +1,5 @@
 import type { LoginDialogView } from "@domains/auth/components/LoginDialogView";
+import type { InputBarView } from "@domains/chat/components/input-bar/InputBarView";
 import type { FilePreviewDialogView } from "@domains/file-preview/components/FilePreviewDialogView";
 import type { FlowingSendDialogView } from "@domains/flowing/components/FlowingSendDialogView";
 import type { WorkflowCompleteDialogView } from "@domains/flowing/components/WorkflowCompleteDialogView";
@@ -36,6 +37,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;
 		readonly "app.windowControls"?: ComponentType<WindowControlsComponentProps>;
 		readonly "app.windowControlButton"?: typeof WindowControlButton;
+		readonly "chat.inputBarView"?: typeof InputBarView;
 		readonly "root.approval.appearancePicker"?: ComponentType;
 		readonly "root.approval.appearanceDrawerView"?: typeof AppearanceApprovalDrawerView;
 		readonly "root.approval.batchTasksExecution"?: ComponentType;
@@ -76,6 +78,7 @@ declare module "@vetta/theme-sdk" {
 	interface ThemeSurfaceRegistry {
 		readonly "app.pageHeader"?: ThemeSurfaceConfig;
 		readonly "app.windowControls"?: ThemeSurfaceConfig;
+		readonly "chat.inputBar"?: ThemeSurfaceConfig;
 		readonly "root.confirmDialog.panel"?: ThemeSurfaceConfig;
 		readonly "root.filePreviewDialog"?: ThemeSurfaceConfig;
 		readonly "root.filePreviewDialog.panel"?: ThemeSurfaceConfig;
