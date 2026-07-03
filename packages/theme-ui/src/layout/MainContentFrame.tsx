@@ -16,7 +16,7 @@ export function MainContentFrame({
 }: MainContentFrameProps): JSX.Element {
 	return (
 		<main
-			className={cn("relative flex min-w-[320px] flex-1 flex-col overflow-hidden bg-transparent", className)}
+			className={cn("relative flex min-w-[320px] flex-1 flex-col overflow-visible bg-transparent", className)}
 			{...props}
 		>
 			{header}
