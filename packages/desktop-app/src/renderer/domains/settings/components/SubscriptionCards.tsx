@@ -260,9 +260,7 @@ function VettaGoCard({
 								<div key={w.kind} className="rounded-xl border border-border bg-background/40 px-3 py-2.5">
 									<div className="flex items-center justify-between text-[12px]">
 										<span className="font-medium text-foreground">{WINDOW_LABELS[w.kind]}</span>
-										<span className="tabular-nums text-muted-foreground">
-											{Math.round(w.consumed)} / {Math.round(w.limit)}
-										</span>
+										<span className="tabular-nums text-muted-foreground">{pct}%</span>
 									</div>
 									<div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border">
 										<motion.div
@@ -305,19 +303,20 @@ function VettaGoCard({
 }
 
 type ModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
-type RemoteModel = { id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number; tags?: string[]; cost?: ModelCost };
+type RemoteModel = { id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number; tags?: string[]; multiplier?: ModelCost };
 type RemoteProvider = { api?: string; baseUrl?: string; icon?: string; models?: RemoteModel[] };
 
-/** 积分价格数字格式化：整数原样，否则最多两位小数去尾零。 */
-function formatCredit(n: number, t?: (key: string) => string): string {
-	return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+/** 倍率数字格式化：整数原样，有小数保留两位。 */
+function fmt(n: number): string {
+	return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
 /** 单个模型卡片：Go 传 hoverColor 跟随 badge 色。 */
 function ModelChip({ model, hoverColor }: { model: RemoteModel; hoverColor?: string }): JSX.Element {
 	const { t } = useTranslation("settings");
-	const cost = model.cost;
-	const hasPrice = !!cost && (cost.input > 0 || cost.output > 0);
+	const mul = model.multiplier;
+	const showMultiplier = !!mul && (mul.input > 0 || mul.output > 0);
+	const isFree = !!mul && mul.input === 0 && mul.output === 0;
 	return (
 		<motion.div
 			variants={chipVariants}
@@ -344,13 +343,18 @@ function ModelChip({ model, hoverColor }: { model: RemoteModel; hoverColor?: str
 					))}
 				</div>
 			)}
-			{hasPrice && cost && (
+			{showMultiplier && mul && (
 				<div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
 					<span className="icon-[mdi--circle-multiple-outline] h-3 w-3 shrink-0 opacity-70" />
 					<span className="tabular-nums">
-						{t("creditInOutShort", { in: formatCredit(cost.input), out: formatCredit(cost.output) })}
+						{t("multiplierInOut", { in: fmt(mul.input), out: fmt(mul.output) })}
 					</span>
-					<span className="opacity-60">{t("creditsPerMTok")}</span>
+				</div>
+			)}
+			{isFree && (
+				<div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+					<span className="icon-[mdi--circle-multiple-outline] h-3 w-3 shrink-0 opacity-70" />
+					<span>{t("freeModel")}</span>
 				</div>
 			)}
 		</motion.div>
