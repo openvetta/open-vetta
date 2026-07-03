@@ -38,7 +38,6 @@ const NAV_ITEMS = [
 		path: "/knowledge" as const,
 		labelKey: "sidebar.nav.knowledge",
 		icon: "icon-[solar--library-linear]",
-		badge: "BETA",
 	},
 	{ type: "route", path: "/skills" as const, labelKey: "sidebar.nav.skills", icon: "icon-[solar--widget-5-linear]" },
 ] as const;
@@ -135,7 +134,6 @@ export function useSidebarModel({
 			labelKey: item.labelKey,
 			icon: item.icon,
 			active: isRouteActive(item.path, currentPath),
-			...("badge" in item ? { badge: item.badge } : {}),
 		};
 	});
 	const activeNavIndex = navItems.findIndex((item) => item.active);
