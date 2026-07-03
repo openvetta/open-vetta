@@ -4,6 +4,8 @@ import type { AtPanelView } from "@domains/chat/components/at-panel/AtPanelView"
 import type { ExecutionModeSelectorView } from "@domains/chat/components/execution-mode-selector/ExecutionModeSelectorView";
 import type { InputBarView } from "@domains/chat/components/input-bar/InputBarView";
 import type { ModelSelectorView } from "@domains/chat/components/model-selector/ModelSelectorView";
+import type { SceneCard } from "@domains/chat/components/new-session/SceneCard";
+import type { SkillCard } from "@domains/chat/components/new-session/SkillCard";
 import type { QuestionPanelView } from "@domains/chat/components/question-panel/QuestionPanelView";
 import type { SlashPanelView } from "@domains/chat/components/slash-panel/SlashPanelView";
 import type { FilePreviewDialogView } from "@domains/file-preview/components/FilePreviewDialogView";
@@ -52,6 +54,8 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.inputDrawer"?: typeof DrawerCard;
 		readonly "chat.inputBarView"?: typeof InputBarView;
 		readonly "chat.modelSelectorView"?: typeof ModelSelectorView;
+		readonly "chat.newSessionSceneCard"?: typeof SceneCard;
+		readonly "chat.newSessionSkillCard"?: typeof SkillCard;
 		readonly "chat.questionPanelView"?: typeof QuestionPanelView;
 		readonly "chat.slashPanelView"?: typeof SlashPanelView;
 		readonly "root.approval.appearancePicker"?: ComponentType;
@@ -105,6 +109,8 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.inputBar"?: ThemeSurfaceConfig;
 		readonly "chat.modelSelectorMenu"?: ThemeSurfaceConfig;
 		readonly "chat.modelSelectorReasoningMenu"?: ThemeSurfaceConfig;
+		readonly "chat.newSessionSceneCard"?: ThemeSurfaceConfig;
+		readonly "chat.newSessionSkillCard"?: ThemeSurfaceConfig;
 		readonly "chat.questionPanel"?: ThemeSurfaceConfig;
 		readonly "chat.slashPanel"?: ThemeSurfaceConfig;
 		readonly "root.confirmDialog.panel"?: ThemeSurfaceConfig;
