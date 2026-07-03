@@ -152,7 +152,7 @@ export function SettingsPage(): JSX.Element {
 	}, [tab, targetSection, navigationNonce]);
 
 	return (
-		<div className="relative flex h-full w-full flex-1 overflow-hidden">
+		<div className="relative flex min-h-0 w-full flex-1 overflow-hidden">
 			{/* Vertical divider — stops short of the bottom by titlebar-height so it doesn't touch the window edge */}
 			<div
 				className={cn(
@@ -192,7 +192,7 @@ export function SettingsPage(): JSX.Element {
 			</div>
 
 			{/* Settings content */}
-			<div className="no-scrollbar flex flex-1 flex-col overflow-y-auto bg-background">
+			<div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background">
 				{/* Drag region */}
 				<div className="drag-region h-12 shrink-0" />
 				<Content />
