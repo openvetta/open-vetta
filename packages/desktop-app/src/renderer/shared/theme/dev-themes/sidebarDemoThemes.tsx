@@ -17,6 +17,11 @@ import {
 import type { ThemeModule } from "@vetta/theme-sdk";
 
 const sidebarFrameAchievement = getAchievementSetById("classic").achievements[1];
+const sidebarDemoFrame = {
+	kind: "corner-image",
+	imageUrl: sidebarFrameAchievement.frameUrl,
+	decoration: sidebarFrameAchievement.frameDecoration,
+} as const;
 
 export const sidebarAppearanceDemoTheme: ThemeModule = {
 	meta: {
@@ -28,11 +33,55 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 	appearance: {
 		surfaces: {
 			"sidebar.panel": {
-				frame: {
-					kind: "corner-image",
-					imageUrl: sidebarFrameAchievement.frameUrl,
-					decoration: sidebarFrameAchievement.frameDecoration,
-				},
+				frame: sidebarDemoFrame,
+			},
+			"app.pageHeader": {
+				frame: sidebarDemoFrame,
+			},
+			"app.windowControls": {
+				frame: sidebarDemoFrame,
+			},
+			"root.confirmDialog.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.filePreviewDialog": {
+				frame: sidebarDemoFrame,
+			},
+			"root.filePreviewDialog.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.flowingSendDialog.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.genericActionApproval.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.knowledgeDropOverlay": {
+				frame: sidebarDemoFrame,
+			},
+			"root.loginDialog.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.approval.appearance.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.approval.batchTasks.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.approval.navigationOpen.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.approval.schedulerAction.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.approval.schedulerEdit.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.updateRestartDialog.panel": {
+				frame: sidebarDemoFrame,
+			},
+			"root.workflowCompleteDialog.panel": {
+				frame: sidebarDemoFrame,
 			},
 		},
 	},

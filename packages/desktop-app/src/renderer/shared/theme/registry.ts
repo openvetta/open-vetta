@@ -7,6 +7,7 @@ import type { SidebarNavItemButton } from "@domains/project/components/sidebar/S
 import type { SettingsMenuTrigger } from "@domains/project/components/sidebar/settings-menu/SettingsMenuTrigger";
 import type { SidebarRegionProps } from "@domains/project/components/sidebar/types";
 import type { AppearanceApprovalDrawerView } from "@shared/action-approval/appearance/AppearanceApprovalDrawerView";
+import type { BatchTasksApprovalFrameView } from "@shared/action-approval/batch-tasks/BatchTasksApprovalFrameView";
 import type { GenericActionApprovalView } from "@shared/action-approval/GenericActionApprovalView";
 import type { NavigationOpenApprovalView } from "@shared/action-approval/navigation/NavigationOpenApprovalView";
 import type { SchedulerActionApprovalDialogView } from "@shared/action-approval/scheduler/SchedulerActionApprovalDialogView";
@@ -38,6 +39,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.approval.appearancePicker"?: ComponentType;
 		readonly "root.approval.appearanceDrawerView"?: typeof AppearanceApprovalDrawerView;
 		readonly "root.approval.batchTasksExecution"?: ComponentType;
+		readonly "root.approval.batchTasksFrameView"?: typeof BatchTasksApprovalFrameView;
 		readonly "root.approval.batchTasksProject"?: ComponentType;
 		readonly "root.approval.batchTasksTask"?: ComponentType;
 		readonly "root.approval.navigationOpen"?: ComponentType;
@@ -82,6 +84,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.knowledgeDropOverlay"?: ThemeSurfaceConfig;
 		readonly "root.loginDialog.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.appearance.panel"?: ThemeSurfaceConfig;
+		readonly "root.approval.batchTasks.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.navigationOpen.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.schedulerAction.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.schedulerEdit.panel"?: ThemeSurfaceConfig;

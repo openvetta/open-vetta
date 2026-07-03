@@ -78,7 +78,7 @@ export function FlowingSendDialogView({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="relative overflow-hidden sm:max-w-md">
+			<DialogContent className="overflow-visible sm:max-w-md">
 				<ThemeSurface slot="root.flowingSendDialog.panel" />
 				<div className="relative z-10 contents">
 					<DialogHeader>

@@ -81,7 +81,7 @@ export function LoginDialogView({
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						exit={{ opacity: 0, scale: 0.97, y: 8 }}
 						transition={{ type: "spring", stiffness: 300, damping: 26 }}
-						className="relative w-[380px] overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-lg backdrop-blur-md"
+						className="relative w-[380px] overflow-visible rounded-2xl border border-border/60 bg-card/95 shadow-lg backdrop-blur-md"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<ThemeSurface slot="root.loginDialog.panel" />

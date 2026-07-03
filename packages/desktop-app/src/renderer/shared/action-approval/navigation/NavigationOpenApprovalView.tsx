@@ -43,7 +43,7 @@ export function NavigationOpenApprovalView({
 	return (
 		<Dialog open>
 			<DialogContent
-				className="relative max-h-[90vh] overflow-hidden sm:max-w-[520px]"
+				className="max-h-[90vh] overflow-visible sm:max-w-[520px]"
 				showCloseButton={false}
 				onInteractOutside={(event) => event.preventDefault()}
 			>

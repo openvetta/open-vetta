@@ -59,7 +59,7 @@ export function SchedulerEditApprovalDrawerView({
 
 	return (
 		<Drawer open direction="right" dismissible={false}>
-			<DrawerContent className={cn("relative w-[min(520px,calc(100vw-2rem))] overflow-hidden sm:max-w-[520px]", className, classNames?.content)}>
+			<DrawerContent className={cn("w-[min(520px,calc(100vw-2rem))] overflow-visible sm:max-w-[520px]", className, classNames?.content)}>
 				<ThemeSurface slot="root.approval.schedulerEdit.panel" />
 				<div className="relative z-10 flex min-h-0 flex-1 flex-col">
 					<DrawerHeader className={cn("border-b border-border/60", classNames?.header)}>
