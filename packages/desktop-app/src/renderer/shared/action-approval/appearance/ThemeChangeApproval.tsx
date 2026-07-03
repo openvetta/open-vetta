@@ -2,8 +2,9 @@ import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { themeModeAtom, themeNameAtom, type ThemeMode } from "@shared/store/atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../../components/ui/drawer";
+import { useTranslation } from "react-i18next";
+import { useThemeComponent } from "@vetta/theme-sdk";
+import { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
 import { useActionApproval } from "../useActionApproval";
 
@@ -43,54 +44,52 @@ function ThemeChangeDrawer({
 	currentMode: ThemeMode;
 	currentThemeId: string;
 }): JSX.Element {
+	const { t } = useTranslation("common");
 	const { request, responding, error, approve, reject } = approval;
 	const input = isThemeSetInput(request.input) ? request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
+	const ThemedAppearanceApprovalDrawerView = useThemeComponent(
+		"root.approval.appearanceDrawerView",
+		AppearanceApprovalDrawerView,
+	);
 
 	return (
-		<Drawer open direction="right" dismissible={false}>
-			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
-				<DrawerHeader className="border-b border-border/60">
-					<DrawerTitle>编辑主题变更</DrawerTitle>
-					<DrawerDescription>{request.summary}</DrawerDescription>
-				</DrawerHeader>
-				<div className="min-h-0 flex-1 overflow-y-auto p-4">
-					{input ? (
-						<AppearanceActionPicker
-							mode={mode}
-							themeId={themeId}
-							onModeChange={setMode}
-							onThemeChange={setThemeId}
-						/>
-					) : (
-						<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[11px] leading-5 text-foreground">
-							{JSON.stringify(request.input, null, 2)}
-						</pre>
-					)}
-					<div className="mt-4 text-[11px] text-muted-foreground">权限：{request.permission}</div>
-					{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
-				</div>
-				<DrawerFooter className="border-t border-border/60">
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{approval.countdown.formatted}）
-					</Button>
-					<Button
-						size="sm"
-						disabled={responding || !input}
-						onClick={() =>
-							approve({
-								type: "set",
-								mode,
-								themeId,
-								approvalUi: input?.approvalUi ?? "appearance.theme-change",
-							})
-						}
-					>
-						{responding ? "提交中..." : "确认变更"}
-					</Button>
-				</DrawerFooter>
-			</DrawerContent>
-		</Drawer>
+		<ThemedAppearanceApprovalDrawerView
+			canConfirm={!!input}
+			countdown={approval.countdown.formatted}
+			error={error}
+			labels={{
+				confirm: t("appearanceApproval.confirmChange"),
+				permission: t("actionApproval.permission", { permission: request.permission }),
+				reject: t("actionApproval.reject"),
+				responding: t("appearanceApproval.submitting"),
+			}}
+			onConfirm={() =>
+				approve({
+					type: "set",
+					mode,
+					themeId,
+					approvalUi: input?.approvalUi ?? "appearance.theme-change",
+				})
+			}
+			onReject={reject}
+			responding={responding}
+			summary={request.summary}
+			title={t("appearanceApproval.themeChangeTitle")}
+		>
+			{input ? (
+				<AppearanceActionPicker
+					mode={mode}
+					themeId={themeId}
+					onModeChange={setMode}
+					onThemeChange={setThemeId}
+				/>
+			) : (
+				<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[11px] leading-5 text-foreground">
+					{JSON.stringify(request.input, null, 2)}
+				</pre>
+			)}
+		</ThemedAppearanceApprovalDrawerView>
 	);
 }

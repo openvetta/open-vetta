@@ -1,5 +1,6 @@
-import { Button } from "../components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { useThemeComponent } from "@vetta/theme-sdk";
+import { useTranslation } from "react-i18next";
+import { GenericActionApprovalView } from "./GenericActionApprovalView";
 import { useActionApproval } from "./useActionApproval";
 
 interface ApprovalDisplay {
@@ -165,38 +166,29 @@ function getApprovalDisplay(request: {
 }
 
 export function GenericActionApproval(): JSX.Element | null {
+	const { t } = useTranslation("common");
 	const approval = useActionApproval("generic");
+	const ThemedGenericActionApprovalView = useThemeComponent("root.genericActionApprovalView", GenericActionApprovalView);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 	const display = getApprovalDisplay(request);
 
 	return (
-		<Dialog open>
-			<DialogContent
-				className="max-h-[90vh] overflow-hidden sm:max-w-[520px]"
-				showCloseButton={false}
-				onInteractOutside={(event) => event.preventDefault()}
-			>
-				<DialogHeader>
-					<DialogTitle>{display.title}</DialogTitle>
-					<DialogDescription>{display.summary}</DialogDescription>
-				</DialogHeader>
-				<div className="min-h-0 overflow-y-auto">
-					<pre className="whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[11px] leading-5 text-foreground">
-						{JSON.stringify(request.input, null, 2)}
-					</pre>
-					<div className="mt-3 text-[11px] text-muted-foreground">权限：{display.permissionLabel}</div>
-					{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
-				</div>
-				<DialogFooter>
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{approval.countdown.formatted}）
-					</Button>
-					<Button size="sm" disabled={responding} onClick={() => approve()}>
-						{responding ? "处理中..." : display.confirmLabel}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+		<ThemedGenericActionApprovalView
+			confirmLabel={display.confirmLabel}
+			countdown={approval.countdown.formatted}
+			error={error}
+			inputJson={JSON.stringify(request.input, null, 2)}
+			labels={{
+				rejecting: t("actionApproval.reject"),
+				responding: t("actionApproval.processing"),
+			}}
+			onApprove={() => approve()}
+			onReject={reject}
+			permissionLabel={t("actionApproval.permission", { permission: display.permissionLabel })}
+			responding={responding}
+			summary={display.summary}
+			title={display.title}
+		/>
 	);
 }

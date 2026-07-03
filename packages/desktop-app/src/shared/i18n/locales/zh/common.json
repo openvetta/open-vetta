@@ -35,6 +35,58 @@
 		"footerHint": "登录即表示同意服务条款与隐私政策",
 		"error": "登录失败"
 	},
+	"flowingSendDialog": {
+		"title": "内容流转",
+		"description": "将选中的文件发送给同事",
+		"nextStageDescription": "流转至下一阶段: {{stageName}}",
+		"files": "文件",
+		"add": "添加",
+		"emptyFiles": "点击选择要流转的文件",
+		"receivers": "接收方",
+		"nextStageMembers": "下一阶段成员",
+		"emptyMembers": "暂无同组织成员",
+		"emptyNextStageMembers": "下一阶段暂无成员",
+		"message": "附加消息",
+		"optional": "可选",
+		"messagePlaceholder": "输入附加消息...",
+		"selectedSummary": "{{count}} 个文件 → {{receivers}}",
+		"send": "发送",
+		"sending": "发送中",
+		"nextStageMembersError": "获取下一阶段成员失败",
+		"completeStageError": "完成当前阶段失败"
+	},
+	"workflowCompleteDialog": {
+		"title": "完成工作流",
+		"description": "当前为最终环节「{{stageName}}」，确认完成后工作流将结束",
+		"files": "最终成果文件",
+		"emptyFiles": "选择最终成果文件（可选）",
+		"message": "完成备注",
+		"messagePlaceholder": "输入完成备注...",
+		"complete": "确认完成",
+		"completing": "处理中",
+		"error": "完成工作流失败"
+	},
+	"actionApproval": {
+		"reject": "拒绝",
+		"processing": "处理中...",
+		"permission": "权限：{{permission}}",
+		"permissionPrefix": "权限："
+	},
+	"navigationApproval": {
+		"title": "页面跳转确认",
+		"target": "目标页面",
+		"tab": "标签页",
+		"section": "设置项",
+		"confirm": "确认跳转",
+		"responding": "跳转中..."
+	},
+	"appearanceApproval": {
+		"pickerTitle": "选择应用主题",
+		"themeChangeTitle": "编辑主题变更",
+		"apply": "应用主题",
+		"confirmChange": "确认变更",
+		"submitting": "提交中..."
+	},
 	"appShell": {
 		"routeTitles": {
 			"automation": "自动化",

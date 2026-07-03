@@ -1,7 +1,8 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
-import { Button } from "../../components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { useThemeComponent } from "@vetta/theme-sdk";
+import { useTranslation } from "react-i18next";
 import { useActionApproval } from "../useActionApproval";
+import { NavigationOpenApprovalView } from "./NavigationOpenApprovalView";
 
 function isNavigationOpenInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -12,62 +13,42 @@ function isNavigationOpenInput(
 }
 
 export function NavigationOpenApproval(): JSX.Element | null {
+	const { t } = useTranslation("common");
 	const approval = useActionApproval("navigation.open");
+	const ThemedNavigationOpenApprovalView = useThemeComponent(
+		"root.approval.navigationOpenView",
+		NavigationOpenApprovalView,
+	);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
 	const input = isNavigationOpenInput(request.input) ? request.input : null;
+	const fields = input
+		? [
+				{ label: t("navigationApproval.target"), value: input.target },
+				...(input.tab ? [{ label: t("navigationApproval.tab"), value: input.tab }] : []),
+				...(input.section ? [{ label: t("navigationApproval.section"), value: input.section }] : []),
+			]
+		: [];
 
 	return (
-		<Dialog open>
-			<DialogContent
-				className="max-h-[90vh] overflow-hidden sm:max-w-[520px]"
-				showCloseButton={false}
-				onInteractOutside={(event) => event.preventDefault()}
-			>
-				<DialogHeader>
-					<DialogTitle>页面跳转确认</DialogTitle>
-					<DialogDescription>{request.summary}</DialogDescription>
-				</DialogHeader>
-				<div className="min-h-0 overflow-y-auto">
-					{input && (
-						<div className="space-y-1.5">
-							<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-								<span className="text-[11px] text-muted-foreground">目标页面</span>
-								<span className="text-[11px] font-medium text-foreground">{input.target}</span>
-							</div>
-							{input.tab && (
-								<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-									<span className="text-[11px] text-muted-foreground">标签页</span>
-									<span className="text-[11px] font-medium text-foreground">{input.tab}</span>
-								</div>
-							)}
-							{input.section && (
-								<div className="flex items-center justify-between rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5">
-									<span className="text-[11px] text-muted-foreground">设置项</span>
-									<span className="text-[11px] font-medium text-foreground">{input.section}</span>
-								</div>
-							)}
-						</div>
-					)}
-
-					{!input && (
-						<pre className="max-h-[160px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border/50 bg-background/50 px-2.5 py-1.5 font-mono text-[10px] leading-4 text-foreground">
-							{JSON.stringify(request.input, null, 2)}
-						</pre>
-					)}
-					<div className="mt-2.5 text-[10px] text-muted-foreground">权限：{request.permission}</div>
-					{error && <div className="mt-1.5 text-[10px] text-destructive">{error}</div>}
-				</div>
-				<DialogFooter>
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{approval.countdown.formatted}）
-					</Button>
-					<Button size="sm" disabled={responding} onClick={() => approve()}>
-						{responding ? "跳转中..." : "确认跳转"}
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+		<ThemedNavigationOpenApprovalView
+			countdown={approval.countdown.formatted}
+			error={error}
+			fallbackJson={input ? null : JSON.stringify(request.input, null, 2)}
+			fields={fields}
+			labels={{
+				confirm: t("navigationApproval.confirm"),
+				permission: t("actionApproval.permissionPrefix"),
+				reject: t("actionApproval.reject"),
+				responding: t("navigationApproval.responding"),
+				title: t("navigationApproval.title"),
+			}}
+			onApprove={() => approve()}
+			onReject={reject}
+			permission={request.permission}
+			responding={responding}
+			summary={request.summary}
+		/>
 	);
 }
