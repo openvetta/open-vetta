@@ -20,32 +20,57 @@ import { SchedulerUpdateApproval } from "../shared/action-approval/scheduler/Sch
 import { UpdateRestartDialog } from "../shared/components/UpdateRestartDialog";
 import { Toaster } from "../shared/components/ui/Toaster";
 import { ConfirmDialog } from "../shared/components/ui/confirm-dialog";
+import { useThemeComponent } from "@vetta/theme-sdk";
 
 export function RootGlobalOverlays(): JSX.Element {
+	const ThemedConfirmDialog = useThemeComponent("root.confirmDialog", ConfirmDialog);
+	const ThemedLoginDialog = useThemeComponent("root.loginDialog", LoginDialog);
+	const ThemedFlowingSendDialog = useThemeComponent("root.flowingSendDialog", FlowingSendDialog);
+	const ThemedWorkflowCompleteDialog = useThemeComponent("root.workflowCompleteDialog", WorkflowCompleteDialog);
+	const ThemedFilePreviewDialog = useThemeComponent("root.filePreviewDialog", FilePreviewDialog);
+	const ThemedUpdateRestartDialog = useThemeComponent("root.updateRestartDialog", UpdateRestartDialog);
+	const ThemedGenericActionApproval = useThemeComponent("root.genericActionApproval", GenericActionApproval);
+	const ThemedAppearancePickerApproval = useThemeComponent("root.approval.appearancePicker", AppearancePickerApproval);
+	const ThemedThemeChangeApproval = useThemeComponent("root.approval.themeChange", ThemeChangeApproval);
+	const ThemedNavigationOpenApproval = useThemeComponent("root.approval.navigationOpen", NavigationOpenApproval);
+	const ThemedBatchTasksProjectApproval = useThemeComponent("root.approval.batchTasksProject", BatchTasksProjectApproval);
+	const ThemedBatchTasksTaskApproval = useThemeComponent("root.approval.batchTasksTask", BatchTasksTaskApproval);
+	const ThemedBatchTasksExecutionApproval = useThemeComponent(
+		"root.approval.batchTasksExecution",
+		BatchTasksExecutionApproval,
+	);
+	const ThemedSchedulerCreateApproval = useThemeComponent("root.approval.schedulerCreate", SchedulerCreateApproval);
+	const ThemedSchedulerUpdateApproval = useThemeComponent("root.approval.schedulerUpdate", SchedulerUpdateApproval);
+	const ThemedSchedulerDeleteApproval = useThemeComponent("root.approval.schedulerDelete", SchedulerDeleteApproval);
+	const ThemedSchedulerToggleApproval = useThemeComponent("root.approval.schedulerToggle", SchedulerToggleApproval);
+	const ThemedSchedulerExecutionApproval = useThemeComponent("root.approval.schedulerExecution", SchedulerExecutionApproval);
+	const ThemedKnowledgeDropOverlay = useThemeComponent("root.knowledgeDropOverlay", KnowledgeDropOverlay);
+	const ThemedToaster = useThemeComponent("root.toaster", Toaster);
+
 	return (
 		<>
-			<ConfirmDialog />
-			<LoginDialog />
-			<FlowingSendDialog />
-			<WorkflowCompleteDialog />
-			<FilePreviewDialog />
-			<UpdateRestartDialog />
+			<ThemedConfirmDialog />
+			<ThemedLoginDialog />
+			<ThemedFlowingSendDialog />
+			<ThemedWorkflowCompleteDialog />
+			<ThemedFilePreviewDialog />
+			<ThemedUpdateRestartDialog />
 			<ActionApprovalCenter />
-			<GenericActionApproval />
-			<AppearancePickerApproval />
-			<ThemeChangeApproval />
-			<NavigationOpenApproval />
-			<BatchTasksProjectApproval />
-			<BatchTasksTaskApproval />
-			<BatchTasksExecutionApproval />
-			<SchedulerCreateApproval />
-			<SchedulerUpdateApproval />
-			<SchedulerDeleteApproval />
-			<SchedulerToggleApproval />
-			<SchedulerExecutionApproval />
+			<ThemedGenericActionApproval />
+			<ThemedAppearancePickerApproval />
+			<ThemedThemeChangeApproval />
+			<ThemedNavigationOpenApproval />
+			<ThemedBatchTasksProjectApproval />
+			<ThemedBatchTasksTaskApproval />
+			<ThemedBatchTasksExecutionApproval />
+			<ThemedSchedulerCreateApproval />
+			<ThemedSchedulerUpdateApproval />
+			<ThemedSchedulerDeleteApproval />
+			<ThemedSchedulerToggleApproval />
+			<ThemedSchedulerExecutionApproval />
 			<PluginGlobalSlotHost />
-			<KnowledgeDropOverlay />
-			<Toaster />
+			<ThemedKnowledgeDropOverlay />
+			<ThemedToaster />
 		</>
 	);
 }

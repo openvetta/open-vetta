@@ -13,6 +13,28 @@
 		"languageTitle": "语言",
 		"languageHint": "选择界面显示语言"
 	},
+	"updateRestart": {
+		"title": "更新已就绪",
+		"message": "新版本 {{latestVersion}} 已下载完成（当前 {{currentVersion}}）。立即重启 Vetta 以应用更新，或选择\"稍后\"，下次启动会再次提示。",
+		"later": "稍后",
+		"install": "立即重启"
+	},
+	"filePreview": {
+		"showInFolder": "在文件夹中显示",
+		"download": "下载",
+		"close": "关闭 (Esc)"
+	},
+	"loginDialog": {
+		"title": "登录 Vetta",
+		"subtitle": "使用账号或第三方平台继续",
+		"accountPlaceholder": "账号",
+		"passwordPlaceholder": "密码",
+		"login": "登录",
+		"loggingIn": "登录中...",
+		"oauthDivider": "或使用第三方登录",
+		"footerHint": "登录即表示同意服务条款与隐私政策",
+		"error": "登录失败"
+	},
 	"appShell": {
 		"routeTitles": {
 			"automation": "自动化",
