@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { PetActionId } from "../../../../shared/pet-actions";
 import { PetVideoDebugBorder } from "./PetDebugOverlay";
@@ -14,6 +14,22 @@ function MissingPetVideo(): JSX.Element {
 			{t("video.missingSubtitle")}
 		</div>
 	);
+}
+
+function releaseVideo(video: HTMLVideoElement): void {
+	video.pause();
+	video.removeAttribute("src");
+	video.load();
+}
+
+function loadVideoSource(video: HTMLVideoElement, src: string | undefined, paused: boolean): void {
+	releaseVideo(video);
+	if (!src) return;
+	video.src = src;
+	video.load();
+	if (!paused) {
+		void video.play().catch(() => undefined);
+	}
 }
 
 export function PetVideoSurface({
@@ -47,10 +63,26 @@ export function PetVideoSurface({
 	onLoadedMetadata: (size: { width: number; height: number }) => void;
 	onVideoSizeChange: (size: number) => void;
 }): JSX.Element {
-	const videoElRef = useRef<HTMLVideoElement>(null);
+	const videoElRef = useRef<HTMLVideoElement | null>(null);
+	const loadedVideoSrcRef = useRef<string | undefined>(undefined);
+	const pausedRef = useRef(paused);
+	const videoSrcRef = useRef(videoSrc);
+
+	const setVideoElement = useCallback((element: HTMLVideoElement | null) => {
+		if (videoElRef.current && videoElRef.current !== element) {
+			releaseVideo(videoElRef.current);
+			loadedVideoSrcRef.current = undefined;
+		}
+		videoElRef.current = element;
+		if (element) {
+			loadVideoSource(element, videoSrcRef.current, pausedRef.current);
+			loadedVideoSrcRef.current = videoSrcRef.current;
+		}
+	}, []);
 
 	// 系统空闲/锁屏/休眠时暂停视频解码，唤醒后恢复。这是桌宠通宵持续解码累积内存/占 CPU 的兜底。
 	useEffect(() => {
+		pausedRef.current = paused;
 		const video = videoElRef.current;
 		if (!video) return;
 		if (paused) {
@@ -58,7 +90,24 @@ export function PetVideoSurface({
 		} else {
 			void video.play().catch(() => undefined);
 		}
-	}, [paused, actionId, videoSrc, shouldShowVideo]);
+	}, [paused]);
+
+	useEffect(() => {
+		videoSrcRef.current = videoSrc;
+		if (loadedVideoSrcRef.current === videoSrc) return;
+		const video = videoElRef.current;
+		if (!video) return;
+		loadVideoSource(video, videoSrc, pausedRef.current);
+		loadedVideoSrcRef.current = videoSrc;
+	}, [videoSrc]);
+
+	useEffect(() => {
+		return () => {
+			if (videoElRef.current) {
+				releaseVideo(videoElRef.current);
+			}
+		};
+	}, []);
 
 	if (!shouldShowVideo) {
 		return <MissingPetVideo />;
@@ -84,9 +133,7 @@ export function PetVideoSurface({
 				/>
 			) : null}
 			<video
-				key={actionId}
-				ref={videoElRef}
-				src={videoSrc}
+				ref={setVideoElement}
 				autoPlay
 				loop
 				muted
