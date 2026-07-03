@@ -1,33 +1,9 @@
+import type { ThemeColorTokens } from "@vetta/theme-sdk/appearance";
+
 // 主题 token 定义。键名对应 styles.css 中 [data-mode] 块下的 CSS 变量名。
 // 任意新增主题必须实现 TokenSet 完整字段，TS 会强制校验。
 
-export interface TokenSet {
-	// 颜色
-	background: string;
-	foreground: string;
-	card: string;
-	cardForeground: string;
-	popover: string;
-	popoverForeground: string;
-	primary: string;
-	primaryForeground: string;
-	secondary: string;
-	secondaryForeground: string;
-	muted: string;
-	mutedForeground: string;
-	accent: string;
-	accentForeground: string;
-	destructive: string;
-	destructiveForeground: string;
-	border: string;
-	input: string;
-	ring: string;
-	chart1: string;
-	chart2: string;
-	chart3: string;
-	chart4: string;
-	chart5: string;
-
+export interface TokenSet extends ThemeColorTokens {
 	// 字体
 	fontSans: string;
 	fontSerif: string;

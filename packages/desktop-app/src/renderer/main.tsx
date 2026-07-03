@@ -8,6 +8,7 @@ import { applyInitialTheme } from "./shared/theme/apply";
 import { applyStoredCustomCursor } from "./shared/theme/cursor";
 import { sidebarAppearanceDemoTheme } from "./shared/theme/dev-themes/sidebarDemoThemes";
 import { desktopThemeHost } from "./shared/theme/desktopThemeHost";
+import { ThemeColorOverrideBridge } from "./shared/theme/ThemeColorOverrideBridge";
 import { ThemeHostProvider, ThemeProvider } from "@vetta/theme-sdk";
 import "./styles.css";
 
@@ -30,6 +31,7 @@ createRoot(rootElement).render(
 		<I18nextProvider i18n={i18n}>
 			<ThemeHostProvider host={desktopThemeHost}>
 				<ThemeProvider theme={activeThemeModule}>
+					<ThemeColorOverrideBridge />
 					<RouterProvider router={router} />
 				</ThemeProvider>
 			</ThemeHostProvider>
