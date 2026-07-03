@@ -1,6 +1,8 @@
 import type { LoginDialogView } from "@domains/auth/components/LoginDialogView";
 import type { AtPanelView } from "@domains/chat/components/at-panel/AtPanelView";
+import type { ExecutionModeSelectorView } from "@domains/chat/components/execution-mode-selector/ExecutionModeSelectorView";
 import type { InputBarView } from "@domains/chat/components/input-bar/InputBarView";
+import type { ModelSelectorView } from "@domains/chat/components/model-selector/ModelSelectorView";
 import type { QuestionPanelView } from "@domains/chat/components/question-panel/QuestionPanelView";
 import type { SlashPanelView } from "@domains/chat/components/slash-panel/SlashPanelView";
 import type { FilePreviewDialogView } from "@domains/file-preview/components/FilePreviewDialogView";
@@ -42,8 +44,10 @@ declare module "@vetta/theme-sdk" {
 		readonly "app.windowControls"?: ComponentType<WindowControlsComponentProps>;
 		readonly "app.windowControlButton"?: typeof WindowControlButton;
 		readonly "chat.atPanelView"?: typeof AtPanelView;
+		readonly "chat.executionModeSelectorView"?: typeof ExecutionModeSelectorView;
 		readonly "chat.inputDrawer"?: typeof DrawerCard;
 		readonly "chat.inputBarView"?: typeof InputBarView;
+		readonly "chat.modelSelectorView"?: typeof ModelSelectorView;
 		readonly "chat.questionPanelView"?: typeof QuestionPanelView;
 		readonly "chat.slashPanelView"?: typeof SlashPanelView;
 		readonly "root.approval.appearancePicker"?: ComponentType;
@@ -87,8 +91,11 @@ declare module "@vetta/theme-sdk" {
 		readonly "app.pageHeader"?: ThemeSurfaceConfig;
 		readonly "app.windowControls"?: ThemeSurfaceConfig;
 		readonly "chat.atPanel"?: ThemeSurfaceConfig;
+		readonly "chat.executionModeMenu"?: ThemeSurfaceConfig;
 		readonly "chat.inputDrawer"?: ThemeSurfaceConfig;
 		readonly "chat.inputBar"?: ThemeSurfaceConfig;
+		readonly "chat.modelSelectorMenu"?: ThemeSurfaceConfig;
+		readonly "chat.modelSelectorReasoningMenu"?: ThemeSurfaceConfig;
 		readonly "chat.questionPanel"?: ThemeSurfaceConfig;
 		readonly "chat.slashPanel"?: ThemeSurfaceConfig;
 		readonly "root.confirmDialog.panel"?: ThemeSurfaceConfig;

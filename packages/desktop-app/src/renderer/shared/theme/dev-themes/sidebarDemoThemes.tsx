@@ -44,10 +44,19 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			"chat.atPanel": {
 				frame: sidebarDemoFrame,
 			},
+			"chat.executionModeMenu": {
+				frame: sidebarDemoFrame,
+			},
 			"chat.inputBar": {
 				frame: sidebarDemoFrame,
 			},
 			"chat.inputDrawer": {
+				frame: sidebarDemoFrame,
+			},
+			"chat.modelSelectorMenu": {
+				frame: sidebarDemoFrame,
+			},
+			"chat.modelSelectorReasoningMenu": {
 				frame: sidebarDemoFrame,
 			},
 			"chat.questionPanel": {
