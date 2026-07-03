@@ -20,7 +20,7 @@ export function MainContentFrame({
 			{...props}
 		>
 			{header}
-			<div className={cn("flex min-h-0 flex-1 overflow-hidden", contentClassName)}>
+			<div className={cn("flex min-h-0 flex-1 overflow-visible", contentClassName)}>
 				{children}
 			</div>
 		</main>

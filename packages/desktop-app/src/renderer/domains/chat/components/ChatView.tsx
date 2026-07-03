@@ -224,9 +224,9 @@ export function ChatView({ onSend, onAbort, onSendQueued }: ChatViewProps): JSX.
 					onFinished={handleExportFinished}
 				/>
 			)}
-			<div className="flex flex-1 gap-2 overflow-hidden">
+			<div className="flex min-h-0 flex-1 gap-2 overflow-visible">
 				{/* Chat messages + input — 始终 flex-1，文件预览只是把活动面板拉宽来挤压它 */}
-				<div className="flex min-w-0 flex-1 flex-col">
+				<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 					{/* 不再渲染空态占位：Welcome→Chat 的过渡瞬间 messages 可能短暂为空，
 					    占位图会"一闪而过"，体验比直接留白更差。空 list 由 MessageList 自身处理。 */}
 					<MessageList

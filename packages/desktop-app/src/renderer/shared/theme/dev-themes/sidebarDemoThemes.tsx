@@ -32,6 +32,9 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 	},
 	appearance: {
 		surfaces: {
+			"activity.panel": {
+				frame: sidebarDemoFrame,
+			},
 			"sidebar.panel": {
 				frame: sidebarDemoFrame,
 			},
