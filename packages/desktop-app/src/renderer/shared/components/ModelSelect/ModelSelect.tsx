@@ -13,25 +13,9 @@ import {
 import { cn } from "@shared/lib/utils";
 import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { MultiplierTag } from "./MultiplierTag";
 import { resolveReasoning } from "./resolveReasoning";
 import { type ModelOption, useModelOptions } from "./useModelOptions";
-
-/** 单个倍率数字：整数原样，有小数保留两位。 */
-function fmtMultiplier(n: number): string {
-	return Number.isInteger(n) ? String(n) : n.toFixed(2);
-}
-
-/** 展示选中模型/选项的倍率：非全 0 显示 输入×/输出×，全 0 显示免费，无数据不渲染。 */
-function MultiplierTag({ multiplier }: { multiplier: ModelOption["multiplier"] }): JSX.Element | null {
-	const { t } = useTranslation("common");
-	if (!multiplier) return null;
-	const { input, output } = multiplier;
-	const label =
-		input === 0 && output === 0
-			? t("modelSelect.free")
-			: t("modelSelect.multiplier", { in: fmtMultiplier(input), out: fmtMultiplier(output) });
-	return <span className="shrink-0 text-muted-foreground text-[11px] tabular-nums">{label}</span>;
-}
 
 /** Optional reasoning-level submenu for a model picker. Controlled by the caller. */
 export interface ModelSelectReasoning {
