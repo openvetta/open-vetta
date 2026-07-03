@@ -26,7 +26,20 @@ export interface CornerImageSurfaceFrame {
 	readonly imageUrl: string;
 }
 
-export type ThemeSurfaceFrame = CornerImageSurfaceFrame;
+export interface NineSliceImageFrameDecoration {
+	readonly borderWidth: string;
+	readonly outset?: string;
+	readonly repeat?: "repeat" | "round" | "space" | "stretch";
+	readonly slice: number | string;
+}
+
+export interface NineSliceImageSurfaceFrame {
+	readonly kind: "nine-slice-image";
+	readonly decoration: NineSliceImageFrameDecoration;
+	readonly imageUrl: string;
+}
+
+export type ThemeSurfaceFrame = CornerImageSurfaceFrame | NineSliceImageSurfaceFrame;
 
 export interface ThemeSurfaceConfig {
 	readonly frame?: ThemeSurfaceFrame;

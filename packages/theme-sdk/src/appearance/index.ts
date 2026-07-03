@@ -3,6 +3,8 @@ export type {
 	CornerImageFrameCorner,
 	CornerImageFrameDecoration,
 	CornerImageSurfaceFrame,
+	NineSliceImageFrameDecoration,
+	NineSliceImageSurfaceFrame,
 	ThemeAppearance,
 	ThemeSurfaceConfig,
 	ThemeSurfaceFrame,
