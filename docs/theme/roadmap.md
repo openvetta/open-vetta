@@ -170,6 +170,8 @@ interface ThemePackageManifest {
 
 ## 阶段 7：官方默认 UI 组件迁入 theme-ui
 
+状态：基础 layout primitives 已开始迁入。
+
 目标：
 
 - 把已经稳定的 props-driven view 迁入官方 UI 包。
@@ -179,6 +181,10 @@ interface ThemePackageManifest {
 
 第一批候选：
 
+- `AppFrame`：已迁入
+- `SidebarDock`：已迁入
+- `SidebarOverlay`：已迁入
+- `MainContentFrame`：已迁入
 - `DefaultPageHeader`
 - `PageHeaderSidebarTrigger`
 - `PageHeaderTitle`
@@ -252,8 +258,8 @@ ChatPage
 
 近期建议顺序：
 
-1. 迁移第一批 props-driven app-shell/sidebar 组件到官方 UI 包。
-2. 继续拆 `App.tsx` 中的纯 UI 壳层，例如 `SidebarDock`、`SidebarOverlay`、`MainContentFrame`。
+1. 继续迁移第一批 props-driven app-shell/sidebar 组件到官方 UI 包。
+2. 继续拆 `App.tsx` 中剩余纯 UI 壳层和业务浮层宿主。
 3. 把当前临时 ThemeModule 替换为可选择的本地主题配置入口。
 4. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
 5. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。

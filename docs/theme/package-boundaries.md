@@ -9,7 +9,7 @@
   协议、类型、registry、provider、resolver hook、host bridge
 
 @vetta/theme-ui
-  可选 UI building blocks，例如 ThemeSurface、CornerImageFrame
+  可选 UI building blocks，例如 ThemeSurface、CornerImageFrame、layout primitives
 
 desktop-app
   应用数据、动作、默认主题、主题加载器、registry 类型扩展
@@ -62,6 +62,13 @@ import { useSidebarModel } from "@vetta/theme-sdk/sidebar";
 - 不依赖 desktop-app 内部 store、router、IPC 的布局 primitive。
 - 接收 `model` / `actions` props 的官方默认 view 组件。
 
+当前已提供的 layout primitives：
+
+- `AppFrame`
+- `SidebarDock`
+- `SidebarOverlay`
+- `MainContentFrame`
+
 主题可以复用 `@vetta/theme-ui`，也可以完全不用它。`@vetta/theme-ui` 不能成为所有主题实现的集合；具体主题组件应留在具体主题包里。
 
 官方 UI 组件应保持 props 驱动。调用 SDK model hook 的 connected 容器可以存在于 desktop-app 内部，但不应作为主题复用的首选组件导出。
@@ -113,7 +120,7 @@ desktop-app 不应该要求主题 import 内部路径，例如 `@shared/*`、`@d
 当前已落地：
 
 - `packages/theme-sdk`：主题协议和运行时上下文。
-- `packages/theme-ui`：`ThemeSurface` 和 `CornerImageFrame`。
+- `packages/theme-ui`：`ThemeSurface`、`CornerImageFrame` 和基础 layout primitives。
 - desktop-app：通过 `packages/desktop-app/src/renderer/shared/theme/registry.ts` 声明当前支持的 region/component/surface id。
 
 当前仍保留在 desktop-app：

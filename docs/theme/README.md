@@ -6,7 +6,7 @@
 
 - 颜色主题：已有 `packages/desktop-app/src/renderer/shared/theme/`，负责 CSS token。
 - 主题协议：`packages/theme-sdk/` 负责主题模块、registry、appearance 配置和运行时上下文。
-- 可选 UI 库：`packages/theme-ui/` 负责 `ThemeSurface`、`CornerImageFrame` 等可复用视觉 building blocks。
+- 可选 UI 库：`packages/theme-ui/` 负责 `ThemeSurface`、`CornerImageFrame` 和通用 layout primitives 等可复用 building blocks。
 
 ## 文档索引
 
@@ -25,7 +25,7 @@
 - 侧边栏默认 UI 已按区域拆分。
 - `MessageCenter`、`SettingsMenu` 等侧边栏子组件已迁入侧边栏结构。
 - 新增 `@vetta/theme-sdk`，提供 `ThemeProvider`、`ThemeHostProvider`、`ThemeModule`、`useThemeRegion`、`useThemeComponent`、appearance 协议和 public model hook facade。
-- 新增 `@vetta/theme-ui`，提供 `ThemeSurface` 和 `CornerImageFrame` 等可选 UI building blocks。
+- 新增 `@vetta/theme-ui`，提供 `ThemeSurface`、`CornerImageFrame`、`AppFrame`、`SidebarDock`、`SidebarOverlay` 和 `MainContentFrame` 等可选 UI building blocks。
 - `CornerImageFrame` 可作为 `ThemeSurface` 的 `corner-image` frame。
 - 侧边栏区域已接入稳定 surface slot。
 - 侧边栏入口支持 `regions.sidebar` 完整接管。
