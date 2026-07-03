@@ -61,7 +61,6 @@ export function usePetAutoContentSize({
 		if (debugFrame) return;
 
 		let animationFrame: number | undefined;
-		let resizeObserver: ResizeObserver | undefined;
 
 		const reportSize = () => {
 			animationFrame = undefined;
@@ -81,26 +80,18 @@ export function usePetAutoContentSize({
 			animationFrame = window.requestAnimationFrame(reportSize);
 		};
 
-		const observeTarget = () => {
-			resizeObserver?.disconnect();
-			resizeObserver = new ResizeObserver(scheduleReport);
-			const content = contentRef.current;
-			const target = targetRef.current;
-			if (!content || !target) return;
-			resizeObserver.observe(content);
-			resizeObserver.observe(target);
-			for (const item of content.querySelectorAll("*")) {
-				resizeObserver.observe(item);
-			}
-		};
-
-		observeTarget();
+		const resizeObserver = new ResizeObserver(scheduleReport);
+		const content = contentRef.current;
+		const target = targetRef.current;
+		if (content) resizeObserver.observe(content);
+		if (target) resizeObserver.observe(target);
 		const mutationObserver = new MutationObserver(() => {
-			observeTarget();
 			scheduleReport();
 		});
-		if (contentRef.current) {
-			mutationObserver.observe(contentRef.current, {
+		if (content) {
+			mutationObserver.observe(content, {
+				attributes: true,
+				characterData: true,
 				childList: true,
 				subtree: true,
 			});
@@ -112,7 +103,7 @@ export function usePetAutoContentSize({
 			if (animationFrame != null) {
 				window.cancelAnimationFrame(animationFrame);
 			}
-			resizeObserver?.disconnect();
+			resizeObserver.disconnect();
 			mutationObserver.disconnect();
 			window.removeEventListener("resize", scheduleReport);
 		};

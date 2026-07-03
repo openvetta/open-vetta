@@ -34,6 +34,17 @@ import { MessageList } from "./MessageList";
  *
  * Route param `path` is URI-encoded absolute session-file path.
  */
+
+/**
+ * 判断 filePath 是否位于 dir 目录之下，分隔符无关（Windows 上 session path 用反斜杠、
+ * 手动拼 `dir + "/"` 前缀会因 `\` vs `/` 匹配失败，导致 KB/IM 面板判定为 false）。
+ */
+function isPathUnderDir(filePath: string, dir: string): boolean {
+	if (!filePath || !dir) return false;
+	const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "");
+	return `${norm(filePath)}/`.startsWith(`${norm(dir)}/`);
+}
+
 export function SessionViewerPage(): JSX.Element {
 	const { t } = useTranslation("chat");
 	// biome-ignore lint/suspicious/noExplicitAny: route params typing
@@ -51,21 +62,13 @@ export function SessionViewerPage(): JSX.Element {
 	const inlinePreviewCtx = useAtomValue(inlineFilePreviewContextReadonlyAtom);
 	const inlinePreviewActive = inlinePreviewCtx !== null;
 	const closeInlinePreview = useSetAtom(closeInlineFilePreviewAtom);
-	const isIm = useMemo(() => {
-		if (!path || !imCwd) return false;
-		const prefix = imCwd.endsWith("/") ? imCwd : `${imCwd}/`;
-		return path.startsWith(prefix);
-	}, [path, imCwd]);
+	const isIm = useMemo(() => isPathUnderDir(path, imCwd), [path, imCwd]);
 	const exportTitle = useMemo(() => {
 		const fileName = path.split(/[\\/]/).at(-1) ?? t("sessionViewer.export.defaultTitle");
 		return fileName.replace(/\.jsonl$/i, "");
 	}, [path, t]);
 	const handleExportFinished = useCallback(() => setExporting(false), []);
-	const isKnowledge = useMemo(() => {
-		if (!path || !kbCwd) return false;
-		const prefix = kbCwd.endsWith("/") ? kbCwd : `${kbCwd}/`;
-		return path.startsWith(prefix);
-	}, [path, kbCwd]);
+	const isKnowledge = useMemo(() => isPathUnderDir(path, kbCwd), [path, kbCwd]);
 
 	const handleTogglePanel = useCallback(() => {
 		// 跟 ChatView 对齐：inline preview 打开时，关面板按钮也要顺手关掉 preview，

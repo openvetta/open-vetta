@@ -15,7 +15,7 @@ import type {
 	KnowledgeNode,
 	KnowledgeProcessStatus,
 } from "@shared/types/knowledge-base";
-import { cn } from "@shared/lib/utils";
+import { KnowledgeBreadcrumb } from "./KnowledgeBreadcrumb";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
 import { KnowledgeGrid } from "./KnowledgeGrid";
 import { KnowledgeList } from "./KnowledgeList";
@@ -306,31 +306,11 @@ export function KnowledgeContentsPanel({
 			>
 				{/* 仅进入子目录时显示面包屑（根目录无栏）；选中后批量操作走右键菜单 */}
 				{path.length > 0 ? (
-					<div className="flex shrink-0 items-center gap-1 py-1.5 text-[12px]">
-						<button
-							type="button"
-							onClick={() => setPath([])}
-							className="flex items-center gap-1 rounded px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-accent/60"
-						>
-							<span className="icon-[mdi--folder-home-outline] h-3.5 w-3.5" />
-							{baseName}
-						</button>
-						{path.map((segment, index) => (
-							<span key={`${segment}-${index}`} className="flex items-center gap-1">
-								<span className="icon-[mdi--chevron-right] h-3.5 w-3.5 text-muted-foreground/40" />
-								<button
-									type="button"
-									onClick={() => setPath(path.slice(0, index + 1))}
-									className={cn(
-										"rounded px-1.5 py-0.5 transition-colors hover:bg-accent/60",
-										index === path.length - 1 ? "text-foreground" : "text-muted-foreground",
-									)}
-								>
-									{segment}
-								</button>
-							</span>
-						))}
-					</div>
+					<KnowledgeBreadcrumb
+						baseName={baseName}
+						path={path}
+						onNavigate={(index) => setPath(index < 0 ? [] : path.slice(0, index + 1))}
+					/>
 				) : null}
 
 				{knowledgeBase.nodes.length === 0 ? (
