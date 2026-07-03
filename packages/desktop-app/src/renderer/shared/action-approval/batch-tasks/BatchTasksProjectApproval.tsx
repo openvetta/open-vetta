@@ -5,11 +5,12 @@ import {
 	toBatchProjectApprovalJsonData,
 } from "@domains/batch-tasks/components/BatchProjectFormFields";
 import { batchProjectsAtom, type BatchProject } from "@shared/store/atoms";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Dialog, DialogContent } from "../../components/ui/dialog";
+import { useTranslation } from "react-i18next";
 import { Drawer, DrawerContent } from "../../components/ui/drawer";
+import { BatchTasksApprovalFrameView } from "./BatchTasksApprovalFrameView";
 import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
 
 type ProjectData = BatchProjectEditableData;
@@ -81,27 +82,6 @@ function parseProjectInput(input: DesktopActionApprovalRequest["input"]): Projec
 function isRecord(value: unknown): value is Record<string, DesktopActionJsonValue> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-
-const operationLabels = {
-	create: "创建项目",
-	update: "更新项目",
-	delete: "删除项目",
-} as const;
-
-const operationDisplays: Record<ProjectInput["operation"], { title: string; summary: string }> = {
-	create: {
-		title: "创建批量项目确认",
-		summary: "请确认即将创建的批量项目配置。确认后会为每个源文件夹生成一个子任务。",
-	},
-	update: {
-		title: "更新批量项目确认",
-		summary: "请确认即将写入的批量项目变更。确认界面已合并当前配置，并只会追加新的源文件夹。",
-	},
-	delete: {
-		title: "删除批量项目确认",
-		summary: "请确认是否删除该批量项目、全部子任务、会话状态和任务产物。此操作无法撤销。",
-	},
-};
 
 function ValueRow({ label, value }: { label: string; value: string | number }): JSX.Element {
 	return (
@@ -188,11 +168,16 @@ function BatchTasksProjectApprovalContent({
 	parsedInput: ProjectInput | null;
 	cachedProject: BatchProject | undefined;
 }): JSX.Element {
+	const { t } = useTranslation("common");
 	const needsProject = parsedInput?.operation === "update" || parsedInput?.operation === "delete";
 	const [currentProject, setCurrentProject] = useState<BatchProject | undefined>(cachedProject);
 	const [loading, setLoading] = useState(needsProject && !cachedProject);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const { request, responding, error, approve, reject } = approval;
+	const ThemedBatchTasksApprovalFrameView = useThemeComponent(
+		"root.approval.batchTasksFrameView",
+		BatchTasksApprovalFrameView,
+	);
 
 	useEffect(() => {
 		console.info("[action-approval:batch-tasks.project] request " + JSON.stringify({
@@ -226,7 +211,7 @@ function BatchTasksProjectApprovalContent({
 					matchedProject: project,
 				}));
 				setCurrentProject(project);
-				if (!project) setLoadError("未找到当前批量项目，无法加载完整配置。");
+				if (!project) setLoadError(t("batchTasksApproval.projectLoadNotFound"));
 			})
 			.catch((error: unknown) => {
 				console.error("[action-approval:batch-tasks.project] query-failed " + JSON.stringify({
@@ -234,7 +219,7 @@ function BatchTasksProjectApprovalContent({
 					requestedProjectId: parsedInput?.projectId,
 					error,
 				}));
-				if (!cancelled) setLoadError("加载当前批量项目配置失败。");
+				if (!cancelled) setLoadError(t("batchTasksApproval.projectLoadFailed"));
 			})
 			.finally(() => {
 				if (!cancelled) setLoading(false);
@@ -272,7 +257,9 @@ function BatchTasksProjectApprovalContent({
 			<Drawer open direction="right" dismissible={false}>
 				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
 					<div className="min-h-0 flex-1 overflow-y-auto">
-						<div className="py-10 text-center text-[12px] text-muted-foreground">正在加载当前项目配置...</div>
+						<div className="py-10 text-center text-[12px] text-muted-foreground">
+							{t("batchTasksApproval.projectLoading")}
+						</div>
 					</div>
 				</DrawerContent>
 			</Drawer>
@@ -281,18 +268,25 @@ function BatchTasksProjectApprovalContent({
 
 	if (parsedInput?.operation === "update" && !currentProject) {
 		return (
-			<Drawer open direction="right" dismissible={false}>
-				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
-					<div className="min-h-0 flex-1 overflow-y-auto">
-						<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
-						<div className="flex justify-end border-t border-border/60 px-5 py-4">
-							<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-								拒绝（{approval.countdown.formatted}）
-							</Button>
-						</div>
-					</div>
-				</DrawerContent>
-			</Drawer>
+			<ThemedBatchTasksApprovalFrameView
+				presentation="drawer"
+				title={t("batchTasksApproval.projectUpdateTitle")}
+				summary={request.summary}
+				icon="icon-[mdi--folder-cog-outline]"
+				labels={{
+					reject: t("actionApproval.reject"),
+					confirm: t("batchTasksApproval.confirmAction", { action: t("batchTasksApproval.fallbackAction") }),
+					responding: t("actionApproval.processing"),
+					permission: t("actionApproval.permission", { permission: request.permission }),
+				}}
+				responding={responding}
+				countdown={approval.countdown.formatted}
+				canApprove={false}
+				onReject={reject}
+				onApprove={() => approve()}
+			>
+				<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
+			</ThemedBatchTasksApprovalFrameView>
 		);
 	}
 
@@ -312,59 +306,26 @@ function BatchTasksProjectApprovalContent({
 	const canApprove =
 		!responding &&
 		(!isEditable || hasCreateRequiredData(formData));
-	const display = input ? operationDisplays[input.operation] : null;
+	const operationLabel = input ? getProjectOperationLabel(input.operation, t) : null;
+	const display = input ? getProjectOperationDisplay(input.operation, t) : null;
 
-	const content = (
+	const body = (
 		<>
-			<div className="border-b border-border/60 p-5">
-				<div className="flex items-start gap-3">
-					<div
-						className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-							isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-						}`}
-					>
-						<span
-							className={`${isDelete ? "icon-[mdi--folder-remove-outline]" : "icon-[mdi--folder-cog-outline]"} h-5 w-5`}
-						/>
-					</div>
-					<div className="min-w-0 flex-1">
-						<div className="flex flex-wrap items-center gap-2">
-							<h2 className="text-[15px] font-semibold text-foreground">
-								{display?.title ?? "批量项目操作确认"}
-							</h2>
-							{input && (
-								<span
-									className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-										isDelete ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-									}`}
-								>
-									{operationLabels[input.operation]}
-								</span>
-							)}
-						</div>
-						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
-							{display?.summary ?? request.summary}
-						</p>
-					</div>
-				</div>
-			</div>
-
-			<div className="space-y-3 p-5">
 				{input?.operation === "create" && (
 					<>
 						{(formData.executionMode === "full-access" || formData.executionMode === undefined) && (
-							<div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
+							<div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/15 p-3 text-amber-400">
 								<span className="icon-[mdi--shield-alert-outline] mt-0.5 h-4 w-4 shrink-0" />
 								<p className="text-[11px] leading-5">
-									任务将以完全访问模式运行，可读取和修改文件夹内外的文件。请确认提示词和目录来源可信。
+									{t("batchTasksApproval.projectFullAccessWarning")}
 								</p>
 							</div>
 						)}
 						<BatchProjectFormFields
 							value={formData}
 							onChange={setFormData}
-							namePlaceholder="新建批量项目"
-							folderLabel="源文件夹"
+							namePlaceholder={t("batchTasksApproval.newProjectNamePlaceholder")}
+							folderLabel={t("batchTasksApproval.sourceFolders")}
 						/>
 					</>
 				)}
@@ -372,17 +333,17 @@ function BatchTasksProjectApprovalContent({
 				{input?.operation === "update" && (
 					<>
 						<div className="rounded-lg border border-border/50 bg-background/50 px-3">
-							<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
+							<ValueRow label={t("batchTasksApproval.targetProject")} value={currentProject?.name ?? t("batchTasksApproval.notFoundInCurrentList")} />
 							<div className="h-px bg-border/40" />
-							<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
+							<ValueRow label={t("batchTasksApproval.projectPath")} value={input.projectId ?? t("batchTasksApproval.unknown")} />
 							<div className="h-px bg-border/40" />
-							<ValueRow label="现有任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
+							<ValueRow label={t("batchTasksApproval.existingTasks")} value={t("batchTasksApproval.count", { count: currentProject?.tasks.length ?? t("batchTasksApproval.unknown") })} />
 						</div>
 						<BatchProjectFormFields
 							value={formData}
 							onChange={setFormData}
-							namePlaceholder="项目名称"
-							folderLabel="文件夹列表"
+							namePlaceholder={t("batchTasksApproval.projectNamePlaceholder")}
+							folderLabel={t("batchTasksApproval.folderList")}
 						/>
 					</>
 				)}
@@ -390,16 +351,16 @@ function BatchTasksProjectApprovalContent({
 				{input?.operation === "delete" && (
 					<>
 						<div className="rounded-lg border border-border/50 bg-background/50 px-3">
-							<ValueRow label="目标项目" value={currentProject?.name ?? "未在当前列表中找到"} />
+							<ValueRow label={t("batchTasksApproval.targetProject")} value={currentProject?.name ?? t("batchTasksApproval.notFoundInCurrentList")} />
 							<div className="h-px bg-border/40" />
-							<ValueRow label="项目路径" value={input.projectId ?? "未知"} />
+							<ValueRow label={t("batchTasksApproval.projectPath")} value={input.projectId ?? t("batchTasksApproval.unknown")} />
 							<div className="h-px bg-border/40" />
-							<ValueRow label="包含任务" value={`${currentProject?.tasks.length ?? "未知"} 个`} />
+							<ValueRow label={t("batchTasksApproval.includedTasks")} value={t("batchTasksApproval.count", { count: currentProject?.tasks.length ?? t("batchTasksApproval.unknown") })} />
 						</div>
 						<div className="flex gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive">
 							<span className="icon-[mdi--alert-outline] mt-0.5 h-4 w-4 shrink-0" />
 							<p className="text-[11px] leading-5">
-								该操作会永久删除项目目录、全部任务记录、会话状态和任务产物，无法撤销。存在运行中或排队任务时操作会被拒绝。
+								{t("batchTasksApproval.projectDeleteWarning")}
 							</p>
 						</div>
 					</>
@@ -410,50 +371,62 @@ function BatchTasksProjectApprovalContent({
 						{JSON.stringify(request.input, null, 2)}
 					</pre>
 				)}
-			</div>
-
-			<div className="border-t border-border/60 px-5 py-4">
-				<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
-					<span>请求权限</span>
-					<span className="font-mono">{request.permission}</span>
-				</div>
-				{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
-				<div className="flex justify-end gap-2">
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{approval.countdown.formatted}）
-					</Button>
-					<Button
-						size="sm"
-						variant={isDelete ? "destructive" : "default"}
-						disabled={!canApprove}
-						onClick={approveInput}
-					>
-						{responding ? "处理中..." : `确认${input ? operationLabels[input.operation] : "操作"}`}
-					</Button>
-				</div>
-			</div>
 		</>
 	);
 
-	if (isEditable) {
-		return (
-			<Drawer open direction="right" dismissible={false}>
-				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
-					<div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
-				</DrawerContent>
-			</Drawer>
-		);
-	}
-
 	return (
-		<Dialog open>
-			<DialogContent
-				className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
-				showCloseButton={false}
-				onInteractOutside={(event) => event.preventDefault()}
-			>
-				{content}
-			</DialogContent>
-		</Dialog>
+		<ThemedBatchTasksApprovalFrameView
+			presentation={isEditable ? "drawer" : "dialog"}
+			title={display?.title ?? t("batchTasksApproval.projectFallbackTitle")}
+			summary={display?.summary ?? request.summary}
+			icon={isDelete ? "icon-[mdi--folder-remove-outline]" : "icon-[mdi--folder-cog-outline]"}
+			badge={operationLabel ?? undefined}
+			destructive={isDelete}
+			labels={{
+				reject: t("actionApproval.reject"),
+				confirm: t("batchTasksApproval.confirmAction", { action: operationLabel ?? t("batchTasksApproval.fallbackAction") }),
+				responding: t("actionApproval.processing"),
+				permission: t("actionApproval.permission", { permission: request.permission }),
+			}}
+			responding={responding}
+			countdown={approval.countdown.formatted}
+			canApprove={canApprove}
+			error={error}
+			onReject={reject}
+			onApprove={approveInput}
+		>
+			{body}
+		</ThemedBatchTasksApprovalFrameView>
 	);
+}
+
+function getProjectOperationLabel(operation: ProjectInput["operation"], t: ReturnType<typeof useTranslation<"common">>["t"]): string {
+	switch (operation) {
+		case "create":
+			return t("batchTasksApproval.projectCreateLabel");
+		case "update":
+			return t("batchTasksApproval.projectUpdateLabel");
+		case "delete":
+			return t("batchTasksApproval.projectDeleteLabel");
+	}
+}
+
+function getProjectOperationDisplay(operation: ProjectInput["operation"], t: ReturnType<typeof useTranslation<"common">>["t"]): { title: string; summary: string } {
+	switch (operation) {
+		case "create":
+			return {
+				title: t("batchTasksApproval.projectCreateTitle"),
+				summary: t("batchTasksApproval.projectCreateSummary"),
+			};
+		case "update":
+			return {
+				title: t("batchTasksApproval.projectUpdateTitle"),
+				summary: t("batchTasksApproval.projectUpdateSummary"),
+			};
+		case "delete":
+			return {
+				title: t("batchTasksApproval.projectDeleteTitle"),
+				summary: t("batchTasksApproval.projectDeleteSummary"),
+			};
+	}
 }

@@ -1,8 +1,9 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { batchProjectsAtom, type BatchTask, type BatchTaskStatus } from "@shared/store/atoms";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { useAtomValue } from "jotai";
-import { Button } from "../../components/ui/button";
-import { Dialog, DialogContent } from "../../components/ui/dialog";
+import { useTranslation } from "react-i18next";
+import { BatchTasksApprovalFrameView } from "./BatchTasksApprovalFrameView";
 import { useActionApproval } from "../useActionApproval";
 
 type ExecutionOperation = "delete-all" | "start" | "stop" | "reset" | "reset-failed";
@@ -31,63 +32,6 @@ function parseExecutionInput(input: DesktopActionApprovalRequest["input"]): Exec
 	return { operation: record.operation as ExecutionOperation, projectId: record.projectId };
 }
 
-const operationDetails: Record<
-	ExecutionOperation,
-	{ label: string; title: string; summary: string; icon: string; description: string; warning?: string; destructive?: boolean }
-> = {
-	"delete-all": {
-		label: "删除全部任务",
-		title: "删除全部批量任务确认",
-		summary: "请确认是否删除该项目内所有非运行子任务。运行中的任务会保留。",
-		icon: "icon-[mdi--delete-sweep-outline]",
-		description: "删除项目内所有非运行任务；运行中的任务会保留。",
-		warning: "排队任务会先移出队列，随后连同任务记录、会话状态和产物目录永久删除。",
-		destructive: true,
-	},
-	start: {
-		label: "开始执行",
-		title: "开始执行批量项目确认",
-		summary: "请确认是否开始执行该批量项目。待执行和已暂停任务会进入执行流程。",
-		icon: "icon-[mdi--play-circle-outline]",
-		description: "将所有待执行任务加入队列，并继续已暂停任务；已完成或失败任务不会重跑。",
-	},
-	stop: {
-		label: "停止并清理",
-		title: "停止批量项目执行确认",
-		summary: "请确认是否停止该项目中的未完成任务，并清理相关会话、状态和产物。",
-		icon: "icon-[mdi--stop-circle-outline]",
-		description: "停止项目中的全部未完成任务，保留已完成任务。",
-		warning: "排队、运行、失败和暂停任务的会话、状态及产物目录会被清理并重置为待执行。",
-		destructive: true,
-	},
-	reset: {
-		label: "清空并重跑",
-		title: "清空并重跑批量项目确认",
-		summary: "请确认是否清空该项目全部任务状态和产物，并立即重新执行整个项目。",
-		icon: "icon-[mdi--restart]",
-		description: "清空整个项目的执行状态和产物，然后立即重新执行全部任务。",
-		warning: "全部任务的会话、状态和产物目录都会被删除，包括已完成任务。该操作无法撤销。",
-		destructive: true,
-	},
-	"reset-failed": {
-		label: "重置失败任务",
-		title: "重置失败批量任务确认",
-		summary: "请确认是否清理所选失败任务。只有当前状态为失败的任务会被处理。",
-		icon: "icon-[mdi--refresh-circle]",
-		description: "清理所选失败任务；项目仍在执行时会立即重新入队，否则恢复为待执行。",
-		warning: "所选失败任务的旧会话、错误状态和已有产物会被删除。",
-		destructive: true,
-	},
-};
-
-const statusLabels: Record<BatchTaskStatus, string> = {
-	pending: "待执行",
-	running: "运行中",
-	completed: "已完成",
-	failed: "失败",
-	paused: "已暂停",
-};
-
 function countStatuses(tasks: BatchTask[]): Record<BatchTaskStatus, number> {
 	const counts: Record<BatchTaskStatus, number> = { pending: 0, running: 0, completed: 0, failed: 0, paused: 0 };
 	for (const task of tasks) counts[task.status] += 1;
@@ -95,6 +39,7 @@ function countStatuses(tasks: BatchTask[]): Record<BatchTaskStatus, number> {
 }
 
 export function BatchTasksExecutionApproval(): JSX.Element | null {
+	const { t } = useTranslation("common");
 	const approval = useActionApproval("batch-tasks.execution");
 	const projects = useAtomValue(batchProjectsAtom);
 	if (!approval) return null;
@@ -102,8 +47,12 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 
 	const input = parseExecutionInput(request.input);
 	const project = input ? projects.find((item) => item.id === input.projectId) : undefined;
-	const detail = input ? operationDetails[input.operation] : undefined;
+	const detail = input ? getExecutionOperationDetail(input.operation, t) : undefined;
 	const counts = countStatuses(project?.tasks ?? []);
+	const ThemedBatchTasksApprovalFrameView = useThemeComponent(
+		"root.approval.batchTasksFrameView",
+		BatchTasksApprovalFrameView,
+	);
 	const selectedTasks =
 		input?.operation === "reset-failed"
 			? (input.taskIds ?? []).map((id) => project?.tasks.find((task) => task.id === id) ?? { id })
@@ -119,53 +68,32 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 		: 0;
 
 	return (
-		<Dialog open>
-<DialogContent
-			className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
-			showCloseButton={false}
-			onInteractOutside={(event) => event.preventDefault()}
+		<ThemedBatchTasksApprovalFrameView
+			presentation="dialog"
+			title={detail?.title ?? t("batchTasksApproval.executionFallbackTitle")}
+			summary={detail?.summary ?? request.summary}
+			icon={detail?.icon ?? "icon-[mdi--cog-play-outline]"}
+			badge={detail?.label}
+			destructive={detail?.destructive}
+			labels={{
+				reject: t("actionApproval.reject"),
+				confirm: t("batchTasksApproval.confirmAction", { action: detail?.label ?? t("batchTasksApproval.fallbackAction") }),
+				responding: t("actionApproval.processing"),
+				permission: t("actionApproval.permission", { permission: request.permission }),
+			}}
+			responding={responding}
+			countdown={approval.countdown.formatted}
+			error={error}
+			onReject={reject}
+			onApprove={() => approve()}
 		>
-				<div className="border-b border-border/60 p-5">
-					<div className="flex items-start gap-3">
-						<div
-							className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-								detail?.destructive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-							}`}
-						>
-							<span className={`${detail?.icon ?? "icon-[mdi--cog-play-outline]"} h-5 w-5`} />
-						</div>
-						<div className="min-w-0 flex-1">
-							<div className="flex flex-wrap items-center gap-2">
-								<h2 className="text-[15px] font-semibold text-foreground">
-									{detail?.title ?? "批量执行控制确认"}
-								</h2>
-								{detail && (
-									<span
-										className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-											detail.destructive
-												? "bg-destructive/10 text-destructive"
-												: "bg-primary/10 text-primary"
-										}`}
-									>
-										{detail.label}
-									</span>
-								)}
-							</div>
-							<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
-								{detail?.summary ?? request.summary}
-							</p>
-						</div>
-					</div>
-				</div>
-
-				<div className="space-y-3 p-5">
 					{input && detail && (
 						<>
 							<div className="rounded-lg border border-border/50 bg-background/50 p-3">
 								<div className="flex items-start justify-between gap-4">
 									<div className="min-w-0">
 										<div className="truncate text-[13px] font-semibold text-foreground">
-											{project?.name ?? "未在当前列表中找到该项目"}
+											{project?.name ?? t("batchTasksApproval.projectNotFoundInCurrentList")}
 										</div>
 										<div className="mt-1 break-all text-[10px] leading-4 text-muted-foreground">
 											{input.projectId}
@@ -173,18 +101,18 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 									</div>
 									<div className="shrink-0 text-right">
 										<div className="text-lg font-semibold tabular-nums text-foreground">
-											{project?.tasks.length ?? "?"}
+											{project?.tasks.length ?? t("batchTasksApproval.unknownShort")}
 										</div>
-										<div className="text-[10px] text-muted-foreground">任务总数</div>
+										<div className="text-[10px] text-muted-foreground">{t("batchTasksApproval.totalTasks")}</div>
 									</div>
 								</div>
 								<div className="mt-3 grid grid-cols-5 gap-1.5 border-t border-border/40 pt-3">
-									{(Object.keys(statusLabels) as BatchTaskStatus[]).map((status) => (
+									{(["pending", "running", "completed", "failed", "paused"] as BatchTaskStatus[]).map((status) => (
 										<div key={status} className="rounded-md bg-muted/60 px-1 py-2 text-center">
 											<div className="text-[12px] font-semibold tabular-nums text-foreground">
 												{counts[status]}
 											</div>
-											<div className="mt-0.5 text-[9px] text-muted-foreground">{statusLabels[status]}</div>
+											<div className="mt-0.5 text-[9px] text-muted-foreground">{getTaskStatusLabel(status, t)}</div>
 										</div>
 									))}
 								</div>
@@ -195,13 +123,13 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 									<div className="flex min-w-0 gap-2">
 										<span className={`${detail.icon} mt-0.5 h-4 w-4 shrink-0 text-primary`} />
 										<div>
-											<div className="text-[11px] font-semibold text-foreground">执行后会发生什么</div>
+											<div className="text-[11px] font-semibold text-foreground">{t("batchTasksApproval.afterActionTitle")}</div>
 											<p className="mt-1 text-[11px] leading-5 text-muted-foreground">{detail.description}</p>
 										</div>
 									</div>
 									<div className="shrink-0 rounded-lg bg-background/70 px-3 py-2 text-center">
 										<div className="text-base font-semibold tabular-nums text-foreground">{affectedCount}</div>
-										<div className="text-[9px] text-muted-foreground">预计影响</div>
+										<div className="text-[9px] text-muted-foreground">{t("batchTasksApproval.estimatedImpact")}</div>
 									</div>
 								</div>
 							</div>
@@ -210,9 +138,9 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 								<div className="rounded-lg border border-border/50 bg-background/50 p-3">
 									<div className="mb-2 flex items-center justify-between">
 										<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-											指定任务
+											{t("batchTasksApproval.selectedTasks")}
 										</span>
-										<span className="text-[10px] text-muted-foreground">{selectedTasks.length} 个</span>
+										<span className="text-[10px] text-muted-foreground">{t("batchTasksApproval.count", { count: selectedTasks.length })}</span>
 									</div>
 									<div className="max-h-36 space-y-1.5 overflow-auto">
 										{selectedTasks.map((task) => (
@@ -222,8 +150,8 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 											>
 												<div className="min-w-0">
 													<div className="truncate text-[11px] font-medium text-foreground">
-														{"name" in task ? task.name : task.id}
-													</div>
+													{"name" in task ? task.name : task.id}
+												</div>
 													{"name" in task && (
 														<div className="mt-0.5 truncate text-[9px] text-muted-foreground">
 															{task.sourcePath}
@@ -237,14 +165,14 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 															: "text-muted-foreground"
 													}`}
 												>
-													{"status" in task ? statusLabels[task.status] : "未找到"}
+													{"status" in task ? getTaskStatusLabel(task.status, t) : t("batchTasksApproval.notFound")}
 												</span>
 											</div>
 										))}
 									</div>
 									{affectedCount !== selectedTasks.length && (
-										<p className="mt-2 text-[10px] leading-4 text-amber-700 dark:text-amber-300">
-											只有当前状态为“失败”的任务会被处理，其他任务 ID 将被忽略。
+										<p className="mt-2 text-[10px] leading-4 text-amber-400">
+											{t("batchTasksApproval.resetFailedPartialWarning")}
 										</p>
 									)}
 								</div>
@@ -260,33 +188,86 @@ export function BatchTasksExecutionApproval(): JSX.Element | null {
 					)}
 
 					{!input && (
-						<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[10px] leading-4 text-foreground">
-							{JSON.stringify(request.input, null, 2)}
-						</pre>
-					)}
-				</div>
-
-				<div className="border-t border-border/60 px-5 py-4">
-					<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
-						<span>请求权限</span>
-						<span className="font-mono">{request.permission}</span>
-					</div>
-					{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
-					<div className="flex justify-end gap-2">
-						<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-							拒绝（{approval.countdown.formatted}）
-						</Button>
-						<Button
-							size="sm"
-							variant={detail?.destructive ? "destructive" : "default"}
-							disabled={responding}
-							onClick={() => approve()}
-						>
-							{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}
-						</Button>
-					</div>
-				</div>
-			</DialogContent>
-		</Dialog>
+					<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 p-3 font-mono text-[10px] leading-4 text-foreground">
+						{JSON.stringify(request.input, null, 2)}
+					</pre>
+				)}
+		</ThemedBatchTasksApprovalFrameView>
 	);
+}
+
+function getTaskStatusLabel(status: BatchTaskStatus, t: ReturnType<typeof useTranslation<"common">>["t"]): string {
+	switch (status) {
+		case "pending":
+			return t("batchTasksApproval.status.pending");
+		case "running":
+			return t("batchTasksApproval.status.running");
+		case "completed":
+			return t("batchTasksApproval.status.completed");
+		case "failed":
+			return t("batchTasksApproval.status.failed");
+		case "paused":
+			return t("batchTasksApproval.status.paused");
+	}
+}
+
+function getExecutionOperationDetail(operation: ExecutionOperation, t: ReturnType<typeof useTranslation<"common">>["t"]): {
+	label: string;
+	title: string;
+	summary: string;
+	icon: string;
+	description: string;
+	warning?: string;
+	destructive?: boolean;
+} {
+	switch (operation) {
+		case "delete-all":
+			return {
+				label: t("batchTasksApproval.executionDeleteAllLabel"),
+				title: t("batchTasksApproval.executionDeleteAllTitle"),
+				summary: t("batchTasksApproval.executionDeleteAllSummary"),
+				icon: "icon-[mdi--delete-sweep-outline]",
+				description: t("batchTasksApproval.executionDeleteAllDescription"),
+				warning: t("batchTasksApproval.executionDeleteAllWarning"),
+				destructive: true,
+			};
+		case "start":
+			return {
+				label: t("batchTasksApproval.executionStartLabel"),
+				title: t("batchTasksApproval.executionStartTitle"),
+				summary: t("batchTasksApproval.executionStartSummary"),
+				icon: "icon-[mdi--play-circle-outline]",
+				description: t("batchTasksApproval.executionStartDescription"),
+			};
+		case "stop":
+			return {
+				label: t("batchTasksApproval.executionStopLabel"),
+				title: t("batchTasksApproval.executionStopTitle"),
+				summary: t("batchTasksApproval.executionStopSummary"),
+				icon: "icon-[mdi--stop-circle-outline]",
+				description: t("batchTasksApproval.executionStopDescription"),
+				warning: t("batchTasksApproval.executionStopWarning"),
+				destructive: true,
+			};
+		case "reset":
+			return {
+				label: t("batchTasksApproval.executionResetLabel"),
+				title: t("batchTasksApproval.executionResetTitle"),
+				summary: t("batchTasksApproval.executionResetSummary"),
+				icon: "icon-[mdi--restart]",
+				description: t("batchTasksApproval.executionResetDescription"),
+				warning: t("batchTasksApproval.executionResetWarning"),
+				destructive: true,
+			};
+		case "reset-failed":
+			return {
+				label: t("batchTasksApproval.executionResetFailedLabel"),
+				title: t("batchTasksApproval.executionResetFailedTitle"),
+				summary: t("batchTasksApproval.executionResetFailedSummary"),
+				icon: "icon-[mdi--refresh-circle]",
+				description: t("batchTasksApproval.executionResetFailedDescription"),
+				warning: t("batchTasksApproval.executionResetFailedWarning"),
+				destructive: true,
+			};
+	}
 }

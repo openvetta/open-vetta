@@ -64,19 +64,21 @@ export function FilePreviewDialogView({
 					) : (
 						<div className="pointer-events-none absolute inset-0 flex items-center justify-center p-10 pt-16">
 							<div
-								className="pointer-events-auto relative flex h-full max-h-[85vh] w-full max-w-[80vw] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-lg"
+								className="pointer-events-auto relative flex h-full max-h-[85vh] w-full max-w-[80vw] flex-col overflow-visible rounded-xl border border-border bg-background shadow-lg"
 								onClick={stop}
 							>
 								<ThemeSurface slot="root.filePreviewDialog.panel" />
-								<div className="relative z-10 flex shrink-0 items-center border-b border-border/50 px-4 py-2.5">
-									<span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
-										{getPreviewLabel(item)}
-									</span>
-								</div>
-								<div className="relative z-10 flex min-h-0 flex-1 flex-col">
-									<PreviewErrorBoundary resetKey={item}>
-										<PreviewBody item={item} />
-									</PreviewErrorBoundary>
+								<div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
+									<div className="flex shrink-0 items-center border-b border-border/50 px-4 py-2.5">
+										<span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
+											{getPreviewLabel(item)}
+										</span>
+									</div>
+									<div className="flex min-h-0 flex-1 flex-col">
+										<PreviewErrorBoundary resetKey={item}>
+											<PreviewBody item={item} />
+										</PreviewErrorBoundary>
+									</div>
 								</div>
 							</div>
 						</div>

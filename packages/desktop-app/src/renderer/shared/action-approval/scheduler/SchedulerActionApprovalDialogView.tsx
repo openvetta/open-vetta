@@ -64,12 +64,12 @@ export function SchedulerActionApprovalDialogView({
 	return (
 		<Dialog open>
 			<DialogContent
-				className={cn("relative max-h-[90vh] overflow-auto p-0 sm:max-w-[480px]", className, classNames?.content)}
+				className={cn("overflow-visible p-0 sm:max-w-[480px]", className, classNames?.content)}
 				showCloseButton={false}
 				onInteractOutside={(event) => event.preventDefault()}
 			>
 				<ThemeSurface slot="root.approval.schedulerAction.panel" />
-				<div className="relative z-10">
+				<div className="relative z-10 max-h-[90vh] overflow-y-auto rounded-[inherit]">
 					<div className={cn("border-b border-border/60 p-5", classNames?.header)}>
 						<div className="flex items-start gap-3">
 							<div

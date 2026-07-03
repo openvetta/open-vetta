@@ -37,7 +37,7 @@ export function AppearanceApprovalDrawerView({
 }: AppearanceApprovalDrawerViewProps): JSX.Element {
 	return (
 		<Drawer open direction="right" dismissible={false}>
-			<DrawerContent className="relative w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
+			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] overflow-visible sm:max-w-[520px]">
 				<ThemeSurface slot="root.approval.appearance.panel" />
 				<DrawerHeader className="relative z-10 border-b border-border/60">
 					<DrawerTitle>{title}</DrawerTitle>

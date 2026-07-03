@@ -1,11 +1,11 @@
 import type { DesktopActionApprovalRequest, DesktopActionJsonValue } from "@preload/api.js";
 import { batchProjectsAtom, type BatchTaskStatus } from "@shared/store/atoms";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { useAtomValue } from "jotai";
-import { useRef } from "react";
-import { Button } from "../../components/ui/button";
-import { Dialog, DialogContent } from "../../components/ui/dialog";
-import { Drawer, DrawerContent } from "../../components/ui/drawer";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Textarea } from "../../components/ui/textarea";
+import { BatchTasksApprovalFrameView } from "./BatchTasksApprovalFrameView";
 import { useActionApproval } from "../useActionApproval";
 
 type TaskOperation = "run" | "retry" | "stop" | "delete" | "resume" | "resume-with-text" | "delete-session";
@@ -45,134 +45,34 @@ function parseTaskInput(input: DesktopActionApprovalRequest["input"]): TaskInput
 	};
 }
 
-const operationDetails: Record<
-	TaskOperation,
-	{ label: string; title: string; summary: string; icon: string; description: string; warning?: string; destructive?: boolean }
-> = {
-	run: {
-		label: "执行任务",
-		title: "执行批量子任务确认",
-		summary: "请确认是否为该待执行子任务创建会话并开始运行。",
-		icon: "icon-[mdi--play-circle-outline]",
-		description: "为这个待执行任务创建会话并开始运行。",
-	},
-	retry: {
-		label: "从头重试",
-		title: "重试批量子任务确认",
-		summary: "请确认是否清理该子任务的旧结果，并从头重新执行。",
-		icon: "icon-[mdi--refresh]",
-		description: "清理旧结果后，从头重新执行这个任务。",
-		warning: "旧会话、状态和任务目录中的已有产物会被删除，无法恢复。",
-		destructive: true,
-	},
-	stop: {
-		label: "停止并清理",
-		title: "停止批量子任务确认",
-		summary: "请确认是否中止或移出该子任务，并清理会话、状态和产物。",
-		icon: "icon-[mdi--stop-circle-outline]",
-		description: "中止运行中或排队中的任务，并将状态重置为待执行。",
-		warning: "当前会话、运行状态和任务目录中的已有产物会被删除。",
-		destructive: true,
-	},
-	delete: {
-		label: "删除任务",
-		title: "删除批量子任务确认",
-		summary: "请确认是否从项目中永久删除该子任务及其关联数据。",
-		icon: "icon-[mdi--delete-outline]",
-		description: "从项目中永久移除这个任务。",
-		warning: "任务记录、项目子目录、会话状态及产物会被永久删除，无法撤销。",
-		destructive: true,
-	},
-	resume: {
-		label: "继续任务",
-		title: "继续批量子任务确认",
-		summary: "请确认是否向暂停的原会话发送“继续”，并保留已有上下文继续执行。",
-		icon: "icon-[mdi--play-circle-outline]",
-		description: "向暂停的原会话发送“继续”，保留已有上下文和产物。",
-	},
-	"resume-with-text": {
-		label: "带说明继续",
-		title: "带说明继续批量子任务确认",
-		summary: "请确认发送给暂停会话的补充说明。确认后会保留已有上下文继续执行。",
-		icon: "icon-[mdi--message-plus-outline]",
-		description: "将补充说明发送给暂停的原会话，然后继续执行。",
-	},
-	"delete-session": {
-		label: "删除任务会话",
-		title: "删除批量子任务会话确认",
-		summary: "请确认是否删除该子任务关联的对话会话。任务记录和任务目录会保留。",
-		icon: "icon-[mdi--chat-remove-outline]",
-		description: "删除与任务关联的对话会话。",
-		warning: "会话历史将不可恢复；任务记录和任务目录不会删除。",
-		destructive: true,
-	},
-};
-
-const statusLabels: Record<BatchTaskStatus, string> = {
-	pending: "待执行",
-	running: "运行中",
-	completed: "已完成",
-	failed: "失败",
-	paused: "已暂停",
-};
-
 export function BatchTasksTaskApproval(): JSX.Element | null {
+	const { t } = useTranslation("common");
 	const approval = useActionApproval("batch-tasks.task");
 	const projects = useAtomValue(batchProjectsAtom);
-	const textRef = useRef<HTMLTextAreaElement>(null);
 	if (!approval) return null;
 	const { request, responding, error, approve, reject } = approval;
 
 	const input = parseTaskInput(request.input);
 	const project = input ? projects.find((item) => item.id === input.projectId) : undefined;
 	const task = input ? project?.tasks.find((item) => item.id === input.taskId) : undefined;
-	const detail = input ? operationDetails[input.operation] : undefined;
+	const detail = input ? getTaskOperationDetail(input.operation, t) : undefined;
 	const isEditable = input?.operation === "resume-with-text";
+	const [resumeText, setResumeText] = useState(input?.text?.trim() || t("batchTasksApproval.resumeDefaultText"));
+	const ThemedBatchTasksApprovalFrameView = useThemeComponent(
+		"root.approval.batchTasksFrameView",
+		BatchTasksApprovalFrameView,
+	);
 	const approveInput = (): void => {
 		if (!input || !isEditable) {
 			approve();
 			return;
 		}
 		const originalInput = request.input as Record<string, DesktopActionJsonValue>;
-		approve({ ...originalInput, text: textRef.current?.value.trim() || "继续" });
+		approve({ ...originalInput, text: resumeText.trim() || t("batchTasksApproval.resumeDefaultText") });
 	};
 
-	const content = (
+	const body = (
 		<>
-			<div className="border-b border-border/60 p-5">
-				<div className="flex items-start gap-3">
-					<div
-						className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-							detail?.destructive ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-						}`}
-					>
-						<span className={`${detail?.icon ?? "icon-[mdi--checkbox-marked-circle-outline]"} h-5 w-5`} />
-					</div>
-					<div className="min-w-0 flex-1">
-						<div className="flex flex-wrap items-center gap-2">
-							<h2 className="text-[15px] font-semibold text-foreground">
-								{detail?.title ?? "批量子任务操作确认"}
-							</h2>
-							{detail && (
-								<span
-									className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-										detail.destructive
-											? "bg-destructive/10 text-destructive"
-											: "bg-primary/10 text-primary"
-									}`}
-								>
-									{detail.label}
-								</span>
-							)}
-						</div>
-						<p className="mt-1 text-[12px] leading-5 text-muted-foreground">
-							{detail?.summary ?? request.summary}
-						</p>
-					</div>
-				</div>
-			</div>
-
-			<div className="space-y-3 p-5">
 				{input && detail && (
 					<>
 						<div className="rounded-lg border border-border/50 bg-background/50 p-3">
@@ -182,7 +82,7 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 								</div>
 								<div className="min-w-0 flex-1">
 									<div className="truncate text-[12px] font-semibold text-foreground">
-										{task?.name ?? "未在当前列表中找到该任务"}
+										{task?.name ?? t("batchTasksApproval.taskNotFoundInCurrentList")}
 									</div>
 									<div className="mt-0.5 truncate text-[10px] text-muted-foreground">
 										{project?.name ?? input.projectId}
@@ -190,35 +90,35 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 								</div>
 								{task && (
 									<span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">
-										{statusLabels[task.status]}
+										{getTaskStatusLabel(task.status, t)}
 									</span>
 								)}
 							</div>
 							<div className="mt-3 space-y-2 border-t border-border/40 pt-3 text-[11px]">
 								<div className="flex items-start justify-between gap-4">
-									<span className="shrink-0 text-muted-foreground">源文件夹</span>
+									<span className="shrink-0 text-muted-foreground">{t("batchTasksApproval.sourceFolder")}</span>
 									<span className="min-w-0 break-all text-right text-foreground">
-										{task?.sourcePath ?? "未知"}
+										{task?.sourcePath ?? t("batchTasksApproval.unknown")}
 									</span>
 								</div>
 								<div className="flex items-start justify-between gap-4">
-									<span className="shrink-0 text-muted-foreground">任务 ID</span>
+									<span className="shrink-0 text-muted-foreground">{t("batchTasksApproval.taskId")}</span>
 									<span className="min-w-0 break-all text-right font-mono text-[10px] text-foreground">
 										{input.taskId}
 									</span>
 								</div>
 								<div className="flex items-center justify-between gap-4">
-									<span className="text-muted-foreground">关联会话</span>
-									<span className="text-foreground">{task?.sessionPath ? "有" : "无"}</span>
+									<span className="text-muted-foreground">{t("batchTasksApproval.relatedSession")}</span>
+									<span className="text-foreground">{task?.sessionPath ? t("batchTasksApproval.yes") : t("batchTasksApproval.no")}</span>
 								</div>
 							</div>
 						</div>
 
 						<div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
 							<div className="flex gap-2">
-								<span className={`${detail.icon} mt-0.5 h-4 w-4 shrink-0 text-primary`} />
-								<div>
-									<div className="text-[11px] font-semibold text-foreground">执行后会发生什么</div>
+									<span className={`${detail.icon} mt-0.5 h-4 w-4 shrink-0 text-primary`} />
+									<div>
+									<div className="text-[11px] font-semibold text-foreground">{t("batchTasksApproval.afterActionTitle")}</div>
 									<p className="mt-1 text-[11px] leading-5 text-muted-foreground">{detail.description}</p>
 								</div>
 							</div>
@@ -230,13 +130,13 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 									className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
 									htmlFor="batch-task-resume-text"
 								>
-									发送给原会话的补充说明
+									{t("batchTasksApproval.resumeTextLabel")}
 								</label>
 								<Textarea
 									key={request.approvalId}
 									id="batch-task-resume-text"
-									ref={textRef}
-									defaultValue={input.text?.trim() || "继续"}
+									value={resumeText}
+									onChange={(event) => setResumeText(event.target.value)}
 									className="min-h-28 resize-y"
 								/>
 							</div>
@@ -244,7 +144,7 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 
 						{task?.error && (
 							<div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-								<div className="mb-1 text-[10px] font-medium text-destructive">最近一次错误</div>
+								<div className="mb-1 text-[10px] font-medium text-destructive">{t("batchTasksApproval.lastError")}</div>
 								<p className="max-h-24 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-muted-foreground">
 									{task.error}
 								</p>
@@ -265,50 +165,122 @@ export function BatchTasksTaskApproval(): JSX.Element | null {
 						{JSON.stringify(request.input, null, 2)}
 					</pre>
 				)}
-			</div>
-
-			<div className="border-t border-border/60 px-5 py-4">
-				<div className="mb-3 flex items-center justify-between text-[10px] text-muted-foreground">
-					<span>请求权限</span>
-					<span className="font-mono">{request.permission}</span>
-				</div>
-				{error && <div className="mb-3 text-[11px] text-destructive">{error}</div>}
-				<div className="flex justify-end gap-2">
-				<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-					拒绝（{approval.countdown.formatted}）
-				</Button>
-				<Button
-					size="sm"
-					variant={detail?.destructive ? "destructive" : "default"}
-					disabled={responding}
-					onClick={approveInput}
-				>
-					{responding ? "处理中..." : `确认${detail?.label ?? "操作"}`}
-				</Button>
-				</div>
-			</div>
 		</>
 	);
 
-	if (isEditable) {
-		return (
-			<Drawer open direction="right" dismissible={false}>
-				<DrawerContent className="w-[min(560px,calc(100vw-2rem))] sm:max-w-[560px]">
-					<div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
-				</DrawerContent>
-			</Drawer>
-		);
-	}
-
 	return (
-		<Dialog open>
-			<DialogContent
-				className="max-h-[90vh] overflow-auto sm:max-w-[560px]"
-				showCloseButton={false}
-				onInteractOutside={(event) => event.preventDefault()}
-			>
-				{content}
-			</DialogContent>
-		</Dialog>
+		<ThemedBatchTasksApprovalFrameView
+			presentation={isEditable ? "drawer" : "dialog"}
+			title={detail?.title ?? t("batchTasksApproval.taskFallbackTitle")}
+			summary={detail?.summary ?? request.summary}
+			icon={detail?.icon ?? "icon-[mdi--checkbox-marked-circle-outline]"}
+			badge={detail?.label}
+			destructive={detail?.destructive}
+			labels={{
+				reject: t("actionApproval.reject"),
+				confirm: t("batchTasksApproval.confirmAction", { action: detail?.label ?? t("batchTasksApproval.fallbackAction") }),
+				responding: t("actionApproval.processing"),
+				permission: t("actionApproval.permission", { permission: request.permission }),
+			}}
+			responding={responding}
+			countdown={approval.countdown.formatted}
+			error={error}
+			onReject={reject}
+			onApprove={approveInput}
+		>
+			{body}
+		</ThemedBatchTasksApprovalFrameView>
 	);
+}
+
+function getTaskStatusLabel(status: BatchTaskStatus, t: ReturnType<typeof useTranslation<"common">>["t"]): string {
+	switch (status) {
+		case "pending":
+			return t("batchTasksApproval.status.pending");
+		case "running":
+			return t("batchTasksApproval.status.running");
+		case "completed":
+			return t("batchTasksApproval.status.completed");
+		case "failed":
+			return t("batchTasksApproval.status.failed");
+		case "paused":
+			return t("batchTasksApproval.status.paused");
+	}
+}
+
+function getTaskOperationDetail(operation: TaskOperation, t: ReturnType<typeof useTranslation<"common">>["t"]): {
+	label: string;
+	title: string;
+	summary: string;
+	icon: string;
+	description: string;
+	warning?: string;
+	destructive?: boolean;
+} {
+	switch (operation) {
+		case "run":
+			return {
+				label: t("batchTasksApproval.taskRunLabel"),
+				title: t("batchTasksApproval.taskRunTitle"),
+				summary: t("batchTasksApproval.taskRunSummary"),
+				icon: "icon-[mdi--play-circle-outline]",
+				description: t("batchTasksApproval.taskRunDescription"),
+			};
+		case "retry":
+			return {
+				label: t("batchTasksApproval.taskRetryLabel"),
+				title: t("batchTasksApproval.taskRetryTitle"),
+				summary: t("batchTasksApproval.taskRetrySummary"),
+				icon: "icon-[mdi--refresh]",
+				description: t("batchTasksApproval.taskRetryDescription"),
+				warning: t("batchTasksApproval.taskRetryWarning"),
+				destructive: true,
+			};
+		case "stop":
+			return {
+				label: t("batchTasksApproval.taskStopLabel"),
+				title: t("batchTasksApproval.taskStopTitle"),
+				summary: t("batchTasksApproval.taskStopSummary"),
+				icon: "icon-[mdi--stop-circle-outline]",
+				description: t("batchTasksApproval.taskStopDescription"),
+				warning: t("batchTasksApproval.taskStopWarning"),
+				destructive: true,
+			};
+		case "delete":
+			return {
+				label: t("batchTasksApproval.taskDeleteLabel"),
+				title: t("batchTasksApproval.taskDeleteTitle"),
+				summary: t("batchTasksApproval.taskDeleteSummary"),
+				icon: "icon-[mdi--delete-outline]",
+				description: t("batchTasksApproval.taskDeleteDescription"),
+				warning: t("batchTasksApproval.taskDeleteWarning"),
+				destructive: true,
+			};
+		case "resume":
+			return {
+				label: t("batchTasksApproval.taskResumeLabel"),
+				title: t("batchTasksApproval.taskResumeTitle"),
+				summary: t("batchTasksApproval.taskResumeSummary"),
+				icon: "icon-[mdi--play-circle-outline]",
+				description: t("batchTasksApproval.taskResumeDescription"),
+			};
+		case "resume-with-text":
+			return {
+				label: t("batchTasksApproval.taskResumeWithTextLabel"),
+				title: t("batchTasksApproval.taskResumeWithTextTitle"),
+				summary: t("batchTasksApproval.taskResumeWithTextSummary"),
+				icon: "icon-[mdi--message-plus-outline]",
+				description: t("batchTasksApproval.taskResumeWithTextDescription"),
+			};
+		case "delete-session":
+			return {
+				label: t("batchTasksApproval.taskDeleteSessionLabel"),
+				title: t("batchTasksApproval.taskDeleteSessionTitle"),
+				summary: t("batchTasksApproval.taskDeleteSessionSummary"),
+				icon: "icon-[mdi--chat-remove-outline]",
+				description: t("batchTasksApproval.taskDeleteSessionDescription"),
+				warning: t("batchTasksApproval.taskDeleteSessionWarning"),
+				destructive: true,
+			};
+	}
 }
