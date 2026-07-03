@@ -1,7 +1,7 @@
 import { useAuth } from "@domains/auth/hooks/useAuth";
 import { useTheme } from "@shared/hooks/useTheme";
 import { downloadsActiveCountAtom, loginDialogOpenAtom, type ThemeMode, themeModeAtom } from "@shared/store/atoms";
-import { creditsBalanceAtom, creditsUnlimitedAtom, subscriptionStatusAtom } from "@shared/store/auth-atoms";
+import { subscriptionStatusAtom } from "@shared/store/auth-atoms";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtomValue, useSetAtom } from "jotai";
 import type { MouseEvent } from "react";
@@ -16,8 +16,6 @@ export function useSettingsMenuModel(open: boolean, setOpen: (open: boolean) => 
 	const navigate = useNavigate();
 	const setLoginOpen = useSetAtom(loginDialogOpenAtom);
 	const { user, logout } = useAuth();
-	const creditsBalance = useAtomValue(creditsBalanceAtom);
-	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
 	const subscription = useAtomValue(subscriptionStatusAtom);
 
 	const goEnabled = subscription.go_enabled;
@@ -34,8 +32,6 @@ export function useSettingsMenuModel(open: boolean, setOpen: (open: boolean) => 
 
 	return {
 		activeDownloads,
-		creditsBalance,
-		creditsUnlimited,
 		fiveHourRemainingPercent,
 		fiveHourResetAt: fiveHourWindow?.reset_at,
 		goBadgeColor: subscription.badge_color,
@@ -46,7 +42,6 @@ export function useSettingsMenuModel(open: boolean, setOpen: (open: boolean) => 
 		subscriptionTierName: subscription.tier_name,
 		themeOptions,
 		user,
-		zenEnabled: subscription.zen_enabled,
 		actions: {
 			login: () => {
 				setOpen(false);
@@ -76,19 +71,10 @@ export function useSettingsMenuModel(open: boolean, setOpen: (open: boolean) => 
 }
 
 export function useRefreshBillingOnOpen(): (open: boolean, userPresent: boolean) => void {
-	const setCreditsBalance = useSetAtom(creditsBalanceAtom);
-	const setCreditsUnlimited = useSetAtom(creditsUnlimitedAtom);
 	const setSubscriptionStatus = useSetAtom(subscriptionStatusAtom);
 
 	return (open: boolean, userPresent: boolean): void => {
 		if (!open || !userPresent) return;
-		void window.vetta.credits
-			.getBalance()
-			.then((result) => {
-				setCreditsBalance(result.balance);
-				setCreditsUnlimited(result.unlimited ?? false);
-			})
-			.catch(console.error);
 		void window.vetta.subscription
 			.getStatus()
 			.then((result) => {

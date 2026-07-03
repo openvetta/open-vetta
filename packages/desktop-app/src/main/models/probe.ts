@@ -12,7 +12,7 @@ import { fetchRemoteProviders } from "../ipc/settings.js";
  *
  * Resolves the provider from local models.json first (LAN servers like
  * Ollama / vLLM), then falls back to the auth-server's remote provider
- * catalogue (Vetta Zen et al.). Re-fetches remote on demand instead of
+ * catalogue (Vetta Go et al.). Re-fetches remote on demand instead of
  * trusting the renderer's atom, which may be stale.
  *
  * Uses electron.net.fetch deliberately so we go through Chromium's network

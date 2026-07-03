@@ -8,8 +8,6 @@ export interface SettingsMenuThemeOption {
 
 export interface SettingsMenuModel {
 	activeDownloads: number;
-	creditsBalance: number | null;
-	creditsUnlimited: boolean;
 	fiveHourRemainingPercent: number;
 	fiveHourResetAt?: string;
 	goBadgeColor?: string;
@@ -24,7 +22,6 @@ export interface SettingsMenuModel {
 		nickname?: string | null;
 		username?: string | null;
 	} | null;
-	zenEnabled: boolean;
 	actions: {
 		login(): void;
 		logout(): void;

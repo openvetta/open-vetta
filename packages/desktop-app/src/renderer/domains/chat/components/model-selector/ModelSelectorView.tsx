@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { MultiplierTag } from "@shared/components/ModelSelect/MultiplierTag";
 import { ProviderIcon } from "@shared/components/provider-icon";
 import {
 	DropdownMenu,
@@ -145,6 +146,7 @@ export function ModelSelectorView({
 													onSelect={() => onModelSelect(model.key)}
 												>
 													<span className="min-w-0 flex-1 truncate">{model.displayName}</span>
+													<MultiplierTag multiplier={model.multiplier} />
 													{model.supportsImage && (
 														<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
 															{labels.visionBadge}

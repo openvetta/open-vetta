@@ -77,7 +77,7 @@ export function buildCodingAgentSpec(opts: BuildCodingAgentSpecOptions = {}): Co
 	// `~/.vetta/agent/settings.json`, which avoids the prod failure where a
 	// stale `serverUrl` (e.g. left over from a dev/LAN login) causes
 	// `loadRemoteModels` to 401 against the wrong gateway — remote providers
-	// (vetta-zen et al.) disappear and the agent exits with
+	// (vetta-go et al.) disappear and the agent exits with
 	// "Unknown provider" before the prompt is ever processed.
 	const serverUrl = DEFAULT_SERVER_URL;
 

@@ -556,7 +556,7 @@ export async function main(args: string[]) {
 	// > 内置 DEFAULT_SERVER_URL。
 	// desktop-app 等宿主通过 VETTA_SERVER_URL 把当前生效的 server 地址注入子进程；
 	// 否则一个曾在 dev/LAN 环境登录过的用户切到 prod 后，子进程会继续读 settings.json
-	// 里残留的 LAN 地址，导致 loadRemoteModels 401，远程 provider（vetta-zen 等）
+	// 里残留的 LAN 地址，导致 loadRemoteModels 401，远程 provider（vetta-go 等）
 	// 不会注册，IM 桥接 spawn 的 agent-rpc 子进程一启动就以 "Unknown provider" 退出。
 	const envServerUrl = process.env[ENV_SERVER_URL];
 	let serverUrl = envServerUrl || settingsManager.getServerUrl();

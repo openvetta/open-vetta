@@ -270,7 +270,7 @@ interface RemoteModelsConfig {
 		{
 			api: string;
 			baseUrl?: string;
-			// 服务端下发的 provider 级自定义请求头（如 Vetta Go/Zen 的 X-Vetta-Service 分流标识）
+			// 服务端下发的 provider 级自定义请求头，随该 provider 的每次请求携带
 			headers?: Record<string, string>;
 			models: Array<{
 				id: string;
@@ -461,7 +461,7 @@ export class ModelRegistry {
 					cost: modelDef.cost ?? defaultCost,
 					contextWindow: modelDef.contextWindow ?? 128000,
 					maxTokens: modelDef.maxTokens ?? 16384,
-					// 透传 provider 级请求头（Vetta Go/Zen 服务标识分流），随每次上游请求发往网关
+					// 透传 provider 级请求头（Vetta Go 服务标识分流），随每次上游请求发往网关
 					...(providerConfig.headers ? { headers: providerConfig.headers } : {}),
 				} as Model<Api>);
 			}
