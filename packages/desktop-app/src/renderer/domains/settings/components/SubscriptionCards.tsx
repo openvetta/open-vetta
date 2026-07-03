@@ -306,9 +306,9 @@ type ModelCost = { input: number; output: number; cacheRead: number; cacheWrite:
 type RemoteModel = { id: string; name?: string; api?: string; input?: string[]; reasoning?: boolean; contextWindow?: number; maxTokens?: number; tags?: string[]; multiplier?: ModelCost };
 type RemoteProvider = { api?: string; baseUrl?: string; icon?: string; models?: RemoteModel[] };
 
-/** 倍率数字格式化：整数原样，有小数保留两位。 */
+/** 倍率数字格式化：整数原样，有小数最多两位并去掉末尾的 0（0.30 → "0.3"）。 */
 function fmt(n: number): string {
-	return Number.isInteger(n) ? String(n) : n.toFixed(2);
+	return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 }
 
 /** 单个模型卡片：Go 传 hoverColor 跟随 badge 色。 */
@@ -347,7 +347,7 @@ function ModelChip({ model, hoverColor }: { model: RemoteModel; hoverColor?: str
 				<div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
 					<span className="icon-[mdi--circle-multiple-outline] h-3 w-3 shrink-0 opacity-70" />
 					<span className="tabular-nums">
-						{t("multiplierInOut", { in: fmt(mul.input), out: fmt(mul.output) })}
+						{t("modelMultiplier", { value: fmt(mul.input) })}
 					</span>
 				</div>
 			)}

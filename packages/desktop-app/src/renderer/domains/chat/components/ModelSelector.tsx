@@ -10,6 +10,7 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@shared/components/ui/dropdown-menu";
+import { MultiplierTag } from "@shared/components/ModelSelect/MultiplierTag";
 import { resolveReasoning } from "@shared/components/ModelSelect/resolveReasoning";
 import { useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
 import { cn } from "@shared/lib/utils";
@@ -112,6 +113,7 @@ export function ModelSelector(): JSX.Element {
 					<span className="min-w-0 flex-1 truncate text-left">
 						{selectedOption?.displayName ?? t("modelSelect.placeholder")}
 					</span>
+					{selectedOption && <MultiplierTag multiplier={selectedOption.multiplier} />}
 					{currentLevel && <span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>}
 					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0" />
 				</button>
@@ -160,6 +162,7 @@ export function ModelSelector(): JSX.Element {
 						{providerModels.map((m) => (
 							<DropdownMenuItem key={m.key} onSelect={() => handleModelSelect(m.key)}>
 								<span className="min-w-0 flex-1 truncate">{m.displayName}</span>
+								<MultiplierTag multiplier={m.multiplier} />
 								{m.supportsImage && (
 									<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
 										{t("modelSelect.visionBadge")}

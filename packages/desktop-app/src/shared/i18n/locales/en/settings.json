@@ -1254,7 +1254,7 @@
   "noQuotaLimit": "Unlimited",
   "unlimitedQuota2": "Unlimited",
   "creditInOutShort": "input {{in}} · output {{out}}",
-  "multiplierInOut": "{{in}}×/{{out}}×",
+  "modelMultiplier": "{{value}}×",
   "freeModel": "Free",
   "modelsCountShort": "{{count}} models",
   "tabAchievements": "Achievements",
