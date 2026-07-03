@@ -2,6 +2,7 @@ import type { ActivityPanelFrame } from "@domains/activity-panel/components/acti
 import type { LoginDialogView } from "@domains/auth/components/LoginDialogView";
 import type { AtPanelView } from "@domains/chat/components/at-panel/AtPanelView";
 import type { ExecutionModeSelectorView } from "@domains/chat/components/execution-mode-selector/ExecutionModeSelectorView";
+import type { InputBarBackground } from "@domains/chat/components/input-bar/InputBarBackground";
 import type { InputBarView } from "@domains/chat/components/input-bar/InputBarView";
 import type { ModelSelectorView } from "@domains/chat/components/model-selector/ModelSelectorView";
 import type { SceneCard } from "@domains/chat/components/new-session/SceneCard";
@@ -52,6 +53,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.atPanelView"?: typeof AtPanelView;
 		readonly "chat.executionModeSelectorView"?: typeof ExecutionModeSelectorView;
 		readonly "chat.inputDrawer"?: typeof DrawerCard;
+		readonly "chat.inputBarBackground"?: typeof InputBarBackground;
 		readonly "chat.inputBarView"?: typeof InputBarView;
 		readonly "chat.modelSelectorView"?: typeof ModelSelectorView;
 		readonly "chat.newSessionSceneCard"?: typeof SceneCard;

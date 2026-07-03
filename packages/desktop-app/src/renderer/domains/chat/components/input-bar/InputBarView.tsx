@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useThemeComponent } from "@vetta/theme-sdk";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { DrawerCard, type DrawerTab } from "@shared/components/DrawerCard";
 import { QueueCard } from "@shared/components/QueueCard";
@@ -14,6 +15,7 @@ import { ExecutionModeSelector } from "../ExecutionModeSelector";
 import { ContextRing } from "../ContextRing";
 import { QuestionPanel } from "../QuestionPanel";
 import { SendButton } from "../SendButton";
+import { InputBarBackground } from "./InputBarBackground";
 import { InputBarCapsule } from "./InputBarCapsule";
 import { InputBarToolbarButton } from "./InputBarToolbarButton";
 import { SandboxPermissionCard } from "./SandboxPermissionCard";
@@ -36,7 +38,12 @@ const SEND_HINT_INITIAL = { opacity: 0, y: 2 };
 const SEND_HINT_ANIMATE = { opacity: 1, y: 0 };
 
 export function InputBarView({ model, className, classNames }: InputBarViewProps): JSX.Element {
+	const surface = useThemeSurface("chat.inputBar");
 	const ThemedDrawerCard = useThemeComponent("chat.inputDrawer", DrawerCard);
+	const ThemedInputBarBackground = useThemeComponent(
+		"chat.inputBarBackground",
+		InputBarBackground,
+	);
 	const drawerTabs = useMemo(
 		(): DrawerTab[] =>
 			model.drawerItems.map((item) => {
@@ -74,6 +81,7 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 	const cardClass = [
 		"input-card relative z-10 overflow-visible rounded-[20px] border bg-muted transition-[border-color,box-shadow,transform] duration-200 dark:bg-card",
 		model.isFocused ? "border-primary/20" : "border-border",
+		surface?.rootClassName,
 		classNames?.card,
 	]
 		.filter(Boolean)
@@ -132,6 +140,7 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 
 				<div style={{ opacity: model.hasSession ? 1 : 0.55 }} className={cardClass}>
 					<ThemeSurface slot="chat.inputBar" />
+					<ThemedInputBarBackground />
 					<div className={["relative z-10 rounded-[inherit]", classNames?.cardContent].filter(Boolean).join(" ")}>
 						<AnimatePresence initial={false}>
 							{(model.hasCapsules || model.attachedImages.length > 0) && (
