@@ -3,6 +3,7 @@ import {
 	type SchedulerTaskDraft,
 } from "@domains/scheduler/components/SchedulerTaskFields";
 import type { DesktopActionJsonValue } from "@preload/api";
+import { useTranslation } from "react-i18next";
 
 export type SchedulerEditableData = SchedulerTaskDraft;
 export type SchedulerApprovalJsonData = { [key: string]: DesktopActionJsonValue };
@@ -16,11 +17,13 @@ export function SchedulerApprovalFields({
 	value,
 	onChange,
 }: SchedulerApprovalFieldsProps): JSX.Element {
+	const { t } = useTranslation("common");
+
 	return (
 		<SchedulerTaskFields
 			value={value}
 			onChange={onChange}
-			namePlaceholder="任务名称"
+			namePlaceholder={t("schedulerApproval.taskNamePlaceholder")}
 			showEnabled
 			showWorkDirSelector={false}
 			promptMinHeight={160}

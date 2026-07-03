@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../../components/ui/drawer";
+import { useTranslation } from "react-i18next";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import {
-	SchedulerApprovalFields,
 	type SchedulerEditableData,
 	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
+import { SchedulerEditApprovalDrawerView } from "./SchedulerEditApprovalDrawerView";
 import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
 
 interface CreateTaskData extends SchedulerEditableData {
@@ -30,41 +30,39 @@ export function SchedulerCreateApproval(): JSX.Element | null {
 }
 
 function SchedulerCreateDrawer({ approval }: { approval: ActiveActionApproval }): JSX.Element {
+	const { t } = useTranslation("common");
 	const { request, responding, error, approve, reject } = approval;
 	const input = request.input as unknown as CreateTaskInput;
 	const [data, setData] = useState<SchedulerEditableData>(input.data);
+	const ThemedSchedulerEditApprovalDrawerView = useThemeComponent(
+		"root.approval.schedulerEditView",
+		SchedulerEditApprovalDrawerView,
+	);
 
 	return (
-		<Drawer open direction="right" dismissible={false}>
-			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
-				<DrawerHeader className="border-b border-border/60">
-					<DrawerTitle>创建定时任务确认</DrawerTitle>
-					<DrawerDescription>请确认即将创建的定时任务配置。确认后任务会保存，并按启用状态参与调度。</DrawerDescription>
-				</DrawerHeader>
-				<div className="min-h-0 flex-1 overflow-y-auto p-4">
-					<SchedulerApprovalFields value={data} onChange={setData} />
-					<div className="mt-4 text-[11px] text-muted-foreground">权限：{request.permission}</div>
-					{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
-				</div>
-				<DrawerFooter className="border-t border-border/60">
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{approval.countdown.formatted}）
-					</Button>
-					<Button
-						size="sm"
-						disabled={responding}
-						onClick={() =>
-							approve({
-								operation: "create",
-								data: toSchedulerApprovalJsonData({ ...input.data, ...data }),
-								approvalUi: input.approvalUi ?? "scheduler.create",
-							})
-						}
-					>
-						{responding ? "创建中..." : "确认创建"}
-					</Button>
-				</DrawerFooter>
-			</DrawerContent>
-		</Drawer>
+		<ThemedSchedulerEditApprovalDrawerView
+			title={t("schedulerApproval.createTitle")}
+			description={t("schedulerApproval.createDescription")}
+			value={data}
+			error={error}
+			responding={responding}
+			countdown={approval.countdown.formatted}
+			labels={{
+				reject: t("actionApproval.reject"),
+				submit: t("schedulerApproval.confirmCreate"),
+				submitting: t("schedulerApproval.creating"),
+				taskId: t("schedulerApproval.taskId"),
+				permission: t("actionApproval.permission", { permission: request.permission }),
+			}}
+			onChange={setData}
+			onReject={reject}
+			onSubmit={() =>
+				approve({
+					operation: "create",
+					data: toSchedulerApprovalJsonData({ ...input.data, ...data }),
+					approvalUi: input.approvalUi ?? "scheduler.create",
+				})
+			}
+		/>
 	);
 }

@@ -1,13 +1,13 @@
 import { type ScheduledTask, scheduledTasksAtom } from "@shared/store/atoms";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { useAtomValue } from "jotai";
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../../components/ui/drawer";
+import { useTranslation } from "react-i18next";
 import {
-	SchedulerApprovalFields,
 	type SchedulerEditableData,
 	toSchedulerApprovalJsonData,
 } from "./SchedulerApprovalFields";
+import { SchedulerEditApprovalDrawerView } from "./SchedulerEditApprovalDrawerView";
 import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
 
 interface UpdateTaskData extends SchedulerEditableData {
@@ -50,6 +50,11 @@ function SchedulerUpdateLoader({
 	const [task, setTask] = useState<ScheduledTask | undefined>(cachedTask);
 	const [loading, setLoading] = useState(!cachedTask);
 	const [loadError, setLoadError] = useState<string | null>(null);
+	const { t } = useTranslation("common");
+	const ThemedSchedulerEditApprovalDrawerView = useThemeComponent(
+		"root.approval.schedulerEditView",
+		SchedulerEditApprovalDrawerView,
+	);
 
 	useEffect(() => {
 		console.info("[action-approval:scheduler.update] request", {
@@ -82,7 +87,7 @@ function SchedulerUpdateLoader({
 					matchedTask: currentTask,
 				});
 				setTask(currentTask);
-				if (!currentTask) setLoadError("未找到当前定时任务，无法加载完整配置。");
+				if (!currentTask) setLoadError(t("schedulerApproval.updateNotFound"));
 			})
 			.catch((error: unknown) => {
 				console.error("[action-approval:scheduler.update] query-failed", {
@@ -90,7 +95,7 @@ function SchedulerUpdateLoader({
 					requestedTaskId: input.taskId,
 					error,
 				});
-				if (!cancelled) setLoadError("加载当前定时任务配置失败。");
+				if (!cancelled) setLoadError(t("schedulerApproval.updateLoadFailed"));
 			})
 			.finally(() => {
 				if (!cancelled) setLoading(false);
@@ -128,43 +133,41 @@ function SchedulerUpdateLoader({
 
 	if (loading) {
 		return (
-			<Drawer open direction="right" dismissible={false}>
-				<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
-					<DrawerHeader className="border-b border-border/60">
-						<DrawerTitle>编辑定时任务变更</DrawerTitle>
-						<DrawerDescription>{approval.request.summary}</DrawerDescription>
-					</DrawerHeader>
-					<div className="min-h-0 flex-1 overflow-y-auto p-4">
-						<div className="py-10 text-center text-[12px] text-muted-foreground">正在加载当前任务配置...</div>
-					</div>
-					<DrawerFooter className="border-t border-border/60">
-						<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
-							拒绝（{approval.countdown.formatted}）
-						</Button>
-					</DrawerFooter>
-				</DrawerContent>
-			</Drawer>
+			<ThemedSchedulerEditApprovalDrawerView
+				title={t("schedulerApproval.updateTitle")}
+				description={approval.request.summary}
+				loadingMessage={t("schedulerApproval.loadingCurrentTask")}
+				responding={approval.responding}
+				countdown={approval.countdown.formatted}
+				labels={{
+					reject: t("actionApproval.reject"),
+					submit: t("schedulerApproval.confirmUpdate"),
+					submitting: t("schedulerApproval.updating"),
+					taskId: t("schedulerApproval.taskId"),
+					permission: t("actionApproval.permission", { permission: approval.request.permission }),
+				}}
+				onReject={approval.reject}
+			/>
 		);
 	}
 
 	if (!task || !initialData) {
 		return (
-			<Drawer open direction="right" dismissible={false}>
-				<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
-					<DrawerHeader className="border-b border-border/60">
-						<DrawerTitle>编辑定时任务变更</DrawerTitle>
-						<DrawerDescription>{approval.request.summary}</DrawerDescription>
-					</DrawerHeader>
-					<div className="min-h-0 flex-1 overflow-y-auto p-4">
-						<div className="py-10 text-center text-[12px] text-destructive">{loadError}</div>
-					</div>
-					<DrawerFooter className="border-t border-border/60">
-						<Button variant="outline" size="sm" disabled={approval.responding} onClick={approval.reject}>
-							拒绝（{approval.countdown.formatted}）
-						</Button>
-					</DrawerFooter>
-				</DrawerContent>
-			</Drawer>
+			<ThemedSchedulerEditApprovalDrawerView
+				title={t("schedulerApproval.updateTitle")}
+				description={approval.request.summary}
+				loadError={loadError}
+				responding={approval.responding}
+				countdown={approval.countdown.formatted}
+				labels={{
+					reject: t("actionApproval.reject"),
+					submit: t("schedulerApproval.confirmUpdate"),
+					submitting: t("schedulerApproval.updating"),
+					taskId: t("schedulerApproval.taskId"),
+					permission: t("actionApproval.permission", { permission: approval.request.permission }),
+				}}
+				onReject={approval.reject}
+			/>
 		);
 	}
 
@@ -186,50 +189,45 @@ function SchedulerUpdateDrawer({
 	input: UpdateTaskInput;
 	initialData: UpdateTaskData;
 }): JSX.Element {
+	const { t } = useTranslation("common");
 	const { request, responding, error, approve, reject } = approval;
 	const [data, setData] = useState<SchedulerEditableData>(initialData);
+	const ThemedSchedulerEditApprovalDrawerView = useThemeComponent(
+		"root.approval.schedulerEditView",
+		SchedulerEditApprovalDrawerView,
+	);
 
 	return (
-		<Drawer open direction="right" dismissible={false}>
-			<DrawerContent className="w-[min(520px,calc(100vw-2rem))] sm:max-w-[520px]">
-				<DrawerHeader className="border-b border-border/60">
-					<DrawerTitle>编辑定时任务变更</DrawerTitle>
-					<DrawerDescription>{request.summary}</DrawerDescription>
-				</DrawerHeader>
-				<div className="min-h-0 flex-1 overflow-y-auto p-4">
-					<div className="mb-4 rounded-lg border border-border/50 bg-card/40 p-3">
-						<div className="text-[11px] text-muted-foreground">任务 ID</div>
-						<div className="mt-1 break-all font-mono text-[11px] text-foreground">{input.taskId}</div>
-					</div>
-					<SchedulerApprovalFields value={data} onChange={setData} />
-					<div className="mt-4 text-[11px] text-muted-foreground">权限：{request.permission}</div>
-					{error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
-				</div>
-				<DrawerFooter className="border-t border-border/60">
-					<Button variant="outline" size="sm" disabled={responding} onClick={reject}>
-						拒绝（{approval.countdown.formatted}）
-					</Button>
-					<Button
-						size="sm"
-						disabled={responding}
-						onClick={() => {
-							const approvedInput = {
-								operation: "update",
-								taskId: input.taskId,
-								data: toSchedulerApprovalJsonData({ ...initialData, ...data }),
-								approvalUi: input.approvalUi ?? "scheduler.update",
-							} as const;
-							console.info("[action-approval:scheduler.update] submit", {
-								approvalId: request.approvalId,
-								input: approvedInput,
-							});
-							approve(approvedInput);
-						}}
-					>
-						{responding ? "更新中..." : "确认更新"}
-					</Button>
-				</DrawerFooter>
-			</DrawerContent>
-		</Drawer>
+		<ThemedSchedulerEditApprovalDrawerView
+			title={t("schedulerApproval.updateTitle")}
+			description={request.summary}
+			value={data}
+			taskId={input.taskId}
+			error={error}
+			responding={responding}
+			countdown={approval.countdown.formatted}
+			labels={{
+				reject: t("actionApproval.reject"),
+				submit: t("schedulerApproval.confirmUpdate"),
+				submitting: t("schedulerApproval.updating"),
+				taskId: t("schedulerApproval.taskId"),
+				permission: t("actionApproval.permission", { permission: request.permission }),
+			}}
+			onChange={setData}
+			onReject={reject}
+			onSubmit={() => {
+				const approvedInput = {
+					operation: "update",
+					taskId: input.taskId,
+					data: toSchedulerApprovalJsonData({ ...initialData, ...data }),
+					approvalUi: input.approvalUi ?? "scheduler.update",
+				} as const;
+				console.info("[action-approval:scheduler.update] submit", {
+					approvalId: request.approvalId,
+					input: approvedInput,
+				});
+				approve(approvedInput);
+			}}
+		/>
 	);
 }
