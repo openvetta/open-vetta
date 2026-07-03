@@ -62,13 +62,13 @@ function DemoInputBarBackground({
 }: InputBarBackgroundProps): JSX.Element {
 	return (
 		<InputBarBackground
-			className={className}
+			className={cn("z-[3]", className)}
 			{...props}
 		>
 			<img
 				alt=""
 				aria-hidden="true"
-				className="absolute -right-3 bottom-0 h-[145%] w-auto max-w-[48%] object-contain object-right-bottom"
+				className="absolute -right-3 -bottom-10 h-[145%] w-auto max-w-[48%] object-contain object-right-bottom"
 				src="./theme-demo/input-bar-background.webp"
 			/>
 		</InputBarBackground>
@@ -83,6 +83,28 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 		version: "0.1.0",
 	},
 	appearance: {
+		colorScheme: "light",
+		colors: {
+			common: {
+				accent: "rgb(219, 223, 236)",
+				accentForeground: "rgb(45, 51, 73)",
+				background: "rgb(225, 230, 242)",
+				border: "rgb(196, 202, 219)",
+				card: "rgb(244, 245, 249)",
+				cardForeground: "rgb(39, 45, 67)",
+				foreground: "rgb(39, 45, 67)",
+				input: "rgb(202, 208, 224)",
+				muted: "rgb(232, 235, 244)",
+				mutedForeground: "rgb(99, 106, 128)",
+				popover: "rgb(246, 247, 251)",
+				popoverForeground: "rgb(39, 45, 67)",
+				primary: "rgb(105, 117, 153)",
+				primaryForeground: "rgb(255, 255, 255)",
+				ring: "rgb(127, 139, 174)",
+				secondary: "rgb(230, 233, 242)",
+				secondaryForeground: "rgb(48, 54, 76)",
+			},
+		},
 		surfaces: {
 			"activity.panel": {
 				frame: sidebarDemoFrame,

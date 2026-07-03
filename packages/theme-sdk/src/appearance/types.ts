@@ -2,6 +2,39 @@ export interface ThemeSurfaceRegistry {}
 
 export type ThemeSurfaceSlot = Extract<keyof ThemeSurfaceRegistry, string>;
 
+export interface ThemeColorTokens {
+	readonly accent: string;
+	readonly accentForeground: string;
+	readonly background: string;
+	readonly border: string;
+	readonly card: string;
+	readonly cardForeground: string;
+	readonly chart1: string;
+	readonly chart2: string;
+	readonly chart3: string;
+	readonly chart4: string;
+	readonly chart5: string;
+	readonly destructive: string;
+	readonly destructiveForeground: string;
+	readonly foreground: string;
+	readonly input: string;
+	readonly muted: string;
+	readonly mutedForeground: string;
+	readonly popover: string;
+	readonly popoverForeground: string;
+	readonly primary: string;
+	readonly primaryForeground: string;
+	readonly ring: string;
+	readonly secondary: string;
+	readonly secondaryForeground: string;
+}
+
+export interface ThemeColorOverrides {
+	readonly common?: Partial<ThemeColorTokens>;
+	readonly dark?: Partial<ThemeColorTokens>;
+	readonly light?: Partial<ThemeColorTokens>;
+}
+
 export interface BackgroundImageFrameDecoration {
 	readonly position?: string;
 	readonly repeat?: "no-repeat" | "repeat" | "repeat-x" | "repeat-y";
@@ -60,6 +93,8 @@ export interface ThemeSurfaceConfig {
 }
 
 export interface ThemeAppearance {
+	readonly colorScheme?: "dark" | "light";
+	readonly colors?: ThemeColorOverrides;
 	readonly surfaces?: Partial<Record<ThemeSurfaceSlot, ThemeSurfaceConfig>>;
 }
 

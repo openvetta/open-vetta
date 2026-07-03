@@ -1,3 +1,4 @@
+import type { ThemeColorOverrides } from "@vetta/theme-sdk/appearance";
 import { DEFAULT_THEME_ID, getTheme } from "./themes";
 import { TOKEN_CSS_VAR, type TokenSet } from "./tokens";
 
@@ -6,6 +7,12 @@ export type ResolvedMode = "light" | "dark";
 
 export const MODE_STORAGE_KEY = "vetta-theme";
 export const THEME_STORAGE_KEY = "vetta-color-theme";
+
+let activeThemeColorOverrides: ThemeColorOverrides | undefined;
+
+export function setThemeColorOverrides(overrides?: ThemeColorOverrides): void {
+	activeThemeColorOverrides = overrides;
+}
 
 function writeTokens(tokens: TokenSet): void {
 	const style = document.documentElement.style;
@@ -16,7 +23,12 @@ function writeTokens(tokens: TokenSet): void {
 
 export function applyTheme(mode: ResolvedMode, themeId: string): void {
 	const theme = getTheme(themeId);
-	const tokens = mode === "dark" ? theme.dark : theme.light;
+	const baseTokens = mode === "dark" ? theme.dark : theme.light;
+	const tokens: TokenSet = {
+		...baseTokens,
+		...activeThemeColorOverrides?.common,
+		...activeThemeColorOverrides?.[mode],
+	};
 	const root = document.documentElement;
 	root.setAttribute("data-mode", mode);
 	root.setAttribute("data-theme", theme.id);

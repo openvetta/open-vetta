@@ -8,6 +8,8 @@ export type {
 	NineSliceImageFrameDecoration,
 	NineSliceImageSurfaceFrame,
 	ThemeAppearance,
+	ThemeColorOverrides,
+	ThemeColorTokens,
 	ThemeSurfaceConfig,
 	ThemeSurfaceFrame,
 	ThemeSurfaceRegistry,
