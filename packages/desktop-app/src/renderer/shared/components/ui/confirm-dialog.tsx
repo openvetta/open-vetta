@@ -1,12 +1,15 @@
 import { useAtom } from "jotai";
 import { useEffect, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useTranslation } from "react-i18next";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { confirmDialogAtom } from "../../store/atoms";
-import { Button } from "./button";
+import { ConfirmDialogView } from "./ConfirmDialogView";
 
 export function ConfirmDialog(): JSX.Element | null {
+	const { t } = useTranslation("common");
 	const [state, setState] = useAtom(confirmDialogAtom);
 	const overlayRef = useRef<HTMLDivElement>(null);
+	const ThemedConfirmDialogView = useThemeComponent("root.confirmDialogView", ConfirmDialogView);
 
 	const closeWithCancel = () => {
 		state?.onCancel?.();
@@ -26,53 +29,18 @@ export function ConfirmDialog(): JSX.Element | null {
 	}, [state, setState]);
 
 	return (
-		<AnimatePresence>
-			{state && (
-				<motion.div
-					ref={overlayRef}
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					exit={{ opacity: 0 }}
-					transition={{ duration: 0.15 }}
-					className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
-					onClick={(e) => {
-						if (e.target === overlayRef.current) closeWithCancel();
-					}}
-				>
-					<motion.div
-						initial={{ opacity: 0, scale: 0.95 }}
-						animate={{ opacity: 1, scale: 1 }}
-						exit={{ opacity: 0, scale: 0.95 }}
-						transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-						className="w-[360px] rounded-xl border border-border bg-popover p-5 shadow-xl"
-					>
-						<h3 className="text-[15px] font-semibold text-foreground">{state.title}</h3>
-						<p className="mt-2 max-h-[45vh] overflow-auto whitespace-pre-wrap break-words text-[13px] text-muted-foreground">
-							{state.message}
-						</p>
-						<div className="mt-5 flex justify-end gap-2">
-							<Button variant="ghost" size="sm" onClick={closeWithCancel}>
-								{state.cancelLabel ?? "取消"}
-							</Button>
-							<Button
-								variant={state.variant === "danger" ? "primary" : "primary"}
-								size="sm"
-								className={
-									state.variant === "danger"
-										? "bg-red-600 text-white hover:bg-red-700"
-										: undefined
-								}
-								onClick={() => {
-									state.onConfirm();
-									setState(null);
-								}}
-							>
-								{state.confirmLabel ?? "确认"}
-							</Button>
-						</div>
-					</motion.div>
-				</motion.div>
-			)}
-		</AnimatePresence>
+		<ThemedConfirmDialogView
+			labels={{
+				cancel: t("actions.cancel"),
+				confirm: t("actions.confirm"),
+			}}
+			onCancel={closeWithCancel}
+			onConfirm={() => {
+				state?.onConfirm();
+				setState(null);
+			}}
+			overlayRef={overlayRef}
+			state={state}
+		/>
 	);
 }

@@ -13,6 +13,28 @@
 		"languageTitle": "Language",
 		"languageHint": "Choose the display language"
 	},
+	"updateRestart": {
+		"title": "Update Ready",
+		"message": "Version {{latestVersion}} has been downloaded (current {{currentVersion}}). Restart Vetta now to apply the update, or choose \"Later\" to be reminded next launch.",
+		"later": "Later",
+		"install": "Restart Now"
+	},
+	"filePreview": {
+		"showInFolder": "Show in Folder",
+		"download": "Download",
+		"close": "Close (Esc)"
+	},
+	"loginDialog": {
+		"title": "Sign in to Vetta",
+		"subtitle": "Continue with an account or third-party provider",
+		"accountPlaceholder": "Account",
+		"passwordPlaceholder": "Password",
+		"login": "Sign In",
+		"loggingIn": "Signing in...",
+		"oauthDivider": "Or use a third-party provider",
+		"footerHint": "By signing in, you agree to the Terms of Service and Privacy Policy",
+		"error": "Sign-in failed"
+	},
 	"appShell": {
 		"routeTitles": {
 			"automation": "Automation",

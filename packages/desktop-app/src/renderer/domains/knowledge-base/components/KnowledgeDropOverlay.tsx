@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSetAtom } from "jotai";
 import { useMatches, useNavigate } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "motion/react";
 import { knowledgeImportDraftAtom } from "@shared/store/atoms";
+import { useThemeComponent } from "@vetta/theme-sdk";
+import { KnowledgeDropOverlayView } from "./KnowledgeDropOverlayView";
 
 function hasExternalFiles(event: DragEvent): boolean {
 	return Array.from(event.dataTransfer?.types ?? []).includes("Files");
@@ -28,6 +29,10 @@ export function KnowledgeDropOverlay(): JSX.Element {
 	const setDraft = useSetAtom(knowledgeImportDraftAtom);
 	const dragDepth = useRef(0);
 	const [visible, setVisible] = useState(false);
+	const ThemedKnowledgeDropOverlayView = useThemeComponent(
+		"root.knowledgeDropOverlayView",
+		KnowledgeDropOverlayView,
+	);
 
 	const reset = useCallback(() => {
 		dragDepth.current = 0;
@@ -79,29 +84,11 @@ export function KnowledgeDropOverlay(): JSX.Element {
 	}, [enabled, navigate, reset, setDraft]);
 
 	return (
-		<AnimatePresence>
-			{visible && enabled && (
-				<motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					exit={{ opacity: 0 }}
-					className="pointer-events-none fixed inset-2 z-[80] flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/60 bg-background/88 backdrop-blur-md"
-				>
-					<motion.div
-						initial={{ y: 8, scale: 0.98 }}
-						animate={{ y: 0, scale: 1 }}
-						className="flex max-w-sm flex-col items-center text-center"
-					>
-						<div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/12 text-primary ring-1 ring-inset ring-primary/20">
-							<span className="icon-[mdi--folder-arrow-down-outline] h-8 w-8" />
-						</div>
-						<h2 className="text-[18px] font-semibold text-foreground">{t("kbDropTitle")}</h2>
-						<p className="mt-2 text-[12px] leading-5 text-muted-foreground">
-							{t("kbDropDesc")}
-						</p>
-					</motion.div>
-				</motion.div>
-			)}
-		</AnimatePresence>
+		<ThemedKnowledgeDropOverlayView
+			description={t("kbDropDesc")}
+			enabled={enabled}
+			title={t("kbDropTitle")}
+			visible={visible}
+		/>
 	);
 }
