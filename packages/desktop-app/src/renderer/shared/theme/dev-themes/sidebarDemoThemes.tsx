@@ -1,5 +1,8 @@
 import { forwardRef } from "react";
-import { getAchievementSetById } from "@domains/settings/achievements";
+import {
+	InputBarBackground,
+	type InputBarBackgroundProps,
+} from "@domains/chat/components/input-bar/InputBarBackground";
 import { AppBackground, type AppBackgroundProps } from "../../../root-layout/app-background/AppBackground";
 import { cn } from "@shared/lib/utils";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
@@ -17,11 +20,15 @@ import {
 } from "@shared/theme/sdk";
 import type { ThemeModule } from "@vetta/theme-sdk";
 
-const sidebarFrameAchievement = getAchievementSetById("classic").achievements[1];
 const sidebarDemoFrame = {
-	kind: "corner-image",
-	imageUrl: sidebarFrameAchievement.frameUrl,
-	decoration: sidebarFrameAchievement.frameDecoration,
+	kind: "nine-slice-image",
+	imageUrl: "./theme-demo/new-session-scene-card.webp",
+	decoration: {
+		borderWidth: "12px",
+		outset: "2px",
+		repeat: "stretch",
+		slice: 96,
+	},
 } as const;
 
 function DemoAppBackground({
@@ -46,6 +53,25 @@ function DemoAppBackground({
 				src="./theme-demo/white-glaze-gourd.webp"
 			/>
 		</AppBackground>
+	);
+}
+
+function DemoInputBarBackground({
+	className,
+	...props
+}: InputBarBackgroundProps): JSX.Element {
+	return (
+		<InputBarBackground
+			className={className}
+			{...props}
+		>
+			<img
+				alt=""
+				aria-hidden="true"
+				className="absolute -right-3 bottom-0 h-[145%] w-auto max-w-[48%] object-contain object-right-bottom"
+				src="./theme-demo/input-bar-background.webp"
+			/>
+		</InputBarBackground>
 	);
 }
 
@@ -89,12 +115,6 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 					},
 				},
 			},
-			"app.pageHeader": {
-				frame: sidebarDemoFrame,
-			},
-			"app.windowControls": {
-				frame: sidebarDemoFrame,
-			},
 			"chat.atPanel": {
 				frame: sidebarDemoFrame,
 			},
@@ -112,6 +132,8 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			},
 			"chat.inputBar": {
 				frame: sidebarDemoFrame,
+				rootClassName: "border-transparent bg-transparent dark:bg-transparent",
+				surfaceClassName: "z-[2]",
 			},
 			"chat.inputDrawer": {
 				frame: sidebarDemoFrame,
@@ -123,16 +145,7 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 				frame: sidebarDemoFrame,
 			},
 			"chat.newSessionSceneCard": {
-				frame: {
-					kind: "nine-slice-image",
-					imageUrl: "./theme-demo/new-session-scene-card.webp",
-					decoration: {
-						borderWidth: "12px",
-						outset: "2px",
-						repeat: "stretch",
-						slice: 96,
-					},
-				},
+				frame: sidebarDemoFrame,
 				rootClassName: "border-transparent bg-transparent",
 			},
 			"chat.newSessionSkillCard": {
@@ -203,6 +216,7 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 	},
 	components: {
 		"app.background": DemoAppBackground,
+		"chat.inputBarBackground": DemoInputBarBackground,
 	},
 };
 
