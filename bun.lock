@@ -169,7 +169,7 @@
     },
     "packages/desktop-app": {
       "name": "@vetta/desktop-app",
-      "version": "0.4.6",
+      "version": "0.4.7",
       "dependencies": {
         "@dagrejs/dagre": "^3.0.0",
         "@fontsource-variable/geist": "^5.2.8",
@@ -358,9 +358,11 @@
       },
       "devDependencies": {
         "@types/react": "^19.1.1",
+        "motion": "^12.23.12",
         "typescript": "^5.9.2",
       },
       "peerDependencies": {
+        "motion": "^12.0.0",
         "react": "^19.0.0",
       },
     },
