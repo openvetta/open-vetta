@@ -21,6 +21,8 @@
 		"cloudOnly": "Cloud",
 		"reasoningHeader": "Reasoning",
 		"modelHeader": "Model",
+		"multiplier": "{{in}}×/{{out}}×",
+		"free": "Free",
 		"reasoningLevel": {
 			"minimal": "Minimal",
 			"low": "Low",

@@ -21,6 +21,8 @@
 		"cloudOnly": "云端",
 		"reasoningHeader": "推理",
 		"modelHeader": "模型",
+		"multiplier": "{{in}}×/{{out}}×",
+		"free": "免费",
 		"reasoningLevel": {
 			"minimal": "极简",
 			"low": "低",

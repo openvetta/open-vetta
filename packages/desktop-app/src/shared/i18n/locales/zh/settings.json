@@ -1254,6 +1254,8 @@
   "noQuotaLimit": "无限制",
   "unlimitedQuota2": "不限额度",
   "creditInOutShort": "输入 {{in}} · 输出 {{out}}",
+  "multiplierInOut": "{{in}}×/{{out}}×",
+  "freeModel": "免费",
   "modelsCountShort": "{{count}} 个模型",
   "tabAchievements": "成就",
   "achievement": {
