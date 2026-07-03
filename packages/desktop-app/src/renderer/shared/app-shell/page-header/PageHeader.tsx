@@ -25,7 +25,7 @@ export function DefaultPageHeader({
 	return (
 		<div
 			className={cn(
-				"drag-region relative flex h-11 shrink-0 items-center justify-between gap-2",
+				"drag-region relative flex h-11 shrink-0 items-center justify-between gap-2 overflow-visible",
 				!isMac && "h-8",
 				className,
 			)}

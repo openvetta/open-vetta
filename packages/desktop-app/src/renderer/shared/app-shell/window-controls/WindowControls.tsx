@@ -13,7 +13,7 @@ export function DefaultWindowControls({ className, classNames, model }: WindowCo
 	}
 
 	return (
-		<div className={cn("relative", className)} data-theme-surface-root="app.windowControls">
+		<div className={cn("relative overflow-visible", className)} data-theme-surface-root="app.windowControls">
 			<ThemeSurface slot="app.windowControls" />
 			<div className="relative z-10 flex items-center gap-0.5">
 				{model.controls.map((control) => (

@@ -184,6 +184,39 @@ root
 - content 不要设置不透明背景，否则会遮挡 decoration。
 - 图片边框和外扩装饰不应参与布局。
 
+### Dialog / Drawer
+
+Dialog 和 Drawer 的根层通常由基础 UI 组件提供 `fixed` 定位。主题化 view 不能用 `relative` 覆盖这个定位，否则弹层会脱离原本的居中或贴边布局。
+
+要求：
+
+- `DialogContent` / `DrawerContent` 根层不要添加会覆盖基础定位的 `relative`。
+- 根层使用 `overflow-visible`，允许图片边框和外扩装饰显示。
+- `ThemeSurface` 放在根层直接子级。
+- 滚动和裁剪放到内部 content 层，例如 `relative z-10 max-h-[90vh] overflow-y-auto rounded-[inherit]`。
+- 标题、正文、footer 可以都在 content 层内，但滚动区域应按真实交互需要拆分，避免标题或 footer 被错误纳入滚动。
+
+推荐：
+
+```tsx
+<DialogContent className="overflow-visible p-0">
+  <ThemeSurface slot="root.someDialog.panel" />
+  <div className="relative z-10 max-h-[90vh] overflow-y-auto rounded-[inherit]">
+    <Header />
+    <Body />
+    <Footer />
+  </div>
+</DialogContent>
+```
+
+避免：
+
+```tsx
+<DialogContent className="relative overflow-hidden">
+```
+
+这个写法会同时破坏基础定位并裁掉外扩装饰。
+
 ## SDK 与 UI 包边界
 
 Theme SDK 是主题唯一应依赖的应用协议 API。它不承载具体 UI 实现。
