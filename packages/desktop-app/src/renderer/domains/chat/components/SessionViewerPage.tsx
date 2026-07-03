@@ -170,8 +170,8 @@ export function SessionViewerPage(): JSX.Element {
 					onFinished={handleExportFinished}
 				/>
 			)}
-			<div className="flex flex-1 gap-2 overflow-hidden">
-				<div className="flex min-w-0 flex-1 flex-col">
+			<div className="flex min-h-0 flex-1 gap-2 overflow-visible">
+				<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 					<MessageList messages={messages} isStreaming={false} sessionId={null} />
 				</div>
 				{isKnowledge ? (

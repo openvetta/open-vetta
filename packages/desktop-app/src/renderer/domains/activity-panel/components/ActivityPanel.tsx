@@ -47,6 +47,8 @@ import { usePluginTextResolver } from "@domains/plugins/runtime/plugin-i18n";
 import { TabBar, type TabBarItem } from "@shared/components/ui/tab-bar";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 import { useNarrowScreen, useWindowWidth } from "@shared/hooks/useNarrowScreen";
+import { useThemeComponent } from "@vetta/theme-sdk";
+import { ActivityPanelFrame } from "./activity-panel/ActivityPanelFrame";
 
 const MIN_WIDTH = ACTIVITY_PANEL_MIN_WIDTH;
 const MIN_CHAT_AREA = ACTIVITY_PANEL_MIN_CHAT_AREA;
@@ -92,6 +94,7 @@ export function ActivityPanel({
 }: ActivityPanelProps = {}): JSX.Element {
 	const { t } = useTranslation("chat");
 	const [isOpen, setOpen] = useAtom(activityPanelOpenAtom);
+	const ThemedActivityPanelFrame = useThemeComponent("activity.panelFrame", ActivityPanelFrame);
 	const narrow = useNarrowScreen();
 	const activeSession = useAtomValue(activeSessionAtom);
 	const browserUrlMap = useAtomValue(browserUrlBySessionAtom);
@@ -415,7 +418,7 @@ export function ActivityPanel({
 			    激活页签与卡片底色融合（TabBar 内部向下延伸 1px 盖住卡片描边）。页签按宽度
 			    响应式收纳，放不下的收进右侧下拉；下拉同时可恢复被减号隐藏的页签。 */}
 			{(tabItems.length > 0 || showTabPicker) && (
-				<div className="group/activity-tabs flex shrink-0 items-end pt-1">
+				<div className="group/activity-tabs relative z-0 flex shrink-0 items-end pt-1">
 					<TabBar
 						className="min-w-0 flex-1"
 						items={tabItems}
@@ -436,7 +439,7 @@ export function ActivityPanel({
 					)}
 				</div>
 			)}
-			<div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-muted shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+			<ThemedActivityPanelFrame>
 				{/* cwd 作 key：切 session 时整块 remount，强制各 tab 的内部缓存/订阅按
 				    新 cwd 重新拉取，避免上个 session 的卡片内容残留。 */}
 				<div key={cwd ?? "__none__"} className="flex min-h-0 flex-1 flex-col">
@@ -458,7 +461,7 @@ export function ActivityPanel({
 						</div>
 					)}
 				</div>
-			</div>
+			</ThemedActivityPanelFrame>
 		</>
 	);
 
@@ -470,9 +473,15 @@ export function ActivityPanel({
 						width: isOpen ? width : 0,
 						transition: isResizing ? "none" : "width 0.2s ease-in-out",
 					}}
-					className="relative shrink-0 overflow-hidden"
+					className="relative shrink-0 overflow-visible"
 				>
-					<div className="flex h-full flex-col" style={{ width }}>
+					<div
+						aria-hidden={!isOpen}
+						className={isOpen
+							? "flex h-full flex-col opacity-100 transition-opacity duration-150"
+							: "pointer-events-none flex h-full flex-col opacity-0 transition-opacity duration-150"}
+						style={{ width }}
+					>
 						{panelBody}
 					</div>
 					{isOpen && <ResizeHandle side="left" onResize={onResize} onResizeEnd={onResizeEnd} />}

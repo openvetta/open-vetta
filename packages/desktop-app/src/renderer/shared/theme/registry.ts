@@ -1,3 +1,4 @@
+import type { ActivityPanelFrame } from "@domains/activity-panel/components/activity-panel/ActivityPanelFrame";
 import type { LoginDialogView } from "@domains/auth/components/LoginDialogView";
 import type { AtPanelView } from "@domains/chat/components/at-panel/AtPanelView";
 import type { ExecutionModeSelectorView } from "@domains/chat/components/execution-mode-selector/ExecutionModeSelectorView";
@@ -38,6 +39,7 @@ declare module "@vetta/theme-sdk" {
 	}
 
 	interface ThemeComponentRegistry {
+		readonly "activity.panelFrame"?: typeof ActivityPanelFrame;
 		readonly "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger;
 		readonly "app.pageHeaderTitle"?: typeof PageHeaderTitle;
 		readonly "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;
@@ -88,6 +90,7 @@ declare module "@vetta/theme-sdk" {
 	}
 
 	interface ThemeSurfaceRegistry {
+		readonly "activity.panel"?: ThemeSurfaceConfig;
 		readonly "app.pageHeader"?: ThemeSurfaceConfig;
 		readonly "app.windowControls"?: ThemeSurfaceConfig;
 		readonly "chat.atPanel"?: ThemeSurfaceConfig;
