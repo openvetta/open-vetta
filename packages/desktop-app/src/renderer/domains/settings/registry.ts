@@ -53,7 +53,6 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "appearance", id: "appearance-language", title: "语言", titleKey: "section_appearance-language" },
 	{ tab: "appearance", id: "appearance-cursor", title: "鼠标指针", titleKey: "section_appearance-cursor" },
 	{ tab: "account", id: "account-profile", title: "个人信息", titleKey: "section_account-profile" },
-	{ tab: "account", id: "account-transactions", title: "积分记录", titleKey: "section_account-transactions" },
 	{ tab: "team", id: "team-management", title: "团队管理", titleKey: "section_team-management" },
 	{ tab: "team", id: "team-my-teams", title: "我的团队", titleKey: "section_team-my-teams" },
 	{ tab: "team", id: "team-detail-info", title: "团队详情", titleKey: "section_team-detail-info" },

@@ -1,12 +1,10 @@
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useSpring } from "motion/react";
 import type { SubscriptionStatus } from "@preload/api.js";
 import { remoteProvidersAtom, subscriptionStatusAtom } from "@shared/store/atoms";
-import { creditsBalanceAtom, creditsUnlimitedAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
 import { useTranslation } from "react-i18next";
-import { ProviderIcon } from "@shared/components/provider-icon";
 import { WINDOW_LABELS, formatExpiry, formatResetCountdown } from "@shared/lib/subscription-format";
 
 /** hex(#rgb / #rrggbb) 转 rgba，用于按 badge 颜色生成低饱和渐变（深浅色通用）。 */
@@ -315,8 +313,8 @@ function formatCredit(n: number, t?: (key: string) => string): string {
 	return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
 }
 
-/** 单个模型卡片：Zen 用 accentClass（primary），Go 传 hoverColor 跟随 badge 色。 */
-function ModelChip({ model, accentClass, hoverColor }: { model: RemoteModel; accentClass?: string; hoverColor?: string }): JSX.Element {
+/** 单个模型卡片：Go 传 hoverColor 跟随 badge 色。 */
+function ModelChip({ model, hoverColor }: { model: RemoteModel; hoverColor?: string }): JSX.Element {
 	const { t } = useTranslation("settings");
 	const cost = model.cost;
 	const hasPrice = !!cost && (cost.input > 0 || cost.output > 0);
@@ -328,7 +326,7 @@ function ModelChip({ model, accentClass, hoverColor }: { model: RemoteModel; acc
 					? { y: -2, scale: 1.02, borderColor: hexToRgba(hoverColor, 0.4), backgroundColor: hexToRgba(hoverColor, 0.05) }
 					: { y: -2, scale: 1.02 }
 			}
-			className={cn("rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors", accentClass)}
+			className="rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors"
 		>
 			<div className="flex items-center gap-1.5">
 				<span className="truncate text-[12px] font-medium text-foreground">{model.name || model.id}</span>
@@ -359,191 +357,27 @@ function ModelChip({ model, accentClass, hoverColor }: { model: RemoteModel; acc
 	);
 }
 
-/** Vetta Zen {t("official")}卡：动效与 Vetta Go 一致（primary 主题），无鼠标倾斜。 */
-function VettaZenCard({
-	provider,
-	onRefresh,
-	refreshing,
-	error,
-	creditsBalance,
-	creditsUnlimited,
-}: {
-	provider: RemoteProvider | undefined;
-	onRefresh: () => void;
-	refreshing: boolean;
-	error: string | null;
-	creditsBalance: number | null;
-	creditsUnlimited: boolean;
-}): JSX.Element {
-	const { t } = useTranslation("settings");
-	const [showDone, setShowDone] = useState(false);
-	const prevRefreshing = useRef(refreshing);
-	const models = provider?.models ?? [];
-
-	// 刷新完成的正反馈：短暂展示「已更新」。
-	useEffect(() => {
-		if (prevRefreshing.current && !refreshing) {
-			setShowDone(true);
-			const t = setTimeout(() => setShowDone(false), 1600);
-			prevRefreshing.current = refreshing;
-			return () => clearTimeout(t);
-		}
-		prevRefreshing.current = refreshing;
-	}, [refreshing]);
-
-	return (
-		<motion.div
-			className="mb-6"
-			variants={cardVariants}
-			initial="hidden"
-			animate="show"
-			transition={{ type: "spring", stiffness: 320, damping: 26 }}
-			whileHover={{ y: -3 }}
-		>
-			<div className="group relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5">
-				{/* 流动光晕 */}
-				<motion.div
-					className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-primary/10 blur-3xl"
-					animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
-					transition={{ duration: 6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-				/>
-				<motion.div
-					className="pointer-events-none absolute -bottom-12 -left-8 h-32 w-32 rounded-full bg-primary/5 blur-3xl"
-					animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.7, 0.4] }}
-					transition={{ duration: 7, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut", delay: 1 }}
-				/>
-
-				<div className="relative flex items-start justify-between gap-3">
-					<div className="flex items-center gap-3">
-						<ProviderIcon symbol={provider?.icon} className="h-11 w-11 rounded-xl" />
-						<div>
-							<div className="flex items-center gap-2 text-[16px] font-bold text-foreground">
-								Vetta Zen
-								<span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-									{t("official")}
-								</span>
-							</div>
-							<div className="mt-0.5 text-[12px] text-muted-foreground">
-								{t("outOfBox", { count: models.length })}
-							</div>
-						</div>
-					</div>
-					<motion.button
-						type="button"
-						onClick={onRefresh}
-						disabled={refreshing}
-						whileTap={{ scale: 0.92 }}
-						className={cn(
-							"flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors disabled:opacity-50",
-							showDone ? "text-green-500" : "text-primary hover:bg-primary/10",
-						)}
-					>
-						<AnimatePresence mode="wait" initial={false}>
-							{showDone ? (
-								<motion.span
-									key="done"
-									initial={{ scale: 0, opacity: 0 }}
-									animate={{ scale: 1, opacity: 1 }}
-									exit={{ scale: 0, opacity: 0 }}
-									className="flex items-center gap-1.5"
-								>
-									<span className="icon-[mdi--check-circle] h-3.5 w-3.5" />
-									{t("updated")}
-								</motion.span>
-							) : (
-								<motion.span
-									key="idle"
-									initial={{ opacity: 0 }}
-									animate={{ opacity: 1 }}
-									exit={{ opacity: 0 }}
-									className="flex items-center gap-1.5"
-								>
-									<span className={cn("icon-[mdi--refresh] h-3.5 w-3.5", refreshing && "animate-spin")} />
-									{refreshing ? t("refreshing") : t("refresh")}
-								</motion.span>
-							)}
-						</AnimatePresence>
-					</motion.button>
-				</div>
-
-				{/* {t("creditBalance")}（Vetta Zen 计费体系） */}
-				<div className="relative mt-4 flex items-center justify-between rounded-xl border border-primary/15 bg-primary/5 px-3 py-2.5">
-					<div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
-						<span className="icon-[mdi--wallet-outline] h-4 w-4" />
-						{t("creditBalance")}
-					</div>
-					{creditsUnlimited ? (
-						<span className="text-[14px] font-bold text-primary">{t("unlimited")}</span>
-					) : (
-						<span
-							className={cn(
-								"text-[15px] font-bold tabular-nums",
-								(creditsBalance ?? 0) <= 0 ? "text-destructive" : "text-foreground",
-							)}
-						>
-							{creditsBalance !== null ? creditsBalance.toFixed(2) : "--"}
-						</span>
-					)}
-				</div>
-
-				{error && (
-					<div className="relative mt-3 flex items-center gap-2 text-[12px] text-amber-400">
-						<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
-						{error === "unauthorized" ? t("unauthorized") : error}
-					</div>
-				)}
-
-				{/* 模型列表：默认完整展示，不可折叠 */}
-				{models.length > 0 && (
-					<motion.div
-						className="relative mt-4 grid grid-cols-2 gap-2"
-						variants={listVariants}
-						initial="hidden"
-						animate="show"
-					>
-						{models.map((model) => (
-							<ModelChip
-								key={model.id}
-								model={model}
-								accentClass="hover:border-primary/40 hover:bg-primary/5"
-							/>
-						))}
-					</motion.div>
-				)}
-			</div>
-		</motion.div>
-	);
-}
-
 /**
- * Vetta Zen / Vetta Go 会员卡片区。原先位于模型设置页，现归入账户设置页。
+ * Vetta Go 会员卡片区。原先位于模型设置页，现归入账户设置页。
  * 自行拉取一次套餐状态与远程 providers，并提供刷新按钮。
  */
 export function SubscriptionCards(): JSX.Element | null {
-	const { t } = useTranslation("settings");
 	const [remoteProviders, setRemoteProviders] = useAtom(remoteProvidersAtom);
 	const [subscriptionStatus, setSubscriptionStatus] = useAtom(subscriptionStatusAtom);
 	const [refreshing, setRefreshing] = useState(false);
-	const [remoteError, setRemoteError] = useState<string | null>(null);
-	const creditsBalance = useAtomValue(creditsBalanceAtom);
-	const creditsUnlimited = useAtomValue(creditsUnlimitedAtom);
 
 	const handleRefreshRemote = useCallback(async () => {
 		setRefreshing(true);
-		setRemoteError(null);
 		try {
 			const [result, sub] = await Promise.all([
 				window.vetta.models.fetchRemote(),
 				window.vetta.subscription.getStatus(),
 			]);
-			if (result.error) {
-				setRemoteError(result.error);
-			}
 			setRemoteProviders(result.providers);
 			// 拉取成功才覆盖；失败时保留内存态，UI 回退到缓存标志。
 			if (sub.status) setSubscriptionStatus(sub.status);
 		} catch {
-			setRemoteError(t("requestFailed"));
+			// 忽略：刷新失败时保留现有展示。
 		} finally {
 			setRefreshing(false);
 		}
@@ -559,41 +393,19 @@ export function SubscriptionCards(): JSX.Element | null {
 			.catch(() => {});
 	}, [setSubscriptionStatus]);
 
-	// Vetta Zen:唯一的{t("official")}远程服务商(不可增删改),取 remoteProviders 中的单一条目。
-	const remoteEntries = Object.entries(remoteProviders as Record<string, RemoteProvider>);
-	const zenProvider = remoteEntries.find(([name]) => name === "vetta-zen")?.[1];
-	// Zen 可用：provider 存在 或 缓存标志 zen_enabled（离线回退）。两者皆否则隐藏会员卡。
-	const zenAvailable = zenProvider !== undefined || subscriptionStatus.zen_enabled;
-
 	// Vetta Go：仅在 active && go_enabled 时展示；模型从 vetta-go provider 读取。
+	const remoteEntries = Object.entries(remoteProviders as Record<string, RemoteProvider>);
 	const goProvider = remoteEntries.find(([name]) => name === "vetta-go")?.[1];
 	const showGoCard = subscriptionStatus.active && subscriptionStatus.go_enabled;
 
-	if (!zenAvailable && !showGoCard) return null;
+	if (!showGoCard) return null;
 
 	return (
-		<>
-			{/* Vetta Go:{t("tokenPlan")}会员卡,仅在 active && go_enabled 时展示 */}
-			{showGoCard && (
-				<VettaGoCard
-					status={subscriptionStatus}
-					goProvider={goProvider}
-					onRefresh={() => void handleRefreshRemote()}
-					refreshing={refreshing}
-				/>
-			)}
-
-			{/* Vetta Zen:{t("official")}远程服务,会员卡式,模型默认折叠。Zen 不可用时整卡隐藏 */}
-			{zenAvailable && (
-				<VettaZenCard
-					provider={zenProvider}
-					onRefresh={() => void handleRefreshRemote()}
-					refreshing={refreshing}
-					error={remoteError}
-					creditsBalance={creditsBalance}
-					creditsUnlimited={creditsUnlimited}
-				/>
-			)}
-		</>
+		<VettaGoCard
+			status={subscriptionStatus}
+			goProvider={goProvider}
+			onRefresh={() => void handleRefreshRemote()}
+			refreshing={refreshing}
+		/>
 	);
 }
