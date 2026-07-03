@@ -1,5 +1,7 @@
 export { ThemeAppearanceProvider, useThemeAppearance, useThemeSurface } from "./context";
 export type {
+	BackgroundImageFrameDecoration,
+	BackgroundImageSurfaceFrame,
 	CornerImageFrameCorner,
 	CornerImageFrameDecoration,
 	CornerImageSurfaceFrame,

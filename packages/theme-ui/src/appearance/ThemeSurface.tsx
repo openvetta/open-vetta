@@ -1,6 +1,7 @@
 import type { ComponentPropsWithoutRef, JSX } from "react";
 import { useThemeSurface, type ThemeSurfaceSlot } from "@vetta/theme-sdk/appearance";
 import { cn } from "@vetta/ui";
+import { BackgroundImageDecoration } from "./BackgroundImageFrame";
 import { CornerImageDecoration } from "./CornerImageFrame";
 import { NineSliceImageDecoration } from "./NineSliceImageFrame";
 
@@ -14,6 +15,22 @@ export function ThemeSurface({
 	...props
 }: ThemeSurfaceProps): JSX.Element {
 	const surface = useThemeSurface(slot);
+
+	if (surface?.frame?.kind === "background-image") {
+		return (
+			<div
+				aria-hidden="true"
+				className={cn("pointer-events-none absolute inset-0 z-0 overflow-hidden", className, surface.surfaceClassName)}
+				data-theme-surface={slot}
+				{...props}
+			>
+				<BackgroundImageDecoration
+					decoration={surface.frame.decoration}
+					imageUrl={surface.frame.imageUrl}
+				/>
+			</div>
+		);
+	}
 
 	if (surface?.frame?.kind === "corner-image") {
 		return (

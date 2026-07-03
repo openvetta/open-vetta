@@ -31,6 +31,7 @@ import type { UpdateRestartDialogView } from "@shared/components/UpdateRestartDi
 import type { ConfirmDialogView } from "@shared/components/ui/ConfirmDialogView";
 import type { ThemeSurfaceConfig } from "@vetta/theme-sdk";
 import type { ComponentType } from "react";
+import type { AppBackground } from "../../root-layout/app-background/AppBackground";
 
 declare module "@vetta/theme-sdk" {
 	interface ThemeRegionRegistry {
@@ -40,6 +41,7 @@ declare module "@vetta/theme-sdk" {
 
 	interface ThemeComponentRegistry {
 		readonly "activity.panelFrame"?: typeof ActivityPanelFrame;
+		readonly "app.background"?: typeof AppBackground;
 		readonly "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger;
 		readonly "app.pageHeaderTitle"?: typeof PageHeaderTitle;
 		readonly "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;
@@ -91,9 +93,13 @@ declare module "@vetta/theme-sdk" {
 
 	interface ThemeSurfaceRegistry {
 		readonly "activity.panel"?: ThemeSurfaceConfig;
+		readonly "app.frame"?: ThemeSurfaceConfig;
 		readonly "app.pageHeader"?: ThemeSurfaceConfig;
 		readonly "app.windowControls"?: ThemeSurfaceConfig;
 		readonly "chat.atPanel"?: ThemeSurfaceConfig;
+		readonly "chat.newSessionPage"?: ThemeSurfaceConfig;
+		readonly "chat.sessionViewerPage"?: ThemeSurfaceConfig;
+		readonly "chat.view"?: ThemeSurfaceConfig;
 		readonly "chat.executionModeMenu"?: ThemeSurfaceConfig;
 		readonly "chat.inputDrawer"?: ThemeSurfaceConfig;
 		readonly "chat.inputBar"?: ThemeSurfaceConfig;
@@ -123,5 +129,6 @@ declare module "@vetta/theme-sdk" {
 		readonly "sidebar.bottomBar"?: ThemeSurfaceConfig;
 		readonly "sidebar.settingsMenu"?: ThemeSurfaceConfig;
 		readonly "sidebar.messageCenter"?: ThemeSurfaceConfig;
+		readonly "settings.pageContent"?: ThemeSurfaceConfig;
 	}
 }

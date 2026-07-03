@@ -4,20 +4,23 @@ import { cn } from "@vetta/ui";
 export interface AppFrameProps extends ComponentPropsWithoutRef<"div"> {
 	children: ReactNode;
 	contentClassName?: string;
+	decoration?: ReactNode;
 }
 
 export function AppFrame({
 	children,
 	className,
 	contentClassName,
+	decoration,
 	...props
 }: AppFrameProps): JSX.Element {
 	return (
 		<div
-			className={cn("flex h-screen w-screen flex-col overflow-hidden bg-background", className)}
+			className={cn("relative isolate flex h-screen w-screen flex-col overflow-hidden bg-background", className)}
 			{...props}
 		>
-			<div className={cn("relative flex min-h-0 flex-1 gap-2 overflow-visible p-2", contentClassName)}>
+			{decoration}
+			<div className={cn("relative z-10 flex min-h-0 flex-1 gap-2 overflow-visible p-2", contentClassName)}>
 				{children}
 			</div>
 		</div>

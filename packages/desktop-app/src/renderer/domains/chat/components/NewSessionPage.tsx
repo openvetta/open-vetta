@@ -27,6 +27,8 @@ import {
 import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { BotAvatar } from "@shared/components/BotAvatar";
+import { cn } from "@shared/lib/utils";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { GuideBadgeSwiper } from "./GuideBadgeSwiper";
 import { InputBar } from "./InputBar";
 import { SessionDropZone } from "./SessionDropZone";
@@ -102,6 +104,7 @@ function useShortViewport(threshold = SHORT_VIEWPORT): boolean {
 
 export function NewSessionPage(): JSX.Element {
 	const { t } = useTranslation("chat");
+	const surface = useThemeSurface("chat.newSessionPage");
 	const { cwd } = useParams({ strict: false }) as { cwd: string };
 	const decodedCwd = decodeURIComponent(cwd);
 
@@ -374,7 +377,10 @@ export function NewSessionPage(): JSX.Element {
 	return (
 		<SessionDropZone
 			cwdOverride={decodedCwd}
-			className="relative flex h-full flex-1 flex-col overflow-hidden bg-background"
+			className={cn(
+				"relative flex h-full flex-1 flex-col overflow-hidden bg-background",
+				surface?.rootClassName,
+			)}
 		>
 			{/* Primary grid texture, faded toward edges */}
 			<div

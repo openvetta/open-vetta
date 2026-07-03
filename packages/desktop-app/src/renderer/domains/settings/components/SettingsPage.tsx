@@ -6,6 +6,7 @@ import { Button } from "@shared/components/ui/button";
 import { isPersonalModeAtom, pageHeaderLeftSlotAtom, pageHeaderTitleHiddenAtom, type SettingsTab } from "@shared/store/atoms";
 import { authUserAtom } from "@shared/store/auth-atoms";
 import { cn } from "@shared/lib/utils";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { isMac } from "@shared/lib/platform";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { AccountSettings } from "./AccountSettings";
@@ -48,6 +49,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 
 export function SettingsPage(): JSX.Element {
 	const { t } = useTranslation("settings");
+	const contentSurface = useThemeSurface("settings.pageContent");
 	const { t: tCommon } = useTranslation("common");
 	const { tab: rawTab } = useParams({ strict: false }) as { tab?: string };
 	const navigate = useNavigate();
@@ -192,7 +194,12 @@ export function SettingsPage(): JSX.Element {
 			</div>
 
 			{/* Settings content */}
-			<div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background">
+			<div
+				className={cn(
+					"no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background",
+					contentSurface?.rootClassName,
+				)}
+			>
 				{/* Drag region */}
 				<div className="drag-region h-12 shrink-0" />
 				<Content />

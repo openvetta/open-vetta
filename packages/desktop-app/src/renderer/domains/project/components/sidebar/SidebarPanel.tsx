@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ResizeHandle } from "@shared/components/ResizeHandle";
 import { cn } from "@shared/lib/utils";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 
 interface SidebarPanelProps {
@@ -20,10 +21,13 @@ export function SidebarPanel({
 	onResizeEnd,
 	width,
 }: SidebarPanelProps): JSX.Element {
+	const surface = useThemeSurface("sidebar.panel");
+
 	return (
 		<div
 			className={cn(
 				"sidebar-surface relative h-full shrink-0 rounded-[10px] border border-border bg-muted",
+				surface?.rootClassName,
 				className,
 			)}
 			data-theme-surface-root="sidebar.panel"
