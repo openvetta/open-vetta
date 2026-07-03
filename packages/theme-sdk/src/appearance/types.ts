@@ -2,6 +2,18 @@ export interface ThemeSurfaceRegistry {}
 
 export type ThemeSurfaceSlot = Extract<keyof ThemeSurfaceRegistry, string>;
 
+export interface BackgroundImageFrameDecoration {
+	readonly position?: string;
+	readonly repeat?: "no-repeat" | "repeat" | "repeat-x" | "repeat-y";
+	readonly size?: "contain" | "cover" | string;
+}
+
+export interface BackgroundImageSurfaceFrame {
+	readonly kind: "background-image";
+	readonly decoration?: BackgroundImageFrameDecoration;
+	readonly imageUrl: string;
+}
+
 export interface CornerImageFrameCorner {
 	readonly backgroundPosition: string;
 	readonly id: string;
@@ -39,10 +51,11 @@ export interface NineSliceImageSurfaceFrame {
 	readonly imageUrl: string;
 }
 
-export type ThemeSurfaceFrame = CornerImageSurfaceFrame | NineSliceImageSurfaceFrame;
+export type ThemeSurfaceFrame = BackgroundImageSurfaceFrame | CornerImageSurfaceFrame | NineSliceImageSurfaceFrame;
 
 export interface ThemeSurfaceConfig {
 	readonly frame?: ThemeSurfaceFrame;
+	readonly rootClassName?: string;
 	readonly surfaceClassName?: string;
 }
 

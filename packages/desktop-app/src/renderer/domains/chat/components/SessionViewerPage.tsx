@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityPanel } from "@domains/activity-panel/components/ActivityPanel";
 import { Button } from "@shared/components/ui/button";
+import { cn } from "@shared/lib/utils";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import {
 	activityPanelOpenAtom,
 	defaultImConversationCwdAtom,
@@ -47,6 +49,7 @@ function isPathUnderDir(filePath: string, dir: string): boolean {
 
 export function SessionViewerPage(): JSX.Element {
 	const { t } = useTranslation("chat");
+	const surface = useThemeSurface("chat.sessionViewerPage");
 	// biome-ignore lint/suspicious/noExplicitAny: route params typing
 	const params = useParams({ strict: false }) as any;
 	const encodedPath = params.path as string | undefined;
@@ -162,7 +165,7 @@ export function SessionViewerPage(): JSX.Element {
 	}
 
 	return (
-		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
+		<div className={cn("flex h-full min-w-0 flex-1 flex-col bg-background", surface?.rootClassName)}>
 			{exporting && (
 				<ChatExportHost
 					messages={messages}

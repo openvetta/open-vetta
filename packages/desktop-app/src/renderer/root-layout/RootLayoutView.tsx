@@ -1,8 +1,10 @@
 import { Outlet } from "@tanstack/react-router";
 import { AppFrame, MainContentFrame, SidebarDock, SidebarOverlay } from "@vetta/theme-ui/layout";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { Sidebar } from "../domains/project/components/sidebar/Sidebar";
 import { PageHeader } from "../shared/app-shell/page-header";
 import { TooltipProvider } from "../shared/components/ui/tooltip";
+import { AppBackground } from "./app-background/AppBackground";
 import { RootGlobalOverlays } from "./RootGlobalOverlays";
 import type { RootLayoutModel } from "./types";
 
@@ -11,6 +13,7 @@ interface RootLayoutViewProps {
 }
 
 export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
+	const ThemedAppBackground = useThemeComponent("app.background", AppBackground);
 	const {
 		actions,
 		narrow,
@@ -21,7 +24,7 @@ export function RootLayoutView({ model }: RootLayoutViewProps): JSX.Element {
 
 	return (
 		<TooltipProvider>
-			<AppFrame>
+			<AppFrame decoration={<ThemedAppBackground />}>
 				<SidebarDock visible={!narrow && !sidebarCollapsed}>
 					<Sidebar onOpenSession={onOpenSession} onCollapse={actions.toggleSidebar} />
 				</SidebarDock>

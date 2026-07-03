@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { getAchievementSetById } from "@domains/settings/achievements";
+import { AppBackground, type AppBackgroundProps } from "../../../root-layout/app-background/AppBackground";
 import { cn } from "@shared/lib/utils";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import {
@@ -23,6 +24,31 @@ const sidebarDemoFrame = {
 	decoration: sidebarFrameAchievement.frameDecoration,
 } as const;
 
+function DemoAppBackground({
+	className,
+	...props
+}: AppBackgroundProps): JSX.Element {
+	return (
+		<AppBackground
+			className={className}
+			{...props}
+		>
+			<img
+				alt=""
+				aria-hidden="true"
+				className="absolute right-[2%] top-[3%] z-10 w-[clamp(280px,38vw,640px)] object-contain"
+				src="./theme-demo/white-glaze-immortal.webp"
+			/>
+			<img
+				alt=""
+				aria-hidden="true"
+				className="absolute right-[1%] top-[2%] z-20 w-[clamp(90px,12vw,180px)] object-contain"
+				src="./theme-demo/white-glaze-gourd.webp"
+			/>
+		</AppBackground>
+	);
+}
+
 export const sidebarAppearanceDemoTheme: ThemeModule = {
 	meta: {
 		id: "demo-sidebar-appearance",
@@ -35,8 +61,21 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			"activity.panel": {
 				frame: sidebarDemoFrame,
 			},
+			"app.frame": {
+				frame: {
+					kind: "background-image",
+					imageUrl: "./theme-demo/app_background.webp",
+					decoration: {
+						position: "center",
+						repeat: "no-repeat",
+						size: "cover",
+					},
+				},
+			},
 			"sidebar.panel": {
 				frame: sidebarDemoFrame,
+				rootClassName: "bg-transparent",
+				surfaceClassName: "bg-primary-foreground/80",
 			},
 			"sidebar.navigationIndicator": {
 				frame: {
@@ -58,6 +97,15 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			},
 			"chat.atPanel": {
 				frame: sidebarDemoFrame,
+			},
+			"chat.newSessionPage": {
+				rootClassName: "bg-transparent",
+			},
+			"chat.sessionViewerPage": {
+				rootClassName: "bg-transparent",
+			},
+			"chat.view": {
+				rootClassName: "bg-transparent",
 			},
 			"chat.executionModeMenu": {
 				frame: sidebarDemoFrame,
@@ -122,7 +170,13 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			"root.workflowCompleteDialog.panel": {
 				frame: sidebarDemoFrame,
 			},
+			"settings.pageContent": {
+				rootClassName: "bg-transparent",
+			},
 		},
+	},
+	components: {
+		"app.background": DemoAppBackground,
 	},
 };
 

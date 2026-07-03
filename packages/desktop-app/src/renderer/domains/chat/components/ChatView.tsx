@@ -24,6 +24,8 @@ import {
 	pendingEditImageIdAtom,
 } from "@shared/store/atoms";
 import { Button } from "@shared/components/ui/button";
+import { cn } from "@shared/lib/utils";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { ChatExportHost } from "./ChatExportHost";
 import { MessageList } from "./MessageList";
 import { InputBar } from "./InputBar";
@@ -39,6 +41,7 @@ interface ChatViewProps {
 
 export function ChatView({ onSend, onAbort, onSendQueued }: ChatViewProps): JSX.Element {
 	const { t } = useTranslation("chat");
+	const surface = useThemeSurface("chat.view");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const messages = useAtomValue(chatMessagesAtom);
 	const isStreaming = useAtomValue(isStreamingAtom);
@@ -216,7 +219,7 @@ export function ChatView({ onSend, onAbort, onSendQueued }: ChatViewProps): JSX.
 	}, [rightSlot, setHeaderRightSlot]);
 
 	return (
-		<div className="flex h-full min-w-0 flex-1 flex-col bg-background">
+		<div className={cn("flex h-full min-w-0 flex-1 flex-col bg-background", surface?.rootClassName)}>
 			{exporting && (
 				<ChatExportHost
 					messages={messages}
