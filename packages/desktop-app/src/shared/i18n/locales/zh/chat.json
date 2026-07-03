@@ -236,7 +236,8 @@
 		"sandbox": {
 			"label": "沙盒受限",
 			"title": "仅允许工作区受限访问"
-		}
+		},
+		"sandboxUnavailable": "{{platform}} 沙盒不可用：{{reason}}"
 	},
 	"export": {
 		"shareNavDescription": "分享了一个会话",

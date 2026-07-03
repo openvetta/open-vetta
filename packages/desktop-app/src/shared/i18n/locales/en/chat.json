@@ -236,7 +236,8 @@
 		"sandbox": {
 			"label": "Sandboxed",
 			"title": "Allow restricted access within the workspace only"
-		}
+		},
+		"sandboxUnavailable": "{{platform}} sandbox unavailable: {{reason}}"
 	},
 	"export": {
 		"shareNavDescription": "shared a session",
