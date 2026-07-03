@@ -28,30 +28,28 @@ import type { MarketSkillInfo } from "@shared/lib/api";
 import { downloadSkill, fetchMarketSkills } from "@shared/lib/api";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { cn } from "@shared/lib/utils";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { useThemeSurface } from "@vetta/theme-sdk/appearance";
 import { GuideBadgeSwiper } from "./GuideBadgeSwiper";
 import { InputBar } from "./InputBar";
+import {
+	SceneCard,
+	type SceneCardActionState,
+	type SceneCardModel,
+	type SceneCardState,
+} from "./new-session/SceneCard";
+import { SkillCard } from "./new-session/SkillCard";
 import { SessionDropZone } from "./SessionDropZone";
 import { useSessionManager } from "../hooks/useSessionManager";
 
-const SPRING = { type: "spring" as const, stiffness: 460, damping: 32 };
 const easeOut = [0.16, 1, 0.3, 1] as const;
 
 // 场景三态：active=已安装并启用（可直接 attach）；disabled=已安装但被禁用（点击仅启用）；
 // uninstalled=未安装（点击下载安装）。
-type SceneState = "active" | "disabled" | "uninstalled";
-type SceneActionState = "idle" | "loading" | "error";
+type SceneItem = SceneCardModel;
+type SceneActionState = SceneCardActionState;
 
-interface SceneItem {
-	name: string;
-	alias?: string;
-	description: string;
-	state: SceneState;
-	version?: string;
-	downloadCount?: number;
-}
-
-const SCENE_STATE_RANK: Record<SceneState, number> = { active: 0, disabled: 1, uninstalled: 2 };
+const SCENE_STATE_RANK: Record<SceneCardState, number> = { active: 0, disabled: 1, uninstalled: 2 };
 
 // 引导词分组：一组对应一个启用且声明了非空 guidingWords 的插件，组标题取插件 name。
 interface GuidingGroup {
@@ -265,7 +263,7 @@ export function NewSessionPage(): JSX.Element {
 		for (const ms of marketScenes) {
 			if (map.has(ms.name)) continue;
 			const local = manifest[ms.name];
-			const state: SceneState = local ? (local.enabled ? "active" : "disabled") : "uninstalled";
+			const state: SceneCardState = local ? (local.enabled ? "active" : "disabled") : "uninstalled";
 			map.set(ms.name, {
 				name: ms.name,
 				alias: ms.alias,
@@ -497,6 +495,7 @@ interface SceneCarouselProps {
 // 宽度跟随外层左对齐列（max-w-2xl），不再单独居中。
 function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouselProps): JSX.Element {
 	const { t } = useTranslation("chat");
+	const ThemedSceneCard = useThemeComponent("chat.newSessionSceneCard", SceneCard);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
 	const [canNext, setCanNext] = useState(false);
@@ -538,66 +537,15 @@ function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouse
 			>
 				{scenes.map((s) => {
 					const action = actions[s.name] ?? "idle";
-					const isMuted = s.state !== "active";
-					const selectedActive =
-						s.state === "active" && selected?.name === s.name && selected?.type === "scene";
 					return (
-						<motion.button
+						<ThemedSceneCard
 							key={s.name}
-							type="button"
-							disabled={action === "loading"}
+							action={action}
+							item={s}
+							selected={selected?.name === s.name && selected?.type === "scene"}
 							onClick={() => onSceneClick(s)}
-							whileHover={{ y: -2 }}
-							whileTap={{ scale: 0.98 }}
-							transition={SPRING}
 							title={s.state === "uninstalled" ? t("newSession.sceneInstallPrompt") : s.description || s.name}
-							className={`relative flex w-[calc((100%-1rem)/3)] shrink-0 snap-start items-start gap-2.5 overflow-hidden rounded-xl border p-3 text-left transition-colors disabled:cursor-wait ${
-								selectedActive
-									? "border-primary/60 bg-card shadow-[0_10px_24px_-18px_var(--primary)]"
-									: isMuted
-										? "border-dashed border-border/50 bg-card/60 hover:border-primary/40"
-										: "border-border/60 bg-card hover:border-primary/40"
-							}`}
-						>
-							<div className="min-w-0 flex-1">
-								<div
-									className={`truncate text-[13px] font-semibold ${
-										isMuted ? "text-muted-foreground" : "text-foreground"
-									}`}
-								>
-									{s.alias || s.name}
-								</div>
-								{s.description && (
-									<div className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground/70">
-										{s.description}
-									</div>
-								)}
-								{(s.version || (s.downloadCount ?? 0) > 0) && (
-									<div className="mt-1.5 flex items-center gap-1.5 text-[10px] tabular-nums text-muted-foreground/60">
-										{s.version && (
-											<span className="inline-flex h-4 items-center rounded-full bg-accent/50 px-1.5 font-medium">
-												v{s.version}
-											</span>
-										)}
-										{(s.downloadCount ?? 0) > 0 && (
-											<span className="inline-flex h-4 items-center gap-0.5 rounded-full bg-accent/50 px-1.5 font-medium">
-												<span className="icon-[mdi--download] h-2.5 w-2.5" />
-												{s.downloadCount}
-											</span>
-										)}
-									</div>
-								)}
-							</div>
-							{action === "loading" ? (
-								<span className="icon-[mdi--loading] h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
-							) : action === "error" ? (
-								<span className="icon-[mdi--alert-circle] h-3.5 w-3.5 shrink-0 text-destructive" />
-							) : isMuted ? (
-								<span className="icon-[mdi--download] h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-							) : selectedActive ? (
-								<span className="icon-[mdi--check-circle] h-3.5 w-3.5 shrink-0 text-primary" />
-							) : null}
-						</motion.button>
+						/>
 					);
 				})}
 			</div>
@@ -646,6 +594,7 @@ interface SkillBadgeRowProps {
 // 不加入场动画：该行固定在输入框上方，逐个弹入会干扰输入体验。
 function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps): JSX.Element {
 	const { t } = useTranslation("chat");
+	const ThemedSkillCard = useThemeComponent("chat.newSessionSkillCard", SkillCard);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
 	const [canNext, setCanNext] = useState(false);
@@ -682,24 +631,13 @@ function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps): JSX.
 				{skills.map((s) => {
 					const active = selected?.name === s.name && selected?.type === "skill";
 					return (
-						<motion.button
+						<ThemedSkillCard
 							key={s.name}
-							type="button"
+							active={active}
+							item={s}
 							onClick={() => onSelect(s)}
-							whileHover={{ y: -2, scale: 1.04 }}
-							whileTap={{ scale: 0.96 }}
-							// 背景必须不透明：胶囊行固定悬浮在输入框上方、压住可滚动内容，
-							// 半透明会让背后内容穿透。用 color-mix 把主色调入 --card（不透明底），保留原有色调。
-							className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
-								active
-									? "border-primary/50 bg-[color-mix(in_srgb,var(--primary)_15%,var(--card))] text-primary"
-									: "border-border/60 bg-card text-muted-foreground hover:border-primary/30 hover:bg-[color-mix(in_srgb,var(--primary)_8%,var(--card))] hover:text-primary"
-							}`}
 							title={s.description || s.name}
-						>
-							<span className="icon-[mdi--puzzle-outline] h-3 w-3" />
-							{s.alias || s.name}
-						</motion.button>
+						/>
 					);
 				})}
 			</div>

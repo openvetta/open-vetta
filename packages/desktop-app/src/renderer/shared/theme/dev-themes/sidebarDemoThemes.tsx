@@ -122,6 +122,32 @@ export const sidebarAppearanceDemoTheme: ThemeModule = {
 			"chat.modelSelectorReasoningMenu": {
 				frame: sidebarDemoFrame,
 			},
+			"chat.newSessionSceneCard": {
+				frame: {
+					kind: "nine-slice-image",
+					imageUrl: "./theme-demo/new-session-scene-card.webp",
+					decoration: {
+						borderWidth: "12px",
+						outset: "2px",
+						repeat: "stretch",
+						slice: 96,
+					},
+				},
+				rootClassName: "border-transparent bg-transparent",
+			},
+			"chat.newSessionSkillCard": {
+				frame: {
+					kind: "nine-slice-image",
+					imageUrl: "./theme-demo/new-session-skill-card.webp",
+					decoration: {
+						borderWidth: "10px",
+						outset: "2px",
+						repeat: "stretch",
+						slice: 110,
+					},
+				},
+				rootClassName: "border-transparent bg-transparent",
+			},
 			"chat.questionPanel": {
 				frame: sidebarDemoFrame,
 			},
