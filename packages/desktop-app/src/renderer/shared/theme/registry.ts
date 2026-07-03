@@ -1,5 +1,8 @@
 import type { LoginDialogView } from "@domains/auth/components/LoginDialogView";
+import type { AtPanelView } from "@domains/chat/components/at-panel/AtPanelView";
 import type { InputBarView } from "@domains/chat/components/input-bar/InputBarView";
+import type { QuestionPanelView } from "@domains/chat/components/question-panel/QuestionPanelView";
+import type { SlashPanelView } from "@domains/chat/components/slash-panel/SlashPanelView";
 import type { FilePreviewDialogView } from "@domains/file-preview/components/FilePreviewDialogView";
 import type { FlowingSendDialogView } from "@domains/flowing/components/FlowingSendDialogView";
 import type { WorkflowCompleteDialogView } from "@domains/flowing/components/WorkflowCompleteDialogView";
@@ -20,6 +23,7 @@ import type {
 	PageHeaderWindowActions,
 } from "@shared/app-shell/page-header";
 import type { WindowControlButton, WindowControlsComponentProps } from "@shared/app-shell/window-controls";
+import type { DrawerCard } from "@shared/components/DrawerCard";
 import type { UpdateRestartDialogView } from "@shared/components/UpdateRestartDialogView";
 import type { ConfirmDialogView } from "@shared/components/ui/ConfirmDialogView";
 import type { ThemeSurfaceConfig } from "@vetta/theme-sdk";
@@ -37,7 +41,11 @@ declare module "@vetta/theme-sdk" {
 		readonly "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;
 		readonly "app.windowControls"?: ComponentType<WindowControlsComponentProps>;
 		readonly "app.windowControlButton"?: typeof WindowControlButton;
+		readonly "chat.atPanelView"?: typeof AtPanelView;
+		readonly "chat.inputDrawer"?: typeof DrawerCard;
 		readonly "chat.inputBarView"?: typeof InputBarView;
+		readonly "chat.questionPanelView"?: typeof QuestionPanelView;
+		readonly "chat.slashPanelView"?: typeof SlashPanelView;
 		readonly "root.approval.appearancePicker"?: ComponentType;
 		readonly "root.approval.appearanceDrawerView"?: typeof AppearanceApprovalDrawerView;
 		readonly "root.approval.batchTasksExecution"?: ComponentType;
@@ -78,7 +86,11 @@ declare module "@vetta/theme-sdk" {
 	interface ThemeSurfaceRegistry {
 		readonly "app.pageHeader"?: ThemeSurfaceConfig;
 		readonly "app.windowControls"?: ThemeSurfaceConfig;
+		readonly "chat.atPanel"?: ThemeSurfaceConfig;
+		readonly "chat.inputDrawer"?: ThemeSurfaceConfig;
 		readonly "chat.inputBar"?: ThemeSurfaceConfig;
+		readonly "chat.questionPanel"?: ThemeSurfaceConfig;
+		readonly "chat.slashPanel"?: ThemeSurfaceConfig;
 		readonly "root.confirmDialog.panel"?: ThemeSurfaceConfig;
 		readonly "root.filePreviewDialog"?: ThemeSurfaceConfig;
 		readonly "root.filePreviewDialog.panel"?: ThemeSurfaceConfig;
