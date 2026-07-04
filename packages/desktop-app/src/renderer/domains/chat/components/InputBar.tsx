@@ -10,6 +10,8 @@ import {
 	selectedSkillAtom,
 	mentionedFilesAtom,
 	editImageAttachmentAtom,
+	appshotAttachmentAtom,
+	focusInputRequestAtom,
 	type AttachedImage,
 	type MentionedFile,
 	todoItemsBySessionAtom,
@@ -37,6 +39,7 @@ import { InputActionBar } from "./InputActionBar";
 import { SendButton } from "./SendButton";
 import { QuestionPanel } from "./QuestionPanel";
 import { pathBasename } from "@shared/lib/utils";
+import { AppshotCard } from "./AppshotCard";
 import type { SkillInfo } from "@preload/api";
 import "./InputBar.css";
 
@@ -77,6 +80,7 @@ function nextImageId(): string {
 	return `img-${++imageIdCounter}-${Date.now()}`;
 }
 
+
 function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; name: string }> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -108,6 +112,8 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const [editImageAttachment, setEditImageAttachment] = useAtom(editImageAttachmentAtom);
+	const [appshotAttachment, setAppshotAttachment] = useAtom(appshotAttachmentAtom);
+	const focusInputRequest = useAtomValue(focusInputRequestAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
@@ -134,9 +140,13 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 
 	const effectiveCwd = activeSession?.cwd ?? cwdOverride ?? "";
 	const hasSession = Boolean(activeSession) || Boolean(cwdOverride);
-	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
+	const canSend =
+		hasSession &&
+		!isStreaming &&
+		(inputValue.trim().length > 0 || attachedImages.length > 0 || Boolean(appshotAttachment));
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
-	const hasCapsules = Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment);
+	const hasCapsules =
+		Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment) || Boolean(appshotAttachment);
 
 	useEffect(() => {
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
@@ -169,6 +179,13 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 			textareaRef.current?.focus();
 		}
 	}, [hasSession, isStreaming]);
+
+	// Appshot 捕获等外部事件请求聚焦输入框（计数器 bump 即 focus）。
+	useEffect(() => {
+		if (focusInputRequest > 0) {
+			textareaRef.current?.focus();
+		}
+	}, [focusInputRequest]);
 
 	function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
 		if (
@@ -527,6 +544,18 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 												tone="primary"
 												onRemove={() => setEditImageAttachment(null)}
 											/>
+										)}
+										{appshotAttachment && (
+											<motion.div
+												key="appshot-capsule"
+												layout
+												initial={IMAGE_INITIAL}
+												animate={IMAGE_ANIMATE}
+												exit={IMAGE_INITIAL}
+												transition={SPRING}
+											>
+												<AppshotCard data={appshotAttachment} onRemove={() => setAppshotAttachment(null)} />
+											</motion.div>
 										)}
 										{selectedSkill && (
 											<Capsule

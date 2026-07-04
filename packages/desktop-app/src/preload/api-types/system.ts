@@ -68,12 +68,13 @@ export interface DesktopTrayApi {
 }
 
 // ─── Permissions (macOS) ───
-export type PermissionKind = "full-disk-access" | "accessibility" | "notifications";
+export type PermissionKind = "full-disk-access" | "accessibility" | "notifications" | "screen-recording";
 export type PermissionStatus = "granted" | "denied" | "unknown";
 export interface PermissionsSnapshot {
 	fullDiskAccess: PermissionStatus;
 	accessibility: PermissionStatus;
 	notifications: PermissionStatus;
+	screenRecording: PermissionStatus;
 }
 export interface DesktopPermissionsApi {
 	checkAll(): Promise<PermissionsSnapshot>;

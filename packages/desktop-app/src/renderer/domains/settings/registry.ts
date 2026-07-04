@@ -77,6 +77,7 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "webhook", id: "webhook-channels", title: "渠道列表", titleKey: "section_webhook-channels" },
 	{ tab: "shortcuts", id: "shortcuts-global", title: "全局快捷键", titleKey: "section_shortcuts-global" },
 	{ tab: "shortcuts", id: "shortcuts-quickpanel", title: "快捷面板", titleKey: "section_shortcuts-quickpanel" },
+	{ tab: "shortcuts", id: "shortcuts-appshot", title: "Appshot", titleKey: "section_shortcuts-appshot" },
 	{ tab: "archive", id: "archived-list", title: "归档列表", titleKey: "section_archived-list" },
 	{ tab: "context", id: "agent-personalization", title: "个性化", titleKey: "section_agent-personalization" },
 	{ tab: "context", id: "agent-images", title: "图片", titleKey: "section_agent-images" },

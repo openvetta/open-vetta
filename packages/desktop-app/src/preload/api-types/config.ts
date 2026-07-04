@@ -66,6 +66,13 @@ export interface DesktopConfigData {
 	};
 	/** 知识库加工特殊项目的绝对路径（~/.vetta/knowledges/processing_records）。 */
 	knowledgeProcessingCwd?: string;
+	/** Appshot（全局手势捕获前台应用窗口为附件）设置。缺省不启用。 */
+	appshot?: {
+		/** 功能总开关。缺省 false。 */
+		enabled?: boolean;
+		/** 触发手势：同时按住左右两侧功能键。缺省 "both-shift"。 */
+		gesture?: "both-shift" | "both-mod" | "both-alt";
+	};
 	/** 快捷面板（双击功能键唤出 Spotlight 式面板）设置。缺省不启用。 */
 	quickPanel?: {
 		/** 呼出触发：none=不启用；mod=双击 ⌘/Ctrl；alt=双击 ⌥/Alt；shift=双击 ⇧。缺省 none。 */

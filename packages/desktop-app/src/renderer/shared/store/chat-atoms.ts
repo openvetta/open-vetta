@@ -160,6 +160,8 @@ export interface ChatMessage {
 	durationSeconds?: number;
 	/** 该 user turn 实际使用的模型，用于 MessageList 派生"切换了模型"分隔条 */
 	model?: { provider: string; id: string };
+	/** Appshot 全局手势捕获的前台窗口附件（乐观气泡携带，供消息里特殊渲染） */
+	appshot?: AppshotAttachment;
 }
 
 export interface ActiveSession {
@@ -188,6 +190,25 @@ export interface AttachedImage {
 	/** Display name (file name or "Pasted image") */
 	name: string;
 }
+
+// ─── Appshot attachment ───
+
+/** Appshot 全局手势捕获的前台窗口附件（v1 单附件，新捕获覆盖旧的）。 */
+export interface AppshotAttachment {
+	id: string;
+	appName: string;
+	windowTitle: string;
+	documentPath: string | null;
+	imagePath: string | null;
+	iconPath: string | null;
+	textPath: string | null;
+	capturedAt: number;
+}
+
+export const appshotAttachmentAtom = atom<AppshotAttachment | null>(null);
+
+/** 聚焦输入框请求计数器：bump 后 InputBar 的 effect focus textarea。 */
+export const focusInputRequestAtom = atom(0);
 
 // ─── Usage tracking ───
 

@@ -46,6 +46,18 @@ export interface DesktopConfig {
 	knowledgeBase?: KnowledgeBaseConfig;
 	/** 快捷面板（全局快捷键唤出 Spotlight 式面板）设置。 */
 	quickPanel?: QuickPanelConfig;
+	/** Appshot（全局手势捕获前台应用窗口）设置。缺省关闭。 */
+	appshot?: AppshotConfig;
+}
+
+/** Appshot 触发手势：双键同按（左右两侧同时按住）。both-shift=双 ⇧；both-mod=双 ⌘(mac)/Ctrl；both-alt=双 ⌥/Alt。 */
+export type AppshotGesture = "both-shift" | "both-mod" | "both-alt";
+
+export interface AppshotConfig {
+	/** 是否启用。缺省 false。 */
+	enabled?: boolean;
+	/** 触发手势。缺省 "both-shift"。 */
+	gesture?: AppshotGesture;
 }
 
 /** 快捷面板设置（设置页「快捷键 → 快捷面板」）。缺省关闭、无预设快捷键。 */
@@ -127,6 +139,7 @@ const DEFAULT_CONFIG: DesktopConfig = {
 	notificationsEnabled: true,
 	experimental: { vettaCli: true, agentSkills: true },
 	quickPanel: { trigger: "none", postSendBehavior: "foreground" },
+	appshot: { enabled: false, gesture: "both-shift" },
 };
 
 /** Migrate legacy string[] format to ProjectEntry[] */
@@ -178,6 +191,18 @@ function normalizeQuickPanel(value: unknown): QuickPanelConfig {
 	};
 }
 
+function normalizeAppshot(value: unknown): AppshotConfig {
+	// 锁定缺省：不启用、双 Shift 手势。非法值落默认。
+	if (typeof value !== "object" || value === null) return { enabled: false, gesture: "both-shift" };
+	const v = value as Record<string, unknown>;
+	const gesture: AppshotGesture =
+		v.gesture === "both-shift" || v.gesture === "both-mod" || v.gesture === "both-alt" ? v.gesture : "both-shift";
+	return {
+		enabled: v.enabled === true,
+		gesture,
+	};
+}
+
 function normalizeExperimental(value: unknown): ExperimentalConfig {
 	// promptPrediction 缺省 false（区别于其他键缺省 true）。
 	if (typeof value !== "object" || value === null)
@@ -212,6 +237,7 @@ export async function readDesktopConfig(): Promise<DesktopConfig> {
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 			quickPanel: normalizeQuickPanel(parsed.quickPanel),
+			appshot: normalizeAppshot(parsed.appshot),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -237,6 +263,7 @@ export function readConfigSync(): DesktopConfig {
 			experimental: normalizeExperimental(parsed.experimental),
 			knowledgeBase: normalizeKnowledgeBase(parsed.knowledgeBase),
 			quickPanel: normalizeQuickPanel(parsed.quickPanel),
+			appshot: normalizeAppshot(parsed.appshot),
 		};
 	} catch {
 		return { ...DEFAULT_CONFIG };
@@ -794,6 +821,8 @@ export function registerFsIpc(): () => void {
 				patch.quickPanel !== undefined
 					? normalizeQuickPanel({ ...current.quickPanel, ...patch.quickPanel })
 					: current.quickPanel,
+			appshot:
+				patch.appshot !== undefined ? normalizeAppshot({ ...current.appshot, ...patch.appshot }) : current.appshot,
 		};
 		// Allow all known roots for file operations
 		for (const p of next.projects) allowProjectRoot(p.path);

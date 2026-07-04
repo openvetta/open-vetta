@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from "react";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
 import { Outlet, useMatches, useNavigate } from "@tanstack/react-router";
 import { Sidebar } from "./domains/project/components/Sidebar";
@@ -42,7 +42,9 @@ import { TooltipProvider } from "./shared/components/ui/tooltip";
 import { Toaster } from "./shared/components/ui/Toaster";
 import {
 	activeSessionAtom,
+	appshotAttachmentAtom,
 	defaultConversationCwdAtom,
+	focusInputRequestAtom,
 	lastActiveSessionAtom,
 	pendingQuestionsAtom,
 	sandboxPermissionDrawerAtom,
@@ -54,6 +56,8 @@ import {
 	pageHeaderRightSlotAtom,
 	pageHeaderLeftSlotAtom,
 } from "./shared/store/atoms";
+import { showToast } from "./shared/store/toast-atoms";
+import { i18n } from "./shared/i18n";
 import { isMac } from "./shared/lib/platform";
 import { cn } from "./shared/lib/utils";
 import { KnowledgeDropOverlay } from "./domains/knowledge-base/components/KnowledgeDropOverlay";
@@ -292,6 +296,45 @@ export function RootLayout(): JSX.Element {
 			})();
 		});
 	}, [openSession, sendMessage, defaultConversationCwd]);
+
+	// Appshot 常驻监听（照 onRunPrompt 模式）：捕获完成 → 写附件 atom + 聚焦输入框，
+	// 无 activeSession 且不在 NewSession 页时先路由到默认「对话」的 NewSession 页；
+	// 文本异步补齐 → 按 id 更新；捕获失败 → toast 提示。
+	useEffect(() => {
+		const store = getDefaultStore();
+		const unsubCaptured = window.vetta.appshot.onCaptured((payload) => {
+			store.set(appshotAttachmentAtom, {
+				id: payload.id,
+				appName: payload.appName,
+				windowTitle: payload.windowTitle,
+				documentPath: payload.documentPath,
+				imagePath: payload.imagePath,
+				iconPath: payload.iconPath,
+				textPath: payload.textPath,
+				capturedAt: payload.capturedAt,
+			});
+			if (!activeSession && !currentPath.startsWith("/new-session") && defaultConversationCwd) {
+				void navigate({
+					to: "/new-session/$cwd",
+					params: { cwd: encodeURIComponent(defaultConversationCwd) },
+				});
+			}
+			store.set(focusInputRequestAtom, (prev) => prev + 1);
+		}); 
+		const unsubCaptureError = window.vetta.appshot.onCaptureError((payload) => {
+			const message =
+				payload.reason === "self-capture"
+					? i18n.t("chat:appshot.errorSelfCapture")
+					: payload.reason === "no-permission"
+						? i18n.t("chat:appshot.errorNoPermission")
+						: i18n.t("chat:appshot.errorHelperFailed");
+			showToast({ variant: "warning", message });
+		});
+		return () => {
+			unsubCaptured();
+			unsubCaptureError();
+		};
+	}, [activeSession, currentPath, defaultConversationCwd, navigate]);
 
 	const confirmationQueueRef = useRef<Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]>(
 		[],
