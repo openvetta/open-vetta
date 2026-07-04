@@ -143,6 +143,11 @@
 		"confirmDeleteFolderNote": " 此操作将删除文件夹内的所有内容。",
 		"cancel": "取消"
 	},
+	"appshot": {
+		"errorSelfCapture": "Appshot 已忽略：前台窗口是 Vetta 自身",
+		"errorNoPermission": "Appshot 捕获失败：缺少「屏幕录制」与「辅助功能」权限，请在设置的权限管理中授权",
+		"errorHelperFailed": "Appshot 捕获失败，请稍后重试"
+	},
 	"askUserQuestion": {
 		"cancelledMessage": "用户已取消，未作答",
 		"defaultQuestionLabel": "问题 {{number}}"
@@ -270,6 +275,9 @@
 	},
 	"inputBar": {
 		"capsule": {
+			"appshotThumbnailAlt": "截图",
+			"appshotPreview": "预览截图",
+			"appshotIconAlt": "应用图标",
 			"editImage": "编辑选中图片",
 			"removeDefault": "点击移除",
 			"removeImage": "移除图片",

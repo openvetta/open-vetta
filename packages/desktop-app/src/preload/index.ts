@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopApi } from "./api.js";
 import { createActionApprovalApi } from "./apis/action-approval.js";
 import { createAppMonitorApi } from "./apis/app-monitor.js";
+import { createAppshotApi } from "./apis/appshot.js";
 import { createBatchTasksApi } from "./apis/batch-tasks.js";
 import { createDownloadsApi } from "./apis/downloads.js";
 import { createI18nApi } from "./apis/i18n.js";
@@ -43,6 +44,7 @@ const api: DesktopApi = {
 	...createPluginsApi(ipcRenderer),
 	...createPetApi(ipcRenderer),
 	...createQuickPanelApi(ipcRenderer),
+	...createAppshotApi(ipcRenderer),
 	...createI18nApi(ipcRenderer),
 	...createSystemApi(ipcRenderer, webUtils),
 };

@@ -37,6 +37,15 @@ const ITEMS: ItemMeta[] = [
 		icon: "icon-[mdi--gesture-tap]",
 	},
 	{
+		kind: "screen-recording",
+		field: "screenRecording",
+		title: "",
+		titleKey: "permScreenRecording",
+		description: "",
+		descKey: "permScreenRecordingDesc",
+		icon: "icon-[mdi--monitor-screenshot]",
+	},
+	{
 		kind: "notifications",
 		field: "notifications",
 		title: "",

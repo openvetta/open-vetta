@@ -20,6 +20,7 @@ import { useModelOptions } from "@shared/components/ModelSelect/useModelOptions"
 import { cn, pathBasename } from "@shared/lib/utils";
 import { PluginTurnCardHost } from "../../plugins/components/PluginTurnCardHost";
 import { MessageCardsHost } from "./MessageCardsHost";
+import { AppshotCard, type AppshotCardData } from "./AppshotCard";
 import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
@@ -476,6 +477,15 @@ function parseUserPrefixes(text: string): {
 	return { skillName, skillType, files, body: remaining };
 }
 
+/** 从 @path 文件列表分离出 appshot 截图（路径特征：image-cache/appshot/*.png）。
+ *  这样已发送消息里的 appshot 走专属卡片渲染，而非两个普通文件 badge（png+md）。 */
+function splitAppshotFiles(files: string[]): { appshotImage: string | null; rest: string[] } {
+	const isAppshot = (p: string): boolean => /[/\\]image-cache[/\\]appshot[/\\]/.test(p);
+	const appshotImage = files.find((p) => isAppshot(p) && /\.png$/i.test(p)) ?? null;
+	const rest = files.filter((p) => !isAppshot(p));
+	return { appshotImage, rest };
+}
+
 /** 提取 user 消息的可复制文本：去掉 /skill: 与 @file 前缀，仅保留正文 body。 */
 function getUserCopyText(message: ChatMessage): string {
 	const { body } = parseUserPrefixes(message.text ?? "");
@@ -585,8 +595,10 @@ const UserMessage = memo(function UserMessage({
 }) {
 	const hasImages = message.images && message.images.length > 0;
 	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
+	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
+	const appshotData: AppshotCardData | null = message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);
 	const displayText = body;
-	const hasBadges = skillName || files.length > 0;
+	const hasBadges = skillName || displayFiles.length > 0;
 	const copyText = displayText.trim();
 	const shouldAnimateIn = entryState === "enter";
 	const shouldHoldHidden = entryState === "hidden";
@@ -617,6 +629,11 @@ const UserMessage = memo(function UserMessage({
 						))}
 					</div>
 				)}
+				{appshotData && (
+					<div className="mb-1.5 flex justify-end">
+						<AppshotCard data={appshotData} />
+					</div>
+				)}
 				{(displayText || hasBadges) && (
 					<div
 						className="rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
@@ -625,7 +642,7 @@ const UserMessage = memo(function UserMessage({
 						{hasBadges && (
 							<div className="mb-1 flex flex-wrap justify-end gap-1">
 								{skillName && <SkillBadge name={skillName} type={skillType ?? "skill"} />}
-								{files.map((f) => (
+								{displayFiles.map((f) => (
 									<FileBadge key={f} path={f} />
 								))}
 							</div>
