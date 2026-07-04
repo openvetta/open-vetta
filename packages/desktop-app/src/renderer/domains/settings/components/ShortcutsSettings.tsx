@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@shared/lib/utils";
-import { eventToShortcut, formatShortcut, isMac } from "@shared/lib/platform";
+import { eventToShortcut, formatShortcut } from "@shared/lib/platform";
 import {
 	SHORTCUT_ACTIONS,
 	getEffectiveShortcut,
@@ -10,21 +10,11 @@ import {
 	type ShortcutMap,
 } from "@shared/lib/shortcuts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shared/components/ui/select";
-import { Switch } from "@shared/components/ui/switch";
 import { SettingRow, SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
 type QuickPanelBehavior = "foreground" | "background";
 type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
-type AppshotGestureValue = "both-shift" | "both-mod" | "both-alt";
-
-/** 手势选项：labelKey 存常量、渲染期 t() 解析（不写死文案）。 */
-const APPSHOT_GESTURE_OPTIONS = [
-	{ value: "both-shift", labelKey: "appshotGestureBothShift" },
-	{ value: "both-mod", labelKey: "appshotGestureBothMod" },
-	{ value: "both-alt", labelKey: "appshotGestureBothAlt" },
-] as const satisfies ReadonlyArray<{ value: AppshotGestureValue; labelKey: string }>;
-
 function ShortcutRecorder({
 	value,
 	onChange,
@@ -203,90 +193,6 @@ function QuickPanelSection(): JSX.Element {
 	);
 }
 
-function AppshotSection(): JSX.Element | null {
-	const { t } = useTranslation("settings");
-	const [enabled, setEnabled] = useState(false);
-	const [gesture, setGesture] = useState<AppshotGestureValue>("both-shift");
-
-	const glyphs: Record<AppshotGestureValue, string> = {
-		"both-shift": "⇧",
-		"both-mod": isMac ? "⌘" : "Ctrl",
-		"both-alt": isMac ? "⌥" : "Alt",
-	};
-
-	useEffect(() => {
-		void window.vetta.config.get().then((config) => {
-			const appshot = config.appshot;
-			setEnabled(appshot?.enabled === true);
-			setGesture(
-				appshot?.gesture === "both-mod" || appshot?.gesture === "both-alt" ? appshot.gesture : "both-shift",
-			);
-		});
-	}, []);
-
-	const persist = useCallback(async (patch: { enabled?: boolean; gesture?: AppshotGestureValue }) => {
-		await window.vetta.config.set({ appshot: patch });
-		// 让原生双键同按监听按新配置立即启停/切换。
-		await window.vetta.appshot.reloadGesture();
-	}, []);
-
-	// 开启时检查权限：屏幕录制/辅助功能任一未授权则打开引导窗（仍允许开启）。
-	const checkPermissions = useCallback(async () => {
-		try {
-			const snapshot = await window.vetta.permissions.checkAll();
-			if (snapshot.screenRecording !== "granted" || snapshot.accessibility !== "granted") {
-				await window.vetta.appshot.openOnboarding();
-			}
-		} catch (err) {
-			console.warn("[AppshotSection] permissions check failed", err);
-		}
-	}, []);
-
-	const handleEnabledChange = useCallback(
-		(value: boolean) => {
-			setEnabled(value);
-			void persist({ enabled: value });
-			if (value) void checkPermissions();
-		},
-		[persist, checkPermissions],
-	);
-
-	const handleGestureChange = useCallback(
-		(value: AppshotGestureValue) => {
-			setGesture(value);
-			void persist({ gesture: value });
-		},
-		[persist],
-	);
-
-	if (!isMac) return null;
-
-	return (
-		<SettingSection t={t as any} section={SETTINGS_SECTION["shortcuts-appshot"]}>
-			<SettingRow title={t("appshotEnabled")} description={t("appshotEnabledDescription")}>
-				<Switch checked={enabled} onCheckedChange={handleEnabledChange} />
-			</SettingRow>
-
-			<SettingRow title={t("appshotGesture")} description={t("appshotGestureDescription")} border={false}>
-				<div className={cn("transition-opacity", !enabled && "pointer-events-none opacity-40")}>
-					<Select value={gesture} onValueChange={(value) => handleGestureChange(value as AppshotGestureValue)}>
-						<SelectTrigger size="sm" className="h-8 min-w-[150px] border-border/70 bg-background/50 text-[12px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{APPSHOT_GESTURE_OPTIONS.map((option) => (
-								<SelectItem key={option.value} value={option.value} className="text-[12px]">
-									{t(option.labelKey, { key: glyphs[option.value] })}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-			</SettingRow>
-		</SettingSection>
-	);
-}
-
 export function ShortcutsSettings(): JSX.Element {
 	const { t } = useTranslation("settings");
 	const [customShortcuts, setCustomShortcuts] = useState<ShortcutMap>(loadShortcuts);
@@ -352,8 +258,6 @@ export function ShortcutsSettings(): JSX.Element {
 			</SettingSection>
 
 			<QuickPanelSection />
-
-			<AppshotSection />
 
 			<p className="mt-4 text-[12px] leading-relaxed text-muted-foreground/50">
 				{t("shortcutHint")}

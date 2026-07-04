@@ -37,6 +37,7 @@ export type SettingsTab =
 	| "im"
 	| "webhook"
 	| "shortcuts"
+	| "appshot"
 	| "archive"
 	| "team"
 	| "context"

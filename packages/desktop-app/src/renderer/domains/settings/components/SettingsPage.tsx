@@ -21,6 +21,7 @@ import { PetSettings } from "./PetSettings";
 import { KnowledgeBaseSettings } from "./KnowledgeBaseSettings";
 import { PluginsSettings } from "./PluginsSettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
+import { AppshotSettings } from "./AppshotSettings";
 import { ArchivedProjectsSettings } from "./ArchivedProjectsSettings";
 import { TeamSettings } from "./TeamSettings";
 import { WebhookSettings } from "./WebhookSettings";
@@ -38,6 +39,7 @@ const SETTINGS_CONTENT: Record<SettingsTab, () => JSX.Element> = {
 	im: ImBridgeSettings,
 	webhook: WebhookSettings,
 	shortcuts: ShortcutsSettings,
+	appshot: AppshotSettings,
 	archive: ArchivedProjectsSettings,
 	team: TeamSettings,
 	context: AgentSettings,
@@ -170,7 +172,7 @@ export function SettingsPage(): JSX.Element {
 					)}
 				</div>
 				<nav className={cn("flex flex-col gap-0.5", narrow ? "px-2" : "px-2.5")}>
-					{visibleTabs.map(({ key, label, labelKey, icon }) => (
+					{visibleTabs.map(({ key, labelKey, icon, beta }) => (
 						<button
 							key={key}
 							type="button"
@@ -185,7 +187,12 @@ export function SettingsPage(): JSX.Element {
 							)}
 						>
 							<span className={cn(icon, "h-4 w-4 shrink-0")} />
-							{!narrow && t(labelKey as any)}
+							{!narrow && <span className="flex-1 text-left">{t(labelKey as any)}</span>}
+							{!narrow && beta && (
+								<span className="rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-primary">
+									{t("betaBadge")}
+								</span>
+							)}
 						</button>
 					))}
 				</nav>
