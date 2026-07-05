@@ -48,7 +48,7 @@ export function NavigationOpenApprovalView({
 				onInteractOutside={(event) => event.preventDefault()}
 			>
 				<ThemeSurface slot="root.approval.navigationOpen.panel" />
-				<div className="relative z-10 contents">
+				<div className="relative z-10 grid min-h-0 gap-4">
 					<DialogHeader>
 						<DialogTitle>{labels.title}</DialogTitle>
 						<DialogDescription>{summary}</DialogDescription>
