@@ -1,0 +1,139 @@
+import { forwardRef, useCallback, useMemo } from "react";
+import { Virtuoso } from "react-virtuoso";
+import type { ChatMessage } from "@shared/store/atoms";
+import { SuggestionBubbles } from "../SuggestionBubbles";
+import { MessageItem, ModelSwitchBoundary, ExportMessageList } from "./MessageItem";
+import { MessageListFooter } from "./MessageListFooter";
+import type { MessageListModel, MessageListProps } from "./types";
+
+export { ExportMessageList };
+
+const STREAMING_OVERSCAN = 80;
+const IDLE_OVERSCAN = 400;
+const STREAMING_INCREASE_VIEWPORT_BY = { top: 0, bottom: 80 };
+const IDLE_INCREASE_VIEWPORT_BY = { top: 200, bottom: 200 };
+const VIRTUOSO_STYLE = { overflowX: "hidden" as const };
+
+export function MessageListView({
+	model,
+	onSend,
+}: {
+	model: MessageListModel;
+	onSend: MessageListProps["onSend"];
+}): JSX.Element {
+	const {
+		isCompacting,
+		isStreaming,
+		messages,
+		modelSwitchLabels,
+		scroll,
+		showWaiting,
+		tailMessageId,
+	} = model;
+	const itemContent = useCallback(
+		(index: number, message: ChatMessage) => (
+			<div
+				className={
+					index === messages.length - 1 && message.role === "user"
+						? "pb-9"
+						: "pb-5"
+				}
+			>
+				{modelSwitchLabels.has(message.id) && (
+					<ModelSwitchBoundary
+						label={modelSwitchLabels.get(message.id) as string}
+					/>
+				)}
+				<MessageItem
+					message={message}
+					isTailMessage={message.id === tailMessageId}
+					isStreaming={isStreaming}
+					userMessageEntryState={
+						message.id === scroll.activeUserAnimationId
+							? "enter"
+							: message.id === scroll.pendingUserAnimationId ||
+									message.id === scroll.enteringUserMessageId
+								? "hidden"
+								: "static"
+					}
+					onUserMessageEntryComplete={
+						message.id === scroll.activeUserAnimationId
+							? scroll.onUserMessageEntryComplete
+							: undefined
+					}
+				/>
+			</div>
+		),
+		[
+			isStreaming,
+			messages.length,
+			modelSwitchLabels,
+			scroll.activeUserAnimationId,
+			scroll.enteringUserMessageId,
+			scroll.onUserMessageEntryComplete,
+			scroll.pendingUserAnimationId,
+			tailMessageId,
+		],
+	);
+	const footer = useCallback(
+		() => (
+			<>
+				{onSend && <SuggestionBubbles onSend={onSend} />}
+				<MessageListFooter
+					isCompacting={isCompacting}
+					showWaiting={showWaiting}
+				/>
+			</>
+		),
+		[isCompacting, showWaiting, onSend],
+	);
+	const components = useMemo(
+		() => ({ List: VirtuosoListContainer, Footer: footer }),
+		[footer],
+	);
+
+	return (
+		<>
+			<style>{`
+				@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+				textarea::placeholder { color: var(--muted-foreground); opacity: 0.5; }
+				@keyframes context-ring-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+				@keyframes processing-shimmer { 0%, 100% { opacity: 0.58; } 50% { opacity: 1; } }
+				.processing-shimmer { color: var(--foreground); animation: processing-shimmer 1.6s ease-in-out infinite; will-change: opacity; }
+			`}</style>
+			<Virtuoso
+				ref={scroll.virtuosoRef}
+				scrollerRef={scroll.scrollerRef}
+				data={messages}
+				className="flex-1 pt-2"
+				style={VIRTUOSO_STYLE}
+				atBottomStateChange={scroll.onAtBottomChange}
+				atBottomThreshold={80}
+				overscan={isStreaming ? STREAMING_OVERSCAN : IDLE_OVERSCAN}
+				increaseViewportBy={
+					isStreaming
+						? STREAMING_INCREASE_VIEWPORT_BY
+						: IDLE_INCREASE_VIEWPORT_BY
+				}
+				defaultItemHeight={80}
+				components={components}
+				itemContent={itemContent}
+				initialTopMostItemIndex={messages.length > 0 ? messages.length - 1 : 0}
+			/>
+		</>
+	);
+}
+
+const VirtuosoListContainer = forwardRef<
+	HTMLDivElement,
+	React.HTMLAttributes<HTMLDivElement>
+>(function VirtuosoListContainer(props, ref) {
+	return (
+		<div
+			{...props}
+			ref={ref}
+			className="mx-auto flex max-w-3xl flex-col overflow-hidden px-5 pb-5"
+			style={{ ...props.style }}
+		/>
+	);
+});
