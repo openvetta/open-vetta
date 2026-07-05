@@ -29,6 +29,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **外观界面主题选择**：外观设置新增「默认主题 / 修仙主题」独立选择与预览，并将颜色主题明确限定为默认主题的配色设置；界面主题选择会持久化，默认使用标准界面。
 - **可扩展 UI 主题包运行时**：新增独立主题构建、归档与 staging 流程；内置主题随应用进入 `Resources/system-themes`，远程主题从用户主题目录发现，两者通过相同 manifest、preload API、`vetta-theme://` 协议和 Module Federation loader 加载。Xianxia 作为首个内置主题包接入，desktop-app 不再静态依赖具体主题实现。
 - **插件 turn 卡槽位（消息列表底部）**：新增 `ui.slot.turn-card` 的宿主侧实现——`plugin-loader` 的 `registerTurnCard`、`pluginTurnCardsAtom`、`PluginGlobalSlotHost` 发布、以及挂在 `MessageList` footer 的新组件 `PluginTurnCardHost`（按 `scope_use` fail-closed 过滤，渲染各插件的零 props turn 卡组件）。卡片不绑定 tool 调用，可见性由插件组件自身决定。内置 Git 插件据此在 git 项目里、一轮 agent 结束后显示「本轮变更卡」：turn-start 抓 `git status` 基线、turn-end 只列相对基线的本轮变更（不是全部未提交文件），列全、最多 10 项、超出折叠为「查看所有变更」，点击任意行打开 Git 活动面板看完整 diff。
 - **桌宠装饰素材展示恢复**：设置页重新提供「桌宠装饰」分区，展示主进程注册的装饰素材缩略图与可用/缺失状态；气泡样式移动到独立「气泡样式」分区。
