@@ -16,7 +16,7 @@ import { loadThemePackage } from "./themeLoader";
 import type { ThemeRuntimeValue } from "./types";
 
 const UI_THEME_STORAGE_KEY = "vetta-ui-theme";
-const DEFAULT_UI_THEME_ID = "xianxia";
+const DEFAULT_UI_THEME_ID = "default";
 const ThemeRuntimeContext = createContext<ThemeRuntimeValue | null>(null);
 
 export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX.Element {
@@ -28,10 +28,19 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 	const selectTheme = useCallback(async (themeId: string): Promise<void> => {
 		const themes = await window.vetta.themes.list();
 		setAvailableThemes(themes);
+		if (themeId === DEFAULT_THEME_MODULE.meta.id) {
+			disposeRef.current();
+			disposeRef.current = () => {};
+			localStorage.setItem(UI_THEME_STORAGE_KEY, DEFAULT_THEME_MODULE.meta.id);
+			setActiveTheme(DEFAULT_THEME_MODULE);
+			setStatus("ready");
+			return;
+		}
 		const descriptor = themes.find((theme) => theme.id === themeId);
 		if (!descriptor) {
 			disposeRef.current();
 			disposeRef.current = () => {};
+			localStorage.setItem(UI_THEME_STORAGE_KEY, DEFAULT_THEME_MODULE.meta.id);
 			setActiveTheme(DEFAULT_THEME_MODULE);
 			setStatus("error");
 			return;

@@ -11,7 +11,10 @@ import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
+import { useThemeRuntime } from "@shared/theme/runtime";
 import { type MouseEvent, useState } from "react";
+import defaultThemePreview from "../assets/default.webp";
+import xianxiaThemePreview from "../assets/xianxia.webp";
 import { SettingHeading, SettingRow } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 
@@ -43,6 +46,21 @@ const LANGUAGES: { value: AppLanguage; native: string; alt: string }[] = [
 	{ value: "zh", native: "中文", alt: "Chinese" },
 	{ value: "en", native: "English", alt: "英文" },
 ];
+
+const UI_THEMES = [
+	{
+		id: "default",
+		labelKey: "uiThemeDefault",
+		hintKey: "uiThemeDefaultHint",
+		preview: defaultThemePreview,
+	},
+	{
+		id: "xianxia",
+		labelKey: "uiThemeXianxia",
+		hintKey: "uiThemeXianxiaHint",
+		preview: xianxiaThemePreview,
+	},
+] as const;
 
 function LanguageSelect({
 	language,
@@ -298,8 +316,53 @@ function ThemeCard({
 	);
 }
 
+function UiThemeCard({
+	active,
+	disabled,
+	hint,
+	label,
+	onSelect,
+	preview,
+}: {
+	active: boolean;
+	disabled: boolean;
+	hint: string;
+	label: string;
+	onSelect: () => void;
+	preview: string;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			disabled={disabled}
+			onClick={onSelect}
+			className={cn(
+				"group overflow-hidden rounded-xl border bg-card/40 text-left transition-colors",
+				active
+					? "border-primary/70 ring-1 ring-inset ring-primary/30"
+					: "border-border/50 hover:border-primary/40 hover:bg-card/60",
+				disabled && "cursor-not-allowed opacity-50",
+			)}
+		>
+			<div className="relative aspect-[16/9] overflow-hidden border-b border-border/50">
+				<img src={preview} alt="" className="h-full w-full object-cover" />
+				{active && (
+					<span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm">
+						<span className="icon-[solar--check-circle-linear] h-4 w-4 text-primary" />
+					</span>
+				)}
+			</div>
+			<div className="px-3.5 pb-3 pt-3">
+				<div className="text-[13px] font-medium text-card-foreground">{label}</div>
+				<div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
+			</div>
+		</button>
+	);
+}
+
 export function AppearanceSettings(): JSX.Element {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
+	const { activeThemeId, availableThemes, selectTheme, status: themeRuntimeStatus } = useThemeRuntime();
 	const { language, setLanguage } = useLanguage();
 	const { enabled: customCursor, setEnabled: setCustomCursor } = useCustomCursor();
 	const { t: tCommon } = useTranslation("common");
@@ -346,20 +409,44 @@ export function AppearanceSettings(): JSX.Element {
 			</div>
 
 			<div className="mb-6">
-				<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
-				<div className={cn("grid gap-x-4 gap-y-4", narrow ? "grid-cols-1" : "grid-cols-3")}>
-					{THEMES.map((theme) => (
-						<ThemeCard
-							key={theme.id}
-							theme={theme}
-							active={themeName === theme.id}
-							onSelect={(id, event) =>
-								setThemeName(id, { x: event.clientX, y: event.clientY })
-							}
-						/>
-					))}
+				<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-ui-theme"]} className="mb-3" />
+				<div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+					{UI_THEMES.map((theme) => {
+						const unavailable = theme.id !== "default"
+							&& themeRuntimeStatus !== "loading"
+							&& !availableThemes.some((availableTheme) => availableTheme.id === theme.id);
+						return (
+							<UiThemeCard
+								key={theme.id}
+								active={activeThemeId === theme.id}
+								disabled={themeRuntimeStatus === "loading" || unavailable}
+								label={t(theme.labelKey)}
+								hint={unavailable ? t("uiThemeUnavailable") : t(theme.hintKey)}
+								preview={theme.preview}
+								onSelect={() => void selectTheme(theme.id)}
+							/>
+						);
+					})}
 				</div>
 			</div>
+
+			{activeThemeId === "default" && (
+				<div className="mb-6">
+					<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-theme"]} className="mb-3" />
+					<div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
+						{THEMES.map((theme) => (
+							<ThemeCard
+								key={theme.id}
+								theme={theme}
+								active={themeName === theme.id}
+								onSelect={(id, event) =>
+									setThemeName(id, { x: event.clientX, y: event.clientY })
+								}
+							/>
+						))}
+					</div>
+				</div>
+			)}
 
 			<div className="mb-6">
 				<SettingHeading t={t as any} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
