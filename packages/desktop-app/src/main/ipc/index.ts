@@ -20,6 +20,7 @@ import { registerRuntimesIpc } from "./runtimes.js";
 import { registerSessionIpc } from "./session.js";
 import { registerSettingsIpc } from "./settings.js";
 import { registerSkillsIpc } from "./skills.js";
+import { registerThemesIpc } from "./themes.js";
 import { registerUpdaterIpc } from "./updater.js";
 import { registerWebhookIpc } from "./webhook.js";
 
@@ -30,6 +31,7 @@ interface IpcTeardown {
 	teardownSettings: () => void;
 	teardownUpdater: () => void;
 	teardownSkills: () => void;
+	teardownThemes: () => void;
 	teardownDialog: () => void;
 	teardownFs: () => void;
 	teardownFlowing: () => void;
@@ -60,6 +62,7 @@ export function registerAllIpc(
 		teardownSettings: registerSettingsIpc(),
 		teardownUpdater: registerUpdaterIpc(),
 		teardownSkills: registerSkillsIpc(),
+		teardownThemes: registerThemesIpc(),
 		teardownDialog: registerDialogIpc(),
 		teardownFs: registerFsIpc(),
 		teardownFlowing: registerFlowingIpc(),
@@ -87,6 +90,7 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownSettings();
 	teardown.teardownUpdater();
 	teardown.teardownSkills();
+	teardown.teardownThemes();
 	teardown.teardownDialog();
 	teardown.teardownFs();
 	teardown.teardownFlowing();

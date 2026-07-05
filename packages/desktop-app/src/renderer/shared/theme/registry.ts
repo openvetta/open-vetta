@@ -2,7 +2,6 @@ import type { ActivityPanelFrame } from "@domains/activity-panel/components/acti
 import type { LoginDialogView } from "@domains/auth/components/LoginDialogView";
 import type { AtPanelView } from "@domains/chat/components/at-panel/AtPanelView";
 import type { ExecutionModeSelectorView } from "@domains/chat/components/execution-mode-selector/ExecutionModeSelectorView";
-import type { InputBarBackground } from "@domains/chat/components/input-bar/InputBarBackground";
 import type { InputBarView } from "@domains/chat/components/input-bar/InputBarView";
 import type { ModelSelectorView } from "@domains/chat/components/model-selector/ModelSelectorView";
 import type { SceneCard } from "@domains/chat/components/new-session/SceneCard";
@@ -32,9 +31,7 @@ import type { WindowControlButton, WindowControlsComponentProps } from "@shared/
 import type { DrawerCard } from "@shared/components/DrawerCard";
 import type { UpdateRestartDialogView } from "@shared/components/UpdateRestartDialogView";
 import type { ConfirmDialogView } from "@shared/components/ui/ConfirmDialogView";
-import type { ThemeSurfaceConfig } from "@vetta/theme-sdk";
 import type { ComponentType } from "react";
-import type { AppBackground } from "../../root-layout/app-background/AppBackground";
 
 declare module "@vetta/theme-sdk" {
 	interface ThemeRegionRegistry {
@@ -44,7 +41,6 @@ declare module "@vetta/theme-sdk" {
 
 	interface ThemeComponentRegistry {
 		readonly "activity.panelFrame"?: typeof ActivityPanelFrame;
-		readonly "app.background"?: typeof AppBackground;
 		readonly "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger;
 		readonly "app.pageHeaderTitle"?: typeof PageHeaderTitle;
 		readonly "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;
@@ -53,7 +49,6 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.atPanelView"?: typeof AtPanelView;
 		readonly "chat.executionModeSelectorView"?: typeof ExecutionModeSelectorView;
 		readonly "chat.inputDrawer"?: typeof DrawerCard;
-		readonly "chat.inputBarBackground"?: typeof InputBarBackground;
 		readonly "chat.inputBarView"?: typeof InputBarView;
 		readonly "chat.modelSelectorView"?: typeof ModelSelectorView;
 		readonly "chat.newSessionSceneCard"?: typeof SceneCard;
@@ -95,48 +90,5 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.workflowCompleteDialogView"?: typeof WorkflowCompleteDialogView;
 		readonly "sidebar.navItem"?: typeof SidebarNavItemButton;
 		readonly "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger;
-	}
-
-	interface ThemeSurfaceRegistry {
-		readonly "activity.panel"?: ThemeSurfaceConfig;
-		readonly "app.frame"?: ThemeSurfaceConfig;
-		readonly "app.pageHeader"?: ThemeSurfaceConfig;
-		readonly "app.windowControls"?: ThemeSurfaceConfig;
-		readonly "chat.atPanel"?: ThemeSurfaceConfig;
-		readonly "chat.newSessionPage"?: ThemeSurfaceConfig;
-		readonly "chat.sessionViewerPage"?: ThemeSurfaceConfig;
-		readonly "chat.view"?: ThemeSurfaceConfig;
-		readonly "chat.executionModeMenu"?: ThemeSurfaceConfig;
-		readonly "chat.inputDrawer"?: ThemeSurfaceConfig;
-		readonly "chat.inputBar"?: ThemeSurfaceConfig;
-		readonly "chat.modelSelectorMenu"?: ThemeSurfaceConfig;
-		readonly "chat.modelSelectorReasoningMenu"?: ThemeSurfaceConfig;
-		readonly "chat.newSessionSceneCard"?: ThemeSurfaceConfig;
-		readonly "chat.newSessionSkillCard"?: ThemeSurfaceConfig;
-		readonly "chat.questionPanel"?: ThemeSurfaceConfig;
-		readonly "chat.slashPanel"?: ThemeSurfaceConfig;
-		readonly "root.confirmDialog.panel"?: ThemeSurfaceConfig;
-		readonly "root.filePreviewDialog"?: ThemeSurfaceConfig;
-		readonly "root.filePreviewDialog.panel"?: ThemeSurfaceConfig;
-		readonly "root.flowingSendDialog.panel"?: ThemeSurfaceConfig;
-		readonly "root.genericActionApproval.panel"?: ThemeSurfaceConfig;
-		readonly "root.knowledgeDropOverlay"?: ThemeSurfaceConfig;
-		readonly "root.loginDialog.panel"?: ThemeSurfaceConfig;
-		readonly "root.approval.appearance.panel"?: ThemeSurfaceConfig;
-		readonly "root.approval.batchTasks.panel"?: ThemeSurfaceConfig;
-		readonly "root.approval.navigationOpen.panel"?: ThemeSurfaceConfig;
-		readonly "root.approval.schedulerAction.panel"?: ThemeSurfaceConfig;
-		readonly "root.approval.schedulerEdit.panel"?: ThemeSurfaceConfig;
-		readonly "root.updateRestartDialog.panel"?: ThemeSurfaceConfig;
-		readonly "root.workflowCompleteDialog.panel"?: ThemeSurfaceConfig;
-		readonly "sidebar.panel"?: ThemeSurfaceConfig;
-		readonly "sidebar.topBar"?: ThemeSurfaceConfig;
-		readonly "sidebar.navigation"?: ThemeSurfaceConfig;
-		readonly "sidebar.navigationIndicator"?: ThemeSurfaceConfig;
-		readonly "sidebar.projects"?: ThemeSurfaceConfig;
-		readonly "sidebar.bottomBar"?: ThemeSurfaceConfig;
-		readonly "sidebar.settingsMenu"?: ThemeSurfaceConfig;
-		readonly "sidebar.messageCenter"?: ThemeSurfaceConfig;
-		readonly "settings.pageContent"?: ThemeSurfaceConfig;
 	}
 }

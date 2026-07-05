@@ -32,14 +32,14 @@
 - 侧边栏入口支持 `regions.sidebar` 完整接管。
 - 默认侧边栏已接入 `sidebar.navItem` 和 `sidebar.settingsTrigger` 组件覆盖点。
 - 侧边栏组件支持 `className` / `classNames`，便于主题复用默认组件时做局部视觉调整。
-- 新增本地 demo 主题，可分别测试装饰、局部组件覆盖和完整侧边栏接管。
+- 新增内置 Xianxia 主题包，用于验证 appearance 和组件覆盖能力。
 - `PageHeader` 已从 `App.tsx` 拆出，并接入 `app.pageHeader` region/surface 与 `app.pageHeaderSidebarTrigger` 覆盖点。
 - `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 已作为 SDK facade hook 暴露，真实实现由 desktop-app 通过 `ThemeHostProvider` 注入。
 - Root global overlays 已开始按 connected container / props-driven view 拆分，审批、登录、文件预览、流转、更新提示等浮层已接入 view override 和 surface slot。
 
 当前仍未实现：
 
-- 主题配置加载来源。
+- 远程主题配置加载来源。
 - 设置页里的 UI 主题选择。
 - 远程主题包加载。
 - 项目行、会话行、消息中心等更多细粒度组件覆盖点。

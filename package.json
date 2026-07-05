@@ -11,6 +11,7 @@
 		"packages/plugins/plugin-vite",
 		"packages/theme-sdk",
 		"packages/theme-ui",
+		"packages/themes/builtin/*",
 		"packages/ui",
 		"packages/runtime-core",
 		"packages/action-rpc",

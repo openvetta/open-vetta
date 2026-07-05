@@ -37,7 +37,7 @@
 
 ## 阶段 2：本地 appearance 配置
 
-状态：基础协议已拆到 `packages/theme-sdk`，装饰 UI 已拆到 `packages/theme-ui`。
+状态：基础协议已拆到 `packages/theme-sdk`，装饰和应用 UI 已拆到 `packages/theme-ui`，Xianxia 已作为独立内置主题包接入。
 
 目标：
 
@@ -46,15 +46,16 @@
 - 支持 `corner-image` frame 的真实素材验证。
 - 支持按主题 ID 选择 appearance。
 
-建议先做静态配置：
+当前静态主题目录：
 
 ```txt
-packages/desktop-app/src/renderer/shared/theme/local-themes/
-  default.ts
-  demo-corner-frame.ts
+packages/themes/
+  builtin/
+    xianxia/
+  remote/
 ```
 
-然后让 `ThemeAppearanceProvider` 根据当前主题或调试开关选择 appearance。
+desktop-app 主进程扫描 staging、应用 Resources 和用户主题目录，renderer 通过 `shared/theme/runtime` 的 provider 与 Module Federation loader 选择主题。desktop-app 不静态依赖任何具体主题包。
 
 暂时不做：
 
@@ -260,7 +261,7 @@ ChatPage
 
 1. 继续迁移第一批 props-driven app-shell/sidebar 组件到官方 UI 包。
 2. 继续拆 `App.tsx` 中剩余纯 UI 壳层和业务浮层宿主。
-3. 把当前临时 ThemeModule 替换为可选择的本地主题配置入口。
+3. 把当前内置主题 runtime 接入设置页 UI 主题选择。
 4. 补 `ProjectRow`、`SessionRow` 的 public props，并接入 component override。
 5. 把 `settingsMenu`、`messageCenter` 弹层接入 `ThemeSurface`。
 6. 增加主题组件 ErrorBoundary。

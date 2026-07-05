@@ -13,6 +13,14 @@
 			"types": "./src/appearance/index.ts",
 			"import": "./src/appearance/index.ts"
 		},
+		"./app": {
+			"types": "./src/app/index.ts",
+			"import": "./src/app/index.ts"
+		},
+		"./chat": {
+			"types": "./src/chat/index.ts",
+			"import": "./src/chat/index.ts"
+		},
 		"./layout": {
 			"types": "./src/layout/index.ts",
 			"import": "./src/layout/index.ts"

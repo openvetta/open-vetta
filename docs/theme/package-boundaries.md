@@ -14,8 +14,11 @@
 desktop-app
   应用数据、动作、默认主题、主题加载器、registry 类型扩展
 
-theme package
-  具体主题实现，可远程动态加载
+packages/themes/builtin
+  随应用构建的内置主题包
+
+packages/themes/remote
+  远程主题开发边界，不属于 desktop-app 构建输入
 ```
 
 ## Theme SDK
@@ -88,6 +91,23 @@ desktop-app 负责把应用能力接到主题系统。
 
 desktop-app 不应该要求主题 import 内部路径，例如 `@shared/*`、`@domains/*` 或 `window.vetta.*`。
 
+## 主题目录
+
+具体主题按来源分为两个目录：
+
+```txt
+packages/themes/
+  builtin/
+    xianxia/
+  remote/
+```
+
+`builtin` 中的主题可以参与 monorepo 的依赖安装和类型检查，但不属于 desktop-app 的依赖或 Vite 构建输入，也不被 desktop-app 静态导入。`build:themes` 独立构建主题归档，开发时解压到 `.artifacts/system-themes`，发布时解压到 `Resources/system-themes`。主进程启动后扫描主题目录并通过 preload 下发描述信息。
+
+`remote` 目录同样不属于 desktop-app 构建输入。远程主题由主题商店安装到用户主题目录后，被同一个扫描与加载流程发现。
+
+两类主题使用相同的 manifest、构建产物、`ThemeModule` 和 Module Federation 加载器。差异只在来源目录：内置主题来自只读应用资源，远程主题来自用户主题目录。
+
 ## 远程主题包
 
 主题包未来不通过 npm 安装到应用内。npm 包名只表示开发期和构建期的依赖契约。
@@ -122,6 +142,8 @@ desktop-app 不应该要求主题 import 内部路径，例如 `@shared/*`、`@d
 - `packages/theme-sdk`：主题协议和运行时上下文。
 - `packages/theme-ui`：`ThemeSurface`、`CornerImageFrame` 和基础 layout primitives。
 - desktop-app：通过 `packages/desktop-app/src/renderer/shared/theme/registry.ts` 声明当前支持的 region/component/surface id。
+- `packages/themes/builtin/xianxia`：第一个独立内置主题包。
+- desktop-app：主进程扫描内置/远程主题目录，renderer 通过统一 runtime loader 恢复已选择主题并在失败时回退默认主题。
 
 当前仍保留在 desktop-app：
 

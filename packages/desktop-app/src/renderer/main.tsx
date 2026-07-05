@@ -6,10 +6,10 @@ import { router } from "./router";
 import { i18n, initI18n } from "./shared/i18n";
 import { applyInitialTheme } from "./shared/theme/apply";
 import { applyStoredCustomCursor } from "./shared/theme/cursor";
-import { sidebarAppearanceDemoTheme } from "./shared/theme/dev-themes/sidebarDemoThemes";
 import { desktopThemeHost } from "./shared/theme/desktopThemeHost";
+import { ThemeRuntimeProvider } from "./shared/theme/runtime";
 import { ThemeColorOverrideBridge } from "./shared/theme/ThemeColorOverrideBridge";
-import { ThemeHostProvider, ThemeProvider } from "@vetta/theme-sdk";
+import { ThemeHostProvider } from "@vetta/theme-sdk";
 import "./styles.css";
 
 // 必须在 React 挂载前同步注入主题变量，避免冷启动闪烁。
@@ -24,16 +24,14 @@ if (!rootElement) {
 	throw new Error("Missing root element");
 }
 
-const activeThemeModule = sidebarAppearanceDemoTheme;
-
 createRoot(rootElement).render(
 	<StrictMode>
 		<I18nextProvider i18n={i18n}>
 			<ThemeHostProvider host={desktopThemeHost}>
-				<ThemeProvider theme={activeThemeModule}>
+				<ThemeRuntimeProvider>
 					<ThemeColorOverrideBridge />
 					<RouterProvider router={router} />
-				</ThemeProvider>
+				</ThemeRuntimeProvider>
 			</ThemeHostProvider>
 		</I18nextProvider>
 	</StrictMode>,
