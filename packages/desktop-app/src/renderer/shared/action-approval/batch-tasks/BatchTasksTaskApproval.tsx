@@ -46,10 +46,19 @@ function parseTaskInput(input: DesktopActionApprovalRequest["input"]): TaskInput
 }
 
 export function BatchTasksTaskApproval(): JSX.Element | null {
-	const { t } = useTranslation("common");
 	const approval = useActionApproval("batch-tasks.task");
-	const projects = useAtomValue(batchProjectsAtom);
 	if (!approval) return null;
+
+	return <BatchTasksTaskApprovalContent key={approval.request.approvalId} approval={approval} />;
+}
+
+interface BatchTasksTaskApprovalContentProps {
+	approval: NonNullable<ReturnType<typeof useActionApproval>>;
+}
+
+function BatchTasksTaskApprovalContent({ approval }: BatchTasksTaskApprovalContentProps): JSX.Element {
+	const { t } = useTranslation("common");
+	const projects = useAtomValue(batchProjectsAtom);
 	const { request, responding, error, approve, reject } = approval;
 
 	const input = parseTaskInput(request.input);
