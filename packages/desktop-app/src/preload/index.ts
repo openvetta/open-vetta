@@ -13,6 +13,7 @@ import { createQuickPanelApi } from "./apis/quick-panel.js";
 import { createSchedulerApi } from "./apis/scheduler.js";
 import { createSessionApi } from "./apis/session.js";
 import { createSystemApi } from "./apis/system.js";
+import { createThemesApi } from "./apis/themes.js";
 import { createWebhookApi } from "./apis/webhook.js";
 
 const USER_ACTIVITY_CHANNEL = "vetta:app-monitor:user-activity";
@@ -41,6 +42,7 @@ const api: DesktopApi = {
 	...createWebhookApi(ipcRenderer),
 	...createNotificationApi(ipcRenderer),
 	...createPluginsApi(ipcRenderer),
+	...createThemesApi(ipcRenderer),
 	...createPetApi(ipcRenderer),
 	...createQuickPanelApi(ipcRenderer),
 	...createI18nApi(ipcRenderer),

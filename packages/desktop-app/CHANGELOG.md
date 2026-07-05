@@ -29,6 +29,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **可扩展 UI 主题包运行时**：新增独立主题构建、归档与 staging 流程；内置主题随应用进入 `Resources/system-themes`，远程主题从用户主题目录发现，两者通过相同 manifest、preload API、`vetta-theme://` 协议和 Module Federation loader 加载。Xianxia 作为首个内置主题包接入，desktop-app 不再静态依赖具体主题实现。
 - **插件 turn 卡槽位（消息列表底部）**：新增 `ui.slot.turn-card` 的宿主侧实现——`plugin-loader` 的 `registerTurnCard`、`pluginTurnCardsAtom`、`PluginGlobalSlotHost` 发布、以及挂在 `MessageList` footer 的新组件 `PluginTurnCardHost`（按 `scope_use` fail-closed 过滤，渲染各插件的零 props turn 卡组件）。卡片不绑定 tool 调用，可见性由插件组件自身决定。内置 Git 插件据此在 git 项目里、一轮 agent 结束后显示「本轮变更卡」：turn-start 抓 `git status` 基线、turn-end 只列相对基线的本轮变更（不是全部未提交文件），列全、最多 10 项、超出折叠为「查看所有变更」，点击任意行打开 Git 活动面板看完整 diff。
 - **桌宠装饰素材展示恢复**：设置页重新提供「桌宠装饰」分区，展示主进程注册的装饰素材缩略图与可用/缺失状态；气泡样式移动到独立「气泡样式」分区。
 - **快捷面板背景接入 macOS 原生玻璃（ADR-0036）**：面板背景改用原生玻璃——macOS 26+ (Tahoe) 为液态玻璃，更低版本经 `electron-liquid-glass` 自动回退为磨砂玻璃（legacy `NSVisualEffectView`），非 macOS 退回原不透明卡片。玻璃绘制在 web 内容之下，主进程依平台/`isGlassSupported()` 判定后经新增 `ON_GLASS` 通道下发 `liquid`/`frosted`/`none`，渲染层据此把卡片背景置透明、去边框与阴影。该库为 darwin-only 原生模块，主进程用 `createRequire` 仅在 macOS 上按需加载，避免 Windows/Linux 跨平台包顶层 import 即崩。同步：列表去掉滚动条、改用上/下边缘渐隐遮罩提示可滚动；选中/悬停高亮由实心深色块改为半透明前景叠加以贴合玻璃。打包侧补齐 `uiohook-napi`（全平台）与 `electron-liquid-glass`（darwin-only）的 staging 复制与 `asarUnpack`。

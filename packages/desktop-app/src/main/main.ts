@@ -53,6 +53,7 @@ import { getRuntimeManager } from "./runtimes/manager.js";
 import { initializeSandboxCapability } from "./sandbox/capability.js";
 import { initScheduler, scheduleTaskInCron, unscheduleTaskInCron } from "./scheduler/scheduler.js";
 import { SchedulerService } from "./scheduler/scheduler-service.js";
+import { registerThemeProtocol, THEME_PROTOCOL_PRIVILEGE } from "./themes/theme-protocol.js";
 import {
 	createTray,
 	getHideToTrayOnClose,
@@ -72,6 +73,7 @@ const PROTOCOL = "vetta";
 // 所有自定义 scheme（插件、媒体流）的特权声明在此合并注册。
 protocol.registerSchemesAsPrivileged([
 	...PLUGIN_PROTOCOL_PRIVILEGES,
+	THEME_PROTOCOL_PRIVILEGE,
 	MEDIA_PROTOCOL_PRIVILEGE,
 	FILE_PROTOCOL_PRIVILEGE,
 ]);
@@ -319,6 +321,7 @@ if (!gotSingleLock) {
 		// 必须在 ready 之后调用（net.fetch 依赖 session）。
 		installChromiumFetchForMain();
 		registerPluginProtocols();
+		registerThemeProtocol();
 		// 开发模式：每次启动清空 HTTP 缓存。插件资源走 vetta-plugin://，remoteEntry.js
 		// 是固定文件名，Chromium 会启发式缓存它——重编译后旧缓存仍 pin 着旧 chunk，
 		// 重启也不清（持久化在 userData）。dev 下清缓存代价是重新拉一次本地资源，可忽略；
