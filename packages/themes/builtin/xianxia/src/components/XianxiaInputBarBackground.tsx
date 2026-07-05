@@ -17,7 +17,7 @@ export function XianxiaInputBarBackground({
 			<img
 				alt=""
 				aria-hidden="true"
-				className="absolute -right-3 -bottom-10 h-[145%] w-auto max-w-[48%] object-contain object-right-bottom"
+				className="absolute -right-3 -bottom-10 h-[129px] w-auto max-w-[48%] object-contain object-right-bottom"
 				src={xianxiaAssets.inputBarBackground}
 			/>
 		</InputBarBackground>
