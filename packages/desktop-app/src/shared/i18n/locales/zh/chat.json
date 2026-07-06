@@ -328,6 +328,11 @@
 		"layoutStacked": "收纳"
 	},
 	"messageList": {
+		"userMessage": {
+			"expand": "展开消息",
+			"sceneBadge": "场景",
+			"skillBadge": "技能"
+		},
 		"assistantFoldTip": {
 			"collapse": "收起{{count}}条内容",
 			"collapseLabel": "收起",

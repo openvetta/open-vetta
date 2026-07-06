@@ -1,11 +1,15 @@
 import { forwardRef, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Transition } from "motion/react";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useTranslation } from "react-i18next";
 import {
 	type ChatMessage,
+	type FilePreviewItem,
 	type ContentBlock,
 	type TextBlock,
 	type ThinkingBlock,
@@ -13,10 +17,14 @@ import {
 	activeSessionAtom,
 	isCompactingAtom,
 	pluginToolCallSlotsAtom,
+	filePreviewAtom,
+	openUrlInBrowserAtom,
 	promptPredictingAtom,
+	resolvedThemeAtom,
 } from "@shared/store/atoms";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
+import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
 import { cn, pathBasename } from "@shared/lib/utils";
 import { PluginTurnCardHost } from "../../plugins/components/PluginTurnCardHost";
 import { MessageCardsHost } from "./MessageCardsHost";
@@ -69,6 +77,8 @@ const MIN_SCROLL_LERP_RATIO = 0.045;
 const IDLE_MAX_SCROLL_LERP_RATIO = 0.18;
 const STREAMING_MAX_SCROLL_LERP_RATIO = 0.28;
 const SCROLL_DISTANCE_FOR_MAX_RATIO = 900;
+const USER_MESSAGE_COLLAPSED_LINES = 10;
+const USER_MESSAGE_COLLAPSED_MAX_HEIGHT = `${USER_MESSAGE_COLLAPSED_LINES * 1.6}em`;
 
 /**
  * Stable React key for a content block. Used so segments survive reorder when
@@ -534,6 +544,29 @@ function splitAppshotFiles(files: string[]): { appshotImage: string | null; rest
 	return { appshotImage, rest };
 }
 
+const USER_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"]);
+
+function getPathExtension(path: string): string {
+	const basename = pathBasename(path);
+	const dotIndex = basename.lastIndexOf(".");
+	return dotIndex === -1 ? "" : basename.slice(dotIndex + 1).toLowerCase();
+}
+
+function isUserImageFile(path: string): boolean {
+	return USER_IMAGE_EXTENSIONS.has(getPathExtension(path));
+}
+
+function toFileProtocolUrl(path: string): string {
+	const prefix = path.startsWith("/") ? "" : "/";
+	return `vetta-file://local${prefix}${encodeURI(path)}`;
+}
+
+function getPreviewImageSrc(item: FilePreviewItem): string {
+	if (item.url) return item.url;
+	if (item.path) return toFileProtocolUrl(item.path);
+	return "";
+}
+
 /** 提取 user 消息的可复制文本：去掉 /skill: 与 @file 前缀，仅保留正文 body。 */
 function getUserCopyText(message: ChatMessage): string {
 	const { body } = parseUserPrefixes(message.text ?? "");
@@ -613,29 +646,240 @@ function CopyButton({ getText }: { getText: () => string }): JSX.Element {
 }
 
 function SkillBadge({ name, type = "skill" }: { name: string; type?: "skill" | "scene" }): JSX.Element {
+	const { t } = useTranslation("chat");
 	const icon = type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]";
+	const label = t(type === "scene" ? "messageList.userMessage.sceneBadge" : "messageList.userMessage.skillBadge");
 	return (
-		<span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-primary/10 text-muted-foreground">
+		<span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
 			<span className={`${icon} h-3 w-3`} />
-			{name}
+			<span className="text-primary/75">{label}</span>
+			<span>{name}</span>
 		</span>
 	);
 }
 
 function FileBadge({ path }: { path: string }): JSX.Element {
+	const setFilePreview = useSetAtom(filePreviewAtom);
 	const name = pathBasename(path);
 	return (
-		<span
-			className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground"
+		<button
+			type="button"
+			className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary transition hover:bg-primary/20"
 			title={path}
+			onClick={() => setFilePreview({ name, path })}
 		>
 			<span className="icon-[mdi--file-outline] h-3 w-3" />
 			{name}
-		</span>
+		</button>
+	);
+}
+
+function ImageAttachmentGroup({ items }: { items: FilePreviewItem[] }): JSX.Element {
+	const setFilePreview = useSetAtom(filePreviewAtom);
+	return (
+		<div className="flex max-w-full justify-end gap-2 overflow-x-auto">
+			{items.map((item, index) => {
+				const src = getPreviewImageSrc(item);
+				return (
+					<button
+						key={item.path ?? item.url ?? `${item.name}-${index}`}
+						type="button"
+						onClick={() => setFilePreview({ items, index })}
+						className="group relative h-20 w-20 overflow-hidden rounded-xl border border-border/60 bg-muted/60 shadow-sm transition hover:border-primary/50 hover:shadow-md"
+						title={item.path ?? item.name}
+					>
+						<img src={src} alt={item.name} className="h-full w-full object-cover" />
+						<span className="pointer-events-none absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
+					</button>
+				);
+			})}
+		</div>
 	);
 }
 
 type UserMessageEntryState = "static" | "hidden" | "enter";
+
+interface UserMessageTextProps {
+	text: string;
+	shouldAnimateIn: boolean;
+	shouldHoldHidden: boolean;
+}
+
+function resolveFileLinkPath(href: string | undefined): string | null {
+	if (!href) return null;
+	const decode = (raw: string): string => {
+		try {
+			return decodeURIComponent(raw);
+		} catch {
+			return raw;
+		}
+	};
+	if (href.startsWith("file://")) {
+		return decode(href.replace(/^file:\/\//, ""));
+	}
+	if (href.startsWith("/")) return decode(href);
+	return null;
+}
+
+const LINK_BADGE_CLASS =
+	"inline-flex max-w-full items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-1.5 py-px align-middle text-[12px] font-medium text-primary no-underline transition-colors hover:bg-primary/20";
+
+function UserMessageText({ text, shouldAnimateIn, shouldHoldHidden }: UserMessageTextProps): JSX.Element {
+	const { t } = useTranslation("chat");
+	const contentRef = useRef<HTMLDivElement>(null);
+	const [expanded, setExpanded] = useState(false);
+	const [canExpand, setCanExpand] = useState(false);
+	const theme = useAtomValue(resolvedThemeAtom);
+	const setFilePreview = useSetAtom(filePreviewAtom);
+	const openUrlInBrowser = useSetAtom(openUrlInBrowserAtom);
+
+	const measureOverflow = useCallback(() => {
+		const content = contentRef.current;
+		if (!content) return;
+		const fontSize = Number.parseFloat(window.getComputedStyle(content).fontSize);
+		const collapsedHeight = fontSize * 1.6 * USER_MESSAGE_COLLAPSED_LINES;
+		setCanExpand(content.scrollHeight > collapsedHeight + 1);
+	}, []);
+
+	useLayoutEffect(() => {
+		setExpanded(false);
+		measureOverflow();
+		const content = contentRef.current;
+		if (!content) return;
+		const observer = new ResizeObserver(measureOverflow);
+		observer.observe(content);
+		return () => observer.disconnect();
+	}, [measureOverflow, text]);
+
+	const components = useMemo<Components>(() => ({
+		h1: ({ children }) => (
+			<h1 className="mb-2 mt-3 text-[15px] font-bold leading-tight text-foreground">{children}</h1>
+		),
+		h2: ({ children }) => (
+			<h2 className="mb-1.5 mt-2.5 text-[14px] font-bold leading-tight text-foreground">{children}</h2>
+		),
+		h3: ({ children }) => (
+			<h3 className="mb-1.5 mt-2 text-[13px] font-semibold leading-tight text-foreground">{children}</h3>
+		),
+		h4: ({ children }) => (
+			<h4 className="mb-1 mt-1.5 text-[12px] font-semibold text-foreground">{children}</h4>
+		),
+		p: ({ children }) => (
+			<p className="my-1 text-[13px] leading-[1.6] text-foreground">{children}</p>
+		),
+		ul: ({ children }) => (
+			<ul className="my-1 ml-4 space-y-0.5 text-[13px] leading-[1.6] text-foreground list-disc marker:text-foreground/40">{children}</ul>
+		),
+		ol: ({ children }) => (
+			<ol className="my-1 ml-4 list-decimal space-y-0.5 text-[13px] leading-[1.6] text-foreground marker:text-foreground/40">{children}</ol>
+		),
+		li: ({ children }) => <li className="pl-0.5">{children}</li>,
+		code: ({ className, children }) => {
+			const raw = String(children);
+			const isBlock = (className?.startsWith("language-") ?? false) || raw.includes("\n");
+			if (isBlock) {
+				const lang = className?.replace("language-", "") ?? "";
+				const code = raw.replace(/\n$/, "");
+				return (
+					<div className="my-1.5 overflow-hidden rounded-md border border-border/50 bg-muted/80">
+						{lang && (
+							<div className="border-b border-border/50 px-2.5 py-1 text-[10px] font-medium text-muted-foreground/50">
+								{lang}
+							</div>
+						)}
+						<SyntaxHighlightedCode code={code} lang={lang} theme={theme} />
+					</div>
+				);
+			}
+			return (
+				<code className="rounded bg-muted/80 px-1 py-0.5 text-[12px] text-foreground">
+					{children}
+				</code>
+			);
+		},
+		pre: ({ children }) => <>{children}</>,
+		blockquote: ({ children }) => (
+			<blockquote className="my-1.5 border-l-2 border-primary/10 pl-2.5 text-[13px] italic text-muted-foreground">
+				{children}
+			</blockquote>
+		),
+		strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+		em: ({ children }) => <em className="italic">{children}</em>,
+		hr: () => <hr className="my-2 border-border/40" />,
+		a: ({ href, children }) => {
+			const filePath = resolveFileLinkPath(href);
+			if (filePath) {
+				return (
+					<button
+						type="button"
+						title={filePath}
+						className={cn(LINK_BADGE_CLASS, "cursor-pointer")}
+						onClick={() => setFilePreview({ name: filePath.split("/").pop() ?? filePath, path: filePath })}
+					>
+						<span className="icon-[mdi--file-outline] h-3.5 w-3.5 shrink-0" />
+						<span className="truncate">{children}</span>
+					</button>
+				);
+			}
+			if (href && /^https?:\/\//i.test(href)) {
+				return (
+					<a
+						href={href}
+						title={href}
+						className={LINK_BADGE_CLASS}
+						onClick={(e) => {
+							e.preventDefault();
+							openUrlInBrowser(href);
+						}}
+					>
+						<span className="icon-[mdi--web] h-3.5 w-3.5 shrink-0" />
+						<span className="truncate">{children}</span>
+					</a>
+				);
+			}
+			return (
+				<a href={href} className="text-chart-2 underline decoration-chart-2/30 hover:decoration-chart-2" target="_blank" rel="noopener noreferrer">
+					{children}
+				</a>
+			);
+		},
+	}), [theme, setFilePreview, openUrlInBrowser]);
+
+	return (
+		<div
+			className="relative overflow-hidden"
+			style={{ maxHeight: expanded ? undefined : USER_MESSAGE_COLLAPSED_MAX_HEIGHT }}
+		>
+			<motion.div
+				ref={contentRef}
+				initial={shouldAnimateIn ? USER_TEXT_INITIAL : false}
+				animate={shouldHoldHidden ? USER_TEXT_INITIAL : USER_TEXT_VISIBLE}
+				transition={USER_TEXT_TRANSITION}
+			>
+				<div className="markdown-body break-words">
+					<ReactMarkdown
+						remarkPlugins={[remarkGfm]}
+						components={components}
+					>
+						{text}
+					</ReactMarkdown>
+				</div>
+			</motion.div>
+			{canExpand && !expanded && (
+				<div className="absolute inset-x-0 bottom-0 flex h-20 items-end justify-center rounded-b-2xl bg-gradient-to-t from-secondary via-secondary/80 to-secondary/0 pb-1.5">
+					<button
+						type="button"
+						onClick={() => setExpanded(true)}
+						className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[12px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+					>
+						<span className="icon-[solar--alt-arrow-down-linear] h-3.5 w-3.5" />
+						<span>{t("messageList.userMessage.expand")}</span>
+					</button>
+				</div>
+			)}
+		</div>
+	);
+}
 
 /** User message — right-aligned bubble */
 const UserMessage = memo(function UserMessage({
@@ -647,12 +891,30 @@ const UserMessage = memo(function UserMessage({
 	entryState: UserMessageEntryState;
 	onEntryComplete?: () => void;
 }) {
-	const hasImages = message.images && message.images.length > 0;
 	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
+	const isImageCache = (p: string): boolean => /[/\\]image-cache[/\\]/.test(p);
+	const imageFiles = displayFiles.filter(
+		(file) => isUserImageFile(file) && !isImageCache(file),
+	);
+	const fileBadges = displayFiles.filter((file) => !isUserImageFile(file));
 	const appshotData: AppshotCardData | null = message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);
 	const displayText = body;
-	const hasBadges = skillName || displayFiles.length > 0;
+	const imageItems = useMemo<FilePreviewItem[]>(
+		() => [
+			...(message.images ?? []).map((img) => ({
+				name: img.name,
+				url: `data:${img.mimeType};base64,${img.data}`,
+				kind: "image" as const,
+				mime: img.mimeType,
+			})),
+			...imageFiles.map((path) => ({ name: pathBasename(path), path, kind: "image" as const })),
+		],
+		[message.images, imageFiles],
+	);
+	const hasImages = imageItems.length > 0;
+	const hasSkillBadge = Boolean(skillName);
+	const hasFileBadges = fileBadges.length > 0;
 	const copyText = displayText.trim();
 	const shouldAnimateIn = entryState === "enter";
 	const shouldHoldHidden = entryState === "hidden";
@@ -666,59 +928,43 @@ const UserMessage = memo(function UserMessage({
 			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
 			style={USER_MESSAGE_STYLE}
 		>
-			<div className="relative max-w-[72%] before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
-				{hasImages && (
-					<div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
-						{message.images!.map((img, i) => (
-							<div
-								key={i}
-								className="h-20 w-20 overflow-hidden rounded-xl border border-border/50"
-							>
-								<img
-									src={`data:${img.mimeType};base64,${img.data}`}
-									alt={img.name}
-									className="h-full w-full object-cover"
-								/>
-							</div>
-						))}
-					</div>
-				)}
+			<div className="relative flex max-w-[72%] flex-col items-end before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
 				{appshotData && (
 					<div className="mb-1.5 flex justify-end">
 						<AppshotCard data={appshotData} />
 					</div>
 				)}
-				{(displayText || hasBadges) && (
+				{hasImages && (
+					<div className="mb-1.5 flex justify-end">
+						<ImageAttachmentGroup items={imageItems} />
+					</div>
+				)}
+				{hasSkillBadge && (
+					<div className="mb-1 flex flex-wrap justify-end gap-1">
+						{skillName && <SkillBadge name={skillName} type={skillType ?? "skill"} />}
+					</div>
+				)}
+				{displayText && (
 					<div
 						className="cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
 						style={{ wordBreak: "break-word" }}
 					>
-						{hasBadges && (
-							<div className="mb-1 flex flex-wrap justify-end gap-1">
-								{skillName && <SkillBadge name={skillName} type={skillType ?? "skill"} />}
-								{displayFiles.map((f) => (
-									<FileBadge key={f} path={f} />
-								))}
-							</div>
-						)}
-						{displayText && (
-							<motion.div
-								initial={shouldAnimateIn ? USER_TEXT_INITIAL : false}
-								animate={shouldHoldHidden ? USER_TEXT_INITIAL : USER_TEXT_VISIBLE}
-								transition={USER_TEXT_TRANSITION}
-								style={{ whiteSpace: "pre-wrap" }}
-							>
-								{displayText}
-							</motion.div>
-						)}
+						<UserMessageText text={displayText} shouldAnimateIn={shouldAnimateIn} shouldHoldHidden={shouldHoldHidden} />
 					</div>
 				)}
-				{!displayText && !hasBadges && !hasImages && (
+				{!displayText && !hasSkillBadge && !hasFileBadges && !hasImages && !appshotData && (
 					<div
 						className="cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
 						style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
 					>
 						{"\u2026"}
+					</div>
+				)}
+				{hasFileBadges && (
+					<div className="mt-1 flex flex-wrap justify-end gap-1">
+						{fileBadges.map((f) => (
+							<FileBadge key={f} path={f} />
+						))}
 					</div>
 				)}
 				{copyText && (

@@ -12,7 +12,9 @@ import {
 	editImageAttachmentAtom,
 	appshotAttachmentAtom,
 	focusInputRequestAtom,
+	filePreviewAtom,
 	type AttachedImage,
+	type FilePreviewItem,
 	type MentionedFile,
 	todoItemsBySessionAtom,
 	getTodoItemsForSession,
@@ -81,6 +83,23 @@ function nextImageId(): string {
 }
 
 
+const INPUT_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"]);
+
+function getPathExtension(path: string): string {
+	const basename = pathBasename(path);
+	const dotIndex = basename.lastIndexOf(".");
+	return dotIndex === -1 ? "" : basename.slice(dotIndex + 1).toLowerCase();
+}
+
+function isInputImageFile(file: MentionedFile): boolean {
+	return !file.isDirectory && INPUT_IMAGE_EXTENSIONS.has(getPathExtension(file.path));
+}
+
+function toFileProtocolUrl(path: string): string {
+	const prefix = path.startsWith("/") ? "" : "/";
+	return `vetta-file://local${prefix}${encodeURI(path)}`;
+}
+
 function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; name: string }> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -136,6 +155,7 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 	);
 	const setActivityPanelOpen = useSetAtom(activityPanelOpenAtom);
 	const setTabByProject = useSetAtom(activityPanelTabByProjectAtom);
+	const setFilePreview = useSetAtom(filePreviewAtom);
 	const [drawerActiveTab, setDrawerActiveTab] = useState<string | null>(null);
 
 	const effectiveCwd = activeSession?.cwd ?? cwdOverride ?? "";
@@ -145,8 +165,27 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 		!isStreaming &&
 		(inputValue.trim().length > 0 || attachedImages.length > 0 || Boolean(appshotAttachment));
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
+	const imageFiles = useMemo(() => mentionedFiles.filter(isInputImageFile), [mentionedFiles]);
+	const nonImageFiles = useMemo(() => mentionedFiles.filter((file) => !isInputImageFile(file)), [mentionedFiles]);
+	const imagePreviewItems = useMemo<FilePreviewItem[]>(
+		() => [
+			...attachedImages.map((img) => ({
+				name: img.name,
+				url: `data:${img.mimeType};base64,${img.data}`,
+				kind: "image" as const,
+				mime: img.mimeType,
+			})),
+			...imageFiles.map((file) => ({
+				name: file.name,
+				path: file.path,
+				kind: "image" as const,
+			})),
+		],
+		[attachedImages, imageFiles],
+	);
+	const hasImages = imagePreviewItems.length > 0;
 	const hasCapsules =
-		Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment) || Boolean(appshotAttachment);
+		Boolean(selectedSkill) || nonImageFiles.length > 0 || Boolean(editImageAttachment) || Boolean(appshotAttachment) || hasImages;
 
 	useEffect(() => {
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
@@ -523,9 +562,9 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 					style={{ opacity: hasSession ? 1 : 0.55 }}
 					className={cardClass}
 				>
-					{/* Capsule strip — appears above textarea, like the reference top variant */}
+					{/* Attachment strip — mirrors outgoing user message order. */}
 					<AnimatePresence initial={false}>
-						{(hasCapsules || attachedImages.length > 0) && (
+						{hasCapsules && (
 							<motion.div
 								key="capsules"
 								initial={COLLAPSE_INITIAL}
@@ -534,17 +573,8 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 								transition={SOFT}
 								className="overflow-hidden"
 							>
-								<div className="flex flex-wrap items-center gap-1.5 px-3 pt-3">
+								<div className="space-y-1.5 px-3 pt-3">
 									<AnimatePresence initial={false}>
-										{editImageAttachment && (
-											<Capsule
-												key="edit-image-capsule"
-												icon="icon-[solar--gallery-linear]"
-												label={t("inputBar.capsule.editImage")}
-												tone="primary"
-												onRemove={() => setEditImageAttachment(null)}
-											/>
-										)}
 										{appshotAttachment && (
 											<motion.div
 												key="appshot-capsule"
@@ -557,66 +587,133 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 												<AppshotCard data={appshotAttachment} onRemove={() => setAppshotAttachment(null)} />
 											</motion.div>
 										)}
-										{selectedSkill && (
-											<Capsule
-												key="skill-capsule"
-												icon={
-													selectedSkill.type === "scene"
-														? "icon-[solar--clapperboard-open-linear]"
-														: "icon-[solar--magic-stick-linear]"
-												}
-												label={selectedSkill.alias || selectedSkill.name}
-												tone="primary"
-												onRemove={handleRemoveSkill}
-											/>
-										)}
-										{mentionedFiles.map((file) => (
-											<Capsule
-												key={`file-${file.path}`}
-												icon={
-													file.isDirectory
-														? "icon-[solar--folder-linear]"
-														: "icon-[solar--file-linear]"
-												}
-												label={file.name}
-												title={file.path}
-												tone="muted"
-												onRemove={() => handleRemoveFile(file.path)}
-											/>
-										))}
-										{attachedImages.map((img) => (
+										{hasImages && (
 											<motion.div
-												key={img.id}
+												key="image-capsules"
+												layout
 												initial={IMAGE_INITIAL}
 												animate={IMAGE_ANIMATE}
 												exit={IMAGE_INITIAL}
 												transition={SPRING}
-												className="group relative"
+												className="flex gap-2 overflow-x-auto"
 											>
-													<div className="h-12 w-12 overflow-hidden rounded-lg border border-border ring-1 ring-black/5 dark:ring-white/5">
-														<img
-															src={`data:${img.mimeType};base64,${img.data}`}
-															alt={img.name}
-															className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-														/>
+												{attachedImages.map((img, index) => (
+													<div key={img.id} className="group relative h-12 w-12 shrink-0">
+														<button
+															type="button"
+															onClick={() => setFilePreview({ items: imagePreviewItems, index })}
+															className="h-full w-full overflow-hidden rounded-lg border border-border ring-1 ring-black/5 dark:ring-white/5"
+															title={img.name}
+														>
+															<img
+																src={`data:${img.mimeType};base64,${img.data}`}
+																alt={img.name}
+																className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+															/>
+														</button>
+														<button
+															type="button"
+															onClick={() => removeImage(img.id)}
+															className="absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all duration-150 group-hover:opacity-100 hover:scale-110 hover:text-destructive"
+															title={t("inputBar.capsule.removeImage")}
+															style={{ height: 18, width: 18 }}
+														>
+															<span className="icon-[solar--close-circle-linear] h-3 w-3" />
+														</button>
 													</div>
-													<button
-														type="button"
-														onClick={() => removeImage(img.id)}
-														className="absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all duration-150 group-hover:opacity-100 hover:scale-110 hover:text-destructive"
-														title={t("inputBar.capsule.removeImage")}
-														style={{ height: 18, width: 18 }}
-													>
-														<span className="icon-[solar--close-circle-linear] h-3 w-3" />
-													</button>
-												</motion.div>
-											))}
-										</AnimatePresence>
-									</div>
+												))}
+												{imageFiles.map((file, index) => (
+													<div key={file.path} className="group relative h-12 w-12 shrink-0">
+														<button
+															type="button"
+															onClick={() => setFilePreview({ items: imagePreviewItems, index: attachedImages.length + index })}
+															className="h-full w-full overflow-hidden rounded-lg border border-border ring-1 ring-black/5 dark:ring-white/5"
+															title={file.path}
+														>
+															<img
+																src={toFileProtocolUrl(file.path)}
+																alt={file.name}
+																className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+															/>
+														</button>
+														<button
+															type="button"
+															onClick={() => handleRemoveFile(file.path)}
+															className="absolute -top-1.5 -right-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all duration-150 group-hover:opacity-100 hover:scale-110 hover:text-destructive"
+															title={t("inputBar.capsule.removeDefault")}
+															style={{ height: 18, width: 18 }}
+														>
+															<span className="icon-[solar--close-circle-linear] h-3 w-3" />
+														</button>
+													</div>
+												))}
+											</motion.div>
+										)}
+										{(editImageAttachment || selectedSkill) && (
+											<motion.div
+												key="metadata-capsules"
+												layout
+												initial={CAPSULE_INITIAL}
+												animate={CAPSULE_ANIMATE}
+												exit={CAPSULE_EXIT}
+												transition={SPRING}
+												className="flex flex-wrap items-center gap-1.5"
+											>
+												{editImageAttachment && (
+													<Capsule
+														key="edit-image-capsule"
+														icon="icon-[solar--gallery-linear]"
+														label={t("inputBar.capsule.editImage")}
+														tone="primary"
+														onRemove={() => setEditImageAttachment(null)}
+													/>
+												)}
+												{selectedSkill && (
+													<Capsule
+														key="skill-capsule"
+														icon={
+															selectedSkill.type === "scene"
+																? "icon-[solar--clapperboard-open-linear]"
+																: "icon-[solar--magic-stick-linear]"
+														}
+														label={`${t(selectedSkill.type === "scene" ? "messageList.userMessage.sceneBadge" : "messageList.userMessage.skillBadge")} ${selectedSkill.alias || selectedSkill.name}`}
+														tone="primary"
+														onRemove={handleRemoveSkill}
+													/>
+												)}
+											</motion.div>
+										)}
+										{nonImageFiles.length > 0 && (
+											<motion.div
+												key="file-capsules"
+												layout
+												initial={CAPSULE_INITIAL}
+												animate={CAPSULE_ANIMATE}
+												exit={CAPSULE_EXIT}
+												transition={SPRING}
+												className="flex flex-wrap items-center gap-1.5"
+											>
+												{nonImageFiles.map((file) => (
+													<Capsule
+														key={`file-${file.path}`}
+														icon={
+															file.isDirectory
+																? "icon-[solar--folder-linear]"
+																: "icon-[solar--file-linear]"
+														}
+														label={file.name}
+														title={file.path}
+														tone="muted"
+														onRemove={() => handleRemoveFile(file.path)}
+													/>
+												))}
+											</motion.div>
+										)}
+									</AnimatePresence>
+								</div>
 							</motion.div>
 						)}
 					</AnimatePresence>
-
 					{/* Textarea */}
 					<div className="relative px-4 pt-3 pb-1">
 						<textarea
