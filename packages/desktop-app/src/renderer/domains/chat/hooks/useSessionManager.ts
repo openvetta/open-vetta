@@ -7,6 +7,7 @@ import {
 	activeSessionAtom,
 	activeSessionStreamingAtom,
 	activeToolNamesAtom,
+	appshotAttachmentAtom,
 	attachedImagesAtom,
 	type BackgroundTask,
 	backgroundTasksBySessionAtom,
@@ -100,6 +101,7 @@ export function useSessionManager(): SessionManagerResult {
 	const [attachedImages, setAttachedImages] = useAtom(attachedImagesAtom);
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
+	const [appshotAttachment, setAppshotAttachment] = useAtom(appshotAttachmentAtom);
 	// 镜像输入相关 atom 到 ref：sendMessage 调用时读 ref.current，避免把这些高频变化
 	// 的值放进它的 useCallback 依赖。否则每打一个字 inputValue 一变，sendMessage 就换
 	// 身份 → 作为 onSend 一路传到 MessageList 的 Virtuoso footer，触发整块重挂载，footer
@@ -112,6 +114,8 @@ export function useSessionManager(): SessionManagerResult {
 	selectedSkillRef.current = selectedSkill;
 	const mentionedFilesRef = useRef(mentionedFiles);
 	mentionedFilesRef.current = mentionedFiles;
+	const appshotRef = useRef(appshotAttachment);
+	appshotRef.current = appshotAttachment;
 	const navigate = useNavigate();
 	const setLastTurnUsage = useSetAtom(lastTurnUsageAtom);
 	const setLastActiveSession = useSetAtom(lastActiveSessionAtom);
@@ -785,12 +789,15 @@ export function useSessionManager(): SessionManagerResult {
 			const attachedImages = attachedImagesRef.current;
 			const selectedSkill = selectedSkillRef.current;
 			const mentionedFiles = mentionedFilesRef.current;
+			const appshot = appshotRef.current;
 			const selectedModel = selectedModelRef.current;
 			// overrideText：来自输入预测建议（点击 bubble / 空输入回车按 placeholder 发送），
 			// 作为独立 prompt 直发，不带技能 / @文件前缀，也不消费当前草稿与附图。
 			const override = typeof overrideText === "string" ? overrideText.trim() : "";
 			const hasOverride = override.length > 0;
-			if (!session?.runtimeId || (!hasOverride && !inputValue.trim() && attachedImages.length === 0)) return;
+			if (!session?.runtimeId || (!hasOverride && !inputValue.trim() && attachedImages.length === 0 && !appshot)) {
+				return;
+			}
 			// 发出新 prompt：清空该会话的输入预测，并作废仍在飞的生成（过期判定）。
 			bumpSuggestionToken(session.runtimeId);
 			setPromptSuggestions((prev) => {
@@ -823,13 +830,19 @@ export function useSessionManager(): SessionManagerResult {
 					: "";
 			const filesPrefix =
 				!hasOverride && mentionedFiles.length > 0 ? `${mentionedFiles.map((f) => `@${f.path}`).join("\n")}\n` : "";
+			// Appshot 附件：截图与 AX 文本以 @路径 形式随 prompt 引用（agent 用 Read 按需读取）。
+			const appshotPrefix =
+				!hasOverride && appshot
+					? `${appshot.imagePath ? `@${appshot.imagePath}\n` : ""}${appshot.textPath ? `@${appshot.textPath}\n` : ""}`
+					: "";
 			const imagesPrefix = imagePaths.length > 0 ? `${imagePaths.map((p) => `@${p}`).join("\n")}\n` : "";
-			const text = `${skillPrefix}${filesPrefix}${imagesPrefix}${rawText}`;
+			const text = `${skillPrefix}${filesPrefix}${appshotPrefix}${imagesPrefix}${rawText}`;
 			if (!hasOverride) {
 				setInputValue("");
 				setAttachedImages([]);
 				setSelectedSkill(null);
 				setMentionedFiles([]);
+				setAppshotAttachment(null);
 			}
 			// streaming 期间发送 = 排队等下一轮：跳过「用户气泡 / 清产物列表 / 乐观侧边栏 /
 			// 清 todo」这些开启新一轮才该有的副作用，仅在下方组装好 promptReq 快照后入队。
@@ -845,6 +858,9 @@ export function useSessionManager(): SessionManagerResult {
 				};
 				if (images) {
 					userMsg.images = images.map((img) => ({ data: img.data, mimeType: img.mimeType, name: img.name }));
+				}
+				if (appshot) {
+					userMsg.appshot = appshot;
 				}
 				setChatMessages((prev) => [...prev, userMsg]);
 			}
@@ -989,6 +1005,7 @@ export function useSessionManager(): SessionManagerResult {
 			setAttachedImages,
 			setSelectedSkill,
 			setMentionedFiles,
+			setAppshotAttachment,
 			setChatMessages,
 			loadSessions,
 			ensureLocalSession,

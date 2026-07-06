@@ -4,6 +4,7 @@ import type { Transition } from "motion/react";
 import type { ChatMessage } from "@shared/store/atoms";
 import { pathBasename } from "@shared/lib/utils";
 import { CopyButton, RelativeTimeLabel } from "./MessageActions";
+import { AppshotCard, type AppshotCardData } from "../AppshotCard";
 
 const HIDDEN_VISUAL_STATE = { opacity: 0, scale: 0.82, x: 14, y: 12 };
 const VISIBLE_VISUAL_STATE = { opacity: 1, scale: 1, x: 0, y: 0 };
@@ -50,6 +51,12 @@ function parseUserMessage(text: string): ParsedUserMessage {
 	return { skillName, skillType, files, body: remaining };
 }
 
+function splitAppshotFiles(files: string[]): { appshotImage: string | null; rest: string[] } {
+	const isAppshot = (path: string): boolean => /[/\\]image-cache[/\\]appshot[/\\]/.test(path);
+	const appshotImage = files.find((path) => isAppshot(path) && /\.png$/i.test(path)) ?? null;
+	return { appshotImage, rest: files.filter((path) => !isAppshot(path)) };
+}
+
 function SkillBadge({
 	name,
 	type = "skill",
@@ -94,7 +101,9 @@ export const UserMessage = memo(function UserMessage({
 }: UserMessageProps) {
 	const hasImages = Boolean(message.images?.length);
 	const { skillName, skillType, files, body } = parseUserMessage(message.text);
-	const hasBadges = Boolean(skillName || files.length > 0);
+	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
+	const appshotData: AppshotCardData | null = message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);
+	const hasBadges = Boolean(skillName || displayFiles.length > 0);
 	const copyText = body.trim();
 	const shouldAnimateIn = entryState === "enter";
 	const shouldHoldHidden = entryState === "hidden";
@@ -125,6 +134,11 @@ export const UserMessage = memo(function UserMessage({
 						))}
 					</div>
 				)}
+				{appshotData && (
+					<div className="mb-1.5 flex justify-end">
+						<AppshotCard data={appshotData} />
+					</div>
+				)}
 				{(body || hasBadges) && (
 					<div
 						className="rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
@@ -135,7 +149,7 @@ export const UserMessage = memo(function UserMessage({
 								{skillName && (
 									<SkillBadge name={skillName} type={skillType ?? "skill"} />
 								)}
-								{files.map((file) => (
+								{displayFiles.map((file) => (
 									<FileBadge key={file} path={file} />
 								))}
 							</div>

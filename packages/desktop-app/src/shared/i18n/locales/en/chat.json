@@ -143,6 +143,11 @@
 		"confirmDeleteFolderNote": " All contents inside the folder will be deleted.",
 		"cancel": "Cancel"
 	},
+	"appshot": {
+		"errorSelfCapture": "Appshot skipped: the frontmost window is Vetta itself",
+		"errorNoPermission": "Appshot capture failed: Screen Recording and Accessibility permissions are missing. Grant them in Settings › Permissions",
+		"errorHelperFailed": "Appshot capture failed, please try again"
+	},
 	"askUserQuestion": {
 		"cancelledMessage": "Cancelled by user, not answered",
 		"defaultQuestionLabel": "Question {{number}}"
@@ -271,6 +276,9 @@
 	},
 	"inputBar": {
 		"capsule": {
+			"appshotThumbnailAlt": "Screenshot",
+			"appshotPreview": "Preview screenshot",
+			"appshotIconAlt": "App icon",
 			"editImage": "Edit selected image",
 			"removeDefault": "Click to remove",
 			"removeImage": "Remove image",

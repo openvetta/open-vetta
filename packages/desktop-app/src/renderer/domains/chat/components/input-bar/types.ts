@@ -1,5 +1,5 @@
 import type { SkillInfo } from "@preload/api";
-import type { AttachedImage, MentionedFile } from "@shared/store/atoms";
+import type { AppshotAttachment, AttachedImage, MentionedFile } from "@shared/store/atoms";
 import type { TodoItem } from "@shared/store/todo-atoms";
 import type { ChangeEvent, ClipboardEvent, ComponentProps, KeyboardEvent, RefObject } from "react";
 import type { SelectedFile } from "../AtPanel";
@@ -84,6 +84,7 @@ export interface InputBarModel {
 	attachedImages: AttachedImage[];
 	selectedSkill: { name: string; alias?: string; type: string } | null;
 	mentionedFiles: MentionedFile[];
+	appshotAttachment: AppshotAttachment | null;
 	hasSession: boolean;
 	canSend: boolean;
 	isEmpty: boolean;
@@ -113,6 +114,7 @@ export interface InputBarModel {
 		removeSkill: () => void;
 		removeFile: (path: string) => void;
 		removeEditImage: () => void;
+		removeAppshot: () => void;
 		handlePlusClick: () => void;
 		handleSelectImages: () => Promise<void>;
 		handleSelectFiles: () => Promise<void>;

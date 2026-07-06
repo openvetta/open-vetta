@@ -8,6 +8,7 @@ export default defineConfig({
 				index: resolve(process.cwd(), "src/preload/index.ts"),
 				pet: resolve(process.cwd(), "src/preload/pet.ts"),
 				quickpanel: resolve(process.cwd(), "src/preload/quickpanel.ts"),
+				onboarding: resolve(process.cwd(), "src/preload/onboarding.ts"),
 			},
 			formats: ["cjs"],
 			fileName: (_format, entryName) => `${entryName}.js`,

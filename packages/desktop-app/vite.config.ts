@@ -50,6 +50,7 @@ export default defineConfig({
 				main: resolve(__dirname, "src/renderer/index.html"),
 				pet: resolve(__dirname, "src/renderer/pet.html"),
 				quickpanel: resolve(__dirname, "src/renderer/quickpanel.html"),
+				onboarding: resolve(__dirname, "src/renderer/onboarding.html"),
 			},
 		},
 	},

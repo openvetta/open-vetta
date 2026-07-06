@@ -3,6 +3,7 @@ import type { ActionApprovalBroker } from "../app-actions/approval-broker.js";
 import { registerNotificationIpc } from "../notifications/index.js";
 import { registerActionApprovalIpc } from "./action-approval.js";
 import { registerAppMonitorIpc } from "./app-monitor.js";
+import { registerAppshotIpc } from "./appshot.js";
 import { registerDebugIpc } from "./debug.js";
 import { registerDiagnosticsIpc } from "./diagnostics.js";
 import { registerDialogIpc } from "./dialog.js";
@@ -11,6 +12,7 @@ import { registerFlowingIpc } from "./flowing.js";
 import { registerFsIpc } from "./fs.js";
 import { registerImIpc } from "./im.js";
 import { registerMediaIpc } from "./media.js";
+import { registerOnboardingIpc } from "./onboarding.js";
 import { registerPermissionsIpc } from "./permissions.js";
 import { registerPetIpc } from "./pet.js";
 import { registerPluginsIpc } from "./plugins.js";
@@ -48,7 +50,9 @@ interface IpcTeardown {
 	teardownNotifications: () => void;
 	teardownPet: () => void;
 	teardownQuickPanel: () => void;
+	teardownAppshot: () => void;
 	teardownDiagnostics: () => void;
+	teardownOnboarding: () => void;
 }
 
 export function registerAllIpc(
@@ -79,7 +83,9 @@ export function registerAllIpc(
 		teardownNotifications: registerNotificationIpc(webContents),
 		teardownPet: registerPetIpc(),
 		teardownQuickPanel: registerQuickPanelIpc(),
+		teardownAppshot: registerAppshotIpc(),
 		teardownDiagnostics: registerDiagnosticsIpc(),
+		teardownOnboarding: registerOnboardingIpc(),
 	};
 }
 
@@ -107,7 +113,9 @@ export function teardownAllIpc(teardown: IpcTeardown): void {
 	teardown.teardownNotifications();
 	teardown.teardownPet();
 	teardown.teardownQuickPanel();
+	teardown.teardownAppshot();
 	teardown.teardownDiagnostics();
+	teardown.teardownOnboarding();
 }
 
 export { registerBatchTasksIpc } from "./batch-tasks.js";

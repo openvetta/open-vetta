@@ -8,7 +8,9 @@ import {
 	activityPanelOpenAtom,
 	activityPanelTabByProjectAtom,
 	attachedImagesAtom,
+	appshotAttachmentAtom,
 	editImageAttachmentAtom,
+	focusInputRequestAtom,
 	getTodoItemsForSession,
 	inputValueAtom,
 	isStreamingAtom,
@@ -70,6 +72,8 @@ export function useInputBarModel({
 	const [selectedSkill, setSelectedSkill] = useAtom(selectedSkillAtom);
 	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const [editImageAttachment, setEditImageAttachment] = useAtom(editImageAttachmentAtom);
+	const [appshotAttachment, setAppshotAttachment] = useAtom(appshotAttachmentAtom);
+	const focusInputRequest = useAtomValue(focusInputRequestAtom);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
@@ -93,9 +97,13 @@ export function useInputBarModel({
 
 	const effectiveCwd = activeSession?.cwd ?? cwdOverride ?? "";
 	const hasSession = Boolean(activeSession) || Boolean(cwdOverride);
-	const canSend = hasSession && !isStreaming && (inputValue.trim().length > 0 || attachedImages.length > 0);
+	const canSend =
+		hasSession &&
+		!isStreaming &&
+		(inputValue.trim().length > 0 || attachedImages.length > 0 || Boolean(appshotAttachment));
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
-	const hasCapsules = Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment);
+	const hasCapsules =
+		Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment) || Boolean(appshotAttachment);
 
 	useEffect(() => {
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
@@ -121,6 +129,10 @@ export function useInputBarModel({
 			textareaRef.current?.focus();
 		}
 	}, [hasSession, isStreaming]);
+
+	useEffect(() => {
+		if (focusInputRequest > 0) textareaRef.current?.focus();
+	}, [focusInputRequest]);
 
 	const handleSend = useCallback(() => {
 		void onSend();
@@ -419,6 +431,7 @@ export function useInputBarModel({
 		attachedImages,
 		selectedSkill,
 		mentionedFiles,
+		appshotAttachment,
 		hasSession,
 		canSend,
 		isEmpty,
@@ -470,6 +483,7 @@ export function useInputBarModel({
 			removeSkill: handleRemoveSkill,
 			removeFile: handleRemoveFile,
 			removeEditImage: () => setEditImageAttachment(null),
+			removeAppshot: () => setAppshotAttachment(null),
 			handlePlusClick,
 			handleSelectImages,
 			handleSelectFiles,
