@@ -14,6 +14,7 @@ import {
 	resolvedThemeAtom,
 } from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
+import { CodeBlockCopyButton } from "@shared/components/CodeBlockCopyButton";
 import { cn } from "@shared/lib/utils";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { getFileIcon } from "../../../file-explorer/components/fileIcons";
@@ -327,14 +328,16 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 				const lang = className?.replace("language-", "") ?? "";
 				const code = raw.replace(/\n$/, "");
 				return (
-					<div className="my-2 overflow-hidden rounded-lg border border-border bg-muted">
-						{lang && (
-							<div className="border-b border-border px-3 py-1 text-[10px] font-medium text-muted-foreground/50">
-								{lang}
-							</div>
-						)}
-						<SyntaxHighlightedCode code={code} lang={lang} theme={theme} />
-					</div>
+					<CodeBlockCopyButton language={lang} code={code}>
+						<div className="my-2 overflow-hidden rounded-lg border border-border bg-muted">
+							{lang && (
+								<div className="border-b border-border px-3 py-1 text-[10px] font-medium text-muted-foreground/50">
+									{lang}
+								</div>
+							)}
+							<SyntaxHighlightedCode code={code} lang={lang} theme={theme} />
+						</div>
+					</CodeBlockCopyButton>
 				);
 			}
 			return (

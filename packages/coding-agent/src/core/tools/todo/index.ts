@@ -102,6 +102,19 @@ export function createTodoTool(options: TodoToolOptions): CodingAgentTool<typeof
 							details: { action },
 						};
 					}
+					if (store.getAll().length > 0) {
+						return {
+							content: [
+								{
+									type: "text" as const,
+									text:
+										`REJECTED: A todo list already exists. Do not append a new plan to an existing plan.\n` +
+										`Call todo(action="list") to review the current plan. If the current plan is obsolete, call todo(action="clear") first, then create the new plan. If it is still relevant, continue updating the existing items.\n\n${formatItems(store)}`,
+								},
+							],
+							details: { action },
+						};
+					}
 					const created = store.createMany(items);
 					const itemList = created.map((i) => `  #${i.id} ${i.content}`).join("\n");
 					return {

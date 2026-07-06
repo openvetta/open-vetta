@@ -12,12 +12,15 @@ When NOT to create:
 - Purely informational or conversational request
 
 Workflow:
-1. Call todo(action="create") with all planned steps BEFORE starting any work
-2. Call todo(action="update", id=N, status="in_progress") when you START a step
-3. Call todo(action="update", id=N, status="done") when you FINISH a step
-4. Update status in real time — do not batch updates
-5. Prefer completing items in order, but you MAY reprioritize or update out of order when it makes sense.
-6. If the user changes direction and the current plan no longer applies, call todo(action="clear") to abandon it, then create a fresh plan.
+1. If a todo list may already exist, call todo(action="list") before creating a new plan.
+2. Call todo(action="create") with all planned steps BEFORE starting any work, but only when the list is empty.
+3. Call todo(action="update", id=N, status="in_progress") when you START a step.
+4. Call todo(action="update", id=N, status="done") when you FINISH a step.
+5. Update status in real time — do not batch updates.
+6. Prefer completing items in order, but you MAY reprioritize or update out of order when it makes sense.
+7. If the user changes direction and the current plan no longer applies, call todo(action="clear") to abandon it, then create a fresh plan.
+
+Never call create to start a new plan when a todo list already exists. Create does not append a new plan to an existing plan: it will be rejected. First call list, then either continue the existing plan or clear it if obsolete.
 
 Aim to finish the items you committed to — don't abandon a plan halfway without reason. If the user has redirected you, clear the stale plan rather than ignoring it.
 

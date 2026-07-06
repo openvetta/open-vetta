@@ -329,6 +329,11 @@
 		"layoutStacked": "收纳"
 	},
 	"messageList": {
+		"userMessage": {
+			"expand": "展开消息",
+			"sceneBadge": "场景",
+			"skillBadge": "技能"
+		},
 		"assistantFoldTip": {
 			"collapse": "收起{{count}}条内容",
 			"collapseLabel": "收起",
@@ -352,6 +357,7 @@
 			"copied": "已复制",
 			"copy": "复制"
 		},
+		"editButton": "编辑",
 		"toolCallGroup": {
 			"completed": "{{count}} 个工具调用完成",
 			"inProgress": "{{completed}}/{{total}} 个工具调用",

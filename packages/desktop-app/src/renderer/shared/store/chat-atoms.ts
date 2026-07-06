@@ -162,6 +162,8 @@ export interface ChatMessage {
 	model?: { provider: string; id: string };
 	/** Appshot 全局手势捕获的前台窗口附件（乐观气泡携带，供消息里特殊渲染） */
 	appshot?: AppshotAttachment;
+	/** 用户通过 @ 面板手动选择的文件（仅面板选择，不含手打 @/path 文本） */
+	mentionedFiles?: MentionedFile[];
 }
 
 export interface ActiveSession {

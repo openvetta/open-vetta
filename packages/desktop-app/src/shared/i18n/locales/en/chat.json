@@ -329,6 +329,11 @@
 		"layoutStacked": "Stacked"
 	},
 	"messageList": {
+		"userMessage": {
+			"expand": "Expand message",
+			"sceneBadge": "Scene",
+			"skillBadge": "Skill"
+		},
 		"assistantFoldTip": {
 			"collapse": "Collapse {{count}} items",
 			"collapseLabel": "Collapse",
@@ -352,6 +357,7 @@
 			"copied": "Copied",
 			"copy": "Copy"
 		},
+		"editButton": "Edit",
 		"toolCallGroup": {
 			"completed": "{{count}} tool calls completed",
 			"inProgress": "{{completed}}/{{total}} tool calls",
