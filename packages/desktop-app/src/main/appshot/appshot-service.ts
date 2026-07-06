@@ -3,7 +3,7 @@
 // → 唤起主窗并推送 CAPTURED。文本层只用辅助功能（AX）；抓不到就只带截图，
 // 由 agent 自行用视觉/OCR 能力理解，不在捕获阶段做 OCR。日志走 getAppLogger("appshot")。
 
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { copyFile, mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getVettaHomePath } from "@vetta/action-rpc";
@@ -27,6 +27,10 @@ const log = getAppLogger("appshot");
 const HELPER_TIMEOUT_MS = 30_000;
 /** helper 权限查询/请求超时（ms）。 */
 const PERMISSIONS_TIMEOUT_MS = 30_000;
+
+// macOS 系统截图快门音效路径，通过 afplay 播放
+const SCREENSHOT_SOUND =
+	"/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Screen Capture.aif";
 
 interface HelperSuccess {
 	ok: true;
@@ -341,6 +345,13 @@ async function doCapture(): Promise<void> {
 }
 
 function emitCaptured(payload: AppshotCapturedPayload): void {
+	// 播放 macOS 截图快门音效，fire-and-forget，不阻塞主流程
+	if (process.platform === "darwin") {
+		execFile("/usr/bin/afplay", [SCREENSHOT_SOUND], (err) => {
+			if (err) log.debug("appshot sound playback failed", err.message);
+		});
+	}
+
 	const win = showMainWindow();
 	if (!win.isDestroyed()) {
 		win.webContents.send(APPSHOT_CHANNELS.CAPTURED, payload);
