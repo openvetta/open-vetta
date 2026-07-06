@@ -60,6 +60,15 @@
 		"failed": "Import failed: {{error}}",
 		"unknownError": "Unknown error"
 	},
+	"detail": {
+		"name": "Name",
+		"type": "Type",
+		"version": "Version",
+		"author": "Author",
+		"downloads": "Downloads",
+		"description": "Description",
+		"notInstalledHint": "This skill is not yet installed. The above is a preview based on marketplace metadata. Install to view the full SKILL.md."
+	},
 	"plugin": {
 		"status": {
 			"enabled": "Enabled",
