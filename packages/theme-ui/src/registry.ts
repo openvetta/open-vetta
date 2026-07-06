@@ -14,6 +14,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.inputDrawer"?: ThemeSurfaceConfig;
 		readonly "chat.modelSelectorMenu"?: ThemeSurfaceConfig;
 		readonly "chat.modelSelectorReasoningMenu"?: ThemeSurfaceConfig;
+		readonly "chat.newSessionGuidingWords"?: ThemeSurfaceConfig;
 		readonly "chat.newSessionPage"?: ThemeSurfaceConfig;
 		readonly "chat.newSessionSceneCard"?: ThemeSurfaceConfig;
 		readonly "chat.newSessionSkillCard"?: ThemeSurfaceConfig;

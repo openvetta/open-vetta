@@ -25,6 +25,19 @@ export type NewSessionSelection = NewSessionSkillSelection | null;
 
 export type NewSessionSceneActionState = "idle" | "loading" | "error";
 
+export interface NewSessionGuidingWordsGroup {
+	readonly id: string;
+	readonly name: string;
+	readonly pageKey: number;
+	readonly words: readonly string[];
+}
+
+export interface NewSessionGuidingWordsProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+	readonly groups: readonly NewSessionGuidingWordsGroup[];
+	readonly mounted: boolean;
+	readonly onPick: (word: string) => void;
+}
+
 export interface NewSessionSkillBadgeRowLabels {
 	readonly scrollLeft: string;
 	readonly scrollRight: string;

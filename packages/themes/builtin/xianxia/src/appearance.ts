@@ -106,6 +106,10 @@ export const xianxiaAppearance: ThemeAppearance = {
 		"chat.inputDrawer": xianxiaPanelSurface,
 		"chat.modelSelectorMenu": xianxiaPanelSurface,
 		"chat.modelSelectorReasoningMenu": xianxiaPanelSurface,
+		"chat.newSessionGuidingWords": {
+			rootClassName: "xianxia-guiding-words border-transparent bg-card/80",
+			surfaceClassName: "xianxia-guiding-words-frame overflow-visible",
+		},
 		"chat.newSessionSceneCard": {
 			...xianxiaPanelSurface,
 			rootClassName: "xianxia-scene-card-background border-transparent bg-card/80",
