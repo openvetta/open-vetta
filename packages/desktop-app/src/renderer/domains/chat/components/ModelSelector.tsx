@@ -37,11 +37,17 @@ export function ModelSelector(): JSX.Element {
 	const resolved = useMemo(() => resolveReasoning(selectedOption), [selectedOption]);
 
 	// "off" (disable thinking) is always offered for reasoning-capable models, on top of
-	// the model's configured/preset levels. It rides the prompt as reasoning:"off" and the
-	// agent maps it to "no reasoning" (DeepSeek → thinking:{type:"disabled"}).
-	const menuLevels = useMemo(() => (resolved ? ["off", ...resolved.levels] : []), [resolved]);
+	// the model's configured/preset levels. When the model explicitly includes "none",
+	// it replaces "off" so they never appear together in the dropdown.
+	const menuLevels = useMemo(() => {
+		if (!resolved) return [];
+		if (resolved.levels.includes("none")) {
+			return ["none", ...resolved.levels.filter((l) => l !== "none" && l !== "off")];
+		}
+		return ["off", ...resolved.levels.filter((l) => l !== "off")];
+	}, [resolved]);
 	const isValidLevel = useCallback(
-		(v: string) => v === "off" || (resolved?.levels.includes(v) ?? false),
+		(v: string) => v === "off" || v === "none" || (resolved?.levels.includes(v) ?? false),
 		[resolved],
 	);
 

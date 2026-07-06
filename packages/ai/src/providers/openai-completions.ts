@@ -506,6 +506,11 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 			if (isOpenAIOfficial) {
 				params.reasoning_effort = "none" as any;
 			}
+		} else if (options?.reasoningEffort === "none") {
+			// Some backends explicitly declare "none" in their reasoningLevels. When the user
+			// picks it from the UI, the agent passes reasoning="none". Trust the user's choice
+			// and send it unguarded — the model owner has opted into the "none" level.
+			params.reasoning_effort = "none" as any;
 		} else {
 			// "minimal" is OpenAI gpt-5 / Responses-API specific; most chat-completions backends
 			// only accept low/medium/high/max/xhigh and return a 400 for "minimal". Clamp it up to

@@ -70,9 +70,17 @@ export function ModelSelect({
 	const resolved = useMemo(() => resolveReasoning(selectedOption), [selectedOption]);
 
 	// "off" (disable thinking) is always offered on top of the model's configured levels.
-	const menuLevels = useMemo(() => (resolved ? ["off", ...resolved.levels] : []), [resolved]);
+	// When the model explicitly includes "none" in its levels, it replaces "off" so they
+	// never appear together in the dropdown.
+	const menuLevels = useMemo(() => {
+		if (!resolved) return [];
+		if (resolved.levels.includes("none")) {
+			return ["none", ...resolved.levels.filter((l) => l !== "none" && l !== "off")];
+		}
+		return ["off", ...resolved.levels.filter((l) => l !== "off")];
+	}, [resolved]);
 	const isValidLevel = (v: string | undefined): v is string =>
-		!!v && (v === "off" || (resolved?.levels.includes(v) ?? false));
+		!!v && (v === "off" || v === "none" || (resolved?.levels.includes(v) ?? false));
 	const currentLevel = resolved
 		? isValidLevel(reasoning?.value)
 			? reasoning?.value
