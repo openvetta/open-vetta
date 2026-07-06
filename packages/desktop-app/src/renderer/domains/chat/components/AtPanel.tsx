@@ -51,6 +51,9 @@ interface AtPanelProps {
 	onSelect: (file: SelectedFile) => void;
 	filter: string;
 	cwd: string;
+	/** Ref：当面板实际有可见条目时为 true，无条目（空目录/0匹配）时为 false。
+	 *  父组件用此判断是否要拦截 Enter 键。 */
+	hasVisibleItemsRef?: React.MutableRefObject<boolean>;
 }
 
 /** Icon class for a given file name. */
@@ -103,7 +106,7 @@ function fileIcon(name: string, isDir: boolean): string {
 /** Hidden entries to never show. */
 const HIDDEN = new Set(["node_modules", ".git", ".DS_Store", "Thumbs.db"]);
 
-export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps): JSX.Element {
+export function AtPanel({ open, onClose, onSelect, filter, cwd, hasVisibleItemsRef }: AtPanelProps): JSX.Element {
 	const { t } = useTranslation("chat");
 	const [currentDir, setCurrentDir] = useState(cwd);
 	const [entries, setEntries] = useState<FsEntry[]>([]);
@@ -266,13 +269,16 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 	// Relative path display for breadcrumb
 	const relDir = currentDir.startsWith(cwd) ? currentDir.slice(cwd.length) || "/" : currentDir;
 
-	// 搜索模式下，文件列表已加载完成且匹配为 0 时，关掉面板，
-	// 避免空面板遮挡用户继续输入，也确保 Enter 不被 atOpen 拦截。
-	useEffect(() => {
-		if (open && isSearching && filesLoaded && allItems.length === 0) {
-			onClose();
-		}
-	}, [open, isSearching, filesLoaded, allItems.length, onClose]);
+	// 搜索模式下，文件列表已加载完成且匹配为 0 时隐藏面板内容，
+	// 同时通知父组件 Enter 不应被拦截。
+	const isOpenAndEmpty = open && isSearching && filesLoaded && allItems.length === 0;
+	if (hasVisibleItemsRef) {
+		// 面板内有 selectable item 才拦截 Enter（含 loading / 目录浏览 / 有搜索结果）
+		hasVisibleItemsRef.current = open && !isOpenAndEmpty;
+	}
+	if (isOpenAndEmpty) {
+		return <></>;
+	}
 
 	return (
 		<AnimatePresence>

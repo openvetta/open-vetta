@@ -142,6 +142,8 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 	const slashDismissedRef = useRef(false);
 	// at：记录被驳回时光标前 `@` 的位置；该 `@` 仍在原位则保持驳回
 	const atDismissedIndexRef = useRef<number | null>(null);
+	// at 面板是否有可见条目，用于决定 Enter 键是否被面板拦截
+	const hasAtPanelItemsRef = useRef(true);
 	const todoMap = useAtomValue(todoItemsBySessionAtom);
 	const sandboxPermission = useAtomValue(sandboxPermissionDrawerAtom);
 	const todoItems = useMemo(
@@ -231,10 +233,18 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 			(slashOpen || atOpen) &&
 			(e.key === "ArrowDown" ||
 				e.key === "ArrowUp" ||
-				e.key === "Enter" ||
 				e.key === "Escape" ||
 				e.key === "Tab")
 		) {
+			e.preventDefault();
+			return;
+		}
+		// at 面板无可见条目时 Enter 不放行给面板，正常走发送逻辑
+		if (atOpen && e.key === "Enter" && hasAtPanelItemsRef.current) {
+			e.preventDefault();
+			return;
+		}
+		if (slashOpen && e.key === "Enter") {
 			e.preventDefault();
 			return;
 		}
@@ -547,7 +557,8 @@ export function InputBar({ onSend, onAbort, onSendQueued, cwdOverride }: InputBa
 					onClose={handleAtClose}
 					onSelect={handleAtSelect}
 					filter={getAtFilter()}
-					cwd={effectiveCwd}
+                    cwd={effectiveCwd}
+                    hasVisibleItemsRef={hasAtPanelItemsRef}
 				/>
 
 				<ActionButtonBar />
