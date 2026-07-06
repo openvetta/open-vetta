@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import { resolvedThemeAtom } from "@shared/store/atoms";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
+import { CodeBlockCopyButton } from "@shared/components/CodeBlockCopyButton";
 import { isExternalLink, openExternalLink } from "@shared/lib/open-external-link";
 
 interface MarkdownPreviewProps {
@@ -101,14 +102,16 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): JSX.Element 
 				const lang = className?.replace("language-", "") ?? "";
 				const code = raw.replace(/\n$/, "");
 				return (
-					<div className="my-2 overflow-hidden rounded-lg border border-border bg-muted">
-						{lang && (
-							<div className="border-b border-border px-3 py-1 text-[10px] font-medium text-muted-foreground/50">
-								{lang}
-							</div>
-						)}
-						<SyntaxHighlightedCode code={code} lang={lang} theme={theme} />
-					</div>
+					<CodeBlockCopyButton language={lang} code={code}>
+						<div className="my-2 overflow-hidden rounded-lg border border-border bg-muted">
+							{lang && (
+								<div className="border-b border-border px-3 py-1 text-[10px] font-medium text-muted-foreground/50">
+									{lang}
+								</div>
+							)}
+							<SyntaxHighlightedCode code={code} lang={lang} theme={theme} />
+						</div>
+					</CodeBlockCopyButton>
 				);
 			}
 			return (

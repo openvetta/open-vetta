@@ -1358,6 +1358,12 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 					animation: processing-shimmer 1.6s ease-in-out infinite;
 					will-change: opacity;
 				}
+				/* code blocks in messages: allow text selection (override cursor-grab cascade) */
+				.msg-content pre,
+				.msg-content code,
+				.msg-content .code-block {
+					cursor: text !important;
+				}
 			`}</style>
 			<Virtuoso
 				ref={virtuosoRef}
