@@ -39,6 +39,8 @@ const SEND_HINT_ANIMATE = { opacity: 1, y: 0 };
 
 export function InputBarView({ model, className, classNames }: InputBarViewProps): JSX.Element {
 	const surface = useThemeSurface("chat.inputBar");
+	const toolbarLeftSurface = useThemeSurface("chat.inputBarToolbarLeft");
+	const toolbarRightSurface = useThemeSurface("chat.inputBarToolbarRight");
 	const ThemedDrawerCard = useThemeComponent("chat.inputDrawer", DrawerCard);
 	const ThemedInputBarBackground = useThemeComponent(
 		"chat.inputBarBackground",
@@ -250,7 +252,15 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 								.filter(Boolean)
 								.join(" ")}
 						>
-							<div className="flex min-w-0 flex-shrink items-center gap-0.5">
+							<div
+								className={[
+									"flex min-w-0 flex-shrink items-center gap-0.5",
+									toolbarLeftSurface?.rootClassName,
+								]
+									.filter(Boolean)
+									.join(" ")}
+								data-theme-surface-root="chat.inputBarToolbarLeft"
+							>
 								<InputBarToolbarButton
 									icon="icon-[solar--add-circle-linear]"
 									title={model.labels.toolbar.skills}
@@ -276,7 +286,15 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 								</div>
 							</div>
 
-							<div className="ml-auto flex min-w-0 flex-shrink items-center gap-1">
+							<div
+								className={[
+									"ml-auto flex min-w-0 flex-shrink items-center gap-1",
+									toolbarRightSurface?.rootClassName,
+								]
+									.filter(Boolean)
+									.join(" ")}
+								data-theme-surface-root="chat.inputBarToolbarRight"
+							>
 								<div className="min-w-0 flex-shrink">
 									<ModelSelector />
 								</div>

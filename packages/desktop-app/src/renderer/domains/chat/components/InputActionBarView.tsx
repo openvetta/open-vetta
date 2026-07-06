@@ -1,0 +1,88 @@
+import { AnimatePresence, motion } from "motion/react";
+import type { JSX } from "react";
+import { useThemeSurface } from "@vetta/theme-sdk";
+import { cn } from "@shared/lib/utils";
+import type { InputActionBarModel } from "./useInputActionBarModel";
+
+export interface InputActionBarViewProps {
+	className?: string;
+	model: InputActionBarModel;
+}
+
+export function InputActionBarView({ className, model }: InputActionBarViewProps): JSX.Element {
+	const surface = useThemeSurface("chat.inputActionBar");
+
+	return (
+		<motion.div
+			initial={{ y: "-100%", opacity: 0 }}
+			animate={{ y: 0, opacity: 1 }}
+			transition={{ type: "spring", stiffness: 440, damping: 36, mass: 0.9 }}
+			className={cn(
+				"input-ledge relative z-0 mx-auto w-[93%] flex flex-wrap gap-0.5 rounded-b-[14px] px-3 pb-1",
+				surface?.rootClassName,
+				className,
+			)}
+			data-theme-surface-root="chat.inputActionBar"
+		>
+			<AnimatePresence initial={false}>
+				{model.knowledge ? (
+					<motion.button
+						key="__builtin_knowledge_retrieval__"
+						type="button"
+						layout
+						initial={{ scale: 0.7, opacity: 0, y: -6 }}
+						animate={{ scale: 1, opacity: 1, y: 0 }}
+						exit={{ scale: 0.7, opacity: 0, y: -4 }}
+						transition={{ type: "spring", stiffness: 520, damping: 30 }}
+						whileTap={{ scale: 0.95 }}
+						onClick={model.actions.toggleKnowledge}
+						title={model.knowledge.tooltip}
+						className={cn(
+							"flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[12px] font-medium transition-colors",
+							model.knowledge.active
+								? "text-primary"
+								: "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+						)}
+					>
+						<motion.span
+							className="icon-[mdi--book-search-outline] flex h-3.5 w-3.5 items-center justify-center"
+							animate={model.knowledge.active ? { rotate: [0, -8, 8, 0] } : { rotate: 0 }}
+							transition={{ duration: 0.4 }}
+						/>
+						<span>{model.knowledge.label}</span>
+					</motion.button>
+				) : null}
+				{model.items.map((item, index) => (
+					<motion.button
+						key={item.id}
+						type="button"
+						layout
+						initial={{ scale: 0.7, opacity: 0, y: -6 }}
+						animate={{ scale: 1, opacity: 1, y: 0 }}
+						exit={{ scale: 0.7, opacity: 0, y: -4 }}
+						transition={{ type: "spring", stiffness: 520, damping: 30, delay: index * 0.03 }}
+						whileTap={{ scale: 0.95 }}
+						onClick={() => model.actions.toggleItem(item.id)}
+						className={cn(
+							"flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-[12px] font-medium transition-colors",
+							item.active
+								? "text-primary"
+								: "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+						)}
+					>
+						{item.icon ? (
+							<motion.span
+								className="flex h-3.5 w-3.5 items-center justify-center"
+								animate={item.active ? { rotate: [0, -8, 8, 0] } : { rotate: 0 }}
+								transition={{ duration: 0.4 }}
+							>
+								{item.icon}
+							</motion.span>
+						) : null}
+						<span>{item.label}</span>
+					</motion.button>
+				))}
+			</AnimatePresence>
+		</motion.div>
+	);
+}
