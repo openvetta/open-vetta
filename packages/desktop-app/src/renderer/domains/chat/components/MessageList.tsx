@@ -22,6 +22,7 @@ import {
 	promptPredictingAtom,
 	resolvedThemeAtom,
 } from "@shared/store/atoms";
+import { chatMessagesAtom, inputValueAtom } from "@shared/store/chat-atoms";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
 import { SyntaxHighlightedCode } from "@shared/components/SyntaxHighlightedCode";
@@ -40,6 +41,8 @@ interface MessageListProps {
 	sessionId?: string | null;
 	/** 输入预测建议直发回调；省略则不渲染建议气泡（如只读 viewer）。 */
 	onSend?: (overrideText?: string) => Promise<void>;
+	/** 暂停当前 streaming 会话的回调 */
+	onAbort?: () => void;
 }
 
 /** A grouped segment of content blocks for rendering. */
@@ -645,6 +648,24 @@ function CopyButton({ getText }: { getText: () => string }): JSX.Element {
 	);
 }
 
+/** 编辑按钮：仅最后一条 user 消息可见，点击后将消息文本送回 input bar */
+function EditButton({ onClick }: { onClick: () => void }): JSX.Element {
+	const { t } = useTranslation("chat");
+	const label = t("messageList.editButton");
+
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			title={label}
+			aria-label={label}
+			className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground/45 transition-colors hover:bg-muted/60 hover:text-foreground"
+		>
+			<span className="icon-[mdi--pencil] h-3.5 w-3.5" />
+		</button>
+	);
+}
+
 function SkillBadge({ name, type = "skill" }: { name: string; type?: "skill" | "scene" }): JSX.Element {
 	const { t } = useTranslation("chat");
 	const icon = type === "scene" ? "icon-[mdi--movie-open-outline]" : "icon-[mdi--puzzle-outline]";
@@ -886,20 +907,37 @@ const UserMessage = memo(function UserMessage({
 	message,
 	entryState,
 	onEntryComplete,
+	isLastUserMessage = false,
+	hasAssistantAfter = false,
+	isStreaming = false,
+	onAbortEdit,
 }: {
 	message: ChatMessage;
 	entryState: UserMessageEntryState;
 	onEntryComplete?: () => void;
+	isLastUserMessage?: boolean;
+	hasAssistantAfter?: boolean;
+	isStreaming?: boolean;
+	onAbortEdit?: () => void;
 }) {
-	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
-	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
+	const parsed = parseUserPrefixes(message.text);
+	const { skillName, skillType } = parsed;
+	const { appshotImage, rest: displayFiles } = splitAppshotFiles(parsed.files);
 	const isImageCache = (p: string): boolean => /[/\\]image-cache[/\\]/.test(p);
 	const imageFiles = displayFiles.filter(
 		(file) => isUserImageFile(file) && !isImageCache(file),
 	);
-	const fileBadges = displayFiles.filter((file) => !isUserImageFile(file));
+	// 新消息：file badge 精确按 message.mentionedFiles 渲染；
+	//         提到文件为空时 body 不剥离任何文本（防止手打 @ 开头的文字被误吞）。
+	// 旧消息：fallback 到 parseUserPrefixes 从 message.text 解析。
+	const hasExplicitMentionedFiles = message.mentionedFiles !== undefined;
+	const fileBadges: string[] = hasExplicitMentionedFiles
+		? message.mentionedFiles!.map((f) => f.path).filter((p) => !isUserImageFile(p))
+		: displayFiles.filter((file) => !isUserImageFile(file));
+	const displayText = hasExplicitMentionedFiles && message.mentionedFiles!.length === 0
+		? message.text
+		: parsed.body;
 	const appshotData: AppshotCardData | null = message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);
-	const displayText = body;
 	const imageItems = useMemo<FilePreviewItem[]>(
 		() => [
 			...(message.images ?? []).map((img) => ({
@@ -918,6 +956,35 @@ const UserMessage = memo(function UserMessage({
 	const copyText = displayText.trim();
 	const shouldAnimateIn = entryState === "enter";
 	const shouldHoldHidden = entryState === "hidden";
+
+	const setInputValue = useSetAtom(inputValueAtom);
+	const setChatMessages = useSetAtom(chatMessagesAtom);
+
+	const handleEdit = useCallback(() => {
+		// Case 1: agent 已回复下方，且不在 streaming → 复制文本到 input bar
+		// Case 2: 无 agent 回复下方，且 streaming（正准备回答还没消息） → 暂停 + 撤回 user + pending agent + 回到 input bar
+		// Case 3: agent 已回复下方，且 streaming（已生成一半） → 暂停 + 复制文本到 input bar
+		if (hasAssistantAfter) {
+			if (isStreaming) {
+				// Case 3
+				onAbortEdit?.();
+			}
+			// Case 1 or 3: copy text to input bar
+			setInputValue(message.text);
+		} else {
+			if (isStreaming) {
+				// Case 2: abort + remove this user message and pending agent message + put text back
+				onAbortEdit?.();
+				// Remove in-progress messages starting from this user message
+				setChatMessages((prev) => {
+					const idx = prev.findIndex((m) => m.id === message.id);
+					if (idx === -1) return prev;
+					return prev.slice(0, idx);
+				});
+			}
+			setInputValue(message.text);
+		}
+	}, [hasAssistantAfter, isStreaming, message.id, message.text, onAbortEdit, setChatMessages, setInputValue]);
 
 	return (
 		<motion.div
@@ -970,6 +1037,7 @@ const UserMessage = memo(function UserMessage({
 				{copyText && (
 					<div className="pointer-events-none absolute right-0 top-full mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
 						{message.timestamp && <RelativeTimeLabel endedAt={message.timestamp} />}
+						{isLastUserMessage && <EditButton onClick={handleEdit} />}
 						<CopyButton getText={() => copyText} />
 					</div>
 				)}
@@ -1193,12 +1261,15 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 	);
 });
 
-const Message = memo(function Message({ message, isTailMessage, isStreaming, userMessageEntryState, onUserMessageEntryComplete, exportMode = false }: {
+const Message = memo(function Message({ message, isTailMessage, isStreaming, userMessageEntryState, onUserMessageEntryComplete, isLastUserMessage = false, hasAssistantAfter = false, onAbortEdit, exportMode = false }: {
 	message: ChatMessage;
 	isTailMessage: boolean;
 	isStreaming: boolean;
 	userMessageEntryState: UserMessageEntryState;
 	onUserMessageEntryComplete?: () => void;
+	isLastUserMessage?: boolean;
+	hasAssistantAfter?: boolean;
+	onAbortEdit?: () => void;
 	exportMode?: boolean;
 }) {
 	if (message.role === "compaction") {
@@ -1210,6 +1281,10 @@ const Message = memo(function Message({ message, isTailMessage, isStreaming, use
 				message={message}
 				entryState={userMessageEntryState}
 				onEntryComplete={onUserMessageEntryComplete}
+				isLastUserMessage={isLastUserMessage}
+				hasAssistantAfter={hasAssistantAfter}
+				isStreaming={isStreaming}
+				onAbortEdit={onAbortEdit}
 			/>
 		);
 	}
@@ -1314,7 +1389,7 @@ const ListFooter = memo(function ListFooter({
 	);
 });
 
-export function MessageList({ messages, isStreaming, sessionId, onSend }: MessageListProps): JSX.Element {
+export function MessageList({ messages, isStreaming, sessionId, onSend, onAbort }: MessageListProps): JSX.Element {
 	const virtuosoRef = useRef<VirtuosoHandle>(null);
 	const scrollerRef = useRef<HTMLElement | null>(null);
 	const isCompacting = useAtomValue(isCompactingAtom);
@@ -1341,6 +1416,12 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 	// 不能用「最后一条 assistant 的 id」——用户追加新消息后，旧 assistant 仍会被
 	// 误判为 streaming，触发短暂展开后再折叠的闪烁。
 	const tailMessageId = messages.at(-1)?.id ?? null;
+
+	// 最后一条 user 消息的 id，用于判断哪条用户消息可以编辑
+	const lastUserMessageId = useMemo(() => {
+		const lastUser = [...messages].reverse().find((m) => m.role === "user");
+		return lastUser?.id ?? null;
+	}, [messages]);
 
 	// 是否处于真实贴底状态，由 Virtuoso 的 atBottomStateChange 维护。
 	const atBottomRef = useRef(true);
@@ -1512,7 +1593,13 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 		};
 	}, []);
 
-	const itemContent = useCallback((index: number, message: ChatMessage) => (
+	const itemContent = useCallback((index: number, message: ChatMessage) => {
+		// 判断该 user 消息后是否有 assistant 消息
+		const hasAssistantAfter =
+			index < messages.length - 1 &&
+			messages.slice(index + 1).some((m) => m.role !== "user");
+		const isLastUserMessage = message.id === lastUserMessageId;
+		return (
 		// 末条 user 消息：hover 出的 action list 绝对定位在气泡下方，需额外底部留白，
 		// 否则被 List 容器的 overflow-hidden 在底边裁掉一截（agent 回复出现后即非末条，自动还原）。
 		<div className={index === messages.length - 1 && message.role === "user" ? "pb-9" : "pb-5"}>
@@ -1531,16 +1618,22 @@ export function MessageList({ messages, isStreaming, sessionId, onSend }: Messag
 				onUserMessageEntryComplete={
 					message.id === activeUserAnimationId ? handleUserMessageEntryComplete : undefined
 				}
+				isLastUserMessage={isLastUserMessage}
+				hasAssistantAfter={hasAssistantAfter}
+				onAbortEdit={onAbort}
 			/>
 		</div>
-	), [
+		);
+	}, [
 		activeUserAnimationId,
 		enteringUserMessageId,
 		handleUserMessageEntryComplete,
 		isStreaming,
-		messages.length,
+		lastUserMessageId,
+		messages,
 		modelDisplayName,
 		modelSwitchAt,
+		onAbort,
 		pendingUserAnimationId,
 		tailMessageId,
 	]);
