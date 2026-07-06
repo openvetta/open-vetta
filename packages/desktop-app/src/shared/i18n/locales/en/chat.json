@@ -328,6 +328,11 @@
 		"layoutStacked": "Stacked"
 	},
 	"messageList": {
+		"userMessage": {
+			"expand": "Expand message",
+			"sceneBadge": "Scene",
+			"skillBadge": "Skill"
+		},
 		"assistantFoldTip": {
 			"collapse": "Collapse {{count}} items",
 			"collapseLabel": "Collapse",
