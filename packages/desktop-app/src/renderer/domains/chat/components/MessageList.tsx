@@ -34,6 +34,7 @@ import { TextBlockView } from "./blocks/TextBlock";
 import { ThinkingBlockView } from "./blocks/ThinkingBlock";
 import { ToolCallBlockView } from "./blocks/ToolCallBlock";
 import { SuggestionBubbles } from "./SuggestionBubbles";
+import { parseUserPrefixes } from "../services/chat-service";
 
 interface MessageListProps {
 	messages: ChatMessage[];
@@ -509,35 +510,6 @@ function AssistantFoldTip({
 	);
 }
 
-/** Parse prefixes from user message text: /skill:<name>, /scene:<name>, and @<path> lines. */
-function parseUserPrefixes(text: string): {
-	skillName: string | null;
-	skillType: "skill" | "scene" | null;
-	files: string[];
-	body: string;
-} {
-	let remaining = text;
-	let skillName: string | null = null;
-	let skillType: "skill" | "scene" | null = null;
-	const files: string[] = [];
-
-	const skillMatch = remaining.match(/^\/(skill|scene):([^\n]+)\n?([\s\S]*)$/);
-	if (skillMatch) {
-		skillType = skillMatch[1] as "skill" | "scene";
-		skillName = skillMatch[2].trim();
-		remaining = skillMatch[3];
-	}
-
-	while (true) {
-		const fileMatch = remaining.match(/^@([^\n]+)\n?([\s\S]*)$/);
-		if (!fileMatch) break;
-		files.push(fileMatch[1].trim());
-		remaining = fileMatch[2];
-	}
-
-	return { skillName, skillType, files, body: remaining };
-}
-
 /** 从 @path 文件列表分离出 appshot 截图（路径特征：image-cache/appshot/*.png）。
  *  这样已发送消息里的 appshot 走专属卡片渲染，而非两个普通文件 badge（png+md）。 */
 function splitAppshotFiles(files: string[]): { appshotImage: string | null; rest: string[] } {
@@ -934,7 +906,8 @@ const UserMessage = memo(function UserMessage({
 	const fileBadges: string[] = hasExplicitMentionedFiles
 		? message.mentionedFiles!.map((f) => f.path).filter((p) => !isUserImageFile(p))
 		: displayFiles.filter((file) => !isUserImageFile(file));
-	const displayText = hasExplicitMentionedFiles && message.mentionedFiles!.length === 0
+	const hasSystemAttachments = !!(message.appshot || (message.images && message.images.length > 0));
+	const displayText = hasExplicitMentionedFiles && message.mentionedFiles!.length === 0 && !hasSystemAttachments
 		? message.text
 		: parsed.body;
 	const appshotData: AppshotCardData | null = message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);

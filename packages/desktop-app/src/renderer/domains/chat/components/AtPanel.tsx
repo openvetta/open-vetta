@@ -269,14 +269,11 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd, hasVisibleItemsR
 	// Relative path display for breadcrumb
 	const relDir = currentDir.startsWith(cwd) ? currentDir.slice(cwd.length) || "/" : currentDir;
 
-	// 搜索模式下，文件列表已加载完成且匹配为 0 时隐藏面板内容，
-	// 同时通知父组件 Enter 不应被拦截。
-	const isOpenAndEmpty = open && isSearching && filesLoaded && allItems.length === 0;
-	if (hasVisibleItemsRef) {
-		// 面板内有 selectable item 才拦截 Enter（含 loading / 目录浏览 / 有搜索结果）
-		hasVisibleItemsRef.current = open && !isOpenAndEmpty;
-	}
-	if (isOpenAndEmpty) {
+	// 搜索模式下，loading 中或已加载但无结果时，关闭面板，
+	// 避免闪烁并放行 Enter 键。
+	const isSearchWithNoResults = open && isSearching && (loading || allItems.length === 0);
+	if (isSearchWithNoResults) {
+		onClose();
 		return <></>;
 	}
 
