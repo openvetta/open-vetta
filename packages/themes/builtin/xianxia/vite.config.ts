@@ -21,6 +21,7 @@ export default defineConfig({
 				"@vetta/theme-sdk": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-ui": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/ui": { singleton: true, import: false, requiredVersion: "*" },
+				"motion/react": { singleton: true, import: false, requiredVersion: "*" },
 				react: { singleton: true, import: false, requiredVersion: "*" },
 				"react-dom": { singleton: true, import: false, requiredVersion: "*" },
 			},

@@ -3,7 +3,6 @@ import {
 	type InputBarBackgroundProps,
 } from "@vetta/theme-ui";
 import type { JSX } from "react";
-import { xianxiaAssets } from "../assets";
 
 export function XianxiaInputBarBackground({
 	className,
@@ -13,13 +12,6 @@ export function XianxiaInputBarBackground({
 		<InputBarBackground
 			className={["z-[0]", className].filter(Boolean).join(" ")}
 			{...props}
-		>
-			<img
-				alt=""
-				aria-hidden="true"
-				className="absolute -right-3 -bottom-10 h-[129px] w-auto max-w-[48%] object-contain object-right-bottom"
-				src={xianxiaAssets.inputBarBackground}
-			/>
-		</InputBarBackground>
+		/>
 	);
 }
