@@ -1,3 +1,4 @@
+import { pathBasename } from "@shared/lib/utils";
 import type {
 	AskUserQuestionResolution,
 	ChatMessage,
@@ -35,6 +36,39 @@ export function extractResultText(result: unknown): string {
 			.join("\n");
 	}
 	return "";
+}
+
+/**
+ * Parse prefixes from user message text: /skill:<name>, /scene:<name>, and @<path> lines.
+ * Each @ line must end with a literal newline; @text without a newline is kept in the body
+ * so that hand-typed "@something" is not mistaken for a file badge.
+ */
+export function parseUserPrefixes(text: string): {
+	skillName: string | null;
+	skillType: "skill" | "scene" | null;
+	files: string[];
+	body: string;
+} {
+	let remaining = text;
+	let skillName: string | null = null;
+	let skillType: "skill" | "scene" | null = null;
+	const files: string[] = [];
+
+	const skillMatch = remaining.match(/^\/(skill|scene):([^\n]+)\n?([\s\S]*)$/);
+	if (skillMatch) {
+		skillType = skillMatch[1] as "skill" | "scene";
+		skillName = skillMatch[2].trim();
+		remaining = skillMatch[3];
+	}
+
+	while (true) {
+		const fileMatch = remaining.match(/^@([^\n]+)\n([\s\S]*)$/);
+		if (!fileMatch) break;
+		files.push(fileMatch[1].trim());
+		remaining = fileMatch[2];
+	}
+
+	return { skillName, skillType, files, body: remaining };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -240,11 +274,21 @@ export function historyToChat(
 
 	for (const m of history) {
 		if (m.role === "user") {
-			messages.push({
+			const text = extractText(m.content);
+			const parsedUser = parseUserPrefixes(text);
+			const userMsg: ChatMessage = {
 				id: `hist-user-${messages.length}`,
 				role: "user",
-				text: extractText(m.content),
-			});
+				text,
+			};
+			if (parsedUser.files.length > 0) {
+				userMsg.mentionedFiles = parsedUser.files.map((p) => ({
+					path: p,
+					name: pathBasename(p),
+					isDirectory: false,
+				}));
+			}
+			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			// Merge consecutive assistant messages into one (same agent turn)
 			const target = currentAssistant();
@@ -358,11 +402,21 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 		};
 
 		if (m.role === "user") {
-			messages.push({
+			const text = extractText(m.content);
+			const parsedUser = parseUserPrefixes(text);
+			const userMsg: ChatMessage = {
 				id: `hist-user-${messages.length}`,
 				role: "user",
-				text: extractText(m.content),
-			});
+				text,
+			};
+			if (parsedUser.files.length > 0) {
+				userMsg.mentionedFiles = parsedUser.files.map((p) => ({
+					path: p,
+					name: pathBasename(p),
+					isDirectory: false,
+				}));
+			}
+			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			const target = currentAssistant();
 			const blocks = messageToBlocks(m.content);

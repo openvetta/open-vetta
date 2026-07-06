@@ -402,7 +402,8 @@ textarea:disabled,
 
 /* Selection highlight */
 ::selection {
-	background: color-mix(in srgb, var(--primary) 15%, transparent);
+	background: color-mix(in srgb, var(--primary) 42%, transparent);
+	color: var(--foreground);
 }
 
 /* Focus ring — only on interactive elements, not textareas */
@@ -414,6 +415,25 @@ textarea:focus-visible,
 textarea:focus {
 	outline: none;
 	box-shadow: none;
+}
+
+/* Markdown body: readable text should use text-selection cursor. */
+.markdown-body,
+.markdown-body :where(p, li, blockquote, td, th, h1, h2, h3, h4, h5, h6, span, strong, em, code, pre),
+.code-preview,
+.code-preview :where(pre, code, span),
+.text-preview-content {
+	cursor: var(--cursor-text);
+}
+
+.markdown-body :where(a, button, [role="button"]),
+.markdown-body :where(a, button, [role="button"]) :where(span, strong, em, code) {
+	cursor: var(--cursor-pointer);
+}
+
+.markdown-body :where(a:hover, button:hover, [role="button"]:hover),
+.markdown-body :where(a:hover, button:hover, [role="button"]:hover) :where(span, strong, em, code) {
+	cursor: var(--cursor-hover);
 }
 
 /* Markdown body: remove margin on first/last children */

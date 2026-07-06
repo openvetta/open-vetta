@@ -60,6 +60,15 @@
 		"failed": "导入失败：{{error}}",
 		"unknownError": "未知错误"
 	},
+	"detail": {
+		"name": "名称",
+		"type": "类型",
+		"version": "版本",
+		"author": "作者",
+		"downloads": "下载量",
+		"description": "描述",
+		"notInstalledHint": "此技能尚未安装，以上为技能广场元数据预览。安装后可查看完整 SKILL.md。"
+	},
 	"plugin": {
 		"status": {
 			"enabled": "已启用",

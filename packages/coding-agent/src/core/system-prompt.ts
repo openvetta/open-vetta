@@ -67,6 +67,10 @@ export const OUTPUT_LOCATION_GUIDANCE =
 	"NEVER default to the Desktop, the home directory, /tmp, or any path outside the current working directory. " +
 	"If the user gives only a bare filename with no directory, resolve it relative to the current working directory, not the Desktop.";
 
+const FINAL_ANSWER_ORDER_GUIDANCE =
+	"Before writing the final user-facing answer, complete all required tool calls and cleanup work, including validation, saving files, todo updates, and status updates. " +
+	"Once you begin the final answer, do not call more tools or perform additional actions. If more work is needed, do it first, then answer.";
+
 export interface McpToolInfo {
 	name: string;
 	description: string;
@@ -499,6 +503,7 @@ function buildGuidelines(tools: string[]): string {
 			"When in doubt, run ls or find first to get the exact name, then copy it verbatim.",
 	);
 	guidelinesList.push("Be concise in your responses");
+	guidelinesList.push(FINAL_ANSWER_ORDER_GUIDANCE);
 	guidelinesList.push(
 		"MANDATORY file-link format: EVERY time you mention a file you created, edited, read, or otherwise point the user at — anywhere in your prose, including headings, list items, tables, and 'saved to' / 'output' lines — you MUST write it as a markdown link whose target is the file's ABSOLUTE path: [filename.ext](/abs/path/filename.ext). The UI turns these into clickable preview badges, so this is not optional styling. " +
 			"NEVER emit a bare file path as plain text, and NEVER wrap a file path in inline code/backticks (`/Users/...`) when you are pointing the user at it — backtick paths render as dead monospace text with no preview. Do NOT prepend file emojis like 📄 or 📁; the badge already shows a file-type icon. " +
@@ -594,6 +599,7 @@ export function buildSystemPromptDraft(options: BuildSystemPromptOptions = {}): 
 				900,
 			),
 		);
+		blocks.push(coreBlock("core.final-answer-order", "guidelines", FINAL_ANSWER_ORDER_GUIDANCE, 950));
 		blocks.push(coreBlock("core.personalization", "personalization", personalization ?? "", 1000));
 		blocks.push(coreBlock("core.footer", "footer", renderFooter(dateTime, resolvedCwd), 1100));
 		const draft: SystemPromptDraft = { blocks, metadata: { cwd: resolvedCwd, dateTime } };
