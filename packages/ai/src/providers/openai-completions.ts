@@ -454,6 +454,9 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		params.tool_choice = options.toolChoice;
 	}
 
+	const reasoningEffort = options?.reasoningEffort;
+	const isReasoningOff = !reasoningEffort || reasoningEffort === "off" || reasoningEffort === "none";
+
 	// Whenever a non-default thinkingFormat is in effect (explicit user config or
 	// auto-detected z.ai), always emit the disable/enable hint so the user's "off"
 	// toggle is honored even when model.reasoning isn't set. The OpenAI-standard
@@ -462,7 +465,7 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 	if (compat.thinkingFormat === "zai") {
 		// Z.ai uses binary thinking: { type: "enabled" | "disabled" }
 		// Must explicitly disable since z.ai defaults to thinking enabled
-		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
+		(params as any).thinking = { type: isReasoningOff ? "disabled" : "enabled" };
 	} else if (compat.thinkingFormat === "qwen") {
 		// Qwen toggles thinking with a boolean flag, but different backends read it from
 		// different places, so emit BOTH spellings:
@@ -472,7 +475,7 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		//     so "off" never disables thinking there unless we also send this form.
 		// reasoning_effort ("minimal" clamped up to "low" — Qwen has no "minimal") controls
 		// effort when enabled; omit it entirely when disabled, since Qwen has NO "none" value.
-		const qwenEffort = options?.reasoningEffort === "minimal" ? "low" : options?.reasoningEffort;
+		const qwenEffort = isReasoningOff ? undefined : reasoningEffort === "minimal" ? "low" : reasoningEffort;
 		const thinkingEnabled = !!qwenEffort;
 		(params as any).enable_thinking = thinkingEnabled;
 		(params as any).chat_template_kwargs = { enable_thinking: thinkingEnabled };
@@ -481,16 +484,16 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 		}
 	} else if (compat.thinkingFormat === "nvidia") {
 		// NVIDIA uses chat_template_kwargs: { enable_thinking: boolean }
-		(params as any).chat_template_kwargs = { enable_thinking: !!options?.reasoningEffort };
+		(params as any).chat_template_kwargs = { enable_thinking: !isReasoningOff };
 	} else if (compat.thinkingFormat === "deepseek") {
 		// DeepSeek v4 unified models use a `thinking` object: { type: "enabled" | "disabled",
 		// reasoning_effort }. reasoning_effort only accepts "high" | "max"; the effort is passed
-		// through per the model's configured levels. Absence of an effort disables thinking
-		// (equivalent to a non-thinking request / deepseek-chat).
-		if (options?.reasoningEffort) {
-			(params as any).thinking = { type: "enabled", reasoning_effort: options.reasoningEffort };
-		} else {
+		// through per the model's configured levels. Off/none must explicitly disable thinking,
+		// because omitting the field leaves DeepSeek's thinking default enabled.
+		if (isReasoningOff) {
 			(params as any).thinking = { type: "disabled" };
+		} else {
+			(params as any).thinking = { type: "enabled", reasoning_effort: reasoningEffort };
 		}
 	} else if (model.reasoning && compat.supportsReasoningEffort) {
 		// OpenAI-style reasoning_effort. "off" is the unified disable-thinking entry point:
@@ -851,6 +854,13 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAIComple
 
 	const isZai = provider === "zai" || baseUrl.includes("api.z.ai");
 
+	// DeepSeek v4 unified models disable thinking via `thinking: { type: "disabled" }`;
+	// omitting the field leaves their default (thinking ENABLED) in place. A model pointed
+	// at a DeepSeek endpoint but registered on the plain `openai-completions` api (e.g. added
+	// through admin instead of the built-in `openai-completions-deepseek`) would otherwise
+	// fall into the generic reasoning_effort branch and never actually turn thinking off.
+	const isDeepseek = provider === "deepseek" || baseUrl.includes("deepseek.com");
+
 	const isNonStandard =
 		provider === "cerebras" ||
 		baseUrl.includes("cerebras.ai") ||
@@ -888,7 +898,7 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAIComple
 		requiresAssistantAfterToolResult: false, // Mistral no longer requires this as of Dec 2024
 		requiresThinkingAsText: isMistral,
 		requiresMistralToolIds: isMistral,
-		thinkingFormat: isZai ? "zai" : "openai",
+		thinkingFormat: isZai ? "zai" : isDeepseek ? "deepseek" : "openai",
 		openRouterRouting: {},
 		vercelGatewayRouting: {},
 		supportsStrictMode: true,
