@@ -85,7 +85,7 @@ export function CodePreview({ content, extension, theme }: CodePreviewProps): JS
 	if (html === "") {
 		// Fallback: plain text
 		return (
-			<pre className="whitespace-pre-wrap break-words p-4 font-mono text-[12px] leading-[1.6] text-foreground">
+			<pre className="text-preview-content whitespace-pre-wrap break-words p-4 font-mono text-[12px] leading-[1.6] text-foreground">
 				{content}
 			</pre>
 		);
