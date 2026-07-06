@@ -1,2 +1,46 @@
 @import "tailwindcss";
-@source "./**/*.tsx";
+@import "@vetta/theme-ui/styles.css";
+@source "./**/*.{ts,tsx}";
+
+:root {
+	--xianxia-input-bar-background-radius: 28px;
+	--xianxia-scene-card-background-radius: 24px;
+	--xianxia-sidebar-background-radius: 24px;
+	--xianxia-skill-card-background-radius: 9999px;
+}
+
+.xianxia-input-bar-background {
+	border-radius: var(--xianxia-input-bar-background-radius);
+}
+
+.xianxia-scene-card-background {
+	border-radius: var(--xianxia-scene-card-background-radius);
+}
+
+.xianxia-sidebar-background {
+	border-radius: var(--xianxia-sidebar-background-radius);
+}
+
+.xianxia-skill-card-background {
+	border-radius: var(--xianxia-skill-card-background-radius);
+}
+
+.xianxia-frame-glow-silver {
+	filter: drop-shadow(0 0 3px rgb(255 255 255 / 90%))
+		drop-shadow(0 0 9px rgb(240 247 255 / 58%));
+}
+
+.xianxia-frame-glow-silver-subtle {
+	filter: drop-shadow(0 0 1px rgb(255 255 255 / 88%))
+		drop-shadow(0 0 4px rgb(242 248 255 / 48%));
+}
+
+.xianxia-frame-glow-gold {
+	filter: drop-shadow(0 0 3px rgb(255 245 195 / 82%))
+		drop-shadow(0 0 10px rgb(238 191 91 / 42%));
+}
+
+.xianxia-frame-glow-gold-strong {
+	filter: drop-shadow(0 0 3px rgb(255 248 208 / 90%))
+		drop-shadow(0 0 9px rgb(238 191 91 / 52%));
+}

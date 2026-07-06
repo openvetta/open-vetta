@@ -13,6 +13,10 @@
 		"remoteName": "theme_xianxia",
 		"expose": "./theme"
 	},
+	"development": {
+		"origin": "http://127.0.0.1:3010",
+		"entry": "mf-manifest.json"
+	},
 	"styles": ["dist/style.css"],
 	"capabilities": [
 		"appearance",

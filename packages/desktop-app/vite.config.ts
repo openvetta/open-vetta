@@ -1,10 +1,35 @@
 import path, { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+
+const themeDevelopmentEnabled = process.env.VETTA_THEME_DEV_SERVER === "1";
+
+function themeDevelopmentReload(): Plugin {
+	const themeSourceDir = resolve(__dirname, "../themes/builtin/xianxia/src");
+	return {
+		name: "vetta-theme-development-reload",
+		configureServer(server) {
+			const reloadRenderer = (file: string): void => {
+				const relativePath = path.relative(themeSourceDir, file);
+				if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return;
+				server.ws.send({ type: "full-reload" });
+			};
+			server.watcher.add(themeSourceDir);
+			server.watcher.on("add", reloadRenderer);
+			server.watcher.on("change", reloadRenderer);
+			server.watcher.on("unlink", reloadRenderer);
+			server.httpServer?.once("close", () => {
+				server.watcher.off("add", reloadRenderer);
+				server.watcher.off("change", reloadRenderer);
+				server.watcher.off("unlink", reloadRenderer);
+			});
+		},
+	};
+}
 
 export default defineConfig({
-	plugins: [react(), tailwindcss()],
+	plugins: [react(), tailwindcss(), ...(themeDevelopmentEnabled ? [themeDevelopmentReload()] : [])],
 	root: "src/renderer",
 	base: "./",
 	resolve: {
