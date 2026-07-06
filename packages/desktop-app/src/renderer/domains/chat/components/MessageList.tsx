@@ -149,6 +149,36 @@ function findLastProcessBlockIndex(blocks: ContentBlock[], customToolNames: Set<
 	return -1;
 }
 
+const SHORT_EPILOGUE_MAX_CHARS = 80;
+const PRIMARY_ANSWER_MIN_CHARS = 160;
+
+function hasStructuredAnswerContent(text: string): boolean {
+	return /```|^\s{0,3}#{1,6}\s|^\s*[-*+]\s|^\s*\d+[.)]\s|\|.+\|/m.test(text);
+}
+
+function isShortEpilogueText(blocks: TextBlock[]): boolean {
+	if (blocks.length !== 1) return false;
+	const text = blocks[0].text.trim();
+	return text.length > 0 && text.length <= SHORT_EPILOGUE_MAX_CHARS && !hasStructuredAnswerContent(text);
+}
+
+function isMaintenanceToolCall(block: ContentBlock): boolean {
+	if (block.type !== "tool_call") return false;
+	const toolName = block.toolName.toLowerCase();
+	if (!toolName.includes("todo")) return false;
+	return block.args.action === "update";
+}
+
+function findPreviousPrimaryAnswerIndex(blocks: ContentBlock[], beforeIndex: number): number {
+	for (let i = beforeIndex - 1; i >= 0; i--) {
+		const block = blocks[i];
+		if (block.type === "tool_call" || block.type === "thinking") return -1;
+		if (block.type !== "text") continue;
+		if (block.text.trim().length >= PRIMARY_ANSWER_MIN_CHARS) return i;
+	}
+	return -1;
+}
+
 interface AssistantFoldData {
 	processBlocks: ContentBlock[];
 	trailingBlocks: ContentBlock[];
@@ -159,15 +189,33 @@ interface AssistantFoldData {
 function getAssistantFoldData(blocks: ContentBlock[], customToolNames: Set<string>): AssistantFoldData | null {
 	const lastProcessIndex = findLastProcessBlockIndex(blocks, customToolNames);
 	if (lastProcessIndex === -1) return null;
-	const outputBlocks = blocks
+	const trailingTextBlocks = blocks
 		.slice(lastProcessIndex + 1)
 		.filter((block): block is TextBlock => block.type === "text" && block.text.trim().length > 0);
-	if (outputBlocks.length === 0) return null;
+	if (trailingTextBlocks.length === 0) return null;
+
+	const lastProcessBlock = blocks[lastProcessIndex];
+	const primaryAnswerIndex =
+		isMaintenanceToolCall(lastProcessBlock) && isShortEpilogueText(trailingTextBlocks)
+			? findPreviousPrimaryAnswerIndex(blocks, lastProcessIndex)
+			: -1;
+	if (primaryAnswerIndex !== -1) {
+		const primaryAnswerBlock = blocks[primaryAnswerIndex] as TextBlock;
+		const outputBlocks = [primaryAnswerBlock, ...trailingTextBlocks];
+		const outputBlockSet = new Set<ContentBlock>(outputBlocks);
+		return {
+			processBlocks: blocks.filter((block) => !outputBlockSet.has(block)),
+			trailingBlocks: blocks.filter((block) => outputBlockSet.has(block)),
+			outputBlocks,
+			hiddenCount: blocks.length - outputBlocks.length,
+		};
+	}
+
 	return {
 		processBlocks: blocks.slice(0, lastProcessIndex + 1),
 		trailingBlocks: blocks.slice(lastProcessIndex + 1),
-		outputBlocks,
-		hiddenCount: blocks.length - outputBlocks.length,
+		outputBlocks: trailingTextBlocks,
+		hiddenCount: blocks.length - trailingTextBlocks.length,
 	};
 }
 
@@ -493,19 +541,25 @@ function getUserCopyText(message: ChatMessage): string {
 }
 
 /**
- * 提取 assistant 消息的结论文本：取最后一个 tool_call/thinking 之后的所有 text block。
+ * 提取 assistant 消息的结论文本：与折叠展示保持一致。
  * 无 tool/thinking 时整段都是结论；纯工具轮 / 仅 error 时返回空字符串。
  */
 function getAssistantConclusionText(message: ChatMessage, customToolNames: Set<string>): string {
 	const blocks = message.blocks ?? [];
 	if (blocks.length === 0) return (message.text ?? "").trim();
-	const lastProcessIndex = findLastProcessBlockIndex(blocks, customToolNames);
-	const texts = blocks
-		.slice(lastProcessIndex + 1)
+	const foldData = getAssistantFoldData(blocks, customToolNames);
+	if (foldData) {
+		return foldData.outputBlocks
+			.map((block) => block.text.trim())
+			.filter(Boolean)
+			.join("\n\n");
+	}
+	if (findLastProcessBlockIndex(blocks, customToolNames) !== -1) return "";
+	return blocks
 		.filter((b): b is TextBlock => b.type === "text")
 		.map((b) => b.text.trim())
-		.filter(Boolean);
-	return texts.join("\n\n");
+		.filter(Boolean)
+		.join("\n\n");
 }
 
 /** 复制按钮：icon-only + tooltip，点击后原位切到 check 持续 1.5s。 */
