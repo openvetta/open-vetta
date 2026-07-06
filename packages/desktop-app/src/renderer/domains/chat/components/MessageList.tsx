@@ -690,7 +690,7 @@ const UserMessage = memo(function UserMessage({
 				)}
 				{(displayText || hasBadges) && (
 					<div
-						className="rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
+						className="cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
 						style={{ wordBreak: "break-word" }}
 					>
 						{hasBadges && (
@@ -715,7 +715,7 @@ const UserMessage = memo(function UserMessage({
 				)}
 				{!displayText && !hasBadges && !hasImages && (
 					<div
-						className="rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
+						className="cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
 						style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
 					>
 						{"\u2026"}
@@ -910,7 +910,7 @@ const AssistantMessage = memo(function AssistantMessage({ message, isTailMessage
 					</div>
 				) : (
 					<div
-						className="text-[13px] leading-[1.6] text-foreground"
+						className="cursor-text text-[13px] leading-[1.6] text-foreground"
 						style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
 					>
 						{message.text || "\u2026"}

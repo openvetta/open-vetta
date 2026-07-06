@@ -162,7 +162,7 @@ export function PreviewBody({
 		return <HtmlPreview content={state.content} extension={ext} theme={theme} />;
 	}
 
-	const scrollWrap = "min-h-0 flex-1 overflow-y-auto";
+	const scrollWrap = "text-preview-content min-h-0 flex-1 overflow-y-auto";
 	if (MARKDOWN_EXTENSIONS.has(ext)) {
 		return (
 			<div className={scrollWrap}>
