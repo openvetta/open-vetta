@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import type { SkillInfo } from "@preload/api";
+import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
+import type { NewSessionSkillBadgeRowProps, NewSessionSkillItem } from "@vetta/theme-ui";
 import { SkillCard } from "./SkillCard";
 import type { SkillSelection } from "./types";
 
@@ -16,6 +18,40 @@ interface SkillBadgeRowProps {
 // 不加入场动画：该行固定在输入框上方，逐个弹入会干扰输入体验。
 export function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps): JSX.Element {
 	const { t } = useTranslation("chat");
+	const ThemedSkillBadgeRow = useThemeComponent("chat.newSessionSkillBadgeRow", DefaultSkillBadgeRow);
+	const handleSelect = useCallback(
+		(skill: NewSessionSkillItem) => {
+			const matched = skills.find((item) => item.name === skill.name);
+			if (matched) {
+				onSelect(matched);
+			}
+		},
+		[onSelect, skills],
+	);
+
+	return (
+		<ThemedSkillBadgeRow
+			labels={{
+				scrollLeft: t("newSession.skillScrollLeft"),
+				scrollRight: t("newSession.skillScrollRight"),
+			}}
+			onSelect={handleSelect}
+			selected={selected}
+			skills={skills}
+		/>
+	);
+}
+
+// 技能胶囊单行展示：横向滚动，超出时两端浮出箭头手动翻动（每次滚动约 80% 视宽）。
+// 不加入场动画：该行固定在输入框上方，逐个弹入会干扰输入体验。
+export function DefaultSkillBadgeRow({
+	className,
+	labels,
+	skills,
+	selected,
+	onSelect,
+	...props
+}: NewSessionSkillBadgeRowProps): JSX.Element {
 	const ThemedSkillCard = useThemeComponent("chat.newSessionSkillCard", SkillCard);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
@@ -44,7 +80,7 @@ export function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps
 	}, []);
 
 	return (
-		<div className="group relative mt-4 w-full">
+		<div className={cn("group relative mt-4 w-full", className)} {...props}>
 			<div
 				ref={scrollRef}
 				onScroll={updateEdges}
@@ -74,7 +110,7 @@ export function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -left-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title={t("newSession.skillScrollLeft")}
+						title={labels.scrollLeft}
 					>
 						<span className="icon-[mdi--chevron-left] h-4 w-4" />
 					</motion.button>
@@ -89,7 +125,7 @@ export function SkillBadgeRow({ skills, selected, onSelect }: SkillBadgeRowProps
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -right-3 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title={t("newSession.skillScrollRight")}
+						title={labels.scrollRight}
 					>
 						<span className="icon-[mdi--chevron-right] h-4 w-4" />
 					</motion.button>

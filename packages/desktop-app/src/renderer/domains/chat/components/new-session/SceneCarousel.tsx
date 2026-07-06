@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
+import type { NewSessionSceneCarouselProps, NewSessionSceneItem } from "@vetta/theme-ui";
 import { SceneCard } from "./SceneCard";
 import { easeOut } from "./constants";
 import type { SceneActionState, SceneItem, SkillSelection } from "./types";
@@ -17,6 +19,43 @@ interface SceneCarouselProps {
 // 宽度跟随外层左对齐列（max-w-2xl），不再单独居中。
 export function SceneCarousel({ scenes, selected, actions, onSceneClick }: SceneCarouselProps): JSX.Element {
 	const { t } = useTranslation("chat");
+	const ThemedSceneCarousel = useThemeComponent("chat.newSessionSceneCarousel", DefaultSceneCarousel);
+	const handleSceneClick = useCallback(
+		(scene: NewSessionSceneItem) => {
+			const matched = scenes.find((item) => item.name === scene.name);
+			if (matched) {
+				onSceneClick(matched);
+			}
+		},
+		[onSceneClick, scenes],
+	);
+
+	return (
+		<ThemedSceneCarousel
+			actions={actions}
+			labels={{
+				installPrompt: t("newSession.sceneInstallPrompt"),
+				next: t("newSession.sceneCarouselNext"),
+				previous: t("newSession.sceneCarouselPrev"),
+			}}
+			onSceneClick={handleSceneClick}
+			scenes={scenes}
+			selected={selected}
+		/>
+	);
+}
+
+// 场景卡片：横向滚动单行，每屏 3 张（宽度 = (100%-2*gap)/3），超出靠滚动 + 悬浮箭头手动翻动。
+// 宽度跟随外层左对齐列（max-w-2xl），不再单独居中。
+export function DefaultSceneCarousel({
+	actions,
+	className,
+	labels,
+	onSceneClick,
+	scenes,
+	selected,
+	...props
+}: NewSessionSceneCarouselProps): JSX.Element {
 	const ThemedSceneCard = useThemeComponent("chat.newSessionSceneCard", SceneCard);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
@@ -46,12 +85,12 @@ export function SceneCarousel({ scenes, selected, actions, onSceneClick }: Scene
 	}, []);
 
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: 8 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.5, delay: 0.25, ease: easeOut }}
-			className="group relative mt-6 w-full"
-		>
+		<div className={cn("group relative mt-6 w-full", className)} {...props}>
+			<motion.div
+				initial={{ opacity: 0, y: 8 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.5, delay: 0.25, ease: easeOut }}
+			>
 			<div
 				ref={scrollRef}
 				onScroll={updateEdges}
@@ -66,7 +105,7 @@ export function SceneCarousel({ scenes, selected, actions, onSceneClick }: Scene
 							item={s}
 							selected={selected?.name === s.name && selected?.type === "scene"}
 							onClick={() => onSceneClick(s)}
-							title={s.state === "uninstalled" ? t("newSession.sceneInstallPrompt") : s.description || s.name}
+							title={s.state === "uninstalled" ? labels.installPrompt : s.description || s.name}
 						/>
 					);
 				})}
@@ -81,7 +120,7 @@ export function SceneCarousel({ scenes, selected, actions, onSceneClick }: Scene
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -left-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title={t("newSession.sceneCarouselPrev")}
+						title={labels.previous}
 					>
 						<span className="icon-[mdi--chevron-left] h-4 w-4" />
 					</motion.button>
@@ -96,12 +135,13 @@ export function SceneCarousel({ scenes, selected, actions, onSceneClick }: Scene
 						whileHover={{ scale: 1.08 }}
 						whileTap={{ scale: 0.92 }}
 						className="absolute -right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary"
-						title={t("newSession.sceneCarouselNext")}
+						title={labels.next}
 					>
 						<span className="icon-[mdi--chevron-right] h-4 w-4" />
 					</motion.button>
 				</>
 			)}
-		</motion.div>
+			</motion.div>
+		</div>
 	);
 }

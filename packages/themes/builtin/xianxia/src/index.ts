@@ -2,6 +2,7 @@ import type { ThemeModule } from "@vetta/theme-sdk";
 import { xianxiaAppearance } from "./appearance";
 import { XianxiaAppBackground } from "./components/XianxiaAppBackground";
 import { XianxiaInputBarBackground } from "./components/XianxiaInputBarBackground";
+import { XianxiaSceneCarousel, XianxiaSkillBadgeRow } from "./components/XianxiaNewSession";
 import "./styles.css";
 
 export const xianxiaTheme: ThemeModule = {
@@ -15,6 +16,8 @@ export const xianxiaTheme: ThemeModule = {
 	components: {
 		"app.background": XianxiaAppBackground,
 		"chat.inputBarBackground": XianxiaInputBarBackground,
+		"chat.newSessionSceneCarousel": XianxiaSceneCarousel,
+		"chat.newSessionSkillBadgeRow": XianxiaSkillBadgeRow,
 	},
 };
 
