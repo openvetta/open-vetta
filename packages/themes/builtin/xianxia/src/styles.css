@@ -13,6 +13,35 @@
 	border-radius: var(--xianxia-input-bar-background-radius);
 }
 
+.xianxia-input-bar-toolbar-right {
+	padding-right: 16px;
+}
+
+.xianxia-send-button {
+	--send-button-active-background: radial-gradient(
+		circle at 38% 32%,
+		rgb(151 162 193) 0%,
+		rgb(111 124 160) 58%,
+		rgb(88 101 137) 100%
+	);
+	--send-button-active-foreground: rgb(255 253 235);
+	--send-button-active-shadow:
+		inset 0 1px 2px rgb(255 255 255 / 42%),
+		0 0 8px rgb(255 255 255 / 72%);
+	--send-button-inactive-background: radial-gradient(
+		circle at 38% 32%,
+		rgb(151 162 193 / 58%) 0%,
+		rgb(111 124 160 / 48%) 58%,
+		rgb(88 101 137 / 42%) 100%
+	);
+	--send-button-inactive-foreground: rgb(255 253 235 / 68%);
+}
+
+.xianxia-send-button .send-button-icon,
+.xianxia-send-button .send-button-outgoing-arrow {
+	filter: drop-shadow(0 0 2px rgb(255 248 210 / 72%));
+}
+
 .xianxia-scene-card-background {
 	border-radius: var(--xianxia-scene-card-background-radius);
 }
@@ -208,6 +237,11 @@
 .xianxia-frame-glow-gold {
 	filter: drop-shadow(0 0 3px rgb(255 245 195 / 82%))
 		drop-shadow(0 0 10px rgb(238 191 91 / 42%));
+}
+
+.xianxia-frame-glow-gold-subtle {
+	filter: drop-shadow(0 0 1px rgb(255 245 195 / 58%))
+		drop-shadow(0 0 5px rgb(238 191 91 / 22%));
 }
 
 .xianxia-frame-glow-gold-strong {

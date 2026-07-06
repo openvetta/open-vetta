@@ -77,19 +77,28 @@ export const xianxiaAppearance: ThemeAppearance = {
 		"chat.sessionViewerPage": { rootClassName: "bg-transparent" },
 		"chat.view": { rootClassName: "bg-transparent" },
 		"chat.executionModeMenu": xianxiaPanelSurface,
+		"chat.inputActionBar": {
+			rootClassName: "mx-auto w-[93%]",
+		},
 		"chat.inputBar": {
 			frame: {
 				kind: "nine-slice-image",
 				imageUrl: xianxiaAssets.inputBarFrame,
 				decoration: {
-					borderWidth: "33px",
+					borderWidth: "30px 74px 35px 40px",
 					outset: "2px",
 					repeat: "stretch",
-					slice: 230,
+					slice: "180 440 210 240",
 				},
 			},
 			rootClassName: "xianxia-input-bar-background border-transparent bg-card/80 dark:bg-card/80",
 			surfaceClassName: "xianxia-frame-glow-gold z-[2] overflow-visible",
+		},
+		"chat.inputBarToolbarLeft": {
+			rootClassName: "xianxia-input-bar-toolbar-left",
+		},
+		"chat.inputBarToolbarRight": {
+			rootClassName: "xianxia-input-bar-toolbar-right",
 		},
 		"chat.sendButton": {
 			frame: {
@@ -101,6 +110,7 @@ export const xianxiaAppearance: ThemeAppearance = {
 					size: "40px 40px",
 				},
 			},
+			rootClassName: "xianxia-send-button",
 			surfaceClassName: "xianxia-frame-glow-silver -inset-1 z-20 overflow-visible",
 		},
 		"chat.inputDrawer": xianxiaPanelSurface,
@@ -113,7 +123,7 @@ export const xianxiaAppearance: ThemeAppearance = {
 		"chat.newSessionSceneCard": {
 			...xianxiaPanelSurface,
 			rootClassName: "xianxia-scene-card-background border-transparent bg-card/80",
-			surfaceClassName: "xianxia-frame-glow-gold overflow-visible",
+			surfaceClassName: "xianxia-frame-glow-gold-subtle overflow-visible",
 		},
 		"chat.newSessionSkillCard": {
 			frame: {

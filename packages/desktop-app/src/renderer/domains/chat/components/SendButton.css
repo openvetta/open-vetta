@@ -2,6 +2,19 @@
 .send-button {
 	--send-button-to-send-duration: 1s;
 	--send-button-to-stop-duration: calc(var(--send-button-to-send-duration) / 3);
+
+	background: var(--send-button-inactive-background, color-mix(in srgb, var(--muted-foreground) 18%, transparent));
+	color: var(--send-button-inactive-foreground, var(--muted-foreground));
+	box-shadow: none;
+}
+
+.send-button-wrap[data-active="true"] .send-button {
+	background: var(--send-button-active-background, var(--primary));
+	color: var(--send-button-active-foreground, var(--primary-foreground));
+	box-shadow: var(
+		--send-button-active-shadow,
+		0 6px 18px -6px color-mix(in srgb, var(--primary) 70%, transparent)
+	);
 }
 
 /* Streaming-state ripple: two staggered rings expand outward from the
