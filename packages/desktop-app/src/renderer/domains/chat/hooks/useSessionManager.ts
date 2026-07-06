@@ -862,6 +862,7 @@ export function useSessionManager(): SessionManagerResult {
 				if (appshot) {
 					userMsg.appshot = appshot;
 				}
+				userMsg.mentionedFiles = mentionedFiles.slice();
 				setChatMessages((prev) => [...prev, userMsg]);
 			}
 

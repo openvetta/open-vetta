@@ -234,6 +234,7 @@ export function ChatView({ onSend, onAbort, onSendQueued }: ChatViewProps): JSX.
 						isStreaming={isStreaming}
 						sessionId={activeSession?.sessionPath ?? null}
 						onSend={onSend}
+						onAbort={onAbort}
 					/>
 					<InputBar onSend={onSend} onAbort={onAbort} onSendQueued={onSendQueued} />
 				</div>
