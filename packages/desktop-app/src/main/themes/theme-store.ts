@@ -11,6 +11,10 @@ interface ThemeManifest {
 	sdkVersion: string;
 	entry: string;
 	styles?: string[];
+	development?: {
+		origin: string;
+		entry: string;
+	};
 	moduleFederation: {
 		remoteName: string;
 		expose: string;
@@ -48,6 +52,10 @@ function toThemeUrl(source: DesktopThemePackageSource, themeId: string, relative
 	return `vetta-theme://${source}--${themeId}/${relativePath.replaceAll("\\", "/")}?v=${encodeURIComponent(version)}`;
 }
 
+function toDevelopmentThemeUrl(origin: string, relativePath: string): string {
+	return new URL(relativePath.replaceAll("\\", "/"), `${origin.replace(/\/+$/, "")}/`).href;
+}
+
 function discoverFrom(baseDir: string, source: DesktopThemePackageSource): DesktopThemePackage[] {
 	if (!existsSync(baseDir)) return [];
 	const themes: DesktopThemePackage[] = [];
@@ -57,14 +65,25 @@ function discoverFrom(baseDir: string, source: DesktopThemePackageSource): Deskt
 		try {
 			const manifest = parseManifest(join(themeDir, "theme.json"));
 			if (manifest.id !== entry) continue;
+			const development =
+				!app.isPackaged &&
+				process.env.VETTA_THEME_DEV_SERVER === "1" &&
+				source === "builtin" &&
+				manifest.development !== undefined
+					? manifest.development
+					: undefined;
 			themes.push({
 				id: manifest.id,
 				displayName: manifest.displayName,
 				version: manifest.version,
 				sdkVersion: manifest.sdkVersion,
 				source,
-				entryUrl: toThemeUrl(source, manifest.id, manifest.entry, manifest.version),
-				styleUrls: (manifest.styles ?? []).map((style) => toThemeUrl(source, manifest.id, style, manifest.version)),
+				entryUrl: development
+					? toDevelopmentThemeUrl(development.origin, development.entry)
+					: toThemeUrl(source, manifest.id, manifest.entry, manifest.version),
+				styleUrls: development
+					? []
+					: (manifest.styles ?? []).map((style) => toThemeUrl(source, manifest.id, style, manifest.version)),
 				moduleFederation: manifest.moduleFederation,
 			});
 		} catch (error) {

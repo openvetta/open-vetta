@@ -26,6 +26,12 @@ export default defineConfig({
 			},
 		}),
 	],
+	server: {
+		host: "127.0.0.1",
+		origin: "http://127.0.0.1:3010",
+		port: 3010,
+		strictPort: true,
+	},
 	build: {
 		assetsDir: "assets",
 		rollupOptions: {

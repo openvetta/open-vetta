@@ -11,7 +11,7 @@ export function XianxiaInputBarBackground({
 }: InputBarBackgroundProps): JSX.Element {
 	return (
 		<InputBarBackground
-			className={["z-[3]", className].filter(Boolean).join(" ")}
+			className={["z-[0]", className].filter(Boolean).join(" ")}
 			{...props}
 		>
 			<img

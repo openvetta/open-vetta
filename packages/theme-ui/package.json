@@ -24,7 +24,8 @@
 		"./layout": {
 			"types": "./src/layout/index.ts",
 			"import": "./src/layout/index.ts"
-		}
+		},
+		"./styles.css": "./src/styles.css"
 	},
 	"files": ["src"],
 	"scripts": {

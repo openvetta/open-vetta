@@ -13,8 +13,9 @@
 	},
 	"files": ["src", "theme.json"],
 	"scripts": {
-		"build": "bunx vite build",
-		"check": "tsgo --noEmit -p tsconfig.json"
+		"build": "bun ./node_modules/vite/bin/vite.js build",
+		"check": "tsgo --noEmit -p tsconfig.json",
+		"dev": "bun ./node_modules/vite/bin/vite.js"
 	},
 	"dependencies": {
 		"@vetta/theme-sdk": "workspace:*",
