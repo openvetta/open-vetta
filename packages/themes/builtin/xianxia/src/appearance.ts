@@ -3,12 +3,12 @@ import { xianxiaAssets } from "./assets";
 
 const xianxiaPanelFrame: ThemeSurfaceFrame = {
 	kind: "nine-slice-image",
-	imageUrl: xianxiaAssets.newSessionSceneCard,
+	imageUrl: xianxiaAssets.panelFrame,
 	decoration: {
-		borderWidth: "12px",
-		outset: "2px",
+		borderWidth: "28px",
+		outset: "3px",
 		repeat: "stretch",
-		slice: 96,
+		slice: 113,
 	},
 };
 
@@ -71,29 +71,50 @@ export const xianxiaAppearance: ThemeAppearance = {
 		"chat.view": { rootClassName: "bg-transparent" },
 		"chat.executionModeMenu": { frame: xianxiaPanelFrame },
 		"chat.inputBar": {
-			frame: xianxiaPanelFrame,
-			rootClassName: "border-transparent bg-transparent dark:bg-transparent",
+			frame: {
+				kind: "nine-slice-image",
+				imageUrl: xianxiaAssets.inputBarFrame,
+				decoration: {
+					borderWidth: "18px",
+					outset: "4px",
+					repeat: "stretch",
+					slice: 150,
+				},
+			},
+			rootClassName: "border-transparent",
 			surfaceClassName: "z-[2]",
+		},
+		"chat.sendButton": {
+			frame: {
+				kind: "background-image",
+				imageUrl: xianxiaAssets.sendButtonFrame,
+				decoration: {
+					position: "center",
+					repeat: "no-repeat",
+					size: "contain",
+				},
+			},
+			surfaceClassName: "-inset-1 z-20 overflow-visible",
 		},
 		"chat.inputDrawer": { frame: xianxiaPanelFrame },
 		"chat.modelSelectorMenu": { frame: xianxiaPanelFrame },
 		"chat.modelSelectorReasoningMenu": { frame: xianxiaPanelFrame },
 		"chat.newSessionSceneCard": {
 			frame: xianxiaPanelFrame,
-			rootClassName: "border-transparent bg-transparent",
+			rootClassName: "border-transparent",
 		},
 		"chat.newSessionSkillCard": {
 			frame: {
-				kind: "nine-slice-image",
-				imageUrl: xianxiaAssets.newSessionSkillCard,
+				kind: "background-image",
+				imageUrl: xianxiaAssets.skillFrame,
 				decoration: {
-					borderWidth: "10px",
-					outset: "2px",
-					repeat: "stretch",
-					slice: 110,
+					position: "center",
+					repeat: "no-repeat",
+					size: "100% 100%",
 				},
 			},
-			rootClassName: "border-transparent bg-transparent",
+			rootClassName: "border-transparent",
+			surfaceClassName: "-inset-x-1 -inset-y-0.5 overflow-visible",
 		},
 		"chat.questionPanel": { frame: xianxiaPanelFrame },
 		"chat.slashPanel": { frame: xianxiaPanelFrame },

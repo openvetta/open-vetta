@@ -1,5 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useThemeSurface } from "@vetta/theme-sdk";
+import { ThemeSurface } from "@vetta/theme-ui";
 import "./SendButton.css";
 
 interface SendButtonProps {
@@ -13,6 +15,7 @@ type IconState = "send" | "to-stop" | "stop" | "to-send";
 
 export const SendButton = memo(function SendButton({ canSend, isStreaming, onSend, onAbort }: SendButtonProps): JSX.Element {
 	const { t } = useTranslation("chat");
+	const surface = useThemeSurface("chat.sendButton");
 	const isActive = isStreaming || canSend;
 	const wasStreamingRef = useRef(isStreaming);
 	const [iconState, setIconState] = useState<IconState>(isStreaming ? "stop" : "send");
@@ -47,7 +50,13 @@ export const SendButton = memo(function SendButton({ canSend, isStreaming, onSen
 	}
 
 	return (
-		<span className="send-button-wrap relative inline-flex h-8 w-8 items-center justify-center">
+		<span
+			className={["send-button-wrap relative inline-flex h-8 w-8 items-center justify-center", surface?.rootClassName]
+				.filter(Boolean)
+				.join(" ")}
+			data-theme-surface-root="chat.sendButton"
+		>
+			<ThemeSurface slot="chat.sendButton" />
 			{isStreaming ? (
 				<>
 					<span aria-hidden className="send-button-ripple send-button-ripple-1" />
@@ -58,7 +67,7 @@ export const SendButton = memo(function SendButton({ canSend, isStreaming, onSen
 				type="button"
 				onClick={isStreaming ? onAbort : onSend}
 				disabled={!isStreaming && !canSend}
-				className="send-button relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full transition-shadow disabled:cursor-not-allowed"
+				className="send-button relative z-10 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full transition-shadow disabled:cursor-not-allowed"
 				data-icon-state={iconState}
 				style={buttonStyle}
 				title={isStreaming ? t("sendButton.stopGenerating") : t("sendButton.sendMessage")}
