@@ -218,7 +218,7 @@ export class RuntimeManager {
 	}
 
 	getActiveToolNames(): string[] {
-		return this.ctx.agent.state.tools.map((t) => t.name);
+		return [...this._configuredActiveToolNames];
 	}
 
 	getAllTools(): ToolInfo[] {
