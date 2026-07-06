@@ -313,7 +313,7 @@ export function RootLayout(): JSX.Element {
 				textPath: payload.textPath,
 				capturedAt: payload.capturedAt,
 			});
-			if (!activeSession && !currentPath.startsWith("/new-session") && defaultConversationCwd) {
+			if (currentPath !== "/" && !currentPath.startsWith("/new-session") && defaultConversationCwd) {
 				void navigate({
 					to: "/new-session/$cwd",
 					params: { cwd: encodeURIComponent(defaultConversationCwd) },
