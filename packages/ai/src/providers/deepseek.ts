@@ -20,15 +20,6 @@ import { streamOpenAICompletions, streamSimpleOpenAICompletions } from "./openai
 
 const DEEPSEEK_COMPAT = { thinkingFormat: "deepseek" as const };
 
-type DeepSeekOptions = OpenAICompletionsOptions & { reasoning?: string };
-
-function normalizeDeepSeekOptions(options?: DeepSeekOptions): OpenAICompletionsOptions | undefined {
-	if (!options || options.reasoning === undefined) {
-		return options;
-	}
-	return { ...options, reasoningEffort: options.reasoning };
-}
-
 function withDeepSeekCompat(model: Model<"openai-completions-deepseek">): Model<"openai-completions"> {
 	return {
 		...model,
@@ -37,12 +28,12 @@ function withDeepSeekCompat(model: Model<"openai-completions-deepseek">): Model<
 	};
 }
 
-export const streamDeepSeek: StreamFunction<"openai-completions-deepseek", DeepSeekOptions> = (
+export const streamDeepSeek: StreamFunction<"openai-completions-deepseek", OpenAICompletionsOptions> = (
 	model: Model<"openai-completions-deepseek">,
 	context: Context,
-	options?: DeepSeekOptions,
+	options?: OpenAICompletionsOptions,
 ): AssistantMessageEventStream => {
-	return streamOpenAICompletions(withDeepSeekCompat(model), context, normalizeDeepSeekOptions(options));
+	return streamOpenAICompletions(withDeepSeekCompat(model), context, options);
 };
 
 export const streamSimpleDeepSeek: StreamFunction<"openai-completions-deepseek", SimpleStreamOptions> = (
