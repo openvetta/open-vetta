@@ -5,10 +5,10 @@ const xianxiaPanelFrame: ThemeSurfaceFrame = {
 	kind: "nine-slice-image",
 	imageUrl: xianxiaAssets.panelFrame,
 	decoration: {
-		borderWidth: "28px",
-		outset: "3px",
+		borderWidth: "33px",
+		outset: "2px",
 		repeat: "stretch",
-		slice: 188,
+		slice: 198,
 	},
 };
 
@@ -52,9 +52,12 @@ export const xianxiaAppearance: ThemeAppearance = {
 					size: "cover",
 				},
 			},
+			rootClassName: "xianxia-app-frame",
+		},
+		"app.frameOverlay": {
+			surfaceClassName: "xianxia-app-frame-overlay",
 		},
 		"sidebar.panel": {
-			...xianxiaPanelSurface,
 			rootClassName: "xianxia-sidebar-background border-transparent bg-primary-foreground/80",
 		},
 		"sidebar.navigationIndicator": {
@@ -95,10 +98,10 @@ export const xianxiaAppearance: ThemeAppearance = {
 				decoration: {
 					position: "center",
 					repeat: "no-repeat",
-					size: "contain",
+					size: "40px 40px",
 				},
 			},
-			surfaceClassName: "xianxia-frame-glow-gold-strong -inset-1 z-20 overflow-visible",
+			surfaceClassName: "xianxia-frame-glow-silver -inset-1 z-20 overflow-visible",
 		},
 		"chat.inputDrawer": xianxiaPanelSurface,
 		"chat.modelSelectorMenu": xianxiaPanelSurface,
@@ -106,6 +109,7 @@ export const xianxiaAppearance: ThemeAppearance = {
 		"chat.newSessionSceneCard": {
 			...xianxiaPanelSurface,
 			rootClassName: "xianxia-scene-card-background border-transparent bg-card/80",
+			surfaceClassName: "xianxia-frame-glow-gold overflow-visible",
 		},
 		"chat.newSessionSkillCard": {
 			frame: {
@@ -119,7 +123,7 @@ export const xianxiaAppearance: ThemeAppearance = {
 				},
 			},
 			rootClassName: "xianxia-skill-card-background border-transparent bg-card/80",
-			surfaceClassName: "xianxia-frame-glow-silver-subtle overflow-visible",
+			surfaceClassName: "xianxia-frame-glow-gold overflow-visible",
 		},
 		"chat.questionPanel": xianxiaPanelSurface,
 		"chat.slashPanel": xianxiaPanelSurface,

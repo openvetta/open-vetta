@@ -4,6 +4,7 @@ declare module "@vetta/theme-sdk" {
 	interface ThemeSurfaceRegistry {
 		readonly "activity.panel"?: ThemeSurfaceConfig;
 		readonly "app.frame"?: ThemeSurfaceConfig;
+		readonly "app.frameOverlay"?: ThemeSurfaceConfig;
 		readonly "app.pageHeader"?: ThemeSurfaceConfig;
 		readonly "app.windowControls"?: ThemeSurfaceConfig;
 		readonly "chat.atPanel"?: ThemeSurfaceConfig;

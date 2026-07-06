@@ -27,6 +27,13 @@ function iconByIndex(icons: readonly string[], index: number): string {
 	return icons[index % icons.length] ?? icons[0] ?? "";
 }
 
+function scrollMaskClass(canPrev: boolean, canNext: boolean): string | undefined {
+	if (canPrev && canNext) return "xianxia-scroll-mask-both";
+	if (canPrev) return "xianxia-scroll-mask-left";
+	if (canNext) return "xianxia-scroll-mask-right";
+	return undefined;
+}
+
 function useHorizontalScroll<TItems extends readonly unknown[]>(items: TItems) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [canPrev, setCanPrev] = useState(false);
@@ -68,11 +75,14 @@ export function XianxiaSkillBadgeRow({
 	const { canNext, canPrev, scrollByPage, scrollRef, updateEdges } = useHorizontalScroll(skills);
 
 	return (
-		<div className={cn("group relative mt-4 w-full", className)} {...props}>
+		<div className={cn("group relative mt-4 w-[80%]", className)} {...props}>
 			<div
 				ref={scrollRef}
 				onScroll={updateEdges}
-				className="no-scrollbar flex items-center gap-2 overflow-x-auto px-1 py-1.5"
+				className={cn(
+					"no-scrollbar flex items-center gap-2 overflow-x-auto px-1 py-1.5",
+					scrollMaskClass(canPrev, canNext),
+				)}
 			>
 				{skills.map((skill, index) => (
 					<XianxiaSkillBadge
@@ -148,11 +158,14 @@ export function XianxiaSceneCarousel({
 	const { canNext, canPrev, scrollByPage, scrollRef, updateEdges } = useHorizontalScroll(scenes);
 
 	return (
-		<div className={cn("group relative mt-6 w-full", className)} {...props}>
+		<div className={cn("group relative mt-6 w-[70%]", className)} {...props}>
 			<div
 				ref={scrollRef}
 				onScroll={updateEdges}
-				className="no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto py-1"
+				className={cn(
+					"no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto py-1",
+					scrollMaskClass(canPrev, canNext),
+				)}
 			>
 				{scenes.map((scene, index) => (
 					<XianxiaSceneCard
@@ -208,7 +221,7 @@ function XianxiaSceneCard({
 			onClick={onClick}
 			title={title}
 			className={cn(
-				"relative min-w-0 w-[calc((100%-1.25rem)/3)] shrink-0 snap-start overflow-visible rounded-xl border text-left transition-colors disabled:cursor-wait",
+				"relative min-w-0 w-[30%] shrink-0 snap-start overflow-visible rounded-xl border text-left transition-colors disabled:cursor-wait",
 				selectedActive
 					? "border-primary/60 bg-primary/10"
 					: muted
@@ -297,31 +310,21 @@ function XianxiaScrollButton({
 	if (!visible) return null;
 
 	return (
-		<>
-			<div
-				className={cn(
-					"pointer-events-none absolute inset-y-0 z-[5] w-10",
-					direction === "prev"
-						? "left-0 bg-gradient-to-r from-background to-transparent"
-						: "right-0 bg-gradient-to-l from-background to-transparent",
-				)}
-			/>
-			<button
-				type="button"
-				aria-label={label}
-				onClick={onClick}
-				title={label}
-				className={cn(
-					"absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary",
-					direction === "prev" ? "-left-3" : "-right-3",
-				)}
-			>
-				{direction === "prev" ? (
-					<span className="icon-[mdi--chevron-left] h-4 w-4" />
-				) : (
-					<span className="icon-[mdi--chevron-right] h-4 w-4" />
-				)}
-			</button>
-		</>
+		<button
+			type="button"
+			aria-label={label}
+			onClick={onClick}
+			title={label}
+			className={cn(
+				"absolute top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:border-primary/40 hover:text-primary",
+				direction === "prev" ? "-left-3" : "-right-3",
+			)}
+		>
+			{direction === "prev" ? (
+				<span className="icon-[mdi--chevron-left] h-4 w-4" />
+			) : (
+				<span className="icon-[mdi--chevron-right] h-4 w-4" />
+			)}
+		</button>
 	);
 }
