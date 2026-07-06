@@ -495,17 +495,30 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 	} else if (model.reasoning && compat.supportsReasoningEffort) {
 		// OpenAI-style reasoning_effort. "off" is the unified disable-thinking entry point:
 		// the agent maps "off" → undefined reasoning, but some callers may pass the literal
-		// string "off". Normalize both to "none", which newer OpenAI reasoning models (gpt-5
-		// family) accept as the way to turn reasoning off. Previously an absent effort omitted
-		// the field entirely, leaving the model at its default (medium) — i.e. never actually off.
-		const rawEffort =
-			!options?.reasoningEffort || options.reasoningEffort === "off" ? "none" : options.reasoningEffort;
-		// "minimal" is OpenAI gpt-5 / Responses-API specific; most chat-completions backends
-		// (DeepSeek, aggregating gateways, vLLM, …) only accept low/medium/high/max/xhigh and
-		// return a 400 for "minimal". Clamp it up to "low" except on genuine OpenAI endpoints, so
-		// the lightest-thinking callers (auto-title, prompt suggestions) degrade instead of failing.
+		// string "off".
 		const isOpenAIOfficial = model.baseUrl.includes("api.openai.com");
-		params.reasoning_effort = (rawEffort === "minimal" && !isOpenAIOfficial ? "low" : rawEffort) as any;
+		const isOff = !options?.reasoningEffort || options.reasoningEffort === "off";
+		if (isOff) {
+			// "none" is a gpt-5 / OpenAI-official-only disable value. Other chat-completions
+			// backends (DeepSeek, aggregating gateways, vLLM, …) don't accept "none" and simply
+			// ignore it — leaving thinking ON. So only emit "none" on genuine OpenAI endpoints;
+			// elsewhere omit the field so the backend falls back to its non-thinking default.
+			if (isOpenAIOfficial) {
+				params.reasoning_effort = "none" as any;
+			}
+		} else if (options?.reasoningEffort === "none") {
+			// Some backends explicitly declare "none" in their reasoningLevels. When the user
+			// picks it from the UI, the agent passes reasoning="none". Trust the user's choice
+			// and send it unguarded — the model owner has opted into the "none" level.
+			params.reasoning_effort = "none" as any;
+		} else {
+			// "minimal" is OpenAI gpt-5 / Responses-API specific; most chat-completions backends
+			// only accept low/medium/high/max/xhigh and return a 400 for "minimal". Clamp it up to
+			// "low" except on genuine OpenAI endpoints, so the lightest-thinking callers (auto-title,
+			// prompt suggestions) degrade instead of failing.
+			const effort = options.reasoningEffort;
+			params.reasoning_effort = (effort === "minimal" && !isOpenAIOfficial ? "low" : effort) as any;
+		}
 	}
 
 	// OpenRouter provider routing preferences

@@ -147,6 +147,12 @@ export function showMainWindow(): BrowserWindow {
 		return createWindow();
 	}
 
+	// macOS 上仅靠 BrowserWindow.focus() 无法将后台应用带到前台，
+	// 必须先通过 app.focus() 让应用成为活动应用。
+	if (isMac) {
+		app.focus({ steal: true });
+	}
+
 	if (!mainWindow.isVisible()) {
 		mainWindow.show();
 	}

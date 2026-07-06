@@ -114,4 +114,31 @@ describe("openai-completions reasoning passthrough", () => {
 		const params = await captureOpenAI(openaiModel(), "minimal");
 		expect(params.reasoning_effort).toBe("minimal");
 	});
+
+	it("sends reasoning_effort:none on off for official OpenAI (gpt-5 disable)", async () => {
+		const params = await captureOpenAI(openaiModel(), undefined);
+		expect(params.reasoning_effort).toBe("none");
+	});
+
+	function genericDeepseekModel(): Model<"openai-completions"> {
+		return {
+			id: "deepseek-reasoner",
+			name: "deepseek-reasoner",
+			api: "openai-completions",
+			provider: "deepseek",
+			baseUrl: "https://api.deepseek.com/v1",
+			reasoning: true,
+			input: ["text"],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: 128_000,
+			maxTokens: 8192,
+		};
+	}
+
+	it("omits reasoning_effort on off for non-OpenAI reasoning endpoints (none unsupported)", async () => {
+		const params = await captureOpenAI(genericDeepseekModel(), undefined);
+		// DeepSeek / gateways / vLLM reject or ignore "none"; off must omit the field
+		// so the backend falls back to its non-thinking default.
+		expect(params.reasoning_effort).toBeUndefined();
+	});
 });

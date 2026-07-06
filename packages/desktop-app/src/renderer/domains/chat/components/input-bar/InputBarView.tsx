@@ -15,6 +15,7 @@ import { ExecutionModeSelector } from "../ExecutionModeSelector";
 import { ContextRing } from "../ContextRing";
 import { QuestionPanel } from "../QuestionPanel";
 import { SendButton } from "../SendButton";
+import { AppshotCard } from "../AppshotCard";
 import { InputBarBackground } from "./InputBarBackground";
 import { InputBarCapsule } from "./InputBarCapsule";
 import { InputBarToolbarButton } from "./InputBarToolbarButton";
@@ -165,6 +166,17 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 													tone="primary"
 													onRemove={model.actions.removeEditImage}
 												/>
+											)}
+											{model.appshotAttachment && (
+												<motion.div
+													key="appshot-capsule"
+													initial={IMAGE_INITIAL}
+													animate={IMAGE_ANIMATE}
+													exit={IMAGE_INITIAL}
+													transition={SPRING}
+												>
+													<AppshotCard data={model.appshotAttachment} onRemove={model.actions.removeAppshot} />
+												</motion.div>
 											)}
 											{model.selectedSkill && (
 												<InputBarCapsule

@@ -10,3 +10,6 @@
 
 # 内置插件 zip 解压后的开发 staging
 /.artifacts/
+
+# appshot-helper 编译产物（scripts/build-appshot-helper.js 生成）
+/resources/appshot/

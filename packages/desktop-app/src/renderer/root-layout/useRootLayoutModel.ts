@@ -1,5 +1,5 @@
 import { useMatches, useNavigate } from "@tanstack/react-router";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { getDefaultStore, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../domains/auth/hooks/useAuth";
 import { useAppInit } from "../domains/chat/hooks/useAppInit";
@@ -15,15 +15,19 @@ import { useRunningSessionsSync } from "../shared/hooks/useRunningSessionsSync";
 import { useGlobalShortcuts } from "../shared/hooks/useShortcuts";
 import { useTheme } from "../shared/hooks/useTheme";
 import { useUpdaterInit } from "../shared/hooks/useUpdaterInit";
+import { i18n } from "../shared/i18n";
 import {
 	activeSessionAtom,
+	appshotAttachmentAtom,
 	defaultConversationCwdAtom,
+	focusInputRequestAtom,
 	lastActiveSessionAtom,
 	pendingQuestionsAtom,
 	sandboxPermissionDrawerAtom,
 	scheduledSessionPathsAtom,
 	sidebarCollapsedAtom,
 } from "../shared/store/atoms";
+import { showToast } from "../shared/store/toast-atoms";
 import type { RootLayoutModel } from "./types";
 
 type SessionRestoreState = "pending" | "restoring" | "complete";
@@ -163,6 +167,42 @@ export function useRootLayoutModel(): RootLayoutModel {
 			})();
 		});
 	}, [openSession, sendMessage, defaultConversationCwd]);
+
+	useEffect(() => {
+		const store = getDefaultStore();
+		const unsubCaptured = window.vetta.appshot.onCaptured((payload) => {
+			store.set(appshotAttachmentAtom, {
+				id: payload.id,
+				appName: payload.appName,
+				windowTitle: payload.windowTitle,
+				documentPath: payload.documentPath,
+				imagePath: payload.imagePath,
+				iconPath: payload.iconPath,
+				textPath: payload.textPath,
+				capturedAt: payload.capturedAt,
+			});
+			if (currentPath !== "/" && !currentPath.startsWith("/new-session") && defaultConversationCwd) {
+				void navigate({
+					to: "/new-session/$cwd",
+					params: { cwd: encodeURIComponent(defaultConversationCwd) },
+				});
+			}
+			store.set(focusInputRequestAtom, (previous) => previous + 1);
+		});
+		const unsubCaptureError = window.vetta.appshot.onCaptureError((payload) => {
+			const message =
+				payload.reason === "self-capture"
+					? i18n.t("chat:appshot.errorSelfCapture")
+					: payload.reason === "no-permission"
+						? i18n.t("chat:appshot.errorNoPermission")
+						: i18n.t("chat:appshot.errorHelperFailed");
+			showToast({ variant: "warning", message });
+		});
+		return () => {
+			unsubCaptured();
+			unsubCaptureError();
+		};
+	}, [currentPath, defaultConversationCwd, navigate]);
 
 	const confirmationQueueRef = useRef<
 		Parameters<Parameters<typeof window.vetta.session.onConfirmationRequest>[0]>[0][]

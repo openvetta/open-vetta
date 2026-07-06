@@ -27,6 +27,7 @@ import { FILE_PROTOCOL_PRIVILEGE, registerFileProtocolHandler } from "./file-pro
 import { fixPath } from "./fix-path.js";
 import { initAppLanguage } from "./i18n/index.js";
 import { getImHost } from "./im-host/index.js";
+import { syncAppshotGesture } from "./ipc/appshot.js";
 import { persistVettaCliPaths } from "./ipc/fs.js";
 import { registerI18nIpc } from "./ipc/i18n.js";
 import {
@@ -46,7 +47,7 @@ import { startPetIdleGuard } from "./pet/pet-idle-guard.js";
 import { initializePetWindow } from "./pet-window.js";
 import { PLUGIN_PROTOCOL_PRIVILEGES, registerPluginProtocols } from "./plugins/plugin-protocol.js";
 import { discoverSystemPlugins } from "./plugins/plugin-store.js";
-import { stopQuickPanelTrigger } from "./quickpanel-trigger.js";
+import { stopAllUiohookConsumers } from "./quickpanel-trigger.js";
 import { createQuickPanelWindow } from "./quickpanel-window.js";
 import { disposeSharedRuntime, getSharedRuntime } from "./runtime.js";
 import { getRuntimeManager } from "./runtimes/manager.js";
@@ -557,6 +558,10 @@ if (!gotSingleLock) {
 		void syncQuickPanelTrigger().catch((err) => {
 			mainLog.error("failed to sync quick panel trigger", err);
 		});
+		// Appshot：据配置启停「双键同按」手势监听（与快捷面板共享 uiohook 单例）。
+		void syncAppshotGesture().catch((err) => {
+			mainLog.error("failed to sync appshot gesture", err);
+		});
 
 		try {
 			const actionRuntime = createAppActionRuntime(actionApprovalBroker, batchTaskService, schedulerService);
@@ -670,8 +675,8 @@ app.on("before-quit", async (event) => {
 	(app as typeof app & { isQuitting?: boolean }).isQuitting = true;
 	event.preventDefault();
 
-	// 退出前停止快捷面板的原生双击监听（避免 uiohook 线程残留）。
-	stopQuickPanelTrigger();
+	// 退出前注销全部全局键盘监听消费者（快捷面板双击 + appshot 双键同按），避免 uiohook 线程残留。
+	stopAllUiohookConsumers();
 
 	const host = getImHost();
 	if (host.getStatus().sidecarPid) {

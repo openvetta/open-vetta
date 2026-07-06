@@ -249,6 +249,17 @@ if (process.platform === "darwin") {
 	);
 }
 
+// macOS appshot: swiftc 编译 "Vetta Computer Use.app" 直接落到 staging appshot/，
+// 由 resolveExtraResources 带进 Resources/appshot/（filter "**/*" 递归带入
+// .app bundle 内部结构）。仅 darwin host 可编译。
+if (process.platform === "darwin") {
+	execFileSync(
+		"node",
+		[join(import.meta.dirname, "build-appshot-helper.js"), "--out", join(buildStageDir, "appshot")],
+		{ stdio: "inherit" },
+	);
+}
+
 for (const { dep, dir } of externalDepInfos) {
 	stageDepTree(dep, dir, join(buildStageDir, "node_modules", dep));
 }
@@ -598,6 +609,14 @@ function resolveExtraResources() {
 			from: "sandbox",
 			to: "sandbox",
 			filter: sandboxFilters,
+		});
+	}
+	// "Vetta Computer Use.app" 仅 darwin 目标需要，且仅 darwin host 能编译（见上方 staging）。
+	if (resolvePlatformFamilies().has("darwin") && process.platform === "darwin") {
+		extraResources.push({
+			from: "appshot",
+			to: "appshot",
+			filter: ["**/*"],
 		});
 	}
 	return extraResources;

@@ -15,7 +15,6 @@ import { SETTINGS_SECTION } from "../registry";
 
 type QuickPanelBehavior = "foreground" | "background";
 type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
-
 function ShortcutRecorder({
 	value,
 	onChange,

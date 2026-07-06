@@ -1,15 +1,17 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { ipcMain, Notification, shell, systemPreferences } from "electron";
+import { ipcMain, Notification, shell } from "electron";
+import { checkHelperPermissions } from "../appshot/appshot-service.js";
 
-export type PermissionKind = "full-disk-access" | "accessibility" | "notifications";
+export type PermissionKind = "full-disk-access" | "accessibility" | "notifications" | "screen-recording";
 export type PermissionStatus = "granted" | "denied" | "unknown";
 
 interface PermissionsSnapshot {
 	fullDiskAccess: PermissionStatus;
 	accessibility: PermissionStatus;
 	notifications: PermissionStatus;
+	screenRecording: PermissionStatus;
 }
 
 const CHANNELS = {
@@ -22,6 +24,7 @@ const PANE_URLS: Record<PermissionKind, string> = {
 	"full-disk-access": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
 	accessibility: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
 	notifications: "x-apple.systempreferences:com.apple.preference.notifications",
+	"screen-recording": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
 };
 
 // 受 TCC 保护的探测目标。优先选机器上一定存在的路径；
@@ -52,9 +55,14 @@ async function checkFullDiskAccess(): Promise<PermissionStatus> {
 	return sawDenied ? "denied" : "unknown";
 }
 
-function checkAccessibility(): PermissionStatus {
-	// 第二参 false：仅查询，不弹系统授权框
-	return systemPreferences.isTrustedAccessibilityClient(false) ? "granted" : "denied";
+// accessibility / screenRecording 现在查的是独立 TCC 主体「Vetta Computer Use」helper 的权限
+// （非本 Electron 进程），单一来源为 appshot-service.ts 的 checkHelperPermissions。
+async function checkHelperTccPermissions(): Promise<Pick<PermissionsSnapshot, "accessibility" | "screenRecording">> {
+	const { accessibility, screenRecording } = await checkHelperPermissions();
+	return {
+		accessibility: accessibility ? "granted" : "denied",
+		screenRecording: screenRecording ? "granted" : "denied",
+	};
 }
 
 function checkNotifications(): PermissionStatus {
@@ -66,14 +74,19 @@ function checkNotifications(): PermissionStatus {
 
 async function snapshot(): Promise<PermissionsSnapshot> {
 	if (process.platform !== "darwin") {
-		return { fullDiskAccess: "unknown", accessibility: "unknown", notifications: "unknown" };
+		return {
+			fullDiskAccess: "unknown",
+			accessibility: "unknown",
+			notifications: "unknown",
+			screenRecording: "unknown",
+		};
 	}
-	const [fullDiskAccess, accessibility, notifications] = await Promise.all([
+	const [fullDiskAccess, helperPermissions, notifications] = await Promise.all([
 		checkFullDiskAccess(),
-		Promise.resolve(checkAccessibility()),
+		checkHelperTccPermissions(),
 		Promise.resolve(checkNotifications()),
 	]);
-	return { fullDiskAccess, accessibility, notifications };
+	return { fullDiskAccess, notifications, ...helperPermissions };
 }
 
 export function registerPermissionsIpc(): () => void {

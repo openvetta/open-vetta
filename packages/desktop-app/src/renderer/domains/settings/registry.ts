@@ -8,6 +8,8 @@ export interface SettingsTabRegistration {
 	personalOnly?: boolean;
 	requireAuth?: boolean;
 	macOnly?: boolean;
+	/** 侧栏标签显示 BETA 徽标 */
+	beta?: boolean;
 }
 
 export interface SettingsSectionRegistration {
@@ -29,6 +31,14 @@ export const SETTINGS_TABS: readonly SettingsTabRegistration[] = [
 	// { key: "team", label: "团队管理", labelKey: "tabTeam", icon: "icon-[mdi--account-group-outline]", personalOnly: true },
 	{ key: "archive", label: "已归档", labelKey: "tabArchive", icon: "icon-[mdi--archive-outline]" },
 	{ key: "shortcuts", label: "快捷键", labelKey: "tabShortcuts", icon: "icon-[mdi--keyboard-outline]" },
+	{
+		key: "appshot",
+		label: "应用快照",
+		labelKey: "tabAppshot",
+		icon: "icon-[mdi--monitor-screenshot]",
+		macOnly: true,
+		beta: true,
+	},
 	{ key: "environment", label: "应用环境", labelKey: "tabEnvironment", icon: "icon-[mdi--package-variant-closed]" },
 	{ key: "plugins", label: "插件设置", labelKey: "tabPlugins", icon: "icon-[mdi--puzzle-outline]" },
 	{ key: "knowledge", label: "知识库设置", labelKey: "tabKnowledge", icon: "icon-[mdi--database-outline]" },
@@ -78,6 +88,8 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "webhook", id: "webhook-channels", title: "渠道列表", titleKey: "section_webhook-channels" },
 	{ tab: "shortcuts", id: "shortcuts-global", title: "全局快捷键", titleKey: "section_shortcuts-global" },
 	{ tab: "shortcuts", id: "shortcuts-quickpanel", title: "快捷面板", titleKey: "section_shortcuts-quickpanel" },
+	{ tab: "appshot", id: "appshot-gesture", title: "触发快捷键", titleKey: "section_appshot-gesture" },
+	{ tab: "appshot", id: "appshot-permissions", title: "权限", titleKey: "section_appshot-permissions" },
 	{ tab: "archive", id: "archived-list", title: "归档列表", titleKey: "section_archived-list" },
 	{ tab: "context", id: "agent-personalization", title: "个性化", titleKey: "section_agent-personalization" },
 	{ tab: "context", id: "agent-images", title: "图片", titleKey: "section_agent-images" },

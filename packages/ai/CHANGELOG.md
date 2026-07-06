@@ -12,6 +12,7 @@
 
 ### Fixed
 
+- 修复通过通用 `openai-completions` 通道接入的推理型 DeepSeek 模型（在 admin 里当普通 openai-completions 模型 + 勾选 reasoning 配置，而非内置 `openai-completions-deepseek`）思考档位选「关闭」仍然思考的回归。上一次改动把通用分支的「off」无条件归一为 `reasoning_effort: "none"` 下发给所有端点，但 `none` 是 OpenAI gpt-5 系专有的关思考值，DeepSeek / 聚合网关 / vLLM 等后端不认、直接忽略，导致思考关不掉。现仅在 `api.openai.com` 官方端点下发 `none`，其余端点的「off」恢复为省略 `reasoning_effort` 字段，让后端回落到非思考默认。
 - 修复自建 vLLM / SGLang 部署的 Qwen 模型思考档位选「关闭」仍然思考的回归。`qwen` thinkingFormat 分支此前只下发顶层 `enable_thinking`，而自建 vLLM/SGLang 只认 `chat_template_kwargs.enable_thinking`（顶层参数被静默丢弃），关闭指令对这类后端从未生效——之前是靠同时下发的 `reasoning_effort: "none"` 关掉的，`reasoning_effort: "none"` 被移除后彻底失效。改为同时下发顶层 `enable_thinking` 与 `chat_template_kwargs.enable_thinking`，兼顾 DashScope（读顶层）与自建 vLLM/SGLang（读 chat_template_kwargs）。
 - 修复通过通用 `openai-completions` 通道接入的自定义推理模型（如自建端点上的 qwen3.6）报 `400 Unexpected message role` 的问题。原 `detectCompat` 对所有非"已知非标准"端点默认 `supportsDeveloperRole: true`，导致带 `reasoning` 的模型把系统提示词以 OpenAI 专有的 `developer` 角色下发，而多数 OpenAI 兼容后端（vLLM、SGLang、Qwen、llama.cpp 等）的 chat template 只认 system/user/assistant/tool，直接 400。改为仅对真正支持 `developer` 的端点（`openai` provider、`github-copilot`、`api.openai.com`）默认开启，其余端点回落到通用的 `system` 角色。
 - 修复 `openai-completions` provider 把 `reasoning_effort: "minimal"` 原样下发给不支持该档位的后端（DeepSeek、聚合网关、vLLM 等，仅接受 low/medium/high/max/xhigh）导致 400 的问题。`minimal` 是 OpenAI gpt-5 / Responses API 专有档位，现仅在 `api.openai.com` 官方端点保留，其余端点降级为 `low`，使请求最轻量思考的调用方（自动标题、输入预测）优雅降级而非失败。
