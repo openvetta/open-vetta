@@ -108,6 +108,7 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 	const [currentDir, setCurrentDir] = useState(cwd);
 	const [entries, setEntries] = useState<FsEntry[]>([]);
 	const [allFiles, setAllFiles] = useState<FsFileRef[]>([]);
+	const [filesLoaded, setFilesLoaded] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -144,8 +145,12 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 	useEffect(() => {
 		if (!open) return;
 		let cancelled = false;
+		setFilesLoaded(false);
 		void window.vetta.fs.listFilesRecursive(cwd).then((files) => {
-			if (!cancelled) setAllFiles(files);
+			if (!cancelled) {
+				setAllFiles(files);
+				setFilesLoaded(true);
+			}
 		});
 		return () => {
 			cancelled = true;
@@ -260,6 +265,14 @@ export function AtPanel({ open, onClose, onSelect, filter, cwd }: AtPanelProps):
 
 	// Relative path display for breadcrumb
 	const relDir = currentDir.startsWith(cwd) ? currentDir.slice(cwd.length) || "/" : currentDir;
+
+	// 搜索模式下，文件列表已加载完成且匹配为 0 时，关掉面板，
+	// 避免空面板遮挡用户继续输入，也确保 Enter 不被 atOpen 拦截。
+	useEffect(() => {
+		if (open && isSearching && filesLoaded && allItems.length === 0) {
+			onClose();
+		}
+	}, [open, isSearching, filesLoaded, allItems.length, onClose]);
 
 	return (
 		<AnimatePresence>
