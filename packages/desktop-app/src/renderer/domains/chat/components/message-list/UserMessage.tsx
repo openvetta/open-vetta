@@ -302,7 +302,7 @@ export const UserMessage = memo(function UserMessage({
 
 	return (
 		<motion.div
-			className="group/user relative -mb-8 flex min-w-0 justify-end pb-8 hover:z-20"
+			className="group/user flex min-w-0 justify-end"
 			initial={shouldAnimateIn ? HIDDEN_VISUAL_STATE : false}
 			animate={shouldHoldHidden ? HIDDEN_VISUAL_STATE : VISIBLE_VISUAL_STATE}
 			transition={ENTRY_TRANSITION}
@@ -353,7 +353,7 @@ export const UserMessage = memo(function UserMessage({
 					</div>
 				)}
 				{copyText && (
-					<div className="pointer-events-none absolute right-0 top-full z-30 mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
+					<div className="pointer-events-none mt-1 flex h-6 items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
 						{message.timestamp && <RelativeTimeLabel endedAt={message.timestamp} />}
 						{isLastUserMessage && <EditButton onClick={handleEdit} />}
 						<CopyButton getText={() => copyText} />
