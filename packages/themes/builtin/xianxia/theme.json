@@ -21,6 +21,7 @@
 	"capabilities": [
 		"appearance",
 		"component:app.background",
-		"component:chat.inputBarBackground"
+		"component:chat.inputBarBackground",
+		"page:sanctum"
 	]
 }

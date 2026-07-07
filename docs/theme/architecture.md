@@ -203,6 +203,30 @@ Region 替换不是唯一方式。主题如果只是替换一个按钮，不应�
 
 Region props 应该只包含稳定 model、公开 actions 和必要样式扩展，不暴露内部 store、router 或 IPC。Region 负责组合，不负责重新实现数据层。
 
+### Theme Page
+
+Theme Page 用于主题新增自己的页面，而不是替换宿主已有页面。
+
+主题页面由 `ThemeModule.pages` 声明，宿主只提供固定命名空间路由：
+
+```txt
+/theme/$themeId/$pageId
+```
+
+主题不能向 TanStack Router 动态注入任意路由，也不能覆盖 `/settings`、`/skills`、`/automation` 等宿主页面路径。这样可以保持 router、权限、全局浮层和错误回退仍由 desktop-app 管理。
+
+页面覆盖范围由 `layout` 受控声明：
+
+```ts
+type ThemePageLayout = "content" | "main" | "app";
+```
+
+- `content`：默认值。只替换主内容区，保留侧边栏和 `PageHeader`。
+- `main`：替换主区域，隐藏 `PageHeader`，保留侧边栏。
+- `app`：替换 AppFrame 内的主要内容，隐藏侧边栏和 `PageHeader`，但仍保留宿主 provider、主题背景、ErrorBoundary 和 `RootGlobalOverlays`。
+
+页面组件只能通过 SDK 暴露的 public model hook 和 props 获取能力，不应直接访问内部 atom、router 或 IPC。主题页入口可由宿主侧边栏根据 `pages[].nav` 自动展示。
+
 ### Component Override
 
 Component override 用于替换更小的 UI 构件，例如：
@@ -248,6 +272,7 @@ interface ThemeModule {
   appearance?: ThemeAppearance;
   regions?: ThemeRegionRegistry;
   components?: ThemeComponentRegistry;
+  pages?: readonly ThemePageDefinition[];
 }
 ```
 

@@ -1,4 +1,5 @@
 import type { ThemeAppearance } from "../appearance";
+import type { ThemePageDefinition } from "../pages";
 
 export interface ThemeMeta {
 	readonly id: string;
@@ -19,6 +20,7 @@ export interface ThemeModule {
 	readonly appearance?: ThemeAppearance;
 	readonly components?: Partial<ThemeComponentRegistry>;
 	readonly meta: ThemeMeta;
+	readonly pages?: readonly ThemePageDefinition[];
 	readonly regions?: Partial<ThemeRegionRegistry>;
 }
 

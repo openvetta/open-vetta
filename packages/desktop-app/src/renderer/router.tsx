@@ -12,6 +12,7 @@ import { DownloadsPage } from "./domains/downloads/components/DownloadsPage";
 import { KnowledgeBasePage } from "./domains/knowledge-base/components/KnowledgeBasePage";
 import { KnowledgeBaseListPage } from "./domains/knowledge-base/components/KnowledgeBaseListPage";
 import { RouteErrorPage } from "./shared/components/RouteErrorPage";
+import { ThemePageRoute, THEME_PAGE_ROUTE_PATH } from "./shared/theme/pages";
 
 const rootRoute = createRootRoute({
 	component: RootLayout,
@@ -93,6 +94,12 @@ const sessionViewerRoute = createRoute({
 	component: SessionViewerPage,
 });
 
+const themePageRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: THEME_PAGE_ROUTE_PATH,
+	component: ThemePageRoute,
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	automationRoute,
@@ -105,6 +112,7 @@ const routeTree = rootRoute.addChildren([
 	downloadsRoute,
 	newSessionRoute,
 	sessionViewerRoute,
+	themePageRoute,
 ]);
 
 export const router = createRouter({

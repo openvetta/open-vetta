@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { useThemeSurface } from "@vetta/theme-sdk";
 import { ThemeSurface, type NewSessionGuidingWordsProps } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
+import type { JSX } from "react";
 import { xianxiaAssets } from "../assets";
 
 export function XianxiaGuidingWords({

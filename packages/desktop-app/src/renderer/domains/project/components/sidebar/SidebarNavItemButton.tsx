@@ -15,13 +15,15 @@ export interface SidebarNavItemButtonProps extends Omit<ComponentPropsWithoutRef
 export const SidebarNavItemButton = forwardRef<HTMLButtonElement, SidebarNavItemButtonProps>(
 	function SidebarNavItemButton({ className, classNames, item, onClick, ...props }, ref): JSX.Element {
 		const { t } = useTranslation("project");
+		const label = item.labelKey ? t(item.labelKey) : item.label;
+		const title = item.titleLabelKey ? t(item.titleLabelKey) : item.title;
 
 		return (
 			<button
 				ref={ref}
 				type="button"
 				onClick={onClick}
-				title={item.titleLabelKey ? t(item.titleLabelKey) : undefined}
+				title={title}
 				className={cn(
 					"no-drag relative z-20 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors",
 					item.active ? "font-semibold text-foreground" : "text-foreground hover:bg-accent/50",
@@ -30,7 +32,7 @@ export const SidebarNavItemButton = forwardRef<HTMLButtonElement, SidebarNavItem
 				{...props}
 			>
 				<span className={cn(item.icon, "relative z-10 h-4 w-4 shrink-0", classNames?.icon)} />
-				<span className={cn("relative z-10", classNames?.label)}>{t(item.labelKey)}</span>
+				<span className={cn("relative z-10", classNames?.label)}>{label}</span>
 				{item.badge && (
 					<span
 						className={cn(

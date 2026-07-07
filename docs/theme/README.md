@@ -36,6 +36,7 @@
 - `PageHeader` 已从 `App.tsx` 拆出，并接入 `app.pageHeader` region/surface 与 `app.pageHeaderSidebarTrigger` 覆盖点。
 - `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 已作为 SDK facade hook 暴露，真实实现由 desktop-app 通过 `ThemeHostProvider` 注入。
 - Root global overlays 已开始按 connected container / props-driven view 拆分，审批、登录、文件预览、流转、更新提示等浮层已接入 view override 和 surface slot。
+- 主题模块已支持声明自有页面，desktop-app 通过固定 `/theme/$themeId/$pageId` 路由承载，并支持 `content` / `main` / `app` 三档受控覆盖范围。
 
 当前仍未实现：
 
