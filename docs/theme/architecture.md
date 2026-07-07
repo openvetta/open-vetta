@@ -225,7 +225,7 @@ type ThemePageLayout = "content" | "main" | "app";
 - `main`：替换主区域，隐藏 `PageHeader`，保留侧边栏。
 - `app`：替换 AppFrame 内的主要内容，隐藏侧边栏和 `PageHeader`，但仍保留宿主 provider、主题背景、ErrorBoundary 和 `RootGlobalOverlays`。
 
-页面组件只能通过 SDK 暴露的 public model hook 和 props 获取能力，不应直接访问内部 atom、router 或 IPC。主题页入口可由宿主侧边栏根据 `pages[].nav` 自动展示。
+页面组件只能通过 SDK 暴露的 public model hook 和 props 获取能力，不应直接访问内部 atom、router 或 IPC。主题页导航数据通过 `useThemePagesModel()` 暴露；默认侧边栏不主动插入主题页入口。需要把主题页插入侧边栏时，主题应替换 `sidebar.navigation` 子组件，在替代组件里复用公开的 `SidebarNavigation` / `SidebarNavItemButton`，将 `useSidebarModel()` 的默认 items 与 `useThemePagesModel()` 的主题页 items 合并后渲染。
 
 ### Component Override
 
@@ -249,6 +249,7 @@ components: {
   "app.windowControls"?: ComponentType<WindowControlsComponentProps>
   "app.windowControlButton"?: typeof WindowControlButton
   "sidebar.navItem"?: typeof SidebarNavItemButton
+  "sidebar.navigation"?: ComponentType<SidebarNavigationProps>
   "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger
 }
 ```

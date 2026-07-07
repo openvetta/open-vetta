@@ -1,4 +1,5 @@
 import { cn } from "@shared/lib/utils";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { SidebarPanel } from "./SidebarPanel";
 import { SidebarBottomBar } from "./SidebarBottomBar";
@@ -14,6 +15,8 @@ interface DefaultSidebarProps {
 }
 
 export function DefaultSidebar({ classNames, model, onOpenSession }: DefaultSidebarProps): JSX.Element {
+	const ThemedSidebarNavigation = useThemeComponent("sidebar.navigation", SidebarNavigation);
+
 	return (
 		<SidebarPanel
 			className={classNames?.panel}
@@ -42,7 +45,7 @@ export function DefaultSidebar({ classNames, model, onOpenSession }: DefaultSide
 			<div className={cn("relative shrink-0", classNames?.navigation)} data-theme-surface-root="sidebar.navigation">
 				<ThemeSurface slot="sidebar.navigation" />
 				<div className="relative z-10 overflow-hidden rounded-[inherit]">
-					<SidebarNavigation
+					<ThemedSidebarNavigation
 						classNames={{
 							indicator: classNames?.navIndicator,
 							item: classNames?.navItem,

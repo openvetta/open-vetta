@@ -1,12 +1,12 @@
 import { motion } from "motion/react";
-import type { RefCallback } from "react";
+import type { JSX, RefCallback } from "react";
 import { cn } from "@shared/lib/utils";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import type { NavIndicatorBounds, SidebarNavItem } from "./types";
 import { SidebarNavItemButton } from "./SidebarNavItemButton";
 
-interface SidebarNavigationProps {
+export interface SidebarNavigationProps {
 	className?: string;
 	classNames?: {
 		indicator?: string;

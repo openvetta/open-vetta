@@ -18,7 +18,9 @@ export default defineConfig({
 			publicPath: "auto",
 			dts: false,
 			shared: {
+				"@vetta/desktop-theme-ui/sidebar": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-sdk": { singleton: true, import: false, requiredVersion: "*" },
+				"@vetta/theme-sdk/pages": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-ui": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/ui": { singleton: true, import: false, requiredVersion: "*" },
 				"motion/react": { singleton: true, import: false, requiredVersion: "*" },

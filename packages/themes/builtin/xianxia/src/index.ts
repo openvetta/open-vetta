@@ -5,6 +5,7 @@ import { XianxiaGuidingWords } from "./components/XianxiaGuidingWords";
 import { XianxiaInputBarBackground } from "./components/XianxiaInputBarBackground";
 import { XianxiaSceneCarousel, XianxiaSkillBadgeRow } from "./components/XianxiaNewSession";
 import { XianxiaSanctumPage } from "./components/XianxiaSanctumPage";
+import { XianxiaSidebarNavigation } from "./components/XianxiaSidebarNavigation";
 import "./styles.css";
 
 export const xianxiaTheme: ThemeModule = {
@@ -21,6 +22,7 @@ export const xianxiaTheme: ThemeModule = {
 		"chat.newSessionGuidingWords": XianxiaGuidingWords,
 		"chat.newSessionSceneCarousel": XianxiaSceneCarousel,
 		"chat.newSessionSkillBadgeRow": XianxiaSkillBadgeRow,
+		"sidebar.navigation": XianxiaSidebarNavigation,
 	},
 	pages: [
 		{

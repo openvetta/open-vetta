@@ -109,6 +109,7 @@ components: {
   "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;
   "app.windowControls"?: ComponentType<WindowControlsComponentProps>;
   "app.windowControlButton"?: typeof WindowControlButton;
+  "sidebar.navigation"?: ComponentType<SidebarNavigationProps>;
   "sidebar.navItem"?: typeof SidebarNavItemButton;
   "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger;
 }
@@ -248,6 +249,8 @@ Theme SDK 是主题唯一应依赖的应用协议 API。它不承载具体 UI �
 - 不绑定应用内部数据的布局 primitive。
 - 接收 `model` / `actions` props 的官方默认 view 组件。
 
+desktop-app 可以额外提供窄口径的官方 UI primitive 出口，例如 `@vetta/desktop-theme-ui/sidebar`。这类出口只应导出稳定的 props-driven 子组件和类型，例如 `SidebarNavigation`、`SidebarNavItemButton`、`SidebarNavigationProps`、`SidebarNavItem`；不要从该出口导出完整 sidebar connected container 或会牵出整个领域依赖树的组件。
+
 具体主题组件应放在主题包内。新增主题不应修改 SDK；只有协议、registry、host 能力变化时才修改 SDK。
 
 UI 包导出组件时，要同步导出 props 类型。主题作者不应该通过 `ComponentProps<typeof X>` 猜 props。
@@ -286,6 +289,8 @@ export function ThemeSidebar(props: SidebarProps) {
 ```
 
 这样 hook 入口属于 SDK，UI 组件仍保持 props 驱动。
+
+如果只需要调整某个父组件的数据组合，不必替换完整 region。例如主题要把自己的页面插入侧边栏导航，可以替换 `sidebar.navigation`，在替代组件中调用 `useThemePagesModel()` 取得主题页导航数据，再复用 `SidebarNavigation` 渲染合并后的 items。这样既不污染 `useSidebarModel()`，也不要求主题重写整个 `DefaultSidebar`。
 
 新增 public model hook 时需要同时定义：
 

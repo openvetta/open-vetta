@@ -22,6 +22,7 @@
 		"appearance",
 		"component:app.background",
 		"component:chat.inputBarBackground",
+		"component:sidebar.navigation",
 		"page:sanctum"
 	]
 }
