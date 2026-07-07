@@ -11,9 +11,9 @@ import {
 	inputValueAtom,
 } from "@shared/store/atoms";
 import { pathBasename, pathNormalize } from "@shared/lib/utils";
+import { MarkdownContent } from "../blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "./MessageActions";
 import { AppshotCard, type AppshotCardData } from "../AppshotCard";
-import { TextBlockView } from "../blocks/TextBlock";
 
 const HIDDEN_VISUAL_STATE = { opacity: 0, scale: 0.82, x: 14, y: 12 };
 const VISIBLE_VISUAL_STATE = { opacity: 1, scale: 1, x: 0, y: 0 };
@@ -200,16 +200,20 @@ function UserMessageText({ text, shouldAnimateIn, shouldHoldHidden }: UserMessag
 
 	return (
 		<div
-			className="relative overflow-hidden"
+			className="relative min-w-0 max-w-full overflow-hidden"
 			style={{ maxHeight: expanded ? undefined : USER_MESSAGE_COLLAPSED_MAX_HEIGHT }}
 		>
 			<motion.div
 				ref={contentRef}
+				className="min-w-0 max-w-full"
 				initial={shouldAnimateIn ? TEXT_INITIAL : false}
 				animate={shouldHoldHidden ? TEXT_INITIAL : TEXT_VISIBLE}
 				transition={TEXT_TRANSITION}
 			>
-				<TextBlockView text={text} />
+				<MarkdownContent
+					text={text}
+					className="max-w-full overflow-x-auto [overflow-wrap:anywhere] [&_code]:break-all"
+				/>
 			</motion.div>
 			{canExpand && !expanded && (
 				<div className="absolute inset-x-0 bottom-0 flex h-20 items-end justify-center rounded-b-2xl bg-gradient-to-t from-secondary via-secondary/80 to-secondary/0 pb-1.5">
@@ -298,14 +302,14 @@ export const UserMessage = memo(function UserMessage({
 
 	return (
 		<motion.div
-			className="group/user flex justify-end"
+			className="group/user relative z-0 flex min-w-0 justify-end hover:z-20"
 			initial={shouldAnimateIn ? HIDDEN_VISUAL_STATE : false}
 			animate={shouldHoldHidden ? HIDDEN_VISUAL_STATE : VISIBLE_VISUAL_STATE}
 			transition={ENTRY_TRANSITION}
 			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
 			style={MESSAGE_STYLE}
 		>
-			<div className="relative flex max-w-[72%] flex-col items-end before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
+			<div className="relative flex min-w-0 max-w-[72%] flex-col items-end before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
 				{appshotData && (
 					<div className="mb-1.5 flex justify-end">
 						<AppshotCard data={appshotData} />
@@ -349,7 +353,7 @@ export const UserMessage = memo(function UserMessage({
 					</div>
 				)}
 				{copyText && (
-					<div className="pointer-events-none absolute right-0 top-full mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
+					<div className="pointer-events-none absolute right-0 top-full z-30 mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
 						{message.timestamp && <RelativeTimeLabel endedAt={message.timestamp} />}
 						{isLastUserMessage && <EditButton onClick={handleEdit} />}
 						<CopyButton getText={() => copyText} />

@@ -254,11 +254,12 @@ function useStreamingDisplayText(text: string, active: boolean): StreamingDispla
 	return { displayText, animateChunks };
 }
 
-interface TextBlockProps {
+interface MarkdownContentProps {
 	text: string;
 	/** 仅当本 block 是「正在 streaming 消息」的最后一个 text block 时为 true，
 	 * 启用分块渐现效果。 */
 	isStreamingTail?: boolean;
+	className?: string;
 }
 
 /**
@@ -266,7 +267,7 @@ interface TextBlockProps {
  * delta batching in useSessionManager (~16fps), so we render directly
  * without internal debounce to avoid layout jumps during streaming.
  */
-export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail = false }: TextBlockProps) {
+export const MarkdownContent = memo(function MarkdownContent({ text, isStreamingTail = false, className }: MarkdownContentProps) {
 	const theme = useAtomValue(resolvedThemeAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
 	const setFilePreview = useSetAtom(filePreviewAtom);
@@ -421,7 +422,7 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 	}), [theme, openFilePreview, openUrlInBrowser]);
 
 	return (
-		<div className={`markdown-body break-words${animateChunks ? " markdown-streaming-tail" : ""}`}>
+		<div className={cn("markdown-body break-words", animateChunks && "markdown-streaming-tail", className)}>
 			<ReactMarkdown
 				remarkPlugins={remarkPlugins}
 				rehypePlugins={animateChunks ? streamingRehypePlugins : undefined}
@@ -432,3 +433,5 @@ export const TextBlockView = memo(function TextBlockView({ text, isStreamingTail
 		</div>
 	);
 });
+
+export const TextBlockView = MarkdownContent;
