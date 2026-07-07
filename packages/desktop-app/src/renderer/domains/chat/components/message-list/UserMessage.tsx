@@ -11,7 +11,7 @@ import {
 	inputValueAtom,
 } from "@shared/store/atoms";
 import { pathBasename, pathNormalize } from "@shared/lib/utils";
-import { MarkdownContent } from "../blocks/TextBlock";
+import { TextBlockView } from "../blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "./MessageActions";
 import { AppshotCard, type AppshotCardData } from "../AppshotCard";
 
@@ -210,7 +210,7 @@ function UserMessageText({ text, shouldAnimateIn, shouldHoldHidden }: UserMessag
 				animate={shouldHoldHidden ? TEXT_INITIAL : TEXT_VISIBLE}
 				transition={TEXT_TRANSITION}
 			>
-				<MarkdownContent
+				<TextBlockView
 					text={text}
 					className="max-w-full overflow-x-auto [overflow-wrap:anywhere] [&_code]:break-all"
 				/>
@@ -327,7 +327,7 @@ export const UserMessage = memo(function UserMessage({
 				)}
 				{displayText && (
 					<div
-						className="cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
+						className="min-w-0 max-w-full cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
 						style={{ wordBreak: "break-word" }}
 					>
 						<UserMessageText

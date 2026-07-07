@@ -24,7 +24,7 @@ interface TemplateRow {
 type ModelCost = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 /**
- * 价格摘要(元/百万 tokens):只展示模型实际配置了的价格项——
+ * 价格摘要($/百万 tokens):只展示模型实际配置了的价格项——
  * 输入(未命中) / 命中(缓存读) / 写入(缓存写,没有就不展示) / 输出。全 0 或无价返回 null。
  */
 function formatPrice(cost: ModelCost | undefined, t: (key: string) => string): string | null {
@@ -32,10 +32,10 @@ function formatPrice(cost: ModelCost | undefined, t: (key: string) => string): s
 	// 保留有效小数、去尾零:0.0029 不能被 toFixed(2) 抹成 0.00(与服务端对不上)。
 	const num = (n: number) => (Number.isInteger(n) ? String(n) : parseFloat(n.toFixed(6)).toString());
 	const parts: string[] = [];
-	if (cost.input) parts.push(`${t("costInput")} ¥${num(cost.input)}`);
-	if (cost.cacheRead) parts.push(`${t("costCacheRead")} ¥${num(cost.cacheRead)}`);
-	if (cost.cacheWrite) parts.push(`${t("costCacheWrite")} ¥${num(cost.cacheWrite)}`);
-	if (cost.output) parts.push(`${t("costOutput")} ¥${num(cost.output)}`);
+	if (cost.input) parts.push(`${t("costInput")} $${num(cost.input)}`);
+	if (cost.cacheRead) parts.push(`${t("costCacheRead")} $${num(cost.cacheRead)}`);
+	if (cost.cacheWrite) parts.push(`${t("costCacheWrite")} $${num(cost.cacheWrite)}`);
+	if (cost.output) parts.push(`${t("costOutput")} $${num(cost.output)}`);
 	if (parts.length === 0) return null;
 	return parts.join(" · ");
 }
