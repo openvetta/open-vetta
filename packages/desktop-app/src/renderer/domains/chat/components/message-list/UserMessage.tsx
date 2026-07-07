@@ -1,8 +1,10 @@
-import { memo } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import type { Transition } from "motion/react";
+import { useTranslation } from "react-i18next";
 import type { ChatMessage } from "@shared/store/atoms";
 import { pathBasename } from "@shared/lib/utils";
+import { MarkdownContent } from "../blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "./MessageActions";
 import { AppshotCard, type AppshotCardData } from "../AppshotCard";
 
@@ -21,6 +23,8 @@ const TEXT_TRANSITION = {
 	ease: [0.25, 0.1, 0.25, 1] as const,
 } satisfies Transition;
 const MESSAGE_STYLE = { originX: 1, originY: 1 };
+const COLLAPSED_LINES = 10;
+const COLLAPSED_MAX_HEIGHT = `${COLLAPSED_LINES * 1.6}em`;
 
 export type UserMessageEntryState = "static" | "hidden" | "enter";
 
@@ -88,6 +92,71 @@ function FileBadge({ path }: { path: string }): JSX.Element {
 	);
 }
 
+function UserMessageText({
+	text,
+	shouldAnimateIn,
+	shouldHoldHidden,
+}: {
+	text: string;
+	shouldAnimateIn: boolean;
+	shouldHoldHidden: boolean;
+}): JSX.Element {
+	const { t } = useTranslation("chat");
+	const contentRef = useRef<HTMLDivElement>(null);
+	const [expanded, setExpanded] = useState(false);
+	const [canExpand, setCanExpand] = useState(false);
+
+	const measureOverflow = useCallback(() => {
+		const content = contentRef.current;
+		if (!content) return;
+		const fontSize = Number.parseFloat(window.getComputedStyle(content).fontSize);
+		const collapsedHeight = fontSize * 1.6 * COLLAPSED_LINES;
+		setCanExpand(content.scrollHeight > collapsedHeight + 1);
+	}, []);
+
+	useLayoutEffect(() => {
+		setExpanded(false);
+		measureOverflow();
+		const content = contentRef.current;
+		if (!content) return;
+		const observer = new ResizeObserver(measureOverflow);
+		observer.observe(content);
+		return () => observer.disconnect();
+	}, [measureOverflow, text]);
+
+	return (
+		<div
+			className="relative min-w-0 max-w-full overflow-hidden"
+			style={{ maxHeight: expanded ? undefined : COLLAPSED_MAX_HEIGHT }}
+		>
+			<motion.div
+				ref={contentRef}
+				className="min-w-0 max-w-full"
+				initial={shouldAnimateIn ? TEXT_INITIAL : false}
+				animate={shouldHoldHidden ? TEXT_INITIAL : TEXT_VISIBLE}
+				transition={TEXT_TRANSITION}
+			>
+				<MarkdownContent
+					text={text}
+					className="max-w-full overflow-x-auto [overflow-wrap:anywhere] [&_code]:break-all"
+				/>
+			</motion.div>
+			{canExpand && !expanded && (
+				<div className="absolute inset-x-0 bottom-0 flex h-20 items-end justify-center rounded-b-2xl bg-gradient-to-t from-secondary via-secondary/80 to-secondary/0 pb-1.5">
+					<button
+						type="button"
+						onClick={() => setExpanded(true)}
+						className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[12px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:bg-background hover:text-foreground"
+					>
+						<span className="icon-[solar--alt-arrow-down-linear] h-3.5 w-3.5" />
+						<span>{t("messageList.userMessage.expand")}</span>
+					</button>
+				</div>
+			)}
+		</div>
+	);
+}
+
 interface UserMessageProps {
 	entryState: UserMessageEntryState;
 	message: ChatMessage;
@@ -110,14 +179,14 @@ export const UserMessage = memo(function UserMessage({
 
 	return (
 		<motion.div
-			className="group/user flex justify-end"
+			className="group/user relative z-0 flex min-w-0 justify-end hover:z-20"
 			initial={shouldAnimateIn ? HIDDEN_VISUAL_STATE : false}
 			animate={shouldHoldHidden ? HIDDEN_VISUAL_STATE : VISIBLE_VISUAL_STATE}
 			transition={ENTRY_TRANSITION}
 			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
 			style={MESSAGE_STYLE}
 		>
-			<div className="relative max-w-[72%] before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
+			<div className="relative flex min-w-0 max-w-[72%] flex-col items-end before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
 				{hasImages && (
 					<div className="mb-1.5 flex flex-wrap justify-end gap-1.5">
 						{message.images?.map((image, index) => (
@@ -141,7 +210,7 @@ export const UserMessage = memo(function UserMessage({
 				)}
 				{(body || hasBadges) && (
 					<div
-						className="rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
+						className="min-w-0 max-w-full rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
 						style={{ wordBreak: "break-word" }}
 					>
 						{hasBadges && (
@@ -155,14 +224,11 @@ export const UserMessage = memo(function UserMessage({
 							</div>
 						)}
 						{body && (
-							<motion.div
-								initial={shouldAnimateIn ? TEXT_INITIAL : false}
-								animate={shouldHoldHidden ? TEXT_INITIAL : TEXT_VISIBLE}
-								transition={TEXT_TRANSITION}
-								style={{ whiteSpace: "pre-wrap" }}
-							>
-								{body}
-							</motion.div>
+							<UserMessageText
+								text={body}
+								shouldAnimateIn={shouldAnimateIn}
+								shouldHoldHidden={shouldHoldHidden}
+							/>
 						)}
 					</div>
 				)}
@@ -175,7 +241,7 @@ export const UserMessage = memo(function UserMessage({
 					</div>
 				)}
 				{copyText && (
-					<div className="pointer-events-none absolute right-0 top-full mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
+					<div className="pointer-events-none absolute right-0 top-full z-30 mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
 						{message.timestamp && <RelativeTimeLabel endedAt={message.timestamp} />}
 						<CopyButton getText={() => copyText} />
 					</div>
