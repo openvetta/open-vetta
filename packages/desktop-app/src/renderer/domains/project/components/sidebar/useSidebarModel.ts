@@ -6,9 +6,12 @@ import {
 	sidebarFilterAtom,
 	sidebarWidthAtom,
 } from "@shared/store/atoms";
+import { isValidThemePageId, resolveThemePageTitle } from "@shared/theme/pages";
 import { useMatches, useNavigate } from "@tanstack/react-router";
+import { useThemeModule } from "@vetta/theme-sdk";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { NavIndicatorBounds, SidebarModel, SidebarNavItem, SidebarProps } from "./types";
 
 const MIN_WIDTH = 160;
@@ -62,6 +65,8 @@ export function useSidebarModel({
 	onCollapse,
 	floating = false,
 }: Pick<SidebarProps, "onCollapse" | "floating">): SidebarModel {
+	const theme = useThemeModule();
+	const { i18n } = useTranslation();
 	const filter = useAtomValue(sidebarFilterAtom);
 	const navigate = useNavigate();
 	const matches = useMatches();
@@ -116,7 +121,7 @@ export function useSidebarModel({
 	const [width, setWidth] = useAtom(sidebarWidthAtom);
 	const widthRef = useRef(width);
 	widthRef.current = width;
-	const navItems: SidebarNavItem[] = NAV_ITEMS.map((item) => {
+	const baseNavItems: SidebarNavItem[] = NAV_ITEMS.map((item) => {
 		if (item.type === "new-session") {
 			return {
 				key: item.type,
@@ -136,6 +141,24 @@ export function useSidebarModel({
 			active: isRouteActive(item.path, currentPath),
 		};
 	});
+	const themeNavItems: SidebarNavItem[] = [...(theme.pages ?? [])]
+		.filter((page) => isValidThemePageId(page.id))
+		.sort((left, right) => (left.nav?.order ?? 0) - (right.nav?.order ?? 0) || left.id.localeCompare(right.id))
+		.map((page) => {
+			const path = `/theme/${theme.meta.id}/${page.id}`;
+			const label = resolveThemePageTitle(page.title, i18n.language);
+			return {
+				key: path,
+				type: "theme-page",
+				themeId: theme.meta.id,
+				pageId: page.id,
+				label,
+				title: label,
+				icon: page.nav?.icon ?? "icon-[solar--widget-5-linear]",
+				active: currentPath === path,
+			};
+		});
+	const navItems: SidebarNavItem[] = [...baseNavItems, ...themeNavItems];
 	const activeNavIndex = navItems.findIndex((item) => item.active);
 
 	useLayoutEffect(() => {
@@ -202,6 +225,13 @@ export function useSidebarModel({
 		(item: SidebarNavItem) => {
 			if (item.type === "new-session") {
 				onNewChat();
+				return;
+			}
+			if (item.type === "theme-page" && item.themeId && item.pageId) {
+				void navigate({
+					to: "/theme/$themeId/$pageId",
+					params: { themeId: item.themeId, pageId: item.pageId },
+				});
 				return;
 			}
 			if (item.path) void navigate({ to: item.path });

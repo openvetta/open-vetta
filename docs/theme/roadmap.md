@@ -138,6 +138,23 @@ return <SidebarRenderer model={model} onOpenSession={props.onOpenSession} />;
 - `chatPage`
 - `settingsPage`
 
+## 阶段 5.5：Theme Page
+
+状态：最小闭环已接入。
+
+目标：
+
+- 主题可以声明自己的独立页面。
+- desktop-app 通过固定 `/theme/$themeId/$pageId` 路由承载页面，不允许主题动态注入任意路由。
+- 主题页支持 `content` / `main` / `app` 三档受控覆盖范围。
+- 侧边栏根据主题页面声明自动展示入口。
+
+暂不做：
+
+- 主题替换宿主已有页面路径。
+- 主题自定义任意 route path。
+- 主题接管全局浮层、router 或 IPC。
+
 ## 阶段 6：远程主题包
 
 远程主题包应在本地 API 稳定后再接入。

@@ -30,6 +30,7 @@ packages/themes/remote
 - `ThemeModule`、`ThemeMeta`。
 - `ThemeRegionRegistry`、`ThemeComponentRegistry`、`ThemeSurfaceRegistry`。
 - `ThemeProvider`、`useThemeRegion`、`useThemeComponent`。
+- 主题页面声明类型和受控 layout 协议。
 - `ThemeAppearance` 和 frame 配置协议。
 - `ThemeHostProvider`、host bridge 和 public model hook facade。
 - `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 这类主题可用 hook 入口。
@@ -126,6 +127,7 @@ packages/themes/
 - `appearance` 配置。
 - component override。
 - region override。
+- theme page。
 - 主题自己的资源、动画、DOM 效果、视频背景。
 - 主题自己的 i18n 资源。
 

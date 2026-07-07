@@ -25,6 +25,10 @@
 			"types": "./src/module/index.ts",
 			"import": "./src/module/index.ts"
 		},
+		"./pages": {
+			"types": "./src/pages/index.ts",
+			"import": "./src/pages/index.ts"
+		},
 		"./sidebar": {
 			"types": "./src/sidebar/index.ts",
 			"import": "./src/sidebar/index.ts"

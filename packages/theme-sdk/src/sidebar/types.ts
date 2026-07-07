@@ -50,10 +50,14 @@ export interface SidebarNavItem {
 	readonly badge?: string;
 	readonly icon: string;
 	readonly key: string;
-	readonly labelKey: SidebarLabelKey;
+	readonly label?: string;
+	readonly labelKey?: SidebarLabelKey;
+	readonly pageId?: string;
 	readonly path?: "/automation" | "/batch-tasks" | "/knowledge" | "/skills";
+	readonly themeId?: string;
+	readonly title?: string;
 	readonly titleLabelKey?: SidebarLabelKey;
-	readonly type: "new-session" | "route";
+	readonly type: "new-session" | "route" | "theme-page";
 }
 
 export interface NavIndicatorBounds {
