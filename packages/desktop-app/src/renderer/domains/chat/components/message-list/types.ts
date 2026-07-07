@@ -7,6 +7,7 @@ export interface MessageListProps {
 	isStreaming: boolean;
 	sessionId?: string | null;
 	onSend?: (overrideText?: string) => Promise<void>;
+	onAbort?: () => void;
 }
 
 export interface MessageListModel {

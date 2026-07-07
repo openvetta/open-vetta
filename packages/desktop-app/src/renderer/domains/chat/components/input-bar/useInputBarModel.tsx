@@ -148,10 +148,13 @@ export function useInputBarModel({
 				(slashOpen || atOpen) &&
 				(e.key === "ArrowDown" ||
 					e.key === "ArrowUp" ||
-					e.key === "Enter" ||
 					e.key === "Escape" ||
 					e.key === "Tab")
 			) {
+				e.preventDefault();
+				return;
+			}
+			if (slashOpen && e.key === "Enter") {
 				e.preventDefault();
 				return;
 			}

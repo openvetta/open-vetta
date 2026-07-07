@@ -56,9 +56,15 @@ export function useAssistantMessageModel({
 	const conclusionText = useMemo(() => {
 		const blocks = message.blocks ?? [];
 		if (blocks.length === 0) return (message.text ?? "").trim();
-		const lastProcessIndex = findLastProcessBlockIndex(blocks, customToolNames);
+		const foldData = getAssistantFoldData(blocks, customToolNames);
+		if (foldData) {
+			return foldData.outputBlocks
+				.map((block) => block.text.trim())
+				.filter(Boolean)
+				.join("\n\n");
+		}
+		if (findLastProcessBlockIndex(blocks, customToolNames) !== -1) return "";
 		return blocks
-			.slice(lastProcessIndex + 1)
 			.filter((block): block is TextBlock => block.type === "text")
 			.map((block) => block.text.trim())
 			.filter(Boolean)

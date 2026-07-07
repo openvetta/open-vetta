@@ -29,6 +29,7 @@ export function DefaultChatView({
 						isStreaming={model.isStreaming}
 						sessionId={model.sessionId}
 						onSend={onSend}
+						onAbort={onAbort}
 					/>
 					<InputBar onSend={onSend} onAbort={onAbort} onSendQueued={onSendQueued} />
 				</div>
