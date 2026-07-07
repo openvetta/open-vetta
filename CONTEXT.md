@@ -4,6 +4,16 @@ This is a living glossary. Each term is a deliberately-chosen canonical name for
 
 ## Glossary
 
+### 官方网站（site）
+
+Vetta 面向未登录访客的多页公开门户，首期只承载产品介绍、站点演示、客户端下载、套餐展示和登录入口；内容为门户自有展示内容，不对接后台套餐、支付、身份或发布数据。首期不承载账号中心、真实支付购买、真实安装包下载或客户端 SSO 授权完成态。
+_Avoid_: 把首期官方网站称为「用户前台系统」或「完整商业门户」——这会误导为已包含账号、支付、订阅管理全链路。
+
+### Google 登录
+
+用户用 Google 账号完成第三方登录的身份入口；首期官方网站只展示入口占位，不完成 OAuth 流程。
+_Avoid_: 叫「Gmail 登录」——Gmail 是邮箱服务，不是身份提供方。
+
 ### ToolTimingEntry
 
 A `SessionEntry` (parallel to `thinking_level_change` / `model_change`, not a `message`) written to a session's jsonl by `agent-session` at `tool_execution_end`. Carries `toolCallId`, `startedAt` (absolute ms), `durationMs`, and `phases` (relative offsets, see `phase`).

@@ -21,6 +21,7 @@
 		"packages/runtime-telemetry",
 		"packages/cli-app",
 		"packages/desktop-app",
+		"packages/site",
 		"packages/coding-agent/examples/extensions/with-deps",
 		"packages/coding-agent/examples/extensions/custom-provider-anthropic",
 		"packages/coding-agent/examples/extensions/custom-provider-gitlab-duo",
