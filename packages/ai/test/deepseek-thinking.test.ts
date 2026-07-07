@@ -58,6 +58,57 @@ async function capture(model: Model<"openai-completions-deepseek">, reasoning?: 
 	return (payload ?? mockState.lastParams) as any;
 }
 
+function zaiModel(api: "zai-openai-completions" | "zhipu-openai-completions"): Model<typeof api> {
+	return {
+		id: "glm-4.6",
+		name: "glm-4.6",
+		api,
+		provider: api === "zhipu-openai-completions" ? "zhipu" : "zai",
+		baseUrl:
+			api === "zhipu-openai-completions" ? "https://open.bigmodel.cn/api/paas/v4" : "https://api.z.ai/api/paas/v4",
+		reasoning: true,
+		input: ["text"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 1_000_000,
+		maxTokens: 8192,
+	};
+}
+
+async function captureZai(
+	model: Model<"zai-openai-completions" | "zhipu-openai-completions">,
+	reasoning?: string,
+): Promise<any> {
+	let payload: unknown;
+	await streamSimple(model, { messages: [{ role: "user", content: "hi", timestamp: Date.now() }] }, {
+		apiKey: "test",
+		reasoning,
+		onPayload: (params: unknown) => {
+			payload = params;
+		},
+	} as SimpleStreamOptions).result();
+	return (payload ?? mockState.lastParams) as any;
+}
+
+describe("z.ai / zhipu openai-completions thinking", () => {
+	it("enables thinking and passes GLM effort verbatim", async () => {
+		const params = await captureZai(zaiModel("zai-openai-completions"), "max");
+		expect(params.thinking).toEqual({ type: "enabled" });
+		expect(params.reasoning_effort).toBe("max");
+	});
+
+	it("supports zhipu with the same GLM thinking format", async () => {
+		const params = await captureZai(zaiModel("zhipu-openai-completions"), "minimal");
+		expect(params.thinking).toEqual({ type: "enabled" });
+		expect(params.reasoning_effort).toBe("minimal");
+	});
+
+	it("explicitly disables thinking and omits effort when reasoning is off", async () => {
+		const params = await captureZai(zaiModel("zai-openai-completions"), undefined);
+		expect(params.thinking).toEqual({ type: "disabled" });
+		expect(params.reasoning_effort).toBeUndefined();
+	});
+});
+
 describe("openai-completions-deepseek thinking", () => {
 	it("enables thinking with reasoning_effort passthrough", async () => {
 		const params = await capture(deepseekModel(), "high");

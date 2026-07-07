@@ -23,6 +23,8 @@ const API_OPTIONS = [
 	"google-vertex",
 	"nvidia-openai-responses",
 	"qwen-openai-completions",
+	"zai-openai-completions",
+	"zhipu-openai-completions",
 ].map((api) => ({ value: api, label: api }));
 
 const INPUT_OPTIONS = [

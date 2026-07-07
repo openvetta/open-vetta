@@ -10,6 +10,8 @@ export type KnownApi =
 	| "nvidia-openai-responses"
 	| "qwen-openai-completions"
 	| "openai-completions-deepseek"
+	| "zai-openai-completions"
+	| "zhipu-openai-completions"
 	| "anthropic-messages"
 	| "bedrock-converse-stream"
 	| "google-generative-ai"
@@ -35,6 +37,7 @@ export type KnownProvider =
 	| "openrouter"
 	| "vercel-ai-gateway"
 	| "zai"
+	| "zhipu"
 	| "mistral"
 	| "minimax"
 	| "minimax-cn"
@@ -254,7 +257,7 @@ export interface OpenAICompletionsCompat {
 	requiresThinkingAsText?: boolean;
 	/** Whether tool call IDs must be normalized to Mistral format (exactly 9 alphanumeric chars). Default: auto-detected from URL. */
 	requiresMistralToolIds?: boolean;
-	/** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "zai" uses thinking: { type: "enabled" }, "qwen" uses enable_thinking: boolean. Default: "openai". */
+	/** Format for reasoning/thinking parameter. "openai" uses reasoning_effort, "zai" uses thinking plus reasoning_effort, "qwen" uses enable_thinking: boolean. Default: "openai". */
 	thinkingFormat?: "openai" | "zai" | "qwen" | "nvidia" | "deepseek";
 	/** OpenRouter-specific routing preferences. Only used when baseUrl points to OpenRouter. */
 	openRouterRouting?: OpenRouterRouting;
