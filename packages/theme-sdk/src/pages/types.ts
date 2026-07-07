@@ -18,3 +18,22 @@ export interface ThemePageDefinition {
 	};
 	readonly title: Readonly<Record<string, string>>;
 }
+
+export interface ThemePageNavItem {
+	readonly active: boolean;
+	readonly icon?: string;
+	readonly key: string;
+	readonly label: string;
+	readonly pageId: string;
+}
+
+export interface ThemePagesModel {
+	readonly actions: {
+		readonly openPage: (pageId: string) => void;
+	};
+	readonly navItems: readonly ThemePageNavItem[];
+}
+
+export interface ThemePagesThemeHost {
+	readonly useThemePagesModel: () => ThemePagesModel;
+}

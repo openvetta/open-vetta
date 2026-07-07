@@ -5,6 +5,7 @@ export { Sidebar } from "@domains/project/components/sidebar/Sidebar";
 export { SidebarBottomBar } from "@domains/project/components/sidebar/SidebarBottomBar";
 export type { SidebarNavItemButtonProps } from "@domains/project/components/sidebar/SidebarNavItemButton";
 export { SidebarNavItemButton } from "@domains/project/components/sidebar/SidebarNavItemButton";
+export type { SidebarNavigationProps } from "@domains/project/components/sidebar/SidebarNavigation";
 export { SidebarNavigation } from "@domains/project/components/sidebar/SidebarNavigation";
 export { SidebarPanel } from "@domains/project/components/sidebar/SidebarPanel";
 export { SidebarProjectsSection } from "@domains/project/components/sidebar/SidebarProjectsSection";

@@ -13,6 +13,7 @@ import type { FlowingSendDialogView } from "@domains/flowing/components/FlowingS
 import type { WorkflowCompleteDialogView } from "@domains/flowing/components/WorkflowCompleteDialogView";
 import type { KnowledgeDropOverlayView } from "@domains/knowledge-base/components/KnowledgeDropOverlayView";
 import type { SidebarNavItemButton } from "@domains/project/components/sidebar/SidebarNavItemButton";
+import type { SidebarNavigationProps } from "@domains/project/components/sidebar/SidebarNavigation";
 import type { SettingsMenuTrigger } from "@domains/project/components/sidebar/settings-menu/SettingsMenuTrigger";
 import type { SidebarRegionProps } from "@domains/project/components/sidebar/types";
 import type { AppearanceApprovalDrawerView } from "@shared/action-approval/appearance/AppearanceApprovalDrawerView";
@@ -92,6 +93,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.workflowCompleteDialog"?: ComponentType;
 		readonly "root.workflowCompleteDialogView"?: typeof WorkflowCompleteDialogView;
 		readonly "sidebar.navItem"?: typeof SidebarNavItemButton;
+		readonly "sidebar.navigation"?: ComponentType<SidebarNavigationProps>;
 		readonly "sidebar.settingsTrigger"?: typeof SettingsMenuTrigger;
 	}
 }

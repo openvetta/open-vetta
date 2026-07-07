@@ -147,7 +147,7 @@ return <SidebarRenderer model={model} onOpenSession={props.onOpenSession} />;
 - 主题可以声明自己的独立页面。
 - desktop-app 通过固定 `/theme/$themeId/$pageId` 路由承载页面，不允许主题动态注入任意路由。
 - 主题页支持 `content` / `main` / `app` 三档受控覆盖范围。
-- 侧边栏根据主题页面声明自动展示入口。
+- 主题页导航数据通过 `useThemePagesModel()` 暴露。主题可以替换 `sidebar.navigation`，复用公开的 `SidebarNavigation` / `SidebarNavItemButton`，把默认导航项和主题页导航项合并渲染。
 
 暂不做：
 

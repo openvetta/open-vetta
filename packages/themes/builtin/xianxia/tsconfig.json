@@ -8,10 +8,15 @@
 		"noEmit": true,
 		"types": ["react"],
 		"paths": {
+			"@/*": ["../../../desktop-app/src/*"],
+			"@domains/*": ["../../../desktop-app/src/renderer/domains/*"],
+			"@preload/*": ["../../../desktop-app/src/preload/*"],
+			"@shared/*": ["../../../desktop-app/src/renderer/shared/*"],
 			"@vetta/theme-sdk": ["../../../theme-sdk/src/index.ts"],
 			"@vetta/theme-sdk/*": ["../../../theme-sdk/src/*"],
 			"@vetta/theme-ui": ["../../../theme-ui/src/index.ts"],
 			"@vetta/theme-ui/*": ["../../../theme-ui/src/*"],
+			"@vetta/desktop-theme-ui/sidebar": ["../../../desktop-app/src/renderer/shared/theme/sdk/sidebar-primitives.ts"],
 			"@vetta/ui": ["../../../ui/src/index.ts"],
 			"@vetta/ui/*": ["../../../ui/src/*"]
 		}

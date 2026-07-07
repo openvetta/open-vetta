@@ -1,4 +1,4 @@
-import { forwardRef, type ComponentPropsWithoutRef } from "react";
+import { forwardRef, type ComponentPropsWithoutRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@shared/lib/utils";
 import type { SidebarNavItem } from "./types";
