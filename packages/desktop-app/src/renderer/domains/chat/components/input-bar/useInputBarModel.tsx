@@ -24,6 +24,7 @@ import {
 	type MentionedFile,
 } from "@shared/store/atoms";
 import { getQueueForSession, messageQueueBySessionAtom } from "@shared/store/message-queue-atoms";
+import { filePreviewAtom, type FilePreviewItem } from "@shared/store/file-preview-atoms";
 import { pathBasename } from "@shared/lib/utils";
 import type { SelectedFile } from "../AtPanel";
 import type { InputBarModel, InputBarProps, InputBarDrawerItem } from "./types";
@@ -52,6 +53,22 @@ function readFileAsImage(file: File): Promise<{ data: string; mimeType: string; 
 		reader.onerror = () => reject(reader.error);
 		reader.readAsDataURL(file);
 	});
+}
+
+const INPUT_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"]);
+
+function getPathExtension(path: string): string {
+	const idx = path.lastIndexOf(".");
+	if (idx < 0) return "";
+	return path.slice(idx + 1).toLowerCase();
+}
+
+function isInputImageFile(file: MentionedFile): boolean {
+	return INPUT_IMAGE_EXTENSIONS.has(getPathExtension(file.path));
+}
+
+function toFileProtocolUrl(path: string): string {
+	return `file://${path}`;
 }
 
 export function useInputBarModel({
@@ -104,6 +121,33 @@ export function useInputBarModel({
 	const isEmpty = inputValue.trim().length === 0 && attachedImages.length === 0;
 	const hasCapsules =
 		Boolean(selectedSkill) || mentionedFiles.length > 0 || Boolean(editImageAttachment) || Boolean(appshotAttachment);
+
+	// 分离图片文件与非图片文件，图片在附件区独立作为缩略图行展示
+	const imageFiles = useMemo(
+		() => mentionedFiles.filter((f) => isInputImageFile(f)),
+		[mentionedFiles],
+	);
+	const nonImageFiles = useMemo(
+		() => mentionedFiles.filter((f) => !isInputImageFile(f)),
+		[mentionedFiles],
+	);
+	const hasImages = imageFiles.length > 0;
+	const imagePreviewItems: FilePreviewItem[] = useMemo(
+		() =>
+			imageFiles.map((f) => ({
+				url: toFileProtocolUrl(f.path),
+				path: f.path,
+				name: pathBasename(f.path),
+			})),
+		[imageFiles],
+	);
+	const setFilePreview = useSetAtom(filePreviewAtom);
+	const openImagePreview = useCallback(
+		(index: number) => {
+			setFilePreview({ items: imagePreviewItems, index });
+		},
+		[imagePreviewItems, setFilePreview],
+	);
 
 	useEffect(() => {
 		if (sandboxPermission) setDrawerActiveTab("sandbox-permission");
@@ -434,6 +478,10 @@ export function useInputBarModel({
 		attachedImages,
 		selectedSkill,
 		mentionedFiles,
+		imageFiles,
+		nonImageFiles,
+		imagePreviewItems,
+		hasImages,
 		appshotAttachment,
 		hasSession,
 		canSend,
@@ -487,6 +535,7 @@ export function useInputBarModel({
 			removeFile: handleRemoveFile,
 			removeEditImage: () => setEditImageAttachment(null),
 			removeAppshot: () => setAppshotAttachment(null),
+			openImagePreview,
 			handlePlusClick,
 			handleSelectImages,
 			handleSelectFiles,

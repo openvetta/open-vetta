@@ -155,18 +155,9 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 									transition={SOFT}
 									className="overflow-hidden rounded-t-[inherit]"
 								>
-									<div className={["flex flex-wrap items-center gap-1.5 px-3 pt-3", classNames?.capsules].filter(Boolean).join(" ")}>
+									<div className={["space-y-1.5 px-3 pt-3", classNames?.capsules].filter(Boolean).join(" ")}>
+										{/* 附件第1行：Appshot 卡片 */}
 										<AnimatePresence initial={false}>
-											{model.hasEditImageAttachment && (
-												<InputBarCapsule
-													key="edit-image-capsule"
-													icon="icon-[solar--gallery-linear]"
-													label={model.labels.capsule.editImage}
-													labels={model.labels.capsule}
-													tone="primary"
-													onRemove={model.actions.removeEditImage}
-												/>
-											)}
 											{model.appshotAttachment && (
 												<motion.div
 													key="appshot-capsule"
@@ -178,58 +169,135 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 													<AppshotCard data={model.appshotAttachment} onRemove={model.actions.removeAppshot} />
 												</motion.div>
 											)}
-											{model.selectedSkill && (
-												<InputBarCapsule
-													key="skill-capsule"
-													icon={
-														model.selectedSkill.type === "scene"
-															? "icon-[solar--clapperboard-open-linear]"
-															: "icon-[solar--magic-stick-linear]"
-													}
-													label={model.selectedSkill.alias || model.selectedSkill.name}
-													labels={model.labels.capsule}
-													tone="primary"
-													onRemove={model.actions.removeSkill}
-												/>
-											)}
-											{model.mentionedFiles.map((file) => (
-												<InputBarCapsule
-													key={`file-${file.path}`}
-													icon={file.isDirectory ? "icon-[solar--folder-linear]" : "icon-[solar--file-linear]"}
-													label={file.name}
-													labels={model.labels.capsule}
-													title={file.path}
-													tone="muted"
-													onRemove={() => model.actions.removeFile(file.path)}
-												/>
-											))}
-											{model.attachedImages.map((img) => (
+										</AnimatePresence>
+
+										{/* 附件第2行：图片组（粘贴图片 + @文件中的图片） */}
+										<AnimatePresence>
+											{(model.attachedImages.length > 0 || model.hasImages) && (
 												<motion.div
-													key={img.id}
-													initial={IMAGE_INITIAL}
-													animate={IMAGE_ANIMATE}
-													exit={IMAGE_INITIAL}
-													transition={SPRING}
-													className="group relative"
+													key="image-row"
+													initial={COLLAPSE_INITIAL}
+													animate={COLLAPSE_ANIMATE}
+													exit={COLLAPSE_EXIT}
+													transition={SOFT}
+													className="flex flex-wrap items-center gap-1.5"
 												>
-													<div className="h-12 w-12 overflow-hidden rounded-lg border border-border ring-1 ring-border/40">
-														<img
-															src={`data:${img.mimeType};base64,${img.data}`}
-															alt={img.name}
-															className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-														/>
-													</div>
-													<button
-														type="button"
-														onClick={() => model.actions.removeImage(img.id)}
-														className="absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 hover:text-destructive"
-														title={model.labels.capsule.removeImage}
-														style={{ height: 18, width: 18 }}
-													>
-														<span className="icon-[solar--close-circle-linear] h-3 w-3" />
-													</button>
+													{model.attachedImages.map((img) => (
+														<motion.div
+															key={img.id}
+															initial={IMAGE_INITIAL}
+															animate={IMAGE_ANIMATE}
+															exit={IMAGE_INITIAL}
+															transition={SPRING}
+															className="group relative"
+														>
+															<div className="h-12 w-12 overflow-hidden rounded-lg border border-border ring-1 ring-border/40">
+																<img
+																	src={`data:${img.mimeType};base64,${img.data}`}
+																	alt={img.name}
+																	className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+																/>
+															</div>
+															<button
+																type="button"
+																onClick={() => model.actions.removeImage(img.id)}
+																className="absolute -right-1.5 -top-1.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 hover:text-destructive"
+																title={model.labels.capsule.removeImage}
+																style={{ height: 18, width: 18 }}
+															>
+																<span className="icon-[solar--close-circle-linear] h-3 w-3" />
+															</button>
+														</motion.div>
+													))}
+													{model.imagePreviewItems.map((item, idx) => (
+														<motion.div
+															key={`img-file-${item.url}`}
+															initial={IMAGE_INITIAL}
+															animate={IMAGE_ANIMATE}
+															exit={IMAGE_INITIAL}
+															transition={SPRING}
+															className="group relative cursor-pointer"
+														>
+															<div
+																onClick={() => model.actions.openImagePreview(idx)}
+																className="h-12 w-12 overflow-hidden rounded-lg border border-border ring-1 ring-border/40"
+																title={item.name}
+															>
+																<img
+																	src={item.url ?? item.path ?? ''}
+																	alt={item.name}
+																	className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+																/>
+															</div>
+														</motion.div>
+													))}
 												</motion.div>
-											))}
+											)}
+										</AnimatePresence>
+
+										{/* 附件第3行：元数据胶囊（改图 + skill/scene badge） */}
+										<AnimatePresence initial={false}>
+											{(model.hasEditImageAttachment || model.selectedSkill) && (
+												<motion.div
+													key="meta-row"
+													initial={COLLAPSE_INITIAL}
+													animate={COLLAPSE_ANIMATE}
+													exit={COLLAPSE_EXIT}
+													transition={SOFT}
+													className="flex flex-wrap items-center gap-1.5"
+												>
+													{model.hasEditImageAttachment && (
+														<InputBarCapsule
+															key="edit-image-capsule"
+															icon="icon-[solar--gallery-linear]"
+															label={model.labels.capsule.editImage}
+															labels={model.labels.capsule}
+															tone="primary"
+															onRemove={model.actions.removeEditImage}
+														/>
+													)}
+													{model.selectedSkill && (
+														<InputBarCapsule
+															key="skill-capsule"
+															icon={
+																model.selectedSkill.type === "scene"
+																	? "icon-[solar--clapperboard-open-linear]"
+																	: "icon-[solar--magic-stick-linear]"
+															}
+															label={model.selectedSkill.alias || model.selectedSkill.name}
+															labels={model.labels.capsule}
+															tone="primary"
+															onRemove={model.actions.removeSkill}
+														/>
+													)}
+												</motion.div>
+											)}
+										</AnimatePresence>
+
+										{/* 附件第4行：非图片文件胶囊 */}
+										<AnimatePresence initial={false}>
+											{model.nonImageFiles.length > 0 && (
+												<motion.div
+													key="file-row"
+													initial={COLLAPSE_INITIAL}
+													animate={COLLAPSE_ANIMATE}
+													exit={COLLAPSE_EXIT}
+													transition={SOFT}
+													className="flex flex-wrap items-center gap-1.5"
+												>
+													{model.nonImageFiles.map((file) => (
+														<InputBarCapsule
+															key={`file-${file.path}`}
+															icon={file.isDirectory ? "icon-[solar--folder-linear]" : "icon-[solar--file-linear]"}
+															label={file.name}
+															labels={model.labels.capsule}
+															title={file.path}
+															tone="muted"
+															onRemove={() => model.actions.removeFile(file.path)}
+														/>
+													))}
+												</motion.div>
+											)}
 										</AnimatePresence>
 									</div>
 								</motion.div>
