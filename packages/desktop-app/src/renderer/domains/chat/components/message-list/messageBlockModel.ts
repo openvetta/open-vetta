@@ -69,17 +69,65 @@ export function findLastProcessBlockIndex(blocks: ContentBlock[], customToolName
 	return -1;
 }
 
+const SHORT_EPILOGUE_MAX_CHARS = 80;
+const PRIMARY_ANSWER_MIN_CHARS = 160;
+
+function hasStructuredAnswerContent(text: string): boolean {
+	return /```|^\s{0,3}#{1,6}\s|^\s*[-*+]\s|^\s*\d+[.)]\s|\|.+\|/m.test(text);
+}
+
+function isShortEpilogueText(blocks: TextBlock[]): boolean {
+	if (blocks.length !== 1) return false;
+	const text = blocks[0].text.trim();
+	return text.length > 0 && text.length <= SHORT_EPILOGUE_MAX_CHARS && !hasStructuredAnswerContent(text);
+}
+
+function isMaintenanceToolCall(block: ContentBlock): boolean {
+	if (block.type !== "tool_call") return false;
+	const toolName = block.toolName.toLowerCase();
+	if (!toolName.includes("todo")) return false;
+	return block.args.action === "update";
+}
+
+function findPreviousPrimaryAnswerIndex(blocks: ContentBlock[], beforeIndex: number): number {
+	for (let index = beforeIndex - 1; index >= 0; index--) {
+		const block = blocks[index];
+		if (block.type === "tool_call" || block.type === "thinking") return -1;
+		if (block.type !== "text") continue;
+		if (block.text.trim().length >= PRIMARY_ANSWER_MIN_CHARS) return index;
+	}
+	return -1;
+}
+
 export function getAssistantFoldData(blocks: ContentBlock[], customToolNames: Set<string>): AssistantFoldData | null {
 	const lastProcessIndex = findLastProcessBlockIndex(blocks, customToolNames);
 	if (lastProcessIndex === -1) return null;
-	const outputBlocks = blocks
+	const trailingTextBlocks = blocks
 		.slice(lastProcessIndex + 1)
 		.filter((block): block is TextBlock => block.type === "text" && block.text.trim().length > 0);
-	if (outputBlocks.length === 0) return null;
+	if (trailingTextBlocks.length === 0) return null;
+
+	const lastProcessBlock = blocks[lastProcessIndex];
+	const primaryAnswerIndex =
+		isMaintenanceToolCall(lastProcessBlock) && isShortEpilogueText(trailingTextBlocks)
+			? findPreviousPrimaryAnswerIndex(blocks, lastProcessIndex)
+			: -1;
+	if (primaryAnswerIndex !== -1) {
+		const primaryAnswerBlock = blocks[primaryAnswerIndex] as TextBlock;
+		const outputBlocks = [primaryAnswerBlock, ...trailingTextBlocks];
+		const outputBlockSet = new Set<ContentBlock>(outputBlocks);
+		return {
+			processBlocks: blocks.filter((block) => !outputBlockSet.has(block)),
+			trailingBlocks: blocks.filter((block) => outputBlockSet.has(block)),
+			outputBlocks,
+			hiddenCount: blocks.length - outputBlocks.length,
+		};
+	}
+
 	return {
 		processBlocks: blocks.slice(0, lastProcessIndex + 1),
 		trailingBlocks: blocks.slice(lastProcessIndex + 1),
-		outputBlocks,
-		hiddenCount: blocks.length - outputBlocks.length,
+		outputBlocks: trailingTextBlocks,
+		hiddenCount: blocks.length - trailingTextBlocks.length,
 	};
 }

@@ -157,8 +157,13 @@ export function AtPanel({
 		scored.sort((a, b) => b.score - a.score);
 		return scored.slice(0, MAX_SEARCH_RESULTS).map((s) => s.item);
 	}, [allFiles, entries, isSearching, normalizedFilter]);
+	const isSearchWithNoResults = open && isSearching && (loading || allItems.length === 0);
 
 	const canGoUp = !isSearching && currentDir !== cwd;
+
+	useEffect(() => {
+		if (isSearchWithNoResults) onClose();
+	}, [isSearchWithNoResults, onClose]);
 
 	useEffect(() => {
 		setActiveIndex(0);
@@ -256,6 +261,8 @@ export function AtPanel({
 			icon: fileIcon(entry.name, entry.isDirectory),
 		};
 	});
+
+	if (isSearchWithNoResults) return <></>;
 
 	return (
 		<ThemedAtPanelView

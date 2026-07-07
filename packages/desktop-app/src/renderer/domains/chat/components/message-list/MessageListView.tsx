@@ -16,9 +16,11 @@ const VIRTUOSO_STYLE = { overflowX: "hidden" as const };
 
 export function MessageListView({
 	model,
+	onAbort,
 	onSend,
 }: {
 	model: MessageListModel;
+	onAbort: MessageListProps["onAbort"];
 	onSend: MessageListProps["onSend"];
 }): JSX.Element {
 	const {
@@ -30,6 +32,10 @@ export function MessageListView({
 		showWaiting,
 		tailMessageId,
 	} = model;
+	const lastUserMessageId = useMemo(() => {
+		const lastUser = [...messages].reverse().find((m) => m.role === "user");
+		return lastUser?.id ?? null;
+	}, [messages]);
 	const itemContent = useCallback(
 		(index: number, message: ChatMessage) => (
 			<div
@@ -48,6 +54,11 @@ export function MessageListView({
 					message={message}
 					isTailMessage={message.id === tailMessageId}
 					isStreaming={isStreaming}
+					isLastUserMessage={message.id === lastUserMessageId}
+					hasAssistantAfter={
+						index < messages.length - 1 &&
+						messages.slice(index + 1).some((m) => m.role !== "user")
+					}
 					userMessageEntryState={
 						message.id === scroll.activeUserAnimationId
 							? "enter"
@@ -61,13 +72,17 @@ export function MessageListView({
 							? scroll.onUserMessageEntryComplete
 							: undefined
 					}
+					onAbortEdit={onAbort}
 				/>
 			</div>
 		),
 		[
 			isStreaming,
+			lastUserMessageId,
 			messages.length,
+			messages,
 			modelSwitchLabels,
+			onAbort,
 			scroll.activeUserAnimationId,
 			scroll.enteringUserMessageId,
 			scroll.onUserMessageEntryComplete,

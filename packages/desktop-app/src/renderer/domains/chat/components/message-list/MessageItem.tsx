@@ -38,9 +38,12 @@ export const ModelSwitchBoundary = memo(function ModelSwitchBoundary({
 
 interface MessageItemProps {
 	exportMode?: boolean;
+	hasAssistantAfter?: boolean;
+	isLastUserMessage?: boolean;
 	isStreaming: boolean;
 	isTailMessage: boolean;
 	message: ChatMessage;
+	onAbortEdit?: () => void;
 	onUserMessageEntryComplete?: () => void;
 	userMessageEntryState: UserMessageEntryState;
 }
@@ -49,7 +52,10 @@ export const MessageItem = memo(function MessageItem({
 	message,
 	isTailMessage,
 	isStreaming,
+	isLastUserMessage = false,
+	hasAssistantAfter = false,
 	userMessageEntryState,
+	onAbortEdit,
 	onUserMessageEntryComplete,
 	exportMode = false,
 }: MessageItemProps) {
@@ -60,6 +66,10 @@ export const MessageItem = memo(function MessageItem({
 				message={message}
 				entryState={userMessageEntryState}
 				onEntryComplete={onUserMessageEntryComplete}
+				isLastUserMessage={isLastUserMessage}
+				hasAssistantAfter={hasAssistantAfter}
+				isStreaming={isStreaming}
+				onAbortEdit={onAbortEdit}
 			/>
 		);
 	}

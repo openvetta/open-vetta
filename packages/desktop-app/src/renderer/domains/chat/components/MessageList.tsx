@@ -6,5 +6,5 @@ export { ExportMessageList };
 
 export function MessageList(props: MessageListProps): JSX.Element {
 	const model = useMessageListModel(props);
-	return <MessageListView model={model} onSend={props.onSend} />;
+	return <MessageListView model={model} onSend={props.onSend} onAbort={props.onAbort} />;
 }
