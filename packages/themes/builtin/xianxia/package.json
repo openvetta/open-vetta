@@ -26,6 +26,8 @@
 		"react": "^19.0.0"
 	},
 	"devDependencies": {
+		"@iconify-json/solar": "^1.2.5",
+		"@iconify/tailwind4": "^1.0.6",
 		"@module-federation/vite": "^1.16.6",
 		"@tailwindcss/vite": "^4.1.12",
 		"@types/node": "^22.10.5",
