@@ -460,9 +460,14 @@ function buildParams(model: Model<"openai-completions">, context: Context, optio
 	// reasoning_effort branch keeps requiring model.reasoning to avoid sending
 	// unsupported params to vanilla OpenAI endpoints.
 	if (compat.thinkingFormat === "zai") {
-		// Z.ai uses binary thinking: { type: "enabled" | "disabled" }
-		// Must explicitly disable since z.ai defaults to thinking enabled
+		// Z.ai / Zhipu GLM use thinking: { type: "enabled" | "disabled" } plus
+		// top-level reasoning_effort. Pass the configured level through verbatim
+		// (including "none" / "minimal" / "max") so service-side aliases and new
+		// native levels keep working; only omit effort when thinking is fully off.
 		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
+		if (options?.reasoningEffort) {
+			params.reasoning_effort = options.reasoningEffort as any;
+		}
 	} else if (compat.thinkingFormat === "qwen") {
 		// Qwen toggles thinking with a boolean flag, but different backends read it from
 		// different places, so emit BOTH spellings:
@@ -854,7 +859,8 @@ function detectCompat(model: Model<"openai-completions">): Required<OpenAIComple
 	const provider = model.provider;
 	const baseUrl = model.baseUrl;
 
-	const isZai = provider === "zai" || baseUrl.includes("api.z.ai");
+	const isZai =
+		provider === "zai" || provider === "zhipu" || baseUrl.includes("api.z.ai") || baseUrl.includes("bigmodel.cn");
 
 	const isNonStandard =
 		provider === "cerebras" ||

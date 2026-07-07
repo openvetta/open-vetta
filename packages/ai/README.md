@@ -79,6 +79,8 @@ Unified LLM API with automatic model discovery, provider configuration, token an
 - **xAI**
 - **OpenRouter**
 - **Vercel AI Gateway**
+- **Z.ai**
+- **智谱 AI**
 - **MiniMax**
 - **GitHub Copilot** (requires OAuth, see below)
 - **Google Gemini CLI** (requires OAuth, see below)
@@ -646,6 +648,8 @@ The library uses a registry of API implementations. Built-in APIs include:
 - **`google-gemini-cli`**: Google Cloud Code Assist API (`streamGoogleGeminiCli`, `GoogleGeminiCliOptions`)
 - **`google-vertex`**: Google Vertex AI API (`streamGoogleVertex`, `GoogleVertexOptions`)
 - **`openai-completions`**: OpenAI Chat Completions API (`streamOpenAICompletions`, `OpenAICompletionsOptions`)
+- **`zai-openai-completions`**: Z.ai OpenAI-compatible Chat Completions API with GLM thinking controls
+- **`zhipu-openai-completions`**: 智谱 OpenAI-compatible Chat Completions API with GLM thinking controls
 - **`openai-responses`**: OpenAI Responses API (`streamOpenAIResponses`, `OpenAIResponsesOptions`)
 - **`openai-codex-responses`**: OpenAI Codex Responses API (`streamOpenAICodexResponses`, `OpenAICodexResponsesOptions`)
 - **`azure-openai-responses`**: Azure OpenAI Responses API (`streamAzureOpenAIResponses`, `AzureOpenAIResponsesOptions`)
@@ -761,7 +765,7 @@ interface OpenAICompletionsCompat {
   requiresAssistantAfterToolResult?: boolean; // Whether tool results must be followed by an assistant message (default: false)
   requiresThinkingAsText?: boolean;  // Whether thinking blocks must be converted to text (default: false)
   requiresMistralToolIds?: boolean;  // Whether tool call IDs must be normalized to Mistral format (default: false)
-  thinkingFormat?: 'openai' | 'zai' | 'qwen'; // Format for reasoning param: 'openai' uses reasoning_effort, 'zai' uses thinking: { type: "enabled" }, 'qwen' uses enable_thinking: boolean (default: openai)
+  thinkingFormat?: 'openai' | 'zai' | 'qwen'; // Format for reasoning param: 'openai' uses reasoning_effort, 'zai' uses thinking plus reasoning_effort, 'qwen' uses enable_thinking: boolean (default: openai)
   openRouterRouting?: OpenRouterRouting; // OpenRouter routing preferences (default: {})
   vercelGatewayRouting?: VercelGatewayRouting; // Vercel AI Gateway routing preferences (default: {})
 }
@@ -924,7 +928,8 @@ In Node.js environments, you can set environment variables to avoid passing API 
 | xAI | `XAI_API_KEY` |
 | OpenRouter | `OPENROUTER_API_KEY` |
 | Vercel AI Gateway | `AI_GATEWAY_API_KEY` |
-| zAI | `ZAI_API_KEY` |
+| Z.ai | `ZAI_API_KEY` |
+| 智谱 AI | `ZHIPU_API_KEY` |
 | MiniMax | `MINIMAX_API_KEY` |
 | Kimi For Coding | `KIMI_API_KEY` |
 | GitHub Copilot | `COPILOT_GITHUB_TOKEN` or `GH_TOKEN` or `GITHUB_TOKEN` |

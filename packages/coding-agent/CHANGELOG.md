@@ -34,6 +34,7 @@
 
 ### Added
 
+- 模型 provider 默认值新增 `zhipu -> glm-4.6`，并在 CLI/provider 文档中补充 `ZHIPU_API_KEY`；Z.ai 文案统一为 `Z.ai`。
 - `SessionManager` 的 `SessionInfo` 新增 `lastMessagePreview` 字段：`buildSessionInfo` 复用已解析的消息数组，取最后一条用户/助手消息正文 trim 后截断到约 120 字符，供宿主（如桌面快捷面板「最近会话」列表）展示会话末条预览，无需二次读文件。
 - 新增 `CodingAgentTool<TParameters, TDetails>` 类型别名（`AgentTool` 第三泛型钉成 `ConversationScenario`），经包根导出，供内置/宿主工具声明 `scope_use` 时拿到对话场景的补全与防拼写。
 - **知识库分批加工基础设施**：新增 `createLimiter`（最小并发信号量，无依赖，`src/core/concurrency-limit.ts`，经包根导出）；`knowledge.createKbWriteSession`（轮级共享写页会话——轮始扫一次 `wiki/` 建内存 PageIndex，之后每次写页只对内存决策 + 增量更新，并用 max=1 限制器把「决策→写盘→更新索引」串成原子段，消除「每写一页全量 `scanWikiPages`」的 O(N²) 并保证多并发会话写页互斥安全）；`knowledge.planProcessingBatches`（把一轮 added/changed 按 `source_path` 聚簇 + 文件数/字节双预算切成多个子 `RawsDiff`，纯上下文边界，续跑靠 hash-diff 无需游标）。`createKbWritePageTool(root?, session?)` 新增可选 `session` 参数：传入则走共享会话，省略保持原「每次现扫」行为（加工轮外通用 session / UI 用）。`RawFile` 新增 `size` 字段（扫描算 hash 时顺手取得）。

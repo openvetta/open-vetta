@@ -16,6 +16,7 @@ export interface ReasoningPreset {
 
 const EFFORT_STANDARD: ReasoningPreset = { levels: ["minimal", "low", "medium", "high"], default: "medium" };
 const EFFORT_LMH: ReasoningPreset = { levels: ["low", "medium", "high"], default: "medium" };
+const EFFORT_GLM: ReasoningPreset = { levels: ["none", "minimal", "low", "medium", "high", "max"], default: "high" };
 
 const PRESETS: Partial<Record<Api, ReasoningPreset>> = {
 	"openai-completions": EFFORT_STANDARD,
@@ -23,6 +24,8 @@ const PRESETS: Partial<Record<Api, ReasoningPreset>> = {
 	"azure-openai-responses": EFFORT_STANDARD,
 	"openai-codex-responses": EFFORT_STANDARD,
 	"qwen-openai-completions": EFFORT_LMH,
+	"zai-openai-completions": EFFORT_GLM,
+	"zhipu-openai-completions": EFFORT_GLM,
 	"nvidia-openai-responses": EFFORT_LMH,
 	"openai-completions-deepseek": { levels: ["high", "max"], default: "high" },
 	"anthropic-messages": EFFORT_LMH,

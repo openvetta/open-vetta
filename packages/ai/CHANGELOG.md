@@ -4,6 +4,7 @@
 
 ### Added
 
+- 新增 `zai-openai-completions` 与 `zhipu-openai-completions` provider 变体，复用 OpenAI Chat Completions 流式实现并内置 GLM 思考控制：下发 `thinking: { type: "enabled" | "disabled" }`，启用时将模型配置的 `reasoning_effort`（含 `none` / `minimal` / `low` / `medium` / `high` / `max`）原样透传；同时新增 `zhipu` KnownProvider 与 `ZHIPU_API_KEY` 识别。
 - 新增 `openai-completions-deepseek` provider 变体（DeepSeek 直连），照搬 qwen/nvidia 的 thinkingFormat 模式：v4 统一模型（deepseek-v4-flash / deepseek-v4-pro）通过 `thinking: { type: "enabled" | "disabled", reasoning_effort }` 控制思考，`reasoning_effort` 取值 `high`/`max` 按模型配置透传；无推理请求时下发 `thinking: { type: "disabled" }`。reasoning 输出（`reasoning_content`）与工具轮的 reasoning 回传规则复用既有 `openai-completions` 逻辑。同时新增 `deepseek` KnownProvider 与 `DEEPSEEK_API_KEY` 环境变量识别。
 
 ### Changed
