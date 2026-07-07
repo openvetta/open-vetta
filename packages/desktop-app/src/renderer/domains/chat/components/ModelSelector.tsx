@@ -1,23 +1,11 @@
-import { ProviderIcon } from "@shared/components/provider-icon";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
-	DropdownMenuTrigger,
-} from "@shared/components/ui/dropdown-menu";
-import { MultiplierTag } from "@shared/components/ModelSelect/MultiplierTag";
 import { resolveReasoning } from "@shared/components/ModelSelect/resolveReasoning";
 import { useModelOptions } from "@shared/components/ModelSelect/useModelOptions";
-import { cn } from "@shared/lib/utils";
 import { activeSessionAtom, modelSupportsImagesAtom, reasoningByModelAtom, selectedModelAtom } from "@shared/store/atoms";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { ModelSelectorView } from "./model-selector/ModelSelectorView";
 
 /**
  * Combined chat model + reasoning-level picker. The primary menu is the model list;
@@ -27,6 +15,7 @@ import { useTranslation } from "react-i18next";
  */
 export function ModelSelector(): JSX.Element {
 	const { t } = useTranslation("common");
+	const ThemedModelSelectorView = useThemeComponent("chat.modelSelectorView", ModelSelectorView);
 	const [selectedModel, setSelectedModel] = useAtom(selectedModelAtom);
 	const [reasoningByModel, setReasoningByModel] = useAtom(reasoningByModelAtom);
 	const activeSession = useAtomValue(activeSessionAtom);
@@ -107,85 +96,29 @@ export function ModelSelector(): JSX.Element {
 	if (options.length === 0) return <></>;
 
 	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<button
-					type="button"
-					className={cn(
-						"flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-transparent px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:outline-none data-[state=open]:bg-accent/60 data-[state=open]:text-foreground",
-					)}
-				>
-					{selectedOption && <ProviderIcon symbol={iconFor(selectedOption.provider)} className="h-3.5 w-3.5" />}
-					<span className="min-w-0 flex-1 truncate text-left">
-						{selectedOption?.displayName ?? t("modelSelect.placeholder")}
-					</span>
-					{currentLevel && <span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>}
-					<span className="icon-[solar--alt-arrow-down-linear] h-3 w-3 shrink-0" />
-				</button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent
-				align="start"
-				className="max-h-[300px] min-w-[220px] max-w-[320px]"
-				style={{ overflowX: "hidden", overflowY: "auto" }}
-			>
-				{resolved && (
-					<>
-						<DropdownMenuSub>
-							<DropdownMenuSubTrigger>
-								<span className="min-w-0 flex-1 truncate">{t("modelSelect.reasoningHeader")}</span>
-								{currentLevel && (
-									<span className="shrink-0 text-muted-foreground">{levelLabel(currentLevel)}</span>
-								)}
-							</DropdownMenuSubTrigger>
-							<DropdownMenuSubContent className="min-w-[160px]">
-								<DropdownMenuLabel>{t("modelSelect.reasoningHeader")}</DropdownMenuLabel>
-								{menuLevels.map((level) => (
-									<DropdownMenuItem key={level} onSelect={() => handleReasoningSelect(level)}>
-										<span className="min-w-0 flex-1 truncate">{levelLabel(level)}</span>
-										{level === currentLevel && (
-											<span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />
-										)}
-									</DropdownMenuItem>
-								))}
-							</DropdownMenuSubContent>
-						</DropdownMenuSub>
-						<DropdownMenuSeparator />
-					</>
-				)}
-				<DropdownMenuLabel>{t("modelSelect.modelHeader")}</DropdownMenuLabel>
-				{[...grouped.entries()].map(([provider, providerModels]) => (
-					<div key={provider}>
-						<div className="flex items-center gap-1.5 px-3 pb-0.5 pt-1.5 text-[10px] font-medium text-muted-foreground/50">
-							<ProviderIcon symbol={iconFor(provider)} className="h-3 w-3" />
-							{labelFor(provider)}
-							{providerModels[0]?.remote && (
-								<span className="rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-									{t("modelSelect.cloudOnly")}
-								</span>
-							)}
-						</div>
-						{providerModels.map((m) => (
-							<DropdownMenuItem key={m.key} onSelect={() => handleModelSelect(m.key)}>
-								<span className="min-w-0 flex-1 truncate">{m.displayName}</span>
-								<MultiplierTag multiplier={m.multiplier} />
-								{m.supportsImage && (
-									<span className="shrink-0 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-medium text-blue-400">
-										{t("modelSelect.visionBadge")}
-									</span>
-								)}
-								{m.key === defaultKey && (
-									<span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
-										{t("modelSelect.defaultBadge")}
-									</span>
-								)}
-								{m.key === selectedModel && (
-									<span className="icon-[solar--check-circle-linear] h-3.5 w-3.5 shrink-0" />
-								)}
-							</DropdownMenuItem>
-						))}
-					</div>
-				))}
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<ThemedModelSelectorView
+			currentLevel={currentLevel}
+			defaultKey={defaultKey}
+			groups={[...grouped.entries()].map(([provider, models]) => ({
+				icon: iconFor(provider),
+				label: labelFor(provider),
+				models,
+				provider,
+			}))}
+			labels={{
+				cloudOnly: t("modelSelect.cloudOnly"),
+				defaultBadge: t("modelSelect.defaultBadge"),
+				levelLabel,
+				modelHeader: t("modelSelect.modelHeader"),
+				placeholder: t("modelSelect.placeholder"),
+				reasoningHeader: t("modelSelect.reasoningHeader"),
+				visionBadge: t("modelSelect.visionBadge"),
+			}}
+			menuLevels={menuLevels}
+			onModelSelect={handleModelSelect}
+			onReasoningSelect={handleReasoningSelect}
+			selectedModel={selectedModel ?? undefined}
+			selectedOption={selectedOption}
+		/>
 	);
 }

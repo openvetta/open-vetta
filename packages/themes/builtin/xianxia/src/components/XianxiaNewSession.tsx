@@ -18,9 +18,10 @@ const sceneIcons = [
 ] as const;
 
 const skillIcons = [
-	xianxiaAssets.newSessionSkillSword,
-	xianxiaAssets.newSessionSkillMeditation,
-	xianxiaAssets.newSessionSkillWheel,
+	xianxiaAssets.newSessionSkillBlade,
+	xianxiaAssets.newSessionSkillCultivation,
+	xianxiaAssets.newSessionSkillTimepiece,
+	xianxiaAssets.newSessionSkillSeal,
 ] as const;
 
 function iconByIndex(icons: readonly string[], index: number): string {
