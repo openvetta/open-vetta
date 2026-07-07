@@ -1,5 +1,6 @@
 import type { SkillInfo } from "@preload/api";
 import type { AppshotAttachment, AttachedImage, MentionedFile } from "@shared/store/atoms";
+import type { FilePreviewItem } from "@shared/store/file-preview-atoms";
 import type { TodoItem } from "@shared/store/todo-atoms";
 import type { ChangeEvent, ClipboardEvent, ComponentProps, KeyboardEvent, RefObject } from "react";
 import type { SelectedFile } from "../AtPanel";
@@ -84,6 +85,10 @@ export interface InputBarModel {
 	attachedImages: AttachedImage[];
 	selectedSkill: { name: string; alias?: string; type: string } | null;
 	mentionedFiles: MentionedFile[];
+	imageFiles: MentionedFile[];
+	nonImageFiles: MentionedFile[];
+	imagePreviewItems: FilePreviewItem[];
+	hasImages: boolean;
 	appshotAttachment: AppshotAttachment | null;
 	hasSession: boolean;
 	canSend: boolean;
@@ -115,6 +120,7 @@ export interface InputBarModel {
 		removeFile: (path: string) => void;
 		removeEditImage: () => void;
 		removeAppshot: () => void;
+		openImagePreview: (index: number) => void;
 		handlePlusClick: () => void;
 		handleSelectImages: () => Promise<void>;
 		handleSelectFiles: () => Promise<void>;
