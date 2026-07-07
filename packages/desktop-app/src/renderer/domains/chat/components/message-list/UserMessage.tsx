@@ -302,14 +302,14 @@ export const UserMessage = memo(function UserMessage({
 
 	return (
 		<motion.div
-			className="group/user relative z-0 flex min-w-0 justify-end hover:z-20"
+			className="group/user relative z-0 -mb-8 flex min-w-0 justify-end pb-8 hover:z-20"
 			initial={shouldAnimateIn ? HIDDEN_VISUAL_STATE : false}
 			animate={shouldHoldHidden ? HIDDEN_VISUAL_STATE : VISIBLE_VISUAL_STATE}
 			transition={ENTRY_TRANSITION}
 			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
 			style={MESSAGE_STYLE}
 		>
-			<div className="relative flex min-w-0 max-w-[72%] flex-col items-end before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
+			<div className="relative flex min-w-0 max-w-[72%] flex-col items-end">
 				{appshotData && (
 					<div className="mb-1.5 flex justify-end">
 						<AppshotCard data={appshotData} />
