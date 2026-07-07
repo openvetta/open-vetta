@@ -302,7 +302,7 @@ export const UserMessage = memo(function UserMessage({
 
 	return (
 		<motion.div
-			className="group/user relative z-0 -mb-8 flex min-w-0 justify-end pb-8 hover:z-20"
+			className="group/user relative -mb-8 flex min-w-0 justify-end pb-8 hover:z-20"
 			initial={shouldAnimateIn ? HIDDEN_VISUAL_STATE : false}
 			animate={shouldHoldHidden ? HIDDEN_VISUAL_STATE : VISIBLE_VISUAL_STATE}
 			transition={ENTRY_TRANSITION}
