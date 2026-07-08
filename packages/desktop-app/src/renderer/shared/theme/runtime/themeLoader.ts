@@ -36,6 +36,8 @@ function loadStyles(theme: DesktopThemePackage): () => void {
 }
 
 export async function loadThemePackage(theme: DesktopThemePackage): Promise<{ module: ThemeModule; dispose(): void }> {
+	console.info(`[theme-runtime] loadThemePackage start "${theme.id}" entry=${theme.entryUrl}`);
+	const start = performance.now();
 	const federationHost = getHost();
 	const remote = {
 		name: theme.moduleFederation.remoteName,
@@ -55,5 +57,7 @@ export async function loadThemePackage(theme: DesktopThemePackage): Promise<{ mo
 		throw new Error(`Theme module "${theme.id}" did not export a matching ThemeModule`);
 	}
 	const disposeStyles = loadStyles(theme);
+	const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+	console.info(`[theme-runtime] loadThemePackage complete "${theme.id}" in ${elapsed}s`);
 	return { module, dispose: disposeStyles };
 }

@@ -57,21 +57,21 @@ function SchedulerUpdateLoader({
 	);
 
 	useEffect(() => {
-		console.info("[action-approval:scheduler.update] request", {
+		console.info(`[action-approval:scheduler.update] request ${JSON.stringify({
 			approvalId: approval.request.approvalId,
 			input,
 			cachedTaskCount: cachedTask ? 1 : 0,
 			cachedTask,
-		});
+		})}`);
 	}, [approval.request.approvalId, cachedTask, input]);
 
 	useEffect(() => {
 		if (cachedTask) {
-			console.info("[action-approval:scheduler.update] source", {
+			console.info(`[action-approval:scheduler.update] source ${JSON.stringify({
 				approvalId: approval.request.approvalId,
 				source: "atom",
 				task: cachedTask,
-			});
+			})}`);
 			return;
 		}
 		let cancelled = false;
@@ -80,21 +80,21 @@ function SchedulerUpdateLoader({
 			.then((tasks) => {
 				if (cancelled) return;
 				const currentTask = tasks.find((candidate) => candidate.id === input.taskId);
-				console.info("[action-approval:scheduler.update] query", {
+				console.info(`[action-approval:scheduler.update] query ${JSON.stringify({
 					approvalId: approval.request.approvalId,
 					requestedTaskId: input.taskId,
 					returnedTaskIds: tasks.map((candidate) => candidate.id),
 					matchedTask: currentTask,
-				});
+				})}`);
 				setTask(currentTask);
 				if (!currentTask) setLoadError(t("schedulerApproval.updateNotFound"));
 			})
 			.catch((error: unknown) => {
-				console.error("[action-approval:scheduler.update] query-failed", {
+				console.error(`[action-approval:scheduler.update] query-failed ${JSON.stringify({
 					approvalId: approval.request.approvalId,
 					requestedTaskId: input.taskId,
 					error,
-				});
+				})}`);
 				if (!cancelled) setLoadError(t("schedulerApproval.updateLoadFailed"));
 			})
 			.finally(() => {
@@ -123,12 +123,12 @@ function SchedulerUpdateLoader({
 
 	useEffect(() => {
 		if (!initialData) return;
-		console.info("[action-approval:scheduler.update] merged", {
+		console.info(`[action-approval:scheduler.update] merged ${JSON.stringify({
 			approvalId: approval.request.approvalId,
 			currentTask: task,
 			agentPatch: input.data,
 			mergedData: initialData,
-		});
+		})}`);
 	}, [approval.request.approvalId, initialData, input.data, task]);
 
 	if (loading) {
@@ -222,10 +222,10 @@ function SchedulerUpdateDrawer({
 					data: toSchedulerApprovalJsonData({ ...initialData, ...data }),
 					approvalUi: input.approvalUi ?? "scheduler.update",
 				} as const;
-				console.info("[action-approval:scheduler.update] submit", {
+				console.info(`[action-approval:scheduler.update] submit ${JSON.stringify({
 					approvalId: request.approvalId,
 					input: approvedInput,
-				});
+				})}`);
 				approve(approvedInput);
 			}}
 		/>

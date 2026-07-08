@@ -26,6 +26,8 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 	const disposeRef = useRef<() => void>(() => {});
 
 	const selectTheme = useCallback(async (themeId: string): Promise<void> => {
+		const start = performance.now();
+		console.info(`[theme-runtime] selectTheme "${themeId}"`);
 		const themes = await window.vetta.themes.list();
 		setAvailableThemes(themes);
 		if (themeId === DEFAULT_THEME_MODULE.meta.id) {
@@ -34,10 +36,14 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 			localStorage.setItem(UI_THEME_STORAGE_KEY, DEFAULT_THEME_MODULE.meta.id);
 			setActiveTheme(DEFAULT_THEME_MODULE);
 			setStatus("ready");
+			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+			console.info(`[theme-runtime] theme "${DEFAULT_THEME_MODULE.meta.id}" ready in ${elapsed}s`);
 			return;
 		}
 		const descriptor = themes.find((theme) => theme.id === themeId);
 		if (!descriptor) {
+			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+			console.warn(`[theme-runtime] theme "${themeId}" not found after ${elapsed}s, falling back to default`);
 			disposeRef.current();
 			disposeRef.current = () => {};
 			localStorage.setItem(UI_THEME_STORAGE_KEY, DEFAULT_THEME_MODULE.meta.id);
@@ -48,13 +54,16 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 		setStatus("loading");
 		try {
 			const loaded = await loadThemePackage(descriptor);
+			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+			console.info(`[theme-runtime] theme "${descriptor.id}" ready in ${elapsed}s`);
 			disposeRef.current();
 			disposeRef.current = loaded.dispose;
 			localStorage.setItem(UI_THEME_STORAGE_KEY, descriptor.id);
 			setActiveTheme(loaded.module);
 			setStatus("ready");
 		} catch (error) {
-			console.error(`Failed to load theme "${themeId}"`, error);
+			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+			console.error(`[theme-runtime] theme "${themeId}" failed after ${elapsed}s: ${error instanceof Error ? error.message : String(error)}`);
 			disposeRef.current();
 			disposeRef.current = () => {};
 			setActiveTheme(DEFAULT_THEME_MODULE);
@@ -70,7 +79,7 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 
 	const handleThemeRenderError = useCallback(
 		(error: Error, info: ErrorInfo): void => {
-			console.error(`Theme "${activeTheme.meta.id}" failed to render`, error, info);
+			console.error(`[theme-runtime] theme "${activeTheme.meta.id}" failed to render: ${error.message} ${JSON.stringify(info)}`);
 			disposeRef.current();
 			disposeRef.current = () => {};
 			setActiveTheme(DEFAULT_THEME_MODULE);
