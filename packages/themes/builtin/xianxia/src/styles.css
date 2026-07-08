@@ -116,7 +116,7 @@
 	display: grid;
 	grid-template-columns: repeat(3, var(--sanctum-achievement-size));
 	justify-content: center;
-	column-gap: var(--sanctum-achievement-connector-size);
+	column-gap: var(--sanctum-achievement-gap-size);
 	row-gap: 0.25rem;
 	min-width: 0;
 }
@@ -125,7 +125,7 @@
 	display: none;
 }
 
-@container (min-width: 33.5rem) {
+@container (min-width: 38.25rem) {
 	.xianxia-achievement-grid {
 		grid-template-columns: repeat(4, var(--sanctum-achievement-size));
 	}
@@ -139,7 +139,7 @@
 	}
 }
 
-@container (min-width: 42.25rem) {
+@container (min-width: 48.25rem) {
 	.xianxia-achievement-grid {
 		grid-template-columns: repeat(5, var(--sanctum-achievement-size));
 	}
@@ -163,6 +163,10 @@
 
 .xianxia-app-frame > [data-theme-layout="app.frameContent"] {
 	padding: var(--xianxia-app-frame-inset);
+}
+
+body.xianxia-sanctum-page-active [data-theme-surface="app.frame"] > span {
+	background-image: url("./assets/sanctum-background.webp") !important;
 }
 
 .xianxia-app-frame-overlay {
@@ -201,6 +205,11 @@
 		linear-gradient(#000 0 0);
 	-webkit-mask-composite: xor;
 	mask-composite: exclude;
+}
+
+body.xianxia-sanctum-page-active .xianxia-app-background-immortal,
+body.xianxia-sanctum-page-active .xianxia-app-background-gourd {
+	display: none;
 }
 
 .xianxia-guiding-words {

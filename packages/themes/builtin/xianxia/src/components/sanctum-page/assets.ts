@@ -2,6 +2,13 @@ export const sanctumPageAssets = {
 	achievementConnector: new URL("./assets/achievement-connector.webp", import.meta.url).href,
 	achievementPanel: new URL("./assets/achievement-panel.webp", import.meta.url).href,
 	backButton: new URL("./assets/back-button.webp", import.meta.url).href,
+	bottomBar: {
+		background: new URL("./assets/bottom-bar.webp", import.meta.url).href,
+		book: new URL("./assets/bottom-bar-book.webp", import.meta.url).href,
+		button: new URL("./assets/bottom-bar-button.webp", import.meta.url).href,
+		compass: new URL("./assets/bottom-bar-compass.webp", import.meta.url).href,
+		scroll: new URL("./assets/bottom-bar-scroll.webp", import.meta.url).href,
+	},
 	character: new URL("./assets/character.webp", import.meta.url).href,
 	currentAchievementBackground: new URL("./assets/current-achievement-background.webp", import.meta.url).href,
 	profilePanel: new URL("./assets/profile-panel.webp", import.meta.url).href,
