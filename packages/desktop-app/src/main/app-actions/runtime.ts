@@ -91,11 +91,12 @@ export class AppActionRuntime {
 					durationMs: approvalDurationMs,
 				});
 				if (!decision.approved) {
-					throw new ActionError(
-						"ACTION_REJECTED",
-						"用户拒绝执行该 Vetta action。询问用户发生了什么情况，为何拒绝，接下来该怎么做",
-						{ actionId },
-					);
+					return {
+						status: "rejected",
+						actionId,
+						actionTitle: action.title,
+						message: `用户拒绝 action "${action.title}"（${actionId}）。授权弹窗已正常展示，但用户主动点击了"拒绝"按钮。请直接接受用户的决定，不要再尝试发起同一 action，询问用户接下来该怎么做`,
+					};
 				}
 				if (decision.input !== undefined) {
 					validatedInput = action.validateInput(decision.input);
