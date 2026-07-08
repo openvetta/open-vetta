@@ -1,5 +1,5 @@
 import type { ThemePageProps } from "@vetta/theme-sdk";
-import { HorizontalSliceImageFrame } from "@vetta/theme-ui";
+import { HorizontalSliceImageFrame, NineSliceImageFrame } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
 import type { CSSProperties, JSX } from "react";
@@ -24,6 +24,17 @@ const statusLabelDecoration = {
 	rightSlice: 60,
 	rightWidth: "0.75rem",
 } as const;
+const achievementPanelDecoration = {
+	borderWidth: "3.5rem",
+	repeat: "stretch",
+	slice: 88,
+} as const;
+const skillPerks = [
+	{ bonus: "+10%", name: "Qi Gathering" },
+	{ bonus: "+15%", name: "Cultivation Speed" },
+	{ bonus: "+10%", name: "Defense Boost" },
+	{ bonus: "+200", name: "Max Qi Increase" },
+] as const;
 
 function chunkAchievements(items: readonly SanctumAchievement[]): readonly (readonly SanctumAchievement[])[] {
 	const rows: SanctumAchievement[][] = [];
@@ -124,7 +135,7 @@ function XianxiaProfileColumn(): JSX.Element {
 				animate={{ opacity: 1, y: 0 }}
 				alt=""
 				aria-hidden="true"
-				className="relative h-[520px] w-[470px] object-contain drop-shadow-[0_0_16px_rgba(255,255,255,0.68)]"
+				className="relative h-[550px] w-[500px] object-contain drop-shadow-[0_0_16px_rgba(255,255,255,0.68)]"
 				initial={{ opacity: 0, y: 10 }}
 				src={sanctumPageAssets.character}
 				transition={{ duration: 0.5, ease: "easeOut" }}
@@ -142,26 +153,18 @@ function XianxiaProfileColumn(): JSX.Element {
 					src={sanctumPageAssets.profilePanel}
 				/>
 				<div className="absolute inset-x-10 top-16 text-center">
-					<div className="relative mx-auto -mt-11 flex h-16 w-16 items-center justify-center text-[34px] font-semibold text-white drop-shadow-[0_1px_4px_rgba(15,23,42,0.8)]">
-						<img
-							alt=""
-							aria-hidden="true"
-							className="absolute inset-0 h-full w-full object-contain"
-							src={sanctumPageAssets.realmNumberFrame}
-						/>
-						<span className="relative z-10">2</span>
-					</div>
-					<h2 className="mt-2 text-[30px] font-semibold leading-8 text-slate-900">Foundation Establishment</h2>
-					<p className="mt-1 text-[21px] font-semibold tracking-[0.24em] text-slate-700">筑 基 境</p>
-					<p className="mx-auto mt-4 w-[300px] text-[14px] leading-5 text-slate-600">
+					<span className="absolute left-1/2 top-[-38px] z-10 -translate-x-1/2 text-[34px] font-semibold leading-none text-white drop-shadow-[0_1px_4px_rgba(15,23,42,0.8)]">
+						2
+					</span>
+					<h2 className="mt-[28px] whitespace-nowrap text-[29px] font-semibold leading-8 text-slate-900">Foundation Establishment</h2>
+					<p className="mt-[28px] text-[20px] font-semibold tracking-[0.24em] text-slate-700">筑 基 境</p>
+					<p className="mx-auto mt-5 w-[300px] text-[13px] leading-5 text-slate-600">
 						The foundation is laid, the core is steady. The path of immortality has truly begun.
 					</p>
 				</div>
-				<div className="absolute inset-x-14 bottom-7">
-					<div className="mb-2 flex items-center justify-center gap-2 text-[13px] text-slate-600">
-						<span className="h-px w-16 bg-slate-300" />
-						<span>Realm Perks</span>
-						<span className="h-px w-16 bg-slate-300" />
+				<div className="absolute inset-x-14 bottom-9">
+					<div className="mb-2 text-center text-[13px] text-slate-600">
+						Realm Perks
 					</div>
 					<div className="grid grid-cols-4 gap-2 overflow-hidden">
 						{sanctumPageAssets.skills.map((icon, index) => (
@@ -175,10 +178,11 @@ function XianxiaProfileColumn(): JSX.Element {
 								<img
 									alt=""
 									aria-hidden="true"
-									className="mx-auto h-11 w-11 object-contain drop-shadow-[0_0_7px_rgba(255,255,255,0.72)]"
+									className="mx-auto h-12 w-auto max-w-none drop-shadow-[0_0_7px_rgba(255,255,255,0.72)]"
 									src={icon}
 								/>
-								<span className="mt-1 block text-[11px] leading-tight text-slate-600">+10%</span>
+								<span className="mt-1 block truncate text-[10px] leading-tight text-slate-600">{skillPerks[index]?.name}</span>
+								<span className="mt-0.5 block text-[12px] font-semibold leading-tight text-slate-700">{skillPerks[index]?.bonus}</span>
 							</motion.div>
 						))}
 					</div>
@@ -194,17 +198,17 @@ function XianxiaAchievementPanel(): JSX.Element {
 	return (
 		<motion.section
 			animate={{ opacity: 1, x: 0 }}
-			className="relative flex aspect-[1188/963] w-[820px] items-center justify-center self-start"
+			className="relative w-[820px] self-start"
 			initial={{ opacity: 0, x: 18 }}
 			transition={{ delay: 0.1, duration: 0.5, ease: "easeOut" }}
 		>
-			<img
-				alt=""
-				aria-hidden="true"
-				className="absolute inset-0 h-full w-full object-contain"
-				src={sanctumPageAssets.achievementPanel}
-			/>
-			<div className="relative z-10 flex w-full flex-col px-8 py-8" style={achievementLayoutStyle}>
+			<NineSliceImageFrame
+				className="w-full"
+				contentClassName="relative z-10 flex w-full flex-col px-8 py-8"
+				decoration={achievementPanelDecoration}
+				imageUrl={sanctumPageAssets.achievementPanel}
+				style={achievementLayoutStyle}
+			>
 				<div className="mb-4 flex items-center justify-between px-6 text-slate-700">
 					<div>
 						<div className="flex items-center gap-3 text-[18px] font-semibold">
@@ -246,7 +250,7 @@ function XianxiaAchievementPanel(): JSX.Element {
 						</div>
 					))}
 				</div>
-			</div>
+			</NineSliceImageFrame>
 		</motion.section>
 	);
 }

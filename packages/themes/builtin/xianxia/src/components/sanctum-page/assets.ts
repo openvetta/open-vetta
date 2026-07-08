@@ -5,7 +5,6 @@ export const sanctumPageAssets = {
 	character: new URL("./assets/character.webp", import.meta.url).href,
 	currentAchievementBackground: new URL("./assets/current-achievement-background.webp", import.meta.url).href,
 	profilePanel: new URL("./assets/profile-panel.webp", import.meta.url).href,
-	realmNumberFrame: new URL("./assets/realm-number-frame.webp", import.meta.url).href,
 	statusLabels: {
 		completed: new URL("./assets/status-label-completed.webp", import.meta.url).href,
 		current: new URL("./assets/status-label-current.webp", import.meta.url).href,
