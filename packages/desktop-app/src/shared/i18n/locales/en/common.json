@@ -26,12 +26,13 @@
 	},
 	"loginDialog": {
 		"title": "Sign in to Vetta",
-		"subtitle": "Continue with an account or third-party provider",
+		"subtitle": "Sign in with your Vetta account",
 		"accountPlaceholder": "Account",
 		"passwordPlaceholder": "Password",
 		"login": "Sign In",
 		"loggingIn": "Signing in...",
-		"oauthDivider": "Or use a third-party provider",
+		"oauthDivider": "Or",
+		"oauthButton": "Authorize & Sign In",
 		"footerHint": "By signing in, you agree to the Terms of Service and Privacy Policy",
 		"error": "Sign-in failed"
 	},
