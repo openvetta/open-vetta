@@ -10,7 +10,7 @@ import {
 	type FilePreviewItem,
 	inputValueAtom,
 } from "@shared/store/atoms";
-import { pathBasename, pathNormalize } from "@shared/lib/utils";
+import { cn, pathBasename, pathNormalize } from "@shared/lib/utils";
 import { TextBlockView } from "../blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "./MessageActions";
 import { AppshotCard, type AppshotCardData } from "../AppshotCard";
@@ -281,6 +281,7 @@ export const UserMessage = memo(function UserMessage({
 	const copyText = displayText.trim();
 	const shouldAnimateIn = entryState === "enter";
 	const shouldHoldHidden = entryState === "hidden";
+	const [actionsVisible, setActionsVisible] = useState(false);
 	const setInputValue = useSetAtom(inputValueAtom);
 	const setChatMessages = useSetAtom(chatMessagesAtom);
 
@@ -302,14 +303,16 @@ export const UserMessage = memo(function UserMessage({
 
 	return (
 		<motion.div
-			className="group/user relative z-0 flex min-w-0 justify-end hover:z-20"
+			className="flex min-w-0 justify-end"
 			initial={shouldAnimateIn ? HIDDEN_VISUAL_STATE : false}
 			animate={shouldHoldHidden ? HIDDEN_VISUAL_STATE : VISIBLE_VISUAL_STATE}
 			transition={ENTRY_TRANSITION}
 			onAnimationComplete={shouldAnimateIn ? onEntryComplete : undefined}
 			style={MESSAGE_STYLE}
+			onMouseEnter={() => setActionsVisible(true)}
+			onMouseLeave={() => setActionsVisible(false)}
 		>
-			<div className="relative flex min-w-0 max-w-[72%] flex-col items-end before:absolute before:inset-x-0 before:top-full before:h-8 before:content-['']">
+			<div className="relative flex min-w-0 max-w-[72%] flex-col items-end">
 				{appshotData && (
 					<div className="mb-1.5 flex justify-end">
 						<AppshotCard data={appshotData} />
@@ -353,7 +356,12 @@ export const UserMessage = memo(function UserMessage({
 					</div>
 				)}
 				{copyText && (
-					<div className="pointer-events-none absolute right-0 top-full z-30 mt-1 flex items-center justify-end gap-1 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover/user:pointer-events-auto group-hover/user:opacity-100">
+					<div
+						className={cn(
+							"mt-1 flex h-6 items-center justify-end gap-1 whitespace-nowrap transition-opacity duration-150",
+							actionsVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+						)}
+					>
 						{message.timestamp && <RelativeTimeLabel endedAt={message.timestamp} />}
 						{isLastUserMessage && <EditButton onClick={handleEdit} />}
 						<CopyButton getText={() => copyText} />

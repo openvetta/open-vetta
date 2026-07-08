@@ -323,7 +323,8 @@ ${chalk.bold("Environment Variables:")}
   XAI_API_KEY                      - xAI Grok API key
   OPENROUTER_API_KEY               - OpenRouter API key
   AI_GATEWAY_API_KEY               - Vercel AI Gateway API key
-  ZAI_API_KEY                      - ZAI API key
+  ZAI_API_KEY                      - Z.ai API key
+  ZHIPU_API_KEY                    - Zhipu API key
   MISTRAL_API_KEY                  - Mistral API key
   MINIMAX_API_KEY                  - MiniMax API key
   KIMI_API_KEY                     - Kimi For Coding API key
