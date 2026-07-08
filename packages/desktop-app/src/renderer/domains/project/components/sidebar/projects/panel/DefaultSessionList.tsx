@@ -11,6 +11,7 @@ import {
 } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import {
+	VIRTUAL_SESSION_MAX_HEIGHT,
 	VIRTUAL_SESSION_OVERSCAN,
 	VIRTUAL_SESSION_ROW_HEIGHT,
 } from "../projectGroupConstants";
@@ -97,9 +98,11 @@ export const DefaultSessionList = memo(function DefaultSessionList({
 	};
 
 	return (
-		<div className={cn("flex min-h-0 flex-col", className)}>
+		<div className={cn("flex flex-col", className)}>
 			{showAll ? (
-				<div className="min-h-0 flex-1">
+				<div
+					style={{ height: `${Math.min(sorted.length * VIRTUAL_SESSION_ROW_HEIGHT, VIRTUAL_SESSION_MAX_HEIGHT)}px` }}
+				>
 					<Virtuoso
 						className="h-full"
 						data={sorted}
