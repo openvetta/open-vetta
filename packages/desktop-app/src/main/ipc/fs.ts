@@ -838,6 +838,10 @@ export function registerFsIpc(): () => void {
 	ipcMain.handle(CHANNELS.MODELS_SET, async (_event, config: unknown) => {
 		if (typeof config !== "object" || config === null) throw new Error("Invalid models config");
 		await writeModelsConfig(config as ModelsConfig);
+		// 写入 models.json 后立即刷新共享 ModelRegistry，
+		// 使 API Key 等修改在下次模型调用时即时生效，无需重启应用。
+		const { getOrCreateSharedModelRegistry } = await import("../runtime.js");
+		await getOrCreateSharedModelRegistry().refresh();
 	});
 
 	ipcMain.handle(CHANNELS.MODELS_PROBE, async (_event, ref: { provider: string; model: string }) => {
