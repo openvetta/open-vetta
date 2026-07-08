@@ -1,7 +1,6 @@
 export const xianxiaAssets = {
 	appBackground: new URL("./assets/app-background.webp", import.meta.url).href,
 	buttonBackground: new URL("./assets/button-background.webp", import.meta.url).href,
-	inputBarFrame: new URL("./assets/input-bar-frame.webp", import.meta.url).href,
 	newSessionInputPanel: new URL("./assets/new-session-input-panel.webp", import.meta.url).href,
 	newSessionScenePanel: new URL("./assets/new-session-scene-panel.webp", import.meta.url).href,
 	inputBarBackground: new URL("./assets/input-bar-background.webp", import.meta.url).href,
@@ -13,9 +12,7 @@ export const xianxiaAssets = {
 	newSessionSkillPanel: new URL("./assets/new-session-skill-panel.webp", import.meta.url).href,
 	newSessionSkillSeal: new URL("./assets/new-session-skill-seal.webp", import.meta.url).href,
 	newSessionSkillTimepiece: new URL("./assets/new-session-skill-timepiece.webp", import.meta.url).href,
-	panelFrame: new URL("./assets/panel-frame.webp", import.meta.url).href,
 	sendButtonFrame: new URL("./assets/send-button-frame.webp", import.meta.url).href,
-	skillFrame: new URL("./assets/skill-frame.webp", import.meta.url).href,
 	whiteGlazeGourd: new URL("./assets/white-glaze-gourd.webp", import.meta.url).href,
 	whiteGlazeImmortal: new URL("./assets/white-glaze-immortal.webp", import.meta.url).href,
 } as const;
