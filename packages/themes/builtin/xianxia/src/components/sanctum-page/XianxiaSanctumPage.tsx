@@ -1,8 +1,8 @@
 import type { ThemePageProps } from "@vetta/theme-sdk";
-import { HorizontalSliceImageFrame, NineSliceImageFrame } from "@vetta/theme-ui";
+import { HorizontalSliceImageDecoration, HorizontalSliceImageFrame, NineSliceImageFrame } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
-import type { CSSProperties, JSX } from "react";
+import { useEffect, type CSSProperties, type JSX } from "react";
 import { sanctumAchievements, type SanctumAchievement } from "./achievements";
 import { sanctumPageAssets } from "./assets";
 import { XianxiaSanctumPageHeader } from "./XianxiaSanctumPageHeader";
@@ -10,10 +10,12 @@ import { XianxiaSanctumPageHeader } from "./XianxiaSanctumPageHeader";
 const currentAchievement = sanctumAchievements[1] ?? sanctumAchievements[0];
 const achievementLayoutStyle: CSSProperties & {
 	readonly "--sanctum-achievement-connector-size": string;
+	readonly "--sanctum-achievement-gap-size": string;
 	readonly "--sanctum-achievement-size": string;
 } = {
 	"--sanctum-achievement-connector-size": "calc(var(--sanctum-achievement-size) * 0.16)",
-	"--sanctum-achievement-size": "7.5rem",
+	"--sanctum-achievement-gap-size": "calc(var(--sanctum-achievement-size) * 0.11)",
+	"--sanctum-achievement-size": "8.75rem",
 };
 const statusLabelDecoration = {
 	height: "1.25rem",
@@ -28,6 +30,22 @@ const achievementPanelDecoration = {
 	repeat: "stretch",
 	slice: 88,
 } as const;
+const bottomBarFrameDecoration = {
+	height: "100%",
+	leftSlice: 150,
+	leftWidth: "9rem",
+	repeat: "stretch",
+	rightSlice: 150,
+	rightWidth: "9rem",
+} as const;
+const bottomBarButtonDecoration = {
+	height: "100%",
+	leftSlice: 168,
+	leftWidth: "4.25rem",
+	repeat: "stretch",
+	rightSlice: 168,
+	rightWidth: "4.25rem",
+} as const;
 const skillPerks = [
 	{ bonus: "+10%", name: "Qi Gathering" },
 	{ bonus: "+15%", name: "Cultivation Speed" },
@@ -36,6 +54,13 @@ const skillPerks = [
 ] as const;
 
 export function XianxiaSanctumPage({ layout }: ThemePageProps): JSX.Element {
+	useEffect(() => {
+		document.body.classList.add("xianxia-sanctum-page-active");
+		return () => {
+			document.body.classList.remove("xianxia-sanctum-page-active");
+		};
+	}, []);
+
 	return (
 		<main
 			className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto rounded-[22px] border border-white/35 bg-transparent"
@@ -198,7 +223,7 @@ function XianxiaAchievementCell({
 		<>
 			<motion.figure
 				animate={{ opacity: 1, scale: 1, y: 0 }}
-				className="xianxia-achievement-cell relative flex min-w-0 flex-col items-center rounded-[18px] px-1 pb-2 pt-1 text-center"
+				className="xianxia-achievement-cell relative flex min-w-0 flex-col items-center justify-center rounded-[18px] px-1 pb-2 pt-1 text-center"
 				initial={{ opacity: 0, scale: 0.92, y: 10 }}
 				transition={{ delay: 0.18 + assetIndex * 0.035, duration: 0.28, ease: "easeOut" }}
 			>
@@ -206,7 +231,7 @@ function XianxiaAchievementCell({
 					<img
 						alt=""
 						aria-hidden="true"
-						className="pointer-events-none absolute left-1/2 top-[39px] z-0 h-auto w-[70%] max-w-none -translate-x-1/2"
+						className="pointer-events-none absolute left-1/2 top-[35px] z-0 h-auto w-[82%] max-w-none -translate-x-1/2"
 						src={sanctumPageAssets.currentAchievementBackground}
 					/>
 				)}
@@ -215,7 +240,7 @@ function XianxiaAchievementCell({
 					aria-hidden="true"
 					className={cn(
 						"relative z-10 w-auto max-w-none",
-						current ? "h-[calc(var(--sanctum-achievement-size)*1.08)]" : "h-[var(--sanctum-achievement-size)]",
+						current ? "h-[calc(var(--sanctum-achievement-size)*1.2)]" : "h-[var(--sanctum-achievement-size)]",
 						achievement.achieved
 							? "drop-shadow-[0_0_9px_rgba(202,255,240,0.56)]"
 							: "opacity-80 saturate-[0.72] drop-shadow-[0_0_5px_rgba(255,255,255,0.38)]",
@@ -230,7 +255,7 @@ function XianxiaAchievementCell({
 				{showConnector && (
 					<motion.div
 						animate={{ opacity: 1, scaleX: 1 }}
-						className="sanctum-achievement-connector pointer-events-none absolute right-[calc(var(--sanctum-achievement-connector-size)*-0.92)] top-1 z-20 flex h-[var(--sanctum-achievement-size)] w-[var(--sanctum-achievement-connector-size)] items-center justify-center"
+						className="sanctum-achievement-connector pointer-events-none absolute right-[calc(var(--sanctum-achievement-connector-size)*-0.92)] top-3 z-20 flex h-[var(--sanctum-achievement-size)] w-[var(--sanctum-achievement-connector-size)] items-center justify-center"
 						initial={{ opacity: 0, scaleX: 0.65 }}
 						transition={{ delay: 0.24 + assetIndex * 0.035, duration: 0.3, ease: "easeOut" }}
 					>
@@ -279,31 +304,40 @@ function XianxiaBottomBar(): JSX.Element {
 	return (
 		<motion.footer
 			animate={{ opacity: 1, y: 0 }}
-			className="mx-8 mb-5 mt-auto flex min-h-16 items-center justify-between gap-5 rounded-2xl border border-white/35 bg-slate-200/45 px-8 py-2 text-slate-700 shadow-[inset_0_0_12px_rgba(255,255,255,0.55),0_0_12px_rgba(15,23,42,0.28)]"
+			className="mx-8 mb-5 mt-auto text-slate-700"
 			initial={{ opacity: 0, y: 18 }}
 			transition={{ delay: 0.25, duration: 0.45, ease: "easeOut" }}
 		>
-			<div className="flex items-center gap-5">
-				<span className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-400/60 bg-slate-900/10">
-					<span className="icon-[solar--compass-big-linear] h-7 w-7 text-slate-600" />
-				</span>
-				<p className="w-[360px] text-[14px] leading-5">Each realm breakthrough unlocks new abilities, boosts attributes, and opens the path to higher cultivation.</p>
-			</div>
-			<div className="h-11 w-px bg-slate-400/45" />
-			<div className="flex items-center gap-5">
-				<span className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-400/60 bg-slate-900/10">
-					<span className="icon-[solar--book-2-linear] h-7 w-7 text-slate-600" />
-				</span>
-				<p className="w-[310px] text-[14px] leading-5">Complete tasks, accumulate cultivation, and transcend to higher realms.</p>
-			</div>
-			<button
-				type="button"
-				className="flex h-11 items-center gap-3 rounded-2xl border border-amber-200/80 bg-slate-700 px-7 text-[18px] font-semibold text-white shadow-[0_0_8px_rgba(255,255,255,0.42)]"
+			<HorizontalSliceImageFrame
+				className="w-full"
+				contentClassName="relative z-10 flex min-h-[7.25rem] items-center justify-between gap-5 px-12 py-8"
+				decoration={bottomBarFrameDecoration}
+				imageUrl={sanctumPageAssets.bottomBar.background}
 			>
-				<span className="icon-[solar--book-bookmark-linear] h-6 w-6" />
-				<span>View Cultivation Record</span>
-				<span className="icon-[solar--arrow-right-linear] h-5 w-5" />
-			</button>
+				<div className="flex items-center gap-5">
+					<img alt="" aria-hidden="true" className="h-14 w-auto max-w-none flex-none object-contain" src={sanctumPageAssets.bottomBar.compass} />
+					<p className="w-[360px] text-[14px] leading-5">Each realm breakthrough unlocks new abilities, boosts attributes, and opens the path to higher cultivation.</p>
+				</div>
+				<div className="h-11 w-px bg-slate-400/45" />
+				<div className="flex items-center gap-5">
+					<img alt="" aria-hidden="true" className="h-14 w-auto max-w-none flex-none object-contain" src={sanctumPageAssets.bottomBar.scroll} />
+					<p className="w-[310px] text-[14px] leading-5">Complete tasks, accumulate cultivation, and transcend to higher realms.</p>
+				</div>
+				<button
+					type="button"
+					className="relative flex h-14 flex-none items-center justify-center px-9 text-[18px] font-semibold text-white"
+				>
+					<HorizontalSliceImageDecoration
+						decoration={bottomBarButtonDecoration}
+						imageUrl={sanctumPageAssets.bottomBar.button}
+					/>
+					<span className="relative z-10 flex items-center gap-3">
+						<img alt="" aria-hidden="true" className="h-7 w-auto max-w-none object-contain" src={sanctumPageAssets.bottomBar.book} />
+						<span>View Cultivation Record</span>
+						<span className="icon-[solar--arrow-right-linear] h-5 w-5" />
+					</span>
+				</button>
+			</HorizontalSliceImageFrame>
 		</motion.footer>
 	);
 }
