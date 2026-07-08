@@ -125,6 +125,14 @@
 	display: none;
 }
 
+.sanctum-achievement-connector {
+	top: 3.75rem; /* top-3: 非 current 行 */
+}
+
+.xianxia-achievement-cell:nth-child(-n+2) .sanctum-achievement-connector {
+	top: 4.5rem; /* top-6: current 行 (3列时 row 0 = cells 0-2) */
+}
+
 @container (min-width: 38.25rem) {
 	.xianxia-achievement-grid {
 		grid-template-columns: repeat(4, var(--sanctum-achievement-size));
@@ -136,6 +144,10 @@
 
 	.xianxia-achievement-cell:nth-child(4n) .sanctum-achievement-connector {
 		display: none;
+	}
+
+	.xianxia-achievement-cell:nth-child(-n+3) .sanctum-achievement-connector {
+		top: 4.5rem; /* top-6: current 行 (4列时 row 0 = cells 0-3) */
 	}
 }
 
@@ -150,6 +162,10 @@
 
 	.xianxia-achievement-cell:nth-child(5n) .sanctum-achievement-connector {
 		display: none;
+	}
+
+	.xianxia-achievement-cell:nth-child(-n+4) .sanctum-achievement-connector {
+		top: 4.5rem; /* top-6: current 行 (5列时 row 0 = cells 0-4) */
 	}
 }
 

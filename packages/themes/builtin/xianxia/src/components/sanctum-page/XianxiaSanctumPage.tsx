@@ -1,5 +1,5 @@
 import type { ThemePageProps } from "@vetta/theme-sdk";
-import { HorizontalSliceImageDecoration, HorizontalSliceImageFrame, NineSliceImageFrame } from "@vetta/theme-ui";
+import { CenterSliceImageDecoration, HorizontalSliceImageDecoration, HorizontalSliceImageFrame, NineSliceImageFrame } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
 import { useEffect, type CSSProperties, type JSX } from "react";
@@ -9,14 +9,18 @@ import { XianxiaSanctumPageHeader } from "./XianxiaSanctumPageHeader";
 
 const currentAchievement = sanctumAchievements[1] ?? sanctumAchievements[0];
 const achievementLayoutStyle: CSSProperties & {
-	readonly "--sanctum-achievement-connector-size": string;
+	readonly "--sanctum-achievement-connector-width": string;
 	readonly "--sanctum-achievement-gap-size": string;
 	readonly "--sanctum-achievement-size": string;
 } = {
-	"--sanctum-achievement-connector-size": "calc(var(--sanctum-achievement-size) * 0.16)",
+	"--sanctum-achievement-connector-width": "calc(var(--sanctum-achievement-gap-size) + var(--sanctum-achievement-size) * 0.32)",
 	"--sanctum-achievement-gap-size": "calc(var(--sanctum-achievement-size) * 0.11)",
 	"--sanctum-achievement-size": "8.75rem",
 };
+const achievementConnectorDecoration = {
+	centerWidth: "1rem",
+	height: "1.7rem",
+} as const;
 const statusLabelDecoration = {
 	height: "1.25rem",
 	leftSlice: 60,
@@ -255,15 +259,14 @@ function XianxiaAchievementCell({
 				{showConnector && (
 					<motion.div
 						animate={{ opacity: 1, scaleX: 1 }}
-						className="sanctum-achievement-connector pointer-events-none absolute right-[calc(var(--sanctum-achievement-connector-size)*-0.92)] top-3 z-20 flex h-[var(--sanctum-achievement-size)] w-[var(--sanctum-achievement-connector-size)] items-center justify-center"
+						className="sanctum-achievement-connector pointer-events-none absolute right-[calc(var(--sanctum-achievement-connector-width)*-0.6)] h-[1.7rem] w-[var(--sanctum-achievement-connector-width)]"
 						initial={{ opacity: 0, scaleX: 0.65 }}
 						transition={{ delay: 0.24 + assetIndex * 0.035, duration: 0.3, ease: "easeOut" }}
 					>
-						<img
-							alt=""
-							aria-hidden="true"
-							className="w-full object-contain opacity-[0.82] drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]"
-							src={sanctumPageAssets.achievementConnector}
+						<CenterSliceImageDecoration
+							className="opacity-[0.86] drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+							decoration={achievementConnectorDecoration}
+							imageUrl={sanctumPageAssets.achievementConnector}
 						/>
 					</motion.div>
 				)}
