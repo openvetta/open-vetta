@@ -94,6 +94,7 @@ export function useInputBarModel({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isFocused, setIsFocused] = useState(false);
 	const [slashOpen, setSlashOpen] = useState(false);
+	const [slashFilter, setSlashFilter] = useState("");
 	const [atOpen, setAtOpen] = useState(false);
 	const slashDismissedRef = useRef(false);
 	const atDismissedIndexRef = useRef<number | null>(null);
@@ -241,17 +242,22 @@ export function useInputBarModel({
 			const val = e.target.value;
 			setInputValue(val);
 
-			const slashActive = val === "/" || (val.startsWith("/") && !val.includes(" "));
+			const cursorPos = e.target.selectionStart ?? val.length;
+			const textBeforeCursor = val.slice(0, cursorPos);
+
+			const slashActive =
+				textBeforeCursor === "/" ||
+				(textBeforeCursor.startsWith("/") && !textBeforeCursor.includes(" "));
 			if (!slashActive) {
+				setSlashFilter("");
 				slashDismissedRef.current = false;
 				if (slashOpen) setSlashOpen(false);
 			} else if (!slashDismissedRef.current) {
+				setSlashFilter(textBeforeCursor);
 				if (!slashOpen) setSlashOpen(true);
 				if (atOpen) setAtOpen(false);
 			}
 
-			const cursorPos = e.target.selectionStart ?? val.length;
-			const textBeforeCursor = val.slice(0, cursorPos);
 			const atMatch = textBeforeCursor.match(/@([^\s]*)$/);
 			const atIndex = atMatch ? (atMatch.index ?? null) : null;
 			if (atIndex === null) {
@@ -268,7 +274,14 @@ export function useInputBarModel({
 
 	const handleSlashClose = useCallback(() => {
 		setSlashOpen(false);
-		if (inputValue === "/" || (inputValue.startsWith("/") && !inputValue.includes(" "))) {
+		setSlashFilter("");
+		const el = textareaRef.current;
+		const cursorPos = el?.selectionStart ?? inputValue.length;
+		const textBeforeCursor = inputValue.slice(0, cursorPos);
+		if (
+			textBeforeCursor === "/" ||
+			(textBeforeCursor.startsWith("/") && !textBeforeCursor.includes(" "))
+		) {
 			slashDismissedRef.current = true;
 		}
 	}, [inputValue]);
@@ -491,6 +504,7 @@ export function useInputBarModel({
 		placeholder,
 		isFocused,
 		slashOpen,
+		slashFilter,
 		atOpen,
 		drawerItems,
 		drawerActiveTab,

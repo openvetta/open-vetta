@@ -121,7 +121,7 @@ export function InputBarView({ model, className, classNames }: InputBarViewProps
 					open={model.slashOpen}
 					onClose={model.actions.handleSlashClose}
 					onSelect={model.actions.handleSlashSelect}
-					filter={model.inputValue.startsWith("/") ? model.inputValue : ""}
+					filter={model.slashFilter}
 					cwd={model.effectiveCwd || undefined}
 				/>
 
