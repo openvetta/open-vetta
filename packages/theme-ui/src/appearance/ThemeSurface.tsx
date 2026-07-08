@@ -3,6 +3,7 @@ import { useThemeSurface, type ThemeSurfaceSlot } from "@vetta/theme-sdk/appeara
 import { cn } from "@vetta/ui";
 import { BackgroundImageDecoration } from "./BackgroundImageFrame";
 import { CornerImageDecoration } from "./CornerImageFrame";
+import { HorizontalSliceImageDecoration } from "./HorizontalSliceImageFrame";
 import { NineSliceImageDecoration } from "./NineSliceImageFrame";
 
 export interface ThemeSurfaceProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
@@ -57,6 +58,22 @@ export function ThemeSurface({
 				{...props}
 			>
 				<NineSliceImageDecoration
+					decoration={surface.frame.decoration}
+					imageUrl={surface.frame.imageUrl}
+				/>
+			</div>
+		);
+	}
+
+	if (surface?.frame?.kind === "horizontal-slice-image") {
+		return (
+			<div
+				aria-hidden="true"
+				className={cn("pointer-events-none absolute inset-0 z-0 overflow-visible", className, surface.surfaceClassName)}
+				data-theme-surface={slot}
+				{...props}
+			>
+				<HorizontalSliceImageDecoration
 					decoration={surface.frame.decoration}
 					imageUrl={surface.frame.imageUrl}
 				/>

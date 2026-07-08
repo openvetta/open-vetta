@@ -84,7 +84,26 @@ export interface NineSliceImageSurfaceFrame {
 	readonly imageUrl: string;
 }
 
-export type ThemeSurfaceFrame = BackgroundImageSurfaceFrame | CornerImageSurfaceFrame | NineSliceImageSurfaceFrame;
+export interface HorizontalSliceImageFrameDecoration {
+	readonly height?: string;
+	readonly leftSlice: number | string;
+	readonly leftWidth: string;
+	readonly repeat?: "repeat" | "round" | "space" | "stretch";
+	readonly rightSlice: number | string;
+	readonly rightWidth: string;
+}
+
+export interface HorizontalSliceImageSurfaceFrame {
+	readonly kind: "horizontal-slice-image";
+	readonly decoration: HorizontalSliceImageFrameDecoration;
+	readonly imageUrl: string;
+}
+
+export type ThemeSurfaceFrame =
+	| BackgroundImageSurfaceFrame
+	| CornerImageSurfaceFrame
+	| HorizontalSliceImageSurfaceFrame
+	| NineSliceImageSurfaceFrame;
 
 export interface ThemeSurfaceConfig {
 	readonly frame?: ThemeSurfaceFrame;
