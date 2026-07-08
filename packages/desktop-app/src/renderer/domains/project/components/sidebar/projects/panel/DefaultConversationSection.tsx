@@ -31,7 +31,7 @@ export function DefaultConversationSection({
 	const [, setProjectMenu] = useAtom(projectContextMenuAtom);
 
 	return (
-		<div className="mt-2 flex min-h-0 flex-1 flex-col">
+		<div className="mt-2 flex flex-col">
 			<div
 				className="group -mx-1.5 flex shrink-0 items-center justify-between pb-1 pl-2 pr-1 pt-1"
 				onContextMenu={(event) => {
@@ -69,7 +69,7 @@ export function DefaultConversationSection({
 			</div>
 			<DefaultSessionList
 				activeSessionPath={activeSessionPath}
-				className={cn("project-list-containment -mx-1.5 min-h-0 flex-1 px-1.5", listClassName)}
+				className={cn("project-list-containment -mx-1.5 px-1.5", listClassName)}
 				cwd={project.cwd}
 				filter={defaultConversationFilter}
 				onRenameSession={onRenameSession}

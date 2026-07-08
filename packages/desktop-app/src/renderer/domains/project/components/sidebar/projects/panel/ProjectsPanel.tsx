@@ -9,7 +9,7 @@ export function ProjectsPanel(props: ProjectsPanelProps): JSX.Element {
 	const model = useProjectsPanelModel(props);
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col px-1.5 py-0.5">
+		<div className="flex min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar px-1.5 py-0.5">
 			{model.noOtherProjects && !model.defaultProject && <ProjectsPanelEmptyState />}
 			<ProjectGroupsSection model={model} />
 			{model.defaultProject && (
