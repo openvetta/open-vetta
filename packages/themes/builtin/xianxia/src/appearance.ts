@@ -3,18 +3,18 @@ import { xianxiaAssets } from "./assets";
 
 const xianxiaPanelFrame: ThemeSurfaceFrame = {
 	kind: "nine-slice-image",
-	imageUrl: xianxiaAssets.panelFrame,
+	imageUrl: xianxiaAssets.newSessionScenePanel,
 	decoration: {
-		borderWidth: "33px",
+		borderWidth: "18px",
 		outset: "2px",
 		repeat: "stretch",
-		slice: 198,
+		slice: 122,
 	},
 };
 
 const xianxiaPanelSurface = {
 	frame: xianxiaPanelFrame,
-	surfaceClassName: "xianxia-frame-glow-silver overflow-visible",
+	surfaceClassName: "overflow-visible",
 };
 
 export const xianxiaAppearance: ThemeAppearance = {
