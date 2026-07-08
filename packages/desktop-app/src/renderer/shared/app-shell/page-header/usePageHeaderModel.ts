@@ -5,6 +5,7 @@ import {
 	pageHeaderTitleBadgeAtom,
 	pageHeaderTitleHiddenAtom,
 } from "@shared/store/atoms";
+import { resolveThemePageTitle, useActiveThemePageRoute } from "@shared/theme/pages";
 import { useMatches } from "@tanstack/react-router";
 import { useAtomValue } from "jotai";
 import { useTranslation } from "react-i18next";
@@ -26,8 +27,9 @@ export function usePageHeaderModel({
 	narrow,
 	sidebarCollapsed,
 }: Pick<PageHeaderProps, "narrow" | "sidebarCollapsed">): PageHeaderModel {
-	const { t } = useTranslation("common");
+	const { i18n, t } = useTranslation("common");
 	const matches = useMatches();
+	const themePageRoute = useActiveThemePageRoute();
 	const path = matches[matches.length - 1]?.pathname ?? "/";
 	const titleOverride = useAtomValue(pageHeaderTitleAtom);
 	const titleHidden = useAtomValue(pageHeaderTitleHiddenAtom);
@@ -35,7 +37,10 @@ export function usePageHeaderModel({
 	const rightSlot = useAtomValue(pageHeaderRightSlotAtom);
 	const leftSlot = useAtomValue(pageHeaderLeftSlotAtom);
 	const fallbackTitleKey = ROUTE_TITLE_KEYS.find((route) => route.match.test(path))?.titleKey;
-	const fallbackTitle = fallbackTitleKey ? t(fallbackTitleKey) : t("appName");
+	const themePageTitle = themePageRoute?.page
+		? resolveThemePageTitle(themePageRoute.page.title, i18n.language)
+		: undefined;
+	const fallbackTitle = themePageTitle || (fallbackTitleKey ? t(fallbackTitleKey) : t("appName"));
 	const title = titleOverride && titleOverride.length > 0 ? titleOverride : fallbackTitle;
 	const triggerVisible = narrow || sidebarCollapsed;
 	const sidebarTriggerTitle = t(narrow ? "appShell.sidebarTrigger.open" : "appShell.sidebarTrigger.expand");

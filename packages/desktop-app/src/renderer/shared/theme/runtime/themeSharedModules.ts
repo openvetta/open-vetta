@@ -8,11 +8,13 @@ import * as React from "react";
 import * as jsxDevRuntime from "react/jsx-dev-runtime";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as ReactDom from "react-dom";
+import * as desktopThemeAppShell from "../sdk/app-shell";
 import * as desktopThemeSidebar from "../sdk/sidebar-primitives";
 
 type ModuleFederationShared = Parameters<typeof ModuleFederation.prototype.initOptions>[0]["shared"];
 
 const sharedModules = {
+	"@vetta/desktop-theme-ui/app-shell": { module: desktopThemeAppShell, version: "0.1.0" },
 	"@vetta/desktop-theme-ui/sidebar": { module: desktopThemeSidebar, version: "0.1.0" },
 	"@vetta/theme-sdk": { module: themeSdk, version: "0.1.0" },
 	"@vetta/theme-sdk/pages": { module: themeSdkPages, version: "0.1.0" },

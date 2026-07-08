@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { WindowControls } from "@shared/app-shell/window-controls";
 import { isMac } from "@shared/lib/platform";
-import { cn } from "@shared/lib/utils";
+import { PageHeaderActionGroup } from "./PageHeaderActionGroup";
 
 export interface PageHeaderWindowActionsProps {
 	children?: ReactNode;
@@ -10,9 +10,9 @@ export interface PageHeaderWindowActionsProps {
 
 export function PageHeaderWindowActions({ children, className }: PageHeaderWindowActionsProps): JSX.Element {
 	return (
-		<div className={cn("no-drag flex shrink-0 items-center gap-1", className)}>
+		<PageHeaderActionGroup className={className}>
 			{children}
 			{!isMac && <WindowControls />}
-		</div>
+		</PageHeaderActionGroup>
 	);
 }

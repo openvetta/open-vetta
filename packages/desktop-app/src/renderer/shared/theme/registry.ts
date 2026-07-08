@@ -23,6 +23,7 @@ import type { NavigationOpenApprovalView } from "@shared/action-approval/navigat
 import type { SchedulerActionApprovalDialogView } from "@shared/action-approval/scheduler/SchedulerActionApprovalDialogView";
 import type { SchedulerEditApprovalDrawerView } from "@shared/action-approval/scheduler/SchedulerEditApprovalDrawerView";
 import type {
+	PageHeaderContentProps,
 	PageHeaderRegionProps,
 	PageHeaderSidebarTrigger,
 	PageHeaderTitle,
@@ -43,6 +44,7 @@ declare module "@vetta/theme-sdk" {
 
 	interface ThemeComponentRegistry {
 		readonly "activity.panelFrame"?: typeof ActivityPanelFrame;
+		readonly "app.pageHeaderContent"?: ComponentType<PageHeaderContentProps>;
 		readonly "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger;
 		readonly "app.pageHeaderTitle"?: typeof PageHeaderTitle;
 		readonly "app.pageHeaderWindowActions"?: typeof PageHeaderWindowActions;

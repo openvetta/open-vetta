@@ -108,6 +108,51 @@
 	border-radius: var(--xianxia-skill-card-background-radius);
 }
 
+.xianxia-achievement-panel-content {
+	container-type: inline-size;
+}
+
+.xianxia-achievement-grid {
+	display: grid;
+	grid-template-columns: repeat(3, var(--sanctum-achievement-size));
+	justify-content: center;
+	column-gap: var(--sanctum-achievement-connector-size);
+	row-gap: 0.25rem;
+	min-width: 0;
+}
+
+.xianxia-achievement-cell:nth-child(3n) .sanctum-achievement-connector {
+	display: none;
+}
+
+@container (min-width: 33.5rem) {
+	.xianxia-achievement-grid {
+		grid-template-columns: repeat(4, var(--sanctum-achievement-size));
+	}
+
+	.xianxia-achievement-cell:nth-child(3n) .sanctum-achievement-connector {
+		display: flex;
+	}
+
+	.xianxia-achievement-cell:nth-child(4n) .sanctum-achievement-connector {
+		display: none;
+	}
+}
+
+@container (min-width: 42.25rem) {
+	.xianxia-achievement-grid {
+		grid-template-columns: repeat(5, var(--sanctum-achievement-size));
+	}
+
+	.xianxia-achievement-cell:nth-child(4n) .sanctum-achievement-connector {
+		display: flex;
+	}
+
+	.xianxia-achievement-cell:nth-child(5n) .sanctum-achievement-connector {
+		display: none;
+	}
+}
+
 .xianxia-app-frame {
 	--xianxia-app-frame-inset: 12px;
 	--xianxia-font-family: "Palatino Linotype", Palatino, "Book Antiqua", KaiTi, STKaiti, "Kaiti SC", "楷体", serif;
