@@ -29,6 +29,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **模型设置支持 Z.ai / 智谱 OpenAI Completions 扩展**：模型 API 类型下拉新增 `zai-openai-completions` 与 `zhipu-openai-completions`，用于 GLM OpenAI 兼容接口并配套自定义思考档位。
 - **外观界面主题选择**：外观设置新增「默认主题 / 修仙主题」独立选择与预览，并将颜色主题明确限定为默认主题的配色设置；界面主题选择会持久化，默认使用标准界面。
 - **可扩展 UI 主题包运行时**：新增独立主题构建、归档与 staging 流程；内置主题随应用进入 `Resources/system-themes`，远程主题从用户主题目录发现，两者通过相同 manifest、preload API、`vetta-theme://` 协议和 Module Federation loader 加载。Xianxia 作为首个内置主题包接入，desktop-app 不再静态依赖具体主题实现。
 - **Appshot：全局手势捕获前台应用窗口为附件（macOS）**：默认关闭，在「设置 › 快捷键 › Appshot」开启并选择手势（同时按住左右 ⇧/⌘/⌥）。触发后捕获前台应用窗口的截图 PNG 与结构化文字（辅助功能 AX 优先、不足时 OCR 异步兜底），落盘后作为胶囊附件挂到主窗口输入框（可移除，发送时以 `@截图路径` / `@文本路径` 前缀随 prompt 引用，发送后自动清除）。renderer 侧新增 `appshotAttachmentAtom` / `focusInputRequestAtom`、App 常驻监听捕获/文本补齐/失败事件（失败走 toast），preload 新增 `window.vetta.appshot`（`reloadGesture` / `onCaptured` / `onTextUpdated` / `onCaptureError`）；权限管理页新增「屏幕录制」项（`PermissionKind` 扩展 `screen-recording`）。

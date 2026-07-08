@@ -11,6 +11,8 @@ import { streamOpenAICodexResponses, streamSimpleOpenAICodexResponses } from "./
 import { streamOpenAICompletions, streamSimpleOpenAICompletions } from "./openai-completions.js";
 import { streamOpenAIResponses, streamSimpleOpenAIResponses } from "./openai-responses.js";
 import { streamQwen, streamSimpleQwen } from "./qwen.js";
+import { streamSimpleZai, streamZai } from "./zai.js";
+import { streamSimpleZhipu, streamZhipu } from "./zhipu.js";
 
 export function registerBuiltInApiProviders(): void {
 	registerApiProvider({
@@ -77,6 +79,18 @@ export function registerBuiltInApiProviders(): void {
 		api: "openai-completions-deepseek",
 		stream: streamDeepSeek,
 		streamSimple: streamSimpleDeepSeek,
+	});
+
+	registerApiProvider({
+		api: "zai-openai-completions",
+		stream: streamZai,
+		streamSimple: streamSimpleZai,
+	});
+
+	registerApiProvider({
+		api: "zhipu-openai-completions",
+		stream: streamZhipu,
+		streamSimple: streamSimpleZhipu,
 	});
 
 	registerApiProvider({
