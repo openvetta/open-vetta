@@ -8,6 +8,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "app.pageHeader"?: ThemeSurfaceConfig;
 		readonly "app.windowControls"?: ThemeSurfaceConfig;
 		readonly "chat.atPanel"?: ThemeSurfaceConfig;
+		readonly "chat.assistantMessage"?: ThemeSurfaceConfig;
 		readonly "chat.executionModeMenu"?: ThemeSurfaceConfig;
 		readonly "chat.inputActionBar"?: ThemeSurfaceConfig;
 		readonly "chat.inputBar"?: ThemeSurfaceConfig;

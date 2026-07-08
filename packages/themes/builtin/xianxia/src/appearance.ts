@@ -73,6 +73,11 @@ export const xianxiaAppearance: ThemeAppearance = {
 			},
 		},
 		"chat.atPanel": xianxiaPanelSurface,
+		"chat.assistantMessage": {
+			frame: xianxiaPanelFrame,
+			rootClassName: "border-transparent bg-transparent px-4 py-3",
+			surfaceClassName: "overflow-visible",
+		},
 		"chat.newSessionPage": { rootClassName: "bg-transparent" },
 		"chat.sessionViewerPage": { rootClassName: "bg-transparent" },
 		"chat.view": { rootClassName: "bg-transparent" },

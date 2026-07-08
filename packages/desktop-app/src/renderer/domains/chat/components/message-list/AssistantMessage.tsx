@@ -1,6 +1,8 @@
 import { memo, useEffect, useId, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { useThemeSurface } from "@vetta/theme-sdk/appearance";
+import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import type { ChatMessage } from "@shared/store/atoms";
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { cn } from "@shared/lib/utils";
@@ -188,6 +190,7 @@ export function AssistantMessageView({
 	onToggleExpanded,
 }: AssistantMessageViewProps): JSX.Element {
 	const { t } = useTranslation("chat");
+	const surface = useThemeSurface("chat.assistantMessage");
 	const {
 		conclusionText,
 		exportProcessSegments,
@@ -199,119 +202,128 @@ export function AssistantMessageView({
 		streamingTailIndex,
 	} = model;
 	return (
-		<div className="flex flex-col">
-			<div className="mb-2 flex items-center gap-2">
-				<BotAvatar active={isCurrentlyStreaming} />
-				<span className="text-[13px] font-semibold text-foreground/80">Vetta</span>
-				{message.timestamp && (
-					<span className="text-[11px] text-muted-foreground/35">
-						{formatTime(message.timestamp)}
-					</span>
-				)}
-				{showDuration && (
-					<>
-						<span className="text-[11px] text-muted-foreground/20">·</span>
-						<span className="text-[11px] text-muted-foreground/35">
-							{formatDuration(message.durationSeconds ?? 0)}
-						</span>
-					</>
-				)}
-				{isCurrentlyStreaming && (
-					<div className="flex items-center gap-1">
-						<span
-							className="h-1.5 w-1.5 rounded-full bg-primary/60"
-							style={{ animation: "pulse 1.5s infinite" }}
-						/>
-						<span className="text-[11px] text-muted-foreground/35">
-							{t("messageList.assistantMessage.processing")}
-						</span>
-					</div>
-				)}
-			</div>
-			{isCurrentlyStreaming ? (
-				<AssistantFoldTip
-					state="streaming"
-					count={message.blocks?.length ?? 0}
-					expanded
-					startedAt={message.startedAt ?? message.timestamp}
-					onToggle={() => undefined}
-				/>
-			) : foldData ? (
-				<AssistantFoldTip
-					state="complete"
-					count={foldData.hiddenCount}
-					expanded={expanded}
-					startedAt={message.startedAt}
-					onToggle={onToggleExpanded}
-					exportPanelId={exportFoldPanelId}
-				/>
-			) : null}
-			<div>
-				{message.blocks?.length ? (
-					<div className="flex flex-col gap-0.5">
-						{exportProcessSegments.length > 0 && (
-							<div
-								id={exportFoldPanelId}
-								data-export-collapse-panel=""
-								hidden
-								className="flex flex-col gap-0.5"
-							>
-								{exportProcessSegments.map((segment) => (
-									<SegmentRenderer
-										key={`export-${segmentKey(segment)}`}
-										segment={segment}
-										exportMode
-									/>
-								))}
-							</div>
-						)}
-						{segments.map((segment, index) => (
-							<SegmentRenderer
-								key={segmentKey(segment)}
-								segment={segment}
-								isStreamingTail={index === streamingTailIndex}
-								animateIn={
-									isCurrentlyStreaming && index === segments.length - 1
-								}
-								exportMode={exportMode}
-							/>
-						))}
-					</div>
-				) : (
-					<div
-						className="text-[13px] leading-[1.6] text-foreground"
-						style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-					>
-						{message.text || "\u2026"}
-					</div>
-				)}
-			</div>
-			{isCurrentlyStreaming && (
-				<div className="mt-2 flex items-center">
-					<StreamingIndicator />
-				</div>
+		<div
+			className={cn(
+				"relative flex flex-col overflow-visible rounded-xl",
+				surface?.rootClassName,
 			)}
-			{(conclusionText.length > 0 || isPredicting) && !isCurrentlyStreaming && (
-				<div className="mt-2 flex items-center gap-2">
-					{conclusionText.length > 0 && (
+			data-theme-surface-root="chat.assistantMessage"
+		>
+			<ThemeSurface slot="chat.assistantMessage" />
+			<div className="relative z-10 flex flex-col rounded-[inherit]">
+				<div className="mb-2 flex items-center gap-2">
+					<BotAvatar active={isCurrentlyStreaming} />
+					<span className="text-[13px] font-semibold text-foreground/80">Vetta</span>
+					{message.timestamp && (
+						<span className="text-[11px] text-muted-foreground/35">
+							{formatTime(message.timestamp)}
+						</span>
+					)}
+					{showDuration && (
+						<>
+							<span className="text-[11px] text-muted-foreground/20">·</span>
+							<span className="text-[11px] text-muted-foreground/35">
+								{formatDuration(message.durationSeconds ?? 0)}
+							</span>
+						</>
+					)}
+					{isCurrentlyStreaming && (
 						<div className="flex items-center gap-1">
-							<CopyButton getText={() => conclusionText} />
-							{(message.endedAt ?? message.timestamp) && (
-								<RelativeTimeLabel
-									endedAt={(message.endedAt ?? message.timestamp) as number}
-								/>
-							)}
+							<span
+								className="h-1.5 w-1.5 rounded-full bg-primary/60"
+								style={{ animation: "pulse 1.5s infinite" }}
+							/>
+							<span className="text-[11px] text-muted-foreground/35">
+								{t("messageList.assistantMessage.processing")}
+							</span>
 						</div>
 					)}
-					{isPredicting && (
-						<span className="processing-shimmer text-[11px] font-medium">
-							{t("messageList.assistantMessage.predicting")}
-						</span>
+				</div>
+				{isCurrentlyStreaming ? (
+					<AssistantFoldTip
+						state="streaming"
+						count={message.blocks?.length ?? 0}
+						expanded
+						startedAt={message.startedAt ?? message.timestamp}
+						onToggle={() => undefined}
+					/>
+				) : foldData ? (
+					<AssistantFoldTip
+						state="complete"
+						count={foldData.hiddenCount}
+						expanded={expanded}
+						startedAt={message.startedAt}
+						onToggle={onToggleExpanded}
+						exportPanelId={exportFoldPanelId}
+					/>
+				) : null}
+				<div>
+					{message.blocks?.length ? (
+						<div className="flex flex-col gap-0.5">
+							{exportProcessSegments.length > 0 && (
+								<div
+									id={exportFoldPanelId}
+									data-export-collapse-panel=""
+									hidden
+									className="flex flex-col gap-0.5"
+								>
+									{exportProcessSegments.map((segment) => (
+										<SegmentRenderer
+											key={`export-${segmentKey(segment)}`}
+											segment={segment}
+											exportMode
+										/>
+									))}
+								</div>
+							)}
+							{segments.map((segment, index) => (
+								<SegmentRenderer
+									key={segmentKey(segment)}
+									segment={segment}
+									isStreamingTail={index === streamingTailIndex}
+									animateIn={
+										isCurrentlyStreaming && index === segments.length - 1
+									}
+									exportMode={exportMode}
+								/>
+							))}
+						</div>
+					) : (
+						<div
+							className="text-[13px] leading-[1.6] text-foreground"
+							style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+						>
+							{message.text || "\u2026"}
+						</div>
 					)}
 				</div>
-			)}
-			<div className="mt-2">
-				<MessageCardsHost message={message} />
+				{isCurrentlyStreaming && (
+					<div className="mt-2 flex items-center">
+						<StreamingIndicator />
+					</div>
+				)}
+				{(conclusionText.length > 0 || isPredicting) && !isCurrentlyStreaming && (
+					<div className="mt-2 flex items-center gap-2">
+						{conclusionText.length > 0 && (
+							<div className="flex items-center gap-1">
+								<CopyButton getText={() => conclusionText} />
+								{(message.endedAt ?? message.timestamp) && (
+									<RelativeTimeLabel
+										endedAt={(message.endedAt ?? message.timestamp) as number}
+									/>
+								)}
+							</div>
+						)}
+						{isPredicting && (
+							<span className="processing-shimmer text-[11px] font-medium">
+								{t("messageList.assistantMessage.predicting")}
+							</span>
+						)}
+					</div>
+				)}
+				<div className="mt-2">
+					<MessageCardsHost message={message} />
+				</div>
 			</div>
 		</div>
 	);
