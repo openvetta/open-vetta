@@ -150,7 +150,7 @@ function createPermissionApi(plugin: InstalledPlugin): PluginContext["permission
 const noopDisposable: Disposable = { dispose: () => {} };
 
 function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
-	console.info(`[plugin-agent] ${message}`, data ?? {});
+	console.info(`[plugin-agent] ${message}${data ? ` ${JSON.stringify(data)}` : ""}`);
 }
 
 function warnSkippedContribution(plugin: InstalledPlugin, permission: PluginPermission, contribution: string): void {

@@ -244,12 +244,12 @@ function BatchTasksProjectApprovalContent({
 
 	useEffect(() => {
 		if (input?.operation !== "update" || !currentProject) return;
-		console.info("[action-approval:batch-tasks.project] merged", {
+		console.info(`[action-approval:batch-tasks.project] merged ${JSON.stringify({
 			approvalId: request.approvalId,
 			currentProject,
 			agentPatch: parsedInput?.data,
 			mergedInput: input,
-		});
+		})}`);
 	}, [currentProject, input, parsedInput?.data, request.approvalId]);
 
 	if (loading) {
@@ -296,10 +296,10 @@ function BatchTasksProjectApprovalContent({
 			return;
 		}
 		const approvedInput = buildApprovedInput(input, formData, currentProject);
-		console.info("[action-approval:batch-tasks.project] submit", {
+		console.info(`[action-approval:batch-tasks.project] submit ${JSON.stringify({
 			approvalId: request.approvalId,
 			input: approvedInput,
-		});
+		})}`);
 		approve(approvedInput);
 	};
 
