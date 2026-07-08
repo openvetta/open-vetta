@@ -18,6 +18,7 @@ export default defineConfig({
 			publicPath: "auto",
 			dts: false,
 			shared: {
+				"@vetta/desktop-theme-ui/app-shell": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/desktop-theme-ui/sidebar": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-sdk": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-sdk/pages": { singleton: true, import: false, requiredVersion: "*" },

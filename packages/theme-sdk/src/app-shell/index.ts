@@ -1,5 +1,7 @@
 export type {
 	AppShellThemeHost,
+	PageHeaderClassNames,
+	PageHeaderContentProps,
 	PageHeaderModel,
 	PageHeaderModelInput,
 	PageHeaderProps,

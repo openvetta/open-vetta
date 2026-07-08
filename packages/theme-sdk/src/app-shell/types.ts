@@ -13,18 +13,20 @@ export type PageHeaderTitleKey =
 
 export interface PageHeaderProps {
 	readonly className?: string;
-	readonly classNames?: {
-		readonly actions?: string;
-		readonly content?: string;
-		readonly left?: string;
-		readonly sidebarTrigger?: string;
-		readonly title?: string;
-	};
+	readonly classNames?: PageHeaderClassNames;
 	readonly narrow: boolean;
 	readonly onExpandSidebar: () => void;
 	readonly onOverlayClose: () => void;
 	readonly onOverlayOpen: () => void;
 	readonly sidebarCollapsed: boolean;
+}
+
+export interface PageHeaderClassNames {
+	readonly actions?: string;
+	readonly content?: string;
+	readonly left?: string;
+	readonly sidebarTrigger?: string;
+	readonly title?: string;
 }
 
 export type PageHeaderModelInput = Pick<PageHeaderProps, "narrow" | "sidebarCollapsed">;
@@ -43,6 +45,13 @@ export interface PageHeaderModel {
 
 export interface PageHeaderRegionProps extends PageHeaderProps {
 	readonly model: PageHeaderModel;
+}
+
+export interface PageHeaderContentProps {
+	readonly actions: Pick<PageHeaderProps, "onExpandSidebar" | "onOverlayClose" | "onOverlayOpen">;
+	readonly classNames?: PageHeaderClassNames;
+	readonly model: PageHeaderModel;
+	readonly narrow: boolean;
 }
 
 export interface PageHeaderSidebarTriggerProps extends Omit<ComponentPropsWithoutRef<"button">, "children"> {

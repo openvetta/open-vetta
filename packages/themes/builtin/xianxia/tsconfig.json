@@ -16,6 +16,7 @@
 			"@vetta/theme-sdk/*": ["../../../theme-sdk/src/*"],
 			"@vetta/theme-ui": ["../../../theme-ui/src/index.ts"],
 			"@vetta/theme-ui/*": ["../../../theme-ui/src/*"],
+			"@vetta/desktop-theme-ui/app-shell": ["../../../desktop-app/src/renderer/shared/theme/sdk/app-shell.ts"],
 			"@vetta/desktop-theme-ui/sidebar": ["../../../desktop-app/src/renderer/shared/theme/sdk/sidebar-primitives.ts"],
 			"@vetta/ui": ["../../../ui/src/index.ts"],
 			"@vetta/ui/*": ["../../../ui/src/*"]

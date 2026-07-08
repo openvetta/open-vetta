@@ -3,11 +3,10 @@ import { HorizontalSliceImageFrame, NineSliceImageFrame } from "@vetta/theme-ui"
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
 import type { CSSProperties, JSX } from "react";
-import { xianxiaAssets } from "../../assets";
 import { sanctumAchievements, type SanctumAchievement } from "./achievements";
 import { sanctumPageAssets } from "./assets";
+import { XianxiaSanctumPageHeader } from "./XianxiaSanctumPageHeader";
 
-const achievementsPerRow = 5;
 const currentAchievement = sanctumAchievements[1] ?? sanctumAchievements[0];
 const achievementLayoutStyle: CSSProperties & {
 	readonly "--sanctum-achievement-connector-size": string;
@@ -36,35 +35,20 @@ const skillPerks = [
 	{ bonus: "+200", name: "Max Qi Increase" },
 ] as const;
 
-function chunkAchievements(items: readonly SanctumAchievement[]): readonly (readonly SanctumAchievement[])[] {
-	const rows: SanctumAchievement[][] = [];
-	for (let index = 0; index < items.length; index += achievementsPerRow) {
-		rows.push(items.slice(index, index + achievementsPerRow));
-	}
-	return rows;
-}
-
 export function XianxiaSanctumPage({ layout }: ThemePageProps): JSX.Element {
 	return (
 		<main
-			className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-[22px] border border-white/35 bg-slate-950"
+			className="relative flex min-h-0 flex-1 items-start justify-center overflow-auto rounded-[22px] border border-white/35 bg-transparent"
 			data-theme-page-layout={layout}
 		>
-			<img alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-95" src={xianxiaAssets.appBackground} />
 			<motion.div
 				animate={{ opacity: 1 }}
-				className="absolute inset-0 bg-[radial-gradient(circle_at_12%_22%,rgba(255,255,255,0.32),transparent_16%),linear-gradient(90deg,rgba(11,18,32,0.3),rgba(235,239,248,0.12)_54%,rgba(11,18,32,0.24))]"
+				className="relative flex min-h-full w-full max-w-[1440px] flex-none flex-col overflow-visible"
 				initial={{ opacity: 0 }}
-				transition={{ duration: 0.8, ease: "easeOut" }}
-			/>
-			<motion.div
-				animate={{ opacity: 1, scale: 1 }}
-				className="relative h-[850px] w-[1360px] flex-none"
-				initial={{ opacity: 0, scale: 0.985 }}
-				transition={{ duration: 0.55, ease: "easeOut" }}
+				transition={{ duration: 0.45, ease: "easeOut" }}
 			>
-				<XianxiaPageHeader />
-				<div className="grid grid-cols-[470px_820px] gap-[34px] px-8 pt-[88px]">
+				<XianxiaSanctumPageHeader />
+				<div className="grid min-h-0 grid-cols-1 gap-7 px-8 pb-5 pt-2 min-[1060px]:grid-cols-[430px_minmax(410px,1fr)] xl:grid-cols-[470px_minmax(0,1fr)]">
 					<XianxiaProfileColumn />
 					<XianxiaAchievementPanel />
 				</div>
@@ -74,60 +58,9 @@ export function XianxiaSanctumPage({ layout }: ThemePageProps): JSX.Element {
 	);
 }
 
-function XianxiaPageHeader(): JSX.Element {
-	return (
-		<motion.header
-			animate={{ opacity: 1, y: 0 }}
-			className="absolute inset-x-0 top-0 z-20 flex h-20 items-start justify-between px-8 pt-7 text-white drop-shadow-[0_2px_5px_rgba(15,23,42,0.7)]"
-			initial={{ opacity: 0, y: -14 }}
-			transition={{ duration: 0.45, ease: "easeOut" }}
-		>
-			<div className="flex items-start gap-3">
-				<button
-					type="button"
-					aria-label="Back"
-					title="Back"
-					onClick={() => window.history.back()}
-					className="mt-0.5 h-10 w-10 transition-transform hover:-translate-x-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-				>
-					<img alt="" aria-hidden="true" className="h-full w-full object-contain" src={sanctumPageAssets.backButton} />
-				</button>
-				<div>
-					<div className="flex items-center gap-4">
-						<h1 className="text-[31px] font-semibold leading-8">Cultivation Achievements</h1>
-						<span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/65 text-lg leading-none text-white/90">
-							i
-						</span>
-					</div>
-					<p className="mt-1 text-[19px] leading-none text-white/90">修仙成就</p>
-				</div>
-			</div>
-			<p className="absolute left-1/2 top-[78px] -translate-x-1/2 text-[17px] text-white/90">
-				15 Realms of Cultivation · Forge your path, ascend to immortality
-			</p>
-			<div className="flex items-center gap-4">
-				<span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/55 text-2xl text-white/90">?</span>
-				<div className="flex items-center gap-2 rounded-full bg-slate-900/25 px-2 py-1.5">
-					<motion.img
-						animate={{ boxShadow: "0 0 12px rgba(255,255,255,0.52)" }}
-						alt=""
-						aria-hidden="true"
-						className="h-11 w-11 rounded-full object-cover ring-2 ring-white/65"
-						initial={{ boxShadow: "0 0 0 rgba(255,255,255,0)" }}
-						src={sanctumPageAssets.achievements.unlocked[1]}
-						transition={{ duration: 1.8, repeat: Infinity, repeatType: "reverse" }}
-					/>
-					<span className="text-[17px]">Barefoot Beech</span>
-					<span className="icon-[solar--alt-arrow-down-linear] h-4 w-4" />
-				</div>
-			</div>
-		</motion.header>
-	);
-}
-
 function XianxiaProfileColumn(): JSX.Element {
 	return (
-		<section className="relative flex h-[650px] min-h-0 flex-col items-center justify-start">
+		<section className="relative flex min-h-[650px] w-[430px] min-w-[430px] flex-none flex-col items-center justify-start self-start justify-self-center min-[1060px]:!sticky min-[1060px]:top-[90px] xl:w-[470px] xl:min-w-[470px]">
 			<div className="absolute left-1/2 top-[70px] z-20 -translate-x-1/2 rounded-full bg-slate-800/65 px-6 py-1.5 text-[15px] font-semibold text-white shadow-[0_0_8px_rgba(255,255,255,0.35)]">
 				当前境界 · Current Realm
 			</div>
@@ -135,14 +68,14 @@ function XianxiaProfileColumn(): JSX.Element {
 				animate={{ opacity: 1, y: 0 }}
 				alt=""
 				aria-hidden="true"
-				className="relative h-[550px] w-[500px] object-contain drop-shadow-[0_0_16px_rgba(255,255,255,0.68)]"
+				className="relative h-auto w-[500px] max-w-none flex-none object-contain drop-shadow-[0_0_16px_rgba(255,255,255,0.68)]"
 				initial={{ opacity: 0, y: 10 }}
 				src={sanctumPageAssets.character}
 				transition={{ duration: 0.5, ease: "easeOut" }}
 			/>
 			<motion.div
 				animate={{ opacity: 1, y: 0 }}
-				className="relative -mt-[220px] aspect-[1131/1035] w-[440px]"
+				className="relative -mt-[220px] aspect-[1131/1035] w-[440px] max-w-none flex-none"
 				initial={{ opacity: 0, y: 18 }}
 				transition={{ delay: 0.12, duration: 0.45, ease: "easeOut" }}
 			>
@@ -193,18 +126,16 @@ function XianxiaProfileColumn(): JSX.Element {
 }
 
 function XianxiaAchievementPanel(): JSX.Element {
-	const rows = chunkAchievements(sanctumAchievements);
-
 	return (
 		<motion.section
 			animate={{ opacity: 1, x: 0 }}
-			className="relative w-[820px] self-start"
+			className="relative w-[530px] min-w-0 self-start justify-self-center min-[1060px]:w-full"
 			initial={{ opacity: 0, x: 18 }}
 			transition={{ delay: 0.1, duration: 0.5, ease: "easeOut" }}
 		>
 			<NineSliceImageFrame
 				className="w-full"
-				contentClassName="relative z-10 flex w-full flex-col px-8 py-8"
+				contentClassName="xianxia-achievement-panel-content relative z-10 flex w-full min-w-0 flex-col px-4 py-6 md:px-8 md:py-8"
 				decoration={achievementPanelDecoration}
 				imageUrl={sanctumPageAssets.achievementPanel}
 				style={achievementLayoutStyle}
@@ -232,22 +163,15 @@ function XianxiaAchievementPanel(): JSX.Element {
 						<span className="icon-[solar--alt-arrow-down-linear] h-4 w-4" />
 					</button>
 				</div>
-				<div className="flex flex-col gap-1">
-					{rows.map((row, rowIndex) => (
-						<div
-							key={`row-${rowIndex}`}
-							className="grid grid-cols-[var(--sanctum-achievement-size)_var(--sanctum-achievement-connector-size)_var(--sanctum-achievement-size)_var(--sanctum-achievement-connector-size)_var(--sanctum-achievement-size)_var(--sanctum-achievement-connector-size)_var(--sanctum-achievement-size)_var(--sanctum-achievement-connector-size)_var(--sanctum-achievement-size)] items-start"
-						>
-							{row.map((achievement, index) => (
-								<XianxiaAchievementCell
-									key={achievement.id}
-									achievement={achievement}
-									assetIndex={rowIndex * achievementsPerRow + index}
-									current={achievement.id === currentAchievement?.id}
-									showConnector={index < row.length - 1}
-								/>
-							))}
-						</div>
+				<div className="xianxia-achievement-grid">
+					{sanctumAchievements.map((achievement, index) => (
+						<XianxiaAchievementCell
+							key={achievement.id}
+							achievement={achievement}
+							assetIndex={index}
+							current={achievement.id === currentAchievement?.id}
+							showConnector={index < sanctumAchievements.length - 1}
+						/>
 					))}
 				</div>
 			</NineSliceImageFrame>
@@ -274,7 +198,7 @@ function XianxiaAchievementCell({
 		<>
 			<motion.figure
 				animate={{ opacity: 1, scale: 1, y: 0 }}
-				className="relative flex min-w-0 flex-col items-center rounded-[18px] px-1 pb-2 pt-1 text-center"
+				className="xianxia-achievement-cell relative flex min-w-0 flex-col items-center rounded-[18px] px-1 pb-2 pt-1 text-center"
 				initial={{ opacity: 0, scale: 0.92, y: 10 }}
 				transition={{ delay: 0.18 + assetIndex * 0.035, duration: 0.28, ease: "easeOut" }}
 			>
@@ -303,22 +227,22 @@ function XianxiaAchievementCell({
 					<span className="mt-0.5 block text-[13px] text-slate-600">{achievement.name}</span>
 					<AchievementStatusLabel achieved={achievement.achieved} current={current} />
 				</figcaption>
+				{showConnector && (
+					<motion.div
+						animate={{ opacity: 1, scaleX: 1 }}
+						className="sanctum-achievement-connector pointer-events-none absolute right-[calc(var(--sanctum-achievement-connector-size)*-0.92)] top-1 z-20 flex h-[var(--sanctum-achievement-size)] w-[var(--sanctum-achievement-connector-size)] items-center justify-center"
+						initial={{ opacity: 0, scaleX: 0.65 }}
+						transition={{ delay: 0.24 + assetIndex * 0.035, duration: 0.3, ease: "easeOut" }}
+					>
+						<img
+							alt=""
+							aria-hidden="true"
+							className="w-full object-contain opacity-[0.82] drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+							src={sanctumPageAssets.achievementConnector}
+						/>
+					</motion.div>
+				)}
 			</motion.figure>
-			{showConnector && (
-				<motion.div
-					animate={{ opacity: 1, scaleX: 1 }}
-					className="flex h-[var(--sanctum-achievement-size)] items-center justify-center"
-					initial={{ opacity: 0, scaleX: 0.65 }}
-					transition={{ delay: 0.24 + assetIndex * 0.035, duration: 0.3, ease: "easeOut" }}
-				>
-					<img
-						alt=""
-						aria-hidden="true"
-						className="w-[var(--sanctum-achievement-connector-size)] object-contain opacity-[0.82] drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]"
-						src={sanctumPageAssets.achievementConnector}
-					/>
-				</motion.div>
-			)}
 		</>
 	);
 }
@@ -355,7 +279,7 @@ function XianxiaBottomBar(): JSX.Element {
 	return (
 		<motion.footer
 			animate={{ opacity: 1, y: 0 }}
-			className="absolute inset-x-8 bottom-5 flex h-16 items-center justify-between rounded-2xl border border-white/35 bg-slate-200/45 px-8 text-slate-700 shadow-[inset_0_0_12px_rgba(255,255,255,0.55),0_0_12px_rgba(15,23,42,0.28)]"
+			className="mx-8 mb-5 mt-auto flex min-h-16 items-center justify-between gap-5 rounded-2xl border border-white/35 bg-slate-200/45 px-8 py-2 text-slate-700 shadow-[inset_0_0_12px_rgba(255,255,255,0.55),0_0_12px_rgba(15,23,42,0.28)]"
 			initial={{ opacity: 0, y: 18 }}
 			transition={{ delay: 0.25, duration: 0.45, ease: "easeOut" }}
 		>

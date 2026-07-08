@@ -1,4 +1,6 @@
 export type {
+	PageHeaderClassNames,
+	PageHeaderContentProps,
 	PageHeaderModel,
 	PageHeaderModelInput,
 	PageHeaderProps,
