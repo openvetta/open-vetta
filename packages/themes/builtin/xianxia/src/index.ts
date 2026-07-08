@@ -4,7 +4,7 @@ import { XianxiaAppBackground } from "./components/XianxiaAppBackground";
 import { XianxiaGuidingWords } from "./components/XianxiaGuidingWords";
 import { XianxiaInputBarBackground } from "./components/XianxiaInputBarBackground";
 import { XianxiaSceneCarousel, XianxiaSkillBadgeRow } from "./components/XianxiaNewSession";
-import { XianxiaSanctumPage } from "./components/XianxiaSanctumPage";
+import { XianxiaSanctumPage } from "./components/sanctum-page";
 import { XianxiaSidebarNavigation } from "./components/XianxiaSidebarNavigation";
 import "./styles.css";
 
