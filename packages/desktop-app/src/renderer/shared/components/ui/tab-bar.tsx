@@ -258,7 +258,7 @@ export function TabBar<T extends string>({
 									onReorder != null && "cursor-grab active:cursor-grabbing",
 									active
 										? "h-[29px] px-4 text-foreground"
-										: "h-[23px] border border-b-0 bg-muted px-4 text-muted-foreground hover:brightness-110 hover:text-foreground/80 dark:bg-[#22242e]",
+										: "h-[23px] border border-b-0 bg-muted px-4 text-muted-foreground hover:brightness-110 hover:text-foreground/80 dark:bg-secondary",
 								)}
 							>
 								{active && (

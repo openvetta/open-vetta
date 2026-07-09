@@ -1,9 +1,8 @@
 /* 输入卡下方的「阶梯」面板：比输入卡略窄、顶部塞进卡片底下（仅下方两个圆角），
    承托插件输入动作行。实色卡片浮在其上，露出的下沿即为这条阶梯。
-   背景与边框参照输入卡（不透明 muted/card + border）；顶部塞在卡片下方故不描边。 */
+   背景与边框参照输入卡（主题 secondary/background + border）；顶部塞在卡片下方故不描边。 */
 .input-ledge {
-	/* 比输入卡（bg-muted）深一档的承托阶梯。低饱和暖灰，避免 --secondary 的高色度过浓。 */
-	background: oklch(0.945 0.006 95.0986);
+	background: var(--secondary);
 	border: 1px solid var(--border);
 	border-top: none;
 }
