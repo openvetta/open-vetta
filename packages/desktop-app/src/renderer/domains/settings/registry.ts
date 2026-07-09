@@ -1,9 +1,27 @@
 import type { SettingsTab } from "@shared/store/atoms";
 
+export type SettingsTabLabelKey =
+	| "tabAccount"
+	| "tabGeneral"
+	| "tabAppearance"
+	| "tabContext"
+	| "tabModels"
+	| "tabMcp"
+	| "tabIm"
+	| "tabWebhook"
+	| "tabArchive"
+	| "tabShortcuts"
+	| "tabAppshot"
+	| "tabEnvironment"
+	| "tabPlugins"
+	| "tabKnowledge"
+	| "tabPet"
+	| "tabPermissions";
+
 export interface SettingsTabRegistration {
 	key: SettingsTab;
 	label: string;
-	labelKey: string;
+	labelKey: SettingsTabLabelKey;
 	icon: string;
 	personalOnly?: boolean;
 	requireAuth?: boolean;
