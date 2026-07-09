@@ -280,14 +280,12 @@ export function historyToChat(
 				id: `hist-user-${messages.length}`,
 				role: "user",
 				text,
-			};
-			if (parsedUser.files.length > 0) {
-				userMsg.mentionedFiles = parsedUser.files.map((p) => ({
+				mentionedFiles: parsedUser.files.map((p) => ({
 					path: p,
 					name: pathBasename(p),
 					isDirectory: false,
-				}));
-			}
+				})),
+			};
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			// Merge consecutive assistant messages into one (same agent turn)
@@ -408,14 +406,12 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				id: `hist-user-${messages.length}`,
 				role: "user",
 				text,
-			};
-			if (parsedUser.files.length > 0) {
-				userMsg.mentionedFiles = parsedUser.files.map((p) => ({
+				mentionedFiles: parsedUser.files.map((p) => ({
 					path: p,
 					name: pathBasename(p),
 					isDirectory: false,
-				}));
-			}
+				})),
+			};
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
 			const target = currentAssistant();
