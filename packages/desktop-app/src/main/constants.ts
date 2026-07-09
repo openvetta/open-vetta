@@ -13,3 +13,16 @@ if (!process.env.VETTA_SERVER_URL) {
 }
 
 export const DEFAULT_SERVER_URL: string = process.env.VETTA_SERVER_URL;
+
+export const DEFAULT_SITE_URL: string = process.env.VETTA_SITE_URL || deriveSiteUrl(process.env.VETTA_SERVER_URL);
+
+function deriveSiteUrl(serverUrl: string): string {
+	try {
+		const url = new URL(serverUrl);
+		if (url.port === "8080") url.port = "3000";
+		if (url.hostname.startsWith("api.")) url.hostname = url.hostname.slice(4);
+		return url.origin;
+	} catch {
+		return serverUrl.replace(":8080", ":3000");
+	}
+}
