@@ -2,7 +2,6 @@ import type { ThemePageProps } from "@vetta/theme-sdk";
 import { HorizontalSliceImageFrame, NineSliceImageDecoration, NineSliceImageFrame } from "@vetta/theme-ui";
 import { cn } from "@vetta/ui";
 import { motion } from "motion/react";
-import { useEffect } from "react";
 import type { JSX } from "react";
 import {
 	artifactCategories,
@@ -29,13 +28,6 @@ const pillDecoration = {
 } as const;
 
 export function XianxiaArtifactLibraryPage({ layout }: ThemePageProps): JSX.Element {
-	useEffect(() => {
-		document.body.classList.add("xianxia-artifact-library-page-active");
-		return () => {
-			document.body.classList.remove("xianxia-artifact-library-page-active");
-		};
-	}, []);
-
 	return (
 		<main
 			className="min-h-0 flex-1 overflow-auto px-8 pb-8 pt-3 text-slate-900"

@@ -55,6 +55,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.inputDrawer"?: typeof DrawerCard;
 		readonly "chat.inputBarView"?: typeof InputBarView;
 		readonly "chat.modelSelectorView"?: typeof ModelSelectorView;
+		readonly "chat.newSessionBackground"?: ComponentType;
 		readonly "chat.newSessionSceneCarousel"?: ComponentType<NewSessionSceneCarouselProps>;
 		readonly "chat.newSessionSceneCard"?: typeof SceneCard;
 		readonly "chat.newSessionSkillBadgeRow"?: ComponentType<NewSessionSkillBadgeRowProps>;
