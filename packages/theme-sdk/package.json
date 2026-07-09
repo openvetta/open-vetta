@@ -29,6 +29,10 @@
 			"types": "./src/pages/index.ts",
 			"import": "./src/pages/index.ts"
 		},
+		"./routing": {
+			"types": "./src/routing/index.ts",
+			"import": "./src/routing/index.ts"
+		},
 		"./sidebar": {
 			"types": "./src/sidebar/index.ts",
 			"import": "./src/sidebar/index.ts"

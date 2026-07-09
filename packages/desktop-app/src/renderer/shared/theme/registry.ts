@@ -44,6 +44,7 @@ declare module "@vetta/theme-sdk" {
 
 	interface ThemeComponentRegistry {
 		readonly "activity.panelFrame"?: typeof ActivityPanelFrame;
+		readonly "app.mainContentBackground"?: ComponentType;
 		readonly "app.pageHeaderContent"?: ComponentType<PageHeaderContentProps>;
 		readonly "app.pageHeaderSidebarTrigger"?: typeof PageHeaderSidebarTrigger;
 		readonly "app.pageHeaderTitle"?: typeof PageHeaderTitle;

@@ -23,7 +23,7 @@ export function AppFrame({
 		>
 			{decoration}
 			<div
-				className={cn("relative z-10 flex min-h-0 flex-1 gap-2 overflow-visible p-2", contentClassName)}
+				className={cn("relative z-10 flex min-h-0 flex-1 overflow-visible p-2", contentClassName)}
 				data-theme-layout="app.frameContent"
 			>
 				{children}
