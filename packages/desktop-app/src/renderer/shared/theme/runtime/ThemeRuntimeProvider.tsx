@@ -19,16 +19,31 @@ const UI_THEME_STORAGE_KEY = "vetta-ui-theme";
 const DEFAULT_UI_THEME_ID = "default";
 const ThemeRuntimeContext = createContext<ThemeRuntimeValue | null>(null);
 
+function getStoredUiThemeId(): string {
+	return localStorage.getItem(UI_THEME_STORAGE_KEY) ?? DEFAULT_UI_THEME_ID;
+}
+
+function formatMs(start: number): string {
+	return `${(performance.now() - start).toFixed(1)}ms`;
+}
+
 export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX.Element {
+	const initialThemeIdRef = useRef(getStoredUiThemeId());
 	const [activeTheme, setActiveTheme] = useState<ThemeModule>(DEFAULT_THEME_MODULE);
 	const [availableThemes, setAvailableThemes] = useState<DesktopThemePackage[]>([]);
 	const [status, setStatus] = useState<ThemeRuntimeValue["status"]>("loading");
+	const [initialThemeReady, setInitialThemeReady] = useState(
+		initialThemeIdRef.current === DEFAULT_THEME_MODULE.meta.id,
+	);
+	const didRestoreInitialThemeRef = useRef(false);
 	const disposeRef = useRef<() => void>(() => {});
 
 	const selectTheme = useCallback(async (themeId: string): Promise<void> => {
 		const start = performance.now();
 		console.info(`[theme-runtime] selectTheme "${themeId}"`);
+		const listStart = performance.now();
 		const themes = await window.vetta.themes.list();
+		console.debug(`[theme-runtime] themes.list complete count=${themes.length} elapsed=${formatMs(listStart)}`);
 		setAvailableThemes(themes);
 		if (themeId === DEFAULT_THEME_MODULE.meta.id) {
 			disposeRef.current();
@@ -36,14 +51,12 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 			localStorage.setItem(UI_THEME_STORAGE_KEY, DEFAULT_THEME_MODULE.meta.id);
 			setActiveTheme(DEFAULT_THEME_MODULE);
 			setStatus("ready");
-			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-			console.info(`[theme-runtime] theme "${DEFAULT_THEME_MODULE.meta.id}" ready in ${elapsed}s`);
+			console.info(`[theme-runtime] theme "${DEFAULT_THEME_MODULE.meta.id}" ready elapsed=${formatMs(start)}`);
 			return;
 		}
 		const descriptor = themes.find((theme) => theme.id === themeId);
 		if (!descriptor) {
-			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-			console.warn(`[theme-runtime] theme "${themeId}" not found after ${elapsed}s, falling back to default`);
+			console.warn(`[theme-runtime] theme "${themeId}" not found elapsed=${formatMs(start)}, falling back to default`);
 			disposeRef.current();
 			disposeRef.current = () => {};
 			localStorage.setItem(UI_THEME_STORAGE_KEY, DEFAULT_THEME_MODULE.meta.id);
@@ -53,17 +66,19 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 		}
 		setStatus("loading");
 		try {
+			const loadStart = performance.now();
 			const loaded = await loadThemePackage(descriptor);
-			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-			console.info(`[theme-runtime] theme "${descriptor.id}" ready in ${elapsed}s`);
+			console.debug(`[theme-runtime] loadThemePackage awaited "${descriptor.id}" elapsed=${formatMs(loadStart)}`);
 			disposeRef.current();
 			disposeRef.current = loaded.dispose;
 			localStorage.setItem(UI_THEME_STORAGE_KEY, descriptor.id);
 			setActiveTheme(loaded.module);
 			setStatus("ready");
+			console.info(`[theme-runtime] theme "${descriptor.id}" ready elapsed=${formatMs(start)}`);
 		} catch (error) {
-			const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-			console.error(`[theme-runtime] theme "${themeId}" failed after ${elapsed}s: ${error instanceof Error ? error.message : String(error)}`);
+			console.error(
+				`[theme-runtime] theme "${themeId}" failed elapsed=${formatMs(start)}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			disposeRef.current();
 			disposeRef.current = () => {};
 			setActiveTheme(DEFAULT_THEME_MODULE);
@@ -72,8 +87,10 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 	}, []);
 
 	useEffect(() => {
-		const storedThemeId = localStorage.getItem(UI_THEME_STORAGE_KEY) ?? DEFAULT_UI_THEME_ID;
-		void selectTheme(storedThemeId);
+		if (!didRestoreInitialThemeRef.current) {
+			didRestoreInitialThemeRef.current = true;
+			void selectTheme(initialThemeIdRef.current).finally(() => setInitialThemeReady(true));
+		}
 		return () => disposeRef.current();
 	}, [selectTheme]);
 
@@ -109,7 +126,7 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 		<ThemeRuntimeContext.Provider value={value}>
 			<ThemeProvider theme={activeTheme}>
 				<ThemeErrorBoundary key={activeTheme.meta.id} onError={handleThemeRenderError}>
-					{children}
+					{initialThemeReady ? children : null}
 				</ThemeErrorBoundary>
 			</ThemeProvider>
 		</ThemeRuntimeContext.Provider>
