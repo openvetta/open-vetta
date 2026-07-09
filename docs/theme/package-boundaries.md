@@ -122,6 +122,8 @@ packages/themes/
 5. 渲染主题提供的 `ThemeModule`。
 6. 加载失败时回退默认主题。
 
+新增 SDK 子路径导出时，desktop-app runtime shared 配置和主题包 federation shared 配置必须同步登记对应子路径，例如 `@vetta/theme-sdk/routing`。否则主题包可能加载到另一份 SDK 实例，导致 `ThemeProvider` 或 `ThemeHostProvider` context 读取失败。主题组件优先从 `@vetta/theme-sdk` 根入口导入已 re-export 的 hook；只有需要子路径边界时才使用子路径导入。
+
 主题包可以包含：
 
 - `appearance` 配置。
