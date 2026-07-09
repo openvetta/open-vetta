@@ -1,7 +1,7 @@
 import { useThemeRouteModel } from "@vetta/theme-sdk";
 import type { JSX } from "react";
 
-const READABLE_BACKGROUND_AREAS = new Set(["automation", "batchTasks", "knowledgeBase"]);
+const READABLE_BACKGROUND_AREAS = new Set(["automation", "batchTasks", "knowledgeBase", "skills"]);
 
 export function XianxiaMainContentBackground(): JSX.Element | null {
 	const route = useThemeRouteModel();
