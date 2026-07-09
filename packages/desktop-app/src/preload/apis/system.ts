@@ -171,6 +171,7 @@ export function createSystemApi(
 		},
 		settings: {
 			getServerUrl: () => ipc.invoke("vetta:settings:get-server-url"),
+			getSiteUrl: () => ipc.invoke("vetta:settings:get-site-url"),
 			getServerToken: () => ipc.invoke("vetta:settings:get-server-token"),
 			setServerToken: (token) => ipc.invoke("vetta:settings:set-server-token", token),
 			getServerRefreshToken: () => ipc.invoke("vetta:settings:get-server-refresh-token"),

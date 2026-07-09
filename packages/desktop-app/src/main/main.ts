@@ -214,7 +214,8 @@ function handleProtocolUrl(rawUrl: string): void {
 	try {
 		const parsed = new URL(rawUrl);
 		if (parsed.hostname === "oauth" && parsed.pathname.startsWith("/callback")) {
-			const token = parsed.searchParams.get("token");
+			// 兼容旧参数名 token（API 直接回调）和新参数名 access_token（Next.js oauth-redirect）
+			const token = parsed.searchParams.get("access_token") ?? parsed.searchParams.get("token");
 			const refreshToken = parsed.searchParams.get("refresh_token");
 			const mainWindow = getMainWindow();
 			if (token && mainWindow) {

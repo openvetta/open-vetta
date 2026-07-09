@@ -1,8 +1,8 @@
-import { fetchOAuthProviders, fetchOAuthURL, loginByAccount } from "@shared/lib/api";
+import { loginByAccount } from "@shared/lib/api";
 import { authTokenAtom, authUserAtom, loginDialogOpenAtom } from "@shared/store/atoms";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useAtom, useSetAtom } from "jotai";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LoginDialogView } from "./LoginDialogView";
 
@@ -11,31 +11,26 @@ export function LoginDialog(): JSX.Element {
 	const [open, setOpen] = useAtom(loginDialogOpenAtom);
 	const setToken = useSetAtom(authTokenAtom);
 	const setUser = useSetAtom(authUserAtom);
-	const [providers, setProviders] = useState<string[]>([]);
-	const [loading, setLoading] = useState<string | null>(null);
+	const [oauthLoading, setOauthLoading] = useState(false);
 	const [account, setAccount] = useState("");
 	const [password, setPassword] = useState("");
 	const [loginLoading, setLoginLoading] = useState(false);
 	const [loginError, setLoginError] = useState("");
 	const ThemedLoginDialogView = useThemeComponent("root.loginDialogView", LoginDialogView);
 
-	useEffect(() => {
-		if (open) {
-			void fetchOAuthProviders()
-				.then(setProviders)
-				.catch(() => setProviders([]));
-		}
-	}, [open]);
-
-	async function handleOAuth(provider: string) {
-		setLoading(provider);
+	async function handleOAuthLogin() {
+		setOauthLoading(true);
 		try {
-			const url = await fetchOAuthURL(provider);
-			await window.vetta.auth.openExternal(url);
+			const siteUrl = await window.vetta.settings.getSiteUrl();
+			// vetta:// 协议由 main.ts 通过 app.setAsDefaultProtocolClient("vetta") 注册
+			const loginUrl = `${siteUrl}/auth/deep-link?client_redirect=${encodeURIComponent("vetta://oauth/callback")}`;
+			await window.vetta.auth.openExternal(loginUrl);
+			// 浏览器打开后等用户完成 OAuth 并通过 deep link 返回
+			// 回调由 useAuth 的 onOAuthCallback 处理，这里不关 dialog
 		} catch (e) {
-			console.error("OAuth error:", e);
+			console.error("OAuth site login error:", e);
 		} finally {
-			setLoading(null);
+			setOauthLoading(false);
 		}
 	}
 
@@ -55,7 +50,6 @@ export function LoginDialog(): JSX.Element {
 			}
 			setUser(data.user);
 			void window.vetta.settings.setServerToken(access);
-			// 远程模型 / credits 拉取由 useAuth 在 token 变化时统一负责
 			setOpen(false);
 		} catch (err) {
 			setLoginError(err instanceof Error ? err.message : t("loginDialog.error"));
@@ -73,22 +67,22 @@ export function LoginDialog(): JSX.Element {
 				footerHint: t("loginDialog.footerHint"),
 				login: t("loginDialog.login"),
 				loggingIn: t("loginDialog.loggingIn"),
+				oauthButton: t("loginDialog.oauthButton"),
 				oauthDivider: t("loginDialog.oauthDivider"),
 				passwordPlaceholder: t("loginDialog.passwordPlaceholder"),
 				subtitle: t("loginDialog.subtitle"),
 				title: t("loginDialog.title"),
 			}}
-			loadingProvider={loading}
 			loginError={loginError}
 			loginLoading={loginLoading}
+			oauthLoading={oauthLoading}
 			onAccountChange={setAccount}
 			onClose={() => setOpen(false)}
-			onOAuth={(provider) => void handleOAuth(provider)}
+			onOAuthLogin={() => void handleOAuthLogin()}
 			onPasswordChange={setPassword}
 			onSubmit={handleAccountLogin}
 			open={open}
 			password={password}
-			providers={providers}
 		/>
 	);
 }

@@ -1,24 +1,8 @@
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { Button } from "@shared/components/ui/button";
-import { cn } from "@shared/lib/utils";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { AnimatePresence, motion } from "motion/react";
 import type { FormEvent } from "react";
-
-const PROVIDER_META: Record<string, { label: string; icon: string }> = {
-	dingtalk: {
-		label: "DingTalk",
-		icon: "icon-[mdi--message-text]",
-	},
-	github: {
-		label: "GitHub",
-		icon: "icon-[mdi--github]",
-	},
-	wechat: {
-		label: "WeChat",
-		icon: "icon-[mdi--wechat]",
-	},
-};
 
 export interface LoginDialogViewLabels {
 	readonly accountPlaceholder: string;
@@ -26,6 +10,7 @@ export interface LoginDialogViewLabels {
 	readonly footerHint: string;
 	readonly login: string;
 	readonly loggingIn: string;
+	readonly oauthButton: string;
 	readonly oauthDivider: string;
 	readonly passwordPlaceholder: string;
 	readonly subtitle: string;
@@ -35,33 +20,31 @@ export interface LoginDialogViewLabels {
 export interface LoginDialogViewProps {
 	readonly account: string;
 	readonly labels: LoginDialogViewLabels;
-	readonly loadingProvider: string | null;
 	readonly loginError: string;
 	readonly loginLoading: boolean;
+	readonly oauthLoading: boolean;
 	readonly onAccountChange: (value: string) => void;
 	readonly onClose: () => void;
-	readonly onOAuth: (provider: string) => void;
+	readonly onOAuthLogin: () => void;
 	readonly onPasswordChange: (value: string) => void;
 	readonly onSubmit: (event: FormEvent) => void;
 	readonly open: boolean;
 	readonly password: string;
-	readonly providers: readonly string[];
 }
 
 export function LoginDialogView({
 	account,
 	labels,
-	loadingProvider,
 	loginError,
 	loginLoading,
+	oauthLoading,
 	onAccountChange,
 	onClose,
-	onOAuth,
+	onOAuthLogin,
 	onPasswordChange,
 	onSubmit,
 	open,
 	password,
-	providers,
 }: LoginDialogViewProps): JSX.Element {
 	return (
 		<AnimatePresence>
@@ -156,48 +139,30 @@ export function LoginDialogView({
 								</Button>
 							</form>
 
-							{providers.length > 0 && (
-								<div className="my-5 flex items-center gap-3">
-									<div className="h-px flex-1 bg-border/60" />
-									<span className="text-[11px] text-muted-foreground/60">{labels.oauthDivider}</span>
-									<div className="h-px flex-1 bg-border/60" />
-								</div>
-							)}
+							<div className="my-5 flex items-center gap-3">
+								<div className="h-px flex-1 bg-border/60" />
+								<span className="text-[11px] text-muted-foreground/60">{labels.oauthDivider}</span>
+								<div className="h-px flex-1 bg-border/60" />
+							</div>
 
-							{providers.length > 0 && (
-								<div className={cn("grid gap-2", providers.length > 1 ? "grid-cols-3" : "grid-cols-1")}>
-									{providers.map((provider) => {
-										const meta = PROVIDER_META[provider] ?? {
-											label: provider,
-											icon: "icon-[mdi--login]",
-										};
-										const isLoading = loadingProvider === provider;
-										return (
-											<button
-												key={provider}
-												type="button"
-												disabled={isLoading}
-												onClick={() => onOAuth(provider)}
-												title={meta.label}
-												className={cn(
-													"group flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border/50 bg-muted/30 text-[12px] text-muted-foreground transition-colors",
-													"hover:border-primary/40 hover:bg-primary/5 hover:text-foreground",
-													isLoading && "opacity-50",
-												)}
-											>
-												{isLoading ? (
-													<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
-												) : (
-													<>
-														<span className={cn(meta.icon, "h-4 w-4")} />
-														{providers.length <= 2 && <span>{meta.label}</span>}
-													</>
-												)}
-											</button>
-										);
-									})}
-								</div>
-							)}
+							<Button
+								variant="outline"
+								className="h-10 w-full rounded-lg text-[13px]"
+								disabled={oauthLoading}
+								onClick={onOAuthLogin}
+							>
+								{oauthLoading ? (
+									<>
+										<span className="icon-[mdi--loading] h-4 w-4 animate-spin" />
+										{labels.loggingIn}
+									</>
+								) : (
+									<span className="flex items-center gap-2">
+										<span className="icon-[mdi--login] h-4 w-4" />
+										{labels.oauthButton}
+									</span>
+								)}
+							</Button>
 
 							<p className="mt-5 text-center text-[11px] text-muted-foreground/60">{labels.footerHint}</p>
 						</div>

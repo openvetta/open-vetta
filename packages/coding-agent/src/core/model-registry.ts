@@ -494,10 +494,12 @@ export class ModelRegistry {
 
 		const builtInModels = this.loadBuiltInModels(overrides, modelOverrides);
 
-		// Merge order: built-in -> remote -> local custom
-		// Remote models fill in between built-in and local
-		let combined = this.mergeCustomModels(builtInModels, this.remoteModels);
-		combined = this.mergeCustomModels(combined, customModels);
+		// Merge order: built-in -> local custom -> remote
+		// Remote models have the final say so server-side additions
+		// / updates are always visible without removing and re-adding
+		// the provider key.
+		let combined = this.mergeCustomModels(builtInModels, customModels);
+		combined = this.mergeCustomModels(combined, this.remoteModels);
 
 		// Let OAuth providers modify their models
 		for (const oauthProvider of this.authStorage.getOAuthProviders()) {
