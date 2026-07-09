@@ -224,7 +224,9 @@ body.xianxia-sanctum-page-active [data-theme-surface="app.frame"] > span {
 }
 
 body.xianxia-sanctum-page-active .xianxia-app-background-immortal,
-body.xianxia-sanctum-page-active .xianxia-app-background-gourd {
+body.xianxia-sanctum-page-active .xianxia-app-background-gourd,
+body.xianxia-artifact-library-page-active .xianxia-app-background-immortal,
+body.xianxia-artifact-library-page-active .xianxia-app-background-gourd {
 	display: none;
 }
 
