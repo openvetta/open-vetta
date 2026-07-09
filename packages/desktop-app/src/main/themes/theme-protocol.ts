@@ -52,7 +52,7 @@ export function registerThemeProtocol(): void {
 			headers: {
 				"content-type": contentType(filePath),
 				"access-control-allow-origin": "*",
-				"cache-control": "no-store",
+				"cache-control": "public, max-age=31536000, immutable",
 			},
 		});
 	});
