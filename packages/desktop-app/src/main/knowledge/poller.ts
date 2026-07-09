@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -24,6 +24,12 @@ import {
 } from "@vetta/coding-agent";
 import { BrowserWindow } from "electron";
 import { AsyncTask, SimpleIntervalJob, ToadScheduler } from "toad-scheduler";
+import {
+	recordKnowledgeBaseProcessingResult,
+	recordKnowledgeBaseProcessingRound,
+	recordKnowledgeBaseProcessingUsage,
+	recordKnowledgeBaseSnapshot,
+} from "../app-monitor/app-monitor-service.js";
 import { KB_PROCESSING_CWD, KB_PROCESSING_SESSION_DIR, readDesktopConfig } from "../ipc/fs.js";
 import { getAppLogger } from "../logger.js";
 import { getOrCreateSharedModelRegistry } from "../runtime.js";
@@ -175,6 +181,112 @@ function waitForCompletion(session: AgentSession, prompt: string): Promise<void>
 	});
 }
 
+async function countKnowledgeBaseDirs(root: string): Promise<number> {
+	try {
+		const entries = await readdir(knowledge.rawsDir(root), { withFileTypes: true });
+		return entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith(".")).length;
+	} catch {
+		return 0;
+	}
+}
+
+let snapshotRunning = false;
+let snapshotPending = false;
+
+export async function recordKnowledgeBaseCurrentSnapshot(): Promise<void> {
+	const root = knowledge.knowledgeRoot();
+	try {
+		await knowledge.ensureKnowledgeDirs(root);
+		const [kbCount, raws, wiki] = await Promise.all([
+			countKnowledgeBaseDirs(root),
+			knowledge.scanRaws(root),
+			knowledge.scanWikiPages(root),
+		]);
+		recordKnowledgeBaseSnapshot({
+			kbCount,
+			totalSourceFiles: raws.length,
+			wikiPageCount: wiki.pages.length,
+		});
+	} catch (err) {
+		log.warn(`record knowledge snapshot failed: ${err instanceof Error ? err.message : String(err)}`);
+	}
+}
+
+export function scheduleKnowledgeBaseCurrentSnapshot(): void {
+	if (snapshotRunning) {
+		snapshotPending = true;
+		return;
+	}
+	snapshotRunning = true;
+	void (async () => {
+		try {
+			do {
+				snapshotPending = false;
+				await recordKnowledgeBaseCurrentSnapshot();
+			} while (snapshotPending);
+		} finally {
+			snapshotRunning = false;
+		}
+	})();
+}
+
+async function countProcessedFiles(root: string, attempted: knowledge.AttemptedFile[]): Promise<number> {
+	if (attempted.length === 0) return 0;
+	const { pages } = await knowledge.scanWikiPages(root);
+	const presentByPath = new Map(
+		pages
+			.filter((p) => p.frontmatter.orphaned_at == null)
+			.map((p) => [p.frontmatter.source_path, p.frontmatter.source_hash]),
+	);
+	return attempted.filter((file) => presentByPath.get(file.source_path) === file.source_hash).length;
+}
+
+function countQuarantinedAttempted(after: knowledge.FailuresRecord, attempted: knowledge.AttemptedFile[]): number {
+	const attemptedPaths = new Set(attempted.map((file) => file.source_path));
+	let count = 0;
+	for (const [path, entry] of Object.entries(after.entries)) {
+		if (!attemptedPaths.has(path) || !entry.quarantined) continue;
+		count += 1;
+	}
+	return count;
+}
+
+function scheduleKnowledgeBaseProcessingOutcome(root: string, attempted: knowledge.AttemptedFile[]): void {
+	if (attempted.length === 0) return;
+	void (async () => {
+		try {
+			const [filesProcessed, failuresAfter] = await Promise.all([
+				countProcessedFiles(root, attempted),
+				knowledge.readFailures(root),
+			]);
+			recordKnowledgeBaseProcessingResult(filesProcessed, countQuarantinedAttempted(failuresAfter, attempted));
+		} catch (err) {
+			log.warn(`record knowledge processing outcome failed: ${err instanceof Error ? err.message : String(err)}`);
+		}
+	})();
+}
+
+function readFiniteNumber(record: Record<string, unknown>, key: string): number {
+	const value = record[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function recordUsageFromMessage(message: unknown): void {
+	if (typeof message !== "object" || message === null || !("usage" in message)) return;
+	const usage = (message as { usage?: unknown }).usage;
+	if (typeof usage !== "object" || usage === null) return;
+	const usageRecord = usage as Record<string, unknown>;
+	const cost = usageRecord.cost;
+	const costRecord = typeof cost === "object" && cost !== null ? (cost as Record<string, unknown>) : {};
+	recordKnowledgeBaseProcessingUsage({
+		inputTokens: readFiniteNumber(usageRecord, "input"),
+		outputTokens: readFiniteNumber(usageRecord, "output"),
+		cacheReadTokens: readFiniteNumber(usageRecord, "cacheRead"),
+		cacheWriteTokens: readFiniteNumber(usageRecord, "cacheWrite"),
+		costTotal: readFiniteNumber(costRecord, "total"),
+	});
+}
+
 /**
  * 跑一个加工批：起一个 agent 会话处理子 diff（只含本批的 added/changed）。
  * kb_write_page 注入轮级共享写页会话（共享 PageIndex + 串行提交），保证并发批写页安全。
@@ -218,11 +330,15 @@ async function runProcessingBatch(
 	}
 	// 注册为本轮活动会话，使 abortKnowledgeRound() 能即时中止它。
 	round.sessions.add(session);
+	const unsubscribeUsage = session.subscribe((event: AgentSessionEvent) => {
+		if (event.type === "message_end") recordUsageFromMessage(event.message);
+	});
 	try {
 		if (round.aborted) return;
 		await applyProcessingModel(session, modelKey, reasoningLevel);
 		await waitForCompletion(session, knowledge.buildProcessingPrompt(batch, root, tmpDir));
 	} finally {
+		unsubscribeUsage();
 		round.sessions.delete(session);
 		session.dispose();
 	}
@@ -258,8 +374,10 @@ export async function runKnowledgeRound(
 
 		if (knowledge.isEmptyDiff(prepared.diff) && prepared.toReap.length === 0) {
 			log.info("no raws changes, nothing to process");
+			scheduleKnowledgeBaseCurrentSnapshot();
 			return { skipped: true };
 		}
+		recordKnowledgeBaseProcessingRound();
 		// 确有工程/LLM 工作 → 广播「加工中」，渲染层顶栏出「正在建立索引…」徽标。
 		setProcessing(true);
 		log.info(
@@ -315,8 +433,11 @@ export async function runKnowledgeRound(
 		// 判定，连续失败达阈值的文件被隔离，下一轮不再自动重加工，杜绝同样几个文件无限重跑。
 		// 被用户中止的轮次不计失败，避免误隔离。
 		if (!round.aborted) {
-			await knowledge.reconcileRoundFailures(root, knowledge.attemptedFiles(prepared.diff), now);
+			const attempted = knowledge.attemptedFiles(prepared.diff);
+			await knowledge.reconcileRoundFailures(root, attempted, now);
+			scheduleKnowledgeBaseProcessingOutcome(root, attempted);
 		}
+		scheduleKnowledgeBaseCurrentSnapshot();
 		// 收尾后再广播一次：反映孤儿回收/moved 等工程侧变更，让 UI 做最终对账。
 		broadcast(KB_STATUSES_CHANGED_CHANNEL);
 		log.info("processing round complete");

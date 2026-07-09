@@ -48,6 +48,24 @@ export interface AppMonitorData {
 		tool: number;
 		mcp: number;
 	};
+	knowledgeBase: {
+		processingInputTokens: number;
+		processingOutputTokens: number;
+		processingCacheReadTokens: number;
+		processingCacheWriteTokens: number;
+		processingCostTotal: number;
+		processingRounds: number;
+		filesProcessed: number;
+		filesFailed: number;
+		kbCount: number;
+		totalSourceFiles: number;
+		wikiPageCount: number;
+		manualScanCount: number;
+		retryFailedCount: number;
+		clearWikiCount: number;
+		filesAdded: number;
+		filesDeleted: number;
+	};
 }
 
 function normalizeCount(value: unknown): number {
@@ -113,6 +131,24 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 			tool: 0,
 			mcp: 0,
 		},
+		knowledgeBase: {
+			processingInputTokens: 0,
+			processingOutputTokens: 0,
+			processingCacheReadTokens: 0,
+			processingCacheWriteTokens: 0,
+			processingCostTotal: 0,
+			processingRounds: 0,
+			filesProcessed: 0,
+			filesFailed: 0,
+			kbCount: 0,
+			totalSourceFiles: 0,
+			wikiPageCount: 0,
+			manualScanCount: 0,
+			retryFailedCount: 0,
+			clearWikiCount: 0,
+			filesAdded: 0,
+			filesDeleted: 0,
+		},
 	};
 }
 
@@ -127,6 +163,7 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 	const usage = asRecord(data.usage);
 	const compactions = asRecord(data.compactions);
 	const errors = asRecord(data.errors);
+	const knowledgeBase = asRecord(data.knowledgeBase);
 
 	return {
 		schemaVersion: APP_MONITOR_SCHEMA_VERSION,
@@ -175,6 +212,24 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 			provider: normalizeCount(errors.provider),
 			tool: normalizeCount(errors.tool),
 			mcp: normalizeCount(errors.mcp),
+		},
+		knowledgeBase: {
+			processingInputTokens: normalizeCount(knowledgeBase.processingInputTokens),
+			processingOutputTokens: normalizeCount(knowledgeBase.processingOutputTokens),
+			processingCacheReadTokens: normalizeCount(knowledgeBase.processingCacheReadTokens),
+			processingCacheWriteTokens: normalizeCount(knowledgeBase.processingCacheWriteTokens),
+			processingCostTotal: normalizeAmount(knowledgeBase.processingCostTotal),
+			processingRounds: normalizeCount(knowledgeBase.processingRounds),
+			filesProcessed: normalizeCount(knowledgeBase.filesProcessed),
+			filesFailed: normalizeCount(knowledgeBase.filesFailed),
+			kbCount: normalizeCount(knowledgeBase.kbCount),
+			totalSourceFiles: normalizeCount(knowledgeBase.totalSourceFiles),
+			wikiPageCount: normalizeCount(knowledgeBase.wikiPageCount),
+			manualScanCount: normalizeCount(knowledgeBase.manualScanCount),
+			retryFailedCount: normalizeCount(knowledgeBase.retryFailedCount),
+			clearWikiCount: normalizeCount(knowledgeBase.clearWikiCount),
+			filesAdded: normalizeCount(knowledgeBase.filesAdded),
+			filesDeleted: normalizeCount(knowledgeBase.filesDeleted),
 		},
 	};
 }
