@@ -9,6 +9,20 @@ const log = getAppLogger("app-monitor");
 
 export type MonitoredSessionKind = "interactive" | "batch" | "automation";
 
+export interface KnowledgeBaseMonitorSnapshot {
+	kbCount: number;
+	totalSourceFiles: number;
+	wikiPageCount: number;
+}
+
+export interface KnowledgeBaseProcessingUsage {
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadTokens: number;
+	cacheWriteTokens: number;
+	costTotal: number;
+}
+
 class AppMonitorService {
 	private data = createDefaultAppMonitorData();
 	private initialized = false;
@@ -72,6 +86,74 @@ class AppMonitorService {
 	recordAutomationRunStarted(): void {
 		this.mutate((data) => {
 			data.automationTasks.runsStarted += 1;
+		});
+	}
+
+	recordKnowledgeBaseManualScan(): void {
+		this.mutate((data) => {
+			data.knowledgeBase.manualScanCount += 1;
+		});
+	}
+
+	recordKnowledgeBaseRetryFailed(): void {
+		this.mutate((data) => {
+			data.knowledgeBase.retryFailedCount += 1;
+		});
+	}
+
+	recordKnowledgeBaseClearWiki(): void {
+		this.mutate((data) => {
+			data.knowledgeBase.clearWikiCount += 1;
+		});
+	}
+
+	recordKnowledgeBaseFilesAdded(count: number): void {
+		const normalized = normalizeDelta(count);
+		if (normalized === 0) return;
+		this.mutate((data) => {
+			data.knowledgeBase.filesAdded += normalized;
+		});
+	}
+
+	recordKnowledgeBaseFilesDeleted(count: number): void {
+		const normalized = normalizeDelta(count);
+		if (normalized === 0) return;
+		this.mutate((data) => {
+			data.knowledgeBase.filesDeleted += normalized;
+		});
+	}
+
+	recordKnowledgeBaseProcessingRound(): void {
+		this.mutate((data) => {
+			data.knowledgeBase.processingRounds += 1;
+		});
+	}
+
+	recordKnowledgeBaseProcessingUsage(usage: KnowledgeBaseProcessingUsage): void {
+		this.mutate((data) => {
+			data.knowledgeBase.processingInputTokens += normalizeDelta(usage.inputTokens);
+			data.knowledgeBase.processingOutputTokens += normalizeDelta(usage.outputTokens);
+			data.knowledgeBase.processingCacheReadTokens += normalizeDelta(usage.cacheReadTokens);
+			data.knowledgeBase.processingCacheWriteTokens += normalizeDelta(usage.cacheWriteTokens);
+			data.knowledgeBase.processingCostTotal += normalizeAmountDelta(usage.costTotal);
+		});
+	}
+
+	recordKnowledgeBaseProcessingResult(filesProcessed: number, filesFailed: number): void {
+		const processed = normalizeDelta(filesProcessed);
+		const failed = normalizeDelta(filesFailed);
+		if (processed === 0 && failed === 0) return;
+		this.mutate((data) => {
+			data.knowledgeBase.filesProcessed += processed;
+			data.knowledgeBase.filesFailed += failed;
+		});
+	}
+
+	recordKnowledgeBaseSnapshot(snapshot: KnowledgeBaseMonitorSnapshot): void {
+		this.mutate((data) => {
+			data.knowledgeBase.kbCount = normalizeDelta(snapshot.kbCount);
+			data.knowledgeBase.totalSourceFiles = normalizeDelta(snapshot.totalSourceFiles);
+			data.knowledgeBase.wikiPageCount = normalizeDelta(snapshot.wikiPageCount);
 		});
 	}
 
@@ -226,6 +308,14 @@ class AppMonitorService {
 
 const appMonitor = new AppMonitorService();
 
+function normalizeDelta(value: number): number {
+	return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+function normalizeAmountDelta(value: number): number {
+	return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 export function initializeAppMonitor(): Promise<void> {
 	return appMonitor.initialize();
 }
@@ -252,6 +342,42 @@ export function recordAutomationTaskCreated(): void {
 
 export function recordAutomationRunStarted(): void {
 	appMonitor.recordAutomationRunStarted();
+}
+
+export function recordKnowledgeBaseManualScan(): void {
+	appMonitor.recordKnowledgeBaseManualScan();
+}
+
+export function recordKnowledgeBaseRetryFailed(): void {
+	appMonitor.recordKnowledgeBaseRetryFailed();
+}
+
+export function recordKnowledgeBaseClearWiki(): void {
+	appMonitor.recordKnowledgeBaseClearWiki();
+}
+
+export function recordKnowledgeBaseFilesAdded(count: number): void {
+	appMonitor.recordKnowledgeBaseFilesAdded(count);
+}
+
+export function recordKnowledgeBaseFilesDeleted(count: number): void {
+	appMonitor.recordKnowledgeBaseFilesDeleted(count);
+}
+
+export function recordKnowledgeBaseProcessingRound(): void {
+	appMonitor.recordKnowledgeBaseProcessingRound();
+}
+
+export function recordKnowledgeBaseProcessingUsage(usage: KnowledgeBaseProcessingUsage): void {
+	appMonitor.recordKnowledgeBaseProcessingUsage(usage);
+}
+
+export function recordKnowledgeBaseProcessingResult(filesProcessed: number, filesFailed: number): void {
+	appMonitor.recordKnowledgeBaseProcessingResult(filesProcessed, filesFailed);
+}
+
+export function recordKnowledgeBaseSnapshot(snapshot: KnowledgeBaseMonitorSnapshot): void {
+	appMonitor.recordKnowledgeBaseSnapshot(snapshot);
 }
 
 export function getAppMonitorSnapshot(): AppMonitorData {
