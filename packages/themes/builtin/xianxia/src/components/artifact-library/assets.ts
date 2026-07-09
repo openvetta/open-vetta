@@ -8,7 +8,7 @@ export const artifactLibraryAssets = {
 		seal: new URL("./assets/artifact-seal.webp", import.meta.url).href,
 		talisman: new URL("./assets/artifact-talisman.webp", import.meta.url).href,
 	},
-	character: new URL("./assets/artifact-character.png", import.meta.url).href,
+	character: new URL("./assets/artifact-character.webp", import.meta.url).href,
 	panel: new URL("./assets/artifact-panel.webp", import.meta.url).href,
 	pill: new URL("./assets/artifact-pill.webp", import.meta.url).href,
 } as const;
