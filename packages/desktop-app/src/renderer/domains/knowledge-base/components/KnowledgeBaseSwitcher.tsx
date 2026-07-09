@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSetAtom } from "jotai";
-import { confirmDialogAtom } from "@shared/store/atoms";
 import type { KnowledgeBase } from "@shared/types/knowledge-base";
 import { Button } from "@shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
@@ -16,7 +14,7 @@ interface KnowledgeBaseSwitcherProps {
 	onCreate: () => void;
 	onViewAll: () => void;
 	onRenameBase: (newName: string) => void;
-	onDeleteBase: () => void;
+	onRequestDeleteBase: () => void;
 }
 
 const QUICK_LIST_LIMIT = 6;
@@ -29,12 +27,11 @@ export function KnowledgeBaseSwitcher({
 	onCreate,
 	onViewAll,
 	onRenameBase,
-	onDeleteBase,
+	onRequestDeleteBase,
 }: KnowledgeBaseSwitcherProps): JSX.Element {
-	const { t } = useTranslation(["settings", "common"]);
+	const { t } = useTranslation("settings");
 	const [open, setOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
-	const confirm = useSetAtom(confirmDialogAtom);
 	const activeName = knowledgeBaseDisplayName(activeBase);
 
 	const quickBases = [
@@ -46,13 +43,7 @@ export function KnowledgeBaseSwitcher({
 
 	const confirmDelete = () => {
 		close();
-		confirm({
-			title: t("kbDeleteBaseTitle"),
-			message: t("kbDeleteBaseMsg", { name: activeName }),
-			variant: "danger",
-			confirmLabel: t("common:actions.delete"),
-			onConfirm: onDeleteBase,
-		});
+		onRequestDeleteBase();
 	};
 
 	return (
