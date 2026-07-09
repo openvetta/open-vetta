@@ -54,8 +54,12 @@ function parseUserMessage(text: string): ParsedUserMessage {
 		skillName = skillMatch[2].trim();
 		remaining = skillMatch[3];
 	}
+	// Match @path only when followed by a literal newline.
+	// @text without a newline is kept in the body so that hand-typed
+	// "@something" is not mistaken for a file badge (consistent with
+	// parseUserPrefixes in chat-service).
 	while (true) {
-		const fileMatch = remaining.match(/^@([^\n]+)\n?([\s\S]*)$/);
+		const fileMatch = remaining.match(/^@([^\n]+)\n([\s\S]*)$/);
 		if (!fileMatch) break;
 		files.push(fileMatch[1].trim());
 		remaining = fileMatch[2];

@@ -43,6 +43,7 @@ export function SkillPromptArea({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
 	const [slashOpen, setSlashOpen] = useState(false);
+	const [slashFilter, setSlashFilter] = useState("");
 	const slashDismissedRef = useRef(false);
 	const [installedSkills, setInstalledSkills] = useState<SkillInfo[] | null>(null);
 	// 面板通过 portal 挂到 body，用 fixed 跟随 prompt 卡片的下边缘。
@@ -78,12 +79,18 @@ export function SkillPromptArea({
 		const val = e.target.value;
 		onPromptChange(val);
 
-		// 仅当整段以 `/` 开头且没有空格时算激活，与会话页一致。
-		const slashActive = val === "/" || (val.startsWith("/") && !val.includes(" "));
+		// 仅当光标前文本以 `/` 开头且没有空格时算激活，与会话页一致。
+		const cursorPos = e.target.selectionStart ?? val.length;
+		const textBeforeCursor = val.slice(0, cursorPos);
+		const slashActive =
+			textBeforeCursor === "/" ||
+			(textBeforeCursor.startsWith("/") && !textBeforeCursor.includes(" "));
 		if (!slashActive) {
+			setSlashFilter("");
 			slashDismissedRef.current = false;
 			if (slashOpen) setSlashOpen(false);
 		} else if (!slashDismissedRef.current) {
+			setSlashFilter(textBeforeCursor);
 			if (!slashOpen) setSlashOpen(true);
 		}
 	};
@@ -106,7 +113,14 @@ export function SkillPromptArea({
 
 	const handleSlashClose = useCallback(() => {
 		setSlashOpen(false);
-		if (prompt === "/" || (prompt.startsWith("/") && !prompt.includes(" "))) {
+		setSlashFilter("");
+		const el = textareaRef.current;
+		const cursorPos = el?.selectionStart ?? prompt.length;
+		const textBeforeCursor = prompt.slice(0, cursorPos);
+		if (
+			textBeforeCursor === "/" ||
+			(textBeforeCursor.startsWith("/") && !textBeforeCursor.includes(" "))
+		) {
 			slashDismissedRef.current = true;
 		}
 	}, [prompt]);
@@ -146,7 +160,7 @@ export function SkillPromptArea({
 								open={slashOpen}
 								onClose={handleSlashClose}
 								onSelect={handleSlashSelect}
-								filter={prompt.startsWith("/") ? prompt : ""}
+								filter={slashFilter}
 								placement="bottom"
 								cwd={cwd}
 							/>

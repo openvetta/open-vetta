@@ -27,6 +27,7 @@ export interface DesktopWindowApi {
 
 export interface DesktopSettingsApi {
 	getServerUrl(): Promise<string>;
+	getSiteUrl(): Promise<string>;
 	getServerToken(): Promise<string | undefined>;
 	setServerToken(token: string | undefined): Promise<void>;
 	getServerRefreshToken(): Promise<string | undefined>;

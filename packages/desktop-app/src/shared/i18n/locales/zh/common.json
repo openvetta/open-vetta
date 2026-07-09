@@ -26,12 +26,13 @@
 	},
 	"loginDialog": {
 		"title": "登录 Vetta",
-		"subtitle": "使用账号或第三方平台继续",
+		"subtitle": "使用 Vetta 账号登录",
 		"accountPlaceholder": "账号",
 		"passwordPlaceholder": "密码",
 		"login": "登录",
 		"loggingIn": "登录中...",
-		"oauthDivider": "或使用第三方登录",
+		"oauthDivider": "或",
+		"oauthButton": "授权登录",
 		"footerHint": "登录即表示同意服务条款与隐私政策",
 		"error": "登录失败"
 	},

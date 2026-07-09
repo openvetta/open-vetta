@@ -98,6 +98,7 @@ export interface InputBarModel {
 	placeholder: string;
 	isFocused: boolean;
 	slashOpen: boolean;
+	slashFilter: string;
 	atOpen: boolean;
 	drawerItems: InputBarDrawerItem[];
 	drawerActiveTab: string | null;
