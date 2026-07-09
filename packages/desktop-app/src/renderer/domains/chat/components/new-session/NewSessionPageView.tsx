@@ -1,5 +1,6 @@
 import type { SkillInfo } from "@preload/api";
 import { cn } from "@shared/lib/utils";
+import { useThemeComponent } from "@vetta/theme-sdk";
 import { GuidingWords } from "./GuidingWords";
 import { NewSessionBackground } from "./NewSessionBackground";
 import { NewSessionHero } from "./NewSessionHero";
@@ -49,12 +50,18 @@ export function NewSessionPageView({
 	skillBadges,
 	subtitle,
 }: NewSessionPageViewProps): JSX.Element {
+	const ThemedNewSessionBackground = useThemeComponent(
+		"chat.newSessionBackground",
+		EmptyNewSessionBackground,
+	);
+
 	return (
 		<SessionDropZone
 			cwdOverride={cwd}
 			className={cn("relative flex h-full flex-1 flex-col overflow-hidden bg-background", className)}
 		>
 			<NewSessionBackground />
+			<ThemedNewSessionBackground />
 
 			{/* 整页垂直居中：单一滚动容器内 min-h-full + justify-center，内容始终居中
 			    （hero → 技能胶囊 → 输入框 → 引导词），无论窗口多大都在中间。
@@ -93,4 +100,8 @@ export function NewSessionPageView({
 			</div>
 		</SessionDropZone>
 	);
+}
+
+function EmptyNewSessionBackground(): null {
+	return null;
 }
