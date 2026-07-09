@@ -19,11 +19,19 @@ import { AchievementCarousel } from "./AchievementCarousel";
 import { AchievementPromotionDialog } from "./AchievementPromotionDialog";
 
 const EMPTY_USAGE_STATS: AchievementUsageStats = {
+	activeDayStreak: 0,
 	automationRuns: 0,
 	batchRuns: 0,
 	foregroundActiveMs: 0,
 	interactiveSessions: 0,
+	knowledgeBaseCount: 0,
+	knowledgeBaseFileOperations: 0,
+	longestConversationMessages: 0,
+	longestConversationTurns: 0,
 	messages: 0,
+	projectsCreated: 0,
+	todayActiveMs: 0,
+	todayMessages: 0,
 	toolsCompleted: 0,
 	totalTokens: 0,
 	turns: 0,

@@ -1,5 +1,12 @@
 export const APP_MONITOR_SCHEMA_VERSION = 1;
 
+export interface AppMonitorToolStats {
+	started: number;
+	completed: number;
+	failed: number;
+	totalDurationMs: number;
+}
+
 export interface AppMonitorData {
 	schemaVersion: typeof APP_MONITOR_SCHEMA_VERSION;
 	createdAt: number;
@@ -21,6 +28,7 @@ export interface AppMonitorData {
 		completed: number;
 		failed: number;
 		totalDurationMs: number;
+		byName: Record<string, AppMonitorToolStats>;
 	};
 	batchTasks: {
 		projectsCreated: number;
@@ -47,6 +55,15 @@ export interface AppMonitorData {
 		provider: number;
 		tool: number;
 		mcp: number;
+	};
+	engagement: {
+		currentDay: string;
+		lastActiveDay: string;
+		activeDayStreak: number;
+		todayForegroundActiveMs: number;
+		todayMessages: number;
+		longestConversationTurns: number;
+		longestConversationMessages: number;
 	};
 	knowledgeBase: {
 		processingInputTokens: number;
@@ -82,7 +99,47 @@ function asRecord(value: unknown): Record<string, unknown> {
 		: {};
 }
 
+function normalizeDayKey(value: unknown): string {
+	return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function normalizeToolName(value: unknown): string {
+	if (typeof value !== "string") return "";
+	const trimmed = value.trim();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
+	return trimmed.slice(0, 128);
+}
+
+function normalizeToolStats(value: unknown): AppMonitorToolStats {
+	const stats = asRecord(value);
+	return {
+		started: normalizeCount(stats.started),
+		completed: normalizeCount(stats.completed),
+		failed: normalizeCount(stats.failed),
+		totalDurationMs: normalizeCount(stats.totalDurationMs),
+	};
+}
+
+function normalizeToolStatsByName(value: unknown): Record<string, AppMonitorToolStats> {
+	const statsByName: Record<string, AppMonitorToolStats> = {};
+	for (const [rawName, rawStats] of Object.entries(asRecord(value))) {
+		const toolName = normalizeToolName(rawName);
+		if (toolName === "") continue;
+		statsByName[toolName] = normalizeToolStats(rawStats);
+	}
+	return statsByName;
+}
+
+function formatLocalDayKey(timestamp: number): string {
+	const date = new Date(timestamp);
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const day = String(date.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
 export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
+	const currentDay = formatLocalDayKey(now);
 	return {
 		schemaVersion: APP_MONITOR_SCHEMA_VERSION,
 		createdAt: now,
@@ -104,6 +161,7 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 			completed: 0,
 			failed: 0,
 			totalDurationMs: 0,
+			byName: {},
 		},
 		batchTasks: {
 			projectsCreated: 0,
@@ -130,6 +188,15 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 			provider: 0,
 			tool: 0,
 			mcp: 0,
+		},
+		engagement: {
+			currentDay,
+			lastActiveDay: "",
+			activeDayStreak: 0,
+			todayForegroundActiveMs: 0,
+			todayMessages: 0,
+			longestConversationTurns: 0,
+			longestConversationMessages: 0,
 		},
 		knowledgeBase: {
 			processingInputTokens: 0,
@@ -163,6 +230,7 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 	const usage = asRecord(data.usage);
 	const compactions = asRecord(data.compactions);
 	const errors = asRecord(data.errors);
+	const engagement = asRecord(data.engagement);
 	const knowledgeBase = asRecord(data.knowledgeBase);
 
 	return {
@@ -186,6 +254,7 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 			completed: normalizeCount(tools.completed),
 			failed: normalizeCount(tools.failed),
 			totalDurationMs: normalizeCount(tools.totalDurationMs),
+			byName: normalizeToolStatsByName(tools.byName),
 		},
 		batchTasks: {
 			projectsCreated: normalizeCount(batchTasks.projectsCreated),
@@ -212,6 +281,15 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 			provider: normalizeCount(errors.provider),
 			tool: normalizeCount(errors.tool),
 			mcp: normalizeCount(errors.mcp),
+		},
+		engagement: {
+			currentDay: normalizeDayKey(engagement.currentDay) || defaults.engagement.currentDay,
+			lastActiveDay: normalizeDayKey(engagement.lastActiveDay),
+			activeDayStreak: normalizeCount(engagement.activeDayStreak),
+			todayForegroundActiveMs: normalizeCount(engagement.todayForegroundActiveMs),
+			todayMessages: normalizeCount(engagement.todayMessages),
+			longestConversationTurns: normalizeCount(engagement.longestConversationTurns),
+			longestConversationMessages: normalizeCount(engagement.longestConversationMessages),
 		},
 		knowledgeBase: {
 			processingInputTokens: normalizeCount(knowledgeBase.processingInputTokens),
