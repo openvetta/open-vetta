@@ -148,6 +148,21 @@ export function AchievementDescriptionCard({
 							value: formatDuration(usageStats.foregroundActiveMs),
 						},
 						{
+							icon: "icon-[solar--calendar-mark-linear]",
+							label: t("achievement.metrics.activeStreak"),
+							value: t("achievement.days", { count: usageStats.activeDayStreak }),
+						},
+						{
+							icon: "icon-[solar--sun-2-linear]",
+							label: t("achievement.metrics.todayActiveTime"),
+							value: formatDuration(usageStats.todayActiveMs),
+						},
+						{
+							icon: "icon-[solar--letter-unread-linear]",
+							label: t("achievement.metrics.todayMessages"),
+							value: usageStats.todayMessages.toLocaleString(),
+						},
+						{
 							icon: "icon-[solar--chat-round-line-linear]",
 							label: t("achievement.metrics.sessions"),
 							value: usageStats.interactiveSessions.toLocaleString(),
@@ -163,6 +178,14 @@ export function AchievementDescriptionCard({
 							value: usageStats.messages.toLocaleString(),
 						},
 						{
+							icon: "icon-[solar--cup-star-linear]",
+							label: t("achievement.metrics.longestConversation"),
+							value: t("achievement.longestConversationValue", {
+								messages: usageStats.longestConversationMessages,
+								turns: usageStats.longestConversationTurns,
+							}),
+						},
+						{
 							icon: "icon-[solar--programming-linear]",
 							label: t("achievement.metrics.tools"),
 							value: usageStats.toolsCompleted.toLocaleString(),
@@ -171,6 +194,19 @@ export function AchievementDescriptionCard({
 							icon: "icon-[solar--bolt-linear]",
 							label: t("achievement.metrics.tokens"),
 							value: usageStats.totalTokens.toLocaleString(),
+						},
+						{
+							icon: "icon-[solar--folder-with-files-linear]",
+							label: t("achievement.metrics.projects"),
+							value: t("achievement.projectsValue", {
+								kb: usageStats.knowledgeBaseCount,
+								projects: usageStats.projectsCreated,
+							}),
+						},
+						{
+							icon: "icon-[solar--file-send-linear]",
+							label: t("achievement.metrics.fileOperations"),
+							value: usageStats.knowledgeBaseFileOperations.toLocaleString(),
 						},
 						{
 							icon: "icon-[solar--layers-linear]",

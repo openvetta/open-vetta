@@ -1321,17 +1321,26 @@
     },
     "metrics": {
       "activeTime": "有效使用时长",
+      "activeStreak": "连续使用",
+      "todayActiveTime": "今日活跃",
+      "todayMessages": "今日消息",
       "sessions": "交互会话",
       "turns": "对话轮次",
       "messages": "完成消息",
+      "longestConversation": "最长单次对话",
       "tools": "完成工具调用",
       "tokens": "输入输出 Token",
+      "projects": "项目 / 知识库",
+      "fileOperations": "文件操作",
       "batchRuns": "批量任务运行",
       "automationRuns": "自动化运行"
     },
     "durationMinutes": "{{count}} 分钟",
     "durationHours": "{{count}} 小时",
     "durationHoursMinutes": "{{hours}} 小时 {{minutes}} 分钟",
+    "days": "{{count}} 天",
+    "longestConversationValue": "{{turns}} 轮 / {{messages}} 条",
+    "projectsValue": "{{projects}} 项目 / {{kb}} 知识库",
     "stages": {
       "awakeningSpark": {
         "name": "觉醒星火",

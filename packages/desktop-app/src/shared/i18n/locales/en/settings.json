@@ -1321,17 +1321,26 @@
     },
     "metrics": {
       "activeTime": "Active usage",
+      "activeStreak": "Active streak",
+      "todayActiveTime": "Today active",
+      "todayMessages": "Today messages",
       "sessions": "Interactive sessions",
       "turns": "Conversation turns",
       "messages": "Completed messages",
+      "longestConversation": "Longest conversation",
       "tools": "Completed tool calls",
       "tokens": "Input/output tokens",
+      "projects": "Projects / KBs",
+      "fileOperations": "File operations",
       "batchRuns": "Batch runs",
       "automationRuns": "Automation runs"
     },
     "durationMinutes": "{{count}} min",
     "durationHours": "{{count}} hr",
     "durationHoursMinutes": "{{hours}} hr {{minutes}} min",
+    "days": "{{count}} day(s)",
+    "longestConversationValue": "{{turns}} turns / {{messages}} messages",
+    "projectsValue": "{{projects}} projects / {{kb}} KBs",
     "stages": {
       "awakeningSpark": {
         "name": "Spark of Awakening",

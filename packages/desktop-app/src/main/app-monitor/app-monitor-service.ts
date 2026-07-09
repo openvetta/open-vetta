@@ -23,6 +23,11 @@ export interface KnowledgeBaseProcessingUsage {
 	costTotal: number;
 }
 
+interface SessionEngagementStats {
+	turns: number;
+	messages: number;
+}
+
 class AppMonitorService {
 	private data = createDefaultAppMonitorData();
 	private initialized = false;
@@ -34,6 +39,7 @@ class AppMonitorService {
 	private flushTimer: ReturnType<typeof setInterval> | undefined;
 	private flushPromise: Promise<void> | undefined;
 	private readonly runtimeSubscriptions = new Map<string, () => void>();
+	private readonly sessionStats = new Map<string, SessionEngagementStats>();
 
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
@@ -158,7 +164,9 @@ class AppMonitorService {
 	}
 
 	getSnapshot(): AppMonitorData {
-		this.accountDuration(Date.now());
+		const now = Date.now();
+		this.accountDuration(now);
+		this.ensureEngagementDay(now);
 		return structuredClone(this.data);
 	}
 
@@ -191,6 +199,7 @@ class AppMonitorService {
 			log.warn("runtime unsubscribe failed", { sessionId }, error);
 		}
 		this.runtimeSubscriptions.delete(sessionId);
+		this.sessionStats.delete(sessionId);
 	}
 
 	async flush(): Promise<void> {
@@ -244,11 +253,28 @@ class AppMonitorService {
 		const activeUntil = this.lastActivityAt + ACTIVE_TIMEOUT_MS;
 		const activeEnd = Math.min(now, Math.max(from, activeUntil));
 		if (activeEnd > from) {
-			this.addDuration("foregroundActiveMs", activeEnd - from);
+			this.addForegroundActiveDuration(from, activeEnd);
 		}
 		if (now > activeEnd) {
 			this.addDuration("foregroundInactiveMs", now - activeEnd);
 		}
+	}
+
+	private addForegroundActiveDuration(from: number, to: number): void {
+		if (to <= from) return;
+		this.mutate((data) => {
+			data.durations.foregroundActiveMs += to - from;
+			let cursor = from;
+			while (cursor < to) {
+				const nextBoundary = Math.min(to, startOfNextLocalDay(cursor));
+				const durationMs = nextBoundary - cursor;
+				if (durationMs > 0) {
+					markActiveDay(data, cursor);
+					data.engagement.todayForegroundActiveMs += durationMs;
+				}
+				cursor = nextBoundary;
+			}
+		});
 	}
 
 	private addDuration(key: keyof AppMonitorData["durations"], durationMs: number): void {
@@ -262,18 +288,24 @@ class AppMonitorService {
 		this.mutate((data) => {
 			switch (event.type) {
 				case "session.lifecycle":
-					if (event.phase === "turn_start") data.sessions.turns += 1;
+					if (event.phase === "turn_start") {
+						data.sessions.turns += 1;
+						this.recordSessionTurn(data, event.sessionId, event.timestamp);
+					}
 					break;
 				case "message.final":
 					data.sessions.messages += 1;
+					this.recordSessionMessage(data, event.sessionId, event.timestamp);
 					break;
 				case "tool.start":
 					data.tools.started += 1;
+					recordToolStart(data, event.toolName);
 					break;
 				case "tool.end":
 					data.tools.completed += 1;
 					if (event.isError) data.tools.failed += 1;
 					data.tools.totalDurationMs += Math.max(0, event.durationMs);
+					recordToolEnd(data, event.toolName, event.isError, event.durationMs);
 					break;
 				case "usage.update":
 					data.usage.inputTokens += Math.max(0, event.input);
@@ -295,6 +327,39 @@ class AppMonitorService {
 		});
 	}
 
+	private ensureEngagementDay(timestamp: number): void {
+		const dayKey = formatLocalDayKey(timestamp);
+		if (this.data.engagement.currentDay === dayKey) return;
+		this.mutate((data) => {
+			ensureEngagementDay(data, dayKey);
+		});
+	}
+
+	private recordSessionTurn(data: AppMonitorData, sessionId: string, timestamp: number): void {
+		markActiveDay(data, timestamp);
+		const stats = this.sessionStats.get(sessionId) ?? { turns: 0, messages: 0 };
+		stats.turns += 1;
+		this.sessionStats.set(sessionId, stats);
+		this.updateLongestConversation(data, stats);
+	}
+
+	private recordSessionMessage(data: AppMonitorData, sessionId: string, timestamp: number): void {
+		markActiveDay(data, timestamp);
+		data.engagement.todayMessages += 1;
+		const stats = this.sessionStats.get(sessionId) ?? { turns: 0, messages: 0 };
+		stats.messages += 1;
+		this.sessionStats.set(sessionId, stats);
+		this.updateLongestConversation(data, stats);
+	}
+
+	private updateLongestConversation(data: AppMonitorData, stats: SessionEngagementStats): void {
+		data.engagement.longestConversationTurns = Math.max(data.engagement.longestConversationTurns, stats.turns);
+		data.engagement.longestConversationMessages = Math.max(
+			data.engagement.longestConversationMessages,
+			stats.messages,
+		);
+	}
+
 	private mutate(update: (data: AppMonitorData) => void): void {
 		try {
 			update(this.data);
@@ -307,6 +372,75 @@ class AppMonitorService {
 }
 
 const appMonitor = new AppMonitorService();
+
+function formatLocalDayKey(timestamp: number): string {
+	const date = new Date(timestamp);
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const day = String(date.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
+function startOfNextLocalDay(timestamp: number): number {
+	const date = new Date(timestamp);
+	return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+}
+
+function previousLocalDayKey(timestamp: number): string {
+	const date = new Date(timestamp);
+	return formatLocalDayKey(new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1).getTime());
+}
+
+function ensureEngagementDay(data: AppMonitorData, dayKey: string): void {
+	if (data.engagement.currentDay === dayKey) return;
+	data.engagement.currentDay = dayKey;
+	data.engagement.todayForegroundActiveMs = 0;
+	data.engagement.todayMessages = 0;
+}
+
+function markActiveDay(data: AppMonitorData, timestamp: number): void {
+	const dayKey = formatLocalDayKey(timestamp);
+	ensureEngagementDay(data, dayKey);
+	if (data.engagement.lastActiveDay === dayKey) return;
+	data.engagement.activeDayStreak =
+		data.engagement.lastActiveDay === previousLocalDayKey(timestamp) ? data.engagement.activeDayStreak + 1 : 1;
+	data.engagement.lastActiveDay = dayKey;
+}
+
+function recordToolStart(data: AppMonitorData, rawToolName: string): void {
+	const stats = getToolStats(data, rawToolName);
+	if (!stats) return;
+	stats.started += 1;
+}
+
+function recordToolEnd(data: AppMonitorData, rawToolName: string, isError: boolean, durationMs: number): void {
+	const stats = getToolStats(data, rawToolName);
+	if (!stats) return;
+	stats.completed += 1;
+	if (isError) stats.failed += 1;
+	stats.totalDurationMs += Math.max(0, durationMs);
+}
+
+function getToolStats(
+	data: AppMonitorData,
+	rawToolName: string,
+): AppMonitorData["tools"]["byName"][string] | undefined {
+	const toolName = normalizeToolName(rawToolName);
+	if (!toolName) return undefined;
+	data.tools.byName[toolName] ??= {
+		started: 0,
+		completed: 0,
+		failed: 0,
+		totalDurationMs: 0,
+	};
+	return data.tools.byName[toolName];
+}
+
+function normalizeToolName(value: string): string {
+	const trimmed = value.trim();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
+	return trimmed.slice(0, 128);
+}
 
 function normalizeDelta(value: number): number {
 	return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
