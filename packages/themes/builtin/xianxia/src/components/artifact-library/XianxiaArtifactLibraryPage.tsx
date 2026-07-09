@@ -30,12 +30,12 @@ const pillDecoration = {
 export function XianxiaArtifactLibraryPage({ layout }: ThemePageProps): JSX.Element {
 	return (
 		<main
-			className="min-h-0 flex-1 overflow-auto px-8 pb-8 pt-3 text-slate-900"
+			className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-8 pb-8 pt-3 text-slate-900"
 			data-theme-page-layout={layout}
 		>
 			<motion.div
 				animate={{ opacity: 1, y: 0 }}
-				className="mx-auto flex w-full max-w-[1180px] flex-col gap-5"
+				className="mx-auto flex min-w-0 w-full max-w-[1180px] flex-col gap-5"
 				initial={{ opacity: 0, y: 10 }}
 				transition={{ duration: 0.45, ease: "easeOut" }}
 			>
