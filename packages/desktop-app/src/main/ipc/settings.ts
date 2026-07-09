@@ -4,7 +4,7 @@ import { getAgentDir } from "@vetta/coding-agent";
 import { app, BrowserWindow, ipcMain, powerMonitor } from "electron";
 
 import type { RefreshOutcome } from "../../preload/api.js";
-import { DEFAULT_SERVER_URL } from "../constants.js";
+import { DEFAULT_SERVER_URL, DEFAULT_SITE_URL } from "../constants.js";
 import { getAppLogger } from "../logger.js";
 import { peekSharedRuntime } from "../runtime.js";
 import { atomicWriteJSON } from "../utils/atomic-write.js";
@@ -430,6 +430,10 @@ export function registerSettingsIpc(): () => void {
 
 	ipcMain.handle("vetta:settings:get-server-url", () => {
 		return DEFAULT_SERVER_URL;
+	});
+
+	ipcMain.handle("vetta:settings:get-site-url", () => {
+		return DEFAULT_SITE_URL;
 	});
 
 	ipcMain.handle("vetta:settings:get-server-token", () => {

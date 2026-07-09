@@ -6,19 +6,6 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LoginDialogView } from "./LoginDialogView";
 
-function deriveSiteUrl(serverUrl: string): string {
-	try {
-		const url = new URL(serverUrl);
-		// 本地开发：API 在 8080，站点在 3000
-		if (url.port === "8080") url.port = "3000";
-		// 生产环境：去 api. 前缀（api.vetta.ai → vetta.ai）
-		if (url.hostname.startsWith("api.")) url.hostname = url.hostname.slice(4);
-		return url.origin;
-	} catch {
-		return serverUrl.replace(":8080", ":3000");
-	}
-}
-
 export function LoginDialog(): JSX.Element {
 	const { t } = useTranslation("common");
 	const [open, setOpen] = useAtom(loginDialogOpenAtom);
@@ -34,8 +21,7 @@ export function LoginDialog(): JSX.Element {
 	async function handleOAuthLogin() {
 		setOauthLoading(true);
 		try {
-			const serverUrl = await window.vetta.settings.getServerUrl();
-			const siteUrl = deriveSiteUrl(serverUrl);
+			const siteUrl = await window.vetta.settings.getSiteUrl();
 			// vetta:// 协议由 main.ts 通过 app.setAsDefaultProtocolClient("vetta") 注册
 			const loginUrl = `${siteUrl}/auth/deep-link?client_redirect=${encodeURIComponent("vetta://oauth/callback")}`;
 			await window.vetta.auth.openExternal(loginUrl);
