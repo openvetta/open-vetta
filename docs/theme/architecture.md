@@ -258,6 +258,12 @@ components: {
 
 Component override 的 props 必须与默认 fallback 组件兼容。需要作为 trigger 或 focus target 的组件必须转发 ref，并透传 DOM props，避免破坏 Popover、Tooltip、虚拟列表测量或键盘交互。
 
+### Theme Route Model
+
+主题需要根据当前页面做视觉判断或受控导航时，应使用 `@vetta/theme-sdk` 暴露的 `useThemeRouteModel()`。它只返回稳定路由语义，例如 `pathname` 和 `area`，不暴露 TanStack Router 实例、route match、内部 params 或 search。
+
+`area` 适合主题判断页面场景，例如给 `automation`、`batchTasks`、`knowledgeBase`、`skills` 等宿主页面添加主内容背景。`navigate` 只接受 desktop-app 明确允许的目标，不支持任意路径跳转。主题不应直接 import router，也不应通过 `window.location` 或 body class 反推业务状态。
+
 ### Theme Module
 
 ThemeModule 是 UI 主题的注册单元：

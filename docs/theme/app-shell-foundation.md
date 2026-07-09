@@ -145,6 +145,12 @@ content:    relative z-10 / window control buttons
 
 surface slot 不是所有 component id 的镜像。`app.windowControls` 之所以登记 surface，是因为按钮组外壳有独立装饰价值；单个 `app.windowControlButton` 默认只走 component override，不额外登记 surface。
 
+## Main Content Background
+
+`MainContentFrame` 提供 `components["app.mainContentBackground"]`，用于给主内容 `<main>` 根区域添加装饰层。该区域包含 `PageHeader` 和 route outlet，不包含 sidebar、activity panel 或 global overlays。
+
+这个入口适合主题基于 `useThemeRouteModel()` 给某些页面添加可读性背景、纹理或轻量遮罩。主题组件应只渲染 `pointer-events-none absolute inset-0 z-0` 一类装饰内容，真实 header 和 outlet 内容仍由宿主放在上层。
+
 ## i18n
 
 `PageHeader` 默认标题和侧边栏触发按钮 title 使用 `common` namespace：
