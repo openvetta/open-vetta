@@ -3,6 +3,7 @@ import { xianxiaAppearance } from "./appearance";
 import { XianxiaAppBackground } from "./components/XianxiaAppBackground";
 import { XianxiaGuidingWords } from "./components/XianxiaGuidingWords";
 import { XianxiaInputBarBackground } from "./components/XianxiaInputBarBackground";
+import { XianxiaMainContentBackground } from "./components/XianxiaMainContentBackground";
 import { XianxiaNewSessionBackground } from "./components/XianxiaNewSessionBackground";
 import { XianxiaSceneCarousel, XianxiaSkillBadgeRow } from "./components/XianxiaNewSession";
 import { XianxiaArtifactLibraryPage } from "./components/artifact-library";
@@ -20,6 +21,7 @@ export const xianxiaTheme: ThemeModule = {
 	appearance: xianxiaAppearance,
 	components: {
 		"app.background": XianxiaAppBackground,
+		"app.mainContentBackground": XianxiaMainContentBackground,
 		"chat.inputBarBackground": XianxiaInputBarBackground,
 		"chat.newSessionBackground": XianxiaNewSessionBackground,
 		"chat.newSessionGuidingWords": XianxiaGuidingWords,

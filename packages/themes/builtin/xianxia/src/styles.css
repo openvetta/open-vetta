@@ -4,7 +4,9 @@
 @source "./**/*.{ts,tsx}";
 
 :root {
+	--xianxia-app-frame-radius: 22px;
 	--xianxia-input-bar-background-radius: 28px;
+	--xianxia-main-content-background-radius: var(--xianxia-app-frame-radius);
 	--xianxia-scene-card-background-radius: 24px;
 	--xianxia-sidebar-background-radius: 24px;
 	--xianxia-skill-card-background-radius: 9999px;
@@ -187,7 +189,7 @@ body.xianxia-sanctum-page-active [data-theme-surface="app.frame"] > span {
 
 .xianxia-app-frame-overlay {
 	inset: var(--xianxia-app-frame-inset);
-	border-radius: 22px;
+	border-radius: var(--xianxia-app-frame-radius);
 	box-shadow:
 		inset 0 0 14px rgb(255 255 255 / 28%),
 		0 0 5px rgb(255 255 255 / 78%),
@@ -221,6 +223,10 @@ body.xianxia-sanctum-page-active [data-theme-surface="app.frame"] > span {
 		linear-gradient(#000 0 0);
 	-webkit-mask-composite: xor;
 	mask-composite: exclude;
+}
+
+.xianxia-main-content-background {
+	border-radius: 0 var(--xianxia-main-content-background-radius) var(--xianxia-main-content-background-radius) 0;
 }
 
 .xianxia-guiding-words {

@@ -3,4 +3,5 @@ export * from "./appearance";
 export * from "./host";
 export * from "./module";
 export * from "./pages";
+export * from "./routing";
 export * from "./sidebar";

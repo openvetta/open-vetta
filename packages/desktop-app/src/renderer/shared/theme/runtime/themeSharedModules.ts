@@ -1,6 +1,7 @@
 import type { ModuleFederation } from "@module-federation/enhanced/runtime";
 import * as themeSdk from "@vetta/theme-sdk";
 import * as themeSdkPages from "@vetta/theme-sdk/pages";
+import * as themeSdkRouting from "@vetta/theme-sdk/routing";
 import * as themeUi from "@vetta/theme-ui";
 import * as vettaUi from "@vetta/ui";
 import * as MotionReact from "motion/react";
@@ -18,6 +19,7 @@ const sharedModules = {
 	"@vetta/desktop-theme-ui/sidebar": { module: desktopThemeSidebar, version: "0.1.0" },
 	"@vetta/theme-sdk": { module: themeSdk, version: "0.1.0" },
 	"@vetta/theme-sdk/pages": { module: themeSdkPages, version: "0.1.0" },
+	"@vetta/theme-sdk/routing": { module: themeSdkRouting, version: "0.1.0" },
 	"@vetta/theme-ui": { module: themeUi, version: "0.1.0" },
 	"@vetta/ui": { module: vettaUi, version: "0.1.0" },
 	"motion/react": { module: MotionReact, version: "12.23.12" },

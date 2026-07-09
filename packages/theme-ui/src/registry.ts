@@ -1,6 +1,11 @@
 import type { ThemeSurfaceConfig } from "@vetta/theme-sdk";
+import type { ComponentType } from "react";
 
 declare module "@vetta/theme-sdk" {
+	interface ThemeComponentRegistry {
+		readonly "app.mainContentBackground"?: ComponentType;
+	}
+
 	interface ThemeSurfaceRegistry {
 		readonly "activity.panel"?: ThemeSurfaceConfig;
 		readonly "app.frame"?: ThemeSurfaceConfig;
