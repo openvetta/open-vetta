@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 type RuntimesStatus = Awaited<ReturnType<typeof window.vetta.runtimes.getStatus>>;
 export type EnvironmentRuntimeStatus = RuntimesStatus["node"];
@@ -60,6 +61,7 @@ export function useEnvironmentSettingsModel(): EnvironmentSettingsModel {
 			try {
 				await window.vetta.runtimes.reinstall(kind);
 				await refresh();
+				recordSettingsUsage({ tab: "environment", action: "reinstalled", target: "runtime", value: kind });
 			} catch (err) {
 				setError(err instanceof Error ? err.message : String(err));
 			} finally {

@@ -4,6 +4,7 @@ import { remoteProvidersAtom, subscriptionStatusAtom } from "@shared/store/atoms
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export type ModelCost = { cacheRead: number; cacheWrite: number; input: number; output: number };
 export type RemoteModel = {
@@ -78,6 +79,7 @@ export function useSubscriptionCardsModel(): SubscriptionCardsModel {
 			]);
 			setRemoteProviders(result.providers);
 			if (sub.status) setSubscriptionStatus(sub.status);
+			recordSettingsUsage({ tab: "subscription", action: "refreshed", target: "status" });
 		} catch {
 			// 刷新失败时保留现有展示。
 		} finally {

@@ -9,6 +9,7 @@ import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export interface GeneralSettingsModel {
 	actions: {
@@ -87,6 +88,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 		setWorkspacePath(selected);
 		localStorage.setItem("vetta-workspace-path", selected);
 		await window.vetta.config.set({ workspacePath: selected });
+		recordSettingsUsage({ tab: "general", action: "selected", target: "workspace" });
 	}, [setWorkspacePath]);
 
 	const resetWorkspace = useCallback(async () => {
@@ -94,6 +96,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 		setWorkspacePath(defaultPath);
 		localStorage.setItem("vetta-workspace-path", defaultPath);
 		await window.vetta.config.set({ workspacePath: defaultPath });
+		recordSettingsUsage({ tab: "general", action: "reset", target: "workspace" });
 	}, [setWorkspacePath]);
 
 	const toggleDebug = useCallback(
@@ -109,6 +112,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 						setDebugMode(false);
 						localStorage.setItem("vetta-debug-mode", "false");
 						void window.vetta.config.set({ debugMode: false });
+						recordSettingsUsage({ tab: "general", action: "disabled", target: "debug-mode" });
 					},
 				});
 				return;
@@ -116,6 +120,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 			setDebugMode(true);
 			localStorage.setItem("vetta-debug-mode", "true");
 			void window.vetta.config.set({ debugMode: true });
+			recordSettingsUsage({ tab: "general", action: "enabled", target: "debug-mode" });
 		},
 		[setConfirmDialog, setDebugMode, t],
 	);
@@ -141,6 +146,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 	const toggleNotifications = useCallback((checked: boolean) => {
 		setNotificationsEnabled(checked);
 		void window.vetta.config.set({ notificationsEnabled: checked });
+		recordSettingsUsage({ tab: "general", action: checked ? "enabled" : "disabled", target: "notifications" });
 	}, []);
 
 	const changeExecutionMode = useCallback(
@@ -153,6 +159,7 @@ export function useGeneralSettingsModel(): GeneralSettingsModel {
 			localStorage.setItem("vetta-session-execution-mode", nextMode);
 			try {
 				await window.vetta.config.set({ defaultExecutionMode: nextMode });
+				recordSettingsUsage({ tab: "general", action: "changed", target: "execution-mode", value: nextMode });
 			} catch (error) {
 				setExecutionMode(previousMode);
 				localStorage.setItem("vetta-session-execution-mode", previousMode);

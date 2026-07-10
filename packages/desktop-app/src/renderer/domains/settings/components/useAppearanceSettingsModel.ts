@@ -12,6 +12,7 @@ import type { AppLanguage } from "@/shared/i18n/config";
 import defaultThemePreview from "../assets/default.webp";
 import xianxiaThemePreview from "../assets/xianxia.webp";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 interface AppearancePoint {
 	x: number;
@@ -178,15 +179,28 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		actions: {
 			changeLanguage: (nextLanguage) => {
 				void setLanguage(nextLanguage);
+				recordSettingsUsage({ tab: "appearance", action: "changed", target: "language", value: nextLanguage });
 			},
 			changeMode: (nextMode, point) => {
 				void setMode(nextMode, point);
+				recordSettingsUsage({ tab: "appearance", action: "changed", target: "mode", value: nextMode });
 			},
-			changeThemeName: (id, point) => setThemeName(id, point),
+			changeThemeName: (id, point) => {
+				setThemeName(id, point);
+				recordSettingsUsage({ tab: "appearance", action: "changed", target: "color-theme", value: id });
+			},
 			selectUiTheme: (id) => {
 				void selectTheme(id);
+				recordSettingsUsage({ tab: "appearance", action: "selected", target: "ui-theme", value: id });
 			},
-			setCustomCursor,
+			setCustomCursor: (enabled) => {
+				setCustomCursor(enabled);
+				recordSettingsUsage({
+					tab: "appearance",
+					action: enabled ? "enabled" : "disabled",
+					target: "custom-cursor",
+				});
+			},
 		},
 		activeUiThemeId: activeThemeId,
 		customCursor,

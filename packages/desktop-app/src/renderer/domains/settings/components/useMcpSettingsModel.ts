@@ -7,6 +7,7 @@ import type {
 import type { MarketMcpServer } from "@shared/lib/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export type McpEditMode = "visual" | "json";
 export type McpTransportType = "stdio" | "http";
@@ -119,6 +120,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 		setAddingServer(false);
 		setServerForm({ ...emptyMcpServer });
 		setExpandedServer(name);
+		recordSettingsUsage({ tab: "mcp", action: "added", target: "server", value: serverForm.transport });
 	}, [config, saveConfig, serverForm]);
 
 	const handleUpdateServer = useCallback(
@@ -136,6 +138,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			if (oldName !== name) {
 				setExpandedServer(name);
 			}
+			recordSettingsUsage({ tab: "mcp", action: "updated", target: "server", value: serverForm.transport });
 		},
 		[config, saveConfig, serverForm],
 	);
@@ -145,6 +148,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			if (!config) return;
 			const newServers = { ...config.mcpServers, [server.name]: marketToServer(server) };
 			await saveConfig({ ...config, mcpServers: newServers });
+			recordSettingsUsage({ tab: "mcp", action: "added", target: "market-server" });
 		},
 		[config, saveConfig],
 	);
@@ -156,6 +160,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			delete newServers[name];
 			await saveConfig({ ...config, mcpServers: newServers });
 			if (expandedServer === name) setExpandedServer(null);
+			recordSettingsUsage({ tab: "mcp", action: "deleted", target: "server" });
 		},
 		[config, expandedServer, saveConfig],
 	);
@@ -172,6 +177,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 					[name]: { ...server, disabled: !server.disabled },
 				},
 			});
+			recordSettingsUsage({ tab: "mcp", action: server.disabled ? "enabled" : "disabled", target: "server" });
 		},
 		[config, saveConfig],
 	);
@@ -217,6 +223,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			}
 			setJsonError(null);
 			await saveConfig(parsed);
+			recordSettingsUsage({ tab: "mcp", action: "saved", target: "json-config" });
 		} catch (e) {
 			setJsonError(t("jsonParseError", { msg: (e as Error).message }));
 		}
@@ -232,6 +239,7 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			setAddingServer(false);
 			setEditingServer(null);
 			setServerForm({ ...emptyMcpServer });
+			recordSettingsUsage({ tab: "mcp", action: "changed", target: "edit-mode", value: newMode });
 		},
 		[config],
 	);

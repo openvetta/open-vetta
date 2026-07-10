@@ -10,6 +10,7 @@ import type {
 } from "@preload/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export interface FeishuFormState {
 	appId: string;
@@ -152,6 +153,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 				await refreshConfig();
 				setLegacy(null);
 				setSaveOk(t("imbImportOk"));
+				recordSettingsUsage({ tab: "im", action: "imported", target: "legacy-config" });
 			} else {
 				setSaveError(result.error ?? t("imbImportFail"));
 			}
@@ -179,6 +181,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 				}
 				await refreshConfig();
 				setSaveOk(next ? t("setModelOk", { provider: next.provider, model: next.model }) : t("clearedModel"));
+				recordSettingsUsage({ tab: "im", action: next ? "selected" : "reset", target: "agent-model" });
 			} finally {
 				setSaving(false);
 			}
@@ -199,6 +202,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 				ok: result.ok,
 				msg: result.ok ? (result.message ?? t("testOk")) : (result.error ?? t("testUnknown")),
 			});
+			recordSettingsUsage({ tab: "im", action: "tested", target: "agent-model" });
 		} finally {
 			setProbing(false);
 		}
@@ -237,6 +241,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 				} else {
 					await refreshConfig();
 					setSaveOk(enabled ? t("saveOk") : t("disableOk"));
+					recordSettingsUsage({ tab: "im", action: enabled ? "enabled" : "disabled", target: "bridge" });
 				}
 			} finally {
 				setSaving(false);
@@ -262,6 +267,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 				}
 				await refreshConfig();
 				setSaveOk(t("switchTo", { channel: next === "feishu" ? t("feishuChannel") : t("wechatChannel") }));
+				recordSettingsUsage({ tab: "im", action: "changed", target: "transport", value: next });
 			} finally {
 				setSaving(false);
 			}
@@ -282,6 +288,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 			}
 			await refreshConfig();
 			setSaveOk(t("unbindSuccess"));
+			recordSettingsUsage({ tab: "im", action: "deleted", target: "wechat-binding" });
 		} finally {
 			setSaving(false);
 		}
@@ -300,6 +307,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 			}
 			await refreshConfig();
 			setSaveOk(result.mode === "plaintext" ? t("saveOkPlaintext") : t("saveOkEncrypted"));
+			recordSettingsUsage({ tab: "im", action: "saved", target: "feishu-config" });
 		} catch (err) {
 			setSaveError((err as Error).message);
 		} finally {
@@ -320,6 +328,7 @@ export function useImBridgeSettingsModel(): ImBridgeSettingsModel {
 				baseUrl: config.feishu.baseUrl || undefined,
 			});
 			setTestResult(result.ok ? (result.message ?? t("testPass")) : (result.error ?? t("testFail")));
+			recordSettingsUsage({ tab: "im", action: "tested", target: "feishu-config" });
 		} finally {
 			setTesting(false);
 		}

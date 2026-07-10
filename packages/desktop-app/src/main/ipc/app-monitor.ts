@@ -11,6 +11,8 @@ import type {
 	AppMonitorResourceKind,
 	AppMonitorResourceOperation,
 	AppMonitorResourceSource,
+	AppMonitorSettingsAction,
+	AppMonitorSettingsTab,
 } from "../../preload/api-types/app-monitor.js";
 import {
 	getAppMonitorSnapshot,
@@ -46,6 +48,44 @@ const RESOURCE_OPERATIONS = new Set<AppMonitorResourceOperation>([
 	"commands-revoked",
 ]);
 const RESOURCE_SOURCES = new Set<AppMonitorResourceSource>(["market", "custom", "archive", "remote", "system"]);
+const SETTINGS_TABS = new Set<AppMonitorSettingsTab>([
+	"general",
+	"appearance",
+	"account",
+	"agent",
+	"models",
+	"mcp",
+	"im",
+	"webhook",
+	"shortcuts",
+	"appshot",
+	"environment",
+	"permissions",
+	"knowledge",
+	"pet",
+	"plugins",
+	"archived",
+	"subscription",
+]);
+const SETTINGS_ACTIONS = new Set<AppMonitorSettingsAction>([
+	"selected",
+	"changed",
+	"saved",
+	"added",
+	"updated",
+	"deleted",
+	"enabled",
+	"disabled",
+	"reset",
+	"restored",
+	"tested",
+	"scanned",
+	"retried",
+	"cleared",
+	"imported",
+	"reinstalled",
+	"refreshed",
+]);
 
 export function registerAppMonitorIpc(): () => void {
 	const onUserActivity = (): void => {
@@ -88,6 +128,7 @@ export function registerAppMonitorIpc(): () => void {
 
 function toAppMonitorEvent(value: unknown): AppMonitorEvent | null {
 	if (!isRecord(value)) return null;
+	if (value.type === "settings.changed") return toSettingsChangedEvent(value);
 	if (value.type === "resource.lifecycle") return toResourceLifecycleEvent(value);
 	if (value.type === "input.context.used") return toInputContextUsedEvent(value);
 	if (value.type === "input.action.used") return toInputActionUsedEvent(value);
@@ -104,6 +145,20 @@ function toAppMonitorEvent(value: unknown): AppMonitorEvent | null {
 		source: value.source,
 		files,
 		images,
+	};
+}
+
+function toSettingsChangedEvent(value: Record<string, unknown>): AppMonitorEvent | null {
+	if (!isSettingsTab(value.tab) || !isSettingsAction(value.action)) return null;
+	const target = normalizeKey(value.target);
+	const eventValue = normalizeOptionalKey(value.value);
+	if (target === "unknown") return null;
+	return {
+		type: "settings.changed",
+		tab: value.tab,
+		action: value.action,
+		target,
+		...(eventValue ? { value: eventValue } : {}),
 	};
 }
 
@@ -236,6 +291,14 @@ function isResourceSource(value: unknown): value is AppMonitorResourceSource {
 	return typeof value === "string" && RESOURCE_SOURCES.has(value as AppMonitorResourceSource);
 }
 
+function isSettingsTab(value: unknown): value is AppMonitorSettingsTab {
+	return typeof value === "string" && SETTINGS_TABS.has(value as AppMonitorSettingsTab);
+}
+
+function isSettingsAction(value: unknown): value is AppMonitorSettingsAction {
+	return typeof value === "string" && SETTINGS_ACTIONS.has(value as AppMonitorSettingsAction);
+}
+
 function normalizeKey(value: unknown): string {
 	if (typeof value !== "string") return "unknown";
 	const normalized = value.trim().toLowerCase();
@@ -243,6 +306,11 @@ function normalizeKey(value: unknown): string {
 		return "unknown";
 	}
 	return normalized.slice(0, 64);
+}
+
+function normalizeOptionalKey(value: unknown): string | undefined {
+	const normalized = normalizeKey(value);
+	return normalized === "unknown" ? undefined : normalized;
 }
 
 function normalizeActionId(value: unknown): string {

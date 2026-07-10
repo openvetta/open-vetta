@@ -10,6 +10,7 @@ import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export type KnowledgeBusyState = "scan" | "clear" | "retry" | null;
 
@@ -134,6 +135,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 			setKnowledgeBaseEnabled(checked);
 			if (!checked) setKnowledgeRetrievalActive(false);
 			void persist({ enabled: checked });
+			recordSettingsUsage({ tab: "knowledge", action: checked ? "enabled" : "disabled", target: "processing" });
 		},
 		[persist, setKnowledgeBaseEnabled, setKnowledgeRetrievalActive],
 	);
@@ -143,6 +145,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 			const minutes = Number(value);
 			setIntervalMinutes(minutes);
 			void persist({ pollIntervalMinutes: minutes });
+			recordSettingsUsage({ tab: "knowledge", action: "changed", target: "poll-interval", value });
 		},
 		[persist],
 	);
@@ -152,6 +155,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 			const count = Number(value);
 			setAgentConcurrency(count);
 			void persist({ agentConcurrency: count });
+			recordSettingsUsage({ tab: "knowledge", action: "changed", target: "agent-concurrency", value });
 		},
 		[persist],
 	);
@@ -161,6 +165,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 			setModelKey(value);
 			setProbeResult(null);
 			void persist({ processingModelKey: value });
+			recordSettingsUsage({ tab: "knowledge", action: value ? "selected" : "reset", target: "processing-model" });
 		},
 		[persist],
 	);
@@ -169,6 +174,12 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 		(level: string) => {
 			setReasoningLevel(level);
 			void persist({ processingModelReasoningLevel: level });
+			recordSettingsUsage({
+				tab: "knowledge",
+				action: level ? "changed" : "reset",
+				target: "reasoning-level",
+				value: level,
+			});
 		},
 		[persist],
 	);
@@ -188,6 +199,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 				ok: result.ok,
 				msg: result.ok ? (result.message ?? t("kbTestOk")) : (result.error ?? t("kbTestUnknown")),
 			});
+			recordSettingsUsage({ tab: "knowledge", action: "tested", target: "processing-model" });
 		} finally {
 			setProbing(false);
 		}
@@ -201,6 +213,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 			setStatus(
 				res.reason === "no-model" ? t("kbNoModelForProcess") : res.skipped ? t("kbNoChanges") : t("kbProcessing"),
 			);
+			recordSettingsUsage({ tab: "knowledge", action: "scanned", target: "wiki" });
 		} catch (err) {
 			setStatus(t("kbProcessFailed", { msg: err instanceof Error ? err.message : String(err) }));
 		} finally {
@@ -216,6 +229,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 			setStatus(
 				res.reason === "no-model" ? t("kbNoModelForProcess") : res.skipped ? t("kbNoChanges") : t("kbProcessing"),
 			);
+			recordSettingsUsage({ tab: "knowledge", action: "retried", target: "failed-files" });
 		} catch (err) {
 			setStatus(t("kbProcessFailed", { msg: err instanceof Error ? err.message : String(err) }));
 		} finally {
@@ -236,6 +250,7 @@ export function useKnowledgeBaseSettingsModel(): KnowledgeBaseSettingsModel {
 					try {
 						await window.vetta.knowledge.clearWiki();
 						setStatus(t("kbCleared"));
+						recordSettingsUsage({ tab: "knowledge", action: "cleared", target: "wiki" });
 					} catch (err) {
 						setStatus(t("kbClearFailed", { msg: err instanceof Error ? err.message : String(err) }));
 					} finally {

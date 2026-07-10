@@ -63,6 +63,22 @@ export interface AppMonitorResourceStats extends AppMonitorResourceKindStats {
 	system: boolean;
 }
 
+export interface AppMonitorSettingsScopeStats {
+	events: number;
+	byAction: Record<string, number>;
+	byTarget: Record<string, number>;
+	byValue: Record<string, number>;
+}
+
+export interface AppMonitorSettingsUsageStats {
+	tab: string;
+	action: string;
+	target: string;
+	value?: string;
+	used: number;
+	lastUsedAt: number;
+}
+
 export interface AppMonitorData {
 	schemaVersion: typeof APP_MONITOR_SCHEMA_VERSION;
 	createdAt: number;
@@ -221,6 +237,16 @@ export interface AppMonitorData {
 		mostOperatedByKind: Record<string, AppMonitorResourceStats>;
 		recent: AppMonitorResourceStats | null;
 		recentByKind: Record<string, AppMonitorResourceStats>;
+	};
+	settings: {
+		events: number;
+		byTab: Record<string, AppMonitorSettingsScopeStats>;
+		byAction: Record<string, number>;
+		byTarget: Record<string, number>;
+		byValue: Record<string, number>;
+		byEntry: Record<string, AppMonitorSettingsUsageStats>;
+		mostUsed: AppMonitorSettingsUsageStats | null;
+		recent: AppMonitorSettingsUsageStats | null;
 	};
 }
 
@@ -467,6 +493,55 @@ function normalizeResourceStatsSnapshotRecord(value: unknown): Record<string, Ap
 	return statsByKey;
 }
 
+function normalizeSettingsScopeStats(value: unknown): AppMonitorSettingsScopeStats {
+	const stats = asRecord(value);
+	return {
+		events: normalizeCount(stats.events),
+		byAction: normalizeCountRecord(stats.byAction),
+		byTarget: normalizeCountRecord(stats.byTarget),
+		byValue: normalizeCountRecord(stats.byValue),
+	};
+}
+
+function normalizeSettingsScopeStatsRecord(value: unknown): Record<string, AppMonitorSettingsScopeStats> {
+	const statsByKey: Record<string, AppMonitorSettingsScopeStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeMetricKey(rawKey);
+		if (key === "") continue;
+		statsByKey[key] = normalizeSettingsScopeStats(rawStats);
+	}
+	return statsByKey;
+}
+
+function normalizeSettingsUsageStats(value: unknown): AppMonitorSettingsUsageStats | null {
+	const stats = asRecord(value);
+	const tab = normalizeMetricKey(stats.tab);
+	const action = normalizeMetricKey(stats.action);
+	const target = normalizeMetricKey(stats.target);
+	const valueKey = normalizeMetricKey(stats.value);
+	const used = normalizeCount(stats.used);
+	if (tab === "" || action === "" || target === "" || used === 0) return null;
+	return {
+		tab,
+		action,
+		target,
+		...(valueKey === "" ? {} : { value: valueKey }),
+		used,
+		lastUsedAt: normalizeCount(stats.lastUsedAt),
+	};
+}
+
+function normalizeSettingsUsageStatsRecord(value: unknown): Record<string, AppMonitorSettingsUsageStats> {
+	const statsByKey: Record<string, AppMonitorSettingsUsageStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeInputActionId(rawKey);
+		const stats = normalizeSettingsUsageStats(rawStats);
+		if (key === "" || !stats) continue;
+		statsByKey[key] = stats;
+	}
+	return statsByKey;
+}
+
 function formatLocalDayKey(timestamp: number): string {
 	const date = new Date(timestamp);
 	const year = date.getFullYear();
@@ -636,6 +711,16 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 			recent: null,
 			recentByKind: {},
 		},
+		settings: {
+			events: 0,
+			byTab: {},
+			byAction: {},
+			byTarget: {},
+			byValue: {},
+			byEntry: {},
+			mostUsed: null,
+			recent: null,
+		},
 	};
 }
 
@@ -664,6 +749,8 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 	const inputPromptRefsByRef = normalizePromptRefStatsRecord(inputPromptRefs.byRef);
 	const resources = asRecord(data.resources);
 	const resourcesByResource = normalizeResourceStatsRecord(resources.byResource);
+	const settings = asRecord(data.settings);
+	const settingsByEntry = normalizeSettingsUsageStatsRecord(settings.byEntry);
 
 	return {
 		schemaVersion: APP_MONITOR_SCHEMA_VERSION,
@@ -837,6 +924,16 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 				...normalizeResourceStatsSnapshotRecord(resources.recentByKind),
 			},
 		},
+		settings: {
+			events: normalizeCount(settings.events),
+			byTab: normalizeSettingsScopeStatsRecord(settings.byTab),
+			byAction: normalizeCountRecord(settings.byAction),
+			byTarget: normalizeCountRecord(settings.byTarget),
+			byValue: normalizeCountRecord(settings.byValue),
+			byEntry: settingsByEntry,
+			mostUsed: normalizeSettingsUsageStats(settings.mostUsed) ?? findMostUsedSettingsEntry(settingsByEntry),
+			recent: normalizeSettingsUsageStats(settings.recent) ?? findRecentSettingsEntry(settingsByEntry),
+		},
 	};
 }
 
@@ -924,4 +1021,30 @@ function findRecentResourcesByKind(
 		if (stats) result[kind] = stats;
 	}
 	return result;
+}
+
+function findMostUsedSettingsEntry(
+	statsByKey: Record<string, AppMonitorSettingsUsageStats>,
+): AppMonitorSettingsUsageStats | null {
+	let selected: AppMonitorSettingsUsageStats | null = null;
+	for (const stats of Object.values(statsByKey)) {
+		if (
+			!selected ||
+			stats.used > selected.used ||
+			(stats.used === selected.used && stats.lastUsedAt > selected.lastUsedAt)
+		) {
+			selected = stats;
+		}
+	}
+	return selected ? { ...selected } : null;
+}
+
+function findRecentSettingsEntry(
+	statsByKey: Record<string, AppMonitorSettingsUsageStats>,
+): AppMonitorSettingsUsageStats | null {
+	let selected: AppMonitorSettingsUsageStats | null = null;
+	for (const stats of Object.values(statsByKey)) {
+		if (!selected || stats.lastUsedAt > selected.lastUsedAt) selected = stats;
+	}
+	return selected ? { ...selected } : null;
 }

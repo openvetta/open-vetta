@@ -9,6 +9,7 @@ import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export interface WebhookFormState {
 	dingtalkAtMobiles: string;
@@ -192,6 +193,12 @@ export function useWebhookSettingsModel(): WebhookSettingsModel {
 				return;
 			}
 			await refresh();
+			recordSettingsUsage({
+				tab: "webhook",
+				action: next ? "enabled" : "disabled",
+				target: "endpoint",
+				value: endpoint.kind,
+			});
 		},
 		[refresh, t],
 	);
@@ -201,6 +208,7 @@ export function useWebhookSettingsModel(): WebhookSettingsModel {
 			if (!window.confirm(t("whDeleteConfirm", { name: endpoint.name }))) return;
 			await window.vetta.webhook.delete(endpoint.id);
 			await refresh();
+			recordSettingsUsage({ tab: "webhook", action: "deleted", target: "endpoint", value: endpoint.kind });
 		},
 		[refresh, t],
 	);
@@ -218,6 +226,7 @@ export function useWebhookSettingsModel(): WebhookSettingsModel {
 						text: result.ok ? t("whTestSent") : (result.error ?? t("whSendFailed")),
 					},
 				}));
+				recordSettingsUsage({ tab: "webhook", action: "tested", target: "endpoint", value: endpoint.kind });
 			} finally {
 				setTestingId(null);
 			}
@@ -264,6 +273,7 @@ export function useWebhookSettingsModel(): WebhookSettingsModel {
 					setEditorError(result.error ?? t("whSaveFailed"));
 					return;
 				}
+				recordSettingsUsage({ tab: "webhook", action: "updated", target: "endpoint", value: form.kind });
 			} else {
 				const input: WebhookCreateInput = {
 					kind: form.kind,
@@ -278,6 +288,7 @@ export function useWebhookSettingsModel(): WebhookSettingsModel {
 					setEditorError(result.error ?? t("whCreateFailed"));
 					return;
 				}
+				recordSettingsUsage({ tab: "webhook", action: "added", target: "endpoint", value: form.kind });
 			}
 			await refresh();
 			setEditorOpen(false);

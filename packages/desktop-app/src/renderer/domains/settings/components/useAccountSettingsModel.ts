@@ -3,6 +3,7 @@ import { authTokenAtom, authUserAtom, subscriptionStatusAtom } from "@shared/sto
 import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export interface AccountSettingsModel {
 	actions: {
@@ -43,6 +44,7 @@ export function useAccountSettingsModel(): AccountSettingsModel {
 			try {
 				const updated = await updateProfile(token, { nickname: nextNickname });
 				setUser((prev) => (prev ? { ...prev, nickname: updated.nickname } : prev));
+				recordSettingsUsage({ tab: "account", action: "saved", target: "nickname" });
 				return { ok: true };
 			} catch (error) {
 				return { error: error instanceof Error ? error.message : t("saveFailed"), ok: false };
