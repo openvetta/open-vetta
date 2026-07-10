@@ -9,7 +9,7 @@
 ## 关键模块
 
 - `src/contracts.ts` — SessionEvent、PromptRequest、SessionFacade 等核心契约
-- `src/runtime-host.ts` — 运行时宿主实现
+- `src/runtime-host/` — 运行时宿主实现（`runtime-host.ts` 编排 + session-events / history / peripheral-tasks 等）
 - `src/errors.ts` — 错误定义
 
 ## 注意事项
