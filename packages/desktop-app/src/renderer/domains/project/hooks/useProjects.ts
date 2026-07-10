@@ -3,6 +3,7 @@ import {
 	defaultConversationCwdAtom,
 	defaultImConversationCwdAtom,
 	expandedProjectsAtom,
+	NO_MESSAGES_SENTINEL,
 	type Project,
 	type ProjectType,
 	projectsAtom,
@@ -14,6 +15,12 @@ import {
 } from "@shared/store/atoms";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
+
+/** firstMessage 是否可直接当展示名（排除空串与 coding-agent 占位）。 */
+function isUsableFirstMessage(text: string | undefined): boolean {
+	const t = (text ?? "").trim();
+	return t.length > 0 && t !== NO_MESSAGES_SENTINEL;
+}
 
 // Module-level flag so auto-expand only happens once per app session
 let didAutoExpand = false;
@@ -39,14 +46,21 @@ export function useProjects() {
 		async (cwd: string) => {
 			const sessions = (await window.vetta.session.listSessions(cwd)) as SessionInfo[];
 			setSessionsMap((prev) => {
-				// 定时 / 新建 session 的 name 记录（session_info）在首个 assistant 回复落盘前
-				// 只存在内存里，磁盘只有 header。此刻 listSessions 读到的 name 为空，会让侧栏
-				// 闪现「未命名会话」。这里用上一次已知的非空 name 兜底，避免闪烁。
+				// 定时 / 新建 session 的 name、以及发送瞬间写入的乐观 firstMessage，在 assistant
+				// 首条落盘前磁盘可能仍是空 name + "(no messages)"。若直接覆盖会让侧栏/标题
+				// 闪回「未命名会话」。用上一次已知的非空 name / 可用 firstMessage 兜底。
 				const prevByPath = new Map((prev.get(cwd) ?? []).map((s) => [s.path, s]));
 				const merged = sessions.map((s) => {
-					if (s.name) return s;
-					const known = prevByPath.get(s.path)?.name;
-					return known ? { ...s, name: known } : s;
+					const known = prevByPath.get(s.path);
+					if (!known) return s;
+					let next = s;
+					if (!s.name && known.name) {
+						next = { ...next, name: known.name };
+					}
+					if (!isUsableFirstMessage(s.firstMessage) && isUsableFirstMessage(known.firstMessage)) {
+						next = { ...next, firstMessage: known.firstMessage };
+					}
+					return next;
 				});
 				return new Map([...prev, [cwd, merged]]);
 			});
@@ -304,19 +318,43 @@ export function useProjects() {
 	);
 
 	/**
-	 * Insert a session entry in the local map IF it is not already present.
-	 * Used by the chat layer to make a brand-new session visible in the sidebar
-	 * immediately when the user submits the first prompt — the JSONL file is
-	 * not flushed to disk until the assistant responds, so disk-based listing
-	 * cannot see it yet. Existing entries (loaded from disk) are left alone.
+	 * 保证本地 sessionsMap 有该 session 条目。
+	 * - 不存在：插入（用于首条 prompt 发出时，JSONL 尚未含用户消息）。
+	 * - 已存在但 name/firstMessage 仍是空或 "(no messages)"：用 info 补齐，
+	 *   避免侧栏/标题卡在「未命名会话」（openSession 后 listSessions 常先写占位行）。
+	 * 已有真实 name 的条目不覆盖。
 	 */
 	const ensureLocalSession = useCallback(
 		(cwd: string, info: SessionInfo) => {
 			setSessionsMap((prev) => {
 				const sessions = prev.get(cwd) ?? [];
-				if (sessions.some((s) => s.path === info.path)) return prev;
+				const idx = sessions.findIndex((s) => s.path === info.path);
+				if (idx < 0) {
+					const next = new Map(prev);
+					next.set(cwd, [...sessions, info]);
+					return next;
+				}
+				const existing = sessions[idx];
+				const patchFirst = !isUsableFirstMessage(existing.firstMessage) && isUsableFirstMessage(info.firstMessage);
+				const patchName = !existing.name && !!info.name;
+				if (!patchFirst && !patchName) {
+					// 仍刷新 modifiedAt，让侧栏排序贴近「刚发过消息」。
+					if (info.modifiedAt <= existing.modifiedAt) return prev;
+					const updated = sessions.slice();
+					updated[idx] = { ...existing, modifiedAt: info.modifiedAt };
+					const next = new Map(prev);
+					next.set(cwd, updated);
+					return next;
+				}
+				const updated = sessions.slice();
+				updated[idx] = {
+					...existing,
+					firstMessage: patchFirst ? info.firstMessage : existing.firstMessage,
+					name: patchName ? info.name : existing.name,
+					modifiedAt: Math.max(existing.modifiedAt, info.modifiedAt),
+				};
 				const next = new Map(prev);
-				next.set(cwd, [...sessions, info]);
+				next.set(cwd, updated);
 				return next;
 			});
 		},

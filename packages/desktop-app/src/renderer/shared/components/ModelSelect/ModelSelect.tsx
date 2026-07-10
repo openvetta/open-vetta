@@ -48,7 +48,7 @@ export interface ModelSelectProps {
 /**
  * Shared rich model picker (grouped DropdownMenu with provider icons + capability
  * badges + right-aligned check). Controlled via value/onChange so it backs the chat
- * input, the global peripheral-model setting, Claw and the knowledge base alike.
+ * input, Claw and the knowledge base alike.
  * Optionally shows a reasoning-level submenu (per the reasoning-level design).
  * Renders in a portal so it escapes any `overflow-hidden` ancestor.
  */

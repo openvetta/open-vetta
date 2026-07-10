@@ -26,12 +26,6 @@ export const modelsManageInputSchema = z.discriminatedUnion("operation", [
 		approvalUi: operationApprovalUiSchema("models.set-default"),
 	}),
 	z.object({
-		operation: z.literal("set-peripheral"),
-		modelKey: modelKeySchema.nullable(),
-		reasoningLevel: z.string().trim().min(1).nullable().optional(),
-		approvalUi: operationApprovalUiSchema("models.set-peripheral"),
-	}),
-	z.object({
 		operation: z.literal("upsert-provider"),
 		provider: z.string().trim().min(1),
 		data: z

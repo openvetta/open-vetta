@@ -1,12 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { ModelSelect } from "@shared/components/ModelSelect";
-import { Button } from "@shared/components/ui/button";
 import { SegmentedControl } from "@shared/components/ui/segmented-control";
-import { SettingRow, SettingSection } from "./shared";
 import { PresetProvidersSection } from "./PresetProvidersSection";
 import { ModelsJsonEditor } from "./ModelsJsonEditor";
 import { ModelsProvidersSection } from "./ModelsProvidersSection";
-import { SETTINGS_SECTION } from "../registry";
 import type { ModelsEditMode, ModelsSettingsModel } from "./useModelsSettingsModel";
 
 export function ModelsSettingsView({ model }: { model: ModelsSettingsModel }): JSX.Element {
@@ -36,30 +32,6 @@ export function ModelsSettingsView({ model }: { model: ModelsSettingsModel }): J
 					onChange={model.onModeSwitch}
 				/>
 			</div>
-
-			<SettingSection
-				section={SETTINGS_SECTION["models-peripheral"]}
-				title={t("peripheralModelTitle")}
-				description={t("peripheralModelDesc")}
-			>
-				<SettingRow title={t("peripheralModelTitle")} description={t("peripheralModelHelp")}>
-					<ModelSelect
-						value={model.config.peripheralModel ?? null}
-						onChange={(key) => {
-							if (model.config) void model.saveConfig({ ...model.config, peripheralModel: key ?? undefined });
-						}}
-						allowClear
-						disabled={model.saving || !model.config}
-						triggerClassName="min-w-[240px]"
-						reasoning={{
-							value: model.config.peripheralModelReasoningLevel,
-							onChange: (level) => {
-								if (model.config) void model.saveConfig({ ...model.config, peripheralModelReasoningLevel: level });
-							},
-						}}
-					/>
-				</SettingRow>
-			</SettingSection>
 
 			{model.mode === "visual" ? (
 				<>

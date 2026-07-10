@@ -3,9 +3,11 @@ import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@vetta/agent-core";
 import {
+	type Api,
 	completeSimple,
 	getReasoningPreset,
 	type Message,
+	type Model,
 	type TextContent,
 	type Tool,
 	type ToolCall,
@@ -1064,121 +1066,153 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
-	 * 解析周边任务(autotitle/输入预测等)使用的「全局模型」。
-	 * 每次调用都 refresh 一次 ModelRegistry，实时读取 models.json 里最新的
-	 * peripheralModel —— 设置页改完无需重启即时生效。未配置全局模型、配置的
-	 * 模型已不存在、或拿不到 apiKey 时返回 null，调用方据此让周边功能失效。
+	 * 解析周边任务(auto-title / 输入预测)的候选模型列表。
+	 * 不再依赖用户手动配置的「全局模型」：优先当前会话模型，再从可用模型里
+	 * 补足候选；跳过冷却中的与无 apiKey 的。最多 PERIPHERAL_MAX_ATTEMPTS 个。
 	 */
-	private async resolvePeripheralModel(handle: SessionHandle) {
+	private async resolvePeripheralCandidates(handle: SessionHandle): Promise<PeripheralCandidate[]> {
 		const registry = handle.session.modelRegistry;
 		registry.refresh();
-		const model = registry.getPeripheralModel();
-		if (!model) return null;
-		const apiKey = await registry.getApiKey(model);
-		if (!apiKey) return null;
-		// Reasoning for peripheral tasks: user-configured level, else the api preset's
-		// lightest safe level (avoids sending an effort the model rejects, e.g. "minimal"
-		// to DeepSeek). "off" disables reasoning entirely.
-		const configured = registry.getPeripheralReasoningLevel();
-		const level = configured || getReasoningPreset(model.api)?.levels[0] || "minimal";
-		const reasoning = level === "off" ? undefined : level;
-		return { model, apiKey, reasoning };
+
+		const candidates: PeripheralCandidate[] = [];
+		const seen = new Set<string>();
+
+		const tryPush = async (model: Model<Api> | undefined) => {
+			if (!model || candidates.length >= PERIPHERAL_MAX_ATTEMPTS) return;
+			const key = peripheralModelKey(model);
+			if (seen.has(key) || isPeripheralCoolingDown(key)) return;
+			const apiKey = await registry.getApiKey(model);
+			if (!apiKey) return;
+			seen.add(key);
+			// 周边任务用各 API 最轻 reasoning 档，避免短答案被吞进 thinking 通道。
+			const level = getReasoningPreset(model.api)?.levels[0] || "minimal";
+			const reasoning = level === "off" ? undefined : level;
+			candidates.push({ model, apiKey, reasoning, key });
+		};
+
+		await tryPush(handle.session.model);
+		for (const model of registry.getAvailable()) {
+			if (candidates.length >= PERIPHERAL_MAX_ATTEMPTS) break;
+			await tryPush(model);
+		}
+		return candidates;
+	}
+
+	/**
+	 * 按候选列表依次调用，失败则冷却该模型并轮转下一个。
+	 * run 返回 null 表示本候选失败（可轮转）；返回值则成功结束。
+	 */
+	private async runWithPeripheralFailover<T>(
+		handle: SessionHandle,
+		label: string,
+		run: (candidate: PeripheralCandidate) => Promise<T | null>,
+	): Promise<T | null> {
+		const candidates = await this.resolvePeripheralCandidates(handle);
+		if (candidates.length === 0) {
+			console.warn(`[${label}] skipped: no available model with credentials`);
+			return null;
+		}
+		for (const candidate of candidates) {
+			console.log(`[${label}] trying model=${candidate.key}`);
+			try {
+				const value = await run(candidate);
+				if (value !== null) return value;
+				console.warn(`[${label}] model=${candidate.key} produced no usable result; rotating`);
+				markPeripheralCooldown(candidate.key);
+			} catch (err) {
+				console.warn(`[${label}] model=${candidate.key} failed:`, err);
+				markPeripheralCooldown(candidate.key);
+			}
+		}
+		console.warn(`[${label}] all ${candidates.length} candidate(s) exhausted`);
+		return null;
 	}
 
 	/**
 	 * Generate a short title from the first round of conversation and persist it
-	 * onto the session. Returns the persisted name, or null when the global model
-	 * is not configured/available or the LLM produced no usable text.
+	 * onto the session. Returns the persisted name, or null when no model is
+	 * available or every candidate failed / produced no usable text.
 	 */
 	async autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null> {
 		const handle = this.requireSession(sessionId);
-		const resolved = await this.resolvePeripheralModel(handle);
-		if (!resolved) {
-			console.warn(`[autoTitleSession] session=${sessionId} skipped: no global model configured/available`);
-			return null;
-		}
-		const { model, apiKey, reasoning } = resolved;
-		console.log(
-			`[autoTitleSession] session=${sessionId} model=${model.provider}/${model.id} userLen=${userText.length} assistantLen=${assistantText.length}`,
-		);
-
 		const trimmedUser = userText.trim().slice(0, 800);
 		const trimmedAssistant = assistantText.trim().slice(0, 1500);
 		const promptText =
-			`请为下面这段对话生成一个 6 到 14 个字符之间的中文短标题，用来在侧边栏标识这个会话。\n` +
+			`请为下面这段对话生成一个 10 到 20 个字符之间的中文短标题，用来在侧边栏标识这个会话。\n` +
 			`要求：只输出标题本身；不要引号、书名号、句号、感叹号或其他标点；不要任何解释或前后缀。\n\n` +
 			`<用户消息>\n${trimmedUser}\n</用户消息>\n\n` +
 			`<助手回复>\n${trimmedAssistant}\n</助手回复>`;
 
-		try {
-			const response = await completeSimple(
-				model,
-				{
-					systemPrompt: "你是会话标题生成器。严格按用户要求只输出一个简短中文标题。",
-					messages: [
-						{
-							role: "user" as const,
-							content: [{ type: "text" as const, text: promptText }],
-							timestamp: Date.now(),
-						},
-					],
-				},
-				// reasoning defaults to the api preset's lightest safe level (see
-				// resolvePeripheralModel) so reasoning-capable models emit the answer as
-				// text instead of burning it in the thinking channel; user-overridable.
-				{ apiKey, maxTokens: 256, reasoning },
-			);
-			if (response.stopReason === "error") {
-				console.warn(
-					`[autoTitleSession] session=${sessionId} stopReason=error message=${
-						(response as { errorMessage?: string }).errorMessage ?? "(none)"
-					}`,
+		const cleaned = await this.runWithPeripheralFailover(
+			handle,
+			`autoTitleSession session=${sessionId}`,
+			async (candidate) => {
+				const { model, apiKey, reasoning, key } = candidate;
+				const startedAt = Date.now();
+				console.log(
+					`[autoTitleSession] session=${sessionId} model=${key} userLen=${userText.length} assistantLen=${assistantText.length}`,
 				);
-				return null;
-			}
-			const rawText = response.content
-				.filter((c): c is TextContent => c.type === "text")
-				.map((c) => c.text)
-				.join("")
-				.trim();
-			// Fallback: some reasoning models (e.g. gpt-oss) route the whole short
-			// answer through the thinking channel. Use thinking content as a
-			// candidate when no plain text was produced.
-			const rawThinking = response.content
-				.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
-				.map((c) => c.thinking)
-				.join("\n")
-				.trim();
-			const raw = rawText || rawThinking;
-			const cleaned = sanitizeAutoTitle(raw);
-			console.log(
-				`[autoTitleSession] session=${sessionId} textLen=${rawText.length} thinkingLen=${rawThinking.length} cleaned=${JSON.stringify(cleaned)}`,
-			);
-			if (!cleaned) return null;
-			handle.session.setSessionName(cleaned);
-			return cleaned;
-		} catch (err) {
-			console.warn(`[RuntimeHost.autoTitleSession] generation failed for session=${sessionId}:`, err);
-			return null;
-		}
+				const response = await completeSimple(
+					model,
+					{
+						systemPrompt: "你是会话标题生成器。严格按用户要求只输出一个简短中文标题。",
+						messages: [
+							{
+								role: "user" as const,
+								content: [{ type: "text" as const, text: promptText }],
+								timestamp: Date.now(),
+							},
+						],
+					},
+					// reasoning = API 最轻安全档，使 reasoning 模型把答案写到 text 通道。
+					{ apiKey, maxTokens: 256, reasoning },
+				);
+				const durationMs = Date.now() - startedAt;
+				if (response.stopReason === "error") {
+					console.warn(
+						`[autoTitleSession] session=${sessionId} model=${key} durationMs=${durationMs} stopReason=error message=${
+							(response as { errorMessage?: string }).errorMessage ?? "(none)"
+						}`,
+					);
+					return null;
+				}
+				const rawText = response.content
+					.filter((c): c is TextContent => c.type === "text")
+					.map((c) => c.text)
+					.join("")
+					.trim();
+				// Fallback: some reasoning models (e.g. gpt-oss) route the whole short
+				// answer through the thinking channel. Use thinking content as a
+				// candidate when no plain text was produced.
+				const rawThinking = response.content
+					.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
+					.map((c) => c.thinking)
+					.join("\n")
+					.trim();
+				const raw = rawText || rawThinking;
+				const title = sanitizeAutoTitle(raw);
+				console.log(
+					`[autoTitleSession] session=${sessionId} model=${key} durationMs=${durationMs} textLen=${rawText.length} thinkingLen=${rawThinking.length} cleaned=${JSON.stringify(title)}`,
+				);
+				return title || null;
+			},
+		);
+
+		if (!cleaned) return null;
+		handle.session.setSessionName(cleaned);
+		return cleaned;
 	}
 
 	/**
 	 * 输入预测：基于最近几轮对话，预测用户下一个可能输入的 prompt。
-	 * 复用 autoTitleSession 同款轻量 LLM 调用模式，返回 0-3 条建议；模型/key
-	 * 不可用、出错或对话已收尾时返回空数组（UI 据此不渲染）。
+	 * 自动选用可用模型并失败轮转；返回 0-3 条建议。无可用模型或全部失败时返回 []。
+	 * 注意：模型成功返回空建议（对话已收尾）视为合法结果，不轮转。
 	 */
 	async nextPromptSuggestions(sessionId: string, conversation: string): Promise<string[]> {
 		const handle = this.requireSession(sessionId);
-		const resolved = await this.resolvePeripheralModel(handle);
-		if (!resolved) {
-			console.warn(`[nextPromptSuggestions] session=${sessionId} skipped: no global model configured/available`);
-			return [];
-		}
-		const { model, apiKey, reasoning } = resolved;
-
 		const trimmed = conversation.trim().slice(0, 4000);
 		if (!trimmed) return [];
+
 		const promptText =
 			`下面是用户与 AI 助手最近的对话。请站在【用户】的角度，预测用户接下来最可能【亲自打字发给助手】的下一句话。\n\n` +
 			`要求：\n` +
@@ -1188,58 +1222,65 @@ export class RuntimeHost implements SessionFacade {
 			`- 必须通过调用 provide_prompt_suggestions 工具提交结果（suggestions 字段），不要用普通文本回答。\n\n` +
 			`<对话>\n${trimmed}\n</对话>`;
 
-		try {
-			const response = await completeSimple(
-				model,
-				{
-					systemPrompt:
-						"你是输入预测器，模拟用户口吻预测其下一句输入。必须调用 provide_prompt_suggestions 工具，把 0-3 条用户第一人称的具体提问/指令放入 suggestions 字段提交，不含任何分析或思考过程。",
-					messages: [
-						{
-							role: "user" as const,
-							content: [{ type: "text" as const, text: promptText }],
-							timestamp: Date.now(),
-						},
-					],
-					tools: [SUGGESTIONS_TOOL],
-				},
-				{ apiKey, maxTokens: 800, reasoning },
-			);
-			if (response.stopReason === "error") {
-				console.warn(
-					`[nextPromptSuggestions] session=${sessionId} stopReason=error message=${
-						(response as { errorMessage?: string }).errorMessage ?? "(none)"
-					}`,
+		// null = 调用失败需轮转；[] = 成功但无建议（合法，不轮转）。
+		const result = await this.runWithPeripheralFailover(
+			handle,
+			`nextPromptSuggestions session=${sessionId}`,
+			async (candidate) => {
+				const { model, apiKey, reasoning, key } = candidate;
+				const response = await completeSimple(
+					model,
+					{
+						systemPrompt:
+							"你是输入预测器，模拟用户口吻预测其下一句输入。必须调用 provide_prompt_suggestions 工具，把 0-3 条用户第一人称的具体提问/指令放入 suggestions 字段提交，不含任何分析或思考过程。",
+						messages: [
+							{
+								role: "user" as const,
+								content: [{ type: "text" as const, text: promptText }],
+								timestamp: Date.now(),
+							},
+						],
+						tools: [SUGGESTIONS_TOOL],
+					},
+					{ apiKey, maxTokens: 800, reasoning },
 				);
+				if (response.stopReason === "error") {
+					console.warn(
+						`[nextPromptSuggestions] session=${sessionId} model=${key} stopReason=error message=${
+							(response as { errorMessage?: string }).errorMessage ?? "(none)"
+						}`,
+					);
+					return null;
+				}
+				// 首选：结构化工具调用，arguments 已是解析好的对象（JSON schema 保证形状）。
+				const toolCall = response.content.find(
+					(c): c is ToolCall => c.type === "toolCall" && c.name === SUGGESTIONS_TOOL.name,
+				);
+				if (toolCall) {
+					const rawList = (toolCall.arguments as { suggestions?: unknown }).suggestions;
+					return Array.isArray(rawList) ? cleanSuggestionList(rawList) : [];
+				}
+				// 兜底：模型没调用工具，从正式回答 / 思考通道里扫 JSON 数组（仅认 JSON，
+				// 思考散文不会被误当建议泄漏）。
+				const rawText = response.content
+					.filter((c): c is TextContent => c.type === "text")
+					.map((c) => c.text)
+					.join("")
+					.trim();
+				const rawThinking = response.content
+					.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
+					.map((c) => c.thinking)
+					.join("\n")
+					.trim();
+				const fromText = sanitizeSuggestions(rawText);
+				if (fromText.length > 0) return fromText;
+				const fromThinking = sanitizeSuggestions(rawThinking);
+				if (fromThinking.length > 0) return fromThinking;
+				// 成功响应但解析不出建议：视为合法空结果（对话可能已收尾），不轮转。
 				return [];
-			}
-			// 首选：结构化工具调用，arguments 已是解析好的对象（JSON schema 保证形状）。
-			const toolCall = response.content.find(
-				(c): c is ToolCall => c.type === "toolCall" && c.name === SUGGESTIONS_TOOL.name,
-			);
-			if (toolCall) {
-				const rawList = (toolCall.arguments as { suggestions?: unknown }).suggestions;
-				return Array.isArray(rawList) ? cleanSuggestionList(rawList) : [];
-			}
-			// 兜底：模型没调用工具，从正式回答 / 思考通道里扫 JSON 数组（仅认 JSON，
-			// 思考散文不会被误当建议）。
-			const rawText = response.content
-				.filter((c): c is TextContent => c.type === "text")
-				.map((c) => c.text)
-				.join("")
-				.trim();
-			const rawThinking = response.content
-				.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
-				.map((c) => c.thinking)
-				.join("\n")
-				.trim();
-			return sanitizeSuggestions(rawText).length > 0
-				? sanitizeSuggestions(rawText)
-				: sanitizeSuggestions(rawThinking);
-		} catch (err) {
-			console.warn(`[nextPromptSuggestions] generation failed for session=${sessionId}:`, err);
-			return [];
-		}
+			},
+		);
+		return result ?? [];
 	}
 
 	async disposeSession(sessionId: string): Promise<void> {
@@ -1685,6 +1726,38 @@ export class RuntimeHost implements SessionFacade {
 			.map((item) => item.text)
 			.join("");
 	}
+}
+
+/** 周边任务最多尝试几个模型（会话模型优先，再补可用模型）。 */
+const PERIPHERAL_MAX_ATTEMPTS = 3;
+/** 失败模型进程内冷却时长，避免连打坏模型。 */
+const PERIPHERAL_COOLDOWN_MS = 2 * 60 * 1000;
+/** key = "provider/modelId" → cooldown until epoch ms */
+const peripheralCooldownUntil = new Map<string, number>();
+
+type PeripheralCandidate = {
+	model: Model<Api>;
+	apiKey: string;
+	reasoning: string | undefined;
+	key: string;
+};
+
+function peripheralModelKey(model: Model<Api>): string {
+	return `${model.provider}/${model.id}`;
+}
+
+function isPeripheralCoolingDown(key: string): boolean {
+	const until = peripheralCooldownUntil.get(key);
+	if (until === undefined) return false;
+	if (Date.now() >= until) {
+		peripheralCooldownUntil.delete(key);
+		return false;
+	}
+	return true;
+}
+
+function markPeripheralCooldown(key: string, ms = PERIPHERAL_COOLDOWN_MS): void {
+	peripheralCooldownUntil.set(key, Date.now() + ms);
 }
 
 /** 输入预测的结构化输出工具：JSON schema 强约束 suggestions 为字符串数组。 */
