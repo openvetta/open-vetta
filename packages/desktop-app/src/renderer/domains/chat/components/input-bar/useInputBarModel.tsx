@@ -25,6 +25,7 @@ import {
 } from "@shared/store/atoms";
 import { getQueueForSession, messageQueueBySessionAtom } from "@shared/store/message-queue-atoms";
 import { filePreviewAtom, type FilePreviewItem } from "@shared/store/file-preview-atoms";
+import { recordInputFilesAdded, recordInputImagesAdded } from "@shared/lib/app-monitor-events";
 import { pathBasename } from "@shared/lib/utils";
 import type { SelectedFile } from "../AtPanel";
 import type { InputBarModel, InputBarProps, InputBarDrawerItem } from "./types";
@@ -65,6 +66,12 @@ function getPathExtension(path: string): string {
 
 function isInputImageFile(file: MentionedFile): boolean {
 	return INPUT_IMAGE_EXTENSIONS.has(getPathExtension(file.path));
+}
+
+async function readMentionedFileSize(path: string, isDirectory: boolean): Promise<number | undefined> {
+	if (isDirectory) return undefined;
+	const stat = await window.vetta.fs.stat(path).catch(() => null);
+	return stat && stat.size > 0 ? stat.size : undefined;
 }
 
 function toFileProtocolUrl(path: string): string {
@@ -322,7 +329,7 @@ export function useInputBarModel({
 	}, [setSelectedSkill]);
 
 	const handleAtSelect = useCallback(
-		(file: SelectedFile) => {
+		async (file: SelectedFile) => {
 			if (mentionedFiles.some((f) => f.path === file.path)) {
 				setAtOpen(false);
 				const atFilter = getAtFilter();
@@ -334,8 +341,15 @@ export function useInputBarModel({
 				textareaRef.current?.focus();
 				return;
 			}
-			const newFile: MentionedFile = { path: file.path, name: file.name, isDirectory: file.isDirectory };
+			const sizeBytes = await readMentionedFileSize(file.path, file.isDirectory);
+			const newFile: MentionedFile = {
+				path: file.path,
+				name: file.name,
+				isDirectory: file.isDirectory,
+				...(sizeBytes === undefined ? {} : { sizeBytes }),
+			};
 			setMentionedFiles((prev) => [...prev, newFile]);
+			recordInputFilesAdded("at-panel", [newFile]);
 			setAtOpen(false);
 			const atFilter = getAtFilter();
 			if (atFilter) {
@@ -438,7 +452,10 @@ export function useInputBarModel({
 	const handleSelectImages = useCallback(async () => {
 		if (!hasSession) return;
 		const selected = await window.vetta.dialog.selectImages();
-		if (selected.length > 0) addImages(selected);
+		if (selected.length > 0) {
+			addImages(selected);
+			recordInputImagesAdded("image-dialog", selected);
+		}
 		textareaRef.current?.focus();
 	}, [addImages, hasSession]);
 
@@ -446,19 +463,26 @@ export function useInputBarModel({
 		if (!hasSession) return;
 		const paths = await window.vetta.dialog.selectFiles(effectiveCwd || undefined);
 		if (paths.length > 0) {
-			setMentionedFiles((prev) => {
-				const seen = new Set(prev.map((f) => f.path));
-				const additions: MentionedFile[] = [];
-				for (const path of paths) {
-					if (seen.has(path)) continue;
-					seen.add(path);
-					additions.push({ path, name: pathBasename(path), isDirectory: false });
-				}
-				return additions.length > 0 ? [...prev, ...additions] : prev;
-			});
+			const seen = new Set(mentionedFiles.map((f) => f.path));
+			const additions: MentionedFile[] = [];
+			for (const path of paths) {
+				if (seen.has(path)) continue;
+				seen.add(path);
+				const sizeBytes = await readMentionedFileSize(path, false);
+				additions.push({
+					path,
+					name: pathBasename(path),
+					isDirectory: false,
+					...(sizeBytes === undefined ? {} : { sizeBytes }),
+				});
+			}
+			if (additions.length > 0) {
+				setMentionedFiles((prev) => [...prev, ...additions]);
+				recordInputFilesAdded("file-dialog", additions);
+			}
 		}
 		textareaRef.current?.focus();
-	}, [effectiveCwd, hasSession, setMentionedFiles]);
+	}, [effectiveCwd, hasSession, mentionedFiles, setMentionedFiles]);
 
 	const handlePaste = useCallback(
 		async (e: ClipboardEvent) => {
@@ -471,6 +495,10 @@ export function useInputBarModel({
 			e.preventDefault();
 			const images = await Promise.all(imageFiles.map(readFileAsImage));
 			addImages(images);
+			recordInputImagesAdded(
+				"paste",
+				imageFiles.map((file, index) => ({ file, ...images[index] })),
+			);
 		},
 		[addImages],
 	);

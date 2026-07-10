@@ -17,6 +17,60 @@ export interface AchievementUsageStats {
 	turns: number;
 }
 
+export type AppMonitorInputAttachmentSource = "at-panel" | "file-dialog" | "image-dialog" | "drop" | "paste";
+
+export interface AppMonitorInputFileAttachment {
+	extension: string;
+	isDirectory: boolean;
+	sizeBytes?: number;
+}
+
+export interface AppMonitorInputImageAttachment {
+	format: string;
+	sizeBytes?: number;
+	width?: number;
+	height?: number;
+}
+
+export type AppMonitorInputActionKind = "builtin" | "plugin";
+
+export interface AppMonitorInputActionUsage {
+	actionId: string;
+	actionKind: AppMonitorInputActionKind;
+}
+
+export type AppMonitorInputPromptRefKind = "scene" | "skill";
+
+export interface AppMonitorInputPromptRefUsage {
+	kind: AppMonitorInputPromptRefKind;
+	name: string;
+}
+
+export type AppMonitorEvent =
+	| {
+			type: "input.attachments.added";
+			source: AppMonitorInputAttachmentSource;
+			files?: AppMonitorInputFileAttachment[];
+			images?: AppMonitorInputImageAttachment[];
+	  }
+	| {
+			type: "input.action.toggled";
+			actionId: string;
+			actionKind: AppMonitorInputActionKind;
+			active: boolean;
+	  }
+	| {
+			type: "input.action.used";
+			actions: AppMonitorInputActionUsage[];
+	  }
+	| {
+			type: "input.context.used";
+			files?: AppMonitorInputFileAttachment[];
+			images?: AppMonitorInputImageAttachment[];
+			promptRef?: AppMonitorInputPromptRefUsage;
+	  };
+
 export interface DesktopAppMonitorApi {
 	getAchievementUsage(): Promise<AchievementUsageStats>;
+	recordEvent(event: AppMonitorEvent): void;
 }

@@ -11,6 +11,10 @@ import type { ConversationScenario } from "@vetta/plugin-sdk";
 import { useAtom, useAtomValue } from "jotai";
 import { type ReactNode, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	BUILTIN_KNOWLEDGE_RETRIEVAL_ACTION_ID,
+	recordInputActionToggled,
+} from "../../../shared/lib/app-monitor-events";
 import { usePluginTextResolver } from "../../plugins/runtime/plugin-i18n";
 
 const KNOWLEDGE_TOOLS = ["kb_filter_by_tags", "kb_list_available_tags"];
@@ -75,14 +79,21 @@ export function useInputActionBarModel(): InputActionBarModel {
 				else nextIds.delete(actionId);
 				return nextIds;
 			});
+			recordInputActionToggled("plugin", actionId, willActivate);
 		},
 		[activeIds, allActions, setActiveIds],
 	);
 
+	const toggleKnowledge = useCallback(() => {
+		const willActivate = !knowledgeActive;
+		setKnowledgeActive(willActivate);
+		recordInputActionToggled("builtin", BUILTIN_KNOWLEDGE_RETRIEVAL_ACTION_ID, willActivate);
+	}, [knowledgeActive, setKnowledgeActive]);
+
 	return {
 		actions: {
 			toggleItem,
-			toggleKnowledge: () => setKnowledgeActive((active) => !active),
+			toggleKnowledge,
 		},
 		items: visibleActions.map((action) => ({
 			active: activeIds.has(action.actionId),

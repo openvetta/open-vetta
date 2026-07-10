@@ -1,4 +1,4 @@
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
@@ -9,6 +9,7 @@ import {
 	type AttachedImage,
 	type MentionedFile,
 } from "@shared/store/atoms";
+import { recordInputFilesAdded, recordInputImagesAdded } from "@shared/lib/app-monitor-events";
 import { pathBasename } from "@shared/lib/utils";
 
 const VETTA_PATH_MIME = "application/vetta-path";
@@ -63,7 +64,7 @@ export function SessionDropZone({ cwdOverride, className, children }: SessionDro
 	const { t } = useTranslation("chat");
 	const activeSession = useAtomValue(activeSessionAtom);
 	const setAttachedImages = useSetAtom(attachedImagesAtom);
-	const setMentionedFiles = useSetAtom(mentionedFilesAtom);
+	const [mentionedFiles, setMentionedFiles] = useAtom(mentionedFilesAtom);
 	const [dragKind, setDragKind] = useState<DragKind | null>(null);
 	const dragCounter = useRef(0);
 
@@ -107,18 +108,18 @@ export function SessionDropZone({ cwdOverride, className, children }: SessionDro
 	const pushMentioned = useCallback(
 		(entries: MentionedFile[]) => {
 			if (entries.length === 0) return;
-			setMentionedFiles((prev) => {
-				const seen = new Set(prev.map((f) => f.path));
-				const merged = [...prev];
-				for (const ent of entries) {
-					if (!ent.path || seen.has(ent.path)) continue;
-					seen.add(ent.path);
-					merged.push(ent);
-				}
-				return merged;
-			});
+			const seen = new Set(mentionedFiles.map((f) => f.path));
+			const additions: MentionedFile[] = [];
+			for (const ent of entries) {
+				if (!ent.path || seen.has(ent.path)) continue;
+				seen.add(ent.path);
+				additions.push(ent);
+			}
+			if (additions.length === 0) return;
+			setMentionedFiles((prev) => [...prev, ...additions]);
+			recordInputFilesAdded("drop", additions);
 		},
-		[setMentionedFiles],
+		[mentionedFiles, setMentionedFiles],
 	);
 
 	const handleDrop = useCallback(
@@ -174,13 +175,17 @@ export function SessionDropZone({ cwdOverride, className, children }: SessionDro
 
 				const path = window.vetta.fs.pathForFile(file);
 				if (!path) continue;
-				otherEntries.push({ path, name: file.name || pathBasename(path), isDirectory });
+				otherEntries.push({ path, name: file.name || pathBasename(path), isDirectory, sizeBytes: file.size });
 			}
 
 			if (imageFiles.length > 0) {
 				try {
 					const images = await Promise.all(imageFiles.map(readImageAsAttached));
 					setAttachedImages((prev) => [...prev, ...images]);
+					recordInputImagesAdded(
+						"drop",
+						imageFiles.map((file, index) => ({ file, ...images[index] })),
+					);
 				} catch {
 					// swallow — a single bad image shouldn't abort the rest
 				}

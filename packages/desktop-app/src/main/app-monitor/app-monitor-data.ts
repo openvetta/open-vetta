@@ -7,6 +7,36 @@ export interface AppMonitorToolStats {
 	totalDurationMs: number;
 }
 
+export interface AppMonitorImageFormatStats {
+	count: number;
+	totalSizeBytes: number;
+}
+
+export interface AppMonitorImageExtremum {
+	format: string;
+	sizeBytes: number;
+	width: number;
+	height: number;
+	pixels: number;
+}
+
+export interface AppMonitorInputActionStats {
+	toggles: number;
+	activated: number;
+	deactivated: number;
+}
+
+export interface AppMonitorInputActionUsageStats {
+	used: number;
+}
+
+export interface AppMonitorPromptRefStats {
+	kind: string;
+	name: string;
+	used: number;
+	lastUsedAt: number;
+}
+
 export interface AppMonitorData {
 	schemaVersion: typeof APP_MONITOR_SCHEMA_VERSION;
 	createdAt: number;
@@ -83,6 +113,78 @@ export interface AppMonitorData {
 		filesAdded: number;
 		filesDeleted: number;
 	};
+	inputAttachments: {
+		events: number;
+		bySource: Record<string, number>;
+		files: {
+			added: number;
+			directories: number;
+			totalSizeBytes: number;
+			byExtension: Record<string, number>;
+		};
+		images: {
+			added: number;
+			totalSizeBytes: number;
+			byFormat: Record<string, AppMonitorImageFormatStats>;
+			largest: AppMonitorImageExtremum | null;
+			smallest: AppMonitorImageExtremum | null;
+			maxWidth: number;
+			maxHeight: number;
+			maxPixels: number;
+			minWidth: number;
+			minHeight: number;
+			minPixels: number;
+		};
+		used: {
+			events: number;
+			files: {
+				used: number;
+				directories: number;
+				totalSizeBytes: number;
+				byExtension: Record<string, number>;
+			};
+			images: {
+				used: number;
+				totalSizeBytes: number;
+				byFormat: Record<string, AppMonitorImageFormatStats>;
+				largest: AppMonitorImageExtremum | null;
+				smallest: AppMonitorImageExtremum | null;
+				maxWidth: number;
+				maxHeight: number;
+				maxPixels: number;
+				minWidth: number;
+				minHeight: number;
+				minPixels: number;
+			};
+		};
+	};
+	inputActions: {
+		events: number;
+		activated: number;
+		deactivated: number;
+		byKind: Record<string, AppMonitorInputActionStats>;
+		byAction: Record<string, AppMonitorInputActionStats>;
+		used: {
+			events: number;
+			actions: number;
+			byKind: Record<string, AppMonitorInputActionUsageStats>;
+			byAction: Record<string, AppMonitorInputActionUsageStats>;
+		};
+	};
+	inputPromptRefs: {
+		events: number;
+		skills: number;
+		scenes: number;
+		byKind: Record<string, number>;
+		byName: Record<string, number>;
+		byRef: Record<string, AppMonitorPromptRefStats>;
+		mostUsed: AppMonitorPromptRefStats | null;
+		mostUsedSkill: AppMonitorPromptRefStats | null;
+		mostUsedScene: AppMonitorPromptRefStats | null;
+		recent: AppMonitorPromptRefStats | null;
+		recentSkill: AppMonitorPromptRefStats | null;
+		recentScene: AppMonitorPromptRefStats | null;
+	};
 }
 
 function normalizeCount(value: unknown): number {
@@ -128,6 +230,121 @@ function normalizeToolStatsByName(value: unknown): Record<string, AppMonitorTool
 		statsByName[toolName] = normalizeToolStats(rawStats);
 	}
 	return statsByName;
+}
+
+function normalizeMetricKey(value: unknown): string {
+	if (typeof value !== "string") return "";
+	const trimmed = value.trim().toLowerCase();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
+	return trimmed.slice(0, 64);
+}
+
+function normalizeCountRecord(value: unknown): Record<string, number> {
+	const counts: Record<string, number> = {};
+	for (const [rawKey, rawCount] of Object.entries(asRecord(value))) {
+		const key = normalizeMetricKey(rawKey);
+		if (key === "") continue;
+		counts[key] = normalizeCount(rawCount);
+	}
+	return counts;
+}
+
+function normalizeImageFormatStats(value: unknown): AppMonitorImageFormatStats {
+	const stats = asRecord(value);
+	return {
+		count: normalizeCount(stats.count),
+		totalSizeBytes: normalizeCount(stats.totalSizeBytes),
+	};
+}
+
+function normalizeImageFormatStatsByFormat(value: unknown): Record<string, AppMonitorImageFormatStats> {
+	const statsByFormat: Record<string, AppMonitorImageFormatStats> = {};
+	for (const [rawFormat, rawStats] of Object.entries(asRecord(value))) {
+		const format = normalizeMetricKey(rawFormat);
+		if (format === "") continue;
+		statsByFormat[format] = normalizeImageFormatStats(rawStats);
+	}
+	return statsByFormat;
+}
+
+function normalizeImageExtremum(value: unknown): AppMonitorImageExtremum | null {
+	const extremum = asRecord(value);
+	const format = normalizeMetricKey(extremum.format);
+	const sizeBytes = normalizeCount(extremum.sizeBytes);
+	const width = normalizeCount(extremum.width);
+	const height = normalizeCount(extremum.height);
+	const pixels = normalizeCount(extremum.pixels);
+	if (format === "" || (sizeBytes === 0 && width === 0 && height === 0 && pixels === 0)) return null;
+	return { format, sizeBytes, width, height, pixels };
+}
+
+function normalizeInputActionId(value: unknown): string {
+	if (typeof value !== "string") return "";
+	const trimmed = value.trim();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
+	return trimmed.slice(0, 128);
+}
+
+function normalizeInputActionStats(value: unknown): AppMonitorInputActionStats {
+	const stats = asRecord(value);
+	return {
+		toggles: normalizeCount(stats.toggles),
+		activated: normalizeCount(stats.activated),
+		deactivated: normalizeCount(stats.deactivated),
+	};
+}
+
+function normalizeInputActionStatsRecord(value: unknown): Record<string, AppMonitorInputActionStats> {
+	const statsByKey: Record<string, AppMonitorInputActionStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeInputActionId(rawKey);
+		if (key === "") continue;
+		statsByKey[key] = normalizeInputActionStats(rawStats);
+	}
+	return statsByKey;
+}
+
+function normalizeInputActionUsageStats(value: unknown): AppMonitorInputActionUsageStats {
+	const stats = asRecord(value);
+	return {
+		used: normalizeCount(stats.used),
+	};
+}
+
+function normalizeInputActionUsageStatsRecord(value: unknown): Record<string, AppMonitorInputActionUsageStats> {
+	const statsByKey: Record<string, AppMonitorInputActionUsageStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeInputActionId(rawKey);
+		if (key === "") continue;
+		statsByKey[key] = normalizeInputActionUsageStats(rawStats);
+	}
+	return statsByKey;
+}
+
+function normalizePromptRefStats(value: unknown): AppMonitorPromptRefStats | null {
+	const stats = asRecord(value);
+	const kind = normalizeMetricKey(stats.kind);
+	const name = normalizeMetricKey(stats.name);
+	const used = normalizeCount(stats.used);
+	const lastUsedAt = normalizeCount(stats.lastUsedAt);
+	if ((kind !== "skill" && kind !== "scene") || name === "" || used === 0) return null;
+	return {
+		kind,
+		name,
+		used,
+		lastUsedAt,
+	};
+}
+
+function normalizePromptRefStatsRecord(value: unknown): Record<string, AppMonitorPromptRefStats> {
+	const statsByKey: Record<string, AppMonitorPromptRefStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeInputActionId(rawKey);
+		const stats = normalizePromptRefStats(rawStats);
+		if (key === "" || !stats) continue;
+		statsByKey[key] = stats;
+	}
+	return statsByKey;
 }
 
 function formatLocalDayKey(timestamp: number): string {
@@ -216,6 +433,78 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 			filesAdded: 0,
 			filesDeleted: 0,
 		},
+		inputAttachments: {
+			events: 0,
+			bySource: {},
+			files: {
+				added: 0,
+				directories: 0,
+				totalSizeBytes: 0,
+				byExtension: {},
+			},
+			images: {
+				added: 0,
+				totalSizeBytes: 0,
+				byFormat: {},
+				largest: null,
+				smallest: null,
+				maxWidth: 0,
+				maxHeight: 0,
+				maxPixels: 0,
+				minWidth: 0,
+				minHeight: 0,
+				minPixels: 0,
+			},
+			used: {
+				events: 0,
+				files: {
+					used: 0,
+					directories: 0,
+					totalSizeBytes: 0,
+					byExtension: {},
+				},
+				images: {
+					used: 0,
+					totalSizeBytes: 0,
+					byFormat: {},
+					largest: null,
+					smallest: null,
+					maxWidth: 0,
+					maxHeight: 0,
+					maxPixels: 0,
+					minWidth: 0,
+					minHeight: 0,
+					minPixels: 0,
+				},
+			},
+		},
+		inputActions: {
+			events: 0,
+			activated: 0,
+			deactivated: 0,
+			byKind: {},
+			byAction: {},
+			used: {
+				events: 0,
+				actions: 0,
+				byKind: {},
+				byAction: {},
+			},
+		},
+		inputPromptRefs: {
+			events: 0,
+			skills: 0,
+			scenes: 0,
+			byKind: {},
+			byName: {},
+			byRef: {},
+			mostUsed: null,
+			mostUsedSkill: null,
+			mostUsedScene: null,
+			recent: null,
+			recentSkill: null,
+			recentScene: null,
+		},
 	};
 }
 
@@ -232,6 +521,16 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 	const errors = asRecord(data.errors);
 	const engagement = asRecord(data.engagement);
 	const knowledgeBase = asRecord(data.knowledgeBase);
+	const inputAttachments = asRecord(data.inputAttachments);
+	const inputAttachmentFiles = asRecord(inputAttachments.files);
+	const inputAttachmentImages = asRecord(inputAttachments.images);
+	const inputAttachmentsUsed = asRecord(inputAttachments.used);
+	const inputAttachmentsUsedFiles = asRecord(inputAttachmentsUsed.files);
+	const inputAttachmentsUsedImages = asRecord(inputAttachmentsUsed.images);
+	const inputActions = asRecord(data.inputActions);
+	const inputActionsUsed = asRecord(inputActions.used);
+	const inputPromptRefs = asRecord(data.inputPromptRefs);
+	const inputPromptRefsByRef = normalizePromptRefStatsRecord(inputPromptRefs.byRef);
 
 	return {
 		schemaVersion: APP_MONITOR_SCHEMA_VERSION,
@@ -309,5 +608,115 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 			filesAdded: normalizeCount(knowledgeBase.filesAdded),
 			filesDeleted: normalizeCount(knowledgeBase.filesDeleted),
 		},
+		inputAttachments: {
+			events: normalizeCount(inputAttachments.events),
+			bySource: normalizeCountRecord(inputAttachments.bySource),
+			files: {
+				added: normalizeCount(inputAttachmentFiles.added),
+				directories: normalizeCount(inputAttachmentFiles.directories),
+				totalSizeBytes: normalizeCount(inputAttachmentFiles.totalSizeBytes),
+				byExtension: normalizeCountRecord(inputAttachmentFiles.byExtension),
+			},
+			images: {
+				added: normalizeCount(inputAttachmentImages.added),
+				totalSizeBytes: normalizeCount(inputAttachmentImages.totalSizeBytes),
+				byFormat: normalizeImageFormatStatsByFormat(inputAttachmentImages.byFormat),
+				largest: normalizeImageExtremum(inputAttachmentImages.largest),
+				smallest: normalizeImageExtremum(inputAttachmentImages.smallest),
+				maxWidth: normalizeCount(inputAttachmentImages.maxWidth),
+				maxHeight: normalizeCount(inputAttachmentImages.maxHeight),
+				maxPixels: normalizeCount(inputAttachmentImages.maxPixels),
+				minWidth: normalizeCount(inputAttachmentImages.minWidth),
+				minHeight: normalizeCount(inputAttachmentImages.minHeight),
+				minPixels: normalizeCount(inputAttachmentImages.minPixels),
+			},
+			used: {
+				events: normalizeCount(inputAttachmentsUsed.events),
+				files: {
+					used: normalizeCount(inputAttachmentsUsedFiles.used),
+					directories: normalizeCount(inputAttachmentsUsedFiles.directories),
+					totalSizeBytes: normalizeCount(inputAttachmentsUsedFiles.totalSizeBytes),
+					byExtension: normalizeCountRecord(inputAttachmentsUsedFiles.byExtension),
+				},
+				images: {
+					used: normalizeCount(inputAttachmentsUsedImages.used),
+					totalSizeBytes: normalizeCount(inputAttachmentsUsedImages.totalSizeBytes),
+					byFormat: normalizeImageFormatStatsByFormat(inputAttachmentsUsedImages.byFormat),
+					largest: normalizeImageExtremum(inputAttachmentsUsedImages.largest),
+					smallest: normalizeImageExtremum(inputAttachmentsUsedImages.smallest),
+					maxWidth: normalizeCount(inputAttachmentsUsedImages.maxWidth),
+					maxHeight: normalizeCount(inputAttachmentsUsedImages.maxHeight),
+					maxPixels: normalizeCount(inputAttachmentsUsedImages.maxPixels),
+					minWidth: normalizeCount(inputAttachmentsUsedImages.minWidth),
+					minHeight: normalizeCount(inputAttachmentsUsedImages.minHeight),
+					minPixels: normalizeCount(inputAttachmentsUsedImages.minPixels),
+				},
+			},
+		},
+		inputActions: {
+			events: normalizeCount(inputActions.events),
+			activated: normalizeCount(inputActions.activated),
+			deactivated: normalizeCount(inputActions.deactivated),
+			byKind: normalizeInputActionStatsRecord(inputActions.byKind),
+			byAction: normalizeInputActionStatsRecord(inputActions.byAction),
+			used: {
+				events: normalizeCount(inputActionsUsed.events),
+				actions: normalizeCount(inputActionsUsed.actions),
+				byKind: normalizeInputActionUsageStatsRecord(inputActionsUsed.byKind),
+				byAction: normalizeInputActionUsageStatsRecord(inputActionsUsed.byAction),
+			},
+		},
+		inputPromptRefs: {
+			events: normalizeCount(inputPromptRefs.events),
+			skills: normalizeCount(inputPromptRefs.skills),
+			scenes: normalizeCount(inputPromptRefs.scenes),
+			byKind: normalizeCountRecord(inputPromptRefs.byKind),
+			byName: normalizeCountRecord(inputPromptRefs.byName),
+			byRef: inputPromptRefsByRef,
+			mostUsed: normalizePromptRefStats(inputPromptRefs.mostUsed) ?? findMostUsedPromptRef(inputPromptRefsByRef),
+			mostUsedSkill:
+				normalizePromptRefStats(inputPromptRefs.mostUsedSkill) ??
+				findMostUsedPromptRef(inputPromptRefsByRef, "skill"),
+			mostUsedScene:
+				normalizePromptRefStats(inputPromptRefs.mostUsedScene) ??
+				findMostUsedPromptRef(inputPromptRefsByRef, "scene"),
+			recent: normalizePromptRefStats(inputPromptRefs.recent) ?? findRecentPromptRef(inputPromptRefsByRef),
+			recentSkill:
+				normalizePromptRefStats(inputPromptRefs.recentSkill) ?? findRecentPromptRef(inputPromptRefsByRef, "skill"),
+			recentScene:
+				normalizePromptRefStats(inputPromptRefs.recentScene) ?? findRecentPromptRef(inputPromptRefsByRef, "scene"),
+		},
 	};
+}
+
+function findMostUsedPromptRef(
+	statsByKey: Record<string, AppMonitorPromptRefStats>,
+	kind?: string,
+): AppMonitorPromptRefStats | null {
+	let selected: AppMonitorPromptRefStats | null = null;
+	for (const stats of Object.values(statsByKey)) {
+		if (kind && stats.kind !== kind) continue;
+		if (
+			!selected ||
+			stats.used > selected.used ||
+			(stats.used === selected.used && stats.lastUsedAt > selected.lastUsedAt)
+		) {
+			selected = stats;
+		}
+	}
+	return selected ? { ...selected } : null;
+}
+
+function findRecentPromptRef(
+	statsByKey: Record<string, AppMonitorPromptRefStats>,
+	kind?: string,
+): AppMonitorPromptRefStats | null {
+	let selected: AppMonitorPromptRefStats | null = null;
+	for (const stats of Object.values(statsByKey)) {
+		if (kind && stats.kind !== kind) continue;
+		if (!selected || stats.lastUsedAt > selected.lastUsedAt) {
+			selected = stats;
+		}
+	}
+	return selected ? { ...selected } : null;
 }

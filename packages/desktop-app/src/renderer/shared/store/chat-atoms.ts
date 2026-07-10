@@ -244,6 +244,7 @@ export interface MentionedFile {
 	/** Display name (file or dir name) */
 	name: string;
 	isDirectory: boolean;
+	sizeBytes?: number;
 }
 
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
