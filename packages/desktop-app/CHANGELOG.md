@@ -10,7 +10,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
-- **MCP 设置表单区分基础/高级选项**：添加/编辑服务器时默认只展示名称与 command/args（stdio）或 url（HTTP）；传输类型、环境变量、工作目录、请求头、超时、自动批准、禁用与调试等收入可折叠「高级选项」。编辑 HTTP 或已有高级字段的配置时自动展开。列表启用开关由图标按钮改为与设置页一致的 `Switch` 组件。
+- **MCP 设置表单区分基础/高级选项**：添加/编辑服务器时默认只展示名称与 command/args（stdio）或 url（HTTP）；传输类型、环境变量、工作目录、请求头、超时、自动批准、禁用与调试等收入可折叠「高级选项」。编辑 HTTP 或已有高级字段的配置时自动展开。列表启用开关由图标按钮改为与设置页一致的 `Switch` 组件；去掉点击行展开只读详情，仅编辑时展开表单。
+- **MCP 管理改为商店式结构**：上方统一列出已添加 MCP；下方「发现MCP」用 Tab 切换推荐 / 远程 / 自定义，且只展示尚未添加的项。去掉视图/JSON 切换，页头增加「可在对话中让 AI 助手帮忙添加 MCP」的提示。
+- **扩展内置推荐 MCP**：新增 Canva、Notion、Figma、Slack、Gmail、Google 日历、Google 云端硬盘（含 webp 图标）；需密钥的项添加时弹窗填写，已添加项可用钥匙图标补全/更新密钥，缺必填密钥显示「待填密钥」。
 - **侧栏项目/对话列表改为双区内部滚动**：`ProjectsPanel` 外层不再整体滚动；上方项目分组与下方默认对话各自 `overflow-y-auto`。默认高度比 4:6（项目:对话），中间可拖拽分隔条，比例限制 2:8～8:2，并持久化到 `localStorage`（`vetta-sidebar-projects-split-ratio`）。
 - **侧栏展开会话列表恢复虚拟滚动**：展开「更多」后使用 `react-virtuoso` 的 `customScrollParent`，挂到所属分区滚动容器上，只虚拟化 DOM、不另开内层 scroller，避免双层抢滚轮。
 - **侧栏默认对话区 header 固定**：对话/Claw 筛选条与操作按钮不再随列表滚动；仅会话列表区域 `overflow-y-auto`，Virtuoso 的 scroll parent 同步改为列表容器。

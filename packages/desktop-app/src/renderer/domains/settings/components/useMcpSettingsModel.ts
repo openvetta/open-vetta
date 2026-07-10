@@ -7,6 +7,15 @@ import type {
 import type { MarketMcpServer } from "@shared/lib/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+	type BuiltinMcpPreset,
+	buildBuiltinMcpServerConfig,
+	existingSecretValues,
+	isBuiltinMcpServer,
+	matchBuiltinMcpPreset,
+	presetRequiresSecrets,
+	presetUsesBrowserAuth,
+} from "../mcp/builtin-mcp-presets";
 import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export type McpEditMode = "visual" | "json";
@@ -33,7 +42,6 @@ export interface McpSettingsModel {
 	saving: boolean;
 	serverNames: string[];
 	addedServerNames: Set<string>;
-	expandedServer: string | null;
 	addingServer: boolean;
 	editingServer: string | null;
 	serverForm: McpServerFormState;
@@ -44,15 +52,24 @@ export interface McpSettingsModel {
 	clearJsonError: () => void;
 	saveConfig: (newConfig: McpConfigData) => Promise<void>;
 	onModeSwitch: (mode: McpEditMode) => void;
-	onToggleServer: (name: string) => void;
+	busyPresetName: string | null;
 	onStartAddServer: () => void;
 	onCancelAddServer: () => void;
 	onAddServer: () => Promise<void>;
-	onStartEditServer: (name: string) => void;
+	onToggleEditServer: (name: string) => void;
 	onCancelEditServer: () => void;
 	onUpdateServer: (oldName: string) => Promise<void>;
 	onDeleteServer: (name: string) => Promise<void>;
 	onToggleDisabled: (name: string) => Promise<void>;
+	/** 需要填写密钥时弹出的预设；null 表示对话框关闭 */
+	secretsDialogPreset: BuiltinMcpPreset | null;
+	/** 配置密钥时的已有 env（编辑已添加项） */
+	secretsDialogInitial: Record<string, string> | undefined;
+	secretsDialogMode: "add" | "configure";
+	onAddBuiltinServer: (preset: BuiltinMcpPreset) => Promise<void>;
+	onConfigureBuiltinSecrets: (name: string) => void;
+	onCloseSecretsDialog: () => void;
+	onConfirmSecretsDialog: (values: Record<string, string>) => Promise<void>;
 	onAddRemoteServer: (server: MarketMcpServer) => Promise<void>;
 	onRemoveRemoteServer: (name: string) => Promise<void>;
 	onJsonSave: () => Promise<void>;
@@ -82,12 +99,16 @@ export function useMcpSettingsModel(): McpSettingsModel {
 	const [config, setConfig] = useState<McpConfigData | null>(null);
 	const [mode, setMode] = useState<McpEditMode>("visual");
 	const [saving, setSaving] = useState(false);
-	const [expandedServer, setExpandedServer] = useState<string | null>(null);
 	const [addingServer, setAddingServer] = useState(false);
 	const [editingServer, setEditingServer] = useState<string | null>(null);
 	const [serverForm, setServerForm] = useState<McpServerFormState>({ ...emptyMcpServer });
 	const [jsonText, setJsonText] = useState("");
 	const [jsonError, setJsonError] = useState<string | null>(null);
+	const [busyPresetName, setBusyPresetName] = useState<string | null>(null);
+	const [secretsDialogPreset, setSecretsDialogPreset] = useState<BuiltinMcpPreset | null>(null);
+	const [secretsDialogInitial, setSecretsDialogInitial] = useState<Record<string, string> | undefined>();
+	const [secretsDialogMode, setSecretsDialogMode] = useState<"add" | "configure">("add");
+	const [secretsDialogTargetName, setSecretsDialogTargetName] = useState<string | null>(null);
 
 	useEffect(() => {
 		void window.vetta.mcp.get().then((loadedConfig) => {
@@ -107,6 +128,65 @@ export function useMcpSettingsModel(): McpSettingsModel {
 		}
 	}, []);
 
+	const closeEditor = useCallback(() => {
+		setEditingServer(null);
+		setServerForm({ ...emptyMcpServer });
+	}, []);
+
+	const closeSecretsDialog = useCallback(() => {
+		setSecretsDialogPreset(null);
+		setSecretsDialogInitial(undefined);
+		setSecretsDialogTargetName(null);
+		setSecretsDialogMode("add");
+	}, []);
+
+	const writeBuiltinPreset = useCallback(
+		async (preset: BuiltinMcpPreset, secretValues?: Record<string, string>) => {
+			if (!config) return;
+			setBusyPresetName(preset.name);
+			try {
+				const next = buildBuiltinMcpServerConfig(
+					preset,
+					{
+						displayName: t(preset.displayNameKey),
+						description: t(preset.descriptionKey),
+					},
+					secretValues,
+				);
+				const targetName =
+					secretsDialogMode === "configure" && secretsDialogTargetName ? secretsDialogTargetName : preset.name;
+				const existing = config.mcpServers[targetName];
+				const merged =
+					secretsDialogMode === "configure" && existing
+						? {
+								...next,
+								disabled: existing.disabled,
+								autoApprove: existing.autoApprove,
+								startupTimeout: existing.startupTimeout,
+								debug: existing.debug,
+							}
+						: next;
+				await saveConfig({
+					...config,
+					mcpServers: {
+						...config.mcpServers,
+						[targetName]: merged,
+					},
+				});
+				recordSettingsUsage({
+					tab: "mcp",
+					action: secretsDialogMode === "configure" ? "updated" : "added",
+					target: "builtin-server",
+					value: preset.id,
+				});
+				closeSecretsDialog();
+			} finally {
+				setBusyPresetName(null);
+			}
+		},
+		[closeSecretsDialog, config, saveConfig, secretsDialogMode, secretsDialogTargetName, t],
+	);
+
 	const handleAddServer = useCallback(async () => {
 		if (!config || !isMcpFormValid(serverForm)) return;
 		const name = serverForm.name.trim();
@@ -119,13 +199,14 @@ export function useMcpSettingsModel(): McpSettingsModel {
 		});
 		setAddingServer(false);
 		setServerForm({ ...emptyMcpServer });
-		setExpandedServer(name);
 		recordSettingsUsage({ tab: "mcp", action: "added", target: "server", value: serverForm.transport });
 	}, [config, saveConfig, serverForm]);
 
 	const handleUpdateServer = useCallback(
 		async (oldName: string) => {
 			if (!config || !isMcpFormValid(serverForm)) return;
+			const existing = config.mcpServers[oldName];
+			if (existing && isBuiltinMcpServer(oldName, existing)) return;
 			const newServers = { ...config.mcpServers };
 			const name = serverForm.name.trim();
 			if (oldName !== name) {
@@ -133,14 +214,49 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			}
 			newServers[name] = formToServer(serverForm);
 			await saveConfig({ ...config, mcpServers: newServers });
-			setEditingServer(null);
-			setServerForm({ ...emptyMcpServer });
-			if (oldName !== name) {
-				setExpandedServer(name);
-			}
+			closeEditor();
 			recordSettingsUsage({ tab: "mcp", action: "updated", target: "server", value: serverForm.transport });
 		},
-		[config, saveConfig, serverForm],
+		[closeEditor, config, saveConfig, serverForm],
+	);
+
+	const addBuiltinServer = useCallback(
+		async (preset: BuiltinMcpPreset) => {
+			if (!config) return;
+			// 必填密钥 / 浏览器授权说明：都先弹引导，避免用户不知道下一步
+			if (presetRequiresSecrets(preset) || presetUsesBrowserAuth(preset)) {
+				setSecretsDialogMode("add");
+				setSecretsDialogTargetName(preset.name);
+				setSecretsDialogInitial(undefined);
+				setSecretsDialogPreset(preset);
+				return;
+			}
+			await writeBuiltinPreset(preset);
+		},
+		[config, writeBuiltinPreset],
+	);
+
+	const configureBuiltinSecrets = useCallback(
+		(name: string) => {
+			if (!config) return;
+			const server = config.mcpServers[name];
+			if (!server) return;
+			const preset = matchBuiltinMcpPreset(name, server);
+			if (!preset?.secrets?.length) return;
+			setSecretsDialogMode("configure");
+			setSecretsDialogTargetName(name);
+			setSecretsDialogInitial(existingSecretValues(preset, server));
+			setSecretsDialogPreset(preset);
+		},
+		[config],
+	);
+
+	const confirmSecretsDialog = useCallback(
+		async (values: Record<string, string>) => {
+			if (!secretsDialogPreset) return;
+			await writeBuiltinPreset(secretsDialogPreset, values);
+		},
+		[secretsDialogPreset, writeBuiltinPreset],
 	);
 
 	const addRemoteServer = useCallback(
@@ -159,10 +275,13 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			const newServers = { ...config.mcpServers };
 			delete newServers[name];
 			await saveConfig({ ...config, mcpServers: newServers });
-			if (expandedServer === name) setExpandedServer(null);
+			if (editingServer === name) {
+				setEditingServer(null);
+				setServerForm({ ...emptyMcpServer });
+			}
 			recordSettingsUsage({ tab: "mcp", action: "deleted", target: "server" });
 		},
-		[config, expandedServer, saveConfig],
+		[config, editingServer, saveConfig],
 	);
 
 	const handleToggleDisabled = useCallback(
@@ -182,16 +301,22 @@ export function useMcpSettingsModel(): McpSettingsModel {
 		[config, saveConfig],
 	);
 
-	const startEditServer = useCallback(
+	const toggleEditServer = useCallback(
 		(name: string) => {
 			if (!config) return;
 			const server = config.mcpServers[name];
 			if (!server) return;
+			if (isBuiltinMcpServer(name, server)) return;
+			// 再次点击编辑 = 收起面板
+			if (editingServer === name) {
+				closeEditor();
+				return;
+			}
 			setServerForm(serverToForm(name, server));
 			setEditingServer(name);
 			setAddingServer(false);
 		},
-		[config],
+		[closeEditor, config, editingServer],
 	);
 
 	const handleJsonSave = useCallback(async () => {
@@ -252,21 +377,23 @@ export function useMcpSettingsModel(): McpSettingsModel {
 		saving,
 		serverNames,
 		addedServerNames: new Set(serverNames),
-		expandedServer,
 		addingServer,
 		editingServer,
 		serverForm,
 		jsonText,
 		jsonError,
+		busyPresetName,
+		secretsDialogPreset,
+		secretsDialogInitial,
+		secretsDialogMode,
 		setServerForm,
 		setJsonText,
 		clearJsonError: () => setJsonError(null),
 		saveConfig,
 		onModeSwitch: handleModeSwitch,
-		onToggleServer: (name: string) => setExpandedServer(expandedServer === name ? null : name),
 		onStartAddServer: () => {
 			setAddingServer(true);
-			setEditingServer(null);
+			closeEditor();
 			setServerForm({ ...emptyMcpServer });
 		},
 		onCancelAddServer: () => {
@@ -274,14 +401,15 @@ export function useMcpSettingsModel(): McpSettingsModel {
 			setServerForm({ ...emptyMcpServer });
 		},
 		onAddServer: handleAddServer,
-		onStartEditServer: startEditServer,
-		onCancelEditServer: () => {
-			setEditingServer(null);
-			setServerForm({ ...emptyMcpServer });
-		},
+		onToggleEditServer: toggleEditServer,
+		onCancelEditServer: closeEditor,
 		onUpdateServer: handleUpdateServer,
 		onDeleteServer: removeServer,
 		onToggleDisabled: handleToggleDisabled,
+		onAddBuiltinServer: addBuiltinServer,
+		onConfigureBuiltinSecrets: configureBuiltinSecrets,
+		onCloseSecretsDialog: closeSecretsDialog,
+		onConfirmSecretsDialog: confirmSecretsDialog,
 		onAddRemoteServer: addRemoteServer,
 		onRemoveRemoteServer: removeServer,
 		onJsonSave: handleJsonSave,
