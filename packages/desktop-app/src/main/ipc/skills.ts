@@ -7,6 +7,8 @@ import { getVettaHomePath } from "@vetta/action-rpc";
 import { DefaultResourceLoader } from "@vetta/coding-agent";
 import AdmZip from "adm-zip";
 import { ipcMain } from "electron";
+import type { AppMonitorResourceOperation } from "../../preload/api-types/app-monitor.js";
+import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { allowProjectRoot, readDesktopConfig } from "./fs.js";
 
 function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
@@ -22,6 +24,25 @@ const tmpBaseDir = join(getVettaHomePath(), "tmp");
 
 function getBaseDir(type: "skill" | "scene"): string {
 	return type === "scene" ? sceneBaseDir : skillsBaseDir;
+}
+
+function recordSkillResourceEvent(input: {
+	name: string;
+	type: "skill" | "scene";
+	source?: "market" | "custom";
+	operation: AppMonitorResourceOperation;
+}): void {
+	try {
+		recordAppMonitorEvent({
+			type: "resource.lifecycle",
+			resourceKind: input.type,
+			operation: input.operation,
+			resourceId: input.name,
+			...(input.source ? { source: input.source } : {}),
+		});
+	} catch {
+		// Monitoring must not affect skill operations.
+	}
 }
 
 interface InstalledMarketSkill {
@@ -282,6 +303,7 @@ export function registerSkillsIpc(): () => void {
 					: parseVersionFromSkillDir(skillDir);
 
 			const manifest = readManifest();
+			const previous = manifest[name];
 			manifest[name] = {
 				name,
 				version,
@@ -293,6 +315,12 @@ export function registerSkillsIpc(): () => void {
 				marketDescription: metaObj.marketDescription,
 			};
 			writeManifest(manifest);
+			recordSkillResourceEvent({
+				name,
+				type: itemType,
+				source: "market",
+				operation: previous ? "updated" : "installed",
+			});
 		},
 	);
 
@@ -307,6 +335,7 @@ export function registerSkillsIpc(): () => void {
 		const baseDir = getBaseDir(itemType);
 		ensureDirWritable(baseDir);
 		const skillDir = join(baseDir, name);
+		const previous = manifest[name];
 		if (existsSync(skillDir)) {
 			ensureDirWritable(skillDir);
 			await rm(skillDir, { recursive: true, force: true });
@@ -314,6 +343,12 @@ export function registerSkillsIpc(): () => void {
 
 		delete manifest[name];
 		writeManifest(manifest);
+		recordSkillResourceEvent({
+			name,
+			type: itemType,
+			source: previous?.source,
+			operation: "uninstalled",
+		});
 	});
 
 	ipcMain.handle("vetta:skills:toggle", async (_event, name: unknown) => {
@@ -326,6 +361,12 @@ export function registerSkillsIpc(): () => void {
 		}
 		entry.enabled = !entry.enabled;
 		writeManifest(manifest);
+		recordSkillResourceEvent({
+			name,
+			type: entry.type === "scene" ? "scene" : "skill",
+			source: entry.source,
+			operation: entry.enabled ? "enabled" : "disabled",
+		});
 	});
 
 	ipcMain.handle("vetta:skills:get-market-manifest", async () => {
@@ -421,6 +462,12 @@ export function registerSkillsIpc(): () => void {
 				description: fm.description,
 			};
 			writeManifest(manifest);
+			recordSkillResourceEvent({
+				name: fm.name,
+				type: "skill",
+				source: "custom",
+				operation: "imported",
+			});
 
 			return { name: fm.name };
 		} finally {
