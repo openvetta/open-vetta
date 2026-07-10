@@ -69,6 +69,10 @@ interface InstalledCustomSkill {
 
 type InstalledSkill = InstalledMarketSkill | InstalledCustomSkill;
 
+export function readSkillsManifest(): Record<string, InstalledSkill> {
+	return readManifest();
+}
+
 function readManifest(): Record<string, InstalledSkill> {
 	if (!existsSync(manifestPath)) return {};
 	try {
@@ -214,6 +218,98 @@ function parseVersionFromSkillDir(skillDir: string): string {
 	}
 }
 
+export interface ListedSkill {
+	name: string;
+	alias?: string;
+	description?: string;
+	source: string;
+	type?: string;
+}
+
+export async function listSkills(cwd?: string): Promise<ListedSkill[]> {
+	// 适配通用 Agent Skill：跟随「Agent配置 → 扩展功能」开关，关闭时不发现 .agents/skills。
+	const desktopConfig = await readDesktopConfig();
+	const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
+	// 传入当前会话/项目 cwd，才能发现项目级 <cwd>/.agents/skills 与 <cwd>/.vetta/skills；
+	// 不传则只列全局来源（主进程自身 cwd 下通常无项目目录）。
+	const loader = new DefaultResourceLoader({ includeAgentSkills, cwd });
+	await loader.reload();
+	const { skills } = loader.getSkills();
+	const manifest = readManifest();
+	return skills
+		.filter((s) => {
+			const entry = manifest[s.name];
+			// market 来源的 skill/scene 必须在 manifest 中且已启用
+			if (s.source === "market" || s.source === "scene") {
+				return entry?.enabled ?? false;
+			}
+			// 其余来源（user/project/path/agents-*）默认显示
+			return !entry || entry.enabled;
+		})
+		.map((s) => {
+			const entry = manifest[s.name];
+			return {
+				name: s.name,
+				alias: s.alias || entry?.alias,
+				description: (entry?.source === "market" ? entry.marketDescription : undefined) || s.description,
+				source: s.source,
+				type: s.type,
+			};
+		});
+}
+
+export function setSkillEnabled(name: string, enabled: boolean): { name: string; enabled: boolean } {
+	const manifest = readManifest();
+	const entry = manifest[name];
+	if (!entry) {
+		throw new Error(`Skill "${name}" is not installed`);
+	}
+	if (entry.enabled !== enabled) {
+		entry.enabled = enabled;
+		writeManifest(manifest);
+		recordSkillResourceEvent({
+			name,
+			type: entry.type === "scene" ? "scene" : "skill",
+			source: entry.source,
+			operation: enabled ? "enabled" : "disabled",
+		});
+	}
+	return { name, enabled: entry.enabled };
+}
+
+export function toggleSkill(name: string): { name: string; enabled: boolean } {
+	const manifest = readManifest();
+	const entry = manifest[name];
+	if (!entry) {
+		throw new Error(`Skill "${name}" is not installed`);
+	}
+	return setSkillEnabled(name, !entry.enabled);
+}
+
+export async function uninstallSkill(name: string, type?: "skill" | "scene"): Promise<void> {
+	const manifest = readManifest();
+	const itemType: "skill" | "scene" =
+		type === "scene" ? "scene" : type === "skill" ? "skill" : manifest[name]?.type === "scene" ? "scene" : "skill";
+
+	const baseDir = getBaseDir(itemType);
+	ensureDirWritable(baseDir);
+	const skillDir = join(baseDir, name);
+	const previous = manifest[name];
+	if (existsSync(skillDir)) {
+		ensureDirWritable(skillDir);
+		await rm(skillDir, { recursive: true, force: true });
+	}
+
+	delete manifest[name];
+	writeManifest(manifest);
+	recordSkillResourceEvent({
+		name,
+		type: itemType,
+		source: previous?.source,
+		operation: "uninstalled",
+	});
+}
+
 export function registerSkillsIpc(): () => void {
 	// 允许通用 fs IPC 读取技能 / 场景目录下的文件（用于 SKILL.md 预览等）
 	allowProjectRoot(skillsBaseDir);
@@ -222,36 +318,8 @@ export function registerSkillsIpc(): () => void {
 	allowProjectRoot(join(homedir(), ".agents", "skills"));
 
 	ipcMain.handle("vetta:skills:list", async (_event, cwd: unknown) => {
-		// 适配通用 Agent Skill：跟随「Agent配置 → 扩展功能」开关，关闭时不发现 .agents/skills。
-		const desktopConfig = await readDesktopConfig();
-		const includeAgentSkills = desktopConfig.experimental?.agentSkills !== false;
-		// 传入当前会话/项目 cwd，才能发现项目级 <cwd>/.agents/skills 与 <cwd>/.vetta/skills；
-		// 不传则只列全局来源（主进程自身 cwd 下通常无项目目录）。
 		const resolvedCwd = typeof cwd === "string" && cwd.trim().length > 0 ? cwd : undefined;
-		const loader = new DefaultResourceLoader({ includeAgentSkills, cwd: resolvedCwd });
-		await loader.reload();
-		const { skills } = loader.getSkills();
-		const manifest = readManifest();
-		return skills
-			.filter((s) => {
-				const entry = manifest[s.name];
-				// market 来源的 skill/scene 必须在 manifest 中且已启用
-				if (s.source === "market" || s.source === "scene") {
-					return entry?.enabled ?? false;
-				}
-				// 其余来源（user/project/path/agents-*）默认显示
-				return !entry || entry.enabled;
-			})
-			.map((s) => {
-				const entry = manifest[s.name];
-				return {
-					name: s.name,
-					alias: s.alias || entry?.alias,
-					description: (entry?.source === "market" ? entry.marketDescription : undefined) || s.description,
-					source: s.source,
-					type: s.type,
-				};
-			});
+		return listSkills(resolvedCwd);
 	});
 
 	ipcMain.handle(
@@ -326,51 +394,16 @@ export function registerSkillsIpc(): () => void {
 
 	ipcMain.handle("vetta:skills:uninstall", async (_event, name: unknown, type: unknown) => {
 		assertNonEmptyString(name, "name");
-
-		// Determine type from argument, falling back to manifest, then default to skill
-		const manifest = readManifest();
-		const itemType: "skill" | "scene" =
-			type === "scene" ? "scene" : manifest[name]?.type === "scene" ? "scene" : "skill";
-
-		const baseDir = getBaseDir(itemType);
-		ensureDirWritable(baseDir);
-		const skillDir = join(baseDir, name);
-		const previous = manifest[name];
-		if (existsSync(skillDir)) {
-			ensureDirWritable(skillDir);
-			await rm(skillDir, { recursive: true, force: true });
-		}
-
-		delete manifest[name];
-		writeManifest(manifest);
-		recordSkillResourceEvent({
-			name,
-			type: itemType,
-			source: previous?.source,
-			operation: "uninstalled",
-		});
+		await uninstallSkill(name, type === "scene" ? "scene" : type === "skill" ? "skill" : undefined);
 	});
 
 	ipcMain.handle("vetta:skills:toggle", async (_event, name: unknown) => {
 		assertNonEmptyString(name, "name");
-
-		const manifest = readManifest();
-		const entry = manifest[name];
-		if (!entry) {
-			throw new Error(`Skill "${name}" is not installed`);
-		}
-		entry.enabled = !entry.enabled;
-		writeManifest(manifest);
-		recordSkillResourceEvent({
-			name,
-			type: entry.type === "scene" ? "scene" : "skill",
-			source: entry.source,
-			operation: entry.enabled ? "enabled" : "disabled",
-		});
+		return toggleSkill(name);
 	});
 
 	ipcMain.handle("vetta:skills:get-market-manifest", async () => {
-		return readManifest();
+		return readSkillsManifest();
 	});
 
 	ipcMain.handle("vetta:skills:get-skill-md-path", async (_event, name: unknown, type: unknown) => {

@@ -2,10 +2,11 @@ import { describe, expect, test } from "vitest";
 import { buildSystemPrompt, VETTA_CLI_GUIDANCE } from "../src/core/system-prompt.js";
 
 describe("VETTA_CLI_GUIDANCE", () => {
-	test("explains that Vetta CLI can inspect and operate Desktop capabilities", () => {
+	test("explains progressive discovery of Desktop capabilities via vetta action", () => {
 		expect(VETTA_CLI_GUIDANCE).toContain("use `vetta action` both to learn what Desktop can do and to operate it");
-		expect(VETTA_CLI_GUIDANCE).toContain("Batch tasks and scheduled tasks");
-		expect(VETTA_CLI_GUIDANCE).toContain("queried and managed through these actions");
+		expect(VETTA_CLI_GUIDANCE).toContain("Discovery is progressive");
+		expect(VETTA_CLI_GUIDANCE).toContain("authoritative inventory is always `vetta action search`");
+		expect(VETTA_CLI_GUIDANCE).toContain("Do not expect CLI help to list every parameter");
 	});
 });
 

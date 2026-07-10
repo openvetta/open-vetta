@@ -365,7 +365,7 @@ export interface McpConfig {
 
 const DEFAULT_MCP_CONFIG: McpConfig = { mcpServers: {} };
 
-async function readMcpConfig(): Promise<McpConfig> {
+export async function readMcpConfig(): Promise<McpConfig> {
 	try {
 		const raw = await readFile(MCP_CONFIG_PATH, "utf8");
 		const parsed = JSON.parse(raw) as Partial<McpConfig>;
@@ -375,7 +375,7 @@ async function readMcpConfig(): Promise<McpConfig> {
 	}
 }
 
-async function writeMcpConfig(config: McpConfig): Promise<void> {
+export async function writeMcpConfig(config: McpConfig): Promise<void> {
 	atomicWriteJSON(MCP_CONFIG_PATH, config);
 }
 

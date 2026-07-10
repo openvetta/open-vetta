@@ -70,15 +70,30 @@ Usage:
   vetta action --help
 
 Description:
-  Connect to the running Vetta GUI process and invoke its local action RPC
-  server. The GUI must already be running.
+  Operate the running Vetta Desktop app through its local action RPC.
+  The GUI must already be running. Do not guess action ids or parameters
+  from memory; discover them at runtime.
+
+Progressive discovery (recommended):
+  1. search ""                     list available actions (id, title, summary)
+  2. search "<intent>"             filter by user intent or domain keyword
+  3. describe <action-id>          full input schema, examples, approval info
+  4. run <action-id> [json-input]  execute; Desktop may ask the user to approve
+
+  Many actions also support {"operation":"help"} on the matching *.query
+  action to return that domain's detailed operation list.
+
+Capability areas (high-level only; live catalog comes from search):
+  navigation, appearance, settings, models, mcp, skills, projects,
+  batch-tasks, scheduler, knowledge, plugins, im, webhook, downloads, updater
 
 Examples:
   vetta action search ""
-  vetta action search "example action"
-  vetta action describe example.action
-  vetta action run example.action
-  vetta action run example.action '{"operation":"get"}'
+  vetta action search "model"
+  vetta action search "定时" --domain scheduler
+  vetta action describe models.query
+  vetta action run models.query '{"operation":"help"}'
+  vetta action run models.query '{"operation":"list"}'
 
 JSON input:
   In PowerShell and POSIX shells, wrap the JSON argument in single quotes.

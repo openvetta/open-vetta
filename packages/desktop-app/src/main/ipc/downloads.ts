@@ -386,7 +386,8 @@ function resumeDownload(id: string): void {
 	}
 }
 
-function cancelDownload(id: string): void {
+export function cancelDownload(id: string): void {
+	if (!state) return;
 	const item = state.items.get(id);
 	if (!item) return;
 	state.abortFns.get(id)?.();
@@ -417,7 +418,8 @@ async function removeDownload(id: string, deleteFile: boolean): Promise<void> {
 	persist();
 }
 
-function listDownloads(): DownloadItem[] {
+export function listDownloads(): DownloadItem[] {
+	if (!state) return [];
 	return Array.from(state.items.values()).sort((a, b) => b.createdAt - a.createdAt);
 }
 

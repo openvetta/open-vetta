@@ -25,6 +25,17 @@ const SYNONYM_CLUSTERS: readonly (readonly string[])[] = [
 	["retry", "重试"],
 	["reset", "重置"],
 	["resume", "继续", "恢复"],
+	["model", "models", "模型", "provider", "服务商", "defaultModel"],
+	["mcp", "MCP"],
+	["skill", "skills", "技能", "scene"],
+	["project", "projects", "项目", "会话", "session"],
+	["knowledge", "知识库", "wiki", "加工"],
+	["plugin", "plugins", "插件"],
+	["im", "claw", "飞书", "微信"],
+	["webhook", "推送", "钉钉", "机器人"],
+	["download", "downloads", "下载"],
+	["update", "updater", "更新", "升级", "版本"],
+	["language", "语言", "中文", "英文", "zh", "en"],
 ];
 
 const DOMAIN_KEYWORDS: Record<string, readonly string[]> = {
@@ -32,6 +43,17 @@ const DOMAIN_KEYWORDS: Record<string, readonly string[]> = {
 	navigation: ["open", "打开", "跳转", "导航", "页面", "设置", "settings", "page"],
 	"batch-tasks": ["批量", "批量任务", "批处理", "batch", "项目", "子任务", "并发"],
 	scheduler: ["定时", "定时任务", "计划任务", "自动化", "cron", "schedule", "调度"],
+	models: ["模型", "model", "provider", "服务商", "defaultModel", "API Key"],
+	mcp: ["mcp", "MCP", "服务器", "tools"],
+	skills: ["技能", "skill", "scene", "技能广场"],
+	projects: ["项目", "project", "会话", "session", "侧边栏", "归档"],
+	settings: ["设置", "settings", "语言", "language", "通知", "workspace", "沙盒"],
+	knowledge: ["知识库", "knowledge", "wiki", "加工", "索引"],
+	plugins: ["插件", "plugin", "扩展"],
+	im: ["im", "claw", "飞书", "微信", "旁路"],
+	webhook: ["webhook", "推送", "飞书", "钉钉", "机器人"],
+	downloads: ["下载", "download", "下载中心"],
+	updater: ["更新", "update", "版本", "升级"],
 };
 
 interface SearchDocument {
