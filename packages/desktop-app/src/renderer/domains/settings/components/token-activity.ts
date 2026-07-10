@@ -12,9 +12,14 @@ export interface ActivityColumn {
 	tokens: number;
 	/** Month axis label for first column of each month; null otherwise */
 	monthKey: string | null;
+	/** Left-side filler when history is shorter than the visible capacity */
+	isPad?: boolean;
 }
 
 export const TOKEN_ACTIVITY_MAX_ROWS = 10;
+/** Preferred square size used only to decide how many columns fit the width. */
+export const TOKEN_ACTIVITY_TARGET_CELL_PX = 8;
+export const TOKEN_ACTIVITY_GAP_PX = 2;
 
 function parseLocalDate(iso: string): Date {
 	const [y, m, d] = iso.split("-").map(Number);
@@ -35,6 +40,17 @@ function weekStartKey(iso: string): string {
 	const diff = day === 0 ? -6 : 1 - day;
 	d.setDate(d.getDate() + diff);
 	return formatYmd(d);
+}
+
+function withMonthKeys(columns: ActivityColumn[]): ActivityColumn[] {
+	let lastMonth = "";
+	return columns.map((c) => {
+		if (!c.date) return { ...c, monthKey: null };
+		const m = c.date.slice(0, 7);
+		const monthKey = m !== lastMonth ? m : null;
+		lastMonth = m;
+		return { ...c, monthKey };
+	});
 }
 
 export function buildActivityColumns(points: UsageSeriesPointLike[], mode: TokenActivityMode): ActivityColumn[] {
@@ -66,19 +82,46 @@ export function buildActivityColumns(points: UsageSeriesPointLike[], mode: Token
 		}
 	}
 
-	let lastMonth = "";
-	return base.map((p) => {
-		const m = p.date.slice(0, 7);
-		const monthKey = m !== lastMonth ? m : null;
-		lastMonth = m;
-		return {
+	return withMonthKeys(
+		base.map((p) => ({
 			key: p.date,
 			date: p.date,
 			endDate: p.endDate,
 			tokens: p.tokens,
-			monthKey,
-		};
-	});
+			monthKey: null,
+		})),
+	);
+}
+
+/**
+ * Fit columns to a fixed capacity so the chart exactly fills the container:
+ * - too many → drop oldest (left)
+ * - too few → pad empty columns on the left
+ */
+export function fitActivityColumns(columns: ActivityColumn[], capacity: number): ActivityColumn[] {
+	if (capacity <= 0) return [];
+	if (columns.length >= capacity) {
+		return withMonthKeys(columns.slice(columns.length - capacity));
+	}
+	const pad = capacity - columns.length;
+	const empties: ActivityColumn[] = Array.from({ length: pad }, (_, i) => ({
+		key: `__pad-${i}`,
+		date: "",
+		endDate: "",
+		tokens: 0,
+		monthKey: null,
+		isPad: true,
+	}));
+	return withMonthKeys([...empties, ...columns]);
+}
+
+export function columnCapacity(
+	widthPx: number,
+	cellPx = TOKEN_ACTIVITY_TARGET_CELL_PX,
+	gapPx = TOKEN_ACTIVITY_GAP_PX,
+): number {
+	if (widthPx <= 0) return 0;
+	return Math.max(1, Math.floor((widthPx + gapPx) / (cellPx + gapPx)));
 }
 
 export function activityBlockCount(tokens: number, maxTokens: number, maxRows = TOKEN_ACTIVITY_MAX_ROWS): number {
