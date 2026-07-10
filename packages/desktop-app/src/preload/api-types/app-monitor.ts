@@ -46,6 +46,23 @@ export interface AppMonitorInputPromptRefUsage {
 	name: string;
 }
 
+export type AppMonitorResourceKind = "skill" | "scene" | "plugin";
+
+export type AppMonitorResourceOperation =
+	| "installed"
+	| "updated"
+	| "imported"
+	| "uninstalled"
+	| "enabled"
+	| "disabled"
+	| "reloaded"
+	| "permissions-granted"
+	| "permissions-revoked"
+	| "commands-granted"
+	| "commands-revoked";
+
+export type AppMonitorResourceSource = "market" | "custom" | "archive" | "remote" | "system";
+
 export type AppMonitorEvent =
 	| {
 			type: "input.attachments.added";
@@ -68,6 +85,16 @@ export type AppMonitorEvent =
 			files?: AppMonitorInputFileAttachment[];
 			images?: AppMonitorInputImageAttachment[];
 			promptRef?: AppMonitorInputPromptRefUsage;
+	  }
+	| {
+			type: "resource.lifecycle";
+			resourceKind: AppMonitorResourceKind;
+			operation: AppMonitorResourceOperation;
+			resourceId: string;
+			source?: AppMonitorResourceSource;
+			system?: boolean;
+			permissionCount?: number;
+			commandCount?: number;
 	  };
 
 export interface DesktopAppMonitorApi {

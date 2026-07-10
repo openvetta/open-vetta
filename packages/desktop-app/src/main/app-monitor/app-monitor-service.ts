@@ -87,6 +87,9 @@ class AppMonitorService {
 				case "input.context.used":
 					recordInputContextUsed(data, event);
 					break;
+				case "resource.lifecycle":
+					recordResourceLifecycle(data, event);
+					break;
 			}
 		});
 	}
@@ -661,6 +664,146 @@ function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName
 	updateMostUsedPromptRef(data, stats);
 }
 
+function recordResourceLifecycle(
+	data: AppMonitorData,
+	event: Extract<AppMonitorEvent, { type: "resource.lifecycle" }>,
+): void {
+	const kind = normalizeMetricKey(event.resourceKind);
+	const id = normalizeResourceId(event.resourceId);
+	const operation = normalizeMetricKey(event.operation);
+	if ((kind !== "skill" && kind !== "scene" && kind !== "plugin") || id === "" || operation === "unknown") return;
+	const source = event.source ? normalizeMetricKey(event.source) : "";
+	const now = Date.now();
+	data.resources.events += 1;
+	data.resources.byOperation[operation] = (data.resources.byOperation[operation] ?? 0) + 1;
+	if (source !== "" && source !== "unknown") {
+		data.resources.bySource[source] = (data.resources.bySource[source] ?? 0) + 1;
+	}
+	const kindStats = getResourceKindStats(data.resources.byKind, kind);
+	updateResourceOperationStats(kindStats, operation, event.permissionCount, event.commandCount);
+	const resourceKey = `${kind}:${id}`;
+	data.resources.byResource[resourceKey] ??= {
+		kind,
+		id,
+		events: 0,
+		installed: 0,
+		updated: 0,
+		imported: 0,
+		uninstalled: 0,
+		enabled: 0,
+		disabled: 0,
+		reloaded: 0,
+		permissionGrants: 0,
+		permissionRevokes: 0,
+		commandGrants: 0,
+		commandRevokes: 0,
+		permissionsChanged: 0,
+		commandsChanged: 0,
+		lastOperation: "",
+		lastOperationAt: 0,
+		system: event.system === true,
+	};
+	const resourceStats = data.resources.byResource[resourceKey];
+	resourceStats.events += 1;
+	resourceStats.lastOperation = operation;
+	resourceStats.lastOperationAt = now;
+	resourceStats.system = event.system === true;
+	if (source !== "" && source !== "unknown") resourceStats.source = source;
+	updateResourceOperationStats(resourceStats, operation, event.permissionCount, event.commandCount);
+	data.resources.recent = { ...resourceStats };
+	data.resources.recentByKind[kind] = { ...resourceStats };
+	if (isMoreOperatedResource(resourceStats, data.resources.mostOperated)) {
+		data.resources.mostOperated = { ...resourceStats };
+	}
+	if (isMoreOperatedResource(resourceStats, data.resources.mostOperatedByKind[kind])) {
+		data.resources.mostOperatedByKind[kind] = { ...resourceStats };
+	}
+}
+
+function getResourceKindStats(
+	statsByKey: AppMonitorData["resources"]["byKind"],
+	rawKey: string,
+): AppMonitorData["resources"]["byKind"][string] {
+	const key = normalizeMetricKey(rawKey);
+	statsByKey[key] ??= {
+		events: 0,
+		installed: 0,
+		updated: 0,
+		imported: 0,
+		uninstalled: 0,
+		enabled: 0,
+		disabled: 0,
+		reloaded: 0,
+		permissionGrants: 0,
+		permissionRevokes: 0,
+		commandGrants: 0,
+		commandRevokes: 0,
+		permissionsChanged: 0,
+		commandsChanged: 0,
+	};
+	return statsByKey[key];
+}
+
+function updateResourceOperationStats(
+	stats: AppMonitorData["resources"]["byKind"][string],
+	operation: string,
+	permissionCount: number | undefined,
+	commandCount: number | undefined,
+): void {
+	stats.events += 1;
+	switch (operation) {
+		case "installed":
+			stats.installed += 1;
+			break;
+		case "updated":
+			stats.updated += 1;
+			break;
+		case "imported":
+			stats.imported += 1;
+			break;
+		case "uninstalled":
+			stats.uninstalled += 1;
+			break;
+		case "enabled":
+			stats.enabled += 1;
+			break;
+		case "disabled":
+			stats.disabled += 1;
+			break;
+		case "reloaded":
+			stats.reloaded += 1;
+			break;
+		case "permissions-granted":
+			stats.permissionGrants += 1;
+			stats.permissionsChanged += normalizeDelta(permissionCount ?? 0);
+			break;
+		case "permissions-revoked":
+			stats.permissionRevokes += 1;
+			stats.permissionsChanged += normalizeDelta(permissionCount ?? 0);
+			break;
+		case "commands-granted":
+			stats.commandGrants += 1;
+			stats.commandsChanged += normalizeDelta(commandCount ?? 0);
+			break;
+		case "commands-revoked":
+			stats.commandRevokes += 1;
+			stats.commandsChanged += normalizeDelta(commandCount ?? 0);
+			break;
+	}
+}
+
+function isMoreOperatedResource(
+	stats: AppMonitorData["resources"]["mostOperated"],
+	current: AppMonitorData["resources"]["mostOperated"],
+): boolean {
+	if (!stats) return false;
+	if (!current) return true;
+	return (
+		stats.events > current.events ||
+		(stats.events === current.events && stats.lastOperationAt > current.lastOperationAt)
+	);
+}
+
 function updateMostUsedPromptRef(data: AppMonitorData, stats: AppMonitorData["inputPromptRefs"]["mostUsed"]): void {
 	if (!stats) return;
 	if (isMoreUsedPromptRef(stats, data.inputPromptRefs.mostUsed)) {
@@ -705,6 +848,12 @@ function normalizeToolName(value: string): string {
 }
 
 function normalizeInputActionId(value: string): string {
+	const trimmed = value.trim();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
+	return trimmed.slice(0, 128);
+}
+
+function normalizeResourceId(value: string): string {
 	const trimmed = value.trim();
 	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
 	return trimmed.slice(0, 128);

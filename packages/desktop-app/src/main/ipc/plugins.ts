@@ -1,11 +1,14 @@
 import { ipcMain, webContents } from "electron";
+import type { AppMonitorResourceOperation, AppMonitorResourceSource } from "../../preload/api-types/app-monitor.js";
 import type {
+	InstalledPlugin,
 	PluginCommandRunOptions,
 	PluginEditImageInput,
 	PluginGenerateImageInput,
 	PluginInstallOptions,
 	PluginPermission,
 } from "../../preload/api-types/plugins.js";
+import { recordAppMonitorEvent } from "../app-monitor/app-monitor-service.js";
 import { getAppLogger } from "../logger.js";
 import { runPluginCommand } from "../plugins/command-runner.js";
 import { editImage, generateImage, imageLineage, sessionLineages } from "../plugins/image-service.js";
@@ -205,42 +208,129 @@ function refreshAgentPlugins(): void {
 	getSharedRuntime().reconfigureAgentPlugins(config);
 }
 
+function recordPluginResourceEvent(input: {
+	plugin: Pick<InstalledPlugin, "id" | "source">;
+	operation: AppMonitorResourceOperation;
+	permissionCount?: number;
+	commandCount?: number;
+}): void {
+	try {
+		recordAppMonitorEvent({
+			type: "resource.lifecycle",
+			resourceKind: "plugin",
+			operation: input.operation,
+			resourceId: input.plugin.id,
+			source: toAppMonitorPluginSource(input.plugin.source),
+			system: input.plugin.source === "system",
+			...(input.permissionCount === undefined ? {} : { permissionCount: input.permissionCount }),
+			...(input.commandCount === undefined ? {} : { commandCount: input.commandCount }),
+		});
+	} catch {
+		// Monitoring must not affect plugin operations.
+	}
+}
+
+function toAppMonitorPluginSource(source: InstalledPlugin["source"]): AppMonitorResourceSource {
+	if (source === "system") return "system";
+	if (source === "remote") return "remote";
+	return "archive";
+}
+
+function isFreshPluginInstall(plugin: Pick<InstalledPlugin, "installedAt" | "updatedAt">): boolean {
+	return plugin.installedAt === plugin.updatedAt;
+}
+
+function countAdded(previous: readonly string[], next: readonly string[]): number {
+	const before = new Set(previous);
+	return next.filter((item) => !before.has(item)).length;
+}
+
+function countRemoved(previous: readonly string[], next: readonly string[]): number {
+	const after = new Set(next);
+	return previous.filter((item) => !after.has(item)).length;
+}
+
 export function registerPluginsIpc(): () => void {
 	ipcMain.handle("vetta:plugins:list", () => listPlugins());
-	ipcMain.handle("vetta:plugins:install-from-archive", (_event, archiveBuffer: unknown, options: unknown) =>
-		installPluginFromArchive(asArchiveBuffer(archiveBuffer), asOptions(options)),
-	);
+	ipcMain.handle("vetta:plugins:install-from-archive", async (_event, archiveBuffer: unknown, options: unknown) => {
+		const plugin = await installPluginFromArchive(asArchiveBuffer(archiveBuffer), asOptions(options));
+		recordPluginResourceEvent({
+			plugin,
+			operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
+		});
+		return plugin;
+	});
 	ipcMain.handle("vetta:plugins:install-from-url", (_event, url: unknown, options: unknown) => {
 		if (typeof url !== "string" || url.trim().length === 0) {
 			throw new Error("Invalid plugin URL");
 		}
-		return installPluginFromUrl(url.trim(), asOptions(options));
+		return installPluginFromUrl(url.trim(), asOptions(options)).then((plugin) => {
+			recordPluginResourceEvent({
+				plugin,
+				operation: isFreshPluginInstall(plugin) ? "installed" : "updated",
+			});
+			return plugin;
+		});
 	});
 	ipcMain.handle("vetta:plugins:uninstall", (_event, id: unknown) => {
-		uninstallPlugin(asPluginId(id));
+		const pluginId = asPluginId(id);
+		const plugin = listPlugins().find((candidate) => candidate.id === pluginId);
+		uninstallPlugin(pluginId);
 		refreshAgentPlugins();
+		if (plugin) recordPluginResourceEvent({ plugin, operation: "uninstalled" });
 	});
 	ipcMain.handle("vetta:plugins:set-enabled", (_event, id: unknown, enabled: unknown) => {
 		const plugin = setPluginEnabled(asPluginId(id), enabled === true);
 		refreshAgentPlugins();
+		recordPluginResourceEvent({ plugin, operation: plugin.enabled ? "enabled" : "disabled" });
 		return plugin;
 	});
 	ipcMain.handle("vetta:plugins:grant-permissions", (_event, id: unknown, permissions: unknown) => {
-		const plugin = grantPluginPermissions(asPluginId(id), asPermissions(permissions));
+		const pluginId = asPluginId(id);
+		const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedPermissions ?? [];
+		const plugin = grantPluginPermissions(pluginId, asPermissions(permissions));
 		refreshAgentPlugins();
+		recordPluginResourceEvent({
+			plugin,
+			operation: "permissions-granted",
+			permissionCount: countAdded(previous, plugin.grantedPermissions),
+		});
 		return plugin;
 	});
 	ipcMain.handle("vetta:plugins:revoke-permissions", (_event, id: unknown, permissions: unknown) => {
-		const plugin = revokePluginPermissions(asPluginId(id), asPermissions(permissions));
+		const pluginId = asPluginId(id);
+		const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedPermissions ?? [];
+		const plugin = revokePluginPermissions(pluginId, asPermissions(permissions));
 		refreshAgentPlugins();
+		recordPluginResourceEvent({
+			plugin,
+			operation: "permissions-revoked",
+			permissionCount: countRemoved(previous, plugin.grantedPermissions),
+		});
 		return plugin;
 	});
-	ipcMain.handle("vetta:plugins:grant-commands", (_event, id: unknown, names: unknown) =>
-		grantPluginCommands(asPluginId(id), asCommandNames(names)),
-	);
-	ipcMain.handle("vetta:plugins:revoke-commands", (_event, id: unknown, names: unknown) =>
-		revokePluginCommands(asPluginId(id), asCommandNames(names)),
-	);
+	ipcMain.handle("vetta:plugins:grant-commands", (_event, id: unknown, names: unknown) => {
+		const pluginId = asPluginId(id);
+		const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedCommandNames ?? [];
+		const plugin = grantPluginCommands(pluginId, asCommandNames(names));
+		recordPluginResourceEvent({
+			plugin,
+			operation: "commands-granted",
+			commandCount: countAdded(previous, plugin.grantedCommandNames),
+		});
+		return plugin;
+	});
+	ipcMain.handle("vetta:plugins:revoke-commands", (_event, id: unknown, names: unknown) => {
+		const pluginId = asPluginId(id);
+		const previous = listPlugins().find((candidate) => candidate.id === pluginId)?.grantedCommandNames ?? [];
+		const plugin = revokePluginCommands(pluginId, asCommandNames(names));
+		recordPluginResourceEvent({
+			plugin,
+			operation: "commands-revoked",
+			commandCount: countRemoved(previous, plugin.grantedCommandNames),
+		});
+		return plugin;
+	});
 	ipcMain.handle(
 		"vetta:plugins:command-run",
 		(_event, pluginId: unknown, file: unknown, args: unknown, options: unknown) =>
@@ -254,6 +344,7 @@ export function registerPluginsIpc(): () => void {
 	ipcMain.handle("vetta:plugins:reload", (_event, id: unknown) => {
 		const plugin = reloadPlugin(asPluginId(id));
 		refreshAgentPlugins();
+		recordPluginResourceEvent({ plugin, operation: "reloaded" });
 		return plugin;
 	});
 	ipcMain.handle(

@@ -8,6 +8,9 @@ import type {
 	AppMonitorInputImageAttachment,
 	AppMonitorInputPromptRefKind,
 	AppMonitorInputPromptRefUsage,
+	AppMonitorResourceKind,
+	AppMonitorResourceOperation,
+	AppMonitorResourceSource,
 } from "../../preload/api-types/app-monitor.js";
 import {
 	getAppMonitorSnapshot,
@@ -28,6 +31,21 @@ const INPUT_ATTACHMENT_SOURCES = new Set<AppMonitorInputAttachmentSource>([
 ]);
 const INPUT_ACTION_KINDS = new Set<AppMonitorInputActionKind>(["builtin", "plugin"]);
 const INPUT_PROMPT_REF_KINDS = new Set<AppMonitorInputPromptRefKind>(["scene", "skill"]);
+const RESOURCE_KINDS = new Set<AppMonitorResourceKind>(["skill", "scene", "plugin"]);
+const RESOURCE_OPERATIONS = new Set<AppMonitorResourceOperation>([
+	"installed",
+	"updated",
+	"imported",
+	"uninstalled",
+	"enabled",
+	"disabled",
+	"reloaded",
+	"permissions-granted",
+	"permissions-revoked",
+	"commands-granted",
+	"commands-revoked",
+]);
+const RESOURCE_SOURCES = new Set<AppMonitorResourceSource>(["market", "custom", "archive", "remote", "system"]);
 
 export function registerAppMonitorIpc(): () => void {
 	const onUserActivity = (): void => {
@@ -70,6 +88,7 @@ export function registerAppMonitorIpc(): () => void {
 
 function toAppMonitorEvent(value: unknown): AppMonitorEvent | null {
 	if (!isRecord(value)) return null;
+	if (value.type === "resource.lifecycle") return toResourceLifecycleEvent(value);
 	if (value.type === "input.context.used") return toInputContextUsedEvent(value);
 	if (value.type === "input.action.used") return toInputActionUsedEvent(value);
 	if (value.type === "input.action.toggled") return toInputActionToggledEvent(value);
@@ -85,6 +104,25 @@ function toAppMonitorEvent(value: unknown): AppMonitorEvent | null {
 		source: value.source,
 		files,
 		images,
+	};
+}
+
+function toResourceLifecycleEvent(value: Record<string, unknown>): AppMonitorEvent | null {
+	if (!isResourceKind(value.resourceKind) || !isResourceOperation(value.operation)) return null;
+	const resourceId = normalizeName(value.resourceId);
+	if (resourceId === "") return null;
+	const source = isResourceSource(value.source) ? value.source : undefined;
+	const permissionCount = normalizeOptionalCount(value.permissionCount);
+	const commandCount = normalizeOptionalCount(value.commandCount);
+	return {
+		type: "resource.lifecycle",
+		resourceKind: value.resourceKind,
+		operation: value.operation,
+		resourceId,
+		...(source ? { source } : {}),
+		...(typeof value.system === "boolean" ? { system: value.system } : {}),
+		...(permissionCount === undefined ? {} : { permissionCount }),
+		...(commandCount === undefined ? {} : { commandCount }),
 	};
 }
 
@@ -184,6 +222,18 @@ function isInputActionKind(value: unknown): value is AppMonitorInputActionKind {
 
 function isInputPromptRefKind(value: unknown): value is AppMonitorInputPromptRefKind {
 	return typeof value === "string" && INPUT_PROMPT_REF_KINDS.has(value as AppMonitorInputPromptRefKind);
+}
+
+function isResourceKind(value: unknown): value is AppMonitorResourceKind {
+	return typeof value === "string" && RESOURCE_KINDS.has(value as AppMonitorResourceKind);
+}
+
+function isResourceOperation(value: unknown): value is AppMonitorResourceOperation {
+	return typeof value === "string" && RESOURCE_OPERATIONS.has(value as AppMonitorResourceOperation);
+}
+
+function isResourceSource(value: unknown): value is AppMonitorResourceSource {
+	return typeof value === "string" && RESOURCE_SOURCES.has(value as AppMonitorResourceSource);
 }
 
 function normalizeKey(value: unknown): string {

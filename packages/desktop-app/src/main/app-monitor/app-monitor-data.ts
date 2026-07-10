@@ -37,6 +37,32 @@ export interface AppMonitorPromptRefStats {
 	lastUsedAt: number;
 }
 
+export interface AppMonitorResourceKindStats {
+	events: number;
+	installed: number;
+	updated: number;
+	imported: number;
+	uninstalled: number;
+	enabled: number;
+	disabled: number;
+	reloaded: number;
+	permissionGrants: number;
+	permissionRevokes: number;
+	commandGrants: number;
+	commandRevokes: number;
+	permissionsChanged: number;
+	commandsChanged: number;
+}
+
+export interface AppMonitorResourceStats extends AppMonitorResourceKindStats {
+	kind: string;
+	id: string;
+	lastOperation: string;
+	lastOperationAt: number;
+	source?: string;
+	system: boolean;
+}
+
 export interface AppMonitorData {
 	schemaVersion: typeof APP_MONITOR_SCHEMA_VERSION;
 	createdAt: number;
@@ -184,6 +210,17 @@ export interface AppMonitorData {
 		recent: AppMonitorPromptRefStats | null;
 		recentSkill: AppMonitorPromptRefStats | null;
 		recentScene: AppMonitorPromptRefStats | null;
+	};
+	resources: {
+		events: number;
+		byKind: Record<string, AppMonitorResourceKindStats>;
+		bySource: Record<string, number>;
+		byOperation: Record<string, number>;
+		byResource: Record<string, AppMonitorResourceStats>;
+		mostOperated: AppMonitorResourceStats | null;
+		mostOperatedByKind: Record<string, AppMonitorResourceStats>;
+		recent: AppMonitorResourceStats | null;
+		recentByKind: Record<string, AppMonitorResourceStats>;
 	};
 }
 
@@ -341,6 +378,89 @@ function normalizePromptRefStatsRecord(value: unknown): Record<string, AppMonito
 	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
 		const key = normalizeInputActionId(rawKey);
 		const stats = normalizePromptRefStats(rawStats);
+		if (key === "" || !stats) continue;
+		statsByKey[key] = stats;
+	}
+	return statsByKey;
+}
+
+function normalizeResourceKindStats(value: unknown): AppMonitorResourceKindStats {
+	const stats = asRecord(value);
+	return {
+		events: normalizeCount(stats.events),
+		installed: normalizeCount(stats.installed),
+		updated: normalizeCount(stats.updated),
+		imported: normalizeCount(stats.imported),
+		uninstalled: normalizeCount(stats.uninstalled),
+		enabled: normalizeCount(stats.enabled),
+		disabled: normalizeCount(stats.disabled),
+		reloaded: normalizeCount(stats.reloaded),
+		permissionGrants: normalizeCount(stats.permissionGrants),
+		permissionRevokes: normalizeCount(stats.permissionRevokes),
+		commandGrants: normalizeCount(stats.commandGrants),
+		commandRevokes: normalizeCount(stats.commandRevokes),
+		permissionsChanged: normalizeCount(stats.permissionsChanged),
+		commandsChanged: normalizeCount(stats.commandsChanged),
+	};
+}
+
+function normalizeResourceKindStatsRecord(value: unknown): Record<string, AppMonitorResourceKindStats> {
+	const statsByKey: Record<string, AppMonitorResourceKindStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeMetricKey(rawKey);
+		if (key === "") continue;
+		statsByKey[key] = normalizeResourceKindStats(rawStats);
+	}
+	return statsByKey;
+}
+
+function normalizeResourceId(value: unknown): string {
+	if (typeof value !== "string") return "";
+	const trimmed = value.trim();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
+	return trimmed.slice(0, 128);
+}
+
+function normalizeResourceStats(value: unknown): AppMonitorResourceStats | null {
+	const stats = asRecord(value);
+	const kind = normalizeMetricKey(stats.kind);
+	const id = normalizeResourceId(stats.id);
+	const lastOperation = normalizeMetricKey(stats.lastOperation);
+	const source = normalizeMetricKey(stats.source);
+	const base = normalizeResourceKindStats(stats);
+	if ((kind !== "skill" && kind !== "scene" && kind !== "plugin") || id === "" || base.events === 0) return null;
+	return {
+		...base,
+		kind,
+		id,
+		lastOperation,
+		lastOperationAt: normalizeCount(stats.lastOperationAt),
+		...(source === "" ? {} : { source }),
+		system: stats.system === true,
+	};
+}
+
+function normalizeResourceStatsRecord(value: unknown): Record<string, AppMonitorResourceStats> {
+	const statsByKey: Record<string, AppMonitorResourceStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeInputActionId(rawKey);
+		const stats = normalizeResourceStats(rawStats);
+		if (key === "" || !stats) continue;
+		statsByKey[key] = stats;
+	}
+	return statsByKey;
+}
+
+function normalizeResourceStatsSnapshot(value: unknown): AppMonitorResourceStats | null {
+	const stats = normalizeResourceStats(value);
+	return stats ? { ...stats } : null;
+}
+
+function normalizeResourceStatsSnapshotRecord(value: unknown): Record<string, AppMonitorResourceStats> {
+	const statsByKey: Record<string, AppMonitorResourceStats> = {};
+	for (const [rawKey, rawStats] of Object.entries(asRecord(value))) {
+		const key = normalizeMetricKey(rawKey);
+		const stats = normalizeResourceStats(rawStats);
 		if (key === "" || !stats) continue;
 		statsByKey[key] = stats;
 	}
@@ -505,6 +625,17 @@ export function createDefaultAppMonitorData(now = Date.now()): AppMonitorData {
 			recentSkill: null,
 			recentScene: null,
 		},
+		resources: {
+			events: 0,
+			byKind: {},
+			bySource: {},
+			byOperation: {},
+			byResource: {},
+			mostOperated: null,
+			mostOperatedByKind: {},
+			recent: null,
+			recentByKind: {},
+		},
 	};
 }
 
@@ -531,6 +662,8 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 	const inputActionsUsed = asRecord(inputActions.used);
 	const inputPromptRefs = asRecord(data.inputPromptRefs);
 	const inputPromptRefsByRef = normalizePromptRefStatsRecord(inputPromptRefs.byRef);
+	const resources = asRecord(data.resources);
+	const resourcesByResource = normalizeResourceStatsRecord(resources.byResource);
 
 	return {
 		schemaVersion: APP_MONITOR_SCHEMA_VERSION,
@@ -686,6 +819,24 @@ export function normalizeAppMonitorData(value: unknown): AppMonitorData {
 			recentScene:
 				normalizePromptRefStats(inputPromptRefs.recentScene) ?? findRecentPromptRef(inputPromptRefsByRef, "scene"),
 		},
+		resources: {
+			events: normalizeCount(resources.events),
+			byKind: normalizeResourceKindStatsRecord(resources.byKind),
+			bySource: normalizeCountRecord(resources.bySource),
+			byOperation: normalizeCountRecord(resources.byOperation),
+			byResource: resourcesByResource,
+			mostOperated:
+				normalizeResourceStatsSnapshot(resources.mostOperated) ?? findMostOperatedResource(resourcesByResource),
+			mostOperatedByKind: {
+				...findMostOperatedResourcesByKind(resourcesByResource),
+				...normalizeResourceStatsSnapshotRecord(resources.mostOperatedByKind),
+			},
+			recent: normalizeResourceStatsSnapshot(resources.recent) ?? findRecentResource(resourcesByResource),
+			recentByKind: {
+				...findRecentResourcesByKind(resourcesByResource),
+				...normalizeResourceStatsSnapshotRecord(resources.recentByKind),
+			},
+		},
 	};
 }
 
@@ -719,4 +870,58 @@ function findRecentPromptRef(
 		}
 	}
 	return selected ? { ...selected } : null;
+}
+
+function findMostOperatedResource(
+	statsByKey: Record<string, AppMonitorResourceStats>,
+	kind?: string,
+): AppMonitorResourceStats | null {
+	let selected: AppMonitorResourceStats | null = null;
+	for (const stats of Object.values(statsByKey)) {
+		if (kind && stats.kind !== kind) continue;
+		if (
+			!selected ||
+			stats.events > selected.events ||
+			(stats.events === selected.events && stats.lastOperationAt > selected.lastOperationAt)
+		) {
+			selected = stats;
+		}
+	}
+	return selected ? { ...selected } : null;
+}
+
+function findRecentResource(
+	statsByKey: Record<string, AppMonitorResourceStats>,
+	kind?: string,
+): AppMonitorResourceStats | null {
+	let selected: AppMonitorResourceStats | null = null;
+	for (const stats of Object.values(statsByKey)) {
+		if (kind && stats.kind !== kind) continue;
+		if (!selected || stats.lastOperationAt > selected.lastOperationAt) {
+			selected = stats;
+		}
+	}
+	return selected ? { ...selected } : null;
+}
+
+function findMostOperatedResourcesByKind(
+	statsByKey: Record<string, AppMonitorResourceStats>,
+): Record<string, AppMonitorResourceStats> {
+	const result: Record<string, AppMonitorResourceStats> = {};
+	for (const kind of ["skill", "scene", "plugin"]) {
+		const stats = findMostOperatedResource(statsByKey, kind);
+		if (stats) result[kind] = stats;
+	}
+	return result;
+}
+
+function findRecentResourcesByKind(
+	statsByKey: Record<string, AppMonitorResourceStats>,
+): Record<string, AppMonitorResourceStats> {
+	const result: Record<string, AppMonitorResourceStats> = {};
+	for (const kind of ["skill", "scene", "plugin"]) {
+		const stats = findRecentResource(statsByKey, kind);
+		if (stats) result[kind] = stats;
+	}
+	return result;
 }

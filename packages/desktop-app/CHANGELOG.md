@@ -32,6 +32,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **技能、场景与插件生命周期使用统计**：应用监控新增 `resource.lifecycle` 行为事件，技能/场景安装、更新、卸载、启用/停用、自定义导入，以及插件安装、更新、卸载、启用/停用、重载、权限授权/撤销、命令授权/撤销成功后会按资源类型、来源、操作、资源 id 聚合到 `app-monitor.json`，并维护最近操作与最多操作快照；权限和命令仅记录变化数量，不保存具体权限名、命令名、包路径或文件内容。
 - **输入附件行为事件统计**：应用监控新增通用 renderer → main 行为事件入口，输入框通过 @ 面板、文件选择、图片选择、拖放和粘贴添加附件时会上报去隐私的聚合元数据；发送消息时也会记录本轮实际使用的文件、图片、scene 与 skill。主进程按来源、文件扩展名、图片格式、总大小、图片最大/最小尺寸数值、scene/skill 类型、名称、使用次数、最近使用与最多使用项更新 `app-monitor.json`，不保存文件路径、文件名、base64、提示词或会话内容。
 - **输入框底部 action 使用统计**：应用监控新增 `input.action.toggled` 与 `input.action.used` 事件，分别记录内置知识检索与插件 input action 的打开/关闭次数、发送消息时实际进入本轮请求的次数，并按 action 类型与 action id 聚合到 `app-monitor.json`，不记录按钮文案、metadata 内容、提示词或会话内容。
 - **模型设置支持 Z.ai / 智谱 OpenAI Completions 扩展**：模型 API 类型下拉新增 `zai-openai-completions` 与 `zhipu-openai-completions`，用于 GLM OpenAI 兼容接口并配套自定义思考档位。
