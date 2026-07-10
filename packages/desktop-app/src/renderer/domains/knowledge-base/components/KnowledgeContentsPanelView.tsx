@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
+import type { useKnowledgeContentsModel } from "../hooks/useKnowledgeContentsModel";
 import { KnowledgeBreadcrumb } from "./KnowledgeBreadcrumb";
 import { KnowledgeContextMenu } from "./KnowledgeContextMenu";
+import { KnowledgeFilesSkeleton } from "./KnowledgeFilesSkeleton";
 import { KnowledgeGrid } from "./KnowledgeGrid";
 import { KnowledgeList } from "./KnowledgeList";
 import { KnowledgeRenameDialog } from "./KnowledgeRenameDialog";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
-import type { useKnowledgeContentsModel } from "../hooks/useKnowledgeContentsModel";
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
@@ -66,6 +67,11 @@ export function KnowledgeContentsPanelView({
 								</div>
 							</div>
 						</motion.div>
+					</div>
+				) : model.levelPending ? (
+					// 进入未加载目录：骨架代替空态，避免「空目录」闪一下
+					<div className="-mx-8 flex min-h-0 flex-1">
+						<KnowledgeFilesSkeleton />
 					</div>
 				) : (
 					<View

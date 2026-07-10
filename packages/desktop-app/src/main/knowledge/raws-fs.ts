@@ -17,7 +17,15 @@ export interface KnowledgeNodeDto {
 	id: string;
 	name: string;
 	type: "file" | "directory";
+	/**
+	 * 子节点。懒加载约定：
+	 * - `undefined`：尚未拉取该层（目录）
+	 * - 数组（可为空）：已拉取
+	 * 列表接口每次只返回一层，不递归叶子。
+	 */
 	children?: KnowledgeNodeDto[];
+	/** 子项数量（目录，浅层 readdir 计数，不含隐藏项）；未加载 children 时用于 UI「N 项」。 */
+	childCount?: number;
 	/** 字节数（文件）。 */
 	size?: number;
 	/** 本地绝对路径（文件，供全局预览）。 */
@@ -64,15 +72,25 @@ function resolveInBase(kbId: string, relPath: string): string {
 
 // ---------- 读 ----------
 
-async function buildTree(absDir: string, relBase: string): Promise<KnowledgeNodeDto[]> {
+/** 解析库内目录绝对路径；relPath 空串 = 库根。 */
+function resolveKbDir(kbId: string, relPath: string): string {
+	assertSafeSegment(kbId);
+	if (!relPath) return join(rawsRoot(), kbId);
+	return resolveInBase(kbId, relPath);
+}
+
+/**
+ * 只读一层目录条目，不递归叶子。
+ * 目录节点不带 children（undefined = 未加载），仅带 childCount 供「N 项」展示。
+ */
+async function listLevel(absDir: string, relBase: string): Promise<KnowledgeNodeDto[]> {
 	let entries: Dirent[];
 	try {
 		entries = await readdir(absDir, { withFileTypes: true });
 	} catch {
 		return [];
 	}
-	// 同层子目录递归与文件 stat 并行展开：避免逐项串行 await 在深树/大目录下空屏。
-	// fs 操作走 libuv 线程池（默认并发受限并排队），不会因此耗尽文件句柄。
+	// 同层文件 stat 与子目录浅计数并行：不递归整树。
 	const built = await Promise.all(
 		entries
 			.filter((entry) => !entry.name.startsWith(".")) // 隐藏文件不入 UI
@@ -80,7 +98,9 @@ async function buildTree(absDir: string, relBase: string): Promise<KnowledgeNode
 				const full = join(absDir, entry.name);
 				const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
 				if (entry.isDirectory()) {
-					return { id: rel, name: entry.name, type: "directory", children: await buildTree(full, rel) };
+					const childNames = await readdir(full).catch(() => [] as string[]);
+					const childCount = childNames.filter((name) => !name.startsWith(".")).length;
+					return { id: rel, name: entry.name, type: "directory", childCount };
 				}
 				if (entry.isFile()) {
 					const info = await stat(full).catch(() => null);
@@ -107,7 +127,10 @@ async function ensureDefaultBase(): Promise<void> {
 	}).catch(() => {});
 }
 
-/** 列出全部知识库（顶层目录），每个含完整文件树。 */
+/**
+ * 列出全部知识库；每个库只带根层 nodes（一层，不递归叶子）。
+ * 进入子目录时由 listKnowledgeDir 按需拉取。
+ */
 export async function listKnowledgeBases(): Promise<KnowledgeBaseDto[]> {
 	const root = rawsRoot();
 	await mkdir(root, { recursive: true }).catch(() => {});
@@ -118,7 +141,7 @@ export async function listKnowledgeBases(): Promise<KnowledgeBaseDto[]> {
 	} catch {
 		return [];
 	}
-	// 各知识库的树并行构建，互不阻塞。
+	// 各知识库根层并行列出，互不阻塞。
 	const bases = await Promise.all(
 		entries
 			.filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
@@ -130,7 +153,7 @@ export async function listKnowledgeBases(): Promise<KnowledgeBaseDto[]> {
 					name: entry.name,
 					updatedAt: info?.mtimeMs ?? 0,
 					isDefault: entry.name === DEFAULT_KNOWLEDGE_BASE,
-					nodes: await buildTree(full, ""),
+					nodes: await listLevel(full, ""),
 				};
 			}),
 	);
@@ -140,6 +163,15 @@ export async function listKnowledgeBases(): Promise<KnowledgeBaseDto[]> {
 		return b.updatedAt - a.updatedAt;
 	});
 	return bases;
+}
+
+/**
+ * 列出某知识库内一层目录内容（relPath 相对 raws/<kb>/，空串 = 库根）。
+ * 不递归；目录子节点需再次调用本接口。
+ */
+export async function listKnowledgeDir(kbId: string, relPath: string): Promise<KnowledgeNodeDto[]> {
+	const abs = resolveKbDir(kbId, relPath);
+	return listLevel(abs, relPath);
 }
 
 // ---------- 写 ----------

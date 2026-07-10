@@ -171,7 +171,8 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 				)}
 			</header>
 
-			{model.loading && model.knowledgeBases.length === 0 && <KnowledgeFilesSkeleton />}
+			{/* 仅列表尚无缓存时页面骨架；有 activeBase 时保持内容面板挂载，避免 path 丢失弹回根层 */}
+			{model.showFilesSkeleton && <KnowledgeFilesSkeleton />}
 
 			<AnimatePresence mode="popLayout" initial={false}>
 				{model.activeBase && (

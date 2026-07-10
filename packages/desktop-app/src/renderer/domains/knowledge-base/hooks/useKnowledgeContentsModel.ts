@@ -1,8 +1,11 @@
 import {
 	confirmDialogAtom,
+	ensureKnowledgePathLoadedAtom,
 	filePreviewAtom,
+	knowledgeBrowsePathByBaseAtom,
 	knowledgeFileStatusesAtom,
 	knowledgeNavTargetAtom,
+	knowledgeStatusesHydratedAtom,
 	knowledgeViewModeAtom,
 	refreshKnowledgeBasesAtom,
 } from "@shared/store/atoms";
@@ -11,7 +14,14 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ContextMenuItem } from "../components/KnowledgeContextMenu";
-import { knowledgeBaseDisplayName, knowledgeNodeMatches, nodesAtPath } from "../lib/knowledge-base";
+import {
+	isKnowledgeDirLoaded,
+	knowledgeBaseDisplayName,
+	knowledgeNodeMatches,
+	nodesAtPath,
+	resolveKnowledgeFileStatus,
+	shouldHoldForStatuses,
+} from "../lib/knowledge-base";
 
 interface UseKnowledgeContentsModelParams {
 	knowledgeBase: KnowledgeBase;
@@ -20,25 +30,47 @@ interface UseKnowledgeContentsModelParams {
 
 type MenuState = { x: number; y: number; node: KnowledgeNode };
 
+/** 稳定空路径：`?? []` 每次渲染都是新引用，会让依赖 path 的 effect 死循环。 */
+const EMPTY_PATH: string[] = [];
+
 export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledgeContentsModelParams) {
 	const { t } = useTranslation(["settings", "common"]);
 	const baseName = knowledgeBaseDisplayName(knowledgeBase);
-	const [path, setPath] = useState<string[]>([]);
+	const [pathByBase, setPathByBase] = useAtom(knowledgeBrowsePathByBaseAtom);
+	const path = pathByBase[knowledgeBase.id] ?? EMPTY_PATH;
+	/** path 序列化键，作 effect 依赖（避免数组引用抖动）。 */
+	const pathKey = path.join("/");
+	const setPath = useCallback(
+		(next: string[] | ((prev: string[]) => string[])) => {
+			setPathByBase((prev) => {
+				const current = prev[knowledgeBase.id] ?? EMPTY_PATH;
+				const value = typeof next === "function" ? next(current) : next;
+				if (current.length === value.length && current.every((seg, i) => seg === value[i])) return prev;
+				return { ...prev, [knowledgeBase.id]: value };
+			});
+		},
+		[knowledgeBase.id, setPathByBase],
+	);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [anchorId, setAnchorId] = useState<string | null>(null);
 	const [menu, setMenu] = useState<MenuState | null>(null);
 	const [renameNode, setRenameNode] = useState<KnowledgeNode | null>(null);
+	/** 当前面包屑路径链上的某层尚未回填时为 true，用于骨架而非「空目录」闪一下。 */
+	const [levelLoading, setLevelLoading] = useState(false);
 	const confirm = useSetAtom(confirmDialogAtom);
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
+	const ensurePathLoaded = useSetAtom(ensureKnowledgePathLoadedAtom);
 	const openPreview = useSetAtom(filePreviewAtom);
 	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
+	const statusesHydrated = useAtomValue(knowledgeStatusesHydratedAtom);
 	const viewMode = useAtomValue(knowledgeViewModeAtom);
 	const [navTarget, setNavTarget] = useAtom(knowledgeNavTargetAtom);
 
 	const statusFor = useCallback(
 		(node: KnowledgeNode): KnowledgeProcessStatus | null => {
 			if (node.type !== "file") return null;
-			return fileStatuses[`${knowledgeBase.id}/${node.id}`]?.status ?? "unprocessed";
+			// 缺 key = 尚未回填，不得默认 unprocessed（否则首屏整表误灰）。
+			return resolveKnowledgeFileStatus(fileStatuses, knowledgeBase.id, node.id);
 		},
 		[fileStatuses, knowledgeBase.id],
 	);
@@ -58,16 +90,16 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 	);
 
 	const clearSelection = useCallback(() => {
-		setSelectedIds(new Set());
-		setAnchorId(null);
+		// 已空则跳过：new Set() 每次新引用，盲目 set 会触发多余渲染。
+		setSelectedIds((prev) => (prev.size === 0 ? prev : new Set()));
+		setAnchorId((prev) => (prev === null ? prev : null));
 	}, []);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 仅在切库时重置
-	useEffect(() => setPath([]), [knowledgeBase.id]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 切目录/库后清空选中
+	// 切库 / 切目录后清空选中（path 按库存在 atom，切库不丢各自位置）
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pathKey 代表 path 内容
 	useEffect(() => {
 		clearSelection();
-	}, [path, knowledgeBase.id, clearSelection]);
+	}, [pathKey, knowledgeBase.id, clearSelection]);
 
 	useEffect(() => {
 		if (!navTarget) return;
@@ -77,21 +109,48 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 			setPath(segments);
 			return;
 		}
+		// 目标层可能仍在懒加载：本层 nodes 尚未含该文件则等下一轮。
+		const level = nodesAtPath(knowledgeBase.nodes, path);
+		if (!level?.some((n) => n.id === navTarget.fileId)) return;
+		const el = document.querySelector(`[data-knode-id="${CSS.escape(navTarget.fileId)}"]`);
+		if (!el) return;
 		setSelectedIds(new Set([navTarget.fileId]));
 		setAnchorId(navTarget.fileId);
-		document.querySelector(`[data-knode-id="${CSS.escape(navTarget.fileId)}"]`)?.scrollIntoView({ block: "center" });
+		el.scrollIntoView({ block: "center" });
 		setNavTarget(null);
-	}, [navTarget, path, setNavTarget]);
+	}, [navTarget, path, setNavTarget, knowledgeBase.nodes, setPath]);
 
 	useEffect(() => window.vetta.knowledge.onStatusesChanged(() => void refresh()), [refresh]);
 
+	// 进入目录 / 深链跳转：按路径链逐层 listDir。依赖 pathKey（内容）而非 path 引用。
+	useEffect(() => {
+		if (isKnowledgeDirLoaded(knowledgeBase.nodes, pathKey)) {
+			setLevelLoading((prev) => (prev ? false : prev));
+			return;
+		}
+		let cancelled = false;
+		setLevelLoading(true);
+		const segments = pathKey ? pathKey.split("/") : EMPTY_PATH;
+		void ensurePathLoaded({ kbId: knowledgeBase.id, pathSegments: segments })
+			.catch(() => {})
+			.finally(() => {
+				if (!cancelled) setLevelLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [ensurePathLoaded, knowledgeBase.id, knowledgeBase.nodes, pathKey]);
+
 	const currentNodes = useMemo(() => nodesAtPath(knowledgeBase.nodes, path), [knowledgeBase.nodes, path]);
 	const query = search.trim().toLocaleLowerCase();
-	const visibleNodes = useMemo(
-		() => (query ? currentNodes.filter((node) => knowledgeNodeMatches(node, query)) : currentNodes),
-		[currentNodes, query],
-	);
-	const filesAtLevel = useMemo(() => currentNodes.filter((node) => node.type === "file"), [currentNodes]);
+	const visibleNodes = useMemo(() => {
+		if (!currentNodes) return [];
+		return query ? currentNodes.filter((node) => knowledgeNodeMatches(node, query)) : currentNodes;
+	}, [currentNodes, query]);
+	const filesAtLevel = useMemo(() => (currentNodes ?? []).filter((node) => node.type === "file"), [currentNodes]);
+	/** 本层未加载完，或本层有文件但加工态未回填：骨架，避免空态/灰闪；不卸载面板。 */
+	const levelPending =
+		levelLoading || currentNodes === null || shouldHoldForStatuses({ statusesHydrated, levelNodes: currentNodes });
 
 	const openNode = useCallback(
 		(node: KnowledgeNode) => {
@@ -111,7 +170,7 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 				index,
 			});
 		},
-		[filesAtLevel, openPreview],
+		[filesAtLevel, openPreview, setPath],
 	);
 
 	const onItemClick = useCallback(
@@ -262,12 +321,13 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 
 	const navigateBreadcrumb = useCallback(
 		(index: number) => setPath(index < 0 ? [] : path.slice(0, index + 1)),
-		[path],
+		[path, setPath],
 	);
 
 	return {
 		baseName,
 		clearSelection,
+		levelPending,
 		menu,
 		menuItems,
 		navigateBreadcrumb,

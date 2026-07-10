@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useAtomValue } from "jotai";
 import type { KnowledgeBase } from "@shared/types/knowledge-base";
 import { Button } from "@shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
 import { cn } from "@shared/lib/utils";
+import { knowledgeFileStatusesAtom } from "@shared/store/atoms";
 import { KnowledgeRenameDialog } from "./KnowledgeRenameDialog";
-import { countKnowledgeNodes, knowledgeBaseDisplayName } from "../lib/knowledge-base";
+import { countKnowledgeFilesFromStatuses, knowledgeBaseDisplayName } from "../lib/knowledge-base";
 
 interface KnowledgeBaseSwitcherProps {
 	bases: KnowledgeBase[];
@@ -30,6 +32,7 @@ export function KnowledgeBaseSwitcher({
 	onRequestDeleteBase,
 }: KnowledgeBaseSwitcherProps): JSX.Element {
 	const { t } = useTranslation("settings");
+	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
 	const [open, setOpen] = useState(false);
 	const [renaming, setRenaming] = useState(false);
 	const activeName = knowledgeBaseDisplayName(activeBase);
@@ -75,7 +78,8 @@ export function KnowledgeBaseSwitcher({
 						{t("kbSwitchLabel")}
 					</div>
 					{quickBases.map((base) => {
-						const fileCount = countKnowledgeNodes(base.nodes).files;
+						// 全库文件数来自加工态 map（懒加载树只有根层）
+						const fileCount = countKnowledgeFilesFromStatuses(base.id, fileStatuses);
 						const active = base.id === activeBase.id;
 						return (
 							<Button
