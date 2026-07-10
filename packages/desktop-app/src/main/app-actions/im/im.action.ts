@@ -1,5 +1,5 @@
 import { getImHost } from "../../im-host/index.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import { type ImManageInput, type ImQueryInput, validateImManageInput, validateImQueryInput } from "./im.schema.js";
 
@@ -111,7 +111,11 @@ export function createImActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "im.write",
 			keywords: ["im", "claw", "启用", "重启", "飞书"],
-			approval: genericApproval,
+			approval: createOperationApprovals("im.set-enabled", [
+				{ id: "im.set-enabled", title: "启用/停用 IM 旁路确认", description: "展示 IM 旁路启用状态变更。" },
+				{ id: "im.restart", title: "重启 IM 旁路确认", description: "确认重启本地 IM 旁路。" },
+				{ id: "im.set-agent-model", title: "设置 IM Agent 模型确认", description: "展示并可编辑 IM Agent 模型。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateImManageInput,

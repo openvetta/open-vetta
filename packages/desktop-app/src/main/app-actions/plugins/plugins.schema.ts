@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const pluginsQueryInputSchema = z.discriminatedUnion("operation", [
@@ -13,22 +13,22 @@ export const pluginsManageInputSchema = z.discriminatedUnion("operation", [
 		operation: z.literal("set-enabled"),
 		id: z.string().trim().min(1),
 		enabled: z.boolean(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("plugins.set-enabled"),
 	}),
 	z.object({
 		operation: z.literal("install-from-url"),
 		url: z.string().url(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("plugins.install-from-url"),
 	}),
 	z.object({
 		operation: z.literal("uninstall"),
 		id: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("plugins.uninstall"),
 	}),
 	z.object({
 		operation: z.literal("reload"),
 		id: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("plugins.reload"),
 	}),
 ]);
 

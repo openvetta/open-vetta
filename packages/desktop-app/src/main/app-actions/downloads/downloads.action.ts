@@ -1,5 +1,5 @@
 import { cancelDownload, listDownloads } from "../../ipc/downloads.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	type DownloadsManageInput,
@@ -76,7 +76,9 @@ export function createDownloadsActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "downloads.write",
 			keywords: ["下载", "取消下载", "cancel"],
-			approval: genericApproval,
+			approval: createOperationApprovals("downloads.cancel", [
+				{ id: "downloads.cancel", title: "取消下载确认", description: "展示待取消的下载任务。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateDownloadsManageInput,

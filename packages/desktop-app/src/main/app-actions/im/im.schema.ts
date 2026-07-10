@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const imQueryInputSchema = z.discriminatedUnion("operation", [
@@ -12,11 +12,11 @@ export const imManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("set-enabled"),
 		enabled: z.boolean(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("im.set-enabled"),
 	}),
 	z.object({
 		operation: z.literal("restart"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("im.restart"),
 	}),
 	z.object({
 		operation: z.literal("set-agent-model"),
@@ -27,7 +27,7 @@ export const imManageInputSchema = z.discriminatedUnion("operation", [
 			.regex(/^[^/]+\/.+$/, 'modelKey must be "provider/modelId"')
 			.nullable(),
 		reasoningLevel: z.string().trim().min(1).optional(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("im.set-agent-model"),
 	}),
 ]);
 

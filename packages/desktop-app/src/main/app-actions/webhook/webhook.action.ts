@@ -1,5 +1,5 @@
 import { getWebhookManager } from "../../webhook/index.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	validateWebhookManageInput,
@@ -120,7 +120,14 @@ export function createWebhookActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "webhook.write",
 			keywords: ["webhook", "推送", "飞书", "钉钉", "机器人", "发送"],
-			approval: genericApproval,
+			approval: createOperationApprovals("webhook.create", [
+				{ id: "webhook.create", title: "创建 Webhook 确认", description: "展示并可编辑 Webhook 配置。" },
+				{ id: "webhook.update", title: "更新 Webhook 确认", description: "加载当前配置并允许编辑后确认。" },
+				{ id: "webhook.set-enabled", title: "启用/停用 Webhook 确认", description: "展示 Webhook 启用状态变更。" },
+				{ id: "webhook.delete", title: "删除 Webhook 确认", description: "展示待删除 Webhook。" },
+				{ id: "webhook.test", title: "测试 Webhook 确认", description: "确认发送测试消息。" },
+				{ id: "webhook.send", title: "发送 Webhook 消息确认", description: "展示并可编辑消息内容。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateWebhookManageInput,

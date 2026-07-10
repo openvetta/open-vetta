@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const updaterQueryInputSchema = z.discriminatedUnion("operation", [
@@ -11,23 +11,23 @@ export const updaterQueryInputSchema = z.discriminatedUnion("operation", [
 export const updaterManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("check"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("updater.check"),
 	}),
 	z.object({
 		operation: z.literal("download"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("updater.download"),
 	}),
 	z.object({
 		operation: z.literal("install"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("updater.install"),
 	}),
 	z.object({
 		operation: z.literal("dismiss"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("updater.dismiss"),
 	}),
 	z.object({
 		operation: z.literal("cancel"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("updater.cancel"),
 	}),
 ]);
 

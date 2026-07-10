@@ -73,6 +73,460 @@
 		"permission": "权限：{{permission}}",
 		"permissionPrefix": "权限："
 	},
+	"manageApproval": {
+		"fallbackTitle": "操作确认",
+		"fallbackConfirm": "确认执行",
+		"fallbackBadge": "操作",
+		"rawInput": "请求内容",
+		"yes": "是",
+		"no": "否",
+		"fieldWithKey": "{{prefix}}.{{key}}",
+		"fields": {
+			"modelKey": "模型",
+			"reasoningLevel": "推理档位",
+			"provider": "服务商",
+			"config": "配置",
+			"serverName": "MCP 服务",
+			"enabled": "启用",
+			"skillName": "技能名称",
+			"resourceType": "类型",
+			"name": "名称",
+			"newName": "新名称",
+			"path": "路径",
+			"paths": "文件路径",
+			"language": "语言",
+			"executionMode": "执行模式",
+			"experimental": "实验功能",
+			"knowledgeBase": "知识库设置",
+			"kbId": "知识库 ID",
+			"relPath": "相对路径",
+			"move": "移动文件",
+			"pluginId": "插件 ID",
+			"url": "安装地址",
+			"kind": "平台",
+			"webhookUrl": "Webhook URL",
+			"signSecret": "签名密钥",
+			"id": "ID",
+			"title": "标题",
+			"level": "级别",
+			"text": "消息内容",
+			"displayName": "显示名称",
+			"baseUrl": "Base URL",
+			"api": "API 类型",
+			"apiKey": "API Key",
+			"models": "模型列表",
+			"command": "命令",
+			"args": "参数",
+			"cwd": "工作目录",
+			"headers": "请求头"
+		},
+		"models": {
+			"ops": {
+				"set-default": {
+					"title": "设置默认模型确认",
+					"summary": "确认后将把该模型设为默认对话模型。",
+					"confirm": "确认设置默认模型",
+					"badge": "默认模型",
+					"impact": "默认对话模型将切换为指定模型。"
+				},
+				"set-peripheral": {
+					"title": "设置周边模型确认",
+					"summary": "确认后将更新周边模型（如知识库加工等）配置。",
+					"confirm": "确认设置周边模型",
+					"badge": "周边模型",
+					"impact": "周边任务（如知识库加工等）将使用新的模型配置。"
+				},
+				"upsert-provider": {
+					"title": "创建或更新模型服务商确认",
+					"summary": "请确认服务商配置。密钥字段已脱敏显示，确认后按提交的配置写入。",
+					"confirm": "确认保存服务商",
+					"badge": "服务商",
+					"impact": "服务商配置将写入本地 models.json，并影响可用模型列表。"
+				},
+				"remove-provider": {
+					"title": "删除模型服务商确认",
+					"summary": "删除后该服务商下的模型将不可用，关联默认/周边模型引用会被清除。",
+					"confirm": "确认删除服务商",
+					"badge": "删除",
+					"impact": "该服务商及其模型将从本地配置中删除。",
+					"warning": "删除服务商会同时清除依赖它的默认/周边模型引用。"
+				}
+			},
+			"createProviderHint": "新建",
+			"updateProviderHint": "更新已有",
+			"modelsCount": "{{count}} 个模型"
+		},
+		"mcp": {
+			"ops": {
+				"upsert": {
+					"title": "创建或更新 MCP 服务确认",
+					"summary": "请确认 MCP 服务配置。密钥类请求头会脱敏显示。",
+					"confirm": "确认保存 MCP 服务",
+					"badge": "MCP",
+					"impact": "MCP 服务配置将写入本地 mcp.json，并可能影响 Agent 可用工具。"
+				},
+				"set-enabled": {
+					"title": "启用/停用 MCP 服务确认",
+					"summary": "确认后将更改该 MCP 服务的启用状态。",
+					"confirm": "确认更改状态",
+					"badge": "启用状态",
+					"impact": "该 MCP 服务的启用状态将立即更新。"
+				},
+				"remove": {
+					"title": "删除 MCP 服务确认",
+					"summary": "删除后该 MCP 服务配置将从本地移除。",
+					"confirm": "确认删除",
+					"badge": "删除",
+					"impact": "该 MCP 服务配置将从本地移除。",
+					"warning": "删除后需重新配置才能恢复该 MCP 服务。"
+				}
+			},
+			"headersConfigured": "已包含自定义 headers（密钥已脱敏）"
+		},
+		"skills": {
+			"ops": {
+				"set-enabled": {
+					"title": "启用/停用技能确认",
+					"summary": "确认后将更改该技能或场景的启用状态。",
+					"confirm": "确认更改状态",
+					"badge": "技能",
+					"impact": "技能/场景启用状态将立即生效。"
+				},
+				"uninstall": {
+					"title": "卸载技能确认",
+					"summary": "卸载后本地技能文件会被移除，此操作无法撤销。",
+					"confirm": "确认卸载",
+					"badge": "卸载",
+					"impact": "本地技能文件将被卸载，无法直接恢复。",
+					"warning": "卸载后技能文件会被移除，此操作无法撤销。"
+				}
+			}
+		},
+		"projects": {
+			"ops": {
+				"create": {
+					"title": "创建项目确认",
+					"summary": "确认后将创建新项目并加入侧边栏。",
+					"confirm": "确认创建项目",
+					"badge": "创建",
+					"impact": "将在侧边栏创建新项目，并确保目录存在。"
+				},
+				"open": {
+					"title": "打开项目确认",
+					"summary": "确认后将打开指定路径的项目。",
+					"confirm": "确认打开",
+					"badge": "打开",
+					"impact": "将打开该路径项目并加入活跃列表。"
+				},
+				"rename": {
+					"title": "重命名项目确认",
+					"summary": "确认后将更新项目显示名称。",
+					"confirm": "确认重命名",
+					"badge": "重命名",
+					"impact": "仅更新侧边栏显示名称，不会移动磁盘目录。"
+				},
+				"archive": {
+					"title": "归档项目确认",
+					"summary": "确认后项目将移入归档列表，历史会话会保留。",
+					"confirm": "确认归档",
+					"badge": "归档",
+					"impact": "项目移入归档列表，历史会话保留。"
+				},
+				"unarchive": {
+					"title": "取消归档项目确认",
+					"summary": "确认后项目将恢复到活跃列表。",
+					"confirm": "确认取消归档",
+					"badge": "取消归档",
+					"impact": "项目恢复到活跃列表。"
+				},
+				"remove": {
+					"title": "移除项目确认",
+					"summary": "确认后项目将从列表移除（不会删除磁盘上的工程文件）。",
+					"confirm": "确认移除",
+					"badge": "移除",
+					"impact": "从侧边栏移除项目记录，不会删除磁盘上的工程文件。",
+					"warning": "仅移除侧边栏记录，磁盘上的工程目录不会被删除。"
+				}
+			},
+			"pathOptional": "可选；省略则在工作区下按名称创建"
+		},
+		"settings": {
+			"ops": {
+				"set-language": {
+					"title": "修改界面语言确认",
+					"summary": "确认后将切换应用界面语言。",
+					"confirm": "确认修改语言",
+					"badge": "语言",
+					"impact": "界面语言将立即切换。"
+				},
+				"set-notifications": {
+					"title": "修改通知设置确认",
+					"summary": "确认后将更新系统通知开关。",
+					"confirm": "确认修改通知",
+					"badge": "通知",
+					"impact": "系统通知开关将更新。"
+				},
+				"set-execution-mode": {
+					"title": "修改默认执行模式确认",
+					"summary": "确认后将更新 Agent 默认执行权限模式。",
+					"confirm": "确认修改执行模式",
+					"badge": "执行模式",
+					"impact": "新建会话的默认执行权限模式将更新。"
+				},
+				"set-workspace": {
+					"title": "修改工作区路径确认",
+					"summary": "确认后将更新默认工作区目录。",
+					"confirm": "确认修改工作区",
+					"badge": "工作区",
+					"impact": "默认工作区目录将更新。"
+				},
+				"set-experimental": {
+					"title": "修改实验功能确认",
+					"summary": "确认后将更新实验性功能开关。",
+					"confirm": "确认修改实验功能",
+					"badge": "实验",
+					"impact": "实验功能开关将按提交字段更新。"
+				},
+				"set-knowledge-base": {
+					"title": "修改知识库加工设置确认",
+					"summary": "确认后将更新知识库加工相关配置。",
+					"confirm": "确认修改知识库设置",
+					"badge": "知识库设置",
+					"impact": "知识库加工相关配置将更新。"
+				}
+			},
+			"languageZh": "中文",
+			"languageEn": "English",
+			"notificationsOn": "开启通知",
+			"notificationsOff": "关闭通知"
+		},
+		"knowledge": {
+			"ops": {
+				"create": {
+					"title": "创建知识库确认",
+					"summary": "确认后将创建新的知识库。",
+					"confirm": "确认创建",
+					"badge": "创建",
+					"impact": "将创建新的知识库。"
+				},
+				"rename": {
+					"title": "重命名知识库确认",
+					"summary": "确认后将更新知识库名称。",
+					"confirm": "确认重命名",
+					"badge": "重命名",
+					"impact": "知识库显示名称将更新。"
+				},
+				"delete": {
+					"title": "删除知识库确认",
+					"summary": "删除后知识库及其加工数据将被移除，此操作无法撤销。",
+					"confirm": "确认删除",
+					"badge": "删除",
+					"impact": "知识库及其加工数据将被删除。",
+					"warning": "删除知识库将同时移除加工产物，此操作无法撤销。"
+				},
+				"add-files": {
+					"title": "向知识库添加文件确认",
+					"summary": "确认后将把所选文件加入知识库并进入加工流程。",
+					"confirm": "确认添加文件",
+					"badge": "添加文件",
+					"impact": "所选文件将加入知识库并进入加工流程。"
+				},
+				"delete-entry": {
+					"title": "删除知识库条目确认",
+					"summary": "确认后将删除该知识库中的指定条目。",
+					"confirm": "确认删除条目",
+					"badge": "删除条目",
+					"impact": "该知识库条目将被删除。",
+					"warning": "条目删除后无法从应用内恢复。"
+				},
+				"scan-now": {
+					"title": "立即整理知识库确认",
+					"summary": "确认后将立即触发一轮知识库扫描与加工。",
+					"confirm": "确认立即整理",
+					"badge": "整理",
+					"impact": "将立即触发一轮知识库扫描与加工。"
+				},
+				"retry-failed": {
+					"title": "重试失败知识库任务确认",
+					"summary": "确认后将清除失败/隔离记录并重新加工。",
+					"confirm": "确认重试失败",
+					"badge": "重试",
+					"impact": "将清除失败/隔离记录并重新加工。"
+				}
+			},
+			"globalAction": "知识库全局操作"
+		},
+		"plugins": {
+			"ops": {
+				"set-enabled": {
+					"title": "启用/停用插件确认",
+					"summary": "确认后将更改该插件的启用状态。",
+					"confirm": "确认更改状态",
+					"badge": "插件",
+					"impact": "插件启用状态将立即更新。"
+				},
+				"install-from-url": {
+					"title": "从 URL 安装插件确认",
+					"summary": "确认后将从指定地址下载并安装插件。",
+					"confirm": "确认安装",
+					"badge": "安装",
+					"impact": "将从 URL 下载并安装插件。"
+				},
+				"uninstall": {
+					"title": "卸载插件确认",
+					"summary": "卸载后插件及其本地数据将按策略移除。",
+					"confirm": "确认卸载",
+					"badge": "卸载",
+					"impact": "插件将按策略卸载。",
+					"warning": "卸载后插件及其本地数据可能按策略清除。"
+				},
+				"reload": {
+					"title": "重载插件确认",
+					"summary": "确认后将重新加载该插件。",
+					"confirm": "确认重载",
+					"badge": "重载",
+					"impact": "插件将重新加载。"
+				}
+			}
+		},
+		"im": {
+			"ops": {
+				"set-enabled": {
+					"title": "启用/停用 IM 旁路确认",
+					"summary": "确认后将更改 IM 旁路网关的启用状态。",
+					"confirm": "确认更改状态",
+					"badge": "IM",
+					"impact": "IM 旁路网关启用状态将更新。"
+				},
+				"restart": {
+					"title": "重启 IM 旁路确认",
+					"summary": "确认后将重启本地 IM 旁路进程。",
+					"confirm": "确认重启",
+					"badge": "重启",
+					"impact": "本地 IM 旁路进程将重启。"
+				},
+				"set-agent-model": {
+					"title": "设置 IM Agent 模型确认",
+					"summary": "确认后将更新 IM 旁路使用的 Agent 模型配置。",
+					"confirm": "确认设置模型",
+					"badge": "IM 模型",
+					"impact": "IM 旁路使用的 Agent 模型将更新。"
+				}
+			},
+			"enableTitle": "启用 IM 旁路",
+			"disableTitle": "停用 IM 旁路",
+			"restartTarget": "本地 IM 旁路进程",
+			"modelKeyPlaceholder": "provider/modelId，留空表示清除"
+		},
+		"webhook": {
+			"ops": {
+				"create": {
+					"title": "创建 Webhook 确认",
+					"summary": "请确认 Webhook 配置。签名密钥会脱敏显示。",
+					"confirm": "确认创建",
+					"badge": "创建",
+					"impact": "将保存新的 Webhook 端点配置。"
+				},
+				"update": {
+					"title": "更新 Webhook 确认",
+					"summary": "请确认即将写入的 Webhook 变更字段。",
+					"confirm": "确认更新",
+					"badge": "更新",
+					"impact": "将按提交字段更新 Webhook 配置。"
+				},
+				"set-enabled": {
+					"title": "启用/停用 Webhook 确认",
+					"summary": "确认后将更改该 Webhook 的启用状态。",
+					"confirm": "确认更改状态",
+					"badge": "启用状态",
+					"impact": "Webhook 启用状态将更新。"
+				},
+				"delete": {
+					"title": "删除 Webhook 确认",
+					"summary": "删除后该 Webhook 配置将不可恢复。",
+					"confirm": "确认删除",
+					"badge": "删除",
+					"impact": "Webhook 配置将被永久删除。",
+					"warning": "删除后该 Webhook 配置不可恢复。"
+				},
+				"test": {
+					"title": "测试 Webhook 确认",
+					"summary": "确认后将向该 Webhook 发送一条测试消息。",
+					"confirm": "确认测试",
+					"badge": "测试",
+					"impact": "将向该 Webhook 发送测试消息。"
+				},
+				"send": {
+					"title": "发送 Webhook 消息确认",
+					"summary": "请确认即将通过 Webhook 发出的消息内容。",
+					"confirm": "确认发送",
+					"badge": "发送",
+					"impact": "将发送自定义消息到该 Webhook。"
+				}
+			},
+			"notFound": "未找到该 Webhook 端点",
+			"loadFailed": "加载 Webhook 列表失败",
+			"feishu": "飞书",
+			"dingtalk": "钉钉"
+		},
+		"downloads": {
+			"ops": {
+				"cancel": {
+					"title": "取消下载确认",
+					"summary": "确认后将取消该下载任务。",
+					"confirm": "确认取消下载",
+					"badge": "取消",
+					"impact": "该下载任务将被取消。",
+					"warning": "取消后需重新发起下载。"
+				}
+			}
+		},
+		"updater": {
+			"ops": {
+				"check": {
+					"title": "检查更新确认",
+					"summary": "确认后将检查是否有可用的应用更新。",
+					"confirm": "确认检查更新",
+					"badge": "检查",
+					"impact": "将检查是否存在可用更新。"
+				},
+				"download": {
+					"title": "下载更新确认",
+					"summary": "确认后将开始下载可用更新包。",
+					"confirm": "确认下载",
+					"badge": "下载",
+					"impact": "将开始下载更新包。"
+				},
+				"install": {
+					"title": "安装更新确认",
+					"summary": "确认后将安装已下载的更新，应用可能需要重启。",
+					"confirm": "确认安装并重启",
+					"badge": "安装",
+					"impact": "将安装更新并可能重启应用。",
+					"warning": "安装更新通常需要重启应用，请确保已保存工作。"
+				},
+				"dismiss": {
+					"title": "忽略更新提示确认",
+					"summary": "确认后将暂时忽略当前更新提示。",
+					"confirm": "确认忽略",
+					"badge": "忽略",
+					"impact": "将暂时忽略当前更新提示。"
+				},
+				"cancel": {
+					"title": "取消更新下载确认",
+					"summary": "确认后将取消进行中的更新下载。",
+					"confirm": "确认取消下载",
+					"badge": "取消",
+					"impact": "将取消进行中的更新下载。"
+				}
+			},
+			"target": "应用更新"
+		},
+		"afterActionTitle": "执行后会发生什么",
+		"unknown": "未知",
+		"clearValue": "清除",
+		"secretPlaceholder": "留空则保持原密钥/不修改"
+	},
 	"navigationApproval": {
 		"title": "页面跳转确认",
 		"target": "目标页面",

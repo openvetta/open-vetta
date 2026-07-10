@@ -9,7 +9,7 @@ import {
 	uninstallPlugin,
 } from "../../plugins/plugin-store.js";
 import { getSharedRuntime } from "../../runtime.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type PluginsManageInput,
@@ -150,7 +150,12 @@ export function createPluginsActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "plugins.write",
 			keywords: ["插件", "plugin", "安装", "卸载", "启用"],
-			approval: genericApproval,
+			approval: createOperationApprovals("plugins.set-enabled", [
+				{ id: "plugins.set-enabled", title: "启用/停用插件确认", description: "展示插件启用状态变更。" },
+				{ id: "plugins.install-from-url", title: "从 URL 安装插件确认", description: "展示并可编辑安装地址。" },
+				{ id: "plugins.uninstall", title: "卸载插件确认", description: "展示待卸载插件。" },
+				{ id: "plugins.reload", title: "重载插件确认", description: "展示待重载插件。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validatePluginsManageInput,

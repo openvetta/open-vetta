@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 const pathSchema = z.string().trim().min(1);
@@ -16,34 +16,34 @@ export const projectsManageInputSchema = z.discriminatedUnion("operation", [
 		operation: z.literal("create"),
 		name: z.string().trim().min(1),
 		path: pathSchema.optional(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("projects.create"),
 	}),
 	z.object({
 		operation: z.literal("open"),
 		path: pathSchema,
 		name: z.string().trim().min(1).optional(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("projects.open"),
 	}),
 	z.object({
 		operation: z.literal("rename"),
 		path: pathSchema,
 		name: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("projects.rename"),
 	}),
 	z.object({
 		operation: z.literal("archive"),
 		path: pathSchema,
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("projects.archive"),
 	}),
 	z.object({
 		operation: z.literal("unarchive"),
 		path: pathSchema,
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("projects.unarchive"),
 	}),
 	z.object({
 		operation: z.literal("remove"),
 		path: pathSchema,
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("projects.remove"),
 	}),
 ]);
 

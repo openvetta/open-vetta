@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const webhookQueryInputSchema = z.discriminatedUnion("operation", [
@@ -16,7 +16,7 @@ export const webhookManageInputSchema = z.discriminatedUnion("operation", [
 		webhookUrl: z.string().trim().min(1),
 		signSecret: z.string().optional(),
 		enabled: z.boolean().optional(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("webhook.create"),
 	}),
 	z.object({
 		operation: z.literal("update"),
@@ -29,23 +29,23 @@ export const webhookManageInputSchema = z.discriminatedUnion("operation", [
 				signSecret: z.string().optional(),
 			})
 			.refine((data) => Object.keys(data).length > 0, "update requires at least one field."),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("webhook.update"),
 	}),
 	z.object({
 		operation: z.literal("set-enabled"),
 		id: z.string().trim().min(1),
 		enabled: z.boolean(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("webhook.set-enabled"),
 	}),
 	z.object({
 		operation: z.literal("delete"),
 		id: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("webhook.delete"),
 	}),
 	z.object({
 		operation: z.literal("test"),
 		id: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("webhook.test"),
 	}),
 	z.object({
 		operation: z.literal("send"),
@@ -53,7 +53,7 @@ export const webhookManageInputSchema = z.discriminatedUnion("operation", [
 		text: z.string().trim().min(1),
 		title: z.string().optional(),
 		level: z.enum(["info", "warn", "error", "success"]).optional(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("webhook.send"),
 	}),
 ]);
 

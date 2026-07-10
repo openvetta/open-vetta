@@ -3,7 +3,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import { allowProjectRoot, type ProjectEntry, readDesktopConfig, writeDesktopConfig } from "../../ipc/fs.js";
 import { resolveSessionDirForCwd } from "../../ipc/session.js";
 import { getSharedRuntime } from "../../runtime.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type ProjectsManageInput,
@@ -178,7 +178,14 @@ export function createProjectsActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "projects.write",
 			keywords: ["项目", "创建项目", "归档", "打开项目", "workspace"],
-			approval: genericApproval,
+			approval: createOperationApprovals("projects.create", [
+				{ id: "projects.create", title: "创建项目确认", description: "展示并可编辑待创建项目。" },
+				{ id: "projects.open", title: "打开项目确认", description: "展示并可编辑待打开项目路径。" },
+				{ id: "projects.rename", title: "重命名项目确认", description: "展示并可编辑项目名称。" },
+				{ id: "projects.archive", title: "归档项目确认", description: "展示待归档项目。" },
+				{ id: "projects.unarchive", title: "取消归档项目确认", description: "展示待恢复项目。" },
+				{ id: "projects.remove", title: "移除项目确认", description: "展示待移除项目。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateProjectsManageInput,

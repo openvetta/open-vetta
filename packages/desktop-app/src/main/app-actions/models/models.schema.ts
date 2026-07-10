@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 const modelKeySchema = z
@@ -23,13 +23,13 @@ export const modelsManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("set-default"),
 		modelKey: modelKeySchema,
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("models.set-default"),
 	}),
 	z.object({
 		operation: z.literal("set-peripheral"),
 		modelKey: modelKeySchema.nullable(),
 		reasoningLevel: z.string().trim().min(1).nullable().optional(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("models.set-peripheral"),
 	}),
 	z.object({
 		operation: z.literal("upsert-provider"),
@@ -56,12 +56,12 @@ export const modelsManageInputSchema = z.discriminatedUnion("operation", [
 					.optional(),
 			})
 			.refine((data) => Object.keys(data).length > 0, "upsert-provider requires at least one field."),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("models.upsert-provider"),
 	}),
 	z.object({
 		operation: z.literal("remove-provider"),
 		provider: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("models.remove-provider"),
 	}),
 ]);
 

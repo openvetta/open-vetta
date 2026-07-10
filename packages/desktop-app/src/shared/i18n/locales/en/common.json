@@ -73,6 +73,460 @@
 		"permission": "Permission: {{permission}}",
 		"permissionPrefix": "Permission: "
 	},
+	"manageApproval": {
+		"fallbackTitle": "Action Confirmation",
+		"fallbackConfirm": "Confirm",
+		"fallbackBadge": "Action",
+		"rawInput": "Request payload",
+		"yes": "Yes",
+		"no": "No",
+		"fieldWithKey": "{{prefix}}.{{key}}",
+		"fields": {
+			"modelKey": "Model",
+			"reasoningLevel": "Reasoning level",
+			"provider": "Provider",
+			"config": "Config",
+			"serverName": "MCP server",
+			"enabled": "Enabled",
+			"skillName": "Skill name",
+			"resourceType": "Type",
+			"name": "Name",
+			"newName": "New name",
+			"path": "Path",
+			"paths": "File paths",
+			"language": "Language",
+			"executionMode": "Execution mode",
+			"experimental": "Experimental features",
+			"knowledgeBase": "Knowledge base settings",
+			"kbId": "Knowledge base ID",
+			"relPath": "Relative path",
+			"move": "Move files",
+			"pluginId": "Plugin ID",
+			"url": "Install URL",
+			"kind": "Platform",
+			"webhookUrl": "Webhook URL",
+			"signSecret": "Signing secret",
+			"id": "ID",
+			"title": "Title",
+			"level": "Level",
+			"text": "Message",
+			"displayName": "Display name",
+			"baseUrl": "Base URL",
+			"api": "API type",
+			"apiKey": "API Key",
+			"models": "Models",
+			"command": "Command",
+			"args": "Arguments",
+			"cwd": "Working directory",
+			"headers": "Headers"
+		},
+		"models": {
+			"ops": {
+				"set-default": {
+					"title": "Set Default Model Confirmation",
+					"summary": "This model will become the default chat model.",
+					"confirm": "Confirm default model",
+					"badge": "Default model",
+					"impact": "The default chat model will switch to the selected model."
+				},
+				"set-peripheral": {
+					"title": "Set Peripheral Model Confirmation",
+					"summary": "Update the peripheral model used for background tasks such as knowledge processing.",
+					"confirm": "Confirm peripheral model",
+					"badge": "Peripheral model",
+					"impact": "Peripheral tasks such as knowledge processing will use the new model config."
+				},
+				"upsert-provider": {
+					"title": "Create or Update Provider Confirmation",
+					"summary": "Review the provider configuration. Secret fields are masked; confirmation writes the submitted config.",
+					"confirm": "Save provider",
+					"badge": "Provider",
+					"impact": "Provider config will be written to local models.json and affect available models."
+				},
+				"remove-provider": {
+					"title": "Remove Provider Confirmation",
+					"summary": "Models under this provider will become unavailable and default/peripheral references will be cleared.",
+					"confirm": "Remove provider",
+					"badge": "Remove",
+					"impact": "This provider and its models will be removed from local config.",
+					"warning": "Removing a provider also clears default/peripheral model references that depend on it."
+				}
+			},
+			"createProviderHint": "Create",
+			"updateProviderHint": "Update existing",
+			"modelsCount": "{{count}} models"
+		},
+		"mcp": {
+			"ops": {
+				"upsert": {
+					"title": "Create or Update MCP Server Confirmation",
+					"summary": "Review the MCP server configuration. Secret headers are masked.",
+					"confirm": "Save MCP server",
+					"badge": "MCP",
+					"impact": "MCP server config will be written to local mcp.json and may affect agent tools."
+				},
+				"set-enabled": {
+					"title": "Enable/Disable MCP Server Confirmation",
+					"summary": "Change whether this MCP server is enabled.",
+					"confirm": "Confirm status change",
+					"badge": "Enabled state",
+					"impact": "The MCP server enabled state will update immediately."
+				},
+				"remove": {
+					"title": "Remove MCP Server Confirmation",
+					"summary": "The MCP server configuration will be removed locally.",
+					"confirm": "Remove server",
+					"badge": "Remove",
+					"impact": "This MCP server config will be removed locally.",
+					"warning": "You will need to reconfigure the MCP server to restore it."
+				}
+			},
+			"headersConfigured": "Custom headers included (secrets masked)"
+		},
+		"skills": {
+			"ops": {
+				"set-enabled": {
+					"title": "Enable/Disable Skill Confirmation",
+					"summary": "Change whether this skill or scene is enabled.",
+					"confirm": "Confirm status change",
+					"badge": "Skill",
+					"impact": "Skill/scene enabled state takes effect immediately."
+				},
+				"uninstall": {
+					"title": "Uninstall Skill Confirmation",
+					"summary": "Local skill files will be removed. This cannot be undone.",
+					"confirm": "Uninstall",
+					"badge": "Uninstall",
+					"impact": "Local skill files will be uninstalled and cannot be restored easily.",
+					"warning": "Skill files will be removed. This cannot be undone."
+				}
+			}
+		},
+		"projects": {
+			"ops": {
+				"create": {
+					"title": "Create Project Confirmation",
+					"summary": "Create a new project and add it to the sidebar.",
+					"confirm": "Create project",
+					"badge": "Create",
+					"impact": "A new project will be created in the sidebar and the directory ensured."
+				},
+				"open": {
+					"title": "Open Project Confirmation",
+					"summary": "Open the project at the specified path.",
+					"confirm": "Open project",
+					"badge": "Open",
+					"impact": "The project path will open and join the active list."
+				},
+				"rename": {
+					"title": "Rename Project Confirmation",
+					"summary": "Update the project display name.",
+					"confirm": "Rename project",
+					"badge": "Rename",
+					"impact": "Only the sidebar display name changes; disk path is untouched."
+				},
+				"archive": {
+					"title": "Archive Project Confirmation",
+					"summary": "Move the project to the archive list. Session history is kept.",
+					"confirm": "Archive project",
+					"badge": "Archive",
+					"impact": "The project moves to the archive list; session history is kept."
+				},
+				"unarchive": {
+					"title": "Unarchive Project Confirmation",
+					"summary": "Restore the project to the active list.",
+					"confirm": "Unarchive project",
+					"badge": "Unarchive",
+					"impact": "The project returns to the active list."
+				},
+				"remove": {
+					"title": "Remove Project Confirmation",
+					"summary": "Remove the project from the list without deleting files on disk.",
+					"confirm": "Remove project",
+					"badge": "Remove",
+					"impact": "Remove the sidebar entry only; project files on disk are not deleted.",
+					"warning": "Only the sidebar entry is removed; project files on disk are kept."
+				}
+			},
+			"pathOptional": "Optional; omit to create under workspace by name"
+		},
+		"settings": {
+			"ops": {
+				"set-language": {
+					"title": "Change Language Confirmation",
+					"summary": "Switch the application UI language.",
+					"confirm": "Change language",
+					"badge": "Language",
+					"impact": "UI language will switch immediately."
+				},
+				"set-notifications": {
+					"title": "Change Notification Setting Confirmation",
+					"summary": "Update the system notification toggle.",
+					"confirm": "Change notifications",
+					"badge": "Notifications",
+					"impact": "System notification toggle will update."
+				},
+				"set-execution-mode": {
+					"title": "Change Default Execution Mode Confirmation",
+					"summary": "Update the default Agent execution permission mode.",
+					"confirm": "Change execution mode",
+					"badge": "Execution mode",
+					"impact": "Default execution permission for new sessions will update."
+				},
+				"set-workspace": {
+					"title": "Change Workspace Path Confirmation",
+					"summary": "Update the default workspace directory.",
+					"confirm": "Change workspace",
+					"badge": "Workspace",
+					"impact": "Default workspace directory will update."
+				},
+				"set-experimental": {
+					"title": "Change Experimental Features Confirmation",
+					"summary": "Update experimental feature toggles.",
+					"confirm": "Change experimental features",
+					"badge": "Experimental",
+					"impact": "Experimental feature toggles will update for submitted fields."
+				},
+				"set-knowledge-base": {
+					"title": "Change Knowledge Base Settings Confirmation",
+					"summary": "Update knowledge base processing settings.",
+					"confirm": "Change knowledge base settings",
+					"badge": "Knowledge settings",
+					"impact": "Knowledge base processing settings will update."
+				}
+			},
+			"languageZh": "Chinese",
+			"languageEn": "English",
+			"notificationsOn": "Enable notifications",
+			"notificationsOff": "Disable notifications"
+		},
+		"knowledge": {
+			"ops": {
+				"create": {
+					"title": "Create Knowledge Base Confirmation",
+					"summary": "Create a new knowledge base.",
+					"confirm": "Create",
+					"badge": "Create",
+					"impact": "A new knowledge base will be created."
+				},
+				"rename": {
+					"title": "Rename Knowledge Base Confirmation",
+					"summary": "Update the knowledge base name.",
+					"confirm": "Rename",
+					"badge": "Rename",
+					"impact": "The knowledge base display name will update."
+				},
+				"delete": {
+					"title": "Delete Knowledge Base Confirmation",
+					"summary": "The knowledge base and its processed data will be removed. This cannot be undone.",
+					"confirm": "Delete",
+					"badge": "Delete",
+					"impact": "The knowledge base and processed data will be deleted.",
+					"warning": "Deleting a knowledge base also removes processed artifacts. This cannot be undone."
+				},
+				"add-files": {
+					"title": "Add Files to Knowledge Base Confirmation",
+					"summary": "Add the selected files and start processing.",
+					"confirm": "Add files",
+					"badge": "Add files",
+					"impact": "Selected files will be added and enter processing."
+				},
+				"delete-entry": {
+					"title": "Delete Knowledge Entry Confirmation",
+					"summary": "Delete the specified entry from the knowledge base.",
+					"confirm": "Delete entry",
+					"badge": "Delete entry",
+					"impact": "The knowledge base entry will be deleted.",
+					"warning": "Deleted entries cannot be restored from the app."
+				},
+				"scan-now": {
+					"title": "Scan Knowledge Base Now Confirmation",
+					"summary": "Trigger one knowledge base scan and processing cycle.",
+					"confirm": "Scan now",
+					"badge": "Scan",
+					"impact": "One knowledge scan and processing cycle will start immediately."
+				},
+				"retry-failed": {
+					"title": "Retry Failed Knowledge Tasks Confirmation",
+					"summary": "Clear failed/quarantined records and reprocess.",
+					"confirm": "Retry failed",
+					"badge": "Retry",
+					"impact": "Failed/quarantined records will be cleared and reprocessed."
+				}
+			},
+			"globalAction": "Knowledge base global action"
+		},
+		"plugins": {
+			"ops": {
+				"set-enabled": {
+					"title": "Enable/Disable Plugin Confirmation",
+					"summary": "Change whether this plugin is enabled.",
+					"confirm": "Confirm status change",
+					"badge": "Plugin",
+					"impact": "Plugin enabled state will update immediately."
+				},
+				"install-from-url": {
+					"title": "Install Plugin from URL Confirmation",
+					"summary": "Download and install the plugin from the given URL.",
+					"confirm": "Install",
+					"badge": "Install",
+					"impact": "The plugin will be downloaded and installed from the URL."
+				},
+				"uninstall": {
+					"title": "Uninstall Plugin Confirmation",
+					"summary": "The plugin and its local data will be removed according to policy.",
+					"confirm": "Uninstall",
+					"badge": "Uninstall",
+					"impact": "The plugin will be uninstalled according to policy.",
+					"warning": "Plugin and its local data may be cleared according to policy."
+				},
+				"reload": {
+					"title": "Reload Plugin Confirmation",
+					"summary": "Reload this plugin.",
+					"confirm": "Reload",
+					"badge": "Reload",
+					"impact": "The plugin will be reloaded."
+				}
+			}
+		},
+		"im": {
+			"ops": {
+				"set-enabled": {
+					"title": "Enable/Disable IM Gateway Confirmation",
+					"summary": "Change whether the IM sidecar gateway is enabled.",
+					"confirm": "Confirm status change",
+					"badge": "IM",
+					"impact": "IM gateway enabled state will update."
+				},
+				"restart": {
+					"title": "Restart IM Gateway Confirmation",
+					"summary": "Restart the local IM sidecar process.",
+					"confirm": "Restart",
+					"badge": "Restart",
+					"impact": "The local IM gateway process will restart."
+				},
+				"set-agent-model": {
+					"title": "Set IM Agent Model Confirmation",
+					"summary": "Update the Agent model used by the IM sidecar.",
+					"confirm": "Set model",
+					"badge": "IM model",
+					"impact": "The agent model used by IM gateway will update."
+				}
+			},
+			"enableTitle": "Enable IM gateway",
+			"disableTitle": "Disable IM gateway",
+			"restartTarget": "Local IM gateway process",
+			"modelKeyPlaceholder": "provider/modelId, empty to clear"
+		},
+		"webhook": {
+			"ops": {
+				"create": {
+					"title": "Create Webhook Confirmation",
+					"summary": "Review the webhook configuration. Signing secrets are masked.",
+					"confirm": "Create",
+					"badge": "Create",
+					"impact": "A new webhook endpoint config will be saved."
+				},
+				"update": {
+					"title": "Update Webhook Confirmation",
+					"summary": "Review the webhook fields that will be written.",
+					"confirm": "Update",
+					"badge": "Update",
+					"impact": "Webhook config will update for submitted fields."
+				},
+				"set-enabled": {
+					"title": "Enable/Disable Webhook Confirmation",
+					"summary": "Change whether this webhook is enabled.",
+					"confirm": "Confirm status change",
+					"badge": "Enabled state",
+					"impact": "Webhook enabled state will update."
+				},
+				"delete": {
+					"title": "Delete Webhook Confirmation",
+					"summary": "The webhook configuration will be permanently removed.",
+					"confirm": "Delete",
+					"badge": "Delete",
+					"impact": "Webhook config will be permanently deleted.",
+					"warning": "Deleted webhook config cannot be recovered."
+				},
+				"test": {
+					"title": "Test Webhook Confirmation",
+					"summary": "Send a test message to this webhook.",
+					"confirm": "Send test",
+					"badge": "Test",
+					"impact": "A test message will be sent to this webhook."
+				},
+				"send": {
+					"title": "Send Webhook Message Confirmation",
+					"summary": "Review the message that will be sent through the webhook.",
+					"confirm": "Send",
+					"badge": "Send",
+					"impact": "A custom message will be sent to this webhook."
+				}
+			},
+			"notFound": "Webhook endpoint not found",
+			"loadFailed": "Failed to load webhooks",
+			"feishu": "Feishu",
+			"dingtalk": "DingTalk"
+		},
+		"downloads": {
+			"ops": {
+				"cancel": {
+					"title": "Cancel Download Confirmation",
+					"summary": "Cancel this download task.",
+					"confirm": "Cancel download",
+					"badge": "Cancel",
+					"impact": "This download task will be cancelled.",
+					"warning": "You will need to start the download again if needed."
+				}
+			}
+		},
+		"updater": {
+			"ops": {
+				"check": {
+					"title": "Check for Updates Confirmation",
+					"summary": "Check whether an application update is available.",
+					"confirm": "Check for updates",
+					"badge": "Check",
+					"impact": "The app will check for available updates."
+				},
+				"download": {
+					"title": "Download Update Confirmation",
+					"summary": "Start downloading the available update package.",
+					"confirm": "Download",
+					"badge": "Download",
+					"impact": "Download of the update package will start."
+				},
+				"install": {
+					"title": "Install Update Confirmation",
+					"summary": "Install the downloaded update. The app may need to restart.",
+					"confirm": "Install and restart",
+					"badge": "Install",
+					"impact": "The update will install and the app may restart.",
+					"warning": "Installing an update usually requires restarting the app. Save your work first."
+				},
+				"dismiss": {
+					"title": "Dismiss Update Prompt Confirmation",
+					"summary": "Temporarily dismiss the current update prompt.",
+					"confirm": "Dismiss",
+					"badge": "Dismiss",
+					"impact": "The current update prompt will be dismissed temporarily."
+				},
+				"cancel": {
+					"title": "Cancel Update Download Confirmation",
+					"summary": "Cancel the in-progress update download.",
+					"confirm": "Cancel download",
+					"badge": "Cancel",
+					"impact": "In-progress update download will be cancelled."
+				}
+			},
+			"target": "Application update"
+		},
+		"afterActionTitle": "What happens next",
+		"unknown": "Unknown",
+		"clearValue": "Clear",
+		"secretPlaceholder": "Leave empty to keep existing secret / no change"
+	},
 	"navigationApproval": {
 		"title": "Page Navigation Confirmation",
 		"target": "Target Page",

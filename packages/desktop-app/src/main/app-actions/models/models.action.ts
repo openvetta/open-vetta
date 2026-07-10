@@ -2,7 +2,7 @@ import type { ModelsConfig, ProviderConfig } from "../../ipc/fs.js";
 import { readModelsConfig, writeModelsConfig } from "../../ipc/fs.js";
 import { probeModelProvider } from "../../models/probe.js";
 import { getOrCreateSharedModelRegistry } from "../../runtime.js";
-import { genericApproval, maskSecret, redactRecordSecrets, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, maskSecret, redactRecordSecrets, runActionService, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type ModelsManageInput,
@@ -202,7 +202,12 @@ export function createModelsActions(): ActionDefinition[] {
 		availability: "gui-main",
 		permission: "models.write",
 		keywords: ["模型", "model", "provider", "默认模型", "API Key", "服务商", "set-default"],
-		approval: genericApproval,
+		approval: createOperationApprovals("models.set-default", [
+			{ id: "models.set-default", title: "设置默认模型确认", description: "确认默认对话模型变更。" },
+			{ id: "models.set-peripheral", title: "设置周边模型确认", description: "确认周边模型配置变更。" },
+			{ id: "models.upsert-provider", title: "创建或更新模型服务商确认", description: "展示并可编辑服务商配置。" },
+			{ id: "models.remove-provider", title: "删除模型服务商确认", description: "展示待删除服务商。" },
+		]),
 		inputSchema: manageInputSchema,
 		examples: manageExamples,
 		validateInput: validateModelsManageInput,
