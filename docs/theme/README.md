@@ -17,6 +17,7 @@
 - [侧边栏主题化基座](./sidebar-foundation.md)：当前已经落地的侧边栏 slot、`ThemeSurface`、`classNames` API。
 - [浮层主题化基座](./overlay-theming.md)：root overlay、Dialog、Drawer 和审批弹层的主题化方式。
 - [主题示例](./examples.md)：当前本地 demo 主题和测试方式。
+- [主题自有数据存储](./storage.md)：按 themeId 隔离的本地 KV 持久化。
 - [实施路线](./roadmap.md)：后续从本地配置、组件替换到远程主题包的推进顺序。
 
 ## 当前落地状态
@@ -37,6 +38,8 @@
 - `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 已作为 SDK facade hook 暴露，真实实现由 desktop-app 通过 `ThemeHostProvider` 注入。
 - Root global overlays 已开始按 connected container / props-driven view 拆分，审批、登录、文件预览、流转、更新提示等浮层已接入 view override 和 surface slot。
 - 主题模块已支持声明自有页面，desktop-app 通过固定 `/theme/$themeId/$pageId` 路由承载，并支持 `content` / `main` / `app` 三档受控覆盖范围。
+- 主题自有数据存储：SDK 提供 `useThemeStorage` / `useThemeStorageValue`，desktop-app host 落盘到 `~/.vetta/desktop-app/themes/<themeId>/data.json`。
+- 主题 usage host：`useThemeUsageStats` 暴露 app-monitor 聚合；`ThemeModule.runtime` 可挂载无 UI 同步逻辑。xianxia 用多指标 score 映射境界，写入 theme storage key `cultivation`（与设置页 fanren 成就阶梯无关）。
 
 当前仍未实现：
 
@@ -44,6 +47,7 @@
 - 设置页里的 UI 主题选择。
 - 远程主题包加载。
 - 项目行、会话行、消息中心等更多细粒度组件覆盖点。
+- 主题包卸载时自动清理对应 storage 目录。
 
 ## 核心原则
 

@@ -5,3 +5,5 @@ export * from "./module";
 export * from "./pages";
 export * from "./routing";
 export * from "./sidebar";
+export * from "./storage";
+export * from "./usage";

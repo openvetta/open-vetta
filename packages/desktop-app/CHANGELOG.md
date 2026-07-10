@@ -32,6 +32,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **主题自有数据存储（Theme Storage）**：主题可通过 `@vetta/theme-sdk/storage` 的 `useThemeStorage` / `useThemeStorageValue` 持久化自身 KV 数据；desktop-app 经 `ThemeHost.storage` 注入实现，main 进程按 `themeId` 隔离写入 `~/.vetta/desktop-app/themes/<themeId>/data.json`（单主题 ≤ 256KB，JSON only），preload 暴露 `vetta.themes.storage` 仅供 host 使用。主题不得直接访问 `localStorage` / `window.vetta`。详见 `docs/theme/storage.md`。
+- **主题修为与应用使用绑定**：新增 `ThemeHost.usage`（`useThemeUsageStats`，数据源为 app-monitor）与 `ThemeModule.runtime` 无 UI 挂载点。内置 xianxia 将 app-monitor 多指标合成修为分并映射境界，写入 theme storage key `cultivation`（不绑定设置页 fanren 成就阶梯；暂无洞天 UI 消费）。
 - **设置页使用行为统计**：应用监控新增 `settings.changed` 行为事件，设置页会按 tab、操作类型、设置项和安全枚举值聚合主题/语言、执行模式、Agent 实验能力、模型与 MCP 配置操作、IM/Webhook、快捷键/Appshot、知识库、桌宠、插件设置、归档项目、订阅刷新和运行时重装等主动配置行为，并维护最近与最多使用项；不保存昵称、自定义指令、工作区路径、provider/model/server 名称、URL、密钥、快捷键组合、Webhook 内容或项目路径。
 - **账户页 Token 活动图**：设置 → 账户新增近一年 Token 用量方块活动图（每日 / 每周 / 累计），数据来自 `GET /usage/me/series?days=365`。
 - **技能、场景与插件生命周期使用统计**：应用监控新增 `resource.lifecycle` 行为事件，技能/场景安装、更新、卸载、启用/停用、自定义导入，以及插件安装、更新、卸载、启用/停用、重载、权限授权/撤销、命令授权/撤销成功后会按资源类型、来源、操作、资源 id 聚合到 `app-monitor.json`，并维护最近操作与最多操作快照；权限和命令仅记录变化数量，不保存具体权限名、命令名、包路径或文件内容。

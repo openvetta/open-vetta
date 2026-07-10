@@ -36,8 +36,18 @@
 		"./sidebar": {
 			"types": "./src/sidebar/index.ts",
 			"import": "./src/sidebar/index.ts"
+		},
+		"./storage": {
+			"types": "./src/storage/index.ts",
+			"import": "./src/storage/index.ts"
+		},
+		"./usage": {
+			"types": "./src/usage/index.ts",
+			"import": "./src/usage/index.ts"
 		}
 	},
+
+
 	"files": ["src"],
 	"scripts": {
 		"check": "tsgo --noEmit -p tsconfig.json"

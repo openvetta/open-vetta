@@ -155,6 +155,27 @@ return <SidebarRenderer model={model} onOpenSession={props.onOpenSession} />;
 - 主题自定义任意 route path。
 - 主题接管全局浮层、router 或 IPC。
 
+## 阶段 5.6：Theme Storage
+
+状态：基础设施已接入。
+
+目标：
+
+- 主题可通过 SDK 读写自己的本地 KV 数据。
+- Host 强制按 `themeId` 隔离；落盘在 main 进程。
+- 配额、key 校验、多窗口广播。
+
+已落地点：
+
+- `@vetta/theme-sdk/storage`：`useThemeStorage`、`useThemeStorageValue`。
+- desktop-app host + preload IPC + `~/.vetta/desktop-app/themes/<themeId>/data.json`。
+
+暂不做：
+
+- 主题包卸载时自动清理 storage。
+- 二进制 / 大文件。
+- 云同步与加密。
+
 ## 阶段 6：远程主题包
 
 远程主题包应在本地 API 稳定后再接入。

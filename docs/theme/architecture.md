@@ -57,6 +57,14 @@ UI Implementation Layer
 
 主题应该通过稳定 model 和 actions 使用数据。
 
+主题**自有**小型状态（进度、偏好）通过独立的 storage host 能力持久化，而不是复用应用业务 store：
+
+- SDK：`useThemeStorage` / `useThemeStorageValue`（`@vetta/theme-sdk/storage`）。
+- Host：按当前 `theme.meta.id` 隔离，主题不能指定其他 themeId。
+- 落盘：main 进程 `~/.vetta/desktop-app/themes/<themeId>/data.json`。
+
+详见 [主题自有数据存储](./storage.md)。
+
 ### UI 抽象层
 
 UI 抽象层负责把内部状态整理成适合渲染的 model。

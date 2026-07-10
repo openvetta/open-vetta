@@ -34,6 +34,7 @@ packages/themes/remote
 - `ThemeAppearance` 和 frame 配置协议。
 - `ThemeHostProvider`、host bridge 和 public model hook facade。
 - `useSidebarModel`、`usePageHeaderModel`、`useWindowControlsModel` 这类主题可用 hook 入口。
+- `useThemeStorage`、`useThemeStorageValue` 与 `ThemeStorage` 协议（主题自有 KV 存储 facade）。
 
 不放入 SDK：
 
@@ -43,6 +44,7 @@ packages/themes/remote
 - 装饰组件实现。
 - 访问 Jotai、router、IPC 的真实 hook 实现。
 - 图标、图片、动画和 CSS class 方案。
+- 主题 storage 的文件落盘与 IPC 实现（属于 desktop-app host）。
 
 新增主题不应该修改 SDK。只有新增协议能力、公开 model、registry id 或 host capability 时，才修改 SDK。
 

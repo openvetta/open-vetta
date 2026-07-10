@@ -6,6 +6,7 @@ export type {
 	ThemeModule,
 	ThemeRegionId,
 	ThemeRegionRegistry,
+	ThemeRuntimeComponent,
 } from "./types";
 export { DEFAULT_THEME_MODULE } from "./types";
 export { useThemeComponent } from "./useThemeComponent";
