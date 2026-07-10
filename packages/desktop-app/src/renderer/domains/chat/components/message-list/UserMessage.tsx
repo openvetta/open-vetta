@@ -11,6 +11,7 @@ import {
 	inputValueAtom,
 } from "@shared/store/atoms";
 import { cn, pathBasename, pathNormalize } from "@shared/lib/utils";
+import { parseUserPrefixes } from "../../services/chat-service";
 import { TextBlockView } from "../blocks/TextBlock";
 import { CopyButton, RelativeTimeLabel } from "./MessageActions";
 import { AppshotCard, type AppshotCardData } from "../AppshotCard";
@@ -35,37 +36,6 @@ const USER_MESSAGE_COLLAPSED_MAX_HEIGHT = `${USER_MESSAGE_COLLAPSED_LINES * 1.6}
 const USER_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"]);
 
 export type UserMessageEntryState = "static" | "hidden" | "enter";
-
-interface ParsedUserMessage {
-	skillName: string | null;
-	skillType: "skill" | "scene" | null;
-	files: string[];
-	body: string;
-}
-
-function parseUserMessage(text: string): ParsedUserMessage {
-	let remaining = text;
-	let skillName: string | null = null;
-	let skillType: "skill" | "scene" | null = null;
-	const files: string[] = [];
-	const skillMatch = remaining.match(/^\/(skill|scene):([^\n]+)\n?([\s\S]*)$/);
-	if (skillMatch) {
-		skillType = skillMatch[1] as "skill" | "scene";
-		skillName = skillMatch[2].trim();
-		remaining = skillMatch[3];
-	}
-	// Match @path only when followed by a literal newline.
-	// @text without a newline is kept in the body so that hand-typed
-	// "@something" is not mistaken for a file badge (consistent with
-	// parseUserPrefixes in chat-service).
-	while (true) {
-		const fileMatch = remaining.match(/^@([^\n]+)\n([\s\S]*)$/);
-		if (!fileMatch) break;
-		files.push(fileMatch[1].trim());
-		remaining = fileMatch[2];
-	}
-	return { skillName, skillType, files, body: remaining };
-}
 
 function splitAppshotFiles(files: string[]): { appshotImage: string | null; rest: string[] } {
 	const isAppshot = (path: string): boolean => /[/\\]image-cache[/\\]appshot[/\\]/.test(path);
@@ -254,7 +224,9 @@ export const UserMessage = memo(function UserMessage({
 	onAbortEdit,
 	onEntryComplete,
 }: UserMessageProps) {
-	const { skillName, skillType, files, body } = parseUserMessage(message.text);
+	// Shared with history reload: only absolute @paths are attachment prefixes;
+	// hand-typed "@foo" / "@rel/path" stay in body (see parseUserPrefixes).
+	const { skillName, skillType, files, body } = parseUserPrefixes(message.text);
 	const { appshotImage, rest: displayFiles } = splitAppshotFiles(files);
 	const isImageCache = (path: string): boolean => /[/\\]image-cache[/\\]/.test(path);
 	const imageFiles = displayFiles.filter((file) => isUserImageFile(file) && !isImageCache(file));
@@ -262,10 +234,8 @@ export const UserMessage = memo(function UserMessage({
 	const fileBadges = hasExplicitMentionedFiles
 		? message.mentionedFiles?.map((file) => file.path).filter((path) => !isUserImageFile(path)) ?? []
 		: displayFiles.filter((file) => !isUserImageFile(file));
-	const hasSystemAttachments = Boolean(message.appshot || (message.images && message.images.length > 0));
-	const displayText = hasExplicitMentionedFiles && message.mentionedFiles?.length === 0 && !hasSystemAttachments
-		? message.text
-		: body;
+	// body already keeps hand-typed @ text; only real attachment prefixes are stripped.
+	const displayText = body;
 	const appshotData: AppshotCardData | null = message.appshot ?? (appshotImage ? { imagePath: appshotImage } : null);
 	const imageItems = useMemo<FilePreviewItem[]>(
 		() => [
