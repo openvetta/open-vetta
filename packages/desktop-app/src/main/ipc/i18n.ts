@@ -13,6 +13,18 @@ export const I18N_GET_INITIAL_CHANNEL = "vetta:i18n:get-initial-language";
 export const I18N_SET_LANGUAGE_CHANNEL = "vetta:i18n:set-language";
 export const I18N_LANGUAGE_CHANGED_CHANNEL = "vetta:i18n:language-changed";
 
+/** 切换界面语言并同步主进程 i18n、托盘菜单与全部 renderer。 */
+export async function applyAppLanguage(lang: AppLanguage): Promise<void> {
+	if (lang === getAppLanguage()) return;
+	setAppLanguage(lang);
+	const config = await readDesktopConfig();
+	await writeDesktopConfig({ ...config, language: lang });
+	rebuildTrayContextMenu();
+	for (const win of BrowserWindow.getAllWindows()) {
+		if (!win.isDestroyed()) win.webContents.send(I18N_LANGUAGE_CHANGED_CHANNEL, lang);
+	}
+}
+
 export function registerI18nIpc(): () => void {
 	// 同步返回当前语言。preload 在 contextBridge 暴露前 sendSync 取值，故必须在
 	// 窗口创建前注册——本函数在 registerAllIpc 内调用，仍早于异步 page-load 触发 preload。
@@ -23,17 +35,7 @@ export function registerI18nIpc(): () => void {
 
 	ipcMain.handle(I18N_SET_LANGUAGE_CHANNEL, async (_event, raw: unknown): Promise<void> => {
 		if (!isSupportedLanguage(raw)) return;
-		const lang: AppLanguage = raw;
-		if (lang === getAppLanguage()) return;
-
-		setAppLanguage(lang);
-		const config = await readDesktopConfig();
-		await writeDesktopConfig({ ...config, language: lang });
-		rebuildTrayContextMenu();
-
-		for (const win of BrowserWindow.getAllWindows()) {
-			if (!win.isDestroyed()) win.webContents.send(I18N_LANGUAGE_CHANGED_CHANNEL, lang);
-		}
+		await applyAppLanguage(raw);
 	});
 
 	return () => {

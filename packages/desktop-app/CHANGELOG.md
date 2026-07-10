@@ -32,10 +32,12 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **`vetta action --help` 渐进式披露**：帮助文案只说明 search → describe → run 工作流与能力域清单，不内嵌全量参数；权威目录与 schema 仍通过 `search` / `describe` / `*.query help` 获取。
 - **Action 搜索相关性**：`actions.search` 不再对 id/title/summary 做整串 substring 过滤。改为分词、同义词扩展、多字段加权（含 `keywords`、inputSchema/operations/examples），并按相关度排序；空查询仍返回全部。各 Action 补充 `keywords` 别名。
 
 ### Added
 
+- **扩展 App Actions 覆盖面（中高优先级）**：新增 models / mcp / skills / projects / settings / knowledge / plugins / im / webhook / downloads / updater 等域的 query+manage Action，经 `vetta action` 操作 Desktop 能力；写操作默认 generic 审批；密钥字段在查询结果中脱敏。市场技能安装与 Flowing 远端流转仍走 GUI。
 - **主题自有数据存储（Theme Storage）**：主题可通过 `@vetta/theme-sdk/storage` 的 `useThemeStorage` / `useThemeStorageValue` 持久化自身 KV 数据；desktop-app 经 `ThemeHost.storage` 注入实现，main 进程按 `themeId` 隔离写入 `~/.vetta/desktop-app/themes/<themeId>/data.json`（单主题 ≤ 256KB，JSON only），preload 暴露 `vetta.themes.storage` 仅供 host 使用。主题不得直接访问 `localStorage` / `window.vetta`。详见 `docs/theme/storage.md`。
 - **主题修为与应用使用绑定**：新增 `ThemeHost.usage`（`useThemeUsageStats`，数据源为 app-monitor）与 `ThemeModule.runtime` 无 UI 挂载点。内置 xianxia 将 app-monitor 多指标合成修为分并映射境界，写入 theme storage key `cultivation`（不绑定设置页 fanren 成就阶梯；暂无洞天 UI 消费）。
 - **设置页使用行为统计**：应用监控新增 `settings.changed` 行为事件，设置页会按 tab、操作类型、设置项和安全枚举值聚合主题/语言、执行模式、Agent 实验能力、模型与 MCP 配置操作、IM/Webhook、快捷键/Appshot、知识库、桌宠、插件设置、归档项目、订阅刷新和运行时重装等主动配置行为，并维护最近与最多使用项；不保存昵称、自定义指令、工作区路径、provider/model/server 名称、URL、密钥、快捷键组合、Webhook 内容或项目路径。
