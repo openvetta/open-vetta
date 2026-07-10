@@ -5,7 +5,13 @@ export interface KnowledgeNodeDto {
 	id: string;
 	name: string;
 	type: "file" | "directory";
+	/**
+	 * 子节点。懒加载：`undefined` = 未拉取该层；数组 = 已拉取。
+	 * list / listDir 每次只返回一层。
+	 */
 	children?: KnowledgeNodeDto[];
+	/** 目录浅层子项数（未加载 children 时用于「N 项」）。 */
+	childCount?: number;
 	size?: number;
 	/** 本地绝对路径（文件）。 */
 	sourcePath?: string;
@@ -37,8 +43,13 @@ export interface DesktopKnowledgeApi {
 	retryFailed(): Promise<{ skipped: boolean; reason?: "no-model" }>;
 	/** 据当前设置重新调度后台轮询器（保存知识库设置后调用）。 */
 	reload(): Promise<void>;
-	/** 从磁盘 raws/ 读出全部知识库（含文件树）。反向重建即调此刷新。 */
+	/** 从磁盘 raws/ 读出全部知识库；每个库仅根层 nodes（一层，不递归）。 */
 	list(): Promise<KnowledgeBaseDto[]>;
+	/**
+	 * 列出某库内一层目录（relPath 相对 raws/<kb>/，空串 = 库根）。
+	 * 不递归；进入子目录需再调。
+	 */
+	listDir(kbId: string, relPath: string): Promise<KnowledgeNodeDto[]>;
 	/** 推导全部 raws 文件的加工态，按 source_path（`${kbId}/${relPath}`）索引。 */
 	fileStatuses(): Promise<Record<string, KnowledgeFileStatus>>;
 	/** 把磁盘上的文件/目录放进某库顶层。move=true 移走源，false 复制留源。同名自动改名共存。 */
