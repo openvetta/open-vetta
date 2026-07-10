@@ -17,6 +17,23 @@ export const themeAction: ActionDefinition = {
 	summary: "通过 type 字段查看帮助、读取当前主题，或切换浅色/深色/跟随系统模式与多主题风格。",
 	availability: "gui-main",
 	permission: "appearance.write",
+	keywords: [
+		"theme",
+		"主题",
+		"外观",
+		"深色",
+		"浅色",
+		"暗色",
+		"亮色",
+		"dark",
+		"light",
+		"auto",
+		"跟随系统",
+		"模式",
+		"皮肤",
+		"配色",
+		"themeId",
+	],
 	approval: {
 		defaultPresentation: "appearance.theme-change",
 		presentations: [

@@ -45,6 +45,11 @@ export interface ActionMetadata {
 	summary: string;
 	availability: ActionAvailability;
 	permission: string;
+	/**
+	 * 可选检索同义词/别名（中英文均可）。
+	 * 供 `actions.search` 相关性匹配使用，不改变 run 语义。
+	 */
+	keywords?: string[];
 	approval?: ActionApprovalMetadata;
 	inputSchema: ActionInputSchema;
 	examples: ActionExample[];

@@ -1,4 +1,5 @@
 import { getAppLogger } from "../logger.js";
+import { searchActions } from "./search.js";
 import type { ActionDefinition, ActionMetadata, ActionSearchResult } from "./types.js";
 import { ActionError } from "./types.js";
 
@@ -57,24 +58,10 @@ export class AppActionCatalog {
 	}
 
 	search(options: { query?: string; domain?: string } = {}): ActionSearchResult[] {
-		const query = options.query?.trim().toLowerCase();
-		const domain = options.domain?.trim();
-		const candidates = Array.from(this.actions.values()).filter((action) => {
-			if (domain && action.domain !== domain) return false;
-			if (!query) return true;
-			const haystack = `${action.id} ${action.domain} ${action.title} ${action.summary}`.toLowerCase();
-			return haystack.includes(query);
-		});
-		const results = candidates.map((action) => ({
-			id: action.id,
-			domain: action.domain,
-			title: action.title,
-			summary: action.summary,
-			availability: action.availability,
-		}));
+		const results = searchActions(this.actions.values(), options);
 		log.info("search: result", {
-			query,
-			domain,
+			query: options.query?.trim() ?? "",
+			domain: options.domain?.trim(),
 			resultCount: results.length,
 			actionIds: results.map((action) => action.id),
 		});
@@ -93,6 +80,7 @@ export class AppActionCatalog {
 			summary: action.summary,
 			availability: action.availability,
 			permission: action.permission,
+			keywords: action.keywords,
 			approval: action.approval,
 			inputSchema: action.inputSchema,
 			examples: action.examples,

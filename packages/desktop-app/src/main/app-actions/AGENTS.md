@@ -49,11 +49,12 @@ Agent 说明只暴露完成操作所需的信息，包括：
 1. 在 schema 文件中用 Zod 定义输入，优先使用带 `operation` 的 discriminated union。
 2. 导出 Zod 推导类型和 `validateInput`，失败时抛出 `ACTION_INVALID_INPUT`，并返回可定位字段的 issues。
 3. 在 action 文件中定义稳定的 `id`、`domain`、`title`、`summary`、`availability` 和细粒度 `permission`。
-4. 编写面向 agent 的 `inputSchema`、`examples`，必要时增加 `help` operation。
-5. 只在有副作用且需要确认时配置 `approval` 和 `requiresApproval`。
-6. `run` 调用已有 service，并把领域错误转换为 `ActionError`；返回值必须可序列化为 `JsonValue`。
-7. 在领域 `actions.ts` 和根 `index.ts` 注册。
-8. 若新增审批 presentation，同时在 renderer 的 action approval 路由中实现对应 UI。
+4. 补充 `keywords`（中英文同义词、用户口头说法、常见 operation 名），供 `actions.search` 相关性检索；不要只靠 id/title。
+5. 编写面向 agent 的 `inputSchema`、`examples`，必要时增加 `help` operation。
+6. 只在有副作用且需要确认时配置 `approval` 和 `requiresApproval`。
+7. `run` 调用已有 service，并把领域错误转换为 `ActionError`；返回值必须可序列化为 `JsonValue`。
+8. 在领域 `actions.ts` 和根 `index.ts` 注册。
+9. 若新增审批 presentation，同时在 renderer 的 action approval 路由中实现对应 UI。
 
 ## 审批与可编辑输入
 
