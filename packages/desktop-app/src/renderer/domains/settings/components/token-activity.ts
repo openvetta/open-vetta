@@ -129,6 +129,22 @@ export function activityBlockCount(tokens: number, maxTokens: number, maxRows = 
 	return Math.max(1, Math.round((tokens / maxTokens) * maxRows));
 }
 
+/** Discrete intensity levels (excluding empty). Higher = more tokens. */
+export const TOKEN_ACTIVITY_INTENSITY_LEVELS = 4;
+
+/**
+ * Map a token amount to 0..levels (0 = empty, 1 light … levels darkest).
+ * Relative to the max in the visible window.
+ */
+export function activityIntensityLevel(
+	tokens: number,
+	maxTokens: number,
+	levels = TOKEN_ACTIVITY_INTENSITY_LEVELS,
+): number {
+	if (tokens <= 0 || maxTokens <= 0) return 0;
+	return Math.min(levels, Math.max(1, Math.ceil((tokens / maxTokens) * levels)));
+}
+
 export function formatTokenCount(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;

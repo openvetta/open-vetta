@@ -2,6 +2,7 @@ import { cn } from "@shared/lib/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	activityBlockCount,
+	activityIntensityLevel,
 	buildActivityColumns,
 	columnCapacity,
 	fitActivityColumns,
@@ -27,6 +28,20 @@ export interface TokenActivityChartViewProps {
 }
 
 const MODES: TokenActivityMode[] = ["daily", "weekly", "cumulative"];
+
+/** 1..4 light → dark; index 0 unused. Alpha values from DESIGN token whitelist. */
+const FILLED_CLASS: Record<number, string> = {
+	1: "bg-primary/25",
+	2: "bg-primary/40",
+	3: "bg-primary/60",
+	4: "bg-primary/80",
+};
+const FILLED_ACTIVE_CLASS: Record<number, string> = {
+	1: "bg-primary/40",
+	2: "bg-primary/60",
+	3: "bg-primary/80",
+	4: "bg-primary",
+};
 
 export function TokenActivityChartView({
 	points,
@@ -111,7 +126,14 @@ export function TokenActivityChartView({
 								<div className="flex w-full items-end" style={{ gap: TOKEN_ACTIVITY_GAP_PX }}>
 									{columns.map((col) => {
 										const filled = activityBlockCount(col.tokens, maxTokens);
+										const level = activityIntensityLevel(col.tokens, maxTokens);
 										const active = hoverKey === col.key;
+										const fillClass =
+											level > 0
+												? active
+													? FILLED_ACTIVE_CLASS[level]
+													: FILLED_CLASS[level]
+												: undefined;
 										return (
 											<div
 												key={col.key}
@@ -128,11 +150,7 @@ export function TokenActivityChartView({
 															key={row}
 															className={cn(
 																"aspect-square w-full rounded-[2px] transition-colors",
-																isFilled
-																	? active
-																		? "bg-primary"
-																		: "bg-primary/75"
-																	: "bg-muted/50",
+																isFilled ? fillClass : "bg-muted/50",
 															)}
 														/>
 													);
