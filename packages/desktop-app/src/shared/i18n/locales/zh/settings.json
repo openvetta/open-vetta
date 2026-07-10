@@ -760,6 +760,14 @@
   "uiThemeUnavailable": "主题资源不可用",
   "saveFailed": "保存失败",
   "pleaseLogin": "请先登录",
+  "tokenActivity": {
+    "title": "Token 活动",
+    "daily": "每日",
+    "weekly": "每周",
+    "cumulative": "累计",
+    "empty": "暂无 Token 使用记录",
+    "tokens": "{{count}} tokens"
+  },
   "editNickname": "编辑昵称",
   "enterNickname": "输入昵称",
   "pleaseSelect": "请选择",

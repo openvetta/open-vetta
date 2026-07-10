@@ -760,6 +760,14 @@
   "uiThemeUnavailable": "Theme resources unavailable",
   "saveFailed": "Save failed",
   "pleaseLogin": "Please log in first",
+  "tokenActivity": {
+    "title": "Token activity",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "cumulative": "Cumulative",
+    "empty": "No token usage yet",
+    "tokens": "{{count}} tokens"
+  },
   "editNickname": "Edit nickname",
   "enterNickname": "Enter nickname",
   "pleaseSelect": "Please select",
