@@ -521,9 +521,13 @@ export function useSessionManager(): SessionManagerResult {
 										return;
 									}
 									try {
+										const titleStartedAt = Date.now();
 										console.log(`[auto-title] requesting for session=${rid} sp=${sp}`);
 										const name = await window.vetta.session.autoTitle(rid, userText, assistantText);
-										console.log(`[auto-title] got name=${name ?? "(null)"} for sp=${sp}`);
+										const durationMs = Date.now() - titleStartedAt;
+										console.log(
+											`[auto-title] got name=${name ?? "(null)"} durationMs=${durationMs} for sp=${sp}`,
+										);
 										if (name) {
 											// 归一到侧边栏 bucket 的 cwd：「对话」session 的 cwd 是项目根下的
 											// per-session 子目录（ADR-0007），但 sessionsMap / 侧边栏挂在根上。

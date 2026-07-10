@@ -13,7 +13,6 @@ import { McpRemoveApproval, McpSetEnabledApproval, McpUpsertApproval } from "./m
 import {
 	ModelsRemoveProviderApproval,
 	ModelsSetDefaultApproval,
-	ModelsSetPeripheralApproval,
 	ModelsUpsertProviderApproval,
 } from "./models";
 import {
@@ -63,7 +62,6 @@ export function DomainManageApprovals(): JSX.Element {
 	return (
 		<>
 			<ModelsSetDefaultApproval />
-			<ModelsSetPeripheralApproval />
 			<ModelsUpsertProviderApproval />
 			<ModelsRemoveProviderApproval />
 

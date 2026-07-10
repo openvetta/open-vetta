@@ -291,10 +291,6 @@ function expandTilde(p: string): string {
 
 export interface ModelsConfig {
 	defaultModel?: string;
-	/** 全局模型("provider/modelId")：周边任务(autotitle/输入预测等)专用；未设置则周边功能失效。 */
-	peripheralModel?: string;
-	/** 全局模型的推理档位；未设置时按模型 api 预设取最轻的安全档。 */
-	peripheralModelReasoningLevel?: string;
 	providers: Record<string, ProviderConfig>;
 }
 
@@ -379,18 +375,29 @@ export async function writeMcpConfig(config: McpConfig): Promise<void> {
 	atomicWriteJSON(MCP_CONFIG_PATH, config);
 }
 
+/** 去掉已下线的 peripheral 字段，避免读写路径继续保留死配置。 */
+function stripLegacyPeripheralFields(config: ModelsConfig): ModelsConfig {
+	const next = { ...config } as ModelsConfig & {
+		peripheralModel?: unknown;
+		peripheralModelReasoningLevel?: unknown;
+	};
+	delete next.peripheralModel;
+	delete next.peripheralModelReasoningLevel;
+	return next;
+}
+
 export async function readModelsConfig(): Promise<ModelsConfig> {
 	try {
 		const raw = await readFile(MODELS_CONFIG_PATH, "utf8");
 		const parsed = JSON.parse(raw) as Partial<ModelsConfig>;
-		return { ...DEFAULT_MODELS_CONFIG, ...parsed };
+		return stripLegacyPeripheralFields({ ...DEFAULT_MODELS_CONFIG, ...parsed });
 	} catch {
 		return { ...DEFAULT_MODELS_CONFIG };
 	}
 }
 
 export async function writeModelsConfig(config: ModelsConfig): Promise<void> {
-	atomicWriteJSON(MODELS_CONFIG_PATH, config);
+	atomicWriteJSON(MODELS_CONFIG_PATH, stripLegacyPeripheralFields(config));
 }
 
 const CHANNELS = {

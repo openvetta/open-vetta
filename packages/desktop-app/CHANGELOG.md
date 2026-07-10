@@ -4,12 +4,18 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Removed
+
+- **移除「全局模型」配置与 `models.manage` 的 `set-peripheral`**：设置页不再展示周边任务专用模型选择；自动标题 / 输入预测改为自动使用当前会话模型并在失败时轮转其它可用模型。Action 审批组件 `ModelsSetPeripheralApproval` 与 i18n 相关文案同步删除。`ModelsConfig` 类型与读写路径不再包含 `peripheralModel*`；读/写 `models.json` 时剥离旧残留键。
+
 ### Changed
 
+- **自动标题端到端耗时日志**：renderer `[auto-title] got name=...` 增加 `durationMs`（含 IPC + 主进程 LLM 全流程）。
 - **知识库文件树按层懒加载**：`list()` 每个库只返回根层 nodes，不再递归整树叶子；进入子目录时通过 `listDir(kbId, relPath)` 每次只拉一层并合并进缓存。大库首屏不再扫全树，目录「N 项」用浅层 `childCount`；待加工列表与库文件数改从加工态 map 统计，不依赖已打开的目录树。
 
 ### Fixed
 
+- **新会话首条消息前标题/侧栏误显示「未命名会话」**：`openSession` 后 listSessions 常先写入空 name + `(no messages)` 占位；用户发出首条 prompt 时 `ensureLocalSession` 因 path 已存在而跳过，且 `loadSessions` 只兜底 name 不兜底 firstMessage，乐观的用户文案被冲掉。现 `ensureLocalSession` 会在展示名仍为空时补齐 firstMessage，`loadSessions` 合并时同样保留可用的乐观 firstMessage，直至 auto-title 或磁盘真实 name 生效。
 - **知识库页 Maximum update depth exceeded 死循环**：浏览 path 未写入 atom 时用 `?? []` 每次渲染新空数组，依赖 `path` 的 `useEffect`（清空选中）反复 `setState`；改为稳定 `EMPTY_PATH` + `pathKey`，清空选中在已空时跳过。
 - **知识库进入子目录加载完弹回根层**：页面骨架曾在「深层懒加载出文件 + 加工态未 hydrated」时卸载内容面板，组件内 path 被清空；现页面骨架仅用于列表尚无缓存，加工态等待改在面板内层处理，浏览路径按库写入 atom，避免重挂载丢路径。
 - **知识库文件列表首屏灰闪**：加工态（`fileStatuses`）未回填前，`statusFor` 把缺 key 默认成 `unprocessed`，文件多时 item 先灰 0.几秒再出角标。现改为：加工态完成至少一次拉取前对有文件的库继续显示骨架；`statusFor` 缺 key 返回 null（不默认 unprocessed）；刷新保留旧加工态（stale-while-revalidate），避免重复闪烁。

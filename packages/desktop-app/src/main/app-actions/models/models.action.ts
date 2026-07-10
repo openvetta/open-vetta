@@ -21,7 +21,7 @@ const queryInputSchema: ActionInputSchema = {
 		},
 		{
 			name: "list",
-			description: "列出默认模型、周边模型与全部 providers（密钥已脱敏）。",
+			description: "列出默认模型与全部 providers（密钥已脱敏）。",
 			parameters: [{ name: "operation", type: '"list"', required: true, description: "固定为 list。" }],
 		},
 		{
@@ -46,7 +46,7 @@ const queryInputSchema: ActionInputSchema = {
 
 const manageInputSchema: ActionInputSchema = {
 	description:
-		'对象参数；operation 为 "set-default"、"set-peripheral"、"upsert-provider" 或 "remove-provider"。写操作需要用户确认。modelKey 格式为 "provider/modelId"。upsert 为 patch：只提交要改的字段。',
+		'对象参数；operation 为 "set-default"、"upsert-provider" 或 "remove-provider"。写操作需要用户确认。modelKey 格式为 "provider/modelId"。upsert 为 patch：只提交要改的字段。',
 	operations: [
 		{
 			name: "set-default",
@@ -54,15 +54,6 @@ const manageInputSchema: ActionInputSchema = {
 			parameters: [
 				{ name: "operation", type: '"set-default"', required: true, description: "固定为 set-default。" },
 				{ name: "modelKey", type: "string", required: true, description: '"provider/modelId"。' },
-			],
-		},
-		{
-			name: "set-peripheral",
-			description: "设置周边任务模型；modelKey 传 null 清除。",
-			parameters: [
-				{ name: "operation", type: '"set-peripheral"', required: true, description: "固定为 set-peripheral。" },
-				{ name: "modelKey", type: "string | null", required: true, description: '"provider/modelId" 或 null。' },
-				{ name: "reasoningLevel", type: "string | null", required: false, description: "推理档位；null 清除。" },
 			],
 		},
 		{
@@ -93,7 +84,6 @@ const queryExamples: ActionExample[] = [
 
 const manageExamples: ActionExample[] = [
 	{ description: "设置默认模型", input: { operation: "set-default", modelKey: "openai/gpt-4o" } },
-	{ description: "清除周边模型", input: { operation: "set-peripheral", modelKey: null } },
 	{
 		description: "更新 provider API Key",
 		input: { operation: "upsert-provider", provider: "openai", data: { apiKey: "sk-..." } },
@@ -167,8 +157,6 @@ export function createModelsActions(): ActionDefinition[] {
 			if (request.operation === "list") {
 				return toJsonValue({
 					defaultModel: config.defaultModel ?? null,
-					peripheralModel: config.peripheralModel ?? null,
-					peripheralModelReasoningLevel: config.peripheralModelReasoningLevel ?? null,
 					providers: Object.entries(config.providers ?? {}).map(([id, provider]) => ({
 						id,
 						displayName: provider.displayName ?? id,
@@ -198,13 +186,12 @@ export function createModelsActions(): ActionDefinition[] {
 		id: "models.manage",
 		domain: "models",
 		title: "管理模型配置",
-		summary: "设置默认/周边模型，创建或更新 provider，删除 provider。",
+		summary: "设置默认模型，创建或更新 provider，删除 provider。",
 		availability: "gui-main",
 		permission: "models.write",
 		keywords: ["模型", "model", "provider", "默认模型", "API Key", "服务商", "set-default"],
 		approval: createOperationApprovals("models.set-default", [
 			{ id: "models.set-default", title: "设置默认模型确认", description: "确认默认对话模型变更。" },
-			{ id: "models.set-peripheral", title: "设置周边模型确认", description: "确认周边模型配置变更。" },
 			{ id: "models.upsert-provider", title: "创建或更新模型服务商确认", description: "展示并可编辑服务商配置。" },
 			{ id: "models.remove-provider", title: "删除模型服务商确认", description: "展示待删除服务商。" },
 		]),
@@ -222,25 +209,6 @@ export function createModelsActions(): ActionDefinition[] {
 					await persistModelsConfig(config);
 					return { operation: "set-default", defaultModel: config.defaultModel };
 				}
-				if (request.operation === "set-peripheral") {
-					if (request.modelKey === null) {
-						delete config.peripheralModel;
-					} else {
-						assertModelKeyExists(config, request.modelKey);
-						config.peripheralModel = request.modelKey;
-					}
-					if (request.reasoningLevel === null) {
-						delete config.peripheralModelReasoningLevel;
-					} else if (request.reasoningLevel !== undefined) {
-						config.peripheralModelReasoningLevel = request.reasoningLevel;
-					}
-					await persistModelsConfig(config);
-					return {
-						operation: "set-peripheral",
-						peripheralModel: config.peripheralModel ?? null,
-						peripheralModelReasoningLevel: config.peripheralModelReasoningLevel ?? null,
-					};
-				}
 				if (request.operation === "remove-provider") {
 					if (!config.providers[request.provider]) {
 						throw new ActionError("ACTION_NOT_FOUND", `Provider not found: ${request.provider}`);
@@ -248,9 +216,6 @@ export function createModelsActions(): ActionDefinition[] {
 					delete config.providers[request.provider];
 					if (config.defaultModel?.startsWith(`${request.provider}/`)) {
 						delete config.defaultModel;
-					}
-					if (config.peripheralModel?.startsWith(`${request.provider}/`)) {
-						delete config.peripheralModel;
 					}
 					await persistModelsConfig(config);
 					return { operation: "remove-provider", provider: request.provider };

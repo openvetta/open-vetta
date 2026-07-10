@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Removed
+
+- **移除「全局/周边模型」运行时 API 与配置字段**：`ModelRegistry.getPeripheralModel()` / `getPeripheralReasoningLevel()` 下线；`models.json` schema 不再包含 `peripheralModel*`。加载时剥离旧文件中的残留键，周边任务改由 runtime-core 自动选模。
+
 ### Fixed
 
 - **知识库加工失败的文件被无限重加工（止损：失败计数 + 隔离）**：差异计算是纯 hash、无状态的——「wiki 页存在且 source_hash 匹配」是某原始文件「加工成功」的唯一凭证。任何永远写不出 wiki 页的文件（OCR 失败/超大/agent 中途崩/被中止/上下文溢出），其 `source_hash` 永远匹配不到 wiki 页，于是每一轮 `diffRaws` 都把它重新判为 `added` 重加工，无失败计数、无退避、无上限 → 同样几个文件每 N 分钟反复空转。新增 `core/knowledge/failures.ts`（按 `source_hash` 记录连续失败次数，达阈值 `KB_MAX_PROCESSING_ATTEMPTS=3` 即隔离）+ `failures.json` 持久化（`readFailures`/`writeFailures`）：`prepareRound` 用 `applyQuarantine` 从 diff 剔除已隔离项不再自动重加工；新增 `reconcileRoundFailures` 在轮末（仅非中止时）据「wiki 是否真出现该 hash」对账成败——成功清除记录、失败计数 +1。文件内容变化（hash 变）视为全新文件自动重试，旧记录自动剪枝。

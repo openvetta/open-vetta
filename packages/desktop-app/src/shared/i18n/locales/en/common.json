@@ -129,13 +129,6 @@
 					"badge": "Default model",
 					"impact": "The default chat model will switch to the selected model."
 				},
-				"set-peripheral": {
-					"title": "Set Peripheral Model Confirmation",
-					"summary": "Update the peripheral model used for background tasks such as knowledge processing.",
-					"confirm": "Confirm peripheral model",
-					"badge": "Peripheral model",
-					"impact": "Peripheral tasks such as knowledge processing will use the new model config."
-				},
 				"upsert-provider": {
 					"title": "Create or Update Provider Confirmation",
 					"summary": "Review the provider configuration. Secret fields are masked; confirmation writes the submitted config.",
@@ -145,11 +138,11 @@
 				},
 				"remove-provider": {
 					"title": "Remove Provider Confirmation",
-					"summary": "Models under this provider will become unavailable and default/peripheral references will be cleared.",
+					"summary": "Models under this provider will become unavailable and default model references will be cleared.",
 					"confirm": "Remove provider",
 					"badge": "Remove",
 					"impact": "This provider and its models will be removed from local config.",
-					"warning": "Removing a provider also clears default/peripheral model references that depend on it."
+					"warning": "Removing a provider also clears default model references that depend on it."
 				}
 			},
 			"createProviderHint": "Create",
