@@ -93,20 +93,21 @@ export function ProjectContextMenu({
 					top: `${adjustedPos.y}px`,
 				}}
 			>
-				<button
-					type="button"
-					onClick={() => {
-						void window.vetta.shell.showInFolder(project.cwd);
-						onClose();
-					}}
-					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-				>
-					<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
-					{isMac ? t("contextMenu.openInFinder") : t("contextMenu.openInExplorer")}
-				</button>
+				{!isDefault && (
+					<button
+						type="button"
+						onClick={() => {
+							void window.vetta.shell.showInFolder(project.cwd);
+							onClose();
+						}}
+						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+					>
+						<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
+						{isMac ? t("contextMenu.openInFinder") : t("contextMenu.openInExplorer")}
+					</button>
+				)}
 				{isDefault && defaultScope === "conversation" && onClearConversation && (
 					<>
-						<div className="mx-1.5 my-1 h-px bg-border" />
 						<button
 							type="button"
 							disabled={clearConversationDisabled}
@@ -127,7 +128,6 @@ export function ProjectContextMenu({
 					<>
 						{onClearClaw && (
 							<>
-								<div className="mx-1.5 my-1 h-px bg-border" />
 								<button
 									type="button"
 									disabled={clearClawDisabled}

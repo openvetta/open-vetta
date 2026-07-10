@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useSetAtom } from "jotai";
 import { AnimatePresence, motion } from "motion/react";
-import { defaultConversationCwdAtom, renamingSessionPathAtom, type SessionInfo } from "@shared/store/atoms";
+import { renamingSessionPathAtom, type SessionInfo } from "@shared/store/atoms";
+
+const isMac = navigator.platform.toUpperCase().includes("MAC");
 
 interface SessionContextMenuProps {
 	x: number;
@@ -17,17 +19,6 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 	const { t } = useTranslation("project");
 	const menuRef = useRef<HTMLDivElement>(null);
 	const setRenamingSessionPath = useSetAtom(renamingSessionPathAtom);
-	const defaultConversationCwd = useAtomValue(defaultConversationCwdAtom);
-
-	// ADR-0007: 「对话」项目下新建 session 的 cwd 是独立子目录（artifact dir）。
-	// 仅当 session.cwd 是 conversation 根的严格子目录时才暴露「打开产物目录」入口；
-	// 老 session（cwd 就是根）走 ChatView 旁路或直接 Finder 浏览，避免暴露根目录这个杂项 sink。
-	const hasArtifactDir = (() => {
-		if (!defaultConversationCwd) return false;
-		if (!session.cwd || session.cwd === defaultConversationCwd) return false;
-		const prefix = defaultConversationCwd.endsWith("/") ? defaultConversationCwd : `${defaultConversationCwd}/`;
-		return session.cwd.startsWith(prefix);
-	})();
 
 	// Close on outside click
 	useEffect(() => {
@@ -74,19 +65,17 @@ export function SessionContextMenu({ x, y, session, onClose, onDelete }: Session
 					<span className="icon-[solar--pen-2-linear] h-3.5 w-3.5" />
 					{t("contextMenu.rename")}
 				</button>
-				{hasArtifactDir && (
-					<button
-						type="button"
-						onClick={() => {
-							void window.vetta.shell.showInFolder(session.cwd);
-							onClose();
-						}}
-						className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
-					>
-						<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
-						{t("contextMenu.openArtifactDir")}
-					</button>
-				)}
+				<button
+					type="button"
+					onClick={() => {
+						void window.vetta.shell.showInFolder(session.cwd);
+						onClose();
+					}}
+					className="flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-[12px] font-medium text-foreground transition-colors hover:bg-accent"
+				>
+					<span className="icon-[solar--folder-open-linear] h-3.5 w-3.5" />
+					{isMac ? t("contextMenu.openInFinder") : t("contextMenu.openInExplorer")}
+				</button>
 				<button
 					type="button"
 					onClick={() => onDelete(session)}
