@@ -11,6 +11,7 @@ import { BatchTasksExecutionApproval } from "../shared/action-approval/batch-tas
 import { BatchTasksProjectApproval } from "../shared/action-approval/batch-tasks/BatchTasksProjectApproval";
 import { BatchTasksTaskApproval } from "../shared/action-approval/batch-tasks/BatchTasksTaskApproval";
 import { GenericActionApproval } from "../shared/action-approval/GenericActionApproval";
+import { DomainManageApprovals } from "../shared/action-approval/manage/DomainManageApprovals";
 import { NavigationOpenApproval } from "../shared/action-approval/navigation/NavigationOpenApproval";
 import { SchedulerCreateApproval } from "../shared/action-approval/scheduler/SchedulerCreateApproval";
 import { SchedulerDeleteApproval } from "../shared/action-approval/scheduler/SchedulerDeleteApproval";
@@ -57,6 +58,7 @@ export function RootGlobalOverlays(): JSX.Element {
 			<ThemedUpdateRestartDialog />
 			<ActionApprovalCenter />
 			<ThemedGenericActionApproval />
+			<DomainManageApprovals />
 			<ThemedAppearancePickerApproval />
 			<ThemedThemeChangeApproval />
 			<ThemedNavigationOpenApproval />

@@ -33,6 +33,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.view"?: ThemeSurfaceConfig;
 		readonly "root.approval.appearance.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.batchTasks.panel"?: ThemeSurfaceConfig;
+		readonly "root.approval.manage.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.navigationOpen.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.schedulerAction.panel"?: ThemeSurfaceConfig;
 		readonly "root.approval.schedulerEdit.panel"?: ThemeSurfaceConfig;

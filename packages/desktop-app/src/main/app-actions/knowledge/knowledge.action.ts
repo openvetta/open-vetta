@@ -9,7 +9,7 @@ import {
 	renameKnowledgeBase,
 } from "../../knowledge/raws-fs.js";
 import { getKnowledgeFileStatuses } from "../../knowledge/status.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	type KnowledgeManageInput,
@@ -160,7 +160,15 @@ export function createKnowledgeActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "knowledge.write",
 			keywords: ["知识库", "导入", "加工", "scan", "knowledge"],
-			approval: genericApproval,
+			approval: createOperationApprovals("knowledge.create", [
+				{ id: "knowledge.create", title: "创建知识库确认", description: "展示并可编辑知识库名称。" },
+				{ id: "knowledge.rename", title: "重命名知识库确认", description: "展示并可编辑新名称。" },
+				{ id: "knowledge.delete", title: "删除知识库确认", description: "展示待删除知识库。" },
+				{ id: "knowledge.add-files", title: "添加知识库文件确认", description: "展示待添加文件列表。" },
+				{ id: "knowledge.delete-entry", title: "删除知识库条目确认", description: "展示待删除条目。" },
+				{ id: "knowledge.scan-now", title: "立即整理知识库确认", description: "确认触发整理。" },
+				{ id: "knowledge.retry-failed", title: "重试失败知识库任务确认", description: "确认重试失败任务。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateKnowledgeManageInput,

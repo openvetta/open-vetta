@@ -172,6 +172,7 @@ export const xianxiaAppearance: ThemeAppearance = {
 		"root.loginDialog.panel": xianxiaPanelSurface,
 		"root.approval.appearance.panel": xianxiaPanelSurface,
 		"root.approval.batchTasks.panel": xianxiaPanelSurface,
+		"root.approval.manage.panel": xianxiaPanelSurface,
 		"root.approval.navigationOpen.panel": xianxiaPanelSurface,
 		"root.approval.schedulerAction.panel": xianxiaPanelSurface,
 		"root.approval.schedulerEdit.panel": xianxiaPanelSurface,

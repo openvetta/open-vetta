@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const skillsQueryInputSchema = z.discriminatedUnion("operation", [
@@ -13,13 +13,13 @@ export const skillsManageInputSchema = z.discriminatedUnion("operation", [
 		operation: z.literal("set-enabled"),
 		name: z.string().trim().min(1),
 		enabled: z.boolean(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("skills.set-enabled"),
 	}),
 	z.object({
 		operation: z.literal("uninstall"),
 		name: z.string().trim().min(1),
 		type: z.enum(["skill", "scene"]).optional(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("skills.uninstall"),
 	}),
 ]);
 

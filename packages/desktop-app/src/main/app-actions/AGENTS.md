@@ -44,8 +44,12 @@ Agent 说明只暴露完成操作所需的信息，包括：
 
 在根目录 `index.ts` 的 `createAppActionRuntime` 中注册新领域。一个 Action 应围绕一致的权限和审批策略；如果查询、写入、执行控制的风险不同，应拆成多个 Action。
 
-当前已注册领域（query 只读 / manage 写操作 + generic 审批）：
+当前已注册领域：
 `appearance`、`navigation`、`batch-tasks`、`scheduler`、`models`、`mcp`、`skills`、`projects`、`settings`、`knowledge`、`plugins`、`im`、`webhook`、`downloads`、`updater`。
+
+审批 UI：
+- `appearance` / `navigation` / `batch-tasks` / `scheduler`：各有专用 presentation 与组件。
+- 其余 manage Action：**按 operation 拆 presentation**（如 `mcp.upsert` / `mcp.set-enabled` / `mcp.remove`），schema 为每种 operation 填默认 `approvalUi`；renderer 下 `shared/action-approval/manage/<domain>/` 一 operation 一组件（对齐 scheduler 拆分方式）。共用 Frame + ApprovalParts，禁止把 create/update/delete 堆进同一 god component。`generic` 仅兜底。
 
 查询结果若含密钥字段必须脱敏（`***`），不要把脱敏值写回 upsert。市场安装 skill（需 archive buffer）与 Flowing 远端流转仍走 GUI，不在 Action 面硬做。
 

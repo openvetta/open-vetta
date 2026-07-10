@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 const serverNameSchema = z.string().trim().min(1);
@@ -39,18 +39,18 @@ export const mcpManageInputSchema = z.discriminatedUnion("operation", [
 		data: z.union([stdioDataSchema, httpDataSchema]).refine((data) => Object.keys(data).length > 0, {
 			message: "upsert requires at least one field",
 		}),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("mcp.upsert"),
 	}),
 	z.object({
 		operation: z.literal("set-enabled"),
 		name: serverNameSchema,
 		enabled: z.boolean(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("mcp.set-enabled"),
 	}),
 	z.object({
 		operation: z.literal("remove"),
 		name: serverNameSchema,
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("mcp.remove"),
 	}),
 ]);
 

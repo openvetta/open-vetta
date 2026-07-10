@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const knowledgeQueryInputSchema = z.discriminatedUnion("operation", [
@@ -13,39 +13,39 @@ export const knowledgeManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("create"),
 		name: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.create"),
 	}),
 	z.object({
 		operation: z.literal("rename"),
 		name: z.string().trim().min(1),
 		newName: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.rename"),
 	}),
 	z.object({
 		operation: z.literal("delete"),
 		name: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.delete"),
 	}),
 	z.object({
 		operation: z.literal("add-files"),
 		kbId: z.string().trim().min(1),
 		paths: z.array(z.string().trim().min(1)).min(1),
 		move: z.boolean().optional().default(false),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.add-files"),
 	}),
 	z.object({
 		operation: z.literal("delete-entry"),
 		kbId: z.string().trim().min(1),
 		relPath: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.delete-entry"),
 	}),
 	z.object({
 		operation: z.literal("scan-now"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.scan-now"),
 	}),
 	z.object({
 		operation: z.literal("retry-failed"),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.retry-failed"),
 	}),
 ]);
 

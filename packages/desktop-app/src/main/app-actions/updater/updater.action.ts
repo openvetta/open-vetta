@@ -1,5 +1,5 @@
 import { getAppVersion, updaterService } from "../../updater.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	type UpdaterManageInput,
@@ -109,7 +109,13 @@ export function createUpdaterActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "updater.write",
 			keywords: ["更新", "安装更新", "检查更新", "upgrade"],
-			approval: genericApproval,
+			approval: createOperationApprovals("updater.check", [
+				{ id: "updater.check", title: "检查更新确认", description: "确认检查应用更新。" },
+				{ id: "updater.download", title: "下载更新确认", description: "确认下载更新包。" },
+				{ id: "updater.install", title: "安装更新确认", description: "确认安装更新并可能重启。" },
+				{ id: "updater.dismiss", title: "忽略更新提示确认", description: "确认忽略当前更新提示。" },
+				{ id: "updater.cancel", title: "取消更新下载确认", description: "确认取消进行中的下载。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateUpdaterManageInput,

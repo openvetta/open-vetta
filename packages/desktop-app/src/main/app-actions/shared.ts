@@ -17,6 +17,68 @@ export const genericApproval: ActionApprovalMetadata = {
 	],
 };
 
+export interface OperationApprovalPresentation {
+	id: string;
+	title: string;
+	description: string;
+}
+
+/**
+ * 按 operation 配置审批 presentation（对齐 scheduler）。
+ * schema 中每种 operation 应 default 到对应 presentation；generic 仅兜底。
+ */
+export function createOperationApprovals(
+	defaultPresentation: string,
+	presentations: OperationApprovalPresentation[],
+): ActionApprovalMetadata {
+	if (!presentations.some((item) => item.id === defaultPresentation)) {
+		throw new ActionError(
+			"ACTION_APPROVAL_CONFIG_INVALID",
+			`defaultPresentation is not declared: ${defaultPresentation}`,
+		);
+	}
+	return {
+		defaultPresentation,
+		presentations: [
+			...presentations,
+			{
+				id: "generic",
+				title: "通用确认",
+				description: "使用通用 Action 审批界面，直接展示 Action 信息和完整输入。",
+			},
+		],
+	};
+}
+
+/** 单个 operation 的 approvalUi：默认指向专用 presentation，可回退 generic。 */
+export function operationApprovalUiSchema<T extends string>(presentation: T) {
+	return z
+		.union([z.literal(presentation), z.literal("generic")])
+		.optional()
+		.default(presentation);
+}
+
+/** @deprecated 使用 createOperationApprovals；保留仅避免遗漏引用时编译失败。 */
+export function createDomainManageApproval(
+	domain: string,
+	title: string,
+	description?: string,
+): ActionApprovalMetadata {
+	const presentation = `${domain}.manage`;
+	return createOperationApprovals(presentation, [
+		{
+			id: presentation,
+			title,
+			description: description ?? `使用「${title}」专用审批界面展示操作详情与关键字段。`,
+		},
+	]);
+}
+
+/** @deprecated 使用 operationApprovalUiSchema */
+export function manageApprovalUiSchema<T extends string>(presentation: T) {
+	return operationApprovalUiSchema(presentation);
+}
+
 export function toJsonValue(value: unknown): JsonValue {
 	try {
 		return JSON.parse(JSON.stringify(value)) as JsonValue;

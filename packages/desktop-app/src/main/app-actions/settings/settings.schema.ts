@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const settingsQueryInputSchema = z.discriminatedUnion("operation", [
@@ -11,22 +11,22 @@ export const settingsManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("set-language"),
 		language: z.enum(["zh", "en"]),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("settings.set-language"),
 	}),
 	z.object({
 		operation: z.literal("set-notifications"),
 		enabled: z.boolean(),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("settings.set-notifications"),
 	}),
 	z.object({
 		operation: z.literal("set-execution-mode"),
 		mode: z.enum(["sandbox", "full-access"]),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("settings.set-execution-mode"),
 	}),
 	z.object({
 		operation: z.literal("set-workspace"),
 		path: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("settings.set-workspace"),
 	}),
 	z.object({
 		operation: z.literal("set-experimental"),
@@ -37,7 +37,7 @@ export const settingsManageInputSchema = z.discriminatedUnion("operation", [
 				agentSkills: z.boolean().optional(),
 			})
 			.refine((data) => Object.keys(data).length > 0, "set-experimental requires at least one field."),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("settings.set-experimental"),
 	}),
 	z.object({
 		operation: z.literal("set-knowledge-base"),
@@ -51,7 +51,7 @@ export const settingsManageInputSchema = z.discriminatedUnion("operation", [
 				ocrConcurrency: z.number().int().min(1).max(8).optional(),
 			})
 			.refine((data) => Object.keys(data).length > 0, "set-knowledge-base requires at least one field."),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("settings.set-knowledge-base"),
 	}),
 ]);
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { genericApprovalUiSchema, validateActionInput } from "../shared.js";
+import { operationApprovalUiSchema, validateActionInput } from "../shared.js";
 import type { JsonValue } from "../types.js";
 
 export const downloadsQueryInputSchema = z.discriminatedUnion("operation", [
@@ -11,7 +11,7 @@ export const downloadsManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("cancel"),
 		id: z.string().trim().min(1),
-		approvalUi: genericApprovalUiSchema,
+		approvalUi: operationApprovalUiSchema("downloads.cancel"),
 	}),
 ]);
 

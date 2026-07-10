@@ -19,6 +19,7 @@ import type { SidebarRegionProps } from "@domains/project/components/sidebar/typ
 import type { AppearanceApprovalDrawerView } from "@shared/action-approval/appearance/AppearanceApprovalDrawerView";
 import type { BatchTasksApprovalFrameView } from "@shared/action-approval/batch-tasks/BatchTasksApprovalFrameView";
 import type { GenericActionApprovalView } from "@shared/action-approval/GenericActionApprovalView";
+import type { ManageActionApprovalFrameView } from "@shared/action-approval/manage/ManageActionApprovalFrameView";
 import type { NavigationOpenApprovalView } from "@shared/action-approval/navigation/NavigationOpenApprovalView";
 import type { SchedulerActionApprovalDialogView } from "@shared/action-approval/scheduler/SchedulerActionApprovalDialogView";
 import type { SchedulerEditApprovalDrawerView } from "@shared/action-approval/scheduler/SchedulerEditApprovalDrawerView";
@@ -69,6 +70,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "root.approval.batchTasksFrameView"?: typeof BatchTasksApprovalFrameView;
 		readonly "root.approval.batchTasksProject"?: ComponentType;
 		readonly "root.approval.batchTasksTask"?: ComponentType;
+		readonly "root.approval.manageFrameView"?: typeof ManageActionApprovalFrameView;
 		readonly "root.approval.navigationOpen"?: ComponentType;
 		readonly "root.approval.navigationOpenView"?: typeof NavigationOpenApprovalView;
 		readonly "root.approval.schedulerCreate"?: ComponentType;

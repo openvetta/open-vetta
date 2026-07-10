@@ -1,6 +1,6 @@
 import type { McpServerConfig } from "../../ipc/fs.js";
 import { readMcpConfig, writeMcpConfig } from "../../ipc/fs.js";
-import { genericApproval, redactRecordSecrets, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, redactRecordSecrets, runActionService, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type McpManageInput,
@@ -142,7 +142,11 @@ export function createMcpActions(): ActionDefinition[] {
 		availability: "gui-main",
 		permission: "mcp.write",
 		keywords: ["mcp", "MCP", "添加", "删除", "启用", "禁用", "command"],
-		approval: genericApproval,
+		approval: createOperationApprovals("mcp.upsert", [
+			{ id: "mcp.upsert", title: "创建或更新 MCP 服务确认", description: "展示 MCP 服务配置，允许用户编辑后确认。" },
+			{ id: "mcp.set-enabled", title: "启用/停用 MCP 服务确认", description: "展示 MCP 服务启用状态变更。" },
+			{ id: "mcp.remove", title: "删除 MCP 服务确认", description: "展示待删除的 MCP 服务。" },
+		]),
 		inputSchema: manageInputSchema,
 		examples: manageExamples,
 		validateInput: validateMcpManageInput,

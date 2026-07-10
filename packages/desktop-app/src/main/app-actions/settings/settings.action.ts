@@ -3,7 +3,7 @@ import { getAppLanguage } from "../../i18n/index.js";
 import { readDesktopConfig, writeDesktopConfig } from "../../ipc/fs.js";
 import { applyAppLanguage } from "../../ipc/i18n.js";
 import { getSandboxCapability } from "../../sandbox/capability.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type SettingsManageInput,
@@ -161,7 +161,14 @@ export function createSettingsActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "settings.write",
 			keywords: ["设置", "语言", "通知", "沙盒", "full-access", "workspace", "知识库设置"],
-			approval: genericApproval,
+			approval: createOperationApprovals("settings.set-language", [
+				{ id: "settings.set-language", title: "修改界面语言确认", description: "确认语言切换。" },
+				{ id: "settings.set-notifications", title: "修改通知设置确认", description: "确认通知开关。" },
+				{ id: "settings.set-execution-mode", title: "修改默认执行模式确认", description: "确认执行模式变更。" },
+				{ id: "settings.set-workspace", title: "修改工作区路径确认", description: "展示并可编辑工作区路径。" },
+				{ id: "settings.set-experimental", title: "修改实验功能确认", description: "确认实验功能变更。" },
+				{ id: "settings.set-knowledge-base", title: "修改知识库加工设置确认", description: "确认知识库设置变更。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateSettingsManageInput,

@@ -1,5 +1,5 @@
 import { listSkills, readSkillsManifest, setSkillEnabled, uninstallSkill } from "../../ipc/skills.js";
-import { genericApproval, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	type SkillsManageInput,
@@ -105,7 +105,10 @@ export function createSkillsActions(): ActionDefinition[] {
 			availability: "gui-main",
 			permission: "skills.write",
 			keywords: ["技能", "skill", "启用", "停用", "卸载", "uninstall"],
-			approval: genericApproval,
+			approval: createOperationApprovals("skills.set-enabled", [
+				{ id: "skills.set-enabled", title: "启用/停用技能确认", description: "展示技能启用状态变更。" },
+				{ id: "skills.uninstall", title: "卸载技能确认", description: "展示待卸载技能。" },
+			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateSkillsManageInput,
