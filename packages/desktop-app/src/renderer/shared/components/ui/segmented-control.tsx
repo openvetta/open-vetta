@@ -31,7 +31,7 @@ export function SegmentedControl<T extends string>({
 	return (
 		<div
 			className={cn(
-				"relative inline-flex rounded-[8px] bg-black/[0.06] p-[2px] dark:bg-white/[0.08]",
+				"relative inline-flex shrink-0 rounded-[8px] bg-black/[0.06] p-[2px] dark:bg-white/[0.08]",
 				className,
 			)}
 		>
@@ -43,7 +43,7 @@ export function SegmentedControl<T extends string>({
 						type="button"
 						onClick={() => onChange(key)}
 						className={cn(
-							"relative flex items-center justify-center gap-1 rounded-[6px] px-2.5 py-[3px] text-[11px] font-medium leading-[16px] transition-colors duration-150 select-none",
+							"relative flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[6px] px-2.5 py-[3px] text-[11px] font-medium leading-[16px] transition-colors duration-150 select-none",
 							active ? "text-foreground" : "text-muted-foreground hover:text-foreground/70",
 						)}
 					>

@@ -33,6 +33,9 @@ export function McpJsonEditor({ model }: { model: McpSettingsModel }): JSX.Eleme
 					{model.jsonError}
 				</div>
 			)}
+			<div className="mt-3 text-center text-[11px] text-muted-foreground/60">
+				{t("configFilePath")}: ~/.vetta/agent/mcp.json
+			</div>
 		</div>
 	);
 }

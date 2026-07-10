@@ -46,19 +46,35 @@ export function SettingSection({
 	children: React.ReactNode;
 	t?: (key: string) => string;
 }): JSX.Element {
-	const renderedTitle = title ?? (t && section.titleKey ? t(section.titleKey) : section.title);
+	const renderedTitle = title !== undefined ? title : t && section.titleKey ? t(section.titleKey) : section.title;
+	const hasTitle =
+		renderedTitle != null &&
+		renderedTitle !== false &&
+		!(typeof renderedTitle === "string" && renderedTitle.trim() === "");
 	return (
 		<div
 			className="mb-6 p-1.5"
 			data-setting-section-highlight-target={section.id}
 		>
-			{typeof renderedTitle === "string" ? (
-				<h2 id={section.id} className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{renderedTitle}</h2>
-			) : (
-				<div id={section.id} className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}>{renderedTitle}</div>
-			)}
+			{hasTitle &&
+				(typeof renderedTitle === "string" ? (
+					<h2
+						id={section.id}
+						className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}
+					>
+						{renderedTitle}
+					</h2>
+				) : (
+					<div
+						id={section.id}
+						className={cn("text-[15px] font-semibold text-foreground", description ? "mb-1" : "mb-3")}
+					>
+						{renderedTitle}
+					</div>
+				))}
 			{description && <p className="mb-3 text-[12px] text-muted-foreground">{description}</p>}
 			<div
+				id={hasTitle ? undefined : section.id}
 				className="@container overflow-hidden rounded-xl border border-border bg-muted"
 				data-setting-section-id={section.id}
 			>
