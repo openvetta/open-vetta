@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { Button } from "@shared/components/ui/button";
+import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
 import { McpServerDetail } from "./McpServerDetail";
 import { McpServerForm } from "./McpServerForm";
@@ -25,19 +26,22 @@ export function McpServerRow({
 	const isEditing = model.editingServer === name;
 	const isDisabled = server.disabled ?? false;
 	const actions = (
-		<div className="flex shrink-0 items-center gap-1">
-			<Button
-				variant="ghost"
-				size="icon-sm"
-				onClick={(event) => {
-					event.stopPropagation();
-					void model.onToggleDisabled(name);
-				}}
-				className={isDisabled ? "text-muted-foreground" : "text-emerald-400"}
-				title={isDisabled ? t("enable") : t("disable")}
+		<div className="flex shrink-0 items-center gap-2">
+			<div
+				className="flex items-center"
+				onClick={(event) => event.stopPropagation()}
+				onKeyDown={(event) => event.stopPropagation()}
 			>
-				<span className={`${isDisabled ? "icon-[mdi--toggle-switch-off-outline]" : "icon-[mdi--toggle-switch-outline]"} h-4 w-4`} />
-			</Button>
+				<Switch
+					size="sm"
+					checked={!isDisabled}
+					onCheckedChange={() => {
+						void model.onToggleDisabled(name);
+					}}
+					aria-label={isDisabled ? t("enable") : t("disable")}
+					title={isDisabled ? t("enable") : t("disable")}
+				/>
+			</div>
 			<Button
 				variant="ghost"
 				size="icon-sm"

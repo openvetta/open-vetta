@@ -915,6 +915,7 @@
   "jsonMissingCommand": "Server \"{{name}}\" is missing the command field",
   "jsonParseError": "JSON parse error: {{msg}}",
   "disabledStatus": "Disabled",
+  "advancedOptions": "Advanced options",
   "addMcpServer": "Add MCP Server",
   "unknown": "Unknown",
   "kbTitle": "Knowledge Base Settings",
