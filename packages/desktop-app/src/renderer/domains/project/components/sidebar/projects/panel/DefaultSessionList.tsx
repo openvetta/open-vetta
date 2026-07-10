@@ -11,7 +11,6 @@ import {
 } from "@shared/store/atoms";
 import { cn } from "@shared/lib/utils";
 import {
-	VIRTUAL_SESSION_MAX_HEIGHT,
 	VIRTUAL_SESSION_OVERSCAN,
 	VIRTUAL_SESSION_ROW_HEIGHT,
 } from "../projectGroupConstants";
@@ -24,6 +23,8 @@ interface DefaultSessionListProps {
 	filter: DefaultConversationFilter;
 	onRenameSession: (cwd: string, sessionPath: string, name: string) => void;
 	onSelectSession: (cwd: string, sessionPath: string) => void;
+	/** 默认对话区滚动容器；展开全部时 Virtuoso 挂到此 scroll parent。 */
+	scrollParent: HTMLElement | null;
 	sessions: SessionInfo[];
 }
 
@@ -36,6 +37,7 @@ export const DefaultSessionList = memo(function DefaultSessionList({
 	filter,
 	onRenameSession,
 	onSelectSession,
+	scrollParent,
 	sessions,
 }: DefaultSessionListProps): JSX.Element {
 	const { t } = useTranslation("project");
@@ -71,6 +73,7 @@ export const DefaultSessionList = memo(function DefaultSessionList({
 		? sorted
 		: sorted.slice(0, DEFAULT_VISIBLE_DEFAULT_SESSIONS);
 	const hiddenCount = sorted.length - DEFAULT_VISIBLE_DEFAULT_SESSIONS;
+	const useVirtual = showAll && scrollParent != null;
 
 	const renderSession = (session: SessionInfo): JSX.Element => {
 		const isActive = activeSessionPath === session.path;
@@ -99,20 +102,16 @@ export const DefaultSessionList = memo(function DefaultSessionList({
 
 	return (
 		<div className={cn("flex flex-col", className)}>
-			{showAll ? (
-				<div
-					style={{ height: `${Math.min(sorted.length * VIRTUAL_SESSION_ROW_HEIGHT, VIRTUAL_SESSION_MAX_HEIGHT)}px` }}
-				>
-					<Virtuoso
-						className="h-full"
-						data={sorted}
-						overscan={VIRTUAL_SESSION_OVERSCAN}
-						defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
-						itemContent={(_, session) => (
-							<div className="pb-px">{renderSession(session)}</div>
-						)}
-					/>
-				</div>
+			{useVirtual ? (
+				<Virtuoso
+					customScrollParent={scrollParent}
+					data={sorted}
+					defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
+					overscan={VIRTUAL_SESSION_OVERSCAN}
+					itemContent={(_, session) => (
+						<div className="pb-px">{renderSession(session)}</div>
+					)}
+				/>
 			) : (
 				<div className="space-y-px">{visible.map(renderSession)}</div>
 			)}

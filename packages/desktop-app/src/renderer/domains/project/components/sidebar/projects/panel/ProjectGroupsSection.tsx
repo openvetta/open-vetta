@@ -3,15 +3,17 @@ import type { ProjectsPanelModel } from "./types";
 
 interface ProjectGroupsSectionProps {
 	model: ProjectsPanelModel;
+	scrollParent: HTMLElement | null;
 }
 
-export function ProjectGroupsSection({ model }: ProjectGroupsSectionProps): JSX.Element {
+export function ProjectGroupsSection({ model, scrollParent }: ProjectGroupsSectionProps): JSX.Element {
 	return (
 		<>
 			{model.filteredProjects.map((project) => (
 				<ProjectGroup
 					key={project.cwd}
 					project={project}
+					scrollParent={scrollParent}
 					sessions={model.projectSessions(project.cwd)}
 					isExpanded={model.expandedProjects.has(project.cwd)}
 					isActive={model.actions.isProjectActive(project.cwd)}
@@ -29,6 +31,7 @@ export function ProjectGroupsSection({ model }: ProjectGroupsSectionProps): JSX.
 					<ProjectGroup
 						key={project.cwd}
 						project={project}
+						scrollParent={scrollParent}
 						sessions={sessions}
 						isExpanded={model.expandedBatchProjects.has(project.cwd)}
 						isActive={model.actions.isProjectActive(project.cwd)}

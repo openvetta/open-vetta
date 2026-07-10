@@ -1,4 +1,5 @@
 import { useAtom } from "jotai";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DefaultConversationFilter, Project, SessionInfo } from "@shared/store/atoms";
 import { projectContextMenuAtom } from "@shared/store/atoms";
@@ -8,6 +9,7 @@ import { DefaultSessionList } from "./DefaultSessionList";
 
 interface DefaultConversationSectionProps {
 	activeSessionPath: string;
+	className?: string;
 	defaultConversationFilter: DefaultConversationFilter;
 	listClassName?: string;
 	onNewSession: (cwd: string) => void;
@@ -19,6 +21,7 @@ interface DefaultConversationSectionProps {
 
 export function DefaultConversationSection({
 	activeSessionPath,
+	className,
 	defaultConversationFilter,
 	listClassName,
 	onNewSession,
@@ -29,9 +32,11 @@ export function DefaultConversationSection({
 }: DefaultConversationSectionProps): JSX.Element {
 	const { t } = useTranslation("project");
 	const [, setProjectMenu] = useAtom(projectContextMenuAtom);
+	// 列表区独立滚动；header 在外层 shrink-0，不随列表滚动。
+	const [listScrollEl, setListScrollEl] = useState<HTMLDivElement | null>(null);
 
 	return (
-		<div className="mt-2 flex flex-col">
+		<div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", className)}>
 			<div
 				className="group -mx-1.5 flex shrink-0 items-center justify-between pb-1 pl-2 pr-1 pt-1"
 				onContextMenu={(event) => {
@@ -67,15 +72,18 @@ export function DefaultConversationSection({
 					)}
 				</div>
 			</div>
-			<DefaultSessionList
-				activeSessionPath={activeSessionPath}
-				className={cn("project-list-containment -mx-1.5 px-1.5", listClassName)}
-				cwd={project.cwd}
-				filter={defaultConversationFilter}
-				onRenameSession={onRenameSession}
-				onSelectSession={onSelectSession}
-				sessions={sessions}
-			/>
+			<div ref={setListScrollEl} className="min-h-0 flex-1 overflow-y-auto no-scrollbar">
+				<DefaultSessionList
+					activeSessionPath={activeSessionPath}
+					className={cn("project-list-containment -mx-1.5 px-1.5", listClassName)}
+					cwd={project.cwd}
+					filter={defaultConversationFilter}
+					scrollParent={listScrollEl}
+					onRenameSession={onRenameSession}
+					onSelectSession={onSelectSession}
+					sessions={sessions}
+				/>
+			</div>
 		</div>
 	);
 }

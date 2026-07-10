@@ -108,6 +108,29 @@ const readSidebarWidth = (): number => {
 export const sidebarWidthAtom = atom<number>(readSidebarWidth());
 export const sidebarFilterAtom = atom<SidebarFilter>("all");
 
+/** 侧栏「项目区 : 默认对话区」高度比中，项目区占比。默认 0.4（4:6），范围 [0.2, 0.8]（2:8～8:2）。 */
+export const SIDEBAR_PROJECTS_SPLIT_RATIO_KEY = "vetta-sidebar-projects-split-ratio";
+export const SIDEBAR_PROJECTS_SPLIT_DEFAULT = 0.4;
+export const SIDEBAR_PROJECTS_SPLIT_MIN = 0.2;
+export const SIDEBAR_PROJECTS_SPLIT_MAX = 0.8;
+
+export function clampSidebarProjectsSplitRatio(ratio: number): number {
+	if (!Number.isFinite(ratio)) return SIDEBAR_PROJECTS_SPLIT_DEFAULT;
+	return Math.min(SIDEBAR_PROJECTS_SPLIT_MAX, Math.max(SIDEBAR_PROJECTS_SPLIT_MIN, ratio));
+}
+
+const readSidebarProjectsSplitRatio = (): number => {
+	const raw = localStorage.getItem(SIDEBAR_PROJECTS_SPLIT_RATIO_KEY);
+	if (raw == null) return SIDEBAR_PROJECTS_SPLIT_DEFAULT;
+	return clampSidebarProjectsSplitRatio(Number(raw));
+};
+
+export const sidebarProjectsSplitRatioAtom = atom<number>(readSidebarProjectsSplitRatio());
+
+export function persistSidebarProjectsSplitRatio(ratio: number): void {
+	localStorage.setItem(SIDEBAR_PROJECTS_SPLIT_RATIO_KEY, String(clampSidebarProjectsSplitRatio(ratio)));
+}
+
 export type DefaultConversationFilter = "conversation" | "claw";
 export const defaultConversationFilterAtom = atom<DefaultConversationFilter>("conversation");
 // Always start expanded on app launch — collapse state is per-session only.

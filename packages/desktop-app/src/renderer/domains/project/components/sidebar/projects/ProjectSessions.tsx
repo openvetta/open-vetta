@@ -14,9 +14,10 @@ interface ProjectSessionsProps {
 	hiddenCount: number;
 	onToggleShowAll: () => void;
 	renderEmpty: () => JSX.Element;
+	/** 所属滚动区 DOM；展开全部时 Virtuoso 挂到此 scroll parent，避免内层再开 scroller。 */
+	scrollParent: HTMLElement | null;
 	sessions: SessionInfo[];
 	showAll: boolean;
-	virtualHeight: number;
 }
 
 export function ProjectSessions({
@@ -26,10 +27,12 @@ export function ProjectSessions({
 	hiddenCount,
 	onToggleShowAll,
 	renderEmpty,
+	scrollParent,
 	sessions,
 	showAll,
-	virtualHeight,
 }: ProjectSessionsProps): JSX.Element {
+	const useVirtual = showAll && sessions.length > 0 && scrollParent != null;
+
 	return (
 		<AnimatePresence initial={false}>
 			{expanded && (
@@ -44,12 +47,12 @@ export function ProjectSessions({
 					<div className="mt-px space-y-px">
 						{sessions.length === 0 ? (
 							renderEmpty()
-						) : showAll ? (
+						) : useVirtual ? (
 							<Virtuoso
+								customScrollParent={scrollParent}
 								data={sessions}
-								style={{ height: virtualHeight, overflowX: "hidden" }}
-								overscan={VIRTUAL_SESSION_OVERSCAN}
 								defaultItemHeight={VIRTUAL_SESSION_ROW_HEIGHT}
+								overscan={VIRTUAL_SESSION_OVERSCAN}
 								itemContent={(_, session) => (
 									<div className="pb-px">{children(session)}</div>
 								)}

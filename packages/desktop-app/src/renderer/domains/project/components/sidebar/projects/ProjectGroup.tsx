@@ -10,17 +10,14 @@ import {
 	sessionContextMenuAtom,
 } from "@shared/store/atoms";
 import { pathBasename } from "@shared/lib/utils";
-import {
-	DEFAULT_VISIBLE_SESSIONS,
-	VIRTUAL_SESSION_MAX_HEIGHT,
-	VIRTUAL_SESSION_ROW_HEIGHT,
-} from "./projectGroupConstants";
+import { DEFAULT_VISIBLE_SESSIONS } from "./projectGroupConstants";
 import { ProjectRow } from "./ProjectRow";
 import { ProjectSessions } from "./ProjectSessions";
 import { SessionRow } from "./SessionRow";
 
 interface ProjectGroupProps {
 	project: Project;
+	scrollParent: HTMLElement | null;
 	sessions: SessionInfo[];
 	isExpanded: boolean;
 	isActive?: boolean;
@@ -35,6 +32,7 @@ interface ProjectGroupProps {
 
 export const ProjectGroup = memo(function ProjectGroup({
 	project,
+	scrollParent,
 	sessions,
 	isExpanded,
 	isActive = false,
@@ -79,10 +77,6 @@ export const ProjectGroup = memo(function ProjectGroup({
 		? sortedSessions
 		: sortedSessions.slice(0, DEFAULT_VISIBLE_SESSIONS);
 	const hiddenCount = sortedSessions.length - DEFAULT_VISIBLE_SESSIONS;
-	const virtualSessionListHeight = Math.min(
-		sortedSessions.length * VIRTUAL_SESSION_ROW_HEIGHT,
-		VIRTUAL_SESSION_MAX_HEIGHT,
-	);
 	const displayName = project.name ?? pathBasename(project.cwd);
 	const projectType = project.type;
 	const projectBadge = getProjectBadge(project, projectType, t);
@@ -143,9 +137,9 @@ export const ProjectGroup = memo(function ProjectGroup({
 						{t("sidebar.projects.noSessions")}
 					</p>
 				)}
+				scrollParent={scrollParent}
 				sessions={visibleSessions}
 				showAll={showAllSessions}
-				virtualHeight={virtualSessionListHeight}
 			>
 				{renderSession}
 			</ProjectSessions>
