@@ -10,6 +10,9 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **侧栏项目/对话列表改为双区内部滚动**：`ProjectsPanel` 外层不再整体滚动；上方项目分组与下方默认对话各自 `overflow-y-auto`。默认高度比 4:6（项目:对话），中间可拖拽分隔条，比例限制 2:8～8:2，并持久化到 `localStorage`（`vetta-sidebar-projects-split-ratio`）。
+- **侧栏展开会话列表恢复虚拟滚动**：展开「更多」后使用 `react-virtuoso` 的 `customScrollParent`，挂到所属分区滚动容器上，只虚拟化 DOM、不另开内层 scroller，避免双层抢滚轮。
+- **侧栏默认对话区 header 固定**：对话/Claw 筛选条与操作按钮不再随列表滚动；仅会话列表区域 `overflow-y-auto`，Virtuoso 的 scroll parent 同步改为列表容器。
 - **外观设置「鼠标指针」改为样式选择**：由自定义指针开关改为「默认指针 / 白鼬」两档卡片选择；存储键由 `vetta-custom-cursor`（布尔）迁移为 `vetta-cursor-style`（`default` | `stoat`），旧值自动兼容。
 - **自动标题端到端耗时日志**：renderer `[auto-title] got name=...` 增加 `durationMs`（含 IPC + 主进程 LLM 全流程）。
 - **知识库文件树按层懒加载**：`list()` 每个库只返回根层 nodes，不再递归整树叶子；进入子目录时通过 `listDir(kbId, relPath)` 每次只拉一层并合并进缓存。大库首屏不再扫全树，目录「N 项」用浅层 `childCount`；待加工列表与库文件数改从加工态 map 统计，不依赖已打开的目录树。
