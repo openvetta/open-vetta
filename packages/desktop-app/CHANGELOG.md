@@ -10,6 +10,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **知识库页 Maximum update depth exceeded 死循环**：浏览 path 未写入 atom 时用 `?? []` 每次渲染新空数组，依赖 `path` 的 `useEffect`（清空选中）反复 `setState`；改为稳定 `EMPTY_PATH` + `pathKey`，清空选中在已空时跳过。
 - **知识库进入子目录加载完弹回根层**：页面骨架曾在「深层懒加载出文件 + 加工态未 hydrated」时卸载内容面板，组件内 path 被清空；现页面骨架仅用于列表尚无缓存，加工态等待改在面板内层处理，浏览路径按库写入 atom，避免重挂载丢路径。
 - **知识库文件列表首屏灰闪**：加工态（`fileStatuses`）未回填前，`statusFor` 把缺 key 默认成 `unprocessed`，文件多时 item 先灰 0.几秒再出角标。现改为：加工态完成至少一次拉取前对有文件的库继续显示骨架；`statusFor` 缺 key 返回 null（不默认 unprocessed）；刷新保留旧加工态（stale-while-revalidate），避免重复闪烁。
 - **手打 @ 文件引用刷新后误进文件 badge**：用户消息里未通过 AtPanel 选中、仅作为正文的 `@…`（相对路径 / 非绝对路径）刷新会话后不应变成文件列表 badge。根因是 history 回放把所有以 `@path\n` 开头的行都当成附件前缀；现仅把绝对路径（面板选择 / 拖拽 / 图片缓存 / appshot 写出的格式）视为附件，并排除 `image-cache` 系统路径，避免刷新后正文 @ 消失、badge 文件与手打内容不一致。

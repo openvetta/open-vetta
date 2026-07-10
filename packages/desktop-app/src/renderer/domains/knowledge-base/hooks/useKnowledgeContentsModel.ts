@@ -30,15 +30,20 @@ interface UseKnowledgeContentsModelParams {
 
 type MenuState = { x: number; y: number; node: KnowledgeNode };
 
+/** 稳定空路径：`?? []` 每次渲染都是新引用，会让依赖 path 的 effect 死循环。 */
+const EMPTY_PATH: string[] = [];
+
 export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledgeContentsModelParams) {
 	const { t } = useTranslation(["settings", "common"]);
 	const baseName = knowledgeBaseDisplayName(knowledgeBase);
 	const [pathByBase, setPathByBase] = useAtom(knowledgeBrowsePathByBaseAtom);
-	const path = pathByBase[knowledgeBase.id] ?? [];
+	const path = pathByBase[knowledgeBase.id] ?? EMPTY_PATH;
+	/** path 序列化键，作 effect 依赖（避免数组引用抖动）。 */
+	const pathKey = path.join("/");
 	const setPath = useCallback(
 		(next: string[] | ((prev: string[]) => string[])) => {
 			setPathByBase((prev) => {
-				const current = prev[knowledgeBase.id] ?? [];
+				const current = prev[knowledgeBase.id] ?? EMPTY_PATH;
 				const value = typeof next === "function" ? next(current) : next;
 				if (current.length === value.length && current.every((seg, i) => seg === value[i])) return prev;
 				return { ...prev, [knowledgeBase.id]: value };
@@ -85,15 +90,16 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 	);
 
 	const clearSelection = useCallback(() => {
-		setSelectedIds(new Set());
-		setAnchorId(null);
+		// 已空则跳过：new Set() 每次新引用，盲目 set 会触发多余渲染。
+		setSelectedIds((prev) => (prev.size === 0 ? prev : new Set()));
+		setAnchorId((prev) => (prev === null ? prev : null));
 	}, []);
 
 	// 切库 / 切目录后清空选中（path 按库存在 atom，切库不丢各自位置）
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 切目录/库后清空选中
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pathKey 代表 path 内容
 	useEffect(() => {
 		clearSelection();
-	}, [path, knowledgeBase.id, clearSelection]);
+	}, [pathKey, knowledgeBase.id, clearSelection]);
 
 	useEffect(() => {
 		if (!navTarget) return;
@@ -103,7 +109,7 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 			setPath(segments);
 			return;
 		}
-		// 目标层可能仍在懒加载：本层 nodes 尚未含该文件则等下一轮（依赖 currentNodes）。
+		// 目标层可能仍在懒加载：本层 nodes 尚未含该文件则等下一轮。
 		const level = nodesAtPath(knowledgeBase.nodes, path);
 		if (!level?.some((n) => n.id === navTarget.fileId)) return;
 		const el = document.querySelector(`[data-knode-id="${CSS.escape(navTarget.fileId)}"]`);
@@ -116,16 +122,16 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 
 	useEffect(() => window.vetta.knowledge.onStatusesChanged(() => void refresh()), [refresh]);
 
-	// 进入目录 / 深链跳转：按路径链逐层 listDir，每次只拉一层。根层已由 list 给出，不重复拉。
+	// 进入目录 / 深链跳转：按路径链逐层 listDir。依赖 pathKey（内容）而非 path 引用。
 	useEffect(() => {
-		const relPath = path.join("/");
-		if (isKnowledgeDirLoaded(knowledgeBase.nodes, relPath)) {
-			setLevelLoading(false);
+		if (isKnowledgeDirLoaded(knowledgeBase.nodes, pathKey)) {
+			setLevelLoading((prev) => (prev ? false : prev));
 			return;
 		}
 		let cancelled = false;
 		setLevelLoading(true);
-		void ensurePathLoaded({ kbId: knowledgeBase.id, pathSegments: path })
+		const segments = pathKey ? pathKey.split("/") : EMPTY_PATH;
+		void ensurePathLoaded({ kbId: knowledgeBase.id, pathSegments: segments })
 			.catch(() => {})
 			.finally(() => {
 				if (!cancelled) setLevelLoading(false);
@@ -133,7 +139,7 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 		return () => {
 			cancelled = true;
 		};
-	}, [ensurePathLoaded, knowledgeBase.id, knowledgeBase.nodes, path]);
+	}, [ensurePathLoaded, knowledgeBase.id, knowledgeBase.nodes, pathKey]);
 
 	const currentNodes = useMemo(() => nodesAtPath(knowledgeBase.nodes, path), [knowledgeBase.nodes, path]);
 	const query = search.trim().toLocaleLowerCase();
