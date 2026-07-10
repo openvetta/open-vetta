@@ -10,6 +10,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **外观设置「鼠标指针」改为样式选择**：由自定义指针开关改为「默认指针 / 白鼬」两档卡片选择；存储键由 `vetta-custom-cursor`（布尔）迁移为 `vetta-cursor-style`（`default` | `stoat`），旧值自动兼容。
 - **自动标题端到端耗时日志**：renderer `[auto-title] got name=...` 增加 `durationMs`（含 IPC + 主进程 LLM 全流程）。
 - **知识库文件树按层懒加载**：`list()` 每个库只返回根层 nodes，不再递归整树叶子；进入子目录时通过 `listDir(kbId, relPath)` 每次只拉一层并合并进缓存。大库首屏不再扫全树，目录「N 项」用浅层 `childCount`；待加工列表与库文件数改从加工态 map 统计，不依赖已打开的目录树。
 

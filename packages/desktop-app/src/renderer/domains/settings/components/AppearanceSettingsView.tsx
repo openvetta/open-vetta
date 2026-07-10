@@ -1,13 +1,14 @@
 import { BotAvatar } from "@shared/components/BotAvatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
-import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
 import type { ThemeMode } from "@shared/store/atoms";
+import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
 import { SETTINGS_SECTION } from "../registry";
-import { SettingHeading, SettingRow } from "./shared";
+import { SettingHeading } from "./shared";
 import type {
+	AppearanceCursorOption,
 	AppearanceLanguageOption,
 	AppearanceSettingsModel,
 	AppearanceUiThemeOption,
@@ -239,6 +240,42 @@ function UiThemeCard({
 	);
 }
 
+function CursorStyleCard({
+	active,
+	hint,
+	icon,
+	id,
+	label,
+	onSelect,
+	preview,
+}: AppearanceCursorOption & {
+	onSelect: (style: CursorStyle) => void;
+}): JSX.Element {
+	return (
+		<button
+			type="button"
+			onClick={() => onSelect(id)}
+			className={cn(
+				"group relative flex flex-col items-start gap-2 rounded-xl border bg-card px-4 py-3 text-left transition-all",
+				active ? "border-primary/70 ring-2 ring-primary/30" : "border-border hover:border-primary/40 hover:bg-accent/40",
+			)}
+		>
+			<div className="flex w-full items-center justify-between">
+				<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/80">
+					{preview ? (
+						<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
+					) : (
+						<span className={cn(icon, "h-6 w-6", active ? "text-primary" : "text-muted-foreground")} />
+					)}
+				</div>
+				{active && <span className="icon-[mdi--check-circle] h-4 w-4 text-primary" />}
+			</div>
+			<div className="text-[13px] font-medium text-foreground">{label}</div>
+			<div className="text-[11px] text-muted-foreground">{hint}</div>
+		</button>
+	);
+}
+
 export function AppearanceSettingsView({ model }: { model: AppearanceSettingsModel }): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
@@ -303,10 +340,14 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 
 			<div className="mb-6">
 				<SettingHeading title={model.labels.sections.cursor} section={SETTINGS_SECTION["appearance-cursor"]} className="mb-3" />
-				<div className="@container overflow-hidden rounded-xl border border-border bg-muted">
-					<SettingRow title={model.labels.cursorCustomTitle} description={model.labels.cursorCustomHint} border={false}>
-						<Switch checked={model.customCursor} onCheckedChange={model.actions.setCustomCursor} />
-					</SettingRow>
+				<div className={cn("grid gap-3", model.narrow ? "grid-cols-1" : "grid-cols-2")}>
+					{model.cursorOptions.map((option) => (
+						<CursorStyleCard
+							key={option.id}
+							{...option}
+							onSelect={model.actions.setCursorStyle}
+						/>
+					))}
 				</div>
 			</div>
 		</div>

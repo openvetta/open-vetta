@@ -1,8 +1,9 @@
-import { useCustomCursor } from "@shared/hooks/useCustomCursor";
+import { useCursorStyle } from "@shared/hooks/useCustomCursor";
 import { useLanguage } from "@shared/hooks/useLanguage";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import { useTheme } from "@shared/hooks/useTheme";
 import type { ThemeMode } from "@shared/store/atoms";
+import type { CursorStyle } from "@shared/theme/cursor";
 import { useThemeRuntime } from "@shared/theme/runtime";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
@@ -41,19 +42,28 @@ export interface AppearanceUiThemeOption {
 	preview: string;
 }
 
+export interface AppearanceCursorOption {
+	active: boolean;
+	hint: string;
+	id: CursorStyle;
+	label: string;
+	/** 预览图 URL；缺省时用 icon */
+	preview?: string;
+	icon?: string;
+}
+
 export interface AppearanceSettingsModel {
 	actions: {
 		changeLanguage: (language: AppLanguage) => void;
 		changeMode: (mode: ThemeMode, point: AppearancePoint) => void;
 		changeThemeName: (id: string, point: AppearancePoint) => void;
 		selectUiTheme: (id: string) => void;
-		setCustomCursor: (enabled: boolean) => void;
+		setCursorStyle: (style: CursorStyle) => void;
 	};
 	activeUiThemeId: string;
-	customCursor: boolean;
+	cursorOptions: AppearanceCursorOption[];
+	cursorStyle: CursorStyle;
 	labels: {
-		cursorCustomHint: string;
-		cursorCustomTitle: string;
 		languageHint: string;
 		sections: {
 			cursor: string;
@@ -120,11 +130,26 @@ const UI_THEME_OPTIONS = [
 	},
 ] as const;
 
+const CURSOR_OPTIONS = [
+	{
+		id: "default" as const,
+		labelKey: "cursorDefaultTitle",
+		hintKey: "cursorDefaultHint",
+		icon: "icon-[mdi--cursor-default-outline]",
+	},
+	{
+		id: "stoat" as const,
+		labelKey: "cursorStoatTitle",
+		hintKey: "cursorStoatHint",
+		preview: "/cursors/default.png",
+	},
+] as const;
+
 export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 	const { mode, themeName, setMode, setThemeName } = useTheme();
 	const { activeThemeId, availableThemes, selectTheme, status: themeRuntimeStatus } = useThemeRuntime();
 	const { language, setLanguage } = useLanguage();
-	const { enabled: customCursor, setEnabled: setCustomCursor } = useCustomCursor();
+	const { style: cursorStyle, setStyle: setCursorStyle } = useCursorStyle();
 	const { t } = useTranslation("settings");
 	const narrow = useNarrowScreen();
 
@@ -158,10 +183,21 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 		[activeThemeId, availableThemes, t, themeRuntimeStatus],
 	);
 
+	const cursorOptions = useMemo<AppearanceCursorOption[]>(
+		() =>
+			CURSOR_OPTIONS.map((option) => ({
+				id: option.id,
+				active: cursorStyle === option.id,
+				label: t(option.labelKey),
+				hint: t(option.hintKey),
+				preview: "preview" in option ? option.preview : undefined,
+				icon: "icon" in option ? option.icon : undefined,
+			})),
+		[cursorStyle, t],
+	);
+
 	const labels = useMemo(
 		() => ({
-			cursorCustomHint: t("cursorCustomHint"),
-			cursorCustomTitle: t("cursorCustomTitle"),
 			languageHint: t("languageHint"),
 			sections: {
 				cursor: t(SETTINGS_SECTION["appearance-cursor"].titleKey),
@@ -193,17 +229,19 @@ export function useAppearanceSettingsModel(): AppearanceSettingsModel {
 				void selectTheme(id);
 				recordSettingsUsage({ tab: "appearance", action: "selected", target: "ui-theme", value: id });
 			},
-			setCustomCursor: (enabled) => {
-				setCustomCursor(enabled);
+			setCursorStyle: (style) => {
+				setCursorStyle(style);
 				recordSettingsUsage({
 					tab: "appearance",
-					action: enabled ? "enabled" : "disabled",
-					target: "custom-cursor",
+					action: "changed",
+					target: "cursor-style",
+					value: style,
 				});
 			},
 		},
 		activeUiThemeId: activeThemeId,
-		customCursor,
+		cursorOptions,
+		cursorStyle,
 		labels,
 		language,
 		languages: LANGUAGE_OPTIONS,

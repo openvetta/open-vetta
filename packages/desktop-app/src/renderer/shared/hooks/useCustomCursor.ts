@@ -1,19 +1,21 @@
 import { useAtom } from "jotai";
 import { useCallback } from "react";
-import { customCursorAtom } from "../store/atoms";
-import { applyCustomCursor, CURSOR_STORAGE_KEY } from "../theme/cursor";
+import { cursorStyleAtom } from "../store/atoms";
+import { type CursorStyle, setStoredCursorStyle } from "../theme/cursor";
 
-export function useCustomCursor() {
-	const [enabled, setEnabledAtom] = useAtom(customCursorAtom);
+export function useCursorStyle() {
+	const [style, setStyleAtom] = useAtom(cursorStyleAtom);
 
-	const setEnabled = useCallback(
-		(value: boolean) => {
-			localStorage.setItem(CURSOR_STORAGE_KEY, String(value));
-			applyCustomCursor(value);
-			setEnabledAtom(value);
+	const setStyle = useCallback(
+		(value: CursorStyle) => {
+			setStoredCursorStyle(value);
+			setStyleAtom(value);
 		},
-		[setEnabledAtom],
+		[setStyleAtom],
 	);
 
-	return { enabled, setEnabled };
+	return { style, setStyle };
 }
+
+/** @deprecated 使用 useCursorStyle */
+export const useCustomCursor = useCursorStyle;
