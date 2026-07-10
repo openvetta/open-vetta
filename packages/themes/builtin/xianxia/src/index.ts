@@ -9,6 +9,7 @@ import { XianxiaSceneCarousel, XianxiaSkillBadgeRow } from "./components/Xianxia
 import { XianxiaArtifactLibraryPage } from "./components/artifact-library";
 import { XianxiaSanctumPage } from "./components/sanctum-page";
 import { XianxiaSidebarNavigation } from "./components/XianxiaSidebarNavigation";
+import { XianxiaCultivationRuntime } from "./cultivation";
 import "./styles.css";
 
 export const xianxiaTheme: ThemeModule = {
@@ -19,6 +20,7 @@ export const xianxiaTheme: ThemeModule = {
 		version: "0.1.0",
 	},
 	appearance: xianxiaAppearance,
+	runtime: [XianxiaCultivationRuntime],
 	components: {
 		"app.background": XianxiaAppBackground,
 		"app.mainContentBackground": XianxiaMainContentBackground,

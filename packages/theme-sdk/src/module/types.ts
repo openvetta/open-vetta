@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import type { ThemeAppearance } from "../appearance";
 import type { ThemePageDefinition } from "../pages";
 
@@ -16,12 +17,20 @@ export type ThemeRegionId = Extract<keyof ThemeRegionRegistry, string>;
 
 export type ThemeComponentId = Extract<keyof ThemeComponentRegistry, string>;
 
+/**
+ * Always-mounted theme runtime component (effects, progression sync, etc.).
+ * Rendered by the host while the theme is active; should typically return null.
+ */
+export type ThemeRuntimeComponent = ComponentType;
+
 export interface ThemeModule {
 	readonly appearance?: ThemeAppearance;
 	readonly components?: Partial<ThemeComponentRegistry>;
 	readonly meta: ThemeMeta;
 	readonly pages?: readonly ThemePageDefinition[];
 	readonly regions?: Partial<ThemeRegionRegistry>;
+	/** Headless runtime effects mounted for the active theme (no UI required). */
+	readonly runtime?: readonly ThemeRuntimeComponent[];
 }
 
 export const DEFAULT_THEME_MODULE: ThemeModule = {

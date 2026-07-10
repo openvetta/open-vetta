@@ -23,6 +23,8 @@ export default defineConfig({
 				"@vetta/theme-sdk": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-sdk/pages": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-sdk/routing": { singleton: true, import: false, requiredVersion: "*" },
+				"@vetta/theme-sdk/storage": { singleton: true, import: false, requiredVersion: "*" },
+				"@vetta/theme-sdk/usage": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/theme-ui": { singleton: true, import: false, requiredVersion: "*" },
 				"@vetta/ui": { singleton: true, import: false, requiredVersion: "*" },
 				"motion/react": { singleton: true, import: false, requiredVersion: "*" },

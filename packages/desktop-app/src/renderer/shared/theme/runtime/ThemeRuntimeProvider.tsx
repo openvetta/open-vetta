@@ -122,11 +122,20 @@ export function ThemeRuntimeProvider({ children }: { children: ReactNode }): JSX
 		[activeTheme.meta.id, availableThemes, selectTheme, status],
 	);
 
+	const runtimeEffects = activeTheme.runtime ?? [];
+
 	return (
 		<ThemeRuntimeContext.Provider value={value}>
 			<ThemeProvider theme={activeTheme}>
 				<ThemeErrorBoundary key={activeTheme.meta.id} onError={handleThemeRenderError}>
-					{initialThemeReady ? children : null}
+					{initialThemeReady ? (
+						<>
+							{runtimeEffects.map((RuntimeEffect, index) => (
+								<RuntimeEffect key={`${activeTheme.meta.id}:runtime:${index}`} />
+							))}
+							{children}
+						</>
+					) : null}
 				</ThemeErrorBoundary>
 			</ThemeProvider>
 		</ThemeRuntimeContext.Provider>
