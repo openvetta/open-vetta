@@ -915,6 +915,7 @@
   "jsonMissingCommand": "服务器 \"{{name}}\" 缺少 command 字段",
   "jsonParseError": "JSON 解析错误: {{msg}}",
   "disabledStatus": "已禁用",
+  "advancedOptions": "高级选项",
   "addMcpServer": "添加 MCP 服务器",
   "unknown": "未知",
   "kbTitle": "知识库设置",
