@@ -6,6 +6,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **手打 @ 文件引用刷新后误进文件 badge**：用户消息里未通过 AtPanel 选中、仅作为正文的 `@…`（相对路径 / 非绝对路径）刷新会话后不应变成文件列表 badge。根因是 history 回放把所有以 `@path\n` 开头的行都当成附件前缀；现仅把绝对路径（面板选择 / 拖拽 / 图片缓存 / appshot 写出的格式）视为附件，并排除 `image-cache` 系统路径，避免刷新后正文 @ 消失、badge 文件与手打内容不一致。
 - **优化 UI 主题包加载链路**：主题运行时新增分段 debug 耗时日志，区分主题列表读取、Module Federation host/remote 注册、`loadRemote`、模块缓存命中与 CSS 加载；同一主题版本的远程模块加载改为 Promise 级内存去重，避免 StrictMode 或并发请求重复拉取；`vetta-theme://` 版本化资源改用长期 immutable 缓存，减少第二次打开时重复协议读取。
 - **避免启动时先渲染默认 UI 主题**：保存的界面主题为非 default 时，主题运行时会先加载该主题包，加载完成后再渲染应用内容，避免冷启动首帧使用默认 runtime 主题后再切换到用户选择的主题。
 - **桌宠过夜动作切换导致视频资源累积**：桌宠视频不再随 `actionId` 变化重建 `<video>` 元素，改为复用同一 DOM 节点并在切换/卸载时显式暂停、清空 `src` 和 `load()` 释放媒体管线；自动内容尺寸监听也不再在每次 DOM 变化时重建 `ResizeObserver` 或观察整棵子树，降低通宵运行时 Chromium native 线程、句柄与内存累积风险。
