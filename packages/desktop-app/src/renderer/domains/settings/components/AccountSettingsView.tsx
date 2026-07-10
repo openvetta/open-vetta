@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "@shared/components/ui/dialog
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { SubscriptionCards } from "./SubscriptionCards";
+import { TokenActivityChart } from "./TokenActivityChart";
 import type { AccountSettingsModel } from "./useAccountSettingsModel";
 
 export interface AccountSettingsViewProps {
@@ -103,6 +104,10 @@ export function AccountSettingsView({ model }: AccountSettingsViewProps): JSX.El
 			</motion.div>
 
 			<SubscriptionCards />
+
+			<div className="mb-6">
+				<TokenActivityChart />
+			</div>
 
 			<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 				<DialogContent

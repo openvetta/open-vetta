@@ -303,6 +303,27 @@ export async function updateProfile(
 	});
 }
 
+// ─── Usage series (token activity) ───
+
+export interface UsageSeriesPoint {
+	date: string;
+	credits: number;
+	tokens: number;
+	requests: number;
+}
+
+export interface UsageSeries {
+	points: UsageSeriesPoint[];
+	start_time: string;
+	end_time: string;
+}
+
+export async function fetchUsageSeries(token: string, days: 7 | 30 | 90 | 365 = 30): Promise<UsageSeries> {
+	return request<UsageSeries>(`/usage/me/series?days=${days}`, {
+		headers: authHeaders(token),
+	});
+}
+
 // ─── Market Skills ───
 
 export interface MarketSkillInfo {
