@@ -2,6 +2,7 @@ import type { PersonaOption } from "@preload/api.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 const MIN_IMAGES = 1;
 const MAX_IMAGES = 10;
@@ -96,16 +97,19 @@ export function useAgentSettingsModel(): AgentSettingsModel {
 	const toggleVettaCli = useCallback((checked: boolean) => {
 		setVettaCliEnabled(checked);
 		void window.vetta.config.set({ experimental: { vettaCli: checked } });
+		recordSettingsUsage({ tab: "agent", action: checked ? "enabled" : "disabled", target: "vetta-cli" });
 	}, []);
 
 	const togglePromptPrediction = useCallback((checked: boolean) => {
 		setPromptPredictionEnabled(checked);
 		void window.vetta.config.set({ experimental: { promptPrediction: checked } });
+		recordSettingsUsage({ tab: "agent", action: checked ? "enabled" : "disabled", target: "prompt-prediction" });
 	}, []);
 
 	const toggleAgentSkills = useCallback((checked: boolean) => {
 		setAgentSkillsEnabled(checked);
 		void window.vetta.config.set({ experimental: { agentSkills: checked } });
+		recordSettingsUsage({ tab: "agent", action: checked ? "enabled" : "disabled", target: "agent-skills" });
 	}, []);
 
 	const dirty = personaId !== applied.personaId || customPrompt !== applied.customPrompt;
@@ -118,6 +122,11 @@ export function useAgentSettingsModel(): AgentSettingsModel {
 			const next = { personaId, customPrompt };
 			await window.vetta.session.setPersonalization(next);
 			setApplied(next);
+			recordSettingsUsage({
+				tab: "agent",
+				action: "saved",
+				target: customPrompt.trim() ? "personalization-custom" : "personalization",
+			});
 			const elapsed = performance.now() - startedAt;
 			if (elapsed < 450) await new Promise((resolve) => setTimeout(resolve, 450 - elapsed));
 			setJustSaved(true);
@@ -135,6 +144,7 @@ export function useAgentSettingsModel(): AgentSettingsModel {
 		const nextValue = clampImages(value);
 		setMaxRecentImages(nextValue);
 		void window.vetta.session.setMaxRecentImages(nextValue);
+		recordSettingsUsage({ tab: "agent", action: "changed", target: "max-recent-images", value: String(nextValue) });
 	}, []);
 
 	const labels = useMemo<AgentSettingsLabels>(

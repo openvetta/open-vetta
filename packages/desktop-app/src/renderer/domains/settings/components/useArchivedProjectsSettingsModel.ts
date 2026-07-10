@@ -6,6 +6,7 @@ import { useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export interface ArchivedProjectItem {
 	name: string;
@@ -47,6 +48,7 @@ export function useArchivedProjectsSettingsModel(): ArchivedProjectsSettingsMode
 		async (path: string) => {
 			await unarchiveProject(path);
 			setArchivedList((prev) => prev.filter((entry) => entry.path !== path));
+			recordSettingsUsage({ tab: "archived", action: "restored", target: "project" });
 		},
 		[unarchiveProject],
 	);
@@ -63,6 +65,7 @@ export function useArchivedProjectsSettingsModel(): ArchivedProjectsSettingsMode
 				onConfirm: () => {
 					void deleteArchivedProject(path).then(() => {
 						setArchivedList((prev) => prev.filter((item) => item.path !== path));
+						recordSettingsUsage({ tab: "archived", action: "deleted", target: "project" });
 					});
 				},
 			});

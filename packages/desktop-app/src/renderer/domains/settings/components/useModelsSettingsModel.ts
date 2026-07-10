@@ -1,6 +1,7 @@
 import type { ModelsConfigData } from "@preload/api.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export type ModelsEditMode = "visual" | "json";
 export type ProviderEntry = ModelsConfigData["providers"][string];
@@ -175,7 +176,8 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		setAddingProvider(false);
 		setProviderForm({ ...emptyProvider });
 		setExpandedProvider(name);
-	}, [config, providerForm.name, providerFormToData, saveConfig]);
+		recordSettingsUsage({ tab: "models", action: "added", target: "provider", value: providerForm.api });
+	}, [config, providerForm.api, providerForm.name, providerFormToData, saveConfig]);
 
 	const handleUpdateProvider = useCallback(
 		async (oldName: string) => {
@@ -200,8 +202,9 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			if (oldName !== nextName) {
 				setExpandedProvider(nextName);
 			}
+			recordSettingsUsage({ tab: "models", action: "updated", target: "provider", value: providerForm.api });
 		},
-		[config, providerForm.name, providerFormToData, saveConfig],
+		[config, providerForm.api, providerForm.name, providerFormToData, saveConfig],
 	);
 
 	const handleDeleteProvider = useCallback(
@@ -212,6 +215,7 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			const defaultModel = config.defaultModel?.startsWith(`${name}/`) ? undefined : config.defaultModel;
 			await saveConfig({ ...config, defaultModel, providers: newProviders });
 			if (expandedProvider === name) setExpandedProvider(null);
+			recordSettingsUsage({ tab: "models", action: "deleted", target: "provider" });
 		},
 		[config, expandedProvider, saveConfig],
 	);
@@ -250,6 +254,12 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			});
 			setAddingModelFor(null);
 			setModelForm({ ...emptyModel });
+			recordSettingsUsage({
+				tab: "models",
+				action: "added",
+				target: "model",
+				value: modelForm.api || "provider-default",
+			});
 		},
 		[config, modelForm, saveConfig],
 	);
@@ -274,6 +284,12 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			});
 			setEditingModel(null);
 			setModelForm({ ...emptyModel });
+			recordSettingsUsage({
+				tab: "models",
+				action: "updated",
+				target: "model",
+				value: modelForm.api || "provider-default",
+			});
 		},
 		[config, modelForm, saveConfig],
 	);
@@ -293,6 +309,7 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 					[providerName]: { ...provider, models },
 				},
 			});
+			recordSettingsUsage({ tab: "models", action: "deleted", target: "model" });
 		},
 		[config, saveConfig],
 	);
@@ -306,6 +323,11 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			if (newDefault) {
 				localStorage.setItem("vetta-selected-model", newDefault);
 			}
+			recordSettingsUsage({
+				tab: "models",
+				action: newDefault ? "selected" : "reset",
+				target: "default-model",
+			});
 		},
 		[config, saveConfig],
 	);
@@ -333,6 +355,7 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			}
 			setJsonError(null);
 			await saveConfig(parsed);
+			recordSettingsUsage({ tab: "models", action: "saved", target: "json-config" });
 		} catch (e) {
 			setJsonError(`${t("jsonErrorParse")}: ${(e as Error).message}`);
 		}
@@ -351,6 +374,7 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 			setEditingModel(null);
 			setProviderForm({ ...emptyProvider });
 			setModelForm({ ...emptyModel });
+			recordSettingsUsage({ tab: "models", action: "changed", target: "edit-mode", value: newMode });
 		},
 		[config],
 	);

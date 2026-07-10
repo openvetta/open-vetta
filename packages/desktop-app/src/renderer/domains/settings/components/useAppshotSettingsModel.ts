@@ -3,6 +3,7 @@ import type { MacKeyId } from "@shared/components/MacKeyboardPreview";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export type AppshotGestureValue = "both-shift" | "both-mod" | "both-alt";
 export type AppshotSelectValue = AppshotGestureValue | "none";
@@ -108,6 +109,12 @@ export function useAppshotSettingsModel(): AppshotSettingsModel {
 				next === "none" ? { appshot: { enabled: false } } : { appshot: { enabled: true, gesture: next } },
 			);
 			await window.vetta.appshot.reloadGesture();
+			recordSettingsUsage({
+				tab: "appshot",
+				action: next === "none" ? "disabled" : "changed",
+				target: "gesture",
+				value: next,
+			});
 			if (next !== "none") {
 				const nextSnapshot = await window.vetta.permissions.checkAll().catch(() => null);
 				setSnapshot(nextSnapshot);

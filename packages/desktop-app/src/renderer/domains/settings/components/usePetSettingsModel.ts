@@ -4,6 +4,7 @@ import type { PetBubbleStyleAsset, PetDecoration } from "../../../../preload/api
 import { PET_BUBBLE_STYLES, type PetBubbleStyleId } from "../../../../shared/pet-bubbles";
 import { DEFAULT_PET_CONFIG, type PetConfig } from "../../../../shared/pet-config";
 import { SETTINGS_SECTION } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export interface PetBubbleStyleModel {
 	decorUrl?: string;
@@ -71,11 +72,13 @@ export function usePetSettingsModel(): PetSettingsModel {
 		setConfig((current) => ({ ...current, enabled: checked }));
 		const request = checked ? window.vetta.pet.show() : window.vetta.pet.hide();
 		void request.then(setConfig);
+		recordSettingsUsage({ tab: "pet", action: checked ? "enabled" : "disabled", target: "pet-window" });
 	}, []);
 
 	const handleAlwaysOnTop = useCallback(
 		(checked: boolean) => {
 			void persist({ alwaysOnTop: checked });
+			recordSettingsUsage({ tab: "pet", action: checked ? "enabled" : "disabled", target: "always-on-top" });
 		},
 		[persist],
 	);
@@ -83,6 +86,7 @@ export function usePetSettingsModel(): PetSettingsModel {
 	const handleDebugFrame = useCallback(
 		(checked: boolean) => {
 			void persist({ debugFrame: checked });
+			recordSettingsUsage({ tab: "pet", action: checked ? "enabled" : "disabled", target: "debug-frame" });
 		},
 		[persist],
 	);
@@ -90,6 +94,7 @@ export function usePetSettingsModel(): PetSettingsModel {
 	const handleBubbleStyle = useCallback(
 		(value: string) => {
 			void persist({ bubbleStyleId: value as PetBubbleStyleId });
+			recordSettingsUsage({ tab: "pet", action: "selected", target: "bubble-style", value });
 		},
 		[persist],
 	);

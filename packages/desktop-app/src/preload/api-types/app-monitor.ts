@@ -63,6 +63,44 @@ export type AppMonitorResourceOperation =
 
 export type AppMonitorResourceSource = "market" | "custom" | "archive" | "remote" | "system";
 
+export type AppMonitorSettingsTab =
+	| "general"
+	| "appearance"
+	| "account"
+	| "agent"
+	| "models"
+	| "mcp"
+	| "im"
+	| "webhook"
+	| "shortcuts"
+	| "appshot"
+	| "environment"
+	| "permissions"
+	| "knowledge"
+	| "pet"
+	| "plugins"
+	| "archived"
+	| "subscription";
+
+export type AppMonitorSettingsAction =
+	| "selected"
+	| "changed"
+	| "saved"
+	| "added"
+	| "updated"
+	| "deleted"
+	| "enabled"
+	| "disabled"
+	| "reset"
+	| "restored"
+	| "tested"
+	| "scanned"
+	| "retried"
+	| "cleared"
+	| "imported"
+	| "reinstalled"
+	| "refreshed";
+
 export type AppMonitorEvent =
 	| {
 			type: "input.attachments.added";
@@ -95,6 +133,13 @@ export type AppMonitorEvent =
 			system?: boolean;
 			permissionCount?: number;
 			commandCount?: number;
+	  }
+	| {
+			type: "settings.changed";
+			tab: AppMonitorSettingsTab;
+			action: AppMonitorSettingsAction;
+			target: string;
+			value?: string;
 	  };
 
 export interface DesktopAppMonitorApi {

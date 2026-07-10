@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePluginI18n } from "../../plugins/runtime/plugin-i18n";
 import type { SettingsSectionRegistration } from "../registry";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 type ValuesByPlugin = Record<string, Record<string, unknown>>;
 
@@ -71,6 +72,7 @@ export function usePluginsSettingsModel(): PluginsSettingsModel {
 	const update = (pluginId: string, key: string, value: unknown): void => {
 		setValues((prev) => ({ ...prev, [pluginId]: { ...prev[pluginId], [key]: value } }));
 		void window.vetta.plugins.setSettings(pluginId, { [key]: value });
+		recordSettingsUsage({ tab: "plugins", action: "changed", target: "plugin-setting", value: pluginId });
 	};
 
 	const sections = useMemo<PluginSettingsSectionModel[]>(

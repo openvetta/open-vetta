@@ -7,6 +7,7 @@ import {
 } from "@shared/lib/shortcuts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { recordSettingsUsage } from "./recordSettingsUsage";
 
 export type QuickPanelBehavior = "foreground" | "background";
 export type QuickPanelTrigger = "none" | "mod" | "alt" | "shift";
@@ -81,6 +82,7 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 			saveShortcuts(next);
 			return next;
 		});
+		recordSettingsUsage({ tab: "shortcuts", action: "changed", target: "shortcut" });
 	}, []);
 
 	const handleShortcutReset = useCallback((actionId: string) => {
@@ -90,17 +92,20 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 			saveShortcuts(next);
 			return next;
 		});
+		recordSettingsUsage({ tab: "shortcuts", action: "reset", target: "shortcut" });
 	}, []);
 
 	const handleResetAll = useCallback(() => {
 		setCustomShortcuts({});
 		saveShortcuts({});
+		recordSettingsUsage({ tab: "shortcuts", action: "reset", target: "all-shortcuts" });
 	}, []);
 
 	const handleTriggerChange = useCallback(
 		(value: QuickPanelTrigger) => {
 			setTrigger(value);
 			void persistQuickPanel({ trigger: value });
+			recordSettingsUsage({ tab: "shortcuts", action: "changed", target: "quick-panel-trigger", value });
 		},
 		[persistQuickPanel],
 	);
@@ -109,6 +114,7 @@ export function useShortcutsSettingsModel(): ShortcutsSettingsModel {
 		(value: QuickPanelBehavior) => {
 			setBehavior(value);
 			void persistQuickPanel({ postSendBehavior: value });
+			recordSettingsUsage({ tab: "shortcuts", action: "changed", target: "quick-panel-behavior", value });
 		},
 		[persistQuickPanel],
 	);

@@ -90,6 +90,9 @@ class AppMonitorService {
 				case "resource.lifecycle":
 					recordResourceLifecycle(data, event);
 					break;
+				case "settings.changed":
+					recordSettingsChanged(data, event);
+					break;
 			}
 		});
 	}
@@ -718,6 +721,71 @@ function recordResourceLifecycle(
 	if (isMoreOperatedResource(resourceStats, data.resources.mostOperatedByKind[kind])) {
 		data.resources.mostOperatedByKind[kind] = { ...resourceStats };
 	}
+}
+
+function recordSettingsChanged(
+	data: AppMonitorData,
+	event: Extract<AppMonitorEvent, { type: "settings.changed" }>,
+): void {
+	const tab = normalizeMetricKey(event.tab);
+	const action = normalizeMetricKey(event.action);
+	const target = normalizeMetricKey(event.target);
+	const value = event.value ? normalizeMetricKey(event.value) : "";
+	if (tab === "unknown" || action === "unknown" || target === "unknown") return;
+	const now = Date.now();
+	const entryKey =
+		value === "" || value === "unknown" ? `${tab}:${action}:${target}` : `${tab}:${action}:${target}:${value}`;
+	data.settings.events += 1;
+	data.settings.byAction[action] = (data.settings.byAction[action] ?? 0) + 1;
+	data.settings.byTarget[target] = (data.settings.byTarget[target] ?? 0) + 1;
+	if (value !== "" && value !== "unknown") {
+		data.settings.byValue[value] = (data.settings.byValue[value] ?? 0) + 1;
+	}
+	const tabStats = getSettingsScopeStats(data.settings.byTab, tab);
+	tabStats.events += 1;
+	tabStats.byAction[action] = (tabStats.byAction[action] ?? 0) + 1;
+	tabStats.byTarget[target] = (tabStats.byTarget[target] ?? 0) + 1;
+	if (value !== "" && value !== "unknown") {
+		tabStats.byValue[value] = (tabStats.byValue[value] ?? 0) + 1;
+	}
+	data.settings.byEntry[entryKey] ??= {
+		tab,
+		action,
+		target,
+		...(value === "" || value === "unknown" ? {} : { value }),
+		used: 0,
+		lastUsedAt: 0,
+	};
+	const stats = data.settings.byEntry[entryKey];
+	stats.used += 1;
+	stats.lastUsedAt = now;
+	data.settings.recent = { ...stats };
+	if (isMoreUsedSetting(stats, data.settings.mostUsed)) {
+		data.settings.mostUsed = { ...stats };
+	}
+}
+
+function getSettingsScopeStats(
+	statsByKey: AppMonitorData["settings"]["byTab"],
+	rawKey: string,
+): AppMonitorData["settings"]["byTab"][string] {
+	const key = normalizeMetricKey(rawKey);
+	statsByKey[key] ??= {
+		events: 0,
+		byAction: {},
+		byTarget: {},
+		byValue: {},
+	};
+	return statsByKey[key];
+}
+
+function isMoreUsedSetting(
+	stats: AppMonitorData["settings"]["mostUsed"],
+	current: AppMonitorData["settings"]["mostUsed"],
+): boolean {
+	if (!stats) return false;
+	if (!current) return true;
+	return stats.used > current.used || (stats.used === current.used && stats.lastUsedAt > current.lastUsedAt);
 }
 
 function getResourceKindStats(
