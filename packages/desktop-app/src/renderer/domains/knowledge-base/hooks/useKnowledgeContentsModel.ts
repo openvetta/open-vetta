@@ -1,8 +1,11 @@
 import {
 	confirmDialogAtom,
+	ensureKnowledgePathLoadedAtom,
 	filePreviewAtom,
+	knowledgeBrowsePathByBaseAtom,
 	knowledgeFileStatusesAtom,
 	knowledgeNavTargetAtom,
+	knowledgeStatusesHydratedAtom,
 	knowledgeViewModeAtom,
 	refreshKnowledgeBasesAtom,
 } from "@shared/store/atoms";
@@ -11,7 +14,14 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ContextMenuItem } from "../components/KnowledgeContextMenu";
-import { knowledgeBaseDisplayName, knowledgeNodeMatches, nodesAtPath } from "../lib/knowledge-base";
+import {
+	isKnowledgeDirLoaded,
+	knowledgeBaseDisplayName,
+	knowledgeNodeMatches,
+	nodesAtPath,
+	resolveKnowledgeFileStatus,
+	shouldHoldForStatuses,
+} from "../lib/knowledge-base";
 
 interface UseKnowledgeContentsModelParams {
 	knowledgeBase: KnowledgeBase;
@@ -23,22 +33,39 @@ type MenuState = { x: number; y: number; node: KnowledgeNode };
 export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledgeContentsModelParams) {
 	const { t } = useTranslation(["settings", "common"]);
 	const baseName = knowledgeBaseDisplayName(knowledgeBase);
-	const [path, setPath] = useState<string[]>([]);
+	const [pathByBase, setPathByBase] = useAtom(knowledgeBrowsePathByBaseAtom);
+	const path = pathByBase[knowledgeBase.id] ?? [];
+	const setPath = useCallback(
+		(next: string[] | ((prev: string[]) => string[])) => {
+			setPathByBase((prev) => {
+				const current = prev[knowledgeBase.id] ?? [];
+				const value = typeof next === "function" ? next(current) : next;
+				if (current.length === value.length && current.every((seg, i) => seg === value[i])) return prev;
+				return { ...prev, [knowledgeBase.id]: value };
+			});
+		},
+		[knowledgeBase.id, setPathByBase],
+	);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [anchorId, setAnchorId] = useState<string | null>(null);
 	const [menu, setMenu] = useState<MenuState | null>(null);
 	const [renameNode, setRenameNode] = useState<KnowledgeNode | null>(null);
+	/** 当前面包屑路径链上的某层尚未回填时为 true，用于骨架而非「空目录」闪一下。 */
+	const [levelLoading, setLevelLoading] = useState(false);
 	const confirm = useSetAtom(confirmDialogAtom);
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
+	const ensurePathLoaded = useSetAtom(ensureKnowledgePathLoadedAtom);
 	const openPreview = useSetAtom(filePreviewAtom);
 	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
+	const statusesHydrated = useAtomValue(knowledgeStatusesHydratedAtom);
 	const viewMode = useAtomValue(knowledgeViewModeAtom);
 	const [navTarget, setNavTarget] = useAtom(knowledgeNavTargetAtom);
 
 	const statusFor = useCallback(
 		(node: KnowledgeNode): KnowledgeProcessStatus | null => {
 			if (node.type !== "file") return null;
-			return fileStatuses[`${knowledgeBase.id}/${node.id}`]?.status ?? "unprocessed";
+			// 缺 key = 尚未回填，不得默认 unprocessed（否则首屏整表误灰）。
+			return resolveKnowledgeFileStatus(fileStatuses, knowledgeBase.id, node.id);
 		},
 		[fileStatuses, knowledgeBase.id],
 	);
@@ -62,8 +89,7 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 		setAnchorId(null);
 	}, []);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 仅在切库时重置
-	useEffect(() => setPath([]), [knowledgeBase.id]);
+	// 切库 / 切目录后清空选中（path 按库存在 atom，切库不丢各自位置）
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 切目录/库后清空选中
 	useEffect(() => {
 		clearSelection();
@@ -77,21 +103,48 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 			setPath(segments);
 			return;
 		}
+		// 目标层可能仍在懒加载：本层 nodes 尚未含该文件则等下一轮（依赖 currentNodes）。
+		const level = nodesAtPath(knowledgeBase.nodes, path);
+		if (!level?.some((n) => n.id === navTarget.fileId)) return;
+		const el = document.querySelector(`[data-knode-id="${CSS.escape(navTarget.fileId)}"]`);
+		if (!el) return;
 		setSelectedIds(new Set([navTarget.fileId]));
 		setAnchorId(navTarget.fileId);
-		document.querySelector(`[data-knode-id="${CSS.escape(navTarget.fileId)}"]`)?.scrollIntoView({ block: "center" });
+		el.scrollIntoView({ block: "center" });
 		setNavTarget(null);
-	}, [navTarget, path, setNavTarget]);
+	}, [navTarget, path, setNavTarget, knowledgeBase.nodes, setPath]);
 
 	useEffect(() => window.vetta.knowledge.onStatusesChanged(() => void refresh()), [refresh]);
 
+	// 进入目录 / 深链跳转：按路径链逐层 listDir，每次只拉一层。根层已由 list 给出，不重复拉。
+	useEffect(() => {
+		const relPath = path.join("/");
+		if (isKnowledgeDirLoaded(knowledgeBase.nodes, relPath)) {
+			setLevelLoading(false);
+			return;
+		}
+		let cancelled = false;
+		setLevelLoading(true);
+		void ensurePathLoaded({ kbId: knowledgeBase.id, pathSegments: path })
+			.catch(() => {})
+			.finally(() => {
+				if (!cancelled) setLevelLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [ensurePathLoaded, knowledgeBase.id, knowledgeBase.nodes, path]);
+
 	const currentNodes = useMemo(() => nodesAtPath(knowledgeBase.nodes, path), [knowledgeBase.nodes, path]);
 	const query = search.trim().toLocaleLowerCase();
-	const visibleNodes = useMemo(
-		() => (query ? currentNodes.filter((node) => knowledgeNodeMatches(node, query)) : currentNodes),
-		[currentNodes, query],
-	);
-	const filesAtLevel = useMemo(() => currentNodes.filter((node) => node.type === "file"), [currentNodes]);
+	const visibleNodes = useMemo(() => {
+		if (!currentNodes) return [];
+		return query ? currentNodes.filter((node) => knowledgeNodeMatches(node, query)) : currentNodes;
+	}, [currentNodes, query]);
+	const filesAtLevel = useMemo(() => (currentNodes ?? []).filter((node) => node.type === "file"), [currentNodes]);
+	/** 本层未加载完，或本层有文件但加工态未回填：骨架，避免空态/灰闪；不卸载面板。 */
+	const levelPending =
+		levelLoading || currentNodes === null || shouldHoldForStatuses({ statusesHydrated, levelNodes: currentNodes });
 
 	const openNode = useCallback(
 		(node: KnowledgeNode) => {
@@ -111,7 +164,7 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 				index,
 			});
 		},
-		[filesAtLevel, openPreview],
+		[filesAtLevel, openPreview, setPath],
 	);
 
 	const onItemClick = useCallback(
@@ -262,12 +315,13 @@ export function useKnowledgeContentsModel({ knowledgeBase, search }: UseKnowledg
 
 	const navigateBreadcrumb = useCallback(
 		(index: number) => setPath(index < 0 ? [] : path.slice(0, index + 1)),
-		[path],
+		[path, setPath],
 	);
 
 	return {
 		baseName,
 		clearSelection,
+		levelPending,
 		menu,
 		menuItems,
 		navigateBreadcrumb,

@@ -1,11 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
+import { useAtomValue } from "jotai";
 import { Button } from "@shared/components/ui/button";
 import { Input } from "@shared/components/ui/input";
 import { cn } from "@shared/lib/utils";
+import { knowledgeFileStatusesAtom } from "@shared/store/atoms";
 import type { useKnowledgeBaseListModel } from "../hooks/useKnowledgeBaseListModel";
 import {
-	countKnowledgeNodes,
+	countKnowledgeDirsFromStatuses,
+	countKnowledgeFilesFromStatuses,
 	formatKnowledgeUpdatedAt,
 	knowledgeBaseDisplayName,
 } from "../lib/knowledge-base";
@@ -18,6 +21,7 @@ interface KnowledgeBaseListPageViewProps {
 
 export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewProps): JSX.Element {
 	const { t } = useTranslation("settings");
+	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
 
 	return (
 		<div className="flex h-full w-full flex-1 flex-col overflow-hidden">
@@ -90,7 +94,11 @@ export function KnowledgeBaseListPageView({ model }: KnowledgeBaseListPageViewPr
 						>
 							<AnimatePresence mode="popLayout">
 								{model.filteredBases.map((base, index) => {
-									const stats = countKnowledgeNodes(base.nodes);
+									// 懒加载树不全：文件/目录数从加工态路径推导（+ 根层空目录）
+									const stats = {
+										files: countKnowledgeFilesFromStatuses(base.id, fileStatuses),
+										directories: countKnowledgeDirsFromStatuses(base.id, fileStatuses, base.nodes),
+									};
 									const active = base.id === model.activeId;
 									return (
 										<motion.div

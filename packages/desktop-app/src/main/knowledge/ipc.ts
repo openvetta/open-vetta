@@ -28,6 +28,7 @@ import {
 	deleteKnowledgeBase,
 	deleteKnowledgeEntry,
 	listKnowledgeBases,
+	listKnowledgeDir,
 	renameKnowledgeBase,
 	renameKnowledgeEntry,
 } from "./raws-fs.js";
@@ -42,6 +43,7 @@ const CHANNELS = {
 	RELOAD: "vetta:kb:reload",
 	IS_PROCESSING: "vetta:kb:is-processing",
 	LIST: "vetta:kb:list",
+	LIST_DIR: "vetta:kb:list-dir",
 	STATUSES: "vetta:kb:statuses",
 	ADD_FILES: "vetta:kb:add-files",
 	DELETE_ENTRY: "vetta:kb:delete-entry",
@@ -75,6 +77,9 @@ export function registerKnowledgeIpc(): void {
 
 	ipcMain.handle(CHANNELS.IS_PROCESSING, async () => isKnowledgeProcessing());
 	ipcMain.handle(CHANNELS.LIST, async () => listKnowledgeBases());
+	ipcMain.handle(CHANNELS.LIST_DIR, async (_e, kbId: string, relPath: string) =>
+		listKnowledgeDir(kbId, relPath ?? ""),
+	);
 	ipcMain.handle(CHANNELS.STATUSES, async () => getKnowledgeFileStatuses());
 	ipcMain.handle(CHANNELS.ADD_FILES, async (_e, kbId: string, sourcePaths: string[], move: boolean) => {
 		await addFilesToKnowledgeBase(kbId, sourcePaths, move);
