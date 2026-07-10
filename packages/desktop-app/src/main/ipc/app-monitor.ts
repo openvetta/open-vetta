@@ -1,14 +1,45 @@
 import { ipcMain } from "electron";
-import { getAppMonitorSnapshot, recordAppMonitorUserActivity } from "../app-monitor/app-monitor-service.js";
+import type {
+	AppMonitorEvent,
+	AppMonitorInputActionKind,
+	AppMonitorInputActionUsage,
+	AppMonitorInputAttachmentSource,
+	AppMonitorInputFileAttachment,
+	AppMonitorInputImageAttachment,
+	AppMonitorInputPromptRefKind,
+	AppMonitorInputPromptRefUsage,
+} from "../../preload/api-types/app-monitor.js";
+import {
+	getAppMonitorSnapshot,
+	recordAppMonitorEvent,
+	recordAppMonitorUserActivity,
+} from "../app-monitor/app-monitor-service.js";
 
 const USER_ACTIVITY_CHANNEL = "vetta:app-monitor:user-activity";
+const RECORD_EVENT_CHANNEL = "vetta:app-monitor:record-event";
 const GET_ACHIEVEMENT_USAGE_CHANNEL = "vetta:app-monitor:get-achievement-usage";
+
+const INPUT_ATTACHMENT_SOURCES = new Set<AppMonitorInputAttachmentSource>([
+	"at-panel",
+	"file-dialog",
+	"image-dialog",
+	"drop",
+	"paste",
+]);
+const INPUT_ACTION_KINDS = new Set<AppMonitorInputActionKind>(["builtin", "plugin"]);
+const INPUT_PROMPT_REF_KINDS = new Set<AppMonitorInputPromptRefKind>(["scene", "skill"]);
 
 export function registerAppMonitorIpc(): () => void {
 	const onUserActivity = (): void => {
 		recordAppMonitorUserActivity();
 	};
+	const onRecordEvent = (_event: Electron.IpcMainEvent, payload: unknown): void => {
+		const event = toAppMonitorEvent(payload);
+		if (!event) return;
+		recordAppMonitorEvent(event);
+	};
 	ipcMain.on(USER_ACTIVITY_CHANNEL, onUserActivity);
+	ipcMain.on(RECORD_EVENT_CHANNEL, onRecordEvent);
 	ipcMain.handle(GET_ACHIEVEMENT_USAGE_CHANNEL, () => {
 		const snapshot = getAppMonitorSnapshot();
 		return {
@@ -32,6 +63,157 @@ export function registerAppMonitorIpc(): () => void {
 	});
 	return () => {
 		ipcMain.removeListener(USER_ACTIVITY_CHANNEL, onUserActivity);
+		ipcMain.removeListener(RECORD_EVENT_CHANNEL, onRecordEvent);
 		ipcMain.removeHandler(GET_ACHIEVEMENT_USAGE_CHANNEL);
 	};
+}
+
+function toAppMonitorEvent(value: unknown): AppMonitorEvent | null {
+	if (!isRecord(value)) return null;
+	if (value.type === "input.context.used") return toInputContextUsedEvent(value);
+	if (value.type === "input.action.used") return toInputActionUsedEvent(value);
+	if (value.type === "input.action.toggled") return toInputActionToggledEvent(value);
+	if (value.type !== "input.attachments.added") return null;
+	if (!isInputAttachmentSource(value.source)) return null;
+	const files = Array.isArray(value.files) ? value.files.map(toFileAttachment).filter((item) => item !== null) : [];
+	const images = Array.isArray(value.images)
+		? value.images.map(toImageAttachment).filter((item) => item !== null)
+		: [];
+	if (files.length === 0 && images.length === 0) return null;
+	return {
+		type: "input.attachments.added",
+		source: value.source,
+		files,
+		images,
+	};
+}
+
+function toInputContextUsedEvent(value: Record<string, unknown>): AppMonitorEvent | null {
+	const files = Array.isArray(value.files) ? value.files.map(toFileAttachment).filter((item) => item !== null) : [];
+	const images = Array.isArray(value.images)
+		? value.images.map(toImageAttachment).filter((item) => item !== null)
+		: [];
+	const promptRef = toInputPromptRefUsage(value.promptRef);
+	if (files.length === 0 && images.length === 0 && !promptRef) return null;
+	return {
+		type: "input.context.used",
+		files,
+		images,
+		...(promptRef ? { promptRef } : {}),
+	};
+}
+
+function toInputActionUsedEvent(value: Record<string, unknown>): AppMonitorEvent | null {
+	if (!Array.isArray(value.actions)) return null;
+	const actions = value.actions.map(toInputActionUsage).filter((item) => item !== null);
+	if (actions.length === 0) return null;
+	return {
+		type: "input.action.used",
+		actions,
+	};
+}
+
+function toInputActionToggledEvent(value: Record<string, unknown>): AppMonitorEvent | null {
+	if (!isInputActionKind(value.actionKind) || typeof value.active !== "boolean") return null;
+	const actionId = normalizeActionId(value.actionId);
+	if (actionId === "") return null;
+	return {
+		type: "input.action.toggled",
+		actionId,
+		actionKind: value.actionKind,
+		active: value.active,
+	};
+}
+
+function toInputActionUsage(value: unknown): AppMonitorInputActionUsage | null {
+	if (!isRecord(value) || !isInputActionKind(value.actionKind)) return null;
+	const actionId = normalizeActionId(value.actionId);
+	if (actionId === "") return null;
+	return {
+		actionId,
+		actionKind: value.actionKind,
+	};
+}
+
+function toInputPromptRefUsage(value: unknown): AppMonitorInputPromptRefUsage | undefined {
+	if (!isRecord(value) || !isInputPromptRefKind(value.kind)) return undefined;
+	const name = normalizeName(value.name);
+	if (name === "") return undefined;
+	return {
+		kind: value.kind,
+		name,
+	};
+}
+
+function toFileAttachment(value: unknown): AppMonitorInputFileAttachment | null {
+	if (!isRecord(value) || typeof value.isDirectory !== "boolean") return null;
+	const extension = normalizeKey(value.extension);
+	const sizeBytes = normalizeOptionalCount(value.sizeBytes);
+	return {
+		extension,
+		isDirectory: value.isDirectory,
+		...(sizeBytes === undefined ? {} : { sizeBytes }),
+	};
+}
+
+function toImageAttachment(value: unknown): AppMonitorInputImageAttachment | null {
+	if (!isRecord(value)) return null;
+	const format = normalizeKey(value.format);
+	const sizeBytes = normalizeOptionalCount(value.sizeBytes);
+	const width = normalizeOptionalCount(value.width);
+	const height = normalizeOptionalCount(value.height);
+	return {
+		format,
+		...(sizeBytes === undefined ? {} : { sizeBytes }),
+		...(width === undefined ? {} : { width }),
+		...(height === undefined ? {} : { height }),
+	};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isInputAttachmentSource(value: unknown): value is AppMonitorInputAttachmentSource {
+	return typeof value === "string" && INPUT_ATTACHMENT_SOURCES.has(value as AppMonitorInputAttachmentSource);
+}
+
+function isInputActionKind(value: unknown): value is AppMonitorInputActionKind {
+	return typeof value === "string" && INPUT_ACTION_KINDS.has(value as AppMonitorInputActionKind);
+}
+
+function isInputPromptRefKind(value: unknown): value is AppMonitorInputPromptRefKind {
+	return typeof value === "string" && INPUT_PROMPT_REF_KINDS.has(value as AppMonitorInputPromptRefKind);
+}
+
+function normalizeKey(value: unknown): string {
+	if (typeof value !== "string") return "unknown";
+	const normalized = value.trim().toLowerCase();
+	if (normalized === "" || normalized === "__proto__" || normalized === "prototype" || normalized === "constructor") {
+		return "unknown";
+	}
+	return normalized.slice(0, 64);
+}
+
+function normalizeActionId(value: unknown): string {
+	if (typeof value !== "string") return "";
+	const normalized = value.trim();
+	if (normalized === "" || normalized === "__proto__" || normalized === "prototype" || normalized === "constructor") {
+		return "";
+	}
+	return normalized.slice(0, 128);
+}
+
+function normalizeName(value: unknown): string {
+	if (typeof value !== "string") return "";
+	const normalized = value.trim();
+	if (normalized === "" || normalized === "__proto__" || normalized === "prototype" || normalized === "constructor") {
+		return "";
+	}
+	return normalized.slice(0, 128);
+}
+
+function normalizeOptionalCount(value: unknown): number | undefined {
+	if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return undefined;
+	return Math.floor(value);
 }

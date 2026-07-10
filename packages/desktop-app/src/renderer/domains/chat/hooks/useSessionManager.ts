@@ -3,6 +3,11 @@ import { pluginSendMessageRef } from "@domains/plugins/runtime/plugin-host-bridg
 import { useProjects } from "@domains/project/hooks/useProjects";
 import { i18n } from "@shared/i18n";
 import {
+	BUILTIN_KNOWLEDGE_RETRIEVAL_ACTION_ID,
+	recordInputActionsUsed,
+	recordInputContextUsed,
+} from "@shared/lib/app-monitor-events";
+import {
 	activeInputActionIdsAtom,
 	activeSessionAtom,
 	activeSessionStreamingAtom,
@@ -837,6 +842,18 @@ export function useSessionManager(): SessionManagerResult {
 					: "";
 			const imagesPrefix = imagePaths.length > 0 ? `${imagePaths.map((p) => `@${p}`).join("\n")}\n` : "";
 			const text = `${skillPrefix}${filesPrefix}${appshotPrefix}${imagesPrefix}${rawText}`;
+			recordInputContextUsed({
+				files: hasOverride ? [] : mentionedFiles,
+				images: images ?? [],
+				...(hasOverride || !selectedSkill
+					? {}
+					: {
+							promptRef: {
+								kind: selectedSkill.type === "scene" ? "scene" : "skill",
+								name: selectedSkill.name,
+							},
+						}),
+			});
 			if (!hasOverride) {
 				setInputValue("");
 				setAttachedImages([]);
@@ -944,6 +961,7 @@ export function useSessionManager(): SessionManagerResult {
 			// Merge metadata contributed by active plugin input actions (e.g. the
 			// image-generation toggle sets { imageMode: true } for this turn).
 			const pluginStore = getDefaultStore();
+			const usedInputActions: Parameters<typeof recordInputActionsUsed>[0] = [];
 			const activeActionIds = pluginStore.get(activeInputActionIdsAtom);
 			if (activeActionIds.size > 0) {
 				for (const action of pluginStore.get(pluginInputActionsAtom)) {
@@ -951,6 +969,7 @@ export function useSessionManager(): SessionManagerResult {
 					const decoration = action.decoratePrompt?.();
 					if (decoration?.metadata) {
 						promptReq.metadata = { ...promptReq.metadata, ...decoration.metadata };
+						usedInputActions.push({ actionId: action.actionId, actionKind: "plugin" });
 					}
 				}
 			}
@@ -958,6 +977,10 @@ export function useSessionManager(): SessionManagerResult {
 			// 一段仅模型可见的「优先查询知识库」提示。
 			if (pluginStore.get(knowledgeRetrievalActiveAtom)) {
 				promptReq.metadata = { ...promptReq.metadata, knowledgeMode: true };
+				usedInputActions.push({
+					actionId: BUILTIN_KNOWLEDGE_RETRIEVAL_ACTION_ID,
+					actionKind: "builtin",
+				});
 			}
 			// Image edit attachment (image-gen preview card → ui.setEditImageAttachment):
 			// inject the source image id so this turn edits that exact image, mark the
@@ -968,6 +991,7 @@ export function useSessionManager(): SessionManagerResult {
 				promptReq.metadata = { ...promptReq.metadata, editImageId: editAttachment.id };
 				pluginStore.set(editImageAttachmentAtom, null);
 			}
+			recordInputActionsUsed(usedInputActions);
 			// streaming 中：把组装好的完整 promptReq 快照入队，等当前回合自然 agent_end 后
 			// 由 subscribe 的出队逻辑作为新一轮 prompt 发出；本次不调用 prompt。
 			if (streaming) {

@@ -1,4 +1,5 @@
 import type { RuntimeHost, SessionEvent } from "../../../../runtime-core/src/index.js";
+import type { AppMonitorEvent, AppMonitorInputImageAttachment } from "../../preload/api-types/app-monitor.js";
 import { getAppLogger } from "../logger.js";
 import { type AppMonitorData, createDefaultAppMonitorData } from "./app-monitor-data.js";
 import { appMonitorStore } from "./app-monitor-store.js";
@@ -69,6 +70,25 @@ class AppMonitorService {
 		const now = Date.now();
 		this.accountDuration(now);
 		this.lastActivityAt = now;
+	}
+
+	recordEvent(event: AppMonitorEvent): void {
+		this.mutate((data) => {
+			switch (event.type) {
+				case "input.attachments.added":
+					recordInputAttachmentsAdded(data, event);
+					break;
+				case "input.action.toggled":
+					recordInputActionToggled(data, event);
+					break;
+				case "input.action.used":
+					recordInputActionUsed(data, event);
+					break;
+				case "input.context.used":
+					recordInputContextUsed(data, event);
+					break;
+			}
+		});
 	}
 
 	recordBatchProjectCreated(): void {
@@ -421,6 +441,248 @@ function recordToolEnd(data: AppMonitorData, rawToolName: string, isError: boole
 	stats.totalDurationMs += Math.max(0, durationMs);
 }
 
+function recordInputAttachmentsAdded(
+	data: AppMonitorData,
+	event: Extract<AppMonitorEvent, { type: "input.attachments.added" }>,
+): void {
+	const files = event.files ?? [];
+	const images = event.images ?? [];
+	if (files.length === 0 && images.length === 0) return;
+	data.inputAttachments.events += 1;
+	data.inputAttachments.bySource[event.source] = (data.inputAttachments.bySource[event.source] ?? 0) + 1;
+	for (const file of files) {
+		data.inputAttachments.files.added += 1;
+		if (file.isDirectory) data.inputAttachments.files.directories += 1;
+		const extension = normalizeMetricKey(file.extension);
+		data.inputAttachments.files.byExtension[extension] =
+			(data.inputAttachments.files.byExtension[extension] ?? 0) + 1;
+		data.inputAttachments.files.totalSizeBytes += normalizeDelta(file.sizeBytes ?? 0);
+	}
+	for (const image of images) {
+		const format = normalizeMetricKey(image.format);
+		const sizeBytes = normalizeDelta(image.sizeBytes ?? 0);
+		const width = normalizeDelta(image.width ?? 0);
+		const height = normalizeDelta(image.height ?? 0);
+		const pixels = width > 0 && height > 0 ? width * height : 0;
+		data.inputAttachments.images.added += 1;
+		data.inputAttachments.images.totalSizeBytes += sizeBytes;
+		if (!data.inputAttachments.images.byFormat[format]) {
+			data.inputAttachments.images.byFormat[format] = {
+				count: 0,
+				totalSizeBytes: 0,
+			};
+		}
+		const formatStats = data.inputAttachments.images.byFormat[format];
+		formatStats.count += 1;
+		formatStats.totalSizeBytes += sizeBytes;
+		data.inputAttachments.images.maxWidth = Math.max(data.inputAttachments.images.maxWidth, width);
+		data.inputAttachments.images.maxHeight = Math.max(data.inputAttachments.images.maxHeight, height);
+		data.inputAttachments.images.maxPixels = Math.max(data.inputAttachments.images.maxPixels, pixels);
+		data.inputAttachments.images.minWidth = minPositive(data.inputAttachments.images.minWidth, width);
+		data.inputAttachments.images.minHeight = minPositive(data.inputAttachments.images.minHeight, height);
+		data.inputAttachments.images.minPixels = minPositive(data.inputAttachments.images.minPixels, pixels);
+		updateImageExtrema(data, image, format, sizeBytes, width, height, pixels);
+	}
+}
+
+function updateImageExtrema(
+	data: AppMonitorData,
+	image: AppMonitorInputImageAttachment,
+	format: string,
+	sizeBytes: number,
+	width: number,
+	height: number,
+	pixels: number,
+): void {
+	const value = { format, sizeBytes, width, height, pixels };
+	if (image.sizeBytes !== undefined) {
+		if (!data.inputAttachments.images.largest || sizeBytes > data.inputAttachments.images.largest.sizeBytes) {
+			data.inputAttachments.images.largest = value;
+		}
+		if (!data.inputAttachments.images.smallest || sizeBytes < data.inputAttachments.images.smallest.sizeBytes) {
+			data.inputAttachments.images.smallest = value;
+		}
+	}
+}
+
+function recordInputActionToggled(
+	data: AppMonitorData,
+	event: Extract<AppMonitorEvent, { type: "input.action.toggled" }>,
+): void {
+	const actionId = normalizeInputActionId(event.actionId);
+	if (actionId === "") return;
+	data.inputActions.events += 1;
+	if (event.active) data.inputActions.activated += 1;
+	else data.inputActions.deactivated += 1;
+	updateInputActionStats(data.inputActions.byKind, event.actionKind, event.active);
+	updateInputActionStats(data.inputActions.byAction, actionId, event.active);
+}
+
+function updateInputActionStats(
+	statsByKey: AppMonitorData["inputActions"]["byAction"],
+	rawKey: string,
+	active: boolean,
+): void {
+	const key = normalizeInputActionId(rawKey);
+	if (key === "") return;
+	if (!statsByKey[key]) {
+		statsByKey[key] = {
+			toggles: 0,
+			activated: 0,
+			deactivated: 0,
+		};
+	}
+	const stats = statsByKey[key];
+	stats.toggles += 1;
+	if (active) stats.activated += 1;
+	else stats.deactivated += 1;
+}
+
+function recordInputActionUsed(
+	data: AppMonitorData,
+	event: Extract<AppMonitorEvent, { type: "input.action.used" }>,
+): void {
+	const actions = event.actions
+		.map((action) => ({
+			actionId: normalizeInputActionId(action.actionId),
+			actionKind: normalizeInputActionId(action.actionKind),
+		}))
+		.filter((action) => action.actionId !== "" && action.actionKind !== "");
+	if (actions.length === 0) return;
+	data.inputActions.used.events += 1;
+	data.inputActions.used.actions += actions.length;
+	for (const action of actions) {
+		updateInputActionUsageStats(data.inputActions.used.byKind, action.actionKind);
+		updateInputActionUsageStats(data.inputActions.used.byAction, action.actionId);
+	}
+}
+
+function updateInputActionUsageStats(
+	statsByKey: AppMonitorData["inputActions"]["used"]["byAction"],
+	rawKey: string,
+): void {
+	const key = normalizeInputActionId(rawKey);
+	if (key === "") return;
+	if (!statsByKey[key]) {
+		statsByKey[key] = {
+			used: 0,
+		};
+	}
+	statsByKey[key].used += 1;
+}
+
+function recordInputContextUsed(
+	data: AppMonitorData,
+	event: Extract<AppMonitorEvent, { type: "input.context.used" }>,
+): void {
+	const files = event.files ?? [];
+	const images = event.images ?? [];
+	if (files.length === 0 && images.length === 0 && !event.promptRef) return;
+	data.inputAttachments.used.events += 1;
+	for (const file of files) {
+		data.inputAttachments.used.files.used += 1;
+		if (file.isDirectory) data.inputAttachments.used.files.directories += 1;
+		const extension = normalizeMetricKey(file.extension);
+		data.inputAttachments.used.files.byExtension[extension] =
+			(data.inputAttachments.used.files.byExtension[extension] ?? 0) + 1;
+		data.inputAttachments.used.files.totalSizeBytes += normalizeDelta(file.sizeBytes ?? 0);
+	}
+	for (const image of images) {
+		recordInputImageUsed(data, image);
+	}
+	if (event.promptRef) {
+		recordInputPromptRefUsed(data, event.promptRef.kind, event.promptRef.name);
+	}
+}
+
+function recordInputImageUsed(data: AppMonitorData, image: AppMonitorInputImageAttachment): void {
+	const format = normalizeMetricKey(image.format);
+	const sizeBytes = normalizeDelta(image.sizeBytes ?? 0);
+	const width = normalizeDelta(image.width ?? 0);
+	const height = normalizeDelta(image.height ?? 0);
+	const pixels = width > 0 && height > 0 ? width * height : 0;
+	data.inputAttachments.used.images.used += 1;
+	data.inputAttachments.used.images.totalSizeBytes += sizeBytes;
+	if (!data.inputAttachments.used.images.byFormat[format]) {
+		data.inputAttachments.used.images.byFormat[format] = {
+			count: 0,
+			totalSizeBytes: 0,
+		};
+	}
+	const formatStats = data.inputAttachments.used.images.byFormat[format];
+	formatStats.count += 1;
+	formatStats.totalSizeBytes += sizeBytes;
+	data.inputAttachments.used.images.maxWidth = Math.max(data.inputAttachments.used.images.maxWidth, width);
+	data.inputAttachments.used.images.maxHeight = Math.max(data.inputAttachments.used.images.maxHeight, height);
+	data.inputAttachments.used.images.maxPixels = Math.max(data.inputAttachments.used.images.maxPixels, pixels);
+	data.inputAttachments.used.images.minWidth = minPositive(data.inputAttachments.used.images.minWidth, width);
+	data.inputAttachments.used.images.minHeight = minPositive(data.inputAttachments.used.images.minHeight, height);
+	data.inputAttachments.used.images.minPixels = minPositive(data.inputAttachments.used.images.minPixels, pixels);
+	const value = { format, sizeBytes, width, height, pixels };
+	if (image.sizeBytes !== undefined) {
+		if (
+			!data.inputAttachments.used.images.largest ||
+			sizeBytes > data.inputAttachments.used.images.largest.sizeBytes
+		) {
+			data.inputAttachments.used.images.largest = value;
+		}
+		if (
+			!data.inputAttachments.used.images.smallest ||
+			sizeBytes < data.inputAttachments.used.images.smallest.sizeBytes
+		) {
+			data.inputAttachments.used.images.smallest = value;
+		}
+	}
+}
+
+function recordInputPromptRefUsed(data: AppMonitorData, rawKind: string, rawName: string): void {
+	const kind = normalizeMetricKey(rawKind);
+	const name = normalizeMetricKey(rawName);
+	if (kind === "unknown" || name === "unknown") return;
+	const now = Date.now();
+	const refKey = `${kind}:${name}`;
+	data.inputPromptRefs.events += 1;
+	if (kind === "skill") data.inputPromptRefs.skills += 1;
+	if (kind === "scene") data.inputPromptRefs.scenes += 1;
+	data.inputPromptRefs.byKind[kind] = (data.inputPromptRefs.byKind[kind] ?? 0) + 1;
+	data.inputPromptRefs.byName[name] = (data.inputPromptRefs.byName[name] ?? 0) + 1;
+	data.inputPromptRefs.byRef[refKey] ??= {
+		kind,
+		name,
+		used: 0,
+		lastUsedAt: 0,
+	};
+	const stats = data.inputPromptRefs.byRef[refKey];
+	stats.used += 1;
+	stats.lastUsedAt = now;
+	data.inputPromptRefs.recent = { ...stats };
+	if (kind === "skill") data.inputPromptRefs.recentSkill = { ...stats };
+	if (kind === "scene") data.inputPromptRefs.recentScene = { ...stats };
+	updateMostUsedPromptRef(data, stats);
+}
+
+function updateMostUsedPromptRef(data: AppMonitorData, stats: AppMonitorData["inputPromptRefs"]["mostUsed"]): void {
+	if (!stats) return;
+	if (isMoreUsedPromptRef(stats, data.inputPromptRefs.mostUsed)) {
+		data.inputPromptRefs.mostUsed = { ...stats };
+	}
+	if (stats.kind === "skill" && isMoreUsedPromptRef(stats, data.inputPromptRefs.mostUsedSkill)) {
+		data.inputPromptRefs.mostUsedSkill = { ...stats };
+	}
+	if (stats.kind === "scene" && isMoreUsedPromptRef(stats, data.inputPromptRefs.mostUsedScene)) {
+		data.inputPromptRefs.mostUsedScene = { ...stats };
+	}
+}
+
+function isMoreUsedPromptRef(
+	stats: AppMonitorData["inputPromptRefs"]["mostUsed"],
+	current: AppMonitorData["inputPromptRefs"]["mostUsed"],
+): boolean {
+	if (!stats) return false;
+	if (!current) return true;
+	return stats.used > current.used || (stats.used === current.used && stats.lastUsedAt > current.lastUsedAt);
+}
+
 function getToolStats(
 	data: AppMonitorData,
 	rawToolName: string,
@@ -442,8 +704,27 @@ function normalizeToolName(value: string): string {
 	return trimmed.slice(0, 128);
 }
 
+function normalizeInputActionId(value: string): string {
+	const trimmed = value.trim();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") return "";
+	return trimmed.slice(0, 128);
+}
+
 function normalizeDelta(value: number): number {
 	return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+function normalizeMetricKey(value: string): string {
+	const trimmed = value.trim().toLowerCase();
+	if (trimmed === "" || trimmed === "__proto__" || trimmed === "prototype" || trimmed === "constructor") {
+		return "unknown";
+	}
+	return trimmed.slice(0, 64);
+}
+
+function minPositive(current: number, next: number): number {
+	if (next <= 0) return current;
+	return current === 0 ? next : Math.min(current, next);
 }
 
 function normalizeAmountDelta(value: number): number {
@@ -460,6 +741,10 @@ export function setAppMonitorWindowVisible(visible: boolean): void {
 
 export function recordAppMonitorUserActivity(): void {
 	appMonitor.recordUserActivity();
+}
+
+export function recordAppMonitorEvent(event: AppMonitorEvent): void {
+	appMonitor.recordEvent(event);
 }
 
 export function recordBatchProjectCreated(): void {
