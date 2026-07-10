@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "motion/react";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent } from "./ui/dialog";
 
 interface NewProjectDialogProps {
 	onConfirm: (name: string) => void;
@@ -16,21 +16,12 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 		inputRef.current?.focus();
 	}, []);
 
-	useEffect(() => {
-		function handleKey(e: KeyboardEvent) {
-			if (e.key === "Escape") onCancel();
-		}
-		document.addEventListener("keydown", handleKey);
-		return () => document.removeEventListener("keydown", handleKey);
-	}, [onCancel]);
-
 	const handleSubmit = useCallback(() => {
 		const trimmed = name.trim();
 		if (!trimmed) {
 			setError("请输入项目名称");
 			return;
 		}
-		// Disallow path separators and special characters
 		if (/[/\\:*?"<>|]/.test(trimmed)) {
 			setError("项目名称不能包含特殊字符");
 			return;
@@ -39,19 +30,11 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 	}, [name, onConfirm]);
 
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-			onClick={onCancel}
-			onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
-			role="dialog"
-			aria-modal="true"
-		>
-			<motion.div
-				initial={{ opacity: 0, scale: 0.95 }}
-				animate={{ opacity: 1, scale: 1 }}
-				transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
-				className="w-[320px] rounded-xl border border-border bg-popover p-4 shadow-xl"
-				onClick={(e) => e.stopPropagation()}
+		<Dialog open onOpenChange={(open) => { if (!open) onCancel(); }}>
+			<DialogContent
+				showCloseButton={false}
+				onEscapeKeyDown={(e) => { e.preventDefault(); onCancel(); }}
+				onInteractOutside={(e) => e.preventDefault()}
 			>
 				<p className="mb-1 text-[13px] font-semibold text-foreground">
 					新建项目
@@ -79,7 +62,7 @@ export function NewProjectDialog({ onConfirm, onCancel }: NewProjectDialogProps)
 						创建
 					</Button>
 				</div>
-			</motion.div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }
