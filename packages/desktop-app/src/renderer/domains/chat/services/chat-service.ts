@@ -39,9 +39,29 @@ export function extractResultText(result: unknown): string {
 }
 
 /**
+ * Attachment prefixes written by the client always use absolute paths:
+ * - @panel / drag-drop / explorer → absolute workspace path
+ * - persistImages / appshot → absolute path under image-cache
+ * Hand-typed "@foo" or "@src/bar.ts" (relative / non-path) must stay in the body.
+ */
+export function isUserMessageAttachmentPath(path: string): boolean {
+	if (!path) return false;
+	if (path.startsWith("/")) return true;
+	if (/^[A-Za-z]:[\\/]/.test(path)) return true;
+	// UNC paths (Windows network shares)
+	if (path.startsWith("\\\\") || path.startsWith("//")) return true;
+	return false;
+}
+
+/** System-injected attachment paths (images / appshot), not panel file badges. */
+export function isSystemAttachmentPath(path: string): boolean {
+	return /[/\\]image-cache[/\\]/.test(path);
+}
+
+/**
  * Parse prefixes from user message text: /skill:<name>, /scene:<name>, and @<path> lines.
- * Each @ line must end with a literal newline; @text without a newline is kept in the body
- * so that hand-typed "@something" is not mistaken for a file badge.
+ * Each @ line must end with a literal newline AND look like an absolute attachment path;
+ * hand-typed "@something" / "@rel/path" is kept in the body (not a file badge).
  */
 export function parseUserPrefixes(text: string): {
 	skillName: string | null;
@@ -64,11 +84,29 @@ export function parseUserPrefixes(text: string): {
 	while (true) {
 		const fileMatch = remaining.match(/^@([^\n]+)\n([\s\S]*)$/);
 		if (!fileMatch) break;
-		files.push(fileMatch[1].trim());
+		const path = fileMatch[1].trim();
+		// Stop at first non-attachment @ line so hand-typed multi-line text stays in body.
+		if (!isUserMessageAttachmentPath(path)) break;
+		files.push(path);
 		remaining = fileMatch[2];
 	}
 
 	return { skillName, skillType, files, body: remaining };
+}
+
+/** Panel-selected files only (exclude image-cache / appshot system attachments). */
+export function toMentionedFilesFromPrefixes(files: string[]): Array<{
+	path: string;
+	name: string;
+	isDirectory: boolean;
+}> {
+	return files
+		.filter((p) => !isSystemAttachmentPath(p))
+		.map((p) => ({
+			path: p,
+			name: pathBasename(p),
+			isDirectory: false,
+		}));
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -280,11 +318,9 @@ export function historyToChat(
 				id: `hist-user-${messages.length}`,
 				role: "user",
 				text,
-				mentionedFiles: parsedUser.files.map((p) => ({
-					path: p,
-					name: pathBasename(p),
-					isDirectory: false,
-				})),
+				// Only absolute (panel/system) prefixes; hand-typed @text stays in body.
+				// Exclude image-cache so system images/appshot don't become file badges.
+				mentionedFiles: toMentionedFilesFromPrefixes(parsedUser.files),
 			};
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
@@ -406,11 +442,9 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				id: `hist-user-${messages.length}`,
 				role: "user",
 				text,
-				mentionedFiles: parsedUser.files.map((p) => ({
-					path: p,
-					name: pathBasename(p),
-					isDirectory: false,
-				})),
+				// Only absolute (panel/system) prefixes; hand-typed @text stays in body.
+				// Exclude image-cache so system images/appshot don't become file badges.
+				mentionedFiles: toMentionedFilesFromPrefixes(parsedUser.files),
 			};
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
