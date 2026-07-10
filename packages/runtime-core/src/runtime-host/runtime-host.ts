@@ -2,30 +2,15 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { resolve as resolvePath } from "node:path";
 import type { ThinkingLevel } from "@vetta/agent-core";
-import {
-	type Api,
-	completeSimple,
-	getReasoningPreset,
-	type Message,
-	type Model,
-	type TextContent,
-	type Tool,
-	type ToolCall,
-	Type,
-} from "@vetta/ai";
+import type { Message } from "@vetta/ai";
 import {
 	type AgentSession,
-	type AgentSessionEvent,
-	type SessionEntry as CodingSessionEntry,
-	type ConversationScenario,
 	type CreateAgentSessionOptions,
-	type CustomEntry,
 	createAgentSession,
 	createEditImageTool,
 	createGenerateImageTool,
 	DEFAULT_SCENARIO,
 	type ExtensionUIContext,
-	type FileEntry,
 	type ImageToolBackend,
 	loadEntriesFromFile,
 	type ModelRegistry,
@@ -38,7 +23,6 @@ import type {
 	AgentPluginRuntimeConfig,
 	AgentPluginSystemPromptInvoker,
 	AgentPluginToolInvoker,
-	AssistantTurnTiming,
 	BackgroundTaskInfo,
 	HistoryEntry,
 	ProjectInfo,
@@ -52,157 +36,32 @@ import type {
 	RuntimeUserQuestionResult,
 	SessionConfig,
 	SessionEvent,
-	SessionEventBase,
 	SessionExecutionMode,
 	SessionFacade,
 	SessionHistoryInfo,
 	SessionStateSnapshot,
 	SettingsPatch,
-} from "./contracts.js";
-import { runtimeError } from "./errors.js";
+} from "../contracts.js";
+import { runtimeError } from "../errors.js";
 import {
 	clearSessionGrants,
 	listSessionGrants,
 	revokeAllSessionGrants,
 	revokeSessionGrant,
-} from "./execution-mode/sandbox-permissions.js";
-import { buildSandboxToolDefinitions } from "./execution-mode/sandbox-tools.js";
+} from "../execution-mode/sandbox-permissions.js";
+import { buildSandboxToolDefinitions } from "../execution-mode/sandbox-tools.js";
+import { branchFromFileEntries, entriesToHistory } from "./history.js";
+import { generateAutoTitle, generateNextPromptSuggestions } from "./peripheral-tasks.js";
+import { debugPluginAgent, summarizeAgentPlugins } from "./plugin-debug.js";
+import { baseSessionEvent, lifecycleSessionEvent, mapAgentSessionEvent } from "./session-events.js";
+import type { InFlightBuffer, RunningChangedReason, RuntimeHostOptions, SessionHandle } from "./types.js";
 
-interface SessionHandle {
-	session: AgentSession;
-	executionMode: SessionExecutionMode;
-	agentPluginsEnabled: boolean;
-	pendingAgentPlugins: AgentPluginRuntimeConfig | undefined;
-	hasPendingAgentPlugins: boolean;
-	/** 本会话解析后的对话场景（缺省回落 DEFAULT_SCENARIO），getState 回传给 renderer。 */
-	scenario: ConversationScenario;
-}
+export type { RunningChangedReason, RuntimeHostOptions } from "./types.js";
 
 /**
- * Reconstruct the leaf→root branch from a flat list of FileEntries (as
- * returned by loadEntriesFromFile). Mirrors what SessionManager.getBranch
- * does in-process but without instantiating SessionManager (which would
- * acquire the session-file lock).
- *
- * Strategy: find the most recent non-header entry that has no children,
- * then walk parentId back to the root. Order returned is root → leaf.
+ * 运行时宿主：会话生命周期、事件订阅、执行模式与沙箱授权的编排层。
+ * 历史解析 / 事件映射 / 周边 LLM 任务已拆到同目录独立模块。
  */
-function branchFromFileEntries(entries: FileEntry[]): CodingSessionEntry[] {
-	const byId = new Map<string, CodingSessionEntry>();
-	const hasChild = new Set<string>();
-	for (const e of entries) {
-		if (e.type === "session") continue;
-		const se = e as CodingSessionEntry;
-		byId.set(se.id, se);
-		if (se.parentId) hasChild.add(se.parentId);
-	}
-	let leafId: string | null = null;
-	for (let i = entries.length - 1; i >= 0; i--) {
-		const e = entries[i];
-		if (e.type === "session") continue;
-		const se = e as CodingSessionEntry;
-		if (!hasChild.has(se.id)) {
-			leafId = se.id;
-			break;
-		}
-	}
-	const branch: CodingSessionEntry[] = [];
-	let cur = leafId ? byId.get(leafId) : undefined;
-	while (cur) {
-		branch.unshift(cur);
-		cur = cur.parentId ? byId.get(cur.parentId) : undefined;
-	}
-	return branch;
-}
-
-/**
- * Per-session buffer of the currently-streaming LLM call's deltas.
- *
- * The runtime persists assistant messages to the JSONL history only on
- * `message_end`. So if a renderer disconnects mid-stream and reconnects
- * (e.g. user switches sessions and switches back), `getFullHistory` returns
- * nothing for the in-flight assistant, and a fresh `subscribe()` only forwards
- * future events. Without this buffer, all text/thinking/tool-call events
- * received before reconnection would be lost.
- *
- * Text and thinking are cleared on `message_end` because each LLM call inside
- * a multi-step turn produces its own deltas; the prior call's content is
- * already on disk via `message.final`. `isActive` flips on at `agent_start`
- * and off at `agent_end`.
- */
-interface InFlightBuffer {
-	turnStartedAt: number;
-	text: string;
-	thinking: string;
-	toolCallStarts: Array<{ toolCallId: string; toolName: string }>;
-	isActive: boolean;
-}
-
-const ASSISTANT_TURN_TIMING_TYPE = "vetta.assistant_turn_timing";
-
-/**
- * running-changed 广播的回合结束语义。仅 "agent_end"（自然结束）会触发 renderer
- * 侧的消息队列出队；"aborted" / "error" 保留队列不出队。session 销毁等非回合结束
- * 的 markRunning(false) 不带 reason（undefined）。
- */
-export type RunningChangedReason = "agent_end" | "aborted" | "error";
-
-function summarizeAgentPlugins(agentPlugins: AgentPluginRuntimeConfig | undefined): Record<string, unknown> {
-	return {
-		systemPromptPlugins: agentPlugins?.systemPromptContributions?.map((item) => item.pluginId) ?? [],
-		skillPlugins: agentPlugins?.skillPathContributions?.map((item) => item.pluginId) ?? [],
-		toolPolicyPlugins: agentPlugins?.toolPolicyContributions?.map((item) => item.pluginId) ?? [],
-		toolContributions: agentPlugins?.toolContributions?.map((tool) => `${tool.pluginId}:${tool.name}`) ?? [],
-		continuationContributions:
-			agentPlugins?.continuationContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ?? [],
-		systemPromptProviders:
-			agentPlugins?.systemPromptProviderContributions?.map((provider) => `${provider.pluginId}:${provider.id}`) ??
-			[],
-	};
-}
-
-function debugPluginAgent(message: string, data?: Record<string, unknown>): void {
-	console.info(`[plugin-agent] ${message}`, data ?? {});
-}
-
-export interface RuntimeHostOptions {
-	getDefaultExecutionMode?: () => SessionExecutionMode | Promise<SessionExecutionMode>;
-	sandboxHostPath?: string;
-	linuxBubblewrapPath?: string;
-	macosSandboxExecPath?: string;
-	userConfirmationHandler?: (request: RuntimeUserConfirmationRequest, signal?: AbortSignal) => Promise<boolean>;
-	userQuestionHandler?: (
-		request: RuntimeUserQuestionRequest,
-		signal?: AbortSignal,
-	) => Promise<RuntimeUserQuestionResult>;
-	userSandboxGrantHandler?: (
-		request: RuntimeSandboxGrantRequest,
-		signal?: AbortSignal,
-	) => Promise<RuntimeSandboxGrantDecision>;
-	/**
-	 * Vetta 远端服务 URL。宿主进程显式注入后，下挂的 createAgentSession 不会再
-	 * 回退到 coding-agent 内置的 LAN 默认值，避免主进程内 desktop-app 路径
-	 * （env-injected URL）与 SDK 路径（硬编码 URL）"半边大脑"。
-	 */
-	serverUrl?: string;
-	/**
-	 * 进程级共享的 ModelRegistry。注入后每次 createSession 都复用同一份，
-	 * sdk 内部 `if (!options.modelRegistry)` 的远程 fetch 分支就会跳过——
-	 * 第一次发消息不再被 5s 的 `/providers/models.json` 阻塞。
-	 *
-	 * 仍然需要保证模型实时性：见 `createSession` 末尾的 stale-while-revalidate
-	 * 后台刷新，以及 `reloadServerAuth` 在登录/登出时的同步刷新。
-	 */
-	modelRegistry?: ModelRegistry;
-	/**
-	 * 宿主图像后端。注入后，每个 session 会拿到 generate_image / edit_image 两个
-	 * 内置工具（customTools）：图像模式轮次 agent 自感知调 generate_image（文生图）
-	 * 或 edit_image（图改图）。coding-agent 不依赖宿主实现，desktop 把它接到主进程
-	 * 图像服务。
-	 */
-	imageBackend?: ImageToolBackend;
-}
-
 export class RuntimeHost implements SessionFacade {
 	private sessions = new Map<string, SessionHandle>();
 	private currentTurnStartedAt = new Map<string, number>();
@@ -702,7 +561,7 @@ export class RuntimeHost implements SessionFacade {
 			const message = err instanceof Error ? err.message : String(err);
 			console.error(`[RuntimeHost.prompt] session=${sessionId} pre-stream error: ${message}`);
 			this.broadcastSyntheticEvent(sessionId, {
-				...this.baseEvent(sessionId, "agent"),
+				...baseSessionEvent(sessionId, "agent"),
 				type: "error",
 				error: runtimeError("INTERNAL_ERROR", message, false, "runtime"),
 			});
@@ -736,14 +595,14 @@ export class RuntimeHost implements SessionFacade {
 
 	subscribe(sessionId: string, handler: (event: SessionEvent) => void): () => void {
 		const handle = this.requireSession(sessionId);
-		handler(this.lifecycleEvent(sessionId, "created"));
+		handler(lifecycleSessionEvent(sessionId, "created"));
 
 		// Push current todo state so late subscribers (e.g., user navigating into
 		// an already-running session) see the todo panel immediately.
 		const todoItems = handle.session.todoStore.getAll();
 		if (todoItems.length > 0) {
 			handler({
-				...this.baseEvent(sessionId, "agent"),
+				...baseSessionEvent(sessionId, "agent"),
 				type: "todo_update",
 				items: [...todoItems],
 			} as SessionEvent);
@@ -759,21 +618,21 @@ export class RuntimeHost implements SessionFacade {
 		if (buffer?.isActive) {
 			if (buffer.thinking) {
 				handler({
-					...this.baseEvent(sessionId, "agent"),
+					...baseSessionEvent(sessionId, "agent"),
 					type: "thinking.delta",
 					delta: buffer.thinking,
 				});
 			}
 			if (buffer.text) {
 				handler({
-					...this.baseEvent(sessionId, "agent"),
+					...baseSessionEvent(sessionId, "agent"),
 					type: "message.delta",
 					delta: buffer.text,
 				});
 			}
 			for (const tc of buffer.toolCallStarts) {
 				handler({
-					...this.baseEvent(sessionId, "agent"),
+					...baseSessionEvent(sessionId, "agent"),
 					type: "toolcall.start",
 					toolCallId: tc.toolCallId,
 					toolName: tc.toolName,
@@ -796,7 +655,9 @@ export class RuntimeHost implements SessionFacade {
 		// 导致 mapEvent 中的副作用（如 persistAssistantTurnTiming）重复执行。
 		if (!this.sessionSubscriptions.has(sessionId)) {
 			const unsubscribeSession = handle.session.subscribe((event) => {
-				const mapped = this.mapEvent(sessionId, event, handle.session);
+				const mapped = mapAgentSessionEvent(sessionId, event, handle.session, {
+					currentTurnStartedAt: this.currentTurnStartedAt,
+				});
 				const subs = this.externalSubscribers.get(sessionId);
 				if (!subs) return;
 				for (const sub of subs) {
@@ -900,7 +761,7 @@ export class RuntimeHost implements SessionFacade {
 
 	getFullHistory(sessionId: string): HistoryEntry[] {
 		const handle = this.requireSession(sessionId);
-		return this.entriesToHistory(handle.session.getSessionBranch());
+		return entriesToHistory(handle.session.getSessionBranch());
 	}
 
 	/**
@@ -912,46 +773,7 @@ export class RuntimeHost implements SessionFacade {
 	readSessionHistoryFromFile(path: string): { history: HistoryEntry[] } {
 		const fileEntries = loadEntriesFromFile(path);
 		const branch = branchFromFileEntries(fileEntries);
-		return { history: this.entriesToHistory(branch) };
-	}
-
-	private entriesToHistory(branch: CodingSessionEntry[]): HistoryEntry[] {
-		const entries: HistoryEntry[] = [];
-		for (const entry of branch) {
-			if (entry.type === "message") {
-				const msg = entry.message;
-				if (msg.role === "user" || msg.role === "assistant" || msg.role === "toolResult") {
-					entries.push({ type: "message", message: msg as Message });
-				}
-			} else if (entry.type === "compaction") {
-				entries.push({
-					type: "compaction",
-					summary: entry.summary,
-					tokensBefore: entry.tokensBefore,
-					timestamp: entry.timestamp,
-				});
-			} else if (entry.type === "custom" && entry.customType === ASSISTANT_TURN_TIMING_TYPE) {
-				const timing = this.parseAssistantTurnTiming(entry);
-				if (timing) {
-					entries.push({
-						type: "assistant_turn_timing",
-						timing,
-						timestamp: entry.timestamp,
-					});
-				}
-			} else if (entry.type === "tool_timing") {
-				entries.push({
-					type: "tool_timing",
-					toolCallId: entry.toolCallId,
-					toolName: entry.toolName,
-					startedAt: entry.startedAt,
-					durationMs: entry.durationMs,
-					phases: entry.phases,
-					timestamp: entry.timestamp,
-				});
-			}
-		}
-		return entries;
+		return { history: entriesToHistory(branch) };
 	}
 
 	async listProjects(): Promise<ProjectInfo[]> {
@@ -1066,138 +888,18 @@ export class RuntimeHost implements SessionFacade {
 	}
 
 	/**
-	 * 解析周边任务(auto-title / 输入预测)的候选模型列表。
-	 * 不再依赖用户手动配置的「全局模型」：优先当前会话模型，再从可用模型里
-	 * 补足候选；跳过冷却中的与无 apiKey 的。最多 PERIPHERAL_MAX_ATTEMPTS 个。
-	 */
-	private async resolvePeripheralCandidates(handle: SessionHandle): Promise<PeripheralCandidate[]> {
-		const registry = handle.session.modelRegistry;
-		registry.refresh();
-
-		const candidates: PeripheralCandidate[] = [];
-		const seen = new Set<string>();
-
-		const tryPush = async (model: Model<Api> | undefined) => {
-			if (!model || candidates.length >= PERIPHERAL_MAX_ATTEMPTS) return;
-			const key = peripheralModelKey(model);
-			if (seen.has(key) || isPeripheralCoolingDown(key)) return;
-			const apiKey = await registry.getApiKey(model);
-			if (!apiKey) return;
-			seen.add(key);
-			// 周边任务用各 API 最轻 reasoning 档，避免短答案被吞进 thinking 通道。
-			const level = getReasoningPreset(model.api)?.levels[0] || "minimal";
-			const reasoning = level === "off" ? undefined : level;
-			candidates.push({ model, apiKey, reasoning, key });
-		};
-
-		await tryPush(handle.session.model);
-		for (const model of registry.getAvailable()) {
-			if (candidates.length >= PERIPHERAL_MAX_ATTEMPTS) break;
-			await tryPush(model);
-		}
-		return candidates;
-	}
-
-	/**
-	 * 按候选列表依次调用，失败则冷却该模型并轮转下一个。
-	 * run 返回 null 表示本候选失败（可轮转）；返回值则成功结束。
-	 */
-	private async runWithPeripheralFailover<T>(
-		handle: SessionHandle,
-		label: string,
-		run: (candidate: PeripheralCandidate) => Promise<T | null>,
-	): Promise<T | null> {
-		const candidates = await this.resolvePeripheralCandidates(handle);
-		if (candidates.length === 0) {
-			console.warn(`[${label}] skipped: no available model with credentials`);
-			return null;
-		}
-		for (const candidate of candidates) {
-			console.log(`[${label}] trying model=${candidate.key}`);
-			try {
-				const value = await run(candidate);
-				if (value !== null) return value;
-				console.warn(`[${label}] model=${candidate.key} produced no usable result; rotating`);
-				markPeripheralCooldown(candidate.key);
-			} catch (err) {
-				console.warn(`[${label}] model=${candidate.key} failed:`, err);
-				markPeripheralCooldown(candidate.key);
-			}
-		}
-		console.warn(`[${label}] all ${candidates.length} candidate(s) exhausted`);
-		return null;
-	}
-
-	/**
 	 * Generate a short title from the first round of conversation and persist it
 	 * onto the session. Returns the persisted name, or null when no model is
 	 * available or every candidate failed / produced no usable text.
 	 */
 	async autoTitleSession(sessionId: string, userText: string, assistantText: string): Promise<string | null> {
 		const handle = this.requireSession(sessionId);
-		const trimmedUser = userText.trim().slice(0, 800);
-		const trimmedAssistant = assistantText.trim().slice(0, 1500);
-		const promptText =
-			`请为下面这段对话生成一个 10 到 20 个字符之间的中文短标题，用来在侧边栏标识这个会话。\n` +
-			`要求：只输出标题本身；不要引号、书名号、句号、感叹号或其他标点；不要任何解释或前后缀。\n\n` +
-			`<用户消息>\n${trimmedUser}\n</用户消息>\n\n` +
-			`<助手回复>\n${trimmedAssistant}\n</助手回复>`;
-
-		const cleaned = await this.runWithPeripheralFailover(
-			handle,
-			`autoTitleSession session=${sessionId}`,
-			async (candidate) => {
-				const { model, apiKey, reasoning, key } = candidate;
-				const startedAt = Date.now();
-				console.log(
-					`[autoTitleSession] session=${sessionId} model=${key} userLen=${userText.length} assistantLen=${assistantText.length}`,
-				);
-				const response = await completeSimple(
-					model,
-					{
-						systemPrompt: "你是会话标题生成器。严格按用户要求只输出一个简短中文标题。",
-						messages: [
-							{
-								role: "user" as const,
-								content: [{ type: "text" as const, text: promptText }],
-								timestamp: Date.now(),
-							},
-						],
-					},
-					// reasoning = API 最轻安全档，使 reasoning 模型把答案写到 text 通道。
-					{ apiKey, maxTokens: 256, reasoning },
-				);
-				const durationMs = Date.now() - startedAt;
-				if (response.stopReason === "error") {
-					console.warn(
-						`[autoTitleSession] session=${sessionId} model=${key} durationMs=${durationMs} stopReason=error message=${
-							(response as { errorMessage?: string }).errorMessage ?? "(none)"
-						}`,
-					);
-					return null;
-				}
-				const rawText = response.content
-					.filter((c): c is TextContent => c.type === "text")
-					.map((c) => c.text)
-					.join("")
-					.trim();
-				// Fallback: some reasoning models (e.g. gpt-oss) route the whole short
-				// answer through the thinking channel. Use thinking content as a
-				// candidate when no plain text was produced.
-				const rawThinking = response.content
-					.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
-					.map((c) => c.thinking)
-					.join("\n")
-					.trim();
-				const raw = rawText || rawThinking;
-				const title = sanitizeAutoTitle(raw);
-				console.log(
-					`[autoTitleSession] session=${sessionId} model=${key} durationMs=${durationMs} textLen=${rawText.length} thinkingLen=${rawThinking.length} cleaned=${JSON.stringify(title)}`,
-				);
-				return title || null;
-			},
+		const cleaned = await generateAutoTitle(
+			{ modelRegistry: handle.session.modelRegistry, sessionModel: handle.session.model },
+			sessionId,
+			userText,
+			assistantText,
 		);
-
 		if (!cleaned) return null;
 		handle.session.setSessionName(cleaned);
 		return cleaned;
@@ -1210,77 +912,11 @@ export class RuntimeHost implements SessionFacade {
 	 */
 	async nextPromptSuggestions(sessionId: string, conversation: string): Promise<string[]> {
 		const handle = this.requireSession(sessionId);
-		const trimmed = conversation.trim().slice(0, 4000);
-		if (!trimmed) return [];
-
-		const promptText =
-			`下面是用户与 AI 助手最近的对话。请站在【用户】的角度，预测用户接下来最可能【亲自打字发给助手】的下一句话。\n\n` +
-			`要求：\n` +
-			`- 每条必须是用户会直接发送的一句话：第一人称、口语化、具体。例如「再写一个悲伤点的结局」「把这个故事翻译成英文」「帮我把刚才的代码加上注释」。\n` +
-			`- 禁止输出对用户意图的分析、第三人称描述、任何思考过程或解释。只给用户会说的话本身。\n` +
-			`- 0 到 3 条，按可能性从高到低；对话已自然收尾、没有合理后续时给空数组。每条不超过 30 字。\n` +
-			`- 必须通过调用 provide_prompt_suggestions 工具提交结果（suggestions 字段），不要用普通文本回答。\n\n` +
-			`<对话>\n${trimmed}\n</对话>`;
-
-		// null = 调用失败需轮转；[] = 成功但无建议（合法，不轮转）。
-		const result = await this.runWithPeripheralFailover(
-			handle,
-			`nextPromptSuggestions session=${sessionId}`,
-			async (candidate) => {
-				const { model, apiKey, reasoning, key } = candidate;
-				const response = await completeSimple(
-					model,
-					{
-						systemPrompt:
-							"你是输入预测器，模拟用户口吻预测其下一句输入。必须调用 provide_prompt_suggestions 工具，把 0-3 条用户第一人称的具体提问/指令放入 suggestions 字段提交，不含任何分析或思考过程。",
-						messages: [
-							{
-								role: "user" as const,
-								content: [{ type: "text" as const, text: promptText }],
-								timestamp: Date.now(),
-							},
-						],
-						tools: [SUGGESTIONS_TOOL],
-					},
-					{ apiKey, maxTokens: 800, reasoning },
-				);
-				if (response.stopReason === "error") {
-					console.warn(
-						`[nextPromptSuggestions] session=${sessionId} model=${key} stopReason=error message=${
-							(response as { errorMessage?: string }).errorMessage ?? "(none)"
-						}`,
-					);
-					return null;
-				}
-				// 首选：结构化工具调用，arguments 已是解析好的对象（JSON schema 保证形状）。
-				const toolCall = response.content.find(
-					(c): c is ToolCall => c.type === "toolCall" && c.name === SUGGESTIONS_TOOL.name,
-				);
-				if (toolCall) {
-					const rawList = (toolCall.arguments as { suggestions?: unknown }).suggestions;
-					return Array.isArray(rawList) ? cleanSuggestionList(rawList) : [];
-				}
-				// 兜底：模型没调用工具，从正式回答 / 思考通道里扫 JSON 数组（仅认 JSON，
-				// 思考散文不会被误当建议泄漏）。
-				const rawText = response.content
-					.filter((c): c is TextContent => c.type === "text")
-					.map((c) => c.text)
-					.join("")
-					.trim();
-				const rawThinking = response.content
-					.filter((c): c is { type: "thinking"; thinking: string } => c.type === "thinking")
-					.map((c) => c.thinking)
-					.join("\n")
-					.trim();
-				const fromText = sanitizeSuggestions(rawText);
-				if (fromText.length > 0) return fromText;
-				const fromThinking = sanitizeSuggestions(rawThinking);
-				if (fromThinking.length > 0) return fromThinking;
-				// 成功响应但解析不出建议：视为合法空结果（对话可能已收尾），不轮转。
-				return [];
-			},
+		return generateNextPromptSuggestions(
+			{ modelRegistry: handle.session.modelRegistry, sessionModel: handle.session.model },
+			sessionId,
+			conversation,
 		);
-		return result ?? [];
 	}
 
 	async disposeSession(sessionId: string): Promise<void> {
@@ -1445,393 +1081,4 @@ export class RuntimeHost implements SessionFacade {
 			},
 		};
 	}
-
-	private baseEvent(sessionId: string, source: SessionEventBase["source"], timestamp = Date.now()): SessionEventBase {
-		return {
-			schemaVersion: 1,
-			sessionId,
-			eventId: randomUUID(),
-			timestamp,
-			source,
-		};
-	}
-
-	private lifecycleEvent(
-		sessionId: string,
-		phase: "created" | "agent_start" | "turn_start" | "turn_end" | "agent_end" | "aborted",
-		timestamp?: number,
-	): SessionEvent {
-		return {
-			...this.baseEvent(sessionId, "runtime-core", timestamp),
-			type: "session.lifecycle",
-			phase,
-		};
-	}
-
-	private mapEvent(sessionId: string, event: AgentSessionEvent, session: AgentSession): SessionEvent[] {
-		const events: SessionEvent[] = [];
-
-		if (event.type === "agent_start") {
-			const startedAt = Date.now();
-			this.currentTurnStartedAt.set(sessionId, startedAt);
-			events.push(this.lifecycleEvent(sessionId, "agent_start", startedAt));
-			return events;
-		}
-
-		if (event.type === "turn_start") {
-			events.push(this.lifecycleEvent(sessionId, "turn_start"));
-			return events;
-		}
-
-		if (event.type === "turn_end") {
-			events.push(this.lifecycleEvent(sessionId, "turn_end"));
-			return events;
-		}
-
-		if (event.type === "agent_end") {
-			const endedAt = Date.now();
-			this.persistAssistantTurnTiming(sessionId, session, endedAt);
-			events.push(this.lifecycleEvent(sessionId, "agent_end", endedAt));
-			return events;
-		}
-
-		if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "message.delta",
-				delta: event.assistantMessageEvent.delta,
-			});
-			return events;
-		}
-
-		if (event.type === "message_update" && event.assistantMessageEvent.type === "thinking_delta") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "thinking.delta",
-				delta: event.assistantMessageEvent.delta,
-			});
-			return events;
-		}
-
-		if (event.type === "message_update" && event.assistantMessageEvent.type === "toolcall_start") {
-			const partial = event.assistantMessageEvent.partial;
-			const contentIndex = event.assistantMessageEvent.contentIndex;
-			const toolContent = partial?.content?.[contentIndex];
-			if (toolContent && toolContent.type === "toolCall") {
-				events.push({
-					...this.baseEvent(sessionId, "agent"),
-					type: "toolcall.start",
-					toolCallId: String(toolContent.id ?? ""),
-					toolName: String(toolContent.name ?? ""),
-				});
-			}
-			return events;
-		}
-
-		if (event.type === "message_end" && event.message.role === "assistant") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "message.final",
-				message: event.message as Message,
-			});
-
-			const contextUsage = session.getContextUsage();
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "usage.update",
-				input: event.message.usage.input,
-				output: event.message.usage.output,
-				cacheRead: event.message.usage.cacheRead,
-				cacheWrite: event.message.usage.cacheWrite,
-				costTotal: event.message.usage.cost.total,
-				contextPercent: contextUsage?.percent ?? null,
-				contextWindow: contextUsage?.contextWindow ?? 0,
-			});
-
-			if (event.message.stopReason === "error") {
-				const errorText =
-					this.extractAssistantText(event.message.content) ||
-					(event.message as Message & { errorMessage?: string }).errorMessage ||
-					"Assistant response ended with error";
-				console.error(`[RuntimeHost.event] session=${sessionId} type=assistant_error message=${errorText}`);
-				events.push({
-					...this.baseEvent(sessionId, "agent"),
-					type: "error",
-					error: runtimeError("INTERNAL_ERROR", errorText, true, "provider"),
-				});
-			} else if (event.message.stopReason === "aborted") {
-				console.warn(`[RuntimeHost.event] session=${sessionId} type=aborted`);
-				const endedAt = Date.now();
-				events.push(this.lifecycleEvent(sessionId, "aborted", endedAt));
-			}
-			// NOTE: Do NOT emit agent_end here. In a multi-turn agent loop,
-			// message_end fires after each LLM call, not just the final one.
-			// The real agent_end comes from the "agent_end" session event.
-			return events;
-		}
-
-		if (event.type === "tool_execution_start") {
-			events.push({
-				...this.baseEvent(sessionId, "tool"),
-				type: "tool.start",
-				toolCallId: event.toolCallId,
-				toolName: event.toolName,
-				args: event.args,
-				startedAt: event.startedAt,
-			});
-			return events;
-		}
-
-		if (event.type === "tool_execution_update") {
-			events.push({
-				...this.baseEvent(sessionId, "tool"),
-				type: "tool.update",
-				toolCallId: event.toolCallId,
-				toolName: event.toolName,
-				partialResult: event.partialResult,
-			});
-			return events;
-		}
-
-		if (event.type === "tool_execution_phase") {
-			events.push({
-				...this.baseEvent(sessionId, "tool"),
-				type: "tool.phase",
-				toolCallId: event.toolCallId,
-				toolName: event.toolName,
-				label: event.label,
-				atMs: event.atMs,
-			});
-			return events;
-		}
-
-		if (event.type === "tool_execution_end") {
-			events.push({
-				...this.baseEvent(sessionId, "tool"),
-				type: "tool.end",
-				toolCallId: event.toolCallId,
-				toolName: event.toolName,
-				isError: event.isError,
-				result: event.result,
-				startedAt: event.startedAt,
-				durationMs: event.durationMs,
-				phases: event.phases,
-			});
-			return events;
-		}
-
-		if (event.type === "auto_retry_start") {
-			console.warn(
-				`[RuntimeHost.event] session=${sessionId} type=auto_retry_start attempt=${event.attempt}/${event.maxAttempts} delayMs=${event.delayMs} message=${event.errorMessage}`,
-			);
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "error",
-				error: runtimeError("INTERNAL_ERROR", event.errorMessage, true, "provider"),
-			});
-			return events;
-		}
-
-		if (event.type === "todo_update") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "todo_update",
-				items: event.items as any[],
-			});
-			return events;
-		}
-
-		if (event.type === "background_tasks_update") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "background_tasks_update",
-				tasks: event.tasks as any[],
-			});
-			return events;
-		}
-
-		if (event.type === "auto_compaction_start") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "compaction.start",
-				reason: event.reason,
-			});
-			return events;
-		}
-
-		if (event.type === "mcp_reload_start") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "mcp.reload.start",
-			});
-			return events;
-		}
-
-		if (event.type === "mcp_reload_end") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "mcp.reload.end",
-				changed: event.changed,
-				errorMessage: event.errorMessage,
-			});
-			return events;
-		}
-
-		if (event.type === "auto_compaction_end") {
-			events.push({
-				...this.baseEvent(sessionId, "agent"),
-				type: "compaction.end",
-				success: !!event.result && !event.aborted,
-				errorMessage: event.errorMessage,
-			});
-			return events;
-		}
-
-		return events;
-	}
-
-	private parseAssistantTurnTiming(entry: CustomEntry): AssistantTurnTiming | null {
-		const data = entry.data;
-		if (!data || typeof data !== "object") return null;
-		const candidate = data as Record<string, unknown>;
-		const { startedAt, endedAt, durationMs } = candidate;
-		if (
-			typeof startedAt !== "number" ||
-			typeof endedAt !== "number" ||
-			typeof durationMs !== "number" ||
-			!Number.isFinite(startedAt) ||
-			!Number.isFinite(endedAt) ||
-			!Number.isFinite(durationMs)
-		) {
-			return null;
-		}
-		return { startedAt, endedAt, durationMs };
-	}
-
-	private persistAssistantTurnTiming(sessionId: string, session: AgentSession, endedAt: number): void {
-		const startedAt = this.currentTurnStartedAt.get(sessionId);
-		if (!startedAt) return;
-		this.currentTurnStartedAt.delete(sessionId);
-		session.sessionManager.appendCustomEntry(ASSISTANT_TURN_TIMING_TYPE, {
-			startedAt,
-			endedAt,
-			durationMs: Math.max(0, endedAt - startedAt),
-		});
-	}
-
-	private extractAssistantText(content: Message["content"]): string {
-		if (typeof content === "string") return content;
-		return content
-			.filter((item): item is TextContent => item.type === "text")
-			.map((item) => item.text)
-			.join("");
-	}
-}
-
-/** 周边任务最多尝试几个模型（会话模型优先，再补可用模型）。 */
-const PERIPHERAL_MAX_ATTEMPTS = 3;
-/** 失败模型进程内冷却时长，避免连打坏模型。 */
-const PERIPHERAL_COOLDOWN_MS = 2 * 60 * 1000;
-/** key = "provider/modelId" → cooldown until epoch ms */
-const peripheralCooldownUntil = new Map<string, number>();
-
-type PeripheralCandidate = {
-	model: Model<Api>;
-	apiKey: string;
-	reasoning: string | undefined;
-	key: string;
-};
-
-function peripheralModelKey(model: Model<Api>): string {
-	return `${model.provider}/${model.id}`;
-}
-
-function isPeripheralCoolingDown(key: string): boolean {
-	const until = peripheralCooldownUntil.get(key);
-	if (until === undefined) return false;
-	if (Date.now() >= until) {
-		peripheralCooldownUntil.delete(key);
-		return false;
-	}
-	return true;
-}
-
-function markPeripheralCooldown(key: string, ms = PERIPHERAL_COOLDOWN_MS): void {
-	peripheralCooldownUntil.set(key, Date.now() + ms);
-}
-
-/** 输入预测的结构化输出工具：JSON schema 强约束 suggestions 为字符串数组。 */
-const SUGGESTIONS_TOOL: Tool = {
-	name: "provide_prompt_suggestions",
-	description: "提交预测出的、用户接下来最可能亲自发送给助手的下一句话（0-3 条，用户第一人称口吻）。",
-	parameters: Type.Object({
-		suggestions: Type.Array(
-			Type.String({
-				description: "用户会直接打字发送的一句话：第一人称、具体、口语化，不超过 30 字。",
-			}),
-			{
-				description: "0 到 3 条建议，按可能性从高到低排序；没有合理的后续追问时给空数组。",
-				maxItems: 3,
-			},
-		),
-	}),
-};
-
-/** 清洗建议数组：去围栏/引号、去空、去重，最多保留 3 条。 */
-function cleanSuggestionList(items: unknown[]): string[] {
-	const seen = new Set<string>();
-	const result: string[] = [];
-	for (const item of items) {
-		if (typeof item !== "string") continue;
-		const cleaned = item
-			.replace(/^[\s"'`「『《<[(（【“”‘’]+/, "")
-			.replace(/[\s"'`」』》>\])）】“”‘’]+$/, "")
-			.trim();
-		if (!cleaned || seen.has(cleaned)) continue;
-		seen.add(cleaned);
-		result.push(cleaned);
-		if (result.length >= 3) break;
-	}
-	return result;
-}
-
-/**
- * 文本兜底解析：当模型未调用工具时，从其文本/思考里**只**抽取 JSON 字符串数组。
- * 扫描所有不嵌套的 `[...]` 片段，取最后一个能 JSON.parse 成「字符串数组」的，
- * 这样推理散文与 `[step 1]` 等方括号都不会被误当建议泄漏。
- */
-function sanitizeSuggestions(raw: string): string[] {
-	if (!raw) return [];
-	let chosen: string[] | null = null;
-	for (const m of raw.matchAll(/\[[^[\]]*\]/g)) {
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(m[0]);
-		} catch {
-			continue;
-		}
-		if (Array.isArray(parsed) && parsed.every((v) => typeof v === "string")) {
-			chosen = parsed as string[];
-		}
-	}
-	return chosen ? cleanSuggestionList(chosen) : [];
-}
-
-function sanitizeAutoTitle(raw: string): string {
-	if (!raw) return "";
-	// Reasoning models often emit a long internal monologue ending with the
-	// final short answer. Heuristic: prefer the LAST non-empty line if it is
-	// reasonably short (≤ 30 chars), else fall back to the first non-empty line.
-	const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
-	if (lines.length === 0) return "";
-	const lastLine = lines[lines.length - 1];
-	const firstLine = lines[0];
-	const candidate = Array.from(lastLine.trim()).length <= 30 ? lastLine : firstLine;
-	// Strip leading/trailing whitespace and any special characters so both ends
-	// are alphanumeric (letters, including CJK, or digits).
-	const stripped = candidate.replace(/^[^\p{L}\p{N}]+/u, "").replace(/[^\p{L}\p{N}]+$/u, "");
-	if (!stripped) return "";
-	// Hard cap at 14 chars (Array.from to count code points correctly).
-	const chars = Array.from(stripped);
-	return chars.length > 14 ? chars.slice(0, 14).join("") : stripped;
 }
