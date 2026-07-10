@@ -3,7 +3,13 @@ export interface KnowledgeNode {
 	id: string;
 	name: string;
 	type: "directory" | "file";
+	/**
+	 * 子节点。懒加载：`undefined` = 未拉取该层；数组 = 已拉取。
+	 * list / listDir 每次只返回一层，不预取叶子。
+	 */
 	children?: KnowledgeNode[];
+	/** 目录浅层子项数（未加载 children 时用于「N 项」）。 */
+	childCount?: number;
 	size?: number;
 	/** 本地绝对路径（文件，供全局预览）。 */
 	sourcePath?: string;

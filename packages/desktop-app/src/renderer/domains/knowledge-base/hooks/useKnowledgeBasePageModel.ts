@@ -18,7 +18,11 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { KnowledgeImportConfirmation } from "../components/KnowledgeImportDialog";
-import { collectUnprocessedFiles, knowledgeBaseDisplayName } from "../lib/knowledge-base";
+import {
+	collectUnprocessedFromStatuses,
+	knowledgeBaseDisplayName,
+	shouldShowKnowledgeFilesSkeleton,
+} from "../lib/knowledge-base";
 import { useKnowledgeImportSources } from "./useKnowledgeImportSources";
 
 export function useKnowledgeBasePageModel() {
@@ -44,17 +48,18 @@ export function useKnowledgeBasePageModel() {
 
 	const activeBase = knowledgeBases.find((base) => base.id === activeId) ?? knowledgeBases[0] ?? null;
 
+	// 待加工列表来自加工态 map，不依赖懒加载文件树（深层未打开的叶子也能出现）。
 	const pendingFiles = useMemo(
-		() =>
-			activeBase
-				? collectUnprocessedFiles(
-						activeBase.nodes,
-						(id) => fileStatuses[`${activeBase.id}/${id}`]?.status === "unprocessed",
-					)
-				: [],
+		() => (activeBase ? collectUnprocessedFromStatuses(activeBase.id, fileStatuses) : []),
 		[activeBase, fileStatuses],
 	);
 	const pendingCount = pendingFiles.length;
+
+	// 仅「列表尚无缓存」时页面级骨架；有 activeBase 时绝不能因骨架卸载内容面板（会丢浏览 path）。
+	const showFilesSkeleton = shouldShowKnowledgeFilesSkeleton({
+		listLoading: loading,
+		basesEmpty: knowledgeBases.length === 0,
+	});
 
 	const enableKnowledgeBase = useCallback(() => {
 		void (async () => {
@@ -203,6 +208,7 @@ export function useKnowledgeBasePageModel() {
 		knowledgeBases,
 		loading,
 		narrow,
+		showFilesSkeleton,
 		onFilesPicked,
 		openAllKnowledgeBases,
 		openCreateDialog,

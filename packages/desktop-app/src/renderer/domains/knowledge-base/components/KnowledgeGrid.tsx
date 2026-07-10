@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { getColoredFileIcon } from "@domains/file-explorer/components/fileIcons";
 import { cn } from "@shared/lib/utils";
 import { useMarqueeSelection } from "../hooks/useMarqueeSelection";
+import { knowledgeDirItemCount } from "../lib/knowledge-base";
 import { KnowledgeEmptyState, type KnowledgeViewProps, StatusBadge } from "./KnowledgeViewShared";
 
 /**
@@ -90,7 +91,7 @@ export function KnowledgeGrid({
 									</span>
 									{isDir && (
 										<span className="text-[10px] tabular-nums text-muted-foreground/45">
-											{t("kbItemCount", { n: node.children?.length ?? 0 })}
+											{t("kbItemCount", { n: knowledgeDirItemCount(node) })}
 										</span>
 									)}
 								</button>

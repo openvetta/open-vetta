@@ -136,6 +136,7 @@ export function createSystemApi(
 			retryFailed: () => ipc.invoke("vetta:kb:retry-failed"),
 			reload: () => ipc.invoke("vetta:kb:reload"),
 			list: () => ipc.invoke("vetta:kb:list"),
+			listDir: (kbId, relPath) => ipc.invoke("vetta:kb:list-dir", kbId, relPath),
 			fileStatuses: () => ipc.invoke("vetta:kb:statuses"),
 			addFiles: (kbId, sourcePaths, move) => ipc.invoke("vetta:kb:add-files", kbId, sourcePaths, move),
 			deleteEntry: (kbId, relPath) => ipc.invoke("vetta:kb:delete-entry", kbId, relPath),
