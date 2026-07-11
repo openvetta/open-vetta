@@ -10,6 +10,7 @@ import {
 import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
 import { useState } from "react";
+import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
 import type { KnowledgeBaseSettingsModel } from "./useKnowledgeBaseSettingsModel";
@@ -21,16 +22,19 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<div className="mb-6 flex items-center justify-between gap-3">
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
-				<button
-					type="button"
-					onClick={() => setHowItWorksOpen(true)}
-					className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-				>
-					<span className="icon-[mdi--lightbulb-on-outline] h-4 w-4" />
-					<span>{model.labels.howItWorks}</span>
-				</button>
+				<div className="flex flex-wrap items-center gap-2">
+					<SettingsAiAssist tabId="knowledge" />
+					<button
+						type="button"
+						onClick={() => setHowItWorksOpen(true)}
+						className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					>
+						<span className="icon-[mdi--lightbulb-on-outline] h-4 w-4" />
+						<span>{model.labels.howItWorks}</span>
+					</button>
+				</div>
 			</div>
 
 			<SettingSection

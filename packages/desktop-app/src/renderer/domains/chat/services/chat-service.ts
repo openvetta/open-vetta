@@ -375,14 +375,23 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 		return msg;
 	}
 
+	/** Next user message follows a settings-assist model-only instruction. */
+	let pendingSettingsAssistTabId: string | undefined;
+
 	for (const entry of entries) {
 		if (entry.type === "compaction") {
+			pendingSettingsAssistTabId = undefined;
 			messages.push({
 				id: `hist-compact-${messages.length}`,
 				role: "compaction",
 				text: entry.summary,
 				timestamp: new Date(entry.timestamp).getTime(),
 			});
+			continue;
+		}
+
+		if (entry.type === "settings_assist_marker") {
+			pendingSettingsAssistTabId = entry.tabId?.trim() || "unknown";
 			continue;
 		}
 
@@ -446,8 +455,13 @@ export function fullHistoryToChat(entries: HistoryEntry[]): ChatMessage[] {
 				// Exclude image-cache so system images/appshot don't become file badges.
 				mentionedFiles: toMentionedFilesFromPrefixes(parsedUser.files),
 			};
+			if (pendingSettingsAssistTabId) {
+				userMsg.settingsAssistTabId = pendingSettingsAssistTabId;
+				pendingSettingsAssistTabId = undefined;
+			}
 			messages.push(userMsg);
 		} else if (m.role === "assistant") {
+			pendingSettingsAssistTabId = undefined;
 			const target = currentAssistant();
 			const blocks = messageToBlocks(m.content);
 			for (const b of blocks) {

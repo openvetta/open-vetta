@@ -164,6 +164,11 @@ export interface ChatMessage {
 	appshot?: AppshotAttachment;
 	/** 用户通过 @ 面板手动选择的文件（仅面板选择，不含手打 @/path 文本） */
 	mentionedFiles?: MentionedFile[];
+	/**
+	 * 来自设置页「让 AI 协助配置」的 tab id（如 mcp / models），气泡展示「MCP配置协助」等标签。
+	 * 乐观发送与历史回放（settings_assist_marker）都会设置。
+	 */
+	settingsAssistTabId?: string;
 }
 
 export interface ActiveSession {
@@ -425,6 +430,27 @@ export const actionButtonHandlersAtom = atom<Map<string, () => void>>(new Map())
 // Use a module-level ref instead of atom to avoid structured clone issues with functions
 export const openSessionFnRef: {
 	current: ((cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>) | null;
+} = {
+	current: null,
+};
+
+/** Optional per-send options for {@link sendMessageFnRef} / useSessionManager.sendMessage. */
+export interface SendMessageOptions {
+	/**
+	 * Merged into PromptRequest.metadata (host-side / input-pipeline only; not shown as
+	 * user bubble text). e.g. settingsAssistInstruction for model-only settings assist.
+	 */
+	metadata?: Record<string, unknown>;
+	/** Settings page tab id for the optimistic bubble badge (e.g. "mcp" →「MCP配置协助」). */
+	settingsAssistTabId?: string;
+}
+
+/**
+ * Global send path (set by useSessionManager). Prefer after openSession in the same tick —
+ * openSession writes activeSessionRef so overrideText can go out immediately.
+ */
+export const sendMessageFnRef: {
+	current: ((overrideText?: string, options?: SendMessageOptions) => Promise<void>) | null;
 } = {
 	current: null,
 };

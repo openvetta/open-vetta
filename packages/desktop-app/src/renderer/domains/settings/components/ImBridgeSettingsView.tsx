@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { ModelSelect } from "@shared/components/ModelSelect";
 import { Button } from "@shared/components/ui/button";
 import { cn } from "@shared/lib/utils";
+import { SettingsAiAssist } from "../ai-assist";
 import { SettingHeading, SettingRow, SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";
 import { ImChannelCard } from "./ImChannelCard";
@@ -26,7 +27,10 @@ export function ImBridgeSettingsView({ model }: { model: ImBridgeSettingsModel }
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">Vetta Claw</h1>
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+				<h1 className="text-[20px] font-bold text-foreground">Vetta Claw</h1>
+				<SettingsAiAssist tabId="im" />
+			</div>
 
 			{model.legacy?.hasLegacyData && (
 				<ImLegacyImportBanner

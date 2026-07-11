@@ -87,6 +87,40 @@ function SkillBadge({
 	);
 }
 
+const SETTINGS_ASSIST_TAB_IDS = [
+	"mcp",
+	"models",
+	"knowledge",
+	"im",
+	"webhook",
+	"appearance",
+	"plugins",
+	"pet",
+	"environment",
+	"shortcuts",
+	"agent",
+] as const;
+
+type SettingsAssistTabId = (typeof SETTINGS_ASSIST_TAB_IDS)[number];
+
+function isSettingsAssistTabId(value: string): value is SettingsAssistTabId {
+	return (SETTINGS_ASSIST_TAB_IDS as readonly string[]).includes(value);
+}
+
+/** Badge for messages started from Settings →「让 AI 协助配置」. */
+function SettingsAssistBadge({ tabId }: { tabId: string }): JSX.Element {
+	const { t } = useTranslation("chat");
+	const labelKey = isSettingsAssistTabId(tabId)
+		? (`messageList.userMessage.settingsAssist.${tabId}` as const)
+		: ("messageList.userMessage.settingsAssist.unknown" as const);
+	return (
+		<span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+			<span className="icon-[solar--settings-linear] h-3 w-3" />
+			{t(labelKey)}
+		</span>
+	);
+}
+
 function FileBadge({ path }: { path: string }): JSX.Element {
 	const setFilePreview = useSetAtom(filePreviewAtom);
 	const name = pathBasename(path);
@@ -251,6 +285,8 @@ export const UserMessage = memo(function UserMessage({
 	);
 	const hasImages = imageItems.length > 0;
 	const hasSkillBadge = Boolean(skillName);
+	const settingsAssistTabId = message.settingsAssistTabId?.trim() ?? "";
+	const hasSettingsAssistBadge = settingsAssistTabId.length > 0;
 	const hasFileBadges = fileBadges.length > 0;
 	const copyText = displayText.trim();
 	const shouldAnimateIn = entryState === "enter";
@@ -297,8 +333,9 @@ export const UserMessage = memo(function UserMessage({
 						<ImageAttachmentGroup items={imageItems} />
 					</div>
 				)}
-				{hasSkillBadge && (
+				{(hasSkillBadge || hasSettingsAssistBadge) && (
 					<div className="mb-1 flex flex-wrap justify-end gap-1">
+						{hasSettingsAssistBadge && <SettingsAssistBadge tabId={settingsAssistTabId} />}
 						{skillName && <SkillBadge name={skillName} type={skillType ?? "skill"} />}
 					</div>
 				)}
@@ -314,7 +351,7 @@ export const UserMessage = memo(function UserMessage({
 						/>
 					</div>
 				)}
-				{!displayText && !hasSkillBadge && !hasFileBadges && !hasImages && !appshotData && (
+				{!displayText && !hasSkillBadge && !hasSettingsAssistBadge && !hasFileBadges && !hasImages && !appshotData && (
 					<div
 						className="cursor-text rounded-2xl rounded-br-md bg-secondary px-3.5 py-2.5 text-[13px] leading-[1.6] text-foreground"
 						style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}

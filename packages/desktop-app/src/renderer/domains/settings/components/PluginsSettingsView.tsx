@@ -9,6 +9,7 @@ import {
 import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
 import { openExternalLink } from "@shared/lib/open-external-link";
+import { SettingsAiAssist } from "../ai-assist";
 import type { PluginSettingFieldModel, PluginsSettingsModel } from "./usePluginsSettingsModel";
 import { SettingRow, SettingSection } from "./shared";
 
@@ -153,7 +154,10 @@ function PluginSettingsSection({
 export function PluginsSettingsView({ model }: { model: PluginsSettingsModel }): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+				<SettingsAiAssist tabId="plugins" />
+			</div>
 
 			{model.sections.length === 0 ? (
 				<div className="rounded-xl border border-border bg-muted px-5 py-4 text-[12px] text-muted-foreground">

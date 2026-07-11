@@ -1,4 +1,5 @@
 import { Switch } from "@shared/components/ui/switch";
+import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
 import { PetBubbleStylePreview } from "./PetBubbleStylePreview";
 import { SettingRow, SettingSection } from "./shared";
@@ -53,7 +54,10 @@ function PetBubbleStyleGrid({ model }: { model: PetSettingsModel }): JSX.Element
 export function PetSettingsView({ model }: { model: PetSettingsModel }): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">{model.labels.pageTitle}</h1>
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+				<h1 className="text-[20px] font-bold text-foreground">{model.labels.pageTitle}</h1>
+				<SettingsAiAssist tabId="pet" />
+			</div>
 
 			<SettingSection title={model.labels.sections.status} section={SETTINGS_SECTION["pet-status"]}>
 				<SettingRow title={model.labels.showPet} description={model.labels.showPetDescription} border={false}>

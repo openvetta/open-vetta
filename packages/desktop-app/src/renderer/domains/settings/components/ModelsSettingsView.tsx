@@ -1,9 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { SegmentedControl } from "@shared/components/ui/segmented-control";
+import { SettingsAiAssist } from "../ai-assist";
 import { PresetProvidersSection } from "./PresetProvidersSection";
-import { ModelsJsonEditor } from "./ModelsJsonEditor";
 import { ModelsProvidersSection } from "./ModelsProvidersSection";
-import type { ModelsEditMode, ModelsSettingsModel } from "./useModelsSettingsModel";
+import type { ModelsSettingsModel } from "./useModelsSettingsModel";
 
 export function ModelsSettingsView({ model }: { model: ModelsSettingsModel }): JSX.Element {
 	const { t } = useTranslation("settings");
@@ -21,26 +20,13 @@ export function ModelsSettingsView({ model }: { model: ModelsSettingsModel }): J
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<div className="mb-6 flex items-center justify-between">
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 				<h1 className="text-[20px] font-bold text-foreground">{t("modelSettings.title")}</h1>
-				<SegmentedControl
-					items={[
-						{ key: "visual" as ModelsEditMode, label: t("view"), icon: "icon-[mdi--view-list-outline]" },
-						{ key: "json" as ModelsEditMode, label: "JSON", icon: "icon-[mdi--code-json]" },
-					]}
-					value={model.mode}
-					onChange={model.onModeSwitch}
-				/>
+				<SettingsAiAssist tabId="models" />
 			</div>
 
-			{model.mode === "visual" ? (
-				<>
-					<PresetProvidersSection config={model.config} saveConfig={model.saveConfig} />
-					<ModelsProvidersSection model={model} />
-				</>
-			) : (
-				<ModelsJsonEditor model={model} />
-			)}
+			<PresetProvidersSection config={model.config} saveConfig={model.saveConfig} />
+			<ModelsProvidersSection model={model} />
 
 			<div className="mt-6 text-center text-[11px] text-muted-foreground/60">
 				{t("configFilePath")}: ~/.vetta/agent/models.json

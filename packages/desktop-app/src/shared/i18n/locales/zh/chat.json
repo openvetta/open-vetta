@@ -332,7 +332,21 @@
 		"userMessage": {
 			"expand": "展开消息",
 			"sceneBadge": "场景",
-			"skillBadge": "技能"
+			"skillBadge": "技能",
+			"settingsAssist": {
+				"mcp": "MCP配置协助",
+				"models": "模型配置协助",
+				"knowledge": "知识库配置协助",
+				"im": "Claw配置协助",
+				"webhook": "消息推送协助",
+				"appearance": "外观配置协助",
+				"plugins": "插件配置协助",
+				"pet": "桌宠配置协助",
+				"environment": "应用环境协助",
+				"shortcuts": "快捷键配置协助",
+				"agent": "Agent配置协助",
+				"unknown": "设置配置协助"
+			}
 		},
 		"assistantFoldTip": {
 			"collapse": "收起{{count}}条内容",

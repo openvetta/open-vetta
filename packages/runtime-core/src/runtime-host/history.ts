@@ -84,6 +84,22 @@ export function entriesToHistory(branch: CodingSessionEntry[]): HistoryEntry[] {
 					timestamp: entry.timestamp,
 				});
 			}
+		} else if (entry.type === "custom_message" && entry.customType === "settings_assist_instruction") {
+			// Model-only settings-assist preamble; surface a marker so the next user
+			// bubble can show a page-specific badge after history reload.
+			const details = entry.details;
+			const tabId =
+				details &&
+				typeof details === "object" &&
+				!Array.isArray(details) &&
+				typeof (details as { tabId?: unknown }).tabId === "string"
+					? (details as { tabId: string }).tabId.trim() || undefined
+					: undefined;
+			entries.push({
+				type: "settings_assist_marker",
+				tabId,
+				timestamp: entry.timestamp,
+			});
 		} else if (entry.type === "tool_timing") {
 			entries.push({
 				type: "tool_timing",

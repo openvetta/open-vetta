@@ -844,7 +844,6 @@
   "section_models-preset-providers": "Preset Providers",
   "section_models-providers": "Providers",
   "section_models-remote-providers": "Remote Providers",
-  "section_models-json": "Edit JSON",
   "section_mcp-remote-list": "Remote MCP",
   "section_mcp-remote-available": "Available remote MCP servers",
   "section_mcp-builtin-list": "Recommended MCP",
@@ -931,8 +930,122 @@
     "tabManual": "Custom",
     "manualHint": "Enter your own MCP config. Most people only need Recommended.",
     "recommendedAllAdded": "All recommended items are already added. Manage them above.",
-    "remoteAllAdded": "All remote items are already added. Manage them above.",
-    "aiHelpHint": "Not sure how to set this up? You can also ask the AI assistant in chat to add an MCP for you—just describe what you want to do."
+    "remoteAllAdded": "All remote items are already added. Manage them above."
+  },
+  "aiAssist": {
+    "cta": "Get AI help",
+    "dialog": {
+      "title": "Get AI help with settings",
+      "description": "You're on “{{page}}”. Describe your goal in one sentence, or pick an example below.",
+      "approvalHint": "AI uses in-app actions to change settings. Write operations show a confirmation dialog; if you reject, it won't retry automatically.",
+      "start": "Start now",
+      "starting": "Opening chat…"
+    },
+    "placeholder": {
+      "mcp": "e.g. Add an MCP that can search the web…",
+      "models": "e.g. Add an OpenAI-compatible provider and set a default model…",
+      "knowledge": "e.g. Enable knowledge processing every 10 minutes…",
+      "im": "e.g. Enable Claw and set up Feishu…",
+      "webhook": "e.g. Add a channel that notifies me when a task finishes…",
+      "appearance": "e.g. Switch to dark mode and use the stoat cursor…",
+      "plugins": "e.g. Help me fill in a plugin's settings…",
+      "pet": "e.g. Show the pet and change the bubble style…",
+      "environment": "e.g. Check whether Node/Python runtimes look healthy…",
+      "shortcuts": "e.g. Review global shortcuts or reset to defaults…",
+      "agent": "e.g. Pick a pragmatic persona and write custom instructions…"
+    },
+    "context": {
+      "mcp": "Settings → MCP",
+      "models": "Settings → Models",
+      "knowledge": "Settings → Knowledge base",
+      "im": "Settings → Claw",
+      "webhook": "Settings → Notifications",
+      "appearance": "Settings → Appearance",
+      "plugins": "Settings → Plugins",
+      "pet": "Settings → Pet",
+      "environment": "Settings → Environment",
+      "shortcuts": "Settings → Shortcuts",
+      "agent": "Settings → Agent"
+    },
+    "defaultIntent": {
+      "mcp": "I want to configure MCP. Please check what's already added, then guide me through setup.",
+      "models": "I want to configure models. Please check current providers and models, then guide me through setup.",
+      "knowledge": "I want to configure the knowledge base. Please check current processing settings, then guide me through setup.",
+      "im": "I want to configure Claw (IM bridge). Please check current status and channels, then guide me through setup.",
+      "webhook": "I want to configure message push / webhooks. Please check current channels, then guide me through setup.",
+      "appearance": "I want to adjust appearance. Please check current theme and related settings, then guide me through setup.",
+      "plugins": "I want to configure plugins. Please check installed plugins and their settings, then guide me through setup.",
+      "pet": "I want to configure the desktop pet. Please check current display and window settings, then guide me through setup.",
+      "environment": "I want to inspect or adjust the app environment (runtimes/mirrors). Please check current status, then guide me.",
+      "shortcuts": "I want to configure shortcuts. Please check current keybindings, then guide me through setup.",
+      "agent": "I want to configure the Agent (persona, custom instructions, context). Please check current settings, then guide me."
+    },
+    "examples": {
+      "whatCanYouConfigure": "What can you configure?",
+      "mcp": {
+        "webSearch": "Add an MCP that can search the web",
+        "notion": "Connect a Notion MCP",
+        "custom": "Add a custom MCP server"
+      },
+      "models": {
+        "default": "Pick a good default chat model",
+        "provider": "Add a custom model provider",
+        "thinking": "Adjust model thinking mode"
+      },
+      "knowledge": {
+        "enable": "Turn on knowledge base background processing",
+        "interval": "Set the processing interval to 10 minutes",
+        "model": "Pick a suitable model for knowledge processing"
+      },
+      "im": {
+        "enable": "Enable the Claw IM bridge",
+        "feishu": "Help me set up the Feishu channel",
+        "model": "Pick a chat model for Claw"
+      },
+      "webhook": {
+        "add": "Add a channel for task-complete notifications",
+        "taskDone": "Push to my endpoint when a task finishes",
+        "disable": "Temporarily disable a push channel"
+      },
+      "appearance": {
+        "dark": "Switch to dark mode",
+        "theme": "Change the UI theme",
+        "cursor": "Switch the mouse pointer to the stoat style"
+      },
+      "plugins": {
+        "list": "Show which plugins have settings",
+        "configure": "Help me fill in a plugin's settings",
+        "enable": "Enable or disable a plugin capability"
+      },
+      "pet": {
+        "show": "Show the desktop pet",
+        "size": "Make the pet window a bit larger",
+        "bubble": "Change the bubble style"
+      },
+      "environment": {
+        "status": "Check Node/Python runtime status",
+        "reinstall": "Reinstall the bundled runtimes",
+        "mirrors": "Confirm npm/pip mirrors look correct"
+      },
+      "shortcuts": {
+        "list": "Show current global shortcuts",
+        "quickpanel": "Adjust quick panel related settings",
+        "reset": "Reset shortcuts to defaults"
+      },
+      "agent": {
+        "persona": "Pick a suitable persona",
+        "instructions": "Write custom instructions for me",
+        "images": "Adjust how many recent images stay in context"
+      }
+    },
+    "prompt": {
+      "agentInstruction": "The user is on the “{{page}}” page and wants help configuring it.\nUse Vetta Desktop app capabilities to inspect and change settings (do not ask the user to edit config files).\nIf the request is clear, inspect current state then act; if unclear, ask one focused clarifying question.\nWrite operations will prompt for confirmation in the app; do not auto-retry after a rejection.\nThe user's specific request is in this turn's user message body."
+    },
+    "error": {
+      "noWorkspace": "Can't start: the default chat workspace isn't ready. Try again, or open Chat from the sidebar once.",
+      "startFailed": "Couldn't open the AI assist chat. Please try again.",
+      "startFailedWithReason": "Couldn't open the AI assist chat: {{message}}"
+    }
   },
   "mcpPresets": {
     "sectionHint": "Add common MCP servers in one click. Once added, the AI can use them in chat.",

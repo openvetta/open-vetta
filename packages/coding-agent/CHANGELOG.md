@@ -18,6 +18,7 @@
 
 ### Changed
 
+- **input-pipeline 支持设置页 AI 协助隐藏指令**：读取 `PromptOptions.metadata.settingsAssistInstruction`（非空字符串）时，在用户消息前注入 `display:false` 的 `settings_assist_instruction` 自定义消息，仅模型可见；用户气泡与历史只保留用户意图正文。
 - **Vetta CLI guidance 改为渐进式发现**：不再只点名批量/定时；明确 `action -h` 只说明流程与能力域，权威目录来自 `search`，参数细节来自 `describe` / `*.query` 的 `help`。
 - **系统提示词：完成时在结尾汇聚列出产物文件**：`buildGuidelines` 在已有「文件必须用 md 链接」强制规则之后新增一条（仅当具备 edit/write/shell 等可产文件的工具时启用）——任务产出或改动文件后，最终消息的**最末尾**必须是单一的产物块：一行小标题 + md **无序列表**，每项是指向绝对路径的 md 链接（`- [name.ext](/abs/path)`）。该块是列产物的**唯一**位置，不得在总结开头/中间再分散重复同样的链接，统一汇聚到结尾一处。只列**用户真正想要的成品**（如 .pptx/.pdf/.docx/图片，排除解包 XML、临时文件、lockfile 等中间脚手架与仅读取的文件），无产物则整块省略。配合 desktop 端用插件 turn 卡（git）/ md 链接预览（非 git）替代被移除的产物面板。
 - **`KB_PROCESSING_GUIDE` 读取侧引导：禁止全量 read 超大文件**：加工 agent 经常因把超大原始文件一次性/反复全量 `read` 进上下文，导致上下文瞬间饱和、频繁触发压缩、拖垮整轮加工。改写「读取原始文件内容」一条：PDF/图片一律走 extract_text_from_pdf / extract_text_from_img（完整结果写 output 文件、只回传有上限预览，转换由工具完成不经上下文），纯文本/markdown 小文件才直接 read；并新增硬约束——**绝不要全量 read 超大文件**，大文件靠工具转换落盘 + 按需 `read`（offset/limit）挑关键区段（开头、目录/标题结构、章节首尾）读，读到够写出准确 title/summary 并组织好 wiki 树即停。明确「摘要是挑重点读后凝练，不是读全文再压缩」。纯提示词层面调整，未改工具/schema。
