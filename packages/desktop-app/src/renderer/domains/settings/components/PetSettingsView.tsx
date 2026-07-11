@@ -7,7 +7,7 @@ import type { PetSettingsModel } from "./usePetSettingsModel";
 
 function PetDecorationGrid({ model }: { model: PetSettingsModel }): JSX.Element {
 	return (
-		<div className="grid grid-cols-2 gap-3 p-4 @max-xl:grid-cols-1">
+		<div className="grid grid-cols-2 gap-3 p-4">
 			{model.decorations.map((decoration) => {
 				const label = decoration.label;
 				return (
@@ -34,7 +34,7 @@ function PetDecorationGrid({ model }: { model: PetSettingsModel }): JSX.Element 
 
 function PetBubbleStyleGrid({ model }: { model: PetSettingsModel }): JSX.Element {
 	return (
-		<div className="grid grid-cols-2 gap-3 p-4 @max-xl:grid-cols-1">
+		<div className="grid grid-cols-2 gap-3 p-4">
 			{model.bubbleStyles.map((style) => (
 				<PetBubbleStylePreview
 					key={style.id}

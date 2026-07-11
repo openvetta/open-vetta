@@ -81,34 +81,40 @@ export function KnowledgeBaseSettingsView({ model }: { model: KnowledgeBaseSetti
 					</Select>
 				</SettingRow>
 				<SettingRow title={model.labels.model} description={model.labels.modelDescription} border={false}>
-					<div className="flex flex-wrap items-center gap-2">
-						<ModelSelect
-							value={model.modelKey || null}
-							onChange={(key) => model.actions.changeModel(key ?? "")}
-							disabled={!model.enabled}
-							placeholder={model.labels.selectModel}
-							triggerClassName={cn("min-w-[220px]", model.enabled && !model.modelKey && "border-amber-500/50")}
-							reasoning={{ value: model.reasoningLevel || undefined, onChange: model.actions.changeReasoning }}
-						/>
-						<button
-							type="button"
-							onClick={() => void model.actions.probe()}
-							disabled={!model.enabled || model.probing || !model.modelKey}
-							className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-						>
-							<span>{model.labels.testConnect}</span>
-							{model.probing ? (
-								<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
-							) : model.probeResult?.ok ? (
-								<span className="icon-[mdi--check] h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-							) : model.probeResult && !model.probeResult.ok ? (
-								<span className="icon-[mdi--close] h-3.5 w-3.5 text-red-500" />
-							) : null}
-						</button>
+					{/* 不用 flex-wrap + basis-full：会把右侧撑满整行，左侧标题被压成单字竖列 */}
+					<div className="flex flex-col items-end gap-1.5">
+						<div className="flex items-center gap-2">
+							<ModelSelect
+								value={model.modelKey || null}
+								onChange={(key) => model.actions.changeModel(key ?? "")}
+								disabled={!model.enabled}
+								placeholder={model.labels.selectModel}
+								triggerClassName={cn(
+									"w-[220px] max-w-full",
+									model.enabled && !model.modelKey && "border-amber-500/50",
+								)}
+								reasoning={{ value: model.reasoningLevel || undefined, onChange: model.actions.changeReasoning }}
+							/>
+							<button
+								type="button"
+								onClick={() => void model.actions.probe()}
+								disabled={!model.enabled || model.probing || !model.modelKey}
+								className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-input bg-secondary px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+							>
+								<span>{model.labels.testConnect}</span>
+								{model.probing ? (
+									<span className="icon-[mdi--loading] h-3.5 w-3.5 animate-spin" />
+								) : model.probeResult?.ok ? (
+									<span className="icon-[mdi--check] h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+								) : model.probeResult && !model.probeResult.ok ? (
+									<span className="icon-[mdi--close] h-3.5 w-3.5 text-red-500" />
+								) : null}
+							</button>
+						</div>
 						{model.enabled && !model.modelKey && (
-							<span className="flex basis-full items-center gap-1 text-[11px] text-amber-500">
-								<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5" />
-								{model.labels.noModelSelected}
+							<span className="flex max-w-full items-center gap-1 text-[11px] text-amber-500">
+								<span className="icon-[mdi--alert-circle-outline] h-3.5 w-3.5 shrink-0" />
+								<span className="truncate">{model.labels.noModelSelected}</span>
 							</span>
 						)}
 					</div>

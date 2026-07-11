@@ -31,6 +31,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Fixed
 
+- **设置项 SettingRow 始终左右布局**：去掉 `@max-xl:flex-col` 等窄宽竖排逻辑；标题区可收缩，控件固定在右侧，不再上下堆叠。
+- **知识库「整理用哪个模型」标题被压成单字竖列**：该行右侧用 `flex-wrap` + `basis-full` 警告会撑满整行宽度，左侧 `min-w-0` 被挤到近乎 0。改为控件与警告纵向 `items-end` 排列，SettingRow 标题 `truncate`、右侧 `max-w` 上限。
 - **新会话首条消息前标题/侧栏误显示「未命名会话」**：`openSession` 后 listSessions 常先写入空 name + `(no messages)` 占位；用户发出首条 prompt 时 `ensureLocalSession` 因 path 已存在而跳过，且 `loadSessions` 只兜底 name 不兜底 firstMessage，乐观的用户文案被冲掉。现 `ensureLocalSession` 会在展示名仍为空时补齐 firstMessage，`loadSessions` 合并时同样保留可用的乐观 firstMessage，直至 auto-title 或磁盘真实 name 生效。
 - **知识库页 Maximum update depth exceeded 死循环**：浏览 path 未写入 atom 时用 `?? []` 每次渲染新空数组，依赖 `path` 的 `useEffect`（清空选中）反复 `setState`；改为稳定 `EMPTY_PATH` + `pathKey`，清空选中在已空时跳过。
 - **知识库进入子目录加载完弹回根层**：页面骨架曾在「深层懒加载出文件 + 加工态未 hydrated」时卸载内容面板，组件内 path 被清空；现页面骨架仅用于列表尚无缓存，加工态等待改在面板内层处理，浏览路径按库写入 atom，避免重挂载丢路径。
