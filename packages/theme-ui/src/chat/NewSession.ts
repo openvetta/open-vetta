@@ -63,3 +63,18 @@ export interface NewSessionSceneCarouselProps extends Omit<ComponentPropsWithout
 	readonly scenes: readonly NewSessionSceneItem[];
 	readonly selected: NewSessionSelection;
 }
+
+/** 新会话页欢迎区（标题/副标题/头像/场景轮播）。主题可覆盖以替换装饰与布局。 */
+export interface NewSessionHeroProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+	/** 默认实现里 BotAvatar 的 idle 手势循环；主题若不渲染头像可忽略。 */
+	readonly avatarAutoplay: boolean;
+	readonly greetingTitle: string;
+	readonly mounted: boolean;
+	readonly onSceneClick: (scene: NewSessionSceneItem) => void;
+	readonly sceneActions: Readonly<Record<string, NewSessionSceneActionState>>;
+	/** 场景轮播文案（host 已 i18n）；主题若复用场景轮播应透传。 */
+	readonly sceneLabels: NewSessionSceneCarouselLabels;
+	readonly scenes: readonly NewSessionSceneItem[];
+	readonly selected: NewSessionSelection;
+	readonly subtitle: string;
+}
