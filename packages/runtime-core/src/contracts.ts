@@ -571,6 +571,12 @@ export type HistoryEntry =
 	| { type: "message"; message: Message }
 	| { type: "compaction"; summary: string; tokensBefore: number; timestamp: string }
 	| { type: "assistant_turn_timing"; timing: AssistantTurnTiming; timestamp: string }
+	/**
+	 * Marker that the next user message was sent via Settings AI assist
+	 * (model-only instruction custom message precedes it). UI-only; not LLM content.
+	 * tabId identifies the settings page for the badge label (e.g. "mcp" →「MCP配置协助」).
+	 */
+	| { type: "settings_assist_marker"; tabId?: string; timestamp: string }
 	| {
 			type: "tool_timing";
 			toolCallId: string;

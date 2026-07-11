@@ -5,6 +5,7 @@ import type { ThemeMode } from "@shared/store/atoms";
 import type { CursorStyle } from "@shared/theme/cursor";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { type MouseEvent, useState } from "react";
+import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingHeading } from "./shared";
 import type {
@@ -280,8 +281,9 @@ export function AppearanceSettingsView({ model }: { model: AppearanceSettingsMod
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
 			<div className="mb-4 flex items-start justify-between gap-4">
-				<div>
+				<div className="flex min-w-0 flex-wrap items-center gap-3">
 					<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+					<SettingsAiAssist tabId="appearance" />
 				</div>
 				{!model.narrow && (
 					<div className="flex items-center justify-start pt-1" style={{ height: 56, width: 200 }}>

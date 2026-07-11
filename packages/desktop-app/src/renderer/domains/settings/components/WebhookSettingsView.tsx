@@ -1,3 +1,4 @@
+import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingSection } from "./shared";
 import { WebhookEditorDialog } from "./WebhookEditorDialog";
@@ -16,8 +17,13 @@ export function WebhookSettingsView({ model }: { model: WebhookSettingsModel }):
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-2 text-[20px] font-bold text-foreground">{model.labels.title}</h1>
-			<p className="mb-6 text-[12px] text-muted-foreground">{model.labels.description}</p>
+			<div className="mb-6">
+				<div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+					<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+					<SettingsAiAssist tabId="webhook" />
+				</div>
+				<p className="text-[12px] text-muted-foreground">{model.labels.description}</p>
+			</div>
 
 			<SettingSection
 				section={SETTINGS_SECTION["webhook-channels"]}

@@ -1,3 +1,4 @@
+import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingRow, SettingSection } from "./shared";
 import type { EnvironmentRuntimeKind, EnvironmentRuntimeStatus, EnvironmentSettingsModel } from "./useEnvironmentSettingsModel";
@@ -76,8 +77,13 @@ function RuntimeCard({
 export function EnvironmentSettingsView({ model }: EnvironmentSettingsViewProps): JSX.Element {
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-1.5 text-[20px] font-bold text-foreground">{model.labels.title}</h1>
-			<p className="mb-6 text-[13px] text-muted-foreground">{model.labels.description}</p>
+			<div className="mb-6">
+				<div className="mb-1.5 flex flex-wrap items-center justify-between gap-3">
+					<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+					<SettingsAiAssist tabId="environment" />
+				</div>
+				<p className="text-[13px] text-muted-foreground">{model.labels.description}</p>
+			</div>
 
 			{model.error && (
 				<div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-[12px] text-destructive">

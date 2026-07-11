@@ -127,4 +127,4 @@ renderer 页面中的 atom 可能尚未加载，不能作为获取完整实体�
 - 审批中编辑后的输入会再次通过同一个 schema 校验。
 - 更新审批展示完整当前配置，但执行时保持正确的 patch 语义。
 - 取消、拒绝、超时和 service 错误返回稳定错误。
-- 修改 desktop 代码后，在 `packages/desktop-app` 运行 `bunx tsc --noEmit`，并在仓库根目录运行 `bun run check`。
+- 修改 desktop 代码后，在仓库根目录运行 `bun run check`（已含 desktop-app `tsc`）。单独排查可用：`bunx tsc --noEmit -p packages/desktop-app/tsconfig.json`。

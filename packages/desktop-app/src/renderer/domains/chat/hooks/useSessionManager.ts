@@ -43,6 +43,7 @@ import {
 	type SessionExecutionMode,
 	selectedModelAtom,
 	selectedSkillAtom,
+	sendMessageFnRef,
 	sessionExecutionModeAtom,
 	type TodoItem,
 	todoItemsBySessionAtom,
@@ -88,8 +89,15 @@ function modelKeyToParts(key: string | null | undefined): { provider: string; id
 
 interface SessionManagerResult {
 	openSession: (cwd: string, sessionPath?: string, executionMode?: SessionExecutionMode) => Promise<void>;
-	/** overrideText：以指定文本作为独立 prompt 直发（输入预测建议用），省略则按输入框内容发送。 */
-	sendMessage: (overrideText?: string) => Promise<void>;
+	/**
+	 * overrideText：以指定文本作为独立 prompt 直发（输入预测建议 / 设置 AI 协助等），省略则按输入框内容发送。
+	 * options.metadata：合并进本轮 PromptRequest.metadata（仅宿主/input-pipeline 消费，不进用户气泡正文）。
+	 * options.settingsAssistTabId：乐观用户气泡打上页面对应标签（如「MCP配置协助」）。
+	 */
+	sendMessage: (
+		overrideText?: string,
+		options?: { metadata?: Record<string, unknown>; settingsAssistTabId?: string },
+	) => Promise<void>;
 	abortMessage: () => Promise<void>;
 	/** 立即发送某条排队消息：streaming 时先中止当前流、等 aborted 再发，空闲则直发。 */
 	sendQueuedNow: (runtimeId: string, id: string) => Promise<void>;
@@ -789,7 +797,7 @@ export function useSessionManager(): SessionManagerResult {
 	openSessionFnRef.current = openSession;
 
 	const sendMessage = useCallback(
-		async (overrideText?: string) => {
+		async (overrideText?: string, options?: { metadata?: Record<string, unknown>; settingsAssistTabId?: string }) => {
 			// 读 ref 而非 state：允许在同一 tick 内先 openSession 再立即 sendMessage
 			// （例如 NewSessionPage 的"创建会话+发送"组合调用），避免 React 闭包拿到旧 null。
 			const session = activeSessionRef.current ?? activeSession;
@@ -884,6 +892,10 @@ export function useSessionManager(): SessionManagerResult {
 					userMsg.appshot = appshot;
 				}
 				userMsg.mentionedFiles = mentionedFiles.slice();
+				const settingsAssistTabId = options?.settingsAssistTabId?.trim();
+				if (settingsAssistTabId) {
+					userMsg.settingsAssistTabId = settingsAssistTabId;
+				}
 				setChatMessages((prev) => [...prev, userMsg]);
 			}
 
@@ -961,6 +973,10 @@ export function useSessionManager(): SessionManagerResult {
 				// Per-model reasoning level rides alongside modelKey (see reasoning-level design).
 				const level = getDefaultStore().get(reasoningByModelAtom)[selectedModel];
 				if (level) promptReq.reasoning = level;
+			}
+			// Caller-supplied metadata first (e.g. settings AI assist model-only instruction).
+			if (options?.metadata && Object.keys(options.metadata).length > 0) {
+				promptReq.metadata = { ...options.metadata };
 			}
 			// Merge metadata contributed by active plugin input actions (e.g. the
 			// image-generation toggle sets { imageMode: true } for this turn).
@@ -1110,6 +1126,8 @@ export function useSessionManager(): SessionManagerResult {
 
 	// Expose the full send path to the plugin conversation bridge (ctx.conversation.sendPrompt).
 	pluginSendMessageRef.current = sendMessage;
+	// Settings AI assist / other pages: openSession then sendMessage in the same flow.
+	sendMessageFnRef.current = sendMessage;
 
 	return { openSession, sendMessage, abortMessage, sendQueuedNow, openSessionRef };
 }

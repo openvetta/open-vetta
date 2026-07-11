@@ -89,7 +89,6 @@ export const SETTINGS_SECTIONS = [
 	{ tab: "models", id: "models-thinking", title: "思考模式", titleKey: "section_models-thinking" },
 	{ tab: "models", id: "models-preset-providers", title: "预设服务商", titleKey: "section_models-preset-providers" },
 	{ tab: "models", id: "models-providers", title: "服务商", titleKey: "section_models-providers" },
-	{ tab: "models", id: "models-json", title: "编辑 JSON", titleKey: "section_models-json" },
 	{ tab: "mcp", id: "mcp-remote-list", title: "远程 MCP", titleKey: "section_mcp-remote-list" },
 	{ tab: "mcp", id: "mcp-remote-available", title: "可添加的远程 MCP", titleKey: "section_mcp-remote-available" },
 	{ tab: "mcp", id: "mcp-builtin-list", title: "推荐 MCP", titleKey: "section_mcp-builtin-list" },

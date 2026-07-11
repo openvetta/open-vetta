@@ -1,9 +1,7 @@
 import type { ModelsConfigData } from "@preload/api.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { recordSettingsUsage } from "./recordSettingsUsage";
 
-export type ModelsEditMode = "visual" | "json";
 export type ProviderEntry = ModelsConfigData["providers"][string];
 export type ModelEntry = NonNullable<ProviderEntry["models"]>[number];
 
@@ -35,7 +33,6 @@ export interface EditingModelState {
 
 export interface ModelsSettingsModel {
 	config: ModelsConfigData | null;
-	mode: ModelsEditMode;
 	providerNames: string[];
 	expandedProvider: string | null;
 	addingProvider: boolean;
@@ -45,14 +42,9 @@ export interface ModelsSettingsModel {
 	editingModel: EditingModelState | null;
 	modelForm: ModelFormState;
 	saving: boolean;
-	jsonText: string;
-	jsonError: string | null;
 	setProviderForm: React.Dispatch<React.SetStateAction<ProviderFormState>>;
 	setModelForm: React.Dispatch<React.SetStateAction<ModelFormState>>;
-	setJsonText: (value: string) => void;
-	clearJsonError: () => void;
 	saveConfig: (newConfig: ModelsConfigData) => Promise<void>;
-	onModeSwitch: (mode: ModelsEditMode) => void;
 	onStartAddProvider: () => void;
 	onCancelAddProvider: () => void;
 	onAddProvider: () => Promise<void>;
@@ -69,7 +61,6 @@ export interface ModelsSettingsModel {
 	onUpdateModel: (providerName: string, oldModelId: string) => Promise<void>;
 	onDeleteModel: (providerName: string, modelId: string) => Promise<void>;
 	onSetDefaultModel: (providerName: string, modelId: string) => Promise<void>;
-	onJsonSave: () => Promise<void>;
 }
 
 export const API_OPTIONS = [
@@ -117,9 +108,7 @@ export const emptyModel: ModelFormState = {
 };
 
 export function useModelsSettingsModel(): ModelsSettingsModel {
-	const { t } = useTranslation("settings");
 	const [config, setConfig] = useState<ModelsConfigData | null>(null);
-	const [mode, setMode] = useState<ModelsEditMode>("visual");
 	const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 	const [addingProvider, setAddingProvider] = useState(false);
 	const [providerForm, setProviderForm] = useState<ProviderFormState>({ ...emptyProvider });
@@ -128,13 +117,10 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 	const [editingModel, setEditingModel] = useState<EditingModelState | null>(null);
 	const [modelForm, setModelForm] = useState<ModelFormState>({ ...emptyModel });
 	const [saving, setSaving] = useState(false);
-	const [jsonText, setJsonText] = useState("");
-	const [jsonError, setJsonError] = useState<string | null>(null);
 
 	useEffect(() => {
 		void window.vetta.models.get().then((loadedConfig) => {
 			setConfig(loadedConfig);
-			setJsonText(JSON.stringify(loadedConfig, null, 2));
 		});
 	}, []);
 
@@ -143,7 +129,6 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		try {
 			await window.vetta.models.set(newConfig);
 			setConfig(newConfig);
-			setJsonText(JSON.stringify(newConfig, null, 2));
 		} finally {
 			setSaving(false);
 		}
@@ -346,39 +331,6 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		[config],
 	);
 
-	const handleJsonSave = useCallback(async () => {
-		try {
-			const parsed = JSON.parse(jsonText) as ModelsConfigData;
-			if (!parsed.providers || typeof parsed.providers !== "object") {
-				setJsonError(t("jsonErrorProviders"));
-				return;
-			}
-			setJsonError(null);
-			await saveConfig(parsed);
-			recordSettingsUsage({ tab: "models", action: "saved", target: "json-config" });
-		} catch (e) {
-			setJsonError(`${t("jsonErrorParse")}: ${(e as Error).message}`);
-		}
-	}, [jsonText, saveConfig, t]);
-
-	const handleModeSwitch = useCallback(
-		(newMode: ModelsEditMode) => {
-			if (newMode === "json" && config) {
-				setJsonText(JSON.stringify(config, null, 2));
-				setJsonError(null);
-			}
-			setMode(newMode);
-			setAddingProvider(false);
-			setEditingProvider(null);
-			setAddingModelFor(null);
-			setEditingModel(null);
-			setProviderForm({ ...emptyProvider });
-			setModelForm({ ...emptyModel });
-			recordSettingsUsage({ tab: "models", action: "changed", target: "edit-mode", value: newMode });
-		},
-		[config],
-	);
-
 	const providerNames = useMemo(
 		() =>
 			config ? Object.keys(config.providers).filter((name) => config.providers[name]?.source !== "template") : [],
@@ -387,7 +339,6 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 
 	return {
 		config,
-		mode,
 		providerNames,
 		expandedProvider,
 		addingProvider,
@@ -397,14 +348,9 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		editingModel,
 		modelForm,
 		saving,
-		jsonText,
-		jsonError,
 		setProviderForm,
 		setModelForm,
-		setJsonText,
-		clearJsonError: () => setJsonError(null),
 		saveConfig,
-		onModeSwitch: handleModeSwitch,
 		onStartAddProvider: () => {
 			setAddingProvider(true);
 			setEditingProvider(null);
@@ -441,7 +387,6 @@ export function useModelsSettingsModel(): ModelsSettingsModel {
 		onUpdateModel: handleUpdateModel,
 		onDeleteModel: handleDeleteModel,
 		onSetDefaultModel: handleSetDefaultModel,
-		onJsonSave: handleJsonSave,
 	};
 }
 

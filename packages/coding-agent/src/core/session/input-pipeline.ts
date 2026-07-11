@@ -258,6 +258,29 @@ export class InputPipeline {
 			});
 		}
 
+		// Settings AI assist: host sends only the user-facing intent as the user
+		// message; optional opaque instruction is injected model-only (display:false)
+		// so chat UI / history never show the operational preamble.
+		const settingsAssistInstruction =
+			typeof options?.metadata?.settingsAssistInstruction === "string"
+				? options.metadata.settingsAssistInstruction.trim()
+				: "";
+		if (settingsAssistInstruction.length > 0) {
+			const settingsAssistTabId =
+				typeof options?.metadata?.settingsAssistTabId === "string"
+					? options.metadata.settingsAssistTabId.trim()
+					: "";
+			messages.push({
+				role: "custom",
+				customType: "settings_assist_instruction",
+				content: settingsAssistInstruction,
+				display: false,
+				// tabId is UI-only (badge label); not sent to the LLM as content.
+				details: settingsAssistTabId ? { tabId: settingsAssistTabId } : undefined,
+				timestamp: Date.now(),
+			});
+		}
+
 		// Inject skill/scene content as hidden custom messages (before user message so model sees it first).
 		// Skill goes first so the model parses its `<skill>` block before any scene context.
 		if (skillInjection) {

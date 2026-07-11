@@ -6,11 +6,14 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Removed
 
+- **模型配置页移除「视图 / JSON」切换**：仅保留可视化服务商与模型表单；删除 `ModelsJsonEditor`、编辑模式状态，以及导航 section `models-json`。
 - **移除「全局模型」配置与 `models.manage` 的 `set-peripheral`**：设置页不再展示周边任务专用模型选择；自动标题 / 输入预测改为自动使用当前会话模型并在失败时轮转其它可用模型。Action 审批组件 `ModelsSetPeripheralApproval` 与 i18n 相关文案同步删除。`ModelsConfig` 类型与读写路径不再包含 `peripheralModel*`；读/写 `models.json` 时剥离旧残留键。
 - **移除内置 Browser（Playwright MCP）推荐预设**：不再在「发现 MCP」中提供一键添加 `@playwright/mcp`；浏览器自动化改由 Playwright CLI + skill 等路径使用。已手动添加到 `mcp.json` 的配置不受影响。
 
 ### Changed
 
+- **设置页 AI 协助：用户气泡只显示意图 + 页面对应标签**：操作说明经 `metadata.settingsAssistInstruction` 以 `display:false` 注入；气泡上方展示固定文案徽章（如「MCP配置协助」「模型配置协助」），无悬停说明；`settingsAssistTabId` 随 metadata 持久化，历史回放经 `settings_assist_marker` 恢复。
+- **仓库根目录 `bun run check` 纳入 desktop-app 类型检查**：在 Biome 与 monorepo `tsgo` 之后追加 `tsc --noEmit -p packages/desktop-app/tsconfig.json`，避免只在根目录跑 check 时漏掉 desktop / i18n 类型错误。
 - **MCP 设置表单区分基础/高级选项**：添加/编辑服务器时默认只展示名称与 command/args（stdio）或 url（HTTP）；传输类型、环境变量、工作目录、请求头、超时、自动批准、禁用与调试等收入可折叠「高级选项」。编辑 HTTP 或已有高级字段的配置时自动展开。列表启用开关由图标按钮改为与设置页一致的 `Switch` 组件；去掉点击行展开只读详情，仅编辑时展开表单。
 - **MCP 管理改为商店式结构**：上方统一列出已添加 MCP；下方「发现MCP」用 Tab 切换推荐 / 远程 / 自定义，且只展示尚未添加的项。去掉视图/JSON 切换，页头增加「可在对话中让 AI 助手帮忙添加 MCP」的提示。
 - **扩展内置推荐 MCP**：新增 Canva、Notion、Figma、Slack、Gmail、Google 日历、Google 云端硬盘（含 webp 图标）；需密钥的项添加时弹窗填写，已添加项可用钥匙图标补全/更新密钥，缺必填密钥显示「待填密钥」。
@@ -66,6 +69,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **设置页 AI 协助配置入口**：MCP、模型、知识库、Claw、消息推送、外观、插件、桌宠、应用环境、快捷键、Agent 配置等页标题区增加「让 AI 协助配置」按钮；点击后弹出意图输入（含示例 chips），确认后在默认对话目录新建会话并发送带页面上下文的 starter prompt，由 Agent 经 `vetta action` 协助配置（写操作仍走既有审批）。
 - **`appearance.theme` 覆盖外观设置页鼠标指针**：`set`/`get`/`help` 增加 `cursorStyle`（`default` | `stoat`），与显示模式、主题风格同属一个 Action；审批 UI（theme-change / picker）可一并选择指针样式；经既有 theme IPC 写入 `vetta-cursor-style`，桌宠通过 storage 事件跟随。
 - **扩展 App Actions 覆盖面（中高优先级）**：新增 models / mcp / skills / projects / settings / knowledge / plugins / im / webhook / downloads / updater 等域的 query+manage Action，经 `vetta action` 操作 Desktop 能力；写操作走领域专用审批 UI（可回退 generic）；密钥字段在查询结果中脱敏。市场技能安装与 Flowing 远端流转仍走 GUI。
 - **主题自有数据存储（Theme Storage）**：主题可通过 `@vetta/theme-sdk/storage` 的 `useThemeStorage` / `useThemeStorageValue` 持久化自身 KV 数据；desktop-app 经 `ThemeHost.storage` 注入实现，main 进程按 `themeId` 隔离写入 `~/.vetta/desktop-app/themes/<themeId>/data.json`（单主题 ≤ 256KB，JSON only），preload 暴露 `vetta.themes.storage` 仅供 host 使用。主题不得直接访问 `localStorage` / `window.vetta`。详见 `docs/theme/storage.md`。

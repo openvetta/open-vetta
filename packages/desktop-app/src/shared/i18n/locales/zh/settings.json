@@ -844,7 +844,6 @@
   "section_models-preset-providers": "预设服务商",
   "section_models-providers": "服务商",
   "section_models-remote-providers": "远程服务商",
-  "section_models-json": "编辑 JSON",
   "section_mcp-remote-list": "远程 MCP",
   "section_mcp-remote-available": "可添加的远程 MCP",
   "section_mcp-builtin-list": "推荐 MCP",
@@ -931,8 +930,122 @@
     "tabManual": "自定义",
     "manualHint": "填写你自己的 MCP 配置。多数情况使用「推荐」即可。",
     "recommendedAllAdded": "推荐项都已添加，可在上方管理。",
-    "remoteAllAdded": "远程列表中的项都已添加，可在上方管理。",
-    "aiHelpHint": "不确定怎么配置时，也可以在对话里直接让 AI 助手帮你添加 MCP，说明你想实现的能力即可。"
+    "remoteAllAdded": "远程列表中的项都已添加，可在上方管理。"
+  },
+  "aiAssist": {
+    "cta": "让 AI 协助配置",
+    "dialog": {
+      "title": "让 AI 协助配置",
+      "description": "你正在「{{page}}」。用一句话说明目标即可，也可以点下方示例。",
+      "approvalHint": "AI 会通过应用能力操作设置。涉及写入时会弹出确认，你拒绝后它不会自动重试。",
+      "start": "立即开始",
+      "starting": "正在打开对话…"
+    },
+    "placeholder": {
+      "mcp": "例如：帮我添加一个能查网页的 MCP…",
+      "models": "例如：帮我配置一个 OpenAI 兼容服务商并设为默认…",
+      "knowledge": "例如：开启知识库加工，间隔 10 分钟…",
+      "im": "例如：开启 Claw 并帮我配置飞书…",
+      "webhook": "例如：新增一个任务完成时推送的渠道…",
+      "appearance": "例如：切到深色模式，并把指针换成白鼬…",
+      "plugins": "例如：帮我填好某个插件的设置项…",
+      "pet": "例如：显示桌宠，并把气泡换成节日样式…",
+      "environment": "例如：检查 Node/Python 运行时是否正常…",
+      "shortcuts": "例如：看看全局快捷键，或恢复默认…",
+      "agent": "例如：选一个务实人设，并写一段自定义指令…"
+    },
+    "context": {
+      "mcp": "设置 → MCP 管理",
+      "models": "设置 → 模型配置",
+      "knowledge": "设置 → 知识库设置",
+      "im": "设置 → Claw",
+      "webhook": "设置 → 消息推送",
+      "appearance": "设置 → 外观",
+      "plugins": "设置 → 插件设置",
+      "pet": "设置 → 桌宠",
+      "environment": "设置 → 应用环境",
+      "shortcuts": "设置 → 快捷键",
+      "agent": "设置 → Agent 配置"
+    },
+    "defaultIntent": {
+      "mcp": "我想配置 MCP。请先了解当前已添加的 MCP，再引导我完成配置。",
+      "models": "我想配置模型。请先了解当前服务商与模型，再引导我完成配置。",
+      "knowledge": "我想配置知识库。请先了解当前加工与相关设置，再引导我完成配置。",
+      "im": "我想配置 Claw（即时消息桥接）。请先了解当前状态与渠道，再引导我完成配置。",
+      "webhook": "我想配置消息推送。请先了解当前渠道，再引导我完成配置。",
+      "appearance": "我想调整外观。请先了解当前主题与相关设置，再引导我完成配置。",
+      "plugins": "我想配置插件。请先了解已安装插件与其设置项，再引导我完成配置。",
+      "pet": "我想配置桌宠。请先了解当前显示与窗口设置，再引导我完成配置。",
+      "environment": "我想了解或调整应用环境（运行时/镜像）。请先查看当前状态，再引导我完成配置。",
+      "shortcuts": "我想配置快捷键。请先了解当前快捷键，再引导我完成配置。",
+      "agent": "我想配置 Agent（人设、自定义指令、上下文等）。请先了解当前设置，再引导我完成配置。"
+    },
+    "examples": {
+      "whatCanYouConfigure": "你能配置什么",
+      "mcp": {
+        "webSearch": "帮我添加能查网页的 MCP",
+        "notion": "接上 Notion 相关 MCP",
+        "custom": "帮我加一个自定义 MCP 服务器"
+      },
+      "models": {
+        "default": "帮我选好默认对话模型",
+        "provider": "添加一个自定义模型服务商",
+        "thinking": "调整模型的思考模式"
+      },
+      "knowledge": {
+        "enable": "开启知识库后台加工",
+        "interval": "把加工间隔改成 10 分钟",
+        "model": "给知识库加工选一个合适模型"
+      },
+      "im": {
+        "enable": "开启 Claw 消息桥接",
+        "feishu": "帮我配置飞书渠道",
+        "model": "给 Claw 选一个对话模型"
+      },
+      "webhook": {
+        "add": "新增一个任务完成通知渠道",
+        "taskDone": "任务完成时推送到我配置的地址",
+        "disable": "暂时关掉某个推送渠道"
+      },
+      "appearance": {
+        "dark": "切换到深色模式",
+        "theme": "换一个界面主题",
+        "cursor": "把鼠标指针改成白鼬样式"
+      },
+      "plugins": {
+        "list": "看看有哪些插件可以配置",
+        "configure": "帮我填好某个插件的设置项",
+        "enable": "启用或关闭某个插件能力"
+      },
+      "pet": {
+        "show": "显示桌宠",
+        "size": "把桌宠窗口调大一点",
+        "bubble": "换一种气泡样式"
+      },
+      "environment": {
+        "status": "看看 Node/Python 运行时状态",
+        "reinstall": "重新安装内置运行时",
+        "mirrors": "确认 npm/pip 镜像是否正常"
+      },
+      "shortcuts": {
+        "list": "看看当前有哪些全局快捷键",
+        "quickpanel": "调整快捷面板相关设置",
+        "reset": "把快捷键恢复默认"
+      },
+      "agent": {
+        "persona": "帮我选一个合适的人设",
+        "instructions": "写一段自定义指令",
+        "images": "调整上下文里保留的图片数量"
+      }
+    },
+    "prompt": {
+      "agentInstruction": "用户正在「{{page}}」页面，希望你协助完成配置。\n请通过 Vetta Desktop 的应用能力查询并操作设置（不要让用户去改配置文件）。\n若用户意图已明确，先查询现状再执行；若意图不清，只问一个关键澄清问题。\n写操作会由应用弹出确认，用户拒绝后不要自动重试。\n用户的具体需求见本轮用户消息正文。"
+    },
+    "error": {
+      "noWorkspace": "无法开始：默认对话工作区未就绪。请稍后重试，或先在侧栏打开一次对话。",
+      "startFailed": "无法打开 AI 协助对话，请稍后重试。",
+      "startFailedWithReason": "无法打开 AI 协助对话：{{message}}"
+    }
   },
   "mcpPresets": {
     "sectionHint": "一键添加常用 MCP，添加后可在对话里直接使用。",

@@ -5,6 +5,7 @@ import { Switch } from "@shared/components/ui/switch";
 import { cn } from "@shared/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
 import { SettingHeading, SettingRow, SettingSection } from "./shared";
 import type { AgentSettingsModel } from "./useAgentSettingsModel";
@@ -23,7 +24,10 @@ export function AgentSettingsView({ model }: AgentSettingsViewProps): JSX.Elemen
 
 	return (
 		<div className="mx-auto w-full max-w-[680px] px-8 py-4">
-			<h1 className="mb-6 text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+			<div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+				<h1 className="text-[20px] font-bold text-foreground">{model.labels.title}</h1>
+				<SettingsAiAssist tabId="agent" />
+			</div>
 
 			<div className="mb-6 p-1.5">
 				<SettingHeading
