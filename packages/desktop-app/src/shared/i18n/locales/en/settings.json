@@ -974,10 +974,6 @@
       "googleDrive": "After adding, first use usually starts a Google authorization flow\nIf a local credentials file is required, set the path later via the key icon",
       "canva": "After adding, first use opens a browser to sign in to Canva\nAuthorize once—no API key paste required"
     },
-    "browser": {
-      "displayName": "Browser Control",
-      "description": "Let the AI open web pages, click buttons, fill forms, take screenshots, and read page content to help with browsing and simple web tasks."
-    },
     "canva": {
       "displayName": "Canva",
       "description": "Connect your Canva account to create and edit designs, use templates, and work with assets in chat. First use opens a browser to authorize (no API key form)."

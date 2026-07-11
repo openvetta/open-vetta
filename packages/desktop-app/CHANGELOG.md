@@ -7,6 +7,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 ### Removed
 
 - **移除「全局模型」配置与 `models.manage` 的 `set-peripheral`**：设置页不再展示周边任务专用模型选择；自动标题 / 输入预测改为自动使用当前会话模型并在失败时轮转其它可用模型。Action 审批组件 `ModelsSetPeripheralApproval` 与 i18n 相关文案同步删除。`ModelsConfig` 类型与读写路径不再包含 `peripheralModel*`；读/写 `models.json` 时剥离旧残留键。
+- **移除内置 Browser（Playwright MCP）推荐预设**：不再在「发现 MCP」中提供一键添加 `@playwright/mcp`；浏览器自动化改由 Playwright CLI + skill 等路径使用。已手动添加到 `mcp.json` 的配置不受影响。
 
 ### Changed
 

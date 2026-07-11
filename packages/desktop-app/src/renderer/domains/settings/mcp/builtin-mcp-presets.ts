@@ -2,8 +2,6 @@ import type { McpServerConfigData, McpStdioServerConfigData } from "@preload/api
 
 /** settings 命名空间下、内置 MCP 可用的 i18n key（须与 locales 同步扩展） */
 export type BuiltinMcpLabelKey =
-	| "mcpPresets.browser.displayName"
-	| "mcpPresets.browser.description"
 	| "mcpPresets.canva.displayName"
 	| "mcpPresets.canva.description"
 	| "mcpPresets.notion.displayName"
@@ -77,18 +75,6 @@ const MCP_ICON_BASE = "./mcp";
 export const DEFAULT_MCP_ICON = `${MCP_ICON_BASE}/default.webp`;
 
 export const BUILTIN_MCP_PRESETS: readonly BuiltinMcpPreset[] = [
-	{
-		id: "browser",
-		name: "browser",
-		iconFile: "browser.webp",
-		displayNameKey: "mcpPresets.browser.displayName",
-		descriptionKey: "mcpPresets.browser.description",
-		packageHint: "@playwright/mcp",
-		config: {
-			command: "npx",
-			args: ["-y", "@playwright/mcp@latest"],
-		},
-	},
 	{
 		id: "canva",
 		name: "canva",
