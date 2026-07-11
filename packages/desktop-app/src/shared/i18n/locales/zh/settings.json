@@ -974,10 +974,6 @@
       "googleDrive": "添加后首次使用会走 Google 授权流程\n如官方要求本地凭证文件，可用钥匙图标补填路径",
       "canva": "添加后，首次使用会打开浏览器登录 Canva\n完成授权后即可在对话里创建和编辑设计，无需粘贴 API Key"
     },
-    "browser": {
-      "displayName": "浏览器操纵",
-      "description": "让 AI 打开网页、点击按钮、填写表单、截图并阅读页面内容，帮你完成浏览和简单网页操作。"
-    },
     "canva": {
       "displayName": "Canva",
       "description": "连接你的 Canva 账号，在对话里创建与编辑设计、套用模板、处理素材等。首次使用会打开浏览器完成授权（不填 API Key）。"
