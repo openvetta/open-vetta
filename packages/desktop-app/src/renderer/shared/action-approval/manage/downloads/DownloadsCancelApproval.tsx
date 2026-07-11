@@ -1,3 +1,5 @@
+import type { DownloadItem } from "@preload/api.js";
+import { useEffect, useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
 import {
 	ApprovalImpactCard,
@@ -7,7 +9,10 @@ import {
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 
-interface Input { operation: "cancel"; id: string; }
+interface Input {
+	operation: "cancel";
+	id: string;
+}
 
 function parseInput(input: unknown): Input | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
@@ -26,7 +31,28 @@ function DownloadsCancelApprovalContent({ approval }: { approval: ActiveActionAp
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
+	const [item, setItem] = useState<DownloadItem | null>(null);
 	const icon = "icon-[mdi--download-off-outline]";
+
+	useEffect(() => {
+		if (!input?.id) return;
+		let cancelled = false;
+		void window.vetta.downloads
+			.list()
+			.then((items) => {
+				if (cancelled) return;
+				setItem(items.find((candidate) => candidate.id === input.id) ?? null);
+			})
+			.catch(() => {
+				if (!cancelled) setItem(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [input?.id]);
+
+	const title = item?.filename?.trim() || input?.id || t("manageApproval.unknown");
+	const subtitle = item?.url || (input ? t("manageApproval.fields.id") : undefined);
 
 	return (
 		<Frame
@@ -46,7 +72,24 @@ function DownloadsCancelApprovalContent({ approval }: { approval: ActiveActionAp
 		>
 			{input ? (
 				<>
-					<ApprovalTargetCard icon="icon-[mdi--download-outline]" title={input.id} subtitle={t("manageApproval.fields.id")} />
+					<ApprovalTargetCard
+						icon="icon-[mdi--download-outline]"
+						title={title}
+						subtitle={subtitle}
+						subtitleMono={Boolean(item?.url)}
+						rows={
+							item
+								? [
+										{
+											label: t("manageApproval.downloads.status"),
+											value: t(`manageApproval.downloads.statuses.${item.status}`, {
+												defaultValue: item.status,
+											}),
+										},
+									]
+								: undefined
+						}
+					/>
 					<ApprovalImpactCard
 						icon={icon}
 						title={t("manageApproval.afterActionTitle")}

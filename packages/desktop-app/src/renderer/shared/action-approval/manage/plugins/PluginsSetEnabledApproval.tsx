@@ -1,18 +1,33 @@
+import type { InstalledPlugin } from "@preload/api.js";
+import { useEffect, useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
+import { getToggleApprovalCopy, getToggleSharedLabels } from "../../approvalToggleCopy";
 import {
 	ApprovalImpactCard,
 	ApprovalRawFallback,
-	ApprovalTargetCard,
+	ApprovalToggleIntentCard,
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 
-interface Input { operation: "set-enabled"; id: string; enabled: boolean; }
+interface Input {
+	operation: "set-enabled";
+	id: string;
+	enabled: boolean;
+	approvalUi?: string;
+}
 
 function parseInput(input: unknown): Input | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const r = input as Record<string, unknown>;
-	if (r.operation !== "set-enabled" || typeof r.id !== "string" || typeof r.enabled !== "boolean") return null;
-	return r as unknown as Input;
+	if (r.operation !== "set-enabled" || typeof r.id !== "string" || typeof r.enabled !== "boolean") {
+		return null;
+	}
+	return {
+		operation: "set-enabled",
+		id: r.id,
+		enabled: r.enabled,
+		approvalUi: typeof r.approvalUi === "string" ? r.approvalUi : undefined,
+	};
 }
 
 export function PluginsSetEnabledApproval(): JSX.Element | null {
@@ -25,33 +40,70 @@ function PluginsSetEnabledApprovalContent({ approval }: { approval: ActiveAction
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const icon = input?.enabled ? "icon-[mdi--power-plug]" : "icon-[mdi--power-plug-off]";
+	const [enabled, setEnabled] = useState(input?.enabled ?? true);
+	const [plugin, setPlugin] = useState<InstalledPlugin | null>(null);
+	const copy = getToggleApprovalCopy(t, "plugins", enabled);
+	const shared = getToggleSharedLabels(t);
+
+	useEffect(() => {
+		if (!input?.id) return;
+		let cancelled = false;
+		void window.vetta.plugins
+			.list()
+			.then((items) => {
+				if (!cancelled) setPlugin(items.find((item) => item.id === input.id) ?? null);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, [input?.id]);
+
+	const displayName = plugin?.name?.trim() || plugin?.id || input?.id || "";
 
 	return (
 		<Frame
 			presentation="dialog"
-			title={t("manageApproval.plugins.ops.set-enabled.title")}
-			summary={t("manageApproval.plugins.ops.set-enabled.summary")}
-			icon={icon}
-			badge={t("manageApproval.plugins.ops.set-enabled.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.plugins.ops.set-enabled.confirm"))}
+			title={copy.title}
+			summary={copy.summary}
+			icon={copy.icon}
+			badge={copy.badge}
+			labels={frameLabels(request.permission, copy.confirm)}
 			responding={responding}
 			countdown={approval.countdown.formatted}
 			error={error}
 			onReject={reject}
-			onApprove={() => approve()}
+			onApprove={() =>
+				input
+					? approve({
+							operation: "set-enabled",
+							id: input.id,
+							enabled,
+							approvalUi: input.approvalUi ?? "plugins.set-enabled",
+						})
+					: approve()
+			}
 			canApprove={Boolean(input)}
 		>
 			{input ? (
 				<>
-					<ApprovalTargetCard icon="icon-[mdi--puzzle-outline]" title={input.id} subtitle={t("manageApproval.fields.pluginId")} rows={[{ label: t("manageApproval.fields.enabled"), value: input.enabled ? t("manageApproval.yes") : t("manageApproval.no") }]} />
-					<ApprovalImpactCard
-						icon={icon}
-						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.plugins.ops.set-enabled.impact")}
-						
+					<ApprovalToggleIntentCard
+						targetIcon="icon-[mdi--puzzle-outline]"
+						targetTitle={displayName}
+						targetSubtitle={input.id !== displayName ? input.id : t("manageApproval.fields.pluginId")}
+						enabled={enabled}
+						onEnabledChange={setEnabled}
+						willBecomeLabel={shared.willBecome}
+						stateOnLabel={shared.stateOn}
+						stateOffLabel={shared.stateOff}
+						stateHint={enabled ? shared.stateOnHint : shared.stateOffHint}
+						editableHint={shared.editableHint}
 					/>
-					
+					<ApprovalImpactCard
+						icon={copy.icon}
+						title={t("manageApproval.afterActionTitle")}
+						description={copy.impact}
+					/>
 				</>
 			) : (
 				<ApprovalRawFallback input={request.input} />

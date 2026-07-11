@@ -69,9 +69,23 @@
 	},
 	"actionApproval": {
 		"reject": "拒绝",
+		"confirm": "确认执行",
 		"processing": "处理中...",
 		"permission": "权限：{{permission}}",
-		"permissionPrefix": "权限："
+		"permissionPrefix": "权限：",
+		"whyConfirm": "AI 请求执行此操作，需你确认后才会生效。",
+		"genericTitle": "操作确认",
+		"genericSummary": "请确认是否允许执行该操作。",
+		"genericImpact": "确认后才会执行；拒绝则取消本次请求，不会改动你的数据。",
+		"showTechnicalDetails": "查看技术详情",
+		"hideTechnicalDetails": "收起技术详情",
+		"unreadableRequest": "无法完整解析请求内容。若你不确定，建议拒绝后让 AI 重新说明要做什么。",
+		"fields": {
+			"request": "请求",
+			"operation": "操作类型",
+			"arrayCount": "{{count}} 项",
+			"objectSummary": "{{count}} 个字段"
+		}
 	},
 	"manageApproval": {
 		"fallbackTitle": "操作确认",
@@ -80,6 +94,76 @@
 		"rawInput": "请求内容",
 		"yes": "是",
 		"no": "否",
+		"on": "开启",
+		"off": "关闭",
+		"toggle": {
+			"willBecome": "将改为",
+			"stateOnHint": "开启后即可使用相关能力；不会删除已有配置。",
+			"stateOffHint": "关闭后将暂停使用；配置仍会保留，可随时再开。",
+			"editableHint": "可改开/关后再确认"
+		},
+		"toggleCopy": {
+			"mcp": {
+				"enableTitle": "开启 MCP 服务",
+				"disableTitle": "关闭 MCP 服务",
+				"enableSummary": "开启后，对话里的 AI 可以使用该 MCP 提供的能力（例如浏览网页、调用外部工具）。",
+				"disableSummary": "关闭后，该 MCP 将暂停，对话中暂时用不了它的能力。配置不会删除。",
+				"enableConfirm": "确认开启",
+				"disableConfirm": "确认关闭",
+				"enableImpact": "该 MCP 会立即变为可用，AI 可在后续对话中使用它。",
+				"disableImpact": "该 MCP 会立即暂停；已有配置保留，不会卸载。"
+			},
+			"skills": {
+				"enableTitle": "开启技能",
+				"disableTitle": "关闭技能",
+				"enableSummary": "开启后，AI 在对话中可以按需使用该技能或场景。",
+				"disableSummary": "关闭后，该技能/场景暂时不会被调用。不会卸载或删除文件。",
+				"enableConfirm": "确认开启",
+				"disableConfirm": "确认关闭",
+				"enableImpact": "技能将出现在可用列表中，可在对话中被使用。",
+				"disableImpact": "技能将从可用列表中暂停，配置与文件仍保留。"
+			},
+			"plugins": {
+				"enableTitle": "开启插件",
+				"disableTitle": "关闭插件",
+				"enableSummary": "开启后，该插件提供的界面与能力会重新生效。",
+				"disableSummary": "关闭后，该插件的能力会暂停，不会卸载插件本身。",
+				"enableConfirm": "确认开启",
+				"disableConfirm": "确认关闭",
+				"enableImpact": "插件功能将立即对应用生效。",
+				"disableImpact": "插件功能将立即暂停，安装包与配置仍保留。"
+			},
+			"im": {
+				"enableTitle": "开启 Claw（IM 旁路）",
+				"disableTitle": "关闭 Claw（IM 旁路）",
+				"enableSummary": "开启后，可通过飞书/微信等外部渠道与 AI 对话。",
+				"disableSummary": "关闭后，外部 IM 渠道将无法再接入本机 AI。",
+				"enableConfirm": "确认开启",
+				"disableConfirm": "确认关闭",
+				"enableImpact": "IM 旁路网关将按配置运行，外部消息可进入对话。",
+				"disableImpact": "IM 旁路将停止接入新消息；已有会话记录保留。"
+			},
+			"webhook": {
+				"enableTitle": "开启消息推送",
+				"disableTitle": "关闭消息推送",
+				"enableSummary": "开启后，可向该 Webhook（如钉钉/飞书机器人）发送通知。",
+				"disableSummary": "关闭后，将不再向该地址推送消息。地址与密钥仍会保留。",
+				"enableConfirm": "确认开启",
+				"disableConfirm": "确认关闭",
+				"enableImpact": "该推送渠道将可接收通知与测试消息。",
+				"disableImpact": "该推送渠道将暂停，不会删除配置。"
+			},
+			"settings.notifications": {
+				"enableTitle": "开启系统通知",
+				"disableTitle": "关闭系统通知",
+				"enableSummary": "开启后，任务完成、更新等事件可通过系统通知提醒你。",
+				"disableSummary": "关闭后，应用将不再弹出系统通知。",
+				"enableConfirm": "确认开启",
+				"disableConfirm": "确认关闭",
+				"enableImpact": "符合条件的事件将显示系统通知。",
+				"disableImpact": "系统通知将停止；应用内状态仍可查看。"
+			}
+		},
 		"fieldWithKey": "{{prefix}}.{{key}}",
 		"fields": {
 			"modelKey": "模型",
@@ -123,11 +207,11 @@
 		"models": {
 			"ops": {
 				"set-default": {
-					"title": "设置默认模型确认",
-					"summary": "确认后将把该模型设为默认对话模型。",
-					"confirm": "确认设置默认模型",
+					"title": "设置默认对话模型",
+					"summary": "选择新建对话时默认使用的模型。可在下方改选后再确认。",
+					"confirm": "设为默认模型",
 					"badge": "默认模型",
-					"impact": "默认对话模型将切换为指定模型。"
+					"impact": "之后新建的对话会优先使用该模型；已有对话不会自动改模型。"
 				},
 				"upsert-provider": {
 					"title": "创建或更新模型服务商确认",
@@ -147,7 +231,10 @@
 			},
 			"createProviderHint": "新建",
 			"updateProviderHint": "更新已有",
-			"modelsCount": "{{count}} 个模型"
+			"modelsCount": "{{count}} 个模型",
+			"defaultSectionTitle": "默认模型",
+			"defaultSectionDescription": "与设置 → 模型配置中的默认模型相同，确认后立即生效。",
+			"defaultModelHint": "从已配置的模型中选择"
 		},
 		"mcp": {
 			"ops": {
@@ -246,52 +333,84 @@
 		"settings": {
 			"ops": {
 				"set-language": {
-					"title": "修改界面语言确认",
-					"summary": "确认后将切换应用界面语言。",
-					"confirm": "确认修改语言",
+					"title": "切换界面语言",
+					"summary": "确认后，界面文案将切换到所选语言。",
+					"confirm": "切换语言",
 					"badge": "语言",
-					"impact": "界面语言将立即切换。"
+					"impact": "菜单、设置和按钮文案会立即切换；对话内容不受影响。"
 				},
 				"set-notifications": {
-					"title": "修改通知设置确认",
-					"summary": "确认后将更新系统通知开关。",
-					"confirm": "确认修改通知",
+					"title": "修改通知设置",
+					"summary": "确认是否允许系统通知提醒。",
+					"confirm": "保存通知设置",
 					"badge": "通知",
-					"impact": "系统通知开关将更新。"
+					"impact": "任务完成、更新等提醒会按新开关显示或隐藏。"
 				},
 				"set-execution-mode": {
-					"title": "修改默认执行模式确认",
-					"summary": "确认后将更新 Agent 默认执行权限模式。",
-					"confirm": "确认修改执行模式",
-					"badge": "执行模式",
-					"impact": "新建会话的默认执行权限模式将更新。"
+					"title": "修改默认执行权限",
+					"summary": "选择新建对话时 AI 默认的操作权限。你可在下方改选。",
+					"confirm": "保存执行权限",
+					"badge": "执行权限",
+					"impact": "之后新建的对话会使用该权限；已有对话不会自动改变。"
 				},
 				"set-workspace": {
-					"title": "修改工作区路径确认",
-					"summary": "确认后将更新默认工作区目录。",
-					"confirm": "确认修改工作区",
+					"title": "修改默认工作区",
+					"summary": "确认后，新建项目会默认落在该目录。",
+					"confirm": "保存工作区",
 					"badge": "工作区",
-					"impact": "默认工作区目录将更新。"
+					"impact": "默认工作区路径会更新；已有项目位置不变。"
 				},
 				"set-experimental": {
-					"title": "修改实验功能确认",
-					"summary": "确认后将更新实验性功能开关。",
-					"confirm": "确认修改实验功能",
+					"title": "修改实验功能",
+					"summary": "以下实验功能可在确认前调整开关。",
+					"confirm": "保存实验功能",
 					"badge": "实验",
-					"impact": "实验功能开关将按提交字段更新。"
+					"impact": "对应能力会开启或关闭；不稳定功能可能影响体验。"
 				},
 				"set-knowledge-base": {
-					"title": "修改知识库加工设置确认",
-					"summary": "确认后将更新知识库加工相关配置。",
-					"confirm": "确认修改知识库设置",
-					"badge": "知识库设置",
-					"impact": "知识库加工相关配置将更新。"
+					"title": "修改知识库设置",
+					"summary": "以下知识库整理相关选项可在确认前修改。",
+					"confirm": "保存知识库设置",
+					"badge": "知识库",
+					"impact": "知识库自动整理与加工将按新配置运行。"
 				}
 			},
 			"languageZh": "中文",
 			"languageEn": "English",
 			"notificationsOn": "开启通知",
-			"notificationsOff": "关闭通知"
+			"notificationsOff": "关闭通知",
+			"notificationsTarget": "系统通知",
+			"notificationsTargetHint": "任务完成、更新等提醒",
+			"executionModeSandbox": "安全模式（沙盒）",
+			"executionModeFullAccess": "完整权限",
+			"executionModeSandboxHint": "限制可改文件范围，更安全，适合日常使用。",
+			"executionModeFullAccessHint": "允许更广的文件与系统操作，能力更强但风险更高。",
+			"experimentalSectionTitle": "实验功能",
+			"experimentalSectionDescription": "以下开关与设置 → Agent 配置中的实验项一致，可在确认前调整。",
+			"experimentalFields": {
+				"vettaCli": "命令行工具 Vetta CLI",
+				"vettaCliDesc": "允许在终端通过 Vetta CLI 调用本机能力",
+				"promptPrediction": "输入预测",
+				"promptPredictionDesc": "输入时预估可能的后续内容，可能消耗少量额度",
+				"agentSkills": "Agent 技能扩展",
+				"agentSkillsDesc": "允许 Agent 使用扩展技能能力"
+			},
+			"knowledgeSectionTitle": "知识库整理",
+			"knowledgeSectionDescription": "与设置 → 知识库中的选项一致；只展示本次将修改的项。",
+			"knowledgeFields": {
+				"enabled": "启用知识库整理",
+				"enabledDesc": "关闭后暂停自动整理，不会删除已有知识",
+				"pollIntervalMinutes": "自动整理间隔",
+				"pollIntervalDesc": "隔多久检查一次待整理文件",
+				"processingModelKey": "整理用模型",
+				"processingModelDesc": "用于阅读与整理文档的模型",
+				"processingModelReasoningLevel": "推理档位",
+				"agentConcurrency": "同时整理任务数",
+				"agentConcurrencyDesc": "并行处理越多越快，也更吃资源",
+				"ocrConcurrency": "同时识图任务数",
+				"ocrConcurrencyDesc": "图片文字识别的并行数量",
+				"pollMinutes": "每 {{count}} 分钟"
+			}
 		},
 		"knowledge": {
 			"ops": {
@@ -399,17 +518,22 @@
 					"impact": "本地 IM 旁路进程将重启。"
 				},
 				"set-agent-model": {
-					"title": "设置 IM Agent 模型确认",
-					"summary": "确认后将更新 IM 旁路使用的 Agent 模型配置。",
-					"confirm": "确认设置模型",
-					"badge": "IM 模型",
-					"impact": "IM 旁路使用的 Agent 模型将更新。"
+					"title": "设置 Claw 使用的模型",
+					"summary": "选择外部 IM（Claw）对话使用的模型。可与设置页相同方式挑选。",
+					"confirm": "保存模型",
+					"badge": "Claw 模型",
+					"impact": "之后来自飞书/微信等渠道的对话将使用该模型；可留空表示跟随默认。"
 				}
 			},
 			"enableTitle": "启用 IM 旁路",
 			"disableTitle": "停用 IM 旁路",
 			"restartTarget": "本地 IM 旁路进程",
-			"modelKeyPlaceholder": "provider/modelId，留空表示清除"
+			"channelName": "Claw（IM 旁路）",
+			"channelHint": "连接飞书、微信等外部对话渠道",
+			"modelKeyPlaceholder": "选择模型，可清空",
+			"modelSectionTitle": "Claw 模型",
+			"modelSectionDescription": "与设置 → Claw 中的模型选择一致，支持改模型与推理档位。",
+			"modelKeyHint": "留空则清除专用模型，改回默认策略"
 		},
 		"webhook": {
 			"ops": {
@@ -465,13 +589,22 @@
 		"downloads": {
 			"ops": {
 				"cancel": {
-					"title": "取消下载确认",
-					"summary": "确认后将取消该下载任务。",
-					"confirm": "确认取消下载",
-					"badge": "取消",
-					"impact": "该下载任务将被取消。",
-					"warning": "取消后需重新发起下载。"
+					"title": "取消下载",
+					"summary": "确认后会停止该文件的下载。",
+					"confirm": "取消下载",
+					"badge": "下载",
+					"impact": "下载会立即停止；已下载部分是否保留取决于系统下载状态。",
+					"warning": "取消后如需完整文件，需要重新下载。"
 				}
+			},
+			"status": "状态",
+			"statuses": {
+				"queued": "排队中",
+				"downloading": "下载中",
+				"paused": "已暂停",
+				"completed": "已完成",
+				"failed": "失败",
+				"canceled": "已取消"
 			}
 		},
 		"updater": {
@@ -521,12 +654,22 @@
 		"secretPlaceholder": "留空则保持原密钥/不修改"
 	},
 	"navigationApproval": {
-		"title": "页面跳转确认",
-		"target": "目标页面",
-		"tab": "标签页",
-		"section": "设置项",
-		"confirm": "确认跳转",
-		"responding": "跳转中..."
+		"title": "打开页面",
+		"summary": "AI 想打开以下页面，确认后会切换到该界面。",
+		"target": "页面",
+		"tab": "设置分区",
+		"section": "具体位置",
+		"confirm": "打开",
+		"responding": "打开中...",
+		"impact": "应用会切换到该页面，不会修改你的数据。",
+		"targets": {
+			"chat": "对话",
+			"automation": "自动化",
+			"batch-tasks": "批量任务",
+			"skills": "技能广场",
+			"downloads": "下载中心",
+			"settings": "设置"
+		}
 	},
 	"appearanceApproval": {
 		"pickerTitle": "选择外观",

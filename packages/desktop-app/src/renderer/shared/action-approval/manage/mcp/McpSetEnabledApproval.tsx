@@ -1,21 +1,36 @@
-import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
-import { ApprovalImpactCard, ApprovalRawFallback, ApprovalTargetCard } from "../ApprovalParts";
+import { getToggleApprovalCopy, getToggleSharedLabels } from "../../approvalToggleCopy";
+import {
+	ApprovalImpactCard,
+	ApprovalRawFallback,
+	ApprovalToggleIntentCard,
+} from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 
 interface McpSetEnabledInput {
 	operation: "set-enabled";
 	name: string;
 	enabled: boolean;
+	approvalUi?: string;
 }
 
 function parseInput(input: unknown): McpSetEnabledInput | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const record = input as Record<string, unknown>;
-	if (record.operation !== "set-enabled" || typeof record.name !== "string" || typeof record.enabled !== "boolean") {
+	if (
+		record.operation !== "set-enabled" ||
+		typeof record.name !== "string" ||
+		typeof record.enabled !== "boolean"
+	) {
 		return null;
 	}
-	return { operation: "set-enabled", name: record.name, enabled: record.enabled };
+	return {
+		operation: "set-enabled",
+		name: record.name,
+		enabled: record.enabled,
+		approvalUi: typeof record.approvalUi === "string" ? record.approvalUi : undefined,
+	};
 }
 
 export function McpSetEnabledApproval(): JSX.Element | null {
@@ -28,40 +43,52 @@ function McpSetEnabledApprovalContent({ approval }: { approval: ActiveActionAppr
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const icon = input?.enabled ? "icon-[mdi--toggle-switch]" : "icon-[mdi--toggle-switch-off-outline]";
+	const [enabled, setEnabled] = useState(input?.enabled ?? true);
+	const copy = getToggleApprovalCopy(t, "mcp", enabled);
+	const shared = getToggleSharedLabels(t);
 
 	return (
 		<Frame
 			presentation="dialog"
-			title={t("manageApproval.mcp.ops.set-enabled.title")}
-			summary={t("manageApproval.mcp.ops.set-enabled.summary")}
-			icon={icon}
-			badge={t("manageApproval.mcp.ops.set-enabled.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.mcp.ops.set-enabled.confirm"))}
+			title={copy.title}
+			summary={copy.summary}
+			icon={copy.icon}
+			badge={copy.badge}
+			labels={frameLabels(request.permission, copy.confirm)}
 			responding={responding}
 			countdown={approval.countdown.formatted}
 			error={error}
 			onReject={reject}
-			onApprove={() => approve()}
+			onApprove={() =>
+				input
+					? approve({
+							operation: "set-enabled",
+							name: input.name,
+							enabled,
+							approvalUi: input.approvalUi ?? "mcp.set-enabled",
+						})
+					: approve()
+			}
 			canApprove={Boolean(input)}
 		>
 			{input ? (
 				<>
-					<ApprovalTargetCard
-						icon="icon-[mdi--server-network]"
-						title={input.name}
-						subtitle={t("manageApproval.fields.serverName")}
-						rows={[
-							{
-								label: t("manageApproval.fields.enabled"),
-								value: input.enabled ? t("manageApproval.yes") : t("manageApproval.no"),
-							},
-						]}
+					<ApprovalToggleIntentCard
+						targetIcon="icon-[mdi--server-network]"
+						targetTitle={input.name}
+						targetSubtitle={t("manageApproval.fields.serverName")}
+						enabled={enabled}
+						onEnabledChange={setEnabled}
+						willBecomeLabel={shared.willBecome}
+						stateOnLabel={shared.stateOn}
+						stateOffLabel={shared.stateOff}
+						stateHint={enabled ? shared.stateOnHint : shared.stateOffHint}
+						editableHint={shared.editableHint}
 					/>
 					<ApprovalImpactCard
-						icon={icon}
+						icon={copy.icon}
 						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.mcp.ops.set-enabled.impact")}
+						description={copy.impact}
 					/>
 				</>
 			) : (

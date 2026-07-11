@@ -1,5 +1,6 @@
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useTranslation } from "react-i18next";
+import { formatApprovalWhyConfirm } from "../approvalCopy";
 import { ManageActionApprovalFrameView } from "./ManageActionApprovalFrameView";
 
 /** 领域审批外壳与 i18n；`useActionApproval` 必须只在外层 presenter 调用一次。 */
@@ -25,7 +26,8 @@ export function useManageApprovalFrame(): {
 			reject: t("actionApproval.reject"),
 			confirm,
 			responding: t("actionApproval.processing"),
-			permission: t("actionApproval.permission", { permission }),
+			// 不向用户展示 `domain.write` 类权限码，改为说明「为何需要确认」。
+			permission: formatApprovalWhyConfirm(t, permission),
 		}),
 	};
 }

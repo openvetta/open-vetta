@@ -1,6 +1,8 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useTranslation } from "react-i18next";
+import { SETTINGS_SECTIONS, SETTINGS_TABS } from "../../../domains/settings/registry";
+import { formatApprovalWhyConfirm, navigationTargetLabel } from "../approvalCopy";
 import { useActionApproval } from "../useActionApproval";
 import { NavigationOpenApprovalView } from "./NavigationOpenApprovalView";
 
@@ -12,8 +14,27 @@ function isNavigationOpenInput(
 	return record.type === "open" && typeof record.target === "string";
 }
 
+function settingsTabLabel(
+	tab: string,
+	tSettings: ReturnType<typeof useTranslation<"settings">>["t"],
+): string {
+	const registration = SETTINGS_TABS.find((item) => item.key === tab);
+	if (!registration) return tab;
+	return tSettings(registration.labelKey);
+}
+
+function settingsSectionLabel(
+	section: string,
+	tSettings: ReturnType<typeof useTranslation<"settings">>["t"],
+): string {
+	const registration = SETTINGS_SECTIONS.find((item) => item.id === section);
+	if (!registration?.titleKey) return registration?.title ?? section;
+	return tSettings(registration.titleKey);
+}
+
 export function NavigationOpenApproval(): JSX.Element | null {
 	const { t } = useTranslation("common");
+	const { t: tSettings } = useTranslation("settings");
 	const approval = useActionApproval("navigation.open");
 	const ThemedNavigationOpenApprovalView = useThemeComponent(
 		"root.approval.navigationOpenView",
@@ -25,9 +46,29 @@ export function NavigationOpenApproval(): JSX.Element | null {
 	const input = isNavigationOpenInput(request.input) ? request.input : null;
 	const fields = input
 		? [
-				{ label: t("navigationApproval.target"), value: input.target },
-				...(input.tab ? [{ label: t("navigationApproval.tab"), value: input.tab }] : []),
-				...(input.section ? [{ label: t("navigationApproval.section"), value: input.section }] : []),
+				{
+					label: t("navigationApproval.target"),
+					value: navigationTargetLabel(t, input.target),
+				},
+				...(input.tab
+					? [
+							{
+								label: t("navigationApproval.tab"),
+								value:
+									input.target === "settings"
+										? settingsTabLabel(input.tab, tSettings)
+										: input.tab,
+							},
+						]
+					: []),
+				...(input.section
+					? [
+							{
+								label: t("navigationApproval.section"),
+								value: settingsSectionLabel(input.section, tSettings),
+							},
+						]
+					: []),
 			]
 		: [];
 
@@ -37,18 +78,21 @@ export function NavigationOpenApproval(): JSX.Element | null {
 			error={error}
 			fallbackJson={input ? null : JSON.stringify(request.input, null, 2)}
 			fields={fields}
+			impactDescription={t("navigationApproval.impact")}
+			impactTitle={t("manageApproval.afterActionTitle")}
 			labels={{
 				confirm: t("navigationApproval.confirm"),
-				permission: t("actionApproval.permissionPrefix"),
+				permission: formatApprovalWhyConfirm(t, request.permission),
 				reject: t("actionApproval.reject"),
 				responding: t("navigationApproval.responding"),
 				title: t("navigationApproval.title"),
+				showTechnicalDetails: t("actionApproval.showTechnicalDetails"),
+				hideTechnicalDetails: t("actionApproval.hideTechnicalDetails"),
 			}}
 			onApprove={() => approve()}
 			onReject={reject}
-			permission={request.permission}
 			responding={responding}
-			summary={request.summary}
+			summary={t("navigationApproval.summary")}
 		/>
 	);
 }

@@ -1,18 +1,28 @@
+import { useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
+import { getToggleApprovalCopy, getToggleSharedLabels } from "../../approvalToggleCopy";
 import {
 	ApprovalImpactCard,
 	ApprovalRawFallback,
-	ApprovalTargetCard,
+	ApprovalToggleIntentCard,
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 
-interface Input { operation: "set-enabled"; enabled: boolean; }
+interface Input {
+	operation: "set-enabled";
+	enabled: boolean;
+	approvalUi?: string;
+}
 
 function parseInput(input: unknown): Input | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const r = input as Record<string, unknown>;
 	if (r.operation !== "set-enabled" || typeof r.enabled !== "boolean") return null;
-	return { operation: "set-enabled", enabled: r.enabled };
+	return {
+		operation: "set-enabled",
+		enabled: r.enabled,
+		approvalUi: typeof r.approvalUi === "string" ? r.approvalUi : undefined,
+	};
 }
 
 export function ImSetEnabledApproval(): JSX.Element | null {
@@ -25,33 +35,52 @@ function ImSetEnabledApprovalContent({ approval }: { approval: ActiveActionAppro
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const icon = input?.enabled ? "icon-[mdi--message-badge-outline]" : "icon-[mdi--message-off-outline]";
+	const [enabled, setEnabled] = useState(input?.enabled ?? true);
+	const copy = getToggleApprovalCopy(t, "im", enabled);
+	const shared = getToggleSharedLabels(t);
 
 	return (
 		<Frame
 			presentation="dialog"
-			title={t("manageApproval.im.ops.set-enabled.title")}
-			summary={t("manageApproval.im.ops.set-enabled.summary")}
-			icon={icon}
-			badge={t("manageApproval.im.ops.set-enabled.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.im.ops.set-enabled.confirm"))}
+			title={copy.title}
+			summary={copy.summary}
+			icon={copy.icon}
+			badge={copy.badge}
+			labels={frameLabels(request.permission, copy.confirm)}
 			responding={responding}
 			countdown={approval.countdown.formatted}
 			error={error}
 			onReject={reject}
-			onApprove={() => approve()}
+			onApprove={() =>
+				input
+					? approve({
+							operation: "set-enabled",
+							enabled,
+							approvalUi: input.approvalUi ?? "im.set-enabled",
+						})
+					: approve()
+			}
 			canApprove={Boolean(input)}
 		>
 			{input ? (
 				<>
-					<ApprovalTargetCard icon={icon} title={input.enabled ? t("manageApproval.im.enableTitle") : t("manageApproval.im.disableTitle")} rows={[{ label: t("manageApproval.fields.enabled"), value: input.enabled ? t("manageApproval.yes") : t("manageApproval.no") }]} />
-					<ApprovalImpactCard
-						icon={icon}
-						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.im.ops.set-enabled.impact")}
-						
+					<ApprovalToggleIntentCard
+						targetIcon="icon-[mdi--message-text-outline]"
+						targetTitle={t("manageApproval.im.channelName")}
+						targetSubtitle={t("manageApproval.im.channelHint")}
+						enabled={enabled}
+						onEnabledChange={setEnabled}
+						willBecomeLabel={shared.willBecome}
+						stateOnLabel={shared.stateOn}
+						stateOffLabel={shared.stateOff}
+						stateHint={enabled ? shared.stateOnHint : shared.stateOffHint}
+						editableHint={shared.editableHint}
 					/>
-					
+					<ApprovalImpactCard
+						icon={copy.icon}
+						title={t("manageApproval.afterActionTitle")}
+						description={copy.impact}
+					/>
 				</>
 			) : (
 				<ApprovalRawFallback input={request.input} />

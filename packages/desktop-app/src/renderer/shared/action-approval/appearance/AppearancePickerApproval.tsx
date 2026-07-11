@@ -5,9 +5,10 @@ import { useTranslation } from "react-i18next";
 import type { CursorStyle, ThemeMode } from "@shared/store/atoms";
 import { cursorStyleAtom, themeModeAtom, themeNameAtom } from "@shared/store/atoms";
 import { useThemeComponent } from "@vetta/theme-sdk";
-import { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
-import { AppearanceActionPicker } from "./AppearanceActionPicker";
+import { formatApprovalWhyConfirm } from "../approvalCopy";
 import { useActionApproval, type ActiveActionApproval } from "../useActionApproval";
+import { AppearanceActionPicker } from "./AppearanceActionPicker";
+import { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
 
 function isThemeSetInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -50,7 +51,7 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 			error={error}
 			labels={{
 				confirm: t("appearanceApproval.apply"),
-				permission: t("actionApproval.permission", { permission: request.permission }),
+				permission: formatApprovalWhyConfirm(t, request.permission),
 				reject: t("actionApproval.reject"),
 				responding: t("appearanceApproval.submitting"),
 			}}
