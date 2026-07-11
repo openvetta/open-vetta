@@ -69,7 +69,7 @@ function AppshotPermissionsSection({ model }: { model: AppshotSettingsModel }): 
 			<SettingRow title={model.labels.permissions.screenTitle} description={model.labels.permissions.screenDescription}>
 				<StatusBadge status={model.snapshot ? model.snapshot.screenRecording : "unknown"} labels={model.labels.status} />
 			</SettingRow>
-			<div className="flex items-center justify-between gap-4 px-5 py-4 @max-xl:flex-col @max-xl:items-stretch">
+			<div className="flex items-center justify-between gap-4 px-5 py-4">
 				<p className="text-[12px] text-muted-foreground">{model.labels.permissionHint}</p>
 				<button
 					type="button"

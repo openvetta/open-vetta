@@ -12,23 +12,27 @@ export function SettingRow({
 	children: React.ReactNode;
 	border?: boolean;
 }): JSX.Element {
-	// 用容器查询（而非窗口宽度）判断可用宽度：当所在卡片窄于 ~576px 时，
-	// 标题/描述与右侧控件改为上下堆叠。这样侧边栏展开导致内容变窄也能正确换行。
+	// 始终左右：左标题/说明、右控件。
+	// 标题区保留 min-w-0 以便过长时截断，但用 truncate 避免中文被压成单字竖列；
+	// 右侧限制 max-w，防止大控件（如 ModelSelect）把左侧挤没。
 	return (
 		<div
 			className={cn(
 				"flex items-center justify-between gap-6 px-5 py-4",
-				"@max-xl:flex-col @max-xl:items-stretch @max-xl:justify-start @max-xl:gap-3",
 				border && "border-b border-border",
 			)}
 		>
-			<div className="min-w-0 flex-1">
-				<div className="text-[13px] font-medium text-foreground">{title}</div>
+			<div className="min-w-0 flex-1 basis-0">
+				<div className="truncate text-[13px] font-medium text-foreground" title={title}>
+					{title}
+				</div>
 				{description && (
-					<div className="mt-0.5 text-[12px] text-muted-foreground">{description}</div>
+					<div className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground" title={description}>
+						{description}
+					</div>
 				)}
 			</div>
-			<div className="shrink-0 @max-xl:shrink">{children}</div>
+			<div className="max-w-[min(100%,24rem)] shrink-0">{children}</div>
 		</div>
 	);
 }
@@ -75,7 +79,7 @@ export function SettingSection({
 			{description && <p className="mb-3 text-[12px] text-muted-foreground">{description}</p>}
 			<div
 				id={hasTitle ? undefined : section.id}
-				className="@container overflow-hidden rounded-xl border border-border bg-muted"
+				className="overflow-hidden rounded-xl border border-border bg-muted"
 				data-setting-section-id={section.id}
 			>
 				{children}

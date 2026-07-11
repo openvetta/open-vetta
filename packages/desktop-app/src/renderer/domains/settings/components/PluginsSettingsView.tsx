@@ -67,7 +67,7 @@ function SettingControl({
 			return (
 				<Input
 					type="number"
-					className="h-8 w-[200px] text-[12px] @max-xl:w-full"
+					className="h-8 w-[200px] text-[12px]"
 					value={value === undefined || value === null ? "" : String(value)}
 					onChange={(event) => {
 						const raw = event.target.value;
@@ -80,7 +80,7 @@ function SettingControl({
 				<Input
 					type="password"
 					autoComplete="off"
-					className="h-8 w-[240px] text-[12px] @max-xl:w-full"
+					className="h-8 w-[240px] text-[12px]"
 					value={typeof value === "string" ? value : ""}
 					onChange={(event) => onChange(event.target.value)}
 				/>
@@ -88,7 +88,7 @@ function SettingControl({
 		case "enum":
 			return (
 				<Select value={typeof value === "string" ? value : ""} onValueChange={(next) => onChange(next)}>
-					<SelectTrigger size="sm" className="h-8 min-w-[160px] text-[12px] @max-xl:w-full">
+					<SelectTrigger size="sm" className="h-8 min-w-[160px] text-[12px]">
 						<SelectValue placeholder={pleaseSelect} />
 					</SelectTrigger>
 					<SelectContent>
@@ -104,7 +104,7 @@ function SettingControl({
 			return (
 				<Input
 					type="text"
-					className="h-8 w-[240px] text-[12px] @max-xl:w-full"
+					className="h-8 w-[240px] text-[12px]"
 					value={typeof value === "string" ? value : ""}
 					onChange={(event) => onChange(event.target.value)}
 				/>
