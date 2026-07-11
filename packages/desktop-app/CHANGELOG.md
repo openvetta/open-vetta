@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **重构并移除含糊的 `settings` App Action 域**：按设置页 IA 落域——界面语言在 `appearance.theme`（`set-language`）；工作区/通知/默认执行模式为 `general.query` / `general.manage`；Agent 实验开关为 `agent.query` / `agent.manage set-experimental`；知识库加工为 `knowledge.*`。审批 presentation 与 i18n 同步为 `general.*` / `agent.*`，不再注册 `settings.*`。
 - **UI 主题 `appearance.colorScheme` 联动显示模式**：激活声明了 `colorScheme: "light" | "dark"` 的主题时，host 通过既有 `setMode`（与设置页亮暗切换同一路径）同步显示模式。修仙主题声明 `light`，切入即亮色。
 - **设置页 AI 协助：用户气泡只显示意图 + 页面对应标签**：操作说明经 `metadata.settingsAssistInstruction` 以 `display:false` 注入；气泡上方展示固定文案徽章（如「MCP配置协助」「模型配置协助」），无悬停说明；`settingsAssistTabId` 随 metadata 持久化，历史回放经 `settings_assist_marker` 恢复。
 - **仓库根目录 `bun run check` 纳入 desktop-app 类型检查**：在 Biome 与 monorepo `tsgo` 之后追加 `tsc --noEmit -p packages/desktop-app/tsconfig.json`，避免只在根目录跑 check 时漏掉 desktop / i18n 类型错误。

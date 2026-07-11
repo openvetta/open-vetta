@@ -28,7 +28,7 @@ type KbData = {
 };
 
 interface InputData {
-	operation: "set-knowledge-base";
+	operation: "set-processing";
 	data: KbData;
 	approvalUi?: string;
 }
@@ -40,18 +40,18 @@ const OCR_CONCURRENCY = [1, 2, 3, 4] as const;
 function parseInput(input: unknown): InputData | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const r = input as Record<string, unknown>;
-	if (r.operation !== "set-knowledge-base" || typeof r.data !== "object" || r.data === null || Array.isArray(r.data)) {
+	if (r.operation !== "set-processing" || typeof r.data !== "object" || r.data === null || Array.isArray(r.data)) {
 		return null;
 	}
 	return {
-		operation: "set-knowledge-base",
+		operation: "set-processing",
 		data: r.data as KbData,
 		approvalUi: typeof r.approvalUi === "string" ? r.approvalUi : undefined,
 	};
 }
 
-export function SettingsSetKnowledgeBaseApproval(): JSX.Element | null {
-	const approval = useActionApproval("settings.set-knowledge-base");
+export function KnowledgeSetProcessingApproval(): JSX.Element | null {
+	const approval = useActionApproval("knowledge.set-processing");
 	if (!approval) return null;
 	return <Content key={approval.request.approvalId} approval={approval} />;
 }
@@ -80,9 +80,9 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 		if (data.agentConcurrency !== undefined) next.agentConcurrency = data.agentConcurrency;
 		if (data.ocrConcurrency !== undefined) next.ocrConcurrency = data.ocrConcurrency;
 		approve({
-			operation: "set-knowledge-base",
+			operation: "set-processing",
 			data: next,
-			approvalUi: input.approvalUi ?? "settings.set-knowledge-base",
+			approvalUi: input.approvalUi ?? "knowledge.set-processing",
 		});
 	};
 
@@ -93,7 +93,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			node: (
 				<ApprovalSettingRow
 					title={knowledgeBaseFieldLabel(t, "enabled")}
-					description={t("manageApproval.settings.knowledgeFields.enabledDesc")}
+					description={t("manageApproval.knowledge.processingFields.enabledDesc")}
 					border
 				>
 					<div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			node: (
 				<ApprovalSettingRow
 					title={knowledgeBaseFieldLabel(t, "pollIntervalMinutes")}
-					description={t("manageApproval.settings.knowledgeFields.pollIntervalDesc")}
+					description={t("manageApproval.knowledge.processingFields.pollIntervalDesc")}
 					border
 				>
 					<Select
@@ -139,7 +139,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 						<SelectContent>
 							{POLL_OPTIONS.map((minutes) => (
 								<SelectItem key={minutes} value={String(minutes)} className="text-[12px]">
-									{t("manageApproval.settings.knowledgeFields.pollMinutes", { count: minutes })}
+									{t("manageApproval.knowledge.processingFields.pollMinutes", { count: minutes })}
 								</SelectItem>
 							))}
 						</SelectContent>
@@ -154,7 +154,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			node: (
 				<ApprovalSettingRow
 					title={knowledgeBaseFieldLabel(t, "processingModelKey")}
-					description={t("manageApproval.settings.knowledgeFields.processingModelDesc")}
+					description={t("manageApproval.knowledge.processingFields.processingModelDesc")}
 					border
 				>
 					<ModelSelect
@@ -196,7 +196,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			node: (
 				<ApprovalSettingRow
 					title={knowledgeBaseFieldLabel(t, "agentConcurrency")}
-					description={t("manageApproval.settings.knowledgeFields.agentConcurrencyDesc")}
+					description={t("manageApproval.knowledge.processingFields.agentConcurrencyDesc")}
 					border
 				>
 					<Select
@@ -229,7 +229,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			node: (
 				<ApprovalSettingRow
 					title={knowledgeBaseFieldLabel(t, "ocrConcurrency")}
-					description={t("manageApproval.settings.knowledgeFields.ocrConcurrencyDesc")}
+					description={t("manageApproval.knowledge.processingFields.ocrConcurrencyDesc")}
 					border
 				>
 					<Select
@@ -272,11 +272,11 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 	return (
 		<Frame
 			presentation="drawer"
-			title={t("manageApproval.settings.ops.set-knowledge-base.title")}
-			summary={t("manageApproval.settings.ops.set-knowledge-base.summary")}
+			title={t("manageApproval.knowledge.ops.set-processing.title")}
+			summary={t("manageApproval.knowledge.ops.set-processing.summary")}
 			icon="icon-[mdi--bookshelf]"
-			badge={t("manageApproval.settings.ops.set-knowledge-base.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.settings.ops.set-knowledge-base.confirm"))}
+			badge={t("manageApproval.knowledge.ops.set-processing.badge")}
+			labels={frameLabels(request.permission, t("manageApproval.knowledge.ops.set-processing.confirm"))}
 			responding={responding}
 			countdown={approval.countdown.formatted}
 			error={error}
@@ -287,15 +287,15 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			{input ? (
 				<>
 					<ApprovalSettingGroup
-						title={t("manageApproval.settings.knowledgeSectionTitle")}
-						description={t("manageApproval.settings.knowledgeSectionDescription")}
+						title={t("manageApproval.knowledge.processingSectionTitle")}
+						description={t("manageApproval.knowledge.processingSectionDescription")}
 					>
 						{renderedRows}
 					</ApprovalSettingGroup>
 					<ApprovalImpactCard
 						icon="icon-[mdi--bookshelf]"
 						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.settings.ops.set-knowledge-base.impact")}
+						description={t("manageApproval.knowledge.ops.set-processing.impact")}
 					/>
 				</>
 			) : (

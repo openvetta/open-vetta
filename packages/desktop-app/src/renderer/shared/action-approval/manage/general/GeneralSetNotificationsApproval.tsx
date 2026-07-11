@@ -25,13 +25,13 @@ function parseInput(input: unknown): Input | null {
 	};
 }
 
-export function SettingsSetNotificationsApproval(): JSX.Element | null {
-	const approval = useActionApproval("settings.set-notifications");
+export function GeneralSetNotificationsApproval(): JSX.Element | null {
+	const approval = useActionApproval("general.set-notifications");
 	if (!approval) return null;
-	return <SettingsSetNotificationsApprovalContent key={approval.request.approvalId} approval={approval} />;
+	return <GeneralSetNotificationsApprovalContent key={approval.request.approvalId} approval={approval} />;
 }
 
-function SettingsSetNotificationsApprovalContent({
+function GeneralSetNotificationsApprovalContent({
 	approval,
 }: {
 	approval: ActiveActionApproval;
@@ -40,7 +40,7 @@ function SettingsSetNotificationsApprovalContent({
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
 	const [enabled, setEnabled] = useState(input?.enabled ?? true);
-	const copy = getToggleApprovalCopy(t, "settings.notifications", enabled);
+	const copy = getToggleApprovalCopy(t, "general.notifications", enabled);
 	const shared = getToggleSharedLabels(t);
 
 	return (
@@ -60,7 +60,7 @@ function SettingsSetNotificationsApprovalContent({
 					? approve({
 							operation: "set-notifications",
 							enabled,
-							approvalUi: input.approvalUi ?? "settings.set-notifications",
+							approvalUi: input.approvalUi ?? "general.set-notifications",
 						})
 					: approve()
 			}
@@ -70,8 +70,8 @@ function SettingsSetNotificationsApprovalContent({
 				<>
 					<ApprovalToggleIntentCard
 						targetIcon="icon-[mdi--bell-outline]"
-						targetTitle={t("manageApproval.settings.notificationsTarget")}
-						targetSubtitle={t("manageApproval.settings.notificationsTargetHint")}
+						targetTitle={t("manageApproval.general.notificationsTarget")}
+						targetSubtitle={t("manageApproval.general.notificationsTargetHint")}
 						enabled={enabled}
 						onEnabledChange={setEnabled}
 						willBecomeLabel={shared.willBecome}

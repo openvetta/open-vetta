@@ -153,7 +153,7 @@
 				"enableImpact": "该推送渠道将可接收通知与测试消息。",
 				"disableImpact": "该推送渠道将暂停，不会删除配置。"
 			},
-			"settings.notifications": {
+			"general.notifications": {
 				"enableTitle": "开启系统通知",
 				"disableTitle": "关闭系统通知",
 				"enableSummary": "开启后，任务完成、更新等事件可通过系统通知提醒你。",
@@ -330,15 +330,8 @@
 			},
 			"pathOptional": "可选；省略则在工作区下按名称创建"
 		},
-		"settings": {
+		"general": {
 			"ops": {
-				"set-language": {
-					"title": "切换界面语言",
-					"summary": "确认后，界面文案将切换到所选语言。",
-					"confirm": "切换语言",
-					"badge": "语言",
-					"impact": "菜单、设置和按钮文案会立即切换；对话内容不受影响。"
-				},
 				"set-notifications": {
 					"title": "修改通知设置",
 					"summary": "确认是否允许系统通知提醒。",
@@ -359,24 +352,8 @@
 					"confirm": "保存工作区",
 					"badge": "工作区",
 					"impact": "默认工作区路径会更新；已有项目位置不变。"
-				},
-				"set-experimental": {
-					"title": "修改实验功能",
-					"summary": "以下实验功能可在确认前调整开关。",
-					"confirm": "保存实验功能",
-					"badge": "实验",
-					"impact": "对应能力会开启或关闭；不稳定功能可能影响体验。"
-				},
-				"set-knowledge-base": {
-					"title": "修改知识库设置",
-					"summary": "以下知识库整理相关选项可在确认前修改。",
-					"confirm": "保存知识库设置",
-					"badge": "知识库",
-					"impact": "知识库自动整理与加工将按新配置运行。"
 				}
 			},
-			"languageZh": "中文",
-			"languageEn": "English",
 			"notificationsOn": "开启通知",
 			"notificationsOff": "关闭通知",
 			"notificationsTarget": "系统通知",
@@ -384,7 +361,18 @@
 			"executionModeSandbox": "安全模式（沙盒）",
 			"executionModeFullAccess": "完整权限",
 			"executionModeSandboxHint": "限制可改文件范围，更安全，适合日常使用。",
-			"executionModeFullAccessHint": "允许更广的文件与系统操作，能力更强但风险更高。",
+			"executionModeFullAccessHint": "允许更广的文件与系统操作，能力更强但风险更高。"
+		},
+		"agent": {
+			"ops": {
+				"set-experimental": {
+					"title": "修改实验功能",
+					"summary": "以下实验功能可在确认前调整开关。",
+					"confirm": "保存实验功能",
+					"badge": "实验",
+					"impact": "对应能力会开启或关闭；不稳定功能可能影响体验。"
+				}
+			},
 			"experimentalSectionTitle": "实验功能",
 			"experimentalSectionDescription": "以下开关与设置 → Agent 配置中的实验项一致，可在确认前调整。",
 			"experimentalFields": {
@@ -394,22 +382,6 @@
 				"promptPredictionDesc": "输入时预估可能的后续内容，可能消耗少量额度",
 				"agentSkills": "Agent 技能扩展",
 				"agentSkillsDesc": "允许 Agent 使用扩展技能能力"
-			},
-			"knowledgeSectionTitle": "知识库整理",
-			"knowledgeSectionDescription": "与设置 → 知识库中的选项一致；只展示本次将修改的项。",
-			"knowledgeFields": {
-				"enabled": "启用知识库整理",
-				"enabledDesc": "关闭后暂停自动整理，不会删除已有知识",
-				"pollIntervalMinutes": "自动整理间隔",
-				"pollIntervalDesc": "隔多久检查一次待整理文件",
-				"processingModelKey": "整理用模型",
-				"processingModelDesc": "用于阅读与整理文档的模型",
-				"processingModelReasoningLevel": "推理档位",
-				"agentConcurrency": "同时整理任务数",
-				"agentConcurrencyDesc": "并行处理越多越快，也更吃资源",
-				"ocrConcurrency": "同时识图任务数",
-				"ocrConcurrencyDesc": "图片文字识别的并行数量",
-				"pollMinutes": "每 {{count}} 分钟"
 			}
 		},
 		"knowledge": {
@@ -464,9 +436,45 @@
 					"confirm": "确认重试失败",
 					"badge": "重试",
 					"impact": "将清除失败/隔离记录并重新加工。"
+				},
+				"set-processing": {
+					"title": "修改知识库加工设置",
+					"summary": "以下知识库整理相关选项可在确认前修改。",
+					"confirm": "保存知识库设置",
+					"badge": "知识库",
+					"impact": "知识库自动整理与加工将按新配置运行。"
 				}
 			},
-			"globalAction": "知识库全局操作"
+			"globalAction": "知识库全局操作",
+			"processingSectionTitle": "知识库整理",
+			"processingSectionDescription": "与设置 → 知识库中的选项一致；只展示本次将修改的项。",
+			"processingFields": {
+				"enabled": "启用知识库整理",
+				"enabledDesc": "关闭后暂停自动整理，不会删除已有知识",
+				"pollIntervalMinutes": "自动整理间隔",
+				"pollIntervalDesc": "隔多久检查一次待整理文件",
+				"processingModelKey": "整理用模型",
+				"processingModelDesc": "用于阅读与整理文档的模型",
+				"processingModelReasoningLevel": "推理档位",
+				"agentConcurrency": "同时整理任务数",
+				"agentConcurrencyDesc": "并行处理越多越快，也更吃资源",
+				"ocrConcurrency": "同时识图任务数",
+				"ocrConcurrencyDesc": "图片文字识别的并行数量",
+				"pollMinutes": "每 {{count}} 分钟"
+			}
+		},
+		"appearance": {
+			"ops": {
+				"set-language": {
+					"title": "切换界面语言",
+					"summary": "确认后，界面文案将切换到所选语言。",
+					"confirm": "切换语言",
+					"badge": "语言",
+					"impact": "菜单、设置和按钮文案会立即切换；对话内容不受影响。"
+				}
+			},
+			"languageZh": "中文",
+			"languageEn": "English"
 		},
 		"plugins": {
 			"ops": {

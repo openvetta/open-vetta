@@ -5,3 +5,4 @@ export { KnowledgeDeleteEntryApproval } from "./KnowledgeDeleteEntryApproval";
 export { KnowledgeRenameApproval } from "./KnowledgeRenameApproval";
 export { KnowledgeRetryFailedApproval } from "./KnowledgeRetryFailedApproval";
 export { KnowledgeScanNowApproval } from "./KnowledgeScanNowApproval";
+export { KnowledgeSetProcessingApproval } from "./KnowledgeSetProcessingApproval";

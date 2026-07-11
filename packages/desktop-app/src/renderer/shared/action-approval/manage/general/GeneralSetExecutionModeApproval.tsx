@@ -23,13 +23,13 @@ function parseInput(input: unknown): Input | null {
 
 const MODES: ExecutionMode[] = ["sandbox", "full-access"];
 
-export function SettingsSetExecutionModeApproval(): JSX.Element | null {
-	const approval = useActionApproval("settings.set-execution-mode");
+export function GeneralSetExecutionModeApproval(): JSX.Element | null {
+	const approval = useActionApproval("general.set-execution-mode");
 	if (!approval) return null;
-	return <SettingsSetExecutionModeApprovalContent key={approval.request.approvalId} approval={approval} />;
+	return <GeneralSetExecutionModeApprovalContent key={approval.request.approvalId} approval={approval} />;
 }
 
-function SettingsSetExecutionModeApprovalContent({ approval }: { approval: ActiveActionApproval }): JSX.Element {
+function GeneralSetExecutionModeApprovalContent({ approval }: { approval: ActiveActionApproval }): JSX.Element {
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
@@ -39,11 +39,11 @@ function SettingsSetExecutionModeApprovalContent({ approval }: { approval: Activ
 	return (
 		<Frame
 			presentation="drawer"
-			title={t("manageApproval.settings.ops.set-execution-mode.title")}
-			summary={t("manageApproval.settings.ops.set-execution-mode.summary")}
+			title={t("manageApproval.general.ops.set-execution-mode.title")}
+			summary={t("manageApproval.general.ops.set-execution-mode.summary")}
 			icon={icon}
-			badge={t("manageApproval.settings.ops.set-execution-mode.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.settings.ops.set-execution-mode.confirm"))}
+			badge={t("manageApproval.general.ops.set-execution-mode.badge")}
+			labels={frameLabels(request.permission, t("manageApproval.general.ops.set-execution-mode.confirm"))}
 			responding={responding}
 			countdown={approval.countdown.formatted}
 			error={error}
@@ -53,7 +53,7 @@ function SettingsSetExecutionModeApprovalContent({ approval }: { approval: Activ
 					? approve({
 							operation: "set-execution-mode",
 							mode,
-							approvalUi: input.approvalUi ?? "settings.set-execution-mode",
+							approvalUi: input.approvalUi ?? "general.set-execution-mode",
 						})
 					: approve()
 			}
@@ -82,8 +82,8 @@ function SettingsSetExecutionModeApprovalContent({ approval }: { approval: Activ
 										</div>
 										<div className="mt-0.5 text-[10px] text-muted-foreground">
 											{candidate === "sandbox"
-												? t("manageApproval.settings.executionModeSandboxHint")
-												: t("manageApproval.settings.executionModeFullAccessHint")}
+												? t("manageApproval.general.executionModeSandboxHint")
+												: t("manageApproval.general.executionModeFullAccessHint")}
 										</div>
 									</button>
 								);
@@ -93,7 +93,7 @@ function SettingsSetExecutionModeApprovalContent({ approval }: { approval: Activ
 					<ApprovalImpactCard
 						icon={icon}
 						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.settings.ops.set-execution-mode.impact")}
+						description={t("manageApproval.general.ops.set-execution-mode.impact")}
 					/>
 				</>
 			) : (

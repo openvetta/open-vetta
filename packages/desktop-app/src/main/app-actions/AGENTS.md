@@ -45,10 +45,21 @@ Agent 说明只暴露完成操作所需的信息，包括：
 在根目录 `index.ts` 的 `createAppActionRuntime` 中注册新领域。一个 Action 应围绕一致的权限和审批策略；如果查询、写入、执行控制的风险不同，应拆成多个 Action。
 
 当前已注册领域：
-`appearance`、`navigation`、`batch-tasks`、`scheduler`、`models`、`mcp`、`skills`、`projects`、`settings`、`knowledge`、`plugins`、`im`、`webhook`、`downloads`、`updater`。
+`agent`、`appearance`、`navigation`、`batch-tasks`、`scheduler`、`models`、`mcp`、`skills`、`projects`、`general`、`knowledge`、`plugins`、`im`、`webhook`、`downloads`、`updater`。
 
-`appearance` 域 Action：
-- `appearance.theme`：对应设置 → 外观中的显示模式、主题风格与鼠标指针（`cursorStyle`: `default` | `stoat`）；含 theme-change / picker 专用 UI。
+领域命名对齐设置页 IA（不要再使用含糊的 `settings` 杂项域）：
+
+`appearance` 域：
+- `appearance.theme`：对应设置 → 外观：显示模式、主题风格、鼠标指针，以及界面语言（`type: "set-language"`）；含 theme-change / picker / set-language 专用 UI。
+
+`general` 域（设置 → 通用）：
+- `general.query` / `general.manage`：工作区、系统通知、默认执行模式（沙盒）。
+
+`agent` 域（设置 → Agent 配置）：
+- `agent.query` / `agent.manage`：实验开关（`set-experimental`）。
+
+`knowledge` 域：
+- 实体管理（list/create/…）与加工策略（`get-processing` / `set-processing`）均在 knowledge.*。
 
 审批 UI：
 - `appearance` / `navigation` / `batch-tasks` / `scheduler`：各有专用 presentation 与组件。

@@ -153,7 +153,7 @@
 				"enableImpact": "This channel can receive notifications and test messages.",
 				"disableImpact": "This channel pauses. Configuration is not deleted."
 			},
-			"settings.notifications": {
+			"general.notifications": {
 				"enableTitle": "Turn on system notifications",
 				"disableTitle": "Turn off system notifications",
 				"enableSummary": "Once on, task completion and update events can show as system alerts.",
@@ -330,15 +330,8 @@
 			},
 			"pathOptional": "Optional; omit to create under workspace by name"
 		},
-		"settings": {
+		"general": {
 			"ops": {
-				"set-language": {
-					"title": "Switch language",
-					"summary": "UI text will switch to the selected language.",
-					"confirm": "Switch language",
-					"badge": "Language",
-					"impact": "Menus, settings, and buttons switch immediately. Chat content is unchanged."
-				},
 				"set-notifications": {
 					"title": "Change notification settings",
 					"summary": "Choose whether system notifications are allowed.",
@@ -359,24 +352,8 @@
 					"confirm": "Save workspace",
 					"badge": "Workspace",
 					"impact": "The default workspace path updates. Existing projects stay in place."
-				},
-				"set-experimental": {
-					"title": "Change experimental features",
-					"summary": "You can adjust these experimental toggles before confirming.",
-					"confirm": "Save experimental features",
-					"badge": "Experimental",
-					"impact": "Matching capabilities will turn on or off. Experimental features may be unstable."
-				},
-				"set-knowledge-base": {
-					"title": "Change knowledge base settings",
-					"summary": "You can edit these knowledge base options before confirming.",
-					"confirm": "Save knowledge base settings",
-					"badge": "Knowledge",
-					"impact": "Automatic knowledge processing will follow the new settings."
 				}
 			},
-			"languageZh": "Chinese",
-			"languageEn": "English",
 			"notificationsOn": "Enable notifications",
 			"notificationsOff": "Disable notifications",
 			"notificationsTarget": "System notifications",
@@ -384,7 +361,18 @@
 			"executionModeSandbox": "Safe mode (sandbox)",
 			"executionModeFullAccess": "Full access",
 			"executionModeSandboxHint": "Limits where files can be changed. Safer for everyday use.",
-			"executionModeFullAccessHint": "Allows broader file and system actions. More capable, higher risk.",
+			"executionModeFullAccessHint": "Allows broader file and system actions. More capable, higher risk."
+		},
+		"agent": {
+			"ops": {
+				"set-experimental": {
+					"title": "Change experimental features",
+					"summary": "You can adjust these experimental toggles before confirming.",
+					"confirm": "Save experimental features",
+					"badge": "Experimental",
+					"impact": "Matching capabilities will turn on or off. Experimental features may be unstable."
+				}
+			},
 			"experimentalSectionTitle": "Experimental features",
 			"experimentalSectionDescription": "Same toggles as Settings → Agent. You can adjust them before confirming.",
 			"experimentalFields": {
@@ -394,22 +382,6 @@
 				"promptPredictionDesc": "Suggest possible follow-up text while typing; may use a little quota",
 				"agentSkills": "Agent skill extensions",
 				"agentSkillsDesc": "Allow the agent to use extended skill capabilities"
-			},
-			"knowledgeSectionTitle": "Knowledge processing",
-			"knowledgeSectionDescription": "Same options as Settings → Knowledge. Only fields in this request are shown.",
-			"knowledgeFields": {
-				"enabled": "Enable knowledge processing",
-				"enabledDesc": "When off, automatic processing pauses. Existing knowledge is not deleted.",
-				"pollIntervalMinutes": "Auto-process interval",
-				"pollIntervalDesc": "How often to check for files that need processing",
-				"processingModelKey": "Processing model",
-				"processingModelDesc": "Model used to read and organize documents",
-				"processingModelReasoningLevel": "Reasoning level",
-				"agentConcurrency": "Parallel processing jobs",
-				"agentConcurrencyDesc": "More parallel jobs is faster but uses more resources",
-				"ocrConcurrency": "Parallel OCR jobs",
-				"ocrConcurrencyDesc": "How many image text-recognition jobs run at once",
-				"pollMinutes": "Every {{count}} minutes"
 			}
 		},
 		"knowledge": {
@@ -464,9 +436,45 @@
 					"confirm": "Retry failed",
 					"badge": "Retry",
 					"impact": "Failed/quarantined records will be cleared and reprocessed."
+				},
+				"set-processing": {
+					"title": "Change knowledge processing settings",
+					"summary": "You can edit these knowledge base options before confirming.",
+					"confirm": "Save knowledge base settings",
+					"badge": "Knowledge",
+					"impact": "Automatic knowledge processing will follow the new settings."
 				}
 			},
-			"globalAction": "Knowledge base global action"
+			"globalAction": "Knowledge base global action",
+			"processingSectionTitle": "Knowledge processing",
+			"processingSectionDescription": "Same options as Settings → Knowledge. Only fields in this request are shown.",
+			"processingFields": {
+				"enabled": "Enable knowledge processing",
+				"enabledDesc": "When off, automatic processing pauses. Existing knowledge is not deleted.",
+				"pollIntervalMinutes": "Auto-process interval",
+				"pollIntervalDesc": "How often to check for files that need processing",
+				"processingModelKey": "Processing model",
+				"processingModelDesc": "Model used to read and organize documents",
+				"processingModelReasoningLevel": "Reasoning level",
+				"agentConcurrency": "Parallel processing jobs",
+				"agentConcurrencyDesc": "More parallel jobs is faster but uses more resources",
+				"ocrConcurrency": "Parallel OCR jobs",
+				"ocrConcurrencyDesc": "How many image text-recognition jobs run at once",
+				"pollMinutes": "Every {{count}} minutes"
+			}
+		},
+		"appearance": {
+			"ops": {
+				"set-language": {
+					"title": "Switch language",
+					"summary": "UI text will switch to the selected language.",
+					"confirm": "Switch language",
+					"badge": "Language",
+					"impact": "Menus, settings, and buttons switch immediately. Chat content is unchanged."
+				}
+			},
+			"languageZh": "Chinese",
+			"languageEn": "English"
 		},
 		"plugins": {
 			"ops": {
