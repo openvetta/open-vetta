@@ -529,9 +529,9 @@
 		"responding": "跳转中..."
 	},
 	"appearanceApproval": {
-		"pickerTitle": "选择应用主题",
-		"themeChangeTitle": "编辑主题变更",
-		"apply": "应用主题",
+		"pickerTitle": "选择外观",
+		"themeChangeTitle": "编辑外观变更",
+		"apply": "应用外观",
 		"confirmChange": "确认变更",
 		"submitting": "提交中..."
 	},

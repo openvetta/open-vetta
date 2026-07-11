@@ -529,9 +529,9 @@
 		"responding": "Navigating..."
 	},
 	"appearanceApproval": {
-		"pickerTitle": "Choose App Theme",
-		"themeChangeTitle": "Edit Theme Change",
-		"apply": "Apply Theme",
+		"pickerTitle": "Choose Appearance",
+		"themeChangeTitle": "Edit Appearance Change",
+		"apply": "Apply Appearance",
 		"confirmChange": "Confirm Change",
 		"submitting": "Submitting..."
 	},

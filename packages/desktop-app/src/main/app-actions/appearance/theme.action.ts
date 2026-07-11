@@ -13,8 +13,8 @@ import {
 export const themeAction: ActionDefinition = {
 	id: "appearance.theme",
 	domain: "appearance",
-	title: "读取或设置应用主题",
-	summary: "通过 type 字段查看帮助、读取当前主题，或切换浅色/深色/跟随系统模式与多主题风格。",
+	title: "读取或设置外观",
+	summary: "对应设置 → 外观：读取/切换显示模式（浅色/深色/跟随系统）、主题风格，以及鼠标指针样式（默认/白鼬）。",
 	availability: "gui-main",
 	permission: "appearance.write",
 	keywords: [
@@ -33,19 +33,29 @@ export const themeAction: ActionDefinition = {
 		"皮肤",
 		"配色",
 		"themeId",
+		"cursor",
+		"pointer",
+		"鼠标",
+		"鼠标指针",
+		"指针",
+		"光标",
+		"白鼬",
+		"stoat",
+		"鼠标样式",
+		"cursorStyle",
 	],
 	approval: {
 		defaultPresentation: "appearance.theme-change",
 		presentations: [
 			{
 				id: "appearance.theme-change",
-				title: "主题变更确认",
-				description: "使用主题变更专用审批界面；该界面未挂载时自动回退到通用审批界面。",
+				title: "外观变更确认",
+				description: "使用外观变更专用审批界面；该界面未挂载时自动回退到通用审批界面。",
 			},
 			{
 				id: "appearance.picker",
-				title: "主题选择器",
-				description: "使用可交互的主题选择界面，并按用户最终选择执行主题变更。",
+				title: "外观选择器",
+				description: "使用可交互的外观选择界面，并按用户最终选择执行变更。",
 			},
 			{
 				id: "generic",
@@ -56,15 +66,15 @@ export const themeAction: ActionDefinition = {
 	},
 	inputSchema: {
 		description:
-			'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string, "approvalUi"?: "appearance.theme-change" | "appearance.picker" | "generic" }。appearance.picker 可省略 mode 和 themeId，由用户在审批界面中选择；其他审批界面至少需要提供其中一项。approvalUi 省略时使用默认的 appearance.theme-change。',
+			'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string, "cursorStyle"?: "default" | "stoat", "approvalUi"?: "appearance.theme-change" | "appearance.picker" | "generic" }。对应设置 → 外观中的显示模式、主题风格与鼠标指针。set 至少提供 mode / themeId / cursorStyle 之一；approvalUi 为 appearance.picker 时可全部省略，由用户在审批界面选择。cursorStyle=default 为系统默认指针，stoat 为白鼬自定义指针。approvalUi 省略时使用默认的 appearance.theme-change。',
 	},
 	examples: [
 		{
-			description: "查看可用主题 id 和操作说明",
+			description: "查看可用主题 id、指针样式与操作说明",
 			input: { type: "help" },
 		},
 		{
-			description: "获取当前主题",
+			description: "获取当前外观（模式、主题、指针）",
 			input: { type: "get" },
 		},
 		{
@@ -76,7 +86,15 @@ export const themeAction: ActionDefinition = {
 			input: { type: "set", themeId: "ocean" },
 		},
 		{
-			description: "在主题选择器中确认或调整主题",
+			description: "切换为白鼬鼠标指针",
+			input: { type: "set", cursorStyle: "stoat" },
+		},
+		{
+			description: "恢复系统默认鼠标指针",
+			input: { type: "set", cursorStyle: "default" },
+		},
+		{
+			description: "在外观选择器中确认或调整模式/主题/指针",
 			input: { type: "set", approvalUi: "appearance.picker" },
 		},
 		{
@@ -100,8 +118,11 @@ export const themeAction: ActionDefinition = {
 			return mainWindow === null ? getFallbackThemeState() : await getThemeState();
 		}
 
-		if (request.mode === undefined && request.themeId === undefined) {
-			throw new ActionError("ACTION_INVALID_INPUT", "Theme set requires a mode or themeId after approval.");
+		if (request.mode === undefined && request.themeId === undefined && request.cursorStyle === undefined) {
+			throw new ActionError(
+				"ACTION_INVALID_INPUT",
+				"Appearance set requires mode, themeId, or cursorStyle after approval.",
+			);
 		}
 
 		if (request.mode !== undefined) {
@@ -111,6 +132,7 @@ export const themeAction: ActionDefinition = {
 		const changeRequest: Record<string, JsonValue> = {};
 		if (request.mode !== undefined) changeRequest.mode = request.mode;
 		if (request.themeId !== undefined) changeRequest.themeId = request.themeId;
+		if (request.cursorStyle !== undefined) changeRequest.cursorStyle = request.cursorStyle;
 		const mainWindow = getMainWindow();
 		if (mainWindow === null) {
 			return {
