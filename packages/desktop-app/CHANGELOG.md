@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **UI 主题 `appearance.colorScheme` 联动显示模式**：激活声明了 `colorScheme: "light" | "dark"` 的主题时，host 通过既有 `setMode`（与设置页亮暗切换同一路径）同步显示模式。修仙主题声明 `light`，切入即亮色。
 - **设置页 AI 协助：用户气泡只显示意图 + 页面对应标签**：操作说明经 `metadata.settingsAssistInstruction` 以 `display:false` 注入；气泡上方展示固定文案徽章（如「MCP配置协助」「模型配置协助」），无悬停说明；`settingsAssistTabId` 随 metadata 持久化，历史回放经 `settings_assist_marker` 恢复。
 - **仓库根目录 `bun run check` 纳入 desktop-app 类型检查**：在 Biome 与 monorepo `tsgo` 之后追加 `tsc --noEmit -p packages/desktop-app/tsconfig.json`，避免只在根目录跑 check 时漏掉 desktop / i18n 类型错误。
 - **MCP 设置表单区分基础/高级选项**：添加/编辑服务器时默认只展示名称与 command/args（stdio）或 url（HTTP）；传输类型、环境变量、工作目录、请求头、超时、自动批准、禁用与调试等收入可折叠「高级选项」。编辑 HTTP 或已有高级字段的配置时自动展开。列表启用开关由图标按钮改为与设置页一致的 `Switch` 组件；去掉点击行展开只读详情，仅编辑时展开表单。

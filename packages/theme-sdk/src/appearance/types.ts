@@ -112,6 +112,10 @@ export interface ThemeSurfaceConfig {
 }
 
 export interface ThemeAppearance {
+	/**
+	 * 主题偏好的显示模式。desktop-app host 在激活主题时会强制应用对应 light/dark
+	 *（写入显示模式设置与 `data-mode`），而不仅是 CSS `color-scheme`。
+	 */
 	readonly colorScheme?: "dark" | "light";
 	readonly colors?: ThemeColorOverrides;
 	readonly surfaces?: Partial<Record<ThemeSurfaceSlot, ThemeSurfaceConfig>>;
