@@ -73,11 +73,14 @@ Agent 说明只暴露完成操作所需的信息，包括：
 运行流程为：
 
 ```text
-查找 Action -> validateInput -> 判断是否审批 -> 用户确认/编辑
--> 再次 validateInput -> run
+查找 Action -> validateInput -> assertReady（可选）
+-> 判断是否审批 -> 用户确认/编辑
+-> 再次 validateInput -> 再次 assertReady（若 input 被改写）-> run
 ```
 
-审批 UI 返回修改后的 `input` 时，runtime 会再次调用该 Action 的 `validateInput`。因此参数合法性只需由 Action schema 维护，不要在审批组件中复制完整的领域校验；UI 只做提供良好编辑体验所需的即时约束。
+- `validateInput`：同步结构校验（Zod schema）。
+- `assertReady`（可选）：可异步业务就绪校验。**编辑 / 删除 / 改状态**所引用的实体必须在此确认存在；失败抛 `ACTION_NOT_FOUND`，**不得弹出授权框**。创建类 operation 一般不要求实体已存在。
+- 审批 UI 返回修改后的 `input` 时，runtime 会再次 `validateInput` + `assertReady`。参数合法性由 schema 维护；实体存在性由 `assertReady` 维护。UI 只做编辑体验所需的即时约束。
 
 审批约定：
 
@@ -105,7 +108,12 @@ renderer 页面中的 atom 可能尚未加载，不能作为获取完整实体�
 ## 错误与边界
 
 - 使用稳定错误码，例如 `ACTION_INVALID_INPUT`、`ACTION_NOT_FOUND` 或领域 service 提供的错误码。
-- 错误消息应告诉 agent 失败原因和可采取的下一步，不要泄露无关内部实现。
+- **错误消息的读者是 Agent，不是终端用户。** 实体不存在等 `assertReady` 失败必须说明：
+  1. 拒绝了哪次 operation、哪个字段/取值无效；
+  2. **未向用户弹出授权框**（避免 agent 误以为用户拒绝）；
+  3. 下一步应调用哪个 query、示例 input、结果里哪个字段是合法 id；
+  4. 尽可能在 `details.availableIds` / 文案中列出当前已知 id，禁止 agent 编造 id。
+  优先使用 `throwAgentEntityNotFound` / `throwAgentInvalidInput`（`shared.ts`）。
 - `context.source` 用于区分内部调用和 `local-server` 调用；当前写操作通常只对 `local-server` 请求审批。
 - 尊重 `context.signal`，不要吞掉取消和超时。
 - 不要返回 class 实例、`undefined`、函数或其他非 JSON 数据。

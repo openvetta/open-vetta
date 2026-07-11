@@ -3,7 +3,7 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 import { allowProjectRoot, type ProjectEntry, readDesktopConfig, writeDesktopConfig } from "../../ipc/fs.js";
 import { resolveSessionDirForCwd } from "../../ipc/session.js";
 import { getSharedRuntime } from "../../runtime.js";
-import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, throwAgentEntityNotFound, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type ProjectsManageInput,
@@ -189,6 +189,56 @@ export function createProjectsActions(): ActionDefinition[] {
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateProjectsManageInput,
+			assertReady: async (input) => {
+				const request = input as unknown as ProjectsManageInput;
+				// create 可新建；open 可导入路径；其余必须已在侧边栏（活跃或归档）中。
+				if (request.operation === "create" || request.operation === "open") return;
+				const config = await readDesktopConfig();
+				const path = resolve(request.path);
+				const active = findEntry(config.projects, path);
+				const archived = findEntry(config.archivedProjects, path);
+				const activePaths = config.projects.map((entry) => entry.path);
+				const archivedPaths = config.archivedProjects.map((entry) => entry.path);
+				if (request.operation === "archive" && !active) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "active sidebar project",
+						idField: "path",
+						id: path,
+						queryAction: "projects.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "projects[].path (active list)",
+						availableIds: activePaths,
+						extra: "archive only works on active projects. Archived paths cannot be archived again.",
+					});
+				}
+				if (request.operation === "unarchive" && !archived) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "archived sidebar project",
+						idField: "path",
+						id: path,
+						queryAction: "projects.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "archivedProjects[].path",
+						availableIds: archivedPaths,
+						extra: "unarchive only works on archived projects.",
+					});
+				}
+				if (!active && !archived) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "sidebar project",
+						idField: "path",
+						id: path,
+						queryAction: "projects.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "projects[].path or archivedProjects[].path",
+						availableIds: [...activePaths, ...archivedPaths],
+						extra: "Use absolute path exactly as returned by projects.query list.",
+					});
+				}
+			},
 			requiresApproval: (_input, context) => context.source === "local-server",
 			run: async (input) => {
 				const request = input as unknown as ProjectsManageInput;

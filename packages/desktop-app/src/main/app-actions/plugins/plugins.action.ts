@@ -9,7 +9,7 @@ import {
 	uninstallPlugin,
 } from "../../plugins/plugin-store.js";
 import { getSharedRuntime } from "../../runtime.js";
-import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, throwAgentEntityNotFound, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type PluginsManageInput,
@@ -159,6 +159,26 @@ export function createPluginsActions(): ActionDefinition[] {
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validatePluginsManageInput,
+			assertReady: (input) => {
+				const request = input as unknown as PluginsManageInput;
+				// install-from-url 为创建；其余操作必须插件已安装。
+				if (request.operation === "install-from-url") return;
+				const plugins = listPlugins();
+				const plugin = plugins.find((item) => item.id === request.id);
+				if (!plugin) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "plugin",
+						idField: "id",
+						id: request.id,
+						queryAction: "plugins.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "plugins[].id",
+						availableIds: plugins.map((item) => item.id),
+						extra: "Use the plugin id field, not the display name.",
+					});
+				}
+			},
 			requiresApproval: (_input, context) => context.source === "local-server",
 			run: async (input) => {
 				const request = input as unknown as PluginsManageInput;

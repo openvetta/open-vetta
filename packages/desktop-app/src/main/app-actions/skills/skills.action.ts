@@ -1,5 +1,11 @@
 import { listSkills, readSkillsManifest, setSkillEnabled, uninstallSkill } from "../../ipc/skills.js";
-import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
+import {
+	createOperationApprovals,
+	runActionService,
+	throwAgentEntityNotFound,
+	throwAgentInvalidInput,
+	toJsonValue,
+} from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	type SkillsManageInput,
@@ -112,6 +118,38 @@ export function createSkillsActions(): ActionDefinition[] {
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateSkillsManageInput,
+			assertReady: (input) => {
+				const request = input as unknown as SkillsManageInput;
+				const manifest = readSkillsManifest();
+				const entry = manifest[request.name];
+				if (!entry) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "installed skill/scene",
+						idField: "name",
+						id: request.name,
+						queryAction: "skills.query",
+						queryExample: { operation: "manifest" },
+						resultIdPath: "object keys of the manifest / list items[].name",
+						availableIds: Object.keys(manifest),
+						extra: 'You may also call skills.query with {"operation":"list"}. Only installed names can be enabled/disabled/uninstalled.',
+					});
+				}
+				if (request.operation === "uninstall" && request.type) {
+					const actualType = entry.type === "scene" ? "scene" : "skill";
+					if (actualType !== request.type) {
+						throwAgentInvalidInput(
+							`Refused uninstall before user approval: name=${JSON.stringify(request.name)} has type=${JSON.stringify(actualType)}, but you passed type=${JSON.stringify(request.type)}. Retry with type=${JSON.stringify(actualType)} or omit type.`,
+							{
+								operation: request.operation,
+								name: request.name,
+								type: actualType,
+								requestedType: request.type,
+							},
+						);
+					}
+				}
+			},
 			requiresApproval: (_input, context) => context.source === "local-server",
 			run: async (input) => {
 				const request = input as unknown as SkillsManageInput;

@@ -166,7 +166,26 @@ export function resolveNavigationTarget(input: Extract<NavigationActionInput, { 
 	const targetTab = tabsByKey.get(target);
 
 	if (input.section && !explicitSection) {
-		throw new ActionError("ACTION_INVALID_INPUT", `Unknown settings section: ${input.section}`);
+		const sectionIds = [...getSettingsSectionsById().keys()];
+		throw new ActionError(
+			"ACTION_INVALID_INPUT",
+			`Refused navigation.open before user approval: unknown settings section=${JSON.stringify(input.section)}. Call navigation.open help (type=help) and copy an exact section id from catalog.settings.tabs[].sections[].id. Available section ids (sample): ${sectionIds
+				.slice(0, 20)
+				.map((id) => JSON.stringify(id))
+				.join(", ")}${sectionIds.length > 20 ? ", ..." : "."}`,
+			{
+				reason: "entity_not_found",
+				approvalShown: false,
+				operation: "open",
+				idField: "section",
+				id: input.section,
+				queryAction: "navigation.open",
+				queryExample: { type: "help" },
+				resultIdPath: "catalog.settings.tabs[].sections[].id",
+				availableIds: sectionIds.slice(0, 20),
+				availableCount: sectionIds.length,
+			},
+		);
 	}
 
 	if (targetSection) {
@@ -187,12 +206,36 @@ export function resolveNavigationTarget(input: Extract<NavigationActionInput, { 
 		const tabKey = input.tab ? normalizeTarget(input.tab) : (targetTab?.key ?? explicitSection?.tab ?? "general");
 		const tab = tabsByKey.get(tabKey);
 		if (!tab) {
-			throw new ActionError("ACTION_INVALID_INPUT", `Unknown settings tab: ${input.tab ?? tabKey}`);
+			const tabIds = [...tabsByKey.keys()];
+			throw new ActionError(
+				"ACTION_INVALID_INPUT",
+				`Refused navigation.open before user approval: unknown settings tab=${JSON.stringify(input.tab ?? tabKey)}. Call navigation.open with {"type":"help"} and use catalog.settings.tabs[].id. Available tabs: ${tabIds
+					.map((id) => JSON.stringify(id))
+					.join(", ")}.`,
+				{
+					reason: "entity_not_found",
+					approvalShown: false,
+					operation: "open",
+					idField: "tab",
+					id: input.tab ?? tabKey,
+					queryAction: "navigation.open",
+					queryExample: { type: "help" },
+					resultIdPath: "catalog.settings.tabs[].id",
+					availableIds: tabIds,
+				},
+			);
 		}
 		if (explicitSection && explicitSection.tab !== tab.key) {
 			throw new ActionError(
 				"ACTION_INVALID_INPUT",
-				`Settings section ${explicitSection.id} belongs to tab ${explicitSection.tab}, not ${tab.key}.`,
+				`Refused navigation.open before user approval: section ${JSON.stringify(explicitSection.id)} belongs to tab ${JSON.stringify(explicitSection.tab)}, not ${JSON.stringify(tab.key)}. Either open with target=${JSON.stringify(explicitSection.id)} alone, or use tab=${JSON.stringify(explicitSection.tab)} with section=${JSON.stringify(explicitSection.id)}.`,
+				{
+					reason: "invalid_input",
+					approvalShown: false,
+					section: explicitSection.id,
+					sectionTab: explicitSection.tab,
+					requestedTab: tab.key,
+				},
 			);
 		}
 		return {
@@ -206,7 +249,25 @@ export function resolveNavigationTarget(input: Extract<NavigationActionInput, { 
 		};
 	}
 
-	throw new ActionError("ACTION_INVALID_INPUT", `Unknown navigation target: ${input.target}`);
+	const pageIds = STATIC_TARGETS.map((item) => item.id);
+	const tabIds = [...tabsByKey.keys()];
+	throw new ActionError(
+		"ACTION_INVALID_INPUT",
+		`Refused navigation.open before user approval: unknown target=${JSON.stringify(input.target)}. Do not invent page ids. Call navigation.open with {"type":"help"} and pick from catalog.pages[].id, settings tab ids, or section ids. Page targets: ${pageIds
+			.map((id) => JSON.stringify(id))
+			.join(", ")}. Settings tabs: ${tabIds.map((id) => JSON.stringify(id)).join(", ")}.`,
+		{
+			reason: "entity_not_found",
+			approvalShown: false,
+			operation: "open",
+			idField: "target",
+			id: input.target,
+			queryAction: "navigation.open",
+			queryExample: { type: "help" },
+			resultIdPath: "catalog.pages[].id | catalog.settings.tabs[].id | sections[].id",
+			availableIds: [...pageIds, ...tabIds],
+		},
+	);
 }
 
 export async function openHashPath(hashPath: string): Promise<void> {

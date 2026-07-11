@@ -77,6 +77,13 @@ export const openAction: ActionDefinition = {
 		},
 	],
 	validateInput: validateNavigationActionInput,
+	assertReady: (input) => {
+		const request = input as unknown as NavigationActionInput;
+		// 在审批前解析 target/tab/section，未知页面直接失败。
+		if (request.type === "open") {
+			resolveNavigationTarget(request);
+		}
+	},
 	requiresApproval: (input, context) => {
 		const request = input as unknown as NavigationActionInput;
 		return context.source === "local-server" && request.type === "open";

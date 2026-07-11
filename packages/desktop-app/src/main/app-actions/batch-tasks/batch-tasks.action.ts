@@ -1,5 +1,6 @@
 import { type BatchTaskService, BatchTaskServiceError } from "../../batch-tasks/batch-task-service.js";
 import { getAppLogger } from "../../logger.js";
+import { throwAgentEntityNotFound } from "../shared.js";
 import {
 	type ActionDefinition,
 	ActionError,
@@ -568,6 +569,30 @@ export function createBatchTasksActions(service: BatchTaskService): ActionDefini
 		inputSchema: projectInputSchema,
 		examples: projectExamples,
 		validateInput: validateBatchTasksProjectInput,
+		assertReady: async (input) => {
+			const request = input as unknown as BatchTasksProjectInput;
+			if (request.operation === "create") return;
+			try {
+				await service.getProject(request.projectId);
+			} catch (error) {
+				if (error instanceof BatchTaskServiceError) {
+					const projects = await service.listProjects();
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "batch project",
+						idField: "projectId",
+						id: request.projectId,
+						queryAction: "batch-tasks.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "projects[].id",
+						availableIds: projects.map((project) => project.id),
+						extra: error.message,
+						errorCode: error.code,
+					});
+				}
+				throw error;
+			}
+		},
 		requiresApproval: (_input, context) => context.source === "local-server",
 		run: async (input) => {
 			const request = input as unknown as BatchTasksProjectInput;
@@ -608,6 +633,45 @@ export function createBatchTasksActions(service: BatchTaskService): ActionDefini
 		inputSchema: taskInputSchema,
 		examples: taskExamples,
 		validateInput: validateBatchTasksTaskInput,
+		assertReady: async (input) => {
+			const request = input as unknown as BatchTasksTaskInput;
+			try {
+				const project = await service.getProject(request.projectId);
+				const task = project.tasks.find((item) => item.id === request.taskId);
+				if (!task) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "batch task",
+						idField: "taskId",
+						id: request.taskId,
+						queryAction: "batch-tasks.query",
+						queryExample: { operation: "get", projectId: request.projectId },
+						resultIdPath: "project.tasks[].id",
+						availableIds: project.tasks.map((item) => item.id),
+						extra: `projectId=${JSON.stringify(request.projectId)} exists, but this taskId is not in that project.`,
+						errorCode: "BATCH_TASK_NOT_FOUND",
+					});
+				}
+			} catch (error) {
+				if (error instanceof ActionError) throw error;
+				if (error instanceof BatchTaskServiceError) {
+					const projects = await service.listProjects();
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "batch project",
+						idField: "projectId",
+						id: request.projectId,
+						queryAction: "batch-tasks.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "projects[].id",
+						availableIds: projects.map((project) => project.id),
+						extra: error.message,
+						errorCode: error.code,
+					});
+				}
+				throw error;
+			}
+		},
 		requiresApproval: (_input, context) => context.source === "local-server",
 		run: async (input) => {
 			const request = input as unknown as BatchTasksTaskInput;
@@ -655,6 +719,48 @@ export function createBatchTasksActions(service: BatchTaskService): ActionDefini
 		inputSchema: executionInputSchema,
 		examples: executionExamples,
 		validateInput: validateBatchTasksExecutionInput,
+		assertReady: async (input) => {
+			const request = input as unknown as BatchTasksExecutionInput;
+			try {
+				const project = await service.getProject(request.projectId);
+				if (request.operation === "reset-failed") {
+					const known = new Set(project.tasks.map((task) => task.id));
+					const missing = request.taskIds.filter((taskId) => !known.has(taskId));
+					if (missing.length > 0) {
+						throwAgentEntityNotFound({
+							operation: request.operation,
+							entity: "batch task",
+							idField: "taskIds",
+							id: missing.join(","),
+							queryAction: "batch-tasks.query",
+							queryExample: { operation: "get", projectId: request.projectId },
+							resultIdPath: "project.tasks[].id",
+							availableIds: project.tasks.map((task) => task.id),
+							extra: `Missing taskIds: ${JSON.stringify(missing)}. projectId=${JSON.stringify(request.projectId)}.`,
+							errorCode: "BATCH_TASK_NOT_FOUND",
+						});
+					}
+				}
+			} catch (error) {
+				if (error instanceof ActionError) throw error;
+				if (error instanceof BatchTaskServiceError) {
+					const projects = await service.listProjects();
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "batch project",
+						idField: "projectId",
+						id: request.projectId,
+						queryAction: "batch-tasks.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "projects[].id",
+						availableIds: projects.map((project) => project.id),
+						extra: error.message,
+						errorCode: error.code,
+					});
+				}
+				throw error;
+			}
+		},
 		requiresApproval: (_input, context) => context.source === "local-server",
 		run: async (input) => {
 			const request = input as unknown as BatchTasksExecutionInput;

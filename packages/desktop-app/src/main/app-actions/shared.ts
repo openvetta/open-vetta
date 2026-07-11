@@ -101,6 +101,95 @@ export function validateActionInput<T>(schema: z.ZodType<T>, input: unknown, act
 	return result.data as JsonValue;
 }
 
+/** 实体不存在时抛出稳定错误；供 assertReady / run 复用。 */
+export function assertEntityExists(condition: unknown, message: string, details?: JsonValue): asserts condition {
+	if (!condition) {
+		throw new ActionError("ACTION_NOT_FOUND", message, details);
+	}
+}
+
+export interface AgentEntityNotFoundParams {
+	/** 当前 operation，如 set-enabled / remove / update */
+	operation: string;
+	/** 实体类型（给 agent 读），如 "MCP server"、"scheduled task" */
+	entity: string;
+	/** agent 传入的字段名，如 name / id / taskId / modelKey */
+	idField: string;
+	/** agent 传入的错误值 */
+	id: string;
+	/** 下一步应调用的 query Action id */
+	queryAction: string;
+	/** 该 query 的示例 input */
+	queryExample: JsonValue;
+	/** query 结果里应复制的字段路径说明 */
+	resultIdPath: string;
+	/** 当前已知合法 id（可选，帮助 agent 立刻纠正） */
+	availableIds?: readonly string[];
+	/** message 中最多列出多少个 id */
+	maxListed?: number;
+	/** 额外说明 */
+	extra?: string;
+	errorCode?: string;
+}
+
+/**
+ * 面向 Agent 的「实体不存在」错误：
+ * - 说明审批未弹出（approvalShown=false）
+ * - 指出错误字段与取值
+ * - 给出应调用的 query 与如何取得合法 id
+ * - details 可机读，供 agent 程序化处理
+ */
+export function throwAgentEntityNotFound(params: AgentEntityNotFoundParams): never {
+	const maxListed = params.maxListed ?? 15;
+	const all = params.availableIds ?? [];
+	const listed = all.slice(0, maxListed);
+	const availableText =
+		listed.length === 0
+			? `There are currently no known ${params.entity} values; the list from ${params.queryAction} may be empty.`
+			: `Currently available ${params.idField} values (${listed.length}${all.length > maxListed ? ` of ${all.length}` : ""}): ${listed
+					.map((value) => JSON.stringify(value))
+					.join(", ")}${all.length > maxListed ? ", ..." : "."}`;
+
+	const message = [
+		`Refused operation "${params.operation}" before showing user approval because the target ${params.entity} does not exist.`,
+		`Invalid ${params.idField}=${JSON.stringify(params.id)} (this value was provided by the agent, not the user).`,
+		`Do not invent ids. Call ${params.queryAction} with input ${JSON.stringify(params.queryExample)}, then copy an exact ${params.idField} from ${params.resultIdPath} and retry.`,
+		availableText,
+		params.extra,
+	]
+		.filter(Boolean)
+		.join(" ");
+
+	throw new ActionError(params.errorCode ?? "ACTION_NOT_FOUND", message, {
+		reason: "entity_not_found",
+		approvalShown: false,
+		operation: params.operation,
+		entity: params.entity,
+		idField: params.idField,
+		id: params.id,
+		queryAction: params.queryAction,
+		queryExample: params.queryExample,
+		resultIdPath: params.resultIdPath,
+		availableIds: listed,
+		availableCount: all.length,
+		truncated: all.length > maxListed,
+	});
+}
+
+/** 格式/参数错误时给 agent 的可操作说明。 */
+export function throwAgentInvalidInput(message: string, details?: Record<string, JsonValue | undefined>): never {
+	const payload: Record<string, JsonValue> = {
+		reason: "invalid_input",
+		approvalShown: false,
+	};
+	if (details) {
+		for (const [key, value] of Object.entries(details)) {
+			if (value !== undefined) payload[key] = value;
+		}
+	}
+	throw new ActionError("ACTION_INVALID_INPUT", message, payload);
+}
+
 export function maskSecret(value: string | undefined): string | undefined {
 	if (value === undefined) return undefined;
 	if (value.length === 0) return "";

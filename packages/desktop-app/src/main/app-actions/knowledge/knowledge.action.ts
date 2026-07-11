@@ -9,7 +9,7 @@ import {
 	renameKnowledgeBase,
 } from "../../knowledge/raws-fs.js";
 import { getKnowledgeFileStatuses } from "../../knowledge/status.js";
-import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, throwAgentEntityNotFound, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	type KnowledgeManageInput,
@@ -172,6 +172,49 @@ export function createKnowledgeActions(): ActionDefinition[] {
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateKnowledgeManageInput,
+			assertReady: async (input) => {
+				const request = input as unknown as KnowledgeManageInput;
+				// create / scan-now / retry-failed 不要求指定库已存在于参数中。
+				if (
+					request.operation === "create" ||
+					request.operation === "scan-now" ||
+					request.operation === "retry-failed"
+				) {
+					return;
+				}
+				const bases = await listKnowledgeBases();
+				const names = bases.map((item) => item.name);
+				const ids = bases.map((item) => item.id);
+				if (request.operation === "rename" || request.operation === "delete") {
+					if (!names.includes(request.name)) {
+						throwAgentEntityNotFound({
+							operation: request.operation,
+							entity: "knowledge base",
+							idField: "name",
+							id: request.name,
+							queryAction: "knowledge.query",
+							queryExample: { operation: "list" },
+							resultIdPath: "list result array items[].name",
+							availableIds: names,
+						});
+					}
+					return;
+				}
+				// add-files / delete-entry 用 kbId
+				if (!ids.includes(request.kbId)) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "knowledge base",
+						idField: "kbId",
+						id: request.kbId,
+						queryAction: "knowledge.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "list result array items[].id",
+						availableIds: ids,
+						extra: "kbId is the knowledge base directory id from list, usually same as name.",
+					});
+				}
+			},
 			requiresApproval: (_input, context) => context.source === "local-server",
 			run: async (input) => {
 				const request = input as unknown as KnowledgeManageInput;
