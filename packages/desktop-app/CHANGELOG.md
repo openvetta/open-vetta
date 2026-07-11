@@ -59,6 +59,8 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **Action 审批前实体存在校验（`assertReady`）**：runtime 在 `validateInput` 之后、授权弹窗之前执行可选 `assertReady`；用户改写 input 后再校验一次。编辑/删除/改状态引用不存在实体时抛 `ACTION_NOT_FOUND`，不再弹出授权框。已接入 mcp / models / skills / plugins / webhook / downloads / projects / knowledge / scheduler / batch-tasks / im（模型）/ appearance.themeId / navigation.open。创建类 operation 不要求实体已存在。
+- **assertReady 错误文案面向 Agent**：`throwAgentEntityNotFound` / `throwAgentInvalidInput` 明确「审批未展示」、错误字段与取值、应调用的 query/示例 input/结果字段路径，并尽量附带 `availableIds`，避免 agent 编造 id 或误以为用户拒绝。
 - **Action 授权弹窗可读性与可编辑性（对齐 user-facing-copy）**：共享外壳不再展示 `domain.write` 等权限码，改为说明「为何需要确认」；Generic 兜底去掉主路径 raw JSON，改为字段摘要 + 影响说明 + 可折叠技术详情；`settings` 执行权限/实验功能/知识库设置支持确认前改选或改表单；导航目标/设置分区走产品名映射；取消下载展示文件名与状态；解析失败时 `ApprovalRawFallback` 默认收起技术详情。
 - **授权弹窗开/关歧义消除 + 设置层级 + 复用设置页控件**：`set-enabled` / 通知类审批改用「将改为：开启|关闭」主意图卡（可切换后再确认），标题/摘要/按钮/影响文案按方向拆分；实验功能与知识库设置用设置页式分组+行（标题/说明/控件）；默认模型与 Claw 模型复用 `ModelSelect`（含推理档），避免手填 provider/modelId。
 

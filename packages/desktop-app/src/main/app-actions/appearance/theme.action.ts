@@ -1,4 +1,6 @@
+import { THEME_MAP } from "../../../renderer/shared/theme/themes/index.js";
 import { getMainWindow } from "../../window-manager.js";
+import { throwAgentEntityNotFound } from "../shared.js";
 import { type ActionDefinition, ActionError, type JsonValue } from "../types.js";
 import { type ThemeActionInput, validateThemeActionInput } from "./theme.schema.js";
 import {
@@ -103,6 +105,24 @@ export const themeAction: ActionDefinition = {
 		},
 	],
 	validateInput: validateThemeActionInput,
+	assertReady: (input) => {
+		const request = input as unknown as ThemeActionInput;
+		if (request.type !== "set" || request.themeId === undefined) return;
+		// themeId 对应设置 → 外观中的颜色主题 id；未知 id 在审批前拒绝。
+		if (!THEME_MAP[request.themeId]) {
+			throwAgentEntityNotFound({
+				operation: "set",
+				entity: "color theme",
+				idField: "themeId",
+				id: request.themeId,
+				queryAction: "appearance.theme",
+				queryExample: { type: "help" },
+				resultIdPath: "themes[].id",
+				availableIds: Object.keys(THEME_MAP),
+				extra: 'You may also call appearance.theme with {"type":"get"} for current state.',
+			});
+		}
+	},
 	requiresApproval: (input, context) => {
 		const request = input as unknown as ThemeActionInput;
 		return context.source === "local-server" && request.type === "set";

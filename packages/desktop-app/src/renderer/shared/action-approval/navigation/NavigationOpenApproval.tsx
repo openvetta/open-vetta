@@ -1,7 +1,12 @@
 import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { useTranslation } from "react-i18next";
-import { SETTINGS_SECTIONS, SETTINGS_TABS } from "../../../domains/settings/registry";
+import {
+	SETTINGS_SECTIONS,
+	SETTINGS_TABS,
+	type SettingsSectionRegistration,
+	type SettingsTabRegistration,
+} from "../../../domains/settings/registry";
 import { formatApprovalWhyConfirm, navigationTargetLabel } from "../approvalCopy";
 import { useActionApproval } from "../useActionApproval";
 import { NavigationOpenApprovalView } from "./NavigationOpenApprovalView";
@@ -18,18 +23,22 @@ function settingsTabLabel(
 	tab: string,
 	tSettings: ReturnType<typeof useTranslation<"settings">>["t"],
 ): string {
-	const registration = SETTINGS_TABS.find((item) => item.key === tab);
+	const registration = (SETTINGS_TABS as readonly SettingsTabRegistration[]).find((item) => item.key === tab);
 	if (!registration) return tab;
-	return tSettings(registration.labelKey);
+	// labelKey 来自注册表，用 defaultValue 兜底避免 i18n 严格 key 类型阻拦。
+	return tSettings(registration.labelKey, { defaultValue: registration.label });
 }
 
 function settingsSectionLabel(
 	section: string,
 	tSettings: ReturnType<typeof useTranslation<"settings">>["t"],
 ): string {
-	const registration = SETTINGS_SECTIONS.find((item) => item.id === section);
-	if (!registration?.titleKey) return registration?.title ?? section;
-	return tSettings(registration.titleKey);
+	const registration = (SETTINGS_SECTIONS as readonly SettingsSectionRegistration[]).find(
+		(item) => item.id === section,
+	);
+	if (!registration) return section;
+	if (!registration.titleKey) return registration.title;
+	return tSettings(registration.titleKey, { defaultValue: registration.title });
 }
 
 export function NavigationOpenApproval(): JSX.Element | null {

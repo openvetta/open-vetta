@@ -5,6 +5,7 @@ import {
 	SchedulerServiceError,
 	type UpdateScheduledTaskInput,
 } from "../../scheduler/scheduler-service.js";
+import { throwAgentEntityNotFound } from "../shared.js";
 import {
 	type ActionApprovalMetadata,
 	type ActionDefinition,
@@ -315,6 +316,31 @@ export function createSchedulerActions(service: SchedulerService): ActionDefinit
 		inputSchema: taskInputSchema,
 		examples: taskExamples,
 		validateInput: validateSchedulerTaskInput,
+		assertReady: async (input) => {
+			const request = input as unknown as SchedulerTaskInput;
+			if (request.operation === "create") return;
+			// update / delete / enable / disable 必须任务已存在。
+			try {
+				await service.getTask(request.taskId);
+			} catch (error) {
+				if (error instanceof SchedulerServiceError) {
+					const tasks = await service.listTasks();
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "scheduled task",
+						idField: "taskId",
+						id: request.taskId,
+						queryAction: "scheduler.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "tasks[].id (or list result item id)",
+						availableIds: tasks.map((task) => task.id),
+						extra: error.message,
+						errorCode: error.code,
+					});
+				}
+				throw error;
+			}
+		},
 		requiresApproval: (_input, context) => context.source === "local-server",
 		run: async (input) => {
 			const request = input as unknown as SchedulerTaskInput;
@@ -357,6 +383,29 @@ export function createSchedulerActions(service: SchedulerService): ActionDefinit
 		inputSchema: executionInputSchema,
 		examples: executionExamples,
 		validateInput: validateSchedulerExecutionInput,
+		assertReady: async (input) => {
+			const request = input as unknown as SchedulerExecutionInput;
+			try {
+				await service.getTask(request.taskId);
+			} catch (error) {
+				if (error instanceof SchedulerServiceError) {
+					const tasks = await service.listTasks();
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "scheduled task",
+						idField: "taskId",
+						id: request.taskId,
+						queryAction: "scheduler.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "tasks[].id (or list result item id)",
+						availableIds: tasks.map((task) => task.id),
+						extra: error.message,
+						errorCode: error.code,
+					});
+				}
+				throw error;
+			}
+		},
 		requiresApproval: (_input, context) => context.source === "local-server",
 		run: async (input) => {
 			const request = input as unknown as SchedulerExecutionInput;

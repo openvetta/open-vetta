@@ -67,6 +67,12 @@ export class AppActionRuntime {
 				permission: action.permission,
 			};
 			log.info("run: input validated", actionMeta, { input: validatedInput });
+			// 审批前校验实体是否存在等业务前提，避免对不存在数据弹出授权框。
+			// 失败错误的 message/details 必须面向 Agent（原因 + 下一步 query），见 throwAgentEntityNotFound。
+			if (action.assertReady) {
+				await action.assertReady(validatedInput, context);
+				log.info("run: assertReady ok (pre-approval)", actionMeta);
+			}
 			let approvalRequired = false;
 			if (action.requiresApproval?.(validatedInput, context)) {
 				approvalRequired = true;
@@ -101,6 +107,11 @@ export class AppActionRuntime {
 				if (decision.input !== undefined) {
 					validatedInput = action.validateInput(decision.input);
 					log.info("run: approval input validated", actionMeta, { input: validatedInput });
+					// 用户改写 input 后再次校验（如改成了另一个不存在的 id）。
+					if (action.assertReady) {
+						await action.assertReady(validatedInput, context);
+						log.info("run: assertReady ok (post-approval)", actionMeta);
+					}
 				}
 			}
 			const result = await action.run(validatedInput, context);

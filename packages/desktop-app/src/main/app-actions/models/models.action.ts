@@ -2,7 +2,16 @@ import type { ModelsConfig, ProviderConfig } from "../../ipc/fs.js";
 import { readModelsConfig, writeModelsConfig } from "../../ipc/fs.js";
 import { probeModelProvider } from "../../models/probe.js";
 import { getOrCreateSharedModelRegistry } from "../../runtime.js";
-import { createOperationApprovals, maskSecret, redactRecordSecrets, runActionService, toJsonValue } from "../shared.js";
+import {
+	assertEntityExists,
+	createOperationApprovals,
+	maskSecret,
+	redactRecordSecrets,
+	runActionService,
+	throwAgentEntityNotFound,
+	throwAgentInvalidInput,
+	toJsonValue,
+} from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type ModelsManageInput,
@@ -106,17 +115,51 @@ function redactModelsConfig(config: ModelsConfig): ModelsConfig {
 	return { ...config, providers };
 }
 
-function assertModelKeyExists(config: ModelsConfig, modelKey: string): void {
+function assertModelKeyExists(config: ModelsConfig, modelKey: string, operation = "set-default"): void {
 	const slash = modelKey.indexOf("/");
+	if (slash <= 0) {
+		throwAgentInvalidInput(
+			`Refused operation "${operation}" before user approval: invalid modelKey=${JSON.stringify(modelKey)}. Expected format "provider/modelId" (example: "openai/gpt-4o"). Call models.query with {"operation":"list"} and use providers[].id + models[].id joined by "/".`,
+			{
+				operation,
+				idField: "modelKey",
+				id: modelKey,
+				queryAction: "models.query",
+				queryExample: { operation: "list" },
+				resultIdPath: 'providers[].id + "/" + providers[].models[].id',
+			},
+		);
+	}
 	const providerId = modelKey.slice(0, slash);
 	const modelId = modelKey.slice(slash + 1);
 	const provider = config.providers[providerId];
 	if (!provider) {
-		throw new ActionError("ACTION_NOT_FOUND", `Provider not found: ${providerId}`);
+		throwAgentEntityNotFound({
+			operation,
+			entity: "model provider",
+			idField: "provider",
+			id: providerId,
+			queryAction: "models.query",
+			queryExample: { operation: "list" },
+			resultIdPath: "providers[].id",
+			availableIds: Object.keys(config.providers ?? {}),
+			extra: `Full modelKey was ${JSON.stringify(modelKey)}.`,
+		});
 	}
 	const models = provider.models ?? [];
+	// 未声明 models 列表的 provider 允许任意 modelId（兼容自定义端点）。
 	if (models.length > 0 && !models.some((model) => model.id === modelId)) {
-		throw new ActionError("ACTION_NOT_FOUND", `Model not found on provider ${providerId}: ${modelId}`);
+		throwAgentEntityNotFound({
+			operation,
+			entity: `model on provider ${providerId}`,
+			idField: "modelKey",
+			id: modelKey,
+			queryAction: "models.query",
+			queryExample: { operation: "list" },
+			resultIdPath: 'providers[].id + "/" + providers[].models[].id',
+			availableIds: models.map((model) => `${providerId}/${model.id}`),
+			extra: `Provider ${JSON.stringify(providerId)} exists, but model id ${JSON.stringify(modelId)} is not in its models list.`,
+		});
 	}
 }
 
@@ -198,6 +241,27 @@ export function createModelsActions(): ActionDefinition[] {
 		inputSchema: manageInputSchema,
 		examples: manageExamples,
 		validateInput: validateModelsManageInput,
+		assertReady: async (input) => {
+			const request = input as unknown as ModelsManageInput;
+			const config = await readModelsConfig();
+			if (request.operation === "set-default") {
+				assertModelKeyExists(config, request.modelKey, request.operation);
+				return;
+			}
+			if (request.operation === "remove-provider" && !config.providers[request.provider]) {
+				throwAgentEntityNotFound({
+					operation: request.operation,
+					entity: "model provider",
+					idField: "provider",
+					id: request.provider,
+					queryAction: "models.query",
+					queryExample: { operation: "list" },
+					resultIdPath: "providers[].id",
+					availableIds: Object.keys(config.providers ?? {}),
+				});
+			}
+			// upsert-provider 可创建，不要求已存在。
+		},
 		requiresApproval: (_input, context) => context.source === "local-server",
 		run: async (input) => {
 			const request = input as unknown as ModelsManageInput;
@@ -210,9 +274,7 @@ export function createModelsActions(): ActionDefinition[] {
 					return { operation: "set-default", defaultModel: config.defaultModel };
 				}
 				if (request.operation === "remove-provider") {
-					if (!config.providers[request.provider]) {
-						throw new ActionError("ACTION_NOT_FOUND", `Provider not found: ${request.provider}`);
-					}
+					assertEntityExists(config.providers[request.provider], `Provider not found: ${request.provider}`);
 					delete config.providers[request.provider];
 					if (config.defaultModel?.startsWith(`${request.provider}/`)) {
 						delete config.defaultModel;

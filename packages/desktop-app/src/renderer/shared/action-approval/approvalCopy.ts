@@ -56,9 +56,13 @@ export function knowledgeBaseFieldLabel(t: TFunction<"common">, key: string): st
 
 /** 导航 target 人话；未知 id 原样返回。 */
 export function navigationTargetLabel(t: TFunction<"common">, target: string): string {
-	const key = `navigationApproval.targets.${target}` as const;
-	const translated = t(key);
-	// i18next 未命中时通常返回 key 本身
-	if (translated === key || translated.startsWith("navigationApproval.targets.")) return target;
-	return translated;
+	const known: Record<string, string> = {
+		chat: t("navigationApproval.targets.chat"),
+		automation: t("navigationApproval.targets.automation"),
+		"batch-tasks": t("navigationApproval.targets.batch-tasks"),
+		skills: t("navigationApproval.targets.skills"),
+		downloads: t("navigationApproval.targets.downloads"),
+		settings: t("navigationApproval.targets.settings"),
+	};
+	return known[target] ?? target;
 }

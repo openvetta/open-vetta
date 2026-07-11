@@ -1,5 +1,5 @@
 import { cancelDownload, listDownloads } from "../../ipc/downloads.js";
-import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, throwAgentEntityNotFound, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	type DownloadsManageInput,
@@ -82,6 +82,24 @@ export function createDownloadsActions(): ActionDefinition[] {
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateDownloadsManageInput,
+			assertReady: (input) => {
+				const request = input as unknown as DownloadsManageInput;
+				const items = listDownloads();
+				const item = items.find((candidate) => candidate.id === request.id);
+				if (!item) {
+					throwAgentEntityNotFound({
+						operation: "cancel",
+						entity: "download task",
+						idField: "id",
+						id: request.id,
+						queryAction: "downloads.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "items[].id",
+						availableIds: items.map((candidate) => candidate.id),
+						extra: "Use the download task id, not the filename.",
+					});
+				}
+			},
 			requiresApproval: (_input, context) => context.source === "local-server",
 			run: async (input) => {
 				const request = input as unknown as DownloadsManageInput;

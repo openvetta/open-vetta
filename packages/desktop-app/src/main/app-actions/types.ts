@@ -88,7 +88,14 @@ export interface ActionApprovalRequester {
 }
 
 export interface ActionDefinition extends ActionMetadata {
+	/** 结构校验（同步）：schema / 字段类型与必填。 */
 	validateInput: (input: unknown) => JsonValue;
+	/**
+	 * 业务就绪校验（可异步）：在结构校验之后、审批弹窗之前执行。
+	 * 用于「编辑 / 删除 / 改状态」所引用的实体是否存在等，避免对不存在的数据弹出授权框。
+	 * 用户在审批中改写 input 后会再次调用。
+	 */
+	assertReady?: (input: JsonValue, context: ActionContext) => Promise<void> | void;
 	requiresApproval?: (input: JsonValue, context: ActionContext) => boolean;
 	run: (input: JsonValue, context: ActionContext) => Promise<JsonValue> | JsonValue;
 }

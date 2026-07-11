@@ -1,5 +1,12 @@
 import { getImHost } from "../../im-host/index.js";
-import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
+import { readModelsConfig } from "../../ipc/fs.js";
+import {
+	createOperationApprovals,
+	runActionService,
+	throwAgentEntityNotFound,
+	throwAgentInvalidInput,
+	toJsonValue,
+} from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import { type ImManageInput, type ImQueryInput, validateImManageInput, validateImQueryInput } from "./im.schema.js";
 
@@ -119,6 +126,56 @@ export function createImActions(): ActionDefinition[] {
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateImManageInput,
+			assertReady: async (input) => {
+				const request = input as unknown as ImManageInput;
+				// set-enabled / restart 作用于全局配置，无需实体 id。
+				// set-agent-model 若指定 modelKey，则模型必须存在。
+				if (request.operation !== "set-agent-model" || request.modelKey === null) return;
+				const modelKey = request.modelKey;
+				const slash = modelKey.indexOf("/");
+				if (slash <= 0) {
+					throwAgentInvalidInput(
+						`Refused set-agent-model before user approval: invalid modelKey=${JSON.stringify(modelKey)}. Expected "provider/modelId". Call models.query with {"operation":"list"} and join providers[].id + "/" + models[].id. Pass null to clear the dedicated model.`,
+						{
+							operation: "set-agent-model",
+							idField: "modelKey",
+							id: modelKey,
+							queryAction: "models.query",
+							queryExample: { operation: "list" },
+						},
+					);
+				}
+				const providerId = modelKey.slice(0, slash);
+				const modelId = modelKey.slice(slash + 1);
+				const config = await readModelsConfig();
+				const provider = config.providers[providerId];
+				if (!provider) {
+					throwAgentEntityNotFound({
+						operation: "set-agent-model",
+						entity: "model provider",
+						idField: "provider",
+						id: providerId,
+						queryAction: "models.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "providers[].id",
+						availableIds: Object.keys(config.providers ?? {}),
+						extra: `Full modelKey was ${JSON.stringify(modelKey)}.`,
+					});
+				}
+				const models = provider.models ?? [];
+				if (models.length > 0 && !models.some((model) => model.id === modelId)) {
+					throwAgentEntityNotFound({
+						operation: "set-agent-model",
+						entity: `model on provider ${providerId}`,
+						idField: "modelKey",
+						id: modelKey,
+						queryAction: "models.query",
+						queryExample: { operation: "list" },
+						resultIdPath: 'providers[].id + "/" + providers[].models[].id',
+						availableIds: models.map((model) => `${providerId}/${model.id}`),
+					});
+				}
+			},
 			requiresApproval: (_input, context) => context.source === "local-server",
 			run: async (input) => {
 				const request = input as unknown as ImManageInput;

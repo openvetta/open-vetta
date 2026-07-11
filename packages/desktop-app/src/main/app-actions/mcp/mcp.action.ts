@@ -1,6 +1,13 @@
 import type { McpServerConfig } from "../../ipc/fs.js";
 import { readMcpConfig, writeMcpConfig } from "../../ipc/fs.js";
-import { createOperationApprovals, redactRecordSecrets, runActionService, toJsonValue } from "../shared.js";
+import {
+	assertEntityExists,
+	createOperationApprovals,
+	redactRecordSecrets,
+	runActionService,
+	throwAgentEntityNotFound,
+	toJsonValue,
+} from "../shared.js";
 import { type ActionDefinition, ActionError, type ActionExample, type ActionInputSchema } from "../types.js";
 import {
 	type McpManageInput,
@@ -150,22 +157,38 @@ export function createMcpActions(): ActionDefinition[] {
 		inputSchema: manageInputSchema,
 		examples: manageExamples,
 		validateInput: validateMcpManageInput,
+		assertReady: async (input) => {
+			const request = input as unknown as McpManageInput;
+			// upsert 可创建新 server；启停/删除必须已存在。
+			if (request.operation !== "set-enabled" && request.operation !== "remove") return;
+			const config = await readMcpConfig();
+			if (!config.mcpServers[request.name]) {
+				throwAgentEntityNotFound({
+					operation: request.operation,
+					entity: "MCP server",
+					idField: "name",
+					id: request.name,
+					queryAction: "mcp.query",
+					queryExample: { operation: "list" },
+					resultIdPath: "servers[].name",
+					availableIds: Object.keys(config.mcpServers),
+				});
+			}
+		},
 		requiresApproval: (_input, context) => context.source === "local-server",
 		run: async (input) => {
 			const request = input as unknown as McpManageInput;
 			return await runActionService(async () => {
 				const config = await readMcpConfig();
 				if (request.operation === "remove") {
-					if (!config.mcpServers[request.name]) {
-						throw new ActionError("ACTION_NOT_FOUND", `MCP server not found: ${request.name}`);
-					}
+					assertEntityExists(config.mcpServers[request.name], `MCP server not found: ${request.name}`);
 					delete config.mcpServers[request.name];
 					await writeMcpConfig(config);
 					return { operation: "remove", name: request.name };
 				}
 				if (request.operation === "set-enabled") {
 					const existing = config.mcpServers[request.name];
-					if (!existing) throw new ActionError("ACTION_NOT_FOUND", `MCP server not found: ${request.name}`);
+					assertEntityExists(existing, `MCP server not found: ${request.name}`);
 					existing.disabled = !request.enabled;
 					config.mcpServers[request.name] = existing;
 					await writeMcpConfig(config);

@@ -1,5 +1,5 @@
 import { getWebhookManager } from "../../webhook/index.js";
-import { createOperationApprovals, runActionService, toJsonValue } from "../shared.js";
+import { createOperationApprovals, runActionService, throwAgentEntityNotFound, toJsonValue } from "../shared.js";
 import type { ActionDefinition, ActionExample, ActionInputSchema } from "../types.js";
 import {
 	validateWebhookManageInput,
@@ -131,6 +131,26 @@ export function createWebhookActions(): ActionDefinition[] {
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateWebhookManageInput,
+			assertReady: (input) => {
+				const request = input as unknown as WebhookManageInput;
+				if (request.operation === "create") return;
+				const manager = getWebhookManager();
+				const endpoints = manager.list();
+				const endpoint = endpoints.find((item) => item.id === request.id);
+				if (!endpoint) {
+					throwAgentEntityNotFound({
+						operation: request.operation,
+						entity: "webhook endpoint",
+						idField: "id",
+						id: request.id,
+						queryAction: "webhook.query",
+						queryExample: { operation: "list" },
+						resultIdPath: "endpoints[].id",
+						availableIds: endpoints.map((item) => item.id),
+						extra: "Do not use display name or urlMask as id.",
+					});
+				}
+			},
 			requiresApproval: (_input, context) => context.source === "local-server",
 			run: async (input) => {
 				const request = input as unknown as WebhookManageInput;
