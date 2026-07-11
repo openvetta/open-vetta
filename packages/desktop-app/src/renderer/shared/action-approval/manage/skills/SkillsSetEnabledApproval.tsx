@@ -1,18 +1,32 @@
+import { useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
+import { getToggleApprovalCopy, getToggleSharedLabels } from "../../approvalToggleCopy";
 import {
 	ApprovalImpactCard,
 	ApprovalRawFallback,
-	ApprovalTargetCard,
+	ApprovalToggleIntentCard,
 } from "../ApprovalParts";
 import { useManageApprovalFrame } from "../useManageApprovalShell";
 
-interface Input { operation: "set-enabled"; name: string; enabled: boolean; }
+interface Input {
+	operation: "set-enabled";
+	name: string;
+	enabled: boolean;
+	approvalUi?: string;
+}
 
 function parseInput(input: unknown): Input | null {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
 	const r = input as Record<string, unknown>;
-	if (r.operation !== "set-enabled" || typeof r.name !== "string" || typeof r.enabled !== "boolean") return null;
-	return { operation: "set-enabled", name: r.name, enabled: r.enabled };
+	if (r.operation !== "set-enabled" || typeof r.name !== "string" || typeof r.enabled !== "boolean") {
+		return null;
+	}
+	return {
+		operation: "set-enabled",
+		name: r.name,
+		enabled: r.enabled,
+		approvalUi: typeof r.approvalUi === "string" ? r.approvalUi : undefined,
+	};
 }
 
 export function SkillsSetEnabledApproval(): JSX.Element | null {
@@ -25,33 +39,53 @@ function SkillsSetEnabledApprovalContent({ approval }: { approval: ActiveActionA
 	const { Frame, t, frameLabels } = useManageApprovalFrame();
 	const { request, responding, error, approve, reject } = approval;
 	const input = parseInput(request.input);
-	const icon = input?.enabled ? "icon-[mdi--puzzle-check-outline]" : "icon-[mdi--puzzle-outline]";
+	const [enabled, setEnabled] = useState(input?.enabled ?? true);
+	const copy = getToggleApprovalCopy(t, "skills", enabled);
+	const shared = getToggleSharedLabels(t);
 
 	return (
 		<Frame
 			presentation="dialog"
-			title={t("manageApproval.skills.ops.set-enabled.title")}
-			summary={t("manageApproval.skills.ops.set-enabled.summary")}
-			icon={icon}
-			badge={t("manageApproval.skills.ops.set-enabled.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.skills.ops.set-enabled.confirm"))}
+			title={copy.title}
+			summary={copy.summary}
+			icon={copy.icon}
+			badge={copy.badge}
+			labels={frameLabels(request.permission, copy.confirm)}
 			responding={responding}
 			countdown={approval.countdown.formatted}
 			error={error}
 			onReject={reject}
-			onApprove={() => approve()}
+			onApprove={() =>
+				input
+					? approve({
+							operation: "set-enabled",
+							name: input.name,
+							enabled,
+							approvalUi: input.approvalUi ?? "skills.set-enabled",
+						})
+					: approve()
+			}
 			canApprove={Boolean(input)}
 		>
 			{input ? (
 				<>
-					<ApprovalTargetCard icon="icon-[mdi--puzzle-outline]" title={input.name} subtitle={t("manageApproval.fields.skillName")} rows={[{ label: t("manageApproval.fields.enabled"), value: input.enabled ? t("manageApproval.yes") : t("manageApproval.no") }]} />
-					<ApprovalImpactCard
-						icon={icon}
-						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.skills.ops.set-enabled.impact")}
-						
+					<ApprovalToggleIntentCard
+						targetIcon="icon-[mdi--puzzle-outline]"
+						targetTitle={input.name}
+						targetSubtitle={t("manageApproval.fields.skillName")}
+						enabled={enabled}
+						onEnabledChange={setEnabled}
+						willBecomeLabel={shared.willBecome}
+						stateOnLabel={shared.stateOn}
+						stateOffLabel={shared.stateOff}
+						stateHint={enabled ? shared.stateOnHint : shared.stateOffHint}
+						editableHint={shared.editableHint}
 					/>
-					
+					<ApprovalImpactCard
+						icon={copy.icon}
+						title={t("manageApproval.afterActionTitle")}
+						description={copy.impact}
+					/>
 				</>
 			) : (
 				<ApprovalRawFallback input={request.input} />

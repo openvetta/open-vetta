@@ -4,9 +4,10 @@ import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useThemeComponent } from "@vetta/theme-sdk";
-import { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
-import { AppearanceActionPicker } from "./AppearanceActionPicker";
+import { formatApprovalWhyConfirm } from "../approvalCopy";
 import { useActionApproval } from "../useActionApproval";
+import { AppearanceActionPicker } from "./AppearanceActionPicker";
+import { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
 
 function isThemeSetInput(
 	input: DesktopActionApprovalRequest["input"],
@@ -73,7 +74,7 @@ function ThemeChangeDrawer({
 			error={error}
 			labels={{
 				confirm: t("appearanceApproval.confirmChange"),
-				permission: t("actionApproval.permission", { permission: request.permission }),
+				permission: formatApprovalWhyConfirm(t, request.permission),
 				reject: t("actionApproval.reject"),
 				responding: t("appearanceApproval.submitting"),
 			}}

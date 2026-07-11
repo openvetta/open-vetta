@@ -57,6 +57,11 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 - **Action 搜索相关性**：`actions.search` 不再对 id/title/summary 做整串 substring 过滤。改为分词、同义词扩展、多字段加权（含 `keywords`、inputSchema/operations/examples），并按相关度排序；空查询仍返回全部。各 Action 补充 `keywords` 别名。
 - **扩展域 manage Action 审批 UI（对齐 scheduler 拆分）**：models / mcp / skills / projects / settings / knowledge / plugins / im / webhook / downloads / updater 的写操作按 **operation 独立 presentation**（如 `mcp.upsert`、`models.remove-provider`），schema 为每种 operation 默认对应 `approvalUi`；renderer 在 `action-approval/manage/<domain>/` 下一 operation 一组件（禁止 god component）。外壳共用 batch 风格 Frame；可编辑操作为右侧抽屉并回写 input，确认/删除为 Dialog；`generic` 仅兜底。
 
+### Changed
+
+- **Action 授权弹窗可读性与可编辑性（对齐 user-facing-copy）**：共享外壳不再展示 `domain.write` 等权限码，改为说明「为何需要确认」；Generic 兜底去掉主路径 raw JSON，改为字段摘要 + 影响说明 + 可折叠技术详情；`settings` 执行权限/实验功能/知识库设置支持确认前改选或改表单；导航目标/设置分区走产品名映射；取消下载展示文件名与状态；解析失败时 `ApprovalRawFallback` 默认收起技术详情。
+- **授权弹窗开/关歧义消除 + 设置层级 + 复用设置页控件**：`set-enabled` / 通知类审批改用「将改为：开启|关闭」主意图卡（可切换后再确认），标题/摘要/按钮/影响文案按方向拆分；实验功能与知识库设置用设置页式分组+行（标题/说明/控件）；默认模型与 Claw 模型复用 `ModelSelect`（含推理档），避免手填 provider/modelId。
+
 ### Added
 
 - **`appearance.theme` 覆盖外观设置页鼠标指针**：`set`/`get`/`help` 增加 `cursorStyle`（`default` | `stoat`），与显示模式、主题风格同属一个 Action；审批 UI（theme-change / picker）可一并选择指针样式；经既有 theme IPC 写入 `vetta-cursor-style`，桌宠通过 storage 事件跟随。

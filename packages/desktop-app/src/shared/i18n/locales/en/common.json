@@ -69,9 +69,23 @@
 	},
 	"actionApproval": {
 		"reject": "Reject",
+		"confirm": "Confirm",
 		"processing": "Processing...",
 		"permission": "Permission: {{permission}}",
-		"permissionPrefix": "Permission: "
+		"permissionPrefix": "Permission: ",
+		"whyConfirm": "The AI is requesting this action. It will run only after you confirm.",
+		"genericTitle": "Confirm action",
+		"genericSummary": "Please confirm whether to allow this action.",
+		"genericImpact": "Confirm to run it. Reject cancels the request without changing your data.",
+		"showTechnicalDetails": "Show technical details",
+		"hideTechnicalDetails": "Hide technical details",
+		"unreadableRequest": "This request could not be fully parsed. If you are unsure, reject it and ask the AI to explain.",
+		"fields": {
+			"request": "Request",
+			"operation": "Operation",
+			"arrayCount": "{{count}} items",
+			"objectSummary": "{{count}} fields"
+		}
 	},
 	"manageApproval": {
 		"fallbackTitle": "Action Confirmation",
@@ -80,6 +94,76 @@
 		"rawInput": "Request payload",
 		"yes": "Yes",
 		"no": "No",
+		"on": "On",
+		"off": "Off",
+		"toggle": {
+			"willBecome": "Will become",
+			"stateOnHint": "When on, related capabilities are available. Existing settings are kept.",
+			"stateOffHint": "When off, usage is paused. Settings stay so you can turn it back on anytime.",
+			"editableHint": "You can flip this before confirming"
+		},
+		"toggleCopy": {
+			"mcp": {
+				"enableTitle": "Turn on MCP server",
+				"disableTitle": "Turn off MCP server",
+				"enableSummary": "Once on, the AI can use this MCP's capabilities in chat (browse the web, call external tools, etc.).",
+				"disableSummary": "Once off, this MCP pauses and cannot be used in chat. Configuration is not deleted.",
+				"enableConfirm": "Turn on",
+				"disableConfirm": "Turn off",
+				"enableImpact": "This MCP becomes available immediately for later chats.",
+				"disableImpact": "This MCP pauses immediately. Settings remain; nothing is uninstalled."
+			},
+			"skills": {
+				"enableTitle": "Turn on skill",
+				"disableTitle": "Turn off skill",
+				"enableSummary": "Once on, the AI can use this skill or scene in chat when needed.",
+				"disableSummary": "Once off, this skill/scene will not be used. Files are not uninstalled.",
+				"enableConfirm": "Turn on",
+				"disableConfirm": "Turn off",
+				"enableImpact": "The skill becomes available for use in chat.",
+				"disableImpact": "The skill is paused. Configuration and files remain."
+			},
+			"plugins": {
+				"enableTitle": "Turn on plugin",
+				"disableTitle": "Turn off plugin",
+				"enableSummary": "Once on, this plugin's UI and capabilities become active again.",
+				"disableSummary": "Once off, the plugin pauses. It is not uninstalled.",
+				"enableConfirm": "Turn on",
+				"disableConfirm": "Turn off",
+				"enableImpact": "Plugin features apply to the app immediately.",
+				"disableImpact": "Plugin features pause immediately. Install and settings remain."
+			},
+			"im": {
+				"enableTitle": "Turn on Claw (IM bridge)",
+				"disableTitle": "Turn off Claw (IM bridge)",
+				"enableSummary": "Once on, you can chat with the AI through Feishu, WeChat, and other external channels.",
+				"disableSummary": "Once off, external IM channels can no longer reach the local AI.",
+				"enableConfirm": "Turn on",
+				"disableConfirm": "Turn off",
+				"enableImpact": "The IM bridge runs with current settings; external messages can enter chat.",
+				"disableImpact": "New IM messages stop arriving. Existing sessions remain."
+			},
+			"webhook": {
+				"enableTitle": "Turn on message push",
+				"disableTitle": "Turn off message push",
+				"enableSummary": "Once on, notifications can be sent to this webhook (e.g. DingTalk / Feishu bot).",
+				"disableSummary": "Once off, no more messages are pushed to this address. URL and secrets remain.",
+				"enableConfirm": "Turn on",
+				"disableConfirm": "Turn off",
+				"enableImpact": "This channel can receive notifications and test messages.",
+				"disableImpact": "This channel pauses. Configuration is not deleted."
+			},
+			"settings.notifications": {
+				"enableTitle": "Turn on system notifications",
+				"disableTitle": "Turn off system notifications",
+				"enableSummary": "Once on, task completion and update events can show as system alerts.",
+				"disableSummary": "Once off, the app will not show system notifications.",
+				"enableConfirm": "Turn on",
+				"disableConfirm": "Turn off",
+				"enableImpact": "Matching events will show system notifications.",
+				"disableImpact": "System notifications stop. In-app status remains visible."
+			}
+		},
 		"fieldWithKey": "{{prefix}}.{{key}}",
 		"fields": {
 			"modelKey": "Model",
@@ -123,11 +207,11 @@
 		"models": {
 			"ops": {
 				"set-default": {
-					"title": "Set Default Model Confirmation",
-					"summary": "This model will become the default chat model.",
-					"confirm": "Confirm default model",
+					"title": "Set default chat model",
+					"summary": "Choose the model used by default for new chats. You can change it below before confirming.",
+					"confirm": "Set as default",
 					"badge": "Default model",
-					"impact": "The default chat model will switch to the selected model."
+					"impact": "New chats will prefer this model. Existing chats keep their current model."
 				},
 				"upsert-provider": {
 					"title": "Create or Update Provider Confirmation",
@@ -147,7 +231,10 @@
 			},
 			"createProviderHint": "Create",
 			"updateProviderHint": "Update existing",
-			"modelsCount": "{{count}} models"
+			"modelsCount": "{{count}} models",
+			"defaultSectionTitle": "Default model",
+			"defaultSectionDescription": "Same as Settings → Models. Takes effect after you confirm.",
+			"defaultModelHint": "Pick from configured models"
 		},
 		"mcp": {
 			"ops": {
@@ -246,52 +333,84 @@
 		"settings": {
 			"ops": {
 				"set-language": {
-					"title": "Change Language Confirmation",
-					"summary": "Switch the application UI language.",
-					"confirm": "Change language",
+					"title": "Switch language",
+					"summary": "UI text will switch to the selected language.",
+					"confirm": "Switch language",
 					"badge": "Language",
-					"impact": "UI language will switch immediately."
+					"impact": "Menus, settings, and buttons switch immediately. Chat content is unchanged."
 				},
 				"set-notifications": {
-					"title": "Change Notification Setting Confirmation",
-					"summary": "Update the system notification toggle.",
-					"confirm": "Change notifications",
+					"title": "Change notification settings",
+					"summary": "Choose whether system notifications are allowed.",
+					"confirm": "Save notifications",
 					"badge": "Notifications",
-					"impact": "System notification toggle will update."
+					"impact": "Task and update alerts will show or hide based on the new setting."
 				},
 				"set-execution-mode": {
-					"title": "Change Default Execution Mode Confirmation",
-					"summary": "Update the default Agent execution permission mode.",
-					"confirm": "Change execution mode",
-					"badge": "Execution mode",
-					"impact": "Default execution permission for new sessions will update."
+					"title": "Change default permissions",
+					"summary": "Choose the default permission level for new chats. You can change it below.",
+					"confirm": "Save permissions",
+					"badge": "Permissions",
+					"impact": "New chats will use this permission. Existing chats stay as they are."
 				},
 				"set-workspace": {
-					"title": "Change Workspace Path Confirmation",
-					"summary": "Update the default workspace directory.",
-					"confirm": "Change workspace",
+					"title": "Change default workspace",
+					"summary": "New projects will be created under this folder by default.",
+					"confirm": "Save workspace",
 					"badge": "Workspace",
-					"impact": "Default workspace directory will update."
+					"impact": "The default workspace path updates. Existing projects stay in place."
 				},
 				"set-experimental": {
-					"title": "Change Experimental Features Confirmation",
-					"summary": "Update experimental feature toggles.",
-					"confirm": "Change experimental features",
+					"title": "Change experimental features",
+					"summary": "You can adjust these experimental toggles before confirming.",
+					"confirm": "Save experimental features",
 					"badge": "Experimental",
-					"impact": "Experimental feature toggles will update for submitted fields."
+					"impact": "Matching capabilities will turn on or off. Experimental features may be unstable."
 				},
 				"set-knowledge-base": {
-					"title": "Change Knowledge Base Settings Confirmation",
-					"summary": "Update knowledge base processing settings.",
-					"confirm": "Change knowledge base settings",
-					"badge": "Knowledge settings",
-					"impact": "Knowledge base processing settings will update."
+					"title": "Change knowledge base settings",
+					"summary": "You can edit these knowledge base options before confirming.",
+					"confirm": "Save knowledge base settings",
+					"badge": "Knowledge",
+					"impact": "Automatic knowledge processing will follow the new settings."
 				}
 			},
 			"languageZh": "Chinese",
 			"languageEn": "English",
 			"notificationsOn": "Enable notifications",
-			"notificationsOff": "Disable notifications"
+			"notificationsOff": "Disable notifications",
+			"notificationsTarget": "System notifications",
+			"notificationsTargetHint": "Task completion, updates, and similar alerts",
+			"executionModeSandbox": "Safe mode (sandbox)",
+			"executionModeFullAccess": "Full access",
+			"executionModeSandboxHint": "Limits where files can be changed. Safer for everyday use.",
+			"executionModeFullAccessHint": "Allows broader file and system actions. More capable, higher risk.",
+			"experimentalSectionTitle": "Experimental features",
+			"experimentalSectionDescription": "Same toggles as Settings → Agent. You can adjust them before confirming.",
+			"experimentalFields": {
+				"vettaCli": "Vetta CLI",
+				"vettaCliDesc": "Allow calling local capabilities from the terminal via Vetta CLI",
+				"promptPrediction": "Input prediction",
+				"promptPredictionDesc": "Suggest possible follow-up text while typing; may use a little quota",
+				"agentSkills": "Agent skill extensions",
+				"agentSkillsDesc": "Allow the agent to use extended skill capabilities"
+			},
+			"knowledgeSectionTitle": "Knowledge processing",
+			"knowledgeSectionDescription": "Same options as Settings → Knowledge. Only fields in this request are shown.",
+			"knowledgeFields": {
+				"enabled": "Enable knowledge processing",
+				"enabledDesc": "When off, automatic processing pauses. Existing knowledge is not deleted.",
+				"pollIntervalMinutes": "Auto-process interval",
+				"pollIntervalDesc": "How often to check for files that need processing",
+				"processingModelKey": "Processing model",
+				"processingModelDesc": "Model used to read and organize documents",
+				"processingModelReasoningLevel": "Reasoning level",
+				"agentConcurrency": "Parallel processing jobs",
+				"agentConcurrencyDesc": "More parallel jobs is faster but uses more resources",
+				"ocrConcurrency": "Parallel OCR jobs",
+				"ocrConcurrencyDesc": "How many image text-recognition jobs run at once",
+				"pollMinutes": "Every {{count}} minutes"
+			}
 		},
 		"knowledge": {
 			"ops": {
@@ -399,17 +518,22 @@
 					"impact": "The local IM gateway process will restart."
 				},
 				"set-agent-model": {
-					"title": "Set IM Agent Model Confirmation",
-					"summary": "Update the Agent model used by the IM sidecar.",
-					"confirm": "Set model",
-					"badge": "IM model",
-					"impact": "The agent model used by IM gateway will update."
+					"title": "Set Claw model",
+					"summary": "Choose the model used for external IM (Claw) chats. Same picker as Settings.",
+					"confirm": "Save model",
+					"badge": "Claw model",
+					"impact": "Later chats from Feishu/WeChat use this model. Leave empty to follow the default."
 				}
 			},
 			"enableTitle": "Enable IM gateway",
 			"disableTitle": "Disable IM gateway",
 			"restartTarget": "Local IM gateway process",
-			"modelKeyPlaceholder": "provider/modelId, empty to clear"
+			"channelName": "Claw (IM bridge)",
+			"channelHint": "Connect external chat channels such as Feishu and WeChat",
+			"modelKeyPlaceholder": "Select a model, or clear",
+			"modelSectionTitle": "Claw model",
+			"modelSectionDescription": "Same as Settings → Claw. Supports model and reasoning level.",
+			"modelKeyHint": "Leave empty to clear a dedicated model and fall back to the default"
 		},
 		"webhook": {
 			"ops": {
@@ -465,13 +589,22 @@
 		"downloads": {
 			"ops": {
 				"cancel": {
-					"title": "Cancel Download Confirmation",
-					"summary": "Cancel this download task.",
+					"title": "Cancel download",
+					"summary": "This will stop the file download.",
 					"confirm": "Cancel download",
-					"badge": "Cancel",
-					"impact": "This download task will be cancelled.",
-					"warning": "You will need to start the download again if needed."
+					"badge": "Download",
+					"impact": "The download stops immediately. Partial files may remain depending on status.",
+					"warning": "You will need to download again for a complete file."
 				}
+			},
+			"status": "Status",
+			"statuses": {
+				"queued": "Queued",
+				"downloading": "Downloading",
+				"paused": "Paused",
+				"completed": "Completed",
+				"failed": "Failed",
+				"canceled": "Canceled"
 			}
 		},
 		"updater": {
@@ -521,12 +654,22 @@
 		"secretPlaceholder": "Leave empty to keep existing secret / no change"
 	},
 	"navigationApproval": {
-		"title": "Page Navigation Confirmation",
-		"target": "Target Page",
-		"tab": "Tab",
-		"section": "Section",
-		"confirm": "Confirm Navigation",
-		"responding": "Navigating..."
+		"title": "Open page",
+		"summary": "The AI wants to open the following page. Confirm to switch there.",
+		"target": "Page",
+		"tab": "Settings section",
+		"section": "Location",
+		"confirm": "Open",
+		"responding": "Opening...",
+		"impact": "The app will switch to that page. Your data will not be changed.",
+		"targets": {
+			"chat": "Chat",
+			"automation": "Automation",
+			"batch-tasks": "Batch tasks",
+			"skills": "Skills",
+			"downloads": "Downloads",
+			"settings": "Settings"
+		}
 	},
 	"appearanceApproval": {
 		"pickerTitle": "Choose Appearance",
