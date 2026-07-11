@@ -5,6 +5,7 @@ const SYNONYM_CLUSTERS: readonly (readonly string[])[] = [
 	["scheduler", "schedule", "scheduled", "cron", "定时", "定时任务", "计划任务", "自动化", "automation"],
 	["batch-tasks", "batch", "batchtask", "批量", "批量任务", "批处理", "批量执行"],
 	["appearance", "theme", "themes", "主题", "外观", "皮肤", "配色"],
+	["cursor", "pointer", "鼠标", "鼠标指针", "指针", "光标", "白鼬", "stoat", "鼠标样式"],
 	["dark", "深色", "暗色", "夜间", "night"],
 	["light", "浅色", "亮色", "日间", "day"],
 	["auto", "跟随系统", "系统", "system"],
@@ -39,7 +40,22 @@ const SYNONYM_CLUSTERS: readonly (readonly string[])[] = [
 ];
 
 const DOMAIN_KEYWORDS: Record<string, readonly string[]> = {
-	appearance: ["theme", "主题", "外观", "深色", "浅色", "dark", "light", "auto", "模式", "皮肤"],
+	appearance: [
+		"theme",
+		"主题",
+		"外观",
+		"深色",
+		"浅色",
+		"dark",
+		"light",
+		"auto",
+		"模式",
+		"皮肤",
+		"鼠标",
+		"指针",
+		"cursor",
+		"白鼬",
+	],
 	navigation: ["open", "打开", "跳转", "导航", "页面", "设置", "settings", "page"],
 	"batch-tasks": ["批量", "批量任务", "批处理", "batch", "项目", "子任务", "并发"],
 	scheduler: ["定时", "定时任务", "计划任务", "自动化", "cron", "schedule", "调度"],

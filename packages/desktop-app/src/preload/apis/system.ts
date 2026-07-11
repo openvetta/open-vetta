@@ -47,7 +47,12 @@ export function createSystemApi(
 			onModeRequested: (handler) => onIpcEvent(ipc, "vetta:theme:mode-requested", handler),
 			onChangeRequested: (handler) => {
 				const listener = (_event: IpcRendererEvent, data: unknown) => {
-					const request = data as { requestId?: unknown; mode?: unknown; themeId?: unknown };
+					const request = data as {
+						requestId?: unknown;
+						mode?: unknown;
+						themeId?: unknown;
+						cursorStyle?: unknown;
+					};
 					if (typeof request.requestId !== "string") return;
 					const changeRequest: DesktopThemeChangeRequest = {};
 					if (request.mode === "light" || request.mode === "dark" || request.mode === "auto") {
@@ -55,6 +60,9 @@ export function createSystemApi(
 					}
 					if (typeof request.themeId === "string") {
 						changeRequest.themeId = request.themeId;
+					}
+					if (request.cursorStyle === "default" || request.cursorStyle === "stoat") {
+						changeRequest.cursorStyle = request.cursorStyle;
 					}
 					void Promise.resolve(handler(changeRequest)).then(
 						(state) => ipc.send("vetta:theme:change-response", { requestId: request.requestId, state }),

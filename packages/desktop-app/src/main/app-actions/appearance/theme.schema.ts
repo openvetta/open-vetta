@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ActionError, type JsonValue } from "../types.js";
 
 export const themeModeSchema = z.enum(["light", "dark", "auto"]);
+export const cursorStyleSchema = z.enum(["default", "stoat"]);
 export const themeApprovalUiSchema = z.enum(["appearance.theme-change", "appearance.picker", "generic"]);
 export const themeActionInputSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -15,12 +16,17 @@ export const themeActionInputSchema = z.discriminatedUnion("type", [
 			type: z.literal("set"),
 			mode: themeModeSchema.optional(),
 			themeId: z.string().trim().min(1).optional(),
+			cursorStyle: cursorStyleSchema.optional(),
 			approvalUi: themeApprovalUiSchema.optional(),
 		})
 		.refine(
-			(input) => input.mode !== undefined || input.themeId !== undefined || input.approvalUi === "appearance.picker",
+			(input) =>
+				input.mode !== undefined ||
+				input.themeId !== undefined ||
+				input.cursorStyle !== undefined ||
+				input.approvalUi === "appearance.picker",
 			{
-				message: "set requires mode or themeId unless approvalUi is appearance.picker.",
+				message: "set requires mode, themeId, or cursorStyle unless approvalUi is appearance.picker.",
 			},
 		),
 ]);
@@ -29,6 +35,7 @@ export const rendererThemeSnapshotSchema = z.object({
 	themeId: z.string().min(1),
 	resolved: z.enum(["light", "dark"]).nullable(),
 	appliedThemeId: z.string().nullable(),
+	cursorStyle: cursorStyleSchema,
 });
 export const rendererThemeResponseSchema = z.object({
 	requestId: z.string(),
@@ -51,6 +58,7 @@ export const rendererThemeHelpResponseSchema = z.object({
 });
 
 export type ThemeMode = z.infer<typeof themeModeSchema>;
+export type CursorStyle = z.infer<typeof cursorStyleSchema>;
 export type ThemeActionInput = z.infer<typeof themeActionInputSchema>;
 export type RendererThemeSnapshot = z.infer<typeof rendererThemeSnapshotSchema>;
 export type RendererThemeHelp = z.infer<typeof rendererThemeHelpSchema>;

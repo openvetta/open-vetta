@@ -1,16 +1,19 @@
 export type DesktopThemeMode = "light" | "dark" | "auto";
 export type DesktopResolvedThemeMode = "light" | "dark";
+export type DesktopCursorStyle = "default" | "stoat";
 
 export interface DesktopThemeSnapshot {
 	mode: DesktopThemeMode;
 	themeId: string;
 	resolved: DesktopResolvedThemeMode | null;
 	appliedThemeId: string | null;
+	cursorStyle: DesktopCursorStyle;
 }
 
 export interface DesktopThemeChangeRequest {
 	mode?: DesktopThemeMode;
 	themeId?: string;
+	cursorStyle?: DesktopCursorStyle;
 }
 
 export interface DesktopThemeOption {

@@ -2,8 +2,8 @@ import type { DesktopActionApprovalRequest } from "@preload/api.js";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ThemeMode } from "@shared/store/atoms";
-import { themeModeAtom, themeNameAtom } from "@shared/store/atoms";
+import type { CursorStyle, ThemeMode } from "@shared/store/atoms";
+import { cursorStyleAtom, themeModeAtom, themeNameAtom } from "@shared/store/atoms";
 import { useThemeComponent } from "@vetta/theme-sdk";
 import { AppearanceApprovalDrawerView } from "./AppearanceApprovalDrawerView";
 import { AppearanceActionPicker } from "./AppearanceActionPicker";
@@ -11,13 +11,20 @@ import { useActionApproval, type ActiveActionApproval } from "../useActionApprov
 
 function isThemeSetInput(
 	input: DesktopActionApprovalRequest["input"],
-): input is { type: "set"; mode?: ThemeMode; themeId?: string; approvalUi?: string } {
+): input is {
+	type: "set";
+	mode?: ThemeMode;
+	themeId?: string;
+	cursorStyle?: CursorStyle;
+	approvalUi?: string;
+} {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) return false;
 	const value = input as Record<string, unknown>;
 	return (
 		value.type === "set" &&
 		(value.mode === undefined || value.mode === "light" || value.mode === "dark" || value.mode === "auto") &&
-		(value.themeId === undefined || typeof value.themeId === "string")
+		(value.themeId === undefined || typeof value.themeId === "string") &&
+		(value.cursorStyle === undefined || value.cursorStyle === "default" || value.cursorStyle === "stoat")
 	);
 }
 
@@ -25,9 +32,11 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 	const { t } = useTranslation("common");
 	const currentMode = useAtomValue(themeModeAtom);
 	const currentThemeId = useAtomValue(themeNameAtom);
+	const currentCursorStyle = useAtomValue(cursorStyleAtom);
 	const input = isThemeSetInput(approval.request.input) ? approval.request.input : null;
 	const [mode, setMode] = useState<ThemeMode>(input?.mode ?? currentMode);
 	const [themeId, setThemeId] = useState(input?.themeId ?? currentThemeId);
+	const [cursorStyle, setCursorStyle] = useState<CursorStyle>(input?.cursorStyle ?? currentCursorStyle);
 	const { request, responding, error, approve, reject } = approval;
 	const ThemedAppearanceApprovalDrawerView = useThemeComponent(
 		"root.approval.appearanceDrawerView",
@@ -50,6 +59,7 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 					type: "set",
 					mode,
 					themeId,
+					cursorStyle,
 					approvalUi: "appearance.picker",
 				})
 			}
@@ -62,8 +72,10 @@ function AppearancePickerDialog({ approval }: { approval: ActiveActionApproval }
 				<AppearanceActionPicker
 					mode={mode}
 					themeId={themeId}
+					cursorStyle={cursorStyle}
 					onModeChange={setMode}
 					onThemeChange={setThemeId}
+					onCursorStyleChange={setCursorStyle}
 				/>
 			) : (
 				<pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-background/50 px-3 py-2 font-mono text-[11px] leading-5 text-foreground">

@@ -1,5 +1,5 @@
 import { type MouseEvent, type ReactNode } from "react";
-import type { ThemeMode } from "@shared/store/atoms";
+import type { CursorStyle, ThemeMode } from "@shared/store/atoms";
 import { THEMES } from "@shared/theme/themes";
 import type { ThemeDef } from "@shared/theme/tokens";
 import { cn } from "@shared/lib/utils";
@@ -8,6 +8,27 @@ const MODES: { value: ThemeMode; label: string; icon: string; hint: string }[] =
 	{ value: "light", label: "浅色", icon: "icon-[mdi--white-balance-sunny]", hint: "始终浅色" },
 	{ value: "dark", label: "深色", icon: "icon-[mdi--moon-waning-crescent]", hint: "始终深色" },
 	{ value: "auto", label: "跟随系统", icon: "icon-[mdi--theme-light-dark]", hint: "自动切换" },
+];
+
+const CURSORS: {
+	value: CursorStyle;
+	label: string;
+	hint: string;
+	icon?: string;
+	preview?: string;
+}[] = [
+	{
+		value: "default",
+		label: "默认指针",
+		hint: "系统原生鼠标指针",
+		icon: "icon-[mdi--cursor-default-outline]",
+	},
+	{
+		value: "stoat",
+		label: "白鼬",
+		hint: "自定义白鼬指针",
+		preview: "/cursors/default.png",
+	},
 ];
 
 const BLOB_LAYOUT: { left: string; top: string; w: string; h: string; rotate: number }[] = [
@@ -45,16 +66,8 @@ function ModeCard({
 			)}
 		>
 			<div className="flex w-full items-center justify-between">
-				<span
-					className={cn(
-						icon,
-						"h-5 w-5",
-						active ? "text-primary" : "text-muted-foreground",
-					)}
-				/>
-				{active && (
-					<span className="icon-[mdi--check-circle] h-4 w-4 text-primary" />
-				)}
+				<span className={cn(icon, "h-5 w-5", active ? "text-primary" : "text-muted-foreground")} />
+				{active && <span className="icon-[mdi--check-circle] h-4 w-4 text-primary" />}
 			</div>
 			<div className="text-[13px] font-medium text-foreground">{label}</div>
 			<div className="text-[11px] text-muted-foreground">{hint}</div>
@@ -62,26 +75,20 @@ function ModeCard({
 	);
 }
 
-function BlockCard({ theme, active, onSelect }: {
+function BlockCard({
+	theme,
+	active,
+	onSelect,
+}: {
 	theme: ThemeDef;
 	active: boolean;
 	onSelect: (id: string, event: MouseEvent<HTMLButtonElement>) => void;
 }): ReactNode {
 	const palette = theme.dark;
-	const colors = [
-		palette.primary,
-		palette.accent,
-		palette.ring,
-		palette.chart1,
-		palette.chart2,
-	];
+	const colors = [palette.primary, palette.accent, palette.ring, palette.chart1, palette.chart2];
 
 	return (
-		<button
-			type="button"
-			onClick={(event) => onSelect(theme.id, event)}
-			className="group flex flex-col items-stretch gap-2 text-left"
-		>
+		<button type="button" onClick={(event) => onSelect(theme.id, event)} className="group flex flex-col items-stretch gap-2 text-left">
 			<div
 				className={cn(
 					"relative aspect-[16/9] w-full overflow-hidden rounded-lg transition-all",
@@ -92,10 +99,7 @@ function BlockCard({ theme, active, onSelect }: {
 				style={{ background: palette.background }}
 			>
 				<div className="absolute inset-0 flex items-center justify-center">
-					<div
-						className={cn("relative aspect-square w-[180%]", active && "theme-blob-spin")}
-						style={{ filter: "blur(28px) saturate(115%)" }}
-					>
+					<div className={cn("relative aspect-square w-[180%]", active && "theme-blob-spin")} style={{ filter: "blur(28px) saturate(115%)" }}>
 						{BLOB_LAYOUT.map((b, i) => (
 							<div
 								key={`${theme.id}-${i}`}
@@ -128,10 +132,7 @@ function BlockCard({ theme, active, onSelect }: {
 						boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
 					}}
 				>
-					<div
-						className="flex items-center gap-1 px-1.5 py-1"
-						style={{ borderBottom: `1px solid ${palette.border}` }}
-					>
+					<div className="flex items-center gap-1 px-1.5 py-1" style={{ borderBottom: `1px solid ${palette.border}` }}>
 						<span className="h-1 w-1 rounded-full" style={{ background: palette.destructive }} />
 						<span className="h-1 w-1 rounded-full" style={{ background: palette.chart1 }} />
 						<span className="h-1 w-1 rounded-full" style={{ background: palette.primary }} />
@@ -153,14 +154,53 @@ function BlockCard({ theme, active, onSelect }: {
 					</span>
 				)}
 			</div>
-			<span
-				className={cn(
-					"text-[12px] transition-colors",
-					active ? "font-medium text-foreground" : "text-muted-foreground",
-				)}
-			>
+			<span className={cn("text-[12px] transition-colors", active ? "font-medium text-foreground" : "text-muted-foreground")}>
 				{theme.label}
 			</span>
+		</button>
+	);
+}
+
+function CursorCard({
+	value,
+	label,
+	hint,
+	icon,
+	preview,
+	active,
+	onSelect,
+}: {
+	value: CursorStyle;
+	label: string;
+	hint: string;
+	icon?: string;
+	preview?: string;
+	active: boolean;
+	onSelect: (value: CursorStyle) => void;
+}): ReactNode {
+	return (
+		<button
+			type="button"
+			onClick={() => onSelect(value)}
+			className={cn(
+				"group relative flex flex-col items-start gap-2 rounded-xl border bg-card px-4 py-3 text-left transition-colors",
+				active
+					? "border-primary/70 ring-1 ring-inset ring-primary/30"
+					: "border-border hover:border-primary/40 hover:bg-accent/40",
+			)}
+		>
+			<div className="flex w-full items-center justify-between">
+				<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted/80">
+					{preview ? (
+						<img src={preview} alt="" className="h-7 w-7 object-contain" draggable={false} />
+					) : (
+						<span className={cn(icon, "h-6 w-6", active ? "text-primary" : "text-muted-foreground")} />
+					)}
+				</div>
+				{active && <span className="icon-[mdi--check-circle] h-4 w-4 text-primary" />}
+			</div>
+			<div className="text-[13px] font-medium text-foreground">{label}</div>
+			<div className="text-[11px] text-muted-foreground">{hint}</div>
 		</button>
 	);
 }
@@ -168,13 +208,17 @@ function BlockCard({ theme, active, onSelect }: {
 export function AppearanceActionPicker({
 	mode,
 	themeId,
+	cursorStyle,
 	onModeChange,
 	onThemeChange,
+	onCursorStyleChange,
 }: {
 	mode: ThemeMode;
 	themeId: string;
+	cursorStyle: CursorStyle;
 	onModeChange: (mode: ThemeMode) => void;
 	onThemeChange: (themeId: string) => void;
+	onCursorStyleChange: (style: CursorStyle) => void;
 }): ReactNode {
 	return (
 		<div className="space-y-5">
@@ -198,11 +242,23 @@ export function AppearanceActionPicker({
 				<legend className="mb-2.5 text-[13px] font-medium text-foreground">主题风格</legend>
 				<div className="grid grid-cols-2 gap-x-3 gap-y-3">
 					{THEMES.map((t) => (
-						<BlockCard
-							key={t.id}
-							theme={t}
-							active={themeId === t.id}
-							onSelect={(id) => onThemeChange(id)}
+						<BlockCard key={t.id} theme={t} active={themeId === t.id} onSelect={(id) => onThemeChange(id)} />
+					))}
+				</div>
+			</fieldset>
+			<fieldset>
+				<legend className="mb-2.5 text-[13px] font-medium text-foreground">鼠标指针</legend>
+				<div className="grid grid-cols-2 gap-2.5">
+					{CURSORS.map((c) => (
+						<CursorCard
+							key={c.value}
+							value={c.value}
+							label={c.label}
+							hint={c.hint}
+							icon={c.icon}
+							preview={c.preview}
+							active={cursorStyle === c.value}
+							onSelect={onCursorStyleChange}
 						/>
 					))}
 				</div>

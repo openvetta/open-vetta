@@ -1,7 +1,7 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import type { DesktopThemeSnapshot } from "../../../preload/api-types/theme";
-import { resolvedThemeAtom, type ThemeMode, themeModeAtom, themeNameAtom } from "../store/atoms";
+import { cursorStyleAtom, resolvedThemeAtom, type ThemeMode, themeModeAtom, themeNameAtom } from "../store/atoms";
 import {
 	applyTheme,
 	MODE_STORAGE_KEY,
@@ -10,12 +10,14 @@ import {
 	type ThemeTransitionOptions,
 	withThemeTransition,
 } from "../theme/apply";
+import { getStoredCursorStyle, setStoredCursorStyle } from "../theme/cursor";
 import { DEFAULT_THEME_ID, THEMES } from "../theme/themes";
 
 export function useTheme() {
 	const [mode, setModeAtom] = useAtom(themeModeAtom);
 	const [resolved, setResolved] = useAtom(resolvedThemeAtom);
 	const [themeName, setThemeNameAtom] = useAtom(themeNameAtom);
+	const [, setCursorStyleAtom] = useAtom(cursorStyleAtom);
 
 	const getThemeSnapshot = useCallback((): DesktopThemeSnapshot => {
 		const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
@@ -27,6 +29,7 @@ export function useTheme() {
 			themeId: storedThemeId && storedThemeId.length > 0 ? storedThemeId : DEFAULT_THEME_ID,
 			resolved: resolvedMode === "light" || resolvedMode === "dark" ? resolvedMode : null,
 			appliedThemeId: root.getAttribute("data-theme"),
+			cursorStyle: getStoredCursorStyle(),
 		};
 	}, []);
 
@@ -115,7 +118,11 @@ export function useTheme() {
 	);
 
 	useEffect(() => {
-		return window.vetta.theme.onChangeRequested(async ({ mode: requestedMode, themeId }) => {
+		return window.vetta.theme.onChangeRequested(async ({ mode: requestedMode, themeId, cursorStyle }) => {
+			if (cursorStyle !== undefined) {
+				setStoredCursorStyle(cursorStyle);
+				setCursorStyleAtom(cursorStyle);
+			}
 			if (requestedMode !== undefined) {
 				if (typeof themeId === "string") {
 					localStorage.setItem(THEME_STORAGE_KEY, themeId);
@@ -129,7 +136,7 @@ export function useTheme() {
 			}
 			return getThemeSnapshot();
 		});
-	}, [getThemeSnapshot, setMode, setThemeName, setThemeNameAtom]);
+	}, [getThemeSnapshot, setCursorStyleAtom, setMode, setThemeName, setThemeNameAtom]);
 
 	useEffect(() => {
 		return window.vetta.theme.onStateRequested(getThemeSnapshot);

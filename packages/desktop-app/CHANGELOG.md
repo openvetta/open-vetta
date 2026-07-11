@@ -58,6 +58,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Added
 
+- **`appearance.theme` 覆盖外观设置页鼠标指针**：`set`/`get`/`help` 增加 `cursorStyle`（`default` | `stoat`），与显示模式、主题风格同属一个 Action；审批 UI（theme-change / picker）可一并选择指针样式；经既有 theme IPC 写入 `vetta-cursor-style`，桌宠通过 storage 事件跟随。
 - **扩展 App Actions 覆盖面（中高优先级）**：新增 models / mcp / skills / projects / settings / knowledge / plugins / im / webhook / downloads / updater 等域的 query+manage Action，经 `vetta action` 操作 Desktop 能力；写操作走领域专用审批 UI（可回退 generic）；密钥字段在查询结果中脱敏。市场技能安装与 Flowing 远端流转仍走 GUI。
 - **主题自有数据存储（Theme Storage）**：主题可通过 `@vetta/theme-sdk/storage` 的 `useThemeStorage` / `useThemeStorageValue` 持久化自身 KV 数据；desktop-app 经 `ThemeHost.storage` 注入实现，main 进程按 `themeId` 隔离写入 `~/.vetta/desktop-app/themes/<themeId>/data.json`（单主题 ≤ 256KB，JSON only），preload 暴露 `vetta.themes.storage` 仅供 host 使用。主题不得直接访问 `localStorage` / `window.vetta`。详见 `docs/theme/storage.md`。
 - **主题修为与应用使用绑定**：新增 `ThemeHost.usage`（`useThemeUsageStats`，数据源为 app-monitor）与 `ThemeModule.runtime` 无 UI 挂载点。内置 xianxia 将 app-monitor 多指标合成修为分并映射境界，写入 theme storage key `cultivation`（不绑定设置页 fanren 成就阶梯；暂无洞天 UI 消费）。
