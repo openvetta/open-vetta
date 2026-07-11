@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 
-export type ToggleDomain = "mcp" | "skills" | "plugins" | "im" | "webhook" | "settings.notifications";
+export type ToggleDomain = "mcp" | "skills" | "plugins" | "im" | "webhook" | "general.notifications";
 
 /** 按「将开启 / 将关闭」拆分标题、摘要、确认按钮与影响说明，消除歧义。 */
 export function getToggleApprovalCopy(

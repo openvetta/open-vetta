@@ -1,6 +1,8 @@
 import { THEME_MAP } from "../../../renderer/shared/theme/themes/index.js";
+import { getAppLanguage } from "../../i18n/index.js";
+import { applyAppLanguage } from "../../ipc/i18n.js";
 import { getMainWindow } from "../../window-manager.js";
-import { throwAgentEntityNotFound } from "../shared.js";
+import { throwAgentEntityNotFound, toJsonValue } from "../shared.js";
 import { type ActionDefinition, ActionError, type JsonValue } from "../types.js";
 import { type ThemeActionInput, validateThemeActionInput } from "./theme.schema.js";
 import {
@@ -16,7 +18,7 @@ export const themeAction: ActionDefinition = {
 	id: "appearance.theme",
 	domain: "appearance",
 	title: "读取或设置外观",
-	summary: "对应设置 → 外观：读取/切换显示模式（浅色/深色/跟随系统）、主题风格，以及鼠标指针样式（默认/白鼬）。",
+	summary: "对应设置 → 外观：读取/切换显示模式、主题风格、鼠标指针，以及界面语言（zh/en）。",
 	availability: "gui-main",
 	permission: "appearance.write",
 	keywords: [
@@ -45,6 +47,11 @@ export const themeAction: ActionDefinition = {
 		"stoat",
 		"鼠标样式",
 		"cursorStyle",
+		"语言",
+		"language",
+		"中文",
+		"英文",
+		"locale",
 	],
 	approval: {
 		defaultPresentation: "appearance.theme-change",
@@ -60,6 +67,11 @@ export const themeAction: ActionDefinition = {
 				description: "使用可交互的外观选择界面，并按用户最终选择执行变更。",
 			},
 			{
+				id: "appearance.set-language",
+				title: "修改界面语言确认",
+				description: "确认界面语言切换。",
+			},
+			{
 				id: "generic",
 				title: "通用确认",
 				description: "使用通用 Action 审批界面，直接展示 Action 信息和完整输入。",
@@ -68,7 +80,7 @@ export const themeAction: ActionDefinition = {
 	},
 	inputSchema: {
 		description:
-			'对象参数：{ "type": "help" }、{ "type": "get" } 或 { "type": "set", "mode"?: "light" | "dark" | "auto", "themeId"?: string, "cursorStyle"?: "default" | "stoat", "approvalUi"?: "appearance.theme-change" | "appearance.picker" | "generic" }。对应设置 → 外观中的显示模式、主题风格与鼠标指针。set 至少提供 mode / themeId / cursorStyle 之一；approvalUi 为 appearance.picker 时可全部省略，由用户在审批界面选择。cursorStyle=default 为系统默认指针，stoat 为白鼬自定义指针。approvalUi 省略时使用默认的 appearance.theme-change。',
+			'对象参数：{ "type": "help" }、{ "type": "get" }、{ "type": "set", "mode"?: ..., "themeId"?: ..., "cursorStyle"?: ... } 或 { "type": "set-language", "language": "zh" | "en" }。语言与主题/指针同属设置 → 外观。',
 	},
 	examples: [
 		{
@@ -76,7 +88,7 @@ export const themeAction: ActionDefinition = {
 			input: { type: "help" },
 		},
 		{
-			description: "获取当前外观（模式、主题、指针）",
+			description: "获取当前外观（模式、主题、指针、语言）",
 			input: { type: "get" },
 		},
 		{
@@ -94,6 +106,10 @@ export const themeAction: ActionDefinition = {
 		{
 			description: "恢复系统默认鼠标指针",
 			input: { type: "set", cursorStyle: "default" },
+		},
+		{
+			description: "切换界面语言为英文",
+			input: { type: "set-language", language: "en" },
 		},
 		{
 			description: "在外观选择器中确认或调整模式/主题/指针",
@@ -125,17 +141,31 @@ export const themeAction: ActionDefinition = {
 	},
 	requiresApproval: (input, context) => {
 		const request = input as unknown as ThemeActionInput;
-		return context.source === "local-server" && request.type === "set";
+		return context.source === "local-server" && (request.type === "set" || request.type === "set-language");
 	},
 	run: async (input) => {
 		const request = input as unknown as ThemeActionInput;
 		if (request.type === "help") {
-			return await getThemeHelp();
+			const help = await getThemeHelp();
+			return toJsonValue({
+				...(typeof help === "object" && help !== null ? help : { help }),
+				language: getAppLanguage(),
+				guidance: "界面语言用 type=set-language；主题/模式/指针用 type=set。",
+			});
 		}
 
 		if (request.type === "get") {
 			const mainWindow = getMainWindow();
-			return mainWindow === null ? getFallbackThemeState() : await getThemeState();
+			const state = mainWindow === null ? getFallbackThemeState() : await getThemeState();
+			return toJsonValue({
+				...(typeof state === "object" && state !== null ? state : { state }),
+				language: getAppLanguage(),
+			});
+		}
+
+		if (request.type === "set-language") {
+			await applyAppLanguage(request.language);
+			return { type: "set-language", language: request.language };
 		}
 
 		if (request.mode === undefined && request.themeId === undefined && request.cursorStyle === undefined) {

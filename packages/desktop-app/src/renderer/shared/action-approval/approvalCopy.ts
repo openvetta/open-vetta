@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 
 /** 把 permission 码转成用户可读说明；未知码回落通用「为何需要确认」文案。 */
 export function formatApprovalWhyConfirm(t: TFunction<"common">, _permission?: string): string {
-	// 终端用户不需要看到 `settings.write` 这类实现级权限码。
+	// 终端用户不需要看到 `general.write` / `agent.write` 这类实现级权限码。
 	return t("actionApproval.whyConfirm");
 }
 
@@ -13,8 +13,8 @@ export function formatApprovalBoolean(t: TFunction<"common">, value: boolean): s
 
 /** 执行模式人话标签。 */
 export function formatExecutionMode(t: TFunction<"common">, mode: string): string {
-	if (mode === "sandbox") return t("manageApproval.settings.executionModeSandbox");
-	if (mode === "full-access") return t("manageApproval.settings.executionModeFullAccess");
+	if (mode === "sandbox") return t("manageApproval.general.executionModeSandbox");
+	if (mode === "full-access") return t("manageApproval.general.executionModeFullAccess");
 	return mode;
 }
 
@@ -26,9 +26,9 @@ export function isExperimentalFieldKey(key: string): key is ExperimentalFieldKey
 }
 
 export function experimentalFieldLabel(t: TFunction<"common">, key: string): string {
-	if (key === "vettaCli") return t("manageApproval.settings.experimentalFields.vettaCli");
-	if (key === "promptPrediction") return t("manageApproval.settings.experimentalFields.promptPrediction");
-	if (key === "agentSkills") return t("manageApproval.settings.experimentalFields.agentSkills");
+	if (key === "vettaCli") return t("manageApproval.agent.experimentalFields.vettaCli");
+	if (key === "promptPrediction") return t("manageApproval.agent.experimentalFields.promptPrediction");
+	if (key === "agentSkills") return t("manageApproval.agent.experimentalFields.agentSkills");
 	return key;
 }
 
@@ -44,12 +44,12 @@ export type KnowledgeBaseFieldKey = (typeof KB_FIELD_KEYS)[number];
 
 export function knowledgeBaseFieldLabel(t: TFunction<"common">, key: string): string {
 	const map: Record<string, string> = {
-		enabled: t("manageApproval.settings.knowledgeFields.enabled"),
-		pollIntervalMinutes: t("manageApproval.settings.knowledgeFields.pollIntervalMinutes"),
-		processingModelKey: t("manageApproval.settings.knowledgeFields.processingModelKey"),
-		processingModelReasoningLevel: t("manageApproval.settings.knowledgeFields.processingModelReasoningLevel"),
-		agentConcurrency: t("manageApproval.settings.knowledgeFields.agentConcurrency"),
-		ocrConcurrency: t("manageApproval.settings.knowledgeFields.ocrConcurrency"),
+		enabled: t("manageApproval.knowledge.processingFields.enabled"),
+		pollIntervalMinutes: t("manageApproval.knowledge.processingFields.pollIntervalMinutes"),
+		processingModelKey: t("manageApproval.knowledge.processingFields.processingModelKey"),
+		processingModelReasoningLevel: t("manageApproval.knowledge.processingFields.processingModelReasoningLevel"),
+		agentConcurrency: t("manageApproval.knowledge.processingFields.agentConcurrency"),
+		ocrConcurrency: t("manageApproval.knowledge.processingFields.ocrConcurrency"),
 	};
 	return map[key] ?? key;
 }

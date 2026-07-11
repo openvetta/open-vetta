@@ -44,11 +44,11 @@ function experimentalFieldDescription(
 	t: ReturnType<typeof useManageApprovalFrame>["t"],
 	key: ExperimentalFieldKey,
 ): string {
-	return t(`manageApproval.settings.experimentalFields.${key}Desc`);
+	return t(`manageApproval.agent.experimentalFields.${key}Desc`);
 }
 
-export function SettingsSetExperimentalApproval(): JSX.Element | null {
-	const approval = useActionApproval("settings.set-experimental");
+export function AgentSetExperimentalApproval(): JSX.Element | null {
+	const approval = useActionApproval("agent.set-experimental");
 	if (!approval) return null;
 	return <Content key={approval.request.approvalId} approval={approval} />;
 }
@@ -64,11 +64,11 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 	return (
 		<Frame
 			presentation="drawer"
-			title={t("manageApproval.settings.ops.set-experimental.title")}
-			summary={t("manageApproval.settings.ops.set-experimental.summary")}
+			title={t("manageApproval.agent.ops.set-experimental.title")}
+			summary={t("manageApproval.agent.ops.set-experimental.summary")}
 			icon="icon-[mdi--flask-outline]"
-			badge={t("manageApproval.settings.ops.set-experimental.badge")}
-			labels={frameLabels(request.permission, t("manageApproval.settings.ops.set-experimental.confirm"))}
+			badge={t("manageApproval.agent.ops.set-experimental.badge")}
+			labels={frameLabels(request.permission, t("manageApproval.agent.ops.set-experimental.confirm"))}
 			responding={responding}
 			countdown={approval.countdown.formatted}
 			error={error}
@@ -78,7 +78,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 					? approve({
 							operation: "set-experimental",
 							data,
-							approvalUi: input.approvalUi ?? "settings.set-experimental",
+							approvalUi: input.approvalUi ?? "agent.set-experimental",
 						})
 					: approve()
 			}
@@ -87,8 +87,8 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 			{input ? (
 				<>
 					<ApprovalSettingGroup
-						title={t("manageApproval.settings.experimentalSectionTitle")}
-						description={t("manageApproval.settings.experimentalSectionDescription")}
+						title={t("manageApproval.agent.experimentalSectionTitle")}
+						description={t("manageApproval.agent.experimentalSectionDescription")}
 					>
 						{keys.map((key, index) => {
 							const value = Boolean(data[key]);
@@ -126,7 +126,7 @@ function Content({ approval }: { approval: ActiveActionApproval }): JSX.Element 
 					<ApprovalImpactCard
 						icon="icon-[mdi--flask-outline]"
 						title={t("manageApproval.afterActionTitle")}
-						description={t("manageApproval.settings.ops.set-experimental.impact")}
+						description={t("manageApproval.agent.ops.set-experimental.impact")}
 					/>
 				</>
 			) : (

@@ -7,7 +7,19 @@ export const knowledgeQueryInputSchema = z.discriminatedUnion("operation", [
 	z.object({ operation: z.literal("list") }),
 	z.object({ operation: z.literal("statuses") }),
 	z.object({ operation: z.literal("is-processing") }),
+	z.object({ operation: z.literal("get-processing") }),
 ]);
+
+const knowledgeProcessingDataSchema = z
+	.object({
+		enabled: z.boolean().optional(),
+		pollIntervalMinutes: z.union([z.literal(3), z.literal(5), z.literal(10), z.literal(30)]).optional(),
+		processingModelKey: z.string().trim().min(1).nullable().optional(),
+		processingModelReasoningLevel: z.string().trim().min(1).nullable().optional(),
+		agentConcurrency: z.number().int().min(1).max(16).optional(),
+		ocrConcurrency: z.number().int().min(1).max(8).optional(),
+	})
+	.refine((data) => Object.keys(data).length > 0, "set-processing requires at least one field.");
 
 export const knowledgeManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
@@ -46,6 +58,11 @@ export const knowledgeManageInputSchema = z.discriminatedUnion("operation", [
 	z.object({
 		operation: z.literal("retry-failed"),
 		approvalUi: operationApprovalUiSchema("knowledge.retry-failed"),
+	}),
+	z.object({
+		operation: z.literal("set-processing"),
+		data: knowledgeProcessingDataSchema,
+		approvalUi: operationApprovalUiSchema("knowledge.set-processing"),
 	}),
 ]);
 

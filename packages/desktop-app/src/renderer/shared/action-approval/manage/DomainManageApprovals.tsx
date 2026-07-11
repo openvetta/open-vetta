@@ -1,4 +1,11 @@
+import { AgentSetExperimentalApproval } from "./agent";
+import { AppearanceSetLanguageApproval } from "./appearance";
 import { DownloadsCancelApproval } from "./downloads";
+import {
+	GeneralSetExecutionModeApproval,
+	GeneralSetNotificationsApproval,
+	GeneralSetWorkspaceApproval,
+} from "./general";
 import { ImRestartApproval, ImSetAgentModelApproval, ImSetEnabledApproval } from "./im";
 import {
 	KnowledgeAddFilesApproval,
@@ -8,6 +15,7 @@ import {
 	KnowledgeRenameApproval,
 	KnowledgeRetryFailedApproval,
 	KnowledgeScanNowApproval,
+	KnowledgeSetProcessingApproval,
 } from "./knowledge";
 import { McpRemoveApproval, McpSetEnabledApproval, McpUpsertApproval } from "./mcp";
 import {
@@ -29,14 +37,6 @@ import {
 	ProjectsRenameApproval,
 	ProjectsUnarchiveApproval,
 } from "./projects";
-import {
-	SettingsSetExecutionModeApproval,
-	SettingsSetExperimentalApproval,
-	SettingsSetKnowledgeBaseApproval,
-	SettingsSetLanguageApproval,
-	SettingsSetNotificationsApproval,
-	SettingsSetWorkspaceApproval,
-} from "./settings";
 import { SkillsSetEnabledApproval, SkillsUninstallApproval } from "./skills";
 import {
 	UpdaterCancelApproval,
@@ -79,12 +79,13 @@ export function DomainManageApprovals(): JSX.Element {
 			<ProjectsUnarchiveApproval />
 			<ProjectsRemoveApproval />
 
-			<SettingsSetLanguageApproval />
-			<SettingsSetNotificationsApproval />
-			<SettingsSetExecutionModeApproval />
-			<SettingsSetWorkspaceApproval />
-			<SettingsSetExperimentalApproval />
-			<SettingsSetKnowledgeBaseApproval />
+			<AppearanceSetLanguageApproval />
+
+			<GeneralSetNotificationsApproval />
+			<GeneralSetExecutionModeApproval />
+			<GeneralSetWorkspaceApproval />
+
+			<AgentSetExperimentalApproval />
 
 			<KnowledgeCreateApproval />
 			<KnowledgeRenameApproval />
@@ -93,6 +94,7 @@ export function DomainManageApprovals(): JSX.Element {
 			<KnowledgeDeleteEntryApproval />
 			<KnowledgeScanNowApproval />
 			<KnowledgeRetryFailedApproval />
+			<KnowledgeSetProcessingApproval />
 
 			<PluginsSetEnabledApproval />
 			<PluginsInstallFromUrlApproval />

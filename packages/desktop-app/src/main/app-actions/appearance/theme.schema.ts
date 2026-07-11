@@ -3,7 +3,13 @@ import { ActionError, type JsonValue } from "../types.js";
 
 export const themeModeSchema = z.enum(["light", "dark", "auto"]);
 export const cursorStyleSchema = z.enum(["default", "stoat"]);
-export const themeApprovalUiSchema = z.enum(["appearance.theme-change", "appearance.picker", "generic"]);
+export const appLanguageSchema = z.enum(["zh", "en"]);
+export const themeApprovalUiSchema = z.enum([
+	"appearance.theme-change",
+	"appearance.picker",
+	"appearance.set-language",
+	"generic",
+]);
 export const themeActionInputSchema = z.discriminatedUnion("type", [
 	z.object({
 		type: z.literal("help"),
@@ -29,6 +35,14 @@ export const themeActionInputSchema = z.discriminatedUnion("type", [
 				message: "set requires mode, themeId, or cursorStyle unless approvalUi is appearance.picker.",
 			},
 		),
+	z.object({
+		type: z.literal("set-language"),
+		language: appLanguageSchema,
+		approvalUi: z
+			.union([z.literal("appearance.set-language"), z.literal("generic")])
+			.optional()
+			.default("appearance.set-language"),
+	}),
 ]);
 export const rendererThemeSnapshotSchema = z.object({
 	mode: themeModeSchema,

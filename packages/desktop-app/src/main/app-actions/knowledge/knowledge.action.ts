@@ -1,4 +1,4 @@
-import { readDesktopConfig } from "../../ipc/fs.js";
+import { readDesktopConfig, writeDesktopConfig } from "../../ipc/fs.js";
 import { isKnowledgeProcessing, retryFailedKnowledge, runKnowledgeRound } from "../../knowledge/poller.js";
 import {
 	addFilesToKnowledgeBase,
@@ -19,7 +19,8 @@ import {
 } from "./knowledge.schema.js";
 
 const queryInputSchema: ActionInputSchema = {
-	description: '对象参数；operation 为 "help"、"list"、"statuses" 或 "is-processing"。',
+	description:
+		'对象参数；operation 为 "help"、"list"、"statuses"、"is-processing" 或 "get-processing"（加工策略配置）。',
 	operations: [
 		{
 			name: "help",
@@ -43,12 +44,19 @@ const queryInputSchema: ActionInputSchema = {
 				{ name: "operation", type: '"is-processing"', required: true, description: "固定为 is-processing。" },
 			],
 		},
+		{
+			name: "get-processing",
+			description: "读取知识库加工策略（开关、间隔、整理模型、并发等）。",
+			parameters: [
+				{ name: "operation", type: '"get-processing"', required: true, description: "固定为 get-processing。" },
+			],
+		},
 	],
 };
 
 const manageInputSchema: ActionInputSchema = {
 	description:
-		'对象参数；operation 为 "create"、"rename"、"delete"、"add-files"、"delete-entry"、"scan-now" 或 "retry-failed"。加工设置请用 settings.manage set-knowledge-base。',
+		'对象参数；operation 为 "create"、"rename"、"delete"、"add-files"、"delete-entry"、"scan-now"、"retry-failed" 或 "set-processing"（加工策略 patch）。',
 	operations: [
 		{
 			name: "create",
@@ -106,12 +114,27 @@ const manageInputSchema: ActionInputSchema = {
 				{ name: "operation", type: '"retry-failed"', required: true, description: "固定为 retry-failed。" },
 			],
 		},
+		{
+			name: "set-processing",
+			description: "patch 知识库加工策略（对应设置 → 知识库）。",
+			parameters: [
+				{ name: "operation", type: '"set-processing"', required: true, description: "固定为 set-processing。" },
+				{
+					name: "data",
+					type: "object",
+					required: true,
+					description:
+						"enabled / pollIntervalMinutes / processingModelKey / processingModelReasoningLevel / agentConcurrency / ocrConcurrency；null 表示清空模型字段。",
+				},
+			],
+		},
 	],
 };
 
 const queryExamples: ActionExample[] = [
 	{ description: "列出知识库", input: { operation: "list" } },
 	{ description: "查看加工状态", input: { operation: "is-processing" } },
+	{ description: "读取加工策略配置", input: { operation: "get-processing" } },
 ];
 
 const manageExamples: ActionExample[] = [
@@ -121,6 +144,7 @@ const manageExamples: ActionExample[] = [
 		description: "导入文件",
 		input: { operation: "add-files", kbId: "default_kb", paths: ["C:\\\\docs\\\\a.pdf"] },
 	},
+	{ description: "开启知识库加工", input: { operation: "set-processing", data: { enabled: true } } },
 ];
 
 export function createKnowledgeActions(): ActionDefinition[] {
@@ -129,10 +153,10 @@ export function createKnowledgeActions(): ActionDefinition[] {
 			id: "knowledge.query",
 			domain: "knowledge",
 			title: "查询知识库",
-			summary: "列出知识库、文件加工态或当前是否在加工。",
+			summary: "列出知识库、文件加工态、是否在加工，以及加工策略配置。",
 			availability: "gui-main",
 			permission: "knowledge.read",
-			keywords: ["知识库", "knowledge", "wiki", "加工", "索引", "raws"],
+			keywords: ["知识库", "knowledge", "wiki", "加工", "索引", "raws", "整理模型", "processing"],
 			inputSchema: queryInputSchema,
 			examples: queryExamples,
 			validateInput: validateKnowledgeQueryInput,
@@ -140,7 +164,8 @@ export function createKnowledgeActions(): ActionDefinition[] {
 				const request = input as unknown as KnowledgeQueryInput;
 				if (request.operation === "help") {
 					return toJsonValue({
-						guidance: "加工模型等设置用 settings.manage set-knowledge-base。",
+						guidance:
+							"知识库实体与加工策略都在 knowledge.*。set-processing 对应设置 → 知识库；list/add-files 管理库与文件。",
 						actions: [
 							{ id: "knowledge.query", inputSchema: queryInputSchema, examples: queryExamples },
 							{ id: "knowledge.manage", inputSchema: manageInputSchema, examples: manageExamples },
@@ -149,6 +174,10 @@ export function createKnowledgeActions(): ActionDefinition[] {
 				}
 				if (request.operation === "list") return await runActionService(() => listKnowledgeBases());
 				if (request.operation === "statuses") return await runActionService(() => getKnowledgeFileStatuses());
+				if (request.operation === "get-processing") {
+					const config = await readDesktopConfig();
+					return toJsonValue({ knowledgeBase: config.knowledgeBase ?? {} });
+				}
 				return toJsonValue({ processing: isKnowledgeProcessing() });
 			},
 		},
@@ -156,10 +185,10 @@ export function createKnowledgeActions(): ActionDefinition[] {
 			id: "knowledge.manage",
 			domain: "knowledge",
 			title: "管理知识库",
-			summary: "创建/重命名/删除知识库，导入文件，触发加工。",
+			summary: "创建/重命名/删除知识库，导入文件，触发加工，以及修改加工策略。",
 			availability: "gui-main",
 			permission: "knowledge.write",
-			keywords: ["知识库", "导入", "加工", "scan", "knowledge"],
+			keywords: ["知识库", "导入", "加工", "scan", "knowledge", "整理", "processing", "模型"],
 			approval: createOperationApprovals("knowledge.create", [
 				{ id: "knowledge.create", title: "创建知识库确认", description: "展示并可编辑知识库名称。" },
 				{ id: "knowledge.rename", title: "重命名知识库确认", description: "展示并可编辑新名称。" },
@@ -168,17 +197,19 @@ export function createKnowledgeActions(): ActionDefinition[] {
 				{ id: "knowledge.delete-entry", title: "删除知识库条目确认", description: "展示待删除条目。" },
 				{ id: "knowledge.scan-now", title: "立即整理知识库确认", description: "确认触发整理。" },
 				{ id: "knowledge.retry-failed", title: "重试失败知识库任务确认", description: "确认重试失败任务。" },
+				{ id: "knowledge.set-processing", title: "修改知识库加工设置确认", description: "确认加工策略变更。" },
 			]),
 			inputSchema: manageInputSchema,
 			examples: manageExamples,
 			validateInput: validateKnowledgeManageInput,
 			assertReady: async (input) => {
 				const request = input as unknown as KnowledgeManageInput;
-				// create / scan-now / retry-failed 不要求指定库已存在于参数中。
+				// create / scan-now / retry-failed / set-processing 不要求指定库已存在于参数中。
 				if (
 					request.operation === "create" ||
 					request.operation === "scan-now" ||
-					request.operation === "retry-failed"
+					request.operation === "retry-failed" ||
+					request.operation === "set-processing"
 				) {
 					return;
 				}
@@ -261,6 +292,24 @@ export function createKnowledgeActions(): ActionDefinition[] {
 									kb?.processingModelReasoningLevel,
 								)),
 							};
+						}
+						case "set-processing": {
+							const config = await readDesktopConfig();
+							const kb = { ...config.knowledgeBase };
+							const data = request.data;
+							if (data.enabled !== undefined) kb.enabled = data.enabled;
+							if (data.pollIntervalMinutes !== undefined) kb.pollIntervalMinutes = data.pollIntervalMinutes;
+							if (data.processingModelKey === null) delete kb.processingModelKey;
+							else if (data.processingModelKey !== undefined) kb.processingModelKey = data.processingModelKey;
+							if (data.processingModelReasoningLevel === null) delete kb.processingModelReasoningLevel;
+							else if (data.processingModelReasoningLevel !== undefined) {
+								kb.processingModelReasoningLevel = data.processingModelReasoningLevel;
+							}
+							if (data.agentConcurrency !== undefined) kb.agentConcurrency = data.agentConcurrency;
+							if (data.ocrConcurrency !== undefined) kb.ocrConcurrency = data.ocrConcurrency;
+							config.knowledgeBase = kb;
+							await writeDesktopConfig(config);
+							return { operation: "set-processing", knowledgeBase: kb };
 						}
 					}
 				});
