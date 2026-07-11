@@ -34,7 +34,7 @@ import type { WindowControlButton, WindowControlsComponentProps } from "@shared/
 import type { DrawerCard } from "@shared/components/DrawerCard";
 import type { UpdateRestartDialogView } from "@shared/components/UpdateRestartDialogView";
 import type { ConfirmDialogView } from "@shared/components/ui/ConfirmDialogView";
-import type { NewSessionSceneCarouselProps, NewSessionSkillBadgeRowProps } from "@vetta/theme-ui";
+import type { NewSessionHeroProps, NewSessionSceneCarouselProps, NewSessionSkillBadgeRowProps } from "@vetta/theme-ui";
 import type { ComponentType } from "react";
 
 declare module "@vetta/theme-sdk" {
@@ -58,6 +58,7 @@ declare module "@vetta/theme-sdk" {
 		readonly "chat.inputBarView"?: typeof InputBarView;
 		readonly "chat.modelSelectorView"?: typeof ModelSelectorView;
 		readonly "chat.newSessionBackground"?: ComponentType;
+		readonly "chat.newSessionHero"?: ComponentType<NewSessionHeroProps>;
 		readonly "chat.newSessionSceneCarousel"?: ComponentType<NewSessionSceneCarouselProps>;
 		readonly "chat.newSessionSceneCard"?: typeof SceneCard;
 		readonly "chat.newSessionSkillBadgeRow"?: ComponentType<NewSessionSkillBadgeRowProps>;

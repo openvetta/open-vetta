@@ -4,6 +4,10 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ## [Unreleased] — 内测版（未公证）
 
+### Added
+
+- **新会话欢迎区主题覆盖点 `chat.newSessionHero`**：开放 `NewSessionHeroProps`（标题/副标题/场景轮播等）供主题替换欢迎区实现；默认仍渲染 `BotAvatar`。修仙主题覆盖为无头像布局，去掉 idle 弹跳手势。
+
 ### Removed
 
 - **模型配置页移除「视图 / JSON」切换**：仅保留可视化服务商与模型表单；删除 `ModelsJsonEditor`、编辑模式状态，以及导航 section `models-json`。
