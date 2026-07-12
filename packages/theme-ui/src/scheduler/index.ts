@@ -1,4 +1,9 @@
 export type {
+	AutomationPageViewLabels,
+	AutomationPageViewProps,
+} from "./AutomationPageView";
+export { AutomationPageView } from "./AutomationPageView";
+export type {
 	ExecutionHistoryRecordView,
 	ExecutionHistoryStatus,
 	ExecutionHistoryViewLabels,

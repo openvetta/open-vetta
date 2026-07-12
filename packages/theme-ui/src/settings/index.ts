@@ -169,6 +169,19 @@ export type {
 	SubscriptionWindowViewModel,
 } from "./SubscriptionCardsView";
 export { SubscriptionCardsView } from "./SubscriptionCardsView";
+export type {
+	TeamDetailViewData,
+	TeamDetailViewLabels,
+	TeamDetailViewProps,
+	TeamMemberView,
+} from "./TeamDetailView";
+export { TeamDetailView } from "./TeamDetailView";
+export type {
+	CreateTeamDialogViewProps,
+	JoinTeamDialogViewProps,
+	TeamDialogLabelsView,
+} from "./TeamDialogsView";
+export { CreateTeamDialogView, JoinTeamDialogView } from "./TeamDialogsView";
 export type { TeamListItemView, TeamListViewProps } from "./TeamListView";
 export { TeamListView } from "./TeamListView";
 export type { TeamSettingsViewProps } from "./TeamSettingsView";

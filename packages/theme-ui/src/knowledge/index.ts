@@ -22,6 +22,15 @@ export type {
 	KnowledgeHowItWorksStepView,
 } from "./KnowledgeHowItWorksDialogView";
 export { KnowledgeHowItWorksDialogView } from "./KnowledgeHowItWorksDialogView";
+export type {
+	KnowledgeImportBaseOptionView,
+	KnowledgeImportDialogViewLabels,
+	KnowledgeImportDialogViewProps,
+} from "./KnowledgeImportDialogView";
+export {
+	KNOWLEDGE_IMPORT_NEW_BASE,
+	KnowledgeImportDialogView,
+} from "./KnowledgeImportDialogView";
 export { KnowledgeListView } from "./KnowledgeListView";
 export type {
 	KnowledgePendingFileRowView,
