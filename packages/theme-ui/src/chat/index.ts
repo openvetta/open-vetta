@@ -56,6 +56,8 @@ export type {
 export { BashBackgroundTaskTailView, BashTerminalCard } from "./BashTerminalCard";
 export type { ChatExportHostViewProps } from "./ChatExportHostView";
 export { ChatExportHostView } from "./ChatExportHostView";
+export type { ChatHeaderActionsViewProps } from "./ChatHeaderActionsView";
+export { ChatHeaderActionsView } from "./ChatHeaderActionsView";
 export type { ContextRingViewProps } from "./ContextRingView";
 export { CIRCUMFERENCE as CONTEXT_RING_CIRCUMFERENCE, ContextRingView } from "./ContextRingView";
 export type { CopyIconButtonLabels, CopyIconButtonProps } from "./CopyIconButton";
