@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { ModelSelect } from "@shared/components/ModelSelect";
-import { Button } from "@shared/components/ui/button";
+import { Button } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import { SettingsAiAssist } from "../ai-assist";
-import { SettingHeading, SettingRow, SettingSection } from "./shared";
+import { SettingHeading, SettingRow, SettingSection } from "@vetta/theme-ui/settings";
 import { SETTINGS_SECTION } from "../registry";
 import { ImChannelCard } from "./ImChannelCard";
 import { ImFeishuDialog } from "./ImFeishuDialog";

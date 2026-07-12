@@ -1,6 +1,7 @@
+import { TaskFormDialogView } from "@vetta/theme-ui/scheduler";
 import { SkillPromptArea } from "@domains/chat/components/SkillPromptArea";
 import { ModelSelect } from "@shared/components/ModelSelect";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@vetta/ui";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -327,3 +328,5 @@ function IntervalEditor({
 		</div>
 	);
 }
+
+export type ThemeUiLink_TaskFormDialogView = typeof TaskFormDialogView;

@@ -1,5 +1,5 @@
-import { Button } from "@shared/components/ui/button";
-import { Input } from "@shared/components/ui/input";
+import { Button } from "@vetta/ui";
+
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -388,12 +388,13 @@ function QuestionBody({
 						{otherOption}
 					</button>
 					{state.otherActive && (
-						<Input
+						<input
+							// biome-ignore lint/a11y/noAutofocus: preserve original other-option focus
 							autoFocus
 							value={state.otherText}
 							onChange={(e) => onOtherText(e.target.value)}
 							placeholder={otherPlaceholder}
-							className="h-8"
+							className="h-8 w-full min-w-0 rounded-lg border border-border/60 bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/20"
 						/>
 					)}
 				</div>

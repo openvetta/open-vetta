@@ -1,13 +1,13 @@
-import { Button } from "@shared/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@shared/components/ui/popover";
+import { Button } from "@vetta/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@vetta/ui";
 import { Slider } from "@shared/components/ui/slider";
-import { Switch } from "@shared/components/ui/switch";
+import { Switch } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { SettingsAiAssist } from "../ai-assist";
 import { SETTINGS_SECTION } from "../registry";
-import { SettingHeading, SettingRow, SettingSection } from "./shared";
+import { SettingHeading, SettingRow, SettingSection } from "@vetta/theme-ui/settings";
 import type { AgentSettingsModel } from "./useAgentSettingsModel";
 
 const personaItemVariants = {

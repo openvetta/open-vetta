@@ -12,7 +12,7 @@ import {
 	DropdownMenuSubContent,
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
-} from "@shared/components/ui/dropdown-menu";
+} from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import { ThemeSurface } from "@vetta/theme-ui/appearance";
 import type { ModelSelectorViewProps } from "./types";

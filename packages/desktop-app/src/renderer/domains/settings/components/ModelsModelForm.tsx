@@ -1,9 +1,9 @@
 import { getReasoningPreset } from "@vetta/ai/reasoning-presets";
 import { useTranslation } from "react-i18next";
-import { Button } from "@shared/components/ui/button";
+import { Button } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import { CheckboxField } from "./McpSettings";
-import { InputField } from "./SettingsFormFields";
+import { InputField } from "@vetta/theme-ui/settings";
 import {
 	CANDIDATE_REASONING_LEVELS,
 	INPUT_OPTIONS,

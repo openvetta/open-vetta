@@ -1,3 +1,4 @@
+import { WebhookEndpointListView } from "@vetta/theme-ui/settings";
 import {
 	Dialog,
 	DialogContent,
@@ -5,8 +6,8 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from "@shared/components/ui/dialog";
-import { Switch } from "@shared/components/ui/switch";
+} from "@vetta/ui";
+import { Switch } from "@vetta/ui";
 import { cn } from "@shared/lib/utils";
 import { useState } from "react";
 import type { WebhookFormState, WebhookSettingsModel } from "./useWebhookSettingsModel";
@@ -221,3 +222,5 @@ export function WebhookEditorDialog({ model }: { model: WebhookSettingsModel }):
 		</Dialog>
 	);
 }
+
+export type ThemeUiLink_WebhookEndpointListView = typeof WebhookEndpointListView;

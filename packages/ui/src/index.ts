@@ -24,6 +24,17 @@ export {
 	DrawerTrigger,
 } from "./drawer";
 export {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
+	DropdownMenuTrigger,
+} from "./dropdown-menu";
+export {
 	Popover,
 	PopoverAnchor,
 	PopoverContent,

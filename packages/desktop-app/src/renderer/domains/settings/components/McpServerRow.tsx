@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
-import { Button } from "@shared/components/ui/button";
-import { Switch } from "@shared/components/ui/switch";
-import { cn } from "@shared/lib/utils";
+import { McpJsonEditorView } from "@vetta/theme-ui/settings";
+import { Button, Switch, cn } from "@vetta/ui";
 import {
 	isBuiltinMcpServer,
 	matchBuiltinMcpPreset,
@@ -12,6 +11,10 @@ import {
 } from "../mcp/builtin-mcp-presets";
 import { McpServerForm } from "./McpServerForm";
 import type { McpSettingsModel } from "./useMcpSettingsModel";
+
+export type McpServerRowThemeViews = {
+	readonly jsonEditor: typeof McpJsonEditorView;
+};
 
 export function McpServerRow({
 	name,

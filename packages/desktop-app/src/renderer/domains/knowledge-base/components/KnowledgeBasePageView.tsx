@@ -1,14 +1,12 @@
+import { KnowledgeFilesSkeleton } from "@vetta/theme-ui/knowledge";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
-import { Button } from "@shared/components/ui/button";
-import { Input } from "@shared/components/ui/input";
-import { cn } from "@shared/lib/utils";
+import { Button, cn } from "@vetta/ui";
 import { KnowledgeHowItWorksDialog } from "@shared/components/KnowledgeHowItWorksDialog";
 import type { useKnowledgeBasePageModel } from "../hooks/useKnowledgeBasePageModel";
 import { knowledgeBaseDisplayName } from "../lib/knowledge-base";
 import { KnowledgeBaseSwitcher } from "./KnowledgeBaseSwitcher";
 import { KnowledgeContentsPanel } from "./KnowledgeContentsPanel";
-import { KnowledgeFilesSkeleton } from "./KnowledgeFilesSkeleton";
 import { KnowledgeImportDialog } from "./KnowledgeImportDialog";
 import { KnowledgePendingFilesDialog } from "./KnowledgePendingFilesDialog";
 import { KnowledgeSourcePicker } from "./KnowledgeSourcePicker";
@@ -70,7 +68,7 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 
 	return (
 		<div className="relative flex h-full w-full flex-1 flex-col overflow-hidden">
-			<Input
+			<input
 				ref={model.fileInputRef}
 				type="file"
 				multiple
@@ -160,11 +158,11 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 						/>
 						<div className="relative w-28 sm:w-40">
 							<span className="icon-[mdi--magnify] absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
-							<Input
+							<input
 								value={model.search}
 								onChange={(event) => model.setSearch(event.target.value)}
 								placeholder={t("kbPageSearch")}
-								className="h-8 border-transparent bg-muted/55 pl-7 pr-2.5 text-[12px] shadow-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
+								className="h-8 w-full min-w-0 rounded-lg border border-transparent bg-muted/55 pl-7 pr-2.5 text-[12px] shadow-none outline-none placeholder:text-muted-foreground/45 hover:bg-muted/75 focus-visible:border-primary/25 focus-visible:bg-background/70 focus-visible:ring-1 focus-visible:ring-primary/15"
 							/>
 						</div>
 					</motion.div>
@@ -220,3 +218,5 @@ export function KnowledgeBasePageView({ model }: KnowledgeBasePageViewProps): JS
 		</div>
 	);
 }
+
+export type ThemeUiLink_KnowledgeFilesSkeleton = typeof KnowledgeFilesSkeleton;
