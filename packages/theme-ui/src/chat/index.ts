@@ -34,6 +34,8 @@ export { CopyIconButton } from "./CopyIconButton";
 export { DefaultGuidingWords } from "./DefaultGuidingWords";
 export { DefaultSceneCarousel } from "./DefaultSceneCarousel";
 export { DefaultSkillBadgeRow } from "./DefaultSkillBadgeRow";
+export type { DrawerCardProps, DrawerTab } from "./DrawerCard";
+export { DrawerCard } from "./DrawerCard";
 export type { InputBarBackgroundProps } from "./InputBarBackground";
 export { InputBarBackground } from "./InputBarBackground";
 export type { InputBarToolbarButtonProps } from "./InputBarToolbarButton";
@@ -80,3 +82,5 @@ export type {
 export { SlashPanelView } from "./SlashPanelView";
 export type { TextPreviewLabels, TextPreviewProps } from "./TextPreview";
 export { TextPreview } from "./TextPreview";
+export type { TodoCardItem, TodoCardLabels, TodoCardProps } from "./TodoCard";
+export { TodoCard } from "./TodoCard";
