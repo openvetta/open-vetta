@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import { cn } from "@shared/lib/utils";
 import type { SettingsPageModel } from "./types";
 

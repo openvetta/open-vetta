@@ -1,3 +1,6 @@
+import type { Button } from "../../../components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import { useState } from "react";
 import { type ActiveActionApproval, useActionApproval } from "../../useActionApproval";
 import { formatExecutionMode } from "../../approvalCopy";

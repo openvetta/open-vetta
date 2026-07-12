@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";

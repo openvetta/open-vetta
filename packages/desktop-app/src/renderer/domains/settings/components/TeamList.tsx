@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import type { TeamVO } from "@shared/lib/api";
 import { SettingSection } from "./shared";
 import { SETTINGS_SECTION } from "../registry";

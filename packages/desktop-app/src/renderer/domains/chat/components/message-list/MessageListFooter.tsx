@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import { memo } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Transition } from "motion/react";

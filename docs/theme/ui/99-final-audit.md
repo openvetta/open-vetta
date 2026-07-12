@@ -15,21 +15,28 @@
 3. `bun run check` → exit 0
 4. 台账批次 00–20 有记录
 
-## 门禁快照（闭合时）
+## 门禁快照（Skeptic 修复后闭合）
 
 ```json
 {
-  "migrated": 145,
-  "split_ok": 112,
+  "migrated": 149,
+  "split_ok": 114,
   "must_split_open": 0,
   "must_migrate_open": 0,
   "must_host_hold_open": 0,
-  "host_primitive_hold": 75,
-  "permanent_desktop": 122,
+  "host_primitive_hold": 120,
+  "permanent_desktop": 79,
   "non_goal": 19,
   "bad_deferrals": 0
 }
 ```
+
+### 反作弊（batch 21）
+
+- stub `useXxxModel(){ return true }` **不计** real model
+- null-only `*View.tsx` **不计** real view；`void View` import **不计** usesView
+- `permanent_desktop` **不得**遮罩 substantial pure presentation（→ bad_deferral / must_migrate）
+- 详见 [21-skeptic-gate-fix.md](./21-skeptic-gate-fix.md)
 
 ## 边界回顾
 

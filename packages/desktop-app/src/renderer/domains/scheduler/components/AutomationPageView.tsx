@@ -1,5 +1,5 @@
 import { Button } from "@shared/components/ui/button";
-import type { ScheduledTask } from "@shared/store/atoms";
+import type { ScheduledTask } from "@shared/store/scheduler-atoms";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { HistoryDrawer } from "./HistoryDrawer";

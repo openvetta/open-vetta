@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import type { CardDescriptor, ConversationMessage, PluginCardProps } from "@vetta/plugin-sdk";
 import { Component, type ComponentType, type ErrorInfo, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";

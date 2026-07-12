@@ -1,94 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useSetAtom } from "jotai";
-import { useMatches, useNavigate } from "@tanstack/react-router";
-import { knowledgeImportDraftAtom } from "@shared/store/atoms";
 import { useThemeComponent } from "@vetta/theme-sdk";
+import { useKnowledgeDropOverlayModel } from "../hooks/useKnowledgeDropOverlayModel";
 import { KnowledgeDropOverlayView } from "./KnowledgeDropOverlayView";
 
-function hasExternalFiles(event: DragEvent): boolean {
-	return Array.from(event.dataTransfer?.types ?? []).includes("Files");
-}
-
-function toSourcePaths(dataTransfer: DataTransfer): string[] {
-	return Array.from(dataTransfer.files)
-		.map((file) => window.vetta.fs.pathForFile(file))
-		.filter(Boolean);
-}
-
-/**
- * 知识库页的全窗口拖拽接收层。挂在 RootLayout，避免被页面内部滚动容器裁切。
- * 仅在知识库相关路由生效，不抢占聊天页现有的附件拖拽语义。
- */
 export function KnowledgeDropOverlay(): JSX.Element {
-	const { t } = useTranslation("settings");
-	const matches = useMatches();
-	const path = matches[matches.length - 1]?.pathname ?? "/";
-	const enabled = path.startsWith("/knowledge");
-	const navigate = useNavigate();
-	const setDraft = useSetAtom(knowledgeImportDraftAtom);
-	const dragDepth = useRef(0);
-	const [visible, setVisible] = useState(false);
+	const model = useKnowledgeDropOverlayModel();
 	const ThemedKnowledgeDropOverlayView = useThemeComponent(
 		"root.knowledgeDropOverlayView",
 		KnowledgeDropOverlayView,
 	);
-
-	const reset = useCallback(() => {
-		dragDepth.current = 0;
-		setVisible(false);
-	}, []);
-
-	useEffect(() => {
-		if (!enabled) {
-			reset();
-			return;
-		}
-
-		const onDragEnter = (event: DragEvent) => {
-			if (!hasExternalFiles(event)) return;
-			event.preventDefault();
-			dragDepth.current += 1;
-			setVisible(true);
-		};
-		const onDragOver = (event: DragEvent) => {
-			if (!hasExternalFiles(event)) return;
-			event.preventDefault();
-			if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-		};
-		const onDragLeave = (event: DragEvent) => {
-			if (!hasExternalFiles(event)) return;
-			dragDepth.current = Math.max(0, dragDepth.current - 1);
-			if (dragDepth.current === 0) setVisible(false);
-		};
-		const onDrop = (event: DragEvent) => {
-			if (!hasExternalFiles(event) || !event.dataTransfer) return;
-			event.preventDefault();
-			const sourcePaths = toSourcePaths(event.dataTransfer);
-			reset();
-			if (sourcePaths.length === 0) return;
-			setDraft({ sourcePaths, defaultTargetId: null });
-			void navigate({ to: "/knowledge" });
-		};
-
-		window.addEventListener("dragenter", onDragEnter);
-		window.addEventListener("dragover", onDragOver);
-		window.addEventListener("dragleave", onDragLeave);
-		window.addEventListener("drop", onDrop);
-		return () => {
-			window.removeEventListener("dragenter", onDragEnter);
-			window.removeEventListener("dragover", onDragOver);
-			window.removeEventListener("dragleave", onDragLeave);
-			window.removeEventListener("drop", onDrop);
-		};
-	}, [enabled, navigate, reset, setDraft]);
-
-	return (
-		<ThemedKnowledgeDropOverlayView
-			description={t("kbDropDesc")}
-			enabled={enabled}
-			title={t("kbDropTitle")}
-			visible={visible}
-		/>
-	);
+	return <ThemedKnowledgeDropOverlayView {...model} />;
 }

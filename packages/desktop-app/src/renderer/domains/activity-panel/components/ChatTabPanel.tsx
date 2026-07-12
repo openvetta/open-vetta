@@ -1,3 +1,6 @@
+import type { Button } from "@shared/components/ui/button";
+type HostButton = typeof Button;
+export type { HostButton as _HostPrimitiveHoldButton };
 import { useTranslation } from "react-i18next";
 import { useProjectProfile } from "@shared/lib/project-profile";
 import { ChatPanel } from "../../flowing-chat/components/ChatPanel";

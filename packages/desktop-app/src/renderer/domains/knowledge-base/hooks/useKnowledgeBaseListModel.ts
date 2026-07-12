@@ -2,6 +2,7 @@ import { useNarrowScreen } from "@shared/hooks/useNarrowScreen";
 import {
 	activeKnowledgeBaseIdAtom,
 	knowledgeBasesAtom,
+	knowledgeFileStatusesAtom,
 	knowledgeImportDraftAtom,
 	refreshKnowledgeBasesAtom,
 } from "@shared/store/atoms";
@@ -17,6 +18,7 @@ export function useKnowledgeBaseListModel() {
 	const setActiveId = useSetAtom(activeKnowledgeBaseIdAtom);
 	const setDraft = useSetAtom(knowledgeImportDraftAtom);
 	const refresh = useSetAtom(refreshKnowledgeBasesAtom);
+	const fileStatuses = useAtomValue(knowledgeFileStatusesAtom);
 	const navigate = useNavigate();
 	const [search, setSearch] = useState("");
 	const narrow = useNarrowScreen();
@@ -52,6 +54,7 @@ export function useKnowledgeBaseListModel() {
 	return {
 		activeId,
 		createKnowledgeBase,
+		fileStatuses,
 		filteredBases,
 		goBack,
 		knowledgeBases,
