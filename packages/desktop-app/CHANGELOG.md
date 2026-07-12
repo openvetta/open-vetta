@@ -16,6 +16,7 @@ All notable changes to `@vetta/desktop-app` are documented in this file.
 
 ### Changed
 
+- **sidebar 剩余 props-driven 叶子迁入 `@vetta/theme-ui`**：`RunningPulseDot`、`SessionStatusIcon`、`SidebarUpdateIcon`、`ShowMoreSessionsButton`、`SidebarTopBar`（labels + brandTrailing slot）；desktop 保留 i18n 适配与 `SidebarUpdateButton` 等 connected 组装。
 - **app-shell / sidebar 默认 view 迁入 `@vetta/theme-ui`**：`DefaultPageHeader`、`PageHeader*` 叶子组件、`DefaultWindowControls`、`WindowControlButton`、`DefaultSidebar` shell、`SidebarPanel` / `SidebarNavigation` / `SidebarNavItemButton` 等 props-driven 实现迁至 `theme-ui`；desktop-app 保留 connected 容器（`PageHeader`、`WindowControls`、`Sidebar`）与 model hook。导航文案改在 `useSidebarModel` 解析。`@vetta/desktop-theme-ui/*` 继续 re-export 兼容主题包。
 - **重构并移除含糊的 `settings` App Action 域**：按设置页 IA 落域——界面语言在 `appearance.theme`（`set-language`）；工作区/通知/默认执行模式为 `general.query` / `general.manage`；Agent 实验开关为 `agent.query` / `agent.manage set-experimental`；知识库加工为 `knowledge.*`。审批 presentation 与 i18n 同步为 `general.*` / `agent.*`，不再注册 `settings.*`。
 - **UI 主题 `appearance.colorScheme` 联动显示模式**：激活声明了 `colorScheme: "light" | "dark"` 的主题时，host 通过既有 `setMode`（与设置页亮暗切换同一路径）同步显示模式。修仙主题声明 `light`，切入即亮色。
